@@ -135,14 +135,32 @@ def test_1008_die_speicherschwelle_ist_kein_anzeigefilter():
 
 
 def test_1008_die_karte_benennt_was_sie_zeigt():
-    """AK 1: Ueberschrift und Zahl meinen dieselbe Groesse."""
+    """AK 1: Ueberschrift und Zahl meinen dieselbe Groesse.
+
+    **Die Absicht dieses Tests gilt weiter, seine Umsetzung nicht mehr**
+    (v1.7.83 / #1022). Bis dahin stand in der Karte die Zahl der
+    ANGEZEIGTEN Stellen, und der Widerspruch wurde geloest, indem die
+    Ueberschrift mitwechselte — `verborgeneStellen > 0` schaltete auf
+    "Angezeigte Stellen".
+
+    Das war die Behandlung des Symptoms. Der Wechsel haengt an den durch
+    FILTER verborgenen Stellen und blieb bei Paginierung aus: die Karte
+    meldete "AKTIVE STELLEN 20" bei 1.110 aktiven Stellen, also wieder
+    genau den Widerspruch, gegen den dieser Test angetreten war.
+
+    #1022 nimmt die Ursache: die Karte zeigt den BESTAND, und damit ist
+    "Aktive Stellen" schlicht wahr. Der Test prueft deshalb weiter
+    dieselbe Eigenschaft — Ueberschrift und Zahl meinen dasselbe —, nur
+    nicht mehr ueber den alten Mechanismus.
+    """
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
-    stelle = quelltext.index("value={filteredJobs.length}")
-    davor = quelltext[max(0, stelle - 1200):stelle]
-    assert "Angezeigte Stellen" in davor, (
-        "Steht die Zahl der angezeigten Stellen da, darf die Ueberschrift "
-        "nicht 'Aktive Stellen' versprechen.")
-    assert "verborgeneStellen > 0" in davor
+    stelle = quelltext.index('label="Aktive Stellen"')
+    danach = quelltext[stelle:stelle + 400]
+    assert "value={jobsTotal}" in danach, (
+        "Unter der Ueberschrift 'Aktive Stellen' muss die Zahl der "
+        "aktiven Stellen stehen — nicht die der gerade geladenen.")
+    assert "value={filteredJobs.length}" not in quelltext, (
+        "Die Karte zaehlt wieder gerenderte Zeilen (#1008/#1022).")
 
 
 def test_1008_hinweis_steht_ueber_der_liste_und_ist_aufhebbar():

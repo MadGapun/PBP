@@ -2391,7 +2391,10 @@ async def api_jobs(active: bool = True,
         total = len(all_jobs)
         if limit > 0:
             page = all_jobs[offset:offset + limit]
-            return {"jobs": page, "total": total, "offset": offset, "limit": limit, "has_more": offset + limit < total}
+            return {"jobs": page, "total": total, "offset": offset,
+                    "limit": limit, "has_more": offset + limit < total,
+                    "kennzahlen_basis": _kennzahlen_basis(all_jobs),
+                    "aussortiert_gesamt": _aussortiert_zaehlen()}
         return all_jobs
     # v1.7.64 (#1010): die Herkunft rechnet der DIENST, nicht das
     # Frontend. Eine gespiegelte Fassung im JavaScript waere der zweite
@@ -2403,6 +2406,53 @@ async def api_jobs(active: bool = True,
     for _job in aussortiert:
         _job["herkunft"] = _protokoll.herkunft(_job)
     return aussortiert
+
+
+def _kennzahlen_basis(jobs: list) -> list:
+    """Die Felder, aus denen die Kopfzeile ihre Kennzahlen rechnet (#1022).
+
+    **Warum eine Grundlage statt fertiger Zahlen.** Gehaltsdurchschnitt
+    und Bandbreite entstehen in `frontend/src/lib/gehaltsKennzahl.js` —
+    einem Modul, das v1.7.78 genau deshalb angelegt hat, weil die
+    Rechnung vorher WORTGLEICH in zwei Seiten lag. Sie hier ein zweites
+    Mal in Python zu schreiben waere dieselbe Bauform noch einmal, nur
+    ueber die Sprachgrenze hinweg (#963, siebzehnter Fall).
+
+    Also wandert nicht das Ergebnis heraus, sondern die Eingabe: vier
+    Gehaltsfelder und der Score je Stelle. Ueber 1.110 Stellen sind das
+    rund 60 KB — der Endpunkt hat die Liste ohnehin vollstaendig in der
+    Hand und schneidet die Seite erst danach heraus.
+
+    Der Befund dahinter: die Kennzahlen rechneten ueber die GELADENE
+    Seite. Weil nach Score sortiert wird, sind das immer die besten —
+    gemessen 13,82 Durchschnittsscore ueber die ersten 20 gegen 3,59
+    ueber alle 1.110. **Eine Kennzahl, die sich beim Blaettern aendert,
+    misst das Blaettern.**
+    """
+    basis = []
+    for job in jobs:
+        basis.append({
+            "score": job.get("score"),
+            "salary_min": job.get("salary_min"),
+            "salary_max": job.get("salary_max"),
+            "salary_type": job.get("salary_type"),
+            "salary_estimated": job.get("salary_estimated"),
+        })
+    return basis
+
+
+def _aussortiert_zaehlen() -> int:
+    """Wie viele Stellen sind aussortiert — fuer den Tab-Namen (#1022).
+
+    Die Zahl gehoert in den Tab, damit vor dem Klick erkennbar ist, was
+    dahinter liegt. Sie hier mitzugeben spart dem Frontend einen zweiten
+    Abruf, wenn nur geblaettert wird.
+    """
+    try:
+        return len(_db.get_dismissed_jobs())
+    except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+        logger.debug("Aussortierte nicht zaehlbar (#1022): %s", exc)
+        return 0
 
 
 def _guete_anreichern(jobs: list) -> None:

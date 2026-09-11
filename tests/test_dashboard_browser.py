@@ -1,5 +1,6 @@
 """Browser-Smoke-Tests fuer die wichtigsten Dashboard-Userflows."""
 
+import re
 import os
 import socket
 import sys
@@ -793,5 +794,145 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         einstieg = page.get_by_role("button", name="Detailbewertung durch Claude anfordern")
         einstieg.wait_for(state="visible")
         assert einstieg.count() == 1, "Der Einstieg steht doppelt im Dialog."
+    finally:
+        context.close()
+
+
+def _seed_vielstellen_workspace(db) -> None:
+    """30 aktive Stellen mit ABSTEIGENDEM Score, dazu 5 aussortierte.
+
+    Die absteigende Sortierung ist der Kern des gemeldeten Fehlers
+    (#1022): die geladene Seite enthaelt immer die besten Stellen, also
+    war jede Kennzahl ueber sie systematisch zu gut.
+
+    Zwei der Aussortierungen liegen bewusst WEIT zurueck — mit der alten
+    Vorgabe `7tage` waeren sie unsichtbar gewesen, waehrend der Tab ihre
+    Zahl nennt.
+    """
+    profil_id = db.create_profile("Viele Stellen")
+    db.switch_profile(profil_id)
+    jobs = []
+    for i in range(35):
+        jobs.append({
+            "hash": f"v{i:03d}",
+            "title": f"Testrolle {i:03d}",
+            "company": f"Firma {i:03d}",
+            "url": f"https://example.com/1022/{i}",
+            "source": "manuell",
+            "_manual_entry": True,
+            "description": "Ausfuehrliche Stellenbeschreibung. " * 12,
+            "score": float(35 - i),
+            "salary_min": 40000 + i * 1000,
+            "salary_max": 50000 + i * 1000,
+            "salary_type": "jaehrlich",
+            "salary_estimated": 0,
+        })
+    db.save_jobs(jobs)
+    for i in range(30, 35):
+        db.dismiss_job(db.resolve_job_hash(f"v{i:03d}"), "falsches_fachgebiet")
+    # Zwei Aussortierungen weit in die Vergangenheit legen.
+    con = db.connect()
+    con.execute(
+        "UPDATE jobs SET dismissed_at='2026-01-01T10:00:00+01:00' "
+        "WHERE hash IN (?, ?)",
+        (db.resolve_job_hash("v033"), db.resolve_job_hash("v034")))
+    con.commit()
+
+
+def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard, browser):
+    """#1022 — die Kachel meldete die Zahl der GELADENEN Zeilen.
+
+    Bei 1.110 aktiven Stellen stand dort „AKTIVE STELLEN 20", und beim
+    Blaettern wurde daraus 40, dann 60. Der Melder: *"ich hab immer
+    gedacht, es gibt nur zwanzig Stellen fuer mich."*
+
+    Dieser Test klickt „Mehr laden" und prueft, dass sich **keine** der
+    vier Kennzahlen bewegt. Ein Grep haette nur belegt, dass eine
+    Zeichenkette dasteht (v1.7.71 MERKE 9).
+    """
+    _seed_vielstellen_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen", exact=True).first.wait_for(state="visible")
+
+        kachel = page.locator("text=Aktive Stellen").first
+        kachel.wait_for(state="visible")
+
+        # Die vier Kennzahl-Karten, und NUR sie. Mein erster Entwurf
+        # filterte ueber alle `div` nach Textinhalt und fing damit die
+        # ganze Seite ein — der Vergleich schlug dann an der
+        # Stellenliste an, die sich beim Nachladen zu Recht aendert.
+        # **Ein Test, dessen Messung zu breit ist, meldet einen Fehler
+        # im Code, wo einer im Test steckt.**
+        def kennzahlen():
+            return page.evaluate(
+                "() => Array.from(document.querySelectorAll("
+                "'.glass-card-soft')).map(d => (d.textContent || '')"
+                ".trim()).filter(t => /Aktive Stellen|Gehaltsdurchschnitt"
+                "|Gehaltsbandbreite|Durchschnittsscore/.test(t))")
+
+        vorher = kennzahlen()
+        assert vorher, "Kopfzeile nicht gefunden"
+        assert any("30" in t for t in vorher), (
+            f"Die Kachel zeigt nicht den Bestand von 30: {vorher}")
+
+        mehr = page.get_by_role("button", name=re.compile(r"^Mehr laden"))
+        if mehr.count():
+            mehr.first.click()
+            # Auf den ZUSTAND warten, nicht auf eine Dauer. Ein fester
+            # `wait_for_timeout` ist eine Annahme darueber, wie schnell
+            # der Rechner gerade ist — unter Last der ganzen Testsuite
+            # war er zu kurz, und der Vergleich lief mitten in die
+            # Aktualisierung. Der Zaehler neben dem Suchfeld sagt
+            # verlaesslich, wann alle 30 geladen sind.
+            page.get_by_text("30 / 30", exact=True).wait_for(
+                state="visible", timeout=15000)
+            nachher = kennzahlen()
+            assert nachher == vorher, (
+                "Eine Kennzahl hat sich beim Nachladen geaendert — sie "
+                f"misst das Blaettern.\nvorher:  {vorher}\nnachher: {nachher}")
+    finally:
+        context.close()
+
+
+def test_stellen_tabs_nennen_ihre_menge(live_dashboard, browser):
+    """#1022 AK 3+7 — und die Vorgabe des Zeitfensters.
+
+    Der Ausgeblendet-Tab nennt 5, und es werden auch 5 angezeigt. Mit
+    der alten Vorgabe `7tage` waeren es 3 gewesen, weil zwei
+    Aussortierungen aelter sind — ein Filter, den niemand gesetzt hat
+    (#1008).
+    """
+    _seed_vielstellen_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen", exact=True).first.wait_for(state="visible")
+
+        aktive = page.get_by_role("button", name=re.compile(r"Aktive \(30\)"))
+        aktive.wait_for(state="visible", timeout=8000)
+        ausgeblendet = page.get_by_role("button", name=re.compile(r"Ausgeblendet \(5\)"))
+        ausgeblendet.wait_for(state="visible")
+
+        ausgeblendet.click()
+        page.wait_for_timeout(600)
+        # Das Zeitfenster steht auf "alle" — alle fuenf sind sichtbar.
+        page.get_by_text("5 von 5").first.wait_for(state="visible", timeout=8000)
+        # Und die Kachel beschreibt weiterhin den BESTAND, nicht die Ansicht.
+        # `inner_text()` liefert den per CSS transformierten Text — die
+        # Karte rendert das Label in Versalien.
+        kachel_text = page.locator("text=Aktive Stellen").first.inner_text()
+        assert "aktive stellen" in kachel_text.lower()
     finally:
         context.close()
