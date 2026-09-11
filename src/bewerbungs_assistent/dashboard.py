@@ -6983,8 +6983,22 @@ async def api_factory_reset(request: Request):
     data = await request.json()
     if data.get("confirm") != "RESET":
         return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
-    _db.reset_all_data()
-    return {"status": "ok", "message": "Alle Daten gelöscht. Neustart empfohlen."}
+    erg = _db.reset_all_data()
+    # Bis v1.7.80 stand hier "Alle Daten geloescht" — und genau das
+    # stimmte nicht: 29 von 47 Tabellen blieben stehen, darunter 81
+    # Kontakte mit Namen und Mailadressen Dritter (#1025). Jetzt nennt
+    # die Antwort, was wirklich passiert ist.
+    return {
+        "status": "ok",
+        "zeilen_geloescht": erg.get("zeilen_gesamt", 0),
+        "tabellen_geleert": len(erg.get("je_tabelle", {})),
+        "dateien_geloescht": erg.get("dateien_geloescht", 0),
+        "message": (
+            f"{erg.get('zeilen_gesamt', 0)} Zeilen aus "
+            f"{len(erg.get('je_tabelle', {}))} Tabellen und "
+            f"{erg.get('dateien_geloescht', 0)} Dateien gelöscht. "
+            "Neustart empfohlen."),
+    }
 
 
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===

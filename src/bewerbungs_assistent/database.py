@@ -2785,101 +2785,83 @@ class Database:
         return True
 
     def delete_profile(self, profile_id: str, delete_files: bool = True):
-        """Delete a profile and ALL its related data (CASCADE)."""
+        """Loescht ein Profil und ALLE daran haengenden Daten (#1025).
+
+        Bis v1.7.80 stand hier eine Liste von neun Tabellen. Am echten
+        Bestand gemessen traegt die Datenbank **29 profilgebundene
+        Tabellen** — 17 blieben als verwaiste Zeilen stehen, mit einer
+        `profile_id`, die es nicht mehr gibt. Die Liste war nicht
+        schlecht gepflegt, sie war der falsche Mechanismus: wer eine
+        Tabelle anlegt, denkt nicht an das Loeschen.
+
+        Die Bereiche kommen jetzt aus dem Schema
+        (`services/loeschbereiche.py`), und ein Guard haelt jede Tabelle
+        der Datenbank gegen die Bereichsliste.
+        """
+        from .services import loeschbereiche
+
         conn = self.connect()
+        vorhanden = conn.execute(
+            "SELECT 1 FROM profile WHERE id=?", (profile_id,)).fetchone()
+        if not vorhanden:
+            return False
 
-        # Delete document files from disk
-        if delete_files:
-            docs = conn.execute(
-                "SELECT filepath FROM documents WHERE profile_id=?", (profile_id,)
-            ).fetchall()
-            for d in docs:
-                if d["filepath"]:
-                    try:
-                        Path(d["filepath"]).unlink(missing_ok=True)
-                    except Exception as e:
-                        logger.warning("Could not delete file %s: %s", d["filepath"], e)
-
-        # Disable FK constraints during bulk delete to avoid issues with
-        # invalid references (e.g. job_hash="" from previous bug)
         conn.execute("PRAGMA foreign_keys=OFF")
         try:
-            # Fix corrupt job_hash="" entries first
+            # Kaputte job_hash="" zuerst (Altlast aus einem frueheren
+            # Defekt) — sonst blockiert der leere String den Bezug.
             conn.execute(
-                "UPDATE applications SET job_hash=NULL WHERE profile_id=? AND job_hash=''",
-                (profile_id,))
-
-            # Delete extraction history for this profile's documents
-            conn.execute("""
-                DELETE FROM extraction_history WHERE profile_id=?
-            """, (profile_id,))
-
-            # Delete application events for this profile's applications
-            conn.execute("""
-                DELETE FROM application_events WHERE application_id IN
-                (SELECT id FROM applications WHERE profile_id=?)
-            """, (profile_id,))
-
-            # Delete projects for positions of this profile
-            conn.execute("""
-                DELETE FROM projects WHERE position_id IN
-                (SELECT id FROM positions WHERE profile_id=?)
-            """, (profile_id,))
-
-            # Delete emails and meetings for this profile
-            conn.execute("DELETE FROM application_meetings WHERE profile_id=?", (profile_id,))
-            conn.execute("DELETE FROM application_emails WHERE profile_id=?", (profile_id,))
-
-            # Delete all profile-linked data
-            for table in ["positions", "education", "skills", "documents",
-                           "applications", "jobs", "suggested_job_titles"]:
-                conn.execute(f"DELETE FROM {table} WHERE profile_id=?", (profile_id,))
-
-            # Delete search_criteria and blacklist for this profile
-            conn.execute("DELETE FROM search_criteria WHERE profile_id=?", (profile_id,))
-            conn.execute("DELETE FROM blacklist WHERE profile_id=?", (profile_id,))
-
-            # Delete the profile itself
-            cur = conn.execute("DELETE FROM profile WHERE id=?", (profile_id,))
-            deleted = cur.rowcount > 0
+                "UPDATE applications SET job_hash=NULL "
+                "WHERE profile_id=? AND job_hash=''", (profile_id,))
+            erg = loeschbereiche.leeren(
+                self, profil_id=profile_id, dry_run=False,
+                dateien_loeschen=delete_files)
             conn.commit()
         finally:
             conn.execute("PRAGMA foreign_keys=ON")
-        logger.info("Profile %s and all related data deleted", profile_id)
-        return deleted
+
+        logger.info(
+            "Profil %s geloescht: %d Zeilen aus %d Tabellen, %d Dateien",
+            profile_id, erg.get("zeilen_gesamt", 0),
+            len(erg.get("je_tabelle", {})), erg.get("dateien_geloescht", 0))
+        return True
 
     def reset_all_data(self):
-        """Delete ALL data — factory reset for testing."""
+        """Factory Reset — alle Daten, alle Profile, alle Dateien (#1025).
+
+        Bis v1.7.80 raeumte diese Methode 18 von 47 Tabellen ab. Am
+        echten Bestand gemessen blieben **29 stehen**, und nicht nur
+        Einstellungen: 81 Kontakte samt Namen und Mailadressen Dritter,
+        68 Bewerbungs-Stellen-Verknuepfungen, 26 Dokumentversionen, 15
+        Recherche-Notizen, 1.304 Zeilen Aktivitaetsprotokoll.
+
+        **Damit war das nicht nur eine Beschreibung, die nicht stimmt.**
+        Wer "Factory Reset" waehlt, um den Rechner weiterzugeben, liess
+        personenbezogene Daten zurueck. Das ist der Grund, warum diese
+        Arbeit vor dem Oberflaechen-Umbau (#1024) kommt.
+
+        `settings.schema_version` bleibt erhalten — es ist keine
+        Nutzerdatei, sondern der Stand der Datenbank selbst. Die Regel
+        steht in `loeschbereiche._BEWAHREN_ZEILEN`, damit sie beim
+        naechsten Umbau nicht wieder in einem SQL-Text verschwindet.
+        """
+        from .services import loeschbereiche
+
         conn = self.connect()
-        # Delete document files
-        docs = conn.execute("SELECT filepath FROM documents WHERE filepath IS NOT NULL").fetchall()
-        for d in docs:
-            try:
-                Path(d["filepath"]).unlink(missing_ok=True)
-            except Exception:
-                pass
-        # Disable FK constraints during factory reset
         conn.execute("PRAGMA foreign_keys=OFF")
         try:
-            # Fix corrupt job_hash="" entries first
-            conn.execute("UPDATE applications SET job_hash=NULL WHERE job_hash=''")
-            # Clear all data tables
-            for table in ["application_meetings", "application_emails",
-                           "extraction_history", "application_events", "projects",
-                           "positions", "education", "skills", "documents",
-                           "applications", "jobs", "blacklist", "background_jobs",
-                           "user_preferences", "suggested_job_titles",
-                           "search_criteria", "follow_ups", "profile"]:
-                try:
-                    conn.execute(f"DELETE FROM {table}")
-                except Exception:
-                    pass
-            # Keep settings but reset search-related ones
-            conn.execute("DELETE FROM settings WHERE key != 'schema_version'")
+            conn.execute("UPDATE applications SET job_hash=NULL "
+                         "WHERE job_hash=''")
+            erg = loeschbereiche.leeren(self, dry_run=False)
             conn.commit()
         finally:
             conn.execute("PRAGMA foreign_keys=ON")
-        logger.info("Factory reset: all data deleted")
+
+        logger.info(
+            "Factory Reset: %d Zeilen aus %d Tabellen, %d Dateien geloescht",
+            erg.get("zeilen_gesamt", 0), len(erg.get("je_tabelle", {})),
+            erg.get("dateien_geloescht", 0))
+        return erg
 
     def _scope_job_hash(self, job_hash: Optional[str], profile_id: Optional[str] = None) -> Optional[str]:
         """Return the internal storage hash for one profile."""

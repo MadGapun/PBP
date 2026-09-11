@@ -1991,3 +1991,86 @@ def register(mcp, db, logger):
             db.update_job_title(titel_id, {"is_active": 1})
             return {"status": "aktiviert"}
         return {"fehler": f"Unbekannte Aktion: {aktion}"}
+
+    # --- Datenbereiche loeschen (#1025) ---
+
+    @mcp.tool()
+    def daten_bereiche_anzeigen(profil_id: str = "") -> dict:
+        """Zeigt, was in welchem Datenbereich steht — ohne etwas zu ändern.
+
+        Die Antwort auf „was verliere ich eigentlich?". PBP hatte drei
+        Löschwege mit drei verschiedenen Vorstellungen davon, was
+        dazugehört; die Bereiche kommen jetzt aus dem Schema, und ein
+        Guard hält jede Tabelle der Datenbank dagegen.
+
+        Args:
+            profil_id: Nur dieses Profil betrachten. Leer = alle Profile.
+                Geteilte Bereiche (Einstellungen, Quellen-Gesundheit)
+                gelten für ALLE Profile und bleiben bei einem einzelnen
+                Profil unangetastet — sie werden benannt.
+        """
+        from ..services import loeschbereiche
+
+        v = loeschbereiche.vorschau(db, profil_id=profil_id or None)
+        waisen = loeschbereiche.verwaiste_zeilen(db)
+        v["verwaiste_zeilen"] = waisen["zeilen_gesamt"]
+        if waisen["zeilen_gesamt"]:
+            v["verwaiste_hinweis"] = (
+                "Diese Zeilen zeigen auf ein Profil oder eine Zeile, die "
+                "es nicht mehr gibt — Altschaden der bisherigen "
+                "Löschwege. `daten_bereiche_leeren` legt keine neuen an.")
+        return v
+
+    @mcp.tool()
+    def daten_bereiche_leeren(bereiche: list = None, profil_id: str = "",
+                              bestaetigung: str = "") -> dict:
+        """Leert ausgewählte Datenbereiche. Vorschau ist die Vorgabe.
+
+        Ohne `bestaetigung` wird NICHTS gelöscht — es kommt eine
+        Vorschau mit Zahlen je Bereich zurück. Zum Ausführen muss
+        `bestaetigung='LOESCHEN'` gesetzt werden.
+
+        Args:
+            bereiche: Welche Bereiche — 'profil', 'bewerbungen',
+                'stellen', 'dokumente', 'einstellungen', 'gelerntes'.
+                Leer = alle.
+            profil_id: Nur dieses Profil. Leer = alle Profile; geteilte
+                Bereiche gehen dann mit.
+            bestaetigung: 'LOESCHEN' führt aus. Alles andere zeigt nur.
+
+        Zum Bereich `stellen` gehört ausdrücklich: mit den aussortierten
+        Stellen verschwinden auch die Lernsignale (Ablehnungsgründe,
+        Wiedergänger-Muster, Kalibrierung).
+        """
+        from ..services import loeschbereiche
+
+        gewuenscht = list(bereiche or loeschbereiche.BEREICHE)
+        unbekannt = [b for b in gewuenscht if b not in loeschbereiche.BEREICHE]
+        if unbekannt:
+            return {"fehler": f"Unbekannte Bereiche: {unbekannt}",
+                    "moegliche_bereiche": list(loeschbereiche.BEREICHE)}
+
+        if bestaetigung != "LOESCHEN":
+            v = loeschbereiche.leeren(
+                db, gewuenscht, profil_id=profil_id or None, dry_run=True)
+            v["naechster_schritt"] = (
+                "Zum Ausführen: daten_bereiche_leeren(..., "
+                "bestaetigung='LOESCHEN')")
+            return v
+
+        vorher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
+        erg = loeschbereiche.leeren(
+            db, gewuenscht, profil_id=profil_id or None, dry_run=False)
+        nachher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
+        # Die Probe auf die eigene Arbeit: ein Löschvorgang darf keine
+        # Zeile zurücklassen, die auf nichts mehr zeigt. Genau das war
+        # der zweite Befund des Issues.
+        erg["verwaiste_zeilen_vorher"] = vorher
+        erg["verwaiste_zeilen_nachher"] = nachher
+        if nachher > vorher:
+            erg["warnung"] = (
+                f"Es sind {nachher - vorher} neue verwaiste Zeilen "
+                "entstanden — bitte melden, das ist ein Defekt.")
+        logger.info("Datenbereiche geleert: %s (Profil %s), %d Zeilen",
+                    gewuenscht, profil_id or "alle", erg["zeilen_gesamt"])
+        return erg
