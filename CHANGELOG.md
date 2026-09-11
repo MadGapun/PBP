@@ -33,6 +33,98 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.82] - 2026-09-11 — Eine Telefonnummer ist kein Jahresgehalt
+
+**#1026** (Melder-Bericht), Nachtrag zu #1018 vom selben Tag. Der Melder
+hat den neuen Extraktor am eigenen Bestand nachgezogen — 823 geprüft,
+122 geändert, 6 geleert, **113 belegte Angaben statt vorher 11** — und
+dabei drei Lücken gefunden.
+
+### Fixed
+
+- **Die Plausibilitätsgrenze prüfte nur den ersten Wert.** Bei einer
+  Spanne kam der zweite ungeprüft durch: aus einer Telefonnummer mit
+  Durchwahl wurde ein Jahresgehalt von 10 EUR, und zwar als **belegt**
+  gespeichert. Die Prüfung stand vor der Sortierung, und die Sortierung
+  hat den geprüften Wert vertauscht. Jetzt müssen beide Werte die
+  Grenze passieren, sonst wird die ganze Fundstelle verworfen — lieber
+  gar kein Wert als ein falscher.
+- **„Eur" wurde ohne Wortgrenze gesucht** und qualifizierte damit jede
+  Zahl neben „Europastr.", „Eurotunnel" oder „europaweit" als Betrag.
+  Dritter Fall dieser Klasse nach „ki" in „Kita" (#970) und „us" in
+  „Kundenservice" (#996).
+- **Der Punkt als Dezimaltrenner** (nicht gemeldet, beim Nachmessen
+  gefunden): `72.5-103k EUR` wurde als „5 bis 103" gelesen, scheiterte
+  an der Grenze, und der Einzelwert-Pfad machte daraus 103.000 bis
+  113.300 — also die **Obergrenze als Untergrenze**. Drei Anzeigen sahen
+  dadurch besser bezahlt aus als sie sind, und genau dieser Wert geht in
+  den Score ein.
+
+### Added
+
+- **`gehalt_setzen`** — eine Gehaltsangabe von Hand setzen oder löschen,
+  analog zu `dokument_text_setzen`. Bis hierher ließ sich ein falsch
+  erkanntes Gehalt gar nicht korrigieren: `gehalt_extrahieren` liest
+  denselben Text wieder gleich, und `stelle_bearbeiten` kennt die
+  Gehaltsfelder nicht. **Damit war jeder Fehltreffer dauerhaft**, nicht
+  nur der gemeldete. Ein von Hand gesetzter Wert überlebt jeden
+  automatischen Lauf und jeden erneuten Suchlauf. MCP-Tools 231.
+
+### Gemessen
+
+Über 1.337 Anzeigen mit Text, alter gegen neuen Extraktor:
+
+| | |
+|---|---:|
+| unverändert | 1.328 |
+| fällt weg | **0** |
+| kommt dazu | **6** |
+| korrigiert | **3** |
+
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.82.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.82.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.81] - 2026-09-11 — Was gehört wozu, wenn gelöscht wird
 
 **#1025 Stufe 1** (Melder-Bericht). PBP hatte drei Löschwege und drei
