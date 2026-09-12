@@ -105,6 +105,93 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.90] - 2026-09-12 — Nichts wird still abgeschnitten
+
+Die lokale KI bekommt ein festes **Kontextfenster** (#787, erster Teil).
+Bis hierher setzte PBP keinen Wert — Ollama nahm sein eigenes, kleines
+Vorgabefenster und schnitt längere Prompts **still** ab. Das Modell
+bewertete dann einen Torso, und die Antwort sah aus wie jede andere.
+
+### Fixed
+
+- **`num_ctx` wird mitgeschickt**, Vorgabe 8.192 Tokens. Gemessen: der
+  größte Prompt, den PBP an die lokale KI schickt, liegt bei rund 5.000
+  Zeichen; der Elwosa-Dialog am echten Bestand bei rund 4.100.
+- **Passt ein Prompt nicht, wird das benannt.** Ein sicher zu langer
+  Prompt wird gar nicht erst abgeschickt; meldet Ollama nach dem Aufruf
+  einen vollen Kontext, wird die Antwort verworfen. Die Aufgabe geht an
+  Claude, und der Grund steht dabei — vorher sah ein zu kleines Fenster
+  aus wie eine ausgefallene KI. Elwosa meldet den Grund als Fehler.
+- **Der Warmup schickt dasselbe Fenster** wie der echte Aufruf. Mit
+  einem anderen hätte Ollama das Modell beim ersten echten Aufruf neu
+  geladen, und der Warmup hätte nichts gewärmt.
+
+### Added
+
+- Werkzeug **`ollama_kontext`**: Fenster anzeigen, setzen (2.048 bis
+  131.072) oder auf die Vorgabe zurücksetzen. Ein ungültiger Wert wird
+  abgewiesen, ein kaputter gespeicherter Wert benannt.
+- Hinweis auf `OLLAMA_KV_CACHE_TYPE=q8_0` und `OLLAMA_FLASH_ATTENTION=1`
+  in der Antwort des Werkzeugs und im Wiki (halbiert den Speicherbedarf
+  eines größeren Fensters).
+
+### Design-Entscheidungen
+
+- **Ein fester Wert je Profil, kein mitwachsender.** Ändert sich das
+  Fenster zwischen zwei Aufrufen, lädt Ollama das Modell neu — der
+  Kaltstart, den der Warmup vermeiden soll.
+- **Zwei Prüfungen:** die Schätzung aus der Zeichenzahl spart einen
+  vergeudeten Aufruf, die gemessene Tokenzahl aus der Antwort hängt
+  nicht am Tokenizer. Beide tragen je eigene Tests.
+- **Ein Guard prüft jeden Prompt-Builder** mit realistischen
+  Höchstwerten gegen die Vorgabe. Wächst eine Kappung, fällt es im Test
+  auf und nicht im Feld.
+- **Bewusst nur der erste Teil von #787.** Structured Outputs und
+  Modell-Routing je Aufgabentyp sind Umbauten und bleiben offen.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.90.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.90.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.89] - 2026-09-12 — Die Antwort, nicht nur die Frage
 
 Auswahlfelder nennen Screenreadern jetzt den **gewählten Wert** und
