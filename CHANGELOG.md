@@ -105,6 +105,120 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.86] - 2026-09-12 — Die Uhrzeit kommt aus dem Text, nicht aus dem Kopf
+
+Eine Interview-Einladung lieferte das Datum richtig aus dem
+Einladungstext (`30.09.2026`) und die Uhrzeit aus dem Sendezeitstempel
+der Mail: aus `Datum: 2026-09-10T14:43:25` wurde
+`moegliche_uhrzeit = "43:25"`. Ursache ist eine Wortgrenze, die auch
+**hinter** einem Doppelpunkt öffnet — `\b\d{1,2}:\d{2}` setzte mitten
+im Zeitstempel neu an (#1019).
+
+Der Routing-Plan schlägt zu solchen Dokumenten `termin_anlegen` mit
+genau diesem Wert vor. **Ein Gesprächstermin mit falscher Uhrzeit ist
+teurer als ein fehlender, weil ihn niemand nachprüft.**
+
+### Fixed
+
+- **Termin-Angaben kommen ausschließlich aus dem Nachrichtentext.**
+  `nachrichtentext()` schneidet den Kopfblock ab (Betreff, Von, An,
+  Datum, Gesendet und die üblichen englischen Entsprechungen) und dazu
+  das Zitat — letzteres über `strip_quoted_reply` aus #922 statt über
+  eine zweite Fassung davon. Dort war es dieselbe Wurzel:
+  Kopfzeilen-Zeitangaben werden als Termindaten behandelt.
+- **Erkannte Uhrzeiten werden geprüft** — Stunde 0 bis 23, Minute 0 bis
+  59. Was daran scheitert, wird **verworfen und nicht korrigiert**: bei
+  `43:25` weiß niemand, was gemeint war, und ein Ersatzwert wäre eine
+  erfundene Angabe. Gesucht wird dabei weiter, damit ein
+  Unsinnstreffer weiter vorn die richtige Angabe dahinter nicht
+  verschluckt.
+- **Die Uhrzeit kommt als `HH:MM` heraus** statt als rohe Fundstelle.
+  Der Wert wandert als Argument in `termin_anlegen`; am Bestand
+  gemessen trug er einmal einen Zeilenumbruch (`'43:47\n'`) und zweimal
+  einen Nachsatz (`'14:00 Uhr'`).
+- **Ein Datum ohne gültige Uhrzeit bleibt leer und wird benannt.** Der
+  Routing-Plan sagt es je Dokument („trag sie von Hand nach, geraten
+  wird sie nicht") und als Zahl je Gruppe. Eine Lücke gehört benannt,
+  nicht gefüllt.
+
+### Gemessen
+
+An einer **Kopie** des Bestands (das Original wurde nicht angefasst):
+**drei von drei** Interview-Einladungen trugen eine Uhrzeit aus dem
+Mail-Kopf, keine davon eine gültige Tageszeit — und in allen drei
+Fällen stand die richtige Uhrzeit im Text.
+
+| Dokument | vorher | nachher |
+|---|---|---|
+| 1 | `'43:47\n'` | **15:00** |
+| 2 | `'51:33\n'` | **14:00** |
+| 3 | `'43:25'` | **11:00** |
+
+Die Datumserkennung bleibt in allen drei Fällen identisch, und über
+alle 238 Dokumente des Bestands läuft die Typ-Verarbeitung fehlerfrei
+durch.
+
+### Nebenbefund
+
+**Das Datum war nur um ein Zeichen richtig.** Der gemeldete Kopf
+lautet `2026-09-10T14:43:25`, und daran scheitert das Datums-Muster,
+weil hinter der `10` ein `T` steht:
+
+```
+'Datum: 2026-09-10T14:43:25'  ->  []
+'Datum: 2026-09-10 14:43:25'  ->  ['2026-09-10']
+'Datum: 10.09.2026'           ->  ['10.09.2026']
+```
+
+Mit einem Leerzeichen statt dem `T` — die übliche Form vieler
+Mailprogramme — hätte dasselbe Dokument das **Sendedatum** als
+Termindatum geliefert. Der Bericht nennt nur die Uhrzeit; das Datum lag
+daneben und war durch einen Zufall gedeckt. Die Regel gilt deshalb für
+beide Felder, und drei Kopfzeilen-Schreibweisen stehen als Test da.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.86.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.86.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.85] - 2026-09-12 — Ein Löschbereich statt vier
 
 Die Gefahrenzone hatte vier Einträge, von denen zwei sich fast gleich
