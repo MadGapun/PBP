@@ -877,6 +877,14 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
                 ".trim()).filter(t => /Aktive Stellen|Gehaltsdurchschnitt"
                 "|Gehaltsbandbreite|Durchschnittsscore/.test(t))")
 
+        # Auf die Karten WARTEN: der Text "Aktive Stellen" steht frueher
+        # im DOM als die Kennzahl-Karten. In der vollen Suite fiel die
+        # Messung genau dazwischen ("Kopfzeile nicht gefunden"), allein
+        # lief der Test gruen — dieselbe Klasse wie v1.7.83 MERKE 8.
+        page.wait_for_function(
+            "() => Array.from(document.querySelectorAll('.glass-card-soft'))"
+            ".some(d => /Aktive Stellen/.test(d.textContent || ''))",
+            timeout=8000)
         vorher = kennzahlen()
         assert vorher, "Kopfzeile nicht gefunden"
         assert any("30" in t for t in vorher), (
@@ -999,18 +1007,33 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         # Portal-Panel — die Auswahl steht erst im DOM, wenn sie offen
         # ist. Genau deshalb ist das hier ein Browser-Test und kein Grep.
         #
-        # Angesprochen wird der Knopf ueber seinen TEXT und nicht ueber
-        # seinen barrierefreien Namen: der lautet "Welches Profil?",
-        # weil `Field` ihn in ein <label> wickelt und das den
-        # Knopfinhalt ueberschreibt. Ein Screenreader nennt damit die
-        # Frage und nie die Antwort — das betrifft jedes
-        # Field+SelectInput-Paar der App und ist als #1027 erfasst,
-        # nicht hier nebenbei geaendert.
-        page.locator("button", has_text="Alle Profile").first.click()
+        # #1027: der Knopf wird ueber seinen BARRIEREFREIEN NAMEN
+        # angesprochen. Bis v1.7.88 lautete der nur "Welches Profil?",
+        # weil `Field` ihn in ein <label> wickelte und das den
+        # Knopfinhalt ueberschrieb — ein Screenreader nannte die Frage
+        # und nie die Antwort. Jetzt steht beides im Namen, und er
+        # wandert mit dem gewaehlten Wert.
+        auswahl = page.get_by_role(
+            "button", name="Welches Profil? Alle Profile", exact=True)
+        assert auswahl.count() == 1, "Name nennt nicht Frage UND Antwort"
+        assert auswahl.get_attribute("aria-expanded") == "false"
+        auswahl.click()
+        assert auswahl.get_attribute("aria-expanded") == "true"
         for name in ("Erstes Profil", "Zweites Profil"):
             page.get_by_role("button", name=name, exact=True).wait_for(
                 state="visible", timeout=4000)
-        page.keyboard.press("Escape")
+        page.get_by_role("button", name="Zweites Profil", exact=True).click()
+        gewechselt = page.get_by_role(
+            "button", name="Welches Profil? Zweites Profil", exact=True)
+        gewechselt.wait_for(state="visible", timeout=4000)
+        assert gewechselt.get_attribute("aria-expanded") == "false"
+        # Zurueck auf alle Profile, damit der Rest des Tests auf
+        # derselben Lage arbeitet wie vorher.
+        gewechselt.click()
+        page.get_by_role("button", name="Alle Profile", exact=True).click()
+        page.get_by_role(
+            "button", name="Welches Profil? Alle Profile", exact=True
+        ).wait_for(state="visible", timeout=4000)
 
         # AK 6: der Knopf bleibt gesperrt, solange nichts gewaehlt ist
         # und das Wort fehlt.

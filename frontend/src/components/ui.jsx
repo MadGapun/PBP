@@ -1,4 +1,4 @@
-import { Children, useEffect, useRef, useState } from "react";
+import { Children, createContext, useContext, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 
@@ -143,11 +143,22 @@ export function Badge({ children, tone = "neutral", className }) {
   );
 }
 
+// #1027: `Field` wickelt seinen Inhalt in ein <label>. Fuer native
+// Eingabefelder ist das richtig; ein `SelectInput` ist aber ein <button>,
+// und bei dem gewinnt das umschliessende Label gegen den Knopfinhalt —
+// ein Screenreader nannte die Frage und nie den gewaehlten Wert. Die
+// Kennung der Beschriftung wandert deshalb per Kontext zum Kind, und
+// `SelectInput` setzt seinen Namen selbst aus Beschriftung UND Wert.
+const FieldLabelContext = createContext(null);
+
 export function Field({ label, hint, htmlFor, children, className }) {
+  const labelId = useId();
   return (
     <label className={cn("grid gap-1.5 text-sm", className)} htmlFor={htmlFor}>
-      <span className="text-[13px] font-medium text-ink/80">{label}</span>
-      {children}
+      <span id={labelId} className="text-[13px] font-medium text-ink/80">{label}</span>
+      <FieldLabelContext.Provider value={label ? labelId : null}>
+        {children}
+      </FieldLabelContext.Provider>
       {hint ? <span className="text-[12px] text-muted/60">{hint}</span> : null}
     </label>
   );
@@ -264,6 +275,8 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
   const triggerRef = useRef(null);
   const panelRef = useRef(null);
   const [pos, setPos] = useState(null);
+  const fieldLabelId = useContext(FieldLabelContext);
+  const valueId = useId();
 
   // Parse <option> children into data
   const options = [];
@@ -345,9 +358,17 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
           className
         )}
         onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        /* #1027: Beschriftung plus gewaehlter Wert. Ein eigenes
+           `aria-label` des Aufrufers geht vor und wird nicht ueberschrieben. */
+        aria-labelledby={
+          fieldLabelId && !props["aria-label"] && !props["aria-labelledby"]
+            ? `${fieldLabelId} ${valueId}`
+            : undefined
+        }
         {...props}
       >
-        <span className="flex-1 truncate">{selectedLabel}</span>
+        <span id={valueId} className="flex-1 truncate">{selectedLabel}</span>
         <ChevronDown
           size={14}
           className={cn(
