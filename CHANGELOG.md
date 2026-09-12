@@ -105,6 +105,81 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.89] - 2026-09-12 — Die Antwort, nicht nur die Frage
+
+Auswahlfelder nennen Screenreadern jetzt den **gewählten Wert** und
+nicht nur ihre Beschriftung (#1027). Gefunden beim Bauen der neuen
+Gefahrenzone: am laufenden Dashboard hieß ein Auswahlfeld für einen
+Screenreader „Welches Profil?", während sichtbar „Alle Profile" stand —
+und zwar unverändert, egal was ausgewählt war.
+
+### Fixed
+
+- **Der barrierefreie Name eines Auswahlfeldes nennt Beschriftung UND
+  Wert**, also „Welches Profil? Alle Profile", und wandert mit der
+  Auswahl. Ursache: das Feld wickelt seinen Inhalt in ein `<label>`,
+  und bei einem Knopf gewinnt das Label gegen den Knopfinhalt. Betrifft
+  jedes beschriftete Auswahlfeld der Anwendung, behoben im gemeinsamen
+  Baustein statt an jeder Fundstelle.
+- **Das Auswahlfeld sagt, ob es offen ist** (`aria-expanded`).
+- Ein Browser-Test der Stellen-Seite (#1022) maß die Kennzahl-Karten,
+  bevor sie gerendert waren, und fiel in der vollen Suite gelegentlich
+  um. Er wartet jetzt auf die Karten statt auf den ersten passenden Text.
+
+### Design-Entscheidungen
+
+- **Beschriftung bleibt Teil des Namens.** Nur den Wert anzusagen hätte
+  das Problem umgedreht: dann wüsste man, was gewählt ist, aber nicht,
+  wofür.
+- **Ein eigenes `aria-label` des Aufrufers geht vor.** Der Baustein
+  überschreibt keine bewusste Entscheidung einer Seite.
+- **Geprüft am gerenderten Dashboard**, nicht im Quelltext: der Test
+  spricht das Feld über seinen Namen an, wechselt den Wert und prüft,
+  dass der Name mitwandert. Abgeschaltet wird er rot.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.89.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.89.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.88] - 2026-09-12 — Wer kann was über mich sagen
 
 Kontakte lassen sich jetzt als **Referenz** markieren, filtern und als
