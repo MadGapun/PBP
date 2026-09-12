@@ -174,10 +174,15 @@ def search_bundesagentur(params: dict) -> list:
                     # die in den falschen Zweig faellt, ist ein
                     # NameError im Kaltstart (v1.7.54 MERKE 4).
                     _ba_geh: dict = {}
+                    # v1.7.84 (#1023): dieselbe Vorsichtsmassnahme wie
+                    # bei `_ba_geh` — VOR dem Zweig angelegt, sonst
+                    # NameError im Kaltstart.
+                    _ba_merk: dict = {}
                     if ref_nr and idx < _DETAIL_FETCH_LIMIT_PER_KW:
                         description = _fetch_ba_detail(
                             client, ref_nr,
-                            gehalt_raus=_ba_geh) or description
+                            gehalt_raus=_ba_geh,
+                            merkmale_raus=_ba_merk) or description
 
                     # v1.7.0-beta.7 (#526): Direkte jobdetail-URL statt
                     # jobsuche/suche?id=... — letzteres landet auf der
@@ -201,6 +206,12 @@ def search_bundesagentur(params: dict) -> list:
                     # Vorrang-Mechanismus noetig.
                     if _ba_geh:
                         job.update(_ba_geh)
+                    # #1023: Umfang und Arbeitnehmerueberlassung aus der
+                    # strukturierten Antwort. `bundesagentur` schrieb bis
+                    # hierher fuer JEDE Stelle `festanstellung` — die
+                    # Quelle sagt es besser, und sie wurde nicht gefragt.
+                    if _ba_merk:
+                        job.update(_ba_merk)
                     # v1.7.26 (#949 Befund 2): das Veroeffentlichungs-
                     # datum ist ein eigenstaendiges Signal — `found_at`
                     # sagt nur, wann PBP die Stelle gesehen hat. Die
@@ -300,9 +311,53 @@ def _ba_gehalt(data: dict) -> dict:
         return {}
 
 
+def _ba_merkmale(data: dict) -> dict:
+    """Umfang und Anstellungsform aus den strukturierten BA-Feldern.
+
+    Die Detail-API liefert `arbeitszeitVollzeit`,
+    `arbeitszeitTeilzeitVormittag`, `arbeitszeitTeilzeitNachmittag`,
+    `arbeitszeitTeilzeitFlexibel` und `istArbeitnehmerUeberlassung`.
+
+    **Beides gesetzt heisst `beides`** — die Anzeige bietet dann
+    tatsaechlich an, und das ist keine Mehrdeutigkeit, sondern eine
+    Zusage (#1023). Ist nichts gesetzt, bleibt der Umfang leer und die
+    Erkennung faellt auf den Titel zurueck; `vollzeit` zu unterstellen
+    waere der stille Nulltarif aus #989.
+    """
+    ergebnis: dict = {}
+    voll = bool(data.get("arbeitszeitVollzeit"))
+    teil = any(bool(data.get(k)) for k in (
+        "arbeitszeitTeilzeit",
+        "arbeitszeitTeilzeitVormittag",
+        "arbeitszeitTeilzeitNachmittag",
+        "arbeitszeitTeilzeitFlexibel",
+        "arbeitszeitTeilzeitSchicht",
+        "arbeitszeitWochenende",
+    ))
+    if voll and teil:
+        ergebnis["arbeitsumfang"] = "beides"
+    elif teil:
+        ergebnis["arbeitsumfang"] = "teilzeit"
+    elif voll:
+        ergebnis["arbeitsumfang"] = "vollzeit"
+
+    if data.get("istArbeitnehmerUeberlassung"):
+        # Die Quelle SAGT es. Bis v1.7.83 wurde dasselbe aus
+        # Stichwoertern im Fliesstext geraten (`ablehnungsgruende.py`).
+        ergebnis["employment_type"] = "zeitarbeit"
+
+    befristung = str(data.get("befristung") or "").upper()
+    if befristung.startswith("BEFRISTET"):
+        ergebnis["befristet"] = 1
+    elif befristung.startswith("UNBEFRISTET"):
+        ergebnis["befristet"] = 0
+    return ergebnis
+
+
 def _fetch_ba_detail(client: httpx.Client, ref_nr: str,
                      status_raus: list | None = None,
-                     gehalt_raus: dict | None = None) -> str:
+                     gehalt_raus: dict | None = None,
+                     merkmale_raus: dict | None = None) -> str:
     """Fetch full job description from BA detail API.
 
     #387: The BA API v4 nests description fields in various locations.
@@ -357,6 +412,15 @@ def _fetch_ba_detail(client: httpx.Client, ref_nr: str,
         # einem zweiten Abruf (#1014 MERKE 3).
         if gehalt_raus is not None:
             gehalt_raus.update(_ba_gehalt(data))
+
+        # v1.7.84 (#1023): Umfang und Arbeitnehmerueberlassung liegen
+        # hier ebenfalls STRUKTURIERT vor. Der Melder hat die Felder
+        # benannt; im Projekt kam keines davon vor. Zeitarbeit wurde
+        # stattdessen aus Stichwoertern im Text GERATEN, obwohl die
+        # Quelle es ausdruecklich sagt. Aus DERSELBEN Antwort gelesen
+        # (#1014 MERKE 3).
+        if merkmale_raus is not None:
+            merkmale_raus.update(_ba_merkmale(data))
 
         desc = " | ".join(parts) if parts else ""
         if not desc:

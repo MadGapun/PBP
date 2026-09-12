@@ -116,6 +116,12 @@ def _map_row(row: Any, site: str) -> dict:
         "source": source_key,
         "description": fuer_speicher(description),
         "employment_type": _normalize_job_type(job_type),
+        # v1.7.84 (#1023): das STRUKTURIERTE Feld der Quelle wird
+        # gelesen. `job_type` liefert "parttime"/"fulltime" — bis
+        # hierher fiel beides durch bis zum letzten `return` und wurde
+        # `festanstellung`. Am Bestand des Melders: 0 von 1.282 Stellen
+        # trugen `teilzeit`, waehrend 103 Titel es nennen.
+        "arbeitsumfang": _normalize_umfang(job_type),
         "remote_level": remote,
         "salary_min": _to_int_or_none(salary_min),
         "salary_max": _to_int_or_none(salary_max),
@@ -132,7 +138,14 @@ def _to_int_or_none(val) -> int | None:
 
 
 def _normalize_job_type(job_type: str) -> str:
-    """JobSpy liefert 'fulltime', 'parttime', 'contract' etc. → PBP-Taxonomy."""
+    """JobSpy liefert 'fulltime', 'parttime', 'contract' etc. → PBP-Taxonomy.
+
+    Das ist die ANSTELLUNGSFORM. `parttime` steht hier bewusst NICHT —
+    es ist ein Umfang und wird von `_normalize_umfang` gelesen (#1023).
+    Bis v1.7.83 nannte dieser Docstring `parttime` und hatte keinen
+    Zweig dafuer; jede Teilzeitstelle fiel durch bis zum letzten
+    `return` und wurde `festanstellung`.
+    """
     t = (job_type or "").lower()
     if "contract" in t or "freelance" in t:
         return "freelance"
@@ -140,7 +153,32 @@ def _normalize_job_type(job_type: str) -> str:
         return "praktikum"
     if "student" in t or "werk" in t:
         return "werkstudent"
+    if "apprentic" in t or "ausbild" in t:
+        return "ausbildung"
+    if "temporary" in t or "zeitarbeit" in t:
+        return "zeitarbeit"
     return "festanstellung"
+
+
+def _normalize_umfang(job_type: str) -> str:
+    """Der UMFANG aus demselben Feld (#1023).
+
+    `job_type` beantwortet zwei Fragen gleichzeitig, und bis v1.7.83
+    wurde nur eine davon gelesen. Nennt das Feld weder Voll- noch
+    Teilzeit, bleibt der Umfang leer — die Erkennung faellt dann auf
+    den Titel zurueck, statt `vollzeit` zu unterstellen. "Nicht
+    genannt" ist nicht "Vollzeit" (#989).
+    """
+    t = (job_type or "").lower()
+    voll = "fulltime" in t or "full_time" in t or "full-time" in t
+    teil = "parttime" in t or "part_time" in t or "part-time" in t
+    if voll and teil:
+        return "beides"
+    if teil:
+        return "teilzeit"
+    if voll:
+        return "vollzeit"
+    return ""
 
 
 def _search_site(site: str, keywords: list[str], location: str,

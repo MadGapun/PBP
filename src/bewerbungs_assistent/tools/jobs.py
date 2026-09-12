@@ -6006,3 +6006,92 @@ def register(mcp, db, logger):
                 "damit auch nicht mehr als Beleg fuer dasselbe Muster."
             ),
         }
+
+    @mcp.tool()
+    def stellen_merkmale_nachziehen(dry_run: bool = True,
+                                    max_stellen: int = 0) -> dict:
+        """Trägt Anstellungsform und Umfang im Altbestand nach (#1023).
+
+        Bis v1.7.83 gab es nur EIN Feld für beides, und der Adapter
+        musste sich entscheiden — er wählte die Vertragsart, der Umfang
+        fiel weg. Gemessen hat der Melder **0 von 1.282 Stellen mit
+        `teilzeit`**, während 103 aktive Titel es nennen.
+
+        Der Lauf liest jede Stelle erneut mit der Erkennung aus
+        `services/stellenart.py` und schreibt beide Merkmale. Er ändert
+        **nichts an aktiv/ausgeblendet** — eine Stelle, die heute in der
+        Liste steht, bleibt dort. Wer seine Auswahl danach anwenden
+        will, hat mit den nachgetragenen Merkmalen erst die Grundlage
+        dafür.
+
+        Args:
+            dry_run: Vorgabe True — zeigt nur, was sich ändern würde.
+            max_stellen: 0 = alle.
+        """
+        from ..services import stellenart as art
+
+        con = db.connect()
+        pid = db.get_active_profile_id()
+        zeilen = con.execute(
+            "SELECT hash, title, description, employment_type, "
+            "arbeitsumfang, befristet FROM jobs WHERE profile_id=?",
+            (pid,)).fetchall()
+        if max_stellen and max_stellen > 0:
+            zeilen = zeilen[:max_stellen]
+
+        aenderungen, unveraendert = [], 0
+        formen_neu, umfaenge_neu = {}, {}
+        for r in zeilen:
+            job = {"title": r["title"], "description": r["description"],
+                   "employment_type": r["employment_type"],
+                   "arbeitsumfang": r["arbeitsumfang"],
+                   "befristet": r["befristet"]}
+            m = art.merkmale(job)
+            alt = (r["employment_type"], r["arbeitsumfang"],
+                   1 if r["befristet"] else 0)
+            neu = (m["form"], m["umfang"], 1 if m["befristet"] else 0)
+            if alt == neu:
+                unveraendert += 1
+                continue
+            if m["form"] != r["employment_type"]:
+                formen_neu[m["form"]] = formen_neu.get(m["form"], 0) + 1
+            if m["umfang"] != (r["arbeitsumfang"] or ""):
+                umfaenge_neu[m["umfang"]] = umfaenge_neu.get(m["umfang"], 0) + 1
+            aenderungen.append({
+                "hash": db._public_job_hash(r["hash"]),
+                "titel": (r["title"] or "")[:60],
+                "vorher": {"form": r["employment_type"],
+                           "umfang": r["arbeitsumfang"]},
+                "nachher": {"form": m["form"], "umfang": m["umfang"],
+                            "befristet": m["befristet"]},
+                "beleg": m["umfang_beleg"] or m["form_beleg"],
+            })
+            if not dry_run:
+                con.execute(
+                    "UPDATE jobs SET employment_type=?, arbeitsumfang=?, "
+                    "befristet=? WHERE hash=?",
+                    (m["form"], m["umfang"], 1 if m["befristet"] else 0,
+                     r["hash"]))
+        if not dry_run:
+            con.commit()
+
+        return {
+            "status": "vorschau" if dry_run else "nachgetragen",
+            "geprueft": len(zeilen),
+            "geaendert": len(aenderungen),
+            "unveraendert": unveraendert,
+            "neue_formen": dict(sorted(formen_neu.items(),
+                                       key=lambda p: -p[1])),
+            "neue_umfaenge": dict(sorted(umfaenge_neu.items(),
+                                         key=lambda p: -p[1])),
+            "stichprobe": aenderungen[:15],
+            "hinweis": (
+                "Vorschau — es wurde nichts geschrieben. Mit "
+                "dry_run=False werden beide Merkmale nachgetragen; "
+                "aktiv/ausgeblendet bleibt unangetastet."
+                if dry_run else
+                f"{len(aenderungen)} Stelle(n) nachgetragen. Der Umfang "
+                "sortiert nichts aus — er wird angezeigt und ist "
+                "filterbar."
+            ),
+        }

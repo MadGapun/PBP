@@ -235,7 +235,14 @@ def register(mcp, db, logger):
             regionen: Bevorzugte Regionen
             standort: Wohnort des Bewerbers für Entfernungsberechnung (#167).
                 z.B. 'Bremen' oder 'Bremen, Deutschland'. Wird einmalig geocoded und gecacht.
-            stellentypen: Gewuenschte Stellentypen als Multi-Select (#166).
+            stellentypen: Gewuenschte ANSTELLUNGSFORMEN als Multi-Select
+                (#166, #1023): festanstellung, zeitarbeit, freelance,
+                praktikum, werkstudent, ausbildung. Die Auswahl
+                entscheidet, ob eine Stelle aktiv gefuehrt oder
+                ausgeblendet wird — aber nur, wenn der Titel die Form
+                ausweist. `teilzeit` wird als Altwert noch angenommen;
+                es ist seit #1023 ein UMFANG und kein Vertragstyp, und
+                als Umfang sortiert es bewusst nichts aus.
                 Optionen: festanstellung, freelance, teilzeit, praktikum, werkstudent.
                 Standard: ['festanstellung']
             max_entfernung: Max. Entfernung pro Stellentyp in km (#166).
@@ -296,7 +303,14 @@ def register(mcp, db, logger):
         if regionen:
             db.set_search_criteria("regionen", regionen)
         if stellentypen is not None:
-            valid = {"festanstellung", "freelance", "teilzeit", "praktikum", "werkstudent"}
+            # v1.7.84 (#1023 Befund 3): die Liste stand hier fest
+            # verdrahtet und war mit keinem der beiden anderen
+            # Vokabulare deckungsgleich — `ausbildung` fehlte ueberall,
+            # `zeitarbeit` liess sich im Scoring bestrafen, aber nicht
+            # auswaehlen. Jetzt kommt sie aus dem Modul, das die
+            # Erkennung macht.
+            from ..services import stellenart as _art
+            valid = set(_art.BEKANNTE_ARTEN)
             stellentypen = [s for s in stellentypen if s in valid]
             db.set_search_criteria("stellentypen", stellentypen or ["festanstellung"])
         # #1000: eine Zahl fuer alle Stellentypen. Die Karte gewinnt,
@@ -305,8 +319,9 @@ def register(mcp, db, logger):
         if max_entfernung_km is not None and max_entfernung is None:
             arten = (stellentypen
                      or db.get_search_criteria().get("stellentypen")
-                     or ["festanstellung", "freelance", "teilzeit",
-                         "praktikum", "werkstudent"])
+                     or list(__import__(
+                         "bewerbungs_assistent.services.stellenart",
+                         fromlist=["x"]).BEKANNTE_ARTEN))
             max_entfernung = {a: float(max_entfernung_km) for a in arten}
             entfernung_hinweis = (
                 f"{max_entfernung_km:g} km gilt jetzt fuer "

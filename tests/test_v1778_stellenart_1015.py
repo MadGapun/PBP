@@ -76,13 +76,39 @@ def _job(titel, **extra):
     ("Intern, Brand Marketing", sa.PRAKTIKUM),
     ("Working Student Software Engineering (m/f/d)", sa.WERKSTUDENT),
     ("Werkstudent Datenpflege (m/w/d)", sa.WERKSTUDENT),
-    ("Steuerberater (m/w/d) in Teilzeit und im Homeoffice", sa.TEILZEIT),
 ])
 def test_1015_der_titel_weist_die_art_aus(titel, erwartet):
     befund = sa.erkenne(_job(titel))
     assert befund["art"] == erwartet
     assert befund["belegt"] is True
     assert befund["beleg"] == "titel"
+
+
+def test_1015_teilzeit_ist_keine_anstellungsform_mehr():
+    """Der Fall, den v1.7.84 (#1023) aus diesem Test herausgenommen hat.
+
+    Hier stand bis dahin `("Steuerberater (m/w/d) in Teilzeit und im
+    Homeoffice", sa.TEILZEIT)` — und die Erwartung war richtig, solange
+    es nur EIN Feld gab.
+
+    Der zweite Melder-Bericht hat gezeigt, dass genau das der Fehler
+    ist: eine Stelle hat eine Anstellungsform UND einen Umfang, und
+    "Festanstellung in Teilzeit" ist der Normalfall. Der Titel oben
+    sagt nichts ueber die Vertragsart — er sagt etwas ueber den Umfang.
+
+    **Der Test wird deshalb nicht geloescht, sondern gedreht**: die
+    Aussage "der Titel weist es aus" gilt weiter, nur in der anderen
+    Dimension (v1.7.31 MERKE 2).
+    """
+    job = _job("Steuerberater (m/w/d) in Teilzeit und im Homeoffice")
+    assert sa.erkenne(job)["art"] == sa.FESTANSTELLUNG
+    assert sa.erkenne(job)["belegt"] is False, (
+        "Teilzeit im Titel darf die FORM nicht mehr belegen")
+
+    umfang = sa.umfang_erkennen(job)
+    assert umfang["umfang"] == sa.TEILZEIT
+    assert umfang["beleg"] == "titel"
+    assert sa.TEILZEIT not in sa.ANSTELLUNGSFORMEN
 
 
 @pytest.mark.parametrize("titel", [
