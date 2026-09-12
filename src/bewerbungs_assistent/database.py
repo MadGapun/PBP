@@ -603,6 +603,32 @@ class Database:
                          "ON blacklist_blocks(profile_id, blockiert_am)")
             conn.commit()
 
+            # v1.7.88 (#884, D24): Referenzen an Kontakten. Additive
+            # Tabelle, deshalb Safety-Net statt Schema-Bump (Muster
+            # #784/#913/#992). Eigene Tabelle statt `contact_links`: eine
+            # Referenz ist meist GLOBAL (kein Ziel) und traegt Art und
+            # Zeitraum — beides hat `contact_links` nicht.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS contact_references (
+                    id TEXT PRIMARY KEY,
+                    profile_id TEXT NOT NULL DEFAULT '',
+                    contact_id TEXT NOT NULL
+                        REFERENCES contacts(id) ON DELETE CASCADE,
+                    reference_type TEXT NOT NULL,
+                    period_text TEXT,
+                    note TEXT,
+                    application_id TEXT,
+                    project_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT
+                )
+            """)
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_contact_refs_profil "
+                         "ON contact_references(profile_id, reference_type)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_contact_refs_kontakt "
+                         "ON contact_references(contact_id)")
+            conn.commit()
+
             # v1.7.12 (#824, D31): Reflexion optional an den konkreten
             # Termin binden — Erstgespraech laeuft anders als Endrunde,
             # und die Auswertung soll das unterscheiden koennen.
@@ -4295,6 +4321,188 @@ class Database:
             except Exception:
                 pass
         return added
+
+    # === v1.7.88 (#884, D24): Referenzen an Kontakten ===
+
+    def _referenz_bezuege_pruefen(self, conn, pid: str, application_id,
+                                  project_id) -> tuple:
+        """Bewerbung/Projekt aufloesen — optional, aber wenn, dann echt.
+
+        Ein Verweis auf eine Kennung, die es nicht gibt, waere eine
+        Referenz mit einem Bezug ins Leere, und die Liste zeigte ihn
+        trotzdem an (#997: eine Erfolgsmeldung ueber nichts).
+        """
+        app_id = (application_id or "").strip() or None
+        proj_id = (project_id or "").strip() or None
+        if app_id:
+            row = conn.execute(
+                "SELECT id FROM applications WHERE (id=? OR id LIKE ?) "
+                "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+                (app_id, f"{app_id}%", pid)).fetchone()
+            if not row:
+                raise ValueError(
+                    f"Bewerbung nicht gefunden: {app_id}. "
+                    "Pruefe die ID mit bewerbungen_anzeigen().")
+            app_id = row["id"]
+        if proj_id:
+            row = conn.execute(
+                "SELECT pr.id FROM projects pr "
+                "JOIN positions po ON po.id = pr.position_id "
+                "WHERE (pr.id=? OR pr.id LIKE ?) "
+                "AND (po.profile_id=? OR po.profile_id IS NULL) LIMIT 1",
+                (proj_id, f"{proj_id}%", pid)).fetchone()
+            if not row:
+                raise ValueError(
+                    f"Projekt nicht gefunden: {proj_id}. "
+                    "Pruefe die ID mit projekte_anzeigen().")
+            proj_id = row["id"]
+        return app_id, proj_id
+
+    def add_contact_reference(self, contact_id: str, reference_type: str,
+                              period_text: str = "", note: str = "",
+                              application_id: str = "",
+                              project_id: str = "") -> dict:
+        """Markiert einen BESTEHENDEN Kontakt als Referenz (#884).
+
+        Es entsteht kein zweiter Kontakt — die Referenz haengt am
+        vorhandenen. Die Kategorie `referenz` wird als Etikett ergaenzt.
+        """
+        from .services import referenzen as _ref
+        art = _ref.art_normalisieren(reference_type)
+        conn = self.connect()
+        pid = self.get_active_profile_id() or ""
+        cid = (contact_id or "").strip()
+        row = None
+        if cid:
+            row = conn.execute(
+                "SELECT id, tags FROM contacts WHERE (id=? OR id LIKE ?) "
+                "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+                (cid, f"{cid}%", pid)).fetchone()
+        if not row:
+            raise ValueError(
+                f"Kontakt nicht gefunden: {contact_id}. "
+                "Pruefe die ID mit kontakte_auflisten().")
+        cid = row["id"]
+        app_id, proj_id = self._referenz_bezuege_pruefen(
+            conn, pid, application_id, project_id)
+        rid = _gen_id()
+        now = _now()
+        conn.execute(
+            "INSERT INTO contact_references (id, profile_id, contact_id, "
+            "reference_type, period_text, note, application_id, project_id, "
+            "created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (rid, pid, cid, art, (period_text or "").strip() or None,
+             (note or "").strip() or None, app_id, proj_id, now, now))
+        try:
+            tags = json.loads(row["tags"] or "[]")
+            if not isinstance(tags, list):
+                tags = [str(tags)]
+        except Exception:
+            tags = []
+        etikett_neu = _ref.ETIKETT not in tags
+        if etikett_neu:
+            tags.append(_ref.ETIKETT)
+            conn.execute("UPDATE contacts SET tags=?, updated_at=? WHERE id=?",
+                         (json.dumps(tags, ensure_ascii=False), now, cid))
+        conn.commit()
+        return {"id": rid, "contact_id": cid, "reference_type": art,
+                "etikett_ergaenzt": etikett_neu}
+
+    def list_contact_references(self, reference_type: str = "",
+                                application_id: str = "",
+                                project_id: str = "",
+                                contact_id: str = "") -> list[dict]:
+        """Alle Referenzen des aktiven Profils, samt Kontaktangaben."""
+        conn = self.connect()
+        pid = self.get_active_profile_id() or ""
+        sql = (
+            "SELECT r.*, c.full_name, c.company, c.position, c.email, "
+            "c.phone, a.title AS bewerbung_titel, "
+            "a.company AS bewerbung_firma, pr.name AS projekt_name "
+            "FROM contact_references r "
+            "JOIN contacts c ON c.id = r.contact_id "
+            "LEFT JOIN applications a ON a.id = r.application_id "
+            "LEFT JOIN projects pr ON pr.id = r.project_id "
+            "WHERE (r.profile_id=? OR r.profile_id='')")
+        params: list = [pid]
+        if reference_type:
+            sql += " AND r.reference_type=?"
+            params.append(reference_type)
+        if application_id:
+            sql += " AND (r.application_id=? OR r.application_id LIKE ?)"
+            params.extend([application_id, f"{application_id}%"])
+        if project_id:
+            sql += " AND (r.project_id=? OR r.project_id LIKE ?)"
+            params.extend([project_id, f"{project_id}%"])
+        if contact_id:
+            sql += " AND (r.contact_id=? OR r.contact_id LIKE ?)"
+            params.extend([contact_id, f"{contact_id}%"])
+        sql += " ORDER BY c.full_name COLLATE NOCASE, r.created_at"
+        return [dict(r) for r in conn.execute(sql, params).fetchall()]
+
+    def update_contact_reference(self, ref_id: str, felder: dict) -> dict:
+        """Aendert Art, Zeitraum, Bemerkung oder Bezuege.
+
+        `None` laesst eine Angabe stehen, ein leerer String LOESCHT sie —
+        sonst liesse sich ein Zeitraum nie wieder entfernen.
+        """
+        from .services import referenzen as _ref
+        conn = self.connect()
+        pid = self.get_active_profile_id() or ""
+        rid = (ref_id or "").strip()
+        row = None
+        if rid:
+            row = conn.execute(
+                "SELECT * FROM contact_references WHERE (id=? OR id LIKE ?) "
+                "AND (profile_id=? OR profile_id='') LIMIT 1",
+                (rid, f"{rid}%", pid)).fetchone()
+        if not row:
+            raise ValueError(f"Referenz nicht gefunden: {ref_id}.")
+        sets, werte = [], []
+        if felder.get("reference_type") is not None:
+            sets.append("reference_type=?")
+            werte.append(_ref.art_normalisieren(felder["reference_type"]))
+        for spalte in ("period_text", "note"):
+            if felder.get(spalte) is not None:
+                sets.append(f"{spalte}=?")
+                werte.append((felder[spalte] or "").strip() or None)
+        if (felder.get("application_id") is not None
+                or felder.get("project_id") is not None):
+            app_roh = (felder["application_id"]
+                       if felder.get("application_id") is not None
+                       else (row["application_id"] or ""))
+            proj_roh = (felder["project_id"]
+                        if felder.get("project_id") is not None
+                        else (row["project_id"] or ""))
+            app_id, proj_id = self._referenz_bezuege_pruefen(
+                conn, pid, app_roh, proj_roh)
+            sets.extend(["application_id=?", "project_id=?"])
+            werte.extend([app_id, proj_id])
+        if not sets:
+            return {"geaendert": False, "id": row["id"]}
+        sets.append("updated_at=?")
+        werte.extend([_now(), row["id"]])
+        conn.execute(
+            f"UPDATE contact_references SET {', '.join(sets)} WHERE id=?",
+            werte)
+        conn.commit()
+        return {"geaendert": True, "id": row["id"]}
+
+    def delete_contact_reference(self, ref_id: str) -> bool:
+        conn = self.connect()
+        pid = self.get_active_profile_id() or ""
+        rid = (ref_id or "").strip()
+        if not rid:
+            return False
+        row = conn.execute(
+            "SELECT id FROM contact_references WHERE (id=? OR id LIKE ?) "
+            "AND (profile_id=? OR profile_id='') LIMIT 1",
+            (rid, f"{rid}%", pid)).fetchone()
+        if not row:
+            return False
+        conn.execute("DELETE FROM contact_references WHERE id=?", (row["id"],))
+        conn.commit()
+        return True
 
     def link_contact(self, contact_id: str, target_kind: str, target_id: str,
                       role: str = "", notes: str = "") -> Optional[str]:

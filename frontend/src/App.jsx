@@ -1174,6 +1174,17 @@ export default function App() {
         setCurrentSubPath(labels[tab] || "");
       },
     };
+  } else if (page === "kontakte") {
+    // v1.7.88 (#884): Untermenue "Referenzen" unter Kontakte
+    sidebarSubNavigation = {
+      items: [
+        { id: "contacts-view-kontakte", label: "Kontakte" },
+        { id: "contacts-view-referenzen", label: "Referenzen" },
+      ],
+      onSelect: (id) => document.dispatchEvent(new CustomEvent("contacts-nav", {
+        detail: { ansicht: id.replace("contacts-view-", "") },
+      })),
+    };
   } else if (page === "kalender") {
     // Kalender nutzt einen Custom-Event statt Anchor-Sprungmarken
     sidebarSubNavigation = {

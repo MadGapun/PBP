@@ -82,6 +82,8 @@ BEREICHE: dict[str, tuple] = {
         "applications", "application_events", "application_jobs",
         "application_emails", "application_meetings", "application_costs",
         "follow_ups", "tasks", "contacts", "contact_links",
+        # v1.7.88 (#884): haengt am Kontakt, gehoert also dorthin.
+        "contact_references",
         "contact_categories", "meeting_categories",
         "interview_reflections", "research_notes",
     ),

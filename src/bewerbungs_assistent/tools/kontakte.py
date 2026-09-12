@@ -258,6 +258,147 @@ def register(mcp, db, logger):
             "kontakte": contacts,
         }
 
+    # === v1.7.88 (#884, D24): Referenzen ===
+
+    def _kurz(wert):
+        from ..services.typed_ids import strip_prefix
+        return strip_prefix(wert) if wert else ""
+
+    @mcp.tool()
+    def referenz_markieren(
+        kontakt_id: str,
+        art: str,
+        zeitraum: str = "",
+        bemerkung: str = "",
+        bewerbung_id: str = "",
+        projekt_id: str = "",
+    ) -> dict:
+        """Markiert einen bestehenden Kontakt als Referenz (#884).
+
+        Es entsteht KEIN neuer Kontakt — die Referenz haengt am
+        vorhandenen, und der Kontakt bekommt das Etikett `referenz`.
+        Ein Kontakt kann mehrfach Referenz sein (z.B. als Vorgesetzter
+        in einer Station und als Kunde in einer anderen).
+
+        Args:
+            kontakt_id: ID des Kontakts (mit oder ohne CON-Prefix, auch kurz).
+            art: vorgesetzter | kunde | kollege | auftraggeber_freelance |
+                geschaeftspartner | akademisch | sonstiges.
+            zeitraum: Freitext, z.B. "2020-2024".
+            bemerkung: Freitext — wozu die Person Auskunft geben kann.
+            bewerbung_id: optional — nur wenn die Referenz an EINE
+                Bewerbung gebunden ist. Die meisten sind global.
+            projekt_id: optional — Bezug zu einem Projekt im Profil.
+        """
+        from ..services import referenzen as _ref
+        try:
+            erg = db.add_contact_reference(
+                _kurz(kontakt_id), art, zeitraum, bemerkung,
+                _kurz(bewerbung_id), projekt_id)
+        except ValueError as exc:
+            return {"fehler": str(exc), "erlaubte_arten": _ref.arten_liste()}
+        return {
+            "status": "markiert",
+            "referenz_id": erg["id"],
+            "art": _ref.bezeichnung(erg["reference_type"]),
+            "etikett_referenz_ergaenzt": erg["etikett_ergaenzt"],
+            "naechster_schritt": ("Liste erzeugen mit "
+                                  "referenzliste_exportieren(format='docx')."),
+        }
+
+    @mcp.tool()
+    def referenz_bearbeiten(
+        referenz_id: str,
+        art: str | None = None,
+        zeitraum: str | None = None,
+        bemerkung: str | None = None,
+        bewerbung_id: str | None = None,
+        projekt_id: str | None = None,
+    ) -> dict:
+        """Aendert eine Referenz. Nicht angegebene Felder bleiben stehen;
+        ein LEERER String loescht eine Angabe (z.B. bewerbung_id="" loest
+        den Bewerbungsbezug)."""
+        from ..services import referenzen as _ref
+        felder = {
+            "reference_type": art,
+            "period_text": zeitraum,
+            "note": bemerkung,
+            "application_id": (_kurz(bewerbung_id) if bewerbung_id
+                               else bewerbung_id),
+            "project_id": projekt_id,
+        }
+        try:
+            erg = db.update_contact_reference(referenz_id, felder)
+        except ValueError as exc:
+            return {"fehler": str(exc), "erlaubte_arten": _ref.arten_liste()}
+        if not erg["geaendert"]:
+            return {"status": "unveraendert", "referenz_id": erg["id"],
+                    "hinweis": "Kein Feld angegeben — nichts geaendert."}
+        return {"status": "aktualisiert", "referenz_id": erg["id"]}
+
+    @mcp.tool()
+    def referenz_entfernen(referenz_id: str) -> dict:
+        """Nimmt eine Referenz-Markierung zurueck. Der Kontakt bleibt,
+        ebenso sein Etikett `referenz` (es kann von Hand gesetzt sein)."""
+        if db.delete_contact_reference(referenz_id):
+            return {"status": "entfernt", "referenz_id": referenz_id}
+        return {"status": "nicht_gefunden", "referenz_id": referenz_id,
+                "hinweis": "Pruefe die ID mit referenzen_anzeigen()."}
+
+    @mcp.tool()
+    def referenzen_anzeigen(art: str = "", bewerbung_id: str = "",
+                            projekt_id: str = "") -> dict:
+        """Alle als Referenz markierten Kontakte, optional gefiltert."""
+        from ..services import referenzen as _ref
+        try:
+            schluessel = _ref.art_normalisieren(art) if art else ""
+        except ValueError as exc:
+            return {"fehler": str(exc), "erlaubte_arten": _ref.arten_liste()}
+        refs = db.list_contact_references(
+            schluessel, _kurz(bewerbung_id), projekt_id)
+        eintraege = [{
+            "referenz_id": r["id"],
+            "kontakt_id": r["contact_id"],
+            "name": r.get("full_name"),
+            "firma": r.get("company"),
+            "position": r.get("position"),
+            "art": _ref.bezeichnung(r["reference_type"]),
+            "art_schluessel": r["reference_type"],
+            "zeitraum": r.get("period_text"),
+            "bemerkung": r.get("note"),
+            "bewerbung": r.get("bewerbung_titel"),
+            "projekt": r.get("projekt_name"),
+        } for r in refs]
+        antwort = {"anzahl": len(eintraege), "referenzen": eintraege,
+                   "erlaubte_arten": _ref.arten_liste()}
+        if not eintraege:
+            antwort["hinweis"] = (
+                "Keine Referenz gefunden. Einen Kontakt markieren mit "
+                "referenz_markieren(kontakt_id, art).")
+        return antwort
+
+    @mcp.tool()
+    def referenzliste_exportieren(
+        format: str = "docx",
+        art: str = "",
+        bewerbung_id: str = "",
+        projekt_id: str = "",
+        mit_kontaktdaten: bool = False,
+    ) -> dict:
+        """Erzeugt die Referenzliste als DOCX (Vorgabe) oder PDF.
+
+        Die Datei landet im Ausgabe-Ordner. Mail und Telefon stehen nur
+        darin, wenn `mit_kontaktdaten=True` — die Liste geht an Dritte,
+        und das ist eine Entscheidung je Liste. Ohne steht dort
+        "Kontaktdaten auf Anfrage".
+        """
+        from ..services import referenzen as _ref
+        try:
+            return _ref.exportieren(db, format, art, _kurz(bewerbung_id),
+                                    projekt_id, mit_kontaktdaten)
+        except ValueError as exc:
+            return {"fehler": str(exc), "erlaubte_arten": _ref.arten_liste()}
+
     # === v1.7.0-beta.39 (#608): Kontakt-Kategorien ===
 
     @mcp.tool()

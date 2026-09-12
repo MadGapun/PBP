@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { startTransition, useEffect, useState } from "react";
 import { useApp } from "@/app-context";
-import { api, postJson, putJson, deleteRequest } from "@/api";
+import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
 
 // v1.7.0-beta.10 (#563): Kontaktdatenbank-Frontend.
@@ -146,6 +146,49 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
   }));
   const [linkedItems, setLinkedItems] = useState([]);
   const [saving, setSaving] = useState(false);
+  // v1.7.88 (#884): Referenzen dieses Kontakts
+  const [refs, setRefs] = useState([]);
+  const [arten, setArten] = useState([]);
+  const [refForm, setRefForm] = useState({ reference_type: "", period_text: "", note: "" });
+
+  async function loadRefs() {
+    if (!contact?.id) return;
+    try {
+      const data = await api(`/api/references?contact_id=${encodeURIComponent(contact.id)}`);
+      setRefs(data?.referenzen || []);
+      setArten(data?.arten || []);
+    } catch {
+      /* Referenzen sind eine Zusatzangabe — der Dialog bleibt nutzbar */
+    }
+  }
+
+  useEffect(() => {
+    loadRefs();
+  }, [contact?.id]);
+
+  async function handleMarkReference() {
+    if (!refForm.reference_type) {
+      pushToast("Bitte die Art der Referenz waehlen.", "danger");
+      return;
+    }
+    try {
+      await postJson("/api/references", { contact_id: contact.id, ...refForm });
+      pushToast("Als Referenz markiert", "success");
+      setRefForm({ reference_type: "", period_text: "", note: "" });
+      loadRefs();
+    } catch (err) {
+      pushToast(`Markieren fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  async function handleRemoveReference(refId) {
+    try {
+      await deleteRequest(`/api/references/${refId}`);
+      loadRefs();
+    } catch (err) {
+      pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
 
   useEffect(() => {
     if (!isEdit) return;
@@ -344,6 +387,65 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {isEdit && (
+          <div className="border-t border-white/5 pt-3" data-testid="referenz-block">
+            <p className="text-[11px] font-semibold text-muted/60 mb-2 uppercase tracking-[0.1em]">
+              Als Referenz
+            </p>
+            {refs.length > 0 && (
+              <ul className="mb-2 space-y-1 text-[12px] text-muted/80">
+                {refs.map((r) => (
+                  <li key={r.id} className="flex items-center justify-between gap-2">
+                    <span>
+                      <span className="text-ink">{r.art_label}</span>
+                      {r.period_text ? ` · ${r.period_text}` : ""}
+                      {r.note ? ` — ${r.note}` : ""}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Referenz ${r.art_label} entfernen`}
+                      onClick={() => handleRemoveReference(r.id)}
+                      className="text-coral/70 hover:text-coral"
+                    >
+                      <X size={12} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="grid gap-2 sm:grid-cols-3">
+              <select
+                aria-label="Art der Referenz"
+                value={refForm.reference_type}
+                onChange={(e) => setRefForm({ ...refForm, reference_type: e.target.value })}
+                className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
+              >
+                <option value="">Art waehlen</option>
+                {arten.map((a) => (
+                  <option key={a.wert} value={a.wert}>{a.label}</option>
+                ))}
+              </select>
+              <TextInput
+                aria-label="Zeitraum"
+                value={refForm.period_text}
+                onChange={(e) => setRefForm({ ...refForm, period_text: e.target.value })}
+                placeholder="Zeitraum, z.B. 2020-2024"
+              />
+              <TextInput
+                aria-label="Bemerkung"
+                value={refForm.note}
+                onChange={(e) => setRefForm({ ...refForm, note: e.target.value })}
+                placeholder="Wozu kann die Person Auskunft geben?"
+              />
+            </div>
+            <div className="mt-2">
+              <Button size="sm" variant="secondary" onClick={handleMarkReference}>
+                Als Referenz markieren
+              </Button>
+            </div>
           </div>
         )}
 
@@ -624,6 +726,17 @@ export default function ContactsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   // v1.7.0-beta.19: Kontakt-Import aus Bewerbungen + Mails
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // v1.7.88 (#884): Untermenue "Referenzen". Der Hook steht bewusst VOR
+  // dem fruehen Return weiter unten — dahinter verwirft React die
+  // Komponente beim zweiten Rendern (#1009).
+  const [ansicht, setAnsicht] = useState("kontakte");
+  useEffect(() => {
+    const handler = (e) => {
+      if (e?.detail?.ansicht) setAnsicht(e.detail.ansicht);
+    };
+    document.addEventListener("contacts-nav", handler);
+    return () => document.removeEventListener("contacts-nav", handler);
+  }, []);
 
   async function reload() {
     setLoading(true);
@@ -680,6 +793,26 @@ export default function ContactsPage() {
         </div>
       </div>
 
+      <div className="mb-5 flex flex-wrap gap-1" role="tablist" aria-label="Kontakte-Ansicht">
+        {[["kontakte", "Kontakte"], ["referenzen", "Referenzen"]].map(([id, label]) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={ansicht === id}
+            onClick={() => setAnsicht(id)}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+              ansicht === id ? "bg-sky/15 text-sky" : "text-muted/50 hover:text-muted hover:bg-white/5"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {ansicht === "referenzen" ? (
+        <ReferencesSection pushToast={pushToast} reloadKey={reloadKey} />
+      ) : (<>
       {/* v1.7.0-beta.39 (#606): Pending-Banner */}
       <PendingContactsBanner pushToast={pushToast} onChange={reload} />
 
@@ -760,6 +893,8 @@ export default function ContactsPage() {
         </div>
       )}
 
+      </>)}
+
       {dialogOpen && (
         <ContactDialog
           contact={dialogContact}
@@ -785,6 +920,148 @@ export default function ContactsPage() {
   );
 }
 
+
+// v1.7.88 (#884, D24): Untermenue "Referenzen".
+//
+// Die Liste liest die Tabelle `contact_references` — sie ist die Quelle
+// der Wahrheit. Das Etikett "referenz" am Kontakt sagt nur, DASS jemand
+// Referenz ist, nicht in welcher Rolle und aus welcher Zeit.
+//
+// Bewusst ein natives <select>: SelectInput in Field nennt Screenreadern
+// die Feldbeschriftung statt des gewaehlten Werts (#1027).
+function ReferencesSection({ pushToast, reloadKey }) {
+  const [refs, setRefs] = useState([]);
+  const [arten, setArten] = useState([]);
+  const [artFilter, setArtFilter] = useState("");
+  const [mitKontakt, setMitKontakt] = useState(false);
+  const [laedt, setLaedt] = useState(true);
+
+  async function reloadRefs() {
+    setLaedt(true);
+    try {
+      const q = artFilter ? `?art=${encodeURIComponent(artFilter)}` : "";
+      const data = await api(`/api/references${q}`);
+      setRefs(data?.referenzen || []);
+      setArten(data?.arten || []);
+    } catch (err) {
+      pushToast(`Referenzen laden: ${err.message}`, "danger");
+    } finally {
+      setLaedt(false);
+    }
+  }
+
+  useEffect(() => {
+    reloadRefs();
+  }, [artFilter, reloadKey]);
+
+  async function entfernen(refId) {
+    try {
+      await deleteRequest(`/api/references/${refId}`);
+      reloadRefs();
+    } catch (err) {
+      pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+
+  function exportHref(format) {
+    const p = new URLSearchParams({ format, mit_kontaktdaten: mitKontakt ? "true" : "false" });
+    if (artFilter) p.set("art", artFilter);
+    return apiUrl(`/api/references/export?${p}`);
+  }
+
+  return (
+    <div data-testid="referenzen-ansicht">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          aria-label="Nach Art der Referenz filtern"
+          value={artFilter}
+          onChange={(e) => setArtFilter(e.target.value)}
+          className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
+        >
+          <option value="">Alle Arten</option>
+          {arten.map((a) => (
+            <option key={a.wert} value={a.wert}>{a.label}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-2 text-[12px] text-muted/70">
+          <input type="checkbox" checked={mitKontakt} onChange={(e) => setMitKontakt(e.target.checked)} />
+          Kontaktdaten in die Liste aufnehmen
+        </label>
+        <div className="ml-auto flex gap-2">
+          <a
+            href={exportHref("docx")}
+            className={`rounded-lg border border-white/10 px-3 py-1.5 text-[12px] text-ink hover:bg-white/5 ${refs.length ? "" : "pointer-events-none opacity-40"}`}
+            aria-disabled={!refs.length}
+          >
+            Referenzliste als DOCX
+          </a>
+          <a
+            href={exportHref("pdf")}
+            className={`rounded-lg border border-white/10 px-3 py-1.5 text-[12px] text-ink hover:bg-white/5 ${refs.length ? "" : "pointer-events-none opacity-40"}`}
+            aria-disabled={!refs.length}
+          >
+            als PDF
+          </a>
+        </div>
+      </div>
+      <p className="mb-3 text-[11px] text-muted/50">
+        {mitKontakt
+          ? "Mail und Telefon stehen in der Liste — sie geht an Dritte."
+          : "In der Liste steht \"Kontaktdaten auf Anfrage\" statt Mail und Telefon."}
+      </p>
+
+      {laedt ? (
+        <p className="text-sm text-muted/60">Referenzen werden geladen …</p>
+      ) : refs.length === 0 ? (
+        <Card className="rounded-2xl">
+          <div className="py-10 text-center">
+            <p className="text-sm text-muted/70">
+              {artFilter ? "Keine Referenz dieser Art." : "Noch keine Referenzen."}
+            </p>
+            <p className="mt-1 text-[12px] text-muted/50">
+              Oeffne einen Kontakt und waehle dort „Als Referenz markieren".
+            </p>
+          </div>
+        </Card>
+      ) : (
+        <ul className="grid gap-2">
+          {refs.map((r) => (
+            <li key={r.id}>
+              <Card className="rounded-xl">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-ink">{r.full_name}</p>
+                    <p className="text-[12px] text-muted/70">
+                      {[r.position, r.company].filter(Boolean).join(" · ")}
+                    </p>
+                    <p className="mt-1 text-[12px] text-ink/90">
+                      {[r.art_label, r.period_text].filter(Boolean).join(" · ")}
+                    </p>
+                    {r.note ? <p className="text-[12px] text-muted/70">{r.note}</p> : null}
+                    {r.bewerbung_titel || r.projekt_name ? (
+                      <p className="text-[11px] text-muted/50">
+                        {[r.bewerbung_titel && `Bewerbung: ${r.bewerbung_titel}`,
+                          r.projekt_name && `Projekt: ${r.projekt_name}`].filter(Boolean).join(" · ")}
+                      </p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    aria-label={`Referenz von ${r.full_name} entfernen`}
+                    onClick={() => entfernen(r.id)}
+                    className="text-coral/60 hover:text-coral"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 // v1.7.0-beta.19: Kontakt-Import-Wizard
 // Liefert eine Vorschau aller Kandidaten aus Bewerbungen + Mail-Dokumenten,
