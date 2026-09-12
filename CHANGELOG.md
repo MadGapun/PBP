@@ -105,6 +105,122 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.84] - 2026-09-12 — Anstellungsform und Umfang sind zwei Fragen
+
+Eine Stelle hat eine Anstellungsform **und** einen Umfang.
+„Festanstellung in Teilzeit" ist der Normalfall — im Ein-Feld-Modell aber
+nicht ausdrückbar: der Adapter muss sich entscheiden, wählt immer die
+Vertragsart, und der Umfang fällt weg. Die Zahl aus dem Bericht: von 103
+aktiven Stellen mit „Teilzeit" im Titel waren **102 als `festanstellung`
+gespeichert und 0 als `teilzeit`**. `_normalize_job_type` nannte
+`parttime` im Docstring und hatte keinen Zweig dafür (#1023).
+
+### Added
+
+- **Zwei getrennte Merkmale an jeder Stelle.** `services/stellenart.py`
+  kennt jetzt `ANSTELLUNGSFORMEN` (neu dabei: `ausbildung` und
+  `zeitarbeit`) und `UMFAENGE` mit vier Zuständen —
+  `vollzeit` / `teilzeit` / `beides` / `unbekannt`. `merkmale()` ist das
+  Nadelöhr für alle Aufrufer.
+- **„Vollzeit / Teilzeit" wird als `beides` geführt**, nicht als eines
+  von beiden. Das ist keine Mehrdeutigkeit, sondern eine Zusage — ein
+  Etikett mit zwei Werten macht daraus eine Falschangabe, egal welches
+  es wählt.
+- **`befristet` als Kennzeichen am Vertrag**, ausdrücklich nicht als
+  Anstellungsform und nicht als Auswahloption.
+- **Beide Merkmale als Abzeichen auf der Stellen-Karte** und **zwei
+  kombinierbare Filter** (Anstellungsform und Umfang). Eine Anzeige mit
+  `beides` zählt für beide Filterrichtungen. `unbekannt` bekommt bewusst
+  kein Abzeichen — es stünde an fast jeder Stelle.
+- **`stellen_merkmale_nachziehen`** für den Altbestand: Vorschau als
+  Vorgabe, und der Lauf trägt Merkmale nach, ohne über aktiv oder
+  ausgeblendet zu entscheiden.
+
+### Changed
+
+- **Die Auswahl im Suchprofil entscheidet endlich etwas** — aber nur
+  über die Anstellungsform. `unerwuenscht()` filtert über `fuer_form()`;
+  ein gepflegtes `teilzeit` aus der Zeit davor ist keine
+  Anstellungsform mehr, hätte als Filter jede Vollzeitstelle
+  ausgeschlossen und lebt jetzt als Umfang weiter, statt beim Umbau
+  still zu verdunsten.
+- **Der Umfang sortiert nichts aus.** Er fehlt bei 993 von 1.110
+  Stellen, ist oft verhandelbar, und ein Ausschluss darauf träfe vor
+  allem die, bei denen die Angabe nur *fehlt* — dieselbe Linie wie bei
+  Remote (#989) und Entfernung (#910/#988).
+- **Das Vokabular der Suchkriterien kommt aus dem Modul**, das die
+  Erkennung macht, statt fest verdrahtet in `tools/suche.py` zu stehen.
+  Es gab drei Vokabulare, von denen keines deckungsgleich war.
+
+### Fixed
+
+- **Quellenunabhängige Erkennung, strukturierte Felder zuerst.** jobspy
+  liest jetzt **beide** Dimensionen aus `job_type`; die
+  Bundesagentur-Detail-API ihre eigenen Felder (`arbeitszeitVollzeit`,
+  `arbeitszeitTeilzeit*`, `istArbeitnehmerUeberlassung`, `befristung`) —
+  Zeitarbeit wurde bis hierher aus Stichwörtern im Text **geraten**,
+  obwohl die Quelle es ausdrücklich sagt.
+- **Ein Wert außerhalb jedes Vokabulars wird zugeordnet.** Eine Stelle
+  im Bestand trug `arbeitnehmerueberlassung` als `employment_type` —
+  ein Wert, den weder Suchkriterien noch Scoring noch die
+  Adapter-Zuordnung kannten. Sie war damit weder filterbar noch
+  bewertbar, obwohl das Feld genau das sagt, wonach der Bericht fragt.
+- **Die erkannte Form wird gespeichert.** `stellenart` hat bis hierher
+  zwar entschieden, aber nichts abgelegt — eine Erkennung, deren
+  Ergebnis nirgends landet, ist für jede Anzeige und jeden Filter
+  unsichtbar.
+- **Die Beschreibung ändert die Form nie** und ergibt beim Umfang
+  höchstens `beides`. „Erfahrung durch Praktikum wünschenswert" ist eine
+  Anforderung, keine Praktikumsstelle.
+
+Gemessen an einer Kopie des Bestands (2.535 Stellen): vorher trug
+**keine** einen Umfang, das Feld gab es nicht. Nachher **219** — 167
+`vollzeit`, 41 `beides`, 11 `teilzeit`; `werkstudent` 0 → 7, `praktikum`
+3 → 10, `zeitarbeit` 0 → 2, `befristet` 30.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.84.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.84.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.83] - 2026-09-11 — Die Kopfzeile zeigt den Bestand
 
 **#1022** (Melder-Bericht). Die Kachel oben links meldete „AKTIVE
