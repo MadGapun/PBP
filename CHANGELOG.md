@@ -105,6 +105,100 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.88] - 2026-09-12 — Wer kann was über mich sagen
+
+Kontakte lassen sich jetzt als **Referenz** markieren, filtern und als
+Referenzliste ausgeben (#884, D24). Der Wunsch in einem Satz:
+*„Ich möchte nur irgendwo eintragen können, welche Form Referenz
+derjenige war (und wann), damit ich daraus eine Referenzliste
+generieren kann."*
+
+### Added
+
+- **Referenz an einem bestehenden Kontakt.** Art aus einer festen Liste
+  (Vorgesetzte:r, Kunde, Projektpartner, Auftraggeber Freelance,
+  Geschäftspartner, akademisch, sonstiges), dazu Zeitraum und
+  Bemerkung. Es entsteht **kein zweiter Kontakt**, und eine Person kann
+  in mehreren Rollen Referenz sein.
+- **Optionaler Bezug** zu einer Bewerbung und/oder einem Projekt — nicht
+  erzwungen, weil die meisten Referenzen für alle Bewerbungen gelten.
+  Ein Bezug auf eine Kennung, die es nicht gibt, wird abgewiesen.
+- **Untermenü „Referenzen"** unter Kontakte (Umschalter auf der Seite
+  und Eintrag in der Seitenleiste), filterbar nach Art.
+- **Referenzliste als DOCX oder PDF** aus der gefilterten Auswahl, im
+  Ausgabe-Ordner; die DOCX-Fassung nimmt die eingestellte Vorlage.
+- Fünf MCP-Werkzeuge: `referenz_markieren`, `referenz_bearbeiten`,
+  `referenz_entfernen`, `referenzen_anzeigen`,
+  `referenzliste_exportieren`. REST unter `/api/references`.
+
+### Design-Entscheidungen
+
+- **Kontaktdaten stehen nur auf Wunsch in der Liste.** Sie geht an
+  Dritte; Mail und Telefon einer Person weiterzugeben ist eine
+  Entscheidung je Liste. Vorgabe: „Kontaktdaten auf Anfrage".
+- **Eigene Tabelle statt `contact_links`.** Eine Referenz ist meist
+  global (ohne Ziel) und trägt Art und Zeitraum — beides hat
+  `contact_links` nicht, und der Zeitraum müsste beim Erzeugen der
+  Liste aus einem Freitext geparst werden.
+- **Die Tabelle ist die Quelle, die Kategorie ein Etikett.** Beim
+  Markieren bekommt der Kontakt die vorhandene Kategorie „Referenz"
+  dazu. Beim Entfernen bleibt sie stehen — sie kann von Hand gesetzt
+  worden sein, und ein Aufräumen, das eine Eingabe still löscht, wäre
+  #988.
+- **Eine unbekannte Art wird abgewiesen**, nicht still als „Sonstiges"
+  gespeichert (#980).
+- **Die Arten stehen nur im Backend.** Die Oberfläche liest sie vom
+  Server; eine zweite Liste liefe beim nächsten Eintrag auseinander.
+- **Die neue Tabelle gehört zum Löschbereich „Bewerbungen"** — der
+  Guard aus #1025 hätte sie sonst beim Leeren liegen lassen. Ein
+  gelöschter Kontakt nimmt seine Referenzen mit.
+- **Natives Auswahlfeld** in der neuen Ansicht, weil die gemeinsame
+  Auswahl-Komponente Screenreadern die Feldbeschriftung statt des
+  Werts nennt (#1027).
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.88.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.88.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.87] - 2026-09-12 — Der Mengenweg deckt fehlende Beschreibungen ab
 
 `beschreibungen_nachladen_bestand` trägt den Namen für den Mengenweg
