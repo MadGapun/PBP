@@ -7051,6 +7051,125 @@ async def api_factory_reset(request: Request):
     }
 
 
+# === Gefahrenzone: ein Bereich statt vier (#1025 Stufe 2, #1024) ===
+#
+# Stufe 1 hat die Frage "was gehoert wozu" aus dem Schema ABGELEITET
+# (`services/loeschbereiche.py`) statt sie aufzuzaehlen. Stufe 2 gibt
+# genau das heraus: dieselbe Auskunft, die `daten_bereiche_anzeigen`
+# ueber den MCP liefert, damit die Oberflaeche keine zweite Fassung
+# davon baut — das Muster, das dieses Projekt siebzehnmal gekostet hat.
+
+@app.get("/api/danger/bereiche")
+async def api_danger_bereiche(bereiche: str = "", profil_id: str = ""):
+    """Was wuerde ein Leeren kosten — je Bereich, ohne etwas zu aendern.
+
+    `profil_id` leer heisst ALLE Profile. Geteilte Bereiche (Quellen,
+    Einstellungen, Protokolle) gelten fuer alle Profile; beim Leeren
+    eines EINZELNEN Profils bleiben sie unangetastet, und die Antwort
+    sagt welche das sind.
+    """
+    from .services import loeschbereiche
+
+    gewaehlt = [b.strip() for b in bereiche.split(",") if b.strip()] or None
+    pid = profil_id.strip() or None
+    vor = loeschbereiche.vorschau(_db, gewaehlt, pid)
+    # Alle Profile zur Auswahl, nicht nur das aktive — der Melder hat
+    # ausdruecklich danach gefragt, und die Gefahrenzone bot bis
+    # v1.7.83 nur das gerade gewaehlte an.
+    profile = [{"id": p["id"], "name": p.get("name") or p["id"]}
+               for p in (_db.get_profiles() or [])]
+    return {
+        **vor,
+        "profile": profile,
+        "bereiche_reihenfolge": list(loeschbereiche.BEREICHE),
+        "bestaetigungswort": "LOESCHEN",
+    }
+
+
+@app.post("/api/danger/leeren")
+async def api_danger_leeren(request: Request):
+    """Leert die gewaehlten Bereiche — Bestaetigungswort `LOESCHEN`.
+
+    Zwei Modi, die einander ausschliessen:
+
+    * `bereiche` — leert Zeilen, die Datei bleibt bestehen.
+    * `dsgvo` — loescht die Datenbankdatei und die Dokumentordner.
+
+    Der Melder hat den Unterschied genau benannt: als Checkbox waere
+    DSGVO eine Auswahl, die alle anderen Haekchen zwangsweise
+    mitsetzt — und die vollen Haekchen behaupteten dann etwas Falsches,
+    denn geloescht werden nicht die Bereiche, sondern die Datei. Als
+    Modus schliessen sie sich von selbst aus, so wie in der Sache auch.
+    """
+    from .services import loeschbereiche
+
+    data = await request.json()
+    if data.get("confirm") != "LOESCHEN":
+        return JSONResponse(
+            {"error": "Bestaetigung fehlt (confirm: LOESCHEN)"},
+            status_code=400)
+
+    modus = (data.get("modus") or "bereiche").strip().lower()
+    if modus not in ("bereiche", "dsgvo"):
+        return JSONResponse(
+            {"error": f"Unbekannter Modus '{modus}' — "
+                      "erlaubt sind 'bereiche' und 'dsgvo'."},
+            status_code=400)
+
+    if modus == "dsgvo":
+        return await _dsgvo_loeschen()
+
+    gewaehlt = data.get("bereiche") or []
+    if not isinstance(gewaehlt, list) or not gewaehlt:
+        return JSONResponse(
+            {"error": "Kein Bereich gewaehlt. Waehle mindestens einen "
+                      f"aus: {', '.join(loeschbereiche.BEREICHE)}"},
+            status_code=400)
+    unbekannt = [b for b in gewaehlt if b not in loeschbereiche.BEREICHE]
+    if unbekannt:
+        # Still ignorieren waere #988: eine Auswahl, der man glaubt,
+        # die aber nichts bewirkt.
+        return JSONResponse(
+            {"error": f"Unbekannte Bereiche: {', '.join(unbekannt)}. "
+                      f"Erlaubt: {', '.join(loeschbereiche.BEREICHE)}"},
+            status_code=400)
+
+    pid = (data.get("profil_id") or "").strip() or None
+    erg = loeschbereiche.leeren(_db, gewaehlt, pid, dry_run=False)
+    # `status` kommt aus dem Dienst ("geloescht") und wird hier NICHT
+    # ueberschrieben: zwei Bedeutungen unter einem Feldnamen sind der
+    # Fehler aus #1008.
+    return {**erg, "modus": "bereiche"}
+
+
+async def _dsgvo_loeschen() -> dict:
+    """Datei weg statt Zeilen weg — der zweite Modus der Gefahrenzone.
+
+    Herausgeloest aus `api_privacy_delete_all`, damit beide Wege
+    dieselbe Mechanik nehmen. Zwei Fassungen davon waeren genau das
+    Muster, gegen das #1025 angetreten ist.
+    """
+    import shutil
+    from .database import get_data_dir
+
+    data_dir = get_data_dir()
+    geloescht = []
+    db_path = data_dir / "pbp.db"
+    if db_path.exists():
+        _db.close()
+        db_path.unlink()
+        geloescht.append("Datenbank")
+    for subdir in ["dokumente", "export"]:
+        sub = data_dir / subdir
+        if sub.exists():
+            shutil.rmtree(sub)
+            sub.mkdir()
+            geloescht.append(subdir.capitalize())
+    return {"status": "ok", "modus": "dsgvo", "deleted": geloescht,
+            "message": ("Datenbank und Dokumentordner geloescht. "
+                        "Bitte Dashboard neu starten.")}
+
+
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
 
 @app.get("/api/danger/uninstaller")
@@ -11254,35 +11373,30 @@ async def api_privacy_info():
 
 @app.delete("/api/privacy-delete-all")
 async def api_privacy_delete_all(request: Request):
-    """Delete all user data (GDPR right to deletion)."""
-    import shutil
-    from .database import get_data_dir
+    """DSGVO-Loeschung — der alte Weg, dieselbe Mechanik (#1025).
 
+    Seit v1.7.85 ruft er `_dsgvo_loeschen()` auf, also genau das, was
+    auch `POST /api/danger/leeren` im Modus `dsgvo` tut. Vorher stand
+    die Loeschung hier ein zweites Mal im Code; dass zwei Wege
+    dieselbe Sache verschieden machen, ist der Befund, aus dem dieses
+    Issue entstanden ist.
+
+    Beide Bestaetigungsworte gelten: `LOESCHEN` ist das Wort der neuen
+    Gefahrenzone, `ALLES_LOESCHEN` das bisherige. Das aeltere
+    abzuschaffen waere eine Aenderung am Vertrag, um die niemand
+    gebeten hat.
+    """
     data = await request.json()
-    if data.get("confirm") != "ALLES_LOESCHEN":
+    if data.get("confirm") not in ("LOESCHEN", "ALLES_LOESCHEN"):
         return JSONResponse(
-            {"error": "Bestaetigung fehlt (confirm: ALLES_LOESCHEN)"}, status_code=400
+            {"error": "Bestaetigung fehlt (confirm: LOESCHEN)"},
+            status_code=400
         )
-
-    data_dir = get_data_dir()
-    deleted = []
-
-    # Delete database
-    db_path = data_dir / "pbp.db"
-    if db_path.exists():
-        _db.close()
-        db_path.unlink()
-        deleted.append("Datenbank")
-
-    # Delete documents
-    for subdir in ["dokumente", "export"]:
-        sub = data_dir / subdir
-        if sub.exists():
-            shutil.rmtree(sub)
-            sub.mkdir()
-            deleted.append(subdir.capitalize())
-
-    return {"status": "ok", "deleted": deleted, "message": "Alle Daten geloescht. Bitte Dashboard neu starten."}
+    erg = await _dsgvo_loeschen()
+    # Der alte Schluessel bleibt, damit bestehende Aufrufer nicht
+    # brechen.
+    return {"status": "ok", "deleted": erg["deleted"],
+            "message": "Alle Daten geloescht. Bitte Dashboard neu starten."}
 
 
 # === Export Package (v1.4.0, #289) ===

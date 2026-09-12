@@ -1,4 +1,4 @@
-﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, ShieldAlert, Sun, TerminalSquare, Trash2, Upload } from "lucide-react";
+﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -3028,14 +3028,11 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [sources, setSources] = useState([]);
   const [logs, setLogs] = useState([]);
-  const [resetConfirm, setResetConfirm] = useState("");
   const [loginJobs, setLoginJobs] = useState({});
   const [impulseEnabled, setImpulseEnabled] = useState(true);
   const [health, setHealth] = useState(null);
   const [privacy, setPrivacy] = useState(null);
-  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [exporting, setExporting] = useState(false);
-  const [profileDeleteConfirm, setProfileDeleteConfirm] = useState("");
   const [settingsTab, setSettingsTab] = useState("quellen");
   const [followupSettings, setFollowupSettings] = useState({ followup_default_days: 7, followup_interview_delay_days: 14 });
   const [followupSaving, setFollowupSaving] = useState(false);
@@ -3232,16 +3229,6 @@ export default function SettingsPage() {
     }
   }
 
-  async function performReset() {
-    try {
-      await postJson("/api/reset", { confirm: "RESET" });
-      pushToast("Factory Reset ausgeführt. Seite wird neu geladen.", "success");
-      window.setTimeout(() => window.location.reload(), 1200);
-    } catch (error) {
-      pushToast(`Reset fehlgeschlagen: ${error.message}`, "danger");
-    }
-  }
-
   async function exportData() {
     setExporting(true);
     try {
@@ -3306,16 +3293,6 @@ export default function SettingsPage() {
       pushToast(`Profilimport fehlgeschlagen: ${error.message}`, "danger");
     } finally {
       event.target.value = "";
-    }
-  }
-
-  async function deleteAllData() {
-    try {
-      await deleteRequest("/api/privacy-delete-all", { confirm: "ALLES_LOESCHEN" });
-      pushToast("Alle Daten geloescht. Seite wird neu geladen.", "success");
-      window.setTimeout(() => window.location.reload(), 1500);
-    } catch (error) {
-      pushToast(`Loeschen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -4152,86 +4129,7 @@ export default function SettingsPage() {
         {/* ── Gefahrenzone Tab (#378: konsolidiert) ── */}
         {settingsTab === "gefahrenzone" && (
           <div className="grid gap-6">
-            <Card className="glass-banner glass-banner-danger rounded-2xl">
-              <SectionHeading title="Alle Daten loeschen (DSGVO)" description="Loescht Datenbank und Dokumente unwiderruflich. Das wird geloescht: Profil, Bewerbungen, Stellen, Dokumente, Einstellungen." />
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
-                    <Trash2 size={16} />
-                  </div>
-                  <p className="text-sm text-muted">
-                    Gib <strong className="text-ink">ALLES_LOESCHEN</strong> ein, um alle Daten unwiderruflich zu entfernen.
-                  </p>
-                </div>
-                <div className="flex items-end gap-3">
-                  <Field label="Bestaetigung">
-                    <TextInput className="!w-56" value={deleteConfirm} onChange={(e) => setDeleteConfirm(e.target.value)} placeholder="ALLES_LOESCHEN" />
-                  </Field>
-                  <Button variant="danger" disabled={deleteConfirm !== "ALLES_LOESCHEN"} onClick={deleteAllData}>
-                    <Trash2 size={15} />
-                    Endgueltig loeschen
-                  </Button>
-                </div>
-              </div>
-            </Card>
-
-            {/* #420: Profile delete in danger zone */}
-            {chrome?.profile?.name && (
-              <Card className="glass-banner glass-banner-danger rounded-2xl">
-                <SectionHeading title="Profil loeschen" description={`Loescht das aktive Profil "${chrome.profile.name}" inkl. aller Positionen, Skills, Bewerbungen und Dokumente unwiderruflich.`} />
-                <div className="flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
-                      <Trash2 size={16} />
-                    </div>
-                    <p className="text-sm text-muted">
-                      Gib den Profilnamen <strong className="text-ink">{chrome.profile.name}</strong> exakt ein, um das Profil zu loeschen.
-                    </p>
-                  </div>
-                  <div className="flex items-end gap-3">
-                    <Field label="Profilname bestaetigen">
-                      <TextInput className="!w-56" value={profileDeleteConfirm} onChange={(e) => setProfileDeleteConfirm(e.target.value)} placeholder={chrome.profile.name} />
-                    </Field>
-                    <Button variant="danger" disabled={profileDeleteConfirm !== chrome.profile.name} onClick={async () => {
-                      try {
-                        await deleteRequest(`/api/profiles/${chrome.profile.id}`);
-                        setProfileDeleteConfirm("");
-                        pushToast("Profil geloescht.", "success");
-                        refreshChrome();
-                      } catch (err) {
-                        pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
-                      }
-                    }}>
-                      <Trash2 size={15} />
-                      Profil loeschen
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            )}
-
-            <Card className="glass-banner glass-banner-danger rounded-2xl">
-              <SectionHeading title="Factory Reset" description="Setzt die App in einen sauberen Zustand zurueck. Das wird geloescht: Alle Profile, Stellen, Bewerbungen, Dokumente — die App wird wie neu." />
-              <div className="flex flex-col items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="glass-icon glass-icon-danger h-10 w-10 shrink-0">
-                    <ShieldAlert size={16} />
-                  </div>
-                  <p className="text-sm text-muted">
-                    Gib <strong className="text-ink">RESET</strong> ein, wenn du wirklich alles zuruecksetzen willst.
-                  </p>
-                </div>
-                <div className="flex items-end gap-3">
-                  <Field label="Bestaetigung">
-                    <TextInput className="!w-48" value={resetConfirm} onChange={(event) => setResetConfirm(event.target.value)} placeholder="RESET" />
-                  </Field>
-                  <Button variant="danger" disabled={resetConfirm !== "RESET"} onClick={performReset}>
-                    <TerminalSquare size={15} />
-                    Factory Reset
-                  </Button>
-                </div>
-              </div>
-            </Card>
+            <LoeschBereichSection pushToast={pushToast} refreshChrome={refreshChrome} />
 
             {/* v1.7.0-beta.43 (#621): Komplett-Deinstallation aus der Gefahrenzone */}
             <UninstallSection pushToast={pushToast} />
@@ -4239,6 +4137,236 @@ export default function SettingsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// v1.7.85 (#1025 Stufe 2, #1024): ein Bereich statt vier.
+//
+// Bis v1.7.84 standen hier drei Karten, von denen zwei sich fast
+// gleich beschrieben und sehr Verschiedenes taten — das war der ganze
+// Befund des Melders. Jetzt steht die Frage vorn, die er sich
+// tatsaechlich stellt: was soll weg?
+//
+// Der Modus ist ein UMSCHALTER und keine Checkbox. Eine
+// DSGVO-Checkbox, die beim Anhaken alle anderen zwangsweise mitsetzt,
+// ueberschriebe die Eingabe des Menschen — und die vollen Haekchen
+// behaupteten etwas Falsches, denn geloescht werden dann nicht die
+// Bereiche, sondern die Datei.
+function LoeschBereichSection({ pushToast, refreshChrome }) {
+  const [modus, setModus] = useState("bereiche");
+  const [profilId, setProfilId] = useState("");
+  const [gewaehlt, setGewaehlt] = useState([]);
+  const [vorschau, setVorschau] = useState(null);
+  const [laedt, setLaedt] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState("");
+
+  useEffect(() => {
+    let abgebrochen = false;
+    setLaedt(true);
+    const query = profilId ? `?profil_id=${encodeURIComponent(profilId)}` : "";
+    api(`/api/danger/bereiche${query}`)
+      .then((data) => {
+        if (!abgebrochen) setVorschau(data);
+      })
+      .catch((err) => {
+        if (!abgebrochen) pushToast(`Vorschau laden: ${err.message}`, "danger");
+      })
+      .finally(() => {
+        if (!abgebrochen) setLaedt(false);
+      });
+    return () => { abgebrochen = true; };
+  }, [profilId, pushToast]);
+
+  const reihenfolge = vorschau?.bereiche_reihenfolge || [];
+  const daten = vorschau?.bereiche || {};
+  const profile = vorschau?.profile || [];
+  // Im DSGVO-Modus ist die Liste eine Anzeige der FOLGE, keine Auswahl.
+  const dsgvo = modus === "dsgvo";
+  const aktiv = dsgvo ? reihenfolge : gewaehlt;
+
+  const betroffen = aktiv.reduce(
+    (summe, b) => summe + (daten[b]?.zeilen_gesamt || 0), 0);
+  const dateien = aktiv.includes("dokumente")
+    ? (vorschau?.dateien_auf_der_platte || 0) : 0;
+  const bereit = confirm === "LOESCHEN" && !busy
+    && (dsgvo || gewaehlt.length > 0);
+
+  function umschalten(bereich) {
+    setGewaehlt((prev) => prev.includes(bereich)
+      ? prev.filter((b) => b !== bereich)
+      : [...prev, bereich]);
+  }
+
+  async function ausfuehren() {
+    setBusy(true);
+    try {
+      const erg = await postJson("/api/danger/leeren", {
+        confirm: "LOESCHEN",
+        modus,
+        bereiche: dsgvo ? [] : gewaehlt,
+        profil_id: dsgvo ? "" : profilId,
+      });
+      if (dsgvo) {
+        pushToast("Datenbank und Dokumente geloescht. Seite wird neu geladen.", "success");
+      } else {
+        pushToast(
+          `${erg.zeilen_gesamt ?? 0} Zeilen und ${erg.dateien_geloescht ?? 0} Dateien geloescht.`,
+          "success");
+      }
+      setConfirm("");
+      setGewaehlt([]);
+      refreshChrome?.();
+      window.setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="glass-banner glass-banner-danger rounded-2xl">
+      <SectionHeading
+        title="Daten loeschen"
+        description="Waehle aus, was weg soll. Vor dem Ausfuehren steht hier, wie viele Datensaetze das betrifft."
+      />
+
+      <div className="grid gap-5">
+        {/* Modus — zwei Faelle, die einander ausschliessen */}
+        <fieldset className="grid gap-2">
+          <legend className="text-xs uppercase tracking-wide text-muted">Was soll passieren?</legend>
+          {[
+            ["bereiche", "Ausgewaehlte Bereiche leeren",
+             "Entfernt Zeilen aus der Datenbank. Die Datei bleibt bestehen."],
+            ["dsgvo", "Alles unwiderruflich loeschen (DSGVO)",
+             "Loescht die Datenbankdatei und die Dokumentordner. Auch verwaiste Dateien, die in keiner Tabelle stehen."],
+          ].map(([wert, label, hilfe]) => (
+            <label key={wert} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/60 p-3">
+              <input
+                type="radio"
+                name="loesch-modus"
+                className="mt-1"
+                checked={modus === wert}
+                onChange={() => { setModus(wert); setConfirm(""); }}
+              />
+              <span>
+                <span className="block text-sm font-medium text-ink">{label}</span>
+                <span className="block text-xs text-muted">{hilfe}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+
+        {/* Profil — ALLE, nicht nur das aktive */}
+        <Field label="Welches Profil?">
+          <SelectInput
+            value={profilId}
+            disabled={dsgvo}
+            onChange={(e) => setProfilId(e.target.value)}
+          >
+            <option value="">Alle Profile</option>
+            {profile.map((p) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </SelectInput>
+        </Field>
+
+        {/* Bereiche */}
+        {laedt ? (
+          <p className="text-sm text-muted">Vorschau wird geladen …</p>
+        ) : (
+          <div className="grid gap-2">
+            {reihenfolge.map((bereich) => {
+              const info = daten[bereich] || {};
+              const an = aktiv.includes(bereich);
+              const geteilt = info.geteilt_unangetastet || [];
+              return (
+                <label
+                  key={bereich}
+                  className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 ${an ? "border-coral/60 bg-coral/5" : "border-line/60"}`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={an}
+                    disabled={dsgvo}
+                    onChange={() => umschalten(bereich)}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium capitalize text-ink">{bereich}</span>
+                      <Badge tone={info.zeilen_gesamt ? "coral" : "neutral"}>
+                        {info.zeilen_gesamt ?? 0} Datensaetze
+                      </Badge>
+                      {info.aufteilung && Object.entries(info.aufteilung).map(([k, n]) => (
+                        <Badge key={k} tone="neutral">{n} {k}</Badge>
+                      ))}
+                      {bereich === "dokumente" && vorschau?.dateien_auf_der_platte ? (
+                        <Badge tone="neutral">{vorschau.dateien_auf_der_platte} Dateien</Badge>
+                      ) : null}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted">{info.beschreibung}</span>
+                    {geteilt.length > 0 && (
+                      <span className="mt-1 block text-xs text-amber">
+                        Gilt fuer alle Profile und bleibt beim Leeren eines einzelnen
+                        Profils unangetastet: {geteilt.join(", ")}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Was das kostet */}
+        <div className="rounded-xl border border-coral/40 bg-coral/5 p-3 text-sm">
+          {dsgvo ? (
+            <p className="text-ink">
+              Die Datenbankdatei und die Ordner <strong>dokumente</strong> und{" "}
+              <strong>export</strong> werden geloescht. Das laesst sich nicht rueckgaengig
+              machen — auch nicht fuer einzelne Bereiche.
+            </p>
+          ) : gewaehlt.length === 0 ? (
+            <p className="text-muted">Noch kein Bereich gewaehlt.</p>
+          ) : (
+            <p className="text-ink">
+              Entfernt <strong>{betroffen}</strong>{" "}
+              {betroffen === 1 ? "Datensatz" : "Datensaetze"}
+              {dateien > 0 && <> und <strong>{dateien}</strong> {dateien === 1 ? "Datei" : "Dateien"} von der Platte</>}
+              {profilId
+                ? <> im Profil <strong>{profile.find((p) => p.id === profilId)?.name || profilId}</strong>.</>
+                : <> ueber alle Profile.</>}
+              {vorschau?.haengende_zeilen ? (
+                <> Dabei verlieren <strong>{vorschau.haengende_zeilen}</strong> Zeilen
+                ihren Verweis; sie bleiben nutzbar und lassen sich mit{" "}
+                <code>verwaiste_stellenrefs_bereinigen</code> aufraeumen.</>
+              ) : null}
+            </p>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Bestaetigung">
+            <TextInput
+              className="!w-56"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="LOESCHEN"
+            />
+          </Field>
+          <Button variant="danger" disabled={!bereit} onClick={ausfuehren}>
+            <Trash2 size={15} />
+            {dsgvo ? "Endgueltig loeschen" : "Bereiche leeren"}
+          </Button>
+        </div>
+        <p className="text-xs text-muted">
+          Gib <strong className="text-ink">LOESCHEN</strong> ein, um die Aktion
+          freizugeben.
+        </p>
+      </div>
+    </Card>
   );
 }
 
