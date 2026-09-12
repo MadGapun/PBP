@@ -2618,18 +2618,38 @@ def register(mcp, db, logger):
                 "claude_action": info["claude_action"],
                 "extrahierte_felder": info.get("fields") or {},
             }
+            # v1.7.86 (#1019): ein Datum ohne Uhrzeit ist kein Fehler,
+            # sondern eine Luecke — und die gehoert benannt, damit
+            # niemand den Vorschlag ungeprueft uebernimmt. Bis v1.7.85
+            # stand hier ein Wert aus dem Mail-Kopf, und ein Termin mit
+            # falscher Uhrzeit ist teurer als einer ohne.
+            if eintrag["extrahierte_felder"].get("uhrzeit_fehlt"):
+                eintrag["hinweis"] = (
+                    "Im Text steht ein Datum, aber keine gueltige "
+                    "Uhrzeit. Trag sie von Hand nach, bevor du den "
+                    "Termin anlegst — geraten wird sie nicht."
+                )
             gruppen.setdefault(aktion, []).append(eintrag)
 
         gruppen_summary = []
         for aktion, items in sorted(gruppen.items()):
-            gruppen_summary.append({
+            gruppe = {
                 "aktion": aktion,
                 "anzahl": len(items),
                 "naechster_aufruf_hinweis": _ROUTING_NAECHSTER_AUFRUF.get(
                     aktion, "Pruefe das Doku einzeln und entscheide."
                 ),
                 "dokumente": items,
-            })
+            }
+            ohne_zeit = sum(1 for i in items if i.get("hinweis"))
+            if ohne_zeit:
+                gruppe["ohne_uhrzeit"] = ohne_zeit
+                gruppe["naechster_aufruf_hinweis"] += (
+                    f" **{ohne_zeit} davon ohne Uhrzeit im Text** — dort "
+                    "`uhrzeit` selbst setzen, sonst entsteht ein Termin "
+                    "ohne Zeitangabe."
+                )
+            gruppen_summary.append(gruppe)
 
         return {
             "status": "ok",
