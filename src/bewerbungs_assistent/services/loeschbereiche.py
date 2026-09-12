@@ -337,6 +337,53 @@ def _bedingung(db, tabelle: str, profil_id: str | None) -> str:
             f"{_bedingung(db, eltern, profil_id)})")
 
 
+#: Bereiche, bei denen eine Gesamtzahl zu wenig sagt — je Bereich die
+#: Tabelle, die Spalte und der Klartext je Auspraegung.
+#: Bei den Stellen hat der Melder ausdruecklich darum gebeten (#1024):
+#: "wie viele Stellen betroffen sind, getrennt nach aktiv und
+#: aussortiert". Der Grund steht in seinem Bericht — mit den
+#: aussortierten Stellen verschwinden die Lernsignale, und das sieht man
+#: einer Gesamtzahl nicht an.
+_AUFTEILUNG = {
+    "stellen": ("jobs", "is_active", {1: "aktiv", 0: "aussortiert"}),
+}
+
+
+def _aufteilung(db, bereich: str, profil_id: str | None) -> dict:
+    """Die feine Aufteilung eines Bereichs, oder ein leeres dict.
+
+    Sie ist bewusst KEIN eigener Bereich: wer nur die aktiven Stellen
+    leeren will, waehlt das hier und nicht in einer zweiten Bereichsliste
+    — sonst haetten wir zwei Modelle fuer dieselbe Frage.
+    """
+    eintrag = _AUFTEILUNG.get(bereich)
+    if not eintrag:
+        return {}
+    tabelle, spalte, texte = eintrag
+    if tabelle not in set(tabellen(db)):
+        return {}
+    if spalte not in _spalten(db, tabelle):
+        return {}
+    con = db.connect()
+    klausel = _mit_bewahren(tabelle, _bedingung(db, tabelle, profil_id))
+    try:
+        zeilen = con.execute(
+            f"SELECT {spalte}, COUNT(*) FROM {tabelle}{klausel} "
+            f"GROUP BY {spalte}",
+            {"pid": profil_id} if profil_id else {}).fetchall()
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Aufteilung von %s fehlgeschlagen: %s", tabelle, exc)
+        return {}
+    # Beide Auspraegungen stehen immer da, auch mit 0 — eine fehlende
+    # Zeile waere von "keine" nicht zu unterscheiden (#989).
+    erg = {name: 0 for name in texte.values()}
+    for wert, n in zeilen:
+        name = texte.get(wert)
+        if name:
+            erg[name] = n
+    return erg
+
+
 def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
     """Wie viele Zeilen betrifft das? — ohne etwas zu aendern.
 
@@ -378,6 +425,9 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
             "beschreibung": BESCHREIBUNG.get(bereich, ""),
             "geteilt_unangetastet": sorted(geteilt),
         }
+        fein = _aufteilung(db, bereich, profil_id)
+        if fein:
+            ergebnis[bereich]["aufteilung"] = fein
         gesamt += summe
     dateien = _dateien(db, profil_id) if "dokumente" in gewaehlt else []
     haengend = haengende_verweise(db, gewaehlt, profil_id)

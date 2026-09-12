@@ -936,3 +936,101 @@ def test_stellen_tabs_nennen_ihre_menge(live_dashboard, browser):
         assert "aktive stellen" in kachel_text.lower()
     finally:
         context.close()
+
+
+def _seed_gefahrenzone(db) -> None:
+    """Zwei Profile, Stellen in beiden Zustaenden, ein Dokument-Datensatz."""
+    db.switch_profile(db.create_profile("Erstes Profil"))
+    db.create_profile("Zweites Profil")
+    db.save_jobs([
+        {
+            "hash": f"gz-{i}",
+            "title": f"Stelle {i}",
+            "company": "Firma",
+            "url": f"https://example.com/gz/{i}",
+            "source": "bundesagentur",
+            "description": "Beschreibungstext. " * 20,
+            "score": 5,
+        }
+        for i in range(6)
+    ])
+    con = db.connect()
+    con.execute("UPDATE jobs SET is_active=0, dismiss_reason='zeitarbeit' "
+                "WHERE hash LIKE '%gz-4' OR hash LIKE '%gz-5'")
+    con.commit()
+
+
+def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
+    """#1025 Stufe 2 + #1024, in der Oberflaeche statt im Quelltext.
+
+    Vier der neun Akzeptanzkriterien betreffen die Anzeige, und dort
+    ist der Grep kein Beleg (v1.7.71 MERKE 9): er zeigt nur, dass eine
+    Zeichenkette dasteht. Ein gruener Vite-Build erst recht nicht — ein
+    Hook hinter einem fruehen Return laesst ihn durchlaufen und die
+    Seite trotzdem nicht rendern (#1009).
+    """
+    _seed_gefahrenzone(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
+
+        # Die eine Karte statt der drei alten.
+        page.get_by_role("heading", name="Daten loeschen").first.wait_for(
+            state="visible", timeout=8000)
+        for weg in ("Factory Reset", "Alle Daten loeschen (DSGVO)"):
+            assert page.get_by_role("heading", name=weg).count() == 0, (
+                f"Alte Karte rendert noch: {weg}")
+
+        # AK 5 + #1024: die Zahlen stehen VOR dem Ausfuehren da,
+        # aufgeteilt nach aktiv und aussortiert.
+        page.get_by_text("4 aktiv", exact=True).wait_for(
+            state="visible", timeout=8000)
+        page.get_by_text("2 aussortiert", exact=True).wait_for(state="visible")
+
+        # AK 3: beide Profile stehen zur Auswahl, nicht nur das aktive.
+        # `SelectInput` ist kein natives <select>, sondern Knopf plus
+        # Portal-Panel — die Auswahl steht erst im DOM, wenn sie offen
+        # ist. Genau deshalb ist das hier ein Browser-Test und kein Grep.
+        #
+        # Angesprochen wird der Knopf ueber seinen TEXT und nicht ueber
+        # seinen barrierefreien Namen: der lautet "Welches Profil?",
+        # weil `Field` ihn in ein <label> wickelt und das den
+        # Knopfinhalt ueberschreibt. Ein Screenreader nennt damit die
+        # Frage und nie die Antwort — das betrifft jedes
+        # Field+SelectInput-Paar der App und ist als #1027 erfasst,
+        # nicht hier nebenbei geaendert.
+        page.locator("button", has_text="Alle Profile").first.click()
+        for name in ("Erstes Profil", "Zweites Profil"):
+            page.get_by_role("button", name=name, exact=True).wait_for(
+                state="visible", timeout=4000)
+        page.keyboard.press("Escape")
+
+        # AK 6: der Knopf bleibt gesperrt, solange nichts gewaehlt ist
+        # und das Wort fehlt.
+        knopf = page.get_by_role("button", name="Bereiche leeren")
+        assert knopf.is_disabled()
+        page.get_by_role("checkbox").nth(2).check()  # Bereich "stellen"
+        assert knopf.is_disabled(), "Ohne Bestaetigungswort freigegeben"
+        page.get_by_placeholder("LOESCHEN").fill("LOESCHEN")
+        assert knopf.is_enabled()
+
+        # AK 4: der Umschalter sperrt die Bereichsliste, statt sie
+        # zwangsweise anzuhaken — die Haekchen sind dann Anzeige der
+        # Folge und keine Auswahl.
+        page.get_by_role("radio").nth(1).check()
+        page.get_by_role("button", name="Endgueltig loeschen").wait_for(
+            state="visible")
+        kaesten = page.get_by_role("checkbox")
+        for i in range(kaesten.count()):
+            assert kaesten.nth(i).is_disabled(), (
+                "Im DSGVO-Modus ist die Bereichsliste eine Auswahl geblieben")
+            assert kaesten.nth(i).is_checked()
+    finally:
+        context.close()
