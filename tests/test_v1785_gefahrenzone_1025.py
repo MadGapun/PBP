@@ -548,10 +548,27 @@ def test_die_vorschau_zaehlt_nur_das_gewaehlte_profil(client):
             "description": "Beschreibungstext. " * 20, "score": 5,
         } for i in range(n)])
 
+    # Die Erwartung kommt aus der DATENBANK, nicht aus einer festen
+    # Zahl im Test. Grund: dieser Test ist auf dem Linux-Runner einmal
+    # mit `7 == 8` umgefallen, waehrend er lokal fuenfmal in Folge und
+    # in der vollen Suite gruen war — eine Zeile war schon VOR dem
+    # Endpunktaufruf nicht in der Tabelle. Womit der Endpunkt nichts zu
+    # tun hat: er soll sagen, was in der Datenbank steht, und genau das
+    # prueft der Test jetzt. Faellt das Speichern erneut aus, schlaegt
+    # die erste Zusicherung an und zeigt auf `save_jobs` statt auf die
+    # Vorschau.
+    con = db.connect()
+    ist_gesamt = con.execute("SELECT COUNT(*) FROM jobs").fetchone()[0]
+    ist_eins = con.execute(
+        "SELECT COUNT(*) FROM jobs WHERE profile_id=?", (eins,)).fetchone()[0]
+    assert (ist_gesamt, ist_eins) == (8, 3), (
+        f"save_jobs hat nicht alles abgelegt: {ist_gesamt} statt 8 "
+        f"({ist_eins} statt 3 im ersten Profil)")
+
     alle = c.get("/api/danger/bereiche").json()["bereiche"]["stellen"]
     nur_eins = c.get(
         f"/api/danger/bereiche?profil_id={eins}"
     ).json()["bereiche"]["stellen"]
-    assert alle["je_tabelle"]["jobs"] == 8
-    assert nur_eins["je_tabelle"]["jobs"] == 3
-    assert nur_eins["aufteilung"] == {"aktiv": 3, "aussortiert": 0}
+    assert alle["je_tabelle"]["jobs"] == ist_gesamt
+    assert nur_eins["je_tabelle"]["jobs"] == ist_eins
+    assert nur_eins["aufteilung"] == {"aktiv": ist_eins, "aussortiert": 0}

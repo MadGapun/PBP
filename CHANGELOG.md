@@ -105,6 +105,114 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.87] - 2026-09-12 — Der Mengenweg deckt fehlende Beschreibungen ab
+
+`beschreibungen_nachladen_bestand` trägt den Namen für den Mengenweg
+und antwortete für einen Bestand von 984 aktiven Stellen:
+
+```
+{"status": "nichts_zu_tun", "geprueft": 984,
+ "hinweis": "Kein aktiver Anzeigentext ist exakt 2000 Zeichen lang —
+             es sieht nichts nach der alten Kappung aus."}
+```
+
+**Während 370 aktive Stellen ohne jeden Anzeigentext danebenstanden**
+(#1016, Nachtrag zu #1014).
+
+Die Auswahlregel war `ist_gekappt(text)`, also `len(text) == 2000` —
+gebaut für den Altbestand aus #952 („Text da, aber halb"). Eine Stelle
+**ganz ohne** Text hat `len 0` und fiel durch das Raster.
+
+### Changed
+
+- **Neuer Parameter `umfang`:** `fehlend` (neue **Vorgabe**), `gekappt`,
+  `beide`. Ein Parameter statt eines zweiten Werkzeugs daneben — beide
+  Fälle existieren tatsächlich, also löst das eine Auswahl besser als
+  ein Austausch der Regel.
+- **Die Bedingung für „fehlend" kommt aus dem Nadelöhr**
+  (`MIN_BESCHREIBUNG`, #989) — dieselbe, nach der der Auto-Refetch im
+  Hintergrund ohnehin nachlädt.
+- **Die Entwarnung nennt, was der andere Umfang fände.** Der alte Satz
+  war richtig und trotzdem irreführend: „nichts sieht nach der alten
+  Kappung aus", während 370 textlose Stellen danebenlagen. Eine
+  Entwarnung, die nur für einen Teil gilt, muss sagen für welchen.
+
+### Fixed
+
+- **Der Lauf liefert die vier Befunde aus #1014.** Bis hierher rief er
+  zwar `beschreibung_holen(...).text` und warf den Befund weg — er
+  wusste danach nicht mehr, **warum** nichts kam. Jetzt steht
+  `gelesen` / `weg` / `geblockt` / `lebt_unlesbar` in der Bilanz, je
+  mit dem Klartext aus dem Dienst.
+- **Eine entfernte Anzeige wird aussortiert statt wiederholt.** Meldet
+  der Server 404 oder 410, wird die Stelle mit `veraltet_url`
+  aussortiert — genau wie im Einzelweg. Sie beim nächsten Lauf erneut
+  zu versuchen kostet einen HTTP-Aufruf und ändert nichts; sie bliebe
+  aktiv ohne Text stehen und erzeugte eine Aufgabe, die niemand
+  abarbeiten kann. Ein 403 dagegen **lässt die Stelle stehen** — er
+  sagt etwas über diesen Moment, nicht über die Anzeige.
+- Ein kürzerer Text überschreibt nichts mehr, und der ungenutzte
+  Import von `fetch_description_from_detail` ist weg.
+
+### Gemessen
+
+An einer **Kopie** des Bestands, über alle 2.578 Stellen:
+
+| | |
+|---|---:|
+| ohne brauchbaren Text | **1.198 (46,5 %)** |
+| davon `description IS NULL` | 549 |
+| davon ein Stummel von 13–46 Zeichen | **649** |
+| exakt 2.000 Zeichen (gekappt, #952) | 800 |
+| ohne brauchbare URL | 6 |
+
+**Eine Prüfung auf `IS NULL` allein hätte mehr als die Hälfte
+übersehen.** Und: der Melder maß in seinem Bestand 0 gekappte Stellen,
+hier sind es 800 — beide Fälle sind echt.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.87.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.87.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.86] - 2026-09-12 — Die Uhrzeit kommt aus dem Text, nicht aus dem Kopf
 
 Eine Interview-Einladung lieferte das Datum richtig aus dem
