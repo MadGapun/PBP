@@ -544,7 +544,18 @@ class Database:
                                   # korrigieren: der Extraktor liest
                                   # denselben Text beim naechsten Mal
                                   # wieder gleich.
-                                  ("salary_quelle", "TEXT")):
+                                  ("salary_quelle", "TEXT"),
+                                  # v1.7.84 (#1023): der UMFANG als
+                                  # eigene Dimension. Bis hierher
+                                  # musste `employment_type` beides
+                                  # ausdruecken, und "Festanstellung in
+                                  # Teilzeit" ging dabei verloren — am
+                                  # Bestand gemessen trugen 0 von 1.282
+                                  # Stellen `teilzeit`. `befristet` ist
+                                  # ein Kennzeichen am Vertrag, keine
+                                  # Anstellungsform.
+                                  ("arbeitsumfang", "TEXT"),
+                                  ("befristet", "INTEGER")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -5189,6 +5200,11 @@ class Database:
                 if (is_active and src and src not in _URL_OPTIONAL_SOURCES
                         and not job.get("_manual_entry")):
                     from .services import stellenart as _art_modul
+                    # v1.7.84 (#1023): gefiltert wird NUR ueber die
+                    # Anstellungsform. Der Umfang steht bei 993 von
+                    # 1.110 Stellen gar nicht da und ist oft
+                    # verhandelbar — ein Ausschluss darauf traefe vor
+                    # allem die, bei denen die Angabe nur fehlt.
                     _unerwuenscht = _art_modul.unerwuenscht(job, _art_kriterien)
                     if _unerwuenscht:
                         is_active = 0
@@ -5202,6 +5218,25 @@ class Database:
                             if research_notes else _art_note
                         )
                         stellenart_erkannt += 1
+
+            # v1.7.84 (#1023): beide Merkmale werden GESCHRIEBEN, auch
+            # wenn nicht gefiltert wird. Bis v1.7.83 hat `stellenart`
+            # zwar ENTSCHIEDEN, aber nichts abgelegt — deshalb standen
+            # die 102 Teilzeitstellen des Melders weiterhin als
+            # `festanstellung` in der Datenbank, obwohl die Erkennung
+            # sie erkannte. Eine Erkennung, deren Ergebnis nirgends
+            # landet, ist fuer jede Anzeige und jeden Filter unsichtbar.
+            try:
+                from .services import stellenart as _merk_modul
+                _merk = _merk_modul.merkmale(job)
+                _employment_type = _merk["form"]
+                _arbeitsumfang = _merk["umfang"]
+                _befristet = 1 if _merk["befristet"] else 0
+            except Exception as _exc:  # pragma: no cover — nie den Lauf stoppen
+                logger.debug("Stellen-Merkmale (#1023): %s", _exc)
+                _employment_type = job.get("employment_type")
+                _arbeitsumfang = None
+                _befristet = None
 
             # v1.7.64 (#1010): `save_jobs` sortiert selbst aus — Wiedergaenger
             # (#941), Duplikat (#641) und Nicht-DACH-Ort (#732), alle drei nur
@@ -5244,8 +5279,9 @@ class Database:
                     is_search_url, profile_id, found_at, updated_at, is_active,
                     dismiss_reason, research_notes,
                     description_snapshot, snapshot_at, snapshot_source,
-                    fachscore, rahmenscore, dismissed_at, dismissed_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    fachscore, rahmenscore, dismissed_at, dismissed_by,
+                    arbeitsumfang, befristet)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 stored_hash, job.get("title"), job.get("company"),
                 job.get("location"), job.get("url"), job.get("source"),
@@ -5255,7 +5291,11 @@ class Database:
                 *_gehalt_gesund(job.get("salary_min"),
                                 job.get("salary_max")),
                 job.get("salary_type"), job.get("salary_estimated", 0),
-                job.get("employment_type", "festanstellung"),
+                # v1.7.84 (#1023): die ERKANNTE Form, nicht die rohe
+                # Angabe der Quelle — sonst bleibt `festanstellung`
+                # stehen, obwohl der Titel "Werkstudent" sagt.
+                _employment_type or job.get("employment_type",
+                                            "festanstellung"),
                 new_pinned, job.get("lat"), job.get("lon"),
                 job.get("veroeffentlicht_am"),
                 1 if job.get("is_search_url") else 0,
@@ -5268,7 +5308,8 @@ class Database:
                 # eine Aussage, NULL ist ehrlich "nicht bewertet".
                 # v1.7.62 (#1008): welcher Lauf gilt, entscheidet oben.
                 neue_teilscores[0], neue_teilscores[1],
-                dismissed_at_wert, dismissed_by_wert
+                dismissed_at_wert, dismissed_by_wert,
+                _arbeitsumfang, _befristet
             ))
             # #892: zurueckschreiben, was das REPLACE geloescht hat.
             # Muss VOR dem Erst-Score laufen, damit der bewahrte Wert

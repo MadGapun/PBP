@@ -79,6 +79,7 @@ EXPECTED_TOOL_NAMES = {
     # Divergenz zwischen applications.job_hash und application_jobs
     "stellen_dubletten_pruefen",
     "stellen_urls_heilen",
+    "stellen_merkmale_nachziehen",
     "bewerbungs_stellen_abgleichen",
     # v1.7.10/beta.9 (#778-#784, #774): Stabilisierungswelle 24.07.
     "kalibrierung_backtest",
@@ -392,7 +393,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 244  # v1.7.82 (#1026): +gehalt_setzen
+        assert len(tools) == 245  # v1.7.84 (#1023): +stellen_merkmale_nachziehen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

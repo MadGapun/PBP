@@ -102,6 +102,8 @@ export const FILTER_STANDARD = {
   sort: "score_desc",
   view: "active",
   employmentType: "",
+  // #1023: der Umfang als eigener Filter — zweite Dimension.
+  arbeitsumfang: "",
   hideApplied: true,
   missingDescriptionOnly: false,
   // #948: EIN Filter fuer den Pruefstand, drei Werte. Vorher stand
@@ -126,6 +128,7 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.remote) aktiv.push({ schluessel: "remote", text: `Remote ${filters.remote}` });
   if (filters.salaryOnly) aktiv.push({ schluessel: "salaryOnly", text: "nur mit Gehalt" });
   if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
+  if (filters.arbeitsumfang) aktiv.push({ schluessel: "arbeitsumfang", text: filters.arbeitsumfang });
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
   if (filters.pruefstand) {
@@ -155,6 +158,37 @@ export function dismissWindowGrenze(fenster) {
   const tage = fenster === "30tage" ? 30 : 7;
   return jetzt.getTime() - tage * 24 * 60 * 60 * 1000;
 }
+
+// #1023: Anstellungsform und Umfang sind ZWEI Merkmale. Bis v1.7.83
+// stand die Zuordnung als verschachtelter Ternaer direkt im JSX — mit
+// zwei Dimensionen und sechs Formen waere daraus eine Zeile geworden,
+// die niemand mehr liest. Und `zeitarbeit` und `ausbildung` fehlten
+// dort, obwohl sie im Bestand vorkommen.
+const ANSTELLUNGSFORM_TEXT = {
+  festanstellung: "Festanstellung",
+  zeitarbeit: "Zeitarbeit",
+  freelance: "Freelance",
+  praktikum: "Praktikum",
+  werkstudent: "Werkstudent",
+  ausbildung: "Ausbildung",
+};
+
+const ANSTELLUNGSFORM_TON = {
+  festanstellung: "sky",
+  freelance: "success",
+  praktikum: "amber",
+  werkstudent: "amber",
+  ausbildung: "amber",
+  zeitarbeit: "danger",
+};
+
+const UMFANG_TEXT = {
+  vollzeit: "Vollzeit",
+  teilzeit: "Teilzeit",
+  // "Vollzeit / Teilzeit" ist eine ZUSAGE, keine Mehrdeutigkeit — ein
+  // Etikett mit nur zwei Werten macht daraus eine Falschangabe.
+  beides: "Voll- oder Teilzeit",
+};
 
 const ANALYSE_ETIKETT = {
   EMPFOHLEN: "Empfohlen",
@@ -740,6 +774,12 @@ export default function JobsPage() {
   const sourceOptions = [...new Set(allJobs.map((job) => job.source).filter(Boolean))];
   const remoteOptions = [...new Set(allJobs.map((job) => job.remote_level).filter((r) => r && r !== "unbekannt"))];
   const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
+  // #1023: nur Werte, die im Bestand wirklich vorkommen — und
+  // `unbekannt` gehoert nicht in eine Auswahl, die etwas einschraenken
+  // soll.
+  const umfangOptions = [...new Set(
+    allJobs.map((job) => job.arbeitsumfang)
+      .filter((u) => u && u !== "unbekannt"))];
   const currentList = filters.view === "active" ? jobs : protokollListe;
   // #1022: die vier Kennzahlen der Kopfzeile beschreiben den BESTAND.
   // Bis v1.7.82 rechneten sie ueber die geladene Seite — und weil nach
@@ -801,6 +841,15 @@ export default function JobsPage() {
       const remoteMatch = !filters.remote || job.remote_level === filters.remote;
       const salaryMatch = !filters.salaryOnly || (job.salary_min && job.salary_min > 0);
       const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
+      // #1023: "beides" zaehlt als Treffer fuer BEIDE Richtungen. Eine
+      // Anzeige, die Voll- UND Teilzeit anbietet, ist fuer jemanden,
+      // der Teilzeit sucht, eine Teilzeitstelle — sie herauszufiltern
+      // waere dieselbe Falschaussage wie ein Etikett mit zwei Werten.
+      const umfangMatch = !filters.arbeitsumfang
+        || job.arbeitsumfang === filters.arbeitsumfang
+        || (job.arbeitsumfang === "beides"
+            && (filters.arbeitsumfang === "teilzeit"
+                || filters.arbeitsumfang === "vollzeit"));
       const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
       const descriptionMatch = !filters.missingDescriptionOnly || jobNeedsDescriptionAttention(job);
       // #1007/#948: "noch nicht beurteilt" ist kein Urteil. Welcher
@@ -809,7 +858,7 @@ export default function JobsPage() {
       // Einteilung im JavaScript waere #963 im Frontend.
       const stand = job.pruefstand?.art || "ungeprueft";
       const analysedMatch = !filters.pruefstand || stand === filters.pruefstand;
-      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && appliedMatch && descriptionMatch && analysedMatch;
+      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && umfangMatch && appliedMatch && descriptionMatch && analysedMatch;
     })
     .sort((a, b) => {
       // Pinned jobs always come first
@@ -1259,9 +1308,29 @@ export default function JobsPage() {
                 value={filters.employmentType}
                 onChange={(e) => setFilters((f) => ({ ...f, employmentType: e.target.value }))}
               >
-                <option value="">Alle Stellenarten</option>
+                <option value="">Alle Anstellungsformen</option>
                 {employmentTypeOptions.map((t) => (
-                  <option key={t} value={t}>{t === "festanstellung" ? "Festanstellung" : t === "freelance" ? "Freelance" : t === "praktikum" ? "Praktikum" : t === "werkstudent" ? "Werkstudent" : t}</option>
+                  <option key={t} value={t}>{ANSTELLUNGSFORM_TEXT[t] || t}</option>
+                ))}
+              </SelectInput>
+            )}
+
+            {/* #1023: der zweite Filter — der UMFANG. Kombinierbar mit
+                dem darueber ("alle Festanstellungen, davon Teilzeit").
+                Er filtert die ANZEIGE und sortiert nichts aus: der
+                Umfang steht bei den meisten Stellen gar nicht da.
+                "Voll- oder Teilzeit" erscheint deshalb auch unter
+                "Teilzeit" — eine Stelle, die beides anbietet, ist eine
+                Teilzeitstelle fuer jemanden, der Teilzeit sucht. */}
+            {umfangOptions.length > 1 && (
+              <SelectInput
+                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+                value={filters.arbeitsumfang}
+                onChange={(e) => setFilters((f) => ({ ...f, arbeitsumfang: e.target.value }))}
+              >
+                <option value="">Jeder Umfang</option>
+                {umfangOptions.map((t) => (
+                  <option key={t} value={t}>{UMFANG_TEXT[t] || t}</option>
                 ))}
               </SelectInput>
             )}
@@ -1440,10 +1509,23 @@ export default function JobsPage() {
                     )}
                     {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
                     {job.employment_type ? (
-                      <Badge tone={job.employment_type === "freelance" ? "success" : job.employment_type === "festanstellung" ? "sky" : job.employment_type === "praktikum" ? "amber" : "neutral"}>
-                        {job.employment_type === "freelance" ? "Freelance" : job.employment_type === "festanstellung" ? "Festanstellung" : job.employment_type === "praktikum" ? "Praktikum" : job.employment_type === "werkstudent" ? "Werkstudent" : job.employment_type}
+                      <Badge tone={ANSTELLUNGSFORM_TON[job.employment_type] || "neutral"}>
+                        {ANSTELLUNGSFORM_TEXT[job.employment_type] || job.employment_type}
                       </Badge>
                     ) : null}
+                    {/* #1023: der UMFANG als eigenes Kennzeichen neben der
+                        Anstellungsform. Der Melder: "Dann sehe ich in der
+                        Liste sofort, was mich erwartet, ohne die Anzeige zu
+                        oeffnen." `unbekannt` bekommt bewusst KEIN Abzeichen
+                        — ein Etikett "unbekannt" an 993 von 1.110 Stellen
+                        waere Rauschen, und die Luecke steht ohnehin im
+                        Datenguete-Befund. */}
+                    {job.arbeitsumfang && job.arbeitsumfang !== "unbekannt" ? (
+                      <Badge tone={job.arbeitsumfang === "teilzeit" ? "amber" : "neutral"}>
+                        {UMFANG_TEXT[job.arbeitsumfang] || job.arbeitsumfang}
+                      </Badge>
+                    ) : null}
+                    {job.befristet ? <Badge tone="neutral">Befristet</Badge> : null}
                     {/* #154: Bereits-beworben-Badge aus matched applications */}
                     {appliedJobHashes.has(job.hash) ? (
                       <button
