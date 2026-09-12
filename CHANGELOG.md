@@ -105,6 +105,119 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.85] - 2026-09-12 — Ein Löschbereich statt vier
+
+Die Gefahrenzone hatte vier Einträge, von denen zwei sich fast gleich
+beschrieben und sehr Verschiedenes taten: „Alle Daten löschen (DSGVO)"
+löscht die **Datei**, der Factory Reset löscht **Zeilen**. Als Nutzer
+war das aus den Beschreibungen nicht abzuleiten. Stufe 1 (v1.7.81) hat
+die Frage „was gehört wozu" aus dem Schema abgeleitet statt sie
+aufzuzählen; Stufe 2 gibt genau das heraus (#1025). Damit ist auch
+#1024 erledigt: der Stellen-Bestand lässt sich allein leeren.
+
+### Added
+
+- **Eine Karte „Daten löschen" statt dreier.** Die sechs Bereiche
+  (Profil, Bewerbungen, Stellen, Dokumente, Einstellungen, Gelerntes)
+  sind einzeln wählbar und in einem Vorgang kombinierbar. Jeder trägt
+  seine Zahl und im Klartext, was sein Verlust kostet.
+- **Ein Umschalter für den Modus, keine Checkbox.** Wörtlich nach dem
+  Melder: eine DSGVO-Checkbox, die beim Anhaken alle anderen
+  zwangsweise mitsetzt, überschreibt die Eingabe des Menschen — und die
+  vollen Häkchen behaupten dann etwas Falsches, denn gelöscht werden
+  nicht die Bereiche, sondern die Datei. Im DSGVO-Modus ist die
+  Bereichsliste gesperrte **Anzeige der Folge**, keine Auswahl.
+- **Alle Profile stehen zur Auswahl**, nicht nur das aktive. Wer ein
+  zweites Profil leeren wollte, musste vorher dorthin wechseln.
+- **Geteilte Bereiche sind gekennzeichnet** und bleiben beim Leeren
+  eines einzelnen Profils unangetastet — dreizehn Tabellen gelten für
+  alle Profile.
+- **Vorschau mit Zahlen vor dem Ausführen**, inklusive der Dateien auf
+  der Platte und der Verweise, die dabei hängend werden.
+- **Der Stellen-Bestand lässt sich allein leeren** (#1024), und die
+  Vorschau trennt dabei **aktiv und aussortiert**. Der Grund steht im
+  Bericht: mit den aussortierten Stellen verschwinden die
+  **Lernsignale** — Ablehnungsgründe, Wiedergänger-Muster,
+  Kalibrierung —, und das sieht man einer Gesamtzahl nicht an. Die
+  Aufteilung ist deshalb Teil der Vorschau und **kein zweiter
+  Bereich**: zwei Modelle für dieselbe Frage wären das Muster, gegen
+  das dieses Issue angetreten ist.
+- Neue Endpunkte `GET /api/danger/bereiche` und
+  `POST /api/danger/leeren`.
+
+### Changed
+
+- **Ein Bestätigungswort, `LOESCHEN`** — geprüft am Server und nicht
+  nur am Knopf. Eine Freigabe, die allein in der Oberfläche sitzt, ist
+  keine. Am bisherigen DSGVO-Weg gilt `ALLES_LOESCHEN` weiter; ihn
+  abzuschaffen wäre eine Vertragsänderung, um die niemand gebeten hat.
+- **Die DSGVO-Löschung liegt nur noch an einem Ort.** Beide Endpunkte
+  rufen denselben Helfer; vorher stand das Löschen von Datei und
+  Ordnern ein zweites Mal im Code. Zwei Wege, die dieselbe Sache
+  verschieden machen, sind genau der Befund, aus dem dieses Issue
+  entstanden ist.
+- Ein unbekannter Bereich oder Modus wird **benannt und abgewiesen**,
+  nicht still ignoriert — eine Auswahl, der man glaubt, die aber nichts
+  bewirkt, ist der Fehler aus #988.
+
+### Fixed
+
+- Drei tote Zustände (`resetConfirm`, `deleteConfirm`,
+  `profileDeleteConfirm`) und zwei Handler haben mit den alten Karten
+  ihren letzten Leser verloren und sind entfernt. Ein Feld ohne Leser
+  ist eine Behauptung (#993, #1000, #1008).
+
+### Known Issues
+
+- **#1027:** Der barrierefreie Name eines Auswahlfeldes ist die
+  Feldbeschriftung und nie der gewählte Wert, weil `Field` das
+  `SelectInput` in ein `<label>` wickelt. Beim Bauen dieser Karte
+  gefunden, betrifft aber jedes solche Paar der Anwendung — deshalb als
+  eigener Vorgang erfasst statt hier nebenbei geändert.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.85.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.85.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.84] - 2026-09-12 — Anstellungsform und Umfang sind zwei Fragen
 
 Eine Stelle hat eine Anstellungsform **und** einen Umfang.
