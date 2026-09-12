@@ -304,6 +304,7 @@ class LLMService:
                 metrics={"backend": "mock", "duration_ms": 0},
             )
 
+        lokaler_grund = None
         if backend == Backend.LOCAL:
             # v1.7.0-beta.2: Echter Ollama-Call
             try:
@@ -311,18 +312,28 @@ class LLMService:
             except Exception as exc:
                 logger.warning("Local LLM call failed for %s: %s — falling back to CLAUDE",
                                task, exc)
+                from .ollama_kontext import KontextZuKlein
+                if isinstance(exc, KontextZuKlein):
+                    # #787: der Ausweichweg nennt, WARUM — sonst saehe ein
+                    # zu kleines Fenster aus wie eine ausgefallene KI.
+                    lokaler_grund = str(exc)
                 backend = Backend.CLAUDE
 
         if backend == Backend.CLAUDE:
+            nachricht = (
+                f"Task '{task.value}' soll von Claude erledigt werden — "
+                "der MCP-Aufrufer (Claude Desktop) ist hier zustaendig."
+            )
+            metriken = {"backend": "claude_pending"}
+            if lokaler_grund:
+                nachricht += " Grund: " + lokaler_grund
+                metriken["lokal_abgebrochen"] = "kontext_zu_klein"
             return TaskResult(
                 backend=Backend.CLAUDE,
                 success=False,
                 payload=None,
-                fallback_message=(
-                    f"Task '{task.value}' soll von Claude erledigt werden — "
-                    "der MCP-Aufrufer (Claude Desktop) ist hier zustaendig."
-                ),
-                metrics={"backend": "claude_pending"},
+                fallback_message=nachricht,
+                metrics=metriken,
             )
 
         return TaskResult(
@@ -364,11 +375,13 @@ class LLMService:
         parser = _RESPONSE_PARSERS.get(task, lambda s: {"raw": s})
         result_payload = parser(response_text)
 
+        metrics = {"backend": "ollama", "model": model, "duration_ms": duration_ms}
+        metrics.update(getattr(self, "letzter_aufruf", None) or {})  # #787
         return TaskResult(
             backend=Backend.LOCAL,
             success=True,
             payload=result_payload,
-            metrics={"backend": "ollama", "model": model, "duration_ms": duration_ms},
+            metrics=metrics,
         )
 
     def _ollama_generate(self, model: str, prompt: str, max_tokens: int = 800) -> str:
@@ -381,14 +394,23 @@ class LLMService:
         das Modell 60 Minuten lang im RAM gehalten werden soll. Sonst
         entlaedt Ollama nach 5 Min Inaktivitaet und der naechste Aufruf
         zahlt 50-60s Cold-Load — was MCP-Timeouts ausloest.
+
+        v1.7.90 (#787): `num_ctx` explizit. Ohne ihn schnitt Ollama einen
+        laengeren Prompt still ab. Passt der Prompt nicht, wirft der Aufruf
+        `KontextZuKlein` — vorher geschaetzt, nachher gemessen
+        (`services/ollama_kontext`).
         """
         import json
         import urllib.request
+        from . import ollama_kontext
+        num_ctx = ollama_kontext.num_ctx_lesen(self.db)
+        geschaetzt = ollama_kontext.vorab_pruefen(prompt, max_tokens, num_ctx)
         body = json.dumps({
             "model": model,
             "prompt": prompt,
             "stream": False,
-            "options": {"num_predict": max_tokens, "temperature": 0.2},
+            "options": {"num_predict": max_tokens, "temperature": 0.2,
+                        "num_ctx": num_ctx},
             "keep_alive": "60m",  # #638: Modell warm halten
         }).encode("utf-8")
         req = urllib.request.Request(
@@ -399,7 +421,14 @@ class LLMService:
         )
         with urllib.request.urlopen(req, timeout=120.0) as resp:
             data = json.loads(resp.read().decode("utf-8"))
-            return data.get("response", "")
+        prompt_tokens = data.get("prompt_eval_count")
+        self.letzter_aufruf = {
+            "num_ctx": num_ctx,
+            "prompt_tokens_geschaetzt": geschaetzt,
+            "prompt_tokens": prompt_tokens,
+        }
+        ollama_kontext.nachher_pruefen(prompt_tokens, max_tokens, num_ctx)
+        return data.get("response", "")
 
     def warmup(self, model: str | None = None) -> dict:
         """v1.7.0-beta.62 (#638): Modell vorab laden um Cold-Load-Latenz zu vermeiden.
@@ -421,11 +450,16 @@ class LLMService:
         if not m:
             return {"status": "no_model"}
         t0 = _t.time()
+        from . import ollama_kontext
         body = json.dumps({
             "model": m,
             "prompt": "ready",
             "stream": False,
-            "options": {"num_predict": 1, "temperature": 0.0},
+            # #787: DASSELBE Fenster wie der echte Aufruf. Mit einem
+            # anderen laedt Ollama das Modell beim ersten echten Aufruf
+            # neu, und der Warmup haette nichts gewaermt (#638).
+            "options": {"num_predict": 1, "temperature": 0.0,
+                        "num_ctx": ollama_kontext.num_ctx_lesen(self.db)},
             "keep_alive": "60m",
         }).encode("utf-8")
         req = urllib.request.Request(
