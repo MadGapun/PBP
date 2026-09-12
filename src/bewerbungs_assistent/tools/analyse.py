@@ -3019,6 +3019,39 @@ def register(mcp, db, logger):
             "aktueller_stand": ollama_start.autostart_lesen(db),
         }
 
+    @mcp.tool()
+    def ollama_kontext(aktion: str = "anzeigen", wert: int = 0) -> dict:
+        """Wie gross ist das Kontextfenster der lokalen KI (#787)?
+
+        Das Fenster (`num_ctx`, in Tokens) bestimmt, wie viel Text Ollama
+        auf einmal sieht. Ist ein Prompt laenger, schneidet Ollama den
+        Anfang STILL ab und bewertet einen Torso. PBP schickt einen
+        solchen Prompt deshalb nicht ab bzw. verwirft die Antwort und
+        nennt den Grund.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'setzen' oder 'zuruecksetzen'.
+            wert: das neue Fenster bei 'setzen', ganze Zahl von 2048 bis
+                131072. Vorgabe ist 8192.
+
+        Ein groesseres Fenster braucht mehr Arbeitsspeicher; Ollama laedt
+        das Modell nach einer Aenderung einmalig neu. Ein ungueltiger Wert
+        wird abgewiesen, nicht still korrigiert.
+        """
+        from ..services import ollama_kontext as kontext
+
+        wahl = (aktion or "anzeigen").strip().lower()
+        if wahl in ("anzeigen", "lesen", "status", ""):
+            return kontext.lesen(db)
+        if wahl == "setzen":
+            return kontext.setzen(db, wert)
+        if wahl in ("zuruecksetzen", "vorgabe"):
+            return kontext.zuruecksetzen(db)
+        return {
+            "fehler": "aktion muss 'anzeigen', 'setzen' oder 'zuruecksetzen' sein.",
+            "aktueller_stand": kontext.lesen(db),
+        }
+
     # === Telemetrie-Sharing-Steuerung (#594 Stufe 5, beta.93) ==========
 
     @mcp.tool()
