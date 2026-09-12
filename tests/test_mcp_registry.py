@@ -72,6 +72,11 @@ EXPECTED_TOOL_NAMES = {
     "stellen_dubletten_pruefen",
     "stellen_urls_heilen",
     "stellen_merkmale_nachziehen",
+    "referenz_markieren",
+    "referenz_bearbeiten",
+    "referenz_entfernen",
+    "referenzen_anzeigen",
+    "referenzliste_exportieren",
     "bewerbungs_stellen_abgleichen",
     # v1.7.10 (#778-#784, #774): Stabilisierungswelle 24.07.
     "kalibrierung_backtest",
@@ -375,7 +380,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 232  # v1.7.84 (#1023): +stellen_merkmale_nachziehen
+        assert len(tools) == 237  # v1.7.88 (#884): +5 Referenz-Werkzeuge
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

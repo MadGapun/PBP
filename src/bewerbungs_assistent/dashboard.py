@@ -7974,6 +7974,84 @@ async def api_jobs_csv(filter: str = "alle"):
     return _csv_response(jobs, columns, f"stellen_{filter}.csv")
 
 
+# === Referenzen an Kontakten (v1.7.88, #884, D24) ===
+#
+# Eigener Pfad `/api/references` statt `/api/contacts/references`: unter
+# `/api/contacts/{contact_id}` wuerde FastAPI den festen Pfadteil sonst
+# je nach Reihenfolge als Kontakt-ID lesen (#578).
+
+@app.get("/api/references")
+async def api_references(art: str = "", application_id: str = "",
+                         project_id: str = "", contact_id: str = ""):
+    from .services import referenzen
+    try:
+        schluessel = referenzen.art_normalisieren(art) if art else ""
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    refs = _db.list_contact_references(schluessel, application_id,
+                                       project_id, contact_id)
+    for r in refs:
+        r["art_label"] = referenzen.bezeichnung(r["reference_type"])
+    return {"referenzen": refs, "anzahl": len(refs),
+            "arten": referenzen.arten_liste()}
+
+
+@app.post("/api/references")
+async def api_reference_create(request: Request):
+    data = await request.json()
+    try:
+        erg = _db.add_contact_reference(
+            data.get("contact_id") or "", data.get("reference_type") or "",
+            data.get("period_text") or "", data.get("note") or "",
+            data.get("application_id") or "", data.get("project_id") or "")
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"status": "ok", **erg}
+
+
+@app.get("/api/references/export")
+async def api_references_export(format: str = "docx", art: str = "",
+                                application_id: str = "",
+                                project_id: str = "",
+                                mit_kontaktdaten: bool = False):
+    from .services import referenzen
+    try:
+        erg = referenzen.exportieren(_db, format, art, application_id,
+                                     project_id, mit_kontaktdaten)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    if erg.get("status") != "exportiert":
+        return JSONResponse({"error": erg.get("hinweis", "Keine Referenzen.")},
+                            status_code=404)
+    pfad = Path(erg["datei"])
+    media = ("application/pdf" if pfad.suffix == ".pdf" else
+             "application/vnd.openxmlformats-officedocument."
+             "wordprocessingml.document")
+    return FileResponse(str(pfad), filename=pfad.name, media_type=media)
+
+
+@app.put("/api/references/{ref_id}")
+async def api_reference_update(ref_id: str, request: Request):
+    data = await request.json()
+    felder = {k: data.get(k) for k in ("reference_type", "period_text",
+                                        "note", "application_id",
+                                        "project_id") if k in data}
+    try:
+        erg = _db.update_contact_reference(ref_id, felder)
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=404
+                            if "nicht gefunden" in str(exc) else 400)
+    return {"status": "ok", **erg}
+
+
+@app.delete("/api/references/{ref_id}")
+async def api_reference_delete(ref_id: str):
+    if not _db.delete_contact_reference(ref_id):
+        return JSONResponse({"error": "Referenz nicht gefunden"},
+                            status_code=404)
+    return {"status": "ok"}
+
+
 @app.get("/api/contacts/export.csv")
 async def api_contacts_csv():
     """Kontakte als CSV exportieren (#578)."""

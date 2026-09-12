@@ -1034,3 +1034,59 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
             assert kaesten.nth(i).is_checked()
     finally:
         context.close()
+
+
+def test_kontakte_untermenue_referenzen(live_dashboard, browser):
+    """#884 — die Referenz-Ansicht, bedient statt gegrept.
+
+    Drei der fuenf Akzeptanzkriterien betreffen die Oberflaeche; ein
+    gruener Build belegt nicht, dass die Seite rendert (#1009).
+    """
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Referenzprofil"))
+    anna = db.add_contact({"full_name": "Anna Beispiel",
+                           "company": "Musterbetrieb GmbH",
+                           "position": "Bereichsleitung"})
+    db.add_contact({"full_name": "Bert Beispiel", "company": "Musterbetrieb GmbH"})
+    db.add_contact_reference(anna, "vorgesetzter", "2020-2024",
+                             "kann zur Programmleitung Auskunft geben")
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#kontakte",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+
+        page.get_by_role("tab", name="Referenzen").click()
+        ansicht = page.get_by_test_id("referenzen-ansicht")
+        ansicht.wait_for(state="visible", timeout=8000)
+        ansicht.get_by_text("Anna Beispiel").wait_for(state="visible")
+        ansicht.get_by_text("2020-2024", exact=False).first.wait_for(state="visible")
+        # Nur markierte Kontakte — Bert ist keine Referenz.
+        assert ansicht.get_by_text("Bert Beispiel").count() == 0
+
+        docx = page.get_by_role("link", name="Referenzliste als DOCX")
+        assert "mit_kontaktdaten=false" in docx.get_attribute("href")
+        page.get_by_label("Kontaktdaten in die Liste aufnehmen").check()
+        assert "mit_kontaktdaten=true" in docx.get_attribute("href")
+
+        # Filter nach Art: eine andere Art leert die Liste.
+        page.get_by_label("Nach Art der Referenz filtern").select_option("kunde")
+        page.get_by_text("Keine Referenz dieser Art.").wait_for(state="visible")
+
+        # Zurueck in die Kontakt-Ansicht, Dialog oeffnen, Block sichtbar.
+        page.get_by_role("tab", name="Kontakte").click()
+        page.get_by_text("Bert Beispiel").first.click()
+        block = page.get_by_test_id("referenz-block")
+        block.wait_for(state="visible", timeout=8000)
+        block.get_by_label("Art der Referenz").select_option("kollege")
+        block.get_by_role("button", name="Als Referenz markieren").click()
+        # Der Listeneintrag, nicht die gleichlautende <option> im
+        # Auswahlfeld — ein zu breiter Locator misst den Test, nicht
+        # den Code (v1.7.83 MERKE 8).
+        block.get_by_role("listitem").filter(has_text="Projektpartner").wait_for(state="visible", timeout=8000)
+        assert len(db.list_contact_references()) == 2
+    finally:
+        context.close()
