@@ -3593,97 +3593,208 @@ def register(mcp, db, logger):
                 "und war bisher nicht bewertbar.")
         return antwort
 
+    # v1.7.87 (#1016): "fehlend" ist die Vorgabe, nicht "gekappt".
+    # Der Melder hat den Grund geliefert: sein Bestand meldete
+    # `geprueft: 984, betroffen: 0` — waehrend 370 Stellen OHNE jeden
+    # Text danebenstanden. Das Werkzeug traegt den Namen fuer den
+    # Mengenweg und beantwortete nur den Altfall aus #952.
+    UMFAENGE = ("fehlend", "gekappt", "beide")
+
     @mcp.tool()
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
-                                         nur_zaehlen: bool = True) -> dict:
-        """Laedt abgeschnittene Anzeigentexte im Bestand nach (#952).
+                                         nur_zaehlen: bool = True,
+                                         umfang: str = "fehlend") -> dict:
+        """Laedt fehlende oder abgeschnittene Anzeigentexte nach (#1016).
 
-        Bis v1.7.22 kappte jeder Quellen-Adapter den Text bei exakt 2000
-        Zeichen, bevor er gespeichert wurde. Betroffen ist damit der
-        gesamte Altbestand — und weil der Refetch selbst kappte, half
-        auch wiederholtes Nachladen nicht.
+        Zwei verschiedene Schaeden, ein Werkzeug:
 
-        Sinnvoll erst NACH v1.7.23: vorher holt der Lauf denselben halben
-        Text zurueck.
+        * **fehlend** (Vorgabe) — die Stelle hat gar keinen brauchbaren
+          Text. Haeufigster Fall: die BA-Suche legt ab Treffer 21 je
+          Suchbegriff Stellen ohne Volltext an (#500) und setzt voraus,
+          dass Nachladen funktioniert.
+        * **gekappt** — der Altbestand aus #952: bis v1.7.22 kappte
+          jeder Adapter bei exakt 2000 Zeichen, und weil der Refetch
+          selbst kappte, half auch wiederholtes Nachladen nicht.
+        * **beide** — beides in einem Lauf.
+
+        Bis v1.7.86 gab es nur den zweiten Fall, und zwar als einzige
+        Auswahlregel. Eine Stelle ganz ohne Text hat `len 0` und fiel
+        damit durch das Raster — das Werkzeug meldete "nichts zu tun"
+        fuer genau den Bestand, wegen dem man es aufruft.
+
+        Der Lauf geht durch `services/nachladen` (#1014) und liefert
+        dessen vier Befunde in der Bilanz. Eine Stelle, deren Anzeige
+        der Server ausdruecklich als entfernt meldet (404/410), wird
+        AUSSORTIERT statt beim naechsten Lauf erneut versucht.
 
         Args:
             max_stellen: Obergrenze pro Lauf. Jede Stelle ist ein
                 HTTP-Aufruf, deshalb bewusst klein.
-            nur_zaehlen: Default True — meldet nur, wie viele betroffen
+            nur_zaehlen: Vorgabe True — meldet nur, wie viele betroffen
                 sind, ohne etwas zu holen.
+            umfang: `fehlend` (Vorgabe), `gekappt` oder `beide`.
         """
         import httpx
 
-        from ..job_scraper import fetch_description_from_detail
         from ..job_scraper.textgrenzen import ist_gekappt
+        from ..services import nachladen
+        from ..services.datenguete import MIN_BESCHREIBUNG
+
+        gewaehlt = (umfang or "fehlend").strip().lower()
+        if gewaehlt not in UMFAENGE:
+            # Still auf die Vorgabe zu fallen waere #988: eine Auswahl,
+            # der man glaubt, die aber etwas anderes tut.
+            return {
+                "status": "fehler",
+                "grund": (f"Unbekannter Umfang '{umfang}'. Erlaubt: "
+                          f"{', '.join(UMFAENGE)}."),
+            }
+
+        def _fehlt(job) -> bool:
+            # Die Bedingung stammt aus dem Auto-Refetch (#1014) und ist
+            # damit dieselbe, nach der PBP im Hintergrund ohnehin
+            # nachlaedt. Gemessen am Bestand: von 1.198 textlosen
+            # Stellen sind nur 549 wirklich NULL — die uebrigen 649
+            # tragen einen Stummel von 13 bis 46 Zeichen. Eine Pruefung
+            # auf NULL allein haette mehr als die Haelfte uebersehen.
+            return len((job.get("description") or "").strip()) < MIN_BESCHREIBUNG
 
         aktive = db.get_active_jobs() or []
-        betroffen = [j for j in aktive if ist_gekappt(j.get("description"))]
-        if not betroffen:
+        fehlend = [j for j in aktive if _fehlt(j)]
+        # `ist_gekappt` und `_fehlt` schliessen einander aus (2000 gegen
+        # unter 50), eine Dublettenpruefung waere also Zierrat — der
+        # Test haelt das fest, damit es beim naechsten Schwellenwert
+        # auffaellt.
+        gekappt = [j for j in aktive if ist_gekappt(j.get("description"))]
+        auswahl = {"fehlend": fehlend, "gekappt": gekappt,
+                   "beide": fehlend + gekappt}[gewaehlt]
+
+        zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt)}
+        if not auswahl:
             return {
                 "status": "nichts_zu_tun",
+                "umfang": gewaehlt,
                 "geprueft": len(aktive),
-                "hinweis": ("Kein aktiver Anzeigentext ist exakt 2000 "
-                            "Zeichen lang — es sieht nichts nach der alten "
-                            "Kappung aus."),
+                "gefunden": zaehlung,
+                "hinweis": _nichts_zu_tun_hinweis(gewaehlt, zaehlung),
             }
         if nur_zaehlen:
             return {
                 "status": "vorschau",
-                "betroffen": len(betroffen),
+                "umfang": gewaehlt,
+                "betroffen": len(auswahl),
                 "von": len(aktive),
+                "gefunden": zaehlung,
                 "beispiele": [
                     {"hash": (j.get("hash") or "")[-8:],
-                     "titel": (j.get("title") or "")[:60]}
-                    for j in betroffen[:5]
+                     "titel": (j.get("title") or "")[:60],
+                     "zeichen": len(j.get("description") or "")}
+                    for j in auswahl[:5]
                 ],
-                "hinweis": (f"{len(betroffen)} Stellen tragen einen "
-                            "abgeschnittenen Text. Mit nur_zaehlen=False "
-                            "werden bis zu max_stellen davon nachgeladen "
-                            "(je ein HTTP-Aufruf)."),
+                "hinweis": (
+                    f"{len(auswahl)} Stellen betroffen. Mit "
+                    "nur_zaehlen=False werden bis zu max_stellen davon "
+                    "nachgeladen (je ein HTTP-Aufruf)."),
             }
 
-        geheilt, ohne_url, fehler = 0, 0, 0
-        gewachsen = []
-        with httpx.Client(follow_redirects=True, timeout=15,
-                          headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-            for job in betroffen[:max(1, int(max_stellen or 25))]:
-                url = job.get("url") or ""
+        bilanz = {befund: 0 for befund in nachladen.BEFUNDE}
+        ohne_url, aussortiert = 0, 0
+        gewachsen: list[dict] = []
+        with httpx.Client(
+                follow_redirects=True, timeout=15,
+                headers={"User-Agent":
+                         "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
+            for job in auswahl[:max(1, int(max_stellen or 25))]:
+                url = (job.get("url") or "").strip()
                 if not url or job.get("is_search_url"):
                     ohne_url += 1
                     continue
                 try:
-                    from ..services import nachladen as _nachladen
-                    text = _nachladen.beschreibung_holen(
-                        url, client, timeout=15).text
-                except Exception:
-                    fehler += 1
+                    befund = nachladen.beschreibung_holen(
+                        url, client, timeout=15)
+                except Exception as exc:
+                    bilanz[nachladen.FEHLER] += 1
+                    logger.debug("Nachladen von %s: %s", url, exc)
                     continue
-                alt_laenge = len(job.get("description") or "")
-                if not text or len(text) <= alt_laenge:
+                bilanz[befund.status] = bilanz.get(befund.status, 0) + 1
+
+                if befund.soll_aussortiert_werden:
+                    # Genau wie im Einzelweg: eine Anzeige, die der
+                    # Server als entfernt meldet, gehoert aussortiert.
+                    # Sie beim naechsten Lauf erneut zu versuchen kostet
+                    # einen HTTP-Aufruf und aendert nichts.
+                    try:
+                        db.dismiss_job(job.get("hash"), reason="veraltet_url",
+                                       herkunft="automatik",
+                                       notiz=befund.klartext())
+                        aussortiert += 1
+                    except Exception as exc:      # pragma: no cover
+                        logger.debug("Aussortieren (#1016): %s", exc)
+                    continue
+
+                text = befund.text or ""
+                alt_laenge = len((job.get("description") or "").strip())
+                if len(text) <= alt_laenge:
                     continue
                 db.update_job(job.get("hash"), {"description": text})
-                geheilt += 1
+                # Auf der 1.8-Linie folgt hier
+                # `set_description_snapshot_if_empty` (C23/#687) — den
+                # unveraenderlichen Snapshot gibt es in der 1.7-Linie
+                # nicht, und der Einzelweg ruft ihn hier ebenfalls
+                # nicht. Ein Port, der ihn mitbringt, faellt beim
+                # ersten Lauf mit einem AttributeError um.
                 gewachsen.append({
                     "hash": (job.get("hash") or "")[-8:],
                     "vorher": alt_laenge, "nachher": len(text),
                 })
 
+        geheilt = len(gewachsen)
         return {
             "status": "fertig",
+            "umfang": gewaehlt,
             "geheilt": geheilt,
+            "aussortiert": aussortiert,
             "ohne_brauchbare_url": ohne_url,
-            "fehler": fehler,
-            "verbleibend": max(0, len(betroffen) - geheilt),
+            "befunde": {k: v for k, v in bilanz.items() if v},
+            "befunde_klartext": {
+                k: nachladen.KLARTEXT.get(k, "") for k, v in bilanz.items() if v},
+            "verbleibend": max(0, len(auswahl) - geheilt - aussortiert),
             "gewachsen": gewachsen[:10],
             "hinweis": (
                 "Nachgeladene Stellen sollten neu bewertet werden — der "
                 "Anforderungsteil war bisher nicht Teil des Scores: "
                 "scores_neu_berechnen()."
                 if geheilt else
-                "Nichts geheilt. Moeglich: die Quelle kappt selbst, oder "
-                "die Detailseite ist nicht mehr erreichbar."),
+                # Der Klartext je Befund steht in `befunde_klartext` und
+                # kommt aus `services/nachladen` — ihn hier zu
+                # wiederholen war die Bauform, die dieses Projekt
+                # siebzehnmal gekostet hat, und der #1014-Guard hat sie
+                # beim ersten Lauf gefangen.
+                "Nichts geheilt. `befunde_klartext` sagt je Befund, "
+                "woran es lag und was der naechste Schritt ist."),
         }
+
+    def _nichts_zu_tun_hinweis(umfang: str, zaehlung: dict) -> str:
+        """Sagt, was der ANDERE Umfang noch faende.
+
+        Bis v1.7.86 stand hier "es sieht nichts nach der alten Kappung
+        aus" — richtig und trotzdem irrefuehrend, weil daneben 370
+        Stellen ohne jeden Text lagen. Eine Entwarnung, die nur fuer
+        einen Teil gilt, muss sagen fuer welchen.
+        """
+        rest = {"fehlend": ("gekappt", zaehlung["gekappt"]),
+                "gekappt": ("fehlend", zaehlung["ohne_text"])}.get(umfang)
+        satz = {
+            "fehlend": "Jede aktive Stelle traegt einen brauchbaren Text.",
+            "gekappt": ("Kein aktiver Anzeigentext ist exakt 2000 Zeichen "
+                        "lang — es sieht nichts nach der alten Kappung aus."),
+            "beide": ("Weder fehlende noch abgeschnittene Texte im aktiven "
+                      "Bestand."),
+        }[umfang]
+        if rest and rest[1]:
+            satz += (f" Im Umfang '{rest[0]}' waeren es {rest[1]} — "
+                     f"umfang='{rest[0]}' oder umfang='beide'.")
+        return satz
 
     def _ist_gekappt(text) -> bool:
         from ..job_scraper.textgrenzen import ist_gekappt
