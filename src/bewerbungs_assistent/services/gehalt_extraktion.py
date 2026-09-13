@@ -110,6 +110,32 @@ _WAEHRUNG = r"(?:€|\bEUR\b|\bEURO\b)"
 _ZAHL = (r"(?:\d{1,3}(?:[.\s]\d{3})+|\d{1,6})"
          r"(?:[.,]\d{1,2}(?!\d))?")
 _BIS = r"\s*(?:-|–|—|bis)\s*"
+# v1.7.92 (#1029, Befund 2): die Waehrung darf auch HINTER der ersten
+# Zahl einer Spanne stehen — "45.000 € bis 55.000 €" ist in deutschen
+# Anzeigen eine uebliche Schreibweise. Ohne das traf kein Spannen-Muster,
+# und der Einzelwert-Pfad machte aus der Untergrenze eine gerechnete
+# Spanne von plus 10 Prozent: die genannte Obergrenze war weg.
+_WAEHRUNG_ZWISCHEN = rf"(?:\s*{_WAEHRUNG})?"
+
+# v1.7.92 (#1029, Befund 1): steht eine ausdrueckliche JAHRESANGABE am
+# Treffer, ist er kein Monatsgehalt. "Jahresgehalt: 14.000 bis 15.600
+# EUR im Jahr" scheiterte an der Jahres-Untergrenze, danach griff die
+# Monatsart — und rechnete mal zwoelf: 168.000 EUR fuer eine
+# Teilzeitstelle, gespeichert als BELEGT.
+_JAHR_AUSDRUECKLICH = re.compile(
+    r"jahres(?:brutto)?(?:gehalt|einkommen|verdienst)"
+    r"|\bim\s+jahr\b|\bpro\s+jahr\b|/\s*jahr\b|\bj[äa]hrlich"
+    r"|\bp\.\s*a\.|\bper\s+(?:year|annum)\b",
+    re.IGNORECASE)
+#: So weit um den Treffer wird nach einer Jahresangabe gesucht. Hinten
+#: knapp: "15.600 EUR im Jahr" liegt direkt dahinter, ein Satz weiter
+#: ("... 12 Gehaelter jaehrlich") gehoert nicht mehr zum Betrag.
+_JAHR_VORNE, _JAHR_HINTEN = 20, 12
+#: Nennt die Anzeige AUSDRUECKLICH einen Jahresbetrag, gilt diese
+#: Untergrenze statt 20.000 — Teilzeit-Jahresgehaelter liegen regelmaessig
+#: darunter. Ohne ausdrueckliche Jahresangabe bleibt es bei 20.000, weil
+#: dort die Groessenordnung die Art erst eindeutig macht.
+JAHR_UNTEN_AUSDRUECKLICH = 6000
 
 # Eine Zahl neben einer Wochenangabe ist Arbeitszeit, kein Lohn. Auch
 # auf Englisch: "12-20 hours per week" stand so im Bestand.
@@ -164,6 +190,14 @@ def _muster(art: str) -> tuple:
     2. Spanne mit Rate-Wort VOR den Zahlen
     3. Einzelwert — nur wenn keine Spanne gefunden wurde
     """
+    # v1.7.92 (#1029): `gehalt` trifft weiterhin auch das Ende von
+    # "Jahresgehalt" — und das ist Absicht. Der Bericht schlug eine linke
+    # Wortgrenze vor; eingebaut, zeigte die Gegenprobe zweierlei: sie war
+    # REDUNDANT (die Jahres-Umfeldsperre in `_kandidat` faengt den Fall
+    # schon ab) und SCHAEDLICH — "Einstiegsgehalt", "Fixgehalt",
+    # "Zielgehalt", "Tarifgehalt" fielen damit aus der Erkennung heraus.
+    # Die Grenze zwischen Jahr und Monat zieht deshalb das Umfeld des
+    # Treffers, nicht die Form des Rate-Worts.
     if art == "jaehrlich":
         rate = r"(?:jahresgehalt|jahreseinkommen|gehalt|verdienst)"
         # `p.a.` braucht den Punkt UND eine rechte Wortgrenze. Ohne sie
@@ -202,17 +236,32 @@ def _muster(art: str) -> tuple:
     else:
         beleg_dahinter = rf"(?:{_WAEHRUNG}\s*)?{einheit}"
 
+    _W = _WAEHRUNG_ZWISCHEN
     return (
         # 1. Spanne, Beleg dahinter: "60.000 - 80.000 EUR brutto",
-        #    "140-150 EUR/h", "3.750 - 4.050 € / Monat"
+        #    "140-150 EUR/h", "3.750 - 4.050 € / Monat",
+        #    "45.000 € bis 55.000 €" (#1029)
         re.compile(
-            rf"({_ZAHL})\s*k?{_BIS}({_ZAHL})\s*k?\s*{beleg_dahinter}",
+            rf"({_ZAHL})\s*k?{_W}{_BIS}({_ZAHL})\s*k?\s*{beleg_dahinter}",
             re.IGNORECASE),
         # 2. Spanne, Rate-Wort davor: "Stundensatz 30-35 EUR",
-        #    "Gehalt: 58.000 - 62.000 Euro"
+        #    "Gehalt: 58.000 - 62.000 Euro", "Monatsgehalt: 3.000 € bis 3.500 €"
         re.compile(
-            rf"{rate}\s*[:\s]\s*(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?{_BIS}"
+            rf"{rate}\s*[:\s]\s*(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?{_W}{_BIS}"
             rf"({_ZAHL})\s*k?\s*(?:{_WAEHRUNG})?",
+            re.IGNORECASE),
+        # 2a. "zwischen X und Y" mit Beleg dahinter (#1029, Befund 3).
+        #     "und" steht bewusst NICHT in `_BIS`: ohne "zwischen" davor
+        #     wuerde aus "3 Stellen und 45.000 EUR" eine Spanne, deren
+        #     Verwerfen den echten Einzelwert dahinter blockiert.
+        re.compile(
+            rf"zwischen\s+(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?{_W}\s+und\s+"
+            rf"(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?\s*{beleg_dahinter}",
+            re.IGNORECASE),
+        # 2b. "zwischen X und Y" mit Rate-Wort davor.
+        re.compile(
+            rf"{rate}\s*[:\s]?\s*zwischen\s+(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?{_W}"
+            rf"\s+und\s+(?:{_WAEHRUNG}\s*)?({_ZAHL})\s*k?\s*(?:{_WAEHRUNG})?",
             re.IGNORECASE),
         # 3. Einzelwert, Beleg auf einer der beiden Seiten.
         #    `beleg_dahinter` ist DASSELBE wie in Muster 1 — meine erste
@@ -262,6 +311,15 @@ def _kandidat(art: str, text: str, treffer, gerechnet: bool) -> dict | None:
         zahlen = [z * 1000 for z in zahlen if z < 1000] or zahlen
 
     unten, oben = GRENZEN[art]
+    umfeld = text[max(0, treffer.start() - _JAHR_VORNE):treffer.end() + _JAHR_HINTEN]
+    jahr_ausdruecklich = bool(_JAHR_AUSDRUECKLICH.search(umfeld))
+    if art == "monatlich" and jahr_ausdruecklich:
+        # #1029: ein ausdruecklicher Jahresbetrag ist nie ein Monatswert.
+        # Faellt er unter jede Grenze, lieber gar kein Wert als ein
+        # umgedeuteter (#989).
+        return None
+    if art == "jaehrlich" and jahr_ausdruecklich:
+        unten = JAHR_UNTEN_AUSDRUECKLICH
     if not (unten <= zahlen[0] <= oben):
         return None
 
@@ -331,24 +389,28 @@ def extrahieren(text: str) -> dict:
         # ganze Art: sonst verloere eine Anzeige mit einer
         # Telefonnummer VORNE ihr echtes Gehalt weiter HINTEN.
         verworfen: list = []
+        # Das LETZTE Muster ist der Einzelwert (v1.7.92: seit "zwischen X
+        # und Y" dazukam, ist das nicht mehr Nummer 2 — die Stelle wird
+        # deshalb gezaehlt, nicht getippt).
+        einzel = len(muster) - 1
         for nummer, m in enumerate(muster):
-            # Muster 3 ist der Einzelwert und tritt nur an, wenn fuer
-            # diese Art keine Spanne gefunden wurde.
-            if nummer == 2 and spanne_gefunden:
+            # Der Einzelwert tritt nur an, wenn fuer diese Art keine
+            # Spanne gefunden wurde.
+            if nummer == einzel and spanne_gefunden:
                 continue
             for treffer in m.finditer(sauber):
                 if _ist_arbeitszeit(art, sauber, treffer.end()):
                     continue
-                if nummer == 2 and any(
+                if nummer == einzel and any(
                         treffer.start() < ende and anfang < treffer.end()
                         for anfang, ende in verworfen):
                     continue
-                k = _kandidat(art, sauber, treffer, gerechnet=(nummer == 2))
+                k = _kandidat(art, sauber, treffer, gerechnet=(nummer == einzel))
                 if k:
                     gefunden.append(k)
-                    if nummer < 2:
+                    if nummer < einzel:
                         spanne_gefunden = True
-                elif nummer < 2:
+                elif nummer < einzel:
                     verworfen.append((treffer.start(), treffer.end()))
 
     if not gefunden:

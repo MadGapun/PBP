@@ -2555,7 +2555,7 @@ async def api_restore_job(request: Request):
             _db.add_activity_event({
                 "event_type": "auto_dismiss_zurueckgeholt",
                 "entity_type": "job",
-                "entity_id": str(data["hash"])[:8],
+                "entity_id": _db._public_job_hash(str(data["hash"])),
                 "action": "reaktivieren",
                 "metadata": {"dismiss_reason": grund,
                              "titel": (vorher.get("title") or "")[:80],

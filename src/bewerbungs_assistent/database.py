@@ -2851,17 +2851,24 @@ class Database:
         # #618: Prefix-LIKE-Fallback fuer kurze Hashes
         if job_hash and len(job_hash) < 12:
             short = job_hash
+            # v1.7.92 (#1029): der Rueckfall OHNE Praefix trifft nur noch
+            # Altzeilen ohne Doppelpunkt. Vorher passte `short%` auch auf
+            # `<profil>:...` — eine Kurz-Kennung, die aus dem gespeicherten
+            # Hash gekuerzt war (also der Profil-Praefix), traf damit JEDE
+            # Stelle des Profils, und `LIMIT 1` nahm irgendeine.
             if pid:
                 # Scoped-Lookup: pid:short% ODER short% ohne Prefix (legacy)
                 row = conn.execute(
-                    "SELECT * FROM jobs WHERE (hash LIKE ? OR hash LIKE ?) "
+                    "SELECT * FROM jobs WHERE (hash LIKE ? "
+                    "OR (hash LIKE ? AND hash NOT LIKE '%:%')) "
                     "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
                     (f"{pid}:{short}%", f"{short}%", pid),
                 ).fetchone()
             else:
                 row = conn.execute(
-                    "SELECT * FROM jobs WHERE hash LIKE ? LIMIT 1",
-                    (f"%{short}%",),
+                    "SELECT * FROM jobs WHERE hash LIKE ? "
+                    "OR (hash LIKE ? AND hash NOT LIKE '%:%') LIMIT 1",
+                    (f"%:{short}%", f"{short}%"),
                 ).fetchone()
             if row is not None:
                 return row
@@ -8370,7 +8377,7 @@ class Database:
                     "vorher": mv, "nachher": dv, "quelle": "duplikat",
                 }
             elif mode == "merge" and f == "description":
-                merged = f"{mv}\n\n--- aus Duplikat {duplicate_hash[:8]} ---\n{dv}"
+                merged = f"{mv}\n\n--- aus Duplikat {duplicate_hash.split(':', 1)[-1][:8]} ---\n{dv}"
                 new_values[f] = merged
                 feld_entscheidungen[f] = {
                     "vorher": mv, "nachher": merged, "quelle": "merge",
