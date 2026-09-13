@@ -26,6 +26,7 @@ import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
+import { scoreText, scoreWert } from "@/lib/score";
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -1547,10 +1548,10 @@ export default function JobsPage() {
                       <button
                         type="button"
                         className="inline-flex items-center gap-1 rounded-full border border-transparent bg-amber/10 px-2.5 py-0.5 text-[12px] font-semibold text-amber transition-colors hover:border-amber/30 hover:bg-amber/20"
-                        onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(job.score || 0)); }}
+                        onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(scoreWert(job.score))); }}
                         title="Score bearbeiten"
                       >
-                        Score {job.score || 0}
+                        Score {scoreText(job.score)}
                         <Pencil size={11} />
                       </button>
                     )}
@@ -2258,7 +2259,7 @@ export default function JobsPage() {
                 <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
                 {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
-                <Badge tone="amber">Score {detailDialog.job.score || 0}</Badge>
+                <Badge tone="amber">Score {scoreText(detailDialog.job.score)}</Badge>
                 {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>

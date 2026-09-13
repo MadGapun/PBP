@@ -2438,9 +2438,13 @@ def register(mcp, db, logger):
         # den Grund mit.
         auffaellig: list[dict] = []
         for j in jobs:
-            old_score = int(j.get("score") or 0)
+            # v1.7.95 (#1035): `int()` rundet nicht, es schneidet ab — aus
+            # 18,7 wurde 18, und 3,8 gegen 3,0 galt als unveraendert. Der
+            # Score hat eine Nachkommastelle; so wird er verglichen und
+            # gespeichert.
+            old_score = round(float(j.get("score") or 0), 1)
             try:
-                new_score = int(calculate_score(j, criteria))
+                new_score = round(float(calculate_score(j, criteria)), 1)
             except Exception as e:
                 logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s",
                                j.get("hash"), e)
@@ -4455,10 +4459,12 @@ def register(mcp, db, logger):
                 }
                 if score_uebernehmen:
                     try:
-                        db.update_job(job_hash, {"score": int(new_score)})
+                        # v1.7.95 (#1035): mit Nachkommastelle, wie
+                        # calculate_score ihn liefert — nicht abgeschnitten.
+                        db.update_job(job_hash, {"score": round(float(new_score), 1)})
                         result["score_aktualisiert"] = {
                             "alter_score": old_score,
-                            "neuer_score": int(new_score),
+                            "neuer_score": round(float(new_score), 1),
                         }
                     except Exception as exc:
                         logger.warning(
@@ -4687,7 +4693,13 @@ def register(mcp, db, logger):
                 fresh_job = db.get_job(job_hash) or {}
                 new_score = calculate_score(fresh_job, criteria)
                 if new_score is not None:
-                    db.update_job(job_hash, {"score": new_score})
+                    # v1.7.95 (#1035): die Teile mitschreiben — sonst stand
+                    # die Aufteilung des alten Texts neben dem neuen Score.
+                    db.update_job(job_hash, {
+                        "score": new_score,
+                        "fachscore": fresh_job.get("_fachscore"),
+                        "rahmenscore": fresh_job.get("_rahmenscore"),
+                    })
                     score_recomputed = {
                         "alter_score": job.get("score"),
                         "neuer_score": new_score,

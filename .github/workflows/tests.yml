@@ -77,5 +77,10 @@ jobs:
         # derselbe Tag.
         run: node frontend/src/lib/stellenDaten.test.mjs
 
+      - name: Score-Anzeige mit hoechstens einer Nachkommastelle (Node)
+        # #1035: `6.199999999999999` stand auf der Stellenkarte. Jede
+        # Score-Ausgabe im Frontend geht durch lib/score.js.
+        run: node frontend/src/lib/score.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

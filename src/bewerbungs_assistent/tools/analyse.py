@@ -1317,6 +1317,15 @@ def register(mcp, db, logger):
         herkunft = None
         if fach is not None:
             herkunft = (f"fachlich {fach}, Rahmen {rahmen if rahmen is not None else 0}")
+            # v1.7.95 (#1035): wo die Teile den Score nicht ergeben, steht
+            # der Grund dabei — sonst sieht die Aufteilung falsch aus.
+            _summe = round(float(fach) + float(rahmen or 0), 1)
+            if _summe < 0 and float(job.get("score") or 0) == 0:
+                herkunft += (f" — zusammen {_summe}, der Score steht auf der "
+                             "Untergrenze 0")
+        elif job.get("score") not in (None, 0, 0.0):
+            herkunft = ("keine Aufteilung — der Score wurde von Hand gesetzt "
+                        "oder stammt aus der Zeit vor der Aufteilung (#942)")
 
         # v1.7.24 (#965): eine unbekannte Entfernung wurde im Scoring
         # uebersprungen und tauchte hier gar nicht auf — die weiteste

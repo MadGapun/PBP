@@ -17,6 +17,7 @@ import { api } from "@/api";
 import { Button, Modal } from "@/components/ui";
 import { formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
+import { scoreText } from "@/lib/score";
 
 export default function InlineJobDetailModal({ jobHash, onClose }) {
   const [job, setJob] = useState(null);
@@ -77,7 +78,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
 
           {job.score !== null && job.score !== undefined && (
             <p className="text-sm text-muted/70">
-              <strong className="text-ink">Score:</strong> {job.score}
+              <strong className="text-ink">Score:</strong> {scoreText(job.score)}
             </p>
           )}
 

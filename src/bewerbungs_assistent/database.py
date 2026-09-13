@@ -5905,14 +5905,21 @@ class Database:
         )
         conn.commit()
 
-    def update_job_score(self, job_hash: str, score: int):
-        """Manually update a job's score."""
+    def update_job_score(self, job_hash: str, score: float):
+        """Manually update a job's score.
+
+        v1.7.95 (#1035): die Aufteilung in Fach- und Rahmenwert gilt fuer
+        einen berechneten Score. Ein Handwert hat keine — die alten Teile
+        daneben stehen zu lassen hiesse, eine Herkunft zu behaupten, die
+        der neue Wert nicht hat.
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return
         conn.execute(
-            "UPDATE jobs SET score=?, updated_at=? WHERE hash=?",
+            "UPDATE jobs SET score=?, fachscore=NULL, rahmenscore=NULL, "
+            "updated_at=? WHERE hash=?",
             (score, _now(), target_hash)
         )
         conn.commit()

@@ -3052,6 +3052,13 @@ def calculate_score(job: dict, criteria: dict) -> int:
         rahmen_effektiv = min(rahmen_plus, deckel) - rahmen_minus
     else:
         rahmen_effektiv = rahmen_plus - rahmen_minus
+    # v1.7.95 (#1035): erst die Teile runden, dann addieren. Umgekehrt
+    # wurde jeder Teil einzeln gerundet und die Summe aus den ungerundeten
+    # Werten gebildet — "fachlich 7,5, Rahmen 3,8" neben einem Score von
+    # 11,2. Die Aufteilung soll erklaeren, woher die Punkte kommen (#942);
+    # dafuer muss sie aufgehen.
+    fachscore = round(fachscore, 1)
+    rahmen_effektiv = round(rahmen_effektiv, 1)
     score = fachscore + rahmen_effektiv
 
     # Teilscores mitgeben: ohne sie sieht man nur die Summe und muss
