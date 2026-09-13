@@ -2,16 +2,21 @@
 
 Spezialisiert auf Ingenieur- und Technik-Stellen.
 Kein Login erforderlich. HTML-Scraping via requests.
+
+v1.7.104 (#1042): die Karten liest `jobboerse_karten` (dieselbe Plattform
+wie Jobware). Bis v1.7.103 traf die Auswahl auch jeden Bestandteil einer
+Karte (173 Treffer bei 15 Karten); jede Stelle stand 2-4-mal in der Liste,
+fuer jede Kopie wurde die Detailseite erneut geholt, und die Firma war der
+"erste beliebige Text" der Karte — ein HTML-Kommentar.
 """
 
 import logging
-import re
 import time
 
 import httpx
-from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level, fetch_description_from_detail
+from .jobboerse_karten import karten_aus_html
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.ingenieur_de")
 
@@ -27,10 +32,29 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
+BASIS_URL = "https://jobs.ingenieur.de"
+
+
+def _stelle(titel: str, firma: str, ort: str, url: str) -> dict:
+    return {
+        # Der Titel stimmte schon bis v1.7.103 — die Kennung bleibt, und ein
+        # Wiederfund fuellt Firma und Ort der gespeicherten Zeile.
+        "hash": stelle_hash("ingenieur.de", titel),
+        "title": titel,
+        "company": firma or "Unbekannt",
+        "location": ort,
+        "url": url,
+        "source": "ingenieur_de",
+        "description": "",
+        "employment_type": "festanstellung",
+        "remote_level": detect_remote_level(f"{titel} {ort}"),
+    }
+
 
 def search_ingenieur_de(params: dict) -> list:
     """Search ingenieur.de jobs via HTML scraping."""
     jobs = []
+    gesehen: set = set()
     kw_data = params.get("keywords", {})
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
@@ -39,41 +63,30 @@ def search_ingenieur_de(params: dict) -> list:
             try:
                 # v1.7.19 (#927): Der Pfad ist /jobs, NICHT /suche —
                 # /suche antwortet mit HTTP 404 (live geprueft 18.08.2026,
-                # alle Varianten). Die Subdomain-Umstellung aus #653 war
-                # halb erledigt: der Host stimmte, der Pfad nicht. Der
-                # Guard-Test dazu prueft nur, ob "jobs.ingenieur.de" im
-                # Code steht — Domain gruen, Feature tot.
+                # alle Varianten).
                 resp = client.get(
-                    "https://jobs.ingenieur.de/jobs",
+                    f"{BASIS_URL}/jobs",
                     params={"q": query},
                 )
                 if resp.status_code != 200:
                     logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
                     continue
 
-                soup = BeautifulSoup(resp.text, "html.parser")
+                vorher = len(jobs)
+                for k in karten_aus_html(resp.text, BASIS_URL):
+                    # Jede Anzeige genau einmal — auch ueber Suchbegriffe
+                    # hinweg. Bis v1.7.103 zaehlte das Log die Kopien mit.
+                    if k["url"] in gesehen:
+                        continue
+                    gesehen.add(k["url"])
+                    jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"]))
 
-                # Job cards: article elements or list items with job links
-                cards = soup.select("article, .job-item, .search-result, [class*='job-card']")
-                if not cards:
-                    # v1.7.19 (#927): Detailseiten liegen unter /job/
-                    # (Einzahl); '/jobs/' traf nur die Kategorie-Links.
-                    cards = soup.select("a[href*='/job/']")
-
-                for card in cards[:25]:
-                    try:
-                        job = _parse_card(card)
-                        if job:
-                            jobs.append(job)
-                    except Exception as e:
-                        logger.debug("ingenieur.de card error: %s", e)
-
-                logger.debug("ingenieur.de: %d cards for '%s'", len(cards), query)
+                logger.debug("ingenieur.de: %d neu fuer '%s'", len(jobs) - vorher, query)
                 time.sleep(1.5)
             except Exception as e:
                 logger.error("ingenieur.de error for '%s': %s", query, e)
 
-    # Fetch descriptions from detail pages
+    # Beschreibungen von den Detailseiten — einmal je Anzeige.
     if jobs:
         with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as detail_client:
             for job in jobs:
@@ -91,60 +104,3 @@ def search_ingenieur_de(params: dict) -> list:
 
     logger.info("ingenieur.de: %d Stellen gefunden", len(jobs))
     return jobs
-
-
-def _parse_card(card) -> dict | None:
-    """Parse a job card or link element."""
-    # Try to get title from link
-    # v1.7.19 (#927): Detailseiten liegen unter /job/ (Einzahl) —
-    # der alte Ausdruck traf nur Kategorie-Links unter /jobs/.
-    link_el = card.find("a", href=re.compile(r"/job/")) if card.name != "a" else card
-    if not link_el:
-        return None
-
-    title = link_el.get_text(strip=True)
-    if not title or len(title) < 5:
-        return None
-
-    href = link_el.get("href", "")
-    if not href:
-        return None
-    # #653 (B12, beta.77): URL-Migration zu jobs.ingenieur.de Subdomain.
-    # Relative Links koennen entweder auf jobs.ingenieur.de zeigen
-    # (neuer Pfad) oder auf den alten www.ingenieur.de — wir muessen
-    # darauf vertrauen dass der relativen href schon korrekt rendert.
-    if href.startswith("http"):
-        url = href
-    elif href.startswith("/job/") or href.startswith("/jobs"):
-        url = f"https://jobs.ingenieur.de{href}"
-    else:
-        url = f"https://www.ingenieur.de{href}"
-
-    # Skip non-job links (categories, etc.)
-    if "/jobs/suche" in url or "/jobs/tag/" in url:
-        return None
-
-    # Try to find company and location from parent card
-    parent = card if card.name in ("article", "div", "li") else card.parent
-    if parent:
-        company_el = parent.find(string=re.compile(r".*")) if not parent.find(
-            class_=re.compile(r"company|firma|arbeitgeber", re.I)
-        ) else parent.find(class_=re.compile(r"company|firma|arbeitgeber", re.I))
-        location_el = parent.find(class_=re.compile(r"location|ort|standort", re.I))
-    else:
-        company_el = location_el = None
-
-    company = company_el.get_text(strip=True) if company_el else "Unbekannt"
-    location = location_el.get_text(strip=True) if location_el else ""
-
-    return {
-        "hash": stelle_hash("ingenieur.de", title),
-        "title": title,
-        "company": company,
-        "location": location,
-        "url": url,
-        "source": "ingenieur_de",
-        "description": "",
-        "employment_type": "festanstellung",
-        "remote_level": detect_remote_level(f"{title} {location}"),
-    }
