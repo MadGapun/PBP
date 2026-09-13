@@ -33,6 +33,71 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.102] - 2026-09-14 — Jede Stufe erzeugt eine Regel
+
+Ein Fehler aus #1043 in der Oberflaeche.
+
+### Fixed
+
+- **Graue Badges, Eingabefelder und Trennlinien haben keinen hellen
+  Rahmen mehr** (#1043). Tailwind erzeugt Deckkraft-Stufen nur aus seiner
+  Skala (0, 5, 10, 15 ...). Klassen wie `border-white/8` oder `bg-sky/8`
+  erzeugten deshalb keine Regel — ohne Fehlermeldung im Build. Bei Rahmen
+  griff dann die Grundregel, ein voll deckendes Hellgrau. Betroffen waren
+  13 Klassen an rund 50 Stellen. Die fehlenden Stufen sind jetzt ergaenzt,
+  und ein Test haelt jede verwendete Stufe gegen die Skala und gegen das
+  ausgelieferte CSS.
+- **Der Schliessen-Knopf einer Meldung ist gedaempft wie vorgesehen.**
+  `text-current/50` erzeugte keine Regel, weil die aktuelle Textfarbe
+  keine Deckkraft-Stufe annimmt.
+
+### Changed
+
+- **Der Arbeitsumfang steht in einer Farbe** (#1043). "Teilzeit" war
+  orange, "Vollzeit" und "Voll- oder Teilzeit" grau — es ist dieselbe
+  Angabe, und Orange las sich wie eine Warnung.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.102.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.102.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.101] - 2026-09-14 — Firma und Ort, fuer jeden Suchbegriff
 
 Ein Fehler aus #1040 in der Quelle stellenanzeigen.de.
