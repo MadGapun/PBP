@@ -530,7 +530,30 @@ def anonymisiere_text(db, text: str) -> dict:
         platz = platzhalter_fuer(db, name, art)
         ergebnis, n = re.subn(muster, platz, ergebnis, flags=re.IGNORECASE)
         ersetzt.append({"art": art, "platzhalter": platz, "vorkommen": n})
+    # #817: Mail und Telefon ebenfalls — sonst faellt der fertige Beleg
+    # am Repo-Pruefer durch, und "ohne Nacharbeit" stimmt nicht. Die
+    # Regeln kommen aus demselben Pruefer, der sie findet.
+    kontaktdaten_geprueft = True
+    try:
+        import sys
+        from pathlib import Path
+        wurzel = Path(__file__).resolve().parents[3]
+        if str(wurzel / "scripts") not in sys.path:
+            sys.path.insert(0, str(wurzel / "scripts"))
+        from scrub_pii import ersetze_kontaktdaten  # type: ignore
+        vorher = ergebnis
+        ergebnis = ersetze_kontaktdaten(ergebnis)
+        if ergebnis != vorher:
+            ersetzt.append({"art": "kontaktdaten", "platzhalter":
+                            "<email-anonymisiert> / <telefon>", "vorkommen": None})
+    except Exception:
+        kontaktdaten_geprueft = False
     antwort = {"text": ergebnis, "ersetzt": ersetzt, "anzahl": len(ersetzt)}
+    if not kontaktdaten_geprueft:
+        antwort["hinweis_kontaktdaten"] = (
+            "Mailadressen und Telefonnummern wurden NICHT ersetzt — der "
+            "Pruefer (scripts/scrub_pii.py) ist in dieser Installation nicht "
+            "vorhanden. Bitte selbst ansehen.")
     if offen:
         antwort["zur_entscheidung"] = offen
         antwort["hinweis"] = (

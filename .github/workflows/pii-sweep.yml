@@ -1,0 +1,32 @@
+name: PII-Sweep
+
+# #817: der Sweep ueber Issues, Kommentare und Releases lief nur auf Zuruf.
+# Er ist die einzige Kontrolle, die auch Texte findet, die an allen Hooks
+# vorbei entstanden sind — deshalb woechentlich. Ein Fund laesst den Lauf
+# scheitern, und GitHub benachrichtigt den Repo-Owner.
+#
+# WICHTIG: `--ohne-namen`. Die Logs dieses Repositories sind oeffentlich;
+# ohne den Schalter stuende jeder gefundene Name im Log.
+
+on:
+  schedule:
+    - cron: "17 5 * * 1"   # montags 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Issues, Kommentare und Releases pruefen (ohne Namen im Log)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/gh_pii_sweep.py --mit-releases --ohne-namen

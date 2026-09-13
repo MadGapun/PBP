@@ -18,6 +18,14 @@ Aufruf:
     python scripts/gh_pii_sweep.py --nur-offen
 
 Exit-Code 1 bei Funden — damit es sich in CI oder einen Hook haengen laesst.
+
+    python scripts/gh_pii_sweep.py --ohne-namen    # fuer CI-Logs
+
+`--ohne-namen` (#817): nennt nur Fundstelle und Anzahl, nie den gefundenen
+Text. In einem oeffentlichen Repository sind die Actions-Logs oeffentlich —
+ein Sweep, der dort seine Funde ausdruckt, veroeffentlicht genau das, was
+er finden soll. Die Namen sieht, wer das Skript lokal ohne den Schalter
+laufen laesst.
 """
 from __future__ import annotations
 
@@ -130,13 +138,15 @@ def releases_laden() -> list[dict]:
     return out
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seit", default="", help="nur Issues ab ISO-Datum")
     ap.add_argument("--nur-offen", action="store_true")
     ap.add_argument("--mit-releases", action="store_true",
                     help="Release-Notes mitpruefen (langsam)")
-    args = ap.parse_args()
+    ap.add_argument("--ohne-namen", action="store_true",
+                    help="nur Fundstelle und Anzahl ausgeben (fuer CI-Logs, #817)")
+    args = ap.parse_args(argv)
 
     funde: list[tuple[str, list[str]]] = []
     geprueft = 0
@@ -172,9 +182,17 @@ def main() -> int:
 
     print(f"PII GEFUNDEN in {len(funde)} Artefakten:\n")
     for stelle, treffer in funde:
+        if args.ohne_namen:
+            # Nur die Art je Treffer ("FIRMA", "PERSON", ...), nie der Text.
+            arten = sorted({t.split(":", 1)[0] for t in treffer})
+            print(f"  {stelle}: {len(set(treffer))} Treffer ({', '.join(arten)})")
+            continue
         print(f"  {stelle}")
         for t in sorted(set(treffer)):
             print(f"      {t}")
+    if args.ohne_namen:
+        print("\nDie Namen stehen bewusst nicht im Log. Lokal ohne --ohne-namen")
+        print("laufen lassen, um sie zu sehen.")
     print("\nWICHTIG: Editieren reicht NICHT — GitHub zeigt die Edit-Historie.")
     print("Betroffene Issues LOESCHEN (GraphQL deleteIssue) und den Inhalt")
     print("anonymisiert neu anlegen. Siehe DoD-Punkt 9 in CLAUDE.md.")
