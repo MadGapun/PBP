@@ -367,12 +367,16 @@ def test_die_beschreibung_ergibt_hoechstens_beides():
 def test_beide_merkmale_stehen_als_kennzeichen_auf_der_karte():
     """AK 5."""
     quelle = _ohne_kommentare(JOBS_PAGE.read_text(encoding="utf-8"))
-    assert "ANSTELLUNGSFORM_TEXT[job.employment_type]" in quelle
-    assert "UMFANG_TEXT[job.arbeitsumfang]" in quelle
+    # v1.7.103 (#1044): die Zuordnung wohnt in lib/stellenAngaben.js, damit
+    # Karte und Popup dieselbe Fassung lesen. Die Absicht dieses Tests —
+    # beide Merkmale als Kennzeichen auf der Karte — gilt unveraendert.
+    lib = (JOBS_PAGE.parent.parent / "lib" / "stellenAngaben.js").read_text(encoding="utf-8")
+    assert "<Badge tone={anstellungsform(job).ton}>{anstellungsform(job).text}</Badge>" in quelle
+    assert '<Badge tone="neutral">{umfangText(job)}</Badge>' in quelle
     assert 'job.befristet ? <Badge tone="neutral">Befristet</Badge>' in quelle
     # `unbekannt` bekommt bewusst KEIN Abzeichen — ein Etikett
     # "unbekannt" an fast jeder Stelle waere Rauschen.
-    assert 'job.arbeitsumfang !== "unbekannt"' in quelle
+    assert 'umfang === "unbekannt"' in lib
 
 
 def test_es_gibt_zwei_kombinierbare_filter():
@@ -423,7 +427,8 @@ def test_die_oberflaeche_kennt_alle_formen():
     """Die Zuordnung stand als verschachtelter Ternaer im JSX und kannte
     `zeitarbeit` und `ausbildung` nicht — obwohl beide im Bestand
     vorkommen."""
-    quelle = JOBS_PAGE.read_text(encoding="utf-8")
+    # v1.7.103 (#1044): die Tabelle steht in lib/stellenAngaben.js.
+    quelle = (JOBS_PAGE.parent.parent / "lib" / "stellenAngaben.js").read_text(encoding="utf-8")
     for form in sa.ANSTELLUNGSFORMEN:
         assert f"{form}:" in quelle, f"{form} fehlt in der Oberflaeche"
 

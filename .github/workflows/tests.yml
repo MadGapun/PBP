@@ -82,5 +82,10 @@ jobs:
         # Score-Ausgabe im Frontend geht durch lib/score.js.
         run: node frontend/src/lib/score.test.mjs
 
+      - name: Stellenangaben fuer Karte und Popup (Node)
+        # #1044: das Popup "Stellendetails" las Rohwerte und zeigte eine Stelle
+        # anders als die Karte. Beide Ansichten gehen durch lib/stellenAngaben.js.
+        run: node frontend/src/lib/stellenAngaben.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

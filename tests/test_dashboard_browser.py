@@ -1179,3 +1179,79 @@ def test_routing_karte_950_im_quellen_tab(browser, live_dashboard):
         assert not routing.konfiguriert(live_dashboard["db"])
     finally:
         context.close()
+
+
+def _seed_popup_workspace(db) -> None:
+    """#1044: eine Stelle mit genau den Angaben, die das Popup falsch zeigte."""
+    profile_id = db.save_profile(
+        {
+            "name": "Max Popup",
+            "email": "popup@example.com",
+            "phone": "+49 40 555 0100",
+            "address": "Musterweg 1",
+            "summary": "Sachbearbeitung",
+        }
+    )
+    db.set_profile_setting("active_sources", ["stepstone"])
+    db.set_profile_setting("last_search_at", datetime.now().isoformat())
+    db.save_jobs(
+        [
+            {
+                "hash": "job-popup-1044",
+                "title": "Sachbearbeitung Einkauf",
+                "company": "",
+                "location": "Musterstadt",
+                "url": "https://example.com/job-popup-1044",
+                "source": "stepstone",
+                "description": "Ausfuehrliche Stellenbeschreibung mit Aufgaben, Skills und Rahmenbedingungen fuer eine belastbare Bewertung.",
+                "score": 40,
+                "employment_type": "festanstellung",
+                "arbeitsumfang": "vollzeit",
+                # Bewusst unter 25 km: darueber haengt der Server eine
+                # geschaetzte Fahrstrecke an, deren Text "geschaetzt" ohne
+                # Umlaut traegt — das ist die Entfernungsbeschriftung, nicht
+                # das Gehalt, und nicht Teil von #1044.
+                "distance_km": 8.4,
+                "salary_min": 50000,
+                "salary_max": 60000,
+                "salary_type": "jaehrlich",
+                "salary_estimated": 1,
+                "profile_id": profile_id,
+            },
+        ]
+    )
+
+
+def test_popup_zeigt_die_stelle_wie_die_karte_1044(live_dashboard, browser):
+    """#1044: das Popup "Stellendetails" las Rohwerte. Geprueft wird der
+    GERENDERTE Text im Dialog, nicht der Quelltext (v1.7.71 MERKE 9)."""
+    _seed_popup_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Sachbearbeitung Einkauf").first.click()
+        page.get_by_role("heading", name="Stellendetails").wait_for(state="visible")
+
+        # `.glass-overlay` traegt auch das (verborgene) Einrichtungs-Overlay —
+        # gemeint ist das Overlay mit dem Dialog.
+        dialog = page.locator(".glass-overlay").filter(has_text="Stellendetails")
+        text = dialog.inner_text()
+
+        assert "Unbekannte Firma" in text, text
+        assert "Festanstellung" in text, text
+        assert "Vollzeit" in text, text
+        assert "Luftlinie" in text, text
+        assert " bis " in text, text
+        assert "(geschätzt)" in text, text
+
+        # Die Rohwerte aus dem Bericht stehen nirgends mehr im Dialog.
+        assert "festanstellung" not in text, text
+        assert "jaehrlich" not in text, text
+        assert "geschaetzt" not in text, text
+    finally:
+        context.close()

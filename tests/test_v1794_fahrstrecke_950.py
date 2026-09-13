@@ -575,4 +575,8 @@ def test_die_karte_steht_im_quellen_tab_und_die_liste_zeigt_die_fahrzeit():
     assert 'type="password"' in settings[settings.index("function RoutingCard"):]
     jobs = (_repo() / "frontend/src/pages/JobsPage.jsx").read_text(
         encoding="utf-8")
-    assert "job.entfernung?.entfernung_text" in jobs
+    # v1.7.103 (#1044): Karte und Popup lesen die Beschriftung ueber
+    # lib/stellenAngaben.js — die Absicht (die Liste zeigt sie) bleibt.
+    assert "{entfernungText(job)}" in jobs
+    lib = (_repo() / "frontend/src/lib/stellenAngaben.js").read_text(encoding="utf-8")
+    assert "entfernung?.entfernung_text" in lib
