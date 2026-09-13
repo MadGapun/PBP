@@ -4868,7 +4868,12 @@ async def api_delete_meeting_category(category_id: str, request: Request):
 @app.put("/api/jobs/{job_hash}/score")
 async def api_update_job_score(job_hash: str, request: Request):
     data = await request.json()
-    score = int(data.get("score", 0))
+    # v1.7.95 (#1035): eine Nachkommastelle wie ueberall, nicht abgeschnitten.
+    try:
+        score = round(float(data.get("score", 0)), 1)
+    except (TypeError, ValueError):
+        return JSONResponse({"error": "Der Score muss eine Zahl sein."},
+                            status_code=400)
     _db.update_job_score(job_hash, score)
     return {"status": "ok", "score": score}
 

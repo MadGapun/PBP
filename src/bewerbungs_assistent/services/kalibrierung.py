@@ -65,14 +65,16 @@ def _statistik(werte: list) -> dict:
     }
 
 
-def schatten_score(job: dict, criteria: dict) -> int:
+def schatten_score(job: dict, criteria: dict) -> float:
     """Score einer Stelle unter gegebenen Kriterien — ohne Seiteneffekte.
 
     `calculate_score` setzt Marker-Flags am Job-Dict (z.B. `_ko_ausschluss`);
     deshalb wird auf einer Kopie gerechnet. Es wird nichts persistiert.
     """
     from ..job_scraper import calculate_score
-    return int(calculate_score(copy.deepcopy(job), criteria))
+    # v1.7.95 (#1035): mit Nachkommastelle wie der gespeicherte Score —
+    # abgeschnitten verglich der Backtest 18,9 mit 18.
+    return round(float(calculate_score(copy.deepcopy(job), criteria)), 1)
 
 
 def berechne_idf_faktoren(db: Any, criteria: dict) -> dict:

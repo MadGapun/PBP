@@ -18,6 +18,7 @@ import { useApp } from "@/app-context";
 import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
+import { scoreText } from "@/lib/score";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -750,7 +751,7 @@ export default function DashboardPage() {
                           {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
                         </p>
                       </div>
-                      <span className="shrink-0"><Badge tone="amber">Score {job.score || 0}</Badge></span>
+                      <span className="shrink-0"><Badge tone="amber">Score {scoreText(job.score)}</Badge></span>
                     </button>
                   ))
                 ) : (
@@ -1099,7 +1100,7 @@ function RecapCard({ pushToast, navigateTo }) {
           <ul className="space-y-1">
             {recap.top_jobs.slice(0, 3).map((j) => (
               <li key={j.hash} className="text-[12px] text-muted/80">
-                <span className="text-teal/70 font-mono mr-1.5">[{j.score}]</span>
+                <span className="text-teal/70 font-mono mr-1.5">[{scoreText(j.score)}]</span>
                 <span className="text-ink/90">{j.title}</span>
                 <span className="text-muted/50"> bei {j.company}</span>
               </li>

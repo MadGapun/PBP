@@ -311,7 +311,11 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
             pass
 
     # 8. Auto-Ignore Schwellenwert
-    final_score = base_score + total_adj
+    # v1.7.95 (#1035): auf eine Nachkommastelle. 11,2 ist binaer nicht
+    # exakt darstellbar; nach einem Abzug von 2 stand `9.199999999999999`
+    # auf der Stellenkarte. Gerundet wurden nur einzelne Posten, nie die
+    # Summe — und die geht an alle Aufrufer.
+    final_score = round(base_score + total_adj, 1)
     threshold = cfg.get(("schwellenwert", "auto_ignore"), {}).get("value", 0)
 
     if not ignored and threshold and final_score < threshold:
