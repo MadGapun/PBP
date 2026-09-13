@@ -4,16 +4,23 @@ Gute Abdeckung für Senior-Positionen und Fachkräfte.
 Kein Login erforderlich. HTML-Scraping mit JSON-LD Fallback.
 
 Fix #235: Mehrere URL-Varianten, erweiterte Selektoren, SPA-Erkennung.
+
+v1.7.104 (#1041): die Karten liest `jobboerse_karten` (dieselbe Plattform
+wie ingenieur.de). Bis v1.7.103 kam je Suchlauf 1-2 Stellen an: die
+Auswahl traf die Bestandteile der Karten statt der Karten, der Titel kam
+aus dem Knopf "Job ansehen", Firma und Ort aus Klassennamen, die es nicht
+gibt, und der Kartenweg lief nur fuer den ersten Suchbegriff.
 """
 
+import json
 import logging
-import re
 import time
 
 import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .jobboerse_karten import karten_aus_html
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.jobware")
@@ -30,6 +37,8 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
+BASIS_URL = "https://www.jobware.de"
+
 # URL-Varianten: Jobware hat URLs in der Vergangenheit geaendert (#235, #500).
 # 2026-04-25: /suche/ und /stellenangebote/ liefern HTTP 404; /jobs ist die
 # aktuelle Such-URL.
@@ -41,9 +50,68 @@ _SEARCH_URLS = [
 ]
 
 
+def karten_hash(titel: str) -> str:
+    """Die Kennung einer Karten-Stelle — aus DEMSELBEN Text wie bis v1.7.103.
+
+    Der alte Kartenweg las den Titel aus dem Knopf "Job ansehen" und bekam
+    `Job"<Titel>"ansehen`. Mit dem richtigen Titel als Eingabe haette jede
+    bereits gespeicherte Stelle eine neue Kennung bekommen: der Neufund
+    waere ueber die gleiche URL als Duplikat des kaputten Eintrags
+    aussortiert worden, und der kaputte bliebe aktiv (Hinweis des Melders,
+    #1041). Mit derselben Eingabe landet der Wiederfund auf seiner Zeile,
+    und Titel, Firma und Ort werden dort korrigiert.
+    """
+    return stelle_hash("jobware.de", f'Job"{titel}"ansehen')
+
+
+def _stelle(titel, firma, ort, url, beschreibung="", kennung=None) -> dict:
+    return {
+        "hash": kennung or stelle_hash("jobware.de", titel),
+        "title": titel,
+        # "Unbekannt" nur, wenn die Karte wirklich keinen Arbeitgeber nennt —
+        # seit #1028 gilt der Platzhalter nicht als Firma.
+        "company": firma or "Unbekannt",
+        "location": ort,
+        "url": url,
+        "source": "jobware",
+        "description": beschreibung or fuer_speicher(""),
+        "employment_type": "festanstellung",
+        "remote_level": detect_remote_level(f"{titel} {ort} {beschreibung}"),
+    }
+
+
+def _aus_json_ld(soup) -> list[dict]:
+    stellen = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+        except Exception:
+            continue
+        items = data if isinstance(data, list) else data.get("@graph", [data])
+        for item in items:
+            if not isinstance(item, dict) or item.get("@type") != "JobPosting":
+                continue
+            title = item.get("title", "")
+            if not title:
+                continue
+            org = item.get("hiringOrganization", {})
+            company = org.get("name", "") if isinstance(org, dict) else ""
+            loc = item.get("jobLocation", {})
+            if isinstance(loc, list):
+                loc = loc[0] if loc else {}
+            location = ""
+            if isinstance(loc, dict):
+                addr = loc.get("address", {})
+                location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
+            stellen.append(_stelle(title, company, location, item.get("url", ""),
+                                   item.get("description", "") or ""))
+    return stellen
+
+
 def search_jobware(params: dict) -> list:
     """Search Jobware via HTML scraping."""
     jobs = []
+    gesehen: set = set()
     kw_data = params.get("keywords", {})
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
@@ -52,15 +120,17 @@ def search_jobware(params: dict) -> list:
         working_url = None
         for query in queries:
             try:
+                resp = None
                 if not working_url:
                     for url_candidate in _SEARCH_URLS:
                         try:
-                            resp = client.get(
+                            antwort = client.get(
                                 url_candidate,
                                 params={"q": query, "l": "Deutschland"},
                             )
-                            if resp.status_code == 200 and len(resp.text) > 5000:
+                            if antwort.status_code == 200 and len(antwort.text) > 5000:
                                 working_url = url_candidate
+                                resp = antwort
                                 break
                         except Exception:
                             continue
@@ -84,81 +154,24 @@ def search_jobware(params: dict) -> list:
                                    len(resp.text))
                     continue
 
-                # JSON-LD (preferred)
-                for script in soup.find_all("script", type="application/ld+json"):
-                    try:
-                        import json
-                        data = json.loads(script.string or "")
-                        items = data if isinstance(data, list) else data.get("@graph", [data])
-                        for item in items:
-                            if item.get("@type") != "JobPosting":
-                                continue
-                            title = item.get("title", "")
-                            if not title:
-                                continue
-                            org = item.get("hiringOrganization", {})
-                            company = org.get("name", "Unbekannt") if isinstance(org, dict) else "Unbekannt"
-                            loc = item.get("jobLocation", {})
-                            if isinstance(loc, list):
-                                loc = loc[0] if loc else {}
-                            location = ""
-                            if isinstance(loc, dict):
-                                addr = loc.get("address", {})
-                                location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
-
-                            jobs.append({
-                                "hash": stelle_hash("jobware.de", title),
-                                "title": title,
-                                "company": company,
-                                "location": location,
-                                "url": item.get("url", ""),
-                                "source": "jobware",
-                                "description": (item.get("description", "") or fuer_speicher("")),
-                                "employment_type": "festanstellung",
-                                "remote_level": detect_remote_level(
-                                    f"{title} {location} {item.get('description', '')}"
-                                ),
-                            })
-                    except Exception:
+                vorher = len(jobs)
+                for stelle in _aus_json_ld(soup):
+                    schluessel = stelle["url"] or stelle["title"]
+                    if schluessel in gesehen:
                         continue
+                    gesehen.add(schluessel)
+                    jobs.append(stelle)
 
-                # Fallback: HTML card extraction with extended selectors (#235)
-                if not any(j["source"] == "jobware" for j in jobs):
-                    cards = soup.select(
-                        "article, .job-item, [class*='job-card'], [class*='job-list'], "
-                        "[class*='search-result'], [class*='result-item'], "
-                        "a[href*='/stellenangebot/'], a[href*='/job/'], "
-                        "[data-job], [data-jobid]"
-                    )
-                    seen = set()
-                    for card in cards[:25]:
-                        link_el = card.find("a", href=True) if card.name != "a" else card
-                        if not link_el:
-                            continue
-                        title = link_el.get_text(strip=True)
-                        if not title or len(title) < 5 or title in seen:
-                            continue
-                        seen.add(title)
+                # v1.7.104 (#1041): Karten fuer JEDEN Suchbegriff, nicht nur
+                # solange die Sammelliste leer ist.
+                for k in karten_aus_html(resp.text, BASIS_URL):
+                    if k["url"] in gesehen:
+                        continue
+                    gesehen.add(k["url"])
+                    jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"],
+                                        kennung=karten_hash(k["titel"])))
 
-                        href = link_el.get("href", "")
-                        url = href if href.startswith("http") else f"https://www.jobware.de{href}"
-
-                        comp_el = card.find(class_=re.compile(r"company|firma|employer|arbeitgeber", re.I)) if card.name != "a" else None
-                        loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I)) if card.name != "a" else None
-
-                        jobs.append({
-                            "hash": stelle_hash("jobware.de", title),
-                            "title": title,
-                            "company": comp_el.get_text(strip=True) if comp_el else "Unbekannt",
-                            "location": loc_el.get_text(strip=True) if loc_el else "",
-                            "url": url,
-                            "source": "jobware",
-                            "description": "",
-                            "employment_type": "festanstellung",
-                            "remote_level": detect_remote_level(f"{title}"),
-                        })
-
-                logger.debug("Jobware: %d for '%s'", len(jobs), query)
+                logger.debug("Jobware: %d neu fuer '%s'", len(jobs) - vorher, query)
                 time.sleep(1.5)
             except Exception as e:
                 logger.error("Jobware error for '%s': %s", query, e)
