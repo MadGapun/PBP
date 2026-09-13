@@ -368,6 +368,65 @@ def test_der_suchlauf_rechnet_die_route_nach_allen_filtern_vor_dem_speichern():
     assert route < code.index("save_stats = db.save_jobs(unique)")
 
 
+def test_der_suchlauf_rechnet_den_score_erst_nach_der_anreicherung():
+    """Gefunden bei #950: der Score stand VOR Gehaltserkennung,
+    Freelance-Heuristik und Geocoding — der gespeicherte Wert kannte
+    keinen davon, `scores_neu_berechnen` alle drei."""
+    from bewerbungs_assistent import job_scraper
+
+    code = inspect.getsource(job_scraper)
+    lauf = code[code.index("Cross-Source Duplikate entfernt"):]
+    lauf = lauf[:lauf.index("save_stats = db.save_jobs(unique)")]
+    score = lauf.index('job["score"] = calculate_score(job, criteria)')
+    for vorher in ("extract_salary_from_text(text)",
+                   'job["employment_type"] = "freelance"',
+                   'job["distance_km"] = dist'):
+        assert lauf.index(vorher) < score, f"{vorher} steht nach dem Score"
+    assert score < lauf.index("min_score_threshold = "), \
+        "die Score-Schwelle braucht den Score"
+    assert lauf.count("calculate_score(job, criteria)") == 1
+
+
+def test_eine_route_im_suchlauf_rechnet_den_score_neu():
+    from bewerbungs_assistent import job_scraper
+
+    code = inspect.getsource(job_scraper)
+    route = code[code.index("_routing.fuer_stellen(db, unique"):]
+    route = route[:route.index("save_stats = db.save_jobs(unique)")]
+    assert "calculate_score(_j, criteria)" in route
+
+
+def test_die_manuelle_anlage_rechnet_den_score_nach_gehalt_und_entfernung():
+    from bewerbungs_assistent.tools import jobs
+
+    code = inspect.getsource(jobs)
+    anlage = code[code.index("def stelle_manuell_anlegen("):]
+    anlage = anlage[:anlage.index("@mcp.tool()")]
+    score = anlage.index('job["score"] = calculate_score(job, criteria)')
+    assert anlage.index("extract_salary_from_text(text)") < score
+    assert anlage.index('job["distance_km"] = dist') < score
+    assert score < anlage.index("db.save_jobs([job])")
+
+
+def test_die_entfernung_aendert_den_score_ueberhaupt(db):
+    """Ohne diesen Fall belegte die Reihenfolge nichts: rechnete der Score
+    gar nicht mit der Entfernung, waere sie egal."""
+    from bewerbungs_assistent.job_scraper import calculate_score
+    from bewerbungs_assistent.services import scoring_kriterien
+
+    db.set_search_criteria("keywords_muss", ["python"])
+    db.set_search_criteria("max_entfernung_km", 30)
+    kriterien = scoring_kriterien.fuer_scoring(db)
+    job = {"title": "Python Entwickler", "description": TEXT + " python",
+           "remote_level": "vor_ort", "employment_type": "festanstellung"}
+    nah = calculate_score(dict(job, distance_km=10), kriterien)
+    weit = calculate_score(dict(job, distance_km=300), kriterien)
+    route = calculate_score(dict(job, distance_km=10, fahrstrecke_km=300),
+                            kriterien)
+    assert weit < nah
+    assert route == weit, "die Fahrstrecke kostet wie dieselbe Luftlinie"
+
+
 def test_die_manuelle_anlage_setzt_koordinaten_und_route():
     from bewerbungs_assistent.tools import jobs
 

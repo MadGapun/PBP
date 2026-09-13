@@ -3024,8 +3024,8 @@ def register(mcp, db, logger):
             "_manual_entry": True,
         }
 
-        # Score
-        job["score"] = calculate_score(job, criteria)
+        # Score: erst unmittelbar vor dem Speichern (v1.7.94, #1034) — er liest
+        # Gehalt und Entfernung, und beide entstehen erst darunter.
 
         # Extract/estimate salary
         text = f"{beschreibung} {titel}"
@@ -3064,6 +3064,7 @@ def register(mcp, db, logger):
             except Exception:
                 pass
 
+        job["score"] = calculate_score(job, criteria)
         db.save_jobs([job])
 
         # #766: Kontakt als Anker. Wird VOR der Anker-Pruefung angelegt, damit
