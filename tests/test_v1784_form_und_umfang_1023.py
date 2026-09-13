@@ -376,21 +376,47 @@ def test_beide_merkmale_stehen_als_kennzeichen_auf_der_karte():
 
 
 def test_es_gibt_zwei_kombinierbare_filter():
-    """AK 6."""
+    """AK 6.
+
+    Seit v1.7.93 (#1030) filtert der SERVER, weil der Browser nur die
+    geladene Seite kannte. Die Oberflaeche schickt beide Werte; die
+    UND-Verknuepfung wird am Verhalten geprueft, nicht an einer
+    Zeichenkette, die es im Browser nicht mehr gibt.
+    """
     quelle = _ohne_kommentare(JOBS_PAGE.read_text(encoding="utf-8"))
     assert "filters.employmentType" in quelle
     assert "filters.arbeitsumfang" in quelle
-    assert "typeMatch && umfangMatch" in quelle, (
+    assert 'p.set("employment_type"' in quelle
+    assert 'p.set("arbeitsumfang"' in quelle
+
+    from bewerbungs_assistent.services import stellen_liste as sl
+
+    jobs = [
+        {"hash": "a", "employment_type": "festanstellung", "arbeitsumfang": "teilzeit"},
+        {"hash": "b", "employment_type": "festanstellung", "arbeitsumfang": "vollzeit"},
+        {"hash": "c", "employment_type": "freelance", "arbeitsumfang": "teilzeit"},
+    ]
+    antwort = sl.aufbereiten(
+        jobs, {"employment_type": "festanstellung", "arbeitsumfang": "teilzeit"})
+    assert [j["hash"] for j in antwort["jobs"]] == ["a"], (
         "Die beiden Filter muessen UND-verknuepft sein, sonst sind sie "
         "nicht kombinierbar")
 
 
 def test_beides_zaehlt_fuer_beide_filterrichtungen():
     """Eine Anzeige, die beides anbietet, ist fuer den Teilzeit-Suchenden
-    eine Teilzeitstelle."""
+    eine Teilzeitstelle.
+
+    Seit #1030 steht die Regel allein in `stellen_liste` — eine zweite
+    Fassung im Browser waere #963.
+    """
+    from bewerbungs_assistent.services import stellen_liste as sl
+
+    jobs = [{"hash": "x", "arbeitsumfang": "beides"}]
+    for richtung in ("teilzeit", "vollzeit"):
+        assert sl.aufbereiten(jobs, {"arbeitsumfang": richtung})["treffer"] == 1, richtung
     quelle = _ohne_kommentare(JOBS_PAGE.read_text(encoding="utf-8"))
-    assert 'job.arbeitsumfang === "beides"' in quelle
-    assert 'filters.arbeitsumfang === "teilzeit"' in quelle
+    assert 'job.arbeitsumfang === "beides"' not in quelle
 
 
 def test_die_oberflaeche_kennt_alle_formen():

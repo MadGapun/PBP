@@ -280,12 +280,27 @@ def test_1010_die_herkunft_rechnet_der_server(db):
 
 
 def test_1010_protokoll_sortiert_nach_dem_aussortier_zeitpunkt():
-    """Nicht nach `updated_at` — das war der ganze Befund."""
+    """Nicht nach `updated_at` — das war der ganze Befund.
+
+    Seit v1.7.93 (#1030) sortiert der Server. Dabei kam heraus, dass die
+    Browser-Sortierung nie wirkte: die vorsortierte Liste wurde danach
+    ein zweites Mal nach dem gewaehlten Kriterium sortiert, und das war
+    fast immer der Score. Jetzt geprueft am Verhalten — und daran, dass
+    die Ansicht diese Ordnung auch waehlt.
+    """
+    from bewerbungs_assistent.services import stellen_liste as sl
+
+    jobs = [
+        {"hash": "alt", "score": 90, "dismissed_at": "2026-09-01T10:00:00+00:00",
+         "updated_at": "2026-09-13T10:00:00+00:00"},
+        {"hash": "neu", "score": 10, "dismissed_at": "2026-09-12T10:00:00+00:00",
+         "updated_at": "2026-09-02T10:00:00+00:00"},
+    ]
+    reihe = [j["hash"] for j in sl.aufbereiten(jobs, sort="dismissed_desc")["jobs"]]
+    assert reihe == ["neu", "alt"]
     quelle = JOBS_PAGE.read_text(encoding="utf-8")
-    block = quelle[quelle.index("const protokollListe"):]
-    block = block[:block.index("const currentList")]
-    assert "dismissed_at" in block
-    assert "updated_at" not in block
+    assert '"dismissed_desc"' in quelle, (
+        "Die Ausgeblendet-Ansicht muss die Protokoll-Ordnung auch waehlen.")
 
 
 def test_1010_rueckgaengig_steht_im_toast():

@@ -273,9 +273,17 @@ def test_beide_tabs_nennen_ihre_menge_mit_den_vorhandenen_tokens():
 
 
 def test_die_notiz_nennt_die_sichtbaren_bei_aktivem_filter():
-    """AK 6."""
+    """AK 6.
+
+    Seit v1.7.93 (#1030) nennt die Notiz die TREFFER im Bestand — vorher
+    die sichtbaren Zeilen der geladenen Seite, und das war bei 20
+    geladenen Stellen dieselbe Unterzaehlung, gegen die #1022 antrat.
+    Die Kachel beschreibt die aktiven Stellen, also rechnet sie mit deren
+    Zahlen, nicht mit denen der gerade offenen Ansicht.
+    """
     quelle = _ohne_kommentare(_quelle())
-    assert "${filteredJobs.length} sichtbar, ${durchFilterVerborgen} durch Filter verborgen" in quelle
+    assert "${aktivMeta.treffer} Treffer, ${durchFilterVerborgen} durch Filter verborgen" in quelle
+    assert "const durchFilterVerborgen = Math.max(0, aktivMeta.total - aktivMeta.treffer)" in quelle
 
 
 def test_das_zeitfenster_verbirgt_nichts_mehr_ungefragt():

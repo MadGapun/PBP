@@ -2359,13 +2359,71 @@ async def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,
                    exclude_applied: bool = False,
                    limit: int = 0,
-                   offset: int = 0):
+                   offset: int = 0,
+                   query: str = "",
+                   source: str = "",
+                   min_score: str = "",
+                   remote: str = "",
+                   nur_mit_gehalt: str = "",
+                   employment_type: str = "",
+                   arbeitsumfang: str = "",
+                   beworbene_ausblenden: str = "",
+                   nur_ohne_beschreibung: str = "",
+                   pruefstand: str = "",
+                   zeitfenster: str = "",
+                   sort: str = ""):
     """Get jobs with filtering and optional pagination (#118, #121, #145).
 
     By default, blacklisted companies are excluded from active jobs.
     Set exclude_applied=true to also hide already-applied jobs.
     Use limit/offset for pagination. limit=0 returns all (backward compatible).
+
+    v1.7.93 (#1030, #1032): Filter und Sortierung wirken auf den
+    BESTAND der Ansicht, bevor die Seite herausgeschnitten wird. Bis
+    hierher schnitt der Endpunkt zuerst und ueberliess Filter und
+    Sortierung dem Browser — der kannte nur die geladenen 20 Stellen.
+    Beide Ansichten gehen durch `services/stellen_liste.py`; eine zweite
+    Fassung der Regeln im JavaScript waere #963.
+
+    Ohne Filter, Sortierung und `limit` bleibt die Antwort eine Liste
+    (Dashboard, Onboarding).
     """
+    from .services import stellen_liste as _liste
+
+    filter_roh = {feld: wert for feld, wert in {
+        "query": query, "source": source, "min_score": min_score,
+        "remote": remote, "nur_mit_gehalt": nur_mit_gehalt,
+        "employment_type": employment_type, "arbeitsumfang": arbeitsumfang,
+        "beworbene_ausblenden": beworbene_ausblenden,
+        "nur_ohne_beschreibung": nur_ohne_beschreibung,
+        "pruefstand": pruefstand, "zeitfenster": zeitfenster,
+    }.items() if wert not in (None, "")}
+    als_liste = limit > 0 or _liste.ist_listenanfrage(filter_roh, sort)
+
+    def _aufbereitet(jobs: list) -> dict:
+        # Beworben ist, was eine Bewerbung ausserhalb des Archivs hat —
+        # dieselbe Konstante wie ueberall in der DB-Schicht. Der Browser
+        # hatte bis v1.7.92 eine eigene Liste ohne
+        # `arbeitgeber_ausgefallen` (#779).
+        beworbene: list = []
+        try:
+            beworbene = [a.get("job_hash") for a in _db.get_applications()
+                         if a.get("job_hash")
+                         and a.get("status") not in _db.ARCHIVE_STATUSES]
+        except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+            logger.debug("Beworbene nicht lesbar (#1030): %s", exc)
+        from .services import datenguete as _dg
+        return _liste.aufbereiten(
+            jobs, filter_roh, sort, limit=limit, offset=offset,
+            beworbene=beworbene,
+            hash_von=lambda h: _db._public_job_hash(str(h)) if h else "",
+            guete_umgang=_dg.umgang(_db))
+
+    def _ungueltig(fehler) -> JSONResponse:
+        return JSONResponse(status_code=400, content={
+            "fehler": str(fehler), "feld": fehler.feld,
+            "erlaubt": fehler.erlaubt})
+
     if active:
         all_jobs = _db.get_active_jobs(
             exclude_blacklisted=exclude_blacklisted,
@@ -2380,18 +2438,19 @@ async def api_jobs(active: bool = True,
         # v1.7.62 (#1008 Befund 2): dieselben Scoring-Regler wie die
         # MCP-Liste und der Bericht. Ohne diesen Schritt zeigte der
         # Stellen-Tab den rohen gespeicherten Wert und jedes andere
-        # Werkzeug einen anderen. Die Reihenfolge bleibt unangetastet —
-        # sortiert wird im Frontend, und die Datenguete-Ordnung aus
-        # #989 darf eine Score-Sortierung nicht ueberschreiben.
+        # Werkzeug einen anderen. `sortieren=False`: die Rangfolge
+        # (Pflichttreffer, Datenguete, Kriterium) setzt `stellen_liste`.
         _db._mit_scoring_reglern(all_jobs, sortieren=False)
         _guete_anreichern(all_jobs)
-        total = len(all_jobs)
-        if limit > 0:
-            page = all_jobs[offset:offset + limit]
-            return {"jobs": page, "total": total, "offset": offset,
-                    "limit": limit, "has_more": offset + limit < total,
-                    "kennzahlen_basis": _kennzahlen_basis(all_jobs),
-                    "aussortiert_gesamt": _aussortiert_zaehlen()}
+        if als_liste:
+            try:
+                antwort = _aufbereitet(all_jobs)
+            except _liste.UngueltigerParameter as fehler:
+                return _ungueltig(fehler)
+            # #1022: die Kopfzeile beschreibt den BESTAND — ungefiltert.
+            antwort["kennzahlen_basis"] = _kennzahlen_basis(all_jobs)
+            antwort["aussortiert_gesamt"] = _aussortiert_zaehlen()
+            return antwort
         return all_jobs
     # v1.7.64 (#1010): die Herkunft rechnet der DIENST, nicht das
     # Frontend. Eine gespiegelte Fassung im JavaScript waere der zweite
@@ -2402,6 +2461,12 @@ async def api_jobs(active: bool = True,
     aussortiert = _db.get_dismissed_jobs()
     for _job in aussortiert:
         _job["herkunft"] = _protokoll.herkunft(_job)
+    if als_liste:
+        # #1030 AK 1: dieselben Filter fuer die Ausgeblendet-Ansicht.
+        try:
+            return _aufbereitet(aussortiert)
+        except _liste.UngueltigerParameter as fehler:
+            return _ungueltig(fehler)
     return aussortiert
 
 

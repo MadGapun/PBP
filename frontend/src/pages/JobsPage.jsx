@@ -1,5 +1,5 @@
 ﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
-import { startTransition, useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
@@ -21,10 +21,11 @@ import {
 } from "@/components/ui";
 import { cn, formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
-import { kurzmarke as datenguetMarke, vergleicheMitGuete } from "@/lib/datenguete";
+import { kurzmarke as datenguetMarke } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
+import { stellenDaten } from "@/lib/stellenDaten";
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -149,14 +150,56 @@ export const HERKUNFT_ETIKETT = {
   unbekannt: "Herkunft unbekannt",
 };
 
-export function dismissWindowGrenze(fenster) {
-  if (fenster === "alle") return null;
-  const jetzt = new Date();
-  if (fenster === "heute") {
-    return new Date(jetzt.getFullYear(), jetzt.getMonth(), jetzt.getDate()).getTime();
+// v1.7.93 (#1030): Filter, Sortierung und Zeitfenster gehen an den SERVER.
+// Bis v1.7.92 filterte und sortierte der Browser die geladenen 20 Stellen —
+// "buchhaltung" fand 5 statt 209, "Vollzeit" 0 statt 59, und der Hinweis
+// behauptete, die Filter seien zu streng. Die Regeln stehen jetzt allein in
+// `services/stellen_liste.py`; eine zweite Fassung hier waere #963. Das gilt
+// auch fuer das Zeitfenster des Protokolls (#1010), das hier bis v1.7.92 als
+// `dismissWindowGrenze` ein zweites Mal gerechnet wurde.
+export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
+  const p = new URLSearchParams();
+  if (suchtext) p.set("query", suchtext);
+  if (filters.source) p.set("source", filters.source);
+  if (Number(filters.minScore || 0) > 0) p.set("min_score", String(filters.minScore));
+  if (filters.remote) p.set("remote", filters.remote);
+  if (filters.salaryOnly) p.set("nur_mit_gehalt", "true");
+  if (filters.employmentType) p.set("employment_type", filters.employmentType);
+  if (filters.arbeitsumfang) p.set("arbeitsumfang", filters.arbeitsumfang);
+  if (filters.hideApplied) p.set("beworbene_ausblenden", "true");
+  if (filters.missingDescriptionOnly) p.set("nur_ohne_beschreibung", "true");
+  if (filters.pruefstand) p.set("pruefstand", filters.pruefstand);
+  let sort = filters.sort || "score_desc";
+  if (ansicht === "dismissed") {
+    if (zeitfenster && zeitfenster !== "alle") p.set("zeitfenster", zeitfenster);
+  } else if (sort === "dismissed_desc") {
+    sort = "score_desc";
   }
-  const tage = fenster === "30tage" ? 30 : 7;
-  return jetzt.getTime() - tage * 24 * 60 * 60 * 1000;
+  p.set("sort", sort);
+  return p.toString();
+}
+
+const LEERE_META = {
+  total: 0,
+  treffer: 0,
+  treffer_mit_beworbenen: 0,
+  ohne_beschreibung: 0,
+  ohne_zeitpunkt: 0,
+  optionen: { source: [], remote: [], employment_type: [], arbeitsumfang: [] },
+};
+
+function listenMeta(antwort) {
+  if (Array.isArray(antwort)) {
+    return { ...LEERE_META, total: antwort.length, treffer: antwort.length, treffer_mit_beworbenen: antwort.length };
+  }
+  return {
+    total: Number(antwort?.total || 0),
+    treffer: Number(antwort?.treffer ?? antwort?.total ?? 0),
+    treffer_mit_beworbenen: Number(antwort?.treffer_mit_beworbenen ?? antwort?.treffer ?? 0),
+    ohne_beschreibung: Number(antwort?.ohne_beschreibung || 0),
+    ohne_zeitpunkt: Number(antwort?.ohne_zeitpunkt || 0),
+    optionen: { ...LEERE_META.optionen, ...(antwort?.optionen || {}) },
+  };
 }
 
 // #1023: Anstellungsform und Umfang sind ZWEI Merkmale. Bis v1.7.83
@@ -282,6 +325,10 @@ export default function JobsPage() {
   // keine zweite Fassung gibt.
   const [kennzahlenBasis, setKennzahlenBasis] = useState([]);
   const [aussortiertGesamt, setAussortiertGesamt] = useState(0);
+  // v1.7.93 (#1030): Treffer, Auswahllisten und Zaehler je Ansicht — vom
+  // Server ueber den BESTAND gerechnet, nicht ueber die geladene Seite.
+  const [aktivMeta, setAktivMeta] = useState(LEERE_META);
+  const [ausgeblendetMeta, setAusgeblendetMeta] = useState(LEERE_META);
   const [jobsHasMore, setJobsHasMore] = useState(false);
   const [jobsPageSize, setJobsPageSize] = useState(() => {
     const saved = localStorage.getItem("pbp_jobs_page_size");
@@ -292,7 +339,16 @@ export default function JobsPage() {
   const wasSearchRunningRef = useRef(false);
   const searchPollErrorShownRef = useRef(false);
 
-  const deferredQuery = useDeferredValue(filters.query);
+  // v1.7.93 (#1030): der Suchtext geht an den Server — erst nach einer
+  // kurzen Pause, sonst laedt jeder Tastendruck den ganzen Bestand neu.
+  const [suchtext, setSuchtext] = useState("");
+  useEffect(() => {
+    const zeitgeber = setTimeout(() => setSuchtext(String(filters.query || "").trim()), 300);
+    return () => clearTimeout(zeitgeber);
+  }, [filters.query]);
+  const anfrageRef = useRef(0);
+  const nachladenRef = useRef(null);
+  const nachladenLaeuftRef = useRef(false);
 
   const openDetailDialog = useCallback((job) => {
     setDetailDialog({ open: true, job, editing: false });
@@ -301,55 +357,59 @@ export default function JobsPage() {
   const loadPage = useEffectEvent(async (options = {}) => {
     const silent = Boolean(options?.silent);
     const append = Boolean(options?.append);
-    const pageSize = options?.pageSize || jobsPageSize;
+    // `??` statt `||`: "Alle" ist die Seitengroesse 0. Mit `||` fiel sie
+    // auf die bisherige Groesse zurueck, weil der State beim Aufruf noch
+    // nicht umgestellt ist.
+    const pageSize = options?.pageSize ?? jobsPageSize;
     const currentOffset = append ? jobs.length : 0;
+    const anfrage = ++anfrageRef.current;
     try {
-      const jobsUrl = pageSize > 0
-        ? `/api/jobs?active=true&exclude_blacklisted=true&limit=${pageSize}&offset=${currentOffset}`
-        : "/api/jobs?active=true&exclude_blacklisted=true";
+      const jobsUrl = `/api/jobs?active=true&exclude_blacklisted=true&limit=${pageSize > 0 ? pageSize : 0}`
+        + `&offset=${currentOffset}&${listenParameter(filters, suchtext, dismissWindow, "active")}`;
       const [activeJobsResp, hiddenJobs, followUpsResponse, appsResponse, reasons, guete] = await Promise.all([
         api(jobsUrl),
-        append ? Promise.resolve(null) : api("/api/jobs?active=false"),
+        append ? Promise.resolve(null) : api(`/api/jobs?active=false&${listenParameter(filters, suchtext, dismissWindow, "dismissed")}`),
         append ? Promise.resolve(null) : api("/api/follow-ups"),
         append ? Promise.resolve(null) : api("/api/applications"),
         append ? Promise.resolve(null) : optionalApi("/api/dismiss-reasons"),
         append ? Promise.resolve(null) : optionalApi("/api/datenguete/umgang"),
       ]);
+      // #1030: beim schnellen Umstellen der Filter kommen die Antworten in
+      // beliebiger Reihenfolge. Eine aeltere darf die neuere nicht
+      // ueberschreiben.
+      if (anfrage !== anfrageRef.current) return;
       startTransition(() => {
-        // Handle paginated response (object with jobs array) or plain array (no limit)
-        const isPaginated = activeJobsResp && !Array.isArray(activeJobsResp) && activeJobsResp.jobs;
-        const newJobs = isPaginated ? activeJobsResp.jobs : (activeJobsResp || []);
+        const newJobs = Array.isArray(activeJobsResp) ? activeJobsResp : (activeJobsResp?.jobs || []);
         if (append) {
           setJobs((prev) => [...prev, ...newJobs]);
         } else {
           setJobs(newJobs);
         }
-        if (isPaginated) {
-          setJobsTotal(activeJobsResp.total || 0);
-          setJobsHasMore(Boolean(activeJobsResp.has_more));
-          // #1022: auch beim Nachladen mitgesetzt — die Grundlage
-          // beschreibt den Bestand und aendert sich dabei nicht. Faellt
-          // sie aus, bleibt der alte Stand stehen statt auf die
-          // geladene Seite zurueckzufallen: eine Kennzahl ueber den
-          // halben Bestand ist schlimmer als eine, die kurz veraltet.
-          if (Array.isArray(activeJobsResp.kennzahlen_basis)) {
-            setKennzahlenBasis(activeJobsResp.kennzahlen_basis);
-          }
-          if (typeof activeJobsResp.aussortiert_gesamt === "number") {
-            setAussortiertGesamt(activeJobsResp.aussortiert_gesamt);
-          }
-        } else {
-          setJobsTotal(newJobs.length);
-          setJobsHasMore(false);
-          // Ohne Paginierung IST die geladene Liste der Bestand.
+        const aktiv = listenMeta(activeJobsResp);
+        setAktivMeta(aktiv);
+        setJobsTotal(aktiv.total);
+        setJobsHasMore(Boolean(activeJobsResp?.has_more));
+        // #1022: auch beim Nachladen mitgesetzt — die Grundlage
+        // beschreibt den Bestand und aendert sich dabei nicht. Faellt
+        // sie aus, bleibt der alte Stand stehen statt auf die
+        // geladene Seite zurueckzufallen: eine Kennzahl ueber den
+        // halben Bestand ist schlimmer als eine, die kurz veraltet.
+        if (Array.isArray(activeJobsResp?.kennzahlen_basis)) {
+          setKennzahlenBasis(activeJobsResp.kennzahlen_basis);
+        } else if (Array.isArray(activeJobsResp)) {
           setKennzahlenBasis(newJobs);
+        }
+        if (typeof activeJobsResp?.aussortiert_gesamt === "number") {
+          setAussortiertGesamt(activeJobsResp.aussortiert_gesamt);
         }
         if (!append) {
           if (hiddenJobs) {
-            setDismissedJobs(hiddenJobs || []);
-            // #1022: die Zahl im Tab-Namen. Beim Vollabruf ist sie hier
-            // genauer als die des Endpunkts.
-            setAussortiertGesamt((hiddenJobs || []).length);
+            setDismissedJobs(Array.isArray(hiddenJobs) ? hiddenJobs : (hiddenJobs.jobs || []));
+            const ausgeblendet = listenMeta(hiddenJobs);
+            setAusgeblendetMeta(ausgeblendet);
+            // #1022: die Zahl im Tab-Namen — der Bestand der Ansicht,
+            // nicht die Treffer der Filter.
+            setAussortiertGesamt(ausgeblendet.total);
           }
           if (followUpsResponse) setFollowUps(followUpsResponse?.follow_ups || []);
           if (appsResponse) {
@@ -363,6 +423,7 @@ export default function JobsPage() {
         setLoadingMore(false);
       });
     } catch (error) {
+      if (anfrage !== anfrageRef.current) return;
       if (!silent) {
         pushToast(`Stellen konnten nicht geladen werden: ${error.message}`, "danger");
       }
@@ -413,6 +474,36 @@ export default function JobsPage() {
     setLoading(true);
     loadPage();
   }, [reloadKey]);
+
+  // v1.7.93 (#1030): Filter, Sortierung, Ansicht und Zeitfenster wirken
+  // auf dem Server — jede Aenderung laedt ab der ersten Seite neu. Der
+  // rohe Suchtext steht nicht im Schluessel, nur der entprellte.
+  const listenSchluessel = JSON.stringify([{ ...filters, query: "" }, suchtext, dismissWindow]);
+  const listenSchluesselRef = useRef(listenSchluessel);
+  useEffect(() => {
+    if (listenSchluesselRef.current === listenSchluessel) return;
+    listenSchluesselRef.current = listenSchluessel;
+    loadPage({ silent: true });
+  }, [listenSchluessel]);
+
+  // #1030 (Verbesserung im selben Zug): kommt das Listenende in Sicht,
+  // laedt die naechste Seite ohne Klick. Der Knopf bleibt fuer die
+  // Tastatur und fuer Browser ohne IntersectionObserver.
+  useEffect(() => {
+    const ziel = nachladenRef.current;
+    if (!ziel || loading || !jobsHasMore || filters.view !== "active") return undefined;
+    if (typeof IntersectionObserver === "undefined") return undefined;
+    const beobachter = new IntersectionObserver((eintraege) => {
+      if (!eintraege.some((eintrag) => eintrag.isIntersecting) || nachladenLaeuftRef.current) return;
+      nachladenLaeuftRef.current = true;
+      setLoadingMore(true);
+      Promise.resolve(loadPage({ append: true, silent: true })).finally(() => {
+        nachladenLaeuftRef.current = false;
+      });
+    }, { rootMargin: "600px 0px" });
+    beobachter.observe(ziel);
+    return () => beobachter.disconnect();
+  }, [loading, jobsHasMore, filters.view, jobs.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -741,46 +832,28 @@ export default function JobsPage() {
     }
   }
 
-  // ACHTUNG Reihenfolge: dieser Block steht VOR dem fruehen
-  // `if (loading) return ...`. Ein useMemo dahinter laeuft im ersten
-  // Rendern nicht mit und im zweiten schon — React verwirft die
-  // Komponente dann. Gefunden hat es der Browser-Test: der
-  // Vite-Build war gruen, und in der Konsole stand nichts.
   // #1010: die Ausgeblendet-Ansicht ist das Protokoll. Sortiert wird nach
   // dem Zeitpunkt der AUSSORTIERUNG — `updated_at` taugt dafuer nicht,
-  // die Spalte fasst jede Score-Neuberechnung an, und nach einem Suchlauf
-  // stand die eben weggeklickte Stelle nicht mehr oben.
-  const protokollListe = useMemo(() => {
-    const grenze = dismissWindowGrenze(dismissWindow);
-    const gefiltert = grenze === null
-      ? dismissedJobs
-      : dismissedJobs.filter((j) => {
-          const wann = Date.parse(j.dismissed_at || "");
-          // Ohne Zeitpunkt (Altbestand) laesst sich nichts einordnen —
-          // solche Zeilen erscheinen nur unter "alle", statt still in ein
-          // Fenster gerechnet zu werden.
-          return !Number.isNaN(wann) && wann >= grenze;
-        });
-    return [...gefiltert].sort(
-      (a, b) => (Date.parse(b.dismissed_at || "") || 0) - (Date.parse(a.dismissed_at || "") || 0)
-    );
-  }, [dismissedJobs, dismissWindow]);
-
-  const ohneZeitpunkt = dismissedJobs.filter((j) => !j.dismissed_at).length;
+  // die Spalte fasst jede Score-Neuberechnung an. Zeitfenster und diese
+  // Sortierung rechnet seit v1.7.93 der Server (#1030). Im Browser war die
+  // Sortierung ohnehin wirkungslos: die Liste wurde danach ein zweites Mal
+  // nach dem gewaehlten Kriterium sortiert, und das war fast immer der
+  // Score — die Reihenfolge nach Zeitpunkt hielt nur bei gleichem Score.
+  const ohneZeitpunkt = ausgeblendetMeta.ohne_zeitpunkt;
 
   if (loading) return <LoadingPanel label="Stellen werden geladen..." />;
 
-  const allJobs = [...jobs, ...dismissedJobs];
-  const sourceOptions = [...new Set(allJobs.map((job) => job.source).filter(Boolean))];
-  const remoteOptions = [...new Set(allJobs.map((job) => job.remote_level).filter((r) => r && r !== "unbekannt"))];
-  const employmentTypeOptions = [...new Set(allJobs.map((job) => job.employment_type).filter(Boolean))];
-  // #1023: nur Werte, die im Bestand wirklich vorkommen — und
-  // `unbekannt` gehoert nicht in eine Auswahl, die etwas einschraenken
-  // soll.
-  const umfangOptions = [...new Set(
-    allJobs.map((job) => job.arbeitsumfang)
-      .filter((u) => u && u !== "unbekannt"))];
-  const currentList = filters.view === "active" ? jobs : protokollListe;
+  // v1.7.93 (#1030 AK 6): die Auswahllisten kommen vom Server und
+  // beschreiben die ganze Ansicht. Vorher entstanden sie aus den geladenen
+  // aktiven plus allen ausgeblendeten Stellen — ein Wert konnte fehlen,
+  // obwohl aktive Stellen ihn tragen. #1023: `unbekannt` laesst der
+  // Server weg, es gehoert nicht in eine Auswahl, die etwas einschraenkt.
+  const ansichtMeta = filters.view === "active" ? aktivMeta : ausgeblendetMeta;
+  const sourceOptions = ansichtMeta.optionen.source;
+  const remoteOptions = ansichtMeta.optionen.remote;
+  const employmentTypeOptions = ansichtMeta.optionen.employment_type;
+  const umfangOptions = ansichtMeta.optionen.arbeitsumfang;
+  const currentList = filters.view === "active" ? jobs : dismissedJobs;
   // #1022: die vier Kennzahlen der Kopfzeile beschreiben den BESTAND.
   // Bis v1.7.82 rechneten sie ueber die geladene Seite — und weil nach
   // Score sortiert wird, waren das immer die besten: Durchschnittsscore
@@ -789,8 +862,9 @@ export default function JobsPage() {
   // Blaettern.
   const kennzahlenQuelle = kennzahlenBasis.length ? kennzahlenBasis : jobs;
   const scoredActiveJobs = kennzahlenQuelle.filter((job) => Number(job?.score || 0) > 0);
-  const jobsWithoutDescriptionCount = jobs.filter(jobNeedsDescriptionAttention).length;
-  const hiddenAppliedCount = currentList.filter((job) => appliedJobHashes.has(job.hash)).length;
+  // #1030: ueber den Bestand gezaehlt — der Hinweis sprach von "aktiven
+  // Stellen" und zaehlte nur die geladenen.
+  const jobsWithoutDescriptionCount = aktivMeta.ohne_beschreibung;
   const salaryMetrics = buildAnnualSalaryMetrics(kennzahlenQuelle);
   const jobsWithSalary = Number(salaryMetrics.jobsWithSalary || 0);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
@@ -819,7 +893,7 @@ export default function JobsPage() {
       : hasBandMax
         ? formatCurrency(bandMax)
         : "Keine Angabe";
-  const latestJobUpdate = (currentList.length ? currentList : allJobs).reduce(
+  const latestJobUpdate = (currentList.length ? currentList : jobs).reduce(
     (latest, job) => {
       const raw = job.updated_at || job.found_at || "";
       const timestamp = Date.parse(raw);
@@ -832,73 +906,22 @@ export default function JobsPage() {
   const averageScore = scoredActiveJobs.length
     ? Math.round(scoredActiveJobs.reduce((sum, job) => sum + Number(job.score || 0), 0) / scoredActiveJobs.length)
     : 0;
-  const filteredJobs = currentList
-    .filter((job) => {
-      const haystack = `${job.title || ""} ${job.company || ""} ${job.description || ""}`.toLowerCase();
-      const queryMatch = !deferredQuery || haystack.includes(deferredQuery.toLowerCase());
-      const sourceMatch = !filters.source || job.source === filters.source;
-      const scoreMatch = Number(job.score || 0) >= Number(filters.minScore || 0);
-      const remoteMatch = !filters.remote || job.remote_level === filters.remote;
-      const salaryMatch = !filters.salaryOnly || (job.salary_min && job.salary_min > 0);
-      const typeMatch = !filters.employmentType || job.employment_type === filters.employmentType;
-      // #1023: "beides" zaehlt als Treffer fuer BEIDE Richtungen. Eine
-      // Anzeige, die Voll- UND Teilzeit anbietet, ist fuer jemanden,
-      // der Teilzeit sucht, eine Teilzeitstelle — sie herauszufiltern
-      // waere dieselbe Falschaussage wie ein Etikett mit zwei Werten.
-      const umfangMatch = !filters.arbeitsumfang
-        || job.arbeitsumfang === filters.arbeitsumfang
-        || (job.arbeitsumfang === "beides"
-            && (filters.arbeitsumfang === "teilzeit"
-                || filters.arbeitsumfang === "vollzeit"));
-      const appliedMatch = !filters.hideApplied || !appliedJobHashes.has(job.hash);
-      const descriptionMatch = !filters.missingDescriptionOnly || jobNeedsDescriptionAttention(job);
-      // #1007/#948: "noch nicht beurteilt" ist kein Urteil. Welcher
-      // Zustand gilt, entscheidet der Server (`services/passung.py`) —
-      // hier steht nur, wonach gefiltert wird. Eine zweite Fassung der
-      // Einteilung im JavaScript waere #963 im Frontend.
-      const stand = job.pruefstand?.art || "ungeprueft";
-      const analysedMatch = !filters.pruefstand || stand === filters.pruefstand;
-      return queryMatch && sourceMatch && scoreMatch && remoteMatch && salaryMatch && typeMatch && umfangMatch && appliedMatch && descriptionMatch && analysedMatch;
-    })
-    .sort((a, b) => {
-      // Pinned jobs always come first
-      const pinA = a.is_pinned ? 1 : 0;
-      const pinB = b.is_pinned ? 1 : 0;
-      if (pinA !== pinB) return pinB - pinA;
+  // v1.7.93 (#1030): die Liste kommt gefiltert und sortiert vom SERVER.
+  // Bis v1.7.92 stand hier `currentList.filter(...).sort(...)` ueber die
+  // GELADENEN Stellen — beim Melder fand "buchhaltung" 5 statt 209, und
+  // "Score aufst." begann bei 12, obwohl der niedrigste Score 0 war. Die
+  // Regeln (Umfang "beides", Pflichttreffer vor Datenguete vor Kriterium,
+  // beworbene, Pruefstand, belegtes Gehalt) stehen jetzt allein in
+  // `services/stellen_liste.py`.
+  const filteredJobs = currentList;
+  const listenTreffer = ansichtMeta.treffer;
+  const listenGesamt = ansichtMeta.total;
 
-      // v1.7.39 (#989): Datenguete VOR dem gewaehlten Kriterium. Eine
-      // Stelle ohne Anzeigentext ist nicht schlecht bewertet, sie ist
-      // gar nicht bewertet — und was nichts kostet, stand bisher oben.
-      // Gemessen am 07.09.2026: inhaltsleerer Titel 101 Punkte, voll
-      // beschriebene passende Stelle 32. Der Score bleibt unangetastet;
-      // nur die Reihenfolge zieht die Konsequenz.
-      // v1.7.68 (#968) AK 4: eine Stelle ohne Pflichttreffer steht nie
-      // ueber einer mit. Die Entscheidung trifft der SERVER
-      // (`services/muss_tor.py`) und schickt sie als `job.muss_tor` mit
-      // — hier wird nur gelesen. Eine gespiegelte Fassung der Regel
-      // waere der zweite Rechenweg fuer dieselbe Frage (#765, #963).
-      const torA = a.muss_tor ? 1 : 0;
-      const torB = b.muss_tor ? 1 : 0;
-      if (torA !== torB) return torA - torB;
-
-      return vergleicheMitGuete(a, b, (x, y) => {
-      switch (filters.sort) {
-        case "score_desc": return (y.score || 0) - (x.score || 0);
-        case "score_asc": return (x.score || 0) - (y.score || 0);
-        case "salary_desc": return (y.salary_max || y.salary_min || 0) - (x.salary_max || x.salary_min || 0);
-        case "company": return (x.company || "").localeCompare(y.company || "");
-        case "title": return (x.title || "").localeCompare(y.title || "");
-        default: return 0;
-      }
-      }, guetUmgang);
-    });
-
-  // v1.7.62 (#1008): wie viele der GELADENEN Eintraege unterdruecken die
-  // Filter gerade. Bewusst gegen `currentList` gerechnet und nicht gegen
-  // `jobsTotal`: bei aktivem Nachladen waeren die noch nicht geholten
-  // Seiten sonst als "durch Filter verborgen" gezaehlt worden — eine
-  // Zahl, die zu hoch ist, ist so irrefuehrend wie eine, die fehlt.
-  const verborgeneStellen = Math.max(0, currentList.length - filteredJobs.length);
+  // v1.7.62 (#1008): wie viele Eintraege der ANSICHT die Filter gerade
+  // unterdruecken. Seit #1030 zaehlt der Server ueber den Bestand — die
+  // noch nicht geladenen Seiten sind keine "verborgenen" Stellen, weil
+  // `treffer` sie schon enthaelt.
+  const verborgeneStellen = Math.max(0, listenGesamt - listenTreffer);
   const aktiveFilter = aktiveFilterBestimmen(filters);
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
@@ -921,7 +944,7 @@ export default function JobsPage() {
         action: () => setFilters((current) => ({ ...current, view: "active", missingDescriptionOnly: !current.missingDescriptionOnly })),
       };
     }
-    if (filters.view === "active" && filteredJobs.length === 0 && currentList.length > 0 && filters.hideApplied && hiddenAppliedCount === currentList.length) {
+    if (filters.view === "active" && listenTreffer === 0 && filters.hideApplied && aktivMeta.treffer_mit_beworbenen > 0) {
       return {
         badge: "Filter",
         tone: "sky",
@@ -931,7 +954,9 @@ export default function JobsPage() {
         action: () => setFilters((current) => ({ ...current, hideApplied: false })),
       };
     }
-    if (filters.view === "active" && filteredJobs.length === 0 && currentList.length > 0) {
+    // #1030 AK 5: nur, wenn im GANZEN Bestand nichts passt. Vorher genuegte
+    // eine leere geladene Seite — und die Treffer lagen auf Seite zwei.
+    if (filters.view === "active" && listenTreffer === 0 && listenGesamt > 0) {
       return {
         badge: "Filter",
         tone: "neutral",
@@ -948,7 +973,7 @@ export default function JobsPage() {
         })),
       };
     }
-    if (filters.view === "active" && filteredJobs.length === 0 && searchNeedsRefresh) {
+    if (filters.view === "active" && listenTreffer === 0 && searchNeedsRefresh) {
       return {
         badge: "Suche",
         tone: "danger",
@@ -1056,11 +1081,14 @@ export default function JobsPage() {
               // Teilmengen und war damit unsinnig. Jetzt entkoppelt.
               const withApplication = appliedJobHashes.size;
               const dismissedCount = aussortiertGesamt || dismissedJobs.length;
-              const durchFilterVerborgen = verborgeneStellen;
+              // #1030: die Kachel beschreibt die AKTIVEN Stellen — also zaehlt
+              // sie auch deren Filtertreffer, nicht die der gerade offenen
+              // Ansicht und nicht die der geladenen Seite.
+              const durchFilterVerborgen = Math.max(0, aktivMeta.total - aktivMeta.treffer);
               const parts = [];
               // #1022 AK 6: bei aktivem Filter gehoert die Einschraenkung
               // in die Notiz — die Kachel selbst bleibt beim Bestand.
-              if (durchFilterVerborgen > 0) parts.push(`${filteredJobs.length} sichtbar, ${durchFilterVerborgen} durch Filter verborgen`);
+              if (durchFilterVerborgen > 0) parts.push(`${aktivMeta.treffer} Treffer, ${durchFilterVerborgen} durch Filter verborgen`);
               if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
               if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
               if (parts.length > 0) return parts.join(" · ");
@@ -1134,7 +1162,8 @@ export default function JobsPage() {
               )}
             </div>
             <span className="shrink-0 text-[12px] tabular-nums text-muted/50">
-              {filteredJobs.length}{jobsTotal > jobs.length ? ` / ${jobsTotal}` : ` / ${currentList.length}`}
+              {/* #1030 AK 4: Treffer im BESTAND der Ansicht / Bestand. */}
+              {listenTreffer} / {listenGesamt}
             </span>
             <SelectInput
               className="!min-h-0 !w-auto !rounded-lg !px-2 !py-1 text-[11px] !border-white/5 !bg-white/[0.03]"
@@ -1178,7 +1207,18 @@ export default function JobsPage() {
                       ? "bg-white/[0.08] text-ink"
                       : "text-muted/40 hover:bg-white/[0.03] hover:text-muted/60"
                   )}
-                  onClick={() => setFilters((current) => ({ ...current, view: value }))}
+                  // #1010/#1030: das Protokoll ordnet nach dem Zeitpunkt der
+                  // Aussortierung. Beim Wechsel wird die Vorgabe mitgenommen
+                  // — sichtbar in der Sortierauswahl, nicht still.
+                  onClick={() => setFilters((current) => ({
+                    ...current,
+                    view: value,
+                    sort: value === "dismissed" && current.sort === "score_desc"
+                      ? "dismissed_desc"
+                      : value === "active" && current.sort === "dismissed_desc"
+                        ? "score_desc"
+                        : current.sort,
+                  }))}
                 >
                   {label}{" "}
                   <span className={cn("tabular-nums font-semibold", tonKlasse)}>({menge})</span>
@@ -1377,9 +1417,16 @@ export default function JobsPage() {
               value={filters.sort}
               onChange={(event) => setFilters((current) => ({ ...current, sort: event.target.value }))}
             >
+              {filters.view === "dismissed" ? (
+                <option value="dismissed_desc">Zuletzt aussortiert</option>
+              ) : null}
               <option value="score_desc">Score abst.</option>
               <option value="score_asc">Score aufst.</option>
               <option value="salary_desc">Gehalt abst.</option>
+              {/* #1032: nach dem Erstfund. Bewusst nicht nach dem
+                  Veroeffentlichungsdatum — das liefert nur eine Quelle. */}
+              <option value="found_desc">Neueste zuerst</option>
+              <option value="found_asc">Älteste zuerst</option>
               <option value="company">Firma A–Z</option>
               <option value="title">Titel A–Z</option>
             </SelectInput>
@@ -1423,7 +1470,7 @@ export default function JobsPage() {
                 ))}
               </div>
               <span className="text-[12px] text-muted/45">
-                {protokollListe.length} von {dismissedJobs.length}
+                {listenTreffer} von {listenGesamt}
               </span>
               {dismissWindow !== "alle" && ohneZeitpunkt > 0 && (
                 <span className="text-[12px] text-muted/45">
@@ -1633,6 +1680,12 @@ export default function JobsPage() {
                         Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
                       </p>
                     ) : null}
+                    {/* #1032 AK 4: wer nach Datum sortiert, sieht auf der Karte,
+                        wo die neuen Stellen aufhoeren. Ohne Datum steht hier
+                        nichts — kein Ersatzdatum (AK 5). */}
+                    {stellenDaten(job).text ? (
+                      <p className="mt-1 text-xs text-muted/50">{stellenDaten(job).text}</p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3 border-t border-white/[0.06] pt-4">
@@ -1695,8 +1748,12 @@ export default function JobsPage() {
             ))
           ) : null}
 
-          {/* Load more + page size (#145) */}
-          {filteredJobs.length > 0 && jobsHasMore && filters.view === "active" && (
+          {/* Load more + page size (#145). v1.7.93 (#1030): nicht mehr an
+              `filteredJobs.length > 0` gebunden — mit leerer erster Seite kam
+              man vorher nicht einmal zum Nachladen. Der unsichtbare Anker
+              davor laedt beim Scrollen von selbst nach. */}
+          {jobsHasMore && filters.view === "active" && <div ref={nachladenRef} aria-hidden="true" />}
+          {jobsHasMore && filters.view === "active" && (
             <div className="flex items-center justify-center gap-4 py-4">
               <Button
                 variant="secondary"
@@ -1706,7 +1763,7 @@ export default function JobsPage() {
                   await loadPage({ append: true, silent: true });
                 }}
               >
-                {loadingMore ? "Laden..." : `Mehr laden (${jobs.length} von ${jobsTotal})`}
+                {loadingMore ? "Laden..." : `Mehr laden (${jobs.length} von ${aktivMeta.treffer})`}
               </Button>
               <Button
                 variant="ghost"
@@ -2288,8 +2345,10 @@ export default function JobsPage() {
                   <p className="text-sm text-muted/70 whitespace-pre-wrap">{detailDialog.job.description}</p>
                 </div>
               ) : null}
-              {detailDialog.job.found_at ? (
-                <p className="text-xs text-muted/40">Gefunden: {formatDateTime(detailDialog.job.found_at)}</p>
+              {/* #1032 AK 3: dieselbe Zeile wie auf der Karte — Fund- und,
+                  wo es eins gibt, Veroeffentlichungsdatum. */}
+              {stellenDaten(detailDialog.job).text ? (
+                <p className="text-xs text-muted/40">{stellenDaten(detailDialog.job).text}</p>
               ) : null}
               <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-4 mt-4">
                 <Button onClick={() => {

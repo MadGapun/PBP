@@ -890,21 +890,26 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
         assert any("30" in t for t in vorher), (
             f"Die Kachel zeigt nicht den Bestand von 30: {vorher}")
 
-        mehr = page.get_by_role("button", name=re.compile(r"^Mehr laden"))
-        if mehr.count():
-            mehr.first.click()
-            # Auf den ZUSTAND warten, nicht auf eine Dauer. Ein fester
-            # `wait_for_timeout` ist eine Annahme darueber, wie schnell
-            # der Rechner gerade ist — unter Last der ganzen Testsuite
-            # war er zu kurz, und der Vergleich lief mitten in die
-            # Aktualisierung. Der Zaehler neben dem Suchfeld sagt
-            # verlaesslich, wann alle 30 geladen sind.
-            page.get_by_text("30 / 30", exact=True).wait_for(
-                state="visible", timeout=15000)
-            nachher = kennzahlen()
-            assert nachher == vorher, (
-                "Eine Kennzahl hat sich beim Nachladen geaendert — sie "
-                f"misst das Blaettern.\nvorher:  {vorher}\nnachher: {nachher}")
+        # v1.7.93 (#1030): die Liste laedt beim Scrollen von selbst nach.
+        # Der erste Lauf nach dem Umbau klickte "Mehr laden" — und der Knopf
+        # verschwand mitten im Klick, weil das Nachladen schneller war. Ein
+        # Test, der auf ein Bedienelement wartet, misst dessen Timing.
+        # Gewartet wird deshalb auf den ZUSTAND: alle 30 Karten im DOM.
+        # Der Zaehler neben dem Suchfeld taugt dafuer nicht mehr — er nennt
+        # seit #1030 die Treffer im Bestand, also von Anfang an 30 / 30.
+        karten = page.locator("h2", has_text=re.compile(r"^Testrolle \d{3}$"))
+        karten.first.wait_for(state="visible", timeout=8000)
+        assert karten.count() < 30, (
+            "Voraussetzung des Tests: die erste Seite enthaelt nicht alles")
+        karten.last.scroll_into_view_if_needed()
+        page.wait_for_function(
+            "() => Array.from(document.querySelectorAll('h2'))"
+            ".filter(h => /^Testrolle \\d{3}$/.test(h.textContent || '')).length >= 30",
+            timeout=15000)
+        nachher = kennzahlen()
+        assert nachher == vorher, (
+            "Eine Kennzahl hat sich beim Nachladen geaendert — sie "
+            f"misst das Blaettern.\nvorher:  {vorher}\nnachher: {nachher}")
     finally:
         context.close()
 
