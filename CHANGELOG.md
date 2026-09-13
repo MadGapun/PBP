@@ -105,6 +105,96 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.96] - 2026-09-13 — Die Firmen, die dich interessieren
+
+Personio und Greenhouse durchsuchen keinen Stellenmarkt, sie lesen die
+Stellenliste einer einzelnen Firma. Welche Firmen das waren, stand bisher
+als feste Liste im Code — Arbeitgeber ohne Bezug zu deinem Beruf, deiner
+Region oder deinen Bewerbungen (#811).
+
+### Added
+
+- **Firmen aus dem eigenen Bestand** (#811). `ats_firmen_verwalten`
+  prüft, welche Firmen aus deinen Bewerbungen, Kontakten und gefundenen
+  Stellen ihre Stellen über Personio oder Greenhouse ausschreiben. Jede
+  wird geprüft, bevor sie zählt, und das Ergebnis gespeichert — der
+  nächste Suchlauf fragt diese Firmen direkt ab, vor der Beispielliste.
+  Die Prüfung läuft erst als Vorschau.
+- **Wunscharbeitgeber** (#811). Mit `aktion="hinzufuegen"` und einem
+  Firmennamen oder der Adresse der Karriereseite nimmt PBP eine Firma
+  gezielt auf, wenn sie eines der beiden Systeme nutzt.
+- **Die Quellen-Diagnose zeigt, wie viele eigene Firmen je System
+  abgefragt werden** (#811). Null eigene Firmen ist ein sichtbarer
+  Zustand, kein stiller.
+
+### Fixed
+
+- **Ein erfundener Personio-Name gilt nicht mehr als Treffer** (#811).
+  Die Adresse eines Namens, den es nicht gibt, leitet auf die Seite des
+  Anbieters um — mit HTTP 200 und viel Inhalt oder, nachgemessen am
+  13.09., mit HTTP 429. Entscheidend ist jetzt, ob der Abruf auf dem
+  angefragten Host endet und die Feed-Struktur trägt, nicht der Status.
+- **Eigene Personio- und Workable-Firmen erreichen den Suchlauf**
+  (#811). Die Adapter lasen `personio_firmen` und `workable_firmen` seit
+  ihrer Einführung — durchgereicht wurde aber nur die Greenhouse-Liste.
+
+### Design-Entscheidungen
+
+- **Workable fehlt mit Absicht.** Die Schnittstelle des Adapters
+  antwortet selbst für Workables eigenen Account mit 404; die Quelle ist
+  seit #927 als defekt markiert. Firmen dafür zu ermitteln wäre eine
+  Einstellung ohne Wirkung.
+- **Aus einem Namen wird kein ähnlicher Name geraten.** Ein Slug entsteht
+  nach festen Regeln (Rechtsform weg, Umlaute umschreiben, mit oder ohne
+  Bindestrich). Ein falscher Treffer würde die Stellen einer fremden
+  Firma abfragen.
+- **Nicht der ganze Bestand auf einmal.** Ein gewachsener Bestand trägt
+  über tausend Firmennamen; ein Lauf prüft höchstens 30, Bewerbungen und
+  Kontakte zuerst. Schon geprüfte Firmen fallen heraus.
+- **Ein Ausfall wird nicht als ungültig gemerkt.** Kam eine Abfrage nicht
+  durch, wird sie beim nächsten Lauf erneut geprüft.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.96.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.96.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.95] - 2026-09-13 — Eine Nachkommastelle, und die Teile ergeben die Summe
 
 Rückmeldung vom 13.09.: eine Stelle trug im Dashboard den Score
