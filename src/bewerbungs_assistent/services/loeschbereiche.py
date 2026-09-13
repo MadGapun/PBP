@@ -102,6 +102,9 @@ BEREICHE: dict[str, tuple] = {
         # v1.7.94 (#950): Routen vom eigenen Wohnort — sie tragen dessen
         # Koordinaten und gehoeren deshalb zu den Suchkriterien.
         "routen_cache",
+        # v1.7.96 (#811): Wunscharbeitgeber und gepruefte Firmen-Slugs —
+        # eine Einstellung der Suche, keine Stelle.
+        "ats_firmen",
     ),
     "gelerntes": (
         "user_activity_events", "learning_insights", "blacklist_blocks",

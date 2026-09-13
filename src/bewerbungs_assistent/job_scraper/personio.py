@@ -147,8 +147,13 @@ def _parse_position(pos_elem: ET.Element, firma: str) -> dict | None:
 def _fetch_firma(client: httpx.Client, firma: str) -> list[dict]:
     try:
         r = client.get(_BASE_TPL.format(firma=firma))
-        if r.status_code != 200:
-            logger.debug("Personio %s HTTP %d", firma, r.status_code)
+        # v1.7.96 (#811): ein erfundener Slug leitet auf die Seite des
+        # Anbieters um — mit 200 oder 429 und viel Inhalt. Entscheidend ist
+        # der Zielhost und die Feed-Struktur, nicht der Status.
+        from ..services import ats_firmen as _ats
+        befund, _ = _ats.bewerte_antwort(_ats.PERSONIO, firma, r)
+        if befund != _ats.GUELTIG:
+            logger.debug("Personio %s: %s (HTTP %d)", firma, befund, r.status_code)
             return []
         try:
             tree = ET.fromstring(r.content)

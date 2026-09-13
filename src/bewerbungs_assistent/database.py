@@ -629,6 +629,24 @@ class Database:
             """)
             conn.commit()
 
+            # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
+            # System — geprueft und gespeichert, damit nicht jeder Suchlauf
+            # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS ats_firmen (
+                    profile_id TEXT NOT NULL,
+                    system TEXT NOT NULL,
+                    slug TEXT NOT NULL,
+                    firma TEXT,
+                    quelle TEXT,
+                    befund TEXT,
+                    stellen INTEGER,
+                    geprueft_am TEXT,
+                    PRIMARY KEY (profile_id, system, slug)
+                )
+            """)
+            conn.commit()
+
             # v1.7.88 (#884, D24): Referenzen an Kontakten. Additive
             # Tabelle, deshalb Safety-Net statt Schema-Bump (Muster
             # #784/#913/#992). Eigene Tabelle statt `contact_links`: eine

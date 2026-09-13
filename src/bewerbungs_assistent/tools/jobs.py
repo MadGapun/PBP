@@ -5091,6 +5091,120 @@ def register(mcp, db, logger):
         return result_payload
 
     @mcp.tool()
+    def ats_firmen_verwalten(aktion: str = "status", firmen: list[str] = None,
+                             dry_run: bool = True, max_firmen: int = 30) -> dict:
+        """Welche Firmen fragen Personio und Greenhouse ab? (#811)
+
+        Diese Quellen suchen nicht, sie lesen die Stellenliste EINER Firma.
+        Bis v1.7.95 stand dafuer eine feste Liste fremder Arbeitgeber im
+        Code. Jetzt kommen die Firmen aus deinem Bestand — Bewerbungen,
+        Kontakte, gefundene Stellen — und jede wird geprueft, bevor sie
+        zaehlt: ein erfundener Name leitet bei Personio auf die Seite des
+        Anbieters um und sieht sonst wie ein Treffer aus.
+
+        Args:
+            aktion: 'status' (wie viele Firmen je System abgefragt werden),
+                'ermitteln' (Bestand pruefen, erst als Vorschau),
+                'hinzufuegen' (Wunscharbeitgeber: Firmennamen oder
+                Karriere-URLs in `firmen`), 'entfernen' (Slugs in `firmen`).
+            firmen: fuer 'hinzufuegen' und 'entfernen'.
+            dry_run: Vorgabe True — 'ermitteln' fragt dann nichts ab.
+            max_firmen: wie viele Firmennamen ein Lauf hoechstens prueft.
+        """
+        from ..services import ats_firmen as _ats
+
+        aktion = (aktion or "status").strip().lower()
+        if aktion == "status":
+            stand = _ats.status(db)
+            antwort = {"systeme": stand}
+            leer = [s for s, w in stand.items() if not w["eigene_gueltig"]]
+            if leer:
+                antwort["hinweis"] = (
+                    f"Fuer {', '.join(leer)} fragt PBP nur die Beispielliste ab — "
+                    "keine Firma aus deinem Bestand. "
+                    "ats_firmen_verwalten('ermitteln') prueft deine Bewerbungen, "
+                    "Kontakte und Stellen.")
+            return antwort
+
+        if aktion == "ermitteln":
+            if dry_run:
+                kand = _ats.kandidaten(db, max_firmen)
+                je_system = {s: sum(1 for k in kand if k["system"] == s)
+                             for s in _ats.SYSTEME}
+                return {
+                    "status": "vorschau",
+                    "anfragen": len(kand),
+                    "je_system": je_system,
+                    "aus_stellen_urls": sum(1 for k in kand
+                                            if k["quelle"] == _ats.QUELLE_URL),
+                    "firmen": list(dict.fromkeys(
+                        k["firma"] for k in kand if k.get("firma")))[:15],
+                    "hinweis": (
+                        "Vorschau — nichts wurde abgefragt. Jede Firma wird je "
+                        "System mit hoechstens zwei Schreibweisen geprueft; "
+                        "schon gepruefte fallen heraus. Mit dry_run=False "
+                        "geht es los."),
+                }
+            ergebnis = _ats.ermitteln(db, max_namen=max_firmen)
+            ergebnis["systeme"] = _ats.status(db)
+            if ergebnis["gefunden"]:
+                ergebnis["naechster_schritt"] = (
+                    "Der naechste Suchlauf fragt diese Firmen direkt ab "
+                    "(Quellen personio bzw. greenhouse muessen aktiv sein).")
+            if ergebnis["nicht_erreichbar"]:
+                ergebnis["hinweis_nicht_erreichbar"] = (
+                    "Einige Abfragen kamen nicht durch. Sie sind nicht als "
+                    "ungueltig gespeichert und werden beim naechsten Lauf "
+                    "erneut geprueft.")
+            return ergebnis
+
+        if aktion == "hinzufuegen":
+            if not firmen:
+                return {"fehler": "firmen=[...] mit Namen oder Karriere-URLs angeben."}
+            aufgenommen, nicht_gefunden = [], []
+            for eintrag in firmen:
+                treffer = _ats.slug_aus_url(eintrag)
+                paare = ([treffer] if treffer else
+                         [(s, slug) for s in _ats.SYSTEME
+                          for slug in _ats.slug_kandidaten(eintrag)])
+                gefunden = False
+                for system, slug in paare:
+                    befund, stellen = _ats.pruefen(system, slug)
+                    if befund == _ats.GUELTIG:
+                        _ats.speichern(db, system, slug, eintrag,
+                                       _ats.QUELLE_WUNSCH, befund, stellen)
+                        aufgenommen.append({"firma": eintrag, "system": system,
+                                            "slug": slug, "stellen": stellen})
+                        gefunden = True
+                        break
+                if not gefunden:
+                    nicht_gefunden.append(eintrag)
+            antwort = {"aufgenommen": aufgenommen, "nicht_gefunden": nicht_gefunden}
+            if nicht_gefunden:
+                antwort["hinweis"] = (
+                    "Fuer diese Firmen fand PBP weder bei Personio noch bei "
+                    "Greenhouse eine Stellenliste. Mit der URL der "
+                    "Karriereseite geht es genauer, falls die Firma eines der "
+                    "beiden Systeme nutzt.")
+            return antwort
+
+        if aktion == "entfernen":
+            if not firmen:
+                return {"fehler": "firmen=[...] mit den Slugs angeben (siehe 'status')."}
+            _ats.tabelle_anlegen(db)
+            conn = db.connect()
+            weg = 0
+            for slug in firmen:
+                weg += conn.execute(
+                    "DELETE FROM ats_firmen WHERE profile_id=? AND slug=?",
+                    (db.get_active_profile_id() or "", slug)).rowcount or 0
+            conn.commit()
+            return {"entfernt": weg, "systeme": _ats.status(db)}
+
+        return {"fehler": f"Unbekannte Aktion '{aktion}'.",
+                "moegliche_aktionen": ["status", "ermitteln", "hinzufuegen", "entfernen"]}
+
+    @mcp.tool()
     def scraper_diagnose(
         scraper_name: str = "",
         aktion: str = "status"
@@ -5222,6 +5336,14 @@ def register(mcp, db, logger):
             "scraper_anzahl": len(scrapers),
             "scrapers": scrapers,
         }
+        # v1.7.96 (#811 AK 5): Personio und Greenhouse fragen einzelne
+        # Firmen ab. Ob darunter eine aus dem eigenen Bestand ist, sah man
+        # bisher nirgends — 0 eigene Firmen ist ein Zustand, kein stiller.
+        try:
+            from ..services import ats_firmen as _ats
+            result["ats_firmen"] = _ats.status(db)
+        except Exception:  # pragma: no cover — die Diagnose laeuft trotzdem
+            pass
         if defekte:
             result["defekte_quellen"] = defekte
             result["hinweis_defekt"] = (

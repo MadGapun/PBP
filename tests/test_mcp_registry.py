@@ -288,6 +288,7 @@ EXPECTED_TOOL_NAMES = {
     "ollama_autostart",
     "ollama_kontext",
     "fahrstrecken_verwalten",
+    "ats_firmen_verwalten",
     "telemetrie_status",
     "telemetrie_setzen",
     "automatik_status",
@@ -400,7 +401,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 252  # v1.7.94 (#950): +fahrstrecken_verwalten
+        assert len(tools) == 253  # v1.7.96 (#811): +ats_firmen_verwalten
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
