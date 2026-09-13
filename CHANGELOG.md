@@ -105,6 +105,86 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.97] - 2026-09-13 — Der Modell-Katalog hat einen Stand
+
+Die Modell-Empfehlungen für die lokale KI standen seit Ende 2024
+unverändert im Programm, und nichts sagte, dass sie alt sind (#785).
+
+### Changed
+
+- **Empfohlen wird die aktuelle Modellgeneration** (#785): `qwen3:4b`
+  (2,5 GB), `qwen3:8b` (5,2 GB, Standard) und `qwen3:14b` (9,3 GB).
+  Die Größen sind am 13.09.2026 auf ollama.com nachgemessen.
+- **Der Katalog nennt seinen Stand** — in den Einstellungen unter
+  Lokale KI.
+
+### Added
+
+- **Hinweis auf einen Nachfolger** (#785). Läuft bei dir ein Modell der
+  vorigen Generation (etwa `qwen2.5:7b`), zeigt der Lokale-KI-Tab den
+  Nachfolger mit einem Knopf zum Laden. PBP lädt nichts von selbst und
+  stellt nichts um.
+- **Der Release-Check warnt, wenn der Katalog älter als sechs Monate
+  ist** (#785) — damit dieselbe Liste nicht in einem Jahr wieder
+  veraltet dasteht.
+
+### Fixed
+
+- **Der Denkmodus der Qwen3-Modelle bricht die Auswertung nicht** (#785).
+  Diese Modelle schreiben in der Vorgabe erst ihre Überlegungen und dann
+  die Antwort. PBP schaltet das im Aufruf und im Warmup ab und entfernt
+  einen trotzdem gelieferten Denkblock, bevor es die Antwort auswertet —
+  ältere Ollama-Versionen kennen den Schalter nicht.
+
+### Bekannte Grenze
+
+- **Ein echter Lauf mit einem Qwen3-Modell ließ sich beim Bau nicht
+  prüfen**; geprüft sind der Aufruf und das Entfernen des Denkblocks.
+  Wer auf Qwen3 wechselt und merkt, dass Aussortieren oder Extraktion
+  schlechter werden: das bisherige Modell läuft weiter, und eine Meldung
+  hilft (`problem_melden`).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.97.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.97.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.96] - 2026-09-13 — Die Firmen, die dich interessieren
 
 Personio und Greenhouse durchsuchen keinen Stellenmarkt, sie lesen die
