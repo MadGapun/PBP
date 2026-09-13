@@ -107,6 +107,28 @@ umgestellt war. Dieselbe Klasse wie `dict.get` mit Vorgabe bei NULL
 (v1.7.60 MERKE 1): ein Rueckfall, der einen gueltigen Wert fuer "fehlt"
 haelt.
 
+(9) **Die CI war rot, und die Ursache stand in meiner eigenen Notiz.**
+Beim Umbau hatte ich zwei Browser-Tests als gefaehrdet notiert: sie
+pruefen `count() == 0` direkt nach dem Klick auf einen Filter, und das
+traegt nur, solange der Browser SYNCHRON filtert. Lokal waren beide
+gruen — der Server antwortete schneller als die Pruefung —, also habe
+ich sie nicht umgestellt. Auf dem Linux-Runner kam die Antwort spaeter,
+beide rot, der Tag blieb zurueck. **Eine notierte Gefahr, die lokal nicht
+eintritt, ist nicht erledigt, sondern ungeprueft.** Belegt wurde die
+Umstellung erst mit einer kuenstlich um 1,5 s verzoegerten
+Server-Antwort (beide gruen, Laufzeit 10 s -> 32 s, die Verzoegerung hat
+also gegriffen). Das ist v1.7.83 MERKE 8 zum dritten Mal: ein Test, der
+auf das Timing statt auf den Zustand wartet, misst den Rechner.
+
+(10) **Ein Doku-Skript, das sofort schreibt, hinterlaesst bei einem
+Abbruch einen halben Stand.** Die README war schon umgestellt, als die
+Zusicherung am Stand-Block anschlug — der Platzhalter stand ueber einen
+Zeilenumbruch verteilt (`STABLE_ZAHL /` am Zeilenende, `MAIN_ZAHL.`
+darunter) und wurde als EIN String gesucht. Ein zweiter Aufruf waere an
+den schon geaenderten README-Ankern gescheitert. Die Zusicherung hat
+getragen, nur zu spaet: **erst alle Pruefungen, dann alle Schreibvorgaenge**
+— oder jeder Schritt erkennt, dass er schon gelaufen ist.
+
 ## Stand 2026-09-13 (v1.7.92 Stable) — Ein Wort ist kein Fachgebiet
 
 **#1028**, Melder-Bericht vom 13.09. **Tests: 4180 / 4246.**
