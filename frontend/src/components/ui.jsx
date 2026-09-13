@@ -555,7 +555,7 @@ export function ToastViewport({ toasts, onDismiss }) {
             </div>
             <button
               type="button"
-              className="shrink-0 rounded-lg p-1 text-current/50 transition hover:bg-white/6 hover:text-current"
+              className="shrink-0 rounded-lg p-1 opacity-50 transition hover:bg-white/6 hover:opacity-100"
               onClick={() => onDismiss(toast.id)}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
