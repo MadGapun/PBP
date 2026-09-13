@@ -33,6 +33,82 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.104] - 2026-09-14 — Jede Karte, einmal, mit Firma und Ort
+
+Zwei Fehler aus #1041 (Jobware) und #1042 (ingenieur.de). Beide Boersen
+laufen auf derselben Plattform.
+
+### Fixed
+
+- **Jobware liefert jede Stelle einer Ergebnisseite** (#1041). Bis hierher
+  kamen je Suchlauf 1-2 Stellen an: die Auswahl traf die Bestandteile der
+  Karten statt der Karten, und der Kartenweg lief nur fuer den ersten
+  Suchbegriff. Nachgemessen an einer echten Ergebnisseite: 20 statt 1.
+- **Jobware-Stellen tragen den richtigen Titel, die Firma und einen
+  geocodierbaren Ort** (#1041). Der Titel kam aus dem Knopf "Job ansehen"
+  (`Job"<Titel>"ansehen`), die Firma blieb "Unbekannt", und der Ort stand
+  mit einem versteckten "in" zusammengeschrieben da (`inBerlin`) — ohne
+  Koordinaten, also ohne Entfernung. Bereits gespeicherte Stellen werden
+  beim naechsten Fund auf ihrer eigenen Zeile korrigiert, statt als
+  Duplikat neben dem kaputten Eintrag zu landen.
+- **ingenieur.de fuehrt jede Stelle einmal, mit Firma und Ort** (#1042).
+  Jede Stelle stand 2-4-mal in der Liste, fuer jede Kopie wurde die
+  Detailseite erneut geholt, und die Firma war ein HTML-Kommentar.
+  Nachgemessen: 15 Stellen statt 3, jede mit Firma und Ort.
+
+### Changed
+
+- **Ein Kartenleser fuer beide Boersen**
+  (`job_scraper/jobboerse_karten.py`) statt zwei Fassungen desselben
+  Fehlers.
+
+### Bekannt
+
+- Die Suche ist bei beiden Boersen weiter bundesweit. Jobware wertet den
+  Ort laut Bericht aus; ihn zu nutzen aendert die Treffermenge und ist ein
+  eigener Schritt.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.104.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.104.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.103] - 2026-09-14 — Karte und Popup sagen dasselbe
 
 Ein Fehler aus #1044 in der Stellenliste.
