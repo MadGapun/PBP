@@ -105,6 +105,69 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.98] - 2026-09-13 — Ein Beleg, der den Pruefer besteht
+
+Zwei Luecken aus #817, dem Issue ueber Namen in oeffentlichen
+Fehlerberichten.
+
+### Fixed
+
+- **Ein anonymisierter Beleg enthaelt keine Mailadressen und
+  Telefonnummern mehr** (#817). `issue_text_pruefen(anonymisieren=True)`
+  ersetzte die Namen aus dem eigenen Bestand, liess Mail und Telefon aber
+  stehen — der fertige Text fiel danach am Pruefer durch. Ersetzt wird
+  jetzt nach denselben Regeln, nach denen der Pruefer sucht;
+  Systemadressen (etwa `noreply@…`) und die 555-Musternummern bleiben.
+
+### Added
+
+- **Woechentlicher PII-Sweep ueber Issues, Kommentare und Releases**
+  (#817). Ein Fund laesst den Lauf scheitern, und GitHub benachrichtigt.
+- **`gh_pii_sweep.py --ohne-namen`** (#817): nennt nur Fundstelle, Anzahl
+  und Art. Die Logs eines oeffentlichen Repositories sind oeffentlich —
+  ohne den Schalter stuende jeder gefundene Name dort.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.98.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.98.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.97] - 2026-09-13 — Der Modell-Katalog hat einen Stand
 
 Die Modell-Empfehlungen für die lokale KI standen seit Ende 2024
