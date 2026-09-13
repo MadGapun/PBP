@@ -124,6 +124,26 @@ def validate_id(expected: IdKind, value: Optional[str]) -> str:
     return raw
 
 
+def kurz_job_kennung(job_hash: Optional[str], laenge: int = 8) -> str:
+    """Die Kurz-Kennung einer Stelle — aus dem OEFFENTLICHEN Teil des Hashes.
+
+    v1.7.92 (#1029): gespeicherte Hashes haben die Form
+    `<Profil, 8 Zeichen>:<Stelle, 12 Zeichen>`. Wo der Speicherwert mit
+    `[:8]` gekuerzt wurde, kam deshalb IMMER der Profil-Praefix heraus:
+    `gehaelter_neu_auswerten` zeigte fuenfzehnmal dieselbe Kennung, und
+    alle Lernereignisse `auto_dismiss_zurueckgeholt` trugen dieselbe
+    `entity_id`. Schlimmer noch: als Eingabe traf diese Kennung ueber den
+    Praefix-Rueckfall von `_find_job_row` irgendeine Stelle des Profils.
+
+    Fuer einen oeffentlichen Hash (ohne Doppelpunkt) ist das Ergebnis
+    dasselbe wie `[:8]` — die Funktion ist also fuer beide Formen richtig
+    und muss nicht wissen, welche sie bekommt.
+    """
+    if not job_hash:
+        return ""
+    return str(job_hash).split(":", 1)[-1][:laenge]
+
+
 def strip_prefix(value: Optional[str]) -> str:
     """Entfernt Praefix wenn vorhanden, gibt das raw-Hex zurueck.
 

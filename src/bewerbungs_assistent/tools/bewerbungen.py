@@ -4,6 +4,7 @@ from ..services.nutzerfuehrung import kein_profil, leer
 
 import hashlib
 import re
+from ..services.typed_ids import kurz_job_kennung as _kurz
 
 
 # v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
@@ -768,7 +769,7 @@ def register(mcp, db, logger):
             "status": "erstellt",
             "bewerbung_id": aid[:8],
             "bewerbung_id_voll": aid,
-            "job_hash": effective_hash[:8] if effective_hash else None,
+            "job_hash": _kurz(effective_hash) or None,
             "bewerbungsstatus": status,
             "nachricht": f"Bewerbung bei {company} für '{title}' erfasst.",
         }
@@ -832,7 +833,7 @@ def register(mcp, db, logger):
                     )
                     result["anker_naechster_schritt"] = (
                         "ZUERST die Anzeige beschaffen: Original-Link per "
-                        f"stelle_bearbeiten('{effective_hash[:8]}', url=...) "
+                        f"stelle_bearbeiten('{_kurz(effective_hash)}', url=...) "
                         "nachtragen und stellenbeschreibung_nachladen() "
                         "aufrufen, oder die Anzeige als Dokument hochladen, "
                         "oder den Ansprechpartner per bewerbung_bearbeiten() "
@@ -1177,7 +1178,7 @@ def register(mcp, db, logger):
                 "events": len(a.get("events", [])),
             }
             if a.get("job_hash"):
-                entry["stellen_id"] = a["job_hash"][:8]  # #171
+                entry["stellen_id"] = _kurz(a["job_hash"])  # #171
             if a.get("ansprechpartner"):
                 entry["ansprechpartner"] = a["ansprechpartner"]
             if a.get("kontakt_email"):
@@ -1535,7 +1536,7 @@ def register(mcp, db, logger):
         except (ValueError, TypeError):
             pass
         if app.get("job_hash"):
-            result["stellen_id"] = app["job_hash"][:8]  # #171
+            result["stellen_id"] = _kurz(app["job_hash"])  # #171
             result["stellen_id_voll"] = app["job_hash"]
         if app.get("stellenbeschreibung"):
             result["stellenbeschreibung"] = app["stellenbeschreibung"]

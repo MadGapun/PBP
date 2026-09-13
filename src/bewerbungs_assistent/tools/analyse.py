@@ -2,6 +2,7 @@
 
 import json
 import re
+from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.nutzerfuehrung import kein_profil, leer
 from collections import Counter
 from datetime import datetime, timezone, timedelta
@@ -1480,7 +1481,7 @@ def register(mcp, db, logger):
                         "bereich": "Stellen",
                         "problem": f"{len(ohne_beschreibung)} von {total_jobs} Stellen ohne Beschreibung — Score ist unzuverlässig",
                         "stellen": [
-                            {"id": j["hash"][:8], "titel": j.get("title", ""), "firma": j.get("company", "")}
+                            {"id": _kurz(j["hash"]), "titel": j.get("title", ""), "firma": j.get("company", "")}
                             for j in ohne_beschreibung[:5]
                         ],
                         "loesung": "Öffne die Stellen-URLs und lade die Beschreibung nach (stelle_manuell_anlegen oder fit_analyse)",

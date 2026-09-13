@@ -1,6 +1,7 @@
 """Jobsuche und Stellenverwaltung — 9 Tools (#446: stelle_bearbeiten, #432: scraper_diagnose)."""
 
 import re
+from ..services.typed_ids import kurz_job_kennung as _kurz
 import threading
 from collections import Counter
 from typing import Optional
@@ -774,7 +775,7 @@ def register(mcp, db, logger):
                 if len(overlap) >= min(2, len(title_words)):
                     return {
                         "typ": "aussortierte_stelle",
-                        "hash": dj["hash"][:8],
+                        "hash": _kurz(dj["hash"]),
                         "titel": dj.get("title"),
                         "firma": dj.get("company"),
                         "grund": dj.get("dismiss_reason"),
@@ -1258,7 +1259,7 @@ def register(mcp, db, logger):
         if war_aktiv and not alter_grund:
             return {
                 "status": "bereits_aktiv",
-                "job_hash": target_hash[:8],
+                "job_hash": _kurz(target_hash),
                 "titel": job_before.get("title", ""),
                 "firma": job_before.get("company", ""),
                 "hinweis": "Stelle war bereits aktiv — nichts zu tun.",
@@ -1276,7 +1277,7 @@ def register(mcp, db, logger):
                 db.add_activity_event({
                     "event_type": "auto_dismiss_zurueckgeholt",
                     "entity_type": "job",
-                    "entity_id": target_hash[:8],
+                    "entity_id": db._public_job_hash(target_hash),
                     "action": "reaktivieren",
                     "metadata": {"dismiss_reason": alter_grund,
                                  "titel": (job_before.get("title") or "")[:80],
@@ -1284,7 +1285,7 @@ def register(mcp, db, logger):
                 })
             except Exception:
                 logger.debug("Lernsignal fuer %s nicht protokolliert",
-                             target_hash[:8])
+                             _kurz(target_hash))
 
         return {
             "status": "reaktiviert",
@@ -1294,7 +1295,7 @@ def register(mcp, db, logger):
                 "Ruecknahme ist protokolliert — haeuft sich das, steht "
                 "die Regel zu scharf."
             ) if war_automatik else None,
-            "job_hash": target_hash[:8],
+            "job_hash": _kurz(target_hash),
             "titel": job_before.get("title", ""),
             "firma": job_before.get("company", ""),
             "vorheriger_dismiss_reason": alter_grund or None,
@@ -1968,7 +1969,7 @@ def register(mcp, db, logger):
         formatted = []
         for j in page_jobs:
             entry = {
-                "id": j["hash"][:8],  # #171: Kurz-ID fuer schnelle Referenz
+                "id": _kurz(j["hash"]),  # #171: Kurz-ID fuer schnelle Referenz
                 "hash": j["hash"],
                 "titel": j.get("title", ""),
                 "firma": j.get("company", ""),
@@ -2075,7 +2076,7 @@ def register(mcp, db, logger):
                     entry["score_hinweis"] = (
                         "Score 0 ist KEIN Urteil — ohne Beschreibung wurde "
                         "nicht bewertet. Erst stellenbeschreibung_nachladen"
-                        f"('{j['hash'][:8]}'), dann entscheiden."
+                        f"('{_kurz(j['hash'])}'), dann entscheiden."
                     )
                 else:
                     entry["score_hinweis"] = "Score basiert nur auf dem Titel — Beschreibung fehlt"
@@ -3079,11 +3080,11 @@ def register(mcp, db, logger):
 
         result = {
             "status": "angelegt",
-            "id": job_hash[:8],
+            "id": _kurz(job_hash),
             "hash": job_hash,
             "score": job["score"],
             "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
-                         f"Bewerte mit stelle_bewerten('{job_hash[:8]}', 'passt'/'passt_nicht').",
+                         f"Bewerte mit stelle_bewerten('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
             result.update(_entfernung.befund(job["distance_km"]))
@@ -6209,7 +6210,7 @@ def register(mcp, db, logger):
                 unveraendert += 1
                 continue
             eintrag = {
-                "job_hash": h[:8] if h else "",
+                "job_hash": _kurz(h),
                 "titel": (titel or "")[:60],
                 "vorher": {"min": alt_min, "max": alt_max, "typ": alt_typ,
                            "geschaetzt": bool(alt_est)},
@@ -6308,7 +6309,7 @@ def register(mcp, db, logger):
                    "salary_max": smax, "salary_type": styp,
                    "salary_estimated": sest, "employment_type": emp}
             eintrag = {
-                "job_hash": (h or "")[:8],
+                "job_hash": _kurz(h),
                 "titel": (titel or "")[:60],
                 "firma": (firma or "")[:40],
                 "grund": kern,
