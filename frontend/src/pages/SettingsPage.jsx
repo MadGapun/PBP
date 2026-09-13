@@ -1782,6 +1782,8 @@ function OllamaAutostartBlock({ pushToast }) {
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
+  // v1.7.97 (#785): der Katalog nennt seinen Stand.
+  const [katalogStand, setKatalogStand] = useState("");
   const [pulling, setPulling] = useState(false);
   const [pullModel, setPullModel] = useState(null);
 
@@ -1803,7 +1805,7 @@ function LocalAITab({ pushToast }) {
     // den echten Status, nicht den 30s-Cache.
     reloadStatus(true);
     api("/api/llm/recommended-models")
-      .then((d) => setRecommended(d?.models || []))
+      .then((d) => { setRecommended(d?.models || []); setKatalogStand(d?.stand_text || ""); })
       .catch(() => {});
   }, []);
 
@@ -2014,8 +2016,9 @@ function LocalAITab({ pushToast }) {
           ))}
         </div>
         <p className="mt-3 text-[11px] text-muted/60">
-          Empfehlung: Standard (Qwen 2.5 7B) — gutes Deutsch, vernuenftiger Speicher-Bedarf.
+          Empfehlung: die Standard-Groesse — gutes Deutsch, vernuenftiger Speicher-Bedarf.
           Du kannst spaeter jederzeit das Modell wechseln.
+          {katalogStand ? ` Modell-Empfehlungen, ${katalogStand}.` : ""}
         </p>
       </Card>
     );
@@ -2070,6 +2073,7 @@ function LocalAITab({ pushToast }) {
       <ModelDetailList
         status={status}
         recommended={recommended}
+        katalogStand={katalogStand}
         onSelect={selectModel}
         onPull={pullModelTrigger}
         pulling={pulling}
@@ -2391,13 +2395,35 @@ function ElwosaSettingsSection({ pushToast }) {
 
 // v1.7.0-beta.25 (#591/#592): Modell-Liste mit Groesse + Pull-Buttons
 // fuer weitere Modelle (auch im 'active'-Zustand sichtbar).
-function ModelDetailList({ status, recommended, onSelect, onPull, pulling, pullModel }) {
+function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, pulling, pullModel }) {
   const installed = status.models_detail || [];
   const installedNames = new Set((status.available_models || []));
   const moreToInstall = (recommended || []).filter((m) => !installedNames.has(m.id));
+  // v1.7.97 (#785): ein Hinweis, keine Automatik — geladen wird nur auf Klick.
+  const nachfolger = status.nachfolger;
 
   return (
     <div className="mb-4">
+      {nachfolger ? (
+        <div className="glass-card mb-3 flex items-center justify-between gap-3 border-sky/20 p-3"
+          data-testid="modell-nachfolger">
+          <p className="text-[12px] text-muted">
+            <span className="font-mono text-ink">{nachfolger.aktuell}</span> hat einen Nachfolger:{" "}
+            <span className="font-mono text-ink">{nachfolger.nachfolger}</span> ({nachfolger.size_gb} GB).
+            {nachfolger.bereits_installiert ? " Er ist schon installiert — oben auswaehlen." : " Dein Modell laeuft weiter, bis du wechselst."}
+          </p>
+          {!nachfolger.bereits_installiert ? (
+            <button
+              type="button"
+              disabled={pulling}
+              onClick={() => onPull(nachfolger.nachfolger)}
+              className="shrink-0 px-2 py-1 rounded text-[11px] bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
+            >
+              {pulling && pullModel === nachfolger.nachfolger ? "Laedt..." : "Laden"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       <p className="text-[11px] text-muted/60 mb-1.5">Installierte Modelle:</p>
       <div className="space-y-1.5 mb-3">
         {installed.length === 0 && status.available_models?.length > 0 && (
@@ -2450,7 +2476,7 @@ function ModelDetailList({ status, recommended, onSelect, onPull, pulling, pullM
       {moreToInstall.length > 0 && (
         <details className="glass-card p-2">
           <summary className="text-[12px] cursor-pointer text-sky">
-            + Weiteres Modell installieren ({moreToInstall.length} Vorschlaege)
+            + Weiteres Modell installieren ({moreToInstall.length} Vorschlaege{katalogStand ? `, ${katalogStand}` : ""})
           </summary>
           <div className="space-y-1.5 mt-2">
             {moreToInstall.map((m) => (

@@ -304,6 +304,31 @@ finally:
         error(f"First-Run Smoke Fehler: {e}")
 
 
+# ── 6. Modell-Katalog (#785) ──────────────────────────────────
+
+def check_modell_katalog():
+    """Ein Katalog ohne Pflege ist in einem Jahr wieder derselbe Befund.
+
+    Warnung, kein Fehler: ein alter Katalog haelt keinen Release auf, er
+    soll nur nicht vergessen werden.
+    """
+    print("\n[6] Modell-Katalog")
+    src = str(PROJECT_DIR / "src")
+    if src not in sys.path:
+        sys.path.insert(0, src)
+    try:
+        from bewerbungs_assistent.services import modell_katalog
+    except Exception as e:
+        warn(f"Modell-Katalog nicht lesbar: {e}")
+        return
+    if modell_katalog.veraltet():
+        warn(f"Modell-Katalog ist aelter als {modell_katalog.HOECHSTALTER_MONATE} "
+             f"Monate ({modell_katalog.stand_text()}) — Empfehlungen gegen "
+             "ollama.com pruefen und STAND nachziehen.")
+    else:
+        ok(f"Modell-Katalog aktuell ({modell_katalog.stand_text()})")
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -318,6 +343,7 @@ if __name__ == "__main__":
     check_badge(fix=fix)
     check_changelog_content(version)
     check_first_run_smoke()
+    check_modell_katalog()
 
     print("\n" + "=" * 50)
     if ERRORS:

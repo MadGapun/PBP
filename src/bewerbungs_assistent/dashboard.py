@@ -11120,7 +11120,21 @@ async def api_llm_status(refresh: int = 0):
         "selected_model": s.selected_model,
         "user_state": s.user_state,
         "error": s.error,
+        # v1.7.97 (#785): ein Hinweis, wenn das aktive Modell einen
+        # Nachfolger im Katalog hat — kein Download, keine Umstellung.
+        "nachfolger": _modell_nachfolger(s),
     }
+
+
+def _modell_nachfolger(status) -> dict | None:
+    try:
+        from .services import modell_katalog
+        befund = modell_katalog.nachfolger_fuer(status.selected_model or "")
+    except Exception:  # pragma: no cover — der Status laeuft trotzdem
+        return None
+    if befund and befund["nachfolger"] in (status.available_models or []):
+        befund["bereits_installiert"] = True
+    return befund
 
 
 @app.get("/api/llm/accuracy")
@@ -11430,35 +11444,15 @@ async def api_llm_recommended_models():
     """Liefert die kuratierte Liste der von PBP empfohlenen Modelle.
 
     UI nutzt das fuer den Setup-Wizard (drei Standardgroessen + Eigenes).
+
+    v1.7.97 (#785): der Katalog wohnt in `services/modell_katalog.py` und
+    traegt ein Stand-Datum — hier stand er seit Ende 2024 unveraendert.
     """
+    from .services import modell_katalog
     return {
-        "models": [
-            {
-                "id": "llama3.2:3b",
-                "label": "Klein",
-                "name": "Llama 3.2 3B",
-                "size_gb": 2.0,
-                "ram_gb": 8,
-                "description": "Laeuft auf jedem PC mit 8 GB RAM",
-            },
-            {
-                "id": "qwen2.5:7b",
-                "label": "Standard (empfohlen)",
-                "name": "Qwen 2.5 7B",
-                "size_gb": 4.7,
-                "ram_gb": 16,
-                "description": "Empfohlen, gutes Deutsch, laeuft mit 16 GB RAM",
-                "recommended": True,
-            },
-            {
-                "id": "qwen2.5:14b",
-                "label": "Gross",
-                "name": "Qwen 2.5 14B",
-                "size_gb": 9.0,
-                "ram_gb": 32,
-                "description": "Power-User mit dedizierter GPU",
-            },
-        ],
+        "models": modell_katalog.KATALOG,
+        "stand": modell_katalog.STAND,
+        "stand_text": modell_katalog.stand_text(),
     }
 
 
