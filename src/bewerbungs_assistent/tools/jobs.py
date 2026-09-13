@@ -6282,11 +6282,46 @@ def register(mcp, db, logger):
         schaerfer werden, nie milder. Deshalb ist die Ruecknahme mehr
         als Kosmetik: sie nimmt die Belege wieder aus der Grundlage.
 
+        Seit v1.7.92 (#1028) findet der Lauf zwei weitere Faelle, jeder
+        mit seinem `befund`:
+
+        * `nur_fuellwoerter` — das Titel-Muster trug allein auf "für",
+          "als", "zum" oder einem Datum. Die Stoppwortliste stand in
+          Umschrift ("fuer") und griff bei echten Titeln nie.
+        * `firmen_platzhalter` — "dieselbe Firma" war ein Platzhalter
+          wie "Nicht angegeben". Alle Stellen ohne Firmenangabe galten
+          quer ueber alle Quellen als ein Arbeitgeber.
+
+        Der #1020-Fall heisst `grund_nicht_uebertragbar`.
+
         Args:
             dry_run: Vorgabe True — es wird nichts geschrieben.
             max_stellen: 0 = alle.
         """
         from ..services import stellen_automatik as _sa
+        from ..services import wiedergaenger as _wg
+
+        def _befund(kern: str, firma: str, note: str) -> str:
+            """Warum diese Uebertragung nicht haette stattfinden duerfen."""
+            if "Fachgebiet" not in note:
+                # Stufe 1 "dieselbe Firma" (#1028): mit einem
+                # Platzhalter gab es keine Firma, also keinen Bezug.
+                return ("firmen_platzhalter"
+                        if _wg.ist_firmen_platzhalter(firma) else "")
+            if kern not in _sa.UEBERTRAGBARE_GRUENDE:
+                return "grund_nicht_uebertragbar"  # #1020
+            # #1028: das Muster trug nur auf Fuellwoertern. Die Notiz
+            # zeigt hoechstens vier gemeinsame Tokens — bei vier
+            # gezeigten koennte ein fuenftes, echtes dahinter stehen,
+            # also wird dann NICHT zurueckgeholt.
+            m = re.search(r"gemeinsam:\s*([^)]*)\)", note)
+            if not m:
+                return ""
+            gezeigt = [t.strip() for t in m.group(1).split(",") if t.strip()]
+            if (gezeigt and len(gezeigt) < 4
+                    and not _wg._domain_tokens(" ".join(gezeigt))):
+                return "nur_fuellwoerter"
+            return ""
 
         conn = db.connect()
         zeilen = conn.execute(
@@ -6295,7 +6330,9 @@ def register(mcp, db, logger):
             "salary_estimated, employment_type FROM jobs "
             "WHERE is_active=0 AND dismiss_note IS NOT NULL "
             "AND (dismiss_note LIKE '%iedergaenger nach Fachgebiet%' "
-            "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%')"
+            "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%' "
+            "     OR dismiss_note LIKE '%iedergaenger: dieselbe Firma%' "
+            "     OR dismiss_note LIKE '%iedergänger: dieselbe Firma%')"
         ).fetchall()
 
         betroffen, zurueckgeholt = [], 0
@@ -6303,7 +6340,8 @@ def register(mcp, db, logger):
             (h, titel, firma, grund, note, dist, smin, smax, styp,
              sest, emp) = row
             kern = (grund or "").replace("auto:", "").split(":")[0].lower()
-            if kern in _sa.UEBERTRAGBARE_GRUENDE:
+            befund = _befund(kern, firma or "", note or "")
+            if not befund:
                 continue
             job = {"distance_km": dist, "salary_min": smin,
                    "salary_max": smax, "salary_type": styp,
@@ -6313,6 +6351,7 @@ def register(mcp, db, logger):
                 "titel": (titel or "")[:60],
                 "firma": (firma or "")[:40],
                 "grund": kern,
+                "befund": befund,
                 "entfernung_km": dist,
                 "widerspruch": _sa._zahl_widerspricht(db, job, kern),
                 "beleg": (note or "")[:120],

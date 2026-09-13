@@ -337,6 +337,16 @@ def sammle_bestandsnamen(db) -> list[dict]:
             return
         if _schluessel(name) in GENERISCHE_WERTE:
             return
+        # #1028: "Nicht angegeben" setzen die Adapter bei fehlender
+        # Firmenangabe ein — es ist kein Name, und ein Pruefer, der ihn
+        # meldet, wird beim zweiten Mal ignoriert (#929). Dieselbe Menge
+        # wie in der Automatik, damit beide dasselbe fuer "keine Firma"
+        # halten.
+        if art == "firma":
+            from .wiedergaenger import ist_firmen_platzhalter
+
+            if ist_firmen_platzhalter(name):
+                return
         # Firma gewinnt gegen Person, falls derselbe String beides ist.
         roh.setdefault(_schluessel(name), art)
         if art == "firma":

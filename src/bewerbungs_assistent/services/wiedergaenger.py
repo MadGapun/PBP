@@ -63,7 +63,40 @@ _TITLE_STOPS = {
     "coordinator", "koordinator", "assistant", "assistent", "referent",
     "fachkraft", "sachbearbeiter", "sachbearbeiterin",
     "stelle", "position", "rolle", "job", "team", "all", "genders",
+    # #1028: geschlechtsneutrale Rollenformen, im oeffentlichen Dienst
+    # die uebliche Schreibweise. "Sachbearbeiter" stand drin,
+    # "Sachbearbeitung" nicht — und trug damit als "Fachgebiet".
+    "sachbearbeitung", "mitarbeitende", "mitarbeitender", "assistenz",
+    "assistentin", "referentin",
+    # #1028: Praepositionen und Artikel. Die Liste steht in UMSCHRIFT;
+    # `_domain_tokens` vergleicht jedes Token zusaetzlich umgeschrieben.
+    # Bis v1.7.91 stand hier nur "fuer", waehrend echte Titel "für"
+    # tragen — der Eintrag griff nie, und elf passende Stellen wurden
+    # mit "gemeinsam: für" als falsches Fachgebiet aussortiert.
+    "als", "zum", "zur", "den", "dem", "des", "auf", "oder", "am", "vom",
+    "ueber", "nach", "bis", "ab", "aus", "um", "sowie", "bzw",
+    # #1028: Umfang und Einstieg sind kein Fachgebiet (#1023 trennt sie
+    # ausdruecklich von der Art der Stelle).
+    "vollzeit", "teilzeit", "quereinsteiger", "quereinsteigerin",
 }
+
+# #1028: Platzhalter, die Adapter bei fehlender Firmenangabe einsetzen.
+# Sie benennen KEINEN Arbeitgeber — als Firmenname galten alle Stellen
+# ohne Angabe quer ueber alle Quellen als dieselbe Firma, in Stufe 1
+# (aussortieren) und in Stufe 2 (still ignorieren, ohne jede Spur).
+# Verglichen wird der normalisierte GANZE Name: "Unbekannt Software
+# GmbH" ist eine Firma, "Unbekannt" nicht.
+FIRMEN_PLATZHALTER = {
+    "nicht angegeben", "unbekannt", "unknown", "k a", "n a", "na",
+    "keine angabe", "keine angaben", "ohne angabe", "nicht bekannt",
+    "anonym", "vertraulich",
+}
+
+_UMSCHRIFT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+
+def _umschrift(wort: str) -> str:
+    return wort.translate(_UMSCHRIFT)
 
 # #754: Tokens, die einen ROLLEN-Zuschnitt beschreiben, kein Fachgebiet.
 # "Project"/"Program"/"Product" duerfen keine Domaenen-Ueberlappung stiften —
@@ -143,7 +176,23 @@ def normalize_company(name: Optional[str]) -> str:
     s = name.lower()
     s = re.sub(r"[^a-zäöüß0-9\s]", " ", s)
     tokens = [t for t in s.split() if t and t not in _COMPANY_SUFFIXES]
-    return " ".join(tokens).strip()
+    norm = " ".join(tokens).strip()
+    # #1028: ein Platzhalter ist wie ein FEHLENDER Name. Hier und nicht
+    # beim Aufrufer — jeder Aufrufer prueft schon auf leer und bekommt
+    # die Regel damit ohne eigene Zeile (Wiedergaenger, Stufe 2,
+    # Firmen-Historie, Dokument-Zuordnung, Interview-Vollstaendigkeit).
+    if norm in FIRMEN_PLATZHALTER:
+        return ""
+    return norm
+
+
+def ist_firmen_platzhalter(name: Optional[str]) -> bool:
+    """True, wenn der Name nur ein Adapter-Platzhalter ist (#1028)."""
+    if not name or not str(name).strip():
+        return False
+    s = re.sub(r"[^a-zäöüß0-9\s]", " ", str(name).lower())
+    norm = " ".join(t for t in s.split() if t not in _COMPANY_SUFFIXES)
+    return norm in FIRMEN_PLATZHALTER
 
 
 def _domain_tokens(title: Optional[str]) -> set:
@@ -159,7 +208,11 @@ def _domain_tokens(title: Optional[str]) -> set:
     raw = set(re.findall(r"[a-zäöüß0-9]+", title.lower()))
     return {
         t for t in raw
-        if t not in _TITLE_STOPS and t not in _GENERIC_ROLE_TOKENS and len(t) >= 2
+        if t not in _TITLE_STOPS and _umschrift(t) not in _TITLE_STOPS
+        and t not in _GENERIC_ROLE_TOKENS and len(t) >= 2
+        # #1028: reine Ziffern (ein Datum "zum 01.10.") sind kein
+        # Fachgebiet; "s4hana" mit Ziffer im Wort bleibt eines.
+        and not t.isdigit()
     }
 
 
