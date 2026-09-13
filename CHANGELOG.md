@@ -33,6 +33,92 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.92] - 2026-09-13 — Ein Wort ist kein Fachgebiet
+
+Melder-Bericht vom 13.09.: die automatische Aussortierung entfernte
+passende Stellen, weil sie mit früher abgelehnten nur das Wort „für"
+teilten — oder weil beide keinen Firmennamen hatten.
+
+### Fixed
+
+- **Füllwörter zählen nicht als gemeinsames Fachgebiet** (#1028). Die
+  Stoppwortliste stand nur als „fuer" drin, Stellentitel tragen „für" —
+  der Eintrag griff nie. „Sachbearbeitung für die Buchhaltung" wurde so
+  als Wiedergänger von „Elektroniker für Betriebstechnik" aussortiert.
+  Die Liste wird jetzt auch in Umschrift verglichen; dazu kommen „als",
+  „zum", „zur", „den", „dem", „auf", „oder" und weitere, reine Ziffern,
+  „Vollzeit"/„Teilzeit"/„Quereinsteiger" und geschlechtsneutrale
+  Rollenformen wie „Sachbearbeitung" und „Mitarbeitende".
+- **Firmen-Platzhalter sind keine Firma** (#1028). „Nicht angegeben" und
+  „Unbekannt" galten quer über alle Quellen als ein Arbeitgeber: Stellen
+  ohne Firmenangabe wurden als „dieselbe Firma" aussortiert oder beim
+  Suchlauf gar nicht erst gespeichert. `normalize_company` behandelt sie
+  jetzt wie einen fehlenden Namen, und damit jeder Aufrufer.
+- **`issue_text_pruefen` meldet Firmen-Platzhalter nicht mehr** (#1028).
+
+### Changed
+
+- **`automatik_uebertragungen_pruefen` findet zwei weitere Fälle**
+  (#1028): `nur_fuellwoerter` und `firmen_platzhalter`, neben
+  `grund_nicht_uebertragbar` aus #1020. Jede Zeile nennt ihren Befund.
+
+### Design-Entscheidungen
+
+- **Die Regel sitzt in `normalize_company`, nicht bei den Aufrufern.**
+  Alle fünf prüfen schon auf einen leeren Namen und bekommen den
+  Platzhalter damit ohne eigene Zeile.
+- **Verglichen wird der ganze Name**: „Unbekannt Software GmbH" bleibt
+  eine Firma.
+- **Vier gezeigte Wörter holen nichts zurück.** Die Notiz kürzt die
+  gemeinsamen Wörter auf vier; stehen dort vier, kann ein fünftes,
+  echtes Fachwort dahinter gestanden haben.
+- **Still verworfene Stellen lassen sich nicht zurückholen** — sie wurden
+  nie gespeichert. Sie kommen beim nächsten Suchlauf wieder, sofern die
+  Anzeige noch online ist.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.92.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.92.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.91] - 2026-09-13 — Die richtige Zahl am richtigen Ort
 
 Drei Melder-Berichte vom 13.09., alle drei vom selben Typ: eine Angabe,
