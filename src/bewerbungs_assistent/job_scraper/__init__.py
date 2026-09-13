@@ -1331,7 +1331,11 @@ def run_search(db, job_id: str, params: dict):
     filterstufen: dict[str, int] = {}
 
     for job in unique:
-        job["score"] = calculate_score(job, criteria)
+        # v1.7.94 (#1034, gefunden bei #950): hier stand `calculate_score` — VOR
+        # Gehaltserkennung, Freelance-Heuristik und Geocoding. Der Score
+        # liest alle drei, der gespeicherte Wert kannte keinen davon, und
+        # `scores_neu_berechnen` kam auf einen anderen. Er entsteht jetzt
+        # nach dem Geocoding, siehe unten.
 
         # Auto-extract salary from description/salary_info
         if not job.get("salary_min"):
@@ -1427,6 +1431,13 @@ def run_search(db, job_id: str, params: dict):
                 logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
     except Exception as e:
         logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
+
+    # v1.7.94 (#1034): der Score erst, wenn alles da ist, was er liest — Gehalt,
+    # Anstellungsart und Entfernung. Vorher war der gespeicherte Wert von
+    # keinem anderen Werkzeug nachzurechnen (#987, diesmal an der
+    # Reihenfolge statt an den Kriterien). Die Filter darunter lesen ihn.
+    for job in unique:
+        job["score"] = calculate_score(job, criteria)
 
     # #251 / beta.26: Stellenalter automatisch begrenzen
     # Strategie:
@@ -1573,6 +1584,12 @@ def run_search(db, job_id: str, params: dict):
             _rout = _routing.fuer_stellen(db, unique, _start(db))
             logger.info("Routing (#950): %d Fahrstrecken, Befund %s",
                         _rout["berechnet"], _rout["befund"])
+            # Die Route kam nach den Filtern, also nach dem Score. Ohne
+            # Neuberechnung stuende die Fahrstrecke an der Stelle und
+            # waere trotzdem nicht im gespeicherten Score (AK 6).
+            for _j in unique:
+                if _j.get("fahrstrecke_km") is not None:
+                    _j["score"] = calculate_score(_j, criteria)
     except Exception as _exc:  # pragma: no cover — nie den Lauf stoppen
         logger.debug("Routing uebersprungen (#950): %s", _exc)
 

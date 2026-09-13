@@ -1131,3 +1131,51 @@ def test_kontakte_untermenue_referenzen(live_dashboard, browser):
         assert len(db.list_contact_references()) == 2
     finally:
         context.close()
+
+
+def test_routing_karte_950_im_quellen_tab(browser, live_dashboard):
+    """#950 Stufe 2: der Schluessel wird im Dashboard eingetragen.
+
+    Ein Grep belegt nur, dass `<RoutingCard` im Quelltext steht — nicht,
+    dass die Karte rendert und ihr Knopf den Endpunkt erreicht. Geprueft
+    wird der Weg ohne Netz: ein offensichtlich falscher Schluessel wird
+    am Server abgewiesen, bevor eine Anfrage an den Dienst geht, und die
+    Begruendung erscheint in der Oberflaeche.
+    """
+    # Ohne Profil liegt der Einrichtungs-Assistent ueber der Seite und
+    # faengt jeden Klick ab — dieselbe Lage wie im Gefahrenzone-Test.
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Route"))
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Quellen", exact=True).first.click()
+
+        karte = page.get_by_test_id("routing-card")
+        karte.wait_for(state="visible", timeout=8000)
+        # Die Seite laedt nach dem ersten Rendern noch einmal nach und baut
+        # die Karten dabei neu auf — ein zu frueh eingetippter Wert waere
+        # danach weg. Gewartet wird auf den ZUSTAND, nicht auf eine Dauer.
+        page.wait_for_load_state("networkidle")
+        karte.get_by_text("Noch nicht eingerichtet", exact=False).wait_for(
+            state="visible", timeout=8000)
+        feld = karte.get_by_label("Routing-Schluessel")
+        assert feld.get_attribute("type") == "password"
+
+        knopf = karte.get_by_role("button", name="Speichern & testen")
+        assert knopf.is_disabled(), "ohne Eingabe gibt es nichts zu pruefen"
+        feld.fill("zu-kurz")
+        assert knopf.is_enabled()
+        knopf.click()
+        page.get_by_text("nicht nach einem Schluessel", exact=False).first.wait_for(
+            state="visible", timeout=8000)
+        from bewerbungs_assistent.services import routing
+        assert not routing.konfiguriert(live_dashboard["db"])
+    finally:
+        context.close()
