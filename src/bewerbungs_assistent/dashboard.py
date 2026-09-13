@@ -6494,26 +6494,60 @@ async def api_jobsuche_running():
 
 @app.get("/api/jobsuche/last")
 async def api_jobsuche_last():
-    """Return the most recently finished jobsuche job (#487 Status-Badge)."""
+    """Return the most recently finished jobsuche job (#487 Status-Badge).
+
+    v1.7.91 (#1033): der Endpunkt las `neue_stellen` — einen Schluessel,
+    den kein Suchlauf je geschrieben hat. Das Ergebnis traegt die Zahl
+    unter `total`, und der Hinweis in der Navigation meldete deshalb nach
+    JEDEM Lauf "0 neue Stellen". Der Timeout-Zaehler suchte den Status
+    in `quellen` (dort stehen nur Zahlen je Quelle) statt in
+    `quellen_status` und blieb immer 0. Und ein abgebrochener Lauf kam
+    ebenfalls als "fertig" an, weil das Frontend den Status nicht las.
+    """
     job = _db.get_last_finished_background_job("jobsuche")
     if not job:
         return {"vorhanden": False}
-    result = job.get("result") or {}
-    neue = int(result.get("neue_stellen") or 0) if isinstance(result, dict) else 0
-    timeout_quellen = 0
-    if isinstance(result, dict):
-        quellen = result.get("quellen") or {}
-        if isinstance(quellen, dict):
-            timeout_quellen = sum(
-                1 for v in quellen.values()
-                if isinstance(v, dict) and (v.get("status") == "timeout" or v.get("error"))
-            )
+    result = job.get("result") if isinstance(job.get("result"), dict) else {}
+
+    def _zahl(wert):
+        try:
+            return int(wert) if wert is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    quellen_status = result.get("quellen_status") or {}
+    zaehler = {"ok": 0, "timeout": 0, "fehler": 0, "uebersprungen": 0}
+    if isinstance(quellen_status, dict):
+        for info in quellen_status.values():
+            status = str((info or {}).get("status") or "").lower() if isinstance(info, dict) else ""
+            if status == "timeout":
+                zaehler["timeout"] += 1
+            elif status in ("ok", "erfolg", "success"):
+                zaehler["ok"] += 1
+            elif status in ("uebersprungen", "skipped", "deaktiviert"):
+                zaehler["uebersprungen"] += 1
+            elif status:
+                zaehler["fehler"] += 1
+
+    if job.get("status") == "fehler":
+        ergebnis = "fehlgeschlagen"
+    elif result.get("nicht_gestartet"):
+        ergebnis = "nicht_gestartet"
+    else:
+        ergebnis = "fertig"
+
+    neue = _zahl(result.get("total"))
     return {
         "vorhanden": True,
         "job_id": job.get("id"),
         "status": job.get("status"),
-        "neue_stellen": neue,
-        "timeout_quellen": timeout_quellen,
+        "ergebnis": ergebnis,
+        # `None` heisst "nicht bekannt" (fehlgeschlagen, Altlauf), nicht 0.
+        "neue_stellen": neue if ergebnis == "fertig" else None,
+        "neu_aktiv": _zahl(result.get("neu_aktiv")) if ergebnis == "fertig" else None,
+        "quellen": zaehler,
+        "timeout_quellen": zaehler["timeout"],
+        "meldung": job.get("message") or "",
         "updated_at": job.get("updated_at"),
     }
 

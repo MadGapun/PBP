@@ -238,9 +238,18 @@ _MUSTER = (
 #: zwei ("-" und "/"). Die Stelle galt dann als reine Teilzeitstelle,
 #: obwohl der Titel ausdruecklich beides anbietet. Gefunden beim
 #: Durchspielen der Beispiele aus dem Bericht, nicht vom Nachdenken.
+#:
+#: v1.7.91 (#1031): die naechste Variante derselben Luecke. Steht ein
+#: BINDEWORT zwischen "Voll-" und "Teilzeit" ("in Voll- oder Teilzeit",
+#: "Voll- und Teilzeit", "Voll- bzw. Teilzeit", "full- or part-time"),
+#: traf das Muster nicht, und die Stelle galt als reine Teilzeitstelle.
+#: Das Bindewort ist nur zusammen mit "teil" erlaubt — "Voll oder Zeit"
+#: sagt nichts.
 _VOLLZEIT = re.compile(
     r"\bvoll[-\s/]*(?:teil)?zeit\b"
-    r"|\bfull[-\s/]*(?:part[-\s]?)?time\b", re.IGNORECASE)
+    r"|\bvoll-?\s*(?:oder|und|bzw\.?|sowie|&)\s*teil[-\s]?zeit\b"
+    r"|\bfull[-\s/]*(?:part[-\s]?)?time\b"
+    r"|\bfull-?\s*(?:or|and|&)\s*part[-\s]?time\b", re.IGNORECASE)
 
 #: Der UMFANG aus dem Titel — eine EIGENE Dimension (#1023). Eine
 #: Stelle traegt beide Merkmale: "Werkstudent (Teilzeit)" ist Form UND
@@ -380,15 +389,24 @@ def umfang_erkennen(job: dict) -> dict:
     #     verlaesslichste Angabe. Sie kommt als `arbeitsumfang` herein,
     #     weil die Adapter sie dort ablegen.
     von_quelle = (job.get("arbeitsumfang") or "").strip().lower()
+    titel = (job.get("title") or "").strip()
+    aus_titel = _umfang_aus_text(titel) if titel else None
+
     if von_quelle in UMFAENGE and von_quelle != UNBEKANNT:
+        # v1.7.91 (#1031): bietet der TITEL ausdruecklich beides an, ist
+        # ein einzelner Wert im Feld eine Teilmenge dessen, was die Anzeige
+        # zusagt. Ohne diese Ausnahme bestaetigte sich eine falsche
+        # Erkennung selbst: `stellen_merkmale_nachziehen` schreibt den
+        # erkannten Wert in `arbeitsumfang` und liest ihn beim naechsten
+        # Lauf dort wieder als Angabe der Quelle — ein einmal gespeichertes
+        # `teilzeit` liess sich durch keinen Lauf mehr korrigieren.
+        if aus_titel and aus_titel[0] == BEIDES and von_quelle != BEIDES:
+            return {"umfang": BEIDES, "beleg": "titel", "wort": aus_titel[1]}
         return {"umfang": von_quelle, "beleg": "quelle", "wort": von_quelle}
 
-    titel = (job.get("title") or "").strip()
-    if titel:
-        gefunden = _umfang_aus_text(titel)
-        if gefunden:
-            return {"umfang": gefunden[0], "beleg": "titel",
-                    "wort": gefunden[1]}
+    if aus_titel:
+        return {"umfang": aus_titel[0], "beleg": "titel",
+                "wort": aus_titel[1]}
 
     # (3) Beschreibung: schwaches Signal. Nennt sie Teilzeit, heisst das
     #     "geht auch" — also `beides`, nie `teilzeit` allein.

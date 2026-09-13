@@ -1610,6 +1610,11 @@ def run_search(db, job_id: str, params: dict):
 
     result_data = {
         "total": len(unique),
+        # #1033: davon AKTIV in der Liste gelandet. `total` enthaelt auch
+        # die Stellen, die beim Speichern sofort ausgeblendet wurden
+        # (Wiedergaenger, Duplikate) — der Hinweis in der Navigation
+        # nennt beides, statt eine der Zahlen fuer die andere auszugeben.
+        "neu_aktiv": sum(new_per_source.values()) if isinstance(new_per_source, dict) else None,
         "quellen": {q: sum(1 for j in unique if j.get("source") == q) for q in quellen},
         "quellen_status": source_status,  # #316: Per-Source Fokus-Modus
         "adapter_pfad": "v2" if _use_adapters else "legacy",  # #499 Beta.12
