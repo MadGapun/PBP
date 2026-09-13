@@ -65,5 +65,11 @@ jobs:
         # Seiten; der Test haengt an der gemeinsamen Fassung.
         run: node frontend/src/lib/gehaltsKennzahl.test.mjs
 
+      - name: Jobsuche-Hinweis (#1033 G47)
+        # Vier Zustaende, die im Kaestchen der Navigation gleich aussahen:
+        # Funde, keine Funde, Abbruch, nicht gestartet. Ein Timeout einzelner
+        # Quellen faerbt nicht als Warnung.
+        run: node frontend/src/lib/jobsucheHinweis.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py
