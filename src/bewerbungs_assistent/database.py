@@ -6331,6 +6331,20 @@ class Database:
                 criteria["_entfernung_gehalt_spanne"] = float(row["value"])
         except Exception as e:
             logger.debug("Kompensations-Injektion (#910): %s", e)
+        # v1.7.100 (#1037 Punkt 3): eine gespeicherte Fahrstrecke zaehlt nur,
+        # solange ein Routing-Schluessel eingerichtet ist. Die Rueckfrage
+        # beim Entfernen verspricht "PBP rechnet wieder mit der Luftlinie" —
+        # `entfernung.preis_km` hatte den Schluessel nie gesehen.
+        # Opt-in wie die Injektionen darueber: ohne Schluessel steht KEIN
+        # Eintrag da. Ein immer gesetzter Eintrag machte leere Kriterien
+        # nicht-leer, und `suchkriterien_anzeigen` verlor fuer ein frisches
+        # Profil den Hinweis auf den naechsten Schritt (#927).
+        try:
+            from .services import routing as _routing
+            if _routing.konfiguriert(self):
+                criteria["_fahrstrecke_zaehlt"] = True
+        except Exception as e:
+            logger.debug("Routing-Injektion (#1037): %s", e)
         return criteria
 
     # v1.7.62 (#1008 Befund 3): `get_hochschulabschluss_malus` (#698)

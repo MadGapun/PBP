@@ -347,7 +347,7 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
     if grund == "zu_weit_entfernt":
         # v1.7.94 (#950 AK 6): dieselbe Zahl wie im Score.
         from . import entfernung as _entfernung
-        dist = _entfernung.preis_km(job)
+        dist = _entfernung.preis_km(job, criteria)
         if dist is None:
             return ""
         # v1.7.99 (#1036): dieselbe Grenze wie Score und Fit-Analyse. Hier

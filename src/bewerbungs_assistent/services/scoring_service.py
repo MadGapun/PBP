@@ -23,12 +23,6 @@ logger = logging.getLogger("bewerbungs_assistent.scoring")
 # sie ist ein Preis, kein Ausschluss (#910).
 MAX_ENTFERNUNGS_ZUSCHLAG = 6
 
-# Fallback, wenn der Nutzer keinen Wunschwert gesetzt hat — dieselben
-# Werte wie in calculate_score, damit beide Ebenen dasselbe meinen.
-STANDARD_WUNSCH = {"festanstellung": 50, "freelance": 200, "teilzeit": 30,
-                   "praktikum": 50, "werkstudent": 50}
-
-
 def _entfernungs_zuschlag(distance_km: float, emp_type: str,
                           db) -> tuple[int, int]:
     """Wie viele Punkte kostet die Entfernung ueber dem Wunschwert extra?
@@ -40,14 +34,17 @@ def _entfernungs_zuschlag(distance_km: float, emp_type: str,
     dieser Ebene nirgends — die Oberflaeche zeigte 30 km, gerechnet wurde
     gegen die Reglerstufe 999 km. Zwei Einstellungen fuer dieselbe Sache,
     von denen nur eine wirkt, sind eine Fehlerquelle (#988).
+
+    v1.7.100: der Standard kommt aus `entfernung.grenze_km` — hier stand
+    eine vierte Tabelle (`STANDARD_WUNSCH`), die #1036 uebersehen hatte.
     """
     import math
+    from . import entfernung as _entfernung
     try:
         kriterien = db.get_search_criteria() or {}
     except Exception:  # pragma: no cover — Regler duerfen nie stoppen
         kriterien = {}
-    karte = kriterien.get("max_entfernung") or {}
-    wunsch = karte.get(emp_type) or STANDARD_WUNSCH.get(emp_type, 50)
+    wunsch = _entfernung.grenze_km(kriterien, emp_type)
     try:
         wunsch = int(wunsch)
     except (TypeError, ValueError):
@@ -112,7 +109,12 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
     # v1.7.94 (#950 AK 6): die Fahrstrecke, sobald sie vorliegt — die
     # Wahl trifft `entfernung.preis_km`, nicht jeder Rechenweg selbst.
     from . import entfernung as _entfernung
-    distance_km = _entfernung.preis_km(job)
+    try:
+        _kriterien = db.get_search_criteria() or {}
+    except Exception:  # pragma: no cover — Regler duerfen nie stoppen
+        _kriterien = {}
+    # v1.7.100 (#1037): ohne Routing-Schluessel die Luftlinie.
+    distance_km = _entfernung.preis_km(job, _kriterien)
     if distance_km is not None and distance_km > 0:
         if emp_type == "freelance":
             dim = "entfernung_freelance"

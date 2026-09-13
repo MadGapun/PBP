@@ -348,6 +348,9 @@ def test_ak6_die_fahrstrecke_kostet_im_scoring_regler_mehr(db):
     from bewerbungs_assistent.services.scoring_service import (
         apply_scoring_adjustments)
 
+    # v1.7.100 (#1037): die Fahrstrecke zaehlt nur mit eingerichtetem
+    # Schluessel — die Voraussetzung steht jetzt ausdruecklich da.
+    db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
     nah = apply_scoring_adjustments({"distance_km": 20}, 50, db)
     weit = apply_scoring_adjustments(
         {"distance_km": 20, "fahrstrecke_km": 400}, 50, db)
@@ -416,6 +419,9 @@ def test_die_entfernung_aendert_den_score_ueberhaupt(db):
 
     db.set_search_criteria("keywords_muss", ["python"])
     db.set_search_criteria("max_entfernung_km", 30)
+    # v1.7.100 (#1037): die Fahrstrecke zaehlt nur mit eingerichtetem
+    # Schluessel — die Voraussetzung steht jetzt ausdruecklich da.
+    db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
     kriterien = scoring_kriterien.fuer_scoring(db)
     job = {"title": "Python Entwickler", "description": TEXT + " python",
            "remote_level": "vor_ort", "employment_type": "festanstellung"}

@@ -2962,7 +2962,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     # v1.7.94 (#950 AK 6): die Fahrstrecke, sobald sie vorliegt.
     from ..services import entfernung as _entf_score
-    dist = _entf_score.preis_km(job)
+    dist = _entf_score.preis_km(job, criteria)
     emp_type = job.get("employment_type", "festanstellung")
     # v1.7.99 (#1036): die Grenze kommt aus EINER Stelle — dieselbe, die
     # die Auto-Aussortierung fragt.
@@ -3273,7 +3273,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
     # v1.7.94 (#950 AK 6): dieselbe Zahl wie calculate_score (#963).
     from ..services import entfernung as _entf_fit
-    dist = _entf_fit.preis_km(job)
+    dist = _entf_fit.preis_km(job, criteria)
     fit_emp_type = job.get("employment_type", "festanstellung")
     # v1.7.99 (#1036): dieselbe Grenze wie calculate_score und die Automatik.
     fit_type_max = _entf_fit.grenze_km(criteria, fit_emp_type)
