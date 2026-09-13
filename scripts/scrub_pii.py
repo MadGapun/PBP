@@ -558,6 +558,47 @@ def find_pii(text: str) -> list[str]:
     return hits
 
 
+def ersetze_kontaktdaten(text: str) -> str:
+    """Ersetzt Mailadressen und Rufnummern — genau die, die `find_pii` meldet.
+
+    #817: `pii_bestand.anonymisiere_text` tauschte Namen aus dem Bestand,
+    liess Mail und Telefon aber stehen; der fertige Beleg fiel danach an
+    diesem Pruefer durch. Die Regeln stehen hier, weil sie hier schon
+    stehen: eine zweite Fassung von "was ist eine Telefonnummer" im Paket
+    waere #963 in einem Schutzwerkzeug.
+
+    Dieselben Ausnahmen wie beim Finden — Systemadressen, Farbwerte,
+    Hex-Konstanten, kurze Ziffernfolgen, Inline-Code, 555-Nummern. Mehr zu
+    ersetzen als gemeldet wird, entstellt Belege.
+    """
+    if not text:
+        return text or ""
+
+    def _mail(m):
+        return m.group() if _is_safe_email(m.group()) else "<email-anonymisiert>"
+
+    text = _EMAIL_RE.sub(_mail, text)
+
+    teile = []
+    letzte = 0
+    for m in _PHONE_RE.finditer(text):
+        wert = m.group(0)
+        bleibt = (
+            _ist_farbwert(wert)
+            or _ist_hex_konstante(text, m.start())
+            or len(wert.replace(" ", "").replace("-", "")) < 7
+            or _in_inline_code(text, m.start(), m.end())
+            or _ist_fiktive_nummer(wert)
+        )
+        if bleibt:
+            continue
+        teile.append(text[letzte:m.start()])
+        teile.append("<telefon>")
+        letzte = m.end()
+    teile.append(text[letzte:])
+    return "".join(teile)
+
+
 def scrub_text(text: str) -> str:
     """Wendet alle Anonymisierungs-Regeln an. Idempotent."""
     if not text:
