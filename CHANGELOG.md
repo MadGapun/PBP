@@ -105,6 +105,97 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.91] - 2026-09-13 — Die richtige Zahl am richtigen Ort
+
+Drei Melder-Berichte vom 13.09., alle drei vom selben Typ: eine Angabe,
+die aussieht wie ein Ergebnis und etwas anderes bedeutet.
+
+### Fixed
+
+- **Der Jobsuche-Hinweis in der Navigation nennt die echte Zahl** (#1033).
+  Er zeigte nach jedem Lauf „Fertig — 0 neue Stellen", auch nach über
+  hundert Funden: der Server las einen Schlüssel, den kein Suchlauf
+  schreibt. Jetzt: die Anzahl, „keine neuen Stellen", „fehlgeschlagen"
+  oder „nicht gestartet". Ein Timeout einzelner Quellen färbt nicht als
+  Warnung; die Quellenbilanz und wie viele Stellen gleich ausgeblendet
+  wurden, stehen im Tooltip.
+- **„in Voll- oder Teilzeit" ist beides** (#1031). Mit einem Bindewort
+  zwischen „Voll-" und „Teilzeit" galt eine Stelle als reine
+  Teilzeitstelle und fiel aus dem Filter „Vollzeit" heraus. Ein erneuter
+  Lauf von `stellen_merkmale_nachziehen` korrigiert jetzt auch bereits so
+  gespeicherte Stellen — vorher las er seinen eigenen früheren Wert als
+  Angabe der Quelle.
+- **Ein Jahresgehalt wird nie als Monatsgehalt gerechnet** (#1029).
+  „Jahresgehalt: 14.000 bis 15.600 EUR im Jahr" ergab 168.000 EUR,
+  gespeichert als belegt. Steht eine Jahresangabe am Betrag, gibt es
+  keine Monatsumrechnung; ein ausdrücklich genannter Jahresbetrag darf
+  unter 20.000 liegen.
+- **Genannte Spannen behalten ihre Obergrenze** (#1029). „45.000 € bis
+  55.000 €" und „zwischen 45.000 und 55.000" wurden zu gerechneten
+  Spannen oder machten die Obergrenze zur Untergrenze.
+- **Kurz-Kennungen von Stellen sind eindeutig** (#1029). Mehrere
+  Werkzeuge kürzten den gespeicherten Hash und gaben damit für jede Stelle
+  denselben Profil-Präfix aus — auch im Lernereignis beim Zurückholen
+  einer automatisch aussortierten Stelle. Als Eingabe traf diese
+  Kennung sogar irgendeine Stelle des Profils.
+
+### Design-Entscheidungen
+
+- **Die vorgeschlagene Wortgrenze vor „Gehalt" kommt nicht.** Die
+  Gegenprobe zeigte sie als überflüssig (die Prüfung des Umfelds fängt
+  den Fall schon ab) und als schädlich: „Einstiegsgehalt", „Fixgehalt"
+  und „Zielgehalt" wären nicht mehr erkannt worden.
+- **„und" ist kein Spannentrenner ohne „zwischen" davor** — sonst würde
+  „3 Stellen und 45.000 EUR" zur Spanne und verdrängte den echten Wert.
+- **Nachgemessen an 1.380 Anzeigen:** kein Gehalt fällt weg, keines kommt
+  unerwartet dazu, eines wird korrigiert.
+- **Die Beschriftung des Jobsuche-Hinweises liegt in einem eigenen Modul
+  mit eigenem Test**, damit sie ausgeführt und nicht nur im Quelltext
+  gesucht wird.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.91.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.91.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.90] - 2026-09-12 — Nichts wird still abgeschnitten
 
 Die lokale KI bekommt ein festes **Kontextfenster** (#787, erster Teil).
