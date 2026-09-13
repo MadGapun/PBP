@@ -105,6 +105,105 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.93] - 2026-09-13 — Der Filter wirkt auf den Bestand
+
+Zwei Rückmeldungen vom 13.09. zum Stellen-Tab: Filter und Sortierung
+wirkten nur auf die geladenen 20 Stellen, und nach dem Datum ließ sich
+gar nicht sortieren.
+
+### Fixed
+
+- **Filter und Sortierung wirken auf alle Stellen der Ansicht** (#1030).
+  Die Liste lud 20 Stellen und filterte und sortierte dann diese 20. Beim
+  Melder fand der Suchtext „buchhaltung" 5 statt 209 Treffer, der Umfang
+  „Vollzeit" 0 statt 59, und der Hinweis dazu lautete, die Filter seien
+  „strenger als nötig". Jetzt filtert und sortiert der Server über den
+  ganzen Bestand — in „Aktive" wie in „Ausgeblendet" —, und die Seiten
+  blättern im gefilterten Ergebnis.
+- **Die Trefferzahl nennt die Treffer im Bestand** (#1030), und der
+  Hinweis „strenger als nötig" erscheint nur, wenn wirklich nichts passt.
+- **Die Auswahllisten bieten alle Werte der Ansicht an** (#1030), nicht
+  nur die der geladenen Stellen.
+- **„Nur mit Gehalt" zählt Schätzungen nicht mit** (#1030). Vorher galten
+  1.169 von 1.174 Stellen als „mit Gehalt", eine Angabe aus der Anzeige
+  hatten 124.
+- **„Mehr laden" erscheint auch bei leerer erster Seite** (#1030).
+- **„Ausgeblendet" ist nach dem Zeitpunkt der Aussortierung sortiert**
+  (#1010, gefunden bei #1030). Die Liste wurde im Browser zwar danach
+  vorsortiert, anschließend aber noch einmal nach dem Score — die
+  Reihenfolge hielt nur bei gleichem Score.
+- **„Beworbene ausblenden" behandelt „Arbeitgeber ausgefallen" wie die
+  übrigen abgeschlossenen Bewerbungen** (gefunden bei #1030). Der Browser
+  hatte dafür eine eigene, kürzere Liste als die Datenbank.
+
+### Added
+
+- **Sortierung „Neueste zuerst" und „Älteste zuerst"** nach dem Zeitpunkt,
+  zu dem PBP die Stelle zuerst gefunden hat (#1032).
+- **Fund- und Veröffentlichungsdatum auf der Stellenkarte und im
+  Detail-Dialog** (#1032). Ohne Veröffentlichungsdatum steht dort nichts —
+  kein Ersatzdatum.
+- **Die Liste lädt beim Scrollen von selbst nach** (#1030). Der Knopf
+  „Mehr laden" bleibt für die Tastatur.
+
+### Design-Entscheidungen
+
+- **Server statt „alles laden".** Beide Wege erfüllen die
+  Akzeptanzkriterien. Der Unterschied liegt darin, wie viele Fassungen der
+  Filterregeln es danach gibt: „Ausgeblendet" filterte schon im Browser;
+  filterte der Server nur „Aktive", gäbe es zehn Filter doppelt. Beide
+  Ansichten gehen jetzt durch `services/stellen_liste.py`.
+- **Sortiert wird nach dem Erstfund, nicht nach dem
+  Veröffentlichungsdatum.** Das liefert nur eine Quelle; eine Mischung
+  stellte eine heute gefundene Stelle hinter eine von gestern.
+- **Eine Stelle ohne Datum steht hinten — in beiden Richtungen.**
+  „Unbekannt" ist weder das neueste noch das älteste Datum.
+- **Ein unbekannter Filter- oder Sortierwert wird abgewiesen**, mit der
+  Liste der möglichen Werte, statt still ignoriert zu werden.
+- **Ein reines Datum („2026-09-01") wird als Ortsdatum gelesen.** Als
+  UTC gelesen wäre es westlich von UTC der Vortag.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.93.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.93.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.92] - 2026-09-13 — Ein Wort ist kein Fachgebiet
 
 Melder-Bericht vom 13.09.: die automatische Aussortierung entfernte
