@@ -27,6 +27,10 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
 import { scoreText, scoreWert } from "@/lib/score";
+import {
+  ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
+  gehaltText, umfangText,
+} from "@/lib/stellenAngaben";
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -203,36 +207,11 @@ function listenMeta(antwort) {
   };
 }
 
-// #1023: Anstellungsform und Umfang sind ZWEI Merkmale. Bis v1.7.83
-// stand die Zuordnung als verschachtelter Ternaer direkt im JSX — mit
-// zwei Dimensionen und sechs Formen waere daraus eine Zeile geworden,
-// die niemand mehr liest. Und `zeitarbeit` und `ausbildung` fehlten
-// dort, obwohl sie im Bestand vorkommen.
-const ANSTELLUNGSFORM_TEXT = {
-  festanstellung: "Festanstellung",
-  zeitarbeit: "Zeitarbeit",
-  freelance: "Freelance",
-  praktikum: "Praktikum",
-  werkstudent: "Werkstudent",
-  ausbildung: "Ausbildung",
-};
-
-const ANSTELLUNGSFORM_TON = {
-  festanstellung: "sky",
-  freelance: "success",
-  praktikum: "amber",
-  werkstudent: "amber",
-  ausbildung: "amber",
-  zeitarbeit: "danger",
-};
-
-const UMFANG_TEXT = {
-  vollzeit: "Vollzeit",
-  teilzeit: "Teilzeit",
-  // "Vollzeit / Teilzeit" ist eine ZUSAGE, keine Mehrdeutigkeit — ein
-  // Etikett mit nur zwei Werten macht daraus eine Falschangabe.
-  beides: "Voll- oder Teilzeit",
-};
+// #1023: Anstellungsform und Umfang sind ZWEI Merkmale (Zuordnung als
+// Tabelle statt verschachteltem Ternaer im JSX).
+// v1.7.103 (#1044): die Tabellen und die Darstellung von Firma, Gehalt und
+// Entfernung stehen in lib/stellenAngaben.js — Karte, Popup und Filter
+// lesen dieselbe Fassung.
 
 const ANALYSE_ETIKETT = {
   EMPFOHLEN: "Empfohlen",
@@ -1556,10 +1535,8 @@ export default function JobsPage() {
                       </button>
                     )}
                     {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
-                    {job.employment_type ? (
-                      <Badge tone={ANSTELLUNGSFORM_TON[job.employment_type] || "neutral"}>
-                        {ANSTELLUNGSFORM_TEXT[job.employment_type] || job.employment_type}
-                      </Badge>
+                    {anstellungsform(job) ? (
+                      <Badge tone={anstellungsform(job).ton}>{anstellungsform(job).text}</Badge>
                     ) : null}
                     {/* #1023: der UMFANG als eigenes Kennzeichen neben der
                         Anstellungsform. Der Melder: "Dann sehe ich in der
@@ -1568,13 +1545,11 @@ export default function JobsPage() {
                         — ein Etikett "unbekannt" an 993 von 1.110 Stellen
                         waere Rauschen, und die Luecke steht ohnehin im
                         Datenguete-Befund. */}
-                    {job.arbeitsumfang && job.arbeitsumfang !== "unbekannt" ? (
+                    {umfangText(job) ? (
                       /* v1.7.102 (#1043): eine Farbe fuer alle drei Werte —
                          es ist dieselbe Angabe, und Orange nur fuer Teilzeit
                          las sich wie eine Warnung. */
-                      <Badge tone="neutral">
-                        {UMFANG_TEXT[job.arbeitsumfang] || job.arbeitsumfang}
-                      </Badge>
+                      <Badge tone="neutral">{umfangText(job)}</Badge>
                     ) : null}
                     {job.befristet ? <Badge tone="neutral">Befristet</Badge> : null}
                     {/* #154: Bereits-beworben-Badge aus matched applications */}
@@ -1670,11 +1645,11 @@ export default function JobsPage() {
                     title="Details anzeigen"
                   >
                     <h2 className="text-2xl font-semibold text-ink group-hover:text-sky transition-colors">{job.title}</h2>
-                    <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
+                    <p className="text-sm text-muted">{firmaText(job)}{job.location ? ` - ${job.location}` : ""}</p>
                     {/* #950: die Entfernung nennt ihre Art — mit
                         Routing-Schluessel steht hier die Fahrzeit. */}
-                    {job.entfernung?.entfernung_text ? (
-                      <p className="text-xs text-muted/60">{job.entfernung.entfernung_text}</p>
+                    {entfernungText(job) ? (
+                      <p className="text-xs text-muted/60">{entfernungText(job)}</p>
                     ) : null}
                     <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
                     {jobNeedsDescriptionAttention(job) ? (
@@ -1684,10 +1659,8 @@ export default function JobsPage() {
                           : "Score 0 ist kein Urteil — ohne Beschreibung wurde diese Stelle nicht bewertet. Erst Beschreibung nachladen, dann entscheiden."}
                       </p>
                     ) : null}
-                    {job.salary_min ? (
-                      <p className="text-sm text-ink">
-                        Gehalt: {formatCurrency(job.salary_min)}{job.salary_max ? ` bis ${formatCurrency(job.salary_max)}` : ""}{job.salary_estimated ? " (geschätzt)" : ""}
-                      </p>
+                    {gehaltText(job, formatCurrency) ? (
+                      <p className="text-sm text-ink">{gehaltText(job, formatCurrency)}</p>
                     ) : null}
                     {/* #1032 AK 4: wer nach Datum sortiert, sieht auf der Karte,
                         wo die neuen Stellen aufhoeren. Ohne Datum steht hier
@@ -2238,7 +2211,10 @@ export default function JobsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h3>
-                  <p className="text-sm text-muted">{detailDialog.job.company || "Unbekannt"}{detailDialog.job.location ? ` — ${detailDialog.job.location}` : ""}</p>
+                  <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
+                  {entfernungText(detailDialog.job) ? (
+                    <p className="text-xs text-muted/60">{entfernungText(detailDialog.job)}</p>
+                  ) : null}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {
                   setEditForm({
@@ -2260,18 +2236,15 @@ export default function JobsPage() {
                   onClick={async () => { try { await navigator.clipboard.writeText(detailDialog.job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
                 >#{String(detailDialog.job.hash).slice(0, 12)}</button>
                 <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
-                {detailDialog.job.employment_type ? <Badge tone={detailDialog.job.employment_type === "freelance" ? "success" : "neutral"}>{detailDialog.job.employment_type}</Badge> : null}
+                {anstellungsform(detailDialog.job) ? <Badge tone={anstellungsform(detailDialog.job).ton}>{anstellungsform(detailDialog.job).text}</Badge> : null}
+                {umfangText(detailDialog.job) ? <Badge tone="neutral">{umfangText(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
                 <Badge tone="amber">Score {scoreText(detailDialog.job.score)}</Badge>
                 {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>
-              {detailDialog.job.salary_min ? (
-                <p className="text-sm text-teal font-medium">
-                  Gehalt: {formatCurrency(detailDialog.job.salary_min)} - {formatCurrency(detailDialog.job.salary_max)}
-                  {detailDialog.job.salary_type ? ` (${detailDialog.job.salary_type})` : ""}
-                  {detailDialog.job.salary_estimated ? " (geschaetzt)" : ""}
-                </p>
+              {gehaltText(detailDialog.job, formatCurrency) ? (
+                <p className="text-sm text-teal font-medium">{gehaltText(detailDialog.job, formatCurrency)}</p>
               ) : null}
               {/* #765: nie ein stiller toter Link und nie ein leeres Feld —
                   der Weg zur Original-Anzeige ist sichtbar oder erklaert. */}
