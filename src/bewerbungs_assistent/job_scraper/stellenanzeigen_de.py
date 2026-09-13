@@ -2,8 +2,14 @@
 
 3.2 Mio. Besucher/Monat, breites Stellenangebot.
 Kein Login erforderlich. HTML-Scraping mit JSON-LD Fallback.
+
+v1.7.101 (#1040): die Ergebnisseite traegt kein `JobPosting`-JSON-LD mehr
+und nutzt generierte Klassennamen. Der Kartenweg liest Firma und Ort jetzt
+aus der REIHENFOLGE des Kartentexts statt aus Klassennamen, und er laeuft
+fuer JEDEN Suchbegriff — bis v1.7.100 nur fuer den ersten.
 """
 
+import json
 import logging
 import re
 import time
@@ -28,18 +34,136 @@ HEADERS = {
     "Accept-Language": "de-DE,de;q=0.9",
 }
 
+BASIS_URL = "https://www.stellenanzeigen.de"
+
+#: Angaben, die in der Karte nach dem Arbeitgeber stehen koennen, aber kein
+#: Ort sind. Fehlt der Ort, steht an seiner Stelle eine davon — und die
+#: gehoert nicht ins Ortsfeld, sonst geocodet PBP "Vollzeit".
+_KEIN_ORT = frozenset({
+    "vollzeit", "teilzeit", "minijob", "homeoffice", "home office", "remote",
+    "ausbildung", "praktikum", "werkstudent", "befristet", "unbefristet",
+    "festanstellung", "zeitarbeit", "freie mitarbeit",
+})
+_DATUM = re.compile(r"^\d{1,2}\.\d{1,2}\.\d{4}$")
+
+
+def _keine_angabe(text: str) -> bool:
+    wert = (text or "").strip()
+    return not wert or wert.lower() in _KEIN_ORT or bool(_DATUM.match(wert))
+
+
+def _karte(anker, href: str):
+    """Der groesste Vorfahr des Titel-Ankers, der keine FREMDE Anzeige
+    enthaelt — also die Karte dieser Stelle, und nur dieser.
+
+    Gemessen am 13.09.2026: so steht in 25 von 25 Karten Firma und Ort
+    direkt hinter dem Titel. Die erste Fassung nahm den naechsten Vorfahr
+    mit etwas Text und schnitt in 11 von 25 Karten den Ort ab.
+    """
+    karte = anker
+    while karte.parent is not None:
+        fremd = [x for x in karte.parent.select('a[href^="/job/"]')
+                 if (x.get("href") or "").strip() != href]
+        if fremd:
+            break
+        karte = karte.parent
+    return karte
+
+
+def karten_aus_html(html: str) -> list[dict]:
+    """Alle Anzeigen einer Ergebnisseite ueber ihre `/job/`-Links.
+
+    Firma und Ort kommen aus der Reihenfolge des Kartentexts: Titel,
+    Arbeitgeber, Ort, dann Arbeitszeit, Zusatzleistungen und Datum. Vor dem
+    Titel koennen Hinweise stehen ("Schnellbewerbung", "Top Job") — gesucht
+    wird deshalb die Position des Titels, nicht die erste Zeile.
+    """
+    soup = BeautifulSoup(html or "", "html.parser")
+    gesehen: set = set()
+    karten: list[dict] = []
+    for anker in soup.select('a[href^="/job/"]'):
+        href = (anker.get("href") or "").strip()
+        titel = anker.get_text(strip=True)
+        # Es gibt Wrapper-Links ohne Text; den nehmen wir nicht.
+        if not href or href in gesehen or not titel or len(titel) < 8:
+            continue
+        gesehen.add(href)
+        teile = list(_karte(anker, href).stripped_strings)
+        rest = teile[teile.index(titel) + 1:] if titel in teile else []
+        firma = rest[0] if rest and not _keine_angabe(rest[0]) else ""
+        ort = rest[1] if firma and len(rest) > 1 and not _keine_angabe(rest[1]) else ""
+        karten.append({
+            "titel": titel,
+            "firma": firma,
+            "ort": ort,
+            "url": href if href.startswith("http") else f"{BASIS_URL}{href}",
+        })
+    return karten
+
+
+def _aus_json_ld(soup) -> list[dict]:
+    stellen = []
+    for script in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script.string or "")
+        except Exception:
+            continue
+        items = data if isinstance(data, list) else data.get("@graph", [data])
+        for item in items:
+            if not isinstance(item, dict) or item.get("@type") != "JobPosting":
+                continue
+            title = item.get("title", "")
+            if not title:
+                continue
+            org = item.get("hiringOrganization", {})
+            company = org.get("name", "") if isinstance(org, dict) else ""
+            loc = item.get("jobLocation", {})
+            if isinstance(loc, list):
+                loc = loc[0] if loc else {}
+            location = ""
+            if isinstance(loc, dict):
+                addr = loc.get("address", {})
+                location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
+            stellen.append({
+                "titel": title, "firma": company, "ort": location,
+                "url": item.get("url", ""),
+                "beschreibung": item.get("description", "") or "",
+            })
+    return stellen
+
+
+def _stelle(titel: str, firma: str, ort: str, url: str, beschreibung: str = "") -> dict:
+    return {
+        "hash": stelle_hash("stellenanzeigen.de", titel),
+        "title": titel,
+        # "Unbekannt" nur, wenn die Karte wirklich keinen Arbeitgeber
+        # nennt — seit #1028 gilt der Platzhalter nicht als Firma.
+        "company": firma or "Unbekannt",
+        "location": ort,
+        "url": url,
+        "source": "stellenanzeigen_de",
+        "description": beschreibung or fuer_speicher(""),
+        "employment_type": "festanstellung",
+        "remote_level": detect_remote_level(f"{titel} {ort} {beschreibung}"),
+    }
+
 
 def search_stellenanzeigen_de(params: dict) -> list:
     """Search Stellenanzeigen.de via HTML scraping."""
     jobs = []
+    gesehen_urls: set = set()
     kw_data = params.get("keywords", {})
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         for query in queries:
             try:
+                # Die Region wird bewusst nicht uebergeben: gemessen am
+                # 13.09.2026 bringt `wo=Hamburg` statt `Deutschland` 3 statt
+                # 2 Hamburger Stellen — der Parameter wirkt praktisch nicht
+                # (#1040). Die Entfernung regelt der Score.
                 resp = client.get(
-                    "https://www.stellenanzeigen.de/stellenangebote/",
+                    f"{BASIS_URL}/stellenangebote/",
                     params={"q": query, "wo": "Deutschland"},
                 )
                 if resp.status_code != 200:
@@ -47,83 +171,28 @@ def search_stellenanzeigen_de(params: dict) -> list:
                     continue
 
                 soup = BeautifulSoup(resp.text, "html.parser")
+                vorher = len(jobs)
 
-                # JSON-LD structured data (preferred)
-                for script in soup.find_all("script", type="application/ld+json"):
-                    try:
-                        import json
-                        data = json.loads(script.string or "")
-                        items = data if isinstance(data, list) else data.get("@graph", [data])
-                        for item in items:
-                            if item.get("@type") != "JobPosting":
-                                continue
-                            title = item.get("title", "")
-                            if not title:
-                                continue
-                            org = item.get("hiringOrganization", {})
-                            company = org.get("name", "Unbekannt") if isinstance(org, dict) else "Unbekannt"
-                            loc = item.get("jobLocation", {})
-                            if isinstance(loc, list):
-                                loc = loc[0] if loc else {}
-                            location = ""
-                            if isinstance(loc, dict):
-                                addr = loc.get("address", {})
-                                location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
-
-                            jobs.append({
-                                "hash": stelle_hash("stellenanzeigen.de", title),
-                                "title": title,
-                                "company": company,
-                                "location": location,
-                                "url": item.get("url", ""),
-                                "source": "stellenanzeigen_de",
-                                "description": (item.get("description", "") or fuer_speicher("")),
-                                "employment_type": "festanstellung",
-                                "remote_level": detect_remote_level(
-                                    f"{title} {location} {item.get('description', '')}"
-                                ),
-                            })
-                    except Exception:
+                # JSON-LD structured data (preferred, falls die Seite es wieder traegt)
+                for s in _aus_json_ld(soup):
+                    schluessel = s["url"] or s["titel"]
+                    if schluessel in gesehen_urls:
                         continue
+                    gesehen_urls.add(schluessel)
+                    jobs.append(_stelle(s["titel"], s["firma"], s["ort"], s["url"],
+                                        s["beschreibung"]))
 
-                # Fallback: /job/<slug>-Anchors einsammeln (#500).
-                # Stellenanzeigen.de hat kein JSON-LD und keine <article>-Cards
-                # mehr im SSR-HTML — die echten Job-Links haben aber ein
-                # stabiles `/job/<slug>` Format mit lesbarem Titel-Text.
-                if not any(j["source"] == "stellenanzeigen_de" for j in jobs):
-                    seen_hrefs = set()
-                    for a in soup.select('a[href^="/job/"]'):
-                        href = a.get("href", "").strip()
-                        if not href or href in seen_hrefs:
-                            continue
-                        title = a.get_text(strip=True)
-                        # Es gibt Wrapper-Links ohne Text; den nehmen wir nicht.
-                        if not title or len(title) < 8:
-                            continue
-                        seen_hrefs.add(href)
-                        url = href if href.startswith("http") else f"https://www.stellenanzeigen.de{href}"
+                # Kartenweg (#500, #1040): fuer JEDEN Suchbegriff. Bis
+                # v1.7.100 lief er nur, solange die Sammelliste leer war —
+                # also nur beim ersten Begriff; die uebrigen Seiten wurden
+                # abgerufen und verworfen.
+                for k in karten_aus_html(resp.text):
+                    if k["url"] in gesehen_urls:
+                        continue
+                    gesehen_urls.add(k["url"])
+                    jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"]))
 
-                        # Card-Container fuer Firma/Ort suchen
-                        card = a.find_parent(["article", "li", "div"])
-                        comp_el = None
-                        loc_el = None
-                        if card is not None:
-                            comp_el = card.find(class_=re.compile(r"company|firma|arbeitgeber|employer", re.I))
-                            loc_el = card.find(class_=re.compile(r"location|ort|standort", re.I))
-
-                        jobs.append({
-                            "hash": stelle_hash("stellenanzeigen.de", title),
-                            "title": title,
-                            "company": comp_el.get_text(strip=True) if comp_el else "Unbekannt",
-                            "location": loc_el.get_text(strip=True) if loc_el else "",
-                            "url": url,
-                            "source": "stellenanzeigen_de",
-                            "description": "",
-                            "employment_type": "festanstellung",
-                            "remote_level": detect_remote_level(f"{title}"),
-                        })
-
-                logger.debug("Stellenanzeigen.de: %d for '%s'", len(jobs), query)
+                logger.debug("Stellenanzeigen.de: %d neu fuer '%s'", len(jobs) - vorher, query)
                 time.sleep(1.5)
             except Exception as e:
                 logger.error("Stellenanzeigen.de error for '%s': %s", query, e)
