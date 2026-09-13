@@ -177,3 +177,47 @@ def befund(wert) -> dict:
             "Fahrzeit."
         )
     return ergebnis
+
+
+#: Vorgabe, wenn fuer eine Anstellungsform keine Grenze eingetragen ist.
+#: Stand vorher DOPPELT im Code (calculate_score und fit_analyse), und die
+#: Automatik nahm stattdessen den groessten Profilwert (#1036).
+VORGABE_GRENZE_KM = {
+    "festanstellung": 50,
+    "zeitarbeit": 50,
+    "ausbildung": 50,
+    "praktikum": 50,
+    "werkstudent": 50,
+    "teilzeit": 30,
+    "freelance": 200,
+}
+VORGABE_GRENZE_SONST = 50
+
+
+def grenze_km(criteria, art) -> float:
+    """Die Entfernungsgrenze fuer eine Anstellungsform — an EINER Stelle.
+
+    Reihenfolge:
+      1. `max_entfernung[art]` — der Wert, den der Mensch fuer genau diese
+         Form eingetragen hat
+      2. die Vorgabe je Form
+
+    **Nicht** der groesste Profilwert. So stand es in der Automatik: eine
+    Ausbildungsstelle bekam dort die 200 km von Freelance, im Score aber
+    50 km — dieselbe Stelle, zwei Grenzen (#963, #1036).
+
+    **Und nicht `max_entfernung_km`.** `suchkriterien_setzen` uebersetzt
+    ihn seit #1000 in die Karte; ein Altwert, der danebensteht, wird dort
+    BENANNT statt umgedeutet. Ihn hier als Rueckfall zu lesen waere genau
+    die stille Neudeutung, die #1000 ausschliesst. Mit dieser Reihenfolge
+    aendert sich der Score um keinen Punkt; nur die Automatik rechnet
+    jetzt wie er.
+    """
+    criteria = criteria if isinstance(criteria, dict) else {}
+    form = (art or "festanstellung").strip().lower()
+    karte = criteria.get("max_entfernung") or {}
+    if isinstance(karte, dict):
+        wert = _zahl(karte.get(form))
+        if wert is not None and wert > 0:
+            return wert
+    return float(VORGABE_GRENZE_KM.get(form, VORGABE_GRENZE_SONST))

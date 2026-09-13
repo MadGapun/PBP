@@ -161,16 +161,100 @@ def _domain_schluessel(company: str, title: str) -> Optional[tuple]:
     return (firma, frozenset(tokens))
 
 
+#: Gruende, die eine Eigenschaft des ORTES einer Anzeige beschreiben —
+#: nicht der Firma und nicht des Titels (#1036). Sie wandern nur zu einer
+#: Anzeige am selben Ort.
+ORTSGEBUNDENE_GRUENDE = frozenset({"zu_weit_entfernt"})
+
+
+def _ort(job: dict) -> str:
+    """Vergleichsschluessel fuer den Ort — derselbe Normalisierer wie beim
+    Geocoding (#965), kleingeschrieben. Leer heisst: unbekannt."""
+    from .geocoding_service import normalisiere_ort
+
+    return (normalisiere_ort(job.get("location") or "") or "").strip().lower()
+
+
+def _nur_ortsgebunden(job: dict) -> bool:
+    gruende = set(_handlungsgruende(job))
+    return bool(gruende) and gruende <= ORTSGEBUNDENE_GRUENDE
+
+
+def _anderer_ort(ort_a: str, ort_b: str) -> bool:
+    """Nur zwei BEKANNTE, verschiedene Orte sind ein Beleg dagegen.
+
+    Ein fehlender Ort ist nicht "anderswo" — dieselbe Regel wie bei der
+    fehlenden Entfernung in #1020: "Unbekannt ist nicht innerhalb" (#989).
+    Fehlt die Angabe, bleibt es beim bisherigen Verhalten.
+    """
+    return bool(ort_a) and bool(ort_b) and ort_a != ort_b
+
+
+#: Markiert in den Stufe-2-Schluesseln "irgendwo mit bekanntem Ort
+#: aussortiert" — fuer eine neue Anzeige OHNE Ortsangabe.
+_ORT_BEKANNT = ""
+
+
 def bereits_aussortierte_schluessel(dismissed: list) -> set:
-    """Alle Firma-Domaenen-Kombinationen, die schon einmal weg waren."""
+    """Alle Firma-Domaenen-Kombinationen, die schon einmal weg waren.
+
+    v1.7.99 (#1036): war "zu weit entfernt" der EINZIGE Grund und steht ein
+    Ort dabei, gehoert der Ort mit in den Schluessel. Vorher verwarf Stufe 2
+    dieselbe Stelle an einem nahen Standort still — ohne Eintrag und ohne
+    Rueckholweg, weil `ignorieren` gar nichts speichert.
+    """
     schluessel = set()
     for j in dismissed or []:
         if not _handlungsgruende(j):
             continue
         k = _domain_schluessel(j.get("company"), j.get("title"))
-        if k:
+        if not k:
+            continue
+        ort = _ort(j) if _nur_ortsgebunden(j) else ""
+        if ort:
+            schluessel.add(k + (ort,))
+            schluessel.add(k + (_ORT_BEKANNT,))
+        else:
             schluessel.add(k)
     return schluessel
+
+
+def _stufe2_trifft(job: dict, k: Optional[tuple], bekannte: set) -> bool:
+    if not k:
+        return False
+    if k in bekannte:
+        return True
+    return (k + (_ort(job) or _ORT_BEKANNT,)) in bekannte
+
+
+def _belege_fuer_ort(dismissed: list, job: dict) -> list:
+    """Stufe 1: ein Beleg, dessen EINZIGES Urteil am Ort haengt, zaehlt
+    nicht fuer eine Anzeige an einem anderen, bekannten Ort.
+
+    Gefiltert wird VOR dem Muster, nicht danach — so zaehlt
+    `find_wiedergaenger_pattern` die Schwelle ueber genau die Belege, die
+    etwas ueber diese Anzeige sagen, statt dass hinterher eine zweite
+    Zaehlung mit eigenen Regeln entsteht (#963).
+    """
+    ort = _ort(job)
+    return [j for j in dismissed or []
+            if not (_nur_ortsgebunden(j) and _anderer_ort(_ort(j), ort))]
+
+
+def _ortsgrund_belegt(job: dict, firma: str, grund: str, belege: list) -> bool:
+    """Doppelter Boden fuer Belege mit MEHREREN Gruenden: steht ein
+    ortsgebundener Grund oben, muessen genug Belege gelten, die nicht an
+    einem anderen bekannten Ort liegen. Schraenkt nur zusaetzlich ein."""
+    if grund not in ORTSGEBUNDENE_GRUENDE:
+        return True
+    ort = _ort(job)
+    norm = normalize_company(firma)
+    treffer = sum(
+        1 for j in belege
+        if normalize_company(j.get("company")) == norm
+        and grund in set(_handlungsgruende(j))
+        and not _anderer_ort(_ort(j), ort))
+    return treffer >= AUTOMATIK_SCHWELLE
 
 
 # Firmenuebergreifend wird BEWUSST spaeter gehandelt als firmenbezogen.
@@ -266,18 +350,11 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
         dist = _entfernung.preis_km(job)
         if dist is None:
             return ""
-        karte = criteria.get("max_entfernung") or {}
-        art = (job.get("employment_type") or "festanstellung").lower()
-        grenze = None
-        if isinstance(karte, dict) and karte:
-            grenze = karte.get(art)
-            if grenze is None:
-                grenze = max((float(v) for v in karte.values() if v),
-                             default=None)
-        if grenze is None:
-            grenze = criteria.get("max_entfernung_km")
+        # v1.7.99 (#1036): dieselbe Grenze wie Score und Fit-Analyse. Hier
+        # stand ein eigener Rueckfall auf den GROESSTEN Profilwert — eine
+        # Ausbildungsstelle bekam die 200 km von Freelance, im Score 50.
+        grenze = _entfernung.grenze_km(criteria, job.get("employment_type"))
         try:
-            grenze = float(grenze) if grenze else None
             dist = float(dist)
         except (TypeError, ValueError):
             return ""
@@ -327,12 +404,15 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
     titel = job.get("title") or ""
     firma = job.get("company") or ""
 
+    if dismissed is None:
+        dismissed = _lade(db)
+
     # Stufe 2: schon einmal weggeworfen -> gar nicht erst zeigen.
+    # v1.7.99 (#1036): ein reines Entfernungs-Urteil gilt nur fuer denselben Ort.
     if bekannte_schluessel is None:
-        bekannte_schluessel = bereits_aussortierte_schluessel(
-            dismissed if dismissed is not None else _lade(db))
+        bekannte_schluessel = bereits_aussortierte_schluessel(dismissed)
     k = _domain_schluessel(firma, titel)
-    if k and k in bekannte_schluessel:
+    if _stufe2_trifft(job, k, bekannte_schluessel):
         return {
             "aktion": "ignorieren",
             "grund": "duplikat",
@@ -341,12 +421,18 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         }
 
     # Stufe 1: erstmalig als Wiedergaenger erkannt -> aussortieren.
+    # v1.7.99 (#1036): "derselbe Arbeitgeber am selben Ort" (#1020) wird
+    # jetzt geprueft statt angenommen.
+    belege = _belege_fuer_ort(dismissed, job)
     muster = find_wiedergaenger_pattern(
         db, firma, titel,
         schwellwert=AUTOMATIK_SCHWELLE,
         target_hash=job.get("hash"),
-        dismissed=dismissed,
+        dismissed=belege,
     )
+    if muster and not _ortsgrund_belegt(
+            job, firma, muster.get("top_grund") or "", belege):
+        muster = None
     if muster:
         grund = muster.get("top_grund") or "sonstiges"
         anzahl = muster.get("anzahl") or AUTOMATIK_SCHWELLE
