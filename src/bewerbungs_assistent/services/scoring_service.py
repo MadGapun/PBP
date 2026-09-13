@@ -109,7 +109,10 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
                                 "punkte": entry["value"]})
 
     # 3. Entfernung (getrennt nach Stellentyp)
-    distance_km = job.get("distance_km")
+    # v1.7.94 (#950 AK 6): die Fahrstrecke, sobald sie vorliegt — die
+    # Wahl trifft `entfernung.preis_km`, nicht jeder Rechenweg selbst.
+    from . import entfernung as _entfernung
+    distance_km = _entfernung.preis_km(job)
     if distance_km is not None and distance_km > 0:
         if emp_type == "freelance":
             dim = "entfernung_freelance"

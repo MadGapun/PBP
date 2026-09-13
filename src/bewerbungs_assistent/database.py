@@ -555,7 +555,14 @@ class Database:
                                   # ein Kennzeichen am Vertrag, keine
                                   # Anstellungsform.
                                   ("arbeitsumfang", "TEXT"),
-                                  ("befristet", "INTEGER")):
+                                  ("befristet", "INTEGER"),
+                                  # v1.7.94 (#950 AK 3/4): echte
+                                  # Fahrstrecke und Fahrzeit, sobald ein
+                                  # Routing-Schluessel eingerichtet ist.
+                                  # `distance_km` bleibt die Luftlinie.
+                                  ("fahrstrecke_km", "REAL"),
+                                  ("fahrzeit_min", "REAL"),
+                                  ("route_quelle", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -601,6 +608,25 @@ class Database:
             """)
             conn.execute("CREATE INDEX IF NOT EXISTS idx_bl_blocks_profil "
                          "ON blacklist_blocks(profile_id, blockiert_am)")
+            conn.commit()
+
+            # v1.7.94 (#950 AK 4): Routen je Ortspaar zwischenspeichern.
+            # Die Stellenorte wiederholen sich stark; ohne Zwischenspeicher
+            # kostete jeder Suchlauf das Tageskontingent des Dienstes.
+            # Additive Tabelle, Safety-Net statt Schema-Bump (#992-Muster).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS routen_cache (
+                    start_lat REAL NOT NULL,
+                    start_lon REAL NOT NULL,
+                    ziel_lat REAL NOT NULL,
+                    ziel_lon REAL NOT NULL,
+                    km REAL,
+                    minuten REAL,
+                    anbieter TEXT,
+                    abgerufen_am TEXT,
+                    PRIMARY KEY (start_lat, start_lon, ziel_lat, ziel_lon)
+                )
+            """)
             conn.commit()
 
             # v1.7.88 (#884, D24): Referenzen an Kontakten. Additive
@@ -5126,6 +5152,10 @@ class Database:
         # also genau die Luecke, die der Melder beschreibt, nur eine
         # Version spaeter. Das ist DoD 8e.
         "salary_quelle",
+        # v1.7.94 (#950): eine berechnete Fahrstrecke kostet eine Anfrage
+        # beim Routing-Dienst — ein erneuter Suchlauf darf sie nicht still
+        # loeschen (DoD 8e).
+        "fahrstrecke_km", "fahrzeit_min", "route_quelle",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5536,6 +5566,19 @@ class Database:
                                  (*bewahrt.values(), stored_hash))
                 except Exception as _exc:  # pragma: no cover
                     logger.debug("Bewahrte Spalten zurueck (#892): %s", _exc)
+
+            # v1.7.94 (#950): eine eben berechnete Fahrstrecke gewinnt
+            # gegen die bewahrte. Die Spalten stehen nicht in der
+            # INSERT-Liste — ohne diese Zeilen kaeme ein neuer Wert nie an.
+            if job.get("fahrstrecke_km") is not None:
+                try:
+                    conn.execute(
+                        "UPDATE jobs SET fahrstrecke_km=?, fahrzeit_min=?, "
+                        "route_quelle=? WHERE hash=?",
+                        (job.get("fahrstrecke_km"), job.get("fahrzeit_min"),
+                         job.get("route_quelle"), stored_hash))
+                except Exception as _exc:  # pragma: no cover
+                    logger.debug("Fahrstrecke (#950): %s", _exc)
 
             # v1.7.74 (#892, C64): der Erst-Score. Er wird NUR beim
             # ersten Speichern gesetzt und danach nie wieder angefasst —
@@ -9302,6 +9345,29 @@ class Database:
             VALUES (?, ?)
         """, (key, json.dumps(value, ensure_ascii=False)))
         conn.commit()
+
+    def set_fahrstrecke(self, stored_hash: str, km=None, minuten=None,
+                        quelle=None, *, lat=None, lon=None) -> bool:
+        """Fahrstrecke und/oder Koordinaten einer Stelle nachtragen (#950).
+
+        `stored_hash` ist die gespeicherte Form (mit Profil-Praefix), wie
+        sie aus `SELECT hash FROM jobs` kommt. Ohne Wert passiert nichts —
+        eine fehlende Route ueberschreibt keine vorhandene.
+        """
+        felder: dict = {}
+        if km is not None:
+            felder.update(fahrstrecke_km=km, fahrzeit_min=minuten,
+                          route_quelle=quelle)
+        if lat is not None and lon is not None:
+            felder.update(lat=lat, lon=lon)
+        if not felder:
+            return False
+        conn = self.connect()
+        setz = ", ".join(f"{k}=?" for k in felder)
+        cur = conn.execute(f"UPDATE jobs SET {setz} WHERE hash=?",
+                           (*felder.values(), stored_hash))
+        conn.commit()
+        return (cur.rowcount or 0) > 0
 
     # === Lern-System (v1.7.0-beta.26, #594 Stufe 1) ===
 

@@ -1667,6 +1667,11 @@ export default function JobsPage() {
                   >
                     <h2 className="text-2xl font-semibold text-ink group-hover:text-sky transition-colors">{job.title}</h2>
                     <p className="text-sm text-muted">{job.company || "Unbekannte Firma"}{job.location ? ` - ${job.location}` : ""}</p>
+                    {/* #950: die Entfernung nennt ihre Art — mit
+                        Routing-Schluessel steht hier die Fahrzeit. */}
+                    {job.entfernung?.entfernung_text ? (
+                      <p className="text-xs text-muted/60">{job.entfernung.entfernung_text}</p>
+                    ) : null}
                     <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
                     {jobNeedsDescriptionAttention(job) ? (
                       <p className="text-xs text-amber">

@@ -2549,6 +2549,15 @@ def _guete_anreichern(jobs: list) -> None:
             continue
         if marke:
             job["datenguete"] = marke
+        # v1.7.94 (#950): die Entfernung samt Art — die Karte zeigt sie,
+        # und mit Routing-Schluessel steht dort die Fahrzeit.
+        try:
+            from .services import entfernung as _entfernung_befund
+            _entf = _entfernung_befund.befund(job)
+            if _entf:
+                job["entfernung"] = _entf
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            pass
         # #1007: derselbe Aufruf wie in stellen_anzeigen. Zwei Fassungen
         # desselben Befunds waeren #963/#991 in der Trefferliste.
         try:
@@ -5309,6 +5318,38 @@ async def api_adzuna_speichern(request: Request):
             "hinweis": ("Adzuna ist einsatzbereit — in den Quellen "
                         "aktivieren, dann laeuft sie beim naechsten "
                         "Suchlauf mit.")}
+
+
+# === Fahrstrecke (#950, v1.7.94) =====================================
+# Erst pruefen, dann speichern — dasselbe Vorgehen wie bei Adzuna. Der
+# Schluessel verlaesst den Server nie wieder: der Status sagt nur, OB
+# einer eingerichtet ist.
+
+@app.get("/api/routing")
+async def api_routing_status():
+    from .services import routing as _routing
+    return _routing.status(_db)
+
+
+@app.post("/api/routing")
+async def api_routing_speichern(request: Request):
+    from .services import routing as _routing
+    body = await request.json()
+    ergebnis = _routing.schluessel_setzen(_db, body.get("schluessel") or "")
+    if ergebnis.get("fehler"):
+        return JSONResponse({"error": ergebnis["fehler"],
+                             "befund": ergebnis.get("befund", "")},
+                            status_code=400)
+    return {**_routing.status(_db), "status": ergebnis["status"],
+            "hinweis": ("Fahrstrecke eingerichtet. Neue Stellen bekommen sie "
+                        "beim naechsten Suchlauf; vorhandene zieht Claude "
+                        "mit fahrstrecken_verwalten('nachziehen') nach.")}
+
+
+@app.delete("/api/routing")
+async def api_routing_entfernen():
+    from .services import routing as _routing
+    return {**_routing.schluessel_entfernen(_db), **_routing.status(_db)}
 
 
 @app.get("/api/blacklist")

@@ -99,6 +99,9 @@ BEREICHE: dict[str, tuple] = {
         "dismiss_reasons", "user_preferences", "custom_sources",
         "newsletter_sources", "portal_search_profiles", "components",
         "plugins",
+        # v1.7.94 (#950): Routen vom eigenen Wohnort — sie tragen dessen
+        # Koordinaten und gehoeren deshalb zu den Suchkriterien.
+        "routen_cache",
     ),
     "gelerntes": (
         "user_activity_events", "learning_insights", "blacklist_blocks",

@@ -28,10 +28,21 @@ Streckenfuehrung: entlang einer durchgehenden Autobahn niedrig, quer zur
 Verkehrsachse oder um Gewaesser herum deutlich hoeher — fuer den
 norddeutschen Raum mit Elbquerungen ist 1,3 optimistisch. Deshalb steht
 hier 1,4, und deshalb traegt jede damit gebildete Zahl das Wort
-"geschaetzt". Die richtige Antwort ist ein echtes Routing samt Fahrzeit
-(AK 3/4 aus #950, braucht einen API-Schluessel) — bis dahin ist eine
-gekennzeichnete Schaetzung ehrlicher als eine Luftlinie, die wie eine
-Fahrstrecke aussieht.
+"geschaetzt".
+
+## Seit v1.7.94: die echte Fahrstrecke (#950 AK 3-6)
+
+Ist ein Routing-Schluessel eingerichtet (`services/routing.py`), traegt
+eine Stelle zusaetzlich `fahrstrecke_km`, `fahrzeit_min` und
+`route_quelle`. `distance_km` bleibt dabei die Luftlinie — eine Messung
+behaelt ihre Bedeutung.
+
+**`preis_km` ist die eine Stelle, die entscheidet, gegen welche Zahl
+gerechnet wird.** Basis-Score, Fit-Analyse, Scoring-Regler und die
+Aussortier-Automatik fragen sie, statt `distance_km` selbst zu lesen.
+Vier Leser mit je eigener Wahl waeren #963 zum wiederholten Mal: der
+eine rechnet mit der Fahrstrecke, der andere noch mit der Luftlinie, und
+dieselbe Stelle traegt zwei Scores.
 """
 from __future__ import annotations
 
@@ -45,15 +56,49 @@ FAHRSTRECKEN_FAKTOR = 1.4
 AB_KM_RELEVANT = 25.0
 
 ART_LUFTLINIE = "luftlinie"
+ART_FAHRSTRECKE = "fahrstrecke"
+
+
+def _zahl(wert) -> float | None:
+    if wert is None or isinstance(wert, bool):
+        return None
+    try:
+        return float(wert)
+    except (TypeError, ValueError):
+        return None
+
+
+def preis_km(job) -> float | None:
+    """Die Zahl, gegen die gerechnet wird (#950 AK 6).
+
+    Die Fahrstrecke, sobald sie vorliegt — sonst die Luftlinie wie bisher.
+    Eine Fahrstrecke von 0 oder darunter ist kein Beleg, sondern ein
+    kaputter Wert; dann gilt die Luftlinie.
+    """
+    if not isinstance(job, dict):
+        return None
+    fahrt = _zahl(job.get("fahrstrecke_km"))
+    if fahrt is not None and fahrt > 0:
+        return fahrt
+    return _zahl(job.get("distance_km"))
+
+
+def fahrzeit_text(minuten) -> str:
+    """"45 Min", "1 Std", "3 Std 55 Min" — oder leer."""
+    m = _zahl(minuten)
+    if m is None or m < 0:
+        return ""
+    m = int(round(m))
+    if m < 60:
+        return f"{m} Min"
+    stunden, rest = divmod(m, 60)
+    return f"{stunden} Std {rest} Min" if rest else f"{stunden} Std"
 
 
 def fahrstrecke_schaetzung(luftlinie_km) -> float | None:
     """Grobe Fahrstrecke aus der Luftlinie — oder None, wenn sinnlos."""
-    try:
-        km = float(luftlinie_km)
-    except (TypeError, ValueError):
-        return None
-    if km < AB_KM_RELEVANT:
+    km = _zahl(luftlinie_km)
+    if km is None or km < AB_KM_RELEVANT:
         return None
     return round(km * FAHRSTRECKEN_FAKTOR)
 
@@ -63,9 +108,8 @@ def beschriftung(luftlinie_km) -> str:
 
     Nie eine blosse Kilometerzahl — die wird als Wegstrecke gelesen.
     """
-    try:
-        km = float(luftlinie_km)
-    except (TypeError, ValueError):
+    km = _zahl(luftlinie_km)
+    if km is None:
         return ""
     fahrt = fahrstrecke_schaetzung(km)
     if fahrt is None:
@@ -73,16 +117,49 @@ def beschriftung(luftlinie_km) -> str:
     return f"{km:g} km Luftlinie (~{fahrt:g} km Fahrstrecke, geschaetzt)"
 
 
-def befund(luftlinie_km) -> dict:
+def _befund_fahrstrecke(job: dict, fahrt: float) -> dict:
+    luft = _zahl(job.get("distance_km"))
+    minuten = _zahl(job.get("fahrzeit_min"))
+    text = f"{fahrt:g} km Fahrstrecke"
+    zeit = fahrzeit_text(minuten)
+    if zeit:
+        text += f", {zeit}"
+    if luft is not None:
+        text += f" ({luft:g} km Luftlinie)"
+    ergebnis = {
+        "entfernung_km": fahrt,
+        "entfernung_art": ART_FAHRSTRECKE,
+        "entfernung_text": text,
+        "fahrstrecke_km": fahrt,
+    }
+    if luft is not None:
+        ergebnis["luftlinie_km"] = luft
+    if zeit:
+        ergebnis["fahrzeit_min"] = int(round(minuten))
+        ergebnis["fahrzeit_text"] = zeit
+    if job.get("route_quelle"):
+        ergebnis["route_quelle"] = job["route_quelle"]
+    return ergebnis
+
+
+def befund(wert) -> dict:
     """Der vollstaendige Befund zu einer Entfernung.
+
+    Args:
+        wert: die ganze Stelle (bevorzugt — dann kennt der Befund auch die
+            Fahrstrecke) oder, wie bis v1.7.93, die Luftlinie als Zahl.
 
     Returns:
         Leeres dict, wenn keine Entfernung vorliegt — ein Aufrufer soll
         nicht zwischen "0 km" und "unbekannt" raten muessen (#965/#989).
     """
-    try:
-        km = float(luftlinie_km)
-    except (TypeError, ValueError):
+    if isinstance(wert, dict):
+        fahrt = _zahl(wert.get("fahrstrecke_km"))
+        if fahrt is not None and fahrt > 0:
+            return _befund_fahrstrecke(wert, fahrt)
+        wert = wert.get("distance_km")
+    km = _zahl(wert)
+    if km is None:
         return {}
     ergebnis = {
         "entfernung_km": km,
@@ -95,6 +172,8 @@ def befund(luftlinie_km) -> dict:
         ergebnis["fahrstrecke_hinweis"] = (
             f"Schaetzung aus der Luftlinie (Faktor {FAHRSTRECKEN_FAKTOR}), "
             "keine berechnete Route. Je nach Streckenfuehrung liegt der "
-            "wirkliche Wert darueber oder darunter."
+            "wirkliche Wert darueber oder darunter. Mit einem "
+            "Routing-Schluessel rechnet PBP die echte Fahrstrecke samt "
+            "Fahrzeit."
         )
     return ergebnis

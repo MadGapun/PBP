@@ -261,7 +261,9 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
         return ""
 
     if grund == "zu_weit_entfernt":
-        dist = job.get("distance_km")
+        # v1.7.94 (#950 AK 6): dieselbe Zahl wie im Score.
+        from . import entfernung as _entfernung
+        dist = _entfernung.preis_km(job)
         if dist is None:
             return ""
         karte = criteria.get("max_entfernung") or {}
