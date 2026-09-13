@@ -68,17 +68,29 @@ def _zahl(wert) -> float | None:
         return None
 
 
-def preis_km(job) -> float | None:
+def preis_km(job, criteria=None) -> float | None:
     """Die Zahl, gegen die gerechnet wird (#950 AK 6).
 
     Die Fahrstrecke, sobald sie vorliegt — sonst die Luftlinie wie bisher.
     Eine Fahrstrecke von 0 oder darunter ist kein Beleg, sondern ein
     kaputter Wert; dann gilt die Luftlinie.
+
+    v1.7.100 (#1037 Punkt 3): die Fahrstrecke zaehlt nur, wenn die
+    Kriterien `_fahrstrecke_zaehlt` tragen — `get_search_criteria` setzt
+    das genau dann, wenn ein Routing-Schluessel eingerichtet ist. Ohne
+    Schluessel gilt die Luftlinie, auch an Stellen, an denen noch eine
+    Fahrstrecke gespeichert ist. Genau das verspricht die Rueckfrage beim
+    Entfernen des Schluessels. Ohne Kriterien (`None`) bleibt es beim
+    bisherigen Verhalten; ein Guard verlangt, dass jeder Rechenweg sie
+    uebergibt.
     """
     if not isinstance(job, dict):
         return None
+    zaehlt = (criteria is None
+              or (isinstance(criteria, dict)
+                  and criteria.get("_fahrstrecke_zaehlt") is True))
     fahrt = _zahl(job.get("fahrstrecke_km"))
-    if fahrt is not None and fahrt > 0:
+    if zaehlt and fahrt is not None and fahrt > 0:
         return fahrt
     return _zahl(job.get("distance_km"))
 

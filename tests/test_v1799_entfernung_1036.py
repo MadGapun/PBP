@@ -263,8 +263,13 @@ def test_score_fit_und_automatik_fragen_dieselbe_grenze():
     from bewerbungs_assistent import job_scraper
     from bewerbungs_assistent.services import stellen_automatik
 
+    from bewerbungs_assistent.services import scoring_service
+
+    # v1.7.100: der Regler-Zuschlag hatte eine vierte Tabelle
+    # (`STANDARD_WUNSCH`) — beim Bau von #1036 uebersehen.
     for funktion in (job_scraper.calculate_score, job_scraper.fit_analyse,
-                     stellen_automatik._zahl_widerspricht):
+                     stellen_automatik._zahl_widerspricht,
+                     scoring_service._entfernungs_zuschlag):
         code = inspect.getsource(funktion)
         assert "grenze_km(" in code, funktion.__name__
         assert "default_max" not in code, funktion.__name__

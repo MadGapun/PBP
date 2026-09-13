@@ -343,8 +343,9 @@ def schluessel_entfernen(db) -> dict:
     db.set_setting(EINSTELLUNG_SCHLUESSEL, "")
     return {"status": "entfernt",
             "hinweis": ("Ohne Schluessel rechnet PBP wieder mit der "
-                        "Luftlinie. Bereits berechnete Fahrstrecken bleiben "
-                        "an den Stellen stehen.")}
+                        "Luftlinie — auch fuer Stellen, an denen schon eine "
+                        "Fahrstrecke steht. Die gespeicherten Scores zieht "
+                        "scores_neu_berechnen() nach.")}
 
 
 def status(db) -> dict:
