@@ -33,6 +33,74 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.99] - 2026-09-13 — Die nahe Filiale bleibt sichtbar
+
+Zwei Fehler aus #1036, unabhaengig von der offenen Frage, ob die
+maximale Entfernung eine Grenze oder ein Preis sein soll.
+
+### Fixed
+
+- **"Zu weit entfernt" wandert nicht mehr an einen anderen Ort** (#1036).
+  Die Wiedergaenger-Automatik uebertrug das Urteil ueber Firma und
+  Titelwoerter, ohne den Ort zu vergleichen. Wurde dieselbe Stelle einer
+  Filialkette an entfernten Standorten aussortiert, verschwand sie auch
+  am nahen Standort — in Stufe 2 sogar ohne jeden Eintrag, weil
+  `ignorieren` gar nichts speichert. Jetzt gilt ein reines
+  Entfernungs-Urteil nicht fuer eine Anzeige an einem anderen,
+  bekannten Ort. Fehlt eine Ortsangabe, bleibt es beim bisherigen
+  Verhalten — ein fehlender Ort ist nicht "anderswo" (#989, #1020).
+  Fachliche Urteile wandern wie bisher ortsunabhaengig.
+- **Eine Entfernungsgrenze statt zwei** (#1036). Fuer eine
+  Anstellungsform ohne eigenes Feld (etwa Ausbildung oder Zeitarbeit)
+  nahmen Score und Fit-Analyse 50 km, die Auto-Aussortierung dagegen den
+  groessten Wert im Profil — beim Melder die 200 km von Freelance.
+  Jetzt fragen alle drei `entfernung.grenze_km`: der Wert fuer die Form,
+  sonst die Vorgabe je Form. Der Score aendert sich dadurch um keinen
+  Punkt; nur die Automatik rechnet jetzt wie er. Ein alter
+  `max_entfernung_km` neben der Karte wird weiter benannt und nicht
+  still als Grenze gelesen (#1000).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.99.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.99.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.98] - 2026-09-13 — Ein Beleg, der den Pruefer besteht
 
 Zwei Luecken aus #817, dem Issue ueber Namen in oeffentlichen
