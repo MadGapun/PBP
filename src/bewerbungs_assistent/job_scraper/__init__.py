@@ -464,9 +464,12 @@ SOURCE_REGISTRY = {
     },
     "greenhouse": {
         "name": "Greenhouse Boards",
-        "beschreibung": "Greenhouse-Karriereseiten mehrerer DACH-relevanter Firmen "
-                         "(N26, Celonis, HelloFresh, GetYourGuide, Datadog, Elastic, Cloudflare, "
-                         "MongoDB, GitLab, Twilio). Kein API-Key noetig.",
+        # v1.7.96 (#811): die feste Liste ist eine Beispielauswahl, keine
+        # Auswahl fuer den Nutzer — so steht es jetzt auch da.
+        "beschreibung": "Greenhouse-Karriereseiten einzelner Firmen. Abgefragt werden "
+                         "die Firmen aus deinem Bestand, die Greenhouse nutzen "
+                         "(ats_firmen_verwalten), dazu eine feste Beispielliste. "
+                         "Kein API-Key noetig.",
         "methode": "Public Job-Board-API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -685,6 +688,20 @@ def build_search_keywords(db) -> dict:
     # kann. Beispiel-Eintrag in search_criteria:
     #   {"greenhouse_companies": ["mein-arbeitgeber", "noch-einer"]}
     greenhouse_companies = criteria.get("greenhouse_companies", []) or []
+    # v1.7.96 (#811): `personio_firmen` und `workable_firmen` versprachen die
+    # Adapter seit #590 im Docstring — durchgereicht wurde nur Greenhouse.
+    # Dazu die GEPRUEFTEN Firmen aus dem eigenen Bestand
+    # (`ats_firmen_verwalten`), vor der Beispielliste der Adapter.
+    personio_firmen = list(criteria.get("personio_firmen", []) or [])
+    workable_firmen = list(criteria.get("workable_firmen", []) or [])
+    try:
+        from ..services import ats_firmen as _ats
+        personio_firmen = list(dict.fromkeys(
+            _ats.gueltige_slugs(db, _ats.PERSONIO) + personio_firmen))
+        greenhouse_companies = list(dict.fromkeys(
+            _ats.gueltige_slugs(db, _ats.GREENHOUSE) + list(greenhouse_companies)))
+    except Exception as _exc:  # pragma: no cover — nie den Suchlauf stoppen
+        logger.debug("ATS-Firmen nicht geladen (#811): %s", _exc)
 
     return {
         "general": general,
@@ -700,6 +717,8 @@ def build_search_keywords(db) -> dict:
         "indeed_queries": queries,
         "monster_queries": queries,
         "greenhouse_companies": greenhouse_companies,
+        "personio_firmen": personio_firmen,
+        "workable_firmen": workable_firmen,
     }
 
 
