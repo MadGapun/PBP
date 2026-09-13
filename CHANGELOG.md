@@ -33,6 +33,120 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.94] - 2026-09-13 — Wie weit ist es wirklich
+
+Seit v1.7.50 sagt PBP, dass seine Entfernung eine Luftlinie ist, und
+stellt eine grobe Schätzung der Fahrstrecke daneben. Jetzt geht es auch
+genau: mit einem kostenlosen Schlüssel von OpenRouteService rechnet PBP
+die echte Fahrstrecke und die Fahrzeit (#950).
+
+### Added
+
+- **Fahrstrecke und Fahrzeit an jeder Stelle** (#950). Aus
+  „271,5 km Luftlinie (~380 km Fahrstrecke, geschätzt)" wird
+  „390 km Fahrstrecke, 3 Std 55 Min (271,5 km Luftlinie)" — in der
+  Stellenliste, im MCP und in der Fit-Analyse.
+- **Karte „Fahrstrecke und Fahrzeit" unter Einstellungen → Quellen.**
+  Dort wird der Schlüssel eingetragen. PBP prüft ihn mit einer
+  Probeanfrage und speichert ihn nur, wenn sie gelingt. Angezeigt wird
+  er danach nie wieder — weder in der Oberfläche noch in einer Antwort
+  an Claude.
+- **Neues Werkzeug `fahrstrecken_verwalten`** (Stand, Kontingent, und
+  mit `aktion="nachziehen"` die Fahrstrecken für vorhandene Stellen —
+  erst als Vorschau). Einen Schlüssel nimmt es bewusst nicht entgegen:
+  ein Schlüssel, der durch den Chat geht, stünde im Gesprächsverlauf.
+
+### Changed
+
+- **Score, Scoring-Regler, Fit-Analyse und Auto-Aussortierung rechnen
+  mit der Fahrstrecke, sobald sie vorliegt** (#950 AK 6). Die Wahl trifft
+  eine einzige Stelle (`entfernung.preis_km`); ohne Fahrstrecke gilt die
+  Luftlinie wie bisher. Vorhandene Scores ändern sich erst mit
+  `scores_neu_berechnen()`.
+
+### Fixed
+
+- **Der Score einer frisch gefundenen Stelle kennt jetzt Entfernung,
+  Gehalt und Anstellungsart** (#1034, gefunden bei #950). Der Suchlauf
+  berechnete den Score, bevor er das Gehalt aus dem Anzeigentext las,
+  Freelance-Stellen erkannte und die Entfernung ermittelte. Eine weit
+  entfernte neue Stelle stand dadurch bis zur nächsten Neuberechnung ohne
+  Entfernungsabzug in der Liste, und `scores_neu_berechnen` kam auf einen
+  anderen Wert als der Suchlauf. Dieselbe Reihenfolge stand in
+  `stelle_manuell_anlegen`.
+
+### Design-Entscheidungen
+
+- **Ohne Schlüssel ändert sich nichts.** Die Luftlinie bleibt, beschriftet
+  als solche.
+- **Die Luftlinie bleibt gespeichert.** Die Fahrstrecke kommt in eigene
+  Felder; eine Messung behält ihre Bedeutung.
+- **Routen werden je Ortspaar zwischengespeichert.** Stellenorte
+  wiederholen sich stark, die meisten Suchläufe brauchen keine einzige
+  Anfrage. Ein Tageszähler hört vor dem Freikontingent auf.
+- **Gerechnet wird nach allen Filtern.** Stellen, die der Suchlauf gleich
+  verwirft, kosten kein Kontingent.
+- **Fehlschläge werden benannt.** Ein abgelehnter Schlüssel, ein
+  erschöpftes Kontingent und ein nicht erreichbarer Dienst sind drei
+  verschiedene Meldungen — und keiner davon wird als „keine Route"
+  gemerkt.
+- **An den Dienst gehen nur Koordinaten** — der eigene Wohnort und die
+  Orte der Stellen, keine Namen, keine Firmen, keine Anzeigentexte. Das
+  steht auf der Karte, bevor der Schlüssel gespeichert wird.
+- **Der Routen-Zwischenspeicher gehört zu den Suchkriterien** im
+  Löschbereich, weil er die Koordinaten des Wohnorts trägt (#1025).
+
+### So richtest du es ein
+
+1. Kostenlos registrieren auf
+   [openrouteservice.org](https://openrouteservice.org/dev/#/signup) und
+   dort einen Schlüssel („Token") erzeugen.
+2. Im Dashboard unter **Einstellungen → Quellen → Fahrstrecke und
+   Fahrzeit** einfügen und „Speichern & testen" klicken.
+3. Claude bitten: *„Zieh die Fahrstrecken für meine Stellen nach"* —
+   danach *„Berechne die Scores neu"*.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.94.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.94.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.93] - 2026-09-13 — Der Filter wirkt auf den Bestand
 
 Zwei Rückmeldungen vom 13.09. zum Stellen-Tab: Filter und Sortierung
