@@ -2585,6 +2585,95 @@ function formatBytes(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// v1.7.94 (#950): echte Fahrstrecke und Fahrzeit statt Luftlinie. Der
+// Schluessel wird hier eingetragen und nie wieder angezeigt — der Status
+// sagt nur, OB einer gesetzt ist.
+function RoutingCard({ pushToast }) {
+  const [status, setStatus] = useState(null);
+  const [schluessel, setSchluessel] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api("/api/routing").then(setStatus).catch(() => {});
+  }, []);
+
+  async function speichern() {
+    if (!schluessel.trim()) return;
+    setBusy(true);
+    try {
+      const res = await postJson("/api/routing", { schluessel: schluessel.trim() });
+      pushToast(res.hinweis || "Fahrstrecke eingerichtet.", "success");
+      setSchluessel("");
+      setStatus(res);
+    } catch (error) {
+      pushToast(`Fahrstrecke: ${error.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function entfernen() {
+    if (!window.confirm("Routing-Schluessel entfernen? PBP rechnet danach wieder mit der Luftlinie.")) return;
+    setBusy(true);
+    try {
+      const res = await deleteRequest("/api/routing");
+      pushToast(res.hinweis || "Schluessel entfernt.", "success");
+      setStatus(res);
+    } catch (error) {
+      pushToast(`Fahrstrecke: ${error.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl" data-testid="routing-card">
+      <SectionHeading
+        title="Fahrstrecke und Fahrzeit"
+        description="Ohne Schluessel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schluessel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Score und Gehaltsverrechnung nehmen die Fahrstrecke."
+      />
+      <div className="grid gap-3">
+        {status?.konfiguriert ? (
+          <p className="text-sm text-teal">
+            Eingerichtet — heute {status.anfragen_heute} von {status.tagesgrenze} Anfragen
+            verbraucht, {status.zwischengespeichert} Routen zwischengespeichert.
+          </p>
+        ) : (
+          <p className="text-sm text-muted">
+            Noch nicht eingerichtet. Den Schluessel gibt es nach der Registrierung auf{" "}
+            <a href={status?.registrierungs_url || "https://openrouteservice.org/dev/#/signup"}
+              target="_blank" rel="noopener noreferrer"
+              className="text-sky underline decoration-dotted">openrouteservice.org</a>.
+          </p>
+        )}
+        {status?.datenweitergabe ? (
+          <p className="text-xs text-muted/70">{status.datenweitergabe}</p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            aria-label="Routing-Schluessel"
+            placeholder={status?.konfiguriert ? "Neuen Schluessel eintragen, um ihn zu ersetzen" : "Schluessel einfuegen"}
+            type="password"
+            autoComplete="off"
+            value={schluessel}
+            onChange={(e) => setSchluessel(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-line/40 bg-shell/40 px-3 py-2 text-sm text-ink outline-none focus:border-sky/40"
+          />
+          <Button size="sm" disabled={busy || !schluessel.trim()} onClick={speichern}>
+            {busy ? "Teste…" : "Speichern & testen"}
+          </Button>
+          {status?.konfiguriert ? (
+            <Button size="sm" variant="ghost" disabled={busy} onClick={entfernen}>
+              Entfernen
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+
 export default function SettingsPage() {
   const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
@@ -3039,6 +3128,9 @@ export default function SettingsPage() {
 
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />
+
+            {/* v1.7.94 (#950): Fahrstrecke statt Luftlinie */}
+            <RoutingCard pushToast={pushToast} />
 
             <Card className="rounded-2xl">
               <SectionHeading title="Dashboard" description="Allgemeine Dashboard-Einstellungen." />

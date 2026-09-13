@@ -1350,12 +1350,13 @@ def register(mcp, db, logger):
         # unterscheiden.
         try:
             from ..services import reisewiderstand as _widerstand
+            from ..services import entfernung as _entf
             _auf, _belege = _widerstand.aufschlag(db.get_search_criteria(), job)
             if _auf:
                 antwort["reisewiderstand_km"] = _auf
                 antwort["reisewiderstand_begruendung"] = _belege
                 antwort["reisewiderstand_hinweis"] = (
-                    f"Fuer den Malus wird mit {job.get('distance_km')} + "
+                    f"Fuer den Malus wird mit {_entf.preis_km(job)} + "
                     f"{_auf:g} km gerechnet. **Die ausgewiesene Entfernung "
                     "aendert sich dadurch nicht** — der Aufschlag ist ein "
                     "Preis, keine Messung.")

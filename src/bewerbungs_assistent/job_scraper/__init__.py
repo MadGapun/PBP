@@ -1562,6 +1562,20 @@ def run_search(db, job_id: str, params: dict):
     except Exception as e:  # pragma: no cover - Automatik darf nie blockieren
         logger.warning("Wiedergaenger-Automatik uebersprungen: %s", e)
 
+    # v1.7.94 (#950 AK 3/4): echte Fahrstrecke und Fahrzeit, wenn ein
+    # Routing-Schluessel eingerichtet ist — erst HIER, nach allen Filtern,
+    # damit das Tageskontingent nicht fuer Stellen draufgeht, die gleich
+    # verworfen werden. Ohne Schluessel passiert nichts (AK 5).
+    try:
+        from ..services import routing as _routing
+        if _routing.konfiguriert(db):
+            from ..services.geocoding_service import get_user_coordinates as _start
+            _rout = _routing.fuer_stellen(db, unique, _start(db))
+            logger.info("Routing (#950): %d Fahrstrecken, Befund %s",
+                        _rout["berechnet"], _rout["befund"])
+    except Exception as _exc:  # pragma: no cover — nie den Lauf stoppen
+        logger.debug("Routing uebersprungen (#950): %s", _exc)
+
     save_stats = db.save_jobs(unique) or {}
     new_per_source = save_stats.get("new_per_source", {}) if isinstance(save_stats, dict) else {}
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
@@ -2910,7 +2924,9 @@ def calculate_score(job: dict, criteria: dict) -> int:
         )
 
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
-    dist = job.get("distance_km")
+    # v1.7.94 (#950 AK 6): die Fahrstrecke, sobald sie vorliegt.
+    from ..services import entfernung as _entf_score
+    dist = _entf_score.preis_km(job)
     emp_type = job.get("employment_type", "festanstellung")
     max_dist_map = criteria.get("max_entfernung", {})
     # Defaults: Festanstellung 50km, Freelance 200km, Rest 50km
@@ -3213,7 +3229,9 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         factors[f"Arbeitsmodell: {remote}"] = _rp
         total += _rp
 
-    dist = job.get("distance_km")
+    # v1.7.94 (#950 AK 6): dieselbe Zahl wie calculate_score (#963).
+    from ..services import entfernung as _entf_fit
+    dist = _entf_fit.preis_km(job)
     fit_emp_type = job.get("employment_type", "festanstellung")
     fit_max_dist_map = criteria.get("max_entfernung", {})
     _fit_default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}

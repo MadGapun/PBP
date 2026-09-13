@@ -2008,8 +2008,9 @@ def register(mcp, db, logger):
                     entry["gehalt_geschaetzt"] = True
             if j.get("distance_km"):
                 # #950: nie die blosse Zahl — sie wird als Wegstrecke
-                # gelesen und ist eine Luftlinie.
-                entry.update(_entfernung.befund(j["distance_km"]))
+                # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
+                # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
+                entry.update(_entfernung.befund(j))
             # v1.7.22 (#942): Fach- und Rahmenanteil getrennt ausweisen.
             # "Score 31" allein verraet nicht, ob die Punkte fachlich
             # sind oder aus Rahmenbegriffen (Senior, Remote, Hamburg)
@@ -3050,6 +3051,16 @@ def register(mcp, db, logger):
                     dist = geocode_and_calculate_distance(ort, user_coords[0], user_coords[1])
                     if dist is not None:
                         job["distance_km"] = dist
+                        # v1.7.94 (#950): Koordinaten und, mit
+                        # Routing-Schluessel, die echte Fahrstrecke —
+                        # derselbe Weg wie im Suchlauf.
+                        from ..services.geocoding_service import geocode_location
+                        from ..services import routing as _routing
+                        _koord = geocode_location(ort)
+                        if _koord:
+                            job["lat"], job["lon"] = _koord
+                            if _routing.konfiguriert(db):
+                                _routing.fuer_stellen(db, [job], user_coords)
             except Exception:
                 pass
 
@@ -3082,7 +3093,7 @@ def register(mcp, db, logger):
                          f"Bewerte mit stelle_bewerten('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
-            result.update(_entfernung.befund(job["distance_km"]))
+            result.update(_entfernung.befund(job))
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -6157,6 +6168,129 @@ def register(mcp, db, logger):
                 "damit auch nicht mehr als Beleg fuer dasselbe Muster."
             ),
         }
+
+    @mcp.tool()
+    def fahrstrecken_verwalten(aktion: str = "status", dry_run: bool = True,
+                               max_stellen: int = 0) -> dict:
+        """Echte Fahrstrecke und Fahrzeit statt Luftlinie (#950).
+
+        Bis v1.7.93 rechnete PBP nur mit der Luftlinie — beschriftet, aber
+        fuer eine Stelle in 270 km Luftlinie waren es rund 390 km und vier
+        Stunden je Richtung. **Fuer die Frage, ob eine Stelle pendelbar
+        ist, sagt die Fahrzeit mehr als jede Kilometerzahl.**
+
+        Mit einem Routing-Schluessel (OpenRouteService, kostenlos)
+        berechnet PBP Fahrstrecke und Fahrzeit; Score und
+        Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
+
+        **Den Schluessel richtest du im Dashboard ein** (Einstellungen →
+        Quellen → Fahrstrecke), nicht hier: ein Schluessel, der durch den
+        Chat geht, stuende danach im Gespraechsverlauf.
+
+        Args:
+            aktion: 'status' (Stand, Kontingent, offene Stellen) oder
+                'nachziehen' (Fahrstrecken fuer vorhandene Stellen).
+            dry_run: Vorgabe True — zeigt nur, was abgefragt wuerde.
+            max_stellen: 0 = alle offenen.
+        """
+        from ..services import routing as _routing
+        from ..services.geocoding_service import (
+            geocode_location, get_user_coordinates)
+
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        zeilen = [dict(z) for z in conn.execute(
+            "SELECT hash, location, lat, lon, distance_km, fahrstrecke_km "
+            "FROM jobs WHERE is_active=1 AND (profile_id=? OR profile_id "
+            "IS NULL) AND distance_km IS NOT NULL", (pid,)).fetchall()]
+        offen = [z for z in zeilen if z["fahrstrecke_km"] is None]
+        ohne_koordinaten = sum(1 for z in offen
+                               if z["lat"] is None or z["lon"] is None)
+        stand = {
+            **_routing.status(db),
+            "aktive_mit_entfernung": len(zeilen),
+            "davon_mit_fahrstrecke": len(zeilen) - len(offen),
+            "offen": len(offen),
+            "offen_ohne_koordinaten": ohne_koordinaten,
+        }
+        kein_schluessel = (
+            "Im Dashboard unter Einstellungen → Quellen → Fahrstrecke "
+            "einen kostenlosen Schluessel von OpenRouteService eintragen.")
+
+        aktion = (aktion or "status").strip().lower()
+        if aktion == "status":
+            if not stand["konfiguriert"]:
+                stand["naechster_schritt"] = kein_schluessel
+            elif offen:
+                stand["naechster_schritt"] = (
+                    "fahrstrecken_verwalten('nachziehen') — erst die "
+                    "Vorschau, dann mit dry_run=False.")
+            return stand
+        if aktion != "nachziehen":
+            return {"fehler": f"Unbekannte Aktion '{aktion}'.",
+                    "moegliche_aktionen": ["status", "nachziehen"]}
+        if not stand["konfiguriert"]:
+            return {**stand,
+                    "fehler": _routing.BEFUND_TEXT[_routing.KEIN_SCHLUESSEL],
+                    "naechster_schritt": kein_schluessel}
+        start = get_user_coordinates(db)
+        if not start:
+            return {**stand,
+                    "fehler": _routing.BEFUND_TEXT[_routing.KEIN_STANDORT],
+                    "naechster_schritt": (
+                        "suchkriterien_setzen(standort='<Wohnort>') "
+                        "hinterlegt den Startpunkt.")}
+        if max_stellen and int(max_stellen) > 0:
+            offen = offen[:int(max_stellen)]
+
+        if dry_run:
+            orte = {(round(z["lat"], 4), round(z["lon"], 4)) for z in offen
+                    if z["lat"] is not None and z["lon"] is not None}
+            return {
+                **stand,
+                "status": "vorschau",
+                "wuerde_berechnen": len(offen),
+                "eindeutige_zielorte": len(orte),
+                "davon_erst_geocoden": sum(
+                    1 for z in offen if z["lat"] is None or z["lon"] is None),
+                "hinweis": (
+                    "Vorschau — es wurde nichts abgefragt. Bereits "
+                    "zwischengespeicherte Orte kosten keine Anfrage. Stellen "
+                    "ohne Koordinaten werden vorher ueber OpenStreetMap "
+                    "aufgeloest (eine Sekunde je Ort). Mit dry_run=False "
+                    "geht es los."),
+            }
+
+        nachgeholt = 0
+        for z in offen:
+            if (z["lat"] is None or z["lon"] is None) and z.get("location"):
+                koord = geocode_location(z["location"])
+                if koord:
+                    z["lat"], z["lon"] = koord
+                    nachgeholt += 1
+        ergebnis = _routing.fuer_stellen(db, offen, start)
+        berechnet = 0
+        for z in offen:
+            if z.get("fahrstrecke_km") is not None:
+                berechnet += 1
+            db.set_fahrstrecke(z["hash"], z.get("fahrstrecke_km"),
+                               z.get("fahrzeit_min"), z.get("route_quelle"),
+                               lat=z.get("lat"), lon=z.get("lon"))
+        antwort = {
+            "status": "nachgezogen",
+            "berechnet": berechnet,
+            "koordinaten_nachgeholt": nachgeholt,
+            "ohne_route": ergebnis["ohne_route"],
+            "befund": ergebnis["befund"],
+            "befund_text": _routing.BEFUND_TEXT.get(ergebnis["befund"], ""),
+            "anfragen_heute": _routing.anfragen_heute(db),
+            "tagesgrenze": _routing.TAGESGRENZE,
+        }
+        if berechnet:
+            antwort["naechster_schritt"] = (
+                "scores_neu_berechnen() — die Scores nehmen die "
+                "Fahrstrecke erst nach einer Neuberechnung.")
+        return antwort
 
     @mcp.tool()
     def stellen_merkmale_nachziehen(dry_run: bool = True,
