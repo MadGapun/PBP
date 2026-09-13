@@ -2964,10 +2964,9 @@ def calculate_score(job: dict, criteria: dict) -> int:
     from ..services import entfernung as _entf_score
     dist = _entf_score.preis_km(job)
     emp_type = job.get("employment_type", "festanstellung")
-    max_dist_map = criteria.get("max_entfernung", {})
-    # Defaults: Festanstellung 50km, Freelance 200km, Rest 50km
-    _default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
-    type_max_dist = max_dist_map.get(emp_type) or _default_max.get(emp_type, 50)
+    # v1.7.99 (#1036): die Grenze kommt aus EINER Stelle — dieselbe, die
+    # die Auto-Aussortierung fragt.
+    type_max_dist = _entf_score.grenze_km(criteria, emp_type)
     if dist is None:
         # #965: nicht stillschweigend uebergehen. Ohne diese Markierung
         # sieht eine ungeprueft weite Stelle aus wie eine nahe.
@@ -3276,9 +3275,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     from ..services import entfernung as _entf_fit
     dist = _entf_fit.preis_km(job)
     fit_emp_type = job.get("employment_type", "festanstellung")
-    fit_max_dist_map = criteria.get("max_entfernung", {})
-    _fit_default_max = {"festanstellung": 50, "freelance": 200, "teilzeit": 30, "praktikum": 50, "werkstudent": 50}
-    fit_type_max = fit_max_dist_map.get(fit_emp_type) or _fit_default_max.get(fit_emp_type, 50)
+    # v1.7.99 (#1036): dieselbe Grenze wie calculate_score und die Automatik.
+    fit_type_max = _entf_fit.grenze_km(criteria, fit_emp_type)
     if dist is not None:
         # #965 Befund 2: derselbe Reisewiderstand wie in
         # calculate_score. Eine Regel in nur EINEN von zwei parallelen
