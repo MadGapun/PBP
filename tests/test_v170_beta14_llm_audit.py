@@ -143,8 +143,12 @@ def test_llm_recommended_models_endpoint(setup_env):
     j = r.json()
     assert "models" in j
     assert len(j["models"]) >= 1
-    # Mindestens eines soll llama3.2 sein (Standard-Empfehlung)
-    assert any("llama" in m.get("id", "").lower() for m in j["models"])
+    # v1.7.97 (#785): die Absicht, nicht der Modellname — genau eine
+    # Empfehlung, und der Katalog kommt aus einer Stelle. Der alte Test
+    # verlangte "llama" und haette jede Aktualisierung festgehalten.
+    from bewerbungs_assistent.services import modell_katalog
+    assert [m["id"] for m in j["models"]] == [m["id"] for m in modell_katalog.KATALOG]
+    assert sum(1 for m in j["models"] if m.get("recommended")) == 1
 
 
 # ============= _check_ollama (echter HTTP-Pfad) ===============

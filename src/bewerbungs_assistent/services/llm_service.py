@@ -412,6 +412,10 @@ class LLMService:
             "options": {"num_predict": max_tokens, "temperature": 0.2,
                         "num_ctx": num_ctx},
             "keep_alive": "60m",  # #638: Modell warm halten
+            # #785: die Qwen3-Reihe schreibt sonst erst ihre Ueberlegungen.
+            # Aeltere Ollama-Versionen ignorieren das Feld — dafuer entfernt
+            # `ohne_denkblock` unten einen trotzdem gelieferten Block.
+            "think": False,
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{self._status.ollama_endpoint}/api/generate",
@@ -428,7 +432,8 @@ class LLMService:
             "prompt_tokens": prompt_tokens,
         }
         ollama_kontext.nachher_pruefen(prompt_tokens, max_tokens, num_ctx)
-        return data.get("response", "")
+        from . import modell_katalog
+        return modell_katalog.ohne_denkblock(data.get("response", ""))
 
     def warmup(self, model: str | None = None) -> dict:
         """v1.7.0-beta.62 (#638): Modell vorab laden um Cold-Load-Latenz zu vermeiden.
@@ -461,6 +466,7 @@ class LLMService:
             "options": {"num_predict": 1, "temperature": 0.0,
                         "num_ctx": ollama_kontext.num_ctx_lesen(self.db)},
             "keep_alive": "60m",
+            "think": False,  # #785: derselbe Aufruf wie der echte
         }).encode("utf-8")
         req = urllib.request.Request(
             f"{s.ollama_endpoint}/api/generate",
