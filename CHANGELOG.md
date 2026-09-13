@@ -33,6 +33,76 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.101] - 2026-09-14 — Firma und Ort, fuer jeden Suchbegriff
+
+Ein Fehler aus #1040 in der Quelle stellenanzeigen.de.
+
+### Fixed
+
+- **Stellen von stellenanzeigen.de kommen mit Firma und Ort** (#1040).
+  Die Ergebnisseite traegt keine strukturierten Stellendaten mehr, und die
+  Suche nach Firma und Ort ueber Klassennamen fand bei generierten Namen
+  nichts: jede Stelle kam als "Unbekannt" ohne Ort herein. Ohne Ort gab
+  es keine Entfernung, ohne Firma weder Blacklist noch Firmen-Abgleich.
+  Firma und Ort kommen jetzt aus der Reihenfolge der Ergebniskarte.
+  Bereits gespeicherte Stellen bekommen beide Angaben, sobald ein Suchlauf
+  sie wieder findet.
+- **Jeder Suchbegriff wird ausgewertet** (#1040). Die Karten wurden nur
+  gelesen, solange noch keine Stelle gesammelt war — also nur fuer den
+  ersten Begriff; die Seiten der uebrigen Begriffe wurden abgerufen und
+  verworfen. Gemessen mit drei Begriffen: 25 statt 43 Anzeigen.
+
+### Bekannt
+
+- Die Region laesst sich bei stellenanzeigen.de nicht einschraenken: mit
+  einer Stadt statt "Deutschland" kamen praktisch dieselben bundesweiten
+  Treffer. Die Entfernung regelt weiter der Score.
+- Gleichnamige Anzeigen verschiedener Arbeitgeber teilen sich weiter eine
+  Kennung (gemessen: 43 Anzeigen, 38 Kennungen). Das zu aendern wuerde
+  bereits aussortierte Stellen dieser Quelle als neu anlegen; es ist als
+  eigener Punkt im Plan (B50).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.101.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.101.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.100] - 2026-09-13 — Entfernt heisst entfernt
 
 Ein Fehler aus #1037: das Entfernen des Routing-Schluessels hielt nicht,
