@@ -3,6 +3,19 @@ export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
+      // v1.7.102 (#1043): Tailwind 3.4 erzeugt Deckkraft-Modifikatoren nur
+      // aus dieser Skala (0, 5, 10, 15 ...). Eine Stufe, die hier fehlt,
+      // erzeugt KEINE Regel und keinen Fehler — `border-white/8` fiel so
+      // still auf die Grundregel `border: 0 solid #e5e7eb` zurueck, ein voll
+      // deckendes Hellgrau. Der Guard in test_v17102_deckkraft_1043.py
+      // haelt jede verwendete Stufe gegen diese Liste und das gebaute CSS.
+      opacity: {
+        4: "0.04",
+        6: "0.06",
+        7: "0.07",
+        8: "0.08",
+        12: "0.12",
+      },
       colors: {
         shell: "rgb(var(--color-shell) / <alpha-value>)",
         panel: "rgb(var(--color-panel) / <alpha-value>)",

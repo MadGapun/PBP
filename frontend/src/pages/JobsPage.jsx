@@ -1569,7 +1569,10 @@ export default function JobsPage() {
                         waere Rauschen, und die Luecke steht ohnehin im
                         Datenguete-Befund. */}
                     {job.arbeitsumfang && job.arbeitsumfang !== "unbekannt" ? (
-                      <Badge tone={job.arbeitsumfang === "teilzeit" ? "amber" : "neutral"}>
+                      /* v1.7.102 (#1043): eine Farbe fuer alle drei Werte —
+                         es ist dieselbe Angabe, und Orange nur fuer Teilzeit
+                         las sich wie eine Warnung. */
+                      <Badge tone="neutral">
                         {UMFANG_TEXT[job.arbeitsumfang] || job.arbeitsumfang}
                       </Badge>
                     ) : null}
