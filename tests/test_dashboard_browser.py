@@ -608,8 +608,13 @@ def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
 
         page.get_by_role("button", name="Nur ohne Beschreibung").click()
+        # v1.7.93 (#1030): der Filter wirkt auf dem SERVER. Bis die Antwort
+        # da ist, steht die alte Liste — ein sofortiges `count() == 0`
+        # war lokal gruen und auf dem CI-Runner rot. Gewartet wird auf den
+        # Zustand, nicht auf das Timing (v1.7.83 MERKE 8).
+        page.get_by_text("PLM Consultant", exact=True).wait_for(
+            state="detached", timeout=10000)
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
-        assert page.get_by_text("PLM Consultant", exact=True).count() == 0
     finally:
         context.close()
 
@@ -773,16 +778,24 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         # AK 6: die Gegenrichtung — nur ungeprueft.
         page.get_by_text("Prüfstand: alle").click()
         page.get_by_text("Nur ungeprüfte", exact=True).click()
+        # v1.7.93 (#1030): gefiltert wird auf dem Server — auf das
+        # Verschwinden WARTEN, nicht sofort zaehlen. Das sofortige
+        # `count() == 0` war lokal gruen und auf dem CI-Runner rot.
+        try:
+            page.get_by_text("PLM Consultant", exact=True).wait_for(
+                state="detached", timeout=10000)
+        except Exception as exc:  # pragma: no cover — Meldung behalten
+            raise AssertionError(
+                "Die beurteilte Stelle steht noch in der Liste der ungeprueften."
+            ) from exc
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
-        assert page.get_by_text("PLM Consultant", exact=True).count() == 0, (
-            "Die beurteilte Stelle steht noch in der Liste der ungeprueften."
-        )
 
         # ... und nur beurteilte zeigt genau die andere.
         page.get_by_text("Nur ungeprüfte").first.click()
         page.get_by_text("Nur beurteilte", exact=True).click()
+        page.get_by_text("Senior Consultant", exact=True).wait_for(
+            state="detached", timeout=10000)
         page.get_by_text("PLM Consultant", exact=True).wait_for(state="visible")
-        assert page.get_by_text("Senior Consultant", exact=True).count() == 0
 
         # AK 7: der Klick auf das Abzeichen fuehrt zum Ergebnis.
         page.get_by_text("Bedingt ⚠ überholt").first.click()
