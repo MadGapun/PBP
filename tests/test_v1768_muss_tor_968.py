@@ -340,7 +340,10 @@ def test_968_die_marke_erklaert_die_rangfolge():
 @pytest.mark.parametrize("datei,anker", [
     ("src/bewerbungs_assistent/tools/jobs.py", "_tor_rang"),
     ("src/bewerbungs_assistent/dashboard.py", 'job["muss_tor"] = tor_marke'),
-    ("frontend/src/pages/JobsPage.jsx", "a.muss_tor ? 1 : 0"),
+    # v1.7.93 (#1030): die Seite, die der Mensch ansieht, bekommt ihre
+    # Reihenfolge vom Server — die Rangfolge steht deshalb im Dienst.
+    ("src/bewerbungs_assistent/services/stellen_liste.py",
+     '1 if j.get("muss_tor") else 0'),
 ])
 def test_968_beide_listen_tragen_den_befund(datei, anker):
     """Ein Befund, den nur ein Werkzeug kennt, ist kein Befund (#989).
@@ -360,7 +363,15 @@ def test_968_das_frontend_spiegelt_die_regel_nicht():
     """
     quelle = (_repo() / "frontend" / "src" / "pages"
               / "JobsPage.jsx").read_text(encoding="utf-8")
-    assert "fachscore" not in quelle.split("a.muss_tor ? 1 : 0")[1][:400]
+    # v1.7.93 (#1030): das Frontend sortiert gar nicht mehr — also darf
+    # es die Regel weder spiegeln noch lesen.
+    assert "fachscore" not in quelle
+    assert "muss_tor ? 1 : 0" not in quelle
+    # ... und der Dienst liest den fertigen Befund, nicht den Fachscore.
+    import inspect
+    from bewerbungs_assistent.services import stellen_liste as sl
+
+    assert "fachscore" not in inspect.getsource(sl.sortieren)
 
 
 # --------------------------------------------------------- Der Suchlauf

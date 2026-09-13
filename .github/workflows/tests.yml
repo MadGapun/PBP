@@ -71,5 +71,11 @@ jobs:
         # Quellen faerbt nicht als Warnung.
         run: node frontend/src/lib/jobsucheHinweis.test.mjs
 
+      - name: Fund- und Veroeffentlichungsdatum (#1032 G46)
+        # Karte und Detail-Dialog sagen dasselbe; ein fehlendes Datum ergibt
+        # keinen Ersatztext, und ein reines Datum ist in jeder Zeitzone
+        # derselbe Tag.
+        run: node frontend/src/lib/stellenDaten.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

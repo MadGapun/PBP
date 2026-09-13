@@ -183,11 +183,17 @@ def test_1008_die_verborgenen_werden_gegen_das_geladene_gezaehlt():
     Gegen `jobsTotal` gerechnet wuerden bei aktivem Nachladen die noch
     gar nicht geholten Seiten als "durch Filter verborgen" gelten.
     """
+    # v1.7.93 (#1030): die Absicht gilt weiter, der Mechanismus hat sich
+    # umgedreht. Der Server zaehlt die Treffer ueber den BESTAND — die noch
+    # nicht geladenen Seiten stecken schon in `treffer` und sind damit
+    # keine "verborgenen". Gegen die geladene Seite gerechnet waere die
+    # Zahl jetzt zu HOCH: 20 geladen, 59 Treffer, 1.174 Bestand.
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
     zeile = next(z for z in quelltext.split("\n")
                  if z.strip().startswith("const verborgeneStellen"))
-    assert "currentList.length - filteredJobs.length" in zeile
+    assert "listenGesamt - listenTreffer" in zeile
     assert "jobsTotal" not in zeile
+    assert "currentList.length" not in zeile
 
 
 def test_1008_zuruecksetzen_und_hinweis_lesen_dieselbe_vorgabe():

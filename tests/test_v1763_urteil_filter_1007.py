@@ -154,6 +154,7 @@ def test_1007_frontend_hat_den_schalter_und_nennt_ihn(db):
     assert 'schluessel: "pruefstand"' in quelltext, \
         "Der Filter muss in der Hinweiszeile ueber der Liste auftauchen."
     # Gefiltert wird weiterhin nach dem URTEIL — die Einteilung kommt
-    # seit #948 vom Server, damit es sie nicht zweimal gibt.
-    assert "job.pruefstand?.art" in quelltext
+    # seit #948 vom Server, damit es sie nicht zweimal gibt. Seit v1.7.93
+    # (#1030) auch das Filtern selbst; die Oberflaeche schickt den Wert.
+    assert 'p.set("pruefstand", filters.pruefstand)' in quelltext
     assert '"beurteilt"' in quelltext

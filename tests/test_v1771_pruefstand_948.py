@@ -307,12 +307,22 @@ def test_948_beide_listen_liefern_den_pruefstand():
 
 
 def test_948_das_frontend_entscheidet_den_zustand_nicht_selbst():
-    """Der Filter liest `pruefstand.art` — er leitet ihn nicht ab."""
+    """Der Filter liest `pruefstand.art` — er leitet ihn nicht ab.
+
+    Seit v1.7.93 (#1030) filtert der Server. Die Oberflaeche schickt nur
+    den gewuenschten Zustand; gelesen wird er in `stellen_liste` aus dem
+    fertigen Befund, nicht aus `gesichtet_am`/`analyse_urteil` abgeleitet.
+    """
     quelle = (_repo() / "frontend" / "src" / "pages"
               / "JobsPage.jsx").read_text(encoding="utf-8")
     code = "\n".join(z for z in quelle.split("\n")
                      if not z.strip().startswith("//"))
-    assert "job.pruefstand?.art" in code
+    assert 'p.set("pruefstand", filters.pruefstand)' in code
+    assert "gesichtet_am" not in code and "analyse_urteil" not in code
+    dienst = (_repo() / "src" / "bewerbungs_assistent" / "services"
+              / "stellen_liste.py").read_text(encoding="utf-8")
+    assert '(job.get("pruefstand") or {}).get("art")' in dienst
+    assert "gesichtet_am" not in dienst and "analyse_urteil" not in dienst
     # Kein zweiter Schalter fuer dieselbe Frage (#988).
     assert "onlyAnalysed" not in code, (
         "Der alte Ja/Nein-Schalter steht noch daneben — zwei "
