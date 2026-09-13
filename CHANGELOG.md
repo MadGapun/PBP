@@ -33,6 +33,75 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.95] - 2026-09-13 — Eine Nachkommastelle, und die Teile ergeben die Summe
+
+Rückmeldung vom 13.09.: eine Stelle trug im Dashboard den Score
+`6.199999999999999`, und „fachlich 7,5, Rahmen 3,8" ergab nicht den
+angezeigten Wert (#1035).
+
+### Fixed
+
+- **Kein Score steht mehr mit Rechenrest da** (#1035). Die Scoring-Regler
+  gaben ihre Summe ungerundet zurück; aus 11,2 minus 2 wurde
+  `9.199999999999999`. Die Summe hat jetzt eine Nachkommastelle, und das
+  Dashboard zeigt jeden Score mit höchstens einer Nachkommastelle an.
+- **Die Neuberechnung speichert Zehntel** (#1035). `scores_neu_berechnen`
+  und `fit_analyse(score_uebernehmen=True)` schnitten die Nachkommastelle
+  ab: aus 18,7 wurde 18. Beim Melder waren 1.156 von 1.174 Scores
+  ganzzahlig, und eine Stelle mit 18,1 stand gleichauf mit einer mit 18,9.
+- **Eine geänderte Nachkommastelle wird geschrieben** (#1035). Der Lauf
+  verglich die abgeschnittenen Werte; ein gespeicherter Score von 3,8
+  blieb stehen, obwohl die Neuberechnung 3,0 ergab.
+- **Fachlich plus Rahmen ergibt den Score** (#1035). Beide Teile wurden
+  einzeln gerundet, die Summe aus den ungerundeten Werten gebildet — so
+  lag sie um ein Zehntel daneben.
+- **Wo die Aufteilung nicht aufgeht, steht das dabei** (#1035). Greift die
+  Untergrenze 0, nennt die Scoring-Vorschau sie. Ein von Hand gesetzter
+  Score verwirft die alte Aufteilung, statt sie unkommentiert neben dem
+  neuen Wert stehen zu lassen; `stelle_bearbeiten` schreibt die Teile bei
+  einer Neuberechnung mit.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.95.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.95.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.94] - 2026-09-13 — Wie weit ist es wirklich
 
 Seit v1.7.50 sagt PBP, dass seine Entfernung eine Luftlinie ist, und
