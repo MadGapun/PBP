@@ -62,9 +62,9 @@ _TIMEOUT = 12
 def _strip_html(html: str) -> str:
     if not html:
         return ""
-    text = re.sub(r"<[^>]+>", " ", html)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    # #1047: Absaetze, Listen und Ueberschriften bleiben erhalten.
+    from .html_text import gegliederter_text
+    return gegliederter_text(html)
 
 
 def _location_text(job: dict) -> str:

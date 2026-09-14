@@ -60,7 +60,10 @@ def projekt_zu_stelle(projekt: dict) -> dict | None:
     if not titel:
         return None
     ort = _text(projekt.get("location") or "")
-    beschreibung = _text(projekt.get("description") or "")
+    # #1047: nur die Beschreibung behaelt ihre Gliederung — Titel, Ort und
+    # Skills bleiben einzeilig.
+    from .html_text import gegliederter_text
+    beschreibung = gegliederter_text(projekt.get("description") or "")
     anforderungen = [_text(s) for s in (projekt.get("skills") or []) if s]
     text = "\n\n".join(t for t in (beschreibung, "\n".join(a for a in anforderungen if a)) if t)
 

@@ -62,8 +62,9 @@ def _aus_offers(html: str, keywords: list) -> list:
             continue
         ort = entweiche_trennzeichen(o.get("locationCity") or "")
         intro = entweiche_trennzeichen(o.get("intro") or "")
-        beschreibung = re.sub(r"<[^>]+>", " ", intro)
-        beschreibung = re.sub(r"\s+", " ", fuer_speicher(beschreibung).strip())
+        # #1047: Absaetze, Listen und Ueberschriften bleiben erhalten.
+        from .html_text import gegliederter_text
+        beschreibung = fuer_speicher(gegliederter_text(intro))
         if not _passt_zu_keywords(f"{title} {beschreibung}", keywords):
             continue
 

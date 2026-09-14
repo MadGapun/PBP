@@ -93,7 +93,10 @@ def search_freelancermap(params: dict) -> list:
                     seen_urls.add(pjob_url)
 
                     desc_html = p.get("description", "")
-                    desc = BeautifulSoup(desc_html, "lxml").get_text() if desc_html else ""
+                    # #1047: `get_text()` ohne Trenner klebte Woerter zweier
+                    # Absaetze aneinander und verlor jede Gliederung.
+                    from .html_text import gegliederter_text
+                    desc = gegliederter_text(desc_html)
 
                     job = {
                         "hash": stelle_hash("freelancermap.de", title),
@@ -156,7 +159,9 @@ def search_freelancermap(params: dict) -> list:
                                                 "main", "article"):
                                         el = d_soup.select_one(sel)
                                         if el:
-                                            txt = el.get_text(separator=" ", strip=True)
+                                            # #1047: mit Absaetzen und Listen.
+                                            from .html_text import gegliederter_text
+                                            txt = gegliederter_text(str(el))
                                             if len(txt) > 100:
                                                 description = fuer_speicher(txt)
                                                 break
@@ -223,9 +228,10 @@ def _playwright_fallback(urls: list) -> list:
                         location = locations[0].get("name", "") if locations else ""
                         slug = p.get("slug", "")
 
-                        from bs4 import BeautifulSoup
+                        # #1047: mit Absaetzen und Listen (siehe oben).
+                        from .html_text import gegliederter_text
                         desc_html = p.get("description", "")
-                        desc = BeautifulSoup(desc_html, "lxml").get_text() if desc_html else ""
+                        desc = gegliederter_text(desc_html)
 
                         pw_job = {
                             "hash": stelle_hash("freelancermap.de", title),

@@ -29,9 +29,9 @@ _TIMEOUT = 12
 def _strip_html(text: str) -> str:
     if not text:
         return ""
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return fuer_speicher(text)
+    # #1047: Absaetze, Listen und Ueberschriften bleiben erhalten.
+    from .html_text import gegliederter_text
+    return fuer_speicher(gegliederter_text(text))
 
 
 def _matches(title: str, location: str, desc: str, keywords: list) -> bool:

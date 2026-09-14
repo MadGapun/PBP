@@ -87,5 +87,10 @@ jobs:
         # anders als die Karte. Beide Ansichten gehen durch lib/stellenAngaben.js.
         run: node frontend/src/lib/stellenAngaben.test.mjs
 
+      - name: Gegliederter Anzeigentext in der Detailansicht (Node)
+        # #1047: textExcerpt fasste jeden Leerraum zusammen, die Detailansicht
+        # verlor Absaetze und Listen. Sie geht jetzt durch lib/textAuszug.js.
+        run: node frontend/src/lib/textAuszug.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

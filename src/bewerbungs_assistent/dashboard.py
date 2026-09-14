@@ -3166,7 +3166,10 @@ async def api_snapshot_description(app_id: str, request: Request):
                     if item.get("@type") == "JobPosting":
                         desc = item.get("description", "")
                         if desc:
-                            text = BeautifulSoup(desc, "html.parser").get_text(separator=" ", strip=True)
+                            # #1047: mit Absaetzen und Listen — der
+                            # Selektor-Weg darunter trennte schon mit "\n".
+                            from .job_scraper.html_text import gegliederter_text
+                            text = gegliederter_text(desc)
                             break
             except Exception:
                 continue
@@ -11160,7 +11163,9 @@ async def api_refresh_freelancermap_descriptions(request: Request):
                             "[class*='description']", "main", "article"):
                     el = soup.select_one(sel)
                     if el:
-                        txt = el.get_text(separator=" ", strip=True)
+                        # #1047: mit Absaetzen und Listen.
+                        from .job_scraper.html_text import gegliederter_text
+                        txt = gegliederter_text(str(el))
                         if len(txt) > 100:
                             # #952: Ablage vollstaendig, Grenze nur in der Ausgabe
                             description = fuer_speicher(txt)

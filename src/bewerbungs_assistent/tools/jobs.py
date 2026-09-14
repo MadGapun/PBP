@@ -3625,7 +3625,9 @@ def register(mcp, db, logger):
     # `geprueft: 984, betroffen: 0` — waehrend 370 Stellen OHNE jeden
     # Text danebenstanden. Das Werkzeug traegt den Namen fuer den
     # Mengenweg und beantwortete nur den Altfall aus #952.
-    UMFAENGE = ("fehlend", "gekappt", "beide")
+    # v1.7.110 (#1047): `flach` — lange Texte ganz ohne Zeilenumbruch, die
+    # Spur des alten Lesers. `beide` bleibt, was es war: fehlend + gekappt.
+    UMFAENGE = ("fehlend", "gekappt", "flach", "beide")
 
     @mcp.tool()
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
@@ -3659,7 +3661,11 @@ def register(mcp, db, logger):
                 HTTP-Aufruf, deshalb bewusst klein.
             nur_zaehlen: Vorgabe True — meldet nur, wie viele betroffen
                 sind, ohne etwas zu holen.
-            umfang: `fehlend` (Vorgabe), `gekappt` oder `beide`.
+            umfang: `fehlend` (Vorgabe), `gekappt`, `flach` oder `beide`.
+                `flach` (#1047) sind Texte ab 500 Zeichen ganz ohne
+                Zeilenumbruch — der alte Leser machte aus jeder Anzeige
+                einen Absatz. Quellen, deren Text schon an der Quelle
+                ungegliedert ist, bleiben aussen vor.
         """
         import httpx
 
@@ -3696,10 +3702,21 @@ def register(mcp, db, logger):
         # Stellen fielen durch beide Raster.
         gekappt = [j for j in aktive
                    if ist_gekappt(j.get("description"), j.get("source"))]
-        auswahl = {"fehlend": fehlend, "gekappt": gekappt,
+        # #1047: der dritte Schaden — Text da, aber ohne jede Gliederung.
+        # Gekappte Texte zaehlen nicht doppelt, und Quellen, deren Text
+        # schon an der Quelle ungegliedert ist, gewinnen durch Nachladen
+        # nichts.
+        from ..job_scraper.html_text import QUELLEN_OHNE_GLIEDERUNG, ist_flach
+        flach = [j for j in aktive
+                 if ist_flach(j.get("description"))
+                 and not ist_gekappt(j.get("description"), j.get("source"))
+                 and (j.get("source") or "").strip().lower()
+                 not in QUELLEN_OHNE_GLIEDERUNG]
+        auswahl = {"fehlend": fehlend, "gekappt": gekappt, "flach": flach,
                    "beide": fehlend + gekappt}[gewaehlt]
 
-        zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt)}
+        zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt),
+                    "flach": len(flach)}
         if not auswahl:
             return {
                 "status": "nichts_zu_tun",
@@ -3764,7 +3781,15 @@ def register(mcp, db, logger):
 
                 text = befund.text or ""
                 alt_laenge = len((job.get("description") or "").strip())
-                if len(text) <= alt_laenge:
+                # #1047: ein gegliederter Text ersetzt einen flachen auch
+                # ohne zu wachsen — aus Leerzeichen werden Umbrueche, die
+                # Laenge bleibt fast gleich. Unter 90 % bleibt er aussen
+                # vor: dann fehlt Inhalt, nicht nur Leerraum.
+                from ..job_scraper.html_text import ist_flach as _ist_flach
+                gegliedert = (_ist_flach(job.get("description"))
+                              and "\n" in text
+                              and len(text) >= 0.9 * alt_laenge)
+                if len(text) <= alt_laenge and not gegliedert:
                     continue
                 # #1048: Text, Gehalt, Umfang und Score an EINER
                 # Stelle. Bis v1.7.108 stand hier nur der Text, und die
@@ -3817,7 +3842,8 @@ def register(mcp, db, logger):
         einen Teil gilt, muss sagen fuer welchen.
         """
         rest = {"fehlend": ("gekappt", zaehlung["gekappt"]),
-                "gekappt": ("fehlend", zaehlung["ohne_text"])}.get(umfang)
+                "gekappt": ("fehlend", zaehlung["ohne_text"]),
+                "flach": ("fehlend", zaehlung["ohne_text"])}.get(umfang)
         satz = {
             "fehlend": "Jede aktive Stelle traegt einen brauchbaren Text.",
             # #1048: nicht mehr nur 2000 — `hays` kappte bei 500.
@@ -3825,6 +3851,9 @@ def register(mcp, db, logger):
                         "Kappungsgrenze (2000 Zeichen, bei der Quelle hays "
                         "500) — es "
                         "sieht nichts nach einer Kappung aus."),
+            # #1047
+            "flach": ("Kein aktiver Anzeigentext ab 500 Zeichen ist ohne "
+                      "Gliederung — es sieht nichts nach dem alten Leser aus."),
             "beide": ("Weder fehlende noch abgeschnittene Texte im aktiven "
                       "Bestand."),
         }[umfang]
