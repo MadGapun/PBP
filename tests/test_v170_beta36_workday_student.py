@@ -46,55 +46,16 @@ def test_clusters_only_known_sources():
             assert src in known, f"Cluster {cluster} -> Ghost-Source {src}"
 
 
-# ============= Praktikum.de RSS ===============
-
-PRAKTIKUM_RSS = b"""<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
-<channel>
-  <title>Praktikum.de</title>
-  <item>
-    <title>Werkstudent Marketing (m/w/d)</title>
-    <link>https://www.praktikum.de/p/123</link>
-    <description>Wir suchen Werkstudent Marketing in Hamburg.</description>
-  </item>
-  <item>
-    <title>Praktikum Software-Entwicklung</title>
-    <link>https://www.praktikum.de/p/456</link>
-    <description>Praktikum Backend Python.</description>
-  </item>
-</channel>
-</rss>
-"""
+# ============= Praktikum.de ===============
+# v1.7.107 (B53): der RSS-Feed ist entfernt (404, gemessen 14.09.2026). Der
+# Adapter sucht ueber das Formular der Seite; die Faelle dazu stehen in
+# test_v17107_kartenleser_b53.py.
 
 
-def test_praktikum_de_parses_rss():
-    from bewerbungs_assistent.job_scraper.praktikum_de import search_praktikum_de
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.content = PRAKTIKUM_RSS
-    with patch("bewerbungs_assistent.job_scraper.praktikum_de.httpx.Client") as mock_cls:
-        client = MagicMock()
-        client.get.return_value = resp
-        mock_cls.return_value.__enter__.return_value = client
-        jobs = search_praktikum_de({"keywords": {"general": []}})
-    assert len(jobs) == 2
-    assert all(j["employment_type"] == "praktikum" for j in jobs)
-    assert all(j["source"] == "praktikum_de" for j in jobs)
-
-
-def test_praktikum_de_keyword_filter():
-    from bewerbungs_assistent.job_scraper.praktikum_de import search_praktikum_de
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.content = PRAKTIKUM_RSS
-    with patch("bewerbungs_assistent.job_scraper.praktikum_de.httpx.Client") as mock_cls:
-        client = MagicMock()
-        client.get.return_value = resp
-        mock_cls.return_value.__enter__.return_value = client
-        jobs = search_praktikum_de({"keywords": {"general": ["python"]}})
-    titles = [j["title"] for j in jobs]
-    assert "Praktikum Software-Entwicklung" in titles
-    assert "Werkstudent Marketing (m/w/d)" not in titles
+def test_praktikum_de_fragt_den_toten_feed_nicht_mehr_ab():
+    import inspect
+    from bewerbungs_assistent.job_scraper import praktikum_de
+    assert "rss.xml" not in inspect.getsource(praktikum_de)
 
 
 # ============= StudentJob ===============

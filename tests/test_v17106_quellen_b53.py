@@ -246,7 +246,8 @@ def test_wieder_nutzbar_und_nicht_mehr_ausgegraut(quelle):
     assert not meta.get("deprecated"), quelle
 
 
-@pytest.mark.parametrize("quelle", ["freelance_de", "heise_jobs", "meinestadt", "praktikum_de", "workday_dax"])
+# freelance_de und praktikum_de liefern seit v1.7.107 wieder (test_v17107_kartenleser_b53.py).
+@pytest.mark.parametrize("quelle", ["heise_jobs", "meinestadt", "workday_dax"])
 def test_ausgegraut_mit_dem_befund_der_neuen_messung(quelle):
     """Was nicht liefert, bleibt ausgegraut — mit Messdatum, damit die Frage
     spaeter wieder pruefbar ist."""

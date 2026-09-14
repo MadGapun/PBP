@@ -58,7 +58,7 @@ def _defekte():
 
 def test_es_gibt_defekte_quellen_und_die_beispiele_sind_welche():
     """Vorbedingung: ohne defekte Quelle pruefte hier nichts etwas."""
-    assert {"heise_jobs", "freelance_de", "meinestadt"} <= set(_defekte())
+    assert {"heise_jobs", "workday_dax", "meinestadt"} <= set(_defekte())
 
 
 # ====================================================== gespeicherte Auswahl
@@ -67,13 +67,13 @@ def test_es_gibt_defekte_quellen_und_die_beispiele_sind_welche():
 def test_ohne_defekte_behaelt_die_reihenfolge():
     from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
     from bewerbungs_assistent.services.search_service import ohne_defekte
-    assert ohne_defekte(["kimeta", "heise_jobs", "bundesagentur", "freelance_de"],
+    assert ohne_defekte(["kimeta", "heise_jobs", "bundesagentur", "workday_dax"],
                         SOURCE_REGISTRY) == ["kimeta", "bundesagentur"]
 
 
 def test_das_lesen_heilt_die_gespeicherte_auswahl(db):
     from bewerbungs_assistent.services.search_service import aktive_quellen
-    db.set_profile_setting("active_sources", ["bundesagentur", "heise_jobs", "freelance_de"])
+    db.set_profile_setting("active_sources", ["bundesagentur", "heise_jobs", "workday_dax"])
     assert aktive_quellen(db) == ["bundesagentur"]
     assert db.get_profile_setting("active_sources") == ["bundesagentur"], \
         "die Anzeige zu filtern reicht nicht — der SPEICHER muss es auch sagen"
@@ -104,14 +104,14 @@ def test_das_speichern_nimmt_keine_defekte_quelle_an(client, db):
 def test_eine_auswahl_aus_lauter_defekten_ist_keine(db):
     """Der naechste Schritt im Dashboard muss "Quellen aktivieren" nennen —
     sonst steht dort nichts, und jeder Suchlauf ueberspringt alles."""
-    db.set_profile_setting("active_sources", ["heise_jobs", "freelance_de"])
+    db.set_profile_setting("active_sources", ["heise_jobs", "workday_dax"])
     aktionen = [s["aktion"] for s in db.get_next_steps()]
     assert "Jobquellen aktivieren" in aktionen
 
 
 def test_die_automatik_startet_keine_suche_nur_mit_defekten(db):
     from bewerbungs_assistent.services import automatik_scheduler
-    db.set_profile_setting("active_sources", ["heise_jobs", "freelance_de"])
+    db.set_profile_setting("active_sources", ["heise_jobs", "workday_dax"])
     assert automatik_scheduler.run_jobsuche_now(db) == {"status": "keine_internen_quellen"}
 
 
@@ -175,7 +175,8 @@ def test_keine_empfehlung_nennt_eine_defekte_quelle():
 
 def test_freelancer_bekommen_die_zwei_defekten_nicht_mehr_angeboten():
     """Der Meldefall: freelance.de und GULP kamen genau so in die Auswahl.
-    GULP liefert seit v1.7.106 wieder (B53) und wird deshalb empfohlen."""
+    GULP liefert seit v1.7.106 wieder, freelance.de seit v1.7.107 (B53) —
+    beide werden deshalb empfohlen."""
     from bewerbungs_assistent.services import profile_classifier as pc
     original = pc.detect_profile_type
     pc.detect_profile_type = lambda _p: {"type": "freelance", "label": "Freelancer",
@@ -184,8 +185,8 @@ def test_freelancer_bekommen_die_zwei_defekten_nicht_mehr_angeboten():
         erg = pc.recommend_sources({})
     finally:
         pc.detect_profile_type = original
-    assert erg["recommended"] == ["freelancermap", "gulp", "solcom", "hays"]
-    assert erg["ausgelassen_defekt"] == ["freelance_de"]
+    assert erg["recommended"] == ["freelance_de", "freelancermap", "gulp", "solcom", "hays"]
+    assert erg["ausgelassen_defekt"] == []
 
 
 # ====================================================== Frontend-Guards
