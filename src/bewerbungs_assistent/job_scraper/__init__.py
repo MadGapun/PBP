@@ -2099,9 +2099,11 @@ def extract_jobposting_jsonld(html: str, max_chars: int | None = None) -> dict:
                     result = dict(item)
                     desc = item.get("description", "")
                     if desc:
-                        text = BeautifulSoup(desc, "html.parser").get_text(
-                            separator=" ", strip=True
-                        )
+                        # #1047: mit Absaetzen, Listen und Ueberschriften —
+                        # `separator=" "` machte daraus einen Absatz, und das
+                        # Nachladen reparierte deshalb nichts.
+                        from .html_text import gegliederter_text
+                        text = gegliederter_text(desc)
                         # #1048: die Vorgabe war 2000 — dieselbe Falle,
                         # die #952 aus `fetch_description_from_detail`
                         # entfernt hat. Der einzige Aufrufer im Paket gibt
@@ -2181,7 +2183,9 @@ def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
         ]:
             el = soup.select_one(selector)
             if el:
-                text = el.get_text(separator=" ", strip=True)
+                # #1047: mit Absaetzen und Listen, wie der JSON-LD-Weg.
+                from .html_text import gegliederter_text
+                text = gegliederter_text(str(el))
                 if len(text) > 100:
                     return text[:max_chars]
 

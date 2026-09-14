@@ -76,7 +76,10 @@ def stelle_aus(job: dict) -> dict | None:
     # Deutschlands geocodiert — eine erfundene Entfernung (#989).
     ort = _text(ort_roh.get("city") or "") if isinstance(ort_roh, dict) else _text(str(ort_roh))
 
-    teile = [_text(job.get(feld) or "")
+    # #1047: nur die Beschreibungsteile behalten ihre Gliederung — Titel und
+    # Ort bleiben einzeilig.
+    from .html_text import gegliederter_text
+    teile = [gegliederter_text(job.get(feld) or "")
              for feld in ("description", "requirementsSection", "benefitsSection")]
     text = "\n\n".join(t for t in teile if t)
 

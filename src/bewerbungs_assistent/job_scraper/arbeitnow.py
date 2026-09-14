@@ -39,9 +39,9 @@ def _clean_html(html: str) -> str:
     """Reduziert das Description-HTML auf reinen Text fuer die DB."""
     if not html:
         return ""
-    text = re.sub(r"<[^>]+>", " ", html)
-    text = re.sub(r"\s+", " ", text).strip()
-    return fuer_speicher(text)
+    # #1047: Absaetze, Listen und Ueberschriften bleiben erhalten.
+    from .html_text import gegliederter_text
+    return fuer_speicher(gegliederter_text(html))
 
 
 def _matches(job: dict, keywords: list[str], region: str | None) -> bool:

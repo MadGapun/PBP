@@ -239,9 +239,10 @@ def _fetch_detail_descriptions(page, jobs):
                         const items = data['@graph'] || (Array.isArray(data) ? data : [data]);
                         for (const item of items) {
                             if (item['@type'] === 'JobPosting' && item.description) {
-                                const div = document.createElement('div');
-                                div.innerHTML = item.description;
-                                return div.textContent?.trim()?.substring(0, 200000) || '';
+                                // #1047: das HTML selbst — `textContent`
+                                // verlor jede Gliederung; umgewandelt wird
+                                // in Python mit dem gemeinsamen Leser.
+                                return String(item.description).substring(0, 400000);
                             }
                         }
                     } catch (e) {}
@@ -254,12 +255,17 @@ def _fetch_detail_descriptions(page, jobs):
                 ]) {
                     const el = document.querySelector(sel);
                     if (el && el.textContent?.trim().length > 100) {
-                        return el.textContent.trim().substring(0, 200000);
+                        return el.innerHTML.substring(0, 400000);
                     }
                 }
                 return '';
             }""")
 
+            # #1047: beide Wege liefern HTML; der gemeinsame Leser behaelt
+            # Absaetze, Listen und Ueberschriften.
+            from .html_text import gegliederter_text
+            from .textgrenzen import fuer_speicher
+            desc = fuer_speicher(gegliederter_text(desc))
             if desc:
                 job["description"] = desc
                 job["remote_level"] = detect_remote_level(

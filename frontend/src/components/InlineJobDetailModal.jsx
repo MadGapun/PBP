@@ -17,6 +17,7 @@ import { api } from "@/api";
 import { Button, Modal } from "@/components/ui";
 import { formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
+import { gegliederterAuszug } from "@/lib/textAuszug";
 import { scoreText } from "@/lib/score";
 
 export default function InlineJobDetailModal({ jobHash, onClose }) {
@@ -94,8 +95,11 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
               <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/60">
                 Beschreibung
               </summary>
+              {/* #1047: textExcerpt fasst jeden Leerraum zusammen und
+                  verlor damit Absaetze und Listen — hier bleibt der Text
+                  gegliedert, gekuerzt wird nur die Laenge. */}
               <p className="mt-2 whitespace-pre-wrap text-sm text-muted/80">
-                {textExcerpt(job.description, 2000)}
+                {gegliederterAuszug(job.description, 2000)}
               </p>
             </details>
           )}

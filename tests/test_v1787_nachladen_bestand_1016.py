@@ -120,7 +120,9 @@ def test_ein_aufruf_ohne_argumente_meldet_die_stellen_ohne_beschreibung(db):
     assert erg["status"] == "vorschau"
     assert erg["umfang"] == "fehlend"
     assert erg["betroffen"] == 2, erg
-    assert erg["gefunden"] == {"ohne_text": 2, "gekappt": 1}
+    # v1.7.110 (#1047): dazu `flach` — "voll" ist ein 3.000-Zeichen-Text
+    # ohne jeden Zeilenumbruch.
+    assert erg["gefunden"] == {"ohne_text": 2, "gekappt": 1, "flach": 1}
 
 
 def test_ein_stummel_zaehlt_als_fehlend(db):
@@ -420,7 +422,10 @@ def test_der_lauf_geht_durch_dasselbe_nadeloehr_wie_der_einzelweg():
     from bewerbungs_assistent.tools import jobs
     quelle = inspect.getsource(jobs.register)
     i = quelle.index("def beschreibungen_nachladen_bestand")
-    block = quelle[i:i + 6000]
+    # v1.7.110 (#1047): bis zur naechsten Funktion statt eines festen
+    # Fensters — der Docstring fuer `flach` schob den Aufruf ueber 6000
+    # Zeichen hinaus, ohne dass er fehlte.
+    block = quelle[i:quelle.index("\n    def ", i + 10)]
     assert "nachladen.beschreibung_holen" in block
     assert "fetch_description_from_detail" not in block
     assert "befund.status" in block
