@@ -18,10 +18,19 @@ hatten zwei eigene Fassungen desselben Fehlers.
 
 Hier steht die Karte EINMAL: eine Karte ist ein Element mit der Klasse
 `job-card` selbst, nicht ein Element, dessen Klasse das Wort enthaelt.
+
+v1.7.108 (#1041 Nachtrag, B54): die Plattform setzt vor fast jeden Text
+HTML-Kommentare (`<!--t=g-->`, `<!--qv q:key=...-->`, `<!--/qv-->`). In
+BeautifulSoup ist ein Kommentar ebenfalls ein Textknoten, und die eigene
+Schleife nahm ihn mit: gemessen am 14.09.2026 trugen 20 von 20 Jobware- und
+16 von 16 ingenieur.de-Karten Reste in Titel, Firma und Ort. Die Fixtures aus
+v1.7.104 enthielten keine Kommentare — deshalb blieb der Fehler im Test
+unsichtbar. Den Bestand heilt `services/karten_heilung`.
 """
 from __future__ import annotations
 
 from bs4 import BeautifulSoup
+from bs4.element import NavigableString, PreformattedString
 
 #: Klasse der Karte selbst — nicht `[class*='job-card']`.
 KARTEN_KLASSE = "job-card"
@@ -32,13 +41,19 @@ def _versteckt(element) -> bool:
     return any(_VERSTECKT in k for k in (element.get("class") or []))
 
 
+def _ist_inhalt(knoten) -> bool:
+    """Ein Textknoten, der Inhalt ist — kein Kommentar, keine CDATA-,
+    Doctype- oder Verarbeitungsanweisung (alle `PreformattedString`)."""
+    return isinstance(knoten, NavigableString) and not isinstance(knoten, PreformattedString)
+
+
 def _sichtbarer_text(element) -> str:
-    """Text ohne die fuer Screenreader versteckten Teile."""
+    """Text ohne die fuer Screenreader versteckten Teile und ohne Kommentare."""
     if element is None:
         return ""
     teile = []
     for knoten in element.descendants:
-        if isinstance(knoten, str):
+        if _ist_inhalt(knoten):
             eltern = knoten.parent
             if eltern is not None and any(_versteckt(e) for e in [eltern, *eltern.parents]
                                           if getattr(e, "get", None)):
