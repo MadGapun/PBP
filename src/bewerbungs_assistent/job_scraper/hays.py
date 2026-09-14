@@ -8,6 +8,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from . import stelle_hash, detect_remote_level
+from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.hays")
 
@@ -71,7 +72,10 @@ def search_hays(params: dict) -> list:
                                 "location": location,
                                 "url": url,
                                 "source": "hays",
-                                "description": data.get("description", "")[:500],
+                                # #1048: bis v1.7.108 `[:500]` — der
+                                # Anforderungsteil am Ende fehlte in
+                                # jeder Stelle dieser Quelle.
+                                "description": fuer_speicher(data.get("description", "")),
                                 "employment_type": "festanstellung",
                                 "remote_level": detect_remote_level(data.get("description", "")),
                             }

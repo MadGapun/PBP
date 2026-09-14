@@ -254,3 +254,107 @@ def _ueber_detail_api(url: str, client) -> Befund:
     if code in STATUS_GEBLOCKT:
         return Befund(status=GEBLOCKT, http_status=code, quelle="detail_api")
     return Befund(status=LEBT_UNLESBAR, http_status=code, quelle="detail_api")
+
+
+def text_uebernehmen(db, job_hash: str, text: str,
+                     herkunft: str = "nachladen") -> dict:
+    """Schreibt einen nachgeladenen Anzeigentext — und was an ihm haengt.
+
+    v1.7.109 (#1048): Bis hierher schrieben vier Aufrufer den Text selbst
+    (MCP-Einzelweg, MCP-Mengenweg, Knopf im Dashboard, Auto-Nachzug), und
+    keiner bewertete danach neu. Der Mengenweg sagte es wenigstens
+    ("sollten neu bewertet werden"), die anderen drei nicht. Bei einer
+    Stelle der Quelle `hays`, deren Text von 500 auf 2.300 Zeichen waechst, stand
+    danach der volle Text neben einem Score, einem Gehalt und einem
+    Umfang aus den ersten 500 Zeichen — also genau das, was der Melder
+    als Folge beschreibt, nur eine Stufe spaeter.
+
+    Ein Weg statt vier, sonst bekommt der naechste Aufrufer die Regel
+    wieder nicht (#963).
+    """
+    db.update_job(job_hash, {"description": text})
+    # C23 (#687): erster brauchbarer Volltext -> unveraenderlicher
+    # Snapshot. Die 1.7-Linie hat keine Snapshot-Spalte; dort fehlt die
+    # Methode, und der Schritt entfaellt.
+    snapshot = getattr(db, "set_description_snapshot_if_empty", None)
+    if snapshot is not None:
+        snapshot(job_hash, text, herkunft)
+    return neu_auswerten(db, job_hash)
+
+
+def neu_auswerten(db, job_hash: str) -> dict:
+    """Gehalt, Umfang, Befristung und Score aus dem GESPEICHERTEN Text.
+
+    Ein laengerer Text bringt nur zusaetzliche Belege, deshalb wird
+    ergaenzt und nicht umgedeutet:
+
+    * **Gehalt** nur, wenn der Text jetzt eines belegt. Eine Schaetzung
+      wird dadurch ersetzt, ein vorhandener Wert ohne neuen Beleg nicht
+      geloescht — dieselbe Regel wie `gehaelter_neu_auswerten` (#1018).
+      Ein von Hand gesetztes Gehalt weist `save_salary_data` ab (#1026).
+    * **Umfang** nur, wenn noch keiner gespeichert ist; eine Angabe der
+      Quelle hat Vorrang vor dem Fliesstext (#1023), und ein gespeicherter
+      Wert, der sich selbst bestaetigt, war schon einmal der Fehler
+      (#1031).
+    * **Befristet** nur von nein auf ja.
+    * **Score** mit denselben Kriterien wie der Suchlauf (#987), ohne
+      Netzabfrage — ein Nachladen ist keine Neuberechnung des Bestands.
+    """
+    ergebnis: dict = {"gehalt": False, "merkmale": [], "score": None}
+    job = db.get_job(job_hash)
+    if not job:
+        return ergebnis
+    text = job.get("description") or ""
+    score_vorher = round(float(job.get("score") or 0), 1)
+
+    try:
+        from . import gehalt_extraktion
+        neu = gehalt_extraktion.extrahieren(text)
+        if neu.get("art"):
+            gleich = (job.get("salary_type") == neu["art"]
+                      and (job.get("salary_min") or 0) == (neu["min"] or 0)
+                      and (job.get("salary_max") or 0) == (neu["max"] or 0)
+                      and not job.get("salary_estimated"))
+            if not gleich and db.save_salary_data(
+                    job_hash, neu["min"], neu["max"], neu["art"],
+                    salary_estimated=0):
+                ergebnis["gehalt"] = True
+    except Exception as exc:  # pragma: no cover — nie den Text verlieren
+        logger.debug("Gehalt nach Nachladen (%s): %s", job_hash, exc)
+
+    try:
+        from . import stellenart
+        m = stellenart.merkmale(job)
+        spalten: dict = {}
+        umfang_alt = (job.get("arbeitsumfang") or "").strip().lower()
+        if (umfang_alt in ("", stellenart.UNBEKANNT)
+                and m["umfang"] and m["umfang"] != stellenart.UNBEKANNT):
+            spalten["arbeitsumfang"] = m["umfang"]
+        if m["befristet"] and not job.get("befristet"):
+            spalten["befristet"] = 1
+        if spalten:
+            ziel = db.resolve_job_hash(job_hash) or job_hash
+            conn = db.connect()
+            conn.execute(
+                f"UPDATE jobs SET {', '.join(f'{k}=?' for k in spalten)} "
+                "WHERE hash=?", (*spalten.values(), ziel))
+            conn.commit()
+            ergebnis["merkmale"] = sorted(spalten)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Merkmale nach Nachladen (%s): %s", job_hash, exc)
+
+    try:
+        from ..job_scraper import calculate_score
+        from . import scoring_kriterien
+        job = db.get_job(job_hash) or job
+        score_neu = round(float(calculate_score(
+            job, scoring_kriterien.fuer_scoring(db))), 1)
+        felder = {"score": score_neu}
+        if job.get("_fachscore") is not None:
+            felder["fachscore"] = job.get("_fachscore")
+            felder["rahmenscore"] = job.get("_rahmenscore")
+        db.update_job(job_hash, felder)
+        ergebnis["score"] = {"vorher": score_vorher, "nachher": score_neu}
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Score nach Nachladen (%s): %s", job_hash, exc)
+    return ergebnis

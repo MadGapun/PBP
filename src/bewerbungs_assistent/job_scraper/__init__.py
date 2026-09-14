@@ -2066,7 +2066,7 @@ def is_search_result_url(url: str) -> bool:
     return False
 
 
-def extract_jobposting_jsonld(html: str, max_chars: int = 2000) -> dict:
+def extract_jobposting_jsonld(html: str, max_chars: int | None = None) -> dict:
     """Extrahiert JobPosting-Daten aus JSON-LD-Script-Tags.
 
     v1.7.0-beta.52 (#624 Phase 3): aus fetch_description_from_detail
@@ -2102,6 +2102,14 @@ def extract_jobposting_jsonld(html: str, max_chars: int = 2000) -> dict:
                         text = BeautifulSoup(desc, "html.parser").get_text(
                             separator=" ", strip=True
                         )
+                        # #1048: die Vorgabe war 2000 — dieselbe Falle,
+                        # die #952 aus `fetch_description_from_detail`
+                        # entfernt hat. Der einzige Aufrufer im Paket gibt
+                        # die Notbremse mit; ein neuer ohne Argument haette
+                        # wieder still gekappt.
+                        if max_chars is None:
+                            from .textgrenzen import SPEICHER_MAX
+                            max_chars = SPEICHER_MAX
                         result["description"] = text[:max_chars]
                     return result
             except Exception:
@@ -3401,7 +3409,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # `beschreibung_unvollstaendig` haengt daran und bleibt — es sagt
     # etwas ueber die DATENLAGE, nicht ueber den Menschen.
     from .textgrenzen import ist_gekappt as _ist_gekappt
-    _text_gekappt = _ist_gekappt(desc)
+    # #1048: mit Quelle — `hays` kappte bei 500, nicht bei 2000.
+    _text_gekappt = _ist_gekappt(desc, job.get("source"))
 
     # #180: Warnung bei fehlender Beschreibung
     if len(desc.strip()) < 50:

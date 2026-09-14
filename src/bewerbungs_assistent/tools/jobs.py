@@ -3591,11 +3591,15 @@ def register(mcp, db, logger):
                 except Exception as exc:      # pragma: no cover
                     antwort["aussortieren_fehlgeschlagen"] = str(exc)[:200]
             return antwort
-        from ..job_scraper.textgrenzen import (ALTE_KAPPUNG, SPEICHER_MAX,
-                                               ist_gekappt)
+        from ..job_scraper.textgrenzen import SPEICHER_MAX, kappungs_grenze
         vorher = job.get("description") or ""
-        db.update_job(h, {"description": text})
-        antwort = {"status": "ok", "chars": len(text), "preview": text[:200]}
+        quelle = job.get("source")
+        # #1048: Text, Gehalt, Umfang und Score an
+        # EINER Stelle — vorher schrieb dieser Weg nur den Text, und der
+        # Score blieb der aus dem abgeschnittenen.
+        nachgezogen = nachladen.text_uebernehmen(db, h, text)
+        antwort = {"status": "ok", "chars": len(text), "preview": text[:200],
+                   "neu_ausgewertet": nachgezogen}
         # #952: Der Fehler war stumm — "status: ok" bei halbem Text.
         # Jetzt sagt die Antwort, wenn eine Grenze erreicht wurde.
         if len(text) >= SPEICHER_MAX:
@@ -3603,12 +3607,12 @@ def register(mcp, db, logger):
             antwort["hinweis"] = (
                 f"Der Text erreicht die Speicher-Notbremse von "
                 f"{SPEICHER_MAX} Zeichen und koennte abgeschnitten sein.")
-        elif ist_gekappt(text):
+        elif kappungs_grenze(text, quelle):
             antwort["grenze_erreicht"] = True
             antwort["hinweis"] = (
-                f"Der geholte Text ist exakt {ALTE_KAPPUNG} Zeichen lang — "
-                "die Quelle selbst kappt hier moeglicherweise.")
-        if ist_gekappt(vorher) and len(text) > len(vorher):
+                f"Der geholte Text ist exakt {kappungs_grenze(text, quelle)} "
+                "Zeichen lang — die Quelle selbst kappt hier moeglicherweise.")
+        if kappungs_grenze(vorher, quelle) and len(text) > len(vorher):
             antwort["gekappten_text_geheilt"] = True
             antwort["hinweis"] = (
                 f"Vorher {len(vorher)} Zeichen (abgeschnitten), jetzt "
@@ -3688,7 +3692,10 @@ def register(mcp, db, logger):
         # unter 50), eine Dublettenpruefung waere also Zierrat — der
         # Test haelt das fest, damit es beim naechsten Schwellenwert
         # auffaellt.
-        gekappt = [j for j in aktive if ist_gekappt(j.get("description"))]
+        # #1048: mit Quelle — `hays` kappte bei 500 Zeichen, und diese
+        # Stellen fielen durch beide Raster.
+        gekappt = [j for j in aktive
+                   if ist_gekappt(j.get("description"), j.get("source"))]
         auswahl = {"fehlend": fehlend, "gekappt": gekappt,
                    "beide": fehlend + gekappt}[gewaehlt]
 
@@ -3759,16 +3766,17 @@ def register(mcp, db, logger):
                 alt_laenge = len((job.get("description") or "").strip())
                 if len(text) <= alt_laenge:
                     continue
-                db.update_job(job.get("hash"), {"description": text})
-                # Auf der 1.8-Linie folgt hier
-                # `set_description_snapshot_if_empty` (C23/#687) — den
-                # unveraenderlichen Snapshot gibt es in der 1.7-Linie
-                # nicht, und der Einzelweg ruft ihn hier ebenfalls
-                # nicht. Ein Port, der ihn mitbringt, faellt beim
-                # ersten Lauf mit einem AttributeError um.
+                # #1048: Text, Gehalt, Umfang und Score an EINER
+                # Stelle. Bis v1.7.108 stand hier nur der Text, und die
+                # Antwort bat darum, danach den ganzen Bestand neu zu
+                # berechnen — der Score blieb bis dahin der aus dem
+                # abgeschnittenen Text.
+                nachgezogen = nachladen.text_uebernehmen(
+                    db, job.get("hash"), text)
                 gewachsen.append({
                     "hash": (job.get("hash") or "")[-8:],
                     "vorher": alt_laenge, "nachher": len(text),
+                    "score": nachgezogen.get("score"),
                 })
 
         geheilt = len(gewachsen)
@@ -3784,9 +3792,12 @@ def register(mcp, db, logger):
             "verbleibend": max(0, len(auswahl) - geheilt - aussortiert),
             "gewachsen": gewachsen[:10],
             "hinweis": (
-                "Nachgeladene Stellen sollten neu bewertet werden — der "
-                "Anforderungsteil war bisher nicht Teil des Scores: "
-                "scores_neu_berechnen()."
+                # #1048: bis v1.7.108 stand hier die Bitte, danach den
+                # ganzen Bestand neu zu berechnen. Jetzt bewertet
+                # `text_uebernehmen` jede geheilte Stelle selbst.
+                "Die nachgeladenen Stellen sind neu ausgewertet — Gehalt, "
+                "Umfang und Score beruhen jetzt auf dem vollen Text; "
+                "`gewachsen` nennt je Stelle den Score vorher und nachher."
                 if geheilt else
                 # Der Klartext je Befund steht in `befunde_klartext` und
                 # kommt aus `services/nachladen` — ihn hier zu
@@ -3809,8 +3820,11 @@ def register(mcp, db, logger):
                 "gekappt": ("fehlend", zaehlung["ohne_text"])}.get(umfang)
         satz = {
             "fehlend": "Jede aktive Stelle traegt einen brauchbaren Text.",
-            "gekappt": ("Kein aktiver Anzeigentext ist exakt 2000 Zeichen "
-                        "lang — es sieht nichts nach der alten Kappung aus."),
+            # #1048: nicht mehr nur 2000 — `hays` kappte bei 500.
+            "gekappt": ("Kein aktiver Anzeigentext trifft eine bekannte "
+                        "Kappungsgrenze (2000 Zeichen, bei der Quelle hays "
+                        "500) — es "
+                        "sieht nichts nach einer Kappung aus."),
             "beide": ("Weder fehlende noch abgeschnittene Texte im aktiven "
                       "Bestand."),
         }[umfang]
@@ -3819,9 +3833,10 @@ def register(mcp, db, logger):
                      f"umfang='{rest[0]}' oder umfang='beide'.")
         return satz
 
-    def _ist_gekappt(text) -> bool:
+    def _ist_gekappt(text, quelle=None) -> bool:
         from ..job_scraper.textgrenzen import ist_gekappt
-        return ist_gekappt(text)
+        # #1048: die Quelle entscheidet mit — `hays` kappte bei 500.
+        return ist_gekappt(text, quelle)
 
     @mcp.tool()
     def stellen_qualitaet_pruefen(
@@ -3947,7 +3962,7 @@ def register(mcp, db, logger):
                 # tadellos, obwohl der Anforderungsteil fehlte — und ohne
                 # diese Kategorie war die Tragweite nur per Direkt-SQL
                 # messbar, was nach #514 unterbleiben soll.
-                elif _ist_gekappt(desc):
+                elif _ist_gekappt(desc, source):
                     kategorie.append("beschreibung_gekappt")
                     detail["beschreibung_zeichen"] = len(desc)
 
@@ -4014,7 +4029,8 @@ def register(mcp, db, logger):
         # geprueften Stichprobe — sonst bleibt die Tragweite unklar.
         try:
             _alle = db.get_active_jobs() or []
-            _gekappt = sum(1 for j in _alle if _ist_gekappt(j.get("description")))
+            _gekappt = sum(1 for j in _alle
+                           if _ist_gekappt(j.get("description"), j.get("source")))
             if _gekappt:
                 _quote = round(100.0 * _gekappt / max(1, len(_alle)), 1)
                 result["beschreibung_gekappt_gesamt"] = {
@@ -4024,7 +4040,8 @@ def register(mcp, db, logger):
                     "hinweis": (
                         f"{_gekappt} von {len(_alle)} aktiven Stellen "
                         f"({_quote} %) tragen einen abgeschnittenen "
-                        "Anzeigentext (Altbestand vor v1.7.23). Der "
+                        "Anzeigentext (Altbestand vor v1.7.23, bei der "
+                        "Quelle hays bis v1.7.108). Der "
                         "Anforderungsteil steht meist am Ende und fehlt "
                         "dort. Nachladen mit "
                         "beschreibungen_nachladen_bestand()."),

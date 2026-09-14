@@ -4958,12 +4958,15 @@ async def api_refetch_description(job_hash: str):
         else:
             _bump_refetch_failure(job_hash)
         return JSONResponse(antwort, status_code=404)
-    _db.update_job(job_hash, {"description": text})
+    # #1048: Text, Gehalt, Umfang und Score an EINER
+    # Stelle — der Knopf schrieb bisher nur den Text.
+    nachgezogen = nachladen.text_uebernehmen(_db, job_hash, text)
     _reset_refetch_failure(job_hash)
     return {
         "status": "ok",
         "chars": len(text),
         "preview": text[:200],
+        "neu_ausgewertet": nachgezogen,
     }
 
 
@@ -8639,7 +8642,9 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
                 except Exception:
                     text = ""
                 if text and len(text) >= 50:
-                    _db.update_job(h, {"description": text})
+                    # #1048: Text UND was an ihm haengt (Snapshot, Gehalt,
+                    # Umfang, Score) — bisher nur der Text.
+                    _nachladen.text_uebernehmen(_db, h, text)
                     _reset_refetch_failure(h)
                     successes += 1
                 else:
