@@ -47,6 +47,14 @@ AUSGABE_MAX = 2000
 # praktisch nicht vor.
 ALTE_KAPPUNG = 2000
 
+# v1.7.109 (#1048): Kappungen EINZELNER Quellen, die #952 nicht erfasst
+# hat. Die Quelle `hays` schnitt die Beschreibung bei 500 Zeichen ab —
+# gemessen an einer Bestandskopie 48 von 48 Stellen exakt 500, live 8 von 8
+# Anzeigen zwischen 1.527 und 3.311 Zeichen lang. Die Grenze gilt nur fuer
+# ihre Quelle: 500 Zeichen sind bei jeder anderen Quelle eine gewoehnliche
+# kurze Anzeige, und sie als gekappt zu fuehren waere ein Fehlalarm (#929).
+QUELLEN_KAPPUNG = {"hays": 500}
+
 
 def fuer_speicher(text) -> str:
     """Anzeigentext fuer die Ablage — vollstaendig, nur mit Notbremse."""
@@ -62,26 +70,46 @@ def fuer_ausgabe(text, grenze: int = AUSGABE_MAX) -> str:
     return str(text)[:grenze]
 
 
-def ist_gekappt(text) -> bool:
-    """True, wenn ein Text die historische Grenze exakt trifft.
+def kappungs_grenze(text, quelle=None) -> int | None:
+    """Die Grenze, an der ein Text abgeschnitten wurde — sonst None.
+
+    Die allgemeine Grenze aus #952 gilt fuer jede Quelle, eine Grenze aus
+    `QUELLEN_KAPPUNG` nur fuer ihre eigene (#1048). Ohne Quelle wird nur
+    die allgemeine geprueft — genau das Verhalten bis v1.7.108.
+    """
+    if not text:
+        return None
+    laenge = len(str(text))
+    if laenge == ALTE_KAPPUNG:
+        return ALTE_KAPPUNG
+    grenze = QUELLEN_KAPPUNG.get(str(quelle or "").strip().lower())
+    if grenze and laenge == grenze:
+        return grenze
+    return None
+
+
+def ist_gekappt(text, quelle=None) -> bool:
+    """True, wenn ein Text eine bekannte Kappungsgrenze exakt trifft.
 
     Bewusst als Berechnung beim Lesen statt als Spalte: der Bestand
     traegt kein Kennzeichen, und eine Migration koennte es nicht
-    nachtraeglich wissen. Die Laenge ist der Beleg.
+    nachtraeglich wissen. Die Laenge ist der Beleg — bei einer
+    quellen-eigenen Grenze zusammen mit der Quelle.
     """
-    if not text:
-        return False
-    return len(str(text)) == ALTE_KAPPUNG
+    return kappungs_grenze(text, quelle) is not None
 
 
-def kappungs_hinweis(text) -> str:
+def kappungs_hinweis(text, quelle=None) -> str:
     """Erklaerender Satz fuer Tool-Antworten, sonst leer."""
-    if not ist_gekappt(text):
+    grenze = kappungs_grenze(text, quelle)
+    if grenze is None:
         return ""
+    herkunft = ("Altbestand vor v1.7.23" if grenze == ALTE_KAPPUNG
+                else "die Quelle kappte bis v1.7.108")
     return (
-        f"Der gespeicherte Anzeigentext ist exakt {ALTE_KAPPUNG} Zeichen "
-        "lang und damit sehr wahrscheinlich abgeschnitten (Altbestand vor "
-        "v1.7.23). Der Anforderungsteil steht meist am Ende und fehlt "
+        f"Der gespeicherte Anzeigentext ist exakt {grenze} Zeichen "
+        f"lang und damit sehr wahrscheinlich abgeschnitten ({herkunft}). "
+        "Der Anforderungsteil steht meist am Ende und fehlt "
         "dann. Mit stellenbeschreibung_nachladen() laesst er sich "
         "vollstaendig holen."
     )
