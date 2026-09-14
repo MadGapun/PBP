@@ -105,6 +105,87 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.106] - 2026-09-14 — Zwei tote Quellen liefern wieder
+
+Nachmessung der sieben als defekt gefuehrten Quellen (Nutzerauftrag, B53).
+Was sich abgreifen laesst, kommt zurueck; was nicht geht, bleibt
+ausgegraut — mit dem Befund vom 14.09.2026.
+
+### Fixed
+
+- **GULP liefert wieder.** Die Projektsuche der Seite holt ihre Treffer
+  ueber eine offene Such-Schnittstelle, ohne Anmeldung und ohne Browser.
+  Der Adapter fragte drei geratene Adressen ab (alle 404) und lieferte
+  seit April nichts. Nachgemessen: 100 Projekte bei zwei Suchbegriffen,
+  97 mit Ort, 99 mit Anzeigentext samt Anforderungen, alle mit Link und
+  Datum. Bei Vermittlungsprojekten ohne genannten Auftraggeber steht
+  "Nicht angegeben" statt "GULP" — sonst galten alle als dieselbe Firma.
+- **Workable liefert wieder.** Die oeffentliche Stellensuche hat eine
+  JSON-Schnittstelle mit vollem Anzeigentext, Ort und Arbeitsmodell. Der
+  Adapter fragte je Firma die Einbettungs-Schnittstelle ab, und die
+  antwortet leer oder mit 404. Nachgemessen: 61 Stellen bei zwei
+  Suchbegriffen. Eingetragene `workable_firmen` wirken weiter, als
+  zusaetzliche Suchbegriffe.
+- **Beide Quellen haben wieder eine Probe** im Health-Check, und zwar auf
+  denselben Endpunkt, den die Suche nutzt.
+
+### Changed
+
+- **Die fuenf weiterhin defekten Quellen tragen den neuen Befund.**
+  Heise Jobs, freelance.de und Praktikum.de liefern Stellenkarten im HTML
+  — Leser dafuer sind geplant, bis dahin bleiben sie ausgegraut.
+  meinestadt.de blockt automatische Abrufe (403), laedt im echten Browser
+  aber normal: der Weg ueber die Chrome-Extension funktioniert.
+  Workday-DAX: die hinterlegten Karriereseiten sind veraltet, die
+  Schnittstelle antwortet mit 422.
+
+### Bekannt
+
+- Gleichnamige GULP-Projekte teilen sich weiter eine Kennung (100
+  Projekte, 99 Kennungen) — die Kennung bleibt titelbasiert, bis B50 den
+  Wechsel ohne Schaden am Bestand erlaubt.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.106.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.106.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.105] - 2026-09-14 — Was ausgewaehlt ist, steht auch so da
 
 Ein Fehler, ein beim Nachbauen gefundener zweiter und drei Wuensche aus
