@@ -33,6 +33,74 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.111] - 2026-09-14 — Was aus der vorhandenen Stelle geworden ist
+
+Melder-Bericht #1046: die Meldung "Diese Stelle existiert bereits" sagte
+nicht, ob die vorhandene Stelle aktiv, aussortiert oder beworben ist.
+
+### Fixed
+
+- **Die Duplikat-Meldung nennt den Zustand der vorhandenen Stelle.**
+  `stelle_manuell_anlegen` und `linkedin_treffer_uebernehmen` meldeten nur
+  die Kennung. Im belegten Lauf kamen zwei von sieben Stellen so zurueck,
+  und daraufhin wurde vorgeschlagen, sie auszusortieren — beide waren
+  laengst aussortiert. Jetzt steht in der Antwort ein Block
+  `vorhandene_stelle`:
+  - **aktiv** — mit Score; naechster Schritt `stelle_bewerten`.
+  - **aussortiert** — mit Grund, Zeitpunkt und Notiz; zu tun ist nichts,
+    zurueckholen ginge mit `stelle_reaktivieren`.
+  - **beworben** — mit Bewerbungs-ID und Status, als Warnung gegen eine
+    Doppelbewerbung. Eine Bewerbung schlaegt dabei "aussortiert".
+- **Gilt fuer alle drei Duplikat-Stufen:** gleiche Kennung, laufende
+  Bewerbung mit gleichem Titel und gleiche aktive Stelle aus einer anderen
+  Quelle. Die bisherigen Warnungsnamen bleiben; neu ist das Feld
+  `duplikat` mit `duplikat_aktiv`, `duplikat_aussortiert` oder
+  `duplikat_beworben`.
+- **Der LinkedIn-Trichter unterscheidet die Faelle.** Statt "abgewiesen"
+  stehen dort die drei Zustaende, und jeder uebersprungene Eintrag traegt
+  seinen Zustandsblock.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.111.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.111.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.110] - 2026-09-14 — Absaetze, Listen und Ueberschriften bleiben
 
 Melder-Bericht #1047: die Beschreibung vieler Stellen stand im Popup als
