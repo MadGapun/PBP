@@ -84,6 +84,22 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
     # markiert. Eine Probe auf eine defekte Quelle meldet im besten Fall
     # HTTP 200 und damit faelschlich "gruen" (#808-Logik); der Guard-Test
     # aus #747 haelt die beiden Listen deshalb auseinander.
+    # v1.7.106 (B53, gemessen 14.09.2026): GULP und Workable liefern
+    # wieder, jeweils ueber eine offene Such-Schnittstelle. Probe ==
+    # Adapter-Endpunkt (#748) — sonst prueft der Health-Check etwas
+    # anderes als die Suche.
+    "gulp": (
+        "POST",
+        "https://www.gulp.de/gulp2/rest/internal/projects/search",
+        "json",
+        {"query": "test", "page": 0},
+    ),
+    "workable": (
+        "GET",
+        "https://jobs.workable.com/api/v1/jobs?query=test&location=Germany",
+        "json",
+        None,
+    ),
     # === RSS / XML ===
     "berufsstart": (
         "GET",

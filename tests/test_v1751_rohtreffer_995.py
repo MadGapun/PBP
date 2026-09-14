@@ -48,7 +48,9 @@ FILTERNDE_ADAPTER = (
     # mit Zeilenbegrenzung sie abschnitt. Gefunden hat sie der Test
     # unten, der die Adapter selbst abzaehlt statt einer Liste zu
     # glauben — genau dafuer steht er da.
-    "workable", "workday_dax",
+    "workday_dax",
+    # workable stand hier bis v1.7.105. Seit B53 sucht die Quelle selbst
+    # nach dem Begriff; der Adapter filtert nicht mehr nach.
 )
 
 
