@@ -731,7 +731,8 @@ Du brauchst kein Computerwissen. Ich fuehre dich durch alles Schritt für Schrit
     def jobsuche_workflow() -> str:
         """Geführter Workflow: Von Suchkriterien bis zur Bewerbung."""
         criteria = db.get_search_criteria()
-        active_sources = db.get_profile_setting("active_sources", [])
+        from .services.search_service import aktive_quellen
+        active_sources = aktive_quellen(db) or []  # #1039: ohne defekte
         active_jobs = len(db.get_active_jobs())
 
         last_search = db.get_profile_setting("last_search_at", "")

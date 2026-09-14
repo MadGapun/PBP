@@ -195,8 +195,9 @@ def _get_search_status_payload() -> dict:
 def _get_source_summary() -> dict:
     """Return active vs. total configured job sources."""
     from .job_scraper import SOURCE_REGISTRY
+    from .services.search_service import aktive_quellen
 
-    return summarize_active_sources(_db.get_profile_setting("active_sources", []) or [], SOURCE_REGISTRY.keys())
+    return summarize_active_sources(aktive_quellen(_db, SOURCE_REGISTRY) or [], SOURCE_REGISTRY.keys())
 
 
 def _get_follow_up_summary() -> dict:
@@ -5988,7 +5989,9 @@ async def api_analyze_filename(request: Request):
 async def api_sources():
     """List all available job sources with active status and health (#499)."""
     from .job_scraper import SOURCE_REGISTRY
-    active = _db.get_profile_setting("active_sources", None)
+    from .services.search_service import aktive_quellen
+    # #1039: defekte Quellen fliegen auch aus der GESPEICHERTEN Auswahl.
+    active = aktive_quellen(_db, SOURCE_REGISTRY)
     if active is None and _db.get_active_profile_id():
         active = get_default_active_source_keys(SOURCE_REGISTRY)
         _db.set_profile_setting("active_sources", active)
@@ -6047,11 +6050,20 @@ async def api_sources():
 
 @app.post("/api/sources")
 async def api_set_sources(request: Request):
-    """Set active job sources."""
+    """Set active job sources.
+
+    #1039: eine defekte Quelle nimmt die Auswahl nicht an — auch nicht ueber
+    den Knopf "empfohlene Quellen aktivieren". Abgewiesene stehen in
+    `abgelehnt_defekt`, damit der Aufrufer es sagen kann.
+    """
+    from .job_scraper import SOURCE_REGISTRY
+    from .services.search_service import ohne_defekte
     data = await request.json()
-    active = data.get("active_sources", [])
+    gewuenscht = list(data.get("active_sources", []) or [])
+    active = ohne_defekte(gewuenscht, SOURCE_REGISTRY)
     _db.set_profile_setting("active_sources", active)
-    return {"status": "ok", "active_sources": active}
+    abgelehnt = [key for key in gewuenscht if key not in active]
+    return {"status": "ok", "active_sources": active, "abgelehnt_defekt": abgelehnt}
 
 
 @app.post("/api/sources/{source_key}/login")
@@ -6490,7 +6502,8 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
     quellen = payload.get("quellen") or []
 
     if not quellen:
-        quellen = _db.get_profile_setting("active_sources", []) or []
+        from .services.search_service import aktive_quellen
+        quellen = aktive_quellen(_db) or []
     if not quellen:
         return JSONResponse(
             {

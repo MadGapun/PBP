@@ -158,9 +158,12 @@ def test_recommend_sources_returns_list():
     assert "recommended" in out
     assert isinstance(out["recommended"], list)
     assert len(out["recommended"]) >= 3
-    # Service-Cluster MUSS bundesagentur + meinestadt enthalten
+    # Service-Cluster MUSS bundesagentur enthalten. meinestadt steht weiter
+    # in der Cluster-Liste, ist aber als defekt markiert und wird seit
+    # v1.7.105 (#1039) nicht mehr angeboten — sondern benannt.
     assert "bundesagentur" in out["recommended"]
-    assert "meinestadt" in out["recommended"]
+    assert "meinestadt" not in out["recommended"]
+    assert "meinestadt" in out["ausgelassen_defekt"]
 
 
 def test_recommend_sources_for_tech_senior_includes_remote_cluster():

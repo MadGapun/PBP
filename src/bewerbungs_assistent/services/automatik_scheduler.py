@@ -156,7 +156,8 @@ def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
         from ..tools.jobs import _MANUAL_SOURCES
     except Exception:  # pragma: no cover
         _MANUAL_SOURCES = {}
-    quellen = db.get_profile_setting("active_sources", []) or []
+    from .search_service import aktive_quellen
+    quellen = aktive_quellen(db) or []  # #1039: ohne defekte Quellen
     auto = [q for q in quellen if q not in _MANUAL_SOURCES]
     if not auto:
         return {"status": "keine_internen_quellen"}

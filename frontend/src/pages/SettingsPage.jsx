@@ -559,7 +559,7 @@ function TelemetrySharingCard({ pushToast }) {
 // Zeigt den erkannten Profil-Typ + die empfohlenen Quellen + einen
 // "Empfohlene Quellen aktivieren"-Button. User-Vorgabe: PBP fuer alle
 // Profil-Typen, nicht nur High-Performer.
-function RecommendedSourcesCard({ sources, onToggle, pushToast }) {
+function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -587,26 +587,31 @@ function RecommendedSourcesCard({ sources, onToggle, pushToast }) {
       .filter((s) => s.active)
       .map((s) => s.key)
   );
-  const missing = recommended.filter((id) => !enabledIds.has(id));
+  // #1039: eine defekte Quelle wird nicht angeboten — der Server laesst sie
+  // ohnehin weg, das hier ist die zweite Linie.
+  const missing = recommended.filter(
+    (id) => !enabledIds.has(id) && sourceByKey.has(id) && !sourceByKey.get(id).defekt
+  );
+  const ausgelassen = data.ausgelassen_defekt || [];
 
   async function activateAll() {
     setBusy(true);
-    let activated = 0;
-    for (const id of missing) {
-      const src = sourceByKey.get(id);
-      if (!src) continue;
-      try {
-        await onToggle(src, true);
-        activated += 1;
-      } catch {}
+    // #1039: vorher lief hier je Quelle ein eigener Speichervorgang, der
+    // jedes Mal von DERSELBEN alten Auswahl ausging — gespeichert blieb nur
+    // die zuletzt aktivierte. Jetzt ein einziger Schritt fuer alle.
+    try {
+      const activated = await onActivateMany(missing);
+      pushToast(
+        activated > 0
+          ? `${activated} Quelle${activated === 1 ? "" : "n"} aktiviert.`
+          : "Bereits alles aktiv.",
+        "success"
+      );
+    } catch (error) {
+      pushToast(`Quellen konnten nicht aktiviert werden: ${error.message}`, "danger");
+    } finally {
+      setBusy(false);
     }
-    pushToast(
-      activated > 0
-        ? `${activated} Quelle${activated === 1 ? "" : "n"} aktiviert.`
-        : "Bereits alles aktiv.",
-      "success"
-    );
-    setBusy(false);
   }
 
   return (
@@ -670,6 +675,11 @@ function RecommendedSourcesCard({ sources, onToggle, pushToast }) {
                 );
               })}
             </div>
+            {ausgelassen.length > 0 && (
+              <p className="mt-2 text-[11px] text-muted/70">
+                Nicht angeboten, weil derzeit defekt: {ausgelassen.join(", ")}
+              </p>
+            )}
           </div>
 
           {missing.length > 0 && (
@@ -3313,6 +3323,33 @@ export default function SettingsPage() {
     }
   }
 
+  // #1039: mehrere Quellen in EINEM Speichervorgang aktivieren. Liefert die
+  // Zahl der neu aktivierten; wirft bei einem Fehler (Auswahl bleibt dann).
+  async function activateSources(keys) {
+    const wanted = new Set(keys);
+    const previousSources = sources;
+    const neu = sources.filter((item) => wanted.has(item.key) && !item.active && !item.defekt);
+    if (neu.length === 0) return 0;
+    const neuKeys = new Set(neu.map((item) => item.key));
+    const nextSources = sources.map((item) =>
+      neuKeys.has(item.key) ? { ...item, active: true } : item
+    );
+    startTransition(() => setSources(nextSources));
+    try {
+      await postJson("/api/sources", {
+        active_sources: nextSources.filter((item) => item.active).map((item) => item.key),
+      });
+      await refreshChrome({ quiet: true });
+    } catch (error) {
+      startTransition(() => setSources(previousSources));
+      throw error;
+    }
+    for (const item of neu) {
+      if (item.login_erforderlich) await startSourceLogin(item);
+    }
+    return neu.length;
+  }
+
   // v1.6.6 (#540): Bericht-Einstellungen speichern
   async function saveReportSettings(next) {
     setReportSaving(true);
@@ -3577,7 +3614,7 @@ export default function SettingsPage() {
             {/* v1.7.0-beta.36 (#590 Aufgabe B): Profil-basierte Quellen-Empfehlung */}
             <RecommendedSourcesCard
               sources={sources}
-              onToggle={toggleSource}
+              onActivateMany={activateSources}
               pushToast={pushToast}
             />
 
@@ -3588,6 +3625,7 @@ export default function SettingsPage() {
                 loginJobs={loginJobs}
                 onToggle={toggleSource}
                 onStartLogin={startSourceLogin}
+                filterbar
               />
             </Card>
 

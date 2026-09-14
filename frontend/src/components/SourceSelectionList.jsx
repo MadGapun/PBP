@@ -1,3 +1,4 @@
+import { Fragment, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
 
 import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
@@ -106,12 +107,46 @@ function speedBadge(geschwindigkeit) {
   return null;
 }
 
+// #1039: Ansichten der Quellenliste. "alle" heisst alle NUTZBAREN — die
+// defekten haben eine eigene Ansicht, sonst verschwinden sie nicht aus dem
+// Blick, sondern nur aus der Zaehlung.
+const ANSICHTEN = [
+  ["alle", "Alle"],
+  ["aktiv", "Aktiv"],
+  ["inaktiv", "Inaktiv"],
+];
+
+export function quellenAnsicht(sources, ansicht) {
+  const sortiert = [...(sources || [])].sort((a, b) =>
+    String(a.name || a.key).localeCompare(String(b.name || b.key), "de", { sensitivity: "base" })
+  );
+  const nutzbar = sortiert.filter((s) => !s.defekt);
+  const defekt = sortiert.filter((s) => s.defekt);
+  const anzahl = {
+    alle: nutzbar.length,
+    aktiv: nutzbar.filter((s) => s.active).length,
+    inaktiv: nutzbar.filter((s) => !s.active).length,
+    defekt: defekt.length,
+  };
+  const sichtbar =
+    ansicht === "defekt" ? defekt
+      : ansicht === "aktiv" ? nutzbar.filter((s) => s.active)
+        : ansicht === "inaktiv" ? nutzbar.filter((s) => !s.active)
+          : ansicht === "alle" ? nutzbar
+            : sortiert;
+  return { sichtbar, anzahl };
+}
+
 export default function SourceSelectionList({
   sources,
   loginJobs = {},
   onToggle,
   onStartLogin,
+  filterbar = false,
 }) {
+  const [ansicht, setAnsicht] = useState("alle");
+  const { sichtbar, anzahl } = quellenAnsicht(sources, filterbar ? ansicht : "sortiert");
+
   return (
     <div className="grid gap-3">
       {/* #509: Erweiterter Tipp-Text — vier Wege bei Quell-Problemen */}
@@ -156,7 +191,43 @@ export default function SourceSelectionList({
         </div>
       </details>
 
-      {sources.map((source) => {
+      {filterbar ? (
+        <div className="flex flex-wrap items-center justify-between gap-2" data-testid="quellen-filter">
+          <div role="group" aria-label="Quellen filtern" className="flex flex-wrap items-center gap-1 text-xs">
+            {ANSICHTEN.map(([id, label], index) => (
+              <Fragment key={id}>
+                {index > 0 ? <span aria-hidden="true" className="text-muted/40">·</span> : null}
+                <button
+                  type="button"
+                  aria-pressed={ansicht === id}
+                  onClick={() => setAnsicht(id)}
+                  className={`rounded-lg px-2.5 py-1 font-medium transition-colors ${
+                    ansicht === id ? "bg-sky/15 text-sky" : "text-muted hover:bg-white/5 hover:text-ink"
+                  }`}
+                >
+                  {label} ({anzahl[id]})
+                </button>
+              </Fragment>
+            ))}
+          </div>
+          <button
+            type="button"
+            aria-pressed={ansicht === "defekt"}
+            onClick={() => setAnsicht(ansicht === "defekt" ? "alle" : "defekt")}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+              ansicht === "defekt" ? "bg-coral/15 text-coral" : "text-muted hover:bg-white/5 hover:text-ink"
+            }`}
+          >
+            <Ban size={11} />
+            Defekte Quellen ({anzahl.defekt})
+          </button>
+        </div>
+      ) : null}
+      {filterbar && sichtbar.length === 0 ? (
+        <p className="text-xs text-muted">Keine Quelle in dieser Ansicht.</p>
+      ) : null}
+
+      {sichtbar.map((source) => {
         const loginJob = loginJobs[source.key];
         const loginRunning = loginJob?.status === "running";
         const loginReady = loginJob?.status === "fertig";
@@ -180,19 +251,25 @@ export default function SourceSelectionList({
                       Defekt
                     </Badge>
                   ) : (
-                    /* v1.7.17 (#906): Browser-Quellen laufen NIE von
-                       selbst — "Aktiv" sah aus wie jede andere Quelle.
-                       Ehrlicher Zustand: "Wartet auf dich". */
+                    /* #1039: das erste Etikett folgt immer dem Haken.
+                       Vorher stand "Aktiv" fuer zwei Dinge, und "Manuell"
+                       erschien unabhaengig davon, ob die Quelle angehakt
+                       ist. Die Besonderheiten stehen jetzt daneben. */
                     <Badge tone={source.active ? "success" : "neutral"}>
-                      {source.veraltet
-                        ? "Manuell"
-                        : source.active
-                          ? (String(source.zugriffsart || "").startsWith("browser")
-                              ? "Wartet auf dich"
-                              : "Aktiv")
-                          : "Inaktiv"}
+                      {source.active ? "Aktiv" : "Inaktiv"}
                     </Badge>
                   )}
+                  {/* v1.7.17 (#906): Browser-Quellen laufen NIE von selbst. */}
+                  {!isDefekt && source.active && String(source.zugriffsart || "").startsWith("browser") ? (
+                    <Badge tone="sky" title="Laeuft nicht von selbst, sondern ueber die Chrome-Extension in deinem Browser">
+                      Wartet auf dich
+                    </Badge>
+                  ) : null}
+                  {!isDefekt && source.veraltet ? (
+                    <Badge tone="neutral" title="Keine automatische Suche mehr, ueber Chrome weiter nutzbar">
+                      Manuell
+                    </Badge>
+                  ) : null}
                   {speedBadge(source.geschwindigkeit)}
                   {healthBadge(source.health)}
                   {source.beta ? (
