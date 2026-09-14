@@ -105,6 +105,81 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.108] - 2026-09-14 — Kommentare sind kein Text
+
+Nachtrag zu #1041 nach dem Update auf v1.7.107: bei Jobware und ingenieur.de
+standen wieder falsche Titel, Firmen und Orte in der Liste, und die
+Korrektur des Bestands aus v1.7.104 griff nicht.
+
+### Fixed
+
+- **Titel, Firma und Ort ohne Seitenkommentare.** Der gemeinsame
+  Kartenleser aus v1.7.104 nahm die HTML-Kommentare der Seiten als Text mit:
+  vor dem Titel stand eine Kennung wie `t=3n`, im Ort standen interne
+  Markierungen. Gemessen am 14.09.2026: 20 von 20 Jobware- und 16 von 16
+  ingenieur.de-Karten waren betroffen, in allen drei Feldern, und keine
+  Stelle hatte eine Entfernung. Der Leser laesst Kommentare jetzt aus.
+- **Der Bestand wird geheilt, und der Uebergang aus v1.7.104 greift.** Die
+  Kennung einer Stelle entstand aus dem Titel samt Kommentar-Rest. Ein
+  sauberer Neufund haette eine andere Kennung bekommen und waere ueber die
+  gleiche Adresse als `duplikat` des verfaelschten Eintrags aussortiert
+  worden, waehrend der alte Eintrag aktiv blieb. Vor dem Speichern eines
+  Suchlaufs stellt PBP die betroffenen Stellen jetzt richtig: die Reste
+  verschwinden (ebenso das alte Format `Job"<Titel>"ansehen` und
+  `inBerlin`), die Kennung wird richtiggestellt, eine Doppelzeile wird in
+  die bestehende Stelle ueberfuehrt, und Bewerbungen, Fundstellen, Recherche
+  und Kontakte wandern mit. Entfernung und Score werden nachgezogen.
+  Auf der Kopie eines echten Bestands: 4 Jobware-Stellen geheilt, davon 2
+  auf die richtige Kennung umgezogen und 1 mit ihrer Doppelzeile
+  zusammengefuehrt; ein zweiter Lauf fand nichts mehr.
+
+### Bekannt
+
+- Die Heilung laeuft beim naechsten Suchlauf. Eine Stelle ohne Ortsangabe
+  bekommt keine Entfernung.
+- Offen bleibt die Region bei Jobware und ingenieur.de (#1041 Punkt 4).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.108.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.108.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.107] - 2026-09-14 — Zwei Kartenleser, und ein Befund berichtigt
 
 Zweiter Schritt der Nachmessung (B53): freelance.de und Praktikum.de lassen
