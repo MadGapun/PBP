@@ -105,6 +105,93 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.107] - 2026-09-14 — Zwei Kartenleser, und ein Befund berichtigt
+
+Zweiter Schritt der Nachmessung (B53): freelance.de und Praktikum.de lassen
+sich ohne Browser zuverlaessig lesen und liefern wieder. Heise Jobs nicht —
+und der Befund dazu aus v1.7.106 war falsch.
+
+### Fixed
+
+- **freelance.de liefert wieder.** Die Stichwort-Seiten der Boerse tragen
+  20 Projekte je Seite, mit Firma, Ort, Start und Datum. Der Adapter fiel
+  ohne eigene Adressen auf vier Kategorieseiten mit je zwei Karten zurueck
+  und holte fuer jedes Projekt die Detailseite — der Suchlauf lief in die
+  Zeitgrenze. Nachgemessen: 120 Projekte bei zwei Suchbegriffen in rund
+  20 Sekunden, alle mit Firma und Datum, 106 mit Ort. Als Firma steht der
+  Auftraggeber aus der Karte statt "freelance.de" — sonst galten alle
+  Projekte als dieselbe Firma. "D-Remote" im Ortsfeld gilt als
+  Arbeitsmodell, nicht als Ort.
+- **Praktikum.de liefert wieder.** Der RSS-Feed ist entfernt; gesucht wird
+  ueber das Formular der Seite, und das Ergebnis liegt in der Sitzung.
+  Nachgemessen: alle 24 Angebote der Boerse, die ersten zehn mit Firma,
+  Anzeigentext und Datum von der Detailseite. Gefragt wird die ganze Boerse
+  einmal statt je Suchbegriff — das Stichwort filtert nur innerhalb
+  derselben 24 Angebote, und je Begriff antwortete die Seite nach etwa
+  fuenfzehn Anfragen mit HTTP 429. Eine Anfragegrenze beendet den Lauf mit
+  dem, was bis dahin da ist.
+- **freelance.de hat wieder eine Probe** im Health-Check, auf eine
+  Stichwort-Seite. Praktikum.de bekommt bewusst keine: ein Abruf ohne
+  abgeschicktes Formular sagt nichts ueber Treffer.
+
+### Changed
+
+- **Heise Jobs: der Befund aus v1.7.106 war falsch.** Die "rund 60
+  Stellenkarten" waren Linklisten der Startseite, keine Stellen. Die
+  Suchtreffer laedt jobs.heise.de erst im Browser nach; ohne Browser
+  liefert die Suchseite eine leere Huelle, und die Datenroute der Seite
+  antwortet mit HTTP 500. Die Quelle bleibt ausgegraut, und der Hinweis
+  nennt jetzt den Weg, der funktioniert: die Suche im Browser oder ueber
+  die Chrome-Extension.
+
+### Bekannt
+
+- Die Anzeigentexte von freelance.de bleiben kurz: auch die Detailseite
+  traegt ohne Anmeldung nur rund 400 Zeichen.
+- Offen bleiben meinestadt.de (nur ueber die Chrome-Extension), Heise Jobs
+  (ebenso) und Workday-DAX (veraltete Karriereseiten).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.107.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.107.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.106] - 2026-09-14 — Zwei tote Quellen liefern wieder
 
 Nachmessung der sieben als defekt gefuehrten Quellen (Nutzerauftrag, B53).
