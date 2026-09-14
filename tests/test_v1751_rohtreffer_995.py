@@ -43,7 +43,7 @@ from bewerbungs_assistent.job_scraper import rohtreffer  # noqa: E402
 # Quelle geliefert hat — sonst ist ihre Rueckgabe die einzige Zahl.
 FILTERNDE_ADAPTER = (
     "arbeitnow", "berufsstart", "greenhouse", "himalayas", "meinestadt",
-    "personio", "praktikum_de", "remoteok", "remotive", "studentjob",
+    "personio", "remoteok", "remotive", "studentjob",
     # Diese beiden hat der erste Durchgang uebersehen, weil ein `grep`
     # mit Zeilenbegrenzung sie abschnitt. Gefunden hat sie der Test
     # unten, der die Adapter selbst abzaehlt statt einer Liste zu

@@ -100,6 +100,16 @@ _PROBES: dict[str, tuple[str, str, str, Optional[dict]]] = {
         "json",
         None,
     ),
+    # v1.7.107 (B53): freelance.de liefert ueber die Stichwort-Seiten.
+    # Praktikum.de bekommt bewusst keine Probe: die Suche braucht ein
+    # abgeschicktes Formular mit Sitzung, ein GET meldete "gruen" ohne
+    # jede Aussage ueber Treffer (#808).
+    "freelance_de": (
+        "GET",
+        "https://www.freelance.de/IT-Projekte",
+        "html",
+        None,
+    ),
     # === RSS / XML ===
     "berufsstart": (
         "GET",

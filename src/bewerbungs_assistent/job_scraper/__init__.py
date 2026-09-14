@@ -173,13 +173,13 @@ SOURCE_REGISTRY = {
     },
     "freelance_de": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
-        # v1.7.106 (B53): erneut gemessen — die Kategorieseiten sind lesbar.
-        "defekt": True,
-        "defekt_grund": "Erneut gemessen 14.09.2026: die Projektsuche ist eine App-Huelle ohne Treffer, die Kategorieseiten liefern dagegen Projektkarten mit Firma, Ort und Datum. Der Adapter liest sie nicht (Zeitueberschreitung nach 150 s); ein Kartenleser ist geplant (B53).",
-        "manueller_fallback": "Projektsuche im Browser oeffnen und Treffer mit stelle_manuell_anlegen() uebernehmen; Alternative mit denselben Projekttypen: die zweite Projektboerse laeuft seit v1.7.19 wieder",
+        # v1.7.107 (B53, gemessen 14.09.2026): die Stichwort-Seiten liefern
+        # 20 Projektkarten je Seite mit Firma, Ort und Datum. Der Adapter
+        # fiel auf Kategorieseiten mit zwei Karten zurueck und holte die
+        # Detailseite JEDES Projekts, bis die Zeitgrenze griff.
         "name": "freelance.de",
         "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
-        "methode": "HTML Scraping",
+        "methode": "Stichwort-Seiten (HTML)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
@@ -202,10 +202,11 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # #500: SSR-HTML enthaelt nur Kategorie-Links, keine Stellen.
-        # v1.7.106 (B53): erneut gemessen — die Suchseite traegt Karten.
+        # v1.7.107 (B53): Korrektur zu v1.7.106 — die 60 Links der Startseite
+        # sind SEO-Linklisten, keine Stellen. Die Treffer kommen nur im Browser.
         "defekt": True,
-        "defekt_grund": "Erneut gemessen 14.09.2026: die Suche auf jobs.heise.de liefert rund 60 Stellenkarten im HTML, der Adapter fragt eine alte Adresse ab und liest keine davon. Ein Kartenleser ist geplant (B53).",
-        "manueller_fallback": "https://jobs.heise.de/?keywords=Python (im Browser oder Chrome-Extension)",
+        "defekt_grund": "Erneut gemessen 14.09.2026: die Suchtreffer laedt jobs.heise.de erst im Browser nach. Ohne Browser liefert die Suchseite eine leere Huelle, und die Datenroute der Seite antwortet mit HTTP 500 — auch mit nachgestelltem Formular-Ablauf. Die 60 Links der Startseite, die v1.7.106 als Stellenkarten nannte, sind Linklisten. Im Browser funktioniert die Suche: der Weg ueber die Chrome-Extension.",
+        "manueller_fallback": "https://jobs.heise.de/search?q=<Begriff> im Browser oder ueber die Chrome-Extension",
     },
     "gulp": {
         "name": "GULP",
@@ -425,13 +426,13 @@ SOURCE_REGISTRY = {
     # ── #590 Aufgabe B.4: Student-Cluster ──
     "praktikum_de": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
-        "defekt": True,
-        "defekt_grund": "Der RSS-Feed ist entfernt (HTTP 404, 18.08.2026, erneut gemessen 14.09.2026). Die Suche selbst liefert Angebote als HTML; ein Leser dafuer ist geplant (B53). Fuer Senior-Profile ohnehin ohne Treffer-Erwartung.",
-        "manueller_fallback": "https://www.praktikum.de/detailsuche/ergebnisse,seite-1.html?stichwort=<Begriff> im Browser oder ueber die Chrome-Extension",
+        # v1.7.107 (B53, gemessen 14.09.2026): der RSS-Feed ist entfernt; die
+        # Suche laeuft ueber ein Formular mit Sitzung, die Detailseite traegt
+        # JobPosting-Microdata. Fuer Senior-Profile ohne Treffer-Erwartung.
         "name": "Praktikum.de",
         "beschreibung": "Groesste DACH-Plattform fuer Praktika und Werkstudenten-"
-                         "Stellen. RSS-Feed mit Suchwort-Parameter.",
-        "methode": "RSS",
+                         "Stellen. Suche ueber das Formular der Seite.",
+        "methode": "Suchformular (HTML)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },

@@ -82,7 +82,9 @@ def test_freelance_de_listing_fixture_parses_cards_and_pagination():
 
     assert len(jobs) == 2
     assert jobs[0]["title"] == "Remote PLM Migration"
-    assert jobs[0]["company"] == "freelance.de"
+    # v1.7.107 (B53): die Firma kommt aus der Karte; ohne Angabe ein Platzhalter
+    # statt des Boersennamens (#1028).
+    assert jobs[0]["company"] == "Nicht angegeben"
     assert jobs[0]["location"] == "Hamburg"
     assert jobs[0]["employment_type"] == "freelance"
     assert jobs[0]["remote_level"] == "remote"

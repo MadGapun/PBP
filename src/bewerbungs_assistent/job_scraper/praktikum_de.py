@@ -1,107 +1,206 @@
-"""Praktikum.de RSS (#590 Aufgabe B.4).
+"""Praktikum.de — Praktika und Werkstudentenstellen.
 
-praktikum.de ist die groesste DACH-Plattform fuer Praktika und
-Werkstudenten-Stellen. Public RSS pro Kategorie/Suche:
+v1.7.107 (B53, gemessen 14.09.2026): der RSS-Feed ist entfernt (404). Die
+Suche laeuft ueber ein Formular, und das Ergebnis liegt in der Sitzung::
 
-    GET https://www.praktikum.de/rss.xml?suchwort={kw}
+    POST /detailsuche/ergebnisse,seite-1.html   stichwort=... schnellsuche=1
+    GET  /detailsuche/ergebnisse,seite-2.html   (im selben Client)
 
-Kein Auth. Liefert die juengsten Stellen.
+Ein GET ohne vorheriges Formular liefert eine Seite ohne Treffer — genau
+daran war die erste Messung gescheitert, bis derselbe Client zuerst das
+Formular abgeschickt hatte.
+
+Gefragt wird die ganze Boerse, nicht je Suchbegriff. Gemessen: sie traegt
+24 Angebote auf drei Seiten. Das Stichwort filtert nur innerhalb dieser
+Menge ("IT" lieferte alle 24, "Informatik" keines), ein Lauf je Begriff
+fragte also dieselben Seiten mehrfach ab — und die Seite antwortete nach
+etwa fuenfzehn Anfragen mit HTTP 429. Ueber die Passung entscheidet der
+zentrale Filter, wie bei jedem Adapter ohne eigenen Filter (#995).
+
+Die Karte traegt Titel, Branche, Ort, Beginn und einen Anrisstext; eine
+Firma nennt sie nicht (das Gebaeude-Symbol steht fuer die Branche). Die
+Detailseite traegt Firma, Adresse, Anzeigentext und Datum als
+schema.org-Microdata (JobPosting) — gelesen fuer die ersten `MAX_DETAILS`.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from xml.etree import ElementTree as ET
+import time
 
 import httpx
+from bs4 import BeautifulSoup
 
-from . import detect_remote_level, stelle_hash, make_session
+from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
-from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.praktikum_de")
 
-_BASE = "https://www.praktikum.de/rss.xml"
-_TIMEOUT = 12
+BASIS = "https://www.praktikum.de"
+SUCHE = BASIS + "/detailsuche/ergebnisse,seite-{seite}.html"
+# Die Felder des Formulars auf der Startseite, wie der Browser sie schickt.
+FORMULAR = {"stichwort": "", "branche": "0", "ort": "", "land": "0",
+            "schnellsuche": "1", "suchen": "Search"}
+MAX_SEITEN = 6
+MAX_DETAILS = 10
+PAUSE_S = 0.5
+
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
 
-def _strip_html(text: str) -> str:
-    if not text:
+def _feld(karte, icon: str) -> str:
+    symbol = karte.find("i", class_=icon)
+    if not symbol or not symbol.parent:
         return ""
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return fuer_speicher(text)
+    wert = symbol.parent.find("a")
+    return wert.get_text(" ", strip=True) if wert else ""
 
 
-def _matches_keywords(title: str, desc: str, keywords: list) -> bool:
-    if not keywords:
-        return True
-    haystack = f"{title} {desc[:1500]}".lower()
-    return any(kw.lower().strip() in haystack for kw in keywords)
+def karten_aus_html(html: str) -> list[dict]:
+    """Alle Angebote einer Ergebnisseite."""
+    soup = BeautifulSoup(html, "html.parser")
+    stellen: list[dict] = []
+    gesehen: set = set()
+    for link in soup.select("h5 > a[href^='/angebote/']"):
+        href = link["href"]
+        if href in gesehen:
+            continue
+        gesehen.add(href)
+        titel = link.get_text(" ", strip=True)
+        if not titel:
+            continue
+        karte = link.find_parent("div", class_="col-md-9") or link.find_parent("div") or link
+        branche = _feld(karte, "fa-building-o")
+        ort = _feld(karte, "fa-map-marker")
+        beginn = _feld(karte, "fa-clock-o")
+        anriss = ""
+        for block in karte.find_all("div", class_="margin-top-1rem"):
+            if not block.find("button"):
+                anriss = block.get_text(" ", strip=True)
+                break
+        text = "\n".join(t for t in (
+            anriss,
+            f"Branche: {branche}" if branche else "",
+            f"Beginn: {beginn}" if beginn else "",
+        ) if t)
+        url = f"{BASIS}{href}"
+        stellen.append({
+            "hash": stelle_hash("praktikum_de", f"{url} {titel}"),
+            "title": titel,
+            "company": "Nicht angegeben",
+            "location": ort,
+            "url": url,
+            "source": "praktikum_de",
+            "description": fuer_speicher(text),
+            "employment_type": "werkstudent" if re.search(r"werkstudent", titel, re.I) else "praktikum",
+            "remote_level": detect_remote_level(f"{titel} {ort} {anriss[:500]}"),
+        })
+    return stellen
 
 
-def _parse_item(item: ET.Element) -> dict | None:
-    def _t(name: str) -> str:
-        el = item.find(name)
-        return (el.text or "").strip() if el is not None and el.text else ""
+def _eigenes(scope, name: str):
+    """Das `itemprop`-Element, das direkt zu diesem Bereich gehoert — nicht
+    das gleichnamige einer eingebetteten Firma (sie hat eine eigene
+    `description`)."""
+    for element in scope.find_all(attrs={"itemprop": name}):
+        if element.find_parent(attrs={"itemscope": True}) is scope:
+            return element
+    return None
 
-    title = _t("title")
-    if not title:
-        return None
-    link = _t("link")
-    desc = _strip_html(_t("description"))
-    pub = _t("pubDate")
+
+def _wert(element) -> str:
+    if element is None:
+        return ""
+    return (element.get("content") or element.get("datetime")
+            or element.get_text(" ", strip=True) or "").strip()
+
+
+def detail_aus_html(html: str) -> dict:
+    """Firma, Ort, Text und Datum aus der JobPosting-Microdata."""
+    soup = BeautifulSoup(html, "html.parser")
+    posting = soup.find(attrs={"itemtype": re.compile(r"JobPosting", re.I)})
+    if posting is None:
+        return {}
+    firma = _eigenes(posting, "hiringOrganization")
+    ort = _eigenes(posting, "jobLocation")
+    adresse = _eigenes(ort, "address") if ort is not None else None
     return {
-        "hash": stelle_hash("praktikum_de", f"{link} {title}"),
-        "title": title,
-        "company": "Nicht angegeben",
-        "location": "",  # RSS gibt keinen separaten Ort
-        "url": link,
-        "source": "praktikum_de",
-        "description": desc,
-        # Praktikum.de listet hauptsaechlich Praktika/Werkstudent
-        "employment_type": "praktikum",
-        "remote_level": detect_remote_level(f"{title} {desc[:500]}"),
-        "_pub_date": pub,
+        "firma": _wert(_eigenes(firma, "name")) if firma is not None else "",
+        "ort": _wert(_eigenes(adresse, "addressLocality")) if adresse is not None else "",
+        "beschreibung": _wert(_eigenes(posting, "description")),
+        "datum": _wert(_eigenes(posting, "datePosted"))[:10],
     }
 
 
-def search_praktikum_de(params: dict) -> list[dict]:
-    kw_data = params.get("keywords", {})
-    if isinstance(kw_data, dict):
-        keywords = kw_data.get("general", [])
-    else:
-        keywords = kw_data or []
+def search_praktikum_de(params: dict, client=None) -> list[dict]:
+    """Alle Angebote der Boerse ueber das Suchformular holen.
 
-    primary_kw = keywords[0] if keywords else None
-    found: list[dict] = []
-    try:
-        # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
-        with make_session(content_type="rss", timeout=_TIMEOUT) as client:
-            params_q = {"suchwort": primary_kw} if primary_kw else {}
-            r = client.get(_BASE, params=params_q)
-            if r.status_code != 200:
-                logger.debug("Praktikum.de HTTP %d", r.status_code)
-                return []
+    `params` bleibt Teil der Signatur wie bei jedem Adapter; die Suchbegriffe
+    wirken im zentralen Filter (siehe Modulkopf).
+    """
+    stellen: list[dict] = []
+    gesehen: set = set()
+
+    def _laufen(c) -> None:
+        try:
+            c.get(f"{BASIS}/")  # legt die Sitzung an
+        except httpx.HTTPError:
+            pass
+        for seite in range(1, MAX_SEITEN + 1):
             try:
-                root = ET.fromstring(r.content)
-            except ET.ParseError as exc:
-                logger.warning("Praktikum.de Parse-Fehler: %s", exc)
-                return []
-            # #995: melden, was die QUELLE geliefert hat — der
-            # Rueckgabewert unten ist bereits gefiltert.
-            rohtreffer.melde("praktikum_de", len(root.findall('.//item')))
-            for item in root.findall(".//item"):
-                j = _parse_item(item)
-                if not j:
-                    continue
-                if not _matches_keywords(j["title"], j["description"], keywords):
-                    continue
-                j.pop("_pub_date", None)
-                found.append(j)
-    except Exception as exc:
-        logger.warning("Praktikum.de Verbindungsfehler: %s", exc)
+                if seite == 1:
+                    antwort = c.post(SUCHE.format(seite=1), data=FORMULAR)
+                else:
+                    antwort = c.get(SUCHE.format(seite=seite))
+            except httpx.HTTPError as exc:
+                logger.warning("Praktikum.de: Seite %d nicht erreichbar: %s", seite, exc)
+                return
+            if antwort.status_code == 429:
+                logger.warning("Praktikum.de: Anfragegrenze erreicht (HTTP 429) auf Seite %d — "
+                               "Lauf endet mit %d Angeboten", seite, len(stellen))
+                return
+            if antwort.status_code != 200:
+                logger.warning("Praktikum.de: HTTP %s auf Seite %d", antwort.status_code, seite)
+                break
+            karten = karten_aus_html(antwort.text)
+            for stelle in karten:
+                if stelle["url"] not in gesehen:
+                    gesehen.add(stelle["url"])
+                    stellen.append(stelle)
+            if not karten or f"ergebnisse,seite-{seite + 1}.html" not in antwort.text:
+                break
+            if seite == MAX_SEITEN:
+                logger.info("Praktikum.de: nach %d Seiten abgebrochen, die Boerse hat mehr", seite)
+            time.sleep(PAUSE_S)
 
-    logger.info("Praktikum.de: %d Stellen gefunden", len(found))
-    return found
+        for stelle in stellen[:MAX_DETAILS]:
+            try:
+                antwort = c.get(stelle["url"])
+            except httpx.HTTPError:
+                continue
+            if antwort.status_code == 429:
+                logger.warning("Praktikum.de: Anfragegrenze bei den Detailseiten erreicht")
+                return
+            if antwort.status_code != 200:
+                continue
+            detail = detail_aus_html(antwort.text)
+            if detail.get("firma"):
+                stelle["company"] = detail["firma"]
+            if detail.get("ort"):
+                stelle["location"] = detail["ort"]
+            if len(detail.get("beschreibung") or "") > len(stelle["description"]):
+                stelle["description"] = fuer_speicher(detail["beschreibung"])
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", detail.get("datum") or ""):
+                stelle["veroeffentlicht_am"] = detail["datum"]
+            time.sleep(PAUSE_S)
+
+    if client is not None:
+        _laufen(client)
+    else:
+        with make_session(content_type="html", timeout=20, user_agent=_UA) as c:
+            _laufen(c)
+
+    logger.info("Praktikum.de: %d Angebote", len(stellen))
+    return stellen
