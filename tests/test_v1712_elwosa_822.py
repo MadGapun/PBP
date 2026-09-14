@@ -117,7 +117,18 @@ def test_822_ambiente_kontingent_gilt_ueber_kinds_hinweg(setup_env):
     _ruhezeit_aus(db)
     mid = elwosa.speak(db, "holiday_summer", ctx={})
     assert mid
-    _backdate(db, mid, hours=3)  # Cooldown + Kind-Sperre irrelevant machen
+    # Nur aus dem 90s-Cooldown heraus — die Kind-Sperre betrifft `weekend`
+    # ohnehin nicht. Bis v1.7.103 stand hier `hours=3`: zwischen 00:00 und
+    # 03:00 UTC landete die Nachricht damit auf dem VORTAG, das Kontingent
+    # zaehlt je UTC-Kalendertag, und der Test war nur nachts rot (CI-Lauf
+    # zum Release v1.7.104 um 00:01 UTC). Geklemmt auf den heutigen Tag.
+    jetzt = datetime.now(timezone.utc)
+    mitternacht = jetzt.replace(hour=0, minute=0, second=0, microsecond=0)
+    ziel = max(jetzt - timedelta(minutes=2), mitternacht)
+    conn = db.connect()
+    conn.execute("UPDATE elwosa_messages SET created_at=? WHERE id=?",
+                 (ziel.isoformat(), mid))
+    conn.commit()
     assert elwosa.speak(db, "weekend", ctx={}) is None, \
         "Ambiente max 1/Tag — anderes Kind zaehlt mit"
 
