@@ -105,6 +105,86 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.109] - 2026-09-14 — Der ganze Anzeigentext, auch bei hays
+
+Melder-Bericht #1048: alle Stellen der Quelle hays trugen eine
+Beschreibung von exakt 500 Zeichen, und das Nachladen fand sie nicht.
+
+### Fixed
+
+- **Der Anzeigentext von hays wird vollstaendig gespeichert.** Der Adapter
+  schnitt die Beschreibung bei 500 Zeichen ab; der Anforderungsteil am
+  Ende fehlte in jeder Stelle, und Score, Umfang und Gehalt beruhten nur
+  auf dem Anfang der Anzeige. Nachgemessen: 8 von 8 Anzeigen live zwischen
+  1.527 und 3.311 Zeichen lang, auf der Kopie eines Bestands 48 von 48
+  Stellen exakt 500. Mit der Korrektur lieferte ein Lauf 50 Stellen mit
+  1.178 bis 4.374 Zeichen, keine davon bei 500.
+- **Das Nachladen erkennt die abgeschnittenen Stellen.**
+  `beschreibungen_nachladen_bestand(umfang="gekappt")` kannte nur die alte
+  Grenze von 2000 Zeichen. Jetzt gilt zusaetzlich die Grenze der Quelle —
+  500 Zeichen zaehlen nur bei hays als abgeschnitten, bei jeder anderen
+  Quelle sind sie eine kurze Anzeige. Dasselbe gilt fuer
+  `stellen_qualitaet_pruefen` und den Hinweis in der Fit-Analyse.
+- **Nach dem Nachladen wird neu ausgewertet.** Keiner der vier
+  Nachlade-Wege (Werkzeug fuer eine Stelle, Werkzeug fuer den Bestand,
+  Knopf in der Stellenansicht, automatischer Nachzug) hat bisher Score,
+  Gehalt oder Umfang nachgezogen — der volle Text stand neben einem Score
+  aus dem abgeschnittenen. Jetzt laufen alle vier ueber einen Weg, der
+  ergaenzt statt umdeutet: ein Gehalt nur mit Beleg im Text (ein von Hand
+  gesetztes bleibt), ein Umfang nur, wo noch keiner steht, und der Score
+  mit denselben Kriterien wie der Suchlauf.
+- **Eine zweite Kappung gefunden:** `extract_jobposting_jsonld` hatte als
+  Vorgabe 2000 Zeichen. Der einzige Aufrufer gab die Notbremse mit, ein
+  neuer ohne Argument haette wieder still gekappt. Vorgabe jetzt wie bei
+  den Geschwistern.
+
+### Bekannt
+
+- Eine Stelle, die schon aussortiert ist, laedt das Nachladen nicht nach;
+  ein erneuter Fund im Suchlauf traegt den vollen Text aber auch dort ein.
+- Die fehlende Gliederung der Texte (Absaetze, Listen) ist #1047.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.109.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.109.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.108] - 2026-09-14 — Kommentare sind kein Text
 
 Nachtrag zu #1041 nach dem Update auf v1.7.107: bei Jobware und ingenieur.de
