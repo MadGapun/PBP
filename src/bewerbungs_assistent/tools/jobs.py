@@ -531,7 +531,8 @@ def register(mcp, db, logger):
 
         # Default sources from DB settings (all disabled by default)
         if not quellen:
-            quellen = db.get_profile_setting("active_sources", [])
+            from ..services.search_service import aktive_quellen
+            quellen = aktive_quellen(db) or []
             if not quellen:
                 return {
                     "status": "keine_quellen",
@@ -590,8 +591,13 @@ def register(mcp, db, logger):
         quellen_uebernommen = False
         try:
             if not db.get_profile_setting("active_sources", []):
-                db.set_profile_setting("active_sources", quellen)
-                quellen_uebernommen = True
+                # #1039: eine defekte Quelle wird nie in die Auswahl uebernommen.
+                from ..job_scraper import SOURCE_REGISTRY as _registry
+                from ..services.search_service import ohne_defekte
+                _uebernahme = ohne_defekte(quellen, _registry)
+                if _uebernahme:
+                    db.set_profile_setting("active_sources", _uebernahme)
+                    quellen_uebernommen = True
         except Exception as e:
             logger.debug("active_sources-Uebernahme fehlgeschlagen: %s", e)
 

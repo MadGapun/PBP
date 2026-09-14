@@ -1255,3 +1255,59 @@ def test_popup_zeigt_die_stelle_wie_die_karte_1044(live_dashboard, browser):
         assert "geschaetzt" not in text, text
     finally:
         context.close()
+
+
+def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
+    """#1039: gezaehlt wird im GERENDERTEN Dashboard, gespeichert wird in der DB.
+
+    Ausgangslage wie im Bericht: eine defekte Quelle steht in der
+    gespeicherten Auswahl. Danach aktiviert der Empfehlungsknopf die
+    fehlenden Quellen — frueher blieb davon nur die letzte uebrig.
+    """
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    from bewerbungs_assistent.services.profile_classifier import recommend_sources
+
+    db = live_dashboard["db"]
+    db.save_profile({"name": "Muster Pflege", "email": "pflege@example.com"})
+    db.add_position({"company": "Musterklinik", "title": "Pflegefachkraft",
+                     "description": "Intensivstation", "start_date": "2013-01"})
+    db.add_skill({"name": "Intensivpflege"})
+    db.set_profile_setting("active_sources", ["bundesagentur", "gulp"])
+
+    empfehlung = recommend_sources(db.get_profile())
+    assert empfehlung["type"] == "health" and empfehlung["confidence"] >= 0.5, empfehlung
+    fehlend = [q for q in empfehlung["recommended"] if q != "bundesagentur"]
+    assert len(fehlend) >= 2, "sonst zeigt der Test den Speicherfehler nicht"
+    defekt = sum(1 for v in SOURCE_REGISTRY.values() if v.get("defekt"))
+    nutzbar = len(SOURCE_REGISTRY) - defekt
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Quellen", exact=True).first.click()
+        page.wait_for_load_state("networkidle")
+
+        filter_ = page.get_by_test_id("quellen-filter")
+        filter_.wait_for(state="visible", timeout=8000)
+        filter_.get_by_role("button", name=f"Alle ({nutzbar})").wait_for(state="visible")
+        filter_.get_by_role("button", name="Aktiv (1)").wait_for(state="visible")
+        filter_.get_by_role("button", name=f"Defekte Quellen ({defekt})").wait_for(state="visible")
+        # Das Lesen hat die gespeicherte Auswahl geheilt.
+        assert db.get_profile_setting("active_sources") == ["bundesagentur"]
+        # Standardansicht ohne defekte Quellen.
+        assert page.locator('[data-source-key="gulp"]').count() == 0
+
+        knopf = page.get_by_role("button", name=re.compile(r"fehlende empfohlene Quelle"))
+        knopf.click()
+        filter_.get_by_role("button", name=f"Aktiv ({1 + len(fehlend)})").wait_for(
+            state="visible", timeout=8000)
+        assert set(db.get_profile_setting("active_sources")) == {"bundesagentur", *fehlend}
+
+        filter_.get_by_role("button", name=f"Defekte Quellen ({defekt})").click()
+        page.locator('[data-source-key="gulp"]').wait_for(state="visible")
+        assert page.locator("[data-source-key]").count() == defekt
+    finally:
+        context.close()

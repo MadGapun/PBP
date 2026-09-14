@@ -10293,7 +10293,12 @@ class Database:
                           "action_label": "Bewerbungen ansehen"})
 
         # Check sources
-        active_sources = self.get_profile_setting("active_sources", [])
+        try:
+            # #1039: eine Auswahl aus lauter defekten Quellen ist keine.
+            from .services.search_service import aktive_quellen
+            active_sources = aktive_quellen(self) or []
+        except Exception:
+            active_sources = self.get_profile_setting("active_sources", [])
         if not active_sources:
             steps.append({"aktion": "Jobquellen aktivieren", "prioritaet": "hoch",
                           "beschreibung": "Ohne aktive Quellen kann keine Jobsuche gestartet werden.",

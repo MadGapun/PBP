@@ -465,7 +465,16 @@ def recommend_sources(profile: Optional[dict]) -> dict:
     """
     detection = detect_profile_type(profile)
     cluster_key = detection["type"]
-    sources = PROFILE_TYPE_CLUSTERS.get(cluster_key, [])
+    # #1039: die Listen oben sind die ABSICHT; empfohlen wird nur, was
+    # gerade laeuft. Jeder der 15 Typen empfahl mindestens eine defekte
+    # Quelle, und der Aktivieren-Knopf legte sie in die Auswahl, obwohl
+    # sich ihr Haken in der Liste gar nicht setzen laesst. Die Markierung
+    # aendert sich mit Reparaturen — deshalb Filter zur Laufzeit statt
+    # Streichung aus der Liste.
+    from ..job_scraper import SOURCE_REGISTRY
+    alle = PROFILE_TYPE_CLUSTERS.get(cluster_key, [])
+    sources = [q for q in alle if not (SOURCE_REGISTRY.get(q) or {}).get("defekt")]
+    ausgelassen = [q for q in alle if q not in sources]
     if detection.get("unsicher"):
         rationale = (
             f"PBP konnte das Berufsfeld nicht sicher einordnen und "
@@ -484,5 +493,7 @@ def recommend_sources(profile: Optional[dict]) -> dict:
     return {
         **detection,
         "recommended": sources,
+        # Eine ausgelassene Quelle wird benannt, nicht verschwiegen.
+        "ausgelassen_defekt": ausgelassen,
         "rationale": rationale,
     }

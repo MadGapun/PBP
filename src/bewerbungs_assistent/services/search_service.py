@@ -46,6 +46,40 @@ def get_default_active_source_keys(source_registry: dict) -> list[str]:
     ]
 
 
+def ohne_defekte(keys, source_registry: dict) -> list[str]:
+    """Die Schluessel ohne als `defekt` markierte Quellen, Reihenfolge bleibt."""
+    return [
+        key for key in (keys or [])
+        if not (source_registry.get(key) or {}).get("defekt", False)
+    ]
+
+
+def aktive_quellen(db, source_registry: dict | None = None) -> list[str] | None:
+    """Die gespeicherte Quellen-Auswahl — ohne defekte Quellen (#1039).
+
+    Eine Quelle, die NACH dem Anhaken als defekt markiert wurde, blieb in
+    der gespeicherten Auswahl. Das Dashboard zeichnete ihren Haken leer und
+    gesperrt, jeder Suchlauf uebersprang sie erneut, und abwaehlen liess sie
+    sich nicht mehr: ein Zustand, den niemand sieht, wirkte trotzdem (Klasse
+    #1008). Deshalb heilt jeder Leseweg die gespeicherte Auswahl, statt nur
+    die Anzeige zu filtern — sonst sagen Anzeige und Speicher weiter
+    Verschiedenes.
+
+    Returns:
+        die bereinigte Liste; None, wenn nichts gespeichert ist (der
+        Aufrufer entscheidet dann ueber die Vorauswahl).
+    """
+    if source_registry is None:
+        from ..job_scraper import SOURCE_REGISTRY as source_registry
+    gespeichert = db.get_profile_setting("active_sources", None)
+    if gespeichert is None:
+        return None
+    bereinigt = ohne_defekte(gespeichert, source_registry)
+    if len(bereinigt) != len(list(gespeichert)):
+        db.set_profile_setting("active_sources", bereinigt)
+    return bereinigt
+
+
 def build_source_rows(source_registry: dict, active_keys) -> list:
     """Build dashboard-friendly source rows with active flags."""
     active_set = set(active_keys or [])
