@@ -173,8 +173,9 @@ SOURCE_REGISTRY = {
     },
     "freelance_de": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
+        # v1.7.106 (B53): erneut gemessen — die Kategorieseiten sind lesbar.
         "defekt": True,
-        "defekt_grund": "Projektsuche liefert nur eine SPA-Huelle (25 KB ohne Inhalt), die JSON-API antwortet mit HTTP 403 (18.08.2026). Seit Bestehen kein einziger erfolgreicher Lauf.",
+        "defekt_grund": "Erneut gemessen 14.09.2026: die Projektsuche ist eine App-Huelle ohne Treffer, die Kategorieseiten liefern dagegen Projektkarten mit Firma, Ort und Datum. Der Adapter liest sie nicht (Zeitueberschreitung nach 150 s); ein Kartenleser ist geplant (B53).",
         "manueller_fallback": "quelle_handoff('freelance_de') — Projektsuche im Browser oeffnen; Alternative mit denselben Projekttypen: die zweite Projektboerse laeuft seit v1.7.19 wieder",
         "name": "freelance.de",
         "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
@@ -201,25 +202,25 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # #500: SSR-HTML enthaelt nur Kategorie-Links, keine Stellen.
-        # Vermutlich SPA-rendered. Browser-Tab via Chrome-Extension noetig.
+        # v1.7.106 (B53): erneut gemessen — die Suchseite traegt Karten.
         "defekt": True,
-        "defekt_grund": "SSR-HTML zeigt nur Kategorien (Jobs Informatik/Softwareentwickler/...) — Stellen werden client-seitig nachgeladen",
+        "defekt_grund": "Erneut gemessen 14.09.2026: die Suche auf jobs.heise.de liefert rund 60 Stellenkarten im HTML, der Adapter fragt eine alte Adresse ab und liest keine davon. Ein Kartenleser ist geplant (B53).",
         "manueller_fallback": "https://jobs.heise.de/?keywords=Python (im Browser oder Chrome-Extension)",
     },
     "gulp": {
         "name": "GULP",
         "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
-        "methode": "Handoff (Browser)",
+        "methode": "JSON-API (Projektsuche)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # #500: Live-Test 2026-04-25 — alle bekannten Such-URLs HTTP 404.
         # v1.7.12 (#812/B34, live 11.08.): Projektliste liefert 200 mit
-        # 9-KB-SPA-Huelle (Projekte laden erst im Browser), die im Adapter
-        # hinterlegte JSON-API antwortet 404. Ein Playwright-Umbau waere
-        # eine kurzlebige DOM-Wette (B18-Lehre) fuer eine einzelne
-        # Freelance-Boerse — der Handoff ist der ehrliche Weg.
-        "defekt": True,
-        "defekt_grund": "SPA ohne erreichbare JSON-API (Suche 200/leer, API 404 — 11.08.2026)",
+        # 9-KB-SPA-Huelle, die im Adapter hinterlegte JSON-API antwortet 404.
+        # v1.7.106 (B53, live 14.09.2026): die App holt ihre Treffer ueber
+        # eine offene Such-Schnittstelle (POST .../projects/search), ohne
+        # Anmeldung — gefunden im Netzwerk-Mitschnitt des Browsers, nicht
+        # im Bundle. Die Quelle liefert wieder; der Handoff bleibt als
+        # zweiter Weg.
         "handoff_verfuegbar": True,
         "manueller_fallback": "quelle_handoff('gulp') — oeffnet die Projektsuche im Browser",
     },
@@ -350,20 +351,22 @@ SOURCE_REGISTRY = {
     },
     "workable": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
-        "defekt": True,
-        "defekt_grund": "Oeffentliche Suche liefert keine Stellenlinks mehr (200, aber 0 Treffer im HTML — 18.08.2026). Der Anbieter ist ein Bewerbermanagement-System; oeffentlich durchsuchbar sind nur die Job-Boards einzelner Firmen.",
-        "manueller_fallback": "Firmen-Jobboard direkt als Custom-Quelle hinterlegen",
+        # v1.7.106 (B53, live 14.09.2026): die oeffentliche Stellensuche
+        # hat eine JSON-Schnittstelle (jobs.workable.com/api/v1/jobs) mit
+        # vollem Anzeigentext, Ort und Weiterblaettern. Die alte Widget-API
+        # je Firma antwortet dagegen leer oder 404 — sie war der tote Weg.
         "name": "Workable (Public Postings)",
-        "beschreibung": "Internationaler ATS, viele KMU-Kunden. Public Widget API "
-                         "pro Firma. Mid-Level breit gestreut, auch nicht-Tech.",
-        "methode": "Public Widget API",
+        "beschreibung": "Internationales Bewerbermanagement-System mit oeffentlicher "
+                         "Stellensuche ueber alle Kunden. Mid-Level breit gestreut, "
+                         "auch nicht-Tech.",
+        "methode": "Oeffentliche Such-API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "meinestadt": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Bot-Block: HTTP 403 auf die Suchseite (18.08.2026). Ein automatischer Abruf ist nicht moeglich.",
+        "defekt_grund": "Bot-Block fuer automatische Abrufe: HTTP 403 auf Suchseite und RSS (18.08.2026, erneut gemessen 14.09.2026). Im echten Browser laedt die Suche normal — der Weg ueber die Chrome-Extension funktioniert.",
         "manueller_fallback": "Im Browser oder ueber die Chrome-Extension suchen und Treffer mit stelle_manuell_anlegen uebernehmen",
         "name": "meinestadt.de (Regional)",
         "beschreibung": "Regionale DACH-Stellenseite mit Schwerpunkt Service-, Trade- "
@@ -423,7 +426,8 @@ SOURCE_REGISTRY = {
     "praktikum_de": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Suchseite antwortet mit HTTP 404 (18.08.2026). Fuer Senior-Profile ohnehin ohne Treffer-Erwartung.",
+        "defekt_grund": "Der RSS-Feed ist entfernt (HTTP 404, 18.08.2026, erneut gemessen 14.09.2026). Die Suche selbst liefert Angebote als HTML; ein Leser dafuer ist geplant (B53). Fuer Senior-Profile ohnehin ohne Treffer-Erwartung.",
+        "manueller_fallback": "https://www.praktikum.de/detailsuche/ergebnisse,seite-1.html?stichwort=<Begriff> im Browser oder ueber die Chrome-Extension",
         "name": "Praktikum.de",
         "beschreibung": "Groesste DACH-Plattform fuer Praktika und Werkstudenten-"
                          "Stellen. RSS-Feed mit Suchwort-Parameter.",
@@ -451,7 +455,7 @@ SOURCE_REGISTRY = {
     "workday_dax": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Host nicht mehr aufloesbar (DNS-Fehler, 18.08.2026) — die Sammel-Domain fuer Workday-Karriereseiten existiert so nicht mehr. Einzelne Firmen-Instanzen haben eigene Adressen.",
+        "defekt_grund": "Die hinterlegten Karriereseiten sind veraltet (erneut gemessen 14.09.2026): die Adressen loesen wieder auf, die Such-Schnittstelle antwortet aber bei allen zehn mit HTTP 422, und die Karriereseite leitet im Browser auf eine Workday-Fehlerseite. Die Technik lebt, die Liste nicht — noetig waeren aktuelle Adressen je Firma.",
         "manueller_fallback": "Karriereseite der jeweiligen Firma direkt aufrufen; als Custom-Quelle hinterlegen (custom_quelle_hinzufuegen)",
         "name": "Workday-DAX-Cluster",
         "beschreibung": "Public Workday-Career-Sites grosser DACH-Konzerne "

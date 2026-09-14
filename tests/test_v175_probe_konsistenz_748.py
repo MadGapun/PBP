@@ -34,9 +34,11 @@ class TestAdapterKonsistenz:
         """
         if "workable" not in _PROBES:
             pytest.skip("als defekt markiert — Probe bewusst entfernt (#927)")
-        from bewerbungs_assistent.job_scraper.workable import _BASE_TPL, DEFAULT_COMPANIES
+        # v1.7.106 (B53): der Adapter nutzt die oeffentliche Stellensuche,
+        # die Probe dieselbe Adresse.
+        from bewerbungs_assistent.job_scraper.workable import SUCHE
         _, url, _, _ = _PROBES["workable"]
-        assert url == _BASE_TPL.format(firma=DEFAULT_COMPANIES[0])
+        assert url.startswith(SUCHE)
 
     def test_personio_probe_nutzt_adapter_firma(self):
         """404-Ursache: Probe-Firma war nicht in der Adapter-Firmenliste."""

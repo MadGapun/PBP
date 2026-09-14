@@ -1,179 +1,172 @@
-"""Workable Public Postings (#590 Aufgabe A.2).
+"""Workable — oeffentliche Stellensuche.
 
-Workable ist internationaler ATS, viele KMUs nutzen ihn fuer
-Public-Postings:
+v1.7.106 (B53, live gemessen 14.09.2026): Workable betreibt eine
+oeffentliche Stellensuche ueber alle Kunden, und die Seite holt ihre
+Treffer ueber eine JSON-Schnittstelle::
 
-    GET https://apply.workable.com/api/v1/widget/accounts/{firma}
+    GET https://jobs.workable.com/api/v1/jobs
+        ?query=<Begriff>&location=Germany[&pageToken=<Token>]
 
-Public Widget API, kein Auth. Antwort enthaelt `jobs: [{title, location:
-{city, country}, url, full_title, shortcode, ...}]`.
+Ohne Anmeldung, 20 Stellen je Seite, voller Anzeigentext samt
+Anforderungen, Ort, Arbeitsmodell und `nextPageToken`.
 
-Strategie:
-    - Kuratierte Default-Liste DACH-Workable-Kunden
-    - User kann ueber `workable_firmen`-Suchkriterium eigene Slugs
-      hinterlegen
-    - Pro Firma alle Stellen ziehen, dann clientseitig nach Keywords
-      + Region filtern
+Bis v1.7.105 fragte der Adapter je Firma aus einer festen Liste die
+Einbettungs-Schnittstelle ab. Nachgemessen antworteten sechs von acht
+Firmen mit einer leeren Liste und zwei mit 404 — die Quelle stand zu
+Recht als defekt, nur war der tote Weg der falsche, nicht der einzige.
+
+`workable_firmen` (#811) bleibt wirksam: ein Eintrag wird als weiterer
+Suchbegriff abgefragt. Die Region grenzt die Suche nicht ein — die
+Entfernung rechnet PBP selbst.
 """
 
 from __future__ import annotations
 
+import html
 import logging
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 import httpx
 
-from . import detect_remote_level, stelle_hash, make_session
+from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
-from . import rohtreffer
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.workable")
 
-_BASE_TPL = "https://apply.workable.com/api/v1/widget/accounts/{firma}"
-_MAX_WORKERS = 5
-_TIMEOUT = 12
+SUCHE = "https://jobs.workable.com/api/v1/jobs"
+LAND = "Germany"
+MAX_SEITEN = 3
+MAX_BEGRIFFE = 8
+PAUSE_S = 0.5
 
-# Kuratierte Default-Liste — Workable-Kunden mit Aktivitaet im DACH-Markt.
-DEFAULT_COMPANIES = [
-    "workable",
-    "tier",
-    "delivery-hero",
-    "blinkist",
-    "kontist",
-    "tomorrow",
-    "shore",
-    "celonis-tech",
-]
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+
+# Das Arbeitsmodell steht als eigenes Feld in der Antwort — es gewinnt
+# vor jeder Vermutung aus dem Text ("Homeoffice" unter den Vorteilen ist
+# kein Remote-Arbeitsplatz).
+_ARBEITSMODELL = {
+    "remote": "remote",
+    "hybrid": "hybrid",
+    "on_site": "vor_ort",
+    "onsite": "vor_ort",
+    "on-site": "vor_ort",
+}
 
 
-def _strip_html(text: str) -> str:
-    if not text:
+def _text(roh: str) -> str:
+    if not roh:
         return ""
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return fuer_speicher(text)
+    ohne_tags = re.sub(r"<[^>]+>", " ", roh)
+    return re.sub(r"\s+", " ", html.unescape(ohne_tags)).strip()
 
 
-def _matches(title: str, location: str, desc: str,
-             keywords: list, region: str | None) -> bool:
-    haystack = f"{title} {location} {desc[:1500]}".lower()
-    if keywords:
-        if not any(kw.lower().strip() in haystack for kw in keywords):
-            return False
-    if region:
-        if region.lower() in (location or "").lower():
-            return True
-        if region.lower() in haystack:
-            return True
-        if any(tok in haystack for tok in ("remote", "homeoffice", "anywhere")):
-            return True
-        return False
-    return True
-
-
-def _location_text(job: dict) -> str:
-    loc = job.get("location") or {}
-    if isinstance(loc, dict):
-        parts = [loc.get("city"), loc.get("region"), loc.get("country")]
-        return ", ".join(p for p in parts if p)
-    if isinstance(loc, str):
-        return loc
-    return ""
-
-
-def _map(job: dict, firma: str) -> dict | None:
-    title = job.get("title") or job.get("full_title") or ""
-    if not title:
+def stelle_aus(job: dict) -> dict | None:
+    """Eine Stelle der Suchantwort auf das PBP-Schema abbilden."""
+    titel = _text(job.get("title") or "")
+    if not titel:
         return None
-    location = _location_text(job)
-    shortcode = job.get("shortcode") or job.get("id") or ""
-    url = (
-        job.get("url")
-        or f"https://apply.workable.com/{firma}/j/{shortcode}/"
-    )
-    desc = _strip_html(job.get("description") or job.get("requirements") or "")
-    job_type = (job.get("type") or "").lower()
-    if "intern" in job_type or "praktik" in job_type:
-        emp = "praktikum"
-    elif "freelance" in job_type or "contract" in job_type:
-        emp = "freelance"
-    elif "part" in job_type or "teilzeit" in job_type:
-        emp = "teilzeit"
+
+    firma = job.get("company")
+    firma = (firma.get("title") if isinstance(firma, dict) else firma) or ""
+
+    ort_roh = job.get("location") or {}
+    # Nur die Stadt. Ein blosses "Germany" wuerde als Mittelpunkt
+    # Deutschlands geocodiert — eine erfundene Entfernung (#989).
+    ort = _text(ort_roh.get("city") or "") if isinstance(ort_roh, dict) else _text(str(ort_roh))
+
+    teile = [_text(job.get(feld) or "")
+             for feld in ("description", "requirementsSection", "benefitsSection")]
+    text = "\n\n".join(t for t in teile if t)
+
+    art = (job.get("employmentType") or "").lower()
+    if "intern" in art:
+        form = "praktikum"
+    elif "contract" in art or "freelance" in art:
+        form = "freelance"
     else:
-        emp = "festanstellung"
-    return {
-        "hash": stelle_hash("workable", f"{firma} {shortcode} {title}"),
-        "title": title,
-        "company": firma.replace("-", " ").title(),
-        "location": location,
-        "url": url,
+        form = "festanstellung"
+
+    modell = (_ARBEITSMODELL.get((job.get("workplace") or "").lower())
+              or detect_remote_level(f"{titel} {ort} {text[:500]}"))
+
+    kennung = job.get("id") or job.get("url") or titel
+    stelle = {
+        "hash": stelle_hash("workable", str(kennung)),
+        "title": titel,
+        "company": firma.strip() or "Nicht angegeben",
+        "location": ort,
+        "url": job.get("url") or "",
         "source": "workable",
-        "description": desc,
-        "employment_type": emp,
-        "remote_level": detect_remote_level(
-            f"{title} {location} {desc[:500]}"
-        ),
+        "description": fuer_speicher(text),
+        "employment_type": form,
+        "remote_level": modell,
     }
+    # Anstellungsform und Umfang sind zwei Fragen (#1023).
+    if "full" in art:
+        stelle["arbeitsumfang"] = "vollzeit"
+    elif "part" in art:
+        stelle["arbeitsumfang"] = "teilzeit"
+    datum = (job.get("created") or "")[:10]
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", datum):
+        stelle["veroeffentlicht_am"] = datum
+    return stelle
 
 
-def _fetch_firma(client: httpx.Client, firma: str) -> list[dict]:
-    try:
-        r = client.get(_BASE_TPL.format(firma=firma))
-        if r.status_code != 200:
-            logger.debug("Workable %s HTTP %d", firma, r.status_code)
-            return []
-        data = r.json()
-        # Workable Widget API liefert {jobs: [...]} oder {accounts: [...]}
-        jobs = data.get("jobs") or []
-        if not jobs and isinstance(data, dict):
-            # manchmal verschachtelt unter `accounts[].jobs`
-            for acc in data.get("accounts") or []:
-                if isinstance(acc, dict):
-                    jobs.extend(acc.get("jobs") or [])
-        return jobs
-    except Exception as exc:
-        logger.debug("Workable %s Fehler: %s", firma, exc)
-        return []
-
-
-def search_workable(params: dict) -> list[dict]:
-    """Sucht Stellen ueber Workable-Public-Postings der konfigurierten Firmen."""
+def search_workable(params: dict, client=None) -> list[dict]:
+    """Stellen je Suchbegriff ueber die oeffentliche Suche holen."""
     kw_data = params.get("keywords", {})
     if isinstance(kw_data, dict):
-        keywords = kw_data.get("general", [])
-        regionen = kw_data.get("regionen", [])
-        custom = kw_data.get("workable_firmen", [])
+        begriffe = list(kw_data.get("general") or [])[:MAX_BEGRIFFE]
+        firmen = list(kw_data.get("workable_firmen") or [])
     else:
-        keywords = kw_data or []
-        regionen = []
-        custom = []
+        begriffe = list(kw_data or [])[:MAX_BEGRIFFE]
+        firmen = []
+    suchen = [s for s in dict.fromkeys(begriffe + firmen) if s] or [""]
 
-    region = regionen[0] if regionen else None
-    firmen = list(dict.fromkeys(custom + DEFAULT_COMPANIES))
+    stellen: list[dict] = []
+    gesehen: set = set()
 
-    found: list[dict] = []
-    # v1.7.0-beta.51 (#624 Phase 2): zentraler make_session-Helper
-    with make_session(content_type="json", timeout=_TIMEOUT) as client:
-        with ThreadPoolExecutor(max_workers=_MAX_WORKERS) as pool:
-            futures = {pool.submit(_fetch_firma, client, f): f for f in firmen}
-            for fut in as_completed(futures):
-                firma = futures[fut]
-                jobs = fut.result()
-                # #995: melden, was die QUELLE geliefert hat — der
-                # Rueckgabewert unten ist bereits gefiltert.
-                rohtreffer.melde("workable", len(jobs))
-                for raw in jobs:
-                    j = _map(raw, firma)
-                    if not j:
+    def _laufen(c) -> None:
+        for suche in suchen:
+            token = None
+            for _seite in range(MAX_SEITEN):
+                anfrage = {"query": suche, "location": LAND}
+                if token:
+                    anfrage["pageToken"] = token
+                try:
+                    antwort = c.get(SUCHE, params=anfrage)
+                except httpx.HTTPError as exc:
+                    logger.warning("Workable: Anfrage fuer '%s' fehlgeschlagen: %s", suche, exc)
+                    break
+                if antwort.status_code != 200:
+                    logger.warning("Workable: HTTP %s fuer '%s'", antwort.status_code, suche)
+                    break
+                try:
+                    daten = antwort.json()
+                except ValueError:
+                    logger.warning("Workable: Antwort fuer '%s' ist kein JSON", suche)
+                    break
+                jobs = daten.get("jobs") or [] if isinstance(daten, dict) else []
+                for job in jobs:
+                    schluessel = job.get("id") or job.get("url")
+                    if schluessel in gesehen:
                         continue
-                    if not _matches(
-                        j["title"], j["location"], j["description"],
-                        keywords, region
-                    ):
-                        continue
-                    found.append(j)
+                    gesehen.add(schluessel)
+                    stelle = stelle_aus(job)
+                    if stelle:
+                        stellen.append(stelle)
+                token = daten.get("nextPageToken") if isinstance(daten, dict) else None
+                if not jobs or not token:
+                    break
+                time.sleep(PAUSE_S)
 
-    logger.info("Workable: %d Stellen aus %d Firmen gefunden",
-                len(found), len(firmen))
-    return found
+    if client is not None:
+        _laufen(client)
+    else:
+        with make_session(content_type="json", timeout=20, user_agent=_UA) as c:
+            _laufen(c)
+
+    logger.info("Workable: %d Stellen aus %d Suchen", len(stellen), len(suchen))
+    return stellen

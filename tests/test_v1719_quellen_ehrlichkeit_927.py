@@ -45,7 +45,8 @@ def test_927_defekt_und_deprecated_sind_getrennt():
 
 
 @pytest.mark.parametrize("key", [
-    "workday_dax", "workable", "praktikum_de", "meinestadt", "freelance_de",
+    # workable liefert seit v1.7.106 wieder (B53, erneut gemessen 14.09.2026).
+    "workday_dax", "praktikum_de", "meinestadt", "freelance_de",
 ])
 def test_927_live_geprueft_als_defekt_markiert(key):
     """Am 18.08.2026 live geprueft: kein automatischer Weg vorhanden."""

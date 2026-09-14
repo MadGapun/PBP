@@ -119,67 +119,17 @@ def test_personio_has_default_companies():
 
 
 # ============= Workable ===============
-
-WORKABLE_JSON = {
-    "jobs": [
-        {
-            "title": "Backend Engineer",
-            "shortcode": "ABC123",
-            "type": "Full-time",
-            "location": {"city": "Berlin", "country": "Germany"},
-            "description": "We are looking for a backend engineer.",
-            "url": "https://apply.workable.com/test/j/ABC123/",
-        },
-        {
-            "title": "Praktikant Sales",
-            "shortcode": "DEF456",
-            "type": "Internship",
-            "location": {"city": "Munich", "country": "Germany"},
-            "description": "Sales-Praktikum bei uns.",
-        },
-    ]
-}
+# v1.7.106 (B53): die Widget-API je Firma ist tot (leer oder 404, gemessen
+# 14.09.2026). Der Adapter nutzt die oeffentliche Stellensuche; die Faelle
+# dazu stehen in test_v17106_quellen_b53.py. Hier bleibt der Vertrag des
+# Dispatchers (oben) und dass der Adapter die tote API nicht mehr anspricht.
 
 
-def test_workable_parses_json_and_filters():
-    from bewerbungs_assistent.job_scraper.workable import search_workable
-
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = WORKABLE_JSON
-
-    with patch("bewerbungs_assistent.job_scraper.workable.httpx.Client") as mock_cls:
-        client = MagicMock()
-        client.get.return_value = resp
-        mock_cls.return_value.__enter__.return_value = client
-
-        jobs = search_workable({
-            "keywords": {"general": ["backend"], "regionen": []}
-        })
-    titles = [j["title"] for j in jobs]
-    assert "Backend Engineer" in titles
-    assert "Praktikant Sales" not in titles
-
-
-def test_workable_employment_mapped():
-    from bewerbungs_assistent.job_scraper.workable import search_workable
-    resp = MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = WORKABLE_JSON
-
-    with patch("bewerbungs_assistent.job_scraper.workable.httpx.Client") as mock_cls:
-        client = MagicMock()
-        client.get.return_value = resp
-        mock_cls.return_value.__enter__.return_value = client
-        jobs = search_workable({"keywords": {"general": [], "regionen": []}})
-    by_title = {j["title"]: j for j in jobs}
-    assert by_title["Praktikant Sales"]["employment_type"] == "praktikum"
-    assert by_title["Backend Engineer"]["employment_type"] == "festanstellung"
-
-
-def test_workable_has_default_companies():
-    from bewerbungs_assistent.job_scraper.workable import DEFAULT_COMPANIES
-    assert len(DEFAULT_COMPANIES) >= 3
+def test_workable_spricht_die_tote_widget_api_nicht_mehr_an():
+    from pathlib import Path
+    quelle = (Path(__file__).resolve().parents[1] / "src" / "bewerbungs_assistent"
+              / "job_scraper" / "workable.py").read_text(encoding="utf-8")
+    assert "widget/accounts" not in quelle
 
 
 # ============= Meinestadt ===============

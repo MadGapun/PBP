@@ -1272,7 +1272,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
     db.add_position({"company": "Musterklinik", "title": "Pflegefachkraft",
                      "description": "Intensivstation", "start_date": "2013-01"})
     db.add_skill({"name": "Intensivpflege"})
-    db.set_profile_setting("active_sources", ["bundesagentur", "gulp"])
+    db.set_profile_setting("active_sources", ["bundesagentur", "heise_jobs"])
 
     empfehlung = recommend_sources(db.get_profile())
     assert empfehlung["type"] == "health" and empfehlung["confidence"] >= 0.5, empfehlung
@@ -1298,7 +1298,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         # Das Lesen hat die gespeicherte Auswahl geheilt.
         assert db.get_profile_setting("active_sources") == ["bundesagentur"]
         # Standardansicht ohne defekte Quellen.
-        assert page.locator('[data-source-key="gulp"]').count() == 0
+        assert page.locator('[data-source-key="heise_jobs"]').count() == 0
 
         knopf = page.get_by_role("button", name=re.compile(r"fehlende empfohlene Quelle"))
         knopf.click()
@@ -1307,7 +1307,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         assert set(db.get_profile_setting("active_sources")) == {"bundesagentur", *fehlend}
 
         filter_.get_by_role("button", name=f"Defekte Quellen ({defekt})").click()
-        page.locator('[data-source-key="gulp"]').wait_for(state="visible")
+        page.locator('[data-source-key="heise_jobs"]').wait_for(state="visible")
         assert page.locator("[data-source-key]").count() == defekt
     finally:
         context.close()

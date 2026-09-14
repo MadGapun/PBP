@@ -1,317 +1,151 @@
-"""GULP Scraper — Top IT/Engineering Freelance-Plattform.
+"""GULP — IT- und Engineering-Projektboerse.
 
-GULP ist eine der groessten Freelance-Projektboersen in Deutschland.
-Projektliste ist ohne Login einsehbar (Details teils eingeschraenkt).
+v1.7.106 (B53, live gemessen 14.09.2026): die Projektsuche der Seite ist
+eine Angular-App, die ihre Treffer ueber eine offene JSON-Schnittstelle
+holt::
 
-Fix #237: SPA-Erkennung + API-Fallback. GULP liefert per httpx nur eine
-9KB-Shell ohne Jobdaten. Versucht zuerst die interne JSON-API, dann
-HTML-Scraping mit JSON-LD, dann Playwright-Fallback.
+    POST https://www.gulp.de/gulp2/rest/internal/projects/search
+    {"query": "<Begriff>", "page": <ab 0>}
+
+Ohne Anmeldung und ohne Browser, 20 Projekte je Seite samt
+`totalCount`. Bis v1.7.105 fragte der Adapter drei geratene Adressen ab
+(alle 404), fiel auf die 9-KB-Huelle der App zurueck und lieferte seit
+April 2026 nichts — die Quelle stand als defekt. Die Schnittstelle steht
+nicht als Zeichenkette im JavaScript-Bundle; gefunden hat sie erst der
+Netzwerk-Mitschnitt eines echten Browsers.
+
+Die Kennung bleibt titelbasiert wie bisher: eine Kennung ist ein Vertrag
+mit dem Bestand (B50, #1041).
 """
 
+from __future__ import annotations
+
+import html
 import logging
 import re
 import time
 
 import httpx
-from bs4 import BeautifulSoup
 
-from . import stelle_hash, detect_remote_level
+from . import detect_remote_level, make_session, stelle_hash
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.gulp")
+
+SUCHE = "https://www.gulp.de/gulp2/rest/internal/projects/search"
+MAX_SEITEN = 3
+MAX_BEGRIFFE = 8
+PAUSE_S = 0.5
 
 FALLBACK_QUERIES = [
     "Software Engineer", "Projektmanager", "Data Analyst",
     "DevOps Engineer", "Consultant",
 ]
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
-    "Accept-Language": "de-DE,de;q=0.9",
-}
-
-# GULP API-Endpunkte (#237): SPA laedt Daten per JSON-API
-_API_URLS = [
-    "https://www.gulp.de/gulp2/api/projekte",
-    "https://www.gulp.de/api/projekte",
-    "https://api.gulp.de/projekte",
-]
-
-API_HEADERS = {
-    **HEADERS,
-    "Accept": "application/json, text/plain, */*",
-    "X-Requested-With": "XMLHttpRequest",
-}
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
 
-def _try_api_search(client: httpx.Client, query: str) -> list:
-    """Try GULP JSON API endpoints (#237)."""
-    jobs = []
-    for api_url in _API_URLS:
-        try:
-            resp = client.get(
-                api_url,
-                params={"query": query, "page": "1"},
-                headers=API_HEADERS,
-            )
-            if resp.status_code != 200:
-                continue
-            data = resp.json()
-            # Try common API response formats
-            items = (
-                data.get("results", []) or
-                data.get("projekte", []) or
-                data.get("items", []) or
-                data.get("data", []) or
-                (data if isinstance(data, list) else [])
-            )
-            for item in items:
-                title = item.get("title", "") or item.get("name", "") or item.get("projektname", "")
-                if not title:
-                    continue
-                company = item.get("company", "") or item.get("firma", "") or "GULP"
-                location = item.get("location", "") or item.get("ort", "") or item.get("einsatzort", "") or ""
-                url = item.get("url", "") or item.get("link", "")
-                if not url and item.get("id"):
-                    url = f"https://www.gulp.de/gulp2/g/projekte/{item['id']}"
-                desc = item.get("description", "") or item.get("beschreibung", "") or ""
-
-                jobs.append({
-                    "hash": stelle_hash("gulp.de", title),
-                    "title": title,
-                    "company": company,
-                    "location": location,
-                    "url": url,
-                    "source": "gulp",
-                    "description": fuer_speicher(desc),
-                    "employment_type": "freelance",
-                    "remote_level": detect_remote_level(f"{title} {location} {desc}"),
-                })
-            if jobs:
-                logger.info("GULP API (%s): %d Projekte fuer '%s'", api_url, len(jobs), query)
-                return jobs
-        except Exception as e:
-            logger.debug("GULP API %s fehlgeschlagen: %s", api_url, e)
-            continue
-    return jobs
+def _text(roh: str) -> str:
+    """HTML-Reste und Such-Hervorhebungen (`<mark>`) entfernen."""
+    if not roh:
+        return ""
+    ohne_tags = re.sub(r"<[^>]+>", " ", roh)
+    return re.sub(r"\s+", " ", html.unescape(ohne_tags)).strip()
 
 
-def _try_playwright_search(query: str) -> list:
-    """Playwright-Fallback fuer GULP SPA (#237)."""
-    jobs = []
+def projekt_zu_stelle(projekt: dict) -> dict | None:
+    """Ein Projekt der Suchantwort auf das PBP-Schema abbilden."""
+    titel = _text(projekt.get("title") or "")
+    if not titel:
+        return None
+    ort = _text(projekt.get("location") or "")
+    beschreibung = _text(projekt.get("description") or "")
+    anforderungen = [_text(s) for s in (projekt.get("skills") or []) if s]
+    text = "\n\n".join(t for t in (beschreibung, "\n".join(a for a in anforderungen if a)) if t)
+
+    remote = detect_remote_level(f"{titel} {ort} {text[:500]}")
+    if remote == "unbekannt" and projekt.get("isRemoteWorkPossible"):
+        # "Remote moeglich" heisst nicht "vollstaendig remote" — und
+        # "remote" schaltet die Ortspruefung ab (#996).
+        remote = "hybrid"
+
+    url = projekt.get("url") or ""
+    if not url and projekt.get("id"):
+        url = f"https://www.gulp.de/gulp2/g/projekte/{projekt['id']}"
+
+    stelle = {
+        "hash": stelle_hash("gulp.de", titel),
+        "title": titel,
+        # Bei Vermittlungsprojekten (`AGENCY`) nennt GULP keinen
+        # Auftraggeber. "GULP" einzusetzen machte alle diese Projekte zu
+        # EINER Firma — fuer Wiedergaenger und Blacklist falsch (#1028).
+        "company": (projekt.get("companyName") or "").strip() or "Nicht angegeben",
+        "location": ort,
+        "url": url,
+        "source": "gulp",
+        "description": fuer_speicher(text),
+        "employment_type": "freelance",
+        "remote_level": remote,
+    }
+    datum = (projekt.get("originalPublicationDate") or "")[:10]
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", datum):
+        stelle["veroeffentlicht_am"] = datum
+    return stelle
+
+
+def _seite(client, begriff: str, seite: int) -> dict | None:
     try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        logger.debug("GULP: Playwright nicht verfuegbar fuer SPA-Fallback")
-        return jobs
-
+        antwort = client.post(SUCHE, json={"query": begriff, "page": seite})
+    except httpx.HTTPError as exc:
+        logger.warning("GULP: Anfrage fuer '%s' Seite %d fehlgeschlagen: %s", begriff, seite, exc)
+        return None
+    if antwort.status_code != 200:
+        logger.warning("GULP: HTTP %s fuer '%s' Seite %d", antwort.status_code, begriff, seite)
+        return None
     try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-            context = browser.new_context(
-                user_agent=HEADERS["User-Agent"],
-                locale="de-DE",
-            )
-            page = context.new_page()
-            page.goto(
-                f"https://www.gulp.de/gulp2/g/projekte?query={query}",
-                wait_until="networkidle",
-                timeout=30000,
-            )
-            page.wait_for_timeout(3000)
-
-            # Extract from rendered page
-            soup = BeautifulSoup(page.content(), "html.parser")
-            browser.close()
-
-            # JSON-LD from rendered page
-            import json
-            for script in soup.find_all("script", type="application/ld+json"):
-                try:
-                    data = json.loads(script.string or "")
-                    items = data if isinstance(data, list) else data.get("@graph", [data])
-                    for item in items:
-                        if item.get("@type") != "JobPosting":
-                            continue
-                        title = item.get("title", "")
-                        if not title:
-                            continue
-                        org = item.get("hiringOrganization", {})
-                        company = org.get("name", "GULP") if isinstance(org, dict) else "GULP"
-                        loc = item.get("jobLocation", {})
-                        if isinstance(loc, list):
-                            loc = loc[0] if loc else {}
-                        location = ""
-                        if isinstance(loc, dict):
-                            addr = loc.get("address", {})
-                            location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
-
-                        jobs.append({
-                            "hash": stelle_hash("gulp.de", title),
-                            "title": title,
-                            "company": company,
-                            "location": location,
-                            "url": item.get("url", ""),
-                            "source": "gulp",
-                            "description": (item.get("description", "") or fuer_speicher("")),
-                            "employment_type": "freelance",
-                            "remote_level": detect_remote_level(
-                                f"{title} {location} {item.get('description', '')}"
-                            ),
-                        })
-                except Exception:
-                    continue
-
-            # HTML cards from rendered page
-            if not jobs:
-                cards = soup.select(
-                    "article, .project-card, [class*='project-item'], "
-                    "[class*='search-result'], [class*='result-item'], "
-                    "a[href*='/projekt/']"
-                )
-                seen = set()
-                for card in cards[:25]:
-                    link_el = card.find("a", href=re.compile(r"/projekt/")) if card.name != "a" else card
-                    if not link_el:
-                        continue
-                    title = link_el.get_text(strip=True)
-                    if not title or len(title) < 5 or title in seen:
-                        continue
-                    seen.add(title)
-                    href = link_el.get("href", "")
-                    url = href if href.startswith("http") else f"https://www.gulp.de{href}"
-                    jobs.append({
-                        "hash": stelle_hash("gulp.de", title),
-                        "title": title,
-                        "company": "GULP",
-                        "location": "",
-                        "url": url,
-                        "source": "gulp",
-                        "description": "",
-                        "employment_type": "freelance",
-                        "remote_level": detect_remote_level(f"{title}"),
-                    })
-    except Exception as e:
-        logger.warning("GULP Playwright-Fallback fehlgeschlagen: %s", e)
-    return jobs
+        daten = antwort.json()
+    except ValueError:
+        logger.warning("GULP: Antwort fuer '%s' ist kein JSON", begriff)
+        return None
+    return daten if isinstance(daten, dict) else None
 
 
-def search_gulp(params: dict) -> list:
-    """Search GULP projects: API -> HTML -> Playwright fallback (#237)."""
-    jobs = []
+def search_gulp(params: dict, client=None) -> list:
+    """Projekte je Suchbegriff ueber die Such-Schnittstelle holen."""
     kw_data = params.get("keywords", {})
-    queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
+    begriffe = kw_data.get("general") if isinstance(kw_data, dict) else kw_data
+    begriffe = [b for b in dict.fromkeys(begriffe or FALLBACK_QUERIES) if b][:MAX_BEGRIFFE]
 
-    with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
-        for query in queries:
-            try:
-                # Strategy 1: Try JSON API (#237)
-                api_jobs = _try_api_search(client, query)
-                if api_jobs:
-                    jobs.extend(api_jobs)
-                    time.sleep(1.5)
-                    continue
+    stellen: list[dict] = []
+    gesehen: set = set()
 
-                # Strategy 2: HTML scraping (original approach)
-                resp = client.get(
-                    "https://www.gulp.de/gulp2/g/projekte",
-                    params={"query": query},
-                )
-                if resp.status_code != 200:
-                    logger.debug("GULP HTTP %d for '%s'", resp.status_code, query)
-                    continue
-
-                # SPA-Erkennung (#237): < 15KB = nur Shell
-                if len(resp.text) < 15000:
-                    logger.info("GULP: Nur %d Bytes — SPA erkannt, versuche Playwright (#237)",
-                                len(resp.text))
-                    pw_jobs = _try_playwright_search(query)
-                    if pw_jobs:
-                        jobs.extend(pw_jobs)
-                    time.sleep(1.5)
-                    continue
-
-                soup = BeautifulSoup(resp.text, "html.parser")
-
-                # JSON-LD extraction (preferred)
-                for script in soup.find_all("script", type="application/ld+json"):
-                    try:
-                        import json
-                        data = json.loads(script.string or "")
-                        items = data if isinstance(data, list) else data.get("@graph", [data])
-                        for item in items:
-                            if item.get("@type") != "JobPosting":
-                                continue
-                            title = item.get("title", "")
-                            if not title:
-                                continue
-                            org = item.get("hiringOrganization", {})
-                            company = org.get("name", "GULP") if isinstance(org, dict) else "GULP"
-                            loc = item.get("jobLocation", {})
-                            if isinstance(loc, list):
-                                loc = loc[0] if loc else {}
-                            location = ""
-                            if isinstance(loc, dict):
-                                addr = loc.get("address", {})
-                                location = addr.get("addressLocality", "") if isinstance(addr, dict) else ""
-
-                            jobs.append({
-                                "hash": stelle_hash("gulp.de", title),
-                                "title": title,
-                                "company": company,
-                                "location": location,
-                                "url": item.get("url", ""),
-                                "source": "gulp",
-                                "description": (item.get("description", "") or fuer_speicher("")),
-                                "employment_type": "freelance",
-                                "remote_level": detect_remote_level(
-                                    f"{title} {location} {item.get('description', '')}"
-                                ),
-                            })
-                    except Exception:
+    def _laufen(c) -> None:
+        for begriff in begriffe:
+            geholt = 0
+            for seite in range(MAX_SEITEN):
+                daten = _seite(c, begriff, seite)
+                if daten is None:
+                    break
+                projekte = daten.get("projects") or []
+                geholt += len(projekte)
+                for projekt in projekte:
+                    schluessel = projekt.get("id") or projekt.get("url") or projekt.get("title")
+                    if schluessel in gesehen:
                         continue
+                    gesehen.add(schluessel)
+                    stelle = projekt_zu_stelle(projekt)
+                    if stelle:
+                        stellen.append(stelle)
+                if not projekte or geholt >= int(daten.get("totalCount") or 0):
+                    break
+                time.sleep(PAUSE_S)
 
-                # Fallback: HTML card extraction
-                if not any(j["source"] == "gulp" for j in jobs):
-                    cards = soup.select(
-                        "article, .project-card, [class*='project-item'], "
-                        "[class*='search-result'], a[href*='/projekt/']"
-                    )
-                    seen = set()
-                    for card in cards[:25]:
-                        link_el = card.find("a", href=re.compile(r"/projekt/")) if card.name != "a" else card
-                        if not link_el:
-                            continue
-                        title = link_el.get_text(strip=True)
-                        if not title or len(title) < 5 or title in seen:
-                            continue
-                        seen.add(title)
+    if client is not None:
+        _laufen(client)
+    else:
+        with make_session(content_type="json", timeout=20, user_agent=_UA) as c:
+            _laufen(c)
 
-                        href = link_el.get("href", "")
-                        url = href if href.startswith("http") else f"https://www.gulp.de{href}"
-
-                        parent = card if card.name in ("article", "div", "li") else card.parent
-                        loc_el = parent.find(class_=re.compile(r"location|ort", re.I)) if parent else None
-                        comp_el = parent.find(class_=re.compile(r"company|firma", re.I)) if parent else None
-
-                        jobs.append({
-                            "hash": stelle_hash("gulp.de", title),
-                            "title": title,
-                            "company": comp_el.get_text(strip=True) if comp_el else "GULP",
-                            "location": loc_el.get_text(strip=True) if loc_el else "",
-                            "url": url,
-                            "source": "gulp",
-                            "description": "",
-                            "employment_type": "freelance",
-                            "remote_level": detect_remote_level(f"{title}"),
-                        })
-
-                logger.debug("GULP: %d for '%s'", len(jobs), query)
-                time.sleep(1.5)
-            except Exception as e:
-                logger.error("GULP error for '%s': %s", query, e)
-
-    logger.info("GULP: %d Projekte gefunden", len(jobs))
-    return jobs
+    logger.info("GULP: %d Projekte aus %d Suchbegriffen", len(stellen), len(begriffe))
+    return stellen
