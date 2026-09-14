@@ -2935,7 +2935,22 @@ def register(mcp, db, logger):
         # Check for duplicates (#219: nur echte DB-Treffer, nicht scope-Prefix)
         existing_job = db.get_job(job_hash)
         if existing_job:
-            return {"fehler": f"Diese Stelle existiert bereits (Hash: {existing_job['hash']})."}
+            # v1.7.111 (#1046): mit dem Zustand der vorhandenen Stelle. Bis
+            # hierher stand hier nur "existiert bereits (Hash: ...)", und
+            # im belegten Lauf wurde daraus vorgeschlagen, zwei Stellen
+            # auszusortieren, die laengst aussortiert waren. Aktiv,
+            # aussortiert und beworben verlangen drei verschiedene Schritte.
+            from ..services import stellen_zustand as _zustand
+            _block = _zustand.zustand(db, existing_job)
+            return {
+                "warnung": _zustand.schluessel(_block),
+                "duplikat": _zustand.schluessel(_block),
+                "status": "bereits_vorhanden",
+                "grund": "gleiche_kennung",
+                "nachricht": _zustand.nachricht(_block),
+                "existing_hash": _block["hash"],
+                "vorhandene_stelle": _block,
+            }
 
         # Duplikat-Pruefung (#317 + #471 + v1.6.9 #567: zweistufig)
         # Stufe A: laufende Bewerbung mit Titel-Match → blocken
@@ -2968,8 +2983,15 @@ def register(mcp, db, logger):
             app_hit = None
         if app_hit:
             app = app_hit["job"]
+            from ..services import stellen_zustand as _zustand
             return {
                 "warnung": "duplikat_bewerbung",
+                # #1046: derselbe Zustandsblock wie bei gleicher Kennung.
+                "duplikat": "duplikat_beworben",
+                "vorhandene_stelle": {
+                    "titel": app.get("title") or "",
+                    "firma": app.get("company") or "",
+                    **_zustand.aus_bewerbung(app)},
                 "grund": app_hit["grund"],
                 "nachricht": (
                     f"Moegliches Duplikat: laufende Bewerbung {app['id'][:8]} bei "
@@ -3005,8 +3027,16 @@ def register(mcp, db, logger):
             active_hit = None
         if active_hit and active_hit["job"].get("hash") != job_hash:
             existing = active_hit["job"]
+            # #1046: auch hier der Zustand — die aktive Liste traegt
+            # beworbene Stellen mit (`exclude_applied=False`), und eine
+            # Bewerbung verlangt eine Warnung, keinen Hinweis.
+            from ..services import stellen_zustand as _zustand
+            _block = _zustand.zustand(db, existing)
             return {
                 "warnung": "duplikat_aktive_stelle",
+                "duplikat": _zustand.schluessel(_block),
+                "vorhandene_stelle": _block,
+                "naechster_schritt": _zustand.nachricht(_block),
                 "status": "bereits_vorhanden",
                 "grund": active_hit["grund"],
                 "nachricht": (
@@ -3423,7 +3453,13 @@ def register(mcp, db, logger):
                     trichter["kontakte"] = trichter.get("kontakte", 0) + 1
                 angelegt.append(_eintrag)
             elif res.get("warnung"):
-                _skip(e, res["warnung"], res.get("grund", ""))
+                # #1046: der Zustand der vorhandenen Stelle statt der Stufe,
+                # die ihn gefunden hat — aktiv, aussortiert und beworben
+                # verlangen verschiedene naechste Schritte.
+                _skip(e, res.get("duplikat") or res["warnung"],
+                      res.get("nachricht") or res.get("grund", ""))
+                if res.get("vorhandene_stelle"):
+                    uebersprungen[-1]["vorhandene_stelle"] = res["vorhandene_stelle"]
             elif res.get("fehler"):
                 grund = ("blacklist" if "Blacklist" in res["fehler"]
                          else "abgewiesen")
