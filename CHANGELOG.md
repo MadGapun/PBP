@@ -33,6 +33,84 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.105] - 2026-09-14 — Was ausgewaehlt ist, steht auch so da
+
+Ein Fehler, ein beim Nachbauen gefundener zweiter und drei Wuensche aus
+#1039 (Einstellungen → Quellen).
+
+### Fixed
+
+- **Eine als defekt markierte Quelle ist nicht mehr ausgewaehlt — auch
+  nicht in der gespeicherten Auswahl** (#1039). Wurde eine angehakte Quelle
+  spaeter als defekt markiert, blieb sie gespeichert. Das Dashboard zeichnete
+  ihren Haken leer und gesperrt, abwaehlen ging nicht, und jeder Suchlauf
+  uebersprang sie erneut. Jetzt bereinigt jeder Leseweg die gespeicherte
+  Auswahl (Quellenliste, Suchstart im Dashboard und per Claude, Automatik,
+  naechste Schritte, Jobsuche-Workflow), und das Speichern nimmt keine
+  defekte Quelle an.
+- **"Empfohlene Quellen" bietet keine defekte Quelle mehr an** (#1039).
+  Jeder der 15 Profiltypen empfahl mindestens eine, und der Aktivieren-Knopf
+  legte sie in die Auswahl, obwohl sich ihr Haken in der Liste gar nicht
+  setzen laesst. Die ausgelassenen Quellen stehen jetzt unter der Empfehlung.
+- **"N fehlende empfohlene Quellen aktivieren" aktiviert alle N** (#1039,
+  beim Nachbauen gefunden). Der Knopf speicherte je Quelle einzeln, jedes Mal
+  ausgehend von derselben alten Auswahl — uebrig blieb nur die zuletzt
+  aktivierte.
+
+### Changed
+
+- **Die Quellenliste zeigt standardmaessig nur nutzbare Quellen**, mit dem
+  Filter "Alle · Aktiv · Inaktiv" samt Anzahl und einem eigenen Knopf
+  "Defekte Quellen (N)" (#1039). Pausierte, automatisch abgeschaltete und
+  veraltete Quellen zaehlen als nutzbar. Die Liste ist jetzt nach Namen
+  sortiert; vorher stand sie in der Reihenfolge der internen Registry.
+- **Das erste Etikett folgt dem Haken**: "Aktiv" oder "Inaktiv", bei
+  defekten Quellen "Defekt" (#1039). "Wartet auf dich" (Quellen ueber
+  Chrome) und "Manuell" (veraltete Quellen) stehen als eigene Hinweise
+  daneben. Vorher stand "Aktiv" fuer zwei Dinge, und "Manuell" verriet
+  nicht, ob die Quelle angehakt ist.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.105.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.105.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.104] - 2026-09-14 — Jede Karte, einmal, mit Firma und Ort
 
 Zwei Fehler aus #1041 (Jobware) und #1042 (ingenieur.de). Beide Boersen
