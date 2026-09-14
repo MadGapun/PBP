@@ -105,6 +105,89 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.110] - 2026-09-14 — Absaetze, Listen und Ueberschriften bleiben
+
+Melder-Bericht #1047: die Beschreibung vieler Stellen stand im Popup als
+ein einziger Textblock, obwohl die Anzeige auf der Website gegliedert ist.
+
+### Fixed
+
+- **Anzeigentexte behalten ihre Gliederung.** Dreizehn Quellen-Adapter
+  machten aus jedem HTML-Tag und jedem Zeilenumbruch ein Leerzeichen.
+  Nachgemessen: acht Arbeitnow-Anzeigen tragen live 4 bis 35 Absaetze und
+  bis zu 34 Listenpunkte, gespeichert wurde davon kein einziger Umbruch;
+  auf der Kopie eines Bestands hatte bei Arbeitnow, RemoteOK, Remotive und
+  ferchau kein Text ab 500 Zeichen einen Zeilenumbruch. Jetzt liest ein
+  gemeinsamer Leser fuer alle: Absaetze und Ueberschriften durch eine
+  Leerzeile getrennt, Listenpunkte als `- ` je Zeile. Titel und Orte
+  bleiben einzeilig.
+- **Das Nachladen bringt die Gliederung zurueck.** Der Leser fuer
+  nachgeladene Seiten trennte ebenfalls mit Leerzeichen — erneutes
+  Nachladen reparierte deshalb nichts. Dasselbe galt fuer freelancermap,
+  StepStone und die Detailseiten-Abrufe im Dashboard.
+- **Die Detailansicht zeigt den Text gegliedert.** Das Popup der
+  Stellenliste tat es schon; die Detailansicht aus anderen Seiten fasste
+  den Text vor der Anzeige wieder zu einem Absatz zusammen.
+- **Ein Weg fuer den Bestand:** `beschreibungen_nachladen_bestand` kennt
+  jetzt `umfang="flach"` — Texte ab 500 Zeichen ganz ohne Zeilenumbruch.
+  Ein gegliederter Text ersetzt den flachen auch dann, wenn er nicht
+  laenger ist; ist er deutlich kuerzer (unter 90 %), bleibt der alte
+  stehen. Die Quelle hays bleibt aussen vor: ihr Text traegt schon an der
+  Quelle keine Gliederung.
+- **Trennlinien schneiden nichts mehr ab.** Eine Zeile nur aus Strichen
+  in einer Anzeige waere mit Zeilenumbruechen zum Trenner geworden, hinter
+  dem PBP Notizen ablegt — Score und Kompetenzen haetten den Rest der
+  Anzeige nicht mehr gesehen. Solche Zeilen fallen weg.
+
+### Changed
+
+- Mit Absaetzen erkennt die Bewertung den ersten Absatz als
+  Firmenvorstellung, wenn er danach aussieht, und zaehlt Treffer dort
+  geringer — genau so, wie es fuer gegliederte Quellen wie die
+  Bundesagentur schon galt. Scores dieser Quellen koennen sich dadurch
+  beim naechsten Suchlauf leicht aendern.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.110.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.110.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.109] - 2026-09-14 — Der ganze Anzeigentext, auch bei hays
 
 Melder-Bericht #1048: alle Stellen der Quelle hays trugen eine
