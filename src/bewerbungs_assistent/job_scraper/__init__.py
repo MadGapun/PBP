@@ -1617,6 +1617,19 @@ def run_search(db, job_id: str, params: dict):
     except Exception as _exc:  # pragma: no cover — nie den Lauf stoppen
         logger.debug("Routing uebersprungen (#950): %s", _exc)
 
+    # v1.7.108 (#1041, B54): Jobware- und ingenieur.de-Stellen aus v1.7.104
+    # bis v1.7.107 tragen Kommentar-Reste und eine Kennung aus dem Titel MIT
+    # Rest. VOR dem Speichern richtigstellen — sonst sortiert die
+    # Duplikat-Erkennung jeden sauberen Neufund ueber die URL als `duplikat`
+    # des verfaelschten Eintrags aus. Idempotent; ohne Befund passiert nichts.
+    try:
+        from ..services import karten_heilung as _heilung
+        from ..services.geocoding_service import get_user_coordinates as _wohnort
+        _heilung.heilen(db, koordinaten=_wohnort(db),
+                        bewerten=lambda _z: calculate_score(_z, criteria))
+    except Exception as _exc:  # pragma: no cover — nie den Lauf stoppen
+        logger.warning("Kartenleser-Heilung uebersprungen (#1041): %s", _exc)
+
     save_stats = db.save_jobs(unique) or {}
     new_per_source = save_stats.get("new_per_source", {}) if isinstance(save_stats, dict) else {}
     db.set_profile_setting("last_search_at", time.strftime("%Y-%m-%dT%H:%M:%S"))
