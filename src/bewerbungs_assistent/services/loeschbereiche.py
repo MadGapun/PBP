@@ -95,7 +95,11 @@ BEREICHE: dict[str, tuple] = {
         "extraction_history",
     ),
     "einstellungen": (
-        "settings", "search_criteria", "scoring_config", "blacklist",
+        "settings", "search_criteria", "scoring_config",
+        # v1.7.113 (#1053): der Verlauf gehoert zu den Reglern, deren
+        # Aenderungen er festhaelt — ohne Zuordnung bliebe er beim
+        # Loeschen stehen (gefunden vom Guard aus #1025).
+        "scoring_config_verlauf", "blacklist",
         "dismiss_reasons", "user_preferences", "custom_sources",
         "newsletter_sources", "portal_search_profiles", "components",
         "plugins",
