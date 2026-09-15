@@ -105,6 +105,83 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.114] - 2026-09-15 — Der Weg zu den Browser-Quellen
+
+Nutzerbericht #1049: der Knopf "Jobsuche starten" startete nur den
+internen Lauf. Quellen, die ein eingeloggtes Konto im Browser brauchen,
+wurden uebersprungen — und kein Weg fuehrte von dort zu Claude.
+
+### Added
+
+- **Die Stellen-Seite zeigt, welche Quellen nur ueber den Browser
+  liefern**, mit einem Knopf "Prompt fuer Claude kopieren". Der Prompt
+  wird aus deinen Daten gebaut: die gewaehlten Quellen, die erprobten
+  Suchbegriffe je Portal aus dem Suchprofil (nicht die MUSS-Begriffe),
+  der Hinweis auf `linkedin_lauf_plan` bzw. `google_jobs_url`, die Pflicht,
+  jede Anzeige im Volltext zu lesen, und die Rueckmeldung je Quelle
+  (Rohtreffer, uebernommen, verworfen mit Grund). Fehlt ein Suchprofil,
+  steht ein Hinweis da statt erfundener Begriffe.
+- **Als defekt gefuehrte Quellen, die im Browser liefern** (Heise Jobs,
+  meinestadt.de, Workday-DAX-Cluster), stehen als optionale Ergaenzung
+  dabei.
+- `GET /api/jobsuche/browser-quellen` liefert Liste und Prompt.
+
+### Changed
+
+- **Zwei Elemente hiessen "Jobsuche starten" und taten Verschiedenes.**
+  Die Prompt-Karte im Schnellzugriff heisst jetzt "Jobsuche mit Claude",
+  die Knoepfe, die den internen Lauf starten, heissen "Interne Jobsuche
+  starten".
+- **Die Lauf-Bilanz nennt die uebersprungenen Browser-Quellen** getrennt
+  ("6 uebersprungen, nur ueber den Browser erreichbar"), statt nur die
+  Quellen zu zaehlen, die intern gelaufen sind.
+
+### Fixed
+
+- Beim Nachsehen, ob es Suchbegriffe fuer ein Portal gibt, legt PBP kein
+  Suchprofil mehr an — "kein Suchprofil" bleibt eine Auskunft.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.114.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.114.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.113] - 2026-09-15 — Jeder Regler hinterlaesst eine Spur
 
 Nutzerbericht #1053: ein Scoring-Regler stand wirkungslos im Bestand, und
