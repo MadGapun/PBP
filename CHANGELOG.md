@@ -105,6 +105,88 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.116] - 2026-09-15 — Abzuege mit Grenze, Schwelle aus dem Quantil
+
+Erster Schritt aus #1052 und die Rechenfehler aus #1045. Die Umordnung
+in Fachwert und Rahmen-Tor folgt in eigenen Schritten.
+
+### Changed
+
+- **MINUS-Begriffe nehmen hoechstens die Haelfte des Fachwerts.** Bisher
+  war nur die positive Seite gedeckelt. Je schwaecher der Fachtreffer,
+  desto kleiner war dieser Deckel, waehrend die Abzuege voll wirkten: eine
+  Stelle mit fuenf Pflicht- und fuenfzehn PLUS-Treffern landete bei 0,
+  unter einer mit einem einzigen Pflichttreffer. MINUS bleibt eine
+  Abwertung und wird kein Ausschluss. Entfernungs-Abzuege sind bewusst
+  noch nicht gedeckelt; sie verlassen die Zahl erst mit dem Rahmen-Tor.
+- **PLUS und MINUS zaehlen je Sachverhalt einmal**, wie MUSS seit
+  v1.7.66. "Zeitarbeit" und "Zeitarbeit Vermittlung" in einer Anzeige
+  sind ein Abzug, nicht zwei.
+- **Der Schwellenvorschlag im Backtest kommt aus dem unteren Viertel der
+  Bewerbungs-Scores**, nicht mehr aus dem niedrigsten. Ein einziger
+  Ausreisser mit 0 setzte den Vorschlag bisher auf 0.
+
+### Fixed
+
+- **`kalibrierung_backtest` rechnet mit denselben Kriterien wie die
+  Trefferliste.** Er las sie roh, ohne Betriebsart des MUSS-Tors,
+  Synonyme und beworbene Titel — seine Zahlen passten nicht zu den
+  gespeicherten Scores, und der Vorschlag kam aus diesen Zahlen.
+- **Beide Deckel lassen sich einstellen und stehen in der Anzeige.**
+  `suchkriterien_bearbeiten(kategorie='scoring', aktion='deckel',
+  werte=['rahmen'|'minus'], gewicht=N)`; `scoring_konfigurieren('anzeigen')`
+  nennt beide unter `deckel_erklaert`. Der positive Deckel war seit
+  v1.7.22 als einstellbar beschrieben, ohne dass es einen Weg gab.
+
+### Hinweis
+
+Gemessen auf einer Kopie des eigenen Bestands (56 Bewerbungen gegen 300
+Aussortierte): die Wirkung ist klein — bei Schwelle 7 liegt eine
+Bewerbung mehr darueber und zwei Aussortierte. Gespeicherte Scores
+aendern sich erst mit `scores_neu_berechnen()`; vorher lohnt ein Blick in
+`kalibrierung_backtest()`.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.116.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.116.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.115] - 2026-09-15 — Die Detailbewertung auf der Karte
 
 Nutzerbericht #1050: der Weg zur Detailbewertung fuehrte nur ueber einen
