@@ -198,7 +198,10 @@ def test_der_timeout_zaehler_liest_quellen_status(client):
     _lauf(db, "fertig", _ergebnis_wie_im_bericht())
     daten = c.get("/api/jobsuche/last").json()
     assert daten["timeout_quellen"] == 1
-    assert daten["quellen"] == {"ok": 2, "timeout": 1, "fehler": 0, "uebersprungen": 1}
+    # v1.7.114 (#1049): `nur_browser` kam dazu — die Browser-Quellen, die
+    # der interne Lauf uebersprungen hat. Der Lauf hier hat keine.
+    assert daten["quellen"] == {"ok": 2, "timeout": 1, "fehler": 0,
+                                "uebersprungen": 1, "nur_browser": 0}
 
 
 def test_ein_lauf_ohne_funde_meldet_null_und_nicht_unbekannt(client):
