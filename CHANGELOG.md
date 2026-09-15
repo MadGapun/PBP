@@ -105,6 +105,77 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.115] - 2026-09-15 — Die Detailbewertung auf der Karte
+
+Nutzerbericht #1050: der Weg zur Detailbewertung fuehrte nur ueber einen
+selbst formulierten Prompt, und "Zur Blacklist" stand gleichrangig neben
+dem Aussortieren.
+
+### Added
+
+- **Knopf "Detailbewertung" auf jeder Stellenkarte.** Er kopiert einen
+  Prompt mit Titel, Firma und Kennung der Stelle, der Claude anweist, die
+  Anzeige gegen dein Profil zu lesen und das Urteil mit
+  `stelle_analyse_speichern` abzulegen — nicht nur im Chat zu antworten.
+  Liegt schon ein Befund vor, heisst der Knopf "Neu bewerten" und nennt
+  ihn.
+- **Die Blacklist ist Teil des Aussortierens.** Im Dialog "Stelle
+  aussortieren" steht "Firma zusätzlich sperren". Der gewaehlte
+  Ablehnungsgrund wird als Begruendung vorgeschlagen, und der
+  Blacklist-Dialog hat dafuer ein eigenes Feld. Gesperrt wird erst mit
+  "Blockieren" — und erst dann wird die Stelle auch mit den gewaehlten
+  Gruenden aussortiert.
+
+### Changed
+
+- **"Zur Blacklist" steht nicht mehr auf der Stellenkarte.** Reihenfolge
+  jetzt: Anpinnen, Fit-Analyse, Detailbewertung, Bewerbung erfassen, Passt
+  nicht, Anzeige.
+- **Fit-Dialog und Karte nutzen denselben Prompt.** Die bisherige Fassung
+  im Fit-Dialog verlangte das Speichern nicht; das Urteil blieb dadurch im
+  Chat.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.115.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.115.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.114] - 2026-09-15 — Der Weg zu den Browser-Quellen
 
 Nutzerbericht #1049: der Knopf "Jobsuche starten" startete nur den
