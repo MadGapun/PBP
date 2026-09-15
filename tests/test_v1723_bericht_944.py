@@ -250,11 +250,11 @@ def test_944_bericht_und_liste_zeigen_denselben_score(tmp_db):
         "url": "https://example.com/d", "source": "bundesagentur",
         "score": 40, "_fachscore": 30.0, "_rahmenscore": 10.0,
     }])
-    # Ein Regler, der den Score verschiebt.
-    try:
-        tmp_db.set_scoring_config("firma", "Regler GmbH", -10)
-    except Exception:
-        pytest.skip("Scoring-Regler in dieser Fassung nicht setzbar")
+    # Ein Regler, der den Score verschiebt — und zwar einer, den der
+    # Scoring-Dienst LIEST. Bis v1.7.112 stand hier `firma/...`: eine
+    # Dimension ohne Leser, und seit #1053 weist die Datenbank sie ab. Der
+    # umschliessende `try/skip` haette den Test dann still ausgesetzt.
+    tmp_db.set_scoring_config("keyword", "PLM", -10)
 
     from bewerbungs_assistent.services.scoring_service import (
         apply_scoring_adjustments)

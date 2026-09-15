@@ -357,7 +357,15 @@ def test_1008_diagnose_meldet_wirkungslose_regler(db):
     Verdacht geht — schwieg.
     """
     from bewerbungs_assistent.tools import analyse as analyse_tools
-    db.set_scoring_config("schwellenwert", "schwellenwert", 35)
+    # v1.7.113 (#1053): `set_scoring_config` weist den Schluessel jetzt
+    # selbst ab. Die Diagnose gilt dem ALTBESTAND — die Zeile entsteht
+    # deshalb so, wie sie in alten Datenbanken steht: ungeprueft.
+    conn = db.connect()
+    conn.execute(
+        "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, "
+        "ignore_flag, created_at) VALUES ('', 'schwellenwert', "
+        "'schwellenwert', 35, 0, '2026-05-01')")
+    conn.commit()
 
     befund = _werkzeuge(db, analyse_tools)["pbp_diagnose"]()
     treffer = [w for w in befund.get("warnungen", [])

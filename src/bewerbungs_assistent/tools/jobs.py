@@ -859,20 +859,15 @@ def register(mcp, db, logger):
         new_val = start_malus + (max_malus - start_malus) * fortschritt
         new_val = round(new_val * 2) / 2
         alt_val = existing["value"] if existing else None
-        if existing:
-            if existing["value"] <= new_val:
-                return None  # already penalized enough
-            conn.execute(
-                "UPDATE scoring_config SET value=? WHERE id=?",
-                (new_val, existing["id"])
-            )
-        else:
-            conn.execute(
-                "INSERT INTO scoring_config (profile_id, dimension, sub_key, value, ignore_flag, created_at) "
-                "VALUES (?, ?, ?, ?, 0, ?)",
-                (pid, dim, sub, new_val, __import__("datetime").datetime.now().isoformat())
-            )
-        conn.commit()
+        if existing and existing["value"] <= new_val:
+            return None  # already penalized enough
+        # v1.7.113 (#1053): ueber das Nadeloehr der Datenbank — mit
+        # Zeitpunkt, Vorgaengerwert und Herkunft "automatik". Bis hierher
+        # schrieb der Lerneffekt eigenes SQL, und seine Aenderungen waren
+        # spaeter von einer Hand-Einstellung nicht zu unterscheiden.
+        db_ref.lerne_scoring_regler(
+            dim, sub, new_val,
+            anlass=f"Lerneffekt: '{reason}' {count}x als Grund gewaehlt")
         # #908 Punkt 6: alt->neu benennen und den Rueckweg gleich mitgeben
         # — eine Automatik, die den Bestand umgewichtet, muss revidierbar
         # sein. Landet via auto_adjustments/hints beim Nutzer UND im Log.
