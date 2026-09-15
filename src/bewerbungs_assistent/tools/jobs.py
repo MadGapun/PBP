@@ -1786,6 +1786,9 @@ def register(mcp, db, logger):
         # unbrauchbar (dasselbe Muster wie die Synonyme in #987).
         from ..services import datenguete as _dg
         _profil_fuer_analyse = db.get_profile()
+        # v1.7.112 (#1051): die rohen Kriterien, gegen die der Stand eines
+        # Urteils beim Speichern gebildet wird.
+        _krit_fuer_stand = db.get_search_criteria()
         from ..services import scoring_kriterien as _skrit
         try:
             _guete_krit = _skrit.fuer_scoring(db)
@@ -2056,14 +2059,16 @@ def register(mcp, db, logger):
             # jedem Aufruf neu und verschwand mit der Antwort — die
             # Liste konnte ihn gar nicht zeigen. Ohne Befund steht hier
             # NICHTS: "noch nicht gelesen" ist kein Urteil (#989).
-            _befund = passung.analyse_lesen(j, _profil_fuer_analyse)
+            _befund = passung.analyse_lesen(
+                j, _profil_fuer_analyse, _krit_fuer_stand)
             if _befund:
                 entry["analyse"] = _befund
             # #948 (G42): der Pruefstand ist eine ANDERE Auskunft als das
             # Urteil. Er steht auch dann da, wenn kein Urteil vorliegt —
             # "angesehen, aber nicht beurteilt" ist der Zustand, in dem
             # Arbeit verlorenging.
-            entry["pruefstand"] = passung.zustand(j, _profil_fuer_analyse)
+            entry["pruefstand"] = passung.zustand(
+                j, _profil_fuer_analyse, _krit_fuer_stand)
             # #951 (AK 6): wo ueberall diese Stelle ausgeschrieben ist.
             # Steht nur da, wenn es MEHR als eine Fundstelle gibt — sonst
             # waere es die Wiederholung des `source`-Feldes.
@@ -3053,7 +3058,14 @@ def register(mcp, db, logger):
         # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
         # darf durchgehen.
 
-        criteria = db.get_search_criteria()
+        # v1.7.112 (#1051): dasselbe Nadeloehr wie Suchlauf, Neuberechnung
+        # und `fit_analyse`. Mit den rohen Kriterien fehlte die abgeleitete
+        # Betriebsart des MUSS-Tors (#968) — eine Stelle ohne Pflichttreffer
+        # wurde hier mit 0 gespeichert, und `fit_analyse` rechnete gleich
+        # danach 3.5. Der Docstring von `fuer_scoring` nannte die manuelle
+        # Anlage laengst als Aufrufer; sie war es nicht.
+        from ..services import scoring_kriterien as _skrit_anlage
+        criteria = _skrit_anlage.fuer_scoring(db)
         job = {
             "hash": job_hash,
             "title": titel,
@@ -4684,7 +4696,9 @@ def register(mcp, db, logger):
         # #1003/#1007: der Verdict kommt aus dem gespeicherten Befund der
         # Detailanalyse — nicht aus dem Suchbegriff-Score. Liegt keiner
         # vor, sagt PBP das, statt zu raten.
-        _gespeichert = passung.analyse_lesen(job_dict, profile)
+        # v1.7.112 (#1051): gegen die rohen Kriterien, wie beim Speichern.
+        _gespeichert = passung.analyse_lesen(
+            job_dict, profile, db.get_search_criteria())
         _kompetenzen = len((profile or {}).get("skills") or [])
         result["empfehlung"] = _build_empfehlung(
             result, job_dict,
@@ -4777,7 +4791,10 @@ def register(mcp, db, logger):
         if "description" in updates or "title" in updates:
             try:
                 from ..job_scraper import calculate_score
-                criteria = db.get_search_criteria()
+                # v1.7.112 (#1051): das Nadeloehr, wie bei der Anlage —
+                # sonst rechnet `fit_analyse` gleich danach eine andere Zahl.
+                from ..services import scoring_kriterien as _skrit_bearb
+                criteria = _skrit_bearb.fuer_scoring(db)
                 fresh_job = db.get_job(job_hash) or {}
                 new_score = calculate_score(fresh_job, criteria)
                 if new_score is not None:

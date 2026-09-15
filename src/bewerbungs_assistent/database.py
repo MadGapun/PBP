@@ -524,6 +524,13 @@ class Database:
                                   ("analyse_score", "REAL"),
                                   ("gesichtet_am", "TEXT"),
                                   ("gesichtet_score", "REAL"),
+                                  # v1.7.112 (#1051): worauf Urteil
+                                  # und Sichtung beruhen (Profil,
+                                  # Anzeigentext, Suchkriterien). Der
+                                  # Score taugte dafuer nicht: er
+                                  # entsteht auf mehreren Wegen.
+                                  ("analyse_stand", "TEXT"),
+                                  ("gesichtet_stand", "TEXT"),
                                   # v1.7.74 (#892, C64): der Score beim
                                   # ERSTEN Speichern. Er wird danach nie
                                   # wieder ueberschrieben — ohne ihn
@@ -5162,6 +5169,8 @@ class Database:
         "analyse_urteil", "analyse_begruendung", "analyse_grundlage",
         "analyse_am", "analyse_profil_stand", "analyse_score",
         "gesichtet_am", "gesichtet_score",
+        # v1.7.112 (#1051): worauf Urteil und Sichtung beruhen.
+        "analyse_stand", "gesichtet_stand",
         "initial_score", "initial_score_rekonstruiert",
         "dismiss_note",
         # v1.7.82 (#1026): ohne diesen Eintrag loescht ein erneuter
@@ -5764,7 +5773,7 @@ class Database:
             existiert — der Aufrufer darf nicht "gespeichert" melden,
             wo nichts gespeichert wurde (#997).
         """
-        from .services.passung import KATEGORIEN, profil_stand
+        from .services.passung import KATEGORIEN, grundlage_stand, profil_stand
         wert = (urteil or "").strip().upper()
         if wert not in KATEGORIEN:
             raise ValueError(
@@ -5779,16 +5788,23 @@ class Database:
         # entstuende ein zweiter Weg, auf dem eine andere Zahl
         # hineinkaeme als die, gegen die spaeter verglichen wird.
         cur_score = conn.execute(
-            "SELECT COALESCE(score, 0) FROM jobs WHERE hash=?",
+            "SELECT COALESCE(score, 0), description FROM jobs WHERE hash=?",
             (target_hash,)).fetchone()
         score_jetzt = float(cur_score[0]) if cur_score else 0.0
+        # v1.7.112 (#1051): worauf das Urteil beruht — Profil, Anzeigentext
+        # und Suchkriterien. Daran misst `passung.ueberholt`, nicht mehr am
+        # Score, der auf mehreren Wegen verschieden entsteht.
+        profil = self.get_profile()
+        stand = grundlage_stand(
+            profil, {"description": cur_score[1] if cur_score else ""},
+            self.get_search_criteria())
         cur = conn.execute(
             "UPDATE jobs SET analyse_urteil=?, analyse_begruendung=?, "
             "analyse_grundlage=?, analyse_am=?, analyse_profil_stand=?, "
-            "analyse_score=?, updated_at=? WHERE hash=?",
+            "analyse_score=?, analyse_stand=?, updated_at=? WHERE hash=?",
             (wert, (begruendung or "").strip()[:4000],
              (grundlage or "detailanalyse").strip()[:80],
-             _now(), profil_stand(self.get_profile()), score_jetzt,
+             _now(), profil_stand(profil), score_jetzt, stand,
              _now(), target_hash),
         )
         conn.commit()
@@ -5817,16 +5833,23 @@ class Database:
             return False
         conn = self.connect()
         zeile = conn.execute(
-            "SELECT COALESCE(score, 0) FROM jobs WHERE hash=?",
+            "SELECT COALESCE(score, 0), description FROM jobs WHERE hash=?",
             (target_hash,)).fetchone()
         if not zeile:
             return False
+        # v1.7.112 (#1051): derselbe Stand wie beim Urteil — sonst hinge
+        # "ueberholt" bei der Sichtung weiter am Score.
+        from .services.passung import grundlage_stand
+        stand = grundlage_stand(self.get_profile(),
+                                {"description": zeile[1]},
+                                self.get_search_criteria())
         # Bewusst OHNE `updated_at`: eine Sichtung ist keine Aenderung
         # an der Stelle, und `updated_at` traegt anderswo Bedeutung
         # (Wiedergaenger, Anzeigenalter).
         cur = conn.execute(
-            "UPDATE jobs SET gesichtet_am=?, gesichtet_score=? WHERE hash=?",
-            (_now(), float(zeile[0]), target_hash),
+            "UPDATE jobs SET gesichtet_am=?, gesichtet_score=?, "
+            "gesichtet_stand=? WHERE hash=?",
+            (_now(), float(zeile[0]), stand, target_hash),
         )
         conn.commit()
         return cur.rowcount > 0
@@ -5840,7 +5863,8 @@ class Database:
         cur = conn.execute(
             "UPDATE jobs SET analyse_urteil=NULL, analyse_begruendung=NULL, "
             "analyse_grundlage=NULL, analyse_am=NULL, "
-            "analyse_profil_stand=NULL, updated_at=? WHERE hash=?",
+            "analyse_profil_stand=NULL, analyse_stand=NULL, "
+            "updated_at=? WHERE hash=?",
             (_now(), target_hash),
         )
         conn.commit()

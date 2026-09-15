@@ -100,56 +100,40 @@ def test_948_der_damalige_score_kommt_aus_der_datenbank(db):
         "gespeicherte Wert vom tatsaechlichen abweichen.")
 
 
-# ------------------------------------------------- AK 5: ueberholt am Score
+# ------------------------------------- AK 5: ueberholt an der Grundlage
+#
+# Bis v1.7.111 hing "ueberholt" am Score. Das hat #1051 gebrochen: der
+# gespeicherte Score und der in der Liste entstehen auf zwei Wegen, und
+# jedes Urteil galt im Moment seiner Entstehung als veraltet. Die
+# Absicht von AK 5 bleibt — eine geaenderte Grundlage wird benannt —,
+# gemessen wird jetzt an Profil, Anzeigentext und Suchkriterien.
 
 
-def test_948_ein_geaenderter_score_macht_die_analyse_ueberholt(db):
-    """AK 5: aendert sich der Score, wechselt die Kennzeichnung."""
-    voll = _stelle(db, score=20.0)
-    db.set_job_analysis(voll, "EMPFOHLEN", "passt")
-
-    job = db.get_job(voll)
-    assert passung.zustand(job).get("ueberholt") is None
-
-    db.update_job(voll, {"score": 34})
-    job = db.get_job(voll)
-    alt = passung.zustand(job)["ueberholt"]
-    assert alt["grund"] == "score"
-    assert alt["score_damals"] == pytest.approx(20.0)
-    assert alt["score_jetzt"] == pytest.approx(34.0)
-
-
-def test_948_der_score_ist_das_integrierende_signal(db):
-    """Beschreibung, Kriterien und Regler wirken ALLE ueber den Score.
-
-    Deshalb genuegt ein Vergleich. Drei einzelne haetten dieselbe Frage
-    dreimal beantwortet, und zwei davon ungenauer.
-    """
+def test_948_ein_nachgeladener_anzeigentext_macht_die_analyse_ueberholt(db):
+    """AK 5: aendert sich die Grundlage, wechselt die Kennzeichnung."""
     voll = _stelle(db, score=10.0)
     db.set_job_analysis(voll, "BEDINGT", "unklar")
-    # Eine nachgeladene Beschreibung schlaegt sich im Score nieder.
+    assert passung.zustand(db.get_job(voll)).get("ueberholt") is None
+
     db.update_job(voll, {
         "description": "Viel mehr Anzeigentext als vorher. " * 40,
         "score": 41,
     })
-    job = db.get_job(voll)
-    assert passung.zustand(job)["ueberholt"]["grund"] == "score"
+    alt = passung.zustand(db.get_job(voll))["ueberholt"]
+    assert alt["grund"] == "anzeigentext"
+    assert alt["gruende_text"]
 
 
-def test_948_ohne_toleranzschwelle_und_das_ist_gemessen():
-    """Es gibt kein Rauschband, das eine Schwelle wegfiltern muesste.
+def test_948_ein_geaenderter_score_allein_macht_nichts_ueberholt(db):
+    """#1051: der Score ist nur ein Anhaltspunkt und kein Beleg.
 
-    Gemessen am 10.09.2026 ueber 600 Stellen mit Anzeigentext (Kopie
-    des Bestands): 381 unveraendert, 219 abweichend — und die KLEINSTE
-    beobachtete Abweichung betraegt bereits 0,5 Punkte, der Median
-    10,5. Eine Schwelle waere hier kein Schutz vor Fehlalarmen (#929),
-    sondern eine Grenze, die echte Aenderungen verschweigt.
+    Eine Detailanalyse liest ihn nicht (#1003). Er entsteht auf mehreren
+    Wegen — genau deshalb stand ein Urteil sofort als veraltet da.
     """
-    job = {"analyse_score": 20.0, "score": 20.5}
-    alt = passung.ueberholt(job)
-    assert alt is not None, "0,5 Punkte sind eine echte Aenderung"
-    # Gleichheit bleibt Gleichheit — Fliesskomma-Rauschen zaehlt nicht.
-    assert passung.ueberholt({"analyse_score": 20.0, "score": 20.0}) is None
+    voll = _stelle(db, score=20.0)
+    db.set_job_analysis(voll, "EMPFOHLEN", "passt")
+    db.update_job(voll, {"score": 34})
+    assert passung.zustand(db.get_job(voll)).get("ueberholt") is None
 
 
 def test_948_auch_das_profil_macht_ueberholt(db):
@@ -168,15 +152,16 @@ def test_948_auch_das_profil_macht_ueberholt(db):
 
 def test_948_beide_gruende_werden_benannt(db):
     """Wer nur einen Grund nennt, verdeckt den anderen (#987 MERKE 5)."""
+    alt_profil = "3/2@2026-01-01T00:00:00"
     job = {
         "analyse_urteil": "EMPFOHLEN",
-        "analyse_score": 20.0,
-        "score": 55.0,
-        "analyse_profil_stand": "3/2@2026-01-01T00:00:00",
+        "analyse_stand": (f"p={alt_profil}|t={passung.text_stand('alt')}"
+                          "|k="),
+        "description": "neu und laenger",
     }
     profil = {"skills": [{"name": "a"}] * 9, "positions": [],
               "updated_at": "2026-09-10T10:00:00"}
-    assert passung.ueberholt(job, profil)["grund"] == "score+profil"
+    assert passung.ueberholt(job, profil)["grund"] == "profil+anzeigentext"
 
 
 # ----------------------------------------------- AK 4: die drei Zustaende
