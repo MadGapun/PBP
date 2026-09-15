@@ -765,7 +765,7 @@ export default function DashboardPage() {
                     </p>
                     <Button onClick={() => startJobsuche()}>
                       <Search size={15} />
-                      Jobsuche starten
+                      Interne Jobsuche starten
                     </Button>
                   </div>
                 );

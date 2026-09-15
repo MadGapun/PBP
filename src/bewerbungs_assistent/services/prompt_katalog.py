@@ -98,8 +98,11 @@ EINTRAEGE: tuple[dict, ...] = (
 
     # ── Jobsuche & Bewerbung ───────────────────────────────────────
     {"id": "jobsuche_workflow", "prompt": "jobsuche_workflow",
-     "kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche starten",
-     "beschreibung": "Jobboersen durchsuchen lassen",
+     # v1.7.114 (#1049): hiess "Jobsuche starten" — genau wie der Knopf,
+     # der nur den INTERNEN Lauf startet. Zwei Elemente, ein Name,
+     # verschiedene Wirkung: wer den Knopf drueckte, erwartete Claude.
+     "kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche mit Claude",
+     "beschreibung": "Jobboersen durchsuchen lassen, auch die im Browser",
      "icon": "search", "standard": True},
     # v1.7.32 (#981 D): der Workflow erstellt Lebenslauf UND Anschreiben.
     # Das alte Etikett "Bewerbung schreiben / Anschreiben erstellen"

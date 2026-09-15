@@ -1314,3 +1314,31 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         assert page.locator("[data-source-key]").count() == defekt
     finally:
         context.close()
+
+
+def test_jobs_page_zeigt_die_browser_quellen_mit_prompt(live_dashboard, browser):
+    """#1049 am GERENDERTEN Bild: die uebersprungenen Browser-Quellen
+    stehen auf der Stellen-Seite, mit Kopierknopf fuer Claude.
+
+    Geklickt wird der Knopf bewusst nicht — er schreibt in die
+    Zwischenablage. Belegt wird, dass Liste und Einstieg da sind.
+    """
+    db = live_dashboard["db"]
+    _seed_uncertain_jobs_workspace(db)
+    db.set_profile_setting("active_sources", ["bundesagentur", "linkedin"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        karte = page.get_by_text("Diese Quellen laufen nur über den Browser")
+        karte.wait_for(state="visible")
+        page.get_by_role("button", name="Prompt für Claude kopieren").wait_for(state="visible")
+        page.get_by_text("LinkedIn", exact=True).first.wait_for(state="visible")
+        page.get_by_text("kein Suchprofil hinterlegt").first.wait_for(state="visible")
+    finally:
+        context.close()
