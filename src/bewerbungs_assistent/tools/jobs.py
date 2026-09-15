@@ -614,6 +614,9 @@ def register(mcp, db, logger):
         params = {
             "keywords": keywords,
             "quellen": quellen,
+            # v1.7.114 (#1049): derselbe Vermerk wie im Dashboard-Start —
+            # die Lauf-Bilanz nennt die uebersprungenen Browser-Quellen.
+            "browser_quellen": manuelle,
         }
         job_id = db.create_background_job("jobsuche", params)
 

@@ -6557,6 +6557,10 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
     params = {
         "keywords": keywords,
         "quellen": auto_quellen,
+        # v1.7.114 (#1049): was der interne Lauf uebersprungen hat. Ohne
+        # diese Angabe meldete die Bilanz "14 Quellen ok", waehrend sechs
+        # gewaehlte Quellen gar nicht mitliefen (#813, #989).
+        "browser_quellen": manuelle,
     }
     job_id = _db.create_background_job("jobsuche", params)
 
@@ -6626,6 +6630,21 @@ async def api_jobsuche_running():
     }
 
 
+@app.get("/api/jobsuche/browser-quellen")
+async def api_jobsuche_browser_quellen():
+    """Quellen, die nur im Browser liefern, samt kopierbarem Prompt (#1049).
+
+    Liste und Prompt entstehen in `services/browser_handoff.py` — die
+    Oberflaeche liest beides nur vor. Grundlage ist die gespeicherte
+    Auswahl: eine gewaehlte Quelle mit Browser-Zugang hat der interne Lauf
+    uebersprungen.
+    """
+    from .services import browser_handoff
+    from .services.search_service import aktive_quellen
+    eintraege = browser_handoff.browser_quellen(_db, auswahl=aktive_quellen(_db) or [])
+    return {"quellen": eintraege, "prompt": browser_handoff.prompt(eintraege)}
+
+
 @app.get("/api/jobsuche/last")
 async def api_jobsuche_last():
     """Return the most recently finished jobsuche job (#487 Status-Badge).
@@ -6669,6 +6688,11 @@ async def api_jobsuche_last():
         ergebnis = "nicht_gestartet"
     else:
         ergebnis = "fertig"
+
+    # v1.7.114 (#1049): die uebersprungenen Browser-Quellen stehen in den
+    # Job-Parametern, nicht im Ergebnis — der Lauf fasst sie nie an.
+    params = job.get("params") if isinstance(job.get("params"), dict) else {}
+    zaehler["nur_browser"] = len(params.get("browser_quellen") or [])
 
     neue = _zahl(result.get("total"))
     return {

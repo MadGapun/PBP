@@ -87,7 +87,8 @@ READINESS_STUFEN: dict[str, dict] = {
         "headline": "Es ist Zeit für eine frische Jobsuche.",
         "description": "Starte eine neue Suche, damit du keine passenden Stellen verpasst.",
         "next_page": "dashboard",
-        "action_label": "Jobsuche starten",
+        # v1.7.114 (#1049): ein Prompt an Claude, kein interner Lauf.
+        "action_label": "Jobsuche mit Claude",
         "action_type": "prompt",
         "action_target": "/jobsuche_workflow",
     },

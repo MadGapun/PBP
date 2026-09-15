@@ -24,6 +24,12 @@ export function jobsucheHinweis(last) {
     quellen.timeout ? `${quellen.timeout} im Timeout` : null,
     quellen.fehler ? `${quellen.fehler} mit Fehler` : null,
     quellen.uebersprungen ? `${quellen.uebersprungen} übersprungen` : null,
+    // #1049: die Browser-Quellen zaehlt der interne Lauf gar nicht mit.
+    // "14 Quellen ok" ohne sie ist dieselbe Klasse Fehler wie eine
+    // Trefferzahl ohne Rohtrefferzahl (#813, #989).
+    quellen.nur_browser
+      ? `${quellen.nur_browser} übersprungen, nur über den Browser erreichbar`
+      : null,
   ].filter(Boolean).join(", ");
 
   if (last.ergebnis === "fehlgeschlagen") {

@@ -9959,6 +9959,40 @@ class Database:
         ),
     }
 
+    def find_portal_search_profile(self, portal: str) -> dict | None:
+        """Das Suchprofil eines Portals — oder None, OHNE eines anzulegen (#1049).
+
+        `get_portal_search_profile` legt beim ersten Lesen ein Profil an
+        (fuer LinkedIn mit Vorgaben). Fuer eine Anzeige oder einen Prompt
+        waere das eine Nebenwirkung: wer nur nachsieht, ob es Suchbegriffe
+        gibt, haette danach welche. "Kein Suchprofil" ist eine Auskunft
+        und bleibt eine (#989).
+        """
+        portal = (portal or "").strip().lower()
+        if not portal:
+            return None
+        pid = self.get_active_profile_id()
+        row = self.connect().execute(
+            "SELECT * FROM portal_search_profiles "
+            "WHERE (profile_id=? OR profile_id IS NULL) AND portal=? LIMIT 1",
+            (pid, portal)).fetchone()
+        if not row:
+            return None
+
+        def _liste(spalte):
+            try:
+                return json.loads(row[spalte] or "[]")
+            except Exception:
+                return []
+
+        return {
+            "portal": row["portal"],
+            "primaere_suchen": _liste("primaere_suchen_json"),
+            "sekundaere_suchen": _liste("sekundaere_suchen_json"),
+            "nicht_verwenden": _liste("nicht_verwenden_json"),
+            "notizen": row["notizen"] or "",
+        }
+
     def get_portal_search_profile(self, portal: str) -> dict:
         """Liefert das Such-Profil fuer ein Portal (LinkedIn/StepStone/XING).
 

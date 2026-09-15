@@ -23,6 +23,7 @@ import { cn, formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { kurzmarke as datenguetMarke } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
+import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
@@ -957,7 +958,9 @@ export default function JobsPage() {
         tone: "danger",
         title: "Erst die Jobsuche erneuern, dann wieder aussortieren",
         description: "Die Suche ist veraltet oder noch nie gelaufen. Neue Treffer bringen jetzt mehr als noch feinere Filter.",
-        actionLabel: "Jobsuche starten",
+        // #1049: der interne Lauf — "Jobsuche starten" hiess auch die
+        // Prompt-Karte, die Claude beauftragt.
+        actionLabel: "Interne Jobsuche starten",
         action: () => startJobsuche(),
       };
     }
@@ -1021,6 +1024,10 @@ export default function JobsPage() {
           )}
         </div>
       )}
+
+      {/* #1049 (G50): was der interne Lauf ueberspringt, und der Weg zu
+          Claude. `anlass` laedt neu, sobald eine Suche startet oder endet. */}
+      <BrowserHandoffKarte anlass={searchJob.running ? 1 : 0} />
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1768,7 +1775,7 @@ export default function JobsPage() {
                   <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
                   <Button variant="secondary" onClick={() => startJobsuche()}>
                     <Search size={15} />
-                    Jobsuche starten
+                    Interne Jobsuche starten
                   </Button>
                 </div>
               ) : null}

@@ -45,6 +45,22 @@ check("unbekannte Zahl ist nicht 0", unbekannt.text.includes("0"), false);
 
 check("kein Lauf -> nichts", jobsucheHinweis({ vorhanden: false }), null);
 
+// #1049: Browser-Quellen stehen getrennt da.
+const browser = jobsucheHinweis({
+  vorhanden: true, ergebnis: "fertig", neue_stellen: 4, neu_aktiv: 4,
+  quellen: { ok: 14, timeout: 0, fehler: 0, uebersprungen: 0, nur_browser: 6 },
+});
+check("Browser-Quellen im Tooltip",
+  browser.titel.includes("6 übersprungen, nur über den Browser erreichbar"), true);
+check("14 ok bleibt daneben stehen", browser.titel.includes("14 Quellen ok"), true);
+
+const ohneBrowser = jobsucheHinweis({
+  vorhanden: true, ergebnis: "fertig", neue_stellen: 0, neu_aktiv: 0,
+  quellen: { ok: 3 },
+});
+check("ohne Browser-Quellen kein Satz dazu",
+  ohneBrowser.titel.includes("Browser"), false);
+
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);
   process.exit(1);
