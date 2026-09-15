@@ -28,6 +28,7 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
 import { scoreText, scoreWert } from "@/lib/score";
+import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertung";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -51,6 +52,10 @@ const EMPTY_BLACKLIST_DIALOG = {
   job: null,
   type: "firma",
   value: "",
+  // #1050: der Ablehnungsgrund als Vorschlag, und die Aussortierung, die
+  // erst mit der bestaetigten Sperre ausgefuehrt wird.
+  begruendung: "",
+  aussortieren: null,
 };
 const EMPTY_DISMISS_DIALOG = {
   open: false,
@@ -727,13 +732,18 @@ export default function JobsPage() {
     });
   }
 
-  function openBlacklistDialog(job) {
+  // #1050 (G51): aus dem Passt-nicht-Dialog heraus mit dem gewaehlten
+  // Grund als Begruendung — 5 von 28 Eintraegen im Bestand trugen gar
+  // keine. `aussortieren` fuehrt erst die bestaetigte Sperre aus.
+  function openBlacklistDialog(job, grund = "", aussortieren = null) {
     const preferredType = job?.company ? "firma" : job?.location ? "ort" : "keyword";
     setBlacklistDialog({
       open: true,
       job,
       type: preferredType,
       value: blacklistValueForType(job, preferredType),
+      begruendung: grund,
+      aussortieren,
     });
   }
 
@@ -747,7 +757,14 @@ export default function JobsPage() {
       await postJson("/api/blacklist", {
         type: blacklistDialog.type,
         value,
+        reason: (blacklistDialog.begruendung || "").trim(),
       });
+      // #1050: kam die Sperre aus dem Passt-nicht-Dialog, gilt die
+      // Aussortierung mit ihren Gruenden — erst jetzt, nach der Bestaetigung.
+      const offen = blacklistDialog.aussortieren;
+      if (offen?.hash && offen.reasons?.length) {
+        await postJson("/api/jobs/dismiss", { hash: offen.hash, reasons: offen.reasons });
+      }
       const jobHash = blacklistDialog.job?.hash;
       if (jobHash) {
         startTransition(() => {
@@ -1684,13 +1701,22 @@ export default function JobsPage() {
                     <Target size={15} />
                     Fit-Analyse
                   </Button>
+                  {/* #1050 (G51): der Weg zur Detailbewertung stand nur im
+                      Chat — waehrend der Score, der keine Aussage ueber
+                      Passung ist, prominent auf der Karte stand. Die Blacklist
+                      wandert ins Passt-nicht-Menue: 28 Eintraege gegen 2.691
+                      Aussortierungen standen hier gleichrangig. */}
+                  <Button
+                    variant="secondary"
+                    title={detailbewertungKnopf(job).titel}
+                    onClick={() => copyPrompt(detailbewertungPrompt(job))}
+                  >
+                    <Search size={15} />
+                    {detailbewertungKnopf(job).text}
+                  </Button>
                   <Button onClick={() => openApplicationDialog(job)}>
                     <Plus size={15} />
                     Bewerbung erfassen
-                  </Button>
-                  <Button variant="ghost" onClick={() => openBlacklistDialog(job)}>
-                    <Ban size={15} />
-                    Zur Blacklist
                   </Button>
                   {filters.view === "active" ? (
                     <Button variant="danger" onClick={() => openDismissDialog(job)}>
@@ -1869,11 +1895,13 @@ export default function JobsPage() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Button
               variant="primary"
-              onClick={() => {
-                const hash = fitDialog.hash || "";
-                const prompt = `Bewerte die Stelle "${fitDialog.title}" (Hash: ${hash}) detailliert fuer mich. Rufe die Stellenbeschreibung ab, vergleiche sie mit meinem Profil und gib mir eine ehrliche Einschaetzung: Staerken, Schwaechen, Risiken, und ob sich eine Bewerbung lohnt.`;
-                copyPrompt(prompt);
-              }}
+              // #1050: derselbe Prompt wie auf der Karte. Die alte Fassung
+              // stand hier als Literal und verlangte das Speichern nicht.
+              onClick={() => copyPrompt(detailbewertungPrompt({
+                hash: fitDialog.hash || "",
+                title: fitDialog.title,
+                analyse: fitDialog.analysis?.analyse,
+              }))}
             >
               <Search size={15} />
               Detailbewertung durch Claude anfordern
@@ -2108,6 +2136,22 @@ export default function JobsPage() {
               }
             />
           </Field>
+          {/* #1050: ein Eintrag ohne Begruendung laesst sich spaeter nicht
+              mehr pruefen (#992) — der Ablehnungsgrund steht als Vorschlag. */}
+          <Field label="Begründung">
+            <TextInput
+              value={blacklistDialog.begruendung || ""}
+              placeholder="Warum soll das nicht mehr auftauchen?"
+              onChange={(event) =>
+                setBlacklistDialog((current) => ({ ...current, begruendung: event.target.value }))
+              }
+            />
+          </Field>
+          {blacklistDialog.aussortieren ? (
+            <p className="text-xs text-muted/60">
+              Mit dem Blockieren wird die Stelle auch mit den gewählten Gründen aussortiert.
+            </p>
+          ) : null}
           <Card className="glass-card-soft rounded-xl shadow-none">
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Vorschau</p>
             <p className="mt-2 text-sm text-ink">
@@ -2172,6 +2216,29 @@ export default function JobsPage() {
               onChange={(e) => setDismissDialog((cur) => ({ ...cur, customReason: e.target.value }))}
             />
           </Field>
+          {/* #1050 (G51): eine Firma landet fast immer AUS einem Passt-nicht
+              heraus auf der Blacklist. Hier wird nichts gesperrt — der
+              Blacklist-Dialog verlangt die Bestaetigung (AK 6), und erst
+              mit ihr wird auch aussortiert. */}
+          {dismissDialog.job?.company ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
+              <p className="text-xs text-muted/60">Soll die ganze Firma nicht mehr auftauchen?</p>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  const stelle = dismissDialog.job;
+                  const gruende = [...dismissDialog.selectedReasons];
+                  if (dismissDialog.customReason.trim()) gruende.push(dismissDialog.customReason.trim());
+                  setDismissDialog(EMPTY_DISMISS_DIALOG);
+                  openBlacklistDialog(stelle, gruende.join(", "),
+                    gruende.length ? { hash: stelle?.hash, reasons: gruende } : null);
+                }}
+              >
+                <Ban size={15} />
+                Firma zusätzlich sperren
+              </Button>
+            </div>
+          ) : null}
         </div>
       </Modal>
 
