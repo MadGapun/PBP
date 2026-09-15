@@ -757,11 +757,14 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
     db = live_dashboard["db"]
     _seed_uncertain_jobs_workspace(db)
     # Eine der beiden Stellen bekommt ein gelesenes Urteil, und danach
-    # aendert sich ihr Score — damit muss das Abzeichen "ueberholt"
-    # tragen (AK 5).
+    # aendert sich ihre Grundlage — damit muss das Abzeichen "ueberholt"
+    # tragen (AK 5). Seit v1.7.112 (#1051) ist das der Anzeigentext,
+    # nicht mehr der Score: der entsteht auf mehreren Wegen, und ein
+    # Urteil galt dadurch im Moment seiner Entstehung als veraltet.
     voll = db.resolve_job_hash("job-mit-beschreibung")
     db.set_job_analysis(voll, "BEDINGT", "Methodenluecke, ueberbrueckbar")
-    db.update_job(voll, {"score": 91})
+    db.update_job(voll, {"description": (db.get_job(voll).get("description") or "")
+                         + "\n\nNachgeladen: ein weiterer Absatz der Anzeige."})
 
     context = browser.new_context(viewport={"width": 1440, "height": 960})
     page = context.new_page()
