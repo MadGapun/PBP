@@ -105,6 +105,85 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.112] - 2026-09-15 — Ein Urteil bleibt gueltig, bis sich seine Grundlage aendert
+
+Nutzerbericht #1051: dieselbe Stelle trug am selben Tag vier Score-Werte,
+und eine eben gespeicherte Detailanalyse erschien sofort als veraltet.
+
+### Fixed
+
+- **Eine Detailanalyse gilt nicht mehr im Moment ihrer Entstehung als
+  veraltet.** Gespeichert wurde der Score ohne Scoring-Regler, verglichen
+  mit dem Score der Liste, in dem die Regler schon stecken. Bei jeder
+  Stelle, an der ein Regler greift, war das Urteil damit sofort
+  "ueberholt". Auf einer Kopie des Bestands galten so 9 von 12 Stellen mit
+  Urteil oder Sichtung als veraltet; nach der Korrektur keine.
+- **"Ueberholt" haengt an der Grundlage, nicht am Score.** Der Score ist
+  nur ein Anhaltspunkt, und eine Detailanalyse liest ihn nicht. Ein Urteil
+  und eine Sichtung merken sich jetzt, auf welchem Profil, welchem
+  Anzeigentext und welchen Suchkriterien sie beruhen. Aendert sich eines
+  davon, nennt die Liste den Grund ("Anzeigentext hat sich seither
+  geaendert"). Nicht mitgezaehlt werden reine Formatierung, von PBP selbst
+  angereicherte Werte und die Nennwerte fuers Gespraech. Urteile von vor
+  dieser Version werden weiter am Profil gemessen.
+- **Anlegen, Bearbeiten und Fit-Analyse rechnen mit denselben Kriterien.**
+  `stelle_manuell_anlegen` (auch der LinkedIn-Sammelweg) und
+  `stelle_bearbeiten` nahmen die Suchkriterien roh, ohne die abgeleitete
+  Betriebsart des MUSS-Tors. Eine Stelle ohne Pflichttreffer wurde deshalb
+  mit 0 gespeichert, und `fit_analyse` meldete gleich danach 3.5 samt
+  "bitte melden". Ein Test prueft jetzt jeden Aufruf der Score-Berechnung
+  im Code auf das gemeinsame Nadeloehr.
+
+### Changed
+
+- Nach einem Update meldet `fit_analyse` bei manuell angelegten Stellen
+  moeglicherweise einmalig eine Abweichung zum gespeicherten Wert.
+  `scores_neu_berechnen()` zieht den Bestand nach.
+- Bewusst nicht in dieser Version: dass ein Regler allein (etwa Remote)
+  eine Stelle ohne Fachtreffer in der Liste hebt, und dass Liste und
+  Fit-Analyse beide "Score" heissen. Das ordnet #1052 neu.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.112.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.112.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.111] - 2026-09-14 — Was aus der vorhandenen Stelle geworden ist
 
 Melder-Bericht #1046: die Meldung "Diese Stelle existiert bereits" sagte
