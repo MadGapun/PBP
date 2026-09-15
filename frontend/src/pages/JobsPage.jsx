@@ -230,14 +230,12 @@ export function pruefstandTitel(job) {
   const teile = [stand.text];
   if (stand.am) teile.push(`am ${String(stand.am).slice(0, 10)}`);
   if (job?.analyse?.begruendung) teile.push(job.analyse.begruendung);
+  // #1051: die Gruende kommen als Text vom Server. Bis v1.7.111 stand
+  // hier "Score seither X → Y" — der Vergleich mischte zwei Rechenwege
+  // und machte jedes Urteil sofort ueberholt.
   const alt = stand.ueberholt;
-  if (alt) {
-    if (alt.grund?.includes("score")) {
-      teile.push(`Score seither ${alt.score_damals} → ${alt.score_jetzt}`);
-    }
-    if (alt.grund?.includes("profil")) {
-      teile.push("Profil hat sich seither geändert");
-    }
+  if (alt && Array.isArray(alt.gruende_text)) {
+    teile.push(...alt.gruende_text);
   }
   return teile.filter(Boolean).join(" — ");
 }
@@ -1907,12 +1905,8 @@ export default function JobsPage() {
               {fitDialog.analysis.pruefstand?.ueberholt ? (
                 <p className="mt-2 text-xs text-amber">
                   {`Seit dem Urteil hat sich die Grundlage geändert${
-                    fitDialog.analysis.pruefstand.ueberholt.grund?.includes("score")
-                      ? ` — Score ${fitDialog.analysis.pruefstand.ueberholt.score_damals} → ${fitDialog.analysis.pruefstand.ueberholt.score_jetzt}`
-                      : ""
-                  }${
-                    fitDialog.analysis.pruefstand.ueberholt.grund?.includes("profil")
-                      ? " — das Profil wurde seither bearbeitet"
+                    (fitDialog.analysis.pruefstand.ueberholt.gruende_text || []).length
+                      ? ` — ${fitDialog.analysis.pruefstand.ueberholt.gruende_text.join("; ")}`
                       : ""
                   }.`}
                 </p>

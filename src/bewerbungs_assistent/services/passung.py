@@ -123,9 +123,12 @@ def urteil(ko_gruende=None, beschreibung_vorhanden: bool = True,
             # seiner Zeit richtig, und ein stilles Wegwerfen verlöre die
             # teuerste Auskunft im System.
             antwort["veraltet"] = True
+            # v1.7.112 (#1051): den tatsaechlichen Grund nennen. Der alte
+            # Satz sagte immer "Profil", auch wenn der Score der Grund war.
+            gruende = gespeicherte_analyse.get("veraltet_text") or [
+                "Dein Profil hat sich seither geändert"]
             antwort["hinweis"] = (
-                "Dein Profil hat sich seit dieser Analyse geaendert — das "
-                "Urteil kann ueberholt sein.")
+                "; ".join(gruende) + " — das Urteil kann ueberholt sein.")
         return antwort
 
     if not beschreibung_vorhanden:
@@ -198,55 +201,134 @@ ZUSTAND_TEXT = {
 # Zustaende statt zwei.
 
 
-def ueberholt(job: dict, profil=None) -> dict | None:
-    """Hat sich seit der Pruefung die Grundlage geaendert?
+# -- Worauf eine Pruefung beruht (#1051) ------------------------------
+#
+# Bis v1.7.111 hing "ueberholt" am Score: gespeichert wurde der Score
+# zum Zeitpunkt der Pruefung, verglichen mit dem Score der Liste. Das
+# waren ZWEI Rechenwege — gespeichert der rohe Wert, in der Liste der
+# Wert mit den Scoring-Reglern. Bei jeder Stelle, an der ein Regler
+# greift, stand ein Urteil deshalb im Moment seiner Entstehung als
+# veraltet da (gemeldet: gespeichert 0, Liste 10). Ein Hinweis, der
+# immer kommt, wird nach dem zweiten Mal ignoriert — und dann auch der,
+# der wirklich auf eine veraltete Analyse zeigt (#929).
+#
+# Die Nutzereinordnung dazu: der Score ist nur ein Anhaltspunkt. Eine
+# Detailanalyse liest ihn nicht einmal (#1003), sie vergleicht Profil
+# und Anzeige. "Ueberholt" haengt deshalb jetzt an den EINGABEN statt
+# an einer Zahl, die mehrere Wege verschieden berechnen: Profil,
+# Anzeigentext und Suchkriterien. Ein Fingerabdruck ist kein
+# Rechenergebnis und kann nicht auf zwei Wegen verschieden herauskommen.
 
-    Der Score ist das INTEGRIERENDE Signal, und deshalb genuegt er:
-    eine nachgeladene Beschreibung, geaenderte Suchkriterien und
-    verstellte Scoring-Regler wirken alle drei ueber ihn. Drei einzelne
-    Vergleiche zu bauen haette dieselbe Frage dreimal beantwortet —
-    und zwei davon ungenauer.
+GRUND_TEXT = {
+    "profil": "Profil hat sich seither geändert",
+    "anzeigentext": "Anzeigentext hat sich seither geändert",
+    "kriterien": "Suchkriterien haben sich seither geändert",
+}
 
-    **Keine Toleranzschwelle, und das ist gemessen.** Ueber 600 Stellen
-    mit Anzeigentext (Kopie des Bestands, 10.09.2026) gegen die
-    heutigen Kriterien nachgerechnet: 381 unveraendert, 219 abweichend
-    — und die kleinste beobachtete Abweichung betraegt bereits 0,5
-    Punkte, der Median 10,5. Es gibt kein Rauschband, das eine Schwelle
-    wegfiltern muesste. Eine Schwelle waere hier also kein Schutz vor
-    Fehlalarmen (#929), sondern eine Grenze, die echte Aenderungen
-    verschweigt.
+
+def _kurz_hash(text: str) -> str:
+    import hashlib
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+
+
+def text_stand(beschreibung) -> str:
+    """Fingerabdruck des Anzeigentexts, unempfindlich gegen Formatierung.
+
+    Leerraum faellt vor dem Vergleich weg: v1.7.110 (#1047) hat
+    Anzeigentexte neu gegliedert, ohne ein Wort zu aendern. Ein Urteil
+    darf dadurch nicht ueberholt heissen — es hat denselben Text gelesen.
+    """
+    rein = "".join(str(beschreibung or "").split())
+    return _kurz_hash(rein) if rein else ""
+
+
+def kriterien_stand(kriterien) -> str:
+    """Fingerabdruck der Suchkriterien, ohne das, was nicht zaehlt.
+
+    Heraus fallen die Eintraege mit Unterstrich — PBP reichert sie zur
+    Laufzeit an, die beworbenen Titel etwa aendern sich mit jeder
+    Bewerbung und saegten sonst jedes Urteil ab — und die Nennwerte
+    fuers Gespraech (#931), die in keine Pruefung eingehen.
+    """
+    if not kriterien:
+        return ""
+    import json
+
+    from .nennwerte import WUNSCH_FELDER
+    kern = {k: v for k, v in dict(kriterien).items()
+            if not str(k).startswith("_") and k not in WUNSCH_FELDER}
+    if not kern:
+        return ""
+    return _kurz_hash(json.dumps(kern, sort_keys=True, ensure_ascii=False,
+                                 default=str))
+
+
+def grundlage_stand(profil, job, kriterien) -> str:
+    """Worauf eine Pruefung beruht, in einer Zeile: `p=...|t=...|k=...`."""
+    return (f"p={profil_stand(profil)}"
+            f"|t={text_stand((job or {}).get('description'))}"
+            f"|k={kriterien_stand(kriterien)}")
+
+
+def _teile(stand) -> dict:
+    teile = {}
+    for stueck in str(stand or "").split("|"):
+        schluessel, trenner, wert = stueck.partition("=")
+        if trenner and schluessel in ("p", "t", "k"):
+            teile[schluessel] = wert
+    return teile
+
+
+def ueberholt(job: dict, profil=None, kriterien=None) -> dict | None:
+    """Hat sich seit der Pruefung ihre GRUNDLAGE geaendert (#948, #1051)?
+
+    Verglichen werden Profil, Anzeigentext und Suchkriterien zum
+    Zeitpunkt der Pruefung mit dem heutigen Stand. Der Score gehoert
+    nicht mehr dazu — warum, steht im Block darueber.
+
+    Eine Seite ohne Angabe entscheidet nichts. Fehlt der gespeicherte
+    Stand (Pruefung von vor v1.7.112) oder reicht der Aufrufer weder
+    Profil noch Kriterien herein, wird diese Grundlage nicht verglichen:
+    ein fehlender Beleg ist kein Befund (#989). Ein Urteil von vor
+    v1.7.112 kennt nur seinen Profil-Stand und wird nur daran gemessen.
+
+    Ein Urteil ist der juengere Stand und geht der Sichtung vor.
 
     Returns:
-        dict mit `grund` ('score' | 'profil' | 'score+profil') und den
-        beiden Score-Werten, oder None wenn nichts veraltet ist.
+        dict mit `grund` (etwa 'profil' oder 'anzeigentext+kriterien')
+        und `gruende_text`, oder None wenn nichts ueberholt ist.
     """
     if not job:
         return None
+    if (job.get("analyse_urteil") or "").strip():
+        gespeichert = _teile(job.get("analyse_stand"))
+        if not gespeichert and job.get("analyse_profil_stand"):
+            gespeichert = {"p": job["analyse_profil_stand"]}
+    elif (job.get("gesichtet_am") or "").strip():
+        gespeichert = _teile(job.get("gesichtet_stand"))
+    else:
+        return None
+
     gruende = []
-    damals = job.get("analyse_score")
-    if damals is None:
-        damals = job.get("gesichtet_score")
-    jetzt_score = job.get("score")
-    if damals is not None and jetzt_score is not None:
-        try:
-            if abs(float(jetzt_score) - float(damals)) >= 0.01:
-                gruende.append("score")
-        except (TypeError, ValueError):  # pragma: no cover
-            pass
-    gespeichert = job.get("analyse_profil_stand") or ""
     jetzt_profil = profil_stand(profil)
-    if gespeichert and jetzt_profil and gespeichert != jetzt_profil:
+    if gespeichert.get("p") and jetzt_profil and gespeichert["p"] != jetzt_profil:
         gruende.append("profil")
+    # Nur ein VORHANDENER Text zaehlt als Aenderung: ein Text, der beim
+    # Nachladen weggebrochen ist, macht ein Urteil nicht falsch — es hat
+    # gelesen, was damals dastand (dafuer gibt es den Snapshot, C23).
+    jetzt_text = text_stand(job.get("description"))
+    if "t" in gespeichert and jetzt_text and gespeichert["t"] != jetzt_text:
+        gruende.append("anzeigentext")
+    if kriterien is not None and "k" in gespeichert:
+        if gespeichert["k"] != kriterien_stand(kriterien):
+            gruende.append("kriterien")
     if not gruende:
         return None
-    befund = {"grund": "+".join(gruende)}
-    if "score" in gruende:
-        befund["score_damals"] = round(float(damals), 1)
-        befund["score_jetzt"] = round(float(jetzt_score), 1)
-    return befund
+    return {"grund": "+".join(gruende),
+            "gruende_text": [GRUND_TEXT[g] for g in gruende]}
 
 
-def zustand(job: dict, profil=None) -> dict:
+def zustand(job: dict, profil=None, kriterien=None) -> dict:
     """In welchem der drei Zustaende steht diese Stelle (#948)?
 
     Immer ein dict, nie None — "noch nicht angesehen" ist eine Antwort
@@ -265,13 +347,13 @@ def zustand(job: dict, profil=None) -> dict:
     if art == UNGEPRUEFT:
         return antwort
     antwort["am"] = (job.get("analyse_am") or gesichtet or "")
-    alt = ueberholt(job, profil)
+    alt = ueberholt(job, profil, kriterien)
     if alt:
         antwort["ueberholt"] = alt
     return antwort
 
 
-def analyse_lesen(job: dict, profil=None) -> dict | None:
+def analyse_lesen(job: dict, profil=None, kriterien=None) -> dict | None:
     """Der gespeicherte Befund einer Stelle, oder None."""
     if not job:
         return None
@@ -284,14 +366,14 @@ def analyse_lesen(job: dict, profil=None) -> dict | None:
         "grundlage": job.get("analyse_grundlage") or "",
         "am": job.get("analyse_am") or "",
     }
-    # #948: der Score zum Zeitpunkt des Urteils steht dabei — ohne ihn
-    # laesst sich "ueberholt" nur behaupten, nicht belegen.
+    # #948: der Score zum Zeitpunkt des Urteils bleibt als Auskunft
+    # stehen. Ob das Urteil ueberholt ist, entscheidet er seit v1.7.112
+    # nicht mehr (#1051) — er entsteht auf mehreren Wegen.
     if job.get("analyse_score") is not None:
         befund["score_damals"] = round(float(job["analyse_score"]), 1)
-    alt = ueberholt(job, profil)
+    alt = ueberholt(job, profil, kriterien)
     if alt:
         befund["veraltet"] = True
         befund["veraltet_grund"] = alt["grund"]
-        if "score_jetzt" in alt:
-            befund["score_jetzt"] = alt["score_jetzt"]
+        befund["veraltet_text"] = alt["gruende_text"]
     return befund

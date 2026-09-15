@@ -2528,6 +2528,7 @@ def _guete_anreichern(jobs: list) -> None:
         from .services import datenguete, muss_tor, scoring_kriterien
         krit = scoring_kriterien.fuer_scoring(_db)
         _profil = _db.get_profile()
+        _stand_krit = _db.get_search_criteria()
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Datenguete-Anreicherung uebersprungen: %s", exc)
         return
@@ -2560,11 +2561,14 @@ def _guete_anreichern(jobs: list) -> None:
         # desselben Befunds waeren #963/#991 in der Trefferliste.
         try:
             from .services import passung
-            befund = passung.analyse_lesen(job, _profil)
+            # v1.7.112 (#1051): die ROHEN Kriterien — gegen sie wird der
+            # Stand beim Speichern gebildet. `krit` oben ist schon
+            # angereichert und gehoert der Rangfolge.
+            befund = passung.analyse_lesen(job, _profil, _stand_krit)
             if befund:
                 job["analyse"] = befund
             # #948 (G42): derselbe Aufruf wie in stellen_anzeigen.
-            job["pruefstand"] = passung.zustand(job, _profil)
+            job["pruefstand"] = passung.zustand(job, _profil, _stand_krit)
             # #951 (AK 6): derselbe Aufruf wie in stellen_anzeigen.
             from .services import stellen_quellen as _sq
             _quellen = _sq.uebersicht(_db, job)
@@ -2689,10 +2693,12 @@ async def api_fit_analyse(job_hash: str):
     # Gelesen wird VOR dem Sichtungs-Vermerk, damit der Dialog den
     # Stand von vorher zeigt und nicht den, den er selbst erzeugt.
     from .services import passung as _passung
-    _gespeichert = _passung.analyse_lesen(job, profile)
+    # v1.7.112 (#1051): gegen die rohen Kriterien, wie beim Speichern.
+    _stand_krit = _db.get_search_criteria()
+    _gespeichert = _passung.analyse_lesen(job, profile, _stand_krit)
     if _gespeichert:
         result["analyse"] = _gespeichert
-    result["pruefstand"] = _passung.zustand(job, profile)
+    result["pruefstand"] = _passung.zustand(job, profile, _stand_krit)
     # #951 (AK 6): die Quellenliste gehoert auch in die Fit-Analyse.
     from .services import stellen_quellen as _sq
     _quellen = _sq.uebersicht(_db, job)
