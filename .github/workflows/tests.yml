@@ -92,5 +92,10 @@ jobs:
         # verlor Absaetze und Listen. Sie geht jetzt durch lib/textAuszug.js.
         run: node frontend/src/lib/textAuszug.test.mjs
 
+      - name: Detailbewertungs-Prompt fuer Karte und Fit-Dialog (Node)
+        # #1050: der Prompt verlangt das Speichern mit stelle_analyse_speichern
+        # und nennt einen vorhandenen Befund; Karte und Dialog teilen ihn.
+        run: node frontend/src/lib/detailbewertung.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

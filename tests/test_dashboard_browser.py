@@ -1342,3 +1342,42 @@ def test_jobs_page_zeigt_die_browser_quellen_mit_prompt(live_dashboard, browser)
         page.get_by_text("kein Suchprofil hinterlegt").first.wait_for(state="visible")
     finally:
         context.close()
+
+
+def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live_dashboard, browser):
+    """#1050 am GERENDERTEN Bild.
+
+    Die Karte traegt den Knopf zur Detailbewertung und keinen
+    Blacklist-Knopf mehr; die Sperre ist aus dem Passt-nicht-Dialog heraus
+    erreichbar, mit dem gewaehlten Grund als Begruendung — und gespeichert
+    wird erst im Blacklist-Dialog (AK 6).
+    """
+    db = live_dashboard["db"]
+    _seed_uncertain_jobs_workspace(db)
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen").wait_for(state="visible")
+
+        page.get_by_role("button", name="Detailbewertung").first.wait_for(state="visible")
+        assert page.get_by_role("button", name="Zur Blacklist").count() == 0, (
+            "Der Blacklist-Knopf steht noch auf der Karte.")
+
+        page.get_by_role("button", name="Passt nicht").first.click()
+        page.get_by_text("Warum passt diese Stelle nicht?").wait_for(state="visible")
+        page.get_by_role("button", name="Firma uninteressant").click()
+        page.get_by_role("button", name="Firma zusätzlich sperren").click()
+
+        page.get_by_text("Zur Blacklist hinzufügen").wait_for(state="visible")
+        begruendung = page.get_by_label("Begründung")
+        begruendung.wait_for(state="visible")
+        assert "firma_uninteressant" in begruendung.input_value().lower().replace(" ", "_"), (
+            begruendung.input_value())
+        # Nichts gesperrt, solange der Blacklist-Dialog nicht bestaetigt ist.
+        assert db.connect().execute("SELECT COUNT(*) FROM blacklist").fetchone()[0] == 0
+    finally:
+        context.close()
