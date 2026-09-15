@@ -105,6 +105,80 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.113] - 2026-09-15 — Jeder Regler hinterlaesst eine Spur
+
+Nutzerbericht #1053: ein Scoring-Regler stand wirkungslos im Bestand, und
+niemand konnte sagen, wer ihn wann und warum gesetzt hatte.
+
+### Added
+
+- **Scoring-Regler fuehren eine Historie.** Jeder Regler traegt jetzt den
+  Zeitpunkt der letzten Aenderung, den Vorgaengerwert und optional eine
+  Begruendung (`scoring_konfigurieren(..., begruendung="...")`). Jede
+  Aenderung landet ausserdem im Verlauf, mit Herkunft: von Hand, durch den
+  Lerneffekt aus Ablehnungsgruenden, oder von PBP bereinigt. Abrufbar mit
+  `scoring_konfigurieren('verlauf')`; `anzeigen` nennt Zeitpunkt,
+  Vorgaengerwert, Begruendung und Herkunft direkt am Regler.
+- **Auch Loeschen und Zuruecksetzen stehen im Verlauf**, jeweils mit dem
+  alten Wert. Der Verlauf gehoert zum Loeschbereich "Einstellungen" und
+  verschwindet mit ihm.
+
+### Fixed
+
+- **Der wirkungslose Regler `schwellenwert/schwellenwert` ist entfernt.**
+  Gelesen wird nur `schwellenwert/auto_ignore`; der Eintrag war vor
+  v1.7.36 ungeprueft angelegt worden, und die Historie nennt keinen Zweck.
+  Die Entfernung steht mit dem alten Wert im Verlauf.
+- **Ein unbekannter Regler wird schon beim Speichern abgewiesen** — nicht
+  mehr nur im Werkzeug, sondern fuer jeden Schreibweg.
+- **Begriffs-Regler galten faelschlich als wirkungslos.** Regler auf einen
+  Begriff (`keyword/<Begriff>`, `muss_kriterium/<Begriff>`) wirken im
+  Score, fehlten aber in der Liste gueltiger Regler. Seit v1.7.36 wies
+  `scoring_konfigurieren` sie deshalb ab und meldete bestehende als
+  "wirkt nicht". Beides ist behoben; ein Test haelt jede Dimension, die
+  der Score liest, gegen diese Liste.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.113.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.113.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.112] - 2026-09-15 — Ein Urteil bleibt gueltig, bis sich seine Grundlage aendert
 
 Nutzerbericht #1051: dieselbe Stelle trug am selben Tag vier Score-Werte,
