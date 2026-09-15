@@ -6,7 +6,8 @@ schlugen seltene, Masse schlug Klasse. Kern-Absicherungen hier:
 
 1. kalibrierung_backtest ist eine SCHATTENRECHNUNG — kein Score in der
    jobs-Tabelle aendert sich, egal mit welchen Parametern.
-2. Schwellen-Vorschlag = niedrigster Bewerbungs-Score x 0.8.
+2. Schwellen-Vorschlag = unteres Viertel der Bewerbungs-Scores x 0.8
+   (bis v1.7.115 der niedrigste Score x 0.8, #1052).
 3. Einzelgewichte pro Keyword ueberschreiben das Kategorie-Gewicht.
 4. IDF + Top-5-Deckelung wirken NUR als Opt-in; Default unveraendert.
 """
@@ -92,7 +93,12 @@ def test_778_backtest_persistiert_niemals(setup_env):
     assert vorher == nachher, "Backtest hat Scores veraendert — verboten!"
 
 
-def test_778_schwellen_vorschlag_ist_min_mal_08(setup_env):
+def test_778_schwellen_vorschlag_ist_unteres_viertel_mal_08(setup_env):
+    """v1.7.116 (#1052): aus dem Quantil, nicht aus dem Minimum.
+
+    Hier stand `int(min * 0.8)`. Ein einziger Ausreisser mit 0 setzte den
+    Vorschlag auf 0. Die 20 % Toleranz nach unten bleiben.
+    """
     db, _ = setup_env
     from bewerbungs_assistent.server import mcp
     db.set_search_criteria("keywords_muss", ["PLM"])
@@ -102,8 +108,9 @@ def test_778_schwellen_vorschlag_ist_min_mal_08(setup_env):
                         "job_hash": "s1"})
     res = _result(_call(mcp, "kalibrierung_backtest", {}))
     var = res["varianten"]["aktuell"]
-    min_pos = var["bewerbungen"]["min"]
-    assert var["schwellen_vorschlag"] == int(min_pos * 0.8)
+    q25 = var["bewerbungen"]["q25"]
+    assert var["schwellen_vorschlag"] == int(q25 * 0.8)
+    assert "unteres Viertel" in var["schwellen_formel"]
 
 
 def test_778_warnung_wenn_bewerbung_unter_aktueller_schwelle(setup_env):
@@ -129,6 +136,12 @@ def test_778_einzelgewicht_ueberschreibt_kategorie(setup_env):
     db.set_search_criteria("keywords_muss", ["PLM"])
     db.set_search_criteria("keywords_minus", ["Arbeitnehmerueberlassung"])
     db.set_search_criteria("gewichtung", {"muss": 6, "minus": 6})
+    # v1.7.116 (#1045): seit die Abzuege relativ zum Fachscore gedeckelt
+    # sind, kappt der Deckel bei einem einzigen Pflichttreffer beide
+    # Gewichte (6 und 2) auf hoechstens 3 — die "+4" waeren dann eine
+    # Aussage ueber den Deckel, nicht ueber das Einzelgewicht. Der Test
+    # prueft das Einzelgewicht, also ohne Deckel.
+    db.set_search_criteria("minus_deckel_faktor", 99)
 
     job = {"title": "PLM Manager", "company": "X",
            "description": "PLM Rolle in Arbeitnehmerueberlassung. " * 10}

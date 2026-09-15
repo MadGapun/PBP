@@ -69,10 +69,18 @@ def test_942_null_fachscore_bleibt_null_egal_wieviel_rahmen():
     assert calculate_score(job, BASIS) == 0
 
 
-# ── Asymmetrie: MINUS bleibt ungedeckelt ─────────────────────────────
+# ── Asymmetrie: seit v1.7.116 (#1045) auch MINUS gedeckelt ───────────
+#
+# Hier stand "MINUS bleibt ungedeckelt" mit dem Test, dass ein Malus die
+# Stelle bis auf 0 traegt. Am Bestand wirkte das umgekehrt: ein kleiner
+# Fachscore machte den positiven Deckel klein und liess die Abzuege voll
+# stehen. Die Absicht bleibt — ein Malus wirkt spuerbar —, die Grenze
+# ist neu, und das alte Verhalten laesst sich ueber den Faktor
+# wiederherstellen.
 
-def test_942_minus_kann_fachlich_starke_stelle_abstuerzen_lassen():
-    """Eine PLM-Stelle, die sich als Zeitarbeit entpuppt, darf fallen."""
+def test_942_minus_wertet_eine_fachlich_starke_stelle_spuerbar_ab():
+    """Eine PLM-Stelle, die sich als Zeitarbeit entpuppt, faellt — bis zur Grenze."""
+    from bewerbungs_assistent.job_scraper import MINUS_DECKEL_STANDARD
     kriterien = dict(BASIS)
     kriterien["gewichtung"] = {"muss": 7, "plus": 3, "minus": 20}
     stark = _job("PLM Consultant",
@@ -83,22 +91,31 @@ def test_942_minus_kann_fachlich_starke_stelle_abstuerzen_lassen():
     ohne = calculate_score(stark, kriterien)
     ergebnis = dict(stark_mit_malus)
     mit = calculate_score(ergebnis, kriterien)
+    fach = ergebnis["_fachscore"]
     assert mit < ohne
-    assert mit == 0, "der Malus traegt die Stelle bis auf den Boden"
-    # Ungedeckelt heisst: der Malus wird NICHT auf einen Anteil des
-    # Fachscores begrenzt. Am Endscore ist das nicht ablesbar, weil der
-    # bei 0 abgeschnitten wird — am Rahmenanteil schon.
-    assert ergebnis["_rahmenscore"] <= -20, ergebnis
+    assert ergebnis["_rahmenscore"] == pytest.approx(
+        -MINUS_DECKEL_STANDARD * fach), ergebnis
+    assert mit > 0, "MINUS ist eine Abwertung, kein Ausschluss (#1045)"
 
 
 def test_942_minus_wirkt_auch_wenn_rahmen_positiv_waere():
     kriterien = dict(BASIS)
     kriterien["gewichtung"] = {"muss": 7, "plus": 3, "minus": 30}
-    job = _job("PLM Lead",
+    ohne = _job("PLM Lead", "PLM Lead, Senior, Remote, Hamburg.")
+    mit = _job("PLM Lead",
                "PLM Lead, Senior, Remote, Hamburg. Anstellung ueber Zeitarbeit.")
-    ergebnis = dict(job)
-    calculate_score(ergebnis, kriterien)
-    assert ergebnis["_rahmenscore"] < 0, ergebnis
+    assert calculate_score(dict(mit), kriterien) < calculate_score(dict(ohne), kriterien)
+
+
+def test_942_ungedeckelter_malus_ist_ueber_den_faktor_wiederherstellbar():
+    kriterien = dict(BASIS)
+    kriterien["gewichtung"] = {"muss": 7, "plus": 3, "minus": 20}
+    kriterien["minus_deckel_faktor"] = 99
+    ergebnis = dict(_job("PLM Consultant",
+                         "PLM und PDM Beratung im Maschinenbau. "
+                         "Einsatz ueber Zeitarbeit."))
+    assert calculate_score(ergebnis, kriterien) == 0
+    assert ergebnis["_rahmenscore"] <= -20, ergebnis
 
 
 # ── Einstellbarkeit und Sonderfaelle ─────────────────────────────────

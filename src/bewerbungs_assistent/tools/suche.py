@@ -469,14 +469,23 @@ def register(mcp, db, logger):
           (Default: aus). Danach `kalibrierung_backtest()` laufen lassen
           und erst dann `scores_neu_berechnen()`.
 
+        v1.7.116 (#1045):
+        - kategorie='scoring', aktion='deckel' mit werte=['rahmen'] oder
+          ['minus'] und gewicht=Faktor setzt einen der beiden Deckel.
+          Beide sind Anteile des Fachwerts (Vorgabe je 0.5): positive
+          Rahmenpunkte zaehlen hoechstens so viel, MINUS-Begriffe nehmen
+          hoechstens so viel.
+
         Args:
             kategorie: 'muss', 'plus', 'minus' oder 'ausschluss'
                 (minus seit #667 / B19, beta.84 — weiche Score-Abwertung);
-                'scoring' nur fuer aktion='idf'
+                'scoring' fuer aktion='idf' und aktion='deckel'
             aktion: 'hinzufügen', 'entfernen', 'gewichten',
-                'gewicht_entfernen' oder 'idf'
-            werte: Liste der Keywords (bei 'idf': ['an'] oder ['aus'])
-            gewicht: Punktwert pro Treffer bei aktion='gewichten'
+                'gewicht_entfernen', 'idf' oder 'deckel'
+            werte: Liste der Keywords (bei 'idf': ['an'] oder ['aus'];
+                bei 'deckel': ['rahmen'] oder ['minus'])
+            gewicht: Punktwert pro Treffer bei aktion='gewichten';
+                Faktor bei aktion='deckel'
         """
         action_norm0 = (aktion or "").strip().lower()
 
@@ -499,6 +508,38 @@ def register(mcp, db, logger):
                 ),
             }
             return result
+
+        # --- v1.7.116 (#1045 AK 7): die beiden Deckel ---
+        # Der positive Deckel war seit v1.7.22 als "ueber
+        # suchkriterien_bearbeiten einstellbar" dokumentiert — einen Weg
+        # dorthin gab es nicht. Eine Einstellung ohne Setzer ist dieselbe
+        # Klasse wie ein Regler ohne Leser (#1000).
+        if action_norm0 == "deckel":
+            _seite = (str(werte[0]).strip().lower() if werte else "")
+            _schluessel = {"rahmen": "rahmen_deckel_faktor",
+                           "minus": "minus_deckel_faktor"}.get(_seite)
+            if not _schluessel:
+                return {"fehler": ("aktion='deckel' braucht werte=['rahmen'] "
+                                   "oder werte=['minus'] und gewicht=Faktor "
+                                   "(z.B. 0.5).")}
+            try:
+                _faktor = float(gewicht)
+            except (TypeError, ValueError):
+                _faktor = -1.0
+            if _faktor < 0:
+                return {"fehler": ("Der Deckel ist ein Anteil des Fachwerts und "
+                                   "kann nicht negativ sein. 0 schaltet die Seite "
+                                   "ab, ein hoher Wert hebt die Grenze auf.")}
+            db.set_search_criteria(_schluessel, _faktor)
+            _hinweis = ("Erst kalibrierung_backtest() ansehen, dann "
+                        "scores_neu_berechnen() — die gespeicherten Scores "
+                        "rechnen bis dahin mit dem alten Deckel.")
+            if _faktor == 0:
+                _hinweis = (("Positive Rahmenpunkte zaehlen jetzt gar nicht mehr. "
+                             if _seite == "rahmen" else
+                             "MINUS-Begriffe wirken jetzt gar nicht mehr. ") + _hinweis)
+            return {"status": "deckel_gesetzt", "seite": _seite,
+                    "faktor": _faktor, "hinweis": _hinweis}
 
         key_map = {
             "muss": "keywords_muss",

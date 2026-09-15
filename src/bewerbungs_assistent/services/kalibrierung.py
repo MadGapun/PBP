@@ -186,7 +186,14 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
     modus: 'aktuell' (Kriterien wie konfiguriert), 'idf' (mit
     Seltenheitsgewichtung), 'beide' (Vergleich).
     """
-    criteria = db.get_search_criteria()
+    # v1.7.116 (#1052): dieselben Kriterien wie jeder Score-Schreiber.
+    # Roh gelesen fehlten Betriebsart des MUSS-Tors, Synonyme und
+    # beworbene Titel — der Backtest rechnete damit einen anderen Score
+    # als die Liste (Median der Aussortierten 1,0 statt 3,5), und der
+    # Schwellenvorschlag kam aus Zahlen, die niemand zu sehen bekommt.
+    # Das ist #987, diesmal in der Messung selbst.
+    from .scoring_kriterien import fuer_scoring
+    criteria = fuer_scoring(db)
     criteria.pop("_idf_faktoren", None)  # frisch entscheiden, nicht erben
 
     # --- Positive Labels: Stellen, auf die tatsaechlich beworben wurde ---
@@ -258,12 +265,21 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
         }
         if pos_scores:
             min_pos = min(pos_scores)
-            vorschlag = int(min_pos * 0.8)
+            # v1.7.116 (#1052): aus dem unteren Viertel, nicht aus dem
+            # Minimum. Ein einziger Ausreisser mit 0 setzte den Vorschlag
+            # auf 0 — und damit lag jede aussortierte Stelle darueber. Die
+            # 20 % Toleranz nach unten (User-Vorgabe aus #778) bleiben.
+            q25_pos = block["bewerbungen"]["q25"]
+            vorschlag = int(q25_pos * 0.8)
             block["schwellen_vorschlag"] = vorschlag
             block["schwellen_formel"] = (
-                f"niedrigster Bewerbungs-Score ({min_pos}) x 0.8 = {vorschlag} "
-                "(20 % Toleranz nach unten, User-Vorgabe)"
+                f"unteres Viertel der Bewerbungs-Scores ({q25_pos}) x 0.8 = "
+                f"{vorschlag} (20 % Toleranz nach unten, User-Vorgabe). "
+                f"Der niedrigste Bewerbungs-Score ({min_pos}) ist ein "
+                "Einzelwert und traegt keine Schwelle."
             )
+            block["bewerbungen_unter_vorschlag"] = sum(
+                1 for s in pos_scores if s < vorschlag)
             if neg_scores:
                 ueber = sum(1 for s in neg_scores if s >= vorschlag)
                 block["aussortierte_ueber_vorschlag"] = ueber

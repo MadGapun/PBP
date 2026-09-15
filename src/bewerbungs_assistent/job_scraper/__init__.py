@@ -2408,6 +2408,42 @@ def rahmen_deckel_faktor(criteria: dict) -> float:
         return RAHMEN_DECKEL_STANDARD
 
 
+# v1.7.116 (#1045, #1052): Deckel fuer den NEGATIVEN Rahmenanteil,
+# ebenfalls relativ zum Fachscore. #942 hatte die Abzuege bewusst
+# ungedeckelt gelassen ("ein Malus darf Eignung entwerten"). Gemessen
+# wirkte das umgekehrt als gedacht: je schwaecher der Fachtreffer, desto
+# kleiner der positive Deckel — die Abzuege blieben in voller Hoehe.
+# Eine Stelle mit fuenf Pflicht- und fuenfzehn PLUS-Treffern stand bei 0,
+# unter einer mit einem einzigen zufaelligen Pflichttreffer. Die
+# Entscheidung ist mit dem Nutzer getroffen (#1045 AK 1a/2a).
+# Der Wert ist gemessen (Backtest 15.09.2026, 56 Bewerbungen gegen 300
+# Aussortierte, feste Stichprobe, Deckel nur auf MINUS-Begriffen): 0,5
+# hebt eine Bewerbung ueber die Schwelle 7 (9 -> 8 darunter) und zwei
+# Aussortierte (54 -> 56 darueber); 1,0 aenderte gegenueber ungedeckelt
+# nur eine Aussortierte. Der Effekt ist klein, die Richtung eindeutig.
+# Spiegelbildlich zum positiven Deckel.
+MINUS_DECKEL_STANDARD = 0.5
+
+
+def minus_deckel_faktor(criteria: dict) -> float:
+    """Wieviel Abzug darf den Fachscore hoechstens aufzehren.
+
+    0.5 bedeutet: MINUS-Begriffe nehmen hoechstens die Haelfte des
+    Fachwerts —
+    MINUS bleibt eine Abwertung und wird kein Ausschluss (dafuer gibt es
+    `keywords_ausschluss`). Ein sehr hoher Wert stellt das alte
+    ungedeckelte Verhalten wieder her.
+    """
+    try:
+        wert = criteria.get("minus_deckel_faktor")
+        if wert is None or wert == "":
+            return MINUS_DECKEL_STANDARD
+        wert = float(wert)
+        return wert if wert >= 0 else MINUS_DECKEL_STANDARD
+    except (TypeError, ValueError):
+        return MINUS_DECKEL_STANDARD
+
+
 def score_maximum(criteria: dict) -> float:
     """Was kann eine Stelle mit DIESEN Kriterien hoechstens erreichen? (#999)
 
@@ -2471,8 +2507,11 @@ def score_maximum(criteria: dict) -> float:
     _muss_norm = {str(kw).strip().lower() for kw in muss}
     plus = [kw for kw in (criteria.get("keywords_plus", []) or [])
             if str(kw).strip().lower() not in _muss_norm]
+    # v1.7.116 (#1052): PLUS gruppiert wie in der Rechnung — sonst waere
+    # der Hoechstwert groesser als alles, was eine Anzeige erreichen kann.
     rahmen_max = float(
-        sum(_punkte_pro_treffer(kw, w["plus"], overrides, idf) for kw in plus)
+        sum(zaehlbare_punkte(
+            plus, lambda kw: _punkte_pro_treffer(kw, w["plus"], overrides, idf)))
         + w["remote"] + 1 + w["naehe"] + w["gehalt"])
 
     if not muss:
@@ -2953,6 +2992,9 @@ def calculate_score(job: dict, criteria: dict) -> int:
     fachscore = sum(muss_punkte)
     rahmen_plus = 0.0
     rahmen_minus = 0.0
+    # v1.7.116 (#1045): die MINUS-Begriffe getrennt, weil nur sie
+    # gedeckelt werden — siehe unten beim Deckel.
+    minus_begriffe = 0.0
 
     # v1.7.12 (#827): Flag fuer Tools/Frontend, wenn ALLE MUSS-Treffer
     # nur in der Firmen-Selbstdarstellung sitzen — der Score ist dann
@@ -2970,11 +3012,14 @@ def calculate_score(job: dict, criteria: dict) -> int:
     _muss_norm = {kw.strip().lower() for kw in muss}
     plus_effektiv = [kw for kw in plus
                      if kw.strip().lower() not in _muss_norm]
-    rahmen_plus += sum(
-        _punkte_pro_treffer(kw, w["plus"], overrides, idf)
-        * _treffer_faktor(kw)
-        for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)
-    )
+    # v1.7.116 (#1052): je Anforderung einmal, wie bei MUSS seit #1012.
+    # Fuenf Schreibweisen desselben Sachverhalts in der PLUS-Liste waren
+    # fuenf Punkte — dieselbe Blaehung, nur auf der anderen Seite.
+    plus_hits_kws = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
+    rahmen_plus += sum(zaehlbare_punkte(
+        plus_hits_kws,
+        lambda kw: (_punkte_pro_treffer(kw, w["plus"], overrides, idf)
+                    * _treffer_faktor(kw))))
 
     # MINUS keywords (#667, B19, beta.84) — weiche Score-Abwertung als
     # Gegenstueck zu PLUS. Beispiel: kw="Automotive" zieht Punkte ab, schliesst
@@ -2983,11 +3028,13 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # ein Malus soll nicht dadurch schrumpfen, dass der Begriff haeufig ist.
     minus = criteria.get("keywords_minus", [])
     if minus:
-        # #755 (C25): strikt statt fuzzy — Malus nur bei echtem Treffer
-        rahmen_minus += sum(
-            _punkte_pro_treffer(kw, w["minus"], overrides, {})
-            for kw in minus if _strict_keyword_match(kw, text)
-        )
+        # #755 (C25): strikt statt fuzzy — Malus nur bei echtem Treffer.
+        # v1.7.116 (#1052): gruppiert — "Zeitarbeit" und
+        # "Arbeitnehmerueberlassung" in einer Anzeige sind EIN Sachverhalt,
+        # und auf der MINUS-Seite stehen die meisten Schreibweisen.
+        minus_begriffe = sum(zaehlbare_punkte(
+            [kw for kw in minus if _strict_keyword_match(kw, text)],
+            lambda kw: _punkte_pro_treffer(kw, w["minus"], overrides, {})))
 
     # Distance bonus/malus (#60, #112, #166) — typ-abhaengige Entfernung
     # v1.7.94 (#950 AK 6): die Fahrstrecke, sobald sie vorliegt.
@@ -3092,14 +3139,30 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # begrenzt: der Rahmen ordnet die Gruppe, ueber die fachlich nichts
     # bekannt ist, und ersetzt keine Passung (#942).
     if _ohne_muss:
-        score = _tor.ersatz_score(rahmen_plus, rahmen_minus, w["muss"])
-        _teilscores_setzen(job, 0, score, rahmen_plus - rahmen_minus)
+        score = _tor.ersatz_score(rahmen_plus, rahmen_minus + minus_begriffe,
+                                  w["muss"])
+        _teilscores_setzen(job, 0, score,
+                           rahmen_plus - rahmen_minus - minus_begriffe)
         return score
+    # v1.7.116 (#1045, #1052): der Abzug ist jetzt ebenfalls gedeckelt,
+    # auf seiner eigenen Seite und relativ zum Fachscore. Die Asymmetrie
+    # oben hat sich am Bestand umgekehrt: ein kleiner Fachscore machte den
+    # positiven Deckel klein und liess die Abzuege voll wirken — schwache
+    # Treffer wurden nicht nur nicht hochgetragen, sondern aktiv ins Minus
+    # gedrueckt. Beide Deckel werden auf DERSELBEN Groesse berechnet wie
+    # das, was sie begrenzen (#1045 AK 1).
+    # Gedeckelt sind nur die MINUS-BEGRIFFE. Entfernungs- und
+    # Unbekannt-Abzuege bleiben frei, bis #1052 Schritt 2 die Entfernung
+    # als Tor aus der Zahl nimmt — sie jetzt zu deckeln hiesse, eine
+    # 400-km-Stelle ohne jeden Ersatz nach oben zu holen (#968, #950).
     if muss:
         deckel = rahmen_deckel_faktor(criteria) * fachscore
-        rahmen_effektiv = min(rahmen_plus, deckel) - rahmen_minus
+        minus_deckel = minus_deckel_faktor(criteria) * fachscore
+        rahmen_effektiv = (min(rahmen_plus, deckel)
+                           - min(minus_begriffe, minus_deckel)
+                           - rahmen_minus)
     else:
-        rahmen_effektiv = rahmen_plus - rahmen_minus
+        rahmen_effektiv = rahmen_plus - rahmen_minus - minus_begriffe
     # v1.7.95 (#1035): erst die Teile runden, dann addieren. Umgekehrt
     # wurde jeder Teil einzeln gerundet und die Summe aus den ungerundeten
     # Werten gebildet — "fachlich 7,5, Rahmen 3,8" neben einem Score von
@@ -3112,7 +3175,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Teilscores mitgeben: ohne sie sieht man nur die Summe und muss
     # raten, woher die Punkte kommen (#942).
     _teilscores_setzen(job, fachscore, rahmen_effektiv,
-                       rahmen_plus - rahmen_minus)
+                       rahmen_plus - rahmen_minus - minus_begriffe)
 
     # #778: Mit Einzelgewichten/IDF kann score ein Float sein — auf eine
     # Nachkommastelle runden; der Default-Pfad (Ints) bleibt unveraendert.
@@ -3269,11 +3332,15 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         factors[_label] = pts
         total += pts
 
+    # v1.7.116 (#1052): PLUS und MINUS je Anforderung einmal — dieselbe
+    # Zusammenfassung wie in calculate_score, sonst ist das #963 zum
+    # naechsten Mal.
+    from ..services.anforderungen import zaehlbare_punkte as _zaehlbar
     if plus_hits:
-        pts = round(sum(
-            _punkte_pro_treffer(kw, w["plus"], _overrides, _idf)
-            * _fa_faktor(kw)
-            for kw in plus_hits), 1)
+        pts = round(sum(_zaehlbar(
+            plus_hits,
+            lambda kw: (_punkte_pro_treffer(kw, w["plus"], _overrides, _idf)
+                        * _fa_faktor(kw)))), 1)
         _label = f"PLUS-Keywords ({len(plus_hits)} Treffer)"
         if _fa_grenze > 0 and any(_fa_faktor(kw) < 1.0 for kw in plus_hits):
             _label += " — teils nur im Firmenabsatz, abgewertet"
@@ -3286,9 +3353,9 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # keywords_ausschluss). Stelle bleibt in der Liste, rutscht nur runter.
     # #778: Override gilt, IDF bewusst nicht (wie in calculate_score).
     if minus_hits:
-        pts = -round(sum(
-            _punkte_pro_treffer(kw, w["minus"], _overrides, {})
-            for kw in minus_hits), 1)
+        pts = -round(sum(_zaehlbar(
+            minus_hits,
+            lambda kw: _punkte_pro_treffer(kw, w["minus"], _overrides, {}))), 1)
         factors[f"MINUS-Keywords ({len(minus_hits)} Treffer)"] = pts
         total += pts
 
@@ -3499,6 +3566,17 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             total -= _gekuerzt
             _rahmen_plus = _deckel
             factors["Rahmen ueber Deckel gekuerzt (#942)"] = -round(_gekuerzt, 1)
+        # v1.7.116 (#1045): derselbe Deckel auf der Abzugsseite wie in
+        # calculate_score. Ausgewiesen als eigener Posten, damit die
+        # Zerlegung weiter aufgeht (#1035).
+        _minus_begriffe = -sum(v for k, v in _zahlen.items()
+                               if k.startswith("MINUS-Keywords"))
+        _minus_deckel = minus_deckel_faktor(criteria) * _fach
+        if _minus_begriffe > _minus_deckel:
+            _entlastet = _minus_begriffe - _minus_deckel
+            total += _entlastet
+            _rahmen_minus -= _entlastet
+            factors["Abzuege ueber Deckel begrenzt (#1045)"] = round(_entlastet, 1)
 
     if _tor_gewichtet:
         total = _tor.ersatz_score(_rahmen_plus, _rahmen_minus, w["muss"])

@@ -1218,9 +1218,33 @@ def register(mcp, db, logger):
                              in grouped.items() for e in eintraege
                              if e.get("wirkt") is False]
 
+            # v1.7.116 (#1045 AK 7): die beiden Deckel praegen das Ergebnis
+            # staerker als die meisten Regler — und standen nirgends. Der
+            # positive war sogar als "ueber suchkriterien_bearbeiten
+            # einstellbar" dokumentiert, ohne dass es diesen Weg gab.
+            from ..job_scraper import minus_deckel_faktor, rahmen_deckel_faktor
+            _krit_deckel = db.get_search_criteria() or {}
             ergebnis = {
                 "status": "ok",
                 "scoring_regler": grouped,
+                "deckel_erklaert": {
+                    "rahmen": {
+                        "faktor": rahmen_deckel_faktor(_krit_deckel),
+                        "bedeutet": ("Positive Rahmenpunkte (PLUS, Remote, Naehe, "
+                                     "Gehalt) zaehlen hoechstens bis zu diesem "
+                                     "Anteil des Fachwerts."),
+                        "wo": ("suchkriterien_bearbeiten(kategorie='scoring', "
+                               "aktion='deckel', werte=['rahmen'], gewicht=N)"),
+                    },
+                    "minus": {
+                        "faktor": minus_deckel_faktor(_krit_deckel),
+                        "bedeutet": ("Abzuege aus MINUS-Begriffen nehmen hoechstens "
+                                     "diesen Anteil des Fachwerts. MINUS ist eine "
+                                     "Abwertung, kein Ausschluss."),
+                        "wo": ("suchkriterien_bearbeiten(kategorie='scoring', "
+                               "aktion='deckel', werte=['minus'], gewicht=N)"),
+                    },
+                },
                 "schwellenwert": db.get_scoring_threshold(),
                 # v1.7.36 (#988 AK 5): drei Zahlen hiessen "Schwelle" und
                 # niemand konnte sehen, welche wirkt. Sie meinen drei
