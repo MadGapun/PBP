@@ -817,6 +817,69 @@ class Database:
         except Exception as e:
             logger.warning("Scoring-Config-Safety-Net (#917): %s", e)
 
+        # v1.7.113 (#1053): eine Spur fuer die Scoring-Regler. Zeitpunkt der
+        # letzten Aenderung, Vorgaengerwert und Begruendung an der Zeile,
+        # dazu ein Verlauf mit Herkunft. Additiv, deshalb Safety-Net statt
+        # Schema-Bump (Muster #784).
+        #
+        # Und der wirkungslose Regler `schwellenwert/schwellenwert` faellt
+        # weg. v1.7.36 (#988) hat ihn bewusst BENANNT statt geloescht; die
+        # Nutzervorgabe vom 15.09.2026 lautet: faellt raus, wenn die
+        # Historie keinen Vorgang nennt, der ihn erklaert. Sie nennt nur,
+        # dass er ungeprueft angelegt wurde — und dass der Nutzer seine
+        # Schwelle deshalb bei 35 glaubte, waehrend sie bei 0 lag. Die
+        # Loeschung steht mit dem alten Wert im Verlauf.
+        try:
+            _sc_cols = {r["name"] for r in conn.execute(
+                "PRAGMA table_info(scoring_config)").fetchall()}
+            if _sc_cols:
+                for _sp, _typ in (("updated_at", "TEXT"),
+                                  ("wert_vorher", "REAL"),
+                                  ("begruendung", "TEXT")):
+                    if _sp not in _sc_cols:
+                        conn.execute(
+                            f"ALTER TABLE scoring_config ADD COLUMN {_sp} {_typ}")
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS scoring_config_verlauf (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        profile_id TEXT NOT NULL DEFAULT '',
+                        dimension TEXT NOT NULL,
+                        sub_key TEXT NOT NULL,
+                        wert_vorher REAL,
+                        wert_neu REAL,
+                        ignore_vorher INTEGER,
+                        ignore_neu INTEGER,
+                        herkunft TEXT NOT NULL,
+                        begruendung TEXT,
+                        am TEXT NOT NULL
+                    )""")
+                _stray = conn.execute(
+                    "SELECT profile_id, value, ignore_flag FROM scoring_config "
+                    "WHERE dimension='schwellenwert' AND sub_key='schwellenwert'"
+                ).fetchall()
+                for _z in _stray:
+                    conn.execute(
+                        "INSERT INTO scoring_config_verlauf (profile_id, "
+                        "dimension, sub_key, wert_vorher, wert_neu, "
+                        "ignore_vorher, ignore_neu, herkunft, begruendung, am) "
+                        "VALUES (?, 'schwellenwert', 'schwellenwert', ?, NULL, "
+                        "?, NULL, 'bereinigung', ?, ?)",
+                        (_z["profile_id"], _z["value"], _z["ignore_flag"],
+                         "Wirkungsloser Regler: gelesen wird nur "
+                         "schwellenwert/auto_ignore. Vor v1.7.36 ungeprueft "
+                         "angelegt, ein Zweck ist nicht belegt (#988, #1053).",
+                         _now()))
+                if _stray:
+                    conn.execute(
+                        "DELETE FROM scoring_config WHERE dimension="
+                        "'schwellenwert' AND sub_key='schwellenwert'")
+                    logger.info("Safety-Net: %d wirkungslosen Regler "
+                                "schwellenwert/schwellenwert entfernt (#1053)",
+                                len(_stray))
+                conn.commit()
+        except Exception as e:
+            logger.warning("Scoring-Verlauf-Safety-Net (#1053): %s", e)
+
         # v1.7.17 (#906): Deaktivierungs-Metadaten an scraper_health —
         # die Auto-Deaktivierung konnte nicht zwischen "Quelle tot" und
         # "Quelle lebt, Parser liefert nichts" unterscheiden; beides
@@ -10397,43 +10460,167 @@ class Database:
             ).fetchall()
         return [dict(r) for r in rows]
 
-    def set_scoring_config(self, dimension: str, sub_key: str,
-                           value: float = 0, ignore_flag: bool = False):
-        """Set or update a scoring config entry.
+    # v1.7.113 (#1053): die Regler bestimmen jede Sortierentscheidung und
+    # waren der einzige Bereich ohne Spur. Ein Eintrag `schwellenwert/
+    # schwellenwert` stand mit 35 im Bestand, und niemand konnte sagen,
+    # wer ihn wann und warum gesetzt hatte. Blacklist (#828),
+    # Ablehnungsgruende und Aussortierungen (#1010) haben das laengst.
+    #
+    # Deshalb gehen ALLE Aenderungen durch `_scoring_schreiben`: das
+    # Werkzeug, der Lerneffekt und das Zuruecksetzen. Drei Schreiber mit
+    # eigenem SQL waeren drei Stellen, an denen die Spur fehlen kann —
+    # ein Guard-Test verbietet es ausserhalb dieser Datei.
 
-        v1.7.17 (#917/A): echtes UPSERT. `INSERT OR REPLACE` ersetzte nur
-        bei UNIQUE-Konflikt — Seed-/Auto-Zeilen tragen profile_id='',
-        der Schreibvorgang die aktive ID: kein Konflikt, also entstand
-        eine DUBLETTE, und die Altzeile (samt ignore_flag=1 aus
-        _auto_adjust_scoring) blieb ueber MCP unerreichbar bestehen.
-        Jetzt raeumt der Write beide Varianten des Schluessels weg.
+    def _scoring_verlauf(self, conn, pid, dimension, sub_key, alt,
+                         wert_neu, ignore_neu, herkunft, begruendung, am):
+        conn.execute(
+            "INSERT INTO scoring_config_verlauf (profile_id, dimension, "
+            "sub_key, wert_vorher, wert_neu, ignore_vorher, ignore_neu, "
+            "herkunft, begruendung, am) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (pid, dimension, sub_key,
+             alt["value"] if alt is not None else None, wert_neu,
+             alt["ignore_flag"] if alt is not None else None,
+             None if ignore_neu is None else (1 if ignore_neu else 0),
+             herkunft, (begruendung or "").strip()[:500] or None, am))
+
+    def _scoring_schreiben(self, dimension: str, sub_key: str, value: float,
+                           ignore_flag: bool, herkunft: str,
+                           begruendung: str = "", set_by_user: bool = True):
+        """Das Nadeloehr fuer jede Aenderung an einem Scoring-Regler (#1053).
+
+        v1.7.17 (#917/A): echtes UPSERT — beide Varianten des Schluessels
+        (Seed mit profile_id='' und Profilzeile) werden ersetzt, sonst
+        entsteht eine Dublette neben einer unerreichbaren Altzeile.
+
+        Neu: der Anlagezeitpunkt bleibt beim Aendern erhalten, der
+        Vorgaengerwert steht in der Zeile, und jede Aenderung landet mit
+        Herkunft ('ich', 'automatik', 'bereinigung') im Verlauf. Bleibt der
+        Wert gleich, bleiben auch Vorgaengerwert und Begruendung stehen —
+        ein erneutes Setzen desselben Werts ist keine Geschichte.
         """
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
+        alt = conn.execute(
+            "SELECT value, ignore_flag, created_at, wert_vorher, begruendung "
+            "FROM scoring_config WHERE dimension=? AND sub_key=? "
+            "AND (profile_id=? OR profile_id='') "
+            "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
+            (dimension, sub_key, pid, pid)).fetchone()
+        jetzt = _now()
+        geaendert = alt is None or (
+            float(alt["value"] or 0) != float(value or 0)
+            or bool(alt["ignore_flag"]) != bool(ignore_flag))
+        if alt is None:
+            wert_vorher = None
+        elif geaendert:
+            wert_vorher = alt["value"]
+        else:
+            wert_vorher = alt["wert_vorher"]
+        grund = (begruendung or "").strip()[:500] or (
+            alt["begruendung"] if alt is not None else None)
         conn.execute(
             "DELETE FROM scoring_config WHERE dimension=? AND sub_key=? "
             "AND (profile_id=? OR profile_id='')",
             (dimension, sub_key, pid))
-        conn.execute("""
-            INSERT INTO scoring_config
-                (profile_id, dimension, sub_key, value, ignore_flag,
-                 set_by_user, created_at)
-            VALUES (?, ?, ?, ?, ?, 1, ?)
-        """, (pid, dimension, sub_key, value, 1 if ignore_flag else 0, _now()))
+        conn.execute(
+            "INSERT INTO scoring_config (profile_id, dimension, sub_key, "
+            "value, ignore_flag, set_by_user, created_at, updated_at, "
+            "wert_vorher, begruendung) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (pid, dimension, sub_key, value, 1 if ignore_flag else 0,
+             1 if set_by_user else 0,
+             (alt["created_at"] if alt is not None and alt["created_at"]
+              else jetzt),
+             jetzt, wert_vorher, grund))
+        if geaendert:
+            self._scoring_verlauf(conn, pid, dimension, sub_key, alt, value,
+                                  ignore_flag, herkunft, begruendung, jetzt)
         conn.commit()
 
-    def delete_scoring_config(self, dimension: str, sub_key: str) -> int:
+    def set_scoring_config(self, dimension: str, sub_key: str,
+                           value: float = 0, ignore_flag: bool = False,
+                           begruendung: str = ""):
+        """Setzt einen Regler von Hand — geprueft, mit Spur.
+
+        v1.7.113 (#1053): das Vokabular wird HIER geprueft, nicht nur im
+        Werkzeug. Seit v1.7.36 (#988) wies `scoring_konfigurieren` einen
+        unbekannten Schluessel ab; jeder andere Aufrufer haette ihn
+        weiterhin angelegt. Ein wirkungsloser Regler ist teurer als eine
+        Fehlermeldung, weil man ihm glaubt.
+
+        Raises:
+            ValueError: bei einem Schluessel, den niemand liest.
+        """
+        from .services.scoring_vokabular import pruefe
+        absage = pruefe(dimension, sub_key)
+        if absage:
+            raise ValueError(absage)
+        self._scoring_schreiben(dimension, sub_key, value, ignore_flag,
+                                "ich", begruendung, set_by_user=True)
+
+    def lerne_scoring_regler(self, dimension: str, sub_key: str,
+                             value: float, anlass: str = ""):
+        """Der Lerneffekt (#908) — ueber dasselbe Nadeloehr, als Automatik.
+
+        `set_by_user` bleibt 0: eine gelernte Zeile darf der Lerneffekt
+        spaeter weiter vertiefen, eine von Hand gesetzte nie (#917).
+        """
+        self._scoring_schreiben(dimension, sub_key, value, False,
+                                "automatik", anlass, set_by_user=False)
+
+    def delete_scoring_config(self, dimension: str, sub_key: str,
+                              begruendung: str = "",
+                              herkunft: str = "ich") -> int:
         """v1.7.17 (#917): Eintrag entfernen — faellt auf den Default
         zurueck. Der einzige Weg, ein von _auto_adjust_scoring gesetztes
-        ignore_flag wieder loszuwerden."""
+        ignore_flag wieder loszuwerden. Seit v1.7.113 mit Verlaufseintrag."""
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
+        alt = conn.execute(
+            "SELECT value, ignore_flag FROM scoring_config "
+            "WHERE dimension=? AND sub_key=? AND (profile_id=? OR profile_id='') "
+            "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
+            (dimension, sub_key, pid, pid)).fetchone()
         cur = conn.execute(
             "DELETE FROM scoring_config WHERE dimension=? AND sub_key=? "
             "AND (profile_id=? OR profile_id='')",
             (dimension, sub_key, pid))
+        if cur.rowcount:
+            self._scoring_verlauf(conn, pid, dimension, sub_key, alt, None,
+                                  None, herkunft, begruendung, _now())
         conn.commit()
         return cur.rowcount
+
+    def reset_scoring_config(self, begruendung: str = "") -> int:
+        """Alle Regler des Profils entfernen — jede Zeile mit Spur."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        jetzt = _now()
+        for zeile in conn.execute(
+                "SELECT dimension, sub_key, value, ignore_flag "
+                "FROM scoring_config WHERE profile_id=?", (pid,)).fetchall():
+            self._scoring_verlauf(
+                conn, pid, zeile["dimension"], zeile["sub_key"], zeile, None,
+                None, "ich", begruendung or "Alle Regler zurueckgesetzt", jetzt)
+        cur = conn.execute("DELETE FROM scoring_config WHERE profile_id=?",
+                           (pid,))
+        conn.commit()
+        return cur.rowcount
+
+    def get_scoring_verlauf(self, dimension: str | None = None,
+                            limit: int = 20) -> list[dict]:
+        """Die letzten Aenderungen an den Reglern, juengste zuerst."""
+        pid = self.get_active_profile_id() or ""
+        conn = self.connect()
+        sql = ("SELECT dimension, sub_key, wert_vorher, wert_neu, "
+               "ignore_vorher, ignore_neu, herkunft, begruendung, am "
+               "FROM scoring_config_verlauf WHERE (profile_id=? OR profile_id='')")
+        werte: list = [pid]
+        if dimension:
+            sql += " AND dimension=?"
+            werte.append(dimension)
+        sql += " ORDER BY am DESC, id DESC LIMIT ?"
+        werte.append(max(1, int(limit)))
+        return [dict(r) for r in conn.execute(sql, werte).fetchall()]
 
     def get_scoring_threshold(self) -> float:
         """Get the auto-ignore threshold for fit scores."""
@@ -12082,9 +12269,27 @@ CREATE TABLE IF NOT EXISTS scoring_config (
     ignore_flag INTEGER DEFAULT 0,
     set_by_user INTEGER DEFAULT 0,
     created_at TEXT,
+    updated_at TEXT,
+    wert_vorher REAL,
+    begruendung TEXT,
     UNIQUE(profile_id, dimension, sub_key)
 );
 CREATE INDEX IF NOT EXISTS idx_scoring_profile ON scoring_config(profile_id, dimension);
+
+-- v1.7.113 (#1053): jede Aenderung an einem Regler, mit Herkunft.
+CREATE TABLE IF NOT EXISTS scoring_config_verlauf (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    profile_id TEXT NOT NULL DEFAULT '',
+    dimension TEXT NOT NULL,
+    sub_key TEXT NOT NULL,
+    wert_vorher REAL,
+    wert_neu REAL,
+    ignore_vorher INTEGER,
+    ignore_neu INTEGER,
+    herkunft TEXT NOT NULL,
+    begruendung TEXT,
+    am TEXT NOT NULL
+);
 
 CREATE TABLE IF NOT EXISTS scraper_health (
     scraper_name TEXT PRIMARY KEY,

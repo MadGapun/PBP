@@ -1119,7 +1119,8 @@ def register(mcp, db, logger):
         dimension: str = "",
         sub_key: str = "",
         wert: float = 0,
-        ignorieren: bool = False
+        ignorieren: bool = False,
+        begruendung: str = "",
     ) -> dict:
         """Konfiguriert das Scoring-Regler-System (#169).
 
@@ -1163,6 +1164,12 @@ def register(mcp, db, logger):
             sub_key: Unter-Schluessel (z.B. 'freelance', 'zeitarbeit', '50', 'hybrid')
             wert: Punktwert (+/- Punkte). Positiv = Bonus, Negativ = Malus.
             ignorieren: True = Stellen mit diesem Wert komplett ignorieren
+            begruendung: Warum der Regler so steht (optional). Wird mit dem
+                Regler und im Verlauf gespeichert (#1053).
+
+        Weitere Aktion seit v1.7.113 (#1053): 'verlauf' — die letzten
+        Aenderungen (optional je dimension), mit Vorgaengerwert, Zeitpunkt
+        und Herkunft ('ich', 'automatik', 'bereinigung').
         """
         from ..services import scoring_vokabular as _vokabular
 
@@ -1184,6 +1191,18 @@ def register(mcp, db, logger):
                 entry = {"sub_key": c["sub_key"], "wert": c["value"]}
                 if c.get("ignore_flag"):
                     entry["ignorieren"] = True
+                # v1.7.113 (#1053): wann, von wem, wovon ausgehend, warum.
+                # Ohne diese Angaben war der wirkungslose Eintrag spaeter
+                # nicht mehr zuzuordnen.
+                entry["herkunft"] = "ich" if c.get("set_by_user") else "automatik_oder_vorgabe"
+                if c.get("created_at"):
+                    entry["angelegt_am"] = c["created_at"]
+                if c.get("updated_at"):
+                    entry["geaendert_am"] = c["updated_at"]
+                if c.get("wert_vorher") is not None:
+                    entry["wert_vorher"] = c["wert_vorher"]
+                if c.get("begruendung"):
+                    entry["begruendung"] = c["begruendung"]
                 # v1.7.36 (#988): Zeilen benennen, die niemand liest.
                 # Der Bestand traegt Regler, die nie gelesen wurden
                 # (schwellenwert/schwellenwert) oder deren Mechanismus
@@ -1244,7 +1263,9 @@ def register(mcp, db, logger):
             _absage = _vokabular.pruefe(dimension, sub_key)
             if _absage:
                 return {"fehler": _absage}
-            db.set_scoring_config(dimension, sub_key, wert, ignorieren)
+            # v1.7.113 (#1053): mit Begruendung und Spur im Verlauf.
+            db.set_scoring_config(dimension, sub_key, wert, ignorieren,
+                                  begruendung=begruendung)
             return {
                 "status": "gespeichert",
                 "dimension": dimension,
@@ -1264,7 +1285,8 @@ def register(mcp, db, logger):
             if not dimension or not sub_key:
                 return {"fehler": "dimension und sub_key sind Pflicht beim "
                                   "Loeschen."}
-            n = db.delete_scoring_config(dimension, sub_key)
+            n = db.delete_scoring_config(dimension, sub_key,
+                                         begruendung=begruendung)
             if n == 0:
                 return {"status": "nicht_gefunden",
                         "dimension": dimension, "sub_key": sub_key}
@@ -1274,23 +1296,38 @@ def register(mcp, db, logger):
                 "entfernte_zeilen": n,
                 "nachricht": (f"{dimension}/{sub_key} entfernt — faellt auf "
                               "den Default zurueck (inkl. eventuell "
-                              "gesetztem Ignorieren-Flag)."),
+                              "gesetztem Ignorieren-Flag). Der alte Wert "
+                              "steht im Verlauf."),
             }
 
         elif aktion == "reset":
-            # Delete all custom scoring config and re-run migration defaults
-            conn = db.connect()
-            pid = db.get_active_profile_id() or ""
-            conn.execute("DELETE FROM scoring_config WHERE profile_id=?", (pid,))
-            conn.commit()
+            # v1.7.113 (#1053): ueber die Datenbank, damit jede entfernte
+            # Zeile mit ihrem Wert im Verlauf steht.
+            n = db.reset_scoring_config(begruendung)
             return {
                 "status": "zurueckgesetzt",
+                "entfernte_zeilen": n,
                 "nachricht": "Alle Scoring-Regler auf Standard zurueckgesetzt. "
-                             "Die Defaults werden beim nächsten Start geladen."
+                             "Die Defaults werden beim nächsten Start geladen. "
+                             "Die alten Werte stehen im Verlauf "
+                             "(scoring_konfigurieren('verlauf'))."
+            }
+
+        elif aktion == "verlauf":
+            # v1.7.113 (#1053): wer hat wann was geaendert — und warum.
+            eintraege = db.get_scoring_verlauf(dimension or None, limit=30)
+            return {
+                "status": "ok",
+                "anzahl": len(eintraege),
+                "verlauf": eintraege,
+                "hinweis": ("Juengste Aenderung zuerst. Herkunft 'ich' = von "
+                            "Hand, 'automatik' = Lerneffekt aus Ablehnungs-"
+                            "gruenden, 'bereinigung' = von PBP entfernt. "
+                            "wert_neu leer = geloescht."),
             }
 
         return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen', "
-                          "'loeschen' oder 'reset'."}
+                          "'loeschen', 'reset' oder 'verlauf'."}
 
     @mcp.tool()
     def scoring_vorschau(job_hash: str) -> dict:

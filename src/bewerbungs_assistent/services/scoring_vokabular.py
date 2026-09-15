@@ -21,13 +21,28 @@ Einstellung ohne Wirkung — und die ist teurer als eine Fehlermeldung,
 weil man ihr glaubt.
 
 Die Entfernungs-Dimensionen sind bewusst offen: ihre Schluessel sind
-km-Stufen, und wer eine eigene Stufe braucht, darf sie anlegen. Alles
-andere hat ein festes Vokabular.
+km-Stufen, und wer eine eigene Stufe braucht, darf sie anlegen.
+`keyword` und `muss_kriterium` sind ebenfalls offen — ihr Schluessel ist
+der Begriff selbst. Alles andere hat ein festes Vokabular.
+
+**Nachtrag v1.7.113 (#1053):** bis hierher fehlten `keyword` und
+`muss_kriterium` in dieser Liste, obwohl `apply_scoring_adjustments` beide
+liest. Das Werkzeug wies damit seit v1.7.36 WIRKSAME Regler ab, und
+`anzeigen` meldete bestehende als "wirkt nicht" — ein Fehlalarm ueber
+eine Einstellung, die sehr wohl wirkt. Aufgefallen ist es erst, als die
+Pruefung in die Datenbank wanderte. Ein Guard-Test haelt jetzt jede
+Dimension, die der Scoring-Dienst liest, gegen diese Liste.
 """
 from __future__ import annotations
 
-# dimension -> erlaubte sub_keys. `None` heisst: freie Zahl (km-Stufe).
-VOKABULAR: dict[str, frozenset[str] | None] = {
+# Sub-Key ist freier Text (der Begriff selbst), nur nicht leer.
+FREITEXT = "freitext"
+
+# dimension -> erlaubte sub_keys. `None` heisst: freie Zahl (km-Stufe),
+# `FREITEXT`: beliebiger Begriff.
+VOKABULAR: dict[str, frozenset[str] | str | None] = {
+    "keyword": FREITEXT,
+    "muss_kriterium": FREITEXT,
     "stellentyp": frozenset({"festanstellung", "freelance", "zeitarbeit",
                              "befristet", "praktikum", "werkstudent",
                              "minijob", "teilzeit"}),
@@ -68,6 +83,9 @@ def pruefe(dimension: str, sub_key: str) -> str:
         return (f"Unbekannte Dimension '{dim}'. Moeglich sind: "
                 + ", ".join(sorted(VOKABULAR)) + ".")
     erlaubt = VOKABULAR[dim]
+    if erlaubt == FREITEXT:
+        # Der Begriff selbst ist der Schluessel; leer ist oben abgefangen.
+        return ""
     if erlaubt is None:
         if not ist_zahl(sub):
             return (f"'{dim}' erwartet eine km-Stufe als reine Zahl "
