@@ -92,6 +92,12 @@ jobs:
         # verlor Absaetze und Listen. Sie geht jetzt durch lib/textAuszug.js.
         run: node frontend/src/lib/textAuszug.test.mjs
 
+      - name: Die beiden Daumen an der Stelle (Node)
+        # #1052: Richtung und Farbe sind zwei Kanaele — "ungeprueft" darf
+        # nie aussehen wie "passt nicht". Die Zuordnung steht in
+        # lib/daumen.js, gerechnet wird auf dem Server.
+        run: node frontend/src/lib/daumen.test.mjs
+
       - name: Detailbewertungs-Prompt fuer Karte und Fit-Dialog (Node)
         # #1050: der Prompt verlangt das Speichern mit stelle_analyse_speichern
         # und nennt einen vorhandenen Befund; Karte und Dialog teilen ihn.

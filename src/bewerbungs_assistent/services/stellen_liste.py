@@ -40,7 +40,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Callable, Iterable, Optional
 
-from . import datenguete, gehalt_vergleich
+from . import datenguete, gehalt_vergleich, indikatoren
 
 VORGABE_SORTIERUNG = "score_desc"
 SORTIERUNGEN = (
@@ -72,6 +72,12 @@ FILTER_VORGABE: dict = {
     "nur_ohne_beschreibung": False,
     "pruefstand": "",
     "zeitfenster": "alle",
+    # v1.7.117 (#1052): Vorgabe AN — eine Stelle, deren Rahmen BELEGT
+    # nicht passt, kommt fuer diesen Menschen nicht in Frage
+    # (Nutzerantwort 15.09.2026). Die Lehre aus #1008 gilt trotzdem und
+    # sogar staerker: der Filter steht sichtbar da und nennt seine Zahl
+    # (`rahmen_verborgen`).
+    "rahmen_ausblenden": True,
 }
 
 _UMFANG_BEIDES = "beides"
@@ -116,7 +122,7 @@ def filter_lesen(roh: Optional[dict]) -> dict:
         if roh.get(feld) is not None:
             f[feld] = str(roh[feld]).strip()
     for feld in ("nur_mit_gehalt", "beworbene_ausblenden",
-                 "nur_ohne_beschreibung"):
+                 "nur_ohne_beschreibung", "rahmen_ausblenden"):
         if roh.get(feld) is not None:
             f[feld] = _wahr(roh[feld])
     if roh.get("min_score") not in (None, ""):
@@ -213,6 +219,11 @@ def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
     if f["beworbene_ausblenden"] and hash_von(job.get("hash")) in beworbene:
         return False
     if f["nur_ohne_beschreibung"] and datenguete.hat_beschreibung(job):
+        return False
+    # #1052: nur BELEGT verletzte Rahmenbedingungen. Ein grauer Daumen
+    # nach unten heisst "ungeprueft" — ihn auszublenden waere die
+    # Verwechslung aus #989.
+    if f["rahmen_ausblenden"] and indikatoren.rahmen_passt_nicht(job):
         return False
     if f["pruefstand"]:
         art = (job.get("pruefstand") or {}).get("art") or "ungeprueft"
@@ -337,6 +348,16 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
     else:
         treffer_mit_beworbenen = len(treffer)
 
+    # #1052 / #1008: wie viele Stellen blendet der Rahmenfilter aus?
+    # Gezaehlt ueber die Stellen, die ALLE anderen Filter passieren —
+    # sonst zaehlte er Zeilen mit, die ohnehin nicht zu sehen waeren.
+    if f["rahmen_ausblenden"]:
+        ohne_rahmen = dict(f, rahmen_ausblenden=False)
+        rahmen_verborgen = sum(
+            1 for j in jobs if _passt(j, ohne_rahmen, bew, hv, grenze))             - len(treffer)
+    else:
+        rahmen_verborgen = 0
+
     return {
         "jobs": seite,
         "total": len(jobs),
@@ -351,4 +372,5 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
         "ohne_beschreibung": sum(
             1 for j in jobs if not datenguete.hat_beschreibung(j)),
         "ohne_zeitpunkt": sum(1 for j in jobs if not j.get("dismissed_at")),
+        "rahmen_verborgen": rahmen_verborgen,
     }
