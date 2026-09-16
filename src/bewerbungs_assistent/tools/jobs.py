@@ -1793,6 +1793,17 @@ def register(mcp, db, logger):
         def _guete_rang(j):
             return _dg.sortierschluessel(j, _guete_umgang, _guete_krit)
 
+        # v1.7.117 (#1052): die beiden Daumen, EINMAL vorbereitet. Der
+        # Kontext traegt die Schwellen aus der eigenen Bewerbungs-
+        # historie; je Zeile neu gerechnet waere das ein Bestandsscan
+        # pro Stelle (dieselbe Bauform wie die Datenguete darueber).
+        from ..services import indikatoren as _ind
+        try:
+            _daumen_ktx = _ind.kontext(db, _guete_krit)
+        except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+            logger.debug("Daumen-Kontext fehlgeschlagen (#1052): %s", exc)
+            _daumen_ktx = {}
+
         # v1.7.68 (#968) AK 4: eine Stelle ohne Pflichttreffer steht
         # NIE ueber einer mit. Das steht bewusst in der Sortierung und
         # nicht im Score — eine Stelle mit Pflichttreffer, die ein Malus
@@ -2026,6 +2037,17 @@ def register(mcp, db, logger):
             if j.get("fachscore") is not None:
                 entry["fachscore"] = j.get("fachscore")
                 entry["rahmenscore"] = j.get("rahmenscore")
+            # v1.7.117 (#1052): Fachwert und Rahmen als zwei Daumen mit
+            # Richtung und Farbe. Es gibt KEINE Summe aus beiden — sie
+            # beantworten verschiedene Fragen, und die Zusammenfassung
+            # in eine Zahl war der Anlass des Issues.
+            _marken = _ind.fuer_stelle(j, _daumen_ktx)
+            if _marken.get("fach"):
+                entry["fach_daumen"] = _marken["fach"]
+            if _marken.get("rahmen"):
+                entry["rahmen_daumen"] = _marken["rahmen"]
+            if _marken.get("fach_maximum"):
+                entry["fach_maximum"] = _marken["fach_maximum"]
             if j.get("dismiss_reason"):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
             if j["hash"] in applied_hashes_all:

@@ -2372,6 +2372,7 @@ async def api_jobs(active: bool = True,
                    nur_ohne_beschreibung: str = "",
                    pruefstand: str = "",
                    zeitfenster: str = "",
+                   rahmen_ausblenden: str = "",
                    sort: str = ""):
     """Get jobs with filtering and optional pagination (#118, #121, #145).
 
@@ -2398,6 +2399,10 @@ async def api_jobs(active: bool = True,
         "beworbene_ausblenden": beworbene_ausblenden,
         "nur_ohne_beschreibung": nur_ohne_beschreibung,
         "pruefstand": pruefstand, "zeitfenster": zeitfenster,
+        # #1052: die Vorgabe steht im Dienst (AN). Leer heisst hier
+        # "nicht gesagt" und nicht "aus" — sonst haette jeder Aufrufer,
+        # der den Parameter nicht kennt, den Filter still abgeschaltet.
+        "rahmen_ausblenden": rahmen_ausblenden,
     }.items() if wert not in (None, "")}
     als_liste = limit > 0 or _liste.ist_listenanfrage(filter_roh, sort)
 
@@ -2532,6 +2537,15 @@ def _guete_anreichern(jobs: list) -> None:
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Datenguete-Anreicherung uebersprungen: %s", exc)
         return
+    # v1.7.117 (#1052): die beiden Daumen. Sie entstehen im selben
+    # Dienst wie in der MCP-Liste — zwei Fassungen desselben Indikators
+    # waeren #1008 noch einmal. Die Schwellen kommen aus der ganzen
+    # Bewerbungshistorie und werden EINMAL je Aufruf gebildet.
+    try:
+        from .services import indikatoren as _ind
+        _ind.anhaengen(jobs, _ind.kontext(_db, krit))
+    except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
+        logger.debug("Daumen uebersprungen (#1052): %s", exc)
     for job in jobs:
         # v1.7.68 (#968): derselbe Aufruf wie in stellen_anzeigen. Der
         # Befund gehoert an die Liste, die der Mensch ansieht — nicht

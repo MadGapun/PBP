@@ -1404,7 +1404,13 @@ def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live
         assert page.get_by_role("button", name="Zur Blacklist").count() == 0, (
             "Der Blacklist-Knopf steht noch auf der Karte.")
 
-        page.get_by_role("button", name="Passt nicht").first.click()
+        # `exact=True`: Playwright sucht sonst als TEILSTRING, und seit
+        # #1052 steht in der Filterzeile "Rahmen passt nicht ausblenden".
+        # Ohne exact traf `.first` diesen Filter statt des Karten-Knopfs —
+        # der Klick schaltete also einen Filter um, und der Dialog kam nie.
+        # Vierter Fall von v1.7.103 MERKE 6: ein zu breiter Locator misst
+        # den Test, nicht den Code. Gefunden hat es die volle Suite.
+        page.get_by_role("button", name="Passt nicht", exact=True).first.click()
         page.get_by_text("Warum passt diese Stelle nicht?").wait_for(state="visible")
         page.get_by_role("button", name="Firma uninteressant").click()
         page.get_by_role("button", name="Firma zusätzlich sperren").click()
@@ -1416,5 +1422,109 @@ def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live
             begruendung.input_value())
         # Nichts gesperrt, solange der Blacklist-Dialog nicht bestaetigt ist.
         assert db.connect().execute("SELECT COUNT(*) FROM blacklist").fetchone()[0] == 0
+    finally:
+        context.close()
+
+
+def _seed_rahmen_workspace(db) -> None:
+    """Zwei Stellen mit gleichem Fachwert und verschiedenem Rahmen (#1052).
+
+    Der ganze Punkt des Issues steckt in dieser Fixture: fachlich sind
+    beide dasselbe, und bis v1.7.116 zog die Entfernung die eine in
+    derselben Zahl nach unten — dort war sie von einer fachfremden
+    Anzeige nicht mehr zu unterscheiden.
+    """
+    profile_id = db.save_profile(
+        {
+            "name": "Max Rahmen",
+            "email": "rahmen@example.com",
+            "summary": "Stammdaten und Migration",
+        }
+    )
+    db.set_search_criteria("keywords_muss", ["Stammdaten"])
+    db.set_search_criteria("max_entfernung", {"festanstellung": 50})
+    db.set_search_criteria("min_gehalt", 60000)
+    text = "Stammdaten und Migration im Bestand. " * 12
+    db.save_jobs(
+        [
+            {
+                "hash": "rahmen-nah",
+                "title": "Stammdaten Nahbereich",
+                "company": "Musterfirma GmbH",
+                "location": "Musterstadt",
+                "url": "https://example.com/rahmen-nah",
+                "source": "stepstone",
+                "description": text,
+                "score": 14,
+                "employment_type": "festanstellung",
+                "distance_km": 12.0,
+                "salary_min": 75000,
+                "salary_type": "jaehrlich",
+                "salary_estimated": 0,
+                "profile_id": profile_id,
+            },
+            {
+                "hash": "rahmen-fern",
+                "title": "Stammdaten Fernbereich",
+                "company": "Musterwerk AG",
+                "location": "Musterberg",
+                "url": "https://example.com/rahmen-fern",
+                "source": "stepstone",
+                "description": text,
+                "score": 14,
+                "employment_type": "festanstellung",
+                "distance_km": 400.0,
+                "salary_min": 75000,
+                "salary_type": "jaehrlich",
+                "salary_estimated": 0,
+                "profile_id": profile_id,
+            },
+        ]
+    )
+
+
+def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboard, browser):
+    """#1052 am GERENDERTEN Bild.
+
+    Das Dashboard liefert das GEBAUTE Bundle aus — ein Guard auf den
+    Quelltext belegt hier nichts (v1.7.71 MERKE 9). Geprueft wird
+    deshalb, was dasteht: die Zahl heisst Fachwert, die beiden Daumen
+    stehen nebeneinander, und der Rahmenfilter ist AN, nennt seine Zahl
+    und laesst sich mit einem Klick abschalten.
+    """
+    db = live_dashboard["db"]
+    _seed_rahmen_workspace(db)
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        # `exact=True`: ohne das trifft der Locator auch die Ueberschrift
+        # der Hinweiskarte ("Die Stellenliste ist arbeitsfaehig") — ein zu
+        # breiter Locator misst den Test, nicht den Code (v1.7.103 MERKE 6).
+        page.get_by_role("heading", name="Stellen", exact=True).wait_for(state="visible")
+
+        # Die nahe Stelle steht da, die ferne ist ausgeblendet — Vorgabe AN.
+        page.get_by_text("Stammdaten Nahbereich", exact=True).wait_for(state="visible")
+        assert page.get_by_text("Stammdaten Fernbereich", exact=True).count() == 0, (
+            "Der Rahmenfilter blendet die Stelle in 400 km nicht aus.")
+
+        # Die Zahl heisst nicht mehr Score.
+        page.get_by_text(re.compile(r"Fachwert \d")).first.wait_for(state="visible")
+        # Und beide Daumen stehen an der Karte.
+        page.get_by_text("Rahmen passt", exact=True).first.wait_for(state="visible")
+
+        # Der Filter nennt, was er verbirgt (#1008), und geht wieder aus.
+        knopf = page.get_by_role("button", name=re.compile("Rahmen passt nicht ausblenden"))
+        knopf.wait_for(state="visible")
+        assert "(1)" in knopf.inner_text(), knopf.inner_text()
+        knopf.click()
+        # Auf den ZUSTAND warten, nicht auf eine Dauer: der Filter wirkt
+        # auf dem Server (v1.7.93 MERKE 9).
+        page.get_by_text("Stammdaten Fernbereich", exact=True).wait_for(
+            state="visible", timeout=10000)
+        page.get_by_text("Rahmen passt nicht", exact=True).first.wait_for(state="visible")
     finally:
         context.close()

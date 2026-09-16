@@ -1,4 +1,4 @@
-﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, X } from "lucide-react";
+﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
@@ -28,11 +28,41 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
 import { scoreText, scoreWert } from "@/lib/score";
+import {
+  FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
+  etikett as daumenEtikett, maximumText as fachMaximumText,
+  symbol as daumenSymbol, titel as daumenTitel, ton as daumenTon,
+} from "@/lib/daumen";
 import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertung";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
 } from "@/lib/stellenAngaben";
+
+/**
+ * Ein Daumen mit Richtung UND Farbe (#1052).
+ *
+ * Zwei Kanaele in einem Abzeichen: das Symbol zeigt die Richtung, der
+ * Ton sagt, wie belegt sie ist. Ein grauer Daumen nach unten heisst
+ * "sieht schlecht aus, aber ungeprueft" — beides zusammenzuziehen
+ * haette "ungeprueft" wieder wie "passt nicht" aussehen lassen (#989).
+ *
+ * Gerechnet wird hier nichts; die Zuordnung steht in `lib/daumen.js`
+ * und ist dort mit eigenem CI-Schritt geprueft.
+ */
+function DaumenAbzeichen({ marke, art }) {
+  if (!marke) return null;
+  const richtung = daumenSymbol(marke);
+  const Icon = richtung === "hoch" ? ThumbsUp : richtung === "runter" ? ThumbsDown : Minus;
+  return (
+    <Badge tone={daumenTon(marke)}>
+      <span className="inline-flex items-center gap-1" title={daumenTitel(marke, art)}>
+        <Icon size={12} className="inline -mt-0.5" />
+        {daumenEtikett(marke, art)}
+      </span>
+    </Badge>
+  );
+}
 
 const EMPTY_APPLICATION = {
   job_hash: "",
@@ -127,6 +157,15 @@ export const FILTER_STANDARD = {
   // Vorgabe LEER — ein Filter, den niemand gesetzt hat, war der ganze
   // Befund von #1008.
   pruefstand: "",
+  // #1052: Vorgabe AN, und das ist die Ausnahme von der Lehre aus
+  // #1008. Eine Stelle, deren Rahmen BELEGT nicht passt (zu weit weg,
+  // unter dem Minimum, falsche Vertragsform), kommt fuer diesen
+  // Menschen nicht in Frage — sie in der Liste zu lassen kostet ihn
+  // bei jedem Durchsehen Zeit. Der zweite Teil jener Lehre gilt dafuer
+  // umso strenger: der Schalter steht sichtbar da, nennt seine Zahl
+  // und ist mit einem Klick aus. Ausgeblendet wird nur, was BELEGT
+  // nicht passt — Ungeprueftes bleibt stehen (#989).
+  rahmenAusblenden: true,
 };
 
 // Welche Filter unterdruecken gerade Eintraege — und wie macht man das
@@ -143,6 +182,7 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.arbeitsumfang) aktiv.push({ schluessel: "arbeitsumfang", text: filters.arbeitsumfang });
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
+  if (filters.rahmenAusblenden) aktiv.push({ schluessel: "rahmenAusblenden", text: "Rahmen passt nicht ausgeblendet" });
   if (filters.pruefstand) {
     aktiv.push({
       schluessel: "pruefstand",
@@ -180,6 +220,10 @@ export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
   if (filters.hideApplied) p.set("beworbene_ausblenden", "true");
   if (filters.missingDescriptionOnly) p.set("nur_ohne_beschreibung", "true");
   if (filters.pruefstand) p.set("pruefstand", filters.pruefstand);
+  // #1052: die Vorgabe steht im Dienst (AN). Deshalb wird das
+  // ABSCHALTEN gesendet, nicht das Einschalten — ein fehlender
+  // Parameter heisst "wie vorgegeben".
+  if (!filters.rahmenAusblenden) p.set("rahmen_ausblenden", "false");
   let sort = filters.sort || "score_desc";
   if (ansicht === "dismissed") {
     if (zeitfenster && zeitfenster !== "alle") p.set("zeitfenster", zeitfenster);
@@ -196,6 +240,8 @@ const LEERE_META = {
   treffer_mit_beworbenen: 0,
   ohne_beschreibung: 0,
   ohne_zeitpunkt: 0,
+  // #1052: wie viele Stellen der Rahmenfilter gerade ausblendet.
+  rahmen_verborgen: 0,
   optionen: { source: [], remote: [], employment_type: [], arbeitsumfang: [] },
 };
 
@@ -209,6 +255,7 @@ function listenMeta(antwort) {
     treffer_mit_beworbenen: Number(antwort?.treffer_mit_beworbenen ?? antwort?.treffer ?? 0),
     ohne_beschreibung: Number(antwort?.ohne_beschreibung || 0),
     ohne_zeitpunkt: Number(antwort?.ohne_zeitpunkt || 0),
+    rahmen_verborgen: Number(antwort?.rahmen_verborgen || 0),
     optionen: { ...LEERE_META.optionen, ...(antwort?.optionen || {}) },
   };
 }
@@ -918,6 +965,10 @@ export default function JobsPage() {
   // noch nicht geladenen Seiten sind keine "verborgenen" Stellen, weil
   // `treffer` sie schon enthaelt.
   const verborgeneStellen = Math.max(0, listenGesamt - listenTreffer);
+  // #1052: der Anteil daran, der auf den Rahmenfilter geht. Er zaehlt
+  // die Stellen, die ALLE anderen Filter passieren — sonst stuenden
+  // dort Zeilen, die ohnehin nicht zu sehen waeren.
+  const rahmenVerborgen = ansichtMeta.rahmen_verborgen;
   const aktiveFilter = aktiveFilterBestimmen(filters);
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
@@ -1392,6 +1443,29 @@ export default function JobsPage() {
               Beworbene ausblenden
             </button>
 
+            {/* #1052: der Rahmenfilter. Vorgabe AN — und deshalb steht
+                hier die Zahl daneben, sobald er etwas ausblendet. Ein
+                Filter, den niemand gesetzt hat und der schweigt, hat
+                beim Melder sieben von acht Stellen verschwinden lassen
+                (#1008). */}
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                filters.rahmenAusblenden
+                  ? "border-coral/20 bg-coral/8 text-coral/80"
+                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+              )}
+              title="Blendet Stellen aus, deren Rahmenbedingungen BELEGT nicht passen — zu weit entfernt, unter dem Gehaltsminimum oder falsche Vertragsform. Ungeprüfte Angaben bleiben stehen."
+              onClick={() => setFilters((f) => ({ ...f, rahmenAusblenden: !f.rahmenAusblenden }))}
+            >
+              <ThumbsDown size={14} />
+              Rahmen passt nicht ausblenden
+              {filters.rahmenAusblenden && rahmenVerborgen > 0 ? (
+                <span className="text-[12px] text-coral/60">({rahmenVerborgen})</span>
+              ) : null}
+            </button>
+
             <div className="group inline-flex items-center gap-1.5">
               <button
                 type="button"
@@ -1422,8 +1496,12 @@ export default function JobsPage() {
               {filters.view === "dismissed" ? (
                 <option value="dismissed_desc">Zuletzt aussortiert</option>
               ) : null}
-              <option value="score_desc">Score abst.</option>
-              <option value="score_asc">Score aufst.</option>
+              {/* #1052: die Zahl heisst Fachwert — sie misst die
+                  Anzeige, nicht die Rahmenbedingungen. Der Parameter
+                  bleibt `score_desc`: er ist ein Vertrag mit dem
+                  Server, und das Etikett ist eine Beschriftung. */}
+              <option value="score_desc">Fachwert abst.</option>
+              <option value="score_asc">Fachwert aufst.</option>
               <option value="salary_desc">Gehalt abst.</option>
               {/* #1032: nach dem Erstfund. Bewusst nicht nach dem
                   Veroeffentlichungsdatum — das liefert nur eine Quelle. */}
@@ -1552,10 +1630,17 @@ export default function JobsPage() {
                         onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(scoreWert(job.score))); }}
                         title="Score bearbeiten"
                       >
-                        Score {scoreText(job.score)}
+                        Fachwert {scoreText(job.score)}
                         <Pencil size={11} />
                       </button>
                     )}
+                    {/* #1052: zwei Daumen, zwei Fragen — und KEINE
+                        Summe. Der Fachwert sagt etwas ueber die
+                        Anzeige, der Rahmen ueber die Lebensumstaende;
+                        dass beides unter einem Namen zusammengerechnet
+                        wurde, war der Anlass des Issues. */}
+                    <DaumenAbzeichen marke={job.fach_daumen} art={DAUMEN_FACH} />
+                    <DaumenAbzeichen marke={job.rahmen_daumen} art={DAUMEN_RAHMEN} />
                     {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
                     {anstellungsform(job) ? (
                       <Badge tone={anstellungsform(job).ton}>{anstellungsform(job).text}</Badge>
@@ -2307,10 +2392,34 @@ export default function JobsPage() {
                 {anstellungsform(detailDialog.job) ? <Badge tone={anstellungsform(detailDialog.job).ton}>{anstellungsform(detailDialog.job).text}</Badge> : null}
                 {umfangText(detailDialog.job) ? <Badge tone="neutral">{umfangText(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
-                <Badge tone="amber">Score {scoreText(detailDialog.job.score)}</Badge>
+                <Badge tone="amber">Fachwert {scoreText(detailDialog.job.score)}</Badge>
+                <DaumenAbzeichen marke={detailDialog.job.fach_daumen} art={DAUMEN_FACH} />
+                <DaumenAbzeichen marke={detailDialog.job.rahmen_daumen} art={DAUMEN_RAHMEN} />
                 {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>
+              {/* #1052: die Begruendung beider Daumen im Klartext, dazu
+                  das fachlich Erreichbare als DETAIL. Kein Prozentwert —
+                  es gibt weder Ober- noch Untergrenze, und die besten
+                  Stellen koennen im Minus liegen (Nutzerwort
+                  16.09.2026). */}
+              {(detailDialog.job.fach_daumen || detailDialog.job.rahmen_daumen) ? (
+                <div className="space-y-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
+                  {detailDialog.job.fach_daumen ? (
+                    <p className="text-[13px] text-muted/70">
+                      {daumenTitel(detailDialog.job.fach_daumen, DAUMEN_FACH)}
+                    </p>
+                  ) : null}
+                  {detailDialog.job.rahmen_daumen ? (
+                    <p className="text-[13px] text-muted/70">
+                      {daumenTitel(detailDialog.job.rahmen_daumen, DAUMEN_RAHMEN)}
+                    </p>
+                  ) : null}
+                  {fachMaximumText(detailDialog.job) ? (
+                    <p className="text-[12px] text-muted/45">{fachMaximumText(detailDialog.job)}</p>
+                  ) : null}
+                </div>
+              ) : null}
               {gehaltText(detailDialog.job, formatCurrency) ? (
                 <p className="text-sm text-teal font-medium">{gehaltText(detailDialog.job, formatCurrency)}</p>
               ) : null}
