@@ -45,6 +45,33 @@ def _wait_for_server(base_url: str, timeout: float = 10.0) -> None:
     raise RuntimeError(f"Dashboard unter {base_url} wurde nicht rechtzeitig bereit: {last_error}")
 
 
+def _warte_auf_datenbank(bedingung, timeout: float = 10.0, was: str = ""):
+    """Wartet, bis die DATENBANK den erwarteten Stand traegt.
+
+    Warum es diesen Helfer gibt (Flake vom 14./15.09.2026, zweimal rot,
+    einmal davon bei einem reinen Doku-Commit): die Oberflaeche setzt
+    ihren Zustand OPTIMISTISCH — `setSources(...)` laeuft vor dem
+    `await postJson(...)`. Ein Test, der auf den Zaehler wartet und
+    danach die Datenbank liest, misst also ein Rennen zwischen Browser
+    und Server. Lokal gewinnt der Server, auf dem CI-Runner nicht immer.
+
+    Das ist v1.7.93 MERKE 9 und v1.7.83 MERKE 8 an einer neuen Stelle:
+    **auf den Zustand warten, um den es geht** — und hier geht es um den
+    gespeicherten, nicht um den gezeichneten.
+    """
+    deadline = time.time() + timeout
+    letzter = None
+    while time.time() < deadline:
+        letzter = bedingung()
+        if letzter:
+            return letzter
+        time.sleep(0.1)
+    raise AssertionError(
+        f"Die Datenbank hat den erwarteten Stand nicht erreicht{f' ({was})' if was else ''}. "
+        f"Zuletzt gelesen: {letzter!r}"
+    )
+
+
 def _dismiss_setup_overlay(page) -> None:
     """Close the first-run setup overlay when it is visible."""
     later_button = page.get_by_role("button", name="Später")
@@ -1131,7 +1158,11 @@ def test_kontakte_untermenue_referenzen(live_dashboard, browser):
         # Auswahlfeld — ein zu breiter Locator misst den Test, nicht
         # den Code (v1.7.83 MERKE 8).
         block.get_by_role("listitem").filter(has_text="Projektpartner").wait_for(state="visible", timeout=8000)
-        assert len(db.list_contact_references()) == 2
+        # Gewartet wird oben auf einen Eintrag, den es VORHER schon gab —
+        # er belegt also nicht, dass der neue gespeichert ist. Dieselbe
+        # Bauform wie in #1039: auf die Ablage warten, nicht aufs Bild.
+        _warte_auf_datenbank(lambda: len(db.list_contact_references()) == 2,
+                             was="zweite Referenz gespeichert")
     finally:
         context.close()
 
@@ -1307,7 +1338,13 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         knopf.click()
         filter_.get_by_role("button", name=f"Aktiv ({1 + len(fehlend)})").wait_for(
             state="visible", timeout=8000)
-        assert set(db.get_profile_setting("active_sources")) == {"bundesagentur", *fehlend}
+        # Der Zaehler oben kommt aus dem lokalen Zustand und steht schon,
+        # bevor der Server geantwortet hat. Geprueft wird hier aber die
+        # ABLAGE — also auf sie warten (siehe _warte_auf_datenbank).
+        erwartet = {"bundesagentur", *fehlend}
+        _warte_auf_datenbank(
+            lambda: set(db.get_profile_setting("active_sources") or []) == erwartet,
+            was="alle empfohlenen Quellen gespeichert")
 
         filter_.get_by_role("button", name=f"Defekte Quellen ({defekt})").click()
         page.locator('[data-source-key="heise_jobs"]').wait_for(state="visible")
