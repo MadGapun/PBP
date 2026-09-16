@@ -2521,6 +2521,55 @@ def score_maximum(criteria: dict) -> float:
                                      * fachscore_max), 1)
 
 
+def fach_maximum(criteria: dict) -> float:
+    """Was kann eine Stelle FACHLICH hoechstens erreichen? (#1052 AK 2)
+
+    Der Unterschied zu `score_maximum` ist die Abgrenzung, nicht die
+    Rechnung: hier zaehlen nur MUSS und PLUS, also das, was ueber den
+    Anzeigentext etwas ueber die Passung sagt. Entfernung, Remote und
+    Gehalt bleiben draussen — sie beschreiben die Rahmenbedingungen und
+    gehoeren nach #1052 nicht in dieselbe Zahl.
+
+    MINUS geht ebenfalls nicht ein: ein Abzug ist kein Teil dessen, was
+    erreichbar IST. Waere er es, haette eine Anzeige ohne jeden
+    MINUS-Treffer mehr als 100 Prozent.
+
+    Gruppiert wird wie in der Rechnung (#1012, #1052 Schritt 1) — sonst
+    laege der Hoechstwert ueber allem, was eine Anzeige erreichen kann,
+    und die 100 Prozent waeren nicht erreichbar.
+
+    Returns:
+        Der erreichbare Fachwert in Punkten, oder 0.0 wenn er sich nicht
+        bestimmen laesst. **0 heisst "unbekannt", nicht "nichts
+        erreichbar"** — der Aufrufer darf daraus keinen Anteil rechnen
+        (#989).
+    """
+    if not isinstance(criteria, dict):
+        return 0.0
+    w = _parse_weights(criteria)
+    overrides = criteria.get("keyword_gewichte") or {}
+    idf = criteria.get("_idf_faktoren") or {}
+    from ..services.anforderungen import zaehlbare_punkte
+
+    muss = criteria.get("keywords_muss", []) or []
+    muss_punkte = sorted(
+        zaehlbare_punkte(
+            muss, lambda kw: _punkte_pro_treffer(kw, w["muss"], overrides, idf)),
+        reverse=True)
+    if idf and muss_punkte:
+        from ..services.kalibrierung import MUSS_TOP_N
+        muss_punkte = muss_punkte[:MUSS_TOP_N]
+
+    # Ein PLUS-Begriff, der schon als MUSS gefuehrt wird, zaehlt nicht
+    # doppelt — dieselbe Abgrenzung wie in `score_maximum`.
+    _muss_norm = {str(kw).strip().lower() for kw in muss}
+    plus = [kw for kw in (criteria.get("keywords_plus", []) or [])
+            if str(kw).strip().lower() not in _muss_norm]
+    plus_punkte = zaehlbare_punkte(
+        plus, lambda kw: _punkte_pro_treffer(kw, w["plus"], overrides, idf))
+    return round(float(sum(muss_punkte)) + float(sum(plus_punkte)), 1)
+
+
 def _muss_tor_match(keyword: str, text: str, synonyme=None) -> bool:
     """v1.7.22 (#940): Tor-Entscheidung fuer MUSS-Keywords.
 
