@@ -355,4 +355,11 @@ def test_der_schalter_steht_sichtbar_in_der_filterzeile():
     assert "Rahmen passt nicht ausblenden" in quelle
     assert "rahmenAusblenden: true" in quelle, "Vorgabe AN"
     assert "rahmen_ausblenden" in quelle, "das Abschalten geht an den Server"
-    assert "rahmenVerborgen" in quelle, "der Filter nennt seine Zahl"
+    # Nicht der blosse NAME — die Bindung an die Zahl des Servers und
+    # ihre Ausgabe am Knopf. Die Gegenprobe hat den ersten Guard
+    # durchgelassen: eine Mutation, die `rahmenVerborgen` auf 0 setzte
+    # und den Namen stehen liess, blieb gruen. Ein Guard, der ein Wort
+    # sucht, prueft die Stelle nicht, um die es geht (v1.7.115 MERKE 6).
+    assert re.search(r"const rahmenVerborgen = ansichtMeta\.rahmen_verborgen",
+                     quelle), "die Zahl kommt vom Server"
+    assert "rahmenVerborgen > 0" in quelle, "und steht am Knopf"

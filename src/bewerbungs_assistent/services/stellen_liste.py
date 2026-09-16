@@ -353,8 +353,9 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
     # sonst zaehlte er Zeilen mit, die ohnehin nicht zu sehen waeren.
     if f["rahmen_ausblenden"]:
         ohne_rahmen = dict(f, rahmen_ausblenden=False)
-        rahmen_verborgen = sum(
-            1 for j in jobs if _passt(j, ohne_rahmen, bew, hv, grenze))             - len(treffer)
+        durchgelassen = sum(
+            1 for j in jobs if _passt(j, ohne_rahmen, bew, hv, grenze))
+        rahmen_verborgen = durchgelassen - len(treffer)
     else:
         rahmen_verborgen = 0
 
