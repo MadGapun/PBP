@@ -224,4 +224,22 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
         krit["_muss_tor_modus"] = muss_tor.modus(db, krit)
     except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
         logger.debug("MUSS-Tor-Modus nicht lesbar: %s", exc)
+
+    # v1.7.117 (#1052): das Signal aus dem eigenen Verhalten wirkt im
+    # Score und gehoert deshalb hierher — wuerde `calculate_score` es
+    # selbst aus der Datenbank holen, rechnete der Suchlauf wieder
+    # anders als die Neuberechnung (#987). Es kommt aus einem abgelegten
+    # Stand, nicht aus einem Bestandsscan: ein Score darf nicht an einer
+    # Abfrage ueber alle Stellen haengen (v1.7.36 MERKE 3).
+    #
+    # NUR MIT INHALT: ein leeres Profil wuerde die Kriterien eines
+    # frischen Bestands "nicht mehr leer" machen, und die Hinweise auf
+    # den naechsten Schritt haengen genau daran (v1.7.100 MERKE 6).
+    try:
+        from . import neigung
+        profil = neigung.profil(db)
+        if profil and profil.get("begriffe"):
+            krit["_neigungsprofil"] = profil
+    except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+        logger.debug("Neigungsprofil nicht lesbar: %s", exc)
     return krit

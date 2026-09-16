@@ -219,8 +219,13 @@ def test_989_streng_wertet_unbekannte_entfernung_wie_eine_weite():
               "description": "PLM-Landschaft betreuen. " + "x" * 300,
               "employment_type": "festanstellung"}
 
-    normal = calculate_score(dict(stelle), dict(krit))
-    streng = calculate_score(dict(stelle), dict(krit, _unbekannt_streng=True))
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt die
+    # Entfernung nicht mehr. Die Regel wirkt unveraendert — im
+    # Rahmenwert, der daneben steht.
+    _n, _s = dict(stelle), dict(stelle)
+    calculate_score(_n, dict(krit))
+    calculate_score(_s, dict(krit, _unbekannt_streng=True))
+    normal, streng = _n["_rahmenscore"], _s["_rahmenscore"]
     assert streng < normal, (normal, streng)
 
 

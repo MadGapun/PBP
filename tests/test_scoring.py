@@ -43,6 +43,19 @@ def _criteria(muss=None, plus=None, ausschluss=None, gewichtung=None):
 
 # === calculate_score ===
 
+def _rahmenwert(job, criteria):
+    """Der Rahmenwert, den `calculate_score` an die Stelle schreibt.
+
+    v1.7.117 (#1052): Entfernung, Remote und Gehalt gehen nicht mehr in
+    den Score ein — er ist der FACHWERT. Die Regler wirken unveraendert,
+    nur eben auf die zweite Zahl. Wer hier wieder den Score prueft,
+    misst die Trennung weg.
+    """
+    kopie = dict(job)
+    calculate_score(kopie, criteria)
+    return kopie.get("_rahmenscore")
+
+
 class TestCalculateScore:
     def test_muss_keyword_hit(self):
         """MUSS keywords found → score > 0."""
@@ -63,9 +76,12 @@ class TestCalculateScore:
         job = _job(title="PLM Consultant", description="Python und Agile Methoden")
         criteria = _criteria(muss=["PLM"], plus=["Python", "Agile"])
         score = calculate_score(job, criteria)
-        # v1.7.22 (#942): PLUS ist relativ zum Fachscore gedeckelt.
+        # v1.7.117 (#1052): PLUS zaehlt FACHLICH — es sagt etwas ueber
+        # die Anzeige, nicht ueber die Lebensumstaende. Der Deckel aus
+        # #942 gilt hier weiter, denn PLUS steht in DERSELBEN Zahl wie
+        # die Pflichttreffer und konkurriert mit ihnen; entfallen ist er
+        # nur gegen die Entfernung, die jetzt daneben steht.
         # MUSS=2 (Fachscore), PLUS=2 roh -> gedeckelt auf 50% von 2 = 1.
-        # Ein Bonus darf fehlende Eignung nicht kompensieren.
         assert score == 3
 
     def test_ausschluss_keyword(self):
@@ -80,35 +96,47 @@ class TestCalculateScore:
         job_remote = _job(title="PLM Engineer", remote="remote")
         job_onsite = _job(title="PLM Engineer", remote="unbekannt")
         criteria = _criteria(muss=["PLM"])
-        score_remote = calculate_score(job_remote, criteria)
-        score_onsite = calculate_score(job_onsite, criteria)
-        assert score_remote > score_onsite
+        # Der FACHWERT ist identisch — das Arbeitsmodell sagt nichts
+        # ueber die fachliche Passung. Der Unterschied steht im Rahmen.
+        assert calculate_score(dict(job_remote), criteria) == \
+            calculate_score(dict(job_onsite), criteria)
+        assert _rahmenwert(job_remote, criteria) > \
+            _rahmenwert(job_onsite, criteria)
 
     def test_hybrid_bonus(self):
         """Hybrid jobs also get the remote bonus."""
         job = _job(title="PLM Engineer", remote="hybrid")
         criteria = _criteria(muss=["PLM"])
-        score = calculate_score(job, criteria)
-        # v1.7.22 (#942): Remote ist Rahmen und faellt unter denselben
-        # Deckel: MUSS=2, Rahmen 2 -> gedeckelt auf 1.
-        assert score == 3
+        score = calculate_score(dict(job), criteria)
+        # v1.7.117 (#1052): der Score ist der Fachwert und kennt das
+        # Arbeitsmodell nicht mehr. Der Bonus steht im Rahmenwert.
+        assert score == 2
+        assert _rahmenwert(job, criteria) == 2
 
     def test_distance_bonus(self):
         """Jobs within 80km get bonus points."""
         job_near = _job(title="PLM Admin", distance=30)
         job_far = _job(title="PLM Admin", distance=500)
         criteria = _criteria(muss=["PLM"])
-        score_near = calculate_score(job_near, criteria)
-        score_far = calculate_score(job_far, criteria)
-        assert score_near > score_far
+        # Gleiche Anzeige, gleicher Fachwert — 470 km Unterschied
+        # aendern an der fachlichen Passung nichts.
+        assert calculate_score(dict(job_near), criteria) == \
+            calculate_score(dict(job_far), criteria)
+        assert _rahmenwert(job_near, criteria) > \
+            _rahmenwert(job_far, criteria)
 
     def test_distance_malus(self):
         """Jobs over 200km get a penalty."""
         job = _job(title="PLM Berater", distance=300)
         criteria = _criteria(muss=["PLM"])
-        score = calculate_score(job, criteria)
-        # MUSS=2 - fern_malus=3 = max(0, -1) = 0
-        assert score == 0
+        score = calculate_score(dict(job), criteria)
+        # DER Fall aus #1052, in klein: bis v1.7.116 zog der Fernmalus
+        # den Fachwert unter null und die Kappung machte 0 daraus — eine
+        # fachlich passende Stelle war von einer fachfremden nicht mehr
+        # zu unterscheiden. Der Fachwert bleibt jetzt stehen, der Malus
+        # steht im Rahmen.
+        assert score == 2
+        assert _rahmenwert(job, criteria) == -3
 
     def test_custom_weights(self):
         """Custom weights override defaults."""
@@ -119,7 +147,9 @@ class TestCalculateScore:
             gewichtung={"muss": 5, "plus": 3, "remote": 1, "naehe": 1, "fern_malus": 1},
         )
         score = calculate_score(job, criteria)
-        # v1.7.22 (#942): MUSS=5 (Fachscore), PLUS=3 -> Deckel 2.5.
+        # MUSS=5 (Fachscore), PLUS=3 -> Deckel 2.5. Seit v1.7.117
+        # (#1052) sind beide fachlich; der Deckel gilt zwischen ihnen
+        # weiter, gegen die Entfernung nicht mehr.
         assert score == 7.5
 
     def test_case_insensitive(self):
@@ -150,12 +180,14 @@ class TestCalculateScore:
         job_fest = _job(title="PLM Berater", distance=300,
                         employment_type="festanstellung")
         criteria = _criteria(muss=["PLM"])
-        score_freelance = calculate_score(job_freelance, criteria)
-        score_fest = calculate_score(job_fest, criteria)
-        # Freelance: MUSS=2, no malus = 2
-        # Festanstellung: MUSS=2 - fern_malus=3 = max(0, -1) = 0
-        assert score_freelance == 2
-        assert score_fest == 0
+        # Der Fachwert ist derselbe — die Anstellungsform sagt nichts
+        # ueber die fachliche Passung (#1052).
+        assert calculate_score(dict(job_freelance), criteria) == 2
+        assert calculate_score(dict(job_fest), criteria) == 2
+        # Der Unterschied steht im Rahmen, und das ist der Punkt aus
+        # #112: fuer ein Projekt sind 300 km kein Malus.
+        assert _rahmenwert(job_freelance, criteria) == 0
+        assert _rahmenwert(job_fest, criteria) == -3
 
     def test_freelance_moderate_distance_no_penalty(self):
         """Freelance 150km should have no slight penalty either (#112)."""
@@ -164,9 +196,10 @@ class TestCalculateScore:
         job_fest = _job(title="PLM Berater", distance=150,
                         employment_type="festanstellung")
         criteria = _criteria(muss=["PLM"])
-        score_freelance = calculate_score(job_freelance, criteria)
-        score_fest = calculate_score(job_fest, criteria)
-        assert score_freelance > score_fest
+        assert calculate_score(dict(job_freelance), criteria) == \
+            calculate_score(dict(job_fest), criteria)
+        assert _rahmenwert(job_freelance, criteria) > \
+            _rahmenwert(job_fest, criteria)
 
 
 # === fit_analyse ===

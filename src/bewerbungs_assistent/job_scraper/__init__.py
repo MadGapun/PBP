@@ -2836,8 +2836,7 @@ def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
                         (_geh["job_jahr"] - _geh["wunsch_jahr"]) / spanne))
 
 
-def _teilscores_setzen(job: dict, fach: float, rahmen: float,
-                       ungedeckelt: float | None = None) -> None:
+def _teilscores_setzen(job: dict, fach: float, rahmen: float) -> None:
     """Teilscores IMMER mitschreiben — auch bei einem Frueh-Ausstieg.
 
     v1.7.36 (#987, zweite Beobachtung des Issues): `calculate_score`
@@ -2848,11 +2847,63 @@ def _teilscores_setzen(job: dict, fach: float, rahmen: float,
     Gesamtscore. Gemeldet als "fachscore 56 gegen score 1". Eine Stelle,
     die am Tor scheitert, hat keinen Fachwert; genau das gehoert
     hingeschrieben.
+
+    v1.7.117 (#1052): `_rahmen_ungedeckelt` ist weg. Es zeigte, was der
+    Rahmen OHNE den Deckel aus #942 getragen haette — den Deckel gibt es
+    nicht mehr, also war das Feld immer identisch mit `_rahmenscore`.
+    Ein Feld, das nichts mehr unterscheidet, gehoert entfernt und nicht
+    stehen gelassen (v1.7.108 MERKE 5).
     """
     job["_fachscore"] = round(fach, 1)
     job["_rahmenscore"] = round(rahmen, 1)
-    job["_rahmen_ungedeckelt"] = round(
-        rahmen if ungedeckelt is None else ungedeckelt, 1)
+
+
+def _neigung_punkte(job: dict, criteria: dict, w: dict) -> float:
+    """Wieviel hebt das eigene Verhalten diese Stelle? (#1052)
+
+    Das Profil kommt durch das Nadeloehr aus #987 als
+    `_neigungsprofil` — nie aus der Datenbank, sonst rechnete der
+    Suchlauf wieder anders als die Neuberechnung.
+
+    Faellt hier etwas aus, ist das Ergebnis 0 und nicht ein Fehler: ein
+    Zusatzsignal darf keine Bewertung stoppen. Und 0 ist hier sicher —
+    das Signal hebt nur, also ist sein Ausfall ein fehlender Bonus und
+    nie ein stiller Abzug.
+    """
+    profil = (criteria or {}).get("_neigungsprofil")
+    if not profil:
+        return 0.0
+    try:
+        from ..services import neigung as _neigung
+        return float(_neigung.signal(job, profil, w.get("muss", 0)).get(
+            "punkte", 0.0) or 0.0)
+    except Exception:  # pragma: no cover — ein Bonus stoppt nie eine Rechnung
+        return 0.0
+
+
+def _neigung_beleg(job: dict, criteria: dict, w: dict) -> dict:
+    """Das Verhaltenssignal samt Beschriftung fuer die Faktorenliste.
+
+    `calculate_score` braucht nur die Zahl, `fit_analyse` auch den
+    Beleg — beide holen sie aus derselben Rechnung, damit nicht zwei
+    Fassungen entstehen (#963).
+    """
+    profil = (criteria or {}).get("_neigungsprofil")
+    if not profil:
+        return {"punkte": 0.0, "label": ""}
+    try:
+        from ..services import neigung as _neigung
+        s = _neigung.signal(job, profil, w.get("muss", 0))
+    except Exception:  # pragma: no cover — ein Bonus stoppt nie eine Rechnung
+        return {"punkte": 0.0, "label": ""}
+    punkte = float(s.get("punkte", 0.0) or 0.0)
+    if not punkte:
+        return {"punkte": 0.0, "label": ""}
+    return {
+        "punkte": punkte,
+        "label": (f"Aehnelt {s['aehnliche']} deiner Bewerbungen "
+                  f"({', '.join(s['begriffe'])}) — hebt nur (#1052)"),
+    }
 
 
 def calculate_score(job: dict, criteria: dict) -> int:
@@ -3006,8 +3057,22 @@ def calculate_score(job: dict, criteria: dict) -> int:
     if muss and muss_found == 0 and not _ohne_muss:
         # #762: K.o.-Grund markieren (kein MUSS-Keyword getroffen)
         job["_ko_kein_muss"] = True
+        # v1.7.117 (#1052): das Verhaltenssignal ist die zweite Tuer.
+        # Der gemeldete Fall haengt genau hier: ein Multiprojektleiter
+        # ohne Pflichttreffer stand bei 0 — und auf ihn hat sich der
+        # Mensch beworben. Das Tor urteilt aus WORTLISTEN; das Signal
+        # kommt aus dem Verhalten und ist damit kein Umgehen des Tors,
+        # sondern die Auskunft, die den Wortlisten fehlt.
+        #
+        # Gedeckelt auf dieselbe Obergrenze wie in `gewichtet`: hoechstens
+        # ein halber Pflichttreffer. Damit steht eine Stelle ohne
+        # Fachbezug weiter unter jeder mit — `hart` bleibt strenger als
+        # `gewichtet`, und der k.o.-Vermerk bleibt stehen. Die
+        # Empfehlung entscheidet weiter #1007, nicht diese Zahl.
+        _neig = min(_neigung_punkte(job, criteria, w),
+                    _tor.obergrenze(w["muss"]))
         _teilscores_setzen(job, 0, 0)
-        return 0
+        return round(max(0.0, _neig), 1)
 
     # v1.7.10 (#778): Punkte pro Treffer statt pauschal Anzahl x Gewicht.
     # Mit IDF-Faktoren zaehlen zusaetzlich nur die MUSS_TOP_N staerksten
@@ -3041,6 +3106,11 @@ def calculate_score(job: dict, criteria: dict) -> int:
     fachscore = sum(muss_punkte)
     rahmen_plus = 0.0
     rahmen_minus = 0.0
+    # v1.7.117 (#1052 Schritt 2): PLUS zaehlt FACHLICH. Bis hierher
+    # floss es in `rahmen_plus` und wurde dort vom Rahmen-Deckel
+    # begrenzt — ein Treffer auf einen Wunschbegriff konkurrierte
+    # damit mit der Entfernung um denselben Platz.
+    fach_plus = 0.0
     # v1.7.116 (#1045): die MINUS-Begriffe getrennt, weil nur sie
     # gedeckelt werden — siehe unten beim Deckel.
     minus_begriffe = 0.0
@@ -3065,7 +3135,7 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Fuenf Schreibweisen desselben Sachverhalts in der PLUS-Liste waren
     # fuenf Punkte — dieselbe Blaehung, nur auf der anderen Seite.
     plus_hits_kws = [kw for kw in plus_effektiv if _fuzzy_keyword_match(kw, text)]
-    rahmen_plus += sum(zaehlbare_punkte(
+    fach_plus += sum(zaehlbare_punkte(
         plus_hits_kws,
         lambda kw: (_punkte_pro_treffer(kw, w["plus"], overrides, idf)
                     * _treffer_faktor(kw))))
@@ -3188,10 +3258,20 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # begrenzt: der Rahmen ordnet die Gruppe, ueber die fachlich nichts
     # bekannt ist, und ersetzt keine Passung (#942).
     if _ohne_muss:
-        score = _tor.ersatz_score(rahmen_plus, rahmen_minus + minus_begriffe,
-                                  w["muss"])
-        _teilscores_setzen(job, 0, score,
-                           rahmen_plus - rahmen_minus - minus_begriffe)
+        # v1.7.117 (#1052 Schritt 2): ohne Pflichttreffer traegt das,
+        # was fachlich UEBRIG ist — die Wunschbegriffe. Der Rahmen
+        # zaehlt hier nicht mehr mit: eine nahe, remote ausgeschriebene
+        # Stelle ohne jeden Fachbezug stand sonst in der Liste wie eine
+        # fachlich passende (#1051, dritter Befund).
+        score = _tor.ersatz_score(fach_plus, minus_begriffe, w["muss"])
+        # Das Verhaltenssignal kommt OBENDRAUF und nicht unter die
+        # Obergrenze des Tors. Genau hier liegt der gemeldete Fall:
+        # ein Multiprojektleiter ohne Pflichttreffer, auf den sich der
+        # Mensch beworben hat, stand bei 0,0. Die Rangfolge gegenueber
+        # Stellen MIT Pflichttreffer haelt die Sortierung, nicht die
+        # Zahl — Gruppe vor Zahl (#968, #989).
+        score = round(score + _neigung_punkte(job, criteria, w), 1)
+        _teilscores_setzen(job, 0, rahmen_plus - rahmen_minus)
         return score
     # v1.7.116 (#1045, #1052): der Abzug ist jetzt ebenfalls gedeckelt,
     # auf seiner eigenen Seite und relativ zum Fachscore. Die Asymmetrie
@@ -3204,14 +3284,38 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # Unbekannt-Abzuege bleiben frei, bis #1052 Schritt 2 die Entfernung
     # als Tor aus der Zahl nimmt — sie jetzt zu deckeln hiesse, eine
     # 400-km-Stelle ohne jeden Ersatz nach oben zu holen (#968, #950).
+    # v1.7.117 (#1052 Schritt 2): es gibt keine Summe mehr, also auch
+    # nichts mehr zu deckeln. Der Rahmen-Deckel aus #942 begrenzte den
+    # Rahmen gegen den Fachwert, weil beide in DIESELBE Zahl liefen;
+    # getrennt konkurrieren sie nicht, und ein Deckel auf eine Zahl,
+    # die NEBEN einer anderen steht, begrenzt nichts. Damit erledigt
+    # sich zugleich #1045, wo er mehr abzog als er begrenzen sollte.
+    #
+    # Der MINUS-Deckel bleibt: er begrenzt die Abzuege INNERHALB des
+    # Fachwerts, und die stehen weiter in derselben Zahl. Bezug ist
+    # bewusst der PFLICHT-Anteil und nicht Pflicht plus Wunsch —
+    # sonst kauften Wunschbegriffe Platz fuer Abzuege frei.
     if muss:
-        deckel = rahmen_deckel_faktor(criteria) * fachscore
         minus_deckel = minus_deckel_faktor(criteria) * fachscore
-        rahmen_effektiv = (min(rahmen_plus, deckel)
-                           - min(minus_begriffe, minus_deckel)
-                           - rahmen_minus)
+        fach_minus = min(minus_begriffe, minus_deckel)
+        # Der Deckel aus #942 ist NICHT ganz entfallen, und das ist ein
+        # Befund gegen die eigene Planung: er hatte zwei Aufgaben.
+        #
+        # Gegen die ENTFERNUNG wirkt er nicht mehr — sie steht in einer
+        # eigenen Zahl und konkurriert nicht. Gegen die WUNSCHBEGRIFFE
+        # sehr wohl: die stehen weiter in derselben Zahl wie die
+        # Pflichttreffer. Und genau darum ging es in #942: von 82
+        # PLUS-Keywords sind viele rein generisch (Senior, Lead, Remote,
+        # Hamburg), und ohne Grenze traegt eine Stelle mit EINEM
+        # Pflichttreffer und fuenf Allerweltsbegriffen mehr als eine mit
+        # zwei echten Treffern. Nachgemessen am #942-Fall: 22 gegen 14.
+        #
+        # Der Schluessel bleibt `rahmen_deckel_faktor` — ihn umzubenennen
+        # hiesse, den vom Menschen gesetzten Wert still fallen zu lassen.
+        fach_plus = min(fach_plus, rahmen_deckel_faktor(criteria) * fachscore)
     else:
-        rahmen_effektiv = rahmen_plus - rahmen_minus - minus_begriffe
+        fach_minus = minus_begriffe
+    rahmen_effektiv = rahmen_plus - rahmen_minus
     # v1.7.95 (#1035): erst die Teile runden, dann addieren. Umgekehrt
     # wurde jeder Teil einzeln gerundet und die Summe aus den ungerundeten
     # Werten gebildet — "fachlich 7,5, Rahmen 3,8" neben einem Score von
@@ -3219,16 +3323,31 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # dafuer muss sie aufgehen.
     fachscore = round(fachscore, 1)
     rahmen_effektiv = round(rahmen_effektiv, 1)
-    score = fachscore + rahmen_effektiv
+    # Der FACHWERT: Pflicht plus Wunsch minus die gedeckelten Abzuege,
+    # dazu das Signal aus dem eigenen Verhalten. Er ist ab hier
+    # `score` — die Zahl, nach der sortiert wird (Nutzerantwort
+    # 15.09.2026, Punkt 3). Der Rahmenwert steht daneben.
+    score = round(fachscore + fach_plus - fach_minus
+                  + _neigung_punkte(job, criteria, w), 1)
 
     # Teilscores mitgeben: ohne sie sieht man nur die Summe und muss
     # raten, woher die Punkte kommen (#942).
-    _teilscores_setzen(job, fachscore, rahmen_effektiv,
-                       rahmen_plus - rahmen_minus - minus_begriffe)
+    # `_fachscore` bleibt der PFLICHT-Anteil: `ohne_pflichttreffer`
+    # erkennt daran, ob das MUSS-Tor aufging (#968). Wer dort PLUS
+    # hineinrechnet, macht aus einer Stelle ohne jeden Pflichttreffer
+    # eine mit — und die Markierung in der Liste waere falsch.
+    _teilscores_setzen(job, fachscore, rahmen_effektiv)
 
+    # v1.7.117 (#1052): NICHT mehr bei 0 gekappt. Nutzerwort vom
+    # 16.09.2026: "es gibt keine ober oder untergrenze ... es kann
+    # sogar sein, dass die besten stellen sogar einen Minus score
+    # haben". Mit der Kappung saehen eine Stelle bei -8 und eine bei 0
+    # gleich aus — und das ist genau die Sorte Zahl, wegen der #1052
+    # aufgemacht wurde.
+    #
     # #778: Mit Einzelgewichten/IDF kann score ein Float sein — auf eine
     # Nachkommastelle runden; der Default-Pfad (Ints) bleibt unveraendert.
-    return max(0, round(score, 1))
+    return round(score, 1)
 
 
 def _zusammengefasst_fit(muss_hits) -> list:
@@ -3603,52 +3722,95 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             "steht aber hinter jeder Stelle mit Pflichttreffer "
             "(MUSS-Tor: gewichtet).")
 
+    # v1.7.117 (#1052 Schritt 2): dieselbe Trennung wie in
+    # `calculate_score`. MUSS, PLUS und MINUS bilden den FACHWERT;
+    # Entfernung, Remote, Gehalt und Vertragsform den Rahmenwert. Die
+    # beiden werden nirgends addiert — deshalb ist `total` ab hier
+    # der Fachwert und nicht mehr die Summe.
+    #
+    # Der Rahmen-Deckel aus #942 ist weg: er begrenzte den Rahmen
+    # gegen den Fachwert, weil beide in dieselbe Zahl liefen.
     _zahlen = {k: v for k, v in factors.items() if isinstance(v, (int, float))}
     _fach = sum(v for k, v in _zahlen.items() if k.startswith("MUSS-Keywords"))
-    _rahmen_plus = sum(v for k, v in _zahlen.items()
-                       if v > 0 and not k.startswith("MUSS-Keywords"))
-    _rahmen_minus = -sum(v for v in _zahlen.values() if v < 0)
+    _fach_plus = sum(v for k, v in _zahlen.items()
+                     if k.startswith("PLUS-Keywords"))
+    _minus_begriffe = -sum(v for k, v in _zahlen.items()
+                           if k.startswith("MINUS-Keywords"))
+    _rahmen_plus = sum(
+        v for k, v in _zahlen.items()
+        if v > 0 and not k.startswith(("MUSS-Keywords", "PLUS-Keywords")))
+    _rahmen_minus = -sum(
+        v for k, v in _zahlen.items()
+        if v < 0 and not k.startswith("MINUS-Keywords"))
     if muss_hits and _fach > 0:
-        _deckel = rahmen_deckel_faktor(criteria) * _fach
-        if _rahmen_plus > _deckel:
-            _gekuerzt = _rahmen_plus - _deckel
-            total -= _gekuerzt
-            _rahmen_plus = _deckel
-            factors["Rahmen ueber Deckel gekuerzt (#942)"] = -round(_gekuerzt, 1)
-        # v1.7.116 (#1045): derselbe Deckel auf der Abzugsseite wie in
-        # calculate_score. Ausgewiesen als eigener Posten, damit die
-        # Zerlegung weiter aufgeht (#1035).
-        _minus_begriffe = -sum(v for k, v in _zahlen.items()
-                               if k.startswith("MINUS-Keywords"))
+        # Der MINUS-Deckel bleibt: er begrenzt die Abzuege INNERHALB
+        # des Fachwerts (#1045).
         _minus_deckel = minus_deckel_faktor(criteria) * _fach
         if _minus_begriffe > _minus_deckel:
             _entlastet = _minus_begriffe - _minus_deckel
-            total += _entlastet
-            _rahmen_minus -= _entlastet
+            _minus_begriffe = _minus_deckel
             factors["Abzuege ueber Deckel begrenzt (#1045)"] = round(_entlastet, 1)
+        # Und derselbe Deckel auf die Wunschbegriffe wie in
+        # `calculate_score`. Er ist nicht ganz entfallen: gegen die
+        # Entfernung wirkt er nicht mehr, gegen PLUS sehr wohl — die
+        # stehen weiter in derselben Zahl wie die Pflichttreffer (#942).
+        _plus_deckel = rahmen_deckel_faktor(criteria) * _fach
+        if _fach_plus > _plus_deckel:
+            _gekuerzt = _fach_plus - _plus_deckel
+            _fach_plus = _plus_deckel
+            factors["Wunschbegriffe ueber Deckel gekuerzt (#942)"] =                 -round(_gekuerzt, 1)
+    # Das Signal aus dem eigenen Verhalten, als eigener Faktor mit
+    # Beleg — Nutzervorgabe: nachvollziehbar, und wer sieht, dass die
+    # Aehnlichkeit an einem unerwuenschten Wort haengt, kann
+    # gegensteuern.
+    _neigung_signal = _neigung_beleg(job, criteria, w)
+    if _neigung_signal.get("punkte"):
+        factors[_neigung_signal["label"]] = _neigung_signal["punkte"]
+    total = round(_fach + _fach_plus - _minus_begriffe
+                  + _neigung_signal.get("punkte", 0.0), 1)
 
     if _tor_gewichtet:
-        total = _tor.ersatz_score(_rahmen_plus, _rahmen_minus, w["muss"])
+        # Ohne Pflichttreffer traegt, was fachlich uebrig ist — die
+        # Wunschbegriffe, nicht der Rahmen (#1051, dritter Befund).
+        total = _tor.ersatz_score(_fach_plus, _minus_begriffe, w["muss"])
+        total = round(total + _neigung_signal.get("punkte", 0.0), 1)
         _fach = 0
         factors = {
             f"Kein MUSS-Keyword getroffen — hoechstens "
-            f"{_tor.obergrenze(w['muss']):g} Punkte (#968)": total,
+            f"{_tor.obergrenze(w['muss']):g} Punkte aus PLUS (#968)":
+                round(total - _neigung_signal.get("punkte", 0.0), 1),
         }
-        _rahmen_plus, _rahmen_minus = total, 0
+        if _neigung_signal.get("punkte"):
+            factors[_neigung_signal["label"]] = _neigung_signal["punkte"]
     elif _kein_muss_tor:
-        total = 0
+        # Das harte Tor nullt den Fachwert — das Verhaltenssignal
+        # bleibt als zweite Tuer, gedeckelt wie in `gewichtet`.
+        _neig = min(_neigung_signal.get("punkte", 0.0),
+                    _tor.obergrenze(w["muss"]))
+        total = round(max(0.0, _neig), 1)
         _fach = 0
-        _rahmen_plus = 0
-        _rahmen_minus = 0
         factors = {"Kein MUSS-Keyword getroffen — Score 0": 0}
+        if _neig > 0:
+            factors[_neigung_signal["label"]] = total
 
     _ergebnis = {
-        "total_score": max(0, total),
+        # v1.7.117 (#1052): NICHT mehr bei 0 gekappt — der Fachwert darf
+        # negativ sein, und eine Stelle bei -8 und eine bei 0 duerfen
+        # nicht gleich aussehen (Nutzerwort 16.09.2026).
+        "total_score": total,
         # #999: die Zahl allein sagt nichts, weil ihre Obergrenze aus den
         # Kriterien folgt. Sie wandert deshalb NIE ohne ihren Bezug nach
-        # draussen — sonst haelt der naechste Aufrufer sie wieder fuer
-        # Prozent.
-        "total_score_max": score_maximum(criteria),
+        # draussen.
+        #
+        # v1.7.117 (#1052): `total_score` ist der FACHWERT, also gehoert
+        # das FACHmaximum daneben und nicht mehr der Gesamt-Hoechstwert.
+        # Mit dem alten Bezug haette eine Anzeige, die fachlich alles
+        # trifft, unter 100 Prozent gelegen — die in #999 geprueste
+        # Eigenschaft waere STILL gebrochen. Ein Prozentwert wird daraus
+        # trotzdem nicht gebildet (das Kriterium ist zurueckgezogen); die
+        # Zahl steht als Zusatzangabe daneben.
+        "total_score_max": fach_maximum(criteria),
+        "gesamt_score_max": score_maximum(criteria),
         "fachscore": round(_fach, 1),
         "rahmenscore": round(_rahmen_plus - _rahmen_minus, 1),
         "muss_hits": muss_hits,

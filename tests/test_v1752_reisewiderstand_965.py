@@ -84,9 +84,13 @@ def test_965_ohne_koordinaten_keine_richtung():
 def test_965_gleiche_kilometer_verschiedene_richtung():
     """Der Kern des Befunds: 92 km suedlich der Barriere sind teurer als
     92 km noerdlich davon."""
-    nord = calculate_score(_stelle(54.2, 9.9), KRITERIEN)
-    sued = calculate_score(_stelle(53.0, 9.9), KRITERIEN)
-    assert sued < nord
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt die
+    # Entfernung nicht mehr. Die Regel wirkt unveraendert — im
+    # Rahmenwert, der daneben steht.
+    _nord, _sued = _stelle(54.2, 9.9), _stelle(53.0, 9.9)
+    calculate_score(_nord, KRITERIEN)
+    calculate_score(_sued, KRITERIEN)
+    assert _sued["_rahmenscore"] < _nord["_rahmenscore"]
 
 
 def test_965_ohne_regel_aendert_sich_nichts():

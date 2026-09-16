@@ -101,10 +101,14 @@ def test_1017_geschaetztes_gehalt_bringt_im_basis_score_nichts():
     Ohne diesen Test bliebe die Gleichheit oben auch dann gruen, wenn
     BEIDE Wege den Bonus wieder vergeben.
     """
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt das
+    # Gehalt nicht mehr. Die Regel wirkt unveraendert — im
+    # Rahmenwert, der daneben steht.
     echt = _stelle(salary_min=50000, salary_estimated=False)
     geschaetzt = _stelle(salary_min=50000, salary_estimated=True)
-    assert calculate_score(echt, KRITERIEN) > calculate_score(
-        geschaetzt, KRITERIEN), (
+    calculate_score(echt, KRITERIEN)
+    calculate_score(geschaetzt, KRITERIEN)
+    assert echt["_rahmenscore"] > geschaetzt["_rahmenscore"], (
         "Eine geschaetzte Zahl bringt denselben Bonus wie eine echte.")
     assert _gehalts_faktor(geschaetzt) == {
         "Gehalt: nur Schaetzung — neutral (#827)": 0}

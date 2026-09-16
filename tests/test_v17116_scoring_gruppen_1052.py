@@ -71,9 +71,10 @@ def test_verschiedene_minus_sachverhalte_bleiben_getrennt():
     eins = _krit(keywords_minus=["Automotive"], minus_deckel_faktor=99)
     zwei = _krit(keywords_minus=["Automotive", "Schichtdienst"], minus_deckel_faktor=99)
     a, b = dict(_job("Stammdaten", text)), dict(_job("Stammdaten", text))
-    calculate_score(a, eins)
-    calculate_score(b, zwei)
-    assert b["_rahmenscore"] < a["_rahmenscore"]
+    # v1.7.117 (#1052): MINUS zaehlt FACHLICH und steht damit im Score,
+    # nicht mehr im Rahmenwert. Die geprueste Sache ist dieselbe — zwei
+    # verschiedene Sachverhalte ziehen mehr ab als einer.
+    assert calculate_score(b, zwei) < calculate_score(a, eins)
 
 
 def test_beide_rechenwege_gruppieren_gleich():
@@ -129,7 +130,10 @@ def test_der_abzug_nimmt_hoechstens_den_anteil_des_fachwerts():
                     "Stammdaten, Datenqualitaet und Migration. "
                     + ", ".join(_MINUS_SECHS) + "."))
     score = calculate_score(job, krit)
-    assert job["_rahmenscore"] == pytest.approx(-MINUS_DECKEL_STANDARD * job["_fachscore"])
+    # Der Abzug steht jetzt IM Fachwert: was vom Fachscore uebrig
+    # bleibt, ist genau der ungedeckelte Anteil.
+    abgezogen = job["_fachscore"] - score
+    assert abgezogen == pytest.approx(MINUS_DECKEL_STANDARD * job["_fachscore"])
     assert score > 0
 
 
@@ -139,7 +143,8 @@ def test_fit_analyse_deckelt_die_abzuege_ebenso():
                "Stammdaten, Datenqualitaet und Migration. "
                + ", ".join(_MINUS_SECHS) + ".")
     fit = fit_analyse(dict(job), krit)
-    assert fit["rahmenscore"] == pytest.approx(-MINUS_DECKEL_STANDARD * fit["fachscore"])
+    abgezogen = fit["fachscore"] - fit["total_score"]
+    assert abgezogen == pytest.approx(MINUS_DECKEL_STANDARD * fit["fachscore"])
     assert fit["total_score"] == calculate_score(dict(job), krit)
 
 
@@ -274,14 +279,27 @@ def test_fit_analyse_fasst_minus_schreibweisen_zusammen():
             == fit_analyse(dict(job), einzeln)["rahmenscore"])
 
 
-def test_der_ungedeckelte_rahmen_nennt_die_minus_begriffe():
-    """Die Aufteilung aus #942 zeigt, was OHNE Deckel angefallen waere."""
-    krit = _krit(keywords_minus=_MINUS_SECHS)
+def test_der_ungedeckelte_abzug_ist_ueber_den_faktor_sichtbar():
+    """Was OHNE Deckel angefallen waere, bleibt nachrechenbar.
+
+    v1.7.117 (#1052): das Feld `_rahmen_ungedeckelt` ist weg — es zeigte
+    den Rahmen ohne den Deckel aus #942, und den Deckel gibt es nicht
+    mehr. Die Auskunft selbst faellt damit nicht weg: wer den
+    MINUS-Deckel auf 99 stellt, sieht den vollen Abzug. Das ist
+    derselbe Weg wie in #942 und braucht kein eigenes Feld.
+    """
     job = dict(_job("Stammdaten Migration",
                     "Stammdaten, Datenqualitaet und Migration. "
                     + ", ".join(_MINUS_SECHS) + "."))
-    calculate_score(job, krit)
-    assert job["_rahmen_ungedeckelt"] == pytest.approx(-36.0), job
+    gedeckelt = calculate_score(job, _krit(keywords_minus=_MINUS_SECHS))
+    fach = job["_fachscore"]
+    offen = dict(_job("Stammdaten Migration",
+                      "Stammdaten, Datenqualitaet und Migration. "
+                      + ", ".join(_MINUS_SECHS) + "."))
+    voll = calculate_score(offen, _krit(keywords_minus=_MINUS_SECHS,
+                                        minus_deckel_faktor=99))
+    assert fach - voll == pytest.approx(36.0), offen
+    assert voll < gedeckelt
 
 
 def _stelle(db, hash_, titel, beschreibung):

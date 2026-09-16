@@ -130,9 +130,17 @@ def test_nach_dem_entfernen_rechnet_der_score_mit_der_luftlinie(db):
 
     db.set_search_criteria("max_entfernung", {"festanstellung": 50})
     _schluessel_setzen(db, "test-schluessel-ohne-bedeutung")
-    mit = job_scraper.calculate_score(dict(_stelle()), db.get_search_criteria())
+    # v1.7.117 (#1052): die Zusage der Rueckfrage ("PBP rechnet danach
+    # wieder mit der Luftlinie") wirkt im Rahmenwert — der Score ist seit
+    # der Trennung der Fachwert und kennt die Entfernung nicht mehr.
+    def _rahmen():
+        j = dict(_stelle())
+        job_scraper.calculate_score(j, db.get_search_criteria())
+        return j["_rahmenscore"]
+
+    mit = _rahmen()
     routing.schluessel_entfernen(db)
-    ohne = job_scraper.calculate_score(dict(_stelle()), db.get_search_criteria())
+    ohne = _rahmen()
     assert ohne > mit, (mit, ohne)
 
 

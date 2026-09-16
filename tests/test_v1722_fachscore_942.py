@@ -50,16 +50,28 @@ def test_942_viel_rahmen_schlaegt_nicht_viel_fach():
     assert s_dick > s_duenn, (s_dick, s_duenn)
 
 
-def test_942_rahmen_ist_relativ_gedeckelt():
+def test_942_die_wunschbegriffe_sind_relativ_gedeckelt():
+    """v1.7.117 (#1052): der Deckel hat die Seite gewechselt, nicht die
+    Aufgabe.
+
+    Gegen die ENTFERNUNG wirkt er nicht mehr — sie steht in einer eigenen
+    Zahl und konkurriert nicht mehr um denselben Platz. Gegen die
+    WUNSCHBEGRIFFE sehr wohl: die stehen weiter in derselben Zahl wie die
+    Pflichttreffer, und genau darum ging es in #942 (von 82
+    PLUS-Keywords sind viele rein generisch).
+    """
     job = _job("PLM Berater",
                "PLM Berater. Senior, Lead, Remote, Hamburg, Festanstellung.")
     ergebnis = dict(job)
-    calculate_score(ergebnis, BASIS)
+    score = calculate_score(ergebnis, BASIS)
     fach = ergebnis["_fachscore"]
-    rahmen = ergebnis["_rahmenscore"]
-    assert rahmen <= RAHMEN_DECKEL_STANDARD * fach + 0.01, (fach, rahmen)
+    # Was ueber den Pflichttreffern liegt, ist der gedeckelte
+    # PLUS-Anteil.
+    plus_anteil = score - fach
+    assert plus_anteil <= RAHMEN_DECKEL_STANDARD * fach + 0.01, (fach, score)
     # Ungedeckelt waere deutlich mehr angefallen.
-    assert ergebnis["_rahmen_ungedeckelt"] > rahmen
+    weit = dict(BASIS); weit["rahmen_deckel_faktor"] = 99.0
+    assert calculate_score(dict(job), weit) > score
 
 
 def test_942_null_fachscore_bleibt_null_egal_wieviel_rahmen():
@@ -93,8 +105,9 @@ def test_942_minus_wertet_eine_fachlich_starke_stelle_spuerbar_ab():
     mit = calculate_score(ergebnis, kriterien)
     fach = ergebnis["_fachscore"]
     assert mit < ohne
-    assert ergebnis["_rahmenscore"] == pytest.approx(
-        -MINUS_DECKEL_STANDARD * fach), ergebnis
+    # v1.7.117 (#1052): MINUS zaehlt FACHLICH und steht damit im Score,
+    # nicht mehr im Rahmenwert. Die Grenze ist dieselbe geblieben.
+    assert ohne - mit == pytest.approx(MINUS_DECKEL_STANDARD * fach), ergebnis
     assert mit > 0, "MINUS ist eine Abwertung, kein Ausschluss (#1045)"
 
 
@@ -114,8 +127,14 @@ def test_942_ungedeckelter_malus_ist_ueber_den_faktor_wiederherstellbar():
     ergebnis = dict(_job("PLM Consultant",
                          "PLM und PDM Beratung im Maschinenbau. "
                          "Einsatz ueber Zeitarbeit."))
-    assert calculate_score(ergebnis, kriterien) == 0
-    assert ergebnis["_rahmenscore"] <= -20, ergebnis
+    score = calculate_score(ergebnis, kriterien)
+    # v1.7.117 (#1052): ohne Deckel traegt der volle Malus — und er darf
+    # den Fachwert jetzt ins Minus druecken. Nutzerwort vom 16.09.2026:
+    # "es kann sogar sein ... das die besten stellen sogar einen Minus
+    # score haben". Die alte Kappung bei 0 machte aus dieser Stelle und
+    # einer voellig fachfremden dieselbe Zahl.
+    assert score < 0, ergebnis
+    assert ergebnis["_fachscore"] - score >= 20, ergebnis
 
 
 # ── Einstellbarkeit und Sonderfaelle ─────────────────────────────────
