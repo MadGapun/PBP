@@ -65,6 +65,12 @@ AUSNAHMEN: dict[str, set[str]] = {
     "#813 Body": {"FIRMA: ferchau", "FIRMA: hays"},
     # 18.08.: Quellen-Aktivierungs-UX — Portale/Vermittler als Adapter
     "#906 Body": {"FIRMA: ferchau", "FIRMA: hays"},
+    # 14.09.: Quellenliste, Lesbarkeit, Textkappung — derselbe Fall, der Name ist ein Quellen-Key
+    # aus SOURCE_REGISTRY (programmatisch gegengeprueft, nicht getippt).
+    "#1047 Body": {"FIRMA: hays"},
+    "#1048 Titel": {"FIRMA: hays"},
+    "#1048 Body": {"FIRMA: hays"},
+    "#1039 Body": {"FIRMA: hays"},
     # Historischer Referenzfall aus dem A21/#758-Sweep (bewusst belassen):
     # aussortierte Fremd-Stellen, kein Bewerbungsverhaeltnis.
     "#670 Body": {"CORP: Tchibo GmbH"},
@@ -92,12 +98,80 @@ AUSNAHMEN: dict[str, set[str]] = {
 }
 
 
+# Zweite Liste, und die Trennung zu AUSNAHMEN ist die eigentliche Aussage:
+#
+#   AUSNAHMEN        = der Treffer ist ein FEHLALARM (Portalname als
+#                      Quellen-Feature, Platzhalter, Referenzfall).
+#   BEWUSST_GELASSEN = der Treffer ist ECHT, und der Mensch hat
+#                      entschieden, dass er stehen bleibt.
+#
+# Warum es die zweite Liste braucht (Nutzerwort 16.09.2026, "mich nerven
+# diese Mails"): der woechentliche Lauf meldete seit Wochen denselben,
+# laengst entschiedenen Stand und scheiterte jedes Mal. **Ein Pruefer,
+# der bei einem akzeptierten Zustand Alarm gibt, wird nach dem zweiten
+# Mal ignoriert** (#929) — und dann sieht ihn auch niemand mehr, wenn er
+# einmal recht hat.
+#
+# Gespeichert wird NUR die Anzahl je Art, nie der Name. Ein Name in
+# dieser Datei waere genau die Veroeffentlichung, die der Sweep
+# verhindern soll — und ein Hash waere bei einer kurzen, erratbaren
+# Zeichenkette keiner.
+#
+# GRENZE, ausdruecklich: ein Name, der gegen einen ANDEREN gleicher Art
+# getauscht wird, faellt damit nicht auf. Ein hinzukommender schon, und
+# das ist der Fall, der zaehlt. Wer es genauer braucht, laesst den Sweep
+# lokal ohne --ohne-namen laufen.
+BEWUSST_GELASSEN: dict[str, dict[str, int]] = {
+    # 21.08.2026, Nutzerentscheidung "ignoriere diese": Bestandsbelege in
+    # eigenen Fehlerberichten. Die Namen stehen weiter oeffentlich auf
+    # GitHub — sie hier stummzuschalten aendert daran nichts und
+    # behauptet es auch nicht. Wer sie entfernen will: Issue LOESCHEN
+    # (Editieren reicht nicht, GitHub zeigt die Historie) und den Inhalt
+    # anonymisiert neu anlegen.
+    "#947 Body": {"FIRMA": 1},
+    "#951 Body": {"FIRMA": 3},
+    "#953 Body": {"FIRMA": 1},
+    "#956 Body": {"FIRMA": 1},
+    "#957 Body": {"FIRMA": 2},
+}
+
+
+def _arten(treffer: list[str]) -> dict[str, int]:
+    """Zaehlt die Treffer je Art — ohne die Namen selbst."""
+    gezaehlt: dict[str, int] = {}
+    for t in sorted(set(treffer)):
+        art = t.split(":", 1)[0]
+        gezaehlt[art] = gezaehlt.get(art, 0) + 1
+    return gezaehlt
+
+
 def _gefiltert(stelle: str, treffer: list[str]) -> list[str]:
-    """Blendet erwartete Treffer dokumentierter Ausnahmen aus."""
+    """Blendet erwartete Treffer dokumentierter Ausnahmen aus.
+
+    Verglichen wird ohne Ruecksicht auf Gross- und Kleinschreibung: in
+    einem Issue steht der Quellen-Key so, wie ihn jemand getippt hat, in
+    DIESER Datei darf er nur klein stehen (v1.7.109 MERKE 6, sonst
+    schlaegt `scrub_pii --check` bei jedem Commit an). Ein Vergleich auf
+    Gleichheit haette die Grossschreibung hier erzwungen — und am
+    eigenen Pruefer vorbeizuarbeiten ist nie die Antwort.
+    """
     erwartet = AUSNAHMEN.get(stelle)
     if erwartet is None:
         return treffer
-    return sorted(set(treffer) - erwartet)
+    bekannt = {e.lower() for e in erwartet}
+    return sorted(t for t in set(treffer) if t.lower() not in bekannt)
+
+
+def _abgehakt(stelle: str, treffer: list[str]) -> bool:
+    """True, wenn der Fund genau dem bewusst gelassenen Stand entspricht.
+
+    Weicht die Zahl ab — nach oben wie nach unten —, meldet der Sweep den
+    Fund wieder. Nach unten deshalb, weil dann diese Liste veraltet ist
+    und nachgezogen gehoert: eine Liste, die mehr abhakt als der Bestand
+    hergibt, deckt beim naechsten Mal etwas Echtes zu.
+    """
+    bekannt = BEWUSST_GELASSEN.get(stelle)
+    return bekannt is not None and _arten(treffer) == bekannt
 
 
 def _gh(args: list[str]) -> str:
@@ -143,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     funde: list[tuple[str, list[str]]] = []
+    abgehakt: list[str] = []
     geprueft = 0
 
     for iss in issues_laden(args.nur_offen):
@@ -153,12 +228,16 @@ def main(argv: list[str] | None = None) -> int:
         for stelle, text in [(f"#{n} Titel", iss.get("title", "")),
                              (f"#{n} Body", iss.get("body", "") or "")]:
             treffer = _gefiltert(stelle, find_pii(text))
-            if treffer:
+            if treffer and _abgehakt(stelle, treffer):
+                abgehakt.append(stelle)
+            elif treffer:
                 funde.append((stelle, treffer))
         for i, kom in enumerate(iss.get("comments") or [], 1):
             stelle = f"#{n} Kommentar {i}"
             treffer = _gefiltert(stelle, find_pii(kom.get("body", "") or ""))
-            if treffer:
+            if treffer and _abgehakt(stelle, treffer):
+                abgehakt.append(stelle)
+            elif treffer:
                 funde.append((stelle, treffer))
 
     if args.mit_releases:
@@ -166,12 +245,25 @@ def main(argv: list[str] | None = None) -> int:
             geprueft += 1
             stelle = f"Release {rel['tagName']}"
             treffer = _gefiltert(stelle, find_pii(rel.get("body", "") or ""))
-            if treffer:
+            if treffer and _abgehakt(stelle, treffer):
+                abgehakt.append(stelle)
+            elif treffer:
                 funde.append((stelle, treffer))
 
-    print(f"Geprueft: {geprueft} Artefakte\n")
+    print(f"Geprueft: {geprueft} Artefakte")
+    if abgehakt:
+        # Stumm heisst nicht unsichtbar: die Zeile nennt die Zahl,
+        # damit niemand den Stand fuer sauber haelt.
+        print(f"Bewusst gelassen, unveraendert (BEWUSST_GELASSEN): "
+              f"{len(abgehakt)} Artefakte — {', '.join(abgehakt)}")
+    veraltet = sorted(set(BEWUSST_GELASSEN) - set(abgehakt)
+                      - {stelle for stelle, _ in funde})
+    if veraltet:
+        print(f"HINWEIS: hier ist nichts mehr zu finden — Eintrag aus "
+              f"BEWUSST_GELASSEN entfernen: {', '.join(veraltet)}")
+    print()
     if not funde:
-        print("Keine PII gefunden.")
+        print("Keine neue PII gefunden.")
         return 0
 
     print(f"PII GEFUNDEN in {len(funde)} Artefakten:\n")
