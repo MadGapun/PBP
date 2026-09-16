@@ -5136,6 +5136,11 @@ async def api_set_criteria(request: Request):
     data = await request.json()
     for key, value in data.items():
         _db.set_search_criteria(key, value)
+    # v1.7.117 (#1052): wer die Aufnahmeschwelle anfasst, hat sie
+    # angesehen — danach schweigt der Umstellungs-Hinweis (#929).
+    if "min_score_schwelle" in data:
+        from .services import schwellen_umstellung as _su
+        _su.abhaken(_db, "min_score_schwelle ueber das Dashboard")
     return {"status": "ok"}
 
 

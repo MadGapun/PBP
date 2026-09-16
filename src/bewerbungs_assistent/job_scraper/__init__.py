@@ -2444,91 +2444,18 @@ def minus_deckel_faktor(criteria: dict) -> float:
         return MINUS_DECKEL_STANDARD
 
 
-def score_maximum(criteria: dict) -> float:
-    """Was kann eine Stelle mit DIESEN Kriterien hoechstens erreichen? (#999)
-
-    Gemeldet am 08.09.2026: eine Stelle, die ALLE MUSS-Begriffe trifft,
-    remote ist, 3 km entfernt liegt und ueber Wunsch zahlt, bekam die
-    Auskunft *"Score 15.0/100 — fachlicher Gap zu gross"*.
-
-    Der Gap war die Skala. `total_score` ist keine Prozentzahl, sondern
-    eine ungedeckelte Punktsumme, und ihr Hoechstwert haengt an der
-    LAENGE der MUSS-Liste. Nachgemessen mit voll getroffenen Anzeigen:
-
-        5 Begriffe -> 15 Punkte      30 Begriffe -> 66 Punkte
-        10 Begriffe -> 26 Punkte     40 Begriffe -> 86 Punkte
-
-    Feste Schwellen von 75 und 50 dagegenzuhalten heisst: `EMPFOHLEN`
-    beginnt bei rund 37 gleichzeitig getroffenen Pflichtbegriffen. Wer
-    fuenf bis zehn pflegt — der Normalfall — kann die Kategorie
-    strukturell nie erreichen, und jede Stelle bekommt denselben Satz.
-
-    Der Hoechstwert folgt derselben Rechnung wie der Score selbst:
-
-        fachscore_max + min(rahmen_max, Deckel x fachscore_max)
-
-    Ohne MUSS-Begriffe gibt es keinen Fachscore, an dem sich etwas
-    relativieren liesse — dann IST der Rahmen die Bewertung (dieselbe
-    Ausnahme wie in `calculate_score`, sonst waere ein frisches Profil
-    ohne MUSS-Liste durch Null geteilt).
-
-    Returns:
-        Der erreichbare Hoechstwert, oder 0.0 wenn er sich nicht
-        bestimmen laesst. **0 heisst "unbekannt", nicht "nichts
-        erreichbar"** — der Aufrufer darf daraus keinen Anteil rechnen
-        (#989).
-    """
-    if not isinstance(criteria, dict):
-        return 0.0
-    w = _parse_weights(criteria)
-    overrides = criteria.get("keyword_gewichte") or {}
-    idf = criteria.get("_idf_faktoren") or {}
-
-    muss = criteria.get("keywords_muss", []) or []
-    # v1.7.66 (#1012): Schreibvarianten derselben Anforderung zaehlen
-    # EINMAL. Der Hoechstwert MUSS mitgruppieren — sonst waere er nicht
-    # mehr erreichbar und die gepruefte Eigenschaft aus #999 (eine
-    # Anzeige, die alles trifft, ergibt exakt 100 %) waere gebrochen.
-    from ..services.anforderungen import zaehlbare_punkte
-    muss_punkte = sorted(
-        zaehlbare_punkte(
-            muss, lambda kw: _punkte_pro_treffer(kw, w["muss"], overrides, idf)),
-        reverse=True)
-    if idf and muss_punkte:
-        from ..services.kalibrierung import MUSS_TOP_N
-        muss_punkte = muss_punkte[:MUSS_TOP_N]
-    fachscore_max = float(sum(muss_punkte))
-
-    # Der Rahmen im besten Fall: alle PLUS-Begriffe treffen, die Stelle
-    # ist vollstaendig remote, liegt im Nahbereich und zahlt ueber
-    # Wunsch. Der Bonus fuer "schon bei Aehnlichem beworben" bleibt
-    # bewusst aussen vor — er sagt etwas ueber die eigene Historie, nicht
-    # ueber die Passung dieser Stelle.
-    _muss_norm = {str(kw).strip().lower() for kw in muss}
-    plus = [kw for kw in (criteria.get("keywords_plus", []) or [])
-            if str(kw).strip().lower() not in _muss_norm]
-    # v1.7.116 (#1052): PLUS gruppiert wie in der Rechnung — sonst waere
-    # der Hoechstwert groesser als alles, was eine Anzeige erreichen kann.
-    rahmen_max = float(
-        sum(zaehlbare_punkte(
-            plus, lambda kw: _punkte_pro_treffer(kw, w["plus"], overrides, idf)))
-        + w["remote"] + 1 + w["naehe"] + w["gehalt"])
-
-    if not muss:
-        return round(rahmen_max, 1)
-    return round(fachscore_max + min(rahmen_max,
-                                     rahmen_deckel_faktor(criteria)
-                                     * fachscore_max), 1)
-
-
 def fach_maximum(criteria: dict) -> float:
     """Was kann eine Stelle FACHLICH hoechstens erreichen? (#1052 AK 2)
 
-    Der Unterschied zu `score_maximum` ist die Abgrenzung, nicht die
-    Rechnung: hier zaehlen nur MUSS und PLUS, also das, was ueber den
+    Gezaehlt werden nur MUSS und PLUS, also das, was ueber den
     Anzeigentext etwas ueber die Passung sagt. Entfernung, Remote und
     Gehalt bleiben draussen — sie beschreiben die Rahmenbedingungen und
     gehoeren nach #1052 nicht in dieselbe Zahl.
+
+    Der Vorgaenger `score_maximum` (#999) rechnete den Hoechstwert der
+    Summe aus beidem. Er ist mit der Summe selbst entfallen: ein
+    Hoechstwert fuer eine Zahl, die niemand mehr bildet, laedt nur dazu
+    ein, sie wieder zu bilden.
 
     MINUS geht ebenfalls nicht ein: ein Abzug ist kein Teil dessen, was
     erreichbar IST. Waere er es, haette eine Anzeige ohne jeden
@@ -2561,7 +2488,8 @@ def fach_maximum(criteria: dict) -> float:
         muss_punkte = muss_punkte[:MUSS_TOP_N]
 
     # Ein PLUS-Begriff, der schon als MUSS gefuehrt wird, zaehlt nicht
-    # doppelt — dieselbe Abgrenzung wie in `score_maximum`.
+    # doppelt — sonst laege der Hoechstwert ueber allem, was eine
+    # Anzeige erreichen kann.
     _muss_norm = {str(kw).strip().lower() for kw in muss}
     plus = [kw for kw in (criteria.get("keywords_plus", []) or [])
             if str(kw).strip().lower() not in _muss_norm]
@@ -3810,7 +3738,6 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         # trotzdem nicht gebildet (das Kriterium ist zurueckgezogen); die
         # Zahl steht als Zusatzangabe daneben.
         "total_score_max": fach_maximum(criteria),
-        "gesamt_score_max": score_maximum(criteria),
         "fachscore": round(_fach, 1),
         "rahmenscore": round(_rahmen_plus - _rahmen_minus, 1),
         "muss_hits": muss_hits,

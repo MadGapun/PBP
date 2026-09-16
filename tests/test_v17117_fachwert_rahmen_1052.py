@@ -16,7 +16,7 @@ der "runter" ergeben MUSS, steht der, der es nicht darf.
 """
 import pytest
 
-from bewerbungs_assistent.job_scraper import fach_maximum, score_maximum
+from bewerbungs_assistent.job_scraper import calculate_score, fach_maximum
 from pathlib import Path
 
 from bewerbungs_assistent.services import fachwert, neigung, rahmen
@@ -30,13 +30,26 @@ def test_fachmaximum_zaehlt_nur_muss_und_plus():
     """Entfernung, Remote und Gehalt gehoeren nicht ins Fachmaximum.
 
     Das ist die ganze Trennung aus #1052: der Fachwert sagt etwas ueber
-    die Anzeige, der Rahmen ueber die Lebensumstaende. `score_maximum`
-    rechnet die Rahmen-Boni mit, `fach_maximum` nicht — sonst waere der
-    Nenner groesser als das, was fachlich erreichbar ist, und 100
-    Prozent nie erreichbar.
+    die Anzeige, der Rahmen ueber die Lebensumstaende. Der Vorgaenger
+    `score_maximum` rechnete die Rahmen-Boni mit — mit ihm als Bezug
+    waere der Nenner groesser als das, was fachlich erreichbar ist.
+
+    Geprueft wird deshalb an der Sache und nicht an zwei Funktionen: die
+    Anzeige trifft beide Pflichtbegriffe, ist remote, nah und zahlt ueber
+    Wunsch. Ihr Fachwert erreicht das Fachmaximum GENAU — die Rahmen-Boni
+    heben ihn nicht darueber, obwohl sie alle anfallen.
     """
-    krit = {"keywords_muss": ["Stammdaten", "Migration"], "keywords_plus": []}
-    assert fach_maximum(krit) < score_maximum(krit)
+    krit = {"keywords_muss": ["Stammdaten", "Migration"], "keywords_plus": [],
+            "min_gehalt": 60000, "max_entfernung": {"festanstellung": 15}}
+    job = {"title": "Stammdaten Migration",
+           "description": ("Stammdaten und Migration, 100% remote, "
+                           "Gehalt 80.000 EUR/Jahr. ") * 8,
+           "company": "Musterfirma GmbH", "distance_km": 3.0,
+           "employment_type": "festanstellung", "remote_level": "remote",
+           "salary_min": 80000, "salary_type": "jaehrlich",
+           "location": "Hamburg"}
+    assert calculate_score(job, krit) == fach_maximum(krit)
+    assert job["_rahmenscore"] > 0
 
 
 def test_fachmaximum_gruppiert_wie_die_rechnung():

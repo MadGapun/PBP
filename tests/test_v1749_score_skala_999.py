@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bewerbungs_assistent.job_scraper import (  # noqa: E402
-    calculate_score, fach_maximum, fit_analyse, score_maximum,
+    calculate_score, fach_maximum, fit_analyse,
 )
 from bewerbungs_assistent.tools.jobs import _build_empfehlung  # noqa: E402
 
@@ -82,19 +82,30 @@ def test_999_volltreffer_erreicht_das_maximum_bei_jeder_listenlaenge():
 def test_999_das_maximum_waechst_mit_der_liste():
     """Genau das ist die Ursache: die Skala haengt an der Konfiguration.
     Der Test haelt sie fest, statt sie wegzudefinieren."""
-    laengen = [score_maximum({"keywords_muss": [f"kw{i}" for i in range(n)]})
+    laengen = [fach_maximum({"keywords_muss": [f"kw{i}" for i in range(n)]})
                for n in (5, 10, 20, 40)]
     assert laengen == sorted(laengen)
     assert laengen[0] < 30 < laengen[-1]
 
 
-def test_999_ohne_muss_liste_traegt_der_rahmen():
-    """Ohne MUSS-Begriffe gibt es keinen Fachscore, an dem sich etwas
-    relativieren liesse — dann IST der Rahmen die Bewertung. Ohne diese
-    Ausnahme wuerde durch Null geteilt, und zwar ausgerechnet bei einem
-    frischen Profil (dieselbe Ueberlegung wie in `calculate_score`)."""
-    assert score_maximum({"keywords_muss": []}) > 0
-    assert score_maximum({}) > 0
+def test_999_ohne_muss_liste_ist_der_hoechstwert_unbekannt():
+    """v1.7.117 (#1052): die Ausnahme hat sich mit der Trennung gedreht.
+
+    Bis v1.7.116 hiess es: ohne MUSS-Begriffe gibt es keinen Fachscore,
+    an dem sich etwas relativieren liesse — dann IST der Rahmen die
+    Bewertung, sonst wuerde durch Null geteilt. Der Rahmen steht jetzt
+    daneben statt darin, also traegt er den Hoechstwert des FACHwerts
+    nicht mehr.
+
+    Ein frisches Profil ohne Begriffe bekommt damit 0 — und **0 heisst
+    unbekannt, nicht "nichts erreichbar"** (#989). Der Aufrufer darf
+    daraus keinen Anteil rechnen; genau das haelt der Test darunter fest
+    (`ohne_bekanntes_maximum_wird_nichts_erfunden`).
+    """
+    assert fach_maximum({"keywords_muss": []}) == 0.0
+    assert fach_maximum({}) == 0.0
+    # Und mit Begriffen ist er sofort wieder da.
+    assert fach_maximum({"keywords_muss": ["plm"]}) > 0
 
 
 def test_999_maximum_stuerzt_bei_muell_nicht_ab():
@@ -103,7 +114,7 @@ def test_999_maximum_stuerzt_bei_muell_nicht_ab():
     for kriterien in (None, "kaputt", {"keywords_muss": None},
                       {"gewichtung": "kein json"},
                       {"keywords_muss": ["a"], "keyword_gewichte": None}):
-        assert isinstance(score_maximum(kriterien), float)
+        assert isinstance(fach_maximum(kriterien), float)
 
 
 # ── Die Einordnung ────────────────────────────────────────────────────
@@ -111,7 +122,7 @@ def test_999_maximum_stuerzt_bei_muell_nicht_ab():
 def test_999_die_einstufung_kam_aus_dem_score_und_tut_es_nicht_mehr():
     """Nachtrag zu #999 aus #1003 — die Skala war nur die halbe Miete.
 
-    v1.7.49 hat den Massstab ehrlich gemacht: `score_maximum` folgt
+    v1.7.49 hat den Massstab ehrlich gemacht: der Hoechstwert folgte
     derselben Rechnung wie der Score, und die Einstufung nahm den
     ANTEIL statt einer erfundenen 100er-Skala.
 
@@ -225,10 +236,11 @@ def test_999_beide_rechenwege_kennen_dasselbe_maximum():
     for n in (5, 20):
         job, kriterien = _volltreffer(n)
         ergebnis = fit_analyse(dict(job), kriterien)
-        # Der Bezug des Fachwerts ist das Fachmaximum ...
+        # Der Bezug des Fachwerts ist das Fachmaximum — und es ist der
+        # EINZIGE Hoechstwert, den die Antwort noch traegt. Den
+        # Gesamt-Hoechstwert aus #999 gibt es nicht mehr: er war der
+        # Hoechstwert der Summe, und die bildet seit #1052 niemand mehr.
         assert ergebnis["total_score_max"] == fach_maximum(kriterien)
-        # ... und der Gesamt-Hoechstwert steht weiter daneben, damit
-        # ihn niemand neu erfindet.
-        assert ergebnis["gesamt_score_max"] == score_maximum(kriterien)
+        assert "gesamt_score_max" not in ergebnis
         assert calculate_score(dict(job), kriterien) <= ergebnis[
             "total_score_max"]

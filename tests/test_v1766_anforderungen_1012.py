@@ -14,7 +14,7 @@ Zur Abgrenzung ebenfalls gemessen und hier festgehalten: eine
 WIEDERHOLUNG blaeht nicht (20x = 1x). Der Fehler sitzt allein in der
 Mehrfach-Vertretung eines Sachverhalts in der KRITERIEN-Liste.
 
-**Die gefaehrlichste Stelle ist der Hoechstwert.** `score_maximum`
+**Die gefaehrlichste Stelle ist der Hoechstwert.** `fach_maximum`
 rechnet ueber dieselbe Liste; gruppierte er nicht mit, waere er nicht
 mehr erreichbar und die in #999 gepruefte Eigenschaft gebrochen — eine
 Anzeige, die alles trifft, muss exakt 100 % ergeben.
@@ -35,7 +35,7 @@ def _repo() -> Path:
 sys.path.insert(0, str(_repo() / "src"))
 
 from bewerbungs_assistent.job_scraper import (  # noqa: E402
-    calculate_score, fit_analyse, score_maximum,
+    calculate_score, fach_maximum, fit_analyse,
 )
 from bewerbungs_assistent.services import anforderungen as anf  # noqa: E402
 
@@ -179,7 +179,7 @@ def test_1012_die_synonym_karte_wird_wirklich_gelesen():
 def test_1012_hoechstwert_gruppiert_mit():
     """Sonst waere er nicht mehr erreichbar.
 
-    Der staerkste Test der Welle: gruppierte `score_maximum` nicht mit,
+    Der staerkste Test der Welle: gruppierte `fach_maximum` nicht mit,
     ergaebe eine Anzeige, die ALLES trifft, nur noch einen Bruchteil des
     ausgewiesenen Hoechstwerts — und die in #999 gepruefte
     100-Prozent-Eigenschaft waere still gebrochen.
@@ -245,7 +245,7 @@ def test_1012_die_suche_bleibt_unberuehrt():
         for nr, zeile in enumerate(text.split("\n"), 1):
             if "zaehlbare_punkte(" in zeile.split("#")[0]:
                 fundstellen.append(f"{pfad.name}:{nr}")
-    # calculate_score, fit_analyse, score_maximum — je ein Aufruf plus
+    # calculate_score, fit_analyse, fach_maximum — je ein Aufruf plus
     # die drei Importe.
     dateien = {f.split(":")[0] for f in fundstellen}
     assert dateien == {"__init__.py"}, (

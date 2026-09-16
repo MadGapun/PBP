@@ -155,7 +155,37 @@ def _condition_keine_interview_reflexion_aber_interviews(db) -> bool:
 
 # ── Hint-Definitionen ───────────────────────────────────────────────
 
+def _condition_schwelle_nach_1052(db) -> bool:
+    """Steht eine Schwelle aus der Zeit vor der Score-Trennung? (#1052)
+
+    Bewusst BILLIG — zwei Lesezugriffe, kein Backtest. Diese Bedingung
+    laeuft bei jedem Seitenaufbau; die teure Rechnung haengt am Klick.
+    """
+    try:
+        from .schwellen_umstellung import offen
+        return bool(offen(db).get("betroffen"))
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        "id": "c83_schwelle_nach_score_trennung",
+        "tab": "stellen",
+        "title": "Deine Score-Schwelle meint jetzt etwas anderes",
+        "body": (
+            "Der Score ist seit diesem Update der FACHWERT allein — "
+            "Entfernung, Remote-Anteil und Gehalt zaehlen nicht mehr mit "
+            "hinein, sondern stehen als eigener Rahmenwert daneben. Die "
+            "Zahl ist damit kleiner als vorher, und deine gespeicherte "
+            "Schwelle filtert schaerfer, ohne dass du sie angefasst hast. "
+            "Lass dir einen neuen Wert vorschlagen — er kommt aus deiner "
+            "eigenen Bewerbungshistorie, nicht aus einer Umrechnung."
+        ),
+        "cta_label": "Neuen Schwellenwert vorschlagen lassen",
+        "cta_tool": "kalibrierung_backtest",
+        "condition": _condition_schwelle_nach_1052,
+    },
     {
         "id": "g11_erste_suche_starten",
         "tab": "dashboard",

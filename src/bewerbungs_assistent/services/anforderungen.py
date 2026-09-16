@@ -157,7 +157,7 @@ def zaehlbare_punkte(begriffe, punkte_fuer) -> list[float]:
         punkte_fuer: Funktion Begriff -> Punkte.
 
     **Das ist das Nadeloehr.** Die MUSS-Liste wird an drei Stellen
-    ausgewertet (`calculate_score`, `fit_analyse`, `score_maximum`);
+    ausgewertet (`calculate_score`, `fit_analyse`, `fach_maximum`);
     liefe eine davon daran vorbei, waere der Hoechstwert nicht mehr
     erreichbar und die 100-Prozent-Eigenschaft aus #999 gebrochen.
     """
