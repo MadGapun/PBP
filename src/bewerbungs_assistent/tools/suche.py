@@ -204,6 +204,7 @@ def register(mcp, db, logger):
         wunsch_gehalt: float = None,
         wunsch_tagessatz: float = None,
         wunsch_stundensatz: float = None,
+        min_score_schwelle: float = None,
         custom_kriterien: dict = None
     ) -> dict:
         """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
@@ -272,6 +273,16 @@ def register(mcp, db, logger):
                 via Gehalt-Dimension (Malus bei deutlich niedrigerem Angebot).
             min_tagessatz: Wunsch-Tagessatz in EUR fuer Freelance (#544).
             min_stundensatz: Wunsch-Stundensatz in EUR fuer Teilzeit/Werkstudent (#544).
+            min_score_schwelle: Ab welchem Score eine gefundene Stelle
+                ueberhaupt GESPEICHERT wird. Wirkt waehrend der Suche,
+                nicht in der Liste — der Anzeige-Filter heisst
+                `schwellenwert/auto_ignore` und sitzt in
+                `scoring_konfigurieren` (#1008).
+                Seit v1.7.117 (#1052) ist der Score der Fachwert allein;
+                eine Schwelle aus der Zeit davor filtert schaerfer, als
+                sie sollte. Einen neuen Wert schlaegt
+                `kalibrierung_backtest()` aus der eigenen
+                Bewerbungshistorie vor.
             custom_kriterien: Eigene Kriterien mit Gewichtung, z.B. {"homeoffice": 8, "gehalt": 7}
         """
         # v1.7.17 (#908 Befund 6): dedupliziert wie 'hinzufuegen' —
@@ -409,6 +420,20 @@ def register(mcp, db, logger):
                     "suchkriterien_setzen(min_gehalt=70000).")
             db.set_search_criteria("custom_kriterien", custom_kriterien)
 
+        # v1.7.117 (#1052): die Aufnahmeschwelle. Der Weg wurde an drei
+        # Stellen so genannt, ohne dass es ihn gab.
+        schwellen_hinweis = None
+        if min_score_schwelle is not None:
+            db.set_search_criteria("min_score_schwelle",
+                                   float(min_score_schwelle))
+            from ..services import schwellen_umstellung as _su
+            _su.abhaken(db, f"min_score_schwelle auf {min_score_schwelle:g}")
+            schwellen_hinweis = (
+                f"Ab jetzt werden nur Stellen mit einem Fachwert ab "
+                f"{min_score_schwelle:g} gespeichert. Bereits gespeicherte "
+                "Stellen bleiben — die Schwelle wirkt beim Suchlauf, nicht "
+                "in der Liste (#1008).")
+
         # Geocode user location (#167)
         geo_info = None
         if standort:
@@ -431,6 +456,8 @@ def register(mcp, db, logger):
             result["reisewiderstand"] = widerstand_hinweis
         if doppelt_hinweis:
             result["hinweis_doppelt"] = doppelt_hinweis
+        if schwellen_hinweis:
+            result["schwelle"] = schwellen_hinweis
         # v1.7.12 (#827, C32): MUSS/PLUS-Ueberschneidung sichtbar machen.
         # Doppelt gelistete Begriffe zaehlen im Score nur noch EINMAL (als
         # MUSS) — der Hinweis erklaert, warum die PLUS-Liste kuerzer wirkt.

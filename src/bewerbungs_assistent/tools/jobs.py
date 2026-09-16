@@ -2686,6 +2686,15 @@ def register(mcp, db, logger):
             return {"fehler": "modus muss 'aktuell', 'idf' oder 'beide' sein."}
         result = _backtest(db, stichprobe_dismissed=stichprobe_dismissed,
                            modus=modus)
+        # v1.7.117 (#1052): steht noch eine Schwelle aus der Zeit vor der
+        # Trennung? Dann gehoert die Einordnung genau hierher — das ist
+        # der Knopf, auf den der Hinweis zeigt. Gerechnet wird der Lauf
+        # von oben weiter, nicht ein zweiter.
+        from ..services import schwellen_umstellung as _su
+        if (_su.offen(db).get("betroffen")
+                and "aktuell" in (result.get("varianten") or {})):
+            result["schwelle_nach_umstellung"] = _su.vorschlag(
+                db, ergebnis=result)
         if not dry_run:
             result["hinweis_dry_run"] = (
                 "dry_run=False hat keine Wirkung — der Backtest ist per "

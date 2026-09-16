@@ -1230,9 +1230,19 @@ def register(mcp, db, logger):
                 "deckel_erklaert": {
                     "rahmen": {
                         "faktor": rahmen_deckel_faktor(_krit_deckel),
-                        "bedeutet": ("Positive Rahmenpunkte (PLUS, Remote, Naehe, "
-                                     "Gehalt) zaehlen hoechstens bis zu diesem "
-                                     "Anteil des Fachwerts."),
+                        # v1.7.117 (#1052): der Schluessel heisst weiter
+                        # "rahmen", die Groesse dahinter ist eine andere.
+                        # Remote, Naehe und Gehalt stehen seit der
+                        # Trennung im Rahmenwert und werden gar nicht
+                        # mehr gedeckelt — gedeckelt werden die
+                        # PLUS-Begriffe INNERHALB des Fachwerts. Der
+                        # Grund ist der aus #942: fuenf allgemeine
+                        # Wunschbegriffe duerfen einen einzelnen
+                        # Pflichttreffer nicht ueberholen.
+                        "bedeutet": ("PLUS-Begriffe zaehlen hoechstens bis zu "
+                                     "diesem Anteil der MUSS-Punkte. Remote, "
+                                     "Naehe und Gehalt stehen seit v1.7.117 im "
+                                     "Rahmenwert und sind nicht gedeckelt."),
                         "wo": ("suchkriterien_bearbeiten(kategorie='scoring', "
                                "aktion='deckel', werte=['rahmen'], gewicht=N)"),
                     },
@@ -1269,6 +1279,16 @@ def register(mcp, db, logger):
                            "um einen Regler zu aendern. Setze ignorieren=True um einen "
                            "Wert komplett auszublenden."
             }
+            # v1.7.117 (#1052): die Schwelle meint jetzt eine andere
+            # Zahl. Sie wurde auf die Summe aus Fach- und Rahmenwert
+            # gesetzt und filtert seit der Trennung gegen den Fachwert
+            # allein — also schaerfer, ohne dass jemand sie angefasst
+            # hat. Benennen statt still umdeuten (#1012, #988).
+            from ..services import schwellen_umstellung
+            _umstellung = schwellen_umstellung.offen(db)
+            if _umstellung.get("betroffen"):
+                ergebnis["schwelle_nach_umstellung_pruefen"] = _umstellung
+
             if _ohne_wirkung:
                 ergebnis["achtung"] = (
                     "Diese Regler stehen im Bestand, werden aber von "
@@ -1290,6 +1310,13 @@ def register(mcp, db, logger):
             # v1.7.113 (#1053): mit Begruendung und Spur im Verlauf.
             db.set_scoring_config(dimension, sub_key, wert, ignorieren,
                                   begruendung=begruendung)
+            # v1.7.117 (#1052): wer die Schwelle anfasst, hat sie
+            # angesehen — der Umstellungs-Hinweis schweigt danach. Sonst
+            # meldete er weiter, denn die Schwelle steht ja immer noch
+            # da (#929).
+            if dimension == "schwellenwert" and sub_key == "auto_ignore":
+                from ..services import schwellen_umstellung as _su
+                _su.abhaken(db, f"auto_ignore auf {wert}")
             return {
                 "status": "gespeichert",
                 "dimension": dimension,

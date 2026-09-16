@@ -23,8 +23,8 @@ from bewerbungs_assistent.job_scraper import (
     MINUS_DECKEL_STANDARD,
     calculate_score,
     fit_analyse,
+    fach_maximum,
     minus_deckel_faktor,
-    score_maximum,
 )
 
 
@@ -91,7 +91,7 @@ def test_der_hoechstwert_gruppiert_plus_mit():
     """#999: der Hoechstwert darf nicht ueber dem Erreichbaren liegen."""
     eins = _krit(keywords_plus=["Lieferantenportal Pflege"])
     zwei = _krit(keywords_plus=["Lieferantenportal", "Lieferantenportal Pflege"])
-    assert score_maximum(zwei) == score_maximum(eins)
+    assert fach_maximum(zwei) == fach_maximum(eins)
 
 
 # ── 2. Der MINUS-Deckel (#1045) ─────────────────────────────────────
