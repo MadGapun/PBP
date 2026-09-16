@@ -1,4 +1,4 @@
-"""Der Fachwert und sein Daumen (#1052 Schritt 2, AK 2/3).
+"""Der Fachwert und sein Daumen (#1052 Schritt 2).
 
 Der Score mischte zwei Dinge, die nichts miteinander zu tun haben: wie
 gut eine Anzeige fachlich trifft, und ob die Rahmenbedingungen ueberhaupt
@@ -11,18 +11,46 @@ Hier wohnt die eine Haelfte: der FACHWERT. Er kommt nur aus MUSS, PLUS
 und MINUS und ist nie von Entfernung, Gehalt, Arbeitsmodell oder
 Vertragsform beeinflusst.
 
-Zwei Entscheidungen des Nutzers vom 15.09.2026 stecken darin:
+## Rohe Punkte, keine Skala
 
-**Prozent statt Punkte.** Eine Punktsumme sagt nichts, solange niemand
-den Hoechstwert kennt — das war #999, und es ist derselbe Fehler wie
-"Score 15.0/100" bei einer Skala ohne 100. Der Anteil bezieht sich auf
-`fach_maximum`, also auf das, was MIT DIESEN Kriterien erreichbar ist.
+Die erste Fassung zeigte den Fachwert als Prozent des erreichbaren
+Maximums. Das Akzeptanzkriterium dazu hat der Nutzer am 16.09.2026
+**zurueckgezogen**, mit einer Begruendung, die tiefer geht als die
+Darstellungsfrage:
 
-**Die Schwellen kommen aus dem eigenen Bestand, nicht aus dem Code.**
+    "es gibt keine ober oder untergrenze, denn je nachdem wieviele
+    PLUS oder MINUS werte man mit gibt oder man diese gewichtet kann
+    das fuer jede Person sehr individuell sein. ja es kann sogar sein
+    ... das die besten stellen sogar einen Minus score haben."
+
+Ein Prozentwert setzt eine Obergrenze voraus, und die gibt es nicht.
+Der urspruengliche Einwand ("28.5 sagt nichts") galt fuer eine Welt
+ohne Daumen — die Einordnung leistet jetzt der Daumen, und zwar aus dem
+eigenen Bestand heraus. Damit darf die Zahl roh bleiben.
+
+**Nicht gekappt, in keine Richtung.** Eine Stelle bei -8 und eine bei 0
+duerfen nicht gleich aussehen. Genau das war der Fehler, der #1052
+ausgeloest hat: eine Zahl, die etwas anderes bedeutet als sie sagt.
+
+## Die Schwellen kommen aus dem eigenen Bestand
+
 Feste Prozentwerte waeren an einem Profil kalibriert und fuer jedes
-andere falsch (v1.7.69). Grundlage ist die Verteilung der Fachwerte der
-eigenen Bewerbungen. Reicht sie nicht, bleibt der Daumen GRAU und sagt
-warum — eine Ersatzschwelle waere eine erfundene Angabe (#989).
+andere falsch (v1.7.69). Zwei Zahlen, zwei verschiedene Aussagen
+(Nutzerantwort 16.09.2026, Variante c):
+
+* **Trennschwelle** — ab wo sich das Hinsehen ueberhaupt lohnt.
+  Dieselbe Rechnung wie der Schwellenvorschlag im Backtest: unteres
+  Viertel der Bewerbungen mal 0,8 (die 20 % Toleranz nach unten sind
+  Nutzervorgabe aus #778).
+* **Oberes Viertel der Bewerbungen** — ab wo es sich besonders lohnt.
+
+Reicht die Grundlage nicht, bleibt der Daumen GRAU und sagt warum —
+eine Ersatzschwelle waere eine erfundene Angabe (#989).
+
+Gelesen werden die GESPEICHERTEN Fachwerte, nicht frisch gerechnete.
+Das ist Absicht: die Schwelle wird gegen dieselben Zahlen gehalten, die
+in der Liste stehen. Eine frisch gerechnete Schwelle gegen gespeicherte
+Werte waere wieder der Vergleich zweier Rechenwege (#1051).
 """
 from __future__ import annotations
 
@@ -33,6 +61,12 @@ from __future__ import annotations
 # Bestand.
 MIN_BEWERBUNGEN = 20
 
+# Toleranz nach unten auf das untere Viertel, Nutzervorgabe aus #778.
+# Dieselbe Zahl wie im Backtest — die Trennschwelle soll dort und hier
+# dieselbe sein, sonst schlaegt der Backtest einen Wert vor, den der
+# Daumen nicht benutzt.
+TRENN_TOLERANZ = 0.8
+
 HOCH = "hoch"
 MITTEL = "mittel"
 RUNTER = "runter"
@@ -41,111 +75,106 @@ BELEGT = "belegt"
 GRAU = "grau"
 
 
-def anteil(punkte, maximum) -> float | None:
-    """Der Fachwert in Prozent des Erreichbaren — oder None.
+def _quantil(sortiert: list, anteil: float) -> float:
+    """Dasselbe Quantil wie in der Score-Verteilung (#986).
 
-    None heisst "nicht bestimmbar", nicht "null Prozent". Ohne
-    Hoechstwert gibt es keine Skala, und eine Zahl ohne Skala ist genau
-    die Auskunft, die #999 abgeschafft hat.
+    Bewusst importiert statt nachgebaut: zwei Fassungen derselben
+    Rechnung sind das Muster, das dieses Projekt vierzehnmal gekostet
+    hat (#963).
     """
-    try:
-        obergrenze = float(maximum)
-        wert = float(punkte)
-    except (TypeError, ValueError):
-        return None
-    if obergrenze <= 0:
-        return None
-    # Nach oben gedeckelt: mehr als alles gibt es nicht. Nach unten auf
-    # 0 — ein negativer Anteil waere keine Passungsaussage, sondern ein
-    # Rechenrest aus den Abzuegen.
-    return round(max(0.0, min(100.0, wert / obergrenze * 100.0)), 1)
+    from .score_verteilung import _quantil as _q
+    return _q(sortiert, anteil)
 
 
 def schwellen(db, criteria=None) -> dict:
     """Wo liegt "hoch" und wo "runter" — gemessen am eigenen Bestand.
 
-    Grundlage sind die Fachwerte der Stellen, auf die sich der Mensch
-    beworben hat. Das ist die einzige Stichprobe, in der eine Entscheidung
-    steckt; alles andere waere eine Annahme ueber ihn.
-
     Returns:
-        {"q25": .., "q75": .., "anzahl": ..} — oder
+        {"trennschwelle": .., "oberes_viertel": .., "anzahl": ..,
+         "aussortierte_darueber": ..} — oder
         {"grundlage_fehlt": "<Grund>", "anzahl": ..}, und dann bleibt
         der Daumen grau.
     """
-    werte = _fachwerte_der_bewerbungen(db, criteria)
-    if len(werte) < MIN_BEWERBUNGEN:
+    beworben = _fachwerte(db, beworben=True)
+    if len(beworben) < MIN_BEWERBUNGEN:
         return {
-            "anzahl": len(werte),
+            "anzahl": len(beworben),
             "grundlage_fehlt": (
-                f"Nur {len(werte)} bewertbare Bewerbungen — unter "
+                f"Nur {len(beworben)} bewertbare Bewerbungen — unter "
                 f"{MIN_BEWERBUNGEN} traegt die Verteilung keine Schwelle. "
                 "Der Fachdaumen bleibt deshalb grau; eine Ersatzschwelle "
                 "waere geraten."),
         }
-    # Dieselbe Quantil-Rechnung wie in der Score-Verteilung (#986) —
-    # eine zweite Fassung waere das Muster, das dieses Projekt vierzehnmal
-    # gekostet hat (#963).
-    from .score_verteilung import kennzahlen
-    kenn = kennzahlen(werte)
-    return {
-        "anzahl": kenn.get("anzahl", len(werte)),
-        "q25": kenn.get("q25"),
-        "q75": kenn.get("q75"),
-        "median": kenn.get("median"),
+    sortiert = sorted(beworben)
+    q25 = _quantil(sortiert, 0.25)
+    q75 = _quantil(sortiert, 0.75)
+    trenn = round(q25 * TRENN_TOLERANZ, 1)
+
+    ergebnis = {
+        "anzahl": len(sortiert),
+        "trennschwelle": trenn,
+        "oberes_viertel": q75,
+        "median": _quantil(sortiert, 0.5),
+        "formel": (
+            f"Unteres Viertel deiner Bewerbungen ({q25}) mal "
+            f"{TRENN_TOLERANZ} = {trenn}. Darunter lohnt das Hinsehen "
+            f"erfahrungsgemaess nicht; ab {q75} liegst du im oberen "
+            "Viertel dessen, worauf du dich beworben hast."),
     }
+    # Wieviele aussortierte Stellen laegen ueber der Trennschwelle? Die
+    # Zahl macht die Schwelle pruefbar: trennt sie wirklich, oder steht
+    # der halbe Bestand darueber? Sie entscheidet nichts — sie steht da.
+    aussortiert = _fachwerte(db, beworben=False)
+    if aussortiert:
+        darueber = sum(1 for w in aussortiert if w >= trenn)
+        ergebnis["aussortierte"] = len(aussortiert)
+        ergebnis["aussortierte_darueber"] = darueber
+        ergebnis["aussortierte_darueber_quote"] = round(
+            darueber / len(aussortiert), 3)
+    return ergebnis
 
 
-def _fachwerte_der_bewerbungen(db, criteria=None) -> list:
-    """Die Fachwerte der beworbenen Stellen, in Prozent.
+def _fachwerte(db, beworben: bool) -> list:
+    """Die gespeicherten Fachwerte — der Bewerbungen oder der Aussortierten.
 
     `applications.job_hash` traegt den OEFFENTLICHEN Hash, `jobs.hash`
     den profil-praefixierten — ein rohes `WHERE hash=?` findet deshalb
     nichts (v1.7.56 MERKE 4). `get_job` loest beide Formen auf.
     """
-    try:
-        bewerbungen = db.get_applications() or []
-    except Exception:
-        return []
-    if criteria is None:
-        try:
-            from .scoring_kriterien import fuer_scoring
-            criteria = fuer_scoring(db)
-        except Exception:
-            criteria = {}
-    try:
-        from ..job_scraper import fach_maximum
-        maximum = fach_maximum(criteria or {})
-    except Exception:
-        return []
-    if maximum <= 0:
-        return []
-
     werte = []
-    for bew in bewerbungen:
-        hash_ = bew.get("job_hash")
-        if not hash_:
-            continue
+    if beworben:
         try:
-            stelle = db.get_job(hash_)
+            bewerbungen = db.get_applications() or []
         except Exception:
+            return []
+        for bew in bewerbungen:
+            hash_ = bew.get("job_hash")
+            if not hash_:
+                continue
+            try:
+                stelle = db.get_job(hash_)
+            except Exception:
+                continue
+            if stelle and stelle.get("score") is not None:
+                werte.append(float(stelle["score"]))
+        return werte
+
+    try:
+        aussortiert = db.get_dismissed_jobs() or []
+    except Exception:
+        return []
+    for stelle in aussortiert:
+        # Wer sich beworben hat, hat die Stelle nicht abgelehnt — der
+        # Grund `bewerbung_erstellt` ist das Gegenteil einer Ablehnung
+        # (#941). Er gehoert nicht in die Negativ-Menge.
+        if "bewerbung_erstellt" in str(stelle.get("dismiss_reason") or ""):
             continue
-        if not stelle:
-            continue
-        punkte = stelle.get("fachscore")
-        if punkte is None:
-            continue
-        prozent = anteil(punkte, maximum)
-        # 0 heisst "kein Pflichttreffer" und ist keine Bewertung (#989);
-        # solche Zeilen wuerden die Verteilung nach unten ziehen, ohne
-        # etwas ueber die Passung zu sagen.
-        if prozent is None or prozent <= 0:
-            continue
-        werte.append(prozent)
+        if stelle.get("score") is not None:
+            werte.append(float(stelle["score"]))
     return werte
 
 
-def daumen(prozent, schwellen_werte: dict, belegt: bool = True) -> dict:
+def daumen(punkte, schwellen_werte: dict, belegt: bool = True) -> dict:
     """Richtung und Farbe des Fachdaumens — zwei getrennte Kanaele.
 
     Die RICHTUNG ergibt sich aus den vorhandenen Angaben, die FARBE sagt,
@@ -153,32 +182,31 @@ def daumen(prozent, schwellen_werte: dict, belegt: bool = True) -> dict:
     sieht schlecht aus, aber ungeprueft. Damit ist der Indikator nie
     nutzlos und nie erfunden (Nutzervorgabe 15.09.2026).
     """
-    if prozent is None:
+    if punkte is None:
         return {"richtung": MITTEL, "farbe": GRAU,
-                "grund": "Kein erreichbares Fachmaximum — ohne Skala keine "
-                         "Einordnung. Pflege Pflichtbegriffe, dann traegt "
-                         "der Wert etwas."}
+                "grund": "Diese Stelle traegt keinen Fachwert."}
     fehlt = (schwellen_werte or {}).get("grundlage_fehlt")
     if fehlt:
         return {"richtung": MITTEL, "farbe": GRAU, "grund": fehlt}
-    q25 = (schwellen_werte or {}).get("q25")
-    q75 = (schwellen_werte or {}).get("q75")
-    if q25 is None or q75 is None:
+    trenn = (schwellen_werte or {}).get("trennschwelle")
+    oben = (schwellen_werte or {}).get("oberes_viertel")
+    if trenn is None or oben is None:
         return {"richtung": MITTEL, "farbe": GRAU,
                 "grund": "Die Verteilung deiner Bewerbungen liefert keine "
-                         "Quartile — der Daumen bleibt ohne Grundlage."}
-    if prozent >= q75:
+                         "Schwellen — der Daumen bleibt ohne Grundlage."}
+    wert = float(punkte)
+    if wert >= oben:
         richtung, grund = HOCH, (
-            f"{prozent:.0f} % — im oberen Viertel deiner Bewerbungen "
-            f"(ab {q75:.0f} %).")
-    elif prozent < q25:
+            f"{wert:g} Punkte — im oberen Viertel deiner Bewerbungen "
+            f"(ab {oben:g}).")
+    elif wert < trenn:
         richtung, grund = RUNTER, (
-            f"{prozent:.0f} % — unter dem unteren Viertel deiner "
-            f"Bewerbungen ({q25:.0f} %).")
+            f"{wert:g} Punkte — unter der Schwelle, ab der sich das "
+            f"Hinsehen erfahrungsgemaess lohnt ({trenn:g}).")
     else:
         richtung, grund = MITTEL, (
-            f"{prozent:.0f} % — zwischen unterem und oberem Viertel deiner "
-            f"Bewerbungen ({q25:.0f} bis {q75:.0f} %).")
+            f"{wert:g} Punkte — ueber der Schwelle ({trenn:g}), aber "
+            f"unter deinem oberen Viertel ({oben:g}).")
     return {"richtung": richtung,
             "farbe": BELEGT if belegt else GRAU,
             "grund": grund}

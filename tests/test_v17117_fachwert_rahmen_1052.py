@@ -1,8 +1,9 @@
 """Tests fuer #1052 Schritt 2 — Fachwert und Rahmendaumen.
 
-Die Bausteine, bevor sie verdrahtet sind: der Fachwert als Prozent des
-erreichbaren Fachmaximums, und der Rahmendaumen mit Richtung und Farbe
-als getrennten Kanaelen.
+Die Bausteine, bevor sie verdrahtet sind: der Fachwert als ROHE
+Punktzahl (das Prozent-Kriterium hat der Nutzer am 16.09.2026
+zurueckgezogen), der Rahmendaumen mit Richtung und Farbe als
+getrennten Kanaelen, und das Signal aus dem eigenen Verhalten.
 
 Grundlage sind die verbindlichen Nutzerantworten vom 15.09.2026 im
 Issue; sie gehen dem Issue-Text vor, wo sie ihm widersprechen. Vor allem:
@@ -16,7 +17,9 @@ der "runter" ergeben MUSS, steht der, der es nicht darf.
 import pytest
 
 from bewerbungs_assistent.job_scraper import fach_maximum, score_maximum
-from bewerbungs_assistent.services import fachwert, rahmen
+from pathlib import Path
+
+from bewerbungs_assistent.services import fachwert, neigung, rahmen
 
 
 # --------------------------------------------------------------------
@@ -48,102 +51,349 @@ def test_fachmaximum_gruppiert_wie_die_rechnung():
     assert einzeln == varianten
 
 
-def test_fachmaximum_ohne_kriterien_ist_null_und_das_heisst_unbekannt():
+def test_fachmaximum_ohne_kriterien_ist_null():
     """0 heisst "nicht bestimmbar", nicht "nichts erreichbar" (#989).
 
-    Deshalb prueft `anteil` genau darauf und liefert None statt einer
-    Division — eine Zahl ohne Skala war der Fehler aus #999.
+    Der Wert steht im Detail als Zusatzangabe neben dem Fachwert ("17,5
+    von 42 moeglichen"). Ohne Kriterien gibt es ihn nicht — dann bleibt
+    die Zusatzangabe weg, statt eine 0 zu behaupten.
     """
     assert fach_maximum({}) == 0.0
     assert fach_maximum(None) == 0.0
-    assert fachwert.anteil(5, fach_maximum({})) is None
 
 
 # --------------------------------------------------------------------
-# Fachwert als Anteil
+# Fachdaumen: rohe Punkte, Schwellen aus dem eigenen Bestand
 # --------------------------------------------------------------------
 
-@pytest.mark.parametrize("punkte,maximum,erwartet", [
-    (5, 10, 50.0),
-    (10, 10, 100.0),
-    (0, 10, 0.0),
-    # Mehr als alles gibt es nicht: die Abzuege koennen den Wert nicht
-    # ueber das Erreichbare heben.
-    (15, 10, 100.0),
-    # Ein negativer Anteil waere keine Passungsaussage, sondern ein
-    # Rechenrest aus den MINUS-Punkten.
-    (-4, 10, 0.0),
-])
-def test_anteil_rechnet_und_deckelt(punkte, maximum, erwartet):
-    assert fachwert.anteil(punkte, maximum) == erwartet
+def test_fachdaumen_richtungen_folgen_den_beiden_schwellen():
+    """Zwei Schwellen, zwei verschiedene Aussagen (Nutzerantwort 16.09.).
+
+    Die Trennschwelle sagt, ab wo sich das Hinsehen ueberhaupt lohnt;
+    das obere Viertel, ab wo es sich besonders lohnt.
+    """
+    sch = {"trennschwelle": 4.0, "oberes_viertel": 12.0}
+    assert fachwert.daumen(30, sch)["richtung"] == fachwert.HOCH
+    assert fachwert.daumen(12.0, sch)["richtung"] == fachwert.HOCH
+    assert fachwert.daumen(11.9, sch)["richtung"] == fachwert.MITTEL
+    assert fachwert.daumen(4.0, sch)["richtung"] == fachwert.MITTEL
+    assert fachwert.daumen(3.9, sch)["richtung"] == fachwert.RUNTER
 
 
-@pytest.mark.parametrize("punkte,maximum", [
-    (5, 0), (5, None), (None, 10), ("viel", 10), (5, "keins"),
-])
-def test_anteil_ohne_skala_ist_none(punkte, maximum):
-    """Ohne Hoechstwert keine Prozentzahl — und keine erfundene Null."""
-    assert fachwert.anteil(punkte, maximum) is None
+def test_negative_fachwerte_bleiben_negativ_und_unterscheidbar():
+    """Nutzerwort 16.09.2026: "es gibt keine ober oder untergrenze".
+
+    Die erste Fassung kappte bei 0. Damit saehen eine Stelle bei -8 und
+    eine bei 0 gleich aus — genau die Sorte Zahl, die etwas anderes
+    bedeutet als sie sagt, und der Grund, aus dem #1052 entstanden ist.
+    Der Daumen muss sie deshalb beide lesen koennen, ohne zu stolpern.
+    """
+    sch = {"trennschwelle": 4.0, "oberes_viertel": 12.0}
+    minus = fachwert.daumen(-8, sch)
+    null = fachwert.daumen(0, sch)
+    assert minus["richtung"] == null["richtung"] == fachwert.RUNTER
+    # Und die Begruendung nennt die Zahl, die wirklich dasteht.
+    assert "-8" in minus["grund"] and "-8" not in null["grund"]
 
 
-# --------------------------------------------------------------------
-# Fachdaumen: Schwellen aus dem eigenen Bestand
-# --------------------------------------------------------------------
+def test_fachwert_wird_nirgends_in_prozent_umgerechnet():
+    """Das Akzeptanzkriterium dazu ist zurueckgezogen.
 
-def test_fachdaumen_richtungen_folgen_den_quartilen():
-    schwellen = {"q25": 20.0, "q75": 60.0}
-    assert fachwert.daumen(80, schwellen)["richtung"] == fachwert.HOCH
-    assert fachwert.daumen(60, schwellen)["richtung"] == fachwert.HOCH
-    assert fachwert.daumen(40, schwellen)["richtung"] == fachwert.MITTEL
-    assert fachwert.daumen(20, schwellen)["richtung"] == fachwert.MITTEL
-    assert fachwert.daumen(19, schwellen)["richtung"] == fachwert.RUNTER
+    Ein Prozentwert setzt eine Obergrenze voraus, und die gibt es nicht:
+    wieviele PLUS- und MINUS-Begriffe jemand pflegt und wie er sie
+    gewichtet, ist individuell. Dieser Test haelt die Entscheidung fest,
+    damit sie niemand "nur schnell" zurueckdreht.
+    """
+    assert not hasattr(fachwert, "anteil"), (
+        "Die Prozent-Umrechnung ist zurueckgezogen — siehe Modulkopf.")
 
 
 def test_fachdaumen_bleibt_grau_wenn_die_grundlage_fehlt():
-    """Keine Ersatzschwelle erfinden (Nutzerantwort Punkt 5).
-
-    Unter 20 bewertbaren Bewerbungen traegt die Verteilung nichts. Ein
-    Daumen, der trotzdem in eine Richtung zeigt, behauptet eine
-    Grundlage, die es nicht gibt.
-    """
+    """Keine Ersatzschwelle erfinden (Nutzerantwort Punkt 5)."""
     d = fachwert.daumen(80, {"grundlage_fehlt": "Nur 3 Bewerbungen"})
     assert d["farbe"] == fachwert.GRAU
     assert "3" in d["grund"]
 
 
 def test_fachdaumen_farbe_ist_ein_eigener_kanal():
-    """Richtung und Farbe sind getrennt — das ist der Kern der Loesung.
-
-    Ein grauer Daumen nach oben heisst: sieht gut aus, aber ungeprueft.
-    Die Richtung bleibt dieselbe, nur die Farbe sagt es.
-    """
-    schwellen = {"q25": 20.0, "q75": 60.0}
-    belegt = fachwert.daumen(80, schwellen, belegt=True)
-    grau = fachwert.daumen(80, schwellen, belegt=False)
+    """Ein grauer Daumen nach oben heisst: sieht gut aus, ungeprueft."""
+    sch = {"trennschwelle": 4.0, "oberes_viertel": 12.0}
+    belegt = fachwert.daumen(30, sch, belegt=True)
+    grau = fachwert.daumen(30, sch, belegt=False)
     assert belegt["richtung"] == grau["richtung"] == fachwert.HOCH
     assert belegt["farbe"] == fachwert.BELEGT
     assert grau["farbe"] == fachwert.GRAU
 
 
-def test_schwellen_verlangen_zwanzig_bewerbungen():
-    """Die Zahl steht nicht im Test, sondern im Modul — sonst pruefte
-    der Test seine eigene Kopie der Regel."""
-    class _DB:
-        def __init__(self, n):
-            self._n = n
+class _DB:
+    """Ein Bestand aus gespeicherten Fachwerten."""
 
-        def get_applications(self):
-            return [{"job_hash": f"h{i}"} for i in range(self._n)]
+    def __init__(self, beworben, aussortiert=()):
+        self._b = list(beworben)
+        self._a = list(aussortiert)
 
-        def get_job(self, h):
-            return {"fachscore": 5.0}
+    def get_applications(self):
+        return [{"job_hash": f"h{i}"} for i in range(len(self._b))]
 
-    krit = {"keywords_muss": ["Stammdaten", "Migration", "Datenqualitaet"]}
-    wenig = fachwert.schwellen(_DB(fachwert.MIN_BEWERBUNGEN - 1), krit)
+    def get_job(self, h):
+        return {"score": self._b[int(str(h)[1:])]}
+
+    def get_dismissed_jobs(self):
+        return [{"score": w, "dismiss_reason": "falsches_fachgebiet"}
+                for w in self._a]
+
+
+def test_schwellen_verlangen_genug_bewerbungen():
+    """Die Zahl steht im Modul, nicht im Test — sonst pruefte der Test
+    seine eigene Kopie der Regel."""
+    wenig = fachwert.schwellen(_DB(range(fachwert.MIN_BEWERBUNGEN - 1)))
     assert "grundlage_fehlt" in wenig
-    genug = fachwert.schwellen(_DB(fachwert.MIN_BEWERBUNGEN), krit)
+    genug = fachwert.schwellen(_DB(range(fachwert.MIN_BEWERBUNGEN)))
     assert "grundlage_fehlt" not in genug
-    assert genug["q25"] is not None and genug["q75"] is not None
+    assert genug["trennschwelle"] is not None
+    assert genug["oberes_viertel"] is not None
+
+
+def test_die_trennschwelle_traegt_die_toleranz_aus_778():
+    """Dieselbe Rechnung wie der Schwellenvorschlag im Backtest.
+
+    Zwei Fassungen derselben Schwelle waeren das Muster aus #963 — und
+    der Backtest schluege einen Wert vor, den der Daumen nicht benutzt.
+    """
+    werte = list(range(20, 60))
+    sch = fachwert.schwellen(_DB(werte))
+    # Dasselbe Quantil wie das Modul — ein eigenes im Test waere die
+    # zweite Fassung derselben Rechnung, und der Test pruefte dann seine
+    # eigene Kopie statt den Code.
+    from bewerbungs_assistent.services.score_verteilung import _quantil
+    q25 = _quantil(sorted(werte), 0.25)
+    assert sch["trennschwelle"] == round(q25 * fachwert.TRENN_TOLERANZ, 1)
+
+
+def test_die_schwelle_sagt_wieviele_aussortierte_darueber_liegen():
+    """Eine Schwelle, die den halben Bestand durchlaesst, trennt nichts.
+
+    Die Zahl entscheidet nichts — sie macht die Schwelle pruefbar.
+    """
+    sch = fachwert.schwellen(_DB(range(20, 40), aussortiert=[1, 2, 3, 99]))
+    assert sch["aussortierte"] == 4
+    assert sch["aussortierte_darueber"] == 1
+
+
+def test_beworbene_stellen_zaehlen_nicht_als_aussortiert():
+    """`bewerbung_erstellt` ist das Gegenteil eines Ablehnungsgrunds (#941).
+
+    Solche Zeilen in die Negativ-Menge zu nehmen hiesse, die eigenen
+    Bewerbungen gegen sich selbst zu stellen.
+    """
+    class _MitBewerbung(_DB):
+        def get_dismissed_jobs(self):
+            return [{"score": 99, "dismiss_reason": "auto:bewerbung_erstellt"},
+                    {"score": 1, "dismiss_reason": "falsches_fachgebiet"}]
+
+    sch = _MitBewerbung(range(20, 40)).get_dismissed_jobs()
+    assert len(sch) == 2  # beide stehen im Bestand
+    ergebnis = fachwert.schwellen(_MitBewerbung(range(20, 40)))
+    assert ergebnis["aussortierte"] == 1, "die Bewerbung wurde mitgezaehlt"
+
+
+# --------------------------------------------------------------------
+# Das Signal aus dem eigenen Verhalten (#1052, Antwort auf Frage 3)
+# --------------------------------------------------------------------
+
+def _stelle_mit(titel, text=""):
+    return {"title": titel, "description": text}
+
+
+def _hintergrund(n=40):
+    """Der Bestand, an dem gemessen wird, wie gewoehnlich ein Begriff ist.
+
+    Ohne die beworbenen Stellen — genau das hat die Gegenprobe
+    erzwungen: nimmt man sie mit hinein und sind sie in der Ueberzahl,
+    gelten IHRE Begriffe als gewoehnlich und fallen aus dem Profil.
+    """
+    muster = [
+        ("Sachbearbeitung Einkauf", "Bestellungen, Lieferanten, Rechnungen"),
+        ("Pflegefachkraft Intensivstation", "Pflege, Station, Patienten"),
+        ("Bilanzbuchhalter", "Abschluss, Buchungen, Debitoren"),
+        ("Elektroniker Betriebstechnik", "Schaltschrank, Montage, Wartung"),
+    ]
+    return [_stelle_mit(t, d) for t, d in muster] * (n // len(muster) + 1)
+
+
+def _neigungsprofil(anzahl=12, aussortiert=None, hintergrund=None):
+    beworben = [
+        _stelle_mit("Multiprojektleiter Transformation",
+                    "Portfolio, Transformation, Steuerung, Stakeholder"),
+        _stelle_mit("Transformation Manager",
+                    "Transformation, Portfolio, Steuerung, Stakeholder"),
+        _stelle_mit("Programmleiter Portfolio",
+                    "Portfolio, Steuerung, Transformation, Stakeholder"),
+    ] * (anzahl // 3 + 1)
+    beworben = beworben[:anzahl]
+    if aussortiert is None:
+        aussortiert = [
+            _stelle_mit("Pflegefachkraft Intensivstation",
+                        "Pflege, Station, Patienten"),
+            _stelle_mit("Bilanzbuchhalter", "Abschluss, Buchungen, Debitoren"),
+        ] * 5
+    if hintergrund is None:
+        hintergrund = _hintergrund()
+    return neigung.profil_bauen(beworben, aussortiert, hintergrund)
+
+
+def test_das_signal_hebt_eine_stelle_die_die_wortlisten_uebersehen():
+    """Der gemeldete Fall: ein Multiprojektleiter bei Fachwert 0,0 — und
+    der Mensch hat sich beworben."""
+    p = _neigungsprofil()
+    s = neigung.signal(
+        _stelle_mit("Multiprojektleiter",
+                    "Portfolio und Transformation steuern, Stakeholder"),
+        p, muss_gewicht=3.5)
+    assert s["punkte"] > 0
+    assert s["aehnliche"] > 0
+    assert "beworben" in s["grund"]
+
+
+def test_das_signal_hebt_nur_und_senkt_nie():
+    """Nutzervorgabe, und sie ist der Kern: es soll nichts unterschlagen
+    werden und nicht bevormunden.
+
+    Eine Stelle, die KEINER frueheren aehnelt, bekommt 0 — keinen Abzug.
+    Sonst drueckte das Verfahren jede ungewoehnliche Stelle weg, nur
+    weil sie neu ist, und naegelte den Menschen auf sein bisheriges
+    Berufsleben fest.
+    """
+    p = _neigungsprofil()
+    fremd = neigung.signal(
+        _stelle_mit("Pflegefachkraft", "Station, Patienten, Pflege"),
+        p, muss_gewicht=3.5)
+    assert fremd["punkte"] == 0.0
+    assert fremd["punkte"] >= 0
+
+
+def test_ohne_mindestbasis_bleibt_das_signal_aus():
+    """Aus vier Faellen ein Muster zu lesen heisst, einen Einzelfall zu
+    verkleiden."""
+    p = _neigungsprofil(anzahl=neigung.MIN_BEWORBEN - 1)
+    assert p.get("grundlage_fehlt")
+    s = neigung.signal(_stelle_mit("Multiprojektleiter", "Portfolio"),
+                       p, muss_gewicht=3.5)
+    assert s["punkte"] == 0.0
+
+
+def test_das_signal_nennt_seinen_beleg():
+    """Nachvollziehbar: wer sieht, dass die Aehnlichkeit an einem
+    unerwuenschten Wort haengt, kann gegensteuern."""
+    p = _neigungsprofil()
+    s = neigung.signal(
+        _stelle_mit("Multiprojektleiter", "Portfolio, Transformation"),
+        p, muss_gewicht=3.5)
+    assert s["begriffe"], "ohne die gemeinsamen Begriffe ist es eine Behauptung"
+    for begriff in s["begriffe"]:
+        assert begriff in (p.get("begriffe") or [])
+
+
+def test_das_signal_ueberstimmt_keinen_pflichttreffer():
+    """Es macht sichtbar, es entscheidet nicht.
+
+    Gedeckelt auf den Wert EINES Pflichttreffers — relativ und nicht
+    absolut, aus demselben Grund wie in `muss_tor`: bei einer kurzen
+    MUSS-Liste ist jeder absolute Wert daneben zu gross.
+    """
+    p = _neigungsprofil(anzahl=60)
+    s = neigung.signal(
+        _stelle_mit("Multiprojektleiter Transformation Portfolio",
+                    "Portfolio, Transformation, Steuerung, Stakeholder"),
+        p, muss_gewicht=3.5)
+    assert s["punkte"] <= 3.5 * neigung.ANTEIL_EINES_TREFFERS
+
+
+def test_ohne_muss_gewicht_gibt_es_kein_signal():
+    """Ohne Pflichtbegriffe gibt es keinen Massstab, an dem sich das
+    Signal relativieren liesse — dann bleibt es aus statt zu raten."""
+    p = _neigungsprofil()
+    s = neigung.signal(_stelle_mit("Multiprojektleiter", "Portfolio"),
+                       p, muss_gewicht=0)
+    assert s["punkte"] == 0.0
+
+
+def test_ein_begriff_der_auch_in_den_absagen_steht_kommt_nicht_ins_profil():
+    """Gesucht ist der UNTERSCHIED, nicht die Haeufigkeit.
+
+    Steht ein Wort genauso oft in den aussortierten Stellen, sagt es
+    nichts ueber die Neigung — es ist nur ein haeufiges Wort. Ohne diese
+    Pruefung waere das Profil eine Liste der gewoehnlichsten Begriffe
+    der eigenen Branche.
+    """
+    # "Portfolio" steht jetzt auch in den Absagen, und zwar oefter.
+    absagen = [_stelle_mit("Sachbearbeitung Portfolio",
+                           "Portfolio, Ablage, Vorgaenge")] * 40
+    p = _neigungsprofil(aussortiert=absagen)
+    assert "portfolio" not in (p.get("begriffe") or [])
+    # Die Gegenrichtung: was NUR in den Bewerbungen steht, bleibt drin.
+    assert "transformation" in (p.get("begriffe") or [])
+
+
+def test_ein_einziger_gemeinsamer_begriff_traegt_kein_signal():
+    """Ein Wort ist kein Muster.
+
+    Dieselbe Lehre wie #1028, wo "fuer" als gemeinsames Fachgebiet
+    galt: ein einzelnes geteiltes Wort genuegt nicht, sonst aehnelt
+    jede Stelle jeder.
+    """
+    p = _neigungsprofil()
+    eins = neigung.signal(
+        _stelle_mit("Sachbearbeitung Transformation", "Ablage, Vorgaenge"),
+        p, muss_gewicht=3.5)
+    assert eins["punkte"] == 0.0, "ein gemeinsamer Begriff hat schon getragen"
+    zwei = neigung.signal(
+        _stelle_mit("Sachbearbeitung Transformation", "Portfolio, Ablage"),
+        p, muss_gewicht=3.5)
+    assert zwei["punkte"] > 0
+
+
+def test_ein_begriff_der_fast_ueberall_steht_kommt_nicht_ins_profil():
+    """Ein Wort in jeder zweiten Anzeige unterscheidet nichts.
+
+    Der Filter misst das am HINTERGRUND ohne die beworbenen Stellen —
+    sonst gelten die eigenen Begriffe als gewoehnlich.
+    """
+    # "Transformation" steht in fast jeder Stelle des Bestands.
+    ueberall = [_stelle_mit("Sachbearbeitung", "Transformation, Ablage")] * 40
+    p = _neigungsprofil(hintergrund=ueberall)
+    assert "transformation" not in (p.get("begriffe") or [])
+    assert "portfolio" in (p.get("begriffe") or [])
+
+
+def test_ablehnungsgruende_und_detailurteile_gehen_nicht_ein():
+    """Ausdruecklich ausgeschlossen (Nutzerantwort auf Frage 3).
+
+    Die Ablehnungsgruende sind ueberwiegend Rahmenaussagen und wuerden
+    im Fachwert wieder vermischen, was #1052 trennt. Die Detailurteile
+    stehen bereits neben dem Score; sie in die Zahl zu ziehen hiesse,
+    dasselbe zweimal zu zaehlen.
+    """
+    quelle = (Path(neigung.__file__).read_text(encoding="utf-8")
+              .split('"""', 2)[2])
+    # `dismiss_reason` steht im Modul und darf es: damit werden die
+    # EIGENEN Bewerbungen aus der Negativ-Menge gehalten (#941). Der
+    # erste Entwurf dieses Guards verbot es pauschal und schlug damit an
+    # einer korrekten Stelle an — ein Guard, der bei richtigem Zustand
+    # Alarm gibt, wird nach dem zweiten Mal ignoriert (#929).
+    verboten = (
+        # Ablehnungs-VOKABULAR als Signal: das waere die Vermischung,
+        # die #1052 gerade aufloest.
+        "falsches_fachgebiet", "zu_weit_entfernt", "gehalt_zu_niedrig",
+        "ablehnungsgrund", "dismiss_counts",
+        # Die Detailurteile stehen neben dem Score, nicht darin.
+        "analyse_urteil", "get_job_analysis", "passung",
+    )
+    for wort in verboten:
+        assert wort not in quelle, (
+            f"{wort} darf nicht in die Rechnung eingehen")
+    assert "bewerbung_erstellt" in quelle, (
+        "Die eigenen Bewerbungen muessen aus der Negativ-Menge fallen.")
 
 
 # --------------------------------------------------------------------
@@ -450,3 +700,24 @@ def test_jeder_teil_nennt_seinen_grund():
     for name, teil in d["teile"].items():
         assert teil["grund"], name
         assert teil["stufe"] in (rahmen.HOCH, rahmen.MITTEL, rahmen.RUNTER)
+
+
+def test_die_stoppwoerter_stehen_an_genau_einer_stelle():
+    """#963 an einer neuen Stelle.
+
+    `keyword_vorschlaege` und das Neigungssignal beantworten dieselbe
+    Frage — welche Woerter eines Anzeigentextes tragen Inhalt. Solange
+    beide ihre eigene Liste haben, laufen sie beim ersten neuen
+    Fuellwort auseinander, und niemand merkt es: die eine Seite haelt
+    "Qualifikation" fuer einen Fachbegriff, die andere nicht.
+
+    Geprueft wird nicht die Zahl der Fundstellen, sondern die BAUFORM —
+    eine Aufzaehlung findet nur, was man beim Schreiben kannte
+    (v1.7.100 MERKE 3).
+    """
+    from bewerbungs_assistent.tools import analyse
+    quelle = Path(analyse.__file__).read_text(encoding="utf-8")
+    assert "_stopwords = {" not in quelle, (
+        "Das Werkzeug haelt wieder eine eigene Stoppwortliste — sie "
+        "gehoert in services/neigung.py.")
+    assert "from ..services.neigung import begriffe" in quelle

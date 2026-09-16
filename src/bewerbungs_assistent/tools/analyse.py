@@ -2348,48 +2348,14 @@ def register(mcp, db, logger):
         ausschluss = [kw.lower() for kw in criteria.get("keywords_ausschluss", [])]
         alle_keywords = set(muss + plus)
 
-        # Erweiterte Stoppwoerter: typische DACH-Stellenbeschreibungs-Floskeln,
-        # die fast in jeder Anzeige vorkommen und keine Aussagekraft haben.
-        _stopwords = {
-            # Funktionswoerter
-            "und", "oder", "der", "die", "das", "den", "dem", "des", "ein", "eine", "einer", "einem", "einen",
-            "ist", "sind", "war", "waren", "hat", "habe", "haben", "wird", "werden", "wurde", "wurden",
-            "mit", "ohne", "von", "vor", "nach", "fuer", "für", "als", "bei", "zur", "zum", "zu",
-            "auf", "aus", "nach", "ueber", "über", "unter", "durch", "an", "am", "im", "in", "ins",
-            "nicht", "auch", "sich", "wir", "sie", "uns", "ihr", "ihre", "ihren", "ihrer",
-            "unser", "unsere", "unseren", "unserer", "unserem", "unseres",
-            "deine", "dein", "dich", "dir", "du", "ihrer", "diese", "dieser", "diesem",
-            # Typische Stellenanzeigen-Floskeln
-            "team", "stelle", "stellen", "job", "jobs", "position", "rolle",
-            "aufgabe", "aufgaben", "taetigkeit", "taetigkeiten",
-            "anforderung", "anforderungen", "kenntnisse", "kenntnis", "erfahrung", "erfahrungen",
-            "kollege", "kollegen", "kolleginnen", "mitarbeiter", "mitarbeitern", "mitarbeiterinnen",
-            "kunde", "kunden", "kundinnen", "partner", "partnern",
-            "unternehmen", "firma", "gmbh", "ag", "co", "kg", "ohg", "sa",
-            "bereich", "bereiche", "abteilung", "abteilungen",
-            "projekt", "projekte", "projekten",
-            "arbeit", "arbeiten", "arbeitsplatz", "arbeitsplaetze",
-            "moeglichkeit", "moeglichkeiten",
-            "deutsch", "deutsche", "deutschen", "english", "englisch",
-            "bieten", "bietet", "suchen", "sucht", "gerne", "gern",
-            "sowie", "sowohl", "sowie", "ebenso", "auch",
-            "erstellung", "erstellen", "umsetzung", "umsetzen", "durchfuehrung",
-            "verantwortung", "verantwortlich",
-            "qualifikation", "qualifikationen", "ausbildung",
-            "stunden", "tage", "tag", "wochen", "woche",
-            "montag", "dienstag", "mittwoch", "donnerstag", "freitag",
-            "monat", "monaten", "jahr", "jahre", "jahren",
-            "m/w/d", "m/w", "w/m/d", "w/m", "d/m/w",
-            # Generic Verbs
-            "macht", "machen", "tun", "tuen", "geht", "gehen", "kommt", "kommen",
-            "gibt", "geben", "nehmen", "nimmt", "wird", "werden",
-            "kann", "koennen", "muss", "muessen", "soll", "sollen", "will", "wollen",
-        }
-
-        def _extract_terms(text):
-            # Min 5 Zeichen — eliminiert "team", "ihre", "team" etc.
-            words = re.findall(r'[a-zA-ZäöüÄÖÜß]{5,}', text.lower())
-            return [w for w in words if w not in _stopwords]
+        # v1.7.117 (#1052): Stoppwoerter und Begriffsextraktion wohnen
+        # im Dienst. Dieselbe Frage — welche Woerter eines
+        # Anzeigentextes tragen Inhalt — beantwortet auch das
+        # Neigungssignal; zwei Fassungen liefen beim ersten neuen
+        # Fuellwort auseinander (#963). Vor der Umstellung
+        # gegengeprueft: die wirksamen Teile beider Listen waren
+        # zeichengleich, 111 zu 111.
+        from ..services.neigung import begriffe as _extract_terms
 
         # Versuch 1: Bewerbungen vs. abgelehnte Stellen (User-Wunsch)
         applications = db.get_applications()
