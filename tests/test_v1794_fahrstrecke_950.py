@@ -425,10 +425,17 @@ def test_die_entfernung_aendert_den_score_ueberhaupt(db):
     kriterien = scoring_kriterien.fuer_scoring(db)
     job = {"title": "Python Entwickler", "description": TEXT + " python",
            "remote_level": "vor_ort", "employment_type": "festanstellung"}
-    nah = calculate_score(dict(job, distance_km=10), kriterien)
-    weit = calculate_score(dict(job, distance_km=300), kriterien)
-    route = calculate_score(dict(job, distance_km=10, fahrstrecke_km=300),
-                            kriterien)
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt die
+    # Entfernung nicht mehr. Die geprueste Sache — die Fahrstrecke kostet
+    # wie dieselbe Luftlinie — steht jetzt im Rahmenwert.
+    def _rahmen(**extra):
+        j = dict(job, **extra)
+        calculate_score(j, kriterien)
+        return j["_rahmenscore"]
+
+    nah = _rahmen(distance_km=10)
+    weit = _rahmen(distance_km=300)
+    route = _rahmen(distance_km=10, fahrstrecke_km=300)
     assert weit < nah
     assert route == weit, "die Fahrstrecke kostet wie dieselbe Luftlinie"
 

@@ -58,10 +58,17 @@ def test_910_calculate_score_kompensiert():
     krit = dict(CRITERIA_BASIS, _entfernung_gehalt_spanne=30000)
     # identischer Job, nur das Gehalt unterscheidet sich — der einzige
     # Score-Unterschied neben dem Gehaltsbonus ist der Entfernungs-Malus
-    s_niedrig = calculate_score(_fernjob(80000), krit)
-    s_hoch = calculate_score(_fernjob(110000), krit)
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt die
+    # Entfernung nicht mehr. Die Regel wirkt unveraendert — im
+    # Rahmenwert, der daneben steht.
+    def _rahmen(job, kriterien):
+        calculate_score(job, kriterien)
+        return job["_rahmenscore"]
+
     ohne_komp = dict(CRITERIA_BASIS)
-    s_hoch_ohne = calculate_score(_fernjob(110000), ohne_komp)
+    s_niedrig = _rahmen(_fernjob(80000), krit)
+    s_hoch = _rahmen(_fernjob(110000), krit)
+    s_hoch_ohne = _rahmen(_fernjob(110000), ohne_komp)
     assert s_hoch > s_hoch_ohne, \
         "voll kompensiert muss besser abschneiden als unkompensiert"
     assert s_hoch > s_niedrig

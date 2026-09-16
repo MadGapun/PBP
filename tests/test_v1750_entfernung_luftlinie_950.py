@@ -121,32 +121,39 @@ def test_950_kein_malus_hat_sich_geaendert():
                  "max_entfernung": {"festanstellung": 50}}
     basis = {"title": "PLM Architect", "description": (" ".join(kws) + ". ") * 20,
              "employment_type": "festanstellung", "location": "Melsungen"}
-    nah = calculate_score(dict(basis, distance_km=10.0), kriterien)
-    fern = calculate_score(dict(basis, distance_km=271.5), kriterien)
-    assert nah > fern, "Die Rangfolge nach Entfernung muss erhalten bleiben"
+    # v1.7.117 (#1052): der Score ist der FACHWERT und kennt die
+    # Entfernung nicht mehr. Die Regel wirkt unveraendert — im
+    # Rahmenwert, der daneben steht.
+    _nah, _fern = dict(basis, distance_km=10.0), dict(basis, distance_km=271.5)
+    fach_nah = calculate_score(_nah, kriterien)
+    fach_fern = calculate_score(_fern, kriterien)
+    assert _nah["_rahmenscore"] > _fern["_rahmenscore"], \
+        "Die Rangfolge nach Entfernung muss erhalten bleiben"
     # Und die Stelle verschwindet nicht — Entfernung ist ein Preis,
-    # kein Ausschluss (#910).
-    assert fern > 0
+    # kein Ausschluss (#910). Seit #1052 sogar deutlicher: der Fachwert
+    # bleibt unberuehrt.
+    assert fach_fern == fach_nah > 0
 
 
-def test_950_nebenbefund_ein_einziger_muss_begriff_kippt_auf_null():
-    """Beim Schreiben des Tests darueber aufgefallen, hier festgehalten.
+def test_950_nebenbefund_ein_einziger_muss_begriff_kippt_nicht_mehr():
+    """Der Nebenbefund von v1.7.50 — und seine Aufloesung.
 
-    Mit genau EINEM MUSS-Begriff ist der Fachscore so klein (2 Punkte),
-    dass der Entfernungsmalus ihn ueberholt: `calculate_score` kappt bei
-    0, und eine Fernstelle sieht damit aus wie eine, die das MUSS-Tor
-    gar nicht passiert hat. Zwei verschiedene Sachverhalte, eine Zahl.
+    Damals festgehalten: mit genau EINEM MUSS-Begriff ist der Fachscore
+    so klein (2 Punkte), dass der Entfernungsmalus ihn ueberholt.
+    `calculate_score` kappte bei 0, und eine Fernstelle sah damit aus wie
+    eine, die das MUSS-Tor gar nicht passiert hat — zwei verschiedene
+    Sachverhalte, eine Zahl.
 
-    Das ist NICHT Gegenstand von #950 (dort geht es um die Benennung der
-    Kilometerzahl) und auch kein Defekt im engeren Sinn — bei drei und
-    mehr Begriffen tritt es nicht auf, siehe Messung im Test darueber.
-    Der Test haelt das Verhalten fest, damit die Grenze bekannt bleibt
-    und eine kuenftige Aenderung daran auffaellt.
+    Genau das war der Anlass fuer #1052. Seit der Trennung geht die
+    Entfernung nicht mehr in den Fachwert ein: die Stelle behaelt ihre
+    zwei Punkte, und der Preis steht im Rahmenwert. Der Test bleibt
+    stehen und prueft jetzt die Aufloesung statt der Grenze.
     """
     from bewerbungs_assistent.job_scraper import calculate_score
     kriterien = {"keywords_muss": ["plm"],
                  "max_entfernung": {"festanstellung": 50}}
     basis = {"title": "PLM Architect", "description": "PLM " * 40,
              "employment_type": "festanstellung", "location": "Melsungen"}
-    assert calculate_score(dict(basis, distance_km=10.0), kriterien) > 0
-    assert calculate_score(dict(basis, distance_km=271.5), kriterien) == 0
+    nah, fern = dict(basis, distance_km=10.0), dict(basis, distance_km=271.5)
+    assert calculate_score(nah, kriterien) == calculate_score(fern, kriterien) > 0
+    assert fern["_rahmenscore"] < nah["_rahmenscore"]

@@ -290,7 +290,11 @@ def test_987_teilscores_beim_regulaeren_ausgang_unveraendert():
     score = calculate_score(job, _kriterien())
     assert score > 0
     assert job["_fachscore"] > 0
-    assert "_rahmen_ungedeckelt" in job
+    # v1.7.117 (#1052): `_rahmen_ungedeckelt` ist weg — es zeigte den
+    # Rahmen ohne den Deckel aus #942, und gegen die Entfernung gibt es
+    # den nicht mehr. Geprueft wird jetzt, was gemeint war: beide Teile
+    # stehen am regulaeren Ausgang da.
+    assert "_rahmenscore" in job
 
 
 # ── Der Vertrag, um den es geht ───────────────────────────────────────

@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from bewerbungs_assistent.job_scraper import (  # noqa: E402
-    calculate_score, fit_analyse, score_maximum,
+    calculate_score, fach_maximum, fit_analyse, score_maximum,
 )
 from bewerbungs_assistent.tools.jobs import _build_empfehlung  # noqa: E402
 
@@ -68,8 +68,15 @@ def test_999_volltreffer_erreicht_das_maximum_bei_jeder_listenlaenge():
     """
     for n in (1, 3, 5, 10, 20, 40):
         job, kriterien = _volltreffer(n)
+        # v1.7.117 (#1052): der Bezug ist jetzt das FACHmaximum.
+        # `total_score` ist seit der Trennung der Fachwert, und der
+        # kann den Rahmen-Anteil des alten Gesamtmaximums gar nicht
+        # mehr erreichen. Die geprueste EIGENSCHAFT bleibt dieselbe —
+        # nur die Skala, an der sie gemessen wird, ist jetzt die
+        # richtige. Mit dem alten Bezug waere sie STILL gebrochen
+        # gewesen, und genau davor warnt dieser Test seit #999.
         assert fit_analyse(dict(job), kriterien)["total_score"] == \
-            score_maximum(kriterien), f"{n} MUSS-Begriffe"
+            fach_maximum(kriterien), f"{n} MUSS-Begriffe"
 
 
 def test_999_das_maximum_waechst_mit_der_liste():
@@ -194,10 +201,22 @@ def test_999_der_score_wurde_nicht_umgerechnet():
     """#989 MERKE (3): der Score misst, was in der Anzeige steht — das
     ist eine Messung. Die Einordnung ist eine Darstellung und zieht dort
     die Konsequenz. Gespeicherte Zahlen still umzuschreiben waere
-    derselbe Fehler wie #987, nur diesmal absichtlich."""
+    derselbe Fehler wie #987, nur diesmal absichtlich.
+
+    v1.7.117 (#1052): die Zahl hat sich geaendert (15,0 -> Fachwert), die
+    Aussage nicht. Sie stand hier als Literal und misst damit den Stand
+    von v1.7.49, nicht die Eigenschaft. Geprueft wird jetzt, was gemeint
+    war: der Score ist eine Punktzahl aus der Anzeige und KEINE
+    Prozentzahl — der Nutzer hat das Prozent-Kriterium am 16.09.2026
+    ausdruecklich zurueckgezogen, weil es weder Ober- noch Untergrenze
+    gibt.
+    """
     job, kriterien = _volltreffer(5)
-    assert calculate_score(dict(job), kriterien) == 15.0
-    assert fit_analyse(dict(job), kriterien)["total_score"] == 15.0
+    erwartet = fach_maximum(kriterien)
+    assert calculate_score(dict(job), kriterien) == erwartet
+    assert fit_analyse(dict(job), kriterien)["total_score"] == erwartet
+    # Und ausdruecklich nicht auf eine 100er-Skala gerechnet.
+    assert erwartet != 100
 
 
 def test_999_beide_rechenwege_kennen_dasselbe_maximum():
@@ -205,6 +224,11 @@ def test_999_beide_rechenwege_kennen_dasselbe_maximum():
     EINER Funktion, die beide Wege dieselben Kriterien fragen laesst."""
     for n in (5, 20):
         job, kriterien = _volltreffer(n)
-        aus_fit = fit_analyse(dict(job), kriterien)["total_score_max"]
-        assert aus_fit == score_maximum(kriterien)
-        assert calculate_score(dict(job), kriterien) <= aus_fit
+        ergebnis = fit_analyse(dict(job), kriterien)
+        # Der Bezug des Fachwerts ist das Fachmaximum ...
+        assert ergebnis["total_score_max"] == fach_maximum(kriterien)
+        # ... und der Gesamt-Hoechstwert steht weiter daneben, damit
+        # ihn niemand neu erfindet.
+        assert ergebnis["gesamt_score_max"] == score_maximum(kriterien)
+        assert calculate_score(dict(job), kriterien) <= ergebnis[
+            "total_score_max"]

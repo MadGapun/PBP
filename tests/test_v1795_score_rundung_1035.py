@@ -201,7 +201,24 @@ def test_ak4_fach_und_rahmen_ergeben_den_score(gewichte):
            "remote_level": "hybrid", "employment_type": "festanstellung"}
     score = calculate_score(job, kriterien)
     assert score > 0, "ohne Treffer prueft der Fall nichts"
-    assert round(job["_fachscore"] + job["_rahmenscore"], 1) == score
+    # v1.7.117 (#1052): die Zusicherung aus #1035 ist AUFGEHOBEN, und
+    # zwar absichtlich. Sie lautete "die Teile ergeben die Summe" und war
+    # richtig, solange es eine Summe gab. Genau die gibt es nicht mehr:
+    # Fachwert und Rahmenwert stehen nebeneinander und werden nirgends
+    # addiert (Akzeptanzkriterium 1 von #1052).
+    #
+    # Was von #1035 GILT, ist die Rundungsregel dahinter: erst die Teile
+    # runden, dann rechnen. Sonst steht neben "fachlich 7,5" ein Score
+    # mit einem Rechenrest, und eine Erklaerung, die nicht aufgeht, ist
+    # schlimmer als keine.
+    assert job["_fachscore"] == round(job["_fachscore"], 1)
+    assert job["_rahmenscore"] == round(job["_rahmenscore"], 1)
+    assert score == round(score, 1)
+    # Und die Probe darauf, dass wirklich nicht mehr addiert wird: der
+    # Rahmen dieser Anzeige ist von null verschieden, die Summe waere
+    # also eine andere Zahl.
+    assert job["_rahmenscore"] != 0
+    assert round(job["_fachscore"] + job["_rahmenscore"], 1) != score
 
 
 # ====================================== Befund 4: Ausnahmen erkennbar

@@ -118,22 +118,30 @@ def test_968_gewichtet_laesst_die_stelle_sichtbar():
     assert not job.get("_ko_kein_muss")
 
 
-def test_968_der_rahmen_deckel_haette_den_fix_wirkungslos_gemacht():
-    """Die Falle, an der ein naiver Fix scheitert.
+def test_968_die_gewichtung_nimmt_einen_eigenen_rechenweg():
+    """Die Falle, an der ein naiver Fix scheitert — in neuer Gestalt.
 
-    `deckel = faktor * fachscore`, und ohne Pflichttreffer ist der
-    Fachscore 0. Ein blosses Weglassen des `return 0` haette den
-    positiven Rahmen vollstaendig weggeschnitten und die Stelle wieder
-    bei 0 abgelegt. Der Test haelt fest, dass die Gewichtung an dieser
-    Stelle einen EIGENEN Rechenweg nimmt.
+    Urspruenglich: `deckel = faktor * fachscore`, und ohne
+    Pflichttreffer ist der Fachscore 0; ein blosses Weglassen des
+    `return 0` haette den positiven Rahmen weggeschnitten und die Stelle
+    wieder bei 0 abgelegt.
+
+    v1.7.117 (#1052): den Rahmen-Deckel gibt es nicht mehr, und der
+    Rahmen geht gar nicht mehr in die Zahl ein. Die Einsicht bleibt:
+    der Weg ohne Pflichttreffer rechnet EIGENS, naemlich aus dem, was
+    fachlich uebrig ist — den Wunschbegriffen. Der Rahmen zaehlt hier
+    bewusst nicht mit, sonst stuende eine nahe, remote ausgeschriebene
+    Stelle ohne jeden Fachbezug in der Liste wie eine passende (#1051,
+    dritter Befund).
     """
     job = dict(FREMDE_ANZEIGE)
     krit = _kriterien(muss_tor.GEWICHTET)
     punkte = calculate_score(job, krit)
+    assert punkte > 0, "in `gewichtet` verschwindet die Stelle nicht"
     # Der Rahmen dieser Anzeige ist deutlich positiv (remote + nah) —
-    # unter dem Deckel des Fachscores 0 waere davon nichts uebrig.
-    assert job["_rahmen_ungedeckelt"] > 0
-    assert punkte == job["_rahmenscore"] > 0
+    # und geht trotzdem NICHT in die Zahl ein.
+    assert job["_rahmenscore"] > 0
+    assert punkte != job["_rahmenscore"]
     # ... und der Fachscore bleibt ehrlich bei 0: es gibt keinen.
     assert job["_fachscore"] == 0
 
@@ -204,7 +212,22 @@ def test_968_die_rangfolge_haelt_auch_wenn_der_score_es_nicht_tut():
     ueber einer stehen, die einen Pflichtbegriff trifft — auch dann
     nicht, wenn sie mehr Punkte hat.
     """
+    # v1.7.117 (#1052): der urspruengliche Anlass ist ENTFALLEN, und
+    # das ist der Fortschritt. Dort zogen 400 km die passende Anzeige auf
+    # 0, sodass sie nach Punkten unter der fremden stand. Die Entfernung
+    # geht nicht mehr in den Fachwert ein — also kann sie das nicht mehr.
+    #
+    # Die Garantie gilt trotzdem weiter, und sie muss weiter geprueft
+    # werden: sie haengt an der SORTIERUNG, nicht an der Zahl. Der Anlass
+    # wird deshalb mit einem MINUS-Treffer hergestellt — der wirkt
+    # fachlich und darf den Wert seit #1052 sogar ins Minus druecken.
     krit = _kriterien(muss_tor.GEWICHTET)
+    krit["keywords_minus"] = ["Station"]
+    krit["gewichtung"] = dict(krit.get("gewichtung") or {}, minus=20)
+    # Ohne diese Zeile begrenzt der MINUS-Deckel aus #1045 den Abzug auf
+    # die Haelfte des Fachwerts, und beide Anzeigen landen bei derselben
+    # Zahl — der Fall pruefte dann nichts.
+    krit["minus_deckel_faktor"] = 99
     fremd, passend = dict(FREMDE_ANZEIGE), dict(PASSENDE_ANZEIGE)
     p_fremd = calculate_score(fremd, krit)
     p_passend = calculate_score(passend, krit)
