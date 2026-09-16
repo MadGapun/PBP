@@ -105,6 +105,132 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.117] - 2026-09-16 — Zwei Daumen statt einer Zahl
+
+Zweiter Schritt aus #1052. Der Score ist ab jetzt der **Fachwert** — was
+die Anzeige ueber die Passung sagt. Die Rahmenbedingungen (Entfernung,
+Gehalt, Vertragsform) stehen als **eigener Wert daneben** und werden
+nirgends dazugerechnet.
+
+Der Anlass in einem Satz: 400 km zogen den fachlich besten Treffer des
+Bestands auf 0, und dort war er von einer fachfremden Anzeige nicht mehr
+zu unterscheiden.
+
+### Added
+
+- **Zwei Daumen an jeder Stelle**, auf der Karte, im Detail-Dialog und in
+  der Liste im Chat. Jeder traegt ZWEI Angaben: die **Richtung**
+  (hoch/mittel/runter) kommt aus den Daten, die **Farbe** sagt, wie gut
+  sie belegt sind. Ein grauer Daumen nach unten heisst "sieht schlecht
+  aus, aber ungeprueft" — beides in ein Symbol zu ziehen haette
+  "ungeprueft" wieder wie "passt nicht" aussehen lassen.
+- **Der Fachdaumen misst an deinem eigenen Bestand.** Die Schwellen
+  kommen aus der Verteilung der Stellen, auf die du dich beworben hast:
+  unterhalb des unteren Viertels (mal 0,8) zeigt er nach unten, ab dem
+  oberen Viertel nach oben. Unter zwanzig Bewerbungen bleibt er grau —
+  eine Ersatzschwelle waere geraten.
+- **Filter "Rahmen passt nicht ausblenden"**, Vorgabe AN. Er blendet nur
+  aus, was BELEGT nicht passt; Ungeprueftes bleibt stehen. Er steht
+  sichtbar in der Filterzeile, nennt die Zahl der ausgeblendeten Stellen
+  und ist mit einem Klick aus.
+- **Das fachlich Erreichbare** steht im Detail-Dialog als Zahl daneben —
+  ausdruecklich NICHT als Prozentwert: es gibt weder Ober- noch
+  Untergrenze, und je nach gepflegten MINUS-Begriffen kann die beste
+  Stelle im Minus liegen.
+- **`suchkriterien_setzen(min_score_schwelle=N)`.** Der Weg wurde an drei
+  Stellen so genannt, und das Werkzeug hatte den Parameter nicht.
+
+### Changed
+
+- **Der Score heisst Fachwert** — auf der Karte, im Dialog und in der
+  Sortierung. Entfernung, Remote-Anteil und Gehalt gehen nicht mehr in
+  ihn ein.
+- **Keine Kappung bei 0 mehr.** Ein negativer Fachwert ist eine Aussage,
+  und eine Stelle bei -8 darf nicht aussehen wie eine bei 0.
+- **Deine Score-Schwelle meint jetzt etwas anderes** und filtert deshalb
+  schaerfer, ohne dass du sie angefasst hast. PBP sagt das — im
+  Stellen-Tab und in `scoring_konfigurieren('anzeigen')` — und
+  `kalibrierung_backtest()` schlaegt einen neuen Wert vor. Der kommt aus
+  deiner eigenen Bewerbungshistorie, nicht aus einer Umrechnungsformel.
+  Sobald du die Schwelle anfasst — oder sie bewusst laesst —, schweigt
+  der Hinweis.
+- **Der positive Deckel wirkt jetzt auf die PLUS-Begriffe** innerhalb des
+  Fachwerts; Remote, Naehe und Gehalt stehen im Rahmenwert und sind
+  ungedeckelt. Die Anzeige sagt das so.
+
+### Removed
+
+- **Der Gesamt-Hoechstwert** (`score_maximum`, `gesamt_score_max`). Er
+  war der Hoechstwert der Summe, und die bildet seit diesem Release
+  niemand mehr. Gelesen hat ihn ohnehin keiner — der Name lud nur dazu
+  ein, die Summe wieder zu bauen.
+
+### Gemessen
+
+Auf einer **Kopie** des eigenen Bestands (das Original wurde nie
+angefasst), ueber eine feste Stichprobe von 500 aussortierten Stellen,
+jede behandelt als kaeme sie frisch herein:
+
+- Der **Rahmendaumen ist bei 87 % grau** — Entfernung oder Gehalt sind
+  nicht belegt. Das ist die ehrliche Auskunft und kein Defekt: unbekannt
+  ist nicht "passt nicht". Er wird genau in dem Mass aussagekraeftiger,
+  in dem Orte geocodet und Gehaelter belegt sind.
+- Der neue Filter blendet in seiner Vorgabe **3 von 500** Stellen aus,
+  keine davon fachlich im oberen Viertel. 63 weitere zeigen nach unten,
+  bleiben aber stehen, weil die Angaben fehlen.
+- Von 203 Stellen, die der Mensch selbst als "zu weit entfernt"
+  aussortiert hat, zeigt der Rahmendaumen bei 89 nach unten — belegt nur
+  bei zweien. Auch das ist die fehlende Entfernungsangabe.
+- Die eigenen Bewerbungen ergeben Trennschwelle **7,2** und oberes
+  Viertel **28,9** (Median 17,0); 21,8 % der aussortierten Stellen liegen
+  ueber der Trennschwelle.
+
+### Fixed
+
+- Ein Browser-Test klickte `Passt nicht` als TEILSTRING und traf seit
+  diesem Release den neuen Filter statt den Karten-Knopf.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung überall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.117.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.117.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner wählen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup lädt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknüpfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop öffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geöffnet werden"): Rechtsklick auf die Datei → *„Öffnen"* → nochmal *„Öffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer älteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
 ## [1.7.116] - 2026-09-15 — Abzuege mit Grenze, Schwelle aus dem Quantil
 
 Erster Schritt aus #1052 und die Rechenfehler aus #1045. Die Umordnung
