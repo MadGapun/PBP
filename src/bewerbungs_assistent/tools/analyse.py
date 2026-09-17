@@ -107,21 +107,27 @@ def register(mcp, db, logger):
             )
             conn.commit()
 
-        # Compare with profile preferences
-        profile = db.get_profile()
+        # v1.7.118 (#1055): der Vergleich las die Job-Praeferenzen am
+        # Profil — eine zweite Ablage ohne Eingabefeld, die seit der
+        # Ersterfassung nie nachgezogen wurde. Gemessen standen dort
+        # 80.000, auf der Einstellungsseite 75.000. Es gilt die
+        # Einstellungsseite (Nutzervorgabe 17.09.2026).
+        from ..services import praeferenzen_quelle as _pq
+        wunsch = _pq.wunschwerte(db)
         vergleich = {}
-        if profile and profile.get("preferences"):
-            prefs = profile["preferences"]
-            if salary_type in ("jaehrlich", "jahr") and prefs.get("min_gehalt"):
-                min_g = float(prefs["min_gehalt"])
+        if wunsch:
+            if salary_type in ("jaehrlich", "jahr") and wunsch.get("min_gehalt"):
+                min_g = wunsch["min_gehalt"]
                 vergleich["dein_minimum"] = min_g
                 vergleich["passt"] = salary_max >= min_g
-                if prefs.get("ziel_gehalt"):
-                    vergleich["dein_ziel"] = float(prefs["ziel_gehalt"])
-            elif salary_type in ("taeglich", "tag") and prefs.get("min_tagessatz"):
-                min_t = float(prefs["min_tagessatz"])
+                if wunsch.get("ziel_gehalt"):
+                    vergleich["dein_ziel"] = wunsch["ziel_gehalt"]
+            elif salary_type in ("taeglich", "tag") and wunsch.get("min_tagessatz"):
+                min_t = wunsch["min_tagessatz"]
                 vergleich["dein_minimum"] = min_t
                 vergleich["passt"] = salary_max >= min_t
+            if vergleich:
+                vergleich["quelle"] = "Suchkriterien (Einstellungsseite)"
 
         return {
             "status": "geschaetzt" if is_estimated else "extrahiert",
@@ -142,14 +148,16 @@ def register(mcp, db, logger):
         und Freelance. Vergleicht mit deinen Gehaltsvorstellungen.
         """
         stats = db.get_salary_statistics()
-        profile = db.get_profile()
-        if profile and profile.get("preferences"):
-            prefs = profile["preferences"]
+        # #1055: aus den Suchkriterien, nicht aus den Praeferenzen.
+        from ..services import praeferenzen_quelle as _pq
+        wunsch = _pq.wunschwerte(db)
+        if wunsch:
             stats["deine_vorstellungen"] = {
-                "min_gehalt": prefs.get("min_gehalt"),
-                "ziel_gehalt": prefs.get("ziel_gehalt"),
-                "min_tagessatz": prefs.get("min_tagessatz"),
-                "ziel_tagessatz": prefs.get("ziel_tagessatz"),
+                "min_gehalt": wunsch.get("min_gehalt"),
+                "ziel_gehalt": wunsch.get("ziel_gehalt"),
+                "min_tagessatz": wunsch.get("min_tagessatz"),
+                "ziel_tagessatz": wunsch.get("ziel_tagessatz"),
+                "quelle": "Suchkriterien (Einstellungsseite)",
             }
         stats["tipp"] = (
             "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschätzt. "

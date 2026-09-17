@@ -365,14 +365,14 @@ def register(mcp, db, logger):
         # Preferences
         if prefs:
             lines.append("\n--- Job-Präferenzen ---")
+            # v1.7.118 (#1055): Gehalt und Saetze stehen NICHT mehr
+            # hier — sie kommen aus den Suchkriterien und werden unten
+            # mit ihrer Quelle genannt. In dieser Liste stehen nur die
+            # Angaben, die es nur an diesem einen Ort gibt.
             pref_labels = {
                 "stellentyp": "Stellentyp", "arbeitsmodell": "Arbeitsmodell",
-                "min_gehalt": "Min. Gehalt (EUR/Jahr)", "ziel_gehalt": "Ziel-Gehalt (EUR/Jahr)",
-                "min_tagessatz": "Min. Tagessatz (EUR)", "ziel_tagessatz": "Ziel-Tagessatz (EUR)",
-                "min_stundensatz": "Min. Stundensatz (EUR/h)", "ziel_stundensatz": "Ziel-Stundensatz (EUR/h)",
                 "remote_anteil": "Remote-Anteil (%)", "max_vor_ort_tage": "Max. Vor-Ort-Tage/Woche",
                 "reisebereitschaft": "Reisebereitschaft", "umzug_moeglich": "Umzug möglich",
-                "max_entfernung_km": "Max. Entfernung (km)",
             }
             for key, label in pref_labels.items():
                 val = prefs.get(key)
@@ -380,6 +380,28 @@ def register(mcp, db, logger):
                     if isinstance(val, bool):
                         val = "Ja" if val else "Nein"
                     lines.append(f"  {label}: {val}")
+
+        # v1.7.118 (#1055): Gehalt und Saetze kommen aus den
+        # Suchkriterien — der Einstellungsseite. Sie stehen hier mit
+        # ihrer Herkunft, damit niemand sie fuer eine zweite Ablage
+        # haelt: genau das war der gemeldete Fehler.
+        from ..services import praeferenzen_quelle as _pq
+        _wunsch = _pq.wunschwerte(db)
+        if _wunsch:
+            lines.append("\n--- Gehalt und Saetze (aus den Suchkriterien) ---")
+            for key, label in [
+                ("min_gehalt", "Min. Gehalt (EUR/Jahr)"),
+                ("ziel_gehalt", "Nennwert Gehalt (EUR/Jahr)"),
+                ("min_tagessatz", "Min. Tagessatz (EUR)"),
+                ("ziel_tagessatz", "Nennwert Tagessatz (EUR)"),
+                ("min_stundensatz", "Min. Stundensatz (EUR/h)"),
+                ("ziel_stundensatz", "Nennwert Stundensatz (EUR/h)"),
+                ("max_entfernung_km", "Max. Entfernung (km)"),
+            ]:
+                if _wunsch.get(key):
+                    lines.append(f"  {label}: {_wunsch[key]:g}")
+            lines.append("  Geaendert wird das auf der Einstellungsseite "
+                         "oder mit suchkriterien_setzen(...).")
 
         # Positions
         lines.append(f"\n--- Berufserfahrung ({len(positions)} Positionen) ---")
@@ -1026,6 +1048,16 @@ def register(mcp, db, logger):
                 prefs = profile.get("preferences", {})
                 if isinstance(prefs, str):
                     prefs = json.loads(prefs) if prefs else {}
+                # v1.7.118 (#1055): Gehalt und Saetze gehoeren in die
+                # Suchkriterien und NUR dorthin. Sie hier still
+                # mitzuschreiben hat die Doppelung erzeugt, die der
+                # Nutzer gemeldet hat — und ein Wert, den man setzen
+                # kann und der nicht wirkt, ist schlimmer als ein
+                # fehlendes Feld (#988).
+                from ..services import praeferenzen_quelle as _pq
+                _abgewiesen = [f for f in daten if f in _pq.DOPPELTE_FELDER]
+                daten = {k: v for k, v in daten.items()
+                         if k not in _pq.DOPPELTE_FELDER}
                 prefs.update(daten)
                 update_data = {
                     "name": profile.get("name"), "email": profile.get("email"),
@@ -1038,7 +1070,21 @@ def register(mcp, db, logger):
                     "preferences": prefs,
                 }
                 db.save_profile(update_data)
-                return {"status": "aktualisiert", "bereich": "praeferenzen", "neue_werte": prefs}
+                antwort = {"status": "aktualisiert", "bereich": "praeferenzen",
+                           "neue_werte": prefs}
+                if _abgewiesen:
+                    antwort["nicht_uebernommen"] = _abgewiesen
+                    antwort["warum"] = (
+                        "Gehalt, Saetze und die Entfernungsgrenze stehen in den "
+                        "Suchkriterien — das ist die Einstellungsseite, die auch "
+                        "das Scoring liest. Bis v1.7.117 gab es sie zweimal mit "
+                        "verschiedenen Werten (#1055).")
+                    antwort["stattdessen"] = (
+                        "suchkriterien_setzen(min_gehalt=..., wunsch_gehalt=..., "
+                        "min_tagessatz=..., wunsch_tagessatz=..., "
+                        "min_stundensatz=..., wunsch_stundensatz=..., "
+                        "max_entfernung_km=...)")
+                return antwort
 
         elif bereich == "notizen":
             if aktion == "anhang":
