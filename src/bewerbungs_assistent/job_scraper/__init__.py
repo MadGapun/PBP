@@ -947,6 +947,47 @@ def _post_search_cleanup(db, jobs: list) -> dict:
     return {"jobs": cleaned, "stats": stats}
 
 
+def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
+    """Wer braucht eine Ortsaufloesung — und wie viele Orte sind das? (#1057)
+
+    Ausgelassen werden Stellen mit **hartem Ausschluss**: ein
+    Ausschluss-Begriff im Text (#762) oder ein Ort ausserhalb des
+    erreichbaren Rechtsraums (#996). Beide setzen den Score auf 0, ohne
+    die Entfernung je anzusehen — eine Koordinate fuer sie zu holen
+    heisst, einen fremden Dienst fuer ein Ergebnis zu fragen, das
+    niemand liest.
+
+    Die k.o.-Marken bleiben am Job: die Stellen gehen durch dieselbe
+    Filterkaskade wie bisher und werden dort gezaehlt. Gespart wird die
+    Netzabfrage, nicht die Buchfuehrung.
+
+    **Die zweite Zahl ist die ehrliche.** Gefragt wird der Dienst je
+    ORT — `geocode_location` schluesselt seinen Zwischenspeicher auf
+    `location.strip().lower()`, jeder weitere Treffer desselben Orts
+    kostet nichts. Die Laufkarte zaehlte STELLEN und meldete damit
+    "3540/4536 Standorte" fuer einen Bestand von 2692 Stellen. Auf einer
+    Bestandskopie gemessen: 2458 Stellen mit Ort tragen 501
+    verschiedene Ortsstrings, der haeufigste 918-mal.
+
+    Returns:
+        (Stellen zum Geocodieren, verschiedene Orte darunter,
+        uebersprungene k.o.-Stellen)
+    """
+    ko = 0
+    auswahl = []
+    for job in jobs or []:
+        if harter_ausschluss(job, criteria):
+            ko += 1
+            continue
+        if job.get("location") and not job.get("distance_km"):
+            auswahl.append(job)
+    # Dieselbe Normalisierung wie der Zwischenspeicher des Dienstes —
+    # eine eigene waere eine Zahl, die nicht zu den Abfragen passt, also
+    # derselbe Fehler noch einmal.
+    orte = len({str(j.get("location") or "").strip().lower() for j in auswahl})
+    return auswahl, orte, ko
+
+
 def run_search(db, job_id: str, params: dict):
     """Run a background job search across configured sources.
 
@@ -1401,68 +1442,6 @@ def run_search(db, job_id: str, params: dict):
             if any(kw in haystack for kw in _freelance_keywords):
                 job["employment_type"] = "freelance"
 
-    # Geocoding: calculate distance for jobs with location (#167)
-    try:
-        from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
-        user_coords = get_user_coordinates(db)
-        if user_coords:
-            geocoded_count = 0
-            needs_geocoding = [j for j in unique if j.get("location") and not j.get("distance_km")]
-            total_geocode = len(needs_geocoding)
-            if total_geocode > 50:
-                # #215: Warnung bei vielen Geocoding-Requests
-                est_seconds = total_geocode * 1  # 1 req/sec
-                db.update_background_job(
-                    job_id, "running",
-                    progress=int(90),
-                    message=f"Geocoding: {total_geocode} Standorte berechnen (~{est_seconds // 60} Min)..."
-                )
-                logger.info("Geocoding: %d Standorte zu berechnen (~%d Sek bei 1 Req/Sek) (#215)",
-                            total_geocode, est_seconds)
-            for i, job in enumerate(needs_geocoding):
-                loc = job.get("location", "")
-                dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
-                if dist is not None:
-                    job["distance_km"] = dist
-                    geocoded_count += 1
-                    # #965 Befund 2: die Koordinaten mit ablegen. Ohne
-                    # sie liesse sich die RICHTUNG nur durch eine neue
-                    # Netzabfrage bestimmen — und ein Score darf nicht
-                    # am Netz haengen (v1.7.36 MERKE 3). Der Aufruf
-                    # kostet nichts: `geocode_location` liefert den
-                    # Ort aus seinem Cache, er wurde eben aufgeloest.
-                    try:
-                        from ..services.geocoding_service import geocode_location
-                        _koord = geocode_location(loc)
-                        if _koord:
-                            # Die Spalten `lat`/`lon` gibt es in der
-                            # jobs-Tabelle seit jeher und save_jobs
-                            # schreibt sie — nur gesetzt hat sie NIE
-                            # jemand. Zwei tote Spalten, dieselbe Klasse
-                            # wie #993/#1000; hier bekommen sie endlich
-                            # ihren Inhalt.
-                            job["lat"], job["lon"] = _koord
-                    except Exception:
-                        pass
-                # Update progress periodically during geocoding (#215)
-                if total_geocode > 20 and i > 0 and i % 20 == 0:
-                    db.update_background_job(
-                        job_id, "running",
-                        progress=int(90 + (i / total_geocode) * 9),
-                        message=f"Geocoding: {i}/{total_geocode} Standorte..."
-                    )
-            if geocoded_count:
-                logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
-    except Exception as e:
-        logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
-
-    # v1.7.94 (#1034): der Score erst, wenn alles da ist, was er liest — Gehalt,
-    # Anstellungsart und Entfernung. Vorher war der gespeicherte Wert von
-    # keinem anderen Werkzeug nachzurechnen (#987, diesmal an der
-    # Reihenfolge statt an den Kriterien). Die Filter darunter lesen ihn.
-    for job in unique:
-        job["score"] = calculate_score(job, criteria)
-
     # #251 / beta.26: Stellenalter automatisch begrenzen
     # Strategie:
     #   - Wenn last_search_at existiert: max_age = max(7, intervall*2)
@@ -1502,6 +1481,92 @@ def run_search(db, job_id: str, params: dict):
             )
     except Exception as e:
         logger.debug("Stellenalter-Filter fehlgeschlagen: %s", e)
+
+    # v1.7.118 (#1057): wer ohnehin herausfaellt, braucht keine
+    # Koordinaten. Beide harten k.o. lesen nur Text (Ausschluss-Begriff
+    # #762, Rechtsraum #996) — die Entfernung sieht dort kein Rechenweg
+    # an. Gemeldet war eine Laufkarte mit "3540/4536 Standorte" bei 2692
+    # Stellen im ganzen Bestand.
+    #
+    # Die Stellen bleiben in der Liste: sie gehen durch dieselbe
+    # Filterkaskade wie bisher und werden dort gezaehlt. Gespart wird die
+    # Netzabfrage, nicht die Buchfuehrung.
+    needs_geocoding, orte_verschieden, ko_vor_geocoding = geocoding_auswahl(
+        unique, criteria)
+    if ko_vor_geocoding:
+        logger.info("Geocoding uebersprungen fuer %d Stellen mit hartem "
+                    "Ausschluss (#1057)", ko_vor_geocoding)
+
+    # Geocoding: calculate distance for jobs with location (#167)
+    try:
+        from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
+        user_coords = get_user_coordinates(db)
+        if user_coords:
+            geocoded_count = 0
+            total_geocode = len(needs_geocoding)
+            if total_geocode > 50:
+                # #215: Warnung bei vielen Geocoding-Requests.
+                # v1.7.118 (#1057): geschaetzt wird ueber die
+                # VERSCHIEDENEN Orte — der Dienst wird je Ort gefragt,
+                # jeder weitere Treffer desselben Orts kommt aus dem
+                # Zwischenspeicher. Mit der alten Rechnung (eine
+                # Sekunde je Stelle) sagte die Karte fuer einen Lauf 75
+                # Minuten voraus, und die Zahl war der Anlass fuer
+                # #1057.
+                est_seconds = orte_verschieden * 1  # 1 req/sec je Ort
+                db.update_background_job(
+                    job_id, "running",
+                    progress=int(90),
+                    message=(f"Geocoding: {orte_verschieden} verschiedene Orte "
+                             f"aus {total_geocode} Stellen (~{max(1, est_seconds // 60)} Min)...")
+                )
+                logger.info("Geocoding: %d verschiedene Orte aus %d Stellen "
+                            "(~%d Sek bei 1 Req/Sek je Ort) (#215, #1057)",
+                            orte_verschieden, total_geocode, est_seconds)
+            for i, job in enumerate(needs_geocoding):
+                loc = job.get("location", "")
+                dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
+                if dist is not None:
+                    job["distance_km"] = dist
+                    geocoded_count += 1
+                    # #965 Befund 2: die Koordinaten mit ablegen. Ohne
+                    # sie liesse sich die RICHTUNG nur durch eine neue
+                    # Netzabfrage bestimmen — und ein Score darf nicht
+                    # am Netz haengen (v1.7.36 MERKE 3). Der Aufruf
+                    # kostet nichts: `geocode_location` liefert den
+                    # Ort aus seinem Cache, er wurde eben aufgeloest.
+                    try:
+                        from ..services.geocoding_service import geocode_location
+                        _koord = geocode_location(loc)
+                        if _koord:
+                            # Die Spalten `lat`/`lon` gibt es in der
+                            # jobs-Tabelle seit jeher und save_jobs
+                            # schreibt sie — nur gesetzt hat sie NIE
+                            # jemand. Zwei tote Spalten, dieselbe Klasse
+                            # wie #993/#1000; hier bekommen sie endlich
+                            # ihren Inhalt.
+                            job["lat"], job["lon"] = _koord
+                    except Exception:
+                        pass
+                # Update progress periodically during geocoding (#215)
+                if total_geocode > 20 and i > 0 and i % 20 == 0:
+                    db.update_background_job(
+                        job_id, "running",
+                        progress=int(90 + (i / total_geocode) * 9),
+                        message=(f"Geocoding: {i}/{total_geocode} Stellen "
+                                 f"({orte_verschieden} verschiedene Orte)...")
+                    )
+            if geocoded_count:
+                logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
+    except Exception as e:
+        logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
+
+    # v1.7.94 (#1034): der Score erst, wenn alles da ist, was er liest — Gehalt,
+    # Anstellungsart und Entfernung. Vorher war der gespeicherte Wert von
+    # keinem anderen Werkzeug nachzurechnen (#987, diesmal an der
+    # Reihenfolge statt an den Kriterien). Die Filter darunter lesen ihn.
+    for job in unique:
+        job["score"] = calculate_score(job, criteria)
 
     # Filter out zero-score jobs (#53) — no keyword match = irrelevant
     # v1.7.22 (#940): Stufe 0 der Filterkaskade. Die Zaehler wandern ins
@@ -2834,6 +2899,65 @@ def _neigung_beleg(job: dict, criteria: dict, w: dict) -> dict:
     }
 
 
+def harter_ausschluss(job: dict, criteria: dict,
+                      text: str | None = None) -> dict | None:
+    """Faellt diese Stelle raus, ohne dass irgendetwas gerechnet wird? (#1057)
+
+    Zwei Gruende beenden die Bewertung sofort, und beide lesen
+    ausschliesslich Text:
+
+    * ein **Ausschluss-Begriff** in Titel oder Beschreibung (#762,
+      striktes Matching — der harte k.o. darf nicht fuzzy feuern),
+    * ein Ort **ausserhalb des erreichbaren Rechtsraums** (#996, nur bei
+      Positivbeleg; "Bedford" bleibt unbekannt).
+
+    **Warum das eine eigene Funktion ist.** Der Suchlauf geocodiert vor
+    der Bewertung — der Score liest die Entfernung, sie muss also vorher
+    dastehen (#1034). Fuer eine Stelle mit hartem k.o. liest sie
+    niemand: die Rueckgabe ist 0, egal wie weit sie weg ist. Ohne diese
+    Auskunft fragte PBP fuer jede spaeter verworfene Anzeige einen
+    fremden Dienst nach Koordinaten, die kein Rechenweg je ansieht
+    (#1057: gemeldet waren 4536 Standorte in einem Lauf bei 2692 Stellen
+    im ganzen Bestand).
+
+    Die Pruefung im Suchlauf ein zweites Mal hinzuschreiben waere das
+    Muster, das dieses Projekt seit #963 immer wieder gekostet hat.
+    Deshalb entscheidet sie hier, und beide Aufrufer fragen sie.
+
+    Args:
+        text: der schon gebaute Vergleichstext (Titel plus Anzeige ohne
+            PBP-Notizen, klein). `calculate_score` hat ihn ohnehin und
+            reicht ihn herein; sonst entsteht er hier.
+
+    Returns:
+        `None`, wenn nichts greift — sonst der GRUND. Die Marken stehen
+        zusaetzlich am Job (`_ko_ausschluss` / `_ko_ausserhalb`), damit
+        der Trichter sie zaehlen kann.
+    """
+    if not isinstance(criteria, dict):
+        return None
+    if text is None:
+        # Dieselbe Grundlage wie in `calculate_score`: der Anzeigentext
+        # OHNE die redaktionellen PBP-Notizen (#603). Ein k.o. aus einer
+        # eigenen Notiz waere ein Eigentor — genau das war #917 Defekt D.
+        titel = str(job.get("title") or "")
+        beschreibung = _strip_pbp_notes(str(job.get("description") or ""))
+        text = f"{titel} {beschreibung}".lower()
+
+    for _kw in criteria.get("keywords_ausschluss", []) or []:
+        if _strict_keyword_match(_kw, text):
+            job["_ko_ausschluss"] = _kw
+            return {"grund": "ausschluss_keyword", "keyword": _kw}
+
+    from ..services import arbeitsregion as _region
+    _fremd, _belege = _region.ausserhalb(job)
+    if _fremd:
+        job["_ko_ausserhalb"] = _belege
+        job["_ko_ausserhalb_hinweis"] = _region.hinweis(_belege)
+        return {"grund": "ausserhalb_rechtsraum", "belege": _belege}
+    return None
+
+
 def calculate_score(job: dict, criteria: dict) -> int:
     """Calculate relevance score for a job listing.
 
@@ -2899,12 +3023,12 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # obwohl die Rolle passte. Je LAENGER der Text, desto wahrscheinlicher der
     # Fehlalarm — also genau beim empfohlenen Volltext-Nachpflegen. Der Grund
     # wird am Job markiert, damit Tools erklaeren koennen, warum der Score 0 ist.
-    ausschluss = criteria.get("keywords_ausschluss", [])
-    for _kw in ausschluss:
-        if _strict_keyword_match(_kw, text):
-            job["_ko_ausschluss"] = _kw
-            _teilscores_setzen(job, 0, 0)
-            return 0
+    # v1.7.118 (#1057): beide harten k.o. stehen in `harter_ausschluss`.
+    # Der Text ist hier schon gebaut und um die PBP-Notizen bereinigt —
+    # er wird hereingereicht, statt ein zweites Mal zu entstehen.
+    if harter_ausschluss(job, criteria, text):
+        _teilscores_setzen(job, 0, 0)
+        return 0
 
     # #996: erkennbar ausserhalb des erreichbaren Rechtsraums. Das ist
     # ein k.o. und kein Malus — wie die bereits gesetzten Ausschluesse
@@ -2913,14 +3037,6 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # BEWUSST nur bei Positivbeleg (ein Land steht ausdruecklich da),
     # nie auf Verdacht — ein falscher Ausschluss ist teurer als ein zu
     # hoher Score (#827), und Orte wie "Bedford" bleiben unbekannt.
-    from ..services import arbeitsregion as _region
-    _fremd, _belege = _region.ausserhalb(job)
-    if _fremd:
-        job["_ko_ausserhalb"] = _belege
-        job["_ko_ausserhalb_hinweis"] = _region.hinweis(_belege)
-        _teilscores_setzen(job, 0, 0)
-        return 0
-
     # v1.7.10 (#778): Einzelgewichte + optionale IDF-Faktoren
     overrides = _keyword_gewichte(criteria)
     idf = criteria.get("_idf_faktoren") or {}
