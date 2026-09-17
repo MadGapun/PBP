@@ -33,6 +33,112 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.118] - 2026-09-17 — Eine Quelle fuer Gehalt, und Geocoding erst nach dem Filter
+
+Zwei Nutzerbeobachtungen vom 15. und 17. September. Beide Male stand
+dieselbe Frage an zwei Orten — einmal als Zahl, einmal als Rechenweg.
+
+### Fixed
+
+**Mindestgehalt und Saetze standen an zwei Orten mit verschiedenen
+Werten (#1055).** Gemessen in einem Bestand: Suchkriterien 75.000 gegen
+Job-Praeferenzen 80.000, Tagessatz 800 gegen 900, Ziel-Tagessatz 1.350
+gegen 1.200. Die Praeferenzen stammen aus der Ersterfassung im Gespraech
+und haben in keiner Oberflaeche ein Eingabefeld — sie wurden also nie
+nachgezogen.
+
+Der teuerste Leser war die **Fit-Analyse**. Sie holte die Suchkriterien
+durch das Nadeloehr und ueberschrieb `min_gehalt` danach mit dem Wert aus
+den Praeferenzen. Dieselbe Stelle bekam in der Liste einen anderen
+Rahmenwert als in der Detailansicht, und beide Zahlen hiessen "dein
+Minimum".
+
+Es gilt die Einstellungsseite. Alle vier Leser (Gehaltspruefung einer
+Stelle, Marktanalyse, die Kennzahl im Dashboard und die Fit-Analyse)
+fragen jetzt dieselbe Stelle und nennen die Quelle. Die Gehaltsfelder
+verlassen die Job-Praeferenzen; was dort stand, wird beim Entfernen
+aufgeschrieben und einmalig genannt — ein gesetzter Wert darf nicht
+still verschwinden.
+
+**Vier Schreibwege statt einem.** Neben der Profilbearbeitung nehmen
+auch die Ersterfassung, die Dokument-Extraktion und der Profil-Import
+solche Angaben entgegen. Wo ein Mensch danebensteht, werden sie
+abgewiesen und der richtige Ort genannt; wo keiner danebensteht
+(Ersterfassung, Import), wandert die Angabe in die Suchkriterien, statt
+verworfen zu werden.
+
+**Geocoding lief ueber die Rohtreffer (#1057).** Die Laufkarte meldete
+"3540/4536 Standorte", waehrend der ganze Bestand 2692 Stellen umfasste
+— es wurden in einem Lauf mehr Standorte gemeldet, als es Stellen gibt.
+Der Schritt lief vor Altersfilter, Schwelle und Ausschluss-Begriffen.
+
+Jetzt entscheidet ein Ort ueber den harten Ausschluss, der Altersfilter
+steht davor, und Stellen mit hartem k.o. werden uebersprungen — ihre
+Entfernung liest ohnehin kein Rechenweg. Der Score bleibt bewusst hinter
+dem Geocoding: er liest die Entfernung.
+
+### Changed
+
+Die Laufkarte nennt die Zahl der **verschiedenen Orte** neben der Zahl
+der Stellen. Gefragt wird der Dienst je Ort, und derselbe Ort kommt
+vielfach vor: auf einer Bestandskopie tragen 2458 Stellen mit Ort nur
+501 verschiedene Ortsangaben, die haeufigste 918-mal. Die alte Rechnung
+sagte fuer einen Lauf 75 Minuten voraus und war damit der Anlass fuer die
+Meldung.
+
+Die Profil-Zusammenfassung fuehrt Gehalt und Saetze unter ihrer Herkunft
+("aus den Suchkriterien") statt als Job-Praeferenz.
+
+### Known Issues
+
+Keine bekannten Regressionen. 4803 automatische Tests, davon 17 neu fuer
+#1055 und 14 fuer #1057.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.118.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.118.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.117] - 2026-09-16 — Zwei Daumen statt einer Zahl
 
 Zweiter Schritt aus #1052. Der Score ist ab jetzt der **Fachwert** — was
