@@ -234,6 +234,12 @@ def test_1000_ersterfassung_nennt_nur_echte_parameter(db):
     Der Test prueft die Prompt-Anweisung gegen die ECHTE Signatur, nicht
     gegen eine Liste im Test. Ein kuenftig umbenannter Parameter faellt
     damit auf.
+
+    v1.7.118 (#1055): gelesen wird die KLAMMER des Aufrufs, und zwar
+    jede im Prompt. Vorher waren es 600 Zeichen ab dem ersten Treffer —
+    ein danebenstehendes `profil_bearbeiten(bereich=...)` zaehlte damit
+    als Parameter von `suchkriterien_setzen`. Ein Guard mit festem
+    Fenster misst den Abstand, nicht den Aufruf (v1.7.110 MERKE 6).
     """
     import inspect
     import re
@@ -245,8 +251,27 @@ def test_1000_ersterfassung_nennt_nur_echte_parameter(db):
 
     text = prompts.PROMPTS["ersterfassung"] if hasattr(prompts, "PROMPTS") \
         else inspect.getsource(prompts)
-    stelle = text[text.index("suchkriterien_setzen("):][:600]
-    genannt = set(re.findall(r"(\w+)=", stelle))
+
+    aufrufe = []
+    start = text.find("suchkriterien_setzen(")
+    while start != -1:
+        i = text.index("(", start)
+        tiefe, j = 0, i
+        while j < len(text):
+            if text[j] == "(":
+                tiefe += 1
+            elif text[j] == ")":
+                tiefe -= 1
+                if tiefe == 0:
+                    break
+            j += 1
+        aufrufe.append(text[i + 1:j])
+        start = text.find("suchkriterien_setzen(", j)
+    assert aufrufe, "Der Prompt nennt das Werkzeug gar nicht mehr"
+
+    genannt = set()
+    for arg in aufrufe:
+        genannt |= set(re.findall(r"(\w+)=", arg))
     unbekannt = genannt - echte
     assert not unbekannt, f"Prompt nennt Parameter, die es nicht gibt: {unbekannt}"
 

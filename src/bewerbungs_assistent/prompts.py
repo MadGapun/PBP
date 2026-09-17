@@ -250,6 +250,17 @@ Stelle gezielte Fragen basierend auf dem, was bereits bekannt ist:
 
 Aktualisiere profil_erstellen() mit den Präferenzen.
 
+⛔ GEHALT UND SAETZE GEHOEREN IN DIE SUCHKRITERIEN (#1055, v1.7.118).
+   Mindestgehalt, Mindest-Tages-/Stundensatz, die Nennwerte fuers
+   Gespraech und die Entfernungsgrenze speicherst du mit
+   suchkriterien_setzen(min_gehalt=..., wunsch_gehalt=...,
+   min_tagessatz=..., wunsch_tagessatz=..., min_stundensatz=...,
+   wunsch_stundensatz=..., max_entfernung_km=...) — NICHT ueber
+   profil_erstellen/profil_bearbeiten(bereich='praeferenzen').
+   Grund: das Scoring liest die Suchkriterien, und bis v1.7.117 gab es
+   beide Werte nebeneinander mit verschiedenen Zahlen. Die
+   Praeferenzen nehmen diese Felder seither gar nicht mehr an.
+
 PHASE 3b: JOBTITEL VORSCHLAGEN
 - Analysiere aktuelle Position, Branche, Technologien und Erfahrungslevel.
 - Schlage 5-10 passende Jobtitel vor, deutsch und englisch, aber realistisch.
@@ -597,7 +608,10 @@ DANN LIEFERE:
    Basierend auf dem Profil: was FEHLT ggf., und wie kann man es positiv frammen?
 
 4. **Gehaltsverhandlung** — Basierend auf Erfahrung, Region, Branche
-   Nutze die Präferenzen aus dem Profil (min_gehalt, ziel_gehalt)
+   Die Zahlen stehen in den SUCHKRITERIEN (#1055): suchkriterien_anzeigen()
+   liefert Minimum und Nennwert. Der Nennwert (wunsch_gehalt) ist der,
+   den du im Gespraech nennst — das Minimum ist die Schmerzgrenze und
+   gehoert nicht in die Verhandlung (#931).
 
 5. **Eigene Fragen** — 5 kluge Fragen die Kompetenz zeigen
 

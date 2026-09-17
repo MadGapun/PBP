@@ -4468,11 +4468,13 @@ def register(mcp, db, logger):
             criteria["_profile_skills"] = [s.get("name", "").lower() for s in skills if s.get("name")]
             # #305: Education für Hochschulabschluss-Erkennung
             criteria["_profile_education"] = profile.get("education", [])
-            prefs = profile.get("preferences", {})
-            if prefs.get("min_gehalt"):
-                criteria["min_gehalt"] = prefs["min_gehalt"]
-            if prefs.get("min_tagessatz"):
-                criteria["min_tagessatz"] = prefs["min_tagessatz"]
+            # v1.7.118 (#1055): hier stand eine UEBERSCHREIBUNG. Die
+            # Kriterien kamen durch das Nadeloehr aus #987 — und danach
+            # setzte diese Zeile `min_gehalt` aus den Job-Praeferenzen
+            # darueber. Gemessen: Liste rechnete mit 75.000, die
+            # Detailansicht mit 80.000, und beide Zahlen hiessen "dein
+            # Minimum". Es gilt die Einstellungsseite; die Kriterien
+            # tragen den Wert bereits.
         # v1.7.62 (#1008 Befund 3): der Hochschulabschluss-Malus ist
         # entfallen. Er wurde hier in die Kriterien geschrieben und von
         # KEINEM Rechenweg gelesen — die Pruefung dahinter ist seit

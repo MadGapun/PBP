@@ -6610,13 +6610,15 @@ async def api_adopt_position(app_id: str, payload: dict = Body(default={})):
 async def api_salary_stats():
     """Get salary statistics for dashboard."""
     stats = _db.get_salary_statistics()
-    profile = _db.get_profile()
-    prefs = get_profile_preferences(profile)
-    if prefs:
+    # #1055: dieselbe Quelle wie die MCP-Antwort — die Suchkriterien.
+    from .services import praeferenzen_quelle as _pq
+    wunsch = _pq.wunschwerte(_db)
+    if wunsch:
         stats["deine_vorstellungen"] = {
-            "min_gehalt": prefs.get("min_gehalt"),
-            "ziel_gehalt": prefs.get("ziel_gehalt"),
-            "min_tagessatz": prefs.get("min_tagessatz"),
+            "min_gehalt": wunsch.get("min_gehalt"),
+            "ziel_gehalt": wunsch.get("ziel_gehalt"),
+            "min_tagessatz": wunsch.get("min_tagessatz"),
+            "quelle": "Suchkriterien (Einstellungsseite)",
         }
     return stats
 

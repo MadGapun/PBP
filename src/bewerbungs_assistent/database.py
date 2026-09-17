@@ -1169,6 +1169,20 @@ class Database:
             self._repair_document_paths()
         except Exception as e:
             logger.debug("Pfad-Reparatur uebersprungen: %s", e)
+
+        # v1.7.118 (#1055): Gehalt und Saetze standen an zwei Orten mit
+        # verschiedenen Werten — in den Suchkriterien (die das Scoring
+        # liest) und in den Job-Praeferenzen aus der Ersterfassung, die
+        # kein Eingabefeld haben und deshalb nie nachgezogen wurden.
+        # Nutzervorgabe: es gilt die Einstellungsseite, der Rest faellt
+        # weg. Was dort stand, wird beim Entfernen aufgeschrieben und
+        # einmal genannt — ein gesetzter Wert darf nicht still
+        # verschwinden (#1053). Idempotent.
+        try:
+            from .services import praeferenzen_quelle as _pq
+            _pq.bereinigen(self)
+        except Exception as e:
+            logger.debug("Praeferenzen-Bereinigung uebersprungen (#1055): %s", e)
         logger.info("Database initialized at %s", self.db_path)
 
     def _repair_document_paths(self) -> int:

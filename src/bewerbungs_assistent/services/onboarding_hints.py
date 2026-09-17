@@ -168,7 +168,54 @@ def _condition_schwelle_nach_1052(db) -> bool:
         return False
 
 
+def _condition_gehalt_aus_praeferenzen_entfernt(db) -> bool:
+    """Wurden doppelt gefuehrte Gehaltswerte aus dem Profil entfernt? (#1055)
+
+    Der Hinweis erscheint genau so lange, bis der Mensch ihn weggeklickt
+    hat — er nennt, was im Profil stand und was stattdessen gilt. Ohne
+    ihn waere ein gesetzter Wert still verschwunden (#1053).
+    """
+    try:
+        from .praeferenzen_quelle import entfernte_werte
+        return bool(entfernte_werte(db))
+    except Exception:
+        return False
+
+
+def _text_gehalt_entfernt(db) -> str:
+    """Die entfernten Werte im Klartext — Zahlen statt Behauptung."""
+    try:
+        from .praeferenzen_quelle import entfernte_werte
+        felder = entfernte_werte(db)
+    except Exception:
+        return ""
+    teile = []
+    for feld, angabe in sorted(felder.items()):
+        gilt = angabe.get("gilt")
+        teile.append(f"{feld}: im Profil stand {angabe.get('im_profil')}, "
+                     f"es gilt {gilt if gilt is not None else 'kein Wert'}")
+    return "; ".join(teile)
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        "id": "c86_gehalt_nur_einstellungsseite",
+        "tab": "profil",
+        "title": "Gehalt und Saetze stehen jetzt nur noch an einer Stelle",
+        "body": (
+            "Mindestgehalt, Tages- und Stundensaetze und die "
+            "Entfernungsgrenze standen doppelt: in den Suchkriterien "
+            "(Einstellungsseite) und in den Job-Praeferenzen aus der "
+            "Ersterfassung. Die zweiten hatten kein Eingabefeld und "
+            "wurden nie nachgezogen — gemessen wichen sie ab. Es gilt "
+            "die Einstellungsseite; die Werte im Profil sind entfernt. "
+            "Was dort stand, steht hier, damit nichts still verschwindet."
+        ),
+        "cta_label": "Suchkriterien ansehen",
+        "cta_tool": "suchkriterien_anzeigen",
+        "condition": _condition_gehalt_aus_praeferenzen_entfernt,
+        "detail": _text_gehalt_entfernt,
+    },
     {
         "id": "c83_schwelle_nach_score_trennung",
         "tab": "stellen",
@@ -271,14 +318,26 @@ def list_active_hints(db) -> list[dict]:
             continue
         try:
             if h["condition"](db):
-                out.append({
+                eintrag = {
                     "id": h["id"],
                     "tab": h["tab"],
                     "title": h["title"],
                     "body": h["body"],
                     "cta_label": h["cta_label"],
                     "cta_tool": h["cta_tool"],
-                })
+                }
+                # v1.7.118 (#1055): manche Hinweise tragen eine Zahl aus
+                # dem Bestand — was genau entfernt wurde, was
+                # stattdessen gilt. Ein Text ohne diese Angabe waere
+                # eine Behauptung ueber Werte, die niemand mehr
+                # nachlesen kann (#1053). Ein Feld, das die Definition
+                # setzt und die Ausgabe verschweigt, waere die Bauform
+                # aus #993.
+                if callable(h.get("detail")):
+                    _detail = h["detail"](db)
+                    if _detail:
+                        eintrag["detail"] = _detail
+                out.append(eintrag)
         except Exception:
             continue
     return out
