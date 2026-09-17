@@ -105,6 +105,130 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.119] - 2026-09-17 — Die Listen passen zum Profil, die Notizen zur Bewerbung
+
+Zwei Nutzervorgaben vom 17. September, beide mit demselben Satz
+begruendet: *Dinge, die wiederholt von Hand gemacht werden, sollen
+automatisiert laufen.* Beide Male driftete der Profilbestand, ohne dass
+es jemand merkte.
+
+### Added
+
+- **Abgleich Profil gegen Suchbegriffe (#1054).** Der Fachwert misst, wie
+  gut eine Anzeige deine Suchbegriffe trifft — das sagt nur dann etwas
+  ueber dich, wenn die Listen dein Profil abbilden. `profil_suchbegriffe_abgleichen()`
+  liefert drei getrennte Listen: Skills, die in keiner Liste stehen;
+  MINUS-Begriffe, die dein eigenes Fachgebiet treffen; Rahmenbegriffe
+  wie Orte, Arbeitsmodelle, Vertragsformen oder Zusatzleistungen in den
+  Fachlisten. Nichts davon wird ohne dich geaendert.
+- **Der Vergleich rechnet wie das Scoring.** "PLM" im Profil erkennt den
+  MUSS-Begriff "PLM System" als vorhanden, "Product Lifecycle Management"
+  ueber die Abkuerzung — dieselbe Gruppierung, mit der der Fachwert
+  rechnet (#1012), nicht ein Zeichenkettenvergleich.
+- **Widersprueche mit zwei Belegen.** Ein MINUS-Begriff, der einen
+  deiner Skills trifft — oder der im Titel bzw. in mindestens zwei
+  Anzeigentexten von Stellen steht, auf die du dich beworben hast.
+  Gemessen mit derselben Regel, die den Begriff im Score bestraft.
+- **Verworfen bleibt verworfen**, bis sich Profil oder Liste an dieser
+  Stelle aendern. Offene Vorschlaege stehen als Hinweis im Dashboard;
+  `suchkriterien_anzeigen()` und `skill_hinzufuegen()` nennen sie gleich.
+- **Notizen mit Bewerbungsbezug gehen an die Bewerbung (#1056).** Nennt
+  die Ueberschrift einer Profilnotiz genau eine Firma, bei der du dich
+  beworben hast, landet sie in der Timeline dieser Bewerbung statt im
+  Profil — aus dem jedes Anschreiben und jedes Dossier liest, auch das
+  fuer eine andere Firma. Bei mehreren Bewerbungen derselben Firma fragt
+  PBP nach, statt zu raten.
+- **`profil_notizen_aufraeumen()`** nennt die Profilsektionen mit
+  Bewerbungsbezug samt Zielbewerbung und verschiebt sie auf Ansage: erst
+  der Timeline-Eintrag mit Herkunftsmarke, dann das Entfernen aus dem
+  Profil — schlaegt das Erste fehl, bleibt die Sektion. Hinweis im
+  Profil-Tab, solange etwas offen ist.
+
+### Changed
+
+- **Sprachen und Soft Skills sind keine Suchbegriffe.** Nur Fachliches
+  ab Level 4 wird fuer MUSS vorgeschlagen, Werkzeuge und Methoden fuer
+  PLUS. Unter Level 3 kommt kein Vorschlag — nach Grundkenntnissen
+  sucht niemand Stellen (`mindest_level=1` zeigt alles).
+- **Vertragsformen und Arbeitsmodelle in der MINUS-Liste werden
+  ebenfalls genannt.** Dafuer gibt es Regler, und in der Liste zaehlen
+  sie doppelt. Ein Ort in MINUS bleibt — dafuer gibt es keinen Regler.
+- **Ein Parser fuer die Profilnotizen.** `profil_bearbeiten` (lesen,
+  ersetzen, loeschen) und das Aufraeumen lesen dasselbe Format ueber
+  dieselbe Funktion.
+
+### Fixed
+
+- **Der Release-Check prueft den CHANGELOG mit dem Parser, der ihn
+  liest.** Der Elwosa-Kanal "Neue Version ist drin" nimmt die
+  Listenpunkte der neuesten Version; ein Eintrag aus reiner Prosa liess
+  ihn stumm. Das Gate meldete dabei "freigegeben" — jetzt Exit 1.
+
+### Gemessen
+
+Auf einer Kopie eines Bestands (86 Skills, 54 MUSS, 74 PLUS, 32 MINUS):
+
+- **43 offene Vorschlaege** — 33 Skills in keiner Liste (11 davon fuer
+  MUSS), 7 Widersprueche (3 im Titel beworbener Stellen, 4 in mindestens
+  zwei Anzeigentexten), 3 Vertragsformen in MINUS. Ohne die Regeln zu
+  Kategorie und Level waeren es 74 gewesen, darunter "Deutsch
+  (Muttersprache)" als MUSS-Vorschlag.
+- **24 Profilsektionen, keine mit Bewerbungsbezug** — der Bestand war am
+  17.09. von Hand aufgeraeumt. Drei Sektionen nennen eine Firma nur im
+  Text; alle drei beschreiben den Menschen, nicht die Bewerbung. Die
+  Regel "die Ueberschrift entscheidet" haelt.
+- Laufzeit des Abgleichs: 0,2 Sekunden.
+
+### Known Issues
+
+Keine bekannten Regressionen. 4856 automatische Tests, davon 29 neu fuer
+#1054 und 14 fuer #1056.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.119.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.119.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.118] - 2026-09-17 — Eine Quelle fuer Gehalt, und Geocoding erst nach dem Filter
 
 Zwei Nutzerbeobachtungen vom 15. und 17. September. Beide Male stand
