@@ -540,6 +540,15 @@ def register(mcp, db, logger):
             profile = db.get_profile()
             prefs = profile.get("preferences", {})
             new_prefs = extracted["praeferenzen"]
+            # v1.7.118 (#1055): Gehalt, Saetze und die Entfernungsgrenze
+            # gehoeren in die Suchkriterien. Dieser Weg schrieb sie ins
+            # Profil — an `profil_bearbeiten` vorbei, das sie seit
+            # diesem Release abweist. Ein Lebenslauf mit einer
+            # Gehaltsvorstellung haette die Doppelung neu angelegt.
+            from ..services import praeferenzen_quelle as _pq
+            _abgewiesen = [k for k in new_prefs if k in _pq.DOPPELTE_FELDER]
+            new_prefs = {k: v for k, v in new_prefs.items()
+                         if k not in _pq.DOPPELTE_FELDER}
             for k, v in new_prefs.items():
                 if v and (not prefs.get(k) or auto_apply):
                     prefs[k] = v
@@ -551,6 +560,14 @@ def register(mcp, db, logger):
             update_data["preferences"] = prefs
             db.save_profile(update_data)
             applied["praeferenzen"] = list(new_prefs.keys())
+            if _abgewiesen:
+                # Benannt, nicht still verworfen: der Wert stand im
+                # Dokument, und der Mensch soll wissen, wohin er gehoert.
+                applied["praeferenzen_nicht_uebernommen"] = _abgewiesen
+                applied["praeferenzen_stattdessen"] = (
+                    "Gehalt, Saetze und die Entfernungsgrenze stehen in den "
+                    "Suchkriterien: suchkriterien_setzen(...) oder die "
+                    "Einstellungsseite (#1055).")
 
         # Apply positions
         if "positionen" in all_bereiche and extracted.get("positionen"):

@@ -340,6 +340,157 @@ def test_die_praeferenzen_nehmen_gehalt_nicht_mehr_an(umgebung):
     assert "min_gehalt" not in antwort["neue_werte"]
 
 
+def test_die_dokument_extraktion_schreibt_kein_gehalt_ins_profil(umgebung):
+    """Der fuenfte Schreibweg, gefunden beim Nachmessen.
+
+    `extraktion_anwenden` uebernimmt einen `praeferenzen`-Block aus einem
+    Dokument. Ein Lebenslauf oder ein Anschreiben mit einer
+    Gehaltsvorstellung haette die Doppelung damit neu angelegt — an der
+    Abweisung in `profil_bearbeiten` vorbei. Eine Abweisung an EINEM von
+    mehreren Schreibwegen ist keine.
+
+    Was nicht uebernommen wird, wird BENANNT: die Angabe stand im
+    Dokument, und der Mensch soll wissen, wohin sie gehoert.
+    """
+    db, mcp = umgebung
+    db.set_search_criteria("min_gehalt", 75000)
+
+    doc_id = db.add_document({
+        "filename": "lebenslauf.txt", "file_path": "/tmp/lebenslauf.txt",
+        "doc_type": "lebenslauf", "extracted_text": "Platzhalter",
+    })
+    lauf_id = db.add_extraction_history({
+        "document_id": doc_id,
+        "profile_id": db.get_active_profile_id(),
+        "extraction_type": "test_1055",
+        "extracted_fields": {
+            "praeferenzen": {"min_gehalt": 99000, "arbeitsmodell": "remote"},
+        },
+    })
+
+    antwort = _call(mcp, "extraktion_anwenden",
+                    {"extraction_id": lauf_id, "bereiche": ["praeferenzen"]})
+    uebernommen = antwort.get("angewendete_bereiche") or {}
+    assert "min_gehalt" not in (uebernommen.get("praeferenzen") or [])
+    assert uebernommen.get("praeferenzen_nicht_uebernommen") == ["min_gehalt"]
+    assert "suchkriterien_setzen" in str(
+        uebernommen.get("praeferenzen_stattdessen"))
+
+    prefs = db.get_profile()["preferences"]
+    assert "min_gehalt" not in prefs
+    assert prefs.get("arbeitsmodell") == "remote", "der Rest kommt an"
+
+
+def test_ein_alter_profil_export_bringt_die_doppelung_nicht_zurueck(umgebung):
+    """Ein Export von vor v1.7.118 traegt Gehalt und Saetze im Profil.
+
+    Sie dort wieder abzulegen hiesse, die Doppelung mit dem Import
+    zurueckzuholen — und zwar an allen Abweisungen vorbei. Der Import
+    legt ein NEUES Profil an, dessen Kriterien leer sind: die Angabe
+    geht also nicht verloren, sie kommt an ihrem Ort an.
+
+    In der Gegenprobe blieb dieser Weg stumm, bis der Fall dastand.
+    """
+    db, _ = umgebung
+    db.import_profile_json({
+        "name": "Importiert",
+        "email": "import@example.com",
+        "preferences": {
+            "min_gehalt": 82000, "ziel_tagessatz": 1100,
+            "arbeitsmodell": "hybrid",
+        },
+    })
+    profil = db.get_profile()
+    assert profil["name"] == "Importiert"
+    prefs = profil["preferences"]
+    assert "min_gehalt" not in prefs and "ziel_tagessatz" not in prefs
+    assert prefs["arbeitsmodell"] == "hybrid", "ohne Gegenstueck bleibt es"
+
+    krit = db.get_search_criteria()
+    assert str(krit.get("min_gehalt")) == "82000"
+    assert str(krit.get("wunsch_tagessatz")) == "1100"
+    assert pq.wunschwerte(db)["ziel_tagessatz"] == 1100
+
+
+def test_jeder_schreibweg_in_die_praeferenzen_ist_entschieden():
+    """Wer einen `preferences`-Block schreibt, steht hier mit Grund.
+
+    Die Abweisung sass zuerst nur in `profil_bearbeiten`. Gefunden wurden
+    danach `extraktion_anwenden` (ein Lebenslauf mit Gehaltsvorstellung),
+    `profil_erstellen` — die Ersterfassung, also genau der Weg, der die
+    gemeldete Doppelung angelegt hat — und der Profil-Import. Ein Test je
+    Fundstelle faengt die Fundstellen, die man kennt (v1.7.100 MERKE 3).
+
+    Der Guard zaehlt keine Stellen ab, er verlangt eine Entscheidung: fuer
+    jeden Weg steht da, was er mit Gehalt und Saetzen macht. Ein neuer Weg
+    ist unbekannt und macht diesen Test rot.
+    """
+    import ast
+
+    SCHREIBWEGE = {
+        ("services/praeferenzen_quelle.py", "bereinigen"):
+            "entfernt die Felder — das Safety-Net selbst",
+        ("tools/profil.py", "profil_erstellen"):
+            "leitet sie in die Suchkriterien um (nach_suchkriterien)",
+        ("tools/profil.py", "profil_bearbeiten"):
+            "weist sie ab und nennt den richtigen Ort",
+        ("tools/profil.py", "profil_umlaute_reparieren"):
+            "reicht den vorhandenen Block durch, legt nichts an",
+        ("tools/dokumente.py", "extraktion_anwenden"):
+            "weist sie ab und nennt sie im Ergebnis",
+        ("database.py", "import_profile_json"):
+            "leitet sie in die Suchkriterien des neuen Profils um",
+        ("dashboard.py", "api_update_document_extraction"):
+            "reicht den vorhandenen Block durch, legt nichts an",
+        ("dashboard.py", "api_analyze_documents"):
+            "reicht den vorhandenen Block durch, legt nichts an",
+    }
+
+    wurzel = _repo() / "src" / "bewerbungs_assistent"
+    gefunden = set()
+    for pfad in sorted(wurzel.rglob("*.py")):
+        quelle = pfad.read_text(encoding="utf-8-sig")
+        if "save_profile(" not in quelle or '"preferences"' not in quelle:
+            continue
+        baum = ast.parse(quelle)
+
+        # Zu jedem Aufruf die INNERSTE umschliessende Funktion.
+        eltern = {}
+        for knoten in ast.walk(baum):
+            for kind in ast.iter_child_nodes(knoten):
+                eltern[kind] = knoten
+
+        for knoten in ast.walk(baum):
+            if not (isinstance(knoten, ast.Call)
+                    and getattr(knoten.func, "attr", None) == "save_profile"):
+                continue
+            aktuell = eltern.get(knoten)
+            while aktuell is not None and not isinstance(
+                    aktuell, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                aktuell = eltern.get(aktuell)
+            if aktuell is None:
+                continue
+            # Das Dict entsteht oft VOR dem Aufruf (`update_data`), also
+            # zaehlt der Rumpf der Funktion, nicht das Argument. Die
+            # erste Fassung las das Argument und sah 3 von 8 Wegen.
+            rumpf = ast.get_source_segment(quelle, aktuell) or ""
+            if '"preferences"' not in rumpf:
+                continue
+            gefunden.add((pfad.relative_to(wurzel).as_posix(), aktuell.name))
+
+    unbekannt = sorted(gefunden - set(SCHREIBWEGE))
+    assert not unbekannt, (
+        "Neuer Schreibweg in die Praeferenzen — entscheide, was er mit "
+        f"Gehalt und Saetzen macht (#1055): {unbekannt}")
+
+    # Und die Liste darf nicht veralten: was es nicht mehr gibt, gehoert
+    # heraus, sonst deckt sie irgendwann einen Weg, den niemand prueft.
+    verschwunden = sorted(set(SCHREIBWEGE) - gefunden)
+    assert not verschwunden, f"Eintrag ohne Fundstelle: {verschwunden}"
+    for eintrag, grund in SCHREIBWEGE.items():
+        assert grund.strip(), f"Ausnahme ohne Grund: {eintrag}"
+
+
 def test_die_zusammenfassung_zeigt_die_werte_mit_herkunft(umgebung):
     """Sie standen unter "Job-Praeferenzen" — also genau dort, wo der
     Nutzer die zweite Ablage vermutete. Jetzt stehen sie unter ihrer

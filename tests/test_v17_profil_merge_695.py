@@ -79,6 +79,21 @@ _VOLL_PROFIL = {
 }
 
 
+# v1.7.118 (#1055): Gehalt und Saetze liegen nicht mehr in den
+# Praeferenzen, sondern in den Suchkriterien. Diese Tests pruefen die
+# MERGE-Semantik; das Gehalt war ihr Transportmittel. Die Erwartung
+# steht deshalb hier an einer Stelle statt viermal im Text.
+_PRAEFERENZEN_OHNE_GEHALT = {
+    k: v for k, v in _VOLL_PROFIL["preferences"].items()
+    if k not in {"min_gehalt", "ziel_gehalt", "min_tagessatz",
+                 "ziel_tagessatz"}
+}
+
+
+def _kriterium(db, key):
+    return db.get_search_criteria().get(key)
+
+
 def test_695_nur_name_loescht_keine_bestandsdaten(setup_env):
     """(a) Aufruf nur mit name laesst alle anderen Felder unveraendert."""
     db = setup_env
@@ -100,7 +115,14 @@ def test_695_nur_name_loescht_keine_bestandsdaten(setup_env):
     # informal_notes besonders kritisch — nie durch Leerwert ersetzen
     assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
     # Preferences komplett erhalten (inkl. Custom-Key)
-    assert p["preferences"] == _VOLL_PROFIL["preferences"]
+    assert p["preferences"] == _PRAEFERENZEN_OHNE_GEHALT
+    # Die Gehaltswerte sind nicht verloren, sondern belegt: sie standen
+    # im Bestand der Praeferenzen und wurden dort ausgeraeumt (#1055).
+    # Ein Aufruf ohne Gehaltsangabe darf sie NICHT in die Kriterien
+    # schieben — dort gilt die Einstellungsseite.
+    from bewerbungs_assistent.services import praeferenzen_quelle as pq
+    assert pq.entfernte_werte(db)["min_gehalt"]["im_profil"] == 70000
+    assert _kriterium(db, "min_gehalt") in (None, "")
 
 
 def test_695_neue_email_aendert_nur_email(setup_env):
@@ -125,10 +147,11 @@ def test_695_preferences_teilupdate_merged(setup_env):
           {"name": "Max Tester", "min_gehalt": 90000})
     p = db.get_profile()
     prefs = p["preferences"]
-    assert prefs["min_gehalt"] == 90000          # explizit geaendert
+    # Explizit geaendert — und zwar dort, wo es gilt (#1055).
+    assert str(_kriterium(db, "min_gehalt")) == "90000"
+    assert "min_gehalt" not in prefs
     assert prefs["stellentyp"] == "freelance"    # Default 'beides' ueberschreibt nicht
     assert prefs["arbeitsmodell"] == "remote"
-    assert prefs["ziel_gehalt"] == 85000
     assert prefs["reisebereitschaft"] == "gering"
     assert prefs["umzug_moeglich"] is True       # Default False ueberschreibt nicht
     assert prefs["custom_key"] == "bleibt"       # fremde Keys bleiben erhalten
@@ -148,7 +171,11 @@ def test_695_frische_db_legt_normal_an(setup_env):
     assert p["name"] == "Neu Nutzer"
     assert p["email"] == "neu@example.com"
     assert p["country"] == "Deutschland"
-    assert p["preferences"]["min_gehalt"] == 50000
+    # #1055: das Gehalt aus der Ersterfassung landet in den
+    # Suchkriterien, nicht in den Praeferenzen — und die Antwort sagt es.
+    assert str(_kriterium(db, "min_gehalt")) == "50000"
+    assert "min_gehalt" not in p["preferences"]
+    assert result["gehalt_in_suchkriterien"] == {"min_gehalt": 50000}
     assert p["preferences"]["stellentyp"] == "beides"
 
 
@@ -215,6 +242,9 @@ def test_695_sequenzielle_teilupdates_verlieren_nichts(setup_env):
     assert p["city"] == "Hamburg"
     assert p["informal_notes"] == "Mag Remote-Arbeit, Hund im Buero."
     assert p["summary"] == "Erfahrener Tester."
-    assert p["preferences"]["ziel_gehalt"] == 99000
-    assert p["preferences"]["min_gehalt"] == 70000  # nie angefasst -> Bestand
+    assert str(_kriterium(db, "wunsch_gehalt")) == "99000"
+    # Der nie angefasste Bestandswert ist nicht verloren: er stand in
+    # den Praeferenzen und ist dort belegt ausgeraeumt (#1055).
+    from bewerbungs_assistent.services import praeferenzen_quelle as pq
+    assert pq.entfernte_werte(db)["min_gehalt"]["im_profil"] == 70000
     assert p["preferences"]["custom_key"] == "bleibt"
