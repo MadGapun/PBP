@@ -105,6 +105,39 @@ def wunschwerte(db) -> dict:
     return werte
 
 
+def nach_suchkriterien(db, prefs: dict) -> tuple[dict, dict]:
+    """Nimmt Gehaltsangaben aus einem Praeferenz-Block und schreibt sie
+    dorthin, wo sie gelten.
+
+    Fuer die Wege, die eine Angabe von aussen bekommen, ohne dass jemand
+    nachfragen koennte — die Ersterfassung und den Profil-Import. Sie
+    abzuweisen hiesse, die Zahl wegzuwerfen; sie in den Praeferenzen zu
+    speichern hiesse, die Doppelung neu anzulegen (#1055).
+
+    Returns:
+        (praeferenzen ohne die Felder, {Kriterien-Schluessel: Wert}).
+    """
+    rest, geschrieben = {}, {}
+    for feld, wert in (prefs or {}).items():
+        krit_feld = DOPPELTE_FELDER.get(feld)
+        if krit_feld is None:
+            rest[feld] = wert
+            continue
+        # Ein Vorgabewert ist keine Angabe. `profil_erstellen` fuellt die
+        # Felder mit 0, wenn der Mensch nichts gesagt hat — die 0 in die
+        # Kriterien zu schreiben waere eine erfundene Zahl (#989).
+        if _zahl(wert) is None:
+            continue
+        try:
+            db.set_search_criteria(krit_feld, wert)
+            geschrieben[krit_feld] = wert
+        except Exception as exc:  # pragma: no cover
+            logger.warning("Kriterium %s nicht schreibbar (#1055): %s",
+                           krit_feld, exc)
+            rest[feld] = wert
+    return rest, geschrieben
+
+
 def gefundene_doppelung(db) -> dict:
     """Welche Praeferenz-Felder stehen noch im Profil — und was sagen die
     Kriterien dazu?

@@ -1421,6 +1421,29 @@ def register(mcp, db, logger):
             "reisebereitschaft": reisebereitschaft,
             "umzug_moeglich": umzug_moeglich,
         }
+        # v1.7.118 (#1055): Gehalt und Saetze wandern in die
+        # Suchkriterien — die Einstellungsseite, die auch das Scoring
+        # liest. Bis v1.7.117 landeten sie hier in den Praeferenzen, und
+        # genau so ist die gemeldete Doppelung entstanden: dieselbe
+        # Angabe an zwei Orten, von denen nur einer ein Eingabefeld hat.
+        #
+        # Umgeleitet statt abgewiesen: hier steht niemand, den man
+        # fragen koennte, und die Zahl wegzuwerfen waere schlimmer, als
+        # sie an den richtigen Ort zu legen.
+        #
+        # VOR dem Merge, und das ist der Punkt: nur was DIESER Aufruf
+        # mitbringt, darf in die Kriterien. Nach dem Merge stuenden dort
+        # auch die Altwerte aus den Praeferenzen — ein Aufruf nur mit
+        # `name` haette die Einstellungsseite ueberschrieben, also genau
+        # in die falsche Richtung.
+        # Geschrieben wird erst NACH dem Speichern: die Suchkriterien
+        # haengen am Profil, und auf einer frischen Datenbank gibt es
+        # hier noch keines. Herausgenommen wird trotzdem jetzt, sonst
+        # traegt der Merge sie in die Praeferenzen.
+        from ..services import praeferenzen_quelle as _pq
+        _gehalt_args = {k: preferences.pop(k)
+                        for k in list(preferences)
+                        if k in _pq.DOPPELTE_FELDER}
         # #695: Bestehendes Profil NICHT mit Leerwerten ueberschreiben.
         # db.save_profile setzt ALLE Spalten — ohne Merge loescht ein
         # "Aktualisierungs"-Aufruf nur mit name E-Mail/Telefon/Notizen etc.
@@ -1464,9 +1487,20 @@ def register(mcp, db, logger):
             "summary": summary, "informal_notes": informal_notes,
             "preferences": preferences,
         })
+        _, _in_kriterien = _pq.nach_suchkriterien(db, _gehalt_args)
+        # Was aus dem Bestand mitgemergt wurde, gehoert ebenfalls nicht
+        # in die Praeferenzen — aber es wird BELEGT statt verworfen, und
+        # zwar von demselben Safety-Net, das beim Start laeuft (#1053).
+        _pq.bereinigen(db)
         result = {
             "status": "gespeichert",
             "profil_id": pid,
+            **({"gehalt_in_suchkriterien": _in_kriterien,
+                "hinweis_gehalt": (
+                    "Gehalt und Saetze stehen in den Suchkriterien, nicht "
+                    "im Profil — dort liest sie auch das Scoring. Aendern "
+                    "mit suchkriterien_setzen(...) oder auf der "
+                    "Einstellungsseite (#1055).")} if _in_kriterien else {}),
             "naechster_schritt": "Füge jetzt Berufserfahrung hinzu mit position_hinzufuegen(). "
                                 "Frage nach: Firma, Position, Zeitraum, Aufgaben, Erfolge, Technologien. "
                                 "Nutze die STAR-Methode (Situation, Task, Action, Result) für jedes Projekt."

@@ -10822,8 +10822,28 @@ class Database:
         conn.execute("UPDATE profile SET is_active=0")
         conn.commit()
 
+        # v1.7.118 (#1055): Gehalt und Saetze gehoeren in die
+        # Suchkriterien. Ein Export von vor v1.7.118 traegt sie in den
+        # Praeferenzen; sie dort wieder abzulegen hiesse, die Doppelung
+        # mit dem Import zurueckzuholen. Der Import legt ein NEUES
+        # Profil an, dessen Kriterien leer sind — die Angabe geht also
+        # nicht verloren, sie kommt an ihrem Ort an.
+        _import_prefs = data.get("preferences") or {}
+
         # Save new profile (no active profile → creates new)
         pid = self.save_profile(data)
+
+        if _import_prefs:
+            try:
+                from .services import praeferenzen_quelle as _pq
+                _rest, _in_kriterien = _pq.nach_suchkriterien(self, _import_prefs)
+                if _in_kriterien:
+                    data["preferences"] = _rest
+                    self.save_profile({**data, "preferences": _rest})
+                    logger.info("Import (#1055): %d Gehaltsangabe(n) in die "
+                                "Suchkriterien uebernommen", len(_in_kriterien))
+            except Exception as e:
+                logger.debug("Import-Umleitung uebersprungen (#1055): %s", e)
 
         # Import positions with projects
         for pos in positions:
