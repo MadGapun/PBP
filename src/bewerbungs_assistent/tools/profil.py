@@ -323,6 +323,65 @@ def register(mcp, db, logger):
         return get_profile_status_payload(db.get_profile())
 
     @mcp.tool()
+    def profil_notizen_aufraeumen(
+        aktion: str = "anzeigen",
+        sektion: str = "",
+        bewerbung_id: str = "",
+    ) -> dict:
+        """Profilnotizen mit Bewerbungsbezug an die Bewerbung verschieben (#1056, v1.7.119).
+
+        Die informellen Profilnotizen beschreiben, wer du bist. Jede
+        Ausgabe, die das Profil liest — Anschreiben, Dossier, die
+        Vorbereitung fuer eine ANDERE Firma — bekommt sie mit. Eine
+        Interview-Nachlese gehoert deshalb an die Bewerbung, nicht ins
+        Profil. Gemessen: drei Sektionen mit 11.700 Zeichen zu einer
+        einzigen, laengst abgelehnten Bewerbung standen im Profil.
+
+        `anzeigen` (Vorgabe) nennt Sektionen, deren UEBERSCHRIFT genau
+        eine Firma aus deinen Bewerbungen nennt — mit Zielbewerbung.
+        Sektionen, die dich beschreiben und Firmen nur als Beispiel
+        nennen, werden nicht vorgeschlagen. Nichts wird ohne dich
+        verschoben.
+
+        `verschieben` traegt die Sektion in die Timeline der Bewerbung
+        ein und entfernt sie aus dem Profil — in einem Zug, und nur
+        wenn der Eintrag gelungen ist.
+
+        Args:
+            aktion: 'anzeigen' oder 'verschieben'.
+            sektion: die Ueberschrift (fuer verschieben).
+            bewerbung_id: das Ziel (fuer verschieben).
+        """
+        from ..services import notiz_routing as _nr
+        if not db.get_profile():
+            return kein_profil("profil_notizen_aufraeumen")
+        if aktion == "verschieben":
+            if not sektion or not bewerbung_id:
+                return {"fehler": "sektion und bewerbung_id sind Pflicht — "
+                                  "beides steht in 'anzeigen'."}
+            return _nr.verschieben(db, sektion, bewerbung_id)
+        if aktion != "anzeigen":
+            return {"fehler": f"Unbekannte Aktion '{aktion}'. Erlaubt: "
+                              "anzeigen, verschieben."}
+        vorschlaege = _nr.vorschlaege(db)
+        if not vorschlaege:
+            return leer(
+                {"vorschlaege": []},
+                "Keine Profilsektion nennt in der Ueberschrift eine Firma "
+                "aus deinen Bewerbungen — nichts zu verschieben.",
+                "Neue Auswertungen mit Bewerbungsbezug landen seit v1.7.119 "
+                "von selbst in der Timeline.")
+        return {
+            "vorschlaege": vorschlaege,
+            "anzahl": len(vorschlaege),
+            "naechster_schritt": (
+                "Je Sektion entscheiden: profil_notizen_aufraeumen("
+                "aktion='verschieben', sektion=..., bewerbung_id=...). Bei "
+                "'unsicher' stehen mehrere Bewerbungen zur Wahl — die "
+                "richtige nennen. Nichts davon passiert von allein."),
+        }
+
+    @mcp.tool()
     def profil_zusammenfassung() -> dict:
         """Liest das komplette Profil und gibt eine formatierte Zusammenfassung zurück.
 
@@ -1095,6 +1154,46 @@ def register(mcp, db, logger):
                 text = daten.get("text", "")
                 if not text:
                     return {"fehler": "Kein Text angegeben"}
+                # v1.7.119 (#1056): nennt die Ueberschrift eine Firma aus
+                # den eigenen Bewerbungen, gehoert die Notiz an die
+                # Bewerbung — nicht ins Profil, aus dem jedes Anschreiben
+                # und jedes Dossier liest. Eindeutig: umleiten. Unsicher
+                # (mehrere Bewerbungen bei der Firma): fragen, nicht
+                # raten. `daten.ziel='profil'` ist die Entscheidung des
+                # Menschen, dass es doch ins Profil soll.
+                from ..services import notiz_routing as _nr
+                _ziel_profil = str(daten.get("ziel") or "").lower() == "profil"
+                _bew_id = str(daten.get("bewerbung_id") or "").strip()
+                if not _ziel_profil:
+                    _bezug = _nr.bewerbungsbezug(db, daten.get("sektion", ""), text)
+                    if _bew_id or (_bezug and _bezug["sicherheit"] == _nr.EINDEUTIG):
+                        _app_id = _bew_id or _bezug["kandidaten"][0]["bewerbung_id"]
+                        _app = db.get_application(_app_id)
+                        if not _app:
+                            return {"fehler": f"Bewerbung '{_app_id}' nicht gefunden."}
+                        db.add_application_note(
+                            _app_id, f"[{daten.get('sektion', '')}] {text}".strip())
+                        return {
+                            "status": "an_bewerbung_umgeleitet",
+                            "bewerbung_id": _app_id,
+                            "firma": _app.get("company"),
+                            "titel": _app.get("title"),
+                            "warum": (_bezug or {}).get("grund") or
+                                     "bewerbung_id wurde angegeben.",
+                            "hinweis": ("Notizen zu einer Bewerbung stehen in "
+                                        "ihrer Timeline, nicht im Profil (#1056). "
+                                        "Soll es doch ins Profil: "
+                                        "daten={'ziel': 'profil', ...}."),
+                        }
+                    if _bezug and _bezug["sicherheit"] == _nr.UNSICHER:
+                        return {
+                            "status": "rueckfrage",
+                            "warum": _bezug["grund"],
+                            "kandidaten": _bezug["kandidaten"],
+                            "hinweis": ("Nenne die Bewerbung: daten={'bewerbung_id': "
+                                        "..., ...} — oder daten={'ziel': 'profil'}, "
+                                        "wenn die Notiz den Menschen beschreibt."),
+                        }
                 current = profile.get("informal_notes") or ""
                 # Find or create section
                 from datetime import datetime
@@ -1149,15 +1248,10 @@ def register(mcp, db, logger):
                 # #680: strukturiertes Auslesen der informellen Notizen
                 profile = db.get_profile() or {}
                 blob = profile.get("informal_notes") or ""
-                sektionen = {}
-                cur = None
-                for ln in blob.split("\n"):
-                    st = ln.strip()
-                    if st.startswith("## "):
-                        cur = st[3:].strip()
-                        sektionen.setdefault(cur, [])
-                    elif cur and st:
-                        sektionen[cur].append(st)
+                # v1.7.119 (#1056): EIN Parser fuer das Format, im Dienst.
+                from ..services import notiz_routing as _nr
+                sektionen = {n: [z.strip() for z in zeilen]
+                             for n, zeilen in _nr.sektionen(blob)}
                 return {
                     "status": "ok", "bereich": "notizen",
                     "informal_notes": blob,
@@ -1174,16 +1268,9 @@ def register(mcp, db, logger):
                     return {"fehler": "daten.sektion muss angegeben werden "
                                       "(z.B. {'sektion': 'ALLGEMEIN'})"}
                 blob = profile.get("informal_notes") or ""
-                # In Sektionen zerlegen (Reihenfolge erhalten)
-                sektionen = []  # [name, [zeilen]]
-                cur = None
-                for ln in blob.split("\n"):
-                    st = ln.strip()
-                    if st.startswith("## "):
-                        cur = [st[3:].strip(), []]
-                        sektionen.append(cur)
-                    elif cur is not None and st:
-                        cur[1].append(ln.rstrip())
+                # v1.7.119 (#1056): EIN Parser fuer das Format, im Dienst.
+                from ..services import notiz_routing as _nr
+                sektionen = _nr.sektionen(blob)
                 idx = next((i for i, (n, _) in enumerate(sektionen)
                             if n.upper() == ziel), None)
                 if aktion == "loeschen":
@@ -1201,10 +1288,7 @@ def register(mcp, db, logger):
                         sektionen.append([ziel, [eintrag]])
                     else:
                         sektionen[idx][1] = [eintrag]
-                new_blob = "\n\n".join(
-                    f"## {n}\n" + "\n".join(zeilen)
-                    for n, zeilen in sektionen
-                ).strip()
+                new_blob = _nr.zusammensetzen(sektionen)
                 update = {
                     "name": profile.get("name"), "email": profile.get("email"),
                     "phone": profile.get("phone"), "address": profile.get("address"),
@@ -1677,7 +1761,28 @@ def register(mcp, db, logger):
             "level": level, "years_experience": years_experience,
             "last_used_year": last_used_year if last_used_year else None,
         })
-        return {"status": "gespeichert", "skill_id": sid}
+        antwort = {"status": "gespeichert", "skill_id": sid}
+        # v1.7.119 (#1054): ein neuer Skill, der in keiner Suchliste
+        # steht, ist genau die Drift, die der Abgleich finden soll — und
+        # der Moment, in dem man sie am billigsten behebt. Nur ein Satz;
+        # geaendert wird nichts (AK 3).
+        if sid:
+            try:
+                from ..services import suchbegriff_abgleich as _ab
+                _erg = _ab.abgleich(db)
+                _neu = [v for v in _erg["fehlende_skills"]
+                        if v["begriff"].strip().lower() == str(name).strip().lower()]
+                if _neu:
+                    antwort["suchbegriffe"] = {
+                        "hinweis": (f"'{name}' steht in keiner Suchliste — "
+                                    f"Vorschlag: {_neu[0]['ziel']}."),
+                        "werkzeug": ("profil_suchbegriffe_abgleichen("
+                                     "aktion='uebernehmen', "
+                                     f"schluessel='{_neu[0]['schluessel']}')"),
+                    }
+            except Exception as _e:
+                logger.debug("Abgleich nach skill_hinzufuegen uebersprungen: %s", _e)
+        return antwort
 
     # --- v1.7.0 (#572) Skill-Zeitraeume (diskontinuierlich) ---
 

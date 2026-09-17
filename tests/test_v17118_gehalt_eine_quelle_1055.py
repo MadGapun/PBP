@@ -430,6 +430,10 @@ def test_jeder_schreibweg_in_die_praeferenzen_ist_entschieden():
     SCHREIBWEGE = {
         ("services/praeferenzen_quelle.py", "bereinigen"):
             "entfernt die Felder — das Safety-Net selbst",
+        # v1.7.119 (#1056): der Guard hat ihn beim ersten Suitenlauf
+        # gemeldet — genau die Entscheidung, die er erzwingen soll.
+        ("services/notiz_routing.py", "verschieben"):
+            "reicht den vorhandenen Block durch, legt nichts an",
         ("tools/profil.py", "profil_erstellen"):
             "leitet sie in die Suchkriterien um (nach_suchkriterien)",
         ("tools/profil.py", "profil_bearbeiten"):

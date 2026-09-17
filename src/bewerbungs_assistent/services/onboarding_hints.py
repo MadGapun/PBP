@@ -197,7 +197,89 @@ def _text_gehalt_entfernt(db) -> str:
     return "; ".join(teile)
 
 
+def _condition_suchbegriffe_offen(db) -> bool:
+    """Gibt es offene Vorschlaege aus dem Abgleich Profil/Suchbegriffe? (#1054)
+
+    Gerechnet wird beim Lesen — damit ist der Hinweis nach JEDER
+    Aenderung an Profil oder Listen aktuell, ohne dass ein Schreibweg
+    daran denken muss, ihn anzustossen. Ein Zwischenspeicher haette
+    genau die Drift, gegen die der Abgleich gebaut ist.
+    """
+    try:
+        from .suchbegriff_abgleich import abgleich
+        return abgleich(db)["offen"] > 0
+    except Exception:
+        return False
+
+
+def _text_suchbegriffe_offen(db) -> str:
+    try:
+        from .suchbegriff_abgleich import abgleich, kurzfassung
+        return kurzfassung(abgleich(db))
+    except Exception:
+        return ""
+
+
+def _condition_notizen_mit_bewerbungsbezug(db) -> bool:
+    """Stehen Profilsektionen mit Bewerbungsbezug im Bestand? (#1056)"""
+    try:
+        from .notiz_routing import vorschlaege
+        return bool(vorschlaege(db))
+    except Exception:
+        return False
+
+
+def _text_notizen_mit_bewerbungsbezug(db) -> str:
+    try:
+        from .notiz_routing import vorschlaege
+        v = vorschlaege(db)
+    except Exception:
+        return ""
+    if not v:
+        return ""
+    namen = "; ".join(f"'{x['sektion']}' -> {x['firma']} ({x['zeichen']} Zeichen)"
+                      for x in v[:3])
+    rest = f" und {len(v) - 3} weitere" if len(v) > 3 else ""
+    return f"{len(v)} Sektion(en): {namen}{rest}"
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        "id": "d47_notizen_an_die_bewerbung",
+        "tab": "profil",
+        "title": "Profilnotizen, die zu einer Bewerbung gehoeren",
+        "body": (
+            "Deine Profilnotizen sollen beschreiben, wer du bist. Einige "
+            "Sektionen nennen in der Ueberschrift eine Firma, bei der du "
+            "dich beworben hast — eine Interview-Nachlese etwa. Jedes "
+            "Anschreiben und jedes Dossier liest das Profil mit, auch das "
+            "fuer eine andere Firma. Solche Sektionen gehoeren in die "
+            "Timeline der Bewerbung. Verschoben wird nur, was du "
+            "bestaetigst."
+        ),
+        "cta_label": "Sektionen ansehen",
+        "cta_tool": "profil_notizen_aufraeumen",
+        "condition": _condition_notizen_mit_bewerbungsbezug,
+        "detail": _text_notizen_mit_bewerbungsbezug,
+    },
+    {
+        "id": "c87_suchbegriffe_gegen_profil",
+        "tab": "dashboard",
+        "title": "Deine Suchbegriffe bilden dein Profil nicht ganz ab",
+        "body": (
+            "Der Fachwert misst, wie gut eine Anzeige deine Suchbegriffe "
+            "trifft. Das sagt nur dann etwas ueber dich, wenn die Listen "
+            "dein Profil abbilden — und die werden von Hand gepflegt. Der "
+            "Abgleich hat Vorschlaege: Skills, die in keiner Liste stehen; "
+            "MINUS-Begriffe, die dein eigenes Fachgebiet treffen; "
+            "Rahmenbegriffe wie Orte oder Arbeitsmodelle in den Fachlisten. "
+            "Nichts davon wird ohne dich geaendert."
+        ),
+        "cta_label": "Vorschlaege ansehen",
+        "cta_tool": "profil_suchbegriffe_abgleichen",
+        "condition": _condition_suchbegriffe_offen,
+        "detail": _text_suchbegriffe_offen,
+    },
     {
         "id": "c86_gehalt_nur_einstellungsseite",
         "tab": "profil",

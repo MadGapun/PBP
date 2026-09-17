@@ -217,6 +217,8 @@ EXPECTED_TOOL_NAMES = {
     "profil_report_exportieren",
     "suchkriterien_bearbeiten",
     "suchkriterien_anzeigen",
+    "profil_suchbegriffe_abgleichen",  # v1.7.119 (#1054, C87)
+    "profil_notizen_aufraeumen",  # v1.7.119 (#1056, D47)
     # v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile
     "suchprofil_lesen",
     "suchprofil_aktualisieren",
@@ -401,7 +403,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 253  # v1.7.96 (#811): +ats_firmen_verwalten
+        assert len(tools) == 255  # v1.7.119 (#1054, #1056): +profil_suchbegriffe_abgleichen, +profil_notizen_aufraeumen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
