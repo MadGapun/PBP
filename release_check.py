@@ -254,6 +254,32 @@ def check_changelog_content(version):
         lines = [l for l in block.splitlines() if l.strip() and not l.startswith("#")]
         ok(f"CHANGELOG-Eintrag fuer {version} vorhanden ({len(lines)} Zeilen)")
 
+    # v1.7.118: der CHANGELOG wird MASCHINELL gelesen. Elwosa meldet nach
+    # einem Update die Punkte unter Added/Changed/Fixed der neuesten
+    # Version (#823) — und dafuer muessen es `- `-Punkte sein, keine
+    # Absaetze. Ein Eintrag aus reiner Prosa laesst den Kanal stumm.
+    #
+    # Geprueft wird mit DER Funktion, die ihn liest, nicht mit einer
+    # zweiten Fassung ihrer Regeln (#963).
+    try:
+        sys.path.insert(0, str(PROJECT_DIR / "src"))
+        from bewerbungs_assistent.services.elwosa_provider import (
+            _parse_changelog_kopf,
+        )
+        gelesen, eintraege = _parse_changelog_kopf(changelog)
+    except Exception as e:  # pragma: no cover
+        warn(f"CHANGELOG-Parser nicht pruefbar: {e}")
+        return
+    if gelesen != version:
+        error(f"Der Parser liest '{gelesen}' als neueste Version, "
+              f"erwartet '{version}' — steht der Eintrag ganz oben?")
+    elif not eintraege:
+        error(f"Der Eintrag fuer {version} hat keine Listenpunkte unter "
+              "Added/Changed/Fixed — Elwosa haette nach dem Update nichts "
+              "zu melden (#823). Punkte mit '- ' beginnen.")
+    else:
+        ok(f"CHANGELOG maschinell lesbar ({len(eintraege)} Punkte fuer Elwosa)")
+
 
 # ── 5. First-Run Smoke ────────────────────────────────────────
 

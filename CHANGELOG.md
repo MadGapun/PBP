@@ -40,54 +40,47 @@ dieselbe Frage an zwei Orten — einmal als Zahl, einmal als Rechenweg.
 
 ### Fixed
 
-**Mindestgehalt und Saetze standen an zwei Orten mit verschiedenen
-Werten (#1055).** Gemessen in einem Bestand: Suchkriterien 75.000 gegen
-Job-Praeferenzen 80.000, Tagessatz 800 gegen 900, Ziel-Tagessatz 1.350
-gegen 1.200. Die Praeferenzen stammen aus der Ersterfassung im Gespraech
-und haben in keiner Oberflaeche ein Eingabefeld — sie wurden also nie
-nachgezogen.
-
-Der teuerste Leser war die **Fit-Analyse**. Sie holte die Suchkriterien
-durch das Nadeloehr und ueberschrieb `min_gehalt` danach mit dem Wert aus
-den Praeferenzen. Dieselbe Stelle bekam in der Liste einen anderen
-Rahmenwert als in der Detailansicht, und beide Zahlen hiessen "dein
-Minimum".
-
-Es gilt die Einstellungsseite. Alle vier Leser (Gehaltspruefung einer
-Stelle, Marktanalyse, die Kennzahl im Dashboard und die Fit-Analyse)
-fragen jetzt dieselbe Stelle und nennen die Quelle. Die Gehaltsfelder
-verlassen die Job-Praeferenzen; was dort stand, wird beim Entfernen
-aufgeschrieben und einmalig genannt — ein gesetzter Wert darf nicht
-still verschwinden.
-
-**Vier Schreibwege statt einem.** Neben der Profilbearbeitung nehmen
-auch die Ersterfassung, die Dokument-Extraktion und der Profil-Import
-solche Angaben entgegen. Wo ein Mensch danebensteht, werden sie
-abgewiesen und der richtige Ort genannt; wo keiner danebensteht
-(Ersterfassung, Import), wandert die Angabe in die Suchkriterien, statt
-verworfen zu werden.
-
-**Geocoding lief ueber die Rohtreffer (#1057).** Die Laufkarte meldete
-"3540/4536 Standorte", waehrend der ganze Bestand 2692 Stellen umfasste
-— es wurden in einem Lauf mehr Standorte gemeldet, als es Stellen gibt.
-Der Schritt lief vor Altersfilter, Schwelle und Ausschluss-Begriffen.
-
-Jetzt entscheidet ein Ort ueber den harten Ausschluss, der Altersfilter
-steht davor, und Stellen mit hartem k.o. werden uebersprungen — ihre
-Entfernung liest ohnehin kein Rechenweg. Der Score bleibt bewusst hinter
-dem Geocoding: er liest die Entfernung.
+- **Dein Mindestgehalt stand an zwei Orten mit verschiedenen Zahlen
+  (#1055).** Gemessen in einem Bestand: 75.000 in den Suchkriterien
+  gegen 80.000 in den Job-Praeferenzen, Tagessatz 800 gegen 900,
+  Ziel-Tagessatz 1.350 gegen 1.200. Die Praeferenzen stammen aus der
+  Ersterfassung im Gespraech und haben in keiner Oberflaeche ein
+  Eingabefeld — sie wurden also nie nachgezogen. Es gilt ab jetzt die
+  Einstellungsseite.
+- **Dieselbe Stelle trug in der Liste einen anderen Rahmenwert als in
+  der Detailansicht.** Die Fit-Analyse holte die Suchkriterien korrekt
+  und ueberschrieb das Mindestgehalt danach aus den Praeferenzen. Beide
+  Zahlen hiessen "dein Minimum". Alle vier Auskuenfte zum Gehalt
+  (Gehaltspruefung einer Stelle, Marktanalyse, Dashboard-Kennzahl,
+  Fit-Analyse) fragen jetzt dieselbe Stelle und sagen, woher die Zahl
+  kommt.
+- **Was aus den Job-Praeferenzen entfernt wird, wird genannt.** Der
+  alte Wert und der, der stattdessen gilt, stehen einmalig als Hinweis
+  — ein gesetzter Wert verschwindet nicht still.
+- **Vier Schreibwege statt einem.** Auch die Ersterfassung, die
+  Dokument-Extraktion und der Profil-Import nahmen Gehaltsangaben
+  entgegen. Wo ein Mensch danebensteht, werden sie abgewiesen und der
+  richtige Ort genannt; wo keiner danebensteht, wandert die Angabe in
+  die Suchkriterien, statt verworfen zu werden.
+- **Das Geocoding lief ueber die Rohtreffer (#1057).** Die Laufkarte
+  meldete "3540/4536 Standorte", waehrend der ganze Bestand 2692
+  Stellen umfasste — in einem Lauf mehr Standorte, als es Stellen gibt.
+  Der Schritt lief vor Altersfilter, Schwelle und Ausschluss-Begriffen.
+- **Stellen, die ohnehin herausfallen, kosten keine Abfrage mehr.** Der
+  Altersfilter steht jetzt vor dem Geocoding, und Stellen mit hartem
+  Ausschluss werden uebersprungen: ihre Entfernung liest ohnehin kein
+  Rechenweg. Der Score bleibt bewusst dahinter, denn er liest sie.
 
 ### Changed
 
-Die Laufkarte nennt die Zahl der **verschiedenen Orte** neben der Zahl
-der Stellen. Gefragt wird der Dienst je Ort, und derselbe Ort kommt
-vielfach vor: auf einer Bestandskopie tragen 2458 Stellen mit Ort nur
-501 verschiedene Ortsangaben, die haeufigste 918-mal. Die alte Rechnung
-sagte fuer einen Lauf 75 Minuten voraus und war damit der Anlass fuer die
-Meldung.
-
-Die Profil-Zusammenfassung fuehrt Gehalt und Saetze unter ihrer Herkunft
-("aus den Suchkriterien") statt als Job-Praeferenz.
+- **Die Laufkarte nennt die verschiedenen ORTE neben den Stellen.**
+  Gefragt wird der Dienst je Ort, und derselbe Ort kommt vielfach vor:
+  auf einer Bestandskopie tragen 2458 Stellen mit Ort nur 501
+  verschiedene Ortsangaben, die haeufigste 918-mal. Die alte Rechnung
+  sagte fuer einen Lauf 75 Minuten voraus — das war der Anlass fuer die
+  Meldung.
+- **Die Profil-Zusammenfassung fuehrt Gehalt und Saetze unter ihrer
+  Herkunft** ("aus den Suchkriterien") statt als Job-Praeferenz.
 
 ### Known Issues
 
