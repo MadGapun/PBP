@@ -677,6 +677,84 @@ def register(mcp, db, logger):
         return {"fehler": "Aktion muss 'hinzufuegen'/'hinzufügen' oder 'entfernen' sein."}
 
     @mcp.tool()
+    def profil_suchbegriffe_abgleichen(
+        aktion: str = "anzeigen",
+        schluessel: str = "",
+        ziel: str = "",
+        mindest_level: int = 3,
+    ) -> dict:
+        """Gleicht die Suchbegriffe gegen das Profil ab (#1054, v1.7.119).
+
+        Der Fachwert misst, wie gut eine Anzeige die SUCHBEGRIFFE trifft.
+        Das sagt nur dann etwas ueber dich, wenn die Listen dein Profil
+        abbilden — und die driften, weil sie von Hand gepflegt werden.
+        Drei Pruefungen, drei getrennte Listen:
+
+        1. **fehlende_skills** — Profil-Skills, die weder in MUSS noch in
+           PLUS stehen (verglichen ueber die Begriffsgruppierung aus
+           #1012, nicht ueber Zeichenketten). Level 4/5 nach MUSS,
+           darunter nach PLUS.
+        2. **widersprueche** — MINUS-Begriffe, die einen Profil-Skill
+           treffen ODER in einer Stelle stehen, auf die du dich beworben
+           hast. Beide Seiten werden genannt, nichts wird aufgeloest:
+           ein bewusster MINUS bleibt deine Entscheidung.
+        3. **rahmenbegriffe** — Orte, Arbeitsmodelle, Vertragsformen und
+           Zusatzleistungen in den Fachlisten. Sie gehoeren in Regler
+           und Regionen, sonst verfaelschen sie den Fachwert.
+
+        Nichts wird ohne Bestaetigung geaendert. Ein verworfener
+        Vorschlag kommt erst wieder, wenn sich Profil oder Liste an
+        dieser Stelle aendern.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'uebernehmen' oder 'verwerfen'.
+            schluessel: der `schluessel` eines Vorschlags aus 'anzeigen'
+                (fuer uebernehmen/verwerfen).
+            ziel: nur bei uebernehmen eines fehlenden Skills —
+                'keywords_muss' oder 'keywords_plus', wenn du vom
+                Vorschlag abweichen willst.
+            mindest_level: fehlende Skills unter diesem Level werden
+                nicht vorgeschlagen (Vorgabe 3 — nach Grundkenntnissen
+                sucht niemand Stellen). Auf 1 senken, um alles zu sehen.
+        """
+        from ..services import suchbegriff_abgleich as _ab
+        if not db.get_profile():
+            from ..services.nutzerfuehrung import kein_profil
+            return kein_profil("profil_suchbegriffe_abgleichen")
+        if aktion == "verwerfen":
+            if not schluessel:
+                return {"fehler": "schluessel fehlt — aus 'anzeigen' nehmen."}
+            return _ab.verwerfen(db, schluessel)
+        if aktion == "uebernehmen":
+            if not schluessel:
+                return {"fehler": "schluessel fehlt — aus 'anzeigen' nehmen."}
+            return _ab.uebernehmen(db, schluessel, ziel)
+        if aktion != "anzeigen":
+            return {"fehler": f"Unbekannte Aktion '{aktion}'. Erlaubt: "
+                              "anzeigen, uebernehmen, verwerfen."}
+        try:
+            _grenze = max(1, min(5, int(mindest_level)))
+        except (TypeError, ValueError):
+            _grenze = _ab.MIN_LEVEL_VORSCHLAG
+        ergebnis = _ab.abgleich(db, mindest_level=_grenze)
+        ergebnis["mindest_level"] = _grenze
+        if not ergebnis["offen"]:
+            return leer(
+                ergebnis,
+                "Profil und Suchbegriffe passen zusammen — kein offener "
+                "Vorschlag." + (f" ({ergebnis['verworfen']} verworfene "
+                                "bleiben stumm.)" if ergebnis["verworfen"] else ""),
+                "Nach jeder Aenderung am Profil oder an den Listen lohnt "
+                "ein neuer Blick: profil_suchbegriffe_abgleichen().")
+        ergebnis["zusammenfassung"] = _ab.kurzfassung(ergebnis)
+        ergebnis["naechster_schritt"] = (
+            "Je Vorschlag entscheiden: "
+            "profil_suchbegriffe_abgleichen(aktion='uebernehmen', "
+            "schluessel=...) oder aktion='verwerfen'. Nichts davon "
+            "passiert von allein.")
+        return ergebnis
+
+    @mcp.tool()
     def suchkriterien_anzeigen() -> dict:
         """Zeigt die aktuellen Suchkriterien an.
 
@@ -765,6 +843,21 @@ def register(mcp, db, logger):
                     "schaerfer als vorher, ohne dass du sie geaendert "
                     "hast. Sieh sie einmal an: "
                     "suchkriterien_setzen(min_score_schwelle=N).")
+        # v1.7.119 (#1054): der Abgleich gegen das Profil laeuft bei
+        # jedem Lesen — wer die Listen ansieht, sieht auch, was ihnen
+        # fehlt und was darin falsch steht. Nur die Zahl und ein Satz;
+        # die Vorschlaege selbst holt profil_suchbegriffe_abgleichen().
+        try:
+            from ..services import suchbegriff_abgleich as _ab
+            _abgleich = _ab.abgleich(db)
+            if _abgleich["offen"]:
+                antwort["abgleich_profil"] = {
+                    "offene_vorschlaege": _abgleich["offen"],
+                    "zusammenfassung": _ab.kurzfassung(_abgleich),
+                    "werkzeug": "profil_suchbegriffe_abgleichen()",
+                }
+        except Exception as _e:
+            logger.debug("Abgleich in suchkriterien_anzeigen uebersprungen: %s", _e)
         return antwort
 
     @mcp.tool()
