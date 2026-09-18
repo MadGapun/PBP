@@ -55,6 +55,24 @@ def _katalog_prompts() -> set[str]:
     return {e["prompt"] for e in prompt_katalog.alle()}
 
 
+def prompt_text(ergebnis) -> str:
+    """Der Text eines gerenderten Prompts — fuer FastMCP 2.x UND 3.x.
+
+    2.x gibt eine Liste von Nachrichten zurueck, 3.x ein `PromptResult`
+    mit `.messages`. Wer ein Pydantic-Modell direkt iteriert, bekommt
+    (Feld, Wert)-Tupel: genau daran ist die erste Fassung in der CI
+    gescheitert, waehrend sie lokal gruen war — lokal lief 2.12, die CI
+    nimmt, was `pyproject.toml` verlangt (>= 3.0). Geprueft gegen ein
+    echtes 3.4.7 in einer Wegwerf-Umgebung, nicht geraten.
+    """
+    nachrichten = getattr(ergebnis, "messages", ergebnis)
+    teile = []
+    for nachricht in nachrichten:
+        inhalt = getattr(nachricht, "content", nachricht)
+        teile.append(inhalt if isinstance(inhalt, str) else getattr(inhalt, "text", str(inhalt)))
+    return "".join(teile)
+
+
 def ohne_kommentare(quelle: str) -> str:
     quelle = re.sub(r"/\*.*?\*/", "", quelle, flags=re.S)
     return "\n".join(z for z in quelle.splitlines() if not z.strip().startswith("//"))
@@ -102,8 +120,7 @@ def test_dashboard_und_mcp_liefern_denselben_text(umgebung):
 
     async def _mcp_text():
         prompt = await mcp.get_prompt("dokumente_verarbeiten")
-        ergebnis = await prompt.render({})
-        return "".join(getattr(m.content, "text", str(m.content)) for m in ergebnis)
+        return prompt_text(await prompt.render({}))
 
     assert _prompt_registry(db)["dokumente_verarbeiten"]() == asyncio.run(_mcp_text())
 
@@ -132,9 +149,7 @@ def test_jeder_mcp_prompt_laesst_sich_mit_profil_und_daten_rendern(umgebung):
         for name in namen:
             prompt = await mcp.get_prompt(name)
             try:
-                gerendert = await prompt.render({})
-                ergebnis[name] = "".join(
-                    getattr(m.content, "text", str(m.content)) for m in gerendert)
+                ergebnis[name] = prompt_text(await prompt.render({}))
             except Exception as exc:  # der Befund, nicht der Abbruch
                 ergebnis[name] = exc
         return ergebnis
