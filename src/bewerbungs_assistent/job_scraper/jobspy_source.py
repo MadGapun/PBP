@@ -183,7 +183,8 @@ def _normalize_umfang(job_type: str) -> str:
 
 def _search_site(site: str, keywords: list[str], location: str,
                   max_results: int = 25, hours_old: int = 168,
-                  google_search_term: str | None = None) -> list[dict]:
+                  google_search_term: str | None = None,
+                  zwischenstand: dict | None = None) -> list[dict]:
     """Einmaliger Aufruf gegen eine einzelne JobSpy-Site.
 
     `country_indeed` wird IMMER auf "Germany" gesetzt — JobSpy crasht
@@ -208,8 +209,19 @@ def _search_site(site: str, keywords: list[str], location: str,
     consecutive_empty = 0
     _EARLY_STOP_THRESHOLD = 3
 
-    jobs: list[dict] = []
+    # #1061: Mit `zwischenstand` ist das Gefundene schon waehrend des
+    # Laufs sichtbar (dieselbe Liste), und der Suchlauf kann nach dem
+    # aktuellen Begriff anhalten lassen. Vorher war alles verloren, was
+    # bis zum Budget-Abbruch gefunden war — neun Laeufe, rund 9.600
+    # Stellen, null gespeichert.
+    jobs: list[dict] = zwischenstand["jobs"] if zwischenstand is not None else []
+    if zwischenstand is not None:
+        zwischenstand["abfragen"] = len(keywords)
     for kw in keywords:
+        if zwischenstand is not None and zwischenstand["stopp"].is_set():
+            logger.info("JobSpy %s: angehalten nach %d von %d Begriffen",
+                        site, zwischenstand["fertig"], len(keywords))
+            break
         try:
             kwargs = dict(
                 site_name=[site],
@@ -234,8 +246,12 @@ def _search_site(site: str, keywords: list[str], location: str,
                                site, name, kw)
                 break
             logger.warning("JobSpy %s Fehler bei '%s': %s", site, kw, exc)
+            if zwischenstand is not None:
+                zwischenstand["fertig"] += 1
             continue
 
+        if zwischenstand is not None:
+            zwischenstand["fertig"] += 1
         if df is None or getattr(df, "empty", True):
             consecutive_empty += 1
             if consecutive_empty >= _EARLY_STOP_THRESHOLD and not jobs:
@@ -264,8 +280,14 @@ def _extract_kw_region(params: dict) -> tuple[list[str], str]:
 
 #: Gemessen im Bericht zu #1038: eine LinkedIn-Abfrage mit 25 Treffern
 #: dauert 11,3 s — JobSpy wartet zwischen zwei Ergebnisseiten bewusst 3
-#: bis 7 s. Mit etwas Luft 12 s je Abfrage.
+#: bis 7 s. #1061 mass 14 s. Zwei Messungen, zwei Werte: die Konstante
+#: ist deshalb nur noch die UNTERGRENZE, das Budget rechnet mit dem
+#: zuletzt gemessenen Wert (`LINKEDIN_MESSWERT_SCHLUESSEL`).
 LINKEDIN_SEKUNDEN_JE_ABFRAGE = 12
+#: Zuschlag auf den Messwert — LinkedIn schwankt von Lauf zu Lauf.
+LINKEDIN_ZUSCHLAG = 1.25
+#: Wo der gemessene Wert liegt (settings-Tabelle).
+LINKEDIN_MESSWERT_SCHLUESSEL = "jobspy_linkedin_sekunden_je_abfrage"
 #: Obergrenze, damit ein haengender Lauf nicht beliebig lange blockiert.
 LINKEDIN_BUDGET_MAX = 1200
 
@@ -283,21 +305,37 @@ def linkedin_abfragen(params: dict) -> int:
     return len(_expand_keywords_for_linkedin(keywords))
 
 
-def linkedin_langlauf_budget(params: dict, mindestens: int) -> int:
-    """Wie lange der Suchlauf auf LinkedIn wartet (#1038).
+def sekunden_je_abfrage(gemessen: float | None = None) -> float:
+    """Rechenwert je Abfrage: der Messwert mit Zuschlag, nie unter der
+    Untergrenze (#1061)."""
+    basis = max(float(LINKEDIN_SEKUNDEN_JE_ABFRAGE), float(gemessen or 0))
+    return basis * LINKEDIN_ZUSCHLAG
+
+
+def linkedin_langlauf_budget(params: dict, mindestens: int,
+                             gemessen: float | None = None) -> int:
+    """Wie lange der Suchlauf auf LinkedIn wartet (#1038, #1061).
 
     Die Dauer waechst mit der Zahl der Suchbegriffe; ein festes Budget war
     fuer 44 Begriffe (rund acht Minuten) nie erreichbar, und das Ergebnis
-    wurde verworfen.
+    wurde verworfen. Seit #1061 mit dem gemessenen Wert je Abfrage statt
+    einer Konstanten — 576 s bei gebrauchten 615 s waren 7 % daneben.
     """
-    geschaetzt = linkedin_abfragen(params) * LINKEDIN_SEKUNDEN_JE_ABFRAGE + 60
+    geschaetzt = int(linkedin_abfragen(params) * sekunden_je_abfrage(gemessen)) + 60
     return max(int(mindestens), min(geschaetzt, LINKEDIN_BUDGET_MAX))
+
+
+def begriffe_im_budget(gemessen: float | None = None) -> int:
+    """So viele Suchbegriffe passen in die Obergrenze (#1061, Wunsch 4:
+    "weniger Suchbegriffe" ohne Zahl ist schwer umzusetzen)."""
+    return max(1, int((LINKEDIN_BUDGET_MAX - 60) / sekunden_je_abfrage(gemessen)))
 
 
 def search_jobspy_linkedin(params: dict) -> list[dict]:
     """LinkedIn via python-jobspy (#490)."""
     keywords, location = _extract_kw_region(params)
-    jobs = _search_site("linkedin", keywords, location, max_results=25)
+    jobs = _search_site("linkedin", keywords, location, max_results=25,
+                        zwischenstand=params.get("_zwischenstand"))
     logger.info("JobSpy/LinkedIn: %d Stellen gefunden", len(jobs))
     return jobs
 
