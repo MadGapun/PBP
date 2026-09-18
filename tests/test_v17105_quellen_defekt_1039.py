@@ -197,11 +197,16 @@ def _quelle(name: str) -> str:
 
 
 def test_das_erste_etikett_folgt_dem_haken():
+    # v1.7.120 (#1059): die Etiketten entstehen in lib/quellenBadges. Die
+    # Absicht dieses Tests gilt unveraendert — das ERSTE Etikett folgt dem
+    # Haken, "Wartet auf dich" (#906) steht als Hinweis daneben —, sie wird
+    # nur dort geprueft, wo die Regel jetzt wohnt. Reihenfolge und "kein
+    # Text doppelt" prueft der Node-Test am Verhalten.
     src = _quelle("components/SourceSelectionList.jsx")
-    assert '{source.active ? "Aktiv" : "Inaktiv"}' in src
-    # "Wartet auf dich" (#906) und "Manuell" bleiben — als Hinweis daneben.
-    assert "Wartet auf dich" in src and "Manuell" in src
-    assert 'source.veraltet\n                        ? "Manuell"' not in src
+    assert "quellenBadges(source" in src
+    lib = _quelle("lib/quellenBadges.js")
+    assert 'q.active ? "Aktiv" : "Inaktiv"' in lib
+    assert lib.index('q.active ? "Aktiv"') < lib.index('text: "Wartet auf dich"')
 
 
 def test_die_liste_hat_filter_und_eine_eigene_ansicht_fuer_defekte():

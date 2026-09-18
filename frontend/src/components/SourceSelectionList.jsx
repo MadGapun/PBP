@@ -2,12 +2,7 @@ import { Fragment, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
 
 import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
-
-function loginTone(status) {
-  if (status === "fehler") return "danger";
-  if (status === "fertig") return "success";
-  return "sky";
-}
+import { WEG_BROWSER, quellenBadges } from "@/lib/quellenBadges";
 
 function healthBadge(health) {
   if (!health || !health.last_run) return null;
@@ -80,33 +75,6 @@ function healthBadge(health) {
   }
 }
 
-function speedBadge(geschwindigkeit) {
-  if (geschwindigkeit === "schnell") {
-    return (
-      <Badge tone="success" className="gap-1">
-        <Zap size={10} />
-        Schnell
-      </Badge>
-    );
-  }
-  if (geschwindigkeit === "langsam") {
-    return (
-      <Badge tone="amber" className="gap-1">
-        <Clock size={10} />
-        Browser
-      </Badge>
-    );
-  }
-  if (geschwindigkeit === "manuell") {
-    return (
-      <Badge tone="neutral" className="gap-1">
-        Manuell
-      </Badge>
-    );
-  }
-  return null;
-}
-
 // #1039: Ansichten der Quellenliste. "alle" heisst alle NUTZBAREN — die
 // defekten haben eine eigene Ansicht, sonst verschwinden sie nicht aus dem
 // Blick, sondern nur aus der Zaehlung.
@@ -162,9 +130,9 @@ export default function SourceSelectionList({
             <strong className="text-ink">1. Eingebauter Scraper</strong> — Default-Weg.{" "}
             <Badge tone="success" className="gap-1 inline-flex"><Zap size={9} />Schnell</Badge>{" "}
             Quellen laufen parallel und liefern in Sekunden.{" "}
-            <Badge tone="amber" className="gap-1 inline-flex"><Clock size={9} />Browser</Badge>{" "}
-            Quellen brauchen Google Chrome und 1-3 Minuten.{" "}
-            <a href="https://www.google.com/chrome/" target="_blank" rel="noopener noreferrer" className="text-sky underline">Chrome herunterladen</a>
+            <Badge tone="sky" className="gap-1 inline-flex">{WEG_BROWSER}</Badge>{" "}
+            heisst: die Quelle laeuft nicht von selbst, sondern ueber die Claude-Erweiterung
+            in deinem Browser (Chrome, Brave, Edge oder Vivaldi).
           </p>
           <p>
             <strong className="text-ink">2. Claude in Chrome (Browser-Extension)</strong> — wenn der eingebaute
@@ -245,53 +213,23 @@ export default function SourceSelectionList({
                   <span className={`text-sm font-semibold ${isDefekt ? "text-muted line-through decoration-muted/40" : "text-ink"}`}>
                     {source.name}
                   </span>
-                  {isDefekt ? (
-                    <Badge tone="danger" className="gap-1">
-                      <Ban size={10} />
-                      Defekt
-                    </Badge>
-                  ) : (
-                    /* #1039: das erste Etikett folgt immer dem Haken.
-                       Vorher stand "Aktiv" fuer zwei Dinge, und "Manuell"
-                       erschien unabhaengig davon, ob die Quelle angehakt
-                       ist. Die Besonderheiten stehen jetzt daneben. */
-                    <Badge tone={source.active ? "success" : "neutral"}>
-                      {source.active ? "Aktiv" : "Inaktiv"}
-                    </Badge>
-                  )}
-                  {/* v1.7.17 (#906): Browser-Quellen laufen NIE von selbst. */}
-                  {!isDefekt && source.active && String(source.zugriffsart || "").startsWith("browser") ? (
-                    <Badge tone="sky" title="Laeuft nicht von selbst, sondern ueber die Chrome-Extension in deinem Browser">
-                      Wartet auf dich
-                    </Badge>
-                  ) : null}
-                  {!isDefekt && source.veraltet ? (
-                    <Badge tone="neutral" title="Keine automatische Suche mehr, ueber Chrome weiter nutzbar">
-                      Manuell
-                    </Badge>
-                  ) : null}
-                  {speedBadge(source.geschwindigkeit)}
-                  {healthBadge(source.health)}
-                  {source.beta ? (
-                    <Badge tone="amber">Beta</Badge>
-                  ) : null}
-                  {source.login_erforderlich ? (
-                    <Badge tone="amber">Login noetig</Badge>
-                  ) : null}
-                  {source.zugriffsart === "browser_login" && !source.login_erforderlich ? (
-                    <Badge tone="amber" title={source.login_hinweis || "Laeuft nur ueber Claude-in-Chrome mit eingeloggtem Konto (#906)"}>
-                      Konto + Chrome
-                    </Badge>
-                  ) : null}
-                  {loginJob?.status ? (
-                    <Badge tone={loginTone(loginJob.status)}>
-                      {loginJob.status === "running"
-                    ? "Login laeuft"
-                        : loginJob.status === "fertig"
-                          ? "Session bereit"
-                          : "Login offen"}
-                    </Badge>
-                  ) : null}
+                  {/* v1.7.120 (#1059): die Etiketten kommen aus
+                      lib/quellenBadges — Weg, Tempo, Eigenschaft und Zustand
+                      getrennt, jeder Text hoechstens einmal. #1039 gilt
+                      weiter: das erste Etikett folgt dem Haken. #906 auch:
+                      eine aktive Browser-Quelle "wartet auf dich". */}
+                  {quellenBadges(source, loginJob?.status || null).map((b) => (
+                    <Fragment key={b.text}>
+                      <Badge tone={b.tone} title={b.titel || undefined} className="gap-1">
+                        {b.symbol === "ban" ? <Ban size={10} /> : null}
+                        {b.symbol === "zap" ? <Zap size={10} /> : null}
+                        {b.symbol === "clock" ? <Clock size={10} /> : null}
+                        {b.text}
+                      </Badge>
+                      {/* Der Gesundheitszustand steht direkt hinter dem Status. */}
+                      {b.art === "status" ? healthBadge(source.health) : null}
+                    </Fragment>
+                  ))}
                 </div>
                 <p className="text-sm text-muted">{source.beschreibung}</p>
                 {isDefekt ? (

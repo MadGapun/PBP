@@ -108,5 +108,10 @@ jobs:
         # gehen beim Aufloesen nicht verloren; ein Werkzeug geht als Satz hinaus.
         run: node frontend/src/lib/promptAufloesung.test.mjs
 
+      - name: Etiketten der Quellen-Karten (Node)
+        # #1059: Weg, Tempo, Eigenschaft und Zustand getrennt; kein Text doppelt;
+        # das Tempo heisst nie "Browser".
+        run: node frontend/src/lib/quellenBadges.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py
