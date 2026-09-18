@@ -211,12 +211,16 @@ def _check_readme_version(readme_file, readme, fix):
 
     neuster = "v" + ".".join(str(x) for x in max(_key(t) for t in tags))
 
-    genannt = set(re.findall(r'v1\.7\.\d+', readme))
-    veraltet = {v for v in genannt if _key(v) < _key(neuster)}
     # Nur die beiden Kopf-Stellen zaehlen: Fliesstext und Stable-Badge.
     marke = chr(10) + "## "
     kopf = readme[:readme.index(marke)] if marke in readme else readme
-    veraltet = {v for v in veraltet if v in kopf}
+    # v1.7.120: die Versionen werden AUS DEM KOPF gelesen, nicht per
+    # Teilstring gegen ihn geprueft. Vorher galt "v1.7.12" aus der Roadmap
+    # weiter unten als "im Kopf genannt", weil es in "v1.7.120" steckt —
+    # ab 1.7.120 haette das Gate bei jedem Release gewarnt, und --fix
+    # haette aus "v1.7.120" ein "v1.7.1190" gemacht.
+    genannt = set(re.findall(r'v1\.7\.\d+(?!\d)', kopf))
+    veraltet = {v for v in genannt if _key(v) < _key(neuster)}
 
     if not veraltet:
         ok(f"README nennt die aktuelle Stable-Version ({neuster})")
@@ -224,7 +228,7 @@ def _check_readme_version(readme_file, readme, fix):
     if fix:
         neu_text = readme
         for v in veraltet:
-            neu_text = neu_text.replace(v, neuster)
+            neu_text = re.sub(re.escape(v) + r'(?!\d)', neuster, neu_text)
         readme_file.write_text(neu_text, encoding="utf-8")
         ok(f"README von {sorted(veraltet)} auf {neuster} korrigiert")
     else:

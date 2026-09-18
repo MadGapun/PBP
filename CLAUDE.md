@@ -41,7 +41,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 
 ## Stand 2026-09-18 (v1.7.120 Stable) — Ein Knopf liefert, was er verspricht
 
-Nutzerbericht vom 18.09. (Bildschirmfotos) und **#1038**. **Tests: 4873.**
+Nutzerbericht vom 18.09. (Bildschirmfotos), **#1038** und **#1059**. **Tests: 4878.**
 MCP-Tools 242 / 255.
 
 MERKE-Punkte:
@@ -109,6 +109,33 @@ Modul-Funktion zeichengleich (sha256 vorher/nachher).
 
 (9) **Offen aus #1038:** der Anzeigentext (`linkedin_fetch_description`)
 verlaengert den Lauf weiter — eigene Entscheidung.
+
+(10) **#1059: vier Quellen, ein Weg, vier Beschreibungen.** Die
+Badge-Kette der Quellen-Karte mischte TEMPO, ZUGANGSWEG, EIGENSCHAFT und
+ZUSTAND. `langsam` hiess "Browser" und las sich wie ein Wegweiser; XING
+trug zweimal "Manuell" (einmal aus `veraltet`, einmal aus dem Tempo).
+Neu `lib/quellenBadges.js` mit zwei Regeln: **der Weg schlaegt das
+Tempo**, und **jeder Text steht hoechstens einmal**. Die Regel gilt fuer
+JEDE Browser-Quelle — Monster stand in keinem Bericht und trug denselben
+Widerspruch (`methode: Playwright` bei `browser_login`, das die Quelle
+vom internen Lauf ausnimmt). Der Beleg ist der gerenderte Dialog auf
+einer isolierten DB, nicht der Quelltext.
+
+(11) **Der Pre-Release-Check hat zwei Issues gefangen, und der Nutzer
+auch.** #1058 und #1059 kamen waehrend der Release-Arbeit herein. #1059
+ging mit (Anzeigefehler, aus dem man falsche Schluesse zieht); #1058
+nicht: meinestadt als Browser-Quelle ist ein Umbau mit Entscheidungen,
+die der Melder ausdruecklich offen laesst (robots.txt, Nutzung der
+JSON-Antwort im Browser-Kontext).
+
+(12) **Das Release-Gate las "v1.7.12" aus "v1.7.120".** Die
+README-Pruefung sammelte Versionen aus dem GANZEN Text und pruefte dann
+per Teilstring, ob sie im Kopf stehen — "v1.7.12" aus der Roadmap steckt
+in "v1.7.120". Ab dieser Version haette das Gate bei jedem Release
+gewarnt, und `--fix` haette aus "v1.7.120" ein "v1.7.1190" gemacht.
+Vierter Fall der Teilstring-Klasse nach "ki" in "Kita" (#970), "us" in
+"Kundenservice" (#996) und "Eur" in "Europastr." (#1026) — diesmal im
+eigenen Pruefwerkzeug. **Eine Versionsnummer ist kein Praefix.**
 
 ## Stand 2026-09-17 (v1.7.119 Stable) — Die Listen passen zum Profil, die Notizen zur Bewerbung
 

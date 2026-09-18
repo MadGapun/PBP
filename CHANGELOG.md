@@ -142,6 +142,19 @@ ein Ausfall wie ein Ergebnis.
   waechst** (rund 12 Sekunden je Begriff, hoechstens 20 Minuten).
   Spaete Treffer laufen durch dieselben Filter und werden gespeichert.
   Die schnellen Quellen warten nicht mehr auf LinkedIn.
+- **Die Karten der Browser-Quellen sagen dasselbe mit denselben Worten
+  (#1059).** StepStone, Indeed, LinkedIn und XING gehen denselben Weg —
+  ueber die Claude-Erweiterung in deinem Browser —, und jede Karte sagte
+  es anders. Das Tempo-Etikett "Browser" las sich wie ein Wegweiser, XING
+  trug zweimal "Manuell". Jetzt steht bei allen "Im eigenen Browser".
+- **"Benoetigt Google Chrome" stimmte nicht.** Die Erweiterung laeuft in
+  jedem Chromium-Browser — Chrome, Brave, Edge oder Vivaldi. Und die
+  Karten nannten Playwright als Methode, obwohl es bei diesen Quellen nie
+  zum Einsatz kommt.
+- **"Konto noetig" gegen "Konto empfohlen"** — der Unterschied stand
+  vorher hinter "Login noetig" und "Konto + Chrome" verborgen. Die
+  Indeed-Karte sagt jetzt, dass "Indeed.de (via JobSpy)" denselben
+  Bestand schon automatisch abdeckt.
 - **"Zu langsam" ist kein Ausfall.** Reicht auch das eigene Budget
   nicht, steht das so in der Diagnose — ohne Fehlerserie, ohne Pause,
   ohne Abschaltung.
@@ -157,7 +170,7 @@ ein Ausfall wie ein Ergebnis.
   (#1038 Punkt 4). Ihn mitzuholen verlaengert den Lauf weiter und ist
   eine eigene Entscheidung.
 
-4873 automatische Tests.
+4878 automatische Tests.
 
 ---
 
