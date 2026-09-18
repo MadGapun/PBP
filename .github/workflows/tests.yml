@@ -103,5 +103,10 @@ jobs:
         # und nennt einen vorhandenen Befund; Karte und Dialog teilen ihn.
         run: node frontend/src/lib/detailbewertung.test.mjs
 
+      - name: Prompt-Aufloesung der Dashboard-Knoepfe (Node)
+        # v1.7.120: ein "/name" ist ein Workflow oder ein Fehler; Argumente
+        # gehen beim Aufloesen nicht verloren; ein Werkzeug geht als Satz hinaus.
+        run: node frontend/src/lib/promptAufloesung.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

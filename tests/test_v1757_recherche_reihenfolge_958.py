@@ -99,9 +99,12 @@ def test_958_der_prompt_traegt_die_bewerbung_id():
     """Der Kern des zweiten Befunds. Ohne sie speichert
     `firmen_recherche` nicht (#674) — der Prompt war ein reiner
     Lesevorgang."""
-    assert 'bewerbung_id="${bid}"' in CODE
-    stelle = CODE[CODE.index("/firmen_recherche"):][:400]
-    assert "bewerbung_id" in stelle
+    # v1.7.120: der Aufruf geht als SATZ hinaus (`werkzeugAufruf`), nicht
+    # mehr als "/firmen_recherche ..." — das war kein Workflow, lief in ein
+    # 404 und kam bei Claude als unbekannter Skill an. Die Absicht dieses
+    # Tests gilt unveraendert: die bewerbung_id reist mit.
+    stelle = CODE[CODE.index('"firmen_recherche"'):][:400]
+    assert "bewerbung_id: bid" in stelle
 
 
 def test_958_die_bewerbung_id_ist_ein_echter_parametername():

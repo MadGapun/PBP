@@ -1220,10 +1220,16 @@ def run_search(db, job_id: str, params: dict):
         parallel_executor = ThreadPoolExecutor(max_workers=min(4, len(httpx_quellen)))
         futures = {}
         _start_times = {}
+        # #1038: Quellen, deren Dauer mit der Zahl der Suchbegriffe waechst.
+        from .jobspy_source import linkedin_langlauf_budget
+        _LANGLAUF_SCHAETZER = {"jobspy_linkedin": linkedin_langlauf_budget}
+        _langlauf_budget: dict[str, int] = {}
         for quelle in httpx_quellen:
             try:
                 search_func = _load_scraper(quelle)
                 timeout = _timeout_for(quelle)
+                if quelle in _LANGLAUF_SCHAETZER:
+                    _langlauf_budget[quelle] = _LANGLAUF_SCHAETZER[quelle](params, timeout)
                 _start_times[quelle] = time.time()
                 futures[parallel_executor.submit(_run_with_loop, search_func, params)] = (quelle, timeout)
             except ImportError as e:
@@ -1239,11 +1245,26 @@ def run_search(db, job_id: str, params: dict):
         # Zusaetzlich ein globales Phasen-Budget: nach max(Quellen-Timeout)+15s
         # werden alle noch haengenden Scraper gemeinsam als timeout markiert,
         # statt seriell auf jeden einzeln bis zu seinem Timeout zu warten.
-        phase_budget = max((t for _, t in futures.values()), default=_SOURCE_TIMEOUT) + 15
+        # #1038: langlaufende Quellen zaehlen NICHT ins Phasen-Budget. Die
+        # Phase richtet sich nach den schnellen Quellen; eine Quelle, deren
+        # Dauer mit der Zahl der Suchbegriffe waechst, bekommt danach ihr
+        # eigenes Budget. Vorher galt auch fuer LinkedIn das Budget der
+        # schnellen Quellen (195 s) — bei 44 Begriffen dauert die Abfrage
+        # rund acht Minuten, das Ergebnis (gemessen: 1.030 bis 1.100 Stellen)
+        # wurde verworfen und die Quelle als `server_weg` gefuehrt, bis sie
+        # nach fuenf Laeufen pausiert war.
+        _schnell = [t for q, t in futures.values() if q not in _langlauf_budget]
+        phase_budget = max(_schnell or [_SOURCE_TIMEOUT]) + 15
         pending = dict(futures)  # future -> (quelle, timeout)
         phase_start = time.time()
-        try:
-            for future in as_completed(futures, timeout=phase_budget):
+
+        def _einsammeln(frist: float, nur_schnelle: bool = False) -> None:
+            """Sammelt, was innerhalb der Frist fertig wird — EIN Weg fuer
+            schnelle und langlaufende Quellen, damit ein spaetes Ergebnis
+            genau so gezaehlt, gefiltert und gespeichert wird wie ein
+            fruehes (#963: keine zweite Pipeline fuer Nachzuegler)."""
+            nonlocal completed
+            for future in as_completed(list(pending), timeout=frist):
                 quelle, timeout = pending.pop(future)
                 elapsed = round(time.time() - _start_times.get(quelle, phase_start), 1)
                 try:
@@ -1265,23 +1286,68 @@ def run_search(db, job_id: str, params: dict):
                     progress=int((completed / total) * 100),
                     message=f"{quelle}: {source_status[quelle]['status']} ({source_status[quelle]['count']} Stellen) | {ok_count}/{completed} Quellen OK"
                 )
+                # Stufe 1 endet, sobald keine SCHNELLE Quelle mehr aussteht —
+                # sonst stuende "LinkedIn laeuft noch" erst nach dem ganzen
+                # Phasen-Budget da, obwohl alles andere laengst fertig ist.
+                if nur_schnelle and all(q in _langlauf_budget for q, _t in pending.values()):
+                    return
+
+        try:
+            _einsammeln(phase_budget, nur_schnelle=True)
         except FuturesTimeoutError:
-            # #668: globales Phasen-Budget erreicht — die restlichen Scraper
-            # haengen. Gemeinsam als timeout markieren statt den Gesamt-Job
-            # weiter zu blockieren. Die Threads laufen im Hintergrund aus
-            # (shutdown wait=False), ihre Ergebnisse werden verworfen.
-            for _f, (quelle, timeout) in pending.items():
+            # #668: das Phasen-Budget gilt fuer die SCHNELLEN Quellen. Haengt
+            # eine davon noch, ist das wirklich verdaechtig — sie wird wie
+            # bisher als timeout/server_weg gefuehrt.
+            _haengend = [(f, q) for f, (q, _t) in pending.items() if q not in _langlauf_budget]
+            for _f, quelle in _haengend:
+                pending.pop(_f)
                 logger.warning("%s: Phasen-Budget %ds erreicht — uebersprungen", quelle, phase_budget)
                 skipped_sources.append(quelle)
                 source_status[quelle] = {"status": "timeout", "count": 0, "time_s": phase_budget,
                                          "error_class": ERROR_CLASS_SERVER_WEG}
                 completed += 1
-            ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
+            if _haengend:
+                ok_count = sum(1 for s in source_status.values() if s["status"] == "ok")
+                db.update_background_job(
+                    job_id, "running",
+                    progress=int((completed / total) * 100),
+                    message=f"{len(_haengend)} Quelle(n) im Timeout uebersprungen | {ok_count} OK"
+                )
+
+        # #1038: Stufe 2 — die langlaufenden Quellen, jede mit ihrem Budget
+        # ab ihrem eigenen Start. Der Fortschritt sagt, worauf gewartet wird
+        # und wie lange es dauern kann, statt still bei einer Zahl zu stehen.
+        if pending:
+            _rest = {q: _langlauf_budget[q] - (time.time() - _start_times.get(q, phase_start))
+                     for _f, (q, _t) in pending.items()}
+            _namen = ", ".join(SOURCE_REGISTRY.get(q, {}).get("name", q) for q in _rest)
+            _minuten = max(1, round(max(_rest.values()) / 60))
             db.update_background_job(
                 job_id, "running",
                 progress=int((completed / total) * 100),
-                message=f"{len(pending)} Quelle(n) im Timeout uebersprungen | {ok_count} OK"
+                message=(f"{_namen} laeuft noch — bei vielen Suchbegriffen dauert "
+                         f"das bis zu {_minuten} Min. Die uebrigen Quellen sind fertig.")
             )
+            try:
+                _einsammeln(max(1.0, max(_rest.values())))
+            except FuturesTimeoutError:
+                for _f, (quelle, _t) in list(pending.items()):
+                    pending.pop(_f)
+                    budget = _langlauf_budget[quelle]
+                    logger.warning(
+                        "%s: eigenes Budget %ds erreicht — zu langsam, nicht ausgefallen",
+                        quelle, budget)
+                    skipped_sources.append(quelle)
+                    # #1038: KEIN server_weg. Die Quelle antwortet — sie
+                    # braucht nur laenger, als der Lauf wartet. Ein
+                    # `server_weg` wuerde sie nach fuenf Laeufen pausieren,
+                    # und die Diagnose saehe genau so aus wie ein Ausfall.
+                    source_status[quelle] = {
+                        "status": "zu_langsam", "count": 0, "time_s": budget,
+                        "detail": (f"zu langsam: {budget}s reichten nicht — weniger "
+                                   "Suchbegriffe verkuerzen den Lauf"),
+                    }
+                    completed += 1
         parallel_executor.shutdown(wait=False)
 
     # Phase 2: Run playwright-based scrapers sequentially (#234)
