@@ -10137,16 +10137,10 @@ def _fill_dismiss_reasons(out: dict, conn, pid: str) -> None:
     """Hilfs-Funktion fuer _aggregate_user_activity — wird unabhaengig
     von Activity-Events befuellt (basiert auf jobs.dismiss_reason)."""
     try:
-        rows = conn.execute(
-            "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
-            "WHERE dismiss_reason IS NOT NULL AND dismiss_reason != '' "
-            "AND is_active=0 AND (profile_id=? OR profile_id IS NULL) "
-            "GROUP BY dismiss_reason ORDER BY n DESC LIMIT 5",
-            (pid,)
-        ).fetchall()
+        from .services.ablehnungsgruende import gruende_zaehlen
+        liste, _ = gruende_zaehlen(conn, pid, ausser=())
         out["dismiss_reasons_top"] = [
-            {"reason": r["dismiss_reason"], "count": r["n"]}
-            for r in rows
+            {"reason": g, "count": n} for g, n in liste[:5]
         ]
     except Exception:
         pass

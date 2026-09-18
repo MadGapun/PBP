@@ -5045,16 +5045,10 @@ def register(mcp, db, logger):
         try:
             conn = db.connect()
             pid = db.get_active_profile_id()
-            rows = conn.execute(
-                "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
-                "WHERE dismiss_reason IS NOT NULL AND dismiss_reason != '' "
-                "AND is_active=0 AND (profile_id=? OR profile_id IS NULL) "
-                "GROUP BY dismiss_reason ORDER BY n DESC LIMIT 3",
-                (pid,)
-            ).fetchall()
+            from ..services.ablehnungsgruende import gruende_zaehlen
+            liste, _ = gruende_zaehlen(conn, pid, ausser=())
             dismiss_reasons_top = [
-                {"reason": r["dismiss_reason"], "count": r["n"]}
-                for r in rows
+                {"reason": g, "count": n} for g, n in liste[:3]
             ]
         except Exception:
             pass

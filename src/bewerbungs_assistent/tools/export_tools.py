@@ -83,7 +83,7 @@ def register(mcp, db, logger):
     @mcp.tool()
     def lebenslauf_exportieren(
         format: str = "docx",
-        angepasst_für: str = ""
+        angepasst_fuer: str = ""
     ) -> dict:
         """Exportiert den Lebenslauf als DOCX (Default), PDF, Markdown oder TXT-Datei.
 
@@ -98,7 +98,7 @@ def register(mcp, db, logger):
 
         Args:
             format: 'docx' (empfohlen), 'pdf', 'md' (Markdown) oder 'txt' (Klartext)
-            angepasst_für: Optional — Firma/Stelle für die der CV angepasst wird (für Dateinamen)
+            angepasst_fuer: Optional — Firma/Stelle für die der CV angepasst wird (für Dateinamen)
         """
         profile = db.get_profile()
         if not profile:
@@ -107,7 +107,7 @@ def register(mcp, db, logger):
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
         name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
-        suffix = f"_{angepasst_für.replace(' ', '_').lower()}" if angepasst_für else ""
+        suffix = f"_{angepasst_fuer.replace(' ', '_').lower()}" if angepasst_fuer else ""
 
         if format == "docx":
             from ..export import generate_cv_docx

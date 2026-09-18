@@ -189,3 +189,71 @@ def ist_konform(raw, custom: set | frozenset = frozenset()) -> bool:
     except (ValueError, TypeError):
         werte = [raw]
     return all(str(w).strip() in erlaubt for w in werte)
+
+
+# --------------------------------------------------------------- Lesen
+# v1.7.121: Der Speicherwert hat ZWEI Formen — ein einzelner Grund als
+# String, mehrere als JSON-Liste (beides gewollt, siehe
+# `normalisiere_dismiss_wert`). Drei Leser zaehlten mit
+# `GROUP BY dismiss_reason` und fuehrten damit `["falsches_fachgebiet"]`
+# und `falsches_fachgebiet` als zwei verschiedene Gruende: gemeldet als
+# 32,1 % und 31,3 %, obwohl es EIN Grund mit 63,4 % ist. Gezaehlt wird
+# deshalb nur noch hier.
+
+def gruende_aus_wert(raw) -> list:
+    """Zerlegt einen gespeicherten dismiss_reason in seine Gruende."""
+    if raw is None:
+        return []
+    if isinstance(raw, (list, tuple)):
+        werte = list(raw)
+    else:
+        text = str(raw).strip()
+        werte = [text]
+        if text.startswith("[") and text.endswith("]"):
+            try:
+                geparst = json.loads(text)
+                if isinstance(geparst, list):
+                    werte = geparst
+            except (ValueError, TypeError):
+                pass
+    gruende: list = []
+    for w in werte:
+        g = str(w or "").strip()
+        if not g:
+            continue
+        # Altbestand vor #913: "Duplikat: <hash>" ist der Grund duplikat.
+        if g.lower().startswith("duplikat:"):
+            g = "duplikat"
+        if g not in gruende:
+            gruende.append(g)
+    return gruende
+
+
+def gruende_zaehlen(conn, profile_id, ausser=("bewerbung_erstellt",)
+                    ) -> tuple[list, int]:
+    """Zaehlt die Aussortier-Gruende ueber beide Speicherformen.
+
+    Rueckgabe: ([(grund, anzahl_stellen), ...] absteigend, stellen_gesamt).
+    Eine Stelle mit zwei Gruenden zaehlt bei beiden, im Gesamtwert aber
+    einmal — der Anteil beantwortet also "bei wie vielen Stellen spielte
+    dieser Grund eine Rolle". Stellen, deren Gruende ALLE in `ausser`
+    liegen, zaehlen gar nicht.
+    """
+    rows = conn.execute(
+        "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
+        "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "
+        "AND COALESCE(dismiss_reason,'') != '' "
+        "GROUP BY dismiss_reason", (profile_id,)
+    ).fetchall()
+    zaehler: dict = {}
+    gesamt = 0
+    for r in rows:
+        gruende = [g for g in gruende_aus_wert(r["dismiss_reason"])
+                   if g not in ausser]
+        if not gruende:
+            continue
+        gesamt += r["n"]
+        for g in gruende:
+            zaehler[g] = zaehler.get(g, 0) + r["n"]
+    liste = sorted(zaehler.items(), key=lambda kv: (-kv[1], kv[0]))
+    return liste, gesamt
