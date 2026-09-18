@@ -33,6 +33,114 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.121] - 2026-09-18 — Die Ernte kommt an
+
+Ein Versuch, sich einen Schwellenwert vorschlagen zu lassen, und drei
+Meldungen, die waehrend der Arbeit hereinkamen. Zwei davon betrafen die
+Arbeit von v1.7.119 und v1.7.120 — eine Zusage aus #1038 hatte nicht
+gehalten.
+
+### Fixed
+
+- **LinkedIn ueber JobSpy speichert jetzt, was es findet (#1061).**
+  v1.7.120 hatte zugesagt, dass spaete Ergebnisse gespeichert werden.
+  Nachgemessen: das eigene Budget reichte um 39 Sekunden nicht, danach
+  lagen 1.075 Stellen vor, und gespeichert wurde nichts — seit dem 09.09.
+  in jedem Lauf. Jetzt haelt die Suche nach dem laufenden Begriff an, und
+  alles bis dahin Gefundene geht durch die normalen Filter und wird
+  gespeichert.
+- **Das Budget rechnet mit der gemessenen Dauer.** PBP misst, wie lange
+  ein Suchbegriff bei LinkedIn dauert, und plant den naechsten Lauf
+  danach. Zwei Messungen hatten zwei verschiedene Werte ergeben, eine
+  feste Zahl lag deshalb immer knapp daneben.
+- **Die Diagnose nennt eine Zahl.** Statt "weniger Suchbegriffe
+  verkuerzen den Lauf" steht da, wie viele Begriffe geschafft wurden und
+  wie viele ins Hoechstbudget passen.
+- **"Sag Claude"-Saetze aus dem Dashboard fuehren zum richtigen Werkzeug
+  (#1062).** "Vorschlaege ansehen" fuehrte in einer frischen Sitzung zu
+  einer Liste von Stellen statt zum Abgleich der Suchbegriffe, und
+  "Neuen Schwellenwert vorschlagen lassen" fand das Werkzeug gar nicht.
+  Jeder Satz beginnt jetzt mit "PBP:" und nennt das Werkzeug beim Namen.
+  Claude kann jeden Satz ausserdem in der Werkzeug-Uebersicht
+  nachschlagen.
+- **Zwei Elwosa-Tipps verwiesen auf nichts** ("Wochenrueckblick" gab es
+  nie). Sie nennen jetzt ein Werkzeug, das es gibt.
+- **Die Karten der Browser-Quellen sagen dasselbe (#1060).** Nach #1059
+  waren die Etiketten einheitlich, die Texte daneben nicht: LinkedIn,
+  XING und Google Jobs hatten jeweils eine eigene Formulierung, und
+  "Chrome" stand in 13 Eintraegen, wo der Browser gemeint war. Der
+  gemeinsame Satz steht jetzt an einer Stelle und gilt fuer jede
+  Browser-Quelle; von Hand steht nur noch, was eine Quelle besonders macht.
+- **Dasselbe Portal zweimal steht auf beiden Karten.** Bei Indeed stand
+  es schon, bei LinkedIn und Google nicht: wer beide Varianten aktiviert,
+  fragt dasselbe Portal zweimal ab.
+- **Aussortier-Gruende wurden doppelt gefuehrt.** Ein einzelner Grund
+  steht als Text, mehrere als Liste. Vier Auswertungen (Erkenntnisse,
+  Lern-Karte, erweiterte Statistik, der Prompt der Auto-Aussortierung)
+  zaehlten die beiden Formen getrennt — "falsches Fachgebiet" erschien als
+  zwei Muster mit 32 und 31 Prozent statt als eines mit 63.
+- **Ein Werkzeug war fuer Claude unsichtbar.** Der Lebenslauf-Export
+  hatte einen Parameter mit Umlaut im Namen; die Schnittstelle nimmt nur
+  Buchstaben ohne Umlaut an und laesst das ganze Werkzeug weg. Ob das
+  auch die in Claude Desktop abgeschnittene Werkzeugliste erklaert, ist
+  nicht belegt.
+
+### Changed
+
+- **Die Hinweistexte im Dashboard stehen mit Umlauten.**
+
+### Known Issues
+
+- Die LinkedIn-Treffer ueber JobSpy kommen weiter ohne Anzeigentext
+  (#1038 Punkt 4).
+
+4838 automatische Tests.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.121.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.121.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.120] - 2026-09-18 — Ein Knopf liefert, was er verspricht
 
 Ein Nutzerbericht mit zwei Bildschirmfotos und ein liegengebliebener
