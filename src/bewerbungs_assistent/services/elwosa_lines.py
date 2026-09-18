@@ -321,15 +321,15 @@ STATUS_CHANGE_LINES: dict[str, list[str]] = {
 # === Tipps & Tricks (Sektion 8.14) ===============================
 
 TIP_LINES: list[str] = [
-    "Tipp: Sag Claude doch `aktuelle Stellen`, zeigt dir die Top-3 ohne dass du klicken musst.",
+    "Tipp: Sag Claude doch `PBP: stellen_anzeigen`, zeigt dir die Top-3 ohne dass du klicken musst.",
     "Falls Claude dein Anschreiben polieren soll: lass es vorher `stelle_vergleichen` aufrufen. Dann kennt's den Job.",
-    "Sag Claude `Wochenrueckblick`. Es weiss was zu tun ist.",
+    "Sag Claude `PBP: statistiken_abrufen fuer diese Woche`. Dann gibt es einen Rueckblick.",
     "Anstatt Stellen einzeln aussortieren: sag Claude `stellen_bulk_bewerten mit Filter X`. Spart Token, spart Zeit.",
     "Claude kann `bewerbungsbericht_exportieren` direkt, als PDF oder XLSX. Falls du das mal brauchst.",
     "Wusstest du? PBP pflegt CV-Varianten. Kurz, lang, mit Foto, ohne. Spart Zeit beim naechsten Personaler-Wunsch.",
     "Im Profil, Skills kannst du Zeitraeume eintragen. Macht Auto-Aussortieren treffsicherer.",
     "Im Bewerbungs-Bericht, Abschnitt 12 siehst du welche Quelle dir am meisten bringt. Hilft beim Filtern.",
-    "Mit der Chrome-Extension kannst du Stellen direkt von Linkedin in PBP ziehen. Spart Copy-Paste.",
+    "Mit der Claude-Erweiterung im Browser kannst du Stellen direkt von Linkedin in PBP ziehen. Spart Copy-Paste.",
     "PBP kann CV als DOCX und PDF exportieren. Falls du eine Variante mit Foto und ohne brauchst.",
     "Profil-Report-Export als PDF, falls jemand dein Profil sehen will ohne Login.",
     "Ich lerne aus deinem Verhalten. Drei Wochen, dann werd ich treffsicherer. Aktuell bin ich noch raten.",

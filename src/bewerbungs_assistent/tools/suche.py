@@ -685,6 +685,9 @@ def register(mcp, db, logger):
     ) -> dict:
         """Gleicht die Suchbegriffe gegen das Profil ab (#1054, v1.7.119).
 
+        Auch findbar als: Vorschlaege ansehen (Dashboard-Hinweis), Suchbegriffe
+        mit Profil abgleichen, fehlende Skills in den Suchlisten.
+
         Der Fachwert misst, wie gut eine Anzeige die SUCHBEGRIFFE trifft.
         Das sagt nur dann etwas ueber dich, wenn die Listen dein Profil
         abbilden — und die driften, weil sie von Hand gepflegt werden.

@@ -247,17 +247,17 @@ HINT_DEFINITIONS: list[dict] = [
     {
         "id": "d47_notizen_an_die_bewerbung",
         "tab": "profil",
-        "title": "Profilnotizen, die zu einer Bewerbung gehoeren",
+        "title": "Profilnotizen, die zu einer Bewerbung gehören",
         "body": (
             "Deine Profilnotizen sollen beschreiben, wer du bist. Einige "
-            "Sektionen nennen in der Ueberschrift eine Firma, bei der du "
+            "Sektionen nennen in der Überschrift eine Firma, bei der du "
             "dich beworben hast — eine Interview-Nachlese etwa. Jedes "
             "Anschreiben und jedes Dossier liest das Profil mit, auch das "
-            "fuer eine andere Firma. Solche Sektionen gehoeren in die "
+            "für eine andere Firma. Solche Sektionen gehören in die "
             "Timeline der Bewerbung. Verschoben wird nur, was du "
-            "bestaetigst."
+            "bestätigst."
         ),
-        "cta_label": "Sektionen ansehen",
+        "cta_label": "PBP: Profil-Notizen aufräumen",
         "cta_tool": "profil_notizen_aufraeumen",
         "condition": _condition_notizen_mit_bewerbungsbezug,
         "detail": _text_notizen_mit_bewerbungsbezug,
@@ -268,14 +268,14 @@ HINT_DEFINITIONS: list[dict] = [
         "title": "Deine Suchbegriffe bilden dein Profil nicht ganz ab",
         "body": (
             "Der Fachwert misst, wie gut eine Anzeige deine Suchbegriffe "
-            "trifft. Das sagt nur dann etwas ueber dich, wenn die Listen "
+            "trifft. Das sagt nur dann etwas über dich, wenn die Listen "
             "dein Profil abbilden — und die werden von Hand gepflegt. Der "
-            "Abgleich hat Vorschlaege: Skills, die in keiner Liste stehen; "
+            "Abgleich hat Vorschläge: Skills, die in keiner Liste stehen; "
             "MINUS-Begriffe, die dein eigenes Fachgebiet treffen; "
             "Rahmenbegriffe wie Orte oder Arbeitsmodelle in den Fachlisten. "
             "Nichts davon wird ohne dich geaendert."
         ),
-        "cta_label": "Vorschlaege ansehen",
+        "cta_label": "PBP: Suchbegriffe mit meinem Profil abgleichen",
         "cta_tool": "profil_suchbegriffe_abgleichen",
         "condition": _condition_suchbegriffe_offen,
         "detail": _text_suchbegriffe_offen,
@@ -283,17 +283,17 @@ HINT_DEFINITIONS: list[dict] = [
     {
         "id": "c86_gehalt_nur_einstellungsseite",
         "tab": "profil",
-        "title": "Gehalt und Saetze stehen jetzt nur noch an einer Stelle",
+        "title": "Gehalt und Sätze stehen jetzt nur noch an einer Stelle",
         "body": (
             "Mindestgehalt, Tages- und Stundensaetze und die "
             "Entfernungsgrenze standen doppelt: in den Suchkriterien "
-            "(Einstellungsseite) und in den Job-Praeferenzen aus der "
+            "(Einstellungsseite) und in den Job-Präferenzen aus der "
             "Ersterfassung. Die zweiten hatten kein Eingabefeld und "
             "wurden nie nachgezogen — gemessen wichen sie ab. Es gilt "
             "die Einstellungsseite; die Werte im Profil sind entfernt. "
             "Was dort stand, steht hier, damit nichts still verschwindet."
         ),
-        "cta_label": "Suchkriterien ansehen",
+        "cta_label": "PBP: Suchkriterien anzeigen",
         "cta_tool": "suchkriterien_anzeigen",
         "condition": _condition_gehalt_aus_praeferenzen_entfernt,
         "detail": _text_gehalt_entfernt,
@@ -304,43 +304,43 @@ HINT_DEFINITIONS: list[dict] = [
         "title": "Deine Score-Schwelle meint jetzt etwas anderes",
         "body": (
             "Der Score ist seit diesem Update der FACHWERT allein — "
-            "Entfernung, Remote-Anteil und Gehalt zaehlen nicht mehr mit "
+            "Entfernung, Remote-Anteil und Gehalt zählen nicht mehr mit "
             "hinein, sondern stehen als eigener Rahmenwert daneben. Die "
             "Zahl ist damit kleiner als vorher, und deine gespeicherte "
-            "Schwelle filtert schaerfer, ohne dass du sie angefasst hast. "
+            "Schwelle filtert schärfer, ohne dass du sie angefasst hast. "
             "Lass dir einen neuen Wert vorschlagen — er kommt aus deiner "
             "eigenen Bewerbungshistorie, nicht aus einer Umrechnung."
         ),
-        "cta_label": "Neuen Schwellenwert vorschlagen lassen",
+        "cta_label": "PBP: Kalibrierung-Backtest für einen neuen Schwellenwert",
         "cta_tool": "kalibrierung_backtest",
         "condition": _condition_schwelle_nach_1052,
     },
     {
         "id": "g11_erste_suche_starten",
         "tab": "dashboard",
-        "title": "Naechster Schritt: Suchbegriffe festlegen und erste Suche starten",
+        "title": "Nächster Schritt: Suchbegriffe festlegen und erste Suche starten",
         "body": (
-            "Dein Profil steht — aber PBP weiss noch nicht, wonach es suchen "
-            "soll. Sag Claude einfach: \"Schlag mir Suchbegriffe vor und "
-            "starte die erste Suche.\" Claude leitet die Begriffe aus deinem "
-            "Profil ab, du bestaetigst sie nur."
+            "Dein Profil steht — aber PBP weiß noch nicht, wonach es suchen "
+            "soll. Sag Claude einfach: \"PBP: Keyword-Vorschläge aus meinem "
+            "Profil, dann die erste Suche starten.\" Claude leitet die Begriffe aus deinem "
+            "Profil ab, du bestätigst sie nur."
         ),
-        "cta_label": "Suchbegriffe vorschlagen lassen",
+        "cta_label": "PBP: Keyword-Vorschläge aus meinem Profil",
         "cta_tool": "keyword_vorschlaege",
         "condition": _condition_profil_ohne_suchbegriffe,
     },
     {
         "id": "g11_notizen_pflegen",
         "tab": "profil",
-        "title": "Tipp: Persoenliche Notizen machen PBP treffsicherer",
+        "title": "Tipp: Persönliche Notizen machen PBP treffsicherer",
         "body": (
-            "Deine informellen Notizen sind noch (fast) leer. Praeferenzen, "
-            "No-Gos und Lebensumstaende (z.B. \"max. 2 Buerotage\", \"kein "
-            "Reisejob\") fliessen in Anschreiben, Stellen-Bewertung und "
-            "Interview-Vorbereitung ein. Erwaehne sie einfach im Chat — "
-            "Claude traegt sie automatisch ein."
+            "Deine informellen Notizen sind noch (fast) leer. Präferenzen, "
+            "No-Gos und Lebensumstände (z.B. \"max. 2 Bürotage\", \"kein "
+            "Reisejob\") fließen in Anschreiben, Stellen-Bewertung und "
+            "Interview-Vorbereitung ein. Erwähne sie einfach im Chat — "
+            "Claude trägt sie automatisch ein."
         ),
-        "cta_label": "Merk dir: ich will hoechstens zwei Buerotage",
+        "cta_label": "PBP: Profil bearbeiten — merk dir, höchstens zwei Bürotage",
         "cta_tool": "profil_bearbeiten",
         "condition": _condition_notizen_leer_oder_kurz,
     },
@@ -353,20 +353,20 @@ HINT_DEFINITIONS: list[dict] = [
             "Suchprofile speichern deine Kriterien (Region, Gehalt, Stellenart, "
             "Keywords) damit jede neue Jobsuche sie automatisch nutzt."
         ),
-        "cta_label": "Suchprofil aus aktuellen Kriterien erstellen",
+        "cta_label": "PBP: Suchprofil aus den aktuellen Kriterien aktualisieren",
         "cta_tool": "suchprofil_aktualisieren",
         "condition": _condition_keine_suchprofile_aber_bewerbungen,
     },
     {
         "id": "g11_aufwand_tracken",
         "tab": "kalender",
-        "title": "Tipp: Aufwand-Tracking fuer's Arbeitsamt",
+        "title": "Tipp: Aufwand-Tracking fürs Arbeitsamt",
         "body": (
             "Du hast schon Termine — aber noch keine Reisekosten oder "
-            "Vorbereitungszeit erfasst. Wenige Klicks, dafuer eine saubere "
-            "Aufwand-Uebersicht (wichtig fuer Arbeitsamt + steuerliche Geltendmachung)."
+            "Vorbereitungszeit erfasst. Wenige Klicks, dafür eine saubere "
+            "Aufwand-Übersicht (wichtig für Arbeitsamt + steuerliche Geltendmachung)."
         ),
-        "cta_label": "Aufwand fuer den naechsten Termin erfassen",
+        "cta_label": "PBP: Kosten für den nächsten Termin erfassen",
         "cta_tool": "kosten_erfassen",
         "condition": _condition_keine_aufwandskosten_aber_termine,
     },
@@ -376,11 +376,11 @@ HINT_DEFINITIONS: list[dict] = [
         "title": "Tipp: Interview-Reflexionen zahlen sich aus",
         "body": (
             "Du hast schon Interview-Termine — aber noch keine Reflexion "
-            "festgehalten. Was lief gut, was wuerdest du anders machen? "
-            "Wenige Minuten Aufwand jetzt, viel weniger Gefuehlskram im "
-            "naechsten Interview."
+            "festgehalten. Was lief gut, was würdest du anders machen? "
+            "Wenige Minuten Aufwand jetzt, viel weniger Gefühlskram im "
+            "nächsten Interview."
         ),
-        "cta_label": "Reflexion zum letzten Interview erfassen",
+        "cta_label": "PBP: Interview-Reflexion zum letzten Gespräch speichern",
         "cta_tool": "interview_reflexion_speichern",
         "condition": _condition_keine_interview_reflexion_aber_interviews,
     },
@@ -423,6 +423,18 @@ def list_active_hints(db) -> list[dict]:
         except Exception:
             continue
     return out
+
+
+def dashboard_saetze() -> list[dict]:
+    """Jeder "Sag Claude"-Satz aus dem Dashboard mit seinem Werkzeug (#1062).
+
+    Unabhaengig davon, ob der Hinweis gerade angezeigt wird: wer den Satz
+    abgetippt hat, kommt damit auch dann in einer frischen Sitzung an,
+    wenn der Hinweis inzwischen weg ist. `pbp_capabilities` liefert die
+    Liste aus.
+    """
+    return [{"satz": h["cta_label"], "werkzeug": h["cta_tool"], "hinweis": h["id"]}
+            for h in HINT_DEFINITIONS if h.get("cta_tool")]
 
 
 def dismiss_hint(db, hint_id: str) -> dict:

@@ -2679,6 +2679,9 @@ def register(mcp, db, logger):
     ) -> dict:
         """Backtest der Suchkriterien gegen die eigene Bewerbungshistorie (#778/C29).
 
+        Auch findbar als: Schwellenwert vorschlagen, neuen Schwellenwert
+        vorschlagen lassen (Dashboard-Hinweis), Score-Schwelle kalibrieren.
+
         Prueft, wie die AKTUELLEN Kriterien die Vergangenheit bewertet
         haetten: Score-Verteilung der Stellen, auf die tatsaechlich beworben
         wurde (positive Labels), gegen eine Zufallsstichprobe der
