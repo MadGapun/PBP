@@ -494,9 +494,9 @@ Maximal **1x pro Tag**. Trigger-Logik in `services/elwosa.py`:
 #### Claude-Workflow-Tipps
 
 ```yaml
-- "Tipp: Sag Claude doch `aktuelle Stellen` — zeigt dir die Top-3 ohne dass du klicken musst."
+- "Tipp: Sag Claude doch `PBP: stellen_anzeigen` — zeigt dir die Top-3 ohne dass du klicken musst."
 - "Falls Claude dein Anschreiben polieren soll: lass es vorher `stelle_vergleichen` aufrufen. Dann kennt's den Job."
-- "Sag Claude `Wochenrueckblick`. Es weiss was zu tun ist."
+- "Sag Claude `PBP: statistiken_abrufen fuer diese Woche`. Dann gibt es einen Rueckblick."
 - "Anstatt Stellen einzeln aussortieren: sag Claude `stellen_bulk_bewerten mit Filter X`. Spart Token, spart Zeit."
 - "Claude kann `bewerbungsbericht_exportieren` direkt — als PDF oder XLSX. Falls du das mal brauchst."
 - "Claude kennt `kontakt_anlegen`. Bequemer als manuell, wenn ein Recruiter sich meldet."
@@ -519,7 +519,7 @@ Maximal **1x pro Tag**. Trigger-Logik in `services/elwosa.py`:
 #### Externe-Tools-Tipps
 
 ```yaml
-- "Mit der Chrome-Extension kannst du Stellen direkt von Linkedin in PBP ziehen. Spart Copy-Paste."
+- "Mit der Claude-Erweiterung im Browser kannst du Stellen direkt von Linkedin in PBP ziehen. Spart Copy-Paste."
 - "Falls du Claude-Cowork nutzt: dort kann Claude dein Linkedin-Profil pflegen wenn du eingeloggt bist. Vorausgesetzt du willst das."
 - "Claude in Chrome kann Stellen-Anzeigen lesen. Falls eine besonders wichtig ist — lass Claude sie analysieren."
 ```
@@ -700,7 +700,7 @@ Der User dreht auf „aktiv" und es passiert nichts:
 ```
 Guten Morgen. Markt ist heute ruhig.             ← welt (max 3/tag)
 Drei Wochen seit deiner letzten Bewerbung. ...   ← idle (max 6/tag)
-Tipp: Sag Claude `Wochenrueckblick`. ...         ← tipp (max 1/tag)
+Tipp: Sag Claude `PBP: statistiken_abrufen...`         ← tipp (max 1/tag)
 ```
 
 So bleibt Elwosa **Statusanzeige** ohne unter dem Frequenz-Slider zu

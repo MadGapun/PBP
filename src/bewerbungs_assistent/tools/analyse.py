@@ -2648,6 +2648,13 @@ def register(mcp, db, logger):
     # v1.6.3 / #514 — Capability-Awareness + Limitation-Reporting
     # ========================================================================
 
+    def _dashboard_saetze() -> list:
+        try:
+            from ..services.onboarding_hints import dashboard_saetze
+            return dashboard_saetze()
+        except Exception:
+            return []
+
     @mcp.tool()
     def pbp_capabilities(kategorie: str = "") -> dict:
         """Liefert eine kuratierte Uebersicht aller PBP-MCP-Faehigkeiten (#514).
@@ -2675,6 +2682,7 @@ def register(mcp, db, logger):
                     "profil_exportieren / profil_importieren — Backup & Migration",
                     # #696-B: war faelschlich unter 'bewerbungen' als Interview-Nachgang gelistet
                     "kennlerngespraech_abschliessen — Profil-Onboarding-Gespraech als abgeschlossen markieren (Dashboard-Wizard geht weiter)",
+                    "profil_notizen_aufraeumen — Profilnotizen mit Bewerbungsbezug in die Timeline verschieben (#1056)",
                 ],
             },
             "jobsuche": {
@@ -2690,7 +2698,12 @@ def register(mcp, db, logger):
                     "stelle_wiedergaenger_pruefen — wiederkehrende Stellen erkennen (KI-frei)",
                     "fit_analyse — Profil-vs-Stelle Punkt-fuer-Punkt-Vergleich",
                     "scoring_konfigurieren / scoring_vorschau — Gewichtungs-Regler",
-                    "suchkriterien_setzen / _bearbeiten / _anzeigen — inkl. keywords_minus (weiche Abwertung)",
+                    "suchkriterien_setzen / suchkriterien_bearbeiten / suchkriterien_anzeigen — inkl. keywords_minus (weiche Abwertung)",
+                    "suchprofil_aktualisieren / suchprofile_auflisten — Kriterien als Suchprofil speichern",
+                    # #1062: stand in keiner Kategorie — der Dashboard-Satz fuehrte
+                    # deshalb zu `keyword_vorschlaege`, dem falschen Nachbarn.
+                    "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprueche, Rahmenbegriffe (Vorschlaege, schreibt nur auf Ansage)",
+                    "kalibrierung_backtest — Schwellenwert aus der eigenen Bewerbungshistorie vorschlagen (Schattenrechnung, schreibt nichts)",
                     "blacklist_verwalten — Firmen/Keywords ausschliessen",
                     "scraper_diagnose — Welche Quellen liefern aktuell?",
                 ],
@@ -2729,6 +2742,7 @@ def register(mcp, db, logger):
                 "use_case": "Termine, Meetings, ICS-Export.",
                 "hauptwerkzeuge": [
                     "meeting_hinzufuegen / _bearbeiten / _loeschen / meetings_anzeigen",
+                    "kosten_erfassen / kosten_anzeigen — Reisekosten und Vorbereitungszeit je Termin",
                 ],
             },
             "analyse": {
@@ -2888,6 +2902,15 @@ def register(mcp, db, logger):
                     name: {"use_case": data["use_case"], "tool_count": len(data["hauptwerkzeuge"])}
                     for name, data in catalog.items()
                 },
+                # #1062: ein Satz aus dem Dashboard ("Sag Claude: ...") kommt im
+                # Chat ohne den Hinweis darueber an. Hier steht, welches
+                # Werkzeug er meint.
+                "dashboard_saetze": _dashboard_saetze(),
+                "dashboard_saetze_hinweis": (
+                    "Nennt der Mensch einen dieser Saetze (auch ungefaehr), ist "
+                    "das zugehoerige Werkzeug gemeint — nicht ein Werkzeug mit "
+                    "aehnlichem Wort im Namen."
+                ),
             }
 
         kat_lower = kategorie.lower().strip()
