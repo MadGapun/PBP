@@ -105,6 +105,105 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.120] - 2026-09-18 — Ein Knopf liefert, was er verspricht
+
+Ein Nutzerbericht mit zwei Bildschirmfotos und ein liegengebliebener
+Fehler aus #1038. Beide Male sah ein Ergebnis wie ein Ausfall aus — oder
+ein Ausfall wie ein Ergebnis.
+
+### Fixed
+
+- **"Dokumente verarbeiten" kopiert wieder die Anleitung.** Der Knopf im
+  Dokumente-Tab zeigte drei Meldungen uebereinander, und in Claude
+  Desktop kam "/dokumente_verarbeiten" an — als unbekannter Skill. Die
+  Anleitung existierte, war fuer den Knopf aber nicht erreichbar; PBP
+  kopierte daraufhin den rohen Befehl und meldete trotzdem "Anleitung
+  kopiert!".
+- **Die Anleitung selbst stuerzte fuer jeden mit Profil ab.** Sie fragte
+  seit v1.7.0-beta.58 eine Datenbankspalte unter falschem Namen ab.
+  Aufgefallen ist das nie, weil kein Test die Anleitungen mit Profil
+  aufgerufen hat — jetzt ruft einer alle auf, mit Profil, Dokument und
+  Bewerbung.
+- **"Problem melden" war ueber das Dashboard ebenfalls nicht
+  erreichbar** — derselbe Grund, ausgerechnet der Weg, auf dem man so
+  etwas meldet.
+- **Laesst sich eine Anleitung nicht laden, wird nichts kopiert.** Die
+  Meldung sagt es, statt Erfolg zu melden.
+- **Der Knopf "Firmen-Recherche" in der Bewerbung** schickte einen
+  Werkzeugnamen als Schraegstrich-Befehl — derselbe Fehler. Er geht
+  jetzt als Satz an Claude, samt Bewerbung.
+- **Der Interview-Knopf im Kalender** verlor Stelle und Firma beim
+  Laden der Anleitung und lieferte die allgemeine Fassung.
+- **LinkedIn ueber JobSpy wird nicht mehr verworfen (#1038).** Die
+  Quelle fand ueber 1.000 Stellen — Minuten nachdem PBP sie nach dem
+  gemeinsamen Zeitbudget als "Server weg" verbucht und ihre Treffer
+  verworfen hatte. Nach fuenf solchen Laeufen war sie pausiert.
+- **LinkedIn hat ein eigenes Zeitbudget, das mit den Suchbegriffen
+  waechst** (rund 12 Sekunden je Begriff, hoechstens 20 Minuten).
+  Spaete Treffer laufen durch dieselben Filter und werden gespeichert.
+  Die schnellen Quellen warten nicht mehr auf LinkedIn.
+- **"Zu langsam" ist kein Ausfall.** Reicht auch das eigene Budget
+  nicht, steht das so in der Diagnose — ohne Fehlerserie, ohne Pause,
+  ohne Abschaltung.
+
+### Changed
+
+- **Die Beschreibung von `linkedin_lauf_plan`** behauptet keinen Ausfall
+  der JobSpy-Variante mehr: sie liefert, nur ohne Anzeigentext.
+
+### Known Issues
+
+- Die LinkedIn-Treffer ueber JobSpy kommen weiter ohne Anzeigentext
+  (#1038 Punkt 4). Ihn mitzuholen verlaengert den Lauf weiter und ist
+  eine eigene Entscheidung.
+
+4873 automatische Tests.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.120.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.120.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.119] - 2026-09-17 — Die Listen passen zum Profil, die Notizen zur Bewerbung
 
 Zwei Nutzervorgaben vom 17. September, beide mit demselben Satz
