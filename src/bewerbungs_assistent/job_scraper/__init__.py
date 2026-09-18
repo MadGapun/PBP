@@ -20,6 +20,7 @@ import hashlib
 import json
 import logging
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FuturesTimeoutError
 from typing import Callable, Optional
@@ -988,6 +989,11 @@ def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
     return auswahl, orte, ko
 
 
+#: #1061: So lange wartet der Lauf nach dem Anhalte-Signal, damit der
+#: gerade laufende Suchbegriff noch fertig wird (gemessen rund 14 s).
+LANGLAUF_NACHLAUF_S = 45
+
+
 def run_search(db, job_id: str, params: dict):
     """Run a background job search across configured sources.
 
@@ -1221,17 +1227,46 @@ def run_search(db, job_id: str, params: dict):
         futures = {}
         _start_times = {}
         # #1038: Quellen, deren Dauer mit der Zahl der Suchbegriffe waechst.
-        from .jobspy_source import linkedin_langlauf_budget
+        from .jobspy_source import (linkedin_langlauf_budget, begriffe_im_budget,
+                                    LINKEDIN_MESSWERT_SCHLUESSEL)
         _LANGLAUF_SCHAETZER = {"jobspy_linkedin": linkedin_langlauf_budget}
+        # #1061: die Dauer je Suchbegriff wird GEMESSEN und fuer den
+        # naechsten Lauf abgelegt — eine Konstante lag zweimal daneben.
+        _LANGLAUF_MESSWERT = {"jobspy_linkedin": LINKEDIN_MESSWERT_SCHLUESSEL}
         _langlauf_budget: dict[str, int] = {}
+        # #1061: Zwischenstand je Langlaeufer — was bis zum Abbruch
+        # gefunden ist, und ein Signal, nach dem aktuellen Begriff
+        # anzuhalten.
+        _zwischen: dict[str, dict] = {}
+
+        def _messwert(quelle: str):
+            try:
+                return db.get_setting(_LANGLAUF_MESSWERT[quelle])
+            except Exception:
+                return None
+
+        def _messen(quelle: str, dauer: float) -> None:
+            zw = _zwischen.get(quelle)
+            if not zw or zw["fertig"] < 3:
+                return  # zu wenig Begriffe fuer einen belastbaren Wert
+            try:
+                db.set_setting(_LANGLAUF_MESSWERT[quelle], round(dauer / zw["fertig"], 1))
+            except Exception as e:
+                logger.debug("Messwert %s nicht gespeichert: %s", quelle, e)
+
         for quelle in httpx_quellen:
             try:
                 search_func = _load_scraper(quelle)
                 timeout = _timeout_for(quelle)
+                quell_params = params
                 if quelle in _LANGLAUF_SCHAETZER:
-                    _langlauf_budget[quelle] = _LANGLAUF_SCHAETZER[quelle](params, timeout)
+                    _langlauf_budget[quelle] = _LANGLAUF_SCHAETZER[quelle](
+                        params, timeout, _messwert(quelle))
+                    _zwischen[quelle] = {"jobs": [], "fertig": 0, "abfragen": 0,
+                                         "stopp": threading.Event()}
+                    quell_params = dict(params, _zwischenstand=_zwischen[quelle])
                 _start_times[quelle] = time.time()
-                futures[parallel_executor.submit(_run_with_loop, search_func, params)] = (quelle, timeout)
+                futures[parallel_executor.submit(_run_with_loop, search_func, quell_params)] = (quelle, timeout)
             except ImportError as e:
                 logger.warning("Scraper %s nicht verfügbar: %s", quelle, e)
                 skipped_sources.append(quelle)
@@ -1272,6 +1307,8 @@ def run_search(db, job_id: str, params: dict):
                     all_jobs.extend(jobs)
                     logger.info("%s: %d Stellen gefunden", quelle, len(jobs))
                     source_status[quelle] = {"status": "ok", "count": len(jobs), "time_s": elapsed}
+                    if quelle in _zwischen:
+                        _messen(quelle, elapsed)
                 except Exception as e:
                     logger.error("Fehler bei %s: %s", quelle, e, exc_info=True)
                     skipped_sources.append(quelle)
@@ -1337,16 +1374,47 @@ def run_search(db, job_id: str, params: dict):
                     logger.warning(
                         "%s: eigenes Budget %ds erreicht — zu langsam, nicht ausgefallen",
                         quelle, budget)
-                    skipped_sources.append(quelle)
+                    # #1061: anhalten lassen und nehmen, was da ist. Vorher
+                    # wurde hier verworfen, und 39 s spaeter lagen 1.075
+                    # Stellen vor, die niemand mehr einsammelte. Der
+                    # Nachlauf deckt den gerade laufenden Begriff ab.
+                    zw = _zwischen.get(quelle)
+                    jobs: list = []
+                    if zw is not None:
+                        zw["stopp"].set()
+                        try:
+                            jobs = _f.result(timeout=LANGLAUF_NACHLAUF_S)
+                        except Exception:
+                            jobs = list(zw["jobs"])
+                    dauer = time.time() - _start_times.get(quelle, phase_start)
+                    if zw is not None:
+                        _messen(quelle, dauer)
+                    all_jobs.extend(jobs)
+                    fertig = zw["fertig"] if zw else 0
+                    abfragen = zw["abfragen"] if zw else 0
+                    if abfragen and fertig >= abfragen:
+                        # Im Nachlauf doch noch vollstaendig geworden.
+                        logger.info("%s: %d Stellen gefunden (im Nachlauf)", quelle, len(jobs))
+                        source_status[quelle] = {"status": "ok", "count": len(jobs),
+                                                 "time_s": round(dauer, 1)}
+                        completed += 1
+                        continue
                     # #1038: KEIN server_weg. Die Quelle antwortet — sie
                     # braucht nur laenger, als der Lauf wartet. Ein
                     # `server_weg` wuerde sie nach fuenf Laeufen pausieren,
                     # und die Diagnose saehe genau so aus wie ein Ausfall.
+                    _passen = (begriffe_im_budget(_messwert(quelle))
+                               if quelle in _LANGLAUF_MESSWERT else None)
                     source_status[quelle] = {
-                        "status": "zu_langsam", "count": 0, "time_s": budget,
-                        "detail": (f"zu langsam: {budget}s reichten nicht — weniger "
-                                   "Suchbegriffe verkuerzen den Lauf"),
+                        "status": "zu_langsam", "count": len(jobs), "time_s": budget,
+                        "detail": (
+                            f"zu langsam, teilweise: {fertig} von {abfragen} Suchbegriffen in {budget}s, "
+                            f"{len(jobs)} Stellen uebernommen"
+                            + (f" — ins Hoechstbudget passen etwa {_passen} Begriffe"
+                               if _passen else "")),
                     }
+                    logger.info("%s: %d Stellen aus %d von %d Begriffen uebernommen",
+                                quelle, len(jobs), fertig, abfragen)
                     completed += 1
         parallel_executor.shutdown(wait=False)
 
