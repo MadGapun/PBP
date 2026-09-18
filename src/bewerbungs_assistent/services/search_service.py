@@ -121,6 +121,7 @@ def _zugriffsart(key: str, info: dict) -> str:
     hier liegt der Eintrag schon vor (kein Zirkularimport)."""
     if info.get("zugriffsart"):
         return info["zugriffsart"]
-    if str(info.get("methode", "")).startswith("Claude-in-Chrome"):
+    if str(info.get("methode", "")).startswith(("Claude-in-Chrome",
+                                                 "Claude-Erweiterung im eigenen Browser")):
         return "browser_login" if info.get("login_erforderlich") else "browser"
     return "api"

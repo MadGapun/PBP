@@ -327,7 +327,8 @@ def test_heise_bleibt_ausgegraut_mit_berichtigtem_befund():
     meta = SOURCE_REGISTRY["heise_jobs"]
     assert meta.get("defekt") is True
     grund = meta.get("defekt_grund") or ""
-    assert "Chrome" in grund and "Linklisten" in grund
+    # #1060: der Browser-Weg, nicht das Produkt.
+    assert "Claude-Erweiterung" in grund and "Linklisten" in grund
     assert "Stellenkarten im HTML" not in grund
     assert "/search?q=" in (meta.get("manueller_fallback") or "")
 

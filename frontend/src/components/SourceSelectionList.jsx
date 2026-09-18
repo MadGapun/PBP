@@ -135,8 +135,8 @@ export default function SourceSelectionList({
             in deinem Browser (Chrome, Brave, Edge oder Vivaldi).
           </p>
           <p>
-            <strong className="text-ink">2. Claude in Chrome (Browser-Extension)</strong> — wenn der eingebaute
-            Scraper streikt (Login, dynamische Seiten, Captcha), kann Claude in Chrome die
+            <strong className="text-ink">2. Claude-Erweiterung im Browser</strong> — wenn der eingebaute
+            Scraper streikt (Login, dynamische Seiten, Captcha), kann die Claude-Erweiterung die
             Seite direkt im Browser durchgehen und Stellen ins PBP uebernehmen. Funktioniert
             besonders gut bei XING und LinkedIn.
           </p>
@@ -245,7 +245,7 @@ export default function SourceSelectionList({
                     ) : null}
                     {source.manueller_fallback ? (
                       <p className="text-xs text-muted">
-                        <strong className="text-ink">Workaround:</strong> Per Chrome-Extension
+                        <strong className="text-ink">Workaround:</strong> Ueber die Claude-Erweiterung im Browser
                         <a
                           href={String(source.manueller_fallback).split(" ")[0]}
                           target="_blank"
@@ -305,7 +305,7 @@ export default function SourceSelectionList({
                   className="shrink-0 flex-none self-center"
                   checked={Boolean(source.active) && !isDefekt}
                   disabled={isDefekt}
-                  title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur per Chrome-Extension nutzbar." : undefined}
+                  title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur ueber die Claude-Erweiterung im Browser nutzbar." : undefined}
                   onChange={(event) => {
                     if (isDefekt) return;
                     const checked = event.target.checked;
@@ -315,7 +315,7 @@ export default function SourceSelectionList({
                     // Konto brauchen, von dem niemand weiss.
                     if (checked && source.zugriffsart === "browser_login") {
                       const zeilen = [
-                        `${source.name} laeuft nicht automatisch, sondern ueber die Chrome-Extension in deinem eigenen Browser.`,
+                        `${source.name} laeuft nicht automatisch, sondern ueber die Claude-Erweiterung in deinem eigenen Browser.`,
                       ];
                       if (source.login_hinweis) zeilen.push(source.login_hinweis);
                       if (source.konto_url) zeilen.push(`Konto anlegen: ${source.konto_url}`);

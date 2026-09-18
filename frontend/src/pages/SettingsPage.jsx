@@ -1153,7 +1153,7 @@ function AutomatikSchedulerCard({ pushToast }) {
         {renderTask(
           "jobsuche",
           "Interne Jobsuche",
-          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell ueber die Chrome-Extension.",
+          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell ueber die Claude-Erweiterung im Browser.",
           "Jetzt suchen",
         )}
         {renderTask(
