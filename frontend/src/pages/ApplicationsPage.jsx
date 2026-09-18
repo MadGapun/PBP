@@ -33,6 +33,7 @@ import {
 } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { scoreText } from "@/lib/score";
+import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
@@ -1452,10 +1453,14 @@ export default function ApplicationsPage() {
                     // ein reiner Lesevorgang — es kam nichts in PBP an,
                     // obwohl das Label "aktualisieren" versprach.
                     const bid = timelineDialog.entry.application?.id || "";
-                    copyPrompt(
-                      `/firmen_recherche firma="${firma}"`
-                      + (bid ? ` bewerbung_id="${bid}"` : ""),
-                    );
+                    // v1.7.120: `firmen_recherche` ist ein WERKZEUG, kein
+                    // Workflow. Als "/firmen_recherche ..." lief es in ein
+                    // 404 und kam bei Claude als unbekannter Skill an.
+                    copyPrompt(werkzeugAufruf(
+                      "firmen_recherche",
+                      { firma, bewerbung_id: bid },
+                      "Speichere das Ergebnis an der Bewerbung, nicht nur im Chat.",
+                    ));
                   }}
                 >
                   Prompt kopieren

@@ -58,6 +58,7 @@ import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
+import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
 
 const DEFAULT_WORKSPACE = {
@@ -528,21 +529,25 @@ export default function App() {
       const rawPrompt = String(prompt || "").trim();
       const normalizedPrompt = rawPrompt.toLocaleLowerCase("de-DE");
       let promptToCopy = rawPrompt;
-      let copiedResolvedWorkflow = false;
 
-      if (normalizedPrompt.startsWith("/")) {
-        const workflowName = rawPrompt.slice(1).split(/\s+/)[0];
-        if (workflowName) {
-          try {
-            const resolved = await api(`/api/workflow-prompt/${encodeURIComponent(workflowName)}`);
-            if (resolved?.prompt) {
-              promptToCopy = resolved.prompt;
-              copiedResolvedWorkflow = true;
-            }
-          } catch (error) {
-            pushToast("Anleitung konnte nicht geladen werden \u2014 der Originaltext wurde kopiert.", "amber");
-          }
+      // v1.7.120: ein "/name" ist IMMER ein Workflow, dessen Anleitung der
+      // Server liefert. Laesst er sich nicht aufloesen, wird NICHTS
+      // kopiert: der rohe Schraegstrich-Befehl kommt in Claude Desktop
+      // als "diesen Skill gibt es nicht" an, und "Anleitung kopiert!"
+      // darueber war eine Erfolgsmeldung ueber nichts (#994/#997).
+      const zerlegt = zerlegePrompt(rawPrompt);
+      if (zerlegt.istWorkflow) {
+        let resolved = null;
+        try {
+          resolved = await api(workflowPfad(zerlegt));
+        } catch (error) {
+          resolved = null;
         }
+        if (!resolved?.prompt) {
+          pushToast(fehlerText(zerlegt.name), "danger", { duration: 12000 });
+          return false;
+        }
+        promptToCopy = resolved.prompt;
       }
 
       await copyToClipboard(promptToCopy);
@@ -588,8 +593,10 @@ export default function App() {
         "success",
         { duration: 10000, action: { label: "Zu Claude wechseln", onClick: () => { window.open("claude://", "_self"); } } }
       );
+      return true;
     } catch (error) {
       pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
+      return false;
     }
   }
 

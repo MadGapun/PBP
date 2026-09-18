@@ -659,9 +659,26 @@ WICHTIG:
     # (_mcp._prompt_manager._prompts) — das brach mit FastMCP 3.x lautlos
     # (AttributeError -> except: pass -> "Inhalt konnte nicht geladen werden"-Toast
     # im Frontend). Direkter Import ist versions-stabil und testbar.
-    from ..prompts import build_profil_sync_prompt, build_tipps_und_tricks_prompt
+    from ..prompts import (
+        build_dokumente_verarbeiten_prompt,
+        build_problem_melden_prompt,
+        build_profil_sync_prompt,
+        build_tipps_und_tricks_prompt,
+    )
+
+    def _dokumente_verarbeiten():
+        return build_dokumente_verarbeiten_prompt(db)
 
     return {
+        # v1.7.120: zum DRITTEN Mal fehlten Eintraege in dieser Liste
+        # (nach #560 und den drei Karten aus v1.6.6). Der Knopf
+        # "Dokumente verarbeiten" bekam ein 404 und kopierte den rohen
+        # Schraegstrich-Befehl — den Claude Desktop als unbekannten Skill
+        # liest. `problem_melden` fehlte ebenso, also ausgerechnet der
+        # Weg, auf dem man so etwas meldet. Ein Guard haelt jetzt JEDEN
+        # Katalogeintrag gegen diese Liste.
+        "dokumente_verarbeiten": _dokumente_verarbeiten,
+        "problem_melden": build_problem_melden_prompt,
         "ersterfassung": _ersterfassung,
         "jobsuche_workflow": _jobsuche_workflow,
         "willkommen": _willkommen,

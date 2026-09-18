@@ -262,6 +262,38 @@ def _extract_kw_region(params: dict) -> tuple[list[str], str]:
     return keywords, location
 
 
+#: Gemessen im Bericht zu #1038: eine LinkedIn-Abfrage mit 25 Treffern
+#: dauert 11,3 s — JobSpy wartet zwischen zwei Ergebnisseiten bewusst 3
+#: bis 7 s. Mit etwas Luft 12 s je Abfrage.
+LINKEDIN_SEKUNDEN_JE_ABFRAGE = 12
+#: Obergrenze, damit ein haengender Lauf nicht beliebig lange blockiert.
+LINKEDIN_BUDGET_MAX = 1200
+
+
+def linkedin_abfragen(params: dict) -> int:
+    """So viele Einzelabfragen schickt `search_jobspy_linkedin` ab.
+
+    Dieselbe Begriffsliste wie die Abfrage selbst (samt deutscher
+    Entsprechungen aus #490) — eine zweite Zaehlung liefe bei der naechsten
+    Aenderung an der Liste auseinander.
+    """
+    keywords, _ = _extract_kw_region(params)
+    if not keywords:
+        return 0
+    return len(_expand_keywords_for_linkedin(keywords))
+
+
+def linkedin_langlauf_budget(params: dict, mindestens: int) -> int:
+    """Wie lange der Suchlauf auf LinkedIn wartet (#1038).
+
+    Die Dauer waechst mit der Zahl der Suchbegriffe; ein festes Budget war
+    fuer 44 Begriffe (rund acht Minuten) nie erreichbar, und das Ergebnis
+    wurde verworfen.
+    """
+    geschaetzt = linkedin_abfragen(params) * LINKEDIN_SEKUNDEN_JE_ABFRAGE + 60
+    return max(int(mindestens), min(geschaetzt, LINKEDIN_BUDGET_MAX))
+
+
 def search_jobspy_linkedin(params: dict) -> list[dict]:
     """LinkedIn via python-jobspy (#490)."""
     keywords, location = _extract_kw_region(params)

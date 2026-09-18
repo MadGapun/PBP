@@ -6621,6 +6621,14 @@ class Database:
             state = "silent"
         elif status == "ok":
             state = "ok"
+        elif status == "zu_langsam":
+            # #1038: die Quelle antwortet, braucht aber laenger als der Lauf
+            # wartet. Das ist KEIN Ausfall: kein Erfolg, aber auch keine
+            # Fehlerserie, keine Pause, keine Abschaltung. Als `fail`
+            # gezaehlt waere LinkedIn nach fuenf Laeufen pausiert worden —
+            # und ohne Fehlerklasse (TEMPORARY_CLASSES) sogar HART
+            # deaktiviert.
+            state = "langsam"
         else:
             state = "fail"
 
@@ -6749,6 +6757,16 @@ class Database:
                         "deaktiviert (#499). Probe-Run ab %s",
                         name, consec_silent, next_probe
                     )
+            elif state == "langsam":
+                # #1038: Lauf und Befund festhalten, die Serie NICHT anfassen.
+                conn.execute(f"""
+                    UPDATE scraper_health SET last_run=?, total_runs=?,
+                        avg_time_s=?, last_count=?, last_status_detail=?,
+                        last_error=?, error_class=NULL{_sc_clause}{_fc_clause}{_nc_clause}
+                        WHERE scraper_name=?
+                """, (now, total_runs, avg_time, count, status_detail,
+                      status_detail, *_extra_vals, name))
+                conn.commit()
             else:
                 consec = existing["consecutive_failures"] + 1
                 # #720: detail_mit_klasse (oben berechnet) traegt die Klasse +

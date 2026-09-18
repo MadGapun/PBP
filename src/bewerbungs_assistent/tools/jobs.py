@@ -3265,10 +3265,13 @@ def register(mcp, db, logger):
                            geo_id: str = "", seiten: int = 2) -> dict:
         """Der erprobte LinkedIn-Weg als ausfuehrbarer Plan (#919).
 
-        LinkedIn liefert seit April 2026 nichts mehr: der Playwright-Adapter
-        steht auf Erfolgsrate 0 %, die jobspy-Variante ist deprecated. HTTP
-        von aussen blockt LinkedIn zuverlaessig — Requests aus dem
-        EINGELOGGTEN Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
+        Der Playwright-Adapter fuer LinkedIn liefert seit April 2026 nichts
+        mehr. Die jobspy-Variante (`jobspy_linkedin`) LIEFERT — sie braucht
+        nur lange (rund 12 s je Suchbegriff) und hat seit v1.7.120 ein
+        eigenes Zeitbudget (#1038); ihre Treffer kommen aber OHNE
+        Anzeigentext. Dieser Weg hier liefert den Volltext: HTTP von aussen
+        blockt LinkedIn zuverlaessig, Requests aus dem EINGELOGGTEN
+        Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
         dieser Weg vollstaendig durchgespielt: 22 Suchbegriffe, 511
         deduplizierte Rohtreffer, 59 Volltexte, 3 uebernommene Stellen.
 

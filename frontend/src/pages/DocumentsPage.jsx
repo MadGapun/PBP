@@ -293,14 +293,11 @@ export default function DocumentsPage() {
               type="button"
               size="sm"
               variant="secondary"
-              onClick={async () => {
-                await copyPrompt("/dokumente_verarbeiten");
-                pushToast(
-                  "Verarbeitungs-Prompt kopiert — jetzt in Claude Desktop einfuegen",
-                  "success",
-                  { duration: 3500 }
-                );
-              }}
+              // v1.7.120: `copyPrompt` meldet selbst, ob kopiert wurde. Der
+              // eigene Toast hier sagte "kopiert" auch dann, wenn die
+              // Anleitung gar nicht geladen werden konnte — drei Meldungen
+              // uebereinander, zwei davon falsch.
+              onClick={() => copyPrompt("/dokumente_verarbeiten")}
             >
               <Copy size={14} className="mr-1" />
               Dokumente verarbeiten
