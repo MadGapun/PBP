@@ -8299,33 +8299,10 @@ class Database:
         max_response = max(response_days) if response_days else None
 
         # --- Dismiss reasons breakdown ---
-        dismiss_rows = conn.execute("""
-            SELECT dismiss_reason, COUNT(*) as cnt
-            FROM jobs WHERE is_active=0 AND dismiss_reason IS NOT NULL AND dismiss_reason != ''
-            AND (profile_id=? OR profile_id IS NULL)
-            GROUP BY dismiss_reason ORDER BY cnt DESC
-        """, (pid,)).fetchall()
-        # Normalize: some are JSON arrays, some strings
-        reason_counter = {}
-        for r in dismiss_rows:
-            raw = r["dismiss_reason"]
-            count = r["cnt"]
-            # Try JSON array
-            try:
-                reasons = json.loads(raw)
-                if isinstance(reasons, list):
-                    for reason in reasons:
-                        reason_counter[reason] = reason_counter.get(reason, 0) + count
-                    continue
-            except (json.JSONDecodeError, TypeError):
-                pass
-            # Plain string — skip duplicates
-            if raw.startswith("Duplikat:"):
-                reason_counter["duplikat"] = reason_counter.get("duplikat", 0) + count
-            else:
-                reason_counter[raw] = reason_counter.get(raw, 0) + count
-
-        dismiss_reasons = sorted(reason_counter.items(), key=lambda x: -x[1])
+        # v1.7.121: derselbe Leser wie Erkenntnisse und Lern-Karte —
+        # beide Speicherformen, eine Zaehlung.
+        from .services.ablehnungsgruende import gruende_zaehlen
+        dismiss_reasons, _ = gruende_zaehlen(conn, pid, ausser=())
 
         # --- Recent activity (last 10 events) ---
         recent = conn.execute("""

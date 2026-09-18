@@ -73,28 +73,26 @@ def _regel_aussortier_muster(db: Any) -> list:
     """Welche Ablehnungsgruende dominieren?"""
     conn = db.connect()
     pid = db.get_active_profile_id()
-    rows = conn.execute(
-        "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
-        "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "
-        "AND COALESCE(dismiss_reason,'') NOT IN ('', 'bewerbung_erstellt') "
-        "GROUP BY dismiss_reason ORDER BY n DESC", (pid,)
-    ).fetchall()
-    gesamt = sum(r["n"] for r in rows)
+    # v1.7.121: ueber BEIDE Speicherformen gezaehlt — GROUP BY auf den
+    # Rohwert fuehrte die Listen- und die Einzelform desselben Grundes
+    # als zwei Muster (32,1 % und 31,3 % statt 63,4 %).
+    from .ablehnungsgruende import gruende_zaehlen
+    liste, gesamt = gruende_zaehlen(conn, pid)
     if not gesamt:
         return []
     out = []
-    for r in rows[:2]:
-        if r["n"] < 5:
+    for grund, n in liste[:2]:
+        if n < 5:
             continue
-        anteil = round(r["n"] / gesamt * 100, 1)
+        anteil = round(n / gesamt * 100, 1)
         out.append(_kandidat(
             "dismiss_pattern", SCOPE_STRATEGIE,
-            f"{anteil} % deiner Aussortierungen entfallen auf "
-            f"'{r['dismiss_reason']}' ({r['n']} von {gesamt}). Ein Filter, "
+            f"Bei {anteil} % deiner Aussortierungen war '{grund}' ein Grund "
+            f"({n} von {gesamt}). Ein Filter, "
             "der das vorab abfaengt, spart genau diese Sichtungsarbeit.",
-            {"grund": r["dismiss_reason"], "anzahl": r["n"],
+            {"grund": grund, "anzahl": n,
              "gesamt_aussortiert": gesamt, "anteil_prozent": anteil},
-            r["n"]))
+            n))
     return out
 
 
