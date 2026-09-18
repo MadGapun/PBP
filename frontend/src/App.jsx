@@ -1056,7 +1056,7 @@ export default function App() {
       }
       if (result?.status === "nur_manuelle_quellen") {
         pushToast(
-          "Alle gewaehlten Quellen laufen nur via Claude-in-Chrome.",
+          "Alle gewaehlten Quellen laufen nur ueber die Claude-Erweiterung im Browser.",
           "amber",
           { duration: 6000 },
         );

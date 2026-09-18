@@ -194,7 +194,7 @@ SOURCE_REGISTRY = {
         # Alte URL `/jobs/` ist seit 2026-04-25 dauerhaft 404. Scraper-Code in
         # `ingenieur_de.py` muss auf die neue Subdomain umgestellt werden.
         "url_aktualisiert_am": "2026-06-01 (Issue #653)",
-        "manueller_fallback": "https://jobs.ingenieur.de/ (im Browser oder Chrome-Extension oeffnen)",
+        "manueller_fallback": "https://jobs.ingenieur.de/ (im Browser oder ueber die Claude-Erweiterung oeffnen)",
     },
     "heise_jobs": {
         "name": "Heise Jobs",
@@ -206,8 +206,8 @@ SOURCE_REGISTRY = {
         # v1.7.107 (B53): Korrektur zu v1.7.106 — die 60 Links der Startseite
         # sind SEO-Linklisten, keine Stellen. Die Treffer kommen nur im Browser.
         "defekt": True,
-        "defekt_grund": "Erneut gemessen 14.09.2026: die Suchtreffer laedt jobs.heise.de erst im Browser nach. Ohne Browser liefert die Suchseite eine leere Huelle, und die Datenroute der Seite antwortet mit HTTP 500 — auch mit nachgestelltem Formular-Ablauf. Die 60 Links der Startseite, die v1.7.106 als Stellenkarten nannte, sind Linklisten. Im Browser funktioniert die Suche: der Weg ueber die Chrome-Extension.",
-        "manueller_fallback": "https://jobs.heise.de/search?q=<Begriff> im Browser oder ueber die Chrome-Extension",
+        "defekt_grund": "Erneut gemessen 14.09.2026: die Suchtreffer laedt jobs.heise.de erst im Browser nach. Ohne Browser liefert die Suchseite eine leere Huelle, und die Datenroute der Seite antwortet mit HTTP 500 — auch mit nachgestelltem Formular-Ablauf. Die 60 Links der Startseite, die v1.7.106 als Stellenkarten nannte, sind Linklisten. Im Browser funktioniert die Suche: der Weg ueber die Claude-Erweiterung.",
+        "manueller_fallback": "https://jobs.heise.de/search?q=<Begriff> im Browser oder ueber die Claude-Erweiterung",
     },
     "gulp": {
         "name": "GULP",
@@ -229,15 +229,15 @@ SOURCE_REGISTRY = {
     "solcom": {
         "name": "SOLCOM",
         "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
-        "methode": "Chrome-Extension only",
+        "methode": "Nur von Hand im Browser (Cloudflare-Block, kein automatischer Abruf)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # #653 (B12, beta.77): Cloudflare Bot-Block seit 2026-04-25
         # dauerhaft aktiv (auch mit User-Agent-Spoofing 403). Quelle nur
         # noch via Chrome-Extension nutzbar. Aus Auto-Scraper-Liste raus.
         "deprecated": True,
-        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur Chrome-Extension",
-        "manueller_fallback": "https://www.solcom.de/projekte (Browser oder Chrome-Extension)",
+        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur ueber die Claude-Erweiterung im Browser",
+        "manueller_fallback": "https://www.solcom.de/projekte (im Browser oder ueber die Claude-Erweiterung)",
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
@@ -283,12 +283,12 @@ SOURCE_REGISTRY = {
         # Plattform. Vermutlich SPA mit eigenem JSON-Endpoint. Erstmal HTML-
         # Scraping versuchen, ggf. Playwright-Update in B18.
         "url_aktualisiert_am": "2026-06-01 (Issue #653)",
-        "manueller_fallback": "https://touch.ferchau.com/de/de?type=3 (im Browser oder Chrome-Extension)",
+        "manueller_fallback": "https://touch.ferchau.com/de/de?type=3 (im Browser oder ueber die Claude-Erweiterung)",
     },
     "kimeta": {
         "name": "Kimeta",
         "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
-        "methode": "Handoff (Browser)",
+        "methode": "Handoff (Suche im Browser oeffnen, kein automatischer Abruf)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # v1.7.12 (#810/B32): SCRAPING EINGESTELLT — robots.txt untersagt
@@ -305,7 +305,7 @@ SOURCE_REGISTRY = {
     "jobspy_linkedin": {
         "name": "LinkedIn (via JobSpy)",
         "beschreibung": "LinkedIn-Stellen ueber die Open-Source-Bibliothek python-jobspy (MIT). "
-                         "Kein Login, keine API-Keys, kein Chrome noetig.",
+                         "Kein Login, keine API-Keys, kein Browser noetig.",
         "methode": "python-jobspy",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -368,8 +368,8 @@ SOURCE_REGISTRY = {
     "meinestadt": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Bot-Block fuer automatische Abrufe: HTTP 403 auf Suchseite und RSS (18.08.2026, erneut gemessen 14.09.2026). Im echten Browser laedt die Suche normal — der Weg ueber die Chrome-Extension funktioniert.",
-        "manueller_fallback": "Im Browser oder ueber die Chrome-Extension suchen und Treffer mit stelle_manuell_anlegen uebernehmen",
+        "defekt_grund": "Bot-Block fuer automatische Abrufe: HTTP 403 auf Suchseite und RSS (18.08.2026, erneut gemessen 14.09.2026). Im echten Browser laedt die Suche normal — der Weg ueber die Claude-Erweiterung funktioniert.",
+        "manueller_fallback": "Im Browser oder ueber die Claude-Erweiterung suchen und Treffer mit stelle_manuell_anlegen uebernehmen",
         "name": "meinestadt.de (Regional)",
         "beschreibung": "Regionale DACH-Stellenseite mit Schwerpunkt Service-, Trade- "
                          "und Pflege-Berufe (Kassierer, Hotel, Gastro, Handwerk). "
@@ -489,21 +489,19 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "schnell",
         "beta": True,
         "warnung": "Google blockiert automatisierte Jobsuche oft — wenn 0 Treffer, "
-                    "ueber Google-Jobs-Karte in der Chrome-Extension manuell suchen.",
+                    "ueber die Quelle \"Google Jobs (im Browser)\" manuell suchen.",
     },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
         "name": "StepStone",
         "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
-        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         # v1.7.17 (#906): laeuft faktisch nur ueber Claude-in-Chrome mit
         # eingeloggtem Konto — als aktive Hintergrund-Quelle sah sie nur so aus.
         "zugriffsart": "browser_login",
         "konto_url": "https://www.stepstone.de/registrieren",
-        "login_hinweis": "StepStone-Konto empfohlen; die Suche laeuft ueber die Chrome-Extension in deinem Browser, Treffer via stelle_manuell_anlegen().",
+        "login_hinweis": "StepStone-Konto empfohlen; Treffer via stelle_manuell_anlegen().",
         "geschwindigkeit": "langsam",
-        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.",
     },
     "freelancermap": {
         "name": "Freelancermap",
@@ -517,24 +515,22 @@ SOURCE_REGISTRY = {
     "indeed": {
         "name": "Indeed",
         "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
-        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://secure.indeed.com/account/register",
-        "login_hinweis": "Laeuft ueber die Chrome-Extension in deinem Browser; ein Indeed-Konto verbessert die Treffer (Standort/Praeferenzen).",
+        "login_hinweis": "Ein Indeed-Konto verbessert die Treffer (Standort/Praeferenzen).",
         "geschwindigkeit": "langsam",
-        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.\nDie Quelle \"Indeed.de (via JobSpy)\" deckt denselben Bestand bereits automatisch ab \u2014 wer beide aktiviert, sucht ihn ein zweites Mal von Hand ab.",
+        "doppelt_mit": "jobspy_indeed",
     },
     "monster": {
         "name": "Monster",
         "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
-        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.monster.de/",
-        "login_hinweis": "De facto tot (deprecated) — falls ueberhaupt, nur ueber die Chrome-Extension.",
+        "login_hinweis": "De facto tot (deprecated) — falls ueberhaupt, nur ueber die Claude-Erweiterung im Browser.",
         "geschwindigkeit": "langsam",
-        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
+        "warnung_zusatz": "Portal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
         "beta": True,
         # #653 (B12, beta.77): Monster Europe transitioning seit 08/2025.
         # monster.de leitet auf monster.com/de/ um, dort gibt es aber nur
@@ -548,8 +544,8 @@ SOURCE_REGISTRY = {
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "LinkedIn-Jobsuche ueber die interne Voyager-API im eingeloggten Chrome (#919).",
-        "methode": "Claude-in-Chrome (Voyager-API)",
+        "beschreibung": "LinkedIn-Jobsuche ueber die interne Voyager-API im eingeloggten Browser (#919).",
+        "methode_zusatz": "Voyager-API",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.linkedin.com/signup",
@@ -563,14 +559,13 @@ SOURCE_REGISTRY = {
         # url_to_source zeigt weiterhin auf 'linkedin'.
         "beta": True,
         "geschwindigkeit": "manuell",
-        "warnung": "Laeuft im Browser des Nutzers. Verbraucht mehr Token als normale Quellen.",
+        "doppelt_mit": "jobspy_linkedin",
         "hinweis": "linkedin_lauf_plan() liefert Suchbegriffe und Browser-Skripte, linkedin_treffer_uebernehmen() schreibt die Ernte nach PBP. Ohne Login: Status 'wartet_auf_login' — die Quelle wird NICHT deaktiviert (#906).",
         "manueller_fallback": "linkedin_lauf_plan() — der erprobte Weg ueber die Voyager-API",
     },
     "xing": {
         "name": "XING",
-        "beschreibung": "XING-Suche via Claude-in-Chrome Extension (manuell, nicht automatisiert).",
-        "methode": "Claude-in-Chrome (manuell)",
+        "beschreibung": "XING-Suche ueber die Claude-Erweiterung im Browser (manuell, nicht automatisiert).",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.xing.com/signup",
@@ -578,31 +573,73 @@ SOURCE_REGISTRY = {
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
-        "warnung": "Manuell via Claude-in-Chrome. Verbraucht mehr Token als normale Quellen.",
-        "hinweis": "Automatische Suche deaktiviert (#107/#159). Nutze Claude-in-Chrome + stelle_manuell_anlegen().",
+        "hinweis": "Automatische Suche deaktiviert (#107/#159). Treffer ueber die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() uebernehmen.",
     },
     "google_jobs": {
-        "name": "Google Jobs (via Chrome)",
+        "name": "Google Jobs (im Browser)",
         "beschreibung": "Groesster Aggregator fuer DE-Stellen — aggregiert StepStone, Jobware, "
                          "Stellenanzeigen.de und Firmenwebseiten. Laeuft manuell ueber den "
-                         "eingeloggten Chrome-Browser (keine Bot-Detection). #501",
-        "methode": "Claude-in-Chrome (manuell)",
+                         "eingeloggten Browser (keine Bot-Detection). #501",
         # v1.6.5 (#541): kein klassischer Login-Flow noetig — aktivieren reicht.
         # Vorher loeste der Login-Button einen Backend-Fehler aus, weil
         # api_start_source_login keinen google_jobs-Branch hatte.
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://accounts.google.com/signup",
-        "login_hinweis": "Eingeloggtes Google-Konto in Chrome noetig — die Standortableitung der Jobsuche (udm=8) haengt daran.",
+        "login_hinweis": "Eingeloggtes Google-Konto im Browser noetig — die Standortableitung der Jobsuche (udm=8) haengt daran.",
         "manueller_fallback": True,
         "geschwindigkeit": "manuell",
-        "warnung": "Benoetigt einen Google-Account in Chrome mit Claude-in-Chrome-Extension.",
-        "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — in Chrome oeffnen "
+        "doppelt_mit": "jobspy_google",
+        "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — im Browser oeffnen "
                     "und Treffer mit stelle_manuell_anlegen() uebernehmen. Kein Login-Click "
                     "im Dashboard noetig.",
         "beta": True,
     },
 }
+
+#: #1060: Was jede Browser-Quelle gemeinsam hat, steht EINMAL hier und
+#: wird aus `zugriffsart` abgeleitet. Vorher trug jede der sechs Quellen
+#: ihren eigenen Satz — drei Formulierungen fuer denselben Sachverhalt,
+#: und #1059 zog nur die Haelfte nach. Von Hand gepflegt wird nur noch
+#: das Quellenspezifische (`methode_zusatz`, `warnung_zusatz`,
+#: `doppelt_mit`).
+BROWSER_METHODE = "Claude-Erweiterung im eigenen Browser"
+BROWSER_HINWEIS = (
+    "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge "
+    "oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle."
+)
+
+
+def _doppelt_satz(andere: str) -> str:
+    eintrag = SOURCE_REGISTRY.get(andere, {})
+    name = eintrag.get("name", andere)
+    if eintrag.get("zugriffsart") == "browser_login":
+        return (f"Dasselbe Portal gibt es auch als Browser-Quelle \"{name}\" — "
+                "wer beide aktiviert, fragt es zweimal ab.")
+    return (f"Die Quelle \"{name}\" deckt dasselbe Portal automatisch ab — wer "
+            "beide aktiviert, sucht es ein zweites Mal von Hand ab.")
+
+
+def _registry_texte_ableiten() -> None:
+    for name, q in SOURCE_REGISTRY.items():
+        zeilen: list[str] = []
+        if q.get("zugriffsart") == "browser_login":
+            zusatz = q.get("methode_zusatz")
+            q["methode"] = f"{BROWSER_METHODE} ({zusatz})" if zusatz else BROWSER_METHODE
+            zeilen.append(BROWSER_HINWEIS)
+        elif q.get("warnung"):
+            zeilen.append(q["warnung"])
+        if q.get("warnung_zusatz"):
+            zeilen.append(q["warnung_zusatz"])
+        partner = q.get("doppelt_mit") or next(
+            (n for n, p in SOURCE_REGISTRY.items() if p.get("doppelt_mit") == name), None)
+        if partner:
+            zeilen.append(_doppelt_satz(partner))
+        if zeilen:
+            q["warnung"] = "\n".join(zeilen)
+
+
+_registry_texte_ableiten()
 
 
 def zugriffsart_von(source_id: str) -> str:
@@ -619,7 +656,9 @@ def zugriffsart_von(source_id: str) -> str:
     if meta.get("zugriffsart"):
         return meta["zugriffsart"]
     methode = str(meta.get("methode", ""))
-    if methode.startswith("Claude-in-Chrome"):
+    # #1060: auch der neue Wortlaut — heute tragen alle Browser-Quellen
+    # `zugriffsart` ausdruecklich, der Rueckfall gilt kuenftigen Eintraegen.
+    if methode.startswith(("Claude-in-Chrome", BROWSER_METHODE)):
         return "browser_login" if meta.get("login_erforderlich") else "browser"
     return "api"
 
@@ -1159,12 +1198,12 @@ def run_search(db, job_id: str, params: dict):
         info = SOURCE_REGISTRY.get(quelle, {})
         if info.get("defekt"):
             grund = info.get("defekt_grund") or "Quelle als defekt markiert"
-            logger.warning("%s: defekt — %s. Manuell ueber Chrome-Extension nutzen.", quelle, grund)
+            logger.warning("%s: defekt — %s. Manuell ueber die Claude-Erweiterung im Browser nutzen.", quelle, grund)
             skipped_sources.append(quelle)
             defekt_skipped[quelle] = grund
         elif quelle in _deprecated_sources:
             logger.warning(
-                "%s: Automatische Suche deaktiviert. Nutze Claude-in-Chrome + stelle_manuell_anlegen().", quelle)
+                "%s: Automatische Suche deaktiviert. Treffer ueber die Claude-Erweiterung im Browser suchen, stelle_manuell_anlegen().", quelle)
             skipped_sources.append(quelle)
         elif quelle in _deactivated:
             broken_n = _broken_skipped.get(quelle)

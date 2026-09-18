@@ -257,7 +257,8 @@ def test_ausgegraut_mit_dem_befund_der_neuen_messung(quelle):
 
 
 def test_meinestadt_nennt_den_funktionierenden_browser_weg():
-    assert "Chrome" in SOURCE_REGISTRY["meinestadt"]["defekt_grund"]
+    # #1060: gemeint ist der Browser, nicht das Produkt.
+    assert "Claude-Erweiterung" in SOURCE_REGISTRY["meinestadt"]["defekt_grund"]
 
 
 def test_probe_und_adapter_fragen_denselben_endpunkt():
