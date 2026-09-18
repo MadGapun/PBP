@@ -158,6 +158,9 @@ def test_906_frontend_dialog_und_badges():
     assert 'source.zugriffsart === "browser_login"' in src, \
         "browser_login braucht den Bestaetigungs-Dialog (#906 AK 2)"
     assert "window.confirm" in src
-    assert "Wartet auf dich" in src, \
+    # v1.7.120 (#1059): das Etikett wohnt in lib/quellenBadges.
+    lib = (Path(__file__).resolve().parents[1] / "frontend" / "src" /
+           "lib" / "quellenBadges.js").read_text(encoding="utf-8")
+    assert "Wartet auf dich" in lib and "quellenBadges(source" in src, \
         "aktive Browser-Quellen duerfen nicht wie Auto-Quellen aussehen"
     assert "konto_url" in src

@@ -494,7 +494,7 @@ SOURCE_REGISTRY = {
     "stepstone": {
         "name": "StepStone",
         "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
-        "methode": "Playwright (Browser)",
+        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         # v1.7.17 (#906): laeuft faktisch nur ueber Claude-in-Chrome mit
         # eingeloggtem Konto — als aktive Hintergrund-Quelle sah sie nur so aus.
@@ -502,7 +502,7 @@ SOURCE_REGISTRY = {
         "konto_url": "https://www.stepstone.de/registrieren",
         "login_hinweis": "StepStone-Konto empfohlen; die Suche laeuft ueber die Chrome-Extension in deinem Browser, Treffer via stelle_manuell_anlegen().",
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt Google Chrome. Kann 1-3 Minuten dauern. Alternativ: Lass Claude gezielt auf stepstone.de suchen.",
+        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.",
     },
     "freelancermap": {
         "name": "Freelancermap",
@@ -516,24 +516,24 @@ SOURCE_REGISTRY = {
     "indeed": {
         "name": "Indeed",
         "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
-        "methode": "Playwright (Browser)",
+        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://secure.indeed.com/account/register",
         "login_hinweis": "Laeuft ueber die Chrome-Extension in deinem Browser; ein Indeed-Konto verbessert die Treffer (Standort/Praeferenzen).",
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern. Alternativ: Lass Claude gezielt auf indeed.com suchen.",
+        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.\nDie Quelle \"Indeed.de (via JobSpy)\" deckt denselben Bestand bereits automatisch ab \u2014 wer beide aktiviert, sucht ihn ein zweites Mal von Hand ab.",
     },
     "monster": {
         "name": "Monster",
         "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
-        "methode": "Playwright (Browser)",
+        "methode": "Claude-Erweiterung im eigenen Browser",
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.monster.de/",
         "login_hinweis": "De facto tot (deprecated) — falls ueberhaupt, nur ueber die Chrome-Extension.",
         "geschwindigkeit": "langsam",
-        "warnung": "Benoetigt Google Chrome. Kann 30-90 Sekunden dauern.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
+        "warnung": "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle.\nPortal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
         "beta": True,
         # #653 (B12, beta.77): Monster Europe transitioning seit 08/2025.
         # monster.de leitet auf monster.com/de/ um, dort gibt es aber nur
@@ -552,7 +552,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.linkedin.com/signup",
-        "login_hinweis": "LinkedIn-Konto noetig und im Chrome eingeloggt — HTTP von aussen blockt LinkedIn zuverlaessig, Requests aus dem eingeloggten Tab laufen durch.",
+        "login_hinweis": "LinkedIn-Konto noetig und im Browser eingeloggt — HTTP von aussen blockt LinkedIn zuverlaessig, Requests aus dem eingeloggten Tab laufen durch.",
         # v1.7.42 (#919): NICHT mehr 'veraltet'. Der Playwright-Weg ist
         # tot (Erfolgsrate 0 % seit April 2026), der Voyager-Weg wurde am
         # 17.08.2026 vollstaendig durchgespielt: 511 Rohtreffer, 59
@@ -573,7 +573,7 @@ SOURCE_REGISTRY = {
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.xing.com/signup",
-        "login_hinweis": "XING-Konto noetig und im Chrome eingeloggt — sonst sind Suchergebnisse stark beschnitten.",
+        "login_hinweis": "XING-Konto noetig und im Browser eingeloggt — sonst sind Suchergebnisse stark beschnitten.",
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
