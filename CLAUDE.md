@@ -137,6 +137,21 @@ Vierter Fall der Teilstring-Klasse nach "ki" in "Kita" (#970), "us" in
 "Kundenservice" (#996) und "Eur" in "Europastr." (#1026) — diesmal im
 eigenen Pruefwerkzeug. **Eine Versionsnummer ist kein Praefix.**
 
+(13) **Die lokale Umgebung fuhr FastMCP 2.12.4, das Projekt verlangt
+>= 3.0 — und die CI hat es gefunden, nicht ich.** Der erste CI-Lauf fuer
+v1.7.120 war auf beiden Linien rot: `prompt.render()` gibt in 2.x eine
+Liste zurueck, in 3.x ein `PromptResult` mit `.messages`, und ein direkt
+iteriertes Pydantic-Modell liefert (Feld, Wert)-Tupel. Das Produkt war
+in Ordnung, mein Test-Helfer nicht. **Alle lokalen Suiten dieser Tage
+liefen gegen die falsche Hauptversion** — gruen lokal war hier kein
+Beleg. Die Regel "Tag erst nach gruener CI" hat die Versionsnummer
+gerettet. Geprueft wurde der Fix gegen ein echtes 3.4.7 in einer
+Wegwerf-Umgebung (`python -m venv` im Scratchpad, `pip install -e .`),
+nicht geraten. **Offen:** die Entwicklungsumgebung auf FastMCP 3.x
+heben; bis dahin ist die CI der einzige Lauf gegen die ausgelieferte
+Version. Der Abschnitt "Test-Helper fuer FastMCP 2.12+" weiter unten
+beschreibt den ALTEN Stand.
+
 ## Stand 2026-09-17 (v1.7.119 Stable) — Die Listen passen zum Profil, die Notizen zur Bewerbung
 
 **#1054** (C87) und **#1056** (D47), zwei Nutzervorgaben vom 17.09.2026.
