@@ -18,9 +18,9 @@ import pytest
 from bewerbungs_assistent.job_scraper import calculate_score, fit_analyse
 from bewerbungs_assistent.job_scraper.textgrenzen import (
     ALTE_KAPPUNG,
-    AUSGABE_MAX,
+    AUSGABE_NOTBREMSE,
     SPEICHER_MAX,
-    fuer_ausgabe,
+    ausgabe,
     fuer_speicher,
     ist_gekappt,
 )
@@ -55,10 +55,23 @@ def test_952_ablage_behaelt_den_vollen_text():
     assert len(gespeichert) > ALTE_KAPPUNG
 
 
-def test_952_ausgabe_kuerzt_weiterhin():
-    """Eine Begrenzung von Antworten ist berechtigt und bleibt."""
+def test_952_eine_antwort_bleibt_begrenzt():
+    """Die ABSICHT dieses Tests gilt weiter: eine Antwort ist nicht
+    unbegrenzt. Die ZAHL war der Fehler — sie stand auf 2000, also auf
+    der alten Speicher-Kappung, und schnitt genau den Anforderungsteil
+    ab (#1064). Die Grenze liegt jetzt oberhalb jeder realen Anzeige.
+    """
+    riesig = "x" * (AUSGABE_NOTBREMSE + 5000)
+    stueck, befund = ausgabe(riesig)
+    assert len(stueck) == AUSGABE_NOTBREMSE
+    assert befund["gekuerzt"] is True
+
+    # Eine ausfuehrliche echte Anzeige geht dagegen ganz hinaus.
     text = _lange_anzeige("Egal.")
-    assert len(fuer_ausgabe(text)) == AUSGABE_MAX
+    assert len(text) > ALTE_KAPPUNG
+    stueck, befund = ausgabe(text)
+    assert stueck == text
+    assert befund["vollstaendig"] is True
 
 
 def test_952_notbremse_greift_erst_bei_entarteten_seiten():

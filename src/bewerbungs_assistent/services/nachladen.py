@@ -256,6 +256,54 @@ def _ueber_detail_api(url: str, client) -> Befund:
     return Befund(status=LEBT_UNLESBAR, http_status=code, quelle="detail_api")
 
 
+#: v1.7.122 (#1064 Angrenzend 2): Schluessel, die Quellen-Adapter dem
+#: Anzeigentext voranstellen. Beim Nachladen kommt der Text von der
+#: Detailseite und traegt sie nicht mehr — gemeldet am Beispiel
+#: "Standort / Einstiegslevel / Eintrittsdatum", die nach dem Nachladen
+#: fehlten. Einstiegslevel ist ein Senioritaets-Signal und entscheidet
+#: ueber `zu_junior` / `zu_senior` mit.
+#:
+#: Bewusst eine GESCHLOSSENE Liste statt einer Regel ueber
+#: "Wort: Wert". Gemessen an einer Bestandskopie (1.578 Anzeigen mit
+#: Text): nur 47 tragen ueberhaupt Kopfzeilen, und die generische Form
+#: fing dabei schon Fliesstext mit ("Die VESCON Aqua ..."). Eine Regel,
+#: die bei 3 % Nutzen Fehltreffer erzeugt, ist die falsche Bauform
+#: (#1004/#1005: eine kuratierte Liste traegt ihr Aufnahmekriterium).
+KOPFDATEN_SCHLUESSEL = {
+    "start", "starttermin", "eintrittsdatum", "einsatzort", "ort",
+    "standort", "bereich", "projektdauer", "projekttitel", "stellentyp",
+    "beschaeftigungsart", "beschäftigungsart", "einstiegslevel",
+    "befristung", "requisition id", "req id", "jobnummer", "nummer",
+    "referenznummer",
+}
+
+
+def kopfdaten_bewahren(alt: str, neu: str) -> str:
+    """Kopfzeilen des alten Textes, die im neuen fehlen — als Praefix.
+
+    Ergaenzt, statt umzudeuten (#1048): uebernommen wird eine Zeile nur,
+    wenn ihr Schluessel in der Liste steht UND ihr Wert im neuen Text
+    nicht vorkommt. Damit entsteht keine Dublette, wenn die Detailseite
+    dieselbe Angabe in anderer Form liefert.
+    """
+    if not alt or not neu:
+        return neu or ""
+    bewahrt = []
+    for zeile in str(alt).split("\n")[:6]:
+        z = zeile.strip()
+        if not z or ":" not in z or len(z) > 120:
+            break
+        schluessel, _, wert = z.partition(":")
+        if schluessel.strip().lower() not in KOPFDATEN_SCHLUESSEL:
+            break
+        wert = wert.strip()
+        if wert and wert not in neu:
+            bewahrt.append(f"{schluessel.strip()}: {wert}")
+    if not bewahrt:
+        return neu
+    return "\n".join(bewahrt) + "\n\n" + neu
+
+
 def text_uebernehmen(db, job_hash: str, text: str,
                      herkunft: str = "nachladen") -> dict:
     """Schreibt einen nachgeladenen Anzeigentext — und was an ihm haengt.
@@ -271,7 +319,12 @@ def text_uebernehmen(db, job_hash: str, text: str,
 
     Ein Weg statt vier, sonst bekommt der naechste Aufrufer die Regel
     wieder nicht (#963).
+
+    v1.7.122 (#1064): Kopfdaten des alten Textes, die der neue nicht
+    traegt, bleiben erhalten — siehe `kopfdaten_bewahren`.
     """
+    _alt = (db.get_job(job_hash) or {}).get("description") or ""
+    text = kopfdaten_bewahren(_alt, text)
     db.update_job(job_hash, {"description": text})
     # C23 (#687): erster brauchbarer Volltext -> unveraenderlicher
     # Snapshot. Die 1.7-Linie hat keine Snapshot-Spalte; dort fehlt die
