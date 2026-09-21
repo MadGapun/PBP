@@ -87,6 +87,13 @@ jobs:
         # anders als die Karte. Beide Ansichten gehen durch lib/stellenAngaben.js.
         run: node frontend/src/lib/stellenAngaben.test.mjs
 
+      - name: Google-Jobs-Auswertung im Browser (Node)
+        # #1067: die Klassen-Selektoren vom Mai 2026 trafen nur noch die
+        # Suchreiter und lieferten 13 "Stellen" namens KI-Modus, Bilder,
+        # News — ohne Fehler. Das Skript ist jetzt am sichtbaren Text
+        # verankert und meldet Navigation als Fehler.
+        run: node frontend/src/lib/googleJobsExtraction.test.mjs
+
       - name: Gegliederter Anzeigentext in der Detailansicht (Node)
         # #1047: textExcerpt fasste jeden Leerraum zusammen, die Detailansicht
         # verlor Absaetze und Listen. Sie geht jetzt durch lib/textAuszug.js.
