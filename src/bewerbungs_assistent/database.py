@@ -1183,6 +1183,14 @@ class Database:
             _pq.bereinigen(self)
         except Exception as e:
             logger.debug("Praeferenzen-Bereinigung uebersprungen (#1055): %s", e)
+        # v1.7.124 (#1063): eine gesetzte Zahl wird zur naechstliegenden
+        # Stufe. Idempotent, und wer nie eine Schwelle gesetzt hat,
+        # merkt nichts davon.
+        try:
+            from .services import schwellen_stufen as _sst
+            _sst.umstellen(self)
+        except Exception as e:
+            logger.debug("Stufen-Umstellung uebersprungen (#1063): %s", e)
         logger.info("Database initialized at %s", self.db_path)
 
     def _repair_document_paths(self) -> int:
@@ -6446,6 +6454,20 @@ class Database:
                 criteria["_fahrstrecke_zaehlt"] = True
         except Exception as e:
             logger.debug("Routing-Injektion (#1037): %s", e)
+        # v1.7.124 (#1063): steht eine STUFE, gewinnt sie ueber die
+        # gespeicherte Zahl. Gespeichert wird die Wahl, gerechnet wird
+        # beim Lesen — nur so bleibt die Stufe dieselbe, wenn sich die
+        # Zahl dahinter durch geaenderte Gewichte verschiebt (AK 5).
+        # Ohne gesetzte Stufe bleibt alles wie vorher.
+        try:
+            from .services import schwellen_stufen as _st
+            if _st.gewaehlte_stufe(self, _st.SPEICHERN) != _st.VORGABE:
+                criteria["min_score_schwelle"] = _st.wert_fuer(
+                    self, _st.SPEICHERN)
+                criteria["_schwelle_stufe"] = _st.gewaehlte_stufe(
+                    self, _st.SPEICHERN)
+        except Exception as e:
+            logger.debug("Stufen-Injektion (#1063): %s", e)
         return criteria
 
     # v1.7.62 (#1008 Befund 3): `get_hochschulabschluss_malus` (#698)
@@ -10292,7 +10314,18 @@ class Database:
         return [dict(r) for r in conn.execute(sql, werte).fetchall()]
 
     def get_scoring_threshold(self) -> float:
-        """Get the auto-ignore threshold for fit scores."""
+        """Die Schwelle, ab der die LISTE ausblendet.
+
+        v1.7.124 (#1063): steht eine Stufe, gewinnt sie. Eine feste Zahl
+        bedeutet nach jeder Aenderung an Gewichten oder Listen etwas
+        anderes; eine Stufe bleibt dieselbe und rechnet neu.
+        """
+        try:
+            from .services import schwellen_stufen as _st
+            if _st.gewaehlte_stufe(self, _st.LISTE) != _st.VORGABE:
+                return _st.wert_fuer(self, _st.LISTE)
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Stufen-Schwelle (#1063) nicht lesbar: %s", exc)
         pid = self.get_active_profile_id() or ""
         conn = self.connect()
         row = conn.execute(
