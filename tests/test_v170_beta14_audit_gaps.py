@@ -31,11 +31,17 @@ def test_573_google_jobs_url_returns_extraction_js():
     src = Path(jobs_mod.__file__).read_text(encoding="utf-8")
     # Pruefen dass extraction_js drin ist und einen sinnvollen Selektor enthaelt
     assert 'extraction_js' in src
-    assert 'querySelectorAll' in src
-    assert 'data-ved' in src or 'role="listitem"' in src
-    # Hinweis-Text reflektiert die DOM-Strategie
     assert 'javascript_tool' in src
-    assert 'Rohtext' in src or 'rohtext' in src.lower()
+    # v1.7.122 (#1067): die ABSICHT gilt weiter — das Werkzeug liefert
+    # ein Skript, das die Seite auswertet, statt den Aufrufer Rohtext
+    # zerlegen zu lassen. Geprueft wurde sie ueber KLASSENNAMEN
+    # (`data-ved`, `role="listitem"`), und genau die waren der Fehler:
+    # Google rotiert sie, und am 21.09.2026 trafen sie nur noch die
+    # Suchreiter. Das Skript liegt jetzt als eigene Datei daneben.
+    from bewerbungs_assistent.job_scraper.google_jobs import extraction_js
+    js = extraction_js()
+    assert 'querySelectorAll' in js
+    assert 'innerText' in js
 
 
 def test_573_google_jobs_url_e2e_via_fastmcp():

@@ -22,6 +22,7 @@ analog zum LinkedIn-Flow (#159).
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from urllib.parse import quote_plus
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.google_jobs")
@@ -87,3 +88,21 @@ def search_google_jobs(params: dict) -> list[dict]:
         "\n  ".join(urls),
     )
     return []
+
+
+#: v1.7.122 (#1067): Das Auswerte-Skript liegt als DATEI daneben, nicht
+#: als String im Python-Code — so liest der Node-Test genau das, was
+#: ausgeliefert wird. Zwei Fassungen waeren #963 ueber die Sprachgrenze.
+_EXTRACTION = Path(__file__).with_name("google_jobs_extraction.js")
+
+
+def extraction_js() -> str:
+    """Das JavaScript, das die Ergebnisseite auswertet (#1067).
+
+    Bis v1.7.121 standen hier Klassennamen vom Mai 2026. Google rotiert
+    sie; am 21.09.2026 traf der Selektor nur noch die Suchreiter und
+    lieferte 13 "Stellen" namens KI-Modus, Bilder, News. Die Funktion
+    scheiterte STILL — eine plausible Liste falscher Karten ist teurer
+    als eine leere.
+    """
+    return _EXTRACTION.read_text(encoding="utf-8").strip()
