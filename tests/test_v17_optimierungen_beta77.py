@@ -44,13 +44,22 @@ def test_b12_ferchau_neuer_url_in_source_registry():
     assert "touch.ferchau.com" in entry["manueller_fallback"]
 
 
-def test_b12_monster_als_deprecated_markiert():
-    """#653: monster ist nicht mehr defekt sondern deprecated (Domain weg)."""
-    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
-    entry = SOURCE_REGISTRY["monster"]
-    assert entry.get("deprecated") is True
-    assert "deprecated_grund" in entry
-    assert "transitioning" in entry["deprecated_grund"].lower() or "08/2025" in entry["deprecated_grund"]
+def test_b12_monster_ist_keine_arbeitende_quelle():
+    """#653: Monster liefert keine deutschen Stellen mehr.
+
+    v1.7.122 (#1066): die ABSICHT dieses Tests gilt schaerfer als
+    vorher. `deprecated` hat nicht gereicht — die Quelle blieb waehlbar,
+    bekam ein Zeitbudget, stand im Claude-Handoff und bekam mit #1060
+    sogar einen neuen Kartentext. Jetzt ist sie entfernt, und der Grund
+    steht mit Datum in ENTFERNTE_QUELLEN statt nur im Kommentar.
+    """
+    from bewerbungs_assistent.job_scraper import (ENTFERNTE_QUELLEN,
+                                                  SOURCE_REGISTRY)
+    assert "monster" not in SOURCE_REGISTRY
+    eintrag = ENTFERNTE_QUELLEN["monster"]
+    assert eintrag["entfernt_am"]
+    assert eintrag["grund"]
+    assert eintrag["seit_issue"] == "#653"
 
 
 def test_b12_solcom_als_deprecated_markiert():

@@ -3,7 +3,7 @@
 Hintergrund: Bei der Durchsicht am 29.05.2026 waren bei 7 von 8 Stellen
 die url-Felder leer. Ursache war eine Mischung aus:
   - Stepstone/XING-Scraper haben den extrahierten Link ungeprueft
-    durchgereicht (kein Such-URL-Fallback wie in monster.py/freelancermap.py).
+    durchgereicht (kein Such-URL-Fallback wie in freelancermap.py).
   - update_job-Whitelist enthielt url nicht — selbst der Workaround
     "manuell per stelle_bearbeiten nachpflegen" hat stillschweigend
     nichts gemacht.

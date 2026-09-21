@@ -24,7 +24,8 @@ sys.path.insert(0, str(_repo() / "src"))
 
 from bewerbungs_assistent.services import browser_handoff as bh  # noqa: E402
 
-BROWSER_LOGIN = {"stepstone", "indeed", "monster", "linkedin", "xing", "google_jobs"}
+# v1.7.122 (#1066): Monster ist entfernt — keine Stellen mehr.
+BROWSER_LOGIN = {"stepstone", "indeed", "linkedin", "xing", "google_jobs"}
 DEFEKT_BROWSER = {"heise_jobs", "meinestadt", "workday_dax"}
 
 

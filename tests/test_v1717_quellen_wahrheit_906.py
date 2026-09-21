@@ -35,7 +35,7 @@ def setup_env():
 
 def test_906_chrome_quellen_sind_browser_login():
     from bewerbungs_assistent.job_scraper import zugriffsart_von
-    for q in ("linkedin", "xing", "stepstone", "indeed", "monster",
+    for q in ("linkedin", "xing", "stepstone", "indeed",
               "google_jobs"):
         assert zugriffsart_von(q) == "browser_login", q
 

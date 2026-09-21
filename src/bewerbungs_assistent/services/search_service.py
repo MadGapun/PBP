@@ -47,11 +47,31 @@ def get_default_active_source_keys(source_registry: dict) -> list[str]:
 
 
 def ohne_defekte(keys, source_registry: dict) -> list[str]:
-    """Die Schluessel ohne als `defekt` markierte Quellen, Reihenfolge bleibt."""
+    """Die Schluessel ohne defekte und ohne entfernte Quellen.
+
+    v1.7.122 (#1066): auch Schluessel, die die Registry GAR NICHT MEHR
+    kennt, fallen heraus. Vorher filterte nur `defekt` — eine entfernte
+    Quelle waere damit unsichtbar in der gespeicherten Auswahl stehen
+    geblieben, gezeichnet wird sie nicht, gewaehlt bleibt sie: genau der
+    Zustand aus #1039/#1008, nur in die andere Richtung.
+    """
     return [
         key for key in (keys or [])
-        if not (source_registry.get(key) or {}).get("defekt", False)
+        if key in source_registry
+        and not (source_registry.get(key) or {}).get("defekt", False)
     ]
+
+
+def entfernte_aus_auswahl(keys) -> list[dict]:
+    """Welche gewaehlten Quellen wurden ENTFERNT — mit Grund (#1066).
+
+    Fuer den einmaligen Hinweis: ein stiller Wegfall waere das Muster
+    aus #211. Unbekannte Schluessel ohne Eintrag werden bewusst nicht
+    gemeldet (die gab es nie oder sie stammen aus einer anderen Linie).
+    """
+    from ..job_scraper import ENTFERNTE_QUELLEN
+    return [dict(ENTFERNTE_QUELLEN[k], schluessel=k)
+            for k in (keys or []) if k in ENTFERNTE_QUELLEN]
 
 
 def aktive_quellen(db, source_registry: dict | None = None) -> list[str] | None:
@@ -76,6 +96,16 @@ def aktive_quellen(db, source_registry: dict | None = None) -> list[str] | None:
         return None
     bereinigt = ohne_defekte(gespeichert, source_registry)
     if len(bereinigt) != len(list(gespeichert)):
+        # #1066: was entfernt wurde, wird gemerkt — sonst faellt es
+        # still weg und der Mensch sucht die Quelle vergeblich.
+        entfernt = entfernte_aus_auswahl(gespeichert)
+        if entfernt:
+            try:
+                db.set_profile_setting(
+                    "entfernte_quellen_hinweis",
+                    [e["schluessel"] for e in entfernt])
+            except Exception:  # pragma: no cover — nie den Lauf kippen
+                pass
         db.set_profile_setting("active_sources", bereinigt)
     return bereinigt
 

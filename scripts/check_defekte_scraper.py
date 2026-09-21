@@ -37,10 +37,6 @@ TARGETS = [
         "https://www.kimeta.de/",
         "https://www.kimeta.de/jobs",
     ]),
-    ("monster", "Monster international", [
-        "https://www.monster.de/",
-        "https://www.monster.de/jobs",
-    ]),
     ("solcom", "SOLCOM Tech-Dienstleister", [
         "https://www.solcom.de/",
         "https://www.solcom.de/projekte",

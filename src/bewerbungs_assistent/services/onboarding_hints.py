@@ -197,6 +197,39 @@ def _text_gehalt_entfernt(db) -> str:
     return "; ".join(teile)
 
 
+def _condition_quelle_entfernt(db) -> bool:
+    """Wurde eine gewaehlte Quelle entfernt, weil es sie nicht mehr gibt?
+
+    #1066: Monster stand seit #653 als `deprecated` und wurde trotzdem
+    weiter angeboten. Jetzt ist die Quelle weg — und ein stiller Wegfall
+    waere das Muster aus #211.
+    """
+    try:
+        return bool(db.get_profile_setting("entfernte_quellen_hinweis", None))
+    except Exception:
+        return False
+
+
+def _text_quelle_entfernt(db) -> str:
+    """Welche Quelle, warum, und was stattdessen taugt."""
+    try:
+        from ..job_scraper import ENTFERNTE_QUELLEN, SOURCE_REGISTRY
+        keys = db.get_profile_setting("entfernte_quellen_hinweis", None) or []
+    except Exception:
+        return ""
+    teile = []
+    for k in keys:
+        e = ENTFERNTE_QUELLEN.get(k)
+        if not e:
+            continue
+        ersatz = (SOURCE_REGISTRY.get(e.get("ersatz") or "") or {}).get("name")
+        satz = f"{e['name']}: {e['grund']}"
+        if ersatz:
+            satz += f" Stattdessen deckt {ersatz} dieses Portal ab."
+        teile.append(satz)
+    return " ".join(teile)
+
+
 def _condition_suchbegriffe_offen(db) -> bool:
     """Gibt es offene Vorschlaege aus dem Abgleich Profil/Suchbegriffe? (#1054)
 
@@ -297,6 +330,23 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_tool": "suchkriterien_anzeigen",
         "condition": _condition_gehalt_aus_praeferenzen_entfernt,
         "detail": _text_gehalt_entfernt,
+    },
+    {
+        "id": "b59_quelle_entfernt",
+        "tab": "einstellungen",
+        "title": "Eine deiner Quellen gibt es nicht mehr",
+        "body": (
+            "Eine Quelle, die du ausgewählt hattest, ist aus PBP "
+            "entfernt worden — sie liefert keine Stellen mehr. Sie war "
+            "vorher als veraltet markiert und wurde trotzdem weiter "
+            "angeboten. Der Haken ist jetzt weg; was dort stand und "
+            "warum, steht hier, damit die Quelle nicht still "
+            "verschwindet."
+        ),
+        "cta_label": "PBP: Quellen-Health-Check laufen lassen",
+        "cta_tool": "quellen_health_check",
+        "condition": _condition_quelle_entfernt,
+        "detail": _text_quelle_entfernt,
     },
     {
         "id": "c83_schwelle_nach_score_trennung",
