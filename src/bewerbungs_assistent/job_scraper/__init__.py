@@ -156,6 +156,34 @@ def with_retry(
 # Describes all available sources. active_sources in settings DB
 # controls which ones are actually used (default: none).
 
+#: v1.7.122 (#1066): Quellen, die es nicht mehr gibt — und warum.
+#:
+#: `deprecated` hat fuer Monster nicht gereicht: die Quelle war seit
+#: #653 (beta.77) so markiert, wurde aber weiter als Browser-Quelle
+#: angeboten, bekam ein eigenes Zeitbudget, stand im Claude-Handoff
+#: (#1049) und bekam mit #1060 sogar noch einen neuen Kartentext. Der
+#: Mensch sah also eine waehlbare Quelle und einen kopierbaren Prompt
+#: fuer eine Seite ohne Stellen. Gemeldet am 21.09.2026, nachgemessen:
+#: monster.de antwortet mit 302 auf monster.com/de/, dort gibt es nur
+#: noch Werbung fuer einen Lebenslauf-Generator, und das Onboarding
+#: fragt nach einer US-Arbeitserlaubnis.
+#:
+#: Ein Eintrag hier heisst: aus der Registry raus, aber nicht vergessen.
+#: Die Liste traegt den Grund, damit der naechste Fall (StepStone ist
+#: der Kandidat) nicht wieder als Sonderfall geloest wird — und damit
+#: eine gespeicherte Auswahl den Eintrag nicht stumm behaelt (#1039).
+ENTFERNTE_QUELLEN = {
+    "monster": {
+        "name": "Monster",
+        "entfernt_am": "2026-09-21",
+        "grund": ("monster.de leitet auf monster.com/de/ um; dort gibt es "
+                  "keine deutschen Stellenanzeigen mehr, und ein Profil "
+                  "dort wird US-Arbeitgebern gezeigt."),
+        "ersatz": "jobspy_indeed",
+        "seit_issue": "#653",
+    },
+}
+
 SOURCE_REGISTRY = {
     # ── Schnelle Quellen (HTTP/API, parallel, < 10s) ──────────────
     "bundesagentur": {
@@ -522,25 +550,6 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "langsam",
         "doppelt_mit": "jobspy_indeed",
     },
-    "monster": {
-        "name": "Monster",
-        "beschreibung": "Internationales Jobportal mit breitem Stellenangebot.",
-        "login_erforderlich": False,
-        "zugriffsart": "browser_login",
-        "konto_url": "https://www.monster.de/",
-        "login_hinweis": "De facto tot (deprecated) — falls ueberhaupt, nur ueber die Claude-Erweiterung im Browser.",
-        "geschwindigkeit": "langsam",
-        "warnung_zusatz": "Portal aendert haeufig das Layout — bei Fehlern: Lass Claude gezielt auf monster.de suchen.",
-        "beta": True,
-        # #653 (B12, beta.77): Monster Europe transitioning seit 08/2025.
-        # monster.de leitet auf monster.com/de/ um, dort gibt es aber nur
-        # noch CV-Development-Services, keine Job-Listings mehr. Quelle
-        # ist de facto tot — als deprecated markieren, aus Auto-Scraper-
-        # Liste raus.
-        "deprecated": True,
-        "deprecated_grund": "Monster Europe Domain transitioning seit 08/2025 — keine deutschen Job-Listings mehr (siehe aimgroup.com 08/2025)",
-        "manueller_fallback": "https://www.indeed.com/de/ als Alternative — Monster Germany hat keine Stellen mehr",
-    },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
@@ -682,7 +691,6 @@ def build_search_keywords(db) -> dict:
         freelancermap_urls: list[str] — constructed Freelancermap URLs
         freelance_de_urls: list[str] — constructed freelance.de skill URLs
         indeed_queries: list[str] — search queries for Indeed
-        monster_queries: list[str] — search queries for Monster
     """
     criteria = db.get_search_criteria()
     muss = criteria.get("keywords_muss", [])
@@ -760,7 +768,6 @@ def build_search_keywords(db) -> dict:
         "freelancermap_urls": freelancermap_urls,
         "freelance_de_urls": freelance_de_urls,
         "indeed_queries": queries,
-        "monster_queries": queries,
         "greenhouse_companies": greenhouse_companies,
         "personio_firmen": personio_firmen,
         "workable_firmen": workable_firmen,
@@ -778,7 +785,6 @@ _SCRAPER_MAP = {
     "linkedin": ("linkedin", "search_linkedin"),
     "indeed": ("indeed", "search_indeed"),
     "xing": ("xing", "search_xing"),
-    "monster": ("monster", "search_monster"),
     "ingenieur_de": ("ingenieur_de", "search_ingenieur_de"),
     "heise_jobs": ("heise_jobs", "search_heise_jobs"),
     "gulp": ("gulp", "search_gulp"),
@@ -1111,7 +1117,6 @@ def run_search(db, job_id: str, params: dict):
         "jobspy_linkedin": 120,  # LinkedIn-Rate-Limit pro Page
         "freelancermap": 120,    # Slug-URL pro Keyword
         "indeed": 120,           # Playwright + Anti-Bot
-        "monster": 120,          # Playwright + Anti-Bot
         # Schnelle API-Quellen behalten 90s (default):
         # arbeitnow, greenhouse, hays, jobspy_glassdoor, jobspy_google,
         # stellenanzeigen_de, jobware, kimeta, heise_jobs, ferchau, gulp,
@@ -1124,12 +1129,12 @@ def run_search(db, job_id: str, params: dict):
     skipped_sources = []
 
     # #234: Playwright-basierte Scraper sequentiell, httpx-basierte parallel
-    _PLAYWRIGHT_SOURCES = {"stepstone", "indeed", "monster", "freelancermap"}
+    _PLAYWRIGHT_SOURCES = {"stepstone", "indeed", "freelancermap"}
 
     # #402: Sort sources by reliability (fast API sources first, beta/unreliable last)
     _SOURCE_PRIORITY = {
         "bundesagentur": 1, "hays": 2, "freelance_de": 3, "ingenieur_de": 4,
-        "stepstone": 10, "indeed": 11, "freelancermap": 12, "monster": 13,
+        "stepstone": 10, "indeed": 11, "freelancermap": 12,
     }
     quellen = sorted(quellen, key=lambda q: _SOURCE_PRIORITY.get(q, 9))
     # #252: Stepstone immer als letztes Portal starten (already handled by priority above)

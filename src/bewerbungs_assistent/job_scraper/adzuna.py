@@ -10,7 +10,7 @@ Meldung.
 Endpoint: GET https://api.adzuna.com/v1/api/jobs/de/search/<page>
 Docs:     https://developer.adzuna.com/docs/search
 
-Eingesetzt als Ersatz fuer die deprecated/blockierten Quellen monster, solcom,
+Eingesetzt als Ersatz fuer die deprecated/blockierten Quellen solcom,
 stepstone — und als zweite Bundesagentur-aehnliche Generalquelle.
 """
 from __future__ import annotations

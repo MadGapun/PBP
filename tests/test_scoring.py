@@ -302,7 +302,6 @@ class TestBuildKeywords:
         assert any("freelancermap.de/projekte/" in url for url in result["freelancermap_urls"])
         # Indeed/Monster queries
         assert "PLM Consultant" in result["indeed_queries"]
-        assert "Python" in result["monster_queries"]
 
     def test_keywords_muss_durchgereicht(self, tmp_db):
         """#500: keywords_muss bleibt als separater Key fuer linkedin/xing."""

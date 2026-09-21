@@ -2793,6 +2793,10 @@ def register(mcp, db, logger):
                     "pbp_capabilities — Diese Tool-Uebersicht (#514)",
                     "pbp_grenze_melden — Wenn PBP fuer eine Aufgabe nichts hat (#514). ANSTATT auf andere Tools auszuweichen.",
                     "scraper_diagnose — Job-Quellen-Status",
+                    # #1066: stand in keiner Kategorie — gefunden vom
+                    # #1062-Guard, als ein Hinweis darauf zeigte.
+                    "quellen_health_check — Erreichbarkeit der Quellen pruefen, "
+                    "entfernte und defekte benennen",
                     "onboarding_hints_anzeigen — Tipps zu ungenutzten Features",
                 ],
             },

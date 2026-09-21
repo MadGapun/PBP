@@ -418,7 +418,7 @@ def run(verbose: bool = False) -> int:
         from bewerbungs_assistent.tools.jobs import _MANUAL_SOURCES
         # LinkedIn/StepStone/XING muessen als manuell deklariert sein, damit sie
         # im Hintergrund-Job uebersprungen und dem User separat gemeldet werden.
-        for key in ("linkedin", "stepstone", "xing", "indeed", "monster", "google_jobs"):
+        for key in ("linkedin", "stepstone", "xing", "indeed", "google_jobs"):
             assert key in _MANUAL_SOURCES, key
             assert _MANUAL_SOURCES[key], key  # nicht leer
 

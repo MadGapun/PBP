@@ -24,7 +24,8 @@ BROWSER = {k for k, v in SOURCE_REGISTRY.items() if v.get("zugriffsart") == "bro
 
 def test_die_browser_quellen_sind_dieselben_wie_vorher():
     """Die Umstellung aendert Texte, nicht die Einteilung."""
-    assert BROWSER == {"stepstone", "indeed", "monster", "linkedin", "xing", "google_jobs"}
+    # v1.7.122 (#1066): Monster ist entfernt.
+    assert BROWSER == {"stepstone", "indeed", "linkedin", "xing", "google_jobs"}
     for name in SOURCE_REGISTRY:
         erwartet = "browser_login" if name in BROWSER else "api"
         assert zugriffsart_von(name) == erwartet, name
@@ -71,7 +72,6 @@ def test_dasselbe_portal_zweimal_steht_auf_beiden_karten():
 
 
 def test_quellenspezifisches_bleibt_erhalten():
-    assert "Layout" in SOURCE_REGISTRY["monster"]["warnung"]
     assert "Voyager" in SOURCE_REGISTRY["linkedin"]["methode"]
     assert "rate-limitet" in SOURCE_REGISTRY["jobspy_linkedin"]["warnung"]
 

@@ -273,7 +273,6 @@ _MANUAL_SOURCES = {
     "xing": "XING (automatisch deaktiviert, #107) — nutze Claude-in-Chrome",
     "stepstone": "StepStone (Bot-Detection, #315) — nutze google_jobs_url oder Claude-in-Chrome",
     "indeed": "Indeed (haeufig Timeout) — nutze jobspy_indeed",
-    "monster": "Monster (instabil) — nutze Claude-in-Chrome",
     "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension oeffnen",
 }
 
@@ -492,9 +491,9 @@ def register(mcp, db, logger):
         Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
         Ergebnisse danach mit stellen_anzeigen() ansehen.
 
-        HINWEIS #488: Wenn aktive Quellen dabei sind, die nur ueber
-        Claude-in-Chrome laufen (LinkedIn, StepStone, XING, Indeed,
-        Monster, Google Jobs), meldet dieses Tool sie im Feld
+        HINWEIS #488: Wenn aktive Quellen dabei sind, die nur ueber die
+        Claude-Erweiterung im Browser laufen (LinkedIn, StepStone, XING,
+        Indeed, Google Jobs), meldet dieses Tool sie im Feld
         `manuelle_quellen` zurueck UND ueberspringt sie im
         Hintergrund-Job — statt auf stumme Timeouts zu laufen. Claude
         soll den User vor dem Start ueber diese Quellen informieren und
