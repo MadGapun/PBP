@@ -2683,6 +2683,9 @@ def register(mcp, db, logger):
                     # #696-B: war faelschlich unter 'bewerbungen' als Interview-Nachgang gelistet
                     "kennlerngespraech_abschliessen — Profil-Onboarding-Gespraech als abgeschlossen markieren (Dashboard-Wizard geht weiter)",
                     "profil_notizen_aufraeumen — Profilnotizen mit Bewerbungsbezug in die Timeline verschieben (#1056)",
+                    # #1070: die Einordnung war ueber kein Werkzeug
+                    # erreichbar, obwohl das Wiki einen Weg versprach.
+                    "profil_einordnung — Wie PBP dein Profil einordnet: Berufsfeld, Anforderungsniveau, Beschaeftigungsform und die daraus empfohlenen Quellen",
                 ],
             },
             "jobsuche": {

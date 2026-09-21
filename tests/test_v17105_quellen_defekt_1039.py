@@ -158,19 +158,42 @@ def test_jeder_schreibweg_filtert():
 
 
 def test_keine_empfehlung_nennt_eine_defekte_quelle():
+    from bewerbungs_assistent.services import berufsfeld
     from bewerbungs_assistent.services import profile_classifier as pc
     defekt = set(_defekte())
-    for typ in pc.PROFILE_TYPE_CLUSTERS:
-        original = pc.detect_profile_type
-        pc.detect_profile_type = lambda _p, _t=typ: {"type": _t, "label": _t, "confidence": 0.9, "reasons": []}
-        try:
-            erg = pc.recommend_sources({})
-        finally:
-            pc.detect_profile_type = original
-        assert not defekt & set(erg["recommended"]), (typ, erg["recommended"])
-        assert erg["recommended"], f"{typ}: nach dem Filter bleibt keine Quelle"
-        assert set(erg["ausgelassen_defekt"]) == defekt & set(pc.PROFILE_TYPE_CLUSTERS[typ])
+    # #1070: gegangen wird jeder Weg ueber ein echtes Profil. Ein
+    # Testdoppel auf `detect_profile_type` wuerde die Empfehlung
+    # ueberspringen, die es zu pruefen gilt — sie entsteht seither aus
+    # Feld, Form und Niveau.
+    beispiele = {
+        "gesundheit": "Pflegefachkraft Intensivstation",
+        "bildung": "Erzieherin", "handwerk": "Geselle Schreiner",
+        "produktion": "Produktionsmitarbeiter", "landwirtschaft": "Landwirt",
+        "it": "Senior Softwareentwickler", "ingenieurwesen": "Konstrukteur",
+        "wissenschaft": "Wissenschaftliche Mitarbeiterin",
+        "logistik": "Lagerist", "sicherheit": "Sicherheitsmitarbeiter",
+        "handel": "Verkaeuferin", "gastgewerbe": "Hotelfachfrau",
+        "verwaltung": "Finanzbuchhalterin", "recht": "Rechtsanwalt",
+        "medien": "Mediengestalterin", "dienstleistung": "Hausmeister",
+    }
+    assert set(beispiele) == set(berufsfeld.FELDER), "Ein Feld ohne Beispiel"
+    for feld, titel in beispiele.items():
+        erg = pc.recommend_sources({
+            "positions": [{"title": titel, "start_date": "2015-01-01"}],
+            "skills": [], "education": [],
+        })
+        assert erg["feld"] == feld, (titel, erg["feld"])
+        assert not defekt & set(erg["recommended"]), (feld, erg["recommended"])
+        assert erg["recommended"], f"{feld}: nach dem Filter bleibt keine Quelle"
         assert str(len(erg["recommended"])) in erg["rationale"]
+    # Und die Gegenprobe: eine defekte Quelle wird BENANNT, nicht
+    # verschwiegen (#1039). `meinestadt` steht in den Grundquellen.
+    erg = pc.recommend_sources({
+        "positions": [{"title": "Verkaeuferin", "start_date": "2015-01-01"}],
+        "skills": [], "education": [],
+    })
+    assert set(erg["ausgelassen_defekt"]) == defekt & set(
+        berufsfeld.FELD_QUELLEN["handel"])
 
 
 def test_freelancer_bekommen_die_zwei_defekten_nicht_mehr_angeboten():
@@ -178,15 +201,25 @@ def test_freelancer_bekommen_die_zwei_defekten_nicht_mehr_angeboten():
     GULP liefert seit v1.7.106 wieder, freelance.de seit v1.7.107 (B53) —
     beide werden deshalb empfohlen."""
     from bewerbungs_assistent.services import profile_classifier as pc
-    original = pc.detect_profile_type
-    pc.detect_profile_type = lambda _p: {"type": "freelance", "label": "Freelancer",
-                                         "confidence": 0.9, "reasons": []}
-    try:
-        erg = pc.recommend_sources({})
-    finally:
-        pc.detect_profile_type = original
-    assert erg["recommended"] == ["freelance_de", "freelancermap", "gulp", "solcom", "hays"]
-    assert erg["ausgelassen_defekt"] == []
+    # #1070: das Testdoppel auf `detect_profile_type` ist weg. Die
+    # Empfehlung kommt nicht mehr aus dem Schluessel, sondern aus Feld,
+    # Form und Niveau — ein Doppel, das nur `type` liefert, prueft
+    # seither den Weg nicht mehr, den der Nutzer geht.
+    erg = pc.recommend_sources({
+        "positions": [{"title": "Freiberuflicher Berater",
+                       "start_date": "2018-01-01"}],
+        "skills": [], "education": [],
+    })
+    for quelle in ("freelance_de", "freelancermap", "gulp", "solcom",
+                   "hays"):
+        assert quelle in erg["recommended"], quelle
+    assert erg["quellen_herkunft"]["form"], "Die Form bringt die Boersen"
+    # Die ABSICHT: keine der fuenf Freelance-Boersen wird als defekt
+    # ausgelassen. `ausgelassen_defekt` ist seit #1070 nicht mehr leer —
+    # ohne erkennbares Fachfeld kommt der breite Grundstock dazu, und
+    # der enthaelt eine defekte Quelle, die BENANNT wird (#1039).
+    assert not set(erg["ausgelassen_defekt"]) & {
+        "freelance_de", "freelancermap", "gulp", "solcom", "hays"}
 
 
 # ====================================================== Frontend-Guards

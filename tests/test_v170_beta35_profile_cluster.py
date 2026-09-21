@@ -58,6 +58,14 @@ def test_detect_student():
 
 
 def test_detect_service():
+    """Eine Verkaeuferin wird als Handels-/Dienstleistungsprofil erkannt.
+
+    Der ERWARTETE SCHLUESSEL hat sich mit #1070 geaendert: bis v1.7.124
+    war "service" ein Sammelbecken, seither trennt das Feld `handel`
+    den Verkauf von Reinigung und Friseurhandwerk. Die ABSICHT des
+    Tests ist unveraendert — sie darf nicht in einem Tech-Cluster
+    landen, und sie bekommt die deutschen Regionalportale.
+    """
     from bewerbungs_assistent.services.profile_classifier import detect_profile_type
     profile = {
         "positions": [{
@@ -67,7 +75,10 @@ def test_detect_service():
         "skills": [{"name": "Kundenservice"}],
     }
     out = detect_profile_type(profile)
-    assert out["type"] == "service"
+    assert out["feld"] == "handel"
+    assert out["type"] == "retail_logistics"
+    assert out["type"] not in ("tech_junior", "tech_senior",
+                               "engineering_senior")
 
 
 def test_detect_trade():
@@ -181,16 +192,30 @@ def test_recommend_sources_for_tech_senior_includes_remote_cluster():
 
 
 def test_clusters_only_reference_known_sources():
-    """Sicherheits-Test: jeder Cluster-Eintrag muss eine in SOURCE_REGISTRY
-    bekannte Quellen-ID sein — sonst kommt der User auf Ghost-Quellen."""
+    """Sicherheits-Test: keine Ghost-Quellen in der Empfehlung.
+
+    Die ABSICHT ist unveraendert; die TABELLE ist mit #1070 umgezogen.
+    `PROFILE_TYPE_CLUSTERS` gab es nur, solange der Schluessel die
+    einzige Grundlage der Empfehlung war — jetzt kommt sie aus der
+    Kombination von Feld, Form und Niveau, und jede der drei Tabellen
+    faellt unter dieselbe Pruefung.
+    """
     from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
-    from bewerbungs_assistent.services.profile_classifier import (
-        PROFILE_TYPE_CLUSTERS
-    )
+    from bewerbungs_assistent.services import berufsfeld
     known = set(SOURCE_REGISTRY.keys())
-    for cluster, sources in PROFILE_TYPE_CLUSTERS.items():
-        for src in sources:
-            assert src in known, f"Cluster {cluster!r} referenziert unbekannte Quelle {src!r}"
+    tabellen = {
+        "FELD_QUELLEN": berufsfeld.FELD_QUELLEN,
+        "FORM_QUELLEN": berufsfeld.FORM_QUELLEN,
+        "NIVEAU_QUELLEN": berufsfeld.NIVEAU_QUELLEN,
+    }
+    for name, tabelle in tabellen.items():
+        for schluessel, sources in tabelle.items():
+            for src in sources:
+                assert src in known, (
+                    f"{name}[{schluessel!r}] referenziert unbekannte "
+                    f"Quelle {src!r}")
+    for src in berufsfeld.UNSICHER_QUELLEN:
+        assert src in known, f"UNSICHER_QUELLEN kennt {src!r} nicht"
 
 
 # ============= API ===============

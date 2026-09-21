@@ -24,26 +24,33 @@ def test_source_registry_has_new_clusters():
 
 
 def test_clusters_use_new_sources():
-    from bewerbungs_assistent.services.profile_classifier import (
-        PROFILE_TYPE_CLUSTERS
-    )
-    assert "praktikum_de" in PROFILE_TYPE_CLUSTERS["student"]
-    assert "studentjob" in PROFILE_TYPE_CLUSTERS["student"]
-    assert "berufsstart" in PROFILE_TYPE_CLUSTERS["student"]
-    assert "workday_dax" in PROFILE_TYPE_CLUSTERS["tech_senior"]
-    assert "workday_dax" in PROFILE_TYPE_CLUSTERS["engineering_senior"]
-    assert "workday_dax" in PROFILE_TYPE_CLUSTERS["executive"]
+    """Die Studenten- und Konzern-Quellen sind erreichbar.
+
+    #1070: sie haengen nicht mehr am Schluessel, sondern an der FORM
+    (Studium/Praktikum) und am NIVEAU (ab Spezialist). Die ABSICHT ist
+    unveraendert — ein Studienprofil bekommt die Praktikums-Boersen,
+    ein Senior die Konzern-Quellen.
+    """
+    from bewerbungs_assistent.services import berufsfeld
+    for quelle in ("praktikum_de", "studentjob", "berufsstart"):
+        assert quelle in berufsfeld.FORM_QUELLEN["werkstudent"]
+        assert quelle in berufsfeld.FORM_QUELLEN["praktikum"]
+    assert "workday_dax" in berufsfeld.NIVEAU_QUELLEN["spezialist"]
+    assert "workday_dax" in berufsfeld.NIVEAU_QUELLEN["experte"]
 
 
 def test_clusters_only_known_sources():
     from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
-    from bewerbungs_assistent.services.profile_classifier import (
-        PROFILE_TYPE_CLUSTERS
-    )
+    from bewerbungs_assistent.services import berufsfeld
     known = set(SOURCE_REGISTRY.keys())
-    for cluster, sources in PROFILE_TYPE_CLUSTERS.items():
-        for src in sources:
-            assert src in known, f"Cluster {cluster} -> Ghost-Source {src}"
+    tabellen = (("FELD", berufsfeld.FELD_QUELLEN),
+                ("FORM", berufsfeld.FORM_QUELLEN),
+                ("NIVEAU", berufsfeld.NIVEAU_QUELLEN))
+    for name, tabelle in tabellen:
+        for schluessel, sources in tabelle.items():
+            for src in sources:
+                assert src in known, (
+                    f"{name}[{schluessel}] -> Ghost-Source {src}")
 
 
 # ============= Praktikum.de ===============

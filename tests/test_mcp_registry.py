@@ -34,6 +34,7 @@ EXPECTED_TOOL_NAMES = {
     # v1.7.5 (#742, A20): Umlaut-Restaurierung Altbestand (Dry-Run-Default)
     "profil_umlaute_reparieren",
     "profil_bearbeiten",
+    "profil_einordnung",
     "profil_erstellen",
     "position_hinzufuegen",
     "projekt_hinzufuegen",
@@ -386,7 +387,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 243  # v1.7.124 (#1063): +schwelle_stufe_setzen
+        assert len(tools) == 244  # v1.7.125 (#1070): +profil_einordnung
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
