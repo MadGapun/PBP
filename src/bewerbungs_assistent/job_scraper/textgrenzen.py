@@ -29,17 +29,35 @@ Deshalb hier zwei getrennte Groessen:
   lange Anzeigen. Eine ausfuehrliche Stellenanzeige liegt bei 4.000 bis
   8.000 Zeichen; 200.000 erreicht keine, wohl aber eine Seite, die
   versehentlich ihr komplettes Menue mitliefert.
-* `AUSGABE_MAX` — was eine MCP-Antwort zeigt. Diese Begrenzung ist
-  berechtigt und bleibt; sie darf nur nicht die Datenhaltung bestimmen.
+* `AUSGABE_NOTBREMSE` — was eine MCP-Antwort hoechstens traegt.
+
+v1.7.122 (#1064) hat die zweite Groesse korrigiert. Bis dahin stand
+dort 2000 — dieselbe Zahl wie die alte Speicher-Kappung, und damit
+setzte die Ausgabe genau den Fehler fort, den #952 in der Ablage behoben
+hatte: `fit_analyse` lieferte den Anzeigentext nach 2000 Zeichen
+abgeschnitten, mitten im Wort, und **nichts in der Antwort sagte es**.
+Seit #1003/#1007 ist die Detailanalyse der einzige Weg zu einem
+gespeicherten Urteil — gefaellt wurde es also ueber Aufgaben statt ueber
+Anforderungen.
+
+Gemessen am Bestand (2.271 Anzeigen mit Text, 21.09.2026): die laengste
+hat 11.741 Zeichen, keine erreicht 12.000. Und bei **29,5 %** der
+Anzeigen ueber 2.000 Zeichen beginnt der Anforderungsteil ERST hinter
+der alten Grenze. Die Notbremse liegt deshalb bei 20.000: kein realer
+Text kommt ihr nahe, eine Seite mit mitgeliefertem Menue schon.
+
+Und wenn sie doch greift, dann sichtbar. `ausgabe()` gibt den Befund
+mit heraus, statt ihn dem Aufrufer zu ueberlassen — eine stille
+Kuerzung ist teurer als eine fehlende (#989).
 """
 from __future__ import annotations
 
 # Notbremse fuer die Ablage. Bewusst weit oberhalb jeder realen Anzeige.
 SPEICHER_MAX = 200_000
 
-# Was eine Antwort zeigt (die alte Speicher-Grenze, jetzt an der
-# richtigen Stelle).
-AUSGABE_MAX = 2000
+# Notbremse fuer eine Antwort. Ebenfalls oberhalb jeder realen Anzeige —
+# sie soll entartete Seiten abfangen, nicht lange Stellenanzeigen.
+AUSGABE_NOTBREMSE = 20_000
 
 # Die historische Kappungsgrenze. Ein Bestandstext von exakt dieser
 # Laenge ist mit an Sicherheit grenzender Wahrscheinlichkeit gekappt:
@@ -63,11 +81,47 @@ def fuer_speicher(text) -> str:
     return str(text)[:SPEICHER_MAX]
 
 
-def fuer_ausgabe(text, grenze: int = AUSGABE_MAX) -> str:
-    """Anzeigentext fuer eine Antwort — hier ist Kuerzen richtig."""
-    if not text:
-        return ""
-    return str(text)[:grenze]
+def ausgabe(text, ab: int = 0,
+            grenze: int = AUSGABE_NOTBREMSE) -> tuple[str, dict]:
+    """Anzeigentext fuer eine Antwort — zusammen mit dem Befund darueber.
+
+    Gibt `(stueck, befund)` zurueck. Der Befund nennt immer die
+    Gesamtlaenge und das Gelieferte; ist etwas abgeschnitten, nennt er
+    ausserdem den Weg zum Rest.
+
+    Die Bauform ist Absicht: bis v1.7.121 gab es eine Funktion, die
+    nur den gekuerzten Text lieferte, und der Aufrufer musste von sich
+    aus daran denken, die Kuerzung zu melden. Er hat es nicht getan
+    (#1064). Wer hier den Text bekommt, bekommt den Befund mit.
+    """
+    voll = str(text or "")
+    ab = max(0, int(ab or 0))
+    stueck = voll[ab:ab + grenze]
+    befund = {
+        "zeichen_gesamt": len(voll),
+        "zeichen_geliefert": len(stueck),
+        "ab_zeichen": ab,
+        "vollstaendig": ab == 0 and len(stueck) == len(voll),
+    }
+    if not befund["vollstaendig"]:
+        weiter = ab + len(stueck)
+        befund["gekuerzt"] = True
+        if weiter < len(voll):
+            befund["weiter_ab_zeichen"] = weiter
+            befund["hinweis"] = (
+                f"Dieser Anzeigentext ist {len(voll)} Zeichen lang; "
+                f"geliefert sind die Zeichen {ab} bis {weiter}. Der "
+                "Anforderungsteil steht meist am Ende. Hole den Rest mit "
+                f"fit_analyse(hash, beschreibung_ab={weiter}), BEVOR du "
+                "ein Urteil mit stelle_analyse_speichern() festhaeltst."
+            )
+        else:
+            befund["hinweis"] = (
+                f"Geliefert sind die Zeichen {ab} bis {weiter} von "
+                f"{len(voll)}; der Anfang fehlt. Mit "
+                "fit_analyse(hash) kommt er zurueck."
+            )
+    return stueck, befund
 
 
 def kappungs_grenze(text, quelle=None) -> int | None:

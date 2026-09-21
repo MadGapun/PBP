@@ -1168,7 +1168,7 @@ def register(mcp, db, logger):
                 "fehler": "Stelle nicht gefunden.",
                 "hinweis": "Pruefe den Hash mit stellen_anzeigen().",
             }
-        return {
+        antwort = {
             "status": "gespeichert",
             "urteil": urteil.strip().upper(),
             "grundlage": grundlage or "detailanalyse",
@@ -1177,6 +1177,26 @@ def register(mcp, db, logger):
                         "Profil, wird er als moeglicherweise ueberholt "
                         "gekennzeichnet — nicht geloescht."),
         }
+        # v1.7.122 (#1064): passt der Anzeigentext nicht in EINE Antwort,
+        # kann das Urteil ihn nicht ganz gesehen haben. Der Fall ist nach
+        # der Messung selten (keine der 2.271 Anzeigen erreicht die
+        # Notbremse) — aber genau dann ist der Hinweis das Einzige, was
+        # zwischen "gelesen" und "halb gelesen" unterscheidet.
+        try:
+            from ..job_scraper.textgrenzen import AUSGABE_NOTBREMSE
+            _job = db.get_job(job_hash) or {}
+            _laenge = len((_job.get("description") or ""))
+            if _laenge > AUSGABE_NOTBREMSE:
+                antwort["warnung_beschreibung"] = (
+                    f"Der Anzeigentext ist {_laenge} Zeichen lang und "
+                    f"passt nicht in eine Antwort (Grenze "
+                    f"{AUSGABE_NOTBREMSE}). Falls du ihn nur bis dahin "
+                    "gelesen hast: den Rest mit "
+                    "fit_analyse(hash, beschreibung_ab=...) holen und das "
+                    "Urteil danach erneut speichern.")
+        except Exception as exc:  # pragma: no cover — nie das Urteil kippen
+            logger.debug("Laengenhinweis (#1064) fehlgeschlagen: %s", exc)
+        return antwort
 
     @mcp.tool()
     def stelle_analyse_loeschen(job_hash: str) -> dict:
@@ -4440,10 +4460,16 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def fit_analyse(job_hash: str, score_uebernehmen: bool = False) -> dict:
+    def fit_analyse(job_hash: str, score_uebernehmen: bool = False,
+                    beschreibung_ab: int = 0) -> dict:
         """Detaillierte Passungsanalyse für eine bestimmte Stelle.
 
         Zeigt welche Keywords matchen, was fehlt, und gibt eine Risikobewertung.
+
+        Liefert den Anzeigentext VOLLSTAENDIG (`stellenbeschreibung`).
+        `beschreibung_ausgabe` sagt, was davon in dieser Antwort steckt —
+        bei einer entarteten Seite greift eine Notbremse, und dann steht
+        dort, wie der Rest zu holen ist.
 
         Reines LESEWERKZEUG (seit v1.7.24, #963): der Aufruf veraendert
         die Stelle nicht mehr. Bis v1.7.23 schrieb er den errechneten
@@ -4454,6 +4480,9 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle (von stellen_anzeigen)
             score_uebernehmen: True = den errechneten Wert ausdruecklich
                 als neuen Score speichern. Standard False.
+            beschreibung_ab: Ab welchem Zeichen der Anzeigentext
+                geliefert wird. Nur noetig, wenn `beschreibung_ausgabe`
+                ein `weiter_ab_zeichen` nennt.
         """
         gate = ki_gate(db, "stellenanalyse")
         if gate is not None:
@@ -4600,11 +4629,25 @@ def register(mcp, db, logger):
             logger.debug("Sichtungs-Vermerk (#948) fehlgeschlagen: %s", exc)
 
         # Include job description in result (#55) so Claude can use it for analysis
+        #
+        # v1.7.122 (#1064): der Text geht VOLLSTAENDIG hinaus. Bis
+        # v1.7.121 kappte die Ausgabe bei 2000 Zeichen — stumm, und bei
+        # 29,5 % der langen Anzeigen begann der Anforderungsteil erst
+        # dahinter. Seit #1003/#1007 ist diese Antwort die Grundlage des
+        # gespeicherten Urteils; eine Kuerzung ist hier nicht vertretbar.
+        # Greift die Notbremse doch (entartete Seite), sagt es `ausgabe`.
         if job_dict.get("description"):
-            from ..job_scraper.textgrenzen import (fuer_ausgabe,
-                                                   kappungs_hinweis)
-            result["stellenbeschreibung"] = fuer_ausgabe(job_dict["description"])
-            _kappung = kappungs_hinweis(job_dict["description"])
+            from ..job_scraper.textgrenzen import ausgabe, kappungs_hinweis
+            _text, _befund = ausgabe(job_dict["description"],
+                                     ab=beschreibung_ab)
+            result["stellenbeschreibung"] = _text
+            result["beschreibung_ausgabe"] = _befund
+            # Zwei verschiedene Fragen, deshalb zwei Felder (#1064
+            # Angrenzend 1): `beschreibung_ausgabe` beschreibt DIESE
+            # Antwort, `beschreibung_unvollstaendig` den GESPEICHERTEN
+            # Text — der kann an der Quelle gekappt worden sein.
+            _kappung = kappungs_hinweis(job_dict["description"],
+                                        job_dict.get("source"))
             if _kappung:
                 result["beschreibung_unvollstaendig"] = True
                 result["beschreibung_hinweis"] = _kappung
