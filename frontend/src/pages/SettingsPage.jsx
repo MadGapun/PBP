@@ -593,6 +593,16 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
     (id) => !enabledIds.has(id) && sourceByKey.has(id) && !sourceByKey.get(id).defekt
   );
   const ausgelassen = data.ausgelassen_defekt || [];
+  // #1070: eine Quelle kann aus mehreren Gruenden empfohlen sein
+  // (Fachfeld UND Freiberuflichkeit). Alle nennen, nicht den ersten.
+  const herkunft = data.quellen_herkunft || {};
+  const HERKUNFT_TEXT = { feld: "Feld", form: "Form", niveau: "Stufe" };
+  function herkunftText(id) {
+    return Object.entries(HERKUNFT_TEXT)
+      .filter(([k]) => (herkunft[k] || []).includes(id))
+      .map(([, label]) => label)
+      .join(" + ");
+  }
 
   async function activateAll() {
     setBusy(true);
@@ -664,13 +674,22 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
                 const cls = isEnabled
                   ? "bg-teal/15 border-teal/30 text-teal"
                   : "bg-amber/[0.04] border-amber/20 text-amber/80";
+                // #1070: woher die Empfehlung kommt. Vorher hing sie an
+                // EINEM Schluessel, jetzt an Feld, Form und Niveau —
+                // und ohne diese Marke ist von aussen nicht zu sehen,
+                // dass ein freiberuflicher Entwickler beides bekommt.
+                const woher = herkunftText(id);
                 return (
                   <span
                     key={id}
+                    title={woher ? `Empfohlen wegen: ${woher}` : undefined}
                     className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] ${cls}`}
                   >
                     {isEnabled ? "✓" : "+"}
                     {id}
+                    {woher && (
+                      <span className="text-muted/50">· {woher}</span>
+                    )}
                   </span>
                 );
               })}

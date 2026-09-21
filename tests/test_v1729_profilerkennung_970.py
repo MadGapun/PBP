@@ -15,6 +15,7 @@ Tech-Boards als Empfehlung.
 """
 import pytest
 
+from bewerbungs_assistent.services import berufsfeld
 from bewerbungs_assistent.services import profile_classifier as pc
 
 
@@ -45,8 +46,12 @@ FAELLE = [
      "HACCP", 2005, "hospitality"),
     ("Lagerist", "Lagerist", "Kommissionierung",
      "Gabelstapler", 2018, "retail_logistics"),
+    # #1070: der Verkauf hat ein eigenes Feld bekommen. "service" war
+    # bis v1.7.124 ein Sammelbecken fuer Handel, Reinigung, Pflege und
+    # Gastronomie; die ABSICHT des Falls — eine Verkaeuferin bekommt die
+    # deutschen Regionalportale und kein Tech-Board — ist unveraendert.
     ("Verkaeuferin", "Verkaeuferin", "Einzelhandel", "Kasse", 2020,
-     "service"),
+     "retail_logistics"),
     ("Softwareentwickler", "Softwareentwickler", "Backend, KI",
      "Python", 2016, "tech_senior"),
     ("PLM-Berater", "PLM Consultant", "Teamcenter Migration",
@@ -68,6 +73,18 @@ def test_970_berufsfeld_wird_erkannt(name, titel, beschreibung, skill,
 
 # ── Der Teilstring-Befund ────────────────────────────────────────────
 
+def _begriffe(feld):
+    """Die Indikatoren eines Feldes.
+
+    #1070: sie standen bis v1.7.124 als `_TECH_KEYWORDS` und
+    Geschwister in `profile_classifier` und liegen jetzt in
+    `berufsfeld.FELDER`. Der Matcher heisst `treffer()` und gibt die
+    gefundenen Begriffe zurueck statt nur True — die ABSICHT dieser
+    Faelle ist unveraendert.
+    """
+    return berufsfeld.FELDER[feld]["begriffe"]
+
+
 def test_970_kita_ist_kein_ki():
     """Der lehrreichste Einzelfall: "Kita" enthaelt "ki".
 
@@ -75,30 +92,30 @@ def test_970_kita_ist_kein_ki():
     weiter als Teilstring matchen — im Deutschen steckt "pflege" in
     "Intensivpflege".
     """
-    assert not pc._has_keyword_match("Kita, Krippe", pc._TECH_KEYWORDS)
+    assert not berufsfeld.treffer("Kita, Krippe", _begriffe("it"))
 
 
 def test_970_echtes_kuerzel_trifft_weiterhin():
     """Die Gegenrichtung. Ein Matcher, der nach der Haertung nichts mehr
     findet, waere schlimmer als einer, der zu viel findet."""
-    assert pc._has_keyword_match("Erfahrung mit KI und ML", pc._TECH_KEYWORDS)
-    assert pc._has_keyword_match("Schwerpunkt AI", pc._TECH_KEYWORDS)
+    assert berufsfeld.treffer("Erfahrung mit KI und ML", _begriffe("it"))
+    assert berufsfeld.treffer("Schwerpunkt AI", _begriffe("it"))
 
 
-@pytest.mark.parametrize("text,gruppe", [
-    ("Intensivpflege", "_HEALTH_KEYWORDS"),
-    ("Finanzbuchhalterin", "_ADMIN_FINANCE_KEYWORDS"),
-    ("Sozialpaedagogin", "_EDUCATION_KEYWORDS"),
-    ("Servicetechniker", "_TRADE_KEYWORDS"),
+@pytest.mark.parametrize("text,feld", [
+    ("Intensivpflege", "gesundheit"),
+    ("Finanzbuchhalterin", "verwaltung"),
+    ("Sozialpaedagogin", "bildung"),
+    ("Servicetechniker", "handwerk"),
 ])
-def test_970_komposita_treffen_weiterhin(text, gruppe):
+def test_970_komposita_treffen_weiterhin(text, feld):
     """Ohne Teilstring-Match fuer laengere Begriffe traefe die Erkennung
     an deutschen Komposita durchgehend daneben."""
-    assert pc._has_keyword_match(text, getattr(pc, gruppe))
+    assert berufsfeld.treffer(text, _begriffe(feld))
 
 
 def test_970_kurzes_kuerzel_nicht_in_beliebigem_wort():
-    assert not pc._has_keyword_match("Detailarbeit", pc._TECH_KEYWORDS)
+    assert not berufsfeld.treffer("Detailarbeit", _begriffe("it"))
 
 
 # ── Unsicher heisst unsicher, nicht "irgendwas" ──────────────────────
@@ -117,13 +134,18 @@ def test_970_nicht_einzuordnen_wird_als_solches_ausgewiesen():
 def test_970_unsicher_empfiehlt_breit_nicht_schmal():
     """Der eigentliche Schaden: das nicht eingeordnete Profil bekam die
     KLEINSTE Quellenliste — ausgerechnet im Fall, in dem PBP am
-    wenigsten weiss."""
+    wenigsten weiss.
+
+    #1070: verglichen wird jetzt mit den FELD-Listen; die Tabelle je
+    Alt-Schluessel gibt es nicht mehr, weil die Empfehlung aus der
+    Kombination von Feld, Form und Niveau entsteht.
+    """
     erg = pc.recommend_sources(
         _profil("Mitarbeiter", "Diverse Taetigkeiten", "Teamarbeit", 2015))
-    assert len(erg["recommended"]) >= 8, erg["recommended"]
-    for eindeutig in ("health", "education", "hospitality"):
+    assert len(erg["recommended"]) >= 6, erg["recommended"]
+    for eindeutig in ("gesundheit", "bildung", "gastgewerbe"):
         assert len(erg["recommended"]) >= len(
-            pc.PROFILE_TYPE_CLUSTERS[eindeutig])
+            berufsfeld.FELD_QUELLEN[eindeutig])
 
 
 def test_970_unsicherheit_steht_in_der_begruendung():
@@ -142,20 +164,24 @@ def test_970_erkanntes_profil_bleibt_ohne_unsicher_flag():
 
 # ── Struktur ─────────────────────────────────────────────────────────
 
-def test_970_jedes_label_hat_ein_cluster():
-    """Ein Cluster ohne Quellen waere eine leere Empfehlung."""
-    for schluessel in pc.PROFILE_TYPE_LABELS:
-        assert schluessel in pc.PROFILE_TYPE_CLUSTERS, schluessel
-        assert pc.PROFILE_TYPE_CLUSTERS[schluessel], schluessel
+def test_970_jedes_feld_hat_quellen():
+    """Ein Feld ohne Quellen waere eine leere Empfehlung.
+
+    #1070: geprueft wird das FELD statt des Alt-Schluessels — an ihm
+    haengt die Empfehlung seither.
+    """
+    for feld in berufsfeld.FELDER:
+        assert feld in berufsfeld.FELD_QUELLEN, feld
+        assert berufsfeld.FELD_QUELLEN[feld], feld
 
 
 def test_970_alle_empfohlenen_quellen_existieren():
     """Eine Empfehlung, die auf eine unbekannte Quelle zeigt, laesst
     sich nicht befolgen."""
     from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
-    for schluessel, quellen in pc.PROFILE_TYPE_CLUSTERS.items():
+    for feld, quellen in berufsfeld.FELD_QUELLEN.items():
         unbekannt = [q for q in quellen if q not in SOURCE_REGISTRY]
-        assert not unbekannt, (schluessel, unbekannt)
+        assert not unbekannt, (feld, unbekannt)
 
 
 def test_970_kein_profil_bleibt_unveraendert():

@@ -2259,3 +2259,64 @@ def register(mcp, db, logger):
         logger.info("Datenbereiche geleert: %s (Profil %s), %d Zeilen",
                     gewuenscht, profil_id or "alle", erg["zeilen_gesamt"])
         return erg
+
+    @mcp.tool()
+    def profil_einordnung() -> dict:
+        """Wie PBP dein Profil einordnet — Feld, Niveau und Form.
+
+        Die Einordnung steuert, welche Quellen empfohlen werden. Sie war
+        bis v1.7.125 ueber KEIN Werkzeug erreichbar: es gab sie nur im
+        Dashboard und intern fuer Elwosa, obwohl die Wiki-Seite einen
+        Weg ueber Claude versprach (#1070).
+
+        Drei Angaben statt einer (an der Klassifikation der Berufe 2010
+        orientiert):
+
+        * **Feld** — in welchem Berufsbereich du arbeitest
+        * **Niveau** — Helfer, Fachkraft, Spezialist oder Experte, samt
+          der Grundlage (Berufsbezeichnung oder nur Berufsjahre)
+        * **Form** — Festanstellung, freiberuflich, Studium, Praktikum
+
+        Bis v1.7.124 beantwortete EIN Schluessel alle drei Fragen, und
+        der erste Treffer gewann: ein freiberuflicher Senior-Entwickler
+        wurde `freelance` und verlor damit die Tech-Quellen. Jetzt
+        stehen alle Treffer da, und die Empfehlung kommt aus der
+        Kombination.
+
+        Ist ein Wert `unbekannt`, heisst das "nicht einzuordnen" und
+        NICHT "trifft nicht zu" — PBP empfiehlt dann breit statt schmal.
+        """
+        profile = db.get_profile()
+        if not profile:
+            return kein_profil(
+                "Ohne Profil gibt es nichts einzuordnen.")
+
+        from ..services.profile_classifier import recommend_sources
+        erg = recommend_sources(profile)
+        return {
+            "feld": erg.get("feld"),
+            "feld_name": erg.get("feld_name"),
+            "berufsbereich": erg.get("bereich"),
+            "weitere_felder": [
+                {"feld": f["feld"], "name": f["name"],
+                 "treffer": f["gewicht"], "begriffe": f["begriffe"]}
+                for f in (erg.get("alle_felder") or [])[1:]
+            ],
+            "niveau": erg.get("niveau"),
+            "niveau_name": erg.get("niveau_name"),
+            "niveau_grundlage": erg.get("niveau_beleg"),
+            "form": erg.get("form"),
+            "formen": erg.get("formen"),
+            "berufsjahre": erg.get("berufsjahre"),
+            "schluessel": erg.get("type"),
+            "label": erg.get("label"),
+            "konfidenz": erg.get("confidence"),
+            "begruendung": erg.get("reasons"),
+            "empfohlene_quellen": erg.get("recommended"),
+            "quellen_herkunft": erg.get("quellen_herkunft"),
+            "nicht_angeboten_weil_defekt": erg.get("ausgelassen_defekt"),
+            "hinweis": erg.get(
+                "hinweis",
+                "Quellen aktivierst du im Dashboard unter "
+                "Einstellungen → Quellen."),
+        }
