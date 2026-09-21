@@ -478,7 +478,21 @@ def _is_safe_email(addr: str) -> bool:
         return True
     if any(domain == d or domain.endswith("." + d) for d in _AUTOMAT_DOMAINS):
         return True
-    return lokal.lower() in _SYSTEM_LOKALTEILE
+    lokal = lokal.lower()
+    if lokal in _SYSTEM_LOKALTEILE:
+        return True
+    # v1.7.124 (#1068): auch ZUSAMMENGESETZTE Automaten-Lokalteile.
+    # Die Liste verglich exakt, und daran scheiterten
+    # `notify-noreply@google.com`, `noreply-accounts@google.com` und
+    # `payments-noreply@google.com` — genau die Absender, die PBP fuer
+    # die Newsletter-Erkennung dokumentieren MUSS. Eine Liste, die man
+    # je Anbieter nachpflegen muss, ist hier die falsche Bauform: was
+    # "noreply" als eigenes Wortstueck traegt, ist ein Automat.
+    #
+    # Bewusst ueber die BESTANDTEILE und nicht per Teilstring: sonst
+    # gaelte `hans.noreplyer@firma.de` als sicher.
+    teile = re.split(r"[.\-_+]", lokal)
+    return any(t in _SYSTEM_LOKALTEILE for t in teile)
 
 
 # === Quellen-Keys: dokumentierte DoD-9-Ausnahme ==================

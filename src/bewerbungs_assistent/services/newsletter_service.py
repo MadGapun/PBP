@@ -109,6 +109,14 @@ def erkennung(parsed: dict, db=None) -> Optional[dict]:
     domain = _sender_domain(sender)
     subject = (parsed.get("subject") or "").lower()
 
+    # #1068: Google zuerst — und ueber Absender UND Betreff. Ein Muster
+    # auf die Domain allein wuerde Kontowarnungen und Zahlungsmails als
+    # Job-Newsletter lesen; sie kommen von derselben Domain.
+    from .google_alert import ist_google_jobmail
+    if ist_google_jobmail(parsed.get("sender") or "",
+                          parsed.get("subject") or ""):
+        return {"label": "Google Jobs", "erkannt_ueber": "google_alert"}
+
     if db is not None:
         try:
             for src in db.get_newsletter_sources():
@@ -232,6 +240,88 @@ def _ollama_fallback(db, parsed: dict) -> list[dict]:
         return []
 
 
+def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
+    """Stellen aus einer Google-Jobs-Benachrichtigung (#1068).
+
+    Ohne URL: alle Links der Mail sind Redirects ueber
+    notifications.googleapis.com, und wohin sie aufloesen, ist nicht
+    gemessen. Eine erfundene Portal-URL waere schlimmer als keine —
+    die Duplikaterkennung arbeitet ohnehin ueber Firma und Titel.
+
+    `veroeffentlicht_am` ist Pflicht und nicht Kuer: die Treffer sind
+    nur fuer DIESEN Alert neu. Beim ersten Versand lagen sie zwischen
+    Januar und September; ohne das Datum saehen sie taufrisch aus (#949).
+    """
+    from ..job_scraper import calculate_score, stelle_hash
+    from . import scoring_kriterien
+    from .google_alert import parse_alert, suchanfrage
+
+    treffer = parse_alert(parsed.get("body_text") or "")
+    if not treffer:
+        return {
+            "status": "keine_stellen", "label": label,
+            "hinweis": ("Google-Jobs-Mail erkannt, aber kein Treffer-Block "
+                        "gefunden. Der Textteil hat die Form '<Titel> / "
+                        "<Firma> / <Ort> / ueber <Portal>'. Aendert Google "
+                        "das, bitte als Issue melden."),
+        }
+
+    criteria = scoring_kriterien.fuer_scoring(db)
+    quelle = f"newsletter:{label}"[:60]
+    anfrage = suchanfrage(parsed.get("subject") or "")
+    jobs = []
+    for e in treffer:
+        job = {
+            "hash": stelle_hash(quelle, f"{e['firma']}|{e['titel']}"),
+            "title": e["titel"],
+            "company": e["firma"],
+            "location": e["ort"],
+            "url": "",
+            "source": quelle,
+            "description": "",
+            # Das Ursprungsportal steht in der Mail und ist die
+            # nuetzlichste Angabe daran: 11 von 17 Treffern des ersten
+            # Laufs lagen schon in PBP. Es wandert als Vermerk mit,
+            # damit die Herkunft beim Sichten sichtbar ist.
+            "_manual_entry": True,
+        }
+        if e.get("veroeffentlicht_am"):
+            job["veroeffentlicht_am"] = e["veroeffentlicht_am"]
+        vermerk = [f"Ueber Google-Jobs-Alert gefunden, Originalquelle: "
+                   f"{e['portal']}."]
+        if anfrage:
+            vermerk.append(f"Suchanfrage: \"{anfrage}\".")
+        if e.get("vertragsart"):
+            vermerk.append(f"Angabe der Quelle: {e['vertragsart']}.")
+        job["research_notes"] = " ".join(vermerk)
+        try:
+            job["score"] = calculate_score(job, criteria)
+        except Exception:
+            job["score"] = 0
+        jobs.append(job)
+
+    stats = db.save_jobs(jobs)
+    neu = sum(stats.get("new_per_source", {}).values())
+    return {
+        "status": "uebernommen",
+        "label": label,
+        "ebene": "google-alert-text",
+        "suchanfrage": anfrage,
+        "gefunden": len(jobs),
+        "neu": neu,
+        "bereits_bekannt": len(jobs) - neu,
+        "portale": sorted({e["portal"] for e in treffer if e.get("portal")}),
+        "hinweis": (
+            "Die Stellen kommen ohne URL an — in der Mail zeigt jeder Link "
+            "auf einen Google-Redirect. Sie tragen dafuer das "
+            "Ursprungsportal als Vermerk, und ihr Veroeffentlichungsdatum "
+            "stammt aus der Mail: ein Alert liefert auch Monate alte "
+            "Anzeigen. Direkt ansehen: stellen_anzeigen(quelle='"
+            + quelle + "')."
+        ),
+    }
+
+
 def verarbeite_newsletter(db, parsed: dict, label: str) -> dict:
     """Extrahiert Stellen aus einer Newsletter-Mail und uebernimmt sie.
 
@@ -239,6 +329,14 @@ def verarbeite_newsletter(db, parsed: dict, label: str) -> dict:
     und Snapshot-Logik (C23). Quelle: ``newsletter:<label>``.
     """
     from ..job_scraper import stelle_hash, calculate_score
+
+    # #1068: Google-Alerts tragen ihre Stellen im TEXT, nicht in den
+    # Links — jeder Link der Mail zeigt auf
+    # notifications.googleapis.com/email/redirect. Die Link-Extraktion
+    # findet dort nichts, und der Ollama-Rueckfall waere Raten auf
+    # Daten, die strukturiert danebenstehen.
+    if label == "Google Jobs":
+        return _verarbeite_google_alert(db, parsed, label)
 
     links = extract_job_links(parsed.get("body_html") or "",
                               parsed.get("body_text") or "")
