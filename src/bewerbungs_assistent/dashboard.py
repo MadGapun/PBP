@@ -5076,7 +5076,44 @@ async def api_score_verteilung(nur_aktive: bool = True, schwelle: float = -1):
     if schwelle >= 0:
         antwort["wirkung"] = schwellen_verteilung.wirkung(
             _db, schwelle, nur_aktive=nur_aktive)
+    # #1063: die Stufen kommen aus DEMSELBEN Dienst wie im Werkzeug.
+    # Sie hier im JavaScript zu rechnen waere #963 im Frontend.
+    try:
+        from .services import schwellen_stufen as _st
+        antwort["stufen"] = _st.stufen(_db)
+        antwort["gewaehlt"] = {
+            b: _st.gewaehlte_stufe(_db, b) for b in _st.BEREICHE}
+    except Exception as exc:  # pragma: no cover
+        logger.debug("Stufen fuer die Verteilung (#1063): %s", exc)
     return antwort
+
+
+@app.post("/api/schwellen-stufe")
+async def api_schwellen_stufe(request: Request):
+    """#1063: eine benannte Stufe statt einer Zahl ohne Bezugsgroesse."""
+    from .services import schwellen_stufen as _st
+    daten = await request.json()
+    bereich = str(daten.get("bereich") or "")
+    stufe = str(daten.get("stufe") or "")
+    if bereich not in _st.BEREICHE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unbekannter Bereich: {bereich!r}. "
+                   f"Moeglich: {', '.join(_st.BEREICHE)}")
+    if stufe not in _st.SCHLUESSEL:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unbekannte Stufe: {stufe!r}. "
+                   f"Moeglich: {', '.join(_st.SCHLUESSEL)}")
+    _st.stufe_setzen(_db, bereich, stufe)
+    alle = _st.stufen(_db)
+    return {
+        "bereich": bereich,
+        "stufe": stufe,
+        "wert": _st.wert_fuer(_db, bereich),
+        "stufen": alle,
+        "gewaehlt": {b: _st.gewaehlte_stufe(_db, b) for b in _st.BEREICHE},
+    }
 
 
 @app.get("/api/search-criteria")

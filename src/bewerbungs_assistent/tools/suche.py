@@ -184,7 +184,63 @@ def register(mcp, db, logger):
         if schwelle >= 0:
             antwort["wirkung"] = schwellen_verteilung.wirkung(
                 db, schwelle, nur_aktive=nur_aktive)
+        # v1.7.124 (#1063): die Zahl allein sagt nichts. Die benannten
+        # Stufen stehen daneben, damit der Regler nicht der einzige Weg
+        # bleibt — er ist seit diesem Release der Weg fuer
+        # Fortgeschrittene, nicht der Normalweg.
+        try:
+            from ..services import schwellen_stufen as _st
+            antwort["stufen"] = _st.stufen(db)
+            antwort["gewaehlt"] = {
+                b: _st.gewaehlte_stufe(db, b) for b in _st.BEREICHE}
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Stufen (#1063) uebersprungen: %s", exc)
         return antwort
+
+    @mcp.tool()
+    def schwelle_stufe_setzen(bereich: str = "", stufe: str = "") -> dict:
+        """Die Score-Schwelle als benannte Stufe setzen (#1063).
+
+        Eine Zahl sagt nichts: ob 7 viel oder wenig ist, weiss nur, wer
+        die Verteilung kennt — gemessen lag der Median bei 1, der
+        Hoechstwert bei 110, und eine 7 verwarf 82 % des Bestands. Und
+        sie verschiebt sich unter dir: jede Aenderung an Gewichten oder
+        Begriffslisten deutet dieselbe Zahl um. Eine Stufe bleibt
+        dieselbe und rechnet neu.
+
+        **Ohne Argumente** zeigt das Werkzeug die Stufen mit ihren
+        heutigen Werten, wie viele Stellen sie sichtbar lassen und —
+        das ist die wichtigere Zahl — wie viele deiner EIGENEN
+        Bewerbungen sie verworfen haetten.
+
+        Args:
+            bereich: 'speichern' (waehrend der Suche, unwiederbringlich)
+                oder 'liste' (blendet nur aus, jederzeit umkehrbar).
+            stufe: alles_zeigen | offensichtliches_aus | locker |
+                ausgewogen | streng | nur_volltreffer.
+        """
+        from ..services import schwellen_stufen as _st
+        if not bereich and not stufe:
+            antwort = _st.stufen(db)
+            antwort["gewaehlt"] = {
+                b: _st.gewaehlte_stufe(db, b) for b in _st.BEREICHE}
+            antwort["hinweis"] = (
+                "Zum Setzen: schwelle_stufe_setzen(bereich='liste', "
+                "stufe='locker'). Der Bereich 'speichern' wirkt waehrend "
+                "der Suche — was er verwirft, kommt nie in den Bestand "
+                "und ist nicht zurueckzuholen. 'liste' blendet nur aus.")
+            return antwort
+        ergebnis = _st.stufe_setzen(db, bereich, stufe)
+        if "fehler" in ergebnis:
+            return ergebnis
+        if (bereich == _st.SPEICHERN
+                and ergebnis["stufe"].get("bewerbungen_darunter")):
+            ergebnis["warnung"] = (
+                f"Diese Stufe haette "
+                f"{ergebnis['stufe']['bewerbungen_darunter']} Stellen "
+                "verworfen, auf die du dich tatsaechlich beworben hast — "
+                "und beim Speichern ist das endgueltig.")
+        return ergebnis
 
     @mcp.tool()
     def suchkriterien_setzen(

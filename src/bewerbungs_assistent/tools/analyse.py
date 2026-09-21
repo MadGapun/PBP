@@ -2704,6 +2704,9 @@ def register(mcp, db, logger):
                     # deshalb zu `keyword_vorschlaege`, dem falschen Nachbarn.
                     "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprueche, Rahmenbegriffe (Vorschlaege, schreibt nur auf Ansage)",
                     "kalibrierung_backtest — Schwellenwert aus der eigenen Bewerbungshistorie vorschlagen (Schattenrechnung, schreibt nichts)",
+                    # #1063: die Schwelle ist eine STUFE, keine Zahl mehr.
+                    "score_verteilung_anzeigen — Score-Verteilung samt den Schwellen-Stufen und ihrer Wirkung",
+                    "schwelle_stufe_setzen — Schwellenwert als benannte Stufe setzen (Speichern waehrend der Suche / Ausblenden in der Liste)",
                     "blacklist_verwalten — Firmen/Keywords ausschliessen",
                     "scraper_diagnose — Welche Quellen liefern aktuell?",
                 ],

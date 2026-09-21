@@ -1078,6 +1078,87 @@ export default function ProfilePage() {
     .slice(0, 4);
   // v1.7.0-beta.57 (#633): Klarere Erklaerungen je Slider mit konkretem
   // Score-Effekt-Beispiel (User-Feedback "Gewichtung war anfangs nicht klar").
+  // #1063: Die Stufen kommen fertig vom Server (Wert, wie viele Stellen
+  // sichtbar bleiben, wie viele eigene Bewerbungen darunter lagen). Sie
+  // hier zu rechnen waere eine zweite Fassung derselben Regel (#963).
+  const stufenListe = scoreVerteilung?.stufen?.stufen || [];
+  const stufenGewaehlt = scoreVerteilung?.gewaehlt || {};
+  const stufenBelastbar = scoreVerteilung?.stufen?.belastbar;
+
+  const stufeSetzen = async (bereich, stufe) => {
+    try {
+      await postJson("/api/schwellen-stufe", { bereich, stufe });
+      const daten = await optionalApi("/api/score-verteilung?nur_aktive=false");
+      if (daten) setScoreVerteilung(daten);
+      pushToast("Stufe gespeichert.", "success");
+    } catch (error) {
+      pushToast(`Stufe nicht gespeichert: ${error.message}`, "danger");
+    }
+  };
+
+  // BEWUSST kein <Field>: das wickelt seinen Inhalt in ein <label>, und
+  // ein Klick darin geht an das erste Bedienelement — also immer an die
+  // oberste Stufe (#1027). Der Browser-Test hat genau das gefunden: der
+  // Klick auf "Locker" speicherte "Alles zeigen".
+  const schwellenStufe = (bereich, titel, hinweis) => (
+    <div className="mt-2" data-stufenbereich={bereich}>
+      <div className="text-xs font-medium text-muted/70">{titel}</div>
+      <p className="mb-2 mt-0.5 text-[11px] text-muted/50">{hinweis}</p>
+      <div className="grid gap-1.5">
+        {stufenListe.map((stufe) => {
+          const aktiv = (stufenGewaehlt[bereich] || "alles_zeigen") === stufe.schluessel;
+          const offen = stufe.nicht_berechenbar;
+          return (
+            <button
+              key={stufe.schluessel}
+              type="button"
+              disabled={offen}
+              onClick={() => stufeSetzen(bereich, stufe.schluessel)}
+              className={`rounded-xl border px-3 py-2 text-left transition ${
+                aktiv ? "border-sky/50 bg-sky/10"
+                  : offen ? "border-white/5 bg-white/[0.01] opacity-50"
+                    : "border-white/10 bg-white/[0.02] hover:border-white/20"
+              }`}
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className={`text-sm ${aktiv ? "font-semibold text-sky" : "text-ink"}`}>
+                  {stufe.name}
+                </span>
+                <span className="text-[11px] tabular-nums text-muted/50">
+                  {offen ? "noch nicht berechenbar" : `ab Score ${stufe.wert}`}
+                </span>
+              </div>
+              <div className="mt-0.5 text-[11px] text-muted/60">{stufe.bedeutung}</div>
+              {!offen && (
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
+                  <span className="text-teal/70">
+                    {`${stufe.sichtbar} Stellen bleiben sichtbar`}
+                  </span>
+                  {stufe.bewerbungen_darunter > 0 && (
+                    <span className="text-coral/70">
+                      {`${stufe.bewerbungen_darunter} deiner eigenen Bewerbungen lägen darunter`}
+                    </span>
+                  )}
+                  {stufe.angehoben_auf_vorstufe !== undefined && (
+                    <span className="text-muted/40">
+                      {`gerechnet ${stufe.angehoben_auf_vorstufe}, angehoben damit die Stufen steigen`}
+                    </span>
+                  )}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {stufenBelastbar === false && (
+        <p className="mt-1.5 text-[11px] text-muted/50">
+          {scoreVerteilung?.stufen?.grund
+            || "Für die höheren Stufen fehlen noch genug bewertete Bewerbungen."}
+        </p>
+      )}
+    </div>
+  );
+
   const weightingCards = [
     {
       label: "MUSS-Kriterium",
@@ -1507,8 +1588,26 @@ export default function ProfilePage() {
                 der gemeldete Fehler — gemessen liegt der hoechste
                 Score bei 110, der Regler erreichte also nicht einmal
                 das oberste Zehntel. */}
-            <Field label="Mindest-Score (Stellen unter dieser Schwelle werden ausgefiltert)">
-              <div className="flex items-center gap-3">
+            {/* #1063: Die Schwelle war eine Zahl ohne Bezugsgroesse.
+                Gewaehlt wird jetzt eine STUFE; die Zahl dahinter rechnet
+                der Server aus dem eigenen Bestand und zieht sie nach,
+                wenn sich Gewichte oder Listen aendern (AK 2/AK 5).
+                Die Zahl bleibt darunter erreichbar (AK 1). */}
+            {schwellenStufe("speichern", "Beim Speichern während der Suche",
+              "Was hier wegfällt, kommt nie in den Bestand und ist unwiederbringlich.")}
+            {schwellenStufe("liste", "Beim Ausblenden in der Liste",
+              "Blendet nur die Anzeige aus — die Stelle bleibt gespeichert und jederzeit wieder sichtbar.")}
+
+            <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+              <summary className="cursor-pointer text-xs text-muted/60">
+                Schwelle als Zahl setzen (für Fortgeschrittene)
+              </summary>
+              <p className="mt-2 text-[11px] text-muted/50">
+                {stufenGewaehlt.speichern && stufenGewaehlt.speichern !== "alles_zeigen"
+                  ? "Wirkt nicht: es ist eine Stufe gewählt, und die gewinnt. Stelle oben auf „Alles zeigen“, damit diese Zahl greift."
+                  : "Gilt beim Speichern während der Suche, solange oben „Alles zeigen“ steht."}
+              </p>
+              <div className="mt-2 flex items-center gap-3">
                 <input
                   type="range"
                   min={0}
@@ -1527,8 +1626,6 @@ export default function ProfilePage() {
               </div>
               {scoreVerteilung?.belastbar ? (
                 <>
-                  {/* Die drei Bereiche samt ihren Grenzen. Eine Farbe
-                      ohne nachvollziehbare Grenze waere eine Behauptung. */}
                   <div className="mt-2 flex gap-1.5 text-[11px]">
                     {(scoreVerteilung.zonen || []).map((zone) => (
                       <span
@@ -1557,7 +1654,7 @@ export default function ProfilePage() {
                     || "Verteilung wird geladen — solange gilt der feste Bereich 0 bis 20."}
                 </p>
               )}
-            </Field>
+            </details>
 
             <div id="profil-blacklist" className="mt-2 border-t border-white/8 pt-5">
               <SectionHeading title="Blacklist" description="Ausschlüsse für Firmen oder Keywords." />

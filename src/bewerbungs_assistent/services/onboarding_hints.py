@@ -197,6 +197,37 @@ def _text_gehalt_entfernt(db) -> str:
     return "; ".join(teile)
 
 
+def _condition_schwelle_ist_jetzt_stufe(db) -> bool:
+    """Wurde eine gesetzte Schwellen-ZAHL zu einer Stufe? (#1063)
+
+    Ein gesetzter Wert darf nicht still wandern (#1053). Der Hinweis
+    nennt die alte Zahl und die Stufe, auf der sie jetzt liegt.
+    """
+    try:
+        from .schwellen_stufen import BELEG
+        return bool(db.get_profile_setting(BELEG, None))
+    except Exception:
+        return False
+
+
+def _text_schwelle_ist_jetzt_stufe(db) -> str:
+    try:
+        from . import schwellen_stufen as _st
+        beleg = db.get_profile_setting(_st.BELEG, None) or []
+        namen = {s["schluessel"]: s["name"] for s in _st.STUFEN}
+    except Exception:
+        return ""
+    wo = {"speichern": "beim Speichern waehrend der Suche",
+          "liste": "beim Ausblenden in der Liste"}
+    teile = []
+    for e in beleg:
+        teile.append(
+            f"{wo.get(e.get('bereich'), e.get('bereich'))}: aus "
+            f"{e.get('zahl_vorher')} wurde die Stufe "
+            f"\"{namen.get(e.get('stufe'), e.get('stufe'))}\"")
+    return "; ".join(teile)
+
+
 def _condition_quelle_entfernt(db) -> bool:
     """Wurde eine gewaehlte Quelle entfernt, weil es sie nicht mehr gibt?
 
@@ -330,6 +361,25 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_tool": "suchkriterien_anzeigen",
         "condition": _condition_gehalt_aus_praeferenzen_entfernt,
         "detail": _text_gehalt_entfernt,
+    },
+    {
+        "id": "c91_schwelle_ist_jetzt_stufe",
+        "tab": "einstellungen",
+        "title": "Deine Score-Schwelle ist jetzt eine Stufe",
+        "body": (
+            "Die Schwelle war eine Zahl ohne Bezugsgröße — ob 7 viel "
+            "oder wenig ist, weiß nur, wer die Verteilung kennt. Und sie "
+            "bedeutete nach jeder Änderung an Gewichten oder "
+            "Begriffslisten etwas anderes, ohne dass du sie angefasst "
+            "hast. Jetzt wählst du eine benannte Stufe; die Zahl dahinter "
+            "rechnet PBP aus deinem eigenen Bestand und zieht sie nach. "
+            "Deine bisherige Einstellung ist auf die nächstliegende Stufe "
+            "gewandert — was vorher dastand, steht hier."
+        ),
+        "cta_label": "PBP: Schwellen-Stufen anzeigen",
+        "cta_tool": "schwelle_stufe_setzen",
+        "condition": _condition_schwelle_ist_jetzt_stufe,
+        "detail": _text_schwelle_ist_jetzt_stufe,
     },
     {
         "id": "b59_quelle_entfernt",
