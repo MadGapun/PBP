@@ -744,51 +744,56 @@ def register(mcp, db, logger):
     ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
 
     def _detect_duplicate(job_hash: str) -> dict | None:
-        """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert."""
+        """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert.
+
+        v1.7.122 (#1065): fragt `find_duplicate_job` — dieselbe Regel wie
+        die Anlage. Bis hierher stand hier eine EIGENE, vierte Fassung
+        (Firma als Teilstring, zwei gemeinsame Titelwoerter), und deshalb
+        antworteten Anlage und Aussortieren fuer dieselbe Stelle
+        verschieden: die Anlage sagte "angelegt", das Aussortieren
+        "duplikat_erkannt". Gemeldet mit zwei belegten Faellen.
+
+        Die gemeinsame Regel ist die schaerfere und die gepruefte (#670,
+        #951): sie kennt Rechtsform-Normalisierung, URL-Gleichheit und
+        eine Titel-Schwelle statt einer Wortzaehlung.
+        """
         job = db.get_job(job_hash)
         if not job:
             return None
-        title = (job.get("title") or "").lower()
-        company = (job.get("company") or "").lower()
-        if not title or not company:
+        titel = job.get("title") or ""
+        firma = job.get("company") or ""
+        if not titel or not firma:
             return None
+        from ..duplicate_detection import find_duplicate_job
+        url = job.get("url") or ""
 
-        # Check existing applications
-        apps = db.get_applications()
-        for app in apps:
-            app_title = (app.get("title") or "").lower()
-            app_company = (app.get("company") or "").lower()
-            if company in app_company or app_company in company:
-                # Company match — check title similarity
-                title_words = set(title.split())
-                app_words = set(app_title.split())
-                overlap = title_words & app_words
-                if len(overlap) >= min(2, len(title_words)):
-                    return {
-                        "typ": "bewerbung",
-                        "id": app["id"][:8],
-                        "titel": app.get("title"),
-                        "firma": app.get("company"),
-                        "status": app.get("status"),
-                    }
+        treffer = find_duplicate_job(firma, titel, url, db.get_applications())
+        if treffer:
+            app = treffer["job"]
+            return {
+                "typ": "bewerbung",
+                "id": (app.get("id") or "")[:8],
+                "titel": app.get("title"),
+                "firma": app.get("company"),
+                "status": app.get("status"),
+                "grund": treffer.get("grund"),
+            }
 
-        # Check existing dismissed jobs with same company
-        dismissed = db.get_dismissed_jobs()
-        for dj in dismissed:
-            dj_company = (dj.get("company") or "").lower()
-            dj_title = (dj.get("title") or "").lower()
-            if company in dj_company or dj_company in company:
-                title_words = set(title.split())
-                dj_words = set(dj_title.split())
-                overlap = title_words & dj_words
-                if len(overlap) >= min(2, len(title_words)):
-                    return {
-                        "typ": "aussortierte_stelle",
-                        "hash": _kurz(dj["hash"]),
-                        "titel": dj.get("title"),
-                        "firma": dj.get("company"),
-                        "grund": dj.get("dismiss_reason"),
-                    }
+        eigener = job.get("hash") or ""
+        treffer = find_duplicate_job(
+            firma, titel, url,
+            [d for d in db.get_dismissed_jobs()
+             if (d.get("hash") or "") != eigener])
+        if treffer:
+            dj = treffer["job"]
+            return {
+                "typ": "aussortierte_stelle",
+                "hash": _kurz(dj["hash"]),
+                "titel": dj.get("title"),
+                "firma": dj.get("company"),
+                "grund": dj.get("dismiss_reason"),
+                "match_grund": treffer.get("grund"),
+            }
         return None
 
     def _normalize_dismiss_reason(reason: str) -> str:
@@ -3107,6 +3112,30 @@ def register(mcp, db, logger):
                 "existing_hash": existing["hash"],
                 "shared_tokens": active_hit.get("shared_tokens"),
             }
+        # Stufe A2 — ABGESCHLOSSENE Bewerbung auf dieselbe Stelle (#1065).
+        #
+        # #567 hat abgeschlossene Bewerbungen bewusst aus Stufe A genommen,
+        # damit eine ANDERE Stelle bei derselben Firma nicht blockiert wird.
+        # Richtig — nur fand fuer sie danach gar keine Pruefung mehr statt,
+        # auch bei identischem Titel. Gemeldet mit zwei Faellen: Stellen zu
+        # abgelehnten Bewerbungen wurden ohne jeden Hinweis als neu angelegt,
+        # und erst das Aussortieren meldete das Duplikat.
+        #
+        # Es wird NICHT geblockt (das waere #567 rueckwaerts) und keine
+        # vierte Regel gebaut: `find_repost_of_application` (#782) stellt
+        # genau diese Frage schon, mit derselben Regel wie Stufe A, und
+        # `stellen_anzeigen` und `fit_analyse` zeigen ihr Ergebnis laengst.
+        # Die Anlage hat sie nur nie gefragt — dieselbe Bauform wie #994.
+        wiedergaenger_bewerbung = None
+        try:
+            from ..duplicate_detection import find_repost_of_application
+            wiedergaenger_bewerbung = find_repost_of_application(
+                {"hash": job_hash, "title": titel, "company": firma},
+                [a for a in all_apps
+                 if (a.get("status") or "") in TERMINAL_STATUSES])
+        except Exception as exc:  # pragma: no cover — nie die Anlage kippen
+            logger.debug("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
+
         # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
         # darf durchgehen.
 
@@ -3204,6 +3233,12 @@ def register(mcp, db, logger):
         }
         if job.get("distance_km"):
             result.update(_entfernung.befund(job))
+        # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
+        # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer —
+        # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
+        if wiedergaenger_bewerbung:
+            result["warnung"] = "wiedergaenger_bewerbung"
+            result["bewerbung_vorher"] = wiedergaenger_bewerbung
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
