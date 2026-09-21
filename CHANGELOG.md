@@ -157,7 +157,7 @@ Anzeige — und sagte es nicht.
   fragte ausschliesslich GitHub. Faellt die Quelle weg, blieb die Anzeige
   stumm: dauerhaft "aktuell", ohne dass jemand merkt, dass gar nicht mehr
   nachgesehen wird. Jetzt mehrere Quellen nacheinander, konfigurierbar,
-  und wenn keine antwortet, steht das da.
+  und wenn keine antwortet, steht das im Dashboard.
 
 ### Changed
 
@@ -167,7 +167,6 @@ Anzeige — und sagte es nicht.
 ### Known Issues
 
 - Der Link je Google-Jobs-Treffer ist nicht am echten Google nachgemessen.
-- Das Dashboard zeigt "Stand unbekannt" der Update-Pruefung noch nicht an.
 
 4955 automatische Tests.
 

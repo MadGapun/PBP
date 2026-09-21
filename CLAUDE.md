@@ -148,8 +148,8 @@ den Node-Test.
 
 (16) **Berichtigt:** der Installer nennt Monster entgegen dem Bericht
 nicht. **Bewusst offen:** der Link je Google-Jobs-Treffer ist am echten
-Google nicht nachgemessen, und das Dashboard zeigt "Stand unbekannt" der
-Update-Pruefung noch nicht an.
+Google nicht nachgemessen. Der Banner "Stand unbekannt" ist mit einem
+Browser-Test belegt, nicht mit einem Grep.
 
 ## Stand 2026-09-18 (v1.7.121 Stable) — Die Ernte kommt an
 

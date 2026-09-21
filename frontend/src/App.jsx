@@ -731,7 +731,10 @@ export default function App() {
     refreshChrome();
     // Update-Check (#286)
     optionalApi("/api/update-check").then((data) => {
-      if (data?.update_available) setUpdateInfo(data);
+      // #1069: auch der Fall "keine Quelle hat geantwortet" wird
+      // angezeigt. Bis v1.7.121 fiel er still unter den Tisch und sah
+      // damit aus wie "alles aktuell".
+      if (data?.update_available || data?.stand === "unbekannt") setUpdateInfo(data);
     });
     // v1.7.0-beta.26 (#594 Stufe 1): Activity-Tracking initialisieren
     optionalApi("/api/status").then((s) => {
@@ -1460,6 +1463,33 @@ export default function App() {
             </div>
           </div>
         </header>
+
+        {/* Stand unbekannt (#1069) — keine Quelle hat geantwortet. */}
+        {updateInfo && !updateInfo.update_available
+          && updateInfo.stand === "unbekannt" && (
+          <div className="mx-auto w-full max-w-[92rem] px-5 sm:px-8 pt-2">
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber/20 bg-amber/8 px-4 py-2.5 text-sm text-amber">
+              <span>
+                <strong>Stand unbekannt</strong> — keine Update-Quelle hat
+                geantwortet. Ob es eine neue Version gibt, weiß PBP gerade
+                nicht.
+                {updateInfo.geprueft_am
+                  ? ` Zuletzt geprüft: ${updateInfo.geprueft_am.slice(0, 16).replace("T", " ")} UTC.`
+                  : ""}
+              </span>
+              <button
+                type="button"
+                className="rounded-lg p-1 hover:bg-amber/15 transition-colors"
+                onClick={() => setUpdateInfo(null)}
+                aria-label="Hinweis schließen"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Update-Banner (#286) */}
         {updateInfo?.update_available && (
