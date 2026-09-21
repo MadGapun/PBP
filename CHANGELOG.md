@@ -105,6 +105,181 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.124] - 2026-09-21 — Eine Stufe statt einer Zahl
+
+Die Score-Schwelle war eine Zahl ohne Bezugsgroesse. Jetzt waehlst du
+eine benannte Stufe, und die Zahl dahinter rechnet PBP aus deinem
+eigenen Bestand.
+
+### Changed
+
+- **Beide Schwellen als benannte Stufen** (#1063). `min_score_schwelle`
+  wirkt beim **Speichern** waehrend der Suche, `schwellenwert/auto_ignore`
+  blendet in der **Liste** aus — beide waren Zahlen, und drei Dinge
+  sprachen dagegen. Erstens sagt die Zahl nichts: ueber 2.780 Stellen
+  gemessen liegt der Median bei 1, das obere Zehntel bei 21, der
+  hoechste Wert bei 110 — die eingestellte 7 sah nach "eher niedrig" aus
+  und verwarf 82 % des Bestands. Zweitens verschiebt sie sich unter dir:
+  seit der Begriffsgruppierung (v1.7.66) faellt der Score fuer dieselbe
+  Anzeige niedriger aus, eine feste Zahl filtert danach schaerfer, ohne
+  dass du sie angefasst hast. Drittens liegt direkt ueber der Vorgabe
+  eine Klippe: von Schwelle 1 auf 2 fiel der sichtbare Bestand von
+  1.710 auf 846 Stellen.
+
+  Sechs Stufen — **Alles zeigen** (Vorgabe), Offensichtliches aus,
+  Locker, Ausgewogen, Streng, Nur Volltreffer. Gespeichert wird die
+  Stufe, gerechnet wird beim Lesen: die Wahl bleibt damit dieselbe, auch
+  wenn sich die Zahl dahinter verschiebt.
+
+- **Die Vorgabe ist gemessen, nicht gesetzt.** Was die Speicher-Schwelle
+  verwirft, kommt nie in den Bestand und ist unwiederbringlich. Auf
+  einer Bestandskopie (57 bewertbare Bewerbungen, 2.765 Aussortierte)
+  haette **schon die mildeste Stufe 4 von 57 Stellen verworfen, auf die
+  sich der Mensch tatsaechlich beworben hat** (7 %); Locker 12 %,
+  Ausgewogen 21 %, Streng 49 %, Nur Volltreffer 74 %. Deshalb steht
+  diese Zahl neben jeder Stufe — "wie viele bleiben sichtbar" allein
+  zeigt nur die eine Haelfte der Rechnung und laesst jede Stufe billig
+  aussehen.
+
+### Added
+
+- **Der Listen-Bereich hat zum ersten Mal eine Oberflaeche.**
+  `schwellenwert/auto_ignore` war bis hierher nur ueber ein Werkzeug
+  erreichbar. Beide Bereiche stehen jetzt im Profil unter Scoring, samt
+  dem Unterschied: was in der Liste ausgeblendet wird, bleibt
+  gespeichert und ist jederzeit wieder sichtbar.
+
+- **`schwelle_stufe_setzen(bereich, stufe)`** als MCP-Werkzeug; die
+  Uebersicht samt Wirkung je Stufe liefert `score_verteilung_anzeigen`.
+
+- **Zu wenige Werte, keine Stufe.** Unter 20 bewertbaren Bewerbungen und
+  20 aussortierten Stellen bleiben die berechneten Stufen gesperrt und
+  sagen warum. Eine Stufe aus einer Handvoll Werte waere geraten.
+
+### Fixed
+
+- **Deine alte Zahl wandert nicht still.** Beim ersten Start nach dem
+  Update geht ein gesetzter Wert auf die naechstliegende Stufe; ein
+  Hinweis im Einstellungen-Tab nennt die alte Zahl und die Stufe, auf
+  der sie jetzt liegt. Die Zahl bleibt unter "fuer Fortgeschrittene"
+  erreichbar und wirkt, solange die Stufe auf "Alles zeigen" steht.
+
+### Hinweis fuer Entwickler
+
+Die Stufen rechnen mit den Quantilen aus `score_verteilung` und den
+Werten aus `fachwert` — dieselbe Rechnung wie Fachdaumen und Backtest,
+sonst schlaegt der Backtest einen Wert vor, den keine Stufe trifft. Ein
+Browser-Test hat dabei einen echten Fehler gefunden: im `<label>` von
+`Field` landet jeder Klick auf dem ersten Bedienelement, weil ein
+`<button>` ein labelable element ist (#1027) — die Stufen stehen
+deshalb ausserhalb von `Field`.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.124.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.124.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.123] - 2026-09-21 — Das Dashboard sagt, wenn es nichts weiss
+
+Nachtrag zu v1.7.122: der Befund war da, die Anzeige las ihn nicht.
+
+### Fixed
+
+- **"Stand unbekannt" steht jetzt im Dashboard (#1069).** v1.7.122 hat
+  die Update-Pruefung auf mehrere Quellen gestellt und den Fall
+  "niemand hat geantwortet" benannt — die Oberflaeche pruefte aber
+  weiterhin nur, ob ein Update vorliegt. Ein "nein" sah damit weiter aus
+  wie "alles aktuell", also genau der Zustand, um den es ging. Der
+  Hinweis nennt jetzt den Zeitpunkt der letzten Pruefung und laesst sich
+  wegklicken.
+
+4892 automatische Tests.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.123.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.123.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.122] - 2026-09-21 — Der ganze Anzeigentext, und was es nicht mehr gibt
 
 Fuenf Meldungen eines Vormittags. Die erste wiegt am schwersten: die
