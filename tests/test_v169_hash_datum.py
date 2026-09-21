@@ -207,7 +207,16 @@ def test_567_terminal_application_does_not_block(setup_env):
         })
         return res.structured_content if hasattr(res, "structured_content") else res
     result = asyncio.run(call())
-    assert "warnung" not in result, f"Terminale Bewerbung blockte faelschlich: {result}"
+    # v1.7.122 (#1065): die ABSICHT dieses Tests ist "blockt nicht", und
+    # sie gilt weiter — die Stelle wird angelegt. Geprueft wurde sie
+    # ueber einen Stellvertreter ("gar keine Warnung"), und der ist seit
+    # #1065 nicht mehr gleichbedeutend: eine abgeschlossene Bewerbung auf
+    # DIESELBE Stelle wird jetzt benannt, ohne die Anlage zu verhindern.
+    # Vorher fand fuer sie ueberhaupt keine Pruefung mehr statt.
+    assert result.get("status") == "angelegt", (
+        f"Terminale Bewerbung blockte faelschlich: {result}")
+    assert result.get("hash")
+    assert result.get("warnung") != "duplikat_bewerbung"
 
 
 # ============= #570 Direkt-Upload Idempotenz ===============
