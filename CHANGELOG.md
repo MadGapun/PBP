@@ -105,6 +105,131 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.125] - 2026-09-21 — Drei Angaben statt eines Schluessels
+
+Welche Jobboersen PBP dir empfiehlt, haengt daran, wie es dein Profil
+einordnet. Diese Einordnung beantwortete bisher drei Fragen in einer
+Liste — und der erste Treffer gewann.
+
+### Changed
+
+- **Berufsfeld, Anforderungsniveau und Beschaeftigungsform sind jetzt
+  drei getrennte Angaben** (#1070). Die fuenfzehn Cluster mischten sie:
+  `health` sagt, in welchem Feld du arbeitest, `tech_senior`
+  zusaetzlich auf welcher Stufe, `freelance` und `student` die Form.
+  Und die Pruefung kehrte beim **ersten** Treffer zurueck, wer mehrfach
+  passte verlor alles andere:
+
+  | Profil | alter Schluessel | was verlorenging |
+  |---|---|---|
+  | Freiberuflicher Senior-Entwickler | `freelance` | die Tech-Quellen |
+  | Pflegedienstleitung, 12 Jahre | `executive` | die Gesundheits-Quellen |
+  | Dualer Student im Handwerk | `student` | die Handwerks-Quellen |
+
+  **Auf einer Kopie des eigenen Bestands gemessen**, und es ist genau
+  dieser Fall: das Profil galt als `freelance` und bekam **fuenf**
+  Quellen. Mit den drei Angaben (Ingenieurwesen, Spezialist,
+  freiberuflich) sind es **dreizehn** — acht Fachquellen, darunter
+  ingenieur.de, waren an die Erst-Treffer-Regel verlorengegangen.
+
+- **Die Empfehlung kommt aus der Kombination.** Das Feld bestimmt die
+  Fach- und Regionalportale, die Form schaltet Freelance- oder
+  Studenten-Boersen **dazu**, das Niveau ab Spezialist die
+  Konzern-Quellen. An jeder empfohlenen Quelle steht in der
+  Oberflaeche, woher sie kommt.
+
+- **Sechzehn Felder statt der alten Sammelbecken**, jedes mit seinem
+  Berufsbereich der Klassifikation der Berufe 2010 der Bundesagentur
+  fuer Arbeit. Neu dabei sind Landwirtschaft, Produktion und Fertigung,
+  Verkehr und Logistik getrennt vom Handel, Schutz und Sicherheit,
+  Recht sowie Wissenschaft und Forschung — sie landeten bisher alle in
+  „Gemischt / Unbekannt".
+
+### Fixed
+
+- **`leiter` steckt als Teilstring in `Begleiter`.** Schulbegleiterin,
+  Alltagsbegleiterin, Integrationsbegleiter und Reisebegleiter galten
+  ab zehn Berufsjahren als **Fuehrungskraft** und bekamen Konzern-Boards
+  empfohlen; dasselbe fuer „GF-Assistenz" ueber das Kuerzel `gf`. Das
+  stand in keinem Bericht und ist dieselbe Klasse wie „ki" in „Kita"
+  (v1.7.29) — sie trifft wieder genau die Berufe, fuer die PBP
+  ausdruecklich mitgebaut ist.
+
+- **Das Anforderungsniveau ist ohne Berufsbezeichnung im Titel auf
+  „Fachkraft" gedeckelt.** Es beschreibt die Komplexitaet der
+  Taetigkeit, nicht die Dauer: fuenfzehn Jahre am Steuer machen keinen
+  Spezialisten. Ohne diesen Deckel bekamen Sicherheitsmitarbeiter,
+  Berufskraftfahrer und Produktionsmitarbeiter ab sieben Berufsjahren
+  Konzern-Boards empfohlen. Die Angabe `niveau_grundlage` sagt, ob der
+  Wert aus einer Bezeichnung stammt oder nur aus den Berufsjahren.
+
+### Added
+
+- **`profil_einordnung()`** — Feld, Berufsbereich, Niveau samt
+  Grundlage, Form, Berufsjahre, die weiteren getroffenen Felder und die
+  empfohlenen Quellen mit ihrer Herkunft. Die Einordnung war bis hierher
+  ueber **gar kein** Werkzeug erreichbar; es gab sie nur im Dashboard
+  und intern, obwohl die Wiki-Seite einen Weg ueber Claude versprach.
+
+### Hinweis fuer Entwickler
+
+Die fachliche Einordnung steht in `services/berufsfeld.py`;
+`profile_classifier` ist eine abgeleitete Sicht und bildet daraus
+weiter den einen Schluessel, auf den Elwosa-Linien und aeltere
+Auswertungen zeigen. `PROFILE_TYPE_CLUSTERS` ist ersatzlos entfallen —
+eine Liste je Schluessel neben der Kombination waere die Bauform
+gewesen, die dieses Projekt vierzehnmal gekostet hat.
+
+Zwei Eigenheiten der alten Schluessel bleiben und sind Erbe, keine
+Systematik: `tech_junior`/`tech_senior` trennen weiter nach
+Berufsjahren, und `engineering_senior` ist der einzige
+Ingenieur-Schluessel — sein Namenszusatz sagt dort nichts aus.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.125.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.125.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.124] - 2026-09-21 — Eine Stufe statt einer Zahl
 
 Die Score-Schwelle war eine Zahl ohne Bezugsgroesse. Jetzt waehlst du
