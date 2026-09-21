@@ -33,6 +33,117 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.122] - 2026-09-21 — Der ganze Anzeigentext, und was es nicht mehr gibt
+
+Fuenf Meldungen eines Vormittags. Die erste wiegt am schwersten: die
+Detailanalyse las seit v1.7.61 nur die ersten 2000 Zeichen einer
+Anzeige — und sagte es nicht.
+
+### Fixed
+
+- **`fit_analyse` liefert den Anzeigentext vollstaendig (#1064).** Die
+  Ausgabe kappte bei 2000 Zeichen, mitten im Wort, waehrend dieselbe
+  Antwort "Beschreibung vollstaendig" meldete. Seit v1.7.61 ist die
+  Detailanalyse der einzige Weg zu einem gespeicherten Urteil — gefaellt
+  wurde es damit ueber die Aufgaben statt ueber die Anforderungen, die
+  am Ende einer Anzeige stehen. Gemessen ueber 2.271 Anzeigen: die
+  laengste hat 11.741 Zeichen, und bei 29,5 % der langen Anzeigen
+  beginnt der Anforderungsteil erst hinter der alten Grenze.
+- **Die Antwort sagt jetzt, was sie liefert.** Gesamtlaenge und
+  geliefertes Stueck stehen immer dabei. Passt ein Text wirklich nicht
+  in eine Antwort (eine Seite, die ihr Menue mitliefert), steht das da
+  samt Weg zum Rest — statt still abzuschneiden.
+- **Nachladen behaelt Kopfdaten.** Standort, Einstiegslevel und
+  Eintrittsdatum standen vor dem Nachladen im Text und fehlten danach.
+  Einstiegslevel ist ein Signal fuer die Senioritaet.
+- **Eine Stelle zu einer abgeschlossenen Bewerbung wird benannt
+  (#1065).** Wer eine Stelle von Hand anlegt, auf die er sich schon
+  einmal beworben hat und abgelehnt wurde, bekam keinen Hinweis — die
+  Stelle stand als neu in der Liste. Sie wird weiterhin angelegt (eine
+  Neuausschreibung kann eine zweite Chance sein), aber mit Bewerbungs-ID,
+  Status und Datum daneben. Eine ANDERE Stelle bei derselben Firma bleibt
+  wie bisher ohne Hinweis.
+- **Anlegen und Aussortieren sind sich jetzt einig.** Dieselbe Stelle
+  bekam zwei verschiedene Antworten auf die Frage, ob sie ein Duplikat
+  ist — beide Wege rechneten nach eigenen Regeln.
+- **Monster ist entfernt (#1066).** Die Quelle war seit Februar als
+  veraltet markiert und wurde trotzdem weiter angeboten: mit Konto-Link,
+  eigenem Zeitbudget und einem kopierbaren Prompt fuer Claude. monster.de
+  leitet auf die US-Seite um, dort gibt es keine deutschen Stellen mehr,
+  und ein Profil dort wird US-Arbeitgebern gezeigt. Wer die Quelle
+  ausgewaehlt hatte, verliert den Haken und bekommt einmalig einen
+  Hinweis mit Grund und Ersatz. Bereits gefundene Stellen bleiben
+  unveraendert.
+- **Die Google-Jobs-Auswertung findet wieder Stellen (#1067).** Das
+  mitgelieferte Skript suchte nach Merkmalen vom Mai 2026; Google hat sie
+  geaendert. Es fand zuletzt nur noch die Suchreiter der Seite — und gab
+  sie als 13 Stellen namens "KI-Modus", "Bilder", "News" aus, ohne
+  Fehler. Jetzt am sichtbaren Text verankert, samt Ursprungsportal je
+  Treffer. Findet es nur Navigation, meldet es einen Fehler statt einer
+  falschen Liste.
+- **Die Update-Pruefung steht nicht mehr auf einem Bein (#1069).** Sie
+  fragte ausschliesslich GitHub. Faellt die Quelle weg, blieb die Anzeige
+  stumm: dauerhaft "aktuell", ohne dass jemand merkt, dass gar nicht mehr
+  nachgesehen wird. Jetzt mehrere Quellen nacheinander, konfigurierbar,
+  und wenn keine antwortet, steht das da.
+
+### Changed
+
+- **Eine Version der falschen Linie gilt nicht mehr als Update.** Wer auf
+  1.7 sitzt, bekommt keine 1.8-Beta angeboten.
+
+### Known Issues
+
+- Der Link je Google-Jobs-Treffer ist nicht am echten Google nachgemessen.
+- Das Dashboard zeigt "Stand unbekannt" der Update-Pruefung noch nicht an.
+
+4888 automatische Tests.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.122.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.122.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.121] - 2026-09-18 — Die Ernte kommt an
 
 Ein Versuch, sich einen Schwellenwert vorschlagen zu lassen, und drei
