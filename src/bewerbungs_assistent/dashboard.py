@@ -7240,45 +7240,85 @@ async def api_get_logs(lines: int = 100):
 
 # === Update Check (v1.4.0, #286) ===
 
-_update_cache = {"ts": 0, "data": None}
+_update_cache = {"ts": 0, "data": None, "pause_s": 3600}
 
 @app.get("/api/update-check")
 async def api_update_check():
-    """Check GitHub for newer PBP releases (cached 1h)."""
+    """Gibt es eine neue Version? (#286, v1.7.122 #1069)
+
+    Fragt die konfigurierten Quellen der Reihe nach. Antwortet keine,
+    steht `stand: "unbekannt"` in der Antwort — bis v1.7.121 kam dann
+    ein stilles "aktuell", und niemand merkte, dass die Pruefung gar
+    nicht mehr stattfand.
+    """
     import time
+    from datetime import datetime, timezone
+
     from . import __version__
+    from .services import update_quelle as _uq
 
     now = time.time()
-    if _update_cache["data"] and now - _update_cache["ts"] < 3600:
+    if _update_cache["data"] and now - _update_cache["ts"] < _update_cache.get(
+            "pause_s", 3600):
         return _update_cache["data"]
 
-    result = {"current_version": __version__, "latest_version": __version__,
-              "update_available": False, "release_url": None}
-    try:
-        import httpx
-        from packaging.version import Version
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(
-                "https://api.github.com/repos/MadGapun/PBP/releases/latest",
-                headers={"Accept": "application/vnd.github.v3+json"},
-            )
-            if resp.status_code == 200:
-                data = resp.json()
-                latest = data.get("tag_name", "").lstrip("v")
-                if latest:
-                    try:
-                        is_newer = Version(latest) > Version(__version__)
-                    except Exception:
-                        is_newer = latest != __version__
-                    if is_newer:
-                        result["latest_version"] = latest
-                        result["update_available"] = True
-                        result["release_url"] = data.get("html_url")
-                        result["release_name"] = data.get("name", "")
-    except Exception as exc:
-        logger.debug("update check failed: %s", exc)
+    linie = _uq.linie_von(__version__)
+    result = {
+        "current_version": __version__,
+        "latest_version": __version__,
+        "update_available": False,
+        "release_url": None,
+        "linie": linie,
+        "stand": "unbekannt",
+        "geprueft_am": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "quellen_versucht": [],
+    }
+    pause_s = _uq.STANDARD_PAUSE_S
+    for quelle in _uq.quellen(_db):
+        versuch = {"name": quelle.get("name") or quelle["art"]}
+        try:
+            import httpx
+            url = quelle["url"]
+            if quelle["art"] != "github" and linie:
+                url += ("&" if "?" in url else "?") + f"linie={linie}"
+            kopf = ({"Accept": "application/vnd.github.v3+json"}
+                    if quelle["art"] == "github" else {})
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(url, headers=kopf)
+            versuch["status"] = resp.status_code
+            if resp.status_code != 200:
+                result["quellen_versucht"].append(versuch)
+                continue
+            befund = _uq.auswerten(quelle["art"], resp.json(),
+                                   __version__, linie)
+        except Exception as exc:
+            versuch["fehler"] = str(exc)[:120]
+            result["quellen_versucht"].append(versuch)
+            logger.debug("Update-Quelle %s: %s", versuch["name"], exc)
+            continue
+        if not befund:
+            versuch["ergebnis"] = "nichts_passendes"
+            result["quellen_versucht"].append(versuch)
+            continue
+        versuch["ergebnis"] = befund["version"]
+        result["quellen_versucht"].append(versuch)
+        result["stand"] = "geprueft"
+        result["quelle"] = versuch["name"]
+        pause_s = befund["pause_s"]
+        if _uq.ist_neuer(befund["version"], __version__):
+            result["latest_version"] = befund["version"]
+            result["update_available"] = True
+            result["release_url"] = befund["url"]
+            result["release_name"] = befund["name"]
+        break
+
+    if result["stand"] == "unbekannt":
+        result["hinweis"] = (
+            "Keine Update-Quelle hat geantwortet. Ob es eine neue Version "
+            "gibt, ist damit UNBEKANNT — nicht 'alles aktuell'.")
 
     _update_cache["ts"] = now
+    _update_cache["pause_s"] = pause_s
     _update_cache["data"] = result
     return result
 
