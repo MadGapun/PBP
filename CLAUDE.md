@@ -170,6 +170,21 @@ Platzhalter-Nummer `01234-56789-10` in #1026. **Vor dem Loeschen jeden
 Fund einzeln ansehen** — der Sweep meldet ohne Namen, und eine
 geloeschte Nummer kommt nicht wieder.
 
+(15) **Und danach den Pruefer angepasst, statt die Fehlalarme zu
+verwalten (#1078, A37, nur main — Werkzeug, kein Release).** Ein
+Quellenname in Grossschreibung gilt je VORKOMMEN als Quelle, wenn eine
+weitere Quelle danebensteht, ein Wort wie "Quelle"/"Portal" davor oder
+ein technisches Kompositum dahinter — und bleibt ein Fund, sobald
+Bewerbung, Interview, Absage oder Recruiterin in der Naehe stehen. Acht
+aufsteigende Ziffern machen eine Rufnummer zum Platzhalter. **Die
+Guard-Tests aus v1.7.25 lebten selbst von einer Platzhalter-Nummer**
+(`+49 40 123456789`) und wurden rot, sobald die Regel griff; ihr
+Ausloeser ist jetzt `0100 ...`, eine Verbindungsnetz-Vorwahl, die keine
+echte Anschlussnummer sein kann. Testnummern in einer echten Vorwahl
+waeren selbst ein PII-Risiko im Repository. Gegenprobe neun
+Mechanismen, neunmal rot; der Sweep ueber 913 Artefakte ist danach
+sauber.
+
 ## Stand 2026-09-21 (v1.7.125 Stable) — Drei Angaben statt eines Schluessels
 
 **#1070** (B61), Nutzerbericht vom 21.09.2026. **Tests: 4948.**

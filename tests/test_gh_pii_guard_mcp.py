@@ -30,7 +30,9 @@ GUARD = Path(__file__).resolve().parents[1] / "scripts" / "gh_pii_guard.py"
 
 # Generische PII, die der Pruefer unabhaengig von jeder Firmenliste
 # findet — damit dieser Test keine realen Namen ins Repo traegt.
-MIT_PII = "Rueckfragen bitte an +49 40 123456789."
+# #1078: 0100 ist eine Verbindungsnetz-Vorwahl, keine Teilnehmernummer,
+# und ohne aufsteigende Folge (die gilt seit #1078 als Platzhalter).
+MIT_PII = "Rueckfragen bitte an 0100 7381922."
 OHNE_PII = "Die Musterfirma GmbH dient hier als Platzhalter."
 
 

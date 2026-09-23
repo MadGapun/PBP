@@ -430,7 +430,11 @@ def _ist_fiktive_nummer(wert: str) -> bool:
     for vorwahl_laenge in range(3, 7):
         if len(ziffern) > vorwahl_laenge and ziffern[vorwahl_laenge:].startswith("555"):
             return True
-    return False
+    # #1078: die zweite uebliche Platzhalterform ist die aufsteigende
+    # Ziffernfolge (`01234-56789`, `0123 456789`). Acht aufsteigende
+    # Ziffern in Folge traegt keine echte Rufnummer; eine kuerzere Folge
+    # wie `12345` kommt in echten Nummern dagegen vor und bleibt ein Fund.
+    return "12345678" in ziffern
 
 
 def _in_inline_code(text: str, start: int, ende: int) -> bool:
@@ -525,6 +529,54 @@ def _ist_quellen_key(treffer: str) -> bool:
     return roh.islower() and roh.replace("-", "_") in _QUELLEN_KEYS
 
 
+# #1078: eine Quelle in Grossschreibung ist nicht automatisch
+# Bewerbungshistorie. Der Sweep meldete sie woechentlich in Aufzaehlungen
+# wie "GULP, freelance.de und <Quelle>" und in Begriffen wie
+# "<Quelle>-Kappung" — beides Rede ueber die QUELLE. Entschieden wird je
+# Vorkommen am Zusammenhang, und ein Bewerbungsbezug in der Naehe
+# schlaegt ihn: "ueber <Quelle> beworben" bleibt ein Fund.
+_QUELLEN_NAMEN = frozenset(
+    {k.replace("_de", ".de").replace("_", " ") for k in _QUELLEN_KEYS}
+    | {k.split("_")[0] for k in _QUELLEN_KEYS}
+    | {"freelance.de", "ingenieur.de", "praktikum.de", "stellenanzeigen.de",
+       "google jobs", "heise jobs"}
+)
+_QUELLEN_WORT_DAVOR_RE = re.compile(
+    r"\b(?:quellen?|portale?|jobb(?:oe|ö)rsen?|adapter|scraper)\b[^.\n]{0,40}$",
+    re.IGNORECASE)
+_QUELLEN_KOMPOSITUM_RE = re.compile(
+    r"^-(?:kappung|adapter|quelle|stellen|treffer|suche|scraper|lauf|seite|"
+    r"api|feed|probe|key|text|texte|anzeigen)\b", re.IGNORECASE)
+_BEWERBUNGSBEZUG_RE = re.compile(
+    r"\b(?:beworben|bewerbung\w*|interview\w*|vorstellungsgespr\w*|absage\w*|"
+    r"zusage\w*|recruiter\w*|ansprechpartner\w*|angebot\w*|abgelehnt)\b",
+    re.IGNORECASE)
+_FENSTER = 80
+
+
+def _ist_quellen_kontext(text: str, start: int, ende: int) -> bool:
+    """True, wenn DIESES Vorkommen erkennbar ueber eine Quelle spricht."""
+    vorher = text[max(0, start - _FENSTER):start]
+    nachher = text[ende:ende + _FENSTER]
+    # Nur innerhalb des Satzes bzw. Absatzes suchen
+    vorher = re.split(r"[.!?]\s|\n\s*\n", vorher)[-1]
+    nachher = re.split(r"[.!?]\s|\n\s*\n", nachher)[0]
+    if _BEWERBUNGSBEZUG_RE.search(vorher) or _BEWERBUNGSBEZUG_RE.search(nachher):
+        return False
+    if _QUELLEN_KOMPOSITUM_RE.match(nachher):
+        return True
+    if _QUELLEN_WORT_DAVOR_RE.search(vorher):
+        return True
+    eigener = text[start:ende].lower()
+    umgebung = (vorher + " " + nachher).lower()
+    for name in _QUELLEN_NAMEN:
+        if name == eigener or len(name) < 4:
+            continue
+        if re.search(r"(?<![\w.])" + re.escape(name) + r"(?![\w])", umgebung):
+            return True
+    return False
+
+
 def find_pii(text: str) -> list[str]:
     """Liefert eine Liste der gefundenen PII-Treffer (zur Anzeige)."""
     if not text:
@@ -537,10 +589,19 @@ def find_pii(text: str) -> list[str]:
         for m in set(p.findall(text)):
             hits.append(f"PERSON: {m}")
     for p in _FIRMA_PATTERNS:
-        for m in set(p.findall(text)):
-            label = m if isinstance(m, str) else " ".join(filter(None, m))
+        gemeldet: set[str] = set()
+        for m in p.finditer(text):
+            gruppen = m.groups()
+            label = " ".join(filter(None, gruppen)) if gruppen else m.group(0)
+            if label in gemeldet:
+                continue
             if _ist_quellen_key(label) or _ist_quellen_klasse(label, text):
                 continue  # technischer Quellen-Key, DoD-9-Ausnahme
+            # #1078: je Vorkommen — eines ausserhalb reicht fuer den Fund
+            if (label.lower().replace(" ", "_") in _QUELLEN_KEYS
+                    and _ist_quellen_kontext(text, m.start(), m.end())):
+                continue
+            gemeldet.add(label)
             hits.append(f"FIRMA: {label}")
     for m in set(_GERMAN_CORP_RE.findall(text)):
         label = m if isinstance(m, str) else " ".join(filter(None, m))
