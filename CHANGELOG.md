@@ -68,7 +68,11 @@ Einordnung aus v1.7.125.
   Leerfeld, und das Zusammenfuehren haengt **alle** Bezuege um —
   Verknuepfungen zu Bewerbungen, Fundstellen und Kontakt-Verweise
   zeigten vorher weiter auf die geloeschte Stelle. Die Vorschau nennt,
-  was ohne Rueckfrage uebernommen wird.
+  was ohne Rueckfrage uebernommen wird. Und nach einem zweiten Beleg: ein
+  **geschaetztes** Gehalt des Duplikats wird nie ohne Rueckfrage
+  uebernommen — es stand sonst an einer Stelle mit laufender Bewerbung
+  und sah aus wie eine Angabe des Vermittlers, weil das
+  Schaetz-Kennzeichen gar nicht mitging.
 - **Die Einordnung liest das Ziel, nicht nur den Lebenslauf** (#1074,
   Folge von v1.7.125). Ein Quereinsteiger aus dem Einzelhandel, der
   Sachbearbeitung sucht, bekam Feld Handel, Niveau Experte und Form
@@ -108,7 +112,11 @@ Einordnung aus v1.7.125.
 - **Hinweis auf umbenannte Reposts und Vermittler-Bewerbungen** (#1076).
   Beim Anlegen vergleicht PBP den Anzeigentext mit Stellen derselben
   Firma — ohne Firmen-Textbausteine, die in mehreren Anzeigen stehen —
-  und meldet ab 50 % Uebereinstimmung einen moeglichen Repost. Eine
+  und meldet ab 50 % Uebereinstimmung einen moeglichen Repost. Ein
+  Portal-Vorspann wie „Freelancer Opportunity -“ zaehlt nicht mehr zum
+  Titel, und eine laufende Bewerbung wird auch dann gemeldet, wenn sie
+  eine andere URL traegt — mit derselben Regel, mit der `fit_analyse`
+  den Fall schon fand. Eine
   laufende Bewerbung ueber einen Vermittler, die diese Firma als
   Endkunden nennt, wird ebenfalls gemeldet. Beides blockt nicht. Der
   LinkedIn-Trichter nimmt die Zahl der gelesenen und verworfenen

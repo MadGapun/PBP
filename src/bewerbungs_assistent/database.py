@@ -8658,6 +8658,13 @@ class Database:
         # v1.7.126 (#1077): was aus dem Ort abgeleitet ist.
         ortsfelder = ("distance_km", "lat", "lon", "fahrstrecke_km",
                       "fahrzeit_min", "route_quelle", "entfernung_quelle")
+        # #1077 (zweiter Beleg): eine GESCHAETZTE Gehaltsspanne des
+        # Duplikats wanderte an eine Stelle mit laufender Bewerbung — und
+        # weil `salary_estimated` gar nicht mitging, stand sie dort als
+        # BELEGT. Eine Schaetzung wird nie ohne Rueckfrage uebernommen.
+        gehaltsfelder = ("salary_min", "salary_max", "salary_type",
+                         "salary_info")
+        dup_geschaetzt = bool(duplicate_d.get("salary_estimated"))
         null_ist_wert = {"distance_km", "lat", "lon", "fahrstrecke_km",
                          "fahrzeit_min"}
 
@@ -8688,6 +8695,13 @@ class Database:
                     and strategy.get(f) != "duplikat"):
                 feld_entscheidungen[f] = {
                     "vorher": mv, "nachher": mv, "quelle": "master_ort",
+                }
+                continue
+            if (f in gehaltsfelder and dup_geschaetzt and not mv_filled
+                    and dv_filled and strategy.get(f) != "duplikat"):
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": mv,
+                    "quelle": "duplikat_geschaetzt_nicht_uebernommen",
                 }
                 continue
             if not mv_filled and dv_filled and strategy.get(f) == "master":
@@ -8728,6 +8742,14 @@ class Database:
                     "vorher": mv, "nachher": mv, "quelle": "master",
                 }
 
+        # #1077: kommt das Gehalt vom Duplikat, kommen seine Herkunft und
+        # sein Schaetz-Kennzeichen mit — sonst stuende eine Schaetzung als
+        # Beleg da, oder ein Beleg als Schaetzung.
+        if any(f in new_values for f in ("salary_min", "salary_max")):
+            for f in ("salary_estimated", "salary_quelle", "salary_type"):
+                if f in duplicate_d and f not in new_values:
+                    new_values[f] = duplicate_d.get(f)
+
         # Referenzen suchen
         pid = self.get_active_profile_id()
         # #1077: Bewerbungen tragen den Hash in beiden Formen (v1.7.56
@@ -8762,6 +8784,9 @@ class Database:
         automatisch = sorted(
             f for f, e in feld_entscheidungen.items()
             if e["quelle"] == "duplikat_auto")
+        geschaetzt_liegen_lassen = sorted(
+            f for f, e in feld_entscheidungen.items()
+            if e["quelle"] == "duplikat_geschaetzt_nicht_uebernommen")
 
         plan = {
             "status": "vorschau" if dry_run else "ok",
@@ -8790,6 +8815,14 @@ class Database:
                     "Diese Felder sind im Master leer und werden aus dem "
                     "Duplikat uebernommen. Soll ein Feld leer bleiben: "
                     "feld_strategie={'<feld>': 'master'}."),
+            }
+        if geschaetzt_liegen_lassen:
+            plan["geschaetzt_nicht_uebernommen"] = {
+                "felder": geschaetzt_liegen_lassen,
+                "hinweis": (
+                    "Das Gehalt des Duplikats ist eine Schaetzung und wird "
+                    "nicht uebernommen. Wer es trotzdem will: "
+                    "feld_strategie={'salary_min': 'duplikat', ...}."),
             }
 
         if dry_run:

@@ -3117,6 +3117,7 @@ def register(mcp, db, logger):
         # Endkunde ist. Beides wird gemeldet, nicht geblockt.
         repost_verdacht = None
         vermittler_bewerbung = None
+        laufende_bewerbung_verdacht = None
         try:
             from ..duplicate_detection import (
                 find_inhalt_repost, find_vermittler_bewerbung)
@@ -3141,6 +3142,28 @@ def register(mcp, db, logger):
                         "Titel geaendert, Anzeigentext weitgehend gleich. "
                         "Gleiche Vakanz? Dann stelle_mergen()."),
                 }
+            # Zweiter Fall aus #1076: Stufe A vergleicht MIT URL, und bei
+            # abweichender URL gilt die strenge Schwelle aus #670. Die
+            # Repost-Erkennung in `fit_analyse` vergleicht ohne URL — und
+            # meldete deshalb gleich danach, was die Anlage uebersah.
+            # Dieselbe Frage, dieselbe Regel: hier als Hinweis, denn
+            # Stufe A blockt, und das soll sie nur bei der strengen Regel.
+            if not uebersteuerter_verdacht:
+                _lb = find_duplicate_job(firma, titel, "", running_apps)
+                if _lb:
+                    _app = _lb["job"]
+                    laufende_bewerbung_verdacht = {
+                        "bewerbung_id": (_app.get("id") or "")[:8],
+                        "titel": _app.get("title") or "",
+                        "firma": _app.get("company") or "",
+                        "status": _app.get("status") or "",
+                        "grund": _lb["grund"],
+                        "hinweis": (
+                            f"Laufende Bewerbung {(_app.get('id') or '')[:8]} "
+                            f"('{_app.get('title')}') passt zu dieser Stelle. "
+                            "Gleiche Vakanz, neu ausgeschrieben? Dann "
+                            "stelle_mergen() statt einer zweiten Stelle."),
+                    }
             _vb = find_vermittler_bewerbung(firma, running_apps)
             if _vb:
                 vermittler_bewerbung = {
@@ -3268,6 +3291,9 @@ def register(mcp, db, logger):
         if vermittler_bewerbung:
             result["vermittler_bewerbung"] = vermittler_bewerbung
             result.setdefault("warnung", "vermittler_bewerbung")
+        if laufende_bewerbung_verdacht:
+            result["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
+            result.setdefault("warnung", "laufende_bewerbung_verdacht")
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -3628,6 +3654,8 @@ def register(mcp, db, logger):
                 for _schl, _feld in (
                         ("repost_verdacht", "repost_verdacht"),
                         ("vermittler_bewerbung", "vermittler_bewerbung"),
+                        ("laufende_bewerbung_verdacht",
+                         "laufende_bewerbung_verdacht"),
                         ("wiedergaenger_bewerbung", "bewerbung_vorher")):
                     if res.get(_feld):
                         _eintrag[_schl] = res[_feld]

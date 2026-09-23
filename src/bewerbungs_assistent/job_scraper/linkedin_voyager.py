@@ -271,6 +271,7 @@ def trichter_text(trichter: dict) -> str:
     hinweise = [f"{name} {t[k]}" for k, name in (
         ("repost_verdacht", "Repost-Verdacht"),
         ("vermittler_bewerbung", "Vermittler-Bewerbung"),
+        ("laufende_bewerbung_verdacht", "laufende Bewerbung"),
         ("wiedergaenger_bewerbung", "schon beworben"),
     ) if t.get(k)]
     if hinweise:

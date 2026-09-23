@@ -82,11 +82,28 @@ def normalize_company_name(name: Optional[str]) -> str:
     return n
 
 
+#: v1.7.126 (#1076, zweiter Fall): Portale setzen einen Vorspann vor den
+#: Titel. "Freelancer Opportunity - Senior Engineering Data Management"
+#: gegen denselben Titel ohne Vorspann ergab 0,71 — unter der Schwelle
+#: fuer verschiedene URLs (0,85). Verlangt wird ein Trenner MIT
+#: Leerzeichen davor, damit "Projekt- und Qualitaetsmanager" bleibt.
+_PORTAL_VORSPANN = re.compile(
+    r"^\s*(?:freelancer?\s+opportunity|freelance\s+(?:projekt|project|job)"
+    r"|job(?:angebot)?|stellenangebot|projekt|project|position|remote\s+job)"
+    r"(?:\s+[-–—|]\s+|\s*:\s*)",
+    re.IGNORECASE)
+
+
+def ohne_portal_vorspann(title: Optional[str]) -> str:
+    """Titel ohne Vorspann wie "Job:" oder "Freelancer Opportunity -"."""
+    return _PORTAL_VORSPANN.sub("", title or "", count=1)
+
+
 def _title_tokens(title: Optional[str]) -> set[str]:
     """Titel in vergleichbare Tokens zerlegen (ohne Stopwords, ohne Gender-Suffixe)."""
     if not title:
         return set()
-    t = title.lower()
+    t = ohne_portal_vorspann(title).lower()
     # Gender/Genus Suffixe entfernen
     t = re.sub(r"\(?\s*m\s*[/|]\s*w\s*[/|]?\s*d?\s*\)?", " ", t)
     # Alle Nicht-Wort-Zeichen -> Space

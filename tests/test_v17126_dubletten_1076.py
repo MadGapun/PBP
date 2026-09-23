@@ -233,3 +233,36 @@ def test_1076_linkedin_trichter_zaehlt_angelegte_mit_hinweis(env):
     assert "10 Volltexte gelesen" in res["trichter_text"]
     assert "Repost-Verdacht 1" in res["trichter_text"]
     assert res["angelegt"][0]["repost_verdacht"]
+
+
+# ===== Zweiter Fall (Nachtrag vom 23.09.2026) ============================
+
+def test_1076_portal_vorspann_zaehlt_nicht_zum_titel():
+    from bewerbungs_assistent.duplicate_detection import (
+        _title_similarity, ohne_portal_vorspann)
+    neu = ("Freelancer Opportunity - Senior Engineering Data Management & "
+           "eBOM Consultant (m/f/d)")
+    alt = "Senior Engineering Data Management & eBOM Consultant (m/f/d)"
+    assert _title_similarity(neu, alt)[0] == 1.0
+    assert ohne_portal_vorspann("Job: PLM Berater") == "PLM Berater"
+    # Die Gegenrichtung: ein Bindestrich im Wort ist kein Vorspann.
+    assert ohne_portal_vorspann("Projekt- und Qualitaetsmanager") == \
+        "Projekt- und Qualitaetsmanager"
+    assert ohne_portal_vorspann("Projektleiter Bau") == "Projektleiter Bau"
+
+
+def test_1076_laufende_bewerbung_mit_anderer_url_wird_gemeldet(env):
+    """Stufe A vergleicht mit URL und verlangt dann 0,85. Die
+    Repost-Erkennung in `fit_analyse` vergleicht ohne URL — dieselbe Frage
+    kommt jetzt auch bei der Anlage an, als Hinweis."""
+    db, mcp = env
+    db.add_application({
+        "title": "Engineering Data Management Consultant eBOM",
+        "company": "Musterwerk Bravo AG (Endkunde unbekannt)",
+        "status": "beworben", "url": "https://example.com/mail-anfrage"})
+    res = _call(mcp, "stelle_manuell_anlegen", {
+        "titel": "Senior Engineering Data Management Consultant",
+        "firma": "Musterwerk Bravo", "url": "https://example.com/li1076",
+        "beschreibung": AUFGABEN})
+    assert res["status"] == "angelegt"
+    assert res["laufende_bewerbung_verdacht"]["status"] == "beworben"

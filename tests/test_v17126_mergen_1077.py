@@ -248,3 +248,43 @@ def test_1077_kontaktverweise_wandern_zum_master(zwei):
         "SELECT target_id FROM contact_links WHERE contact_id=? "
         "AND target_kind='job'", (cid,)).fetchall()
     assert [r["target_id"] for r in ziel] == [db.resolve_job_hash(MASTER["hash"])]
+
+
+# ===== Zweiter Beleg: geschaetztes Gehalt ================================
+
+def _gehalt(db, h, mn, mx, geschaetzt):
+    conn = db.connect()
+    conn.execute("UPDATE jobs SET salary_min=?, salary_max=?, salary_type=?, "
+                 "salary_estimated=? WHERE hash=?",
+                 (mn, mx, "taeglich", 1 if geschaetzt else 0,
+                  db.resolve_job_hash(h)))
+    conn.commit()
+
+
+def test_1077_eine_schaetzung_wird_nie_automatisch_uebernommen(zwei):
+    db = zwei
+    _gehalt(db, DUPLIKAT["hash"], 810, 1260, geschaetzt=True)
+    plan = db.merge_jobs(MASTER["hash"], DUPLIKAT["hash"], dry_run=False)
+    assert "salary_min" in plan["geschaetzt_nicht_uebernommen"]["felder"]
+    m = _job(db, MASTER["hash"])
+    assert m["salary_min"] in (None, 0)
+
+
+def test_1077_ein_belegtes_gehalt_kommt_mit_seinem_kennzeichen(zwei):
+    db = zwei
+    _gehalt(db, DUPLIKAT["hash"], 700, 900, geschaetzt=False)
+    db.merge_jobs(MASTER["hash"], DUPLIKAT["hash"], dry_run=False)
+    m = _job(db, MASTER["hash"])
+    assert (m["salary_min"], m["salary_max"]) == (700, 900)
+    assert not m["salary_estimated"]
+
+
+def test_1077_ausdruecklich_gewaehlte_schaetzung_bleibt_eine(zwei):
+    """Wer die Schaetzung will, bekommt sie — als Schaetzung markiert."""
+    db = zwei
+    _gehalt(db, DUPLIKAT["hash"], 810, 1260, geschaetzt=True)
+    db.merge_jobs(MASTER["hash"], DUPLIKAT["hash"], dry_run=False,
+                  field_strategy={"salary_min": "duplikat",
+                                  "salary_max": "duplikat"})
+    m = _job(db, MASTER["hash"])
+    assert m["salary_min"] == 810 and m["salary_estimated"]
