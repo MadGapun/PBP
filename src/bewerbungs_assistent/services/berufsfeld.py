@@ -528,26 +528,123 @@ def _niveau_bestimmen(titel: str, text: str, jahre: int) -> dict:
     return {"niveau": "unbekannt", "beleg": "keiner", "begriffe": []}
 
 
+#: Wie lange eine beendete Station noch als "aktuell" gilt (#1074).
+AKTUELL_JAHRE = 2
+
+_PRAEFERENZ_FORM = {
+    "festanstellung": "festanstellung", "fest": "festanstellung",
+    "freelance": "freiberuflich", "freiberuflich": "freiberuflich",
+    "selbststaendig": "freiberuflich", "selbstaendig": "freiberuflich",
+}
+
+_POSITION_FORM = {
+    "festanstellung": "festanstellung", "angestellt": "festanstellung",
+    "freelance": "freiberuflich", "freiberuflich": "freiberuflich",
+    "selbststaendig": "freiberuflich", "selbstaendig": "freiberuflich",
+    "werkstudent": "werkstudent", "praktikum": "praktikum",
+    "ausbildung": "praktikum",
+}
+
+
+def aktuelle_positionen(positions: list) -> list:
+    """Stationen, die laufen oder vor hoechstens AKTUELL_JAHRE endeten (#1074).
+
+    Eine Selbstaendigkeit, die 2018 endete, sagt nichts darueber, in
+    welcher Form jemand 2026 arbeiten will — sie schlug aber sieben Jahre
+    Festanstellung, weil die Einordnung den ganzen Lebenslauf las.
+    """
+    from datetime import datetime
+    grenze = datetime.now().year - AKTUELL_JAHRE
+    aus = []
+    for p in positions or []:
+        ende = str(p.get("end_date") or "")[:4]
+        if p.get("is_current") or not ende.isdigit() or int(ende) >= grenze:
+            aus.append(p)
+    return aus
+
+
 def _form_bestimmen(profile: dict, text: str, jahre: int) -> dict:
-    """Beschaeftigungsform. Mehrfachnennung ist moeglich und normal."""
+    """Beschaeftigungsform. Mehrfachnennung ist moeglich und normal.
+
+    #1074: die Reihenfolge der Belege ist eine Rangfolge. Erst was der
+    Mensch WILL (Praeferenz `stellentyp`), dann wie er JETZT arbeitet
+    (Anstellungsart und Titel der aktuellen Stationen), dann die
+    Ausbildung. Beendete Stationen zaehlen nicht. `beides` ist die
+    Vorgabe des Erfassungsbogens und damit keine Aussage.
+    """
+    prefs = profile.get("preferences") or {}
+    if isinstance(prefs, str):
+        import json
+        try:
+            prefs = json.loads(prefs) or {}
+        except ValueError:
+            prefs = {}
+    wunsch = _PRAEFERENZ_FORM.get(
+        str(prefs.get("stellentyp") or "").strip().lower())
+
     gefunden: list[str] = []
-    if treffer(text, _FREIBERUFLICH_BEGRIFFE):
-        gefunden.append("freiberuflich")
-    if treffer(text, _WERKSTUDENT_BEGRIFFE):
-        gefunden.append("werkstudent")
-    if treffer(text, _PRAKTIKUM_BEGRIFFE):
-        gefunden.append("praktikum")
+    beleg = "keiner"
+    if wunsch:
+        gefunden.append(wunsch)
+        beleg = "praeferenz"
+
+    aktuell = aktuelle_positionen(profile.get("positions") or [])
+    aus_stationen: list[str] = []
+    for pos in aktuell:
+        art = _POSITION_FORM.get(
+            str(pos.get("employment_type") or "").strip().lower())
+        if art:
+            aus_stationen.append(art)
+    aktueller_text = " ".join(
+        f"{p.get('title') or ''} {(p.get('description') or '')[:200]}"
+        for p in aktuell) + " " + (profile.get("summary") or "")
+    if treffer(aktueller_text, _FREIBERUFLICH_BEGRIFFE):
+        aus_stationen.append("freiberuflich")
+    if treffer(aktueller_text, _WERKSTUDENT_BEGRIFFE):
+        aus_stationen.append("werkstudent")
+    if treffer(aktueller_text, _PRAKTIKUM_BEGRIFFE):
+        aus_stationen.append("praktikum")
+    if not wunsch:
+        for art in aus_stationen:
+            if art not in gefunden:
+                gefunden.append(art)
+        if gefunden:
+            beleg = "aktuelle_stationen"
+    # Ein laufendes Studium gilt immer — auch neben einer Praeferenz.
     if laeuft_studium(profile) and jahre <= 3 and "werkstudent" not in gefunden:
         gefunden.append("werkstudent")
+        if beleg == "keiner":
+            beleg = "ausbildung"
     if not gefunden:
         # Ohne jeden Hinweis ist eine Festanstellung die haeufigste Form,
-        # aber sie ist GERATEN — deshalb `unbekannt` und nicht
-        # `festanstellung` (#989).
+        # aber sie ist GERATEN — deshalb `unbekannt` (#989).
         return {"form": "unbekannt", "alle": [], "beleg": "keiner"}
-    return {"form": gefunden[0], "alle": gefunden, "beleg": "titel"}
+    # Eine Festanstellung neben einer anderen Form schaltet keine Quellen;
+    # die spezifische Form steht deshalb vorn.
+    gefunden.sort(key=lambda f: f == "festanstellung")
+    return {"form": gefunden[0], "alle": gefunden, "beleg": beleg}
 
 
-def einordnen(profile: Optional[dict]) -> dict:
+def _zieltext(profile: dict, suchbegriffe=None) -> str:
+    """Was der Mensch SUCHT, nicht was er war (#1074).
+
+    Kurzprofil, aktive Jobtitel-Vorschlaege und die MUSS-Suchbegriffe.
+    Die persoenlichen Notizen bleiben bewusst draussen: dort steht
+    "KEIN Vertrieb" genauso wie "Vertrieb", und eine Verneinung erkennt
+    eine Begriffsliste nicht.
+    """
+    teile = [profile.get("summary") or ""]
+    for jt in profile.get("suggested_job_titles") or []:
+        if isinstance(jt, dict):
+            if jt.get("is_active", 1):
+                teile.append(jt.get("title") or "")
+        else:
+            teile.append(str(jt))
+    teile.extend(str(b) for b in (suchbegriffe or []))
+    return " ".join(t for t in teile if t)
+
+
+def einordnen(profile: Optional[dict], suchbegriffe=None) -> dict:
     """Ordnet ein Profil in Feld, Niveau und Form ein.
 
     Rueckgabe:
@@ -559,7 +656,14 @@ def einordnen(profile: Optional[dict]) -> dict:
           "berufsjahre": 12,
           "mehrfach": True,     # mehr als ein Feld getroffen
           "unsicher": True,     # kein Feld getroffen
+          "feld_beleg": "ziel" | "lebenslauf" | "keiner",
+          "quereinstieg": True, # Ziel-Feld weicht vom Lebenslauf ab
         }
+
+    #1074: das ZIEL geht vor der Herkunft. Die Einordnung steuert, wo PBP
+    sucht — fuer einen Quereinsteiger ist das Feld, aus dem er heraus
+    will, die falsche Antwort. `suchbegriffe` sind die MUSS-Begriffe;
+    Kurzprofil und Jobtitel stehen im Profil selbst.
     """
     if not profile:
         return {
@@ -569,6 +673,8 @@ def einordnen(profile: Optional[dict]) -> dict:
             "niveau_beleg": "keiner", "niveau_begriffe": [],
             "form": "unbekannt", "formen": [], "form_beleg": "keiner",
             "berufsjahre": 0, "mehrfach": False, "unsicher": True,
+            "feld_beleg": "keiner", "lebenslauf_feld": None,
+            "quereinstieg": False,
         }
 
     positions = profile.get("positions") or []
@@ -576,8 +682,48 @@ def einordnen(profile: Optional[dict]) -> dict:
     titel = (positions[0].get("title") if positions else "") or ""
     jahre = berufsjahre(positions)
 
-    feld, alle_felder = _feld_bestimmen(text)
+    lebenslauf_feld, alle_felder = _feld_bestimmen(text)
+    ziel = _zieltext(profile, suchbegriffe)
+    ziel_feld, ziel_felder = _feld_bestimmen(ziel)
+    # Das Ziel ueberstimmt den Lebenslauf nur, wenn dessen Feld im Ziel
+    # GAR NICHT vorkommt. Gemessen am 23.09.2026: Kurzprofil und
+    # Jobtitel eines PLM-Beraters tragen "Data", "Engineer" und
+    # "Architect" — fuer sich genommen IT, und eine reine
+    # Mehrheitsregel haette ihn zum Quereinsteiger gemacht. Kommt das
+    # bisherige Feld im Ziel vor, ist es Kontinuitaet, kein Wechsel.
+    if (ziel_feld and lebenslauf_feld
+            and lebenslauf_feld in {e["feld"] for e in ziel_felder}):
+        ziel_feld = lebenslauf_feld
+        ziel_felder = ([e for e in ziel_felder if e["feld"] == lebenslauf_feld]
+                       + [e for e in ziel_felder if e["feld"] != lebenslauf_feld])
+    if ziel_feld:
+        feld, feld_beleg = ziel_feld, "ziel"
+        for e in ziel_felder:
+            e["herkunft"] = "ziel"
+        schon = {e["feld"] for e in ziel_felder}
+        for e in alle_felder:
+            e["herkunft"] = "lebenslauf"
+        alle_felder = ziel_felder + [e for e in alle_felder
+                                     if e["feld"] not in schon]
+    else:
+        feld = lebenslauf_feld
+        feld_beleg = "lebenslauf" if feld else "keiner"
+        for e in alle_felder:
+            e["herkunft"] = "lebenslauf"
+    quereinstieg = bool(ziel_feld and lebenslauf_feld
+                        and ziel_feld != lebenslauf_feld)
+
     niveau = _niveau_bestimmen(titel, text, jahre)
+    if quereinstieg:
+        # #1074: die Stufe gehoert zur Taetigkeit, nicht zur Person. Wer
+        # als Filialleiter Sachbearbeitung sucht, sucht keine
+        # Bereichsleitung. Nennt das ZIEL selbst eine Stufe, gilt sie.
+        ziel_niveau = _niveau_bestimmen(ziel, ziel, jahre)
+        if ziel_niveau["beleg"] == "titel":
+            niveau = dict(ziel_niveau, beleg="ziel")
+        elif niveau["niveau"] in ("spezialist", "experte"):
+            niveau = {"niveau": "fachkraft", "beleg": "quereinstieg",
+                      "begriffe": []}
     form = _form_bestimmen(profile, text, jahre)
 
     return {
@@ -595,6 +741,9 @@ def einordnen(profile: Optional[dict]) -> dict:
         "berufsjahre": jahre,
         "mehrfach": len(alle_felder) > 1,
         "unsicher": feld is None,
+        "feld_beleg": feld_beleg,
+        "lebenslauf_feld": lebenslauf_feld,
+        "quereinstieg": quereinstieg,
     }
 
 

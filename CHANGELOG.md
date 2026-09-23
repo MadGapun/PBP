@@ -33,6 +33,145 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.126] - 2026-09-23 — Was angelegt wird, was gesucht wird, was bleibt
+
+Sieben Meldungen aus zwei Tagen (#1071 bis #1077). Drei davon betreffen
+Daten, die still verlorengingen oder falsch standen; eine betrifft die
+Einordnung aus v1.7.125.
+
+### Fixed
+
+- **`C++`, `C/C++` und Skills mit Klammer-Aufzaehlung werden angelegt**
+  (#1073). Die Pruefung auf Satzfragmente aus der Dokumentenextraktion
+  lief auf jedem Anlageweg und verwarf `C++` (zu viele Sonderzeichen) und
+  `Programmierung (Perl, C++, COBOL, Java, PHP, C#)` (zu viele
+  Leerzeichen). Drei Wege meldeten dabei trotzdem „gespeichert“ mit
+  leerer ID, und `skills_bereinigen` loeschte dieselben Skills im
+  Altbestand. Jetzt gelten fuer eine ausdrueckliche Eingabe nur harte
+  Regeln (leer, URL, Formatierungsreste, reine Ziffern oder
+  Sonderzeichen); die Fragment-Pruefung bleibt der Extraktion
+  vorbehalten, zaehlt Klammerinhalte nicht mehr als Satz und kennt die
+  gaengigen Kurzbezeichner. **Kein Erfolg ohne ID:** jede Abweisung
+  nennt die Regel, die gegriffen hat, `hinzufuegen_bulk` zaehlt
+  angelegt und verworfen getrennt, und `skills_bereinigen` nennt je
+  Kandidat den Grund, bevor etwas geloescht wird.
+- **`profil_bearbeiten(..., aktion='hinzufuegen_bulk')` nimmt eine Liste
+  an.** Das Werkzeug erklaerte `daten` als Objekt; die Liste, die sein
+  eigener Text verspricht, wies das Schema ab, bevor der erste Befehl
+  lief.
+- **`stelle_mergen` respektiert `'master'` auch bei leerem Feld** (#1077).
+  Ein leeres Feld im Master wurde immer aus dem Duplikat gefuellt, auch
+  gegen eine ausdrueckliche Strategie — eine bewusst leere Entfernung
+  stand danach mit 386 km im Bestand. Dazu drei Befunde beim Nachsehen:
+  Entfernung und Koordinaten folgen jetzt dem Ort (kommt `location` vom
+  Master, kommen auch sie von dort), `0 km` gilt als Wert und nicht als
+  Leerfeld, und das Zusammenfuehren haengt **alle** Bezuege um —
+  Verknuepfungen zu Bewerbungen, Fundstellen und Kontakt-Verweise
+  zeigten vorher weiter auf die geloeschte Stelle. Die Vorschau nennt,
+  was ohne Rueckfrage uebernommen wird.
+- **Die Einordnung liest das Ziel, nicht nur den Lebenslauf** (#1074,
+  Folge von v1.7.125). Ein Quereinsteiger aus dem Einzelhandel, der
+  Sachbearbeitung sucht, bekam Feld Handel, Niveau Experte und Form
+  freiberuflich — letztere aus zwei Selbstaendigkeiten, die 2018
+  endeten. Jetzt zaehlen Kurzprofil, Jobtitel und MUSS-Suchbegriffe als
+  Ziel; es ueberstimmt den Lebenslauf aber nur, wenn dessen Feld im Ziel
+  gar nicht vorkommt. Die Form kommt aus der Job-Praeferenz, dann aus
+  der Anstellungsart der aktuellen Stationen; beendete zaehlen nicht,
+  und `festanstellung` wird ueberhaupt vergeben. Bei einem Quereinstieg
+  ist die Fuehrungsstufe des alten Berufs gedeckelt. `profil_einordnung`
+  nennt fuer jede Angabe ihre Grundlage.
+- **Remote heisst bei JobSpy-Treffern nicht mehr „irgendwo steht remote“**
+  (#1072). JobSpy setzt `is_remote`, sobald das Wort im Text steht — auch
+  bei „bis zu 50 % remote“; PBP machte daraus „vollstaendig remote“, und
+  die Entfernung fiel weg. Jetzt entscheidet PBPs eigene Erkennung auf
+  dem ganzen Anzeigentext. Sie selbst ist geschaerft: Anteile unter
+  100 % und Homeoffice als Angebot sind `hybrid`, „bundesweit“ ist kein
+  Remote-Signal mehr. Der Bestand der JobSpy-Quellen wird beim ersten
+  Start einmal nachgezogen.
+- **Angelegte LinkedIn-Stellen mit Hinweis zaehlen als angelegt.** Der
+  Trichter von `linkedin_treffer_uebernehmen` fuehrte jede Antwort mit
+  Warnung als uebersprungen — seit v1.7.122 auch eine Stelle, die
+  angelegt wurde und nur eine fruehere Bewerbung nennt.
+
+### Changed
+
+- **Gesucht wird mit den MUSS-Begriffen, nicht mit PLUS** (#1071).
+  PLUS-Begriffe wie „Senior“, „Aufbau“ oder „Strategie“ holten als
+  Einzelsuche fast nur Beifang (jobspy_indeed: 0,4 % Bewerbungsquote).
+  Sie bleiben Bewertungsbegriffe. Nur ohne MUSS-Liste tragen sie die
+  Suche. Gibt es ein **Suchprofil fuer Indeed**, sucht auch die
+  automatische Suche mit dessen erprobten Titelsuchen. Jede Fundstelle
+  merkt sich den Suchbegriff, der sie gebracht hat.
+
+### Added
+
+- **Hinweis auf umbenannte Reposts und Vermittler-Bewerbungen** (#1076).
+  Beim Anlegen vergleicht PBP den Anzeigentext mit Stellen derselben
+  Firma — ohne Firmen-Textbausteine, die in mehreren Anzeigen stehen —
+  und meldet ab 50 % Uebereinstimmung einen moeglichen Repost. Eine
+  laufende Bewerbung ueber einen Vermittler, die diese Firma als
+  Endkunden nennt, wird ebenfalls gemeldet. Beides blockt nicht. Der
+  LinkedIn-Trichter nimmt die Zahl der gelesenen und verworfenen
+  Volltexte entgegen.
+- **Stellen einer Quelle endgueltig entfernen** (#1075):
+  `stellen_entfernen_nach_quelle(quelle, dry_run=True)` und beim
+  Abwaehlen einer Quelle im Dashboard die Frage „Auch entfernen?“.
+  Stellen mit Bewerbung und Stellen, die eine gewaehlte Quelle ebenfalls
+  gefunden hat, bleiben; Fundstellen und Verweise gehen mit.
+- **Entfernung von Hand setzen:** `stelle_bearbeiten(entfernung_km=...)`,
+  auch 0, und `entfernung_zuruecksetzen=True`. Ein von Hand gesetzter
+  Wert ueberlebt den naechsten Suchlauf.
+
+### Hinweis
+
+Nach dem Update lohnt `scores_neu_berechnen()`: der Remote-Grad der
+JobSpy-Stellen ist nachgezogen, der gespeicherte Rahmenwert noch nicht.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.126.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.126.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.125] - 2026-09-21 — Drei Angaben statt eines Schluessels
 
 Welche Jobboersen PBP dir empfiehlt, haengt daran, wie es dein Profil

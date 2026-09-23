@@ -248,8 +248,15 @@ class TestDetectRemote:
         assert detect_remote_level("Hybrides Arbeiten moeglich, 2-3 Tage Homeoffice") == "hybrid"
 
     def test_homeoffice(self):
-        """Homeoffice keyword detected as remote."""
-        assert detect_remote_level("Homeoffice nach Einarbeitung") == "remote"
+        """Homeoffice wird als Remote-Signal erkannt, nicht als unbekannt.
+
+        v1.7.126 (#1072): als Angebot neben dem Buero ist es `hybrid` —
+        ein falsches "remote" blendet die Entfernung ganz aus, ein
+        falsches "hybrid" kostet nur den Abzug. Die Absicht des Tests
+        (das Wort wird erkannt) gilt weiter.
+        """
+        assert detect_remote_level("Homeoffice nach Einarbeitung") == "hybrid"
+        assert detect_remote_level("100% Homeoffice") == "remote"
 
     def test_unknown(self):
         """No remote keywords → unbekannt."""
@@ -293,7 +300,11 @@ class TestBuildKeywords:
         result = build_search_keywords(tmp_db)
         assert "general" in result
         assert "PLM Consultant" in result["general"]
-        assert "Python" in result["general"]
+        # v1.7.126 (#1071): PLUS-Begriffe sind Bewertungs-, keine
+        # Suchbegriffe — als Einzelsuche holten sie fast nur Beifang. Sie
+        # bleiben unter `keywords_plus` erreichbar.
+        assert "Python" not in result["general"]
+        assert result["keywords_plus"] == ["Python"]
         # StepStone URLs
         assert any("stepstone.de/jobs/plm-consultant" in url for url in result["stepstone_urls"])
         # Hays keywords

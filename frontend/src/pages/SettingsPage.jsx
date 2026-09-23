@@ -2901,6 +2901,37 @@ export default function SettingsPage() {
     } catch (error) {
       startTransition(() => setSources(previousSources));
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
+      return;
+    }
+    // #1075: wer eine Quelle abwaehlt, will ihre Treffer meist auch nicht
+    // mehr im Bestand haben — genau hier entsteht der Wunsch. Gefragt wird
+    // nur, wenn es etwas zu entfernen gibt.
+    if (!checked) await offerRemoveSourceJobs(source);
+  }
+
+  async function offerRemoveSourceJobs(source) {
+    let preview;
+    try {
+      preview = await api(`/api/sources/${source.key}/stellen`);
+    } catch {
+      return; // Die Vorschau ist ein Angebot, kein Pflichtschritt.
+    }
+    const n = preview?.zu_entfernen || 0;
+    if (!n) return;
+    const bleiben = preview.bleiben
+      ? ` ${preview.bleiben} weitere bleiben (Bewerbung oder von einer anderen gewählten Quelle gefunden).`
+      : "";
+    const frage =
+      `${source.name} hat ${n} Stellen im Bestand geliefert ` +
+      `(${preview.davon_aktiv} aktiv, ${preview.davon_aussortiert} aussortiert).${bleiben}\n\n` +
+      "Auch endgültig entfernen? Aussortierte Stellen zählen sonst weiter in Statistik und Schwellen-Stufen.";
+    if (!window.confirm(frage)) return;
+    try {
+      const result = await postJson(`/api/sources/${source.key}/stellen-entfernen`, {});
+      pushToast(`${result.zu_entfernen} Stellen von ${source.name} entfernt.`, "success");
+      await refreshChrome({ quiet: true });
+    } catch (error) {
+      pushToast(`Stellen konnten nicht entfernt werden: ${error.message}`, "danger");
     }
   }
 

@@ -660,7 +660,13 @@ async def api_add_skill(request: Request):
     data = await request.json()
     if not data.get("name", "").strip():
         return JSONResponse({"error": "Name ist ein Pflichtfeld"}, status_code=400)
-    sid = _db.add_skill(data)
+    # #1073: eine Eingabe im Formular ist eine ausdrueckliche Eingabe —
+    # und eine Abweisung ist kein {"status": "ok", "id": ""}.
+    sid, grund = _db.add_skill_mit_befund(data, quelle="eingabe")
+    if not sid:
+        return JSONResponse(
+            {"error": f"Skill nicht angelegt: {grund}", "grund": grund},
+            status_code=422)
     return {"status": "ok", "id": sid}
 
 
@@ -6168,6 +6174,31 @@ async def api_set_sources(request: Request):
     return {"status": "ok", "active_sources": active, "abgelehnt_defekt": abgelehnt}
 
 
+@app.get("/api/sources/{source_key}/stellen")
+async def api_source_stellen_vorschau(source_key: str):
+    """Wie viele Stellen eine Quelle im Bestand hat — und welche blieben (#1075).
+
+    Nur eine Vorschau. Das Dashboard fragt sie nach dem Abwaehlen einer
+    Quelle ab, um das Entfernen anzubieten.
+    """
+    from .services import stellen_nach_quelle
+    return stellen_nach_quelle.entfernen(_db, source_key, dry_run=True)
+
+
+@app.post("/api/sources/{source_key}/stellen-entfernen")
+async def api_source_stellen_entfernen(source_key: str):
+    """Entfernt die Stellen einer Quelle endgueltig (#1075).
+
+    Stellen mit Bewerbung und Stellen, die eine gewaehlte Quelle ebenfalls
+    gefunden hat, bleiben — die Antwort nennt sie.
+    """
+    from .services import stellen_nach_quelle
+    erg = stellen_nach_quelle.entfernen(_db, source_key, dry_run=False)
+    if erg.get("status") == "fehler":
+        return JSONResponse({"error": erg["fehler"], **erg}, status_code=500)
+    return erg
+
+
 @app.post("/api/sources/{source_key}/login")
 async def api_start_source_login(source_key: str):
     """Start the manual first-login flow for login-protected job sources."""
@@ -6697,7 +6728,8 @@ async def api_profile_recommended_sources():
     Die Empfehlung gibt jedem Profil-Typ einen sinnvollen Quellen-Cluster.
     """
     from .services.profile_classifier import recommend_sources
-    return recommend_sources(_db.get_profile())
+    from .services.profile_classifier import suchbegriffe_aus
+    return recommend_sources(_db.get_profile(), suchbegriffe_aus(_db))
 
 
 @app.get("/api/extractions")
@@ -9567,7 +9599,8 @@ def _run_elwosa_speak(now_iso: str) -> dict:
 
     # Cluster ableiten
     profile = _db.get_profile()
-    detection = profile_classifier.detect_profile_type(profile)
+    detection = profile_classifier.detect_profile_type(
+        profile, profile_classifier.suchbegriffe_aus(_db))
     cluster = detection.get("type", "mixed")
 
     posted = []

@@ -164,6 +164,16 @@ def _felder_uebersetzen(bereich, daten):
     return uebersetzt, ignoriert
 
 
+def _skill_nicht_angelegt(name, grund):
+    """Antwort fuer einen abgewiesenen Skill — mit dem echten Grund (#1073)."""
+    return {
+        "status": "nicht_angelegt", "bereich": "skill", "skill_id": "",
+        "grund": grund or "unbekannt",
+        "hinweis": (f"'{name}' wurde NICHT angelegt: {grund}. Mit einer "
+                    "anderen Bezeichnung erneut versuchen."),
+    }
+
+
 def _feld_rueckmeldung(bereich, antwort, ignoriert):
     """Haengt die unbekannten Feldnamen an die Antwort — mit Wegweiser."""
     if ignoriert:
@@ -993,7 +1003,7 @@ def register(mcp, db, logger):
         bereich: str,
         aktion: str,
         element_id: str = "",
-        daten: dict = None
+        daten: dict | list | None = None
     ) -> dict:
         """Bearbeitet Profildaten: Persönliches, Berufserfahrung, Skills, Ausbildung, Projekte.
 
@@ -1052,6 +1062,13 @@ def register(mcp, db, logger):
 
         bereich = _normalize_de(bereich)
         aktion = _normalize_de(aktion)
+
+        # #1073, Nebenbefund: `daten` war als dict erklaert — die Liste,
+        # die der Docstring fuer hinzufuegen_bulk verspricht, wies das
+        # Schema vor dem ersten Befehl ab. Jetzt erlaubt, aber nur dort.
+        if isinstance(daten, list) and aktion != "hinzufuegen_bulk":
+            return {"fehler": ("Eine Liste in `daten` gibt es nur bei "
+                               "aktion='hinzufuegen_bulk'.")}
 
         if bereich == "persoenlich":
             if aktion == "aendern":
@@ -1420,30 +1437,38 @@ def register(mcp, db, logger):
                                               list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("skill", daten)
-                sid = db.add_skill(felder)
+                # #1073: eine ausdrueckliche Eingabe, also nur die harten
+                # Regeln — und bei Abweisung der TATSAECHLICHE Grund. Der
+                # alte Hinweis nannte "zu kurz, reine Ziffern oder
+                # Satzzeichen" auch fuer `C++`, wo keines davon zutraf.
+                sid, grund = db.add_skill_mit_befund(felder, quelle="eingabe")
                 if not sid:
-                    # Nebenbefund zu #997, vom eigenen Test gefunden:
-                    # `add_skill` gibt fuer einen als Extraktions-Muell
-                    # erkannten Namen (#43/#129) eine LEERE ID zurueck —
-                    # und die Antwort lautete trotzdem "hinzugefuegt",
-                    # mit `id: ""`. Derselbe stille Fehlschlag mit
-                    # Erfolgsmeldung, nur beim Anlegen statt beim Aendern.
-                    return {
-                        "status": "nicht_angelegt", "bereich": "skill",
-                        "hinweis": (
-                            f"'{(daten or {}).get('name', '')}' wurde als "
-                            "Extraktions-Artefakt abgewiesen und NICHT "
-                            "angelegt (zu kurz, reine Ziffern oder "
-                            "Satzzeichen). Mit einer klaren Bezeichnung "
-                            "erneut versuchen."
-                        ),
-                    }
+                    return _skill_nicht_angelegt(
+                        (daten or {}).get("name", ""), grund)
                 return _feld_rueckmeldung("skill", {
                     "status": "hinzugefuegt", "bereich": "skill",
                     "id": sid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
-                ids = [db.add_skill(d) for d in daten]
-                return {"status": "hinzugefuegt", "bereich": "skill", "anzahl": len(ids), "ids": ids}
+                # #1073: angelegt und verworfen getrennt zaehlen. Vorher
+                # stand `anzahl: len(ids)` da, leere IDs eingeschlossen.
+                ids, verworfen = [], []
+                for d in daten:
+                    felder_d, _ = _felder_uebersetzen("skill", d or {})
+                    sid, grund = db.add_skill_mit_befund(
+                        felder_d, quelle="eingabe")
+                    if sid:
+                        ids.append(sid)
+                    else:
+                        verworfen.append({"name": (d or {}).get("name", ""),
+                                          "grund": grund})
+                antwort = {"status": "hinzugefuegt" if ids else "nicht_angelegt",
+                           "bereich": "skill", "anzahl": len(ids), "ids": ids}
+                if verworfen:
+                    antwort["verworfen"] = verworfen
+                    antwort["hinweis"] = (
+                        f"{len(verworfen)} von {len(daten)} Skills wurden "
+                        "NICHT angelegt — Grund steht je Eintrag.")
+                return antwort
 
         return {"fehler": f"Ungültige Kombination: bereich={bereich}, aktion={aktion}"}
 
@@ -1756,11 +1781,15 @@ def register(mcp, db, logger):
             years_experience: Jahre Erfahrung (gesamt, auch historisch)
             last_used_year: Jahr der letzten aktiven Nutzung (z.B. 2024). 0 = aktuell/unbekannt.
         """
-        sid = db.add_skill({
+        sid, grund = db.add_skill_mit_befund({
             "name": name, "category": category,
             "level": level, "years_experience": years_experience,
             "last_used_year": last_used_year if last_used_year else None,
-        })
+        }, quelle="eingabe")
+        # #1073: kein "gespeichert" ohne ID — genau so blieben drei von
+        # zwoelf Skills unbemerkt weg.
+        if not sid:
+            return _skill_nicht_angelegt(name, grund)
         antwort = {"status": "gespeichert", "skill_id": sid}
         # v1.7.119 (#1054): ein neuer Skill, der in keiner Suchliste
         # steht, ist genau die Drift, die der Abgleich finden soll — und
@@ -1849,15 +1878,22 @@ def register(mcp, db, logger):
         if not junk:
             return {"status": "sauber", "anzahl": 0, "skills": []}
         namen = [j["name"] for j in junk]
+        # #1073: je Kandidat die Regel, die gegriffen hat — eine
+        # Fehlerkennung soll VOR dem Loeschen sichtbar sein.
+        kandidaten = [{"name": j["name"], "grund": j.get("grund")} for j in junk]
         if not anwenden:
             return {
                 "status": "vorschau",
                 "anzahl": len(junk),
                 "skills": namen,
-                "hinweis": "Mit skills_bereinigen(anwenden=True) entfernen.",
+                "kandidaten": kandidaten,
+                "hinweis": ("Mit skills_bereinigen(anwenden=True) entfernen. "
+                            "Vorher je Eintrag den Grund pruefen — ist ein "
+                            "echter Skill dabei, NICHT anwenden."),
             }
         geloescht = sum(1 for j in junk if db.delete_skill(j["id"]))
-        return {"status": "bereinigt", "geloescht": geloescht, "skills": namen}
+        return {"status": "bereinigt", "geloescht": geloescht, "skills": namen,
+                "kandidaten": kandidaten}
 
     # --- Multi-Profil (4 Tools) ---
 
@@ -2291,8 +2327,9 @@ def register(mcp, db, logger):
             return kein_profil(
                 "Ohne Profil gibt es nichts einzuordnen.")
 
-        from ..services.profile_classifier import recommend_sources
-        erg = recommend_sources(profile)
+        from ..services.profile_classifier import (
+            recommend_sources, suchbegriffe_aus)
+        erg = recommend_sources(profile, suchbegriffe_aus(db))
         return {
             "feld": erg.get("feld"),
             "feld_name": erg.get("feld_name"),
@@ -2305,8 +2342,14 @@ def register(mcp, db, logger):
             "niveau": erg.get("niveau"),
             "niveau_name": erg.get("niveau_name"),
             "niveau_grundlage": erg.get("niveau_beleg"),
+            # #1074: jede Angabe nennt ihre Grundlage — bei der Form, die
+            # am weitesten danebenlag, fehlte sie.
+            "feld_grundlage": erg.get("feld_beleg"),
+            "feld_aus_lebenslauf": erg.get("lebenslauf_feld"),
+            "quereinstieg": erg.get("quereinstieg"),
             "form": erg.get("form"),
             "formen": erg.get("formen"),
+            "form_grundlage": erg.get("form_beleg"),
             "berufsjahre": erg.get("berufsjahre"),
             "schluessel": erg.get("type"),
             "label": erg.get("label"),

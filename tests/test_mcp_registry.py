@@ -35,6 +35,7 @@ EXPECTED_TOOL_NAMES = {
     "profil_umlaute_reparieren",
     "profil_bearbeiten",
     "profil_einordnung",
+    "stellen_entfernen_nach_quelle",
     "profil_erstellen",
     "position_hinzufuegen",
     "projekt_hinzufuegen",
@@ -387,7 +388,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 244  # v1.7.125 (#1070): +profil_einordnung
+        assert len(tools) == 245  # v1.7.126 (#1075): +stellen_entfernen_nach_quelle
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
