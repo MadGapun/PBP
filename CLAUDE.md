@@ -42,7 +42,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 ## Stand 2026-09-23 (v1.7.126 Stable) — Was angelegt wird, was gesucht wird, was bleibt
 
 **#1071 bis #1077** (A36, B62-B65, C92, C93), sieben Meldungen aus zwei
-Tagen. **Tests: 5056.** MCP-Tools 245 / 258.
+Tagen. **Tests: 5061.** MCP-Tools 245 / 258.
 
 MERKE-Punkte:
 
