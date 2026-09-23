@@ -157,6 +157,19 @@ der Firmentext im Repost-Test war zu kurz — mit 0,49 lag die rohe
 Aehnlichkeit knapp unter der Schwelle, der Test haette also auch ohne
 das Herausnehmen der Textbausteine bestanden.
 
+(14) **PII-Sweep nach dem Release, Nutzerentscheidung "Nummern
+verbrennen" (23.09.2026).** Von sechs gemeldeten Artefakten trugen zwei
+echte Firmennamen aus Stellenanzeigen: **#1067 ist geloescht** (Inhalt
+steht in B60 und im CHANGELOG v1.7.122), und der Nachtrag mit den
+echten Alert-Mails in **#1068** ist anonymisiert neu eingestellt und das
+Original entfernt — ein offenes Issue verbrennt man nicht, wenn nur ein
+Kommentar betroffen ist, und ein geloeschter Kommentar behaelt keine
+Edit-Historie. **Vier waren Fehlalarme und bleiben:** `hays` in
+Grossschreibung als Quellenname (#1064, #1074, #1075) und die
+Platzhalter-Nummer `01234-56789-10` in #1026. **Vor dem Loeschen jeden
+Fund einzeln ansehen** — der Sweep meldet ohne Namen, und eine
+geloeschte Nummer kommt nicht wieder.
+
 ## Stand 2026-09-21 (v1.7.125 Stable) — Drei Angaben statt eines Schluessels
 
 **#1070** (B61), Nutzerbericht vom 21.09.2026. **Tests: 4948.**
