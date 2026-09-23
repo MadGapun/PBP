@@ -42,7 +42,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 ## Stand 2026-09-23 (v1.7.126 Stable) — Was angelegt wird, was gesucht wird, was bleibt
 
 **#1071 bis #1077** (A36, B62-B65, C92, C93), sieben Meldungen aus zwei
-Tagen. **Tests: TESTZAHL.** MCP-Tools 245 / 258.
+Tagen. **Tests: 5056.** MCP-Tools 245 / 258.
 
 MERKE-Punkte:
 
@@ -122,6 +122,17 @@ traegt eine angelegte Stelle eine Warnung, und
 uebersprungen. Gefunden beim Einbau der neuen Hinweise, die es sonst
 haeufiger gemacht haetten.
 
+(10a) **Zwei Nachtraege kamen waehrend der Arbeit, und der
+Pre-Release-Check hat sie gefangen.** Zu #1077: `salary_estimated` stand
+nicht in der Liste der zusammengefuehrten Felder — eine GESCHAETZTE
+Spanne wanderte an den Master, und dessen Kennzeichen sagte "belegt".
+Gehaltsfelder sind jetzt eine Einheit, eine Schaetzung kommt nie ohne
+Rueckfrage. Zu #1076: die Anlage und `fit_analyse` fragten DIESELBE
+Funktion, aber die Anlage reichte die URL mit, und bei abweichender URL
+gilt die strenge Schwelle aus #670 (0,85). **Dieselbe Funktion mit
+anderem Eingang ist eine zweite Regel.** Dazu zaehlt ein Portal-Vorspann
+("Freelancer Opportunity -") nicht mehr zum Titel.
+
 (11) **Loeschen nach Filter statt nach Bereich (#1075).** Die
 Kind-Tabellen kommen aus dem Schema wie bei den Loeschbereichen (#1025),
 dazu die polymorphen Kontakt-Verweise von Hand. Geschuetzt bleibt, was
@@ -134,8 +145,8 @@ danach mit fremden Zeilenenden da. Gefunden an der Git-Warnung, nicht an
 einem Test — die Dateien waren gueltiges Python. Zurueckgesetzt ueber
 den Vergleich mit HEAD. **Patch-Skripte schreiben Bytes, nicht Text.**
 
-(13) **Gegenprobe:** fuenfundfuenfzig Mechanismen, fuenfundfuenfzigmal
-rot, Arbeitsstand jedes Mal bytegleich. Der erste Durchgang meldete
+(13) **Gegenprobe:** sechzig Mechanismen, sechzigmal rot (fuenf davon
+aus den Nachtraegen), Arbeitsstand jedes Mal bytegleich. Der erste Durchgang meldete
 sechs stumm, und jeder hatte einen anderen Grund. Drei Regeln aus #1073
 deckten sich gegenseitig (`C++` kam ohne Kurzbezeichner-Liste durch die
 Mindestlaenge und umgekehrt) — jetzt je ein Fall, den nur eine rettet.
