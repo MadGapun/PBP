@@ -118,6 +118,16 @@ def _typ_ableiten(ein: dict) -> str:
     return typ
 
 
+_NIVEAU_BELEG_TEXT = {"titel": "Bezeichnung", "ziel": "aus dem Ziel",
+                      "quereinstieg": "Quereinstieg, gedeckelt"}
+_FORM_BELEG_TEXT = {"praeferenz": "Job-Praeferenz",
+                    "aktuelle_stationen": "aktuelle Stationen",
+                    "ausbildung": "laufendes Studium", "titel": "Bezeichnung"}
+
+#: Belege, die aus einer Aussage stammen und nicht nur aus Berufsjahren.
+_BELEGT = ("titel", "ziel", "praeferenz", "aktuelle_stationen", "ausbildung")
+
+
 def _konfidenz(ein: dict, typ: str) -> float:
     """Wie sicher ist der SCHLUESSEL?
 
@@ -132,9 +142,12 @@ def _konfidenz(ein: dict, typ: str) -> float:
     """
     # Der Schluessel kam aus der Form oder aus der Fuehrungsstufe, und
     # beide standen in einer Berufsbezeichnung.
-    aus_form = typ in ("student", "freelance") and ein.get(
-        "form_beleg") == "titel"
-    aus_niveau = typ == "executive" and ein.get("niveau_beleg") == "titel"
+    # #1074: seit die Form aus Praeferenz und aktuellen Stationen kommt,
+    # heisst ihr Beleg nicht mehr nur "titel" — belegt ist sie trotzdem.
+    form_belegt = ein.get("form_beleg") in _BELEGT
+    niveau_belegt = ein.get("niveau_beleg") in _BELEGT
+    aus_form = typ in ("student", "freelance") and form_belegt
+    aus_niveau = typ == "executive" and niveau_belegt
     if aus_form or aus_niveau:
         wert = 0.8
         if ein.get("feld"):
@@ -148,14 +161,26 @@ def _konfidenz(ein: dict, typ: str) -> float:
     # Signal — die Basis liegt deshalb bei 0,65 und nicht darunter.
     stark = next((f["gewicht"] for f in ein.get("alle_felder") or []), 0)
     wert = 0.65 + min(0.15, 0.05 * stark)
-    if ein.get("niveau_beleg") == "titel":
+    if niveau_belegt:
         wert += 0.05
-    if ein.get("form_beleg") == "titel":
+    if form_belegt:
         wert += 0.05
     return round(min(0.9, wert), 2)
 
 
-def detect_profile_type(profile: Optional[dict]) -> dict:
+def suchbegriffe_aus(db) -> list:
+    """Die MUSS-Begriffe des aktiven Profils — das Ziel der Suche (#1074).
+
+    Ohne sie ordnete die Einordnung nur nach dem Lebenslauf ein, und ein
+    Quereinsteiger bekam die Quellen des Berufs, aus dem er heraus will.
+    """
+    try:
+        return list((db.get_search_criteria() or {}).get("keywords_muss") or [])
+    except Exception:  # pragma: no cover — die Einordnung nie blockieren
+        return []
+
+
+def detect_profile_type(profile: Optional[dict], suchbegriffe=None) -> dict:
     """Klassifiziert ein Profil — mit ALLEN Treffern, nicht nur dem ersten.
 
     Rueckgabe (abwaertskompatibel, plus die drei Dimensionen):
@@ -172,7 +197,7 @@ def detect_profile_type(profile: Optional[dict]) -> dict:
     """
     from . import berufsfeld
 
-    ein = berufsfeld.einordnen(profile)
+    ein = berufsfeld.einordnen(profile, suchbegriffe)
     if not profile:
         return {
             "type": "mixed", "confidence": 0.0,
@@ -193,9 +218,14 @@ def detect_profile_type(profile: Optional[dict]) -> dict:
     if ein["niveau"] != "unbekannt":
         reasons.append(
             f"Niveau {ein['niveau_name']} "
-            f"({'Bezeichnung' if ein['niveau_beleg'] == 'titel' else str(ein['berufsjahre']) + 'J Erfahrung'})")
+            f"({_NIVEAU_BELEG_TEXT.get(ein['niveau_beleg'], str(ein['berufsjahre']) + 'J Erfahrung')})")
     if ein["formen"]:
-        reasons.append("Form: " + ", ".join(ein["formen"]))
+        reasons.append("Form: " + ", ".join(ein["formen"])
+                       + f" ({_FORM_BELEG_TEXT.get(ein.get('form_beleg'), '')})")
+    if ein.get("quereinstieg"):
+        reasons.append(
+            "Quereinstieg: das Ziel (Suchbegriffe, Kurzprofil) nennt ein "
+            f"anderes Feld als der Lebenslauf ({ein.get('lebenslauf_feld')})")
     if not reasons:
         reasons.append("Keine eindeutige Indikator-Gruppe")
 
@@ -237,7 +267,7 @@ def detect_profile_type(profile: Optional[dict]) -> dict:
 # Bauform, die dieses Projekt vierzehnmal gekostet hat (#963).
 
 
-def recommend_sources(profile: Optional[dict]) -> dict:
+def recommend_sources(profile: Optional[dict], suchbegriffe=None) -> dict:
     """Liefert die empfohlenen Quellen fuer das Profil.
 
     Rueckgabe:
@@ -250,7 +280,7 @@ def recommend_sources(profile: Optional[dict]) -> dict:
     """
     from . import berufsfeld
 
-    detection = detect_profile_type(profile)
+    detection = detect_profile_type(profile, suchbegriffe)
     herkunft = berufsfeld.quellen_fuer(detection)
     # #1039: die Listen oben sind die ABSICHT; empfohlen wird nur, was
     # gerade laeuft. Jeder der 15 Typen empfahl mindestens eine defekte

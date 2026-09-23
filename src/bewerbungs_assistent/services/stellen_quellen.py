@@ -56,6 +56,13 @@ def tabelle_anlegen(conn) -> None:
     """)
     conn.execute("CREATE INDEX IF NOT EXISTS idx_job_sources_hash "
                  "ON job_sources(job_hash)")
+    # v1.7.126 (#1071): der Suchbegriff, der die Fundstelle gebracht hat.
+    # Ohne ihn liess sich ein schlechter Begriff nicht belegen — nur die
+    # Quelle als Ganzes.
+    spalten = {r[1] for r in conn.execute("PRAGMA table_info(job_sources)")}
+    if "suchbegriff" not in spalten:
+        conn.execute("ALTER TABLE job_sources ADD COLUMN suchbegriff TEXT "
+                     "DEFAULT ''")
     conn.commit()
 
 

@@ -2698,6 +2698,7 @@ def register(mcp, db, logger):
                     "stellen_bulk_bewerten — VIELE Stellen mit Filter aussortieren (#514). IMMER bevorzugen wenn mehr als ~10 Stellen betroffen. dry_run=True Default.",
                     "stelle_bearbeiten / stelle_manuell_anlegen / stelle_mergen",
                     "stelle_reaktivieren — aussortierte Stelle wieder aktivieren",
+                    "stellen_entfernen_nach_quelle — Stellen einer abgewaehlten Quelle ENDGUELTIG loeschen (#1075), dry_run=True Default",
                     "stelle_wiedergaenger_pruefen — wiederkehrende Stellen erkennen (KI-frei)",
                     "fit_analyse — Profil-vs-Stelle Punkt-fuer-Punkt-Vergleich",
                     "scoring_konfigurieren / scoring_vorschau — Gewichtungs-Regler",

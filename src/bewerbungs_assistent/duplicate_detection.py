@@ -285,3 +285,105 @@ def find_repost_of_application(job: dict, applications) -> Optional[dict]:
             "echte zweite Chance sein."
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# v1.7.126 (#1076): zwei Wege, auf denen dieselbe Vakanz unerkannt blieb.
+#
+# 1. Ein Repost unter NEUEM Titel. Stufe B vergleicht nur Titel und URL,
+#    und ein umbenannter Repost hat von beidem nichts mehr gemeinsam —
+#    nur den Anzeigentext.
+# 2. Eine Bewerbung ueber einen Vermittler. Ihre Firma ist der Vermittler;
+#    der Endkunde steht im Klammerzusatz oder in den Notizen. Stufe A
+#    vergleicht nur die Firma und sieht ihn nie.
+#
+# Beides wird GEMELDET, nicht geblockt: die Nutzervorgabe lautet Recall vor
+# Praezision, und eine falsch verschmolzene Stelle ist schlimmer als ein
+# Hinweis zu viel (#951).
+# ---------------------------------------------------------------------------
+
+#: Ab dieser Jaccard-Aehnlichkeit gilt ein Anzeigentext als derselbe.
+#: Gemessen am 23.09.2026 ueber 2.098 Paare derselben Firma mit
+#: verschiedenem Titel: 29 liegen darueber, die Spitzen sind echte
+#: Umbenennungen mit identischem Text.
+REPOST_SCHWELLE = 0.5
+#: Ohne genug eigenen Text ist ein Vergleich keiner.
+REPOST_MIN_SHINGLES = 60
+
+
+def _shingles(text: Optional[str], n: int = 4) -> set:
+    woerter = re.findall(r"[a-zäöüß0-9]+", (text or "").lower())
+    return {tuple(woerter[i:i + n]) for i in range(len(woerter) - n + 1)}
+
+
+def find_inhalt_repost(firma: str, titel: str, beschreibung: str,
+                       candidates: Iterable[dict],
+                       own_hash: str = "") -> Optional[dict]:
+    """Dieselbe Vakanz derselben Firma unter anderem Titel (#1076).
+
+    Firmen-Textbausteine ("Wir sind ...", Benefits) stehen in vielen
+    Anzeigen einer Firma und machten verschiedene Rollen gleich — gemessen
+    bis zu 100 % Ueberdeckung zwischen "Teamleiter Automatisierung" und
+    "PLM Solution Architekt". Verglichen wird deshalb nur, was KEINE dritte
+    Anzeige derselben Firma ebenfalls enthaelt.
+    """
+    norm = normalize_company_name(firma)
+    if not norm or len(norm) < 4:
+        return None
+    neu = _shingles(beschreibung)
+    if len(neu) < REPOST_MIN_SHINGLES:
+        return None
+    gleiche_firma = []
+    for c in candidates:
+        if own_hash and (c.get("hash") or "").endswith(own_hash):
+            continue
+        cf = normalize_company_name(c.get("company"))
+        if cf and (cf == norm or (len(cf) >= 4 and (cf in norm or norm in cf))):
+            gleiche_firma.append((c, _shingles(c.get("description"))))
+    best = None
+    for i, (cand, sc) in enumerate(gleiche_firma):
+        # Gleicher Titel ist Stufe B, nicht dieser Fall.
+        sim, _ = _title_similarity(titel, cand.get("title") or "")
+        if sim >= _TITLE_DUP_THRESHOLD_DIFF_URL:
+            continue
+        dritte = set()
+        for j, (_c, s) in enumerate(gleiche_firma):
+            if j != i:
+                dritte |= s
+        a, b = neu - dritte, sc - dritte
+        if len(a) < REPOST_MIN_SHINGLES or len(b) < REPOST_MIN_SHINGLES:
+            continue
+        jac = len(a & b) / len(a | b)
+        if jac >= REPOST_SCHWELLE and (best is None or jac > best["aehnlichkeit"]):
+            best = {"job": cand, "aehnlichkeit": round(jac, 2)}
+    return best
+
+
+def _wortgrenze(name: str, text: str) -> bool:
+    return bool(re.search(r"(?<![a-z0-9])" + re.escape(name) + r"(?![a-z0-9])",
+                          text))
+
+
+def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
+    """Laufende Bewerbung ueber einen Vermittler beim selben Endkunden (#1076).
+
+    Die Firma der Bewerbung ist der Vermittler; der Endkunde steht im
+    Klammerzusatz der Firma ("Vermittler X (Endkunde: Y)") oder in den
+    Notizen. Gesucht wird der Name der NEUEN Firma dort — mit
+    Wortgrenzen, weil ein kurzer Name sonst in jedem laengeren Wort steckt
+    (#970).
+    """
+    norm = normalize_company_name(firma)
+    if not norm or len(norm) < 4:
+        return None
+    for app in applications:
+        app_firma = normalize_company_name(app.get("company"))
+        if app_firma == norm:
+            continue  # das ist Stufe A
+        roh = " ".join(str(app.get(k) or "") for k in ("company", "notes"))
+        for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+            roh = roh.lower().replace(uml, repl)
+        roh = re.sub(r"[^\w\s]", " ", roh)
+        if _wortgrenze(norm, re.sub(r"\s+", " ", roh)):
+            return app
+    return None

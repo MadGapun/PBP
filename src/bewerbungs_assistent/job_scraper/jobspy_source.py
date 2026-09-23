@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from . import stelle_hash, detect_remote_level
+from . import stelle_hash
 from .textgrenzen import fuer_speicher
 
 logger = logging.getLogger("bewerbungs_assistent.scraper.jobspy")
@@ -97,12 +97,12 @@ def _map_row(row: Any, site: str) -> dict:
     remote_flag = row.get("is_remote") if hasattr(row, "get") else None
     job_type = _g("job_type")
 
-    if remote_flag is True:
-        remote = "remote"
-    elif remote_flag is False:
-        remote = "vor_ort"
-    else:
-        remote = detect_remote_level(f"{title} {location} {description[:500]}")
+    # #1072: JobSpy setzt `is_remote` bei jedem "remote" im Text — auch
+    # bei "bis zu 50 % remote". Der Text entscheidet, der Wert ist nur
+    # ein Hinweis, und `False` heisst "kein Stichwort", nicht "vor Ort".
+    from ..services import remote_jobspy
+    remote = remote_jobspy.bestimmen(title, location, description,
+                                     is_remote=remote_flag)
 
     salary_min = row.get("min_amount") if hasattr(row, "get") else None
     salary_max = row.get("max_amount") if hasattr(row, "get") else None
@@ -261,7 +261,11 @@ def _search_site(site: str, keywords: list[str], location: str,
             continue
         consecutive_empty = 0  # Reset bei Treffern
         for _, row in df.iterrows():
-            jobs.append(_map_row(row, site))
+            job = _map_row(row, site)
+            # #1071: welcher Begriff die Stelle gebracht hat — damit sich
+            # schlechte Suchbegriffe belegen lassen (Anschluss an #783).
+            job["suchbegriff"] = kw
+            jobs.append(job)
     return jobs
 
 
@@ -341,8 +345,19 @@ def search_jobspy_linkedin(params: dict) -> list[dict]:
 
 
 def search_jobspy_indeed(params: dict) -> list[dict]:
-    """Indeed.de via python-jobspy (#490)."""
+    """Indeed.de via python-jobspy (#490).
+
+    v1.7.126 (#1071): gibt es ein Suchprofil fuer Indeed, sucht die
+    automatische Suche mit dessen Begriffen — dieselbe Quelle der Wahrheit
+    wie der Browser-Weg. Der Operator `title:(...)` wirkt auch ueber die
+    JobSpy-Schnittstelle (gemessen am 22.09.2026).
+    """
     keywords, location = _extract_kw_region(params)
+    kw_data = params.get("keywords") or {}
+    if isinstance(kw_data, dict):
+        profil = (kw_data.get("portal_suchbegriffe") or {}).get("indeed")
+        if profil:
+            keywords = list(profil)
     jobs = _search_site("indeed", keywords, location, max_results=50)
     logger.info("JobSpy/Indeed: %d Stellen gefunden", len(jobs))
     return jobs

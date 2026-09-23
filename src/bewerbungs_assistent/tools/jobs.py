@@ -3115,6 +3115,54 @@ def register(mcp, db, logger):
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
             logger.debug("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
 
+        # Stufe D — v1.7.126 (#1076): dieselbe Vakanz auf zwei Wegen, die
+        # A und B nicht sehen. Ein Repost unter NEUEM Titel (verglichen wird
+        # der Anzeigentext ohne Firmen-Textbausteine) und eine laufende
+        # Bewerbung ueber einen Vermittler, bei der diese Firma der
+        # Endkunde ist. Beides wird gemeldet, nicht geblockt.
+        repost_verdacht = None
+        vermittler_bewerbung = None
+        try:
+            from ..duplicate_detection import (
+                find_inhalt_repost, find_vermittler_bewerbung)
+            # Kandidaten ueber das erste Wort des Namens holen: `LIKE
+            # %firma%` faende "Muster AG" nicht unter "Muster AG & Co. KG".
+            # Den genauen Vergleich macht die Normalisierung.
+            _kern = next((w for w in re.split(r"[\s,(]+", firma or "")
+                          if len(w) >= 4), firma)
+            _treffer = find_inhalt_repost(
+                firma, titel, beschreibung, db.get_company_jobs(_kern),
+                own_hash=job_hash)
+            if _treffer:
+                _alt = _treffer["job"]
+                repost_verdacht = {
+                    "hash": _alt.get("hash"),
+                    "titel": _alt.get("title") or "",
+                    "aktiv": bool(_alt.get("is_active")),
+                    "aehnlichkeit_text": _treffer["aehnlichkeit"],
+                    "hinweis": (
+                        f"Moeglicher Repost von '{_alt.get('title')}' "
+                        f"({(_alt.get('hash') or '').split(':')[-1][:12]}): "
+                        "Titel geaendert, Anzeigentext weitgehend gleich. "
+                        "Gleiche Vakanz? Dann stelle_mergen()."),
+                }
+            _vb = find_vermittler_bewerbung(firma, running_apps)
+            if _vb:
+                vermittler_bewerbung = {
+                    "bewerbung_id": (_vb.get("id") or "")[:8],
+                    "firma_der_bewerbung": _vb.get("company") or "",
+                    "titel": _vb.get("title") or "",
+                    "status": _vb.get("status") or "",
+                    "hinweis": (
+                        f"Laufende Bewerbung {(_vb.get('id') or '')[:8]} ueber "
+                        f"'{_vb.get('company')}' nennt {firma} als Endkunden. "
+                        "Pruefen, ob dies dieselbe Stelle ist — sonst landet "
+                        "eine zweite Bewerbung am Vermittler vorbei beim "
+                        "selben Arbeitgeber."),
+                }
+        except Exception as exc:  # pragma: no cover — nie die Anlage kippen
+            logger.debug("Repost-/Vermittler-Pruefung (#1076): %s", exc)
+
         # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
         # darf durchgehen.
 
@@ -3218,6 +3266,13 @@ def register(mcp, db, logger):
         if wiedergaenger_bewerbung:
             result["warnung"] = "wiedergaenger_bewerbung"
             result["bewerbung_vorher"] = wiedergaenger_bewerbung
+        # #1076: eigene Felder, damit keine Warnung eine andere verdeckt.
+        if repost_verdacht:
+            result["repost_verdacht"] = repost_verdacht
+            result.setdefault("warnung", "repost_verdacht")
+        if vermittler_bewerbung:
+            result["vermittler_bewerbung"] = vermittler_bewerbung
+            result.setdefault("warnung", "vermittler_bewerbung")
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -3413,10 +3468,39 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def stellen_entfernen_nach_quelle(quelle: str, dry_run: bool = True) -> dict:
+        """Entfernt die Stellen einer Quelle ENDGUELTIG aus dem Bestand (#1075).
+
+        Fuer den Fall, dass eine Quelle abgewaehlt wurde und ihre Treffer
+        nicht mehr im Bestand stehen sollen — auch nicht aussortiert, weil
+        aussortierte Stellen weiter in Statistik, Ablehnungsmustern und den
+        Schwellen-Stufen (#1063) zaehlen. Aussortieren ist
+        `stellen_bulk_bewerten`; das hier loescht.
+
+        Geschuetzt bleiben Stellen mit Bewerbung und Stellen, die eine
+        GEWAEHLTE Quelle ebenfalls gefunden hat. Fundstellen, Verknuepfungen
+        und Kontakt-Verweise gehen mit; Kontakte selbst bleiben.
+
+        Args:
+            quelle: Quellen-Schluessel, z.B. 'hays' oder 'freelance_de'.
+            dry_run: Vorgabe True — zeigt nur, was entfernt wuerde.
+        """
+        if not (quelle or "").strip():
+            return {"fehler": "quelle ist Pflicht (z.B. 'hays')."}
+        from ..services import stellen_nach_quelle
+        erg = stellen_nach_quelle.entfernen(db, quelle, dry_run=dry_run)
+        if not erg["gefunden"]:
+            erg["nachricht"] = (f"Keine Stellen der Quelle '{quelle}' im "
+                                "Bestand.")
+        return erg
+
+    @mcp.tool()
     def linkedin_treffer_uebernehmen(treffer: list = None,
                                      dry_run: bool = True,
                                      login_fehlt: bool = False,
-                                     rohtreffer: int = 0) -> dict:
+                                     rohtreffer: int = 0,
+                                     volltexte_gelesen: int = 0,
+                                     nach_lesen_verworfen: int = 0) -> dict:
         """Uebernimmt die geernteten LinkedIn-Stellen nach PBP (#919).
 
         Erwartet je Eintrag mindestens `job_id`, `titel`, `firma` und
@@ -3443,6 +3527,11 @@ def register(mcp, db, logger):
                 kein Befund ueber den Markt, keine Auto-Deaktivierung.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
                 "3 angelegt" nicht einzuordnen (#813/#989).
+            volltexte_gelesen: wie viele Volltexte im Browser gelesen
+                wurden (#1076) — auch die, die danach nicht uebergeben
+                wurden.
+            nach_lesen_verworfen: wie viele davon nach dem Lesen
+                verworfen wurden.
         """
         from ..job_scraper import linkedin_voyager as lv
 
@@ -3469,6 +3558,9 @@ def register(mcp, db, logger):
 
         trichter["rohtreffer"] = max(int(rohtreffer or 0), len(eintraege))
         trichter["nach_vorfilter"] = len(eintraege)
+        if volltexte_gelesen:
+            trichter["volltexte_gelesen"] = int(volltexte_gelesen)
+            trichter["nach_lesen_verworfen"] = int(nach_lesen_verworfen or 0)
 
         angelegt, uebersprungen = [], []
 
@@ -3524,7 +3616,13 @@ def register(mcp, db, logger):
                 kontakt_name=str(e.get("kontakt_name") or "").strip(),
                 kontakt_email=str(e.get("kontakt_email") or "").strip(),
                 kontakt_telefon=str(e.get("kontakt_telefon") or "").strip())
-            if res.get("hash") and not res.get("warnung"):
+            # v1.7.126 (#1076): angelegt ist, was angelegt wurde — auch
+            # mit Warnung. Bis hierher zaehlte jede Antwort mit `warnung`
+            # als uebersprungen, seit #1065 also auch eine angelegte Stelle
+            # zu einer frueheren Bewerbung: sie stand im Bestand und im
+            # Trichter als verworfen.
+            if res.get("status") == "angelegt" or (
+                    res.get("hash") and not res.get("warnung")):
                 trichter["angelegt"] += 1
                 _eintrag = {"job_id": job_id, "titel": titel,
                             "firma": firma, "hash": res["hash"],
@@ -3532,6 +3630,13 @@ def register(mcp, db, logger):
                 if res.get("kontakt"):
                     _eintrag["kontakt"] = res["kontakt"]
                     trichter["kontakte"] = trichter.get("kontakte", 0) + 1
+                for _schl, _feld in (
+                        ("repost_verdacht", "repost_verdacht"),
+                        ("vermittler_bewerbung", "vermittler_bewerbung"),
+                        ("wiedergaenger_bewerbung", "bewerbung_vorher")):
+                    if res.get(_feld):
+                        _eintrag[_schl] = res[_feld]
+                        trichter[_schl] = trichter.get(_schl, 0) + 1
                 angelegt.append(_eintrag)
             elif res.get("warnung"):
                 # #1046: der Zustand der vorhandenen Stelle statt der Stufe,
@@ -4455,8 +4560,13 @@ def register(mcp, db, logger):
             duplikat_hash: Stelle, die aufgeloest (geloescht) wird.
             feld_strategie: Optional dict pro Feld: 'master' | 'duplikat' |
                 'merge' (letzteres nur fuer 'description' sinnvoll).
-                Felder die nur im Duplikat gefuellt sind, werden IMMER automatisch
-                uebernommen; Felder die nur im Master gefuellt sind, bleiben.
+                Felder die nur im Duplikat gefuellt sind, werden automatisch
+                uebernommen — ausser die Strategie nennt 'master' (#1077),
+                dann bleibt das Feld leer. Die Vorschau nennt diese Felder
+                unter 'ohne_rueckfrage_uebernommen'. Entfernung und
+                Koordinaten folgen dem Ort: kommt 'location' vom Master,
+                kommen auch sie vom Master. Felder die nur im Master
+                gefuellt sind, bleiben.
             dry_run: Default True. Bei True wird nichts geschrieben.
 
         Returns:
@@ -4811,6 +4921,8 @@ def register(mcp, db, logger):
         ort: str = "",
         beschreibung: str = "",
         url: str = "",
+        entfernung_km: float | None = None,
+        entfernung_zuruecksetzen: bool = False,
     ) -> dict:
         """Aktualisiert Felder einer bestehenden Stelle (#446, #645).
 
@@ -4842,6 +4954,12 @@ def register(mcp, db, logger):
                 nullte eine passende Stelle).
             url: Neue Stellen-URL. Wird auch genutzt um nach #645 leere
                 URL-Felder bei XING/Stepstone/Email-Stellen nachzupflegen.
+            entfernung_km: Entfernung von Hand setzen (#1077), auch 0 fuer
+                "am Wohnort antretbar". Gilt ab dann dauerhaft — kein
+                Suchlauf ueberschreibt sie. Fuer den Fall, dass die Anzeige
+                einen anderen Ort nennt als den, an dem man antritt.
+            entfernung_zuruecksetzen: True = Entfernung auf "unbekannt"
+                setzen und fuer die Automatik freigeben.
         """
         # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
         # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
@@ -4871,10 +4989,25 @@ def register(mcp, db, logger):
             updates["url"] = url
             updates["is_search_url"] = is_search_result_url(url)
 
-        if not updates:
+        # #1077: die Entfernung war ueber kein Werkzeug erreichbar — ein
+        # falscher Wert liess sich nur per SQL korrigieren (#514).
+        if entfernung_km is not None and entfernung_zuruecksetzen:
+            return {"fehler": ("entfernung_km und entfernung_zuruecksetzen "
+                               "schliessen sich aus.")}
+        if entfernung_km is not None and entfernung_km < 0:
+            return {"fehler": ("entfernung_km darf nicht negativ sein. Zum "
+                               "Zuruecksetzen entfernung_zuruecksetzen=True.")}
+        entfernung_geaendert = (entfernung_km is not None
+                                or entfernung_zuruecksetzen)
+
+        if not updates and not entfernung_geaendert:
             return {"fehler": "Keine Aenderungen angegeben."}
 
-        db.update_job(job_hash, updates)
+        if updates:
+            db.update_job(job_hash, updates)
+        if entfernung_geaendert:
+            db.set_job_entfernung(
+                job_hash, None if entfernung_zuruecksetzen else entfernung_km)
 
         # #535 v1.6.4: Score nach Beschreibungs-/Titel-Update neu berechnen.
         # Vorher blieb der persistente score-Wert in jobs.score auf dem Stand
@@ -4882,7 +5015,8 @@ def register(mcp, db, logger):
         # der neuen Beschreibung, stellen_anzeigen mit dem alten score.
         # Drei verschiedene Werte fuer dieselbe Stelle waren die Folge.
         score_recomputed = None
-        if "description" in updates or "title" in updates:
+        if ("description" in updates or "title" in updates
+                or entfernung_geaendert):
             try:
                 from ..job_scraper import calculate_score
                 # v1.7.112 (#1051): das Nadeloehr, wie bei der Anlage —
@@ -4936,6 +5070,22 @@ def register(mcp, db, logger):
         }
         if score_recomputed:
             result["score_neu_berechnet"] = score_recomputed
+        if entfernung_geaendert:
+            result["entfernung"] = (
+                {"wert_km": None, "quelle": "unbekannt",
+                 "hinweis": "Entfernung zurueckgesetzt; die Automatik darf "
+                            "sie wieder berechnen."}
+                if entfernung_zuruecksetzen else
+                {"wert_km": float(entfernung_km), "quelle": "mensch",
+                 "hinweis": "Von Hand gesetzt — kein Suchlauf "
+                            "ueberschreibt diesen Wert."})
+        elif "location" in updates and (job.get("distance_km") is not None):
+            # Die gespeicherte Entfernung gehoert zum ALTEN Ort — sagen,
+            # statt sie still stehen zu lassen oder still zu loeschen.
+            result["entfernung_hinweis"] = (
+                f"Die gespeicherte Entfernung ({job.get('distance_km')} km) "
+                "bezieht sich auf den bisherigen Ort. Stimmt sie nicht mehr: "
+                "entfernung_km setzen oder entfernung_zuruecksetzen=True.")
         # #645: Wenn die neue URL eine Such-URL ist, das wie bei
         # stelle_manuell_anlegen transparent zurueckmelden — sonst denkt
         # der User der Link sei voll funktionsfaehig.

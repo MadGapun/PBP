@@ -256,10 +256,25 @@ def trichter_leer() -> dict:
 def trichter_text(trichter: dict) -> str:
     """Eine Zeile, die den ganzen Lauf erklaert."""
     t = trichter or {}
+    # v1.7.126 (#1076): was vor der Uebergabe gelesen und verworfen
+    # wurde, kennt nur der Aufrufer. Ohne diese Zahl stand "1 Volltext ->
+    # 1 angelegt" da, obwohl zehn gelesen und neun verworfen waren.
+    gelesen = t.get("volltexte_gelesen")
+    volltexte = (f"{gelesen} Volltexte gelesen -> "
+                 f"{t.get('nach_lesen_verworfen', 0)} nach dem Lesen verworfen -> "
+                 f"{t.get('volltexte', 0)} uebergeben"
+                 if gelesen else f"{t.get('volltexte', 0)} Volltexte")
     zeile = (f"{t.get('rohtreffer', 0)} Rohtreffer -> "
              f"{t.get('nach_vorfilter', 0)} nach Vorfilter -> "
-             f"{t.get('volltexte', 0)} Volltexte -> "
+             f"{volltexte} -> "
              f"{t.get('angelegt', 0)} angelegt")
+    hinweise = [f"{name} {t[k]}" for k, name in (
+        ("repost_verdacht", "Repost-Verdacht"),
+        ("vermittler_bewerbung", "Vermittler-Bewerbung"),
+        ("wiedergaenger_bewerbung", "schon beworben"),
+    ) if t.get(k)]
+    if hinweise:
+        zeile += " [davon mit Hinweis: " + ", ".join(hinweise) + "]"
     gruende = t.get("gruende") or {}
     if gruende:
         top = sorted(gruende.items(), key=lambda x: -x[1])

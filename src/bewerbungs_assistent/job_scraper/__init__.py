@@ -700,16 +700,23 @@ def build_search_keywords(db) -> dict:
     all_kw = muss + plus
     if not all_kw:
         return {}
+    # v1.7.126 (#1071): gesucht wird mit den MUSS-Begriffen, nie mit PLUS.
+    # PLUS-Begriffe sind Bewertungsbegriffe — "Senior", "Aufbau",
+    # "Strategie" holten als Einzelsuche fast nur Beifang: jobspy_indeed
+    # 0,4 % Bewerbungsquote gegen 7,4 % fuer die Titelsuche im Browser,
+    # "Senior" lieferte eine Pflegefachkraft. Nur ohne MUSS-Liste
+    # (Kaltstart, #967) muss PLUS die Suche tragen.
+    suchbegriffe = list(muss) if muss else list(plus)
 
     # First region or empty (used for location-aware URL building)
     region = regionen[0] if regionen else ""
 
     # General keywords (for API sources)
-    general = list(all_kw)
+    general = list(suchbegriffe)
 
     # StepStone: URL-based search (with region parameter if available)
     stepstone_urls = []
-    for kw in all_kw:
+    for kw in suchbegriffe:
         slug = kw.lower().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
         base = f"https://www.stepstone.de/jobs/{slug}"
         if region:
@@ -717,24 +724,39 @@ def build_search_keywords(db) -> dict:
         stepstone_urls.append(base)
 
     # Hays: lowercase keywords for sitemap URL matching
-    hays_keywords = [kw.lower().replace(" ", "-") for kw in all_kw]
+    hays_keywords = [kw.lower().replace(" ", "-") for kw in suchbegriffe]
 
     # Freelancermap: slug-basierte URLs (#500). Die alte
     # /projektboerse.html?q=... Endpunkt leitet jetzt 301 auf /projekte
     # ohne Query-Parameter um. Das neue Schema ist /projekte/<keyword-slug>.
     freelancermap_urls = []
-    for kw in all_kw:
+    for kw in suchbegriffe:
         slug = kw.lower().strip().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue")
         freelancermap_urls.append(f"https://www.freelancermap.de/projekte/{slug}")
 
     # freelance.de: skill-based URLs (keyword → Skill-Projekte)
     freelance_de_urls = [
         f"https://www.freelance.de/{quote(kw.replace(' ', '-'))}-Projekte"
-        for kw in all_kw
+        for kw in suchbegriffe
     ]
 
     # Indeed/Monster: full search queries (with region if available)
-    queries = list(all_kw)
+    queries = list(suchbegriffe)
+
+    # v1.7.126 (#1071): das Portal-Suchprofil — erprobte Titelsuchen je
+    # Portal (#564) — las bisher nur der Browser-Weg. Fuer Indeed ist es
+    # jetzt auch fuer die automatische Suche die Quelle der Wahrheit.
+    # Gelesen wird ohne Anlegen (#1049); LinkedIn bleibt bewusst aussen
+    # vor, weil dessen Vorgaben die Fachrichtung eines Profils tragen.
+    portal_suchbegriffe: dict = {}
+    try:
+        from ..services.browser_handoff import suchbegriffe as _pb
+        for _portal in ("indeed",):
+            _liste = _pb(db.find_portal_search_profile(_portal))
+            if _liste:
+                portal_suchbegriffe[_portal] = _liste
+    except Exception as _exc:  # pragma: no cover — nie den Suchlauf stoppen
+        logger.debug("Portal-Suchprofile nicht gelesen (#1071): %s", _exc)
 
     # #500: greenhouse_companies aus criteria durchschleusen, damit der User
     # eigene Greenhouse-Slugs (zusaetzlich zu DEFAULT_COMPANIES) konfigurieren
@@ -768,6 +790,7 @@ def build_search_keywords(db) -> dict:
         "freelancermap_urls": freelancermap_urls,
         "freelance_de_urls": freelance_de_urls,
         "indeed_queries": queries,
+        "portal_suchbegriffe": portal_suchbegriffe,
         "greenhouse_companies": greenhouse_companies,
         "personio_firmen": personio_firmen,
         "workable_firmen": workable_firmen,
@@ -4080,25 +4103,63 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
 
 
 
-# Remote detection keywords
-REMOTE_KEYWORDS = [
-    "remote", "homeoffice", "home office", "home-office",
-    "mobiles arbeiten", "ortsunabhaengig", "standortunabhaengig",
-    "deutschlandweit", "bundesweit", "100% remote",
-    "work from home", "working from home", "wfh",
-    "hybrid", "hybrides arbeiten", "teilweise remote",
-    "flexibler arbeitsort", "flexible arbeitsmodelle",
-]
+# v1.7.126 (#1072): `REMOTE_KEYWORDS` ist ersatzlos entfallen — die
+# Liste warf starke Signale, Angebote und Einsatzraeume in einen Topf.
+# Die Aufteilung steht bei `detect_remote_level`.
+
+
+_TEILREMOTE = re.compile(
+    r"(?<!\d)(?:[1-9]\d?)\s*%\s*(?:remote|mobil|homeoffice|home[- ]office)"
+    r"|(?<!\d)[1-4](?:\s*(?:-|bis)\s*[1-4])?\s*tage?\s*(?:pro\s*woche\s*|/\s*woche\s*)?"
+    r"(?:im\s*|ins\s*)?(?:remote|mobil|homeoffice|home[- ]office)")
+
+
+#: v1.7.126 (#1072): Formulierungen, die ein ANGEBOT neben dem Buero
+#: beschreiben — "mobiles Arbeiten moeglich", "Homeoffice nach
+#: Einarbeitung". Gemessen am Bestand standen sie ueberwiegend unter den
+#: Vorteilen; als "vollstaendig remote" gewertet, fiel die Entfernung weg.
+_REMOTE_ALS_ANGEBOT = (
+    "homeoffice", "home office", "home-office", "mobiles arbeiten",
+    "mobile arbeit", "flexibler arbeitsort", "flexible arbeitsmodelle",
+)
+#: Starke Signale fuer einen Arbeitsplatz ohne Buero.
+_REMOTE_STARK = (
+    "remote", "work from home", "working from home", "wfh",
+    "ortsunabhaengig", "ortsunabhängig", "standortunabhaengig",
+    "standortunabhängig",
+)
 
 
 def detect_remote_level(text: str) -> str:
-    """Detect remote/hybrid/on-site from job description."""
+    """Detect remote/hybrid/on-site from job description.
+
+    v1.7.126 (#1072): die Rangfolge ist eine Kostenfrage. Ein falsches
+    "hybrid" kostet einen Entfernungsabzug, ein falsches "remote" blendet
+    die Entfernung ganz aus. Deshalb: ausdruecklich vollstaendig ->
+    remote; jedes Hybrid- oder Anteil-Signal -> hybrid; Homeoffice als
+    Angebot -> hybrid; nur die starken Remote-Woerter -> remote.
+    "bundesweit" und "deutschlandweit" beschreiben den Einsatzraum oder
+    die Firmengroesse, keinen Arbeitsplatz — gemessen stand "bundesweit
+    rund 4.000 Mitarbeitende" in einer Laboranzeige.
+    """
     text_lower = text.lower()
-    if any(kw in text_lower for kw in ["100% remote", "vollstaendig remote", "full remote", "rein remote"]):
+    if any(kw in text_lower for kw in [
+            "100% remote", "100 % remote", "vollstaendig remote",
+            "vollständig remote", "full remote", "fully remote",
+            "rein remote", "100% homeoffice", "100 % homeoffice",
+            "komplett im homeoffice", "ausschliesslich im homeoffice",
+            "ausschließlich im homeoffice", "remote-first", "remote first"]):
         return "remote"
     if any(kw in text_lower for kw in ["hybrid", "teilweise remote", "2-3 tage"]):
         return "hybrid"
-    if any(kw in text_lower for kw in REMOTE_KEYWORDS):
+    # #1072: ein Anteil unter 100 % ist hybrid — "bis zu 50 % remote",
+    # "2 Tage Homeoffice pro Woche". Vorher griff darauf das blosse Wort
+    # "remote" darunter und machte daraus "vollstaendig remote".
+    if _TEILREMOTE.search(text_lower):
+        return "hybrid"
+    if any(kw in text_lower for kw in _REMOTE_ALS_ANGEBOT):
+        return "hybrid"
+    if any(kw in text_lower for kw in _REMOTE_STARK):
         return "remote"
     return "unbekannt"
 

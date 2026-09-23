@@ -569,7 +569,11 @@ class Database:
                                   # `distance_km` bleibt die Luftlinie.
                                   ("fahrstrecke_km", "REAL"),
                                   ("fahrzeit_min", "REAL"),
-                                  ("route_quelle", "TEXT")):
+                                  ("route_quelle", "TEXT"),
+                                  # v1.7.126 (#1077): `mensch`, wenn die
+                                  # Entfernung von Hand gesetzt wurde —
+                                  # dann ueberschreibt sie kein Suchlauf.
+                                  ("entfernung_quelle", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -1191,6 +1195,14 @@ class Database:
             _sst.umstellen(self)
         except Exception as e:
             logger.debug("Stufen-Umstellung uebersprungen (#1063): %s", e)
+        # v1.7.126 (#1072): der Remote-Grad der JobSpy-Stellen stammte aus
+        # `is_remote`, das bei jedem "remote" im Text True wird. Einmal
+        # aus dem Text nachziehen; idempotent ueber einen Merker.
+        try:
+            from .services import remote_jobspy as _rj
+            _rj.bestand_nachziehen(self)
+        except Exception as e:
+            logger.debug("Remote-Nachzug uebersprungen (#1072): %s", e)
         logger.info("Database initialized at %s", self.db_path)
 
     def _repair_document_paths(self) -> int:
@@ -3533,55 +3545,95 @@ class Database:
             "SELECT * FROM skills ORDER BY category, level DESC"
         ).fetchall()]
 
+    # #1073: Kurzbezeichner, die ueberwiegend aus Sonderzeichen bestehen
+    # und trotzdem echte Kompetenzen sind. Die Zeichen-Quote allein haette
+    # `C++` (1 von 3 Zeichen alphanumerisch) als Muell gefuehrt.
+    _SKILL_KURZBEZEICHNER = frozenset({
+        "r", "c", "c++", "c/c++", "c#", "f#", "j#", ".net", "asp.net", "r&d", "ui/ux",
+        "b2b", "b2c", "ci/cd", "tcp/ip", "vb.net", "c++/cli",
+        "objective-c", "node.js", "vue.js", "next.js", "d3.js",
+    })
+
     @staticmethod
-    def _is_garbage_skill(name: str) -> bool:
-        """Check if a skill name is garbage from extraction artifacts (#129)."""
+    def _ohne_klammerinhalt(name: str) -> str:
+        """Text ohne balancierte Klammerinhalte (#1073).
+
+        Eine Aufzaehlung in Klammern ist eine Praezisierung, kein Satz:
+        `Programmierung (Perl, C++, COBOL, Java, PHP, C#)`.
+        """
+        aus, tiefe = [], 0
+        for zeichen in name:
+            if zeichen == "(":
+                tiefe += 1
+            elif zeichen == ")" and tiefe:
+                tiefe -= 1
+            elif not tiefe:
+                aus.append(zeichen)
+        return "".join(aus)
+
+    @classmethod
+    def skill_ablehnungsgrund(cls, name: str,
+                              quelle: str = "extraktion"):
+        """Warum ein Skill-Name abgewiesen wird — None heisst: angelegt (#1073).
+
+        Zwei Regelsaetze, weil zwei verschiedene Fragen gestellt werden.
+        Die HARTEN Regeln gelten fuer jeden Anlageweg: leer, zu lang, URL
+        oder Mailadresse, Formatierungs-Reste, reine Ziffern oder reine
+        Sonderzeichen. Die Satzfragment-Heuristik (#43, #129, #681) wurde
+        fuer Bruchstuecke aus der DOKUMENTENEXTRAKTION gebaut und gilt nur
+        dort (`quelle="extraktion"`). Auf eine ausdrueckliche Eingabe
+        angewandt, verwarf sie `C++` und Namen mit Klammer-Aufzaehlung —
+        und drei Aufrufer meldeten dabei "gespeichert".
+        """
         import re
-        if not name or len(name) < 2 or len(name) > 100:
-            return True
-        # Reject obvious markdown/formatting artifacts
-        _GARBAGE_PATTERNS = ["---", "===", "***", "|||", "```", "<!--", "-->",
-                             "##", "**", "__", "- -", "...", "~~~"]
-        if any(p in name for p in _GARBAGE_PATTERNS):
-            return True
-        # Reject if name is mostly special characters
-        alpha_count = sum(1 for c in name if c.isalnum() or c == ' ')
-        if alpha_count < len(name) * 0.5:
-            return True
-        # Reject numbered list items: "1. Something", "2) Something"
-        if re.match(r'^\d+[\.\)]\s', name):
-            return True
-        # Reject strings starting with parentheses: "(DETAILLIERT)", "(optional)"
-        if name.startswith("("):
-            return True
-        # Reject URLs and email addresses
-        if "://" in name or "@" in name:
-            return True
-        # Reject strings with colons (header fragments): "Programmsteuerung: Program Management"
-        if ": " in name and len(name) > 30:
-            return True
-        # Reject sentence fragments: too many spaces = likely a sentence, not a skill
-        if name.count(" ") > 5:
-            return True
-        # Reject ALL-CAPS fragments over 20 chars (header artifacts)
-        if name.isupper() and len(name) > 20:
-            return True
-        # Reject common non-skill words/fragments
+        roh = (name or "").strip()
+        klein = roh.lower()
+        if not roh:
+            return "leerer Name"
+        if klein in cls._SKILL_KURZBEZEICHNER:
+            return None
+        grenze = 150 if quelle == "eingabe" else 100
+        if len(roh) > grenze:
+            return f"laenger als {grenze} Zeichen"
+        if "://" in roh or "@" in roh:
+            return "sieht aus wie eine URL oder Mailadresse"
+        _FORMATIERUNG = ["---", "===", "***", "|||", "```", "<!--", "-->",
+                         "##", "**", "__", "- -", "...", "~~~"]
+        if any(m in roh for m in _FORMATIERUNG):
+            return "enthaelt Formatierungs-Reste (Markdown/HTML)"
+        if roh.isdigit():
+            return "besteht nur aus Ziffern"
+        if not any(c.isalnum() for c in roh):
+            return "besteht nur aus Satz- oder Sonderzeichen"
+        # Die Quote erst ab einer Mindestlaenge: kurze Bezeichner wie
+        # `C++` oder `C/C++` tragen naturgemaess viele Sonderzeichen.
+        if len(roh) >= 6 and sum(
+                1 for c in roh if c.isalnum() or c == " ") < len(roh) * 0.5:
+            return "besteht ueberwiegend aus Sonderzeichen"
+        if quelle == "eingabe":
+            return None
+
+        # --- nur Extraktion: Satzfragmente ------------------------------
+        if len(roh) < 2:
+            return "kuerzer als zwei Zeichen"
+        if re.match(r'^\d+[\.\)]\s', roh):
+            return "nummerierter Listenpunkt"
+        if roh.startswith("("):
+            return "beginnt mit einer Klammer"
+        if ": " in roh and len(roh) > 30:
+            return "Ueberschrift mit Doppelpunkt"
+        if cls._ohne_klammerinhalt(roh).count(" ") > 5:
+            return "mehr als sechs Woerter ausserhalb von Klammern — eher ein Satz"
+        if roh.isupper() and len(roh) > 20:
+            return "Ueberschrift in Grossbuchstaben"
         _STOPWORDS = {"enabling", "efficient", "power", "detailliert", "sonstige",
-                       "diverse", "verschiedene", "übersicht", "zusammenfassung",
-                       "verantwortlich", "zustaendig", "erfahrung"}
-        if name.lower().strip() in _STOPWORDS:
-            return True
-        # Reject names that are just a single digit/number
-        if name.strip().isdigit():
-            return True
+                      "diverse", "verschiedene", "übersicht", "zusammenfassung",
+                      "verantwortlich", "zustaendig", "erfahrung"}
+        if klein in _STOPWORDS:
+            return "Fuellwort ohne Kompetenz"
         # #681: Satzfragmente aus der Extraktion ausfiltern (z.B.
-        # "in Systemen wie Creo", "Programmierung in CATIA.",
-        # "SAP oder vergleichbar)").
-        stripped = name.strip()
-        words = stripped.split()
-        # Fuehrendes Funktionswort (Praeposition/Artikel/Konjunktion) = aus
-        # einem Satz gerissen, kein eigenstaendiger Skill.
+        # "in Systemen wie Creo", "Programmierung in CATIA.").
+        woerter = roh.split()
         _FRAGMENT_PREFIXES = {
             "in", "im", "an", "am", "auf", "mit", "und", "oder", "wie", "bzw",
             "fuer", "für", "von", "vom", "bei", "aus", "zu", "zur", "zum",
@@ -3589,16 +3641,19 @@ class Database:
             "eine", "einem", "einen", "einer", "sowie", "etc", "bzgl", "ggf",
             "inkl", "sehr",
         }
-        if words and words[0].lower().strip(".,;:") in _FRAGMENT_PREFIXES:
-            return True
-        # Satz-Endzeichen am Ende = abgeschnittener Satz (".NET" beginnt mit
-        # Punkt, endet aber nicht damit — bleibt erlaubt).
-        if stripped.endswith((".", ",", ";")):
-            return True
-        # Unbalancierte Klammern (")" ohne "(", "(Infor" ohne ")").
-        if stripped.count("(") != stripped.count(")"):
-            return True
-        return False
+        if woerter and woerter[0].lower().strip(".,;:") in _FRAGMENT_PREFIXES:
+            return "beginnt mit einem Funktionswort (aus einem Satz gerissen)"
+        # ".NET" beginnt mit Punkt, endet aber nicht damit — bleibt erlaubt.
+        if roh.endswith((".", ",", ";")):
+            return "endet mit einem Satzzeichen (abgeschnittener Satz)"
+        if roh.count("(") != roh.count(")"):
+            return "unbalancierte Klammern"
+        return None
+
+    @classmethod
+    def _is_garbage_skill(cls, name: str) -> bool:
+        """Alte Schnittstelle: Extraktions-Regeln als Wahrheitswert (#129)."""
+        return bool(cls.skill_ablehnungsgrund(name, quelle="extraktion"))
 
     @staticmethod
     def _normalize_skill_category(raw: str) -> str:
@@ -3622,15 +3677,31 @@ class Database:
         normalized = raw.strip().lower().replace("-", "_")
         return _CATEGORY_MAP.get(normalized, "fachlich")
 
-    def add_skill(self, data: dict) -> str:
+    def add_skill(self, data: dict, quelle: str = "extraktion") -> str:
+        """Legt einen Skill an und gibt seine ID zurueck, "" bei Abweisung.
+
+        Den GRUND einer Abweisung liefert `add_skill_mit_befund` (#1073).
+        """
+        return self.add_skill_mit_befund(data, quelle=quelle)[0]
+
+    def add_skill_mit_befund(self, data: dict,
+                             quelle: str = "extraktion") -> tuple:
+        """Wie `add_skill`, liefert aber `(id, grund)` (#1073).
+
+        `quelle="eingabe"` fuer ausdrueckliche Eingaben eines Menschen:
+        dort gelten nur die harten Regeln, nicht die Satzfragment-
+        Heuristik aus der Dokumentenextraktion. `grund` ist bei Erfolg
+        None, sonst ein lesbarer Satz.
+        """
         conn = self.connect()
         name = (data.get("name") or "").strip()
         # Strip leading bullet markers from extraction
         import re
         name = re.sub(r'^[\-\*\+•]\s+', '', name).strip()
-        # Validate: reject garbage skills (#43, #129)
-        if self._is_garbage_skill(name):
-            return ""
+        # Validate: reject garbage skills (#43, #129, #1073)
+        grund = self.skill_ablehnungsgrund(name, quelle=quelle)
+        if grund:
+            return "", grund
         sid = _gen_id()
         profile_id = data.get("profile_id") or self.get_active_profile_id()
         # Normalize category (#128)
@@ -3641,7 +3712,7 @@ class Database:
             (profile_id, name)
         ).fetchone()
         if existing:
-            return existing["id"]
+            return existing["id"], None
         # #511: Neue Felder. Backward-compat: wenn start_year nicht gegeben,
         # aber last_used_year + years_experience da sind, ableiten.
         start_year = data.get("start_year")
@@ -3671,7 +3742,7 @@ class Database:
             start_year, end_year, level_current
         ))
         conn.commit()
-        return sid
+        return sid, None
 
     def delete_skill(self, skill_id: str, profile_id: str = None) -> bool:
         conn = self.connect()
@@ -3698,11 +3769,16 @@ class Database:
             "WHERE profile_id=? OR profile_id IS NULL",
             (pid,),
         ).fetchall()
-        return [
-            {"id": r["id"], "name": r["name"], "category": r["category"]}
-            for r in rows
-            if self._is_garbage_skill((r["name"] or "").strip())
-        ]
+        # #1073: jeder Kandidat nennt die Regel, die gegriffen hat — ein
+        # Mensch soll eine Fehlerkennung sehen, BEVOR er loescht.
+        treffer = []
+        for r in rows:
+            grund = self.skill_ablehnungsgrund(
+                (r["name"] or "").strip(), quelle="extraktion")
+            if grund:
+                treffer.append({"id": r["id"], "name": r["name"],
+                                "category": r["category"], "grund": grund})
+        return treffer
 
     # === Suggested Job Titles ===
 
@@ -5268,6 +5344,9 @@ class Database:
         # beim Routing-Dienst — ein erneuter Suchlauf darf sie nicht still
         # loeschen (DoD 8e).
         "fahrstrecke_km", "fahrzeit_min", "route_quelle",
+        # v1.7.126 (#1077): die Herkunft einer von Hand gesetzten
+        # Entfernung, dasselbe Muster wie `salary_quelle`.
+        "entfernung_quelle",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5391,6 +5470,22 @@ class Database:
                             job["salary_estimated"] = _geh["salary_estimated"]
                     except Exception as _exc:  # pragma: no cover
                         logger.debug("Handgehalt (#1026): %s", _exc)
+                # v1.7.126 (#1077): dasselbe fuer eine von Hand gesetzte
+                # Entfernung. `distance_km`, `lat` und `lon` stehen in der
+                # INSERT-Liste; ohne diese Zeilen rechnete der naechste
+                # Lauf den Anzeigenort wieder hinein.
+                if bewahrt.get("entfernung_quelle") == "mensch":
+                    try:
+                        _ort = conn.execute(
+                            "SELECT distance_km, lat, lon FROM jobs "
+                            "WHERE hash=?", (stored_hash,)).fetchone()
+                        if _ort:
+                            job["distance_km"] = _ort["distance_km"]
+                            job["lat"] = _ort["lat"]
+                            job["lon"] = _ort["lon"]
+                            job.pop("fahrstrecke_km", None)
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Handentfernung (#1077): %s", _exc)
             # v1.7.62 (#1008 Befund 2): Gesamtwert und Aufteilung MUESSEN
             # aus demselben Lauf stammen. Bis hierher wurde der hoehere
             # alte `score` behalten, `fachscore`/`rahmenscore` aber
@@ -5492,9 +5587,11 @@ class Database:
                         conn.execute(
                             "INSERT OR IGNORE INTO job_sources "
                             "(job_hash, source, url, gefunden_am, "
-                            "veroeffentlicht_am) VALUES (?, ?, ?, ?, ?)",
+                            "veroeffentlicht_am, suchbegriff) "
+                            "VALUES (?, ?, ?, ?, ?, ?)",
                             (original_hash, src or "unbekannt", url_val, now,
-                             (job.get("veroeffentlicht_am") or "")),
+                             (job.get("veroeffentlicht_am") or ""),
+                             (job.get("suchbegriff") or "")),
                         )
                     except Exception as _exc:  # pragma: no cover
                         logger.debug("Fundstelle nicht vermerkbar: %s", _exc)
@@ -5518,9 +5615,11 @@ class Database:
                         conn.execute(
                             "INSERT OR IGNORE INTO job_sources "
                             "(job_hash, source, url, gefunden_am, "
-                            "veroeffentlicht_am) VALUES (?, ?, ?, ?, ?)",
+                            "veroeffentlicht_am, suchbegriff) "
+                            "VALUES (?, ?, ?, ?, ?, ?)",
                             (stored_hash, src or "unbekannt", url_val, now,
-                             (job.get("veroeffentlicht_am") or "")),
+                             (job.get("veroeffentlicht_am") or ""),
+                             (job.get("suchbegriff") or "")),
                         )
                     except Exception as _exc:  # pragma: no cover
                         logger.debug("Fundstelle nicht vermerkbar: %s", _exc)
@@ -8880,10 +8979,18 @@ class Database:
         - ``field_strategy``: dict pro Feld, Wert ``'master'`` (default),
           ``'duplikat'`` oder ``'merge'`` (nur fuer description — konkateniert).
         - Felder, die im Master leer/None sind und im Duplikat gefuellt, werden
-          automatisch uebernommen (egal welche Strategie, weil es keinen
-          Konflikt gibt).
-        - Referenzen aus ``applications.job_hash`` werden auf ``master_hash``
-          umgehaengt.
+          automatisch uebernommen — AUSSER die Strategie nennt fuer das
+          Feld ausdruecklich ``'master'`` (#1077). Ein leeres Feld kann eine
+          Entscheidung sein, gerade bei berechneten Werten.
+        - Ortsfelder sind eine Einheit (#1077): kommt ``location`` vom
+          Master und unterscheidet sich vom Ort des Duplikats, stammen
+          ``distance_km``, ``lat``, ``lon`` und die Fahrstrecke ebenfalls
+          vom Master — eine Entfernung gilt fuer ihren Ort.
+        - ``0`` ist bei Entfernung und Koordinaten ein Wert, kein
+          Leerfeld: 0 km heisst "am Wohnort".
+        - Jede Tabelle mit einer Spalte ``job_hash`` wird umgehaengt
+          (Bewerbungen, Verknuepfungen, Fundstellen, ...), nicht nur
+          ``applications`` (#1077).
         - Duplikat-Job wird geloescht.
         - Alles in einer Transaktion. Bei ``dry_run=True`` wird nur der Plan
           zurueckgegeben, nichts geschrieben.
@@ -8919,17 +9026,51 @@ class Database:
             "remote_level", "distance_km", "salary_info", "salary_min",
             "salary_max", "salary_type", "employment_type", "research_notes",
             "veroeffentlicht_am", "lat", "lon",
+            "fahrstrecke_km", "fahrzeit_min", "route_quelle",
+            "entfernung_quelle",
         )
+        # v1.7.126 (#1077): was aus dem Ort abgeleitet ist.
+        ortsfelder = ("distance_km", "lat", "lon", "fahrstrecke_km",
+                      "fahrzeit_min", "route_quelle", "entfernung_quelle")
+        null_ist_wert = {"distance_km", "lat", "lon", "fahrstrecke_km",
+                         "fahrzeit_min"}
+
+        def _ort_norm(v):
+            return " ".join(str(v or "").lower().split())
+
+        ort_vom_master = (
+            strategy.get("location", "master") != "duplikat"
+            and _ort_norm(master_d.get("location"))
+            != _ort_norm(duplicate_d.get("location"))
+            and _ort_norm(master_d.get("location")) != "")
         feld_entscheidungen: dict = {}
         konflikte: list[str] = []
         new_values: dict = {}
         for f in mergeable_fields:
+            if f not in master_d and f not in duplicate_d:
+                continue  # Spalte gibt es in diesem Bestand nicht
             mv = master_d.get(f)
             dv = duplicate_d.get(f)
-            mv_filled = mv not in (None, "", 0)
-            dv_filled = dv not in (None, "", 0)
+            leer = (None, "") if f in null_ist_wert else (None, "", 0)
+            mv_filled = mv not in leer
+            dv_filled = dv not in leer
             if mv == dv:
                 continue  # nichts zu tun
+            # #1077: der Ort des Masters gilt, also auch seine Entfernung —
+            # es sei denn, fuer das Feld steht ausdruecklich etwas anderes.
+            if (f in ortsfelder and ort_vom_master
+                    and strategy.get(f) != "duplikat"):
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": mv, "quelle": "master_ort",
+                }
+                continue
+            if not mv_filled and dv_filled and strategy.get(f) == "master":
+                # #1077: ausdrueckliche Strategie gewinnt auch gegen ein
+                # leeres Master-Feld.
+                feld_entscheidungen[f] = {
+                    "vorher": mv, "nachher": mv, "quelle": "master",
+                }
+                continue
             if not mv_filled and dv_filled:
                 # Master leer, Duplikat gefuellt -> automatisch
                 new_values[f] = dv
@@ -8963,12 +9104,38 @@ class Database:
 
         # Referenzen suchen
         pid = self.get_active_profile_id()
+        # #1077: Bewerbungen tragen den Hash in beiden Formen (v1.7.56
+        # MERKE 4) — die oeffentliche Form fand die alte Abfrage nie.
+        dup_formen = tuple({duplicate_d["hash"],
+                            self._public_job_hash(duplicate_d["hash"], pid)
+                            or duplicate_d["hash"]})
+        _platz = ",".join("?" * len(dup_formen))
         apps_to_move = conn.execute(
-            "SELECT id FROM applications WHERE job_hash=? "
+            f"SELECT id FROM applications WHERE job_hash IN ({_platz}) "
             "AND (profile_id=? OR profile_id IS NULL)",
-            (duplicate_d["hash"], pid),
+            (*dup_formen, pid),
         ).fetchall()
         umgehaengte = [r["id"] for r in apps_to_move]
+        # #1077: alle weiteren Tabellen mit einer `job_hash`-Spalte —
+        # `application_jobs` (#764) und `job_sources` (#951) blieben vorher
+        # auf die geloeschte Stelle zeigend stehen.
+        weitere_bezuege: dict = {}
+        for (_tab,) in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall():
+            if _tab in ("jobs", "applications"):
+                continue
+            _spalten = {r[1] for r in conn.execute(
+                f"PRAGMA table_info({_tab})").fetchall()}
+            if "job_hash" not in _spalten:
+                continue
+            _n = conn.execute(
+                f"SELECT COUNT(*) FROM {_tab} WHERE job_hash IN ({_platz})",
+                dup_formen).fetchone()[0]
+            if _n:
+                weitere_bezuege[_tab] = _n
+        automatisch = sorted(
+            f for f, e in feld_entscheidungen.items()
+            if e["quelle"] == "duplikat_auto")
 
         plan = {
             "status": "vorschau" if dry_run else "ok",
@@ -8985,8 +9152,19 @@ class Database:
             "feld_entscheidungen": feld_entscheidungen,
             "konflikte": konflikte,
             "umgehaengte_bewerbungen": umgehaengte,
+            "umgehaengte_bezuege": weitere_bezuege,
             "neue_werte": new_values,
         }
+        # #1077 AK 3: was OHNE Rueckfrage uebernommen wird, steht als
+        # eigener Block da — sonst sieht man es erst nach dem Ausfuehren.
+        if automatisch:
+            plan["ohne_rueckfrage_uebernommen"] = {
+                "felder": automatisch,
+                "hinweis": (
+                    "Diese Felder sind im Master leer und werden aus dem "
+                    "Duplikat uebernommen. Soll ein Feld leer bleiben: "
+                    "feld_strategie={'<feld>': 'master'}."),
+            }
 
         if dry_run:
             return plan
@@ -8998,9 +9176,39 @@ class Database:
                 if umgehaengte:
                     conn.execute(
                         "UPDATE applications SET job_hash=?, updated_at=? "
-                        "WHERE job_hash=? AND (profile_id=? OR profile_id IS NULL)",
-                        (master_d["hash"], _now(), duplicate_d["hash"], pid),
+                        f"WHERE job_hash IN ({_platz}) "
+                        "AND (profile_id=? OR profile_id IS NULL)",
+                        (master_d["hash"], _now(), *dup_formen, pid),
                     )
+                # 1b) #1077: weitere Bezuege. OR IGNORE, weil eine
+                # Verknuepfung zum Master schon bestehen kann; was danach
+                # noch aufs Duplikat zeigt, ist eine Doppelung und geht.
+                for _tab in weitere_bezuege:
+                    if _tab == "application_jobs":
+                        # Eine primaere Verknuepfung bleibt primaer.
+                        conn.execute(
+                            "UPDATE application_jobs SET is_primary=1 "
+                            "WHERE job_hash=? AND application_id IN ("
+                            "SELECT application_id FROM application_jobs "
+                            f"WHERE job_hash IN ({_platz}) AND is_primary=1)",
+                            (master_d["hash"], *dup_formen))
+                    conn.execute(
+                        f"UPDATE OR IGNORE {_tab} SET job_hash=? "
+                        f"WHERE job_hash IN ({_platz})",
+                        (master_d["hash"], *dup_formen))
+                    conn.execute(
+                        f"DELETE FROM {_tab} WHERE job_hash IN ({_platz})",
+                        dup_formen)
+                # 1c) #1077: Kontakt-Verknuepfungen sind polymorph
+                # (`target_kind='job'`) — ohne `job_hash`-Spalte fand die
+                # Schema-Suche sie nicht.
+                conn.execute(
+                    "UPDATE OR IGNORE contact_links SET target_id=? "
+                    f"WHERE target_kind='job' AND target_id IN ({_platz})",
+                    (master_d["hash"], *dup_formen))
+                conn.execute(
+                    "DELETE FROM contact_links WHERE target_kind='job' "
+                    f"AND target_id IN ({_platz})", dup_formen)
                 # 2) Master updaten mit neuen Werten
                 if new_values:
                     sets = ", ".join(f"{k}=?" for k in new_values)
@@ -9015,6 +9223,37 @@ class Database:
             return plan
         except Exception as exc:
             return {"fehler": "transaktion_fehlgeschlagen", "detail": str(exc)}
+
+    def set_job_entfernung(self, job_hash: str, km) -> bool:
+        """Setzt die Entfernung einer Stelle von Hand — oder gibt sie frei (#1077).
+
+        ``km`` als Zahl (auch 0 = am Wohnort): gilt ab jetzt, und kein
+        Suchlauf ueberschreibt sie (`entfernung_quelle = 'mensch'`). Eine
+        gespeicherte Fahrstrecke faellt weg — sie gehoerte zum alten Wert —,
+        ebenso die Koordinaten des Anzeigenorts: sonst rechnete der
+        Reisewiderstand (#965) eine Richtung zu einem Ort, der nicht gilt.
+        ``km=None``: die Entfernung ist unbekannt, und die Automatik darf
+        sie wieder berechnen.
+        """
+        conn = self.connect()
+        stored = self.resolve_job_hash(job_hash)
+        if not stored:
+            return False
+        if km is None:
+            cur = conn.execute(
+                "UPDATE jobs SET distance_km=NULL, lat=NULL, lon=NULL, "
+                "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL, "
+                "entfernung_quelle=NULL, updated_at=? WHERE hash=?",
+                (_now(), stored))
+        else:
+            cur = conn.execute(
+                "UPDATE jobs SET distance_km=?, lat=NULL, lon=NULL, "
+                "fahrstrecke_km=NULL, "
+                "fahrzeit_min=NULL, route_quelle=NULL, "
+                "entfernung_quelle='mensch', updated_at=? WHERE hash=?",
+                (float(km), _now(), stored))
+        conn.commit()
+        return cur.rowcount > 0
 
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
