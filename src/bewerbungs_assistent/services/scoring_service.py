@@ -23,6 +23,11 @@ logger = logging.getLogger("bewerbungs_assistent.scoring")
 # sie ist ein Preis, kein Ausschluss (#910).
 MAX_ENTFERNUNGS_ZUSCHLAG = 6
 
+# v1.7.127 (#1082): die Regler, die den RAHMEN betreffen. Sie ordnen die
+# Liste, entscheiden aber nicht ueber das Ausblenden — dieselbe Trennung
+# wie Fachwert und Rahmen seit v1.7.117 (#1052).
+RAHMEN_DIMENSIONEN = frozenset({"Remote", "Entfernung", "Gehalt/Rate"})
+
 def _entfernungs_zuschlag(distance_km: float, emp_type: str,
                           db) -> tuple[int, int]:
     """Wie viele Punkte kostet die Entfernung ueber dem Wunschwert extra?
@@ -114,6 +119,16 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
     except Exception:  # pragma: no cover — Regler duerfen nie stoppen
         _kriterien = {}
     # v1.7.100 (#1037): ohne Routing-Schluessel die Luftlinie.
+    # v1.7.127 (#1082 AK 3): ein naeherer Standort aus der Anzeige zaehlt
+    # auch hier — sonst rechneten Regler und Rahmendaumen verschieden.
+    try:
+        if _kriterien.get("standort_lat") and _kriterien.get("standort_lon"):
+            from . import standorte as _standorte
+            _orte = _standorte.verzeichnis(db)
+            if _orte:
+                _kriterien = dict(_kriterien, _standorte=_orte)
+    except Exception:  # pragma: no cover
+        pass
     distance_km = _entfernung.preis_km(job, _kriterien)
     if distance_km is not None and distance_km > 0:
         if emp_type == "freelance":
@@ -317,20 +332,57 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
     # exakt darstellbar; nach einem Abzug von 2 stand `9.199999999999999`
     # auf der Stellenkarte. Gerundet wurden nur einzelne Posten, nie die
     # Summe — und die geht an alle Aufrufer.
+    #
+    # v1.7.127 (#1082): der Rahmen ordnet, er blendet nicht aus. Seit
+    # v1.7.117 ist der Score der Fachwert, und Entfernung, Remote und
+    # Gehalt stehen als Rahmen daneben. Hier liefen sie trotzdem in die
+    # Zahl, gegen die die Schwelle vergleicht — und eine Stelle mit
+    # Fachwert 41,8 in 450 km verschwand unter der Schwelle, fachlich
+    # der staerkste Treffer des Bestands. Die Regler behalten ihre
+    # Wirkung auf die REIHENFOLGE (sonst waeren sie Einstellungen ohne
+    # Wirkung, #988); ueber das Ausblenden entscheidet nur, was die
+    # Stelle fachlich ist. Das ist auch die Skala, auf der die Stufen
+    # aus #1063 gerechnet werden.
+    rahmen_adj = sum(a.get("punkte") or 0 for a in adjustments
+                     if a.get("dimension") in RAHMEN_DIMENSIONEN)
+    for a in adjustments:
+        if a.get("dimension") in RAHMEN_DIMENSIONEN:
+            a["rahmen"] = True
     final_score = round(base_score + total_adj, 1)
-    threshold = cfg.get(("schwellenwert", "auto_ignore"), {}).get("value", 0)
+    fach_score = round(base_score + total_adj - rahmen_adj, 1)
+    # v1.7.127: die Schwelle kommt aus dem Nadeloehr — mit gewaehlter
+    # Stufe die Stufe (#1063). Bis hierher las die Liste die rohe Zahl
+    # aus der Regler-Tabelle, und die Stufe wirkte nur in der Anzeige.
+    try:
+        threshold = float(db.get_scoring_threshold() or 0)
+    except Exception:  # pragma: no cover — Testdoppel ohne Nadeloehr
+        threshold = cfg.get(("schwellenwert", "auto_ignore"), {}).get("value", 0)
 
-    if not ignored and threshold and final_score < threshold:
+    unter_schwelle = False
+    if not ignored and threshold and fach_score < threshold:
         ignored = True
+        unter_schwelle = True
         adjustments.append({
             "dimension": "Schwellenwert",
-            "detail": f"Score {final_score} < Schwelle {threshold}",
+            "detail": (f"Fachwert {fach_score} < Schwelle {threshold} "
+                       "(Entfernung, Remote und Gehalt zaehlen hier nicht)"),
             "punkte": 0,
             "aktion": "AUTO-IGNORIERT"
         })
 
+    # v1.7.127 (#1082): keine Kappung bei 0. Eine Stelle bei -8 darf
+    # nicht aussehen wie eine bei 0 — dieselbe Regel wie beim Fachwert
+    # seit v1.7.117 (#1052), hier war sie stehen geblieben.
     return {
-        "final_score": max(0, final_score),
+        "final_score": final_score,
+        "fach_score": fach_score,
+        "rahmen_adjustment": round(rahmen_adj, 1),
+        "unter_schwelle": unter_schwelle,
+        # #1082 AK 4: haette die ALTE Regel (Schwelle gegen den Wert samt
+        # Rahmen) diese Stelle verborgen? Nur fuer die Auskunft.
+        "nur_durch_rahmen_unter_schwelle": bool(
+            not ignored and threshold and final_score < threshold
+            and fach_score >= threshold),
         "adjustments": adjustments,
         "ignored": ignored,
         "basis_score": base_score,

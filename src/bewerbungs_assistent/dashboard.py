@@ -2382,6 +2382,7 @@ async def api_jobs(active: bool = True,
                    pruefstand: str = "",
                    zeitfenster: str = "",
                    rahmen_ausblenden: str = "",
+                   schwelle_ausblenden: str = "",
                    sort: str = ""):
     """Get jobs with filtering and optional pagination (#118, #121, #145).
 
@@ -2412,6 +2413,7 @@ async def api_jobs(active: bool = True,
         # "nicht gesagt" und nicht "aus" — sonst haette jeder Aufrufer,
         # der den Parameter nicht kennt, den Filter still abgeschaltet.
         "rahmen_ausblenden": rahmen_ausblenden,
+        "schwelle_ausblenden": schwelle_ausblenden,
     }.items() if wert not in (None, "")}
     als_liste = limit > 0 or _liste.ist_listenanfrage(filter_roh, sort)
 

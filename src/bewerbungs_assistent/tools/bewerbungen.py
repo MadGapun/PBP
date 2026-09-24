@@ -383,7 +383,7 @@ def register(mcp, db, logger):
             eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
                           "score": j.get("score")}
             try:
-                _rp = find_repost_of_application(j, _apps_fuer_repost)
+                _rp = find_repost_of_application(j, _apps_fuer_repost, db=db)
                 if _rp:
                     eintrag_st["repost_warnung"] = _rp["warnung"]
             except Exception:
@@ -1555,15 +1555,25 @@ def register(mcp, db, logger):
         # #223: Verknuepfte Dokumente anzeigen
         conn = db.connect()
         linked_docs = conn.execute(
-            "SELECT id, filename, doc_type, extraction_status FROM documents WHERE linked_application_id=?",
+            "SELECT id, filename, doc_type, extraction_status, extracted_text "
+            "FROM documents WHERE linked_application_id=?",
             (app["id"],)
         ).fetchall()
         if linked_docs:
-            result["dokumente"] = [
-                {"id": d["id"], "dateiname": d["filename"], "typ": d["doc_type"],
-                 "status": d["extraction_status"]}
-                for d in linked_docs
-            ]
+            # v1.7.127 (#1083): bei Absagen und Recruiter-Mails steht der
+            # Anfang des Textes mit dabei — der Grund einer Absage ist die
+            # Information, nicht der Dateiname. Den ganzen Text liefert
+            # dokument_lesen(dokument_id).
+            from ..services import dokument_text as _doktext
+            result["dokumente"] = []
+            for d in linked_docs:
+                eintrag = {"id": d["id"], "dateiname": d["filename"],
+                           "typ": d["doc_type"], "status": d["extraction_status"]}
+                if (d["doc_type"] in _doktext.KORRESPONDENZ_MIT_TEXT
+                        and (d["extracted_text"] or "").strip()):
+                    eintrag["textanfang"] = _doktext.anfang(d["extracted_text"])
+                    eintrag["ganzer_text"] = f"dokument_lesen(dokument_id='{d['id']}')"
+                result["dokumente"].append(eintrag)
 
         # #673: Gespeicherte Recherchen (research_notes-Tabelle, alle Kategorien)
         # — getrennt vom manuellen Firmen-Recherche-Notizblock (jobs.research_notes).

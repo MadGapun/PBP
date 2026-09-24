@@ -281,6 +281,14 @@ _MANUAL_SOURCES = {
 # (Wizard-Phase 5) und in der "keine_quellen"-Antwort empfohlen.
 _SMART_DEFAULT_QUELLEN = ("bundesagentur", "arbeitnow", "jobspy_indeed")
 
+# v1.7.127 (#1082): was die Score-Schwelle vergleicht. Steht an beiden
+# Hinweisen der Liste, weil genau diese Frage der Anlass des Issues war —
+# eine Stelle in 450 km verschwand, und niemand konnte sehen, warum.
+_SCHWELLE_VERGLEICHT = (
+    "Die Score-Schwelle vergleicht den FACHWERT. Entfernung, Remote-Anteil "
+    "und Gehalt blenden keine Stelle aus — sie stehen im Rahmendaumen und "
+    "wirken nur auf die Reihenfolge.")
+
 
 def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
     """v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach Jobsuche.
@@ -1776,7 +1784,8 @@ def register(mcp, db, logger):
         max_alter_tage: int = 0,
         nur_nicht_beworben: bool = False,
         nur_empfohlen: bool = False,
-        nur_beurteilt: bool = False
+        nur_beurteilt: bool = False,
+        ohne_schwelle: bool = False
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -1801,6 +1810,11 @@ def register(mcp, db, logger):
                 gilt eine Stelle als NICHT_BEURTEILBAR — das ist etwas
                 anderes als "passt nicht", und wer die beurteilten
                 sehen will, soll sie nicht suchen muessen.
+            ohne_schwelle: True zeigt fuer DIESEN Aufruf auch die Stellen
+                unter deiner Score-Schwelle (#1082); sie tragen dann
+                `unter_schwelle: true`. Die Einstellung selbst bleibt
+                unveraendert. Die Schwelle vergleicht den Fachwert —
+                Entfernung, Remote und Gehalt blenden nie etwas aus.
         """
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
@@ -1866,6 +1880,9 @@ def register(mcp, db, logger):
 
         # Apply scoring adjustments (#169)
         durch_schwelle_verborgen = 0
+        # #1082 AK 4: Stellen, die die alte Regel (Schwelle gegen den
+        # Wert samt Entfernung/Remote/Gehalt) verborgen haette.
+        nur_durch_rahmen = 0
         if filter != "aussortiert":
             try:
                 from ..services.scoring_service import apply_scoring_adjustments
@@ -1874,7 +1891,19 @@ def register(mcp, db, logger):
                 for j in jobs:
                     result = apply_scoring_adjustments(j, j.get("score", 0), db)
                     j["score"] = result["final_score"]
+                    # v1.7.127 (#1082): der Fachwert ohne Rahmen-Regler —
+                    # gegen ihn vergleichen Schwelle und Fachdaumen.
+                    j["fach_score"] = result.get("fach_score", j["score"])
+                    if result.get("nur_durch_rahmen_unter_schwelle"):
+                        nur_durch_rahmen += 1
                     if result.get("ignored"):
+                        # Nur die Schwelle darf fuer einen Aufruf
+                        # aufgehoben werden; ein ausdrueckliches
+                        # "ignorieren" an einem Regler gilt weiter.
+                        if ohne_schwelle and result.get("unter_schwelle"):
+                            j["unter_schwelle"] = True
+                            scored_jobs.append(j)
+                            continue
                         auto_ignored += 1
                         continue
                     scored_jobs.append(j)
@@ -1965,18 +1994,19 @@ def register(mcp, db, logger):
                 return {
                     "anzahl": 0,
                     "durch_schwelle_verborgen": durch_schwelle_verborgen,
+                    "davon_allein_durch_rahmen": 0,
                     "nachricht": (
                         f"Keine Stelle ueber deiner Score-Schwelle — aber "
                         f"{durch_schwelle_verborgen} aktive Stelle(n) liegen "
                         "darunter und werden deshalb nicht angezeigt. Das ist "
                         "ein Filter, kein leerer Markt."),
                     "naechster_schritt": (
-                        "Schwelle ansehen: scoring_konfigurieren('anzeigen'). "
-                        "Senken oder abschalten: scoring_konfigurieren("
-                        "aktion='setzen', dimension='schwellenwert', "
-                        "sub_key='auto_ignore', wert=0). Ueber "
-                        "stellen_anzeigen(min_score=0) kommen sie NICHT "
-                        "zurueck — die Schwelle wirkt davor."),
+                        "Fuer diesen Aufruf alle zeigen: stellen_anzeigen("
+                        "ohne_schwelle=True). Die Schwelle dauerhaft "
+                        "aendern: schwelle_stufe_setzen(bereich='liste', "
+                        "stufe=...). Ueber stellen_anzeigen(min_score=0) "
+                        "kommen sie NICHT zurueck — die Schwelle wirkt davor."),
+                    "schwelle_vergleicht": _SCHWELLE_VERGLEICHT,
                 }
             return {
                 "anzahl": 0,
@@ -2077,6 +2107,29 @@ def register(mcp, db, logger):
                 entry["rahmen_daumen"] = _marken["rahmen"]
             if _marken.get("fach_maximum"):
                 entry["fach_maximum"] = _marken["fach_maximum"]
+            # v1.7.127 (#1082): der Wert, gegen den die Schwelle haelt,
+            # und ob die Stelle darunter liegt (nur mit ohne_schwelle).
+            if j.get("fach_score") is not None:
+                entry["fach_score"] = j["fach_score"]
+            if j.get("unter_schwelle"):
+                entry["unter_schwelle"] = True
+            # v1.7.127 (#1084): ein Wiederfund steht am Master.
+            try:
+                from ..services import stellen_grabstein as _grab
+                _wieder = _grab.erneut_gesehen(
+                    db, db.resolve_job_hash(j["hash"]) or j["hash"])
+                if _wieder:
+                    entry["erneut_gesehen"] = _wieder
+            except Exception as _e:  # pragma: no cover
+                logger.debug("Wiederfund (#1084): %s", _e)
+            try:
+                from ..services import standorte as _standorte
+                _weiterer = _standorte.naechster(
+                    j, _daumen_ktx.get("kriterien") or {})
+                if _weiterer:
+                    entry["naechster_standort"] = _weiterer
+            except Exception as _e:  # pragma: no cover
+                logger.debug("Standorte (#1082): %s", _e)
             if j.get("dismiss_reason"):
                 entry["aussortiert_grund"] = j["dismiss_reason"]
             if j["hash"] in applied_hashes_all:
@@ -2155,7 +2208,7 @@ def register(mcp, db, logger):
             # wenn nicht ohnehin als bereits_beworben markiert (gleicher Hash).
             if j["hash"] not in applied_hashes_all:
                 from ..duplicate_detection import find_repost_of_application
-                _repost = find_repost_of_application(j, _alle_bewerbungen)
+                _repost = find_repost_of_application(j, _alle_bewerbungen, db=db)
                 if _repost:
                     entry["repost_warnung"] = _repost["warnung"]
                     entry["repost_details"] = {
@@ -2208,7 +2261,17 @@ def register(mcp, db, logger):
             result["schwellen_hinweis"] = (
                 f"{durch_schwelle_verborgen} weitere aktive Stelle(n) liegen "
                 "unter deiner Score-Schwelle und stehen deshalb nicht in "
-                "dieser Liste. Sie sind nicht aussortiert — nur gefiltert.")
+                "dieser Liste. Sie sind nicht aussortiert — nur gefiltert. "
+                "Alle zeigen: stellen_anzeigen(ohne_schwelle=True).")
+            # v1.7.127 (#1082) AK 4: wie viele davon liegen allein durch
+            # den Rahmen darunter? Seit dieser Version keine — und das
+            # gehoert gesagt, denn genau so war die Vermutung.
+            result["davon_allein_durch_rahmen"] = 0
+            result["schwelle_vergleicht"] = _SCHWELLE_VERGLEICHT
+        if nur_durch_rahmen:
+            # Die Gegenrichtung: sichtbar, obwohl der Wert samt Rahmen
+            # unter der Schwelle liegt. Bis v1.7.126 fehlten genau diese.
+            result["durch_rahmen_nicht_mehr_verborgen"] = nur_durch_rahmen
         # v1.7.7 (#756): unbewertete Stellen (Score 0 + keine Beschreibung)
         # ueber die GANZE Liste ausweisen — Score 0 darf nicht wie ein
         # fachliches Urteil wirken.
@@ -3111,7 +3174,7 @@ def register(mcp, db, logger):
             wiedergaenger_bewerbung = find_repost_of_application(
                 {"hash": job_hash, "title": titel, "company": firma},
                 [a for a in all_apps
-                 if (a.get("status") or "") in TERMINAL_STATUSES])
+                 if (a.get("status") or "") in TERMINAL_STATUSES], db=db)
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
             logger.debug("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
 
@@ -4684,6 +4747,21 @@ def register(mcp, db, logger):
         # v1.7.35 (#972) entfernt. Ein Wert ohne Leser ist keine
         # Einstellung (#993, #1000).
         result = _fit_analyse(job_dict, criteria)
+        # v1.7.127 (#1082 AK 3): nennt die Anzeige einen naeheren
+        # Standort, rechnet die Entfernung mit ihm — und sagt es.
+        try:
+            from ..services import standorte as _standorte
+            _weiterer = _standorte.naechster(job_dict, criteria)
+            if _weiterer:
+                result["naechster_standort"] = _weiterer
+            # #1084: laeuft die Anzeige weiter? Ein Wiederfund sagt es.
+            from ..services import stellen_grabstein as _grab
+            _wieder = _grab.erneut_gesehen(
+                db, db.resolve_job_hash(job_dict.get("hash") or "") or "")
+            if _wieder:
+                result["erneut_gesehen"] = _wieder
+        except Exception as e:  # pragma: no cover
+            logger.debug("Standorte (#1082): %s", e)
 
         # v1.7.62 (#1008 Befund 2): die Liste zeigt den Wert MIT den
         # gesetzten Scoring-Reglern, die Fit-Analyse rechnet den
@@ -4708,6 +4786,15 @@ def register(mcp, db, logger):
                     "gesetzten Scoring-Regler. Verglichen wird gegen den "
                     "Hoechstwert der Fachwert, weil die Regler dort nicht "
                     "vorkommen.")
+            # v1.7.127 (#1082): die Schwelle vergleicht den Fachwert
+            # (ohne Entfernung/Remote/Gehalt). Ob die Stelle in der Liste
+            # steht, sagt diese Antwort ausdruecklich.
+            if _regler.get("unter_schwelle"):
+                result["unter_schwelle"] = True
+                result["schwellen_hinweis"] = (
+                    "Diese Stelle steht nicht in der Stellenliste: ihr "
+                    f"Fachwert ({_regler.get('fach_score')}) liegt unter "
+                    "deiner Score-Schwelle. " + _SCHWELLE_VERGLEICHT)
         except Exception as e:
             logger.debug("Regler-Abgleich (#1008): %s", e)
 
@@ -4917,7 +5004,7 @@ def register(mcp, db, logger):
         try:
             from ..duplicate_detection import find_repost_of_application
             _repost = find_repost_of_application(
-                job_dict, db.get_applications())
+                job_dict, db.get_applications(), db=db)
             if _repost:
                 result["repost_warnung"] = _repost["warnung"]
                 result["repost_details"] = {
@@ -6384,7 +6471,16 @@ def register(mcp, db, logger):
             max_stellen: 0 = der ganze Bestand.
         """
         from ..services import stellen_dublette
-        return stellen_dublette.bestand_pruefen(db, max_stellen=max_stellen)
+        ergebnis = stellen_dublette.bestand_pruefen(db, max_stellen=max_stellen)
+        # v1.7.127 (#1084 AK 4): zusammengefuehrte Stellen, die wieder
+        # aktiv im Bestand stehen. Nur lesend, ohne Auto-Fix.
+        try:
+            from ..services import stellen_grabstein
+            ergebnis["wiedergekehrte_zusammenfuehrungen"] = (
+                stellen_grabstein.bericht(db))
+        except Exception as e:  # pragma: no cover
+            logger.debug("Grabstein-Bericht (#1084): %s", e)
+        return ergebnis
 
     @mcp.tool()
     def stellen_urls_heilen(dry_run: bool = True, nur_aktive: bool = True) -> dict:

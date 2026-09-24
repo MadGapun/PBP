@@ -135,7 +135,10 @@ def test_1008_die_leere_liste_nennt_die_richtige_ursache(db):
     assert "Schwelle" in antwort["nachricht"]
     assert "Filter" in antwort["nachricht"]
     assert "jobsuche_starten" not in antwort["nachricht"]
-    assert "scoring_konfigurieren" in antwort["naechster_schritt"]
+    # v1.7.127 (#1082): der Weg heisst jetzt ohne_schwelle (fuer diesen
+    # Aufruf) bzw. schwelle_stufe_setzen (dauerhaft, #1063).
+    assert "ohne_schwelle=True" in antwort["naechster_schritt"]
+    assert "schwelle_stufe_setzen" in antwort["naechster_schritt"]
 
 
 def test_1008_bei_teilweiser_filterung_steht_der_hinweis_dabei(db):
@@ -234,13 +237,19 @@ def test_1008_der_genannte_weg_existiert_wirklich(db):
                 return fn
             return deko
 
-    analyse_tools.register(_Sammler(), db, logging.getLogger("test"))
-    assert "scoring_konfigurieren" in gesammelt, \
-        "Der genannte Weg fuehrt zu einem Werkzeug, das es nicht gibt."
+    from bewerbungs_assistent.tools import jobs as jobs_tools
+    from bewerbungs_assistent.tools import suche as suche_tools
+    for modul in (analyse_tools, jobs_tools, suche_tools):
+        modul.register(_Sammler(), db, logging.getLogger("test"))
 
-    echte = set(inspect.signature(
-        gesammelt["scoring_konfigurieren"]).parameters)
-    genannt = set(re.findall(r"([a-z_]+)=", text)) - {"min_score"}
-    assert genannt, "Der Hinweis nennt gar keinen Parameter — dann taugt er nichts."
-    assert genannt <= echte, (
-        f"Genannt, aber nicht vorhanden: {sorted(genannt - echte)}")
+    # v1.7.127 (#1082): jeder genannte Aufruf wird gegen die Signatur
+    # SEINES Werkzeugs gehalten — der Hinweis nennt jetzt zwei.
+    aufrufe = re.findall(r"([a-z_]+)\(([^)]*)\)", text)
+    assert aufrufe, "Der Hinweis nennt gar keinen Aufruf — dann taugt er nichts."
+    for name, argumente in aufrufe:
+        assert name in gesammelt, (
+            f"Der genannte Weg {name} fuehrt zu einem Werkzeug, das es nicht gibt.")
+        echte = set(inspect.signature(gesammelt[name]).parameters)
+        genannt = set(re.findall(r"([a-z_]+)=", argumente))
+        assert genannt <= echte, (
+            f"{name}: genannt, aber nicht vorhanden: {sorted(genannt - echte)}")

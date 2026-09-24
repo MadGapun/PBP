@@ -91,8 +91,23 @@ def preis_km(job, criteria=None) -> float | None:
                   and criteria.get("_fahrstrecke_zaehlt") is True))
     fahrt = _zahl(job.get("fahrstrecke_km"))
     if zaehlt and fahrt is not None and fahrt > 0:
-        return fahrt
-    return _zahl(job.get("distance_km"))
+        wert, ist_fahrt = fahrt, True
+    else:
+        wert, ist_fahrt = _zahl(job.get("distance_km")), False
+    # v1.7.127 (#1082 AK 3): nennt die Anzeige einen naeheren Standort,
+    # zaehlt dieser. Er hat nur eine Luftlinie — steht daneben eine
+    # Fahrstrecke, wird er mit derselben Faustregel umgerechnet, sonst
+    # verglichen wir zwei verschiedene Groessen.
+    if isinstance(criteria, dict) and criteria.get("_standorte"):
+        from . import standorte
+        weiterer = standorte.naechster(job, criteria)
+        if weiterer:
+            km = weiterer["luftlinie_km"]
+            if ist_fahrt:
+                km = round(km * FAHRSTRECKEN_FAKTOR, 1)
+            if wert is None or km < wert:
+                return km
+    return wert
 
 
 def fahrzeit_text(minuten) -> str:

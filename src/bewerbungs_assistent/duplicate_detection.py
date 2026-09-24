@@ -256,7 +256,8 @@ def find_duplicate_job(
     return best
 
 
-def find_repost_of_application(job: dict, applications) -> Optional[dict]:
+def find_repost_of_application(job: dict, applications,
+                               db=None) -> Optional[dict]:
     """Repost-Erkennung (#782/C30, v1.7.10): entspricht eine (neu gefundene)
     Stelle einer Bewerbung, die es schon gab?
 
@@ -268,6 +269,12 @@ def find_repost_of_application(job: dict, applications) -> Optional[dict]:
     Liefert eine WARNUNG, keine Entscheidung — ein Repost nach Monaten kann
     eine echte zweite Chance sein (neue Ansprechpartner, geaenderte
     Anforderungen, besserer CV). Nichts wird automatisch aussortiert.
+
+    v1.7.127 (#1083): mit `db` nennt die Warnung den dokumentierten
+    Grund im Wortlaut — aus der Bewerbung oder aus der verknuepften
+    Absagemail. "Ablehnungsgrund dokumentiert: ja" allein hat im
+    Praxisfall dazu gefuehrt, dass die Neuausschreibung als zweite
+    Chance galt, obwohl der Grund dagegen sprach.
     """
     own_hash = job.get("hash") or ""
     kandidaten = [
@@ -283,6 +290,15 @@ def find_repost_of_application(job: dict, applications) -> Optional[dict]:
         return None
     app = hit["job"]
     grund_dokumentiert = bool((app.get("rejection_reason") or "").strip())
+    grund = None
+    if db is not None:
+        try:
+            from .services import dokument_text
+            grund = dokument_text.ablehnungsgrund(db, app.get("id") or "")
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            grund = None
+    if grund:
+        grund_dokumentiert = True
     datum = (app.get("applied_at") or app.get("created_at") or "")[:10]
     return {
         "bewerbung_id": (app.get("id") or "")[:8],
@@ -290,11 +306,16 @@ def find_repost_of_application(job: dict, applications) -> Optional[dict]:
         "status": app.get("status") or "",
         "titel_damals": app.get("title") or "",
         "ablehnungsgrund_dokumentiert": grund_dokumentiert,
+        **({"ablehnungsgrund": grund} if grund else {}),
         "match_grund": hit.get("grund", ""),
         "warnung": (
             f"Repost-Verdacht: Auf diese Stelle wurde am {datum} bereits "
             f"beworben (Status: {app.get('status')}). "
-            + ("Ablehnungsgrund dokumentiert: ja."
+            + (f"Dokumentierter Grund: „{grund['text']}“"
+               + (f" (aus {grund.get('dateiname')})"
+                  if grund.get("quelle") == "dokument" else "") + "."
+               if grund else
+               "Ablehnungsgrund dokumentiert: ja."
                if grund_dokumentiert else
                "Ablehnungsgrund dokumentiert: NEIN — ob die alte Huerde "
                "noch steht, ist unbekannt.")

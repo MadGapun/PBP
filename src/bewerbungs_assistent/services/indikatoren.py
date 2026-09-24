@@ -87,7 +87,14 @@ def fuer_stelle(job: dict, ktx: dict) -> dict:
 
     ktx = ktx or {}
     try:
-        fach = fachwert.daumen(job.get("score"), ktx.get("schwellen") or {},
+        # v1.7.127 (#1082): der Fachwert OHNE die Rahmen-Regler. Die
+        # Liste traegt in `score` den Wert samt Entfernung, Remote und
+        # Gehalt — damit zeigte der Fachdaumen einer fachlich starken
+        # Stelle in 450 km nach unten, also genau die Vermischung, die
+        # die beiden Daumen aufheben sollen.
+        _fach = job.get("fach_score")
+        fach = fachwert.daumen(_fach if _fach is not None else job.get("score"),
+                               ktx.get("schwellen") or {},
                                belegt=_fach_belegt(job))
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Fachdaumen uebersprungen: %s", exc)
@@ -126,6 +133,15 @@ def anhaengen(jobs: list, ktx: dict) -> None:
             job["rahmen_daumen"] = befund["rahmen"]
         if befund.get("fach_maximum"):
             job["fach_maximum"] = befund["fach_maximum"]
+        # v1.7.127 (#1082 AK 3): der naehere Standort aus der Anzeige —
+        # sonst sieht man einer Entfernung nicht an, woher sie kommt.
+        try:
+            from . import standorte
+            weiterer = standorte.naechster(job, ktx.get("kriterien") or {})
+            if weiterer:
+                job["naechster_standort"] = weiterer
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Standorte uebersprungen: %s", exc)
 
 
 def rahmen_passt_nicht(job: dict) -> bool:

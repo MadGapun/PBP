@@ -89,6 +89,8 @@ BEREICHE: dict[str, tuple] = {
     ),
     "stellen": (
         "jobs", "job_sources",
+        # v1.7.127 (#1084): Grabsteine zusammengefuehrter Stellen.
+        "job_tombstones",
     ),
     "dokumente": (
         "documents", "documents_new", "document_versions",
@@ -158,6 +160,9 @@ _NICHT_IN_JEDER_DATENBANK = {
     # (1) services/stellen_quellen.py (#951), beim ersten Zweitfund.
     #     Im gemessenen Bestand: 43 Zeilen.
     "job_sources",
+    # (1) services/stellen_grabstein.py (#1084), beim ersten
+    #     Zusammenfuehren.
+    "job_tombstones",
     # (1) services/pii_bestand.py (#946), beim ersten Anonymisieren.
     "anonymisierung_map",
     # (1) Ueberbleibsel der v19-Migration (#242): dort wurde `documents`
@@ -199,6 +204,8 @@ _ZUSATZ_BEZUG = {
     # Stellen-Bestands eine Zeile je Fundstelle liegen, die auf nichts
     # mehr zeigt.
     "job_sources": ("jobs", "job_hash", "hash"),
+    # #1084: der Grabstein haengt ueber `job_hash` am Master.
+    "job_tombstones": ("jobs", "job_hash", "hash"),
     "application_jobs": ("applications", "application_id", "id"),
 }
 
