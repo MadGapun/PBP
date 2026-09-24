@@ -41,7 +41,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 
 ## Stand 2026-09-24 (v1.7.127 Stable) — Was die Schwelle vergleicht, was wiederkommt, was in der Mail steht
 
-**#1082** (C94), **#1084** (C95, ersetzt #1081), **#1083** (E28), **Tests: 5202 (main).**
+**#1082** (C94), **#1084** (C95, ersetzt #1081), **#1083** (E28), **Tests: 5202 (main) / 5100 (Stable).**
 **#1079** (G56). MCP-Tools 246 / 259 (+`dokument_lesen`).
 
 MERKE-Punkte:
