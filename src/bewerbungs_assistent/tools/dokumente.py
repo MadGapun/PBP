@@ -1793,6 +1793,53 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
+    def dokument_lesen(dokument_id: str, ab_zeichen: int = 0) -> dict:
+        """Liest den Text eines Dokuments — z.B. eine verknuepfte Absagemail (#1083).
+
+        Der Weg, um den Inhalt einer Mail, eines Lebenslaufs oder einer
+        Absage zu lesen, ohne die Datenbank anzufassen. Liefert
+        Metadaten und den extrahierten Text seitenweise (8.000 Zeichen);
+        ist er laenger, nennt die Antwort `weiter_ab_zeichen` fuer den
+        naechsten Aufruf. Gekappt wird nie still.
+
+        Die Dokument-ID steht in bewerbung_details (Abschnitt dokumente)
+        und in dokumente_zur_analyse.
+
+        Args:
+            dokument_id: ID des Dokuments
+            ab_zeichen: Ab welchem Zeichen gelesen wird (Vorgabe 0)
+        """
+        from ..services import dokument_text
+        profile_id = db.get_active_profile_id()
+        doc = db.get_document(dokument_id, profile_id=profile_id)
+        if not doc:
+            return {"fehler": "Dokument nicht gefunden.",
+                    "naechster_schritt": "IDs liefern bewerbung_details(bewerbung_id) "
+                                         "und dokumente_zur_analyse()."}
+        text = doc.get("extracted_text") or ""
+        antwort = {
+            "dokument_id": doc["id"],
+            "dateiname": doc.get("filename"),
+            "typ": doc.get("doc_type"),
+            "status": doc.get("extraction_status"),
+            "bewerbung_id": doc.get("linked_application_id") or "",
+            "angelegt_am": (doc.get("created_at") or "")[:10],
+        }
+        if not text.strip():
+            antwort["text"] = ""
+            antwort["hinweis"] = (
+                "Zu diesem Dokument ist kein Text gespeichert — etwa ein Scan "
+                "ohne Textebene. Nachtragen: dokument_text_setzen(dokument_id, "
+                "text, quelle).")
+            return antwort
+        antwort.update(dokument_text.seite(text, ab_zeichen))
+        if antwort.get("weiter_ab_zeichen") is not None:
+            antwort["naechster_schritt"] = (
+                f"Weiterlesen: dokument_lesen(dokument_id='{doc['id']}', "
+                f"ab_zeichen={antwort['weiter_ab_zeichen']}).")
+        return antwort
+
+    @mcp.tool()
     def dokument_text_setzen(dokument_id: str, text: str, quelle: str) -> dict:
         """Setzt den extrahierten Text eines Dokuments nachtraeglich (#750, E18).
 

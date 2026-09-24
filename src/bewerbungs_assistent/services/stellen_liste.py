@@ -78,6 +78,12 @@ FILTER_VORGABE: dict = {
     # sogar staerker: der Filter steht sichtbar da und nennt seine Zahl
     # (`rahmen_verborgen`).
     "rahmen_ausblenden": True,
+    # v1.7.127 (#1082): die Score-Schwelle aus den Einstellungen. Bis
+    # hierher versprach die Einstellung "blendet in der Liste aus", und
+    # der Stellen-Tab wandte sie nie an — nur die MCP-Liste. Vorgabe AN,
+    # weil der Mensch sie eingestellt hat; sichtbar mit Zahl
+    # (`schwelle_verborgen`) und mit einem Klick aus (#1008).
+    "schwelle_ausblenden": True,
 }
 
 _UMFANG_BEIDES = "beides"
@@ -122,7 +128,8 @@ def filter_lesen(roh: Optional[dict]) -> dict:
         if roh.get(feld) is not None:
             f[feld] = str(roh[feld]).strip()
     for feld in ("nur_mit_gehalt", "beworbene_ausblenden",
-                 "nur_ohne_beschreibung", "rahmen_ausblenden"):
+                 "nur_ohne_beschreibung", "rahmen_ausblenden",
+                 "schwelle_ausblenden"):
         if roh.get(feld) is not None:
             f[feld] = _wahr(roh[feld])
     if roh.get("min_score") not in (None, ""):
@@ -224,6 +231,10 @@ def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
     # nach unten heisst "ungeprueft" — ihn auszublenden waere die
     # Verwechslung aus #989.
     if f["rahmen_ausblenden"] and indikatoren.rahmen_passt_nicht(job):
+        return False
+    # #1082: `unter_schwelle` setzt `_mit_scoring_reglern` — gegen den
+    # FACHWERT, nie gegen Entfernung, Remote oder Gehalt.
+    if f["schwelle_ausblenden"] and job.get("unter_schwelle"):
         return False
     if f["pruefstand"]:
         art = (job.get("pruefstand") or {}).get("art") or "ungeprueft"
@@ -358,6 +369,13 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
         rahmen_verborgen = durchgelassen - len(treffer)
     else:
         rahmen_verborgen = 0
+    if f["schwelle_ausblenden"]:
+        ohne_schwelle = dict(f, schwelle_ausblenden=False)
+        schwelle_verborgen = sum(
+            1 for j in jobs if _passt(j, ohne_schwelle, bew, hv, grenze)
+        ) - len(treffer)
+    else:
+        schwelle_verborgen = 0
 
     return {
         "jobs": seite,
@@ -374,4 +392,5 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
             1 for j in jobs if not datenguete.hat_beschreibung(j)),
         "ohne_zeitpunkt": sum(1 for j in jobs if not j.get("dismissed_at")),
         "rahmen_verborgen": rahmen_verborgen,
+        "schwelle_verborgen": schwelle_verborgen,
     }

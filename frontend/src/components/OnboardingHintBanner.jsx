@@ -17,11 +17,17 @@
  *   gleicher Speicher wie das MCP-Tool onboarding_hint_dismiss)
  * - X-Button blendet nur fuer die Sitzung aus (localStorage)
  * - Keine Hints -> nichts rendern
+ * - v1.7.127 (#1079): der Satz fuer Claude ist ein Knopf und geht per
+ *   Klick in die Zwischenablage — ueber `copyPrompt`, also mit demselben
+ *   Toast und derselben Verbindungswarnung wie jeder andere PBP-Befehl.
+ *   Der Hinweis bleibt danach stehen: ein misslungener Anlauf soll ihn
+ *   nicht kosten.
  * - Abgrenzung zum AdaptiveHintBanner (#594): dort KI-gelernte Insights,
  *   hier kuratierte Feature-Führung. Bewusst eigene, waermere Optik.
  */
 import { useEffect, useState } from "react";
-import { Compass, X } from "lucide-react";
+import { ClipboardCopy, Compass, X } from "lucide-react";
+import { useApp } from "@/app-context";
 
 const STORAGE_KEY = "pbp_session_hidden_onboarding_hints_v1";
 
@@ -44,6 +50,7 @@ function persistHidden(set) {
 export default function OnboardingHintBanner({ tab, limit = 2 }) {
   const [hints, setHints] = useState([]);
   const [hidden, setHidden] = useState(() => readHidden());
+  const { copyPrompt } = useApp();
 
   useEffect(() => {
     let cancelled = false;
@@ -93,12 +100,15 @@ export default function OnboardingHintBanner({ tab, limit = 2 }) {
             <span className="font-medium text-ink">{h.title}</span>
             <p className="text-[11px] text-muted/80 mt-0.5">{h.body}</p>
             <div className="flex items-center gap-3 mt-1.5">
-              <span
-                className="text-[11px] text-amber"
-                title={`Einfach in Claude Desktop tippen — Claude nutzt dann ${h.cta_tool || "das passende Werkzeug"}.`}
+              <button
+                type="button"
+                onClick={() => copyPrompt(h.cta_label)}
+                className="inline-flex items-center gap-1 text-left text-[11px] text-amber hover:underline focus-visible:underline"
+                title={`Kopiert den Befehl — danach in Claude einfügen. Claude nutzt dann ${h.cta_tool || "das passende Werkzeug"}.`}
               >
                 💬 Sag Claude: „{h.cta_label}"
-              </span>
+                <ClipboardCopy className="h-3 w-3 shrink-0" aria-hidden="true" />
+              </button>
               <button
                 type="button"
                 onClick={() => dismissPermanent(h.id)}

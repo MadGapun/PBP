@@ -166,6 +166,10 @@ export const FILTER_STANDARD = {
   // und ist mit einem Klick aus. Ausgeblendet wird nur, was BELEGT
   // nicht passt — Ungeprueftes bleibt stehen (#989).
   rahmenAusblenden: true,
+  // #1082: die Score-Schwelle aus den Einstellungen. Sie versprach
+  // "blendet in der Liste aus" und wirkte hier nie. Vorgabe AN, weil der
+  // Mensch sie eingestellt hat — mit Zahl und einem Klick aus (#1008).
+  schwelleAusblenden: true,
 };
 
 // Welche Filter unterdruecken gerade Eintraege — und wie macht man das
@@ -183,6 +187,7 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
   if (filters.rahmenAusblenden) aktiv.push({ schluessel: "rahmenAusblenden", text: "Rahmen passt nicht ausgeblendet" });
+  if (filters.schwelleAusblenden) aktiv.push({ schluessel: "schwelleAusblenden", text: "unter der Score-Schwelle ausgeblendet" });
   if (filters.pruefstand) {
     aktiv.push({
       schluessel: "pruefstand",
@@ -224,6 +229,7 @@ export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
   // ABSCHALTEN gesendet, nicht das Einschalten — ein fehlender
   // Parameter heisst "wie vorgegeben".
   if (!filters.rahmenAusblenden) p.set("rahmen_ausblenden", "false");
+  if (!filters.schwelleAusblenden) p.set("schwelle_ausblenden", "false");
   let sort = filters.sort || "score_desc";
   if (ansicht === "dismissed") {
     if (zeitfenster && zeitfenster !== "alle") p.set("zeitfenster", zeitfenster);
@@ -242,6 +248,8 @@ const LEERE_META = {
   ohne_zeitpunkt: 0,
   // #1052: wie viele Stellen der Rahmenfilter gerade ausblendet.
   rahmen_verborgen: 0,
+  // #1082: wie viele Stellen die Score-Schwelle gerade ausblendet.
+  schwelle_verborgen: 0,
   optionen: { source: [], remote: [], employment_type: [], arbeitsumfang: [] },
 };
 
@@ -256,6 +264,7 @@ function listenMeta(antwort) {
     ohne_beschreibung: Number(antwort?.ohne_beschreibung || 0),
     ohne_zeitpunkt: Number(antwort?.ohne_zeitpunkt || 0),
     rahmen_verborgen: Number(antwort?.rahmen_verborgen || 0),
+    schwelle_verborgen: Number(antwort?.schwelle_verborgen || 0),
     optionen: { ...LEERE_META.optionen, ...(antwort?.optionen || {}) },
   };
 }
@@ -969,6 +978,7 @@ export default function JobsPage() {
   // die Stellen, die ALLE anderen Filter passieren — sonst stuenden
   // dort Zeilen, die ohnehin nicht zu sehen waeren.
   const rahmenVerborgen = ansichtMeta.rahmen_verborgen;
+  const schwelleVerborgen = ansichtMeta.schwelle_verborgen;
   const aktiveFilter = aktiveFilterBestimmen(filters);
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
@@ -1463,6 +1473,27 @@ export default function JobsPage() {
               Rahmen passt nicht ausblenden
               {filters.rahmenAusblenden && rahmenVerborgen > 0 ? (
                 <span className="text-[12px] text-coral/60">({rahmenVerborgen})</span>
+              ) : null}
+            </button>
+
+            {/* #1082: die Score-Schwelle. Sie vergleicht den FACHWERT —
+                Entfernung, Remote und Gehalt blenden hier nichts aus,
+                das tut allein der Rahmenfilter daneben. */}
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
+                filters.schwelleAusblenden
+                  ? "border-coral/20 bg-coral/8 text-coral/80"
+                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+              )}
+              title="Blendet Stellen aus, deren Fachwert unter deiner Score-Schwelle (Einstellungen) liegt. Entfernung, Remote-Anteil und Gehalt zählen dabei nicht."
+              onClick={() => setFilters((f) => ({ ...f, schwelleAusblenden: !f.schwelleAusblenden }))}
+            >
+              <EyeOff size={14} />
+              Unter Schwelle ausblenden
+              {filters.schwelleAusblenden && schwelleVerborgen > 0 ? (
+                <span className="text-[12px] text-coral/60">({schwelleVerborgen})</span>
               ) : null}
             </button>
 

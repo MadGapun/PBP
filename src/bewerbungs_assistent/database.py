@@ -5264,6 +5264,7 @@ class Database:
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
         duplikate = 0
+        wiederfunde_aufgeloest = 0  # #1084: Wiederfunde zusammengefuehrter Stellen
         ausland_erkannt = 0  # #732: nicht-DACH Stellen automatisch aussortiert
         stellenart_erkannt = 0  # #1015: Titel weist eine nicht gesuchte Art aus
         # Einmal je Lauf geladen, nicht je Stelle — ein Suchlauf
@@ -5309,6 +5310,22 @@ class Database:
                 "FROM jobs WHERE hash=?", (stored_hash,)
             ).fetchone()
             is_new = existing is None
+            # v1.7.127 (#1084): eine per `stelle_mergen` aufgeloeste Stelle
+            # kommt nicht als Neufund zurueck. Der Wiederfund steht am
+            # Master ("erneut gesehen") und zaehlt als Duplikat. Die
+            # manuelle Anlage ist ausgenommen — dort entscheidet der Mensch.
+            if is_new and not job.get("_manual_entry"):
+                from .services import stellen_grabstein
+                _master = stellen_grabstein.master_fuer(conn, stored_hash)
+                if _master:
+                    try:
+                        stellen_grabstein.wiederfund(
+                            conn, _master, src, url_val, now, job)
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Wiederfund nicht vermerkbar: %s", _exc)
+                    duplikate += 1
+                    wiederfunde_aufgeloest += 1
+                    continue
             # #892: die Spalten, die ein REPLACE sonst auf NULL setzt.
             # Gelesen VOR dem Schreiben, zurueckgeschrieben danach.
             bewahrt = {}
@@ -5430,6 +5447,11 @@ class Database:
                         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)",
                         (job_pid,)
                     ).fetchall()]
+                    # v1.7.127 (#1084): auch jede weitere bekannte URL
+                    # einer aktiven Stelle — nicht nur die erste Anzeige.
+                    from .services import stellen_grabstein
+                    kandidaten_je_profil[job_pid].extend(
+                        stellen_grabstein.fundstellen_kandidaten(conn, job_pid))
                 kandidaten = kandidaten_je_profil[job_pid]
                 treffer = stellen_dublette.finde(job, [
                     k for k in kandidaten if k["hash"] != stored_hash])
@@ -5696,6 +5718,7 @@ class Database:
             "new_per_source": new_per_source,
             "total": len(jobs),
             "duplikate_erkannt": duplikate,
+            "wiederfunde_aufgeloest": wiederfunde_aufgeloest,
             "ausland_erkannt": ausland_erkannt,
             "stellenart_erkannt": stellenart_erkannt,
         }
@@ -8829,6 +8852,12 @@ class Database:
             return plan
 
         # --- Ausfuehrung ---
+        # #1084: Grabstein-Tabelle VOR der Transaktion — das Anlegen
+        # committet, und ein commit mittendrin machte das Zusammenfuehren
+        # halb.
+        from .services import stellen_grabstein as _grabstein
+        _grabstein.tabelle_anlegen(conn)
+        conn.commit()
         try:
             with conn:
                 # 1) Applications umhaengen
@@ -8876,7 +8905,23 @@ class Database:
                         f"UPDATE jobs SET {sets}, updated_at=? WHERE hash=?",
                         vals,
                     )
-                # 3) Duplikat-Job loeschen
+                # 3) Duplikat-Job loeschen — mit Grabstein (#1084): sein
+                # Hash zeigt dauerhaft auf den Master, und seine URL steht
+                # als Fundstelle am Master. Sonst legt der naechste
+                # Suchlauf die Stelle als Neufund wieder an.
+                _grabstein.anlegen(
+                    conn, duplicate_d["hash"], master_d["hash"],
+                    url=duplicate_d.get("url") or "",
+                    titel=duplicate_d.get("title") or "", jetzt=_now())
+                for _eintrag in (master_d, duplicate_d):
+                    if (_eintrag.get("url") or "").strip():
+                        conn.execute(
+                            "INSERT OR IGNORE INTO job_sources "
+                            "(job_hash, source, url, gefunden_am) "
+                            "VALUES (?, ?, ?, ?)",
+                            (master_d["hash"], _eintrag.get("source") or "unbekannt",
+                             _eintrag["url"].strip(),
+                             _eintrag.get("found_at") or _now()))
                 conn.execute("DELETE FROM jobs WHERE hash=?", (duplicate_d["hash"],))
             plan["status"] = "ok"
             return plan
@@ -10661,6 +10706,12 @@ class Database:
             try:
                 ergebnis = apply_scoring_adjustments(j, j.get("score", 0), self)
                 j["score"] = ergebnis.get("final_score", j.get("score", 0))
+                # v1.7.127 (#1082): der Wert, gegen den die Schwelle und
+                # der Fachdaumen vergleichen — ohne Entfernung, Remote
+                # und Gehalt. Und ob die Stelle unter der Schwelle liegt:
+                # der Stellen-Tab blendet sie danach sichtbar aus.
+                j["fach_score"] = ergebnis.get("fach_score", j["score"])
+                j["unter_schwelle"] = bool(ergebnis.get("unter_schwelle"))
             except Exception:
                 continue
         if sortieren:

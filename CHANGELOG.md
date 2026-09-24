@@ -33,6 +33,116 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.127] - 2026-09-24 — Was die Schwelle vergleicht, was wiederkommt, was in der Mail steht
+
+Vier Meldungen aus zwei Tagen (#1079, #1082, #1083, #1084). Zwei davon
+haben eine Stelle an der falschen Stelle stehen lassen: eine fachlich
+starke Stelle verschwand, eine zusammengefuehrte kam zurueck.
+
+### Fixed
+
+- **Die Score-Schwelle vergleicht den Fachwert** (#1082). Eine fachlich
+  starke Stelle in rund 450 km verschwand aus der Liste. Beim Nachsehen
+  waren es vier Ursachen: die Scoring-Regler fuer Entfernung,
+  Remote-Anteil und Gehalt flossen in den Wert, gegen den die Schwelle
+  hielt, und der wurde bei 0 gekappt; die Schwelle las die rohe Zahl und
+  uebersah die gewaehlte Stufe aus v1.7.124; der Stellen-Tab wandte sie
+  gar nicht an, obwohl die Einstellung „blendet in der Liste aus“
+  versprach; und der Fachdaumen las denselben vermischten Wert. Jetzt
+  blenden Entfernung, Remote und Gehalt keine Stelle mehr aus — sie
+  stehen im Rahmendaumen und wirken auf die Reihenfolge —, die Schwelle
+  kommt aus dem Nadeloehr (Stufe vor Zahl), und ein Wert unter 0 bleibt
+  unter 0.
+- **Zusammengefuehrte Stellen kommen nicht zurueck** (#1084). Nach
+  `stelle_mergen` legte der naechste Suchlauf die aufgeloeste Stelle neu
+  an: sie war ohne Spur geloescht, und der Import verglich nur mit der
+  URL der ersten Anzeige. Jetzt hinterlaesst das Zusammenfuehren einen
+  Grabstein, die URLs beider Anzeigen stehen am Master, und der Import
+  vergleicht gegen alle bekannten URLs einer Stelle. Ein Wiederfund wird
+  nicht angelegt, sondern am Master vermerkt („erneut gesehen am …“, mit
+  Quelle) — die Anzeige laeuft also weiter. Die manuelle Anlage ist
+  ausgenommen.
+
+### Added
+
+- **`stellen_anzeigen(ohne_schwelle=True)`** liefert alle aktiven
+  Stellen, die unter der Schwelle mit `unter_schwelle: true`. Der
+  Hinweis „N weitere unter der Schwelle“ sagt, was die Schwelle
+  vergleicht, und nennt, wie viele Stellen bis v1.7.126 allein wegen
+  Entfernung, Remote oder Gehalt verborgen gewesen waeren.
+- **Schalter „Unter Schwelle ausblenden“ im Stellen-Tab**, Vorgabe an,
+  mit der Zahl der ausgeblendeten Stellen und einem Klick aus.
+- **Ein naeherer Standort aus der Anzeige zaehlt** (#1082). Nennt eine
+  Anzeige „Standorte: … oder <Ort im Umkreis>“ (auch Einsatzort,
+  Arbeitsort, Dienstort, Niederlassung, „hybrid von“), rechnet die
+  Entfernung mit dem naechsten davon, und Liste und Fit-Analyse nennen
+  ihn. **Grenze:** die Koordinaten kommen aus den Orten, die PBP im
+  Bestand schon kennt — ein Score haengt nie an einer Netzabfrage. Ein
+  Ort, den PBP noch nie gesehen hat, zaehlt nicht.
+- **`dokument_lesen(dokument_id, ab_zeichen=0)`** (#1083): der Text
+  eines Dokuments, seitenweise, ohne Umweg ueber die Datenbank.
+  `bewerbung_details` zeigt bei Absagen und Recruiter-Mails den
+  Textanfang, und die Repost-Warnung nennt den dokumentierten
+  Absagegrund im Wortlaut — aus der Bewerbung oder aus der verknuepften
+  Absagemail —, statt nur „Ablehnungsgrund dokumentiert: ja“.
+- **`stellen_dubletten_pruefen`** meldet zusammengefuehrte Stellen, die
+  wieder aktiv im Bestand stehen (#1084), nur lesend. Fuer
+  Zusammenfuehrungen vor v1.7.127 gibt es keine Spur; die findet nur
+  der Dublettenvergleich.
+- **Der Satz im Onboarding-Hinweis ist kopierbar** (#1079): ein Klick
+  legt ihn in die Zwischenablage, mit demselben Toast wie jeder andere
+  PBP-Befehl. Der Hinweis bleibt danach stehen.
+
+### Hinweis
+
+Die Scores in der Liste koennen nach dem Update negativ sein — das ist
+gewollt: eine Stelle bei -8 soll nicht aussehen wie eine bei 0.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.127.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.127.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.126] - 2026-09-23 — Was angelegt wird, was gesucht wird, was bleibt
 
 Sieben Meldungen aus zwei Tagen (#1071 bis #1077). Drei davon betreffen

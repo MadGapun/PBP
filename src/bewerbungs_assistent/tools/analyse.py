@@ -2736,6 +2736,7 @@ def register(mcp, db, logger):
                 "use_case": "Dokumente hochladen, analysieren, mit Bewerbungen verknuepfen.",
                 "hauptwerkzeuge": [
                     "dokumente_zur_analyse — Liste der noch nicht analysierten Dokumente",
+                    "dokument_lesen — Text eines Dokuments lesen (z.B. verknuepfte Absagemail), seitenweise",
                     "dokumente_batch_analysieren — Mehrere Dokumente analysieren",
                     "bewerbungs_dokumente_erkennen — Auto-Klassifikation",
                     "dokumente_bulk_markieren — Status-Bulk-Update",

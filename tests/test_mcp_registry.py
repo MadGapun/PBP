@@ -54,6 +54,7 @@ EXPECTED_TOOL_NAMES = {
     "dokument_typen_nachziehen",
     # v1.7.7 (#750, E18): OCR-Text nachtragen mit Provenienz-Pflicht
     "dokument_text_setzen",
+    "dokument_lesen",
     "dokumente_korrespondenz_abschliessen",
     "dokument_archivieren",
     "dokument_reaktivieren",
@@ -388,7 +389,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 245  # v1.7.126 (#1075): +stellen_entfernen_nach_quelle
+        assert len(tools) == 246  # v1.7.127 (#1083): +dokument_lesen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

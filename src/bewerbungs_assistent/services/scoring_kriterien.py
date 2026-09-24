@@ -242,4 +242,17 @@ def fuer_scoring(db, kriterien: dict | None = None) -> dict:
             krit["_neigungsprofil"] = profil
     except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
         logger.debug("Neigungsprofil nicht lesbar: %s", exc)
+
+    # v1.7.127 (#1082 AK 3): die Orte, zu denen PBP Koordinaten kennt —
+    # damit ein weiterer Standort im Anzeigentext fuer die Entfernung
+    # zaehlen kann, ohne dass der Score an einer Netzabfrage haengt.
+    # Nur mit Inhalt und nur mit Wohnort (v1.7.100 MERKE 6).
+    try:
+        if krit.get("standort_lat") and krit.get("standort_lon"):
+            from . import standorte
+            orte = standorte.verzeichnis(db)
+            if orte:
+                krit["_standorte"] = orte
+    except Exception as exc:  # pragma: no cover — nie eine Suche stoppen
+        logger.debug("Ortsverzeichnis nicht lesbar: %s", exc)
     return krit
