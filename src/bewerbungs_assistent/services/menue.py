@@ -16,7 +16,6 @@ EINSTELLUNGEN_REITER = {
     "quellen": "Quellen",
     "lokale_ki": "Lokale KI",
     "claude": "Claude (Cloud)",
-    "erweiterungen": "Erweiterungen",
     "automatik": "Automatik",
     "ablehnungsgruende": "Bewertung",
     "system": "System",

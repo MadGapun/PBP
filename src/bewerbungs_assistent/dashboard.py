@@ -4346,7 +4346,9 @@ async def api_meetings_export_ics():
         if company and app_title:
             desc_parts.append(f"Bewerbung: {app_title} bei {company}")
         if app_id:
-            desc_parts.append(f"PBP-Link: http://localhost:8200/bewerbungen?id={app_id}")
+            # H31 (#1087 G13): der alte Link zeigte auf eine Route, die es nicht gibt.
+            from .services.dashboard_link import dashboard_link
+            desc_parts.append(f"PBP-Link: {dashboard_link('bewerbungen', app_id)}")
         if meeting_url:
             desc_parts.append(f"Meeting-Link: {meeting_url}")
         if notes:

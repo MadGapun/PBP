@@ -403,7 +403,9 @@ def test_h31_stellen_tragen_den_link(umgebung):
 
 
 def test_h31_ics_verlinkt_eine_route_die_es_gibt():
-    quelle = (PAKET / "services" / "ics_service.py").read_text(encoding="utf-8")
+    # Stable-Linie: der ICS-Export steht im Dashboard (auf 1.8 in
+    # services/ics_service.py).
+    quelle = (PAKET / "dashboard.py").read_text(encoding="utf-8-sig")
     assert "dashboard_link('bewerbungen', app_id)" in quelle
     assert "/bewerbungen?id=" not in quelle
 
