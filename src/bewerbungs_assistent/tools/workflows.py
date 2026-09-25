@@ -16,52 +16,31 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def workflow_starten(name: str = "") -> dict:
-        """Startet einen geführten Workflow. Ohne Parameter: zeigt alle verfügbaren Workflows.
+        """Startet einen gefuehrten Ablauf (Jobsuche, Anschreiben, Interview ...) und liefert die Anweisungen dazu.
 
-        Verfügbare Workflows:
-        - jobsuche_workflow: Geführter Jobsuche-Prozess (Kriterien → Suche → Ergebnisse → Bewerbung)
-        - ersterfassung: Lockeres Profilerfassungs-Interview
-        - bewerbung_schreiben: Bewerbungsunterlagen (Lebenslauf und/oder
-          Anschreiben) zu einer konkreten Stelle; nimmt stelle, firma,
-          job_hash, bewerbung_id und nur='lebenslauf'|'anschreiben'
-        - interview_vorbereitung: Interview-Vorbereitung mit STAR-Antworten
-        - interview_simulation: Simuliertes Bewerbungsgespräch
-        - profil_ueberpruefen: Profil anschauen und korrigieren
-        - profil_analyse: Detaillierte Profilbewertung
-        - profil_erweiterung: Dokumente analysieren und Profil erweitern
-        - bewerbungs_uebersicht: Komplette Übersicht aller Aktivitäten
-        - gehaltsverhandlung: Gehaltsverhandlung vorbereiten
-        - netzwerk_strategie: Networking-Strategie entwickeln
-        - willkommen: Willkommensbildschirm mit Status
-        - ablehnungs_coaching: Empathische Analyse nach Absage
-        - auto_bewerbung: Komplette Bewerbung aus URL/Stellentext
-        - bewerbung_vorbereitung: Schritt-für-Schritt Bewerbungsvorbereitung
-        - faq: Erste-Schritte-Guide und FAQ
+        Ohne Namen: die Liste aller Ablaeufe aus dem Prompt-Katalog, mit
+        Titel und Beschreibung — dieselbe Liste wie im Dashboard. Mit Namen
+        (eine Katalog-Kennung wie 'jobsuche_workflow' oder
+        'bewerbung_schreiben_lebenslauf'): die Anweisungen; fuehre sie
+        Schritt fuer Schritt aus.
 
-        WICHTIG: Wenn du die Anweisungen erhältst, führe sie Schritt für Schritt aus.
-        Die Anweisungen enthalten Tool-Aufrufe die du ausführen sollst."""
+        Args:
+            name: Kennung aus der Liste; leer zeigt die Liste.
+        """
+        # H22 (#1087 G2): die Liste kommt aus dem Katalog statt aus einer
+        # eigenen Aufzaehlung (16 Eintraege, die nicht mehr zum Katalog
+        # passten). Der Text kommt aus `_prompt_registry`, derselben Quelle
+        # wie der Slash-Befehl.
+        from ..services import prompt_katalog as _katalog
         if not name:
             return {
                 "hinweis": "Bitte einen Workflow-Namen angeben.",
                 "verfuegbare_workflows": [
-                    {"name": "jobsuche_workflow", "beschreibung": "Geführter Jobsuche-Prozess"},
-                    {"name": "ersterfassung", "beschreibung": "Lockeres Profilerfassungs-Interview"},
-                    {"name": "bewerbung_schreiben", "beschreibung": "Bewerbungsunterlagen (Lebenslauf und/oder Anschreiben) zu einer Stelle"},
-                    {"name": "interview_vorbereitung", "beschreibung": "Interview-Vorbereitung"},
-                    {"name": "interview_simulation", "beschreibung": "Simuliertes Bewerbungsgespräch"},
-                    {"name": "profil_ueberpruefen", "beschreibung": "Profil korrigieren"},
-                    {"name": "profil_analyse", "beschreibung": "Profilbewertung"},
-                    {"name": "profil_erweiterung", "beschreibung": "Dokumente analysieren"},
-                    {"name": "bewerbungs_uebersicht", "beschreibung": "Komplette Übersicht"},
-                    {"name": "gehaltsverhandlung", "beschreibung": "Gehaltsverhandlung vorbereiten"},
-                    {"name": "netzwerk_strategie", "beschreibung": "Networking-Strategie"},
-                    {"name": "willkommen", "beschreibung": "Willkommensbildschirm"},
-                    {"name": "ablehnungs_coaching", "beschreibung": "Empathische Analyse nach Absage"},
-                    {"name": "auto_bewerbung", "beschreibung": "Komplette Bewerbung aus URL/Stellentext"},
-                    {"name": "bewerbung_vorbereitung", "beschreibung": "Bewerbung Schritt für Schritt vorbereiten"},
-                    {"name": "faq", "beschreibung": "Erste-Schritte-Guide und FAQ"},
+                    {"name": e["id"], "titel": e["titel"],
+                     "beschreibung": e.get("beschreibung", "")}
+                    for e in _katalog.alle()
                 ],
-                "beispiel": "workflow_starten(name='jobsuche_workflow')"
+                "beispiel": "workflow_starten(name='jobsuche_workflow')",
             }
 
         # #694: Namen normalisieren (lowercase + Umlaut-Transliteration), damit
@@ -71,14 +50,17 @@ def register(mcp, db, logger):
             name = name.replace(umlaut, ersatz)
 
         prompt_funcs = _prompt_registry(db)
-        if name not in prompt_funcs:
+        eintrag = _katalog.eintrag(name)
+        prompt_name = eintrag["prompt"] if eintrag else name
+        parameter = dict(eintrag.get("parameter") or {}) if eintrag else {}
+        if prompt_name not in prompt_funcs:
             # #694: kein Pseudo-Erfolg (status='gestartet' mit Fehlertext) mehr
             return {
                 "fehler": f"Workflow '{name}' nicht gefunden.",
-                "verfuegbare_workflows": sorted(prompt_funcs),
+                "verfuegbare_workflows": [e["id"] for e in _katalog.alle()],
             }
 
-        text = prompt_funcs[name]()
+        text = prompt_funcs[prompt_name](**parameter)
         logger.info("Workflow gestartet: %s", name)
         return {
             "workflow": name,
@@ -177,183 +159,14 @@ def register(mcp, db, logger):
 
 
 def _prompt_registry(db):
+    import functools
+    from .. import prompts as _p
     """Erstellt ein Dict mit Prompt-Name → Callable für alle registrierten Prompts."""
     import json
 
     def _ersterfassung():
         return build_kennlerngespraech_prompt(db)
 
-    def _jobsuche_workflow():
-        criteria = db.get_search_criteria()
-        from ..services.search_service import aktive_quellen
-        active_sources = aktive_quellen(db) or []  # #1039: ohne defekte
-        active_jobs = len(db.get_active_jobs())
-        last_search = db.get_profile_setting("last_search_at", "")
-        last_info = ""
-        if last_search:
-            try:
-                from datetime import datetime
-                d = datetime.fromisoformat(last_search)
-                days = (datetime.now() - d).days
-                last_info = f"Letzte Suche: {last_search} ({days} Tag(e) her)"
-            except Exception:
-                last_info = f"Letzte Suche: {last_search}"
-
-        return f"""Starte den geführten Jobsuche-Workflow.
-
-DU FÜHRST DEN USER SCHRITT FÜR SCHRITT DURCH DIESEN PROZESS.
-Erkläre bei jedem Schritt WAS passiert und WARUM.
-
-{f'i {last_info}' if last_info else ''}
-
-SCHRITT 1: SUCHKRITERIEN PRÜFEN
-Aktueller Stand: {json.dumps(criteria, ensure_ascii=False, indent=2) if criteria else 'Noch keine Kriterien gesetzt!'}
-
-Falls keine/wenige Kriterien gesetzt:
-→ Frage den User:
-  "Welche Begriffe MUESSEN in einer Stelle vorkommen? (z.B. PLM, SAP, Projektmanagement)"
-  "Welche Begriffe wären ein Bonus? (z.B. Remote, Python, Agile)"
-  "Gibt es Begriffe die du NICHT willst? (z.B. Junior, Praktikum, Zeitarbeit)"
-→ Speichere mit suchkriterien_setzen()
-
-SCHRITT 2: QUELLEN AKTIVIEREN
-Aktive Quellen: {active_sources if active_sources else 'KEINE! (Quellen müssen erst aktiviert werden)'}
-
-Falls keine Quellen aktiv:
-→ Pruefe die konfigurierten Quellen mit quellen_health_check()
-→ Verweise auf Dashboard → Einstellungen → Job-Quellen zum Aktivieren
-→ Frage welche der User nutzen möchte
-
-SCHRITT 3: SUCHE STARTEN
-{f'Es gibt bereits {active_jobs} aktive Stellen aus früheren Suchen.' if active_jobs > 0 else 'Noch keine Stellen gefunden.'}
-→ Starte die Suche mit jobsuche_starten().
-→ WICHTIG (#486): Nach dem Start NICHT in einer Schleife auf jobsuche_status() warten.
-   Die Suche laeuft 5-10 Minuten im Hintergrund — ein Polling-Loop erschoepft dein
-   Kontext-Fenster, bevor sie fertig ist.
-   Stattdessen:
-   1. Zeige dem User die zurueckgegebene job_id und die Hinweismeldung.
-   2. Sag ihm, dass die Sidebar-Status-Badge im Dashboard den Fortschritt live zeigt.
-   3. Schlage vor: „Sag mir in ein paar Minuten 'Wie laeuft meine Jobsuche?' — ich
-      pruefe dann mit jobsuche_status('{{job_id}}') nach."
-   4. Beende den Workflow-Schritt hier. Kein weiteres jobsuche_status() im selben Turn.
-→ Wenn das Tool ein `manuelle_quellen`-Feld mitliefert (#704):
-   ARBEITE DIESE QUELLEN SELBST AB — OHNE NACHFRAGE — sofern Claude-in-Chrome
-   verbunden ist (waehrend die Hintergrund-Suche laeuft):
-   - LinkedIn: oeffne linkedin.com/jobs/search mit den Suchprofil-Keywords
-   - XING: oeffne xing.com/jobs/search mit den Suchprofil-Keywords
-   - StepStone / Google Jobs: nutze google_jobs_url() und oeffne die URL in Chrome
-   - Passende Treffer SOFORT mit stelle_manuell_anlegen() in PBP erfassen
-   Ist Claude-in-Chrome NICHT verbunden: liste die Quellen auf und erklaere
-   dem User den Chrome-Extension-Weg.
-
-SCHRITT 4: ERGEBNISSE SICHTEN
-→ Zeige die Ergebnisse mit stellen_anzeigen()
-→ Für interessante Stellen: fit_analyse(hash) für Details
-→ Bewerte gemeinsam: stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', grund)
-
-SCHRITT 5: BEWERBUNG VORBEREITEN
-→ "Soll ich ein Anschreiben für [Stelle] bei [Firma] schreiben?"
-→ Exportiere als PDF/DOCX
-→ Erfasse die Bewerbung mit bewerbung_erstellen()
-
-REGELN:
-- Erkläre jeden Schritt verständlich
-- Überspringe Schritte die bereits erledigt sind
-- Sprich Deutsch und per Du"""
-
-    def _willkommen():
-        profile = db.get_profile()
-        has_profile = profile is not None
-        active_jobs = len(db.get_active_jobs()) if has_profile else 0
-        apps = len(db.get_applications()) if has_profile else 0
-        criteria = db.get_search_criteria() if has_profile else {}
-
-        if has_profile:
-            name = profile.get("name", "")
-            return f"""Willkommen zurück, {name}!
-
-Dein Bewerbungs-Assistent ist bereit. Hier ein Überblick:
-
-DEIN STATUS:
-  Profil: angelegt
-  Aktive Stellen: {active_jobs}
-  Bewerbungen: {apps}
-  Suchkriterien: {'gesetzt' if criteria.get('keywords_muss') else 'noch nicht gesetzt'}
-  Dashboard: http://localhost:8200
-
-WAS KANN ICH FÜR DICH TUN?
-  - "Starte eine Jobsuche" → jobsuche_workflow_starten()
-  - "Schreib mir ein Anschreiben" oder "Lebenslauf anpassen" →
-    workflow_starten(name='bewerbung_schreiben')
-  - "Bereite mich auf ein Interview vor" → workflow_starten(name='interview_vorbereitung')
-  - "Exportiere meinen Lebenslauf als PDF" → lebenslauf_exportieren()
-  - "Wie sieht mein Profil aus?" → profil_zusammenfassung()
-  - "Analysiere mein Profil" → workflow_starten(name='profil_analyse')
-
-Frag einfach in deinen eigenen Worten!
-
-HINWEIS FUER DICH (Claude, #707): Erwaehnt der User im Gespraech nebenbei
-Praeferenzen, No-Gos oder Lebensumstaende ("max. 2 Buerotage", "kein
-Reisejob"), speichere das sofort via profil_bearbeiten(bereich='notizen',
-aktion='anhang', ...) und bestaetige kurz — diese Notizen speisen
-Anschreiben, Bewertung und Interview-Vorbereitung.
-
-PFLICHT-REGEL (#753): Bevor du IRGENDEINE Wertung zu einer Firma oder
-Stelle aussprichst ("kenne ich", "war abgesagt", "laeuft noch", "da war
-ein Interview" — auch beilaeufig), rufe firma_kontext(firmenname) auf und
-stuetze dich NUR auf das Ergebnis. Firmen-Status nie aus dem Gedaechtnis."""
-
-        return """Willkommen beim Bewerbungs-Assistent!
-
-Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
-
-- PROFIL ERSTELLEN: Lockeres Gespräch, kein steifes Formular
-- JOBS FINDEN: Die konfigurierten Job-Quellen gleichzeitig durchsuchen (Dashboard → Einstellungen → Job-Quellen)
-- BEWERBUNGEN SCHREIBEN: Stellenspezifische Anschreiben, Export als PDF/DOCX
-- LEBENSLAUF EXPORTIEREN: Professionell formatiert
-- INTERVIEW-VORBEREITUNG: STAR-Antworten, Gehaltsverhandlung
-- BEWERBUNGS-TRACKING: Dashboard auf http://localhost:8200
-
-Starte mit: ersterfassung_starten() oder sag einfach "Lass uns mein Profil erstellen!" """
-
-    def _bewerbungs_uebersicht():
-        return """Erstelle eine umfassende Übersicht für den User.
-
-ABLAUF:
-1. Rufe profil_zusammenfassung() auf
-2. Rufe stellen_anzeigen() auf
-3. Rufe bewerbungen_anzeigen() auf
-4. Rufe statistiken_abrufen() auf
-
-DANN:
-→ Fasse die Situation zusammen
-→ Schlage nächste Schritte vor
-→ Sprich Deutsch und per Du. Sei proaktiv mit Vorschlägen."""
-
-    def _profil_analyse():
-        return """Analysiere das Bewerberprofil und liefere:
-
-1. Stärken — Was macht dieses Profil besonders attraktiv?
-2. Verbesserungspotenzial — Was könnte ergänzt werden?
-3. Lücken — Erkennbare Lücken? (NICHT werten, konstruktiv helfen)
-4. Marktposition — Wie steht das Profil im aktuellen Arbeitsmarkt?
-5. Empfehlungen — Konkrete, umsetzbare Tipps
-6. Passende Berufsbezeichnungen — Stellentitel die zum Profil passen
-
-Rufe zuerst profil_zusammenfassung() auf.
-Sei ehrlich aber konstruktiv und ermutigend."""
-
-    def _profil_ueberpruefen():
-        return """Der User möchte sein Profil überprüfen und ggf. korrigieren.
-
-ABLAUF:
-1. Rufe profil_zusammenfassung() auf und zeige die Übersicht
-2. Frage: "Stimmt alles so? Was möchtest du ändern?"
-3. Bei Korrekturen: Nutze profil_bearbeiten() für gezielte Änderungen
-4. Wenn fehlende Bereiche: "Ich sehe dass [X] noch fehlt. Möchtest du das ergänzen?"
-5. Iteriere bis der User zufrieden ist
-
-Sprich Deutsch und per Du. Sei nicht aufdringlich — biete an, draenge nicht."""
 
     def _bewerbung_schreiben(stelle: str = "", firma: str = "",
                              job_hash: str = "", bewerbung_id: str = "",
@@ -472,195 +285,6 @@ REGELN
 - Analyse VOR dem Export, damit der Nutzer noch reagieren kann.
 - Sprich Deutsch."""
 
-    def _interview_vorbereitung(stelle: str = "", firma: str = ""):
-        # G16 (#706, v1.7.6): vorbefuellbar — der Button in der Bewerbungs-
-        # Uebersicht/Timeline reicht Stelle+Firma per Query-Param durch.
-        kontext = (
-            f"\nKONTEXT (vorbefuellt aus der Bewerbung):\n"
-            f"  Stelle: {stelle}\n  Firma: {firma}\n"
-            if (stelle or firma) else ""
-        )
-        frage_zeile = (
-            "Stelle und Firma stehen oben im KONTEXT — NICHT nochmal fragen."
-            if (stelle or firma)
-            else "Frage nach Stelle und Firma (falls nicht bekannt)."
-        )
-        todo_suffix = f" {firma}" if firma else ""
-        return f"""Bereite den Nutzer auf ein Bewerbungsgespräch vor.
-{kontext}
-ZUERST: Rufe profil_zusammenfassung() auf + projekte_anzeigen() —
-die STAR-Antworten brauchen die VOLLEN Projektbeschreibungen (#741).
-{frage_zeile}
-DANN (#706): Lege ein Todo an, damit die Vorbereitung nicht liegen bleibt:
-todo_anlegen(titel='Interview-Vorbereitung{todo_suffix}',
-faellig_am=<Datum des Gespraechs, falls bekannt — sonst morgen>). Wenn zur
-Bewerbung ein Termin existiert (meetings_anzeigen), nimm dessen Datum.
-
-DANN LIEFERE:
-1. Die 10 wahrscheinlichsten Fragen (Fachlich, Persönlich, Situativ, Motivation)
-2. STAR-Antworten mit konkreten Beispielen aus dem Profil
-3. Schwaechen-Strategie (authentisch, nicht ausweichend)
-4. Gehaltsverhandlung (basierend auf Erfahrung, Region, Branche)
-5. 5 kluge eigene Fragen
-6. Argumentationsleitfaden "Warum bin ICH ideal?"
-7. Quick-Reference-Karte
-
-Alles MUSS personalisiert sein. Sprich Deutsch und per Du."""
-
-    def _interview_simulation():
-        return """Du bist jetzt der Interviewer. Führe ein realistisches Bewerbungsgespräch.
-
-VORBEREITUNG: Rufe profil_zusammenfassung() + projekte_anzeigen() auf
-(STAR-Volltext fuer realistische Nachfragen). Frage nach Stelle und Firma.
-
-PHASE 1 — KENNENLERNEN (2-3 Fragen)
-PHASE 2 — FACHFRAGEN (3-4 Fragen)
-PHASE 3 — SITUATIVE FRAGEN / STAR (2-3 Fragen)
-
-REGELN:
-- NUR EINE Frage auf einmal
-- Warte auf die Antwort
-- Am Ende: Konstruktives Feedback zu JEDER Antwort
-- Bewerte: Struktur, Konkretheit, STAR-Format
-- Gesamtbewertung (1-10)
-- Sprich formal (Sie) als Interviewer"""
-
-    def _gehaltsverhandlung():
-        return """Bereite eine Gehaltsverhandlung vor.
-
-DATENSAMMLUNG:
-1. Rufe profil_zusammenfassung() auf
-2. Frage nach Stelle und Firma
-
-ANALYSE & STRATEGIE:
-1. Marktanalyse (Was zahlt der Markt?)
-2. Dein Wert (einzigartige Kompetenzen, Erfolge)
-3. Verhandlungsstrategie (Ankerpunkt, Minimum, Ziel, Stretch)
-4. 5 konkrete Argumentations-Sätze
-5. Taktiken (Gesamtpaket, nie sofort zusagen)
-6. Fallstricke und Antworten
-
-Sprich Deutsch, per Du, konkrete Zahlen."""
-
-    def _netzwerk_strategie():
-        return """Entwickle eine Networking-Strategie.
-
-DATENSAMMLUNG:
-1. Rufe profil_zusammenfassung() auf
-2. Frage nach Zielfirma
-
-STRATEGIE:
-1. Firmen-Analyse
-2. Kontaktsuche (Anleitung für LinkedIn)
-3. Anschreiben-Templates (Erstkontakt, Informationsgespräch, Follow-up)
-4. Zeitplan (4 Wochen)
-5. Dos and Don'ts
-
-Sprich Deutsch und per Du."""
-
-    def _profil_erweiterung():
-        profile = db.get_profile()
-        docs = profile.get("documents", []) if profile else []
-        conn = db.connect()
-        unextracted = []
-        if profile:
-            rows = conn.execute(
-                "SELECT id, filename, doc_type FROM documents WHERE profile_id=? AND "
-                "extraction_status='nicht_extrahiert' AND extracted_text IS NOT NULL AND extracted_text != ''",
-                (profile["id"],)
-            ).fetchall()
-            unextracted = [dict(r) for r in rows]
-
-        return f"""Analysiere hochgeladene Dokumente und erweitere das Bewerberprofil.
-
-Profil vorhanden: {'Ja — ' + profile.get('name', '') if profile else 'Nein'}
-Dokumente gesamt: {len(docs)}
-Noch nicht extrahiert: {len(unextracted)}
-
-SCHRITTE:
-1. Rufe extraktion_starten() auf
-2. Analysiere jedes Dokument (Typ erkennen, Daten extrahieren, mit Profil vergleichen)
-3. Rufe extraktion_ergebnis_speichern() auf
-4. Zeige dem User was gefunden wurde, frage bei Konflikten
-5. Rufe extraktion_anwenden() auf nach Bestätigung
-6. Zeige profil_zusammenfassung() als Kontrolle
-
-Sprich Deutsch und per Du. Bei Konflikten IMMER den User fragen."""
-
-    def _ablehnungs_coaching():
-        return """Du bist ein einfühlsamer Karriere-Coach. Der User hat eine Ablehnung erhalten.
-
-ABLAUF:
-1. Rufe bewerbungen_anzeigen(status_filter="abgelehnt") auf
-2. Frage welche Ablehnung besprochen werden soll
-3. Rufe bewerbung_details(id) auf
-4. Analysiere gemeinsam: Timeline, Feedback, Muster
-5. Rufe ablehnungs_muster() auf für Trends
-6. Lernpunkte ableiten, nächste Schritte vorschlagen
-
-Sei empathisch aber konstruktiv. Sprich Deutsch und per Du."""
-
-    def _auto_bewerbung():
-        return """Erstelle automatisch eine Bewerbung aus URL, Text oder Stellenbeschreibung.
-
-ABLAUF:
-1. Stelle erfassen (URL/Text/Beschreibung)
-2. bewerbung_erstellen() aufrufen
-3. lebenslauf_angepasst_exportieren() erstellen
-4. lebenslauf_bewerten() für Optimierung
-5. Optional: Anschreiben erstellen
-6. nachfass_planen() für Follow-up
-
-Sei schnell und effizient. Sprich Deutsch und per Du."""
-
-    def _bewerbung_vorbereitung():
-        conn = db.connect()
-        in_vorb = conn.execute(
-            "SELECT id, title, company FROM applications WHERE status='in_vorbereitung' ORDER BY updated_at DESC LIMIT 5"
-        ).fetchall()
-        vorb_lines = "\n".join(
-            f"- {r['title']} bei {r['company']} (ID: {r['id'][:8]})" for r in in_vorb
-        ) if in_vorb else "(keine)"
-        return f"""Begleite den User durch die Vorbereitung einer Bewerbung.
-
-Bewerbungen in Vorbereitung:
-{vorb_lines}
-
-ABLAUF:
-1. Frage welche Bewerbung vorbereitet werden soll (oder nimm die letzte)
-2. Rufe bewerbung_details(id) auf
-3. Fuehre fit_analyse(stellen_id) durch — die stellen_id der verknuepften
-   Stelle steht in bewerbung_details(id) — zeige MUSS/PLUS/Risiken
-4. Erstelle angepassten Lebenslauf: lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung)
-5. Erstelle das Anschreiben im Chat und exportiere es mit anschreiben_exportieren(text, stelle, firma)
-6. Verknuepfe Dokumente und plane Follow-up: nachfass_planen(id)
-7. Setze Status auf 'beworben' wenn alles fertig
-
-Sprich Deutsch und per Du. Geh Schritt fuer Schritt vor."""
-
-    def _faq():
-        profile = db.get_profile()
-        has_profile = profile is not None
-        stats = db.get_statistics() if profile else {}
-        active_jobs = stats.get("active_jobs", 0)
-        total_apps = stats.get("total_applications", 0)
-        return f"""Du bist ein freundlicher Erste-Schritte-Guide fuer PBP.
-
-AKTUELLER STAND:
-- Profil vorhanden: {'Ja' if has_profile else 'Nein'}
-- Aktive Stellen: {active_jobs}
-- Bewerbungen: {total_apps}
-
-ABLAUF:
-1. Begrüße den User kurz und freundlich
-2. Zeige den aktuellen Stand
-3. Empfehle den NÄCHSTEN sinnvollen Schritt — genau EINEN, nicht alle
-4. Frage ob der User das tun möchte oder etwas anderes braucht
-
-WICHTIG:
-- Nicht überfordernd — immer nur den nächsten Schritt zeigen
-- Aufmunternder Ton
-- Sprich Deutsch und per Du"""
 
     # #560 / Beta-Stabilisierung: Diese statischen Prompts werden direkt aus
     # prompts.py geladen (modul-level build_*_prompt-Funktionen = Single Source
@@ -689,21 +313,21 @@ WICHTIG:
         "dokumente_verarbeiten": _dokumente_verarbeiten,
         "problem_melden": build_problem_melden_prompt,
         "ersterfassung": _ersterfassung,
-        "jobsuche_workflow": _jobsuche_workflow,
-        "willkommen": _willkommen,
-        "bewerbungs_uebersicht": _bewerbungs_uebersicht,
-        "profil_analyse": _profil_analyse,
-        "profil_ueberpruefen": _profil_ueberpruefen,
+        "jobsuche_workflow": functools.partial(_p.build_jobsuche_workflow_prompt, db),
+        "willkommen": functools.partial(_p.build_willkommen_prompt, db),
+        "bewerbungs_uebersicht": functools.partial(_p.build_bewerbungs_uebersicht_prompt, db),
+        "profil_analyse": functools.partial(_p.build_profil_analyse_prompt, db),
+        "profil_ueberpruefen": functools.partial(_p.build_profil_ueberpruefen_prompt, db),
         "bewerbung_schreiben": _bewerbung_schreiben,
-        "interview_vorbereitung": _interview_vorbereitung,
-        "interview_simulation": _interview_simulation,
-        "gehaltsverhandlung": _gehaltsverhandlung,
-        "netzwerk_strategie": _netzwerk_strategie,
-        "profil_erweiterung": _profil_erweiterung,
-        "ablehnungs_coaching": _ablehnungs_coaching,
-        "auto_bewerbung": _auto_bewerbung,
-        "bewerbung_vorbereitung": _bewerbung_vorbereitung,
-        "faq": _faq,
+        "interview_vorbereitung": functools.partial(_p.build_interview_vorbereitung_prompt, db),
+        "interview_simulation": functools.partial(_p.build_interview_simulation_prompt, db),
+        "gehaltsverhandlung": functools.partial(_p.build_gehaltsverhandlung_prompt, db),
+        "netzwerk_strategie": functools.partial(_p.build_netzwerk_strategie_prompt, db),
+        "profil_erweiterung": functools.partial(_p.build_profil_erweiterung_prompt, db),
+        "ablehnungs_coaching": functools.partial(_p.build_ablehnungs_coaching_prompt, db),
+        "auto_bewerbung": functools.partial(_p.build_auto_bewerbung_prompt, db),
+        "bewerbung_vorbereitung": functools.partial(_p.build_bewerbung_vorbereitung_prompt, db),
+        "faq": functools.partial(_p.build_faq_prompt, db),
         # v1.6.6 (#560): Diese drei waren bisher nicht im Frontend-Registry
         # — Klick auf die Karte produzierte einen Fehler-Toast.
         "tipps_und_tricks": build_tipps_und_tricks_prompt,
