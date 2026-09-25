@@ -105,6 +105,113 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.135] - 2026-09-25 — Was Claude sieht
+
+Fünfte Welle aus dem UX-Review #1087: die Seite, die Claude von PBP zu
+sehen bekommt — Werkzeuge, Prompts, Anleitungen und die Antworten, die
+zurückführen. Kein Schema-Eingriff; umbenannte Werkzeuge bleiben unter
+ihrem alten Namen erreichbar.
+
+### Changed
+
+- **Ein Werkzeugkatalog, der sich lesen lässt** (#1087 G1, G14). Die
+  Beschreibungen der Werkzeuge hatten zusammen rund 175.000 Zeichen mit
+  über 300 Issue-Verweisen. Jetzt steht in jeder Beschreibung Zweck und
+  Einsatz in höchstens 600 Zeichen; die Parameter sind im Eingabeschema
+  erklärt. Jedes Werkzeug trägt einen Tag (Alltag, Einstellung, Wartung,
+  Entwickler). Reparatur-, Nachzieh- und Diagnosewerkzeuge sind nur im
+  **Expertenmodus** sichtbar (Einstellungen › System, Vorgabe aus).
+  `stellen_bulk_bewerten` gilt als kostenlos — es filtert nur in der
+  Datenbank.
+- **Prompts aus einer Quelle** (#1087 G2). 14 Slash-Befehle hatten eine
+  zweite, abweichende Fassung für das Dashboard. Jetzt liefern beide Wege
+  denselben Text; `workflow_starten` listet den ganzen Prompt-Katalog.
+- **Datenschutz sagt, was geschieht** (#1087 G5, A8). Die Anzeige
+  meldete Profil und Dokumente als „nur lokal“. Jetzt: gespeichert wird
+  lokal; was du mit Claude bearbeitest (Profil samt Adresse, Text deiner
+  Dokumente, Anzeigentexte, Notizen), geht an Anthropic. Dazu die übrigen
+  Dienste (Nominatim, OpenRouteService, Update-Prüfung, JobSpy). Die
+  Schalter dafür stehen im neuen Reiter **Einstellungen › Claude
+  (Cloud)**. Die Sperre gilt jetzt auch für die Dokumentenauswertung und
+  die Ersterfassung, und Claude sagt beim ersten Mal einmal, wohin die
+  Daten gehen.
+- **Server-Anleitung für die Menschen, die PBP nutzen** (#1087 G10).
+  Gegliedert nach Ton, Einstieg, Wahrheit, Sicherheit und Werkzeugwahl;
+  keine Floskeln wie „Kopf hoch“ mehr, auch nicht in der FAQ und nach
+  einer Absage.
+- **Werkzeugnamen nach Wirkung** (#1087 G11). `stelle_einordnen`,
+  `stelle_urteil_speichern`, `jobtitel_speichern` (die alten Namen leiten
+  einen Release lang weiter). Eine Notiz über `bewerbung_bearbeiten` wird
+  angehängt statt die bisherigen zu überschreiben; ein zweites Profil
+  entsteht erst nach Rückfrage.
+- **Ersterfassung in einem Viertel der Länge** (#1087 G9, G12). Die
+  Anleitung einer Phase kommt mit der Antwort des Werkzeugs, das sie
+  einleitet. Wer vor dem Profil schon einen Lebenslauf hochgeladen hat,
+  hört das jetzt, und der nächste Schritt ist dessen Auswertung.
+  Menüpfade in allen Antworten heißen wie im Dashboard.
+- **Der Weg zurück ins Dashboard** (#1087 G13). Stellen, Bewerbungen,
+  Bewerbungsdetails, Firmenkontext und Aufgaben tragen einen Link, der
+  direkt zur Stelle oder Bewerbung führt; der Port folgt
+  `BA_DASHBOARD_PORT`, der Kalender-Export verlinkt eine Seite, die es
+  gibt.
+- **Keine Sackgassen** (#1087 G14). `jobsuche_status()` zeigt ohne
+  Kennung die letzte Suche, `profil_status()` nennt den nächsten Schritt
+  aus derselben Lage wie das Dashboard, und jede „kein Profil“-Antwort
+  führt zur Ersterfassung.
+
+### Gemessen
+
+Gegenprobe: 44 Mechanismen, jeder einzeln ausgebaut, jeder macht einen
+Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.135.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.135.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+---
+
 ## [1.7.134] - 2026-09-25 — Eine Karte, ein Wort, eine Liste
 
 Vierte Welle aus dem UX-Review #1087: die Stellenkarte, die Sprache und
