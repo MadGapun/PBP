@@ -11873,12 +11873,17 @@ async def api_privacy_info():
         "storage": storage,
         "counts": counts,
         "subdirs": subdirs,
-        "data_flow": {
-            "local_only": ["Profildaten", "Bewerbungen", "Dokumente", "Stellenangebote", "Statistiken"],
-            "sent_to_claude": ["Prompts (via Copy & Paste, du kontrollierst was gesendet wird)"],
-            "external_requests": ["GitHub Hints (anonyme Abfrage, kein Login)", "Jobportale (nur bei aktiver Stellensuche)"],
-        },
+        # H25 (#1087 G5): bis v1.7.134 stand hier "an Claude nur Prompts
+        # per Kopieren" — tatsaechlich uebergeben die Werkzeuge Volltexte,
+        # Adresse und Geburtsdatum. Die Anzeige sagt jetzt, was geschieht.
+        "data_flow": _datenfluss(),
     }
+
+
+def _datenfluss() -> dict:
+    """Wohin Daten gehen — eine Quelle fuer Dashboard und Doku (H25)."""
+    from .services.datenschutz import DATENFLUSS
+    return dict(DATENFLUSS)
 
 
 @app.delete("/api/privacy-delete-all")

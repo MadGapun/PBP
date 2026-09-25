@@ -138,14 +138,6 @@ def register(mcp, db, logger):
     def ersterfassung_starten() -> dict:
         """Startet die Ersterfassung — ein lockeres Interview zur Profilerfassung,
         wie ein Kaffeegespräch. Kann jederzeit unterbrochen und später fortgesetzt werden."""
-        gate = ki_gate(db, "ersterfassung")
-        if gate is not None:
-            gate["alternative"] = (
-                "Profil manuell pflegen via Dashboard -> Profil oder ueber "
-                "die einzelnen Tools (profil_bearbeiten, position_hinzufuegen, "
-                "skill_hinzufuegen ...)."
-            )
-            return gate
         # G59 (#1087 A2): die Rueckmeldung, auf die der Einstieg im
         # Dashboard wartet — "laeuft" steht erst da, wenn Claude das hier
         # wirklich aufgerufen hat, nicht schon beim Kopieren.

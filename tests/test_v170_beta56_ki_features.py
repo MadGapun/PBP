@@ -101,7 +101,11 @@ def _call(mcp, name, args):
 def _make_mcp(db):
     from fastmcp import FastMCP
     from bewerbungs_assistent.tools import analyse, jobs, dokumente, export_tools, workflows
-    mcp = FastMCP("test")
+    from bewerbungs_assistent.tools import mit_katalog
+    roh = FastMCP("test")
+    # H25 (#1087 G5): die KI-Sperre sitzt beim Registrieren — derselbe Weg
+    # wie register_all, nicht ein nackter Server.
+    mcp = mit_katalog(roh, db)
     import logging
     log = logging.getLogger("test")
     analyse.register(mcp, db, log)
@@ -109,7 +113,7 @@ def _make_mcp(db):
     dokumente.register(mcp, db, log)
     export_tools.register(mcp, db, log)
     workflows.register(mcp, db, log)
-    return mcp
+    return roh
 
 
 def test_mcp_ki_features_lesen(setup_env):

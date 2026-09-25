@@ -336,9 +336,15 @@ def register(mcp, db, logger):
         from ..services import workspace_service as _ws
         profil = db.get_profile()
         antwort = get_profile_status_payload(profil)
+        from ..services.datenschutz import einmaliger_hinweis
+        hinweis = einmaliger_hinweis(db)
         if profil is None:
-            return {**kein_profil(), "dashboard_url": antwort["dashboard_url"]}
-        antwort["naechster_schritt"] = _ws.naechster_schritt(db)["text"]
+            antwort = {**kein_profil(), "dashboard_url": antwort["dashboard_url"]}
+        else:
+            antwort["naechster_schritt"] = _ws.naechster_schritt(db)["text"]
+        # H25 (#1087 A8): einmal sagen, wohin die Daten gehen.
+        if hinweis:
+            antwort["datenschutz"] = hinweis
         return antwort
 
     @mcp.tool()

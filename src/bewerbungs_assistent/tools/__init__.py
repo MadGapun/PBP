@@ -143,14 +143,15 @@ def ki_gate(db, feature: str) -> dict | None:
             return None
     except Exception:
         return None
+    from ..services.menue import pfad
     label = _KI_FEATURE_LABELS.get(feature, feature)
     cfg = db.get_ki_features()
     if not cfg.get("master", True):
         grund = "KI-Master-Switch ist aus"
-        wo = "Settings -> KI-Unterstuetzung -> Master"
+        wo = pfad("claude")
     else:
         grund = f"Feature '{label}' ist deaktiviert"
-        wo = f"Settings -> KI-Unterstuetzung -> {label}"
+        wo = f"{pfad('claude')} ({label})"
     return {
         "fehler": grund,
         "feature": feature,
@@ -207,6 +208,37 @@ def _parameter_beschreiben(fn, texte: dict) -> None:
         fn.__annotations__[pname] = typing.Annotated[typ, Field(description=text)]
 
 
+def _mit_ki_sperre(fn, name: str, db):
+    """Setzt die KI-Sperre aus `services/ki_zuordnung` um ein Werkzeug (H25).
+
+    Die Zuordnung steht an einer Stelle; hier wird sie beim Registrieren
+    umgesetzt, damit kein Werkzeug die Pruefung selbst tragen (oder
+    vergessen) muss.
+    """
+    import functools
+    import inspect
+    from ..services import ki_zuordnung
+
+    signatur = inspect.signature(fn)
+
+    @functools.wraps(fn)
+    def gesperrt(*args, **kwargs):
+        try:
+            argumente = signatur.bind_partial(*args, **kwargs).arguments
+        except TypeError:
+            argumente = dict(kwargs)
+        funktion, alternative = ki_zuordnung.funktion_fuer(name, argumente)
+        if funktion:
+            gate = ki_gate(db, funktion)
+            if gate is not None:
+                if alternative:
+                    gate["alternative"] = alternative
+                return gate
+        return fn(*args, **kwargs)
+
+    return gesperrt
+
+
 class _AnnotierendesMCP:
     """Reicht alles an den echten Server durch und setzt beim Registrieren
     die MCP-Annotations aus `services/werkzeug_schutz` (H27, #1087 G7).
@@ -216,8 +248,9 @@ class _AnnotierendesMCP:
     sechs Schutzkonventionen, die hier abgeloest werden.
     """
 
-    def __init__(self, mcp):
+    def __init__(self, mcp, db=None):
         self._mcp = mcp
+        self._db = db
 
     def __getattr__(self, attr):
         return getattr(self._mcp, attr)
@@ -239,6 +272,10 @@ class _AnnotierendesMCP:
             kwargs.setdefault("tags", {_katalog.tag(name)})
             kwargs.setdefault("description", _katalog.beschreibung(name, doc))
             _parameter_beschreiben(fn, _katalog.parameter_texte(doc))
+            # H25 (#1087 G5): KI-Sperre zentral aus der Zuordnung.
+            from ..services import ki_zuordnung as _ki
+            if self._db is not None and (name in _ki.ZUORDNUNG or name == "workflow_starten"):
+                fn = _mit_ki_sperre(fn, name, self._db)
             if isinstance(name_or_fn, str):
                 return self._mcp.tool(name_or_fn, **kwargs)(fn)
             return self._mcp.tool(**kwargs)(fn)
@@ -248,9 +285,16 @@ class _AnnotierendesMCP:
         return registrieren
 
 
+def mit_katalog(mcp, db):
+    """Der Server, so wie `register_all` ihn an die Module reicht: mit
+    Tags, Kurzbeschreibungen, Annotations und KI-Sperre. Fuer Tests, die
+    nur einzelne Module registrieren."""
+    return _AnnotierendesMCP(mcp, db)
+
+
 def register_all(mcp, db, logger):
     """Registriert alle Tools beim MCP-Server."""
-    mcp = _AnnotierendesMCP(mcp)
+    mcp = _AnnotierendesMCP(mcp, db)
     profil.register(mcp, db, logger)
     dokumente.register(mcp, db, logger)
     jobs.register(mcp, db, logger)

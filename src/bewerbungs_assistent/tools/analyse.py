@@ -325,9 +325,6 @@ def register(mcp, db, logger):
             bewerbung_id: Optional — speichert die Gap-Analyse im selben Aufruf an
                 diese Bewerbung (#674, Kategorie 'skillgap').
         """
-        gate = ki_gate(db, "stellenanalyse")
-        if gate is not None:
-            return gate
         profile = db.get_profile()
         if not profile:
             return kein_profil()
@@ -454,9 +451,6 @@ def register(mcp, db, logger):
         Zeigt Trends bei Ablehnungen: welche Firmen, welche Gründe,
         und leitet daraus Verbesserungsvorschläge ab.
         """
-        gate = ki_gate(db, "coaching")
-        if gate is not None:
-            return gate
         patterns = db.get_rejection_patterns()
         if patterns["anzahl"] == 0:
             return patterns

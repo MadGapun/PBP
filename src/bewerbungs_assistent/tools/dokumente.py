@@ -59,9 +59,6 @@ def register(mcp, db, logger):
         Args:
             document_id: ID oder Dateiname des Dokuments
         """
-        gate = ki_gate(db, "dokumentenanalyse")
-        if gate is not None:
-            return gate
         conn = db.connect()
         pid = db.get_active_profile_id()
         if not pid:

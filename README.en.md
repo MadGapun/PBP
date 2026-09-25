@@ -2,7 +2,7 @@
 
 # <img src="docs/pbp.png" alt="PBP logo" width="36" align="absmiddle" /> PBP — Persönliches Bewerbungs-Portal
 
-**PBP is a job application assistant for the German-speaking job market (DACH). It runs entirely on your machine — free, open source, no cloud.**
+**PBP is a job application assistant for the German-speaking job market (DACH). Data is stored on your machine — free, open source, no cloud storage; what you work on with Claude is sent to Anthropic.**
 
 ![PBP dashboard](docs/screenshots/01_dashboard.png)
 
@@ -18,7 +18,7 @@ PBP is a complete, self-hosted **MCP server** (Model Context Protocol) written i
 
 - **202 MCP tools** covering profile management, job search, application tracking, document analysis, calendar, statistics and guided workflows
 - **35 configured job sources** with honest health checks — flaky scrapers are visibly flagged instead of failing silently
-- **Local-first by design** — one SQLite file holds all data; nothing leaves the machine except what the user deliberately sends to their LLM
+- **Local-first by design** — one SQLite file holds all data; what you work on with Claude (profile, document text, job ads, notes) goes to Anthropic, and each area can be switched off in the settings
 - **Claude Desktop as the interface** — no custom chat UI; conversation, voice input and tool calls come for free via MCP
 - **Local LLM sidecar** (Ollama) for background classification and scoring, so routine work costs no cloud tokens
 - **2199 automated tests**, weekly releases
