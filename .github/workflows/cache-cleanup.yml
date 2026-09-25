@@ -15,6 +15,12 @@ on:
     types: [closed]
   delete:
   workflow_dispatch:
+  # Hotfix-Branches werden nie geloescht, also feuert `delete` fuer sie
+  # nie — im September 2026 lagen so zehn Caches mit 3,3 GB herum und
+  # das Konto stand bei 90 %. Taeglich wie der manuelle Lauf: alles
+  # ausser dem Default-Branch.
+  schedule:
+    - cron: "17 3 * * *"
 
 permissions:
   actions: write

@@ -105,7 +105,10 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
-## [1.7.129] - 2026-09-25 — Eine Firma, alle Bezüge, und Ollama beenden
+## [1.7.130] - 2026-09-25 — Eine Firma, alle Bezüge, und Ollama beenden
+
+Inhaltlich das, was als v1.7.129 geplant war. Der Tag v1.7.129 wurde versehentlich auf den
+Entwicklungsstand (Beta-Linie) gesetzt und ist als Prerelease markiert — bitte diese Version verwenden.
 
 Stufe 1 aus #1080, dazu #1086. `firma_kontext` beantwortet die Frage „kenne ich
 die?“ jetzt aus dem ganzen Bestand und nicht mehr nur aus Bewerbungen
@@ -178,7 +181,7 @@ Endkunden nur in den Notizen.
 
 ### Windows (empfohlen, bequemster Weg)
 
-1. **ZIP herunterladen:** [PBP-1.7.129.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.129.zip)
+1. **ZIP herunterladen:** [PBP-1.7.130.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.130.zip)
 2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
 3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
 4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
@@ -212,6 +215,12 @@ Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erst
 ### Detaillierte Anleitung & Troubleshooting
 
 📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.129] - 2026-09-25 — nicht verwenden
+
+Versehentlich vom Entwicklungsstand (Beta-Linie) getaggt. Der geplante Inhalt steht in v1.7.130.
 
 ---
 
