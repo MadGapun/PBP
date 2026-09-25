@@ -111,6 +111,10 @@ class Befund:
     http_status: int | None = None
     quelle: str = ""          # 'detail_api' oder 'html'
     hinweise: list = field(default_factory=list)
+    # v1.7.128 (#1040, #1041, #1042): Firma und Ort aus dem JobPosting der
+    # Detailseite. Die Seite war schon geholt — beides lag vor und wurde
+    # weggeworfen, waehrend die Stelle "Unbekannt" ohne Ort blieb.
+    kopf: dict = field(default_factory=dict)
 
     @property
     def erfolg(self) -> bool:
@@ -209,11 +213,125 @@ def beschreibung_holen(url: str, client, *, timeout: float = 15,
 
     # Die Seite ist schon geholt — ein zweiter Abruf fuer denselben
     # Text waere die Haelfte aller Anfragen umsonst.
-    text = text_aus_html(getattr(antwort, "text", "") or "",
-                         max_chars=max_chars) or ""
+    roh = getattr(antwort, "text", "") or ""
+    text = text_aus_html(roh, max_chars=max_chars) or ""
+    kopf = kopf_aus_html(roh)
     if text.strip():
-        return Befund(status=GELESEN, text=text, http_status=200, quelle="html")
-    return Befund(status=LEBT_UNLESBAR, http_status=200, quelle="html")
+        return Befund(status=GELESEN, text=text, http_status=200, quelle="html",
+                      kopf=kopf)
+    return Befund(status=LEBT_UNLESBAR, http_status=200, quelle="html",
+                  kopf=kopf)
+
+
+def _sauber(wert) -> str:
+    import html as _html
+    import re as _re
+    return _re.sub(r"\s+", " ", _html.unescape(str(wert or ""))).strip(" ,;-")
+
+
+def kopf_aus_html(html_text: str) -> dict:
+    """Firma und Ort aus dem `JobPosting`-JSON-LD einer Detailseite.
+
+    Nur was dort ausdruecklich steht: `hiringOrganization.name` und
+    `jobLocation.address.addressLocality` (bei mehreren Orten der
+    erste). Ein Platzhalter ("Unbekannt") zaehlt nicht als Firma.
+    """
+    try:
+        from ..job_scraper import extract_jobposting_jsonld
+        daten = extract_jobposting_jsonld(html_text or "") or {}
+    except Exception:  # pragma: no cover — nie das Nachladen kippen
+        return {}
+    kopf: dict = {}
+    org = daten.get("hiringOrganization")
+    name = org.get("name") if isinstance(org, dict) else org
+    name = _sauber(name)
+    if name:
+        from .wiedergaenger import normalize_company
+        if normalize_company(name):
+            kopf["firma"] = name
+    orte = daten.get("jobLocation")
+    if isinstance(orte, dict):
+        orte = [orte]
+    for eintrag in orte if isinstance(orte, list) else []:
+        adresse = eintrag.get("address") if isinstance(eintrag, dict) else None
+        if isinstance(adresse, dict):
+            ort = _sauber(adresse.get("addressLocality"))
+        else:
+            ort = _sauber(adresse)
+        if ort:
+            kopf["ort"] = ort
+            break
+    return kopf
+
+
+def fehlender_kopf(job: dict) -> list[str]:
+    """Welche Kopfangaben einer Stelle fehlen: 'firma', 'ort' oder beide.
+
+    "Unbekannt" und "Nicht angegeben" sind fehlende Namen, die wie
+    vorhandene aussehen (#1028).
+    """
+    from .wiedergaenger import normalize_company
+    fehlt = []
+    if not normalize_company(job.get("company") or ""):
+        fehlt.append("firma")
+    if not (job.get("location") or "").strip():
+        fehlt.append("ort")
+    return fehlt
+
+
+def kopf_ergaenzen(db, job_hash: str, kopf: dict | None) -> list[str]:
+    """Fuellt fehlende Firma und fehlenden Ort — ueberschreibt nie.
+
+    Kommt ein Ort hinzu, wird er geocodet und die Entfernung gesetzt,
+    sonst bliebe die Stelle genau so ohne Entfernung wie vorher (#1040:
+    "Ohne Ort gibt es keine Entfernung"). Das ist eine Netzabfrage — sie
+    gehoert hierher, weil das Nachladen ohnehin eine ist; der Score
+    danach rechnet wieder ohne Netz.
+    """
+    if not kopf:
+        return []
+    job = db.get_job(job_hash) or {}
+    if not job:
+        return []
+    fehlt = fehlender_kopf(job)
+    spalten: dict = {}
+    if "firma" in fehlt and kopf.get("firma"):
+        spalten["company"] = kopf["firma"]
+    if "ort" in fehlt and kopf.get("ort"):
+        spalten["location"] = kopf["ort"]
+        try:
+            from . import geocoding_service as _geo
+            koord = _geo.geocode_location(_geo.normalisiere_ort(kopf["ort"]))
+            heim = _geo.get_user_coordinates(db)
+            if koord:
+                spalten["lat"], spalten["lon"] = koord
+                if heim:
+                    spalten["distance_km"] = _geo.calculate_distance_km(heim, koord)
+        except Exception as exc:  # pragma: no cover — Ort bleibt trotzdem
+            logger.debug("Geocoding nach Nachladen (%s): %s", job_hash, exc)
+    if not spalten:
+        return []
+    ziel = db.resolve_job_hash(job_hash) or job_hash
+    conn = db.connect()
+    conn.execute(
+        f"UPDATE jobs SET {', '.join(f'{k}=?' for k in spalten)} WHERE hash=?",
+        (*spalten.values(), ziel))
+    conn.commit()
+    return sorted(k for k in ("company", "location", "distance_km") if k in spalten)
+
+
+def kopf_nachziehen(db, job_hash: str, kopf: dict | None) -> dict:
+    """Nur Firma und Ort ergaenzen und neu bewerten — der Text bleibt.
+
+    Fuer den Mengenweg: der Text einer Stelle kann laengst vollstaendig
+    sein, waehrend Firma und Ort fehlen.
+    """
+    ergaenzt = kopf_ergaenzen(db, job_hash, kopf)
+    if not ergaenzt:
+        return {"kopf": []}
+    ergebnis = neu_auswerten(db, job_hash)
+    ergebnis["kopf"] = ergaenzt
+    return ergebnis
 
 
 def _ueber_detail_api(url: str, client) -> Befund:
@@ -305,7 +423,7 @@ def kopfdaten_bewahren(alt: str, neu: str) -> str:
 
 
 def text_uebernehmen(db, job_hash: str, text: str,
-                     herkunft: str = "nachladen") -> dict:
+                     herkunft: str = "nachladen", kopf: dict | None = None) -> dict:
     """Schreibt einen nachgeladenen Anzeigentext — und was an ihm haengt.
 
     v1.7.109 (#1048): Bis hierher schrieben vier Aufrufer den Text selbst
@@ -332,7 +450,12 @@ def text_uebernehmen(db, job_hash: str, text: str,
     snapshot = getattr(db, "set_description_snapshot_if_empty", None)
     if snapshot is not None:
         snapshot(job_hash, text, herkunft)
-    return neu_auswerten(db, job_hash)
+    # v1.7.128 (#1040 Punkt 2): fehlende Firma und fehlender Ort aus der
+    # Detailseite, BEVOR neu bewertet wird — der Score liest die Entfernung.
+    ergaenzt = kopf_ergaenzen(db, job_hash, kopf)
+    ergebnis = neu_auswerten(db, job_hash)
+    ergebnis["kopf"] = ergaenzt
+    return ergebnis
 
 
 def neu_auswerten(db, job_hash: str) -> dict:

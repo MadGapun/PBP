@@ -122,7 +122,10 @@ def test_ein_aufruf_ohne_argumente_meldet_die_stellen_ohne_beschreibung(db):
     assert erg["betroffen"] == 2, erg
     # v1.7.110 (#1047): dazu `flach` — "voll" ist ein 3.000-Zeichen-Text
     # ohne jeden Zeilenumbruch.
-    assert erg["gefunden"] == {"ohne_text": 2, "gekappt": 1, "flach": 1}
+    # v1.7.128 (#1040): der vierte Umfang zaehlt mit; die Fixture-Stellen
+    # tragen keine Firma, deshalb stehen sie auch dort.
+    assert {k: erg["gefunden"][k] for k in ("ohne_text", "gekappt", "flach")}         == {"ohne_text": 2, "gekappt": 1, "flach": 1}
+    assert "ohne_firma_ort" in erg["gefunden"]
 
 
 def test_ein_stummel_zaehlt_als_fehlend(db):
@@ -236,6 +239,9 @@ class _Befund:
         self.status = status
         self.text = text
         self.http_status = http_status
+        # v1.7.128 (#1040): der echte Befund traegt Firma und Ort der
+        # Detailseite — ein Doppel ohne das Feld prueft den Weg nicht mehr.
+        self.kopf = {}
 
     @property
     def soll_aussortiert_werden(self):
