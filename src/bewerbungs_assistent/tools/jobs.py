@@ -2,6 +2,7 @@
 
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
+from ..services.dashboard_link import dashboard_link as _dashboard_link
 import threading
 from collections import Counter
 from typing import Optional
@@ -2048,6 +2049,8 @@ def register(mcp, db, logger):
             entry = {
                 "id": _kurz(j["hash"]),  # #171: Kurz-ID fuer schnelle Referenz
                 "hash": j["hash"],
+                # H31 (#1087 G13): der Weg zurueck ins Dashboard.
+                "dashboard_link": _dashboard_link("stellen", j["hash"]),
                 "titel": j.get("title", ""),
                 "firma": j.get("company", ""),
                 "ort": j.get("location", ""),

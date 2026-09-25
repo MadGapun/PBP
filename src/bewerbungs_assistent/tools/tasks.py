@@ -301,9 +301,19 @@ def register(mcp, db, logger):
         """
         from ..services.aufgaben_sicht import uebersicht
 
+        from ..services.dashboard_link import dashboard_link
+
         erg = uebersicht(db, status=status, bis_datum=bis_datum)
+        # H31 (#1087 G13): jeder Eintrag fuehrt ins Dashboard — zur
+        # Bewerbung, wenn es eine gibt, sonst in den Aufgaben-Tab.
+        for zeilen in erg["gruppen"].values():
+            for z in zeilen if isinstance(zeilen, list) else []:
+                z["dashboard_link"] = (
+                    dashboard_link("bewerbungen", z["bewerbung_id"])
+                    if z.get("bewerbung_id") else dashboard_link("aufgaben"))
         return {
             "status": "ok",
+            "dashboard_link": dashboard_link("aufgaben"),
             "anzahl": erg["anzahl"],
             "ueberfaellig_anzahl": erg["ueberfaellig_anzahl"],
             "gruppen": erg["gruppen"],

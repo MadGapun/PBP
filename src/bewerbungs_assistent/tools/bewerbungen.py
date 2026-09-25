@@ -5,6 +5,7 @@ from ..services.nutzerfuehrung import kein_profil, leer
 import hashlib
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
+from ..services.dashboard_link import dashboard_link as _dashboard_link
 
 
 # v1.7.0-beta.20: Status-Whitelist. Bestand hatte undefinierte Werte
@@ -391,6 +392,7 @@ def register(mcp, db, logger):
                 pass
             eintrag["bereich"] = "Bewerbungen › Timeline"
             eintrag["oeffnen"] = f"bewerbung_details('{app.get('id')}')"
+            eintrag["dashboard_link"] = _dashboard_link("bewerbungen", app.get("id") or "")
             bewerbungen.append(eintrag)
 
         # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
@@ -1273,6 +1275,8 @@ def register(mcp, db, logger):
                 "bewerbungsart": a.get("bewerbungsart", ""),
                 "datum": a.get("applied_at", ""),
                 "events": len(a.get("events", [])),
+                # H31 (#1087 G13): der Weg zurueck ins Dashboard.
+                "dashboard_link": _dashboard_link("bewerbungen", a["id"]),
             }
             if a.get("job_hash"):
                 entry["stellen_id"] = _kurz(a["job_hash"])  # #171
@@ -1610,6 +1614,7 @@ def register(mcp, db, logger):
             "ansprechpartner": app.get("ansprechpartner", ""),
             "kontakt_email": app.get("kontakt_email", ""),
             "notizen": app.get("notes", ""),
+            "dashboard_link": _dashboard_link("bewerbungen", app["id"]),
         }
         # v1.7.10 (#782/C30): rekonstruierte Altbewerbung kennzeichnen —
         # ABGELEITET (applied_at deutlich vor created_at), kein Schema-Feld.

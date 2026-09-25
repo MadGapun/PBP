@@ -344,3 +344,75 @@ def test_h22_katalog_kennung_mit_parameter_startet(umgebung):
     erg = _call(mcp, "workflow_starten", {"name": "bewerbung_schreiben_lebenslauf"})
     assert erg["status"] == "gestartet"
     assert erg["anweisungen"] == _prompt_registry(db)["bewerbung_schreiben"](nur="lebenslauf")
+
+
+# ══ H31 — der Weg zurueck ins Dashboard ═════════════════════════════════
+
+def test_h31_link_nimmt_den_port_aus_der_umgebung(monkeypatch):
+    from bewerbungs_assistent.services import dashboard_link as dl
+    monkeypatch.setenv("BA_DASHBOARD_PORT", "8251")
+    assert dl.dashboard_link("bewerbungen", "abc123") == "http://localhost:8251/#bewerbungen/abc123"
+    assert dl.dashboard_link("stellen", "profil1:hash9") == "http://localhost:8251/#stellen/hash9"
+    with pytest.raises(ValueError):
+        dl.dashboard_link("gibtsnicht")
+
+
+def test_h31_reiter_sind_die_seiten_des_dashboards():
+    from bewerbungs_assistent.services import dashboard_link as dl
+    utils = (_repo() / "frontend" / "src" / "utils.js").read_text(encoding="utf-8-sig")
+    block = utils[utils.index("export const PAGE_IDS = ["):utils.index("];")]
+    ids = re.findall(r'^\s*"([a-z]+)"', block, re.M)
+    assert set(ids) == set(dl.REITER)
+
+
+def test_h31_keine_feste_adresse_mehr():
+    funde = []
+    for p in PAKET.rglob("*.py"):
+        for nr, zeile in enumerate(p.read_text(encoding="utf-8-sig").splitlines(), 1):
+            if "localhost:8200" in zeile and p.name not in ("dashboard_link.py",) \
+                    and not (p.name == "dashboard.py" and nr < 10):
+                funde.append(f"{p.name}:{nr}")
+    assert not funde, funde
+
+
+def test_h31_antworten_tragen_den_link(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    aid = db.add_application({"title": "Konstrukteur", "company": "Musterbetrieb GmbH",
+                              "status": "beworben"})
+    liste = _call(mcp, "bewerbungen_anzeigen", {})
+    assert liste["bewerbungen"][0]["dashboard_link"].endswith(f"/#bewerbungen/{aid}")
+    details = _call(mcp, "bewerbung_details", {"bewerbung_id": aid})
+    assert details["dashboard_link"].endswith(f"/#bewerbungen/{aid}")
+    kontext = _call(mcp, "firma_kontext", {"firmenname": "Musterbetrieb GmbH"})
+    assert kontext["bewerbungen"][0]["dashboard_link"].endswith(f"/#bewerbungen/{aid}")
+    aufgaben = _call(mcp, "aufgaben_uebersicht", {})
+    assert aufgaben["dashboard_link"].endswith("/#aufgaben")
+
+
+def test_h31_stellen_tragen_den_link(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    db.save_jobs([{"hash": "h31stelle01", "title": "Konstrukteur", "company": "Musterbetrieb GmbH",
+                   "url": "https://example.com/job/1", "source": "manuell",
+                   "description": "Konstruktion von Baugruppen " * 10, "score": 5}])
+    erg = _call(mcp, "stellen_anzeigen", {"min_score": 0, "ohne_schwelle": True})
+    stellen = erg.get("stellen") or []
+    assert stellen, erg
+    assert "/#stellen/h31stelle01" in stellen[0]["dashboard_link"]
+
+
+def test_h31_ics_verlinkt_eine_route_die_es_gibt():
+    quelle = (PAKET / "services" / "ics_service.py").read_text(encoding="utf-8")
+    assert "dashboard_link('bewerbungen', app_id)" in quelle
+    assert "/bewerbungen?id=" not in quelle
+
+
+def test_h31_frontend_liest_die_kennung_aus_dem_hash():
+    utils = (_repo() / "frontend" / "src" / "utils.js").read_text(encoding="utf-8-sig")
+    assert "export function parseHashZiel(" in utils
+    assert 'if (ziel.page === "bewerbungen") return { applicationId: ziel.kennung };' in utils
+    app = (_repo() / "frontend" / "src" / "App.jsx").read_text(encoding="utf-8-sig")
+    sync = app[app.index("const syncHash = useEffectEvent("):]
+    sync = sync[:sync.index("});")]
+    assert "sprungAusHash(ziel)" in sync and "setIntent(" in sync

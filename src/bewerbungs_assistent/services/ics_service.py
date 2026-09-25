@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from .dashboard_link import dashboard_link
+
 
 def ics_escape(text) -> str:
     """RFC-5545-Escaping fuer TEXT-Werte (3.3.11)."""
@@ -108,7 +110,7 @@ def build_meetings_ics(db) -> tuple[str, int]:
         if company and app_title:
             desc_parts.append(f"Bewerbung: {app_title} bei {company}")
         if app_id:
-            desc_parts.append(f"PBP-Link: http://localhost:8200/bewerbungen?id={app_id}")
+            desc_parts.append(f"PBP-Link: {dashboard_link('bewerbungen', app_id)}")
         if meeting_url:
             desc_parts.append(f"Meeting-Link: {meeting_url}")
         if notes:

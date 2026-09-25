@@ -41,10 +41,26 @@ export function cn(...parts) {
   return parts.filter(Boolean).join(" ");
 }
 
+// H31 (#1087 G13): ein Link aus Claude traegt die Kennung hinter dem
+// Reiter (`#bewerbungen/<id>`, `#stellen/<hash>`).
+export function parseHashZiel(hash = window.location.hash) {
+  const raw = String(hash || "").replace(/^#/, "").trim();
+  const [teil, ...rest] = raw.split("/");
+  const page = PAGE_IDS.includes(teil) ? teil : "dashboard";
+  const kennung = page === teil && rest.length ? decodeURIComponent(rest.join("/")) : "";
+  return { page, kennung };
+}
+
+// Aus der Kennung wird derselbe Sprung wie aus einem Klick im Dashboard.
+export function sprungAusHash(ziel) {
+  if (!ziel?.kennung) return null;
+  if (ziel.page === "bewerbungen") return { applicationId: ziel.kennung };
+  if (ziel.page === "stellen") return { jobHash: ziel.kennung };
+  return null;
+}
+
 export function parsePageFromHash() {
-  const raw = window.location.hash.replace(/^#/, "").trim();
-  const page = raw || "dashboard";
-  return PAGE_IDS.includes(page) ? page : "dashboard";
+  return parseHashZiel().page;
 }
 
 export function formatDate(value) {

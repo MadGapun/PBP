@@ -55,9 +55,12 @@ def summarize_profile(profile: dict | None) -> dict:
 
 def get_profile_status_payload(
     profile: dict | None,
-    dashboard_url: str = "http://localhost:8200",
+    dashboard_url: str = "",
 ) -> dict:
     """Liefert die gemeinsame Payload für den MCP-Profilstatus."""
+    if not dashboard_url:
+        from .dashboard_link import dashboard_link
+        dashboard_url = dashboard_link()
     if profile is None:
         return {
             "status": "kein_profil",
