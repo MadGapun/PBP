@@ -491,7 +491,7 @@ export default function CalendarPage() {
 
   function handleMeetingClick(meeting) {
     if (meeting.application_id) {
-      navigateTo("bewerbungen", { highlight: meeting.application_id });
+      navigateTo("bewerbungen", { applicationId: meeting.application_id, focus: "timeline" });
     } else {
       setEditMeeting({ ...meeting, _isNew: false });
     }
@@ -733,7 +733,7 @@ export default function CalendarPage() {
                   type="button"
                   className="flex items-center gap-3 rounded-xl bg-white/[0.02] px-4 py-2.5 text-left transition-colors hover:bg-white/[0.05]"
                   onClick={() => {
-                    if (entry.link_type === "bewerbung" && entry.link_id) navigateTo("bewerbungen", { highlight: entry.link_id });
+                    if (entry.link_type === "bewerbung" && entry.link_id) navigateTo("bewerbungen", { applicationId: entry.link_id, focus: "timeline" });
                     else if (entry.link_type === "dokument") navigateTo("dokumente");
                   }}
                 >
@@ -978,7 +978,7 @@ export default function CalendarPage() {
                                       onClick={async () => {
                                         try {
                                           await putJson(`/api/meetings/${meeting.id}`, { status: "durchgefuehrt" });
-                                          pushToast("Termin als durchgef\u00fchrt markiert.", "success");
+                                          pushToast("Termin als durchgeführt markiert.", "success");
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}

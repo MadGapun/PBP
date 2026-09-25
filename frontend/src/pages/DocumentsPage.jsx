@@ -167,7 +167,7 @@ export default function DocumentsPage() {
         }
         await copyToClipboard(response.prompt);
         pushToast(
-          `Analyse-Prompt (${response.template_label}) kopiert \u2014 in Claude einfuegen`,
+          `Analyse-Prompt (${response.template_label}) kopiert — in Claude einfuegen`,
           "success"
         );
       } catch {
@@ -377,7 +377,7 @@ export default function DocumentsPage() {
                   </button>
                   {filtered.map((a) => (
                     <button key={a.id} type="button" className={cn("flex w-full px-3 py-1.5 text-[12px] text-left transition-colors hover:bg-white/[0.06]", appFilter === a.id ? "text-sky" : "text-muted/60")} onMouseDown={() => { setAppFilter(a.id); setAppSearch(""); setUnlinkedFilter(false); setPage(1); setAppDropdownOpen(false); }}>
-                      {a.company}{a.title ? ` \u2014 ${a.title}` : ""}
+                      {a.company}{a.title ? ` — ${a.title}` : ""}
                     </button>
                   ))}
                 </div>
@@ -440,7 +440,7 @@ export default function DocumentsPage() {
               }`}
             >
               {s.label}
-              {sort === s.col && (order === "desc" ? " \u2193" : " \u2191")}
+              {sort === s.col && (order === "desc" ? " ↓" : " ↑")}
             </button>
           ))}
         </div>
@@ -483,12 +483,12 @@ export default function DocumentsPage() {
                       {(doc.app_company || doc.app_title) ? (
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { highlight: doc.linked_application_id }); }}
+                          onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { applicationId: doc.linked_application_id, focus: "timeline" }); }}
                           className="mt-0.5 flex items-center gap-1 text-sm text-sky/70 hover:text-sky transition-colors"
                         >
                           <Link2 size={11} />
                           <span className="truncate">
-                            {doc.app_company}{doc.app_title ? ` \u2014 ${doc.app_title}` : ""}
+                            {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}
                           </span>
                           {doc.app_status && (
                             <Badge tone={doc.app_status === "abgelehnt" ? "danger" : doc.app_status === "interview" ? "amber" : "neutral"} className="ml-1">
@@ -509,7 +509,7 @@ export default function DocumentsPage() {
                           {isTextExpanded
                             ? doc.extracted_text.slice(0, 500)
                             : doc.extracted_text.slice(0, 150)}
-                          {doc.extracted_text.length > (isTextExpanded ? 500 : 150) && "\u2026"}
+                          {doc.extracted_text.length > (isTextExpanded ? 500 : 150) && "…"}
                           {doc.extracted_text.length > 150 && (
                             <span className="ml-1 text-sky/50">{isTextExpanded ? "weniger" : "mehr"}</span>
                           )}
@@ -733,7 +733,7 @@ export default function DocumentsPage() {
                   className={cn("flex w-full px-3 py-2 text-sm text-left transition-colors hover:bg-white/[0.06]", linkModal.value === a.id ? "text-sky font-medium" : "text-muted/60")}
                   onClick={() => setLinkModal((cur) => ({ ...cur, value: a.id }))}
                 >
-                  {a.company}{a.title ? ` \u2014 ${a.title}` : ""}
+                  {a.company}{a.title ? ` — ${a.title}` : ""}
                 </button>
               ))
             }
@@ -744,7 +744,7 @@ export default function DocumentsPage() {
           07.09.2026 — "E-Mails gehoert eher in den Bereich Docs". Eine
           importierte Mail IST ein Dokument; hier sucht man danach. */}
       <div className="mt-5">
-        <EmailListe pushToast={pushToast} />
+        <EmailListe pushToast={pushToast} applications={data.applications || []} />
       </div>
     </div>
   );

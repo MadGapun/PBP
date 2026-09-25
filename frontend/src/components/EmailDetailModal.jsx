@@ -10,7 +10,7 @@ import { MessageSquareReply } from "lucide-react";
 
 import { api, postJson } from "@/api";
 import { Badge, Button, Card, Modal, SelectInput } from "@/components/ui";
-import { formatDate } from "@/utils";
+import { buildMailto, buildReplyMailto, extractEmailAddress, formatDate } from "@/utils";
 
 export default function EmailDetailModal({ email, applications, onClose, pushToast, onUpdate }) {
   const [assignApp, setAssignApp] = useState(email.application_id || "");
@@ -199,7 +199,7 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
                 Keine passende Bewerbung? Lege eine neue aus dieser E-Mail an — Subject als Titel, Absender-Domain als Firma.
               </p>
               <Button size="sm" variant="secondary" onClick={createApplicationFromEmail}>
-                Neue Bewerbung daraus erstellen
+                Bewerbung aus dieser Mail anlegen
               </Button>
             </div>
           )}

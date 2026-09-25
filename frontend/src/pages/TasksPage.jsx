@@ -170,7 +170,7 @@ export default function TasksPage() {
   function springeZurBewerbung(eintrag) {
     if (!eintrag.bewerbung_id || !navigateTo) return;
     // #815: Sprung in den Kontext — Bewerbungen-Tab + Timeline oeffnen
-    navigateTo("bewerbungen", { applicationId: eintrag.bewerbung_id });
+    navigateTo("bewerbungen", { applicationId: eintrag.bewerbung_id, focus: "timeline" });
   }
 
   const zeile = (e) => {
