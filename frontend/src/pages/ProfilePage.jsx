@@ -593,7 +593,7 @@ export default function ProfilePage() {
     if (intent.composer === "education") setEducationDialog({ open: true, draft: EMPTY_EDUCATION });
     if (intent.composer === "skill") setSkillDialog({ open: true, draft: buildSkillDraft(EMPTY_SKILL) });
     if (intent.composer === "document") {
-      document.getElementById("section-documents")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("profil-dokumente")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
     clearIntent();
   }, [intent]);

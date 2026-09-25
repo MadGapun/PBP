@@ -34,6 +34,7 @@ import {
   symbol as daumenSymbol, titel as daumenTitel, ton as daumenTon,
 } from "@/lib/daumen";
 import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertung";
+import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -570,7 +571,9 @@ export default function JobsPage() {
 
   useEffect(() => {
     if (intent?.page !== "stellen") return;
-    if (intent.focus === "job" && intent.jobHash) {
+    if (intent.jobHash) {
+      // G57 (#1087 D6): ein Sprung mit Kennung zielt immer auf die Stelle,
+      // auch wenn der Aufrufer `focus` vergisst (Elwosa tat das).
       // v1.7.62 (#1008): auch der Sprung auf eine bestimmte Stelle
       // raeumt ueber dieselbe Definition ab — sonst haette ein kuenftig
       // neuer Filter die angesprungene Stelle weiter verborgen.
@@ -682,7 +685,7 @@ export default function JobsPage() {
   async function saveApplication() {
     const entwurf = applicationDialog.draft;
     try {
-      const erg = await postJson("/api/applications", entwurf);
+      const erg = await postJson("/api/applications", bewerbungNutzlast(entwurf));
       setApplicationDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
       // D43 (#981): wer sich erst bewerben WILL, braucht als Naechstes
@@ -848,7 +851,10 @@ export default function JobsPage() {
         title: job.title || "",
         company: job.company || "",
         url: job.url || "",
-        status: "beworben",
+        // G58 (#1087 C6): die Vorgabe aus #981 gilt auch hier — vorher
+        // stand an dieser Stelle "beworben", und der Auto-Nachfass lief los.
+        status: VORGABE_STATUS,
+        applied_at: "",
         notes: "",
       },
     });
@@ -1832,7 +1838,7 @@ export default function JobsPage() {
                   </Button>
                   <Button onClick={() => openApplicationDialog(job)}>
                     <Plus size={15} />
-                    Bewerbung erfassen
+                    {BEWERBUNG_ANLEGEN}
                   </Button>
                   {filters.view === "active" ? (
                     <Button variant="danger" onClick={() => openDismissDialog(job)}>
@@ -1997,7 +2003,7 @@ export default function JobsPage() {
 
       <Modal
         open={fitDialog.open}
-        title={`Fit-Analyse \u2014 ${fitDialog.title}`}
+        title={`Fit-Analyse — ${fitDialog.title}`}
         onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
         /* #948 (AK 1/2): der Einstieg zur vertieften Analyse stand am
            ENDE eines langen Dialogs — man musste an Score, Faktoren,
@@ -2162,7 +2168,7 @@ export default function JobsPage() {
                 }}
               >
                 <Plus size={15} />
-                Bewerbung erfassen
+                {BEWERBUNG_ANLEGEN}
               </Button>
               <Button
                 variant="ghost"
@@ -2178,14 +2184,14 @@ export default function JobsPage() {
 
       <Modal
         open={applicationDialog.open}
-        title="Bewerbung aus Stelle anlegen"
+        title={`${BEWERBUNG_ANLEGEN} (aus Stelle)`}
         onClose={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}
         footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={saveApplication}>Bewerbung speichern</Button></div>}
       >
         <div className="grid gap-4">
-          {["title", "company", "url"].map((key) => (
-            <Field key={key} label={key}>
-              <TextInput value={applicationDialog.draft[key] || ""} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, [key]: event.target.value } }))} />
+          {BEWERBUNG_FELDER.map(({ key, label, placeholder }) => (
+            <Field key={key} label={label}>
+              <TextInput value={applicationDialog.draft[key] || ""} placeholder={placeholder} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, [key]: event.target.value } }))} />
             </Field>
           ))}
           {/* #981 (D43): die Einstiegsfrage aus #170 statt einer
@@ -2195,13 +2201,13 @@ export default function JobsPage() {
               G20/#896 hatte genau diesen Wert aus STATUS_OPTIONS entfernt,
               die Inline-Liste hier sah der Guard nicht. */}
           <Field label="Wo stehst du?">
-            <SelectInput value={applicationDialog.draft.status} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value, applied_at: event.target.value === "beworben" ? current.draft.applied_at : "" } }))}>
+            <SelectInput value={applicationDialog.draft.status} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value, applied_at: event.target.value === "beworben" ? (current.draft.applied_at || heuteIso()) : "" } }))}>
               <option value="in_vorbereitung">Ich will mich bewerben</option>
               <option value="beworben">Ich habe mich bereits beworben</option>
             </SelectInput>
           </Field>
           {applicationDialog.draft.status === "beworben" ? (
-            <Field label="Beworben am">
+            <Field label={BEWORBEN_AM_LABEL}>
               <TextInput type="date" value={applicationDialog.draft.applied_at || ""} onChange={(event) => setApplicationDialog((current) => ({ ...current, draft: { ...current.draft, applied_at: event.target.value } }))} />
             </Field>
           ) : null}
@@ -2549,7 +2555,7 @@ export default function JobsPage() {
                   setDetailDialog({ open: false, job: null, editing: false });
                   openApplicationDialog(stelle);
                 }}>
-                  <Plus size={15} /> Bewerbung erfassen
+                  <Plus size={15} /> {BEWERBUNG_ANLEGEN}
                 </Button>
                 <Button variant="secondary" onClick={() => {
                   setDetailDialog({ open: false, job: null, editing: false });

@@ -589,7 +589,7 @@ export default function App() {
         }
       }
       pushToast(
-        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop \u2014 Einfuegen mit Strg+V (Cmd+V auf Mac).",
+        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop — Einfuegen mit Strg+V (Cmd+V auf Mac).",
         "success",
         { duration: 10000, action: { label: "Zu Claude wechseln", onClick: () => { window.open("claude://", "_self"); } } }
       );
@@ -1051,7 +1051,7 @@ export default function App() {
       }
       if (result?.status === "keine_quellen") {
         pushToast(
-          "Keine Job-Quellen aktiviert \u2014 bitte unter Einstellungen \u2192 Job-Quellen auswaehlen.",
+          "Keine Job-Quellen aktiviert — bitte unter Einstellungen → Job-Quellen auswaehlen.",
           "amber",
           { duration: 6000 },
         );
@@ -1269,9 +1269,9 @@ export default function App() {
                   // Elwosa-Linien. Markup [link:type:id|label] feuert
                   // diesen Handler.
                   if (linkType === "application") {
-                    navigateTo("bewerbungen", { applicationId: linkId });
+                    navigateTo("bewerbungen", { applicationId: linkId, focus: "timeline" });
                   } else if (linkType === "job") {
-                    navigateTo("stellen", { jobHash: linkId });
+                    navigateTo("stellen", { focus: "job", jobHash: linkId });
                   } else if (linkType === "job_filter") {
                     if (linkId === "missing_desc") {
                       navigateTo("stellen", { missingDescriptionOnly: true });

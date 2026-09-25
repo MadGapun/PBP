@@ -37,13 +37,15 @@ import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
+import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, brauchtBewerbungsdatum, heuteIso } from "@/lib/bewerbungFormular";
 
 const EMPTY_APPLICATION = {
   title: "",
   company: "",
   url: "",
-  status: "beworben",
-  applied_at: new Date().toISOString().slice(0, 10),
+  // G58 (#1087 C6): Vorgabe "Ich will mich bewerben" wie im Stellen-Tab.
+  status: VORGABE_STATUS,
+  applied_at: "",
   notes: "",
 };
 const ARCHIVE_STATUSES = ["abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen"];
@@ -215,9 +217,12 @@ export default function ApplicationsPage() {
       setFilters({ query: "", status: "", fromDate: "", toDate: "", stellenart: "", showArchived: false });
       setSpecialFilter("zombies");
       clearIntent();
-    } else if (intent.applicationId) {
-      // #815 (D35): Sprung aus dem Aufgaben-Bereich direkt in die Timeline
-      openTimeline({ id: intent.applicationId });
+    } else if (intent.applicationId || intent.highlight) {
+      // #815 (D35): Sprung aus dem Aufgaben-Bereich direkt in die Timeline.
+      // G57 (#1087 D6): Kalender, Dokumente und Elwosa senden jetzt
+      // ebenfalls `applicationId`; `highlight` bleibt als Alias, damit ein
+      // vergessener Aufrufer nicht wieder oben in der Liste landet.
+      openTimeline({ id: intent.applicationId || intent.highlight });
       clearIntent();
     }
   }, [intent, clearIntent]);
@@ -279,7 +284,7 @@ export default function ApplicationsPage() {
 
   async function saveApplication() {
     try {
-      await postJson("/api/applications", createDialog.draft);
+      await postJson("/api/applications", bewerbungNutzlast(createDialog.draft));
       setCreateDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
       pushToast("Bewerbung angelegt.", "success");
@@ -639,7 +644,7 @@ export default function ApplicationsPage() {
         tone: "sky",
         title: "Aus vorhandenen Stellen die erste Bewerbung machen",
         description: `${activeJobsCount} aktive Stellen sind da, aber noch keine aktive Bewerbung. Nutze eine Stelle als Startpunkt oder lege manuell eine Bewerbung an.`,
-        actionLabel: "Bewerbung anlegen",
+        actionLabel: BEWERBUNG_ANLEGEN,
         action: () => setCreateDialog({ open: true, draft: EMPTY_APPLICATION }),
       };
     }
@@ -694,7 +699,7 @@ export default function ApplicationsPage() {
           </LinkButton>
           <Button size="sm" onClick={() => setCreateDialog({ open: true, draft: EMPTY_APPLICATION })}>
             <Plus size={14} />
-            Bewerbung
+            {BEWERBUNG_ANLEGEN}
           </Button>
         </div>
       </div>
@@ -816,8 +821,8 @@ export default function ApplicationsPage() {
             <Card className="rounded-2xl">
               <div className="flex items-center justify-between">
                 <SectionHeading title={`Offene Aktionen (${upcomingMeetings.length + followUps.length})`} />
-                <Button size="sm" variant="ghost" onClick={() => navigateTo("kalender", { filter: "followups" })}>
-                  Alle im Kalender
+                <Button size="sm" variant="ghost" onClick={() => navigateTo("aufgaben")}>
+                  Alle Aufgaben
                 </Button>
               </div>
               <div className="grid gap-1.5">
@@ -832,7 +837,7 @@ export default function ApplicationsPage() {
                     <Calendar size={14} className="shrink-0 text-teal" />
                     <span className="flex-1 min-w-0 truncate text-ink font-medium">
                       {meeting.title || "Termin"}
-                      {meeting.app_company ? ` \u2014 ${meeting.app_company}` : ""}
+                      {meeting.app_company ? ` — ${meeting.app_company}` : ""}
                     </span>
                     <span className="shrink-0 text-xs text-muted/50">{formatDate(meeting.meeting_date)}</span>
                     <Badge tone="success">Termin</Badge>
@@ -882,7 +887,7 @@ export default function ApplicationsPage() {
                 Dokumente oder E-Mails hier ablegen.
               </p>
               <div className="mt-3 grid gap-2">
-                <EmailUploadButton pushToast={pushToast} onImported={() => loadData()} />
+                <EmailUploadButton pushToast={pushToast} onImported={() => loadPage()} />
               </div>
               <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
                 Dateien per Drag &amp; Drop auf die Seite ziehen
@@ -1017,7 +1022,7 @@ export default function ApplicationsPage() {
                       ? "Aktive Bewerbungen passen gerade nicht zum Filter. Archivierte Fälle kannst du oben gezielt einblenden."
                       : "Lege eine neue Bewerbung an oder übernimm sie direkt aus einer Stelle."
                   }
-                  action={<Button onClick={() => setCreateDialog({ open: true, draft: EMPTY_APPLICATION })}>Bewerbung anlegen</Button>}
+                  action={<Button onClick={() => setCreateDialog({ open: true, draft: EMPTY_APPLICATION })}>{BEWERBUNG_ANLEGEN}</Button>}
                 />
               )}
             </div>
@@ -1028,25 +1033,30 @@ export default function ApplicationsPage() {
 
       <Modal
         open={createDialog.open}
-        title="Neue Bewerbung"
+        title={BEWERBUNG_ANLEGEN}
         onClose={() => setCreateDialog({ open: false, draft: EMPTY_APPLICATION })}
         footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setCreateDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={saveApplication}>Bewerbung speichern</Button></div>}
       >
         <div className="grid gap-4">
-          {["title", "company", "url", "applied_at"].map((key) => (
-            <Field key={key} label={key}>
-              <TextInput value={createDialog.draft[key] || ""} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, [key]: event.target.value } }))} />
+          {BEWERBUNG_FELDER.map(({ key, label, placeholder }) => (
+            <Field key={key} label={label}>
+              <TextInput value={createDialog.draft[key] || ""} placeholder={placeholder} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, [key]: event.target.value } }))} />
             </Field>
           ))}
-          <Field label="Status">
-            <SelectInput value={createDialog.draft.status} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value } }))}>
+          <Field label="Wo stehst du?">
+            <SelectInput value={createDialog.draft.status} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, status: event.target.value, applied_at: brauchtBewerbungsdatum(event.target.value) ? (current.draft.applied_at || heuteIso()) : "" } }))}>
               {STATUS_OPTIONS.filter((option) => !["abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen"].includes(option.value)).map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label}
+                  {option.value === "in_vorbereitung" ? "Ich will mich bewerben" : option.label}
                 </option>
               ))}
             </SelectInput>
           </Field>
+          {brauchtBewerbungsdatum(createDialog.draft.status) ? (
+            <Field label={BEWORBEN_AM_LABEL}>
+              <TextInput type="date" value={createDialog.draft.applied_at || ""} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, applied_at: event.target.value } }))} />
+            </Field>
+          ) : null}
           <Field label="Notizen">
             <TextArea rows={4} value={createDialog.draft.notes} onChange={(event) => setCreateDialog((current) => ({ ...current, draft: { ...current.draft, notes: event.target.value } }))} />
           </Field>
@@ -1215,8 +1225,8 @@ export default function ApplicationsPage() {
                     { key: "endkunde", label: "Endkunde" },
                     { key: "ansprechpartner", label: "Ansprechpartner" },
                     { key: "kontakt_email", label: "Kontakt-E-Mail" },
-                    { key: "gehaltsvorstellung", label: "Gehaltsvorstellung", placeholder: "z.B. 65.000\u20ac/Jahr, 850\u20ac/Tag" },
-                    { key: "final_salary", label: "Tats\u00e4chliches Gehalt (nach Zusage)", placeholder: "z.B. 72.000\u20ac/Jahr" },
+                    { key: "gehaltsvorstellung", label: "Gehaltsvorstellung", placeholder: "z.B. 65.000€/Jahr, 850€/Tag" },
+                    { key: "final_salary", label: "Tatsächliches Gehalt (nach Zusage)", placeholder: "z.B. 72.000€/Jahr" },
                     { key: "portal_name", label: "Portal" },
                     { key: "url", label: "URL" },
                   ].map(({ key, label, placeholder }) => (
@@ -1762,7 +1772,11 @@ export default function ApplicationsPage() {
                             if (!confirm("Termin wirklich löschen?")) return;
                             await deleteRequest(`/api/meetings/${m.id}`);
                             pushToast("Termin gelöscht.", "success");
-                            loadTimeline();
+                            // G57 (#1087 D4): hier stand `loadTimeline()`, das es
+                            // nicht gibt — der Toast meldete "gelöscht", der Termin
+                            // blieb stehen. Die Termine liegen in eigenem State.
+                            setTimelineMeetings((current) => current.filter((x) => x.id !== m.id));
+                            setUpcomingMeetings((current) => current.filter((x) => x.id !== m.id));
                           }}
                           className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-[10px] text-muted/40 hover:bg-coral/15 hover:text-coral"
                           title="Termin löschen">
@@ -2176,15 +2190,15 @@ export default function ApplicationsPage() {
       {/* #455 / v1.5.7: Abschluss-Dialog nach Zusage */}
       <Modal
         open={acceptanceDialog.open}
-        title={`Gl\u00fcckwunsch \u2014 Abschluss bei ${acceptanceDialog.application?.company || ""}`}
+        title={`Glückwunsch — Abschluss bei ${acceptanceDialog.application?.company || ""}`}
         onClose={() => setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" })}
         footer={(
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setAcceptanceDialog({ open: false, application: null, final_salary: "", description: "", start_date: "" })}>
-              Sp\u00e4ter
+              Später
             </Button>
             <Button onClick={confirmAcceptance}>
-              \u00dcbernehmen und speichern
+              Übernehmen und speichern
             </Button>
           </div>
         )}
@@ -2192,7 +2206,7 @@ export default function ApplicationsPage() {
         <div className="grid gap-3">
           <p className="text-sm text-muted/70">
             Du hast die Zusage erhalten. Hier ein kleiner Abschluss-Flow:
-            Position ins Profil \u00fcbernehmen, Gehalt festhalten, optional eine Beschreibung erg\u00e4nzen.
+            Position ins Profil übernehmen, Gehalt festhalten, optional eine Beschreibung ergänzen.
           </p>
           <Field label="Position (wird als aktuelle Stelle angelegt)">
             <TextInput value={acceptanceDialog.application?.title || ""} disabled />
@@ -2204,9 +2218,9 @@ export default function ApplicationsPage() {
               onChange={(e) => setAcceptanceDialog((s) => ({ ...s, start_date: e.target.value }))}
             />
           </Field>
-          <Field label="Tats\u00e4chliches Gehalt (optional)">
+          <Field label="Tatsächliches Gehalt (optional)">
             <TextInput
-              placeholder="z.B. 72.000\u20ac/Jahr"
+              placeholder="z.B. 72.000€/Jahr"
               value={acceptanceDialog.final_salary}
               onChange={(e) => setAcceptanceDialog((s) => ({ ...s, final_salary: e.target.value }))}
             />
@@ -2219,7 +2233,7 @@ export default function ApplicationsPage() {
             />
           </Field>
           <p className="text-xs text-muted/50">
-            Offene Follow-ups wurden bereits automatisch als hinf\u00e4llig markiert.
+            Offene Follow-ups wurden bereits automatisch als hinfällig markiert.
           </p>
         </div>
       </Modal>

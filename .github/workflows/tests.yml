@@ -120,5 +120,10 @@ jobs:
         # das Tempo heisst nie "Browser".
         run: node frontend/src/lib/quellenBadges.test.mjs
 
+      - name: Bewerbungs-Formular (Node)
+        # G58 (#1087): deutsche Beschriftungen, Vorgabe in_vorbereitung,
+        # Datum nur bei abgeschickter Bewerbung.
+        run: node frontend/src/lib/bewerbungFormular.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py
