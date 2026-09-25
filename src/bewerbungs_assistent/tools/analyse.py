@@ -1133,7 +1133,7 @@ def register(mcp, db, logger):
         """Konfiguriert das Scoring-Regler-System (#169).
 
         Jede Bewertungsdimension hat einen konfigurierbaren Regler der Punkte
-        zum Basis-Fit-Score addiert oder subtrahiert.
+        zu den Punkten addiert oder subtrahiert.
 
         Dimensionen:
         - stellentyp: Bonus/Malus pro Stellenart (freelance, festanstellung, zeitarbeit, etc.)

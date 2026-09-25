@@ -56,10 +56,9 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     anteil = (score / maximum) if maximum > 0 else None
 
     def _skala() -> str:
-        """Wie die Zahl genannt wird — nie als Prozent von 100."""
-        if anteil is None:
-            return f"Score {score}"
-        return f"Score {score} von erreichbaren {maximum:g} ({anteil:.0%})"
+        """Wie die Zahl genannt wird — nie als Prozent (H24, #1087 G4)."""
+        from ..services.punkte import text as _punkte_text
+        return _punkte_text(score, maximum if anteil is not None else None)
     risks = fit_result.get("risks") or []
     muss_hits = fit_result.get("muss_hits") or []
     missing_muss = fit_result.get("missing_muss") or []
@@ -132,10 +131,10 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     befund["score"] = score
     if maximum:
         befund["score_maximum"] = maximum
-    befund["score_bedeutung"] = (
-        f"{_skala()}. Diese Zahl misst, wie gut die Anzeige deine "
-        "SUCHBEGRIFFE trifft — sie ist ein Indikator fuer die Suche und "
-        "keine Aussage darueber, ob du auf die Stelle passt.")
+    # H24 (#1087 G4): derselbe Satz an jedem Ort.
+    from ..services.punkte import SCORE_BEDEUTUNG as _BEDEUTUNG
+    befund["punkte_text"] = _skala()
+    befund["score_bedeutung"] = _BEDEUTUNG
     befund["score_zuverlaessig"] = bool(
         desc_ok and not fit_result.get("beschreibung_kurz"))
     if muss_hits or missing_muss:
@@ -2034,6 +2033,12 @@ def register(mcp, db, logger):
 
         # Format for Claude readability
         formatted = []
+        # C96 (#1087 C1): dieselben Punkte wie Stellen-Tab, Dashboard,
+        # Timeline und Fit-Dialog. `score` traegt denselben Wert, damit
+        # Claude nicht zwei Zahlen fuer eine Stelle nennt; die Reihenfolge
+        # richtet sich weiter nach dem Wert samt Rahmen (#1082).
+        from ..services import punkte as _punkte
+        _punkte.anreichern(db, page_jobs)
         for j in page_jobs:
             entry = {
                 "id": _kurz(j["hash"]),  # #171: Kurz-ID fuer schnelle Referenz
@@ -2041,7 +2046,9 @@ def register(mcp, db, logger):
                 "titel": j.get("title", ""),
                 "firma": j.get("company", ""),
                 "ort": j.get("location", ""),
-                "score": j.get("score", 0),
+                "score": j.get("punkte", j.get("score", 0)),
+                "punkte": j.get("punkte", 0),
+                "punkte_text": _punkte.text(j.get("punkte", 0), j.get("punkte_max")),
                 "quelle": j.get("source", ""),
                 "remote": j.get("remote_level", "unbekannt"),
                 "url": j.get("url", ""),
@@ -2477,7 +2484,7 @@ def register(mcp, db, logger):
         nur_aktive: bool = True,
         max_stellen: int = 0,
     ) -> dict:
-        """Rechnet die Fit-Scores aller (aktiven) Stellen neu (#554, v1.6.9).
+        """Rechnet die Punkte aller (aktiven) Stellen neu (#554, v1.6.9).
 
         Sinnvoll nach Aenderungen an:
         - Suchkriterien (`suchkriterien_setzen`/`suchkriterien_bearbeiten`)
@@ -4799,15 +4806,11 @@ def register(mcp, db, logger):
             from ..services.scoring_service import apply_scoring_adjustments
             _regler = apply_scoring_adjustments(
                 job_dict, result.get("total_score", 0), db)
-            _in_liste = _regler.get("final_score", result.get("total_score", 0))
-            if abs(_in_liste - result.get("total_score", 0)) > 0.05:
-                result["score_in_liste"] = _in_liste
-                result["score_hinweis"] = (
-                    f"In der Stellenliste steht {_in_liste} — das ist dieser "
-                    f"Fachwert ({result.get('total_score')}) plus deine "
-                    "gesetzten Scoring-Regler. Verglichen wird gegen den "
-                    "Hoechstwert der Fachwert, weil die Regler dort nicht "
-                    "vorkommen.")
+            # C96 (#1087 C1): statt einer zweiten Zahl ("score_in_liste")
+            # dieselben Punkte wie Liste, Dashboard und Timeline — mit
+            # Faktoren, die sich genau zu ihnen addieren.
+            from ..services import punkte as _punkte
+            result.update(_punkte.fuer_frisch(db, job_dict, result))
             # v1.7.127 (#1082): die Schwelle vergleicht den Fachwert
             # (ohne Entfernung/Remote/Gehalt). Ob die Stelle in der Liste
             # steht, sagt diese Antwort ausdruecklich.

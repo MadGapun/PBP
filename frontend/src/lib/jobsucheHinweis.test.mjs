@@ -1,6 +1,6 @@
 // #1033: Regeln fuer den Jobsuche-Hinweis in der Navigation. Framework-frei:
 //   node src/lib/jobsucheHinweis.test.mjs
-import { jobsucheHinweis } from "./jobsucheHinweis.js";
+import { jobsucheHinweis, volltextText } from "./jobsucheHinweis.js";
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -60,6 +60,15 @@ const ohneBrowser = jobsucheHinweis({
 });
 check("ohne Browser-Quellen kein Satz dazu",
   ohneBrowser.titel.includes("Browser"), false);
+
+// C97 (#1087 C8): die erste Liste sagt, was ihr noch fehlt.
+{
+  const h = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 44, neu_aktiv: 44, ohne_volltext: 32, quellen: { ok: 3 } });
+  check("Volltext im sichtbaren Text", h.text, "Fertig — 44 neue Stellen, 32 ohne Volltext");
+  check("Volltext im Titel", h.titel.includes("32 von 44 ohne Volltext — PBP lädt ihn nach"), true);
+  check("ohne Luecke kein Zusatz", jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 5, ohne_volltext: 0, quellen: {} }).text, "Fertig — 5 neue Stellen");
+  check("Text ohne Gesamtzahl", volltextText(3), "3 ohne Volltext — PBP lädt ihn nach, die Bewertung folgt");
+}
 
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);

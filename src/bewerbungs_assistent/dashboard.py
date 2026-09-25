@@ -1642,6 +1642,11 @@ async def api_application_timeline(app_id: str):
     job = None
     if application.get("job_hash"):
         job = _db.get_job(application["job_hash"])
+        # C96 (#1087 C1): die Timeline zeigte den gespeicherten Wert ohne
+        # Regler — dieselben Punkte wie Karte und Dashboard.
+        if job:
+            from .services import punkte as _punkte
+            _punkte.anreichern(_db, [job])
 
     # Get linked documents
     documents = _db.get_documents_for_application(app_id, profile_id=profile_id)
@@ -2694,6 +2699,9 @@ async def api_fit_analyse(job_hash: str):
     # v1.7.62 (#1008 Befund 3): Hochschulabschluss-Malus entfernt —
     # er wurde geschrieben und nirgends gelesen (#972, #993, #1000).
     result = fit_analyse(job, criteria)
+    # C96 (#1087 C1): Punkte samt Faktoren, die sich genau dazu addieren.
+    from .services import punkte as _punkte
+    result.update(_punkte.fuer_frisch(_db, job, result))
     # #306: Research notes (Claude-Analyse) mitsenden.
     # #956/#948: seit v1.7.70 liegt die Recherche in der Tabelle, nicht
     # mehr in `jobs.research_notes`. Die Spalte roh zu lesen haette den
@@ -6565,6 +6573,8 @@ async def api_jobsuche_last():
         # `None` heisst "nicht bekannt" (fehlgeschlagen, Altlauf), nicht 0.
         "neue_stellen": neue if ergebnis == "fertig" else None,
         "neu_aktiv": _zahl(result.get("neu_aktiv")) if ergebnis == "fertig" else None,
+        # C97 (#1087 C8): wie viele der neuen Stellen noch ohne Volltext sind.
+        "ohne_volltext": _zahl(result.get("ohne_volltext")) if ergebnis == "fertig" else None,
         "quellen": zaehler,
         "timeout_quellen": zaehler["timeout"],
         "meldung": job.get("message") or "",

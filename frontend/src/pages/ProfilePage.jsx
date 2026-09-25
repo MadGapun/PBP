@@ -42,6 +42,7 @@ import {
   TextInput,
 } from "@/components/ui";
 import { cn, docTypeLabel, formatDateTime, normalizeMonthDate } from "@/utils";
+import { SCORE_BEDEUTUNG } from "@/lib/score";
 
 const EMPTY_PROFILE = {
   name: "",
@@ -1125,7 +1126,7 @@ export default function ProfilePage() {
                   {stufe.name}
                 </span>
                 <span className="text-[11px] tabular-nums text-muted/50">
-                  {offen ? "noch nicht berechenbar" : `ab Score ${stufe.wert}`}
+                  {offen ? "noch nicht berechenbar" : `ab ${stufe.wert} Punkten`}
                 </span>
               </div>
               <div className="mt-0.5 text-[11px] text-muted/60">{stufe.bedeutung}</div>
@@ -1164,21 +1165,21 @@ export default function ProfilePage() {
       label: "MUSS-Kriterium",
       key: "gewichtung_muss",
       chip: "Pflicht",
-      desc: "Harte Anforderungen aus deinem Profil. MUSS=5: Stelle ohne dieses Skill bekommt einen deutlichen Score-Abzug. MUSS=0: das Kriterium ist für das Ranking irrelevant.",
+      desc: "Harte Anforderungen aus deinem Profil. MUSS=5: eine Stelle ohne diesen Begriff bekommt deutlich weniger Punkte. MUSS=0: das Kriterium ist für die Reihenfolge irrelevant.",
       color: "teal",
     },
     {
       label: "PLUS-Punkte",
       key: "gewichtung_plus",
       chip: "Bonus",
-      desc: "Nice-to-have-Skills. Höherer Wert = mehr Score-Bonus pro Match. Wirkt nur additiv, blockt nichts.",
+      desc: "Wunschbegriffe. Höherer Wert = mehr Punkte je Treffer. Wirkt nur additiv, blockt nichts.",
       color: "sky",
     },
     {
       label: "MINUS-Abzug",
       key: "gewichtung_minus",
       chip: "Malus",
-      desc: "Score-Abzug pro Minus-Keyword-Treffer (#667). Weiche Abwertung — die Stelle bleibt sichtbar, rutscht aber nach unten. 0 = Minus-Keywords ohne Wirkung.",
+      desc: "Punkte-Abzug je Treffer eines Ausschlussbegriffs. Weiche Abwertung — die Stelle bleibt sichtbar, rutscht aber nach unten. 0 = ohne Wirkung.",
       color: "coral",
     },
     {
@@ -1199,7 +1200,7 @@ export default function ProfilePage() {
       label: "Fern-Malus",
       key: "gewichtung_fern_malus",
       chip: "Abzug",
-      desc: "Score-Abzug bei Distanz > 200 km (ohne Remote-Option). Hoch = ferne Stellen sind quasi unsichtbar. 0 = Distanz egal.",
+      desc: "Abzug im Rahmen (Ort, Gehalt, Modell) bei Distanz > 200 km ohne Remote-Option. Er zählt nicht in die Punkte, sondern in den Rahmen-Daumen und die Reihenfolge. 0 = Distanz egal.",
       color: "coral",
     },
     {
@@ -1563,16 +1564,16 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-muted/40">Entfernung beeinflusst den Fit-Score als Malus. Freelance hat standardmaessig eine hoehere Toleranz.</p>
+              <p className="mt-1 text-xs text-muted/40">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
             </Field>
 
             {/* v1.7.0-beta.57 (#633): Erklaerung was die Gewichtung ueberhaupt tut. */}
             <div className="mt-2 rounded-xl border border-sky/20 bg-sky/[0.05] p-3 text-[12px] text-muted/80">
               <p className="leading-snug">
-                <strong className="text-ink">Wie das Scoring funktioniert:</strong>{" "}
-                Jede gefundene Stelle bekommt einen Score von 0-100. Diese Regler bestimmen,
-                wie stark einzelne Faktoren ins Ranking einfliessen. Hoeher = wichtiger.
-                Wert auf 0 = Faktor wird ignoriert. Mouse-over auf den Label-Text fuer Details.
+                <strong className="text-ink">Was die Punkte bedeuten:</strong>{" "}
+                {SCORE_BEDEUTUNG} Die Regler bestimmen, wie stark einzelne Faktoren
+                wirken. Höher = wichtiger, 0 = ignoriert. Mit der Maus über den
+                Namen eines Reglers steht, was er tut.
               </p>
             </div>
             <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
@@ -1645,7 +1646,7 @@ export default function ProfilePage() {
                     {scoreEinordnung(scoreVerteilung, criteriaDraft.min_score_schwelle)}
                   </p>
                   <p className="mt-1 text-[11px] text-muted/40">
-                    {`Median ${scoreVerteilung.median}, höchster Score ${scoreVerteilung.max} über ${scoreVerteilung.anzahl} Stellen. ${scoreVerteilung.grundlage}`}
+                    {`Median ${scoreVerteilung.median}, höchster Wert ${scoreVerteilung.max} Punkte über ${scoreVerteilung.anzahl} Stellen. ${scoreVerteilung.grundlage}`}
                   </p>
                 </>
               ) : (

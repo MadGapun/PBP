@@ -15,6 +15,13 @@
 // durch, ist der Lauf gelungen, und eine Quelle mit Dauer-Timeout wuerde
 // das Kaestchen sonst bei jedem Lauf gelb machen. Sie stehen im Tooltip.
 
+/** "32 von 44 ohne Volltext — PBP lädt ihn nach, die Bewertung folgt". */
+export function volltextText(ohne, gesamt) {
+  if (!ohne) return "";
+  const von = typeof gesamt === "number" && gesamt >= ohne ? ` von ${gesamt}` : "";
+  return `${ohne}${von} ohne Volltext — PBP lädt ihn nach, die Bewertung folgt`;
+}
+
 export function jobsucheHinweis(last) {
   if (!last || !last.vorhanden) return null;
 
@@ -62,13 +69,17 @@ export function jobsucheHinweis(last) {
 
   const aktiv = typeof last.neu_aktiv === "number" ? last.neu_aktiv : null;
   const teile = [];
+  // C97 (#1087 C8): die erste Liste wirkt fertig, fuellt sich aber erst
+  // durch das Nachladen. Das steht jetzt im Hinweis selbst.
+  const ohne = typeof last.ohne_volltext === "number" ? last.ohne_volltext : 0;
+  if (ohne > 0) teile.push(volltextText(ohne, neue));
   if (aktiv !== null && aktiv !== neue) {
     teile.push(`${aktiv} davon in der Liste, ${neue - aktiv} sofort ausgeblendet`);
   }
   if (quellenText) teile.push(quellenText);
   return {
     ton: "ok",
-    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}`,
+    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}`,
     titel: teile.join(" · "),
   };
 }

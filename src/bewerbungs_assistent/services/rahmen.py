@@ -329,7 +329,7 @@ def daumen(job: dict, criteria: dict | None = None) -> dict:
     gruende = [t["grund"] for t in teile.values() if t.get("grund")]
     if ausweg:
         gruende.append(ausweg["grund"])
-    return {
+    marke = {
         "richtung": richtung,
         "farbe": BELEGT if belegt else GRAU,
         "ausschluesse": ausschluesse,
@@ -337,3 +337,16 @@ def daumen(job: dict, criteria: dict | None = None) -> dict:
         "teile": teile,
         "grund": " ".join(gruende).strip(),
     }
+    # C97 (#1087 C8): welche Angabe fehlt, in wenigen Worten.
+    if not belegt:
+        fehlend = [_UNGEPRUEFT_TEXT.get(n, n) for n, t in teile.items()
+                   if not t.get("belegt", True)]
+        marke["ungeprueft_weil"] = ", ".join(fehlend)
+    return marke
+
+
+_UNGEPRUEFT_TEXT = {
+    "entfernung": "Entfernung unbekannt",
+    "gehalt": "Gehalt geschätzt oder unbekannt",
+    "vertragsform": "Vertragsform unbekannt",
+}

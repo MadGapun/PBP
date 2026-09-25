@@ -1953,6 +1953,16 @@ def run_search(db, job_id: str, params: dict):
         "quellen_status": source_status,  # #316: Per-Source Fokus-Modus
         "adapter_pfad": "v2" if _use_adapters else "legacy",  # #499 Beta.12
     }
+    # C97 (#1087 C8): die erste Trefferliste wirkt fertig, fuellt sich aber
+    # erst durch das Nachladen — im Praxislauf hatten 32 von 44 Stellen
+    # keinen Anzeigentext. Der Lauf sagt das jetzt selbst.
+    try:
+        from ..services.datenguete import MIN_BESCHREIBUNG as _MIN_TEXT
+        result_data["ohne_volltext"] = sum(
+            1 for j in unique
+            if len((j.get("description") or "").strip()) < _MIN_TEXT)
+    except Exception:  # pragma: no cover
+        pass
     if cleanup["stats"]:
         result_data["bereinigung"] = cleanup["stats"]
     if any(filterstufen.values()):
@@ -4038,7 +4048,16 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if _neig > 0:
             factors[_neigung_signal["label"]] = total
 
+    # C96 (#1087 C1): der Dialog listete alle Faktoren untereinander,
+    # als ergaeben sie die Zahl — Rahmenfaktoren gehen aber seit v1.7.117
+    # nicht mehr ein. Getrennt zurueckgegeben, damit sich die Fachfaktoren
+    # genau zur Zahl addieren.
+    from ..services.punkte import faktoren_teilen as _faktoren_teilen
+    _faktoren_fach, _faktoren_rahmen = _faktoren_teilen(
+        factors, _neigung_signal.get("label") if _neigung_signal.get("punkte") else None)
     _ergebnis = {
+        "faktoren_fach": _faktoren_fach,
+        "faktoren_rahmen": _faktoren_rahmen,
         # v1.7.117 (#1052): NICHT mehr bei 0 gekappt — der Fachwert darf
         # negativ sein, und eine Stelle bei -8 und eine bei 0 duerfen
         # nicht gleich aussehen (Nutzerwort 16.09.2026).

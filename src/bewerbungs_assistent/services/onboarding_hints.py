@@ -331,7 +331,7 @@ HINT_DEFINITIONS: list[dict] = [
         "tab": "dashboard",
         "title": "Deine Suchbegriffe bilden dein Profil nicht ganz ab",
         "body": (
-            "Der Fachwert misst, wie gut eine Anzeige deine Suchbegriffe "
+            "Die Punkte messen, wie gut eine Anzeige deine Suchbegriffe "
             "trifft. Das sagt nur dann etwas über dich, wenn die Listen "
             "dein Profil abbilden — und die werden von Hand gepflegt. Der "
             "Abgleich hat Vorschläge: Skills, die in keiner Liste stehen; "

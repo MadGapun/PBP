@@ -10714,6 +10714,13 @@ class Database:
                 j["unter_schwelle"] = bool(ergebnis.get("unter_schwelle"))
             except Exception:
                 continue
+        # C96 (#1087 C1): `punkte` fuer jede Anzeige — dieselbe Zahl an
+        # allen Orten (services/punkte.py).
+        try:
+            from .services import punkte as _punkte
+            _punkte.anreichern(self, jobs)
+        except Exception:  # pragma: no cover
+            pass
         if sortieren:
             jobs.sort(key=lambda x: -(x.get("score") or 0))
         return jobs

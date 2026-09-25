@@ -445,7 +445,7 @@ def register(mcp, db, logger):
         """Exportiert einen professionellen Bewerbungsbericht als PDF oder Excel (#173).
 
         Enthält: Executive Summary, Status-Uebersicht, Quellenanalyse,
-        detaillierte Bewerbungsliste, Fit-Score-Verteilung und Keyword-Analyse.
+        detaillierte Bewerbungsliste, Verteilung der Punkte und Keyword-Analyse.
         Mit PBP-Branding und Inhaltsverzeichnis.
 
         Ideal fuer: Arbeitsamt-Dokumentation, eigene Analyse, Berater.
