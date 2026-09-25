@@ -160,6 +160,13 @@ def test_g60_globale_banner_sind_weg():
 def test_g60_dashboard_nutzt_die_zone():
     dash = _lesen(FRONTEND / "pages" / "DashboardPage.jsx")
     assert "hinweisFuer(" in dash and "<HinweisZone hinweis={hinweis} />" in dash
+    # Zone ODER Folgehinweis, nie beides: der Folgehinweis steht im
+    # else-Zweig derselben Bedingung, und jeder zeigt hoechstens einen.
+    flach = dash.replace("\r\n", "\n")
+    assert "{hinweis ? (\n        <HinweisZone hinweis={hinweis} />\n      ) : (" in flach
+    assert '<OnboardingHintBanner tab="dashboard" limit={1}' in dash
+    assert '<AdaptiveHintBanner page="dashboard" limit={1}' in dash
+    assert "sichtbarePublic.slice(0, 1)" in dash
     assert 'id: "jobsuche",\n      title: "Neue Jobsuche starten"' not in dash.replace("\r\n", "\n")
     # Ollama-Angebot erst nach dem Einstieg.
     assert "einstiegFertig && <LocalAiAutoDetectBanner" in dash
