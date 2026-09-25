@@ -742,9 +742,9 @@ export default function JobsPage() {
       setAutoDismissed((cur) => cur.filter((j) => String(j.hash) !== String(job.hash)));
       setJobs((cur) => [{ ...job, status: "aktiv" }, ...cur]);
       refreshChrome({ quiet: true });
-      pushToast("Stelle zurueckgeholt — die Ruecknahme ist protokolliert.", "success");
+      pushToast("Stelle zurückgeholt — die Rücknahme ist protokolliert.", "success");
     } catch (error) {
-      pushToast(`Zurueckholen fehlgeschlagen: ${error.message}`, "danger");
+      pushToast(`Zurückholen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -1279,7 +1279,7 @@ export default function JobsPage() {
             value={salaryBandText}
             note={salaryCount > 0
               ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}`
-              : "Echte Min/Max-Spanne ueber alle Stellen"}
+              : "Echte Min/Max-Spanne über alle Stellen"}
             tone="success"
           />
           <MetricCard
@@ -1989,9 +1989,9 @@ export default function JobsPage() {
               {autoOpen && (
                 <div className="mt-4 grid gap-3">
                   <p className="text-xs text-muted">
-                    Diese Stellen hat PBP als Wiedergaenger erkannt und ohne
-                    Rueckfrage aussortiert. Holst du eine zurueck, wird das
-                    protokolliert — haeuft es sich, steht die Regel zu scharf.
+                    Diese Stellen hat PBP als Wiedergänger erkannt und ohne
+                    Rückfrage aussortiert. Holst du eine zurück, wird das
+                    protokolliert — häuft es sich, steht die Regel zu scharf.
                   </p>
 
                   <div className="flex items-center gap-2">
@@ -2024,7 +2024,7 @@ export default function JobsPage() {
                       </div>
                       <Button variant="ghost" onClick={() => holeZurueck(job)}>
                         <RotateCcw size={15} />
-                        Zurueckholen
+                        Zurückholen
                       </Button>
                     </div>
                   ))}
@@ -2061,7 +2061,7 @@ export default function JobsPage() {
             >
               <MitClaude>Detailbewertung</MitClaude>
             </Button>
-            <Button variant="secondary" onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schliessen</Button>
+            <Button variant="secondary" onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schließen</Button>
           </div>
         )}
       >
@@ -2095,7 +2095,7 @@ export default function JobsPage() {
               {fitDialog.analysis.pruefstand?.ueberholt ? (
                 <p className="mt-2 text-xs text-amber">
                   {`Seit dem Urteil hat sich die Grundlage geändert${
-                    (fitDialog.analysis.pruefstand.ueberholt.gruende_text || []).length
+                    (fitDialog.analysis.prüfstand.überholt.gründe_text || []).length
                       ? ` — ${fitDialog.analysis.pruefstand.ueberholt.gruende_text.join("; ")}`
                       : ""
                   }.`}
@@ -2581,7 +2581,7 @@ export default function JobsPage() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-amber/30 px-3 py-1.5 text-xs text-amber hover:bg-amber/10"
                       >
-                        <ExternalLink size={12} /> Im Browser oeffnen + manuell kopieren
+                        <ExternalLink size={12} /> Im Browser öffnen + manuell kopieren
                       </a>
                     ) : null}
                   </div>

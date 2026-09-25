@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { startTransition, useEffect, useState } from "react";
 import { useApp } from "@/app-context";
+import { KONTAKTROLLEN } from "@/lib/anzeige";
 import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
 
@@ -20,16 +21,7 @@ import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/component
 // Designprinzip: End-User wird gut gefuehrt — Empty States erklaeren, was
 // Kontakte sind. Erst-Aktion-Buttons. Tags als vordefinierte + freie Eingabe.
 
-const ROLE_OPTIONS = [
-  { value: "recruiter", label: "Recruiter" },
-  { value: "headhunter", label: "Headhunter" },
-  { value: "hiring_manager", label: "Hiring Manager" },
-  { value: "interviewer", label: "Interviewer" },
-  { value: "hr", label: "HR" },
-  { value: "kollege", label: "Kollege" },
-  { value: "mentor", label: "Mentor" },
-  { value: "sonstiges", label: "Sonstiges" },
-];
+const ROLE_OPTIONS = KONTAKTROLLEN;
 
 const ROLE_LABELS = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label]));
 
@@ -169,7 +161,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
 
   async function handleMarkReference() {
     if (!refForm.reference_type) {
-      pushToast("Bitte die Art der Referenz waehlen.", "danger");
+      pushToast("Bitte die Art der Referenz wählen.", "danger");
       return;
     }
     try {
@@ -230,14 +222,14 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
   }
 
   async function handleDelete() {
-    if (!confirm(`Kontakt „${contact.full_name}" wirklich loeschen?`)) return;
+    if (!confirm(`Kontakt „${contact.full_name}" wirklich löschen?`)) return;
     try {
       await deleteRequest(`/api/contacts/${contact.id}`);
-      pushToast("Kontakt geloescht", "success");
+      pushToast("Kontakt gelöscht", "success");
       onDeleted?.();
       onClose();
     } catch (err) {
-      pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Löschen fehlgeschlagen: ${err.message}`, "danger");
     }
   }
 
@@ -329,7 +321,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
           {form.linkedin_url && form.linkedin_url.includes("linkedin.com/in/") && (
             <p className="mt-1 text-[11px] text-muted/50">
               <span className="text-sky">„Daten holen"</span> erzeugt einen Claude-Prompt.
-              Claude oeffnet das Profil im eingeloggten Chrome-Tab und liest Name/Position/Firma.
+              Claude öffnet das Profil im eingeloggten Chrome-Tab und liest Name/Position/Firma.
             </p>
           )}
         </Field>
@@ -339,7 +331,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             Rollen / Tags
           </p>
           <p className="text-[11px] text-muted/50 mb-2">
-            Was diese Person fuer dich ist. Mehrere moeglich — z.B. „Recruiter" + „HR".
+            Was diese Person für dich ist. Mehrere möglich — z.B. „Recruiter" + „HR".
           </p>
           <div className="flex flex-wrap gap-1.5">
             {ROLE_OPTIONS.map((opt) => (
@@ -419,7 +411,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
                 onChange={(e) => setRefForm({ ...refForm, reference_type: e.target.value })}
                 className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
               >
-                <option value="">Art waehlen</option>
+                <option value="">Art wählen</option>
                 {arten.map((a) => (
                   <option key={a.wert} value={a.wert}>{a.label}</option>
                 ))}
@@ -452,7 +444,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
               onClick={handleDelete}
               className="text-[12px] text-coral/70 hover:text-coral inline-flex items-center gap-1"
             >
-              <Trash2 size={12} /> Loeschen
+              <Trash2 size={12} /> Löschen
             </button>
           ) : <span />}
           <div className="flex gap-2">
@@ -518,7 +510,7 @@ function PendingContactsBanner({ pushToast, onChange }) {
       <div className="mb-2 flex items-center justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber/80">
-            Vorschlaege von der lokalen AI
+            Vorschläge von der lokalen AI
           </p>
           <p className="text-sm text-ink mt-1">
             {pending.length} Kontakt{pending.length === 1 ? "" : "e"} aus
@@ -618,16 +610,16 @@ function CategoryManagementSection({ pushToast }) {
   }
 
   async function removeCat(id, name) {
-    if (!confirm(`Kategorie "${name}" wirklich loeschen?`)) return;
+    if (!confirm(`Kategorie "${name}" wirklich löschen?`)) return;
     setBusy(true);
     try {
       const r = await fetch(`/api/contacts/categories/${id}`, { method: "DELETE" });
       const data = await r.json();
       if (!r.ok || data.fehler) {
-        pushToast(data.fehler || "Loeschen fehlgeschlagen", "danger");
+        pushToast(data.fehler || "Löschen fehlgeschlagen", "danger");
         return;
       }
-      pushToast(`"${name}" geloescht`, "success");
+      pushToast(`"${name}" gelöscht`, "success");
       await reload();
     } catch (err) {
       pushToast(`Fehler: ${err.message}`, "danger");
@@ -663,7 +655,7 @@ function CategoryManagementSection({ pushToast }) {
                 value={c.color}
                 onChange={(e) => updateColor(c.id, e.target.value)}
                 className="h-7 w-10 rounded cursor-pointer border border-white/10"
-                title="Farbe aendern"
+                title="Farbe ändern"
               />
               <input
                 type="text"
@@ -684,7 +676,7 @@ function CategoryManagementSection({ pushToast }) {
                   onClick={() => removeCat(c.id, c.name)}
                   disabled={busy}
                   className="text-muted/40 hover:text-coral shrink-0"
-                  title="Kategorie loeschen"
+                  title="Kategorie löschen"
                 >
                   <Trash2 size={12} />
                 </button>
@@ -775,7 +767,7 @@ export default function ContactsPage() {
         <div>
           <h2 className="text-base font-semibold text-ink">Kontakte</h2>
           <p className="text-xs text-muted/60 mt-0.5">
-            Personen mit Rollen und Historie ueber Bewerbungen, Stellen und Termine
+            Personen mit Rollen und Historie über Bewerbungen, Stellen und Termine
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -843,7 +835,7 @@ export default function ContactsPage() {
               onClick={() => { setSearch(""); setRoleFilter(""); }}
               className="text-[11px] text-muted/50 hover:text-ink underline"
             >
-              zuruecksetzen
+              zurücksetzen
             </button>
           )}
         </div>
@@ -856,10 +848,10 @@ export default function ContactsPage() {
             <h3 className="text-lg font-semibold text-ink mb-2">Noch keine Kontakte</h3>
             <p className="text-sm text-muted/70 max-w-md mx-auto mb-1.5">
               Kontakte sind <strong className="text-ink/90">Personen, die mit deiner Jobsuche zu tun haben</strong> —
-              Recruiter, Hiring Manager, Interviewer, Mentoren, Kollegen.
+              Recruiter, Fachvorgesetzte, Gesprächspartner, Mentoren, Kollegen.
             </p>
             <p className="text-sm text-muted/70 max-w-md mx-auto mb-6">
-              Du kannst sie spaeter mit Bewerbungen oder Terminen verknuepfen, um die
+              Du kannst sie später mit Bewerbungen oder Terminen verknüpfen, um die
               Historie pro Person zu sehen.
             </p>
             <Button onClick={handleNew}>
@@ -877,7 +869,7 @@ export default function ContactsPage() {
               onClick={() => { setSearch(""); setRoleFilter(""); }}
               className="text-[12px] text-sky hover:underline mt-2"
             >
-              Filter zuruecksetzen
+              Filter zurücksetzen
             </button>
           </div>
         </Card>
@@ -1015,7 +1007,7 @@ function ReferencesSection({ pushToast, reloadKey }) {
               {artFilter ? "Keine Referenz dieser Art." : "Noch keine Referenzen."}
             </p>
             <p className="mt-1 text-[12px] text-muted/50">
-              Oeffne einen Kontakt und waehle dort „Als Referenz markieren".
+              Öffne einen Kontakt und wähle dort „Als Referenz markieren".
             </p>
           </div>
         </Card>
@@ -1116,7 +1108,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
       if (selected.has(`mail-${i}`)) candidates.push(c);
     });
     if (candidates.length === 0) {
-      pushToast("Keine Kontakte ausgewaehlt.", "warning");
+      pushToast("Keine Kontakte ausgewählt.", "warning");
       return;
     }
     setImporting(true);
@@ -1152,11 +1144,11 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
             sind bereits als Kontakt angelegt.
           </p>
           <p className="text-[12px] text-muted/50">
-            Tipp: Bewerbungen mit gefuelltem Feld <em>Ansprechpartner</em> oder
+            Tipp: Bewerbungen mit gefülltem Feld <em>Ansprechpartner</em> oder
             <em> Kontakt-E-Mail</em> sind die beste Quelle.
           </p>
           <div className="flex justify-end pt-2">
-            <Button variant="secondary" size="sm" onClick={onClose}>Schliessen</Button>
+            <Button variant="secondary" size="sm" onClick={onClose}>Schließen</Button>
           </div>
         </div>
       </Modal>
@@ -1214,7 +1206,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
               <h3 className="text-sm font-medium text-ink">
                 Aus Mail-Dokumenten ({mails.length})
                 <span className="ml-2 text-[10px] uppercase tracking-wide text-amber/80">
-                  Heuristik — pruefe sorgfaeltig
+                  Heuristik — prüfe sorgfältig
                 </span>
               </h3>
               <button

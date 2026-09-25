@@ -77,7 +77,7 @@ EINTRAEGE: tuple[dict, ...] = (
     # ── Profil ──────────────────────────────────────────────────────
     {"id": "ersterfassung", "prompt": "ersterfassung",
      "kategorie": "Profil", "titel": "Kennenlernen",
-     "beschreibung": "Profil im Gespraech erstellen",
+     "beschreibung": "Profil im Gespräch erstellen",
      "icon": "play", "standard": True},
     {"id": "willkommen", "prompt": "willkommen",
      "kategorie": "Profil", "titel": "Wo stehe ich?",
@@ -85,15 +85,15 @@ EINTRAEGE: tuple[dict, ...] = (
      "icon": "book", "standard": True},
     {"id": "profil_erweiterung", "prompt": "profil_erweiterung",
      "kategorie": "Profil", "titel": "Dokumente analysieren",
-     "beschreibung": "Profil ergaenzen, Skills extrahieren, CV bewerten",
+     "beschreibung": "Profil ergänzen, Skills extrahieren, CV bewerten",
      "icon": "plus", "standard": True},
     {"id": "profil_sync", "prompt": "profil_sync",
      "kategorie": "Profil", "titel": "Profil-Sync",
      "beschreibung": "Profil mit hochgeladenen Dokumenten abgleichen",
      "icon": "refresh", "standard": False},
     {"id": "bewerbungs_uebersicht", "prompt": "bewerbungs_uebersicht",
-     "kategorie": "Profil", "titel": "Uebersicht",
-     "beschreibung": "Was laeuft gerade?",
+     "kategorie": "Profil", "titel": "Übersicht",
+     "beschreibung": "Was läuft gerade?",
      "icon": "list", "standard": False},
 
     # ── Jobsuche & Bewerbung ───────────────────────────────────────
@@ -102,7 +102,7 @@ EINTRAEGE: tuple[dict, ...] = (
      # der nur den INTERNEN Lauf startet. Zwei Elemente, ein Name,
      # verschiedene Wirkung: wer den Knopf drueckte, erwartete Claude.
      "kategorie": "Jobsuche & Bewerbung", "titel": "Jobsuche mit Claude",
-     "beschreibung": "Jobboersen durchsuchen lassen, auch die im Browser",
+     "beschreibung": "Jobbörsen durchsuchen lassen, auch die im Browser",
      "icon": "search", "standard": True},
     # v1.7.32 (#981 D): der Workflow erstellt Lebenslauf UND Anschreiben.
     # Das alte Etikett "Bewerbung schreiben / Anschreiben erstellen"
@@ -135,7 +135,7 @@ EINTRAEGE: tuple[dict, ...] = (
     # waehrend die anderen drei haben.
     {"id": "bewerbung_vorbereitung", "prompt": "bewerbung_vorbereitung",
      "kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
-     "beschreibung": "Schritt fuer Schritt zur fertigen Bewerbung",
+     "beschreibung": "Schritt für Schritt zur fertigen Bewerbung",
      "icon": "check", "standard": True},
     {"id": "dokumente_verarbeiten", "prompt": "dokumente_verarbeiten",
      "kategorie": "Jobsuche & Bewerbung", "titel": "Dokumente einsortieren",
@@ -145,10 +145,10 @@ EINTRAEGE: tuple[dict, ...] = (
     # ── Interview & Verhandlung ────────────────────────────────────
     {"id": "interview_vorbereitung", "prompt": "interview_vorbereitung",
      "kategorie": "Interview & Verhandlung", "titel": "Interview vorbereiten",
-     "beschreibung": "Typische Fragen ueben",
+     "beschreibung": "Typische Fragen üben",
      "icon": "briefcase", "standard": True},
     {"id": "interview_simulation", "prompt": "interview_simulation",
-     "kategorie": "Interview & Verhandlung", "titel": "Uebungsgespraech",
+     "kategorie": "Interview & Verhandlung", "titel": "Übungsgespräch",
      "beschreibung": "Probelauf mit Claude",
      "icon": "mic", "standard": True},
     {"id": "gehaltsverhandlung", "prompt": "gehaltsverhandlung",
@@ -158,7 +158,7 @@ EINTRAEGE: tuple[dict, ...] = (
 
     # ── Analyse & Strategie ────────────────────────────────────────
     {"id": "profil_analyse", "prompt": "profil_analyse",
-     "kategorie": "Analyse & Strategie", "titel": "Staerken erkennen",
+     "kategorie": "Analyse & Strategie", "titel": "Stärken erkennen",
      "beschreibung": "Was kann ich besonders gut?",
      "icon": "chart", "standard": True},
     {"id": "profil_ueberpruefen", "prompt": "profil_ueberpruefen",

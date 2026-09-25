@@ -131,7 +131,7 @@ export default function OnboardingHintBanner({ tab, limit = 2, onLeer }) {
             type="button"
             onClick={() => hideForSession(h.id)}
             className="text-muted/40 hover:text-ink shrink-0"
-            title="Fuer diese Sitzung ausblenden"
+            title="Für diese Sitzung ausblenden"
           >
             <X className="h-4 w-4" />
           </button>

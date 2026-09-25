@@ -498,7 +498,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                   onClick={clearHistory}
                   className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-muted hover:bg-white/5"
                 >
-                  <Trash2 size={11} /> Verlauf loeschen
+                  <Trash2 size={11} /> Verlauf löschen
                 </button>
               </div>
             )}

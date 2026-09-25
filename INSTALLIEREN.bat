@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableDelayedExpansion
-title PBP Bewerbungs-Assistent - Setup
+title PBP - Persoenliches Bewerbungs-Portal - Setup
 color 0F
 
 :: -------------------------------------------
@@ -342,7 +342,7 @@ echo.
 :: SCHRITT 2: Pakete installieren
 :: -------------------------------------------
 echo [DEBUG] Starte Paket-Installation >> "%LOGFILE%"
-echo  [2/4] Installiere Bewerbungs-Assistent...
+echo  [2/4] Installiere PBP...
 echo [2/4] Pakete installieren... >> "%LOGFILE%"
 echo.
 echo         Das dauert 1-3 Minuten ^(je nach Internet^).
@@ -605,7 +605,7 @@ if "!CLAUDE_FOUND!"=="1" goto :claude_found
 
 echo.
 echo  Claude Desktop wurde nicht gefunden.
-echo  Der Bewerbungs-Assistent braucht Claude Desktop.
+echo  PBP braucht Claude Desktop.
 echo.
 echo  Ich oeffne jetzt die Download-Seite.
 echo    1. Lade "Claude for Windows" herunter
@@ -922,7 +922,7 @@ exit /b 1
 echo [FEHLER] 32-Bit Windows >> "%LOGFILE%"
 echo.
 echo  FEHLER: 32-Bit Windows erkannt!
-echo  Der Bewerbungs-Assistent benoetigt 64-Bit Windows.
+echo  PBP benoetigt 64-Bit Windows.
 echo.
 call :show_support_info
 pause

@@ -145,7 +145,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
             )}
             <Button variant="secondary" size="sm" onClick={onClose}>
               <X size={14} />
-              Schliessen
+              Schließen
             </Button>
           </div>
         </div>

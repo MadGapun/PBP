@@ -1287,7 +1287,7 @@ export default function ProfilePage() {
           className="text-xs text-muted/40 hover:text-coral transition-colors"
           onClick={() => navigateTo("einstellungen", { tab: "gefahrenzone" })}
         >
-          Profil loeschen? → Gefahrenzone
+          Profil löschen? → Gefahrenzone
         </button>
       </div>
 
@@ -1359,8 +1359,8 @@ export default function ProfilePage() {
               </Field>
               <Field label="Informelle Notizen">
                 {/* H15 (#707): Fuehrung — erklaeren wozu die Notizen gut sind */}
-                <p className="text-[11px] text-muted/50 mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalitaet, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergaenzt sie im Gespraech automatisch.">
-                  Persoenliches, das Claude kennen soll: Praeferenzen, No-Gos, Lebensumstaende (z.B. „max. 2 Buerotage", „kein Reisejob"). Einfach im Chat erwaehnen — Claude traegt es hier ein.
+                <p className="text-[11px] text-muted/50 mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalität, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergänzt sie im Gespräch automatisch.">
+                  Persönliches, das Claude kennen soll: Präferenzen, No-Gos, Lebensumstände (z.B. „max. 2 Bürotage", „kein Reisejob"). Einfach im Chat erwähnen — Claude trägt es hier ein.
                 </p>
                 <TextArea rows={3} value={draft.informal_notes || ""} onChange={(event) => setDraft((current) => ({ ...current, informal_notes: event.target.value }))} />
               </Field>
@@ -1384,7 +1384,7 @@ export default function ProfilePage() {
               {keywordSuggestions.vorschlaege_plus?.length > 0 && (
                 <div className="mb-2">
                   <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
-                    Haeufig in deinen Bewerbungen, fehlen in deinen PLUS-Keywords
+                    Häufig in deinen Bewerbungen, fehlen in deinen PLUS-Keywords
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {keywordSuggestions.vorschlaege_plus.map((s) => (
@@ -1397,7 +1397,7 @@ export default function ProfilePage() {
                           return { ...current, keywords_plus: [...existing, s.keyword] };
                         })}
                         className="rounded-lg bg-teal/15 px-2.5 py-1 text-xs text-teal transition hover:bg-teal/25"
-                        title={`In ${s.in_guten_stellen} guten / ${s.in_schlechten_stellen} schlechten Stellen — klicken zum Hinzufuegen`}
+                        title={`In ${s.in_guten_stellen} guten / ${s.in_schlechten_stellen} schlechten Stellen — klicken zum Hinzufügen`}
                       >
                         + {s.keyword}
                       </button>
@@ -1408,7 +1408,7 @@ export default function ProfilePage() {
               {keywordSuggestions.vorschlaege_ausschluss?.length > 0 && (
                 <div>
                   <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
-                    Haeufig in von dir aussortierten Stellen — als Ausschluss empfohlen
+                    Häufig in von dir aussortierten Stellen — als Ausschluss empfohlen
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {keywordSuggestions.vorschlaege_ausschluss.map((s) => (
@@ -1831,7 +1831,7 @@ export default function ProfilePage() {
                     <Button
                       variant="ghost"
                       onClick={() => {
-                        if (!window.confirm(`Ausbildung "${item.institution}" wirklich loeschen?`)) return;
+                        if (!window.confirm(`Ausbildung "${item.institution}" wirklich löschen?`)) return;
                         quickAction(() => deleteRequest(`/api/education/${item.id}`), "Ausbildung gelöscht", {
                           onSuccess: () =>
                             startTransition(() => {
@@ -1875,7 +1875,7 @@ export default function ProfilePage() {
                     onClick={() => setSkillFilter("")}
                     className="text-[11px] text-muted/60 hover:text-ink underline"
                   >
-                    zuruecksetzen
+                    zurücksetzen
                   </button>
                 )}
               </div>
@@ -1892,7 +1892,7 @@ export default function ProfilePage() {
               if (filteredSkills.length === 0) {
                 return (
                   <p className="py-6 text-center text-sm text-muted/40">
-                    Kein Skill matcht „{skillFilter}". <button onClick={() => setSkillFilter("")} className="text-sky underline">Filter zuruecksetzen</button>
+                    Kein Skill matcht „{skillFilter}". <button onClick={() => setSkillFilter("")} className="text-sky underline">Filter zurücksetzen</button>
                   </p>
                 );
               }
@@ -2035,7 +2035,7 @@ export default function ProfilePage() {
                 </Button>
                 <Button type="button" onClick={() => navigateTo("dokumente")}>
                   <FolderOpen size={15} />
-                  Docs-Tab oeffnen
+                  Docs-Tab öffnen
                 </Button>
               </div>
             )}
@@ -2086,14 +2086,14 @@ export default function ProfilePage() {
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button type="button" variant="secondary" onClick={() => documentFileInputRef.current?.click()}>
                       <Upload size={15} />
-                      Dateien auswaehlen
+                      Dateien auswählen
                     </Button>
                     <Button
                       type="button"
                       variant="ghost"
                       onClick={() => documentFolderInputRef.current?.click()}
                     >
-                      Ordner auswaehlen
+                      Ordner auswählen
                     </Button>
                   </div>
                   <input
@@ -2140,7 +2140,7 @@ export default function ProfilePage() {
                   <p className="mt-1 text-lg font-semibold text-amber">{pendingDocumentCount}</p>
                 </div>
                 <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivitaet</p>
+                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivität</p>
                   <p className="mt-1 text-[12px] font-medium text-ink/90">{latestDocumentLabel}</p>
                 </div>
               </div>
@@ -2323,7 +2323,7 @@ export default function ProfilePage() {
         open={positionDialog.open}
         title={positionDialog.draft.id ? "Position bearbeiten" : "Neue Position"}
         onClose={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}
-        footer={<div className="flex items-center justify-between gap-3">{positionDialog.draft.id ? (<Button variant="danger" onClick={() => { if (!window.confirm("Position wirklich loeschen? Alle zugehoerigen Projekte werden ebenfalls geloescht.")) return; quickAction(() => deleteRequest(`/api/position/${positionDialog.draft.id}`), "Position geloescht", { onSuccess: () => { setPositionDialog({ open: false, draft: EMPTY_POSITION }); startTransition(() => { setProfile((c) => c ? { ...c, positions: (c.positions || []).filter((p) => p.id !== positionDialog.draft.id) } : c); }); } }); }}><Trash2 size={15} /> Loeschen</Button>) : <span />}<div className="flex gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div></div>}
+        footer={<div className="flex items-center justify-between gap-3">{positionDialog.draft.id ? (<Button variant="danger" onClick={() => { if (!window.confirm("Position wirklich löschen? Alle zugehörigen Projekte werden ebenfalls gelöscht.")) return; quickAction(() => deleteRequest(`/api/position/${positionDialog.draft.id}`), "Position gelöscht", { onSuccess: () => { setPositionDialog({ open: false, draft: EMPTY_POSITION }); startTransition(() => { setProfile((c) => c ? { ...c, positions: (c.positions || []).filter((p) => p.id !== positionDialog.draft.id) } : c); }); } }); }}><Trash2 size={15} /> Löschen</Button>) : <span />}<div className="flex gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div></div>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Firma">
@@ -2620,13 +2620,13 @@ export default function ProfilePage() {
                           className="text-[11px] text-muted/50 hover:text-muted underline"
                           onClick={() => setCurrent("")}
                         >
-                          zuruecksetzen
+                          zurücksetzen
                         </button>
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-muted/70">
                       Wenn der Skill ruht: das aktuell noch abrufbare Niveau (Prinzip-
-                      Verstaendnis bleibt, Tiefe verfaellt). Leer = identisch mit Spitzen-Niveau.
+                      Verständnis bleibt, Tiefe verfällt). Leer = identisch mit Spitzen-Niveau.
                     </p>
                   </>
                 );

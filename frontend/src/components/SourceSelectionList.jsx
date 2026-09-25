@@ -38,13 +38,13 @@ function healthBadge(health) {
       );
     case "deaktiviert":
       return (
-        <Badge tone="neutral" className="gap-1" title="Automatisch deaktiviert nach mehreren stillen Laeufen">
+        <Badge tone="neutral" className="gap-1" title="Automatisch deaktiviert nach mehreren stillen Läufen">
           Auto-Aus
         </Badge>
       );
     case "pausiert":
       return (
-        <Badge tone="amber" className="gap-1" title={`Temporaer pausiert (${health.error_class || "stumm"}) — Probe-Run geplant, kommt automatisch zurueck${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+        <Badge tone="amber" className="gap-1" title={`Temporär pausiert (${health.error_class || "stumm"}) — Probe-Run geplant, kommt automatisch zurück${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
           <Clock size={10} />
           Pausiert
         </Badge>
@@ -65,7 +65,7 @@ function healthBadge(health) {
       );
     case "kaputt":
       return (
-        <Badge tone="danger" className="gap-1" title={`Adapter/Parser defekt — Code-Fix noetig${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
+        <Badge tone="danger" className="gap-1" title={`Adapter/Parser defekt — Code-Fix nötig${health.last_status_detail ? ` — ${health.last_status_detail}` : ""}`}>
           <XCircle size={10} />
           Kaputt
         </Badge>
@@ -137,12 +137,12 @@ export default function SourceSelectionList({
           <p>
             <strong className="text-ink">2. Claude-Erweiterung im Browser</strong> — wenn der eingebaute
             Scraper streikt (Login, dynamische Seiten, Captcha), kann die Claude-Erweiterung die
-            Seite direkt im Browser durchgehen und Stellen ins PBP uebernehmen. Funktioniert
+            Seite direkt im Browser durchgehen und Stellen ins PBP übernehmen. Funktioniert
             besonders gut bei XING und LinkedIn.
           </p>
           <p>
-            <strong className="text-ink">3. URL kopieren und in den Claude-Chat einfuegen</strong> —
-            schnellster Weg fuer Einzel-Stellen. Anzeige im Browser oeffnen, URL kopieren,
+            <strong className="text-ink">3. URL kopieren und in den Claude-Chat einfügen</strong> —
+            schnellster Weg für Einzel-Stellen. Anzeige im Browser öffnen, URL kopieren,
             Claude im Chat schicken: <em>„Leg diese Stelle bitte an: &lt;url&gt;"</em>. Claude liest
             die Anzeige selbst aus und legt sie inklusive Beschreibung, Firma und
             Anforderungen an.
@@ -153,7 +153,7 @@ export default function SourceSelectionList({
             vorhanden). Claude bittest du dann, eine Stelle aus den Eckdaten anzulegen.
           </p>
           <p className="pt-2 text-muted/70 border-t border-sky/10">
-            Claude kann uebrigens auch dein Profil auf Jobportalen wie XING oder StepStone
+            Claude kann übrigens auch dein Profil auf Jobportalen wie XING oder StepStone
             aktualisieren — frag einfach danach!
           </p>
         </div>
@@ -237,7 +237,7 @@ export default function SourceSelectionList({
                     <div className="flex items-center gap-1.5">
                       <Ban size={13} className="shrink-0 text-coral" />
                       <span className="text-xs font-semibold text-coral">
-                        Automatische Suche aktuell nicht moeglich
+                        Automatische Suche aktuell nicht möglich
                       </span>
                     </div>
                     {source.defekt_grund ? (
@@ -245,7 +245,7 @@ export default function SourceSelectionList({
                     ) : null}
                     {source.manueller_fallback ? (
                       <p className="text-xs text-muted">
-                        <strong className="text-ink">Workaround:</strong> Ueber die Claude-Erweiterung im Browser
+                        <strong className="text-ink">Workaround:</strong> Über die Claude-Erweiterung im Browser
                         <a
                           href={String(source.manueller_fallback).split(" ")[0]}
                           target="_blank"
@@ -262,7 +262,7 @@ export default function SourceSelectionList({
                 ) : null}
                 {!isDefekt && source.login_erforderlich && !source.beta ? (
                   <p className="text-xs text-amber">
-                    Beim ersten Start oeffnet sich ein Browser-Fenster zur Anmeldung. Danach laeuft
+                    Beim ersten Start öffnet sich ein Browser-Fenster zur Anmeldung. Danach läuft
                     die Suche mit gespeicherter Session weiter.
                   </p>
                 ) : null}
@@ -298,14 +298,14 @@ export default function SourceSelectionList({
                     onClick={() => onStartLogin?.(source)}
                   >
                     {loginRunning ? <LoaderCircle className="animate-spin" size={14} /> : null}
-                  {loginRunning ? "Login laeuft" : "Login starten"}
+                  {loginRunning ? "Login läuft" : "Login starten"}
                   </Button>
                 ) : null}
                 <CheckboxInput
                   className="shrink-0 flex-none self-center"
                   checked={Boolean(source.active) && !isDefekt}
                   disabled={isDefekt}
-                  title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur ueber die Claude-Erweiterung im Browser nutzbar." : undefined}
+                  title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur über die Claude-Erweiterung im Browser nutzbar." : undefined}
                   onChange={(event) => {
                     if (isDefekt) return;
                     const checked = event.target.checked;
@@ -315,11 +315,11 @@ export default function SourceSelectionList({
                     // Konto brauchen, von dem niemand weiss.
                     if (checked && source.zugriffsart === "browser_login") {
                       const zeilen = [
-                        `${source.name} laeuft nicht automatisch, sondern ueber die Claude-Erweiterung in deinem eigenen Browser.`,
+                        `${source.name} läuft nicht automatisch, sondern über die Claude-Erweiterung in deinem eigenen Browser.`,
                       ];
                       if (source.login_hinweis) zeilen.push(source.login_hinweis);
                       if (source.konto_url) zeilen.push(`Konto anlegen: ${source.konto_url}`);
-                      zeilen.push("Treffer uebernimmt Claude mit stelle_manuell_anlegen().");
+                      zeilen.push("Treffer übernimmt Claude mit stelle_manuell_anlegen().");
                       if (!window.confirm(`${zeilen.join("\n\n")}\n\nVerstanden — Quelle aktivieren?`)) {
                         event.target.checked = false;
                         return;
