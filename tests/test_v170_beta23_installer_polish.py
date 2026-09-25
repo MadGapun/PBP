@@ -45,8 +45,10 @@ def test_installer_success_box_after_autostart():
 def test_installer_shows_dashboard_status_in_success():
     """Erfolgs-Box zeigt klar ob Dashboard laeuft oder geprueft werden muss."""
     bat = (PROJECT_ROOT / "INSTALLIEREN.bat").read_text(encoding="cp1252", errors="replace")
-    assert "[LAEUFT]" in bat
-    assert "[PRUEFEN" in bat or "[!!]" in bat
+    # I15 (#1087 A3): der Abschluss ist eine Ampel; das Dashboard geht
+    # ueber DASH_OK in sie ein, und der gelbe Zweig sagt, was zu tun ist.
+    assert 'if not "!DASH_OK!"=="1" set "AMPEL=GELB"' in bat
+    assert "Das Dashboard hat nach 30 Sekunden nicht geantwortet." in bat
 
 
 def test_dashboard_starten_bat_keeps_window_open_on_error():

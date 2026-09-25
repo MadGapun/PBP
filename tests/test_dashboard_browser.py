@@ -423,7 +423,7 @@ def test_onboarding_detects_completed_kennlerngespraech_and_unlocks_sources(live
 
         # Klick auf Kennlerngespraech-Tab
         page.locator("#profile-onboarding-overlay button", has_text="Kenn").first.click()
-        page.locator("#profile-onboarding-overlay").locator("text=/ersterfassung kopieren").wait_for(
+        page.locator("#profile-onboarding-overlay").locator("text=Gespräch mit Claude starten").wait_for(
             state="visible", timeout=5000
         )
 

@@ -124,9 +124,9 @@ def test_1069_dashboard_sagt_wenn_der_stand_unbekannt_ist(
     """AK 4 woertlich: kein stilles "alles aktuell"."""
     url = server_mit_antwort("kein_netz")
     text = _text(browser, url)
-    assert "Stand unbekannt" in text
-    assert "keine Update-Quelle" in text.lower() or \
-           "Update-Quelle" in text
+    # G60 (#1087 A5): die Auskunft steht leise in der Seitenleiste statt
+    # als Banner ueber jedem Tab; die Erklaerung steht im Titel.
+    assert "Update-Stand unbekannt" in text
 
 
 def test_1069_bei_erreichbarer_quelle_kein_hinweis(
