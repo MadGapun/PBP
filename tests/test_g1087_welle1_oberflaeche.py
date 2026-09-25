@@ -175,7 +175,9 @@ def test_g57_zusage_dialog_hat_umlaute(browser, server):
         # Auf den ZUSTAND warten (den Knopf im Dialogfuss), nicht auf den
         # Titel: auf dem Linux-Runner stand der Titel schon da, der Rest
         # des Dialogs noch nicht (v1.7.93 MERKE 9).
-        page.get_by_role("button", name="Später").first.wait_for(state="visible", timeout=15000)
+        # exact=True: "Später (7 Tage)" steht an anderer Stelle der Seite
+        # und liess die erste Fassung gar nicht warten.
+        page.get_by_role("button", name="Später", exact=True).first.wait_for(state="visible", timeout=15000)
         text = page.inner_text("body")
         assert "Später" in text
         assert "Übernehmen und speichern" in text
