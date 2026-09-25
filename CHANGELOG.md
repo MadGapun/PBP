@@ -33,6 +33,105 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.136] - 2026-09-25 — Wo was steht
+
+Sechste Welle aus dem UX-Review #1087: Einstellungen, Profil, Hilfe,
+Kennzahlen und der Weg zurück nach einem Fehlgriff. Kein
+Schema-Eingriff; gespeicherte Einstellungen bleiben, wie sie sind.
+
+### Changed
+
+- **Einstellungen in Grundlagen und Erweitert** (#1087 G70). Vorne
+  stehen Quellen, Erscheinungsbild, Datenschutz, Ordner und Claude
+  (Cloud). Alles Weitere — Quellen im Detail, Lokale KI, Automatik,
+  Ablehnungsgründe, Bewerbungsbericht, Erweiterungen, System, Logs,
+  Gefahrenzone — steht eingeklappt unter „Erweitert“. Die
+  Quellen-Empfehlung hat einen Haken je Quelle und einen Satz, was man
+  dort findet; die vollständige Liste mit Zustand und
+  Zugangsschlüsseln steht unter „Quellen im Detail“. Die Nachfass-Frist
+  steht nur noch einmal (unter Automatik), der Bewerbungsbericht hat
+  einen eigenen Reiter, die Automatik ist in Klartext beschrieben.
+- **Suche & Bewertung als eigener Bereich** (#1087 G69). Suchbegriffe,
+  Gehalt, Schwellen und Blacklist lagen mitten im Profil; jetzt stehen
+  sie unter „Suche & Bewertung“. Die Regler für die Gewichte sind als
+  Feinabstimmung eingeklappt. Der Einstellungs-Reiter „Bewertung“
+  heißt „Ablehnungsgründe“, weil er die enthält.
+- **Hilfe für jeden Bereich** (#1087 G68). Der Hilfe-Dialog hat für
+  jede Seite Text, auch für Kontakte, Dokumente, Aufgaben und Kalender,
+  und nennt die passenden Prompts aus dem Katalog. Der Reiter „Melden“
+  bietet beide Wege: ein GitHub-Issue oder eine Mail ohne Konto. Drei
+  falsche Aussagen sind weg (Zahlen aktualisieren sich nicht von
+  selbst, die Punkte gehen nicht bis 100, der Startsatz ist derselbe
+  wie überall).
+- **Kennzahlen mit fester Bedeutung** (#1087 G61). „Bewerbungen pro
+  Woche“ zeigt den Durchschnitt seit der ersten Bewerbung, mit einem
+  beschrifteten Umschalter auf die letzten 30 Tage. Die Top-Stellen
+  folgen den Regeln des Stellen-Tabs und zeigen nur Stellen mit
+  Punkten. Ein fehlendes Gehalt steht als „—“ mit Grund statt als 0
+  EUR. Die Zahl an „Bewerbungen“ in der Seitenleiste zählt nur, was
+  fällig ist, und sagt beim Zeigen, was sie meint.
+- **Ein Weg zurück** (#1087 G67). Ein Statuswechsel lässt sich im
+  Hinweis unten sofort zurücknehmen; wandert die Bewerbung dabei ins
+  Archiv, steht das dabei. Notizen, Aufgaben und Referenzen verschwinden
+  sofort und kommen mit „Rückgängig“ unverändert wieder. Folgenreiches
+  Löschen fragt in einem eigenen Dialog statt im Browserfenster. Jeder
+  Dialog hat ein Schließen-Kreuz und fragt, bevor ungespeicherte
+  Eingaben verloren gehen.
+
+### Gemessen
+
+Gegenprobe: 25 Mechanismen, jeder einzeln ausgebaut, jeder macht einen
+Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.136.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.136.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+---
+
 ## [1.7.135] - 2026-09-25 — Was Claude sieht
 
 Fünfte Welle aus dem UX-Review #1087: die Seite, die Claude von PBP zu
