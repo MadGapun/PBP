@@ -3458,7 +3458,7 @@ export default function SettingsPage() {
           <Card className="rounded-2xl">
             <SectionHeading
               title="Ablehnungsgründe"
-              description="Eigene Gründe für 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder löschen. Aktive Gründe stehen Claude bei stelle_bewerten zur Verfügung."
+              description="Eigene Gründe für 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder löschen. Aktive Gründe stehen Claude bei stelle_einordnen zur Verfügung."
             />
             <div className="mt-4 grid gap-2">
               {dismissReasons.length === 0 && (

@@ -2715,7 +2715,7 @@ def register(mcp, db, logger):
                     "jobsuche_starten — Hintergrund-Suche auf konfigurierten Quellen",
                     "jobsuche_status — Fortschritt einer laufenden Suche",
                     "stellen_anzeigen — Liste mit Filter (Score, Quelle, Alter)",
-                    "stelle_bewerten — EINZELNE Stelle aussortieren oder als-passend",
+                    "stelle_einordnen — EINZELNE Stelle aussortieren oder als-passend",
                     "stellen_bulk_bewerten — VIELE Stellen mit Filter aussortieren (#514). IMMER bevorzugen wenn mehr als ~10 Stellen betroffen. dry_run=True Default.",
                     "stelle_bearbeiten / stelle_manuell_anlegen / stelle_mergen",
                     "stelle_reaktivieren — aussortierte Stelle wieder aktivieren",
@@ -2813,7 +2813,7 @@ def register(mcp, db, logger):
                 "hauptwerkzeuge": [
                     "scoring_konfigurieren / scoring_vorschau",
                     "blacklist_verwalten",
-                    "jobtitel_vorschlagen / jobtitel_verwalten",
+                    "jobtitel_speichern / jobtitel_verwalten",
                     "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgruende verwalten",
                     "ollama_autostart — lokale KI (Ollama) mit PBP starten",
                     "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknuepfung anlegen",
@@ -2853,7 +2853,7 @@ def register(mcp, db, logger):
                 "beschreibung": "Reine DB-/Scraper-Operationen, KEINE LLM-Tokens.",
                 "beispiele": [
                     "jobsuche_starten", "stellen_anzeigen", "bewerbung_*",
-                    "stelle_bewerten", "stellen_bulk_bewerten (filtert nur in der Datenbank)",
+                    "stelle_einordnen", "stellen_bulk_bewerten (filtert nur in der Datenbank)",
                     "meeting_*", "kosten_*", "profil_bearbeiten",
                     "suchkriterien_*", "blacklist_verwalten", "statistiken_abrufen",
                 ],

@@ -1394,6 +1394,7 @@ def register(mcp, db, logger):
         final_salary: str = "",
         applied_at: str = "",
         stellenbeschreibung_original: str = "",
+        notizen_ersetzen: bool = False,
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -1415,7 +1416,9 @@ def register(mcp, db, logger):
             title: Neuer Stellentitel
             company: Neuer Firmenname
             url: Neuer Link zur Stellenanzeige
-            notes: Neue Notizen (überschreibt bisherige)
+            notes: Notiz, die an die bisherigen angehaengt wird
+            notizen_ersetzen: True ersetzt die bisherigen Notizen durch
+                `notes` — nur, wenn der Mensch das ausdruecklich will
             ansprechpartner: Neuer Ansprechpartner
             kontakt_email: Neue Kontakt-E-Mail
             portal_name: Neues Portal
@@ -1446,6 +1449,22 @@ def register(mcp, db, logger):
             if not applied_at_norm:
                 return {"fehler": f"applied_at '{applied_at}' nicht erkannt. Erwartet YYYY-MM-DD oder DD.MM.YYYY."}
 
+        # H29 (#1087 G11): `notes` ueberschrieb bis v1.7.134 die bisherigen
+        # Notizen — ein "bearbeiten" mit einer neuen Zeile loeschte alles,
+        # was vorher dort stand. Jetzt haengt es an; ersetzen nur auf
+        # ausdrueckliche Anweisung.
+        notiz_modus = ""
+        if notes:
+            bisher = (app.get("notes") or "").strip()
+            if notizen_ersetzen or not bisher:
+                notiz_modus = "ersetzt" if bisher else "gesetzt"
+            elif notes.strip() in bisher:
+                notes = ""
+                notiz_modus = "schon_vorhanden"
+            else:
+                notes = f"{bisher}\n\n{notes.strip()}"
+                notiz_modus = "angehaengt"
+
         updates = {}
         for key, val in [("title", title), ("company", company), ("url", url),
                          ("notes", notes), ("ansprechpartner", ansprechpartner),
@@ -1468,11 +1487,14 @@ def register(mcp, db, logger):
             return {"fehler": "Keine Änderungen angegeben."}
 
         db.update_application(bewerbung_id, updates)
-        return {
+        antwort = {
             "status": "aktualisiert",
             "geänderte_felder": list(updates.keys()),
             "nachricht": f"Bewerbung bei {app.get('company', '')} aktualisiert."
         }
+        if notiz_modus:
+            antwort["notizen"] = notiz_modus
+        return antwort
 
     @mcp.tool()
     def recherche_notizen_zusammenfuehren(dry_run: bool = True,

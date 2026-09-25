@@ -103,14 +103,14 @@ KURZ = {
         "und fehlenden Suchbegriffe, Rahmen (Entfernung, Gehalt, Remote) und "
         "eine Einordnung. Nutzen, bevor du ueber eine einzelne Stelle "
         "urteilst. Liest nur. Hast du Anzeige und Profil gelesen, speichere "
-        "dein Urteil mit stelle_analyse_speichern — sonst bleibt die Stelle "
+        "dein Urteil mit stelle_urteil_speichern — sonst bleibt die Stelle "
         "'nicht beurteilt'."),
-    "stelle_bewerten": (
+    "stelle_einordnen": (
         "Ordnet eine Stelle ein: behalten ('passt') oder aussortieren "
         "('passt_nicht' mit Grund aus der Liste). Nutzen fuer einzelne "
         "Stellen nach einer Entscheidung des Menschen. Fuer viele Stellen "
         "stellen_bulk_bewerten, fuer ein gelesenes Urteil "
-        "stelle_analyse_speichern. Nur Gruende aus 'verfuegbare_gruende' "
+        "stelle_urteil_speichern. Nur Gruende aus 'verfuegbare_gruende' "
         "verwenden, nie eigene erfinden."),
     "stellen_bulk_bewerten": (
         "Sortiert viele Stellen auf einmal nach Filtern aus (Punkte, "
@@ -118,7 +118,7 @@ KURZ = {
         "der Datenbank, ohne KI, und kostet deshalb nichts. Erst mit "
         "dry_run=True die Vorschau zeigen und bestaetigen lassen, dann mit "
         "dry_run=False anwenden. Nicht fuer einzelne Stellen — dafuer "
-        "stelle_bewerten. Aussortieren ist umkehrbar (stelle_reaktivieren)."),
+        "stelle_einordnen. Aussortieren ist umkehrbar (stelle_reaktivieren)."),
     "jobsuche_starten": (
         "Startet eine Suche ueber die gewaehlten Jobboersen im Hintergrund "
         "und gibt eine job_id zurueck. Nutzen, wenn Suchbegriffe gesetzt "
@@ -185,7 +185,7 @@ KURZ = {
         "erklaerst oder eine Suche startest. Liest nur; aendern mit "
         "suchkriterien_setzen (alles) oder suchkriterien_bearbeiten "
         "(einzelne Begriffe)."),
-    "stelle_analyse_speichern": (
+    "stelle_urteil_speichern": (
         "Speichert dein Urteil ueber eine Stelle, nachdem du Anzeige und "
         "Profil gelesen hast (empfohlen, bedingt, nicht_empfohlen), mit "
         "Begruendung. Nur nach echtem Lesen, etwa nach fit_analyse — ein "
@@ -312,7 +312,17 @@ def parameter_texte(doc: str) -> dict[str, str]:
     return ergebnis
 
 
+# H29 (#1087 G11): alte Namen, die einen Release lang weiter erreichbar
+# sind. Ein Alias traegt den Tag seines neuen Namens.
+ALIASE = {
+    "stelle_bewerten": "stelle_einordnen",
+    "stelle_analyse_speichern": "stelle_urteil_speichern",
+    "jobtitel_vorschlagen": "jobtitel_speichern",
+}
+
+
 def tag(name: str) -> str:
+    name = ALIASE.get(name, name)
     if name in WARTUNG:
         return "wartung"
     if name in ENTWICKLER:

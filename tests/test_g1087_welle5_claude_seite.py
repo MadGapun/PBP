@@ -497,3 +497,80 @@ def test_h32_keine_eigene_kein_profil_meldung_in_den_werkzeugen():
                     and EIGENE_KEIN_PROFIL.search(n.value):
                 funde.append(f"{p.name}:{n.lineno}")
     assert not funde, funde
+
+
+# ══ H29 — Werkzeugnamen nach Wirkung ════════════════════════════════════
+
+ALT_NEU = {"stelle_bewerten": "stelle_einordnen",
+           "stelle_analyse_speichern": "stelle_urteil_speichern",
+           "jobtitel_vorschlagen": "jobtitel_speichern"}
+
+
+def test_h29_neue_namen_und_alte_als_weiterleitung(umgebung):
+    _db, mcp = umgebung
+    werkzeuge = {w.name: w for w in _werkzeuge(mcp)}
+    for alt, neu in ALT_NEU.items():
+        assert neu in werkzeuge and alt in werkzeuge
+        assert f"heisst jetzt {neu}" in werkzeuge[alt].description
+        assert (set(werkzeuge[alt].parameters["properties"])
+                == set(werkzeuge[neu].parameters["properties"])), alt
+
+
+def test_h29_alter_name_wirkt_wie_der_neue(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    db.save_jobs([{"hash": "h29stelle1", "title": "Konstrukteur", "company": "Musterbetrieb GmbH",
+                   "url": "https://example.com/h29", "source": "manuell",
+                   "description": "Konstruktion " * 20, "score": 3}])
+    erg = _call(mcp, "stelle_bewerten", {"job_hash": "h29stelle1", "bewertung": "passt_nicht",
+                                         "grund": "zu_weit_entfernt"})
+    assert "fehler" not in erg, erg
+    zeile = db.connect().execute("SELECT is_active FROM jobs WHERE hash LIKE '%h29stelle1'").fetchone()
+    assert zeile["is_active"] == 0
+
+
+def test_h29_texte_nennen_nur_die_neuen_namen():
+    """Anleitungen und Antworten fuehren zum neuen Namen; der alte steht
+    nur noch in Kommentaren und in der Weiterleitung."""
+    funde = []
+    for p in sorted(PAKET.rglob("*.py")):
+        if p.name == "werkzeug_katalog.py":
+            continue
+        baum = ast.parse(p.read_text(encoding="utf-8-sig"))
+        for n in ast.walk(baum):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str):
+                for alt in ALT_NEU:
+                    if re.search(r"(?<![A-Za-z0-9_])" + alt + r"(?![A-Za-z0-9_])", n.value) \
+                            and "Veraltet" not in n.value and n.value != alt:
+                        funde.append(f"{p.name}:{n.lineno}: {alt}")
+    assert not funde, funde
+
+
+def test_h29_notizen_werden_angehaengt(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    aid = db.add_application({"title": "A", "company": "Musterbetrieb GmbH", "status": "beworben",
+                              "notes": "Erste Notiz"})
+    erg = _call(mcp, "bewerbung_bearbeiten", {"bewerbung_id": aid, "notes": "Zweite Notiz"})
+    assert erg["notizen"] == "angehaengt"
+    notes = db.get_application(aid)["notes"]
+    assert "Erste Notiz" in notes and "Zweite Notiz" in notes
+    _call(mcp, "bewerbung_bearbeiten", {"bewerbung_id": aid, "notes": "Zweite Notiz"})
+    assert db.get_application(aid)["notes"].count("Zweite Notiz") == 1
+    erg = _call(mcp, "bewerbung_bearbeiten", {"bewerbung_id": aid, "notes": "Neu",
+                                              "notizen_ersetzen": True})
+    assert erg["notizen"] == "ersetzt"
+    assert db.get_application(aid)["notes"] == "Neu"
+
+
+def test_h29_zweites_profil_nur_nach_rueckfrage(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    vorher = len(db.get_profiles())
+    erg = _call(mcp, "neues_profil_erstellen", {"name": "Zweite Person"})
+    assert erg["status"] == "rueckfrage"
+    assert len(db.get_profiles()) == vorher
+    assert db.get_profile()["name"] == "Test Person"
+    erg = _call(mcp, "neues_profil_erstellen", {"name": "Zweite Person", "bestaetigung": True})
+    assert erg["status"] == "erstellt"
+    assert len(db.get_profiles()) == vorher + 1

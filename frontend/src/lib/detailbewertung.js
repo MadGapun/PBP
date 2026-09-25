@@ -28,7 +28,7 @@ export function detailbewertungPrompt(job) {
     "Rufe die Stellenbeschreibung ab (fit_analyse), lies sie vollständig und "
       + "vergleiche sie mit meinem Profil: Stärken, Lücken, Risiken, und ob sich "
       + "eine Bewerbung lohnt.",
-    `Speichere das Ergebnis danach mit stelle_analyse_speichern(job_hash="${hash}", `
+    `Speichere das Ergebnis danach mit stelle_urteil_speichern(job_hash="${hash}", `
       + `urteil=..., begruendung=...) — urteil ist eines von ${URTEILE.join(", ")}. `
       + "Antworte nicht nur im Chat: ohne diesen Aufruf bleibt die Stelle als "
       + "nicht beurteilt stehen.",

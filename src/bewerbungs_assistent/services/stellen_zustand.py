@@ -104,4 +104,4 @@ def nachricht(block: dict) -> str:
             f"stelle_reaktivieren('{kennung}').")
     return (
         "Diese Stelle liegt bereits aktiv in der Trefferliste und wartet auf "
-        f"eine Entscheidung: stelle_bewerten('{kennung}', ...).")
+        f"eine Entscheidung: stelle_einordnen('{kennung}', ...).")

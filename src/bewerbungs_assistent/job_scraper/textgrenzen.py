@@ -113,7 +113,7 @@ def ausgabe(text, ab: int = 0,
                 f"geliefert sind die Zeichen {ab} bis {weiter}. Der "
                 "Anforderungsteil steht meist am Ende. Hole den Rest mit "
                 f"fit_analyse(hash, beschreibung_ab={weiter}), BEVOR du "
-                "ein Urteil mit stelle_analyse_speichern() festhaeltst."
+                "ein Urteil mit stelle_urteil_speichern() festhaeltst."
             )
         else:
             befund["hinweis"] = (

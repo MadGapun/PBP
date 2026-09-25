@@ -1947,15 +1947,34 @@ def register(mcp, db, logger):
         return {"fehler": f"Profil mit ID '{profil_id}' nicht gefunden."}
 
     @mcp.tool()
-    def neues_profil_erstellen(name: str, email: str = "") -> dict:
-        """Erstellt ein komplett neues, leeres Profil und aktiviert es.
+    def neues_profil_erstellen(name: str, email: str = "",
+                               bestaetigung: bool = False) -> dict:
+        """Legt ein ZWEITES Profil an und aktiviert es — fuer eine andere Person oder eine ganz andere Suche.
 
-        Das vorherige Profil bleibt gespeichert und kann später wieder aktiviert werden.
+        Nicht fuer die Ersterfassung und nicht zum Ergaenzen des eigenen
+        Profils (dafuer profil_erstellen). Ohne bestaetigung=True kommt nur
+        eine Rueckfrage: danach arbeitet PBP mit dem neuen, leeren Profil,
+        bis profil_wechseln zurueckschaltet.
 
         Args:
             name: Name der Person für das neue Profil
             email: Optional: E-Mail-Adresse
+            bestaetigung: True legt das Profil an, nachdem der Mensch zugestimmt hat.
         """
+        # H29 (#1087 G11): stand neben profil_erstellen und legte ohne
+        # Rueckfrage ein zweites Profil an und AKTIVIERTE es — danach sah
+        # jede Liste leer aus.
+        if not bestaetigung:
+            aktiv = db.get_profile() or {}
+            return {
+                "status": "rueckfrage",
+                "nachricht": (
+                    f"Das legt ein zweites Profil '{name}' an und schaltet darauf um"
+                    + (f"; '{aktiv.get('name')}' bleibt gespeichert" if aktiv.get("name") else "")
+                    + ". Alle Listen zeigen danach das neue, leere Profil. Soll das so "
+                    "sein? Dann erneut mit bestaetigung=True. Zum Ergaenzen des "
+                    "eigenen Profils ist profil_erstellen der richtige Weg."),
+            }
         pid = db.create_profile(name, email)
         return {
             "status": "erstellt",
@@ -2135,7 +2154,7 @@ def register(mcp, db, logger):
     # --- Jobtitel-Vorschläge (2 Tools) ---
 
     @mcp.tool()
-    def jobtitel_vorschlagen(titel: list[str] = [], quelle: str = "auto") -> dict:
+    def jobtitel_speichern(titel: list[str] = [], quelle: str = "auto") -> dict:
         """Speichert vorgeschlagene Jobtitel für das aktive Profil.
 
         Rufe dieses Tool auf nachdem du das Profil analysiert hast, um passende
@@ -2189,7 +2208,7 @@ def register(mcp, db, logger):
                         "Keine Titel uebergeben und lokale KI nicht "
                         "verfuegbar/aktiv. Analysiere das Profil "
                         "(profil_zusammenfassung + projekte_anzeigen) und rufe "
-                        "jobtitel_vorschlagen(titel=[...]) mit deinen "
+                        "jobtitel_speichern(titel=[...]) mit deinen "
                         "Vorschlaegen auf."
                     ),
                 }
@@ -2220,6 +2239,10 @@ def register(mcp, db, logger):
         if generiert_von:
             result["generiert_von"] = generiert_von
         return result
+
+    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
+    from . import veralteter_name as _veraltet
+    _veraltet(mcp, "jobtitel_vorschlagen", jobtitel_speichern, "jobtitel_speichern")
 
     @mcp.tool()
     def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:

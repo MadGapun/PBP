@@ -161,6 +161,27 @@ def ki_gate(db, feature: str) -> dict | None:
     }
 
 
+def veralteter_name(mcp, alt: str, neu_fn, neu: str) -> None:
+    """Registriert `alt` als Weiterleitung auf `neu` (H29, #1087 G11).
+
+    Ein umbenanntes Werkzeug bleibt einen Release lang unter dem alten
+    Namen erreichbar — Anleitungen, Notizen und fremde Prompts, die ihn
+    nennen, laufen nicht ins Leere. Die Beschreibung sagt, wie es heisst.
+    """
+    import functools
+
+    @functools.wraps(neu_fn)
+    def weiterleitung(*args, **kwargs):
+        return neu_fn(*args, **kwargs)
+
+    weiterleitung.__name__ = alt
+    weiterleitung.__qualname__ = alt
+    weiterleitung.__doc__ = (
+        f"Veraltet: heisst jetzt {neu}. Gleiche Parameter, gleiche Wirkung; "
+        f"der alte Name bleibt einen Release lang erreichbar. Nutze {neu}.")
+    mcp.tool(name=alt)(weiterleitung)
+
+
 def _parameter_beschreiben(fn, texte: dict) -> None:
     """Setzt je Parameter `Annotated[typ, Field(description=...)]`.
 

@@ -124,7 +124,7 @@ def test_1007_der_filter_sagt_was_er_ausblendet(db):
     assert antwort["anzahl"] == 0
     assert antwort["ohne_urteil_verborgen"] == 4
     assert "Filter" in antwort["nachricht"]
-    assert "stelle_analyse_speichern" in antwort["naechster_schritt"]
+    assert "stelle_urteil_speichern" in antwort["naechster_schritt"]
 
 
 def test_1007_der_hinweis_nennt_den_weg_zurueck(db):

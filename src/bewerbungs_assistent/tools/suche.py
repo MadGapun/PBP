@@ -936,7 +936,7 @@ def register(mcp, db, logger):
         - 'keyword': Begriffe die IMMER ignoriert werden (z.B. Werkstudent, Praktikum)
 
         Individuelle Ablehnungsgründe (zu_weit, zu_junior, etc.) gehoeren NICHT hierher!
-        Diese werden automatisch bei stelle_bewerten() als dismiss_reason gespeichert.
+        Diese werden automatisch bei stelle_einordnen() als dismiss_reason gespeichert.
 
         Args:
             aktion: 'hinzufuegen', 'anzeigen', 'aendern', 'deaktivieren',
@@ -973,7 +973,7 @@ def register(mcp, db, logger):
             if typ not in ("firma", "keyword"):
                 return {
                     "fehler": f"Ungültiger Typ '{typ}'. Nur 'firma' oder 'keyword' erlaubt. "
-                              "Ablehnungsgründe werden automatisch bei stelle_bewerten() gespeichert."
+                              "Ablehnungsgründe werden automatisch bei stelle_einordnen() gespeichert."
                 }
             if not wert or not wert.strip():
                 return {"fehler": "Kein Wert angegeben."}
@@ -1546,7 +1546,7 @@ def register(mcp, db, logger):
             "is_custom": True,
             "is_active": True,
             "hinweis": (
-                "Custom-Grund ab sofort in stelle_bewerten/stellen_bulk_bewerten "
+                "Custom-Grund ab sofort in stelle_einordnen/stellen_bulk_bewerten "
                 "akzeptiert. Mit ablehnungsgrund_aktivieren_setzen(id, False) "
                 "deaktivierbar."
             ),
@@ -1664,7 +1664,7 @@ def register(mcp, db, logger):
     def ablehnungsgrund_aktivieren_setzen(grund_id: int, aktiv: bool) -> dict:
         """Aktiviert/Deaktiviert einen Ablehnungsgrund (#663 C20).
 
-        Deaktivierte Gruende werden nicht mehr in stelle_bewerten akzeptiert
+        Deaktivierte Gruende werden nicht mehr in stelle_einordnen akzeptiert
         (Treffer fallen auf 'sonstiges' zurueck), bleiben aber in
         ablehnungsgruende_anzeigen() sichtbar mit `is_active=False` und in
         den Statistiken erhalten.

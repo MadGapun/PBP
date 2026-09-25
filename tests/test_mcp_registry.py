@@ -186,6 +186,9 @@ EXPECTED_TOOL_NAMES = {
     "jobsuche_workflow_starten",
     "ersterfassung_starten",
     "expertenmodus_setzen",  # #1087 H21
+    "stelle_einordnen",  # #1087 H29 (alter Name stelle_bewerten bleibt)
+    "stelle_urteil_speichern",  # #1087 H29
+    "jobtitel_speichern",  # #1087 H29
     "analyse_plan_erstellen",
     "dokumente_batch_analysieren",
     "dokumente_bulk_markieren",
@@ -394,7 +397,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 249  # #1087 H21: +expertenmodus_setzen
+        assert len(tools) == 252  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

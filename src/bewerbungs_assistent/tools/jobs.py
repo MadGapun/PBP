@@ -915,7 +915,7 @@ def register(mcp, db, logger):
         """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
 
         Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
-        dismiss_reasons-Statistik. Wird von stelle_bewerten UND von
+        dismiss_reasons-Statistik. Wird von stelle_einordnen UND von
         stellen_bulk_bewerten aufgerufen, damit Audit/Lerneffekt/Statistik in
         beiden Wegen identisch durchlaufen (#514: Anti-DB-Bypass-Pattern).
 
@@ -1050,8 +1050,8 @@ def register(mcp, db, logger):
         ))
 
     @mcp.tool()
-    @time_tool(logger, "stelle_bewerten")
-    def stelle_bewerten(job_hash: str, bewertung: str, grund: str = "",
+    @time_tool(logger, "stelle_einordnen")
+    def stelle_einordnen(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
 
@@ -1154,8 +1154,12 @@ def register(mcp, db, logger):
             return {"status": "als_passend_markiert"}
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
+    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
+    from . import veralteter_name as _veraltet
+    _veraltet(mcp, "stelle_bewerten", stelle_einordnen, "stelle_einordnen")
+
     @mcp.tool()
-    def stelle_analyse_speichern(job_hash: str, urteil: str,
+    def stelle_urteil_speichern(job_hash: str, urteil: str,
                                  begruendung: str = "",
                                  grundlage: str = "detailanalyse") -> dict:
         """Legt das Ergebnis einer Detailanalyse AN DER STELLE ab (#1007).
@@ -1225,6 +1229,10 @@ def register(mcp, db, logger):
             logger.debug("Laengenhinweis (#1064) fehlgeschlagen: %s", exc)
         return antwort
 
+    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
+    from . import veralteter_name as _veraltet
+    _veraltet(mcp, "stelle_analyse_speichern", stelle_urteil_speichern, "stelle_urteil_speichern")
+
     @mcp.tool()
     def stelle_analyse_loeschen(job_hash: str) -> dict:
         """Entfernt den gespeicherten Analyse-Befund einer Stelle (#1007).
@@ -1277,7 +1285,7 @@ def register(mcp, db, logger):
         """Reaktiviert eine zuvor aussortierte Stelle (#664).
 
         Setzt `is_active=1` und loescht `dismiss_reason`. Gegenstueck zu
-        `stelle_bewerten('passt_nicht')` — analog zu `dokument_reaktivieren()`
+        `stelle_einordnen('passt_nicht')` — analog zu `dokument_reaktivieren()`
         fuer Dokumente. Notwendig wenn Claude oder der User eine Stelle
         irrtuemlich aussortiert hat und sie wieder in der aktiven Liste
         haben moechte, ohne ueber den DB-Bypass zu gehen (#514).
@@ -1348,7 +1356,7 @@ def register(mcp, db, logger):
             "grund": grund or None,
             "hinweis": (
                 "Stelle ist wieder aktiv und erscheint in stellen_anzeigen() "
-                "+ fit_analyse(). Bei Bedarf erneut mit stelle_bewerten() "
+                "+ fit_analyse(). Bei Bedarf erneut mit stelle_einordnen() "
                 "aussortieren."
             ),
         }
@@ -1497,7 +1505,7 @@ def register(mcp, db, logger):
         bewusst nicht verhandelbar — der Filter trifft sonst zu viel.
 
         REAL-CASE: Bei einer Suche kommen 500 Stellen, davon 200 falsches
-        Fachgebiet. Anstatt 200 Einzelaufrufe von stelle_bewerten:
+        Fachgebiet. Anstatt 200 Einzelaufrufe von stelle_einordnen:
 
             stellen_bulk_bewerten(
                 bewertung='passt_nicht',
@@ -1508,7 +1516,7 @@ def register(mcp, db, logger):
 
         Args:
             bewertung: 'passt' oder 'passt_nicht'
-            grund / gruende: wie bei stelle_bewerten. ABLEHNUNGSGRUENDE-Liste
+            grund / gruende: wie bei stelle_einordnen. ABLEHNUNGSGRUENDE-Liste
                 gilt analog. KI darf KEINE eigenen Gruende erfinden.
             dry_run: bei True (Default) wird NICHTS veraendert, nur Preview.
                 Bei False: alle Treffer werden tatsaechlich bewertet.
@@ -1803,7 +1811,7 @@ def register(mcp, db, logger):
         mit fachlichem k.o. (Wiedergaenger-Muster, #671) sinken dabei ans
         Ende, egal wie hoch ihr Score ist (v1.7.12, #827/C32): der Score
         misst Begriffe, das k.o.-Muster misst deine dokumentierten
-        Entscheidungen. Nutze stelle_bewerten() um einzelne Stellen zu
+        Entscheidungen. Nutze stelle_einordnen() um einzelne Stellen zu
         bewerten.
 
         Args:
@@ -1994,7 +2002,7 @@ def register(mcp, db, logger):
                         "gelesen. Das ist ein Filter, kein leerer Bestand."),
                     "naechster_schritt": (
                         "Lass Claude eine Detailanalyse machen und das "
-                        "Ergebnis mit stelle_analyse_speichern an der Stelle "
+                        "Ergebnis mit stelle_urteil_speichern an der Stelle "
                         "ablegen — oder ruf stellen_anzeigen() ohne "
                         "nur_beurteilt auf."),
                 }
@@ -2340,10 +2348,10 @@ def register(mcp, db, logger):
             )
         if filter == "aktiv":
             result["hinweis"] = (
-                "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
+                "Nutze stelle_einordnen(hash, 'passt') oder stelle_einordnen(hash, 'passt_nicht', 'Grund') "
                 "um Stellen zu bewerten. Für Details: fit_analyse(hash). "
                 f"Nächste Seite: stellen_anzeigen(seite={seite+1})" if seite * pro_seite < total else
-                "Nutze stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', 'Grund') "
+                "Nutze stelle_einordnen(hash, 'passt') oder stelle_einordnen(hash, 'passt_nicht', 'Grund') "
                 "um Stellen zu bewerten. Für Details: fit_analyse(hash)."
             )
         return result
@@ -3362,7 +3370,7 @@ def register(mcp, db, logger):
             "hash": job_hash,
             "score": job["score"],
             "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
-                         f"Bewerte mit stelle_bewerten('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
+                         f"Bewerte mit stelle_einordnen('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
             result.update(_entfernung.befund(job))

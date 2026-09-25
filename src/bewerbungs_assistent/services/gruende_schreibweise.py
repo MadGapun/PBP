@@ -24,7 +24,7 @@ gleich) und schreibt BEIDE Orte um.
 ## Welche Schreibweise gewinnt
 
 1. **Die Whitelist-Form**, wenn die Gruppe eine enthaelt. `duplikat`
-   steht in der Liste, die `stelle_bewerten` akzeptiert (#663 Teil 2) —
+   steht in der Liste, die `stelle_einordnen` akzeptiert (#663 Teil 2) —
    jede andere Schreibweise wird dort still auf `sonstiges`
    normalisiert und verfaelscht Statistik und Lerneffekt.
 2. **Sonst die haeufigste** unter den gespeicherten Werten. Sie ist
@@ -40,7 +40,7 @@ waere dieselbe Bevormundung wie ein erfundener Ablehnungsgrund.
 
 Ein Grund heisst im Editor `Veraltet` und steht in den Stellen als
 `veraltet`: das ist **keine** Spaltung, sondern die normale Ablage —
-`stelle_bewerten` schreibt klein. Waere das ein Fall, wuerde der Lauf
+`stelle_einordnen` schreibt klein. Waere das ein Fall, wuerde der Lauf
 saemtliche Custom-Label kleinschreiben, also Anzeige umbauen statt
 Daten aufraeumen. (Genau das tat die erste Fassung; aufgefallen ist es
 erst am echten Bestand.)
