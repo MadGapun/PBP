@@ -113,7 +113,8 @@ def test_1003_der_score_steht_daneben_und_sagt_was_er_misst():
          "missing_muss": ["b"], "risks": [], "beschreibung_vorhanden": True},
         {}, profil_kompetenzen=20)
     assert v["score"] == 84
-    assert "SUCHBEGRIFFE" in v["score_bedeutung"]
+    # H24 (#1087): der Satz kommt aus services/punkte.SCORE_BEDEUTUNG.
+    assert "Suchbegriffe" in v["score_bedeutung"]
     assert v["muss_treffer"] == 1 and v["muss_gesamt"] == 2
 
 

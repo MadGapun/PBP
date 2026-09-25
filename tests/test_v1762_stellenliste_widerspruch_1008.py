@@ -296,7 +296,9 @@ def test_1008_liste_und_fit_analyse_nennen_denselben_score(db):
     # Der Titel traegt eine Datenguete-Marke (#989) — deshalb `in`.
     eintrag = next(s for s in liste["stellen"] if "Consultant" in s["titel"])
     rest = db._mit_scoring_reglern(db.get_active_jobs(), sortieren=False)
-    rest_wert = next(j["score"] for j in rest if j["hash"].endswith("teil3"))
+    # C96 (#1087): verglichen werden die Punkte — dieselbe Zahl, die die
+    # Oberflaeche zeigt (vorher der Wert samt Rahmen unter "score").
+    rest_wert = next(j["punkte"] for j in rest if j["hash"].endswith("teil3"))
     assert eintrag["score"] == rest_wert, (
         f"MCP-Liste {eintrag['score']} gegen Oberflaeche {rest_wert} — "
         "derselbe Feldname, zwei Bedeutungen.")
