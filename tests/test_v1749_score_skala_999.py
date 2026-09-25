@@ -155,7 +155,9 @@ def test_999_kein_ausgabetext_behauptet_eine_100er_skala():
     empfehlung = _build_empfehlung(fit, job)
     text = " ".join(str(v) for v in empfehlung.values())
     assert "/100" not in text
-    assert "von erreichbaren" in text
+    # H24 (#1087): "x von y Punkten" statt "Score x von erreichbaren y (z %)".
+    assert " von " in empfehlung["punkte_text"] and "Punkten" in empfehlung["punkte_text"]
+    assert "%" not in text
     assert empfehlung["score_maximum"] == fit["total_score_max"]
 
 
@@ -173,8 +175,9 @@ def test_999_das_maximum_steht_weiter_in_der_antwort():
         {}, profil_kompetenzen=20)
     assert v["score"] == 84
     assert v["score_maximum"] == 388.5
-    assert "SUCHBEGRIFFE" in v["score_bedeutung"]
-    assert "84" in v["score_bedeutung"]
+    # H24 (#1087): Bedeutung aus der Konstante, die Zahl in punkte_text.
+    assert "Suchbegriffe" in v["score_bedeutung"]
+    assert "84" in v["punkte_text"]
 
 
 

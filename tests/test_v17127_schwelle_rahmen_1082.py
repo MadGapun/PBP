@@ -103,7 +103,9 @@ def test_1082_fachstarke_ferne_stelle_bleibt_sichtbar(db):
     stelle = antwort["stellen"][0] if "stellen" in antwort else antwort["jobs"][0]
     assert stelle["fach_score"] == 10
     # Keine Kappung bei 0: ein negativer Wert darf nicht wie 0 aussehen.
-    assert stelle["score"] < 0
+    # C96 (#1087): `score` in stellen_anzeigen traegt die Punkte (ohne
+    # Rahmen); der Rahmen wirkt weiter nur auf die Reihenfolge.
+    assert stelle["score"] == stelle["punkte"] == 10
     assert antwort["durch_rahmen_nicht_mehr_verborgen"] == 1
     assert "durch_schwelle_verborgen" not in antwort
 

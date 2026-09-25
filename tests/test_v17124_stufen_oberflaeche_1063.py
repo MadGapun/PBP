@@ -128,7 +128,8 @@ def test_1063_jede_stufe_nennt_ihre_wirkung(browser, server):
                      "Ausgewogen", "Streng", "Nur Volltreffer"):
             assert name in text, f"Stufe fehlt in der Oberflaeche: {name}"
         assert "Stellen bleiben sichtbar" in text
-        assert "ab Score" in text
+        # C96 (#1087): "ab 7 Punkten" statt "ab Score 7".
+        assert "Punkten" in text
     finally:
         page.close()
 

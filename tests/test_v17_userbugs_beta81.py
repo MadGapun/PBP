@@ -229,7 +229,8 @@ def test_empfehlung_kommt_aus_der_gespeicherten_detailanalyse():
     assert "Werdegang" in v["begruendung"]
     # Der Score steht daneben — als das, was er ist.
     assert v["score"] == 3
-    assert "SUCHBEGRIFFE" in v["score_bedeutung"]
+    # H24 (#1087): der Satz kommt aus services/punkte.SCORE_BEDEUTUNG.
+    assert "Suchbegriffe" in v["score_bedeutung"]
 
 
 def test_empfehlung_ohne_profil_ist_nicht_beurteilbar():

@@ -631,7 +631,8 @@ def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard
         _dismiss_setup_overlay(page)
         page.get_by_role("heading", name="Stellen").wait_for(state="visible")
 
-        page.get_by_text("Score unsicher").first.wait_for(state="visible")
+        # C96 (#1087): die Zahl heisst "Punkte".
+        page.get_by_text("Punkte unsicher").first.wait_for(state="visible")
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
 
         page.get_by_role("button", name="Nur ohne Beschreibung").click()
@@ -1512,7 +1513,8 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
             "Der Rahmenfilter blendet die Stelle in 400 km nicht aus.")
 
         # Die Zahl heisst nicht mehr Score.
-        page.get_by_text(re.compile(r"Fachwert \d")).first.wait_for(state="visible")
+        # C96 (#1087): die Zahl heisst "Punkte" und traegt, wo erreichbar, die Skala.
+        page.get_by_text(re.compile(r"\d+(,\d)? (von \d+(,\d)? )?Punkte")).first.wait_for(state="visible")
         # Und beide Daumen stehen an der Karte.
         page.get_by_text("Rahmen passt", exact=True).first.wait_for(state="visible")
 
