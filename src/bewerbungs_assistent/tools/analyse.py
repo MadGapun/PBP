@@ -9,6 +9,9 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 
+from ..services import werkzeug_katalog as _werkzeug_katalog
+
+
 def register(mcp, db, logger):
     """Register all 9 analysis/KI-feature tools."""
     from . import ki_gate, get_recent_tool_calls, get_slow_tool_calls
@@ -2657,6 +2660,25 @@ def register(mcp, db, logger):
             return []
 
     @mcp.tool()
+    def expertenmodus_setzen(an: bool) -> dict:
+        """Blendet Wartungs- und Entwicklerwerkzeuge ein oder aus.
+
+        Vorgabe ist aus: im Alltag braucht niemand Reparatur- und
+        Nachziehlaeufe. Einschalten, wenn der Mensch ausdruecklich eine
+        Reparatur oder Diagnose will, die pbp_capabilities(kategorie=
+        'wartung') nennt. Die Einstellung bleibt bis zum Ausschalten.
+
+        Args:
+            an: True zeigt die Werkzeuge, False blendet sie aus.
+        """
+        ergebnis = _werkzeug_katalog.expertenmodus_setzen(db, bool(an))
+        try:
+            _werkzeug_katalog.sichtbarkeit_anwenden(mcp, bool(an))
+        except Exception as exc:
+            logger.debug("Sichtbarkeit nicht sofort umgestellt: %s", exc)
+        return ergebnis
+
+    @mcp.tool()
     def pbp_capabilities(kategorie: str = "") -> dict:
         """Liefert eine kuratierte Uebersicht aller PBP-MCP-Faehigkeiten (#514).
 
@@ -2811,7 +2833,16 @@ def register(mcp, db, logger):
                     "quellen_health_check — Erreichbarkeit der Quellen pruefen, "
                     "entfernte und defekte benennen",
                     "onboarding_hints_anzeigen — Tipps zu ungenutzten Features",
+                    "expertenmodus_setzen — Wartungs- und Entwicklerwerkzeuge ein- oder ausblenden",
                 ],
+            },
+            # H21 (#1087 G1): Reparatur-, Nachzieh- und Diagnosewerkzeuge.
+            # Sie stehen nicht mehr ungekennzeichnet neben dem Alltag.
+            "wartung": {
+                "use_case": "Einmalige Reparaturen, Nachziehlaeufe und Diagnose von PBP selbst. "
+                            "Nur im Expertenmodus sichtbar — einschalten mit "
+                            "expertenmodus_setzen(an=True).",
+                "hauptwerkzeuge": sorted(_werkzeug_katalog.WARTUNG | _werkzeug_katalog.ENTWICKLER),
             },
         }
 
@@ -2824,7 +2855,8 @@ def register(mcp, db, logger):
                 "beschreibung": "Reine DB-/Scraper-Operationen, KEINE LLM-Tokens.",
                 "beispiele": [
                     "jobsuche_starten", "stellen_anzeigen", "bewerbung_*",
-                    "stelle_bewerten", "meeting_*", "kosten_*", "profil_bearbeiten",
+                    "stelle_bewerten", "stellen_bulk_bewerten (filtert nur in der Datenbank)",
+                    "meeting_*", "kosten_*", "profil_bearbeiten",
                     "suchkriterien_*", "blacklist_verwalten", "statistiken_abrufen",
                 ],
             },
@@ -2849,7 +2881,6 @@ def register(mcp, db, logger):
                 "beschreibung": "Claude-Tokens in Menge. Bei vielen Items schnell "
                                 "25k+ Tokens. VOR Start dem User Volumen nennen.",
                 "beispiele": [
-                    "stellen_bulk_bewerten (skaliert mit Anzahl Stellen)",
                     "dokumente_batch_analysieren via Claude (statt lokal)",
                     "bewerbungsbericht_exportieren (grosse Profile)",
                 ],
@@ -2881,16 +2912,16 @@ def register(mcp, db, logger):
         if not kategorie:
             count_text = (
                 f"PBP-MCP bietet {tools_gesamt or '~171'} Tools "
-                f"(davon {tools_kuratiert} kuratierte in 10 Kategorien)."
+                f"(davon {tools_kuratiert} kuratierte in 11 Kategorien)."
             ) if tools_gesamt and tools_gesamt != tools_kuratiert else (
-                f"PBP-MCP bietet {tools_kuratiert} Tools in 10 Kategorien."
+                f"PBP-MCP bietet {tools_kuratiert} Tools in 11 Kategorien."
             )
             return {
                 "ueberblick": (
                     f"{count_text} Ruf dieses Tool mit "
                     "kategorie='profil', 'jobsuche', 'bewerbungen', 'dokumente', "
-                    "'kalender', 'analyse', 'export', 'workflows', 'einstellungen' "
-                    "oder 'system' fuer Detail-View auf."
+                    "'kalender', 'analyse', 'export', 'workflows', 'einstellungen', "
+                    "'system' oder 'wartung' fuer Detail-View auf."
                 ),
                 # #647: getrennte Counts fuer Discoverability
                 "tools_gesamt": tools_gesamt,

@@ -131,7 +131,8 @@ def verteilung(db, schwelle=None) -> dict:
         ergebnis["nachricht"] = (
             "Keine Bewerbung traegt einen auswertbaren Score. Ohne "
             "verknuepfte Stellen gibt es nichts zu verteilen — "
-            "bewerbungs_stellen_abgleichen() stellt die Verbindung her.")
+            "bewerbungs_stellen_abgleichen() stellt die Verbindung her "
+            "(Expertenmodus: expertenmodus_setzen(an=True)).")
         if ohne_stelle:
             ergebnis["ohne_verknuepfte_stelle"] = {
                 "anzahl": len(ohne_stelle), "beispiele": ohne_stelle[:5]}
@@ -162,7 +163,8 @@ def verteilung(db, schwelle=None) -> dict:
             "bedeutung": (
                 "Diese Bewerbungen haben keine verknuepfte Stelle und damit "
                 "keinen Score. Sie sind eine Datenluecke, kein Nullwert — "
-                "bewerbungs_stellen_abgleichen() stellt die Verbindung her."),
+                "bewerbungs_stellen_abgleichen() stellt die Verbindung her "
+                "(Expertenmodus: expertenmodus_setzen(an=True))."),
         }
     if schwelle is not None:
         ergebnis["schwelle"] = float(schwelle)

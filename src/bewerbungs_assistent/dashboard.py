@@ -11435,6 +11435,25 @@ async def api_llm_start():
     }
 
 
+@app.get("/api/expertenmodus")
+async def api_expertenmodus_lesen():
+    """H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge sichtbar?"""
+    from .services import werkzeug_katalog as _k
+    an = _k.expertenmodus(_db)
+    return {"expertenmodus": an, "anzahl": len(_k.WARTUNG | _k.ENTWICKLER)}
+
+
+@app.put("/api/expertenmodus")
+async def api_expertenmodus_setzen(request: Request):
+    """Setzt den Expertenmodus; nur true oder false (kein Rueckfall, #980)."""
+    from .services import werkzeug_katalog as _k
+    data = await request.json()
+    an = data.get("an")
+    if not isinstance(an, bool):
+        return JSONResponse({"error": "an muss true oder false sein"}, status_code=400)
+    return _k.expertenmodus_setzen(_db, an)
+
+
 @app.get("/api/llm/autostart")
 async def api_llm_autostart_lesen():
     """Soll Ollama mit PBP starten? (#1001)"""

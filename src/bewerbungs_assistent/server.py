@@ -169,6 +169,10 @@ register_all(mcp, db, logger)
 register_resources(mcp, db, logger)
 register_prompts(mcp, db, logger)
 
+# H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge nur im Expertenmodus.
+from .services import werkzeug_katalog as _werkzeug_katalog
+_werkzeug_katalog.sichtbarkeit_anwenden(mcp, _werkzeug_katalog.beim_start_sichtbar(db))
+
 
 # ============================================================
 # Server runner

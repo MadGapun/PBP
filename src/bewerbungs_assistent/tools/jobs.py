@@ -2321,7 +2321,7 @@ def register(mcp, db, logger):
             result["ohne_anker_hinweis"] = (
                 f"{ohne_anker} der angezeigten Stellen sind nicht verfolgbar "
                 "(keine Detail-URL, kein Dokument, kein Ansprechpartner). "
-                "Bestand heilen: stellen_urls_heilen(dry_run=True) traegt "
+                "Bestand heilen (Expertenmodus): stellen_urls_heilen(dry_run=True) traegt "
                 "wo moeglich eine Such-URL nach; den Rest per "
                 "stelle_bearbeiten(url=...) oder Kontakt ergaenzen."
             )

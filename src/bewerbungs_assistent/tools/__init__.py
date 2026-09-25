@@ -161,6 +161,31 @@ def ki_gate(db, feature: str) -> dict | None:
     }
 
 
+def _parameter_beschreiben(fn, texte: dict) -> None:
+    """Setzt je Parameter `Annotated[typ, Field(description=...)]`.
+
+    FastMCP liest Parameterbeschreibungen nur aus Annotationen, nicht aus
+    dem Docstring. Ein Parameter mit eigener Beschreibung bleibt, wie er ist.
+    """
+    if not texte:
+        return
+    import inspect
+    import typing
+    from pydantic import Field
+    try:
+        hinweise = typing.get_type_hints(fn, include_extras=True)
+    except Exception:
+        return
+    parameter = inspect.signature(fn).parameters
+    for pname, text in texte.items():
+        if pname not in parameter or pname not in hinweise:
+            continue
+        typ = hinweise[pname]
+        if typing.get_origin(typ) is typing.Annotated:
+            continue
+        fn.__annotations__[pname] = typing.Annotated[typ, Field(description=text)]
+
+
 class _AnnotierendesMCP:
     """Reicht alles an den echten Server durch und setzt beim Registrieren
     die MCP-Annotations aus `services/werkzeug_schutz` (H27, #1087 G7).
@@ -179,12 +204,20 @@ class _AnnotierendesMCP:
     def tool(self, name_or_fn=None, **kwargs):
         from ..services.werkzeug_schutz import annotations_fuer
 
+        from ..services import werkzeug_katalog as _katalog
+
         def registrieren(fn):
             name = kwargs.get("name") or (
                 name_or_fn if isinstance(name_or_fn, str) else fn.__name__)
             anno = annotations_fuer(name)
             if anno and not kwargs.get("annotations"):
                 kwargs["annotations"] = anno
+            # H21 (#1087 G1): Tag, Kurzbeschreibung ohne Geschichte, und
+            # die Parametertexte ins Eingabeschema statt in den Fliesstext.
+            doc = fn.__doc__ or ""
+            kwargs.setdefault("tags", {_katalog.tag(name)})
+            kwargs.setdefault("description", _katalog.beschreibung(name, doc))
+            _parameter_beschreiben(fn, _katalog.parameter_texte(doc))
             if isinstance(name_or_fn, str):
                 return self._mcp.tool(name_or_fn, **kwargs)(fn)
             return self._mcp.tool(**kwargs)(fn)

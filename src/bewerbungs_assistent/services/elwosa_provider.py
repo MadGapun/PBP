@@ -159,7 +159,7 @@ def betriebslage_kandidaten(db) -> list:
             else:
                 content = (f"{n} Stellen im Bestand haben weder Link noch "
                            "Ansprechpartner. Bewerben geht so nicht. "
-                           "stellen_urls_heilen hilft beim Aufraeumen.")
+                           "stellen_urls_heilen hilft beim Aufraeumen (Expertenmodus).")
             kandidaten.append(Candidate(
                 content=content, trigger_kind="betriebslage",
                 trigger_ref=j.get("hash", ""),
