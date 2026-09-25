@@ -41,7 +41,7 @@ beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
 
 ## Stand 2026-09-25 (v1.7.128 Stable) — Firma, Ort und Region aus der Quelle
 
-Restpunkte von **#1040**, **#1041**, **#1042** (B66, B67). **Tests: 5215 (main).** MCP-Tools
+Restpunkte von **#1040**, **#1041**, **#1042** (B66, B67). **Tests: 5215 (main) / 5113 (Stable).** MCP-Tools
 unveraendert 246 / 259. Dazu #1061 geschlossen, sein Nebenbefund als
 **#1085** (B68) ausgegliedert.
 
