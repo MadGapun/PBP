@@ -138,7 +138,11 @@ def test_g71_dialog_haelt_den_fokus_und_gibt_ihn_zurueck(browser, server):
             assert page.evaluate("() => !!document.activeElement.closest('[role=dialog]')")
         page.keyboard.press("Escape")
         dialog.wait_for(state="detached", timeout=5000)
-        assert page.evaluate("() => document.activeElement.textContent.includes('Neuer Kontakt')")
+        # Der Fokus steht wieder auf dem KNOPF, nicht auf der Seite (body
+        # enthaelt den Knopftext ebenfalls — die Gegenprobe hat es gezeigt).
+        assert page.evaluate(
+            "() => document.activeElement.tagName === 'BUTTON' "
+            "&& document.activeElement.textContent.includes('Neuer Kontakt')")
     finally:
         page.close()
 
