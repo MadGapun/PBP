@@ -810,3 +810,30 @@ def test_h28_faq_und_coaching_tragen_die_tonregel(umgebung):
     db, _mcp = umgebung
     reg = _prompt_registry(db)
     assert TON in reg["faq"]() and TON in reg["ablehnungs_coaching"]()
+
+
+def test_h32_ohne_suchbegriffe_kommen_die_suchbegriffe(umgebung):
+    """Die Lage im Dashboard kennt keine fehlenden Suchbegriffe; der Satz
+    fuer Claude schon — sonst stuende "jobsuche_starten()" vor dem Schritt,
+    der die Suche erst moeglich macht."""
+    from bewerbungs_assistent.services import workspace_service as ws
+    db, _mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    s = {"has_profile": True, "readiness": {"stage": "jobsuche_erneuern"}, "profile": {},
+         "search": {"status": "nie"}, "jobs": {}, "applications": {}}
+    assert "suchkriterien_setzen()" in ws.naechster_schritt(db, s)["text"]
+
+
+def test_h22_jeder_eintrag_liefert_seinen_eigenen_text(umgebung):
+    """Zeigt ein Eintrag der Registry auf den falschen Builder, sind Slash-
+    und Dashboard-Text trotzdem gleich — der Slash-Befehl leitet ja weiter.
+    Deshalb: keine zwei Eintraege mit demselben Text."""
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, _mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    texte = {}
+    for name, builder in _prompt_registry(db).items():
+        text = builder()
+        assert text not in texte.values(), (name, [k for k, v in texte.items() if v == text])
+        texte[name] = text
+    assert "Interviewer" in texte["interview_simulation"]
