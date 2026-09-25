@@ -123,9 +123,11 @@ def fuer_frisch(db, job: dict, analyse: dict) -> dict:
     if regler:
         fach[REGLER_LABEL] = regler
     gespeichert = fuer_gespeichert(db, job)
+    hoechst = maximum(db)
     ergebnis = {
         "punkte": punkte,
-        "punkte_max": maximum(db),
+        "punkte_max": hoechst,
+        "punkte_text": text(punkte, hoechst),
         "faktoren_fach": fach,
         "faktoren_rahmen": dict(analyse.get("faktoren_rahmen") or {}),
         "punkte_gespeichert": gespeichert,
