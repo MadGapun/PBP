@@ -201,7 +201,9 @@ def test_994_unbekannte_id_ist_kein_leeres_ok(db, mcp):
 def test_994_ohne_profil_kommt_der_weg_zur_ersterfassung(mcp):
     ergebnis = _call(mcp, "positionen_anzeigen")
     assert ergebnis["status"] == "kein_profil"
-    assert "ersterfassung_starten" in ergebnis["nachricht"]
+    # H32 (#1087 G14): dieselbe Kein-Profil-Antwort wie ueberall; der Weg
+    # steht in `naechster_schritt`.
+    assert "Starte die Ersterfassung" in ergebnis["naechster_schritt"]
 
 
 def test_994_leerer_bestand_ist_keine_sackgasse(db, mcp):

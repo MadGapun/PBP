@@ -330,7 +330,16 @@ def register(mcp, db, logger):
         IMMER als erstes aufrufen wenn der User den Assistent startet.
         Entscheidet ob Ersterfassung nötig ist oder ob es direkt losgehen kann.
         """
-        return get_profile_status_payload(db.get_profile())
+        # H32 (#1087 G14): ohne Profil dieselbe Antwort wie ueberall
+        # (kein_profil), mit Profil der naechste Schritt aus der Lage —
+        # dieselbe, aus der das Dashboard seine Readiness-Stufe liest.
+        from ..services import workspace_service as _ws
+        profil = db.get_profile()
+        antwort = get_profile_status_payload(profil)
+        if profil is None:
+            return {**kein_profil(), "dashboard_url": antwort["dashboard_url"]}
+        antwort["naechster_schritt"] = _ws.naechster_schritt(db)["text"]
+        return antwort
 
     @mcp.tool()
     def profil_notizen_aufraeumen(
@@ -400,7 +409,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if profile is None:
-            return {"status": "kein_profil", "nachricht": "Noch kein Profil vorhanden."}
+            return kein_profil("dein Profil zusammenfassen")
 
         positions = profile.get("positions", [])
         education = profile.get("education", [])
@@ -628,9 +637,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if profile is None:
-            return {"status": "kein_profil",
-                    "nachricht": "Noch kein Profil vorhanden. "
-                                 "Starte mit dem Prompt ersterfassung_starten."}
+            return kein_profil("deine Stationen anzeigen")
 
         def _passt(eintrag) -> bool:
             return not nur_id or str(eintrag.get("id", "")).startswith(nur_id)
@@ -750,7 +757,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if profile is None:
-            return {"status": "kein_profil", "nachricht": "Noch kein Profil vorhanden."}
+            return kein_profil("deine Projekte anzeigen")
 
         positions = profile.get("positions", [])
         if position_id:
@@ -838,8 +845,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"status": "kein_profil",
-                    "nachricht": "Noch kein Profil vorhanden."}
+            return kein_profil("die Umlaute in deinem Profil reparieren")
 
         alle_bereiche = ["persoenlich", "positionen", "projekte",
                          "ausbildung", "skills"]
@@ -1074,7 +1080,7 @@ def register(mcp, db, logger):
             if aktion == "aendern":
                 profile = db.get_profile()
                 if not profile:
-                    return {"fehler": "Kein Profil vorhanden"}
+                    return kein_profil("dein Profil bearbeiten")
                 # Alias-Support: deutsche Feldnamen -> DB-Spalten
                 _FIELD_ALIASES = {
                     "adresse": "address", "strasse": "address", "anschrift": "address",
@@ -1120,7 +1126,7 @@ def register(mcp, db, logger):
             if aktion == "aendern":
                 profile = db.get_profile()
                 if not profile:
-                    return {"fehler": "Kein Profil vorhanden"}
+                    return kein_profil("dein Profil bearbeiten")
                 prefs = profile.get("preferences", {})
                 if isinstance(prefs, str):
                     prefs = json.loads(prefs) if prefs else {}
@@ -1166,7 +1172,7 @@ def register(mcp, db, logger):
             if aktion == "anhang":
                 profile = db.get_profile()
                 if not profile:
-                    return {"fehler": "Kein Profil vorhanden"}
+                    return kein_profil("dein Profil bearbeiten")
                 sektion = daten.get("sektion", "ALLGEMEIN").upper()
                 text = daten.get("text", "")
                 if not text:
@@ -1248,7 +1254,7 @@ def register(mcp, db, logger):
                 # Full replace of informal_notes
                 profile = db.get_profile()
                 if not profile:
-                    return {"fehler": "Kein Profil vorhanden"}
+                    return kein_profil("dein Profil bearbeiten")
                 update = {
                     "name": profile.get("name"), "email": profile.get("email"),
                     "phone": profile.get("phone"), "address": profile.get("address"),
@@ -1279,7 +1285,7 @@ def register(mcp, db, logger):
                 # #680: Sektion ersetzen oder loeschen (nicht nur anhaengen)
                 profile = db.get_profile()
                 if not profile:
-                    return {"fehler": "Kein Profil vorhanden"}
+                    return kein_profil("dein Profil bearbeiten")
                 ziel = (daten.get("sektion", "") or "").strip().upper()
                 if not ziel:
                     return {"fehler": "daten.sektion muss angegeben werden "

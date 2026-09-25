@@ -1,5 +1,6 @@
 """PDF/DOCX-Export für Lebenslauf, Anschreiben und Profil-Report — 5 Tools."""
 
+from ..services.nutzerfuehrung import kein_profil
 from ..services import ablage
 
 
@@ -102,7 +103,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil mit der Ersterfassung."}
+            return kein_profil("deinen Lebenslauf exportieren")
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
@@ -175,7 +176,7 @@ def register(mcp, db, logger):
             return gate
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil mit der Ersterfassung."}
+            return kein_profil("einen angepassten Lebenslauf exportieren")
 
         from ..export import generate_tailored_cv_docx
 
@@ -251,7 +252,7 @@ def register(mcp, db, logger):
             return gate
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil."}
+            return kein_profil("dein Fachprofil exportieren")
         if format not in ("docx", "pdf"):
             return {"fehler": "format muss 'docx' oder 'pdf' sein."}
 
@@ -409,7 +410,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden."}
+            return kein_profil("einen Profilbericht exportieren")
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
@@ -541,7 +542,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein Profil vorhanden. Erstelle zuerst ein Profil."}
+            return kein_profil("deinen Lebenslauf bewerten")
 
         from ..export import analyse_cv_perspectives
 
