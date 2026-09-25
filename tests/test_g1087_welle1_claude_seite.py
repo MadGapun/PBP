@@ -196,7 +196,8 @@ def test_h27_annotations_registrierung_ist_verdrahtet():
     """DoD 8c: der Proxy muss in register_all wirklich benutzt werden."""
     quelle = (PAKET / "tools" / "__init__.py").read_text(encoding="utf-8")
     rumpf = quelle.split("def register_all", 1)[1]
-    assert "mcp = _AnnotierendesMCP(mcp)" in rumpf
+    # H25 (#1087 G5): der Proxy bekommt die Datenbank fuer die KI-Sperre.
+    assert "mcp = _AnnotierendesMCP(mcp, db)" in rumpf
 
 
 # ══ H32 ═══════════════════════════════════════════════════════════════

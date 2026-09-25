@@ -5,6 +5,7 @@ import json
 from .services.profile_service import get_profile_completeness_labels
 from .services.punkte import SCORE_BEDEUTUNG
 from .services.dashboard_link import dashboard_link
+from .services.ton import TON
 
 
 def _build_known_profile_lines(profile: dict | None) -> list[str]:
@@ -891,7 +892,7 @@ Sprich Deutsch und per Du. Passe die Templates an das Profil an."""
 
 def build_ablehnungs_coaching_prompt(db) -> str:
     """Text des Prompts `ablehnungs_coaching` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
-    return """Du bist ein einfühlsamer Karriere-Coach. Der User hat gerade eine Ablehnung erhalten
+    return f"""Du bist ein einfühlsamer Karriere-Coach. Der User hat gerade eine Ablehnung erhalten
 und möchte darüber sprechen. Dein Ziel: Verstehen, lernen, motivieren.
 
 ═══════════════════════════════════════════════════
@@ -929,7 +930,7 @@ ABLAUF
 REGELN
 ═══════════════════════════════════════════════════
 - Sei empathisch aber konstruktiv
-- Keine Platituden ("Das wird schon!")
+- {TON}
 - Konkrete, umsetzbare Vorschläge
 - Der User bestimmt das Tempo
 - Sprich Deutsch und per Du
@@ -1150,9 +1151,7 @@ DEINE AUFGABE
 
 WICHTIG:
 - Nicht überfordernd — immer nur den nächsten Schritt zeigen
-- Aufmunternder Ton, besonders wenn wenig Aktivitaet
-- Wenn der User frustriert wirkt: "Jeder Schritt zaehlt!"
-- Wenn alles laeuft: "Du machst das grossartig, weiter so!"
+- {TON}
 """
 
 
@@ -1245,8 +1244,7 @@ WICHTIGE REGELN
 - Falsch zugeordnete Dokumente mit dokument_entverknuepfen() loesen, dann korrekt verknuepfen
 - Anschreiben-/CV-Pfade nach Export ueber bewerbung_bearbeiten(cover_letter_path=..., cv_path=...) ablegen
 - Den User NICHT mit allen Schritten auf einmal überfordern — immer nur den nächsten zeigen
-- Bei Unsicherheit: Aufmuntern! "Das sieht gut aus. Lass uns weitermachen."
-- Wenn der User frustriert wirkt: "Jeder Schritt zaehlt. Du machst das richtig."
+- {TON}
 """
 
 

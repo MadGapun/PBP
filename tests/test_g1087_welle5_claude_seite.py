@@ -752,3 +752,61 @@ def test_h30_der_pfad_guard_sieht_etwas(monkeypatch):
     from bewerbungs_assistent.services import menue
     monkeypatch.setattr(menue, "MENUE", {k: v for k, v in menue.MENUE.items() if k != "quellen"})
     assert _menuepfade()
+
+
+# ══ H28 — Server-Instructions fuer den Bewerber ═════════════════════════
+
+def _instructions():
+    import bewerbungs_assistent.server as srv
+    return srv.PBP_INSTRUCTIONS
+
+
+def test_h28_instructions_sind_gegliedert(umgebung):
+    text = _instructions()
+    for abschnitt in ("NUTZER UND TON", "EINSTIEG", "WAHRHEIT",
+                      "SICHERHEIT UND DATENSCHUTZ", "WERKZEUGWAHL"):
+        assert abschnitt in text, abschnitt
+
+
+def test_h28_instructions_decken_die_fehlenden_punkte_ab(umgebung):
+    from bewerbungs_assistent.services.punkte import SCORE_BEDEUTUNG
+    from bewerbungs_assistent.services.ton import TON
+    from bewerbungs_assistent.services.datenschutz import KURZ
+    text = _instructions()
+    assert SCORE_BEDEUTUNG in text and TON in text and KURZ in text
+    assert "profil_status()" in text and "dashboard_link" in text
+    assert "firma_kontext(firmenname)" in text
+    assert "nie erfinden" in text and "Vorschau zeigen" in text
+
+
+def test_h28_github_teil_steht_beim_melden(umgebung):
+    text = _instructions()
+    assert "issue_text_pruefen" not in text
+    assert text.count("GitHub") == 0
+    _db, mcp = umgebung
+    erg = _call(mcp, "pbp_grenze_melden", {"was_versucht": "x", "warum_pbp_nicht_passt": "y"})
+    assert "issue_text_pruefen(text=...)" in erg["vor_dem_posten"]
+    from bewerbungs_assistent.prompts import build_problem_melden_prompt
+    assert "issue_text_pruefen" in build_problem_melden_prompt("")
+
+
+def test_h28_keine_floskeln_in_texten_an_den_bewerber():
+    from bewerbungs_assistent.services.ton import FLOSKELN
+    funde = []
+    for p in sorted(PAKET.rglob("*.py")):
+        if p.name == "ton.py":
+            continue
+        for n in ast.walk(ast.parse(p.read_text(encoding="utf-8-sig"))):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str):
+                for f in FLOSKELN:
+                    if f in n.value:
+                        funde.append(f"{p.name}:{n.lineno}: {f}")
+    assert not funde, funde
+
+
+def test_h28_faq_und_coaching_tragen_die_tonregel(umgebung):
+    from bewerbungs_assistent.services.ton import TON
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, _mcp = umgebung
+    reg = _prompt_registry(db)
+    assert TON in reg["faq"]() and TON in reg["ablehnungs_coaching"]()
