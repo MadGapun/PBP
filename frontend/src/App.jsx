@@ -44,7 +44,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
-import { STARTSATZ } from "@/lib/startsatz";
+import { FragenTab, HilfeTab, MeldenTab, ProblemeTab } from "@/components/HilfeInhalt";
 import Sidebar from "@/components/Sidebar";
 import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
 import MitClaude from "@/components/MitClaude";
@@ -289,7 +289,7 @@ function PromptsTab({ pushToast, copyPrompt }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted/70">
-        {prompts.length} Prompts fuer deine Bewerbung. Klick auf „Kopieren"
+        {prompts.length} Prompts für deine Bewerbung. Klick auf „Kopieren"
         kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfuegen und absenden.
       </p>
       <input
@@ -1137,7 +1137,7 @@ export default function App() {
     // #979 (G29, Befund 4): der Hilfetext im Schnellzugriff VERWIES auf
     // "Hilfe & Support, Reiter Prompts" — als Satz, ohne Link. Der
     // Oeffner lag als State hier und war von keiner Seite erreichbar.
-    openHelp: (tab = "hilfe") => { setHelpTab(tab); setHelpOpen(true); },
+    openHelp: (tab = "hilfe") => { setHelpTab(tab === "bug" || tab === "feature" ? "melden" : tab); setHelpOpen(true); },
     openCreateProfileModal: () => setCreateProfileOpen(true),
     openProfileOnboarding: reopenProfileOnboarding,
     // G60 (#1087): die Hinweiszone liest das Update von hier.
@@ -1427,9 +1427,10 @@ export default function App() {
             {/* Help Button (#75) */}
             <button
               type="button"
-              onClick={() => { setWizardOpen(false); setHelpOpen(true); }}
+              onClick={() => { setWizardOpen(false); setHelpTab("hilfe"); setHelpOpen(true); }}
               className="shrink-0 rounded-lg p-1.5 text-muted/50 hover:text-ink hover:bg-white/[0.04] transition-colors"
               title="Hilfe & Support"
+              aria-label="Hilfe & Support"
             >
               <HelpCircle size={18} />
             </button>
@@ -1798,8 +1799,7 @@ export default function App() {
                 { id: "prompts", label: "Prompts" },
                 { id: "faq", label: "FAQ" },
                 { id: "troubleshooting", label: "Probleme" },
-                { id: "bug", label: "Bug melden" },
-                { id: "feature", label: "Feature" },
+                { id: "melden", label: "Melden" },
                 { id: "credits", label: "Credits" },
               ].map((t) => (
                 <button
@@ -1818,206 +1818,18 @@ export default function App() {
             </div>
 
             {helpTab === "hilfe" && (
-              <div className="space-y-3 text-sm text-muted/60">
-                {/* Context-sensitive help based on current page */}
-                {page === "dashboard" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Dashboard</h3>
-                      <p>Das Dashboard zeigt dir eine Übersicht über dein Profil, aktuelle Stellen und Bewerbungen. Die Metriken aktualisieren sich automatisch.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Top-Stellen</h3>
-                      <p>Zeigt die 3 besten Stellen nach Score, bei denen du dich noch nicht beworben hast. Klicke darauf, um zur Stellenansicht zu springen.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
-                      <p>Fällige Nachfass-Aktionen werden hier hervorgehoben. Klicke auf "Erledigt", um sie abzuhaken.</p>
-                    </div>
-                  </>
-                )}
-                {page === "profil" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Profil aufbauen</h3>
-                      <p>Dein Profil ist die Basis für alles: Lebenslauf-Export, Fit-Analysen und personalisierte Anschreiben. Je vollständiger, desto besser.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Positionen & Projekte</h3>
-                      <p>Fülle Positionen mit dem STAR-Format aus (Situation, Task, Action, Result). Das ergibt starke Projektbeschreibungen für den Lebenslauf.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Dokumente</h3>
-                      <p>Ziehe PDF- oder DOCX-Dateien per Drag & Drop ins Fenster. Der Dokumenttyp wird automatisch erkannt.</p>
-                    </div>
-                  </>
-                )}
-                {page === "stellen" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Stellensuche</h3>
-                      <p>Wähle Jobquellen unter „Einstellungen“ und starte die Suche mit „Jobsuche mit Claude“ oder mit „Interne Jobsuche starten“. Die Stellen bekommen automatisch Punkte.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Score</h3>
-                      <p>Der Score (0–100) zeigt die Passgenauigkeit: Entfernung, Skills, Gehalt und Keywords fliessen ein. Klicke auf den Score um ihn manuell anzupassen.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Fit-Analyse</h3>
-                      <p>Klicke auf "Fit-Analyse" für eine detaillierte Auswertung der MUSS-/PLUS-Treffer und Risiken.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Anpinnen & Blacklist</h3>
-                      <p>Pinne interessante Stellen an, damit sie oben bleiben. Unpassende Firmen oder Keywords kannst du auf die Blacklist setzen.</p>
-                    </div>
-                  </>
-                )}
-                {page === "bewerbungen" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Bewerbungen verwalten</h3>
-                      <p>Hier trackst du alle laufenden Bewerbungen mit Status, Timeline und Notizen. Ändere den Status per Dropdown.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Timeline & Notizen</h3>
-                      <p>Klicke auf eine Bewerbung für die vollständige Timeline. Dort kannst du Notizen hinzufügen und Nachfassungen planen.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
-                      <p>Plane automatische Erinnerungen (z.B. "In 2 Wochen nachfragen"). Sie erscheinen auf dem Dashboard unter „Offen“ und im Aufgaben-Tab.</p>
-                    </div>
-                  </>
-                )}
-                {page === "statistiken" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Statistiken</h3>
-                      <p>Visualisiert Bewerbungsverlauf, Erfolgsquoten, Antwortzeiten und Gehaltsverteilung. Exportiere Berichte als PDF.</p>
-                    </div>
-                  </>
-                )}
-                {page === "einstellungen" && (
-                  <>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Jobquellen</h3>
-                      <p>Aktiviere und deaktiviere einzelne Quellen (StepStone, Indeed, LinkedIn, etc.). LinkedIn und XING benötigen Login-Daten.</p>
-                    </div>
-                    <div className="glass-card p-3">
-                      <h3 className="font-medium text-ink mb-1">Suchkriterien</h3>
-                      <p>Definiere MUSS-Keywords (Pflicht), PLUS-Keywords (Bonus), MINUS-Keywords (weiche Abwertung) und AUSSCHLUSS-Keywords (harter Ausschluss). Diese steuern den Score der gefundenen Stellen.</p>
-                    </div>
-                  </>
-                )}
-                {/* General help always shown */}
-                <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-1">Wie starte ich?</h3>
-                  <p>Öffne Claude Desktop und tippe „{STARTSATZ}“ — auf den genauen Wortlaut kommt es nicht an. Claude führt dich durch den Aufbau deines Bewerbungsprofils.</p>
-                </div>
-                <div className="glass-card p-3">
-                  <h3 className="font-medium text-ink mb-1">Support & Dokumentation</h3>
-                  <p>Für Fragen und Probleme erstelle ein Issue auf GitHub. Du brauchst dafür einen kostenlosen GitHub-Account.</p>
-                  <a
-                    href="https://github.com/MadGapun/PBP#readme"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1.5 text-sky hover:underline text-[13px]"
-                  >
-                    <ExternalLink size={12} />
-                    Vollständige Anleitung auf GitHub
-                  </a>
-                </div>
-              </div>
+              <HilfeTab page={page} pageTitel={currentPageTitle} copyPrompt={copyPrompt} />
             )}
 
             {helpTab === "prompts" && (
               <PromptsTab pushToast={pushToast} copyPrompt={copyPrompt} />
             )}
 
-            {helpTab === "faq" && (
-              <div className="space-y-2 text-sm text-muted/60">
-                {[
-                  { q: "Was ist MCP?", a: "MCP (Model Context Protocol) ist die Schnittstelle, über die PBP mit Claude Desktop kommuniziert. PBP stellt Tools bereit, die Claude nutzen kann." },
-                  { q: "Wo werden meine Daten gespeichert?", a: "Alle Daten liegen lokal auf deinem Gerät. Unter Windows in %LOCALAPPDATA%/bewerbungs-assistent, auf macOS in ~/.bewerbungs-assistent. Es werden keine Daten an Server gesendet." },
-                  { q: "Muss Claude Desktop laufen?", a: "Für die KI-Funktionen ja. Das Dashboard funktioniert aber auch ohne Claude Desktop — du kannst Profil, Stellen und Bewerbungen jederzeit verwalten." },
-                  { q: "Wie starte ich das Kennlerngespräch?", a: "Öffne Claude Desktop und tippe /ersterfassung ein. Claude führt dich dann Schritt für Schritt durch den Aufbau deines Profils." },
-                  { q: "Kann ich mehrere Profile haben?", a: "Ja. Klicke oben auf deinen Profilnamen und wähle 'Neues Profil'. Du kannst zwischen Profilen wechseln." },
-                  { q: "Wie funktioniert die Jobsuche?", a: "Aktiviere Quellen unter Einstellungen, dann kopiere /jobsuche_workflow in Claude Desktop. Claude durchsucht die aktivierten Portale und bewertet die Treffer." },
-                  { q: "Welche Dokumentformate werden unterstützt?", a: "PDF, DOCX, DOC und TXT. Ziehe Dateien per Drag & Drop ins Dashboard-Fenster oder nutze den Upload-Button." },
-                  { q: "Wie exportiere ich meinen Lebenslauf?", a: "Gehe zu Profil > Lebenslauf-Export. Es stehen verschiedene Formate zur Verfügung (PDF, DOCX, TXT)." },
-                  { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und Open Source (MIT-Lizenz). Du brauchst aber einen Claude Desktop Account (kostenloser Tier reicht)." },
-                  { q: "Wie aktualisiere ich PBP?", a: "Lade die neue Version von GitHub herunter und führe den Installer erneut aus. Deine Daten bleiben erhalten." },
-                ].map(({ q, a }) => (
-                  <details key={q} className="glass-card rounded-lg group">
-                    <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
-                      {q}
-                      <ChevronDown size={14} className="text-muted/30 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <p className="px-3 pb-2.5 text-[12.5px]">{a}</p>
-                  </details>
-                ))}
-                <div className="glass-card p-3 mt-2">
-                  <p className="text-[12px]">Ausführliche FAQ, Anleitungen und Troubleshooting findest du im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">PBP Wiki</a>.</p>
-                </div>
-              </div>
-            )}
+            {helpTab === "faq" && <FragenTab />}
 
-            {helpTab === "troubleshooting" && (
-              <div className="space-y-2 text-sm text-muted/60">
-                {[
-                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Prüfe ob das PBP-Terminal/Fenster noch läuft\n2. Öffne Claude Desktop Einstellungen > Entwickler — PBP muss dort als MCP-Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu öffnen)\n4. Prüfe den MCP-Status im Dashboard-Header" },
-                  { q: "Dashboard startet nicht", a: "1. Prüfe ob Port 8200 bereits belegt ist (anderes PBP-Fenster?)\n2. Starte das Dashboard über das Terminal: python start_dashboard.py\n3. Prüfe die Logs unter Einstellungen > Logs" },
-                  { q: "Jobsuche findet keine Stellen", a: "1. Prüfe ob Quellen unter Einstellungen aktiviert sind\n2. Prüfe ob Suchkriterien (Keywords, Ort, Umkreis) gesetzt sind\n3. Manche Quellen brauchen einen Login (LinkedIn, XING)\n4. StepStone blockiert automatische Suche — nutze Claude-in-Chrome (siehe unten)" },
-                  { q: "StepStone blockiert / Timeout bei Jobsuche", a: "StepStone erkennt automatische Browser und zeigt CAPTCHAs. Workaround:\n\n1. Deaktiviere StepStone als automatische Quelle\n2. Öffne StepStone manuell im Chrome-Browser mit Claude-in-Chrome:\n   https://www.stepstone.de/jobs/plm?radius=100&location=Hamburg\n3. Bitte Claude die Stellen via stelle_manuell_anlegen zu übernehmen\n4. Oder nutze den Prompt: 'Suche StepStone via Chrome nach PLM-Stellen'\n\nDas funktioniert zuverlässig, weil der echte Browser nicht geblockt wird." },
-                  { q: "Dokumente werden nicht erkannt", a: "1. Nur PDF, DOCX, DOC und TXT werden unterstützt\n2. Gescannte PDFs ohne Text-Layer können nicht analysiert werden\n3. Versuche 'Erneut analysieren' auf dem Dokument" },
-                  { q: "MCP-Verbindung zeigt 'Nicht verbunden'", a: "Die Verbindung wird über einen Heartbeat geprüft. Claude Desktop muss PBP mindestens einmal aufgerufen haben. Tippe einen beliebigen PBP-Befehl in Claude Desktop ein." },
-                ].map(({ q, a }) => (
-                  <details key={q} className="glass-card rounded-lg group">
-                    <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
-                      {q}
-                      <ChevronDown size={14} className="text-muted/30 transition-transform group-open:rotate-180" />
-                    </summary>
-                    <pre className="px-3 pb-2.5 text-[12px] whitespace-pre-wrap font-sans">{a}</pre>
-                  </details>
-                ))}
-                <div className="glass-card p-3 mt-2">
-                  <p className="text-[12px]">Mehr Lösungen im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">Wiki</a>. Problem nicht gelöst? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit Logs aus Einstellungen.</p>
-                </div>
-              </div>
-            )}
+            {helpTab === "troubleshooting" && <ProblemeTab />}
 
-            {helpTab === "bug" && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted/60">
-                  Beschreibe den Fehler möglichst genau. Ein GitHub-Account wird benötigt.
-                </p>
-                <a
-                  href="https://github.com/MadGapun/PBP/issues/new?labels=bug&title=%5BBug%5D+"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-coral/15 px-4 py-2.5 text-sm font-medium text-coral hover:bg-coral/25 transition-colors"
-                >
-                  <ExternalLink size={16} />
-                  Bug auf GitHub melden
-                </a>
-              </div>
-            )}
-
-            {helpTab === "feature" && (
-              <div className="space-y-3">
-                <p className="text-sm text-muted/60">
-                  Hast du eine Idee für eine Verbesserung? Erstelle einen Feature-Vorschlag auf GitHub.
-                </p>
-                <a
-                  href="https://github.com/MadGapun/PBP/issues/new?labels=enhancement&title=%5BFeature%5D+"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg bg-sky/15 px-4 py-2.5 text-sm font-medium text-sky hover:bg-sky/25 transition-colors"
-                >
-                  <ExternalLink size={16} />
-                  Feature vorschlagen
-                </a>
-              </div>
-            )}
+            {helpTab === "melden" && <MeldenTab copyPrompt={copyPrompt} />}
 
             {helpTab === "credits" && (
               <div className="space-y-3 text-sm">

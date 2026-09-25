@@ -64,6 +64,7 @@ def test_i15_verweist_auf_den_gruenen_punkt_und_den_startsatz():
 
 STARTSATZ_ORTE = [
     FRONTEND / "App.jsx", FRONTEND / "pages" / "DashboardPage.jsx",
+    FRONTEND / "lib" / "hilfe.js", FRONTEND / "components" / "HilfeInhalt.jsx",
     FRONTEND / "components" / "ProfileOnboarding.jsx",
     PAKET / "prompts.py", _repo() / "README.md",
     _repo() / "installer" / "install.ps1", _repo() / "installer" / "setup_gui.py", BAT,
