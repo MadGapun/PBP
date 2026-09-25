@@ -95,3 +95,63 @@ def test_g61_dashboard_kennzahlen(browser, server):
         assert "Lagerhelfer Nachtschicht" not in top.inner_text()
     finally:
         page.close()
+
+
+def _seite(browser, url, reiter):
+    page = browser.new_page(viewport={"width": 1400, "height": 1000})
+    page.goto(f"{url}/#{reiter}", wait_until="networkidle", timeout=30000)
+    return page
+
+
+def test_g67_dialog_fragt_vor_dem_verwerfen(browser, server):
+    url, _db = server
+    page = _seite(browser, url, "kontakte")
+    try:
+        page.get_by_role("button", name="Neuer Kontakt").first.click()
+        page.get_by_placeholder("z.B. Maria Mustermann").fill("Erika Beispiel")
+        page.keyboard.press("Escape")
+        frage = page.locator("[data-verwerfen-frage]")
+        frage.wait_for(timeout=5000)
+        frage.get_by_role("button", name="Weiter bearbeiten").click()
+        assert page.get_by_placeholder("z.B. Maria Mustermann").input_value() == "Erika Beispiel"
+        page.locator("[data-modal-schliessen]").last.click()
+        page.locator("[data-verwerfen-frage]").get_by_role("button", name="Verwerfen").click()
+        page.get_by_placeholder("z.B. Maria Mustermann").wait_for(state="detached", timeout=5000)
+    finally:
+        page.close()
+
+
+def test_g67_statuswechsel_mit_rueckgaengig(browser, server):
+    url, db = server
+    aid = db.get_applications()[0]["id"]
+    page = _seite(browser, url, "bewerbungen")
+    try:
+        page.get_by_role("button", name="Beworben", exact=True).first.click()
+        page.get_by_text("Abgelehnt", exact=True).last.click()
+        toast = page.get_by_text("die Bewerbung ist jetzt im Archiv")
+        toast.wait_for(timeout=10000)
+        page.get_by_role("button", name="Rückgängig").first.click()
+        page.get_by_text("Zurückgesetzt auf").wait_for(timeout=10000)
+        assert db.get_application(aid)["status"] == "beworben"
+    finally:
+        page.close()
+
+
+def test_g67_folgenreiches_fragt_im_eigenen_dialog(browser, server):
+    url, db = server
+    cid = db.add_contact({"full_name": "Erika Beispiel", "company": "Musterbetrieb GmbH"})
+    page = _seite(browser, url, "kontakte")
+    try:
+        page.get_by_text("Erika Beispiel").first.click()
+        page.get_by_role("button", name="Löschen").first.click()
+        dialog = page.locator("[data-bestaetigung]")
+        dialog.wait_for(timeout=5000)
+        dialog.get_by_role("button", name="Abbrechen").click()
+        page.wait_for_timeout(500)
+        assert any(k["id"] == cid for k in db.list_contacts())
+        page.get_by_role("button", name="Löschen").first.click()
+        page.locator("[data-bestaetigung]").get_by_role("button", name="Ja").click()
+        page.get_by_text("Kontakt gelöscht").wait_for(timeout=5000)
+        assert not any(k["id"] == cid for k in db.list_contacts())
+    finally:
+        page.close()

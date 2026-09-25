@@ -1,4 +1,5 @@
-﻿import {
+﻿import { bestaetigen } from "@/lib/bestaetigung";
+import {
   Ban,
   BriefcaseBusiness,
   ChevronDown,
@@ -765,7 +766,7 @@ export default function ProfilePage() {
   }
 
   async function deleteProject(positionId, projectId) {
-    if (!window.confirm("Projekt wirklich löschen?")) return;
+    if (!(await bestaetigen({ text: "Projekt wirklich löschen?" }))) return;
     try {
       await deleteRequest(`/api/project/${projectId}`);
       startTransition(() => {
@@ -1830,8 +1831,8 @@ export default function ProfilePage() {
                     <Button variant="ghost" onClick={() => setEducationDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
                     <Button
                       variant="ghost"
-                      onClick={() => {
-                        if (!window.confirm(`Ausbildung "${item.institution}" wirklich löschen?`)) return;
+                      onClick={async () => {
+                        if (!(await bestaetigen({ text: `Ausbildung "${item.institution}" wirklich löschen?` }))) return;
                         quickAction(() => deleteRequest(`/api/education/${item.id}`), "Ausbildung gelöscht", {
                           onSuccess: () =>
                             startTransition(() => {
@@ -1992,8 +1993,8 @@ export default function ProfilePage() {
                               <Button
                                 size="sm"
                                 variant="ghost"
-                                onClick={() => {
-                                  if (!window.confirm(`Skill "${item.name}" wirklich löschen?`)) return;
+                                onClick={async () => {
+                                  if (!(await bestaetigen({ text: `Skill "${item.name}" wirklich löschen?` }))) return;
                                   quickAction(() => deleteRequest(`/api/skill/${item.id}`), "Skill gelöscht", {
                                     onSuccess: () =>
                                       startTransition(() => {
@@ -2224,9 +2225,9 @@ export default function ProfilePage() {
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={(event) => {
+                            onClick={async (event) => {
                               event.stopPropagation();
-                              if (!window.confirm("Diesen Historieneintrag wirklich löschen?")) return;
+                              if (!(await bestaetigen({ text: "Diesen Historieneintrag wirklich löschen?" }))) return;
                               quickAction(
                                 () => deleteRequest(`/api/extraction-history/${entry.id}`),
                                 "Historieneintrag gelöscht",
@@ -2323,7 +2324,7 @@ export default function ProfilePage() {
         open={positionDialog.open}
         title={positionDialog.draft.id ? "Position bearbeiten" : "Neue Position"}
         onClose={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}
-        footer={<div className="flex items-center justify-between gap-3">{positionDialog.draft.id ? (<Button variant="danger" onClick={() => { if (!window.confirm("Position wirklich löschen? Alle zugehörigen Projekte werden ebenfalls gelöscht.")) return; quickAction(() => deleteRequest(`/api/position/${positionDialog.draft.id}`), "Position gelöscht", { onSuccess: () => { setPositionDialog({ open: false, draft: EMPTY_POSITION }); startTransition(() => { setProfile((c) => c ? { ...c, positions: (c.positions || []).filter((p) => p.id !== positionDialog.draft.id) } : c); }); } }); }}><Trash2 size={15} /> Löschen</Button>) : <span />}<div className="flex gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div></div>}
+        footer={<div className="flex items-center justify-between gap-3">{positionDialog.draft.id ? (<Button variant="danger" onClick={async () => { if (!(await bestaetigen({ text: "Position wirklich löschen? Alle zugehörigen Projekte werden ebenfalls gelöscht." }))) return; quickAction(() => deleteRequest(`/api/position/${positionDialog.draft.id}`), "Position gelöscht", { onSuccess: () => { setPositionDialog({ open: false, draft: EMPTY_POSITION }); startTransition(() => { setProfile((c) => c ? { ...c, positions: (c.positions || []).filter((p) => p.id !== positionDialog.draft.id) } : c); }); } }); }}><Trash2 size={15} /> Löschen</Button>) : <span />}<div className="flex gap-3"><Button variant="ghost" onClick={() => setPositionDialog({ open: false, draft: EMPTY_POSITION })}>Abbrechen</Button><Button onClick={() => saveItem("position", positionDialog)}>Speichern</Button></div></div>}
       >
         <div className="grid gap-4 md:grid-cols-2">
           <Field label="Firma">

@@ -1,3 +1,4 @@
+import { bestaetigen } from "@/lib/bestaetigung";
 import { Fragment, useState } from "react";
 import { AlertTriangle, Ban, CheckCircle2, Clock, ExternalLink, LoaderCircle, VolumeX, XCircle, Zap } from "lucide-react";
 
@@ -306,7 +307,7 @@ export default function SourceSelectionList({
                   checked={Boolean(source.active) && !isDefekt}
                   disabled={isDefekt}
                   title={isDefekt ? "Quelle ist als defekt markiert. Bis zur Reparatur nur über die Claude-Erweiterung im Browser nutzbar." : undefined}
-                  onChange={(event) => {
+                  onChange={async (event) => {
                     if (isDefekt) return;
                     const checked = event.target.checked;
                     // v1.7.17 (#906): browser_login-Quellen nur nach
@@ -319,8 +320,8 @@ export default function SourceSelectionList({
                       ];
                       if (source.login_hinweis) zeilen.push(source.login_hinweis);
                       if (source.konto_url) zeilen.push(`Konto anlegen: ${source.konto_url}`);
-                      zeilen.push("Treffer übernimmt Claude mit stelle_manuell_anlegen().");
-                      if (!window.confirm(`${zeilen.join("\n\n")}\n\nVerstanden — Quelle aktivieren?`)) {
+                      zeilen.push("Passende Treffer legt Claude für dich als Stelle an.");
+                      if (!(await bestaetigen({ text: `${zeilen.join("\n\n")}\n\nVerstanden — Quelle aktivieren?` }))) {
                         event.target.checked = false;
                         return;
                       }

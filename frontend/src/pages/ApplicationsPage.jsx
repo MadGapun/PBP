@@ -1,4 +1,5 @@
-﻿import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
+﻿import { bestaetigen } from "@/lib/bestaetigung";
+import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
 
@@ -112,7 +113,7 @@ function EmailUploadButton({ pushToast, onImported }) {
 }
 
 export default function ApplicationsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo, intent, clearIntent, copyPrompt } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, navigateTo, intent, clearIntent, copyPrompt, geloeschtMitRueckweg } = useApp();
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState([]);
   const [followUps, setFollowUps] = useState([]);
@@ -235,7 +236,7 @@ export default function ApplicationsPage() {
 
   async function updateStatus(applicationId, status, options = {}) {
     try {
-      await putJson(`/api/applications/${applicationId}/status`, { status });
+      const antwort = await putJson(`/api/applications/${applicationId}/status`, { status });
       setApplications((current) =>
         current.map((app) => (app.id === applicationId ? { ...app, status } : app))
       );
@@ -243,7 +244,34 @@ export default function ApplicationsPage() {
         await reloadTimeline(applicationId);
       }
       await refreshChrome({ quiet: true, forceReload: true });
-      pushToast("Status aktualisiert.", "success");
+      // G67 (#1087 D8): das Auswahlfeld speichert sofort — der Toast
+      // bietet den Rueckweg an und sagt, wenn die Bewerbung dabei ins
+      // Archiv gewandert ist.
+      const rueckweg = antwort?.rueckweg;
+      const meldung = rueckweg?.archiviert
+        ? `Status: ${statusLabel(status)} — die Bewerbung ist jetzt im Archiv.`
+        : `Status: ${statusLabel(status)}.`;
+      pushToast(meldung, "success", rueckweg ? {
+        duration: 9000,
+        dedupe: false,
+        action: {
+          label: "Rückgängig",
+          onClick: async () => {
+            try {
+              await postJson(`/api/applications/${applicationId}/status/rueckgaengig`, { rueckweg });
+              setApplications((current) =>
+                current.map((app) => (app.id === applicationId ? { ...app, status: rueckweg.vorher } : app))
+              );
+              setTimelineStatusDraft?.(rueckweg.vorher);
+              if (options.reloadTimeline) await reloadTimeline(applicationId);
+              await refreshChrome({ quiet: true, forceReload: true });
+              pushToast(`Zurückgesetzt auf ${statusLabel(rueckweg.vorher)}.`, "success");
+            } catch (err) {
+              pushToast(`Zurücksetzen hat nicht geklappt: ${err.message}`, "danger");
+            }
+          },
+        },
+      } : {});
       // #455 / v1.5.7: Bei Zusage Abschluss-Dialog automatisch oeffnen
       if (status === "angenommen") {
         const app = applications.find((a) => a.id === applicationId)
@@ -451,8 +479,9 @@ export default function ApplicationsPage() {
     const appId = timelineDialog.entry?.application?.id;
     if (!appId) return;
     try {
-      await deleteRequest(`/api/tasks/${task.id}`);
+      const antwort = await deleteRequest(`/api/tasks/${task.id}`);
       await reloadTimelineTasks(appId);
+      geloeschtMitRueckweg(antwort, "Aufgabe gelöscht.", () => reloadTimelineTasks(appId));
     } catch (error) {
       pushToast(`Aufgabe löschen fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -502,9 +531,9 @@ export default function ApplicationsPage() {
     const appId = timelineDialog.entry?.application?.id;
     if (!appId) return;
     try {
-      await deleteRequest(`/api/applications/${appId}/notes/${eventId}`);
+      const antwort = await deleteRequest(`/api/applications/${appId}/notes/${eventId}`);
       await reloadTimeline(appId);
-      pushToast("Notiz gelöscht.", "success");
+      geloeschtMitRueckweg(antwort, "Notiz gelöscht.", () => reloadTimeline(appId));
     } catch (error) {
       pushToast(`Notiz konnte nicht gelöscht werden: ${error.message}`, "danger");
     }
@@ -1778,7 +1807,7 @@ export default function ApplicationsPage() {
                         {/* Delete meeting (#266) */}
                         <button
                           onClick={async () => {
-                            if (!confirm("Termin wirklich löschen?")) return;
+                            if (!(await bestaetigen({ text: "Termin wirklich löschen?" }))) return;
                             await deleteRequest(`/api/meetings/${m.id}`);
                             pushToast("Termin gelöscht.", "success");
                             // G57 (#1087 D4): hier stand `loadTimeline()`, das es
@@ -1837,7 +1866,7 @@ export default function ApplicationsPage() {
                         </button>
                         <button
                           onClick={async () => {
-                            if (!confirm("Reflexion wirklich löschen?")) return;
+                            if (!(await bestaetigen({ text: "Reflexion wirklich löschen?" }))) return;
                             try {
                               await deleteRequest(`/api/reflexionen/${r.id}`);
                               setTimelineReflexionen((prev) => prev.filter((x) => x.id !== r.id));

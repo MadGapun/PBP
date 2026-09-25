@@ -1,4 +1,5 @@
-﻿import { Check, Copy, Upload, X } from "lucide-react";
+﻿import { bestaetigen } from "@/lib/bestaetigung";
+import { Check, Copy, Upload, X } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
@@ -542,10 +543,10 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     if (!selectedDocs.length) return;
 
     const count = selectedDocs.length;
-    const confirmed = window.confirm(
+    const confirmed = (await bestaetigen({ text: 
       `${count} Datei(en) wirklich entfernen?\n\n` +
         "Die zugehörigen Extraktions-/Analyse-Einträge dieser Datei(en) werden ebenfalls gelöscht."
-    );
+     }));
     if (!confirmed) return;
 
     setDeletingDocuments(true);
@@ -818,8 +819,8 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     }
   }
 
-  function skipStep() {
-    if (!window.confirm("Das komplette Setup wirklich überspringen?")) return;
+  async function skipStep() {
+    if (!(await bestaetigen({ text: "Das komplette Setup wirklich überspringen?" }))) return;
     onDismiss();
   }
 

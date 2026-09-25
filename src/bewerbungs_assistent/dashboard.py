@@ -2809,12 +2809,11 @@ async def api_update_app_status(app_id: str, request: Request):
     open_before = sum(
         1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
     )
-    if not profile_id or not _db.update_application_status(
-        app_id,
-        new_status,
-        data.get("notes", ""),
-        profile_id=profile_id,
-    ):
+    # G67 (#1087 D8): der Wechsel liefert seinen Rueckweg mit.
+    from .services import status_rueckweg as _rueckweg
+    rueckweg = _rueckweg.wechseln(_db, app_id, new_status, data.get("notes", ""),
+                                  profile_id=profile_id) if profile_id else None
+    if not rueckweg:
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     open_after = sum(
         1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
@@ -2835,7 +2834,18 @@ async def api_update_app_status(app_id: str, request: Request):
                 "id": latest.get("id"),
                 "scheduled_date": latest.get("scheduled_date"),
             }
-    return {"status": "ok", "lifecycle": lifecycle}
+    return {"status": "ok", "lifecycle": lifecycle, "rueckweg": rueckweg}
+
+
+@app.post("/api/applications/{app_id}/status/rueckgaengig")
+async def api_app_status_rueckgaengig(app_id: str, request: Request):
+    """Nimmt einen Statuswechsel zurueck (G67, #1087 D8)."""
+    from .services import status_rueckweg as _rueckweg
+    data = await request.json()
+    if not _rueckweg.zuruecknehmen(_db, app_id, data.get("rueckweg") or {},
+                                   profile_id=_get_active_profile_id()):
+        return JSONResponse({"error": "Nichts zurückzunehmen"}, status_code=400)
+    return {"status": "ok"}
 
 
 @app.get("/api/settings/pbp-start-date")
@@ -3129,8 +3139,11 @@ async def api_delete_note(app_id: str, event_id: int):
     """Delete a note from the application timeline."""
     if not _get_application_row_for_active_profile(app_id):
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    # G67 (#1087 H5): die Zeile fuer "Rueckgaengig" mitgeben.
+    from .services import papierkorb
+    zeile = papierkorb.aufheben(_db, "notiz", event_id)
     _db.delete_application_event(event_id, app_id)
-    return {"status": "ok"}
+    return {"status": "ok", "rueckweg": {"art": "notiz", "zeile": zeile} if zeile else None}
 
 
 @app.put("/api/applications/{app_id}/events/{event_id}/date")
@@ -5334,9 +5347,21 @@ async def api_reopen_task(task_id: str):
 
 @app.delete("/api/tasks/{task_id}")
 async def api_delete_task(task_id: str):
+    from .services import papierkorb
+    zeile = papierkorb.aufheben(_db, "aufgabe", task_id)
     ok = _db.delete_task(task_id)
     if not ok:
         return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
+    return {"status": "ok", "rueckweg": {"art": "aufgabe", "zeile": zeile} if zeile else None}
+
+
+@app.post("/api/wiederherstellen")
+async def api_wiederherstellen(request: Request):
+    """Legt eine eben geloeschte kleine Zeile wieder an (G67, #1087 H5)."""
+    from .services import papierkorb
+    data = await request.json()
+    if not papierkorb.wiederherstellen(_db, str(data.get("art") or ""), data.get("zeile") or {}):
+        return JSONResponse({"error": "Nicht wiederherstellbar"}, status_code=400)
     return {"status": "ok"}
 
 
@@ -8424,10 +8449,12 @@ async def api_reference_update(ref_id: str, request: Request):
 
 @app.delete("/api/references/{ref_id}")
 async def api_reference_delete(ref_id: str):
+    from .services import papierkorb
+    zeile = papierkorb.aufheben(_db, "referenz", ref_id)
     if not _db.delete_contact_reference(ref_id):
         return JSONResponse({"error": "Referenz nicht gefunden"},
                             status_code=404)
-    return {"status": "ok"}
+    return {"status": "ok", "rueckweg": {"art": "referenz", "zeile": zeile} if zeile else None}
 
 
 @app.get("/api/contacts/export.csv")

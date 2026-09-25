@@ -1,3 +1,4 @@
+import { bestaetigen } from "@/lib/bestaetigung";
 import {
   Briefcase,
   ChevronRight,
@@ -125,7 +126,7 @@ function ContactCard({ contact, onClick }) {
 }
 
 function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
-  const { copyPrompt } = useApp();
+  const { copyPrompt, geloeschtMitRueckweg } = useApp();
   const isEdit = Boolean(contact?.id);
   const [form, setForm] = useState(() => ({
     full_name: contact?.full_name || "",
@@ -176,8 +177,9 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
 
   async function handleRemoveReference(refId) {
     try {
-      await deleteRequest(`/api/references/${refId}`);
+      const antwort = await deleteRequest(`/api/references/${refId}`);
       loadRefs();
+      geloeschtMitRueckweg(antwort, "Referenz entfernt.", loadRefs);
     } catch (err) {
       pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
     }
@@ -222,7 +224,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
   }
 
   async function handleDelete() {
-    if (!confirm(`Kontakt „${contact.full_name}" wirklich löschen?`)) return;
+    if (!(await bestaetigen({ text: `Kontakt „${contact.full_name}" wirklich löschen?` }))) return;
     try {
       await deleteRequest(`/api/contacts/${contact.id}`);
       pushToast("Kontakt gelöscht", "success");
@@ -610,7 +612,7 @@ function CategoryManagementSection({ pushToast }) {
   }
 
   async function removeCat(id, name) {
-    if (!confirm(`Kategorie "${name}" wirklich löschen?`)) return;
+    if (!(await bestaetigen({ text: `Kategorie "${name}" wirklich löschen?` }))) return;
     setBusy(true);
     try {
       const r = await fetch(`/api/contacts/categories/${id}`, { method: "DELETE" });
@@ -918,6 +920,7 @@ export default function ContactsPage() {
 // Bewusst ein natives <select>: SelectInput in Field nennt Screenreadern
 // die Feldbeschriftung statt des gewaehlten Werts (#1027).
 function ReferencesSection({ pushToast, reloadKey }) {
+  const { geloeschtMitRueckweg } = useApp();
   const [refs, setRefs] = useState([]);
   const [arten, setArten] = useState([]);
   const [artFilter, setArtFilter] = useState("");
@@ -944,8 +947,9 @@ function ReferencesSection({ pushToast, reloadKey }) {
 
   async function entfernen(refId) {
     try {
-      await deleteRequest(`/api/references/${refId}`);
+      const antwort = await deleteRequest(`/api/references/${refId}`);
       reloadRefs();
+      geloeschtMitRueckweg(antwort, "Referenz entfernt.", reloadRefs);
     } catch (err) {
       pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
     }

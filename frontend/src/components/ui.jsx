@@ -483,13 +483,36 @@ export function LoadingPanel({ label = "Lade Daten..." }) {
   );
 }
 
-export function Modal({ open, title, description, onClose, children, footer, size = "lg" }) {
+// G67 (#1087 H5): Schliessen-Kreuz im Kopf, und wer im Dialog etwas
+// eingegeben hat, wird vor dem Verwerfen gefragt — ein Klick daneben oder
+// Escape verwarf bis v1.7.135 ein halb ausgefuelltes Formular. Die
+// Schaltflaechen des Aufrufers (Speichern, Abbrechen) schliessen ohne
+// Rueckfrage; sie sind eine Entscheidung. `schutz={false}` fuer Dialoge
+// ohne Formular (Suchfeld, Bestaetigung).
+export function Modal({ open, title, description, onClose, children, footer, size = "lg", schutz = true }) {
+  const [geaendert, setGeaendert] = useState(false);
+  const [verwerfenFrage, setVerwerfenFrage] = useState(false);
+  useEffect(() => {
+    if (open) {
+      setGeaendert(false);
+      setVerwerfenFrage(false);
+    }
+  }, [open]);
+
+  function schliessenVersuchen() {
+    if (schutz && geaendert) {
+      setVerwerfenFrage(true);
+      return;
+    }
+    onClose();
+  }
+
   useEffect(() => {
     if (!open) return undefined;
 
     function handleEscape(event) {
       if (event.key === "Escape") {
-        onClose();
+        schliessenVersuchen();
       }
     }
 
@@ -499,7 +522,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
       document.body.classList.remove("overflow-hidden");
       window.removeEventListener("keydown", handleEscape);
     };
-  }, [open, onClose]);
+  });
 
   if (!open) return null;
 
@@ -508,15 +531,40 @@ export function Modal({ open, title, description, onClose, children, footer, siz
       className="glass-overlay fixed inset-0 z-[1000] flex items-center justify-center px-4 py-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) {
-          onClose();
+          schliessenVersuchen();
         }
       }}
     >
-      <div className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}>
-        <div className="border-b border-white/6 px-6 py-5">
-          <h2 className="text-xl font-semibold text-ink">{title}</h2>
-          {description ? <p className="mt-1.5 text-[13px] text-muted/70">{description}</p> : null}
+      <div
+        className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}
+        onInputCapture={() => setGeaendert(true)}
+        onChangeCapture={() => setGeaendert(true)}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-white/6 px-6 py-5">
+          <div className="min-w-0">
+            <h2 className="text-xl font-semibold text-ink">{title}</h2>
+            {description ? <p className="mt-1.5 text-[13px] text-muted/70">{description}</p> : null}
+          </div>
+          <button
+            type="button"
+            aria-label="Schließen"
+            title="Schließen"
+            data-modal-schliessen
+            onClick={schliessenVersuchen}
+            className="shrink-0 rounded-lg p-1.5 text-muted hover:bg-white/[0.06] hover:text-ink"
+          >
+            <X size={18} />
+          </button>
         </div>
+        {verwerfenFrage ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber/20 bg-amber/10 px-6 py-3 text-sm text-ink" data-verwerfen-frage>
+            <span>Deine Eingaben sind noch nicht gespeichert. Verwerfen?</span>
+            <span className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setVerwerfenFrage(false)}>Weiter bearbeiten</Button>
+              <Button size="sm" variant="danger" onClick={() => { setVerwerfenFrage(false); onClose(); }}>Verwerfen</Button>
+            </span>
+          </div>
+        ) : null}
         <div className="soft-scrollbar max-h-[calc(90vh-10rem)] overflow-y-auto px-6 py-5">{children}</div>
         {footer ? <div className="border-t border-white/6 px-6 py-4">{footer}</div> : null}
       </div>

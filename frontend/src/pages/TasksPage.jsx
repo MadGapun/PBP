@@ -67,7 +67,7 @@ async function patchJson(url, body) {
 }
 
 export default function TasksPage() {
-  const { navigateTo, copyPrompt } = useContext(AppContext) || {};
+  const { navigateTo, copyPrompt, geloeschtMitRueckweg } = useContext(AppContext) || {};
   const [daten, setDaten] = useState(null);
   const [statusFilter, setStatusFilter] = useState("offen");
   const [neuOffen, setNeuOffen] = useState(false);
@@ -130,7 +130,10 @@ export default function TasksPage() {
         if (was === "erledigt") await postJson(`/api/tasks/${eintrag.id}/complete`, {});
         else if (was === "hinfaellig") await postJson(`/api/tasks/${eintrag.id}/hinfaellig`, {});
         else if (was === "reopen") await postJson(`/api/tasks/${eintrag.id}/reopen`, {});
-        else if (was === "loeschen") await deleteRequest(`/api/tasks/${eintrag.id}`);
+        else if (was === "loeschen") {
+          const antwort = await deleteRequest(`/api/tasks/${eintrag.id}`);
+          geloeschtMitRueckweg(antwort, "Aufgabe gelöscht.", laden);
+        }
       } else if (eintrag.herkunft === "nachfass") {
         if (was === "erledigt") await postJson(`/api/follow-ups/${eintrag.id}/complete`, {});
         // #980: hier stand ein Aufruf auf `.../obsolete` — eine Route,
@@ -274,7 +277,7 @@ ${e.claude_prompt}`
           </button>
           {e.herkunft === "todo" && (
             <button
-              onClick={() => { if (confirm("Aufgabe wirklich löschen?")) aktion(e, "loeschen"); }}
+              onClick={() => aktion(e, "loeschen")}
               title="Löschen"
               className="rounded p-1 text-muted/30 hover:bg-coral/15 hover:text-coral">
               <Trash2 size={13} />
