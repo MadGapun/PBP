@@ -193,3 +193,35 @@ def test_g69_suche_und_bewertung(browser, server):
         assert page.locator("#suche-blacklist").is_visible()
     finally:
         page.close()
+
+
+def test_g70_grundlagen_und_erweitert(browser, server):
+    url, db = server
+    db.add_position({"company": "Musterklinik", "title": "Pflegefachkraft",
+                     "description": "Intensivstation", "start_date": "2013-01"})
+    db.add_skill({"name": "Intensivpflege"})
+    db.set_profile_setting("active_sources", ["bundesagentur"])
+    page = _seite(browser, url, "einstellungen")
+    try:
+        reiter = page.locator("[data-settings-reiter]")
+        reiter.wait_for(timeout=15000)
+        assert reiter.get_by_role("button", name="Ordner", exact=True).is_visible()
+        assert page.locator("[data-erweitert-reiter]").count() == 0
+        liste = page.locator("[data-empfehlung-liste]")
+        liste.wait_for(timeout=15000)
+        haken = liste.locator('input[type="checkbox"]:not(:checked):not([disabled])').first
+        schluessel = haken.get_attribute("data-quelle")
+        haken.click()
+        for _ in range(50):
+            if schluessel in (db.get_profile_setting("active_sources") or []):
+                break
+            page.wait_for_timeout(100)
+        assert schluessel in db.get_profile_setting("active_sources")
+        assert "#" not in liste.inner_text()
+        page.locator("[data-erweitert-schalter]").click()
+        erweitert = page.locator("[data-erweitert-reiter]")
+        erweitert.get_by_role("button", name="Automatik", exact=True).click()
+        page.get_by_text("Nachfassen nach einem Interview").wait_for(timeout=10000)
+        assert page.get_by_text("Nachfass-Erinnerungen", exact=True).count() == 1
+    finally:
+        page.close()
