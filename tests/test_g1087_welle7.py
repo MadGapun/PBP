@@ -244,3 +244,66 @@ def test_g71_der_varianten_guard_sieht_etwas():
     assert ungueltige_varianten('<Button size="xs">', erlaubt)
     assert ungueltige_varianten('<Badge tone="subtle">', erlaubt)
     assert not ungueltige_varianten('<Button size="sm" variant="ghost">', erlaubt)
+
+
+# ══ L13 — Anwender-Doku ohne Widersprueche ════════════════════════════
+
+def _readme(name="README.md") -> str:
+    return (_repo() / name).read_text(encoding="utf-8")
+
+
+def test_l13_version_und_zahlen_an_einer_stelle():
+    readme = _readme()
+    assert "## Roadmap" not in readme and "## Changelog" not in readme
+    assert "github.com/MadGapun/PBP/releases" in readme
+    # Die Testzahl steht nur im Kopf (Zeile und Plakette), die der
+    # Release-Check pflegt — nirgends sonst.
+    assert len(re.findall(r"\d[\d.]* automatische Tests", readme)) == 1
+    blick = readme[readme.index("## Auf einen Blick"):readme.index("###", readme.index("## Auf einen Blick"))]
+    for wort in ("Tests", "Schema", "Modulen", "MCP-Tools"):
+        assert wort not in blick, wort
+    # Keine Versionsnummer als Etikett eines Features.
+    kopf_ende = readme.index("## So funktioniert PBP")
+    assert not re.search(r"\(neu in v1\.\d|\(v1\.\d+\.\d+\)", readme[kopf_ende:])
+
+
+def test_l13_englische_fassung_ohne_eigene_zahlen():
+    en = _readme("README.en.md")
+    assert not re.search(r"\*\*\d+ MCP tools\*\*|\*\*\d+ configured job sources\*\*|\*\*\d+ automated tests\*\*", en)
+    assert "Version **v1." not in en
+    assert "releases/latest" in en
+
+
+def test_l13_datenschutz_praezise():
+    readme = _readme()
+    assert "Deine Daten bleiben auf deinem Rechner." not in readme
+    assert "Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic." in readme
+    en = _readme("README.en.md")
+    assert "is sent to Anthropic" in en
+
+
+def test_l13_einstieg_ohne_portalnamen():
+    readme = _readme()
+    kopf = readme[:readme.index("## Auf einen Blick")]
+    for portal in ("Kimeta", "Hays", "StepStone", "Indeed", "LinkedIn", "XING"):
+        assert portal not in kopf, portal
+
+
+def test_g71_leerer_bereich_zeigt_keinen_griff():
+    bereich = _lesen(FRONTEND / "components" / "DashboardBereich.jsx")
+    assert '<section className="dashboard-bereich min-w-0">' in bereich
+    css = _lesen(FRONTEND / "styles.css")
+    assert ".dashboard-bereich:not(:has(> :nth-child(2))) {\n  display: none;" in css
+
+
+def test_g71_einordnung_mit_umlauten():
+    """Die Texte der Profil-Einordnung erscheinen im Dashboard."""
+    from bewerbungs_assistent.services import berufsfeld
+    texte = list(berufsfeld.NIVEAUS.values()) + list(berufsfeld.FORMEN.values())
+    texte += [f["name"] for f in berufsfeld.FELDER.values()]
+    texte += [f["bereich"] for f in berufsfeld.FELDER.values()]
+    umschrift = re.compile(r"(?i)taetig|kaufmaenn|gebaeude|selbststaendig|faehig|moeglich")
+    assert not [t for t in texte if umschrift.search(t)]
+    from bewerbungs_assistent.services import profile_classifier
+    quelle = _lesen(Path(profile_classifier.__file__))
+    assert "abwaehlen ist jederzeit" not in quelle and "Faehigkeiten enthaelt" not in quelle

@@ -60,12 +60,12 @@ from typing import Optional
 # Kundenbeziehungen", "Erzieher" nicht in einer IT-Anzeige.
 
 BEREICH_GESUNDHEIT = "Gesundheit, Soziales, Lehre und Erziehung"
-BEREICH_BAU = "Bau, Architektur und Gebaeudetechnik"
+BEREICH_BAU = "Bau, Architektur und Gebäudetechnik"
 BEREICH_PRODUKTION = "Rohstoffe, Produktion und Fertigung"
 BEREICH_AGRAR = "Land- und Forstwirtschaft, Gartenbau"
 BEREICH_MINT = "Naturwissenschaft, Geografie und Informatik"
 BEREICH_VERKEHR = "Verkehr, Logistik, Schutz und Sicherheit"
-BEREICH_KAUFM = ("Kaufmaennische Dienstleistungen, Handel, Vertrieb, "
+BEREICH_KAUFM = ("Kaufmännische Dienstleistungen, Handel, Vertrieb, "
                  "Hotel und Tourismus")
 BEREICH_ORG = "Unternehmensorganisation, Buchhaltung, Recht und Verwaltung"
 BEREICH_MEDIEN = ("Sprach-, Geistes- und Gesellschaftswissenschaften, "
@@ -299,10 +299,10 @@ FELD_RANG = [
 # Die vier Anforderungsniveaus der KldB 2010.
 
 NIVEAUS: dict[str, str] = {
-    "helfer": "Helfer- und Anlerntaetigkeit",
-    "fachkraft": "Fachlich ausgerichtete Taetigkeit",
-    "spezialist": "Komplexe Spezialistentaetigkeit",
-    "experte": "Hoch komplexe Taetigkeit",
+    "helfer": "Helfer- und Anlerntätigkeit",
+    "fachkraft": "Fachlich ausgerichtete Tätigkeit",
+    "spezialist": "Komplexe Spezialistentätigkeit",
+    "experte": "Hoch komplexe Tätigkeit",
     "unbekannt": "Nicht einzuordnen",
 }
 
@@ -357,7 +357,7 @@ _KEIN_FUEHRUNGSWORT = (
 
 FORMEN: dict[str, str] = {
     "festanstellung": "Festanstellung",
-    "freiberuflich": "Freiberuflich / selbststaendig",
+    "freiberuflich": "Freiberuflich / selbstständig",
     "werkstudent": "Studium / Werkstudent",
     "praktikum": "Praktikum / Ausbildung",
     "unbekannt": "Nicht einzuordnen",

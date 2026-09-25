@@ -300,9 +300,9 @@ def recommend_sources(profile: Optional[dict], suchbegriffe=None) -> dict:
         rationale = (
             f"PBP konnte das Berufsfeld nicht sicher einordnen und "
             f"empfiehlt deshalb BREIT: {len(sources)} Quellen quer durch "
-            "die grossen deutschen Portale. Das ist bewusst mehr, nicht "
+            "die großen deutschen Portale. Das ist bewusst mehr, nicht "
             "weniger — im Zweifel lieber eine Quelle zu viel. Sobald das "
-            "Profil Stationen und Faehigkeiten enthaelt, wird die "
+            "Profil Stationen und Fähigkeiten enthält, wird die "
             "Empfehlung genauer."
         )
     else:
@@ -315,8 +315,8 @@ def recommend_sources(profile: Optional[dict], suchbegriffe=None) -> dict:
         rationale = (
             f"Erkannt als {detection['label']} ({'; '.join(teile)}). PBP "
             f"empfiehlt diese {len(sources)} Quellen — der Empfehlung "
-            "folgen oder einzelne Quellen abwaehlen ist jederzeit "
-            "moeglich."
+            "folgen oder einzelne Quellen abwählen ist jederzeit "
+            "möglich."
         )
     return {
         **detection,

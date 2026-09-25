@@ -56,7 +56,7 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 
 <br>
 
-*Aufgaben — Nachfassen, Termine und Todos nach Fälligkeit gruppiert (neu in v1.7.12)*
+*Aufgaben — Nachfassen, Termine und Todos nach Fälligkeit gruppiert*
 ![Aufgaben](docs/screenshots/05b_aufgaben.png)
 
 *Profil — Berufserfahrung, Skills mit Zeiträumen, Ausbildung*
@@ -114,12 +114,12 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 
 ### Und wenn du mehr willst
 
-- **35 Jobportale konfiguriert** (~8 davon liefern aktuell zuverlaessig) — die grosse oeffentliche Jobboerse, mehrere Stellenmaerkte und Bewerbermanagement-Systeme, dazu Projektboersen fuer Freelancer; die uebrigen laufen ueber die Chrome-Extension oder sind sichtbar als defekt markiert, damit kein falscher Eindruck von Abdeckung entsteht ([welche genau, steht im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
+- **Jobbörsen passend zu deinem Berufsfeld** — die öffentliche Jobbörse, Stellenmärkte, Bewerbermanagement-Systeme und Projektbörsen für Freiberufler. PBP empfiehlt die Auswahl nach deinem Profil; Börsen, die nur im Browser gehen, übernimmt Claude, und Quellen, die gerade nicht liefern, sind sichtbar markiert ([welche genau, steht im Wiki](https://github.com/MadGapun/PBP/wiki/Jobportale))
 - **Angepasste Lebensläufe** — Für jede Stelle ein CV, in dem Skills nach Relevanz sortiert sind
 - **E-Mail-Import** — Drag & Drop deine Firmen-Mails rein. Status und Termine werden automatisch erkannt
 - **Kalender** — Grafisches Grid mit Kategorien, Kollisionserkennung und .ics-Export
 - **Bewerbungsstatus verfolgen** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
-- **Aufgaben-Übersicht** — Nachfassen, Termine und Todos nach Fälligkeit an einem Ort (v1.7.12)
+- **Aufgaben-Übersicht** — Nachfassen, Termine und Todos nach Fälligkeit an einem Ort
 - **Scoring-Regler** — Konfiguriere, was dir wichtig ist. PBP sortiert automatisch
 
 > 📖 **Alle Features im Detail:** [Wiki → Dashboard](https://github.com/MadGapun/PBP/wiki/Dashboard) · [Workflows](https://github.com/MadGapun/PBP/wiki/Workflows) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
@@ -165,7 +165,7 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 
 - **Einfach reden — oder sprechen.** Kein Formular, keine Befehle. Tippen oder Mikrofon drücken — Claude versteht beides.
 
-> **&#9888;&#65039; Deine Daten bleiben auf deinem Rechner.** PBP speichert alles in einer einzigen lokalen Datenbankdatei auf deiner Festplatte (`pbp.db`). **Kein Server, kein Account, kein Cloud-Speicher.** Wenn du die Datei löschst, ist alles weg. Wenn du sie kopierst, hast du ein komplettes Backup. So einfach. **Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic.** Welche Bereiche Claude bearbeiten darf, stellst du unter Einstellungen › Claude (Cloud) ein.
+> **&#9888;&#65039; Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic.** PBP speichert alles in einer einzigen Datenbankdatei auf deiner Festplatte (`pbp.db`) — kein PBP-Server, kein PBP-Konto, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg; wenn du sie kopierst, hast du ein komplettes Backup. Was Claude für dich bearbeitet (Profil samt Adresse, Text deiner Dokumente, Anzeigentexte, Notizen), liest Anthropic mit; welche Bereiche Claude bearbeiten darf, stellst du unter Einstellungen › Claude (Cloud) ein. Die vollständige Liste, was wohin geht, steht unter Einstellungen › Datenschutz.
 
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
@@ -235,12 +235,11 @@ Ollama bleiben installiert — die deinstallierst du separat.
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 261 Tools in 12 Modulen |
-| **Workflows** | 25 gefuehrte Workflows (Prompts) |
-| **Jobportale** | 35 Quellen konfiguriert, ~8 aktuell zuverlaessig liefernd (Festanstellung und Freelance); defekte sichtbar markiert, mit Chrome-Workaround |
-| **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
-| **Datenbank** | SQLite (WAL), Schema v48 |
-| **Tests** | 2705 bestanden |
+| **Bedienung** | Im Gespräch mit Claude Desktop, dazu ein Dashboard im Browser |
+| **Dashboard** | Dashboard, Profil, Suche & Bewertung, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
+| **Jobbörsen** | Empfehlung nach deinem Berufsfeld; Quellen, die gerade nicht liefern, sind markiert |
+| **Speicher** | Eine Datei auf deinem Rechner (SQLite) |
+| **Kosten** | Kostenlos (MIT-Lizenz); für viel tägliche Arbeit mit Claude lohnt ein Claude-Abo |
 
 ### Typed IDs (v1.7.0, #505)
 
@@ -263,20 +262,9 @@ und in der UI; intern bleibt die ID gleich.
 
 ---
 
-## Roadmap
+## Neuigkeiten
 
-> **v1.7 ist Stable** — aktuell **v1.7.16** (13. August 2026), mit wöchentlichen Pflege-Releases seit Juni.
-> **Nächster Zyklus: v1.8** — die Beta-Reihe läuft parallel als Vorschau (Plugin-Plattform, Thunderbird-Add-on, Newsletter-Ingest, Komponenten-Framework mit Auto-OCR). Stabil und empfohlen bleibt die 1.7-Linie. Strategische Übersicht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
-
-## Changelog
-
-Die letzten Stable-Releases — vollständige Historie im [CHANGELOG.md](CHANGELOG.md) und auf der [Releases-Seite](https://github.com/MadGapun/PBP/releases):
-
-- **v1.7.16** (13.08.2026) — Aufgeräumtes Paket: neues README mit Bildergalerie, englische Kurzfassung, komplett neue Screenshots aus fiktiven Musterprofilen, interne Arbeitsdokumente aus dem Blickfeld geräumt.
-- **v1.7.15** (13.08.2026) — Datenbank-Verbindung je Thread: Hintergrund-Automatik und Bedienung kommen sich beim Schreiben nicht mehr in die Quere.
-- **v1.7.14** (13.08.2026) — Status-Dropdown ohne tote Werte, Einstellungen-Tab „Bewertung" per Sidebar erreichbar.
-- **v1.7.13** (12.08.2026) — Aufgaben-Tab: Lesezeichen und erster Klick funktionieren; Elwosa respektiert die Frequenz-Einstellung „unbegrenzt".
-- **v1.7.12** (11.08.2026) — Große Pflege-Welle: Aufgaben-Bereich vollwertig bedienbar, Interview-Nachbereitung, Scoring-Fairness, WAL-Hygiene. 15 Issues in einer Welle.
+Was sich in welcher Version geändert hat, steht unter **[Releases](https://github.com/MadGapun/PBP/releases)** und im [CHANGELOG](CHANGELOG.md). Die aktuelle Version nennt die Zeile ganz oben. Was als Nächstes kommt, steht im [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan).
 
 ---
 
