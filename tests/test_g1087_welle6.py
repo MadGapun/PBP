@@ -155,6 +155,17 @@ def test_g67_endpunkte_liefern_den_rueckweg(db):
     weg = c.delete(f"/api/tasks/{tid}").json()["rueckweg"]
     assert weg["art"] == "aufgabe"
     assert c.post("/api/wiederherstellen", json=weg).status_code == 200
+    # Die Notiz: der Loesch-Endpunkt gibt die Zeile mit, und genau sie
+    # kommt zurueck (Gegenprobe: ohne Rueckweg war dieser Weg ungeprueft).
+    assert c.post(f"/api/applications/{aid}/notes", json={"text": "Rueckruf am Montag"}).status_code == 200
+    def _ereignisse():
+        return [dict(z) for z in db.connect().execute(
+            "SELECT * FROM application_events WHERE application_id=?", (aid,)).fetchall()]
+    notiz = [e for e in _ereignisse() if e.get("status") == "notiz"][-1]
+    weg = c.delete(f"/api/applications/{aid}/notes/{notiz['id']}").json()["rueckweg"]
+    assert weg["art"] == "notiz" and weg["zeile"]["id"] == notiz["id"]
+    assert c.post("/api/wiederherstellen", json=weg).status_code == 200
+    assert any(e["id"] == notiz["id"] for e in _ereignisse())
 
 
 def _jsx_und_js():
