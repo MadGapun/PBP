@@ -26,6 +26,8 @@ EXPECTED_TOOL_NAMES = {
     "bewerbung_zu_anfrage_konvertieren",
     # v1.7.7 (#753, H18): Firmen-Stand in einem Call — nie aus Gedaechtnis
     "firma_kontext",
+    # v1.7.129 (#1080): Firmennamen im Bestand, nur lesend
+    "firmen_bestand_pruefen",
     "profil_status",
     "profil_zusammenfassung",
     # v1.7.3 (#741): STAR-Volltext aller Projekte + Projekt-IDs
@@ -407,7 +409,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 259  # v1.7.127 (#1083): +dokument_lesen
+        assert len(tools) == 260  # v1.7.129 (#1080): +firmen_bestand_pruefen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:
