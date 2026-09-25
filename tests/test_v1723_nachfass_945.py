@@ -33,9 +33,12 @@ BEWERBUNG = {
 def test_945_text_nennt_alles_zum_handeln_noetige():
     """An wen, ueber welchen Kanal, worauf Bezug nehmend, in welchem Ton."""
     text = nachfass_text(BEWERBUNG)
-    for pflicht in ("PLM Consultant", "Musterfirma GmbH", "2026-07-30",
-                    "R. Wendelin", "ueber_portal"):
+    # G65 (#1087 D2): Datum und Kanal stehen lesbar da — die Absicht
+    # (alles zum Handeln Noetige ist drin) gilt, die Rohwerte nicht mehr.
+    for pflicht in ("PLM Consultant", "Musterfirma GmbH", "30.07.2026",
+                    "R. Wendelin", "über ein Portal"):
         assert pflicht in text, (pflicht, text)
+    assert "ueber_portal" not in text and "2026-07-30" not in text
     assert "Bezug" in text or "fragen" in text
 
 

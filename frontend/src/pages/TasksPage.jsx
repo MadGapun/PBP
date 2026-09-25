@@ -14,6 +14,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import { Check, ClipboardCopy, Clock3, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { api, deleteRequest, postJson } from "@/api";
 import { AppContext } from "@/app-context";
+import { datumText, klartext } from "@/lib/anzeige";
 
 const GRUPPEN = [
   ["ueberfaellig", "Überfällig", "text-coral"],
@@ -25,8 +26,10 @@ const GRUPPEN = [
 
 const HERKUNFT_BADGE = {
   todo: ["Aufgabe", "bg-teal/15 text-teal"],
-  nachfass: ["Nachfass", "bg-amber/15 text-amber"],
+  nachfass: ["Nachfassen", "bg-amber/15 text-amber"],
   termin: ["Termin", "bg-sky/15 text-sky"],
+  // G65 (#1087 D2): ohne diesen Eintrag trug die Vorbereitung ein "?".
+  vorbereitung: ["Vorbereitung", "bg-amber/15 text-amber"],
 };
 
 /**
@@ -174,7 +177,7 @@ export default function TasksPage() {
   }
 
   const zeile = (e) => {
-    const [label, badgeCls] = HERKUNFT_BADGE[e.herkunft] || ["?", ""];
+    const [label, badgeCls] = HERKUNFT_BADGE[e.herkunft] || ["Aufgabe", ""];
     return (
       <div key={`${e.herkunft}-${e.id}`}
         className="group flex items-start gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.05]">
@@ -389,10 +392,10 @@ ${e.claude_prompt}`
             </div>
             <div className="overflow-y-auto p-5 pt-2">
             <p className="mt-1 text-xs text-muted/60">
-              {(HERKUNFT_BADGE[detail.herkunft] || ["?"])[0]}
+              {(HERKUNFT_BADGE[detail.herkunft] || ["Aufgabe"])[0]}
               {detail.firma ? ` · ${detail.firma}` : ""}
-              {detail.faellig_am ? ` · fällig ${detail.faellig_am}` : ""}
-              {` · Status: ${detail.status}`}
+              {detail.faellig_am ? ` · fällig ${datumText(detail.faellig_am)}` : ""}
+              {` · Stand: ${klartext(detail.status)}`}
             </p>
             {detail.beschreibung ? (
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{detail.beschreibung}</p>

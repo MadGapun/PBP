@@ -4,6 +4,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SourceSelectionList from "@/components/SourceSelectionList";
+import { grundText, klartext } from "@/lib/anzeige";
 import { hexToRgb, rgbToHex, THEME_TOKENS } from "@/theme";
 import {
   Badge,
@@ -2240,7 +2241,7 @@ function LocalAITab({ pushToast }) {
         <ul className="text-[12px] text-muted/80 space-y-1 list-disc list-inside">
           <li><strong>Doku-Klassifikation</strong> — neue Uploads werden eingeordnet (Lebenslauf, Anschreiben, Mail, ...)</li>
           <li><strong>Skill-Extraktion</strong> — Skills aus Lebenslauf-Text ziehen</li>
-          <li><strong>Stellen-Profil-Match</strong> — `stellen_auto_aussortieren` filtert profilbasiert</li>
+          <li><strong>Stellen-Profil-Abgleich</strong> — sortiert Stellen aus, die nicht zu deinem Profil passen</li>
           <li><strong>Mail-Klassifikation</strong> — eingehende Mails werden kategorisiert</li>
         </ul>
         <p className="text-[11px] text-muted/50 mt-2">
@@ -3902,7 +3903,7 @@ export default function SettingsPage() {
                         <>
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`text-sm ${active ? "text-ink" : "text-muted/40 line-through"}`}>
-                              {reason.label}
+                              {grundText(reason.label, dismissReasons)}
                             </span>
                             {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
                             {reason.usage_count ? (
@@ -4009,7 +4010,7 @@ export default function SettingsPage() {
                         .filter((r) => r.id !== deleteReasonDialog.reason.id)
                         .map((r) => (
                           <option key={r.id} value={r.label}>
-                            {r.label}
+                            {grundText(r.label, dismissReasons)}
                           </option>
                         ))}
                     </SelectInput>
@@ -4078,7 +4079,7 @@ export default function SettingsPage() {
                   />
                   <span className="text-sm text-muted">Tage</span>
                 </div>
-                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Wird nach „interview_abgeschlossen" automatisch erzeugt; alte Follow-ups dieser Bewerbung werden hinfaellig.</p>
+                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Entsteht automatisch, wenn eine Bewerbung auf „Interview abgeschlossen“ steht; ältere Nachfassungen dieser Bewerbung werden hinfällig.</p>
               </Field>
             </div>
           </Card>
@@ -4261,7 +4262,7 @@ export default function SettingsPage() {
                   MCP-Verbindung: <span className={`font-medium ${
                     health.mcp_connection.status === "connected" ? "text-teal" :
                     health.mcp_connection.status === "unknown" ? "text-amber" : "text-red-400"
-                  }`}>{health.mcp_connection.status}</span>
+                  }`}>{klartext(health.mcp_connection.status)}</span>
                   {health.mcp_connection.last_tool && <> — Letztes Tool: <span className="text-ink">{health.mcp_connection.last_tool}</span></>}
                 </p>
               </div>
@@ -4672,8 +4673,8 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
                 : <> ueber alle Profile.</>}
               {vorschau?.haengende_zeilen ? (
                 <> Dabei verlieren <strong>{vorschau.haengende_zeilen}</strong> Zeilen
-                ihren Verweis; sie bleiben nutzbar und lassen sich mit{" "}
-                <code>verwaiste_stellenrefs_bereinigen</code> aufraeumen.</>
+                ihren Verweis; sie bleiben nutzbar, und Claude kann sie danach
+                aufräumen.</>
               ) : null}
             </p>
           )}
