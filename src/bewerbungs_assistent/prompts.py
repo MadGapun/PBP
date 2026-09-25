@@ -329,7 +329,7 @@ nicht mit einer To-do-Liste.
   stelle_bewerten und der Score funktionieren) oder beende das Gespräch
   mit dem Hinweis, dass die Treffer gleich im Stellen-Tab auftauchen.
 - Wenn der User nach dem Ergebnis fragt: jobsuche_status(job_id) einmal
-  aufrufen; bei Status fertig stellen_anzeigen(limit=5) als erste Vorschau
+  aufrufen; bei Status fertig stellen_anzeigen(pro_seite=5) als erste Vorschau
   zeigen und die Top-Treffer kurz einordnen.
 - Bei 0 Treffern enthält das Ergebnis ein Feld 'diagnose' — erkläre die
   Ursache in einem Satz und schlage die nächste Aktion vor (Keywords
@@ -595,16 +595,16 @@ SCHRITT 3B — MAIL-KORRESPONDENZ
    - bewerbungen_anzeigen() falls noetig zur Liste
    - Bei mehreren Treffern: User fragen
 2. Erkenne den Mail-Typ:
-   - Absage → bewerbung_status_aendern(bewerbung_id, "abgelehnt", rejection_reason="...")
+   - Absage → bewerbung_status_aendern(bewerbung_id, "abgelehnt", ablehnungsgrund="...")
    - Interview-Einladung → bewerbung_status_aendern(bewerbung_id, "interview")
    - Zweitgespraech → bewerbung_status_aendern(bewerbung_id, "zweitgespraech")
    - Angebot → bewerbung_status_aendern(bewerbung_id, "angebot")
    - Recruiter-Anfrage zu NEUER Position → bewerbung_erstellen
 3. Mail-Inhalt sichern:
    - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>")
-   - Optional: dokument_verknuepfen(document_id, application_id) damit das
+   - Optional: dokument_verknuepfen(dokument_id, bewerbung_id) damit das
      Original-PDF an der Bewerbung haengt
-4. Bei Absagen mit erkennbarem Grund: rejection_reason im
+4. Bei Absagen mit erkennbarem Grund: ablehnungsgrund im
    Status-Update mitgeben — fuer Lerneffekt + Statistik.
 
 ═══════════════════════════════════════════════════
@@ -614,8 +614,8 @@ SCHRITT 3C — BEWERBUNGS-ANHANG
 1. Firma aus Dateiname / Inhalt extrahieren
 2. Passende Bewerbung finden (bewerbung_stellen_anzeigen, Match auf Firma)
 3. Bei genau einem Treffer:
-   - dokument_verknuepfen(document_id, application_id)
-   - bewerbung_bearbeiten(application_id, cv_path=... ODER cover_letter_path=...)
+   - dokument_verknuepfen(dokument_id, bewerbung_id)
+   - bewerbung_bearbeiten(bewerbung_id, cv_path=... ODER cover_letter_path=...)
 4. Bei keinem Treffer + erkennbarer Firma: User fragen ob Bewerbung
    neu angelegt werden soll (bewerbung_erstellen)
 
@@ -623,9 +623,11 @@ SCHRITT 3C — BEWERBUNGS-ANHANG
 SCHRITT 3D — TERMIN-BESTAETIGUNG
 ═══════════════════════════════════════════════════
 
-1. Datum/Uhrzeit + Modus (vor Ort / Remote / Telefon) aus dem Text ziehen
+1. Datum/Uhrzeit + Art (vor Ort / Video / Telefon) aus dem Text ziehen
 2. Bewerbung identifizieren (siehe 3B)
-3. meeting_hinzufuegen(application_id, datum, modus, beschreibung, ...)
+3. meeting_hinzufuegen(bewerbung_id=..., datum="JJJJ-MM-TT HH:MM",
+   typ="interview", platform="teams|zoom|telefon|...", ort="...",
+   titel="...")
 4. Wenn Bewerbungs-Status noch nicht 'interview' / 'zweitgespraech':
    bewerbung_status_aendern entsprechend
 5. Bei mehreren Terminen im selben Doku alle anlegen
@@ -654,11 +656,13 @@ REGELN
 4. Bei Absagen: das ist ein wichtiger Lifecycle-Event. Lieber
    einmal zu viel "ist das die Absage zu Bewerbung X bei Firma Y?"
    fragen als die falsche Bewerbung zu schliessen.
-5. Bei Status-Updates die ein Datum nahelegen: applied_at oder
-   event_at korrekt setzen (nicht today() wenn das Doku ein altes
-   Datum traegt).
-6. Wenn ein Doku gar nicht zuordbar ist: extraction_status auf
-   'erledigt_unklar' setzen statt es immer wieder anzubieten.
+5. Bei Status-Updates, die ein altes Datum tragen: das Datum des
+   Ereignisses danach mit bewerbung_event_datum_setzen(event_id,
+   neues_datum) korrigieren (die event_id steht in bewerbung_details),
+   das Bewerbungsdatum mit bewerbung_bearbeiten(bewerbung_id,
+   applied_at="JJJJ-MM-TT").
+6. Wenn ein Doku gar nicht zuordbar ist: dokument_status_setzen(
+   dokument_id, status="verworfen") statt es immer wieder anzubieten.
 """
 
 

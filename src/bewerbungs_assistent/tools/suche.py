@@ -779,7 +779,7 @@ def register(mcp, db, logger):
         from ..services import suchbegriff_abgleich as _ab
         if not db.get_profile():
             from ..services.nutzerfuehrung import kein_profil
-            return kein_profil("profil_suchbegriffe_abgleichen")
+            return kein_profil("deine Suchbegriffe mit dem Profil abgleichen")
         if aktion == "verwerfen":
             if not schluessel:
                 return {"fehler": "schluessel fehlt — aus 'anzeigen' nehmen."}
@@ -1309,8 +1309,8 @@ def register(mcp, db, logger):
            eine Annahme; mit Alter wird daraus eine Vermutung mit Datum.
 
         Der uebliche Ausweg ist nicht Loeschen, sondern eine Ausnahme:
-        `blacklist_verwalten('aendern', entry_id=..., ausser_wenn_titel_
-        enthaelt=['PLM'])` haelt die Firma draussen und laesst die
+        `blacklist_verwalten('aendern', entry_id=...,
+        ausser_wenn_titel_enthaelt=['PLM'])` haelt die Firma draussen und laesst die
         Fachrollen durch.
 
         Args:
@@ -1608,7 +1608,8 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
-    def ablehnungsgrund_loeschen(grund_id: int, neu_zuordnen_zu: str = "") -> dict:
+    def ablehnungsgrund_loeschen(grund_id: int, neu_zuordnen_zu: str = "",
+                                 bestaetigung: bool = False) -> dict:
         """Loescht einen Ablehnungsgrund (#663 C20, beta.92).
 
         Wenn der Grund bereits Stellen zugeordnet ist (jobs.dismiss_reason),
@@ -1620,7 +1621,27 @@ def register(mcp, db, logger):
             grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
             neu_zuordnen_zu: Label des Ziel-Grunds fuer betroffene Stellen
                 (z.B. 'sonstiges'). Pflicht, wenn der Grund verwendet wird.
+            bestaetigung: True loescht. Ohne kommt eine Vorschau mit der
+                Zahl der betroffenen Stellen (H27, #1087 G7).
         """
+        if not bestaetigung:
+            con = db.connect()
+            row = con.execute("SELECT label FROM dismiss_reasons WHERE id=?",
+                              (grund_id,)).fetchone()
+            if not row:
+                return {"fehler": f"Kein Grund mit id={grund_id} gefunden."}
+            n = con.execute("SELECT COUNT(*) FROM jobs WHERE dismiss_reason=?",
+                            (row["label"],)).fetchone()[0]
+            vorschau = {"status": "vorschau", "id": grund_id,
+                        "label": row["label"], "betroffene_stellen": n,
+                        "hinweis": ("Noch nichts geloescht. Zum Loeschen "
+                                    "erneut mit bestaetigung=True aufrufen.")}
+            if n and not neu_zuordnen_zu:
+                vorschau["hinweis"] = (
+                    f"{n} Stelle(n) tragen diesen Grund — nenne mit "
+                    "neu_zuordnen_zu einen anderen, dann erneut mit "
+                    "bestaetigung=True.")
+            return vorschau
         try:
             res = db.delete_dismiss_reason(grund_id, neu_zuordnen_zu or None)
         except ValueError as exc:

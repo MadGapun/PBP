@@ -1447,7 +1447,7 @@ def register(mcp, db, logger):
         if _guete == "unbekannt":
             antwort["entfernung_warnung"] = _grund
             antwort["entfernung_naechster_schritt"] = (
-                "stelle_bearbeiten(job_hash, location='<Ort>') setzt den "
+                "stelle_bearbeiten(job_hash, ort='<Ort>') setzt den "
                 "Ort; danach scores_neu_berechnen() aufrufen.")
         # #965 AK 7: die konfigurierte Regel ist als eigene Zeile
         # sichtbar und nachvollziehbar. Eine Regel, die wirkt, aber
@@ -1503,7 +1503,8 @@ def register(mcp, db, logger):
                 warnungen.append({
                     "bereich": "Profil",
                     "problem": "Profil hat keinen Namen",
-                    "loesung": "profil_bearbeiten(name='Dein Name')",
+                    "loesung": ("profil_bearbeiten(bereich='persoenlich', aktion='aendern', "
+                                "daten={'name': 'Dein Name'})"),
                 })
             skills = profile.get("skills", [])
             if len(skills) < 3:
@@ -2995,6 +2996,21 @@ def register(mcp, db, logger):
             f"Anti-DB-Bypass-Pattern (#514)._"
         )
 
+        # H26 (#1087 G6): der Link geht an GitHub, also vorher durch
+        # denselben Anonymisierer wie jeder andere Text nach draussen
+        # (#946). Bis v1.7.130 landete der Rohtext per quote() in der
+        # URL — ein Klick, und Firmennamen aus der Beschreibung standen
+        # oeffentlich. Titel und Text werden getrennt geprueft, weil der
+        # Titel ebenfalls aus `was_versucht` stammt.
+        from ..services import pii_bestand
+        anon_titel = pii_bestand.anonymisiere_text(db, issue_title)
+        anon_body = pii_bestand.anonymisiere_text(db, issue_body)
+        issue_title = anon_titel["text"]
+        issue_body = anon_body["text"]
+        anonymisiert = anon_titel["ersetzt"] + anon_body["ersetzt"]
+        offen = (anon_titel.get("zur_entscheidung", [])
+                 + anon_body.get("zur_entscheidung", []))
+
         gh_url = (
             "https://github.com/MadGapun/PBP/issues/new"
             f"?title={quote(issue_title)}"
@@ -3002,7 +3018,7 @@ def register(mcp, db, logger):
             f"&labels=enhancement"
         )
 
-        return {
+        antwort = {
             "status": "gemeldet",
             "hinweis_fuer_user": (
                 "Die fehlende Tool-Abdeckung wurde erkannt und in der lokalen "
@@ -3019,7 +3035,15 @@ def register(mcp, db, logger):
                 "manuell im PBP-Dashboard (http://localhost:8200) durchfuehren — "
                 "dort werden alle Lifecycle-Hooks korrekt ausgeloest."
             ),
+            "anonymisiert": anonymisiert,
         }
+        if offen:
+            antwort["zur_entscheidung"] = offen
+            antwort["hinweis_vor_dem_posten"] = (
+                "Einige Woerter koennten Namen aus deinem Bestand sein und "
+                "wurden NICHT automatisch ersetzt. Vor dem Absenden des "
+                "Links ansehen.")
+        return antwort
 
     # === Granulare KI-Steuerung (#425, v1.7.0-beta.56) =====================
 

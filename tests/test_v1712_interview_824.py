@@ -119,8 +119,13 @@ def test_824_loeschen(bewerbung):
     from bewerbungs_assistent.server import mcp
     r = _result(_call(mcp, "interview_reflexion_speichern", {
         "bewerbung_id": aid, "was_lief_gut": "versehentlich"}))
+    # H27: erst Vorschau, nichts geloescht; dann mit Bestaetigung.
     res = _result(_call(mcp, "interview_reflexion_loeschen", {
         "reflexion_id": str(r["reflexion_id"])}))
+    assert res["status"] == "vorschau"
+    assert len(db.get_interview_reflections(aid)) == 1
+    res = _result(_call(mcp, "interview_reflexion_loeschen", {
+        "reflexion_id": str(r["reflexion_id"]), "bestaetigung": True}))
     assert res["status"] == "geloescht"
     assert db.get_interview_reflections(aid) == []
 

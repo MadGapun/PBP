@@ -37,8 +37,12 @@ def kein_profil(aktion: str = "") -> dict:
     """Einheitliche Antwort, wenn noch kein Profil existiert (#927).
 
     Args:
-        aktion: Optional, was der Nutzer gerade versucht hat — wird in
-            die Erklaerung eingewoben ("... um <aktion> zu koennen").
+        aktion: Optional, was der Nutzer gerade versucht hat, als
+            Verbphrase im Infinitiv ohne "zu" ("deine Notizen aufraeumen").
+            Sie wird eingewoben: "Um <aktion> zu koennen, ...". Ein
+            Werkzeugname oder ein ganzer Satz ergibt dort Unsinn (H32,
+            #1087 G14: "Um Ohne Profil gibt es nichts einzuordnen. zu
+            koennen ..."); ein Test prueft jeden Aufrufer.
     """
     grund = "Dafuer braucht PBP zuerst ein Profil."
     if aktion:

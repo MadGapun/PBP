@@ -116,7 +116,7 @@ def register(mcp, db, logger):
                 "Aus deinen bestehenden Bewerbungen lassen sich "
                 "Ansprechpartner automatisch uebernehmen: "
                 "kontakte_aus_bewerbungen_extrahieren(). Einzeln geht es "
-                "mit kontakt_anlegen(full_name=...). Wer sich meldet, "
+                "mit kontakt_anlegen(name=...). Wer sich meldet, "
                 "steht dann beim naechsten Kontakt sofort parat.")
         return {
             "anzahl": len(contacts),

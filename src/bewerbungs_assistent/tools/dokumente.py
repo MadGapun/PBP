@@ -54,7 +54,7 @@ def register(mcp, db, logger):
         3. Vergleiche mit dem bestehenden Profil (profil_zusammenfassung)
         4. Bei neuen Daten: Frage den User ob diese übernommen werden sollen
         5. Bei Konflikten: Zeige beide Versionen und lasse den User entscheiden
-        6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufügen etc.)
+        6. Speichere mit den jeweiligen Tools (profil_bearbeiten, position_hinzufuegen etc.)
 
         Args:
             document_id: ID oder Dateiname des Dokuments
@@ -105,8 +105,8 @@ def register(mcp, db, logger):
                 "Analysiere den Text und extrahiere Profildaten. "
                 "Vergleiche mit dem bestehenden Profil und frage bei Konflikten oder "
                 "neuen Informationen den User ob diese übernommen werden sollen. "
-                "Nutze die entsprechenden Tools (profil_bearbeiten, position_hinzufügen, "
-                "skill_hinzufügen etc.) um die Daten zu speichern."
+                "Nutze die entsprechenden Tools (profil_bearbeiten, position_hinzufuegen, "
+                "skill_hinzufuegen etc.) um die Daten zu speichern."
             ),
         }
 

@@ -161,8 +161,42 @@ def ki_gate(db, feature: str) -> dict | None:
     }
 
 
+class _AnnotierendesMCP:
+    """Reicht alles an den echten Server durch und setzt beim Registrieren
+    die MCP-Annotations aus `services/werkzeug_schutz` (H27, #1087 G7).
+
+    Die Werkzeuge schreiben weiter schlicht `@mcp.tool()`. Annotations an
+    260 Decorators einzeln zu pflegen, waere dieselbe Bauform wie die
+    sechs Schutzkonventionen, die hier abgeloest werden.
+    """
+
+    def __init__(self, mcp):
+        self._mcp = mcp
+
+    def __getattr__(self, attr):
+        return getattr(self._mcp, attr)
+
+    def tool(self, name_or_fn=None, **kwargs):
+        from ..services.werkzeug_schutz import annotations_fuer
+
+        def registrieren(fn):
+            name = kwargs.get("name") or (
+                name_or_fn if isinstance(name_or_fn, str) else fn.__name__)
+            anno = annotations_fuer(name)
+            if anno and not kwargs.get("annotations"):
+                kwargs["annotations"] = anno
+            if isinstance(name_or_fn, str):
+                return self._mcp.tool(name_or_fn, **kwargs)(fn)
+            return self._mcp.tool(**kwargs)(fn)
+
+        if callable(name_or_fn):
+            return registrieren(name_or_fn)
+        return registrieren
+
+
 def register_all(mcp, db, logger):
     """Registriert alle Tools beim MCP-Server."""
+    mcp = _AnnotierendesMCP(mcp)
     profil.register(mcp, db, logger)
     dokumente.register(mcp, db, logger)
     jobs.register(mcp, db, logger)

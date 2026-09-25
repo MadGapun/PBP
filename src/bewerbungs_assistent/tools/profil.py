@@ -364,7 +364,7 @@ def register(mcp, db, logger):
         """
         from ..services import notiz_routing as _nr
         if not db.get_profile():
-            return kein_profil("profil_notizen_aufraeumen")
+            return kein_profil("deine Profil-Notizen aufraeumen")
         if aktion == "verschieben":
             if not sektion or not bewerbung_id:
                 return {"fehler": "sektion und bewerbung_id sind Pflicht — "
@@ -1688,7 +1688,7 @@ def register(mcp, db, logger):
         """Fügt ein Projekt zu einer Berufsposition hinzu (STAR-Methode).
 
         Args:
-            position_id: ID der Position (von position_hinzufügen)
+            position_id: ID der Position (von position_hinzufuegen)
             name: Projektname
             description: Kurzbeschreibung des Projekts
             role: Rolle im Projekt (z.B. Projektleiter, Architekt)
@@ -1965,16 +1965,46 @@ def register(mcp, db, logger):
         ACHTUNG: Diese Aktion kann nicht rückgängig gemacht werden!
         Erstelle vorher ein Backup mit profil_exportieren().
 
-        Wenn das aktive Profil gelöscht werden soll und es weitere Profile gibt,
-        wird automatisch zum nächsten Profil gewechselt.
-        Wenn es das einzige Profil ist, muss bestaetigung=True gesetzt werden.
+        Zwei Schritte, immer: ohne bestaetigung=True kommt nur eine
+        Vorschau mit Zahlen (was wird geloescht). Erst der zweite Aufruf
+        mit bestaetigung=True loescht. Wenn das aktive Profil geloescht wird
+        und es weitere gibt, wechselt PBP automatisch zum naechsten.
 
         Args:
             profil_id: Die ID des zu löschenden Profils
-            bestaetigung: Muss True sein wenn das einzige Profil gelöscht wird
+            bestaetigung: True loescht; ohne kommt nur die Vorschau.
         """
         active_id = db.get_active_profile_id()
         profiles = db.get_profiles()
+
+        # H27 (#1087 G7): bis v1.7.130 verlangte das Werkzeug eine
+        # Bestaetigung nur fuer das EINZIGE Profil; ein Zweitprofil wurde
+        # sofort samt Positionen, Skills und Dokumenten geloescht. Jetzt
+        # gilt fuer jedes Profil dasselbe Muster wie fuer alles
+        # Destruktive: Vorschau mit Zahlen, dann bestaetigung=True.
+        ziel = next((p for p in profiles if p["id"] == profil_id), None)
+        if ziel is None:
+            return {"fehler": f"Profil '{profil_id}' gibt es nicht.",
+                    "hinweis": "Die IDs stehen in profile_auflisten()."}
+        if not bestaetigung:
+            from ..services import loeschbereiche
+            v = loeschbereiche.vorschau(db, profil_id=profil_id)
+            je_bereich = {b: d["zeilen_gesamt"]
+                          for b, d in v["bereiche"].items() if d["zeilen_gesamt"]}
+            return {
+                "status": "vorschau",
+                "profil": ziel.get("name") or profil_id,
+                "ist_aktiv": profil_id == active_id,
+                "einziges_profil": len(profiles) == 1,
+                "zeilen_gesamt": v["zeilen_gesamt"],
+                "je_bereich": je_bereich,
+                "dateien_auf_der_platte": v["dateien_auf_der_platte"],
+                "hinweis": (
+                    "Noch nichts geloescht. Das kann nicht rueckgaengig "
+                    "gemacht werden — vorher profil_exportieren() fuer ein "
+                    "Backup. Zum Loeschen erneut mit bestaetigung=True "
+                    "aufrufen, nachdem der Mensch zugestimmt hat."),
+            }
 
         if profil_id == active_id:
             if len(profiles) > 1:
@@ -1986,11 +2016,6 @@ def register(mcp, db, logger):
                     "status": "geloescht",
                     "nachricht": f"Profil gelöscht. Automatisch gewechselt zu: {other['name']}",
                     "aktives_profil": other["name"],
-                }
-            elif not bestaetigung:
-                return {
-                    "fehler": "Dies ist dein einziges Profil. Setze bestaetigung=True um es trotzdem zu löschen.",
-                    "hinweis": "Erstelle vorher ein Backup mit profil_exportieren().",
                 }
             else:
                 db.delete_profile(profil_id)
@@ -2324,8 +2349,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if not profile:
-            return kein_profil(
-                "Ohne Profil gibt es nichts einzuordnen.")
+            return kein_profil("dein Profil einordnen")
 
         from ..services.profile_classifier import (
             recommend_sources, suchbegriffe_aus)
