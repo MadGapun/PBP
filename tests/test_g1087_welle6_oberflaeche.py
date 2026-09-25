@@ -224,6 +224,10 @@ def test_g70_grundlagen_und_erweitert(browser, server):
         erweitert = page.locator("[data-erweitert-reiter]")
         erweitert.get_by_role("button", name="Automatik", exact=True).click()
         page.get_by_text("Nachfassen nach einem Interview").wait_for(timeout=30000)
-        assert page.get_by_text("Nachfass-Erinnerungen", exact=True).count() == 1
+        # Die Automatik-Karte laedt ihren Inhalt nach — auf den Zustand
+        # warten, nicht sofort zaehlen (auf dem Linux-Runner war sie noch leer).
+        frist = page.get_by_text("Nachfass-Erinnerungen", exact=True)
+        frist.first.wait_for(timeout=30000)
+        assert frist.count() == 1
     finally:
         page.close()
