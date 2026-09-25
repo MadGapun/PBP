@@ -178,9 +178,12 @@ def test_g57_zusage_dialog_hat_umlaute(browser, server):
         # exact=True: "Später (7 Tage)" steht an anderer Stelle der Seite
         # und liess die erste Fassung gar nicht warten.
         page.get_by_role("button", name="Später", exact=True).first.wait_for(state="visible", timeout=15000)
+        # Beide Knoepfe als ZUSTAND pruefen statt einen Schnappschuss von
+        # body zu lesen: in der vollen Suite lag zwischen Warten und Lesen
+        # ein Neuaufbau, und body enthielt den Dialog nicht mehr.
+        page.get_by_role("button", name="Übernehmen und speichern").first.wait_for(
+            state="visible", timeout=15000)
         text = page.inner_text("body")
-        assert "Später" in text
-        assert "Übernehmen und speichern" in text
         assert "\\u00" not in text
     finally:
         page.close()
