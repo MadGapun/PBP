@@ -2794,6 +2794,8 @@ def register(mcp, db, logger):
                     "blacklist_verwalten",
                     "jobtitel_vorschlagen / jobtitel_verwalten",
                     "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgruende verwalten",
+                    "ollama_autostart — lokale KI (Ollama) mit PBP starten",
+                    "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknuepfung anlegen",
                 ],
             },
             "system": {
@@ -3129,6 +3131,45 @@ def register(mcp, db, logger):
             "fehler": "aktion muss 'anzeigen', 'an' oder 'aus' sein.",
             "aktueller_stand": ollama_start.autostart_lesen(db),
         }
+
+    @mcp.tool()
+    def ollama_beenden(aktion: str = "anzeigen", wert: str = "",
+                       bestaetigt: bool = False) -> dict:
+        """Ollama beenden — jetzt, beim Beenden von PBP oder per Desktop-Link (#1086).
+
+        Ollama haelt das Modell im Arbeitsspeicher, auch wenn PBP
+        stundenlang nicht benutzt wird.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe) — Einstellung und ob PBP Ollama
+                gestartet hat; 'jetzt' — beendet Ollama sofort (nur mit
+                bestaetigt=True, vorher den Menschen fragen);
+                'beim_pbp_ende' — setzt die Einstellung auf `wert`;
+                'verknuepfung' — legt auf dem Desktop "Ollama beenden" an
+                (fragt beim Doppelklick nach).
+            wert: fuer 'beim_pbp_ende': 'aus' (Vorgabe), 'gestartet' (nur
+                ein von PBP gestartetes Ollama) oder 'immer' (nur mit
+                bestaetigt=True — PBP kann beim Beenden nicht mehr fragen).
+            bestaetigt: die Antwort des Menschen auf die Rueckfrage.
+        """
+        from ..services import ollama_start
+
+        wahl = (aktion or "anzeigen").strip().lower()
+        if wahl in ("anzeigen", "status", ""):
+            return ollama_start.autostop_lesen(db)
+        if wahl == "jetzt":
+            if not bestaetigt:
+                return {"status": "rueckfrage",
+                        "frage": "Ollama jetzt beenden? Die lokale KI ist dann "
+                                 "nicht erreichbar, bis sie neu gestartet wird. "
+                                 "Erst fragen, dann mit bestaetigt=True aufrufen."}
+            return ollama_start.ollama_beenden()
+        if wahl == "beim_pbp_ende":
+            return ollama_start.autostop_setzen(db, wert, bestaetigt=bestaetigt)
+        if wahl == "verknuepfung":
+            return ollama_start.verknuepfung_anlegen()
+        return {"fehler": "aktion muss 'anzeigen', 'jetzt', 'beim_pbp_ende' "
+                          "oder 'verknuepfung' sein."}
 
     @mcp.tool()
     def ollama_kontext(aktion: str = "anzeigen", wert: int = 0) -> dict:

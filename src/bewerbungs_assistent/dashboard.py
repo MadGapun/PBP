@@ -11148,6 +11148,50 @@ async def api_llm_autostart_setzen(request: Request):
     return ollama_start.autostart_setzen(_db, an)
 
 
+@app.post("/api/llm/stop")
+async def api_llm_stop(request: Request):
+    """Beendet Ollama (#1086). Nur mit `bestaetigt: true` — die Rueckfrage
+    stellt der Dialog, der Endpunkt verlangt die Antwort."""
+    from .services import ollama_start
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+    if data.get("bestaetigt") is not True:
+        return JSONResponse(
+            {"error": "Beenden nur mit bestaetigt=true."}, status_code=400)
+    return ollama_start.ollama_beenden()
+
+
+@app.get("/api/llm/autostop")
+async def api_llm_autostop_lesen():
+    """Soll Ollama mit PBP enden? (#1086)"""
+    from .services import ollama_start
+    return ollama_start.autostop_lesen(_db)
+
+
+@app.put("/api/llm/autostop")
+async def api_llm_autostop_setzen(request: Request):
+    """Setzt 'aus' / 'gestartet' / 'immer'. 'immer' nur mit Bestaetigung."""
+    from .services import ollama_start
+    data = await request.json()
+    ergebnis = ollama_start.autostop_setzen(
+        _db, str(data.get("wert") or ""), bestaetigt=data.get("bestaetigt") is True)
+    if "fehler" in ergebnis:
+        return JSONResponse(ergebnis, status_code=400)
+    return ergebnis
+
+
+@app.post("/api/llm/stop-verknuepfung")
+async def api_llm_stop_verknuepfung():
+    """Legt die Desktop-Verknuepfung "Ollama beenden" an (#1086)."""
+    from .services import ollama_start
+    ergebnis = ollama_start.verknuepfung_anlegen()
+    if ergebnis.get("status") != "angelegt":
+        return JSONResponse(ergebnis, status_code=500)
+    return ergebnis
+
+
 @app.post("/api/llm/test-connection")
 async def api_llm_test_connection():
     """Diagnose-Snapshot fuer Lokale-AI-Setup (#584).
@@ -11642,7 +11686,19 @@ def start_dashboard(db_instance, port: int = None):
     use_port = port or DASHBOARD_PORT
     logger.info("Dashboard startet auf http://localhost:%d", use_port)
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=use_port, log_level="warning")
+    # #1086: Ollama auf Wunsch mit beenden. atexit fuer ein Ende ohne
+    # Rueckkehr aus uvicorn, der Aufruf danach fuer das normale Ende —
+    # `beim_beenden` laeuft je Prozess hoechstens einmal.
+    import atexit
+    from .services import ollama_start as _ollama_start
+    atexit.register(_ollama_start.beim_beenden, db_instance)
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=use_port, log_level="warning")
+    finally:
+        try:
+            _ollama_start.beim_beenden(db_instance)
+        except Exception as exc:
+            logger.warning("Ollama-Stop beim Beenden uebersprungen: %s", exc)
 
 
 def _generate_dashboard_error_html(message: str, details: str = "", hint: str = "") -> str:

@@ -1790,8 +1790,8 @@ function OllamaAutostartBlock({ pushToast }) {
           <span className="block font-medium text-ink">Ollama mit PBP starten</span>
           <span className="mt-1 block text-sm text-muted/80">
             Dann steht die lokale KI auch nach einem Neustart des Rechners bereit,
-            ohne dass du hier erst den Knopf druecken musst. Ollama laeuft weiter,
-            wenn du PBP beendest.
+            ohne dass du hier erst den Knopf druecken musst. Ob Ollama mit PBP
+            endet, stellst du darunter ein.
           </span>
         </span>
       </label>
@@ -1804,6 +1804,85 @@ function OllamaAutostartBlock({ pushToast }) {
           gespeichert, wirkt aber erst nach der Installation.
         </p>
       )}
+    </div>
+  );
+}
+
+// #1086: Ollama beenden. Den meisten Speicher belegt das geladene Modell,
+// auch Stunden nachdem PBP zuletzt benutzt wurde. Die Rueckfrage fuer
+// "immer" kommt beim Einschalten: PBP endet meist mit Claude Desktop, und
+// dann kann niemand mehr antworten.
+function OllamaBeendenBlock({ pushToast }) {
+  const [stand, setStand] = useState(null);
+
+  useEffect(() => {
+    api("/api/llm/autostop").then(setStand).catch(() => {});
+  }, []);
+
+  if (!stand) return null;
+
+  async function setzen(wert) {
+    let bestaetigt = false;
+    if (wert === "immer") {
+      if (!window.confirm("Ollama wirklich IMMER mit PBP beenden? Auch wenn es schon vorher lief oder ein anderes Programm es benutzt. Beim Beenden kann PBP nicht mehr fragen.")) return;
+      bestaetigt = true;
+    }
+    try {
+      const neu = await putJson("/api/llm/autostop", { wert, bestaetigt });
+      setStand(neu);
+      pushToast(neu.wirkung, "success", { duration: 5000 });
+    } catch (err) {
+      pushToast(`Konnte die Einstellung nicht setzen: ${err.message}`, "danger");
+    }
+  }
+
+  async function jetztBeenden() {
+    if (!window.confirm("Ollama jetzt beenden? Die lokale KI ist danach nicht erreichbar, bis du sie wieder startest.")) return;
+    try {
+      const r = await postJson("/api/llm/stop", { bestaetigt: true });
+      pushToast(r.hinweis || "Ollama ist beendet.", r.status === "beendet" ? "success" : "amber", { duration: 6000 });
+    } catch (err) {
+      pushToast(`Ollama liess sich nicht beenden: ${err.message}`, "danger");
+    }
+  }
+
+  async function verknuepfung() {
+    try {
+      const r = await postJson("/api/llm/stop-verknuepfung", {});
+      pushToast(`Verknuepfung angelegt: ${r.verknuepfung}`, "success", { duration: 6000 });
+    } catch (err) {
+      pushToast(`Verknuepfung nicht angelegt: ${err.message}`, "danger");
+    }
+  }
+
+  return (
+    <div className="glass-card p-4 mb-4">
+      <span className="block font-medium text-ink">Ollama beenden</span>
+      <span className="mt-1 block text-sm text-muted/80">
+        Ollama haelt das Modell im Arbeitsspeicher, auch wenn du PBP stundenlang
+        nicht benutzt.
+      </span>
+      <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink">
+        <span>Beim Beenden von PBP:</span>
+        <select
+          value={stand.beim_beenden}
+          onChange={(e) => setzen(e.target.value)}
+          className="rounded-md border border-white/10 bg-transparent px-2 py-1"
+        >
+          <option value="aus">Ollama weiterlaufen lassen</option>
+          <option value="gestartet">beenden, wenn PBP es gestartet hat</option>
+          <option value="immer">immer beenden</option>
+        </select>
+      </label>
+      <p className="mt-2 text-[13px] text-muted/80">{stand.wirkung}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button type="button" size="sm" variant="secondary" onClick={jetztBeenden}>
+          Ollama jetzt beenden
+        </Button>
+        <Button type="button" size="sm" variant="secondary" onClick={verknuepfung}>
+          Desktop-Verknuepfung anlegen
+        </Button>
+      </div>
     </div>
   );
 }
@@ -1949,6 +2028,7 @@ function LocalAITab({ pushToast }) {
         </div>
 
         <OllamaAutostartBlock pushToast={pushToast} />
+        <OllamaBeendenBlock pushToast={pushToast} />
 
         <div className="glass-card p-4 mb-4 border-coral/15">
           <h3 className="font-medium text-ink mb-2">Noch nicht installiert?</h3>
@@ -2126,6 +2206,7 @@ function LocalAITab({ pushToast }) {
       </div>
 
       <OllamaAutostartBlock pushToast={pushToast} />
+      <OllamaBeendenBlock pushToast={pushToast} />
 
       {/* v1.7.0-beta.67 (#638 Stufe 5): Feedback-Loop — Ollama-Leistung */}
       <OllamaAccuracyCard />
