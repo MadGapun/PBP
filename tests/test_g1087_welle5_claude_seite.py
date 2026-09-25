@@ -244,3 +244,103 @@ def test_h21_schalter_im_dashboard():
     seite = (_repo() / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
     assert '<ExpertenmodusCard pushToast={pushToast} />' in seite
     assert 'putJson("/api/expertenmodus"' in seite
+
+
+# ══ H22 — Prompts aus einer Quelle ══════════════════════════════════════
+
+def _slash_texte(mcp):
+    async def _run():
+        aus = {}
+        for p in await mcp.list_prompts():
+            r = await p.render({})
+            msgs = getattr(r, "messages", r)
+            aus[p.name] = "\n".join(getattr(m.content, "text", str(m.content)) for m in msgs)
+        return aus
+    return asyncio.run(_run())
+
+
+def test_h22_slash_und_dashboard_liefern_denselben_text(umgebung):
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    reg = _prompt_registry(db)
+    slash = _slash_texte(mcp)
+    gemeinsam = set(slash) & set(reg)
+    assert len(gemeinsam) >= 20
+    for name in gemeinsam:
+        assert slash[name] == reg[name](), name
+
+
+def test_h22_mit_argumenten_ebenso(umgebung):
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    reg = _prompt_registry(db)
+
+    async def _render(name, args):
+        p = await mcp.get_prompt(name)
+        r = await p.render(args)
+        return "\n".join(getattr(m.content, "text", str(m.content)) for m in r.messages)
+    for name in ("interview_vorbereitung", "interview_simulation", "gehaltsverhandlung"):
+        args = {"stelle": "Konstrukteur", "firma": "Musterbetrieb GmbH"}
+        assert asyncio.run(_render(name, args)) == reg[name](**args), name
+        assert "Musterbetrieb GmbH" in reg[name](**args)
+
+
+def test_h22_kein_slash_prompt_haelt_eine_eigene_fassung():
+    """Jeder registrierte Prompt delegiert an einen Builder; eine zweite
+    Fassung als Textliteral im Prompt waere die Doppelung von vorher."""
+    quelle = (PAKET / "prompts.py").read_text(encoding="utf-8")
+    baum = ast.parse(quelle)
+    reg = next(n for n in baum.body if isinstance(n, ast.FunctionDef) and n.name == "register_prompts")
+    from bewerbungs_assistent.services import prompt_katalog
+    geprueft = 0
+    for fn in reg.body:
+        if not isinstance(fn, ast.FunctionDef) or fn.name in prompt_katalog.AUSNAHMEN:
+            continue
+        geprueft += 1
+        doc = fn.body[0].value if isinstance(fn.body[0], ast.Expr) else None
+        for n in ast.walk(fn):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) and n is not doc:
+                assert len(n.value) < 120, f"{fn.name} traegt einen eigenen Text"
+            if isinstance(n, ast.JoinedStr):
+                pytest.fail(f"{fn.name} baut einen eigenen f-String")
+    assert geprueft >= 20
+
+
+def test_h22_jobsuche_wartet_nicht_in_einer_schleife(umgebung):
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, _mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    text = _prompt_registry(db)["jobsuche_workflow"]()
+    assert "NICHT in einer Schleife" in text
+    assert "Ich halte dich auf dem Laufenden" not in text
+    assert "manuelle_quellen" in text
+
+
+def test_h22_regeln_der_dashboard_fassung_sind_erhalten(umgebung):
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, _mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    reg = _prompt_registry(db)
+    iv = reg["interview_vorbereitung"](stelle="A", firma="B")
+    assert "projekte_anzeigen()" in iv and "todo_anlegen(" in iv
+    w = reg["willkommen"]()
+    assert "firma_kontext(firmenname)" in w and "stellen_anzeigen()" in w
+
+
+def test_h22_workflow_starten_listet_den_ganzen_katalog(umgebung):
+    from bewerbungs_assistent.services import prompt_katalog
+    _db, mcp = umgebung
+    erg = _call(mcp, "workflow_starten", {"name": ""})
+    ids = {w["name"] for w in erg["verfuegbare_workflows"]}
+    assert ids == {e["id"] for e in prompt_katalog.alle()}
+
+
+def test_h22_katalog_kennung_mit_parameter_startet(umgebung):
+    from bewerbungs_assistent.tools.workflows import _prompt_registry
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    erg = _call(mcp, "workflow_starten", {"name": "bewerbung_schreiben_lebenslauf"})
+    assert erg["status"] == "gestartet"
+    assert erg["anweisungen"] == _prompt_registry(db)["bewerbung_schreiben"](nur="lebenslauf")

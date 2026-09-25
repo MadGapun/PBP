@@ -40,7 +40,9 @@ def _builder():
     quelle = (WURZEL / "src" / "bewerbungs_assistent" / "tools"
               / "workflows.py").read_text(encoding="utf-8")
     a = quelle.index("    def _bewerbung_schreiben(")
-    b = quelle.index("    def _interview_vorbereitung(")
+    # H22 (#1087 G2): die zweite Fassung der uebrigen Prompts ist weg;
+    # nach dem Builder folgt jetzt `_dokumente_verarbeiten`.
+    b = quelle.index("    def _dokumente_verarbeiten(")
     code = "\n".join(z[4:] if z.startswith("    ") else z
                      for z in quelle[a:b].splitlines())
     ns: dict = {}

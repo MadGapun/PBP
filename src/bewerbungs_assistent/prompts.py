@@ -730,53 +730,28 @@ SCHRITT 4 — ABGEBEN (zwei Wege, beide gleichwertig):
 Sprich Deutsch und per Du. Kurz und loesungsorientiert — erst helfen, dann melden."""
 
 
-def register_prompts(mcp, db, logger):
-    """Registriert alle MCP-Prompts am Server (Anzahl: test_mcp_registry prueft)."""
-
-    @mcp.prompt()
-    def ersterfassung() -> str:
-        """Zwangloses Interview zur Profilerfassung — wie ein Kaffeegespräch.
-        Kann jederzeit unterbrochen und später fortgesetzt werden."""
-        return build_kennlerngespraech_prompt(db)
-
-    @mcp.prompt()
-    def bewerbung_schreiben(stelle: str = "", firma: str = "",
-                            job_hash: str = "", bewerbung_id: str = "",
-                            nur: str = "") -> str:
-        """Bewerbungsunterlagen: Lebenslauf und/oder Anschreiben zu einer Stelle.
-
-        v1.7.32 (#981, D43): der Text kam bis hierher aus einer ZWEITEN
-        Fassung, die neben `tools/workflows.py::_bewerbung_schreiben`
-        stand — zwei Anleitungen fuer denselben Vorgang, die schon
-        auseinandergelaufen waren (diese hier kannte das Stilarchiv nicht
-        und erfasste die Bewerbung am Ende immer neu). Derselbe Fall wie
-        `fit_analyse` gegen `calculate_score` (#963). Jetzt gibt es einen
-        Text; der Katalog aus #979 wird ihn ebenfalls von hier beziehen.
-
-        Args:
-            stelle: Stellenbezeichnung.
-            firma: Arbeitgeber.
-            job_hash: Hash der Stelle im Bestand — dann wird der
-                Anzeigen-Volltext genutzt.
-            bewerbung_id: bestehende Bewerbung — sie wird ERGAENZT statt
-                eine zweite anzulegen.
-            nur: 'lebenslauf', 'anschreiben' oder leer (beides bzw.
-                nachfragen).
-        """
-        from .tools.workflows import _prompt_registry
-        return _prompt_registry(db)["bewerbung_schreiben"](
-            stelle=stelle, firma=firma, job_hash=job_hash,
-            bewerbung_id=bewerbung_id, nur=nur)
-
-    @mcp.prompt()
-    def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:
-        """Umfassende Vorbereitung auf ein Bewerbungsgespräch — personalisiert aus dem Profil."""
-        return f"""Bereite den Nutzer auf ein Bewerbungsgespräch vor:
-Stelle: {stelle}
-Firma: {firma}
-
+def build_interview_vorbereitung_prompt(db, stelle: str = '', firma: str = '') -> str:
+    """Text des Prompts `interview_vorbereitung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    # G16 (#706): vorbefuellbar — der Knopf in Bewerbungen und Timeline
+    # reicht Stelle und Firma durch; dann wird nicht noch einmal gefragt.
+    if stelle or firma:
+        kontext = f"Stelle: {stelle}\nFirma: {firma}\n"
+        frage_zeile = "Stelle und Firma stehen oben — NICHT nochmal fragen."
+    else:
+        kontext = ""
+        frage_zeile = "Frage nach Stelle und Firma (falls nicht bekannt)."
+    todo_suffix = f" {firma}" if firma else ""
+    return f"""Bereite den Nutzer auf ein Bewerbungsgespräch vor:
+{kontext}
 ZUERST:
+→ {frage_zeile}
 → Rufe profil_zusammenfassung() auf — du brauchst das Profil für personalisierte Antworten!
+→ Rufe projekte_anzeigen() auf — die STAR-Antworten brauchen die vollen
+  Projektbeschreibungen, nicht nur die Titel.
+→ Lege eine Aufgabe an, damit die Vorbereitung nicht liegen bleibt:
+  todo_anlegen(titel='Interview-Vorbereitung{todo_suffix}', faellig_am=<Datum des
+  Gespraechs, falls bekannt — sonst morgen>). Gibt es zur Bewerbung schon
+  einen Termin (meetings_anzeigen), nimm dessen Datum.
 
 DANN LIEFERE:
 
@@ -813,10 +788,10 @@ REGELN:
 - Am Ende: "Soll ich den Status deiner Bewerbung bei {firma} auf 'interview' setzen?"
   → bewerbung_status_aendern(id, 'interview', notizen)"""
 
-    @mcp.prompt()
-    def profil_ueberpruefen() -> str:
-        """Profil nochmal anschauen und korrigieren — für spätere Änderungen."""
-        return """Der User möchte sein Profil überprüfen und ggf. korrigieren.
+
+def build_profil_ueberpruefen_prompt(db) -> str:
+    """Text des Prompts `profil_ueberpruefen` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return """Der User möchte sein Profil überprüfen und ggf. korrigieren.
 
 ABLAUF:
 1. Rufe profil_zusammenfassung() auf und zeige dem User die Übersicht
@@ -835,10 +810,10 @@ REGELN:
 - Bei Korrekturen: Frage genau nach was sich ändern soll
 - Zeige am Ende nochmal die aktualisierte Zusammenfassung"""
 
-    @mcp.prompt()
-    def profil_analyse() -> str:
-        """Detaillierte Analyse und Bewertung des Bewerberprofils."""
-        return """Analysiere das Bewerberprofil (Resource: profil://aktuell) und liefere:
+
+def build_profil_analyse_prompt(db) -> str:
+    """Text des Prompts `profil_analyse` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return """Analysiere das Bewerberprofil (Resource: profil://aktuell) und liefere:
 
 1. **Stärken** — Was macht dieses Profil besonders attraktiv?
 2. **Verbesserungspotenzial** — Was könnte ergänzt oder besser formuliert werden?
@@ -856,94 +831,26 @@ Sei ehrlich aber konstruktiv und ermutigend. Gib konkrete, umsetzbare Tipps.
 Denke daran: Dieses Tool ist auch für Menschen die sich kein Coaching leisten können.
 Jeder Karriereweg ist einzigartig und hat seinen Wert."""
 
-    @mcp.prompt()
-    def willkommen() -> str:
-        """Willkommensbildschirm — erklaert was PBP kann und wie man startet."""
-        profile = db.get_profile()
-        has_profile = profile is not None
-        active_jobs = len(db.get_active_jobs()) if has_profile else 0
-        apps = len(db.get_applications()) if has_profile else 0
-        criteria = db.get_search_criteria() if has_profile else {}
 
-        if has_profile:
-            name = profile.get("name", "")
-            return f"""Willkommen zurück, {name}!
+def build_jobsuche_workflow_prompt(db) -> str:
+    """Text des Prompts `jobsuche_workflow` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    criteria = db.get_search_criteria()
+    from .services.search_service import aktive_quellen
+    active_sources = aktive_quellen(db) or []  # #1039: ohne defekte
+    active_jobs = len(db.get_active_jobs())
 
-Dein Bewerbungs-Assistent ist bereit. Hier ein Überblick:
+    last_search = db.get_profile_setting("last_search_at", "")
+    last_info = ""
+    if last_search:
+        try:
+            from datetime import datetime
+            d = datetime.fromisoformat(last_search)
+            days = (datetime.now() - d).days
+            last_info = f"Letzte Suche: {last_search} ({days} Tag(e) her)"
+        except Exception:
+            last_info = f"Letzte Suche: {last_search}"
 
-📊 DEIN STATUS
-  Profil: ✓ angelegt
-  Aktive Stellen: {active_jobs}
-  Bewerbungen: {apps}
-  Suchkriterien: {'✓ gesetzt' if criteria.get('keywords_muss') else '✗ noch nicht gesetzt'}
-  Dashboard: http://localhost:8200
-
-🎯 WAS KANN ICH FÜR DICH TUN?
-  • "Zeig mir meine Stellen" → stellen_anzeigen()
-  • "Zeig mir meine Bewerbungen" → bewerbungen_anzeigen()
-  • "Starte eine Jobsuche" → jobsuche_starten()
-  • "Schreib mir ein Anschreiben für [Stelle] bei [Firma]" → workflow_starten(name='bewerbung_schreiben')
-  • "Bereite mich auf ein Interview vor" → workflow_starten(name='interview_vorbereitung')
-  • "Exportiere meinen Lebenslauf als PDF" → lebenslauf_exportieren()
-  • "Wie sieht mein Profil aus?" → profil_zusammenfassung()
-  • "Ich möchte mein Profil ändern" → workflow_starten(name='profil_ueberpruefen')
-  • "Analysiere mein Profil" → workflow_starten(name='profil_analyse')
-
-Frag einfach in deinen eigenen Worten — ich verstehe schon was du meinst!"""
-
-        return """Willkommen beim Bewerbungs-Assistent! 👋
-
-Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
-
-📋 PROFIL ERSTELLEN
-  Wir führen ein lockeres Gespräch und ich erfasse dein komplettes Profil —
-  Berufserfahrung, Skills, Ausbildung. Kein steifes Formular, mehr wie ein Kaffeegespräch.
-
-🔍 JOBS FINDEN
-  Ich durchsuche deine aktivierten Jobquellen gleichzeitig (ueber 30 Portale verfuegbar) und bewerte die Ergebnisse
-  automatisch nach deinen Kriterien.
-
-✉️ BEWERBUNGEN SCHREIBEN
-  Ich schreibe stellenspezifische Anschreiben, basierend auf deinem Profil
-  und den Anforderungen der Stelle. Export als PDF oder DOCX.
-
-📄 LEBENSLAUF EXPORTIEREN
-  Professionell formatierter CV als PDF oder Word-Dokument.
-
-🎤 INTERVIEW-VORBEREITUNG
-  STAR-Antworten, erwartbare Fragen, Gehaltsverhandlung — alles personalisiert.
-
-📊 BEWERBUNGS-TRACKING
-  Dashboard auf http://localhost:8200 mit Übersicht aller Bewerbungen,
-  Status-Tracking und Statistiken.
-
-═══════════════════════════════════════════════════
-LOS GEHT'S — Sag einfach: "Lass uns mein Profil erstellen!"
-Oder: "Starte die Ersterfassung"
-═══════════════════════════════════════════════════
-
-Du brauchst kein Computerwissen. Ich fuehre dich durch alles Schritt für Schritt."""
-
-    @mcp.prompt()
-    def jobsuche_workflow() -> str:
-        """Geführter Workflow: Von Suchkriterien bis zur Bewerbung."""
-        criteria = db.get_search_criteria()
-        from .services.search_service import aktive_quellen
-        active_sources = aktive_quellen(db) or []  # #1039: ohne defekte
-        active_jobs = len(db.get_active_jobs())
-
-        last_search = db.get_profile_setting("last_search_at", "")
-        last_info = ""
-        if last_search:
-            try:
-                from datetime import datetime
-                d = datetime.fromisoformat(last_search)
-                days = (datetime.now() - d).days
-                last_info = f"Letzte Suche: {last_search} ({days} Tag(e) her)"
-            except Exception:
-                last_info = f"Letzte Suche: {last_search}"
-
-        return f"""Starte den geführten Jobsuche-Workflow.
+    return f"""Starte den geführten Jobsuche-Workflow.
 
 DU FUEHRST DEN USER SCHRITT FÜR SCHRITT DURCH DIESEN PROZESS.
 Erkläre bei jedem Schritt WAS passiert und WARUM.
@@ -977,13 +884,22 @@ Aktive Quellen: {active_sources if active_sources else 'KEINE'}
 SCHRITT 3: SUCHE STARTEN
 ═══════════════════════════════════════════════════
 WAS PASSIERT: Ich durchsuche jetzt alle aktivierten Portale nach deinen Kriterien.
-Das kann je nach Anzahl der Quellen 5-10 Minuten dauern. Ich halte dich auf dem Laufenden.
+Das kann je nach Anzahl der Quellen 5-10 Minuten dauern.
 {f'Es gibt bereits {active_jobs} aktive Stellen aus früheren Suchen.' if active_jobs > 0 else 'Noch keine Stellen gefunden.'}
 
-→ Starte die Suche mit jobsuche_starten()
-→ WICHTIG: Informiere den User: "Die Suche läuft jetzt. Das dauert einige Minuten.
-   Ich melde mich wenn es Ergebnisse gibt."
-→ Informiere den User über den Fortschritt mit jobsuche_status()
+→ Starte die Suche mit jobsuche_starten().
+→ WICHTIG: Nach dem Start NICHT in einer Schleife auf jobsuche_status() warten.
+   Die Suche laeuft im Hintergrund; ein Polling-Loop erschoepft dein
+   Kontextfenster, bevor sie fertig ist. Stattdessen:
+   1. Sag dem User, dass die Suche laeuft und das Dashboard den Fortschritt zeigt.
+   2. Schlage vor: „Frag mich in ein paar Minuten 'Wie laeuft meine Jobsuche?'" —
+      dann genuegt ein einzelnes jobsuche_status(), auch ohne job_id.
+   3. Beende den Schritt hier. Kein weiteres jobsuche_status() im selben Zug.
+→ Liefert jobsuche_starten ein Feld `manuelle_quellen` (Jobboersen, die nur im
+   Browser gehen): ARBEITE DIESE QUELLEN SELBST AB — ohne Nachfrage —, sofern
+   Claude-in-Chrome verbunden ist, waehrend die Hintergrund-Suche laeuft: Suchbegriffe je Jobboerse aus
+   suchprofil_lesen(), passende Treffer mit stelle_manuell_anlegen() erfassen.
+   Ohne Claude-in-Chrome: die Jobboersen nennen und den Weg erklaeren.
 
 ═══════════════════════════════════════════════════
 SCHRITT 4: ERGEBNISSE SICHTEN
@@ -1018,10 +934,10 @@ REGELN:
 - Am Ende: "Tipp: Führe die Jobsuche alle 2-3 Tage erneut aus, um neue Stellen zu finden.
   Im Dashboard siehst du, wann die letzte Suche war.\""""
 
-    @mcp.prompt()
-    def bewerbungs_uebersicht() -> str:
-        """Komplette Übersicht: Profil, Stellen, Bewerbungen, nächste Schritte."""
-        return """Erstelle eine umfassende Übersicht für den User.
+
+def build_bewerbungs_uebersicht_prompt(db) -> str:
+    """Text des Prompts `bewerbungs_uebersicht` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return """Erstelle eine umfassende Übersicht für den User.
 
 ABLAUF:
 1. Rufe profil_zusammenfassung() auf — zeige den Vollständigkeits-Check
@@ -1041,10 +957,10 @@ DANN:
 
 Sprich Deutsch und per Du. Sei proaktiv mit Vorschlägen."""
 
-    @mcp.prompt()
-    def interview_simulation(stelle: str = "", firma: str = "") -> str:
-        """Simuliertes Bewerbungsgespräch — Claude spielt den Interviewer."""
-        return f"""Du bist jetzt der Interviewer für folgende Position:
+
+def build_interview_simulation_prompt(db, stelle: str = '', firma: str = '') -> str:
+    """Text des Prompts `interview_simulation` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return f"""Du bist jetzt der Interviewer für folgende Position:
 Stelle: {stelle}
 Firma: {firma}
 
@@ -1087,10 +1003,10 @@ ABSCHLUSS:
 → Biete an: "Soll ich den Bewerbungsstatus auf 'interview' setzen?"
 → bewerbung_status_aendern(id, 'interview')"""
 
-    @mcp.prompt()
-    def gehaltsverhandlung(stelle: str = "", firma: str = "") -> str:
-        """Gehaltsverhandlung vorbereiten — Strategie, Argumente und Taktik."""
-        return f"""Bereite eine Gehaltsverhandlung vor für:
+
+def build_gehaltsverhandlung_prompt(db, stelle: str = '', firma: str = '') -> str:
+    """Text des Prompts `gehaltsverhandlung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return f"""Bereite eine Gehaltsverhandlung vor für:
 Stelle: {stelle}
 Firma: {firma}
 
@@ -1139,10 +1055,10 @@ Erstelle eine vollständige Verhandlungsvorbereitung:
 
 Sprich Deutsch, per Du, und sei direkt mit konkreten Zahlen."""
 
-    @mcp.prompt()
-    def netzwerk_strategie(firma: str = "") -> str:
-        """Networking-Strategie für eine Zielfirma — Kontakte und Ansprache."""
-        return f"""Entwickle eine Networking-Strategie für die Firma: {firma}
+
+def build_netzwerk_strategie_prompt(db, firma: str = '') -> str:
+    """Text des Prompts `netzwerk_strategie` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return f"""Entwickle eine Networking-Strategie für die Firma: {firma}
 
 DATENSAMMLUNG (zuerst ausführen):
 1. Rufe profil_zusammenfassung() auf — zeige Erfahrung und Kontakte
@@ -1197,10 +1113,10 @@ STRATEGIE ENTWICKELN:
 
 Sprich Deutsch und per Du. Passe die Templates an das Profil an."""
 
-    @mcp.prompt()
-    def ablehnungs_coaching() -> str:
-        """Gesprächsbasierte Analyse nach einer Ablehnung — lernen und weitermachen."""
-        return """Du bist ein einfühlsamer Karriere-Coach. Der User hat gerade eine Ablehnung erhalten
+
+def build_ablehnungs_coaching_prompt(db) -> str:
+    """Text des Prompts `ablehnungs_coaching` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return """Du bist ein einfühlsamer Karriere-Coach. Der User hat gerade eine Ablehnung erhalten
 und möchte darüber sprechen. Dein Ziel: Verstehen, lernen, motivieren.
 
 ═══════════════════════════════════════════════════
@@ -1244,10 +1160,10 @@ REGELN
 - Sprich Deutsch und per Du
 """
 
-    @mcp.prompt()
-    def auto_bewerbung() -> str:
-        """Automatisch Bewerbung aus URL oder Stellenbeschreibung erstellen."""
-        return """Du bist ein effizienter Bewerbungs-Assistent. Der User gibt dir eine Stelle —
+
+def build_auto_bewerbung_prompt(db) -> str:
+    """Text des Prompts `auto_bewerbung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    return """Du bist ein effizienter Bewerbungs-Assistent. Der User gibt dir eine Stelle —
 als URL, als Text, oder als Beschreibung — und du erstellst automatisch alles.
 
 ═══════════════════════════════════════════════════
@@ -1280,37 +1196,27 @@ REGELN
 - Sprich Deutsch und per Du
 """
 
-    @mcp.prompt()
-    def dokumente_verarbeiten() -> str:
-        """Hochgeladene Dokumente klassifizieren und passend ins PBP einarbeiten.
 
-        v1.7.120: der Text entsteht in
-        `build_dokumente_verarbeiten_prompt` — dieselbe Quelle nimmt der
-        Dashboard-Knopf. Vorher stand er nur hier, die Registry kannte ihn
-        nicht, und der Knopf kopierte den rohen Schraegstrich-Befehl."""
-        return build_dokumente_verarbeiten_prompt(db)
+def build_profil_erweiterung_prompt(db) -> str:
+    """Text des Prompts `profil_erweiterung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    profile = db.get_profile()
+    docs = profile.get("documents", []) if profile else []
+    conn = db.connect()
+    unextracted = []
+    if profile:
+        rows = conn.execute(
+            "SELECT id, filename, doc_type FROM documents WHERE profile_id=? AND "
+            "extraction_status IN ('nicht_extrahiert', 'basis_analysiert') AND extracted_text IS NOT NULL AND extracted_text != ''",
+            (profile["id"],)
+        ).fetchall()
+        unextracted = [dict(r) for r in rows]
 
-    @mcp.prompt()
-    def profil_erweiterung() -> str:
-        """Dokumente analysieren und Profil automatisch erweitern — Smart Auto-Extraction."""
-        profile = db.get_profile()
-        docs = profile.get("documents", []) if profile else []
-        conn = db.connect()
-        unextracted = []
-        if profile:
-            rows = conn.execute(
-                "SELECT id, filename, doc_type FROM documents WHERE profile_id=? AND "
-                "extraction_status IN ('nicht_extrahiert', 'basis_analysiert') AND extracted_text IS NOT NULL AND extracted_text != ''",
-                (profile["id"],)
-            ).fetchall()
-            unextracted = [dict(r) for r in rows]
+    doc_list = "\n".join(
+        f"  - [{d.get('doc_type', '?')}] {d['filename']} (ID: {d['id']})"
+        for d in unextracted[:10]
+    ) if unextracted else "  Alle Dokumente bereits analysiert."
 
-        doc_list = "\n".join(
-            f"  - [{d.get('doc_type', '?')}] {d['filename']} (ID: {d['id']})"
-            for d in unextracted[:10]
-        ) if unextracted else "  Alle Dokumente bereits analysiert."
-
-        return f"""Du bist ein Experte für Profil-Extraktion aus Bewerbungsunterlagen.
+    return f"""Du bist ein Experte für Profil-Extraktion aus Bewerbungsunterlagen.
 Deine Aufgabe: Analysiere hochgeladene Dokumente und erweitere das Bewerberprofil automatisch.
 
 ═══════════════════════════════════════════════════
@@ -1418,39 +1324,37 @@ REGELN
 8. Biete an: "Möchtest du noch Dokumente hochladen? Das geht im Dashboard (http://localhost:8200)."
 """
 
-    @mcp.prompt()
-    def faq() -> str:
-        """Interaktiver Erste-Schritte-Guide und FAQ fuer PBP (#175).
 
-        Hilft dem User sich zurechtzufinden und zeigt was als Naechstes zu tun ist."""
-        profile = db.get_profile()
-        stats = db.get_statistics() if profile else {}
-        criteria = db.get_search_criteria() if profile else {}
+def build_faq_prompt(db) -> str:
+    """Text des Prompts `faq` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    profile = db.get_profile()
+    stats = db.get_statistics() if profile else {}
+    criteria = db.get_search_criteria() if profile else {}
 
-        # Determine user state
-        has_profile = profile is not None
-        has_criteria = bool(criteria.get("keywords_muss"))
-        total_apps = stats.get("total_applications", 0)
-        active_jobs = stats.get("active_jobs", 0)
-        in_vorbereitung = stats.get("applications_by_status", {}).get("in_vorbereitung", 0)
+    # Determine user state
+    has_profile = profile is not None
+    has_criteria = bool(criteria.get("keywords_muss"))
+    total_apps = stats.get("total_applications", 0)
+    active_jobs = stats.get("active_jobs", 0)
+    in_vorbereitung = stats.get("applications_by_status", {}).get("in_vorbereitung", 0)
 
-        state_lines = []
-        if not has_profile:
-            state_lines.append("Du hast noch kein Profil. Starte mit: workflow_starten('ersterfassung')")
+    state_lines = []
+    if not has_profile:
+        state_lines.append("Du hast noch kein Profil. Starte mit: workflow_starten('ersterfassung')")
+    else:
+        state_lines.append(f"Profil: {profile.get('name', 'vorhanden')}")
+        if not has_criteria:
+            state_lines.append("Keine Suchkriterien gesetzt. Nutze: suchkriterien_setzen()")
         else:
-            state_lines.append(f"Profil: {profile.get('name', 'vorhanden')}")
-            if not has_criteria:
-                state_lines.append("Keine Suchkriterien gesetzt. Nutze: suchkriterien_setzen()")
-            else:
-                state_lines.append(f"Suchkriterien: aktiv ({len(criteria.get('keywords_muss', []))} MUSS-Keywords)")
-            state_lines.append(f"Stellen: {active_jobs} aktiv")
-            state_lines.append(f"Bewerbungen: {total_apps} gesamt")
-            if in_vorbereitung:
-                state_lines.append(f"In Vorbereitung: {in_vorbereitung} — workflow_starten('bewerbung_vorbereitung') starten!")
+            state_lines.append(f"Suchkriterien: aktiv ({len(criteria.get('keywords_muss', []))} MUSS-Keywords)")
+        state_lines.append(f"Stellen: {active_jobs} aktiv")
+        state_lines.append(f"Bewerbungen: {total_apps} gesamt")
+        if in_vorbereitung:
+            state_lines.append(f"In Vorbereitung: {in_vorbereitung} — workflow_starten('bewerbung_vorbereitung') starten!")
 
-        state_block = "\n".join(f"  {s}" for s in state_lines)
+    state_block = "\n".join(f"  {s}" for s in state_lines)
 
-        return f"""Du bist ein freundlicher PBP-Assistent. Der User hat PBP geoeffnet und
+    return f"""Du bist ein freundlicher PBP-Assistent. Der User hat PBP geoeffnet und
 braucht Orientierung. Zeige ihm wo er steht und was er als Naechstes tun kann.
 
 ═══════════════════════════════════════════════════
@@ -1476,39 +1380,31 @@ WICHTIG:
 - Wenn alles laeuft: "Du machst das grossartig, weiter so!"
 """
 
-    @mcp.prompt()
-    def bewerbung_vorbereitung(bewerbung_id: str = "") -> str:
-        """Gefuehrter Bewerbungs-Vorbereitungs-Workflow (#170).
 
-        Begleitet den User Schritt fuer Schritt durch die Vorbereitung einer Bewerbung:
-        Fit-Analyse, CV anpassen, Anschreiben, Dokumente verknuepfen.
+def build_bewerbung_vorbereitung_prompt(db, bewerbung_id: str = '') -> str:
+    """Text des Prompts `bewerbung_vorbereitung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    app_info = ""
+    if bewerbung_id:
+        app = db.get_application(bewerbung_id)
+        if app:
+            app_info = f"Bewerbung: {app.get('title', '')} bei {app.get('company', '')} (ID: {app['id'][:8]}, Status: {app.get('status', '')})"
+    if not app_info:
+        # Find latest in_vorbereitung
+        apps = db.get_applications("in_vorbereitung")
+        if apps:
+            a = apps[0]
+            app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: in_vorbereitung)"
+            bewerbung_id = a["id"]
+        else:
+            # Find latest beworben without documents
+            apps = db.get_applications()
+            for a in apps:
+                if a.get("status") in ("in_vorbereitung", "offen"):
+                    app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: {a.get('status', '')})"
+                    bewerbung_id = a["id"]
+                    break
 
-        Args:
-            bewerbung_id: ID der Bewerbung (optional — wenn leer, letzte in_vorbereitung)
-        """
-        # Find the application to prepare
-        app_info = ""
-        if bewerbung_id:
-            app = db.get_application(bewerbung_id)
-            if app:
-                app_info = f"Bewerbung: {app.get('title', '')} bei {app.get('company', '')} (ID: {app['id'][:8]}, Status: {app.get('status', '')})"
-        if not app_info:
-            # Find latest in_vorbereitung
-            apps = db.get_applications("in_vorbereitung")
-            if apps:
-                a = apps[0]
-                app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: in_vorbereitung)"
-                bewerbung_id = a["id"]
-            else:
-                # Find latest beworben without documents
-                apps = db.get_applications()
-                for a in apps:
-                    if a.get("status") in ("in_vorbereitung", "offen"):
-                        app_info = f"Bewerbung: {a.get('title', '')} bei {a.get('company', '')} (ID: {a['id'][:8]}, Status: {a.get('status', '')})"
-                        bewerbung_id = a["id"]
-                        break
-
-        return f"""Du bist ein erfahrener Bewerbungscoach. Du begleitest den User
+    return f"""Du bist ein erfahrener Bewerbungscoach. Du begleitest den User
 Schritt fuer Schritt durch die Vorbereitung seiner Bewerbung.
 
 Dein Ton: Motivierend, klar, strukturiert. Der User soll sich an die Hand
@@ -1577,6 +1473,208 @@ WICHTIGE REGELN
 - Bei Unsicherheit: Aufmuntern! "Das sieht gut aus. Lass uns weitermachen."
 - Wenn der User frustriert wirkt: "Jeder Schritt zaehlt. Du machst das richtig."
 """
+
+
+def build_willkommen_prompt(db) -> str:
+    """Text des Prompts `willkommen` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+    profile = db.get_profile()
+    has_profile = profile is not None
+    active_jobs = len(db.get_active_jobs()) if has_profile else 0
+    apps = len(db.get_applications()) if has_profile else 0
+    criteria = db.get_search_criteria() if has_profile else {}
+
+    if has_profile:
+        name = profile.get("name", "")
+        return f"""Willkommen zurück, {name}!
+
+Dein Bewerbungs-Assistent ist bereit. Hier ein Überblick:
+
+DEIN STATUS:
+  Profil: angelegt
+  Aktive Stellen: {active_jobs}
+  Bewerbungen: {apps}
+  Suchkriterien: {'gesetzt' if criteria.get('keywords_muss') else 'noch nicht gesetzt'}
+  Dashboard: http://localhost:8200
+
+WAS KANN ICH FÜR DICH TUN?
+  - "Zeig mir meine Stellen" → stellen_anzeigen()
+  - "Zeig mir meine Bewerbungen" → bewerbungen_anzeigen()
+  - "Was steht an?" → aufgaben_uebersicht()
+  - "Starte eine Jobsuche" → jobsuche_workflow_starten()
+  - "Schreib mir ein Anschreiben" oder "Lebenslauf anpassen" →
+    workflow_starten(name='bewerbung_schreiben')
+  - "Bereite mich auf ein Interview vor" → workflow_starten(name='interview_vorbereitung')
+  - "Exportiere meinen Lebenslauf als PDF" → lebenslauf_exportieren()
+  - "Wie sieht mein Profil aus?" → profil_zusammenfassung()
+  - "Analysiere mein Profil" → workflow_starten(name='profil_analyse')
+
+Frag einfach in deinen eigenen Worten!
+
+HINWEIS FUER DICH (Claude, #707): Erwaehnt der User im Gespraech nebenbei
+Praeferenzen, No-Gos oder Lebensumstaende ("max. 2 Buerotage", "kein
+Reisejob"), speichere das sofort via profil_bearbeiten(bereich='notizen',
+aktion='anhang', ...) und bestaetige kurz — diese Notizen speisen
+Anschreiben, Bewertung und Interview-Vorbereitung.
+
+PFLICHT-REGEL (#753): Bevor du IRGENDEINE Wertung zu einer Firma oder
+Stelle aussprichst ("kenne ich", "war abgesagt", "laeuft noch", "da war
+ein Interview" — auch beilaeufig), rufe firma_kontext(firmenname) auf und
+stuetze dich NUR auf das Ergebnis. Firmen-Status nie aus dem Gedaechtnis."""
+
+    return """Willkommen beim Bewerbungs-Assistent!
+
+Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
+
+- PROFIL ERSTELLEN: Lockeres Gespräch, kein steifes Formular
+- JOBS FINDEN: Die konfigurierten Job-Quellen gleichzeitig durchsuchen (Dashboard → Einstellungen → Job-Quellen)
+- BEWERBUNGEN SCHREIBEN: Stellenspezifische Anschreiben, Export als PDF/DOCX
+- LEBENSLAUF EXPORTIEREN: Professionell formatiert
+- INTERVIEW-VORBEREITUNG: STAR-Antworten, Gehaltsverhandlung
+- BEWERBUNGS-TRACKING: Dashboard auf http://localhost:8200
+
+Starte mit: ersterfassung_starten() oder sag einfach "Lass uns mein Profil erstellen!" """
+
+
+def register_prompts(mcp, db, logger):
+    """Registriert alle MCP-Prompts am Server (Anzahl: test_mcp_registry prueft)."""
+
+    @mcp.prompt()
+    def ersterfassung() -> str:
+        """Zwangloses Interview zur Profilerfassung — wie ein Kaffeegespräch.
+        Kann jederzeit unterbrochen und später fortgesetzt werden."""
+        return build_kennlerngespraech_prompt(db)
+
+    @mcp.prompt()
+    def bewerbung_schreiben(stelle: str = "", firma: str = "",
+                            job_hash: str = "", bewerbung_id: str = "",
+                            nur: str = "") -> str:
+        """Bewerbungsunterlagen: Lebenslauf und/oder Anschreiben zu einer Stelle.
+
+        v1.7.32 (#981, D43): der Text kam bis hierher aus einer ZWEITEN
+        Fassung, die neben `tools/workflows.py::_bewerbung_schreiben`
+        stand — zwei Anleitungen fuer denselben Vorgang, die schon
+        auseinandergelaufen waren (diese hier kannte das Stilarchiv nicht
+        und erfasste die Bewerbung am Ende immer neu). Derselbe Fall wie
+        `fit_analyse` gegen `calculate_score` (#963). Jetzt gibt es einen
+        Text; der Katalog aus #979 wird ihn ebenfalls von hier beziehen.
+
+        Args:
+            stelle: Stellenbezeichnung.
+            firma: Arbeitgeber.
+            job_hash: Hash der Stelle im Bestand — dann wird der
+                Anzeigen-Volltext genutzt.
+            bewerbung_id: bestehende Bewerbung — sie wird ERGAENZT statt
+                eine zweite anzulegen.
+            nur: 'lebenslauf', 'anschreiben' oder leer (beides bzw.
+                nachfragen).
+        """
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["bewerbung_schreiben"](
+            stelle=stelle, firma=firma, job_hash=job_hash,
+            bewerbung_id=bewerbung_id, nur=nur)
+
+    @mcp.prompt()
+    def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:
+        """Umfassende Vorbereitung auf ein Bewerbungsgespräch — personalisiert aus dem Profil."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["interview_vorbereitung"](stelle=stelle, firma=firma)
+
+    @mcp.prompt()
+    def profil_ueberpruefen() -> str:
+        """Profil nochmal anschauen und korrigieren — für spätere Änderungen."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["profil_ueberpruefen"]()
+
+    @mcp.prompt()
+    def profil_analyse() -> str:
+        """Detaillierte Analyse und Bewertung des Bewerberprofils."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["profil_analyse"]()
+
+    @mcp.prompt()
+    def willkommen() -> str:
+        """Willkommensbildschirm — erklaert was PBP kann und wie man startet."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["willkommen"]()
+
+    @mcp.prompt()
+    def jobsuche_workflow() -> str:
+        """Geführter Workflow: Von Suchkriterien bis zur Bewerbung."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["jobsuche_workflow"]()
+
+    @mcp.prompt()
+    def bewerbungs_uebersicht() -> str:
+        """Komplette Übersicht: Profil, Stellen, Bewerbungen, nächste Schritte."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["bewerbungs_uebersicht"]()
+
+    @mcp.prompt()
+    def interview_simulation(stelle: str = "", firma: str = "") -> str:
+        """Simuliertes Bewerbungsgespräch — Claude spielt den Interviewer."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["interview_simulation"](stelle=stelle, firma=firma)
+
+    @mcp.prompt()
+    def gehaltsverhandlung(stelle: str = "", firma: str = "") -> str:
+        """Gehaltsverhandlung vorbereiten — Strategie, Argumente und Taktik."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["gehaltsverhandlung"](stelle=stelle, firma=firma)
+
+    @mcp.prompt()
+    def netzwerk_strategie(firma: str = "") -> str:
+        """Networking-Strategie für eine Zielfirma — Kontakte und Ansprache."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["netzwerk_strategie"](firma=firma)
+
+    @mcp.prompt()
+    def ablehnungs_coaching() -> str:
+        """Gesprächsbasierte Analyse nach einer Ablehnung — lernen und weitermachen."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["ablehnungs_coaching"]()
+
+    @mcp.prompt()
+    def auto_bewerbung() -> str:
+        """Automatisch Bewerbung aus URL oder Stellenbeschreibung erstellen."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["auto_bewerbung"]()
+
+    @mcp.prompt()
+    def dokumente_verarbeiten() -> str:
+        """Hochgeladene Dokumente klassifizieren und passend ins PBP einarbeiten.
+
+        v1.7.120: der Text entsteht in
+        `build_dokumente_verarbeiten_prompt` — dieselbe Quelle nimmt der
+        Dashboard-Knopf. Vorher stand er nur hier, die Registry kannte ihn
+        nicht, und der Knopf kopierte den rohen Schraegstrich-Befehl."""
+        return build_dokumente_verarbeiten_prompt(db)
+
+    @mcp.prompt()
+    def profil_erweiterung() -> str:
+        """Dokumente analysieren und Profil automatisch erweitern — Smart Auto-Extraction."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["profil_erweiterung"]()
+
+    @mcp.prompt()
+    def faq() -> str:
+        """Interaktiver Erste-Schritte-Guide und FAQ fuer PBP (#175).
+
+        Hilft dem User sich zurechtzufinden und zeigt was als Naechstes zu tun ist."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["faq"]()
+
+    @mcp.prompt()
+    def bewerbung_vorbereitung(bewerbung_id: str = "") -> str:
+        """Gefuehrter Bewerbungs-Vorbereitungs-Workflow (#170).
+
+        Begleitet den User Schritt fuer Schritt durch die Vorbereitung einer Bewerbung:
+        Fit-Analyse, CV anpassen, Anschreiben, Dokumente verknuepfen.
+
+        Args:
+            bewerbung_id: ID der Bewerbung (optional — wenn leer, letzte in_vorbereitung)
+        """
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["bewerbung_vorbereitung"](bewerbung_id=bewerbung_id)
 
     @mcp.prompt()
     def profil_sync() -> str:
