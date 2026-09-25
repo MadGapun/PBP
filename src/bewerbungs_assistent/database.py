@@ -7924,17 +7924,22 @@ class Database:
             ) or "import"
             app_sources[source] = app_sources.get(source, 0) + 1
 
+        from .services import anzeigenamen as _anzeigenamen
         return {
             "score_distribution": {r["bracket"]: r["cnt"] for r in dist_rows},
             "score_distribution_aktiv": {r["bracket"]: r["cnt"] for r in active_dist_rows},
+            # G65 (#1087 D2): `name` bleibt der Schluessel (Vertrag),
+            # `label` ist der Name fuer Achse und Legende.
             "sources": [
                 {"name": r["source"] or "unbekannt", "count": r["cnt"],
+                 "label": _anzeigenamen.quelle_text(r["source"] or "unbekannt"),
                  "avg_score": _safe_float(r["avg_score"]),
                  "max_score": _safe_float(r["max_score"])}
                 for r in source_rows
             ],
             "application_sources": [
-                {"name": name, "count": count}
+                {"name": name, "count": count,
+                 "label": _anzeigenamen.quelle_text(name)}
                 for name, count in sorted(app_sources.items(), key=lambda item: (-item[1], item[0]))
             ],
         }

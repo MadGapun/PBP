@@ -2735,7 +2735,7 @@ export default function ProfilePage() {
               />
             </Field>
             <p className="text-xs text-muted">
-              Unterstützte Korrekturen für die direkte Profil-Übernahme: <code>persoenliche_daten</code> und <code>skills</code>.
+              Direkt übernehmen lassen sich Korrekturen an den persönlichen Daten und an den Kompetenzen.
             </p>
           </div>
         ) : (

@@ -19,6 +19,7 @@ import { formatCurrency, formatDateTime, textExcerpt } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
 import { gegliederterAuszug } from "@/lib/textAuszug";
 import { punkteText } from "@/lib/score";
+import { grundText, quelleText } from "@/lib/anzeige";
 
 export default function InlineJobDetailModal({ jobHash, onClose }) {
   const [job, setJob] = useState(null);
@@ -63,7 +64,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           {!job.is_active && job.dismiss_reason && (
             <div className="rounded-lg border border-amber/20 bg-amber/[0.04] p-2 text-[11px] text-amber/80">
               Diese Stelle ist aussortiert
-              {` (${job.dismiss_reason})`}
+              {` (${grundText(job.dismiss_reason)})`}
               {" — Read-Only-Ansicht."}
             </div>
           )}
@@ -85,7 +86,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
 
           {job.source && (
             <p className="text-[11px] text-muted/50">
-              Quelle: <span className="font-mono">{job.source}</span>
+              Quelle: <span>{quelleText(job.source)}</span>
               {job.found_at && ` · gefunden ${formatDateTime(job.found_at)}`}
             </p>
           )}

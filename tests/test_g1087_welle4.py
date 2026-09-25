@@ -169,3 +169,106 @@ def test_g64_kalender_zeigt_nur_termine(tmp_path, monkeypatch):
     assert daten["nachfassen_anzahl"] >= 1
     kal = _lesen(FRONTEND / "pages" / "CalendarPage.jsx")
     assert "data-nachfassen-verweis" in kal
+
+
+# ══ G65 — Anzeigenamen statt Rohwerte ═══════════════════════════════════
+
+ROHFELDER = r"(?:status|dismiss_reason|source|bewerbungsart|doc_type|remote_level|kind|herkunft)"
+# `{x.status}` als Text (nicht als Attribut `value={...}`), und `${x.source}`
+# in einem sichtbaren Satz. HTTP-Statuscodes in Fehlermeldungen bleiben.
+ROH_JSX = re.compile(r"(?<![=\w$])\{\s*[\w.?]+\." + ROHFELDER + r"\s*\}")
+ROH_TEMPLATE = re.compile(r"\$\{\s*(?!resp\.|res\.|r\.)[\w.?]+\." + ROHFELDER + r"\s*\}")
+
+
+def test_g65_kein_rohwert_in_jsx():
+    funde = []
+    for pfad in list(_jsx_dateien()) + [FRONTEND / "App.jsx"]:
+        text = _lesen(pfad)
+        for regel in (ROH_JSX, ROH_TEMPLATE):
+            for m in regel.finditer(text):
+                zeile = text[:m.start()].count("\n") + 1
+                # Schluessel fuer React (`key={`...${e.herkunft}`}`) sieht niemand.
+                if "key={`" in text.splitlines()[zeile - 1]:
+                    continue
+                funde.append(f"{pfad.name}:{zeile} {m.group(0)}")
+    assert not funde, funde
+
+
+def _werkzeug_und_promptnamen():
+    namen = set()
+    for pfad in (_repo() / "src" / "bewerbungs_assistent" / "tools").glob("*.py"):
+        namen |= set(re.findall(r"@mcp\.tool\([^)]*\)\s*\n(?:\s*@[^\n]+\n)*\s*def (\w+)", _lesen(pfad)))
+    namen |= set(re.findall(r'"prompt":\s*"(\w+)"', _lesen(_repo() / "src" / "bewerbungs_assistent" / "services" / "prompt_katalog.py")))
+    return {n for n in namen if "_" in n}
+
+
+def test_g65_guard_kennt_die_werkzeuge():
+    namen = _werkzeug_und_promptnamen()
+    assert len(namen) > 150 and "stelle_manuell_anlegen" in namen and "jobsuche_workflow" in namen
+
+
+def test_g65_kein_werkzeugname_im_sichtbaren_text():
+    namen = _werkzeug_und_promptnamen()
+    textknoten = re.compile(r">([^<>{}]*)<")
+    code_zeichen = ("&&", "=>", "?.", "||", "===", "!==", " ? ")
+    funde = []
+    for pfad in list(_jsx_dateien()) + [FRONTEND / "App.jsx"]:
+        text = _lesen(pfad)
+        for m in textknoten.finditer(text):
+            knoten = m.group(1)
+            if any(z in knoten for z in code_zeichen):
+                continue
+            for wort in re.findall(r"/?\b[a-z]+(?:_[a-z0-9]+)+\b", knoten):
+                if wort.lstrip("/") in namen:
+                    funde.append(f"{pfad.name}:{text[:m.start()].count(chr(10)) + 1} {wort}")
+    assert not funde, funde
+
+
+def test_g65_tabellen_in_python_und_js_gleich():
+    import json
+    import sys
+    sys.path.insert(0, str(_repo() / "src"))
+    from bewerbungs_assistent.services import anzeigenamen
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    js = _lesen(FRONTEND / "lib" / "anzeige.js")
+
+    def tabelle(name):
+        block = js[js.index(f"export const {name} = {{"):]
+        block = block[:block.index("};")]
+        paare = re.findall(r'^\s*(\w+):\s*("(?:[^"\\]|\\.)*")', block, re.M)
+        return {k: json.loads(v) for k, v in paare}
+
+    assert tabelle("GRUND_TEXT") == anzeigenamen.GRUND_TEXT
+    assert tabelle("BEWERBUNGSART_TEXT") == anzeigenamen.BEWERBUNGSART_TEXT
+    quellen = tabelle("QUELLE_TEXT")
+    for schluessel, eintrag in SOURCE_REGISTRY.items():
+        assert quellen.get(schluessel) == eintrag.get("name"), schluessel
+    ci = _lesen(_repo() / ".github" / "workflows" / "tests.yml")
+    assert "node frontend/src/lib/anzeige.test.mjs" in ci
+
+
+def test_g65_nachfass_text_ohne_rohwerte():
+    import sys
+    sys.path.insert(0, str(_repo() / "src"))
+    from bewerbungs_assistent.services.nachfass_text import nachfass_text
+    text = nachfass_text({"title": "Sachbearbeitung", "company": "Musterbetrieb GmbH",
+                          "applied_at": "2026-09-04", "bewerbungsart": "mit_dokumenten",
+                          "status": "interview_abgeschlossen"})
+    assert "04.09.2026" in text and "mit Unterlagen" in text and "Interview abgeschlossen" in text
+    assert "mit_dokumenten" not in text and "2026-09-04" not in text
+
+
+def test_g65_statistik_liefert_quellnamen(tmp_path, monkeypatch):
+    monkeypatch.setenv("BA_DATA_DIR", str(tmp_path))
+    from bewerbungs_assistent.database import Database
+    db = Database(db_path=tmp_path / "test.db")
+    db.initialize()
+    assert str(tmp_path) in str(db.db_path)
+    db.save_profile({"name": "Erika Musterfrau"})
+    db.save_jobs([{"hash": "g65q", "title": "Sachbearbeitung", "company": "Musterbetrieb GmbH",
+                   "url": "https://example.com/g65q", "source": "jobspy_indeed", "score": 3,
+                   "description": "x" * 80}])
+    daten = db.get_score_stats()
+    db.close()
+    eintrag = next(s for s in daten["sources"] if s["name"] == "jobspy_indeed")
+    assert eintrag["label"] == "Indeed.de (via JobSpy)"

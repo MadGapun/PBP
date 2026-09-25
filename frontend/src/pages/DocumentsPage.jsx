@@ -283,8 +283,7 @@ export default function DocumentsPage() {
                   <li>Claude klassifiziert die Dokumente und fragt vor jeder Aktion um Bestaetigung</li>
                 </ol>
                 <p className="mt-1.5 text-muted/50">
-                  Nur Profil-Daten? Nutze stattdessen den Befehl
-                  <code className="ml-1 px-1 rounded bg-shell/60">/profil_erweiterung</code>
+                  Nur Profil-Daten? Dann nimm im Profil-Tab „Profil ergänzen mit Claude“.
                 </p>
               </details>
             </div>

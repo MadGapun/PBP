@@ -25,9 +25,11 @@ import {
   buildMailto,
   buildReplyMailto,
   cn,
+  docTypeLabel,
   formatCurrency,
   formatDate,
   formatDateTime,
+  statusLabel,
   statusTone,
   textExcerpt,
 } from "@/utils";
@@ -36,6 +38,7 @@ import { punkteText, scoreText } from "@/lib/score";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import MitClaude from "@/components/MitClaude";
+import { bewerbungsartText, klartext, quelleText } from "@/lib/anzeige";
 import { VORSCHAU_ZEILEN, alleAufgabenText } from "@/lib/arbeitsliste";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
@@ -84,7 +87,7 @@ function EmailUploadButton({ pushToast, onImported }) {
       const matchInfo = data.match?.application
         ? ` → ${data.match.application.company} (${Math.round(data.match.confidence * 100)}%)`
         : " (nicht zugeordnet)";
-      const statusInfo = data.detected_status?.status ? ` | Status: ${data.detected_status.status}` : "";
+      const statusInfo = data.detected_status?.status ? ` | Status: ${statusLabel(data.detected_status.status)}` : "";
       const meetingInfo = data.meetings?.length ? ` | ${data.meetings.length} Termin(e)` : "";
       const docInfo = data.imported_documents ? ` | ${data.imported_documents} Dokument(e)` : "";
       pushToast(`E-Mail importiert${matchInfo}${statusInfo}${meetingInfo}${docInfo}`, "success");
@@ -946,7 +949,7 @@ export default function ApplicationsPage() {
                         )}
                         {application.is_imported ? <Badge tone="neutral">Import</Badge> : null}
                         {application.bewerbungsart && application.bewerbungsart !== "mit_dokumenten" && (
-                          <Badge tone="neutral">{application.bewerbungsart === "ueber_portal" ? "Portal" : application.bewerbungsart === "elektronisch" ? "E-Mail" : application.bewerbungsart}</Badge>
+                          <Badge tone="neutral">{bewerbungsartText(application.bewerbungsart)}</Badge>
                         )}
                         {application.job_employment_type && application.job_employment_type !== "festanstellung" && (
                           <Badge tone="success">Freelance</Badge>
@@ -1159,7 +1162,7 @@ export default function ApplicationsPage() {
                     </div>
                   )}
                 </div>
-                <Badge tone={statusTone(app.status)}>{app.status}</Badge>
+                <Badge tone={statusTone(app.status)}>{statusLabel(app.status)}</Badge>
               </div>
               {(app.ansprechpartner || app.kontakt_email) && (
                 <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted/70">
@@ -1341,7 +1344,7 @@ export default function ApplicationsPage() {
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge tone="sky">{timelineDialog.entry.job.source || "Quelle"}</Badge>
                 <Badge tone="amber">{punkteText(timelineDialog.entry.job)}</Badge>
-                {timelineDialog.entry.job.remote_level && timelineDialog.entry.job.remote_level !== "unbekannt" ? <Badge tone="success">{timelineDialog.entry.job.remote_level}</Badge> : null}
+                {timelineDialog.entry.job.remote_level && timelineDialog.entry.job.remote_level !== "unbekannt" ? <Badge tone="success">{klartext(timelineDialog.entry.job.remote_level)}</Badge> : null}
               </div>
               {timelineDialog.entry.job.salary_min ? (
                 <p className="mt-2 text-sm text-ink">
@@ -1418,8 +1421,10 @@ export default function ApplicationsPage() {
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-muted/60">
-                  Noch keine Recherchen gespeichert. Claude legt sie via
-                  {" "}firmen_recherche, skill_gap_analyse oder recherche_speichern an.
+                  {/* G65 (#1087 D2): keine Werkzeugnamen im Dialog. */}
+                  Noch keine Recherchen gespeichert. Bitte Claude, die Firma zu
+                  recherchieren oder die Stelle mit deinem Profil abzugleichen —
+                  das Ergebnis erscheint dann hier.
                 </p>
               )}
             </Card>
@@ -1567,7 +1572,7 @@ export default function ApplicationsPage() {
                   >
                     <FileText size={14} className="shrink-0 text-muted/50" />
                     <span className="truncate">{doc.filename}</span>
-                    {doc.doc_type ? <Badge tone="sky">{doc.doc_type}</Badge> : null}
+                    {doc.doc_type ? <Badge tone="sky">{docTypeLabel(doc.doc_type)}</Badge> : null}
                     <ExternalLink size={12} className="shrink-0 ml-auto text-muted/30" />
                   </a>
                 ))}
@@ -2022,7 +2027,7 @@ export default function ApplicationsPage() {
                     >
                       <Link2 size={14} className="shrink-0 text-teal/60" />
                       <span className="truncate">{doc.filename}</span>
-                      {doc.doc_type ? <span className="ml-auto shrink-0 text-[11px] text-muted/50">{doc.doc_type}</span> : null}
+                      {doc.doc_type ? <span className="ml-auto shrink-0 text-[11px] text-muted/50">{docTypeLabel(doc.doc_type)}</span> : null}
                     </button>
                   ))}
                 {documents.filter((doc) => {
@@ -2360,7 +2365,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                   </span>
                 )}
                 <p className="text-muted/50 text-[11px]">
-                  {j.company} · {j.source} · {punkteText(j)}
+                  {j.company} · {quelleText(j.source)} · {punkteText(j)}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -2490,7 +2495,7 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
               <p className="text-[12px] text-muted/70">{s.company}</p>
               <div className="mt-2 space-y-0.5 text-[11px] text-muted/60">
                 <p>Punkte: <span className="text-ink">{punkteText(s)}</span></p>
-                <p>Quelle: <span className="text-ink">{s.source}</span></p>
+                <p>Quelle: <span className="text-ink">{quelleText(s.source)}</span></p>
                 <p>Standort: <span className="text-ink">{s.location || "—"}</span></p>
                 <p>Gehalt: {s.salary_min ? `${s.salary_min}–${s.salary_max || "?"} €` : "—"}</p>
                 <p>Status: {s.is_active ? "aktiv" : "aussortiert"}</p>
@@ -2662,7 +2667,7 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
             <li key={c.id} className="flex items-center justify-between text-[11px]">
               <div className="flex-1 min-w-0">
                 <span className="text-ink font-mono">{(c.amount || 0).toFixed(2)} €</span>
-                <span className="ml-1.5 text-muted/50">{c.kind}</span>
+                <span className="ml-1.5 text-muted/50">{klartext(c.kind)}</span>
                 {c.description && (
                   <span className="ml-1.5 text-muted/40 truncate">— {c.description}</span>
                 )}

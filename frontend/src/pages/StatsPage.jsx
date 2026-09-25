@@ -19,6 +19,7 @@ import {
 import { api, apiUrl, optionalApi } from "@/api";
 import { useApp } from "@/app-context";
 import LearningInsightsCard from "@/components/LearningInsightsCard";
+import { grundText, quelleText } from "@/lib/anzeige";
 import MitClaude from "@/components/MitClaude";
 import {
   Badge,
@@ -342,8 +343,9 @@ export default function StatsPage() {
 
   // --- Source distribution pie data ---
   const sources = scores?.sources || [];
+  // G65 (#1087 D2): Namen statt Schluessel an Achse und Legende.
   const sourcePieData = sources.map((s) => ({
-    name: s.name,
+    name: quelleText(s),
     value: s.count,
   }));
 
@@ -358,14 +360,14 @@ export default function StatsPage() {
   const sourceScoreData = sources
     .filter((s) => s.avg_score > 0)
     .map((s) => ({
-      name: s.name,
+      name: quelleText(s),
       "Ø Punkte": Math.round(s.avg_score * 10) / 10,
       "Max Punkte": s.max_score || 0,
     }));
 
   // --- Dismiss reasons chart data ---
   const dismissData = (extended?.dismiss_reasons || []).slice(0, 10).map(([reason, count]) => ({
-    name: reason,
+    name: grundText(reason),
     count,
   }));
 
@@ -837,7 +839,7 @@ export default function StatsPage() {
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
                     <Pie
-                      data={scores.application_sources.map((s) => ({ name: s.name, value: s.count }))}
+                      data={scores.application_sources.map((s) => ({ name: quelleText(s), value: s.count }))}
                       dataKey="value"
                       nameKey="name"
                       cx="50%"
@@ -978,7 +980,7 @@ export default function StatsPage() {
                 })}
               </div>
               <p className="mt-3 text-xs text-muted/50">
-                Stil per <code className="text-ink/70">bewerbung_stil_tracken()</code> nach jedem Anschreiben festhalten — Claude macht das nach dem Standard-Workflow automatisch.
+                Claude hält den Stil nach jedem Anschreiben fest, das über den üblichen Weg entsteht.
               </p>
             </Card>
           )}

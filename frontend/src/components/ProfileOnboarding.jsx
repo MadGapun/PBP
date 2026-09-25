@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 
 import { api, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import MitClaude from "@/components/MitClaude";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles, GLOBAL_FILE_DRAG_STATE_EVENT, GLOBAL_FILE_DROP_EVENT } from "@/file-drop";
@@ -1133,8 +1134,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       </p>
       <div className="mt-5 grid gap-3 sm:max-w-lg">
         <Button variant="secondary" onClick={copyJobWorkflow}>
-          <Copy size={15} />
-          /jobsuche_workflow kopieren
+          <MitClaude>Jobsuche</MitClaude>
         </Button>
       </div>
       <p className="mt-4 text-xs text-muted">Aktuell erkannte Jobs: {jobCount}</p>

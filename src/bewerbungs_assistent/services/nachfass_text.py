@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from .anzeigenamen import bewerbungsart_text, datum_text, status_text
+
 # Ab diesen Staenden ist eine Routine-Nachfassung gegenstandslos: es
 # laeuft bereits ein Gespraech. Weiter anzumahnen erzeugt genau die
 # Sorte Rauschen, die dazu fuehrt, dass auch die wichtigen Eintraege
@@ -54,7 +56,9 @@ def nachfass_text(app: dict, anlass: str = "") -> str:
     kopf = (f"Nachfassen zur Bewerbung als {app.get('title') or '?'} "
             f"bei {app.get('company') or '?'}")
     if app.get("applied_at"):
-        kopf += f" (beworben am {str(app['applied_at'])[:10]})"
+        # G65 (#1087 D2): Datum, Art und Stand als Wort — gespeichert
+        # bleiben die Schluessel.
+        kopf += f" (beworben am {datum_text(app['applied_at'])})"
     teile = [kopf]
 
     ansprech = (app.get("ansprechpartner") or "").strip()
@@ -68,11 +72,11 @@ def nachfass_text(app: dict, anlass: str = "") -> str:
 
     art = (app.get("bewerbungsart") or "").strip()
     if art:
-        teile.append(f"Beworben per: {art}")
+        teile.append(f"Beworben {bewerbungsart_text(art)}")
 
     status = (app.get("status") or "").strip()
     if status:
-        teile.append(f"Stand: {status}")
+        teile.append(f"Stand: {status_text(status)}")
 
     if anlass:
         teile.append(anlass)

@@ -148,7 +148,7 @@ export default function SourceSelectionList({
             Anforderungen an.
           </p>
           <p>
-            <strong className="text-ink">4. Manuell ueber <code>stelle_manuell_anlegen</code></strong> —
+            <strong className="text-ink">4. Von Hand über Claude</strong> —
             wenn keiner der oberen Wege funktioniert (Stelle nur als PDF/Mail/Screenshot
             vorhanden). Claude bittest du dann, eine Stelle aus den Eckdaten anzulegen.
           </p>
@@ -255,7 +255,7 @@ export default function SourceSelectionList({
                           {(String(source.manueller_fallback).split(" ")[0] || "").replace(/^https?:\/\//, "").slice(0, 50)}
                           <ExternalLink size={10} />
                         </a>
-                        {" "}oeffnen und passende Stellen via <code className="text-ink">stelle_manuell_anlegen</code> nach PBP uebernehmen.
+                        {" "}öffnen und passende Stellen von Claude in PBP anlegen lassen.
                       </p>
                     ) : null}
                   </div>

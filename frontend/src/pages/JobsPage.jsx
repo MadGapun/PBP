@@ -38,6 +38,7 @@ import {
 import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertung";
 import { kartenFakten as faktenZeile, kartenGrund, kernaussage } from "@/lib/stellenKarte";
 import MitClaude from "@/components/MitClaude";
+import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
@@ -267,7 +268,7 @@ export const FILTER_STANDARD = {
 export function aktiveFilterBestimmen(filters) {
   const aktiv = [];
   if (filters.query) aktiv.push({ schluessel: "query", text: `Suchtext "${filters.query}"` });
-  if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${filters.source}` });
+  if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${quelleText(filters.source)}` });
   if (Number(filters.minScore || 0) > 0) aktiv.push({ schluessel: "minScore", text: `Punkte ab ${filters.minScore}` });
   if (filters.remote) aktiv.push({ schluessel: "remote", text: `Remote ${filters.remote}` });
   if (filters.salaryOnly) aktiv.push({ schluessel: "salaryOnly", text: "nur mit Gehalt" });
@@ -1442,7 +1443,7 @@ export default function JobsPage() {
               >
                 <option value="">Alle Quellen</option>
                 {sourceOptions.map((source) => (
-                  <option key={source} value={source}>{source}</option>
+                  <option key={source} value={source}>{quelleText(source)}</option>
                 ))}
               </SelectInput>
               {filters.source && (
@@ -2365,7 +2366,7 @@ export default function JobsPage() {
               { label: "firma_uninteressant" }, { label: "zeitarbeit" }, { label: "befristet" }, { label: "sonstiges" },
             ]).map((reason) => {
               const selected = dismissDialog.selectedReasons.includes(reason.label);
-              const displayLabel = reason.label.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+              const displayLabel = grundText(reason.label, dismissReasons);
               return (
                 <button
                   key={reason.label}
@@ -2482,7 +2483,7 @@ export default function JobsPage() {
                 <Badge tone="sky">{detailDialog.job.source || "Quelle"}</Badge>
                 {anstellungsform(detailDialog.job) ? <Badge tone={anstellungsform(detailDialog.job).ton}>{anstellungsform(detailDialog.job).text}</Badge> : null}
                 {umfangText(detailDialog.job) ? <Badge tone="neutral">{umfangText(detailDialog.job)}</Badge> : null}
-                {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
+                {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{klartext(detailDialog.job.remote_level)}</Badge> : null}
                 <Badge tone="amber">{punkteText(detailDialog.job)}</Badge>
                 <DaumenAbzeichen marke={detailDialog.job.fach_daumen} art={DAUMEN_FACH} />
                 <DaumenAbzeichen marke={detailDialog.job.rahmen_daumen} art={DAUMEN_RAHMEN} />
@@ -2521,8 +2522,8 @@ export default function JobsPage() {
                 if (link.art === "keine") {
                   return (
                     <p className="text-sm text-amber/80">
-                      Kein Link zur Original-Anzeige hinterlegt — Bewerbung ist so nicht moeglich.
-                      Die Stelle auf dem Portal suchen und die URL per <code>stelle_bearbeiten</code> nachtragen.
+                      Kein Link zur Original-Anzeige hinterlegt — so ist keine Bewerbung möglich.
+                      Such die Stelle auf dem Portal und trag den Link oben unter „Bearbeiten“ nach (oder bitte Claude darum).
                     </p>
                   );
                 }
@@ -2585,7 +2586,7 @@ export default function JobsPage() {
                     ) : null}
                   </div>
                   <p className="mt-2 text-[11px] text-muted/60">
-                    Tipp: Du kannst auch Claude bitten — <code className="text-amber">stellenbeschreibung_nachladen</code> als Tool. Massen-Nachzug laeuft sowieso im Hintergrund (max 8 pro Auto-Run, mit Backoff).
+                    Tipp: Du kannst auch Claude bitten, die Beschreibung nachzuladen. Im Hintergrund lädt PBP ohnehin bis zu acht Beschreibungen je Durchlauf nach.
                   </p>
                 </Card>
               ) : null}

@@ -139,5 +139,9 @@ jobs:
         # Aufgaben-Tab ist die Arbeitsliste.
         run: node frontend/src/lib/arbeitsliste.test.mjs
 
+      - name: Anzeigenamen statt Rohwerte (G65)
+        # G65 (#1087): Gruende, Quellen, Bewerbungsart als Wort.
+        run: node frontend/src/lib/anzeige.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

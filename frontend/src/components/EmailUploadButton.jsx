@@ -6,6 +6,7 @@ import { Mail } from "lucide-react";
 
 import { api } from "@/api";
 import { Button } from "@/components/ui";
+import { statusLabel } from "@/utils";
 
 export default function EmailUploadButton({ pushToast }) {
   const fileRef = useRef(null);
@@ -28,7 +29,7 @@ export default function EmailUploadButton({ pushToast }) {
         ? ` → ${data.match.application.company} (${Math.round(data.match.confidence * 100)}%)`
         : " (nicht zugeordnet)";
       const statusInfo = data.detected_status?.status
-        ? ` | Status: ${data.detected_status.status}`
+        ? ` | Status: ${statusLabel(data.detected_status.status)}`
         : "";
       const meetingInfo = data.meetings?.length
         ? ` | ${data.meetings.length} Termin(e)`
