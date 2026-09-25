@@ -329,7 +329,9 @@ def test_1009_fit_dialog_bietet_die_handlungen():
     start = quelle.index("open={fitDialog.open}")
     block = quelle[start:quelle.index("</Modal>", start)]
     assert "Passt nicht" in block
-    assert "Bewerbung erfassen" in block
+    # G58 (#1087): das Verb heisst ueberall "Bewerbung anlegen" und kommt
+    # aus lib/bewerbungFormular.js.
+    assert "{BEWERBUNG_ANLEGEN}" in block
     assert "Anpinnen" in block
 
 
@@ -350,7 +352,8 @@ def test_1009_es_ist_derselbe_aufruf_wie_auf_der_karte():
     aufrufe = quelle.count("openApplicationDialog(") - 1
     assert aufrufe >= 3, f"Nur {aufrufe} Aufrufer — einer fehlt."
     # Der Entwurf selbst darf nur EINMAL ausgeschrieben sein.
-    assert quelle.count('status: "beworben"') == 1, \
+    # G58 (#1087): der Entwurf startet mit der Vorgabe aus dem Modul.
+    assert quelle.count("status: VORGABE_STATUS") == 1, \
         "Zweite Fassung des Bewerbungs-Entwurfs."
     assert quelle.count("openDismissDialog") >= 3, \
         "Karte und Dialog rufen denselben Aussortier-Weg."

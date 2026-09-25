@@ -65,7 +65,9 @@ def test_action_link_routing_in_app_jsx():
 
 def test_application_link_navigates_with_intent():
     src = APP_JSX.read_text(encoding="utf-8")
-    assert 'navigateTo("bewerbungen", { applicationId: linkId })' in src
+    # G57 (#1087): der Sprung traegt zusaetzlich `focus: "timeline"`;
+    # die Absicht (Kennung als Intent) gilt weiter.
+    assert 'navigateTo("bewerbungen", { applicationId: linkId' in src
 
 
 def test_job_filter_missing_desc_routes_correctly():
