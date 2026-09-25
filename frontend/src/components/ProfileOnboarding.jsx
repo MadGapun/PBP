@@ -8,7 +8,7 @@ import SourceSelectionList from "@/components/SourceSelectionList";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles, GLOBAL_FILE_DRAG_STATE_EVENT, GLOBAL_FILE_DROP_EVENT } from "@/file-drop";
 import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
-import { cn, copyToClipboard, docTypeLabel, firstIncompleteStepIndex, getKnownProfileFacts, sanitizeSkillName } from "@/utils";
+import { cn, docTypeLabel, firstIncompleteStepIndex, getKnownProfileFacts, sanitizeSkillName } from "@/utils";
 
 const STEP_IDS = ["documents", "conversation", "sources", "jobs"];
 const CONVERSATION_COMMAND = "/ersterfassung";

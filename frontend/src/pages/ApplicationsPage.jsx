@@ -35,6 +35,7 @@ import { jobLinkInfo } from "@/lib/jobLink";
 import { punkteText, scoreText } from "@/lib/score";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
+import MitClaude from "@/components/MitClaude";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
@@ -304,12 +305,11 @@ export default function ApplicationsPage() {
         firma: application?.company || "",
       });
       const resolved = await api(`/api/workflow-prompt/interview_vorbereitung?${params}`);
-      await navigator.clipboard.writeText(resolved?.prompt || "");
-      pushToast(
-        `Interview-Vorbereitung fuer "${application?.title || "die Stelle"}" kopiert — jetzt in Claude Desktop einfuegen (Strg+V).`,
-        "success",
-        { duration: 7000 }
-      );
+      // G72 (#1087 E4): kopiert wird ueber copyPrompt — scheitert die
+      // Zwischenablage, steht der Text im Fenster zum Selbstkopieren.
+      await copyPrompt(resolved?.prompt || "", {
+        erfolg: `Interview-Vorbereitung für „${application?.title || "die Stelle"}“ kopiert — jetzt in Claude Desktop einfügen (Strg+V).`,
+      });
     } catch (err) {
       pushToast(`Anleitung konnte nicht geladen werden: ${err.message}`, "danger");
     }
@@ -332,12 +332,9 @@ export default function ApplicationsPage() {
         nur,
       });
       const resolved = await api(`/api/workflow-prompt/bewerbung_schreiben?${params}`);
-      await navigator.clipboard.writeText(resolved?.prompt || "");
-      pushToast(
-        `Anleitung fuer den ${bezeichnung} kopiert — jetzt in Claude Desktop einfuegen (Strg+V).`,
-        "success",
-        { duration: 7000 }
-      );
+      await copyPrompt(resolved?.prompt || "", {
+        erfolg: `Anleitung für den ${bezeichnung} kopiert — jetzt in Claude Desktop einfügen (Strg+V).`,
+      });
     } catch (err) {
       pushToast(`Anleitung konnte nicht geladen werden: ${err.message}`, "danger");
     }
@@ -991,8 +988,7 @@ export default function ApplicationsPage() {
                           onClick={() => unterlagenKopieren(application, "lebenslauf")}
                           title="Vorbefuellte Anleitung fuer den angepassten Lebenslauf zu dieser Stelle kopieren und in Claude Desktop einfuegen"
                         >
-                          <FileText size={15} />
-                          Lebenslauf
+                          <MitClaude>Lebenslauf</MitClaude>
                         </Button>
                       )}
                       {application.status === "in_vorbereitung" && !application.cover_letter_path && (
@@ -1001,8 +997,7 @@ export default function ApplicationsPage() {
                           onClick={() => unterlagenKopieren(application, "anschreiben")}
                           title="Vorbefuellte Anleitung fuer das Anschreiben zu dieser Stelle kopieren und in Claude Desktop einfuegen"
                         >
-                          <PenLine size={15} />
-                          Anschreiben
+                          <MitClaude>Anschreiben</MitClaude>
                         </Button>
                       )}
                       {["interview", "zweitgespraech"].includes(application.status) && (
@@ -1011,8 +1006,7 @@ export default function ApplicationsPage() {
                           onClick={() => interviewVorbereitungKopieren(application)}
                           title="Vorbefuellte Interview-Vorbereitung (Fragen, STAR-Antworten, Gehalt) kopieren und in Claude Desktop einfuegen — legt auch ein Todo mit Faelligkeit an"
                         >
-                          <GraduationCap size={15} />
-                          Interview-Vorbereitung
+                          <MitClaude>Interview-Vorbereitung</MitClaude>
                         </Button>
                       )}
                       {application.url && (
@@ -1099,7 +1093,7 @@ export default function ApplicationsPage() {
                     onClick={() => interviewVorbereitungKopieren(timelineDialog.entry?.application)}
                     title="Vorbefuellte Interview-Vorbereitung kopieren und in Claude Desktop einfuegen"
                   >
-                    <GraduationCap size={14} /> Interview-Vorbereitung
+                    <MitClaude size={14}>Interview-Vorbereitung</MitClaude>
                   </Button>
                 )}
                 <LinkButton
@@ -1485,7 +1479,7 @@ export default function ApplicationsPage() {
                     ));
                   }}
                 >
-                  Prompt kopieren
+                  <MitClaude>Recherche</MitClaude>
                 </Button>
               </div>
               <details className="mt-2">

@@ -22,6 +22,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, apiUrl, deleteRequest, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
+import MitClaude from "@/components/MitClaude";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -2030,8 +2031,7 @@ export default function ProfilePage() {
             action={(
               <div className="flex gap-2">
                 <Button type="button" variant="secondary" onClick={() => copyPrompt("/profil_erweiterung")}>
-                  <Copy size={15} />
-                  Profil-Prompt kopieren
+                  <MitClaude>Profil ergänzen</MitClaude>
                 </Button>
                 <Button type="button" onClick={() => navigateTo("dokumente")}>
                   <FolderOpen size={15} />
@@ -2683,8 +2683,7 @@ export default function ProfilePage() {
                 variant="secondary"
                 onClick={() => copyDocumentAnalysisPrompt(extractionDialog.document)}
               >
-                <Sparkles size={15} />
-                Analyse-Prompt kopieren
+                <MitClaude>Analyse</MitClaude>
               </Button>
             ) : <span />}
             <Button

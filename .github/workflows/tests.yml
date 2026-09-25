@@ -130,5 +130,9 @@ jobs:
         # Reihenfolge; Suche erst nach sieben Tagen dringlich.
         run: node frontend/src/lib/hinweisZone.test.mjs
 
+      - name: Stellenkarte - eine Kernaussage, ein Grund (G62)
+        # G62 (#1087): Urteil vor Daumen, Grund in Klartext, Fakten als Zeile.
+        run: node frontend/src/lib/stellenKarte.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

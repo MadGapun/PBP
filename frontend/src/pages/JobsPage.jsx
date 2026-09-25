@@ -36,11 +36,21 @@ import {
   symbol as daumenSymbol, titel as daumenTitel, ton as daumenTon,
 } from "@/lib/daumen";
 import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertung";
+import { kartenFakten as faktenZeile, kartenGrund, kernaussage } from "@/lib/stellenKarte";
+import MitClaude from "@/components/MitClaude";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
 } from "@/lib/stellenAngaben";
+
+function kartenFakten(job) {
+  return faktenZeile(job, {
+    entfernung: entfernungText(job),
+    form: anstellungsform(job)?.text || "",
+    umfang: umfangText(job),
+  });
+}
 
 /**
  * Ein Daumen mit Richtung UND Farbe (#1052).
@@ -64,6 +74,82 @@ function DaumenAbzeichen({ marke, art }) {
         {daumenEtikett(marke, art)}
       </span>
     </Badge>
+  );
+}
+
+// G62 (#1087 C2): ein Menue statt Kennung und Quellenschluessel als
+// Abzeichen. Beides braucht man, um Claude auf GENAU diese Stelle zu
+// zeigen — auf der Karte war es Rauschen.
+function FuerClaudeMenue({ job, pushToast }) {
+  const [offen, setOffen] = useState(false);
+  async function kopieren(text, meldung) {
+    setOffen(false);
+    try {
+      await navigator.clipboard.writeText(text);
+      pushToast(meldung, "success", { duration: 2500 });
+    } catch {
+      pushToast(`Kopieren hat nicht geklappt. Kennung zum Abschreiben: ${text}`, "amber", { duration: 10000 });
+    }
+  }
+  const kennung = String(job.hash || "");
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        data-fuer-claude
+        aria-label="Für Claude kopieren"
+        aria-expanded={offen}
+        title="Für Claude kopieren"
+        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/[0.06] hover:text-ink"
+        onClick={(event) => { event.stopPropagation(); setOffen((o) => !o); }}
+      >
+        <ClipboardCopy size={14} />
+      </button>
+      {offen ? (
+        <span role="menu" className="glass-card absolute right-0 top-full z-20 mt-1 flex w-72 flex-col rounded-xl p-1.5 text-left shadow-lg">
+          <span className="px-2.5 py-1.5 text-[12px] text-muted">Quelle: {job.source || "unbekannt"}</span>
+          <button type="button" role="menuitem" className="rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-white/[0.06]"
+            onClick={() => kopieren(kennung, "Kennung kopiert.")}>
+            Kennung kopieren
+          </button>
+          <button type="button" role="menuitem" className="rounded-lg px-2.5 py-1.5 text-left text-[13px] text-ink hover:bg-white/[0.06]"
+            onClick={() => kopieren(`Stelle ${kennung}: ${job.title || ""} (${firmaText(job)}, Quelle ${job.source || "unbekannt"})`, "Kennung mit Titel kopiert.")}>
+            Kennung mit Titel und Quelle kopieren
+          </button>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+// G62 (#1087 C3): ein Knopf, zwei Wege.
+function GenauerPruefen({ job, onLokal, onClaude }) {
+  const [offen, setOffen] = useState(false);
+  const knopf = detailbewertungKnopf(job);
+  return (
+    <span className="relative">
+      <Button variant="secondary" data-genauer-pruefen aria-expanded={offen} onClick={() => setOffen((o) => !o)}>
+        <Search size={15} />
+        Genauer prüfen
+      </Button>
+      {offen ? (
+        <span role="menu" className="glass-card absolute left-0 top-full z-20 mt-1 flex w-80 flex-col rounded-xl p-1.5 text-left shadow-lg">
+          <button type="button" role="menuitem" className="rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
+            onClick={() => { setOffen(false); onLokal(); }}>
+            <span className="block text-[13px] font-semibold text-ink">Sofort prüfen</span>
+            <span className="block text-[12px] text-muted">PBP rechnet die Punkte hier auf dem Rechner nach und zeigt, woher sie kommen.</span>
+          </button>
+          <button type="button" role="menuitem" className="rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
+            title={knopf.titel}
+            onClick={() => { setOffen(false); onClaude(); }}>
+            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
+              <MitClaude size={14}>{knopf.befund ? "Neu bewerten" : "Detailbewertung"}</MitClaude>
+            </span>
+            <span className="block text-[12px] text-muted">Claude liest Anzeige und Profil und speichert ein Urteil an der Stelle.</span>
+          </button>
+        </span>
+      ) : null}
+    </span>
   );
 }
 
@@ -372,6 +458,7 @@ export default function JobsPage() {
   // Server ueber den BESTAND gerechnet, nicht ueber die geladene Seite.
   const [aktivMeta, setAktivMeta] = useState(LEERE_META);
   const [ausgeblendetMeta, setAusgeblendetMeta] = useState(LEERE_META);
+  const [filterOffen, setFilterOffen] = useState(false);
   const [jobsHasMore, setJobsHasMore] = useState(false);
   const [jobsPageSize, setJobsPageSize] = useState(() => {
     const saved = localStorage.getItem("pbp_jobs_page_size");
@@ -635,7 +722,7 @@ export default function JobsPage() {
       // wiedersuchen muss.
       setFitDialog({ open: true, title: job.title, hash: job.hash, job, analysis });
     } catch (error) {
-      pushToast(`Fit-Analyse fehlgeschlagen: ${error.message}`, "danger");
+      pushToast(`Die Prüfung ist fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -727,12 +814,9 @@ export default function JobsPage() {
         bewerbung_id: bewerbungId || "",
       });
       const resolved = await api(`/api/workflow-prompt/bewerbung_schreiben?${params}`);
-      await navigator.clipboard.writeText(resolved?.prompt || "");
-      pushToast(
-        "Anleitung kopiert — jetzt in Claude Desktop einfuegen (Strg+V).",
-        "success",
-        { duration: 7000 }
-      );
+      await copyPrompt(resolved?.prompt || "", {
+        erfolg: "Anleitung kopiert — jetzt in Claude Desktop einfügen (Strg+V).",
+      });
     } catch (error) {
       pushToast(`Anleitung konnte nicht geladen werden: ${error.message}`, "danger");
     }
@@ -988,6 +1072,8 @@ export default function JobsPage() {
   const rahmenVerborgen = ansichtMeta.rahmen_verborgen;
   const schwelleVerborgen = ansichtMeta.schwelle_verborgen;
   const aktiveFilter = aktiveFilterBestimmen(filters);
+  // G62: "Filter (n)" — die Suche ist kein Filter im Klappfeld.
+  const filterAnzahl = aktiveFilter.filter((f) => f.schluessel !== "query").length;
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
   const jobsGuidance = (() => {
@@ -1171,7 +1257,7 @@ export default function JobsPage() {
               const parts = [];
               // #1022 AK 6: bei aktivem Filter gehoert die Einschraenkung
               // in die Notiz — die Kachel selbst bleibt beim Bestand.
-              if (durchFilterVerborgen > 0) parts.push(`${aktivMeta.treffer} Treffer, ${durchFilterVerborgen} durch Filter verborgen`);
+              if (durchFilterVerborgen > 0) parts.push(`${aktivMeta.treffer} Stellen, ${durchFilterVerborgen} durch Filter ausgeblendet`);
               if (withApplication > 0) parts.push(`${withApplication} mit Bewerbung`);
               if (dismissedCount > 0) parts.push(`${dismissedCount} aussortiert`);
               if (parts.length > 0) return parts.join(" · ");
@@ -1248,22 +1334,44 @@ export default function JobsPage() {
               {/* #1030 AK 4: Treffer im BESTAND der Ansicht / Bestand. */}
               {listenTreffer} / {listenGesamt}
             </span>
-            <SelectInput
-              className="!min-h-0 !w-auto !rounded-lg !px-2 !py-1 text-[11px] !border-white/5 !bg-white/[0.03]"
-              value={jobsPageSize}
-              onChange={async (e) => {
-                const newSize = Number(e.target.value);
-                setJobsPageSize(newSize);
-                localStorage.setItem("pbp_jobs_page_size", String(newSize));
-                setLoading(true);
-                await loadPage({ pageSize: newSize });
-              }}
+            {/* G62 (#1087 E3): die Seitengroesse ist weg — die Liste laedt
+                beim Scrollen nach (#1030). Statt 15 Filterelementen steht
+                hier "Filter (n)"; die Vorgaben bleiben, stehen aber
+                zusammengefasst darunter. */}
+            <Button
+              size="sm"
+              variant={filterAnzahl > 0 ? "secondary" : "ghost"}
+              data-filter-knopf
+              aria-expanded={filterOffen}
+              onClick={() => setFilterOffen((o) => !o)}
             >
-              <option value="20">20 pro Seite</option>
-              <option value="50">50 pro Seite</option>
-              <option value="100">100 pro Seite</option>
-              <option value="0">Alle</option>
+              <SlidersHorizontal size={15} />
+              {`Filter (${filterAnzahl})`}
+            </Button>
+            {/* Sortierung */}
+            <SelectInput
+              className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+              value={filters.sort}
+              onChange={(event) => setFilters((current) => ({ ...current, sort: event.target.value }))}
+            >
+              {filters.view === "dismissed" ? (
+                <option value="dismissed_desc">Zuletzt aussortiert</option>
+              ) : null}
+              {/* #1052: die Zahl heisst Fachwert — sie misst die
+                  Anzeige, nicht die Rahmenbedingungen. Der Parameter
+                  bleibt `score_desc`: er ist ein Vertrag mit dem
+                  Server, und das Etikett ist eine Beschriftung. */}
+              <option value="score_desc">Punkte absteigend</option>
+              <option value="score_asc">Punkte aufsteigend</option>
+              <option value="salary_desc">Gehalt abst.</option>
+              {/* #1032: nach dem Erstfund. Bewusst nicht nach dem
+                  Veroeffentlichungsdatum — das liefert nur eine Quelle. */}
+              <option value="found_desc">Neueste zuerst</option>
+              <option value="found_asc">Älteste zuerst</option>
+              <option value="company">Firma A–Z</option>
+              <option value="title">Titel A–Z</option>
             </SelectInput>
+
           </div>
 
           {/* Row 2: Filter chips row */}
@@ -1279,7 +1387,7 @@ export default function JobsPage() {
                   vorhandene durch. */}
               {[
                 ["active", "Aktive", jobsTotal, "text-teal"],
-                ["dismissed", "Ausgeblendet", aussortiertGesamt || dismissedJobs.length, "text-coral"],
+                ["dismissed", "Aussortiert", aussortiertGesamt || dismissedJobs.length, "text-coral"],
               ].map(([value, label, menge, tonKlasse]) => (
                 <button
                   key={value}
@@ -1309,8 +1417,17 @@ export default function JobsPage() {
               ))}
             </div>
 
-            <span className="mx-0.5 h-5 w-px bg-white/5" />
+            {/* G62: die wirkenden Filter in einem Satz — auch wenn das
+                Klappfeld zu ist. Ein Filter, den niemand sieht, war #1008. */}
+            {filterAnzahl > 0 ? (
+              <span data-filter-zusammenfassung className="text-[12px] text-muted">
+                {aktiveFilter.filter((f) => f.schluessel !== "query").map((f) => f.text).join(" · ")}
+              </span>
+            ) : null}
+          </div>
 
+          {filterOffen ? (
+          <div data-filter-feld className="mt-3 flex flex-wrap items-center gap-2.5 border-t border-white/[0.06] pt-3">
             {/* Inline filter selects */}
             <div className="group inline-flex items-center gap-1.5">
               <SelectInput
@@ -1535,33 +1652,9 @@ export default function JobsPage() {
               )}
             </div>
 
-            {/* Spacer */}
-            <div className="flex-1" />
 
-            {/* Sort */}
-            <SelectInput
-              className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
-              value={filters.sort}
-              onChange={(event) => setFilters((current) => ({ ...current, sort: event.target.value }))}
-            >
-              {filters.view === "dismissed" ? (
-                <option value="dismissed_desc">Zuletzt aussortiert</option>
-              ) : null}
-              {/* #1052: die Zahl heisst Fachwert — sie misst die
-                  Anzeige, nicht die Rahmenbedingungen. Der Parameter
-                  bleibt `score_desc`: er ist ein Vertrag mit dem
-                  Server, und das Etikett ist eine Beschriftung. */}
-              <option value="score_desc">Punkte absteigend</option>
-              <option value="score_asc">Punkte aufsteigend</option>
-              <option value="salary_desc">Gehalt abst.</option>
-              {/* #1032: nach dem Erstfund. Bewusst nicht nach dem
-                  Veroeffentlichungsdatum — das liefert nur eine Quelle. */}
-              <option value="found_desc">Neueste zuerst</option>
-              <option value="found_asc">Älteste zuerst</option>
-              <option value="company">Firma A–Z</option>
-              <option value="title">Titel A–Z</option>
-            </SelectInput>
           </div>
+          ) : null}
         </Card>
 
         <div className="grid gap-4">
@@ -1614,7 +1707,7 @@ export default function JobsPage() {
           {verborgeneStellen > 0 && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber/30 bg-amber/[0.06] px-3 py-2">
               <span className="text-[13px] text-amber/90">
-                {verborgeneStellen} {verborgeneStellen === 1 ? "Eintrag ist" : "Einträge sind"} durch aktive Filter verborgen
+                {verborgeneStellen} {verborgeneStellen === 1 ? "Stelle ist" : "Stellen sind"} durch Filter ausgeblendet
                 {aktiveFilter.length > 0 && (
                   <span className="text-amber/60"> · {aktiveFilter.map((f) => f.text).join(" · ")}</span>
                 )}
@@ -1629,7 +1722,7 @@ export default function JobsPage() {
                   view: current.view,
                 }))}
               >
-                Filter aufheben
+                Filter zurücksetzen
               </button>
             </div>
           )}
@@ -1638,6 +1731,7 @@ export default function JobsPage() {
               <Card
                 key={job.hash}
                 id={jobCardElementId(job.hash)}
+                data-stellenkarte
                 className={cn(
                   "flex flex-col rounded-xl transition-[border-color,box-shadow,background-color] duration-300",
                   highlightedJobHash === String(job.hash) && "job-card-highlight",
@@ -1650,145 +1744,81 @@ export default function JobsPage() {
                 )}
               >
                 <div className="flex-1 space-y-3">
+                  {/* G62 (#1087 C2): EINE Kernaussage (fachliche Passung:
+                      das gelesene Urteil, sonst der Fach-Daumen), EIN Grund
+                      in Klartext, dazu der Rahmen-Daumen. Kennung, Quelle,
+                      Punkte-Details, Pruefstand und Datenguete stehen in den
+                      Details bzw. im Menue "Für Claude kopieren". */}
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      className="font-mono text-[10px] text-muted/30 hover:text-sky transition-colors"
-                      title="ID kopieren"
-                      onClick={async () => { try { await navigator.clipboard.writeText(job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
-                    >#{String(job.hash).slice(0, 12)}</button>
                     {job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline -mt-0.5" /> Angepinnt</Badge> : null}
-                    <Badge tone="sky">{job.source || "Quelle"}</Badge>
-                    {editingScoreHash === String(job.hash) ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber/30 bg-amber/10 px-2.5 py-0.5">
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          className="w-12 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-center text-[12px] font-medium text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                          value={editingScoreValue}
-                          onChange={(e) => setEditingScoreValue(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") saveScore(job); if (e.key === "Escape") setEditingScoreHash(""); }}
-                          autoFocus
-                        />
-                        <button type="button" className="text-teal hover:text-teal/80" onClick={() => saveScore(job)}><Check size={14} /></button>
-                        <button type="button" className="text-muted hover:text-ink" onClick={() => setEditingScoreHash("")}><X size={14} /></button>
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-full border border-transparent bg-amber/10 px-2.5 py-0.5 text-[12px] font-semibold text-amber transition-colors hover:border-amber/30 hover:bg-amber/20"
-                        onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(scoreWert(job.score))); }}
-                        title="Punkte von Hand setzen"
-                      >
-                        {punkteText(job)}
-                        <Pencil size={11} />
-                      </button>
-                    )}
-                    {/* #1052: zwei Daumen, zwei Fragen — und KEINE
-                        Summe. Der Fachwert sagt etwas ueber die
-                        Anzeige, der Rahmen ueber die Lebensumstaende;
-                        dass beides unter einem Namen zusammengerechnet
-                        wurde, war der Anlass des Issues. */}
-                    <DaumenAbzeichen marke={job.fach_daumen} art={DAUMEN_FACH} />
+                    {(() => {
+                      const k = kernaussage(job);
+                      const abzeichen = <Badge tone={k.ton}>{k.text}</Badge>;
+                      return k.urteil ? (
+                        <button
+                          type="button"
+                          data-kernaussage
+                          className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sky/50"
+                          title={pruefstandTitel(job)}
+                          onClick={(event) => { event.stopPropagation(); showFitAnalysis(job); }}
+                        >
+                          {abzeichen}
+                        </button>
+                      ) : (
+                        <span data-kernaussage title={k.titel}>{abzeichen}</span>
+                      );
+                    })()}
                     <DaumenAbzeichen marke={job.rahmen_daumen} art={DAUMEN_RAHMEN} />
-                    {job.remote_level && job.remote_level !== "unbekannt" ? <Badge tone="success">{job.remote_level}</Badge> : null}
-                    {anstellungsform(job) ? (
-                      <Badge tone={anstellungsform(job).ton}>{anstellungsform(job).text}</Badge>
-                    ) : null}
-                    {/* #1023: der UMFANG als eigenes Kennzeichen neben der
-                        Anstellungsform. Der Melder: "Dann sehe ich in der
-                        Liste sofort, was mich erwartet, ohne die Anzeige zu
-                        oeffnen." `unbekannt` bekommt bewusst KEIN Abzeichen
-                        — ein Etikett "unbekannt" an 993 von 1.110 Stellen
-                        waere Rauschen, und die Luecke steht ohnehin im
-                        Datenguete-Befund. */}
-                    {umfangText(job) ? (
-                      /* v1.7.102 (#1043): eine Farbe fuer alle drei Werte —
-                         es ist dieselbe Angabe, und Orange nur fuer Teilzeit
-                         las sich wie eine Warnung. */
-                      <Badge tone="neutral">{umfangText(job)}</Badge>
-                    ) : null}
-                    {job.befristet ? <Badge tone="neutral">Befristet</Badge> : null}
-                    {/* #154: Bereits-beworben-Badge aus matched applications */}
+                    {/* #154: Bereits-beworben aus den verknuepften Bewerbungen */}
                     {appliedJobHashes.has(job.hash) ? (
                       <button
                         className="cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); window.location.hash = "bewerbungen"; }}
+                        onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { focus: "job", jobHash: job.hash }); }}
                         title="Zur Bewerbung wechseln"
                       >
                         <Badge tone="success">Bereits beworben</Badge>
                       </button>
                     ) : null}
-                    {jobNeedsDescriptionAttention(job) ? (
-                      <Badge tone="amber">{descriptionAttentionLabel(job)}</Badge>
-                    ) : null}
-                    {/* #989: was an dieser Stelle NICHT geprueft wurde.
-                        "Ungeprueft" ist nicht dasselbe wie "erfuellt
-                        nicht" — im Score sehen beide gleich aus, und
-                        genau daran stand die Liste auf dem Kopf. Die
-                        fehlende Beschreibung hat schon ihr eigenes
-                        Etikett; hier stehen die uebrigen Dimensionen. */}
-                    {(() => {
-                      const marke = datenguetMarke(job);
-                      const rest = (marke?.ungeprueft || []).filter((d) => d !== "beschreibung");
-                      if (!rest.length) return null;
-                      // `neutral` ist der einzige gedeckte Ton dafuer —
-                      // ein erfundener Ton erzeugt in Tailwind keine
-                      // Regel UND keinen Fehler (G24/#964). Der Titel
-                      // gehoert an ein Element, das ihn auch annimmt:
-                      // Badge reicht `title` nicht durch.
-                      return (
-                        <span title={marke.text}>
-                          <Badge tone="neutral">{`Ungeprüft: ${rest.length}`}</Badge>
+                    <span className="ml-auto inline-flex items-center gap-2">
+                      {editingScoreHash === String(job.hash) ? (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber/30 bg-amber/10 px-2.5 py-0.5">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            aria-label="Punkte von Hand setzen"
+                            className="w-12 rounded border border-white/10 bg-white/[0.06] px-1.5 py-0.5 text-center text-[12px] font-medium text-ink outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            value={editingScoreValue}
+                            onChange={(e) => setEditingScoreValue(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") saveScore(job); if (e.key === "Escape") setEditingScoreHash(""); }}
+                            autoFocus
+                          />
+                          <button type="button" aria-label="Punkte speichern" className="text-teal hover:text-teal/80" onClick={() => saveScore(job)}><Check size={14} /></button>
+                          <button type="button" aria-label="Abbrechen" className="text-muted hover:text-ink" onClick={() => setEditingScoreHash("")}><X size={14} /></button>
                         </span>
-                      );
-                    })()}
-                    {/* v1.7.68 (#968) AK 3: warum diese Zeile unten
-                        steht. Eine Stelle, die ohne erkennbaren Grund
-                        hinten liegt, sieht aus wie ein Fehler. Der Text
-                        kommt vom Server, nicht aus einer zweiten
-                        Fassung der Regel im JavaScript. */}
-                    {job.muss_tor ? (
-                      <span title={job.muss_tor.erklaerung || job.muss_tor.text}>
-                        <Badge tone="neutral">Kein Pflichttreffer</Badge>
-                      </span>
-                    ) : null}
-                    {/* #1007: das Urteil der Detailanalyse — getrennt vom
-                        Score, weil beide Verschiedenes sagen. Ohne
-                        gelesene Analyse steht hier NICHTS: "noch nicht
-                        gelesen" ist kein Urteil (#989). */}
-                    {/* #948 (AK 4/5/7): drei Zustaende, und ein Klick
-                        fuehrt zum Ergebnis statt nur zu einem Tooltip.
-                        "Ungeprueft" traegt bewusst KEIN Abzeichen — die
-                        Abwesenheit ist die ehrliche Anzeige fuer "noch
-                        nicht angesehen", und wer gezielt danach sucht,
-                        hat dafuer den Pruefstand-Filter. */}
-                    {job.pruefstand && job.pruefstand.art !== "ungeprueft" ? (
-                      <button
-                        type="button"
-                        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-sky/50"
-                        title={pruefstandTitel(job)}
-                        onClick={(event) => { event.stopPropagation(); showFitAnalysis(job); }}
-                      >
-                        <Badge
-                          tone={
-                            job.pruefstand.art !== "beurteilt" ? "neutral"
-                              : job.analyse?.urteil === "EMPFOHLEN" ? "success"
-                                : job.analyse?.urteil === "BEDINGT" ? "amber"
-                                : job.analyse?.urteil === "NICHT_EMPFOHLEN" ? "danger"
-                                : "neutral"
-                          }
+                      ) : (
+                        <button
+                          type="button"
+                          data-punkte
+                          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] text-muted transition-colors hover:bg-white/[0.06] hover:text-ink"
+                          onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(scoreWert(job.score))); }}
+                          title={`${SCORE_BEDEUTUNG} Klicken, um die Punkte von Hand zu setzen.`}
                         >
-                          {`${
-                            job.pruefstand.art === "beurteilt"
-                              ? (ANALYSE_ETIKETT[job.analyse?.urteil] || "Beurteilt")
-                              : "Angesehen"
-                          }${job.pruefstand.ueberholt ? " ⚠ überholt" : ""}`}
-                        </Badge>
-                      </button>
-                    ) : null}
+                          {punkteText(job)}
+                          <Pencil size={11} />
+                        </button>
+                      )}
+                      <FuerClaudeMenue job={job} pushToast={pushToast} />
+                    </span>
                   </div>
+                  {(() => {
+                    const grund = kartenGrund(job, datenguetMarke(job));
+                    return grund ? (
+                      <p data-karten-grund className="text-[13px] text-muted" title={job.muss_tor?.erklaerung || job.muss_tor?.text || ""}>
+                        {grund}
+                      </p>
+                    ) : null;
+                  })()}
                   <div
                     role="button"
                     tabIndex={0}
@@ -1806,17 +1836,13 @@ export default function JobsPage() {
                     <p className="text-sm text-muted">{firmaText(job)}{job.location ? ` - ${job.location}` : ""}</p>
                     {/* #950: die Entfernung nennt ihre Art — mit
                         Routing-Schluessel steht hier die Fahrzeit. */}
-                    {entfernungText(job) ? (
-                      <p className="text-xs text-muted/60">{entfernungText(job)}</p>
+                    {/* G62: Entfernung, Arbeitsort, Anstellungsform, Umfang und
+                        Befristung sind Angaben der Anzeige, keine Bewertung —
+                        eine Textzeile statt fuenf Abzeichen. */}
+                    {kartenFakten(job) ? (
+                      <p data-karten-fakten className="text-xs text-muted">{kartenFakten(job)}</p>
                     ) : null}
                     <p className="text-sm text-muted">{textExcerpt(job.description, 220)}</p>
-                    {jobNeedsDescriptionAttention(job) ? (
-                      <p className="text-xs text-amber">
-                        {Number(job?.score || 0) > 0
-                          ? "Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du die Punkte zu ernst nimmst."
-                          : "0 Punkte sind kein Urteil — ohne Beschreibung wurde diese Stelle nicht bewertet. Erst Beschreibung nachladen, dann entscheiden."}
-                      </p>
-                    ) : null}
                     {gehaltText(job, formatCurrency) ? (
                       <p className="text-sm text-ink">{gehaltText(job, formatCurrency)}</p>
                     ) : null}
@@ -1833,23 +1859,16 @@ export default function JobsPage() {
                     {job.is_pinned ? <PinOff size={15} /> : <Pin size={15} />}
                     {job.is_pinned ? "Entpinnen" : "Anpinnen"}
                   </Button>
-                  <Button variant="secondary" onClick={() => showFitAnalysis(job)}>
-                    <Target size={15} />
-                    Fit-Analyse
-                  </Button>
-                  {/* #1050 (G51): der Weg zur Detailbewertung stand nur im
-                      Chat — waehrend der Score, der keine Aussage ueber
-                      Passung ist, prominent auf der Karte stand. Die Blacklist
-                      wandert ins Passt-nicht-Menue: 28 Eintraege gegen 2.691
-                      Aussortierungen standen hier gleichrangig. */}
-                  <Button
-                    variant="secondary"
-                    title={detailbewertungKnopf(job).titel}
-                    onClick={() => copyPrompt(detailbewertungPrompt(job))}
-                  >
-                    <Search size={15} />
-                    {detailbewertungKnopf(job).text}
-                  </Button>
+                  {/* G62 (#1087 C3): "Fit-Analyse" und "Detailbewertung"
+                      standen nebeneinander, ohne dass der Unterschied
+                      erklaert war. Ein Knopf, zwei Wege: sofort lokal oder
+                      gruendlich mit Claude (#1050: das Urteil wird dort
+                      gespeichert). */}
+                  <GenauerPruefen
+                    job={job}
+                    onLokal={() => showFitAnalysis(job)}
+                    onClaude={() => copyPrompt(detailbewertungPrompt(job))}
+                  />
                   <Button onClick={() => openApplicationDialog(job)}>
                     <Plus size={15} />
                     {BEWERBUNG_ANLEGEN}
@@ -1930,8 +1949,8 @@ export default function JobsPage() {
 
           {filteredJobs.length === 0 && (
             !chrome.status?.has_profile ? <ZuerstProfil bereich="Stellen" /> : <EmptyState
-              title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine ausgeblendeten Stellen"}
-              description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Ausgeblendete Jobs können hier später wieder aktiviert werden."}
+              title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine aussortierten Stellen"}
+              description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Aussortierte Stellen kannst du hier wiederherstellen."}
               action={filters.view === "active" ? (
                 <div className="flex gap-3">
                   <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
@@ -2017,7 +2036,7 @@ export default function JobsPage() {
 
       <Modal
         open={fitDialog.open}
-        title={`Fit-Analyse — ${fitDialog.title}`}
+        title={`Genauer prüfen — ${fitDialog.title}`}
         onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
         /* #948 (AK 1/2): der Einstieg zur vertieften Analyse stand am
            ENDE eines langen Dialogs — man musste an Score, Faktoren,
@@ -2039,8 +2058,7 @@ export default function JobsPage() {
                 analyse: fitDialog.analysis?.analyse,
               }))}
             >
-              <Search size={15} />
-              Detailbewertung durch Claude anfordern
+              <MitClaude>Detailbewertung</MitClaude>
             </Button>
             <Button variant="secondary" onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schliessen</Button>
           </div>
@@ -2597,7 +2615,7 @@ export default function JobsPage() {
                   setDetailDialog({ open: false, job: null, editing: false });
                   showFitAnalysis(detailDialog.job);
                 }}>
-                  <Target size={15} /> Fit-Analyse
+                  <Target size={15} /> Sofort prüfen
                 </Button>
                 <Button variant={detailDialog.job.is_pinned ? "subtle" : "secondary"} onClick={async () => {
                   await togglePin(detailDialog.job);

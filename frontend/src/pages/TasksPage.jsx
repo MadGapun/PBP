@@ -64,7 +64,7 @@ async function patchJson(url, body) {
 }
 
 export default function TasksPage() {
-  const { navigateTo } = useContext(AppContext) || {};
+  const { navigateTo, copyPrompt } = useContext(AppContext) || {};
   const [daten, setDaten] = useState(null);
   const [statusFilter, setStatusFilter] = useState("offen");
   const [neuOffen, setNeuOffen] = useState(false);
@@ -250,11 +250,18 @@ export default function TasksPage() {
 
 ${e.claude_prompt}`
                 : kennung(e);
-              try {
-                await navigator.clipboard.writeText(text);
+              // G72 (#1087 E4): ein Auftrag fuer Claude geht ueber
+              // copyPrompt; die reine Kennung ist eine ID-Kopie.
+              let ok = true;
+              if (e.claude_prompt) {
+                ok = await copyPrompt(text, { erfolg: "Kennung und Auftrag kopiert — in Claude Desktop einfügen." });
+              } else {
+                try { await navigator.clipboard.writeText(kennung(e)); } catch { ok = false; }
+              }
+              if (ok) {
                 setKopiert(e.id);
                 setTimeout(() => setKopiert(""), 2000);
-              } catch { /* Zwischenablage nicht verfuegbar */ }
+              }
             }}
             title={e.claude_prompt
               ? "Kennung und fertigen Claude-Auftrag kopieren"

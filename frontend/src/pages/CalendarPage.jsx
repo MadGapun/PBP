@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent, useState } from "react";
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
+import { ClaudeSymbol } from "@/components/MitClaude";
 import {
   Badge,
   Button,
@@ -966,9 +967,10 @@ export default function CalendarPage() {
                                         copyPrompt(`/interview_vorbereitung${stelle}${firma}`);
                                       }}
                                       className="rounded-lg p-1.5 text-muted/30 hover:text-amber transition-colors"
-                                      title="Auf dieses Interview vorbereiten"
+                                      title="Interview-Vorbereitung mit Claude"
+                                      aria-label="Interview-Vorbereitung mit Claude"
                                     >
-                                      <Briefcase size={14} />
+                                      <ClaudeSymbol size={14} data-claude-symbol />
                                     </button>
                                   )}
                                   {/* #453 / v1.5.7: Durchgefuehrt fuer vergangene geplante Meetings */}

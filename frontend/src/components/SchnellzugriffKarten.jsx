@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 
 import { Button, Card } from "@/components/ui";
+import MitClaude from "@/components/MitClaude";
 import { cn } from "@/utils";
 
 // Die einzige Stelle, an der das Frontend noch etwas ueber einen Prompt
@@ -234,6 +235,9 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
                       <span className="block text-[13px] font-semibold text-ink/90">{e.titel}</span>
                       <span className="block truncate text-[11px] text-muted/60">{e.beschreibung}</span>
                     </div>
+                    <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] text-muted/60">
+                      <MitClaude size={12} />
+                    </span>
                   </button>
                 );
               })}

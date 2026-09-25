@@ -15,6 +15,7 @@ import { ClipboardCopy, Globe } from "lucide-react";
 
 import { optionalApi } from "@/api";
 import { useApp } from "@/app-context";
+import MitClaude from "@/components/MitClaude";
 import { Badge, Button, Card } from "@/components/ui";
 
 export default function BrowserHandoffKarte({ anlass = 0 }) {
@@ -51,8 +52,7 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
           </p>
         </div>
         <Button variant="secondary" onClick={() => copyPrompt(daten.prompt)}>
-          <ClipboardCopy size={15} />
-          Prompt für Claude kopieren
+          <MitClaude>Browser-Quellen</MitClaude>
         </Button>
       </div>
       {uebersprungen.length ? (
