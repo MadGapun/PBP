@@ -28,6 +28,7 @@
 import { useEffect, useState } from "react";
 import { ClipboardCopy, Compass, X } from "lucide-react";
 import { useApp } from "@/app-context";
+import MitClaude from "@/components/MitClaude";
 
 const STORAGE_KEY = "pbp_session_hidden_onboarding_hints_v1";
 
@@ -114,8 +115,7 @@ export default function OnboardingHintBanner({ tab, limit = 2, onLeer }) {
                 className="inline-flex items-center gap-1 text-left text-[11px] text-amber hover:underline focus-visible:underline"
                 title={`Kopiert den Befehl — danach in Claude einfügen. Claude nutzt dann ${h.cta_tool || "das passende Werkzeug"}.`}
               >
-                💬 Sag Claude: „{h.cta_label}"
-                <ClipboardCopy className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <MitClaude size={12}>„{h.cta_label}“</MitClaude>
               </button>
               <button
                 type="button"

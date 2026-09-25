@@ -133,6 +133,7 @@ function ContactCard({ contact, onClick }) {
 }
 
 function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
+  const { copyPrompt } = useApp();
   const isEdit = Boolean(contact?.id);
   const [form, setForm] = useState(() => ({
     full_name: contact?.full_name || "",
@@ -308,16 +309,11 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
                       linkedin_url: form.linkedin_url,
                     });
                     if (res?.prompt) {
-                      try {
-                        await navigator.clipboard.writeText(res.prompt);
-                        pushToast(
-                          "Prompt in Zwischenablage. In Claude einfuegen — der eingeloggte Chrome-Tab holt die LinkedIn-Daten.",
-                          "success",
-                          { duration: 8000 }
-                        );
-                      } catch {
-                        pushToast("Prompt erzeugt. Bitte aus dem Backend-Response kopieren.", "info");
-                      }
+                      // G72 (#1087 E4): scheitert die Zwischenablage,
+                      // zeigt copyPrompt den Text zum Selbstkopieren.
+                      await copyPrompt(res.prompt, {
+                        erfolg: "Anleitung kopiert. In Claude einfügen — der eingeloggte Chrome-Tab holt die LinkedIn-Daten.",
+                      });
                     }
                   } catch (err) {
                     pushToast(`Anreichern fehlgeschlagen: ${err.message}`, "danger");

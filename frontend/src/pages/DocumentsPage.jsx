@@ -4,6 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import EmailListe from "@/components/EmailListe";
+import MitClaude, { ClaudeSymbol } from "@/components/MitClaude";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -17,7 +18,7 @@ import {
   PageHeader,
   SelectInput,
 } from "@/components/ui";
-import { cn, copyToClipboard, formatDate, formatDateTime } from "@/utils";
+import { cn, formatDate, formatDateTime } from "@/utils";
 
 const DOC_TYPE_LABELS = {
   lebenslauf: "Lebenslauf",
@@ -165,13 +166,11 @@ export default function DocumentsPage() {
         if (response.available_templates && !availableTemplates.length) {
           setAvailableTemplates(response.available_templates);
         }
-        await copyToClipboard(response.prompt);
-        pushToast(
-          `Analyse-Prompt (${response.template_label}) kopiert — in Claude einfuegen`,
-          "success"
-        );
+        await copyPrompt(response.prompt, {
+          erfolg: `Analyse-Anleitung (${response.template_label}) kopiert — in Claude Desktop einfügen.`,
+        });
       } catch {
-        pushToast("Dokument vorgemerkt (Clipboard/API blockiert)", "success");
+        pushToast("Dokument vorgemerkt — die Analyse-Anleitung ließ sich nicht laden.", "success");
       }
       loadData();
     } catch (error) {
@@ -299,8 +298,7 @@ export default function DocumentsPage() {
               // uebereinander, zwei davon falsch.
               onClick={() => copyPrompt("/dokumente_verarbeiten")}
             >
-              <Copy size={14} className="mr-1" />
-              Dokumente verarbeiten
+              <MitClaude size={14}>Dokumente verarbeiten</MitClaude>
             </Button>
           </div>
         </Card>
@@ -527,18 +525,20 @@ export default function DocumentsPage() {
                           type="button"
                           onClick={() => reanalyzeDocument(doc.id)}
                           className="rounded-lg p-1.5 text-amber/50 hover:text-amber transition-colors"
-                          title="Vollanalyse starten (bisher nur Basis)"
+                          title="Vollanalyse mit Claude (bisher nur Basis)"
+                          aria-label="Vollanalyse mit Claude"
                         >
-                          <Sparkles size={14} />
+                          <ClaudeSymbol size={14} data-claude-symbol />
                         </button>
                       ) : doc.extraction_status && !["nicht_extrahiert", ""].includes(doc.extraction_status) ? (
                         <button
                           type="button"
                           onClick={() => reanalyzeDocument(doc.id)}
                           className="rounded-lg p-1.5 text-muted/30 hover:text-violet-400 transition-colors"
-                          title="Erneut analysieren"
+                          title="Erneut analysieren mit Claude"
+                          aria-label="Erneut analysieren mit Claude"
                         >
-                          <RotateCcw size={14} />
+                          <ClaudeSymbol size={14} data-claude-symbol />
                         </button>
                       ) : null}
                       {/* Link/Unlink button (#366) */}
@@ -632,12 +632,13 @@ export default function DocumentsPage() {
                             size="sm"
                             onClick={() => reanalyzeDocument(doc.id)}
                           >
-                            <Sparkles size={13} />
-                            {doc.extraction_status === "basis_analysiert"
-                              ? "Vollanalyse starten"
-                              : doc.extraction_status && !["nicht_extrahiert", ""].includes(doc.extraction_status)
-                                ? "Erneut analysieren"
-                                : "Analysieren"}
+                            <MitClaude size={13}>
+                              {doc.extraction_status === "basis_analysiert"
+                                ? "Vollanalyse"
+                                : doc.extraction_status && !["nicht_extrahiert", ""].includes(doc.extraction_status)
+                                  ? "Erneut analysieren"
+                                  : "Analysieren"}
+                            </MitClaude>
                           </Button>
                           <Button
                             size="sm"

@@ -19,6 +19,7 @@ import {
 import { api, apiUrl, optionalApi } from "@/api";
 import { useApp } from "@/app-context";
 import LearningInsightsCard from "@/components/LearningInsightsCard";
+import MitClaude from "@/components/MitClaude";
 import {
   Badge,
   Button,
@@ -233,7 +234,7 @@ function StatBox({ label, value, sub, tone = "neutral" }) {
 }
 
 export default function StatsPage() {
-  const { reloadKey, pushToast, navigateTo } = useApp();
+  const { reloadKey, pushToast, navigateTo, copyPrompt } = useApp();
   const [loading, setLoading] = useState(true);
   const [granularity, setGranularity] = useState("month"); // day | week | month | quarter | year
   const [timeRange, setTimeRange] = useState(""); // "" (default) | 30d | 90d | 6m | 12m
@@ -936,12 +937,9 @@ export default function StatsPage() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => {
-                    navigator.clipboard?.writeText("/ablehnungs_coaching").catch(() => {});
-                    pushToast("Prompt /ablehnungs_coaching kopiert — in Claude Desktop einfuegen.", "success");
-                  }}
+                  onClick={() => copyPrompt("/ablehnungs_coaching")}
                 >
-                  Vertieft mit Claude besprechen
+                  <MitClaude size={14}>Absagen besprechen</MitClaude>
                 </Button>
               </div>
             </Card>

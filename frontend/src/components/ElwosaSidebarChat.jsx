@@ -182,7 +182,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast, onNavigateToSettings, onNavigate, className = "" }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPrompt, onNavigateToSettings, onNavigate, className = "" }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -329,13 +329,11 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onNaviga
   }
   if (hidden && collapsed) return null;
 
+  // G72 (#1087 E4): derselbe Kopierweg wie ueberall — ein "/name" wird
+  // zur Anleitung aufgeloest, ein Fehlschlag zeigt den Text zum
+  // Selbstkopieren.
   async function copyCode(code) {
-    try {
-      await navigator.clipboard.writeText(code);
-      onToast?.(`„${code}" kopiert — paste in deinen Claude-Chat`, "success");
-    } catch {
-      onToast?.("Kopieren fehlgeschlagen", "danger");
-    }
+    await onCopyPrompt?.(code, { erfolg: `„${code}“ kopiert — in deinen Claude-Chat einfügen.` });
   }
 
   async function dismissMessage(id) {

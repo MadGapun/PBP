@@ -47,6 +47,7 @@ import ProfileOnboarding from "@/components/ProfileOnboarding";
 import { STARTSATZ } from "@/lib/startsatz";
 import Sidebar from "@/components/Sidebar";
 import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
+import MitClaude from "@/components/MitClaude";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import ContactsPage from "@/pages/ContactsPage";
@@ -326,9 +327,9 @@ function PromptsTab({ pushToast, copyPrompt }) {
                   <button
                     type="button"
                     onClick={() => copyPrompt(`/${kennung(p)}`)}
-                    className="shrink-0 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-[11px] font-medium px-2.5 py-1.5 transition-colors"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-[11px] font-medium px-2.5 py-1.5 transition-colors"
                   >
-                    Kopieren
+                    <MitClaude size={12} />
                   </button>
                 </div>
               ))}
@@ -467,6 +468,9 @@ export default function App() {
   const [llmStatus, setLlmStatus] = useState({ ui_state: "not_installed" });
   const [llmHelpOpen, setLlmHelpOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState(null);
+  // G72 (#1087 E4): Text, den der Browser nicht in die Zwischenablage
+  // lassen wollte — steht dann im Fenster zum Selbstkopieren.
+  const [manuellKopieren, setManuellKopieren] = useState("");
   // beta.35: aktiver Sub-Pfad fuer Top-Bar-Breadcrumb
   const [currentSubPath, setCurrentSubPath] = useState("");
   // #508: Sidebar-Collapsed-State (persistiert)
@@ -525,10 +529,16 @@ export default function App() {
     window.setTimeout(() => dismissToast(id), Number(options?.duration) || 4200);
   }
 
-  async function copyPrompt(prompt) {
+  // G72 (#1087 E4): EIN Weg fuer alles, was fuer Claude kopiert wird.
+  // `optionen.erfolg` ersetzt die Standardmeldung. Scheitert das Kopieren
+  // selbst (Browser verweigert die Zwischenablage), erscheint der Text in
+  // einem Fenster zum Selbstkopieren — vorher stand dort die englische
+  // Browsermeldung, und der Text war weg.
+  async function copyPrompt(prompt, optionen = {}) {
+    let promptToCopy = "";
     try {
       const rawPrompt = String(prompt || "").trim();
-      let promptToCopy = rawPrompt;
+      promptToCopy = rawPrompt;
 
       // v1.7.120: ein "/name" ist IMMER ein Workflow, dessen Anleitung der
       // Server liefert. Laesst er sich nicht aufloesen, wird NICHTS
@@ -550,7 +560,13 @@ export default function App() {
         promptToCopy = resolved.prompt;
       }
 
-      await copyToClipboard(promptToCopy);
+      try {
+        await copyToClipboard(promptToCopy);
+      } catch {
+        setManuellKopieren(promptToCopy);
+        pushToast("Kopieren hat nicht geklappt — der Text steht jetzt im Fenster zum Selbstkopieren.", "amber", { duration: 8000 });
+        return false;
+      }
 
       // #275: Warnung wenn Claude nicht verbunden
       const connStatus = chrome.status?.mcp_connection?.status;
@@ -571,13 +587,15 @@ export default function App() {
       // aufruft (erfassung_fortschritt_speichern / ersterfassung_starten
       // setzen ihn serverseitig).
       pushToast(
-        "Anleitung kopiert! Wechsle jetzt zu Claude Desktop — Einfuegen mit Strg+V (Cmd+V auf Mac).",
+        optionen.erfolg || "Anleitung kopiert! Wechsle jetzt zu Claude Desktop — Einfügen mit Strg+V (Cmd+V auf Mac).",
         "success",
         { duration: 10000, action: { label: "Zu Claude wechseln", onClick: () => { window.open("claude://", "_self"); } } }
       );
       return true;
     } catch (error) {
-      pushToast(`Kopieren fehlgeschlagen: ${error.message}`, "danger");
+      // Hierher kommt nur noch ein Fehler beim AUFLOESEN (Anleitung nicht
+      // ladbar) — das Kopieren selbst faengt der innere Block ab.
+      pushToast(`Die Anleitung ließ sich nicht laden: ${error.message}`, "danger");
       return false;
     }
   }
@@ -1251,6 +1269,7 @@ export default function App() {
                 className="flex-1 min-h-0"
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}
+                onCopyPrompt={copyPrompt}
                 onNavigateToSettings={(tab) => {
                   navigateTo("einstellungen");
                   // beta.38 (#601): direkt zum Lokale-KI-Tab springen
@@ -1668,6 +1687,26 @@ export default function App() {
               />
             </Field>
           </div>
+        </Modal>
+
+        <Modal
+          open={Boolean(manuellKopieren)}
+          title="Text für Claude"
+          description="Kopieren hat nicht geklappt. Markiere den Text unten und kopiere ihn mit Strg+C (Cmd+C auf dem Mac), dann in Claude Desktop einfügen."
+          onClose={() => setManuellKopieren("")}
+          footer={
+            <div className="flex justify-end">
+              <Button variant="secondary" onClick={() => setManuellKopieren("")}>Schließen</Button>
+            </div>
+          }
+        >
+          <textarea
+            data-manuell-kopieren
+            readOnly
+            value={manuellKopieren}
+            onFocus={(event) => event.target.select()}
+            className="glass-input min-h-[180px] w-full rounded-xl p-3 font-mono text-[13px] text-ink"
+          />
         </Modal>
 
         {/* G59 (#1087 A1): hier lag ein Overlay "Willkommen beim
