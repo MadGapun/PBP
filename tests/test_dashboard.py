@@ -383,12 +383,14 @@ class TestProfileIsolation:
         active_defaults_b = {
             source["key"] for source in client.get("/api/sources").json() if source["active"]
         }
-        expected_defaults = {
-            key
-            for key, source in SOURCE_REGISTRY.items()
-            if not source.get("login_erforderlich") and not source.get("defekt")
-        }
+        # B69 (#1087 C7): die Erstauswahl ist die Profil-Empfehlung, nicht
+        # mehr "alles ohne Login". Die Absicht dieses Tests — jedes Profil
+        # startet mit SEINER Auswahl, nicht mit der des anderen — gilt weiter.
+        from bewerbungs_assistent.services.search_service import erstauswahl
+        import bewerbungs_assistent.dashboard as _dash
+        expected_defaults = set(erstauswahl(_dash._db, SOURCE_REGISTRY)["quellen"])
         assert active_defaults_b == expected_defaults
+        assert "bundesagentur" not in active_defaults_b or active_defaults_b != {"bundesagentur"}
         assert client.get("/api/search-criteria").json() == {}
         assert client.get("/api/blacklist").json() == []
         assert client.get("/api/search-status").json()["status"] == "nie"
@@ -1545,12 +1547,12 @@ class TestStatistics:
         assert r.status_code == 200
 
         active = {source["key"] for source in r.json() if source["active"]}
-        expected = {
-            key
-            for key, source in SOURCE_REGISTRY.items()
-            if not source.get("login_erforderlich") and not source.get("defekt")
-        }
-        assert active == expected
+        # B69 (#1087 C7): Erstauswahl = Empfehlung. Die Absicht aus #500
+        # bleibt: keine Quelle mit Login, keine defekte.
+        assert active, "Die Erstauswahl darf nicht leer sein"
+        for key in active:
+            assert not SOURCE_REGISTRY[key].get("login_erforderlich"), key
+            assert not SOURCE_REGISTRY[key].get("defekt"), key
 
     def test_sources_can_be_updated(self, client):
         """Aktive Quellen koennen gespeichert und erneut geladen werden."""
