@@ -17,7 +17,7 @@
 # ============================================================================
 
 $ErrorActionPreference = "Stop"
-$Host.UI.RawUI.WindowTitle = "Bewerbungs-Assistent Installer"
+$Host.UI.RawUI.WindowTitle = "PBP Installer"
 
 function Write-Step($step, $total, $msg) {
     Write-Host ""
@@ -33,7 +33,7 @@ function Write-Info($msg) { Write-Host "  → $msg" -ForegroundColor Cyan }
 # Header
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   Bewerbungs-Assistent — Installer v1.6.0   ║" -ForegroundColor Cyan
+Write-Host "║   PBP — Installer                           ║" -ForegroundColor Cyan
 Write-Host "║   KI-gestuetztes Bewerbungsmanagement       ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════════╝" -ForegroundColor Cyan
 
@@ -109,7 +109,7 @@ if (Test-Path $venvPython) {
 $python = $venvPython
 
 # ── STEP 4: Projekt installieren ────────────────────────────────────
-Write-Step 4 $totalSteps "Bewerbungs-Assistent installieren..."
+Write-Step 4 $totalSteps "PBP installieren..."
 
 Write-Info "Installiere Core-Pakete..."
 & $python -m pip install --upgrade pip --quiet 2>$null
@@ -401,7 +401,7 @@ Write-Host ""
 Write-Host "  So geht's weiter:" -ForegroundColor Yellow
 Write-Host "  1. Claude Desktop komplett beenden (Tray-Icon → Beenden)" -ForegroundColor White
 Write-Host "  2. Claude Desktop neu starten" -ForegroundColor White
-Write-Host "  3. Eingeben: 'Starte den Bewerbungs-Assistenten'" -ForegroundColor White
+Write-Host "  3. Eingeben: 'Starte die Ersterfassung'" -ForegroundColor White
 Write-Host "     Oder: 'Starte die Ersterfassung' fuer gefuehrte Profil-Erstellung" -ForegroundColor White
 Write-Host ""
 Write-Host "  Dashboard jetzt oeffnen?" -ForegroundColor Yellow

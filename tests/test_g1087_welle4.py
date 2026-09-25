@@ -272,3 +272,49 @@ def test_g65_statistik_liefert_quellnamen(tmp_path, monkeypatch):
     db.close()
     eintrag = next(s for s in daten["sources"] if s["name"] == "jobspy_indeed")
     assert eintrag["label"] == "Indeed.de (via JobSpy)"
+
+
+# ══ G66 — echte Umlaute und ein Wort je Begriff ═════════════════════════
+
+def _pruefer():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("ui_texte_pruefen", _repo() / "scripts" / "ui_texte_pruefen.py")
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
+
+
+def test_g66_keine_umschrift_und_kein_doppelwort():
+    funde = _pruefer().pruefen()
+    assert not funde, funde[:20]
+
+
+def test_g66_pruefer_erkennt_was_er_soll():
+    p = _pruefer()
+    assert list(p.umlaut_funde("Uebungsgespraech fuer Staerken")) == ["Uebungsgespraech", "fuer", "Staerken"]
+    assert not list(p.umlaut_funde("neue Quelle, das dauert genauer, Steuer, aktuell, manuell"))
+    assert not list(p.umlaut_funde("quelleText valueId UEBERSCHRIFT ${x.ueberholt}"))
+    assert [v for v, _ in p.glossar_funde("Drei Follow-ups und ein Todo in den Docs")] == ["follow-ups", "todo", "docs"]
+    assert not list(p.glossar_funde("Daten unter ~/.bewerbungs-assistent"))
+    assert list(p.glossar_funde("Willkommen beim Bewerbungs-Assistent"))
+
+
+def test_g66_pruefer_liest_die_oberflaeche_und_den_katalog():
+    """DoD 8c: der Pruefer laeuft ueber die echten Dateien."""
+    p = _pruefer()
+    namen = {d.name for d in p.UI_DATEIEN}
+    assert {"App.jsx", "JobsPage.jsx", "SettingsPage.jsx"} <= namen
+    texte = [t for _, _, t in p.katalog_texte()]
+    assert any("Übungsgespräch" in t for t in texte)
+    ci = _lesen(_repo() / ".github" / "workflows" / "tests.yml")
+    assert "python scripts/ui_texte_pruefen.py" in ci
+
+
+def test_g66_menue_dokumente_und_rollen_deutsch():
+    app = _lesen(FRONTEND / "App.jsx")
+    assert 'title: "Docs"' not in app and '{ id: "dokumente", title: "Dokumente"' in app
+    anz = _lesen(FRONTEND / "lib" / "anzeige.js")
+    assert '{ value: "hiring_manager", label: "Fachvorgesetzte/r" }' in anz
+    assert '{ value: "hr", label: "Personalabteilung" }' in anz
+    for seite in ("ContactsPage.jsx", "ApplicationsPage.jsx"):
+        assert "KONTAKTROLLEN" in _lesen(FRONTEND / "pages" / seite), seite

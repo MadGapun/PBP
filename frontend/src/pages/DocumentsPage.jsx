@@ -135,7 +135,7 @@ export default function DocumentsPage() {
       await putJson(`/api/document/${linkModal.doc.id}/link`, {
         application_id: linkModal.value || null,
       });
-      pushToast("Verknuepfung aktualisiert", "success");
+      pushToast("Verknüpfung aktualisiert", "success");
       setLinkModal({ open: false, doc: null, value: "" });
       loadData();
     } catch (error) {
@@ -146,11 +146,11 @@ export default function DocumentsPage() {
   async function deleteDocument(docId) {
     try {
       await deleteRequest(`/api/document/${docId}`);
-      pushToast("Dokument geloescht", "success");
+      pushToast("Dokument gelöscht", "success");
       setDeleteConfirm(null);
       loadData();
     } catch (error) {
-      pushToast(`Loeschen fehlgeschlagen: ${error.message}`, "danger");
+      pushToast(`Löschen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -270,8 +270,8 @@ export default function DocumentsPage() {
                 Claude klassifiziert jedes hochgeladene Dokument und macht das Passende:
                 <strong className="text-ink"> Profil-Daten</strong> aus CVs/Zeugnissen,
                 <strong className="text-ink"> Status-Updates</strong> bei Absagen/Einladungen/Angeboten,
-                <strong className="text-ink"> Anhang-Verknuepfung</strong> bei firmenspezifischen Anschreiben,
-                <strong className="text-ink"> Termin-Anlage</strong> bei Interview-Bestaetigungen.
+                <strong className="text-ink"> Anhang-Verknüpfung</strong> bei firmenspezifischen Anschreiben,
+                <strong className="text-ink"> Termin-Anlage</strong> bei Interview-Bestätigungen.
               </div>
               <details className="mt-2 text-[11px] text-muted/70">
                 <summary className="cursor-pointer text-muted hover:text-ink">
@@ -279,8 +279,8 @@ export default function DocumentsPage() {
                 </summary>
                 <ol className="mt-1.5 ml-4 list-decimal space-y-0.5">
                   <li>Button rechts klicken — der Verarbeitungs-Prompt landet in der Zwischenablage</li>
-                  <li>Wechsle zu Claude Desktop und fuege den Prompt mit <kbd className="px-1 rounded bg-shell/60">Strg+V</kbd> ein</li>
-                  <li>Claude klassifiziert die Dokumente und fragt vor jeder Aktion um Bestaetigung</li>
+                  <li>Wechsle zu Claude Desktop und füge den Prompt mit <kbd className="px-1 rounded bg-shell/60">Strg+V</kbd> ein</li>
+                  <li>Claude klassifiziert die Dokumente und fragt vor jeder Aktion um Bestätigung</li>
                 </ol>
                 <p className="mt-1.5 text-muted/50">
                   Nur Profil-Daten? Dann nimm im Profil-Tab „Profil ergänzen mit Claude“.
@@ -447,7 +447,7 @@ export default function DocumentsPage() {
         <EmptyState
           title="Keine Dokumente"
           description={activeQuery || docType || appFilter || unlinkedFilter || extractionFilter
-            ? "Keine Dokumente fuer diese Suche/Filter gefunden."
+            ? "Keine Dokumente für diese Suche/Filter gefunden."
             : "Noch keine Dokumente vorhanden. Dokumente werden beim Upload und E-Mail-Import automatisch erfasst."
           }
         />
@@ -494,7 +494,7 @@ export default function DocumentsPage() {
                           )}
                         </button>
                       ) : (
-                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verknuepft</p>
+                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verknüpft</p>
                       )}
                       {/* Expandable text preview (#366) */}
                       {doc.extracted_text && (
@@ -549,7 +549,7 @@ export default function DocumentsPage() {
                           value: doc.linked_application_id || "",
                         })}
                         className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
-                        title="Verknuepfung aendern"
+                        title="Verknüpfung ändern"
                       >
                         <LinkIcon size={14} />
                       </button>
@@ -595,7 +595,7 @@ export default function DocumentsPage() {
                           type="button"
                           onClick={() => setDeleteConfirm(doc.id)}
                           className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-red-400 transition-colors"
-                          title="Loeschen"
+                          title="Löschen"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -691,7 +691,7 @@ export default function DocumentsPage() {
       {/* Link-Document Modal (#366) */}
       <Modal
         open={linkModal.open}
-        title="Dokument verknuepfen"
+        title="Dokument verknüpfen"
         description={linkModal.doc ? `${linkModal.doc.filename}` : ""}
         onClose={() => setLinkModal({ open: false, doc: null, value: "", search: "" })}
         footer={
@@ -719,7 +719,7 @@ export default function DocumentsPage() {
               className={cn("flex w-full px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]", !linkModal.value ? "text-sky font-medium" : "text-muted/60")}
               onClick={() => setLinkModal((cur) => ({ ...cur, value: "" }))}
             >
-              Nicht verknuepft
+              Nicht verknüpft
             </button>
             {(data.applications || [])
               .filter((a) => {

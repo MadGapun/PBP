@@ -53,14 +53,14 @@ function ThemeEditor() {
       <div className="mt-3 grid gap-3 rounded-xl border border-line/40 bg-shell/40 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-muted">
-            Aenderungen werden lokal in deinem Browser gespeichert und sofort angewendet.
+            Änderungen werden lokal in deinem Browser gespeichert und sofort angewendet.
           </p>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
               resetThemeMode(mode);
-              pushToast(`${mode === "light" ? "Helles" : "Dunkles"} Theme auf Standard zurueckgesetzt`, "success");
+              pushToast(`${mode === "light" ? "Helles" : "Dunkles"} Theme auf Standard zurückgesetzt`, "success");
             }}
           >
             <RotateCcw size={14} /> Standard wiederherstellen
@@ -100,7 +100,7 @@ function ThemeEditor() {
                     type="button"
                     onClick={() => setThemeColor(mode, key, null)}
                     className="rounded-md p-1 text-muted hover:text-ink"
-                    title="Auf Standard zuruecksetzen"
+                    title="Auf Standard zurücksetzen"
                   >
                     <RotateCcw size={13} />
                   </button>
@@ -121,7 +121,7 @@ function ThemeEditor() {
         </div>
         <div>
           <h2 className="text-base font-semibold text-ink">Erscheinungsbild</h2>
-          <p className="text-xs text-muted">Theme-Modus waehlen und Farben individuell anpassen.</p>
+          <p className="text-xs text-muted">Theme-Modus wählen und Farben individuell anpassen.</p>
         </div>
       </div>
 
@@ -190,7 +190,7 @@ function ThemeEditor() {
           })}
         </div>
         <p className="mt-2 text-[11px] text-muted/60">
-          Ein Schema setzt alle Farben fuer Hell + Dunkel auf einmal.
+          Ein Schema setzt alle Farben für Hell + Dunkel auf einmal.
           Einzelne Tokens lassen sich darunter weiter individuell anpassen
           (Custom-Override pro Token).
         </p>
@@ -214,7 +214,7 @@ function ThemeEditor() {
                     <Badge tone="amber">{overrideCount} angepasst</Badge>
                   )}
                 </span>
-                <span className="text-xs text-muted">{isOpen ? "Schliessen" : "Oeffnen"}</span>
+                <span className="text-xs text-muted">{isOpen ? "Schließen" : "Öffnen"}</span>
               </button>
               {isOpen && <div className="px-3 pb-3">{renderPaletteEditor(mode)}</div>}
             </div>
@@ -228,10 +228,10 @@ function ThemeEditor() {
           size="sm"
           onClick={() => {
             resetAllTheme();
-            pushToast("Theme komplett auf Standard zurueckgesetzt", "success");
+            pushToast("Theme komplett auf Standard zurückgesetzt", "success");
           }}
         >
-          <RotateCcw size={14} /> Alles zuruecksetzen
+          <RotateCcw size={14} /> Alles zurücksetzen
         </Button>
       </div>
     </Card>
@@ -275,25 +275,25 @@ function LearningPrivacyCard({ pushToast }) {
       pushToast(
         flag
           ? "Lern-Modus aktiviert. Daten bleiben lokal."
-          : "Lern-Modus deaktiviert. Bestehende Daten bleiben — du kannst sie unten loeschen.",
+          : "Lern-Modus deaktiviert. Bestehende Daten bleiben — du kannst sie unten löschen.",
         "success"
       );
     } catch (err) {
-      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Änderung fehlgeschlagen: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
   }
 
   async function clearData() {
-    if (!confirm("Wirklich ALLE gesammelten Lern-Daten loeschen? Domain-Daten (Bewerbungen, Stellen, etc.) bleiben unangetastet.")) return;
+    if (!confirm("Wirklich ALLE gesammelten Lern-Daten löschen? Domain-Daten (Bewerbungen, Stellen, etc.) bleiben unangetastet.")) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/activity/clear");
-      pushToast(`${res?.deleted || 0} Lern-Events geloescht.`, "success");
+      pushToast(`${res?.deleted || 0} Lern-Events gelöscht.`, "success");
       await reload();
     } catch (err) {
-      pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Löschen fehlgeschlagen: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
@@ -304,7 +304,7 @@ function LearningPrivacyCard({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="Lern-System (Privatsphaere)"
+        title="Lern-System (Privatsphäre)"
         description="PBP kann aus deinem Verhalten lernen, um sich anzupassen — alle Daten bleiben LOKAL."
       />
       <div className="space-y-3">
@@ -324,13 +324,13 @@ function LearningPrivacyCard({ pushToast }) {
               Wenn aktiv, sammelt PBP <strong>lokal</strong> Klicks, Scroll-
               und Verweildauer-Daten in der eigenen DB. Diese Daten <strong>verlassen
               deinen Rechner NICHT</strong>. Sie helfen PBP, sich an deinen Workflow
-              anzupassen — z.B. haeufig genutzte Filter als Default zu lernen,
-              ueberfluessige Klicks zu erkennen, oder mit der lokalen AI Muster
+              anzupassen — z.B. häufig genutzte Filter als Default zu lernen,
+              überflüssige Klicks zu erkennen, oder mit der lokalen AI Muster
               auszuwerten. Du kannst es jederzeit ausschalten.
             </p>
             <p className="text-[11px] text-muted/50 mt-2">
               <strong>Vorteil:</strong> PBP wird mit der Zeit treffsicherer in
-              Auto-Aussortierung, Filter-Vorschlaegen und passt UI an dein
+              Auto-Aussortierung, Filter-Vorschlägen und passt UI an dein
               Verhalten an. Ohne Lern-Modus bleibt PBP statisch wie heute.
             </p>
           </div>
@@ -357,7 +357,7 @@ function LearningPrivacyCard({ pushToast }) {
         </div>
         {stats.total_events > 0 && (
           <Button variant="secondary" size="sm" onClick={clearData} disabled={busy}>
-            Alle Lern-Daten loeschen
+            Alle Lern-Daten löschen
           </Button>
         )}
       </div>
@@ -412,7 +412,7 @@ function TelemetrySharingCard({ pushToast }) {
         "success"
       );
     } catch (err) {
-      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Änderung fehlgeschlagen: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
@@ -429,7 +429,7 @@ function TelemetrySharingCard({ pushToast }) {
         "success"
       );
     } catch (err) {
-      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Änderung fehlgeschlagen: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
@@ -457,7 +457,7 @@ function TelemetrySharingCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Telemetrie-Sharing (optional)"
-        description={`Hilf das Lern-System fuer alle PBP-Nutzer zu verbessern, indem du anonymisierte Erkenntnisse an ${settings.recipient} schickst — wochenweise (nicht taeglich), opt-in, jederzeit abschaltbar.`}
+        description={`Hilf das Lern-System für alle PBP-Nutzer zu verbessern, indem du anonymisierte Erkenntnisse an ${settings.recipient} schickst — wochenweise (nicht täglich), opt-in, jederzeit abschaltbar.`}
       />
       <div className="space-y-3">
         <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15">
@@ -474,8 +474,8 @@ function TelemetrySharingCard({ pushToast }) {
             </p>
             <p className="text-[12px] text-muted/70 mt-1 leading-snug">
               Wenn aktiv: PBP zeigt dir <strong>wochenweise</strong> (nicht
-              taeglich) eine Vorschau, was geteilt werden koennte. Du
-              entscheidest jedes Mal selbst, ob du die Mail tatsaechlich
+              täglich) eine Vorschau, was geteilt werden könnte. Du
+              entscheidest jedes Mal selbst, ob du die Mail tatsächlich
               abschickst.
             </p>
             <p className="text-[11px] text-muted/50 mt-2">
@@ -532,7 +532,7 @@ function TelemetrySharingCard({ pushToast }) {
               </button>
             </div>
             <p className="text-[11px] text-muted/50">
-              Empfaenger: <span className="font-mono text-ink">{preview.recipient}</span>
+              Empfänger: <span className="font-mono text-ink">{preview.recipient}</span>
             </p>
             <p className="text-[11px] text-muted/50">
               Betreff: <span className="text-ink">{preview.mail.subject}</span>
@@ -542,7 +542,7 @@ function TelemetrySharingCard({ pushToast }) {
             </pre>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={openMail}>
-                In Mail-Client oeffnen
+                In Mail-Client öffnen
               </Button>
               <span className="text-[11px] text-muted/50">
                 Du kannst die Mail noch bearbeiten oder verwerfen — nichts geht automatisch raus.
@@ -677,7 +677,7 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
       >
         <div className="text-left">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-            Empfohlene Quellen fuer dein Profil
+            Empfohlene Quellen für dein Profil
           </p>
           <p className="text-sm text-ink mt-1">
             {data.label}
@@ -828,7 +828,7 @@ function ScraperHealthCard({ pushToast }) {
     tot: "Endpoint/Seite weg (404/410)",
     blockiert: "Geblockt / rate-limited (403/429)",
     server_weg: "Server kurz weg (Timeout/5xx/Verbindung)",
-    kaputt: "Adapter/Parser defekt — Code-Fix noetig",
+    kaputt: "Adapter/Parser defekt — Code-Fix nötig",
   };
 
   function relativeTime(iso) {
@@ -1063,7 +1063,7 @@ function PbpStartDateField({ pushToast }) {
     try {
       await putJson("/api/settings/pbp-start-date", { date: editing || "" });
       await reload();
-      pushToast(editing ? "PBP-Start-Datum gesetzt" : "Auf Auto-Detect zurueckgesetzt", "success");
+      pushToast(editing ? "PBP-Start-Datum gesetzt" : "Auf Auto-Detect zurückgesetzt", "success");
     } catch (err) {
       pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
     } finally {
@@ -1078,7 +1078,7 @@ function PbpStartDateField({ pushToast }) {
       <p className="text-sm font-medium text-ink mb-1">PBP-Nutzung gestartet am</p>
       <p className="text-[11px] text-muted/70 mb-3">
         Steuert, ab welchem Datum die Bewerbungen im Bericht als „mit PBP erfasst" gelten.
-        Daten davor werden im PDF grau markiert (nachtraeglich erfasst, ggf. unvollstaendig).
+        Daten davor werden im PDF grau markiert (nachträglich erfasst, ggf. unvollständig).
         Default: Auto-Detect aus dem ersten Bewerbungs-Ereignis (<strong className="text-ink">{data.auto_detect || "noch keine Daten"}</strong>).
       </p>
       <div className="flex items-center gap-2 flex-wrap">
@@ -1094,7 +1094,7 @@ function PbpStartDateField({ pushToast }) {
         </Button>
         {data.override && (
           <Button size="sm" variant="secondary" onClick={() => { setEditing(""); save(); }} disabled={saving}>
-            Auf Auto-Detect zuruecksetzen
+            Auf Auto-Detect zurücksetzen
           </Button>
         )}
       </div>
@@ -1114,9 +1114,9 @@ function PbpStartDateField({ pushToast }) {
 // Ollama-Lernen nach Zeitplan.
 const AUTOMATIK_INTERVALS = [
   { v: 0, l: "Aus" },
-  { v: 1, l: "Taeglich" },
+  { v: 1, l: "Täglich" },
   { v: 3, l: "Alle 3 Tage" },
-  { v: 7, l: "Woechentlich" },
+  { v: 7, l: "Wöchentlich" },
   { v: 14, l: "Alle 2 Wochen" },
   { v: 30, l: "Monatlich" },
 ];
@@ -1160,7 +1160,7 @@ function AutomatikSchedulerCard({ pushToast }) {
       } else if (r.status === "keine_internen_quellen") {
         msg = "Keine internen Quellen aktiv — nichts zu suchen.";
       } else if (r.status === "laeuft_bereits") {
-        msg = "Eine Jobsuche laeuft bereits.";
+        msg = "Eine Jobsuche läuft bereits.";
       }
       pushToast(msg, "success");
     } catch (err) {
@@ -1210,19 +1210,19 @@ function AutomatikSchedulerCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Automatik im Hintergrund"
-        description="PBP kann die interne Jobsuche und das Lernen aus deinem Verhalten/Dokumenten selbststaendig nach Zeitplan ausfuehren — solange Claude Desktop laeuft."
+        description="PBP kann die interne Jobsuche und das Lernen aus deinem Verhalten/Dokumenten selbstständig nach Zeitplan ausführen — solange Claude Desktop läuft."
       />
       <div className="space-y-4">
         {renderTask(
           "jobsuche",
           "Interne Jobsuche",
-          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell ueber die Claude-Erweiterung im Browser.",
+          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell über die Claude-Erweiterung im Browser.",
           "Jetzt suchen",
         )}
         {renderTask(
           "lernen",
           "Ollama lernt aus Verhalten + Dokumenten",
-          "Analysiert regelmaessig deine Aktivitaet und Dokumente, damit Vorschlaege treffsicherer werden. Greift nur, wenn der Lern-Modus (Datenschutz-Tab) an ist.",
+          "Analysiert regelmässig deine Aktivität und Dokumente, damit Vorschläge treffsicherer werden. Greift nur, wenn der Lern-Modus (Datenschutz-Tab) an ist.",
           "Jetzt lernen",
         )}
         <p className="text-[11px] text-muted/40">{status.hinweis}</p>
@@ -1272,7 +1272,7 @@ function AutoActionsTab({ pushToast }) {
       pushToast(
         e + f === 0
           ? "Auto-Aktionen liefen — nichts zu tun."
-          : `${e} abgelaufen, ${f} neue Follow-ups`,
+          : `${e} abgelaufen, ${f} neue Nachfassungen`,
         "success"
       );
     } catch (err) {
@@ -1291,8 +1291,8 @@ function AutoActionsTab({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="Automatik fuer Bewerbungs-Lifecycle"
-        description="PBP setzt Bewerbungen ohne Aktivitaet automatisch auf 'abgelaufen' und legt fehlende Nachfass-Erinnerungen an."
+        title="Automatik für Bewerbungs-Lifecycle"
+        description="PBP setzt Bewerbungen ohne Aktivität automatisch auf 'abgelaufen' und legt fehlende Nachfass-Erinnerungen an."
       />
 
       <div className="space-y-5">
@@ -1300,9 +1300,9 @@ function AutoActionsTab({ pushToast }) {
           <h3 className="font-medium text-ink text-sm">Auto-Ablauf (Status -&gt; abgelaufen)</h3>
           <p className="text-[12px] text-muted/60">
             Bewerbungen werden auf <strong>abgelaufen</strong> gesetzt wenn seit
-            der letzten Aktivitaet die folgende Zahl an Tagen ohne Antwort
+            der letzten Aktivität die folgende Zahl an Tagen ohne Antwort
             verstrichen ist. Sie sind dann nicht weg — falls doch noch was
-            kommt, kannst du sie jederzeit zurueckholen.
+            kommt, kannst du sie jederzeit zurückholen.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Status 'beworben' nach (Tage)">
@@ -1317,7 +1317,7 @@ function AutoActionsTab({ pushToast }) {
                 className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
               />
             </Field>
-            <Field label="Status 'eingangsbestaetigung' nach (Tage)">
+            <Field label="Status 'eingangsbestätigung' nach (Tage)">
               <input
                 type="number" min={7} max={180}
                 defaultValue={s.expire_eingangsbestaetigung_days}
@@ -1335,12 +1335,12 @@ function AutoActionsTab({ pushToast }) {
         <div className="glass-card p-4 space-y-3">
           <h3 className="font-medium text-ink text-sm">Auto-Followup (Nachfass-Erinnerungen)</h3>
           <p className="text-[12px] text-muted/60">
-            Wenn eine aktive Bewerbung keinen offenen Nachfass-Follow-up hat,
-            wird automatisch einer angelegt — N Tage nach der letzten Aktivitaet.
-            Der Faden reisst nicht mehr ab wenn du den ersten Follow-up als
+            Wenn eine aktive Bewerbung keine offene Nachfassung hat,
+            wird automatisch eine angelegt — N Tage nach der letzten Aktivität.
+            Der Faden reißt nicht mehr ab, wenn du die erste Nachfassung als
             erledigt markierst.
           </p>
-          <Field label="Nachfass-Erinnerung nach (Tage seit letzter Aktivitaet)">
+          <Field label="Nachfass-Erinnerung nach (Tage seit letzter Aktivität)">
             <input
               type="number" min={1} max={60}
               defaultValue={s.followup_default_days}
@@ -1364,7 +1364,7 @@ function AutoActionsTab({ pushToast }) {
           </Button>
           {lastResult && (
             <div className="text-[12px] text-muted/60 space-y-1">
-              <p>Letzter Lauf: <strong className="text-ink">{lastResult.expire?.expired_count || 0}</strong> abgelaufen, <strong className="text-ink">{lastResult.followup_reconciler?.created_count || 0}</strong> Follow-ups neu angelegt.</p>
+              <p>Letzter Lauf: <strong className="text-ink">{lastResult.expire?.expired_count || 0}</strong> abgelaufen, <strong className="text-ink">{lastResult.followup_reconciler?.created_count || 0}</strong> Nachfassungen neu angelegt.</p>
             </div>
           )}
         </div>
@@ -1379,17 +1379,17 @@ function AutoActionsTab({ pushToast }) {
 // Anschreiben, Doku-Analyse, Coaching, Ersterfassung, Hinweise).
 const KI_FEATURE_DEFS = [
   { id: "jobsuche", label: "Jobsuche via Claude",
-    desc: "Erlaubt Claude, jobsuche_starten() aufzurufen. Dashboard-Button bleibt unabhaengig nutzbar." },
+    desc: "Erlaubt Claude, jobsuche_starten() aufzurufen. Dashboard-Button bleibt unabhängig nutzbar." },
   { id: "dokumentenanalyse", label: "Dokumentenanalyse",
-    desc: "Profil-Daten aus hochgeladenen Lebenslaeufen, Zeugnissen und Anschreiben extrahieren." },
+    desc: "Profil-Daten aus hochgeladenen Lebensläufen, Zeugnissen und Anschreiben extrahieren." },
   { id: "stellenanalyse", label: "Stellenanalyse / Fit-Bewertung",
     desc: "Fit-Analyse, Skill-Gap-Analyse und Verfeinerung der Punkte für einzelne Stellen." },
   { id: "bewerbungserstellung", label: "Bewerbungs-Erstellung",
-    desc: "Angepasste Lebenslaeufe, Fachprofile und Anschreiben generieren." },
+    desc: "Angepasste Lebensläufe, Fachprofile und Anschreiben generieren." },
   { id: "coaching", label: "Interview- und Verhandlungs-Coaching",
     desc: "Interview-Vorbereitung, Gehaltsverhandlung, Ablehnungs-Analyse." },
   { id: "ersterfassung", label: "Profil-Ersterfassung via Claude",
-    desc: "Gefuehrtes Profil-Interview. Profil bleibt manuell pflegbar wenn aus." },
+    desc: "Geführtes Profil-Interview. Profil bleibt manuell pflegbar wenn aus." },
   { id: "guidance", label: "KI-Hinweise im Dashboard",
     desc: "Hinweise und Empfehlungen die explizit auf Claude verweisen." },
 ];
@@ -1419,7 +1419,7 @@ function KIFeaturesCard({ pushToast }) {
         ? `${field} aktiviert.`
         : `${field} deaktiviert.`, "success");
     } catch (err) {
-      pushToast(`Aenderung fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Änderung fehlgeschlagen: ${err.message}`, "danger");
       await reload();
     } finally {
       setBusy(false);
@@ -1439,8 +1439,8 @@ function KIFeaturesCard({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="KI-Unterstuetzung (Claude)"
-        description="Welche KI-Funktionen Claude in PBP nutzen darf. Default: alles aktiv. Aenderungen wirken sofort."
+        title="KI-Unterstützung (Claude)"
+        description="Welche KI-Funktionen Claude in PBP nutzen darf. Default: alles aktiv. Änderungen wirken sofort."
       />
 
       <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">
@@ -1457,7 +1457,7 @@ function KIFeaturesCard({ pushToast }) {
             Wenn aus: Claude blockt ALLE KI-Operationen mit einem Hinweis,
             wo du das wieder anschaltest. Manuelle Tools (Profil pflegen,
             Bewerbungen tracken, Standard-CV exportieren) und der
-            Dashboard-Button "Jetzt suchen" bleiben unabhaengig nutzbar.
+            Dashboard-Button "Jetzt suchen" bleiben unabhängig nutzbar.
           </p>
         </div>
       </label>
@@ -1533,12 +1533,12 @@ function AutoDismissedSection() {
               <button type="button" disabled={busy === j.hash}
                 onClick={() => restore(j.hash)}
                 className="shrink-0 rounded-lg bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25 disabled:opacity-50">
-                {busy === j.hash ? "..." : "Zurueckholen"}
+                {busy === j.hash ? "..." : "Zurückholen"}
               </button>
             </div>
           ))}
           <p className="text-[10px] text-muted/40 pt-1">
-            Zurueckgeholte Stellen erscheinen wieder im Stellen-Tab — Ollama lernt aus jeder Korrektur (Few-Shot).
+            Zurückgeholte Stellen erscheinen wieder im Stellen-Tab — Ollama lernt aus jeder Korrektur (Few-Shot).
           </p>
         </div>
       )}
@@ -1610,7 +1610,7 @@ function LernprotokollSection() {
               {it.id != null && it.is_active !== 0 && (
                 <button type="button" onClick={() => stummschalten(it.id)}
                   className="text-[11px] text-muted/40 hover:text-coral shrink-0"
-                  title="Diesen Lern-Eintrag stummschalten — er beeinflusst Hinweise und Vorschlaege nicht mehr">
+                  title="Diesen Lern-Eintrag stummschalten — er beeinflusst Hinweise und Vorschläge nicht mehr">
                   stumm
                 </button>
               )}
@@ -1622,8 +1622,8 @@ function LernprotokollSection() {
             </p>
             <button type="button" onClick={alleZuruecksetzen}
               className={`text-[10px] ${confirmReset ? "text-coral font-semibold" : "text-muted/40 hover:text-coral"}`}
-              title="Loescht das komplette Lernprotokoll — Ollama lernt danach von vorn. Deine Stellen und Bewerbungen sind nicht betroffen.">
-              {confirmReset ? "Wirklich alles loeschen? (nochmal klicken)" : "Alles zuruecksetzen"}
+              title="Löscht das komplette Lernprotokoll — Ollama lernt danach von vorn. Deine Stellen und Bewerbungen sind nicht betroffen.">
+              {confirmReset ? "Wirklich alles löschen? (nochmal klicken)" : "Alles zurücksetzen"}
             </button>
           </div>
         </div>
@@ -1659,7 +1659,7 @@ function OllamaAccuracyCard() {
         </div>
         <div>
           <p className="text-lg font-bold text-amber">{acc.reaktiviert}</p>
-          <p className="text-[10px] text-muted/60">von dir<br/>zurueckgeholt</p>
+          <p className="text-[10px] text-muted/60">von dir<br/>zurückgeholt</p>
         </div>
         <div>
           <p className={`text-lg font-bold ${genauColor}`}>
@@ -1712,10 +1712,10 @@ function AblageOrdnerCard({ pushToast }) {
         art === "ausgabe"
           ? (d.ausgabe_befund === "eigener_ordner"
               ? "Erzeugte Dateien landen ab jetzt in deinem Ordner."
-              : "Ausgabe-Ordner zurueckgesetzt — PBP nutzt wieder den Datenordner.")
+              : "Ausgabe-Ordner zurückgesetzt — PBP nutzt wieder den Datenordner.")
           : (d.vorlagen_ordner
               ? "Vorlagen-Ordner gesetzt."
-              : "Vorlagen-Ordner zurueckgesetzt — PBP nutzt das eingebaute Layout."),
+              : "Vorlagen-Ordner zurückgesetzt — PBP nutzt das eingebaute Layout."),
         "success",
       );
     } catch (err) {
@@ -1723,7 +1723,7 @@ function AblageOrdnerCard({ pushToast }) {
       // Feld, nicht in einen Toast, der wieder verschwindet.
       const text = String(err?.message || err);
       setFehler((f) => ({ ...f, [art]: text }));
-      pushToast("Der Pfad wurde nicht gespeichert — siehe Begruendung am Feld.", "amber");
+      pushToast("Der Pfad wurde nicht gespeichert — siehe Begründung am Feld.", "amber");
     } finally {
       setSpeichert("");
     }
@@ -1732,7 +1732,7 @@ function AblageOrdnerCard({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="Ordner fuer Dokumente und Vorlagen"
+        title="Ordner für Dokumente und Vorlagen"
         description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
       />
 
@@ -1781,8 +1781,8 @@ function AblageOrdnerCard({ pushToast }) {
           Legst du dort eine <span className="font-mono">lebenslauf.docx</span>,{" "}
           <span className="font-mono">anschreiben.docx</span> oder{" "}
           <span className="font-mono">fachprofil.docx</span> ab, baut PBP das
-          Dokument auf dieser Grundlage — deine Schriften, Raender, Kopf- und
-          Fusszeilen bleiben. Fehlt eine Datei, gilt fuer sie das eingebaute
+          Dokument auf dieser Grundlage — deine Schriften, Ränder, Kopf- und
+          Fusszeilen bleiben. Fehlt eine Datei, gilt für sie das eingebaute
           Layout.
         </p>
         {fehler.vorlagen && <p className="mt-2 text-[13px] text-coral">{fehler.vorlagen}</p>}
@@ -1814,7 +1814,7 @@ function OllamaAutostartBlock({ pushToast }) {
       } else if (an && neu.wirkung !== "bereit") {
         pushToast(neu.hinweis, "amber", { duration: 6000 });
       } else {
-        pushToast(an ? "Ollama startet kuenftig mit PBP." : "Autostart ist aus.", "success");
+        pushToast(an ? "Ollama startet künftig mit PBP." : "Autostart ist aus.", "success");
       }
     } catch (err) {
       pushToast(`Konnte den Autostart nicht setzen: ${err.message}`, "danger");
@@ -1834,7 +1834,7 @@ function OllamaAutostartBlock({ pushToast }) {
           <span className="block font-medium text-ink">Ollama mit PBP starten</span>
           <span className="mt-1 block text-sm text-muted/80">
             Dann steht die lokale KI auch nach einem Neustart des Rechners bereit,
-            ohne dass du hier erst den Knopf druecken musst. Ob Ollama mit PBP
+            ohne dass du hier erst den Knopf drücken musst. Ob Ollama mit PBP
             endet, stellst du darunter ein.
           </span>
         </span>
@@ -1893,9 +1893,9 @@ function OllamaBeendenBlock({ pushToast }) {
   async function verknuepfung() {
     try {
       const r = await postJson("/api/llm/stop-verknuepfung", {});
-      pushToast(`Verknuepfung angelegt: ${r.verknuepfung}`, "success", { duration: 6000 });
+      pushToast(`Verknüpfung angelegt: ${r.verknuepfung}`, "success", { duration: 6000 });
     } catch (err) {
-      pushToast(`Verknuepfung nicht angelegt: ${err.message}`, "danger");
+      pushToast(`Verknüpfung nicht angelegt: ${err.message}`, "danger");
     }
   }
 
@@ -1903,7 +1903,7 @@ function OllamaBeendenBlock({ pushToast }) {
     <div className="glass-card p-4 mb-4">
       <span className="block font-medium text-ink">Ollama beenden</span>
       <span className="mt-1 block text-sm text-muted/80">
-        Ollama haelt das Modell im Arbeitsspeicher, auch wenn du PBP stundenlang
+        Ollama hält das Modell im Arbeitsspeicher, auch wenn du PBP stundenlang
         nicht benutzt.
       </span>
       <label className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink">
@@ -1924,7 +1924,7 @@ function OllamaBeendenBlock({ pushToast }) {
           Ollama jetzt beenden
         </Button>
         <Button type="button" size="sm" variant="secondary" onClick={verknuepfung}>
-          Desktop-Verknuepfung anlegen
+          Desktop-Verknüpfung anlegen
         </Button>
       </div>
     </div>
@@ -2025,7 +2025,7 @@ function LocalAITab({ pushToast }) {
           <p className="text-sm text-muted/80 mb-3">
             Wenn Ollama vorher schonmal lief (z.B. nach Reboot oder Taskmanager-Stop),
             kann PBP versuchen es erneut zu starten — kein manueller Start in der
-            Konsole noetig.
+            Konsole nötig.
           </p>
           <Button
             type="button"
@@ -2052,7 +2052,7 @@ function LocalAITab({ pushToast }) {
                       pushToast("Ollama ist verbunden.", "success");
                     } else if (attempt >= 15) {
                       clearInterval(poll);
-                      pushToast("Status nach 30s noch nicht verbunden — pruefe Logs.", "amber");
+                      pushToast("Status nach 30s noch nicht verbunden — prüfe Logs.", "amber");
                     }
                   }, 2000);
                 }
@@ -2077,7 +2077,7 @@ function LocalAITab({ pushToast }) {
         <div className="glass-card p-4 mb-4 border-coral/15">
           <h3 className="font-medium text-ink mb-2">Noch nicht installiert?</h3>
           <p className="text-sm text-muted/80 mb-3">
-            Eine lokale KI auf deinem Rechner uebernimmt Routine-Aufgaben fuer PBP — z.B.
+            Eine lokale KI auf deinem Rechner übernimmt Routine-Aufgaben für PBP — z.B.
             Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 text-sm">
@@ -2086,7 +2086,7 @@ function LocalAITab({ pushToast }) {
               <ul className="space-y-0.5 text-[13px] text-muted/70">
                 <li>Spart Claude-Tokens UND ist kostenlos</li>
                 <li>Funktioniert auch ohne Internet</li>
-                <li>Daten verlassen das Geraet nie</li>
+                <li>Daten verlassen das Gerät nie</li>
                 <li>Schneller bei Standard-Aufgaben</li>
               </ul>
             </div>
@@ -2104,7 +2104,7 @@ function LocalAITab({ pushToast }) {
         <div className="glass-card p-4 mb-4">
           <h3 className="font-medium text-ink mb-2">Voraussetzung: Ollama</h3>
           <p className="text-sm text-muted/80 mb-2">
-            Du brauchst Ollama auf deinem Rechner — der Sidecar, der die lokale KI laeuft.
+            Du brauchst Ollama auf deinem Rechner — der Sidecar, der die lokale KI läuft.
           </p>
           <a
             href="https://ollama.com/download"
@@ -2116,7 +2116,7 @@ function LocalAITab({ pushToast }) {
           </a>
           <p className="text-[12px] text-muted/60 mt-2">
             Nach der Installation startet Ollama automatisch. PBP erkennt es dann hier
-            und du kannst sie kuenftig auch ueber den "Ollama starten"-Button oben re-starten.
+            und du kannst sie künftig auch über den "Ollama starten"-Button oben re-starten.
           </p>
         </div>
 
@@ -2125,7 +2125,7 @@ function LocalAITab({ pushToast }) {
           onClick={reloadStatus}
           className="px-3 py-1.5 rounded-lg bg-white/[0.04] text-sm text-ink hover:bg-white/[0.08]"
         >
-          Status neu pruefen
+          Status neu prüfen
         </button>
 
         {status.error && (
@@ -2142,7 +2142,7 @@ function LocalAITab({ pushToast }) {
     return (
       <Card className="rounded-2xl">
         <div className="mb-4">
-          <h2 className="text-base font-semibold text-ink">Lokale KI — Modell auswaehlen</h2>
+          <h2 className="text-base font-semibold text-ink">Lokale KI — Modell auswählen</h2>
           <p className="text-xs text-muted">Ollama erkannt. Jetzt ein Modell laden.</p>
         </div>
         <div className="space-y-2">
@@ -2199,7 +2199,7 @@ function LocalAITab({ pushToast }) {
       <div className="grid gap-2 sm:grid-cols-3 mb-4">
         {[
           { value: "active", label: "Aktiv",
-            desc: "PBP nutzt das lokale Modell wo moeglich" },
+            desc: "PBP nutzt das lokale Modell wo möglich" },
           { value: "paused", label: "Pausiert",
             desc: "Wie 'Aus' — alle Tasks gehen an Claude" },
           { value: "off", label: "Aus",
@@ -2236,7 +2236,7 @@ function LocalAITab({ pushToast }) {
       {/* v1.7.0-beta.25 (#591): Tasks-Erklaerbox — was laeuft eigentlich lokal */}
       <div className="glass-card p-3 mb-4 border-sky/10">
         <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide mb-2">
-          Was laeuft lokal?
+          Was läuft lokal?
         </p>
         <ul className="text-[12px] text-muted/80 space-y-1 list-disc list-inside">
           <li><strong>Doku-Klassifikation</strong> — neue Uploads werden eingeordnet (Lebenslauf, Anschreiben, Mail, ...)</li>
@@ -2379,13 +2379,13 @@ function ElwosaSettingsSection({ pushToast }) {
           disabled={busy}
           className="mt-1 h-4 w-4 cursor-pointer"
         />
-        <span className="text-sm text-ink">Elwosa aktiv (wenn lokale AI laeuft)</span>
+        <span className="text-sm text-ink">Elwosa aktiv (wenn lokale AI läuft)</span>
       </label>
 
       {settings.enabled && (
         <div className="space-y-3">
           <div>
-            <p className="text-[11px] font-medium text-muted/70 mb-1">Frequenz (fuer Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
+            <p className="text-[11px] font-medium text-muted/70 mb-1">Frequenz (für Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "ruhig", label: "Ruhig (3/Tag)" },
@@ -2443,7 +2443,7 @@ function ElwosaSettingsSection({ pushToast }) {
                   className="mt-0.5 h-3.5 w-3.5"
                 />
                 <span className="text-[11px] text-muted">
-                  Auch manuelle User-Aktionen kommentieren (klicken, sortieren, oeffnen)
+                  Auch manuelle User-Aktionen kommentieren (klicken, sortieren, öffnen)
                 </span>
               </label>
 
@@ -2537,7 +2537,7 @@ function ElwosaSettingsSection({ pushToast }) {
                 onClick={() => update({ paused_until: "" })}
                 className="underline hover:text-amber"
               >
-                Zurueckholen
+                Zurückholen
               </button>
             </div>
           )}
@@ -2564,7 +2564,7 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
           <p className="text-[12px] text-muted">
             <span className="font-mono text-ink">{nachfolger.aktuell}</span> hat einen Nachfolger:{" "}
             <span className="font-mono text-ink">{nachfolger.nachfolger}</span> ({nachfolger.size_gb} GB).
-            {nachfolger.bereits_installiert ? " Er ist schon installiert — oben auswaehlen." : " Dein Modell laeuft weiter, bis du wechselst."}
+            {nachfolger.bereits_installiert ? " Er ist schon installiert — oben auswählen." : " Dein Modell läuft weiter, bis du wechselst."}
           </p>
           {!nachfolger.bereits_installiert ? (
             <button
@@ -2793,11 +2793,11 @@ function RoutingCard({ pushToast }) {
   }
 
   async function entfernen() {
-    if (!window.confirm("Routing-Schluessel entfernen? PBP rechnet danach wieder mit der Luftlinie.")) return;
+    if (!window.confirm("Routing-Schlüssel entfernen? PBP rechnet danach wieder mit der Luftlinie.")) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/routing");
-      pushToast(res.hinweis || "Schluessel entfernt.", "success");
+      pushToast(res.hinweis || "Schlüssel entfernt.", "success");
       setStatus(res);
     } catch (error) {
       pushToast(`Fahrstrecke: ${error.message}`, "danger");
@@ -2810,7 +2810,7 @@ function RoutingCard({ pushToast }) {
     <Card className="rounded-2xl" data-testid="routing-card">
       <SectionHeading
         title="Fahrstrecke und Fahrzeit"
-        description="Ohne Schluessel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schluessel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Rahmen-Daumen und Gehaltsverrechnung nehmen die Fahrstrecke."
+        description="Ohne Schlüssel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schlüssel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Rahmen-Daumen und Gehaltsverrechnung nehmen die Fahrstrecke."
       />
       <div className="grid gap-3">
         {status?.konfiguriert ? (
@@ -2832,7 +2832,7 @@ function RoutingCard({ pushToast }) {
         <div className="flex flex-wrap items-center gap-2">
           <input
             aria-label="Routing-Schluessel"
-            placeholder={status?.konfiguriert ? "Neuen Schluessel eintragen, um ihn zu ersetzen" : "Schluessel einfuegen"}
+            placeholder={status?.konfiguriert ? "Neuen Schlüssel eintragen, um ihn zu ersetzen" : "Schlüssel einfügen"}
             type="password"
             autoComplete="off"
             value={schluessel}
@@ -3224,7 +3224,7 @@ export default function SettingsPage() {
         "success",
       );
     } catch (error) {
-      pushToast(error?.message || "Konnte Status nicht aendern.", "danger");
+      pushToast(error?.message || "Konnte Status nicht ändern.", "danger");
     }
   }
 
@@ -3256,7 +3256,7 @@ export default function SettingsPage() {
       await reloadDismissReasons();
       pushToast(
         merged
-          ? `Mit "${label}" zusammengefuehrt${moved ? ` (${moved} Stellen umgezogen)` : ""}.`
+          ? `Mit "${label}" zusammengeführt${moved ? ` (${moved} Stellen umgezogen)` : ""}.`
           : `Umbenannt in "${label}"${moved ? ` (${moved} Stellen mitgezogen)` : ""}.`,
         "success",
       );
@@ -3294,12 +3294,12 @@ export default function SettingsPage() {
       await reloadDismissReasons();
       pushToast(
         used
-          ? `"${reason.label}" geloescht, Stellen auf "${reassignTo}" umgezogen.`
-          : `"${reason.label}" geloescht.`,
+          ? `"${reason.label}" gelöscht, Stellen auf "${reassignTo}" umgezogen.`
+          : `"${reason.label}" gelöscht.`,
         "success",
       );
     } catch (error) {
-      pushToast(error?.message || "Konnte nicht loeschen.", "danger");
+      pushToast(error?.message || "Konnte nicht löschen.", "danger");
     } finally {
       setReasonBusy(false);
     }
@@ -3415,12 +3415,12 @@ export default function SettingsPage() {
           <>
           <Card className="rounded-2xl">
             <SectionHeading
-              title="Ablehnungsgruende"
-              description="Eigene Gruende fuer 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder loeschen. Aktive Gruende stehen Claude bei stelle_bewerten zur Verfuegung."
+              title="Ablehnungsgründe"
+              description="Eigene Gründe für 'passt nicht' anlegen, umbenennen (Tippfehler-Korrektur zieht bestehende Stellen mit), deaktivieren oder löschen. Aktive Gründe stehen Claude bei stelle_bewerten zur Verfügung."
             />
             <div className="mt-4 grid gap-2">
               {dismissReasons.length === 0 && (
-                <p className="text-sm text-muted/60">Noch keine Ablehnungsgruende vorhanden.</p>
+                <p className="text-sm text-muted/60">Noch keine Ablehnungsgründe vorhanden.</p>
               )}
               {dismissReasons
                 .slice()
@@ -3489,7 +3489,7 @@ export default function SettingsPage() {
                               variant="danger"
                               size="sm"
                               onClick={() => askDeleteReason(reason)}
-                              title="Loeschen"
+                              title="Löschen"
                             >
                               <Trash2 size={15} />
                             </Button>
@@ -3515,7 +3515,7 @@ export default function SettingsPage() {
                 />
               </Field>
               <Button type="button" onClick={handleAddReason} disabled={reasonBusy || !newReason.trim()}>
-                Hinzufuegen
+                Hinzufügen
               </Button>
             </div>
           </Card>
@@ -3523,7 +3523,7 @@ export default function SettingsPage() {
           <Modal
             open={deleteReasonDialog.open}
             onClose={() => setDeleteReasonDialog({ open: false, reason: null, reassignTo: "" })}
-            title="Ablehnungsgrund loeschen"
+            title="Ablehnungsgrund löschen"
             size="sm"
             footer={
               <div className="flex justify-end gap-2">
@@ -3540,7 +3540,7 @@ export default function SettingsPage() {
                   onClick={confirmDeleteReason}
                   disabled={reasonBusy}
                 >
-                  Endgueltig loeschen
+                  Endgültig löschen
                 </Button>
               </div>
             }
@@ -3573,7 +3573,7 @@ export default function SettingsPage() {
                   </Field>
                 ) : (
                   <p className="text-muted/60">
-                    Dieser Grund wird von keiner Stelle verwendet und kann gefahrlos geloescht werden.
+                    Dieser Grund wird von keiner Stelle verwendet und kann gefahrlos gelöscht werden.
                   </p>
                 )}
               </div>
@@ -3596,7 +3596,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-base font-semibold text-ink">Follow-up-Automation</h2>
                 <p className="text-xs text-muted">
-                  Zeitraeume fuer automatisch erzeugte Follow-ups. 0 deaktiviert das jeweilige Auto-Follow-up.
+                  Zeiträume für automatisch erzeugte Nachfassungen. 0 schaltet die jeweilige automatische Nachfassung ab.
                 </p>
               </div>
             </div>
@@ -3651,7 +3651,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-base font-semibold text-ink">Bewerbungsbericht</h2>
                 <p className="text-xs text-muted">
-                  Optionale Felder fuer den PDF-/Excel-Bericht. Nuetzlich fuer Anwender, die ihren
+                  Optionale Felder für den PDF-/Excel-Bericht. Nützlich für Anwender, die ihren
                   Bericht beim Arbeitsamt vorlegen — sonst einfach den Haken weglassen.
                 </p>
               </div>
@@ -3674,7 +3674,7 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-ink">Arbeitsamt-Vorlagenblock im Bericht anzeigen</p>
                 <p className="text-[11px] text-muted/70">
                   Wenn aktiv, wird auf der Cover-Page ein Block mit Vermittlungsnummer, Aktenzeichen und Berater-Daten gerendert.
-                  Ohne Haken werden die Felder ignoriert — du musst sie nicht loeschen.
+                  Ohne Haken werden die Felder ignoriert — du musst sie nicht löschen.
                 </p>
               </div>
             </label>
@@ -3721,7 +3721,7 @@ export default function SettingsPage() {
                   onChange={(e) => setReportSettings((prev) => ({ ...prev, ba_berater_stelle: e.target.value }))}
                   onBlur={(e) => saveReportSettings({ ba_berater_stelle: e.target.value })}
                   disabled={reportSaving || !reportSettings.arbeitsamt_block_enabled}
-                  placeholder="z.B. Agentur fuer Arbeit Bremen"
+                  placeholder="z.B. Agentur für Arbeit Bremen"
                 />
               </Field>
             </div>
@@ -3742,7 +3742,7 @@ export default function SettingsPage() {
               <div>
                 <p className="text-sm font-medium text-ink">Beraterkommentar-Block am Berichtende</p>
                 <p className="text-[11px] text-muted/70">
-                  Fuegt am Ende des Berichts leere Linien fuer handschriftliche Anmerkungen ein.
+                  Fügt am Ende des Berichts leere Linien für handschriftliche Anmerkungen ein.
                 </p>
               </div>
             </label>
@@ -3761,11 +3761,11 @@ export default function SettingsPage() {
                 className="h-4 w-4 cursor-pointer"
               />
               <div>
-                <p className="text-sm font-medium text-ink">Taetigkeitsbericht-Modus</p>
+                <p className="text-sm font-medium text-ink">Tätigkeitsbericht-Modus</p>
                 <p className="text-[11px] text-muted/70">
-                  Fokus auf taegliche Aktivitaet als Nachweis fuer Vermittler/Berater.
-                  Cover-Titel wird zu „Taetigkeitsbericht" und der Bericht enthaelt eine
-                  zusaetzliche tagesgruppierte Uebersicht aller Bewerbungs-Ereignisse.
+                  Fokus auf tägliche Aktivität als Nachweis für Vermittler/Berater.
+                  Cover-Titel wird zu „Tätigkeitsbericht" und der Bericht enthält eine
+                  zusätzliche tagesgruppierte Übersicht aller Bewerbungs-Ereignisse.
                 </p>
               </div>
             </label>
@@ -3778,7 +3778,7 @@ export default function SettingsPage() {
         {/* ── System / Health Tab (#290) ── */}
         {settingsTab === "system" && health && (
           <Card className="rounded-2xl">
-            <SectionHeading title="System-Info" description="Technische Details fuer Fehlerdiagnose." />
+            <SectionHeading title="System-Info" description="Technische Details für Fehlerdiagnose." />
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="glass-card p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-ink">
@@ -3920,7 +3920,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Datenbank-Backup (SQLite)</p>
-                    <p className="text-xs text-muted/50">Rohe Datenbankdatei — fuer technische Wiederherstellung.</p>
+                    <p className="text-xs text-muted/50">Rohe Datenbankdatei — für technische Wiederherstellung.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={downloadBackup}>
                     <Database size={14} /> Herunterladen
@@ -3929,7 +3929,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Profil exportieren (JSON)</p>
-                    <p className="text-xs text-muted/50">Nur das aktive Profil als JSON — fuer Uebertragung zwischen Installationen.</p>
+                    <p className="text-xs text-muted/50">Nur das aktive Profil als JSON — für Übertragung zwischen Installationen.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={exportProfile}>
                     <Download size={14} /> Exportieren
@@ -3964,7 +3964,7 @@ export default function SettingsPage() {
             <Card className="rounded-2xl border-sky/20 bg-sky/[0.03]">
               <SectionHeading
                 title="Bug gefunden? Log mitsenden."
-                description="Der Download enthaelt die letzten Eintraege des Runtime-Logs. Beim Issue auf GitHub bitte als Anhang mitsenden — beschleunigt die Analyse drastisch."
+                description="Der Download enthält die letzten Einträge des Runtime-Logs. Beim Issue auf GitHub bitte als Anhang mitsenden — beschleunigt die Analyse drastisch."
               />
               <div className="flex flex-wrap items-center gap-3">
                 <Button
@@ -4002,12 +4002,12 @@ export default function SettingsPage() {
                 </a>
               </div>
               <p className="mt-3 text-[11px] text-muted/60">
-                <strong className="text-amber/80">Datenschutz-Hinweis:</strong> Das Logfile kann persoenliche Daten enthalten (Firmennamen, Pfade, Job-Hashes). Pruefe es kurz vor dem Hochladen oder schwaerze sensible Stellen.
+                <strong className="text-amber/80">Datenschutz-Hinweis:</strong> Das Logfile kann persönliche Daten enthalten (Firmennamen, Pfade, Job-Hashes). Prüfe es kurz vor dem Hochladen oder schwärze sensible Stellen.
               </p>
             </Card>
 
             <Card className="rounded-2xl">
-              <SectionHeading title="Runtime-Logs (Live-Vorschau)" description="Die letzten Zeilen aus dem Dashboard-Log fuer schnelle Diagnose." />
+              <SectionHeading title="Runtime-Logs (Live-Vorschau)" description="Die letzten Zeilen aus dem Dashboard-Log für schnelle Diagnose." />
               <div className="soft-scrollbar glass-log max-h-[28rem] overflow-y-auto p-4">
                 {logs.length ? logs.map((line, index) => <p key={`${index}-${line.slice(0, 20)}`}>{line}</p>) : <p>Keine Logs gefunden.</p>}
               </div>
@@ -4097,10 +4097,10 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         profil_id: dsgvo ? "" : profilId,
       });
       if (dsgvo) {
-        pushToast("Datenbank und Dokumente geloescht. Seite wird neu geladen.", "success");
+        pushToast("Datenbank und Dokumente gelöscht. Seite wird neu geladen.", "success");
       } else {
         pushToast(
-          `${erg.zeilen_gesamt ?? 0} Zeilen und ${erg.dateien_geloescht ?? 0} Dateien geloescht.`,
+          `${erg.zeilen_gesamt ?? 0} Zeilen und ${erg.dateien_geloescht ?? 0} Dateien gelöscht.`,
           "success");
       }
       setConfirm("");
@@ -4108,7 +4108,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
       refreshChrome?.();
       window.setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
-      pushToast(`Loeschen fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Löschen fehlgeschlagen: ${err.message}`, "danger");
     } finally {
       setBusy(false);
     }
@@ -4117,8 +4117,8 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
   return (
     <Card className="glass-banner glass-banner-danger rounded-2xl">
       <SectionHeading
-        title="Daten loeschen"
-        description="Waehle aus, was weg soll. Vor dem Ausfuehren steht hier, wie viele Datensaetze das betrifft."
+        title="Daten löschen"
+        description="Wähle aus, was weg soll. Vor dem Ausführen steht hier, wie viele Datensätze das betrifft."
       />
 
       <div className="grid gap-5">
@@ -4126,10 +4126,10 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         <fieldset className="grid gap-2">
           <legend className="text-xs uppercase tracking-wide text-muted">Was soll passieren?</legend>
           {[
-            ["bereiche", "Ausgewaehlte Bereiche leeren",
+            ["bereiche", "Ausgewählte Bereiche leeren",
              "Entfernt Zeilen aus der Datenbank. Die Datei bleibt bestehen."],
-            ["dsgvo", "Alles unwiderruflich loeschen (DSGVO)",
-             "Loescht die Datenbankdatei und die Dokumentordner. Auch verwaiste Dateien, die in keiner Tabelle stehen."],
+            ["dsgvo", "Alles unwiderruflich löschen (DSGVO)",
+             "Löscht die Datenbankdatei und die Dokumentordner. Auch verwaiste Dateien, die in keiner Tabelle stehen."],
           ].map(([wert, label, hilfe]) => (
             <label key={wert} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/60 p-3">
               <input
@@ -4214,19 +4214,19 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
           {dsgvo ? (
             <p className="text-ink">
               Die Datenbankdatei und die Ordner <strong>dokumente</strong> und{" "}
-              <strong>export</strong> werden geloescht. Das laesst sich nicht rueckgaengig
-              machen — auch nicht fuer einzelne Bereiche.
+              <strong>export</strong> werden gelöscht. Das lässt sich nicht rückgängig
+              machen — auch nicht für einzelne Bereiche.
             </p>
           ) : gewaehlt.length === 0 ? (
-            <p className="text-muted">Noch kein Bereich gewaehlt.</p>
+            <p className="text-muted">Noch kein Bereich gewählt.</p>
           ) : (
             <p className="text-ink">
               Entfernt <strong>{betroffen}</strong>{" "}
-              {betroffen === 1 ? "Datensatz" : "Datensaetze"}
+              {betroffen === 1 ? "Datensatz" : "Datensätze"}
               {dateien > 0 && <> und <strong>{dateien}</strong> {dateien === 1 ? "Datei" : "Dateien"} von der Platte</>}
               {profilId
                 ? <> im Profil <strong>{profile.find((p) => p.id === profilId)?.name || profilId}</strong>.</>
-                : <> ueber alle Profile.</>}
+                : <> über alle Profile.</>}
               {vorschau?.haengende_zeilen ? (
                 <> Dabei verlieren <strong>{vorschau.haengende_zeilen}</strong> Zeilen
                 ihren Verweis; sie bleiben nutzbar, und Claude kann sie danach
@@ -4237,7 +4237,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         </div>
 
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Bestaetigung">
+          <Field label="Bestätigung">
             <TextInput
               className="!w-56"
               value={confirm}
@@ -4247,7 +4247,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
           </Field>
           <Button variant="danger" disabled={!bereit} onClick={ausfuehren}>
             <Trash2 size={15} />
-            {dsgvo ? "Endgueltig loeschen" : "Bereiche leeren"}
+            {dsgvo ? "Endgültig löschen" : "Bereiche leeren"}
           </Button>
         </div>
         <p className="text-xs text-muted">
@@ -4297,7 +4297,7 @@ function UninstallSection({ pushToast }) {
         // Kein Terminal gefunden — ein Weg, den der Mensch selbst gehen
         // kann, ist immer noch besser als eine Fehlermeldung.
         setBefehl(result.befehl || "");
-        pushToast(result.hinweis || "Bitte den Befehl unten ausfuehren.", "amber");
+        pushToast(result.hinweis || "Bitte den Befehl unten ausführen.", "amber");
       } else {
         pushToast(
           result?.hinweis || "Deinstaller gestartet — folge dem neuen Fenster",
@@ -4318,7 +4318,7 @@ function UninstallSection({ pushToast }) {
     <Card className="glass-banner glass-banner-danger rounded-2xl">
       <SectionHeading
         title="PBP komplett deinstallieren"
-        description="Entfernt PBP von diesem Rechner. Im Deinstaller wirst du vor jedem Schritt gefragt — auch bevor Bewerbungsdaten geloescht werden."
+        description="Entfernt PBP von diesem Rechner. Im Deinstaller wirst du vor jedem Schritt gefragt — auch bevor Bewerbungsdaten gelöscht werden."
       />
       <div className="flex flex-col gap-4">
         {info?.entfernt?.length ? (
@@ -4352,7 +4352,7 @@ function UninstallSection({ pushToast }) {
           </p>
         </div>
         <div className="flex items-end gap-3">
-          <Field label="Bestaetigung">
+          <Field label="Bestätigung">
             <TextInput
               className="!w-56"
               value={confirm}
@@ -4373,7 +4373,7 @@ function UninstallSection({ pushToast }) {
         {befehl ? (
           <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3">
             <p className="text-[12px] text-amber/90">
-              Kein Terminal gefunden. Diesen Befehl in einem Terminal ausfuehren:
+              Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:
             </p>
             <code className="mt-1.5 block break-all rounded-lg bg-black/20 px-2 py-1.5 text-[12px] text-ink">
               {befehl}

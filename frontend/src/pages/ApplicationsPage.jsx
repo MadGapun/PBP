@@ -38,7 +38,7 @@ import { punkteText, scoreText } from "@/lib/score";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import MitClaude from "@/components/MitClaude";
-import { bewerbungsartText, klartext, quelleText } from "@/lib/anzeige";
+import { KONTAKTROLLEN, bewerbungsartText, kontaktrolleText, klartext, quelleText } from "@/lib/anzeige";
 import { VORSCHAU_ZEILEN, alleAufgabenText } from "@/lib/arbeitsliste";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
@@ -199,7 +199,7 @@ export default function ApplicationsPage() {
     if (event) event.stopPropagation();
     try {
       await postJson(`/api/follow-ups/${followUpId}/complete`, {});
-      pushToast("Nachfass als erledigt markiert.", "success");
+      pushToast("Nachfassung als erledigt markiert.", "success");
       loadPage();
     } catch (error) {
       pushToast(`Konnte nicht abhaken: ${error.message}`, "danger");
@@ -279,7 +279,7 @@ export default function ApplicationsPage() {
         start_date: acceptanceDialog.start_date || undefined,
         description: acceptanceDialog.description || undefined,
       });
-      pushToast("Position ins Profil uebernommen und Gehalt gespeichert.", "success");
+      pushToast("Position ins Profil übernommen und Gehalt gespeichert.", "success");
       await refreshChrome({ quiet: true, forceReload: true });
     } catch (error) {
       pushToast(`Konnte Abschluss nicht speichern: ${error.message}`, "danger");
@@ -431,7 +431,7 @@ export default function ApplicationsPage() {
       setNewTaskDue("");
       await reloadTimelineTasks(appId);
     } catch (error) {
-      pushToast(`Todo konnte nicht angelegt werden: ${error.message}`, "danger");
+      pushToast(`Aufgabe konnte nicht angelegt werden: ${error.message}`, "danger");
     }
   }
 
@@ -454,7 +454,7 @@ export default function ApplicationsPage() {
       await deleteRequest(`/api/tasks/${task.id}`);
       await reloadTimelineTasks(appId);
     } catch (error) {
-      pushToast(`Todo loeschen fehlgeschlagen: ${error.message}`, "danger");
+      pushToast(`Aufgabe löschen fehlgeschlagen: ${error.message}`, "danger");
     }
   }
 
@@ -617,8 +617,8 @@ export default function ApplicationsPage() {
       return {
         badge: "Priorität 1",
         tone: "danger",
-        title: "Fällige Nachfassaktionen zuerst schließen",
-        description: `${dueFollowUps.length} Follow-up(s) sind fällig oder überfällig. Aktualisiere Status und Notizen, bevor neue Fälle liegen bleiben.`,
+        title: "Fällige Nachfassungen zuerst erledigen",
+        description: `${dueFollowUps.length === 1 ? "Eine Nachfassung ist" : `${dueFollowUps.length} Nachfassungen sind`} fällig oder überfällig. Aktualisiere Status und Notizen, bevor neue Fälle liegen bleiben.`,
         // v1.6.7 (#515): Banner ist jetzt klickbar — setzt den Follow-up-Filter
         // und scrollt zur „Offene Aktionen"-Sektion. Vorher rein informativ.
         actionLabel: "Fällige anzeigen",
@@ -730,7 +730,7 @@ export default function ApplicationsPage() {
             tone="sky"
           />
           <MetricCard label="Bewerbungen pro Woche" value={applicationsPerWeek} note="Ø seit erster Bewerbung" tone="sky" />
-          <MetricCard label="Fällige Nachfässe" value={dueFollowUps.length} note="Heute fällig oder überfällig — Geplante stehen unter 'Offene Aktionen'" tone={dueFollowUps.length ? "danger" : "neutral"} />
+          <MetricCard label="Fällige Nachfassungen" value={dueFollowUps.length} note="Heute fällig oder überfällig — Geplante stehen unter 'Offene Aktionen'" tone={dueFollowUps.length ? "danger" : "neutral"} />
           <MetricCard label="Interviews" value={interviewApplicationsCount} note="Aktive Interview-Phase" tone="amber" />
         </div>
 
@@ -760,7 +760,7 @@ export default function ApplicationsPage() {
           {specialFilter && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-sky/25 bg-sky/10 px-3 py-2 text-xs text-sky">
               <span className="font-semibold">
-                {specialFilter === "followups_due" ? "Filter: Nachfrage faellig" : "Filter: Seit > 60 Tagen ohne Antwort"}
+                {specialFilter === "followups_due" ? "Filter: Nachfrage fällig" : "Filter: Seit > 60 Tagen ohne Antwort"}
               </span>
               <span className="text-muted/60">
                 ({filteredApplications.length}
@@ -771,7 +771,7 @@ export default function ApplicationsPage() {
                 className="ml-auto rounded-md px-2 py-0.5 hover:bg-sky/20"
                 onClick={() => setSpecialFilter(null)}
               >
-                Filter zuruecksetzen
+                Filter zurücksetzen
               </button>
             </div>
           )}
@@ -987,7 +987,7 @@ export default function ApplicationsPage() {
                         <Button
                           variant="secondary"
                           onClick={() => unterlagenKopieren(application, "lebenslauf")}
-                          title="Vorbefuellte Anleitung fuer den angepassten Lebenslauf zu dieser Stelle kopieren und in Claude Desktop einfuegen"
+                          title="Vorbefüllte Anleitung für den angepassten Lebenslauf zu dieser Stelle kopieren und in Claude Desktop einfügen"
                         >
                           <MitClaude>Lebenslauf</MitClaude>
                         </Button>
@@ -996,7 +996,7 @@ export default function ApplicationsPage() {
                         <Button
                           variant="secondary"
                           onClick={() => unterlagenKopieren(application, "anschreiben")}
-                          title="Vorbefuellte Anleitung fuer das Anschreiben zu dieser Stelle kopieren und in Claude Desktop einfuegen"
+                          title="Vorbefüllte Anleitung für das Anschreiben zu dieser Stelle kopieren und in Claude Desktop einfügen"
                         >
                           <MitClaude>Anschreiben</MitClaude>
                         </Button>
@@ -1005,7 +1005,7 @@ export default function ApplicationsPage() {
                         <Button
                           variant="secondary"
                           onClick={() => interviewVorbereitungKopieren(application)}
-                          title="Vorbefuellte Interview-Vorbereitung (Fragen, STAR-Antworten, Gehalt) kopieren und in Claude Desktop einfuegen — legt auch ein Todo mit Faelligkeit an"
+                          title="Vorbefüllte Interview-Vorbereitung (Fragen, STAR-Antworten, Gehalt) kopieren und in Claude Desktop einfügen — legt auch eine Aufgabe mit Fälligkeit an"
                         >
                           <MitClaude>Interview-Vorbereitung</MitClaude>
                         </Button>
@@ -1092,7 +1092,7 @@ export default function ApplicationsPage() {
                   <Button
                     size="sm"
                     onClick={() => interviewVorbereitungKopieren(timelineDialog.entry?.application)}
-                    title="Vorbefuellte Interview-Vorbereitung kopieren und in Claude Desktop einfuegen"
+                    title="Vorbefüllte Interview-Vorbereitung kopieren und in Claude Desktop einfügen"
                   >
                     <MitClaude size={14}>Interview-Vorbereitung</MitClaude>
                   </Button>
@@ -1117,7 +1117,7 @@ export default function ApplicationsPage() {
                   size="sm"
                   variant="ghost"
                   href={buildZipUrl({ dokumente: true, mails: true, pdf: true })}
-                  title="ZIP mit zusaetzlichem PDF-Bericht (etwas langsamer, da Browser im Hintergrund rendert)"
+                  title="ZIP mit zusätzlichem PDF-Bericht (etwas langsamer, da Browser im Hintergrund rendert)"
                 >
                   <Download size={14} /> ZIP + PDF
                 </LinkButton>
@@ -1373,7 +1373,7 @@ export default function ApplicationsPage() {
                       href={link.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      title={weichtAb ? "Die aktuell verknuepfte Ausschreibung (z. B. nach einem Repost)" : undefined}
+                      title={weichtAb ? "Die aktuell verknüpfte Ausschreibung (z. B. nach einem Repost)" : undefined}
                       className="inline-flex items-center gap-1 text-sm text-sky hover:underline"
                     >
                       {weichtAb ? "Aktuelle Ausschreibung" : link.label}
@@ -1487,7 +1487,7 @@ export default function ApplicationsPage() {
               </div>
               <details className="mt-2">
               <summary className="cursor-pointer text-xs text-muted/70 hover:text-ink">
-                Eigene Notiz hinzufuegen
+                Eigene Notiz hinzufügen
               </summary>
               <TextArea
                 rows={6}
@@ -1596,7 +1596,7 @@ export default function ApplicationsPage() {
                     // v1.6.9 (#570): applicationId direkt mitgeben — Backend
                     // verknuepft automatisch und dedupliziert per Datei-Hash.
                     const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
-                    const note = result?.duplicate_of ? "verknuepft (war schon vorhanden)" : "hochgeladen und verknuepft";
+                    const note = result?.duplicate_of ? "verknüpft (war schon vorhanden)" : "hochgeladen und verknüpft";
                     pushToast(`'${file.name}' ${note}.`, "success");
                   } catch (err) {
                     pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
@@ -1616,7 +1616,7 @@ export default function ApplicationsPage() {
                     try {
                       // v1.6.9 (#570): applicationId direkt mitgeben (siehe Drop-Handler oben).
                       const result = await uploadDocumentFile(file, "sonstiges", { applicationId: appId });
-                      const note = result?.duplicate_of ? "verknuepft (war schon vorhanden)" : "hochgeladen und verknuepft";
+                      const note = result?.duplicate_of ? "verknüpft (war schon vorhanden)" : "hochgeladen und verknüpft";
                       pushToast(`'${file.name}' ${note}.`, "success");
                     } catch (err) {
                       pushToast(`Upload fehlgeschlagen: ${err.message}`, "danger");
@@ -1695,7 +1695,7 @@ export default function ApplicationsPage() {
                         galt als nicht vorhanden (belegter Nutzer-Befund). */}
                     <button
                       type="button"
-                      title={done ? "Wieder oeffnen" : "Als erledigt abhaken"}
+                      title={done ? "Wieder öffnen" : "Als erledigt abhaken"}
                       onClick={() => toggleTimelineTask(task)}
                       className={`shrink-0 rounded-md border p-1 transition-colors ${done ? "border-teal/40 bg-teal/15 text-teal" : "border-teal/30 bg-teal/5 text-teal/70 hover:bg-teal/20 hover:text-teal"}`}
                     >
@@ -1711,7 +1711,7 @@ export default function ApplicationsPage() {
                     </span>
                     <button
                       type="button"
-                      title="Loeschen"
+                      title="Löschen"
                       onClick={() => deleteTimelineTask(task)}
                       className="shrink-0 rounded-md p-1 text-muted/30 hover:text-coral hover:bg-coral/10 transition-colors"
                     >
@@ -2130,7 +2130,7 @@ export default function ApplicationsPage() {
                           const iso = event.event_date || "";
                           setEditingDateValue(iso.slice(0, 10));
                         }}
-                        title="Datum aendern"
+                        title="Datum ändern"
                       >
                         {formatDateTime(event.event_date)}
                       </button>
@@ -2242,7 +2242,7 @@ export default function ApplicationsPage() {
             />
           </Field>
           <p className="text-xs text-muted/50">
-            Offene Follow-ups wurden bereits automatisch als hinfällig markiert.
+            Offene Nachfassungen wurden bereits automatisch als hinfällig markiert.
           </p>
         </div>
       </Modal>
@@ -2291,13 +2291,13 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
           version_label: versionLabel || undefined,
         }),
       });
-      pushToast("Stelle verknuepft", "success");
+      pushToast("Stelle verknüpft", "success");
       await reload();
       setAdding(false);
       setSearch("");
       setVersionLabel("");
     } catch (err) {
-      pushToast(`Verknuepfen fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Verknüpfen fehlgeschlagen: ${err.message}`, "danger");
     }
   }
 
@@ -2306,7 +2306,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
       await fetch(`/api/applications/${applicationId}/jobs/${encodeURIComponent(jobHash)}`, {
         method: "DELETE",
       });
-      pushToast("Verknuepfung entfernt", "success");
+      pushToast("Verknüpfung entfernt", "success");
       await reload();
     } catch (err) {
       pushToast(`Entfernen fehlgeschlagen: ${err.message}`, "danger");
@@ -2319,7 +2319,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
     return (
       <Card className="glass-card-soft rounded-xl shadow-none">
         <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-1">
-          Verknuepfte Stellen
+          Verknüpfte Stellen
         </p>
         <p className="text-[12px] text-muted/50 mb-2">
           Falls sich diese Bewerbung auf mehrere Stellen-Varianten bezieht (z.B. Repost,
@@ -2330,7 +2330,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
           onClick={() => { setAdding(true); loadAvailable(); }}
           className="text-[11px] text-sky hover:underline inline-flex items-center gap-1"
         >
-          <Plus size={11} /> Weitere Stelle verknuepfen
+          <Plus size={11} /> Weitere Stelle verknüpfen
         </button>
       </Card>
     );
@@ -2356,7 +2356,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                 <span className="text-ink font-medium">{j.title}</span>
                 {j.link_primary && (
                   <span className="ml-1.5 inline-flex items-center rounded-full bg-teal/15 text-teal px-1.5 py-0.5 text-[9px]">
-                    primaer
+                    primär
                   </span>
                 )}
                 {j.link_version && (
@@ -2384,7 +2384,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                     type="button"
                     onClick={() => unlinkJob(j.hash)}
                     className="text-muted/40 hover:text-coral text-[11px]"
-                    title="Verknuepfung entfernen"
+                    title="Verknüpfung entfernen"
                   >
                     <X size={12} />
                   </button>
@@ -2543,7 +2543,7 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
         </div>
 
         <div className="flex justify-end pt-2 border-t border-white/5">
-          <Button size="sm" variant="ghost" onClick={onClose}>Schliessen</Button>
+          <Button size="sm" variant="ghost" onClick={onClose}>Schließen</Button>
         </div>
       </div>
     </Modal>
@@ -2618,11 +2618,11 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
   return (
     <Card className="glass-card-soft rounded-xl shadow-none">
       <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
-        Aufwand fuer diese Bewerbung
+        Aufwand für diese Bewerbung
       </p>
       {!hasAnyCost && !adding && (
         <p className="text-[12px] text-muted/50 mb-2">
-          Trage Reisekosten, Tool-Abos oder Pruefungs-Gebuehren ein — fuer einen
+          Trage Reisekosten, Tool-Abos oder Prüfungs-Gebühren ein — für einen
           ehrlichen Blick auf den realen Aufwand pro Bewerbung.
         </p>
       )}
@@ -2693,7 +2693,7 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
               className="rounded border border-white/8 bg-white/[0.03] px-2 py-1 text-[12px] text-ink"
             >
               <option value="tool">Tool/Abo</option>
-              <option value="pruefung">Pruefung</option>
+              <option value="pruefung">Prüfung</option>
               <option value="reise">Reise</option>
               <option value="fortbildung">Fortbildung</option>
               <option value="sonstiges">Sonstiges</option>
@@ -2754,14 +2754,8 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
 
-  const ROLES = [
-    { v: "recruiter", l: "Recruiter" },
-    { v: "hiring_manager", l: "Hiring Manager" },
-    { v: "interviewer", l: "Interviewer" },
-    { v: "hr", l: "HR" },
-    { v: "kollege", l: "Kollege" },
-    { v: "mentor", l: "Mentor" },
-  ];
+  const ROLES = KONTAKTROLLEN.filter((r) => !["headhunter", "sonstiges"].includes(r.value))
+    .map((r) => ({ v: r.value, l: r.label }));
 
   async function reload() {
     if (!applicationId) return;
@@ -2794,12 +2788,12 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
           role: linkRole,
         }),
       });
-      pushToast("Verknuepft", "success");
+      pushToast("Verknüpft", "success");
       await reload();
       setAdding(false);
       setSearch("");
     } catch (err) {
-      pushToast(`Verknuepfen fehlgeschlagen: ${err.message}`, "danger");
+      pushToast(`Verknüpfen fehlgeschlagen: ${err.message}`, "danger");
     }
   }
 
@@ -2825,7 +2819,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
             role: linkRole,
           }),
         });
-        pushToast(`„${newName}" angelegt und verknuepft`, "success");
+        pushToast(`„${newName}" angelegt und verknüpft`, "success");
         setNewName("");
         setAdding(false);
         await reload();
@@ -2864,14 +2858,14 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
       {contacts.length === 0 && !adding && (
         <div className="text-center py-4 text-muted/50">
           <p className="text-[12px] mb-2">
-            Noch niemand verknuepft. Wer war beim Interview dabei? Wer hat angeschrieben?
+            Noch niemand verknüpft. Wer war beim Interview dabei? Wer hat angeschrieben?
           </p>
           <button
             type="button"
             onClick={() => { setAdding(true); loadAllContacts(); }}
             className="text-[12px] text-sky hover:underline inline-flex items-center gap-1"
           >
-            <Plus size={12} /> Person hinzufuegen
+            <Plus size={12} /> Person hinzufügen
           </button>
         </div>
       )}
@@ -2884,7 +2878,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
                 <span className="text-ink font-medium">{c.full_name}</span>
                 {c.link_role && (
                   <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-[9px]">
-                    {ROLES.find((r) => r.v === c.link_role)?.l || c.link_role}
+                    {kontaktrolleText(c.link_role)}
                   </span>
                 )}
                 {c.company && (
@@ -2895,7 +2889,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
                 type="button"
                 onClick={() => unlink(c.link_id)}
                 className="text-muted/40 hover:text-coral text-[11px]"
-                title="Verknuepfung entfernen"
+                title="Verknüpfung entfernen"
               >
                 <X size={12} />
               </button>

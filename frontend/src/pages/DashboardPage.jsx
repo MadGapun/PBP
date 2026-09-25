@@ -324,7 +324,7 @@ export default function DashboardPage() {
     todoItems.push({
       id: "zombies",
       title: "Lange keine Antwort bekommen",
-      description: `${data.zombies.length} Bewerbung(en) warten seit ueber 60 Tagen auf Rueckmeldung.`,
+      description: `${data.zombies.length} Bewerbung(en) warten seit über 60 Tagen auf Rückmeldung.`,
       tone: "amber",
       actionLabel: "Bewerbungen",
       // #485: Filter auf Zombies (ueber 60 Tage ohne Antwort)
@@ -384,7 +384,7 @@ export default function DashboardPage() {
       const d = await r.json();
       setBereiche(d.bereiche || []);
     } catch {
-      pushToast?.("Zuruecksetzen fehlgeschlagen.", "danger");
+      pushToast?.("Zurücksetzen fehlgeschlagen.", "danger");
     }
   }
 
@@ -409,7 +409,7 @@ export default function DashboardPage() {
         <PageHeader
           title="Dashboard"
           description="Hier siehst du auf einen Blick, was als Nächstes zu tun ist."
-          eyebrow="Uebersicht"
+          eyebrow="Übersicht"
         />
 
         <div id="welcome-screen" className="grid gap-6">
@@ -453,21 +453,21 @@ export default function DashboardPage() {
                       <p className="flex items-center gap-2 font-medium text-amber">
                         <span className="h-2 w-2 rounded-full bg-amber shrink-0" />
                         {st === "unknown"
-                          ? "Verbindung zu Claude Desktop wird geprueft..."
+                          ? "Verbindung zu Claude Desktop wird geprüft..."
                           : "Claude Desktop ist noch nicht mit PBP verbunden."}
                       </p>
                       <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-muted/80">
                         <li>
                           Claude Desktop <strong>komplett beenden</strong>: Rechtsklick auf das
                           Claude-Symbol unten rechts in der Taskleiste → „Beenden"
-                          (Fenster schliessen reicht nicht).
+                          (Fenster schließen reicht nicht).
                         </li>
                         <li>Claude Desktop neu starten und einen Moment warten.</li>
                         <li>
                           Diese Anzeige wird von selbst gruen — oder{" "}
                           <button type="button" className="underline hover:text-ink"
                             onClick={() => refreshChrome()}>
-                            jetzt pruefen
+                            jetzt prüfen
                           </button>.
                         </li>
                       </ol>
@@ -599,7 +599,7 @@ export default function DashboardPage() {
         />
       </>
     ),
-    naechster_schritt: (
+    nächster_schritt: (
       <>
         {/* Im Fluss (Readiness Card).
 
@@ -887,7 +887,7 @@ export default function DashboardPage() {
                     try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
                   }}
                   className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
-                  title="Schliessen"
+                  title="Schließen"
                 >
                   <X size={14} />
                 </button>
@@ -1013,7 +1013,7 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
             Ollama erkannt — willst du PBP-Lokale-KI aktivieren?
           </p>
           <p className="text-[12px] text-muted/70 mb-3">
-            Spart Claude-Tokens fuer Standard-Aufgaben (Doku-Klassifikation,
+            Spart Claude-Tokens für Standard-Aufgaben (Doku-Klassifikation,
             Skill-Extraktion, Stellen-Vorfilterung). Daten bleiben lokal.
             Aktuell installiert: <strong className="text-ink">{(status.available_models || []).join(", ")}</strong>
           </p>
@@ -1029,7 +1029,7 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
               onClick={dismissForWeek}
               className="text-[11px] text-muted/60 hover:text-ink underline ml-2"
             >
-              Spaeter (7 Tage)
+              Später (7 Tage)
             </button>
           </div>
         </div>
@@ -1092,7 +1092,7 @@ function RecapCard({ pushToast, navigateTo }) {
   }
   if (recap.overdue_followups > 0) {
     blocks.push({
-      icon: ClipboardList, color: "text-coral", label: "Faellige Follow-ups",
+      icon: ClipboardList, color: "text-coral", label: "Fällige Nachfassungen",
       value: recap.overdue_followups,
       onClick: () => navigateTo?.("bewerbungen"),
     });
@@ -1111,7 +1111,7 @@ function RecapCard({ pushToast, navigateTo }) {
         <div>
           <h2 className="text-sm font-semibold text-ink">Was hat sich getan?</h2>
           <p className="text-[11px] text-muted/60 mt-0.5">
-            Aktivitaet seit deinem letzten Besuch
+            Aktivität seit deinem letzten Besuch
           </p>
         </div>
         <button
@@ -1209,7 +1209,7 @@ function DashboardDocumentImport({ pushToast, refreshChrome }) {
           <input ref={fileRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.csv,.json,.xml,.rtf,.pptx,.xlsx,.odt,.odp,.ods" className="hidden"
             onChange={async (e) => { await processFiles(Array.from(e.target.files || [])); if (fileRef.current) fileRef.current.value = ""; }} />
           <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={uploading}>
-            {uploading ? "Importiere..." : "Dateien auswaehlen"}
+            {uploading ? "Importiere..." : "Dateien auswählen"}
           </Button>
         </div>
       </div>

@@ -31,7 +31,7 @@ esac
 
 echo ""
 echo -e "${CYAN}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║   Bewerbungs-Assistent — Installer v2.0     ║${NC}"
+echo -e "${CYAN}║   PBP — Installer                           ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 info "Plattform: $PLATFORM ($OS)"
@@ -212,7 +212,7 @@ if [ "$PLATFORM" = "macos" ]; then
     echo -e "  ${YELLOW}So geht's weiter:${NC}"
     echo -e "  1. Claude Desktop komplett beenden (Menueleiste → Claude → Beenden)"
     echo -e "  2. Claude Desktop neu starten"
-    echo -e "  3. Eingeben: 'Starte den Bewerbungs-Assistenten'"
+    echo -e "  3. Eingeben: 'Starte die Ersterfassung'"
     echo ""
 fi
 

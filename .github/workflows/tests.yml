@@ -143,5 +143,10 @@ jobs:
         # G65 (#1087): Gruende, Quellen, Bewerbungsart als Wort.
         run: node frontend/src/lib/anzeige.test.mjs
 
+      - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
+        # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
+        # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).
+        run: python scripts/ui_texte_pruefen.py
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

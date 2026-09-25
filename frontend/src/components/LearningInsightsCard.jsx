@@ -113,7 +113,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {data.dismiss_reasons_top?.length > 0 && (
             <div>
               <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
-                Top-Aussortier-Gruende
+                Top-Aussortier-Gründe
               </p>
               <div className="space-y-1.5">
                 {data.dismiss_reasons_top.map((r) => (
@@ -129,7 +129,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Top-Filters */}
           {data.top_filters?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Haeufige Filter</p>
+              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Häufige Filter</p>
               <div className="space-y-1.5">
                 {data.top_filters.map((f) => (
                   <div key={f.filter} className="glass-card p-2 text-[12px] flex items-center justify-between">

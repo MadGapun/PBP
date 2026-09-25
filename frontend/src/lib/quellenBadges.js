@@ -23,7 +23,7 @@
 export const WEG_BROWSER = "Im eigenen Browser";
 
 export const WEG_BROWSER_TITEL =
-  "Laeuft nicht von selbst, sondern ueber die Claude-Erweiterung in deinem "
+  "Läuft nicht von selbst, sondern über die Claude-Erweiterung in deinem "
   + "Browser — Chrome, Brave, Edge oder Vivaldi. Das kostet mehr Token als "
   + "eine automatische Quelle.";
 
@@ -35,12 +35,12 @@ const TEMPO = {
   schnell: { text: "Schnell", tone: "success", symbol: "zap" },
   // "Browser" stand hier — ein Tempo, das sich wie ein Wegweiser las.
   langsam: { text: "Langsam", tone: "amber", symbol: "clock",
-             titel: "Dauert laenger als die schnellen Quellen" },
+             titel: "Dauert länger als die schnellen Quellen" },
   manuell: { text: "Manuell", tone: "neutral" },
 };
 
 function loginText(status) {
-  if (status === "running") return "Login laeuft";
+  if (status === "running") return "Login läuft";
   if (status === "fertig") return "Login: Session bereit";
   if (status === "fehler") return "Login fehlgeschlagen";
   return "Login offen";
@@ -65,7 +65,7 @@ export function quellenBadges(quelle, loginStatus = null) {
     liste.push({ text: WEG_BROWSER, tone: "sky", art: "weg", titel: WEG_BROWSER_TITEL });
     if (q.active) {
       liste.push({ text: "Wartet auf dich", tone: "sky", art: "weg",
-                   titel: "Eine Browser-Quelle laeuft nie im Hintergrund — du startest sie ueber Claude." });
+                   titel: "Eine Browser-Quelle läuft nie im Hintergrund — du startest sie über Claude." });
     }
   } else if (!q.defekt) {
     if (q.veraltet) {
@@ -84,7 +84,7 @@ export function quellenBadges(quelle, loginStatus = null) {
     // Eine defekte Quelle sagt nur das — ein Konto-Hinweis daneben laedt
     // dazu ein, es trotzdem zu versuchen.
   } else if (q.login_erforderlich) {
-    liste.push({ text: "Konto noetig", tone: "amber", art: "eigenschaft",
+    liste.push({ text: "Konto nötig", tone: "amber", art: "eigenschaft",
                  titel: q.login_hinweis || "" });
   } else if (q.zugriffsart === "browser_login") {
     liste.push({ text: "Konto empfohlen", tone: "neutral", art: "eigenschaft",

@@ -412,11 +412,11 @@ export default function StatsPage() {
             value={granularity}
             onChange={(e) => setGranularity(e.target.value)}
           >
-            <option value="day">Taeglich</option>
-            <option value="week">Woechentlich</option>
+            <option value="day">Täglich</option>
+            <option value="week">Wöchentlich</option>
             <option value="month">Monatlich</option>
             <option value="quarter">Quartalsweise</option>
-            <option value="year">Jaehrlich</option>
+            <option value="year">Jährlich</option>
             <option value="all">Komplett</option>
           </SelectInput>
           <LinkButton
@@ -464,11 +464,11 @@ export default function StatsPage() {
             onClick={() => { setCustomFrom(""); setCustomTo(""); }}
             className="text-[11px] text-muted/60 hover:text-ink underline"
           >
-            zuruecksetzen
+            zurücksetzen
           </button>
         )}
         <span className="ml-2 text-[11px] text-muted/50">
-          (ueberschreibt die Preset-Auswahl oben — leer = Preset gilt)
+          (überschreibt die Preset-Auswahl oben — leer = Preset gilt)
         </span>
       </div>
 
@@ -533,7 +533,7 @@ export default function StatsPage() {
               <MetricCard
                 label={"Ø Antwortzeit"}
                 value={response.average_days != null ? `${response.average_days} Tage` : "k.A."}
-                note={response.sample_size ? `Basierend auf ${response.sample_size} Rueckmeldungen` : "Noch keine Daten"}
+                note={response.sample_size ? `Basierend auf ${response.sample_size} Rückmeldungen` : "Noch keine Daten"}
                 tone="amber"
               />
               <MetricCard
@@ -562,8 +562,8 @@ export default function StatsPage() {
                   </p>
                 </div>
                 <p className="mb-4 text-xs text-muted">
-                  Bei welchem Score du dich tatsaechlich beworben hast.
-                  Der Score ist eine Einschaetzung — entschieden hast du.
+                  Bei welchem Score du dich tatsächlich beworben hast.
+                  Der Score ist eine Einschätzung — entschieden hast du.
                 </p>
                 {/* Spannenbalken mit Quartilen und Schwellenmarkierung */}
                 <div className="relative mb-2 h-8 w-full rounded-lg bg-panelstrong">
@@ -571,7 +571,7 @@ export default function StatsPage() {
                     <div
                       className="absolute top-2 h-4 rounded bg-amber/30"
                       style={{ left: `${pos(b.q25)}%`, width: `${pos(b.q75) - pos(b.q25)}%` }}
-                      title={`Mittlere Haelfte: ${b.q25} bis ${b.q75}`}
+                      title={`Mittlere Hälfte: ${b.q25} bis ${b.q75}`}
                     />
                   )}
                   <div
@@ -609,15 +609,15 @@ export default function StatsPage() {
                   <p className="mt-2 text-xs text-muted">
                     <strong>{v.score_null.anzahl}</strong> weitere hatten Score 0.
                     Das heisst <em>kein Pflichtbegriff getroffen</em> — nicht
-                    schlecht bewertet, sondern gar nicht beurteilt. Sie zaehlen
+                    schlecht bewertet, sondern gar nicht beurteilt. Sie zählen
                     deshalb nicht in die Zahlen oben.
                   </p>
                 )}
                 {v.ohne_verknuepfte_stelle?.anzahl > 0 && (
                   <p className="mt-2 text-xs text-muted">
                     <strong>{v.ohne_verknuepfte_stelle.anzahl}</strong> Bewerbung(en)
-                    haben keine verknuepfte Stelle und damit keinen Score — eine
-                    Datenluecke, kein Nullwert.
+                    haben keine verknüpfte Stelle und damit keinen Score — eine
+                    Datenlücke, kein Nullwert.
                   </p>
                 )}
               </Card>
@@ -670,7 +670,7 @@ export default function StatsPage() {
                     <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                       <StatBox label="Abgelaufen" value={`${seg.expired_rate}%`} sub={`${seg.abgelaufen} Bew.`} tone="danger" />
                       <StatBox label="Abgelehnt" value={`${seg.rejection_rate}%`} sub={`${seg.abgelehnt} Bew.`} tone="amber" />
-                      <StatBox label="Zurueckgezogen" value={`${seg.withdrawal_rate}%`} sub={`${seg.zurueckgezogen} Bew.`} tone="neutral" />
+                      <StatBox label="Zurückgezogen" value={`${seg.withdrawal_rate}%`} sub={`${seg.zurueckgezogen} Bew.`} tone="neutral" />
                       <StatBox label="Interview erreicht" value={`${seg.interview_rate}%`} sub={`${seg.interview} Bew.`} tone="sky" />
                       <StatBox label="Angebot" value={`${seg.offer_rate}%`} sub={`${seg.angebot} Bew.`} tone="success" />
                     </div>
@@ -696,7 +696,7 @@ export default function StatsPage() {
               <div className="flex items-center gap-2">
                 <Activity size={14} className="text-sky" />
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
-                  Aktivitaets-Heatmap
+                  Aktivitäts-Heatmap
                 </p>
                 {heatmap?.total_active_days != null && (
                   <span className="ml-2 text-[11px] text-muted/50">
@@ -731,7 +731,7 @@ export default function StatsPage() {
               <ActivityHeatmap data={heatmap.data} days={heatmapDays} />
             ) : (
               <p className="py-6 text-center text-sm text-muted/40">
-                Noch keine Aktivitaeten erfasst. Sobald du Bewerbungen, Termine oder Follow-ups anlegst, erscheint hier ein Aktivitaetsmuster.
+                Noch keine Aktivitäten erfasst. Sobald du Bewerbungen, Termine oder Nachfassungen anlegst, erscheint hier ein Aktivitätsmuster.
               </p>
             )}
           </Card>
@@ -861,7 +861,7 @@ export default function StatsPage() {
             )}
 
             {dismissData.length > 0 && (
-              <ChartCard title="Ablehnungsgruende (Top 10)">
+              <ChartCard title="Ablehnungsgründe (Top 10)">
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={dismissData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -908,7 +908,7 @@ export default function StatsPage() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Haeufigste Gruende</p>
+                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Häufigste Gründe</p>
                   <div className="grid gap-1.5">
                     {Object.entries(rejection.nach_grund || {}).slice(0, 6).map(([grund, count]) => (
                       // v1.6.5: items-start statt items-center + break-words statt truncate,
@@ -934,7 +934,7 @@ export default function StatsPage() {
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
                 <p className="text-xs text-muted/50">
-                  Eine systematische Haeufung weist oft auf ein konkretes Profil- oder Kommunikations-Thema hin.
+                  Eine systematische Häufung weist oft auf ein konkretes Profil- oder Kommunikations-Thema hin.
                 </p>
                 <Button
                   size="sm"
@@ -973,7 +973,7 @@ export default function StatsPage() {
                           <span>Absagen: <span className="text-ink font-medium">{bucket.absage_quote}%</span></span>
                         </div>
                       ) : (
-                        <p className="mt-1 text-xs text-muted/50">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil noetig.`}</p>
+                        <p className="mt-1 text-xs text-muted/50">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil nötig.`}</p>
                       )}
                     </div>
                   );
@@ -990,7 +990,7 @@ export default function StatsPage() {
             <Card className="rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Activity size={14} className="text-sky" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Letzte Aktivitaet</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Letzte Aktivität</p>
               </div>
               <div className="grid gap-1.5">
                 {extended.recent_activity.map((event, i) => (

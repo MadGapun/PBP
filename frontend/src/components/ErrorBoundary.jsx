@@ -39,11 +39,11 @@ export default class ErrorBoundary extends Component {
       <div className="p-6">
         <div className="glass-card-strong max-w-2xl rounded-2xl border border-coral/25 p-6">
           <h2 className="text-lg font-semibold text-ink">
-            Dieser Bereich ist abgestuerzt
+            Dieser Bereich ist abgestürzt
           </h2>
           <p className="mt-2 text-sm leading-snug text-muted/70">
             In diesem Tab ist ein Anzeigefehler aufgetreten. Der Rest von PBP
-            laeuft weiter — du kannst links einen anderen Bereich waehlen oder
+            läuft weiter — du kannst links einen anderen Bereich wählen oder
             es hier nochmal versuchen. Deine Daten sind davon nicht betroffen.
           </p>
           <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/20 p-2 font-mono text-[11px] text-coral/80">

@@ -60,7 +60,7 @@ export function bewerbungsartText(wert) {
 // sie fuehrt. Ein Test haelt beide gleich — eine neue Quelle ohne Eintrag
 // hier faellt dort auf.
 export const QUELLE_TEXT = {
-  bundesagentur: "Bundesagentur fuer Arbeit",
+  bundesagentur: "Bundesagentur für Arbeit",
   hays: "Hays",
   freelance_de: "freelance.de",
   ingenieur_de: "ingenieur.de (VDI)",
@@ -134,4 +134,24 @@ export function klartext(wert) {
 export function datumText(wert) {
   const m = String(wert ?? "").slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
   return m ? `${m[3]}.${m[2]}.${m[1]}` : String(wert ?? "");
+}
+
+// G66 (#1087 E2): Kontaktrollen deutsch. Gespeichert bleibt der
+// Schluessel (`hiring_manager`, `interviewer`, `hr`) — er ist der Alias,
+// die Beschriftung ist neu. Kontakte- und Bewerbungen-Tab lesen diese
+// eine Liste; vorher hatte jeder seine eigene.
+export const KONTAKTROLLEN = [
+  { value: "recruiter", label: "Recruiter" },
+  { value: "headhunter", label: "Headhunter" },
+  { value: "hiring_manager", label: "Fachvorgesetzte/r" },
+  { value: "interviewer", label: "Gesprächspartner/in" },
+  { value: "hr", label: "Personalabteilung" },
+  { value: "kollege", label: "Kollege/Kollegin" },
+  { value: "mentor", label: "Mentor/in" },
+  { value: "sonstiges", label: "Sonstiges" },
+];
+
+export function kontaktrolleText(wert) {
+  const roh = String(wert ?? "").trim();
+  return KONTAKTROLLEN.find((r) => r.value === roh)?.label || roh.replace(/_/g, " ");
 }

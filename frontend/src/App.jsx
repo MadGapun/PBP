@@ -87,11 +87,11 @@ const TAB_CONFIG = [
   { id: "dashboard", title: "Dashboard", icon: AppWindow, defaultMeta: "Status und Übersicht" },
   { id: "profil", title: "Profil", icon: UserRound, defaultMeta: "Lebenslauf-Basis und Vollständigkeit" },
   { id: "stellen", title: "Stellen", icon: BriefcaseBusiness, defaultMeta: "Treffer, Filter und Fit" },
-  { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "TODOs, Follow-ups und Status" },
+  { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "Aufgaben, Nachfassungen und Status" },
   { id: "kontakte", title: "Kontakte", icon: UsersRound, defaultMeta: "Personen mit Rollen und Historie" },
-  { id: "dokumente", title: "Docs", icon: FolderOpen, defaultMeta: "Suche, Filter und Querverweis" },
+  { id: "dokumente", title: "Dokumente", icon: FolderOpen, defaultMeta: "Suche, Filter und Querverweis" },
   // #814/#815 (D35): eigener Bereich — Aufgaben hatten keinen Ort im Produkt
-  { id: "aufgaben", title: "Aufgaben", icon: ListChecks, defaultMeta: "Todos, Nachfassungen und Termine in einer Sicht" },
+  { id: "aufgaben", title: "Aufgaben", icon: ListChecks, defaultMeta: "Aufgaben, Nachfassungen und Termine in einer Sicht" },
   { id: "kalender", title: "Kalender", icon: CalendarDays, defaultMeta: "Termine und ICS-Export" },
   { id: "statistiken", title: "Statistiken", icon: BarChart3, defaultMeta: "Charts, Trends und Export" },
   { id: "einstellungen", title: "Einstellungen", icon: Settings2, defaultMeta: "Quellen, Suche und Verhalten" },
@@ -572,7 +572,7 @@ export default function App() {
       const connStatus = chrome.status?.mcp_connection?.status;
       if (connStatus && connStatus !== "connected") {
         pushToast(
-          "Claude Desktop scheint nicht verbunden zu sein. Bitte pruefen: 1) Laeuft das PBP-Fenster noch? 2) Claude Desktop komplett beenden und neu starten 3) Unter Einstellungen > Entwickler den MCP-Status pruefen.",
+          "Claude Desktop scheint nicht verbunden zu sein. Bitte prüfen: 1) Läuft das PBP-Fenster noch? 2) Claude Desktop komplett beenden und neu starten 3) Unter Einstellungen > Entwickler den MCP-Status prüfen.",
           "amber",
           { duration: 12000, dedupe: true }
         );
@@ -1044,19 +1044,19 @@ export default function App() {
       const result = await postJson("/api/jobsuche/start", options);
       if (result?.status === "gestartet") {
         pushToast(
-          `Jobsuche laeuft auf ${result.quellen?.length || 0} Portalen. Fortschritt siehst du in der Sidebar.`,
+          `Jobsuche läuft auf ${result.quellen?.length || 0} Portalen. Fortschritt siehst du in der Sidebar.`,
           "teal",
         );
         refreshChrome();
         return result;
       }
       if (result?.status === "laeuft_bereits") {
-        pushToast("Eine Jobsuche laeuft bereits.", "amber");
+        pushToast("Eine Jobsuche läuft bereits.", "amber");
         return result;
       }
       if (result?.status === "keine_quellen") {
         pushToast(
-          "Keine Job-Quellen aktiviert — bitte unter Einstellungen → Job-Quellen auswaehlen.",
+          "Keine Job-Quellen aktiviert — bitte unter Einstellungen → Job-Quellen auswählen.",
           "amber",
           { duration: 6000 },
         );
@@ -1064,7 +1064,7 @@ export default function App() {
       }
       if (result?.status === "nur_manuelle_quellen") {
         pushToast(
-          "Alle gewaehlten Quellen laufen nur ueber die Claude-Erweiterung im Browser.",
+          "Alle gewählten Quellen laufen nur über die Claude-Erweiterung im Browser.",
           "amber",
           { duration: 6000 },
         );
@@ -1131,8 +1131,8 @@ export default function App() {
   if (page === "profil") {
     sidebarSubNavigation = {
       items: [
-        { id: "profil-uebersicht", label: "Uebersicht" },
-        { id: "profil-persoenlich", label: "Persoenliche Daten" },
+        { id: "profil-uebersicht", label: "Übersicht" },
+        { id: "profil-persoenlich", label: "Persönliche Daten" },
         { id: "profil-suchkriterien", label: "Suchkriterien" },
         { id: "profil-blacklist", label: "Blacklist" },
         { id: "profil-erfahrung", label: "Berufserfahrung" },
@@ -1144,8 +1144,8 @@ export default function App() {
         document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
         // Sub-Pfad fuer Top-Bar-Breadcrumb (id: "profil-skills" -> "Skills")
         const labels = {
-          "profil-uebersicht": "Uebersicht",
-          "profil-persoenlich": "Persoenliche Daten",
+          "profil-uebersicht": "Übersicht",
+          "profil-persoenlich": "Persönliche Daten",
           "profil-suchkriterien": "Suchkriterien",
           "profil-blacklist": "Blacklist",
           "profil-erfahrung": "Berufserfahrung",
@@ -1206,7 +1206,7 @@ export default function App() {
     sidebarSubNavigation = {
       items: [
         { id: "cal-view-kalender", label: "Kalender" },
-        { id: "cal-view-log", label: "Aktivitaetslog" },
+        { id: "cal-view-log", label: "Aktivitätslog" },
         { id: "cal-period-woche", label: "  Woche" },
         { id: "cal-period-monat", label: "  Monat" },
         { id: "cal-period-quartal", label: "  Quartal" },
@@ -1344,14 +1344,14 @@ export default function App() {
 
             {/* #630 (Stufe 1): Aktualisieren-Button + letzter Sync. Aenderungen
                 via Claude erscheinen nach dem Neuladen. */}
-            <span className="hidden lg:inline text-[11px] text-muted/40 whitespace-nowrap" title="Aenderungen via Claude erscheinen nach dem Aktualisieren">
+            <span className="hidden lg:inline text-[11px] text-muted/40 whitespace-nowrap" title="Änderungen via Claude erscheinen nach dem Aktualisieren">
               Letzter Sync: {lastSync}
             </span>
             <button
               type="button"
               onClick={doRefresh}
               className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
-              title="Aktualisieren — laedt Aenderungen, die Claude im Hintergrund gemacht hat"
+              title="Aktualisieren — lädt Änderungen, die Claude im Hintergrund gemacht hat"
               aria-label="Aktualisieren"
             >
               <RefreshCw size={18} />
@@ -1367,7 +1367,7 @@ export default function App() {
                   type="button"
                   onClick={() => setThemeMode(nextMode)}
                   className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
-                  title={`Theme: ${label} — klicken fuer ${nextMode === "system" ? "System" : nextMode === "light" ? "Hell" : "Dunkel"}`}
+                  title={`Theme: ${label} — klicken für ${nextMode === "system" ? "System" : nextMode === "light" ? "Hell" : "Dunkel"}`}
                 >
                   <Icon size={18} />
                 </button>
@@ -1598,7 +1598,7 @@ export default function App() {
               aria-label="Kaffee spendieren via PayPal"
             >
               <Coffee size={12} aria-hidden="true" />
-              Gefaellt dir PBP? Spendier mir einen Kaffee
+              Gefällt dir PBP? Spendier mir einen Kaffee
             </a>
           </div>
         </footer>
@@ -1812,11 +1812,11 @@ export default function App() {
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Timeline & Notizen</h3>
-                      <p>Klicke auf eine Bewerbung für die vollständige Timeline. Dort kannst du Notizen hinzufügen und Follow-ups planen.</p>
+                      <p>Klicke auf eine Bewerbung für die vollständige Timeline. Dort kannst du Notizen hinzufügen und Nachfassungen planen.</p>
                     </div>
                     <div className="glass-card p-3">
                       <h3 className="font-medium text-ink mb-1">Follow-Ups</h3>
-                      <p>Plane automatische Erinnerungen (z.B. "In 2 Wochen nachfragen"). Die werden auf dem Dashboard als TODO angezeigt.</p>
+                      <p>Plane automatische Erinnerungen (z.B. "In 2 Wochen nachfragen"). Sie erscheinen auf dem Dashboard unter „Offen“ und im Aufgaben-Tab.</p>
                     </div>
                   </>
                 )}
@@ -1868,16 +1868,16 @@ export default function App() {
             {helpTab === "faq" && (
               <div className="space-y-2 text-sm text-muted/60">
                 {[
-                  { q: "Was ist MCP?", a: "MCP (Model Context Protocol) ist die Schnittstelle, ueber die PBP mit Claude Desktop kommuniziert. PBP stellt Tools bereit, die Claude nutzen kann." },
-                  { q: "Wo werden meine Daten gespeichert?", a: "Alle Daten liegen lokal auf deinem Geraet. Unter Windows in %LOCALAPPDATA%/bewerbungs-assistent, auf macOS in ~/.bewerbungs-assistent. Es werden keine Daten an Server gesendet." },
-                  { q: "Muss Claude Desktop laufen?", a: "Fuer die KI-Funktionen ja. Das Dashboard funktioniert aber auch ohne Claude Desktop — du kannst Profil, Stellen und Bewerbungen jederzeit verwalten." },
-                  { q: "Wie starte ich das Kennlerngespräch?", a: "Oeffne Claude Desktop und tippe /ersterfassung ein. Claude fuehrt dich dann Schritt fuer Schritt durch den Aufbau deines Profils." },
-                  { q: "Kann ich mehrere Profile haben?", a: "Ja. Klicke oben auf deinen Profilnamen und waehle 'Neues Profil'. Du kannst zwischen Profilen wechseln." },
+                  { q: "Was ist MCP?", a: "MCP (Model Context Protocol) ist die Schnittstelle, über die PBP mit Claude Desktop kommuniziert. PBP stellt Tools bereit, die Claude nutzen kann." },
+                  { q: "Wo werden meine Daten gespeichert?", a: "Alle Daten liegen lokal auf deinem Gerät. Unter Windows in %LOCALAPPDATA%/bewerbungs-assistent, auf macOS in ~/.bewerbungs-assistent. Es werden keine Daten an Server gesendet." },
+                  { q: "Muss Claude Desktop laufen?", a: "Für die KI-Funktionen ja. Das Dashboard funktioniert aber auch ohne Claude Desktop — du kannst Profil, Stellen und Bewerbungen jederzeit verwalten." },
+                  { q: "Wie starte ich das Kennlerngespräch?", a: "Öffne Claude Desktop und tippe /ersterfassung ein. Claude führt dich dann Schritt für Schritt durch den Aufbau deines Profils." },
+                  { q: "Kann ich mehrere Profile haben?", a: "Ja. Klicke oben auf deinen Profilnamen und wähle 'Neues Profil'. Du kannst zwischen Profilen wechseln." },
                   { q: "Wie funktioniert die Jobsuche?", a: "Aktiviere Quellen unter Einstellungen, dann kopiere /jobsuche_workflow in Claude Desktop. Claude durchsucht die aktivierten Portale und bewertet die Treffer." },
-                  { q: "Welche Dokumentformate werden unterstuetzt?", a: "PDF, DOCX, DOC und TXT. Ziehe Dateien per Drag & Drop ins Dashboard-Fenster oder nutze den Upload-Button." },
-                  { q: "Wie exportiere ich meinen Lebenslauf?", a: "Gehe zu Profil > Lebenslauf-Export. Es stehen verschiedene Formate zur Verfuegung (PDF, DOCX, TXT)." },
+                  { q: "Welche Dokumentformate werden unterstützt?", a: "PDF, DOCX, DOC und TXT. Ziehe Dateien per Drag & Drop ins Dashboard-Fenster oder nutze den Upload-Button." },
+                  { q: "Wie exportiere ich meinen Lebenslauf?", a: "Gehe zu Profil > Lebenslauf-Export. Es stehen verschiedene Formate zur Verfügung (PDF, DOCX, TXT)." },
                   { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und Open Source (MIT-Lizenz). Du brauchst aber einen Claude Desktop Account (kostenloser Tier reicht)." },
-                  { q: "Wie aktualisiere ich PBP?", a: "Lade die neue Version von GitHub herunter und fuehre den Installer erneut aus. Deine Daten bleiben erhalten." },
+                  { q: "Wie aktualisiere ich PBP?", a: "Lade die neue Version von GitHub herunter und führe den Installer erneut aus. Deine Daten bleiben erhalten." },
                 ].map(({ q, a }) => (
                   <details key={q} className="glass-card rounded-lg group">
                     <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
@@ -1888,7 +1888,7 @@ export default function App() {
                   </details>
                 ))}
                 <div className="glass-card p-3 mt-2">
-                  <p className="text-[12px]">Ausfuehrliche FAQ, Anleitungen und Troubleshooting findest du im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">PBP Wiki</a>.</p>
+                  <p className="text-[12px]">Ausführliche FAQ, Anleitungen und Troubleshooting findest du im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">PBP Wiki</a>.</p>
                 </div>
               </div>
             )}
@@ -1896,12 +1896,12 @@ export default function App() {
             {helpTab === "troubleshooting" && (
               <div className="space-y-2 text-sm text-muted/60">
                 {[
-                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Pruefe ob das PBP-Terminal/Fenster noch laeuft\n2. Oeffne Claude Desktop Einstellungen > Entwickler — PBP muss dort als MCP-Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu oeffnen)\n4. Pruefe den MCP-Status im Dashboard-Header" },
-                  { q: "Dashboard startet nicht", a: "1. Pruefe ob Port 8200 bereits belegt ist (anderes PBP-Fenster?)\n2. Starte das Dashboard ueber das Terminal: python start_dashboard.py\n3. Pruefe die Logs unter Einstellungen > Logs" },
-                  { q: "Jobsuche findet keine Stellen", a: "1. Pruefe ob Quellen unter Einstellungen aktiviert sind\n2. Pruefe ob Suchkriterien (Keywords, Ort, Umkreis) gesetzt sind\n3. Manche Quellen brauchen einen Login (LinkedIn, XING)\n4. StepStone blockiert automatische Suche — nutze Claude-in-Chrome (siehe unten)" },
-                  { q: "StepStone blockiert / Timeout bei Jobsuche", a: "StepStone erkennt automatische Browser und zeigt CAPTCHAs. Workaround:\n\n1. Deaktiviere StepStone als automatische Quelle\n2. Oeffne StepStone manuell im Chrome-Browser mit Claude-in-Chrome:\n   https://www.stepstone.de/jobs/plm?radius=100&location=Hamburg\n3. Bitte Claude die Stellen via stelle_manuell_anlegen zu uebernehmen\n4. Oder nutze den Prompt: 'Suche StepStone via Chrome nach PLM-Stellen'\n\nDas funktioniert zuverlaessig, weil der echte Browser nicht geblockt wird." },
-                  { q: "Dokumente werden nicht erkannt", a: "1. Nur PDF, DOCX, DOC und TXT werden unterstuetzt\n2. Gescannte PDFs ohne Text-Layer koennen nicht analysiert werden\n3. Versuche 'Erneut analysieren' auf dem Dokument" },
-                  { q: "MCP-Verbindung zeigt 'Nicht verbunden'", a: "Die Verbindung wird ueber einen Heartbeat geprueft. Claude Desktop muss PBP mindestens einmal aufgerufen haben. Tippe einen beliebigen PBP-Befehl in Claude Desktop ein." },
+                  { q: "Claude antwortet nicht auf PBP-Befehle", a: "1. Prüfe ob das PBP-Terminal/Fenster noch läuft\n2. Öffne Claude Desktop Einstellungen > Entwickler — PBP muss dort als MCP-Server sichtbar sein\n3. Starte Claude Desktop neu (komplett beenden und neu öffnen)\n4. Prüfe den MCP-Status im Dashboard-Header" },
+                  { q: "Dashboard startet nicht", a: "1. Prüfe ob Port 8200 bereits belegt ist (anderes PBP-Fenster?)\n2. Starte das Dashboard über das Terminal: python start_dashboard.py\n3. Prüfe die Logs unter Einstellungen > Logs" },
+                  { q: "Jobsuche findet keine Stellen", a: "1. Prüfe ob Quellen unter Einstellungen aktiviert sind\n2. Prüfe ob Suchkriterien (Keywords, Ort, Umkreis) gesetzt sind\n3. Manche Quellen brauchen einen Login (LinkedIn, XING)\n4. StepStone blockiert automatische Suche — nutze Claude-in-Chrome (siehe unten)" },
+                  { q: "StepStone blockiert / Timeout bei Jobsuche", a: "StepStone erkennt automatische Browser und zeigt CAPTCHAs. Workaround:\n\n1. Deaktiviere StepStone als automatische Quelle\n2. Öffne StepStone manuell im Chrome-Browser mit Claude-in-Chrome:\n   https://www.stepstone.de/jobs/plm?radius=100&location=Hamburg\n3. Bitte Claude die Stellen via stelle_manuell_anlegen zu übernehmen\n4. Oder nutze den Prompt: 'Suche StepStone via Chrome nach PLM-Stellen'\n\nDas funktioniert zuverlässig, weil der echte Browser nicht geblockt wird." },
+                  { q: "Dokumente werden nicht erkannt", a: "1. Nur PDF, DOCX, DOC und TXT werden unterstützt\n2. Gescannte PDFs ohne Text-Layer können nicht analysiert werden\n3. Versuche 'Erneut analysieren' auf dem Dokument" },
+                  { q: "MCP-Verbindung zeigt 'Nicht verbunden'", a: "Die Verbindung wird über einen Heartbeat geprüft. Claude Desktop muss PBP mindestens einmal aufgerufen haben. Tippe einen beliebigen PBP-Befehl in Claude Desktop ein." },
                 ].map(({ q, a }) => (
                   <details key={q} className="glass-card rounded-lg group">
                     <summary className="cursor-pointer px-3 py-2.5 font-medium text-ink text-[13px] hover:bg-white/[0.03] rounded-lg list-none flex items-center justify-between">
@@ -1912,7 +1912,7 @@ export default function App() {
                   </details>
                 ))}
                 <div className="glass-card p-3 mt-2">
-                  <p className="text-[12px]">Mehr Loesungen im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">Wiki</a>. Problem nicht geloest? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit Logs aus Einstellungen.</p>
+                  <p className="text-[12px]">Mehr Lösungen im <a href="https://github.com/MadGapun/PBP/wiki/FAQ" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">Wiki</a>. Problem nicht gelöst? Erstelle ein <a href="https://github.com/MadGapun/PBP/issues/new?labels=bug" target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">GitHub Issue</a> mit Logs aus Einstellungen.</p>
                 </div>
               </div>
             )}
@@ -1920,7 +1920,7 @@ export default function App() {
             {helpTab === "bug" && (
               <div className="space-y-3">
                 <p className="text-sm text-muted/60">
-                  Beschreibe den Fehler moeglichst genau. Ein GitHub-Account wird benoetigt.
+                  Beschreibe den Fehler möglichst genau. Ein GitHub-Account wird benötigt.
                 </p>
                 <a
                   href="https://github.com/MadGapun/PBP/issues/new?labels=bug&title=%5BBug%5D+"
@@ -2018,7 +2018,7 @@ export default function App() {
                 </h3>
                 <p>
                   {llmStatus.ui_state === "not_installed"
-                    ? "Eine lokale KI auf deinem Rechner uebernimmt Routine-Aufgaben fuer PBP — z.B. Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren."
+                    ? "Eine lokale KI auf deinem Rechner übernimmt Routine-Aufgaben für PBP — z.B. Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren."
                     : `Modell: ${llmStatus.selected_model || "noch nicht gewaehlt"}`}
                 </p>
               </div>
@@ -2028,7 +2028,7 @@ export default function App() {
                 <ul className="space-y-1 text-[13px]">
                   <li>✅ Spart Claude-Tokens <strong>UND</strong> ist kostenlos</li>
                   <li>✅ Funktioniert auch ohne Internet</li>
-                  <li>✅ Daten verlassen das Geraet nie (Datenschutz)</li>
+                  <li>✅ Daten verlassen das Gerät nie (Datenschutz)</li>
                   <li>✅ Schneller bei Standard-Aufgaben</li>
                 </ul>
               </div>
@@ -2046,7 +2046,7 @@ export default function App() {
                 <p className="text-[12px]">
                   <strong className="text-sky">Einrichten:</strong> In <em>Einstellungen → Lokale KI</em>
                   findest du den Setup-Wizard mit empfohlenen Modellen (Klein/Mittel/Gross).
-                  Modell-Download laeuft synchron — kann je nach Groesse 1–10 Minuten dauern.
+                  Modell-Download läuft synchron — kann je nach Größe 1–10 Minuten dauern.
                 </p>
               </div>
 
@@ -2056,7 +2056,7 @@ export default function App() {
                   onClick={() => setLlmHelpOpen(false)}
                   className="px-3 py-1.5 rounded-lg text-sm text-muted/60 hover:text-ink hover:bg-white/[0.04]"
                 >
-                  Spaeter
+                  Später
                 </button>
                 <button
                   type="button"
@@ -2117,7 +2117,7 @@ export default function App() {
                         <h3 className="font-medium text-coral mb-1">Nicht verbunden</h3>
                         <p className="text-muted/60">
                           Der MCP-Server antwortet nicht. Das bedeutet, dass Claude Desktop
-                          nicht l&auml;uft oder der Bewerbungs-Assistent nicht konfiguriert ist.
+                          nicht l&auml;uft oder PBP dort nicht eingetragen ist.
                         </p>
                       </div>
                       <div className="glass-card p-3">

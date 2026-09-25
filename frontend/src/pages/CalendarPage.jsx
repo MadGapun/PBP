@@ -24,7 +24,7 @@ import { cn, formatDate, formatDateTime } from "@/utils";
 
 const MEETING_TYPE_LABELS = {
   interview: "Interview",
-  zweitgespraech: "2. Gespraech",
+  zweitgespraech: "2. Gespräch",
   telefoninterview: "Telefoninterview",
   assessment: "Assessment",
   kennenlernen: "Kennenlernen",
@@ -82,7 +82,7 @@ const VIEW_MODES = [
 ];
 
 const DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"];
-const MONTH_NAMES = ["Januar", "Februar", "Maerz", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONTH_NAMES = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
 function getViewRange(mode, referenceDate) {
   const d = new Date(referenceDate);
@@ -349,7 +349,7 @@ export default function CalendarPage() {
       const data = await api(`/api/activity-log?days=${logDays}&categories=${activeCats}`);
       setActivityLog(data?.entries || []);
     } catch (error) {
-      pushToast(`Aktivitaetslog konnte nicht geladen werden: ${error.message}`, "danger");
+      pushToast(`Aktivitätslog konnte nicht geladen werden: ${error.message}`, "danger");
     } finally {
       setLogLoading(false);
     }
@@ -380,7 +380,7 @@ export default function CalendarPage() {
     try {
       await deleteRequest(`/api/meetings/${deleteConfirm.id}`);
       setMeetings((cur) => cur.filter((m) => m.id !== deleteConfirm.id));
-      pushToast("Termin geloescht", "success");
+      pushToast("Termin gelöscht", "success");
       setDeleteConfirm(null);
     } catch (error) {
       pushToast(`Fehler: ${error.message}`, "danger");
@@ -434,12 +434,12 @@ export default function CalendarPage() {
   }
 
   async function deleteCategory(cat) {
-    if (cat.is_system) { pushToast("Systemkategorien koennen nicht geloescht werden", "danger"); return; }
-    const confirmed = window.confirm(`Kategorie "${cat.name}" loeschen? Bestehende Termine werden entkoppelt.`);
+    if (cat.is_system) { pushToast("Systemkategorien können nicht gelöscht werden", "danger"); return; }
+    const confirmed = window.confirm(`Kategorie "${cat.name}" löschen? Bestehende Termine werden entkoppelt.`);
     if (!confirmed) return;
     try {
       await deleteRequest(`/api/meeting-categories/${cat.id}`, {});
-      pushToast(`Kategorie "${cat.name}" geloescht`, "success");
+      pushToast(`Kategorie "${cat.name}" gelöscht`, "success");
       loadData();
     } catch (err) {
       pushToast(`Fehler: ${err.message}`, "danger");
@@ -634,9 +634,9 @@ export default function CalendarPage() {
                 </SelectInput>
               </Field>
             </div>
-            <Field label="Bewerbung verknuepfen (optional)">
+            <Field label="Bewerbung verknüpfen (optional)">
               <SelectInput value={editMeeting.application_id || ""} onChange={(e) => setEditMeeting((p) => ({ ...p, application_id: e.target.value }))}>
-                <option value="">Keine Verknuepfung</option>
+                <option value="">Keine Verknüpfung</option>
                 {applications.map((app) => (
                   <option key={app.id} value={app.id}>
                     {app.company || "Unbekannt"} — {app.title || "Keine Stelle"}
@@ -645,7 +645,7 @@ export default function CalendarPage() {
               </SelectInput>
             </Field>
             <Field label="Ort (optional)">
-              <TextInput value={editMeeting.location || ""} onChange={(e) => setEditMeeting((p) => ({ ...p, location: e.target.value }))} placeholder="z.B. Zoom, Buero, ..." />
+              <TextInput value={editMeeting.location || ""} onChange={(e) => setEditMeeting((p) => ({ ...p, location: e.target.value }))} placeholder="z.B. Zoom, Büro, ..." />
             </Field>
             <Field label="Notizen (optional)">
               <TextArea value={editMeeting.notes || ""} onChange={(e) => setEditMeeting((p) => ({ ...p, notes: e.target.value }))} rows={2} />
@@ -670,18 +670,18 @@ export default function CalendarPage() {
       )}
 
       {deleteConfirm && (
-        <Modal open={true} title="Termin loeschen" onClose={() => setDeleteConfirm(null)}>
+        <Modal open={true} title="Termin löschen" onClose={() => setDeleteConfirm(null)}>
           <p className="text-sm text-muted mb-2">
-            Soll der Termin <strong className="text-ink">&ldquo;{deleteConfirm.title}&rdquo;</strong> wirklich geloescht werden?
+            Soll der Termin <strong className="text-ink">&ldquo;{deleteConfirm.title}&rdquo;</strong> wirklich gelöscht werden?
           </p>
           {deleteConfirm.application_id && (
             <p className="text-xs text-amber mb-4">
-              Dieser Termin ist mit einer Bewerbung verknuepft. Der Timeline-Eintrag wird ebenfalls entfernt.
+              Dieser Termin ist mit einer Bewerbung verknüpft. Der Timeline-Eintrag wird ebenfalls entfernt.
             </p>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setDeleteConfirm(null)}>Abbrechen</Button>
-            <Button variant="danger" onClick={confirmDeleteMeeting}>Endgueltig loeschen</Button>
+            <Button variant="danger" onClick={confirmDeleteMeeting}>Endgültig löschen</Button>
           </div>
         </Modal>
       )}
@@ -736,7 +736,7 @@ export default function CalendarPage() {
       {viewMode === "log" ? (
         /* Activity Log View */
         logLoading ? <LoadingPanel /> : activityLog.length === 0 ? (
-          <EmptyState title="Keine Aktivitaeten" description={`Keine Eintraege in den letzten ${logDays} Tagen.`} />
+          <EmptyState title="Keine Aktivitäten" description={`Keine Einträge in den letzten ${logDays} Tagen.`} />
         ) : (
           <div className="grid gap-1.5">
             {activityLog.map((entry) => {
@@ -929,7 +929,7 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               {!isPrivate && meeting.meeting_url && (
-                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Meeting-Link oeffnen">
+                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Meeting-Link öffnen">
                                   <ExternalLink size={14} />
                                 </a>
                               )}
@@ -963,7 +963,7 @@ export default function CalendarPage() {
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}
                                       className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
-                                      title="Als hinfaellig markieren"
+                                      title="Als hinfällig markieren"
                                     >
                                       <XCircle size={14} />
                                     </button>
@@ -1010,7 +1010,7 @@ export default function CalendarPage() {
                                   <a href={apiUrl(`/api/meetings/${meeting.id}/ics`)} className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors" title="ICS herunterladen">
                                     <Download size={14} />
                                   </a>
-                                  <button type="button" onClick={() => setDeleteConfirm(meeting)} className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors" title="Termin loeschen">
+                                  <button type="button" onClick={() => setDeleteConfirm(meeting)} className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors" title="Termin löschen">
                                     <Trash2 size={14} />
                                   </button>
                                 </>

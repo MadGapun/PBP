@@ -187,7 +187,7 @@ ENTFERNTE_QUELLEN = {
 SOURCE_REGISTRY = {
     # ── Schnelle Quellen (HTTP/API, parallel, < 10s) ──────────────
     "bundesagentur": {
-        "name": "Bundesagentur fuer Arbeit",
+        "name": "Bundesagentur für Arbeit",
         "beschreibung": "Oeffentliche Jobboerse der Arbeitsagentur. Groesstes deutsches Stellenportal.",
         "methode": "REST API",
         "login_erforderlich": False,
