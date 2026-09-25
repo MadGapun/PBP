@@ -41,9 +41,9 @@ assert.deepEqual(texte(jobspy), ["Aktiv", "Schnell", "Beta"]);
 assert.ok(texte({ active: false, veraltet: true, geschwindigkeit: "manuell" }).includes("Nicht automatisiert"));
 
 // 5. Konto noetig gegen Konto empfohlen — der Unterschied steht im Text.
-assert.ok(texte(linkedin).includes("Konto noetig"));
+assert.ok(texte(linkedin).includes("Konto nötig"));
 assert.ok(texte(stepstone).includes("Konto empfohlen"));
-assert.ok(!texte(stepstone).includes("Konto noetig"));
+assert.ok(!texte(stepstone).includes("Konto nötig"));
 
 // 6. Der Login-Status ist ein Zustand, steht zuletzt und sagt es.
 const mitLogin = quellenBadges(xing, "fertig");
