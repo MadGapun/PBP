@@ -424,7 +424,7 @@ export default function DashboardPage() {
                           ? "Verbindung zu Claude Desktop wird geprüft..."
                           : "Claude Desktop ist noch nicht mit PBP verbunden."}
                       </p>
-                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-muted/80">
+                      <ol className="mt-1 ml-4 list-decimal space-y-0.5 text-muted">
                         <li>
                           Claude Desktop <strong>komplett beenden</strong>: Rechtsklick auf das
                           Claude-Symbol unten rechts in der Taskleiste → „Beenden"
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                   },
                 ].map((item) => (
                   <Card key={item.title} className="glass-card-soft rounded-xl shadow-none">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                       {item.title}
                     </p>
                     <p className="mt-3 text-sm leading-6 text-ink">{item.text}</p>
@@ -535,13 +535,13 @@ export default function DashboardPage() {
           <Card className="rounded-2xl border-amber/30 bg-amber/10">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.15em] text-amber/60">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-[0.15em] text-amber">
                   {impulse.impulse.title || "Heute für dich"}
                 </p>
                 <p className="text-sm italic text-muted">{impulse.impulse.text}</p>
               </div>
               <button
-                className="shrink-0 text-xs text-muted/40 hover:text-muted"
+                className="shrink-0 text-xs text-muted hover:text-muted"
                 title="Tagesimpuls ausblenden"
                 onClick={async () => {
                   try {
@@ -585,7 +585,7 @@ export default function DashboardPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={readinessTone(workspaceReadiness.tone)}>{workspaceReadiness.label || "Nächster Schritt"}</Badge>
                 {zeigeVollstaendigkeit ? (
-                  <span className="text-xs text-muted/50">{profileCompleteness}% Profil vollständig</span>
+                  <span className="text-xs text-muted">{profileCompleteness}% Profil vollständig</span>
                 ) : null}
                 {jobsWithoutDescription > 0 ? (
                   <span className="text-xs text-amber">{jobsWithoutDescription} Treffer mit unsicherem Score</span>
@@ -625,7 +625,7 @@ export default function DashboardPage() {
                     <Badge tone={todo.tone}>Empfehlung</Badge>
                     <div>
                       <p className="text-[13px] font-semibold text-ink">{todo.title}</p>
-                      <p className="mt-0.5 text-[12px] text-muted/60">{todo.description}</p>
+                      <p className="mt-0.5 text-[12px] text-muted">{todo.description}</p>
                     </div>
                   </div>
                   <Button size="sm" variant="ghost" onClick={todo.action}>
@@ -642,7 +642,7 @@ export default function DashboardPage() {
                     <Badge tone={todo.prioritaet === "hoch" ? "amber" : "blue"}>Hinweis</Badge>
                     <div>
                       <p className="text-[13px] font-semibold text-ink">{todo.text}</p>
-                      <p className="mt-0.5 text-[12px] text-muted/60">
+                      <p className="mt-0.5 text-[12px] text-muted">
                         {todo.prioritaet === "hoch" ? "Bitte zuerst prüfen." : "Optional, aber sinnvoll für sauberere Ergebnisse."}
                       </p>
                     </div>
@@ -725,7 +725,7 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-baseline gap-2">
                 <h2 className="text-sm font-semibold text-ink">Top-Stellen</h2>
-                <span className="text-[11px] text-muted/40">
+                <span className="text-xs text-muted">
                   {chrome.searchStatus?.last_search
                     ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
                     : "Noch nie gesucht"}
@@ -737,7 +737,7 @@ export default function DashboardPage() {
             </div>
             {/* #432: Compact scraper health dots */}
             {scraperHealth.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] text-muted/50">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
                 <span>Scraper:</span>
                 {scraperHealth.map((s) => {
                   const ok = s.is_active && s.consecutive_failures < 3;
@@ -774,7 +774,7 @@ export default function DashboardPage() {
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>
-                        <p className="truncate text-[12px] text-muted/50">
+                        <p className="truncate text-[12px] text-muted">
                           {job.company || "Unbekannt"}{job.location ? ` - ${job.location}` : ""}
                         </p>
                       </div>
@@ -787,7 +787,7 @@ export default function DashboardPage() {
                      Zeile — der einzige Weg aus dem leeren Zustand sah
                      aus wie eine Fussnote. */
                   <div className="col-span-full flex flex-col items-center gap-3 py-6">
-                    <p className="text-[13px] text-muted/60">
+                    <p className="text-[13px] text-muted">
                       Noch keine Stellen gefunden.
                     </p>
                     <Button onClick={() => startJobsuche()}>
@@ -860,7 +860,7 @@ export default function DashboardPage() {
                     </>
                   ) : null}
                 </div>
-                <button
+                <button aria-label="Schließen"
                   type="button"
                   onClick={() => {
                     const next = [...dismissedHints, hint.id];
@@ -898,7 +898,7 @@ export default function DashboardPage() {
             onClick={() => setAnpassenOffen(true)}
             aria-label="Dashboard anpassen — Bereiche an- und abschalten, sortieren"
             title="Dashboard anpassen — Bereiche an- und abschalten, sortieren"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-muted/45 transition hover:text-sky"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/5 bg-white/[0.03] text-muted transition hover:text-sky"
           >
             <Settings2 size={15} />
           </button>
@@ -993,7 +993,7 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
           <p className="text-sm font-semibold text-ink mb-1">
             Ollama erkannt — willst du PBP-Lokale-KI aktivieren?
           </p>
-          <p className="text-[12px] text-muted/70 mb-3">
+          <p className="text-[12px] text-muted mb-3">
             Spart Claude-Tokens für Standard-Aufgaben (Doku-Klassifikation,
             Skill-Extraktion, Stellen-Vorfilterung). Daten bleiben lokal.
             Aktuell installiert: <strong className="text-ink">{(status.available_models || []).join(", ")}</strong>
@@ -1008,7 +1008,7 @@ function LocalAiAutoDetectBanner({ pushToast, navigateTo }) {
             <button
               type="button"
               onClick={dismissForWeek}
-              className="text-[11px] text-muted/60 hover:text-ink underline ml-2"
+              className="text-xs text-muted hover:text-ink underline ml-2"
             >
               Später (7 Tage)
             </button>
@@ -1066,7 +1066,7 @@ function RecapCard({ pushToast, navigateTo }) {
   }
   if (recap.status_changes > 0) {
     blocks.push({
-      icon: MessageSquareReply, color: "text-teal/80", label: "Statuswechsel",
+      icon: MessageSquareReply, color: "text-teal", label: "Statuswechsel",
       value: recap.status_changes,
       onClick: () => navigateTo?.("bewerbungen"),
     });
@@ -1091,7 +1091,7 @@ function RecapCard({ pushToast, navigateTo }) {
       <div className="flex items-start justify-between gap-3 mb-3">
         <div>
           <h2 className="text-sm font-semibold text-ink">Was hat sich getan?</h2>
-          <p className="text-[11px] text-muted/60 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Aktivität seit deinem letzten Besuch
           </p>
         </div>
@@ -1107,7 +1107,7 @@ function RecapCard({ pushToast, navigateTo }) {
             } catch {}
             setDismissed(true);
           }}
-          className="text-muted/40 hover:text-ink text-xs"
+          className="text-muted hover:text-ink text-xs"
           title="Bis morgen ausblenden"
         >
           ✕
@@ -1123,7 +1123,7 @@ function RecapCard({ pushToast, navigateTo }) {
           >
             <b.icon size={16} className={b.color} />
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] text-muted/60">{b.label}</p>
+              <p className="text-xs text-muted">{b.label}</p>
               <p className="text-lg font-semibold text-ink">{b.value}</p>
             </div>
           </button>
@@ -1131,13 +1131,13 @@ function RecapCard({ pushToast, navigateTo }) {
       </div>
       {recap.top_jobs?.length > 0 && (
         <div className="mt-3 pt-3 border-t border-white/5">
-          <p className="text-[11px] text-muted/60 mb-1.5">Top neue Stellen:</p>
+          <p className="text-xs text-muted mb-1.5">Top neue Stellen:</p>
           <ul className="space-y-1">
             {recap.top_jobs.slice(0, 3).map((j) => (
-              <li key={j.hash} className="text-[12px] text-muted/80">
-                <span className="text-teal/70 font-mono mr-1.5">[{scoreText(punkteWert(j))}]</span>
+              <li key={j.hash} className="text-[12px] text-muted">
+                <span className="text-teal font-mono mr-1.5">[{scoreText(punkteWert(j))}]</span>
                 <span className="text-ink/90">{j.title}</span>
-                <span className="text-muted/50"> bei {j.company}</span>
+                <span className="text-muted"> bei {j.company}</span>
               </li>
             ))}
           </ul>
@@ -1182,7 +1182,7 @@ function DashboardDocumentImport({ pushToast, refreshChrome }) {
     <Card className="mb-5 rounded-2xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Upload size={14} className="text-teal/60" />
+          <Upload size={14} className="text-teal" />
           <h2 className="text-sm font-semibold text-ink">Dokumente importieren</h2>
         </div>
         <div className="flex items-center gap-2">
@@ -1196,7 +1196,7 @@ function DashboardDocumentImport({ pushToast, refreshChrome }) {
       </div>
       <div
         className={`mt-3 rounded-xl border-2 border-dashed px-4 py-4 text-center text-xs transition ${
-          dragActive ? "border-sky/60 bg-sky/10 text-sky" : "border-white/10 text-muted/40"
+          dragActive ? "border-sky/60 bg-sky/10 text-sky" : "border-white/10 text-muted"
         }`}
         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
         onDragEnter={(e) => { e.preventDefault(); setDragActive(true); }}

@@ -96,13 +96,13 @@ export default function AdaptiveHintBanner({ page, limit = 2, onApply, onLeer })
           <Lightbulb className="h-4 w-4 text-teal mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] uppercase tracking-wider text-teal/80">
+              <span className="text-xs uppercase tracking-wider text-teal">
                 {(h.kind || "").replace(/_/g, " ")}
               </span>
               <span className="font-medium text-ink truncate">{h.title}</span>
             </div>
             {h.recommendation && (
-              <p className="text-[11px] text-muted/70 mt-0.5">
+              <p className="text-xs text-muted mt-0.5">
                 {h.recommendation}
               </p>
             )}
@@ -111,7 +111,7 @@ export default function AdaptiveHintBanner({ page, limit = 2, onApply, onLeer })
                 <button
                   type="button"
                   onClick={() => onApply(h)}
-                  className="text-[11px] text-teal hover:underline"
+                  className="text-xs text-teal hover:underline"
                 >
                   Vorschlag anwenden
                 </button>
@@ -119,16 +119,16 @@ export default function AdaptiveHintBanner({ page, limit = 2, onApply, onLeer })
               <button
                 type="button"
                 onClick={() => dismissPermanent(h.id)}
-                className="text-[11px] text-muted/40 hover:text-coral"
+                className="text-xs text-muted hover:text-coral"
               >
                 Nicht mehr anzeigen
               </button>
             </div>
           </div>
-          <button
+          <button aria-label="Für diese Sitzung ausblenden"
             type="button"
             onClick={() => dismissLocal(h.id)}
-            className="text-muted/40 hover:text-ink shrink-0"
+            className="text-muted hover:text-ink shrink-0"
             title="Für diese Sitzung ausblenden"
           >
             <X className="h-4 w-4" />

@@ -92,7 +92,7 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
         <Card className="glass-card-soft rounded-xl shadow-none">
           <div className="grid gap-1.5 text-sm">
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Von:</span>
+              <span className="w-16 shrink-0 text-muted">Von:</span>
               {senderMailto ? (
                 <a href={senderMailto} className="text-sky hover:underline">{email.sender}</a>
               ) : (
@@ -100,7 +100,7 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
               )}
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">An:</span>
+              <span className="w-16 shrink-0 text-muted">An:</span>
               {recipientsMailto ? (
                 <a href={recipientsMailto} className="text-sky hover:underline">{email.recipients}</a>
               ) : (
@@ -108,11 +108,11 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
               )}
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Datum:</span>
+              <span className="w-16 shrink-0 text-muted">Datum:</span>
               <span className="text-ink">{formatDate(email.sent_date)}</span>
             </div>
             <div className="flex gap-2">
-              <span className="w-16 shrink-0 text-muted/50">Richtung:</span>
+              <span className="w-16 shrink-0 text-muted">Richtung:</span>
               <Badge tone={email.direction === "ausgang" ? "sky" : "amber"}>
                 {email.direction === "ausgang" ? "Ausgehend" : "Eingehend"}
               </Badge>
@@ -123,8 +123,8 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
         {/* Body text */}
         {email.body_text && (
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Inhalt</p>
-            <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Inhalt</p>
+            <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted whitespace-pre-wrap">
               {email.body_text}
             </div>
           </Card>
@@ -133,10 +133,10 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
         {/* Detected status */}
         {email.detected_status && (
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Erkannter Status</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Erkannter Status</p>
             <div className="mt-2 flex items-center gap-3">
               <Badge tone="sky">{email.detected_status}</Badge>
-              <span className="text-xs text-muted/50">
+              <span className="text-xs text-muted">
                 Konfidenz: {Math.round((email.detected_status_confidence || 0) * 100)}%
               </span>
               {email.application_id && (
@@ -151,13 +151,13 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
         {/* Attachments */}
         {(email.attachments_meta || []).length > 0 && (
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
               Anhänge ({email.attachments_meta.length})
             </p>
             <div className="mt-2 grid gap-1">
               {email.attachments_meta.map((att, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm text-ink">
-                  <span className="text-muted/50">📎</span>
+                  <span className="text-muted">📎</span>
                   <span>{att.filename}</span>
                   {att.imported && <Badge tone="success">Importiert</Badge>}
                   {att.duplicate_of && <Badge tone="neutral">Duplikat</Badge>}
@@ -169,7 +169,7 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
 
         {/* Assign to application */}
         <Card className="glass-card-soft rounded-xl shadow-none">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung zuordnen</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Bewerbung zuordnen</p>
           <div className="mt-2 flex gap-2">
             <SelectInput
               className="flex-1"
@@ -188,14 +188,14 @@ export default function EmailDetailModal({ email, applications, onClose, pushToa
             </Button>
           </div>
           {email.match_confidence > 0 && email.match_confidence < 1 && (
-            <p className="mt-1 text-xs text-muted/50">
+            <p className="mt-1 text-xs text-muted">
               Auto-Match Konfidenz: {Math.round(email.match_confidence * 100)}%
             </p>
           )}
           {/* #459: Bewerbung neu erstellen, wenn keine passt */}
           {!email.application_id && (
             <div className="mt-3 border-t border-white/[0.04] pt-3">
-              <p className="text-xs text-muted/50 mb-2">
+              <p className="text-xs text-muted mb-2">
                 Keine passende Bewerbung? Lege eine neue aus dieser E-Mail an — Subject als Titel, Absender-Domain als Firma.
               </p>
               <Button size="sm" variant="secondary" onClick={createApplicationFromEmail}>

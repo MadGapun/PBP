@@ -67,7 +67,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
         className="w-full flex items-center justify-between"
       >
         <div className="text-left">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
             Was PBP gelernt hat
           </p>
           <p className="text-sm text-ink mt-1">
@@ -84,7 +84,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
             )}
           </p>
         </div>
-        <span className="text-muted/40 text-xs">{collapsed ? "▼" : "▲"}</span>
+        <span className="text-muted text-xs">{collapsed ? "▼" : "▲"}</span>
       </button>
 
       {!collapsed && (
@@ -92,15 +92,15 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Top-Pages */}
           {data.top_pages?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Top-Seiten</p>
+              <p className="text-xs font-semibold text-muted uppercase mb-2">Top-Seiten</p>
               <div className="space-y-1.5">
                 {data.top_pages.map((p) => (
                   <div key={p.page} className="glass-card p-2 text-[12px]">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-ink">{p.page}</span>
-                      <span className="text-muted/50">{p.views}× besucht</span>
+                      <span className="text-muted">{p.views}× besucht</span>
                     </div>
-                    <p className="text-[11px] text-muted/60 mt-0.5">
+                    <p className="text-xs text-muted mt-0.5">
                       {p.dwell_minutes} min Verweildauer · {p.clicks_per_view} Klicks/Besuch
                     </p>
                   </div>
@@ -112,14 +112,14 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Top-Dismiss-Reasons */}
           {data.dismiss_reasons_top?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
+              <p className="text-xs font-semibold text-muted uppercase mb-2">
                 Top-Aussortier-Gründe
               </p>
               <div className="space-y-1.5">
                 {data.dismiss_reasons_top.map((r) => (
                   <div key={r.reason} className="glass-card p-2 text-[12px] flex items-center justify-between">
                     <span className="font-medium text-ink">{r.reason}</span>
-                    <span className="text-muted/50">{r.count}×</span>
+                    <span className="text-muted">{r.count}×</span>
                   </div>
                 ))}
               </div>
@@ -129,12 +129,12 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Top-Filters */}
           {data.top_filters?.length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Häufige Filter</p>
+              <p className="text-xs font-semibold text-muted uppercase mb-2">Häufige Filter</p>
               <div className="space-y-1.5">
                 {data.top_filters.map((f) => (
                   <div key={f.filter} className="glass-card p-2 text-[12px] flex items-center justify-between">
                     <span className="font-mono text-ink">{f.filter}</span>
-                    <span className="text-muted/50">{f.count}×</span>
+                    <span className="text-muted">{f.count}×</span>
                   </div>
                 ))}
               </div>
@@ -144,7 +144,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Workflow-Stats */}
           {Object.keys(data.workflow_stats || {}).length > 0 && (
             <div>
-              <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">Workflows</p>
+              <p className="text-xs font-semibold text-muted uppercase mb-2">Workflows</p>
               <div className="space-y-1.5">
                 {Object.entries(data.workflow_stats).map(([wf, stats]) => {
                   const total = stats.start || 0;
@@ -160,7 +160,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
                           rate >= 40 ? "text-amber" : "text-coral"
                         }>{rate}%</span>
                       </div>
-                      <p className="text-[11px] text-muted/50 mt-0.5">
+                      <p className="text-xs text-muted mt-0.5">
                         {total} gestartet · {completed} abgeschlossen · {aborted} abgebrochen
                       </p>
                     </div>
@@ -173,7 +173,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* LLM-Insights (v1.7.0-beta.28 / #594 Stufe 3) */}
           {llmInsights.length > 0 && (
             <div className="lg:col-span-2">
-              <p className="text-[11px] font-semibold text-teal/80 uppercase mb-2">
+              <p className="text-xs font-semibold text-teal uppercase mb-2">
                 KI-Erkenntnisse aus deinem Verhalten
               </p>
               <div className="space-y-1.5">
@@ -185,17 +185,17 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal/10 text-teal">
+                          <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 rounded bg-teal/10 text-teal">
                             {ins.kind?.replace(/_/g, " ")}
                           </span>
                           <span className="font-medium text-ink">{ins.title}</span>
                         </div>
                         {ins.recommendation && (
-                          <p className="text-[11px] text-muted/70 mt-1.5">
+                          <p className="text-xs text-muted mt-1.5">
                             {ins.recommendation}
                           </p>
                         )}
-                        <p className="text-[10px] text-muted/40 mt-1">
+                        <p className="text-xs text-muted mt-1">
                           {ins.observed_count}× beobachtet
                           {ins.app_version_at_creation && ` · seit v${ins.app_version_at_creation}`}
                         </p>
@@ -203,7 +203,7 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
                       <button
                         type="button"
                         onClick={() => dismissInsight(ins.id)}
-                        className="text-[10px] text-muted/40 hover:text-coral"
+                        className="text-xs text-muted hover:text-coral"
                         title="Nicht mehr anzeigen"
                       >
                         ×
@@ -218,13 +218,13 @@ export default function LearningInsightsCard({ pushToast, navigateTo }) {
           {/* Anti-Patterns */}
           {data.anti_patterns?.length > 0 && (
             <div className="lg:col-span-2">
-              <p className="text-[11px] font-semibold text-amber/80 uppercase mb-2">
+              <p className="text-xs font-semibold text-amber uppercase mb-2">
                 Beobachtungen
               </p>
               <div className="space-y-1.5">
                 {data.anti_patterns.map((ap, i) => (
                   <div key={i} className="glass-card p-3 text-[12px] border-amber/20 bg-amber/[0.03]">
-                    <p className="text-muted/80">{ap.message}</p>
+                    <p className="text-muted">{ap.message}</p>
                   </div>
                 ))}
               </div>

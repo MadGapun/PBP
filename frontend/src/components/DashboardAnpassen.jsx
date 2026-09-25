@@ -38,7 +38,7 @@ export default function DashboardAnpassen({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-sm font-semibold text-ink">Dashboard anpassen</h2>
-          <p className="mt-0.5 text-[12px] text-muted/70">
+          <p className="mt-0.5 text-[12px] text-muted">
             Reihenfolge und Sichtbarkeit. Was du abschaltest, ist nicht weg —
             es steht weiter in seinem eigenen Tab.
           </p>
@@ -78,32 +78,32 @@ export default function DashboardAnpassen({
                 <span className="block text-[13px] font-medium text-ink/90">
                   {meta.titel || b.id}
                   {fest ? (
-                    <span className="ml-2 text-[10px] uppercase tracking-[0.1em] text-muted/40">
+                    <span className="ml-2 text-xs uppercase tracking-[0.1em] text-muted">
                       bleibt
                     </span>
                   ) : null}
                 </span>
                 {meta.beschreibung ? (
-                  <span className="block truncate text-[11px] text-muted/60">
+                  <span className="block truncate text-xs text-muted">
                     {meta.beschreibung}
                   </span>
                 ) : null}
               </span>
-              <button
+              <button aria-label="Nach oben"
                 type="button"
                 onClick={() => verschieben(i, -1)}
                 disabled={i === 0}
                 title="Nach oben"
-                className="shrink-0 rounded p-1 text-muted/50 transition hover:text-sky disabled:opacity-20"
+                className="shrink-0 rounded p-1 text-muted transition hover:text-sky disabled:opacity-20"
               >
                 <ArrowUp size={13} />
               </button>
-              <button
+              <button aria-label="Nach unten"
                 type="button"
                 onClick={() => verschieben(i, 1)}
                 disabled={i === bereiche.length - 1}
                 title="Nach unten"
-                className="shrink-0 rounded p-1 text-muted/50 transition hover:text-sky disabled:opacity-20"
+                className="shrink-0 rounded p-1 text-muted transition hover:text-sky disabled:opacity-20"
               >
                 <ArrowDown size={13} />
               </button>

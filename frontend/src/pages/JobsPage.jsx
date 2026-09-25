@@ -1173,7 +1173,7 @@ export default function JobsPage() {
       <OnboardingHintBanner tab="stellen" />
       <AdaptiveHintBanner page="stellen" />
       <div className="mb-6 flex items-baseline gap-2">
-        <span className="text-[11px] text-muted/40">
+        <span className="text-xs text-muted">
           {searchJob.running
     ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`
             : chrome.searchStatus?.last_search
@@ -1195,7 +1195,7 @@ export default function JobsPage() {
                 return parts[0];
               })()}
             </span>
-            <span className="text-xs text-muted/50">{Math.round(searchJob.progress)}%</span>
+            <span className="text-xs text-muted">{Math.round(searchJob.progress)}%</span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-white/5">
             <div
@@ -1205,7 +1205,7 @@ export default function JobsPage() {
           </div>
           {/* #400: Source progress summary */}
           {searchJob.message?.includes(" | ") && (
-            <p className="mt-2 text-xs text-muted/40">{searchJob.message.split(" | ").slice(1).join(" — ")}</p>
+            <p className="mt-2 text-xs text-muted">{searchJob.message.split(" | ").slice(1).join(" — ")}</p>
           )}
         </div>
       )}
@@ -1296,7 +1296,7 @@ export default function JobsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>
                 {visibleDescriptionGaps > 0 ? (
-                  <span className="text-xs text-muted/50">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</span>
+                  <span className="text-xs text-muted">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</span>
                 ) : null}
               </div>
               <h2 className="mt-3 text-base font-semibold text-ink">{jobsGuidance.title}</h2>
@@ -1314,7 +1314,7 @@ export default function JobsPage() {
           {/* Row 1: Search bar + counter */}
           <div className="flex items-center gap-3">
             <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted/50" size={16} />
+              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted" size={16} />
               <TextInput
                 className="w-full !rounded-xl !pl-11 !pr-10"
                 value={filters.query}
@@ -1322,16 +1322,16 @@ export default function JobsPage() {
                 placeholder="Titel, Firma oder Schlagwort suchen..."
               />
               {filters.query && (
-                <button
+                <button aria-label="Suche leeren"
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted/50 hover:text-ink"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
                   onClick={() => setFilters((current) => ({ ...current, query: "" }))}
                 >
                   <X size={16} />
                 </button>
               )}
             </div>
-            <span className="shrink-0 text-[12px] tabular-nums text-muted/50">
+            <span className="shrink-0 text-[12px] tabular-nums text-muted">
               {/* #1030 AK 4: Treffer im BESTAND der Ansicht / Bestand. */}
               {listenTreffer} / {listenGesamt}
             </span>
@@ -1351,7 +1351,7 @@ export default function JobsPage() {
             </Button>
             {/* Sortierung */}
             <SelectInput
-              className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+              className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
               value={filters.sort}
               onChange={(event) => setFilters((current) => ({ ...current, sort: event.target.value }))}
             >
@@ -1397,7 +1397,7 @@ export default function JobsPage() {
                     "px-4 py-2 text-center text-[13px] font-medium outline-none transition-colors",
                     filters.view === value
                       ? "bg-white/[0.08] text-ink"
-                      : "text-muted/40 hover:bg-white/[0.03] hover:text-muted/60"
+                      : "text-muted hover:bg-white/[0.03] hover:text-muted"
                   )}
                   // #1010/#1030: das Protokoll ordnet nach dem Zeitpunkt der
                   // Aussortierung. Beim Wechsel wird die Vorgabe mitgenommen
@@ -1435,8 +1435,8 @@ export default function JobsPage() {
                 className={cn(
                   "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
                   filters.source
-                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
-                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
+                    ? "!border-teal/20 !bg-teal/8 !text-teal"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted"
                 )}
                 value={filters.source}
                 onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))}
@@ -1447,7 +1447,7 @@ export default function JobsPage() {
                 ))}
               </SelectInput>
               {filters.source && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, source: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter Quelle entfernen" type="button" onClick={() => setFilters(f => ({ ...f, source: "" }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1456,8 +1456,8 @@ export default function JobsPage() {
                 className={cn(
                   "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
                   filters.remote
-                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
-                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
+                    ? "!border-teal/20 !bg-teal/8 !text-teal"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted"
                 )}
                 value={filters.remote}
                 onChange={(event) => setFilters((current) => ({ ...current, remote: event.target.value }))}
@@ -1468,7 +1468,7 @@ export default function JobsPage() {
                 ))}
               </SelectInput>
               {filters.remote && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, remote: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter Arbeitsmodell entfernen" type="button" onClick={() => setFilters(f => ({ ...f, remote: "" }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1479,21 +1479,21 @@ export default function JobsPage() {
                   ? "border-teal/20 bg-teal/8"
                   : "border-white/5 bg-white/[0.03]"
               )}>
-                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal/80" : "text-muted/40")}>Punkte ≥</span>
+                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal" : "text-muted")}>Punkte ≥</span>
                 <input
                   type="number"
                   className={cn(
                     "w-10 rounded-md border bg-white/[0.04] text-center text-[13px] font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
                     Number(filters.minScore || 0) > 0
-                      ? "border-teal/30 text-teal/80 focus:border-teal/50"
-                      : "border-white/10 text-muted/70 focus:border-teal/40"
+                      ? "border-teal/30 text-teal focus:border-teal/50"
+                      : "border-white/10 text-muted focus:border-teal/40"
                   )}
                   value={filters.minScore}
                   onChange={(event) => setFilters((current) => ({ ...current, minScore: event.target.value }))}
                 />
               </div>
               {Number(filters.minScore || 0) > 0 && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, minScore: FILTER_STANDARD.minScore }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter Mindestpunkte entfernen" type="button" onClick={() => setFilters(f => ({ ...f, minScore: FILTER_STANDARD.minScore }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1503,15 +1503,15 @@ export default function JobsPage() {
                 className={cn(
                   "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
                   filters.salaryOnly
-                    ? "border-teal/20 bg-teal/8 text-teal/80"
-                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                    ? "border-teal/20 bg-teal/8 text-teal"
+                    : "border-white/5 bg-white/[0.03] text-muted hover:bg-white/[0.05] hover:text-muted"
                 )}
                 onClick={() => setFilters((current) => ({ ...current, salaryOnly: !current.salaryOnly }))}
               >
                 Nur mit Gehalt
               </button>
               {filters.salaryOnly && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, salaryOnly: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter Gehalt entfernen" type="button" onClick={() => setFilters(f => ({ ...f, salaryOnly: false }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1526,8 +1526,8 @@ export default function JobsPage() {
                 className={cn(
                   "!h-9 !min-h-0 !w-auto !rounded-xl !pl-3 !pr-3 !py-0 !text-[13px]",
                   filters.pruefstand
-                    ? "!border-teal/20 !bg-teal/8 !text-teal/80"
-                    : "!border-white/5 !bg-white/[0.03] !text-muted/60"
+                    ? "!border-teal/20 !bg-teal/8 !text-teal"
+                    : "!border-white/5 !bg-white/[0.03] !text-muted"
                 )}
                 value={filters.pruefstand}
                 onChange={(event) => setFilters((current) => ({ ...current, pruefstand: event.target.value }))}
@@ -1538,14 +1538,14 @@ export default function JobsPage() {
                 <option value="beurteilt">Nur beurteilte</option>
               </SelectInput>
               {filters.pruefstand && (
-                <button type="button" onClick={() => setFilters(f => ({ ...f, pruefstand: "" }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter Prüfstand entfernen" type="button" onClick={() => setFilters(f => ({ ...f, pruefstand: "" }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
             {/* Employment Type Filter (#83) */}
             {employmentTypeOptions.length > 1 && (
               <SelectInput
-                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
                 value={filters.employmentType}
                 onChange={(e) => setFilters((f) => ({ ...f, employmentType: e.target.value }))}
               >
@@ -1565,7 +1565,7 @@ export default function JobsPage() {
                 Teilzeitstelle fuer jemanden, der Teilzeit sucht. */}
             {umfangOptions.length > 1 && (
               <SelectInput
-                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+                className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
                 value={filters.arbeitsumfang}
                 onChange={(e) => setFilters((f) => ({ ...f, arbeitsumfang: e.target.value }))}
               >
@@ -1582,8 +1582,8 @@ export default function JobsPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
                 filters.hideApplied
-                  ? "border-sky/20 bg-sky/8 text-sky/80"
-                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                  ? "border-sky/20 bg-sky/8 text-sky"
+                  : "border-white/5 bg-white/[0.03] text-muted hover:bg-white/[0.05] hover:text-muted"
               )}
               onClick={() => setFilters((f) => ({ ...f, hideApplied: !f.hideApplied }))}
             >
@@ -1601,8 +1601,8 @@ export default function JobsPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
                 filters.rahmenAusblenden
-                  ? "border-coral/20 bg-coral/8 text-coral/80"
-                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                  ? "border-coral/20 bg-coral/8 text-coral"
+                  : "border-white/5 bg-white/[0.03] text-muted hover:bg-white/[0.05] hover:text-muted"
               )}
               title="Blendet Stellen aus, deren Rahmenbedingungen BELEGT nicht passen — zu weit entfernt, unter dem Gehaltsminimum oder falsche Vertragsform. Ungeprüfte Angaben bleiben stehen."
               onClick={() => setFilters((f) => ({ ...f, rahmenAusblenden: !f.rahmenAusblenden }))}
@@ -1610,7 +1610,7 @@ export default function JobsPage() {
               <ThumbsDown size={14} />
               Rahmen passt nicht ausblenden
               {filters.rahmenAusblenden && rahmenVerborgen > 0 ? (
-                <span className="text-[12px] text-coral/60">({rahmenVerborgen})</span>
+                <span className="text-[12px] text-coral">({rahmenVerborgen})</span>
               ) : null}
             </button>
 
@@ -1622,8 +1622,8 @@ export default function JobsPage() {
               className={cn(
                 "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
                 filters.schwelleAusblenden
-                  ? "border-coral/20 bg-coral/8 text-coral/80"
-                  : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                  ? "border-coral/20 bg-coral/8 text-coral"
+                  : "border-white/5 bg-white/[0.03] text-muted hover:bg-white/[0.05] hover:text-muted"
               )}
               title="Blendet Stellen aus, deren Punkte unter deiner Schwelle (Einstellungen) liegen. Entfernung, Remote-Anteil und Gehalt zählen dabei nicht."
               onClick={() => setFilters((f) => ({ ...f, schwelleAusblenden: !f.schwelleAusblenden }))}
@@ -1631,7 +1631,7 @@ export default function JobsPage() {
               <EyeOff size={14} />
               Unter Schwelle ausblenden
               {filters.schwelleAusblenden && schwelleVerborgen > 0 ? (
-                <span className="text-[12px] text-coral/60">({schwelleVerborgen})</span>
+                <span className="text-[12px] text-coral">({schwelleVerborgen})</span>
               ) : null}
             </button>
 
@@ -1642,14 +1642,14 @@ export default function JobsPage() {
                   "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors",
                   filters.missingDescriptionOnly
                     ? "border-amber/20 bg-amber/8 text-amber"
-                    : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
+                    : "border-white/5 bg-white/[0.03] text-muted hover:bg-white/[0.05] hover:text-muted"
                 )}
                 onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: !current.missingDescriptionOnly }))}
               >
                 Nur ohne Beschreibung
               </button>
               {filters.missingDescriptionOnly && (
-                <button type="button" onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: false }))} className="text-muted/40 hover:text-ink transition-colors"><X size={14} /></button>
+                <button aria-label="Filter fehlende Beschreibung entfernen" type="button" onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: false }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
 
@@ -1660,7 +1660,7 @@ export default function JobsPage() {
 
         <div className="grid gap-4">
           <div className="flex justify-end">
-            <p className="text-[12px] text-muted/45">
+            <p className="text-[12px] text-muted">
               Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
             </p>
           </div>
@@ -1676,7 +1676,7 @@ export default function JobsPage() {
               weggeklickt". */}
           {filters.view === "dismissed" && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
-              <span className="text-[13px] text-muted/60">Aussortiert</span>
+              <span className="text-[13px] text-muted">Aussortiert</span>
               <div className="inline-flex items-center gap-1">
                 {[["heute", "heute"], ["7tage", "7 Tage"], ["30tage", "30 Tage"], ["alle", "alle"]].map(([wert, label]) => (
                   <button
@@ -1686,19 +1686,19 @@ export default function JobsPage() {
                     className={cn(
                       "rounded-lg border px-2 py-1 text-[12px] font-medium transition-colors",
                       dismissWindow === wert
-                        ? "border-teal/20 bg-teal/8 text-teal/80"
-                        : "border-white/5 bg-white/[0.03] text-muted/40 hover:text-muted/60"
+                        ? "border-teal/20 bg-teal/8 text-teal"
+                        : "border-white/5 bg-white/[0.03] text-muted hover:text-muted"
                     )}
                   >
                     {label}
                   </button>
                 ))}
               </div>
-              <span className="text-[12px] text-muted/45">
+              <span className="text-[12px] text-muted">
                 {listenTreffer} von {listenGesamt}
               </span>
               {dismissWindow !== "alle" && ohneZeitpunkt > 0 && (
-                <span className="text-[12px] text-muted/45">
+                <span className="text-[12px] text-muted">
                   · {ohneZeitpunkt} ohne Zeitpunkt (vor v1.7.64 aussortiert) — nur unter „alle"
                 </span>
               )}
@@ -1707,15 +1707,15 @@ export default function JobsPage() {
 
           {verborgeneStellen > 0 && (
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber/30 bg-amber/[0.06] px-3 py-2">
-              <span className="text-[13px] text-amber/90">
+              <span className="text-[13px] text-amber">
                 {verborgeneStellen} {verborgeneStellen === 1 ? "Stelle ist" : "Stellen sind"} durch Filter ausgeblendet
                 {aktiveFilter.length > 0 && (
-                  <span className="text-amber/60"> · {aktiveFilter.map((f) => f.text).join(" · ")}</span>
+                  <span className="text-amber"> · {aktiveFilter.map((f) => f.text).join(" · ")}</span>
                 )}
               </span>
               <button
                 type="button"
-                className="rounded-lg border border-amber/40 px-2 py-1 text-[12px] font-medium text-amber/90 transition-colors hover:bg-amber/10"
+                className="rounded-lg border border-amber/40 px-2 py-1 text-[12px] font-medium text-amber transition-colors hover:bg-amber/10"
                 onClick={() => setFilters((current) => ({
                   ...current,
                   ...FILTER_STANDARD,
@@ -1794,7 +1794,7 @@ export default function JobsPage() {
                             onKeyDown={(e) => { if (e.key === "Enter") saveScore(job); if (e.key === "Escape") setEditingScoreHash(""); }}
                             autoFocus
                           />
-                          <button type="button" aria-label="Punkte speichern" className="text-teal hover:text-teal/80" onClick={() => saveScore(job)}><Check size={14} /></button>
+                          <button type="button" aria-label="Punkte speichern" className="text-teal hover:text-teal" onClick={() => saveScore(job)}><Check size={14} /></button>
                           <button type="button" aria-label="Abbrechen" className="text-muted hover:text-ink" onClick={() => setEditingScoreHash("")}><X size={14} /></button>
                         </span>
                       ) : (
@@ -1851,7 +1851,7 @@ export default function JobsPage() {
                         wo die neuen Stellen aufhoeren. Ohne Datum steht hier
                         nichts — kein Ersatzdatum (AK 5). */}
                     {stellenDaten(job).text ? (
-                      <p className="mt-1 text-xs text-muted/50">{stellenDaten(job).text}</p>
+                      <p className="mt-1 text-xs text-muted">{stellenDaten(job).text}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1885,14 +1885,14 @@ export default function JobsPage() {
                           eigenes Urteil sieht man anders an als eines der
                           Automatik — und ohne Zeitpunkt findet man den
                           Verklicker nicht wieder. */}
-                      <span className="inline-flex items-center gap-2 text-[12px] text-muted/60">
+                      <span className="inline-flex items-center gap-2 text-[12px] text-muted">
                         <span className={cn(
                           "rounded-md px-1.5 py-0.5",
                           job.herkunft === "automatik"
-                            ? "bg-amber/10 text-amber/80"
+                            ? "bg-amber/10 text-amber"
                             : job.herkunft === "ich"
-                              ? "bg-white/[0.06] text-muted/70"
-                              : "bg-white/[0.03] text-muted/40"
+                              ? "bg-white/[0.06] text-muted"
+                              : "bg-white/[0.03] text-muted"
                         )}>
                           {HERKUNFT_ETIKETT[job.herkunft] || HERKUNFT_ETIKETT.unbekannt}
                         </span>
@@ -1979,7 +1979,7 @@ export default function JobsPage() {
                 <span className="flex items-center gap-2 text-sm font-medium text-ink">
                   <EyeOff size={15} className="text-muted" />
                   Automatisch aussortiert
-                  <Badge tone="subtle">{autoDismissed.length}</Badge>
+                  <Badge tone="neutral">{autoDismissed.length}</Badge>
                 </span>
                 <span className="text-xs text-muted">
                   {autoOpen ? "Einklappen" : "Anzeigen"}
@@ -2074,7 +2074,7 @@ export default function JobsPage() {
           {fitDialog.analysis?.analyse?.urteil ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gelesenes Urteil</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Gelesenes Urteil</p>
                 <Badge
                   tone={
                     fitDialog.analysis.analyse.urteil === "EMPFOHLEN" ? "success"
@@ -2086,11 +2086,11 @@ export default function JobsPage() {
                   {ANALYSE_ETIKETT[fitDialog.analysis.analyse.urteil] || fitDialog.analysis.analyse.urteil}
                 </Badge>
                 {fitDialog.analysis.analyse.am ? (
-                  <span className="text-xs text-muted/60">vom {String(fitDialog.analysis.analyse.am).slice(0, 10)}</span>
+                  <span className="text-xs text-muted">vom {String(fitDialog.analysis.analyse.am).slice(0, 10)}</span>
                 ) : null}
               </div>
               {fitDialog.analysis.analyse.begruendung ? (
-                <p className="mt-2 text-sm text-muted/80 whitespace-pre-line">{fitDialog.analysis.analyse.begruendung}</p>
+                <p className="mt-2 text-sm text-muted whitespace-pre-line">{fitDialog.analysis.analyse.begruendung}</p>
               ) : null}
               {fitDialog.analysis.pruefstand?.ueberholt ? (
                 <p className="mt-2 text-xs text-amber">
@@ -2106,7 +2106,7 @@ export default function JobsPage() {
           <Card className="glass-card-soft rounded-xl shadow-none">
             {/* C96 (#1087 C1): dieselbe Zahl wie Karte, Dashboard und
                 Timeline, mit einem Namen und, wo erreichbar, der Skala. */}
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Punkte</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Punkte</p>
             <p className="mt-3 text-4xl font-semibold text-ink" data-punkte-dialog>{punkteText(fitDialog.analysis || {})}</p>
             <p className="mt-2 text-xs text-muted">{SCORE_BEDEUTUNG}</p>
             {fitDialog.analysis?.punkte_hinweis ? (
@@ -2150,19 +2150,19 @@ export default function JobsPage() {
           {(fitDialog.analysis?.missing_muss || []).length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <p className="text-sm font-semibold text-ink">Fehlende MUSS-Kriterien</p>
-              <p className="mt-2 text-sm text-coral/80">{fitDialog.analysis.missing_muss.join(", ")}</p>
+              <p className="mt-2 text-sm text-coral">{fitDialog.analysis.missing_muss.join(", ")}</p>
             </Card>
           )}
           {(fitDialog.analysis?.plus_hits || []).length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <p className="text-sm font-semibold text-ink">PLUS-Treffer</p>
-              <p className="mt-2 text-sm text-teal/80">{fitDialog.analysis.plus_hits.join(", ")}</p>
+              <p className="mt-2 text-sm text-teal">{fitDialog.analysis.plus_hits.join(", ")}</p>
             </Card>
           )}
           {(fitDialog.analysis?.risks || []).length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
               <p className="text-sm font-semibold text-ink">Risiken</p>
-              <div className="mt-2 grid gap-2 text-sm text-coral/70">
+              <div className="mt-2 grid gap-2 text-sm text-coral">
                 {fitDialog.analysis.risks.map((risk) => <p key={risk}>{risk}</p>)}
               </div>
             </Card>
@@ -2172,7 +2172,7 @@ export default function JobsPage() {
             <Card className="glass-card-soft rounded-xl shadow-none border border-sky/15">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-sky">Claude-Analyse</p>
-                <button
+                <button aria-label="In Zwischenablage kopieren"
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(fitDialog.analysis.research_notes).then(
@@ -2180,13 +2180,13 @@ export default function JobsPage() {
                       () => pushToast("Kopieren fehlgeschlagen", "danger")
                     );
                   }}
-                  className="text-muted/40 hover:text-sky transition-colors"
+                  className="text-muted hover:text-sky transition-colors"
                   title="In Zwischenablage kopieren"
                 >
                   <ClipboardCopy size={14} />
                 </button>
               </div>
-              <p className="text-sm text-muted/70 whitespace-pre-line">{fitDialog.analysis.research_notes}</p>
+              <p className="text-sm text-muted whitespace-pre-line">{fitDialog.analysis.research_notes}</p>
             </Card>
           )}
           {/* #948 (AK 1/2): der Knopf "Detailbewertung durch Claude
@@ -2325,12 +2325,12 @@ export default function JobsPage() {
             />
           </Field>
           {blacklistDialog.aussortieren ? (
-            <p className="text-xs text-muted/60">
+            <p className="text-xs text-muted">
               Mit dem Blockieren wird die Stelle auch mit den gewählten Gründen aussortiert.
             </p>
           ) : null}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Vorschau</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Vorschau</p>
             <p className="mt-2 text-sm text-ink">
               Blockiert wird:
               {" "}
@@ -2375,13 +2375,13 @@ export default function JobsPage() {
                     "rounded-lg border px-3 py-1.5 text-[13px] font-medium transition-colors",
                     selected
                       ? "border-coral/30 bg-coral/15 text-coral"
-                      : "border-white/10 bg-white/[0.04] text-muted/60 hover:bg-white/[0.08] hover:text-muted/80"
+                      : "border-white/10 bg-white/[0.04] text-muted hover:bg-white/[0.08] hover:text-muted"
                   )}
                   onClick={() => toggleDismissReason(reason.label)}
                 >
                   {selected ? <Check size={12} className="mr-1 inline -mt-0.5" /> : null}
                   {displayLabel}
-                  {reason.usage_count > 0 ? <span className="ml-1 text-[11px] opacity-50">({reason.usage_count})</span> : null}
+                  {reason.usage_count > 0 ? <span className="ml-1 text-xs opacity-50">({reason.usage_count})</span> : null}
                 </button>
               );
             })}
@@ -2399,7 +2399,7 @@ export default function JobsPage() {
               mit ihr wird auch aussortiert. */}
           {dismissDialog.job?.company ? (
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/[0.06] pt-3">
-              <p className="text-xs text-muted/60">Soll die ganze Firma nicht mehr auftauchen?</p>
+              <p className="text-xs text-muted">Soll die ganze Firma nicht mehr auftauchen?</p>
               <Button
                 variant="ghost"
                 onClick={() => {
@@ -2458,7 +2458,7 @@ export default function JobsPage() {
                   <h3 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h3>
                   <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
                   {entfernungText(detailDialog.job) ? (
-                    <p className="text-xs text-muted/60">{entfernungText(detailDialog.job)}</p>
+                    <p className="text-xs text-muted">{entfernungText(detailDialog.job)}</p>
                   ) : null}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {
@@ -2476,7 +2476,7 @@ export default function JobsPage() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  className="font-mono text-[10px] text-muted/40 hover:text-sky transition-colors"
+                  className="font-mono text-xs text-muted hover:text-sky transition-colors"
                   title="ID kopieren"
                   onClick={async () => { try { await navigator.clipboard.writeText(detailDialog.job.hash); pushToast("ID kopiert.", "success", { duration: 2000 }); } catch {} }}
                 >#{String(detailDialog.job.hash).slice(0, 12)}</button>
@@ -2498,17 +2498,17 @@ export default function JobsPage() {
               {(detailDialog.job.fach_daumen || detailDialog.job.rahmen_daumen) ? (
                 <div className="space-y-1 rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2">
                   {detailDialog.job.fach_daumen ? (
-                    <p className="text-[13px] text-muted/70">
+                    <p className="text-[13px] text-muted">
                       {daumenTitel(detailDialog.job.fach_daumen, DAUMEN_FACH)}
                     </p>
                   ) : null}
                   {detailDialog.job.rahmen_daumen ? (
-                    <p className="text-[13px] text-muted/70">
+                    <p className="text-[13px] text-muted">
                       {daumenTitel(detailDialog.job.rahmen_daumen, DAUMEN_RAHMEN)}
                     </p>
                   ) : null}
                   {fachMaximumText(detailDialog.job) ? (
-                    <p className="text-[12px] text-muted/45">{fachMaximumText(detailDialog.job)}</p>
+                    <p className="text-[12px] text-muted">{fachMaximumText(detailDialog.job)}</p>
                   ) : null}
                 </div>
               ) : null}
@@ -2521,7 +2521,7 @@ export default function JobsPage() {
                 const link = jobLinkInfo(detailDialog.job);
                 if (link.art === "keine") {
                   return (
-                    <p className="text-sm text-amber/80">
+                    <p className="text-sm text-amber">
                       Kein Link zur Original-Anzeige hinterlegt — so ist keine Bewerbung möglich.
                       Such die Stelle auf dem Portal und trag den Link oben unter „Bearbeiten“ nach (oder bitte Claude darum).
                     </p>
@@ -2533,7 +2533,7 @@ export default function JobsPage() {
                       <ExternalLink size={14} /> {link.label}
                     </a>
                     {link.hinweis ? (
-                      <p className="mt-1 text-xs text-amber/80">{link.hinweis}</p>
+                      <p className="mt-1 text-xs text-amber">{link.hinweis}</p>
                     ) : null}
                   </div>
                 );
@@ -2585,7 +2585,7 @@ export default function JobsPage() {
                       </a>
                     ) : null}
                   </div>
-                  <p className="mt-2 text-[11px] text-muted/60">
+                  <p className="mt-2 text-xs text-muted">
                     Tipp: Du kannst auch Claude bitten, die Beschreibung nachzuladen. Im Hintergrund lädt PBP ohnehin bis zu acht Beschreibungen je Durchlauf nach.
                   </p>
                 </Card>
@@ -2593,13 +2593,13 @@ export default function JobsPage() {
               {detailDialog.job.description ? (
                 <div className="glass-card p-4 rounded-xl">
                   <h3 className="text-sm font-semibold text-ink mb-2">Stellenbeschreibung</h3>
-                  <p className="text-sm text-muted/70 whitespace-pre-wrap">{detailDialog.job.description}</p>
+                  <p className="text-sm text-muted whitespace-pre-wrap">{detailDialog.job.description}</p>
                 </div>
               ) : null}
               {/* #1032 AK 3: dieselbe Zeile wie auf der Karte — Fund- und,
                   wo es eins gibt, Veroeffentlichungsdatum. */}
               {stellenDaten(detailDialog.job).text ? (
-                <p className="text-xs text-muted/40">{stellenDaten(detailDialog.job).text}</p>
+                <p className="text-xs text-muted">{stellenDaten(detailDialog.job).text}</p>
               ) : null}
               <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-4 mt-4">
                 <Button onClick={() => {

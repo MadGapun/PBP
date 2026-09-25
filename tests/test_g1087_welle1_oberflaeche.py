@@ -170,8 +170,8 @@ def test_g57_zusage_dialog_hat_umlaute(browser, server):
     url, _db, _aid = server
     page, _ = _seite(browser, url, "bewerbungen")
     try:
-        # SelectInput ist ein Knopf mit Panel (#1027): oeffnen, Wert waehlen.
-        page.get_by_role("button", name="Beworben", exact=True).first.click()
+        # SelectInput ist seit G71 ein combobox mit Liste (#1027): oeffnen, Wert waehlen.
+        page.get_by_role("combobox", name="Beworben", exact=True).first.click()
         page.get_by_text("Angenommen", exact=True).last.click()
         # Auf den ZUSTAND warten (den Knopf im Dialogfuss), nicht auf den
         # Titel: auf dem Linux-Runner stand der Titel schon da, der Rest

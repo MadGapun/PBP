@@ -43,7 +43,7 @@ const LLM_CONFIG = {
   not_installed: { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: nicht eingerichtet (optional)" },
   no_model:      { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: kein Modell (optional)" },
   off:           { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: aus (optional)" },
-  paused:        { color: "text-amber/80",  dot: "bg-amber/80", label: "Lokale KI: pausiert" },
+  paused:        { color: "text-amber",  dot: "bg-amber/80", label: "Lokale KI: pausiert" },
   active:        { color: "text-teal",      dot: "bg-teal",     label: "Lokale KI: aktiv" },
 };
 
@@ -104,7 +104,7 @@ export default function Sidebar({
             {/* brand-title bleibt als verstecktes Element fuer Tests-Selektoren */}
             <span className="brand-title sr-only">Persönliches Bewerbungs-Portal</span>
             {brand.version ? (
-              <span className="font-mono text-[10px] text-muted/40 select-none whitespace-nowrap">
+              <span className="font-mono text-xs text-muted select-none whitespace-nowrap">
                 v{brand.version}
               </span>
             ) : null}
@@ -113,7 +113,7 @@ export default function Sidebar({
                 Installation. Die Auskunft bleibt (kein stilles "alles
                 aktuell"), aber leise, hier unter der Version. */}
             {brand.updateStand === "unbekannt" ? (
-              <span className="text-[10px] text-muted" data-update-stand="unbekannt"
+              <span className="text-xs text-muted" data-update-stand="unbekannt"
                 title="Keine Update-Quelle hat geantwortet — ob es eine neue Version gibt, weiß PBP gerade nicht.">
                 Update-Stand unbekannt
               </span>
@@ -123,7 +123,7 @@ export default function Sidebar({
                 verschwindet. */}
             {brand.updateStand === "neu" && brand.updateUrl ? (
               <a href={brand.updateUrl} target="_blank" rel="noopener noreferrer"
-                className="text-[10px] font-medium text-sky hover:underline" data-update-stand="neu">
+                className="text-xs font-medium text-sky hover:underline" data-update-stand="neu">
                 Neue Version verfügbar: v{brand.updateVersion}
               </a>
             ) : null}
@@ -136,7 +136,7 @@ export default function Sidebar({
                   type="button"
                   onClick={brand.onConnectionClick}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors w-fit",
+                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors w-fit",
                     "hover:bg-white/[0.06]",
                     cfg.color
                   )}
@@ -157,7 +157,7 @@ export default function Sidebar({
                   type="button"
                   onClick={brand.onLlmClick}
                   className={cn(
-                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors w-fit",
+                    "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors w-fit",
                     "hover:bg-white/[0.06]",
                     cfg.color
                   )}
@@ -216,7 +216,7 @@ export default function Sidebar({
                           id={`tab-badge-${tab.id}`}
                           title={badgeTitles[tab.id] || undefined}
                           aria-label={badgeTitles[tab.id] || undefined}
-                          className="tab-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-[10px] font-bold leading-none text-shell"
+                          className="tab-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-xs font-bold leading-none text-shell"
                         >
                           {badge}
                         </span>
@@ -237,7 +237,7 @@ export default function Sidebar({
                             "w-full text-left rounded-md px-2 py-1.5 text-[12px] transition-colors",
                             sub.active
                               ? "bg-sky/10 text-sky"
-                              : "text-muted/80 hover:text-ink hover:bg-white/[0.03]"
+                              : "text-muted hover:text-ink hover:bg-white/[0.03]"
                           )}
                           onClick={() => subItems.onSelect?.(sub.id)}
                         >
@@ -280,7 +280,7 @@ export default function Sidebar({
         <button
           type="button"
           onClick={onToggle}
-          className="border-t border-white/8 px-4 py-2.5 text-[11px] text-muted/60 hover:text-ink hover:bg-white/[0.03] transition-colors flex items-center justify-center gap-1.5"
+          className="border-t border-white/8 px-4 py-2.5 text-xs text-muted hover:text-ink hover:bg-white/[0.03] transition-colors flex items-center justify-center gap-1.5"
           title={visualCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
         >
           {visualCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} className="rotate-90" />}

@@ -43,10 +43,10 @@ export default function EmailListe({ pushToast, applications = [], anzahl = 8 })
       <Card className="overflow-hidden rounded-2xl">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink">
-            <Mail size={14} className="mr-1.5 inline-block text-teal/60" />
+            <Mail size={14} className="mr-1.5 inline-block text-teal" />
             E-Mails
             {offen > 0 && (
-              <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-[10px] font-bold text-amber">
+              <span className="ml-1.5 rounded-full bg-amber/20 px-1.5 py-px text-xs font-bold text-amber">
                 {offen} offen
               </span>
             )}
@@ -73,7 +73,7 @@ export default function EmailListe({ pushToast, applications = [], anzahl = 8 })
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] text-ink">{em.subject || "Ohne Betreff"}</p>
-                  <p className="truncate text-[11px] text-muted/50">
+                  <p className="truncate text-xs text-muted">
                     {em.sender || em.recipients}
                     {em.sent_date && <span className="ml-1.5">{formatDate(em.sent_date)}</span>}
                   </p>
@@ -83,7 +83,7 @@ export default function EmailListe({ pushToast, applications = [], anzahl = 8 })
               </button>
             ))
           ) : (
-            <p className="py-4 text-center text-[13px] text-muted/50">
+            <p className="py-4 text-center text-[13px] text-muted">
               Keine E-Mails importiert. Drag &amp; Drop oder Button nutzen.
             </p>
           )}

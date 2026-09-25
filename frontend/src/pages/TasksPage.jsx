@@ -10,7 +10,8 @@
  * Eine Liste ueber alle drei Toepfe (Todos, Nachfassungen, Termine),
  * gruppiert nach Faelligkeit, bedienbar aus der Zeile.
  */
-import { useCallback, useContext, useEffect, useState } from "react";
+import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
+import { useDialogFokus } from "@/components/ui";
 import { Check, ClipboardCopy, Clock3, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { api, deleteRequest, postJson } from "@/api";
 import { AppContext } from "@/app-context";
@@ -20,8 +21,8 @@ const GRUPPEN = [
   ["ueberfaellig", "Überfällig", "text-coral"],
   ["heute", "Heute", "text-amber"],
   ["diese_woche", "Diese Woche", "text-sky"],
-  ["spaeter", "Später", "text-muted/70"],
-  ["ohne_faelligkeit", "Ohne Fälligkeit", "text-muted/50"],
+  ["spaeter", "Später", "text-muted"],
+  ["ohne_faelligkeit", "Ohne Fälligkeit", "text-muted"],
 ];
 
 const HERKUNFT_BADGE = {
@@ -85,6 +86,10 @@ export default function TasksPage() {
   // Oberflaeche fehlte; der Endpunkt PATCH /api/tasks/{id} wird fuers
   // Verschieben schon benutzt.
   const [bearbeiten, setBearbeiten] = useState(null);
+  // G71 (#1087 H2): das Detail ist ein Dialog.
+  const detailRef = useRef(null);
+  const detailTitelId = useId();
+  useDialogFokus(detailRef, Boolean(detail), () => { setDetail(null); setBearbeiten(null); });
   const [speichert, setSpeichert] = useState(false);
 
   const laden = useCallback(async () => {
@@ -185,7 +190,7 @@ export default function TasksPage() {
       <div key={`${e.herkunft}-${e.id}`}
         className="group flex items-start gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.05]">
         {e.herkunft !== "termin" && e.status !== "erledigt" && (
-          <button
+          <button aria-label="Erledigt"
             onClick={() => aktion(e, "erledigt")}
             title="Erledigt"
             className="mt-0.5 shrink-0 rounded-md border border-teal/30 bg-teal/10 p-1 text-teal hover:bg-teal/25">
@@ -193,28 +198,28 @@ export default function TasksPage() {
           </button>
         )}
         {e.status === "erledigt" && (
-          <button
+          <button aria-label="Wieder öffnen"
             onClick={() => aktion(e, "reopen")}
             title="Wieder öffnen"
-            className="mt-0.5 shrink-0 rounded-md border border-white/10 p-1 text-muted/50 hover:text-ink">
+            className="mt-0.5 shrink-0 rounded-md border border-white/10 p-1 text-muted hover:text-ink">
             <RotateCcw size={13} />
           </button>
         )}
         <div className="min-w-0 flex-1 cursor-pointer" onClick={() => setDetail(e)}>
           <div className="flex flex-wrap items-center gap-2">
-            <span className={`rounded px-1.5 py-px text-[10px] font-bold ${badgeCls}`}>{label}</span>
-            <span className={`truncate text-sm ${e.status === "erledigt" ? "text-muted/40 line-through" : "text-ink"}`}>{e.titel}</span>
+            <span className={`rounded px-1.5 py-px text-xs font-bold ${badgeCls}`}>{label}</span>
+            <span className={`truncate text-sm ${e.status === "erledigt" ? "text-muted line-through" : "text-ink"}`}>{e.titel}</span>
           </div>
           {/* #945: Die Beschreibung gehoert in die Zeile. Wer nur Firma
               und Datum sieht, faengt an zu suchen — genau das war die
               Beobachtung, die zu diesem Issue gefuehrt hat. */}
           {e.beschreibung ? (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted/80">{e.beschreibung}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{e.beschreibung}</p>
           ) : null}
           {e.ueberholt ? (
             <p className="mt-0.5 text-xs text-amber">{e.ueberholt_grund}</p>
           ) : null}
-          <p className="mt-0.5 text-xs text-muted/60">
+          <p className="mt-0.5 text-xs text-muted">
             {e.firma ? <span className="mr-2">{e.firma}</span> : null}
             {e.faellig_am ? (
               <span className={e.ueberfaellig_seit_tagen ? "font-semibold text-coral" : ""}>
@@ -225,19 +230,19 @@ export default function TasksPage() {
             ) : null}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-1">
           {e.herkunft !== "termin" && e.status !== "erledigt" && (
             <>
               <input
                 type="date"
                 title="Verschieben"
-                className="w-[7.5rem] rounded border border-white/10 bg-shell/60 px-1 py-0.5 text-[11px] text-muted/70"
+                className="w-[7.5rem] rounded border border-white/10 bg-shell/60 px-1 py-0.5 text-xs text-muted"
                 onChange={(ev) => verschieben(e, ev.target.value)}
               />
-              <button
+              <button aria-label="Hinfällig (gegenstandslos geworden)"
                 onClick={() => aktion(e, "hinfaellig")}
                 title="Hinfällig (gegenstandslos geworden)"
-                className="rounded p-1 text-muted/40 hover:bg-white/10 hover:text-ink">
+                className="rounded p-1 text-muted hover:bg-white/10 hover:text-ink">
                 <X size={13} />
               </button>
             </>
@@ -272,14 +277,14 @@ ${e.claude_prompt}`
             title={e.claude_prompt
               ? "Kennung und fertigen Claude-Auftrag kopieren"
               : "Kennung kopieren (für den Chat)"}
-            className="rounded p-1 text-muted/40 hover:bg-white/10 hover:text-teal">
+            className="rounded p-1 text-muted hover:bg-white/10 hover:text-teal">
             {kopiert === e.id ? <Check size={13} className="text-teal" /> : <ClipboardCopy size={13} />}
           </button>
           {e.herkunft === "todo" && (
             <button
               onClick={() => aktion(e, "loeschen")}
               title="Löschen"
-              className="rounded p-1 text-muted/30 hover:bg-coral/15 hover:text-coral">
+              className="rounded p-1 text-muted hover:bg-coral/15 hover:text-coral">
               <Trash2 size={13} />
             </button>
           )}
@@ -355,14 +360,14 @@ ${e.claude_prompt}`
         </div>
       )}
 
-      {!daten && !fehler && <p className="text-sm text-muted/60">Lade…</p>}
+      {!daten && !fehler && <p className="text-sm text-muted">Lade…</p>}
 
       {daten && GRUPPEN.map(([key, label, cls]) => {
         const liste = daten.gruppen?.[key] || [];
         if (!liste.length) return null;
         return (
           <section key={key} className="grid gap-1.5">
-            <h3 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${cls}`}>
+            <h3 className={`text-xs font-bold uppercase tracking-[0.2em] ${cls}`}>
               {label} ({liste.length})
             </h3>
             {liste.map(zeile)}
@@ -371,7 +376,7 @@ ${e.claude_prompt}`
       })}
 
       {daten && daten.anzahl === 0 && (
-        <p className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-6 text-center text-sm text-muted/60">
+        <p className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-6 text-center text-sm text-muted">
           Nichts offen. Entweder ist wirklich alles erledigt — oder es fehlt der Plan für den nächsten Schritt.
         </p>
       )}
@@ -386,15 +391,16 @@ ${e.claude_prompt}`
               und die Liste dahinter schien durch den Aufgabentext.
               max-h/overflow ergaenzt, damit lange Beschreibungen im
               Panel bleiben statt herauszulaufen. */}
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-white/10 bg-panelstrong shadow-2xl"
+          <div ref={detailRef} role="dialog" aria-modal="true" aria-labelledby={detailTitelId} tabIndex={-1}
+            className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-white/10 bg-panelstrong shadow-2xl outline-none"
             onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 p-5 pb-0">
-              <h3 className="text-base font-semibold text-ink">{detail.titel}</h3>
-              <button onClick={() => { setDetail(null); setBearbeiten(null); }}
-                className="rounded p-1 text-muted/50 hover:text-ink"><X size={16} /></button>
+              <h3 id={detailTitelId} className="text-base font-semibold text-ink">{detail.titel}</h3>
+              <button type="button" aria-label="Schließen" onClick={() => { setDetail(null); setBearbeiten(null); }}
+                className="rounded p-1 text-muted hover:text-ink"><X size={16} /></button>
             </div>
             <div className="overflow-y-auto p-5 pt-2">
-            <p className="mt-1 text-xs text-muted/60">
+            <p className="mt-1 text-xs text-muted">
               {(HERKUNFT_BADGE[detail.herkunft] || ["Aufgabe"])[0]}
               {detail.firma ? ` · ${detail.firma}` : ""}
               {detail.faellig_am ? ` · fällig ${datumText(detail.faellig_am)}` : ""}
@@ -403,12 +409,12 @@ ${e.claude_prompt}`
             {detail.beschreibung ? (
               <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink/90">{detail.beschreibung}</p>
             ) : (
-              <p className="mt-3 text-sm italic text-muted/50">
+              <p className="mt-3 text-sm italic text-muted">
                 Keine Details hinterlegt — genau das macht Aufgaben schwer erledigbar.
               </p>
             )}
             {detail.notiz && (
-              <p className="mt-2 text-xs text-muted/60">Notiz: {detail.notiz}</p>
+              <p className="mt-2 text-xs text-muted">Notiz: {detail.notiz}</p>
             )}
             {/* #964 Befund 2: die Kennung sichtbar und kopierbar, damit
                 der Nutzer im Chat auf genau diese Aufgabe zeigen kann,
@@ -422,7 +428,7 @@ ${e.claude_prompt}`
                 } catch { /* Zwischenablage nicht verfuegbar */ }
               }}
               title="Kennung kopieren"
-              className="mt-3 flex items-center gap-1.5 font-mono text-[11px] text-muted/50 hover:text-teal">
+              className="mt-3 flex items-center gap-1.5 font-mono text-xs text-muted hover:text-teal">
               {kennung(detail)}
               {kopiert === detail.id
                 ? <Check size={11} className="text-teal" />
@@ -432,7 +438,7 @@ ${e.claude_prompt}`
             {bearbeiten ? (
               <div className="mt-4 space-y-2 rounded-lg border border-white/10 bg-shell/40 p-3">
                 {detail.herkunft === "nachfass" ? (
-                  <p className="text-xs text-muted/60">
+                  <p className="text-xs text-muted">
                     Bei einer Nachfassung ist der Titel aus Bewerbung und Firma
                     abgeleitet — änderbar ist der Text.
                   </p>
@@ -485,7 +491,7 @@ ${e.claude_prompt}`
                     {speichert ? "Speichert…" : "Speichern"}
                   </button>
                   <button onClick={() => setBearbeiten(null)}
-                    className="rounded-lg px-3 py-1.5 text-sm text-muted/70 hover:text-ink">
+                    className="rounded-lg px-3 py-1.5 text-sm text-muted hover:text-ink">
                     Abbrechen
                   </button>
                 </div>

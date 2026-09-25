@@ -19,6 +19,7 @@
   Moon,
   Plus,
   RefreshCw,
+  Search,
   Send,
   Settings2,
   Sun,
@@ -152,6 +153,9 @@ function GlobalSearch({ navigateTo }) {
   const [results, setResults] = useState(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  // G71 (#1087 H6): unter 768 px war die Suche ganz weg. Dort steht ein
+  // Knopf, der das Feld ueber die volle Breite aufklappt.
+  const [mobilOffen, setMobilOffen] = useState(false);
   const debounceRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -159,6 +163,7 @@ function GlobalSearch({ navigateTo }) {
     function onClickOutside(e) {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
+        setMobilOffen(false);
       }
     }
     document.addEventListener("mousedown", onClickOutside);
@@ -189,6 +194,7 @@ function GlobalSearch({ navigateTo }) {
 
   function handleResultClick(item) {
     setOpen(false);
+    setMobilOffen(false);
     setQuery("");
     setResults(null);
     if (item.url) {
@@ -197,20 +203,37 @@ function GlobalSearch({ navigateTo }) {
   }
 
   return (
-    <div ref={containerRef} className="relative shrink-0 hidden md:block">
+    <div ref={containerRef} className="relative shrink-0" data-globale-suche>
+      <button
+        type="button"
+        aria-label="Suchen"
+        aria-expanded={mobilOffen}
+        onClick={() => setMobilOffen(!mobilOffen)}
+        className="rounded-lg p-1.5 text-muted transition-colors hover:bg-white/[0.04] hover:text-ink md:hidden"
+        data-suche-mobil
+      >
+        <Search size={18} />
+      </button>
+      <div className={cn(
+        mobilOffen ? "fixed inset-x-4 top-14 z-[70]" : "hidden",
+        "md:relative md:inset-auto md:top-auto md:z-auto md:block",
+      )}>
       <input
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => results && setOpen(true)}
+        onKeyDown={(e) => { if (e.key === "Escape") { setOpen(false); setMobilOffen(false); } }}
         placeholder="Suchen..."
-        className="w-48 lg:w-64 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 text-[13px] text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+        aria-label="Suchen"
+        autoFocus={mobilOffen}
+        className="w-full rounded-lg border border-white/8 bg-panel px-3 py-1.5 text-[13px] text-ink placeholder-muted focus:border-sky/40 focus:outline-none md:w-48 md:bg-white/[0.03] lg:w-64"
       />
       {open && results && results.total > 0 && (
-        <div className="absolute right-0 top-full mt-1 w-[420px] max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-[var(--surface-1,_#1a1d23)] shadow-2xl shadow-black/40 z-[60]">
+        <div data-suchergebnisse className="absolute right-0 top-full mt-1 w-full md:w-[420px] max-h-[60vh] overflow-y-auto rounded-xl border border-white/10 bg-panel shadow-2xl shadow-black/40 z-[60]">
           {results.groups.map((group) => (
             <div key={group.kind} className="border-b border-white/5 last:border-b-0">
-              <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.15em] text-teal/70">
+              <p className="px-3 pt-2 pb-1 text-xs uppercase tracking-[0.15em] text-teal">
                 {group.label}
               </p>
               <ul>
@@ -224,7 +247,7 @@ function GlobalSearch({ navigateTo }) {
                       <p className="text-[13px] font-medium text-ink truncate">
                         {item.title}
                       </p>
-                      <p className="text-[11px] text-muted/60 truncate">
+                      <p className="text-xs text-muted truncate">
                         {item.subtitle}
                       </p>
                     </button>
@@ -233,21 +256,22 @@ function GlobalSearch({ navigateTo }) {
               </ul>
             </div>
           ))}
-          <p className="px-3 py-1.5 text-[10px] text-muted/40 border-t border-white/5">
+          <p className="px-3 py-1.5 text-xs text-muted border-t border-white/5">
             {results.total} Treffer
           </p>
         </div>
       )}
       {open && results && results.total === 0 && query.length >= 2 && (
-        <div className="absolute right-0 top-full mt-1 w-[420px] rounded-xl border border-white/10 bg-[var(--surface-1,_#1a1d23)] p-4 shadow-2xl shadow-black/40 z-[60]">
-          <p className="text-sm text-muted/60">Keine Treffer fuer „{query}"</p>
+        <div className="absolute right-0 top-full mt-1 w-full md:w-[420px] rounded-xl border border-white/10 bg-panel p-4 shadow-2xl shadow-black/40 z-[60]">
+          <p className="text-sm text-muted">Keine Treffer für „{query}“</p>
         </div>
       )}
       {loading && (
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/40 text-[10px]">
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-muted text-xs">
           ...
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -271,7 +295,7 @@ function PromptsTab({ pushToast, copyPrompt }) {
     return <p className="text-sm text-coral">Prompts konnten nicht geladen werden: {error}</p>;
   }
   if (prompts === null) {
-    return <p className="text-sm text-muted/60">Lade...</p>;
+    return <p className="text-sm text-muted">Lade...</p>;
   }
 
   // #979: Katalogeintraege tragen `id` (die Karte) und `prompt` (den
@@ -293,7 +317,7 @@ function PromptsTab({ pushToast, copyPrompt }) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted/70">
+      <p className="text-sm text-muted">
         {prompts.length} Prompts für deine Bewerbung. Klick auf „Kopieren"
         kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfuegen und absenden.
       </p>
@@ -302,14 +326,14 @@ function PromptsTab({ pushToast, copyPrompt }) {
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
         placeholder="Filter nach Titel oder Beschreibung..."
-        className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+        className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink placeholder-muted focus:border-sky/40 focus:outline-none"
       />
       {filtered.length === 0 ? (
-        <p className="text-sm text-muted/60">Keine Prompts gefunden.</p>
+        <p className="text-sm text-muted">Keine Prompts gefunden.</p>
       ) : (
         Object.entries(grouped).map(([kategorie, items]) => (
           <div key={kategorie}>
-            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-teal/70 mb-2">
+            <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-teal mb-2">
               {kategorie}
             </h3>
             <div className="space-y-1.5">
@@ -320,20 +344,20 @@ function PromptsTab({ pushToast, copyPrompt }) {
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-[13px] font-medium text-ink">{p.titel}</p>
-                    <p className="text-[11px] text-muted/50 font-mono">
+                    <p className="text-xs text-muted font-mono">
                       /{kennung(p)}
                       {p.parameter
                         ? " " + Object.entries(p.parameter).map(([k, v]) => `${k}=${v}`).join(" ")
                         : ""}
                     </p>
                     {p.beschreibung && (
-                      <p className="text-[12px] text-muted/70 mt-0.5">{p.beschreibung}</p>
+                      <p className="text-[12px] text-muted mt-0.5">{p.beschreibung}</p>
                     )}
                   </div>
                   <button
                     type="button"
                     onClick={() => copyPrompt(`/${kennung(p)}`)}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-[11px] font-medium px-2.5 py-1.5 transition-colors"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md bg-sky/15 hover:bg-sky/25 text-sky text-xs font-medium px-2.5 py-1.5 transition-colors"
                   >
                     <MitClaude size={12} />
                   </button>
@@ -1349,10 +1373,10 @@ export default function App() {
         <header className="app-topbar glass-topbar sticky top-0 z-50">
           <div className="flex w-full items-center gap-x-3 gap-y-2 px-5 py-2.5 sm:px-8">
             {/* #508: Hamburger zum Sidebar-Toggle */}
-            <button
+            <button aria-label={sidebarCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
               type="button"
               onClick={toggleSidebar}
-              className="shrink-0 rounded-lg p-2 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              className="shrink-0 rounded-lg p-2 text-muted hover:text-ink hover:bg-white/[0.04] transition-colors"
               title={sidebarCollapsed ? "Sidebar ausklappen" : "Sidebar einklappen"}
             >
               <Menu size={20} />
@@ -1373,10 +1397,10 @@ export default function App() {
                 <span className="font-display text-[15px] font-semibold text-ink whitespace-nowrap">
                   PBP
                 </span>
-                <span className="text-[12px] text-muted/50 whitespace-nowrap hidden md:inline">
+                <span className="text-[12px] text-muted whitespace-nowrap hidden md:inline">
                   Persönliches Bewerbungs-Portal
                 </span>
-                <span className="text-muted/30 select-none">·</span>
+                <span className="text-muted select-none">·</span>
                 <span className="text-[14px] font-medium text-ink/80 whitespace-nowrap truncate">
                   /{currentPageTitle}{currentSubPath ? `/${currentSubPath}` : ""}
                 </span>
@@ -1388,13 +1412,13 @@ export default function App() {
 
             {/* #630 (Stufe 1): Aktualisieren-Button + letzter Sync. Aenderungen
                 via Claude erscheinen nach dem Neuladen. */}
-            <span className="hidden lg:inline text-[11px] text-muted/40 whitespace-nowrap" title="Änderungen via Claude erscheinen nach dem Aktualisieren">
+            <span className="hidden lg:inline text-xs text-muted whitespace-nowrap" title="Änderungen via Claude erscheinen nach dem Aktualisieren">
               Letzter Sync: {lastSync}
             </span>
             <button
               type="button"
               onClick={doRefresh}
-              className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              className="shrink-0 rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.04] transition-colors"
               title="Aktualisieren — lädt Änderungen, die Claude im Hintergrund gemacht hat"
               aria-label="Aktualisieren"
             >
@@ -1407,10 +1431,10 @@ export default function App() {
               const Icon = themeMode === "system" ? Monitor : themeMode === "light" ? Sun : Moon;
               const label = themeMode === "system" ? "System" : themeMode === "light" ? "Hell" : "Dunkel";
               return (
-                <button
+                <button aria-label={`Theme: ${label} — klicken für ${nextMode === "system" ? "System" : nextMode === "light" ? "Hell" : "Dunkel"}`}
                   type="button"
                   onClick={() => setThemeMode(nextMode)}
-                  className="shrink-0 rounded-lg p-1.5 text-muted/60 hover:text-ink hover:bg-white/[0.04] transition-colors"
+                  className="shrink-0 rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.04] transition-colors"
                   title={`Theme: ${label} — klicken für ${nextMode === "system" ? "System" : nextMode === "light" ? "Hell" : "Dunkel"}`}
                 >
                   <Icon size={18} />
@@ -1422,7 +1446,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => { setWizardOpen(false); setHelpTab("hilfe"); setHelpOpen(true); }}
-              className="shrink-0 rounded-lg p-1.5 text-muted/50 hover:text-ink hover:bg-white/[0.04] transition-colors"
+              className="shrink-0 rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.04] transition-colors"
               title="Hilfe & Support"
               aria-label="Hilfe & Support"
             >
@@ -1439,26 +1463,24 @@ export default function App() {
                 className="flex items-center gap-2.5 rounded-xl border border-white/8 bg-white/[0.04] px-3 py-1.5 text-[13px] font-medium text-ink transition-all duration-200 hover:border-white/12 hover:bg-white/[0.07]"
                 onClick={() => setProfileMenuOpen((prev) => !prev)}
               >
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal/15 text-[10px] font-bold uppercase text-teal">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal/15 text-xs font-bold uppercase text-teal">
                   {currentProfileName[0] || "?"}
                 </span>
                 <span className="max-w-[10rem] truncate">{currentProfileName}</span>
                 <ChevronDown
                   size={14}
                   className={cn(
-                    "text-muted/50 transition-transform duration-200",
+                    "text-muted transition-transform duration-200",
                     profileMenuOpen && "rotate-180"
                   )}
                 />
               </button>
 
               {profileMenuOpen && (
-                <div className="absolute right-0 top-full z-50 mt-2 min-w-[13rem] overflow-hidden rounded-xl border border-white/10 shadow-2xl backdrop-blur-2xl animate-rise"
-                  style={{ background: "rgba(30, 34, 52, 0.95)" }}
-                >
+                <div className="absolute right-0 top-full z-50 mt-2 min-w-[13rem] overflow-hidden rounded-xl border border-white/10 bg-panel/95 shadow-2xl backdrop-blur-2xl animate-rise">
                   <div className="p-1">
                     {profileOptions.length === 0 && (
-                      <p className="px-3 py-2 text-[12px] text-muted/50">Kein Profil vorhanden</p>
+                      <p className="px-3 py-2 text-[12px] text-muted">Kein Profil vorhanden</p>
                     )}
                     {profileOptions.map((profile) => (
                       <button
@@ -1477,10 +1499,10 @@ export default function App() {
                       >
                         <span
                           className={cn(
-                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold uppercase",
+                            "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold uppercase",
                             profile.id === selectedProfileId
                               ? "bg-teal/20 text-teal"
-                              : "bg-white/[0.06] text-muted/60"
+                              : "bg-white/[0.06] text-muted"
                           )}
                         >
                           {profile.display_name?.[0] || "?"}
@@ -1503,7 +1525,7 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-coral/60 transition-colors duration-150 hover:bg-coral/5 hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] text-coral transition-colors duration-150 hover:bg-coral/5 hover:text-coral disabled:cursor-not-allowed disabled:opacity-40"
                       disabled={!chrome.profile}
                       onClick={() => {
                         setDeleteState({ open: true, profile: chrome.profile, confirm: "" });
@@ -1537,29 +1559,29 @@ export default function App() {
               <h2 className="workspace-headline truncate text-[13px] font-semibold text-ink">
                 {readiness.headline}
               </h2>
-              <p className="mt-0.5 truncate text-[12px] text-muted/50">
+              <p className="mt-0.5 truncate text-[12px] text-muted">
                 {chrome.workspace?.profile_name || "Kein Profil"} — {readiness.description}
               </p>
             </div>
 
             <div className="flex items-center gap-5 text-center">
               <div className="workspace-card">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Profil</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Profil</p>
                 <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.profile?.completeness || 0}%</p>
               </div>
               <div className="h-6 w-px bg-white/[0.06]" />
               <div className="workspace-card">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Quellen</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Quellen</p>
                 <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.sources?.active || 0}/{chrome.workspace?.sources?.total || 0}</p>
               </div>
               <div className="h-6 w-px bg-white/[0.06]" />
               <div className="workspace-card">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Stellen</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Stellen</p>
                 <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.jobs?.active || 0}</p>
               </div>
               <div className="h-6 w-px bg-white/[0.06]" />
               <div className="workspace-card">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/40">Bewerbungen aktiv</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Bewerbungen aktiv</p>
                 <p className="workspace-value text-base font-semibold text-ink">{chrome.workspace?.applications?.active ?? chrome.workspace?.applications?.total ?? 0}</p>
               </div>
             </div>
@@ -1614,16 +1636,16 @@ export default function App() {
           </main>
         </div>
 
-        <footer className="mt-auto border-t border-white/5 px-6 py-3 text-xs text-muted/50">
+        <footer className="mt-auto border-t border-white/5 px-6 py-3 text-xs text-muted">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center">
             <span>PBP v{chrome.status?.version || "?"}</span>
-            <span aria-hidden="true" className="text-muted/30">·</span>
+            <span aria-hidden="true" className="text-muted">·</span>
             {chrome.status?.server_time && (
               <>
                 <span title={`Zeitzone: ${chrome.status?.timezone || "Europe/Berlin"}`}>
                   Serverzeit: {chrome.status.server_time} ({chrome.status?.timezone || "Europe/Berlin"})
                 </span>
-                <span aria-hidden="true" className="text-muted/30">·</span>
+                <span aria-hidden="true" className="text-muted">·</span>
               </>
             )}
             <a
@@ -1635,7 +1657,7 @@ export default function App() {
               Open Source auf GitHub
               <ExternalLink size={10} aria-hidden="true" />
             </a>
-            <span aria-hidden="true" className="text-muted/30">·</span>
+            <span aria-hidden="true" className="text-muted">·</span>
             <a
               href="https://paypal.me/birzite"
               target="_blank"
@@ -1804,7 +1826,7 @@ export default function App() {
                   className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
                     helpTab === t.id
                       ? "bg-sky/15 text-sky font-medium"
-                      : "text-muted/50 hover:text-ink hover:bg-white/[0.04]"
+                      : "text-muted hover:text-ink hover:bg-white/[0.04]"
                   }`}
                 >
                   {t.label}
@@ -1830,22 +1852,22 @@ export default function App() {
               <div className="space-y-3 text-sm">
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">PBP — Persönliches Bewerbungs-Portal</h3>
-                  <p className="text-muted/60">Version: v{chrome.status?.version || "0.32.5"}</p>
-                  <p className="text-muted/60">Lizenz: MIT</p>
+                  <p className="text-muted">Version: v{chrome.status?.version || "0.32.5"}</p>
+                  <p className="text-muted">Lizenz: MIT</p>
                 </div>
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-2">Team</h3>
-                  <p className="text-muted/60">Markus (MadGapun) — Konzept, Backend, Projektleitung</p>
-                  <p className="text-muted/60">Toms (Koala280) — React-Frontend</p>
-                  <p className="text-muted/60">Claude — KI-Assistent & Co-Developer</p>
-                  <p className="text-muted/60">Codex (TANTE) — Frontend-Recovery & Co-Developer</p>
+                  <p className="text-muted">Markus (MadGapun) — Konzept, Backend, Projektleitung</p>
+                  <p className="text-muted">Toms (Koala280) — React-Frontend</p>
+                  <p className="text-muted">Claude — KI-Assistent & Co-Developer</p>
+                  <p className="text-muted">Codex (TANTE) — Frontend-Recovery & Co-Developer</p>
                 </div>
                 <div className="glass-card p-3 border border-sky/15">
                   <div className="flex items-center gap-2 mb-2">
                     <Coffee size={16} className="text-amber" />
                     <h3 className="font-medium text-ink">Kaffee spendieren</h3>
                   </div>
-                  <p className="text-muted/60 mb-3">PBP ist kostenlos und bleibt es. Wenn dir das Tool bei deiner Jobsuche hilft, kannst du mir einen Kaffee spendieren.</p>
+                  <p className="text-muted mb-3">PBP ist kostenlos und bleibt es. Wenn dir das Tool bei deiner Jobsuche hilft, kannst du mir einen Kaffee spendieren.</p>
                   <a
                     href="https://paypal.me/birzite"
                     target="_blank"
@@ -1858,7 +1880,7 @@ export default function App() {
                 </div>
                 <div className="glass-card p-3 border border-amber/15">
                   <h3 className="font-medium text-ink mb-2">Rechtliche Hinweise</h3>
-                  <div className="space-y-1.5 text-muted/60 text-[12px]">
+                  <div className="space-y-1.5 text-muted text-[12px]">
                     <p><strong>Jobsuche / Scraping:</strong> Die Stellensuche greift auf öffentlich zugängliche Daten von Jobportalen zu (z.B. Bundesagentur für Arbeit, LinkedIn, XING, StepStone). Die Nutzung erfolgt auf eigene Verantwortung. Bitte beachte die jeweiligen Nutzungsbedingungen der Plattformen.</p>
                     <p><strong>Datenspeicherung:</strong> Alle Daten werden ausschließlich lokal auf deinem Gerät gespeichert. Es findet keine Übertragung an Dritte statt.</p>
                     <p><strong>Keine Gewähr:</strong> PBP übernimmt keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der gesammelten Stellenangebote.</p>
@@ -1882,7 +1904,7 @@ export default function App() {
         {/* v1.7.0 (#583): Lokale-AI-Erklaerungs-Modal */}
         {llmHelpOpen && (
           <Modal open={llmHelpOpen} title="Lokale KI" onClose={() => setLlmHelpOpen(false)}>
-            <div className="space-y-4 text-sm text-muted/70">
+            <div className="space-y-4 text-sm text-muted">
               <div className="glass-card p-3 border-coral/20 border">
                 <h3 className="font-medium text-ink mb-1">
                   {llmStatus.ui_state === "active" ? "Lokale KI ist aktiv" :
@@ -1929,7 +1951,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setLlmHelpOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-sm text-muted/60 hover:text-ink hover:bg-white/[0.04]"
+                  className="px-3 py-1.5 rounded-lg text-sm text-muted hover:text-ink hover:bg-white/[0.04]"
                 >
                   Später
                 </button>
@@ -1964,14 +1986,14 @@ export default function App() {
                     <>
                       <div className="glass-card p-3 border-amber/20 border">
                         <h3 className="font-medium text-amber mb-1">Verbindung wird gepr&uuml;ft</h3>
-                        <p className="text-muted/60">
+                        <p className="text-muted">
                           Der MCP-Server hat sich k&uuml;rzlich gemeldet, aber die Verbindung ist nicht best&auml;tigt.
                           Das kann passieren wenn Claude Desktop gerade neu gestartet wurde.
                         </p>
                       </div>
                       <div className="glass-card p-3">
                         <h3 className="font-medium text-ink mb-2">Verbindung testen</h3>
-                        <p className="text-muted/60 mb-3">
+                        <p className="text-muted mb-3">
                           &Ouml;ffne Claude Desktop und sende eine kurze Nachricht wie
                           <span className="mx-1 px-1.5 py-0.5 bg-white/[0.06] rounded text-ink font-mono text-xs">Zeige meinen Profil-Status</span>
                           um die Verbindung zu pr&uuml;fen.
@@ -1990,14 +2012,14 @@ export default function App() {
                     <>
                       <div className="glass-card p-3 border-coral/20 border">
                         <h3 className="font-medium text-coral mb-1">Nicht verbunden</h3>
-                        <p className="text-muted/60">
+                        <p className="text-muted">
                           Der MCP-Server antwortet nicht. Das bedeutet, dass Claude Desktop
                           nicht l&auml;uft oder PBP dort nicht eingetragen ist.
                         </p>
                       </div>
                       <div className="glass-card p-3">
                         <h3 className="font-medium text-ink mb-2">Fehlerbehebung</h3>
-                        <ol className="space-y-2 text-muted/60 list-decimal list-inside">
+                        <ol className="space-y-2 text-muted list-decimal list-inside">
                           <li>
                             <strong className="text-ink">Claude Desktop &ouml;ffnen</strong>
                             <span className="block ml-5 mt-0.5">Stelle sicher, dass Claude Desktop l&auml;uft (nicht nur der Browser).</span>

@@ -37,7 +37,7 @@ export default function DashboardBereich({
             onClick={onUmschalten}
             aria-label={`${titel} einklappen`}
             title={`${titel} einklappen`}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted/40 transition hover:bg-white/[0.04] hover:text-muted"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted transition hover:bg-white/[0.04] hover:text-muted"
           >
             <ChevronDown size={14} />
           </button>
@@ -55,10 +55,10 @@ export default function DashboardBereich({
         className="glass-tab flex w-full items-center gap-2 rounded-xl px-4 py-2.5 text-left transition"
         title={`${titel} ausklappen`}
       >
-        <ChevronRight size={14} className="shrink-0 text-muted/50" />
+        <ChevronRight size={14} className="shrink-0 text-muted" />
         <span className="text-[13px] font-semibold text-ink/80">{titel}</span>
         {kopfZusatz ? (
-          <span className="ml-auto text-[11px] text-muted/50">{kopfZusatz}</span>
+          <span className="ml-auto text-xs text-muted">{kopfZusatz}</span>
         ) : null}
       </button>
     </section>

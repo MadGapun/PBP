@@ -1,6 +1,6 @@
 ﻿import { bestaetigen } from "@/lib/bestaetigung";
 import { Check, Copy, Upload, X } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { api, deleteRequest, postJson, putJson } from "@/api";
@@ -9,7 +9,7 @@ import MitClaude from "@/components/MitClaude";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles, GLOBAL_FILE_DRAG_STATE_EVENT, GLOBAL_FILE_DROP_EVENT } from "@/file-drop";
-import { Badge, Button, Card, CheckboxInput } from "@/components/ui";
+import { Badge, Button, Card, CheckboxInput, useDialogFokus } from "@/components/ui";
 import { cn, docTypeLabel, firstIncompleteStepIndex, getKnownProfileFacts, sanitizeSkillName } from "@/utils";
 
 const STEP_IDS = ["documents", "conversation", "sources", "jobs"];
@@ -423,6 +423,11 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       return next;
     });
   }, [docsFromProfile]);
+
+  // G71 (#1087 H2): die Einrichtung ist ein Dialog — Fokus hinein und drin.
+  const overlayRef = useRef(null);
+  const overlayTitelId = useId();
+  useDialogFokus(overlayRef, Boolean(open && profile), null);
 
   if (!open || !profile) return null;
 
@@ -1093,7 +1098,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
                       </button>
                       <button
                         type="button"
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky/85 transition hover:bg-white/10 hover:text-sky"
+                        className="inline-flex h-4 w-4 items-center justify-center rounded-full text-sky transition hover:bg-white/10 hover:text-sky"
                         onClick={(event) => {
                           event.stopPropagation();
                           void removeSkill(skill);
@@ -1159,10 +1164,17 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       id="profile-onboarding-overlay"
       className="glass-overlay fixed inset-0 z-[980] flex items-start justify-center overflow-y-auto px-4 py-6 sm:px-6"
     >
-      <div className="glass-card-strong w-full max-w-6xl rounded-2xl p-6 sm:p-8">
+      <div
+        ref={overlayRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={overlayTitelId}
+        tabIndex={-1}
+        className="glass-card-strong w-full max-w-6xl rounded-2xl p-6 outline-none sm:p-8"
+      >
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-3xl font-semibold text-ink sm:text-4xl">
+            <h2 id={overlayTitelId} className="font-display text-3xl font-semibold text-ink sm:text-4xl">
               Willkommen {profile.name || "ohne Namen"}
             </h2>
             <p className="mt-2 text-sm text-muted">Richte dein Profil in vier kurzen Schritten ein.</p>

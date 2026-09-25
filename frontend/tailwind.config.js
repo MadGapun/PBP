@@ -17,6 +17,10 @@ export default {
         12: "0.12",
       },
       colors: {
+        // G71 (#1087 H1): "white" ist hier fast immer eine durchscheinende
+        // Ueberlagerung (border-white/10, bg-white/[0.03]). Im hellen Modus
+        // muss sie dunkel sein, sonst verschwinden Rahmen und Flaechen.
+        white: "rgb(var(--surface-overlay-soft) / <alpha-value>)",
         shell: "rgb(var(--color-shell) / <alpha-value>)",
         panel: "rgb(var(--color-panel) / <alpha-value>)",
         panelstrong: "rgb(var(--color-panel-strong) / <alpha-value>)",

@@ -569,7 +569,7 @@ def test_application_timeline_supports_note_and_status_changes(live_dashboard, b
 
         timeline_status = page.get_by_label("Status direkt ändern")
         timeline_status.click()
-        page.get_by_role("button", name="Interview", exact=True).click()
+        page.get_by_role("option", name="Interview", exact=True).click()
         # G67 (#1087 D8): der Toast nennt den neuen Status und bietet
         # "Rückgängig" an.
         page.get_by_text("Status: Interview.").wait_for(state="visible")
@@ -1072,26 +1072,27 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         # Knopfinhalt ueberschrieb — ein Screenreader nannte die Frage
         # und nie die Antwort. Jetzt steht beides im Namen, und er
         # wandert mit dem gewaehlten Wert.
+        # G71 (#1087 H5): Rolle combobox, Eintraege als option.
         auswahl = page.get_by_role(
-            "button", name="Welches Profil? Alle Profile", exact=True)
+            "combobox", name="Welches Profil? Alle Profile", exact=True)
         assert auswahl.count() == 1, "Name nennt nicht Frage UND Antwort"
         assert auswahl.get_attribute("aria-expanded") == "false"
         auswahl.click()
         assert auswahl.get_attribute("aria-expanded") == "true"
         for name in ("Erstes Profil", "Zweites Profil"):
-            page.get_by_role("button", name=name, exact=True).wait_for(
+            page.get_by_role("option", name=name, exact=True).wait_for(
                 state="visible", timeout=4000)
-        page.get_by_role("button", name="Zweites Profil", exact=True).click()
+        page.get_by_role("option", name="Zweites Profil", exact=True).click()
         gewechselt = page.get_by_role(
-            "button", name="Welches Profil? Zweites Profil", exact=True)
+            "combobox", name="Welches Profil? Zweites Profil", exact=True)
         gewechselt.wait_for(state="visible", timeout=4000)
         assert gewechselt.get_attribute("aria-expanded") == "false"
         # Zurueck auf alle Profile, damit der Rest des Tests auf
         # derselben Lage arbeitet wie vorher.
         gewechselt.click()
-        page.get_by_role("button", name="Alle Profile", exact=True).click()
+        page.get_by_role("option", name="Alle Profile", exact=True).click()
         page.get_by_role(
-            "button", name="Welches Profil? Alle Profile", exact=True
+            "combobox", name="Welches Profil? Alle Profile", exact=True
         ).wait_for(state="visible", timeout=4000)
 
         # AK 6: der Knopf bleibt gesperrt, solange nichts gewaehlt ist

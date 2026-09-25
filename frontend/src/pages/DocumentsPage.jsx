@@ -207,7 +207,7 @@ export default function DocumentsPage() {
     <div id="page-dokumente" className="page active">
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Dokumente</h1>
-      <p className="text-xs text-muted/50 mb-2">{data.total} Dokumente</p>
+      <p className="text-xs text-muted mb-2">{data.total} Dokumente</p>
       <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
       </div>
 
@@ -225,11 +225,11 @@ export default function DocumentsPage() {
             onDrop={async (e) => { e.preventDefault(); setDragActive(false); const files = await extractDroppedFiles(e.dataTransfer); await processFiles(files); }}
           >
             <div className="flex items-center gap-3">
-              <Upload size={16} className="text-muted/40 shrink-0" />
-              <span className="text-sm text-muted/60">Dateien oder Ordner hier ablegen</span>
+              <Upload size={16} className="text-muted shrink-0" />
+              <span className="text-sm text-muted">Dateien oder Ordner hier ablegen</span>
               <div className="flex items-center gap-2 ml-auto">
                 <SelectInput
-                  className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/5 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-[12px] !text-muted/60"
+                  className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/5 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-[12px] !text-muted"
                   value={uploadType}
                   onChange={(e) => setUploadType(e.target.value)}
                 >
@@ -266,14 +266,14 @@ export default function DocumentsPage() {
               <div className="text-sm font-medium text-ink">
                 {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} koennen verarbeitet werden
               </div>
-              <div className="text-xs text-muted/70 mt-1 leading-snug">
+              <div className="text-xs text-muted mt-1 leading-snug">
                 Claude klassifiziert jedes hochgeladene Dokument und macht das Passende:
                 <strong className="text-ink"> Profil-Daten</strong> aus CVs/Zeugnissen,
                 <strong className="text-ink"> Status-Updates</strong> bei Absagen/Einladungen/Angeboten,
                 <strong className="text-ink"> Anhang-Verknüpfung</strong> bei firmenspezifischen Anschreiben,
                 <strong className="text-ink"> Termin-Anlage</strong> bei Interview-Bestätigungen.
               </div>
-              <details className="mt-2 text-[11px] text-muted/70">
+              <details className="mt-2 text-xs text-muted">
                 <summary className="cursor-pointer text-muted hover:text-ink">
                   So gehts (3 Schritte)
                 </summary>
@@ -282,7 +282,7 @@ export default function DocumentsPage() {
                   <li>Wechsle zu Claude Desktop und füge den Prompt mit <kbd className="px-1 rounded bg-shell/60">Strg+V</kbd> ein</li>
                   <li>Claude klassifiziert die Dokumente und fragt vor jeder Aktion um Bestätigung</li>
                 </ol>
-                <p className="mt-1.5 text-muted/50">
+                <p className="mt-1.5 text-muted">
                   Nur Profil-Daten? Dann nimm im Profil-Tab „Profil ergänzen mit Claude“.
                 </p>
               </details>
@@ -307,19 +307,19 @@ export default function DocumentsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <form onSubmit={handleSearch} className="flex flex-1 items-center gap-2 min-w-[200px] max-w-md">
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/40" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Dateiname oder Inhalt suchen..."
-              className="w-full rounded-xl border border-white/8 bg-white/[0.03] py-2 pl-9 pr-8 text-sm text-ink placeholder:text-muted/30 focus:border-sky/30 focus:outline-none"
+              className="w-full rounded-xl border border-white/8 bg-white/[0.03] py-2 pl-9 pr-8 text-sm text-ink placeholder:text-muted focus:border-sky/30 focus:outline-none"
             />
             {activeQuery && (
-              <button
+              <button aria-label="Suche leeren"
                 type="button"
                 onClick={clearSearch}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted/40 hover:text-ink"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
               >
                 <X size={14} />
               </button>
@@ -334,7 +334,7 @@ export default function DocumentsPage() {
         </form>
 
         <SelectInput
-          className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+          className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
           value={docType}
           onChange={(e) => { setDocType(e.target.value); setPage(1); }}
         >
@@ -354,10 +354,10 @@ export default function DocumentsPage() {
               onFocus={() => setAppDropdownOpen(true)}
               onBlur={() => setTimeout(() => setAppDropdownOpen(false), 200)}
               placeholder={appFilter ? (data.applications.find((a) => a.id === appFilter)?.company || "Bewerbung") : "Bewerbung filtern..."}
-              className="h-9 w-[14rem] rounded-xl border border-white/5 bg-white/[0.03] px-3 text-[13px] text-muted/60 placeholder:text-muted/30 focus:border-sky/30 focus:outline-none"
+              className="h-9 w-[14rem] rounded-xl border border-white/5 bg-white/[0.03] px-3 text-[13px] text-muted placeholder:text-muted focus:border-sky/30 focus:outline-none"
             />
             {appFilter && (
-              <button type="button" onClick={() => { setAppFilter(""); setAppSearch(""); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted/40 hover:text-ink">
+              <button aria-label="Filter Bewerbung entfernen" type="button" onClick={() => { setAppFilter(""); setAppSearch(""); setPage(1); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-ink">
                 <X size={12} />
               </button>
             )}
@@ -368,12 +368,12 @@ export default function DocumentsPage() {
               );
               if (filtered.length === 0) return null;
               return (
-                <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-[18rem] overflow-y-auto rounded-xl border border-white/10 bg-[rgba(30,34,52,0.95)] shadow-2xl backdrop-blur-2xl">
-                  <button type="button" className="flex w-full px-3 py-1.5 text-[12px] text-muted/50 hover:bg-white/[0.06]" onMouseDown={() => { setAppFilter(""); setAppSearch(""); setPage(1); setAppDropdownOpen(false); }}>
+                <div className="absolute left-0 top-full z-50 mt-1 max-h-48 w-[18rem] overflow-y-auto rounded-xl border border-white/10 bg-panel/95 shadow-2xl backdrop-blur-2xl">
+                  <button type="button" className="flex w-full px-3 py-1.5 text-[12px] text-muted hover:bg-white/[0.06]" onMouseDown={() => { setAppFilter(""); setAppSearch(""); setPage(1); setAppDropdownOpen(false); }}>
                     Alle Bewerbungen
                   </button>
                   {filtered.map((a) => (
-                    <button key={a.id} type="button" className={cn("flex w-full px-3 py-1.5 text-[12px] text-left transition-colors hover:bg-white/[0.06]", appFilter === a.id ? "text-sky" : "text-muted/60")} onMouseDown={() => { setAppFilter(a.id); setAppSearch(""); setUnlinkedFilter(false); setPage(1); setAppDropdownOpen(false); }}>
+                    <button key={a.id} type="button" className={cn("flex w-full px-3 py-1.5 text-[12px] text-left transition-colors hover:bg-white/[0.06]", appFilter === a.id ? "text-sky" : "text-muted")} onMouseDown={() => { setAppFilter(a.id); setAppSearch(""); setUnlinkedFilter(false); setPage(1); setAppDropdownOpen(false); }}>
                       {a.company}{a.title ? ` — ${a.title}` : ""}
                     </button>
                   ))}
@@ -391,7 +391,7 @@ export default function DocumentsPage() {
             className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
               unlinkedFilter
                 ? "bg-amber/15 text-amber"
-                : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                : "text-muted hover:text-ink hover:bg-white/[0.04]"
             }`}
           >
             <Unlink size={12} />
@@ -411,7 +411,7 @@ export default function DocumentsPage() {
             className={`flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors ${
               extractionFilter
                 ? "bg-violet-500/15 text-violet-400"
-                : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                : "text-muted hover:text-ink hover:bg-white/[0.04]"
             }`}
           >
             <Sparkles size={12} />
@@ -433,7 +433,7 @@ export default function DocumentsPage() {
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 sort === s.col
                   ? "bg-sky/15 text-sky"
-                  : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                  : "text-muted hover:text-ink hover:bg-white/[0.04]"
               }`}
             >
               {s.label}
@@ -481,7 +481,7 @@ export default function DocumentsPage() {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { applicationId: doc.linked_application_id, focus: "timeline" }); }}
-                          className="mt-0.5 flex items-center gap-1 text-sm text-sky/70 hover:text-sky transition-colors"
+                          className="mt-0.5 flex items-center gap-1 text-sm text-sky hover:text-sky transition-colors"
                         >
                           <Link2 size={11} />
                           <span className="truncate">
@@ -494,13 +494,13 @@ export default function DocumentsPage() {
                           )}
                         </button>
                       ) : (
-                        <p className="mt-0.5 text-[11px] text-muted/30">Nicht verknüpft</p>
+                        <p className="mt-0.5 text-xs text-muted">Nicht verknüpft</p>
                       )}
                       {/* Expandable text preview (#366) */}
                       {doc.extracted_text && (
                         <button
                           type="button"
-                          className="mt-1 text-left text-xs text-muted/40 hover:text-muted/60 transition-colors w-full"
+                          className="mt-1 text-left text-xs text-muted hover:text-muted transition-colors w-full"
                           onClick={() => setExpandedText(isTextExpanded ? null : doc.id)}
                         >
                           {isTextExpanded
@@ -508,11 +508,11 @@ export default function DocumentsPage() {
                             : doc.extracted_text.slice(0, 150)}
                           {doc.extracted_text.length > (isTextExpanded ? 500 : 150) && "…"}
                           {doc.extracted_text.length > 150 && (
-                            <span className="ml-1 text-sky/50">{isTextExpanded ? "weniger" : "mehr"}</span>
+                            <span className="ml-1 text-sky">{isTextExpanded ? "weniger" : "mehr"}</span>
                           )}
                         </button>
                       )}
-                      <div className="mt-1 text-[11px] text-muted/30">
+                      <div className="mt-1 text-xs text-muted">
                         {doc.created_at && formatDate(doc.created_at)}
                       </div>
                     </div>
@@ -523,7 +523,7 @@ export default function DocumentsPage() {
                         <button
                           type="button"
                           onClick={() => reanalyzeDocument(doc.id)}
-                          className="rounded-lg p-1.5 text-amber/50 hover:text-amber transition-colors"
+                          className="rounded-lg p-1.5 text-amber hover:text-amber transition-colors"
                           title="Vollanalyse mit Claude (bisher nur Basis)"
                           aria-label="Vollanalyse mit Claude"
                         >
@@ -533,7 +533,7 @@ export default function DocumentsPage() {
                         <button
                           type="button"
                           onClick={() => reanalyzeDocument(doc.id)}
-                          className="rounded-lg p-1.5 text-muted/30 hover:text-violet-400 transition-colors"
+                          className="rounded-lg p-1.5 text-muted hover:text-violet-400 transition-colors"
                           title="Erneut analysieren mit Claude"
                           aria-label="Erneut analysieren mit Claude"
                         >
@@ -541,34 +541,34 @@ export default function DocumentsPage() {
                         </button>
                       ) : null}
                       {/* Link/Unlink button (#366) */}
-                      <button
+                      <button aria-label="Verknüpfung ändern"
                         type="button"
                         onClick={() => setLinkModal({
                           open: true,
                           doc,
                           value: doc.linked_application_id || "",
                         })}
-                        className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors"
+                        className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors"
                         title="Verknüpfung ändern"
                       >
                         <LinkIcon size={14} />
                       </button>
                       {/* #403: Copy communication ID */}
-                      <button
+                      <button aria-label={`Kommunikations-ID kopieren (${doc.id.slice(0, 8)})`}
                         type="button"
                         onClick={() => {
                           const shortId = doc.id.slice(0, 8);
                           navigator.clipboard.writeText(shortId);
                           pushToast(`ID ${shortId} kopiert`, "success");
                         }}
-                        className="rounded-lg p-1.5 text-muted/30 hover:text-amber transition-colors"
+                        className="rounded-lg p-1.5 text-muted hover:text-amber transition-colors"
                         title={`Kommunikations-ID kopieren (${doc.id.slice(0, 8)})`}
                       >
                         <Copy size={14} />
                       </button>
                       <a
                         href={apiUrl(`/api/documents/${doc.id}/download`)}
-                        className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                        className="shrink-0 rounded-lg p-1.5 text-muted hover:text-teal transition-colors"
                         title="Herunterladen"
                       >
                         <Download size={14} />
@@ -585,7 +585,7 @@ export default function DocumentsPage() {
                           <button
                             type="button"
                             onClick={() => setDeleteConfirm(null)}
-                            className="rounded-lg px-2 py-1 text-xs text-muted/50 hover:text-ink transition-colors"
+                            className="rounded-lg px-2 py-1 text-xs text-muted hover:text-ink transition-colors"
                           >
                             Nein
                           </button>
@@ -594,7 +594,7 @@ export default function DocumentsPage() {
                         <button
                           type="button"
                           onClick={() => setDeleteConfirm(doc.id)}
-                          className="shrink-0 rounded-lg p-1.5 text-muted/30 hover:text-red-400 transition-colors"
+                          className="shrink-0 rounded-lg p-1.5 text-muted hover:text-red-400 transition-colors"
                           title="Löschen"
                         >
                           <Trash2 size={14} />
@@ -606,17 +606,17 @@ export default function DocumentsPage() {
                   {isExpanded && (
                     <div className="mt-3 border-t border-white/[0.06] pt-3" onClick={(e) => e.stopPropagation()}>
                       <div className="grid gap-3 sm:grid-cols-2">
-                        <div className="text-xs text-muted/50 space-y-1">
-                          <p><span className="text-muted/30">ID:</span> {doc.id.slice(0, 8)}</p>
-                          <p><span className="text-muted/30">Typ:</span> {docTypeLabel(doc.doc_type)}</p>
-                          <p><span className="text-muted/30">Erstellt:</span> {doc.created_at ? formatDateTime(doc.created_at) : "k.A."}</p>
-                          <p><span className="text-muted/30">Status:</span> {extractionBadge(doc.extraction_status).label}</p>
-                          {doc.app_company && <p><span className="text-muted/30">Bewerbung:</span> {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}</p>}
+                        <div className="text-xs text-muted space-y-1">
+                          <p><span className="text-muted">ID:</span> {doc.id.slice(0, 8)}</p>
+                          <p><span className="text-muted">Typ:</span> {docTypeLabel(doc.doc_type)}</p>
+                          <p><span className="text-muted">Erstellt:</span> {doc.created_at ? formatDateTime(doc.created_at) : "k.A."}</p>
+                          <p><span className="text-muted">Status:</span> {extractionBadge(doc.extraction_status).label}</p>
+                          {doc.app_company && <p><span className="text-muted">Bewerbung:</span> {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}</p>}
                         </div>
                         <div className="flex flex-col gap-2 items-start sm:items-end">
                           {availableTemplates.length > 0 && (
                             <SelectInput
-                              className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/10 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-[11px] !text-muted/60"
+                              className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/10 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-xs !text-muted"
                               value={templateChoice[doc.id] || ""}
                               onChange={(e) => setTemplateChoice((prev) => ({ ...prev, [doc.id]: e.target.value }))}
                               title="Analyse-Template"
@@ -651,7 +651,7 @@ export default function DocumentsPage() {
                       </div>
                       {doc.extracted_text && (
                         <div className="mt-3 rounded-lg bg-white/[0.02] border border-white/[0.04] p-3 max-h-48 overflow-y-auto">
-                          <p className="text-xs text-muted/40 whitespace-pre-wrap">{doc.extracted_text.slice(0, 2000)}</p>
+                          <p className="text-xs text-muted whitespace-pre-wrap">{doc.extracted_text.slice(0, 2000)}</p>
                         </div>
                       )}
                     </div>
@@ -664,22 +664,22 @@ export default function DocumentsPage() {
           {/* Pagination */}
           {data.pages > 1 && (
             <div className="mt-4 flex items-center justify-center gap-2">
-              <button
+              <button aria-label="Vorherige Seite"
                 type="button"
                 disabled={data.page <= 1}
                 onClick={() => setPage((p) => p - 1)}
-                className="rounded-lg p-1.5 text-muted/40 hover:text-ink disabled:opacity-30 transition-colors"
+                className="rounded-lg p-1.5 text-muted hover:text-ink disabled:opacity-30 transition-colors"
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="text-xs text-muted/50">
+              <span className="text-xs text-muted">
                 Seite {data.page} von {data.pages} ({data.total} Dokumente)
               </span>
-              <button
+              <button aria-label="Nächste Seite"
                 type="button"
                 disabled={data.page >= data.pages}
                 onClick={() => setPage((p) => p + 1)}
-                className="rounded-lg p-1.5 text-muted/40 hover:text-ink disabled:opacity-30 transition-colors"
+                className="rounded-lg p-1.5 text-muted hover:text-ink disabled:opacity-30 transition-colors"
               >
                 <ChevronRight size={16} />
               </button>
@@ -711,12 +711,12 @@ export default function DocumentsPage() {
             value={linkModal.search}
             onChange={(e) => setLinkModal((cur) => ({ ...cur, search: e.target.value }))}
             placeholder="Bewerbung suchen..."
-            className="w-full rounded-xl border border-white/8 bg-white/[0.03] py-2 px-3 text-sm text-ink placeholder:text-muted/30 focus:border-sky/30 focus:outline-none"
+            className="w-full rounded-xl border border-white/8 bg-white/[0.03] py-2 px-3 text-sm text-ink placeholder:text-muted focus:border-sky/30 focus:outline-none"
           />
           <div className="max-h-48 overflow-y-auto rounded-xl border border-white/[0.05]">
             <button
               type="button"
-              className={cn("flex w-full px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]", !linkModal.value ? "text-sky font-medium" : "text-muted/60")}
+              className={cn("flex w-full px-3 py-2 text-sm transition-colors hover:bg-white/[0.06]", !linkModal.value ? "text-sky font-medium" : "text-muted")}
               onClick={() => setLinkModal((cur) => ({ ...cur, value: "" }))}
             >
               Nicht verknüpft
@@ -730,7 +730,7 @@ export default function DocumentsPage() {
                 <button
                   key={a.id}
                   type="button"
-                  className={cn("flex w-full px-3 py-2 text-sm text-left transition-colors hover:bg-white/[0.06]", linkModal.value === a.id ? "text-sky font-medium" : "text-muted/60")}
+                  className={cn("flex w-full px-3 py-2 text-sm text-left transition-colors hover:bg-white/[0.06]", linkModal.value === a.id ? "text-sky font-medium" : "text-muted")}
                   onClick={() => setLinkModal((cur) => ({ ...cur, value: a.id }))}
                 >
                   {a.company}{a.title ? ` — ${a.title}` : ""}

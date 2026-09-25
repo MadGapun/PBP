@@ -58,12 +58,12 @@ const DISMISS_COLORS = [
 
 const CHART_STYLE = {
   fontSize: 11,
-  fill: "rgba(255,255,255,0.45)",
+  fill: "rgb(var(--color-muted))",
 };
 
 const TOOLTIP_STYLE = {
-  background: "rgba(30,34,52,0.95)",
-  border: "1px solid rgba(255,255,255,0.1)",
+  background: "rgb(var(--color-panel) / 0.97)",
+  border: "1px solid rgb(var(--surface-overlay-soft) / 0.1)",
   borderRadius: 12,
   fontSize: 12,
 };
@@ -98,7 +98,7 @@ function buildExportUrl(format, timeRange, customFrom, customTo) {
 function ChartCard({ title, children }) {
   return (
     <Card className="rounded-2xl">
-      <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+      <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-muted">
         {title}
       </p>
       {children}
@@ -138,11 +138,11 @@ function ActivityHeatmap({ data, days }) {
     return 4;
   }
   const colors = [
-    "rgba(255,255,255,0.04)",
-    "rgba(56,189,248,0.25)",
-    "rgba(56,189,248,0.5)",
-    "rgba(56,189,248,0.75)",
-    "rgba(56,189,248,1)",
+    "rgb(var(--surface-overlay-soft) / 0.04)",
+    "rgb(var(--color-sky) / 0.25)",
+    "rgb(var(--color-sky) / 0.5)",
+    "rgb(var(--color-sky) / 0.75)",
+    "rgb(var(--color-sky) / 1)",
   ];
 
   // Monatslabels: Index der ersten Woche pro Monat
@@ -161,7 +161,7 @@ function ActivityHeatmap({ data, days }) {
   return (
     <div className="overflow-x-auto">
       <div className="inline-flex flex-col gap-1">
-        <div className="ml-7 flex gap-[3px] text-[9px] text-muted/40">
+        <div className="ml-7 flex gap-[3px] text-xs text-muted">
           {weeks.map((_, i) => {
             const lbl = monthLabels.find((m) => m.index === i);
             return (
@@ -172,7 +172,7 @@ function ActivityHeatmap({ data, days }) {
           })}
         </div>
         <div className="flex gap-[3px]">
-          <div className="flex flex-col justify-between pr-1 text-[9px] text-muted/40">
+          <div className="flex flex-col justify-between pr-1 text-xs text-muted">
             <span>Mo</span>
             <span>Mi</span>
             <span>Fr</span>
@@ -201,7 +201,7 @@ function ActivityHeatmap({ data, days }) {
             </div>
           ))}
         </div>
-        <div className="ml-7 mt-1 flex items-center gap-2 text-[10px] text-muted/40">
+        <div className="ml-7 mt-1 flex items-center gap-2 text-xs text-muted">
           <span>weniger</span>
           {colors.map((c, i) => (
             <div key={i} className="h-[10px] w-[10px] rounded-[2px]" style={{ background: c }} />
@@ -227,9 +227,9 @@ function StatBox({ label, value, sub, tone = "neutral" }) {
   };
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${toneClasses[tone] || toneClasses.neutral}`}>
-      <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">{label}</p>
+      <p className="text-xs uppercase tracking-[0.12em] text-muted">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${valueClasses[tone] || "text-ink"}`}>{value}</p>
-      {sub && <p className="text-[10px] text-muted/40">{sub}</p>}
+      {sub && <p className="text-xs text-muted">{sub}</p>}
     </div>
   );
 }
@@ -399,7 +399,7 @@ export default function StatsPage() {
               className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
                 timeRange === preset.value
                   ? "bg-sky/15 text-sky"
-                  : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                  : "text-muted hover:text-ink hover:bg-white/[0.04]"
               }`}
             >
               {preset.label}
@@ -408,7 +408,7 @@ export default function StatsPage() {
           <span className="mx-0.5 h-4 w-px bg-white/10" />
           {/* Gruppierung (granularity) */}
           <SelectInput
-            className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted/60"
+            className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
             value={granularity}
             onChange={(e) => setGranularity(e.target.value)}
           >
@@ -441,7 +441,7 @@ export default function StatsPage() {
       </div>
 
       {/* v1.6.6 (#540): manueller Zeitraum fuer den Bericht-Export */}
-      <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-muted/70">
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-xs text-muted">
         <span>Bericht-Zeitraum manuell:</span>
         <input
           type="date"
@@ -462,12 +462,12 @@ export default function StatsPage() {
           <button
             type="button"
             onClick={() => { setCustomFrom(""); setCustomTo(""); }}
-            className="text-[11px] text-muted/60 hover:text-ink underline"
+            className="text-xs text-muted hover:text-ink underline"
           >
             zurücksetzen
           </button>
         )}
-        <span className="ml-2 text-[11px] text-muted/50">
+        <span className="ml-2 text-xs text-muted">
           (überschreibt die Preset-Auswahl oben — leer = Preset gilt)
         </span>
       </div>
@@ -485,7 +485,7 @@ export default function StatsPage() {
               <Card className="rounded-2xl">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar size={14} className="text-sky" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Heute</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Heute</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <StatBox label="Gefunden" value={today.jobs_found || 0} tone="success" />
@@ -497,7 +497,7 @@ export default function StatsPage() {
               <Card className="rounded-2xl">
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp size={14} className="text-teal" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Diese Woche</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Diese Woche</p>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
                   <StatBox label="Gefunden" value={week.jobs_found || 0} tone="success" />
@@ -509,7 +509,7 @@ export default function StatsPage() {
               <Card className="rounded-2xl">
                 <div className="flex items-center gap-2 mb-3">
                   <BarChart3 size={14} className="text-amber" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                     Gesamt{extended.start_date ? ` (seit ${formatDate(extended.start_date)})` : ""}
                   </p>
                 </div>
@@ -557,7 +557,7 @@ export default function StatsPage() {
               <Card className="rounded-2xl">
                 <div className="mb-4 flex items-center gap-2">
                   <BarChart3 size={14} className="text-amber" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                     Score deiner Bewerbungen
                   </p>
                 </div>
@@ -587,16 +587,16 @@ export default function StatsPage() {
                     />
                   )}
                 </div>
-                <div className="mb-4 flex justify-between text-[10px] text-muted/70">
+                <div className="mb-4 flex justify-between text-xs text-muted">
                   <span>{b.min}</span>
                   <span>Median {b.median}</span>
                   <span>{b.max}</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
-                  <div><span className="text-muted/70">Bewerbungen</span><br />{b.anzahl}</div>
-                  <div><span className="text-muted/70">Mittel</span><br />{b.mittel}</div>
-                  <div><span className="text-muted/70">Median</span><br />{b.median}</div>
-                  <div><span className="text-muted/70">Spanne</span><br />{b.min} – {b.max}</div>
+                  <div><span className="text-muted">Bewerbungen</span><br />{b.anzahl}</div>
+                  <div><span className="text-muted">Mittel</span><br />{b.mittel}</div>
+                  <div><span className="text-muted">Median</span><br />{b.median}</div>
+                  <div><span className="text-muted">Spanne</span><br />{b.min} – {b.max}</div>
                 </div>
                 {v.unter_schwelle?.anzahl > 0 && (
                   <p className="mt-4 text-xs text-muted">
@@ -639,11 +639,11 @@ export default function StatsPage() {
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <BarChart3 size={14} className="text-amber" />
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                       Outcome-Quoten
                     </p>
                     {q.pbp_start_datum && (
-                      <span className="ml-2 text-[11px] text-muted/50">
+                      <span className="ml-2 text-xs text-muted">
                         PBP-Start: {formatDate(q.pbp_start_datum)}
                       </span>
                     )}
@@ -654,10 +654,10 @@ export default function StatsPage() {
                         key={s.key}
                         type="button"
                         onClick={() => setQuotaSegment(s.key)}
-                        className={`rounded-md px-2.5 py-1 text-[11px] transition ${
+                        className={`rounded-md px-2.5 py-1 text-xs transition ${
                           quotaSegment === s.key
                             ? "bg-sky/15 text-sky"
-                            : "text-muted/60 hover:text-ink"
+                            : "text-muted hover:text-ink"
                         }`}
                       >
                         {s.label}
@@ -674,7 +674,7 @@ export default function StatsPage() {
                       <StatBox label="Interview erreicht" value={`${seg.interview_rate}%`} sub={`${seg.interview} Bew.`} tone="sky" />
                       <StatBox label="Angebot" value={`${seg.offer_rate}%`} sub={`${seg.angebot} Bew.`} tone="success" />
                     </div>
-                    <p className="mt-2 text-[11px] text-muted/50">
+                    <p className="mt-2 text-xs text-muted">
                       Basis: {seg.basis} abgeschickte Bewerbungen ({segLabel}, nach
                       Bewerbungsdatum). Der Vergleich „Seit PBP" vs. „Vor PBP" zeigt,
                       ob seit der systematischen Nutzung anteilig weniger Bewerbungen
@@ -682,7 +682,7 @@ export default function StatsPage() {
                     </p>
                   </>
                 ) : (
-                  <p className="text-xs text-muted/60">
+                  <p className="text-xs text-muted">
                     Noch keine abgeschickten Bewerbungen in diesem Zeitraum.
                   </p>
                 )}
@@ -695,11 +695,11 @@ export default function StatsPage() {
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Activity size={14} className="text-sky" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                   Aktivitäts-Heatmap
                 </p>
                 {heatmap?.total_active_days != null && (
-                  <span className="ml-2 text-[11px] text-muted/50">
+                  <span className="ml-2 text-xs text-muted">
                     {heatmap.total_active_days} aktive Tage
                     {heatmap.max_per_day ? ` · max. ${heatmap.max_per_day}/Tag` : ""}
                   </span>
@@ -716,10 +716,10 @@ export default function StatsPage() {
                     key={p.value}
                     type="button"
                     onClick={() => setHeatmapDays(p.value)}
-                    className={`rounded-lg px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    className={`rounded-lg px-2 py-0.5 text-xs font-medium transition-colors ${
                       heatmapDays === p.value
                         ? "bg-sky/15 text-sky"
-                        : "text-muted/40 hover:text-ink hover:bg-white/[0.04]"
+                        : "text-muted hover:text-ink hover:bg-white/[0.04]"
                     }`}
                   >
                     {p.label}
@@ -730,7 +730,7 @@ export default function StatsPage() {
             {heatmap && heatmap.data && heatmap.data.length > 0 ? (
               <ActivityHeatmap data={heatmap.data} days={heatmapDays} />
             ) : (
-              <p className="py-6 text-center text-sm text-muted/40">
+              <p className="py-6 text-center text-sm text-muted">
                 Noch keine Aktivitäten erfasst. Sobald du Bewerbungen, Termine oder Nachfassungen anlegst, erscheint hier ein Aktivitätsmuster.
               </p>
             )}
@@ -742,17 +742,17 @@ export default function StatsPage() {
               {timelineChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <AreaChart data={timelineChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
                     <XAxis dataKey="name" tick={CHART_STYLE} />
                     <YAxis tick={CHART_STYLE} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     <Area type="monotone" dataKey="Bewerbungen" stroke="#38bdf8" fill="#38bdf8" fillOpacity={0.15} strokeWidth={2} />
                     <Area type="monotone" dataKey="Neue Stellen" stroke="#34d399" fill="#34d399" fillOpacity={0.1} strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted/40">Keine Zeitraumdaten vorhanden.</p>
+                <p className="py-8 text-center text-sm text-muted">Keine Zeitraumdaten vorhanden.</p>
               )}
             </ChartCard>
 
@@ -760,10 +760,10 @@ export default function StatsPage() {
               {statusChartData.length > 0 && statusKeys.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={statusChartData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
                     <XAxis dataKey="name" tick={CHART_STYLE} />
                     <YAxis tick={CHART_STYLE} allowDecimals={false} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
                     {statusKeys.map((status, i) => (
                       <Bar key={status} dataKey={statusLabels[i]} stackId="status" fill={STATUS_COLORS[status] || "#94a3b8"} radius={[2, 2, 0, 0]} />
@@ -771,7 +771,7 @@ export default function StatsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted/40">Keine Statusdaten vorhanden.</p>
+                <p className="py-8 text-center text-sm text-muted">Keine Statusdaten vorhanden.</p>
               )}
             </ChartCard>
           </div>
@@ -792,7 +792,7 @@ export default function StatsPage() {
                       innerRadius={50}
                       paddingAngle={2}
                       label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={{ stroke: "rgba(255,255,255,0.2)" }}
+                      labelLine={{ stroke: "rgb(var(--surface-overlay-soft) / 0.2)" }}
                     >
                       {sourcePieData.map((entry, i) => (
                         <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} cursor="pointer" onClick={() => navigateTo("stellen")} />
@@ -802,7 +802,7 @@ export default function StatsPage() {
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted/40">Keine Quellendaten vorhanden.</p>
+                <p className="py-8 text-center text-sm text-muted">Keine Quellendaten vorhanden.</p>
               )}
             </ChartCard>
 
@@ -810,12 +810,12 @@ export default function StatsPage() {
               {scoreBarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={scoreBarData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
                     <XAxis dataKey="bucket" tick={CHART_STYLE} label={{ value: "Punkte", position: "insideBottom", offset: -2, style: CHART_STYLE }} />
                     <YAxis tick={CHART_STYLE} allowDecimals={false} />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
-                      labelStyle={{ color: "rgba(255,255,255,0.7)" }}
+                      labelStyle={{ color: "rgb(var(--color-ink))" }}
                       formatter={(value) => [value, "Stellen"]}
                       labelFormatter={(label) => `Punkte ${label}`}
                     />
@@ -827,7 +827,7 @@ export default function StatsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted/40">Noch keine Punkte vorhanden.</p>
+                <p className="py-8 text-center text-sm text-muted">Noch keine Punkte vorhanden.</p>
               )}
             </ChartCard>
           </div>
@@ -848,7 +848,7 @@ export default function StatsPage() {
                       innerRadius={50}
                       paddingAngle={2}
                       label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                      labelLine={{ stroke: "rgba(255,255,255,0.2)" }}
+                      labelLine={{ stroke: "rgb(var(--surface-overlay-soft) / 0.2)" }}
                     >
                       {scores.application_sources.map((_, i) => (
                         <Cell key={i} fill={SOURCE_COLORS[i % SOURCE_COLORS.length]} />
@@ -864,10 +864,10 @@ export default function StatsPage() {
               <ChartCard title="Ablehnungsgründe (Top 10)">
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={dismissData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
                     <XAxis type="number" tick={CHART_STYLE} allowDecimals={false} />
                     <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={140} />
-                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
+                    <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
                     <Bar dataKey="count" radius={[0, 4, 4, 0]}>
                       {dismissData.map((_, i) => (
                         <Cell key={i} fill={DISMISS_COLORS[i % DISMISS_COLORS.length]} />
@@ -884,10 +884,10 @@ export default function StatsPage() {
             <ChartCard title="Durchschnittsscore nach Quelle">
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={sourceScoreData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgb(var(--surface-overlay-soft) / 0.06)" />
                   <XAxis type="number" tick={CHART_STYLE} />
                   <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={100} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgb(var(--color-ink))" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Bar dataKey={"Ø Punkte"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
                   <Bar dataKey="Max Punkte" fill="#34d399" radius={[0, 4, 4, 0]} />
@@ -902,13 +902,13 @@ export default function StatsPage() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <TrendingUp size={14} className="text-coral" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Was Absagen dir sagen</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Was Absagen dir sagen</p>
                 </div>
                 <Badge tone="danger">{rejection.anzahl} Absagen</Badge>
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Häufigste Gründe</p>
+                  <p className="text-xs uppercase tracking-wide text-muted mb-2">Häufigste Gründe</p>
                   <div className="grid gap-1.5">
                     {Object.entries(rejection.nach_grund || {}).slice(0, 6).map(([grund, count]) => (
                       // v1.6.5: items-start statt items-center + break-words statt truncate,
@@ -921,7 +921,7 @@ export default function StatsPage() {
                   </div>
                 </div>
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted/50 mb-2">Betroffene Firmen</p>
+                  <p className="text-xs uppercase tracking-wide text-muted mb-2">Betroffene Firmen</p>
                   <div className="grid gap-1.5">
                     {Object.entries(rejection.nach_firma || {}).slice(0, 6).map(([firma, count]) => (
                       <div key={firma} className="flex items-start justify-between gap-3 rounded-lg border border-white/[0.04] px-3 py-1.5 text-sm">
@@ -933,7 +933,7 @@ export default function StatsPage() {
                 </div>
               </div>
               <div className="mt-4 flex items-center justify-between gap-3">
-                <p className="text-xs text-muted/50">
+                <p className="text-xs text-muted">
                   Eine systematische Häufung weist oft auf ein konkretes Profil- oder Kommunikations-Thema hin.
                 </p>
                 <Button
@@ -953,7 +953,7 @@ export default function StatsPage() {
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <PenLine size={14} className="text-sky" />
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Anschreiben-Stile im Vergleich</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Anschreiben-Stile im Vergleich</p>
                 </div>
                 <Badge tone="neutral">{styleStats.gesamt_getrackt} getrackt</Badge>
               </div>
@@ -967,19 +967,19 @@ export default function StatsPage() {
                         <Badge tone="neutral">{bucket.anzahl} {bucket.anzahl === 1 ? "Bewerbung" : "Bewerbungen"}</Badge>
                       </div>
                       {hasQuoten ? (
-                        <div className="mt-1.5 flex items-center gap-3 text-xs text-muted/70">
+                        <div className="mt-1.5 flex items-center gap-3 text-xs text-muted">
                           <span>Interview-Quote: <span className="text-ink font-medium">{bucket.interview_quote}%</span></span>
                           <span>Angebote: <span className="text-ink font-medium">{bucket.angebots_quote}%</span></span>
                           <span>Absagen: <span className="text-ink font-medium">{bucket.absage_quote}%</span></span>
                         </div>
                       ) : (
-                        <p className="mt-1 text-xs text-muted/50">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil nötig.`}</p>
+                        <p className="mt-1 text-xs text-muted">{bucket.hinweis || `Mindestens ${styleStats.min_samples_fuer_quoten} Bewerbungen pro Stil nötig.`}</p>
                       )}
                     </div>
                   );
                 })}
               </div>
-              <p className="mt-3 text-xs text-muted/50">
+              <p className="mt-3 text-xs text-muted">
                 Claude hält den Stil nach jedem Anschreiben fest, das über den üblichen Weg entsteht.
               </p>
             </Card>
@@ -990,17 +990,17 @@ export default function StatsPage() {
             <Card className="rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <Activity size={14} className="text-sky" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Letzte Aktivität</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Letzte Aktivität</p>
               </div>
               <div className="grid gap-1.5">
                 {extended.recent_activity.map((event, i) => (
                   <div key={i} className="flex items-center gap-3 rounded-lg border border-white/[0.04] px-3 py-2 text-sm">
-                    <span className="shrink-0 text-[11px] text-muted/40 tabular-nums w-28">{formatDateTime(event.event_date)}</span>
+                    <span className="shrink-0 text-xs text-muted tabular-nums w-28">{formatDateTime(event.event_date)}</span>
                     <Badge tone={event.status === "notiz" ? "neutral" : event.status === "abgelehnt" ? "danger" : event.status === "interview" ? "amber" : "sky"}>
                       {event.status || "Event"}
                     </Badge>
                     <span className="flex-1 truncate text-ink font-medium">{event.title} — {event.company}</span>
-                    {event.notes && <span className="shrink-0 max-w-48 truncate text-xs text-muted/50">{event.notes}</span>}
+                    {event.notes && <span className="shrink-0 max-w-48 truncate text-xs text-muted">{event.notes}</span>}
                   </div>
                 ))}
               </div>

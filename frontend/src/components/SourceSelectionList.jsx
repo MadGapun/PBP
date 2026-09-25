@@ -124,7 +124,7 @@ export default function SourceSelectionList({
           <span>
             <strong className="text-ink">Tipp:</strong> Vier Wege, eine Stelle ins PBP zu bekommen — auf Pfeil klicken zum Ausklappen.
           </span>
-          <span className="text-muted/60 group-open:rotate-90 transition-transform">▶</span>
+          <span className="text-muted group-open:rotate-90 transition-transform">▶</span>
         </summary>
         <div className="mt-3 space-y-2 text-xs text-muted">
           <p>
@@ -153,7 +153,7 @@ export default function SourceSelectionList({
             wenn keiner der oberen Wege funktioniert (Stelle nur als PDF/Mail/Screenshot
             vorhanden). Claude bittest du dann, eine Stelle aus den Eckdaten anzulegen.
           </p>
-          <p className="pt-2 text-muted/70 border-t border-sky/10">
+          <p className="pt-2 text-muted border-t border-sky/10">
             Claude kann übrigens auch dein Profil auf Jobportalen wie XING oder StepStone
             aktualisieren — frag einfach danach!
           </p>
@@ -165,7 +165,7 @@ export default function SourceSelectionList({
           <div role="group" aria-label="Quellen filtern" className="flex flex-wrap items-center gap-1 text-xs">
             {ANSICHTEN.map(([id, label], index) => (
               <Fragment key={id}>
-                {index > 0 ? <span aria-hidden="true" className="text-muted/40">·</span> : null}
+                {index > 0 ? <span aria-hidden="true" className="text-muted">·</span> : null}
                 <button
                   type="button"
                   aria-pressed={ansicht === id}
