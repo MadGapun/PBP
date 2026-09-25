@@ -105,6 +105,101 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.133] - 2026-09-25 — Ein Einstieg, ein Hinweis
+
+Dritte Welle aus dem UX-Review #1087: das erste Bild nach der
+Installation und das, was über dem Inhalt steht. Kein Schema-Eingriff.
+
+### Changed
+
+- **Ein Einstieg statt drei** (#1087 A1, A2, A4). Ohne Profil lag ein
+  Fenster „Kennlerngespräch starten“ über der Willkommenskarte, die
+  „Lebenslauf hochladen“ empfahl, und die Kopfleiste sagte „Profil
+  starten“. Jetzt gibt es einen Weg: 1. Lebenslauf hochladen, 2. „Gespräch
+  mit Claude starten“ — Claude ergänzt, was fehlt. Darüber erklärt ein
+  Kasten, wie Dashboard und Claude zusammenarbeiten (Übersicht hier,
+  Gespräch und Texte dort, verbunden über die Zwischenablage). Der Knopf
+  kopiert die Anleitung wie jede andere; auf „läuft“ springt der Einstieg
+  erst, wenn Claude das Gespräch wirklich begonnen hat. Überall derselbe
+  Startsatz: „Starte die Ersterfassung“.
+- **Höchstens ein Hinweis, und nur auf dem Dashboard** (#1087 B1, B5, A5).
+  Vorher standen bis zu fünf Banner vor dem Inhalt, drei davon auf jedem
+  Tab. Jetzt entscheidet eine feste Reihenfolge, welcher eine Hinweis
+  erscheint: Verbindung zu Claude, Jobbörsen, Suche (erst nach sieben
+  Tagen), bekanntes Update, lokale KI (erst nach dem Einstieg). Die
+  anderen Tabs beginnen direkt mit ihrem Inhalt; die rote „Empfehlung:
+  Neue Jobsuche starten“ nach einem Tag ohne Suche entfällt.
+- **Die Seitenleiste sagt, was gemeint ist.** „Claude Desktop: nicht
+  verbunden“ (rot erst, wenn ein Profil existiert), „Lokale KI: nicht
+  eingerichtet (optional)“ in Grau. „Update-Stand unbekannt“ steht leise
+  unter der Version statt als gelbes Banner über jedem Tab; ein
+  bekanntes Update steht dort als Link.
+- **Die erste Quellenauswahl passt zum Profil** (#1087 C7). Beim ersten
+  Öffnen der Quellen wurden bisher alle Quellen ohne Anmeldung still
+  aktiviert (im Test 29 von 34). Jetzt wählt PBP die Empfehlung für dein
+  Profil, sagt das in einem Kasten („Passt so“ oder selbst auswählen), und
+  die Kopfleiste zeigt die Zahl sofort.
+- **Ein Status je Seite** (#1087 A6, C4). Ohne Profil sagen Stellen- und
+  Bewerbungen-Tab „Zuerst dein Profil“ und führen zum Einstieg; über einem
+  leeren Bestand steht nicht mehr „Auf Kurs“.
+- **Der Installer sagt, ob alles geklappt hat** (#1087 A3). Der Abschluss
+  ist eine Ampel: Grün nur, wenn Claude Desktop eingerichtet ist und das
+  Dashboard läuft; sonst Gelb mit den konkreten nächsten Schritten. Er
+  verweist auf die grüne Anzeige „Claude Desktop: verbunden“ im
+  Dashboard.
+
+### Gemessen
+
+Gegenprobe: 19 Mechanismen, jeder einzeln ausgebaut, jeder macht einen
+Test rot; ein doppelter Rückfall wurde dabei als wirkungslos erkannt und
+entfernt.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.133.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.133.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+---
+
 ## [1.7.132] - 2026-09-25 — Ein Wert je Stelle
 
 Zweite Welle aus dem UX-Review #1087: dieselbe Stelle trug je nach Ort
