@@ -105,6 +105,112 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.131] - 2026-09-25 — Was im Kernweg kaputt war
+
+Erste Welle aus dem UX-Review #1087: die Defekte, die einen Bewerber im
+Alltag stoppen oder in die Irre führen. Kein Schema-Eingriff.
+
+### Fixed
+
+- **E-Mails öffnen sich wieder** (#1087 D3). Ein Klick auf eine
+  importierte Mail im Bereich „Docs“ ließ den Bereich abstürzen. Jetzt
+  öffnet sich die Mail mit Antworten, Zuordnen und „Bewerbung aus dieser
+  Mail anlegen“ — und die Liste der Bewerbungen zum Zuordnen ist gefüllt.
+- **Termin löschen in der Timeline** nimmt den Termin wirklich aus der
+  Ansicht; der Schnell-Import im Bewerbungen-Tab meldet keinen Fehler
+  mehr (#1087 D4).
+- **Der Zusage-Dialog zeigt Umlaute** statt Zeichencodes (ein Backslash, ein u und eine Nummer)
+  (#1087 D5).
+- **Sprünge landen, wo sie hinzeigen** (#1087 D6). Aus Kalender,
+  Dokumenten, Aufgaben und Elwosa öffnet sich die Timeline der
+  Bewerbung bzw. die Stelle — vorher landete man oben in der Liste.
+  „Alle im Kalender“ unter „Offene Aktionen“ heißt jetzt „Alle
+  Aufgaben“ und führt dorthin.
+- **Bewerbungsformulare in Bewerber-Sprache** (#1087 C6, D7). Die Felder
+  heißen „Stellentitel“, „Firma“, „Link zur Anzeige“ und „Beworben am“
+  (Datumsfeld) statt `title`, `company`, `url`, `applied_at`. Die
+  Vorgabe ist „Ich will mich bewerben“ — wer aus einer Stelle eine
+  Bewerbung anlegt, startet nicht mehr versehentlich mit „beworben“ und
+  dem automatischen Nachfassen. Der Knopf heißt überall
+  „Bewerbung anlegen“.
+- **Nur Absagen sind nicht „nichts“** (#1087 G8). Wer bisher nur
+  abgeschlossene Bewerbungen hat, hörte über Claude „Noch keine
+  Bewerbungen erfasst“. Jetzt: „Keine laufenden Bewerbungen — N
+  abgeschlossene“ samt Weg zu ihnen.
+- **Absage und Termin in `dokumente_verarbeiten`** (#1087 G3). Der
+  Prompt nannte Parameter, die es nicht gibt (`rejection_reason`,
+  `meeting_hinzufuegen(application_id, modus, beschreibung)`, den Status
+  `erledigt_unklar`). Korrigiert, dazu sechs weitere falsche Aufrufe in
+  Werkzeugantworten und zwei Werkzeugnamen mit Umlaut.
+- **„Grenze melden“ anonymisiert vor dem Link** (#1087 G6). Der
+  vorbereitete GitHub-Link enthielt den Rohtext; Firmennamen aus deinem
+  Bestand werden jetzt vorher ersetzt, wie bei jedem anderen Text nach
+  draußen.
+- **Ein Satz ohne Bruch** (#1087 G14): „Um Ohne Profil gibt es nichts
+  einzuordnen. zu können …“ heißt jetzt „Um dein Profil einordnen zu
+  können, braucht PBP zuerst ein Profil.“
+
+### Changed
+
+- **Löschen über Claude geht immer in zwei Schritten** (#1087 G7). Ein
+  zweites Profil wurde bisher ohne Rückfrage samt Lebenslauf, Skills und
+  Dokumenten gelöscht. Jetzt zeigt `profil_loeschen` zuerst, was
+  betroffen ist (Zeilen je Bereich, Dateien), und löscht erst mit
+  `bestaetigung=True` — auch das Löschen einer Interview-Reflexion und
+  eines Ablehnungsgrunds. Die Werkzeuge tragen dazu die Kennzeichen
+  „nur lesend“ bzw. „löscht“, damit Claude sie unterscheiden kann.
+
+### Gemessen
+
+Der neue Prüfer für Werkzeugaufrufe in Prompts und Antworten fand beim
+ersten Lauf neben den gemeldeten Fällen sechs weitere Aufrufe mit
+Parametern, die es nicht gibt. Gegenprobe: 19 Mechanismen,
+jeder einzeln ausgebaut, jeder macht einen Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.131.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.131.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+---
+
 ## [1.7.130] - 2026-09-25 — Eine Firma, alle Bezüge, und Ollama beenden
 
 Inhaltlich das, was als v1.7.129 geplant war. Der Tag v1.7.129 wurde versehentlich auf den
