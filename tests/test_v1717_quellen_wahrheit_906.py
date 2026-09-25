@@ -157,7 +157,8 @@ def test_906_frontend_dialog_und_badges():
         encoding="utf-8")
     assert 'source.zugriffsart === "browser_login"' in src, \
         "browser_login braucht den Bestaetigungs-Dialog (#906 AK 2)"
-    assert "window.confirm" in src
+    # G67 (#1087 H5): der eigene Bestaetigungsdialog statt window.confirm.
+    assert "await bestaetigen(" in src
     # v1.7.120 (#1059): das Etikett wohnt in lib/quellenBadges.
     lib = (Path(__file__).resolve().parents[1] / "frontend" / "src" /
            "lib" / "quellenBadges.js").read_text(encoding="utf-8")

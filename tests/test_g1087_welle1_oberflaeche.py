@@ -152,8 +152,9 @@ def test_g57_termin_loeschen_nimmt_ihn_aus_der_timeline(browser, server):
         page.get_by_text("Vorstellungsgespraech").first.click()
         dialog = page.locator("text=Timeline - Sachbearbeitung Einkauf")
         dialog.wait_for(timeout=10000)
-        page.on("dialog", lambda d: d.accept())
         page.get_by_title("Termin löschen").first.click()
+        # G67 (#1087 H5): der eigene Bestaetigungsdialog statt window.confirm.
+        page.locator("[data-bestaetigung]").get_by_role("button", name="Ja").click()
         page.wait_for_timeout(1500)
         assert not [f for f in fehler if "not defined" in f], fehler
         con = db.connect()

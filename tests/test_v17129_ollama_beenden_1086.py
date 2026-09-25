@@ -292,9 +292,10 @@ def test_oberflaeche_hat_knopf_auswahl_und_verknuepfung():
     # Jede Rueckfrage in IHRER Funktion und vor dem Aufruf — "confirm"
     # steht zweimal im Block, ein Wort-Guard saehe eine fehlende nicht.
     jetzt = block[block.index("async function jetztBeenden"):block.index("async function verknuepfung")]
-    assert jetzt.index("if (!window.confirm(") < jetzt.index('postJson("/api/llm/stop"')
+    # G67 (#1087 H5): der eigene Dialog statt window.confirm.
+    assert jetzt.index("if (!(await bestaetigen(") < jetzt.index('postJson("/api/llm/stop"')
     setzen = block[block.index("async function setzen"):block.index("async function jetztBeenden")]
-    assert setzen.index("if (!window.confirm(") < setzen.index('putJson("/api/llm/autostop"')
+    assert setzen.index("if (!(await bestaetigen(") < setzen.index('putJson("/api/llm/autostop"')
     assert '"/api/llm/stop-verknuepfung"' in block
     for wert in ("aus", "gestartet", "immer"):
         assert f'value="{wert}"' in block

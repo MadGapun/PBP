@@ -1,4 +1,5 @@
-﻿import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
+﻿import { bestaetigen } from "@/lib/bestaetigung";
+import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
@@ -286,7 +287,7 @@ function LearningPrivacyCard({ pushToast }) {
   }
 
   async function clearData() {
-    if (!confirm("Wirklich ALLE gesammelten Lern-Daten löschen? Domain-Daten (Bewerbungen, Stellen, etc.) bleiben unangetastet.")) return;
+    if (!(await bestaetigen({ text: "Wirklich ALLE gesammelten Lern-Daten löschen? Domain-Daten (Bewerbungen, Stellen, etc.) bleiben unangetastet." }))) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/activity/clear");
@@ -1868,7 +1869,7 @@ function OllamaBeendenBlock({ pushToast }) {
   async function setzen(wert) {
     let bestaetigt = false;
     if (wert === "immer") {
-      if (!window.confirm("Ollama wirklich IMMER mit PBP beenden? Auch wenn es schon vorher lief oder ein anderes Programm es benutzt. Beim Beenden kann PBP nicht mehr fragen.")) return;
+      if (!(await bestaetigen({ text: "Ollama wirklich IMMER mit PBP beenden? Auch wenn es schon vorher lief oder ein anderes Programm es benutzt. Beim Beenden kann PBP nicht mehr fragen." }))) return;
       bestaetigt = true;
     }
     try {
@@ -1881,7 +1882,7 @@ function OllamaBeendenBlock({ pushToast }) {
   }
 
   async function jetztBeenden() {
-    if (!window.confirm("Ollama jetzt beenden? Die lokale KI ist danach nicht erreichbar, bis du sie wieder startest.")) return;
+    if (!(await bestaetigen({ text: "Ollama jetzt beenden? Die lokale KI ist danach nicht erreichbar, bis du sie wieder startest." }))) return;
     try {
       const r = await postJson("/api/llm/stop", { bestaetigt: true });
       pushToast(r.hinweis || "Ollama ist beendet.", r.status === "beendet" ? "success" : "amber", { duration: 6000 });
@@ -2842,7 +2843,7 @@ function RoutingCard({ pushToast }) {
   }
 
   async function entfernen() {
-    if (!window.confirm("Routing-Schlüssel entfernen? PBP rechnet danach wieder mit der Luftlinie.")) return;
+    if (!(await bestaetigen({ text: "Routing-Schlüssel entfernen? PBP rechnet danach wieder mit der Luftlinie." }))) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/routing");
@@ -3026,7 +3027,7 @@ function ErweiterungenTab({ pushToast }) {
   }
 
   async function revokePlugin(p) {
-    if (!window.confirm(`Plugin "${p.name}" widerrufen? Der API-Key ist danach sofort ungültig.`)) return;
+    if (!(await bestaetigen({ text: `Plugin "${p.name}" widerrufen? Der API-Key ist danach sofort ungültig.` }))) return;
     setPluginBusy(true);
     try {
       await deleteRequest(`/api/plugins/${p.id}`);
@@ -3099,7 +3100,7 @@ function ErweiterungenTab({ pushToast }) {
   }
 
   async function removeComponent(name, label) {
-    if (!window.confirm(`${label} wieder entfernen? Nur die von PBP installierte Kopie wird gelöscht.`)) return;
+    if (!(await bestaetigen({ text: `${label} wieder entfernen? Nur die von PBP installierte Kopie wird gelöscht.` }))) return;
     setBusy(name);
     try {
       await deleteRequest(`/api/components/${name}`);
@@ -3530,7 +3531,7 @@ export default function SettingsPage() {
       `${source.name} hat ${n} Stellen im Bestand geliefert ` +
       `(${preview.davon_aktiv} aktiv, ${preview.davon_aussortiert} aussortiert).${bleiben}\n\n` +
       "Auch endgültig entfernen? Aussortierte Stellen zählen sonst weiter in Statistik und Schwellen-Stufen.";
-    if (!window.confirm(frage)) return;
+    if (!(await bestaetigen({ text: frage }))) return;
     try {
       const result = await postJson(`/api/sources/${source.key}/stellen-entfernen`, {});
       pushToast(`${result.zu_entfernen} Stellen von ${source.name} entfernt.`, "success");

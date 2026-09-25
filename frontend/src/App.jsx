@@ -59,6 +59,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
+import { dialogRegistrieren } from "@/lib/bestaetigung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
@@ -475,6 +476,42 @@ export default function App() {
   // G72 (#1087 E4): Text, den der Browser nicht in die Zwischenablage
   // lassen wollte — steht dann im Fenster zum Selbstkopieren.
   const [manuellKopieren, setManuellKopieren] = useState("");
+  // G67 (#1087 H5): EIN Bestaetigungsdialog statt window.confirm. Die
+  // Browser-Rueckfrage sah in jedem Browser anders aus, war englisch
+  // beschriftet und liess sich nicht gestalten.
+  const [bestaetigung, setBestaetigung] = useState(null);
+  function bestaetigen({ titel = "Bist du sicher?", text = "", ja = "Ja", nein = "Abbrechen", gefahr = true } = {}) {
+    return new Promise((resolve) => {
+      setBestaetigung({ titel, text, ja, nein, gefahr, resolve });
+    });
+  }
+  // G67 (#1087 H5): Kleines geht sofort weg; der Toast bietet den Rueckweg.
+  useEffect(() => dialogRegistrieren(bestaetigen), []);
+
+  function geloeschtMitRueckweg(antwort, meldung, nachher) {
+    const rueckweg = antwort?.rueckweg;
+    pushToast(meldung, "success", rueckweg ? {
+      duration: 9000,
+      dedupe: false,
+      action: {
+        label: "Rückgängig",
+        onClick: async () => {
+          try {
+            await postJson("/api/wiederherstellen", rueckweg);
+            await nachher?.();
+            pushToast("Wiederhergestellt.", "success");
+          } catch (err) {
+            pushToast(`Wiederherstellen hat nicht geklappt: ${err.message}`, "danger");
+          }
+        },
+      },
+    } : {});
+  }
+
+  function bestaetigungBeenden(antwort) {
+    bestaetigung?.resolve?.(antwort);
+    setBestaetigung(null);
+  }
   // beta.35: aktiver Sub-Pfad fuer Top-Bar-Breadcrumb
   const [currentSubPath, setCurrentSubPath] = useState("");
   // #508: Sidebar-Collapsed-State (persistiert)
@@ -1094,6 +1131,7 @@ export default function App() {
     navigateTo,
     pushToast,
     copyPrompt,
+    geloeschtMitRueckweg,
     startJobsuche,
     executeAction,
     // #979 (G29, Befund 4): der Hilfetext im Schnellzugriff VERWIES auf
@@ -1697,6 +1735,24 @@ export default function App() {
               />
             </Field>
           </div>
+        </Modal>
+
+        <Modal
+          open={Boolean(bestaetigung)}
+          title={bestaetigung?.titel || ""}
+          size="md"
+          schutz={false}
+          onClose={() => bestaetigungBeenden(false)}
+          footer={
+            <div className="flex justify-end gap-2" data-bestaetigung>
+              <Button variant="secondary" onClick={() => bestaetigungBeenden(false)}>{bestaetigung?.nein}</Button>
+              <Button variant={bestaetigung?.gefahr ? "danger" : "primary"} onClick={() => bestaetigungBeenden(true)}>
+                {bestaetigung?.ja}
+              </Button>
+            </div>
+          }
+        >
+          <p className="whitespace-pre-line text-sm text-ink">{bestaetigung?.text}</p>
         </Modal>
 
         <Modal

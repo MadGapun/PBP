@@ -1,3 +1,4 @@
+import { bestaetigen } from "@/lib/bestaetigung";
 import { Briefcase, Calendar, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Download, Edit3, ExternalLink, FileText, Filter, List, Lock, MapPin, Palette, Plus, Send, Settings, Trash2, Video, X, XCircle } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
@@ -435,7 +436,7 @@ export default function CalendarPage() {
 
   async function deleteCategory(cat) {
     if (cat.is_system) { pushToast("Systemkategorien können nicht gelöscht werden", "danger"); return; }
-    const confirmed = window.confirm(`Kategorie "${cat.name}" löschen? Bestehende Termine werden entkoppelt.`);
+    const confirmed = (await bestaetigen({ text: `Kategorie "${cat.name}" löschen? Bestehende Termine werden entkoppelt.` }));
     if (!confirmed) return;
     try {
       await deleteRequest(`/api/meeting-categories/${cat.id}`, {});

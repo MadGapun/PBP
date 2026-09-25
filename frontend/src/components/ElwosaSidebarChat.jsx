@@ -13,6 +13,7 @@
  * - Bei Sidebar collapsed: nur Avatar mit Pulse + Hover-Overlay
  * - Bei AI off: einzige Status-Nachricht, dann still
  */
+import { bestaetigen } from "@/lib/bestaetigung";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
@@ -352,7 +353,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   }
 
   async function clearHistory() {
-    if (!confirm("Elwosa-Verlauf wirklich loeschen?")) return;
+    if (!(await bestaetigen({ text: "Elwosa-Verlauf wirklich löschen?" }))) return;
     try {
       // Alle Messages dismissen ist die User-freundliche Variante
       await Promise.all(
