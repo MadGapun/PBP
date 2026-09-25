@@ -126,6 +126,9 @@ def test_c96_dashboard_und_timeline_zeigen_dieselbe_zahl(browser, server):
 
     page = _seite(browser, url, "dashboard")
     try:
+        # Auf den Zustand warten, nicht auf eine Dauer: unter Last stand
+        # nach zwei Sekunden noch der Ladezustand da.
+        page.get_by_text(karte).first.wait_for(timeout=20000)
         assert karte in page.inner_text("body"), "Dashboard nennt eine andere Zahl"
     finally:
         page.close()
