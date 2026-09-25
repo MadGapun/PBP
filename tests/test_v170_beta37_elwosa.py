@@ -399,10 +399,13 @@ def test_elwosa_settings_section_in_localai_tab():
 
 
 def test_sidebar_subnav_includes_lokale_ki():
+    # G70 (#1087): die Seitenleiste listet die Reiter aus einer Liste.
     p = PROJECT_ROOT / "frontend" / "src" / "App.jsx"
     content = p.read_text(encoding="utf-8")
-    assert "settings-ai" in content
-    assert "settings-automatik" in content
+    assert "items: SETTINGS_REITER.map" in content
+    reiter = (PROJECT_ROOT / "frontend" / "src" / "lib" / "einstellungenReiter.js").read_text(encoding="utf-8")
+    assert '{ id: "ai", label: "Lokale KI"' in reiter
+    assert '{ id: "automatik", label: "Automatik"' in reiter
 
 
 # ============= Auto-Engine ============

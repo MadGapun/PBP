@@ -253,6 +253,10 @@ def test_die_liste_hat_filter_und_eine_eigene_ansicht_fuer_defekte():
 def test_der_empfehlungsknopf_speichert_in_einem_schritt():
     src = _quelle("pages/SettingsPage.jsx")
     karte = src[src.index("function RecommendedSourcesCard"):src.index("function ScraperHealthCard")]
-    assert "onToggle" not in karte, "je Quelle ein eigener Speichervorgang verliert alle bis auf eine"
+    # G70 (#1087): die Karte hat jetzt einen Haken je Quelle (ein Klick,
+    # ein Speichervorgang). Der Knopf fuer ALLE fehlenden darf ihn nicht
+    # in einer Schleife rufen.
+    alle = karte[karte.index("async function activateAll()"):karte.index("return (", karte.index("async function activateAll()"))]
+    assert "onToggle" not in alle, "je Quelle ein eigener Speichervorgang verliert alle bis auf eine"
     assert "onActivateMany(missing)" in karte
     assert "!sourceByKey.get(id).defekt" in karte

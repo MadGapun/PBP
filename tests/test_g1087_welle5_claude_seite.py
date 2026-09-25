@@ -650,7 +650,8 @@ def test_h25_register_all_setzt_die_sperre():
 
 def test_h25_reiter_claude_traegt_die_schalter():
     seite = (_repo() / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
-    assert '{ id: "claude", label: "Claude (Cloud)" }' in seite
+    reiter = (_repo() / "frontend" / "src" / "lib" / "einstellungenReiter.js").read_text(encoding="utf-8-sig")
+    assert '{ id: "claude", label: "Claude (Cloud)", gruppe: "grundlagen" }' in reiter
     block = seite[seite.index('{settingsTab === "claude" && ('):]
     block = block[:block.index(")}")]
     assert "<KIFeaturesCard" in block

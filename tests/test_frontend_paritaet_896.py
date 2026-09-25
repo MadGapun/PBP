@@ -34,21 +34,24 @@ def _backend_valid_statuses():
     return set(re.findall(r'"([a-z_]+)"', m.group(1)))
 
 
+def _reiter_ids():
+    text = (FRONTEND / "lib" / "einstellungenReiter.js").read_text(encoding="utf-8")
+    return re.findall(r'id:\s*"([a-z_]+)"', text)
+
+
 def _settings_subnav_ids():
-    # 'sidebarSubNavigation' wird je Seite neu zugewiesen (profil, kalender,
-    # einstellungen) — die "settings-"-IDs existieren aber nur im
-    # Einstellungen-Block, deshalb reicht ein Datei-weites findall.
+    # G70 (#1087): Seitenleiste und Reiter lesen dieselbe Liste
+    # (lib/einstellungenReiter.js) — geprueft wird, DASS beide sie lesen.
     text = (FRONTEND / "App.jsx").read_text(encoding="utf-8")
-    ids = re.findall(r'id:\s*"settings-([a-z_]+)"', text)
-    assert ids, "Einstellungen-Subnavigation nicht in App.jsx gefunden"
-    return ids
+    assert "items: SETTINGS_REITER.map" in text, "Einstellungen-Subnavigation liest die Liste nicht"
+    assert "id: `settings-${r.id}`" in text
+    return _reiter_ids()
 
 
 def _settings_page_tab_ids():
     text = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8")
-    m = re.search(r"const tabs = \[(.*?)\n\s*\];", text, re.S)
-    assert m, "tabs-Liste nicht in SettingsPage.jsx gefunden"
-    return re.findall(r'id:\s*"([a-z_]+)"', m.group(1))
+    assert "const tabs = SETTINGS_REITER;" in text, "SettingsPage liest die Liste nicht"
+    return _reiter_ids()
 
 
 def test_status_optionen_sind_backend_gueltig():

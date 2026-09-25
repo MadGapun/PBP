@@ -2,7 +2,8 @@
 // lib/hilfe.js; Titel und Beschreibung der Prompts kommen aus
 // /api/prompts, also aus demselben Katalog wie der Schnellzugriff.
 import { useEffect, useState } from "react";
-import { ChevronDown, Copy, ExternalLink, Mail } from "lucide-react";
+import { ChevronDown, ExternalLink, Mail } from "lucide-react";
+import MitClaude from "@/components/MitClaude";
 import { FAQ, HILFE, MELDE_PROMPT, MELDEWEGE, PROBLEME, START_HILFE } from "@/lib/hilfe";
 
 function useKatalog() {
@@ -35,7 +36,7 @@ function PromptKarte({ eintrag, copyPrompt }) {
         className="flex shrink-0 items-center gap-1.5 rounded-lg bg-sky/10 px-2.5 py-1.5 text-[12px] text-sky transition-colors hover:bg-sky/20"
         aria-label={`Prompt „${eintrag.titel}“ kopieren`}
       >
-        <Copy size={13} /> Kopieren
+        <MitClaude size={13} />
       </button>
     </div>
   );
@@ -115,7 +116,7 @@ export function MeldenTab({ copyPrompt }) {
           onClick={() => copyPrompt(`/${MELDE_PROMPT}`)}
           className="inline-flex items-center gap-1.5 rounded-lg bg-sky/10 px-3 py-1.5 text-[13px] text-sky transition-colors hover:bg-sky/20"
         >
-          <Copy size={13} /> „Problem melden“ kopieren
+          <MitClaude size={13}>Problem melden</MitClaude>
         </button>
       </div>
       {MELDEWEGE.map((w) => (
