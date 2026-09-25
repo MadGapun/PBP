@@ -193,8 +193,13 @@ def test_946_pruefschritt_ist_im_ablauf_verankert():
     from pathlib import Path
     wurzel = Path(__file__).resolve().parents[1] / "src" / "bewerbungs_assistent"
     prompts = (wurzel / "prompts.py").read_text(encoding="utf-8")
-    server = (wurzel / "server.py").read_text(encoding="utf-8")
+    # H28 (#1087 G10): die Regel steht nicht mehr in den Server-
+    # Instructions, sondern dort, wo gemeldet wird — im Melde-Prompt und
+    # in der Antwort von pbp_grenze_melden.
+    analyse = (wurzel / "tools" / "analyse.py").read_text(encoding="utf-8-sig")
     assert "issue_text_pruefen" in prompts, (
         "Der Melde-Prompt muss den Pruefschritt nennen")
-    assert "issue_text_pruefen" in server, (
-        "Die Server-Instructions muessen den Pruefschritt nennen")
+    melden = analyse[analyse.index("def pbp_grenze_melden("):]
+    melden = melden[:melden.index("    @mcp.tool()")]
+    assert "issue_text_pruefen(text=...)" in melden, (
+        "pbp_grenze_melden muss den Pruefschritt nennen")

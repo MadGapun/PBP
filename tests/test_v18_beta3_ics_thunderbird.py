@@ -128,9 +128,9 @@ def test_tool_termine_ics_exportieren(tmp_db, tmp_path, monkeypatch):
         def __init__(self):
             self.tools = {}
 
-        def tool(self):
+        def tool(self, name=None, **_kwargs):  # H29: Weiterleitungen tragen name=
             def deco(fn):
-                self.tools[fn.__name__] = fn
+                self.tools[name or fn.__name__] = fn
                 return fn
             return deco
 
