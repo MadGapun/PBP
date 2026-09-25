@@ -55,6 +55,8 @@ export default function Sidebar({
   // wird nur unter dem aktiven Hauptbereich eingerueckt angezeigt.
   subNavigation = null,
   badges = {},
+  // G61 (#1087 B6): jede Zahl sagt, was sie bedeutet.
+  badgeTitles = {},
   meta = {},
   brand = {},
   collapsed = false,
@@ -212,6 +214,8 @@ export default function Sidebar({
                       {badge ? (
                         <span
                           id={`tab-badge-${tab.id}`}
+                          title={badgeTitles[tab.id] || undefined}
+                          aria-label={badgeTitles[tab.id] || undefined}
                           className="tab-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-[10px] font-bold leading-none text-shell"
                         >
                           {badge}
