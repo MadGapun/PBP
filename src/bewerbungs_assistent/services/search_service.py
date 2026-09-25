@@ -77,8 +77,8 @@ def erstauswahl(db, source_registry: dict) -> dict:
             grundlage = "profil"
     except Exception as exc:  # pragma: no cover - nie die Quellenliste stoppen
         logger.debug("Quellen-Empfehlung nicht verfuegbar: %s", exc)
-    if not keys:
-        keys = list(START_QUELLEN)
+    # Ohne Empfehlung (oder wenn nach dem Filtern nichts bleibt) greift der
+    # Rueckfall unten — ein zweiter davor war wirkungslos (Gegenprobe).
     keys = [k for k in ohne_defekte(keys, source_registry)
             if not (source_registry.get(k) or {}).get("login_erforderlich", False)]
     if not keys:
