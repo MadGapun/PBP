@@ -167,13 +167,6 @@ def register(mcp, db, logger):
             firma: Firmenname (z.B. 'TechCorp GmbH')
             stellenbeschreibung: Optional — Beschreibung der Stelle für bessere Anpassung
         """
-        gate = ki_gate(db, "bewerbungserstellung")
-        if gate is not None:
-            gate["alternative"] = (
-                "Standard-Lebenslauf (ohne KI-Anpassung) via "
-                "lebenslauf_exportieren bleibt jederzeit nutzbar."
-            )
-            return gate
         profile = db.get_profile()
         if not profile:
             return kein_profil("einen angepassten Lebenslauf exportieren")
@@ -247,9 +240,6 @@ def register(mcp, db, logger):
         Returns:
             status, datei, format, nachricht.
         """
-        gate = ki_gate(db, "bewerbungserstellung")
-        if gate is not None:
-            return gate
         profile = db.get_profile()
         if not profile:
             return kein_profil("dein Fachprofil exportieren")
@@ -327,9 +317,6 @@ def register(mcp, db, logger):
             format: 'docx' (empfohlen), 'pdf', 'md' (Markdown) oder 'txt' (Klartext)
             stellenbeschreibung: Optional — wird automatisch in der DB gespeichert (#172)
         """
-        gate = ki_gate(db, "bewerbungserstellung")
-        if gate is not None:
-            return gate
         if not text.strip():
             return {"fehler": "Kein Anschreiben-Text angegeben. Nutze den Prompt 'bewerbung_schreiben' um einen Text zu erstellen."}
 

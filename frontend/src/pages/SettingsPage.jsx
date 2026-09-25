@@ -1439,8 +1439,8 @@ function KIFeaturesCard({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="KI-Unterstützung (Claude)"
-        description="Welche KI-Funktionen Claude in PBP nutzen darf. Default: alles aktiv. Änderungen wirken sofort."
+        title="Was Claude bearbeiten darf"
+        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter und sagt das. Änderungen wirken sofort."
       />
 
       <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">
@@ -3352,6 +3352,9 @@ export default function SettingsPage() {
   const tabs = [
     { id: "quellen", label: "Quellen" },
     { id: "ai", label: "Lokale KI" },
+    // H25 (#1087 G5): die Schalter fuer Claude stehen nicht mehr unter
+    // "Lokale KI" — sie betreffen, was an Anthropic geht.
+    { id: "claude", label: "Claude (Cloud)" },
     { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
     { id: "bewerten", label: "Bewertung" },  // #663 C20
     { id: "system", label: "System" },
@@ -3438,9 +3441,12 @@ export default function SettingsPage() {
         )}
 
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
+        {settingsTab === "claude" && (
+          <KIFeaturesCard pushToast={pushToast} />
+        )}
+
         {settingsTab === "ai" && (
           <>
-            <KIFeaturesCard pushToast={pushToast} />
             <LocalAITab pushToast={pushToast} />
           </>
         )}
@@ -3889,11 +3895,11 @@ export default function SettingsPage() {
                     </h3>
                     <div className="space-y-2 text-xs">
                       <div>
-                        <span className="text-teal font-medium">Nur lokal gespeichert:</span>
+                        <span className="text-teal font-medium">Gespeichert:</span>
                         <p className="text-muted/60 mt-0.5">{privacy.data_flow.local_only.join(", ")}</p>
                       </div>
                       <div>
-                        <span className="text-amber font-medium">An Claude Desktop (du kontrollierst):</span>
+                        <span className="text-amber font-medium">An Claude (Anthropic):</span>
                         <p className="text-muted/60 mt-0.5">{privacy.data_flow.sent_to_claude.join(", ")}</p>
                       </div>
                       <div>

@@ -119,8 +119,9 @@ def _call(mcp, name, args):
 
 def _mcp_mit(db, modul):
     from fastmcp import FastMCP
+    from bewerbungs_assistent.tools import mit_katalog
     mcp = FastMCP("test")
-    modul.register(mcp, db, logging.getLogger("test"))
+    modul.register(mit_katalog(mcp, db), db, logging.getLogger("test"))
     return mcp
 
 

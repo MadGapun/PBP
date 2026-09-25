@@ -574,3 +574,92 @@ def test_h29_zweites_profil_nur_nach_rueckfrage(umgebung):
     erg = _call(mcp, "neues_profil_erstellen", {"name": "Zweite Person", "bestaetigung": True})
     assert erg["status"] == "erstellt"
     assert len(db.get_profiles()) == vorher + 1
+
+
+# ══ H25 — Datenschutz-Anzeige und KI-Sperre ═════════════════════════════
+
+def test_h25_datenfluss_nennt_was_wirklich_an_claude_geht():
+    from bewerbungs_assistent.services.datenschutz import DATENFLUSS, KURZ
+    an_claude = " ".join(DATENFLUSS["sent_to_claude"])
+    for wort in ("Anthropic", "Adresse", "Geburtsdatum", "Dokumente", "Anzeigentexte", "Notizen"):
+        assert wort in an_claude, wort
+    extern = " ".join(DATENFLUSS["external_requests"])
+    for wort in ("Nominatim", "OpenRouteService", "elwosa.de", "JobSpy"):
+        assert wort in extern, wort
+    assert "Copy & Paste" not in str(DATENFLUSS)
+    assert "was du mit Claude bearbeitest, geht an Anthropic" in KURZ
+
+
+def test_h25_endpunkt_liefert_den_datenfluss(umgebung):
+    from fastapi.testclient import TestClient
+    import bewerbungs_assistent.dashboard as dash
+    from bewerbungs_assistent.services.datenschutz import DATENFLUSS
+    db, _mcp = umgebung
+    dash._db = db
+    daten = TestClient(dash.app).get("/api/privacy-info").json()
+    assert daten["data_flow"] == DATENFLUSS
+
+
+def test_h25_readme_verspricht_nichts_falsches():
+    readme = (_repo() / "README.md").read_text(encoding="utf-8")
+    assert "verlassen niemals deinen Computer" not in readme
+    assert "was du mit Claude bearbeitest, geht an Anthropic" in readme
+
+
+def test_h25_sperre_greift_auch_bei_extraktion_und_ersterfassung(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    db.set_ki_features(dokumentenanalyse=False, ersterfassung=False)
+    erg = _call(mcp, "extraktion_starten", {})
+    assert erg.get("ki_blockiert") is True, erg
+    erg = _call(mcp, "workflow_starten", {"name": "ersterfassung"})
+    assert erg.get("ki_blockiert") is True, erg
+    assert "Claude (Cloud)" in erg["hinweis"]
+    erg = _call(mcp, "workflow_starten", {"name": "faq"})
+    assert erg.get("status") == "gestartet"
+
+
+def test_h25_zuordnung_nennt_nur_registrierte_werkzeuge(umgebung):
+    from bewerbungs_assistent.services import ki_zuordnung
+    _db, mcp = umgebung
+    namen = {w.name for w in _werkzeuge(mcp)}
+    assert set(ki_zuordnung.ZUORDNUNG) <= namen
+
+
+def test_h25_keine_eigene_sperre_in_den_werkzeugen():
+    """Die Sperre sitzt an einer Stelle; eine zweite im Werkzeug waere die
+    Doppelung, aus der die Luecke entstanden ist."""
+    funde = []
+    for p in sorted((PAKET / "tools").glob("*.py")):
+        if p.name == "__init__.py":
+            continue
+        for n in ast.walk(ast.parse(p.read_text(encoding="utf-8-sig"))):
+            if isinstance(n, ast.Call) and getattr(n.func, "id", "") == "ki_gate":
+                funde.append(f"{p.name}:{n.lineno}")
+    assert not funde, funde
+
+
+def test_h25_register_all_setzt_die_sperre():
+    quelle = (PAKET / "tools" / "__init__.py").read_text(encoding="utf-8")
+    rumpf = quelle[quelle.index("def registrieren(fn):"):quelle.index("def mit_katalog(")]
+    assert "fn = _mit_ki_sperre(fn, name, self._db)" in rumpf
+    assert "mcp = _AnnotierendesMCP(mcp, db)" in quelle
+
+
+def test_h25_reiter_claude_traegt_die_schalter():
+    seite = (_repo() / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    assert '{ id: "claude", label: "Claude (Cloud)" }' in seite
+    block = seite[seite.index('{settingsTab === "claude" && ('):]
+    block = block[:block.index(")}")]
+    assert "<KIFeaturesCard" in block
+    ai = seite[seite.index('{settingsTab === "ai" && ('):]
+    ai = ai[:ai.index("{settingsTab ===", 10)]
+    assert "<KIFeaturesCard" not in ai
+
+
+def test_h25_einmaliger_hinweis_in_profil_status(umgebung):
+    db, mcp = umgebung
+    erg = _call(mcp, "profil_status", {})
+    assert "geht an Anthropic" in erg["datenschutz"]
+    erg = _call(mcp, "profil_status", {})
+    assert "datenschutz" not in erg

@@ -527,14 +527,6 @@ def register(mcp, db, logger):
             keywords: Suchbegriffe (Standard: aus Profil)
             quellen: Welche Portale durchsuchen (Standard: alle aktiven)
         """
-        # #425: KI-Gate. Dashboard-Button bleibt unabhaengig nutzbar.
-        gate = ki_gate(db, "jobsuche")
-        if gate is not None:
-            gate["alternative"] = (
-                "Dashboard -> Stellen -> 'Jetzt suchen' laeuft unabhaengig "
-                "vom KI-Toggle und nutzt deine aktiven Quellen."
-            )
-            return gate
 
         # Default sources from DB settings (all disabled by default)
         if not quellen:
@@ -4770,9 +4762,6 @@ def register(mcp, db, logger):
                 geliefert wird. Nur noetig, wenn `beschreibung_ausgabe`
                 ein `weiter_ab_zeichen` nennt.
         """
-        gate = ki_gate(db, "stellenanalyse")
-        if gate is not None:
-            return gate
         from ..job_scraper import fit_analyse as _fit_analyse
         job_dict = db.get_job(job_hash)
         if not job_dict:
