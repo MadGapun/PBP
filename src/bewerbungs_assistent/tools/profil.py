@@ -9,6 +9,7 @@ import json
 import re
 
 from ..services.nutzerfuehrung import kein_profil, leer
+from ..services.menue import pfad as _menue_pfad
 from ..services.profile_service import (
     get_profile_completeness,
     get_profile_completeness_labels,
@@ -489,8 +490,8 @@ def register(mcp, db, logger):
             ]:
                 if _wunsch.get(key):
                     lines.append(f"  {label}: {_wunsch[key]:g}")
-            lines.append("  Geaendert wird das auf der Einstellungsseite "
-                         "oder mit suchkriterien_setzen(...).")
+            lines.append("  Geaendert wird das im Dashboard unter "
+                         f"{_menue_pfad('suche')} oder mit suchkriterien_setzen(...).")
 
         # Positions
         lines.append(f"\n--- Berufserfahrung ({len(positions)} Positionen) ---")
@@ -1169,7 +1170,7 @@ def register(mcp, db, logger):
                     antwort["nicht_uebernommen"] = _abgewiesen
                     antwort["warum"] = (
                         "Gehalt, Saetze und die Entfernungsgrenze stehen in den "
-                        "Suchkriterien — das ist die Einstellungsseite, die auch "
+                        "Suchkriterien (Dashboard: Suche & Bewertung), die auch "
                         "das Scoring liest. Bis v1.7.117 gab es sie zweimal mit "
                         "verschiedenen Werten (#1055).")
                     antwort["stattdessen"] = (
@@ -1637,8 +1638,8 @@ def register(mcp, db, logger):
                 "hinweis_gehalt": (
                     "Gehalt und Saetze stehen in den Suchkriterien, nicht "
                     "im Profil — dort liest sie auch das Scoring. Aendern "
-                    "mit suchkriterien_setzen(...) oder auf der "
-                    "Einstellungsseite (#1055).")} if _in_kriterien else {}),
+                    "mit suchkriterien_setzen(...) oder im Dashboard unter "
+                    "Suche & Bewertung (#1055).")} if _in_kriterien else {}),
             "naechster_schritt": (
                 "extraktion_starten() — die Dokumente enthalten Stationen, "
                 "Ausbildung und Kompetenzen; erst danach nach dem fragen, "

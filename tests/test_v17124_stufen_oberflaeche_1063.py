@@ -110,9 +110,9 @@ def browser():
 
 
 def _profil_scoring(browser, url):
-    """Oeffnet den Scoring-Abschnitt der Profilseite."""
+    """Oeffnet den Scoring-Abschnitt (seit G69 unter "Suche & Bewertung")."""
     page = browser.new_page()
-    page.goto(f"{url}/#profil", wait_until="networkidle", timeout=30000)
+    page.goto(f"{url}/#suche", wait_until="networkidle", timeout=30000)
     page.wait_for_timeout(900)
     return page
 

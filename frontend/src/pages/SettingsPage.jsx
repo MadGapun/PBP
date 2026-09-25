@@ -3796,7 +3796,7 @@ export default function SettingsPage() {
     { id: "claude", label: "Claude (Cloud)" },
     { id: "erweiterungen", label: "Erweiterungen" },  // v1.8.0-beta.0 (#751 I10)
     { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
-    { id: "bewerten", label: "Bewertung" },  // #663 C20
+    { id: "bewerten", label: "Ablehnungsgründe" },  // #663 C20, G69: hiess "Bewertung"
     { id: "system", label: "System" },
     { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },

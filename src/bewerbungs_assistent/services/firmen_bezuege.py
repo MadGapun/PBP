@@ -50,6 +50,7 @@ import re
 from typing import Optional
 
 from .wiedergaenger import _COMPANY_SUFFIXES, normalize_company
+from .menue import pfad
 
 #: Woerter, die an einem Firmennamen nichts unterscheiden. Die Liste aus
 #: der Wiedergaenger-Erkennung plus die deutsche "gruppe".
@@ -347,7 +348,7 @@ def verweis(e: dict) -> dict:
         return {"bereich": "Docs",
                 "oeffnen": f"dokument_lesen('{e.get('dokument_id')}')"}
     if rolle == "blacklist":
-        return {"bereich": "Profil › Blacklist",
+        return {"bereich": pfad("blacklist"),
                 "oeffnen": "blacklist_verwalten(aktion='anzeigen')"}
     return {"bereich": "Recherche", "oeffnen": ""}
 
