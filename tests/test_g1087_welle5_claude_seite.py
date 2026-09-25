@@ -721,8 +721,9 @@ def test_h30_ohne_dokumente_fuehrt_der_fortschritt(umgebung):
 
 def test_h30_menue_reiter_gibt_es_im_dashboard():
     from bewerbungs_assistent.services.menue import EINSTELLUNGEN_REITER
-    seite = (_repo() / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
-    labels = set(re.findall(r'\{ id: "[a-z_]+", label: "([^"]+)" \}', seite))
+    # G70: die Reiter stehen seit Welle 6 in einer eigenen Liste.
+    seite = (_repo() / "frontend" / "src" / "lib" / "einstellungenReiter.js").read_text(encoding="utf-8-sig")
+    labels = set(re.findall(r'\{ id: "[a-z_]+", label: "([^"]+)"', seite))
     assert set(EINSTELLUNGEN_REITER.values()) <= labels, set(EINSTELLUNGEN_REITER.values()) - labels
 
 

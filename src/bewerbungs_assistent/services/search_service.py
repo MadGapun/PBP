@@ -2,6 +2,7 @@
 
 import logging
 from datetime import datetime
+from . import quellen_texte as _quellen_texte
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,8 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "key": key,
             "name": info["name"],
             "beschreibung": info["beschreibung"],
+            # G70 (#1087 F2): ein Satz aus Sicht des Menschen fuers Dashboard.
+            "kurz": _quellen_texte.kurz(key, info),
             "methode": info["methode"],
             "login_erforderlich": info["login_erforderlich"],
             "active": key in active_set,

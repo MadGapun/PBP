@@ -1,11 +1,12 @@
 ﻿import { bestaetigen } from "@/lib/bestaetigung";
-import { Activity, Bell, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
+import { Activity, Bell, ChevronDown, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
+import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
 import { hexToRgb, rgbToHex, THEME_TOKENS } from "@/theme";
 import {
   Badge,
@@ -604,7 +605,7 @@ function ErstauswahlHinweis({ refreshChrome }) {
 // Zeigt den erkannten Profil-Typ + die empfohlenen Quellen + einen
 // "Empfohlene Quellen aktivieren"-Button. User-Vorgabe: PBP fuer alle
 // Profil-Typen, nicht nur High-Performer.
-function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
+function RecommendedSourcesCard({ sources, onActivateMany, onToggle, onDetails, pushToast }) {
   const [data, setData] = useState(null);
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -617,10 +618,25 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (!data) return null;
-  if (data.type === "mixed" && data.confidence < 0.5) {
-    // Wenig Datengrundlage — Card ausblenden statt Halb-Wahres zu zeigen
-    return null;
+  // G70 (#1087 F1): unter "Grundlagen" ist diese Karte der Weg zu den
+  // Quellen. Ohne Empfehlung sagt sie, warum, und wo die ganze Liste steht.
+  const ohneEmpfehlung = data && data.type === "mixed" && data.confidence < 0.5;
+  if (!data || ohneEmpfehlung) {
+    return (
+      <Card className="rounded-2xl" data-quellen-empfehlung="leer">
+        <SectionHeading title="Quellen" description="Welche Jobbörsen PBP für dich durchsucht." />
+        <p className="text-sm text-muted">
+          {data
+            ? "Für eine Empfehlung weiß PBP noch zu wenig über dein Profil. Sobald Stationen und Suchbegriffe stehen, erscheint sie hier."
+            : "Die Empfehlung wird geladen."}
+        </p>
+        {onDetails && (
+          <Button size="sm" variant="secondary" className="mt-3" onClick={onDetails}>
+            Alle Quellen ansehen
+          </Button>
+        )}
+      </Card>
+    );
   }
 
   const recommended = data.recommended || [];
@@ -641,7 +657,7 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
   // #1070: eine Quelle kann aus mehreren Gruenden empfohlen sein
   // (Fachfeld UND Freiberuflichkeit). Alle nennen, nicht den ersten.
   const herkunft = data.quellen_herkunft || {};
-  const HERKUNFT_TEXT = { feld: "Feld", form: "Form", niveau: "Stufe" };
+  const HERKUNFT_TEXT = { feld: "Berufsfeld", form: "Beschäftigungsform", niveau: "Erfahrungsstufe" };
   function herkunftText(id) {
     return Object.entries(HERKUNFT_TEXT)
       .filter(([k]) => (herkunft[k] || []).includes(id))
@@ -670,10 +686,11 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
   }
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-2xl" data-quellen-empfehlung="liste">
       <button
         type="button"
         onClick={() => setCollapsed(!collapsed)}
+        aria-expanded={!collapsed}
         className="w-full flex items-center justify-between"
       >
         <div className="text-left">
@@ -713,32 +730,34 @@ function RecommendedSourcesCard({ sources, onActivateMany, pushToast }) {
             <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
               Empfohlen ({recommended.length})
             </p>
-            <div className="flex flex-wrap gap-1.5">
-              {recommended.map((id) => {
-                const isEnabled = enabledIds.has(id);
-                const cls = isEnabled
-                  ? "bg-teal/15 border-teal/30 text-teal"
-                  : "bg-amber/[0.04] border-amber/20 text-amber/80";
-                // #1070: woher die Empfehlung kommt. Vorher hing sie an
-                // EINEM Schluessel, jetzt an Feld, Form und Niveau —
-                // und ohne diese Marke ist von aussen nicht zu sehen,
-                // dass ein freiberuflicher Entwickler beides bekommt.
+            {/* G70 (#1087 F1): ein Haken je Quelle statt eines Etiketts mit
+                dem internen Schluessel — hier waehlt man die Quellen. */}
+            <ul className="space-y-1.5" data-empfehlung-liste>
+              {recommended.filter((id) => sourceByKey.has(id)).map((id) => {
+                const quelle = sourceByKey.get(id);
+                // #1070: woher die Empfehlung kommt (Feld, Form, Stufe).
                 const woher = herkunftText(id);
                 return (
-                  <span
-                    key={id}
-                    title={woher ? `Empfohlen wegen: ${woher}` : undefined}
-                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] ${cls}`}
-                  >
-                    {isEnabled ? "✓" : "+"}
-                    {id}
-                    {woher && (
-                      <span className="text-muted/50">· {woher}</span>
-                    )}
-                  </span>
+                  <li key={id}>
+                    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.03]">
+                      <input
+                        type="checkbox"
+                        checked={enabledIds.has(id)}
+                        disabled={Boolean(quelle.defekt)}
+                        onChange={(event) => onToggle?.(quelle, event.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-sky"
+                        data-quelle={id}
+                      />
+                      <span className="min-w-0">
+                        <span className="text-sm font-medium text-ink">{quelle.name}</span>
+                        {woher && <span className="ml-2 text-[12px] text-muted">empfohlen wegen {woher}</span>}
+                        <span className="block text-[12px] text-muted">{quelle.kurz || quelle.beschreibung}</span>
+                      </span>
+                    </label>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
             {ausgelassen.length > 0 && (
               <p className="mt-2 text-[11px] text-muted/70">
                 Nicht angeboten, weil derzeit defekt: {ausgelassen.join(", ")}
@@ -1175,7 +1194,7 @@ function AutomatikSchedulerCard({ pushToast }) {
 
   const fmt = (iso) => {
     if (!iso) return "noch nie";
-    if (iso === "faellig") return "faellig";
+    if (iso === "faellig") return "fällig";
     try {
       return new Date(iso).toLocaleString("de-DE");
     } catch {
@@ -1202,7 +1221,7 @@ function AutomatikSchedulerCard({ pushToast }) {
         </Button>
       </div>
       <p className="text-[11px] text-muted/50">
-        Letzter Lauf: {fmt(status[key].letzter_lauf)} · Naechster: {fmt(status[key].naechster_lauf)}
+        Letzter Lauf: {fmt(status[key].letzter_lauf)} · Nächster: {fmt(status[key].naechster_lauf)}
       </p>
     </div>
   );
@@ -1211,19 +1230,19 @@ function AutomatikSchedulerCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Automatik im Hintergrund"
-        description="PBP kann die interne Jobsuche und das Lernen aus deinem Verhalten/Dokumenten selbstständig nach Zeitplan ausführen — solange Claude Desktop läuft."
+        description="PBP sucht und lernt auf Wunsch von selbst nach Zeitplan, solange Claude Desktop läuft."
       />
       <div className="space-y-4">
         {renderTask(
           "jobsuche",
           "Interne Jobsuche",
-          "Nur die internen Scraper-Quellen. Login-/Browser-Quellen (LinkedIn, StepStone, XING, ...) laufen weiter manuell über die Claude-Erweiterung im Browser.",
+          "Fragt die Jobbörsen ab, die ohne Browser auskommen. Börsen, die nur im Browser mit Claude gehen, bleiben ein Schritt für dich.",
           "Jetzt suchen",
         )}
         {renderTask(
           "lernen",
-          "Ollama lernt aus Verhalten + Dokumenten",
-          "Analysiert regelmässig deine Aktivität und Dokumente, damit Vorschläge treffsicherer werden. Greift nur, wenn der Lern-Modus (Datenschutz-Tab) an ist.",
+          "Lokale KI lernt aus deinen Entscheidungen",
+          "Wertet regelmäßig aus, welche Stellen du aussortierst und worauf du dich bewirbst, damit Vorschläge besser passen. Läuft nur, wenn das Lernen unter Datenschutz eingeschaltet ist.",
           "Jetzt lernen",
         )}
         <p className="text-[11px] text-muted/40">{status.hinweis}</p>
@@ -1272,7 +1291,7 @@ function AutoActionsTab({ pushToast }) {
       const f = r.followup_reconciler?.created_count || 0;
       pushToast(
         e + f === 0
-          ? "Auto-Aktionen liefen — nichts zu tun."
+          ? "Geprüft — nichts zu tun."
           : `${e} abgelaufen, ${f} neue Nachfassungen`,
         "success"
       );
@@ -1292,21 +1311,20 @@ function AutoActionsTab({ pushToast }) {
   return (
     <Card className="rounded-2xl">
       <SectionHeading
-        title="Automatik für Bewerbungs-Lifecycle"
-        description="PBP setzt Bewerbungen ohne Aktivität automatisch auf 'abgelaufen' und legt fehlende Nachfass-Erinnerungen an."
+        title="Bewerbungen im Blick behalten"
+        description="PBP legt Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam."
       />
 
       <div className="space-y-5">
         <div className="glass-card p-4 space-y-3">
-          <h3 className="font-medium text-ink text-sm">Auto-Ablauf (Status -&gt; abgelaufen)</h3>
-          <p className="text-[12px] text-muted/60">
-            Bewerbungen werden auf <strong>abgelaufen</strong> gesetzt wenn seit
-            der letzten Aktivität die folgende Zahl an Tagen ohne Antwort
-            verstrichen ist. Sie sind dann nicht weg — falls doch noch was
-            kommt, kannst du sie jederzeit zurückholen.
+          <h3 className="font-medium text-ink text-sm">Ohne Antwort abschließen</h3>
+          <p className="text-[12px] text-muted">
+            Kommt so viele Tage lang nichts, setzt PBP die Bewerbung auf
+            „abgelaufen“. Sie ist dann nicht weg — meldet sich die Firma doch
+            noch, holst du sie mit einem Klick zurück.
           </p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Status 'beworben' nach (Tage)">
+            <Field label="Nach „beworben“ (Tage)">
               <input
                 type="number" min={7} max={365}
                 defaultValue={s.expire_default_days}
@@ -1318,7 +1336,7 @@ function AutoActionsTab({ pushToast }) {
                 className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-[13px] text-ink"
               />
             </Field>
-            <Field label="Status 'eingangsbestätigung' nach (Tage)">
+            <Field label="Nach „Eingangsbestätigung“ (Tage)">
               <input
                 type="number" min={7} max={180}
                 defaultValue={s.expire_eingangsbestaetigung_days}
@@ -1334,14 +1352,13 @@ function AutoActionsTab({ pushToast }) {
         </div>
 
         <div className="glass-card p-4 space-y-3">
-          <h3 className="font-medium text-ink text-sm">Auto-Followup (Nachfass-Erinnerungen)</h3>
-          <p className="text-[12px] text-muted/60">
-            Wenn eine aktive Bewerbung keine offene Nachfassung hat,
-            wird automatisch eine angelegt — N Tage nach der letzten Aktivität.
-            Der Faden reißt nicht mehr ab, wenn du die erste Nachfassung als
-            erledigt markierst.
+          <h3 className="font-medium text-ink text-sm">Nachfass-Erinnerungen</h3>
+          <p className="text-[12px] text-muted">
+            Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP eine
+            an — so viele Tage nach dem letzten Schritt. Hakst du sie ab, kommt
+            die nächste, solange die Bewerbung läuft.
           </p>
-          <Field label="Nachfass-Erinnerung nach (Tage seit letzter Aktivität)">
+          <Field label="Erinnerung nach (Tage seit dem letzten Schritt)">
             <input
               type="number" min={1} max={60}
               defaultValue={s.followup_default_days}
@@ -1356,12 +1373,12 @@ function AutoActionsTab({ pushToast }) {
         </div>
 
         <div className="glass-card p-4 space-y-3">
-          <h3 className="font-medium text-ink text-sm">Sofort-Lauf</h3>
-          <p className="text-[12px] text-muted/60">
+          <h3 className="font-medium text-ink text-sm">Jetzt prüfen</h3>
+          <p className="text-[12px] text-muted">
             Letzter Lauf: <strong>{status.last_run_at || "noch nie"}</strong>
           </p>
           <Button size="sm" onClick={runNow} disabled={running}>
-            {running ? "Laeuft..." : "Jetzt durchlaufen"}
+            {running ? "Läuft …" : "Jetzt prüfen"}
           </Button>
           {lastResult && (
             <div className="text-[12px] text-muted/60 space-y-1">
@@ -1539,7 +1556,7 @@ function AutoDismissedSection() {
             </div>
           ))}
           <p className="text-[10px] text-muted/40 pt-1">
-            Zurückgeholte Stellen erscheinen wieder im Stellen-Tab — Ollama lernt aus jeder Korrektur (Few-Shot).
+            Zurückgeholte Stellen erscheinen wieder im Stellen-Tab, und die lokale KI lernt aus jeder Korrektur.
           </p>
         </div>
       )}
@@ -2908,6 +2925,7 @@ export default function SettingsPage() {
   const [privacy, setPrivacy] = useState(null);
   const [exporting, setExporting] = useState(false);
   const [settingsTab, setSettingsTab] = useState("quellen");
+  const [erweitertOffen, setErweitertOffen] = useState(false);
   const [followupSettings, setFollowupSettings] = useState({ followup_default_days: 7, followup_interview_delay_days: 14 });
   const [followupSaving, setFollowupSaving] = useState(false);
   // v1.6.6 (#540): Bewerbungsbericht-Einstellungen — Arbeitsamt-Block + Beraterkommentar
@@ -3350,20 +3368,13 @@ export default function SettingsPage() {
 
   if (loading) return <LoadingPanel label="Einstellungen werden geladen..." />;
 
-  const tabs = [
-    { id: "quellen", label: "Quellen" },
-    { id: "ai", label: "Lokale KI" },
-    // H25 (#1087 G5): die Schalter fuer Claude stehen nicht mehr unter
-    // "Lokale KI" — sie betreffen, was an Anthropic geht.
-    { id: "claude", label: "Claude (Cloud)" },
-    { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
-    { id: "bewerten", label: "Ablehnungsgründe" },  // #663 C20, G69: hiess "Bewertung"
-    { id: "system", label: "System" },
-    { id: "erscheinungsbild", label: "Erscheinungsbild" },
-    { id: "datenschutz", label: "Datenschutz" },
-    { id: "logs", label: "Logs" },
-    { id: "gefahrenzone", label: "Gefahrenzone" },
-  ];
+  // G70 (#1087 F1): zehn Reiter ohne Einsteiger-Trennung. "Grundlagen"
+  // reicht fuer den Anfang; alles Weitere steht eingeklappt unter
+  // "Erweitert" und klappt von selbst auf, wenn ein Link dorthin fuehrt.
+  const tabs = SETTINGS_REITER;
+  const grundlagen = tabs.filter((r) => r.gruppe === "grundlagen");
+  const erweitert = tabs.filter((r) => r.gruppe === "erweitert");
+  const erweitertSichtbar = erweitertOffen || erweitert.some((r) => r.id === settingsTab);
 
   return (
     <div id="page-einstellungen" className="page active">
@@ -3371,22 +3382,51 @@ export default function SettingsPage() {
           Tests + Screenreader. */}
       <h1 className="sr-only">Einstellungen</h1>
 
-      {/* #399: Horizontal tabs below header — consistent with other pages */}
-      <div className="flex flex-wrap gap-1 mb-6">
-        {tabs.map((t) => (
+      {/* #399: Reiter unter der Kopfzeile. G70: Grundlagen vorn, der Rest
+          hinter "Erweitert". */}
+      <div className="mb-6 space-y-2" data-settings-reiter>
+        <div className="flex flex-wrap items-center gap-1">
+          {grundlagen.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSettingsTab(t.id)}
+                aria-pressed={settingsTab === t.id}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  settingsTab === t.id ? "bg-sky/15 text-sky" : "text-muted hover:text-ink hover:bg-white/5"
+                }`}
+              >
+                {t.label}
+              </button>
+          ))}
           <button
-            key={t.id}
             type="button"
-            onClick={() => setSettingsTab(t.id)}
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              settingsTab === t.id
-                ? "bg-sky/15 text-sky"
-                : "text-muted/50 hover:text-muted hover:bg-white/5"
-            }`}
+            data-erweitert-schalter
+            aria-expanded={erweitertSichtbar}
+            onClick={() => setErweitertOffen(!erweitertSichtbar)}
+            className="ml-1 inline-flex items-center gap-1 rounded-lg border border-white/10 px-3 py-1.5 text-sm text-muted transition-colors hover:text-ink"
           >
-            {t.label}
+            Erweitert
+            <ChevronDown size={14} className={erweitertSichtbar ? "rotate-180 transition-transform" : "transition-transform"} aria-hidden="true" />
           </button>
-        ))}
+        </div>
+        {erweitertSichtbar && (
+          <div className="flex flex-wrap gap-1 border-t border-white/8 pt-2" data-erweitert-reiter>
+            {erweitert.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setSettingsTab(t.id)}
+                aria-pressed={settingsTab === t.id}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  settingsTab === t.id ? "bg-sky/15 text-sky" : "text-muted hover:text-ink hover:bg-white/5"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6">
@@ -3399,11 +3439,25 @@ export default function SettingsPage() {
             <RecommendedSourcesCard
               sources={sources}
               onActivateMany={activateSources}
+              onToggle={toggleSource}
+              onDetails={() => setSettingsTab("quellen_details")}
               pushToast={pushToast}
             />
 
+            <p className="text-sm text-muted">
+              Alle Quellen mit Zustand, Zugangsschlüsseln und Fahrstrecke:{" "}
+              <button type="button" className="text-sky underline" onClick={() => setSettingsTab("quellen_details")}>
+                Erweitert › Quellen im Detail
+              </button>
+            </p>
+          </>
+        )}
+
+        {/* ── G70: die vollstaendige Quellenliste unter "Erweitert" ── */}
+        {settingsTab === "quellen_details" && (
+          <>
             <Card className="rounded-2xl">
-              <SectionHeading title="Quellen" description="Welche Jobportale aktiv durchsucht werden." />
+              <SectionHeading title="Alle Quellen" description="Welche Jobbörsen PBP durchsucht." />
               <SourceSelectionList
                 sources={sources}
                 loginJobs={loginJobs}
@@ -3418,26 +3472,6 @@ export default function SettingsPage() {
 
             {/* v1.7.94 (#950): Fahrstrecke statt Luftlinie */}
             <RoutingCard pushToast={pushToast} />
-
-            <Card className="rounded-2xl">
-              <SectionHeading title="Dashboard" description="Allgemeine Dashboard-Einstellungen." />
-              <label className="flex cursor-pointer items-center gap-3 text-sm text-muted">
-                <input
-                  type="checkbox"
-                  checked={impulseEnabled}
-                  onChange={async () => {
-                    try {
-                      const res = await postJson("/api/daily-impulse/toggle");
-                      setImpulseEnabled(res.enabled);
-                    } catch (error) {
-                      pushToast(`Fehler: ${error.message}`, "danger");
-                    }
-                  }}
-                  className="h-4 w-4 accent-sky"
-                />
-                Tagesimpuls im Dashboard anzeigen
-              </label>
-            </Card>
           </>
         )}
 
@@ -3458,6 +3492,43 @@ export default function SettingsPage() {
             <AutoActionsTab pushToast={pushToast} />
           </>
         )}
+
+        {settingsTab === "automatik" && (
+          <Card className="rounded-2xl">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="glass-icon glass-icon-amber h-10 w-10">
+                <Bell size={18} />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-ink">Nachfassen nach einem Interview</h2>
+                <p className="text-xs text-muted">
+                  Wie viele Tage nach einem Interview PBP eine Nachfass-Erinnerung anlegt. 0 schaltet sie ab. Die Frist nach einer Bewerbung steht oben unter „Nachfass-Erinnerungen“.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:max-w-sm">
+              <Field label="Nachfrage nach Interview (Tage)">
+                <div className="flex items-center gap-2">
+                  <TextInput
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={followupSettings.followup_interview_delay_days}
+                    onChange={(e) => setFollowupSettings((prev) => ({ ...prev, followup_interview_delay_days: e.target.value }))}
+                    onBlur={(e) => {
+                      const val = Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0));
+                      saveFollowupSettings({ followup_interview_delay_days: val });
+                    }}
+                    disabled={followupSaving}
+                  />
+                  <span className="text-sm text-muted">Tage</span>
+                </div>
+                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Entsteht automatisch, wenn eine Bewerbung auf „Interview abgeschlossen“ steht; ältere Nachfassungen dieser Bewerbung werden hinfällig.</p>
+              </Field>
+            </div>
+          </Card>
+        )}
+
 
         {/* ── Bewertung Tab: Ablehnungsgruende-Editor (#663 C20) ── */}
         {settingsTab === "bewerten" && (
@@ -3631,8 +3702,8 @@ export default function SettingsPage() {
           </>
         )}
 
-        {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
-        {settingsTab === "system" && (
+        {/* ── G70: Ordner als eigener Reiter (Ablage, #973) ── */}
+        {settingsTab === "ordner" && (
           <AblageOrdnerCard pushToast={pushToast} />
         )}
 
@@ -3640,62 +3711,8 @@ export default function SettingsPage() {
           <ExpertenmodusCard pushToast={pushToast} />
         )}
 
-        {settingsTab === "system" && (
-          <Card className="rounded-2xl">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="glass-icon glass-icon-amber h-10 w-10">
-                <Bell size={18} />
-              </div>
-              <div>
-                <h2 className="text-base font-semibold text-ink">Follow-up-Automation</h2>
-                <p className="text-xs text-muted">
-                  Zeiträume für automatisch erzeugte Nachfassungen. 0 schaltet die jeweilige automatische Nachfassung ab.
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Nachfrage nach Bewerbung (Tage)">
-                <div className="flex items-center gap-2">
-                  <TextInput
-                    type="number"
-                    min="0"
-                    max="365"
-                    value={followupSettings.followup_default_days}
-                    onChange={(e) => setFollowupSettings((prev) => ({ ...prev, followup_default_days: e.target.value }))}
-                    onBlur={(e) => {
-                      const val = Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0));
-                      saveFollowupSettings({ followup_default_days: val });
-                    }}
-                    disabled={followupSaving}
-                  />
-                  <span className="text-sm text-muted">Tage</span>
-                </div>
-                <p className="mt-1 text-[11px] text-muted/70">Standard: 7. Wird beim Wechsel auf „beworben" angelegt, sofern keines offen ist.</p>
-              </Field>
-              <Field label="Nachfrage nach Interview (Tage)">
-                <div className="flex items-center gap-2">
-                  <TextInput
-                    type="number"
-                    min="0"
-                    max="365"
-                    value={followupSettings.followup_interview_delay_days}
-                    onChange={(e) => setFollowupSettings((prev) => ({ ...prev, followup_interview_delay_days: e.target.value }))}
-                    onBlur={(e) => {
-                      const val = Math.max(0, Math.min(365, parseInt(e.target.value, 10) || 0));
-                      saveFollowupSettings({ followup_interview_delay_days: val });
-                    }}
-                    disabled={followupSaving}
-                  />
-                  <span className="text-sm text-muted">Tage</span>
-                </div>
-                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Entsteht automatisch, wenn eine Bewerbung auf „Interview abgeschlossen“ steht; ältere Nachfassungen dieser Bewerbung werden hinfällig.</p>
-              </Field>
-            </div>
-          </Card>
-        )}
-
         {/* ── v1.6.6 (#540): Bewerbungsbericht-Einstellungen ── */}
-        {settingsTab === "system" && (
+        {settingsTab === "bericht" && (
           <Card className="rounded-2xl">
             <div className="mb-4 flex items-center gap-3">
               <div className="glass-icon glass-icon-sky h-10 w-10">
@@ -3880,7 +3897,30 @@ export default function SettingsPage() {
         )}
 
         {/* ── Erscheinungsbild Tab (#475) ── */}
-        {settingsTab === "erscheinungsbild" && <ThemeEditor />}
+        {settingsTab === "erscheinungsbild" && (
+          <>
+            <ThemeEditor />
+            <Card className="rounded-2xl">
+              <SectionHeading title="Dashboard" description="Was auf dem Dashboard erscheint." />
+              <label className="flex cursor-pointer items-center gap-3 text-sm text-muted">
+                <input
+                  type="checkbox"
+                  checked={impulseEnabled}
+                  onChange={async () => {
+                    try {
+                      const res = await postJson("/api/daily-impulse/toggle");
+                      setImpulseEnabled(res.enabled);
+                    } catch (error) {
+                      pushToast(`Fehler: ${error.message}`, "danger");
+                    }
+                  }}
+                  className="h-4 w-4 accent-sky"
+                />
+                Tagesimpuls im Dashboard anzeigen
+              </label>
+            </Card>
+          </>
+        )}
 
         {/* ── Datenschutz Tab (#287) ── */}
         {settingsTab === "datenschutz" && (

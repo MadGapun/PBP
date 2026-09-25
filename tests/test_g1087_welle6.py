@@ -272,8 +272,8 @@ def test_g69_regler_sind_eingeklappt():
 def test_g69_reiternamen_passen_zum_inhalt():
     from bewerbungs_assistent.services.menue import EINSTELLUNGEN_REITER
     assert EINSTELLUNGEN_REITER["ablehnungsgruende"] == "Ablehnungsgründe"
-    settings = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
-    assert '{ id: "bewerten", label: "Ablehnungsgründe" }' in settings
+    reiter = _lesen(FRONTEND / "lib" / "einstellungenReiter.js")
+    assert '{ id: "bewerten", label: "Ablehnungsgründe", gruppe: "erweitert" }' in reiter
     assert 'label: "Bewertung"' not in _lesen(FRONTEND / "App.jsx")
 
 
@@ -288,3 +288,84 @@ def test_g69_hinweise_und_verweise_zeigen_auf_die_suche():
         assert '"Suchkriterien (Einstellungsseite)"' not in text, p.name
         assert '"Profil › Blacklist"' not in text, p.name
     assert 'navigateTo("suche")}>Suchbegriffe öffnen' in _lesen(FRONTEND / "pages" / "JobsPage.jsx")
+
+
+# ══ G70 — Einstellungen: Grundlagen und Erweitert ══════════════════════
+
+def _ohne_kommentare(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    return re.sub(r"(?m)^\s*//.*$", "", text)
+
+
+def _reiter() -> list[tuple[str, str, str]]:
+    text = _lesen(FRONTEND / "lib" / "einstellungenReiter.js")
+    return re.findall(r'\{ id: "([a-z_]+)", label: "([^"]+)", gruppe: "([a-z]+)" \}', text)
+
+
+def test_g70_grundlagen_sind_wenige():
+    reiter = _reiter()
+    grundlagen = [label for _i, label, g in reiter if g == "grundlagen"]
+    assert grundlagen == ["Quellen", "Erscheinungsbild", "Datenschutz", "Ordner", "Claude (Cloud)"]
+    ids = {i for i, _l, _g in reiter}
+    seite = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
+    # Jeder Reiter hat Inhalt, und jeder Inhalt einen Reiter.
+    inhalte = set(re.findall(r'settingsTab === "([a-z_]+)"', seite))
+    assert ids == inhalte, (ids ^ inhalte)
+    assert "const tabs = SETTINGS_REITER;" in seite
+    assert "data-erweitert-schalter" in seite
+    app = _lesen(FRONTEND / "App.jsx")
+    assert "items: SETTINGS_REITER.map" in app
+
+
+def test_g70_menuepfade_nennen_jeden_reiter():
+    from bewerbungs_assistent.services.menue import EINSTELLUNGEN_REITER
+    assert set(EINSTELLUNGEN_REITER.values()) == {label for _i, label, _g in _reiter()}
+
+
+def test_g70_eine_nachfass_frist():
+    seite = _ohne_kommentare(_lesen(FRONTEND / "pages" / "SettingsPage.jsx"))
+    # Die Frist nach einer Bewerbung steht genau einmal als Eingabe.
+    assert seite.count('saveSetting("followup_default_days"') == 1
+    assert "saveFollowupSettings({ followup_default_days" not in seite
+    assert "Follow-up-Automation" not in seite
+    karte = seite.index("Nachfassen nach einem Interview")
+    assert seite.rfind('settingsTab === "automatik"', 0, karte) > seite.rfind('settingsTab === "', 0, karte) - 1
+
+
+def test_g70_bericht_ist_ein_eigener_bereich():
+    seite = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
+    bericht = seite.index('<h2 className="text-base font-semibold text-ink">Bewerbungsbericht</h2>')
+    assert seite.rfind('settingsTab === "', 0, bericht) == seite.rfind('settingsTab === "bericht"', 0, bericht)
+    ordner = seite.index("<AblageOrdnerCard")
+    assert seite.rfind('settingsTab === "', 0, ordner) == seite.rfind('settingsTab === "ordner"', 0, ordner)
+
+
+def test_g70_automatik_in_klartext():
+    seite = _ohne_kommentare(_lesen(FRONTEND / "pages" / "SettingsPage.jsx"))
+    for alt in ("Bewerbungs-Lifecycle", "Auto-Ablauf", "Auto-Followup", "Sofort-Lauf",
+                "Scraper-Quellen", "Ollama lernt aus Verhalten", "Laeuft...", "Naechster"):
+        assert alt not in seite, alt
+
+
+def test_g70_quellen_ein_satz_aus_nutzersicht():
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    from bewerbungs_assistent.services import quellen_texte
+    assert set(SOURCE_REGISTRY) <= set(quellen_texte.KURZ), set(SOURCE_REGISTRY) - set(quellen_texte.KURZ)
+    for key, satz in quellen_texte.KURZ.items():
+        assert satz.endswith(".") and satz.count(". ") == 0, key
+        assert len(satz) <= 110, key
+        assert not re.search(r"#\d|\bAPI\b|MIT\)|python-|Scraper|REST|RSS|JSON|\bae|oe\b|ue\b", satz), key
+        assert not re.search(r"\b(Oeffentlich|Groesst|fuer|ueber)\b", satz), key
+
+
+def test_g70_die_quellenzeile_liefert_den_satz():
+    from bewerbungs_assistent.job_scraper import SOURCE_REGISTRY
+    from bewerbungs_assistent.services.search_service import build_source_rows
+    from bewerbungs_assistent.services.quellen_texte import KURZ
+    zeilen = {z["key"]: z for z in build_source_rows(SOURCE_REGISTRY, [])}
+    assert zeilen["bundesagentur"]["kurz"] == KURZ["bundesagentur"]
+    liste = _lesen(FRONTEND / "components" / "SourceSelectionList.jsx")
+    assert "{source.kurz || source.beschreibung}" in liste
+    seite = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
+    assert "{quelle.kurz || quelle.beschreibung}" in seite
+    assert "onChange={(event) => onToggle?.(quelle, event.target.checked)}" in seite

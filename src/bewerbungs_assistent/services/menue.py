@@ -12,15 +12,23 @@ from __future__ import annotations
 TRENNER = " › "
 
 # Reiter der Einstellungen, so wie sie im Dashboard heissen.
+# G70 (#1087 F1): die Reiter stehen in frontend/src/lib/einstellungenReiter.js,
+# getrennt in "Grundlagen" und "Erweitert"; die Namen sind eindeutig, deshalb
+# nennt ein Pfad die Gruppe nicht.
 EINSTELLUNGEN_REITER = {
     "quellen": "Quellen",
-    "lokale_ki": "Lokale KI",
-    "claude": "Claude (Cloud)",
-    "automatik": "Automatik",
-    "ablehnungsgruende": "Ablehnungsgründe",
-    "system": "System",
     "erscheinungsbild": "Erscheinungsbild",
     "datenschutz": "Datenschutz",
+    "ordner": "Ordner",
+    "claude": "Claude (Cloud)",
+    "quellen_details": "Quellen im Detail",
+    "lokale_ki": "Lokale KI",
+    "automatik": "Automatik",
+    "ablehnungsgruende": "Ablehnungsgründe",
+    "bericht": "Bewerbungsbericht",
+    "system": "System",
+    "logs": "Logs",
+    "gefahrenzone": "Gefahrenzone",
 }
 
 MENUE = {

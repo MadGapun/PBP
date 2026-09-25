@@ -6841,7 +6841,7 @@ def register(mcp, db, logger):
         berechnet PBP Fahrstrecke und Fahrzeit; Score und
         Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
 
-        **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen (Fahrstrecke)), nicht hier: ein Schluessel, der durch den
+        **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen im Detail, Karte Fahrstrecke), nicht hier: ein Schluessel, der durch den
         Chat geht, stuende danach im Gespraechsverlauf.
 
         Args:
@@ -6871,7 +6871,7 @@ def register(mcp, db, logger):
             "offen_ohne_koordinaten": ohne_koordinaten,
         }
         kein_schluessel = (
-            "Im Dashboard unter Einstellungen › Quellen (Fahrstrecke) "
+            "Im Dashboard unter Einstellungen › Quellen im Detail (Karte Fahrstrecke) "
             "einen kostenlosen Schluessel von OpenRouteService eintragen.")
 
         aktion = (aktion or "status").strip().lower()

@@ -232,7 +232,7 @@ export default function SourceSelectionList({
                     </Fragment>
                   ))}
                 </div>
-                <p className="text-sm text-muted">{source.beschreibung}</p>
+                <p className="text-sm text-muted">{source.kurz || source.beschreibung}</p>
                 {isDefekt ? (
                   <div className="mt-1 rounded-lg border border-coral/30 bg-coral/5 px-3 py-2 space-y-1.5">
                     <div className="flex items-center gap-1.5">

@@ -1200,7 +1200,9 @@ def test_routing_karte_950_im_quellen_tab(browser, live_dashboard):
                   wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Quellen", exact=True).first.click()
+        # G70 (#1087): Fahrstrecke und Zugangsschluessel stehen unter
+        # "Erweitert › Quellen im Detail".
+        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
 
         karte = page.get_by_test_id("routing-card")
         karte.wait_for(state="visible", timeout=8000)
@@ -1332,7 +1334,9 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         page.goto(live_dashboard["base_url"] + "#einstellungen", wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Quellen", exact=True).first.click()
+        # G70 (#1087): die ganze Liste steht unter "Quellen im Detail",
+        # die Empfehlung unter "Quellen".
+        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
         page.wait_for_load_state("networkidle")
 
         filter_ = page.get_by_test_id("quellen-filter")
@@ -1345,8 +1349,10 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         # Standardansicht ohne defekte Quellen.
         assert page.locator('[data-source-key="heise_jobs"]').count() == 0
 
+        page.get_by_role("button", name="Quellen", exact=True).first.click()
         knopf = page.get_by_role("button", name=re.compile(r"fehlende empfohlene Quelle"))
         knopf.click()
+        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
         filter_.get_by_role("button", name=f"Aktiv ({1 + len(fehlend)})").wait_for(
             state="visible", timeout=8000)
         # Der Zaehler oben kommt aus dem lokalen Zustand und steht schon,
