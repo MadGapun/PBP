@@ -153,7 +153,7 @@ def test_g72_fehlschlag_zeigt_text_zum_selbstkopieren(browser, server):
         page.get_by_role("menu").first.get_by_role("menuitem").filter(has_text="mit Claude").click()
         feld = page.locator("[data-manuell-kopieren]")
         feld.wait_for(timeout=10000)
-        assert "stelle_analyse_speichern" in feld.input_value()
+        assert "stelle_urteil_speichern" in feld.input_value()  # H29: neuer Name
         body = page.inner_text("body")
         assert "Kopieren hat nicht geklappt" in body
         assert "Failed to execute" not in body

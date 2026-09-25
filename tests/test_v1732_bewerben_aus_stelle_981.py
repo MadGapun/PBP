@@ -39,12 +39,14 @@ def _builder():
     """Den Prompt-Builder isoliert laden, ohne den MCP-Server zu starten."""
     quelle = (WURZEL / "src" / "bewerbungs_assistent" / "tools"
               / "workflows.py").read_text(encoding="utf-8")
-    a = quelle.index("    def _bewerbung_schreiben(")
-    # H22 (#1087 G2): die zweite Fassung der uebrigen Prompts ist weg;
-    # nach dem Builder folgt jetzt `_dokumente_verarbeiten`.
-    b = quelle.index("    def _dokumente_verarbeiten(")
-    code = "\n".join(z[4:] if z.startswith("    ") else z
-                     for z in quelle[a:b].splitlines())
+    # H22 (#1087 G2): die zweite Fassung der uebrigen Prompts ist weg und
+    # der Nachbar damit ein anderer — das Ende der Funktion kommt aus dem
+    # Syntaxbaum, nicht aus einem festen Nachbarn.
+    import ast as _ast
+    fn = next(n for n in _ast.walk(_ast.parse(quelle))
+              if isinstance(n, _ast.FunctionDef) and n.name == "_bewerbung_schreiben")
+    zeilen = quelle.splitlines()[fn.lineno - 1:fn.end_lineno]
+    code = "\n".join(z[4:] if z.startswith("    ") else z for z in zeilen)
     ns: dict = {}
     exec(compile(code, "workflows_bewerbung_schreiben", "exec"), ns)
     return ns["_bewerbung_schreiben"]
