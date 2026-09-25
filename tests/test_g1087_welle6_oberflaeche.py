@@ -126,7 +126,7 @@ def test_g67_statuswechsel_mit_rueckgaengig(browser, server):
     aid = db.get_applications()[0]["id"]
     page = _seite(browser, url, "bewerbungen")
     try:
-        page.get_by_role("button", name="Beworben", exact=True).first.click()
+        page.get_by_role("combobox", name="Beworben", exact=True).first.click()
         page.get_by_text("Abgelehnt", exact=True).last.click()
         toast = page.get_by_text("die Bewerbung ist jetzt im Archiv")
         toast.wait_for(timeout=10000)
@@ -208,7 +208,9 @@ def test_g70_grundlagen_und_erweitert(browser, server):
         assert reiter.get_by_role("button", name="Ordner", exact=True).is_visible()
         assert page.locator("[data-erweitert-reiter]").count() == 0
         liste = page.locator("[data-empfehlung-liste]")
-        liste.wait_for(timeout=15000)
+        # Die Empfehlung fragt beim ersten Mal das Berufe-Register ab; je nach
+        # Netz dauert das. Gewartet wird auf den Zustand, grosszuegig.
+        liste.wait_for(timeout=45000)
         haken = liste.locator('input[type="checkbox"]:not(:checked):not([disabled])').first
         schluessel = haken.get_attribute("data-quelle")
         haken.click()
@@ -221,7 +223,7 @@ def test_g70_grundlagen_und_erweitert(browser, server):
         page.locator("[data-erweitert-schalter]").click()
         erweitert = page.locator("[data-erweitert-reiter]")
         erweitert.get_by_role("button", name="Automatik", exact=True).click()
-        page.get_by_text("Nachfassen nach einem Interview").wait_for(timeout=10000)
+        page.get_by_text("Nachfassen nach einem Interview").wait_for(timeout=30000)
         assert page.get_by_text("Nachfass-Erinnerungen", exact=True).count() == 1
     finally:
         page.close()

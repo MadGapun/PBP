@@ -311,6 +311,21 @@ def main():
     server_thread.start()
     time.sleep(3)  # Wait for server startup
 
+    # L13 (#1087 A7): die Bilder zeigen einen VERBUNDENEN Stand. Der
+    # Heartbeat liegt im isolierten Datenverzeichnis und wird waehrend der
+    # Aufnahme frisch gehalten, wie es der MCP-Server im Betrieb tut.
+    from bewerbungs_assistent import heartbeat
+    from bewerbungs_assistent.database import get_data_dir
+    assert tmp_dir in str(get_data_dir()), f"Heartbeat nicht isoliert: {get_data_dir()}"
+
+    def _verbunden_halten():
+        while True:
+            heartbeat._write_heartbeat_file("screenshots", is_alive=False)
+            time.sleep(20)
+
+    threading.Thread(target=_verbunden_halten, daemon=True).start()
+    time.sleep(1)
+
     # Onboarding-Screenshots (leer -> unvollstaendig -> vollstaendig)
     print("3. Erstelle Onboarding-Screenshots (3 Zustaende)...")
     _take_onboarding_screenshots(PORT, SCREENSHOT_DIR, db_path)
