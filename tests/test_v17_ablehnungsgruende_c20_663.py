@@ -296,11 +296,16 @@ def test_mcp_ablehnungsgrund_loeschen(tmp_db):
     r = anlegen(label="weg_damit")
     h = _job_with_reason(tmp_db, "t0005eee", "weg_damit")
 
+    # H27: ohne Bestaetigung nur Vorschau mit Zahl
+    vorschau = loeschen(grund_id=r["id"])
+    assert vorschau["status"] == "vorschau"
+    assert vorschau["betroffene_stellen"] == 1
+
     # Ohne Neuzuordnung -> Fehler-Hinweis
-    fehler = loeschen(grund_id=r["id"])
+    fehler = loeschen(grund_id=r["id"], bestaetigung=True)
     assert "fehler" in fehler
 
-    ok = loeschen(grund_id=r["id"], neu_zuordnen_zu="sonstiges")
+    ok = loeschen(grund_id=r["id"], neu_zuordnen_zu="sonstiges", bestaetigung=True)
     assert ok["status"] == "geloescht"
     assert ok["stellen_umgezogen"] == 1
     assert _reason_of(tmp_db, h) == "sonstiges"

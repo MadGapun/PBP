@@ -170,7 +170,7 @@ STATUS_ACTIONS = {
             {"label": "Lebenslauf bewerten lassen", "tool": "lebenslauf_bewerten", "prioritaet": 4},
             {"label": "Anschreiben erstellen", "tool": "anschreiben_exportieren", "prioritaet": 5},
             {"label": "Firmen-Recherche", "tool": "firmen_recherche", "prioritaet": 6},
-            {"label": "Dokument verknüpfen", "tool": "dokument_verknüpfen", "prioritaet": 7},
+            {"label": "Dokument verknüpfen", "tool": "dokument_verknuepfen", "prioritaet": 7},
             {"label": "Als 'beworben' markieren", "tool": "bewerbung_status_aendern", "status": "beworben", "prioritaet": 8},
         ],
         "motivation": "Gute Vorbereitung ist der halbe Erfolg! Nimm dir die Zeit.",
@@ -1236,6 +1236,24 @@ def register(mcp, db, logger):
         if stellenart:
             apps = [a for a in apps if (a.get("employment_type") or "").lower() == stellenart.lower()]
 
+        if not apps and archivierte_count:
+            # D49 (#1087 G8): nur Abgeschlossenes ist nicht "nichts". Wer
+            # bisher nur Absagen hat, hoerte "Noch keine Bewerbungen
+            # erfasst" — sachlich falsch, entmutigend, und es droht, dass
+            # dieselben Bewerbungen ein zweites Mal angelegt werden.
+            return {
+                "anzahl": 0,
+                "archiviert": archivierte_count,
+                "nachricht": (
+                    f"Keine laufenden Bewerbungen — {archivierte_count} "
+                    f"abgeschlossene (abgesagt, zurueckgezogen oder "
+                    f"abgelaufen). Anzeigen mit bewerbungen_anzeigen("
+                    f"archiv=True)."),
+                "naechster_schritt": (
+                    "Aus den Absagen lernen: Prompt 'ablehnungs_coaching' "
+                    "oder ablehnungs_muster(). Neue Stellen finden: "
+                    "stellen_anzeigen() oder jobsuche_starten()."),
+            }
         if not apps:
             return {
                 "anzahl": 0,
@@ -3031,12 +3049,29 @@ def register(mcp, db, logger):
                 "reflexion": rs[0]}
 
     @mcp.tool()
-    def interview_reflexion_loeschen(reflexion_id: str) -> dict:
+    def interview_reflexion_loeschen(reflexion_id: str,
+                                     bestaetigung: bool = False) -> dict:
         """Entfernt eine versehentlich angelegte Reflexion (#824).
 
-        Die IDs stehen in interview_reflexion_lesen bzw.
+        Zwei Schritte (H27): ohne bestaetigung=True kommt nur, was
+        geloescht wuerde. Die IDs stehen in interview_reflexion_lesen bzw.
         interview_reflexionen_anzeigen.
         """
+        if not bestaetigung:
+            row = db.connect().execute(
+                "SELECT id, application_id, created_at, was_lief_gut "
+                "FROM interview_reflections WHERE id=? AND "
+                "(profile_id=? OR profile_id IS NULL)",
+                (int(reflexion_id), db.get_active_profile_id())).fetchone()
+            if not row:
+                return {"status": "nicht_gefunden", "reflexion_id": reflexion_id}
+            return {"status": "vorschau", "reflexion_id": reflexion_id,
+                    "angelegt": row["created_at"],
+                    "anfang": (row["was_lief_gut"] or "")[:120],
+                    "hinweis": ("Noch nichts geloescht. Die Reflexion ist "
+                                "eigener Text und laesst sich nicht "
+                                "wiederherstellen. Zum Loeschen erneut mit "
+                                "bestaetigung=True aufrufen.")}
         ok = db.delete_interview_reflection(int(reflexion_id))
         return {"status": "geloescht" if ok else "nicht_gefunden",
                 "reflexion_id": reflexion_id}
