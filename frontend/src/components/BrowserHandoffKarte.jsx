@@ -64,7 +64,7 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
                 <span className="text-muted/60">{q.suchbegriffe.join(", ")}</span>
               ) : (
                 // AK 6: ohne Suchprofil ein Hinweis, keine erfundenen Begriffe.
-                <Badge>kein Suchprofil hinterlegt</Badge>
+                <Badge>keine Suchbegriffe je Jobbörse</Badge>
               )}
             </li>
           ))}

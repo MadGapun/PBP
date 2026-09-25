@@ -1951,10 +1951,10 @@ export default function JobsPage() {
           {filteredJobs.length === 0 && (
             !chrome.status?.has_profile ? <ZuerstProfil bereich="Stellen" /> : <EmptyState
               title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine aussortierten Stellen"}
-              description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Aussortierte Stellen kannst du hier wiederherstellen."}
+              description={filters.view === "active" ? "Starte eine Jobsuche oder prüfe deine Suchbegriffe, um neue Stellen zu finden." : "Aussortierte Stellen kannst du hier wiederherstellen."}
               action={filters.view === "active" ? (
                 <div className="flex gap-3">
-                  <Button onClick={() => navigateTo("einstellungen")}>Suchprofil öffnen</Button>
+                  <Button onClick={() => navigateTo("profil")}>Suchbegriffe öffnen</Button>
                   <Button variant="secondary" onClick={() => startJobsuche()}>
                     <Search size={15} />
                     Interne Jobsuche starten
