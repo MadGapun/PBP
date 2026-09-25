@@ -575,7 +575,8 @@ def test_die_stellenliste_traegt_die_entfernung_samt_art(client, db):
 def test_die_karte_steht_im_quellen_tab_und_die_liste_zeigt_die_fahrzeit():
     settings = (_repo() / "frontend/src/pages/SettingsPage.jsx").read_text(
         encoding="utf-8")
-    quellen = settings[settings.index('settingsTab === "quellen"'):]
+    # G70 (#1087): die Karte steht unter "Erweitert › Quellen im Detail".
+    quellen = settings[settings.index('settingsTab === "quellen_details"'):]
     quellen = quellen[:quellen.index("settingsTab ===", 30)]
     assert "<RoutingCard" in quellen, \
         "der Quellen-Tab gibt es auf beiden Linien, Erweiterungen nicht"
