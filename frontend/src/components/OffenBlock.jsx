@@ -28,6 +28,7 @@ import { AlarmClock, BellRing, Calendar, Check, ClipboardList, Sparkles } from "
 
 import { Button, Card } from "@/components/ui";
 import { NICHTS_OFFEN } from "@/lib/dashboardRegeln";
+import { ALLE_AUFGABEN, alleAufgabenText, vorschau } from "@/lib/arbeitsliste";
 
 const HERKUNFT = {
   todo: { label: "Aufgabe", icon: ClipboardList, ton: "text-teal" },
@@ -108,7 +109,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
         <div className="flex items-center justify-between gap-3">
           <p className="text-sm text-muted">{NICHTS_OFFEN}</p>
           <Button size="sm" variant="ghost" onClick={() => navigateTo?.("aufgaben")}>
-            Aufgaben
+            {ALLE_AUFGABEN}
           </Button>
         </div>
       </Card>
@@ -116,6 +117,11 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
   }
 
   const dringend = block.ueberfaellig_anzahl > 0;
+  // G64 (#1087 D1): eine Vorschau, keine zweite Arbeitsliste. Die
+  // massgebliche Liste ist der Aufgaben-Tab; hier stehen hoechstens fuenf
+  // Zeilen, der Rest wird am Knopf gezaehlt (auch "später").
+  const kurz = vorschau(block.gruppen, GRUPPEN.map((g) => g.key));
+  const weitere = kurz.weitere + (block.spaeter_anzahl || 0);
 
   return (
     <Card className={dringend ? "rounded-2xl border border-coral/40 bg-coral/[0.06]" : "rounded-2xl"}>
@@ -130,7 +136,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
           ) : null}
         </div>
         <Button size="sm" variant="ghost" onClick={() => navigateTo?.("aufgaben")}>
-          {block.spaeter_anzahl > 0 ? `Alle Aufgaben (${block.spaeter_anzahl} später)` : "Alle Aufgaben"}
+          {alleAufgabenText(weitere)}
         </Button>
       </div>
 
@@ -141,7 +147,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
           DashboardPage. */}
       <div className="mt-3 grid grid-cols-1 gap-3">
         {GRUPPEN.map(({ key, label, ton }) => {
-          const zeilen = block.gruppen?.[key] || [];
+          const zeilen = kurz.gruppen[key] || [];
           if (!zeilen.length) return null;
           return (
             <div key={key}>

@@ -28,7 +28,7 @@ const MEETING_TYPE_LABELS = {
   telefoninterview: "Telefoninterview",
   assessment: "Assessment",
   kennenlernen: "Kennenlernen",
-  followup: "Follow-up",
+  followup: "Nachfassen",
   sonstiges: "Termin",
 };
 
@@ -54,7 +54,7 @@ function isToday(dateStr) {
 const LOG_CATEGORIES = [
   { key: "termine", label: "Termine", icon: CalendarClock, color: "sky" },
   { key: "bewerbungen", label: "Bewerbungen", icon: Send, color: "emerald" },
-  { key: "followups", label: "Follow-ups", icon: ClipboardCheck, color: "amber" },
+  { key: "followups", label: "Nachfassen", icon: ClipboardCheck, color: "amber" },
   { key: "dokumente", label: "Dokumente", icon: FileText, color: "violet" },
 ];
 
@@ -267,6 +267,7 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState([]);
   const [collisions, setCollisions] = useState([]);
+  const [nachfassenAnzahl, setNachfassenAnzahl] = useState(0);
   const [categories, setCategories] = useState([]); // meeting categories (#417)
   const [applications, setApplications] = useState([]); // for linking (#418)
   const [filter, setFilter] = useState("all"); // all | upcoming | past
@@ -329,6 +330,7 @@ export default function CalendarPage() {
       ]);
       setMeetings(calData?.meetings || []);
       setCollisions(calData?.collisions || []);
+      setNachfassenAnzahl(Number(calData?.nachfassen_anzahl || 0));
       setCategories(calData?.categories || []);
       setApplications(appsData?.applications || []);
     } catch (error) {
@@ -515,7 +517,19 @@ export default function CalendarPage() {
     <div id="page-kalender" className="page active">
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Kalender</h1>
-      <p className="text-xs text-muted/50 mb-2">{meetings.length} Termine</p>
+      <p className="text-xs text-muted/50 mb-2">
+        {meetings.length} Termine
+        {/* G64 (#1087 D1): Nachfassungen sind keine Termine. Sie stehen
+            in der Arbeitsliste, der Kalender verweist nur darauf. */}
+        {nachfassenAnzahl > 0 ? (
+          <>
+            {" · "}
+            <button type="button" data-nachfassen-verweis className="text-sky hover:underline" onClick={() => navigateTo("aufgaben")}>
+              {nachfassenAnzahl} {nachfassenAnzahl === 1 ? "Nachfassung steht" : "Nachfassungen stehen"} unter Aufgaben
+            </button>
+          </>
+        ) : null}
+      </p>
       <OnboardingHintBanner tab="kalender" />
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
@@ -929,7 +943,7 @@ export default function CalendarPage() {
                                         const id = String(meeting.id).replace(/^followup-/, "");
                                         try {
                                           await postJson(`/api/follow-ups/${id}/complete`, {});
-                                          pushToast("Nachfass erledigt.", "success");
+                                          pushToast("Nachfassen erledigt.", "success");
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}
@@ -944,7 +958,7 @@ export default function CalendarPage() {
                                         const id = String(meeting.id).replace(/^followup-/, "");
                                         try {
                                           await postJson(`/api/follow-ups/${id}/dismiss`, {});
-                                          pushToast("Nachfass hinfaellig.", "success");
+                                          pushToast("Nachfassen hinfällig.", "success");
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}

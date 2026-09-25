@@ -4343,7 +4343,11 @@ async def api_meetings_calendar(days: int = 90):
     ).fetchall()
     all_meetings = [dict(r) for r in past_rows] + meetings
 
-    # Include follow-ups with scheduled_date as calendar entries (#364)
+    # G64 (#1087 D1): der Kalender zeigt nur ECHTE Termine. Bis v1.7.133
+    # standen Nachfassungen hier als Eintraege (#364) — dieselbe Nachfassung
+    # stand damit an vier Orten unter fuenf Namen. Massgeblich ist der
+    # Aufgaben-Tab; hier steht nur noch die Zahl, damit der Kalender auf
+    # die Arbeitsliste verweisen kann.
     follow_up_rows = conn.execute(
         """SELECT f.*, a.title as app_title, a.company as app_company
            FROM follow_ups f
@@ -4405,9 +4409,10 @@ async def api_meetings_calendar(days: int = 90):
             m["category_color"] = cat["color"]
 
     return {
-        "meetings": all_meetings + follow_ups,
+        "meetings": all_meetings,
         "collisions": collisions,
-        "count": len(all_meetings) + len(follow_ups),
+        "count": len(all_meetings),
+        "nachfassen_anzahl": len(follow_ups),
         "categories": categories,
     }
 

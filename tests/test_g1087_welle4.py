@@ -130,3 +130,42 @@ def test_g62_keine_seitengroesse_und_filter_n():
 def test_g62_node_test_in_der_ci():
     ci = _lesen(_repo() / ".github" / "workflows" / "tests.yml")
     assert "node frontend/src/lib/stellenKarte.test.mjs" in ci
+
+
+# ══ G64 — eine Arbeitsliste ═════════════════════════════════════════════
+
+def test_g64_vorschau_in_dashboard_und_bewerbungen():
+    offen = _lesen(FRONTEND / "components" / "OffenBlock.jsx")
+    assert "vorschau(block.gruppen" in offen and "kurz.gruppen[key]" in offen
+    assert "alleAufgabenText(weitere)" in offen
+    bew = _lesen(FRONTEND / "pages" / "ApplicationsPage.jsx")
+    assert "VORSCHAU_ZEILEN - upcomingMeetings.length" in bew
+    assert "weitere Nachfragen im Kalender" not in bew
+    ci = _lesen(_repo() / ".github" / "workflows" / "tests.yml")
+    assert "node frontend/src/lib/arbeitsliste.test.mjs" in ci
+
+
+def test_g64_kalender_zeigt_nur_termine(tmp_path, monkeypatch):
+    import os
+    from fastapi.testclient import TestClient
+    monkeypatch.setenv("BA_DATA_DIR", str(tmp_path))
+    from bewerbungs_assistent.database import Database
+    import bewerbungs_assistent.dashboard as dash
+    db = Database(db_path=tmp_path / "test.db")
+    db.initialize()
+    assert str(tmp_path) in str(db.db_path)
+    db.save_profile({"name": "Erika Musterfrau"})
+    aid = db.add_application({"title": "Sachbearbeitung", "company": "Musterbetrieb GmbH", "status": "beworben"})
+    from datetime import date, timedelta
+    db.add_follow_up(aid, (date.today() + timedelta(days=3)).isoformat(), "nachfass")
+    alt = dash._db
+    dash._db = db
+    try:
+        daten = TestClient(dash.app).get("/api/meetings/calendar?days=365").json()
+    finally:
+        dash._db = alt
+        db.close()
+    assert not any(m.get("is_follow_up") for m in daten["meetings"])
+    assert daten["nachfassen_anzahl"] >= 1
+    kal = _lesen(FRONTEND / "pages" / "CalendarPage.jsx")
+    assert "data-nachfassen-verweis" in kal
