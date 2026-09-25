@@ -134,5 +134,10 @@ jobs:
         # G62 (#1087): Urteil vor Daumen, Grund in Klartext, Fakten als Zeile.
         run: node frontend/src/lib/stellenKarte.test.mjs
 
+      - name: Arbeitsliste - Vorschau hoechstens fuenf Zeilen (G64)
+        # G64 (#1087): Dashboard und Bewerbungen zeigen eine Vorschau, der
+        # Aufgaben-Tab ist die Arbeitsliste.
+        run: node frontend/src/lib/arbeitsliste.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

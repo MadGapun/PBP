@@ -36,6 +36,7 @@ import { punkteText, scoreText } from "@/lib/score";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import MitClaude from "@/components/MitClaude";
+import { VORSCHAU_ZEILEN, alleAufgabenText } from "@/lib/arbeitsliste";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
@@ -829,14 +830,17 @@ export default function ApplicationsPage() {
           <div id="offene-aktionen" className="mb-6 grid gap-4 xl:grid-cols-[2fr_1fr]">
             <Card className="rounded-2xl">
               <div className="flex items-center justify-between">
+                {/* G64 (#1087 D1): eine Vorschau von hoechstens fuenf Zeilen —
+                    Termine zuerst, dann Nachfassungen. Die Arbeitsliste ist
+                    der Aufgaben-Tab. */}
                 <SectionHeading title={`Offene Aktionen (${upcomingMeetings.length + followUps.length})`} />
                 <Button size="sm" variant="ghost" onClick={() => navigateTo("aufgaben")}>
-                  Alle Aufgaben
+                  {alleAufgabenText(Math.max(0, upcomingMeetings.length + followUps.length - VORSCHAU_ZEILEN))}
                 </Button>
               </div>
               <div className="grid gap-1.5">
                 {/* #495: Anstehende Termine zuerst — Zweitgespraeche etc. sollen sichtbar sein */}
-                {upcomingMeetings.slice(0, 5).map((meeting) => (
+                {upcomingMeetings.slice(0, VORSCHAU_ZEILEN).map((meeting) => (
                   <div
                     key={`m-${meeting.id}`}
                     title={`${meeting.title || "Termin"} — ${meeting.app_company || ""}`}
@@ -852,10 +856,7 @@ export default function ApplicationsPage() {
                     <Badge tone="success">Termin</Badge>
                   </div>
                 ))}
-                {upcomingMeetings.length > 5 && (
-                  <p className="text-xs text-muted/40 px-3 pt-1">+{upcomingMeetings.length - 5} weitere Termine im Kalender</p>
-                )}
-                {followUps.slice(0, 5).map((followUp) => (
+                {followUps.slice(0, Math.max(0, VORSCHAU_ZEILEN - upcomingMeetings.length)).map((followUp) => (
                   <div
                     key={followUp.id}
                     title={`${followUp.title} — ${followUp.company}`}
@@ -882,9 +883,6 @@ export default function ApplicationsPage() {
                     </button>
                   </div>
                 ))}
-                {followUps.length > 5 && (
-                  <p className="text-xs text-muted/40 px-3 pt-1">+{followUps.length - 5} weitere Nachfragen im Kalender</p>
-                )}
               </div>
             </Card>
             <Card className="rounded-2xl xl:self-start">
