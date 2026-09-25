@@ -155,3 +155,22 @@ def test_g67_folgenreiches_fragt_im_eigenen_dialog(browser, server):
         assert not any(k["id"] == cid for k in db.list_contacts())
     finally:
         page.close()
+
+
+def test_g68_hilfe_je_tab_und_beide_meldewege(browser, server):
+    url, _db = server
+    page = _seite(browser, url, "kalender")
+    try:
+        page.locator('button[title="Hilfe & Support"]').first.click()
+        tab = page.locator('[data-hilfe-tab="kalender"]')
+        tab.wait_for(timeout=10000)
+        assert "In den eigenen Kalender" in tab.inner_text()
+        # Die Prompts kommen aus dem Katalog.
+        page.locator('[data-hilfe-prompt="interview_vorbereitung"]').wait_for(timeout=10000)
+        page.get_by_role("button", name="Melden", exact=True).click()
+        mail = page.locator('[data-meldeweg="mail"] a').first
+        assert mail.get_attribute("href").startswith("mailto:PBP-Service@Elwosa.de")
+        assert page.locator('[data-meldeweg="github"] a').first.get_attribute("href").startswith(
+            "https://github.com/MadGapun/PBP/issues/new")
+    finally:
+        page.close()

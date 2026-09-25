@@ -532,9 +532,11 @@ def test_help_button_opens_support_modal(live_dashboard, browser):
 
         page.get_by_title("Hilfe & Support").click()
         page.get_by_role("heading", name="Hilfe & Support").wait_for(state="visible")
-        page.get_by_role("button", name="Bug melden").click()
+        # G68 (#1087): "Bug melden" und "Feature" sind ein Reiter "Melden"
+        # mit beiden Wegen, mit und ohne GitHub-Konto.
+        page.get_by_role("button", name="Melden", exact=True).click()
 
-        issue_link = page.get_by_role("link", name="Bug auf GitHub melden")
+        issue_link = page.locator('[data-meldeweg="github"]').get_by_role("link", name="Fehler melden")
         issue_link.wait_for(state="visible")
         href = issue_link.get_attribute("href") or ""
         assert "github.com/MadGapun/PBP/issues/new" in href

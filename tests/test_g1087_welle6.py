@@ -187,3 +187,50 @@ def test_g67_kleines_mit_rueckweg():
     assert "Aufgabe wirklich löschen" not in tasks
     kontakte = _lesen(FRONTEND / "pages" / "ContactsPage.jsx")
     assert kontakte.count('geloeschtMitRueckweg(antwort, "Referenz entfernt."') == 2
+
+
+# ══ G68 — Hilfe-Dialog stimmt und deckt alle Tabs ══════════════════════
+
+def _hilfe_prompt_ids() -> set[str]:
+    text = _lesen(FRONTEND / "lib" / "hilfe.js")
+    ids = set()
+    for liste in re.findall(r"prompts:\s*\[([^\]]*)\]", text):
+        ids.update(re.findall(r'"([a-z_]+)"', liste))
+    return ids
+
+
+def test_g68_prompts_der_hilfe_stehen_im_katalog():
+    from bewerbungs_assistent.services import prompt_katalog
+    katalog = {e["id"] for e in prompt_katalog.EINTRAEGE}
+    ids = _hilfe_prompt_ids()
+    assert len(ids) >= 10
+    assert ids <= katalog, ids - katalog
+    melde = re.search(r'MELDE_PROMPT = "([a-z_]+)"', _lesen(FRONTEND / "lib" / "hilfe.js")).group(1)
+    assert melde in katalog
+
+
+def test_g68_mailadresse_ist_die_des_meldewegs():
+    from bewerbungs_assistent import prompts
+    quelle = Path(prompts.__file__).read_text(encoding="utf-8")
+    adresse = re.search(r'MELDE_MAIL = "([^"]+)"', _lesen(FRONTEND / "lib" / "hilfe.js")).group(1)
+    assert adresse in quelle
+
+
+def test_g68_dialog_liest_die_tabelle():
+    app = _lesen(FRONTEND / "App.jsx")
+    assert "<HilfeTab page={page}" in app
+    assert '{helpTab === "melden" && <MeldenTab' in app
+    assert '{ id: "melden", label: "Melden" }' in app
+    # Die alten Karten stehen nicht mehr im Dialog.
+    assert "aktualisieren sich automatisch" not in app
+    assert "Der Score (0" not in app
+    assert '{ id: "bug", label' not in app
+    inhalt = _lesen(FRONTEND / "components" / "HilfeInhalt.jsx")
+    assert "HILFE[page]" in inhalt
+    assert 'fetch("/api/prompts")' in inhalt
+    assert "MELDEWEGE.map" in inhalt
+
+
+def test_g68_node_test_laeuft_in_der_ci():
+    ci = (_repo() / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
+    assert "node frontend/src/lib/hilfe.test.mjs" in ci
