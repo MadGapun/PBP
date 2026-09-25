@@ -105,9 +105,9 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
-## [1.7.129] - 2026-09-25 — Eine Firma, alle Bezüge
+## [1.7.129] - 2026-09-25 — Eine Firma, alle Bezüge, und Ollama beenden
 
-Stufe 1 aus #1080. `firma_kontext` beantwortet die Frage „kenne ich
+Stufe 1 aus #1080, dazu #1086. `firma_kontext` beantwortet die Frage „kenne ich
 die?“ jetzt aus dem ganzen Bestand und nicht mehr nur aus Bewerbungen
 und Stellen. Kein Schema-Eingriff, nichts wird geschrieben.
 
@@ -136,6 +136,20 @@ und Stellen. Kein Schema-Eingriff, nichts wird geschrieben.
   einen Vermittler ohne eingetragenen Endkunden, deren Notizen eine
   bekannte Firma nennen. Nachgetragen wird mit
   `bewerbung_bearbeiten(endkunde=...)`, und zwar vom Menschen.
+- **Ollama beenden** (#1086). Ollama hält das Modell im Arbeitsspeicher,
+  auch wenn PBP stundenlang nicht mehr benutzt wird. Neu im
+  Einstellungen-Tab unter „Lokale KI“:
+  - ein Knopf **„Ollama jetzt beenden“** (mit Rückfrage),
+  - **„Desktop-Verknüpfung anlegen“** — die Verknüpfung „Ollama beenden“
+    fragt vor dem Beenden noch einmal nach,
+  - die Einstellung **„Beim Beenden von PBP“**: weiterlaufen lassen
+    (Vorgabe) / beenden, wenn PBP es gestartet hat / immer beenden. Die
+    Rückfrage für „immer“ kommt beim Einschalten: PBP endet meist mit
+    Claude Desktop, und dann kann niemand mehr antworten.
+  Unter Windows wird auch die Ollama-Tray-App beendet, sonst startet sie
+  den Dienst gleich wieder. Läuft Ollama unter Linux als Systemdienst,
+  sagt PBP das, statt still nichts zu tun. Über Claude:
+  `ollama_beenden(aktion=...)`.
 
 ### Changed
 

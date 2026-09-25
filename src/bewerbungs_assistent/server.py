@@ -221,6 +221,13 @@ def run_server():
                 logger.info("Dashboard-Server gestoppt")
             except Exception as ex:
                 logger.warning("Dashboard-Stop Fehler: %s", ex)
+        # #1086: Ollama auf Wunsch mit beenden — vor db.close(), weil die
+        # Einstellung am Profil liegt. Vorgabe AUS.
+        try:
+            from .services import ollama_start
+            ollama_start.beim_beenden(db)
+        except Exception as ex:
+            logger.warning("Ollama-Stop beim Beenden uebersprungen: %s", ex)
         try:
             db.close()
             logger.info("Datenbank geschlossen")

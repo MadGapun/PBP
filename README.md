@@ -235,7 +235,7 @@ Ollama bleiben installiert — die deinstallierst du separat.
 | | |
 |---|---|
 | **Plattformen** | Windows, macOS, Linux |
-| **MCP-Tools** | 260 Tools in 12 Modulen |
+| **MCP-Tools** | 261 Tools in 12 Modulen |
 | **Workflows** | 25 gefuehrte Workflows (Prompts) |
 | **Jobportale** | 35 Quellen konfiguriert, ~8 aktuell zuverlaessig liefernd (Festanstellung und Freelance); defekte sichtbar markiert, mit Chrome-Workaround |
 | **Dashboard** | 10 Tabs: Dashboard, Profil, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
