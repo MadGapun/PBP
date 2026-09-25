@@ -72,7 +72,7 @@ function createUploadEntry(file) {
 }
 
 export default function ProfileOnboarding({ open, profile, workspace, onDismiss, onComplete }) {
-  const { chrome, refreshChrome, pushToast } = useApp();
+  const { chrome, refreshChrome, pushToast, copyPrompt } = useApp();
 
   const [sources, setSources] = useState([]);
   const [jobs, setJobs] = useState([]);
@@ -581,22 +581,15 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     }
   }
 
+  // G59 (#1087 A2): bis v1.7.131 kopierte dieser Knopf die rohe
+  // Zeichenkette "/ersterfassung" — in Claude Desktop ist das kein Befehl —
+  // und setzte den Zustand sofort auf "läuft", obwohl nichts gestartet war.
+  // Jetzt derselbe Weg wie jede andere Anleitung (`copyPrompt`, #1120); auf
+  // "läuft" springt der Zustand erst, wenn Claude das Werkzeug wirklich
+  // aufruft (erfassung_fortschritt_speichern / ersterfassung_starten setzen
+  // ihn serverseitig).
   async function copyConversationCommand() {
-    try {
-      await copyToClipboard(CONVERSATION_COMMAND);
-      if (profile?.id) {
-        startTransition(() => setConversationState(CONVERSATION_STATE.ACTIVE));
-        await Promise.all([
-          postJson(`/api/user-preferences/profile_onboarding_started_${profile.id}`, { value: true }),
-          postJson(`/api/user-preferences/profile_onboarding_completed_${profile.id}`, { value: false }),
-          postJson(`/api/user-preferences/profile_onboarding_dismissed_${profile.id}`, { value: false }),
-          postJson(`/api/user-preferences/profile_onboarding_conversation_${profile.id}`, { value: CONVERSATION_STATE.ACTIVE }),
-        ]);
-      }
-      pushToast("Befehl kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
-    } catch (error) {
-      pushToast(`Befehl konnte nicht kopiert werden: ${error.message}`, "danger");
-    }
+    await copyPrompt(CONVERSATION_COMMAND);
   }
 
   function trackLoginJob(sourceKey, jobId) {
@@ -664,14 +657,12 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     }
   }
 
+  // G59/G72 (#1087): auch hier kein roher Schraegstrich-Befehl mehr.
   async function copyJobWorkflow() {
-    try {
-      await copyToClipboard(JOB_WORKFLOW_COMMAND);
+    const kopiert = await copyPrompt(JOB_WORKFLOW_COMMAND);
+    if (kopiert) {
       setJobWorkflowStarted(true);
       void syncJobsDuringWorkflow();
-      pushToast("Befehl kopiert — füge ihn mit Strg+V in Claude ein.", "success", { duration: 7200 });
-    } catch (error) {
-      pushToast(`Befehl konnte nicht kopiert werden: ${error.message}`, "danger");
     }
   }
 
@@ -996,7 +987,7 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Button variant="secondary" onClick={copyConversationCommand}>
           <Copy size={15} />
-          /ersterfassung kopieren
+          Gespräch mit Claude starten
         </Button>
         <Badge tone={conversationState === CONVERSATION_STATE.COMPLETE ? "success" : conversationState === CONVERSATION_STATE.ACTIVE ? "sky" : "neutral"}>
           {conversationState === CONVERSATION_STATE.COMPLETE ? "Abgeschlossen" : conversationState === CONVERSATION_STATE.ACTIVE ? "Läuft" : "Noch offen"}

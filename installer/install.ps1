@@ -402,7 +402,7 @@ Write-Host "  So geht's weiter:" -ForegroundColor Yellow
 Write-Host "  1. Claude Desktop komplett beenden (Tray-Icon → Beenden)" -ForegroundColor White
 Write-Host "  2. Claude Desktop neu starten" -ForegroundColor White
 Write-Host "  3. Eingeben: 'Starte den Bewerbungs-Assistenten'" -ForegroundColor White
-Write-Host "     Oder: 'Ersterfassung starten' fuer gefuehrte Profil-Erstellung" -ForegroundColor White
+Write-Host "     Oder: 'Starte die Ersterfassung' fuer gefuehrte Profil-Erstellung" -ForegroundColor White
 Write-Host ""
 Write-Host "  Dashboard jetzt oeffnen?" -ForegroundColor Yellow
 $openBrowser = Read-Host "  (j/n)"

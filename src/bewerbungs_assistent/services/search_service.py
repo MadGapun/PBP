@@ -1,6 +1,9 @@
 """Gemeinsame Such- und Quellenlogik für Dashboard und weitere Services."""
 
+import logging
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def get_search_status(last_search_at: str | None, now: datetime | None = None) -> dict:
@@ -44,6 +47,43 @@ def get_default_active_source_keys(source_registry: dict) -> list[str]:
         if not info.get("login_erforderlich", False)
         and not info.get("defekt", False)
     ]
+
+
+# B69 (#1087 C7): die Startquellen, wenn das Profil noch keine Empfehlung
+# traegt — dieselben drei, die `jobsuche_starten` beim ersten Lauf nennt.
+START_QUELLEN = ("bundesagentur", "arbeitnow", "jobspy_indeed")
+
+
+def erstauswahl(db, source_registry: dict) -> dict:
+    """Die ERSTE Quellenauswahl eines Profils (B69, #1087 C7).
+
+    Bis v1.7.132 schrieb `/api/sources` beim ersten Oeffnen alle Quellen
+    ohne Login als aktiv — im Demo 29 von 34, darunter Fernquellen ohne
+    DACH-Bezug (#996) und LinkedIn ueber JobSpy (#1038), obwohl die
+    Empfehlung fuer das Profil neun nannte. Jetzt ist die Erstauswahl die
+    Empfehlung fuer das Profil; ohne verwertbare Empfehlung die drei
+    Startquellen. Die Oberflaeche zeigt, was gewaehlt wurde und warum
+    (`quellen_erstauswahl`), statt still zu aktivieren.
+    """
+    grundlage = "start"
+    label = ""
+    keys: list[str] = []
+    try:
+        from .profile_classifier import recommend_sources, suchbegriffe_aus
+        rec = recommend_sources(db.get_profile(), suchbegriffe_aus(db)) or {}
+        keys = list(rec.get("recommended") or [])
+        label = rec.get("label") or ""
+        if keys:
+            grundlage = "profil"
+    except Exception as exc:  # pragma: no cover - nie die Quellenliste stoppen
+        logger.debug("Quellen-Empfehlung nicht verfuegbar: %s", exc)
+    if not keys:
+        keys = list(START_QUELLEN)
+    keys = [k for k in ohne_defekte(keys, source_registry)
+            if not (source_registry.get(k) or {}).get("login_erforderlich", False)]
+    if not keys:
+        keys = [k for k in START_QUELLEN if k in source_registry]
+    return {"quellen": keys, "grundlage": grundlage, "profil_art": label}
 
 
 def ohne_defekte(keys, source_registry: dict) -> list[str]:

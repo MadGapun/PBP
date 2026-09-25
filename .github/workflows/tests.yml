@@ -125,5 +125,10 @@ jobs:
         # Datum nur bei abgeschickter Bewerbung.
         run: node frontend/src/lib/bewerbungFormular.test.mjs
 
+      - name: Hinweiszone (Node)
+        # G60 (#1087): hoechstens ein Banner, nur auf dem Dashboard, feste
+        # Reihenfolge; Suche erst nach sieben Tagen dringlich.
+        run: node frontend/src/lib/hinweisZone.test.mjs
+
       - name: Release-Gate (Versionskonsistenz + First-Run-Smoke)
         run: python release_check.py

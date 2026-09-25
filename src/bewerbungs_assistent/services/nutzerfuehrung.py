@@ -22,6 +22,10 @@ from __future__ import annotations
 
 from typing import Any
 
+# G59 (#1087 A4): der Startsatz, derselbe wie in Dashboard
+# (frontend/src/lib/startsatz.js), README und Installer.
+STARTSATZ = "Starte die Ersterfassung"
+
 # Der Einstieg. Wird an genau einer Stelle formuliert, damit die
 # Anleitung nicht in 17 Varianten auseinanderlaeuft.
 ERSTERFASSUNG_HINWEIS = (

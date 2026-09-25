@@ -6076,8 +6076,15 @@ async def api_sources():
     # #1039: defekte Quellen fliegen auch aus der GESPEICHERTEN Auswahl.
     active = aktive_quellen(_db, SOURCE_REGISTRY)
     if active is None and _db.get_active_profile_id():
-        active = get_default_active_source_keys(SOURCE_REGISTRY)
+        # B69 (#1087 C7): die Empfehlung fuer das Profil statt aller
+        # Quellen ohne Login — und sichtbar, statt still aktiviert.
+        from .services.search_service import erstauswahl
+        auswahl = erstauswahl(_db, SOURCE_REGISTRY)
+        active = auswahl["quellen"]
         _db.set_profile_setting("active_sources", active)
+        _db.set_profile_setting("quellen_erstauswahl", {
+            **auswahl, "am": datetime.now().isoformat(timespec="seconds"),
+            "bestaetigt": False})
     active = active or []
     rows = build_source_rows(SOURCE_REGISTRY, active)
     health_by_name = {h["scraper_name"]: h for h in _db.get_scraper_health()}
@@ -6145,6 +6152,11 @@ async def api_set_sources(request: Request):
     gewuenscht = list(data.get("active_sources", []) or [])
     active = ohne_defekte(gewuenscht, SOURCE_REGISTRY)
     _db.set_profile_setting("active_sources", active)
+    # B69 (#1087 C7): wer selbst auswaehlt, hat die Erstauswahl gesehen.
+    _erst = _db.get_profile_setting("quellen_erstauswahl", None)
+    if isinstance(_erst, dict) and not _erst.get("bestaetigt"):
+        _erst["bestaetigt"] = True
+        _db.set_profile_setting("quellen_erstauswahl", _erst)
     abgelehnt = [key for key in gewuenscht if key not in active]
     return {"status": "ok", "active_sources": active, "abgelehnt_defekt": abgelehnt}
 
@@ -6952,6 +6964,31 @@ async def api_profile_completeness():
 
 
 # v1.7.0-beta.35 (#590 Aufgabe B): Profil-Typ-Erkennung + Quellen-Empfehlung
+@app.get("/api/sources/erstauswahl")
+async def api_sources_erstauswahl():
+    """Was PBP beim ersten Oeffnen ausgewaehlt hat (B69, #1087 C7).
+
+    Die Oberflaeche zeigt es einmal an und fragt "Passt so?", statt die
+    Auswahl still zu setzen. Nach der Bestaetigung (oder einer eigenen
+    Aenderung der Auswahl) ist nichts mehr zu zeigen.
+    """
+    daten = _db.get_profile_setting("quellen_erstauswahl", None) if _db.get_active_profile_id() else None
+    if not isinstance(daten, dict) or daten.get("bestaetigt"):
+        return {"offen": False}
+    from .job_scraper import SOURCE_REGISTRY
+    namen = [(SOURCE_REGISTRY.get(k) or {}).get("name", k) for k in daten.get("quellen") or []]
+    return {"offen": True, **daten, "namen": namen}
+
+
+@app.post("/api/sources/erstauswahl/bestaetigen")
+async def api_sources_erstauswahl_bestaetigen():
+    daten = _db.get_profile_setting("quellen_erstauswahl", None)
+    if isinstance(daten, dict):
+        daten["bestaetigt"] = True
+        _db.set_profile_setting("quellen_erstauswahl", daten)
+    return {"status": "ok"}
+
+
 @app.get("/api/profile/recommended-sources")
 async def api_profile_recommended_sources():
     """Heuristische Profil-Klassifikation + empfohlene Quellen-Liste.

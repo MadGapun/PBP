@@ -42,8 +42,10 @@ function persistDismissed(set) {
   } catch {}
 }
 
-export default function AdaptiveHintBanner({ page, limit = 2, onApply }) {
+export default function AdaptiveHintBanner({ page, limit = 2, onApply, onLeer }) {
   const [hints, setHints] = useState([]);
+  // G60 (#1087): hoechstens ein Hinweis auf dem Dashboard (s. OnboardingHintBanner).
+  const [geladen, setGeladen] = useState(false);
   const [dismissed, setDismissed] = useState(() => readDismissedFromStorage());
 
   useEffect(() => {
@@ -52,10 +54,11 @@ export default function AdaptiveHintBanner({ page, limit = 2, onApply }) {
     fetch(`/api/learning/hints?page=${encodeURIComponent(page)}&limit=${limit}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (cancelled || !d) return;
-        setHints(d.hints || []);
+        if (cancelled) return;
+        setHints((d && d.hints) || []);
+        setGeladen(true);
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setGeladen(true); });
     return () => { cancelled = true; };
   }, [page, limit]);
 
@@ -77,6 +80,10 @@ export default function AdaptiveHintBanner({ page, limit = 2, onApply }) {
   }
 
   const visible = hints.filter((h) => !dismissed.has(h.id));
+  const leer = geladen && visible.length === 0;
+  useEffect(() => {
+    if (leer && onLeer) onLeer();
+  }, [leer, onLeer]);
   if (visible.length === 0) return null;
 
   return (

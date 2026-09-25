@@ -47,8 +47,11 @@ function persistHidden(set) {
   } catch {}
 }
 
-export default function OnboardingHintBanner({ tab, limit = 2 }) {
+export default function OnboardingHintBanner({ tab, limit = 2, onLeer }) {
   const [hints, setHints] = useState([]);
+  // G60 (#1087): das Dashboard zeigt hoechstens EINEN Hinweis. Ist hier
+  // nichts zu sagen, darf der naechste in der Reihe.
+  const [geladen, setGeladen] = useState(false);
   const [hidden, setHidden] = useState(() => readHidden());
   const { copyPrompt } = useApp();
 
@@ -58,10 +61,11 @@ export default function OnboardingHintBanner({ tab, limit = 2 }) {
     fetch(`/api/onboarding/hints?tab=${encodeURIComponent(tab)}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (cancelled || !d) return;
-        setHints((d.hints || []).slice(0, limit));
+        if (cancelled) return;
+        setHints(((d && d.hints) || []).slice(0, limit));
+        setGeladen(true);
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setGeladen(true); });
     return () => {
       cancelled = true;
     };
@@ -86,6 +90,10 @@ export default function OnboardingHintBanner({ tab, limit = 2 }) {
   }
 
   const visible = hints.filter((h) => !hidden.has(h.id));
+  const leer = geladen && visible.length === 0;
+  useEffect(() => {
+    if (leer && onLeer) onLeer();
+  }, [leer, onLeer]);
   if (visible.length === 0) return null;
 
   return (
