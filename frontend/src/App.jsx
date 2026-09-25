@@ -1240,6 +1240,7 @@ export default function App() {
           onSelectPage={navigateTo}
           subNavigation={sidebarSubNavigation}
           badges={sidebarBadges}
+          badgeTitles={chrome.workspace?.navigation?.titel || {}}
           meta={sidebarMeta}
           brand={{
             // Echte Server-Version (beta.24 / User-Feedback): vorher hardcoded

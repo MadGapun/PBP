@@ -117,6 +117,30 @@ READINESS_STUFEN: dict[str, dict] = {
 }
 
 
+def _badge_titel(stellen: int, faellig: int, quellen: dict, suche: dict,
+                 fehlend: list) -> dict:
+    """Was die Zahl in der Seitenleiste bedeutet (G61, #1087 B6)."""
+    titel = {}
+    if stellen:
+        titel["stellen"] = (f"{stellen} Stelle wartet" if stellen == 1
+                            else f"{stellen} Stellen warten") + " auf deine Entscheidung"
+    if faellig:
+        titel["bewerbungen"] = (f"{faellig} Nachfassung ist" if faellig == 1
+                                else f"{faellig} Nachfassungen sind") + " fällig"
+    einstellungen = []
+    if quellen.get("active", 0) == 0:
+        einstellungen.append("keine Jobbörse ausgewählt")
+    elif suche.get("status") in {"nie", "dringend"}:
+        einstellungen.append("noch keine Suche" if suche.get("status") == "nie"
+                             else "letzte Suche liegt lange zurück")
+    if einstellungen:
+        satz = "; ".join(einstellungen)
+        titel["einstellungen"] = satz[:1].upper() + satz[1:]
+    if fehlend:
+        titel["profil"] = "Im Profil fehlt noch: " + ", ".join(fehlend)
+    return titel
+
+
 def readiness_stufe(stage: str, **ueberschreibungen) -> dict:
     """Eine Readiness-Stufe als frische Kopie, optional mit Abweichungen."""
     stufe = dict(READINESS_STUFEN[stage])
@@ -237,15 +261,21 @@ def build_workspace_summary(
             "hint": inactivity_hint,
         } if inactivity_days else None,
         "readiness": readiness,
+        # G61 (#1087 B6): eine Zahl in der Seitenleiste heisst "hier
+        # braucht etwas Aufmerksamkeit", und ihr Titel sagt was. Bis
+        # v1.7.135 zaehlte die Bewerbungen-Zahl alle laufenden
+        # Bewerbungen — eine Zahl, bei der nichts zu tun ist.
         "navigation": {
             "jobs_badge": format_nav_badge(len(jobs)),
-            "applications_badge": format_nav_badge(len(active_applications)),
+            "applications_badge": format_nav_badge(follow_up_summary["due"]),
             "settings_badge": format_nav_badge(
                 (1 if source_summary["active"] == 0 else 0)
                 + (1 if source_summary["active"] > 0
                    and search_status["status"] in {"nie", "dringend"} else 0)
             ),
             "profile_badge": format_nav_badge(len(missing_areas)),
+            "titel": _badge_titel(len(jobs), follow_up_summary["due"],
+                                  source_summary, search_status, missing_areas),
         },
     }
 

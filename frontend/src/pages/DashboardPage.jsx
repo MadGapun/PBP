@@ -19,6 +19,8 @@ import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { punkteText, punkteWert, scoreText } from "@/lib/score";
+import { bewerbungenProWoche, gehaltsWert, KEIN_GEHALT, topStellen, WOCHEN_ANSICHTEN } from "@/lib/kennzahlen";
+import { FILTER_STANDARD, listenParameter } from "@/pages/JobsPage";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -34,6 +36,7 @@ import {
 import {
   buildMailto,
   buildReplyMailto,
+  cn,
   extractEmailAddress,
   formatCurrency,
   formatDate,
@@ -82,7 +85,9 @@ export default function DashboardPage() {
   const [bereichsKatalog, setBereichsKatalog] = useState([]);
   const [anpassenOffen, setAnpassenOffen] = useState(false);
   const [publicHints, setPublicHints] = useState([]);
-  const [metricPerspective, setMetricPerspective] = useState(() => Math.floor(Math.random() * 5));
+  // G61 (#1087 B2): eine feste Definition mit beschriftetem Umschalter
+  // statt einer zufaellig gewaehlten Perspektive beim Laden.
+  const [wochenAnsicht, setWochenAnsicht] = useState("gesamt");
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pbp_dismissed_hints") || "[]"); } catch { return []; }
   });
@@ -120,7 +125,7 @@ export default function DashboardPage() {
     }
 
     try {
-      const [jobs, applications, followUps, statistics, zombieData, meetingsData, emailsData, impulseData] = await Promise.all([
+      const [jobs, applications, followUps, statistics, zombieData, meetingsData, emailsData, impulseData, topResp] = await Promise.all([
         optionalApi("/api/jobs?active=true"),
         optionalApi("/api/applications"),
         optionalApi("/api/follow-ups"),
@@ -129,6 +134,9 @@ export default function DashboardPage() {
         optionalApi("/api/meetings"),
         optionalApi("/api/emails"),
         optionalApi("/api/daily-impulse"),
+        // G61 (#1087 B3): Top-Stellen nach denselben Vorgaben wie der
+        // Stellen-Tab (Schwelle, Rahmen, beworbene ausgeblendet).
+        optionalApi(`/api/jobs?active=true&exclude_blacklisted=true&limit=12&${listenParameter(FILTER_STANDARD, "", "", "active")}`),
       ]);
 
       // If ALL calls returned null, the server is unreachable (#123)
@@ -149,6 +157,7 @@ export default function DashboardPage() {
       startTransition(() => {
         setData({
           jobs: jobs || [],
+          topJobs: Array.isArray(topResp) ? topResp : (topResp?.jobs || []),
           applications: applications?.applications || [],
           followUps: followUps?.follow_ups || [],
           statistics: statistics || {},
@@ -217,50 +226,8 @@ export default function DashboardPage() {
   const applicationTimestamps = (data.applications || [])
     .map((item) => Date.parse(item?.applied_at || item?.created_at || item?.updated_at || ""))
     .filter((timestamp) => Number.isFinite(timestamp));
-  // #367: Multiple perspectives for applications per week
-  const metricPerspectives = (() => {
-    const fmt = (v) => new Intl.NumberFormat("de-DE", {
-      minimumFractionDigits: v > 0 && v < 10 ? 1 : 0,
-      maximumFractionDigits: v > 0 && v < 10 ? 1 : 0,
-    }).format(v);
-    const now = Date.now();
-    const day = 1000 * 60 * 60 * 24;
-    const perspectives = [];
-    // 0: Last 30 days
-    const last30 = applicationTimestamps.filter((t) => now - t <= 30 * day).length;
-    const weeks30 = 30 / 7;
-    perspectives.push({ value: fmt(applicationsCount ? last30 / weeks30 : 0), note: "Ø seit 1 Monat" });
-    // 1: Last 365 days
-    const last365 = applicationTimestamps.filter((t) => now - t <= 365 * day).length;
-    const weeks365 = 365 / 7;
-    perspectives.push({ value: fmt(applicationsCount ? last365 / weeks365 : 0), note: "Ø seit 1 Jahr" });
-    // 2: Total (all time)
-    if (applicationTimestamps.length) {
-      const earliest = Math.min(...applicationTimestamps);
-      const elapsedDays = Math.max(1, Math.ceil((now - earliest) / day) + 1);
-      perspectives.push({ value: fmt(applicationsCount / (elapsedDays / 7)), note: "Ø gesamt" });
-    } else {
-      perspectives.push({ value: fmt(applicationsCount), note: "Ø gesamt" });
-    }
-    // 3: Since PBP usage (profile created_at)
-    const profileCreated = Date.parse(data.statistics?.profile_created_at || "");
-    if (Number.isFinite(profileCreated)) {
-      const daysSince = Math.max(1, Math.ceil((now - profileCreated) / day) + 1);
-      perspectives.push({ value: fmt(applicationsCount / (daysSince / 7)), note: "Ø seit PBP-Start" });
-    } else {
-      perspectives.push(perspectives[2]); // fallback to total
-    }
-    // 4: Per analyzed job
-    const totalJobs = (data.statistics?.active_jobs || 0) + (data.statistics?.dismissed_jobs || 0);
-    if (totalJobs > 0) {
-      perspectives.push({ value: fmt(applicationsCount / totalJobs * 100), note: `pro 100 Stellen (${totalJobs} analysiert)` });
-    } else {
-      perspectives.push({ value: "—", note: "Noch keine Stellen analysiert" });
-    }
-    return perspectives;
-  })();
-  const currentMetric = metricPerspectives[metricPerspective % metricPerspectives.length];
-  const applicationsPerWeek = currentMetric.value;
+  const currentMetric = bewerbungenProWoche(applicationTimestamps, wochenAnsicht);
+  const applicationsPerWeek = currentMetric.wert;
   const appliedJobHashes = new Set(
     (data.applications || [])
       .filter((a) => a.job_hash && !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(a.status))
@@ -271,10 +238,11 @@ export default function DashboardPage() {
   const salaryMetrics = buildAnnualSalaryMetrics(data.jobs);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
   const salaryCount = Number(salaryMetrics.annualBasisCount || 0);
-  const salaryMin = Number(salaryMetrics.averageMin);
-  const salaryMax = Number(salaryMetrics.averageMax);
-  const hasSalaryMin = Number.isFinite(salaryMin);
-  const hasSalaryMax = Number.isFinite(salaryMax);
+  // G61 (#1087 B4): 0 EUR ist kein Gehalt — sonst stand "0 – 0 EUR" da.
+  const salaryMin = gehaltsWert(salaryMetrics.averageMin);
+  const salaryMax = gehaltsWert(salaryMetrics.averageMax);
+  const hasSalaryMin = salaryMin !== null;
+  const hasSalaryMax = salaryMax !== null;
   const salaryAverage = hasSalaryMin && hasSalaryMax
     ? Math.round((salaryMin + salaryMax) / 2)
     : hasSalaryMin
@@ -283,10 +251,10 @@ export default function DashboardPage() {
         ? Math.round(salaryMax)
         : null;
   // v1.6.2: Bandbreite = echte Min/Max-Spanne (gleiche Semantik wie JobsPage).
-  const bandMin = Number(salaryMetrics.bandMin);
-  const bandMax = Number(salaryMetrics.bandMax);
-  const hasBandMin = Number.isFinite(bandMin);
-  const hasBandMax = Number.isFinite(bandMax);
+  const bandMin = gehaltsWert(salaryMetrics.bandMin);
+  const bandMax = gehaltsWert(salaryMetrics.bandMax);
+  const hasBandMin = bandMin !== null;
+  const hasBandMax = bandMax !== null;
   const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
   const salaryBandText = hasBandMin && hasBandMax
     ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
@@ -294,7 +262,7 @@ export default function DashboardPage() {
       ? formatCurrency(bandMin)
       : hasBandMax
         ? formatCurrency(bandMax)
-        : "Keine Angabe";
+        : "—";
   const lastSearchAt = chrome.searchStatus?.last_search || "";
   const searchDaysAgo = Number(chrome.searchStatus?.days_ago);
   const hasSearchDays = Number.isFinite(searchDaysAgo);
@@ -695,21 +663,38 @@ export default function DashboardPage() {
         <div className="mb-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard label="Bewerbungen" value={applicationsCount} note={`${applicationsCount} geschrieben${unappliedJobsCount > 0 ? ` / ${unappliedJobsCount} unbearbeitete Stellen` : ""}`} tone="sky" />
           <MetricCard
-            label={<span className="flex items-center gap-1.5">Bew. / Woche<button type="button" onClick={() => setMetricPerspective((p) => (p + 1) % metricPerspectives.length)} className="rounded p-0.5 text-muted/30 hover:text-sky transition-colors" title="Andere Perspektive"><RefreshCw size={11} /></button></span>}
+            label="Bewerbungen pro Woche"
             value={applicationsPerWeek}
-            note={currentMetric.note}
+            note={
+              <span className="flex flex-wrap items-center gap-1" data-wochen-ansicht>
+                {WOCHEN_ANSICHTEN.map((a) => (
+                  <button
+                    key={a.id}
+                    type="button"
+                    aria-pressed={wochenAnsicht === a.id}
+                    onClick={() => setWochenAnsicht(a.id)}
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-[12px] transition-colors",
+                      wochenAnsicht === a.id ? "border-sky/40 bg-sky/10 text-sky" : "border-line/40 text-muted hover:text-ink",
+                    )}
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </span>
+            }
             tone="sky"
           />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
-            note={grundlagenText(salaryMetrics)}
+            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "—"}
+            note={salaryAverage !== null ? grundlagenText(salaryMetrics) : KEIN_GEHALT}
             tone="success"
           />
           <MetricCard
             label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
             value={salaryBandText}
-            note={salaryCount > 0 ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : "Echte Min/Max-Spanne über alle Stellen"}
+            note={salaryBandText !== "—" ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : KEIN_GEHALT}
             tone="success"
           />
         </div>
@@ -776,13 +761,9 @@ export default function DashboardPage() {
                 Docs-Bereich um. */}
             <div className="mt-3 grid gap-2 md:grid-cols-2">
               {(() => {
-                const appliedHashes = new Set(
-                  (data.applications || []).map((a) => a.job_hash).filter(Boolean)
-                );
-                const topJobs = data.jobs
-                  .filter((j) => !appliedHashes.has(j.hash))
-                  .sort((a, b) => punkteWert(b) - punkteWert(a))
-                  .slice(0, 6);
+                // G61 (#1087 B3): was der Stellen-Tab zeigt, und nur mit
+                // Punkten ueber 0 — vorher stand hier eine Stelle mit -2.
+                const topJobs = topStellen(data.topJobs || []);
                 return topJobs.length ? (
                   topJobs.map((job) => (
                     <button
