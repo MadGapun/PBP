@@ -88,7 +88,11 @@ export function etikett(marke, art) {
   if (!marke) return "";
   const texte = RICHTUNG_TEXT[art] || RICHTUNG_TEXT[FACH];
   const text = texte[marke.richtung] || texte[MITTEL];
-  return marke.farbe === GRAU ? `${text} (ungeprüft)` : text;
+  if (marke.farbe !== GRAU) return text;
+  // C97 (#1087 C8): "ungeprüft" nennt den Grund — sonst sieht jede Karte
+  // der ersten Trefferliste gleich aus, und niemand weiß, warum.
+  const weil = String(marke.ungeprueft_weil || "").trim();
+  return weil ? `${text} (ungeprüft: ${weil})` : `${text} (ungeprüft)`;
 }
 
 /**

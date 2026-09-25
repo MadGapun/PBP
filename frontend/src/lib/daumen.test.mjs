@@ -62,6 +62,10 @@ check("Rahmen runter", etikett({ richtung: RUNTER, farbe: BELEGT }, RAHMEN), "Ra
 check("grau sagt es", etikett({ richtung: RUNTER, farbe: GRAU }, RAHMEN),
       "Rahmen passt nicht (ungeprüft)");
 check("ohne Marke kein Etikett", etikett(null, FACH), "");
+// C97 (#1087 C8): der Grund steht an der Karte, nicht erst im Tooltip.
+check("grau nennt den Grund",
+      etikett({ richtung: RUNTER, farbe: GRAU, ungeprueft_weil: "Entfernung unbekannt" }, RAHMEN),
+      "Rahmen passt nicht (ungeprüft: Entfernung unbekannt)");
 
 // ── Der Titel traegt die Begruendung des Servers ───────────────────
 check("Begruendung wandert mit",

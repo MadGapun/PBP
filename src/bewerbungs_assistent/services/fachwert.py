@@ -182,16 +182,21 @@ def daumen(punkte, schwellen_werte: dict, belegt: bool = True) -> dict:
     sieht schlecht aus, aber ungeprueft. Damit ist der Indikator nie
     nutzlos und nie erfunden (Nutzervorgabe 15.09.2026).
     """
+    # C97 (#1087 C8): "ungeprueft" nennt einen kurzen Grund auf der Karte,
+    # nicht erst im Tooltip.
     if punkte is None:
         return {"richtung": MITTEL, "farbe": GRAU,
+                "ungeprueft_weil": "ohne Punkte",
                 "grund": "Diese Stelle traegt keinen Fachwert."}
     fehlt = (schwellen_werte or {}).get("grundlage_fehlt")
     if fehlt:
-        return {"richtung": MITTEL, "farbe": GRAU, "grund": fehlt}
+        return {"richtung": MITTEL, "farbe": GRAU, "grund": fehlt,
+                "ungeprueft_weil": "zu wenige Bewerbungen zum Vergleich"}
     trenn = (schwellen_werte or {}).get("trennschwelle")
     oben = (schwellen_werte or {}).get("oberes_viertel")
     if trenn is None or oben is None:
         return {"richtung": MITTEL, "farbe": GRAU,
+                "ungeprueft_weil": "zu wenige Bewerbungen zum Vergleich",
                 "grund": "Die Verteilung deiner Bewerbungen liefert keine "
                          "Schwellen — der Daumen bleibt ohne Grundlage."}
     wert = float(punkte)
@@ -207,6 +212,9 @@ def daumen(punkte, schwellen_werte: dict, belegt: bool = True) -> dict:
         richtung, grund = MITTEL, (
             f"{wert:g} Punkte — ueber der Schwelle ({trenn:g}), aber "
             f"unter deinem oberen Viertel ({oben:g}).")
-    return {"richtung": richtung,
-            "farbe": BELEGT if belegt else GRAU,
-            "grund": grund}
+    marke = {"richtung": richtung,
+             "farbe": BELEGT if belegt else GRAU,
+             "grund": grund}
+    if not belegt:
+        marke["ungeprueft_weil"] = "ohne Anzeigentext"
+    return marke

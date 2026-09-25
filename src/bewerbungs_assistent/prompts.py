@@ -3,6 +3,7 @@
 import json
 
 from .services.profile_service import get_profile_completeness_labels
+from .services.punkte import SCORE_BEDEUTUNG
 
 
 def _build_known_profile_lines(profile: dict | None) -> list[str]:
@@ -437,7 +438,7 @@ VORBEREITUNG (still):
 TIPPS NACH KATEGORIE:
 
 == PROFIL OPTIMIEREN ==
-- "Ein vollstaendiges Profil erhoht den Match-Score um bis zu 30%."
+- "Ein vollstaendiges Profil macht Anschreiben, Lebenslauf und Detailbewertung besser. Die Punkte einer Stelle aendert es nicht — die messen deine Suchbegriffe."
 - "Die STAR-Methode bei Projekten macht dein Profil fuer den AI-Matching viel aussagekraeftiger."
 - "Nutze skill_hinzufuegen() fuer alle relevanten Skills — auch Soft Skills zaehlen beim Scoring."
 - "Aktualisiere dein Profil regelmaessig mit profil_bearbeiten()."
@@ -987,8 +988,8 @@ Das kann je nach Anzahl der Quellen 5-10 Minuten dauern. Ich halte dich auf dem 
 ═══════════════════════════════════════════════════
 SCHRITT 4: ERGEBNISSE SICHTEN
 ═══════════════════════════════════════════════════
-WAS PASSIERT: Wir schauen uns die gefundenen Stellen an. Jede Stelle hat einen
-Fit-Score (0-20 Punkte) der zeigt, wie gut sie zu deinem Profil passt.
+WAS PASSIERT: Wir schauen uns die gefundenen Stellen an. Jede Stelle hat Punkte.
+{SCORE_BEDEUTUNG}
 Stellen mit Gehaltsinformationen zeigen diese direkt an.
 
 → Zeige die Ergebnisse mit stellen_anzeigen()
@@ -1528,7 +1529,8 @@ Ueberspringe nichts, es sei denn der User bittet darum.
 [ ] 1. FIT-ANALYSE
     → Rufe fit_analyse(job_hash) auf
     → Zeige dem User: Was passt, was fehlt, Risiken
-    → "Dein Match mit dieser Stelle liegt bei X% — lass uns schauen was wir optimieren koennen."
+    → Nenne die Punkte so, wie fit_analyse sie liefert (punkte_text), und
+      was sie bedeuten: {SCORE_BEDEUTUNG} Keine Prozentzahl.
 
 [ ] 2. SKILL-GAP PRUEFEN
     → Rufe skill_gap_analyse(job_hash) auf

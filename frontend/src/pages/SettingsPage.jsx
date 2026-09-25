@@ -1339,7 +1339,7 @@ const KI_FEATURE_DEFS = [
   { id: "dokumentenanalyse", label: "Dokumentenanalyse",
     desc: "Profil-Daten aus hochgeladenen Lebenslaeufen, Zeugnissen und Anschreiben extrahieren." },
   { id: "stellenanalyse", label: "Stellenanalyse / Fit-Bewertung",
-    desc: "Fit-Analyse, Skill-Gap-Analyse und Score-Verfeinerung fuer einzelne Stellen." },
+    desc: "Fit-Analyse, Skill-Gap-Analyse und Verfeinerung der Punkte für einzelne Stellen." },
   { id: "bewerbungserstellung", label: "Bewerbungs-Erstellung",
     desc: "Angepasste Lebenslaeufe, Fachprofile und Anschreiben generieren." },
   { id: "coaching", label: "Interview- und Verhandlungs-Coaching",
@@ -2773,7 +2773,7 @@ function RoutingCard({ pushToast }) {
     <Card className="rounded-2xl" data-testid="routing-card">
       <SectionHeading
         title="Fahrstrecke und Fahrzeit"
-        description="Ohne Schluessel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schluessel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Score und Gehaltsverrechnung nehmen die Fahrstrecke."
+        description="Ohne Schluessel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schluessel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Rahmen-Daumen und Gehaltsverrechnung nehmen die Fahrstrecke."
       />
       <div className="grid gap-3">
         {status?.konfiguriert ? (

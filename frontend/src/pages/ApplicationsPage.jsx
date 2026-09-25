@@ -32,7 +32,7 @@ import {
   textExcerpt,
 } from "@/utils";
 import { jobLinkInfo } from "@/lib/jobLink";
-import { scoreText } from "@/lib/score";
+import { punkteText, scoreText } from "@/lib/score";
 import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
@@ -1336,7 +1336,7 @@ export default function ApplicationsPage() {
               <p className="text-sm text-muted">{timelineDialog.entry.job.company}{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge tone="sky">{timelineDialog.entry.job.source || "Quelle"}</Badge>
-                <Badge tone="amber">Score {scoreText(timelineDialog.entry.job.score)}</Badge>
+                <Badge tone="amber">{punkteText(timelineDialog.entry.job)}</Badge>
                 {timelineDialog.entry.job.remote_level && timelineDialog.entry.job.remote_level !== "unbekannt" ? <Badge tone="success">{timelineDialog.entry.job.remote_level}</Badge> : null}
               </div>
               {timelineDialog.entry.job.salary_min ? (
@@ -1525,7 +1525,7 @@ export default function ApplicationsPage() {
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Fit-Analyse</p>
               <div className="mt-2 space-y-1 text-sm">
                 {timelineDialog.entry.application.fit_analyse.total_score != null && (
-                  <p className="text-ink font-medium">Fit-Score: {timelineDialog.entry.application.fit_analyse.total_score}/10</p>
+                  <p className="text-ink font-medium">Punkte (Stand dieser Analyse): {scoreText(timelineDialog.entry.application.fit_analyse.total_score)}</p>
                 )}
                 {timelineDialog.entry.application.fit_analyse.summary && (
                   <p className="text-muted/70">{timelineDialog.entry.application.fit_analyse.summary}</p>
@@ -2356,7 +2356,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                   </span>
                 )}
                 <p className="text-muted/50 text-[11px]">
-                  {j.company} · {j.source} · Score {scoreText(j.score)}
+                  {j.company} · {j.source} · {punkteText(j)}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
@@ -2485,7 +2485,7 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
               <p className="font-semibold text-ink">{s.title}</p>
               <p className="text-[12px] text-muted/70">{s.company}</p>
               <div className="mt-2 space-y-0.5 text-[11px] text-muted/60">
-                <p>Score: <span className="text-ink">{scoreText(s.score)}</span></p>
+                <p>Punkte: <span className="text-ink">{punkteText(s)}</span></p>
                 <p>Quelle: <span className="text-ink">{s.source}</span></p>
                 <p>Standort: <span className="text-ink">{s.location || "—"}</span></p>
                 <p>Gehalt: {s.salary_min ? `${s.salary_min}–${s.salary_max || "?"} €` : "—"}</p>
@@ -2500,7 +2500,7 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
           <p className="text-[10px] uppercase text-muted/50 mb-2">Vergleich</p>
           <div className="space-y-1.5 text-[12px]">
             <p>
-              <span className="text-muted/60">Score-Diff:</span>{" "}
+              <span className="text-muted/60">Punkte-Differenz:</span>{" "}
               <span className="font-mono">{v.score_diff > 0 ? "+" : ""}{v.score_diff}</span>{" "}
               <span className="text-muted/40">(A − B)</span>
             </p>

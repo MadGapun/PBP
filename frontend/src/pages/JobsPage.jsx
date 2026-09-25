@@ -27,7 +27,8 @@ import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
-import { scoreText, scoreWert } from "@/lib/score";
+import { SCORE_BEDEUTUNG, punkteText, scoreText, scoreWert } from "@/lib/score";
+import { volltextText } from "@/lib/jobsucheHinweis";
 import {
   FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
   etikett as daumenEtikett, maximumText as fachMaximumText,
@@ -115,7 +116,7 @@ function jobNeedsDescriptionAttention(job) {
 }
 
 function descriptionAttentionLabel(job) {
-  return Number(job?.score || 0) > 0 ? "Score unsicher" : "Unbewertet";
+  return Number(job?.score || 0) > 0 ? "Punkte unsicher" : "Unbewertet";
 }
 
 // #1007: kurze Etiketten fuer das Urteil der Detailanalyse. Die
@@ -180,7 +181,7 @@ export function aktiveFilterBestimmen(filters) {
   const aktiv = [];
   if (filters.query) aktiv.push({ schluessel: "query", text: `Suchtext "${filters.query}"` });
   if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${filters.source}` });
-  if (Number(filters.minScore || 0) > 0) aktiv.push({ schluessel: "minScore", text: `Score ab ${filters.minScore}` });
+  if (Number(filters.minScore || 0) > 0) aktiv.push({ schluessel: "minScore", text: `Punkte ab ${filters.minScore}` });
   if (filters.remote) aktiv.push({ schluessel: "remote", text: `Remote ${filters.remote}` });
   if (filters.salaryOnly) aktiv.push({ schluessel: "salaryOnly", text: "nur mit Gehalt" });
   if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
@@ -188,7 +189,7 @@ export function aktiveFilterBestimmen(filters) {
   if (filters.hideApplied) aktiv.push({ schluessel: "hideApplied", text: "beworbene ausgeblendet" });
   if (filters.missingDescriptionOnly) aktiv.push({ schluessel: "missingDescriptionOnly", text: "nur ohne Beschreibung" });
   if (filters.rahmenAusblenden) aktiv.push({ schluessel: "rahmenAusblenden", text: "Rahmen passt nicht ausgeblendet" });
-  if (filters.schwelleAusblenden) aktiv.push({ schluessel: "schwelleAusblenden", text: "unter der Score-Schwelle ausgeblendet" });
+  if (filters.schwelleAusblenden) aktiv.push({ schluessel: "schwelleAusblenden", text: "unter der Schwelle ausgeblendet" });
   if (filters.pruefstand) {
     aktiv.push({
       schluessel: "pruefstand",
@@ -884,9 +885,9 @@ export default function JobsPage() {
         setJobs((cur) => cur.map((j) => String(j.hash) === String(job.hash) ? { ...j, score } : j));
       });
       refreshChrome({ quiet: true });
-      pushToast(`Score auf ${score} gesetzt.`, "success");
+      pushToast(`Punkte auf ${score} gesetzt.`, "success");
     } catch (error) {
-      pushToast(`Score konnte nicht gespeichert werden: ${error.message}`, "danger");
+      pushToast(`Punkte konnten nicht gespeichert werden: ${error.message}`, "danger");
     }
   }
 
@@ -999,10 +1000,11 @@ export default function JobsPage() {
     }
     if (filters.view === "active" && jobsWithoutDescriptionCount > 0) {
       return {
-        badge: "Score prüfen",
+        badge: "Punkte prüfen",
         tone: "amber",
-        title: "Ein Teil der Scores ist noch nicht belastbar",
-        description: `${jobsWithoutDescriptionCount} aktive Stelle(n) haben keine oder nur eine sehr kurze Beschreibung. Prüfe diese Treffer vor einer Entscheidung direkt gegen die Originalanzeige.`,
+        title: "Ein Teil der Punkte ist noch nicht belastbar",
+        // C97 (#1087 C8): dieselbe Aussage wie nach dem Suchlauf.
+        description: `${volltextText(jobsWithoutDescriptionCount, aktivMeta.total)}. Bis dahin sind ihre Punkte aus dem Titel geraten — prüfe diese Treffer vor einer Entscheidung gegen die Originalanzeige.`,
         actionLabel: filters.missingDescriptionOnly ? "Alle Stellen zeigen" : "Nur diese Stellen zeigen",
         action: () => setFilters((current) => ({ ...current, view: "active", missingDescriptionOnly: !current.missingDescriptionOnly })),
       };
@@ -1182,7 +1184,7 @@ export default function JobsPage() {
             tone="success"
           />
           <MetricCard
-            label="Durchschnittsscore"
+            label="Durchschnitt Punkte"
             value={averageScore}
             note={scoredActiveJobs.length > 0 ? `${scoredActiveJobs.length} bewertete Treffer` : "Noch keine bewerteten Treffer"}
             tone="sky"
@@ -1347,7 +1349,7 @@ export default function JobsPage() {
                   ? "border-teal/20 bg-teal/8"
                   : "border-white/5 bg-white/[0.03]"
               )}>
-                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal/80" : "text-muted/40")}>Score ≥</span>
+                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal/80" : "text-muted/40")}>Punkte ≥</span>
                 <input
                   type="number"
                   className={cn(
@@ -1493,7 +1495,7 @@ export default function JobsPage() {
                   ? "border-coral/20 bg-coral/8 text-coral/80"
                   : "border-white/5 bg-white/[0.03] text-muted/40 hover:bg-white/[0.05] hover:text-muted/60"
               )}
-              title="Blendet Stellen aus, deren Fachwert unter deiner Score-Schwelle (Einstellungen) liegt. Entfernung, Remote-Anteil und Gehalt zählen dabei nicht."
+              title="Blendet Stellen aus, deren Punkte unter deiner Schwelle (Einstellungen) liegen. Entfernung, Remote-Anteil und Gehalt zählen dabei nicht."
               onClick={() => setFilters((f) => ({ ...f, schwelleAusblenden: !f.schwelleAusblenden }))}
             >
               <EyeOff size={14} />
@@ -1537,8 +1539,8 @@ export default function JobsPage() {
                   Anzeige, nicht die Rahmenbedingungen. Der Parameter
                   bleibt `score_desc`: er ist ein Vertrag mit dem
                   Server, und das Etikett ist eine Beschriftung. */}
-              <option value="score_desc">Fachwert abst.</option>
-              <option value="score_asc">Fachwert aufst.</option>
+              <option value="score_desc">Punkte absteigend</option>
+              <option value="score_asc">Punkte aufsteigend</option>
               <option value="salary_desc">Gehalt abst.</option>
               {/* #1032: nach dem Erstfund. Bewusst nicht nach dem
                   Veroeffentlichungsdatum — das liefert nur eine Quelle. */}
@@ -1665,9 +1667,9 @@ export default function JobsPage() {
                         type="button"
                         className="inline-flex items-center gap-1 rounded-full border border-transparent bg-amber/10 px-2.5 py-0.5 text-[12px] font-semibold text-amber transition-colors hover:border-amber/30 hover:bg-amber/20"
                         onClick={() => { setEditingScoreHash(String(job.hash)); setEditingScoreValue(String(scoreWert(job.score))); }}
-                        title="Score bearbeiten"
+                        title="Punkte von Hand setzen"
                       >
-                        Fachwert {scoreText(job.score)}
+                        {punkteText(job)}
                         <Pencil size={11} />
                       </button>
                     )}
@@ -1799,8 +1801,8 @@ export default function JobsPage() {
                     {jobNeedsDescriptionAttention(job) ? (
                       <p className="text-xs text-amber">
                         {Number(job?.score || 0) > 0
-                          ? "Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du den Score zu ernst nimmst."
-                          : "Score 0 ist kein Urteil — ohne Beschreibung wurde diese Stelle nicht bewertet. Erst Beschreibung nachladen, dann entscheiden."}
+                          ? "Beschreibung fehlt oder ist sehr kurz. Prüfe die Originalanzeige, bevor du die Punkte zu ernst nimmst."
+                          : "0 Punkte sind kein Urteil — ohne Beschreibung wurde diese Stelle nicht bewertet. Erst Beschreibung nachladen, dann entscheiden."}
                       </p>
                     ) : null}
                     {gehaltText(job, formatCurrency) ? (
@@ -2071,18 +2073,40 @@ export default function JobsPage() {
             </Card>
           ) : null}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Gesamtscore</p>
-            <p className="mt-3 text-4xl font-semibold text-ink">{fitDialog.analysis?.total_score ?? 0}</p>
+            {/* C96 (#1087 C1): dieselbe Zahl wie Karte, Dashboard und
+                Timeline, mit einem Namen und, wo erreichbar, der Skala. */}
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted">Punkte</p>
+            <p className="mt-3 text-4xl font-semibold text-ink" data-punkte-dialog>{punkteText(fitDialog.analysis || {})}</p>
+            <p className="mt-2 text-xs text-muted">{SCORE_BEDEUTUNG}</p>
+            {fitDialog.analysis?.punkte_hinweis ? (
+              <p className="mt-2 text-xs text-amber">{fitDialog.analysis.punkte_hinweis}</p>
+            ) : null}
           </Card>
-          {/* Scoring-Faktoren Aufschlüsselung (#306) */}
-          {fitDialog.analysis?.factors && Object.keys(fitDialog.analysis.factors).length > 0 && (
+          {/* C96: nur die Faktoren, die in die Punkte eingehen — sie
+              addieren sich genau zur Zahl darueber. Ort, Gehalt und
+              Arbeitsmodell stehen getrennt: sie zaehlen nicht mit. */}
+          {Object.keys(fitDialog.analysis?.faktoren_fach || {}).length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-sm font-semibold text-ink mb-2">Score-Faktoren</p>
-              <div className="grid gap-1">
-                {Object.entries(fitDialog.analysis.factors).map(([label, pts]) => (
+              <p className="text-sm font-semibold text-ink mb-2">Woraus sich die Punkte ergeben</p>
+              <div className="grid gap-1" data-faktoren-fach>
+                {Object.entries(fitDialog.analysis.faktoren_fach).map(([label, pts]) => (
                   <div key={label} className="flex justify-between text-sm">
-                    <span className="text-muted/70">{label}</span>
-                    <span className={`font-medium ${pts >= 0 ? "text-teal" : "text-coral"}`}>{pts >= 0 ? "+" : ""}{pts}</span>
+                    <span className="text-muted">{label}</span>
+                    <span className={`font-medium ${pts >= 0 ? "text-teal" : "text-coral"}`}>{pts >= 0 ? "+" : ""}{scoreText(pts)}</span>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+          {Object.keys(fitDialog.analysis?.faktoren_rahmen || {}).length > 0 && (
+            <Card className="glass-card-soft rounded-xl shadow-none">
+              <p className="text-sm font-semibold text-ink mb-2">Ort, Gehalt und Arbeitsmodell</p>
+              <p className="mb-2 text-xs text-muted">Zählen nicht in die Punkte — sie stehen als Daumen auf der Karte.</p>
+              <div className="grid gap-1">
+                {Object.entries(fitDialog.analysis.faktoren_rahmen).map(([label, pts]) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-muted">{label}</span>
+                    <span className="font-medium text-muted">{typeof pts === "number" ? `${pts >= 0 ? "+" : ""}${scoreText(pts)}` : String(pts)}</span>
                   </div>
                 ))}
               </div>
@@ -2429,7 +2453,7 @@ export default function JobsPage() {
                 {anstellungsform(detailDialog.job) ? <Badge tone={anstellungsform(detailDialog.job).ton}>{anstellungsform(detailDialog.job).text}</Badge> : null}
                 {umfangText(detailDialog.job) ? <Badge tone="neutral">{umfangText(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.remote_level && detailDialog.job.remote_level !== "unbekannt" ? <Badge tone="success">{detailDialog.job.remote_level}</Badge> : null}
-                <Badge tone="amber">Fachwert {scoreText(detailDialog.job.score)}</Badge>
+                <Badge tone="amber">{punkteText(detailDialog.job)}</Badge>
                 <DaumenAbzeichen marke={detailDialog.job.fach_daumen} art={DAUMEN_FACH} />
                 <DaumenAbzeichen marke={detailDialog.job.rahmen_daumen} art={DAUMEN_RAHMEN} />
                 {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}

@@ -52,6 +52,8 @@ Zierrat.
 """
 from __future__ import annotations
 
+from .punkte import SCORE_BEDEUTUNG as _SCORE_BEDEUTUNG
+
 KATEGORIEN = ("EMPFOHLEN", "BEDINGT", "NICHT_EMPFOHLEN", "NICHT_BEURTEILBAR")
 
 # Woraus ein Urteil stammt. Kein Wert bedeutet "irgendwie berechnet" —
@@ -68,10 +70,10 @@ OHNE_URTEIL = {
     "kein_profil": (
         "PBP kennt deine Kompetenzen nicht. Ohne Profil laesst sich "
         "keine Passung beurteilen — leg zuerst dein Profil an."),
+    # H24 (#1087 G4): die Score-Deutung kommt aus EINER Konstante.
     "nicht_gelesen": (
-        "Diese Stelle wurde noch nicht gegen dein Profil gelesen. Der "
-        "Score sagt nur, wie gut sie deine SUCHBEGRIFFE trifft — das ist "
-        "keine Aussage darueber, ob du passt. Lass Claude die "
+        "Diese Stelle wurde noch nicht gegen dein Profil gelesen. "
+        + _SCORE_BEDEUTUNG + " Lass Claude die "
         "Detailanalyse machen; das Ergebnis bleibt danach an der Stelle."),
 }
 

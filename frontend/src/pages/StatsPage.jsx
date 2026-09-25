@@ -358,8 +358,8 @@ export default function StatsPage() {
     .filter((s) => s.avg_score > 0)
     .map((s) => ({
       name: s.name,
-      "Ø Score": Math.round(s.avg_score * 10) / 10,
-      "Max Score": s.max_score || 0,
+      "Ø Punkte": Math.round(s.avg_score * 10) / 10,
+      "Max Punkte": s.max_score || 0,
     }));
 
   // --- Dismiss reasons chart data ---
@@ -803,18 +803,18 @@ export default function StatsPage() {
               )}
             </ChartCard>
 
-            <ChartCard title="Score-Verteilung">
+            <ChartCard title="Verteilung der Punkte">
               {scoreBarData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={scoreBarData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                    <XAxis dataKey="bucket" tick={CHART_STYLE} label={{ value: "Score", position: "insideBottom", offset: -2, style: CHART_STYLE }} />
+                    <XAxis dataKey="bucket" tick={CHART_STYLE} label={{ value: "Punkte", position: "insideBottom", offset: -2, style: CHART_STYLE }} />
                     <YAxis tick={CHART_STYLE} allowDecimals={false} />
                     <Tooltip
                       contentStyle={TOOLTIP_STYLE}
                       labelStyle={{ color: "rgba(255,255,255,0.7)" }}
                       formatter={(value) => [value, "Stellen"]}
-                      labelFormatter={(label) => `Score-Bereich ${label}`}
+                      labelFormatter={(label) => `Punkte ${label}`}
                     />
                     <Bar dataKey="count" fill="#fbbf24" radius={[4, 4, 0, 0]}>
                       {scoreBarData.map((_, i) => (
@@ -824,7 +824,7 @@ export default function StatsPage() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted/40">Keine Score-Daten vorhanden.</p>
+                <p className="py-8 text-center text-sm text-muted/40">Noch keine Punkte vorhanden.</p>
               )}
             </ChartCard>
           </div>
@@ -886,8 +886,8 @@ export default function StatsPage() {
                   <YAxis type="category" dataKey="name" tick={CHART_STYLE} width={100} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ color: "rgba(255,255,255,0.7)" }} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey={"Ø Score"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
-                  <Bar dataKey="Max Score" fill="#34d399" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey={"Ø Punkte"} fill="#38bdf8" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="Max Punkte" fill="#34d399" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </ChartCard>
