@@ -299,26 +299,21 @@ def _get_context_actions(status: str) -> dict:
 
 
 def _firma_normalisieren(name: str) -> str:
-    """H18 (#753): Firmen-String fuer den Vergleich normalisieren —
-    Rechtsformen und Fuellwoerter raus, Umlaute vereinheitlicht, lower."""
-    s = (name or "").lower().strip()
-    for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
-        s = s.replace(uml, repl)
-    for stop in (" gmbh & co. kg", " gmbh & co kg", " se & co. kg", " gmbh",
-                 " ag", " se", " kg", " ohg", " inc", " inc.", " ltd",
-                 " limited", " holding", " group", " germany", " deutschland"):
-        s = s.replace(stop, " ")
-    return " ".join(s.split())
+    """H18 (#753): Firmen-String fuer den Vergleich normalisieren.
+
+    Seit v1.7.129 (#1080) die Namensform aus `services/firmen_bezuege`,
+    damit `firma_kontext` Bewerbungen, Stellen und alle anderen Quellen
+    nach DERSELBEN Regel vergleicht."""
+    from ..services.firmen_bezuege import namensform
+    return namensform(name)
 
 
 def _firma_matcht(company: str, query_norm: str) -> bool:
-    """True wenn der normalisierte Firmen-String zum Such-String passt
-    (Substring in beide Richtungen — 'Acme' matcht
-    'Acme Solutions GmbH')."""
-    comp_norm = _firma_normalisieren(company)
-    if not comp_norm or not query_norm:
-        return False
-    return query_norm in comp_norm or comp_norm in query_norm
+    """True wenn der Firmen-String zum Such-String passt — gleich, als
+    Wortfolge enthalten ('Acme' in 'Acme Solutions GmbH', aber nicht
+    'ki' in 'Kita') oder als Abkuerzung (#1080)."""
+    from ..services.firmen_bezuege import abgleich, namensform
+    return abgleich(query_norm, namensform(company)) is not None
 
 
 def register(mcp, db, logger):
@@ -336,39 +331,66 @@ def register(mcp, db, logger):
         Nie Firmen-Status, Interview-Verlauf oder Absagen aus dem
         Gedaechtnis behaupten — PBP haelt die dokumentierte Wahrheit.
 
-        Liefert: alle Bewerbungen (Titel, Status, Datum, Termine), aktive
-        Stellen, Aussortier-Historie mit Gruenden — die Basis fuer jede
-        Aussage ueber die Firma.
+        Liefert: alle Bewerbungen (Titel, Status, Datum, Termine) — auch
+        die, bei denen die Firma Vermittler oder Endkunde ist —, aktive
+        Stellen, Aussortier-Historie mit Gruenden und seit #1080 jede
+        andere Stelle im Bestand, an der die Firma vorkommt, mit ihrer
+        ROLLE: frueherer/aktueller Arbeitgeber, Projektkunde, Kontakt,
+        Anfrage, Korrespondenz, Recherche, Blacklist.
+
+        Jeder Treffer ist ein VERWEIS, kein Volltext: eine Zeile, der
+        Bereich im Dashboard und `oeffnen` — der Aufruf, der die Details
+        zeigt (Timeline der Bewerbung, Station im Lebenslauf, Stelle samt
+        Aussortier-Grund, Kontakt, Dokument). Nur nachladen, was die
+        Frage wirklich braucht.
+
+        ⛔ `warnungen` zuerst lesen: eine laufende Vorstellung ueber einen
+        Vermittler heisst, dass eine direkte Bewerbung oder ein zweiter
+        Vermittler eine Doppelvorstellung waere.
 
         Args:
-            firmenname: Name der Firma (Teilstring reicht — 'Acme'
-                findet 'Acme Solutions GmbH').
+            firmenname: Name der Firma (ein Namensteil reicht — 'Acme'
+                findet 'Acme Solutions GmbH'; Rechtsform, Umlaute und
+                Abkuerzungen werden abgeglichen).
         """
         query_norm = _firma_normalisieren(firmenname)
         if not query_norm:
             return {"fehler": "firmenname ist Pflicht."}
 
+        from ..services import firmen_bezuege as _fb
+
         bewerbungen = []
         for app in db.get_applications():
-            if not _firma_matcht(app.get("company", ""), query_norm):
+            rolle = None
+            for feld, name in (("company", "bewerbungsziel"),
+                               ("endkunde", "endkunde"),
+                               ("vermittler", "vermittler")):
+                if _firma_matcht(app.get(feld) or "", query_norm):
+                    rolle = name
+                    break
+            if not rolle:
                 continue
             eintrag = {
                 "bewerbung_id": (app.get("id") or "")[:8],
                 "titel": app.get("title"),
                 "firma": app.get("company"),
+                "rolle": rolle,
                 "status": app.get("status"),
                 "beworben_am": app.get("applied_at"),
             }
+            for feld in ("vermittler", "endkunde"):
+                if (app.get(feld) or "").strip():
+                    eintrag[feld] = app.get(feld)
+            # Nutzerwort 25.09.2026: nicht alles hinschreiben — die
+            # Timeline steht in der Bewerbung, hier steht der Weg dorthin.
             try:
                 meetings = db.get_meetings_for_application(app.get("id"))
                 if meetings:
-                    eintrag["termine"] = [
-                        {"titel": m.get("title"), "datum": m.get("meeting_date"),
-                         "typ": m.get("meeting_type")}
-                        for m in meetings[:5]
-                    ]
+                    eintrag["termine"] = len(meetings)
             except Exception:
                 pass
+            eintrag["bereich"] = "Bewerbungen › Timeline"
+            eintrag["oeffnen"] = f"bewerbung_details('{app.get('id')}')"
             bewerbungen.append(eintrag)
 
         # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
@@ -381,7 +403,8 @@ def register(mcp, db, logger):
             if not _firma_matcht(j.get("company", ""), query_norm):
                 continue
             eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
-                          "score": j.get("score")}
+                          "score": j.get("score"),
+                          "oeffnen": f"fit_analyse('{j.get('hash')}')"}
             try:
                 _rp = find_repost_of_application(j, _apps_fuer_repost, db=db)
                 if _rp:
@@ -400,15 +423,47 @@ def register(mcp, db, logger):
         for j in aussortiert:
             grund = j.get("dismiss_reason") or "unbekannt"
             gruende[grund] = gruende.get(grund, 0) + 1
+        # Auch eine aussortierte Stelle sagt etwas ueber die Firma —
+        # welche Rollen sie ausschreibt und warum sie nicht passte.
         aussortiert_beispiele = [
-            {"titel": j.get("title"), "grund": j.get("dismiss_reason")}
+            {"titel": j.get("title"), "grund": j.get("dismiss_reason"),
+             "oeffnen": f"fit_analyse('{j.get('hash')}')"}
             for j in aussortiert[:8]
         ]
 
-        gefunden = bool(bewerbungen or aktive_stellen or aussortiert)
+        # #1080: alle weiteren Quellen. Bewerbungen stehen oben schon mit
+        # Termin, hier kommen nur die Rollen dazu, die dort nicht stehen.
+        try:
+            weitere = _fb.bezuege(db, firmenname)
+        except Exception as exc:  # eine Quelle darf den Lookup nie kosten
+            logger.warning("firma_kontext: Bezuege nicht ermittelbar: %s", exc)
+            weitere = {"bezuege": [], "rollen": {}, "schreibweisen": [],
+                       "warnungen": []}
+        andere = [b for b in weitere["bezuege"] if b["quelle"] != "bewerbung"]
+        erwaehnt = [b for b in weitere["bezuege"]
+                    if b["rolle"] == "in_notizen_erwaehnt"]
+        je_rolle: dict = {}
+        for b in andere:
+            je_rolle.setdefault(b["rolle"], []).append(b)
+        weitere_bezuege = {r: [_fb.kompakt(b) for b in liste[:_fb.MAX_JE_ROLLE]]
+                           for r, liste in je_rolle.items()}
+        schreibweisen = sorted(
+            (set(weitere["schreibweisen"])
+             | {b.get("firma") for b in bewerbungen
+                if b["rolle"] == "bewerbungsziel"}
+             | {j.get("company") for j in aussortiert})
+            - {None, ""})
+
+        gefunden = bool(bewerbungen or aktive_stellen or aussortiert
+                        or andere or erwaehnt)
         return {
             "firma_suchbegriff": firmenname,
             "gefunden": gefunden,
+            "warnungen": weitere["warnungen"],
+            "rollen": weitere["rollen"],
+            "weitere_bezuege": weitere_bezuege,
+            "in_notizen_erwaehnt": [_fb.kompakt(b) for b in erwaehnt[:_fb.MAX_JE_ROLLE]],
+            "schreibweisen": schreibweisen,
             "bewerbungen": bewerbungen,
             "aktive_stellen": aktive_stellen,
             "aussortiert_anzahl": len(aussortiert),
@@ -417,16 +472,40 @@ def register(mcp, db, logger):
             "hinweis": (
                 "WICHTIG (#757): Aussortier-Gruende gelten je STELLE, nicht "
                 "fuer die Firma insgesamt — dieselbe Firma kann passende und "
-                "unpassende Rollen ausschreiben. Andere Schreibweisen der "
-                "Firma (z.B. Abkuerzung vs. voller Name) ggf. separat "
-                "nachschlagen."
+                "unpassende Rollen ausschreiben. Jeder Treffer nennt seine "
+                "ROLLE (#1080): ein frueherer Arbeitgeber oder Projektkunde "
+                "ist kein Bewerbungsstand. `abgleich: abkuerzung` ist der "
+                "schwaechste Namensabgleich — dort vor einer Aussage "
+                "nachfragen, ob dieselbe Firma gemeint ist."
             ) if gefunden else (
                 "Kein dokumentierter Kontakt mit dieser Firma in PBP — weder "
-                "Bewerbungen noch Stellen. Wenn du (Claude) etwas anderes "
+                "Bewerbungen, Stellen, Lebenslauf, Kontakte, Anfragen noch "
+                "Recherchen. Wenn du (Claude) etwas anderes "
                 "'weisst', stammt es NICHT aus PBP und gehoert nicht in eine "
                 "Status-Aussage. Auch alternative Schreibweisen pruefen."
             ),
         }
+
+    @mcp.tool()
+    def firmen_bestand_pruefen() -> dict:
+        """Wo Firmennamen im Bestand auseinanderlaufen — nur lesend (#1080).
+
+        Nennt zwei Dinge, die `firma_kontext` ungenauer machen:
+
+        * **Schreibweisen**: Namen aus Bewerbungen, Lebenslauf, Kontakten
+          und Projekten, die dieselbe Firma sind, aber verschieden
+          geschrieben stehen (Rechtsform, Umlaut, Bindestrich).
+        * **Endkunde nur in den Notizen**: Bewerbungen ueber einen
+          Vermittler ohne eingetragenen Endkunden, deren Notizen eine
+          bekannte Firma nennen. Ohne den Eintrag erkennt PBP keine
+          Doppelvorstellung bei diesem Endkunden.
+
+        Aendert nichts. Einen Endkunden traegt der Mensch mit
+        `bewerbung_bearbeiten(bewerbung_id, endkunde=...)` nach — ob eine
+        genannte Firma der Endkunde ist, entscheidet er, nicht PBP.
+        """
+        from ..services import firmen_bezuege as _fb
+        return _fb.bestandsbericht(db)
 
     @mcp.tool()
     @time_tool(logger, "bewerbung_event_datum_setzen")

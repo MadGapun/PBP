@@ -33,6 +33,102 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.129] - 2026-09-25 — Eine Firma, alle Bezüge
+
+Stufe 1 aus #1080. `firma_kontext` beantwortet die Frage „kenne ich
+die?“ jetzt aus dem ganzen Bestand und nicht mehr nur aus Bewerbungen
+und Stellen. Kein Schema-Eingriff, nichts wird geschrieben.
+
+### Added
+
+- **`firma_kontext` findet eine Firma in jeder Rolle** (#1080). Bisher
+  zählte nur das Feld „Firma“ einer Bewerbung. Jetzt auch: als
+  Vermittler, als Endkunde hinter einem Vermittler, als früherer oder
+  aktueller Arbeitgeber im Lebenslauf, als Projektkunde, als Firma eines
+  Kontakts, in Anfragen und Korrespondenz, in Recherchen und auf der
+  Blacklist. Jeder Treffer nennt seine Rolle — ein früherer Arbeitgeber
+  ist kein Bewerbungsstand.
+- **Verweise statt Volltext.** Jeder Treffer ist eine Zeile mit dem
+  Bereich, in dem er steht, und dem Aufruf, der die Details zeigt:
+  Timeline der Bewerbung, Station im Lebenslauf, Kontakt, Dokument,
+  Stelle samt Aussortier-Grund. Auch eine aussortierte Stelle zeigt,
+  welche Rollen eine Firma ausschreibt und warum sie nicht passte.
+- **Warnung vor Doppelvorstellung.** Läuft eine Bewerbung über einen
+  Vermittler bei dieser Firma, sagt `firma_kontext` das zuerst: eine
+  direkte Bewerbung oder ein zweiter Vermittler wäre eine
+  Doppelvorstellung. Laufen schon zwei Wege, steht es ausdrücklich da.
+  Nennen nur die Notizen einer laufenden Vermittler-Bewerbung die Firma,
+  kommt ein Prüfhinweis statt einer Behauptung.
+- **`firmen_bestand_pruefen()`** — ein Bericht, der nur liest: Firmennamen,
+  die im Bestand verschieden geschrieben stehen, und Bewerbungen über
+  einen Vermittler ohne eingetragenen Endkunden, deren Notizen eine
+  bekannte Firma nennen. Nachgetragen wird mit
+  `bewerbung_bearbeiten(endkunde=...)`, und zwar vom Menschen.
+
+### Changed
+
+- **Namensabgleich über Wörter statt Buchstabenfolgen.** Rechtsform,
+  Umlaut-Schreibweise, Bindestrich und Groß-/Kleinschreibung spielen
+  keine Rolle mehr; ein Namensteil findet die ganze Firma, aber „Nord“
+  findet nicht mehr „Nordwerk“. Abkürzungen aus Anfangsbuchstaben werden
+  erkannt und als schwächster Abgleich gekennzeichnet.
+
+### Gemessen
+
+An einer Kopie eines echten Bestands: von 102 Firmen aus Bewerbungen
+tragen 70 einen Bezug außerhalb der Bewerbungen (Kontakte,
+Korrespondenz, Recherchen, Blacklist, Lebenslauf), 12 Bewerbungen laufen
+über einen Vermittler mit eingetragenem Endkunden, 2 nennen den
+Endkunden nur in den Notizen.
+
+### Offen
+
+- Stufe 2 von #1080 — ein Firmen-Stammsatz, der Schreibweisen
+  zusammenführt — braucht eine Nutzerentscheidung.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.129.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.129.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.128] - 2026-09-25 — Firma, Ort und Region aus der Quelle
 
 Die Restpunkte aus drei Quellen-Meldungen (#1040, #1041, #1042). Ihr Kern

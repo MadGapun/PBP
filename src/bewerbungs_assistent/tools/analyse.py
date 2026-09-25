@@ -2730,6 +2730,8 @@ def register(mcp, db, logger):
                     "todo_anlegen / todos_anzeigen / todo_erledigen — Aufgaben pro Bewerbung mit Faelligkeitsdatum",
                     "bewerbungsbericht_exportieren — PDF-Bericht",
                     "ablehnungs_muster — Was wird oft abgelehnt?",
+                    "firma_kontext — alles zu einer Firma: Bewerbungen, Vermittler, Endkunde, Arbeitgeber, Projektkunde, Kontakte, Anfragen, Warnung vor Doppelvorstellung",
+                    "firmen_bestand_pruefen — Firmennamen in mehreren Schreibweisen, Endkunde nur in den Notizen (nur lesend)",
                 ],
             },
             "dokumente": {
