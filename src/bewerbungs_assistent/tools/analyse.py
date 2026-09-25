@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 from ..services import werkzeug_katalog as _werkzeug_katalog
+from ..services.dashboard_link import dashboard_link as _dashboard_link
 
 
 def register(mcp, db, logger):
@@ -3063,7 +3064,7 @@ def register(mcp, db, logger):
             "vorgeschlagener_issue_body": issue_body,
             "moeglicher_workaround": (
                 "Bis ein passendes Tool existiert: User kann die Aktion "
-                "manuell im PBP-Dashboard (http://localhost:8200) durchfuehren — "
+                f"manuell im PBP-Dashboard ({_dashboard_link()}) durchfuehren — "
                 "dort werden alle Lifecycle-Hooks korrekt ausgeloest."
             ),
             "anonymisiert": anonymisiert,

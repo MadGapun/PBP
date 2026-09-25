@@ -242,8 +242,9 @@ def ziel_hinweis(db, pfad) -> str:
         return f"Die Datei liegt in deinem Ordner: {pfad}"
     if befund["befund"] == "ausweich":
         return befund["hinweis"] + f" Vollstaendiger Pfad: {pfad}"
+    from .dashboard_link import dashboard_link
     return (f"Die Datei liegt im Datenordner von PBP: {pfad}. Du kannst "
-            "sie auch im Dashboard unter http://localhost:8200 "
+            f"sie auch im Dashboard unter {dashboard_link('dokumente')} "
             "herunterladen.")
 
 

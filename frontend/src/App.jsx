@@ -59,7 +59,7 @@ import CalendarPage from "@/pages/CalendarPage";
 import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
-import { cn, copyToClipboard, parsePageFromHash, resolveLegacyAction } from "@/utils";
+import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
 
@@ -344,7 +344,11 @@ function PromptsTab({ pushToast, copyPrompt }) {
 export default function App() {
   const TOAST_DEDUP_WINDOW_MS = 5000;
   const [page, setPage] = useState(parsePageFromHash());
-  const [intent, setIntent] = useState(null);
+  const [intent, setIntent] = useState(() => {
+    const ziel = parseHashZiel();
+    const sprung = sprungAusHash(ziel);
+    return sprung ? { page: ziel.page, ...sprung, nonce: Date.now() } : null;
+  });
   // #630 (Stufe 1): manueller Refresh. Claude/MCP schreibt direkt in die DB;
   // ohne Live-Subscription muss der User neu laden, um Hintergrund-Aenderungen
   // zu sehen. Der Aktualisieren-Button bumpt refreshNonce -> die aktive Page
@@ -679,7 +683,10 @@ export default function App() {
   }
 
   const syncHash = useEffectEvent(() => {
-    setPage(parsePageFromHash());
+    const ziel = parseHashZiel();
+    setPage(ziel.page);
+    const sprung = sprungAusHash(ziel);
+    if (sprung) setIntent({ page: ziel.page, ...sprung, nonce: Date.now() });
   });
 
   const syncLiveUpdates = useEffectEvent(async () => {
@@ -826,7 +833,7 @@ export default function App() {
     setIntent(nextIntent ? { page: nextPage, ...nextIntent, nonce: Date.now() } : null);
     setPage(nextPage);
     setCurrentSubPath("");  // beta.35: Sub-Pfad bei Hauptbereich-Wechsel reseten
-    if (window.location.hash !== `#${nextPage}`) {
+    if (parsePageFromHash() !== nextPage || window.location.hash.includes("/")) {
       window.location.hash = nextPage;
     }
     // v1.7.0-beta.26 (#594 Stufe 1): Page-View tracken

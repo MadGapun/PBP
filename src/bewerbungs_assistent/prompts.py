@@ -4,6 +4,7 @@ import json
 
 from .services.profile_service import get_profile_completeness_labels
 from .services.punkte import SCORE_BEDEUTUNG
+from .services.dashboard_link import dashboard_link
 
 
 def _build_known_profile_lines(profile: dict | None) -> list[str]:
@@ -1321,7 +1322,7 @@ REGELN
 5. Skills deduplizieren (gleicher Name = nicht doppelt anlegen)
 6. Sei transparent: "Aus deinem CV habe ich 3 Positionen erkannt..."
 7. Nach dem Anwenden: Zeige profil_zusammenfassung() als Kontrolle
-8. Biete an: "Möchtest du noch Dokumente hochladen? Das geht im Dashboard (http://localhost:8200)."
+8. Biete an: "Möchtest du noch Dokumente hochladen? Das geht im Dashboard ({dashboard_link("dokumente")})."
 """
 
 
@@ -1494,7 +1495,7 @@ DEIN STATUS:
   Aktive Stellen: {active_jobs}
   Bewerbungen: {apps}
   Suchkriterien: {'gesetzt' if criteria.get('keywords_muss') else 'noch nicht gesetzt'}
-  Dashboard: http://localhost:8200
+  Dashboard: {dashboard_link()}
 
 WAS KANN ICH FÜR DICH TUN?
   - "Zeig mir meine Stellen" → stellen_anzeigen()
@@ -1521,7 +1522,7 @@ Stelle aussprichst ("kenne ich", "war abgesagt", "laeuft noch", "da war
 ein Interview" — auch beilaeufig), rufe firma_kontext(firmenname) auf und
 stuetze dich NUR auf das Ergebnis. Firmen-Status nie aus dem Gedaechtnis."""
 
-    return """Willkommen beim Bewerbungs-Assistent!
+    return f"""Willkommen bei PBP!
 
 Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
 
@@ -1530,7 +1531,7 @@ Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
 - BEWERBUNGEN SCHREIBEN: Stellenspezifische Anschreiben, Export als PDF/DOCX
 - LEBENSLAUF EXPORTIEREN: Professionell formatiert
 - INTERVIEW-VORBEREITUNG: STAR-Antworten, Gehaltsverhandlung
-- BEWERBUNGS-TRACKING: Dashboard auf http://localhost:8200
+- BEWERBUNGS-TRACKING: Dashboard auf {dashboard_link("bewerbungen")}
 
 Starte mit: ersterfassung_starten() oder sag einfach "Lass uns mein Profil erstellen!" """
 

@@ -4801,7 +4801,8 @@ async def api_meeting_ics(meeting_id: str):
     app_id = m.get("app_id", "")
 
     # PBP-Link zur Bewerbung einbetten (#263)
-    pbp_link = f"http://localhost:8200/bewerbungen?id={app_id}" if app_id else ""
+    from .services.dashboard_link import dashboard_link
+    pbp_link = dashboard_link("bewerbungen", app_id) if app_id else ""
     description_parts = []
     if company and app_title:
         description_parts.append(f"Bewerbung: {app_title} bei {company}")
