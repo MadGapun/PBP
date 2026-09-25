@@ -20,7 +20,10 @@ export default function DashboardBereich({
 }) {
   if (offen) {
     return (
-      <section className="min-w-0">
+      // G71: rendert der Inhalt nichts, blendet `.dashboard-bereich` in
+      // styles.css den Bereich samt Griff aus — sonst stand ein einsamer
+      // Pfeil auf der Seite.
+      <section className="dashboard-bereich min-w-0">
         {/* Ausgeklappt traegt der Inhalt seine eigene Ueberschrift —
             ein zweiter Titel darueber waere die Wiederholung, gegen die
             das Dashboard gerade aufgeraeumt wurde (#976, #984). Der

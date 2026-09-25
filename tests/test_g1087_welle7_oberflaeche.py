@@ -169,6 +169,10 @@ def test_g71_hinweise_haben_eine_live_region(browser, server):
     try:
         bereich = page.locator("[data-toast-bereich]")
         assert bereich.get_attribute("aria-live") == "polite"
+        # Kein sichtbarer Bereich, der nur aus seinem Einklapp-Griff besteht.
+        leer = page.evaluate("""() => [...document.querySelectorAll('.dashboard-bereich')]
+            .filter((s) => s.children.length < 2 && s.getClientRects().length > 0).length""")
+        assert leer == 0
     finally:
         page.close()
 

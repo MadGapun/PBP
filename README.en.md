@@ -16,14 +16,14 @@ If you do not speak German, the interesting part of this repo is the architectur
 
 PBP is a complete, self-hosted **MCP server** (Model Context Protocol) written in Python (FastMCP), paired with a React 19 dashboard and a single-file SQLite database:
 
-- **202 MCP tools** covering profile management, job search, application tracking, document analysis, calendar, statistics and guided workflows
-- **35 configured job sources** with honest health checks — flaky scrapers are visibly flagged instead of failing silently
+- **MCP tools** covering profile management, job search, application tracking, document analysis, calendar, statistics and guided workflows
+- **Job sources chosen by occupational field**, with honest health checks — sources that currently deliver nothing are visibly flagged instead of failing silently
 - **Local-first by design** — one SQLite file holds all data; what you work on with Claude (profile, document text, job ads, notes) goes to Anthropic, and each area can be switched off in the settings
 - **Claude Desktop as the interface** — no custom chat UI; conversation, voice input and tool calls come for free via MCP
 - **Local LLM sidecar** (Ollama) for background classification and scoring, so routine work costs no cloud tokens
-- **2199 automated tests**, weekly releases
+- **Automated tests with a mutation check per release**, weekly releases
 
-Version **v1.7.12** · last release 2026-08-11 · MIT license
+Current version and changes: see [Releases](https://github.com/MadGapun/PBP/releases/latest) · MIT license
 
 ## Fork it for your job market
 
