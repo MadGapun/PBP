@@ -82,7 +82,7 @@ def ocr_angebot(db) -> dict:
             "— nur nach RUECKFRAGE beim User ausfuehren, nie ungefragt."
         ),
         "naechster_schritt_ui": (
-            "Einstellungen → Erweiterungen → Tesseract OCR installieren"
+            "Einstellungen › Erweiterungen (Tesseract) OCR installieren"
         ),
         "alternative": (
             "Text selbst extrahieren (z.B. Claude-OCR des angehaengten "

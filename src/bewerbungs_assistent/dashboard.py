@@ -1433,7 +1433,7 @@ async def api_import_folder(request: Request):
             # E19: Scan ohne OCR-Komponente — einmalig als Warnung fuehren
             if ocr_info and ocr_info.get("ocr") == "erforderlich":
                 hint = ("Scan ohne Text-Ebene — OCR-Komponente fehlt "
-                        "(Einstellungen → Erweiterungen)")
+                        "(Einstellungen › Erweiterungen)")
                 if not any(hint in w for w in warnings):
                     warnings.append(f"{fpath.name}: {hint}")
             # v1.7.35 (#833): auch der Ordner-Import sagt jetzt, wenn eine
@@ -6362,11 +6362,11 @@ async def api_components_overview():
             "label": "Ollama (Lokale KI)",
             "verfuegbar": bool(status.ollama_available),
             "modelle": list(status.available_models or []),
-            "verwaltung": "Eigener Bereich: Einstellungen → Lokale KI",
+            "verwaltung": "Eigener Bereich: Einstellungen › Lokale KI",
         }
     except Exception:
         result["ollama"] = {"label": "Ollama (Lokale KI)", "verfuegbar": False,
-                            "verwaltung": "Eigener Bereich: Einstellungen → Lokale KI"}
+                            "verwaltung": "Eigener Bereich: Einstellungen › Lokale KI"}
     return result
 
 
@@ -6468,7 +6468,7 @@ def _require_plugin(request: Request, capability: str):
     if plugin is None:
         return None, JSONResponse(
             {"error": fehler,
-             "hinweis": "Pairing: Einstellungen → Erweiterungen → Plugin koppeln."},
+             "hinweis": "Pairing: Einstellungen › Erweiterungen (Plugins) koppeln."},
             status_code=401 if "Header" in fehler or "unbekannt" in fehler else 403,
             headers={"X-PBP-Ingest-API": str(plug.INGEST_API_MAJOR)},
         )
@@ -6631,8 +6631,8 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
             {
                 "status": "keine_quellen",
                 "nachricht": (
-                    "Keine Job-Quellen aktiviert. Aktiviere Quellen unter "
-                    "Einstellungen \u2192 Job-Quellen."
+                    "Keine Jobb\u00f6rse ausgew\u00e4hlt. W\u00e4hle Jobb\u00f6rsen unter "
+                    "Einstellungen \u203a Quellen."
                 ),
             },
             status_code=400,

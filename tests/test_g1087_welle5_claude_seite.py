@@ -663,3 +663,92 @@ def test_h25_einmaliger_hinweis_in_profil_status(umgebung):
     assert "geht an Anthropic" in erg["datenschutz"]
     erg = _call(mcp, "profil_status", {})
     assert "datenschutz" not in erg
+
+
+# ══ H30 — Ersterfassung kuerzer, Lebenslauf-zuerst traegt ═══════════════
+
+def test_h30_kernprompt_unter_4000_zeichen(umgebung):
+    from bewerbungs_assistent.prompts import build_kennlerngespraech_prompt
+    db, _mcp = umgebung
+    assert len(build_kennlerngespraech_prompt(db)) < 4000
+    db.save_profile({"name": "Test Person", "email": "t@example.com"})
+    text = build_kennlerngespraech_prompt(db)
+    assert len(text) < 4000
+    assert not re.search(r"#\d{3,4}|\bv1\.\d", text)
+    assert "extraktion_starten()" in text and "`anleitung`" in text
+
+
+def test_h30_anleitung_kommt_mit_der_werkzeugantwort(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person", "email": "t@example.com"})
+    lesen = _call(mcp, "erfassung_fortschritt_lesen", {})
+    assert lesen["phase"] == "erfassung" and "position_hinzufuegen()" in lesen["anleitung"]
+    speichern = _call(mcp, "erfassung_fortschritt_speichern", {"bereich": "persoenliche_daten"})
+    assert speichern["phase"] == "erfassung" and speichern["anleitung"]
+    abschluss = _call(mcp, "kennlerngespraech_abschliessen", {})
+    assert abschluss["phase"] == "suche"
+    assert "keyword_vorschlaege()" in abschluss["anleitung"]
+    assert "jobsuche_starten(quellen=['bundesagentur', 'arbeitnow'," in abschluss["anleitung"]
+
+
+def test_h30_review_folgt_auf_die_erfassung():
+    from bewerbungs_assistent.services import ersterfassung_phasen as ph
+    alles = {b: True for b in ph.BEREICHE}
+    assert ph.anleitung({**alles, "review_abgeschlossen": False})[0] == "review"
+    assert ph.anleitung(alles)[0] == "suche"
+    assert ph.anleitung({**alles, "ausbildung": False})[0] == "erfassung"
+
+
+def test_h30_profil_erstellen_meldet_uebernommene_dokumente(umgebung):
+    db, mcp = umgebung
+    con = db.connect()
+    con.execute("INSERT INTO documents (id, filename, filepath, doc_type, created_at) "
+                "VALUES ('d1', 'Lebenslauf.pdf', '/x/Lebenslauf.pdf', 'lebenslauf', '2026-09-25')")
+    con.commit()
+    erg = _call(mcp, "profil_erstellen", {"name": "Test Person"})
+    assert erg["uebernommene_dokumente"] == ["Lebenslauf.pdf"]
+    assert erg["naechster_schritt"].startswith("extraktion_starten()")
+
+
+def test_h30_ohne_dokumente_fuehrt_der_fortschritt(umgebung):
+    _db, mcp = umgebung
+    erg = _call(mcp, "profil_erstellen", {"name": "Test Person"})
+    assert "uebernommene_dokumente" not in erg
+    assert erg["naechster_schritt"].startswith("erfassung_fortschritt_lesen()")
+
+
+def test_h30_menue_reiter_gibt_es_im_dashboard():
+    from bewerbungs_assistent.services.menue import EINSTELLUNGEN_REITER
+    seite = (_repo() / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    labels = set(re.findall(r'\{ id: "[a-z_]+", label: "([^"]+)" \}', seite))
+    assert set(EINSTELLUNGEN_REITER.values()) <= labels, set(EINSTELLUNGEN_REITER.values()) - labels
+
+
+def _menuepfade():
+    from bewerbungs_assistent.services.menue import MENUE
+    erlaubt = tuple(MENUE.values())
+    falsch = []
+    for p in sorted(PAKET.rglob("*.py")):
+        if p.name == "menue.py":
+            continue
+        for n in ast.walk(ast.parse(p.read_text(encoding="utf-8-sig"))):
+            if not (isinstance(n, ast.Constant) and isinstance(n.value, str)):
+                continue
+            s = n.value
+            if re.search(r"(Einstellungen|Settings|Dashboard)\s*(→|->)", s):
+                falsch.append(f"{p.name}:{n.lineno}: Pfeil")
+            for m in re.finditer(r"Einstellungen › ", s):
+                if not s[m.start():].startswith(erlaubt):
+                    falsch.append(f"{p.name}:{n.lineno}: {s[m.start():m.start() + 40]!r}")
+    return falsch
+
+
+def test_h30_menuepfade_stehen_so_da_wie_im_dashboard():
+    assert not _menuepfade()
+
+
+def test_h30_der_pfad_guard_sieht_etwas(monkeypatch):
+    """DoD 8c: ein falscher Reitername faellt auf."""
+    from bewerbungs_assistent.services import menue
+    monkeypatch.setattr(menue, "MENUE", {k: v for k, v in menue.MENUE.items() if k != "quellen"})
+    assert _menuepfade()

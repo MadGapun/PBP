@@ -21,7 +21,7 @@ def register(mcp, db, logger: logging.Logger):
         - **tesseract**: Texterkennung (OCR) fuer gescannte PDFs (E19).
 
         Ollama (Lokale KI) wird mit angezeigt, aber eigenstaendig verwaltet
-        (Einstellungen → Lokale KI).
+        (Einstellungen › Lokale KI).
 
         Naechste Schritte je nach Zustand:
         - nicht installiert → User fragen, dann
@@ -38,12 +38,12 @@ def register(mcp, db, logger: logging.Logger):
             result["ollama"] = {
                 "label": "Ollama (Lokale KI)",
                 "verfuegbar": bool(status.ollama_available),
-                "verwaltung": "Eigenstaendig: Einstellungen → Lokale KI",
+                "verwaltung": "Eigenstaendig: Einstellungen › Lokale KI",
             }
         except Exception:
             result["ollama"] = {"label": "Ollama (Lokale KI)",
                                 "verfuegbar": False,
-                                "verwaltung": "Eigenstaendig: Einstellungen → Lokale KI"}
+                                "verwaltung": "Eigenstaendig: Einstellungen › Lokale KI"}
         laufend = None
         try:
             laufend = db.get_running_background_job("komponente_install")
@@ -124,7 +124,7 @@ def register(mcp, db, logger: logging.Logger):
         Plugins sind EXTERNE Programme (Thunderbird-Add-on, Watch-Folder-
         Skript, ...), die ueber die lokale REST-API `/api/v1/ingest/*`
         Stellen oder E-Mails an PBP liefern. Kopplung + Widerruf laufen
-        BEWUSST nur ueber die UI: Einstellungen → Erweiterungen →
+        BEWUSST nur ueber die UI: Einstellungen › Erweiterungen →
         Gekoppelte Plugins (der API-Key wird dort genau einmal angezeigt
         und gehoert nicht in den Chat).
 
@@ -150,7 +150,7 @@ def register(mcp, db, logger: logging.Logger):
             "ingest_api": f"v{plug.INGEST_API_MAJOR} (Beta — Freeze mit 1.8-Stable)",
             "verfuegbare_capabilities": plug.CAPABILITIES,
             "hinweis": (
-                "Neues Plugin koppeln: Einstellungen → Erweiterungen → "
+                "Neues Plugin koppeln: Einstellungen › Erweiterungen → "
                 "Gekoppelte Plugins → 'Plugin koppeln'. Referenz-Beispiel: "
                 "plugins/watch-folder im PBP-Repo."
             ),

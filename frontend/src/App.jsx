@@ -1170,6 +1170,7 @@ export default function App() {
       items: [
         { id: "settings-quellen", label: "Quellen" },
         { id: "settings-ai", label: "Lokale KI" },
+        { id: "settings-claude", label: "Claude (Cloud)" },
         // #896: 'erweiterungen' (beta.0) und 'bewerten' (#663) fehlten hier —
         // die Tabs existierten, waren aber per Sidebar nicht erreichbar.
         { id: "settings-erweiterungen", label: "Erweiterungen" },
@@ -1187,6 +1188,7 @@ export default function App() {
         const labels = {
           "quellen": "Quellen",
           "ai": "Lokale KI",
+          "claude": "Claude (Cloud)",
           "erweiterungen": "Erweiterungen",
           "automatik": "Automatik",
           "bewerten": "Bewertung",

@@ -172,8 +172,12 @@ class TestSmartDefaultQuellen:
 
 class TestWizardPhase5:
     def test_prompt_enthaelt_phase_5_kette(self, tmp_db):
+        # H30 (#1087 G9): die Anleitung zu Phase 5 kommt mit der Antwort
+        # von kennlerngespraech_abschliessen, nicht vorab im Prompt. Die
+        # Absicht bleibt: der Weg fuehrt bis zur ersten Suche.
+        from bewerbungs_assistent.services.ersterfassung_phasen import SUCHE as text
         from bewerbungs_assistent.prompts import build_kennlerngespraech_prompt
-        text = build_kennlerngespraech_prompt(tmp_db)
+        assert "kennlerngespraech_abschliessen()" in build_kennlerngespraech_prompt(tmp_db)
         assert "PHASE 5" in text
         assert "keyword_vorschlaege()" in text
         assert "suchkriterien_setzen" in text
