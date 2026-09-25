@@ -282,7 +282,8 @@ def test_die_notiz_nennt_die_sichtbaren_bei_aktivem_filter():
     Zahlen, nicht mit denen der gerade offenen Ansicht.
     """
     quelle = _ohne_kommentare(_quelle())
-    assert "${aktivMeta.treffer} Treffer, ${durchFilterVerborgen} durch Filter verborgen" in quelle
+    # G62/G66 (#1087): "Stellen" und "ausgeblendet" — ein Wort je Sache.
+    assert "${aktivMeta.treffer} Stellen, ${durchFilterVerborgen} durch Filter ausgeblendet" in quelle
     assert "const durchFilterVerborgen = Math.max(0, aktivMeta.total - aktivMeta.treffer)" in quelle
 
 

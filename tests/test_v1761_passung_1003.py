@@ -314,5 +314,8 @@ def test_1007_rest_und_mcp_zeigen_denselben_befund(db):
 def test_1007_die_marke_steht_im_stellen_tab():
     quelle = (_repo() / "frontend" / "src" / "pages"
               / "JobsPage.jsx").read_text(encoding="utf-8")
-    assert "job.analyse?.urteil" in quelle
-    assert "ANALYSE_ETIKETT" in quelle
+    # G62 (#1087 C2): das Urteil ist die Kernaussage der Karte; Text und
+    # Ton stehen in lib/stellenKarte.js.
+    assert "kernaussage(job)" in quelle
+    lib = (_repo() / "frontend" / "src" / "lib" / "stellenKarte.js").read_text(encoding="utf-8")
+    assert "job?.analyse?.urteil" in lib and "URTEIL_TEXT" in lib

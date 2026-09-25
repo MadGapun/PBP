@@ -195,7 +195,9 @@ def test_979_dashboard_traegt_keine_prompt_texte():
     Stelle."""
     seite = (FRONTEND / "pages" / "DashboardPage.jsx").read_text(encoding="utf-8")
     for text in ("Profil im Gespraech erstellen", "Jobboersen durchsuchen lassen",
-                 "Typische Fragen ueben", "Inbound erfassen"):
+                 "Typische Fragen ueben", "Inbound erfassen",
+                 "Profil im Gespräch erstellen", "Jobbörsen durchsuchen lassen",
+                 "Typische Fragen üben"):
         assert text not in seite, text
 
 
@@ -205,7 +207,8 @@ def test_979_titel_stehen_im_repo_genau_einmal():
     for pfad in list((WURZEL / "src").rglob("*.py")) + list(FRONTEND.rglob("*.jsx")):
         if "static" in pfad.parts:
             continue
-        if "Profil im Gespraech erstellen" in pfad.read_text(
+        # G66 (#1087 E1): der Katalog traegt echte Umlaute.
+        if "Profil im Gespräch erstellen" in pfad.read_text(
                 encoding="utf-8", errors="replace"):
             treffer.append(pfad.name)
     assert treffer == ["prompt_katalog.py"], treffer

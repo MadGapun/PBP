@@ -291,9 +291,9 @@ def test_settings_page_has_model_detail_list():
 
 def test_settings_page_has_tasks_explanation():
     src = (PROJECT_ROOT / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8")
-    assert "Was laeuft lokal?" in src
+    assert "Was läuft lokal?" in src  # G66: echte Umlaute
     assert "Doku-Klassifikation" in src
-    assert "Stellen-Profil-Match" in src
+    assert "Stellen-Profil-Abgleich" in src  # G65: Klartext statt Werkzeugname
 
 
 # Hilfs-Import — MagicMock muss bereitstehen

@@ -21,20 +21,21 @@ def _block_um(text: str, marke: str) -> str:
 
 
 def test_1079_der_satz_ist_ein_knopf_und_kopiert_cta_label():
-    block = _block_um(_quelle(), "Sag Claude")
+    block = _block_um(_quelle(), "copyPrompt(h.cta_label)")
     assert 'type="button"' in block
     assert "copyPrompt(h.cta_label)" in block
-    assert "ClipboardCopy" in block
+    # G72 (#1087 E4): Symbol und Etikett "mit Claude" statt Kopier-Icon.
+    assert "<MitClaude" in block
 
 
 def test_1079_titel_sagt_was_passiert():
-    block = _block_um(_quelle(), "Sag Claude")
+    block = _block_um(_quelle(), "copyPrompt(h.cta_label)")
     assert "Kopiert den Befehl" in block
     assert "Einfach in Claude Desktop tippen" not in _quelle()
 
 
 def test_1079_kopieren_blendet_den_hinweis_nicht_aus():
-    block = _block_um(_quelle(), "Sag Claude")
+    block = _block_um(_quelle(), "copyPrompt(h.cta_label)")
     assert "hideForSession" not in block
     assert "dismissPermanent" not in block
 

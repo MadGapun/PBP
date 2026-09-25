@@ -371,9 +371,13 @@ def test_beide_merkmale_stehen_als_kennzeichen_auf_der_karte():
     # Karte und Popup dieselbe Fassung lesen. Die Absicht dieses Tests —
     # beide Merkmale als Kennzeichen auf der Karte — gilt unveraendert.
     lib = (JOBS_PAGE.parent.parent / "lib" / "stellenAngaben.js").read_text(encoding="utf-8")
-    assert "<Badge tone={anstellungsform(job).ton}>{anstellungsform(job).text}</Badge>" in quelle
-    assert '<Badge tone="neutral">{umfangText(job)}</Badge>' in quelle
-    assert 'job.befristet ? <Badge tone="neutral">Befristet</Badge>' in quelle
+    # G62 (#1087 C2): auf der Karte stehen Form, Umfang und Befristung
+    # als eine Faktenzeile statt als drei Abzeichen — die Absicht (beide
+    # Merkmale sind auf der Karte zu sehen) gilt weiter.
+    assert "{kartenFakten(job)}" in quelle
+    assert "form: anstellungsform(job)?.text" in quelle and "umfang: umfangText(job)" in quelle
+    karte = (JOBS_PAGE.parent.parent / "lib" / "stellenKarte.js").read_text(encoding="utf-8")
+    assert 'if (job?.befristet) teile.push("Befristet")' in karte
     # `unbekannt` bekommt bewusst KEIN Abzeichen — ein Etikett
     # "unbekannt" an fast jeder Stelle waere Rauschen.
     assert 'umfang === "unbekannt"' in lib

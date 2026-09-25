@@ -487,7 +487,7 @@ HINT_DEFINITIONS: list[dict] = [
             "hinterlegt. Claude merkt sich, was dort Treffer bringt."
         ),
         "body_fn": _text_jobboersen_ohne_suchbegriffe,
-        "cta_label": "PBP: Suchbegriffe je Jobbörse aus den Suchkriterien anlegen",
+        "cta_label": "PBP: Suchbegriffe je Jobbörse aktualisieren",
         "cta_tool": "suchprofil_aktualisieren",
         "condition": _condition_keine_suchprofile_aber_bewerbungen,
     },

@@ -171,10 +171,11 @@ def test_1008_hinweis_steht_ueber_der_liste_und_ist_aufhebbar():
     dem Weg zurueck in Reichweite.
     """
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
-    hinweis = quelltext.index("durch aktive Filter verborgen")
+    # G62 (#1087 E3): ein Wort fuer "nicht in der Liste" — ausgeblendet.
+    hinweis = quelltext.index("durch Filter ausgeblendet")
     liste = quelltext.index("filteredJobs.map((job) => (")
     assert hinweis < liste, "Der Hinweis gehoert VOR die Liste, nicht dahinter."
-    assert "Filter aufheben" in quelltext[hinweis:liste]
+    assert "Filter zurücksetzen" in quelltext[hinweis:liste]
 
 
 def test_1008_die_verborgenen_werden_gegen_das_geladene_gezaehlt():

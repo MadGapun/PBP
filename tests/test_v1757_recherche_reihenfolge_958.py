@@ -79,7 +79,7 @@ def test_958_das_eingabefeld_ist_zugeklappt():
     abschnitt = CODE[CODE.index("Firmen-Recherche</p>"):]
     abschnitt = abschnitt[:abschnitt.index("</Card>")]
     assert "<details" in abschnitt
-    assert "Eigene Notiz hinzufuegen" in abschnitt
+    assert "Eigene Notiz hinzufügen" in abschnitt  # G66: echte Umlaute
     # `open` waere aufgeklappt — genau der alte Zustand.
     assert not re.search(r"<details[^>]*\bopen\b", abschnitt)
 
@@ -138,7 +138,10 @@ def test_958_die_bewerbung_id_ist_ein_echter_parametername():
 def test_958_das_label_verspricht_nichts_falsches():
     """Vorher stand "Mit Claude aktualisieren" an einem Knopf, der einen
     Textbaustein in die Zwischenablage legt. Er fuehrt nichts aus."""
-    assert "Prompt kopieren" in CODE
+    # G72 (#1087 E4): das einheitliche Etikett "… mit Claude" mit Symbol
+    # sagt, dass etwas fuer Claude bereitgelegt wird — ausgefuehrt wird
+    # dort, nicht hier.
+    assert "<MitClaude>Recherche</MitClaude>" in CODE
     assert "Mit Claude aktualisieren" not in CODE
 
 

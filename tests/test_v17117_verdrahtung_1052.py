@@ -313,9 +313,14 @@ def test_karte_und_dialog_zeigen_beide_daumen():
     """Sechs Akzeptanzkriterien betreffen die Anzeige — ein Grep auf die
     Datei ist dort kein Beleg, aber ein FEHLENDER Aufruf ist einer."""
     quelle = _ohne_kommentare(JOBS_PAGE.read_text(encoding="utf-8"))
-    assert quelle.count("<DaumenAbzeichen") >= 4, (
-        "Karte und Dialog zeigen je zwei Daumen")
-    assert "job.fach_daumen" in quelle and "job.rahmen_daumen" in quelle
+    # G62 (#1087 C2): auf der Karte ist der Fach-Daumen die Kernaussage
+    # (`kernaussage(job)` liest `fach_daumen`), der Rahmen-Daumen steht
+    # daneben; der Dialog zeigt weiter beide als Abzeichen.
+    assert quelle.count("<DaumenAbzeichen") >= 3, (
+        "Rahmen auf der Karte, beide im Dialog")
+    assert "kernaussage(job)" in quelle and "job.rahmen_daumen" in quelle
+    lib = (JOBS_PAGE.parent.parent / "lib" / "stellenKarte.js").read_text(encoding="utf-8")
+    assert "job?.fach_daumen" in lib
     assert "detailDialog.job.fach_daumen" in quelle
     assert "detailDialog.job.rahmen_daumen" in quelle
 

@@ -43,7 +43,12 @@ def test_die_karte_hat_den_detailbewertungs_knopf():
     assert "copyPrompt(detailbewertungPrompt(job))" in zeile
     # Die Beschriftung selbst, nicht irgendein Aufruf: `title=` ruft den
     # Baustein ebenfalls auf, und die Gegenprobe blieb damit stumm.
-    assert "{detailbewertungKnopf(job).text}" in zeile, "AK 3: der Knopf zeigt den Befund"
+    # G62 (#1087 C3): der Weg liegt jetzt unter "Genauer prüfen"; die
+    # Beschriftung des Claude-Wegs nennt weiter, ob ein Befund vorliegt.
+    assert "<GenauerPruefen" in zeile
+    menue = _block(_seite(), "function GenauerPruefen(", "\nfunction ")
+    assert "detailbewertungKnopf(job)" in menue
+    assert 'knopf.befund ? "Neu bewerten" : "Detailbewertung"' in menue, "AK 3: der Knopf zeigt den Befund"
 
 
 def test_karte_und_fit_dialog_nehmen_denselben_prompt():
@@ -51,7 +56,7 @@ def test_karte_und_fit_dialog_nehmen_denselben_prompt():
     seite = _seite()
     assert 'from "@/lib/detailbewertung"' in seite
     assert "Bewerte die Stelle" not in seite, "Eine zweite Fassung des Prompts steht in der Seite."
-    fuss = _block(seite, "footer={(", "Schliessen</Button>")
+    fuss = _block(seite, "footer={(", "Schließen</Button>")
     assert "detailbewertungPrompt(" in fuss
 
 

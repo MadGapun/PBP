@@ -635,6 +635,8 @@ def test_jobs_page_marks_uncertain_scores_and_supports_gap_filter(live_dashboard
         page.get_by_text("Punkte unsicher").first.wait_for(state="visible")
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
 
+        # G62 (#1087 E3): die Filter stehen hinter "Filter (n)".
+        page.locator("[data-filter-knopf]").click()
         page.get_by_role("button", name="Nur ohne Beschreibung").click()
         # v1.7.93 (#1030): der Filter wirkt auf dem SERVER. Bis die Antwort
         # da ist, steht die alte Liste — ein sofortiges `count() == 0`
@@ -764,7 +766,7 @@ def test_profile_workflow_button_copies_resolved_prompt_instead_of_slash_command
         page.goto(live_dashboard["base_url"] + "#profil", wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Profil-Prompt kopieren").click()
+        page.get_by_role("button", name="Profil ergänzen mit Claude").click()
         page.wait_for_function("() => Boolean(window.__copiedText && window.__copiedText.length > 0)")
 
         copied = page.evaluate("() => window.__copiedText")
@@ -807,6 +809,8 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         page.get_by_text("Bedingt ⚠ überholt").first.wait_for(state="visible")
 
         # AK 6: die Gegenrichtung — nur ungeprueft.
+        # G62 (#1087 E3): die Filter stehen hinter "Filter (n)".
+        page.locator("[data-filter-knopf]").click()
         page.get_by_text("Prüfstand: alle").click()
         page.get_by_text("Nur ungeprüfte", exact=True).click()
         # v1.7.93 (#1030): gefiltert wird auf dem Server — auf das
@@ -822,7 +826,9 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
         page.get_by_text("Senior Consultant", exact=True).wait_for(state="visible")
 
         # ... und nur beurteilte zeigt genau die andere.
-        page.get_by_text("Nur ungeprüfte").first.click()
+        # G62: "nur ungeprüfte" steht jetzt auch in der Filter-Zusammenfassung;
+        # gemeint ist das Auswahlfeld im Klappfeld.
+        page.locator("[data-filter-feld]").get_by_text("Nur ungeprüfte").first.click()
         page.get_by_text("Nur beurteilte", exact=True).click()
         page.get_by_text("Senior Consultant", exact=True).wait_for(
             state="detached", timeout=10000)
@@ -830,12 +836,12 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
 
         # AK 7: der Klick auf das Abzeichen fuehrt zum Ergebnis.
         page.get_by_text("Bedingt ⚠ überholt").first.click()
-        page.get_by_role("heading", name="Fit-Analyse — PLM Consultant").wait_for(state="visible")
+        page.get_by_role("heading", name="Genauer prüfen — PLM Consultant").wait_for(state="visible")
         page.get_by_text("Gelesenes Urteil").wait_for(state="visible")
         page.get_by_text("Methodenluecke, ueberbrueckbar").wait_for(state="visible")
 
         # AK 1/2: der Einstieg steht in der Fusszeile, also ohne Scrollen.
-        einstieg = page.get_by_role("button", name="Detailbewertung durch Claude anfordern")
+        einstieg = page.get_by_role("button", name="Detailbewertung mit Claude")
         einstieg.wait_for(state="visible")
         assert einstieg.count() == 1, "Der Einstieg steht doppelt im Dialog."
     finally:
@@ -979,7 +985,7 @@ def test_stellen_tabs_nennen_ihre_menge(live_dashboard, browser):
 
         aktive = page.get_by_role("button", name=re.compile(r"Aktive \(30\)"))
         aktive.wait_for(state="visible", timeout=8000)
-        ausgeblendet = page.get_by_role("button", name=re.compile(r"Ausgeblendet \(5\)"))
+        ausgeblendet = page.get_by_role("button", name=re.compile(r"Aussortiert \(5\)"))
         ausgeblendet.wait_for(state="visible")
 
         ausgeblendet.click()
@@ -1039,9 +1045,9 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
 
         # Die eine Karte statt der drei alten.
-        page.get_by_role("heading", name="Daten loeschen").first.wait_for(
+        page.get_by_role("heading", name="Daten löschen").first.wait_for(
             state="visible", timeout=8000)
-        for weg in ("Factory Reset", "Alle Daten loeschen (DSGVO)"):
+        for weg in ("Factory Reset", "Alle Daten loeschen (DSGVO)", "Alle Daten löschen (DSGVO)"):
             assert page.get_by_role("heading", name=weg).count() == 0, (
                 f"Alte Karte rendert noch: {weg}")
 
@@ -1097,7 +1103,7 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         # zwangsweise anzuhaken — die Haekchen sind dann Anzeige der
         # Folge und keine Auswahl.
         page.get_by_role("radio").nth(1).check()
-        page.get_by_role("button", name="Endgueltig loeschen").wait_for(
+        page.get_by_role("button", name="Endgültig löschen").wait_for(
             state="visible")
         kaesten = page.get_by_role("checkbox")
         for i in range(kaesten.count()):
@@ -1375,9 +1381,9 @@ def test_jobs_page_zeigt_die_browser_quellen_mit_prompt(live_dashboard, browser)
 
         karte = page.get_by_text("Diese Quellen laufen nur über den Browser")
         karte.wait_for(state="visible")
-        page.get_by_role("button", name="Prompt für Claude kopieren").wait_for(state="visible")
+        page.get_by_role("button", name="Browser-Quellen mit Claude").wait_for(state="visible")
         page.get_by_text("LinkedIn", exact=True).first.wait_for(state="visible")
-        page.get_by_text("kein Suchprofil hinterlegt").first.wait_for(state="visible")
+        page.get_by_text("keine Suchbegriffe je Jobbörse").first.wait_for(state="visible")
     finally:
         context.close()
 
@@ -1401,7 +1407,11 @@ def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live
         _dismiss_setup_overlay(page)
         page.get_by_role("heading", name="Stellen").wait_for(state="visible")
 
-        page.get_by_role("button", name="Detailbewertung").first.wait_for(state="visible")
+        page.locator("[data-genauer-pruefen]").first.click()
+        # G62 (#1087 C3): der Claude-Weg steht im Menue "Genauer prüfen".
+        page.get_by_role("menuitem").filter(has_text="Detailbewertung mit Claude").first.wait_for(state="visible")
+        page.keyboard.press("Escape")
+        page.locator("[data-genauer-pruefen]").first.click()
         assert page.get_by_role("button", name="Zur Blacklist").count() == 0, (
             "Der Blacklist-Knopf steht noch auf der Karte.")
 
@@ -1519,6 +1529,8 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
         page.get_by_text("Rahmen passt", exact=True).first.wait_for(state="visible")
 
         # Der Filter nennt, was er verbirgt (#1008), und geht wieder aus.
+        # G62 (#1087 E3): die Filter stehen hinter "Filter (n)".
+        page.locator("[data-filter-knopf]").click()
         knopf = page.get_by_role("button", name=re.compile("Rahmen passt nicht ausblenden"))
         knopf.wait_for(state="visible")
         assert "(1)" in knopf.inner_text(), knopf.inner_text()
