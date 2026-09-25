@@ -35,10 +35,18 @@ def _popup() -> str:
 
 
 def _karte() -> str:
+    """Die Karte samt ihrer Faktenzeile.
+
+    G62 (#1087): Entfernung, Anstellungsform und Umfang stehen als EINE
+    Textzeile (`kartenFakten`) statt als Abzeichen; die Zeile ruft
+    dieselben Helfer. Deshalb gehoert ihre Funktion zur Karte dazu.
+    """
     text = _seite()
-    start = text.index("{anstellungsform(job) ? (")
+    start = text.index("data-stellenkarte")
     ende = text.index("#1032 AK 4", start)
-    return text[start:ende]
+    f_start = text.index("function kartenFakten(job)")
+    f_ende = text.index("\n}", f_start)
+    return text[start:ende] + text[f_start:f_ende]
 
 
 def test_die_seite_liest_die_gemeinsame_fassung():
@@ -63,11 +71,21 @@ def test_karte_und_popup_geben_das_ergebnis_auch_aus(ansicht, obj):
     die reine Aufruf-Pruefung gruen, weil `entfernungText(...)` noch in der
     Bedingung stand."""
     quelle = _karte() if ansicht == "karte" else _popup()
-    for ausgabe in (f"{{firmaText({obj})}}",
+    if ansicht == "karte":
+        # G62: die Faktenzeile gibt Form, Umfang und Entfernung aus.
+        ausgaben = (f"{{firmaText({obj})}}",
+                    f"{{kartenFakten({obj})}}</p>",
+                    f"{{gehaltText({obj}, formatCurrency)}}</p>",
+                    "form: anstellungsform(job)?.text",
+                    "umfang: umfangText(job)",
+                    "entfernung: entfernungText(job)")
+    else:
+        ausgaben = (f"{{firmaText({obj})}}",
                     f"{{anstellungsform({obj}).text}}",
                     f"{{umfangText({obj})}}",
                     f"{{gehaltText({obj}, formatCurrency)}}</p>",
-                    f"{{entfernungText({obj})}}</p>"):
+                    f"{{entfernungText({obj})}}</p>")
+    for ausgabe in ausgaben:
         assert ausgabe in quelle, (ansicht, ausgabe)
 
 

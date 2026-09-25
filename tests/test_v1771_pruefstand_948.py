@@ -333,12 +333,13 @@ def test_948_der_einstieg_steht_in_der_fusszeile():
     seite = (_repo() / "frontend" / "src" / "pages"
              / "JobsPage.jsx").read_text(encoding="utf-8")
     fussstart = seite.index("footer={(")
-    fussende = seite.index("Schliessen</Button>", fussstart)
+    fussende = seite.index("Schließen</Button>", fussstart)
     fusszeile = seite[fussstart:fussende]
-    assert "Detailbewertung durch Claude anfordern" in fusszeile
+    # G72 (#1087 E4): einheitliches Etikett "… mit Claude".
+    assert "<MitClaude>Detailbewertung</MitClaude>" in fusszeile
 
     # ... und genau EINMAL auf der Seite, nicht zweimal (#979).
-    assert seite.count("Detailbewertung durch Claude anfordern") == 1
+    assert seite.count("<MitClaude>Detailbewertung</MitClaude>") == 1
 
     ui = (_repo() / "frontend" / "src" / "components"
           / "ui.jsx").read_text(encoding="utf-8")
@@ -349,7 +350,8 @@ def test_948_das_abzeichen_fuehrt_zum_ergebnis():
     """AK 7: ein Klick, kein Umweg ueber die Detailansicht."""
     seite = (_repo() / "frontend" / "src" / "pages"
              / "JobsPage.jsx").read_text(encoding="utf-8")
-    start = seite.index("job.pruefstand && job.pruefstand.art")
+    # G62 (#1087 C2): das Urteil ist jetzt die Kernaussage der Karte.
+    start = seite.index("const k = kernaussage(job);")
     block = seite[start:start + 1200]
     assert "showFitAnalysis(job)" in block, (
         "Das Abzeichen ist nicht anklickbar.")

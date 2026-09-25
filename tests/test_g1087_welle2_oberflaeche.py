@@ -98,9 +98,11 @@ def test_c96_karte_und_dialog_zeigen_dieselbe_zahl(browser, server):
     url, _db, _voll = server
     page = _seite(browser, url, "stellen")
     try:
-        karte = page.get_by_title("Punkte von Hand setzen").first.inner_text().strip()
+        karte = page.locator("[data-punkte]").first.inner_text().strip()
         assert PUNKTE.search(karte), karte
-        page.get_by_role("button", name="Fit-Analyse").first.click()
+        # G62 (#1087 C3): "Genauer prüfen" -> "Sofort prüfen".
+        page.locator("[data-genauer-pruefen]").first.click()
+        page.get_by_role("menuitem").filter(has_text="Sofort prüfen").first.click()
         dialog = page.locator("[data-punkte-dialog]").first
         dialog.wait_for(timeout=10000)
         assert dialog.inner_text().strip() == karte
@@ -121,7 +123,7 @@ def test_c96_karte_und_dialog_zeigen_dieselbe_zahl(browser, server):
 def test_c96_dashboard_und_timeline_zeigen_dieselbe_zahl(browser, server):
     url, db, voll = server
     page = _seite(browser, url, "stellen")
-    karte = page.get_by_title("Punkte von Hand setzen").first.inner_text().strip()
+    karte = page.locator("[data-punkte]").first.inner_text().strip()
     page.close()
 
     page = _seite(browser, url, "dashboard")

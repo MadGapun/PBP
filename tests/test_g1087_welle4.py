@@ -364,3 +364,26 @@ def test_b70_kein_suchprofil_wort_in_der_oberflaeche():
         text = _lesen(pfad)
         for alt in ("kein Suchprofil hinterlegt", "Suchprofil öffnen", "öffne das Suchprofil"):
             assert alt not in text, (pfad.name, alt)
+
+
+def test_g66_keine_umlaute_in_bezeichnern():
+    """Die Umlaut-Umschrift darf nur Text treffen. In der ersten Fassung
+    wurden `begruendung=` (ein Werkzeugparameter im Prompt),
+    `naechster_schritt:` (ein Objektschluessel) und
+    `analysis.pruefstand.ueberholt` (ein Feldzugriff) mit umgeschrieben —
+    der Umschreiber hielt Code zwischen `>` und `<` fuer JSX-Text."""
+    muster = re.compile(
+        r"\.[A-Za-z_]*[äöüÄÖÜß]|[A-Za-z]\w*[äöüÄÖÜß]\w*_\w|_\w*[äöüÄÖÜß]|[äöüÄÖÜß]\w*=")
+    funde = []
+    for pfad in list(_jsx_dateien()) + [FRONTEND / "App.jsx"] + sorted((FRONTEND / "lib").glob("*.js")):
+        for nr, zeile in enumerate(_lesen(pfad).splitlines(), 1):
+            if zeile.strip().startswith(("//", "*", "/*")):
+                continue
+            for m in muster.finditer(zeile):
+                funde.append(f"{pfad.name}:{nr} {m.group(0)}")
+    assert not funde, funde
+
+
+def test_g66_detailbewertung_nennt_den_echten_parameter():
+    text = _lesen(FRONTEND / "lib" / "detailbewertung.js")
+    assert "begruendung=" in text and "begründung=" not in text

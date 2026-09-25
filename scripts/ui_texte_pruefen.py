@@ -155,7 +155,14 @@ def ist_umschrift(wort: str) -> bool:
 
 def umlaut_funde(text: str):
     text = re.sub(r"\$\{[^}]*\}", " ", text)
-    for wort in _WORT.findall(text):
+    for m in _WORT.finditer(text):
+        wort = m.group(0)
+        # Ein Parametername in einem Prompt (`begruendung=`, `stelle_x`)
+        # ist ein Bezeichner, kein Text — er MUSS in Umschrift bleiben.
+        nach = text[m.end():m.end() + 1]
+        vor = text[m.start() - 1:m.start()] if m.start() else ""
+        if nach in ("=", "_", "(") or vor in ("_", "."):
+            continue
         teile = [t for t in wort.split("-") if t]
         if any(ist_umschrift(t) for t in teile):
             yield wort

@@ -599,7 +599,7 @@ export default function DashboardPage() {
         />
       </>
     ),
-    nächster_schritt: (
+    naechster_schritt: (
       <>
         {/* Im Fluss (Readiness Card).
 

@@ -2095,7 +2095,7 @@ export default function JobsPage() {
               {fitDialog.analysis.pruefstand?.ueberholt ? (
                 <p className="mt-2 text-xs text-amber">
                   {`Seit dem Urteil hat sich die Grundlage geändert${
-                    (fitDialog.analysis.prüfstand.überholt.gründe_text || []).length
+                    (fitDialog.analysis.pruefstand.ueberholt.gruende_text || []).length
                       ? ` — ${fitDialog.analysis.pruefstand.ueberholt.gruende_text.join("; ")}`
                       : ""
                   }.`}

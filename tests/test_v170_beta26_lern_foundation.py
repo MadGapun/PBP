@@ -240,4 +240,4 @@ def test_settings_page_has_learning_privacy_card():
     assert "LearningPrivacyCard" in src
     assert "Lern-Modus" in src
     assert "verlassen deinen Rechner" in src or "bleiben LOKAL" in src
-    assert "Alle Lern-Daten loeschen" in src
+    assert "Alle Lern-Daten löschen" in src  # G66: echte Umlaute
