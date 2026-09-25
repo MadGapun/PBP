@@ -105,6 +105,96 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.137] - 2026-09-25 — Lesbar für alle
+
+Siebte und letzte Welle aus dem UX-Review #1087: heller Modus,
+Bedienung ohne Maus und eine Doku ohne Widersprüche. Kein
+Schema-Eingriff; eigene Farben im Theme-Editor bleiben, wie sie sind.
+
+### Changed
+
+- **Lesbar im hellen und im dunklen Modus** (#1087 G71). Jede
+  Farbvoreinstellung erreicht für Lesetext auf allen Flächen mindestens
+  4,5:1 — im hellen Modus waren Akzentfarben und abgeschwächter Text
+  darunter. Suche, Auswahllisten, Menüs und Diagramm-Hinweise nehmen
+  ihre Fläche aus dem Farbschema statt aus festen dunklen Werten; Rahmen
+  und Hinterlegungen sind im hellen Modus sichtbar. Schrift ist
+  mindestens 12 px groß (Abzeichen ausgenommen).
+- **Bedienung mit Tastatur und Bildschirmleser** (#1087 G71). Dialoge
+  sind als Dialog ausgezeichnet, halten den Fokus, schließen mit Escape
+  und geben den Fokus zurück. Hinweise werden vorgelesen. Knöpfe mit
+  Symbol tragen einen Namen, Aktionen erscheinen nicht erst beim
+  Überfahren mit der Maus. Auswahlfelder lassen sich mit Pfeiltasten,
+  Pos1/Ende, Enter und Escape bedienen.
+- **Suche auf dem Handy** (#1087 G71). Unter 768 px Breite öffnet das
+  Lupen-Symbol oben die Suche.
+- **Kein einsamer Pfeil auf dem Dashboard.** Ein Bereich, der gerade
+  nichts zu zeigen hat, zeigt auch keinen Einklapp-Griff. Die Begründung
+  der Quellen-Empfehlung steht mit Umlauten.
+- **Doku ohne Widersprüche** (#1087 L13). Version und Testzahl stehen im
+  README nur noch im Kopf; was sich geändert hat, steht unter Releases.
+  Der Datenschutz-Satz ist präzise (gespeichert wird lokal, was du mit
+  Claude bearbeitest, geht an Anthropic). Die Erste-Schritte-Anleitung
+  nennt keine Börsen mehr, die gerade nicht liefern, und Kennungen im
+  echten Format. Im Wiki steht „Einstieg“ zuerst; die Plan-Seiten
+  stehen unter „Für Entwickler“. Neue Screenshots aus dem verbundenen
+  Stable-Stand.
+
+### Gemessen
+
+Gegenprobe: 21 Mechanismen, jeder einzeln ausgebaut, jeder macht einen
+Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.137.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.137.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.136] - 2026-09-25 — Wo was steht
 
 Sechste Welle aus dem UX-Review #1087: Einstellungen, Profil, Hilfe,
