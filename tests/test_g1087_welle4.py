@@ -318,3 +318,49 @@ def test_g66_menue_dokumente_und_rollen_deutsch():
     assert '{ value: "hr", label: "Personalabteilung" }' in anz
     for seite in ("ContactsPage.jsx", "ApplicationsPage.jsx"):
         assert "KONTAKTROLLEN" in _lesen(FRONTEND / "pages" / seite), seite
+
+
+# ══ B70 — Suchbegriffe je Jobboerse ═════════════════════════════════════
+
+def _hinweise(tmp_path, monkeypatch, aktive, portal_eintrag=False):
+    monkeypatch.setenv("BA_DATA_DIR", str(tmp_path))
+    from bewerbungs_assistent.database import Database
+    from bewerbungs_assistent.services.onboarding_hints import list_active_hints
+    db = Database(db_path=tmp_path / "test.db")
+    db.initialize()
+    assert str(tmp_path) in str(db.db_path)
+    db.save_profile({"name": "Erika Musterfrau"})
+    db.set_search_criteria("keywords_muss", ["einkauf"])
+    for i in range(3):
+        db.add_application({"title": f"Stelle {i}", "company": f"Musterbetrieb {i} GmbH", "status": "beworben"})
+    db.set_profile_setting("active_sources", aktive)
+    if portal_eintrag:
+        db.update_portal_search_profile("linkedin", primaere_suchen=[{"keywords": "Einkauf"}])
+    try:
+        return {h["id"]: h for h in list_active_hints(db)}
+    finally:
+        db.close()
+
+
+def test_b70_tipp_nennt_die_jobboerse(tmp_path, monkeypatch):
+    hinweise = _hinweise(tmp_path, monkeypatch, ["bundesagentur", "linkedin"])
+    tipp = hinweise["g11_suchprofile_anlegen"]
+    assert tipp["title"] == "Tipp: Suchbegriffe je Jobbörse"
+    assert "LinkedIn" in tipp["body"] and "Suchprofil" not in tipp["body"]
+
+
+def test_b70_kein_tipp_bei_gepflegten_suchbegriffen_ohne_browserboerse(tmp_path, monkeypatch):
+    hinweise = _hinweise(tmp_path, monkeypatch, ["bundesagentur", "arbeitnow"])
+    assert "g11_suchprofile_anlegen" not in hinweise
+
+
+def test_b70_kein_tipp_wenn_die_jobboerse_einen_eintrag_hat(tmp_path, monkeypatch):
+    hinweise = _hinweise(tmp_path, monkeypatch, ["linkedin"], portal_eintrag=True)
+    assert "g11_suchprofile_anlegen" not in hinweise
+
+
+def test_b70_kein_suchprofil_wort_in_der_oberflaeche():
+    for pfad in list(_jsx_dateien()):
+        text = _lesen(pfad)
+        for alt in ("kein Suchprofil hinterlegt", "Suchprofil öffnen", "öffne das Suchprofil"):
+            assert alt not in text, (pfad.name, alt)

@@ -83,20 +83,54 @@ def _condition_notizen_leer_oder_kurz(db) -> bool:
         return False
 
 
+def _jobboersen_ohne_suchbegriffe(db) -> list[str]:
+    """Gewaehlte Browser-Jobboersen ohne eigene Suchbegriffe (B70, #1087 C5).
+
+    Bis v1.7.133 hiess der Hinweis "noch kein Suchprofil" und erschien, sobald
+    irgendein Portal-Eintrag fehlte — auch bei gepflegten MUSS/PLUS/MINUS-
+    Begriffen. Gemeint war der Eintrag je Jobboerse (#564). Jetzt zaehlt nur
+    eine GEWAEHLTE Browser-Jobboerse, fuer die nichts hinterlegt ist, und der
+    Hinweis nennt sie. Nachsehen legt nichts an (`find_...`, #1049).
+    """
+    from ..job_scraper import SOURCE_REGISTRY, zugriffsart_von
+    from .search_service import aktive_quellen
+    aktiv = aktive_quellen(db, SOURCE_REGISTRY) or []
+    namen = []
+    for key in aktiv:
+        if zugriffsart_von(key) != "browser_login":
+            continue
+        eintrag = db.find_portal_search_profile(key)
+        if eintrag and (eintrag.get("primaere_suchen") or eintrag.get("sekundaere_suchen")):
+            continue
+        namen.append(SOURCE_REGISTRY.get(key, {}).get("name") or key)
+    return namen
+
+
 def _condition_keine_suchprofile_aber_bewerbungen(db) -> bool:
-    """Hint sinnvoll wenn: 0 Suchprofile + >=3 Bewerbungen."""
+    """Hinweis, wenn eine gewaehlte Browser-Jobboerse keine Suchbegriffe hat
+    und schon Bewerbungen laufen (dann lohnt die Pflege)."""
     try:
-        profile_rows = db.connect().execute(
-            "SELECT COUNT(*) AS n FROM portal_search_profiles WHERE "
-            "(profile_id=? OR profile_id IS NULL)",
-            (db.get_active_profile_id(),)
-        ).fetchone()
-        if not profile_rows or (profile_rows["n"] or 0) > 0:
+        if not _jobboersen_ohne_suchbegriffe(db):
             return False
-        apps = db.get_applications(limit=0)
-        return len(apps) >= 3
+        return len(db.get_applications(limit=0)) >= 3
     except Exception:
         return False
+
+
+def _text_jobboersen_ohne_suchbegriffe(db) -> str:
+    try:
+        namen = _jobboersen_ohne_suchbegriffe(db)
+    except Exception:
+        return ""
+    if not namen:
+        return ""
+    liste = ", ".join(namen)
+    return (
+        f"Für {liste} sind keine eigenen Suchbegriffe hinterlegt. Dort "
+        "funktionieren oft andere Begriffe als in deinen Suchkriterien — "
+        "zum Beispiel ein Titel statt einer Abkürzung. Claude merkt sich, "
+        "was auf der Jobbörse Treffer bringt."
+    )
 
 
 def _condition_keine_aufwandskosten_aber_termine(db) -> bool:
@@ -447,13 +481,13 @@ HINT_DEFINITIONS: list[dict] = [
     {
         "id": "g11_suchprofile_anlegen",
         "tab": "stellen",
-        "title": "Tipp: Suchprofile sparen Zeit",
+        "title": "Tipp: Suchbegriffe je Jobbörse",
         "body": (
-            "Du hast schon mehrere Bewerbungen — aber noch kein Suchprofil. "
-            "Suchprofile speichern deine Kriterien (Region, Gehalt, Stellenart, "
-            "Keywords) damit jede neue Jobsuche sie automatisch nutzt."
+            "Für eine gewählte Jobbörse sind keine eigenen Suchbegriffe "
+            "hinterlegt. Claude merkt sich, was dort Treffer bringt."
         ),
-        "cta_label": "PBP: Suchprofil aus den aktuellen Kriterien aktualisieren",
+        "body_fn": _text_jobboersen_ohne_suchbegriffe,
+        "cta_label": "PBP: Suchbegriffe je Jobbörse aus den Suchkriterien anlegen",
         "cta_tool": "suchprofil_aktualisieren",
         "condition": _condition_keine_suchprofile_aber_bewerbungen,
     },
@@ -515,6 +549,12 @@ def list_active_hints(db) -> list[dict]:
                 # nachlesen kann (#1053). Ein Feld, das die Definition
                 # setzt und die Ausgabe verschweigt, waere die Bauform
                 # aus #993.
+                # B70 (#1087 C5): ein Hinweis, der eine Jobboerse NENNT,
+                # braucht den Namen aus dem Bestand.
+                if callable(h.get("body_fn")):
+                    _body = h["body_fn"](db)
+                    if _body:
+                        eintrag["body"] = _body
                 if callable(h.get("detail")):
                     _detail = h["detail"](db)
                     if _detail:

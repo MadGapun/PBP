@@ -270,11 +270,16 @@ def test_onboarding_hint_suchprofile_triggert_bei_3_bewerbungen(tmp_db):
              now_iso, now_iso, now_iso)
         )
     conn.commit()
+    # B70 (#1087 C5): der Tipp gilt einer GEWAEHLTEN Browser-Jobboerse ohne
+    # eigene Suchbegriffe — ohne Auswahl gibt es nichts zu nennen.
+    tmp_db.set_profile_setting("active_sources", ["bundesagentur", "linkedin"])
 
     from bewerbungs_assistent.services.onboarding_hints import list_active_hints
     hints = list_active_hints(tmp_db)
     ids = [h["id"] for h in hints]
     assert "g11_suchprofile_anlegen" in ids
+    tipp = next(h for h in hints if h["id"] == "g11_suchprofile_anlegen")
+    assert "LinkedIn" in tipp["body"]
 
 
 def test_onboarding_hint_dismiss_persistiert(tmp_db):
@@ -292,6 +297,7 @@ def test_onboarding_hint_dismiss_persistiert(tmp_db):
              now_iso, now_iso, now_iso)
         )
     conn.commit()
+    tmp_db.set_profile_setting("active_sources", ["linkedin"])
 
     from bewerbungs_assistent.services.onboarding_hints import (
         list_active_hints, dismiss_hint

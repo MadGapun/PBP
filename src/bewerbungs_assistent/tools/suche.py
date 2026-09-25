@@ -1396,7 +1396,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def suchprofil_lesen(portal: str) -> dict:
-        """Liefert das gespeicherte Such-Profil fuer ein Portal (#564).
+        """Liefert die Suchbegriffe je Jobboerse fuer ein Portal (#564).
+
+        Im Dashboard heisst das "Suchbegriffe je Jobbörse" (B70, #1087 C5) —
+        nicht zu verwechseln mit den Suchkriterien (MUSS/PLUS/MINUS), die
+        fuer alle Quellen gelten.
 
         Wird von der Chrome-Extension VOR jeder Suche aufgerufen, damit
         statt der naiven `keywords_muss` die portal-spezifisch erprobten
@@ -1454,17 +1458,17 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def suchprofile_auflisten() -> dict:
-        """Listet alle gespeicherten Portal-Such-Profile (#564)."""
+        """Listet die Suchbegriffe je Jobboerse (Portal-Such-Profile, #564)."""
         items = db.list_portal_search_profiles()
         if not items:
             return leer(
                 {"profile": [], "anzahl": 0},
-                "Noch keine Suchprofile angelegt.",
-                "Ein Suchprofil buendelt Suchbegriffe und Quellen fuer "
-                "eine Richtung — etwa 'Festanstellung in der Naehe' und "
-                "'Freelance bundesweit' getrennt. Wer nur eine Richtung "
-                "verfolgt, braucht das nicht: die normalen "
-                "Suchkriterien reichen.")
+                "Noch keine Suchbegriffe je Jobbörse angelegt.",
+                "Auf manchen Jobbörsen (etwa LinkedIn) bringen andere "
+                "Begriffe Treffer als in den Suchkriterien — ein Titel "
+                "statt einer Abkürzung. Dafür gibt es je Jobbörse eigene "
+                "Suchbegriffe (suchprofil_aktualisieren). Ohne Eintrag "
+                "gelten die Suchkriterien.")
         return {"profile": items, "anzahl": len(items)}
 
     # === Ablehnungsgruende-Verwaltung (#663 C20, beta.85) ==================
