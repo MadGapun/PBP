@@ -105,6 +105,102 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.134] - 2026-09-25 — Eine Karte, ein Wort, eine Liste
+
+Vierte Welle aus dem UX-Review #1087: die Stellenkarte, die Sprache und
+die Arbeitsliste. Kein Schema-Eingriff; gespeicherte Werte bleiben, nur
+die Beschriftung ändert sich.
+
+### Changed
+
+- **Eine Aussage je Stellenkarte** (#1087 C2, C3, E3). Bis zu neun
+  Abzeichen in Bewertungssprache (Kennung, Quellenschlüssel, zwei Daumen,
+  Prüfstand, „Ungeprüft: 2“, „Kein Pflichttreffer“ …) werden zu einer
+  Kernaussage — das gelesene Urteil oder die fachliche Passung —, einem
+  Grund in Klartext und dem Rahmen-Daumen. Kennung und Quelle stehen im
+  Menü „Für Claude kopieren“. „Fit-Analyse“ und „Detailbewertung“ sind
+  ein Knopf „Genauer prüfen“ mit zwei Wegen: sofort auf dem Rechner oder
+  als Detailbewertung mit Claude.
+- **Suche plus „Filter (n)“** statt 15 Bedienelementen. Die Vorgaben
+  wirken weiter und stehen in einem Satz neben den Ansichten; die
+  Seitengröße entfällt (die Liste lädt beim Scrollen nach). Was ein Filter
+  verbirgt, heißt „ausgeblendet“, was du weggelegt hast, „aussortiert“.
+- **Eine Arbeitsliste** (#1087 D1). Der Aufgaben-Tab ist maßgeblich;
+  Dashboard und Bewerbungen zeigen höchstens fünf Zeilen und „Alle
+  Aufgaben (n weitere)“. Der Kalender zeigt nur echte Termine und
+  verweist auf die Nachfassungen.
+- **Wörter statt Rohwerte** (#1087 D2). „Beworben mit Unterlagen“ statt
+  „Beworben per: mit_dokumenten“, Datum als TT.MM.JJJJ, Quellennamen und
+  Ablehnungsgründe als Wort in Statistik, Einstellungen und Dialogen,
+  keine Werkzeugnamen in Oberflächentexten, „Vorbereitung“ statt „?“.
+- **Ein Wort je Sache, echte Umlaute** (#1087 E1, E2). Rund 340 Texte mit
+  „ae/oe/ue“ stehen jetzt mit Umlauten, auch im Prompt-Katalog
+  („Übungsgespräch“, „Stärken erkennen“). Nachfassen statt Follow-up,
+  Aufgabe statt Todo, Menü „Dokumente“ statt „Docs“, PBP statt
+  „Bewerbungs-Assistent“, Kontaktrollen deutsch (Fachvorgesetzte/r,
+  Gesprächspartner/in, Personalabteilung). Eine Prüfung in der CI hält
+  das fest.
+- **Suchbegriffe je Jobbörse** (#1087 C5). Der Tipp hieß „noch kein
+  Suchprofil“ und erschien auch bei gepflegten Suchkriterien. Er heißt
+  jetzt „Suchbegriffe je Jobbörse“, erscheint nur für eine gewählte
+  Browser-Jobbörse ohne Eintrag und nennt sie.
+- **Kopieren für Claude, ein Muster** (#1087 E4). Alle Knöpfe, die eine
+  Anleitung für Claude kopieren, tragen dasselbe Symbol und enden auf
+  „mit Claude“. Scheitert die Zwischenablage, erscheint der Text in einem
+  Fenster zum Selbstkopieren statt einer englischen Browsermeldung.
+
+### Gemessen
+
+Gegenprobe: 29 Mechanismen, jeder einzeln ausgebaut, jeder macht einen
+Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.134.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.134.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+---
+
 ## [1.7.133] - 2026-09-25 — Ein Einstieg, ein Hinweis
 
 Dritte Welle aus dem UX-Review #1087: das erste Bild nach der
