@@ -185,6 +185,7 @@ EXPECTED_TOOL_NAMES = {
     "workflow_starten",
     "jobsuche_workflow_starten",
     "ersterfassung_starten",
+    "expertenmodus_setzen",  # #1087 H21
     "analyse_plan_erstellen",
     "dokumente_batch_analysieren",
     "dokumente_bulk_markieren",
@@ -393,7 +394,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 248  # v1.7.129 (#1080, #1086): +firmen_bestand_pruefen, +ollama_beenden
+        assert len(tools) == 249  # #1087 H21: +expertenmodus_setzen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

@@ -2768,6 +2768,48 @@ function formatBytes(bytes) {
 // v1.7.94 (#950): echte Fahrstrecke und Fahrzeit statt Luftlinie. Der
 // Schluessel wird hier eingetragen und nie wieder angezeigt — der Status
 // sagt nur, OB einer gesetzt ist.
+// H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge fuer Claude ein- oder
+// ausblenden. Vorgabe aus.
+function ExpertenmodusCard({ pushToast }) {
+  const [stand, setStand] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api("/api/expertenmodus").then(setStand).catch(() => {});
+  }, []);
+
+  async function umschalten() {
+    setBusy(true);
+    try {
+      const res = await putJson("/api/expertenmodus", { an: !stand?.expertenmodus });
+      setStand({ expertenmodus: res.expertenmodus, anzahl: res.anzahl });
+      pushToast(res.wirkung, "success");
+    } catch (error) {
+      pushToast(`Expertenmodus: ${error.message}`, "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card className="rounded-2xl" data-expertenmodus>
+      <SectionHeading
+        title="Expertenmodus"
+        description={`Zeigt Claude zusätzlich ${stand?.anzahl ?? "rund 20"} Werkzeuge für Reparaturen, Nachziehläufe und die Diagnose von PBP selbst. Im Bewerbungsalltag brauchst du sie nicht.`}
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted">
+          {stand?.expertenmodus ? "Eingeschaltet" : "Ausgeschaltet"}
+        </span>
+        <Button size="sm" variant="secondary" disabled={busy || !stand} onClick={umschalten}>
+          {stand?.expertenmodus ? "Ausschalten" : "Einschalten"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+
 function RoutingCard({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [schluessel, setSchluessel] = useState("");
@@ -3585,6 +3627,10 @@ export default function SettingsPage() {
         {/* ── System / Health Tab (#290) + Follow-up-Automation (#493/#494) ── */}
         {settingsTab === "system" && (
           <AblageOrdnerCard pushToast={pushToast} />
+        )}
+
+        {settingsTab === "system" && (
+          <ExpertenmodusCard pushToast={pushToast} />
         )}
 
         {settingsTab === "system" && (

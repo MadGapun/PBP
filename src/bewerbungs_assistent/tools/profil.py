@@ -225,7 +225,7 @@ _ID_WEGWEISER = {
     # delete_skill-Zweig und bleibt erhalten — er ist der Grund, warum
     # eine Skill-ID am haeufigsten ins Leere zeigt.
     "skill": ("profil_zusammenfassung() nennt die Skill-IDs; fuer "
-              "Extraktions-Muell gibt es skills_bereinigen()."),
+              "Extraktions-Muell gibt es skills_bereinigen() im Expertenmodus."),
 }
 
 

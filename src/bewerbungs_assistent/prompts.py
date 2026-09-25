@@ -687,7 +687,7 @@ SCHRITT 1 — SOFORTLOESUNG VERSUCHEN (immer zuerst):
 - Pruefe die bekannten Diagnose-Wege:
   → pbp_diagnose() bei Daten-/Konsistenz-Problemen
   → quellen_health_check() wenn die Jobsuche nichts liefert
-  → pbp_mcp_diagnose() wenn Tools haengen oder Timeouts auftreten
+  → pbp_mcp_diagnose() wenn Tools haengen oder Timeouts auftreten (Expertenmodus: vorher expertenmodus_setzen(an=True))
   → FAQ: https://github.com/MadGapun/PBP/wiki/FAQ
 - Gibt es einen Workaround, zeige ihn ZUERST — viele Meldungen eruebrigt
   eine Sofortloesung.

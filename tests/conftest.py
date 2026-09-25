@@ -16,6 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 # Verhalten pruefen, reichen einen eigenen Client herein.
 os.environ.setdefault("PBP_BERUFE_LOOKUP", "0")
 
+# H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge sind ohne Expertenmodus
+# ausgeblendet. Die Suite ruft sie direkt ueber `server.mcp` auf; den
+# Aus-Zustand prueft test_g1087_welle5_claude_seite.py ohne diese Variable.
+os.environ.setdefault("BA_EXPERTENMODUS", "1")
+
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_teardown(item):
