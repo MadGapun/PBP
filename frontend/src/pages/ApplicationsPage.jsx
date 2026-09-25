@@ -37,6 +37,7 @@ import { werkzeugAufruf } from "@/lib/promptAufloesung";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
+import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, brauchtBewerbungsdatum, heuteIso } from "@/lib/bewerbungFormular";
 
 const EMPTY_APPLICATION = {
@@ -609,6 +610,8 @@ export default function ApplicationsPage() {
     maximumFractionDigits: applicationsPerWeekRaw > 0 && applicationsPerWeekRaw < 10 ? 1 : 0,
   }).format(applicationsPerWeekRaw);
   const nextStep = (() => {
+    // G63 (#1087 A6): ohne Profil ist der naechste Schritt das Profil.
+    if (!chrome.status?.has_profile) return ZUERST_PROFIL_STATUS;
     if (dueFollowUps.length > 0) {
       return {
         badge: "Priorität 1",
@@ -666,6 +669,15 @@ export default function ApplicationsPage() {
         description: `${archivedCount} ältere Fälle liegen im Archiv. Blende sie nur ein, wenn du Gründe, Quellen oder alte Kontakte prüfen willst.`,
         actionLabel: "Archiv einblenden",
         action: () => setFilters((current) => ({ ...current, showArchived: true })),
+      };
+    }
+    // G63 (#1087 A6): "Auf Kurs" ueber einem leeren System beruhigt zu Unrecht.
+    if (applications.length === 0) {
+      return {
+        badge: "Noch leer",
+        tone: "neutral",
+        title: "Noch keine Bewerbungen",
+        description: "Lege eine Bewerbung an — aus einer Stelle heraus oder mit dem Knopf oben.",
       };
     }
     return {
@@ -1015,7 +1027,7 @@ export default function ApplicationsPage() {
                   </Card>
                 ))
               ) : (
-                <EmptyState
+                !chrome.status?.has_profile ? <ZuerstProfil bereich="Bewerbungen" /> : <EmptyState
                   title={archivedCount > 0 && !filters.showArchived ? "Keine aktiven Bewerbungen im Filter" : "Noch keine Bewerbungen"}
                   description={
                     archivedCount > 0 && !filters.showArchived

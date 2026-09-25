@@ -25,18 +25,24 @@ import { cn } from "@/utils";
 
 // MCP-Connection-Status-Konfig (3-stufig, gleiche Logik wie das alte
 // Sidebar-Badge in App.jsx — beta.24 / User-Feedback nach beta.23)
+// G60 (#1087 A5): die Zeile sagt, WAS nicht verbunden ist. Rot nur, wenn
+// ein Profil existiert — vorher ist "nicht verbunden" der erwartete
+// Zustand, und der Einstieg auf dem Dashboard erklärt ihn.
 const CONN_CONFIG = {
-  connected:    { color: "text-teal",  dot: "bg-teal",     label: "Verbunden",      Icon: Link2 },
-  unknown:      { color: "text-amber", dot: "bg-amber",    label: "Pruefe…",   Icon: Link2 },
-  disconnected: { color: "text-coral", dot: "bg-coral",    label: "Nicht verbunden", Icon: Link2Off },
+  connected:    { color: "text-teal",  dot: "bg-teal",     label: "Claude Desktop: verbunden",      Icon: Link2 },
+  unknown:      { color: "text-amber", dot: "bg-amber",    label: "Claude Desktop: wird geprüft",   Icon: Link2 },
+  disconnected: { color: "text-coral", dot: "bg-coral",    label: "Claude Desktop: nicht verbunden", Icon: Link2Off },
 };
+const CONN_OHNE_PROFIL = { color: "text-muted", dot: "bg-muted/50" };
 
 // v1.7.0 (#583): Status-Indicator-Konfig fuer die lokale AI.
 // Fuenf Zustaende — siehe ../bewerbungs_assistent/services/llm_service.py.
+// G60 (#1087 A5): die lokale KI ist optional — nicht eingerichtet ist kein
+// Alarm, also grau statt rot.
 const LLM_CONFIG = {
-  not_installed: { color: "text-coral",     dot: "bg-coral",    label: "Lokale KI: aus" },
-  no_model:      { color: "text-amber",     dot: "bg-amber",    label: "Lokale KI: kein Modell" },
-  off:           { color: "text-muted/40",  dot: "bg-muted/40", label: "Lokale KI: deaktiviert" },
+  not_installed: { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: nicht eingerichtet (optional)" },
+  no_model:      { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: kein Modell (optional)" },
+  off:           { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: aus (optional)" },
   paused:        { color: "text-amber/80",  dot: "bg-amber/80", label: "Lokale KI: pausiert" },
   active:        { color: "text-teal",      dot: "bg-teal",     label: "Lokale KI: aktiv" },
 };
@@ -100,8 +106,29 @@ export default function Sidebar({
                 v{brand.version}
               </span>
             ) : null}
+            {/* G60 (#1087 A5) + #1069: "Stand unbekannt" war ein gelbes
+                Banner ueber jedem Tab — das erste Bild nach der
+                Installation. Die Auskunft bleibt (kein stilles "alles
+                aktuell"), aber leise, hier unter der Version. */}
+            {brand.updateStand === "unbekannt" ? (
+              <span className="text-[10px] text-muted" data-update-stand="unbekannt"
+                title="Keine Update-Quelle hat geantwortet — ob es eine neue Version gibt, weiß PBP gerade nicht.">
+                Update-Stand unbekannt
+              </span>
+            ) : null}
+            {/* Ein bekanntes Update steht als Stufe 5 in der Hinweiszone —
+                und hier, damit es nicht hinter wichtigeren Hinweisen
+                verschwindet. */}
+            {brand.updateStand === "neu" && brand.updateUrl ? (
+              <a href={brand.updateUrl} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] font-medium text-sky hover:underline" data-update-stand="neu">
+                Neue Version verfügbar: v{brand.updateVersion}
+              </a>
+            ) : null}
             {brand.connectionStatus ? (() => {
-              const cfg = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
+              const basis = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
+              const cfg = brand.connectionStatus === "disconnected" && !brand.hasProfile
+                ? { ...basis, ...CONN_OHNE_PROFIL } : basis;
               return (
                 <button
                   type="button"
@@ -112,8 +139,8 @@ export default function Sidebar({
                     cfg.color
                   )}
                   title={brand.connectionStatus === "connected"
-                    ? "Claude Desktop oeffnen"
-                    : `MCP: ${cfg.label} — Klicke fuer Hilfe`}
+                    ? "Claude Desktop öffnen"
+                    : `${cfg.label} — Klicke für die Anleitung`}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
                   <span>{cfg.label}</span>
@@ -132,7 +159,7 @@ export default function Sidebar({
                     "hover:bg-white/[0.06]",
                     cfg.color
                   )}
-                  title={`${cfg.label} — Klicke fuer Details`}
+                  title={`${cfg.label} — Klicke für Details`}
                 >
                   <span className={cn("h-1.5 w-1.5 rounded-full", cfg.dot)} />
                   <span>{cfg.label}</span>

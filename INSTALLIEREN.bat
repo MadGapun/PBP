@@ -656,10 +656,13 @@ if !errorlevel! equ 0 (
 )
 
 echo [DEBUG] Starte _setup_claude.py >> "%LOGFILE%"
+:: I15 (#1087 A3): der Abschluss sagt spaeter, ob das hier geklappt hat.
+set "CLAUDE_OK=0"
 "%PYTHON%" "%BASEDIR%\_setup_claude.py" >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :claude_config_failed
 echo         [OK] Claude Desktop konfiguriert
 echo [OK] Claude konfiguriert >> "%LOGFILE%"
+set "CLAUDE_OK=1"
 goto :claude_config_done
 
 :claude_config_failed
@@ -772,36 +775,79 @@ if "!DASH_OK!"=="1" (
 echo.
 
 :: -------------------------------------------
-:: ABSCHLIESSENDE ERFOLGSMELDUNG
+:: ABSCHLUSS ALS AMPEL (I15, #1087 A3)
+:: Bis v1.7.131 stand hier "INSTALLATION ERFOLGREICH" auch dann, wenn die
+:: Claude-Konfiguration fehlgeschlagen war. Gruen nur, wenn beides
+:: geklappt hat; sonst Gelb mit den konkreten naechsten Schritten.
+:: Rot sind die Abbrueche weiter unten (Labels err_*).
+:: Keine Klammern in echo-Zeilen innerhalb von Bloecken (#990) - deshalb
+:: Sprungmarken statt if-Bloecke.
 :: -------------------------------------------
+set "AMPEL=GRUEN"
+if not "!CLAUDE_OK!"=="1" set "AMPEL=GELB"
+if not "!DASH_OK!"=="1" set "AMPEL=GELB"
+echo [INFO] Abschluss-Ampel: !AMPEL! CLAUDE_OK=!CLAUDE_OK! DASH_OK=!DASH_OK! >> "%LOGFILE%"
 echo.
+if "!AMPEL!"=="GRUEN" goto :ampel_gruen
+goto :ampel_gelb
+
+:ampel_gruen
 echo  ##############################################################
 echo  ##                                                          ##
-echo  ##   I N S T A L L A T I O N   E R F O L G R E I C H        ##
+echo  ##   [GRUEN]  I N S T A L L A T I O N   E R F O L G R E I C H
 echo  ##                                                          ##
 echo  ##############################################################
+goto :ampel_details
+
+:ampel_gelb
+echo  ##############################################################
+echo  ##                                                          ##
+echo  ##   [GELB]  INSTALLIERT - EIN SCHRITT FEHLT NOCH           ##
+echo  ##                                                          ##
+echo  ##############################################################
+echo.
+if not "!CLAUDE_OK!"=="1" goto :ampel_gelb_claude
+goto :ampel_gelb_dash
+
+:ampel_gelb_claude
+echo    Claude Desktop konnte nicht eingerichtet werden.
+echo    So geht es weiter:
+echo      1. Claude Desktop installieren: https://claude.ai/download
+echo      2. Claude Desktop einmal starten und wieder komplett beenden
+echo         - Rechtsklick auf das Claude-Symbol in der Taskleiste, dann Beenden.
+echo      3. INSTALLIEREN.bat noch einmal starten.
+echo    Details stehen im Installer-Log.
+echo.
+if "!DASH_OK!"=="1" goto :ampel_details
+
+:ampel_gelb_dash
+echo    Das Dashboard hat nach 30 Sekunden nicht geantwortet.
+echo    So geht es weiter: auf dem Desktop "PBP Bewerbungs-Portal"
+echo    doppelklicken. Oeffnet sich nichts, steht der Grund im Log:
+echo    %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+echo.
+
+:ampel_details
 echo.
 echo    Version:     %PBP_VERSION%
 echo    Daten:       %DATA_DIR%
 echo    App-Code:    %APP_DIR%
 echo    Installer-Log: %LOGFILE%
-echo.
-if "!DASH_OK!"=="1" (
-    echo    Dashboard:   http://localhost:8200/  [LAEUFT]
-) else (
-    echo    Dashboard:   http://localhost:8200/  [PRUEFEN — siehe oben]
-)
+echo    Dashboard:   http://localhost:8200/
 echo.
 echo  --------------------------------------------------------------
 echo   ERSTE SCHRITTE
 echo  --------------------------------------------------------------
 echo.
-echo    1. Wechsle in Claude Desktop ^(im Tray-Bereich falls minimiert^).
+echo    1. Claude Desktop komplett beenden und neu starten, damit es
+echo       PBP findet.
 echo.
-echo    2. Tippe dort:  Ersterfassung starten
+echo    2. Im Dashboard oben links nachsehen: steht dort gruen
+echo       "Claude Desktop: verbunden", ist alles bereit.
 echo.
-echo    3. Claude fuehrt dich durch ein Gespraech und baut dein
-echo       Bewerbungsprofil auf.
+echo    3. Im Dashboard: Lebenslauf hochladen. Danach in Claude tippen:
+echo          Starte die Ersterfassung
+echo       Claude ergaenzt im Gespraech, was im Lebenslauf fehlt.
 echo.
 echo  --------------------------------------------------------------
 echo   SPAETER WIEDER OEFFNEN

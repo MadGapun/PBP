@@ -11,7 +11,7 @@
   RefreshCw,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
@@ -41,6 +41,9 @@ import {
 } from "@/utils";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
+import HinweisZone from "@/components/HinweisZone";
+import { STARTSATZ } from "@/lib/startsatz";
+import { hinweisFuer } from "@/lib/hinweisZone";
 import OffenBlock from "@/components/OffenBlock";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
 import EmailUploadButton from "@/components/EmailUploadButton";
@@ -48,7 +51,14 @@ import DashboardBereich from "@/components/DashboardBereich";
 import DashboardAnpassen from "@/components/DashboardAnpassen";
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo } = useApp();
+  // G60 (#1087 B1): hoechstens EIN Hinweis. Ist die Hinweiszone leer,
+  // kommen die weiteren Hinweise der Reihe nach — immer nur einer.
+  const [nebenStufe, setNebenStufe] = useState(0);
+  const [publicGeladen, setPublicGeladen] = useState(false);
+  const weiterZu = useCallback((n) => setNebenStufe((s) => Math.max(s, n)), []);
+  const nachOnboarding = useCallback(() => weiterZu(1), [weiterZu]);
+  const nachAdaptiv = useCallback(() => weiterZu(2), [weiterZu]);
   const lastLoadErrorRef = useRef({ message: "", at: 0 });
   const [loading, setLoading] = useState(true);
   const [impulse, setImpulse] = useState(null);
@@ -76,6 +86,11 @@ export default function DashboardPage() {
   const [dismissedHints, setDismissedHints] = useState(() => {
     try { return JSON.parse(localStorage.getItem("pbp_dismissed_hints") || "[]"); } catch { return []; }
   });
+  // G60: ohne oeffentlichen Hinweis darf die naechste Stufe.
+  useEffect(() => {
+    if (nebenStufe !== 2 || !publicGeladen) return;
+    if (publicHints.filter((h) => !dismissedHints.includes(h.id)).length === 0) weiterZu(3);
+  }, [nebenStufe, publicGeladen, publicHints, dismissedHints, weiterZu]);
   // v1.6.5 (#543): Schnellzugriff-Hilfstext minimierbar, Status persistent.
   // Default offen — User soll beim ersten Mal sehen was die Karten machen.
   const [quickAccessHelpOpen, setQuickAccessHelpOpen] = useState(() => {
@@ -153,7 +168,8 @@ export default function DashboardPage() {
       // #233: Hints from public GitHub source (non-blocking)
       optionalApi("/api/public/hints")
         .then((h) => { if (h?.hints?.length) setPublicHints(h.hints); })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setPublicGeladen(true));
     } catch (error) {
       const message = `Dashboard-Daten konnten nicht geladen werden: ${error.message}`;
       const now = Date.now();
@@ -282,26 +298,17 @@ export default function DashboardPage() {
   const lastSearchAt = chrome.searchStatus?.last_search || "";
   const searchDaysAgo = Number(chrome.searchStatus?.days_ago);
   const hasSearchDays = Number.isFinite(searchDaysAgo);
-  const needsSearchTodo = !lastSearchAt || !hasSearchDays || searchDaysAgo > 0;
   const appliedCoverage = activeJobsCount > 0 ? applicationsCount / activeJobsCount : 0;
   const activeSourceCount = Number(chrome.workspace?.sources?.active || 0);
   const needsMoreSourcesTodo = activeJobsCount >= 3 && appliedCoverage >= 0.6 && activeSourceCount < 2;
   const todoItems = [];
 
-  if (needsSearchTodo) {
-    todoItems.push({
-      id: "jobsuche",
-      title: "Neue Jobsuche starten",
-      description:
-        lastSearchAt && hasSearchDays
-          ? `Die letzte Jobsuche war vor ${searchDaysAgo} ${searchDaysAgo === 1 ? "Tag" : "Tagen"}.`
-          : "Heute wurde noch keine Jobsuche durchgeführt.",
-      tone: "danger",
-      actionLabel: "Jetzt starten",
-      // #461: direkt Dashboard-Endpoint, kein Claude-Umweg
-      action: () => startJobsuche(),
-    });
-  }
+  // G60 (#1087 B5): "Neue Jobsuche starten" stand hier als rote
+  // Empfehlung, sobald heute noch nicht gesucht wurde — dazu ein Knopf in
+  // der Kopfleiste und die Karte "Zeit fuer eine frische Jobsuche": drei
+  // Knoepfe fuer einen Schritt, und wer gestern gesucht hatte, sah taeglich
+  // Rot. Die Erinnerung steht jetzt in der Hinweiszone, erst nach sieben
+  // Tagen (lib/hinweisZone.js).
 
   // #982: die Zaehl-Empfehlung "Interview vorbereiten" entfaellt.
   // Sie entstand aus der ANZAHL der Bewerbungen im Interview-Status
@@ -409,18 +416,23 @@ export default function DashboardPage() {
           <Card className="glass-hero rounded-2xl p-8">
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1.3fr)_minmax(18rem,0.9fr)]">
               <div className="space-y-5">
-                <Badge tone="sky">Dein Bewerbungs-Begleiter</Badge>
+                <Badge tone="sky">Persönliches Bewerbungs-Portal</Badge>
                 <h2 className="font-display text-4xl font-semibold tracking-tight text-ink">
                   Willkommen bei PBP
                 </h2>
                 <p className="max-w-2xl text-base text-muted">
                   PBP hilft dir Schritt für Schritt durch den Bewerbungsprozess — vom
-                  Lebenslauf bis zum Vorstellungsgespräch. Alles bleibt auf deinem Rechner.
+                  Lebenslauf bis zum Vorstellungsgespräch.
                 </p>
-                <p className="max-w-2xl text-sm text-muted/70">
-                  Du musst nicht wissen, was du tun sollst — PBP zeigt dir bei jedem
-                  Schritt, was als Nächstes sinnvoll ist.
-                </p>
+                {/* G59 (#1087 A4): das Zwei-Fenster-Modell stand nirgends. */}
+                <div data-erklaerkasten className="rounded-xl border border-sky/20 bg-sky/[0.05] p-4 text-sm">
+                  <p className="font-semibold text-ink">So arbeiten Dashboard und Claude zusammen</p>
+                  <ul className="mt-2 grid gap-1.5 text-muted">
+                    <li><strong className="text-ink">Dashboard</strong> (dieses Fenster): Übersicht und Verwaltung — Stellen, Bewerbungen, Termine, Dokumente.</li>
+                    <li><strong className="text-ink">Claude Desktop</strong>: das Gespräch und die Texte — Profil erfassen, Anschreiben, Vorbereitung.</li>
+                    <li><strong className="text-ink">Die Verbindung</strong>: Knöpfe mit „… mit Claude“ legen einen Text in die Zwischenablage. In Claude mit Strg+V einfügen und abschicken — auf den genauen Wortlaut kommt es nicht an.</li>
+                  </ul>
+                </div>
                 {/* G18 (#749): Erster-Start-Verbindungscheck — der frisch
                     installierte User sieht SOFORT, ob Claude Desktop mit PBP
                     verbunden ist (haeufigster Support-Stolperstein), statt
@@ -465,19 +477,33 @@ export default function DashboardPage() {
 
                 {/* G17 (#744): CV-Upload ist der schnellste Einstieg —
                     gleichwertig prominent statt versteckter Ghost-Button */}
-                <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => navigateTo("profil", { composer: "document" })}>
-                    <Upload size={15} />
-                    Lebenslauf hochladen — Profil entsteht automatisch
-                  </Button>
-                  <Button variant="ghost" onClick={() => navigateTo("profil")}>
-                    Ohne Unterlagen starten (Gespräch, ca. 10 Min.)
-                    <ArrowRight size={15} />
-                  </Button>
-                </div>
-                <p className="max-w-2xl text-xs text-muted/70">
-                  In beiden Fällen gilt: Profil prüfen, Suchbegriffe bestätigen —
-                  und die erste Stellensuche startet direkt im Anschluss.
+                {/* G59 (#1087 A1): EIN Hauptweg — erst der Lebenslauf, dann
+                    das Gespräch mit Claude für die Lücken. Vorher lagen
+                    hier, im Overlay darüber und in der Kopfleiste drei
+                    Einstiege mit drei Empfehlungen. */}
+                <ol data-einstieg className="grid gap-3">
+                  <li className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-semibold text-ink">1.</span>
+                    <Button onClick={() => navigateTo("profil", { composer: "document" })}>
+                      <Upload size={15} />
+                      Lebenslauf hochladen
+                    </Button>
+                    <span className="text-xs text-muted">PDF oder Word — daraus entsteht dein Profil.</span>
+                  </li>
+                  <li className="flex flex-wrap items-center gap-3">
+                    <span className="text-sm font-semibold text-ink">2.</span>
+                    <Button variant="secondary" onClick={() => copyPrompt("/ersterfassung")}>
+                      Gespräch mit Claude starten
+                      <ArrowRight size={15} />
+                    </Button>
+                    <span className="text-xs text-muted">
+                      Claude ergänzt, was im Lebenslauf fehlt. Oder in Claude tippen: „{STARTSATZ}“.
+                    </span>
+                  </li>
+                </ol>
+                <p className="max-w-2xl text-xs text-muted">
+                  Ohne Lebenslauf geht es auch: dann gleich mit Schritt 2 anfangen.
+                  Danach Suchbegriffe bestätigen — die erste Stellensuche startet direkt im Anschluss.
                 </p>
               </div>
 
@@ -485,7 +511,7 @@ export default function DashboardPage() {
                 {[
                   {
                     title: "Schritt 1 — Profil",
-                    text: "Lebenslauf hochladen oder einfach erzählen — Claude baut daraus dein Profil.",
+                    text: "Lebenslauf hochladen, dann im Gespräch mit Claude die Lücken füllen.",
                   },
                   {
                     title: "Schritt 2 — Stellen finden",
@@ -510,6 +536,26 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  // G60 (#1087): Eingaben der Hinweiszone. "Einstieg fertig" heisst: Profil
+  // da, kein laufendes Kennlerngespraech, und mindestens eine Suche gelaufen.
+  const mcpStand = chrome.status?.mcp_connection?.status;
+  const einstiegFertig = Boolean(chrome.status?.has_profile)
+    && !(chrome.profileOnboarding?.started && !chrome.profileOnboarding?.completed)
+    && Boolean(lastSearchAt);
+  const hinweis = hinweisFuer({
+    seite: "dashboard",
+    verbunden: mcpStand === "connected" ? true : mcpStand === "disconnected" ? false : null,
+    hatProfil: Boolean(chrome.status?.has_profile),
+    quellenAktiv: activeSourceCount,
+    letzteSucheAm: lastSearchAt,
+    updateBekannt: updateInfo?.update_available
+      ? { version: updateInfo.latest_version, url: updateInfo.release_url }
+      : null,
+    ollamaAngebot: false,
+    einstiegFertig,
+  });
+  const sichtbarePublic = publicHints.filter((h) => !dismissedHints.includes(h.id));
 
   // v1.7.35 (#985): jeder Block einmal benannt, damit die Reihenfolge
   // aus den Nutzereinstellungen kommen kann statt aus dem Quelltext.
@@ -792,58 +838,66 @@ export default function DashboardPage() {
     <div id="page-dashboard" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
       <h1 className="sr-only">Dashboard</h1>
-      {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
-      <OnboardingHintBanner tab="dashboard" />
-      <AdaptiveHintBanner page="dashboard" />
-
-      {publicHints.filter((h) => !dismissedHints.includes(h.id)).length > 0 && (
-        <div className="mb-4 space-y-2">
-          {publicHints.filter((h) => !dismissedHints.includes(h.id)).map((hint) => (
-            <div
-              key={hint.id}
-              className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
-                hint.type === "warning"
-                  ? "border-amber/20 bg-amber/5 text-amber"
-                  : "border-sky/20 bg-sky/5 text-sky"
-              }`}
-            >
-              <div>
-                {hint.title && <span className="font-medium">{hint.title} </span>}
-                {hint.text}
-                {hint.url ? (
-                  <>
-                    {" "}
-                    <a
-                      href={hint.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium underline underline-offset-2 hover:opacity-80"
-                    >
-                      {hint.url_label || "Mehr erfahren"} →
-                    </a>
-                  </>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = [...dismissedHints, hint.id];
-                  setDismissedHints(next);
-                  try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
-                }}
-                className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
-                title="Schliessen"
+      {/* G60 (#1087 B1, B5, A5): hoechstens EIN Hinweis vor dem Inhalt.
+          Zuerst die Hinweiszone (Verbindung, Quellen, Suche nach sieben
+          Tagen, bekanntes Update — lib/hinweisZone.js). Ist sie leer,
+          kommen die weiteren Hinweise der Reihe nach, immer nur einer:
+          Einstiegs-Hinweis, gelernter Hinweis, oeffentlicher Hinweis und
+          zuletzt das Angebot der lokalen KI — dieses erst nach dem
+          Einstieg. */}
+      {hinweis ? (
+        <HinweisZone hinweis={hinweis} />
+      ) : (
+        <>
+          {nebenStufe === 0 && <OnboardingHintBanner tab="dashboard" limit={1} onLeer={nachOnboarding} />}
+          {nebenStufe === 1 && <AdaptiveHintBanner page="dashboard" limit={1} onLeer={nachAdaptiv} />}
+        {nebenStufe === 2 && sichtbarePublic.length > 0 && (
+          <div className="mb-4 space-y-2">
+            {sichtbarePublic.slice(0, 1).map((hint) => (
+              <div
+                key={hint.id}
+                className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${
+                  hint.type === "warning"
+                    ? "border-amber/20 bg-amber/5 text-amber"
+                    : "border-sky/20 bg-sky/5 text-sky"
+                }`}
               >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
-        </div>
+                <div>
+                  {hint.title && <span className="font-medium">{hint.title} </span>}
+                  {hint.text}
+                  {hint.url ? (
+                    <>
+                      {" "}
+                      <a
+                        href={hint.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium underline underline-offset-2 hover:opacity-80"
+                      >
+                        {hint.url_label || "Mehr erfahren"} →
+                      </a>
+                    </>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = [...dismissedHints, hint.id];
+                    setDismissedHints(next);
+                    try { localStorage.setItem("pbp_dismissed_hints", JSON.stringify(next)); } catch {}
+                  }}
+                  className="shrink-0 rounded p-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                  title="Schliessen"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+          {nebenStufe >= 3 && einstiegFertig && <LocalAiAutoDetectBanner pushToast={pushToast} navigateTo={navigateTo} />}
+        </>
       )}
-
-      {/* Bleibt ausserhalb der Bereichs-Mechanik: ein Hinweis, der sich
-          selbst ausblendet, sobald Ollama laeuft. */}
-      <LocalAiAutoDetectBanner pushToast={pushToast} navigateTo={navigateTo} />
 
       {anpassenOffen ? (
         <DashboardAnpassen

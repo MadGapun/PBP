@@ -577,7 +577,7 @@ class InstallerApp:
             f"Datenverzeichnis: {data_dir}\n\n"
             "Nächste Schritte:\n"
             "  1. Claude Desktop neu starten\n"
-            "  2. In Claude eintippen: \"Ersterfassung starten\"\n\n"
+            "  2. In Claude eintippen: \"Starte die Ersterfassung\"\n\n"
             f"Das Dashboard läuft eigenständig auf http://localhost:8200\n"
             f"(unabhängig von Claude Desktop)."
         )

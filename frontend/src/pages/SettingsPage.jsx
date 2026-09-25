@@ -555,6 +555,49 @@ function TelemetrySharingCard({ pushToast }) {
 }
 
 
+// B69 (#1087 C7): Bis v1.7.132 wurden beim ersten Oeffnen der Quellen alle
+// Quellen ohne Login still aktiviert (im Demo 29 von 34), und die Kopfleiste
+// zeigte bis zum Neuladen weiter 0. Jetzt waehlt PBP die Empfehlung fuer
+// das Profil, sagt das einmal — und die Kopfleiste liest sofort neu.
+function ErstauswahlHinweis({ refreshChrome }) {
+  const [daten, setDaten] = useState(null);
+  useEffect(() => {
+    let aktiv = true;
+    api("/api/sources/erstauswahl")
+      .then((d) => {
+        if (!aktiv) return;
+        setDaten(d);
+        if (d?.offen) refreshChrome?.({ quiet: true });
+      })
+      .catch(() => {});
+    return () => { aktiv = false; };
+    // Nur beim Oeffnen: `refreshChrome` wechselt je Render die Identitaet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  if (!daten?.offen) return null;
+  async function bestaetigen() {
+    try { await postJson("/api/sources/erstauswahl/bestaetigen", {}); } catch {}
+    setDaten({ offen: false });
+  }
+  const namen = daten.namen || [];
+  return (
+    <Card className="rounded-2xl border border-teal/25" data-erstauswahl>
+      <p className="text-sm font-semibold text-ink">
+        PBP hat {namen.length} {namen.length === 1 ? "Jobbörse" : "Jobbörsen"}{" "}
+        {daten.grundlage === "profil" ? "passend zu deinem Profil" : "für den Start"} ausgewählt
+      </p>
+      <p className="mt-1 text-[13px] text-muted">{namen.join(", ")}</p>
+      <p className="mt-1 text-xs text-muted">
+        Mehr Quellen heißt nicht mehr passende Stellen — und jede weitere Quelle verlängert die Suche.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button size="sm" onClick={bestaetigen}>Passt so</Button>
+        <Button size="sm" variant="ghost" onClick={bestaetigen}>Selbst auswählen (Liste unten)</Button>
+      </div>
+    </Card>
+  );
+}
+
 // v1.7.0-beta.36 (#590 Aufgabe B): Profil-basierte Quellen-Empfehlung.
 // Zeigt den erkannten Profil-Typ + die empfohlenen Quellen + einen
 // "Empfohlene Quellen aktivieren"-Button. User-Vorgabe: PBP fuer alle
@@ -3303,6 +3346,8 @@ export default function SettingsPage() {
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
+            {/* B69 (#1087 C7): was PBP beim ersten Oeffnen ausgewaehlt hat. */}
+            <ErstauswahlHinweis refreshChrome={refreshChrome} />
             {/* v1.7.0-beta.36 (#590 Aufgabe B): Profil-basierte Quellen-Empfehlung */}
             <RecommendedSourcesCard
               sources={sources}

@@ -919,7 +919,7 @@ Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
 
 ═══════════════════════════════════════════════════
 LOS GEHT'S — Sag einfach: "Lass uns mein Profil erstellen!"
-Oder: "Ersterfassung starten"
+Oder: "Starte die Ersterfassung"
 ═══════════════════════════════════════════════════
 
 Du brauchst kein Computerwissen. Ich fuehre dich durch alles Schritt für Schritt."""

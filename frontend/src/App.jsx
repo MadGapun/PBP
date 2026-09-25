@@ -44,6 +44,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
+import { STARTSATZ } from "@/lib/startsatz";
 import Sidebar from "@/components/Sidebar";
 import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
 import { Button, Card, Field, Modal, TextInput, ToastViewport } from "@/components/ui";
@@ -527,7 +528,6 @@ export default function App() {
   async function copyPrompt(prompt) {
     try {
       const rawPrompt = String(prompt || "").trim();
-      const normalizedPrompt = rawPrompt.toLocaleLowerCase("de-DE");
       let promptToCopy = rawPrompt;
 
       // v1.7.120: ein "/name" ist IMMER ein Workflow, dessen Anleitung der
@@ -562,32 +562,14 @@ export default function App() {
         );
       }
 
-      const isConversationPrompt =
-        normalizedPrompt === "/ersterfassung" || normalizedPrompt.startsWith("/ersterfassung ");
-      if (isConversationPrompt) {
-        const activeProfileId =
-          chrome.profile?.id || chrome.profiles?.find((item) => item.is_active)?.id || "";
-        if (activeProfileId) {
-          await Promise.all([
-            postJson(`/api/user-preferences/profile_onboarding_started_${activeProfileId}`, { value: true }),
-            postJson(`/api/user-preferences/profile_onboarding_completed_${activeProfileId}`, { value: false }),
-            postJson(`/api/user-preferences/profile_onboarding_dismissed_${activeProfileId}`, { value: false }),
-            postJson(`/api/user-preferences/profile_onboarding_conversation_${activeProfileId}`, { value: "active" }),
-          ]);
-          startTransition(() => {
-            setChrome((current) => ({
-              ...current,
-              profileOnboarding: {
-                ...current.profileOnboarding,
-                profileId: activeProfileId,
-                started: true,
-                completed: false,
-                dismissed: false,
-              },
-            }));
-          });
-        }
-      }
+      // G59 (#1087 A2): Kopieren ist kein Start. Der Zustand "läuft" kommt
+      // erst, wenn Claude das Werkzeug aufruft (serverseitig in
+      // erfassung_fortschritt_speichern / ersterfassung_starten).
+      // G59 (#1087 A2): Kopieren ist kein Start. Bis v1.7.131 setzte diese
+      // Funktion beim Kopieren von "/ersterfassung" den Einstieg auf
+      // "läuft". Jetzt kommt der Zustand erst, wenn Claude das Werkzeug
+      // aufruft (erfassung_fortschritt_speichern / ersterfassung_starten
+      // setzen ihn serverseitig).
       pushToast(
         "Anleitung kopiert! Wechsle jetzt zu Claude Desktop — Einfuegen mit Strg+V (Cmd+V auf Mac).",
         "success",
@@ -1023,8 +1005,13 @@ export default function App() {
     !chrome.profileOnboarding?.completed &&
     !showProfileOnboarding;
   const profileIsComplete = (chrome.workspace?.profile?.completeness || 0) >= 100;
+  // G60 (#1087 B1): die Kopfleiste nur noch auf dem Dashboard — auf dem
+  // Aufgaben-Tab standen vorher drei Bloecke, die nichts mit Aufgaben zu
+  // tun hatten. Ohne Profil erklaert der Einstieg selbst, was fehlt.
   const showWorkspaceStrip =
     !chrome.loading &&
+    page === "dashboard" &&
+    Boolean(chrome.status?.has_profile) &&
     !profileIsComplete &&
     (chrome.workspace?.readiness?.stage || readiness.stage) !== "im_fluss";
   const showReadinessActionButton =
@@ -1090,6 +1077,9 @@ export default function App() {
     openHelp: (tab = "hilfe") => { setHelpTab(tab); setHelpOpen(true); },
     openCreateProfileModal: () => setCreateProfileOpen(true),
     openProfileOnboarding: reopenProfileOnboarding,
+    // G60 (#1087): die Hinweiszone liest das Update von hier.
+    updateInfo,
+    dismissUpdate: () => setUpdateInfo(null),
     themeMode,
     themeCustom,
     setThemeMode,
@@ -1239,6 +1229,10 @@ export default function App() {
             },
             // v1.7.0 (#583): Lokale-AI-Status-Indicator (unter MCP)
             llmState: llmStatus?.ui_state || "not_installed",
+            hasProfile: Boolean(chrome.status?.has_profile),
+            updateStand: updateInfo?.update_available ? "neu" : updateInfo?.stand || "",
+            updateVersion: updateInfo?.latest_version || "",
+            updateUrl: updateInfo?.release_url || "",
             onLlmClick: () => setLlmHelpOpen(true),
           }}
           collapsed={sidebarCollapsed}
@@ -1462,66 +1456,10 @@ export default function App() {
           </div>
         </header>
 
-        {/* Stand unbekannt (#1069) — keine Quelle hat geantwortet. */}
-        {updateInfo && !updateInfo.update_available
-          && updateInfo.stand === "unbekannt" && (
-          <div className="mx-auto w-full max-w-[92rem] px-5 sm:px-8 pt-2">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber/20 bg-amber/8 px-4 py-2.5 text-sm text-amber">
-              <span>
-                <strong>Stand unbekannt</strong> — keine Update-Quelle hat
-                geantwortet. Ob es eine neue Version gibt, weiß PBP gerade
-                nicht.
-                {updateInfo.geprueft_am
-                  ? ` Zuletzt geprüft: ${updateInfo.geprueft_am.slice(0, 16).replace("T", " ")} UTC.`
-                  : ""}
-              </span>
-              <button
-                type="button"
-                className="rounded-lg p-1 hover:bg-amber/15 transition-colors"
-                onClick={() => setUpdateInfo(null)}
-                aria-label="Hinweis schließen"
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Update-Banner (#286) */}
-        {updateInfo?.update_available && (
-          <div className="mx-auto w-full max-w-[92rem] px-5 sm:px-8 pt-2">
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-amber/20 bg-amber/8 px-4 py-2.5 text-sm text-amber">
-              <span>
-                Neue Version verfuegbar: <strong>v{updateInfo.latest_version}</strong>
-                {updateInfo.release_name ? ` — ${updateInfo.release_name}` : ""}
-              </span>
-              <div className="flex items-center gap-2">
-                {updateInfo.release_url && (
-                  <a
-                    href={updateInfo.release_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-lg bg-amber/15 px-3 py-1 text-xs font-medium hover:bg-amber/25 transition-colors"
-                  >
-                    Update-Anleitung
-                  </a>
-                )}
-                <button
-                  type="button"
-                  className="rounded-lg p-1 hover:bg-amber/15 transition-colors"
-                  onClick={() => setUpdateInfo(null)}
-                >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M3.5 3.5l7 7M10.5 3.5l-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
+        {/* G60 (#1087 B1): Update-Hinweise stehen in der Hinweiszone des
+            Dashboards — und nur, wenn ein Update BEKANNT ist. "Stand
+            unbekannt" war das erste Bild nach der Installation und steht
+            jetzt in den Einstellungen (Erweiterungen/System). */}
         {showWorkspaceStrip ? (
           <div
           id="workspace-strip"
@@ -1562,11 +1500,11 @@ export default function App() {
               </div>
             </div>
 
-            {showReadinessActionButton || showProfileOnboardingCta ? (
+            {showProfileOnboardingCta ? (
               <div className="workspace-actions flex shrink-0 gap-2">
-                {showReadinessActionButton ? (
-                  <Button size="sm" onClick={handleReadinessAction}>{readiness.action_label || "Öffnen"}</Button>
-                ) : null}
+                {/* G60 (#1087 B5): keine zweite Aktion fuer dieselbe Sache —
+                    der naechste Schritt steht in der Hinweiszone bzw. in der
+                    Karte "Naechster Schritt" darunter. */}
                 {showProfileOnboardingCta ? (
                   <Button size="sm" variant="ghost" onClick={reopenProfileOnboarding}>
                     Setup fortsetzen
@@ -1578,22 +1516,9 @@ export default function App() {
           </div>
         ) : null}
 
-        {!chrome.loading && chrome.status?.has_profile && chrome.workspace?.sources?.active === 0 ? (
-          <div
-            id="source-banner"
-            className="mx-auto flex w-full max-w-[92rem] flex-wrap items-center gap-3 px-5 pb-2 sm:px-8"
-          >
-            <Card className="glass-banner glass-banner-amber flex w-full flex-wrap items-center justify-between gap-3 rounded-xl">
-              <p className="text-[13px] font-medium text-amber">
-                Keine Jobquellen aktiviert. Ohne Quellen kann keine Suche starten.
-              </p>
-              <Button size="sm" onClick={() => navigateTo("einstellungen")}>
-                <Settings2 size={14} />
-                Quellen aktivieren
-              </Button>
-            </Card>
-          </div>
-        ) : null}
+        {/* G60 (#1087 B1): der Quellen-Kasten stand auf JEDEM Tab und
+            sagte dasselbe wie die Kopfleiste. Er ist jetzt Stufe 3 der
+            Hinweiszone auf dem Dashboard. */}
 
 
         {/* beta.26 / User-Feedback: Statt die rechte Sidebar bei < lg
@@ -1743,81 +1668,12 @@ export default function App() {
           </div>
         </Modal>
 
-        <div
-          id="wizard-overlay"
-          className={cn(
-            "glass-overlay fixed inset-x-0 bottom-0 top-[52px] z-[45] items-center justify-center px-4 py-6",
-            showWizard ? "show flex" : "hidden"
-          )}
-        >
-          <div className="glass-card-strong w-full max-w-2xl rounded-2xl p-6 animate-rise">
-            <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="font-display text-xl font-semibold text-ink">
-                  Willkommen beim Bewerbungs-Assistenten
-                </h2>
-                <p className="mt-1 max-w-lg text-[13px] text-muted/60">
-                  Am schnellsten startest du mit dem Kennlerngespräch — Claude fuehrt dich durch alles.
-                </p>
-              </div>
-              <Button variant="ghost" size="sm" onClick={() => closeWizard(false)}>
-                Später
-              </Button>
-            </div>
-
-            {/* Primaerer Pfad */}
-            <Card className="glass-card-soft rounded-xl border border-sky/20 mb-3">
-              <div className="flex items-center gap-3">
-                <div className="glass-icon h-10 w-10 shrink-0 bg-sky/15 text-sky rounded-xl flex items-center justify-center">
-                  <Send size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-semibold text-ink">Kennlerngespräch starten</h3>
-                  <p className="text-[12px] text-muted/50">
-                    Claude fragt dich alles Wichtige und baut dein Profil automatisch auf.
-                  </p>
-                </div>
-                <Button size="sm" onClick={() => { closeWizard(true); copyPrompt("/ersterfassung"); }}>
-                  <Copy size={14} />
-                  Starten
-                </Button>
-              </div>
-            </Card>
-
-            {/* Alternative Pfade (kompakt) */}
-            <p className="text-[11px] text-muted/40 mb-2 uppercase tracking-widest">Oder manuell:</p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
-                onClick={() => { closeWizard(true); navigateTo("profil"); }}
-              >
-                <UserRound size={14} className="text-muted/40 mb-1" />
-                <p className="text-[13px] font-medium text-ink">Profil anlegen</p>
-                <p className="text-[11px] text-muted/40">Manuell ausfuellen</p>
-              </button>
-              <button
-                type="button"
-                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
-                onClick={() => { closeWizard(true); navigateTo("profil", { composer: "document" }); }}
-              >
-                <FolderOpen size={14} className="text-muted/40 mb-1" />
-                <p className="text-[13px] font-medium text-ink">Unterlagen importieren</p>
-                <p className="text-[11px] text-muted/40">PDF, DOCX hochladen</p>
-              </button>
-              <button
-                type="button"
-                className="glass-card-soft rounded-xl p-3 text-left hover:bg-white/[0.04] transition-colors"
-                onClick={() => { closeWizard(true); navigateTo("einstellungen"); }}
-              >
-                <Settings2 size={14} className="text-muted/40 mb-1" />
-                <p className="text-[13px] font-medium text-ink">Quellen aktivieren</p>
-                <p className="text-[11px] text-muted/40">Jobportale einrichten</p>
-              </button>
-            </div>
-          </div>
-        </div>
-
+        {/* G59 (#1087 A1): hier lag ein Overlay "Willkommen beim
+            Bewerbungs-Assistenten — Kennlerngespraech starten" UEBER der
+            Willkommenskarte, die "Lebenslauf hochladen" empfahl. Zwei
+            Einstiege mit zwei Empfehlungen. Der eine Einstieg ist jetzt die
+            Karte auf dem Dashboard (Lebenslauf zuerst, dann Gespraech fuer
+            die Luecken); sie kopiert den Startsatz ueber `copyPrompt`. */}
         <ProfileOnboarding
           open={showProfileOnboarding}
           profile={chrome.profile}
@@ -1948,7 +1804,7 @@ export default function App() {
                 {/* General help always shown */}
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Wie starte ich?</h3>
-                  <p>Öffne Claude Desktop und tippe "Ersterfassung starten". Claude führt dich durch den Aufbau deines Bewerbungsprofils.</p>
+                  <p>Öffne Claude Desktop und tippe „{STARTSATZ}“ — auf den genauen Wortlaut kommt es nicht an. Claude führt dich durch den Aufbau deines Bewerbungsprofils.</p>
                 </div>
                 <div className="glass-card p-3">
                   <h3 className="font-medium text-ink mb-1">Support & Dokumentation</h3>

@@ -164,6 +164,15 @@ def register(mcp, db, logger):
                 "skill_hinzufuegen ...)."
             )
             return gate
+        # G59 (#1087 A2): die Rueckmeldung, auf die der Einstieg im
+        # Dashboard wartet — "laeuft" steht erst da, wenn Claude das hier
+        # wirklich aufgerufen hat, nicht schon beim Kopieren.
+        profile_id = db.get_active_profile_id()
+        if profile_id:
+            key = f"profile_onboarding_conversation_{profile_id}"
+            if db.get_user_preference(key) != "complete":
+                db.set_user_preference(f"profile_onboarding_started_{profile_id}", True)
+                db.set_user_preference(key, "active")
         return workflow_starten(name="ersterfassung")
 
 

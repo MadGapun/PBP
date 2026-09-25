@@ -24,6 +24,7 @@ import { jobLinkInfo } from "@/lib/jobLink";
 import { kurzmarke as datenguetMarke } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
+import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
@@ -990,6 +991,8 @@ export default function JobsPage() {
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
   const searchNeedsRefresh = !chrome.searchStatus?.last_search || Number(chrome.searchStatus?.days_ago || 0) > 0;
   const jobsGuidance = (() => {
+    // G63 (#1087 A6, C4): ohne Profil ist der naechste Schritt das Profil.
+    if (!chrome.status?.has_profile) return ZUERST_PROFIL_STATUS;
     if (searchJob.running) {
       return {
         badge: "Läuft",
@@ -1056,6 +1059,15 @@ export default function JobsPage() {
         tone: "neutral",
         title: "Ausgeblendete Stellen sind dein späteres Prüfregal",
         description: "Hier solltest du nur bewusst wiederherstellen, nicht wahllos zurückholen. Nutze die Gründe als Lernsignal für bessere Filter.",
+      };
+    }
+    // G63 (#1087 C4): "Auf Kurs" nur, wenn es auch etwas zu sichten gibt.
+    if (!aktivMeta.total) {
+      return {
+        badge: "Noch leer",
+        tone: "neutral",
+        title: "Noch keine Stellen",
+        description: "Die erste Jobsuche füllt die Liste. Sie startet über die Hinweiszone auf dem Dashboard oder hier unten.",
       };
     }
     return {
@@ -1917,7 +1929,7 @@ export default function JobsPage() {
           )}
 
           {filteredJobs.length === 0 && (
-            <EmptyState
+            !chrome.status?.has_profile ? <ZuerstProfil bereich="Stellen" /> : <EmptyState
               title={filters.view === "active" ? "Keine aktiven Stellen" : "Keine ausgeblendeten Stellen"}
               description={filters.view === "active" ? "Starte eine Jobsuche oder öffne das Suchprofil, um neue Stellen zu finden." : "Ausgeblendete Jobs können hier später wieder aktiviert werden."}
               action={filters.view === "active" ? (
