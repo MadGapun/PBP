@@ -51,6 +51,13 @@ def _stelle(titel: str, firma: str, ort: str, url: str) -> dict:
     }
 
 
+def _region(params: dict) -> str:
+    """Die erste Region aus den Suchkriterien — oder leer (#1042 Punkt 3)."""
+    regionen = (params.get("keywords") or {}).get("regionen") or []
+    region = str(regionen[0]).strip() if regionen else ""
+    return "" if region.lower() in ("", "deutschland", "germany") else region
+
+
 def search_ingenieur_de(params: dict) -> list:
     """Search ingenieur.de jobs via HTML scraping."""
     jobs = []
@@ -59,32 +66,40 @@ def search_ingenieur_de(params: dict) -> list:
     queries = kw_data.get("general", FALLBACK_QUERIES)[:8]
 
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
+        # v1.7.128 (#1042 Punkt 3): erst die eigene Region, dann bundesweit.
+        # Gemessen 25.09.2026: nur `l=` wirkt (ort/location/where werden
+        # ignoriert), und zwar als ENGER Filter — 20 Treffer bundesweit,
+        # 9 bzw. 1 mit Region. Deshalb zusaetzlich, nicht statt: eine
+        # Region darf keine Stelle kosten (Recall vor Praezision, #910).
+        region = _region(params)
+        orte = ([region] if region else []) + [""]
         for query in queries:
-            try:
-                # v1.7.19 (#927): Der Pfad ist /jobs, NICHT /suche —
-                # /suche antwortet mit HTTP 404 (live geprueft 18.08.2026,
-                # alle Varianten).
-                resp = client.get(
-                    f"{BASIS_URL}/jobs",
-                    params={"q": query},
-                )
-                if resp.status_code != 200:
-                    logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
-                    continue
-
-                vorher = len(jobs)
-                for k in karten_aus_html(resp.text, BASIS_URL):
-                    # Jede Anzeige genau einmal — auch ueber Suchbegriffe
-                    # hinweg. Bis v1.7.103 zaehlte das Log die Kopien mit.
-                    if k["url"] in gesehen:
+            for ort in orte:
+                try:
+                    # v1.7.19 (#927): Der Pfad ist /jobs, NICHT /suche —
+                    # /suche antwortet mit HTTP 404 (live geprueft 18.08.2026,
+                    # alle Varianten).
+                    resp = client.get(
+                        f"{BASIS_URL}/jobs",
+                        params={"q": query, **({"l": ort} if ort else {})},
+                    )
+                    if resp.status_code != 200:
+                        logger.debug("ingenieur.de HTTP %d for '%s'", resp.status_code, query)
                         continue
-                    gesehen.add(k["url"])
-                    jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"]))
 
-                logger.debug("ingenieur.de: %d neu fuer '%s'", len(jobs) - vorher, query)
-                time.sleep(1.5)
-            except Exception as e:
-                logger.error("ingenieur.de error for '%s': %s", query, e)
+                    vorher = len(jobs)
+                    for k in karten_aus_html(resp.text, BASIS_URL):
+                        # Jede Anzeige genau einmal — auch ueber Suchbegriffe
+                        # hinweg. Bis v1.7.103 zaehlte das Log die Kopien mit.
+                        if k["url"] in gesehen:
+                            continue
+                        gesehen.add(k["url"])
+                        jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"]))
+
+                    logger.debug("ingenieur.de: %d neu fuer '%s'", len(jobs) - vorher, query)
+                    time.sleep(1.5)
+                except Exception as e:
+                    logger.error("ingenieur.de error for '%s' (%s): %s", query, ort or "bundesweit", e)
 
     # Beschreibungen von den Detailseiten — einmal je Anzeige.
     if jobs:

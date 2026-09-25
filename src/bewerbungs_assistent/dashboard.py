@@ -4991,7 +4991,8 @@ async def api_refetch_description(job_hash: str):
         return JSONResponse(antwort, status_code=404)
     # #1048: Text, Gehalt, Umfang und Score an EINER
     # Stelle — der Knopf schrieb bisher nur den Text.
-    nachgezogen = nachladen.text_uebernehmen(_db, job_hash, text)
+    nachgezogen = nachladen.text_uebernehmen(_db, job_hash, text,
+                                             kopf=befund.kopf)
     _reset_refetch_failure(job_hash)
     return {
         "status": "ok",
@@ -8804,12 +8805,14 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
                     _befund = _nachladen.beschreibung_holen(
                         row["url"], client, timeout=15)
                     text = _befund.text
+                    _kopf = _befund.kopf
                 except Exception:
                     text = ""
+                    _kopf = {}
                 if text and len(text) >= 50:
                     # #1048: Text UND was an ihm haengt (Snapshot, Gehalt,
                     # Umfang, Score) — bisher nur der Text.
-                    _nachladen.text_uebernehmen(_db, h, text)
+                    _nachladen.text_uebernehmen(_db, h, text, kopf=_kopf)
                     _reset_refetch_failure(h)
                     successes += 1
                 else:

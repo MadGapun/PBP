@@ -33,6 +33,94 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.128] - 2026-09-25 — Firma, Ort und Region aus der Quelle
+
+Die Restpunkte aus drei Quellen-Meldungen (#1040, #1041, #1042). Ihr Kern
+war mit v1.7.101 bis v1.7.108 behoben; offen standen zwei Dinge, die alle
+drei betreffen.
+
+### Fixed
+
+- **Das Nachladen uebernimmt Firma und Ort aus der Detailseite** (#1040
+  Punkt 2, #1041, #1042). Die Detailseiten von stellenanzeigen.de,
+  Jobware und ingenieur.de tragen strukturierte Stellendaten mit
+  Arbeitgeber und Arbeitsort; PBP holte die Seite und nahm nur den Text.
+  Stellen mit „Unbekannt“ und ohne Ort blieben so, bis ein Suchlauf sie
+  zufaellig wiederfand — ohne Ort gibt es keine Entfernung, ohne Firma
+  greifen Blacklist und Firmen-Abgleich nicht. Jetzt fuellt jedes
+  Nachladen (Knopf, Werkzeug, Automatik, Mengenweg) fehlende Firma und
+  fehlenden Ort, berechnet die Entfernung und bewertet neu. Vorhandene
+  Angaben werden nie ueberschrieben.
+
+### Added
+
+- **`beschreibungen_nachladen_bestand(umfang='ohne_firma_ort')`** (#1040
+  Punkt 5, #1042 Punkt 4): zieht Firma und Ort fuer den Altbestand nach,
+  auch wenn der Anzeigentext schon vollstaendig ist — der Text bleibt
+  dann unveraendert.
+- **Region bei Jobware und ingenieur.de** (#1041 Punkt 4, #1042 Punkt 3).
+  Steht in den Suchkriterien eine Region, fragen beide Boersen zuerst
+  dort und danach bundesweit. Gemessen am 25.09.: bei Jobware liegen mit
+  Region 15 von 20 Treffern dort, bundesweit 2 von 20, und beide Seiten
+  teilen nur ein bis zwei Stellen. Bei ingenieur.de wirkt die Region als
+  enger Filter (20 Treffer bundesweit, 9 bzw. 1 mit Region) — deshalb
+  zusaetzlich und nicht statt: eine Region darf keine Stelle kosten.
+  Ohne eingetragene Region bleibt alles wie bisher.
+
+### Hinweis
+
+- **stellenanzeigen.de beruecksichtigt keine Region** (#1040 Punkt 4) —
+  gemessen am 13.09.: eine Stadt statt „Deutschland“ liefert dieselben
+  bundesweiten Treffer. Die Entfernung sortiert diese Stellen trotzdem
+  richtig ein, sobald sie einen Ort tragen.
+- Ein Suchlauf mit Region stellt bei Jobware und ingenieur.de doppelt so
+  viele Anfragen wie vorher.
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.128.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.128.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.127] - 2026-09-24 — Was die Schwelle vergleicht, was wiederkommt, was in der Mail steht
 
 Vier Meldungen aus zwei Tagen (#1079, #1082, #1083, #1084). Zwei davon

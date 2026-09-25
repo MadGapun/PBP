@@ -3910,7 +3910,7 @@ def register(mcp, db, logger):
         # #1048: Text, Gehalt, Umfang und Score an
         # EINER Stelle — vorher schrieb dieser Weg nur den Text, und der
         # Score blieb der aus dem abgeschnittenen.
-        nachgezogen = nachladen.text_uebernehmen(db, h, text)
+        nachgezogen = nachladen.text_uebernehmen(db, h, text, kopf=befund.kopf)
         antwort = {"status": "ok", "chars": len(text), "preview": text[:200],
                    "neu_ausgewertet": nachgezogen}
         # #952: Der Fehler war stumm — "status: ok" bei halbem Text.
@@ -3940,7 +3940,7 @@ def register(mcp, db, logger):
     # Mengenweg und beantwortete nur den Altfall aus #952.
     # v1.7.110 (#1047): `flach` — lange Texte ganz ohne Zeilenumbruch, die
     # Spur des alten Lesers. `beide` bleibt, was es war: fehlend + gekappt.
-    UMFAENGE = ("fehlend", "gekappt", "flach", "beide")
+    UMFAENGE = ("fehlend", "gekappt", "flach", "beide", "ohne_firma_ort")
 
     @mcp.tool()
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
@@ -3979,6 +3979,11 @@ def register(mcp, db, logger):
                 Zeilenumbruch — der alte Leser machte aus jeder Anzeige
                 einen Absatz. Quellen, deren Text schon an der Quelle
                 ungegliedert ist, bleiben aussen vor.
+                `ohne_firma_ort` (#1040, #1042) sind Stellen mit
+                "Unbekannt" als Firma oder leerem Ort: Firma und Ort
+                kommen aus dem JobPosting der Detailseite, samt
+                Entfernung und neuem Score. Der Text bleibt, wenn er
+                schon vollstaendig ist.
         """
         import httpx
 
@@ -4025,11 +4030,18 @@ def register(mcp, db, logger):
                  and not ist_gekappt(j.get("description"), j.get("source"))
                  and (j.get("source") or "").strip().lower()
                  not in QUELLEN_OHNE_GLIEDERUNG]
+        # v1.7.128 (#1040 Punkt 5): Firma oder Ort fehlen. Nur mit URL —
+        # ohne Detailseite gibt es nichts nachzuziehen.
+        ohne_kopf = [j for j in aktive
+                     if nachladen.fehlender_kopf(j)
+                     and (j.get("url") or "").strip()
+                     and not j.get("is_search_url")]
         auswahl = {"fehlend": fehlend, "gekappt": gekappt, "flach": flach,
-                   "beide": fehlend + gekappt}[gewaehlt]
+                   "beide": fehlend + gekappt,
+                   "ohne_firma_ort": ohne_kopf}[gewaehlt]
 
         zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt),
-                    "flach": len(flach)}
+                    "flach": len(flach), "ohne_firma_ort": len(ohne_kopf)}
         if not auswahl:
             return {
                 "status": "nichts_zu_tun",
@@ -4060,6 +4072,7 @@ def register(mcp, db, logger):
         bilanz = {befund: 0 for befund in nachladen.BEFUNDE}
         ohne_url, aussortiert = 0, 0
         gewachsen: list[dict] = []
+        kopf_ergaenzt: list[dict] = []
         with httpx.Client(
                 follow_redirects=True, timeout=15,
                 headers={"User-Agent":
@@ -4103,6 +4116,16 @@ def register(mcp, db, logger):
                               and "\n" in text
                               and len(text) >= 0.9 * alt_laenge)
                 if len(text) <= alt_laenge and not gegliedert:
+                    # v1.7.128 (#1040 Punkt 5): der Text ist schon da, aber
+                    # Firma oder Ort fehlen — dann nur den Kopf nachziehen.
+                    if (befund.kopf
+                            and nachladen.fehlender_kopf(job)):
+                        _k = nachladen.kopf_nachziehen(
+                            db, job.get("hash"), befund.kopf)
+                        if _k.get("kopf"):
+                            kopf_ergaenzt.append({
+                                "hash": (job.get("hash") or "")[-8:],
+                                "ergaenzt": _k["kopf"]})
                     continue
                 # #1048: Text, Gehalt, Umfang und Score an EINER
                 # Stelle. Bis v1.7.108 stand hier nur der Text, und die
@@ -4110,14 +4133,21 @@ def register(mcp, db, logger):
                 # berechnen — der Score blieb bis dahin der aus dem
                 # abgeschnittenen Text.
                 nachgezogen = nachladen.text_uebernehmen(
-                    db, job.get("hash"), text)
+                    db, job.get("hash"), text, kopf=befund.kopf)
+                if nachgezogen.get("kopf"):
+                    kopf_ergaenzt.append({
+                        "hash": (job.get("hash") or "")[-8:],
+                        "ergaenzt": nachgezogen["kopf"]})
                 gewachsen.append({
                     "hash": (job.get("hash") or "")[-8:],
                     "vorher": alt_laenge, "nachher": len(text),
                     "score": nachgezogen.get("score"),
                 })
 
-        geheilt = len(gewachsen)
+        # #1040: eine Stelle, die nur Firma und Ort bekam, ist ebenfalls
+        # geheilt — sonst meldete der Umfang `ohne_firma_ort` stets 0.
+        geheilt = len({g["hash"] for g in gewachsen}
+                      | {k["hash"] for k in kopf_ergaenzt})
         return {
             "status": "fertig",
             "umfang": gewaehlt,
@@ -4129,13 +4159,18 @@ def register(mcp, db, logger):
                 k: nachladen.KLARTEXT.get(k, "") for k, v in bilanz.items() if v},
             "verbleibend": max(0, len(auswahl) - geheilt - aussortiert),
             "gewachsen": gewachsen[:10],
+            # v1.7.128 (#1040, #1042): Firma und Ort aus der Detailseite.
+            "kopf_ergaenzt": len(kopf_ergaenzt),
+            "kopf_beispiele": kopf_ergaenzt[:10],
             "hinweis": (
                 # #1048: bis v1.7.108 stand hier die Bitte, danach den
                 # ganzen Bestand neu zu berechnen. Jetzt bewertet
                 # `text_uebernehmen` jede geheilte Stelle selbst.
                 "Die nachgeladenen Stellen sind neu ausgewertet — Gehalt, "
-                "Umfang und Score beruhen jetzt auf dem vollen Text; "
-                "`gewachsen` nennt je Stelle den Score vorher und nachher."
+                "Umfang, Entfernung und Score beruhen jetzt auf dem vollen "
+                "Text und der Detailseite; `gewachsen` nennt je Stelle den "
+                "Score vorher und nachher, `kopf_beispiele` ergaenzte Firma "
+                "und Ort."
                 if geheilt else
                 # Der Klartext je Befund steht in `befunde_klartext` und
                 # kommt aus `services/nachladen` — ihn hier zu
@@ -4169,6 +4204,9 @@ def register(mcp, db, logger):
                       "Gliederung — es sieht nichts nach dem alten Leser aus."),
             "beide": ("Weder fehlende noch abgeschnittene Texte im aktiven "
                       "Bestand."),
+            # #1040
+            "ohne_firma_ort": ("Jede aktive Stelle mit Detailseite traegt "
+                               "Firma und Ort."),
         }[umfang]
         if rest and rest[1]:
             satz += (f" Im Umfang '{rest[0]}' waeren es {rest[1]} — "

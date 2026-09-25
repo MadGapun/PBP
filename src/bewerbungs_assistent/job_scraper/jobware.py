@@ -108,6 +108,13 @@ def _aus_json_ld(soup) -> list[dict]:
     return stellen
 
 
+def _region(params: dict) -> str:
+    """Die erste Region aus den Suchkriterien — oder leer (#1041 Punkt 4)."""
+    regionen = (params.get("keywords") or {}).get("regionen") or []
+    region = str(regionen[0]).strip() if regionen else ""
+    return "" if region.lower() in ("", "deutschland", "germany") else region
+
+
 def search_jobware(params: dict) -> list:
     """Search Jobware via HTML scraping."""
     jobs = []
@@ -118,63 +125,71 @@ def search_jobware(params: dict) -> list:
     with httpx.Client(timeout=30, follow_redirects=True, headers=HEADERS) as client:
         # Find working URL on first query
         working_url = None
+        # v1.7.128 (#1041 Punkt 4): erst die eigene Region, dann bundesweit.
+        # Gemessen 25.09.2026: mit `l=<Stadt>` liegen 15 von 20 Treffern dort,
+        # bundesweit 2 von 20, und beide Seiten teilen nur 1-2 Stellen. Die
+        # bundesweite Abfrage bleibt, damit Remote- und Fernstellen nicht
+        # verloren gehen (Recall vor Praezision, #910).
+        region = _region(params)
+        orte = ([region] if region else []) + ["Deutschland"]
         for query in queries:
-            try:
-                resp = None
-                if not working_url:
-                    for url_candidate in _SEARCH_URLS:
-                        try:
-                            antwort = client.get(
-                                url_candidate,
-                                params={"q": query, "l": "Deutschland"},
-                            )
-                            if antwort.status_code == 200 and len(antwort.text) > 5000:
-                                working_url = url_candidate
-                                resp = antwort
-                                break
-                        except Exception:
-                            continue
+            for ort in orte:
+                try:
+                    resp = None
                     if not working_url:
-                        logger.warning("Jobware: Keine funktionierende URL gefunden (#235)")
-                        return jobs
-                else:
-                    resp = client.get(
-                        working_url,
-                        params={"q": query, "l": "Deutschland"},
-                    )
-                    if resp.status_code != 200:
-                        logger.debug("Jobware HTTP %d for '%s'", resp.status_code, query)
+                        for url_candidate in _SEARCH_URLS:
+                            try:
+                                antwort = client.get(
+                                    url_candidate,
+                                    params={"q": query, "l": ort},
+                                )
+                                if antwort.status_code == 200 and len(antwort.text) > 5000:
+                                    working_url = url_candidate
+                                    resp = antwort
+                                    break
+                            except Exception:
+                                continue
+                        if not working_url:
+                            logger.warning("Jobware: Keine funktionierende URL gefunden (#235)")
+                            return jobs
+                    else:
+                        resp = client.get(
+                            working_url,
+                            params={"q": query, "l": ort},
+                        )
+                        if resp.status_code != 200:
+                            logger.debug("Jobware HTTP %d for '%s'", resp.status_code, query)
+                            continue
+
+                    soup = BeautifulSoup(resp.text, "html.parser")
+
+                    # SPA-Erkennung: Wenn Seite < 10KB und kein Job-Content, ist Scraping sinnlos (#235)
+                    if len(resp.text) < 10000 and not soup.find("script", type="application/ld+json"):
+                        logger.warning("Jobware: Seite hat nur %d Bytes — moeglicherweise SPA (#235)",
+                                       len(resp.text))
                         continue
 
-                soup = BeautifulSoup(resp.text, "html.parser")
+                    vorher = len(jobs)
+                    for stelle in _aus_json_ld(soup):
+                        schluessel = stelle["url"] or stelle["title"]
+                        if schluessel in gesehen:
+                            continue
+                        gesehen.add(schluessel)
+                        jobs.append(stelle)
 
-                # SPA-Erkennung: Wenn Seite < 10KB und kein Job-Content, ist Scraping sinnlos (#235)
-                if len(resp.text) < 10000 and not soup.find("script", type="application/ld+json"):
-                    logger.warning("Jobware: Seite hat nur %d Bytes — moeglicherweise SPA (#235)",
-                                   len(resp.text))
-                    continue
+                    # v1.7.104 (#1041): Karten fuer JEDEN Suchbegriff, nicht nur
+                    # solange die Sammelliste leer ist.
+                    for k in karten_aus_html(resp.text, BASIS_URL):
+                        if k["url"] in gesehen:
+                            continue
+                        gesehen.add(k["url"])
+                        jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"],
+                                            kennung=karten_hash(k["titel"])))
 
-                vorher = len(jobs)
-                for stelle in _aus_json_ld(soup):
-                    schluessel = stelle["url"] or stelle["title"]
-                    if schluessel in gesehen:
-                        continue
-                    gesehen.add(schluessel)
-                    jobs.append(stelle)
-
-                # v1.7.104 (#1041): Karten fuer JEDEN Suchbegriff, nicht nur
-                # solange die Sammelliste leer ist.
-                for k in karten_aus_html(resp.text, BASIS_URL):
-                    if k["url"] in gesehen:
-                        continue
-                    gesehen.add(k["url"])
-                    jobs.append(_stelle(k["titel"], k["firma"], k["ort"], k["url"],
-                                        kennung=karten_hash(k["titel"])))
-
-                logger.debug("Jobware: %d neu fuer '%s'", len(jobs) - vorher, query)
-                time.sleep(1.5)
-            except Exception as e:
-                logger.error("Jobware error for '%s': %s", query, e)
+                    logger.debug("Jobware: %d neu fuer '%s'", len(jobs) - vorher, query)
+                    time.sleep(1.5)
+                except Exception as e:
+                    logger.error("Jobware error for '%s' (%s): %s", query, ort, e)
 
     logger.info("Jobware: %d Stellen gefunden", len(jobs))
     return jobs
