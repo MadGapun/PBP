@@ -1,5 +1,6 @@
 ﻿import {
   AppWindow,
+  SlidersHorizontal,
   BarChart3,
   BriefcaseBusiness,
   CalendarDays,
@@ -87,6 +88,9 @@ const DEFAULT_WORKSPACE = {
 const TAB_CONFIG = [
   { id: "dashboard", title: "Dashboard", icon: AppWindow, defaultMeta: "Status und Übersicht" },
   { id: "profil", title: "Profil", icon: UserRound, defaultMeta: "Lebenslauf-Basis und Vollständigkeit" },
+  // G69 (#1087 D10): Suchbegriffe, Regler, Schwellen und Blacklist lagen
+  // mitten im Profil (6.600 px Seitenhoehe) — eigener Bereich.
+  { id: "suche", title: "Suche & Bewertung", icon: SlidersHorizontal, defaultMeta: "Suchbegriffe, Schwellen und Blacklist" },
   { id: "stellen", title: "Stellen", icon: BriefcaseBusiness, defaultMeta: "Treffer, Filter und Fit" },
   { id: "bewerbungen", title: "Bewerbungen", icon: Send, defaultMeta: "Aufgaben, Nachfassungen und Status" },
   { id: "kontakte", title: "Kontakte", icon: UsersRound, defaultMeta: "Personen mit Rollen und Historie" },
@@ -1178,8 +1182,6 @@ export default function App() {
       items: [
         { id: "profil-uebersicht", label: "Übersicht" },
         { id: "profil-persoenlich", label: "Persönliche Daten" },
-        { id: "profil-suchkriterien", label: "Suchkriterien" },
-        { id: "profil-blacklist", label: "Blacklist" },
         { id: "profil-erfahrung", label: "Berufserfahrung" },
         { id: "profil-ausbildung", label: "Ausbildung" },
         { id: "profil-skills", label: "Skills" },
@@ -1191,13 +1193,28 @@ export default function App() {
         const labels = {
           "profil-uebersicht": "Übersicht",
           "profil-persoenlich": "Persönliche Daten",
-          "profil-suchkriterien": "Suchkriterien",
-          "profil-blacklist": "Blacklist",
           "profil-erfahrung": "Berufserfahrung",
           "profil-ausbildung": "Ausbildung",
           "profil-skills": "Skills",
           "profil-dokumente": "Dokumente",
         };
+        setCurrentSubPath(labels[id] || "");
+      },
+    };
+  } else if (page === "suche") {
+    const labels = {
+      "suche-begriffe": "Suchbegriffe",
+      "suche-gehalt": "Gehalt und Stellenart",
+      "suche-schwellen": "Schwellen",
+      "suche-feinabstimmung": "Feinabstimmung",
+      "suche-blacklist": "Blacklist",
+    };
+    sidebarSubNavigation = {
+      items: Object.entries(labels).map(([id, label]) => ({ id, label })),
+      onSelect: (id) => {
+        const ziel = document.getElementById(id);
+        if (ziel?.tagName === "DETAILS") ziel.open = true;
+        ziel?.scrollIntoView({ behavior: "smooth", block: "start" });
         setCurrentSubPath(labels[id] || "");
       },
     };
@@ -1210,9 +1227,9 @@ export default function App() {
         { id: "settings-ai", label: "Lokale KI" },
         { id: "settings-claude", label: "Claude (Cloud)" },
         { id: "settings-automatik", label: "Automatik" },
-        // v1.7.14 (#896): 'bewerten' (#663) fehlte hier — der Tab
-        // existierte, war aber per Sidebar nicht erreichbar.
-        { id: "settings-bewerten", label: "Bewertung" },
+        // G69 (#1087 D10): der Reiter enthaelt die Ablehnungsgruende; die
+        // Bewertung (Punkte, Regler) steht unter "Suche & Bewertung".
+        { id: "settings-bewerten", label: "Ablehnungsgründe" },
         { id: "settings-system", label: "System" },
         { id: "settings-erscheinungsbild", label: "Erscheinungsbild" },
         { id: "settings-datenschutz", label: "Datenschutz" },
@@ -1227,7 +1244,7 @@ export default function App() {
           "ai": "Lokale KI",
           "claude": "Claude (Cloud)",
           "automatik": "Automatik",
-          "bewerten": "Bewertung",
+          "bewerten": "Ablehnungsgründe",
           "system": "System",
           "erscheinungsbild": "Erscheinungsbild",
           "datenschutz": "Datenschutz",
@@ -1605,6 +1622,7 @@ export default function App() {
             <ErrorBoundary key={`${page}-${refreshNonce}`}>
               {page === "dashboard" ? <DashboardPage /> : null}
               {page === "profil" ? <ProfilePage /> : null}
+              {page === "suche" ? <ProfilePage bereich="suche" /> : null}
               {page === "stellen" ? <JobsPage /> : null}
               {page === "bewerbungen" ? <ApplicationsPage /> : null}
               {page === "kontakte" ? <ContactsPage /> : null}

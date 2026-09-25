@@ -234,3 +234,57 @@ def test_g68_dialog_liest_die_tabelle():
 def test_g68_node_test_laeuft_in_der_ci():
     ci = (_repo() / ".github" / "workflows" / "tests.yml").read_text(encoding="utf-8")
     assert "node frontend/src/lib/hilfe.test.mjs" in ci
+
+
+# ══ G69 — Profil-Tab entflechten ═══════════════════════════════════════
+
+def test_g69_suche_ist_eine_eigene_seite():
+    app = _lesen(FRONTEND / "App.jsx")
+    assert '{ id: "suche", title: "Suche & Bewertung"' in app
+    assert '{page === "suche" ? <ProfilePage bereich="suche" /> : null}' in app
+    utils = _lesen(FRONTEND / "utils.js")
+    assert '"suche",' in utils[:utils.index("];")]
+    from bewerbungs_assistent.services import dashboard_link, menue
+    assert "suche" in dashboard_link.REITER
+    assert menue.pfad("suche") == "Suche & Bewertung"
+
+
+def test_g69_profil_zeigt_keine_suchbegriffe_mehr():
+    seite = _lesen(FRONTEND / "pages" / "ProfilePage.jsx")
+    # Die Suchkarte steht nur im Bereich "suche", alles andere nur im Profil.
+    such = seite.index('<Card id="suche-begriffe"')
+    assert seite.rfind("{zeigeSuche && (", 0, such) > seite.rfind("{zeigeProfil && (", 0, such)
+    erfahrung = seite.index('<Card id="profil-erfahrung"')
+    assert seite.rfind("{zeigeProfil && (", 0, erfahrung) > such
+    persoenlich = seite.index('<Card id="profil-persoenlich"')
+    assert seite.rfind("{zeigeProfil && (", 0, persoenlich) > 0
+    assert "profil-suchkriterien" not in seite and "profil-blacklist" not in seite
+
+
+def test_g69_regler_sind_eingeklappt():
+    seite = _lesen(FRONTEND / "pages" / "ProfilePage.jsx")
+    details = seite.index('<details id="suche-feinabstimmung"')
+    regler = seite.index("{weightingCards.map((card) => renderWeightRow(card))}")
+    ende = seite.index("</details>", details)
+    assert details < regler < ende
+
+
+def test_g69_reiternamen_passen_zum_inhalt():
+    from bewerbungs_assistent.services.menue import EINSTELLUNGEN_REITER
+    assert EINSTELLUNGEN_REITER["ablehnungsgruende"] == "Ablehnungsgründe"
+    settings = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
+    assert '{ id: "bewerten", label: "Ablehnungsgründe" }' in settings
+    assert 'label: "Bewertung"' not in _lesen(FRONTEND / "App.jsx")
+
+
+def test_g69_hinweise_und_verweise_zeigen_auf_die_suche():
+    from bewerbungs_assistent.services.onboarding_hints import HINT_DEFINITIONS
+    tabs = {h["id"]: h["tab"] for h in HINT_DEFINITIONS}
+    assert tabs["c86_gehalt_nur_einstellungsseite"] == "suche"
+    assert tabs["c91_schwelle_ist_jetzt_stufe"] == "suche"
+    paket = _repo() / "src" / "bewerbungs_assistent"
+    for p in paket.rglob("*.py"):
+        text = p.read_text(encoding="utf-8-sig")
+        assert '"Suchkriterien (Einstellungsseite)"' not in text, p.name
+        assert '"Profil › Blacklist"' not in text, p.name
+    assert 'navigateTo("suche")}>Suchbegriffe öffnen' in _lesen(FRONTEND / "pages" / "JobsPage.jsx")

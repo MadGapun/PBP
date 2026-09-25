@@ -1954,7 +1954,7 @@ export default function JobsPage() {
               description={filters.view === "active" ? "Starte eine Jobsuche oder prüfe deine Suchbegriffe, um neue Stellen zu finden." : "Aussortierte Stellen kannst du hier wiederherstellen."}
               action={filters.view === "active" ? (
                 <div className="flex gap-3">
-                  <Button onClick={() => navigateTo("profil")}>Suchbegriffe öffnen</Button>
+                  <Button onClick={() => navigateTo("suche")}>Suchbegriffe öffnen</Button>
                   <Button variant="secondary" onClick={() => startJobsuche()}>
                     <Search size={15} />
                     Interne Jobsuche starten

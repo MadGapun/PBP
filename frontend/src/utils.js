@@ -1,6 +1,7 @@
 ﻿export const PAGE_IDS = [
   "dashboard",
   "profil",
+  "suche",     // G69 (#1087): Suche & Bewertung
   "dokumente",
   "stellen",
   "bewerbungen",

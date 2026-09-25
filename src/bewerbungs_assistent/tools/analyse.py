@@ -131,7 +131,7 @@ def register(mcp, db, logger):
                 vergleich["dein_minimum"] = min_t
                 vergleich["passt"] = salary_max >= min_t
             if vergleich:
-                vergleich["quelle"] = "Suchkriterien (Einstellungsseite)"
+                vergleich["quelle"] = "Suchkriterien (Suche & Bewertung)"
 
         return {
             "status": "geschaetzt" if is_estimated else "extrahiert",
@@ -161,7 +161,7 @@ def register(mcp, db, logger):
                 "ziel_gehalt": wunsch.get("ziel_gehalt"),
                 "min_tagessatz": wunsch.get("min_tagessatz"),
                 "ziel_tagessatz": wunsch.get("ziel_tagessatz"),
-                "quelle": "Suchkriterien (Einstellungsseite)",
+                "quelle": "Suchkriterien (Suche & Bewertung)",
             }
         stats["tipp"] = (
             "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschätzt. "

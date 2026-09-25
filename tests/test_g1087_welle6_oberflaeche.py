@@ -174,3 +174,22 @@ def test_g68_hilfe_je_tab_und_beide_meldewege(browser, server):
             "https://github.com/MadGapun/PBP/issues/new")
     finally:
         page.close()
+
+
+def test_g69_suche_und_bewertung(browser, server):
+    url, _db = server
+    page = _seite(browser, url, "profil")
+    try:
+        page.locator("#profil-persoenlich").wait_for(timeout=15000)
+        assert page.locator("#suche-begriffe").count() == 0
+        page.goto(f"{url}/#suche", wait_until="networkidle", timeout=30000)
+        page.locator("#suche-begriffe").wait_for(timeout=15000)
+        assert page.locator("#profil-persoenlich").count() == 0
+        fein = page.locator("#suche-feinabstimmung")
+        assert fein.get_attribute("open") is None
+        assert not page.locator(".weight-slider").first.is_visible()
+        fein.locator("summary").click()
+        page.locator(".weight-slider").first.wait_for(state="visible", timeout=5000)
+        assert page.locator("#suche-blacklist").is_visible()
+    finally:
+        page.close()

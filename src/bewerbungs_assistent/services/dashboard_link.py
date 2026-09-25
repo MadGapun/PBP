@@ -15,7 +15,7 @@ from __future__ import annotations
 import os
 from urllib.parse import quote
 
-REITER = ("dashboard", "profil", "dokumente", "stellen", "bewerbungen",
+REITER = ("dashboard", "profil", "suche", "dokumente", "stellen", "bewerbungen",
           "kontakte", "aufgaben", "kalender", "statistiken", "einstellungen")
 
 

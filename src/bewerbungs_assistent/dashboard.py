@@ -6740,7 +6740,7 @@ async def api_salary_stats():
             "min_gehalt": wunsch.get("min_gehalt"),
             "ziel_gehalt": wunsch.get("ziel_gehalt"),
             "min_tagessatz": wunsch.get("min_tagessatz"),
-            "quelle": "Suchkriterien (Einstellungsseite)",
+            "quelle": "Suchkriterien (Suche & Bewertung)",
         }
     return stats
 

@@ -424,7 +424,12 @@ function countExtractedFields(extractedFields) {
   }).length;
 }
 
-export default function ProfilePage() {
+export default function ProfilePage({ bereich = "profil" }) {
+  // G69 (#1087 D10): Suchbegriffe, Regler, Schwellen und Blacklist stehen
+  // unter "Suche & Bewertung" (#suche). Dieselbe Komponente, damit Laden,
+  // Autospeichern und Zustand nicht zweimal existieren.
+  const zeigeSuche = bereich === "suche";
+  const zeigeProfil = !zeigeSuche;
   const { chrome, intent, clearIntent, reloadKey, refreshChrome, navigateTo, pushToast, copyPrompt, openCreateProfileModal } = useApp();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
@@ -1277,8 +1282,9 @@ export default function ProfilePage() {
   return (
     <div id="page-profil" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
-      <h1 className="sr-only">Profil</h1>
-      <OnboardingHintBanner tab="profil" />
+      <h1 className="sr-only">{zeigeSuche ? "Suche & Bewertung" : "Profil"}</h1>
+      <OnboardingHintBanner tab={zeigeSuche ? "suche" : "profil"} />
+      {zeigeProfil && (
       <div className="mb-6 flex items-center justify-end gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigateTo("einstellungen", { tab: "datenschutz" })}>
           <Download size={15} /> Export & Backup
@@ -1291,9 +1297,11 @@ export default function ProfilePage() {
           Profil löschen? → Gefahrenzone
         </button>
       </div>
+      )}
 
       <div className="grid gap-6">
         <div id="profil-uebersicht-wrapper" className="grid gap-6">
+        {zeigeProfil && (<>
         <div id="profil-uebersicht" className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {profileElementCards.map((item) => (
             <MetricCard
@@ -1369,8 +1377,11 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        <Card id="profil-suchkriterien" className="rounded-2xl">
-          <SectionHeading title="Suchkriterien" description="Keywords und Gewichtungen für Matching und Scoring." />
+        </>)}
+
+        {zeigeSuche && (
+        <Card id="suche-begriffe" className="rounded-2xl">
+          <SectionHeading title="Suchbegriffe" description="Welche Stellen gefunden werden und wofür sie Punkte bekommen." />
           {/* #458 / beta.29: Keyword-Vorschlaege aus Bewerbungen vs Aussortierten */}
           {keywordSuggestions?.status === "ok" && (keywordSuggestions.vorschlaege_plus?.length > 0 || keywordSuggestions.vorschlaege_ausschluss?.length > 0) && (
             <div className="mb-4 rounded-xl border border-sky/20 bg-sky/[0.04] p-3">
@@ -1459,7 +1470,7 @@ export default function ProfilePage() {
                 geht und es keine Plausibilitaetsgrenze gibt — ein
                 Monatsgehalt im Jahresfeld verschiebt jede Bewertung im
                 Bestand, ohne dass irgendetwas widerspricht. */}
-            <div className="grid gap-4 md:grid-cols-3">
+            <div id="suche-gehalt" className="grid gap-4 md:grid-cols-3">
               <Field
                 label="Min. Gehalt (EUR/Jahr, brutto)"
                 hint="Untergrenze fürs Scoring. Zählt als Preis, schließt nicht aus."
@@ -1569,6 +1580,10 @@ export default function ProfilePage() {
               <p className="mt-1 text-xs text-muted/40">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
             </Field>
 
+            {/* G69 (#1087 F3): die Regler sind Feinabstimmung — zum Anfangen
+                braucht sie niemand, deshalb eingeklappt. */}
+            <details id="suche-feinabstimmung" data-feinabstimmung className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium text-ink">Feinabstimmung: wie stark einzelne Faktoren zählen</summary>
             {/* v1.7.0-beta.57 (#633): Erklaerung was die Gewichtung ueberhaupt tut. */}
             <div className="mt-2 rounded-xl border border-sky/20 bg-sky/[0.05] p-3 text-[12px] text-muted/80">
               <p className="leading-snug">
@@ -1581,6 +1596,7 @@ export default function ProfilePage() {
             <div className="mt-2 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02] px-4">
               {weightingCards.map((card) => renderWeightRow(card))}
             </div>
+            </details>
 
             {/* beta.27: Min-Score-Schwelle (#User-Feedback nach beta.26)
                 Stellen unter dieser Score-Schwelle landen gar nicht erst in
@@ -1596,6 +1612,7 @@ export default function ProfilePage() {
                 der Server aus dem eigenen Bestand und zieht sie nach,
                 wenn sich Gewichte oder Listen aendern (AK 2/AK 5).
                 Die Zahl bleibt darunter erreichbar (AK 1). */}
+            <div id="suche-schwellen" />
             {schwellenStufe("speichern", "Beim Speichern während der Suche",
               "Was hier wegfällt, kommt nie in den Bestand und ist unwiederbringlich.")}
             {schwellenStufe("liste", "Beim Ausblenden in der Liste",
@@ -1659,7 +1676,7 @@ export default function ProfilePage() {
               )}
             </details>
 
-            <div id="profil-blacklist" className="mt-2 border-t border-white/8 pt-5">
+            <div id="suche-blacklist" className="mt-2 border-t border-white/8 pt-5">
               <SectionHeading title="Blacklist" description="Ausschlüsse für Firmen oder Keywords." />
               <div className="grid gap-4 md:grid-cols-[12rem_minmax(0,1fr)_auto]">
                 <Field label="Typ">
@@ -1709,7 +1726,9 @@ export default function ProfilePage() {
             </div>
           </div>
         </Card>
+        )}
 
+        {zeigeProfil && (<>
         <div className="grid gap-6">
           <Card id="profil-erfahrung" className="rounded-2xl">
             <SectionHeading title="Berufserfahrung" description="Positionen für CV und Matching." action={<Button onClick={() => setPositionDialog({ open: true, draft: EMPTY_POSITION })}><Plus size={15} />Position</Button>} />
@@ -2317,6 +2336,7 @@ export default function ProfilePage() {
             />
           )}
         </Card>
+        </>)}
       </div>
       </div>{/* end grid layout */}
 

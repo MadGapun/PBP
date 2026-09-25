@@ -380,15 +380,15 @@ HINT_DEFINITIONS: list[dict] = [
     },
     {
         "id": "c86_gehalt_nur_einstellungsseite",
-        "tab": "profil",
+        "tab": "suche",
         "title": "Gehalt und Sätze stehen jetzt nur noch an einer Stelle",
         "body": (
             "Mindestgehalt, Tages- und Stundensaetze und die "
             "Entfernungsgrenze standen doppelt: in den Suchkriterien "
-            "(Einstellungsseite) und in den Job-Präferenzen aus der "
+            "(Suche & Bewertung) und in den Job-Präferenzen aus der "
             "Ersterfassung. Die zweiten hatten kein Eingabefeld und "
             "wurden nie nachgezogen — gemessen wichen sie ab. Es gilt "
-            "die Einstellungsseite; die Werte im Profil sind entfernt. "
+            "„Suche & Bewertung“; die Werte im Profil sind entfernt. "
             "Was dort stand, steht hier, damit nichts still verschwindet."
         ),
         "cta_label": "PBP: Suchkriterien anzeigen",
@@ -398,7 +398,7 @@ HINT_DEFINITIONS: list[dict] = [
     },
     {
         "id": "c91_schwelle_ist_jetzt_stufe",
-        "tab": "einstellungen",
+        "tab": "suche",
         "title": "Deine Score-Schwelle ist jetzt eine Stufe",
         "body": (
             "Die Schwelle war eine Zahl ohne Bezugsgröße — ob 7 viel "

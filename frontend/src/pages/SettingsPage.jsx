@@ -3357,7 +3357,7 @@ export default function SettingsPage() {
     // "Lokale KI" — sie betreffen, was an Anthropic geht.
     { id: "claude", label: "Claude (Cloud)" },
     { id: "automatik", label: "Automatik" },  // v1.7.0-beta.20
-    { id: "bewerten", label: "Bewertung" },  // #663 C20
+    { id: "bewerten", label: "Ablehnungsgründe" },  // #663 C20, G69: hiess "Bewertung"
     { id: "system", label: "System" },
     { id: "erscheinungsbild", label: "Erscheinungsbild" },
     { id: "datenschutz", label: "Datenschutz" },
