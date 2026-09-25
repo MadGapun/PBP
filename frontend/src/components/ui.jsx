@@ -475,7 +475,7 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
                     String(opt.value) === String(value)
                       ? "bg-teal/10 font-medium text-teal"
                       : "text-muted hover:bg-white/[0.06] hover:text-ink",
-                    index === aktiv && "ring-1 ring-inset ring-sky/60 text-ink"
+                    index === aktiv && "bg-white/[0.08] text-ink"
                   )}
                   onMouseEnter={() => setAktiv(index)}
                   onClick={() => select(opt.value)}
