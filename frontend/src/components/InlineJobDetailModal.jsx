@@ -45,7 +45,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
 
   return (
     <Modal open={true} title="Stellendetails" onClose={onClose}>
-      {loading && <p className="text-sm text-muted/70">Lade...</p>}
+      {loading && <p className="text-sm text-muted">Lade...</p>}
       {error && (
         <div className="rounded-lg border border-coral/20 bg-coral/[0.05] p-3 text-sm text-coral">
           {error}
@@ -62,7 +62,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           </div>
 
           {!job.is_active && job.dismiss_reason && (
-            <div className="rounded-lg border border-amber/20 bg-amber/[0.04] p-2 text-[11px] text-amber/80">
+            <div className="rounded-lg border border-amber/20 bg-amber/[0.04] p-2 text-xs text-amber">
               Diese Stelle ist aussortiert
               {` (${grundText(job.dismiss_reason)})`}
               {" — Read-Only-Ansicht."}
@@ -70,7 +70,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           )}
 
           {(job.salary_min || job.salary_max) && (
-            <p className="text-sm text-muted/70">
+            <p className="text-sm text-muted">
               <strong className="text-ink">Gehalt:</strong>{" "}
               {job.salary_min ? formatCurrency(job.salary_min) : "?"}
               {job.salary_max ? ` — ${formatCurrency(job.salary_max)}` : ""}
@@ -79,13 +79,13 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           )}
 
           {job.score !== null && job.score !== undefined && (
-            <p className="text-sm text-muted/70">
+            <p className="text-sm text-muted">
               <strong className="text-ink">Punkte:</strong> {punkteText(job)}
             </p>
           )}
 
           {job.source && (
-            <p className="text-[11px] text-muted/50">
+            <p className="text-xs text-muted">
               Quelle: <span>{quelleText(job.source)}</span>
               {job.found_at && ` · gefunden ${formatDateTime(job.found_at)}`}
             </p>
@@ -93,13 +93,13 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
 
           {job.description && (
             <details open>
-              <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/60">
+              <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted">
                 Beschreibung
               </summary>
               {/* #1047: textExcerpt fasst jeden Leerraum zusammen und
                   verlor damit Absaetze und Listen — hier bleibt der Text
                   gegliedert, gekuerzt wird nur die Laenge. */}
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted/80">
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
                 {gegliederterAuszug(job.description, 2000)}
               </p>
             </details>
@@ -107,10 +107,10 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
 
           {job.research_notes && (
             <details>
-              <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/60">
+              <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted">
                 Notizen
               </summary>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-muted/80">
+              <p className="mt-2 whitespace-pre-wrap text-sm text-muted">
                 {job.research_notes}
               </p>
             </details>
@@ -122,13 +122,13 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
             const link = jobLinkInfo(job);
             if (link.art === "keine") {
               return (
-                <p className="pt-2 text-xs text-amber/80">
+                <p className="pt-2 text-xs text-amber">
                   Kein Link zur Original-Anzeige hinterlegt — die Stelle muss auf dem Portal gesucht werden.
                 </p>
               );
             }
             return link.hinweis ? (
-              <p className="pt-2 text-xs text-amber/80">{link.hinweis}</p>
+              <p className="pt-2 text-xs text-amber">{link.hinweis}</p>
             ) : null;
           })()}
 

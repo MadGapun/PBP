@@ -127,10 +127,10 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
     <Card className={dringend ? "rounded-2xl border border-coral/40 bg-coral/[0.06]" : "rounded-2xl"}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <AlarmClock size={16} className={dringend ? "text-coral" : "text-muted/60"} />
+          <AlarmClock size={16} className={dringend ? "text-coral" : "text-muted"} />
           <h2 className="text-sm font-semibold text-ink">Offen</h2>
           {block.neu_anzahl > 0 ? (
-            <span className="rounded-full bg-teal/15 px-2 py-px text-[10px] font-bold text-teal">
+            <span className="rounded-full bg-teal/15 px-2 py-px text-xs font-bold text-teal">
               {block.neu_anzahl} neu
             </span>
           ) : null}
@@ -151,7 +151,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
           if (!zeilen.length) return null;
           return (
             <div key={key}>
-              <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${ton}`}>
+              <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${ton}`}>
                 {label}
               </p>
               <ul className="mt-1.5 min-w-0 space-y-1">
@@ -165,7 +165,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
                       className="flex min-w-0 items-center gap-2 text-sm text-ink"
                     >
                       {abhakbar ? (
-                        <button
+                        <button aria-label="Erledigt"
                           type="button"
                           title="Erledigt"
                           onClick={() => abhaken(e)}
@@ -185,15 +185,15 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
                             Zeile statt als eigener Block — die Auskunft
                             steht dort, wo man ohnehin hinschaut. */}
                         {e.neu ? (
-                          <span className="mr-1.5 rounded bg-teal/20 px-1 py-px text-[9px] font-bold uppercase tracking-[0.08em] text-teal">
+                          <span className="mr-1.5 rounded bg-teal/20 px-1 py-px text-xs font-bold uppercase tracking-[0.08em] text-teal">
                             neu
                           </span>
                         ) : null}
                         <span className="font-medium">{e.titel}</span>
-                        {e.firma ? <span className="text-muted/60"> — {e.firma}</span> : null}
+                        {e.firma ? <span className="text-muted"> — {e.firma}</span> : null}
                       </button>
-                      <span className="shrink-0 text-xs text-muted/70">{datumsLabel(e)}</span>
-                      <span className="shrink-0 text-[11px] uppercase tracking-[0.1em] text-muted/45">
+                      <span className="shrink-0 text-xs text-muted">{datumsLabel(e)}</span>
+                      <span className="shrink-0 text-xs uppercase tracking-[0.1em] text-muted">
                         {meta.label}
                       </span>
                     </li>

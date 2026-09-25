@@ -107,12 +107,12 @@ export default function OnboardingHintBanner({ tab, limit = 2, onLeer }) {
           <Compass className="h-4 w-4 text-amber mt-0.5 shrink-0" />
           <div className="flex-1 min-w-0">
             <span className="font-medium text-ink">{h.title}</span>
-            <p className="text-[11px] text-muted/80 mt-0.5">{h.body}</p>
+            <p className="text-xs text-muted mt-0.5">{h.body}</p>
             <div className="flex items-center gap-3 mt-1.5">
               <button
                 type="button"
                 onClick={() => copyPrompt(h.cta_label)}
-                className="inline-flex items-center gap-1 text-left text-[11px] text-amber hover:underline focus-visible:underline"
+                className="inline-flex items-center gap-1 text-left text-xs text-amber hover:underline focus-visible:underline"
                 title={`Kopiert den Befehl — danach in Claude einfügen. Claude nutzt dann ${h.cta_tool || "das passende Werkzeug"}.`}
               >
                 <MitClaude size={12}>„{h.cta_label}“</MitClaude>
@@ -120,17 +120,17 @@ export default function OnboardingHintBanner({ tab, limit = 2, onLeer }) {
               <button
                 type="button"
                 onClick={() => dismissPermanent(h.id)}
-                className="text-[11px] text-muted/40 hover:text-coral"
+                className="text-xs text-muted hover:text-coral"
                 title="Diesen Tipp dauerhaft ausblenden"
               >
                 Nicht mehr anzeigen
               </button>
             </div>
           </div>
-          <button
+          <button aria-label="Für diese Sitzung ausblenden"
             type="button"
             onClick={() => hideForSession(h.id)}
-            className="text-muted/40 hover:text-ink shrink-0"
+            className="text-muted hover:text-ink shrink-0"
             title="Für diese Sitzung ausblenden"
           >
             <X className="h-4 w-4" />

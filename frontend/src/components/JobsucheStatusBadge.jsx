@@ -81,7 +81,7 @@ export default function JobsucheStatusBadge({ onNavigateToJobs }) {
   if (state.running) {
     return (
       <div
-        className="flex items-center gap-1.5 rounded-lg bg-sky/15 px-2 py-1.5 text-[11px] font-medium text-sky"
+        className="flex items-center gap-1.5 rounded-lg bg-sky/15 px-2 py-1.5 text-xs font-medium text-sky"
         title={state.message || "Jobsuche läuft im Hintergrund"}
       >
         <Loader2 className="h-3 w-3 animate-spin" />
@@ -101,7 +101,7 @@ export default function JobsucheStatusBadge({ onNavigateToJobs }) {
           setLastFinished(null);
           onNavigateToJobs?.();
         }}
-        className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium cursor-pointer transition-colors ${klassen}`}
+        className={`flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium cursor-pointer transition-colors ${klassen}`}
         title={[lastFinished.titel, "Klicken: zu Stellen wechseln"].filter(Boolean).join(" — ")}
       >
         <Icon className="h-3 w-3" />

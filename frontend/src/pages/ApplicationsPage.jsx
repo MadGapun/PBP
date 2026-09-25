@@ -769,7 +769,7 @@ export default function ApplicationsPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone={nextStep.tone}>{nextStep.badge}</Badge>
                 {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
-                  <span className="text-xs text-muted/50">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</span>
+                  <span className="text-xs text-muted">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</span>
                 ) : null}
               </div>
               <h2 className="mt-3 text-base font-semibold text-ink">{nextStep.title}</h2>
@@ -791,7 +791,7 @@ export default function ApplicationsPage() {
               <span className="font-semibold">
                 {specialFilter === "followups_due" ? "Filter: Nachfrage fällig" : "Filter: Seit > 60 Tagen ohne Antwort"}
               </span>
-              <span className="text-muted/60">
+              <span className="text-muted">
                 ({filteredApplications.length}
                 {specialFilter === "followups_due" ? ` von ${dueFollowUpAppIds.size}` : ` von ${zombieAppIds.size}`})
               </span>
@@ -814,11 +814,11 @@ export default function ApplicationsPage() {
               {filters.showArchived ? "Archiv eingeblendet" : "Archivierte anzeigen"}
             </Button>
             {archivedCount > 0 ? (
-              <span className="text-xs text-muted/50">
+              <span className="text-xs text-muted">
                 {archivedCount} archivierte Bewerbung(en){visibleArchivedCount > 0 ? `, davon ${visibleArchivedCount} sichtbar` : ""}.
               </span>
             ) : (
-              <span className="text-xs text-muted/50">Zurzeit keine archivierten Bewerbungen.</span>
+              <span className="text-xs text-muted">Zurzeit keine archivierten Bewerbungen.</span>
             )}
           </div>
           <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_14rem_10rem_10rem_10rem]">
@@ -884,7 +884,7 @@ export default function ApplicationsPage() {
                       {meeting.title || "Termin"}
                       {meeting.app_company ? ` — ${meeting.app_company}` : ""}
                     </span>
-                    <span className="shrink-0 text-xs text-muted/50">{formatDate(meeting.meeting_date)}</span>
+                    <span className="shrink-0 text-xs text-muted">{formatDate(meeting.meeting_date)}</span>
                     <Badge tone="success">Termin</Badge>
                   </div>
                 ))}
@@ -900,16 +900,16 @@ export default function ApplicationsPage() {
                         : "bg-white/[0.03] border border-white/5 hover:bg-white/[0.07]"
                     )}
                   >
-                    <CalendarClock size={14} className={cn("shrink-0", followUp.faellig ? "text-coral" : "text-muted/40")} />
+                    <CalendarClock size={14} className={cn("shrink-0", followUp.faellig ? "text-coral" : "text-muted")} />
                     <span className="flex-1 min-w-0 truncate text-ink font-medium">{followUp.title} — {followUp.company}</span>
-                    <span className="shrink-0 text-xs text-muted/50">{formatDate(followUp.scheduled_date)}</span>
+                    <span className="shrink-0 text-xs text-muted">{formatDate(followUp.scheduled_date)}</span>
                     <Badge tone={followUp.faellig ? "danger" : "sky"}>{followUp.faellig ? "Fällig" : "Geplant"}</Badge>
                     {/* #665 (D18): Direkt-Abhaken ohne Umweg */}
-                    <button
+                    <button aria-label="Als erledigt markieren"
                       type="button"
                       title="Als erledigt markieren"
                       onClick={(event) => completeFollowUp(followUp.id, event)}
-                      className="shrink-0 rounded-md p-1 text-teal/70 hover:bg-teal/10 hover:text-teal transition-colors"
+                      className="shrink-0 rounded-md p-1 text-teal hover:bg-teal/10 hover:text-teal transition-colors"
                     >
                       <Check size={15} />
                     </button>
@@ -919,16 +919,16 @@ export default function ApplicationsPage() {
             </Card>
             <Card className="rounded-2xl xl:self-start">
               <h2 className="text-sm font-semibold text-ink">
-                <Upload size={14} className="mr-1.5 inline-block text-teal/60" />
+                <Upload size={14} className="mr-1.5 inline-block text-teal" />
                 Schnell-Import
               </h2>
-              <p className="mt-1 text-[11px] text-muted/50">
+              <p className="mt-1 text-xs text-muted">
                 Dokumente oder E-Mails hier ablegen.
               </p>
               <div className="mt-3 grid gap-2">
                 <EmailUploadButton pushToast={pushToast} onImported={() => loadPage()} />
               </div>
-              <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted/40">
+              <div className="mt-3 rounded-lg border border-dashed border-white/10 p-4 text-center text-xs text-muted">
                 Dateien per Drag &amp; Drop auf die Seite ziehen
               </div>
             </Card>
@@ -962,17 +962,17 @@ export default function ApplicationsPage() {
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
                         {/* #171: Klickbare ID */}
                         <button
-                          className="font-mono text-[10px] text-muted/40 hover:text-sky cursor-pointer transition-colors"
+                          className="font-mono text-xs text-muted hover:text-sky cursor-pointer transition-colors"
                           title={`ID: ${application.id} — Klicken zum Kopieren`}
                           onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(application.id); pushToast(`ID ${application.id.slice(0,8)} kopiert`, "success"); }}
                         >{application.id?.slice(0, 8)}</button>
                         <span className="text-xs font-medium text-muted">{formatDate(application.applied_at)}</span>
                         {application.applied_at && (() => {
                           const days = Math.floor((Date.now() - Date.parse(application.applied_at)) / 86400000);
-                          return days > 0 ? <span className="text-xs text-muted/40">vor {days}d</span> : null;
+                          return days > 0 ? <span className="text-xs text-muted">vor {days}d</span> : null;
                         })()}
                         {application.document_count > 0 && (
-                          <span className="inline-flex items-center gap-1 text-xs text-muted/50">
+                          <span className="inline-flex items-center gap-1 text-xs text-muted">
                             <FileText size={12} /> {application.document_count}
                           </span>
                         )}
@@ -987,14 +987,14 @@ export default function ApplicationsPage() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
                         {application.url ? (
-                          <a href={application.url} target="_blank" rel="noreferrer" className="text-muted/40 hover:text-sky transition-colors" title="Stellenanzeige öffnen">
+                          <a href={application.url} target="_blank" rel="noreferrer" className="text-muted hover:text-sky transition-colors" title="Stellenanzeige öffnen">
                             <ExternalLink size={14} />
                           </a>
                         ) : null}
                       </div>
                       <p className="text-sm text-muted">{application.company}{application.ansprechpartner ? ` — ${application.ansprechpartner}` : ""}</p>
                       {application.notes ? <p className="text-sm text-muted">{textExcerpt(application.notes, 150)}</p> : null}
-                      {application.last_note ? <p className="text-xs text-muted/40 truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}
+                      {application.last_note ? <p className="text-xs text-muted truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}
                     </div>
                     <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/[0.06] pt-4">
                       <SelectInput value={application.status || "beworben"} onChange={(event) => updateStatus(application.id, event.target.value)}>
@@ -1167,16 +1167,16 @@ export default function ApplicationsPage() {
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Bewerbung</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Bewerbung</p>
                     {/* #171: Klickbare IDs */}
                     <button
-                      className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
+                      className="font-mono text-xs text-muted hover:text-sky cursor-pointer"
                       title={`Bewerbung-ID: ${app.id}`}
                       onClick={() => { navigator.clipboard.writeText(app.id); pushToast(`ID ${app.id?.slice(0,8)} kopiert`, "success"); }}
                     >{app.id?.slice(0, 8)}</button>
                     {app.job_hash && (
                       <button
-                        className="font-mono text-[10px] text-muted/30 hover:text-sky cursor-pointer"
+                        className="font-mono text-xs text-muted hover:text-sky cursor-pointer"
                         title="Stelle anzeigen"
                         onClick={() => setJobDetailHash(app.job_hash)}
                       ><ExternalLink size={8} className="mr-0.5 inline" />Stelle: {app.job_hash?.slice(0, 8)}</button>
@@ -1185,7 +1185,7 @@ export default function ApplicationsPage() {
                   <h3 className="mt-1 text-base font-semibold text-ink">{app.title}</h3>
                   <p className="text-sm text-muted">{app.company}</p>
                   {(app.vermittler || app.endkunde) && (
-                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted/60">
+                    <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted">
                       {app.vermittler && <span>Vermittler: {app.vermittler}</span>}
                       {app.endkunde && <span>Endkunde: {app.endkunde}</span>}
                     </div>
@@ -1194,7 +1194,7 @@ export default function ApplicationsPage() {
                 <Badge tone={statusTone(app.status)}>{statusLabel(app.status)}</Badge>
               </div>
               {(app.ansprechpartner || app.kontakt_email) && (
-                <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted/70">
+                <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted">
                   {app.ansprechpartner && <span>Kontakt: {app.ansprechpartner}</span>}
                   {app.kontakt_email && (() => {
                     // #500 / #1.5.8-Mailto: Wenn kontakt_email als
@@ -1213,7 +1213,7 @@ export default function ApplicationsPage() {
               )}
               <div className="mt-1 flex flex-wrap items-center gap-3">
                 {app.portal_name && (
-                  <span className="text-xs text-muted/50">Portal: {app.portal_name}</span>
+                  <span className="text-xs text-muted">Portal: {app.portal_name}</span>
                 )}
                 {/* #765: Frueher stand hier derselbe Text wie im Stellendetail-
                     Block darunter — zwei Buttons "Stellenanzeige öffnen" mit
@@ -1242,14 +1242,14 @@ export default function ApplicationsPage() {
               </div>
               <div className="mt-1 flex items-center gap-2">
                 {app.applied_at && (
-                  <span className="text-xs text-muted/40">Beworben am: {formatDate(app.applied_at)}</span>
+                  <span className="text-xs text-muted">Beworben am: {formatDate(app.applied_at)}</span>
                 )}
                 {app.is_imported ? <Badge tone="neutral">Importiert</Badge> : null}
               </div>
 
               {/* Inline edit section (#134) */}
               <details className="mt-3 border-t border-white/[0.06] pt-3">
-                <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink flex items-center gap-1.5">
+                <summary className="cursor-pointer text-sm font-medium text-muted hover:text-ink flex items-center gap-1.5">
                   <Pencil size={13} />
                   Bewerbung bearbeiten
                 </summary>
@@ -1337,7 +1337,7 @@ export default function ApplicationsPage() {
                         }}
                         className="rounded border-white/20 bg-white/5 text-sky focus:ring-sky/30"
                       />
-                      <span className="text-sm text-muted/60">Bewerbung existierte vor PBP</span>
+                      <span className="text-sm text-muted">Bewerbung existierte vor PBP</span>
                     </label>
                   </Field>
                 </div>
@@ -1356,7 +1356,7 @@ export default function ApplicationsPage() {
                     ))}
                   </SelectInput>
                 </Field>
-                <p className="pb-2 text-xs text-muted/50">
+                <p className="pb-2 text-xs text-muted">
                   Der Status wird sofort gespeichert und als Timeline-Eintrag protokolliert.
                 </p>
               </div>
@@ -1367,7 +1367,7 @@ export default function ApplicationsPage() {
           {/* Job details with full description */}
           {timelineDialog.entry?.job ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Stellendetails</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Stellendetails</p>
               <h3 className="mt-2 text-base font-semibold text-ink">{timelineDialog.entry.job.title}</h3>
               <p className="text-sm text-muted">{timelineDialog.entry.job.company}{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -1389,7 +1389,7 @@ export default function ApplicationsPage() {
                 const appUrl = (timelineDialog.entry.application?.url || "").trim();
                 if (link.art === "keine") {
                   return (
-                    <p className="mt-2 text-xs text-amber/80">
+                    <p className="mt-2 text-xs text-amber">
                       Zu dieser Stelle ist kein Link hinterlegt.
                     </p>
                   );
@@ -1408,15 +1408,15 @@ export default function ApplicationsPage() {
                       {weichtAb ? "Aktuelle Ausschreibung" : link.label}
                     </a>
                     {link.hinweis ? (
-                      <p className="mt-1 text-xs text-amber/80">{link.hinweis}</p>
+                      <p className="mt-1 text-xs text-amber">{link.hinweis}</p>
                     ) : null}
                   </div>
                 );
               })()}
               {timelineDialog.entry.job.description && (
                 <details className="mt-3">
-                  <summary className="cursor-pointer text-sm font-medium text-muted/60 hover:text-ink">Stellenbeschreibung anzeigen</summary>
-                  <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted/70 whitespace-pre-wrap">
+                  <summary className="cursor-pointer text-sm font-medium text-muted hover:text-ink">Stellenbeschreibung anzeigen</summary>
+                  <div className="mt-2 max-h-60 overflow-y-auto rounded-lg bg-white/[0.02] p-3 text-sm text-muted whitespace-pre-wrap">
                     {timelineDialog.entry.job.description}
                   </div>
                 </details>
@@ -1428,7 +1428,7 @@ export default function ApplicationsPage() {
           {/* #673: Strukturierte Recherchen (research_notes-Tabelle, alle Kategorien) */}
           {timelineDialog.entry?.application ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 Recherchen
               </p>
               {Array.isArray(timelineDialog.entry.recherchen) && timelineDialog.entry.recherchen.length > 0 ? (
@@ -1442,14 +1442,14 @@ export default function ApplicationsPage() {
                         <span className="font-semibold text-ink/90">
                           {RESEARCH_LABELS[r.kategorie] || r.kategorie}
                         </span>
-                        <span className="text-[10px] text-muted/60">{r.datum}</span>
+                        <span className="text-xs text-muted">{r.datum}</span>
                       </summary>
                       <p className="mt-2 whitespace-pre-wrap text-sm text-ink/80">{r.text}</p>
                     </details>
                   ))}
                 </div>
               ) : (
-                <p className="mt-2 text-xs text-muted/60">
+                <p className="mt-2 text-xs text-muted">
                   {/* G65 (#1087 D2): keine Werkzeugnamen im Dialog. */}
                   Noch keine Recherchen gespeichert. Bitte Claude, die Firma zu
                   recherchieren oder die Stelle mit deinem Profil abzugleichen —
@@ -1478,7 +1478,7 @@ export default function ApplicationsPage() {
                   Aufklappen ausloesen, und der Nutzer bekaeme eine
                   Nebenwirkung, die er nicht gemeint hat. */}
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Firmen-Recherche</p>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Firmen-Recherche</p>
                 <Button
                   size="sm"
                   variant="ghost"
@@ -1515,7 +1515,7 @@ export default function ApplicationsPage() {
                 </Button>
               </div>
               <details className="mt-2">
-              <summary className="cursor-pointer text-xs text-muted/70 hover:text-ink">
+              <summary className="cursor-pointer text-xs text-muted hover:text-ink">
                 Eigene Notiz hinzufügen
               </summary>
               <TextArea
@@ -1560,13 +1560,13 @@ export default function ApplicationsPage() {
           {/* Fit-Analyse (#84) */}
           {timelineDialog.entry?.application?.fit_analyse ? (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Fit-Analyse</p>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Fit-Analyse</p>
               <div className="mt-2 space-y-1 text-sm">
                 {timelineDialog.entry.application.fit_analyse.total_score != null && (
                   <p className="text-ink font-medium">Punkte (Stand dieser Analyse): {scoreText(timelineDialog.entry.application.fit_analyse.total_score)}</p>
                 )}
                 {timelineDialog.entry.application.fit_analyse.summary && (
-                  <p className="text-muted/70">{timelineDialog.entry.application.fit_analyse.summary}</p>
+                  <p className="text-muted">{timelineDialog.entry.application.fit_analyse.summary}</p>
                 )}
                 {(timelineDialog.entry.application.fit_analyse.muss_hits || []).length > 0 && (
                   <div className="flex flex-wrap gap-1 mt-1">
@@ -1588,7 +1588,7 @@ export default function ApplicationsPage() {
 
           {/* Linked documents + Upload zone (#176) */}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Dokumente</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Dokumente</p>
             {(timelineDialog.entry?.documents || []).length > 0 && (
               <div className="mt-2 grid gap-1.5">
                 {timelineDialog.entry.documents.map((doc) => (
@@ -1599,10 +1599,10 @@ export default function ApplicationsPage() {
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-sm text-ink hover:text-sky transition-colors cursor-pointer rounded-lg px-2 py-1.5 -mx-2 hover:bg-white/[0.04]"
                   >
-                    <FileText size={14} className="shrink-0 text-muted/50" />
+                    <FileText size={14} className="shrink-0 text-muted" />
                     <span className="truncate">{doc.filename}</span>
                     {doc.doc_type ? <Badge tone="sky">{docTypeLabel(doc.doc_type)}</Badge> : null}
-                    <ExternalLink size={12} className="shrink-0 ml-auto text-muted/30" />
+                    <ExternalLink size={12} className="shrink-0 ml-auto text-muted" />
                   </a>
                 ))}
               </div>
@@ -1656,14 +1656,14 @@ export default function ApplicationsPage() {
                 input.click();
               }}
             >
-              <Upload size={20} className="mx-auto text-muted/30" />
-              <p className="mt-1 text-xs text-muted/50">Datei hierher ziehen oder klicken zum Upload</p>
+              <Upload size={20} className="mx-auto text-muted" />
+              <p className="mt-1 text-xs text-muted">Datei hierher ziehen oder klicken zum Upload</p>
             </div>
 
             {/* Link existing document button */}
             {documents.length > 0 && (
               <details className="mt-2">
-                <summary className="cursor-pointer text-xs text-muted/50 hover:text-sky flex items-center gap-1">
+                <summary className="cursor-pointer text-xs text-muted hover:text-sky flex items-center gap-1">
                   <Link2 size={12} /> Vorhandenes Dokument verknüpfen
                 </summary>
                 <div className="mt-2 grid gap-1 max-h-40 overflow-y-auto">
@@ -1676,7 +1676,7 @@ export default function ApplicationsPage() {
                       className="flex items-center gap-2 text-xs text-ink hover:text-sky rounded px-2 py-1 hover:bg-white/[0.04] text-left w-full"
                       onClick={() => linkDocument(doc.id)}
                     >
-                      <FileText size={12} className="shrink-0 text-muted/40" />
+                      <FileText size={12} className="shrink-0 text-muted" />
                       <span className="truncate">{doc.filename}</span>
                     </button>
                   ))}
@@ -1705,13 +1705,13 @@ export default function ApplicationsPage() {
 
           {/* Todos/Tasks for this application (#666 D19) */}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
               <Check size={12} className="mr-1 inline" />
               Aufgaben ({timelineTasks.filter((t) => t.status === "offen").length} offen)
             </p>
             <div className="mt-2 grid gap-1.5">
               {timelineTasks.length === 0 && (
-                <p className="text-xs text-muted/50 px-1">Noch keine Aufgaben. Lege unten eine an.</p>
+                <p className="text-xs text-muted px-1">Noch keine Aufgaben. Lege unten eine an.</p>
               )}
               {timelineTasks.map((task) => {
                 const done = task.status === "erledigt";
@@ -1722,18 +1722,18 @@ export default function ApplicationsPage() {
                     {/* #814 (D35): als SCHALTFLAECHE erkennbar — der blasse
                         Haken wurde als Statussymbol gelesen, die Funktion
                         galt als nicht vorhanden (belegter Nutzer-Befund). */}
-                    <button
+                    <button aria-label={done ? "Wieder öffnen" : "Als erledigt abhaken"}
                       type="button"
                       title={done ? "Wieder öffnen" : "Als erledigt abhaken"}
                       onClick={() => toggleTimelineTask(task)}
-                      className={`shrink-0 rounded-md border p-1 transition-colors ${done ? "border-teal/40 bg-teal/15 text-teal" : "border-teal/30 bg-teal/5 text-teal/70 hover:bg-teal/20 hover:text-teal"}`}
+                      className={`shrink-0 rounded-md border p-1 transition-colors ${done ? "border-teal/40 bg-teal/15 text-teal" : "border-teal/30 bg-teal/5 text-teal hover:bg-teal/20 hover:text-teal"}`}
                     >
                       <Check size={14} />
                     </button>
-                    <span className={`flex-1 min-w-0 truncate text-sm ${done ? "text-muted/40 line-through" : "text-ink"}`}>
+                    <span className={`flex-1 min-w-0 truncate text-sm ${done ? "text-muted line-through" : "text-ink"}`}>
                       {task.titel}
                       {task.faellig_am ? (
-                        <span className={`ml-2 text-xs ${overdue ? "font-semibold text-coral" : "text-muted/50"}`}>
+                        <span className={`ml-2 text-xs ${overdue ? "font-semibold text-coral" : "text-muted"}`}>
                           {overdue ? "überfällig: " : "bis "}{formatDate(task.faellig_am)}
                         </span>
                       ) : null}
@@ -1742,7 +1742,7 @@ export default function ApplicationsPage() {
                       type="button"
                       title="Löschen"
                       onClick={() => deleteTimelineTask(task)}
-                      className="shrink-0 rounded-md p-1 text-muted/30 hover:text-coral hover:bg-coral/10 transition-colors"
+                      className="shrink-0 rounded-md p-1 text-muted hover:text-coral hover:bg-coral/10 transition-colors"
                     >
                       <Trash2 size={13} />
                     </button>
@@ -1770,7 +1770,7 @@ export default function ApplicationsPage() {
                 title="Erledigt bis (optional)"
                 className="shrink-0 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1.5 text-sm text-ink [color-scheme:dark]"
               />
-              <Button type="button" variant="secondary" onClick={addTimelineTask} disabled={!newTaskTitle.trim()}>
+              <Button aria-label="Aufgabe hinzufügen" type="button" variant="secondary" onClick={addTimelineTask} disabled={!newTaskTitle.trim()}>
                 <Plus size={14} />
               </Button>
             </div>
@@ -1779,7 +1779,7 @@ export default function ApplicationsPage() {
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 <Calendar size={12} className="mr-1 inline" />
                 Termine ({timelineMeetings.length})
               </p>
@@ -1791,16 +1791,16 @@ export default function ApplicationsPage() {
                     <div key={m.id} className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 ${isPast ? "opacity-50" : "bg-teal/5 border border-teal/15"}`}>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-ink">{m.title || "Termin"}</p>
-                        <p className="text-xs text-muted/60">
+                        <p className="text-xs text-muted">
                           {formatDate(m.meeting_date)} {dt.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
-                          {m.platform && <span className="ml-1 rounded bg-sky/15 px-1 py-px text-[10px] font-bold text-sky">{m.platform}</span>}
+                          {m.platform && <span className="ml-1 rounded bg-sky/15 px-1 py-px text-xs font-bold text-sky">{m.platform}</span>}
                           {m.location && <span className="ml-1">— {m.location}</span>}
                         </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         {/* .ics Export (#261, #263) */}
                         <a href={`/api/meetings/${m.id}/ics`} download
-                          className="inline-flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-[10px] font-semibold text-muted/60 hover:bg-white/10 hover:text-ink"
+                          className="inline-flex items-center gap-1 rounded bg-white/5 px-2 py-1 text-xs font-semibold text-muted hover:bg-white/10 hover:text-ink"
                           title="Als .ics exportieren">
                           <Download size={10} /> .ics
                         </a>
@@ -1816,13 +1816,13 @@ export default function ApplicationsPage() {
                             setTimelineMeetings((current) => current.filter((x) => x.id !== m.id));
                             setUpcomingMeetings((current) => current.filter((x) => x.id !== m.id));
                           }}
-                          className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-[10px] text-muted/40 hover:bg-coral/15 hover:text-coral"
+                          className="inline-flex items-center rounded bg-white/5 px-1.5 py-1 text-xs text-muted hover:bg-coral/15 hover:text-coral"
                           title="Termin löschen">
                           <Trash2 size={10} />
                         </button>
                         {m.meeting_url && !isPast && (
                           <a href={m.meeting_url} target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
+                            className="inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-xs font-semibold text-teal hover:bg-teal/25">
                             <Video size={12} /> Beitreten
                           </a>
                         )}
@@ -1838,13 +1838,13 @@ export default function ApplicationsPage() {
               pflegbar — alle Felder optional, mehrere pro Bewerbung. */}
           <Card className="glass-card-soft rounded-xl shadow-none">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 Interview-Nachbereitung ({timelineReflexionen.length})
               </p>
               {!reflexionForm && (
                 <button
                   onClick={() => setReflexionForm({})}
-                  className="rounded bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25">
+                  className="rounded bg-teal/15 px-2 py-1 text-xs font-semibold text-teal hover:bg-teal/25">
                   + Reflexion
                 </button>
               )}
@@ -1854,14 +1854,14 @@ export default function ApplicationsPage() {
                 {timelineReflexionen.map((r) => (
                   <div key={r.id} className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-muted/60">
+                      <p className="text-xs text-muted">
                         {formatDate(r.created_at)}
-                        {r.gefuehl ? <span className="ml-2 rounded bg-sky/15 px-1 py-px text-[10px] font-bold text-sky">Gefühl {r.gefuehl}/5</span> : null}
+                        {r.gefuehl ? <span className="ml-2 rounded bg-sky/15 px-1 py-px text-xs font-bold text-sky">Gefühl {r.gefuehl}/5</span> : null}
                       </p>
                       <div className="flex shrink-0 gap-1">
                         <button
                           onClick={() => setReflexionForm({ ...r })}
-                          className="rounded bg-white/5 px-2 py-0.5 text-[10px] text-muted/60 hover:bg-white/10 hover:text-ink">
+                          className="rounded bg-white/5 px-2 py-0.5 text-xs text-muted hover:bg-white/10 hover:text-ink">
                           Bearbeiten
                         </button>
                         <button
@@ -1874,7 +1874,7 @@ export default function ApplicationsPage() {
                               pushToast(`Löschen fehlgeschlagen: ${error.message}`, "danger");
                             }
                           }}
-                          className="rounded bg-white/5 px-1.5 py-0.5 text-[10px] text-muted/40 hover:bg-coral/15 hover:text-coral">
+                          className="rounded bg-white/5 px-1.5 py-0.5 text-xs text-muted hover:bg-coral/15 hover:text-coral">
                           <Trash2 size={10} />
                         </button>
                       </div>
@@ -1882,14 +1882,14 @@ export default function ApplicationsPage() {
                     {r.was_lief_gut && <p className="mt-1 text-sm text-ink"><span className="text-teal">Gut:</span> {r.was_lief_gut}</p>}
                     {r.was_lief_schlecht && <p className="mt-0.5 text-sm text-ink"><span className="text-coral">Schwierig:</span> {r.was_lief_schlecht}</p>}
                     {r.was_war_ueberraschend && <p className="mt-0.5 text-sm text-ink"><span className="text-sky">Überraschend:</span> {r.was_war_ueberraschend}</p>}
-                    {r.next_steps && <p className="mt-0.5 text-sm text-muted/80">Nächste Schritte: {r.next_steps}</p>}
-                    {r.wiederverwendbare_antwort && <p className="mt-0.5 text-xs italic text-muted/60">Merken: „{r.wiederverwendbare_antwort}"</p>}
+                    {r.next_steps && <p className="mt-0.5 text-sm text-muted">Nächste Schritte: {r.next_steps}</p>}
+                    {r.wiederverwendbare_antwort && <p className="mt-0.5 text-xs italic text-muted">Merken: „{r.wiederverwendbare_antwort}"</p>}
                   </div>
                 ))}
               </div>
             )}
             {timelineReflexionen.length === 0 && !reflexionForm && (
-              <p className="mt-2 text-xs text-muted/50">
+              <p className="mt-2 text-xs text-muted">
                 Noch keine Nachbereitung. Direkt nach dem Gespräch sind zwei Sätze mehr wert als ein perfekter Bericht nächste Woche.
               </p>
             )}
@@ -1903,7 +1903,7 @@ export default function ApplicationsPage() {
                   ["wiederverwendbare_antwort", "Eine Antwort, die du wiederverwenden willst"],
                 ].map(([feld, label]) => (
                   <label key={feld} className="grid gap-1">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted/60">{label}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted">{label}</span>
                     <textarea
                       rows={2}
                       value={reflexionForm[feld] || ""}
@@ -1913,7 +1913,7 @@ export default function ApplicationsPage() {
                   </label>
                 ))}
                 <label className="flex items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-muted/60">Bauchgefühl</span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted">Bauchgefühl</span>
                   <select
                     value={reflexionForm.gefuehl || ""}
                     onChange={(e) => setReflexionForm((f) => ({ ...f, gefuehl: e.target.value ? Number(e.target.value) : null }))}
@@ -1923,7 +1923,7 @@ export default function ApplicationsPage() {
                   </select>
                   {timelineMeetings.length > 0 && (
                     <>
-                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wider text-muted/60">Termin</span>
+                      <span className="ml-2 text-xs font-semibold uppercase tracking-wider text-muted">Termin</span>
                       <select
                         value={reflexionForm.meeting_id || ""}
                         onChange={(e) => setReflexionForm((f) => ({ ...f, meeting_id: e.target.value }))}
@@ -1939,7 +1939,7 @@ export default function ApplicationsPage() {
                 <div className="flex justify-end gap-2">
                   <button
                     onClick={() => setReflexionForm(null)}
-                    className="rounded bg-white/5 px-3 py-1.5 text-xs text-muted/60 hover:bg-white/10">
+                    className="rounded bg-white/5 px-3 py-1.5 text-xs text-muted hover:bg-white/10">
                     Abbrechen
                   </button>
                   <button
@@ -1955,7 +1955,7 @@ export default function ApplicationsPage() {
           {/* Emails for this application (#136) */}
           {timelineEmails.length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 <Mail size={12} className="mr-1 inline" />
                 E-Mails ({timelineEmails.length})
               </p>
@@ -1974,7 +1974,7 @@ export default function ApplicationsPage() {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-ink">{em.subject || "Ohne Betreff"}</p>
-                        <p className="text-xs text-muted/50">
+                        <p className="text-xs text-muted">
                           {em.direction === "ausgang" ? "An" : "Von"}:{" "}
                           {partnerMailto ? (
                             <a href={partnerMailto} className="text-sky hover:underline">{replyTo}</a>
@@ -1990,7 +1990,7 @@ export default function ApplicationsPage() {
                       {replyMailto && (
                         <a
                           href={replyMailto}
-                          className="shrink-0 text-muted/30 hover:text-sky transition-colors"
+                          className="shrink-0 text-muted hover:text-sky transition-colors"
                           title="Im Mail-Client antworten"
                           aria-label="Im Mail-Client antworten"
                         >
@@ -2000,7 +2000,7 @@ export default function ApplicationsPage() {
                       <a
                         href={`/api/emails/${em.id}/download`}
                         download={em.filename || true}
-                        className="shrink-0 text-muted/30 hover:text-sky transition-colors"
+                        className="shrink-0 text-muted hover:text-sky transition-colors"
                         title="E-Mail herunterladen"
                         aria-label="E-Mail herunterladen"
                       >
@@ -2029,9 +2029,9 @@ export default function ApplicationsPage() {
 
           {/* Document linking search */}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Dokument verknüpfen</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Dokument verknüpfen</p>
             <div className="mt-2 relative">
-              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted/50" />
+              <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
               <TextInput
                 className="!pl-9"
                 placeholder="Dokument suchen..."
@@ -2054,16 +2054,16 @@ export default function ApplicationsPage() {
                       className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-white/[0.06]"
                       onClick={() => { linkDocument(doc.id); setDocSearchQuery(""); }}
                     >
-                      <Link2 size={14} className="shrink-0 text-teal/60" />
+                      <Link2 size={14} className="shrink-0 text-teal" />
                       <span className="truncate">{doc.filename}</span>
-                      {doc.doc_type ? <span className="ml-auto shrink-0 text-[11px] text-muted/50">{docTypeLabel(doc.doc_type)}</span> : null}
+                      {doc.doc_type ? <span className="ml-auto shrink-0 text-xs text-muted">{docTypeLabel(doc.doc_type)}</span> : null}
                     </button>
                   ))}
                 {documents.filter((doc) => {
                   const q = docSearchQuery.toLowerCase();
                   return (doc.filename || "").toLowerCase().includes(q) || (doc.doc_type || "").toLowerCase().includes(q);
                 }).length === 0 ? (
-                  <p className="px-3 py-2 text-sm text-muted/50">Kein Dokument gefunden.</p>
+                  <p className="px-3 py-2 text-sm text-muted">Kein Dokument gefunden.</p>
                 ) : null}
               </div>
             )}
@@ -2071,7 +2071,7 @@ export default function ApplicationsPage() {
 
           {/* Add note */}
           <Card className="glass-card-soft rounded-xl shadow-none">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">Neue Notiz</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Neue Notiz</p>
             <div className="mt-2 flex gap-2">
               <TextArea
                 rows={2}
@@ -2091,7 +2091,7 @@ export default function ApplicationsPage() {
           {/* E-Mail & Termin-Einträge aus unified_timeline (#313) */}
           {(timelineDialog.entry?.unified_timeline || []).filter(e => e._source === "email" || e._source === "meeting").length > 0 && (
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-2">
                 Automatische Eintr&auml;ge
               </p>
               <div className="grid gap-1.5">
@@ -2102,7 +2102,7 @@ export default function ApplicationsPage() {
                       <Badge tone={entry._source === "email" ? "sky" : "success"}>
                         {entry._source === "email" ? "E-Mail" : "Termin"}
                       </Badge>
-                      <span className="text-xs text-muted/40 shrink-0">{formatDate(entry.event_date)}</span>
+                      <span className="text-xs text-muted shrink-0">{formatDate(entry.event_date)}</span>
                       <span className="text-ink truncate">{entry.description}</span>
                     </div>
                   ))
@@ -2132,15 +2132,15 @@ export default function ApplicationsPage() {
                           className="text-[12px] px-1 py-0.5 rounded bg-shell/60 border border-line/40 text-ink"
                           autoFocus
                         />
-                        <button
+                        <button aria-label="Datum speichern"
                           type="button"
-                          className="text-teal hover:text-teal/80"
+                          className="text-teal hover:text-teal"
                           onClick={() => updateEventDate(event.id)}
                           title="Datum speichern"
                         >
                           <Check size={14} />
                         </button>
-                        <button
+                        <button aria-label="Abbrechen"
                           type="button"
                           className="text-muted hover:text-ink"
                           onClick={() => setEditingDateEventId(null)}
@@ -2152,7 +2152,7 @@ export default function ApplicationsPage() {
                     ) : (
                       <button
                         type="button"
-                        className="text-[12px] text-muted/50 hover:text-ink hover:underline cursor-pointer"
+                        className="text-[12px] text-muted hover:text-ink hover:underline cursor-pointer"
                         onClick={() => {
                           setEditingDateEventId(event.id);
                           // ISO -> YYYY-MM-DD
@@ -2177,8 +2177,8 @@ export default function ApplicationsPage() {
                           autoFocus
                         />
                         <div className="flex flex-col gap-1 shrink-0">
-                          <button type="button" className="text-teal hover:text-teal/80" onClick={() => updateNote(event.id)}><Check size={16} /></button>
-                          <button type="button" className="text-muted hover:text-ink" onClick={() => setEditingNoteId(null)}><X size={16} /></button>
+                          <button aria-label="Notiz speichern" type="button" className="text-teal hover:text-teal" onClick={() => updateNote(event.id)}><Check size={16} /></button>
+                          <button aria-label="Bearbeiten abbrechen" type="button" className="text-muted hover:text-ink" onClick={() => setEditingNoteId(null)}><X size={16} /></button>
                         </div>
                       </div>
                     ) : (
@@ -2187,9 +2187,9 @@ export default function ApplicationsPage() {
                   </div>
                   {(event.event_type === "notiz" || event.status === "notiz") && editingNoteId !== event.id ? (
                     <div className="flex gap-1.5 shrink-0">
-                      <button type="button" className="text-muted/40 hover:text-sky transition-colors" onClick={() => { setReplyingToId(event.id); setReplyText(""); }} title="Antworten"><MessageSquareReply size={14} /></button>
-                      <button type="button" className="text-muted/40 hover:text-ink transition-colors" onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.notes || event.text || ""); }} title="Bearbeiten"><Pencil size={14} /></button>
-                      <button type="button" className="text-muted/40 hover:text-coral transition-colors" onClick={() => deleteNote(event.id)} title="Löschen"><Trash2 size={14} /></button>
+                      <button aria-label="Antworten" type="button" className="text-muted hover:text-sky transition-colors" onClick={() => { setReplyingToId(event.id); setReplyText(""); }} title="Antworten"><MessageSquareReply size={14} /></button>
+                      <button aria-label="Bearbeiten" type="button" className="text-muted hover:text-ink transition-colors" onClick={() => { setEditingNoteId(event.id); setEditingNoteText(event.notes || event.text || ""); }} title="Bearbeiten"><Pencil size={14} /></button>
+                      <button type="button" className="text-muted hover:text-coral transition-colors" onClick={() => deleteNote(event.id)} title="Löschen"><Trash2 size={14} /></button>
                     </div>
                   ) : null}
                 </div>
@@ -2204,14 +2204,14 @@ export default function ApplicationsPage() {
                       onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) addNote(event.id); }}
                     />
                     <Button size="sm" onClick={() => addNote(event.id)} disabled={!replyText.trim()}>Antworten</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setReplyingToId(null)}><X size={14} /></Button>
+                    <Button aria-label="Antwort abbrechen" size="sm" variant="ghost" onClick={() => setReplyingToId(null)}><X size={14} /></Button>
                   </div>
                 )}
                 {/* Replies to this note */}
                 {(timelineDialog.entry?.events || []).filter(r => r.parent_event_id === event.id).map((reply) => (
                   <Card key={reply.id} className="ml-8 mt-2 glass-card-soft rounded-lg shadow-none border-l-2 border-sky/20">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted/40">{formatDateTime(reply.event_date)}</span>
+                      <span className="text-xs text-muted">{formatDateTime(reply.event_date)}</span>
                       <Badge tone="sky">Antwort</Badge>
                     </div>
                     <p className="text-sm text-ink mt-1">{reply.notes || reply.text}</p>
@@ -2242,7 +2242,7 @@ export default function ApplicationsPage() {
         )}
       >
         <div className="grid gap-3">
-          <p className="text-sm text-muted/70">
+          <p className="text-sm text-muted">
             Du hast die Zusage erhalten. Hier ein kleiner Abschluss-Flow:
             Position ins Profil übernehmen, Gehalt festhalten, optional eine Beschreibung ergänzen.
           </p>
@@ -2270,7 +2270,7 @@ export default function ApplicationsPage() {
               onChange={(e) => setAcceptanceDialog((s) => ({ ...s, description: e.target.value }))}
             />
           </Field>
-          <p className="text-xs text-muted/50">
+          <p className="text-xs text-muted">
             Offene Nachfassungen wurden bereits automatisch als hinfällig markiert.
           </p>
         </div>
@@ -2347,17 +2347,17 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
   if (jobs.length <= 1 && !adding) {
     return (
       <Card className="glass-card-soft rounded-xl shadow-none">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-1">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-1">
           Verknüpfte Stellen
         </p>
-        <p className="text-[12px] text-muted/50 mb-2">
+        <p className="text-[12px] text-muted mb-2">
           Falls sich diese Bewerbung auf mehrere Stellen-Varianten bezieht (z.B. Repost,
           Vermittler+Endkunde-Sicht).
         </p>
         <button
           type="button"
           onClick={() => { setAdding(true); loadAvailable(); }}
-          className="text-[11px] text-sky hover:underline inline-flex items-center gap-1"
+          className="text-xs text-sky hover:underline inline-flex items-center gap-1"
         >
           <Plus size={11} /> Weitere Stelle verknüpfen
         </button>
@@ -2375,7 +2375,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
   return (
     <>
       <Card className="glass-card-soft rounded-xl shadow-none">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-2">
           Verknuepfte Stellen ({jobs.length})
         </p>
         <ul className="space-y-1.5 mb-2">
@@ -2384,16 +2384,16 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
               <div className="flex-1 min-w-0">
                 <span className="text-ink font-medium">{j.title}</span>
                 {j.link_primary && (
-                  <span className="ml-1.5 inline-flex items-center rounded-full bg-teal/15 text-teal px-1.5 py-0.5 text-[9px]">
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-teal/15 text-teal px-1.5 py-0.5 text-xs">
                     primär
                   </span>
                 )}
                 {j.link_version && (
-                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-[9px]">
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-xs">
                     {j.link_version}
                   </span>
                 )}
-                <p className="text-muted/50 text-[11px]">
+                <p className="text-muted text-xs">
                   {j.company} · {quelleText(j.source)} · {punkteText(j)}
                 </p>
               </div>
@@ -2402,17 +2402,17 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                   <button
                     type="button"
                     onClick={() => setCompareWith(j.hash)}
-                    className="text-muted/40 hover:text-sky text-[11px]"
+                    className="text-muted hover:text-sky text-xs"
                     title="Mit anderer Stelle vergleichen"
                   >
                     🆚
                   </button>
                 )}
                 {!j.link_primary && (
-                  <button
+                  <button aria-label="Verknüpfung entfernen"
                     type="button"
                     onClick={() => unlinkJob(j.hash)}
-                    className="text-muted/40 hover:text-coral text-[11px]"
+                    className="text-muted hover:text-coral text-xs"
                     title="Verknüpfung entfernen"
                   >
                     <X size={12} />
@@ -2426,7 +2426,7 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
           <button
             type="button"
             onClick={() => { setAdding(true); loadAvailable(); }}
-            className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+            className="text-xs text-muted hover:text-sky inline-flex items-center gap-1"
           >
             <Plus size={11} /> Weitere Stelle
           </button>
@@ -2459,14 +2459,14 @@ function ApplicationJobsSection({ applicationId, pushToast }) {
                   className="w-full text-left px-2 py-1 rounded text-[12px] text-ink hover:bg-white/[0.04]"
                 >
                   {j.title}
-                  <span className="text-muted/50 ml-1.5">· {j.company}</span>
+                  <span className="text-muted ml-1.5">· {j.company}</span>
                 </button>
               ))}
             </div>
             <button
               type="button"
               onClick={() => { setAdding(false); setSearch(""); setVersionLabel(""); }}
-              className="mt-2 text-[11px] text-muted/50 hover:text-ink"
+              className="mt-2 text-xs text-muted hover:text-ink"
             >
               Abbrechen
             </button>
@@ -2497,7 +2497,7 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
   if (!data) {
     return (
       <Modal open title="Stellen-Vergleich" onClose={onClose}>
-        <p className="text-sm text-muted/60">Lade Vergleich...</p>
+        <p className="text-sm text-muted">Lade Vergleich...</p>
       </Modal>
     );
   }
@@ -2517,12 +2517,12 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
         <div className="grid grid-cols-2 gap-3">
           {[a, b].map((s, idx) => (
             <div key={idx} className="glass-card p-3">
-              <p className="text-[10px] uppercase text-muted/50 mb-1">
+              <p className="text-xs uppercase text-muted mb-1">
                 {idx === 0 ? "Stelle A" : "Stelle B"}
               </p>
               <p className="font-semibold text-ink">{s.title}</p>
-              <p className="text-[12px] text-muted/70">{s.company}</p>
-              <div className="mt-2 space-y-0.5 text-[11px] text-muted/60">
+              <p className="text-[12px] text-muted">{s.company}</p>
+              <div className="mt-2 space-y-0.5 text-xs text-muted">
                 <p>Punkte: <span className="text-ink">{punkteText(s)}</span></p>
                 <p>Quelle: <span className="text-ink">{quelleText(s.source)}</span></p>
                 <p>Standort: <span className="text-ink">{s.location || "—"}</span></p>
@@ -2535,36 +2535,36 @@ function StellenVergleichModal({ hashA, hashB, onClose, pushToast }) {
         </div>
 
         <div className="glass-card p-3">
-          <p className="text-[10px] uppercase text-muted/50 mb-2">Vergleich</p>
+          <p className="text-xs uppercase text-muted mb-2">Vergleich</p>
           <div className="space-y-1.5 text-[12px]">
             <p>
-              <span className="text-muted/60">Punkte-Differenz:</span>{" "}
+              <span className="text-muted">Punkte-Differenz:</span>{" "}
               <span className="font-mono">{v.score_diff > 0 ? "+" : ""}{v.score_diff}</span>{" "}
-              <span className="text-muted/40">(A − B)</span>
+              <span className="text-muted">(A − B)</span>
             </p>
             <p>
-              <span className="text-muted/60">Beschreibung-Overlap:</span>{" "}
+              <span className="text-muted">Beschreibung-Overlap:</span>{" "}
               <span className="font-mono">{v.beschreibung_overlap_pct}%</span>
             </p>
             <p>
-              <span className="text-muted/60">Gleiche Firma:</span>{" "}
+              <span className="text-muted">Gleiche Firma:</span>{" "}
               {v.gleiche_firma ? "✓ Ja" : "✗ Nein"}
             </p>
             {v.titel_gemeinsam.length > 0 && (
               <p>
-                <span className="text-muted/60">Titel — gemeinsam:</span>{" "}
+                <span className="text-muted">Titel — gemeinsam:</span>{" "}
                 <span className="text-teal">{v.titel_gemeinsam.slice(0, 8).join(", ")}</span>
               </p>
             )}
             {v.titel_nur_a.length > 0 && (
               <p>
-                <span className="text-muted/60">Titel — nur A:</span>{" "}
+                <span className="text-muted">Titel — nur A:</span>{" "}
                 <span className="text-amber">{v.titel_nur_a.slice(0, 6).join(", ")}</span>
               </p>
             )}
             {v.titel_nur_b.length > 0 && (
               <p>
-                <span className="text-muted/60">Titel — nur B:</span>{" "}
+                <span className="text-muted">Titel — nur B:</span>{" "}
                 <span className="text-amber">{v.titel_nur_b.slice(0, 6).join(", ")}</span>
               </p>
             )}
@@ -2646,44 +2646,44 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
 
   return (
     <Card className="glass-card-soft rounded-xl shadow-none">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-2">
         Aufwand für diese Bewerbung
       </p>
       {!hasAnyCost && !adding && (
-        <p className="text-[12px] text-muted/50 mb-2">
+        <p className="text-[12px] text-muted mb-2">
           Trage Reisekosten, Tool-Abos oder Prüfungs-Gebühren ein — für einen
           ehrlichen Blick auf den realen Aufwand pro Bewerbung.
         </p>
       )}
       {hasAnyCost && (
-        <div className="grid grid-cols-2 gap-2 mb-2 text-[11px]">
+        <div className="grid grid-cols-2 gap-2 mb-2 text-xs">
           {data.termine_anzahl > 0 && (
             <div>
-              <p className="text-muted/50">Termine</p>
+              <p className="text-muted">Termine</p>
               <p className="text-ink font-medium">{data.termine_anzahl}</p>
             </div>
           )}
           {data.termine_dauer_min_summe > 0 && (
             <div>
-              <p className="text-muted/50">Dauer (gesamt)</p>
+              <p className="text-muted">Dauer (gesamt)</p>
               <p className="text-ink font-medium">{Math.round(data.termine_dauer_min_summe / 60)} h</p>
             </div>
           )}
           {data.vorbereitungszeit_min_summe > 0 && (
             <div>
-              <p className="text-muted/50">Vorbereitung</p>
+              <p className="text-muted">Vorbereitung</p>
               <p className="text-ink font-medium">{Math.round(data.vorbereitungszeit_min_summe / 60)} h</p>
             </div>
           )}
           {data.reisekosten_brutto_eur > 0 && (
             <div>
-              <p className="text-muted/50">Reisekosten netto</p>
+              <p className="text-muted">Reisekosten netto</p>
               <p className="text-ink font-medium">{data.reisekosten_netto_eur.toFixed(2)} €</p>
             </div>
           )}
           {data.kosten_summe_eur > 0 && (
             <div>
-              <p className="text-muted/50">Sonstige Kosten</p>
+              <p className="text-muted">Sonstige Kosten</p>
               <p className="text-ink font-medium">{data.kosten_summe_eur.toFixed(2)} €</p>
             </div>
           )}
@@ -2693,18 +2693,18 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
       {costsList.length > 0 && (
         <ul className="space-y-1 mb-2 border-t border-white/5 pt-2">
           {costsList.map((c) => (
-            <li key={c.id} className="flex items-center justify-between text-[11px]">
+            <li key={c.id} className="flex items-center justify-between text-xs">
               <div className="flex-1 min-w-0">
                 <span className="text-ink font-mono">{(c.amount || 0).toFixed(2)} €</span>
-                <span className="ml-1.5 text-muted/50">{klartext(c.kind)}</span>
+                <span className="ml-1.5 text-muted">{klartext(c.kind)}</span>
                 {c.description && (
-                  <span className="ml-1.5 text-muted/40 truncate">— {c.description}</span>
+                  <span className="ml-1.5 text-muted truncate">— {c.description}</span>
                 )}
               </div>
-              <button
+              <button aria-label="Kosten löschen"
                 type="button"
                 onClick={() => deleteCost(c.id)}
-                className="text-muted/40 hover:text-coral text-[11px] shrink-0"
+                className="text-muted hover:text-coral text-xs shrink-0"
               >
                 <X size={11} />
               </button>
@@ -2745,14 +2745,14 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
             <button
               type="button"
               onClick={addCost}
-              className="rounded bg-sky/15 text-sky px-2 py-1 text-[11px] hover:bg-sky/25"
+              className="rounded bg-sky/15 text-sky px-2 py-1 text-xs hover:bg-sky/25"
             >
               Speichern
             </button>
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className="text-[11px] text-muted/50 hover:text-ink"
+              className="text-xs text-muted hover:text-ink"
             >
               Abbrechen
             </button>
@@ -2762,7 +2762,7 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+          className="text-xs text-muted hover:text-sky inline-flex items-center gap-1"
         >
           <Plus size={11} /> Kosten erfassen
         </button>
@@ -2880,12 +2880,12 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
 
   return (
     <Card className="glass-card-soft rounded-xl shadow-none">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60 mb-2">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-2">
         Beteiligte Personen
       </p>
 
       {contacts.length === 0 && !adding && (
-        <div className="text-center py-4 text-muted/50">
+        <div className="text-center py-4 text-muted">
           <p className="text-[12px] mb-2">
             Noch niemand verknüpft. Wer war beim Interview dabei? Wer hat angeschrieben?
           </p>
@@ -2906,18 +2906,18 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
               <div className="flex-1 min-w-0">
                 <span className="text-ink font-medium">{c.full_name}</span>
                 {c.link_role && (
-                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-[9px]">
+                  <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-xs">
                     {kontaktrolleText(c.link_role)}
                   </span>
                 )}
                 {c.company && (
-                  <span className="ml-1.5 text-muted/50 text-[11px]">{c.company}</span>
+                  <span className="ml-1.5 text-muted text-xs">{c.company}</span>
                 )}
               </div>
-              <button
+              <button aria-label="Verknüpfung entfernen"
                 type="button"
                 onClick={() => unlink(c.link_id)}
-                className="text-muted/40 hover:text-coral text-[11px]"
+                className="text-muted hover:text-coral text-xs"
                 title="Verknüpfung entfernen"
               >
                 <X size={12} />
@@ -2931,7 +2931,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
         <button
           type="button"
           onClick={() => { setAdding(true); loadAllContacts(); }}
-          className="text-[11px] text-muted/50 hover:text-sky inline-flex items-center gap-1"
+          className="text-xs text-muted hover:text-sky inline-flex items-center gap-1"
         >
           <Plus size={11} /> Weitere Person
         </button>
@@ -2958,7 +2958,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
             <button
               type="button"
               onClick={() => { setAdding(false); setSearch(""); setNewName(""); }}
-              className="text-[11px] text-muted/50 hover:text-ink"
+              className="text-xs text-muted hover:text-ink"
             >
               Abbrechen
             </button>
@@ -2973,12 +2973,12 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
                   className="w-full text-left px-2 py-1 rounded text-[12px] text-ink hover:bg-white/[0.04]"
                 >
                   {c.full_name}
-                  {c.company && <span className="text-muted/50 ml-1.5">· {c.company}</span>}
+                  {c.company && <span className="text-muted ml-1.5">· {c.company}</span>}
                 </button>
               ))}
             </div>
           )}
-          <div className="text-[11px] text-muted/50 mb-1">
+          <div className="text-xs text-muted mb-1">
             Oder neue Person anlegen:
           </div>
           <div className="flex gap-2">
@@ -3045,7 +3045,7 @@ function MeetingCreator({ applicationId, pushToast, onCreated }) {
     return (
       <button
         type="button"
-        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-[13px] text-muted/50 transition hover:border-teal/30 hover:text-teal/70"
+        className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-[13px] text-muted transition hover:border-teal/30 hover:text-teal"
         onClick={() => setOpen(true)}
       >
         <Calendar size={14} />
@@ -3056,13 +3056,13 @@ function MeetingCreator({ applicationId, pushToast, onCreated }) {
 
   return (
     <Card className="glass-card-soft rounded-xl shadow-none">
-      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
         <Calendar size={12} className="mr-1 inline" />
         Neuer Termin
       </p>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         <div>
-          <label className="text-xs text-muted/60">Titel</label>
+          <label className="text-xs text-muted">Titel</label>
           <input
             type="text"
             className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
@@ -3071,7 +3071,7 @@ function MeetingCreator({ applicationId, pushToast, onCreated }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted/60">Datum</label>
+          <label className="text-xs text-muted">Datum</label>
           <input
             type="date"
             className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
@@ -3080,7 +3080,7 @@ function MeetingCreator({ applicationId, pushToast, onCreated }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted/60">Uhrzeit</label>
+          <label className="text-xs text-muted">Uhrzeit</label>
           <input
             type="time"
             className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"
@@ -3089,7 +3089,7 @@ function MeetingCreator({ applicationId, pushToast, onCreated }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted/60">Meeting-Link (optional)</label>
+          <label className="text-xs text-muted">Meeting-Link (optional)</label>
           <input
             type="url"
             className="mt-0.5 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-ink"

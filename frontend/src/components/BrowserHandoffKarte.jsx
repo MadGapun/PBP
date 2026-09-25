@@ -45,7 +45,7 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
             <Globe size={15} />
             Diese Quellen laufen nur über den Browser
           </p>
-          <p className="mt-1 text-xs text-muted/60">
+          <p className="mt-1 text-xs text-muted">
             Die interne Jobsuche überspringt sie. Claude kann sie mit der
             Chrome-Erweiterung abarbeiten — der Prompt enthält deine
             Suchbegriffe je Portal.
@@ -58,10 +58,10 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
       {uebersprungen.length ? (
         <ul className="mt-3 grid gap-1.5">
           {uebersprungen.map((q) => (
-            <li key={q.key} className="flex flex-wrap items-center gap-2 text-[13px] text-muted/80">
+            <li key={q.key} className="flex flex-wrap items-center gap-2 text-[13px] text-muted">
               <span className="font-medium text-ink">{q.name}</span>
               {q.suchprofil_vorhanden ? (
-                <span className="text-muted/60">{q.suchbegriffe.join(", ")}</span>
+                <span className="text-muted">{q.suchbegriffe.join(", ")}</span>
               ) : (
                 // AK 6: ohne Suchprofil ein Hinweis, keine erfundenen Begriffe.
                 <Badge>keine Suchbegriffe je Jobbörse</Badge>
@@ -71,7 +71,7 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
         </ul>
       ) : null}
       {optional.length ? (
-        <p className="mt-3 text-xs text-muted/50">
+        <p className="mt-3 text-xs text-muted">
           Optional, als defekt geführt, im Browser erreichbar:{" "}
           {optional.map((q) => q.name).join(", ")}
         </p>

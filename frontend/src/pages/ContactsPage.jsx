@@ -75,7 +75,7 @@ function RoleChip({ role }) {
   if (color) {
     return (
       <span
-        className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium"
+        className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
         style={{
           backgroundColor: color + "26",  // 15% Alpha
           color: color,
@@ -86,7 +86,7 @@ function RoleChip({ role }) {
     );
   }
   return (
-    <span className="inline-flex items-center rounded-full bg-sky/15 text-sky px-2 py-0.5 text-[10px] font-medium">
+    <span className="inline-flex items-center rounded-full bg-sky/15 text-sky px-2 py-0.5 text-xs font-medium">
       {label}
     </span>
   );
@@ -103,23 +103,23 @@ function ContactCard({ contact, onClick }) {
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-semibold text-ink truncate">{contact.full_name}</p>
           {contact.position && contact.company && (
-            <p className="text-[12px] text-muted/60 truncate">
+            <p className="text-[12px] text-muted truncate">
               {contact.position} · {contact.company}
             </p>
           )}
           {!contact.position && contact.company && (
-            <p className="text-[12px] text-muted/60 truncate">{contact.company}</p>
+            <p className="text-[12px] text-muted truncate">{contact.company}</p>
           )}
           <div className="mt-1.5 flex flex-wrap gap-1">
             {(contact.tags || []).slice(0, 3).map((tag) => (
               <RoleChip key={tag} role={tag} />
             ))}
             {(contact.tags || []).length > 3 && (
-              <span className="text-[10px] text-muted/40">+{contact.tags.length - 3}</span>
+              <span className="text-xs text-muted">+{contact.tags.length - 3}</span>
             )}
           </div>
         </div>
-        <ChevronRight size={16} className="text-muted/30 shrink-0 mt-0.5" />
+        <ChevronRight size={16} className="text-muted shrink-0 mt-0.5" />
       </div>
     </button>
   );
@@ -321,7 +321,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             )}
           </div>
           {form.linkedin_url && form.linkedin_url.includes("linkedin.com/in/") && (
-            <p className="mt-1 text-[11px] text-muted/50">
+            <p className="mt-1 text-xs text-muted">
               <span className="text-sky">„Daten holen"</span> erzeugt einen Claude-Prompt.
               Claude öffnet das Profil im eingeloggten Chrome-Tab und liest Name/Position/Firma.
             </p>
@@ -329,10 +329,10 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
         </Field>
 
         <div>
-          <p className="text-[11px] font-semibold text-muted/60 mb-1.5 uppercase tracking-[0.1em]">
+          <p className="text-xs font-semibold text-muted mb-1.5 uppercase tracking-[0.1em]">
             Rollen / Tags
           </p>
-          <p className="text-[11px] text-muted/50 mb-2">
+          <p className="text-xs text-muted mb-2">
             Was diese Person für dich ist. Mehrere möglich — z.B. „Recruiter" + „HR".
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -341,10 +341,10 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
                 key={opt.value}
                 type="button"
                 onClick={() => toggleTag(opt.value)}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                   form.tags.includes(opt.value)
                     ? "bg-sky/20 text-sky"
-                    : "bg-white/[0.03] text-muted/60 hover:bg-white/[0.07]"
+                    : "bg-white/[0.03] text-muted hover:bg-white/[0.07]"
                 }`}
               >
                 {opt.label}
@@ -358,20 +358,20 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             value={form.notes}
             onChange={(e) => setForm({ ...form, notes: e.target.value })}
             rows={3}
-            className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+            className="w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink placeholder-muted focus:border-sky/40 focus:outline-none"
             placeholder="Wie habt ihr euch kennengelernt, was ist wichtig zu wissen..."
           />
         </Field>
 
         {isEdit && linkedItems.length > 0 && (
           <div className="border-t border-white/5 pt-3">
-            <p className="text-[11px] font-semibold text-muted/60 mb-2 uppercase tracking-[0.1em]">
+            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
               Verknuepfungen ({linkedItems.length})
             </p>
-            <ul className="space-y-1 text-[12px] text-muted/70">
+            <ul className="space-y-1 text-[12px] text-muted">
               {linkedItems.slice(0, 8).map((l) => (
                 <li key={l.id}>
-                  <span className="text-muted/40">{l.target_kind}</span>
+                  <span className="text-muted">{l.target_kind}</span>
                   {" · "}
                   {l.role && <RoleChip role={l.role} />}
                 </li>
@@ -382,11 +382,11 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
 
         {isEdit && (
           <div className="border-t border-white/5 pt-3" data-testid="referenz-block">
-            <p className="text-[11px] font-semibold text-muted/60 mb-2 uppercase tracking-[0.1em]">
+            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
               Als Referenz
             </p>
             {refs.length > 0 && (
-              <ul className="mb-2 space-y-1 text-[12px] text-muted/80">
+              <ul className="mb-2 space-y-1 text-[12px] text-muted">
                 {refs.map((r) => (
                   <li key={r.id} className="flex items-center justify-between gap-2">
                     <span>
@@ -398,7 +398,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
                       type="button"
                       aria-label={`Referenz ${r.art_label} entfernen`}
                       onClick={() => handleRemoveReference(r.id)}
-                      className="text-coral/70 hover:text-coral"
+                      className="text-coral hover:text-coral"
                     >
                       <X size={12} />
                     </button>
@@ -444,7 +444,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             <button
               type="button"
               onClick={handleDelete}
-              className="text-[12px] text-coral/70 hover:text-coral inline-flex items-center gap-1"
+              className="text-[12px] text-coral hover:text-coral inline-flex items-center gap-1"
             >
               <Trash2 size={12} /> Löschen
             </button>
@@ -511,7 +511,7 @@ function PendingContactsBanner({ pushToast, onChange }) {
     <Card className="rounded-2xl mb-4 border-amber/30 bg-amber/[0.04]">
       <div className="mb-2 flex items-center justify-between">
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber/80">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber">
             Vorschläge von der lokalen AI
           </p>
           <p className="text-sm text-ink mt-1">
@@ -525,12 +525,12 @@ function PendingContactsBanner({ pushToast, onChange }) {
           <div key={c.id} className="glass-card p-2 flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-medium text-ink">{c.full_name}</p>
-              <p className="text-[11px] text-muted/60">
+              <p className="text-xs text-muted">
                 {c.position && <>{c.position}</>}
                 {c.position && c.company && " · "}
                 {c.company}
                 {c.email && (
-                  <span className="ml-2 text-muted/40">{c.email}</span>
+                  <span className="ml-2 text-muted">{c.email}</span>
                 )}
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
@@ -538,10 +538,10 @@ function PendingContactsBanner({ pushToast, onChange }) {
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button size="xs" onClick={() => approve(c.id)} disabled={busy}>
+              <Button size="sm" onClick={() => approve(c.id)} disabled={busy}>
                 Akzeptieren
               </Button>
-              <Button size="xs" variant="secondary" onClick={() => reject(c.id)} disabled={busy}>
+              <Button size="sm" variant="secondary" onClick={() => reject(c.id)} disabled={busy}>
                 Verwerfen
               </Button>
             </div>
@@ -549,7 +549,7 @@ function PendingContactsBanner({ pushToast, onChange }) {
         ))}
       </div>
       {pending.length > 10 && (
-        <p className="text-[11px] text-muted/50 mt-2">
+        <p className="text-xs text-muted mt-2">
           +{pending.length - 10} weitere — genehmige diese erst, dann kommen die naechsten.
         </p>
       )}
@@ -638,14 +638,14 @@ function CategoryManagementSection({ pushToast }) {
         className="w-full flex items-center justify-between"
       >
         <div className="text-left">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
             Kategorien verwalten
           </p>
           <p className="text-sm text-ink mt-1">
             {cats.length} Kategorie{cats.length === 1 ? "" : "n"} mit Farben
           </p>
         </div>
-        <span className="text-muted/40 text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>
       </button>
 
       {open && (
@@ -667,17 +667,17 @@ function CategoryManagementSection({ pushToast }) {
                 }}
                 className="flex-1 bg-transparent text-[13px] text-ink focus:outline-none focus:bg-white/[0.04] px-2 py-1 rounded"
               />
-              <span className="text-[10px] text-muted/40 font-mono shrink-0">
+              <span className="text-xs text-muted font-mono shrink-0">
                 {c.contact_count} Kontakt{c.contact_count === 1 ? "" : "e"}
               </span>
               {c.is_system ? (
-                <span className="text-[10px] text-muted/40 italic shrink-0">System</span>
+                <span className="text-xs text-muted italic shrink-0">System</span>
               ) : (
                 <button
                   type="button"
                   onClick={() => removeCat(c.id, c.name)}
                   disabled={busy}
-                  className="text-muted/40 hover:text-coral shrink-0"
+                  className="text-muted hover:text-coral shrink-0"
                   title="Kategorie löschen"
                 >
                   <Trash2 size={12} />
@@ -693,9 +693,9 @@ function CategoryManagementSection({ pushToast }) {
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addNew()}
               placeholder="Neue Kategorie (z.B. Headhunter)"
-              className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-2 py-1.5 text-[12px] text-ink placeholder-muted/40 focus:border-teal/40 focus:outline-none"
+              className="flex-1 bg-white/[0.03] border border-white/10 rounded-md px-2 py-1.5 text-[12px] text-ink placeholder-muted focus:border-teal/40 focus:outline-none"
             />
-            <Button size="xs" onClick={addNew} disabled={busy || !newName.trim()}>
+            <Button size="sm" onClick={addNew} disabled={busy || !newName.trim()}>
               <Plus size={12} /> Anlegen
             </Button>
           </div>
@@ -768,7 +768,7 @@ export default function ContactsPage() {
       <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h2 className="text-base font-semibold text-ink">Kontakte</h2>
-          <p className="text-xs text-muted/60 mt-0.5">
+          <p className="text-xs text-muted mt-0.5">
             Personen mit Rollen und Historie über Bewerbungen, Stellen und Termine
           </p>
         </div>
@@ -792,7 +792,7 @@ export default function ContactsPage() {
             aria-selected={ansicht === id}
             onClick={() => setAnsicht(id)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              ansicht === id ? "bg-sky/15 text-sky" : "text-muted/50 hover:text-muted hover:bg-white/5"
+              ansicht === id ? "bg-sky/15 text-sky" : "text-muted hover:text-muted hover:bg-white/5"
             }`}
           >
             {label}
@@ -812,13 +812,13 @@ export default function ContactsPage() {
       {!isEmpty && (
         <div className="mb-5 flex flex-wrap items-center gap-2">
           <div className="flex-1 min-w-[200px] relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted/40" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Name, E-Mail, Firma..."
-              className="w-full rounded-lg border border-white/8 bg-white/[0.03] pl-9 pr-3 py-2 text-[13px] text-ink placeholder-muted/40 focus:border-sky/40 focus:outline-none"
+              className="w-full rounded-lg border border-white/8 bg-white/[0.03] pl-9 pr-3 py-2 text-[13px] text-ink placeholder-muted focus:border-sky/40 focus:outline-none"
             />
           </div>
           <select
@@ -835,7 +835,7 @@ export default function ContactsPage() {
             <button
               type="button"
               onClick={() => { setSearch(""); setRoleFilter(""); }}
-              className="text-[11px] text-muted/50 hover:text-ink underline"
+              className="text-xs text-muted hover:text-ink underline"
             >
               zurücksetzen
             </button>
@@ -846,13 +846,13 @@ export default function ContactsPage() {
       {isEmpty ? (
         <Card className="rounded-2xl">
           <div className="text-center py-12">
-            <UsersRound size={48} className="mx-auto text-muted/20 mb-4" />
+            <UsersRound size={48} className="mx-auto text-muted mb-4" />
             <h3 className="text-lg font-semibold text-ink mb-2">Noch keine Kontakte</h3>
-            <p className="text-sm text-muted/70 max-w-md mx-auto mb-1.5">
+            <p className="text-sm text-muted max-w-md mx-auto mb-1.5">
               Kontakte sind <strong className="text-ink/90">Personen, die mit deiner Jobsuche zu tun haben</strong> —
               Recruiter, Fachvorgesetzte, Gesprächspartner, Mentoren, Kollegen.
             </p>
-            <p className="text-sm text-muted/70 max-w-md mx-auto mb-6">
+            <p className="text-sm text-muted max-w-md mx-auto mb-6">
               Du kannst sie später mit Bewerbungen oder Terminen verknüpfen, um die
               Historie pro Person zu sehen.
             </p>
@@ -864,7 +864,7 @@ export default function ContactsPage() {
         </Card>
       ) : contacts.length === 0 ? (
         <Card className="rounded-2xl">
-          <div className="py-8 text-center text-muted/60">
+          <div className="py-8 text-center text-muted">
             <p className="text-sm">Keine Kontakte mit diesen Filtern.</p>
             <button
               type="button"
@@ -975,7 +975,7 @@ function ReferencesSection({ pushToast, reloadKey }) {
             <option key={a.wert} value={a.wert}>{a.label}</option>
           ))}
         </select>
-        <label className="flex items-center gap-2 text-[12px] text-muted/70">
+        <label className="flex items-center gap-2 text-[12px] text-muted">
           <input type="checkbox" checked={mitKontakt} onChange={(e) => setMitKontakt(e.target.checked)} />
           Kontaktdaten in die Liste aufnehmen
         </label>
@@ -996,21 +996,21 @@ function ReferencesSection({ pushToast, reloadKey }) {
           </a>
         </div>
       </div>
-      <p className="mb-3 text-[11px] text-muted/50">
+      <p className="mb-3 text-xs text-muted">
         {mitKontakt
           ? "Mail und Telefon stehen in der Liste — sie geht an Dritte."
           : "In der Liste steht \"Kontaktdaten auf Anfrage\" statt Mail und Telefon."}
       </p>
 
       {laedt ? (
-        <p className="text-sm text-muted/60">Referenzen werden geladen …</p>
+        <p className="text-sm text-muted">Referenzen werden geladen …</p>
       ) : refs.length === 0 ? (
         <Card className="rounded-2xl">
           <div className="py-10 text-center">
-            <p className="text-sm text-muted/70">
+            <p className="text-sm text-muted">
               {artFilter ? "Keine Referenz dieser Art." : "Noch keine Referenzen."}
             </p>
-            <p className="mt-1 text-[12px] text-muted/50">
+            <p className="mt-1 text-[12px] text-muted">
               Öffne einen Kontakt und wähle dort „Als Referenz markieren".
             </p>
           </div>
@@ -1023,15 +1023,15 @@ function ReferencesSection({ pushToast, reloadKey }) {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink">{r.full_name}</p>
-                    <p className="text-[12px] text-muted/70">
+                    <p className="text-[12px] text-muted">
                       {[r.position, r.company].filter(Boolean).join(" · ")}
                     </p>
                     <p className="mt-1 text-[12px] text-ink/90">
                       {[r.art_label, r.period_text].filter(Boolean).join(" · ")}
                     </p>
-                    {r.note ? <p className="text-[12px] text-muted/70">{r.note}</p> : null}
+                    {r.note ? <p className="text-[12px] text-muted">{r.note}</p> : null}
                     {r.bewerbung_titel || r.projekt_name ? (
-                      <p className="text-[11px] text-muted/50">
+                      <p className="text-xs text-muted">
                         {[r.bewerbung_titel && `Bewerbung: ${r.bewerbung_titel}`,
                           r.projekt_name && `Projekt: ${r.projekt_name}`].filter(Boolean).join(" · ")}
                       </p>
@@ -1041,7 +1041,7 @@ function ReferencesSection({ pushToast, reloadKey }) {
                     type="button"
                     aria-label={`Referenz von ${r.full_name} entfernen`}
                     onClick={() => entfernen(r.id)}
-                    className="text-coral/60 hover:text-coral"
+                    className="text-coral hover:text-coral"
                   >
                     <Trash2 size={14} />
                   </button>
@@ -1129,7 +1129,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
   if (loading) {
     return (
       <Modal open onClose={onClose} title="Kontakte importieren">
-        <p className="text-sm text-muted/60">Suche Kandidaten in Bewerbungen und Mails...</p>
+        <p className="text-sm text-muted">Suche Kandidaten in Bewerbungen und Mails...</p>
       </Modal>
     );
   }
@@ -1141,13 +1141,13 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
   if (apps.length === 0 && mails.length === 0) {
     return (
       <Modal open onClose={onClose} title="Kontakte importieren">
-        <div className="text-sm text-muted/70 space-y-3">
+        <div className="text-sm text-muted space-y-3">
           <p>
             Keine neuen Kontakt-Kandidaten gefunden. Entweder hast du noch keine
             Bewerbungen mit Ansprechpartner erfasst, oder alle gefundenen Personen
             sind bereits als Kontakt angelegt.
           </p>
-          <p className="text-[12px] text-muted/50">
+          <p className="text-[12px] text-muted">
             Tipp: Bewerbungen mit gefülltem Feld <em>Ansprechpartner</em> oder
             <em> Kontakt-E-Mail</em> sind die beste Quelle.
           </p>
@@ -1162,7 +1162,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
   return (
     <Modal open onClose={onClose} title="Kontakte importieren">
       <div className="space-y-4">
-        <p className="text-[12px] text-muted/60">
+        <p className="text-[12px] text-muted">
           Aus deinen Bewerbungen und E-Mail-Dokumenten konnten {apps.length + mails.length} potenzielle Kontakte gefunden werden.
           Waehle aus, welche du als Kontakt anlegen moechtest. Bestehende Kontakte sind ausgefiltert.
         </p>
@@ -1176,7 +1176,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
               <button
                 type="button"
                 onClick={() => toggleAll("app", apps)}
-                className="text-[11px] text-sky hover:underline"
+                className="text-xs text-sky hover:underline"
               >
                 Alle umschalten
               </button>
@@ -1192,7 +1192,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink truncate">{c.full_name}</p>
-                    <p className="text-[11px] text-muted/60 truncate">
+                    <p className="text-xs text-muted truncate">
                       {c.email && <span>{c.email}</span>}
                       {c.email && c.company && " · "}
                       {c.company && <span>{c.company}</span>}
@@ -1209,14 +1209,14 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium text-ink">
                 Aus Mail-Dokumenten ({mails.length})
-                <span className="ml-2 text-[10px] uppercase tracking-wide text-amber/80">
+                <span className="ml-2 text-xs uppercase tracking-wide text-amber">
                   Heuristik — prüfe sorgfältig
                 </span>
               </h3>
               <button
                 type="button"
                 onClick={() => toggleAll("mail", mails)}
-                className="text-[11px] text-sky hover:underline"
+                className="text-xs text-sky hover:underline"
               >
                 Alle umschalten
               </button>
@@ -1232,10 +1232,10 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink truncate">{c.full_name}</p>
-                    <p className="text-[11px] text-muted/60 truncate">
+                    <p className="text-xs text-muted truncate">
                       {c.email}
                       {c.found_in?.length > 0 && (
-                        <span className="ml-2 text-muted/40">
+                        <span className="ml-2 text-muted">
                           aus {c.found_in.length} {c.found_in.length === 1 ? "Mail" : "Mails"}
                         </span>
                       )}
@@ -1248,7 +1248,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
         )}
 
         <div className="flex items-center justify-between pt-3 border-t border-white/5">
-          <p className="text-[12px] text-muted/60">
+          <p className="text-[12px] text-muted">
             {totalSelected} ausgewaehlt
           </p>
           <div className="flex items-center gap-2">

@@ -1110,8 +1110,8 @@ export default function ProfilePage({ bereich = "profil" }) {
   // Klick auf "Locker" speicherte "Alles zeigen".
   const schwellenStufe = (bereich, titel, hinweis) => (
     <div className="mt-2" data-stufenbereich={bereich}>
-      <div className="text-xs font-medium text-muted/70">{titel}</div>
-      <p className="mb-2 mt-0.5 text-[11px] text-muted/50">{hinweis}</p>
+      <div className="text-xs font-medium text-muted">{titel}</div>
+      <p className="mb-2 mt-0.5 text-xs text-muted">{hinweis}</p>
       <div className="grid gap-1.5">
         {stufenListe.map((stufe) => {
           const aktiv = (stufenGewaehlt[bereich] || "alles_zeigen") === stufe.schluessel;
@@ -1132,23 +1132,23 @@ export default function ProfilePage({ bereich = "profil" }) {
                 <span className={`text-sm ${aktiv ? "font-semibold text-sky" : "text-ink"}`}>
                   {stufe.name}
                 </span>
-                <span className="text-[11px] tabular-nums text-muted/50">
+                <span className="text-xs tabular-nums text-muted">
                   {offen ? "noch nicht berechenbar" : `ab ${stufe.wert} Punkten`}
                 </span>
               </div>
-              <div className="mt-0.5 text-[11px] text-muted/60">{stufe.bedeutung}</div>
+              <div className="mt-0.5 text-xs text-muted">{stufe.bedeutung}</div>
               {!offen && (
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]">
-                  <span className="text-teal/70">
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs">
+                  <span className="text-teal">
                     {`${stufe.sichtbar} Stellen bleiben sichtbar`}
                   </span>
                   {stufe.bewerbungen_darunter > 0 && (
-                    <span className="text-coral/70">
+                    <span className="text-coral">
                       {`${stufe.bewerbungen_darunter} deiner eigenen Bewerbungen lägen darunter`}
                     </span>
                   )}
                   {stufe.angehoben_auf_vorstufe !== undefined && (
-                    <span className="text-muted/40">
+                    <span className="text-muted">
                       {`gerechnet ${stufe.angehoben_auf_vorstufe}, angehoben damit die Stufen steigen`}
                     </span>
                   )}
@@ -1159,7 +1159,7 @@ export default function ProfilePage({ bereich = "profil" }) {
         })}
       </div>
       {stufenBelastbar === false && (
-        <p className="mt-1.5 text-[11px] text-muted/50">
+        <p className="mt-1.5 text-xs text-muted">
           {scoreVerteilung?.stufen?.grund
             || "Für die höheren Stufen fehlen noch genug bewertete Bewerbungen."}
         </p>
@@ -1249,7 +1249,7 @@ export default function ProfilePage({ bereich = "profil" }) {
       <div key={card.key} className="group flex items-center gap-4 py-2">
         <div className="w-28 shrink-0">
           <p className={cn("text-[12px] font-semibold", c.label)} title={card.desc}>{card.label}</p>
-          <p className="text-[10px] text-muted/50">{card.chip}</p>
+          <p className="text-xs text-muted">{card.chip}</p>
         </div>
         <div className="flex flex-1 flex-col gap-0.5">
           <div className="relative flex items-center">
@@ -1267,7 +1267,7 @@ export default function ProfilePage({ bereich = "profil" }) {
               }}
             />
           </div>
-          <div className="flex justify-between text-[9px] text-muted/40">
+          <div className="flex justify-between text-xs text-muted">
             <span>unwichtig</span>
             <span>sehr wichtig</span>
           </div>
@@ -1291,7 +1291,7 @@ export default function ProfilePage({ bereich = "profil" }) {
         </Button>
         <button
           type="button"
-          className="text-xs text-muted/40 hover:text-coral transition-colors"
+          className="text-xs text-muted hover:text-coral transition-colors"
           onClick={() => navigateTo("einstellungen", { tab: "gefahrenzone" })}
         >
           Profil löschen? → Gefahrenzone
@@ -1319,7 +1319,7 @@ export default function ProfilePage({ bereich = "profil" }) {
           <div className="grid gap-5">
             <div className="grid gap-5 md:grid-cols-2">
               <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Kontakt</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted">Kontakt</p>
                 <div className="grid gap-3">
                   <Field label="Name">
                     <TextInput value={draft.name || ""} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} />
@@ -1334,7 +1334,7 @@ export default function ProfilePage({ bereich = "profil" }) {
               </div>
 
               <div>
-                <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Adresse</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted">Adresse</p>
                 <div className="grid gap-3">
                   <Field label="Strasse">
                     <TextInput value={draft.address || ""} onChange={(event) => setDraft((current) => ({ ...current, address: event.target.value }))} />
@@ -1368,7 +1368,7 @@ export default function ProfilePage({ bereich = "profil" }) {
               </Field>
               <Field label="Informelle Notizen">
                 {/* H15 (#707): Fuehrung — erklaeren wozu die Notizen gut sind */}
-                <p className="text-[11px] text-muted/50 mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalität, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergänzt sie im Gespräch automatisch.">
+                <p className="text-xs text-muted mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalität, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergänzt sie im Gespräch automatisch.">
                   Persönliches, das Claude kennen soll: Präferenzen, No-Gos, Lebensumstände (z.B. „max. 2 Bürotage", „kein Reisejob"). Einfach im Chat erwähnen — Claude trägt es hier ein.
                 </p>
                 <TextArea rows={3} value={draft.informal_notes || ""} onChange={(event) => setDraft((current) => ({ ...current, informal_notes: event.target.value }))} />
@@ -1385,17 +1385,17 @@ export default function ProfilePage({ bereich = "profil" }) {
           {/* #458 / beta.29: Keyword-Vorschlaege aus Bewerbungen vs Aussortierten */}
           {keywordSuggestions?.status === "ok" && (keywordSuggestions.vorschlaege_plus?.length > 0 || keywordSuggestions.vorschlaege_ausschluss?.length > 0) && (
             <div className="mb-4 rounded-xl border border-sky/20 bg-sky/[0.04] p-3">
-              <p className="text-xs font-semibold text-sky/80 mb-1">
+              <p className="text-xs font-semibold text-sky mb-1">
                 Vorschlaege aus deinen {keywordSuggestions.aktive_stellen} aktiven Stellen
               </p>
               {keywordSuggestions.datenquelle ? (
-                <p className="text-[11px] text-muted/60 mb-2 italic">
+                <p className="text-xs text-muted mb-2 italic">
                   Basis: {keywordSuggestions.datenquelle}
                 </p>
               ) : null}
               {keywordSuggestions.vorschlaege_plus?.length > 0 && (
                 <div className="mb-2">
-                  <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
+                  <p className="text-xs uppercase tracking-wide text-muted mb-1.5">
                     Häufig in deinen Bewerbungen, fehlen in deinen PLUS-Keywords
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -1419,7 +1419,7 @@ export default function ProfilePage({ bereich = "profil" }) {
               )}
               {keywordSuggestions.vorschlaege_ausschluss?.length > 0 && (
                 <div>
-                  <p className="text-[11px] uppercase tracking-wide text-muted/60 mb-1.5">
+                  <p className="text-xs uppercase tracking-wide text-muted mb-1.5">
                     Häufig in von dir aussortierten Stellen — als Ausschluss empfohlen
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -1566,18 +1566,18 @@ export default function ProfilePage({ bereich = "profil" }) {
               <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {STELLENTYPEN_OPTIONS.filter(({ value }) => criteriaDraft.stellentypen?.includes(value)).map(({ value, label }) => (
                   <div key={value} className="flex items-center gap-2">
-                    <span className="min-w-[7rem] text-xs text-muted/60">{label}:</span>
+                    <span className="min-w-[7rem] text-xs text-muted">{label}:</span>
                     <TextInput
                       type="number"
                       className="!w-20"
                       value={criteriaDraft[`max_entfernung_${value}`]}
                       onChange={(event) => setCriteriaDraft((current) => ({ ...current, [`max_entfernung_${value}`]: event.target.value }))}
                     />
-                    <span className="text-xs text-muted/40">km</span>
+                    <span className="text-xs text-muted">km</span>
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-muted/40">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
+              <p className="mt-1 text-xs text-muted">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
             </Field>
 
             {/* G69 (#1087 F3): die Regler sind Feinabstimmung — zum Anfangen
@@ -1585,7 +1585,7 @@ export default function ProfilePage({ bereich = "profil" }) {
             <details id="suche-feinabstimmung" data-feinabstimmung className="mt-2 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
               <summary className="cursor-pointer text-sm font-medium text-ink">Feinabstimmung: wie stark einzelne Faktoren zählen</summary>
             {/* v1.7.0-beta.57 (#633): Erklaerung was die Gewichtung ueberhaupt tut. */}
-            <div className="mt-2 rounded-xl border border-sky/20 bg-sky/[0.05] p-3 text-[12px] text-muted/80">
+            <div className="mt-2 rounded-xl border border-sky/20 bg-sky/[0.05] p-3 text-[12px] text-muted">
               <p className="leading-snug">
                 <strong className="text-ink">Was die Punkte bedeuten:</strong>{" "}
                 {SCORE_BEDEUTUNG} Die Regler bestimmen, wie stark einzelne Faktoren
@@ -1619,10 +1619,10 @@ export default function ProfilePage({ bereich = "profil" }) {
               "Blendet nur die Anzeige aus — die Stelle bleibt gespeichert und jederzeit wieder sichtbar.")}
 
             <details className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] px-4 py-3">
-              <summary className="cursor-pointer text-xs text-muted/60">
+              <summary className="cursor-pointer text-xs text-muted">
                 Schwelle als Zahl setzen (für Fortgeschrittene)
               </summary>
-              <p className="mt-2 text-[11px] text-muted/50">
+              <p className="mt-2 text-xs text-muted">
                 {stufenGewaehlt.speichern && stufenGewaehlt.speichern !== "alles_zeigen"
                   ? "Wirkt nicht: es ist eine Stufe gewählt, und die gewinnt. Stelle oben auf „Alles zeigen“, damit diese Zahl greift."
                   : "Gilt beim Speichern während der Suche, solange oben „Alles zeigen“ steht."}
@@ -1646,30 +1646,30 @@ export default function ProfilePage({ bereich = "profil" }) {
               </div>
               {scoreVerteilung?.belastbar ? (
                 <>
-                  <div className="mt-2 flex gap-1.5 text-[11px]">
+                  <div className="mt-2 flex gap-1.5 text-xs">
                     {(scoreVerteilung.zonen || []).map((zone) => (
                       <span
                         key={zone.farbe}
                         title={zone.bedeutung}
                         className={`rounded-md px-2 py-0.5 ${
-                          zone.farbe === "gruen" ? "bg-teal/10 text-teal/80"
+                          zone.farbe === "gruen" ? "bg-teal/10 text-teal"
                             : zone.farbe === "gelb" ? "bg-amber/10 text-amber"
-                              : "bg-coral/10 text-coral/80"
+                              : "bg-coral/10 text-coral"
                         }`}
                       >
                         {`${zone.von}–${zone.bis}`}
                       </span>
                     ))}
                   </div>
-                  <p className="mt-1.5 text-xs text-muted/60">
+                  <p className="mt-1.5 text-xs text-muted">
                     {scoreEinordnung(scoreVerteilung, criteriaDraft.min_score_schwelle)}
                   </p>
-                  <p className="mt-1 text-[11px] text-muted/40">
+                  <p className="mt-1 text-xs text-muted">
                     {`Median ${scoreVerteilung.median}, höchster Wert ${scoreVerteilung.max} Punkte über ${scoreVerteilung.anzahl} Stellen. ${scoreVerteilung.grundlage}`}
                   </p>
                 </>
               ) : (
-                <p className="mt-1 text-xs text-muted/50">
+                <p className="mt-1 text-xs text-muted">
                   {scoreVerteilung?.grund
                     || "Verteilung wird geladen — solange gilt der feste Bereich 0 bis 20."}
                 </p>
@@ -1751,7 +1751,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Button size="sm" variant="ghost" onClick={() => setPositionDialog({ open: true, draft: { ...item, start_date: normalizeMonthDate(item.start_date), end_date: normalizeMonthDate(item.end_date) } })}>Bearbeiten</Button>
-                        <button type="button" onClick={() => togglePosition(item.id)} className="p-1">
+                        <button aria-label="Station auf- oder zuklappen" type="button" onClick={() => togglePosition(item.id)} className="p-1">
                           <ChevronDown size={18} className={cn("text-muted transition-transform duration-200", isExpanded && "rotate-180")} />
                         </button>
                       </div>
@@ -1766,29 +1766,29 @@ export default function ProfilePage({ bereich = "profil" }) {
                           {item.industry ? <Badge tone="neutral">{item.industry}</Badge> : null}
                         </div>
 
-                        {item.description ? <p className="text-sm text-muted/80">{item.description}</p> : null}
+                        {item.description ? <p className="text-sm text-muted">{item.description}</p> : null}
                         {item.tasks ? (
                           <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Aufgaben</p>
-                            <p className="mt-1 text-sm text-muted/80">{item.tasks}</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">Aufgaben</p>
+                            <p className="mt-1 text-sm text-muted">{item.tasks}</p>
                           </div>
                         ) : null}
                         {item.achievements ? (
                           <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Erfolge</p>
-                            <p className="mt-1 text-sm text-teal/80">{item.achievements}</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">Erfolge</p>
+                            <p className="mt-1 text-sm text-teal">{item.achievements}</p>
                           </div>
                         ) : null}
                         {item.technologies ? (
                           <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Technologien</p>
-                            <p className="mt-1 text-sm text-muted/80">{item.technologies}</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">Technologien</p>
+                            <p className="mt-1 text-sm text-muted">{item.technologies}</p>
                           </div>
                         ) : null}
 
                         <div className="rounded-xl border border-white/[0.04] bg-white/[0.01] p-3">
                           <div className="flex items-center justify-between gap-3">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">
+                            <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">
                               Projekte ({projects.length})
                             </p>
                             <Button
@@ -1809,18 +1809,18 @@ export default function ProfilePage({ bereich = "profil" }) {
                                     <p className="text-sm font-semibold text-ink">{project.name || "Projekt"}</p>
                                     {project.role ? <Badge tone="sky">{project.role}</Badge> : null}
                                   </div>
-                                  {(project.start_date || project.end_date || project.duration) ? <p className="mt-1 text-[12px] text-muted/50">{project.start_date || project.end_date ? `${project.start_date || "?"} – ${project.end_date || "heute"}` : ""}{project.duration && (project.start_date || project.end_date) ? ` (${project.duration})` : project.duration || ""}</p> : null}
-                                  {project.description ? <p className="mt-2 text-[12px] text-muted/70">{project.description}</p> : null}
+                                  {(project.start_date || project.end_date || project.duration) ? <p className="mt-1 text-[12px] text-muted">{project.start_date || project.end_date ? `${project.start_date || "?"} – ${project.end_date || "heute"}` : ""}{project.duration && (project.start_date || project.end_date) ? ` (${project.duration})` : project.duration || ""}</p> : null}
+                                  {project.description ? <p className="mt-2 text-[12px] text-muted">{project.description}</p> : null}
                                   <div className="mt-2 grid gap-1 text-[12px]">
-                                    {project.situation ? <p className="text-muted/70"><strong>S:</strong> {project.situation}</p> : null}
-                                    {project.task ? <p className="text-muted/70"><strong>T:</strong> {project.task}</p> : null}
-                                    {project.action ? <p className="text-muted/70"><strong>A:</strong> {project.action}</p> : null}
-                                    {project.result ? <p className="text-teal/80"><strong>R:</strong> {project.result}</p> : null}
+                                    {project.situation ? <p className="text-muted"><strong>S:</strong> {project.situation}</p> : null}
+                                    {project.task ? <p className="text-muted"><strong>T:</strong> {project.task}</p> : null}
+                                    {project.action ? <p className="text-muted"><strong>A:</strong> {project.action}</p> : null}
+                                    {project.result ? <p className="text-teal"><strong>R:</strong> {project.result}</p> : null}
                                   </div>
-                                  {project.technologies ? <p className="mt-2 text-[11px] text-muted/50">Tech: {project.technologies}</p> : null}
+                                  {project.technologies ? <p className="mt-2 text-xs text-muted">Tech: {project.technologies}</p> : null}
                                   <div className="mt-2 flex gap-3 border-t border-white/[0.04] pt-2">
-                                    <button type="button" className="text-[12px] text-muted/50 hover:text-ink transition-colors" onClick={() => setProjectDialog({ open: true, positionId: item.id, draft: { ...project } })}>Bearbeiten</button>
-                                    <button type="button" className="text-[12px] text-muted/50 hover:text-coral transition-colors" onClick={() => deleteProject(item.id, project.id)}>
+                                    <button type="button" className="text-[12px] text-muted hover:text-ink transition-colors" onClick={() => setProjectDialog({ open: true, positionId: item.id, draft: { ...project } })}>Bearbeiten</button>
+                                    <button type="button" className="text-[12px] text-muted hover:text-coral transition-colors" onClick={() => deleteProject(item.id, project.id)}>
                                       <span className="inline-flex items-center gap-1"><Trash2 size={11} /> Löschen</span>
                                     </button>
                                   </div>
@@ -1828,7 +1828,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                               ))}
                             </div>
                           ) : (
-                            <p className="mt-2 text-[12px] text-muted/50">Noch keine Projekte erfasst.</p>
+                            <p className="mt-2 text-[12px] text-muted">Noch keine Projekte erfasst.</p>
                           )}
                         </div>
                       </div>
@@ -1886,14 +1886,14 @@ export default function ProfilePage({ bereich = "profil" }) {
                   value={skillFilter}
                   onChange={(e) => setSkillFilter(e.target.value)}
                   placeholder="Skill suchen (Name oder Kategorie)..."
-                  className="w-full max-w-sm rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-sm text-ink placeholder:text-muted/40 focus:border-sky/40 focus:outline-none"
+                  className="w-full max-w-sm rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-sm text-ink placeholder:text-muted focus:border-sky/40 focus:outline-none"
                   aria-label="Skill-Filter"
                 />
                 {skillFilter && (
                   <button
                     type="button"
                     onClick={() => setSkillFilter("")}
-                    className="text-[11px] text-muted/60 hover:text-ink underline"
+                    className="text-xs text-muted hover:text-ink underline"
                   >
                     zurücksetzen
                   </button>
@@ -1911,7 +1911,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                 : profile.skills;
               if (filteredSkills.length === 0) {
                 return (
-                  <p className="py-6 text-center text-sm text-muted/40">
+                  <p className="py-6 text-center text-sm text-muted">
                     Kein Skill matcht „{skillFilter}". <button onClick={() => setSkillFilter("")} className="text-sky underline">Filter zurücksetzen</button>
                   </p>
                 );
@@ -1926,7 +1926,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                 <div className="grid gap-5">
                   {Object.entries(groups).map(([category, skills]) => (
                     <div key={category}>
-                      <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">
+                      <p className="mb-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-muted">
                         {SKILL_CATEGORY_LABELS[category] || category}
                       </p>
                       <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -1997,12 +1997,12 @@ export default function ProfilePage({ bereich = "profil" }) {
                               </div>
                             </div>
                             <h3 className="mt-2 text-sm font-semibold text-ink">{item.name}</h3>
-                            <p className="mt-1 text-[12px] text-muted/50">
+                            <p className="mt-1 text-[12px] text-muted">
                               {yearsExp !== null && zeitraum
                                 ? `${yearsExp} Jahre Erfahrung · ${zeitraum}`
                                 : zeitraum || "Ohne Erfahrungsjahre"}
                               {isResting && currentLevel !== null && currentLevel < peakLevel ? (
-                                <span className="ml-2 text-amber/80">
+                                <span className="ml-2 text-amber">
                                   · ruht (Spitze {peakLevel}/5)
                                 </span>
                               ) : null}
@@ -2145,35 +2145,35 @@ export default function ProfilePage({ bereich = "profil" }) {
             </Card>
 
             <Card className="glass-card-soft rounded-xl shadow-none">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted/50">Dokumentenstatus</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">Dokumentenstatus</p>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Gesamt</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted">Gesamt</p>
                   <p className="mt-1 text-lg font-semibold text-ink">{documents.length}</p>
                 </div>
                 <div className="rounded-lg border border-teal/15 bg-teal/[0.06] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-teal/70">Bearbeitet</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-teal">Bearbeitet</p>
                   <p className="mt-1 text-lg font-semibold text-teal">{processedDocumentCount}</p>
                 </div>
                 <div className="rounded-lg border border-amber/15 bg-amber/[0.06] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-amber/70">Offen</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-amber">Offen</p>
                   <p className="mt-1 text-lg font-semibold text-amber">{pendingDocumentCount}</p>
                 </div>
                 <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] px-3 py-2.5">
-                  <p className="text-[10px] uppercase tracking-[0.12em] text-muted/50">Letzte Aktivität</p>
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted">Letzte Aktivität</p>
                   <p className="mt-1 text-[12px] font-medium text-ink/90">{latestDocumentLabel}</p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-lg border border-white/[0.05] bg-white/[0.02] p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted/50">Dokumenttypen</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted">Dokumenttypen</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {topDocumentTypes.length ? (
                     topDocumentTypes.map(([type, count]) => (
                       <Badge key={type} tone="neutral">{type} ({count})</Badge>
                     ))
                   ) : (
-                    <span className="text-[12px] text-muted/60">Noch keine Dokumente vorhanden.</span>
+                    <span className="text-[12px] text-muted">Noch keine Dokumente vorhanden.</span>
                   )}
                 </div>
               </div>
@@ -2237,7 +2237,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                           <p className="text-[15px] font-semibold text-ink">
                             {entry.extraction_type || entry.filename || "auto"}
                           </p>
-                          <p className="mt-1 text-[12px] text-muted/50">{formatDateTime(entry.created_at)}</p>
+                          <p className="mt-1 text-[12px] text-muted">{formatDateTime(entry.created_at)}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge tone={statusMeta.tone}>{statusMeta.label}</Badge>
@@ -2260,10 +2260,10 @@ export default function ProfilePage({ bereich = "profil" }) {
                         </div>
                         <ChevronDown
                           size={20}
-                          className={cn("shrink-0 text-muted/60 transition-transform duration-200", isExpanded && "rotate-180")}
+                          className={cn("shrink-0 text-muted transition-transform duration-200", isExpanded && "rotate-180")}
                         />
                       </div>
-                      <p className="mt-2 text-[13px] text-muted/70">{summaryParts.join(", ")}</p>
+                      <p className="mt-2 text-[13px] text-muted">{summaryParts.join(", ")}</p>
                     </div>
 
                     <div
@@ -2280,30 +2280,30 @@ export default function ProfilePage({ bereich = "profil" }) {
                             return (
                               <div key={fieldKey} className="rounded-lg border border-white/[0.04] bg-white/[0.02] p-2.5">
                                 <div className="flex items-center gap-2">
-                                  <p className="text-[11px] font-semibold text-teal/80">{fieldKey}</p>
+                                  <p className="text-xs font-semibold text-teal">{fieldKey}</p>
                                   {appliedCount != null && <Badge tone="success">{typeof appliedCount === "number" ? `${appliedCount} übernommen` : "übernommen"}</Badge>}
                                 </div>
                                 <div className="mt-1.5 text-[12px] text-ink/80">
                                   {Array.isArray(fieldData) ? (
                                     <div className="flex flex-wrap gap-1.5">
                                       {fieldData.slice(0, 12).map((item, i) => (
-                                        <span key={i} className="inline-block rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-[11px]">
+                                        <span key={i} className="inline-block rounded-md border border-white/[0.06] bg-white/[0.04] px-2 py-0.5 text-xs">
                                           {typeof item === "string" ? item : item?.name || item?.title || item?.institution || JSON.stringify(item).slice(0, 40)}
                                         </span>
                                       ))}
-                                      {fieldData.length > 12 && <span className="text-[11px] text-muted/50">+{fieldData.length - 12} weitere</span>}
+                                      {fieldData.length > 12 && <span className="text-xs text-muted">+{fieldData.length - 12} weitere</span>}
                                     </div>
                                   ) : fieldData && typeof fieldData === "object" ? (
                                     <div className="grid gap-1 sm:grid-cols-2">
                                       {Object.entries(fieldData).map(([k, v]) => (
                                         <div key={k} className="flex gap-1.5">
-                                          <span className="shrink-0 text-[11px] text-muted/50">{k}:</span>
-                                          <span className="text-[11px] text-ink/80 truncate">{String(v ?? "–")}</span>
+                                          <span className="shrink-0 text-xs text-muted">{k}:</span>
+                                          <span className="text-xs text-ink/80 truncate">{String(v ?? "–")}</span>
                                         </div>
                                       ))}
                                     </div>
                                   ) : (
-                                    <p className="text-[11px] text-ink/70">{String(fieldData ?? "–")}</p>
+                                    <p className="text-xs text-ink/70">{String(fieldData ?? "–")}</p>
                                   )}
                                 </div>
                               </div>
@@ -2311,13 +2311,13 @@ export default function ProfilePage({ bereich = "profil" }) {
                           })}
                           {conflictCount > 0 && (
                             <div className="rounded-lg border border-coral/15 bg-coral/[0.04] p-2.5">
-                              <p className="text-[11px] font-semibold text-coral/80">Konflikte ({conflictCount})</p>
+                              <p className="text-xs font-semibold text-coral">Konflikte ({conflictCount})</p>
                               <p className="mt-1 text-[12px] text-ink/70">
                                 {(entry.conflicts || []).slice(0, 5).map((item) => (typeof item === "string" ? item : item?.field || item?.key || "Konflikt")).join(", ")}
                               </p>
                             </div>
                           )}
-                          <div className="flex items-center gap-3 text-[11px] text-muted/40">
+                          <div className="flex items-center gap-3 text-xs text-muted">
                             <span>ID: {entry.id || "n/a"}</span>
                             <span>Dokument: {entry.document_id || "n/a"}</span>
                             <span>Abgeschlossen: {entry.completed_at ? formatDateTime(entry.completed_at) : "Noch offen"}</span>
@@ -2429,7 +2429,7 @@ export default function ProfilePage({ bereich = "profil" }) {
           <Field label="Beschreibung">
             <TextArea rows={2} value={projectDialog.draft.description || ""} onChange={(event) => setProjectDialog((current) => ({ ...current, draft: { ...current.draft, description: event.target.value } }))} />
           </Field>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-teal/70">STAR-Methode</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-teal">STAR-Methode</p>
           <Field label="S - Situation">
             <TextArea rows={2} value={projectDialog.draft.situation || ""} onChange={(event) => setProjectDialog((current) => ({ ...current, draft: { ...current.draft, situation: event.target.value } }))} />
           </Field>
@@ -2480,9 +2480,9 @@ export default function ProfilePage({ bereich = "profil" }) {
               <div className="flex gap-1">
                 {skillDialog.draft.id && allSkills.length > 1 ? (
                   <>
-                    <Button variant="ghost" disabled={!hasPrev} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx - 1]) })}><ChevronLeft size={16} /></Button>
-                    <span className="flex items-center text-xs text-muted/60 tabular-nums">{curIdx + 1}/{allSkills.length}</span>
-                    <Button variant="ghost" disabled={!hasNext} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx + 1]) })}><ChevronRight size={16} /></Button>
+                    <Button aria-label="Vorheriger Skill" variant="ghost" disabled={!hasPrev} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx - 1]) })}><ChevronLeft size={16} /></Button>
+                    <span className="flex items-center text-xs text-muted tabular-nums">{curIdx + 1}/{allSkills.length}</span>
+                    <Button aria-label="Nächster Skill" variant="ghost" disabled={!hasNext} onClick={() => setSkillDialog({ open: true, draft: buildSkillDraft(allSkills[curIdx + 1]) })}><ChevronRight size={16} /></Button>
                   </>
                 ) : null}
               </div>
@@ -2532,7 +2532,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                       />
                     ))}
                   </div>
-                  <span className="text-xs text-muted/60">
+                  <span className="text-xs text-muted">
                     {value === 1 ? "Grundkenntnisse" :
                      value === 2 ? "Erweiterte Grundkenntnisse" :
                      value === 3 ? "Solide Praxiserfahrung" :
@@ -2628,7 +2628,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                           />
                         ))}
                       </div>
-                      <span className="text-xs text-muted/60">
+                      <span className="text-xs text-muted">
                         {isEmpty ? `(= Spitzen-Niveau ${peak})` :
                          value === 1 ? "Grundkenntnisse" :
                          value === 2 ? "Erweiterte Grundkenntnisse" :
@@ -2638,14 +2638,14 @@ export default function ProfilePage({ bereich = "profil" }) {
                       {!isEmpty && (
                         <button
                           type="button"
-                          className="text-[11px] text-muted/50 hover:text-muted underline"
+                          className="text-xs text-muted hover:text-muted underline"
                           onClick={() => setCurrent("")}
                         >
                           zurücksetzen
                         </button>
                       )}
                     </div>
-                    <p className="mt-1 text-[11px] text-muted/70">
+                    <p className="mt-1 text-xs text-muted">
                       Wenn der Skill ruht: das aktuell noch abrufbare Niveau (Prinzip-
                       Verständnis bleibt, Tiefe verfällt). Leer = identisch mit Spitzen-Niveau.
                     </p>

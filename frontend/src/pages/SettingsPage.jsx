@@ -92,13 +92,13 @@ function ThemeEditor() {
                   <p className="text-[13px] font-medium text-ink">
                     {label}
                     {isOverride && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wider text-amber">Angepasst</span>
+                      <span className="ml-2 text-xs uppercase tracking-wider text-amber">Angepasst</span>
                     )}
                   </p>
-                  <p className="truncate text-[11px] text-muted">{hint}</p>
+                  <p className="truncate text-xs text-muted">{hint}</p>
                 </div>
                 {isOverride && (
-                  <button
+                  <button aria-label="Auf Standard zurücksetzen"
                     type="button"
                     onClick={() => setThemeColor(mode, key, null)}
                     className="rounded-md p-1 text-muted hover:text-ink"
@@ -151,7 +151,7 @@ function ThemeEditor() {
 
       {/* v1.7.0-beta.57 (#626): Vorbelegte Farb-Schemen */}
       <div className="mb-4">
-        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted/70">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
           Farb-Schema
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -184,14 +184,14 @@ function ThemeEditor() {
                   ))}
                 </div>
                 <p className="text-sm font-medium leading-tight">{preset.label}</p>
-                <p className="mt-0.5 text-[11px] leading-snug text-muted/60">
+                <p className="mt-0.5 text-xs leading-snug text-muted">
                   {preset.description}
                 </p>
               </button>
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] text-muted/60">
+        <p className="mt-2 text-xs text-muted">
           Ein Schema setzt alle Farben für Hell + Dunkel auf einmal.
           Einzelne Tokens lassen sich darunter weiter individuell anpassen
           (Custom-Override pro Token).
@@ -322,7 +322,7 @@ function LearningPrivacyCard({ pushToast }) {
             <p className="text-sm font-medium text-ink">
               Lern-Modus aktiv (empfohlen)
             </p>
-            <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+            <p className="text-[12px] text-muted mt-1 leading-snug">
               Wenn aktiv, sammelt PBP <strong>lokal</strong> Klicks, Scroll-
               und Verweildauer-Daten in der eigenen DB. Diese Daten <strong>verlassen
               deinen Rechner NICHT</strong>. Sie helfen PBP, sich an deinen Workflow
@@ -330,24 +330,24 @@ function LearningPrivacyCard({ pushToast }) {
               überflüssige Klicks zu erkennen, oder mit der lokalen AI Muster
               auszuwerten. Du kannst es jederzeit ausschalten.
             </p>
-            <p className="text-[11px] text-muted/50 mt-2">
+            <p className="text-xs text-muted mt-2">
               <strong>Vorteil:</strong> PBP wird mit der Zeit treffsicherer in
               Auto-Aussortierung, Filter-Vorschlägen und passt UI an dein
               Verhalten an. Ohne Lern-Modus bleibt PBP statisch wie heute.
             </p>
           </div>
         </label>
-        <div className="glass-card p-3 text-[12px] text-muted/70">
+        <div className="glass-card p-3 text-[12px] text-muted">
           <p><strong className="text-ink">{stats.total_events}</strong> Events insgesamt erfasst</p>
           {stats.oldest_event_at && (
             <p>Aeltester Eintrag: {new Date(stats.oldest_event_at).toLocaleDateString("de-DE")}</p>
           )}
           {stats.by_type?.length > 0 && (
             <details className="mt-2">
-              <summary className="cursor-pointer text-[11px] text-muted/60">
+              <summary className="cursor-pointer text-xs text-muted">
                 Verteilung nach Event-Typ ({stats.by_type.length})
               </summary>
-              <ul className="mt-1 space-y-0.5 text-[11px]">
+              <ul className="mt-1 space-y-0.5 text-xs">
                 {stats.by_type.map((t) => (
                   <li key={t.type} className="font-mono">
                     {t.type}: {t.count}
@@ -474,13 +474,13 @@ function TelemetrySharingCard({ pushToast }) {
             <p className="text-sm font-medium text-ink">
               Telemetrie-Sharing aktiv
             </p>
-            <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+            <p className="text-[12px] text-muted mt-1 leading-snug">
               Wenn aktiv: PBP zeigt dir <strong>wochenweise</strong> (nicht
               täglich) eine Vorschau, was geteilt werden könnte. Du
               entscheidest jedes Mal selbst, ob du die Mail tatsächlich
               abschickst.
             </p>
-            <p className="text-[11px] text-muted/50 mt-2">
+            <p className="text-xs text-muted mt-2">
               <strong>Was wird geteilt:</strong> nur signifikante Insights
               (≥ 5x beobachtet ODER score ≥ 0.8), aggregierte Zahlen,
               anonymisierte Workflow-Stats. <strong>Was NICHT:</strong>
@@ -505,7 +505,7 @@ function TelemetrySharingCard({ pushToast }) {
               </SelectInput>
             </label>
             {settings.last_share_at && (
-              <p className="text-[11px] text-muted/50">
+              <p className="text-xs text-muted">
                 Letzter Share: {new Date(settings.last_share_at).toLocaleString("de-DE")}
               </p>
             )}
@@ -517,7 +517,7 @@ function TelemetrySharingCard({ pushToast }) {
             Jetzt Vorschau anzeigen
           </Button>
           {trigger.due === false && trigger.reason && (
-            <span className="text-[11px] text-muted/50">{trigger.reason}</span>
+            <span className="text-xs text-muted">{trigger.reason}</span>
           )}
         </div>
 
@@ -528,25 +528,25 @@ function TelemetrySharingCard({ pushToast }) {
               <button
                 type="button"
                 onClick={() => setShowPreview(false)}
-                className="text-[11px] text-muted/40 hover:text-ink"
+                className="text-xs text-muted hover:text-ink"
               >
                 schliessen
               </button>
             </div>
-            <p className="text-[11px] text-muted/50">
+            <p className="text-xs text-muted">
               Empfänger: <span className="font-mono text-ink">{preview.recipient}</span>
             </p>
-            <p className="text-[11px] text-muted/50">
+            <p className="text-xs text-muted">
               Betreff: <span className="text-ink">{preview.mail.subject}</span>
             </p>
-            <pre className="text-[11px] font-mono text-muted/80 bg-black/20 p-2 rounded max-h-64 overflow-auto whitespace-pre-wrap">
+            <pre className="text-xs font-mono text-muted bg-black/20 p-2 rounded max-h-64 overflow-auto whitespace-pre-wrap">
               {preview.mail.body}
             </pre>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={openMail}>
                 In Mail-Client öffnen
               </Button>
-              <span className="text-[11px] text-muted/50">
+              <span className="text-xs text-muted">
                 Du kannst die Mail noch bearbeiten oder verwerfen — nichts geht automatisch raus.
               </span>
             </div>
@@ -694,31 +694,31 @@ function RecommendedSourcesCard({ sources, onActivateMany, onToggle, onDetails, 
         className="w-full flex items-center justify-between"
       >
         <div className="text-left">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted/60">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
             Empfohlene Quellen für dein Profil
           </p>
           <p className="text-sm text-ink mt-1">
             {data.label}
             {missing.length > 0 && (
-              <span className="ml-2 text-amber/80">
+              <span className="ml-2 text-amber">
                 · {missing.length} noch nicht aktiv
               </span>
             )}
           </p>
         </div>
-        <span className="text-muted/40 text-xs">{collapsed ? "▼" : "▲"}</span>
+        <span className="text-muted text-xs">{collapsed ? "▼" : "▲"}</span>
       </button>
 
       {!collapsed && (
         <div className="mt-3 space-y-3">
-          <p className="text-[12px] text-muted/70">{data.rationale}</p>
+          <p className="text-[12px] text-muted">{data.rationale}</p>
 
           {data.reasons?.length > 0 && (
             <details>
-              <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/50">
+              <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted">
                 Wie PBP das erkannt hat
               </summary>
-              <ul className="mt-1.5 ml-4 list-disc text-[11px] text-muted/60">
+              <ul className="mt-1.5 ml-4 list-disc text-xs text-muted">
                 {data.reasons.map((r, i) => (
                   <li key={i}>{r}</li>
                 ))}
@@ -727,7 +727,7 @@ function RecommendedSourcesCard({ sources, onActivateMany, onToggle, onDetails, 
           )}
 
           <div>
-            <p className="text-[11px] font-semibold text-muted/70 uppercase mb-2">
+            <p className="text-xs font-semibold text-muted uppercase mb-2">
               Empfohlen ({recommended.length})
             </p>
             {/* G70 (#1087 F1): ein Haken je Quelle statt eines Etiketts mit
@@ -759,7 +759,7 @@ function RecommendedSourcesCard({ sources, onActivateMany, onToggle, onDetails, 
               })}
             </ul>
             {ausgelassen.length > 0 && (
-              <p className="mt-2 text-[11px] text-muted/70">
+              <p className="mt-2 text-xs text-muted">
                 Nicht angeboten, weil derzeit defekt: {ausgelassen.join(", ")}
               </p>
             )}
@@ -770,7 +770,7 @@ function RecommendedSourcesCard({ sources, onActivateMany, onToggle, onDetails, 
               <Button onClick={activateAll} disabled={busy} size="sm">
                 {missing.length} fehlende empfohlene Quelle{missing.length === 1 ? "" : "n"} aktivieren
               </Button>
-              <span className="text-[11px] text-muted/50">
+              <span className="text-xs text-muted">
                 Du kannst jede Quelle einzeln auch wieder abschalten.
               </span>
             </div>
@@ -915,15 +915,15 @@ function ScraperHealthCard({ pushToast }) {
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <span className={`inline-block h-2 w-2 rounded-full ${cfg.color} shrink-0`} />
                   <span className="font-medium text-ink truncate">{s.scraper_name}</span>
-                  <span className="text-[10px] text-muted/50">[{cfg.label}]</span>
+                  <span className="text-xs text-muted">[{cfg.label}]</span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px] text-muted/60 shrink-0">
+                <div className="flex items-center gap-2 text-xs text-muted shrink-0">
                   <span>{successRate}% Quote</span>
                   <span>·</span>
                   <span>{s.total_successes}/{s.total_runs}</span>
                 </div>
               </div>
-              <div className="mt-1.5 grid grid-cols-2 gap-2 text-[10px] text-muted/50">
+              <div className="mt-1.5 grid grid-cols-2 gap-2 text-xs text-muted">
                 <div>
                   Letzter Lauf: {s.last_run ? new Date(s.last_run).toLocaleString("de-DE") : "—"}
                 </div>
@@ -932,27 +932,27 @@ function ScraperHealthCard({ pushToast }) {
                   {typeof s.last_count === "number" ? ` · ${s.last_count} Treffer` : ""}
                 </div>
                 {s.error_class && ERROR_CLASS_LABEL[s.error_class] && (
-                  <div className="col-span-2 text-muted/70">
+                  <div className="col-span-2 text-muted">
                     Fehlerklasse: <span className="text-ink/80">{ERROR_CLASS_LABEL[s.error_class]}</span>
                   </div>
                 )}
                 {s.consecutive_failures > 0 && (
-                  <div className="text-coral/80">
+                  <div className="text-coral">
                     {s.consecutive_failures} Fehler in Folge
                   </div>
                 )}
                 {s.consecutive_silent > 0 && (
-                  <div className="text-amber/80">
+                  <div className="text-amber">
                     {s.consecutive_silent} Mal stumm
                   </div>
                 )}
                 {s.reactivate_at && (
-                  <div className="text-amber/80">
+                  <div className="text-amber">
                     Probe-Run {relativeTime(s.reactivate_at)} (Versuch {s.reactivate_attempt})
                   </div>
                 )}
                 {s.retry_after && (
-                  <div className="text-coral/80">
+                  <div className="text-coral">
                     Retry-After {relativeTime(s.retry_after)}
                   </div>
                 )}
@@ -960,7 +960,7 @@ function ScraperHealthCard({ pushToast }) {
               <div className="mt-2 flex gap-2">
                 {!s.is_active && (
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="secondary"
                     onClick={() => reactivate(s.scraper_name)}
                     disabled={busy}
@@ -970,7 +970,7 @@ function ScraperHealthCard({ pushToast }) {
                 )}
                 {s.is_active && (
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="secondary"
                     onClick={() => deactivate(s.scraper_name)}
                     disabled={busy}
@@ -986,7 +986,7 @@ function ScraperHealthCard({ pushToast }) {
                     eine Entscheidung, kein Defekt (#906). */}
                 {MELDBARE_STATUS.has(status) && (
                   <Button
-                    size="xs"
+                    size="sm"
                     variant="ghost"
                     onClick={() => meldungOeffnen(s.scraper_name)}
                     disabled={busy}
@@ -1037,19 +1037,19 @@ function ScraperHealthCard({ pushToast }) {
                   </li>
                 ))}
               </ul>
-              <p className="mt-1.5 text-[12px] text-muted/60">
+              <p className="mt-1.5 text-[12px] text-muted">
                 Ein Kommentar dort hilft mehr als ein zweites Issue — er zeigt,
                 dass mehrere Leute die Quelle brauchen.
               </p>
             </div>
           ) : null}
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted">Das wird übermittelt</p>
-            <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-white/8 bg-white/[0.03] p-3 text-[12px] text-muted/80">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Das wird übermittelt</p>
+            <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl border border-white/8 bg-white/[0.03] p-3 text-[12px] text-muted">
               {meldung?.bericht}
             </pre>
           </div>
-          <p className="text-[12px] text-muted/60">{meldung?.hinweis}</p>
+          <p className="text-[12px] text-muted">{meldung?.hinweis}</p>
         </div>
       </Modal>
     </Card>
@@ -1096,7 +1096,7 @@ function PbpStartDateField({ pushToast }) {
   return (
     <div className="mt-5 glass-card p-3 border-sky/15 border">
       <p className="text-sm font-medium text-ink mb-1">PBP-Nutzung gestartet am</p>
-      <p className="text-[11px] text-muted/70 mb-3">
+      <p className="text-xs text-muted mb-3">
         Steuert, ab welchem Datum die Bewerbungen im Bericht als „mit PBP erfasst" gelten.
         Daten davor werden im PDF grau markiert (nachträglich erfasst, ggf. unvollständig).
         Default: Auto-Detect aus dem ersten Bewerbungs-Ereignis (<strong className="text-ink">{data.auto_detect || "noch keine Daten"}</strong>).
@@ -1118,7 +1118,7 @@ function PbpStartDateField({ pushToast }) {
           </Button>
         )}
       </div>
-      <p className="text-[11px] text-muted/50 mt-2">
+      <p className="text-xs text-muted mt-2">
         Aktuell wirksam: <strong className="text-ink">{data.effective || "—"}</strong>
         {data.override ? " (User-Override)" : " (Auto-Detect)"}
       </p>
@@ -1205,7 +1205,7 @@ function AutomatikSchedulerCard({ pushToast }) {
   const renderTask = (key, titel, beschreibung, buttonLabel) => (
     <div className="glass-card p-4 space-y-2">
       <h3 className="font-medium text-ink text-sm">{titel}</h3>
-      <p className="text-[12px] text-muted/60">{beschreibung}</p>
+      <p className="text-[12px] text-muted">{beschreibung}</p>
       <div className="flex items-center justify-between gap-3">
         <SelectInput
           value={String(status[key].intervall_tage)}
@@ -1220,7 +1220,7 @@ function AutomatikSchedulerCard({ pushToast }) {
           {buttonLabel}
         </Button>
       </div>
-      <p className="text-[11px] text-muted/50">
+      <p className="text-xs text-muted">
         Letzter Lauf: {fmt(status[key].letzter_lauf)} · Nächster: {fmt(status[key].naechster_lauf)}
       </p>
     </div>
@@ -1245,7 +1245,7 @@ function AutomatikSchedulerCard({ pushToast }) {
           "Wertet regelmäßig aus, welche Stellen du aussortierst und worauf du dich bewirbst, damit Vorschläge besser passen. Läuft nur, wenn das Lernen unter Datenschutz eingeschaltet ist.",
           "Jetzt lernen",
         )}
-        <p className="text-[11px] text-muted/40">{status.hinweis}</p>
+        <p className="text-xs text-muted">{status.hinweis}</p>
       </div>
     </Card>
   );
@@ -1303,7 +1303,7 @@ function AutoActionsTab({ pushToast }) {
   }
 
   if (!status) {
-    return <Card className="rounded-2xl"><p className="text-sm text-muted/60">Lade...</p></Card>;
+    return <Card className="rounded-2xl"><p className="text-sm text-muted">Lade...</p></Card>;
   }
 
   const s = status.settings;
@@ -1381,7 +1381,7 @@ function AutoActionsTab({ pushToast }) {
             {running ? "Läuft …" : "Jetzt prüfen"}
           </Button>
           {lastResult && (
-            <div className="text-[12px] text-muted/60 space-y-1">
+            <div className="text-[12px] text-muted space-y-1">
               <p>Letzter Lauf: <strong className="text-ink">{lastResult.expire?.expired_count || 0}</strong> abgelaufen, <strong className="text-ink">{lastResult.followup_reconciler?.created_count || 0}</strong> Nachfassungen neu angelegt.</p>
             </div>
           )}
@@ -1447,7 +1447,7 @@ function KIFeaturesCard({ pushToast }) {
   if (!features) {
     return (
       <Card className="rounded-2xl">
-        <p className="text-sm text-muted/60">Lade KI-Steuerung...</p>
+        <p className="text-sm text-muted">Lade KI-Steuerung...</p>
       </Card>
     );
   }
@@ -1471,7 +1471,7 @@ function KIFeaturesCard({ pushToast }) {
         />
         <div className="flex-1">
           <p className="text-sm font-semibold text-ink">Master-Schalter</p>
-          <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+          <p className="text-[12px] text-muted mt-1 leading-snug">
             Wenn aus: Claude blockt ALLE KI-Operationen mit einem Hinweis,
             wo du das wieder anschaltest. Manuelle Tools (Profil pflegen,
             Bewerbungen tracken, Standard-CV exportieren) und der
@@ -1495,7 +1495,7 @@ function KIFeaturesCard({ pushToast }) {
             />
             <div className="flex-1">
               <p className="text-sm font-medium text-ink">{f.label}</p>
-              <p className="text-[12px] text-muted/70 mt-1 leading-snug">
+              <p className="text-[12px] text-muted mt-1 leading-snug">
                 {f.desc}
               </p>
             </div>
@@ -1504,7 +1504,7 @@ function KIFeaturesCard({ pushToast }) {
       </div>
 
       {masterOff && (
-        <p className="mt-3 text-[12px] text-amber/80">
+        <p className="mt-3 text-[12px] text-amber">
           Master-Schalter ist aus — die einzelnen Toggles sind ohne Wirkung,
           bis der Master wieder aktiv ist.
         </p>
@@ -1535,27 +1535,27 @@ function AutoDismissedSection() {
     <div className="glass-card p-3 mb-4">
       <button type="button" className="w-full flex items-center justify-between text-left"
         onClick={() => setOpen(!open)}>
-        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide">
           Was wurde aussortiert? ({data.count})
         </p>
-        <span className="text-muted/50 text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
           {data.items.map((j) => (
             <div key={j.hash} className="flex items-start justify-between gap-2 rounded-lg border border-white/[0.04] px-2.5 py-1.5">
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] text-ink truncate">{j.title} <span className="text-muted/50">— {j.company}</span></p>
-                {j.begruendung && <p className="text-[11px] text-muted/50 truncate" title={j.begruendung}>{j.begruendung}</p>}
+                <p className="text-[12px] text-ink truncate">{j.title} <span className="text-muted">— {j.company}</span></p>
+                {j.begruendung && <p className="text-xs text-muted truncate" title={j.begruendung}>{j.begruendung}</p>}
               </div>
               <button type="button" disabled={busy === j.hash}
                 onClick={() => restore(j.hash)}
-                className="shrink-0 rounded-lg bg-teal/15 px-2 py-1 text-[11px] font-semibold text-teal hover:bg-teal/25 disabled:opacity-50">
+                className="shrink-0 rounded-lg bg-teal/15 px-2 py-1 text-xs font-semibold text-teal hover:bg-teal/25 disabled:opacity-50">
                 {busy === j.hash ? "..." : "Zurückholen"}
               </button>
             </div>
           ))}
-          <p className="text-[10px] text-muted/40 pt-1">
+          <p className="text-xs text-muted pt-1">
             Zurückgeholte Stellen erscheinen wieder im Stellen-Tab, und die lokale KI lernt aus jeder Korrektur.
           </p>
         </div>
@@ -1604,10 +1604,10 @@ function LernprotokollSection() {
     <div className="glass-card p-3 mb-4">
       <button type="button" className="w-full flex items-center justify-between text-left"
         onClick={() => setOpen(!open)}>
-        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide">
           Lernprotokoll — was Ollama gelernt hat ({items.length})
         </p>
-        <span className="text-muted/50 text-xs">{open ? "▲" : "▼"}</span>
+        <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
         <div className="mt-2 space-y-1.5 max-h-72 overflow-y-auto pr-1">
@@ -1618,16 +1618,16 @@ function LernprotokollSection() {
                 <p className="text-[12px] text-ink">
                   {it.title || it.titel || it.insight_type}
                   {it.is_active === 0 && (
-                    <span className="ml-2 text-[10px] text-muted/40">stummgeschaltet</span>
+                    <span className="ml-2 text-xs text-muted">stummgeschaltet</span>
                   )}
                 </p>
                 {(it.recommendation || it.empfehlung) && (
-                  <p className="text-[11px] text-muted/50">{it.recommendation || it.empfehlung}</p>
+                  <p className="text-xs text-muted">{it.recommendation || it.empfehlung}</p>
                 )}
               </div>
               {it.id != null && it.is_active !== 0 && (
                 <button type="button" onClick={() => stummschalten(it.id)}
-                  className="text-[11px] text-muted/40 hover:text-coral shrink-0"
+                  className="text-xs text-muted hover:text-coral shrink-0"
                   title="Diesen Lern-Eintrag stummschalten — er beeinflusst Hinweise und Vorschläge nicht mehr">
                   stumm
                 </button>
@@ -1635,11 +1635,11 @@ function LernprotokollSection() {
             </div>
           ))}
           <div className="flex items-center justify-between pt-1">
-            <p className="text-[10px] text-muted/40">
+            <p className="text-xs text-muted">
               Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594).
             </p>
             <button type="button" onClick={alleZuruecksetzen}
-              className={`text-[10px] ${confirmReset ? "text-coral font-semibold" : "text-muted/40 hover:text-coral"}`}
+              className={`text-xs ${confirmReset ? "text-coral font-semibold" : "text-muted hover:text-coral"}`}
               title="Löscht das komplette Lernprotokoll — Ollama lernt danach von vorn. Deine Stellen und Bewerbungen sind nicht betroffen.">
               {confirmReset ? "Wirklich alles löschen? (nochmal klicken)" : "Alles zurücksetzen"}
             </button>
@@ -1662,31 +1662,31 @@ function OllamaAccuracyCard() {
     return null; // Noch keine Auto-Aussortierungen → Card ausblenden
   }
   const genau = acc.genauigkeit_prozent;
-  const genauColor = genau == null ? "text-muted/50"
+  const genauColor = genau == null ? "text-muted"
     : genau >= 85 ? "text-teal"
     : genau >= 65 ? "text-amber" : "text-coral";
   return (
     <div className="glass-card p-3 mb-4 border-teal/15">
-      <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide mb-2">
+      <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
         Ollama-Leistung (Auto-Aussortierung)
       </p>
       <div className="grid grid-cols-3 gap-2 text-center">
         <div>
           <p className="text-lg font-bold text-ink">{acc.auto_aussortiert_gesamt}</p>
-          <p className="text-[10px] text-muted/60">automatisch<br/>aussortiert</p>
+          <p className="text-xs text-muted">automatisch<br/>aussortiert</p>
         </div>
         <div>
           <p className="text-lg font-bold text-amber">{acc.reaktiviert}</p>
-          <p className="text-[10px] text-muted/60">von dir<br/>zurückgeholt</p>
+          <p className="text-xs text-muted">von dir<br/>zurückgeholt</p>
         </div>
         <div>
           <p className={`text-lg font-bold ${genauColor}`}>
             {genau == null ? "—" : `${genau}%`}
           </p>
-          <p className="text-[10px] text-muted/60">Treffer-<br/>genauigkeit</p>
+          <p className="text-xs text-muted">Treffer-<br/>genauigkeit</p>
         </div>
       </div>
-      <p className="text-[11px] text-muted/50 mt-2">
+      <p className="text-xs text-muted mt-2">
         {acc.datenbasis_ausreichend
           ? "Genauigkeit = Anteil der Auto-Entscheidungen, die du NICHT korrigiert hast. Je mehr du selbst aussortierst, desto besser lernt Ollama (Few-Shot)."
           : "Genauigkeit wird ab 5 Auto-Entscheidungen angezeigt — noch zu wenig Datenbasis."}
@@ -1768,7 +1768,7 @@ function AblageOrdnerCard({ pushToast }) {
           </Button>
         </div>
       </Field>
-      <p className="mt-1 text-[13px] text-muted/70">
+      <p className="mt-1 text-[13px] text-muted">
         Lebenslauf, Anschreiben, Fachprofil, Berichte und Profil-Sicherungen
         werden direkt dort abgelegt. Kein Umkopieren mehr.
       </p>
@@ -1776,7 +1776,7 @@ function AblageOrdnerCard({ pushToast }) {
       {stand.ausgabe_befund === "ausweich" && (
         <p className="mt-2 text-[13px] text-amber">{stand.hinweis_ausgabe}</p>
       )}
-      <p className="mt-2 text-[12px] text-muted/60">
+      <p className="mt-2 text-[12px] text-muted">
         Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
       </p>
 
@@ -1795,7 +1795,7 @@ function AblageOrdnerCard({ pushToast }) {
             </Button>
           </div>
         </Field>
-        <p className="mt-1 text-[13px] text-muted/70">
+        <p className="mt-1 text-[13px] text-muted">
           Legst du dort eine <span className="font-mono">lebenslauf.docx</span>,{" "}
           <span className="font-mono">anschreiben.docx</span> oder{" "}
           <span className="font-mono">fachprofil.docx</span> ab, baut PBP das
@@ -1804,7 +1804,7 @@ function AblageOrdnerCard({ pushToast }) {
           Layout.
         </p>
         {fehler.vorlagen && <p className="mt-2 text-[13px] text-coral">{fehler.vorlagen}</p>}
-        <p className="mt-2 text-[12px] text-muted/60">{stand.hinweis_vorlagen}</p>
+        <p className="mt-2 text-[12px] text-muted">{stand.hinweis_vorlagen}</p>
       </div>
     </Card>
   );
@@ -1850,7 +1850,7 @@ function OllamaAutostartBlock({ pushToast }) {
         />
         <span>
           <span className="block font-medium text-ink">Ollama mit PBP starten</span>
-          <span className="mt-1 block text-sm text-muted/80">
+          <span className="mt-1 block text-sm text-muted">
             Dann steht die lokale KI auch nach einem Neustart des Rechners bereit,
             ohne dass du hier erst den Knopf drücken musst. Ob Ollama mit PBP
             endet, stellst du darunter ein.
@@ -1920,7 +1920,7 @@ function OllamaBeendenBlock({ pushToast }) {
   return (
     <div className="glass-card p-4 mb-4">
       <span className="block font-medium text-ink">Ollama beenden</span>
-      <span className="mt-1 block text-sm text-muted/80">
+      <span className="mt-1 block text-sm text-muted">
         Ollama hält das Modell im Arbeitsspeicher, auch wenn du PBP stundenlang
         nicht benutzt.
       </span>
@@ -1936,7 +1936,7 @@ function OllamaBeendenBlock({ pushToast }) {
           <option value="immer">immer beenden</option>
         </select>
       </label>
-      <p className="mt-2 text-[13px] text-muted/80">{stand.wirkung}</p>
+      <p className="mt-2 text-[13px] text-muted">{stand.wirkung}</p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="secondary" onClick={jetztBeenden}>
           Ollama jetzt beenden
@@ -1980,7 +1980,7 @@ function LocalAITab({ pushToast }) {
   }, []);
 
   if (!status) {
-    return <Card className="rounded-2xl"><p className="text-sm text-muted/60">Lade Lokale-KI-Status...</p></Card>;
+    return <Card className="rounded-2xl"><p className="text-sm text-muted">Lade Lokale-KI-Status...</p></Card>;
   }
 
   async function setState(state) {
@@ -2040,7 +2040,7 @@ function LocalAITab({ pushToast }) {
             Fehlermeldung mit Download-Link. */}
         <div className="glass-card p-4 mb-4 border-sky/20">
           <h3 className="font-medium text-ink mb-2">Vielleicht nur gestoppt?</h3>
-          <p className="text-sm text-muted/80 mb-3">
+          <p className="text-sm text-muted mb-3">
             Wenn Ollama vorher schonmal lief (z.B. nach Reboot oder Taskmanager-Stop),
             kann PBP versuchen es erneut zu starten — kein manueller Start in der
             Konsole nötig.
@@ -2094,14 +2094,14 @@ function LocalAITab({ pushToast }) {
 
         <div className="glass-card p-4 mb-4 border-coral/15">
           <h3 className="font-medium text-ink mb-2">Noch nicht installiert?</h3>
-          <p className="text-sm text-muted/80 mb-3">
+          <p className="text-sm text-muted mb-3">
             Eine lokale KI auf deinem Rechner übernimmt Routine-Aufgaben für PBP — z.B.
             Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren.
           </p>
           <div className="grid gap-3 sm:grid-cols-2 text-sm">
             <div>
               <p className="font-medium text-teal mb-1.5">✅ Vorteile</p>
-              <ul className="space-y-0.5 text-[13px] text-muted/70">
+              <ul className="space-y-0.5 text-[13px] text-muted">
                 <li>Spart Claude-Tokens UND ist kostenlos</li>
                 <li>Funktioniert auch ohne Internet</li>
                 <li>Daten verlassen das Gerät nie</li>
@@ -2110,7 +2110,7 @@ function LocalAITab({ pushToast }) {
             </div>
             <div>
               <p className="font-medium text-amber mb-1.5">⚠️ Nachteile</p>
-              <ul className="space-y-0.5 text-[13px] text-muted/70">
+              <ul className="space-y-0.5 text-[13px] text-muted">
                 <li>Einmalig 4–5 GB Modell herunterladen</li>
                 <li>Braucht 8–16 GB freien RAM</li>
                 <li>Kreatives bleibt bei Claude</li>
@@ -2121,7 +2121,7 @@ function LocalAITab({ pushToast }) {
 
         <div className="glass-card p-4 mb-4">
           <h3 className="font-medium text-ink mb-2">Voraussetzung: Ollama</h3>
-          <p className="text-sm text-muted/80 mb-2">
+          <p className="text-sm text-muted mb-2">
             Du brauchst Ollama auf deinem Rechner — der Sidecar, der die lokale KI läuft.
           </p>
           <a
@@ -2132,7 +2132,7 @@ function LocalAITab({ pushToast }) {
           >
             Ollama herunterladen → ollama.com/download
           </a>
-          <p className="text-[12px] text-muted/60 mt-2">
+          <p className="text-[12px] text-muted mt-2">
             Nach der Installation startet Ollama automatisch. PBP erkennt es dann hier
             und du kannst sie künftig auch über den "Ollama starten"-Button oben re-starten.
           </p>
@@ -2147,7 +2147,7 @@ function LocalAITab({ pushToast }) {
         </button>
 
         {status.error && (
-          <p className="mt-3 text-[11px] text-coral/70 font-mono">
+          <p className="mt-3 text-xs text-coral font-mono">
             Erkennungs-Fehler: {status.error}
           </p>
         )}
@@ -2169,9 +2169,9 @@ function LocalAITab({ pushToast }) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-ink">{m.name}</p>
-                  {m.recommended && <span className="rounded bg-teal/15 px-1.5 py-0.5 text-[10px] font-bold text-teal">EMPFOHLEN</span>}
+                  {m.recommended && <span className="rounded bg-teal/15 px-1.5 py-0.5 text-xs font-bold text-teal">EMPFOHLEN</span>}
                 </div>
-                <p className="text-[12px] text-muted/70">
+                <p className="text-[12px] text-muted">
                   {m.size_gb} GB · braucht {m.ram_gb} GB RAM · {m.description}
                 </p>
               </div>
@@ -2186,7 +2186,7 @@ function LocalAITab({ pushToast }) {
             </div>
           ))}
         </div>
-        <p className="mt-3 text-[11px] text-muted/60">
+        <p className="mt-3 text-xs text-muted">
           Empfehlung: die Standard-Groesse — gutes Deutsch, vernuenftiger Speicher-Bedarf.
           Du kannst spaeter jederzeit das Modell wechseln.
           {katalogStand ? ` Modell-Empfehlungen, ${katalogStand}.` : ""}
@@ -2206,7 +2206,7 @@ function LocalAITab({ pushToast }) {
             {" · "}
             Status: <span className={
               status.ui_state === "active" ? "text-teal" :
-              status.ui_state === "paused" ? "text-amber" : "text-muted/50"
+              status.ui_state === "paused" ? "text-amber" : "text-muted"
             }>
               {status.ui_state}
             </span>
@@ -2234,7 +2234,7 @@ function LocalAITab({ pushToast }) {
             }`}
           >
             <p className="text-sm font-medium text-ink">{opt.label}</p>
-            <p className="text-[11px] text-muted/60">{opt.desc}</p>
+            <p className="text-xs text-muted">{opt.desc}</p>
           </button>
         ))}
       </div>
@@ -2253,16 +2253,16 @@ function LocalAITab({ pushToast }) {
 
       {/* v1.7.0-beta.25 (#591): Tasks-Erklaerbox — was laeuft eigentlich lokal */}
       <div className="glass-card p-3 mb-4 border-sky/10">
-        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide mb-2">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide mb-2">
           Was läuft lokal?
         </p>
-        <ul className="text-[12px] text-muted/80 space-y-1 list-disc list-inside">
+        <ul className="text-[12px] text-muted space-y-1 list-disc list-inside">
           <li><strong>Doku-Klassifikation</strong> — neue Uploads werden eingeordnet (Lebenslauf, Anschreiben, Mail, ...)</li>
           <li><strong>Skill-Extraktion</strong> — Skills aus Lebenslauf-Text ziehen</li>
           <li><strong>Stellen-Profil-Abgleich</strong> — sortiert Stellen aus, die nicht zu deinem Profil passen</li>
           <li><strong>Mail-Klassifikation</strong> — eingehende Mails werden kategorisiert</li>
         </ul>
-        <p className="text-[11px] text-muted/50 mt-2">
+        <p className="text-xs text-muted mt-2">
           Kreatives (Anschreiben, Coaching) bleibt bei Claude.
         </p>
       </div>
@@ -2281,7 +2281,7 @@ function LocalAITab({ pushToast }) {
       <TestConnectionBlock />
 
       <div className="border-t border-white/5 pt-3 mt-3">
-        <p className="text-[11px] text-muted/60">
+        <p className="text-xs text-muted">
           Endpoint: <span className="font-mono">{status.ollama_endpoint}</span>
           {" · "}
           {status.available_models?.length || 0} Modell(e) installiert
@@ -2382,10 +2382,10 @@ function ElwosaSettingsSection({ pushToast }) {
   return (
     <div className="border-t border-white/5 pt-4 mt-4">
       <div className="mb-3 flex items-center gap-2">
-        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal/15 text-[11px] font-semibold text-teal">E</span>
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-teal/15 text-xs font-semibold text-teal">E</span>
         <h3 className="text-sm font-semibold text-ink">Elwosa</h3>
       </div>
-      <p className="mb-3 text-[12px] text-muted/70">
+      <p className="mb-3 text-[12px] text-muted">
         Live-Statusanzeige der lokalen AI in der Sidebar. Kommentiert was im Hintergrund passiert, gibt gelegentlich Tipps zu Claude und PBP.
       </p>
 
@@ -2403,7 +2403,7 @@ function ElwosaSettingsSection({ pushToast }) {
       {settings.enabled && (
         <div className="space-y-3">
           <div>
-            <p className="text-[11px] font-medium text-muted/70 mb-1">Frequenz (für Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
+            <p className="text-xs font-medium text-muted mb-1">Frequenz (für Idle/Welt/Tipp — Status-Linien sind unbegrenzt)</p>
             <div className="flex flex-wrap gap-2">
               {[
                 { id: "ruhig", label: "Ruhig (3/Tag)" },
@@ -2416,7 +2416,7 @@ function ElwosaSettingsSection({ pushToast }) {
                   type="button"
                   onClick={() => update({ frequency: f.id })}
                   disabled={busy}
-                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.frequency === f.id
+                  className={`px-3 py-1 text-xs rounded-md border ${settings.frequency === f.id
                     ? "border-teal bg-teal/15 text-teal"
                     : "border-white/10 text-muted hover:border-white/30"}`}
                 >
@@ -2428,13 +2428,13 @@ function ElwosaSettingsSection({ pushToast }) {
 
           {/* v1.7.0-beta.38 (#601): Power-User-Block */}
           <details className="border-t border-white/5 pt-3">
-            <summary className="cursor-pointer text-[11px] uppercase tracking-wider text-muted/50 mb-2">
+            <summary className="cursor-pointer text-xs uppercase tracking-wider text-muted mb-2">
               Power-User-Optionen
             </summary>
 
             <div className="mt-3 space-y-3">
               <div>
-                <p className="text-[11px] font-medium text-muted/70 mb-1">
+                <p className="text-xs font-medium text-muted mb-1">
                   Cooldown zwischen Nachrichten ({settings.cooldown_seconds || 90}s)
                 </p>
                 <input
@@ -2447,7 +2447,7 @@ function ElwosaSettingsSection({ pushToast }) {
                   disabled={busy}
                   className="w-full"
                 />
-                <p className="text-[10px] text-muted/50">
+                <p className="text-xs text-muted">
                   Niedriger = schneller (10s minimum). Standard 90s.
                 </p>
               </div>
@@ -2460,13 +2460,13 @@ function ElwosaSettingsSection({ pushToast }) {
                   disabled={busy}
                   className="mt-0.5 h-3.5 w-3.5"
                 />
-                <span className="text-[11px] text-muted">
+                <span className="text-xs text-muted">
                   Auch manuelle User-Aktionen kommentieren (klicken, sortieren, öffnen)
                 </span>
               </label>
 
               <div>
-                <p className="text-[11px] font-medium text-muted/70 mb-1">Trigger-Klassen ausschalten</p>
+                <p className="text-xs font-medium text-muted mb-1">Trigger-Klassen ausschalten</p>
                 <div className="space-y-1">
                   {[
                     { id: "idle", label: "Idle (Stille-Linien)" },
@@ -2490,8 +2490,8 @@ function ElwosaSettingsSection({ pushToast }) {
                           disabled={busy}
                           className="h-3 w-3"
                         />
-                        <span className="text-[11px] text-muted">
-                          {t.label} {disabled && <span className="text-coral/70">(aus)</span>}
+                        <span className="text-xs text-muted">
+                          {t.label} {disabled && <span className="text-coral">(aus)</span>}
                         </span>
                       </label>
                     );
@@ -2502,7 +2502,7 @@ function ElwosaSettingsSection({ pushToast }) {
           </details>
 
           <div>
-            <p className="text-[11px] font-medium text-muted/70 mb-1">Tonfall</p>
+            <p className="text-xs font-medium text-muted mb-1">Tonfall</p>
             <div className="flex gap-2 flex-wrap">
               {[
                 { id: "standard", label: "Standard" },
@@ -2515,7 +2515,7 @@ function ElwosaSettingsSection({ pushToast }) {
                   type="button"
                   onClick={() => update({ tonfall_modus: m.id })}
                   disabled={busy}
-                  className={`px-3 py-1 text-[11px] rounded-md border ${settings.tonfall_modus === m.id
+                  className={`px-3 py-1 text-xs rounded-md border ${settings.tonfall_modus === m.id
                     ? "border-teal bg-teal/15 text-teal"
                     : "border-white/10 text-muted hover:border-white/30"}`}
                 >
@@ -2527,19 +2527,19 @@ function ElwosaSettingsSection({ pushToast }) {
 
           {pending.length > 0 && (
             <div className="border-t border-white/5 pt-3">
-              <p className="text-[11px] font-medium text-muted/70 mb-2">
+              <p className="text-xs font-medium text-muted mb-2">
                 Vorgeschlagene Linien (von Claude) — {pending.length}
               </p>
               <div className="space-y-2">
                 {pending.map((p) => (
-                  <div key={p.id} className="rounded-md border border-white/10 bg-white/[0.02] p-2 text-[11px]">
-                    <p className="text-muted/85 italic">„{p.content}"</p>
-                    <p className="mt-1 text-[9px] text-muted/40">
+                  <div key={p.id} className="rounded-md border border-white/10 bg-white/[0.02] p-2 text-xs">
+                    <p className="text-muted italic">„{p.content}"</p>
+                    <p className="mt-1 text-xs text-muted">
                       {p.cluster} · {p.trigger_kind}
                     </p>
                     <div className="mt-2 flex gap-2">
-                      <Button size="xs" onClick={() => approveLine(p.id)}>Akzeptieren</Button>
-                      <Button size="xs" variant="secondary" onClick={() => rejectLine(p.id)}>Verwerfen</Button>
+                      <Button size="sm" onClick={() => approveLine(p.id)}>Akzeptieren</Button>
+                      <Button size="sm" variant="secondary" onClick={() => rejectLine(p.id)}>Verwerfen</Button>
                     </div>
                   </div>
                 ))}
@@ -2548,7 +2548,7 @@ function ElwosaSettingsSection({ pushToast }) {
           )}
 
           {settings.paused_until && new Date(settings.paused_until) > new Date() && (
-            <div className="rounded-md border border-amber/20 bg-amber/[0.04] p-2 text-[11px] text-amber/80">
+            <div className="rounded-md border border-amber/20 bg-amber/[0.04] p-2 text-xs text-amber">
               Pausiert bis {new Date(settings.paused_until).toLocaleString("de-DE")}.{" "}
               <button
                 type="button"
@@ -2589,14 +2589,14 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
               type="button"
               disabled={pulling}
               onClick={() => onPull(nachfolger.nachfolger)}
-              className="shrink-0 px-2 py-1 rounded text-[11px] bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
+              className="shrink-0 px-2 py-1 rounded text-xs bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
             >
               {pulling && pullModel === nachfolger.nachfolger ? "Laedt..." : "Laden"}
             </button>
           ) : null}
         </div>
       ) : null}
-      <p className="text-[11px] text-muted/60 mb-1.5">Installierte Modelle:</p>
+      <p className="text-xs text-muted mb-1.5">Installierte Modelle:</p>
       <div className="space-y-1.5 mb-3">
         {installed.length === 0 && status.available_models?.length > 0 && (
           /* Fallback wenn models_detail noch nicht in der Antwort ist */
@@ -2613,7 +2613,7 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
             >
               <span className="text-[13px] font-mono text-ink">{m}</span>
               {status.selected_model === m && (
-                <span className="text-[10px] font-bold text-sky uppercase">aktiv</span>
+                <span className="text-xs font-bold text-sky uppercase">aktiv</span>
               )}
             </button>
           ))
@@ -2632,13 +2632,13 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
             <div className="flex-1 min-w-0">
               <span className="text-[13px] font-mono text-ink">{m.name}</span>
               {m.parameter_size && (
-                <span className="ml-2 text-[10px] text-muted/50">{m.parameter_size}</span>
+                <span className="ml-2 text-xs text-muted">{m.parameter_size}</span>
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[11px] text-muted/50">{formatBytes(m.size_bytes)}</span>
+              <span className="text-xs text-muted">{formatBytes(m.size_bytes)}</span>
               {status.selected_model === m.name && (
-                <span className="text-[10px] font-bold text-sky uppercase">aktiv</span>
+                <span className="text-xs font-bold text-sky uppercase">aktiv</span>
               )}
             </div>
           </button>
@@ -2657,10 +2657,10 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
                   <p className="text-[12px] font-medium text-ink">
                     {m.name}
                     {m.recommended && (
-                      <span className="ml-2 rounded bg-teal/15 px-1 py-0.5 text-[9px] font-bold text-teal">EMPFOHLEN</span>
+                      <span className="ml-2 rounded bg-teal/15 px-1 py-0.5 text-xs font-bold text-teal">EMPFOHLEN</span>
                     )}
                   </p>
-                  <p className="text-[10px] text-muted/50">
+                  <p className="text-xs text-muted">
                     {m.size_gb} GB · braucht {m.ram_gb} GB RAM
                   </p>
                 </div>
@@ -2668,7 +2668,7 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
                   type="button"
                   disabled={pulling}
                   onClick={() => onPull(m.id)}
-                  className="shrink-0 px-2 py-1 rounded text-[11px] bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
+                  className="shrink-0 px-2 py-1 rounded text-xs bg-sky/15 text-sky hover:bg-sky/25 disabled:opacity-50"
                 >
                   {pulling && pullModel === m.id ? "Laedt..." : "Laden"}
                 </button>
@@ -2704,7 +2704,7 @@ function TestConnectionBlock() {
   return (
     <div className="border-t border-white/5 pt-3 mt-3">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[11px] font-semibold text-muted/70 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-muted uppercase tracking-wide">
           Test-Verbindung
         </p>
         <Button size="sm" onClick={runTest} disabled={running}>
@@ -2713,7 +2713,7 @@ function TestConnectionBlock() {
       </div>
 
       {!result && !running && (
-        <p className="text-[11px] text-muted/40">
+        <p className="text-xs text-muted">
           Schickt einen Klassifizierungs-Task an Ollama und misst die Antwortzeit.
         </p>
       )}
@@ -2729,7 +2729,7 @@ function TestConnectionBlock() {
             </p>
             <p>
               Endpoint:{" "}
-              <span className="font-mono text-muted/70">{result.ollama_endpoint}</span>
+              <span className="font-mono text-muted">{result.ollama_endpoint}</span>
             </p>
             <p>
               Installierte Modelle:{" "}
@@ -2745,7 +2745,7 @@ function TestConnectionBlock() {
               State:{" "}
               <span className={
                 result.user_state === "active" ? "text-teal" :
-                result.user_state === "paused" ? "text-amber" : "text-muted/50"
+                result.user_state === "paused" ? "text-amber" : "text-muted"
               }>{result.user_state}</span>
             </p>
           </div>
@@ -2894,7 +2894,7 @@ function RoutingCard({ pushToast }) {
           </p>
         )}
         {status?.datenweitergabe ? (
-          <p className="text-xs text-muted/70">{status.datenweitergabe}</p>
+          <p className="text-xs text-muted">{status.datenweitergabe}</p>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -3173,7 +3173,7 @@ function ErweiterungenTab({ pushToast }) {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-muted">{k.beschreibung}</p>
-                <p className="mt-1 text-xs text-muted/70">
+                <p className="mt-1 text-xs text-muted">
                   Schaltet frei: {k.freigeschaltete_funktion}
                 </p>
                 {k.letzter_fehler && !k.verfuegbar ? (
@@ -3228,7 +3228,7 @@ function ErweiterungenTab({ pushToast }) {
                   </div>
                 ) : null}
                 {k.install_hinweis ? (
-                  <p className="mt-2 text-xs text-muted/70">Auf diesem System: {k.install_hinweis}</p>
+                  <p className="mt-2 text-xs text-muted">Auf diesem System: {k.install_hinweis}</p>
                 ) : null}
               </div>
             );
@@ -3966,7 +3966,7 @@ export default function SettingsPage() {
                   />
                   <span className="text-sm text-muted">Tage</span>
                 </div>
-                <p className="mt-1 text-[11px] text-muted/70">Standard: 14. Entsteht automatisch, wenn eine Bewerbung auf „Interview abgeschlossen“ steht; ältere Nachfassungen dieser Bewerbung werden hinfällig.</p>
+                <p className="mt-1 text-xs text-muted">Standard: 14. Entsteht automatisch, wenn eine Bewerbung auf „Interview abgeschlossen“ steht; ältere Nachfassungen dieser Bewerbung werden hinfällig.</p>
               </Field>
             </div>
           </Card>
@@ -3983,7 +3983,7 @@ export default function SettingsPage() {
             />
             <div className="mt-4 grid gap-2">
               {dismissReasons.length === 0 && (
-                <p className="text-sm text-muted/60">Noch keine Ablehnungsgründe vorhanden.</p>
+                <p className="text-sm text-muted">Noch keine Ablehnungsgründe vorhanden.</p>
               )}
               {dismissReasons
                 .slice()
@@ -4021,16 +4021,16 @@ export default function SettingsPage() {
                       ) : (
                         <>
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-sm ${active ? "text-ink" : "text-muted/40 line-through"}`}>
+                            <span className={`text-sm ${active ? "text-ink" : "text-muted line-through"}`}>
                               {grundText(reason.label, dismissReasons)}
                             </span>
                             {reason.is_custom ? <Badge tone="sky">eigen</Badge> : null}
                             {reason.usage_count ? (
-                              <span className="text-xs text-muted/50">{reason.usage_count}x</span>
+                              <span className="text-xs text-muted">{reason.usage_count}x</span>
                             ) : null}
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
-                            <Button
+                            <Button aria-label="Umbenennen (Tippfehler korrigieren)"
                               type="button"
                               variant="ghost"
                               size="sm"
@@ -4109,7 +4109,7 @@ export default function SettingsPage() {
             }
           >
             {deleteReasonDialog.reason && (
-              <div className="space-y-3 text-sm text-muted/80">
+              <div className="space-y-3 text-sm text-muted">
                 <p>
                   Grund{" "}
                   <span className="font-semibold text-ink">"{deleteReasonDialog.reason.label}"</span>{" "}
@@ -4135,7 +4135,7 @@ export default function SettingsPage() {
                     </SelectInput>
                   </Field>
                 ) : (
-                  <p className="text-muted/60">
+                  <p className="text-muted">
                     Dieser Grund wird von keiner Stelle verwendet und kann gefahrlos gelöscht werden.
                   </p>
                 )}
@@ -4185,7 +4185,7 @@ export default function SettingsPage() {
               />
               <div>
                 <p className="text-sm font-medium text-ink">Arbeitsamt-Vorlagenblock im Bericht anzeigen</p>
-                <p className="text-[11px] text-muted/70">
+                <p className="text-xs text-muted">
                   Wenn aktiv, wird auf der Cover-Page ein Block mit Vermittlungsnummer, Aktenzeichen und Berater-Daten gerendert.
                   Ohne Haken werden die Felder ignoriert — du musst sie nicht löschen.
                 </p>
@@ -4254,7 +4254,7 @@ export default function SettingsPage() {
               />
               <div>
                 <p className="text-sm font-medium text-ink">Beraterkommentar-Block am Berichtende</p>
-                <p className="text-[11px] text-muted/70">
+                <p className="text-xs text-muted">
                   Fügt am Ende des Berichts leere Linien für handschriftliche Anmerkungen ein.
                 </p>
               </div>
@@ -4275,7 +4275,7 @@ export default function SettingsPage() {
               />
               <div>
                 <p className="text-sm font-medium text-ink">Tätigkeitsbericht-Modus</p>
-                <p className="text-[11px] text-muted/70">
+                <p className="text-xs text-muted">
                   Fokus auf tägliche Aktivität als Nachweis für Vermittler/Berater.
                   Cover-Titel wird zu „Tätigkeitsbericht" und der Bericht enthält eine
                   zusätzliche tagesgruppierte Übersicht aller Bewerbungs-Ereignisse.
@@ -4298,18 +4298,18 @@ export default function SettingsPage() {
                   <Activity size={14} className="text-sky" />
                   Versionen
                 </div>
-                <p className="text-xs text-muted/60">PBP: <span className="text-ink">v{health.pbp_version}</span></p>
-                <p className="text-xs text-muted/60">Python: <span className="text-ink">{health.python_version}</span></p>
-                <p className="text-xs text-muted/60">Plattform: <span className="text-ink">{health.platform_detail}</span></p>
+                <p className="text-xs text-muted">PBP: <span className="text-ink">v{health.pbp_version}</span></p>
+                <p className="text-xs text-muted">Python: <span className="text-ink">{health.python_version}</span></p>
+                <p className="text-xs text-muted">Plattform: <span className="text-ink">{health.platform_detail}</span></p>
               </div>
               <div className="glass-card p-3 space-y-1.5">
                 <div className="flex items-center gap-2 text-sm font-medium text-ink">
                   <HardDrive size={14} className="text-teal" />
                   Speicher
                 </div>
-                <p className="text-xs text-muted/60">Datenbank: <span className="text-ink">{health.db_size_mb} MB</span></p>
-                <p className="text-xs text-muted/60">Dokumente: <span className="text-ink">{health.document_count} Dateien</span></p>
-                <p className="text-xs text-muted/60 break-all">Pfad: <span className="text-ink">{health.data_dir}</span></p>
+                <p className="text-xs text-muted">Datenbank: <span className="text-ink">{health.db_size_mb} MB</span></p>
+                <p className="text-xs text-muted">Dokumente: <span className="text-ink">{health.document_count} Dateien</span></p>
+                <p className="text-xs text-muted break-all">Pfad: <span className="text-ink">{health.data_dir}</span></p>
               </div>
             </div>
             <div className="mt-4 glass-card p-3">
@@ -4327,7 +4327,7 @@ export default function SettingsPage() {
             </div>
             {health.mcp_connection && (
               <div className="mt-4 glass-card p-3">
-                <p className="text-xs text-muted/60">
+                <p className="text-xs text-muted">
                   MCP-Verbindung: <span className={`font-medium ${
                     health.mcp_connection.status === "connected" ? "text-teal" :
                     health.mcp_connection.status === "unknown" ? "text-amber" : "text-red-400"
@@ -4380,28 +4380,28 @@ export default function SettingsPage() {
                     <div className="space-y-2 text-xs">
                       <div>
                         <span className="text-teal font-medium">Gespeichert:</span>
-                        <p className="text-muted/60 mt-0.5">{privacy.data_flow.local_only.join(", ")}</p>
+                        <p className="text-muted mt-0.5">{privacy.data_flow.local_only.join(", ")}</p>
                       </div>
                       <div>
                         <span className="text-amber font-medium">An Claude (Anthropic):</span>
-                        <p className="text-muted/60 mt-0.5">{privacy.data_flow.sent_to_claude.join(", ")}</p>
+                        <p className="text-muted mt-0.5">{privacy.data_flow.sent_to_claude.join(", ")}</p>
                       </div>
                       <div>
                         <span className="text-sky font-medium">Externe Anfragen:</span>
-                        <p className="text-muted/60 mt-0.5">{privacy.data_flow.external_requests.join(", ")}</p>
+                        <p className="text-muted mt-0.5">{privacy.data_flow.external_requests.join(", ")}</p>
                       </div>
                     </div>
                   </div>
 
                   <div className="glass-card p-3">
                     <h3 className="text-sm font-medium text-ink mb-2">Gespeicherte Daten</h3>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted/60">
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted">
                       <p>Profile: <span className="text-ink">{privacy.counts.profiles}</span></p>
                       <p>Stellen: <span className="text-ink">{privacy.counts.jobs}</span></p>
                       <p>Bewerbungen: <span className="text-ink">{privacy.counts.applications}</span></p>
                       <p>Dokumente: <span className="text-ink">{privacy.counts.documents}</span></p>
                     </div>
-                    <p className="text-[11px] text-muted/40 mt-2 break-all">Speicherort: {privacy.storage.data_dir}</p>
+                    <p className="text-xs text-muted mt-2 break-all">Speicherort: {privacy.storage.data_dir}</p>
                   </div>
                 </div>
               )}
@@ -4422,7 +4422,7 @@ export default function SettingsPage() {
               <div className="glass-card p-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-ink">Selbstauskunft als PDF erstellen</p>
-                  <p className="text-xs text-muted/50">
+                  <p className="text-xs text-muted">
                     Strukturierter Bericht: Profil, Skills, Berufserfahrung, Dokumenten-/Bewerbungs-/
                     Stellen-/Termine-Anzahlen, Speicherort. Inhalte deiner Dokumente und E-Mails sind
                     NICHT enthalten — nur die Meta-Information dass sie existieren.
@@ -4446,7 +4446,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Komplett-Export (ZIP)</p>
-                    <p className="text-xs text-muted/50">Alle Profile, Bewerbungen, Dokumente und Einstellungen als ZIP-Paket.</p>
+                    <p className="text-xs text-muted">Alle Profile, Bewerbungen, Dokumente und Einstellungen als ZIP-Paket.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={exportData} disabled={exporting}>
                     <Package size={14} />
@@ -4456,7 +4456,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Datenbank-Backup (SQLite)</p>
-                    <p className="text-xs text-muted/50">Rohe Datenbankdatei — für technische Wiederherstellung.</p>
+                    <p className="text-xs text-muted">Rohe Datenbankdatei — für technische Wiederherstellung.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={downloadBackup}>
                     <Database size={14} /> Herunterladen
@@ -4465,7 +4465,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Profil exportieren (JSON)</p>
-                    <p className="text-xs text-muted/50">Nur das aktive Profil als JSON — für Übertragung zwischen Installationen.</p>
+                    <p className="text-xs text-muted">Nur das aktive Profil als JSON — für Übertragung zwischen Installationen.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={exportProfile}>
                     <Download size={14} /> Exportieren
@@ -4474,7 +4474,7 @@ export default function SettingsPage() {
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Profil importieren (JSON)</p>
-                    <p className="text-xs text-muted/50">Ein zuvor exportiertes Profil wiederherstellen.</p>
+                    <p className="text-xs text-muted">Ein zuvor exportiertes Profil wiederherstellen.</p>
                   </div>
                   <input ref={importRef} type="file" accept=".json" className="hidden" onChange={importProfile} />
                   <Button variant="secondary" size="sm" onClick={() => importRef.current?.click()}>
@@ -4537,8 +4537,8 @@ export default function SettingsPage() {
                   Issue auf GitHub aufmachen →
                 </a>
               </div>
-              <p className="mt-3 text-[11px] text-muted/60">
-                <strong className="text-amber/80">Datenschutz-Hinweis:</strong> Das Logfile kann persönliche Daten enthalten (Firmennamen, Pfade, Job-Hashes). Prüfe es kurz vor dem Hochladen oder schwärze sensible Stellen.
+              <p className="mt-3 text-xs text-muted">
+                <strong className="text-amber">Datenschutz-Hinweis:</strong> Das Logfile kann persönliche Daten enthalten (Firmennamen, Pfade, Job-Hashes). Prüfe es kurz vor dem Hochladen oder schwärze sensible Stellen.
               </p>
             </Card>
 
@@ -4866,7 +4866,7 @@ function UninstallSection({ pushToast }) {
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3 text-[12px] text-amber/90">
+        <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3 text-[12px] text-amber">
           <strong className="text-amber">Was NICHT mit deinstalliert wird:</strong>
           <ul className="mt-1.5 ml-4 list-disc space-y-0.5">
             {(info?.bleibt || ["Claude Desktop", "Ollama"]).map((z) => <li key={z}>{z}</li>)}
@@ -4908,7 +4908,7 @@ function UninstallSection({ pushToast }) {
 
         {befehl ? (
           <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3">
-            <p className="text-[12px] text-amber/90">
+            <p className="text-[12px] text-amber">
               Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:
             </p>
             <code className="mt-1.5 block break-all rounded-lg bg-black/20 px-2 py-1.5 text-[12px] text-ink">

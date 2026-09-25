@@ -94,7 +94,7 @@ function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
               onNavigate?.(tok.linkType, tok.linkId);
             }
           }}
-          className="text-teal hover:text-teal/80 underline decoration-dotted decoration-teal/40 underline-offset-2 cursor-pointer"
+          className="text-teal hover:text-teal underline decoration-dotted decoration-teal/40 underline-offset-2 cursor-pointer"
           title={tok.linkType === "pause"
             ? `Elwosa fuer ${tok.linkId} Minuten pausieren`
             : tok.linkType === "prompt"
@@ -145,7 +145,7 @@ function renderBoldAndCode(text, baseKey, onCopy) {
             key={`${key}-c${si}`}
             type="button"
             onClick={(e) => { e.stopPropagation(); onCopy?.(code); }}
-            className="font-mono text-[11px] underline-offset-2 underline decoration-dotted decoration-teal/50 hover:text-teal cursor-pointer"
+            className="font-mono text-xs underline-offset-2 underline decoration-dotted decoration-teal/50 hover:text-teal cursor-pointer"
             title="Klicken um zu kopieren"
           >
             {code}
@@ -317,7 +317,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   // sonst nur kleiner Wieder-einblenden-Button
   if (hidden && !collapsed) {
     return (
-      <div className="px-3 py-2 text-[10px] text-muted/40">
+      <div className="px-3 py-2 text-xs text-muted">
         <button
           type="button"
           onClick={() => { setHiddenUntil(0); setHidden(false); }}
@@ -372,7 +372,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
 
   // Avatar-Element
   const avatar = (
-    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal/15 text-[11px] font-semibold text-teal">
+    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-teal/15 text-xs font-semibold text-teal">
       E
     </div>
   );
@@ -409,11 +409,11 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           <div className="absolute left-12 bottom-0 z-50 w-72 rounded-lg border border-white/10 bg-shell/95 p-3 shadow-xl backdrop-blur-md">
             <div className="mb-2 flex items-center gap-2">
               {avatar}
-              <span className="text-[11px] font-medium text-ink">Elwosa</span>
+              <span className="text-xs font-medium text-ink">Elwosa</span>
             </div>
             <div className="space-y-2">
               {messages.slice(-3).map((m) => (
-                <p key={m.id} className="text-[11px] leading-relaxed text-muted/80">
+                <p key={m.id} className="text-xs leading-relaxed text-muted">
                   {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
                 </p>
               ))}
@@ -446,34 +446,34 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           {avatar}
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted/70">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted">
             Elwosa
           </span>
         </div>
         <div className="flex items-center gap-1">
           {/* v1.7.0-beta.38 (#601): Zahnrad statt mood-Anzeige.
               Klick fuehrt zu Einstellungen -> Lokale KI -> Elwosa. */}
-          <button
+          <button aria-label="Elwosa-Einstellungen oeffnen"
             type="button"
             onClick={() => onNavigateToSettings?.("ai")}
-            className="text-muted/40 hover:text-ink"
+            className="text-muted hover:text-ink"
             title="Elwosa-Einstellungen oeffnen"
           >
             <Settings size={12} />
           </button>
-          <button
+          <button aria-label="Fuer 30 Minuten ausblenden"
             type="button"
             onClick={hideForSession}
-            className="text-muted/40 hover:text-ink"
+            className="text-muted hover:text-ink"
             title="Fuer 30 Minuten ausblenden"
           >
             <EyeOff size={12} />
           </button>
           <div className="relative">
-            <button
+            <button aria-label="Menue"
               type="button"
               onClick={() => setShowMenu(!showMenu)}
-              className="text-muted/40 hover:text-ink"
+              className="text-muted hover:text-ink"
               title="Menue"
             >
               <MoreHorizontal size={12} />
@@ -483,21 +483,21 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                 <button
                   type="button"
                   onClick={() => pauseElwosa(60)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-muted hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted hover:bg-white/5"
                 >
                   <Pause size={11} /> 1 Stunde pausieren
                 </button>
                 <button
                   type="button"
                   onClick={() => pauseElwosa(240)}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-muted hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted hover:bg-white/5"
                 >
                   <Pause size={11} /> 4 Stunden pausieren
                 </button>
                 <button
                   type="button"
                   onClick={clearHistory}
-                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-muted hover:bg-white/5"
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-muted hover:bg-white/5"
                 >
                   <Trash2 size={11} /> Verlauf löschen
                 </button>
@@ -519,7 +519,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           className="h-full space-y-2 overflow-y-auto pr-1"
         >
           {messages.length === 0 && (
-            <p className="text-[10px] text-muted/40 italic">
+            <p className="text-xs text-muted italic">
               {status.ai_state === "active"
                 ? "Elwosa ist still. Wenn die AI arbeitet, redet sie."
                 : `Elwosa: ${status.ai_state}`}
@@ -528,7 +528,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           {groupedByDay.map((item, i) => {
             if (item.type === "day") {
               return (
-                <div key={`day-${i}`} className="text-[9px] uppercase tracking-wider text-muted/30 pt-1">
+                <div key={`day-${i}`} className="text-xs uppercase tracking-wider text-muted pt-1">
                   ── {item.label} ──
                 </div>
               );
@@ -539,7 +539,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                 key={m.id}
                 className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
               >
-                <p className="text-[11px] leading-relaxed text-muted/85">
+                <p className="text-xs leading-relaxed text-muted">
                   {renderWithMarkup(m.content, { onCopy: copyCode, onPause: pauseElwosa, onNavigate })}
                 </p>
                 {/* #823 (F37): dezenter Verweis unter der Linie — extern
@@ -552,24 +552,24 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                         const teil = m.link_url.replace("pbp://", "").split("/");
                         onNavigate?.(teil[0] === "tab" ? teil[1] : teil[0]);
                       }}
-                      className="mt-0.5 text-[10px] text-teal/70 underline decoration-dotted hover:text-teal">
+                      className="mt-0.5 text-xs text-teal underline decoration-dotted hover:text-teal">
                       {m.link_label || "Ansehen"}
                     </button>
                   ) : (
                     <a href={m.link_url} target="_blank" rel="noopener noreferrer"
-                      className="mt-0.5 inline-block text-[10px] text-teal/70 underline decoration-dotted hover:text-teal">
+                      className="mt-0.5 inline-block text-xs text-teal underline decoration-dotted hover:text-teal">
                       {m.link_label || "Mehr dazu"}
                     </a>
                   )
                 )}
                 <div className="mt-1 flex items-center justify-between">
-                  <span className="text-[9px] text-muted/30">
+                  <span className="text-xs text-muted">
                     {relativeTime(m.created_at)}
                   </span>
-                  <button
+                  <button aria-label="Diese Nachricht ausblenden"
                     type="button"
                     onClick={() => dismissMessage(m.id)}
-                    className="text-muted/20 opacity-0 group-hover:opacity-100 hover:text-coral transition-opacity"
+                    className="text-muted hover:text-coral transition-colors"
                     title="Diese Nachricht ausblenden"
                   >
                     <X size={11} />
@@ -584,7 +584,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           <button
             type="button"
             onClick={jumpToBottom}
-            className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-teal/90 px-2.5 py-1 text-[10px] font-medium text-white shadow-lg hover:bg-teal transition-all"
+            className="absolute bottom-1 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-teal/90 px-2.5 py-1 text-xs font-medium text-shell shadow-lg hover:bg-teal transition-all"
             title="Zu den neuesten Nachrichten springen"
           >
             <ChevronDown size={11} />

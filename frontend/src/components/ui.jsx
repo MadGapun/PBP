@@ -69,14 +69,14 @@ export function PageHeader({ title, description, actions, eyebrow }) {
     <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
       <div className="max-w-3xl space-y-1.5">
         {eyebrow ? (
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-teal/80">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal">
             {eyebrow}
           </p>
         ) : null}
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
           {title}
         </h1>
-        {description ? <p className="max-w-2xl text-sm text-muted/80">{description}</p> : null}
+        {description ? <p className="max-w-2xl text-sm text-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -88,7 +88,7 @@ export function SectionHeading({ title, description, action }) {
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div className="space-y-0.5">
         <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {description ? <p className="text-[13px] text-muted/70">{description}</p> : null}
+        {description ? <p className="text-[13px] text-muted">{description}</p> : null}
       </div>
       {action}
     </div>
@@ -114,9 +114,9 @@ export function MetricCard({ label, value, note, tone = "neutral" }) {
 
   return (
     <div className={cn("glass-card-soft rounded-2xl p-4", toneAccent[tone], toneGlow[tone])}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted/70">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">{label}</p>
       <p className="mt-2 text-2xl font-semibold tracking-tight text-ink">{value}</p>
-      {note ? <p className="mt-1.5 text-[13px] text-muted/60">{note}</p> : null}
+      {note ? <p className="mt-1.5 text-[13px] text-muted">{note}</p> : null}
     </div>
   );
 }
@@ -159,7 +159,7 @@ export function Field({ label, hint, htmlFor, children, className }) {
       <FieldLabelContext.Provider value={label ? labelId : null}>
         {children}
       </FieldLabelContext.Provider>
-      {hint ? <span className="text-[12px] text-muted/60">{hint}</span> : null}
+      {hint ? <span className="text-[12px] text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -258,7 +258,7 @@ export function TagInput({ tags = [], onChange, placeholder = "Eingabe + Enter",
       <input
         ref={inputRef}
         type="text"
-        className="min-w-[8rem] flex-1 border-none bg-transparent text-[13px] text-ink outline-none placeholder:text-muted/40"
+        className="min-w-[8rem] flex-1 border-none bg-transparent text-[13px] text-ink outline-none placeholder:text-muted"
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -277,6 +277,11 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
   const [pos, setPos] = useState(null);
   const fieldLabelId = useContext(FieldLabelContext);
   const valueId = useId();
+  // G71 (#1087 H5): Auswahlliste mit Tastatur — Pfeile, Pos1/Ende, Enter
+  // und Leertaste waehlen, Escape schliesst. Der Fokus bleibt auf dem
+  // Knopf; welcher Eintrag markiert ist, sagt `aria-activedescendant`.
+  const listId = useId();
+  const [aktiv, setAktiv] = useState(-1);
 
   // Parse <option> children into data
   const options = [];
@@ -331,15 +336,62 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  // Escape to close
-  useEffect(() => {
-    if (!open) return;
-    function onKey(e) {
-      if (e.key === "Escape") setOpen(false);
+  const gewaehlt = options.findIndex((o) => String(o.value) === String(value));
+
+  function naechster(von, schritt) {
+    if (!options.length) return -1;
+    let i = von;
+    for (let n = 0; n < options.length; n += 1) {
+      i = Math.min(options.length - 1, Math.max(0, i + schritt));
+      if (!options[i].disabled) return i;
+      if (i === 0 || i === options.length - 1) break;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+    return von;
+  }
+
+  function oeffnen() {
+    setAktiv(gewaehlt >= 0 ? gewaehlt : naechster(-1, 1));
+    setOpen(true);
+  }
+
+  function taste(e) {
+    if (disabled) return;
+    const taste = e.key;
+    if (!open) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(taste)) {
+        e.preventDefault();
+        oeffnen();
+      }
+      return;
+    }
+    if (taste === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+    } else if (taste === "ArrowDown") {
+      e.preventDefault();
+      setAktiv((i) => naechster(i, 1));
+    } else if (taste === "ArrowUp") {
+      e.preventDefault();
+      setAktiv((i) => naechster(i, -1));
+    } else if (taste === "Home") {
+      e.preventDefault();
+      setAktiv(naechster(-1, 1));
+    } else if (taste === "End") {
+      e.preventDefault();
+      setAktiv(naechster(options.length, -1));
+    } else if (taste === "Enter" || taste === " ") {
+      e.preventDefault();
+      if (aktiv >= 0 && !options[aktiv]?.disabled) select(options[aktiv].value);
+    } else if (taste === "Tab") {
+      setOpen(false);
+    }
+  }
+
+  useEffect(() => {
+    if (!open || aktiv < 0 || !panelRef.current) return;
+    panelRef.current.querySelector(`[data-index="${aktiv}"]`)?.scrollIntoView?.({ block: "nearest" });
+  }, [open, aktiv, pos]);
 
   function select(val) {
     onChange?.({ target: { value: val } });
@@ -357,14 +409,23 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
           "flex cursor-pointer items-center gap-2 text-left",
           className
         )}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => (open ? setOpen(false) : oeffnen())}
+        onKeyDown={taste}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open && aktiv >= 0 ? `${listId}-${aktiv}` : undefined}
         aria-expanded={open}
         /* #1027: Beschriftung plus gewaehlter Wert. Ein eigenes
            `aria-label` des Aufrufers geht vor und wird nicht ueberschrieben. */
         aria-labelledby={
-          fieldLabelId && !props["aria-label"] && !props["aria-labelledby"]
-            ? `${fieldLabelId} ${valueId}`
-            : undefined
+          props["aria-label"] || props["aria-labelledby"]
+            ? undefined
+            : fieldLabelId
+              ? `${fieldLabelId} ${valueId}`
+              // G71: eine combobox bekommt ihren Namen nicht aus dem
+              // Inhalt — ohne Feldbeschriftung nennt sie den Wert.
+              : valueId
         }
         {...props}
       >
@@ -372,7 +433,7 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
         <ChevronDown
           size={14}
           className={cn(
-            "shrink-0 text-muted/50 transition-transform duration-200",
+            "shrink-0 text-muted transition-transform duration-200",
             open && "rotate-180"
           )}
         />
@@ -386,7 +447,7 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
             className="soft-scrollbar overflow-y-auto rounded-xl border border-white/10 shadow-2xl backdrop-blur-2xl animate-rise"
             style={{
               ...pos,
-              background: "rgba(30, 34, 52, 0.95)",
+              background: "rgb(var(--color-panel) / 0.97)",
               maxHeight: "14rem",
               // #629: verhindert dass Mausrad die Page mit-scrollt wenn das
               // Dropdown sein Scroll-Limit erreicht hat (overscroll-bubble).
@@ -398,18 +459,25 @@ export function SelectInput({ className, children, value, onChange, disabled, ..
               e.stopPropagation();
             }}
           >
-            <div className="p-1">
-              {options.map((opt) => (
+            <div className="p-1" role="listbox" id={listId}>
+              {options.map((opt, index) => (
                 <button
                   key={opt.value}
+                  id={`${listId}-${index}`}
+                  data-index={index}
                   type="button"
+                  role="option"
+                  aria-selected={String(opt.value) === String(value)}
+                  tabIndex={-1}
                   disabled={opt.disabled}
                   className={cn(
                     "flex w-full items-center rounded-lg px-3 py-2 text-[13px] text-left transition-colors duration-150",
                     String(opt.value) === String(value)
                       ? "bg-teal/10 font-medium text-teal"
-                      : "text-muted hover:bg-white/[0.06] hover:text-ink"
+                      : "text-muted hover:bg-white/[0.06] hover:text-ink",
+                    index === aktiv && "ring-1 ring-inset ring-sky/60 text-ink"
                   )}
+                  onMouseEnter={() => setAktiv(index)}
                   onClick={() => select(opt.value)}
                 >
                   {opt.label}
@@ -465,7 +533,7 @@ export function EmptyState({ title, description, action, className }) {
     <Card className={cn("glass-card-muted border-dashed text-center", className)}>
       <div className="mx-auto max-w-md space-y-2 py-8">
         <h3 className="text-base font-semibold text-ink/80">{title}</h3>
-        <p className="text-[13px] text-muted/60">{description}</p>
+        <p className="text-[13px] text-muted">{description}</p>
         {action ? <div className="flex justify-center pt-2">{action}</div> : null}
       </div>
     </Card>
@@ -475,12 +543,74 @@ export function EmptyState({ title, description, action, className }) {
 export function LoadingPanel({ label = "Lade Daten..." }) {
   return (
     <Card className="flex min-h-48 items-center justify-center">
-      <div className="flex items-center gap-3 text-sm text-muted/70">
+      <div className="flex items-center gap-3 text-sm text-muted">
         <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/8 border-t-teal/70" />
         {label}
       </div>
     </Card>
   );
+}
+
+// G71 (#1087 H2): Dialoge, die sich wie Dialoge verhalten. Beim Oeffnen
+// geht der Fokus hinein (auf das erste Eingabefeld, sonst auf den Dialog
+// selbst, damit der Titel vorgelesen wird), Tab bleibt drin, Escape
+// schliesst, und beim Schliessen kehrt der Fokus dorthin zurueck, wo er
+// war. Liegen zwei Dialoge uebereinander (Bestaetigung ueber einem
+// Formular), reagiert nur der oberste.
+const offeneDialoge = [];
+const FOKUSSIERBAR =
+  'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+export function useDialogFokus(ref, aktiv, beiEscape) {
+  const escapeRef = useRef(beiEscape);
+  escapeRef.current = beiEscape;
+  useEffect(() => {
+    if (!aktiv) return undefined;
+    const kennung = {};
+    offeneDialoge.push(kennung);
+    const vorher = document.activeElement;
+    const ziel = ref.current;
+    const erstes = ziel?.querySelector("[autofocus]") || ziel?.querySelector("input:not([type='hidden']):not([disabled]), select:not([disabled]), textarea:not([disabled])");
+    (erstes || ziel)?.focus?.();
+
+    function taste(event) {
+      if (offeneDialoge[offeneDialoge.length - 1] !== kennung || !ref.current) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        escapeRef.current?.();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const liste = [...ref.current.querySelectorAll(FOKUSSIERBAR)]
+        .filter((el) => el.getClientRects().length > 0);
+      if (!liste.length) {
+        event.preventDefault();
+        ref.current.focus();
+        return;
+      }
+      const erstesEl = liste[0];
+      const letztes = liste[liste.length - 1];
+      const aktuell = document.activeElement;
+      if (!ref.current.contains(aktuell)) {
+        event.preventDefault();
+        erstesEl.focus();
+      } else if (event.shiftKey && (aktuell === erstesEl || aktuell === ref.current)) {
+        event.preventDefault();
+        letztes.focus();
+      } else if (!event.shiftKey && aktuell === letztes) {
+        event.preventDefault();
+        erstesEl.focus();
+      }
+    }
+
+    document.addEventListener("keydown", taste);
+    return () => {
+      document.removeEventListener("keydown", taste);
+      const i = offeneDialoge.indexOf(kennung);
+      if (i >= 0) offeneDialoge.splice(i, 1);
+      if (vorher && typeof vorher.focus === "function" && document.contains(vorher)) vorher.focus();
+    };
+  }, [aktiv]);
 }
 
 // G67 (#1087 H5): Schliessen-Kreuz im Kopf, und wer im Dialog etwas
@@ -492,6 +622,9 @@ export function LoadingPanel({ label = "Lade Daten..." }) {
 export function Modal({ open, title, description, onClose, children, footer, size = "lg", schutz = true }) {
   const [geaendert, setGeaendert] = useState(false);
   const [verwerfenFrage, setVerwerfenFrage] = useState(false);
+  const dialogRef = useRef(null);
+  const titelId = useId();
+  const beschreibungId = useId();
   useEffect(() => {
     if (open) {
       setGeaendert(false);
@@ -507,22 +640,15 @@ export function Modal({ open, title, description, onClose, children, footer, siz
     onClose();
   }
 
+  useDialogFokus(dialogRef, open, schliessenVersuchen);
+
   useEffect(() => {
     if (!open) return undefined;
-
-    function handleEscape(event) {
-      if (event.key === "Escape") {
-        schliessenVersuchen();
-      }
-    }
-
     document.body.classList.add("overflow-hidden");
-    window.addEventListener("keydown", handleEscape);
     return () => {
       document.body.classList.remove("overflow-hidden");
-      window.removeEventListener("keydown", handleEscape);
     };
-  });
+  }, [open]);
 
   if (!open) return null;
 
@@ -536,14 +662,20 @@ export function Modal({ open, title, description, onClose, children, footer, siz
       }}
     >
       <div
-        className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titelId}
+        aria-describedby={description ? beschreibungId : undefined}
+        tabIndex={-1}
+        className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise outline-none", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}
         onInputCapture={() => setGeaendert(true)}
         onChangeCapture={() => setGeaendert(true)}
       >
         <div className="flex items-start justify-between gap-3 border-b border-white/6 px-6 py-5">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold text-ink">{title}</h2>
-            {description ? <p className="mt-1.5 text-[13px] text-muted/70">{description}</p> : null}
+            <h2 id={titelId} className="text-xl font-semibold text-ink">{title}</h2>
+            {description ? <p id={beschreibungId} className="mt-1.5 text-[13px] text-muted">{description}</p> : null}
           </div>
           <button
             type="button"
@@ -575,7 +707,13 @@ export function Modal({ open, title, description, onClose, children, footer, siz
 
 export function ToastViewport({ toasts, onDismiss }) {
   return (
-    <div className="pointer-events-none fixed right-4 top-4 z-[1200] flex w-full max-w-sm flex-col gap-2">
+    // G71 (#1087 H3): Hinweise werden vorgelesen, ohne den Fokus zu nehmen.
+    <div
+      className="pointer-events-none fixed right-4 top-4 z-[1200] flex w-full max-w-sm flex-col gap-2"
+      role="status"
+      aria-live="polite"
+      data-toast-bereich
+    >
       {toasts.map((toast) => (
         <div
           key={toast.id}
@@ -603,7 +741,8 @@ export function ToastViewport({ toasts, onDismiss }) {
             </div>
             <button
               type="button"
-              className="shrink-0 rounded-lg p-1 opacity-50 transition hover:bg-white/6 hover:opacity-100"
+              aria-label="Hinweis schließen"
+              className="shrink-0 rounded-lg p-1 opacity-70 transition hover:bg-white/6 hover:opacity-100"
               onClick={() => onDismiss(toast.id)}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">

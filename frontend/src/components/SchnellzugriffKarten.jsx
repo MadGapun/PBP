@@ -132,8 +132,8 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
               // auch auf dem Handy mit dem Finger zu treffen ist.
               "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
               hilfeOffen
-                ? "border-sky/25 bg-sky/10 text-sky/80"
-                : "border-white/5 bg-white/[0.03] text-muted/50 hover:text-muted/80"
+                ? "border-sky/25 bg-sky/10 text-sky"
+                : "border-white/5 bg-white/[0.03] text-muted hover:text-muted"
             )}
           >
             <Info size={15} />
@@ -147,8 +147,8 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
             className={cn(
               "flex h-9 w-9 items-center justify-center rounded-xl border transition-colors",
               auswahlOffen
-                ? "border-teal/25 bg-teal/10 text-teal/80"
-                : "border-white/5 bg-white/[0.03] text-muted/50 hover:text-muted/80"
+                ? "border-teal/25 bg-teal/10 text-teal"
+                : "border-white/5 bg-white/[0.03] text-muted hover:text-muted"
             )}
           >
             <Settings2 size={15} />
@@ -157,7 +157,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
       </div>
 
       {hilfeOffen && (
-        <p className="mt-2 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 text-[12px] text-muted/80 leading-relaxed">
+        <p className="mt-2 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 text-[12px] text-muted leading-relaxed">
           Beispiel-Prompts für Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
           kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfügen und absenden.
           Du kannst auch frei mit Claude reden; das hier sind nur Vorschläge für häufige Workflows.
@@ -175,7 +175,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
       {auswahlOffen ? (
         <div className="mt-3 rounded-xl border border-white/[0.06] p-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-[12px] text-muted/70">
+            <p className="text-[12px] text-muted">
               Hier auswählen, was auf dem Dashboard steht. Abgewählte Prompts bleiben in der Hilfe erreichbar.
             </p>
             <Button size="sm" variant="ghost" onClick={() => speichern([])}>
@@ -187,7 +187,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
             if (!items.length) return null;
             return (
               <div key={k} className="mt-3">
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-teal/60">{k}</p>
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-teal">{k}</p>
                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
                   {items.map((e) => (
                     <label key={e.id} className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-[12px] hover:bg-white/[0.03]">
@@ -199,7 +199,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
                       />
                       <span className="min-w-0">
                         <span className="block font-medium text-ink/90">{e.titel}</span>
-                        <span className="block text-muted/60">{e.beschreibung}</span>
+                        <span className="block text-muted">{e.beschreibung}</span>
                       </span>
                     </label>
                   ))}
@@ -209,7 +209,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
           })}
         </div>
       ) : gruppen.length === 0 ? (
-        <p className="mt-3 text-[12px] text-muted/70">
+        <p className="mt-3 text-[12px] text-muted">
           Keine Karten ausgewählt.{" "}
           <button type="button" className="text-sky hover:underline" onClick={() => setAuswahlOffen(true)}>
             Auswählen
@@ -218,7 +218,7 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
       ) : (
         gruppen.map(([kategorie, items]) => (
           <div key={kategorie} className="mt-3">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-teal/60">{kategorie}</p>
+            <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-teal">{kategorie}</p>
             <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
               {items.map((e) => {
                 const Symbol = symbol(e.icon);
@@ -230,12 +230,12 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
                     onClick={() => copyPrompt(slash(e))}
                     title={e.beschreibung}
                   >
-                    <Symbol size={16} className="shrink-0 text-teal/50" />
+                    <Symbol size={16} className="shrink-0 text-teal" />
                     <div className="min-w-0">
                       <span className="block text-[13px] font-semibold text-ink/90">{e.titel}</span>
-                      <span className="block truncate text-[11px] text-muted/60">{e.beschreibung}</span>
+                      <span className="block truncate text-xs text-muted">{e.beschreibung}</span>
                     </div>
-                    <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-[11px] text-muted/60">
+                    <span className="ml-auto inline-flex shrink-0 items-center gap-1 text-xs text-muted">
                       <MitClaude size={12} />
                     </span>
                   </button>

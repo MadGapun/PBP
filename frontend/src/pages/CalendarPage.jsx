@@ -187,12 +187,12 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
   return (
     <div>
       {compact && (
-        <h3 className="mb-2 text-xs font-semibold text-muted/50">{MONTH_NAMES[month]} {year}</h3>
+        <h3 className="mb-2 text-xs font-semibold text-muted">{MONTH_NAMES[month]} {year}</h3>
       )}
       <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden border border-white/[0.06]">
         {/* Day name header */}
         {DAY_NAMES.map((name) => (
-          <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-[10px] font-semibold text-muted/40 uppercase">
+          <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-xs font-semibold text-muted uppercase">
             {name}
           </div>
         ))}
@@ -215,10 +215,10 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
               onClick={() => onDayClick(day.date)}
             >
               <span className={cn(
-                "text-[11px] font-medium",
+                "text-xs font-medium",
                 today ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky text-shell font-bold" : "",
-                !today && day.isCurrentMonth ? (past ? "text-muted/30" : "text-ink/70") : "",
-                !today && !day.isCurrentMonth ? "text-muted/15" : "",
+                !today && day.isCurrentMonth ? (past ? "text-muted" : "text-ink/70") : "",
+                !today && !day.isCurrentMonth ? "text-muted" : "",
               )}>
                 {day.date.getDate()}
               </span>
@@ -232,7 +232,7 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
                         key={m.id}
                         type="button"
                         className={cn(
-                          "block w-full truncate rounded px-1 py-px text-left text-[10px] font-medium transition-colors hover:brightness-125",
+                          "block w-full truncate rounded px-1 py-px text-left text-xs font-medium transition-colors hover:brightness-125",
                           hasCollision && "ring-1 ring-amber/50"
                         )}
                         style={{ backgroundColor: `${catColor}20`, color: catColor }}
@@ -244,7 +244,7 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
                     );
                   })}
                   {meetings.length > 3 && (
-                    <span className="block text-[9px] text-muted/40 px-1">+{meetings.length - 3}</span>
+                    <span className="block text-xs text-muted px-1">+{meetings.length - 3}</span>
                   )}
                 </div>
               )}
@@ -319,7 +319,7 @@ export default function CalendarPage() {
         action === `cal-filter-${filter}`;
       btn.classList.toggle("bg-white/[0.06]", isActive);
       btn.classList.toggle("text-ink", isActive);
-      btn.classList.toggle("text-muted/60", !isActive);
+      btn.classList.toggle("text-muted", !isActive);
     });
   }, [viewMode, calendarView, filter]);
 
@@ -518,7 +518,7 @@ export default function CalendarPage() {
     <div id="page-kalender" className="page active">
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Kalender</h1>
-      <p className="text-xs text-muted/50 mb-2">
+      <p className="text-xs text-muted mb-2">
         {meetings.length} Termine
         {/* G64 (#1087 D1): Nachfassungen sind keine Termine. Sie stehen
             in der Arbeitsliste, der Kalender verweist nur darauf. */}
@@ -535,16 +535,16 @@ export default function CalendarPage() {
       <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Navigation arrows + label */}
-          <button type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, -1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
+          <button aria-label="Vorheriger Zeitraum" type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, -1))} className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.04]">
             <ChevronLeft size={16} />
           </button>
           <span className="text-sm font-medium text-ink min-w-[140px] text-center">
             {viewMode === "kalender" ? formatViewLabel(calendarView, viewRange) : `Letzten ${logDays} Tage`}
           </span>
-          <button type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, 1))} className="rounded-lg p-1.5 text-muted/40 hover:text-ink hover:bg-white/[0.04]">
+          <button aria-label="Nächster Zeitraum" type="button" onClick={() => setViewRef((d) => navigateViewPeriod(calendarView, d, 1))} className="rounded-lg p-1.5 text-muted hover:text-ink hover:bg-white/[0.04]">
             <ChevronRight size={16} />
           </button>
-          <button type="button" onClick={() => setViewRef(new Date())} className="rounded-lg px-2 py-1 text-xs text-muted/40 hover:text-sky hover:bg-white/[0.04]">
+          <button type="button" onClick={() => setViewRef(new Date())} className="rounded-lg px-2 py-1 text-xs text-muted hover:text-sky hover:bg-white/[0.04]">
             Heute
           </button>
           <span className="mx-1 h-4 w-px bg-white/10" />
@@ -572,7 +572,7 @@ export default function CalendarPage() {
               onClick={() => toggleLogCategory(cat.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors",
-                active ? LOG_CATEGORY_COLORS[cat.key] : "text-muted/30 bg-white/[0.02] line-through"
+                active ? LOG_CATEGORY_COLORS[cat.key] : "text-muted bg-white/[0.02] line-through"
               )}
             >
               <Icon size={12} />
@@ -591,7 +591,7 @@ export default function CalendarPage() {
                   onClick={() => toggleCategoryFilter(cat.id)}
                   className={cn(
                     "flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-colors",
-                    hidden ? "text-muted/30 bg-white/[0.02] line-through" : "bg-white/[0.05] text-ink"
+                    hidden ? "text-muted bg-white/[0.02] line-through" : "bg-white/[0.05] text-ink"
                   )}
                 >
                   <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: cat.color || "#3b82f6" }} />
@@ -711,14 +711,14 @@ export default function CalendarPage() {
                   Statistik
                 </label>
                 {!cat.is_system && (
-                  <button type="button" onClick={() => deleteCategory(cat)} className="text-muted/30 hover:text-coral p-1">
+                  <button type="button" onClick={() => deleteCategory(cat)} className="text-muted hover:text-coral p-1">
                     <Trash2 size={14} />
                   </button>
                 )}
               </div>
             ))}
             <div className="border-t border-white/5 pt-3 mt-1">
-              <p className="text-xs text-muted/50 mb-2">Neue Kategorie</p>
+              <p className="text-xs text-muted mb-2">Neue Kategorie</p>
               <div className="flex items-center gap-2">
                 <input type="color" value={newCategory.color} onChange={(e) => setNewCategory((p) => ({ ...p, color: e.target.value }))} className="h-8 w-8 rounded cursor-pointer border-0 bg-transparent" />
                 <TextInput value={newCategory.name} onChange={(e) => setNewCategory((p) => ({ ...p, name: e.target.value }))} placeholder="z.B. Networking" className="flex-1" />
@@ -753,14 +753,14 @@ export default function CalendarPage() {
                     else if (entry.link_type === "dokument") navigateTo("dokumente");
                   }}
                 >
-                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg shrink-0", LOG_CATEGORY_COLORS[entry.category] || "bg-white/5 text-muted/40")}>
+                  <div className={cn("flex h-7 w-7 items-center justify-center rounded-lg shrink-0", LOG_CATEGORY_COLORS[entry.category] || "bg-white/5 text-muted")}>
                     <Icon size={14} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-ink truncate">{entry.title}</p>
-                    {entry.subtitle && <p className="text-xs text-muted/40 truncate">{entry.subtitle}</p>}
+                    {entry.subtitle && <p className="text-xs text-muted truncate">{entry.subtitle}</p>}
                   </div>
-                  <span className="shrink-0 text-xs text-muted/30">{formatDate(entry.event_date)}</span>
+                  <span className="shrink-0 text-xs text-muted">{formatDate(entry.event_date)}</span>
                   {entry.is_imported && <Badge tone="neutral" className="shrink-0">Import</Badge>}
                 </button>
               );
@@ -785,7 +785,7 @@ export default function CalendarPage() {
           {calendarView === "woche" && (
             <div className="grid grid-cols-7 gap-px rounded-xl overflow-hidden border border-white/[0.06]">
               {DAY_NAMES.map((name) => (
-                <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-[10px] font-semibold text-muted/40 uppercase">
+                <div key={name} className="bg-white/[0.03] px-1 py-1.5 text-center text-xs font-semibold text-muted uppercase">
                   {name}
                 </div>
               ))}
@@ -814,11 +814,11 @@ export default function CalendarPage() {
                       <span className={cn(
                         "text-xs font-medium",
                         today ? "inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky text-shell font-bold" : "",
-                        !today && (past ? "text-muted/30" : "text-ink/70"),
+                        !today && (past ? "text-muted" : "text-ink/70"),
                       )}>
                         {day.getDate()}
                       </span>
-                      <p className="text-[9px] text-muted/30 mt-0.5">{day.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })}</p>
+                      <p className="text-xs text-muted mt-0.5">{day.toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "short" })}</p>
                       <div className="mt-1 space-y-0.5">
                         {dayMeetings.map((m) => {
                           const catColor = m.category_color || (m.is_private ? "#6b7280" : m.is_follow_up ? "#f59e0b" : "#0ea5e9");
@@ -826,7 +826,7 @@ export default function CalendarPage() {
                             <button
                               key={m.id}
                               type="button"
-                              className="block w-full truncate rounded px-1 py-px text-left text-[10px] font-medium transition-colors hover:brightness-125"
+                              className="block w-full truncate rounded px-1 py-px text-left text-xs font-medium transition-colors hover:brightness-125"
                               style={{ backgroundColor: `${catColor}20`, color: catColor }}
                               onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
                               title={`${m.is_private ? "Geblockt" : m.title} — ${formatDateTime(m.meeting_date)}`}
@@ -863,17 +863,17 @@ export default function CalendarPage() {
           {/* Detail list below the grid for the current view range */}
           {sortedDates.length > 0 && (
             <div className="mt-6 grid gap-4">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted/40">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.15em] text-muted">
                 Termine im Zeitraum ({rangeFiltered.length})
               </h2>
               {sortedDates.map((date) => (
                 <div key={date}>
                   <h3 className={cn(
                     "mb-1.5 text-sm font-semibold",
-                    isToday(date) ? "text-sky" : isPast(date) ? "text-muted/40" : "text-ink"
+                    isToday(date) ? "text-sky" : isPast(date) ? "text-muted" : "text-ink"
                   )}>
                     {isToday(date) ? "Heute" : formatDate(date)}
-                    {isToday(date) && <span className="ml-2 text-xs font-normal text-muted/50">({formatDate(date)})</span>}
+                    {isToday(date) && <span className="ml-2 text-xs font-normal text-muted">({formatDate(date)})</span>}
                   </h3>
                   <div className="grid gap-1.5">
                     {grouped[date].map((meeting) => {
@@ -896,25 +896,25 @@ export default function CalendarPage() {
                           <div className="flex items-center gap-3">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className={cn("text-sm font-medium truncate", isPrivate ? "text-muted/50" : "text-ink")}>
+                                <h4 className={cn("text-sm font-medium truncate", isPrivate ? "text-muted" : "text-ink")}>
                                   {isPrivate ? "Geblockt" : meeting.title}
                                 </h4>
                                 <Badge tone={past ? "neutral" : isPrivate ? "neutral" : isFollowUp ? "amber" : "sky"}>
                                   {isPrivate ? "Privat" : meetingTypeLabel(meeting.meeting_type)}
                                 </Badge>
                                 {meeting.category_name && !isPrivate && (
-                                  <span className="rounded-lg px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: `${catColor || '#3b82f6'}20`, color: catColor || '#3b82f6' }}>
+                                  <span className="rounded-lg px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: `${catColor || '#3b82f6'}20`, color: catColor || '#3b82f6' }}>
                                     {meeting.category_name}
                                   </span>
                                 )}
                                 {hasCollision && <Badge tone="amber">Kollision</Badge>}
                               </div>
                               {!isPrivate && (meeting.app_company || meeting.app_title) && (
-                                <p className="text-xs text-muted/50 mt-0.5 truncate">
+                                <p className="text-xs text-muted mt-0.5 truncate">
                                   {meeting.app_title}{meeting.app_company ? ` — ${meeting.app_company}` : ""}
                                 </p>
                               )}
-                              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted/40">
+                              <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted">
                                 <span className="flex items-center gap-1">
                                   <Clock size={11} />
                                   {/* #702: Follow-ups sind Tages-Aufgaben ohne Uhrzeit — das
@@ -930,7 +930,7 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               {!isPrivate && meeting.meeting_url && (
-                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Meeting-Link öffnen">
+                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Meeting-Link öffnen">
                                   <ExternalLink size={14} />
                                 </a>
                               )}
@@ -948,12 +948,12 @@ export default function CalendarPage() {
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}
-                                      className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                                      className="rounded-lg p-1.5 text-muted hover:text-teal transition-colors"
                                       title="Als erledigt markieren"
                                     >
                                       <CheckCircle2 size={14} />
                                     </button>
-                                    <button
+                                    <button aria-label="Als hinfällig markieren"
                                       type="button"
                                       onClick={async () => {
                                         const id = String(meeting.id).replace(/^followup-/, "");
@@ -963,7 +963,7 @@ export default function CalendarPage() {
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}
-                                      className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors"
+                                      className="rounded-lg p-1.5 text-muted hover:text-coral transition-colors"
                                       title="Als hinfällig markieren"
                                     >
                                       <XCircle size={14} />
@@ -981,7 +981,7 @@ export default function CalendarPage() {
                                         const firma = meeting.app_company ? ` firma="${meeting.app_company}"` : "";
                                         copyPrompt(`/interview_vorbereitung${stelle}${firma}`);
                                       }}
-                                      className="rounded-lg p-1.5 text-muted/30 hover:text-amber transition-colors"
+                                      className="rounded-lg p-1.5 text-muted hover:text-amber transition-colors"
                                       title="Interview-Vorbereitung mit Claude"
                                       aria-label="Interview-Vorbereitung mit Claude"
                                     >
@@ -999,19 +999,19 @@ export default function CalendarPage() {
                                           loadData();
                                         } catch (err) { pushToast(`Fehler: ${err.message}`, "danger"); }
                                       }}
-                                      className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors"
+                                      className="rounded-lg p-1.5 text-muted hover:text-teal transition-colors"
                                       title="Termin hat stattgefunden"
                                     >
                                       <CheckCircle2 size={14} />
                                     </button>
                                   )}
-                                  <button type="button" onClick={() => setEditMeeting({ ...meeting, _isNew: false })} className="rounded-lg p-1.5 text-muted/30 hover:text-sky transition-colors" title="Termin bearbeiten">
+                                  <button type="button" onClick={() => setEditMeeting({ ...meeting, _isNew: false })} className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Termin bearbeiten">
                                     <Edit3 size={14} />
                                   </button>
-                                  <a href={apiUrl(`/api/meetings/${meeting.id}/ics`)} className="rounded-lg p-1.5 text-muted/30 hover:text-teal transition-colors" title="ICS herunterladen">
+                                  <a href={apiUrl(`/api/meetings/${meeting.id}/ics`)} className="rounded-lg p-1.5 text-muted hover:text-teal transition-colors" title="ICS herunterladen">
                                     <Download size={14} />
                                   </a>
-                                  <button type="button" onClick={() => setDeleteConfirm(meeting)} className="rounded-lg p-1.5 text-muted/30 hover:text-coral transition-colors" title="Termin löschen">
+                                  <button type="button" onClick={() => setDeleteConfirm(meeting)} className="rounded-lg p-1.5 text-muted hover:text-coral transition-colors" title="Termin löschen">
                                     <Trash2 size={14} />
                                   </button>
                                 </>
