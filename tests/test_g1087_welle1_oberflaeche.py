@@ -172,7 +172,10 @@ def test_g57_zusage_dialog_hat_umlaute(browser, server):
         # SelectInput ist ein Knopf mit Panel (#1027): oeffnen, Wert waehlen.
         page.get_by_role("button", name="Beworben", exact=True).first.click()
         page.get_by_text("Angenommen", exact=True).last.click()
-        page.wait_for_selector("text=Glückwunsch", timeout=10000)
+        # Auf den ZUSTAND warten (den Knopf im Dialogfuss), nicht auf den
+        # Titel: auf dem Linux-Runner stand der Titel schon da, der Rest
+        # des Dialogs noch nicht (v1.7.93 MERKE 9).
+        page.get_by_role("button", name="Später").first.wait_for(state="visible", timeout=15000)
         text = page.inner_text("body")
         assert "Später" in text
         assert "Übernehmen und speichern" in text
