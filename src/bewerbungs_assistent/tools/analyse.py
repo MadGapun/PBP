@@ -3066,6 +3066,14 @@ def register(mcp, db, logger):
                 "Einige Woerter koennten Namen aus deinem Bestand sein und "
                 "wurden NICHT automatisch ersetzt. Vor dem Absenden des "
                 "Links ansehen.")
+        # H28 (#1087 G10): die Regel fuer Texte nach aussen stand in den
+        # Server-Instructions — jetzt dort, wo gemeldet wird.
+        antwort["vor_dem_posten"] = (
+            "Bevor ein Text nach GitHub geht (Issue, Kommentar, "
+            "Fehlerbericht): issue_text_pruefen(text=...) aufrufen. Meldet "
+            "es Treffer, erneut mit anonymisieren=True und NUR den "
+            "zurueckgegebenen Text verwenden — eigenes Durchlesen genuegt "
+            "nicht, und GitHub zeigt die Bearbeitungshistorie.")
         return antwort
 
     # === Granulare KI-Steuerung (#425, v1.7.0-beta.56) =====================

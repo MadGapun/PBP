@@ -247,14 +247,15 @@ STATUS_ACTIONS = {
         "motivation": "Fantastisch! Du hast es geschafft. Nimm dir Zeit für die Entscheidung.",
     },
     "abgelehnt": {
-        "beschreibung": "Eine Absage ist hart, aber jede bringt dich näher ans Ziel.",
+        "beschreibung": "Eine Absage — oft ohne Begründung. Was lässt sich daraus lernen?",
         "aktionen": [
             {"label": "Ablehnungsmuster analysieren", "tool": "ablehnungs_muster", "prioritaet": 1},
             {"label": "Rückfrage an Firma formulieren", "tool": "antwort_formulieren", "prioritaet": 2},
             {"label": "Ähnliche Stellen suchen", "tool": "stellen_anzeigen", "prioritaet": 3},
             {"label": "Neue Jobsuche starten", "tool": "jobsuche_starten", "prioritaet": 4},
         ],
-        "motivation": "Kopf hoch! Absagen gehören dazu. Schau was du daraus lernen kannst.",
+        # H28 (#1087 G10): keine Floskel; der naechste Schritt steht oben.
+        "motivation": "Die Ablehnungsmuster zeigen, ob sich ein Grund wiederholt.",
     },
     "offen": {
         "beschreibung": "Diese Bewerbung ist offen. Was möchtest du als nächstes tun?",
