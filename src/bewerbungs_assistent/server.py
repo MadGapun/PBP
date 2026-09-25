@@ -56,7 +56,7 @@ Direkte DB-Writes umgehen die PBP-Lifecycle-Logik (Audit-Log,
 Status-Triggers, Lerneffekte, Backup-Hooks, Validierungen) und
 korrumpieren die Datenkonsistenz.
 
-GROSSE MENGEN VON STELLEN AUSSORTIEREN — nicht 200x stelle_bewerten
+GROSSE MENGEN VON STELLEN AUSSORTIEREN — nicht 200x stelle_einordnen
 aufrufen, sondern 'stellen_bulk_bewerten' mit Filtern (min_score,
 titel_enthaelt_nicht, beschreibung_enthaelt_nicht, ...) und
 dry_run=True (Default) → erst Vorschau, dann mit dry_run=False

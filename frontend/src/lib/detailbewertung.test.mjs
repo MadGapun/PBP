@@ -22,7 +22,7 @@ check("Titel steht im Prompt", text.includes('"Sachbearbeitung Datenpflege"'), t
 check("Firma steht im Prompt", text.includes("bei Musterfirma Nord"), true);
 
 // AK 2: ausdruecklich speichern, nicht nur antworten.
-check("Speicherweg genannt", text.includes('stelle_analyse_speichern(job_hash="abc123"'), true);
+check("Speicherweg genannt", text.includes('stelle_urteil_speichern(job_hash="abc123"'), true);
 check("nicht nur im Chat", text.includes("Antworte nicht nur im Chat"), true);
 for (const urteil of URTEILE) {
   check(`Urteil ${urteil} genannt`, text.includes(urteil), true);

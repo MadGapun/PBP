@@ -79,7 +79,7 @@ KLEIN_SOFORT: dict[str, str] = {
 
 UMKEHRBAR: dict[str, str] = {
     "stellen_auto_aussortieren": "aussortieren; Protokoll und stelle_reaktivieren holen zurueck",
-    "stelle_bewerten": "aussortieren; stelle_reaktivieren holt zurueck",
+    "stelle_einordnen": "aussortieren; stelle_reaktivieren holt zurueck",
     "follow_up_hinfaellig": "Status einer Nachfassung",
     "todo_hinfaellig": "Status einer Aufgabe; todo_reaktivieren holt zurueck",
     "dokument_archivieren": "dokument_reaktivieren holt zurueck",

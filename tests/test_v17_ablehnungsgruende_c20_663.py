@@ -16,9 +16,10 @@ class FakeMCP:
     def __init__(self):
         self.tools = {}
 
-    def tool(self):
+    def tool(self, name=None, **_kwargs):
+        # H29 (#1087 G11): Weiterleitungen registrieren sich mit name=.
         def decorator(fn):
-            self.tools[fn.__name__] = fn
+            self.tools[name or fn.__name__] = fn
             return fn
         return decorator
 

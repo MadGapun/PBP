@@ -65,11 +65,11 @@ def test_der_prompt_nennt_das_werkzeug_mit_seinen_echten_parametern():
     from bewerbungs_assistent.services.passung import KATEGORIEN
     from bewerbungs_assistent.tools import jobs as jobs_tools
     modul = MODUL.read_text(encoding="utf-8")
-    aufruf = re.search(r"stelle_analyse_speichern\(([^)]*)\)", modul)
+    aufruf = re.search(r"stelle_urteil_speichern\(([^)]*)\)", modul)
     assert aufruf, "Der Speicherweg fehlt im Prompt."
     genannt = set(re.findall(r"(\w+)=", aufruf.group(1)))
     quelle = inspect.getsource(jobs_tools)
-    signatur = re.search(r"def stelle_analyse_speichern\(([^)]*)\)", quelle).group(1)
+    signatur = re.search(r"def stelle_urteil_speichern\(([^)]*)\)", quelle).group(1)
     erlaubt = set(re.findall(r"(\w+)\s*:", signatur))
     assert genannt and genannt <= erlaubt, (genannt, erlaubt)
     liste = re.search(r"export const URTEILE = \[([^\]]*)\]", modul).group(1)

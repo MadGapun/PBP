@@ -267,7 +267,7 @@ PHASE 3b: JOBTITEL VORSCHLAGEN
 - Analysiere aktuelle Position, Branche, Technologien und Erfahrungslevel.
 - Schlage 5-10 passende Jobtitel vor, deutsch und englisch, aber realistisch.
 - Zeige sie dem User zur kurzen Freigabe.
-- Speichere sie mit jobtitel_vorschlagen(titel=[...]).
+- Speichere sie mit jobtitel_speichern(titel=[...]).
 
 ===================================================
 PHASE 4: REVIEW & KORREKTUR
@@ -328,7 +328,7 @@ nicht mit einer To-do-Liste.
   Status-Badge im Dashboard zeigt den Fortschritt. KEINE
   jobsuche_status()-Abfrage-Schleife!
 - Überbrücke die Wartezeit sinnvoll (z.B. kurz erklären, wie
-  stelle_bewerten und der Score funktionieren) oder beende das Gespräch
+  stelle_einordnen und der Score funktionieren) oder beende das Gespräch
   mit dem Hinweis, dass die Treffer gleich im Stellen-Tab auftauchen.
 - Wenn der User nach dem Ergebnis fragt: jobsuche_status(job_id) einmal
   aufrufen; bei Status fertig stellen_anzeigen(pro_seite=5) als erste Vorschau
@@ -912,7 +912,7 @@ Stellen mit Gehaltsinformationen zeigen diese direkt an.
 → Zeige die Ergebnisse mit stellen_anzeigen()
 → Gehe die Top-Stellen durch: "Schau dir die besten Treffer an:"
 → Für interessante Stellen: fit_analyse(hash) für Details
-→ Bewerte gemeinsam: stelle_bewerten(hash, 'passt') oder stelle_bewerten(hash, 'passt_nicht', grund)
+→ Bewerte gemeinsam: stelle_einordnen(hash, 'passt') oder stelle_einordnen(hash, 'passt_nicht', grund)
 
 ═══════════════════════════════════════════════════
 SCHRITT 5: BEWERBUNG VORBEREITEN
@@ -1309,7 +1309,7 @@ SCHRITT 6: JOBTITEL VORSCHLAGEN
 Nach jeder Dokument-Analyse: Leite passende Jobtitel ab!
 → Analysiere: Aktuelle/letzte Position, Branche, Technologien, Erfahrungslevel
 → Schlage 5-10 passende Jobtitel vor (deutsch UND englisch)
-→ Speichere mit jobtitel_vorschlagen(titel=[...], quelle="dokument_analyse")
+→ Speichere mit jobtitel_speichern(titel=[...], quelle="dokument_analyse")
 → Berücksichtige dabei die Skill-Aktualität: Veraltete Skills führen NICHT zu Jobtiteln!
 
 ═══════════════════════════════════════════════════

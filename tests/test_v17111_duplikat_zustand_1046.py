@@ -88,7 +88,7 @@ def test_eine_aktive_stelle_wird_als_aktiv_gemeldet(mcp):
     assert zweit["duplikat"] == "duplikat_aktiv"
     assert zweit["vorhandene_stelle"]["zustand"] == "aktiv"
     assert zweit["existing_hash"] == erst["hash"]
-    assert "stelle_bewerten" in zweit["nachricht"]
+    assert "stelle_einordnen" in zweit["nachricht"]
 
 
 def test_eine_aussortierte_stelle_nennt_grund_und_zeitpunkt(mcp, db):
@@ -197,7 +197,7 @@ def test_jeder_zustand_hat_seinen_eigenen_naechsten_schritt():
     beworben = {"hash": "abc", "zustand": "beworben", "bewerbung_id": "b1",
                 "bewerbungsstatus": ""}
     assert stellen_zustand.schluessel(aktiv) == "duplikat_aktiv"
-    assert "stelle_bewerten('abc'" in stellen_zustand.nachricht(aktiv)
+    assert "stelle_einordnen('abc'" in stellen_zustand.nachricht(aktiv)
     assert "ohne Grund" in stellen_zustand.nachricht(aussortiert)
     assert "Status: unbekannt" in stellen_zustand.nachricht(beworben)
     assert len({stellen_zustand.nachricht(b) for b in (aktiv, aussortiert, beworben)}) == 3

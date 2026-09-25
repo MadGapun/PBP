@@ -225,7 +225,7 @@ class TestJobtitelVorschlagenLokaleKI:
         with patch("bewerbungs_assistent.services.llm_service.get_llm_service",
                    return_value=fake):
             mcp = _mcp_mit(tmp_db, profil)
-            out = _call(mcp, "jobtitel_vorschlagen", {})
+            out = _call(mcp, "jobtitel_speichern", {})
         assert out["status"] == "ok"
         assert out["generiert_von"] == "lokale_ki"
         assert set(out["hinzugefuegt"]) == {"PLM Consultant", "Projektleiter PLM"}
@@ -236,15 +236,15 @@ class TestJobtitelVorschlagenLokaleKI:
         from bewerbungs_assistent.tools import profil
         _profil_befuellen(tmp_db)
         mcp = _mcp_mit(tmp_db, profil)
-        out = _call(mcp, "jobtitel_vorschlagen", {})
+        out = _call(mcp, "jobtitel_speichern", {})
         assert out["status"] == "keine_titel"
-        assert "jobtitel_vorschlagen(titel=[...])" in out["nachricht"]
+        assert "jobtitel_speichern(titel=[...])" in out["nachricht"]
 
     def test_mit_titel_wie_bisher(self, tmp_db):
         """Regression: expliziter Aufruf mit Titeln bleibt unveraendert."""
         from bewerbungs_assistent.tools import profil
         mcp = _mcp_mit(tmp_db, profil)
-        out = _call(mcp, "jobtitel_vorschlagen",
+        out = _call(mcp, "jobtitel_speichern",
                     {"titel": ["Software-Architekt"], "quelle": "auto"})
         assert out["status"] == "ok"
         assert out["hinzugefuegt"] == ["Software-Architekt"]

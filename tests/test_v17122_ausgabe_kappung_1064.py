@@ -6,7 +6,7 @@ meldete. Gespeichert waren 5.784 Zeichen — gekuerzt wurde nur die
 AUSGABE, und zwar stumm.
 
 Das wiegt schwer, weil seit #1003/#1007 die Detailanalyse der einzige
-Weg zu einem gespeicherten Urteil ist: `stelle_analyse_speichern`
+Weg zu einem gespeicherten Urteil ist: `stelle_urteil_speichern`
 verlangt ausdruecklich, dass die Anzeige gelesen wurde, und verweist
 dafuer auf `fit_analyse`. Hinter der Abbruchstelle standen im gemeldeten
 Fall der komplette Anforderungsblock und eine harte Bedingung, die das
@@ -175,7 +175,7 @@ def test_1064_notbremse_ist_sichtbar_und_der_rest_abrufbar(db):
     assert befund["zeichen_geliefert"] == AUSGABE_NOTBREMSE
     assert befund["weiter_ab_zeichen"] == AUSGABE_NOTBREMSE
     assert "beschreibung_ab" in befund["hinweis"]
-    assert "stelle_analyse_speichern" in befund["hinweis"]
+    assert "stelle_urteil_speichern" in befund["hinweis"]
 
     # Der Rest ist wirklich zu holen.
     rest = _fit(db, h, beschreibung_ab=befund["weiter_ab_zeichen"])
@@ -194,7 +194,7 @@ def test_1064_urteil_zu_uebergrossem_text_wird_gewarnt(db):
     register_all(mcp, db, logging.getLogger("t"))
 
     async def _run(hash_):
-        tool = await mcp.get_tool("stelle_analyse_speichern")
+        tool = await mcp.get_tool("stelle_urteil_speichern")
         res = await tool.run({"job_hash": hash_, "urteil": "BEDINGT",
                               "begruendung": "Probe"})
         return getattr(res, "structured_content", res)
