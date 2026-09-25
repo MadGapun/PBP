@@ -416,3 +416,84 @@ def test_h31_frontend_liest_die_kennung_aus_dem_hash():
     sync = app[app.index("const syncHash = useEffectEvent("):]
     sync = sync[:sync.index("});")]
     assert "sprungAusHash(ziel)" in sync and "setIntent(" in sync
+
+
+# ══ H32 — keine Sackgassen auf der Claude-Seite ═════════════════════════
+
+def test_h32_jobsuche_status_ohne_job_id_ohne_suche(umgebung):
+    _db, mcp = umgebung
+    erg = _call(mcp, "jobsuche_status", {})
+    assert erg["status"] == "keine_suche"
+    assert "jobsuche_starten()" in erg["hinweis"]
+
+
+def test_h32_jobsuche_status_ohne_job_id_nimmt_die_letzte(umgebung):
+    db, mcp = umgebung
+    jid = db.create_background_job("jobsuche", {})
+    db.update_background_job(jid, "fertig", 100, "Fertig", {"total": 3})
+    erg = _call(mcp, "jobsuche_status", {})
+    assert erg["job_id"] == jid
+    assert erg["status"] == "fertig"
+
+
+def test_h32_unbekannte_job_id_nennt_den_weg(umgebung):
+    _db, mcp = umgebung
+    erg = _call(mcp, "jobsuche_status", {"job_id": "gibtesnicht"})
+    assert "Ohne job_id" in erg["hinweis"]
+
+
+def test_h32_profil_status_ohne_profil_ist_kein_profil(umgebung):
+    _db, mcp = umgebung
+    erg = _call(mcp, "profil_status", {})
+    assert erg["status"] == "kein_profil"
+    assert "Starte die Ersterfassung" in erg["naechster_schritt"]
+    assert "profil_erstellen()." not in erg.get("nachricht", "")
+
+
+def test_h32_profil_status_nennt_den_naechsten_schritt(umgebung):
+    db, mcp = umgebung
+    db.save_profile({"name": "Test Person", "email": "t@example.com", "phone": "0",
+                     "address": "Musterweg 1", "summary": "Konstrukteur " * 20})
+    erg = _call(mcp, "profil_status", {})
+    assert erg["status"] == "vorhanden"
+    assert erg["naechster_schritt"]
+    # Ohne Suchbegriffe (und nach einem vollstaendigen Profil) kommen die
+    # Suchbegriffe; mit unvollstaendigem Profil zuerst das Profil.
+    assert ("suchkriterien_setzen" in erg["naechster_schritt"]
+            or "extraktion_starten" in erg["naechster_schritt"])
+
+
+def test_h32_naechster_schritt_folgt_der_lage(umgebung, monkeypatch):
+    from bewerbungs_assistent.services import workspace_service as ws
+    db, _mcp = umgebung
+    db.save_profile({"name": "Test Person"})
+    db.set_search_criteria("keywords_muss", ["konstruktion"])
+    for stufe, erwartet in (("quellen_aktivieren", "Einstellungen"),
+                            ("jobsuche_erneuern", "jobsuche_starten()"),
+                            ("bewerben", "stellen_anzeigen()"),
+                            ("nachfassen", "aufgaben_uebersicht()")):
+        s = {"has_profile": True, "readiness": {"stage": stufe}, "profile": {},
+             "search": {"status": "veraltet"}, "jobs": {"active": 2},
+             "applications": {"follow_ups_due": 1}}
+        assert erwartet in ws.naechster_schritt(db, s)["text"], stufe
+
+
+def test_h32_dashboard_und_claude_lesen_dieselbe_lage():
+    quelle = (PAKET / "dashboard.py").read_text(encoding="utf-8-sig")
+    rumpf = quelle[quelle.index("def _build_workspace_summary()"):]
+    rumpf = rumpf[:rumpf.index("\ndef ")]
+    assert "workspace_aus_db(_db)" in rumpf
+    assert "build_workspace_summary(\n" not in rumpf and "profile=_db.get_profile()" not in rumpf
+
+
+EIGENE_KEIN_PROFIL = re.compile(r"Kein Profil vorhanden|Noch kein Profil vorhanden|Kein aktives Profil\.")
+
+
+def test_h32_keine_eigene_kein_profil_meldung_in_den_werkzeugen():
+    funde = []
+    for p in sorted((PAKET / "tools").glob("*.py")):
+        for n in ast.walk(ast.parse(p.read_text(encoding="utf-8-sig"))):
+            if isinstance(n, ast.Constant) and isinstance(n.value, str) \
+                    and EIGENE_KEIN_PROFIL.search(n.value):
+                funde.append(f"{p.name}:{n.lineno}")
+    assert not funde, funde

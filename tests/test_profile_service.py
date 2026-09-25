@@ -19,8 +19,10 @@ def test_profile_status_without_profile():
     """Ohne Profil gibt der Service die Erststart-Payload zurueck."""
     data = get_profile_status_payload(None)
     assert data["status"] == "kein_profil"
-    assert "profil_erstellen" in data["nachricht"]
-    assert data["dashboard_url"] == "http://localhost:8200"
+    # H32 (#1087 G14): der Weg ist der Startsatz, nicht ein Werkzeugname.
+    assert "Starte die Ersterfassung" in data["nachricht"]
+    # H31: der Link kommt aus dashboard_link (Port aus BA_DASHBOARD_PORT).
+    assert data["dashboard_url"].startswith("http://localhost:8200/")
 
 
 def test_profile_status_with_counts():

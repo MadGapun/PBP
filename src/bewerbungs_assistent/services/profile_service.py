@@ -64,7 +64,7 @@ def get_profile_status_payload(
     if profile is None:
         return {
             "status": "kein_profil",
-            "nachricht": "Noch kein Profil vorhanden. Bitte starte die Ersterfassung mit profil_erstellen().",
+            "nachricht": "Noch kein Profil vorhanden. Sag Claude: \"Starte die Ersterfassung\".",
             "dashboard_url": dashboard_url,
         }
 

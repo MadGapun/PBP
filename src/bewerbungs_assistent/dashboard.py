@@ -208,14 +208,10 @@ def _get_follow_up_summary() -> dict:
 def _build_workspace_summary() -> dict:
     """Aggregate the current workspace state for dashboard navigation and guidance."""
     # #534 v1.6.5: exclude_blacklisted=True konsistent zur Stellen-Liste
-    summary = build_workspace_summary(
-        profile=_db.get_profile(),
-        jobs=_db.get_active_jobs(exclude_applied=True, exclude_blacklisted=True),
-        applications=_db.get_applications(),
-        source_summary=_get_source_summary(),
-        search_status=_get_search_status_payload(),
-        follow_up_summary=_get_follow_up_summary(),
-    )
+    # H32 (#1087 G14): derselbe Arbeitsstand, aus dem profil_status
+    # seinen naechsten Schritt liest.
+    from .services.workspace_service import workspace_aus_db
+    summary = workspace_aus_db(_db)
     # #683: ueberfaellige offene Aufgaben fuer die Dashboard-Warnung
     try:
         summary["ueberfaellige_aufgaben"] = _db.get_overdue_tasks()

@@ -711,15 +711,29 @@ def register(mcp, db, logger):
         return result
 
     @mcp.tool()
-    def jobsuche_status(job_id: str) -> dict:
-        """Prüft den Fortschritt einer laufenden Jobsuche.
+    def jobsuche_status(job_id: str = "") -> dict:
+        """Prüft den Fortschritt einer Jobsuche.
 
         Args:
-            job_id: Job-ID von jobsuche_starten()
+            job_id: Job-ID von jobsuche_starten(). Leer: die laufende oder
+                zuletzt beendete Suche.
         """
-        job = db.get_background_job(job_id)
-        if job is None:
-            return {"fehler": "Unbekannte Job-ID"}
+        # H32 (#1087 G14): mit Pflicht-ID endete die Frage "wie laeuft meine
+        # Suche?" in einem neuen Gespraech in "Unbekannte Job-ID" — die ID
+        # stand nur im alten Chat.
+        if job_id:
+            job = db.get_background_job(job_id)
+            if job is None:
+                return {"fehler": "Unbekannte Job-ID",
+                        "hinweis": "Ohne job_id zeigt jobsuche_status() die letzte Suche."}
+        else:
+            job = (db.get_running_background_job("jobsuche")
+                   or db.get_last_finished_background_job("jobsuche"))
+            if job is None:
+                return leer({"status": "keine_suche"},
+                            "Es lief noch keine Jobsuche.",
+                            "Starte sie mit jobsuche_starten().")
+            job_id = job["id"]
         # v1.6.5 (#549): bereinigung wurde sowohl in `ergebnis.bereinigung`
         # als auch top-level zurueckgegeben — doppelt. Wir extrahieren sie
         # einmalig auf top-level und entfernen sie aus `ergebnis`.
@@ -731,6 +745,7 @@ def register(mcp, db, logger):
         elif job["status"] == "fertig":
             ergebnis = job["result"]
         result = {
+            "job_id": job_id,
             "status": job["status"],
             "fortschritt": f"{job['progress']}%",
             "nachricht": job["message"],

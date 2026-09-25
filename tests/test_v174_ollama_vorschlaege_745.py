@@ -211,7 +211,8 @@ class TestKeywordVorschlaegeProfilPfad:
         try:
             mcp = _mcp_mit(db, analyse)
             out = _call(mcp, "keyword_vorschlaege", {})
-            assert "ersterfassung" in out["nachricht"]
+            # H32 (#1087 G14): einheitliche Kein-Profil-Antwort.
+            assert "Ersterfassung" in out["naechster_schritt"]
         finally:
             db.close()
 

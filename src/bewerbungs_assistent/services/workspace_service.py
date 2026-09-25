@@ -248,3 +248,68 @@ def build_workspace_summary(
             "profile_badge": format_nav_badge(len(missing_areas)),
         },
     }
+
+
+def workspace_aus_db(db) -> dict:
+    """Der Arbeitsstand aus der Datenbank — fuer Dashboard und Claude (H32).
+
+    Bis v1.7.134 setzte nur das Dashboard ihn zusammen; `profil_status`
+    nannte deshalb mit Profil gar keinen naechsten Schritt.
+    """
+    from datetime import datetime
+    from ..job_scraper import SOURCE_REGISTRY
+    from .search_service import aktive_quellen, get_search_status, summarize_active_sources
+
+    return build_workspace_summary(
+        profile=db.get_profile(),
+        jobs=db.get_active_jobs(exclude_applied=True, exclude_blacklisted=True),
+        applications=db.get_applications(),
+        source_summary=summarize_active_sources(
+            aktive_quellen(db, SOURCE_REGISTRY) or [], SOURCE_REGISTRY.keys()),
+        search_status=get_search_status(
+            db.get_profile_setting("last_search_at"), now=datetime.now()),
+        follow_up_summary=summarize_follow_ups(db.get_pending_follow_ups()),
+    )
+
+
+def naechster_schritt(db, summary: dict | None = None) -> dict:
+    """Der naechste Schritt als Satz fuer Claude, aus derselben Lage wie
+    die Readiness-Stufe im Dashboard (H32, #1087 G14)."""
+    from .dashboard_link import dashboard_link
+    s = summary or workspace_aus_db(db)
+    stufe = (s.get("readiness") or {}).get("stage", "onboarding")
+    try:
+        kriterien = db.get_search_criteria() or {}
+    except Exception:
+        kriterien = {}
+    profil = s.get("profile") or {}
+    if stufe == "profil_aufbauen":
+        fehlt = ", ".join(profil.get("missing_areas") or []) or "einige Angaben"
+        return {"stufe": stufe, "text": (
+            f"Das Profil ist noch unvollstaendig (es fehlen: {fehlt}). Lebenslauf "
+            "hochladen und mit extraktion_starten() uebernehmen, oder im Gespraech "
+            "ergaenzen: workflow_starten(name='profil_ueberpruefen').")}
+    if s.get("has_profile") and not kriterien.get("keywords_muss"):
+        return {"stufe": "suchbegriffe", "text": (
+            "Es gibt noch keine Suchbegriffe. Leite sie aus dem Profil ab "
+            "(keyword_vorschlaege()) und setze sie mit suchkriterien_setzen().")}
+    if stufe == "quellen_aktivieren":
+        return {"stufe": stufe, "text": (
+            "Es ist keine Jobboerse ausgewaehlt. Das geht im Dashboard unter "
+            f"Einstellungen › Quellen: {dashboard_link('einstellungen')}")}
+    if stufe == "jobsuche_erneuern":
+        nie = (s.get("search") or {}).get("status") == "nie"
+        return {"stufe": stufe, "text": (
+            ("Es lief noch keine Suche. " if nie else "Die letzte Suche ist aelter als eine Woche. ")
+            + "Starte sie mit jobsuche_starten(); den Stand fragt jobsuche_status().")}
+    if stufe == "bewerben":
+        return {"stufe": stufe, "text": (
+            f"{(s.get('jobs') or {}).get('active', 0)} Stellen warten auf eine Entscheidung: "
+            "stellen_anzeigen().")}
+    if stufe == "nachfassen":
+        return {"stufe": stufe, "text": (
+            f"{(s.get('applications') or {}).get('follow_ups_due', 0)} Nachfassungen sind "
+            "faellig: aufgaben_uebersicht().")}
+    return {"stufe": stufe, "text": (
+        "Alles eingerichtet. Offenes zeigt aufgaben_uebersicht(), neue Stellen "
+        "stellen_anzeigen().")}

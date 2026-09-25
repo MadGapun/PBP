@@ -128,9 +128,7 @@ def register(mcp, db, logger):
         """
         profile = db.get_profile()
         if profile is None:
-            return {"status": "kein_profil",
-                    "nachricht": "Noch kein Profil vorhanden. Starte die Ersterfassung "
-                                 "mit ersterfassung_starten() oder lege es mit profil_erstellen() an."}
+            return kein_profil("deine Dokumente zur Analyse anzeigen")
 
         # v1.7.0-beta.64 (#640): Status-Stufen explizit trennen.
         # 'nicht_extrahiert'/'' = nie angefasst
@@ -834,9 +832,7 @@ def register(mcp, db, logger):
         _t0 = _t.time()
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil.",
-                    "nachricht": "Starte die Ersterfassung mit ersterfassung_starten() "
-                                 "oder lege ein Profil mit profil_erstellen() an."}
+            return kein_profil("einen Analyseplan erstellen")
 
         conn = db.connect()
         pid = profile["id"]
@@ -1048,9 +1044,7 @@ def register(mcp, db, logger):
 
         profile = db.get_profile()
         if not profile:
-            return {"fehler": "Kein aktives Profil.",
-                    "nachricht": "Starte die Ersterfassung mit ersterfassung_starten() "
-                                 "oder lege ein Profil mit profil_erstellen() an."}
+            return kein_profil("deine Dokumente analysieren")
 
         conn = db.connect()
         pid = profile["id"]

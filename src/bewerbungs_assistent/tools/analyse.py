@@ -2277,10 +2277,7 @@ def register(mcp, db, logger):
         Kein MCP-Tool — interner Helper von keyword_vorschlaege."""
         profile = db.get_profile()
         if not profile:
-            return {
-                "nachricht": "Kein Profil vorhanden. "
-                             "Starte mit dem Prompt ersterfassung_starten.",
-            }
+            return kein_profil("passende Suchbegriffe vorschlagen")
 
         vorhandene = muss + plus + ausschluss
         bereits = {str(v).lower() for v in vorhandene}
