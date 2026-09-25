@@ -2211,8 +2211,8 @@ def zero_treffer_diagnose(stats, source_status, ok_count, error_count,
     if ok_count == 0:
         return (
             "Alle Quellen wurden uebersprungen (defekt oder deaktiviert). "
-            "Aktiviere andere Quellen (Dashboard → Einstellungen → "
-            "Job-Quellen) oder pruefe quellen_health_check()."
+            "Aktiviere andere Quellen (Einstellungen › Quellen) oder "
+            "pruefe quellen_health_check()."
         )
     return (
         f"{ok_count} Quelle(n) liefen fehlerfrei, fanden aber nichts "

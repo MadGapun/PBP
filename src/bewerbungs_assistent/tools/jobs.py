@@ -493,7 +493,7 @@ def register(mcp, db, logger):
         """Startet eine Jobsuche im Hintergrund auf allen konfigurierten Portalen.
 
         VORAUSSETZUNGEN:
-        1. Mindestens eine Quelle muss aktiviert sein (Dashboard → Einstellungen → Job-Quellen)
+        1. Mindestens eine Quelle muss aktiviert sein (Einstellungen › Quellen)
         2. Suchkriterien sollten gesetzt sein (suchkriterien_setzen)
 
         Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
@@ -545,7 +545,7 @@ def register(mcp, db, logger):
                         f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
                         "zuverlaessige Quellen ohne Login. Sie werden dabei "
                         "als aktive Quellen uebernommen. Weitere Quellen: "
-                        "Dashboard → Einstellungen → Job-Quellen."
+                        "Einstellungen › Quellen."
                     ),
                 }
 
@@ -5332,12 +5332,12 @@ def register(mcp, db, logger):
             if not status.ollama_available or not status.available_models:
                 return _err(
                     "Lokale AI nicht verfuegbar.",
-                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Pruefe Einstellungen -> Lokale KI.",
+                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Pruefe Einstellungen › Lokale KI.",
                 )
             if status.user_state != "active":
                 return _err(
                     f"Lokale AI ist im State '{status.user_state}'.",
-                    hinweis="Setze State auf 'active' in Einstellungen -> Lokale KI.",
+                    hinweis="Setze State auf 'active' in Einstellungen › Lokale KI.",
                 )
             # v1.7.0-beta.62 (#638): Pre-Warmup damit der erste Modell-Call
             # nicht 50-60s Cold-Load + MCP-Timeout ausloest. Warmup ist
@@ -6841,8 +6841,7 @@ def register(mcp, db, logger):
         berechnet PBP Fahrstrecke und Fahrzeit; Score und
         Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
 
-        **Den Schluessel richtest du im Dashboard ein** (Einstellungen →
-        Quellen → Fahrstrecke), nicht hier: ein Schluessel, der durch den
+        **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen (Fahrstrecke)), nicht hier: ein Schluessel, der durch den
         Chat geht, stuende danach im Gespraechsverlauf.
 
         Args:
@@ -6872,7 +6871,7 @@ def register(mcp, db, logger):
             "offen_ohne_koordinaten": ohne_koordinaten,
         }
         kein_schluessel = (
-            "Im Dashboard unter Einstellungen → Quellen → Fahrstrecke "
+            "Im Dashboard unter Einstellungen › Quellen (Fahrstrecke) "
             "einen kostenlosen Schluessel von OpenRouteService eintragen.")
 
         aktion = (aktion or "status").strip().lower()

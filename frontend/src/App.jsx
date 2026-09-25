@@ -1170,6 +1170,7 @@ export default function App() {
       items: [
         { id: "settings-quellen", label: "Quellen" },
         { id: "settings-ai", label: "Lokale KI" },
+        { id: "settings-claude", label: "Claude (Cloud)" },
         { id: "settings-automatik", label: "Automatik" },
         // v1.7.14 (#896): 'bewerten' (#663) fehlte hier — der Tab
         // existierte, war aber per Sidebar nicht erreichbar.
@@ -1186,6 +1187,7 @@ export default function App() {
         const labels = {
           "quellen": "Quellen",
           "ai": "Lokale KI",
+          "claude": "Claude (Cloud)",
           "automatik": "Automatik",
           "bewerten": "Bewertung",
           "system": "System",

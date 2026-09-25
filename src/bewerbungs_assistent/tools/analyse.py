@@ -2936,7 +2936,7 @@ def register(mcp, db, logger):
                     "Vor Bulk-Operationen der Klasse 'claude_teuer_bulk' dem User "
                     "kurz das geschaetzte Token-Volumen nennen. Lokale AI "
                     "(Ollama) ist immer kostenlos — wenn der User Tokens sparen "
-                    "will, lokale Tasks bevorzugen (Settings -> KI-Steuerung)."
+                    "will, lokale Tasks bevorzugen (Einstellungen › Claude (Cloud))."
                 ),
                 "kategorien": {
                     name: {"use_case": data["use_case"], "tool_count": len(data["hauptwerkzeuge"])}

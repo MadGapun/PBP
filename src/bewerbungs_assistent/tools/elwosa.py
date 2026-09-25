@@ -215,7 +215,7 @@ def register(mcp, db, logger):
                 "status": "aktiviert",
                 "line_id": line_id,
                 "hinweis": (
-                    "Direkt im Pool. User kann in Settings -> Lokale KI -> "
+                    "Direkt im Pool. User kann in Einstellungen › Lokale KI -> "
                     "Elwosa wieder entfernen."
                 ),
             }
@@ -223,7 +223,7 @@ def register(mcp, db, logger):
             "status": "vorgeschlagen",
             "line_id": line_id,
             "hinweis": (
-                "Wartet auf User-Genehmigung in Settings -> Lokale KI -> Elwosa."
+                "Wartet auf User-Genehmigung in Einstellungen › Lokale KI -> Elwosa."
             ),
         }
 

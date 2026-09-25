@@ -318,6 +318,11 @@ def _schreibbefund(db, bereich, element_id, ok, antwort):
     }
 
 
+def _phasen_suche() -> str:
+    from ..services.ersterfassung_phasen import SUCHE
+    return SUCHE
+
+
 def register(mcp, db, logger):
     """Registriert alle Profil-Tools."""
 
@@ -1601,6 +1606,18 @@ def register(mcp, db, logger):
                 if value != _PREF_DEFAULTS[key] or key not in merged_prefs:
                     merged_prefs[key] = value
             preferences = merged_prefs
+        # H30 (#1087 G12): beim ersten Profil uebernimmt save_profile die
+        # vorher hochgeladenen Dokumente — bis v1.7.134 still, und die
+        # Antwort forderte danach, Positionen von Hand einzutragen, die im
+        # uebernommenen Lebenslauf standen.
+        waisen = []
+        if not existing:
+            try:
+                waisen = [r["filename"] for r in db.connect().execute(
+                    "SELECT filename FROM documents WHERE profile_id IS NULL "
+                    "ORDER BY created_at").fetchall()]
+            except Exception:
+                waisen = []
         pid = db.save_profile({
             "name": name, "email": email, "phone": phone,
             "address": address, "city": city, "plz": plz,
@@ -1622,10 +1639,19 @@ def register(mcp, db, logger):
                     "im Profil — dort liest sie auch das Scoring. Aendern "
                     "mit suchkriterien_setzen(...) oder auf der "
                     "Einstellungsseite (#1055).")} if _in_kriterien else {}),
-            "naechster_schritt": "Füge jetzt Berufserfahrung hinzu mit position_hinzufuegen(). "
-                                "Frage nach: Firma, Position, Zeitraum, Aufgaben, Erfolge, Technologien. "
-                                "Nutze die STAR-Methode (Situation, Task, Action, Result) für jedes Projekt."
+            "naechster_schritt": (
+                "extraktion_starten() — die Dokumente enthalten Stationen, "
+                "Ausbildung und Kompetenzen; erst danach nach dem fragen, "
+                "was fehlt." if waisen else
+                "erfassung_fortschritt_lesen() — die Antwort nennt den "
+                "naechsten offenen Bereich samt Anleitung."),
         }
+        if waisen:
+            result["uebernommene_dokumente"] = waisen
+            result["hinweis_dokumente"] = (
+                f"{len(waisen)} vorher hochgeladene(s) Dokument(e) gehoeren jetzt "
+                "zu diesem Profil: " + ", ".join(waisen[:5])
+                + (" …" if len(waisen) > 5 else "") + ".")
         if existing:
             result["hinweis"] = ("Bestehendes Profil aktualisiert — leere Argumente haben "
                                  "die vorhandenen Werte behalten. Gezieltes Leeren via profil_bearbeiten.")
@@ -2083,6 +2109,10 @@ def register(mcp, db, logger):
             "praeferenzen": bool(prefs.get("stellentyp")),
             "review_abgeschlossen": fortschritt.get("review_abgeschlossen", False),
         }
+        # H30 (#1087 G9): die Anleitung fuer den naechsten Schritt kommt
+        # mit dieser Antwort, nicht vorab im Prompt.
+        from ..services import ersterfassung_phasen as _phasen
+        phase, anleitung = _phasen.anleitung(auto_check)
         return {
             "status": "ok",
             "profil_name": profile.get("name"),
@@ -2090,6 +2120,8 @@ def register(mcp, db, logger):
             "alle_komplett": all(auto_check.values()),
             "fehlende_bereiche": [k for k, v in auto_check.items() if not v],
             "letzte_notizen": fortschritt.get("notizen", ""),
+            "phase": phase,
+            "anleitung": anleitung,
         }
 
     @mcp.tool()
@@ -2123,7 +2155,12 @@ def register(mcp, db, logger):
             conversation_key = f"profile_onboarding_conversation_{profile_id}"
             if db.get_user_preference(conversation_key) != "complete":
                 db.set_user_preference(conversation_key, "active")
-        return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen}
+        # H30 (#1087 G9): was als Naechstes dran ist, samt Anleitung.
+        from ..services import ersterfassung_phasen as _phasen
+        stand = _phasen.stand(db.get_profile(), fortschritt)
+        phase, anleitung = _phasen.anleitung(stand)
+        return {"status": "gespeichert", "bereich": bereich, "abgeschlossen": abgeschlossen,
+                "phase": phase, "anleitung": anleitung}
 
     @mcp.tool()
     def kennlerngespraech_abschliessen() -> dict:
@@ -2155,6 +2192,9 @@ def register(mcp, db, logger):
                 "jobsuche_starten(quellen=['bundesagentur', 'arbeitnow', "
                 "'jobspy_indeed']) für die erste Suche."
             ),
+            # H30 (#1087 G9): die ganze Anleitung zu Phase 5.
+            "phase": "suche",
+            "anleitung": _phasen_suche(),
         }
 
     # --- Jobtitel-Vorschläge (2 Tools) ---
@@ -2420,5 +2460,5 @@ def register(mcp, db, logger):
             "hinweis": erg.get(
                 "hinweis",
                 "Quellen aktivierst du im Dashboard unter "
-                "Einstellungen → Quellen."),
+                "Einstellungen › Quellen."),
         }

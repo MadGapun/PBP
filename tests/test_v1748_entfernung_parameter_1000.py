@@ -251,6 +251,10 @@ def test_1000_ersterfassung_nennt_nur_echte_parameter(db):
 
     text = prompts.PROMPTS["ersterfassung"] if hasattr(prompts, "PROMPTS") \
         else inspect.getsource(prompts)
+    # H30 (#1087 G9): die Phasen-Anleitungen stehen jetzt in einem
+    # eigenen Modul — geprueft wird beides.
+    from bewerbungs_assistent.services import ersterfassung_phasen
+    text += inspect.getsource(ersterfassung_phasen)
 
     aufrufe = []
     start = text.find("suchkriterien_setzen(")
@@ -279,9 +283,8 @@ def test_1000_ersterfassung_nennt_nur_echte_parameter(db):
 def test_1000_ersterfassung_erklaert_wohin_remote_gehoert():
     """Remote ist kein eigener Parameter, sondern ein Eintrag in
     `regionen` — das muss dastehen, sonst raet Claude wieder."""
-    import inspect
-    from bewerbungs_assistent import prompts
-    text = inspect.getsource(prompts)
+    # H30 (#1087 G9): Phase 5 steht in services/ersterfassung_phasen.
+    from bewerbungs_assistent.services.ersterfassung_phasen import SUCHE as text
     stelle = text[text.index("Speichere die bestätigten Begriffe"):][:600]
     assert "regionen" in stelle
     assert "Remote" in stelle

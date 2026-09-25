@@ -6403,8 +6403,8 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
             {
                 "status": "keine_quellen",
                 "nachricht": (
-                    "Keine Job-Quellen aktiviert. Aktiviere Quellen unter "
-                    "Einstellungen \u2192 Job-Quellen."
+                    "Keine Jobb\u00f6rse ausgew\u00e4hlt. W\u00e4hle Jobb\u00f6rsen unter "
+                    "Einstellungen \u203a Quellen."
                 ),
             },
             status_code=400,
