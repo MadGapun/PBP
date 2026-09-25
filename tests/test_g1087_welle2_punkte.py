@@ -262,7 +262,13 @@ def test_h24_fit_analyse_liefert_den_satz(umgebung):
     erg = _call(mcp, "fit_analyse", {"job_hash": voll.split(":", 1)[-1]})
     assert erg.get("score_bedeutung") == SCORE_BEDEUTUNG or \
         (erg.get("empfehlung") or {}).get("score_bedeutung") == SCORE_BEDEUTUNG
-    assert "%" not in str(erg.get("punkte_text", ""))
+    assert erg.get("punkte_text"), "punkte_text fehlt"
+    assert "%" not in erg["punkte_text"]
+    # Die Empfehlung traegt ihre eigene Skala-Zeile (_skala) — ebenfalls
+    # ohne Prozent.
+    befund = erg.get("empfehlung") or {}
+    assert befund.get("punkte_text"), "Empfehlung ohne punkte_text"
+    assert "%" not in befund["punkte_text"]
 
 
 # ══ C97 ═══════════════════════════════════════════════════════════════
