@@ -105,6 +105,94 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.132] - 2026-09-25 — Ein Wert je Stelle
+
+Zweite Welle aus dem UX-Review #1087: dieselbe Stelle trug je nach Ort
+eine andere Zahl. Kein Schema-Eingriff, keine Neuberechnung des Bestands.
+
+### Changed
+
+- **Punkte statt vier Zahlen** (#1087 C1). Stellenkarte, Dashboard,
+  Fit-Dialog, Bewerbungs-Timeline und `stellen_anzeigen` zeigen jetzt
+  dieselbe Zahl unter demselben Namen: **Punkte**, wo erreichbar mit
+  Skala („7 von 26 Punkten“). Sie misst, wie gut die Anzeige deine
+  Suchbegriffe trifft, samt deiner Regler für Begriffe. Entfernung,
+  Remote-Anteil und Gehalt zählen nicht hinein — sie stehen als
+  Rahmen-Daumen daneben und bestimmen nur die Reihenfolge. Bisher nannte
+  die Karte einen Wert „Fachwert“, der diese Rahmen-Regler doch
+  einrechnete.
+- **Die Faktoren im Fit-Dialog ergeben die Zahl.** Unter „Woraus sich die
+  Punkte ergeben“ stehen nur die Faktoren, die eingehen, und sie
+  addieren sich genau zur gezeigten Zahl; Ort, Gehalt und Arbeitsmodell
+  stehen getrennt darunter. Hat sich der Anzeigentext oder deine
+  Suchliste seit der letzten Bewertung geändert, sagt der Dialog das.
+- **Was die Punkte bedeuten, steht überall gleich** (#1087 G4). Ein Satz,
+  an einer Stelle gepflegt, in allen Antworten von Claude, im Fit-Dialog
+  und im Profil. Entfernt sind Aussagen wie „Fit-Score (0-20 Punkte) …
+  wie gut sie zu deinem Profil passt“, „Dein Match liegt bei X %“ und
+  „Score von 0-100“: der Lebenslauf geht nicht ein, und eine
+  Prozentangabe gibt es nicht.
+
+### Fixed
+
+- **Die erste Trefferliste sagt, was ihr noch fehlt** (#1087 C8). Nach
+  einem Suchlauf nennt der Hinweis, wie viele neue Stellen noch ohne
+  Volltext sind („Fertig — 44 neue Stellen, 32 ohne Volltext“), der
+  Stellen-Tab ebenso. Ein grauer Daumen sagt jetzt auf der Karte, warum
+  er ungeprüft ist („ungeprüft: Entfernung unbekannt“, „ungeprüft: ohne
+  Anzeigentext“).
+
+### Gemessen
+
+Summenprobe über 300 zufällig zusammengesetzte Anzeigen: die Faktoren
+im Fit-Dialog ergeben in allen Fällen genau die Punkte. Gegenprobe: 19
+Mechanismen, jeder einzeln ausgebaut, jeder macht einen Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.132.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.132.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+---
+
 ## [1.7.131] - 2026-09-25 — Was im Kernweg kaputt war
 
 Erste Welle aus dem UX-Review #1087: die Defekte, die einen Bewerber im
