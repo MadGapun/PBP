@@ -79,7 +79,7 @@ def search_stepstone(params: dict) -> list:
                     const seen = new Set();
                     const UI_NOISE = /^(neuer als|teilweise|nur |auf unternehmenswebsite|filter|sortieren|merken|ergebnisse|ansicht|jetzt suchen|vor \\d|gestern|heute|abos)/i;
 
-                    // Strategy 1: JSON-LD JobPosting (zuverlaessig)
+                    // Strategy 1: JSON-LD JobPosting (zuverlässig)
                     for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
                         try {
                             const data = JSON.parse(script.textContent || '');
@@ -107,7 +107,7 @@ def search_stepstone(params: dict) -> list:
                     }
 
                     // Strategy 2: article elements — nur wenn das Title-Anchor
-                    // tatsaechlich auf eine Stellenangebot-Seite zeigt UND der
+                    // tatsächlich auf eine Stellenangebot-Seite zeigt UND der
                     // Titel kein UI-Filter-String ist.
                     if (results.length < 5) {
                         for (const card of document.querySelectorAll('article')) {
@@ -140,7 +140,7 @@ def search_stepstone(params: dict) -> list:
                         }
                     }
 
-                    // Strategy 3: Pure anchor-Fallback (selten noetig)
+                    // Strategy 3: Pure anchor-Fallback (selten nötig)
                     if (results.length === 0) {
                         for (const a of document.querySelectorAll('a[href*="/stellenangebot"]')) {
                             const title = (a.textContent || '').trim();

@@ -115,7 +115,7 @@ def zusammenfuehren(db, *, dry_run: bool = True, max_stellen: int = 0) -> dict:
             "Vorschau — es wurde nichts geschrieben. Mit dry_run=False "
             "wird verschoben; ein zweiter Lauf findet danach nichts mehr."
             if dry_run else
-            "Die alte Spalte ist fuer diese Stellen geleert. Recherchen "
+            "Die alte Spalte ist für diese Stellen geleert. Recherchen "
             "stehen jetzt bei allen anderen, Protokolle bei der "
             "Aussortierung."),
     }

@@ -276,14 +276,14 @@ def rahmenbegriff_art(begriff: str, orte: set[str]) -> str | None:
 
 _GEHOERT_ZU = {
     ARBEITSMODELL: ("Arbeitsmodell — der Remote-Regler wertet das bereits; "
-                    "in der Fachliste zaehlt es doppelt und verfaelscht den "
+                    "in der Fachliste zählt es doppelt und verfälscht den "
                     "Fachwert"),
-    VERTRAGSFORM: ("Vertragsform — gehoert in `stellentypen` "
+    VERTRAGSFORM: ("Vertragsform — gehört in `stellentypen` "
                    "(suchkriterien_setzen(stellentypen=[...]))"),
-    ORT: ("Ort — gehoert in `regionen` oder die Entfernungsgrenze "
+    ORT: ("Ort — gehört in `regionen` oder die Entfernungsgrenze "
           "(suchkriterien_setzen(regionen=[...], max_entfernung_km=...))"),
-    ZUSATZLEISTUNG: ("Zusatzleistung — sagt nichts ueber die Passung und "
-                     "gehoert in keine Liste"),
+    ZUSATZLEISTUNG: ("Zusatzleistung — sagt nichts über die Passung und "
+                     "gehört in keine Liste"),
 }
 
 
@@ -450,7 +450,7 @@ def abgleich(db, mindest_level: int = MIN_LEVEL_VORSCHLAG) -> dict:
             "kategorie": kat,
             "ziel": ziel,
             "grund": (f"Im Profil mit Level {level} ({kat}), in keiner "
-                      f"Liste — Stellen, die das suchen, bekommen dafuer "
+                      f"Liste — Stellen, die das suchen, bekommen dafür "
                       f"keinen Punkt."),
         }
         if _aktiv(vorschlag):
@@ -550,7 +550,7 @@ def abgleich(db, mindest_level: int = MIN_LEVEL_VORSCHLAG) -> dict:
             if liste_name == "keywords_minus":
                 grund = (f"{art} in MINUS — `stellentypen` filtert das "
                          "bereits, und der Regler `stellentyp/...` bzw. "
-                         "der Remote-Regler wertet es; in der Liste zaehlt "
+                         "der Remote-Regler wertet es; in der Liste zählt "
                          "es doppelt (scoring_konfigurieren('anzeigen')).")
             vorschlag = {
                 "art": RAHMENBEGRIFF,

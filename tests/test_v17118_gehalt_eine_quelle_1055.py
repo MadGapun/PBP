@@ -502,7 +502,7 @@ def test_die_zusammenfassung_zeigt_die_werte_mit_herkunft(umgebung):
     db, mcp = umgebung
     _bestand_mit_doppelung(db)
     text = str(_call(mcp, "profil_zusammenfassung", {}))
-    assert "Gehalt und Saetze (aus den Suchkriterien)" in text
+    assert "Gehalt und Sätze (aus den Suchkriterien)" in text
     assert "75000" in text
     # Und NICHT mehr in der Praeferenz-Liste.
     praeferenzen = text.split("Job-Präferenzen")[-1].split("Gehalt und Saetze")[0]

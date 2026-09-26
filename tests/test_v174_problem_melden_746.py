@@ -53,4 +53,4 @@ class TestTippsVerweisenAufMeldeHilfe:
         text = build_tipps_und_tricks_prompt()
         assert "PROBLEME & IDEEN MELDEN" in text
         assert "problem_melden" in text
-        assert "Sofortloesung" in text
+        assert "Sofortlösung" in text

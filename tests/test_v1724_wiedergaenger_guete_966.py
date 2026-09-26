@@ -57,7 +57,7 @@ def test_966_geschaetztes_gehalt_macht_den_grund_schwach():
         "description": RUMPF, "dismiss_reason": "gehalt_zu_niedrig",
         "salary_estimated": 1})
     assert guete == "schwach"
-    assert "geschaetzt" in warum
+    assert "geschätzt" in warum
 
 
 def test_966_belegtes_gehalt_bleibt_belastbar():
@@ -90,7 +90,7 @@ def test_989_anzeigenrumpf_traegt_gar_kein_fachurteil():
     guete, warum = grund_guete({
         "description": RUMPF, "dismiss_reason": "falsches_fachgebiet"})
     assert guete == "ohne_grundlage"
-    assert "zaehlt nicht mit" in warum
+    assert "zählt nicht mit" in warum
 
 
 @pytest.mark.parametrize("grund", [
@@ -190,7 +190,7 @@ def test_966_hinweis_nennt_die_grundlage(db):
     muster = find_wiedergaenger_pattern(
         db, "Musterfirma GmbH", "PLM Manager (m/w/d)", schwellwert=2)
     assert "Grundlage" in muster["hinweis"], muster["hinweis"]
-    assert "geschaetzt" in muster["hinweis"]
+    assert "geschätzt" in muster["hinweis"]
     assert muster["schwache_urteile"] == 1
 
 

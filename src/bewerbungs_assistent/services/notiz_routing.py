@@ -159,7 +159,7 @@ def bewerbungsbezug(db, ueberschrift: str, text: str = "") -> dict | None:
         "sicherheit": EINDEUTIG if len(kandidaten) == 1 else UNSICHER,
         "firma": kandidaten[0]["firma"],
         "kandidaten": kandidaten,
-        "grund": (f"Die Ueberschrift nennt '{kandidaten[0]['firma']}' — dazu "
+        "grund": (f"Die Überschrift nennt '{kandidaten[0]['firma']}' — dazu "
                   f"{'gibt es eine Bewerbung' if len(kandidaten) == 1 else f'gibt es {len(kandidaten)} Bewerbungen'}."),
     }
 
@@ -244,7 +244,7 @@ def verschieben(db, sektion: str, bewerbung_id: str) -> dict:
         "firma": app.get("company"),
         "titel": app.get("title"),
         "naechster_schritt": (
-            f"bewerbung_details('{bewerbung_id}') zeigt die Timeline. Fuer "
-            "die naechste Interview-Nachlese: interview_reflexion_speichern "
+            f"bewerbung_details('{bewerbung_id}') zeigt die Timeline. Für "
+            "die nächste Interview-Nachlese: interview_reflexion_speichern "
             "(#464) — strukturiert, an der Bewerbung."),
     }

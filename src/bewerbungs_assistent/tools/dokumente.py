@@ -178,7 +178,7 @@ def register(mcp, db, logger):
                            profil_mitsenden: bool = True) -> dict:
         """Startet die intelligente Profil-Extraktion für ein oder mehrere Dokumente.
 
-        Laedt den extrahierten Text aller angegebenen (oder aller noch nicht
+        Lädt den extrahierten Text aller angegebenen (oder aller noch nicht
         analysierten) Dokumente und gibt ihn zusammen mit dem aktuellen Profil
         zurück, damit Claude die Daten vergleichen und extrahieren kann.
 
@@ -263,7 +263,7 @@ def register(mcp, db, logger):
                 "ohne_text": ohne_text,
                 "nachricht": (
                     f"{len(ohne_text)} Dokument(e) enthalten keinen "
-                    "auslesbaren Text. Ein erneuter Versuch aendert daran "
+                    "auslesbaren Text. Ein erneuter Versuch ändert daran "
                     "nichts — die Datei muss neu hochgeladen werden (dann "
                     "greifen die Format-Leser) oder es handelt sich um "
                     "einen Scan, der OCR braucht."),
@@ -406,9 +406,9 @@ def register(mcp, db, logger):
     ) -> dict:
         """Wendet extrahierte Daten auf das aktive Profil an.
 
-        Standardmaessig werden alle Daten automatisch übernommen (auto_apply=True).
+        Standardmässig werden alle Daten automatisch übernommen (auto_apply=True).
         Nur bei echten Konflikten (Feld hat bereits einen vom User eingegebenen Wert)
-        wird der bestehende Wert beibehalten — es sei denn, konflikte_loesungen enthaelt
+        wird der bestehende Wert beibehalten — es sei denn, konflikte_loesungen enthält
         eine explizite Entscheidung.
 
         Args:
@@ -420,7 +420,7 @@ def register(mcp, db, logger):
                 "alt" = bestehenden Wert behalten, "neu" = überschreiben
             auto_apply: Wenn True (Standard), werden alle leeren Felder und Default-Werte
                 automatisch überschrieben ohne Rückfrage. Bei False müssen Konflikte
-                über konflikte_loesungen aufgeloest werden.
+                über konflikte_loesungen aufgelöst werden.
         """
         conn = db.connect()
         pid = db.get_active_profile_id()
@@ -560,7 +560,7 @@ def register(mcp, db, logger):
                 # Dokument, und der Mensch soll wissen, wohin er gehoert.
                 applied["praeferenzen_nicht_uebernommen"] = _abgewiesen
                 applied["praeferenzen_stattdessen"] = (
-                    "Gehalt, Saetze und die Entfernungsgrenze stehen in den "
+                    "Gehalt, Sätze und die Entfernungsgrenze stehen in den "
                     "Suchkriterien: suchkriterien_setzen(...) oder die "
                     "Einstellungsseite (#1055).")
 
@@ -815,7 +815,7 @@ def register(mcp, db, logger):
 
         v1.7.0-beta.59 (#635): Response-Payload reduziert (nur 3 Datei-
         Vorschauen pro Batch statt aller). Byte-Counter nutzt CAST AS
-        BLOB damit UTF-8-Sonderzeichen korrekt gezaehlt werden.
+        BLOB damit UTF-8-Sonderzeichen korrekt gezählt werden.
 
         v1.7.0-beta.79 (#657 E16): Default-Filter `lifecycle='aktiv'`.
         Archivierte/veraltete Dokumente tauchen nicht mehr im Plan auf —
@@ -975,11 +975,11 @@ def register(mcp, db, logger):
                 f"{len(unique)} einzigartige Dokumente in {len(batches)} Batches analysieren. "
                 + (
                     f"{zuordnungen_gesamt} Dokument(e) haben ein Verdachtsmoment "
-                    "fuer eine bestehende Bewerbung (siehe bewerbungs_zuordnungen, "
-                    "je mit Konfidenz und Beleg) — pruefe das, bevor du eine neue "
+                    "für eine bestehende Bewerbung (siehe bewerbungs_zuordnungen, "
+                    "je mit Konfidenz und Beleg) — prüfe das, bevor du eine neue "
                     "Bewerbung anlegst (Dublettenschutz). "
                     + (f"Hier stehen die ersten {PLAN_ZUORDNUNGEN_MAX}; "
-                       "die vollstaendige Liste liefert dokumente_ohne_bewerbung(). "
+                       "die vollständige Liste liefert dokumente_ohne_bewerbung(). "
                        if zuordnungen_gesamt > PLAN_ZUORDNUNGEN_MAX else "")
                     if bewerbungs_zuordnungen else ""
                 )
@@ -1018,7 +1018,7 @@ def register(mcp, db, logger):
         v1.7.0-beta.59 (#635): Defaults nach unten korrigiert
         (max_text_bytes 50k -> 30k, max_dokumente 10 -> 8). Neuer
         Parameter `max_bytes_per_doc` (default 8000) — wenn ein einzelnes
-        Dokument groesser ist wird der Text getrunkated mit Marker.
+        Dokument grösser ist wird der Text getrunkated mit Marker.
         Vorher konnte ein einzelnes 200KB-PDF die ganze MCP-Response
         sprengen und in den 4-Minuten-Timeout laufen.
 
@@ -1028,7 +1028,7 @@ def register(mcp, db, logger):
                 Standard: 30000 (~7.5K Tokens). Hard-Cap: 50000.
             max_dokumente: Maximale Anzahl Dokumente pro Batch. Standard: 8.
             max_bytes_per_doc: Pro-Doku-Limit. Default 8000 (~2K Tokens).
-                Laengerer Text wird getrunkated mit Marker.
+                Längerer Text wird getrunkated mit Marker.
             profil_mitsenden: Wenn True (Standard), wird das Profil mitgesendet.
                 Bei Folge-Batches auf False setzen um Tokens zu sparen.
         """
@@ -1126,7 +1126,7 @@ def register(mcp, db, logger):
                 text = text_bytes[:max_bytes_per_doc].decode("utf-8", errors="ignore")
                 text += (
                     f"\n\n[... gekuerzt: weitere {full_len - max_bytes_per_doc} Bytes "
-                    f"nicht uebertragen. extraktion_starten([\"{doc['id']}\"]) fuer "
+                    f"nicht übertragen. extraktion_starten([\"{doc['id']}\"]) für "
                     f"Vollzugriff]"
                 )
                 truncated = True
@@ -1165,13 +1165,13 @@ def register(mcp, db, logger):
             anleitung = (
                 "Pro Dokument im Batch: schaue auf `routing.aktion` und nutze "
                 "`dokument_aktion_ausfuehren(dokument_id, aktion, args)`. "
-                "Fuer `profil_extraktion` weiter wie bisher (Profildaten "
+                "Für `profil_extraktion` weiter wie bisher (Profildaten "
                 "ziehen + extraktion_ergebnis_speichern + extraktion_anwenden). "
-                "Fuer `noop_korrespondenz_abschliessen` reicht das Tool "
+                "Für `noop_korrespondenz_abschliessen` reicht das Tool "
                 "`dokumente_korrespondenz_abschliessen()` am Ende des Batches. "
                 "Danach: dokumente_batch_analysieren(batch_nr="
                 + str(batch_nr + 1)
-                + ", routing_modus=True) fuer den naechsten Batch."
+                + ", routing_modus=True) für den nächsten Batch."
             )
         else:
             anleitung = (
@@ -1558,11 +1558,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def dokument_entverknuepfen(dokument_id: str) -> dict:
-        """Entfernt die Verknuepfung eines Dokuments zu einer Bewerbung (#447).
+        """Entfernt die Verknüpfung eines Dokuments zu einer Bewerbung (#447).
 
         Nutze dies, wenn eine automatische oder manuelle Zuordnung falsch ist
         und das Dokument wieder 'unverknuepft' erscheinen soll. Das Dokument
-        selbst bleibt erhalten — nur die Verknuepfung wird geloest.
+        selbst bleibt erhalten — nur die Verknüpfung wird gelöst.
 
         Args:
             dokument_id: ID des Dokuments
@@ -1578,27 +1578,27 @@ def register(mcp, db, logger):
             }
         changed = db.relink_document(dokument_id, None, profile_id=profile_id)
         if not changed:
-            return {"fehler": "Verknuepfung konnte nicht entfernt werden."}
+            return {"fehler": "Verknüpfung konnte nicht entfernt werden."}
         return {
             "status": "entverknuepft",
             "dokument_id": dokument_id,
             "dokument": doc.get("filename", ""),
             "nachricht": (
                 f"Dokument '{doc.get('filename', '')}' ist nicht mehr mit einer "
-                "Bewerbung verknuepft."
+                "Bewerbung verknüpft."
             ),
         }
 
     @mcp.tool()
     def dokument_loeschen(dokument_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht ein Dokument komplett — DB-Eintrag und physische Datei (#447).
+        """Löscht ein Dokument komplett — DB-Eintrag und physische Datei (#447).
 
-        ACHTUNG: Nicht rueckgaengig zu machen. Beim ersten Aufruf ohne
-        Bestaetigung wird nur eine Rueckfrage zurueckgegeben.
+        ACHTUNG: Nicht rückgängig zu machen. Beim ersten Aufruf ohne
+        Bestaetigung wird nur eine Rückfrage zurückgegeben.
 
         Args:
             dokument_id: ID des Dokuments
-            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+            bestaetigung: Muss True sein um tatsächlich zu loeschen
         """
         profile_id = db.get_active_profile_id()
         doc = db.get_document(dokument_id, profile_id=profile_id)
@@ -1613,7 +1613,7 @@ def register(mcp, db, logger):
             }
         deleted = db.delete_document(dokument_id, profile_id=profile_id)
         if not deleted:
-            return {"fehler": "Dokument konnte nicht geloescht werden."}
+            return {"fehler": "Dokument konnte nicht gelöscht werden."}
         return {
             "status": "geloescht",
             "dokument_id": dokument_id,
@@ -1628,17 +1628,17 @@ def register(mcp, db, logger):
         Der Wert `email` ist kein Dokumenttyp, sondern ein TRANSPORTWEG
         — er beschreibt den Inhalt gar nicht. Im Bestand lagen damit 51
         von 230 Dokumenten in einem Topf ohne Handler und ohne
-        Routing-Vorschlag, waehrend nur 11 als Recruiter-Anfrage erkannt
+        Routing-Vorschlag, während nur 11 als Recruiter-Anfrage erkannt
         waren. Bei einem Bestand, der zu grossen Teilen aus
         Personaldienstleister-Mails besteht, ist das unplausibel.
 
-        Was sich nicht sicher zuordnen laesst, wird `sonstiges` und
+        Was sich nicht sicher zuordnen lässt, wird `sonstiges` und
         bleibt damit SICHTBAR im Analyse-Plan — der ehrliche Zustand.
 
         Args:
             dry_run: True (Default) = nur Vorschau, es wird nichts
                 geschrieben.
-            auch_sonstiges: True = auch bereits als 'sonstiges' gefuehrte
+            auch_sonstiges: True = auch bereits als 'sonstiges' geführte
                 Dokumente noch einmal durch die Erkennung schicken. Seit
                 der Inhalts-Erkennung (#961) findet sie dort
                 Stellenausschreibungen, die vorher durchfielen.
@@ -1703,8 +1703,8 @@ def register(mcp, db, logger):
             "aenderungen": aenderungen[:40],
             "hinweis": (
                 "DB-only: nur doc_type wird geaendert, Dateien und "
-                "Verknuepfungen bleiben unberuehrt. Was sich nicht "
-                "zuordnen laesst, wird 'sonstiges' und bleibt damit im "
+                "Verknüpfungen bleiben unberührt. Was sich nicht "
+                "zuordnen lässt, wird 'sonstiges' und bleibt damit im "
                 "Analyse-Plan sichtbar."
                 + ("" if dry_run else
                    " Danach analyse_plan_erstellen() aufrufen — die neu "
@@ -1722,7 +1722,7 @@ def register(mcp, db, logger):
 
         Hilft Claude und User beim Discovery:
         - Welche Typen kennt PBP?
-        - Welche Aktion sollte pro Typ ausgefuehrt werden?
+        - Welche Aktion sollte pro Typ ausgeführt werden?
         - Welche haben einen Per-Typ-Extraktor (strukturierte Felder)?
         - Wie sieht die Verteilung in der aktuellen DB aus?
 
@@ -1778,20 +1778,20 @@ def register(mcp, db, logger):
                 result["unbekannte_typen_in_db"] = unbekannte
                 result["unbekannte_typen_hinweis"] = (
                     "Diese doc_type-Werte sind in der DB, aber nicht in "
-                    "KNOWN_TYPES dokumentiert — pruefen ob Typ obsolet ist "
-                    "oder Handler-Eintrag ergaenzt werden sollte."
+                    "KNOWN_TYPES dokumentiert — prüfen ob Typ obsolet ist "
+                    "oder Handler-Eintrag ergänzt werden sollte."
                 )
         return result
 
     @mcp.tool()
     def dokument_lesen(dokument_id: str, ab_zeichen: int = 0) -> dict:
-        """Liest den Text eines Dokuments — z.B. eine verknuepfte Absagemail (#1083).
+        """Liest den Text eines Dokuments — z.B. eine verknüpfte Absagemail (#1083).
 
         Der Weg, um den Inhalt einer Mail, eines Lebenslaufs oder einer
         Absage zu lesen, ohne die Datenbank anzufassen. Liefert
         Metadaten und den extrahierten Text seitenweise (8.000 Zeichen);
-        ist er laenger, nennt die Antwort `weiter_ab_zeichen` fuer den
-        naechsten Aufruf. Gekappt wird nie still.
+        ist er länger, nennt die Antwort `weiter_ab_zeichen` für den
+        nächsten Aufruf. Gekappt wird nie still.
 
         Die Dokument-ID steht in bewerbung_details (Abschnitt dokumente)
         und in dokumente_zur_analyse.
@@ -1832,20 +1832,20 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def dokument_text_setzen(dokument_id: str, text: str, quelle: str) -> dict:
-        """Setzt den extrahierten Text eines Dokuments nachtraeglich (#750, E18).
+        """Setzt den extrahierten Text eines Dokuments nachträglich (#750, E18).
 
-        Fuer Faelle, in denen der Import keinen Text liefern konnte —
-        typisch: gescannte PDFs ohne Text-Layer, deren Inhalt nachtraeglich
-        per OCR gewonnen wurde. NIE mehr Direkt-SQL dafuer nutzen.
+        Für Fälle, in denen der Import keinen Text liefern konnte —
+        typisch: gescannte PDFs ohne Text-Layer, deren Inhalt nachträglich
+        per OCR gewonnen wurde. NIE mehr Direkt-SQL dafür nutzen.
 
         PROVENIENZ-PFLICHT: `quelle` beschreibt, woher der Text stammt
         (z.B. 'OCR via Tesseract 5.4.0, deu+eng, OSD-Rotationskorrektur').
-        Sie wird dem Text als Header vorangestellt, damit spaeter erkennbar
+        Sie wird dem Text als Header vorangestellt, damit später erkennbar
         bleibt, dass es kein Original-Textlayer ist.
 
         Args:
             dokument_id: ID des Dokuments
-            text: Der vollstaendige extrahierte Text
+            text: Der vollständige extrahierte Text
             quelle: Woher der Text stammt (Pflicht, landet als Header im Text)
         """
         if not (quelle or "").strip():
@@ -1875,9 +1875,9 @@ def register(mcp, db, logger):
             "zeichen_nachher": len(voller_text),
             "provenienz": header,
             "hinweis": (
-                "Text ersetzt (alter Stand ueberschrieben). Naechste "
+                "Text ersetzt (alter Stand überschrieben). Nächste "
                 "Schritte: dokument_profil_extrahieren() falls der Inhalt "
-                "ins Profil soll, dokument_status_setzen() fuer den "
+                "ins Profil soll, dokument_status_setzen() für den "
                 "Extraktions-Status."
             ),
         }
@@ -1888,25 +1888,25 @@ def register(mcp, db, logger):
         """Liest gespeicherte Dokumente erneut aus — nach einem besseren Leser.
 
         Wenn PBP lernt, ein Format besser zu lesen, hilft das nur neuen
-        Uploads. Der Bestand behaelt den duennen Text von damals, und
+        Uploads. Der Bestand behält den dünnen Text von damals, und
         niemand sieht es ihm an. Genau das war der Fall bei #998
         (DOCX-Tabellen blieben liegen) und schon bei #833 (PPTX/XLSX
-        wurden gar nicht gelesen) — beide Male gab es keinen Weg zurueck
+        wurden gar nicht gelesen) — beide Male gab es keinen Weg zurück
         ausser: Datei nochmal hochladen.
 
-        **Es wird nur ueberschrieben, wenn dabei MEHR herauskommt.** Ein
+        **Es wird nur überschrieben, wenn dabei MEHR herauskommt.** Ein
         Leser, der sich verschlechtert, oder eine Datei, die inzwischen
         anders aussieht, darf einen guten Bestandstext nicht ersetzen —
-        stiller Datenverlust waere schlimmer als der duenne Text.
+        stiller Datenverlust wäre schlimmer als der dünne Text.
 
         Nachgetragener Text bleibt unangetastet: was per
-        `dokument_text_setzen` von Hand kam (OCR etwa), traegt einen
+        `dokument_text_setzen` von Hand kam (OCR etwa), trägt einen
         Provenienz-Header und ist bewusst gesetzt.
 
         Args:
-            dokument_id: Einzelnes Dokument. Leer = alle Verdachtsfaelle.
-            anwenden: False (Vorgabe) zeigt nur, was sich aendern wuerde.
-            grenze: Ab wie wenig Zeichen ein Dokument als verdaechtig
+            dokument_id: Einzelnes Dokument. Leer = alle Verdachtsfälle.
+            anwenden: False (Vorgabe) zeigt nur, was sich aendern würde.
+            grenze: Ab wie wenig Zeichen ein Dokument als verdächtig
                 gilt (nur bei der Bestandssuche, nicht bei einer ID).
         """
         from pathlib import Path
@@ -1982,7 +1982,7 @@ def register(mcp, db, logger):
         if aenderungen and not anwenden:
             antwort["naechster_schritt"] = (
                 "Mit anwenden=True schreiben. Danach lohnt "
-                "dokument_profil_extrahieren() fuer Lebenslaeufe — der "
+                "dokument_profil_extrahieren() für Lebensläufe — der "
                 "neue Text kann Stationen enthalten, die vorher fehlten.")
         elif not aenderungen:
             antwort["nachricht"] = (
@@ -2006,7 +2006,7 @@ def register(mcp, db, logger):
         """
         if status not in _DOC_STATUS_VALUES:
             return {
-                "fehler": f"Ungueltiger Status '{status}'.",
+                "fehler": f"Ungültiger Status '{status}'.",
                 "erlaubte_status": sorted(_DOC_STATUS_VALUES),
             }
         profile_id = db.get_active_profile_id()
@@ -2031,27 +2031,27 @@ def register(mcp, db, logger):
         Hintergrund: Dokumente ohne Profildaten (Absagen, Einladungen,
         Recruiter-Anfragen, Benachrichtigungen) durchlaufen nie
         `extraktion_anwenden()`. Sie bleiben deshalb dauerhaft im
-        `basis_analysiert`-Bucket haengen und tauchen bei jedem
-        `analyse_plan_erstellen()`-Lauf erneut auf. Dieses Tool raeumt
+        `basis_analysiert`-Bucket hängen und tauchen bei jedem
+        `analyse_plan_erstellen()`-Lauf erneut auf. Dieses Tool räumt
         sie in einem Rutsch ab — Status wird auf `angewendet` gehoben,
         damit sie aus dem Plan verschwinden. Physische Dateien bleiben
-        unberuehrt; Verknuepfungen zu Bewerbungen bleiben erhalten.
+        unberührt; Verknüpfungen zu Bewerbungen bleiben erhalten.
 
         Sicherheits-Hinweise:
-        - **DB-only**: aendert nur `extraction_status` + `last_extraction_at`.
-          Es werden keine Dateien gelesen, geschrieben oder geloescht.
+        - **DB-only**: ändert nur `extraction_status` + `last_extraction_at`.
+          Es werden keine Dateien gelesen, geschrieben oder gelöscht.
         - **Konservativ**: nur Korrespondenz-Typen (siehe
-          `_KORRESPONDENZ_DOC_TYPES`). Lebenslaeufe, Anschreiben,
+          `_KORRESPONDENZ_DOC_TYPES`). Lebensläufe, Anschreiben,
           Projektlisten u.a. werden NIE durch dieses Tool angefasst —
           die brauchen `extraktion_anwenden()`.
         - **dry_run=True (Default)**: zeigt nur die Treffer, schreibt nichts.
           Erst mit `dry_run=False` wird umgesetzt.
 
         Args:
-            dry_run: True (Default) = nur Vorschau; False = tatsaechlich umsetzen.
+            dry_run: True (Default) = nur Vorschau; False = tatsächlich umsetzen.
             zusaetzliche_doc_types: Optional Liste weiterer doc_type-Werte,
-                die zusaetzlich zur Default-Korrespondenz-Whitelist als
-                "abschliessbar" zaehlen sollen (z.B. ein neuer interner Typ).
+                die zusätzlich zur Default-Korrespondenz-Whitelist als
+                "abschliessbar" zählen sollen (z.B. ein neuer interner Typ).
         """
         profile = db.get_profile()
         if not profile:
@@ -2105,8 +2105,8 @@ def register(mcp, db, logger):
                 for k in kandidaten
             ],
             "hinweis": (
-                "DB-only. Physische Dateien bleiben unberuehrt. "
-                "Verknuepfungen zu Bewerbungen bleiben erhalten."
+                "DB-only. Physische Dateien bleiben unberührt. "
+                "Verknüpfungen zu Bewerbungen bleiben erhalten."
             ),
         }
         if offen_sonstiges:
@@ -2114,9 +2114,9 @@ def register(mcp, db, logger):
                 "anzahl": offen_sonstiges,
                 "warum": (
                     "'sonstiges' ist kein Korrespondenz-Typ, sondern der "
-                    "Sammeltopf fuer nicht zugeordnete Dokumente. Darunter "
-                    "koennen Stellenausschreibungen sein, aus denen noch "
-                    "eine Stelle entstehen muss — die waeren hier "
+                    "Sammeltopf für nicht zugeordnete Dokumente. Darunter "
+                    "können Stellenausschreibungen sein, aus denen noch "
+                    "eine Stelle entstehen muss — die wären hier "
                     "stillschweigend als erledigt abgehakt worden (#961)."),
                 "erst_pruefen": (
                     "dokumente_zur_analyse() zeigt sie; "
@@ -2141,7 +2141,7 @@ def register(mcp, db, logger):
                 )
             else:
                 result["nachricht"] = (
-                    f"{len(kandidaten)} Korrespondenz-Dokument(e) wuerden "
+                    f"{len(kandidaten)} Korrespondenz-Dokument(e) würden "
                     "auf `angewendet` gesetzt. Setze `dry_run=False` "
                     "um umzusetzen."
                 )
@@ -2168,7 +2168,7 @@ def register(mcp, db, logger):
         result["umgesetzt_anzahl"] = umgesetzt
         result["nachricht"] = (
             f"{umgesetzt} von {len(kandidaten)} Korrespondenz-"
-            "Dokument(en) auf `angewendet` gesetzt. Dateien unberuehrt."
+            "Dokument(en) auf `angewendet` gesetzt. Dateien unberührt."
         )
         return result
 
@@ -2186,12 +2186,12 @@ def register(mcp, db, logger):
         Benachrichtigungs-Mails, erledigte Korrespondenz, Rauschen).
 
         Sicherheits-Hinweis: **DB-only**. Die physische Datei auf der
-        Platte wird NIE angefasst. Reversibel ueber `dokument_reaktivieren`.
+        Platte wird NIE angefasst. Reversibel über `dokument_reaktivieren`.
 
         Args:
             dokument_id: ID des Dokuments
             grund: Optionaler Kurz-Hinweis warum archiviert (wird ins
-                Tool-Result zurueckgegeben, nicht in der DB persistiert).
+                Tool-Result zurückgegeben, nicht in der DB persistiert).
         """
         profile_id = db.get_active_profile_id()
         doc = db.get_document(dokument_id, profile_id=profile_id)
@@ -2217,7 +2217,7 @@ def register(mcp, db, logger):
             "lifecycle_nachher": "archiviert",
             "grund": grund or None,
             "hinweis": (
-                "Nur DB-Flag gesetzt. Physische Datei unberuehrt. "
+                "Nur DB-Flag gesetzt. Physische Datei unberührt. "
                 "Reaktivierbar mit `dokument_reaktivieren`."
             ),
         }
@@ -2226,7 +2226,7 @@ def register(mcp, db, logger):
     def dokument_reaktivieren(dokument_id: str) -> dict:
         """Setzt ein archiviertes/veraltetes Dokument wieder auf `aktiv` (#657 E16).
 
-        Gegenstueck zu `dokument_archivieren` und zum Auto-Veralten-Hook.
+        Gegenstück zu `dokument_archivieren` und zum Auto-Veralten-Hook.
         Ist idempotent: wenn das Doku bereits `aktiv` ist, wird das gemeldet.
 
         Args:
@@ -2267,18 +2267,18 @@ def register(mcp, db, logger):
         """Archiviert mehrere Dokumente in einem Rutsch mit Filter (#657 E16).
 
         Sicherheits-Hinweise:
-        - **DB-only**: aendert nur `lifecycle`. Keine Dateien werden angefasst.
+        - **DB-only**: ändert nur `lifecycle`. Keine Dateien werden angefasst.
         - **dry_run=True (Default)**: zeigt nur die Treffer, schreibt nichts.
-        - **Hard-Cap `max_treffer`**: schuetzt vor versehentlich riesigen
-          Operationen. Default 200 — wenn mehr in Frage kaemen, wird die
+        - **Hard-Cap `max_treffer`**: schützt vor versehentlich riesigen
+          Operationen. Default 200 — wenn mehr in Frage kämen, wird die
           Liste begrenzt und ein Hinweis ausgegeben.
-        - Nur Dokumente mit aktuellem `lifecycle='aktiv'` werden archiviert.
-          Bereits archivierte/veraltete bleiben unberuehrt.
+        - Nur Dokumente mit aktüllem `lifecycle='aktiv'` werden archiviert.
+          Bereits archivierte/veraltete bleiben unberührt.
 
         Args:
             filter_doc_type: Liste von doc_type-Werten (z.B. ["sonstiges",
                 "absage"]). Default: kein Filter.
-            filter_quelle: NICHT IMPLEMENTIERT in Phase 2 (Stub fuer spaeter,
+            filter_quelle: NICHT IMPLEMENTIERT in Phase 2 (Stub für später,
                 wenn `documents.source` existiert). Aktuell ignoriert.
             filter_extraction_status: Liste von extraction_status (z.B.
                 ["angewendet"]). Default: kein Filter.
@@ -2322,7 +2322,7 @@ def register(mcp, db, logger):
             "max_treffer_erreicht": truncated,
             "filter_quelle_ignoriert": bool(filter_quelle),
             "hinweis": (
-                "DB-only. Physische Dateien bleiben unberuehrt. "
+                "DB-only. Physische Dateien bleiben unberührt. "
                 "Reaktivierbar mit `dokument_reaktivieren`."
             ),
         }
@@ -2345,13 +2345,13 @@ def register(mcp, db, logger):
                 for k in kandidaten
             ]
             result["nachricht"] = (
-                f"{len(kandidaten)} Dokument(e) wuerden archiviert. "
+                f"{len(kandidaten)} Dokument(e) würden archiviert. "
                 "Setze `dry_run=False` um umzusetzen."
             )
             if truncated:
                 result["nachricht"] += (
                     f" (Hard-Cap {max_treffer} erreicht — weitere Treffer "
-                    "wurden abgeschnitten. Erhoehe max_treffer oder filtere enger.)"
+                    "wurden abgeschnitten. Erhöhe max_treffer oder filtere enger.)"
                 )
             return result
 
@@ -2374,12 +2374,12 @@ def register(mcp, db, logger):
         result["umgesetzt_anzahl"] = umgesetzt
         result["nachricht"] = (
             f"{umgesetzt} von {len(kandidaten)} Dokument(en) auf "
-            "`lifecycle=archiviert` gesetzt. Dateien unberuehrt."
+            "`lifecycle=archiviert` gesetzt. Dateien unberührt."
         )
         if truncated:
             result["nachricht"] += (
                 f" (Hard-Cap {max_treffer} erreicht — Lauf erneut "
-                "ausfuehren, falls weitere Treffer bestehen.)"
+                "ausführen, falls weitere Treffer bestehen.)"
             )
         return result
 
@@ -2449,14 +2449,14 @@ def register(mcp, db, logger):
     def dokumente_routing_plan_erstellen(archiv: bool = False) -> dict:
         """Erstellt einen Routing-Plan: was sollte mit jedem Dokument passieren? (#643 E11)
 
-        Wertet pro noch-nicht-vollstaendig-verarbeitetes Doku den
+        Wertet pro noch-nicht-vollständig-verarbeitetes Doku den
         `doc_type` aus und liefert die passende PBP-Aktion (Profil-
         Extraktion, Termin-Anlage, Status-Wechsel, ...). Aufbauend auf
         `services/document_handlers.handle_doc()` aus E14 (beta.77).
 
         Nutzung: Claude ruft das Tool VOR `dokumente_batch_analysieren`
         (im Routing-Modus) auf, um zu wissen welche Aktionen pro Typ
-        anstehen. Pro Aktion gruppiert + Vorschlaege fuer den naechsten
+        anstehen. Pro Aktion gruppiert + Vorschläge für den nächsten
         Tool-Aufruf.
 
         Args:
@@ -2510,7 +2510,7 @@ def register(mcp, db, logger):
             # falscher Uhrzeit ist teurer als einer ohne.
             if eintrag["extrahierte_felder"].get("uhrzeit_fehlt"):
                 eintrag["hinweis"] = (
-                    "Im Text steht ein Datum, aber keine gueltige "
+                    "Im Text steht ein Datum, aber keine gültige "
                     "Uhrzeit. Trag sie von Hand nach, bevor du den "
                     "Termin anlegst — geraten wird sie nicht."
                 )
@@ -2522,7 +2522,7 @@ def register(mcp, db, logger):
                 "aktion": aktion,
                 "anzahl": len(items),
                 "naechster_aufruf_hinweis": _ROUTING_NAECHSTER_AUFRUF.get(
-                    aktion, "Pruefe das Doku einzeln und entscheide."
+                    aktion, "Prüfe das Doku einzeln und entscheide."
                 ),
                 "dokumente": items,
             }
@@ -2543,8 +2543,8 @@ def register(mcp, db, logger):
             "aktionen": gruppen_summary,
             "anleitung": (
                 "Pro Aktions-Gruppe: rufe `dokument_aktion_ausfuehren(dokument_id, "
-                "aktion, args)` fuer jedes Doku auf — oder nutze "
-                "`dokumente_batch_analysieren(routing_modus=True)` fuer den "
+                "aktion, args)` für jedes Doku auf — oder nutze "
+                "`dokumente_batch_analysieren(routing_modus=True)` für den "
                 "kombinierten Flow."
             ),
         }
@@ -2555,18 +2555,18 @@ def register(mcp, db, logger):
         aktion: str,
         args: dict = None,
     ) -> dict:
-        """Fuehrt die fuer ein Dokument vorgeschlagene Aktion aus (#643 E11).
+        """Führt die für ein Dokument vorgeschlagene Aktion aus (#643 E11).
 
         Wrapper um bestehende MCP-Tools — Claude muss nicht selber wissen
-        welches Tool fuer welche Aktion zustaendig ist. Liefert das
-        konkrete Ergebnis des delegierten Tools zurueck und setzt am Ende
-        `extraction_status='angewendet'` fuer das Dokument.
+        welches Tool für welche Aktion zuständig ist. Liefert das
+        konkrete Ergebnis des delegierten Tools zurück und setzt am Ende
+        `extraction_status='angewendet'` für das Dokument.
 
-        Unterstuetzte Aktionen:
-        - `profil_extraktion` — Hinweis: hierfuer den klassischen Pfad
+        Unterstützte Aktionen:
+        - `profil_extraktion` — Hinweis: hierfür den klassischen Pfad
           extraktion_starten/extraktion_anwenden nutzen. Dieses Tool liefert
-          dafuer nur eine Anleitung zurueck (keine implizite Anwendung,
-          weil Profil-Apply einen User-Bestaetigungsschritt braucht).
+          dafür nur eine Anleitung zurück (keine implizite Anwendung,
+          weil Profil-Apply einen User-Bestätigungsschritt braucht).
         - `termin_anlegen` — args: {bewerbung_id, datum, uhrzeit?,
           plattform?, link?, ort?}. Delegiert an meeting_hinzufuegen().
         - `bewerbung_status_setzen` — args: {bewerbung_id, neuer_status,
@@ -2577,7 +2577,7 @@ def register(mcp, db, logger):
           Delegiert an bewerbung_erstellen().
         - `noop_korrespondenz_abschliessen` — keine externe Aktion, setzt
           nur extraction_status='angewendet'. Identisch zur Wirkung von
-          `dokumente_korrespondenz_abschliessen` fuer dieses eine Doku.
+          `dokumente_korrespondenz_abschliessen` für dieses eine Doku.
 
         Args:
             dokument_id: ID des betreffenden Dokuments.

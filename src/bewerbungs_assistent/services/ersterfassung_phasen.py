@@ -16,23 +16,23 @@ BEREICHE = ("persoenliche_daten", "berufserfahrung", "ausbildung",
 
 ERFASSUNG = """PHASE 2 UND 3: PROFIL ERFASSEN
 Arbeite dich organisch durch, was fehlt; speichere sofort.
-- Persoenliche Daten: nur Fehlendes erfragen; profil_erstellen().
+- Persönliche Daten: nur Fehlendes erfragen; profil_erstellen().
 - Berufserfahrung je Station: Firma, Position, Zeitraum, Aufgaben,
-  Ergebnisse, Technologien; fuer relevante Arbeit ein Projekt im
+  Ergebnisse, Technologien; für relevante Arbeit ein Projekt im
   STAR-Format. position_hinzufuegen(), projekt_hinzufuegen().
-  Praktika, Werkstudentenjobs, Ehrenamt zaehlen mit; Familienphasen
-  respektvoll und ohne Wertung; bei Freelancern zaehlen Projekte mehr als
-  Positionen; lange Zugehoerigkeit nach Entwicklung aufschluesseln;
-  haeufige Wechsel als Breite positionieren.
+  Praktika, Werkstudentenjobs, Ehrenamt zählen mit; Familienphasen
+  respektvoll und ohne Wertung; bei Freelancern zählen Projekte mehr als
+  Positionen; lange Zugehörigkeit nach Entwicklung aufschlüsseln;
+  häufige Wechsel als Breite positionieren.
 - Ausbildung, Weiterbildung, Zertifikate: ausbildung_hinzufuegen().
-- Kompetenzen aus Gespraech und Dokumenten ableiten, bei alten nach der
-  Aktualitaet fragen: skill_hinzufuegen(name, category, level,
+- Kompetenzen aus Gespräch und Dokumenten ableiten, bei alten nach der
+  Aktualität fragen: skill_hinzufuegen(name, category, level,
   years_experience, last_used_year).
 - Motivation, Arbeitsrahmen, No-Gos: profil_bearbeiten(bereich='notizen',
   aktion='anhang', ...).
 - Praeferenzen: Zielrollen, Festanstellung oder Freelance, Region,
   Remote, Reisebereitschaft, Umzug: profil_erstellen().
-- Gehalt, Tages- und Stundensatz und die Entfernungsgrenze gehoeren in
+- Gehalt, Tages- und Stundensatz und die Entfernungsgrenze gehören in
   die Suchkriterien, nicht ins Profil: suchkriterien_setzen(min_gehalt=...,
   wunsch_gehalt=..., min_tagessatz=..., wunsch_tagessatz=...,
   min_stundensatz=..., wunsch_stundensatz=..., max_entfernung_km=...).
@@ -45,16 +45,16 @@ REVIEW = """PHASE 4: REVIEW
 - profil_zusammenfassung() aufrufen und die Zusammenfassung zeigen.
 - Fragen: "Stimmt das so? Möchtest du etwas ändern, ergänzen oder löschen?"
 - Korrekturen mit profil_bearbeiten(); so lange, bis der Mensch
-  ausdruecklich sagt, dass alles passt.
+  ausdrücklich sagt, dass alles passt.
 - Dann: erfassung_fortschritt_speichern(bereich='review_abgeschlossen',
   abgeschlossen=True) und kennlerngespraech_abschliessen() — dessen
-  Antwort fuehrt zur ersten Suche. Nicht aufhoeren, bevor sie laeuft.
+  Antwort führt zur ersten Suche. Nicht aufhören, bevor sie läuft.
 """
 
 SUCHE = f"""PHASE 5: SUCHBEGRIFFE UND ERSTE SUCHE
-Ziel: der Mensch verlaesst das Gespraech mit einer laufenden Suche.
+Ziel: der Mensch verlässt das Gespräch mit einer laufenden Suche.
 1. keyword_vorschlaege() aufrufen; bei frischem Profil stehen die
-   Vorschlaege im Feld profil_vorschlaege. MUSS- und PLUS-Begriffe kurz
+   Vorschläge im Feld profil_vorschlaege. MUSS- und PLUS-Begriffe kurz
    zeigen und bestaetigen lassen.
 2. Speichere die bestätigten Begriffe mit suchkriterien_setzen(
    keywords_muss=[...], keywords_plus=[...]); Region und Entfernung aus
@@ -64,15 +64,15 @@ Ziel: der Mensch verlaesst das Gespraech mit einer laufenden Suche.
    Login: Bundesagentur, Arbeitnow und Indeed. Weitere kannst du später
    unter {pfad('quellen')} dazuschalten."
 4. jobsuche_starten(quellen=['bundesagentur', 'arbeitnow',
-   'jobspy_indeed']) — die Quellen werden dabei als aktiv uebernommen.
-   Die Suche laeuft im Hintergrund; nicht in einer Schleife warten. Fragt
-   der Mensch spaeter nach: einmal jobsuche_status(), bei "fertig"
+   'jobspy_indeed']) — die Quellen werden dabei als aktiv übernommen.
+   Die Suche läuft im Hintergrund; nicht in einer Schleife warten. Fragt
+   der Mensch später nach: einmal jobsuche_status(), bei "fertig"
    stellen_anzeigen(pro_seite=5).
 5. Bei 0 Treffern steht im Ergebnis ein Feld 'diagnose': Ursache in einem
-   Satz, naechste Aktion vorschlagen.
+   Satz, nächste Aktion vorschlagen.
 6. Nur einmal und nur wenn eine Antwort zeigt, dass die lokale KI fehlt:
    Ollama (kostenlos, lokal, https://ollama.com/download) kann Stellen
-   vorsortieren; Einrichtung unter {pfad('lokale_ki')}. Nicht draengen.
+   vorsortieren; Einrichtung unter {pfad('lokale_ki')}. Nicht drängen.
 """
 
 

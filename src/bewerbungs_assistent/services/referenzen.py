@@ -217,7 +217,7 @@ def exportieren(db, fmt: str = "docx", art: str = "",
     fmt = (fmt or "docx").strip().lower()
     if fmt not in FORMATE:
         raise ValueError(
-            f"Format '{fmt}' wird nicht unterstuetzt. Erlaubt: docx, pdf.")
+            f"Format '{fmt}' wird nicht unterstützt. Erlaubt: docx, pdf.")
     art_schluessel = art_normalisieren(art) if art else ""
     refs = db.list_contact_references(
         reference_type=art_schluessel, application_id=bewerbung_id,

@@ -8,7 +8,7 @@ def register_resources(mcp, db, logger):
 
     @mcp.resource("profil://aktuell")
     def resource_profil() -> str:
-        """Vollstaendiges Nutzerprofil mit allen Positionen, Skills und Dokumenten."""
+        """Vollständiges Nutzerprofil mit allen Positionen, Skills und Dokumenten."""
         profile = db.get_profile()
         if profile is None:
             return json.dumps({"status": "kein_profil"}, ensure_ascii=False)
@@ -22,7 +22,7 @@ def register_resources(mcp, db, logger):
 
     @mcp.resource("jobs://aussortiert")
     def resource_dismissed_jobs() -> str:
-        """Aussortierte Stellen mit Gruenden."""
+        """Aussortierte Stellen mit Gründen."""
         jobs = db.get_dismissed_jobs()
         return json.dumps(jobs, ensure_ascii=False, indent=2, default=str)
 

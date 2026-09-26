@@ -212,7 +212,7 @@ def test_824_gefuehl_gegen_ausgang(setup_env):
     assert blick, "5 abgeschlossene Faelle muessen den Vergleich liefern"
     assert blick["gefuehl_schnitt"] == 5.0
     assert blick["positiver_ausgang_quote"] == 0
-    assert "unzuverlaessiger Prognostiker" in blick.get("beobachtung", "")
+    assert "unzuverlässiger Prognostiker" in blick.get("beobachtung", "")
 
 
 def test_824_rest_endpunkte(setup_env):

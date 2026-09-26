@@ -98,7 +98,7 @@ class UngueltigerParameter(ValueError):
         self.wert = wert
         self.erlaubt = list(erlaubt)
         super().__init__(
-            f"'{wert}' ist fuer '{feld}' nicht moeglich. Moeglich: "
+            f"'{wert}' ist fuer '{feld}' nicht möglich. Moeglich: "
             + ", ".join(self.erlaubt))
 
 

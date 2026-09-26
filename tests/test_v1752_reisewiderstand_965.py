@@ -257,5 +257,5 @@ def test_965_leere_liste_loescht_die_regeln(suche):
     tools["suchkriterien_setzen"](reisewiderstand=[
         {"richtung": "sueden", "aufschlag_km": 60}])
     antwort = tools["suchkriterien_setzen"](reisewiderstand=[])
-    assert "geloescht" in antwort["reisewiderstand"]
+    assert "gelöscht" in antwort["reisewiderstand"]
     assert db.get_search_criteria().get("reisewiderstand") == []

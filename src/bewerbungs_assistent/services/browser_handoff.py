@@ -40,7 +40,7 @@ WERKZEUG_JE_PORTAL = {
 
 # Aus dem dokumentierten LinkedIn-Lauf (#919): von 59 Titeln, die den
 # Vorfilter passiert hatten, blieben nach dem Lesen der Volltexte 3.
-VOLLTEXT_BELEG = "von 59 Titeln blieben nach dem Lesen der Volltexte 3 uebrig"
+VOLLTEXT_BELEG = "von 59 Titeln blieben nach dem Lesen der Volltexte 3 übrig"
 
 
 def _nur_im_browser(info: dict) -> bool:
@@ -125,7 +125,7 @@ def prompt(eintraege: list[dict]) -> str:
     extra = [e for e in eintraege if e["art"] == DEFEKT_NUR_BROWSER]
     if not haupt and not extra:
         return ""
-    zeilen = ["Suche fuer mich in diesen Quellen, die PBP nur ueber den "
+    zeilen = ["Suche für mich in diesen Quellen, die PBP nur über den "
               "Browser erreicht (Claude-in-Chrome). Der interne Suchlauf "
               "hat sie uebersprungen.", ""]
 
@@ -146,7 +146,7 @@ def prompt(eintraege: list[dict]) -> str:
     if extra:
         if haupt:
             zeilen.append("")
-        zeilen.append("Optional, wenn Zeit bleibt — diese Quellen fuehrt PBP "
+        zeilen.append("Optional, wenn Zeit bleibt — diese Quellen führt PBP "
                       "als defekt, im Browser liefern sie:")
         for e in extra:
             weg = f" ({e['ersatzweg']})" if e["ersatzweg"] else ""
@@ -155,12 +155,12 @@ def prompt(eintraege: list[dict]) -> str:
         "",
         "Regeln:",
         "- Lies bei jedem Treffer den VOLLTEXT der Anzeige, bevor du ihn "
-        "uebernimmst. Der Titel allein reicht nicht: im dokumentierten "
+        "übernimmst. Der Titel allein reicht nicht: im dokumentierten "
         f"LinkedIn-Lauf {VOLLTEXT_BELEG}.",
-        "- Uebernimm passende Stellen mit stelle_manuell_anlegen(), einen "
-        "LinkedIn-Sammellauf mit linkedin_treffer_uebernehmen(). PBP prueft "
+        "- Übernimm passende Stellen mit stelle_manuell_anlegen(), einen "
+        "LinkedIn-Sammellauf mit linkedin_treffer_uebernehmen(). PBP prüft "
         "dabei Blacklist, Duplikate und Anker.",
-        "- Melde mir am Ende je Quelle: Rohtreffer, uebernommen, und "
+        "- Melde mir am Ende je Quelle: Rohtreffer, übernommen, und "
         "verworfen mit Grund.",
     ]
     return "\n".join(zeilen)

@@ -121,7 +121,7 @@ def test_der_prompt_verlangt_volltext_und_rueckmeldung(umgebung):
     db, _ = umgebung
     text = bh.prompt(bh.browser_quellen(db, auswahl=sorted(BROWSER_LOGIN)))
     assert "VOLLTEXT" in text and "Titel allein reicht nicht" in text
-    assert "Rohtreffer, uebernommen, und verworfen mit Grund" in text
+    assert "Rohtreffer, übernommen, und verworfen mit Grund" in text
     assert "linkedin_lauf_plan()" in text
     assert "Optional" in text and "Heise Jobs" in text
 
@@ -161,7 +161,7 @@ def test_der_endpunkt_liefert_liste_und_prompt(umgebung):
     daten = tc.get("/api/jobsuche/browser-quellen").json()
     keys = {q["key"] for q in daten["quellen"] if q["art"] == bh.UEBERSPRUNGEN}
     assert keys == {"linkedin", "xing"}
-    assert daten["prompt"].startswith("Suche fuer mich")
+    assert daten["prompt"].startswith("Suche für mich")
 
 
 def test_der_start_haelt_die_uebersprungenen_quellen_fest(umgebung, monkeypatch):

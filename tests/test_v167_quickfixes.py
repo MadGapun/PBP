@@ -70,8 +70,8 @@ def test_552_estimated_salary_halves_score_impact(setup_env):
     assert gehalt_adj_est["source"] == "geschaetzt"
     assert gehalt_adj_ext["source"] == "extrahiert"
     # Detail-String enthaelt den Hinweis
-    assert "geschaetzt" in gehalt_adj_est["detail"] \
-        or "Schaetzung" in gehalt_adj_est["detail"]
+    assert "geschätzt" in gehalt_adj_est["detail"] \
+        or "Schätzung" in gehalt_adj_est["detail"]
 
 
 def test_552_no_estimated_flag_no_change(setup_env):

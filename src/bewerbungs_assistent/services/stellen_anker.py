@@ -32,7 +32,7 @@ from typing import Any, Optional
 
 ANKER_LABELS = {
     "url_detail": "Direkte URL zur Stellenanzeige",
-    "dokument": "Verknuepftes Dokument mit der Anzeige",
+    "dokument": "Verknüpftes Dokument mit der Anzeige",
     "kontakt": "Ansprechpartner hinterlegt",
 }
 
@@ -40,10 +40,10 @@ WARNTEXT = (
     "Diese Stelle hat KEINEN Anker (#766): weder eine direkte URL zur "
     "Anzeige, noch ein Dokument mit der Ausschreibung, noch einen "
     "Ansprechpartner. Damit ist sie nicht verfolgbar — eine Bewerbung "
-    "waere nur gegen eine Zusammenfassung formuliert, nicht gegen die "
+    "wäre nur gegen eine Zusammenfassung formuliert, nicht gegen die "
     "echte Ausschreibung. Bitte mindestens eines nachreichen: "
-    "stelle_bearbeiten(url=...) fuer die Detail-URL, "
-    "kontakt_anlegen() + kontakt_verknuepfen(ziel_typ='job') fuer den "
+    "stelle_bearbeiten(url=...) für die Detail-URL, "
+    "kontakt_anlegen() + kontakt_verknuepfen(ziel_typ='job') für den "
     "Ansprechpartner, oder die Anzeige als Dokument hochladen."
 )
 
@@ -141,7 +141,7 @@ def anker_status(db: Any, job: dict, pruefe_db: bool = True) -> dict:
         if url_art == "suche":
             ergebnis["hinweis_such_url"] = (
                 "Die hinterlegte URL ist eine Suchergebnis-Seite, keine "
-                "Anzeige — sie zaehlt nicht als Anker und das Nachladen der "
+                "Anzeige — sie zählt nicht als Anker und das Nachladen der "
                 "Beschreibung ist damit blockiert."
             )
     return ergebnis

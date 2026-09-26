@@ -397,9 +397,9 @@ def doppelvorstellung(offene: list[dict],
     warnungen = []
     for v in vermutet or []:
         warnungen.append(
-            f"Pruefen: eine laufende Bewerbung ueber {v.get('ueber_vermittler')} "
+            f"Pruefen: eine laufende Bewerbung über {v.get('ueber_vermittler')} "
             f"({v.get('titel') or 'Bewerbung'}, {v.get('bewerbung_id')}) nennt "
-            "diese Firma in den Notizen, traegt aber keinen Endkunden. Ist sie "
+            "diese Firma in den Notizen, trägt aber keinen Endkunden. Ist sie "
             "der Endkunde, bist du dort schon vorgestellt — dann mit "
             "bewerbung_bearbeiten(endkunde=...) nachtragen.")
     if not offene:
@@ -409,15 +409,15 @@ def doppelvorstellung(offene: list[dict],
     if len(kanaele) >= 2:
         warnungen.append(
             "DOPPELVORSTELLUNG: Bei dieser Firma laufen schon Bewerbungen "
-            f"ueber mehrere Wege ({', '.join(kanaele)}). Vor jedem weiteren "
-            "Schritt klaeren, welcher Weg gilt.")
+            f"über mehrere Wege ({', '.join(kanaele)}). Vor jedem weiteren "
+            "Schritt klären, welcher Weg gilt.")
     elif ueber_vermittler:
         v = ueber_vermittler[0].get("ueber_vermittler") or "einen Vermittler"
         warnungen.append(
-            f"Laufende Vorstellung ueber {v} "
+            f"Laufende Vorstellung über {v} "
             f"({ueber_vermittler[0].get('titel') or 'Bewerbung'}). Eine "
-            "direkte Bewerbung oder ein zweiter Vermittler fuer diese Firma "
-            "waere eine Doppelvorstellung.")
+            "direkte Bewerbung oder ein zweiter Vermittler für diese Firma "
+            "wäre eine Doppelvorstellung.")
     return warnungen
 
 
@@ -505,12 +505,12 @@ def bestandsbericht(db, max_je_liste: int = 25) -> dict:
         "endkunde_nur_in_notizen_anzahl": len(offen_ohne),
         "endkunde_nur_in_notizen": offen_ohne[:max_je_liste],
         "hinweis": (
-            "Nur ein Bericht — PBP aendert hier nichts. Einen Endkunden "
-            "traegst du mit bewerbung_bearbeiten(bewerbung_id, endkunde=...) "
+            "Nur ein Bericht — PBP ändert hier nichts. Einen Endkunden "
+            "trägst du mit bewerbung_bearbeiten(bewerbung_id, endkunde=...) "
             "nach; erst dann erkennt firma_kontext eine laufende Vorstellung "
-            "ueber den Vermittler. Die genannten Firmen sind Namen aus dem "
+            "über den Vermittler. Die genannten Firmen sind Namen aus dem "
             "Bestand, die in den Notizen vorkommen — ob einer davon der "
             "Endkunde ist, weisst nur du. Verschiedene Schreibweisen "
-            "findet firma_kontext bereits; zusammengefuehrt werden sie "
+            "findet firma_kontext bereits; zusammengeführt werden sie "
             "erst mit einem Firmen-Stammsatz (#1080 Stufe 2)."),
     }

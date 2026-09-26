@@ -82,13 +82,13 @@ BEFUNDE = (GELESEN, WEG, GEBLOCKT, LEBT_UNLESBAR, FEHLER)
 KLARTEXT = {
     GELESEN: "Anzeigentext geladen.",
     WEG: ("Die Anzeige existiert nicht mehr (der Server meldet sie "
-          "ausdruecklich als entfernt). Die Stelle wird aussortiert."),
+          "ausdrücklich als entfernt). Die Stelle wird aussortiert."),
     GEBLOCKT: ("Der Server verweigert den Zugriff. Im eingeloggten "
-               "Browser oeffnen und den Text von Hand einsetzen."),
+               "Browser öffnen und den Text von Hand einsetzen."),
     LEBT_UNLESBAR: ("Die Anzeige lebt, aber im ausgelieferten Text steht "
-                    "nichts Brauchbares — moeglich sind eine Login-Wall, "
+                    "nichts Brauchbares — möglich sind eine Login-Wall, "
                     "ein Bot-Block oder eine Seite, die ihren Inhalt erst "
-                    "per JavaScript nachlaedt."),
+                    "per JavaScript nachlädt."),
     FEHLER: "Die Seite war nicht erreichbar.",
 }
 
@@ -197,7 +197,7 @@ def beschreibung_holen(url: str, client, *, timeout: float = 15,
         # HTML-Weg es noch versuchen. Umgekehrt waere es sinnlos: bei
         # einer SPA liefert HTML grundsaetzlich nichts.
         befund.hinweise.append(
-            "Detail-API lieferte keinen Text — HTML-Weg als Rueckfall.")
+            "Detail-API lieferte keinen Text — HTML-Weg als Rückfall.")
 
     try:
         antwort = client.get(url, timeout=timeout)

@@ -29,11 +29,11 @@ def register(mcp, db, logger):
         - User fragt 'was hat Elwosa heute gesagt?'
         - User fragt 'was meinte Elwosa zu der Bewerbung?'
         - Claude will den Tonfall des Tages mitbekommen bevor es selbst
-          eine Linie ueber elwosa_schreiben postet
+          eine Linie über elwosa_schreiben postet
 
         Args:
             limit: Anzahl der Nachrichten (max 100)
-            since_iso: Optional ISO-Timestamp — nur neuere zurueck
+            since_iso: Optional ISO-Timestamp — nur neuere zurück
 
         Rueckgabe:
             messages: Liste mit {content, trigger_kind, created_at, ...}
@@ -53,19 +53,19 @@ def register(mcp, db, logger):
     ) -> dict:
         """Schreibt eine Nachricht IM NAMEN VON Elwosa in den Stream.
 
-        Erscheint im Sidebar-Chat als waere sie von Elwosa selbst
+        Erscheint im Sidebar-Chat als wäre sie von Elwosa selbst
         getriggert. WICHTIG: Tonfall wird hart validiert.
 
         Sprach-DNA-Regeln (siehe docs/elwosa-character.md):
         - KEINE Ausrufezeichen
         - KEINE Emojis
-        - KEIN Hoeflichkeits-'Sie' / 'Ihr' / 'Ihnen' (Elwosa duzt)
+        - KEIN Höflichkeits-'Sie' / 'Ihr' / 'Ihnen' (Elwosa duzt)
         - Max 280 Zeichen
         - Lakonisch, britisch ironisch
         - Schluss-Phrasen wie 'Vermerkt.' / 'Vom Tisch.' / 'Markiert.' bevorzugt
 
         Use Cases:
-        - User: 'Sag Elwosa danke fuer den Tipp gestern'
+        - User: 'Sag Elwosa danke für den Tipp gestern'
           → elwosa_schreiben("Gern geschehen. War nichts.")
         - Claude beobachtet User-Aktion und kommentiert
           → elwosa_schreiben("Drei Stellen aussortiert. Saubere Quote heute.",
@@ -111,11 +111,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def elwosa_pause(minuten: int = 60) -> dict:
-        """Pausiert Elwosa fuer X Minuten.
+        """Pausiert Elwosa für X Minuten.
 
         Use Case: User: 'Sag Elwosa er soll mal eine Stunde Ruhe geben'
 
-        Wirkung: Trigger-Engine ueberspringt automatische Linien fuer die
+        Wirkung: Trigger-Engine überspringt automatische Linien für die
         Pause-Dauer. Eine einzige Pause-Nachricht wird gepostet
         ('Pausiert. Kein Stress, ich auch.'), dann Stille bis Frist.
 
@@ -175,7 +175,7 @@ def register(mcp, db, logger):
         content: str,
         auto_aktivieren: bool = False,
     ) -> dict:
-        """Schlaegt eine neue Linie fuer den Elwosa-Pool vor.
+        """Schlägt eine neue Linie für den Elwosa-Pool vor.
 
         Tonfall-Check + Validierung. Wenn auto_aktivieren=False (Default):
         Linie landet in 'pending'-Bucket, User muss in Settings genehmigen.
@@ -187,7 +187,7 @@ def register(mcp, db, logger):
                      'tech_senior' | 'engineering_senior' | 'freelance' |
                      'executive' | 'mixed' | 'global' | 'tip' | 'idle' |
                      'easter_egg'
-            trigger_kind: passende Trigger-Klasse fuer den Pool-Eintrag
+            trigger_kind: passende Trigger-Klasse für den Pool-Eintrag
             content: die neue Linie (max 280 Zeichen, Sprach-DNA-validiert)
             auto_aktivieren: Sofort in Pool? Default False (User-Genehmigung)
         """
@@ -259,21 +259,21 @@ def register(mcp, db, logger):
 
         Elwosa bekommt automatisch den relevanten PBP-Kontext mit
         (Profil-Kurzfassung, Kern-Statistiken, vom User BESTAETIGTE
-        learned_insights). Ohne diesen Kontext waere die Antwort wertlos.
+        learned_insights). Ohne diesen Kontext wäre die Antwort wertlos.
 
         ⛔ VERHALTENSREGELN FUER CLAUDE:
         - Antwort als Position kennzeichnen ("Elwosa sagt dazu: ..."),
           nie als Fakt.
-        - Bei Widerspruch zur eigenen Einschaetzung BEIDES zeigen und den
+        - Bei Widerspruch zur eigenen Einschätzung BEIDES zeigen und den
           Unterschied benennen.
-        - Elwosa NICHT fuer Stellenbewertungen, Dokumentenerstellung oder
+        - Elwosa NICHT für Stellenbewertungen, Dokumentenerstellung oder
           Handlungsempfehlungen heranziehen.
         - Ist die lokale KI nicht erreichbar, den Ausfall ehrlich melden —
           NICHT stillschweigend selbst antworten.
 
         Args:
             frage: Die Frage des Nutzers an Elwosa.
-            roh: True = Antwort unveraendert durchreichen (Debug);
+            roh: True = Antwort unverändert durchreichen (Debug);
                 False (Default) = Claude ordnet ein und kommentiert.
         """
         if not (frage or "").strip():
@@ -284,10 +284,10 @@ def register(mcp, db, logger):
     @mcp.tool()
     def elwosa_prompt_kopieren(zweck: str = "freie_frage",
                                frage: str = "") -> dict:
-        """Zeigt den vollstaendigen Prompt, den Elwosa bekaeme — OHNE ihn auszufuehren (#774).
+        """Zeigt den vollständigen Prompt, den Elwosa bekäme — OHNE ihn auszuführen (#774).
 
         Zwei Anwendungsfaelle: Debugging (welcher Kontext kommt wirklich an?)
-        und Prompt-Entwicklung (anpassen und Wirkung pruefen, bevor etwas
+        und Prompt-Entwicklung (anpassen und Wirkung prüfen, bevor etwas
         fest eingebaut wird).
 
         Args:
@@ -304,7 +304,7 @@ def register(mcp, db, logger):
                 "hinweis": (
                     f"Zweck '{zweck}' ist der v1.8-Teil von #774. In v1.7 "
                     "verfuegbar: 'freie_frage'. Der Prompt der internen "
-                    "Tasks haengt am Live-Payload des jeweiligen Laufs."
+                    "Tasks hängt am Live-Payload des jeweiligen Laufs."
                 ),
                 "verfuegbar": ["freie_frage"],
             }

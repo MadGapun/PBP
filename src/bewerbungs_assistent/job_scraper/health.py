@@ -210,7 +210,7 @@ def bewerte_inhalt(resp, erwarteter_typ: str) -> tuple[str, Optional[int], str]:
     if erwarteter_typ == "json" and "html" in typ:
         return ("verdaechtig", None,
                 "Als JSON-Quelle deklariert, geantwortet wurde HTML — "
-                "typisch fuer die Fallback-Route einer Single-Page-App. "
+                "typisch für die Fallback-Route einer Single-Page-App. "
                 "Der Endpunkt existiert vermutlich nicht mehr.")
     if erwarteter_typ != "json":
         return ("ok", None, "")
@@ -218,8 +218,8 @@ def bewerte_inhalt(resp, erwarteter_typ: str) -> tuple[str, Optional[int], str]:
         nutzlast = resp.json()
     except Exception:
         return ("verdaechtig", None,
-                "Antwort ist kein gueltiges JSON, obwohl die Quelle als "
-                "JSON-API gefuehrt wird.")
+                "Antwort ist kein gültiges JSON, obwohl die Quelle als "
+                "JSON-API geführt wird.")
     treffer = _zaehle_treffer(nutzlast)
     if treffer is None:
         return ("ok", None,
@@ -229,7 +229,7 @@ def bewerte_inhalt(resp, erwarteter_typ: str) -> tuple[str, Optional[int], str]:
         return ("leer", 0,
                 "Der Endpunkt antwortet, liefert aber keine Stellen. Bei "
                 "firmenbezogenen Quellen ist das meist ein falscher "
-                "Firmen-Slug, keine Stoerung.")
+                "Firmen-Slug, keine Störung.")
     return ("ok", treffer, "")
 
 

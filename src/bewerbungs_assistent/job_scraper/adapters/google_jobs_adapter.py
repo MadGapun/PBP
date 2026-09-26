@@ -35,8 +35,8 @@ class GoogleJobsChromeAdapter(JobSourceAdapter):
         ]
 
         base_msg = (
-            "Google Jobs laeuft manuell: URL(s) im Chrome-Browser mit "
-            "Claude-in-Chrome oeffnen und Treffer ueber "
+            "Google Jobs läuft manuell: URL(s) im Chrome-Browser mit "
+            "Claude-in-Chrome öffnen und Treffer über "
             "stelle_manuell_anlegen() uebernehmen."
         )
         message = f"{base_msg} URLs: {urls}" if urls else base_msg

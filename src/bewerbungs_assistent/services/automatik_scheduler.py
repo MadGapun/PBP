@@ -78,7 +78,7 @@ def compute_status(db) -> dict:
             "naechster_lauf": _next(s["lernen_intervall_tage"], s["lernen_last_at"]),
         },
         "hinweis": (
-            "Laeuft nur solange Claude Desktop / der MCP-Server offen ist."
+            "Läuft nur solange Claude Desktop / der MCP-Server offen ist."
         ),
     }
 

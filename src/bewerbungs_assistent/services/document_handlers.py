@@ -29,8 +29,8 @@ KNOWN_TYPES: dict[str, dict] = {
         "claude_action": "Nutze dokument_profil_extrahieren um Daten ins Profil zu ziehen",
     },
     "anschreiben": {
-        "beschreibung": "Bewerbungsschreiben fuer eine konkrete Firma",
-        "claude_action": "Verknuepfe mit der zugehoerigen Bewerbung",
+        "beschreibung": "Bewerbungsschreiben für eine konkrete Firma",
+        "claude_action": "Verknüpfe mit der zugehörigen Bewerbung",
     },
     "zeugnis": {
         "beschreibung": "Arbeits-/Ausbildungszeugnis",
@@ -42,15 +42,15 @@ KNOWN_TYPES: dict[str, dict] = {
     },
     "ausbildungszeugnis": {
         "beschreibung": "Schul-/Studienzeugnis",
-        "claude_action": "Education ins Profil ueberfuehren",
+        "claude_action": "Education ins Profil überführen",
     },
     "zertifikat": {
         "beschreibung": "Fachzertifikat (PMP, ITIL, Cloud-Cert, ...)",
-        "claude_action": "Als Skill mit Validitaets-Datum hinzufuegen",
+        "claude_action": "Als Skill mit Validitäts-Datum hinzufuegen",
     },
     "foto": {
-        "beschreibung": "Bewerbungsfoto / Portraet",
-        "claude_action": "Keine Aktion noetig — nur Anhang fuer kuenftige Bewerbungen",
+        "beschreibung": "Bewerbungsfoto / Porträt",
+        "claude_action": "Keine Aktion nötig — nur Anhang für künftige Bewerbungen",
     },
     "stellenbeschreibung": {
         "beschreibung": "Stellenanzeigen-Text (oft als PDF/DOCX)",
@@ -58,30 +58,30 @@ KNOWN_TYPES: dict[str, dict] = {
     },
     "projektliste": {
         "beschreibung": "Liste eigener Projekte (Freelance-typisch)",
-        "claude_action": "Projekte ins Profil aufnehmen, Verknuepfung mit Positionen pruefen",
+        "claude_action": "Projekte ins Profil aufnehmen, Verknüpfung mit Positionen prüfen",
     },
     "portfolio": {
         "beschreibung": "Eigene Arbeitsproben/Mappe",
-        "claude_action": "Als Anhang fuer kuenftige Bewerbungen verknuepfen",
+        "claude_action": "Als Anhang für künftige Bewerbungen verknüpfen",
     },
     "referenz": {
         "beschreibung": "Referenzschreiben, Empfehlungen, interne Reference-Files",
-        "claude_action": "Inhalt fuer Bewerbungs-Argumentation merken",
+        "claude_action": "Inhalt für Bewerbungs-Argumentation merken",
     },
     "vorlage": {
         "beschreibung": "CV-/Anschreiben-Vorlage (nicht firmenspezifisch)",
-        "claude_action": "Als Basis fuer kuenftige Bewerbungen behalten",
+        "claude_action": "Als Basis für künftige Bewerbungen behalten",
     },
     "vorbereitung": {
         "beschreibung": "Interview-Vorbereitung, Spickzettel, Antworten-Sammlung",
-        "claude_action": "Mit Stilarchiv/interview_reflexion verknuepfen",
+        "claude_action": "Mit Stilarchiv/interview_reflexion verknüpfen",
     },
     "interview_transkript": {
         "beschreibung": "Wortprotokoll/Mitschrift eines Interviews",
-        "claude_action": "interview_reflexion_speichern fuer strukturierte Auswertung",
+        "claude_action": "interview_reflexion_speichern für strukturierte Auswertung",
     },
     "interview_einladung": {
-        "beschreibung": "Initiale Termin-Anfrage fuer ein Vorstellungsgespraech",
+        "beschreibung": "Initiale Termin-Anfrage für ein Vorstellungsgespraech",
         "claude_action": "Status auf 'interview' aendern + Termin im Kalender anlegen",
     },
     "interview_bestaetigung": {
@@ -93,7 +93,7 @@ KNOWN_TYPES: dict[str, dict] = {
         "claude_action": "bewerbung_notiz mit dem Update-Inhalt + ggf. nachfass_planen",
     },
     "gespraechs_feedback": {
-        "beschreibung": "Persoenliche Rueckmeldung nach einem Gespraech (#655)",
+        "beschreibung": "Persönliche Rückmeldung nach einem Gespräch (#655)",
         "claude_action": "bewerbung_notiz mit Feedback + interview_reflexion_speichern",
     },
     "vermittler_korrespondenz": {
@@ -101,7 +101,7 @@ KNOWN_TYPES: dict[str, dict] = {
         "claude_action": "bewerbung_notiz, sonst archivieren",
     },
     "eingangsbestaetigung": {
-        "beschreibung": "Bestaetigungs-Mail nach eingereichter Bewerbung",
+        "beschreibung": "Bestätigungs-Mail nach eingereichter Bewerbung",
         "claude_action": "Status auf 'eingangsbestaetigung' aendern",
     },
     "absage": {
@@ -123,17 +123,17 @@ KNOWN_TYPES: dict[str, dict] = {
     # (kein Absender, kein Vorgang), und eine Bewerbungsantwort ist die
     # Oberkategorie ueber Absage/Einladung/Bestaetigung.
     "stellenanzeige": {
-        "beschreibung": "Stellenausschreibung ohne persoenliche Ansprache",
+        "beschreibung": "Stellenausschreibung ohne persönliche Ansprache",
         "claude_action": ("stelle_manuell_anlegen(...) und danach "
                           "fit_analyse(job_hash) — daraus entsteht eine "
                           "Stelle, kein Korrespondenz-Vorgang"),
     },
     "bewerbungsantwort": {
-        "beschreibung": ("Rueckmeldung des Arbeitgebers, deren genaue Art "
+        "beschreibung": ("Rückmeldung des Arbeitgebers, deren genaue Art "
                          "noch offen ist (Absage/Einladung/Zwischenstand)"),
         "claude_action": ("Inhalt lesen und mit dokument_status_setzen auf "
                           "absage / interview_einladung / "
-                          "eingangsbestaetigung praezisieren, dann "
+                          "eingangsbestaetigung präzisieren, dann "
                           "bewerbung_status_aendern"),
     },
     "sonstiges": {

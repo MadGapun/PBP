@@ -165,4 +165,4 @@ def test_stellen_bulk_bewerten_validates_bewertung(tmp_db):
 
     res = fake_mcp.tools["stellen_bulk_bewerten"](bewertung="nonsense")
     assert "fehler" in res
-    assert "Ungueltige Bewertung" in res["fehler"]
+    assert "Ungültige Bewertung" in res["fehler"]

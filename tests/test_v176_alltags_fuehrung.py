@@ -57,7 +57,7 @@ class TestWorkflowPromptArgs:
         assert r.status_code == 200
         prompt = r.json()["prompt"]
         assert "Frage nach Stelle und Firma" in prompt
-        assert "KONTEXT (vorbefuellt" not in prompt
+        assert "KONTEXT (vorbefüllt" not in prompt
         assert "todo_anlegen" in prompt
 
     def test_unbekannte_query_args_werden_ignoriert(self, client):

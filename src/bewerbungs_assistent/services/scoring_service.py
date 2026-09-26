@@ -220,7 +220,7 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
         if salary_estimated and salary_min:
             adjustments.append({
                 "dimension": "Gehalt/Rate",
-                "detail": "nur Schaetzung vorhanden — neutral (#827)",
+                "detail": "nur Schätzung vorhanden — neutral (#827)",
                 "punkte": 0,
                 "source": "geschaetzt",
             })
@@ -365,7 +365,7 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
         adjustments.append({
             "dimension": "Schwellenwert",
             "detail": (f"Fachwert {fach_score} < Schwelle {threshold} "
-                       "(Entfernung, Remote und Gehalt zaehlen hier nicht)"),
+                       "(Entfernung, Remote und Gehalt zählen hier nicht)"),
             "punkte": 0,
             "aktion": "AUTO-IGNORIERT"
         })

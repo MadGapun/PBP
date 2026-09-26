@@ -113,13 +113,13 @@ def ausgabe(text, ab: int = 0,
                 f"geliefert sind die Zeichen {ab} bis {weiter}. Der "
                 "Anforderungsteil steht meist am Ende. Hole den Rest mit "
                 f"fit_analyse(hash, beschreibung_ab={weiter}), BEVOR du "
-                "ein Urteil mit stelle_urteil_speichern() festhaeltst."
+                "ein Urteil mit stelle_urteil_speichern() festhältst."
             )
         else:
             befund["hinweis"] = (
                 f"Geliefert sind die Zeichen {ab} bis {weiter} von "
                 f"{len(voll)}; der Anfang fehlt. Mit "
-                "fit_analyse(hash) kommt er zurueck."
+                "fit_analyse(hash) kommt er zurück."
             )
     return stueck, befund
 
@@ -164,6 +164,6 @@ def kappungs_hinweis(text, quelle=None) -> str:
         f"Der gespeicherte Anzeigentext ist exakt {grenze} Zeichen "
         f"lang und damit sehr wahrscheinlich abgeschnitten ({herkunft}). "
         "Der Anforderungsteil steht meist am Ende und fehlt "
-        "dann. Mit stellenbeschreibung_nachladen() laesst er sich "
-        "vollstaendig holen."
+        "dann. Mit stellenbeschreibung_nachladen() lässt er sich "
+        "vollständig holen."
     )

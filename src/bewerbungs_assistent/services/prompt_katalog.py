@@ -49,7 +49,7 @@ Eintrag in `AUSNAHMEN` mit Begruendung — nach dem Muster G20/#896.
 AUSNAHMEN: dict[str, str] = {
     "elwosa_status_anzeigen": (
         "Bedienung der Sidebar-Anzeige, kein Bewerbungs-Workflow. PBP "
-        "laeuft unabhaengig von Elwosa (Nutzerentscheidung 07.09.2026)."),
+        "läuft unabhängig von Elwosa (Nutzerentscheidung 07.09.2026)."),
     "elwosa_pause_anfordern": "wie elwosa_status_anzeigen",
     "elwosa_antworten": "wie elwosa_status_anzeigen",
     "elwosa_linie_lehren": "wie elwosa_status_anzeigen",

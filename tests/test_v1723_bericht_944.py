@@ -228,7 +228,7 @@ def test_944_aktivitaetsprotokoll_ist_vollstaendig():
     # mehr abschneiden.
     assert "timeline_events[:60]" not in quelle
     assert "for date, evt, target, status in timeline_events:" in quelle
-    assert "vollstaendig aufgefuehrt" in quelle
+    assert "vollständig aufgeführt" in quelle
 
 
 def test_944_bewerbungsliste_hat_lesbare_spaltenbreiten():

@@ -147,13 +147,13 @@ def pruefe(db) -> dict:
                 "suchkriterien_setzen() machst du daraus deine eigenen."),
             "naechster_schritt": (
                 "keyword_vorschlaege() zeigt, welche Begriffe in den "
-                "gefundenen Anzeigen haeufig vorkommen."),
+                "gefundenen Anzeigen häufig vorkommen."),
         }
 
     return {
         "bereit": False,
         "quelle": "leer",
-        "grund": ("Das Profil enthaelt weder Stationen noch Faehigkeiten, "
+        "grund": ("Das Profil enthält weder Stationen noch Fähigkeiten, "
                   "aus denen sich Suchbegriffe ableiten liessen."),
         "naechster_schritt": (
             "Lade deinen Lebenslauf hoch (dokument_hochladen, dann "

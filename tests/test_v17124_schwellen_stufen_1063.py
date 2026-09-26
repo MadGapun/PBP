@@ -302,7 +302,7 @@ def test_1063_das_werkzeug_zeigt_die_stufen(db):
     assert len(res["stufen"]) == 6
     assert res["gewaehlt"]["liste"] == "alles_zeigen"
     assert "unwiederbringlich" in res["hinweis"] or \
-           "nicht zurueckzuholen" in res["hinweis"]
+           "nicht zurückzuholen" in res["hinweis"]
 
 
 def test_1063_die_speicher_stufe_warnt_vor_ihren_kosten(db):

@@ -16,13 +16,13 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def workflow_starten(name: str = "") -> dict:
-        """Startet einen gefuehrten Ablauf (Jobsuche, Anschreiben, Interview ...) und liefert die Anweisungen dazu.
+        """Startet einen geführten Ablauf (Jobsuche, Anschreiben, Interview ...) und liefert die Anweisungen dazu.
 
-        Ohne Namen: die Liste aller Ablaeufe aus dem Prompt-Katalog, mit
+        Ohne Namen: die Liste aller Abläufe aus dem Prompt-Katalog, mit
         Titel und Beschreibung — dieselbe Liste wie im Dashboard. Mit Namen
         (eine Katalog-Kennung wie 'jobsuche_workflow' oder
-        'bewerbung_schreiben_lebenslauf'): die Anweisungen; fuehre sie
-        Schritt fuer Schritt aus.
+        'bewerbung_schreiben_lebenslauf'): die Anweisungen; führe sie
+        Schritt für Schritt aus.
 
         Args:
             name: Kennung aus der Liste; leer zeigt die Liste.
@@ -67,7 +67,7 @@ def register(mcp, db, logger):
             "status": "gestartet",
             "anweisungen": text,
             "hinweis": "Führe die obigen Anweisungen Schritt für Schritt aus. "
-                       "Rufe die genannten Tools auf und fuehre den User durch den Prozess."
+                       "Rufe die genannten Tools auf und führe den User durch den Prozess."
         }
 
     @mcp.tool()
@@ -75,7 +75,7 @@ def register(mcp, db, logger):
         """Welche Prompt-Karten im Dashboard-Schnellzugriff stehen (#979).
 
         Ohne Argument: zeigt den Katalog und die aktuelle Auswahl, damit
-        der Nutzer sieht, was es gibt, bevor er waehlt.
+        der Nutzer sieht, was es gibt, bevor er wählt.
 
         Args:
             prompts: Katalog-Kennungen, kommagetrennt. Ein leerer String
@@ -118,8 +118,8 @@ def register(mcp, db, logger):
             antwort["unbekannt"] = erg["unbekannt"]
             antwort["hinweis"] = (
                 "Diese Kennungen gibt es im Katalog nicht und wurden "
-                "nicht uebernommen. schnellzugriff_setzen() ohne "
-                "Argument zeigt die gueltigen.")
+                "nicht übernommen. schnellzugriff_setzen() ohne "
+                "Argument zeigt die gültigen.")
         if not erg["uebernommen"]:
             antwort["hinweis"] = (
                 "Leere Auswahl — das Dashboard zeigt jetzt wieder die "
@@ -190,18 +190,18 @@ def _prompt_registry(db):
             zeilen.append(f"  bewerbung_id: {bewerbung_id}")
         if umfang:
             zeilen.append(f"  Umfang: nur {umfang}")
-        kontext = ("\nKONTEXT (vorbefuellt):\n" + "\n".join(zeilen) + "\n"
+        kontext = ("\nKONTEXT (vorbefüllt):\n" + "\n".join(zeilen) + "\n"
                    if zeilen else "")
 
         if hat_stelle and umfang:
-            schritt0 = ("SCHRITT 0 entfaellt — Stelle und Umfang stehen oben "
+            schritt0 = ("SCHRITT 0 entfällt — Stelle und Umfang stehen oben "
                         "im KONTEXT. NICHT nachfragen.")
         elif hat_stelle:
             schritt0 = """SCHRITT 0: UMFANG KLAEREN
 Die Stelle steht oben im KONTEXT — dazu NICHT nachfragen.
 Stelle EINE Frage: "Lebenslauf, Anschreiben oder beides?"
 Hinweis dazu: ein Anschreiben lohnt sich, wenn die Stelle eines
-verlangt oder der Nutzer eines moechte — der Lebenslauf fast immer."""
+verlangt oder der Nutzer eines möchte — der Lebenslauf fast immer."""
         else:
             schritt0 = """SCHRITT 0: KONTEXT KLAEREN
 Es ist keine Stelle bekannt. OHNE konkrete Stelle werden KEINE
@@ -213,22 +213,22 @@ Lebenslauf.
      (firma_kontext(firmenname), stellen_anzeigen).
   3. Dann EINE Frage zum Umfang: "Lebenslauf, Anschreiben oder beides?"
      Ein Anschreiben lohnt sich, wenn die Stelle eines verlangt oder
-     der Nutzer eines moechte — der Lebenslauf fast immer."""
+     der Nutzer eines möchte — der Lebenslauf fast immer."""
 
         lebenslauf = "" if umfang == "anschreiben" else """
 SCHRITT 4: LEBENSLAUF
   → lebenslauf_bewerten(stelle, firma, stellenbeschreibung) — drei
     Perspektiven: Personalberater (Karriereverlauf, Soft Skills,
-    Fuehrung), ATS (Keywords, Format, Metriken), Recruiter (fachliche
+    Führung), ATS (Keywords, Format, Metriken), Recruiter (fachliche
     Tiefe, Projekte, Werkzeuge). Gesamtscore und Top-Empfehlungen zeigen.
-  → Fragen: "Schwerpunkt setzen?" — bei Aenderung erneut bewerten.
+  → Fragen: "Schwerpunkt setzen?" — bei Änderung erneut bewerten.
   → lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung),
     IMMER als DOCX. Zeigen, was angepasst wurde.
   → stilarchiv_speichern(kind="cv")"""
 
         anschreiben = "" if umfang == "lebenslauf" else """
 SCHRITT 5: ANSCHREIBEN
-  → Die relevantesten Erfahrungen und Projekte waehlen, max. eine Seite,
+  → Die relevantesten Erfahrungen und Projekte wählen, max. eine Seite,
     professionell aber persoenlich.
   → Text zeigen — "Passt das so?"
   → Nach Freigabe: anschreiben_exportieren (DOCX)
@@ -238,7 +238,7 @@ SCHRITT 5: ANSCHREIBEN
 SCHRITT 6: TRACKING
   Die Bewerbung existiert bereits (bewerbung_id oben im KONTEXT):
   bewerbung_bearbeiten mit cv_path bzw. cover_letter_path (#448).
-  KEINE neue Bewerbung anlegen — das gaebe eine Dublette.
+  KEINE neue Bewerbung anlegen — das gäbe eine Dublette.
   Danach fragen, ob der Status auf "beworben" gehen soll."""
             if bewerbung_id else """
 SCHRITT 6: TRACKING
@@ -254,25 +254,25 @@ immer zu einer konkreten Stelle.
 
 SCHRITT 1: PROFIL
   profil_zusammenfassung() + projekte_anzeigen() — die Zusammenfassung
-  kuerzt die STAR-Texte, die vollen brauchst du (#741).
+  kürzt die STAR-Texte, die vollen brauchst du (#741).
 
 SCHRITT 2: STELLE
   → job_hash bekannt: die Anzeige aus dem Bestand holen (Volltext,
     C39/#952). Meldet sie beschreibung_kurz, biete
     stellenbeschreibung_nachladen an, bevor du schreibst.
-  → bewerbung_id bekannt: bewerbung_details(); die verknuepfte Stelle
+  → bewerbung_id bekannt: bewerbung_details(); die verknüpfte Stelle
     nutzen.
   → nur Stelle und Firma: fragen, ob der Anzeigentext vorliegt.
 
 SCHRITT 3: STIL
   stilarchiv_kontext(kind="cv"){' und kind="cover_letter"' if umfang != "lebenslauf" else ""} —
-  fruehere Fassungen als Stilvorgabe (#577). Was schon einmal gut
+  frühere Fassungen als Stilvorgabe (#577). Was schon einmal gut
   ankam, wird wiederverwendet statt neu erfunden.
 {lebenslauf}{anschreiben}{tracking}
 
 REGELN
 - Ohne konkrete Stelle keine Unterlagen.
-- Anschreiben nur, wenn gewuenscht oder gefordert.
+- Anschreiben nur, wenn gewünscht oder gefordert.
 - Immer DOCX, nie PDF — die finale Formatierung macht der Nutzer.
 - Analyse VOR dem Export, damit der Nutzer noch reagieren kann.
 - Sprich Deutsch."""

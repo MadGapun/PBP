@@ -213,6 +213,148 @@ def backend_texte():
         yield TAGESIMPULSE, nr, eintrag["text"]
 
 
+# ── Texte fuer Claude (H33) ──────────────────────────────────────────
+#
+# Werkzeugbeschreibungen, Antworten, Prompts und Server-Anleitung.
+# Claude gibt sie oft woertlich weiter. Anders als im Dashboard stehen
+# hier Werte, die Claude ZURUECKSCHICKT — Status (`zurueckgezogen`),
+# Aktionen (`loeschen`), Gehaltsarten (`jaehrlich`), Parameternamen.
+# Die bleiben in Umschrift, sonst kennt der Code den Wert nicht mehr.
+CLAUDE_AUSGENOMMEN = {
+    # Prompts an die lokale KI: anderes Modell, eigene Messungen (#787).
+    "llm_service.py", "elwosa_dialog.py",
+}
+_WERTELISTE = re.compile(r"(?i)valid|erlaubt|status|gruende|grund|kategori|aktion|bereich"
+                         r"|typen|arten|stufe|modus|whitelist|vokabular|zustaend|art$")
+_ZITAT = "'`\""
+
+
+def claude_dateien():
+    return sorted(d for d in BACKEND.rglob("*.py")
+                  if d.name not in CLAUDE_AUSGENOMMEN and "__pycache__" not in d.parts)
+
+
+def _ist_werkzeug(fn) -> bool:
+    for d in fn.decorator_list:
+        ziel = d.func if isinstance(d, ast.Call) else d
+        if isinstance(ziel, ast.Attribute) and ziel.attr in ("tool", "prompt", "resource"):
+            return True
+    return False
+
+
+def _einzelwerte(knoten):
+    """Zeichenketten ohne Leerzeichen — ohne Stoppwort- und Musterlisten
+    (Sammlungen ab acht Eintraegen)."""
+    listen = {id(e) for x in ast.walk(knoten)
+              if isinstance(x, (ast.Set, ast.List, ast.Tuple)) and len(x.elts) >= 8
+              for e in x.elts}
+    return [c.value.strip() for c in ast.walk(knoten)
+            if isinstance(c, ast.Constant) and isinstance(c.value, str)
+            and c.value.strip() and " " not in c.value.strip() and id(c) not in listen]
+
+
+_GESCHUETZT: set | None = None
+
+
+def geschuetzte_werte() -> set:
+    """Was Claude zurueckschicken kann: Werkzeugnamen, Parameter und ihre
+    Vorgaben, Werte, mit denen ein Parameter oder eine Werte-Variable
+    verglichen wird, und Werte-Listen (Status, Gruende, Aktionen ...).
+    Lokale Variablennamen gehoeren NICHT dazu — sonst sperrte `ueber` als
+    Variable das Wort "ueber" in jedem Text."""
+    global _GESCHUETZT
+    if _GESCHUETZT is not None:
+        return _GESCHUETZT
+    # llm_service vergleicht dieselben Werte (Status, Gruende) — seine
+    # Vergleiche zaehlen mit, seine Prompts werden nicht geprueft.
+    quellen = claude_dateien() + [BACKEND / "services" / "llm_service.py"]
+    baeume = [ast.parse(d.read_text(encoding="utf-8-sig")) for d in quellen if d.exists()]
+    args = set()
+    for baum in baeume:
+        for n in ast.walk(baum):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and _ist_werkzeug(n):
+                args.update(a.arg for a in n.args.args + n.args.kwonlyargs)
+    woerter = set()
+    for baum in baeume:
+        for n in ast.walk(baum):
+            namen = []
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and _ist_werkzeug(n):
+                namen = [n.name] + [a.arg for a in n.args.args + n.args.kwonlyargs] + _einzelwerte(n.args)
+            elif isinstance(n, ast.Compare):
+                beteiligt = [x.id for x in ast.walk(n) if isinstance(x, ast.Name)]
+                if any(b in args or _WERTELISTE.search(b) for b in beteiligt):
+                    namen = _einzelwerte(n)
+            elif isinstance(n, (ast.Assign, ast.AnnAssign)):
+                ziele = n.targets if isinstance(n, ast.Assign) else [n.target]
+                if n.value is not None and any(
+                        isinstance(z, ast.Name) and _WERTELISTE.search(z.id) for z in ziele):
+                    namen = _einzelwerte(n.value)
+            for name in namen:
+                woerter.update(t.lower() for t in re.split(r"[^A-Za-zÄÖÜäöüß_]+", name) if t)
+    _GESCHUETZT = woerter
+    return woerter
+
+
+def _claude_knoten(baum):
+    """(skip, werkzeug_docstrings) — wie beim Dashboard, dazu
+    kleingeschriebene Wortlisten als Suchmuster. Docstrings von Werkzeugen
+    und Prompts sind Beschreibungen, die Claude liest; alle anderen
+    Docstrings sind Code und bleiben in Umschrift."""
+    skip, doc = _uebersprungene_knoten(baum), set()
+    for n in ast.walk(baum):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and _ist_werkzeug(n) \
+                and n.body and isinstance(n.body[0], ast.Expr) \
+                and isinstance(n.body[0].value, ast.Constant):
+            skip.discard(id(n.body[0].value))
+            doc.add(id(n.body[0].value))
+        if isinstance(n, ast.Call):
+            f = n.func
+            name = f.attr if isinstance(f, ast.Attribute) else ""
+            if name in ("replace", "count", "index", "find"):
+                skip.update(id(s) for s in ast.walk(n) if s is not n.func)
+        if isinstance(n, ast.Subscript):
+            skip.update(id(s) for s in ast.walk(n))
+        if isinstance(n, (ast.List, ast.Tuple, ast.Set)):
+            elts = [e for e in n.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+            if elts and all(not re.search(r"[A-ZÄÖÜ]", e.value) for e in elts):
+                skip.update(id(e) for e in elts)
+    return skip, doc
+
+
+def claude_texte():
+    """(pfad, zeile, text) je Text fuer Claude."""
+    for pfad in claude_dateien():
+        baum = ast.parse(pfad.read_text(encoding="utf-8-sig"))
+        skip, doc = _claude_knoten(baum)
+        for n in ast.walk(baum):
+            if not (isinstance(n, ast.Constant) and isinstance(n.value, str)) or id(n) in skip:
+                continue
+            t = n.value
+            if " " not in t.strip() or _KEIN_TEXT.search(t):
+                continue
+            if id(n) not in doc and not re.search(r"[A-ZÄÖÜ]", t):
+                continue
+            yield pfad, n.lineno, t
+
+
+def claude_umlaut_funde(text: str):
+    """Umschrift, die kein geschuetzter Wert ist und nicht rundum in
+    Anfuehrungszeichen steht (`'zurueckgezogen'` ist ein Wert)."""
+    geschuetzt = geschuetzte_werte()
+    for wort in set(umlaut_funde(text)):
+        teile = [t.lower() for t in wort.split("-") if t]
+        if any(t in geschuetzt for t in teile if ist_umschrift(t)):
+            continue
+        muster = (r"(?<![A-Za-zÄÖÜäöüß_\-])" + re.escape(wort) + r"(?![A-Za-zÄÖÜäöüß_=(\-:])")
+        for m in re.finditer(muster, text):
+            vor = text[m.start() - 1] if m.start() else ""
+            nach = text[m.end()] if m.end() < len(text) else ""
+            if vor and vor in _ZITAT and nach == vor:
+                continue
+            yield wort
+            break
+
+
 def ist_umschrift(wort: str) -> bool:
     """Steht in diesem Wort ein umschriebener Umlaut?
 
@@ -268,6 +410,10 @@ def pruefen():
     for eintrag in backend_texte():
         quellen.append(eintrag)
         backend.add(id(eintrag[2]))
+    for pfad, zeile, text in claude_texte():
+        name = pfad.relative_to(REPO).as_posix()
+        for wort in claude_umlaut_funde(text):
+            funde.append(f"{name}:{zeile}: Umschrift '{wort}' im Claude-Text — echter Umlaut")
     for pfad, zeile, text in quellen:
         name = pfad.relative_to(REPO).as_posix()
         ist_backend = id(text) in backend
@@ -280,7 +426,7 @@ def pruefen():
             continue
         for verboten, statt in glossar_funde(text):
             funde.append(f"{name}:{zeile}: '{verboten}' — Glossar: {statt}")
-    return funde
+    return list(dict.fromkeys(funde))
 
 
 def main() -> int:

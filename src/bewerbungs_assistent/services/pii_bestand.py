@@ -119,13 +119,13 @@ def _treffer_ist_unsicher(name: str, text: str, start: int, ende: int) -> str:
         return ""
 
     if name in GEWOEHNLICHE_WOERTER:
-        return "Der Name ist zugleich ein gebraeuchliches Wort."
+        return "Der Name ist zugleich ein gebräuchliches Wort."
 
     # Kleingeschrieben: dann ist es ein Adjektiv, Adverb oder Verb —
     # deutsche Firmennamen werden grossgeschrieben.
     if text[start:ende][:1].islower():
         return ("Der Name steht hier kleingeschrieben und ohne "
-                "Rechtsform — vermutlich ein gewoehnliches Wort, keine "
+                "Rechtsform — vermutlich ein gewöhnliches Wort, keine "
                 "Firmennennung.")
 
     # Grossschreibung allein traegt im Deutschen NICHT: Substantive sind
@@ -552,12 +552,12 @@ def anonymisiere_text(db, text: str) -> dict:
     if not kontaktdaten_geprueft:
         antwort["hinweis_kontaktdaten"] = (
             "Mailadressen und Telefonnummern wurden NICHT ersetzt — der "
-            "Pruefer (scripts/scrub_pii.py) ist in dieser Installation nicht "
+            "Prüfer (scripts/scrub_pii.py) ist in dieser Installation nicht "
             "vorhanden. Bitte selbst ansehen.")
     if offen:
         antwort["zur_entscheidung"] = offen
         antwort["hinweis"] = (
             f"{len(offen)} Fundstelle(n) wurden NICHT ersetzt, weil sie "
-            "vermutlich gewoehnliche Woerter sind. Bitte selbst ansehen — "
-            "automatisch zu ersetzen wuerde den Satz entstellen.")
+            "vermutlich gewöhnliche Wörter sind. Bitte selbst ansehen — "
+            "automatisch zu ersetzen würde den Satz entstellen.")
     return antwort

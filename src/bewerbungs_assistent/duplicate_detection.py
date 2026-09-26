@@ -317,7 +317,7 @@ def find_repost_of_application(job: dict, applications,
                if grund else
                "Ablehnungsgrund dokumentiert: ja."
                if grund_dokumentiert else
-               "Ablehnungsgrund dokumentiert: NEIN — ob die alte Huerde "
+               "Ablehnungsgrund dokumentiert: NEIN — ob die alte Hürde "
                "noch steht, ist unbekannt.")
             + " Keine automatische Aussortierung — ein Repost kann eine "
             "echte zweite Chance sein."

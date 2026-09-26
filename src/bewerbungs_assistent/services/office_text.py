@@ -75,7 +75,7 @@ def _pptx(pfad: Path) -> str:
                    if (m := _NOTIZ.search(n))}
         if not folien:
             raise FormatNichtUnterstuetzt(
-                "Die Datei ist ein ZIP-Archiv, enthaelt aber keine Folien "
+                "Die Datei ist ein ZIP-Archiv, enthält aber keine Folien "
                 "unter ppt/slides/ — vermutlich keine PowerPoint-Datei.")
 
         teile = []
@@ -252,8 +252,8 @@ def extrahiere(pfad) -> str:
 
     if endung in ALTFORMATE:
         raise FormatNichtUnterstuetzt(
-            f"{ALTFORMATE[endung]} ({endung}) wird nicht unterstuetzt. "
-            f"Die Datei einmal in einem Office-Programm oeffnen und als "
+            f"{ALTFORMATE[endung]} ({endung}) wird nicht unterstützt. "
+            f"Die Datei einmal in einem Office-Programm öffnen und als "
             f"{endung}x speichern, dann klappt es.")
 
     leser = LESER.get(endung)
@@ -266,8 +266,8 @@ def extrahiere(pfad) -> str:
         raise
     except zipfile.BadZipFile as exc:
         raise FormatNichtUnterstuetzt(
-            f"Die Datei ist kein gueltiges {endung}-Archiv "
-            f"(beschaedigt oder falsche Endung): {exc}") from exc
+            f"Die Datei ist kein gültiges {endung}-Archiv "
+            f"(beschädigt oder falsche Endung): {exc}") from exc
     except ElementTree.ParseError as exc:
         raise FormatNichtUnterstuetzt(
             f"Der Inhalt der Datei liess sich nicht lesen: {exc}") from exc
@@ -284,18 +284,18 @@ def leer_grund(pfad) -> str:
         # #998: bis v1.7.46 erreichte .docx diese Stelle gar nicht — es
         # gab also nicht einmal die ehrliche "leer"-Meldung, sondern
         # schlicht keine Auskunft.
-        return ("Das Word-Dokument enthaelt keinen Text — weder in "
-                "Absaetzen noch in Tabellen, Kopf- oder Fusszeilen. "
+        return ("Das Word-Dokument enthält keinen Text — weder in "
+                "Absätzen noch in Tabellen, Kopf- oder Fusszeilen. "
                 "Besteht es aus eingebetteten Bildern, braucht es OCR.")
     if pfad.suffix.lower() != ".pptx":
-        return "Die Datei enthaelt keinen auslesbaren Text."
+        return "Die Datei enthält keinen auslesbaren Text."
     try:
         with zipfile.ZipFile(pfad) as z:
             bilder = [n for n in z.namelist() if n.startswith("ppt/media/")]
     except Exception:
-        return "Die Datei enthaelt keinen auslesbaren Text."
+        return "Die Datei enthält keinen auslesbaren Text."
     if bilder:
-        return (f"Die Praesentation enthaelt {len(bilder)} Bild(er) und "
+        return (f"Die Präsentation enthält {len(bilder)} Bild(er) und "
                 "keinen Text — vermutlich abfotografierte oder gescannte "
-                "Folien. Dafuer braucht es OCR.")
-    return "Die Praesentation enthaelt keine Textfelder."
+                "Folien. Dafür braucht es OCR.")
+    return "Die Präsentation enthält keine Textfelder."

@@ -1951,7 +1951,7 @@ h2 {{ font-size: 1.1rem; margin-top: 1.8rem; margin-bottom: 0.6rem;
 .stat-label {{ font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;
                color: #718096; margin-bottom: 0.2rem; }}
 .stat-value {{ font-size: 1.05rem; font-weight: 600; color: #2d3748; }}
-.stat-hint {{ font-size: 0.72rem; color: #a0aec0; margin-top: 0.15rem; }}
+.stat-hint {{ font-size: 0.72rem; color: #a0äc0; margin-top: 0.15rem; }}
 table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; margin-top: 0.4rem; }}
 th, td {{ text-align: left; padding: 0.5rem 0.7rem; border-bottom: 1px solid #edf2f7; vertical-align: top; }}
 th {{ background: #edf2f7; font-weight: 600; color: #2d3748; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }}
@@ -1966,13 +1966,13 @@ ol.status-history li::before {{ content: counter(step); display: inline-block;
           border-radius: 4px; font-size: 0.78rem; font-weight: 500; }}
 .note-text {{ margin-top: 0.3rem; margin-left: 2.2rem; color: #4a5568; font-style: italic; font-size: 0.85rem; }}
 .notes .note {{ background: #fffaf0; border-left: 3px solid #ed8936; padding: 0.5rem 0.8rem; margin-bottom: 0.6rem; border-radius: 0 4px 4px 0; }}
-.notes .note-date {{ font-size: 0.75rem; color: #a0aec0; margin-bottom: 0.2rem; font-variant-numeric: tabular-nums; }}
+.notes .note-date {{ font-size: 0.75rem; color: #a0äc0; margin-bottom: 0.2rem; font-variant-numeric: tabular-nums; }}
 .notes .note-text {{ margin: 0; color: #2d3748; font-style: normal; font-size: 0.88rem; }}
 dl.kv {{ display: grid; grid-template-columns: 9rem 1fr; gap: 0.4rem 1rem; margin: 0.5rem 0; }}
 dl.kv dt {{ color: #718096; font-size: 0.85rem; }}
 dl.kv dd {{ margin: 0; color: #2d3748; font-size: 0.9rem; }}
 a {{ color: #3182ce; }}
-.footer {{ margin-top: 2.5rem; font-size: 0.72rem; color: #a0aec0;
+.footer {{ margin-top: 2.5rem; font-size: 0.72rem; color: #a0äc0;
            border-top: 1px solid #edf2f7; padding-top: 0.6rem; text-align: center; }}
 @media print {{
   body {{ padding: 1cm; max-width: none; }}
@@ -2007,7 +2007,7 @@ a {{ color: #3182ce; }}
 <h2>Vollständige Chronologie ({len(entries)} Eintraege)</h2>
 <table>
 <tr><th>Datum</th><th>Typ</th><th>Beschreibung</th></tr>
-{rows_html if rows_html else '<tr><td colspan="3" style="text-align:center;color:#a0aec0;">Keine Eintraege.</td></tr>'}
+{rows_html if rows_html else '<tr><td colspan="3" style="text-align:center;color:#a0äc0;">Keine Einträge.</td></tr>'}
 </table>
 
 <div class="footer">Erstellt von PBP Bewerbungs-Assistent — {datetime.now().strftime('%d.%m.%Y %H:%M')}</div>

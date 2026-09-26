@@ -242,7 +242,7 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
         "persistiert": False,
         "hinweis_persistenz": (
             "Reine Schattenrechnung — kein Score in der jobs-Tabelle wurde "
-            "veraendert. scores_neu_berechnen wurde NICHT aufgerufen."
+            "verändert. scores_neu_berechnen wurde NICHT aufgerufen."
         ),
         "aktuelle_schwelle": aktuelle_schwelle,
         "labels": {
@@ -276,7 +276,7 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
                 f"unteres Viertel der Bewerbungs-Scores ({q25_pos}) x 0.8 = "
                 f"{vorschlag} (20 % Toleranz nach unten, User-Vorgabe). "
                 f"Der niedrigste Bewerbungs-Score ({min_pos}) ist ein "
-                "Einzelwert und traegt keine Schwelle."
+                "Einzelwert und trägt keine Schwelle."
             )
             block["bewerbungen_unter_vorschlag"] = sum(
                 1 for s in pos_scores if s < vorschlag)
@@ -289,9 +289,9 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
                     "von": min_pos,
                     "bis": max(neg_scores),
                     "hinweis": (
-                        "Zwischen niedrigstem Bewerbungs-Score und hoechstem "
+                        "Zwischen niedrigstem Bewerbungs-Score und höchstem "
                         "Aussortierten-Score kann keine Schwelle sauber trennen."
-                    ) if max(neg_scores) >= min_pos else "keine Ueberlappung",
+                    ) if max(neg_scores) >= min_pos else "keine Überlappung",
                 }
             # Warnung: historische Bewerbungen, die die AKTUELLE Schwelle
             # ausblenden wuerde — genau der Blindflug, den das Issue meint.
@@ -307,14 +307,14 @@ def backtest(db: Any, stichprobe_dismissed: int = 200,
             if unter:
                 block["warnung_unter_aktueller_schwelle"] = unter
                 block["warnung"] = (
-                    f"{len(unter)} historische Bewerbung(en) laegen mit den "
+                    f"{len(unter)} historische Bewerbung(en) lägen mit den "
                     f"aktuellen Kriterien UNTER der Schwelle {aktuelle_schwelle} "
                     "— die Schwelle darf ausblenden, nie loeschen."
                 )
         else:
             block["hinweis"] = (
-                "Keine bewerbungsverknuepften Stellen bewertbar — "
-                "Schwellen-Vorschlag nicht moeglich."
+                "Keine bewerbungsverknüpften Stellen bewertbar — "
+                "Schwellen-Vorschlag nicht möglich."
             )
         ergebnis["varianten"][name] = block
 

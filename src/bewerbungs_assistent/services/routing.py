@@ -74,10 +74,10 @@ BEFUND_TEXT = {
     KEIN_SCHLUESSEL: ("Kein Routing-Schluessel eingerichtet — PBP rechnet "
                       "mit der Luftlinie."),
     SCHLUESSEL_ABGELEHNT: ("Der Routing-Dienst lehnt den Schluessel ab. "
-                           "Bitte in den Einstellungen pruefen."),
+                           "Bitte in den Einstellungen prüfen."),
     KONTINGENT: ("Das Tageskontingent des Routing-Dienstes ist erreicht. "
-                 "Die uebrigen Stellen behalten die Luftlinie und werden "
-                 "beim naechsten Lauf nachgezogen."),
+                 "Die übrigen Stellen behalten die Luftlinie und werden "
+                 "beim nächsten Lauf nachgezogen."),
     NICHT_ERREICHBAR: ("Der Routing-Dienst war nicht erreichbar — die "
                        "Stellen behalten die Luftlinie."),
     KEIN_STANDORT: ("Kein Wohnort hinterlegt — ohne Startpunkt gibt es "
@@ -327,10 +327,10 @@ def schluessel_setzen(db, key: str, *, client=None) -> dict:
     eingerichtet gelten (dasselbe Vorgehen wie bei Adzuna, #809)."""
     key = (key or "").strip()
     if not key:
-        return {"fehler": "Kein Schluessel uebergeben."}
+        return {"fehler": "Kein Schluessel übergeben."}
     if any(c.isspace() for c in key) or len(key) < 20:
         return {"fehler": ("Das sieht nicht nach einem Schluessel von "
-                           "OpenRouteService aus — bitte vollstaendig "
+                           "OpenRouteService aus — bitte vollständig "
                            "kopieren.")}
     befund = schluessel_pruefen(key, client=client)
     if befund != OK:
@@ -343,7 +343,7 @@ def schluessel_entfernen(db) -> dict:
     db.set_setting(EINSTELLUNG_SCHLUESSEL, "")
     return {"status": "entfernt",
             "hinweis": ("Ohne Schluessel rechnet PBP wieder mit der "
-                        "Luftlinie — auch fuer Stellen, an denen schon eine "
+                        "Luftlinie — auch für Stellen, an denen schon eine "
                         "Fahrstrecke steht. Die gespeicherten Scores zieht "
                         "scores_neu_berechnen() nach.")}
 

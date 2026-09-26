@@ -39,7 +39,7 @@ def register(mcp, db, logger):
 
         v1.7.12 (#815, D35): bewerbung_id ist OPTIONAL — auch Aufgaben
         ohne Bewerbungsbezug ("Lebenslauf-Variante aktualisieren",
-        "Suchkriterien nachschaerfen") sind regulaere Datensaetze. Vorher
+        "Suchkriterien nachschärfen") sind reguläre Datensätze. Vorher
         landeten sie in Notizen, Chats oder gar nicht: 5 Aufgaben auf 94
         Bewerbungen war kein Nutzungsmuster, sondern ein Zugangsproblem.
 
@@ -48,7 +48,7 @@ def register(mcp, db, logger):
                 "Referenzen zusammenstellen")
             bewerbung_id: Optional — ID der Bewerbung (aus
                 bewerbungen_anzeigen). Leer = freie Aufgabe am Profil.
-            faellig_am: Optional. YYYY-MM-DD. Mit Faelligkeit erscheint
+            faellig_am: Optional. YYYY-MM-DD. Mit Fälligkeit erscheint
                 der Task in "Offene Aktionen" / im Kalender.
             beschreibung: Optionaler Langtext (Notizen, Checkliste).
             typ: custom (Default) | nachfass | termin | vorbereitung.
@@ -58,7 +58,7 @@ def register(mcp, db, logger):
         if bewerbung_id:
             app = db.get_application(bewerbung_id)
             if not app:
-                return {"fehler": "Bewerbung nicht gefunden. Pruefe ID mit bewerbungen_anzeigen()."}
+                return {"fehler": "Bewerbung nicht gefunden. Prüfe ID mit bewerbungen_anzeigen()."}
         if not (titel or "").strip():
             return {"fehler": "titel ist Pflicht."}
         try:
@@ -79,7 +79,7 @@ def register(mcp, db, logger):
             "typ": typ or "custom",
             "hinweis": (
                 "Task ist offen. Mit todo_erledigen(task_id, notiz='...') "
-                "abhaken oder mit todo_reaktivieren wieder oeffnen."
+                "abhaken oder mit todo_reaktivieren wieder öffnen."
             ),
         }
         if app:
@@ -119,7 +119,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def todo_reaktivieren(todo_id: str) -> dict:
-        """Setzt einen erledigten/hinfaelligen Todo wieder auf offen."""
+        """Setzt einen erledigten/hinfälligen Todo wieder auf offen."""
         task = db.get_task(todo_id)
         if not task:
             return {"fehler": "Todo nicht gefunden."}
@@ -141,15 +141,15 @@ def register(mcp, db, logger):
         typ: str = "",
         bewerbung_id: str = "",
     ) -> dict:
-        """v1.7.12 (#814, D35): aendert einen bestehenden Todo.
+        """v1.7.12 (#814, D35): ändert einen bestehenden Todo.
 
-        Vorher gab es KEINEN Weg, ein Faelligkeitsdatum zu aendern —
+        Vorher gab es KEINEN Weg, ein Fälligkeitsdatum zu aendern —
         follow_up_verschieben existierte, das Todo-Pendant nicht. Nur
-        uebergebene Felder werden geschrieben.
+        übergebene Felder werden geschrieben.
 
-        v1.7.24 (#960): auch der Bewerbungsbezug ist nachtraeglich
+        v1.7.24 (#960): auch der Bewerbungsbezug ist nachträglich
         setzbar. Seit #815 sind freie Aufgaben ohne Bezug erlaubt — das
-        ist richtig, macht den vergessenen Bezug aber zum haeufigsten
+        ist richtig, macht den vergessenen Bezug aber zum häufigsten
         Fehlerfall bei der Anlage. Eine Aufgabe ohne Bezug taucht in
         bewerbung_details nicht auf, ist also genau dort unsichtbar, wo
         man sie sucht.
@@ -157,9 +157,9 @@ def register(mcp, db, logger):
         Args:
             todo_id: ID des Todos.
             titel/beschreibung/faellig_am/typ: neue Werte (leer = keine
-                Aenderung). faellig_am='-' loescht die Faelligkeit.
+                Änderung). faellig_am='-' löscht die Fälligkeit.
             bewerbung_id: ordnet die Aufgabe einer Bewerbung zu.
-                '-' loest den Bezug (gleiche Konvention wie faellig_am).
+                '-' löst den Bezug (gleiche Konvention wie faellig_am).
         """
         task = db.get_task(todo_id)
         if not task:
@@ -186,7 +186,7 @@ def register(mcp, db, logger):
                         "IDs zeigt bewerbungen_anzeigen().")}
                 daten["application_id"] = bewerbung_id
         if not daten:
-            return {"fehler": "Keine Aenderungen angegeben."}
+            return {"fehler": "Keine Änderungen angegeben."}
         db.update_task(todo_id, daten)
         neu = db.get_task(todo_id)
         antwort = {"status": "aktualisiert", "task_id": todo_id,
@@ -195,7 +195,7 @@ def register(mcp, db, logger):
                    "typ": neu.get("typ")}
         if bewerbung_id:
             if bewerbung_id == "-":
-                antwort["bewerbungsbezug"] = "geloest (freie Aufgabe)"
+                antwort["bewerbungsbezug"] = "gelöst (freie Aufgabe)"
             else:
                 _z = db.get_application(bewerbung_id) or {}
                 antwort["bewerbungsbezug"] = (
@@ -209,7 +209,7 @@ def register(mcp, db, logger):
     def todo_hinfaellig(todo_id: str, grund: str = "") -> dict:
         """v1.7.12 (#814, D35): markiert einen Todo als hinfaellig.
 
-        Der Status existierte laengst (todo_reaktivieren nennt ihn) —
+        Der Status existierte längst (todo_reaktivieren nennt ihn) —
         es gab nur kein Tool, das ihn setzt. Hinfaellig heisst: die
         Aufgabe ist gegenstandslos geworden (Absage erhalten, Nachfass
         hat sich erledigt), nicht erledigt.
@@ -223,12 +223,12 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def todo_details(todo_id: str) -> dict:
-        """v1.7.12 (#814, D35): Todo samt aufgeloestem Kontext in EINEM
+        """v1.7.12 (#814, D35): Todo samt aufgelöstem Kontext in EINEM
         Aufruf — Bewerbung, Termine, Kontakte, Dokumente.
 
-        Wer eine Aufgabe oeffnet, will handeln: Mailadresse, Termin und
-        Sachstand gehoeren in dieselbe Ansicht, ohne vorher in die
-        Bewerbung wechseln zu muessen.
+        Wer eine Aufgabe öffnet, will handeln: Mailadresse, Termin und
+        Sachstand gehören in dieselbe Ansicht, ohne vorher in die
+        Bewerbung wechseln zu müssen.
         """
         task = db.get_task(todo_id)
         if not task:
@@ -283,21 +283,21 @@ def register(mcp, db, logger):
         status: str = "offen",
         bis_datum: str = "",
     ) -> dict:
-        """v1.7.12 (#815, D35): ALLE drei Aufgaben-Toepfe in einer Sicht.
+        """v1.7.12 (#815, D35): ALLE drei Aufgaben-Töpfe in einer Sicht.
 
         Todos, Nachfassungen (follow_ups) und anstehende Termine sind
-        fuer den Nutzer dasselbe — "was muss ich tun" — fuer das System
+        für den Nutzer dasselbe — "was muss ich tun" — für das System
         aber drei Tabellen mit drei Tool-Familien. Diese Sicht vereint
-        sie mit `herkunft`-Feld und gruppiert nach Faelligkeit
-        (ueberfaellig / heute / diese_woche / spaeter / ohne_faelligkeit).
+        sie mit `herkunft`-Feld und gruppiert nach Fälligkeit
+        (überfällig / heute / diese_woche / später / ohne_faelligkeit).
 
-        Belegt, warum das zaehlt: die beiden am laengsten festhaengenden
-        Bewerbungen des Bestands waren exakt die mit den aeltesten
-        ueberfaelligen, UNSICHTBAREN Nachfassungen.
+        Belegt, warum das zaehlt: die beiden am längsten festhängenden
+        Bewerbungen des Bestands waren exakt die mit den ältesten
+        überfälligen, UNSICHTBAREN Nachfassungen.
 
         Args:
             status: 'offen' (Default) | 'erledigt' | 'alle'.
-            bis_datum: Optional YYYY-MM-DD — nur Eintraege bis dahin.
+            bis_datum: Optional YYYY-MM-DD — nur Einträge bis dahin.
         """
         from ..services.aufgaben_sicht import uebersicht
 
@@ -319,8 +319,8 @@ def register(mcp, db, logger):
             "gruppen": erg["gruppen"],
             "hinweis": (
                 "Bedienen: todo_erledigen/todo_hinfaellig/todo_bearbeiten "
-                "fuer Todos, follow_up_erledigen/-verschieben/-bearbeiten "
-                "fuer Nachfassungen, meeting_bearbeiten fuer Termine."
+                "für Todos, follow_up_erledigen/-verschieben/-bearbeiten "
+                "für Nachfassungen, meeting_bearbeiten für Termine."
             ),
         }
 
@@ -366,7 +366,7 @@ def register(mcp, db, logger):
             return leer(
                 {"status": "ok", "anzahl": 0, "todos": []},
                 "Noch keine Aufgaben erfasst.",
-                "Aufgaben sorgen dafuer, dass nichts untergeht — etwa "
+                "Aufgaben sorgen dafür, dass nichts untergeht — etwa "
                 "Unterlagen nachreichen oder nach zwei Wochen nachfassen. "
                 "Anlegen mit todo_anlegen('Was ist zu tun?'); mit "
                 "faellig_am='JJJJ-MM-TT' erscheint die Aufgabe "

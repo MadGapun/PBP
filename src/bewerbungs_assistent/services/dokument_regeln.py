@@ -329,7 +329,7 @@ def pruefe_text(inhalt: str) -> list:
                             "stelle": zeilennr,
                             "hinweis": "Gedankenstrich als Satzzeichen. "
                                        "Ein Bis-Strich zwischen zwei Daten "
-                                       "zaehlt bewusst nicht."})
+                                       "zählt bewusst nicht."})
         if _DRITTE_PERSON.search(z):
             befunde.append({"regel": 8, "fund": z.strip()[:60],
                             "stelle": zeilennr,
@@ -359,9 +359,9 @@ def pruefe_text(inhalt: str) -> list:
         befunde.append({
             "regel": 1, "stelle": 0, "weich": True,
             "fund": ", ".join(sorted(verdacht)[:10]),
-            "hinweis": "Verdacht auf umschriebene Umlaute. Diese Woerter "
+            "hinweis": "Verdacht auf umschriebene Umlaute. Diese Wörter "
                        "stehen NICHT in der kuratierten Liste — bitte "
-                       "ansehen und die Liste ergaenzen, wenn es welche "
+                       "ansehen und die Liste ergänzen, wenn es welche "
                        "sind.",
         })
     return befunde

@@ -158,8 +158,8 @@ def profil_bauen(beworben: list, aussortiert: list, hintergrund: list) -> dict:
             "beworben": len(beworben),
             "grundlage_fehlt": (
                 f"Nur {len(beworben)} beworbene Stellen mit Text — unter "
-                f"{MIN_BEWORBEN} waere jedes Muster die Verkleidung "
-                "einzelner Faelle. Das Signal bleibt aus."),
+                f"{MIN_BEWORBEN} wäre jedes Muster die Verkleidung "
+                "einzelner Fälle. Das Signal bleibt aus."),
         }
 
     # Gemessen wird am Hintergrund OHNE die beworbenen Stellen (siehe

@@ -326,18 +326,18 @@ def register(mcp, db, logger):
     def firma_kontext(firmenname: str) -> dict:
         """Kompletter dokumentierter Stand zu einer Firma in EINEM Aufruf (#753, H18).
 
-        ⛔ PFLICHT-LOOKUP: Sobald ein Firmenname mit einer WERTUNG faellt
-        ("kenne ich", "war abgesagt", "laeuft noch", "da hatte ich ein
-        Interview", auch beilaeufig in einem Fallback-Vorschlag), rufe
+        ⛔ PFLICHT-LOOKUP: Sobald ein Firmenname mit einer WERTUNG fällt
+        ("kenne ich", "war abgesagt", "läuft noch", "da hatte ich ein
+        Interview", auch beiläufig in einem Fallback-Vorschlag), rufe
         ZUERST dieses Tool auf und antworte NUR auf Basis des Ergebnisses.
         Nie Firmen-Status, Interview-Verlauf oder Absagen aus dem
-        Gedaechtnis behaupten — PBP haelt die dokumentierte Wahrheit.
+        Gedächtnis behaupten — PBP hält die dokumentierte Wahrheit.
 
         Liefert: alle Bewerbungen (Titel, Status, Datum, Termine) — auch
         die, bei denen die Firma Vermittler oder Endkunde ist —, aktive
-        Stellen, Aussortier-Historie mit Gruenden und seit #1080 jede
+        Stellen, Aussortier-Historie mit Gründen und seit #1080 jede
         andere Stelle im Bestand, an der die Firma vorkommt, mit ihrer
-        ROLLE: frueherer/aktueller Arbeitgeber, Projektkunde, Kontakt,
+        ROLLE: früherer/aktueller Arbeitgeber, Projektkunde, Kontakt,
         Anfrage, Korrespondenz, Recherche, Blacklist.
 
         Jeder Treffer ist ein VERWEIS, kein Volltext: eine Zeile, der
@@ -346,14 +346,14 @@ def register(mcp, db, logger):
         Aussortier-Grund, Kontakt, Dokument). Nur nachladen, was die
         Frage wirklich braucht.
 
-        ⛔ `warnungen` zuerst lesen: eine laufende Vorstellung ueber einen
+        ⛔ `warnungen` zuerst lesen: eine laufende Vorstellung über einen
         Vermittler heisst, dass eine direkte Bewerbung oder ein zweiter
-        Vermittler eine Doppelvorstellung waere.
+        Vermittler eine Doppelvorstellung wäre.
 
         Args:
             firmenname: Name der Firma (ein Namensteil reicht — 'Acme'
                 findet 'Acme Solutions GmbH'; Rechtsform, Umlaute und
-                Abkuerzungen werden abgeglichen).
+                Abkürzungen werden abgeglichen).
         """
         query_norm = _firma_normalisieren(firmenname)
         if not query_norm:
@@ -474,18 +474,18 @@ def register(mcp, db, logger):
             "aussortiert_beispiele": aussortiert_beispiele,
             "hinweis": (
                 "WICHTIG (#757): Aussortier-Gruende gelten je STELLE, nicht "
-                "fuer die Firma insgesamt — dieselbe Firma kann passende und "
+                "für die Firma insgesamt — dieselbe Firma kann passende und "
                 "unpassende Rollen ausschreiben. Jeder Treffer nennt seine "
-                "ROLLE (#1080): ein frueherer Arbeitgeber oder Projektkunde "
-                "ist kein Bewerbungsstand. `abgleich: abkuerzung` ist der "
-                "schwaechste Namensabgleich — dort vor einer Aussage "
+                "ROLLE (#1080): ein früherer Arbeitgeber oder Projektkunde "
+                "ist kein Bewerbungsstand. `abgleich: abkürzung` ist der "
+                "schwächste Namensabgleich — dort vor einer Aussage "
                 "nachfragen, ob dieselbe Firma gemeint ist."
             ) if gefunden else (
                 "Kein dokumentierter Kontakt mit dieser Firma in PBP — weder "
                 "Bewerbungen, Stellen, Lebenslauf, Kontakte, Anfragen noch "
                 "Recherchen. Wenn du (Claude) etwas anderes "
-                "'weisst', stammt es NICHT aus PBP und gehoert nicht in eine "
-                "Status-Aussage. Auch alternative Schreibweisen pruefen."
+                "'weisst', stammt es NICHT aus PBP und gehört nicht in eine "
+                "Status-Aussage. Auch alternative Schreibweisen prüfen."
             ),
         }
 
@@ -498,12 +498,12 @@ def register(mcp, db, logger):
         * **Schreibweisen**: Namen aus Bewerbungen, Lebenslauf, Kontakten
           und Projekten, die dieselbe Firma sind, aber verschieden
           geschrieben stehen (Rechtsform, Umlaut, Bindestrich).
-        * **Endkunde nur in den Notizen**: Bewerbungen ueber einen
+        * **Endkunde nur in den Notizen**: Bewerbungen über einen
           Vermittler ohne eingetragenen Endkunden, deren Notizen eine
           bekannte Firma nennen. Ohne den Eintrag erkennt PBP keine
           Doppelvorstellung bei diesem Endkunden.
 
-        Aendert nichts. Einen Endkunden traegt der Mensch mit
+        Ändert nichts. Einen Endkunden trägt der Mensch mit
         `bewerbung_bearbeiten(bewerbung_id, endkunde=...)` nach — ob eine
         genannte Firma der Endkunde ist, entscheidet er, nicht PBP.
         """
@@ -519,17 +519,17 @@ def register(mcp, db, logger):
     ) -> dict:
         """v1.7.0-beta.60 (#631): Korrigiert das Datum eines Status-Wechsel-Events.
 
-        Use Case: User hat den Status erst spaeter eingetragen als die
-        eigentliche Aenderung passiert ist (z.B. heute 'abgelehnt' geklickt,
-        aber Absage kam am 2026-04-15). Mit diesem Tool laesst sich das
-        Event-Datum nachtraeglich korrigieren — Statistik (Reaktionszeit etc)
+        Use Case: User hat den Status erst später eingetragen als die
+        eigentliche Änderung passiert ist (z.B. heute 'abgelehnt' geklickt,
+        aber Absage kam am 2026-04-15). Mit diesem Tool lässt sich das
+        Event-Datum nachträglich korrigieren — Statistik (Reaktionszeit etc)
         wird damit korrekt.
 
         Args:
             event_id: ID des Events (siehe `bewerbung_details` -> events)
             neues_datum: YYYY-MM-DD oder DD.MM.YYYY oder ISO-Timestamp
             bewerbung_id: Optional — Cross-Profile-Schutz (wenn gesetzt, muss
-                der Event zur angegebenen Bewerbung gehoeren)
+                der Event zur angegebenen Bewerbung gehören)
         """
         result = db.update_application_event_date(
             event_id=event_id,
@@ -584,9 +584,9 @@ def register(mcp, db, logger):
             endkunde: Optional (#710): Endkunde bei Vermittler-Engagements
                 (company = Vermittler). Bei gesetztem Endkunden vergleicht die
                 Duplikat-Erkennung company+endkunde statt nur company+title —
-                mehrere Engagements ueber denselben Vermittler sind dann
+                mehrere Engagements über denselben Vermittler sind dann
                 getrennt erfassbar.
-            force: True ueberstimmt die Duplikat-Erkennung bewusst (#709) —
+            force: True überstimmt die Duplikat-Erkennung bewusst (#709) —
                 nutzen wenn es wirklich eine eigene, neue Bewerbung ist.
         """
         # #170: Wenn der User sich noch nicht beworben hat → in_vorbereitung
@@ -602,9 +602,9 @@ def register(mcp, db, logger):
         if not bereits_beworben and status in ("zurueckgezogen", "abgelehnt"):
             return {
                 "fehler": (
-                    "Eine Inbound-Ablehnung gehoert nicht in die Bewerbungs-Tabelle. "
-                    "Sie wuerde deine Bewerbungs-Statistik verfaelschen "
-                    "(Quoten zaehlen sie als 'submitted')."
+                    "Eine Inbound-Ablehnung gehört nicht in die Bewerbungs-Tabelle. "
+                    "Sie würde deine Bewerbungs-Statistik verfälschen "
+                    "(Quoten zählen sie als 'submitted')."
                 ),
                 "vorschlag_tool": "recruiter_anfrage_ablehnen",
                 "vorschlag_aufruf": (
@@ -617,7 +617,7 @@ def register(mcp, db, logger):
                     "Stelle in der jobs-Tabelle als ausgemustert markiert "
                     "(is_active=0 mit dismiss_reason). Dadurch bleibt die "
                     "Markt-Beobachtung erhalten ohne deine Track-Record-"
-                    "Statistik zu verfaelschen."
+                    "Statistik zu verfälschen."
                 ),
             }
 
@@ -681,12 +681,12 @@ def register(mcp, db, logger):
                     "bestehend_firma": ex_company,
                     "bestehend_titel": ex_title,
                     "nachricht": (
-                        f"Aehnliche Bewerbung gefunden: '{ex_title}' bei {ex_company} "
+                        f"Ähnliche Bewerbung gefunden: '{ex_title}' bei {ex_company} "
                         f"(Status: {existing.get('status', '?')}). "
                         f"Vermutlich Vermittler/Endkunde-Beziehung oder Titelvariante. "
                         f"Falls neue Bewerbung trotzdem gewuenscht: force=True setzen — "
-                        f"bei Vermittler-Engagements zusaetzlich endkunde='...' angeben, "
-                        f"dann unterscheidet die Duplikat-Erkennung kuenftig selbst."
+                        f"bei Vermittler-Engagements zusätzlich endkunde='...' angeben, "
+                        f"dann unterscheidet die Duplikat-Erkennung künftig selbst."
                     )
                 }
 
@@ -703,7 +703,7 @@ def register(mcp, db, logger):
                     "bestehend_firma": ex_company,
                     "bestehend_titel": ex_title,
                     "nachricht": (
-                        f"Identischer Ansprechpartner/Email + aehnlicher Titel: "
+                        f"Identischer Ansprechpartner/Email + ähnlicher Titel: "
                         f"'{ex_title}' bei {ex_company} (Status: {existing.get('status', '?')}). "
                         f"Sehr wahrscheinlich Duplikat. Falls doch eigenstaendig: force=True."
                     )
@@ -883,7 +883,7 @@ def register(mcp, db, logger):
             if kontakt_befund["status"] == "angelegt":
                 result["nachricht"] += (
                     f" Ansprechpartner '{kontakt_befund['name']}' als Kontakt "
-                    "angelegt — ab jetzt haengt die Historie an ihm.")
+                    "angelegt — ab jetzt hängt die Historie an ihm.")
 
         # #766: Anker-Pruefung am Uebergang Stelle -> Bewerbung. Die eigentliche
         # Gefahr ist nicht die fehlende URL, sondern dass Anschreiben und CV
@@ -919,7 +919,7 @@ def register(mcp, db, logger):
                         "nachtragen und stellenbeschreibung_nachladen() "
                         "aufrufen, oder die Anzeige als Dokument hochladen, "
                         "oder den Ansprechpartner per bewerbung_bearbeiten() "
-                        "erfassen. Dann pruefen, ob die Stelle noch aktiv ist "
+                        "erfassen. Dann prüfen, ob die Stelle noch aktiv ist "
                         "— erst danach Anschreiben und Lebenslauf."
                     )
         except Exception:
@@ -960,12 +960,12 @@ def register(mcp, db, logger):
             neuer_status: in_vorbereitung, offen, beworben, eingangsbestaetigung, interview, zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen, arbeitgeber_ausgefallen
                 (arbeitgeber_ausgefallen seit v1.7.10/#779: Insolvenz, Stellenstreichung,
                 Einstellungsstopp — der Prozess endete ohne Zutun des Bewerbers.
-                KEIN Rueckzug, KEINE Absage.)
+                KEIN Rückzug, KEINE Absage.)
             notizen: Optionale Notizen zum Statuswechsel
             ablehnungsgrund: Grund der Ablehnung (nur bei status=abgelehnt). Wird für Musteranalyse gespeichert.
             auto_follow_up: Default True. Wenn False, wird beim Wechsel auf
                 'beworben' kein automatischer Nachfass-Follow-up nach 7 Tagen
-                angelegt (#522). Sinnvoll wenn der Recruiter ausdruecklich
+                angelegt (#522). Sinnvoll wenn der Recruiter ausdrücklich
                 zugesagt hat sich zu melden.
         """
         # #695: Typ-Pruefung am Tool-Eingang — gleiches Muster wie
@@ -975,8 +975,8 @@ def register(mcp, db, logger):
             bewerbung_id = validate_id(IdKind.APPLICATION, bewerbung_id)
         except TypedIdMismatch as e:
             return {"fehler": str(e),
-                    "hinweis": "Du hast eine ID des falschen Typs uebergeben. "
-                               "Bewerbungs-IDs haben das Praefix 'APP-'."}
+                    "hinweis": "Du hast eine ID des falschen Typs übergeben. "
+                               "Bewerbungs-IDs haben das Präfix 'APP-'."}
 
         if neuer_status not in VALID_STATUSES:
             # Frueher genutzte Custom-Status auf den jetzt offiziellen Wert mappen
@@ -1005,7 +1005,7 @@ def register(mcp, db, logger):
         # #695: unbekannte ID -> klarer Fehler statt stillem "aktualisiert"
         if not app:
             return {"fehler": "Bewerbung nicht gefunden. "
-                              "Pruefe die ID mit bewerbungen_anzeigen()."}
+                              "Prüfe die ID mit bewerbungen_anzeigen()."}
 
         # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
         auto_followup_id = None
@@ -1061,7 +1061,7 @@ def register(mcp, db, logger):
                     "WHERE application_id=?",
                     (bewerbung_id,),
                 ).fetchone()
-                quelle = "aeltester Timeline-Event"
+                quelle = "ältester Timeline-Event"
                 datum = (row["erster"] or "") if row else ""
                 if not datum:
                     datum = app.get("created_at") or ""
@@ -1143,7 +1143,7 @@ def register(mcp, db, logger):
             result["applied_at_hinweis"] = (
                 f"applied_at war leer und wurde auf "
                 f"{applied_at_nachgetragen['datum']} gesetzt "
-                f"({applied_at_nachgetragen['quelle']}) — sonst faellt die "
+                f"({applied_at_nachgetragen['quelle']}) — sonst fällt die "
                 "Bewerbung aus der Statistik. Bei Bedarf mit "
                 "bewerbung_bearbeiten(applied_at=...) korrigieren."
             )
@@ -1155,13 +1155,13 @@ def register(mcp, db, logger):
                 "ein Absageschreiben oder eine Begruendung? Nachtragen mit "
                 "bewerbung_status_aendern(..., 'abgelehnt', "
                 "ablehnungsgrund='...') oder bewerbung_notiz(). Hintergrund: "
-                "Taucht die Stelle als Repost wieder auf, laesst sich ohne "
-                "Grund nicht beurteilen, ob die alte Huerde noch steht."
+                "Taucht die Stelle als Repost wieder auf, lässt sich ohne "
+                "Grund nicht beurteilen, ob die alte Hürde noch steht."
             )
         if neuer_status == "arbeitgeber_ausgefallen":
             result["hinweis"] = (
-                "Status 'arbeitgeber_ausgefallen' gesetzt: zaehlt NICHT als "
-                "Rueckzug (withdrawal_rate) und NICHT als Absage. Ein vorher "
+                "Status 'arbeitgeber_ausgefallen' gesetzt: zählt NICHT als "
+                "Rückzug (withdrawal_rate) und NICHT als Absage. Ein vorher "
                 "erreichtes Angebot bleibt in der offer_rate erhalten."
             )
         if veraltet_docs:
@@ -1170,9 +1170,9 @@ def register(mcp, db, logger):
                 "anzahl": len(veraltet_docs),
                 "ids": veraltet_docs,
                 "hinweis": (
-                    "Mit der Bewerbung verknuepfte Dokumente wurden auf "
-                    "lifecycle=veraltet gesetzt (DB-only, Dateien unberuehrt). "
-                    "Reversibel ueber dokument_reaktivieren."
+                    "Mit der Bewerbung verknüpfte Dokumente wurden auf "
+                    "lifecycle=veraltet gesetzt (DB-only, Dateien unberührt). "
+                    "Reversibel über dokument_reaktivieren."
                 ),
             }
         if auto_followup_id:
@@ -1188,7 +1188,7 @@ def register(mcp, db, logger):
             result["nachfrage_follow_up"] = {
                 "id": latest.get("id"),
                 "scheduled_date": latest.get("scheduled_date"),
-                "hinweis": "Nachfrage-Follow-up automatisch gemaess Einstellung angelegt.",
+                "hinweis": "Nachfrage-Follow-up automatisch gemäss Einstellung angelegt.",
             }
         if neuer_status == "abgelehnt":
             actions = _get_context_actions("abgelehnt")
@@ -1197,9 +1197,9 @@ def register(mcp, db, logger):
         elif neuer_status == "angenommen":
             result["nachricht"] = "Herzlichen Glückwunsch! Du hast es geschafft!"
             result["naechste_schritte"] = (
-                "Uebernimm die neue Position mit position_aus_bewerbung_uebernehmen, "
+                "Übernimm die neue Position mit position_aus_bewerbung_uebernehmen, "
                 "trage das verhandelte Gehalt via bewerbung_bearbeiten(final_salary=...) ein "
-                "und ziehe offene Parallel-Bewerbungen zurueck."
+                "und ziehe offene Parallel-Bewerbungen zurück."
             )
         return result
 
@@ -1219,7 +1219,7 @@ def register(mcp, db, logger):
             status_filter: Optional: Nur Bewerbungen mit diesem Status
                 (offen, in_vorbereitung, beworben, eingangsbestaetigung, interview,
                  zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen)
-            archiv: True = auch abgelehnte/zurueckgezogene/abgelaufene zeigen (Standard: False)
+            archiv: True = auch abgelehnte/zurückgezogene/abgelaufene zeigen (Standard: False)
             stellenart: Optional: Filter nach Stellenart (festanstellung, freelance, etc.)
             sortierung: datum (Standard), firma, status, score
         """
@@ -1405,7 +1405,7 @@ def register(mcp, db, logger):
         - `stellenbeschreibung_original` = wortgetreuer Originalwortlaut
           der Stellenanzeige (read-mostly). Hier KEINE Notizen, keine
           Recherche, kein Vermittler-Kontext. Wird in `description_snapshot`
-          gespeichert und ist Grundlage fuer Anschreiben/Fit-Analyse/CV.
+          gespeichert und ist Grundlage für Anschreiben/Fit-Analyse/CV.
         - `notes` = eigene Recherche, Termin-Vorbereitung, Fragenlisten,
           Vermittler-Kontext, Endkunde-Mutmassungen. Mutable.
 
@@ -1419,7 +1419,7 @@ def register(mcp, db, logger):
             url: Neuer Link zur Stellenanzeige
             notes: Notiz, die an die bisherigen angehaengt wird
             notizen_ersetzen: True ersetzt die bisherigen Notizen durch
-                `notes` — nur, wenn der Mensch das ausdruecklich will
+                `notes` — nur, wenn der Mensch das ausdrücklich will
             ansprechpartner: Neuer Ansprechpartner
             kontakt_email: Neue Kontakt-E-Mail
             portal_name: Neues Portal
@@ -1431,13 +1431,13 @@ def register(mcp, db, logger):
             cover_letter_path: Pfad zum Anschreiben-PDF (#448)
             cv_path: Pfad zum Lebenslauf-PDF (#448)
             gehaltsvorstellung: Geforderte Gehaltsvorstellung (Freitext, z.B. "85.000 EUR/Jahr")
-            final_salary: Tatsaechlich verhandeltes Gehalt nach Zusage (#460)
-            applied_at: Bewerbungsdatum nachtraeglich setzen/korrigieren (#529).
-                Format YYYY-MM-DD oder leer (= unveraendert). Akzeptiert auch
+            final_salary: Tatsächlich verhandeltes Gehalt nach Zusage (#460)
+            applied_at: Bewerbungsdatum nachträglich setzen/korrigieren (#529).
+                Format YYYY-MM-DD oder leer (= unverändert). Akzeptiert auch
                 "DD.MM.YYYY" und ISO-Timestamps; Datum wird normalisiert.
             stellenbeschreibung_original: Wortgetreuer Originalwortlaut
                 der Stellenanzeige (#588). Wird in description_snapshot
-                gespeichert. NICHT fuer Notizen verwenden.
+                gespeichert. NICHT für Notizen verwenden.
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -1509,16 +1509,16 @@ def register(mcp, db, logger):
         Lauf ab.
 
         Gemessen am 10.09.2026 sind es zwei verschiedene Sorten: von 143
-        gefuellten Spalten tragen **113 eine Recherche** und **30 ein
+        gefüllten Spalten tragen **113 eine Recherche** und **30 ein
         Aussortier-Protokoll**. Das Protokoll geht nach `dismiss_note`,
-        wo Freitext zu einer Aussortierung seit #913 hingehoert — es in
-        die Recherche-Liste zu schieben waere eine zweite Verwechslung.
+        wo Freitext zu einer Aussortierung seit #913 hingehört — es in
+        die Recherche-Liste zu schieben wäre eine zweite Verwechslung.
 
         Args:
             dry_run: Vorgabe True — es wird NICHTS geschrieben, nur
-                gezaehlt. Ein Lauf, der ungefragt 143 Datensaetze
+                gezählt. Ein Lauf, der ungefragt 143 Datensätze
                 umschreibt, ist keine Migration, sondern eine
-                Ueberraschung.
+                Überraschung.
             max_stellen: 0 = alle.
         """
         from ..services import recherche_migration
@@ -1528,7 +1528,7 @@ def register(mcp, db, logger):
     @mcp.tool()
     def bewerbung_notizen_zusammenfuehren(dry_run: bool = True,
                                           max_bewerbungen: int = 0) -> dict:
-        """Fuehrt abweichende Notiz-Fassungen zusammen (#957, Stufe 2).
+        """Führt abweichende Notiz-Fassungen zusammen (#957, Stufe 2).
 
         **Nichts wird weggeworfen.** Stehen Notizfeld und Anlage-Eintrag
         auseinander, stehen danach BEIDE Fassungen im Feld, getrennt
@@ -1539,11 +1539,11 @@ def register(mcp, db, logger):
         noetig: Stufe 1 hat gemessen, dass **23 von 97 Bewerbungen**
         zwei Fassungen tragen und die Abweichung in BEIDE Richtungen
         geht. Eine Regel "die neuere gilt" braucht einen Zeitstempel,
-        den das Feld nicht hat; "die laengere gilt" waere eine
-        Vermutung, die eine gekuerzte Korrektur vernichtet.
+        den das Feld nicht hat; "die längere gilt" wäre eine
+        Vermutung, die eine gekürzte Korrektur vernichtet.
 
         Vorgabe ist ZAEHLEN, nicht Schreiben. Der Lauf ist idempotent:
-        eine bereits verkettete Notiz enthaelt den Anlage-Eintrag und
+        eine bereits verkettete Notiz enthält den Anlage-Eintrag und
         gilt damit nicht mehr als abweichend.
 
         Args:
@@ -1560,19 +1560,19 @@ def register(mcp, db, logger):
 
         Beim Anlegen einer Bewerbung landet die Notiz an ZWEI Orten: im
         Feld `applications.notes` und als Timeline-Eintrag (#224).
-        `bewerbung_bearbeiten(notes=...)` aendert danach nur das Feld —
-        der Timeline-Eintrag bleibt unmarkiert stehen. Jede spaetere
+        `bewerbung_bearbeiten(notes=...)` ändert danach nur das Feld —
+        der Timeline-Eintrag bleibt unmarkiert stehen. Jede spätere
         Korrektur erzeugt damit zwei Fassungen derselben Notiz.
 
         Dieses Werkzeug **schreibt nichts**. Es beantwortet nur, wie
         verbreitet die Drift im eigenen Bestand ist — denn erst diese
-        Zahl sagt, ob ein Rueckbau ein Aufraeumen waere oder ein
+        Zahl sagt, ob ein Rückbau ein Aufräumen wäre oder ein
         Eingriff in gepflegte Inhalte. Bei zwei abweichenden Fassungen
         ist die Frage, welche gilt, eine INHALTLICHE; die kann kein
         Programm beantworten.
 
         Der Bericht nennt bewusst **keine Notiztexte** — nur die
-        Bewerbungs-Kennung und die Groessenordnung. Eine Notiz ist das
+        Bewerbungs-Kennung und die Grössenordnung. Eine Notiz ist das
         Privateste im Bestand.
         """
         from ..services import notiz_drift
@@ -1587,7 +1587,7 @@ def register(mcp, db, logger):
 
         Args:
             bewerbung_id: ID der Bewerbung
-            notiz: Die Notiz (wird mit aktuellem Datum/Uhrzeit gespeichert)
+            notiz: Die Notiz (wird mit aktüllem Datum/Uhrzeit gespeichert)
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -1609,7 +1609,7 @@ def register(mcp, db, logger):
         Args:
             bewerbung_id: ID der Bewerbung. Akzeptiert sowohl die nackte
                 Hex-ID (z.B. '42061e46') als auch die typisierte Form
-                'APP-42061e46'. Bei falschem Praefix (z.B. 'DOC-...') gibt
+                'APP-42061e46'. Bei falschem Präfix (z.B. 'DOC-...') gibt
                 es eine klare Fehlermeldung.
         """
         # v1.7.0 (#505): Typ-Pruefung am Tool-Eingang. Wenn ein User
@@ -1619,8 +1619,8 @@ def register(mcp, db, logger):
             bewerbung_id = validate_id(IdKind.APPLICATION, bewerbung_id)
         except TypedIdMismatch as e:
             return {"fehler": str(e),
-                    "hinweis": "Du hast eine ID des falschen Typs uebergeben. "
-                               "Bewerbungs-IDs haben das Praefix 'APP-'."}
+                    "hinweis": "Du hast eine ID des falschen Typs übergeben. "
+                               "Bewerbungs-IDs haben das Präfix 'APP-'."}
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
@@ -1654,7 +1654,7 @@ def register(mcp, db, logger):
                     result["datenqualitaet"] = "rekonstruiert"
                     result["datenqualitaet_hinweis"] = (
                         f"Erst {_delta} Tage nach dem Bewerbungsdatum in PBP "
-                        "erfasst (nachtraeglich rekonstruiert) — fehlende "
+                        "erfasst (nachträglich rekonstruiert) — fehlende "
                         "Details sind kein Pflegefehler. Timeline und "
                         "Interview-Zahlen sind eine Untergrenze."
                     )
@@ -1794,19 +1794,19 @@ def register(mcp, db, logger):
                         actions = {
                             "beschreibung": (
                                 f"Wartest du seit {age.days} Tagen auf Antwort — "
-                                "hoechste Zeit nachzufassen."
+                                "höchste Zeit nachzufassen."
                             ),
                             "aktionen": _neu,
                             "motivation": (
                                 f"Ohne aktives Zutun bleibt's bei {app.get('company', 'der Firma')} "
-                                "still — bei manchen ueberbrueckt das System einen Nachfass-Anstoss."
+                                "still — bei manchen überbrückt das System einen Nachfass-Anstoss."
                             ),
                             "staleness_tage": age.days,
                         }
                     elif age >= timedelta(days=7):
                         actions["staleness_hinweis"] = (
                             f"Seit {age.days} Tagen kein Update — ein Nachfass "
-                            "waere bald angebracht."
+                            "wäre bald angebracht."
                         )
                         actions["staleness_tage"] = age.days
         except Exception as exc:
@@ -1824,10 +1824,10 @@ def register(mcp, db, logger):
     ) -> dict:
         """Ruft Bewerbungsstatistiken ab: Conversion-Rate, Antwortzeiten, Status-Verteilung.
 
-        Gibt einen Ueberblick ueber:
+        Gibt einen Überblick ueber:
         - Gesamtzahl Bewerbungen und aktive Stellen
         - Bewerbungen nach Status (in_vorbereitung, beworben, interview, angebot, etc.)
-        - Interview-Rate (% der Bewerbungen die zum Interview fuehren)
+        - Interview-Rate (% der Bewerbungen die zum Interview führen)
         - Quoten (#682): expired_rate / rejection_rate / withdrawal_rate, plus
           ein `quoten`-Block mit Segmentierung am PBP-Startdatum
           (gesamt / seit_pbp / vor_pbp) — zeigt, ob seit der systematischen
@@ -1840,13 +1840,13 @@ def register(mcp, db, logger):
 
         v1.7.10 (#781/D29) — drei neue Bloecke:
         - `zeitliche_kennzahlen`: Prozessdauer nach Ausgang, Reaktionszeit,
-          Zeit bis Interview/Absage (Median + Mittel), laengste laufende
+          Zeit bis Interview/Absage (Median + Mittel), längste laufende
           Prozesse, Verteilung pro Monat
         - `kanal_auswertung`: Interview-Quote pro Kanal (Portal, Vermittler,
           Netzwerk, Direktbewerbung) — Erfolg statt Trefferzahl
         - `ablehnungs_kategorien`: still/automatisch/nach Interview/
           Vermittler/extern bedingt; Quote roh UND bereinigt (extern
-          bedingte Faelle sind keine Ablehnung des Bewerbers)
+          bedingte Fälle sind keine Ablehnung des Bewerbers)
         Vor-PBP-Zahlen sind eine Untergrenze (rekonstruierter Altbestand) —
         siehe `zeitliche_kennzahlen.datenqualitaet` und `quoten.fussnote`.
         """
@@ -1965,15 +1965,15 @@ def register(mcp, db, logger):
         status: str = "geplant",
         wenn_dublette: str = "melden",
     ) -> dict:
-        """Fuegt einen Termin (Interview, Telefonat, Video-Call) zu einer Bewerbung hinzu (#444).
+        """Fügt einen Termin (Interview, Telefonat, Video-Call) zu einer Bewerbung hinzu (#444).
 
-        Nutze dies immer wenn der Anwender einen Gespraechstermin erwaehnt. Das
+        Nutze dies immer wenn der Anwender einen Gesprächstermin erwähnt. Das
         Meeting erscheint anschliessend in `bewerbung_details()` und im Kalender.
 
         v1.7.11 (#804/D30): Dubletten-Pruefung. Termine entstehen inzwischen
         aus mehreren Quellen gleichzeitig (Mail-/ICS-Import, Claude, manuelle
         Eingabe) — ohne Pruefung liegt derselbe Termin doppelt im Kalender und
-        jede Auswertung zaehlt ihn zweimal.
+        jede Auswertung zählt ihn zweimal.
 
         Args:
             bewerbung_id: ID der Bewerbung (aus bewerbungen_anzeigen)
@@ -1988,9 +1988,9 @@ def register(mcp, db, logger):
             wenn_dublette: Verhalten bei einem bestehenden Termin derselben
                 Bewerbung im Zeitfenster (+/- 30 Minuten, nicht abgesagt):
                 'melden' (Default) = nichts anlegen, bestehenden Termin
-                zurueckgeben; 'zusammenfuehren' = LEERE Felder des
-                bestehenden Termins mit den neuen Werten fuellen, gefuellte
-                nie ueberschreiben; 'trotzdem_neu' = zweiten Termin anlegen
+                zurückgeben; 'zusammenfuehren' = LEERE Felder des
+                bestehenden Termins mit den neuen Werten füllen, gefüllte
+                nie überschreiben; 'trotzdem_neu' = zweiten Termin anlegen
                 (echte Doppeltermine am selben Tag gibt es).
         """
         app = db.get_application(bewerbung_id)
@@ -2003,12 +2003,12 @@ def register(mcp, db, logger):
                               "oder 'trotzdem_neu' sein."}
         if typ not in _MEETING_TYPES:
             return {
-                "fehler": f"Ungueltiger Typ '{typ}'.",
+                "fehler": f"Ungültiger Typ '{typ}'.",
                 "erlaubte_typen": sorted(_MEETING_TYPES),
             }
         if status not in _MEETING_STATUS:
             return {
-                "fehler": f"Ungueltiger Status '{status}'.",
+                "fehler": f"Ungültiger Status '{status}'.",
                 "erlaubte_status": sorted(_MEETING_STATUS),
             }
 
@@ -2022,16 +2022,16 @@ def register(mcp, db, logger):
                     "bestehender_termin": bestehend,
                     "nicht_angelegt": True,
                     "nachricht": (
-                        f"Fuer diese Bewerbung gibt es bereits einen Termin am "
+                        f"Für diese Bewerbung gibt es bereits einen Termin am "
                         f"{bestehend.get('meeting_date')} "
                         f"('{bestehend.get('title')}'). Es wurde NICHTS "
                         "angelegt."
                     ),
                     "optionen": {
                         "zusammenfuehren": (
-                            "wenn_dublette='zusammenfuehren' — fuellt leere "
+                            "wenn_dublette='zusammenfuehren' — füllt leere "
                             "Felder des bestehenden Termins mit den neuen "
-                            "Angaben (gefuellte bleiben unangetastet)."
+                            "Angaben (gefüllte bleiben unangetastet)."
                         ),
                         "trotzdem_neu": (
                             "wenn_dublette='trotzdem_neu' — echter zweiter "
@@ -2051,8 +2051,8 @@ def register(mcp, db, logger):
                 "ergaenzte_felder": merge["ergaenzt"],
                 "unveraendert": merge["behalten"],
                 "nachricht": (
-                    f"Bestehender Termin ergaenzt statt doppelt angelegt "
-                    f"({len(merge['ergaenzt'])} Feld(er) gefuellt)."
+                    f"Bestehender Termin ergänzt statt doppelt angelegt "
+                    f"({len(merge['ergaenzt'])} Feld(er) gefüllt)."
                 ),
             }
 
@@ -2095,23 +2095,23 @@ def register(mcp, db, logger):
         """Findet Termine, die aus zitierten Mail-Zeitstempeln entstanden (#922).
 
         Belegter Fall: der Import EINER Mail mit Antwortverlauf legte VIER
-        Termine an — die Sendezeiten der zitierten Vorgaengermails, alle
+        Termine an — die Sendezeiten der zitierten Vorgängermails, alle
         mit dem Mail-Betreff als Titel. Sie sind keine Dubletten (die
         Zeitpunkte liegen weit auseinander), sondern schlicht keine
         Termine; die #804-Pruefung greift dort nicht.
 
-        Ohne Argumente: Report der verdaechtigen Gruppen mit Begruendung.
-        Mit `termin_ids` + `dry_run=False`: loescht genau diese Termine.
+        Ohne Argumente: Report der verdächtigen Gruppen mit Begruendung.
+        Mit `termin_ids` + `dry_run=False`: löscht genau diese Termine.
 
-        Sicherheitsnetz: verdaechtig ist nur, was ALLE Merkmale traegt —
-        Mail-Betreff-Praefix im Titel (AW:/Re:/WG:/Fwd:), kein Link, keine
-        Notizen, kein Ort, UND mindestens zwei gleich betitelte Eintraege
-        derselben Bewerbung. Ein einzelner Termin faellt nie darunter.
-        Geloescht wird NUR auf ausdrueckliche Anweisung.
+        Sicherheitsnetz: verdächtig ist nur, was ALLE Merkmale trägt —
+        Mail-Betreff-Präfix im Titel (AW:/Re:/WG:/Fwd:), kein Link, keine
+        Notizen, kein Ort, UND mindestens zwei gleich betitelte Einträge
+        derselben Bewerbung. Ein einzelner Termin fällt nie darunter.
+        Gelöscht wird NUR auf ausdrückliche Anweisung.
 
         Args:
             dry_run: True (Default) = nur zeigen, nichts loeschen.
-            termin_ids: Termine, die geloescht werden sollen.
+            termin_ids: Termine, die gelöscht werden sollen.
         """
         from ..services.termin_dubletten import finde_phantom_termine
 
@@ -2127,10 +2127,10 @@ def register(mcp, db, logger):
                     "Zum Loeschen: phantom_termine_bereinigen("
                     "termin_ids=[...], dry_run=False). Bitte die Liste "
                     "VORHER mit dem Nutzer durchgehen — echte Termine mit "
-                    "Betreff-Titel sind moeglich, wenn sie ohne Link und "
+                    "Betreff-Titel sind möglich, wenn sie ohne Link und "
                     "Notizen erfasst wurden."
                 ) if gruppen else (
-                    "Keine Phantom-Termine gefunden. Fuer echte Dubletten "
+                    "Keine Phantom-Termine gefunden. Für echte Dubletten "
                     "(gleicher Zeitpunkt): termin_dubletten_bereinigen()."
                 ),
             }
@@ -2140,7 +2140,7 @@ def register(mcp, db, logger):
                 "status": "vorschau",
                 "wuerde_loeschen": termin_ids,
                 "anzahl": len(termin_ids),
-                "hinweis": "Mit dry_run=False wird tatsaechlich geloescht.",
+                "hinweis": "Mit dry_run=False wird tatsächlich gelöscht.",
             }
 
         geloescht, fehler = [], []
@@ -2169,16 +2169,16 @@ def register(mcp, db, logger):
 
         Ohne Argumente: Report aller Termin-Paare derselben Bewerbung im
         selben Zeitfenster (+/- 30 Minuten, abgesagte ausgenommen). Mit
-        `master_id` + `duplikat_id`: fuehrt genau dieses Paar zusammen —
-        leere Felder des Masters werden aus dem Duplikat gefuellt, gefuellte
-        bleiben unangetastet, danach wird das Duplikat geloescht.
+        `master_id` + `duplikat_id`: führt genau dieses Paar zusammen —
+        leere Felder des Masters werden aus dem Duplikat gefüllt, gefüllte
+        bleiben unangetastet, danach wird das Duplikat gelöscht.
 
         Idempotent: ein zweiter Lauf findet das bereinigte Paar nicht mehr.
 
         Args:
             dry_run: True (Default) = nur zeigen, nichts aendern.
             master_id: Termin, der bestehen bleibt.
-            duplikat_id: Termin, der nach dem Uebernehmen geloescht wird.
+            duplikat_id: Termin, der nach dem Uebernehmen gelöscht wird.
         """
         from ..services.termin_dubletten import (
             finde_alle_dubletten, zusammenfuehren)
@@ -2197,7 +2197,7 @@ def register(mcp, db, logger):
             }
         if not (master_id and duplikat_id):
             return {"fehler": "master_id UND duplikat_id angeben — oder "
-                              "beide weglassen fuer den Report."}
+                              "beide weglassen für den Report."}
         if str(master_id) == str(duplikat_id):
             return {"fehler": "master_id und duplikat_id sind identisch."}
 
@@ -2212,7 +2212,7 @@ def register(mcp, db, logger):
             return {"fehler": "Termin nicht gefunden. IDs liefert "
                               "meetings_anzeigen() oder der Report."}
         if master.get("application_id") != dupl.get("application_id"):
-            return {"fehler": "Die Termine gehoeren zu verschiedenen "
+            return {"fehler": "Die Termine gehören zu verschiedenen "
                               "Bewerbungen — kein Zusammenfuehren."}
         if dry_run:
             from ..services.termin_dubletten import _MERGE_FELDER, _ist_leer
@@ -2224,7 +2224,7 @@ def register(mcp, db, logger):
                            "datum": master.get("meeting_date")},
                 "duplikat": {"id": dupl.get("id"), "titel": dupl.get("title")},
                 "wuerde_uebernehmen": wuerde,
-                "hinweis": "Mit dry_run=False ausfuehren.",
+                "hinweis": "Mit dry_run=False ausführen.",
             }
         merge = zusammenfuehren(db, master, dupl)
         geloescht = False
@@ -2255,8 +2255,8 @@ def register(mcp, db, logger):
     ) -> dict:
         """Aktualisiert einen bestehenden Termin (#444).
 
-        Nur die angegebenen Felder werden geaendert. Leere Strings bleiben unveraendert.
-        Nutze dies z.B. um einen Termin zu bestaetigen, zu verschieben oder Notizen zu ergaenzen.
+        Nur die angegebenen Felder werden geaendert. Leere Strings bleiben unverändert.
+        Nutze dies z.B. um einen Termin zu bestaetigen, zu verschieben oder Notizen zu ergänzen.
 
         Args:
             meeting_id: ID des Meetings (aus meetings_anzeigen)
@@ -2264,7 +2264,7 @@ def register(mcp, db, logger):
             datum: Neues Datum/Uhrzeit (ISO-String)
             ort: Neuer Ort
             platform: Neue Plattform
-            notizen: Neue Notizen (ueberschreibt bisherige)
+            notizen: Neue Notizen (überschreibt bisherige)
             status: Neuer Status (geplant, bestaetigt, abgeschlossen, abgesagt, verschoben)
             dauer_minuten: Neue Dauer (0 = nicht aendern)
         """
@@ -2282,7 +2282,7 @@ def register(mcp, db, logger):
         if status:
             if status not in _MEETING_STATUS:
                 return {
-                    "fehler": f"Ungueltiger Status '{status}'.",
+                    "fehler": f"Ungültiger Status '{status}'.",
                     "erlaubte_status": sorted(_MEETING_STATUS),
                 }
             updates["status"] = status
@@ -2290,12 +2290,12 @@ def register(mcp, db, logger):
             updates["duration_minutes"] = dauer_minuten
 
         if not updates:
-            return {"fehler": "Keine Aenderungen angegeben."}
+            return {"fehler": "Keine Änderungen angegeben."}
 
         profile_id = db.get_active_profile_id()
         changed = db.update_meeting(meeting_id, updates, profile_id=profile_id)
         if not changed:
-            return {"fehler": "Meeting nicht gefunden oder gehoert nicht zum aktiven Profil."}
+            return {"fehler": "Meeting nicht gefunden oder gehört nicht zum aktiven Profil."}
         return {
             "status": "aktualisiert",
             "meeting_id": meeting_id,
@@ -2304,14 +2304,14 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def meeting_loeschen(meeting_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht einen Termin (#444).
+        """Löscht einen Termin (#444).
 
-        ACHTUNG: Nicht rueckgaengig zu machen. Beim ersten Aufruf ohne
-        Bestaetigung wird nur eine Rueckfrage zurueckgegeben.
+        ACHTUNG: Nicht rückgängig zu machen. Beim ersten Aufruf ohne
+        Bestaetigung wird nur eine Rückfrage zurückgegeben.
 
         Args:
             meeting_id: ID des Meetings
-            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+            bestaetigung: Muss True sein um tatsächlich zu loeschen
         """
         profile_id = db.get_active_profile_id()
         if not bestaetigung:
@@ -2322,12 +2322,12 @@ def register(mcp, db, logger):
             }
         deleted = db.delete_meeting(meeting_id, profile_id=profile_id)
         if not deleted:
-            return {"fehler": "Meeting nicht gefunden oder gehoert nicht zum aktiven Profil."}
+            return {"fehler": "Meeting nicht gefunden oder gehört nicht zum aktiven Profil."}
         return {"status": "geloescht", "meeting_id": meeting_id}
 
     @mcp.tool()
     def meetings_anzeigen(bewerbung_id: str = "", tage: int = 30) -> dict:
-        """Zeigt Termine — entweder fuer eine bestimmte Bewerbung oder kommende im Zeitraum (#444).
+        """Zeigt Termine — entweder für eine bestimmte Bewerbung oder kommende im Zeitraum (#444).
 
         Args:
             bewerbung_id: Optional — wenn gesetzt, nur Termine zu dieser Bewerbung
@@ -2351,11 +2351,11 @@ def register(mcp, db, logger):
             return leer(
                 {"status": "ok", "zeitraum_tage": tage, "anzahl": 0,
                  "meetings": []},
-                f"Keine Termine in den naechsten {tage} Tagen.",
-                "Sobald ein Gespraech vereinbart ist, sag es einfach "
+                f"Keine Termine in den nächsten {tage} Tagen.",
+                "Sobald ein Gespräch vereinbart ist, sag es einfach "
                 "Claude ('Interview am 3.9. um 14 Uhr bei ...') — der "
                 "Termin landet dann hier, im Kalender und in der "
-                "Vorbereitung. Zurueckliegende Termine siehst du ueber "
+                "Vorbereitung. Zurückliegende Termine siehst du über "
                 "die jeweilige Bewerbung.")
         return {
             "status": "ok",
@@ -2370,11 +2370,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def email_verknuepfen(email_id: str, bewerbung_id: str) -> dict:
-        """Verknuepft eine eingegangene E-Mail mit einer Bewerbung (#445).
+        """Verknüpft eine eingegangene E-Mail mit einer Bewerbung (#445).
 
-        Nutze dies fuer E-Mails die die Pipeline nicht automatisch zuordnen
+        Nutze dies für E-Mails die die Pipeline nicht automatisch zuordnen
         konnte oder die falsch zugeordnet wurden. Setze `bewerbung_id` auf den
-        leeren String um die Verknuepfung zu entfernen (E-Mail wird wieder
+        leeren String um die Verknüpfung zu entfernen (E-Mail wird wieder
         'unmatched').
 
         Args:
@@ -2411,9 +2411,9 @@ def register(mcp, db, logger):
                             "document_id": email_id,
                             "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
                             "hinweis": (
-                                "Die ID gehoerte zu einem hochgeladenen "
+                                "Die ID gehörte zu einem hochgeladenen "
                                 "Mail-DOKUMENT (nicht zu einer gepollten "
-                                "E-Mail) — ueber den Dokument-Store verknuepft."
+                                "E-Mail) — über den Dokument-Store verknüpft."
                             ),
                         }
                 except Exception:
@@ -2423,7 +2423,7 @@ def register(mcp, db, logger):
                 "hinweis": (
                     "IDs aus emails_anzeigen() sind E-Mails, IDs aus "
                     "dokumente_zur_analyse() sind Dokumente. Beide werden hier "
-                    "akzeptiert — pruefe ob die ID stimmt."
+                    "akzeptiert — prüfe ob die ID stimmt."
                 ),
             }
 
@@ -2435,7 +2435,7 @@ def register(mcp, db, logger):
                 email_id, {"application_id": bewerbung_id}, profile_id=profile_id
             )
             if not changed:
-                return {"fehler": "Verknuepfung konnte nicht aktualisiert werden."}
+                return {"fehler": "Verknüpfung konnte nicht aktualisiert werden."}
             return {
                 "status": "verknuepft",
                 "email_id": email_id,
@@ -2456,11 +2456,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def email_loeschen(email_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht eine E-Mail aus der Datenbank (#445).
+        """Löscht eine E-Mail aus der Datenbank (#445).
 
         Args:
             email_id: ID der E-Mail
-            bestaetigung: Muss True sein um tatsaechlich zu loeschen
+            bestaetigung: Muss True sein um tatsächlich zu loeschen
         """
         profile_id = db.get_active_profile_id()
         email = db.get_email(email_id, profile_id=profile_id)
@@ -2475,7 +2475,7 @@ def register(mcp, db, logger):
             }
         deleted = db.delete_email(email_id, profile_id=profile_id)
         if not deleted:
-            return {"fehler": "E-Mail konnte nicht geloescht werden."}
+            return {"fehler": "E-Mail konnte nicht gelöscht werden."}
         return {"status": "geloescht", "email_id": email_id}
 
     @mcp.tool()
@@ -2516,7 +2516,7 @@ def register(mcp, db, logger):
 
         Args:
             follow_up_id: ID des Follow-ups
-            notiz: Optionale Notiz zu wie es erledigt wurde (wird an die Bewerbung gehaengt)
+            notiz: Optionale Notiz zu wie es erledigt wurde (wird an die Bewerbung gehängt)
         """
         fu = db.get_follow_up(follow_up_id)
         if not fu:
@@ -2539,7 +2539,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def follow_up_hinfaellig(follow_up_id: str, grund: str = "") -> dict:
-        """Markiert einen Follow-up als hinfaellig (z.B. weil Absage kam, kein Nachfassen mehr noetig).
+        """Markiert einen Follow-up als hinfaellig (z.B. weil Absage kam, kein Nachfassen mehr nötig).
 
         Auch findbar als: nachfass schliessen, nachfassen entfernen, follow up dismiss.
 
@@ -2577,18 +2577,18 @@ def register(mcp, db, logger):
         if not fu:
             return {"fehler": "Follow-up nicht gefunden."}
         if fu.get("status") != "geplant":
-            return {"fehler": f"Nur geplante Follow-ups koennen verschoben werden (aktuell: {fu.get('status')})."}
+            return {"fehler": f"Nur geplante Follow-ups können verschoben werden (aktuell: {fu.get('status')})."}
         db.update_follow_up(follow_up_id, {"scheduled_date": neues_datum})
         return {"status": "verschoben", "follow_up_id": follow_up_id, "neues_datum": neues_datum}
 
     @mcp.tool()
     def follow_up_bearbeiten(follow_up_id: str, text: str) -> dict:
-        """v1.7.12 (#816, D34): setzt oder aendert den INHALT einer
-        Nachfassung nachtraeglich.
+        """v1.7.12 (#816, D34): setzt oder ändert den INHALT einer
+        Nachfassung nachträglich.
 
-        Bisher gab es dafuer keinen Weg — follow_up_verschieben aendert
+        Bisher gab es dafür keinen Weg — follow_up_verschieben ändert
         nur das Datum, und ein leerer Reminder blieb leer. Der Text soll
-        sagen, WAS zu tun ist: an wen, worauf bezogen, ueber welchen
+        sagen, WAS zu tun ist: an wen, worauf bezogen, über welchen
         Kanal.
 
         Args:
@@ -2622,7 +2622,7 @@ def register(mcp, db, logger):
             meeting_id: ID des Termins.
             runde: Welche Interview-Runde (1, 2, 3...) bei Mehr-Runden-Interviews.
             vorbereitung_minuten: Wieviel Zeit floss in Vorbereitung (Recherche,
-                Folien, Antworten ueben).
+                Folien, Antworten üben).
             reise_modus: 'vor_ort' / 'video' / 'telefon' / 'hybrid'.
             reisekosten_brutto: Selbst getragene Reisekosten in EUR.
             reisekosten_erstattet: Davon vom Arbeitgeber erstattet (zur Differenz-
@@ -2637,7 +2637,7 @@ def register(mcp, db, logger):
             reisekosten_erstattet=reisekosten_erstattet,
         )
         if not ok:
-            return {"fehler": "Meeting nicht gefunden oder keine Aenderungen angegeben."}
+            return {"fehler": "Meeting nicht gefunden oder keine Änderungen angegeben."}
         return {"status": "aktualisiert", "meeting_id": meeting_id}
 
     @mcp.tool()
@@ -2648,13 +2648,13 @@ def register(mcp, db, logger):
         bewerbung_id: str = "",
         datum: str = "",
     ) -> dict:
-        """Erfasst eine Kosten-Position (z.B. Tool-Abo, Pruefungs-Gebuehr) (#568).
+        """Erfasst eine Kosten-Position (z.B. Tool-Abo, Prüfungs-Gebühr) (#568).
 
         Args:
             kategorie: 'tool' | 'pruefung' | 'reise' | 'fortbildung' | 'sonstiges'.
             betrag_eur: Betrag in EUR (positive Zahl).
             beschreibung: Was war es genau (z.B. 'LinkedIn Premium 1 Monat').
-            bewerbung_id: Optional eine Bewerbung verknuepfen.
+            bewerbung_id: Optional eine Bewerbung verknüpfen.
             datum: ISO-Datum wann angefallen. Leer = heute.
         """
         valid = ("tool", "pruefung", "reise", "fortbildung", "sonstiges")
@@ -2693,7 +2693,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def kosten_loeschen(kosten_id: str) -> dict:
-        """Loescht eine Kosten-Position."""
+        """Löscht eine Kosten-Position."""
         ok = db.delete_application_cost(kosten_id)
         return {"status": "geloescht" if ok else "nicht_gefunden"}
 
@@ -2716,7 +2716,7 @@ def register(mcp, db, logger):
 
         Wann nutzen: Ein Recruiter (LinkedIn-DM, E-Mail, Anruf) bietet eine
         Stelle an. Du entscheidest sofort dagegen — Standort passt nicht,
-        Branche stimmt nicht, Gehalt unrealistisch, Tonalitaet unprofessionell
+        Branche stimmt nicht, Gehalt unrealistisch, Tonalität unprofessionell
         etc. Es kommt zu KEINER Bewerbung.
 
         Was passiert:
@@ -2725,22 +2725,22 @@ def register(mcp, db, logger):
         3. KEIN applications-Eintrag wird angelegt
         4. Notizen werden in research_notes der Stelle gespeichert
 
-        Vorteil ggue. bewerbung_erstellen(status='zurueckgezogen'):
-        - Track-Record-Statistik bleibt sauber (zaehlt nicht als 'submitted')
-        - Markt-Beobachtung trotzdem moeglich (Stelle ist im Bestand)
+        Vorteil ggü. bewerbung_erstellen(status='zurueckgezogen'):
+        - Track-Record-Statistik bleibt sauber (zählt nicht als 'submitted')
+        - Markt-Beobachtung trotzdem möglich (Stelle ist im Bestand)
         - Semantisch korrekt: keine Bewerbung war geplant, also keine erfasst
 
         Args:
             firma: Firma die angefragt hat
             titel: Stellentitel der angefragten Position
             grund: Warum abgelehnt (z.B. 'standort', 'gehalt', 'branche')
-            notizen: Optional ausfuehrlicher Notiz fuer's Recherche-Archiv
+            notizen: Optional ausführlicher Notiz für's Recherche-Archiv
             url: Optionaler Link zur Anfrage / Stelle
         """
         if not firma or not titel:
             return {"fehler": "firma und titel sind Pflichtfelder."}
         if not grund:
-            return {"fehler": "grund ist Pflicht — sonst lernt PBP nichts ueber Ablehnungsmuster."}
+            return {"fehler": "grund ist Pflicht — sonst lernt PBP nichts über Ablehnungsmuster."}
 
         from ..job_scraper import stelle_hash
         from datetime import datetime as _dt
@@ -2801,19 +2801,19 @@ def register(mcp, db, logger):
         bewerbung_id: str,
         grund: str = "war_nur_anfrage",
     ) -> dict:
-        """Konvertiert einen faelschlich angelegten Bewerbungseintrag zu einer abgelehnten Recruiter-Anfrage.
+        """Konvertiert einen fälschlich angelegten Bewerbungseintrag zu einer abgelehnten Recruiter-Anfrage.
 
-        Wann nutzen: Beim Audit der Bewerbungsliste faellt auf, dass ein Eintrag
+        Wann nutzen: Beim Audit der Bewerbungsliste fällt auf, dass ein Eintrag
         mit Status 'zurueckgezogen' oder 'abgelehnt' eigentlich nie eine Bewerbung
         war — es war nur eine Anfrage die du sofort abgelehnt hast. Dieses Tool:
 
-        1. Loescht den applications-Eintrag (Statistik bleibt sauber)
-        2. Behaelt die verknuepfte Stelle, dismisst sie mit dem gegebenen Grund
+        1. Löscht den applications-Eintrag (Statistik bleibt sauber)
+        2. Behält die verknüpfte Stelle, dismisst sie mit dem gegebenen Grund
         3. Schreibt die Notizen aus der Bewerbung in research_notes der Stelle
 
         Args:
             bewerbung_id: ID der zu konvertierenden Bewerbung
-            grund: Dismiss-Reason fuer die Stelle (default 'war_nur_anfrage')
+            grund: Dismiss-Reason für die Stelle (default 'war_nur_anfrage')
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -2821,7 +2821,7 @@ def register(mcp, db, logger):
         if app.get("status") not in ("zurueckgezogen", "abgelehnt", "in_vorbereitung"):
             return {
                 "fehler": (
-                    f"Konvertierung nur erlaubt fuer Status zurueckgezogen, "
+                    f"Konvertierung nur erlaubt für Status zurueckgezogen, "
                     f"abgelehnt oder in_vorbereitung. Aktuell: {app.get('status')}."
                 )
             }
@@ -2829,7 +2829,7 @@ def register(mcp, db, logger):
         from datetime import datetime as _dt
         notiz_archiv = (
             f"[{_dt.now().strftime('%Y-%m-%d')}] Konvertiert von "
-            f"applications->dismissed. Urspruenglicher Status: "
+            f"applications->dismissed. Ursprünglicher Status: "
             f"{app.get('status')}. "
         )
         if app.get("notes"):
@@ -2880,7 +2880,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def aufwand_uebersicht(bewerbung_id: str = "") -> dict:
-        """Aggregiert den Aufwand pro Bewerbung oder ueber alles (#568).
+        """Aggregiert den Aufwand pro Bewerbung oder über alles (#568).
 
         Liefert: Reisekosten brutto/erstattet/netto, Vorbereitungszeit-Summe
         in Minuten, Termin-Dauer in Minuten, Anzahl Termine, Summe sonstiger
@@ -2898,11 +2898,11 @@ def register(mcp, db, logger):
         start_date: str = "",
         description: str = "",
     ) -> dict:
-        """Uebernimmt Titel und Firma einer angenommenen Bewerbung als neue Profil-Position.
+        """Übernimmt Titel und Firma einer angenommenen Bewerbung als neue Profil-Position.
 
-        Gedacht fuer den Abschluss-Flow nach Status=angenommen: die frischen Daten
+        Gedacht für den Abschluss-Flow nach Status=angenommen: die frischen Daten
         (Stelle, Firma, Startdatum) werden als neue `positions`-Zeile im Profil angelegt,
-        ohne Daten doppelt eingeben zu muessen.
+        ohne Daten doppelt eingeben zu müssen.
 
         Args:
             bewerbung_id: ID der angenommenen Bewerbung
@@ -2922,12 +2922,12 @@ def register(mcp, db, logger):
             "start_date": effective_start,
             "end_date": "",
             "is_current": 1,
-            "description": description or f"Uebernommen aus Bewerbung {bewerbung_id[:8]}",
+            "description": description or f"Übernommen aus Bewerbung {bewerbung_id[:8]}",
         })
         try:
             db.add_application_note(
                 bewerbung_id,
-                f"Position ins Profil uebernommen (position_id={position_id}, Start {effective_start})."
+                f"Position ins Profil übernommen (position_id={position_id}, Start {effective_start})."
             )
         except Exception:
             pass
@@ -2957,38 +2957,38 @@ def register(mcp, db, logger):
         """v1.7.0-beta.49 (#464): Strukturierte Reflexion nach einem Interview.
 
         Statt Freitext in `bewerbung_notiz` wird hier ein strukturierter
-        Fragebogen abgelegt — wiederverwendbar bei der naechsten
+        Fragebogen abgelegt — wiederverwendbar bei der nächsten
         Interview-Vorbereitung. Erste Stufe von #452 (Interview-
         Training-Arc).
 
         v1.7.12 (#824, D31): Jeder Aufruf legt eine NEUE Reflexion an —
-        bei zweistufigen Verfahren gehoert zu jedem Gespraech eine eigene.
-        (Vorher ueberschrieb der zweite Aufruf die erste; die Nachbereitung
-        des Erstgespraechs war damit weg.) Zum Nachbearbeiten einer
-        bestehenden Reflexion `reflexion_id` uebergeben. Alle Felder
-        optional — zwei ausgefuellte Felder sind besser als keine.
+        bei zweistufigen Verfahren gehört zu jedem Gespräch eine eigene.
+        (Vorher überschrieb der zweite Aufruf die erste; die Nachbereitung
+        des Erstgesprächs war damit weg.) Zum Nachbearbeiten einer
+        bestehenden Reflexion `reflexion_id` übergeben. Alle Felder
+        optional — zwei ausgefüllte Felder sind besser als keine.
 
-        Teilnehmer des Gespraechs werden als Kontakte am TERMIN erfasst:
+        Teilnehmer des Gesprächs werden als Kontakte am TERMIN erfasst:
         kontakt_verknuepfen(kontakt_id, ziel_typ='meeting',
         ziel_id=<meeting_id>, rolle='fachlicher Gegenpart'). Unbekannte
         Namen als Kontakt "Rolle, Name unbekannt" anlegen — die ehrliche
-        Luecke ist wertvoller als ein leeres Feld.
+        Lücke ist wertvoller als ein leeres Feld.
 
         Args:
             bewerbung_id: ID der Bewerbung (akzeptiert auch kurzen Hash).
-            was_lief_gut: was hast du gut hinbekommen? (1-3 Saetze)
-            was_lief_schlecht: wo hat es geknirscht? (1-3 Saetze)
+            was_lief_gut: was hast du gut hinbekommen? (1-3 Sätze)
+            was_lief_schlecht: wo hat es geknirscht? (1-3 Sätze)
             was_war_ueberraschend: was hast du NICHT erwartet? (Frage,
                 Stimmung, Ablauf)
-            gefuehl: 1 (mies) bis 5 (super) — Bauchgefuehl direkt nach Interview
-            next_steps: was macht der User als naechstes? (Nachfass, warten, ...)
+            gefuehl: 1 (mies) bis 5 (super) — Bauchgefühl direkt nach Interview
+            next_steps: was macht der User als nächstes? (Nachfass, warten, ...)
             wiederverwendbare_antwort: Falls eine konkrete Antwort gut
-                lief — fuer die Stilarchiv-Wiederverwendung.
-            meeting_id: Optional — der Termin, zu dem das Gespraech gehoert
-                (meetings_anzeigen liefert die IDs). Erstgespraech laeuft
+                lief — für die Stilarchiv-Wiederverwendung.
+            meeting_id: Optional — der Termin, zu dem das Gespräch gehört
+                (meetings_anzeigen liefert die IDs). Erstgespräch läuft
                 anders als Endrunde; die Auswertung unterscheidet das.
             reflexion_id: Optional — bestehende Reflexion nachbearbeiten
-                statt eine neue anzulegen. Nur uebergebene Felder aendern
+                statt eine neue anzulegen. Nur übergebene Felder aendern
                 sich.
         """
         from ..services.typed_ids import strip_prefix
@@ -3059,7 +3059,7 @@ def register(mcp, db, logger):
     def interview_reflexion_lesen(bewerbung_id: str) -> dict:
         """Liest ALLE Reflexionen zu einer Bewerbung, neueste zuerst (#824).
 
-        Leer wenn keine vorhanden. Vor einem Folgegespraech lesen: was
+        Leer wenn keine vorhanden. Vor einem Folgegespräch lesen: was
         lief beim letzten Mal, wer war dabei (Kontakte am Termin), was
         waren die offenen Punkte.
         """
@@ -3082,7 +3082,7 @@ def register(mcp, db, logger):
         """Entfernt eine versehentlich angelegte Reflexion (#824).
 
         Zwei Schritte (H27): ohne bestaetigung=True kommt nur, was
-        geloescht wuerde. Die IDs stehen in interview_reflexion_lesen bzw.
+        gelöscht würde. Die IDs stehen in interview_reflexion_lesen bzw.
         interview_reflexionen_anzeigen.
         """
         if not bestaetigung:
@@ -3096,8 +3096,8 @@ def register(mcp, db, logger):
             return {"status": "vorschau", "reflexion_id": reflexion_id,
                     "angelegt": row["created_at"],
                     "anfang": (row["was_lief_gut"] or "")[:120],
-                    "hinweis": ("Noch nichts geloescht. Die Reflexion ist "
-                                "eigener Text und laesst sich nicht "
+                    "hinweis": ("Noch nichts gelöscht. Die Reflexion ist "
+                                "eigener Text und lässt sich nicht "
                                 "wiederherstellen. Zum Loeschen erneut mit "
                                 "bestaetigung=True aufrufen.")}
         ok = db.delete_interview_reflection(int(reflexion_id))
@@ -3106,17 +3106,17 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def interview_lehren_auswerten() -> dict:
-        """Quer-Auswertung ueber ALLE Interview-Reflexionen (#824, D31).
+        """Quer-Auswertung über ALLE Interview-Reflexionen (#824, D31).
 
         Regelbasiert, ohne Sprachmodell: Antwortarchiv (alle
         wiederverwendbaren Antworten mit Herkunft), wiederkehrende
-        Selbstkritik und Ueberraschungen (mit Fallzahl — Beobachtung,
-        kein Urteil), Bauchgefuehl gegen tatsaechlichen Ausgang, offene
-        naechste Schritte aus laufenden Verfahren.
+        Selbstkritik und Überraschungen (mit Fallzahl — Beobachtung,
+        kein Urteil), Bauchgefühl gegen tatsächlichen Ausgang, offene
+        nächste Schritte aus laufenden Verfahren.
 
         Muster werden erst ab 4 Reflexionen ausgewiesen (#798-Regel:
         zwei Vorkommen sind kein Muster). Nutze das VOR einer
-        Gespraechsvorbereitung — die wiederkehrenden Ueberraschungen
+        Gesprächsvorbereitung — die wiederkehrenden Überraschungen
         sind die Fragen, die in der Recherche bisher fehlten.
         """
         from ..services.interview_lehren import lehren_auswerten
@@ -3124,11 +3124,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def interview_reflexionen_anzeigen(limit: int = 20) -> dict:
-        """Liste der letzten Interview-Reflexionen (fuer Lerneffekt vor naechstem Interview).
+        """Liste der letzten Interview-Reflexionen (für Lerneffekt vor nächstem Interview).
 
         Sortiert nach updated_at desc. Zeigt firma + stelle + gefuehl
         + Kurz-Auszug pro Eintrag. Hilft beim Pre-Interview-Lesen:
-        was lief gut bei aehnlichen Stellen, was war ueberraschend.
+        was lief gut bei ähnlichen Stellen, was war überraschend.
         """
         items = db.list_interview_reflections(limit=max(1, min(int(limit), 100)))
         if not items:
@@ -3138,12 +3138,12 @@ def register(mcp, db, logger):
             # bringt.
             return leer(
                 {"anzahl": 0, "reflexionen": []},
-                "Noch keine Gespraechs-Nachbereitung erfasst.",
-                "Nach einem Gespraech lohnt es sich, die Eindruecke "
+                "Noch keine Gesprächs-Nachbereitung erfasst.",
+                "Nach einem Gespräch lohnt es sich, die Eindrücke "
                 "festzuhalten, solange sie frisch sind: welche Fragen "
                 "kamen, was lief gut, was hat gefehlt. Speichern mit "
                 "interview_reflexion_speichern(bewerbung_id, ...) — vor "
-                "dem naechsten Gespraech liest PBP das wieder vor.")
+                "dem nächsten Gespräch liest PBP das wieder vor.")
         return {
             "anzahl": len(items),
             "reflexionen": items,

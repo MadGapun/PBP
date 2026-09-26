@@ -23,18 +23,18 @@ def register(mcp, db, logger):
     ) -> dict:
         """Legt einen neuen Kontakt in der Kontaktdatenbank an (#563).
 
-        Rollen sind frei waehlbare Tags — Beispiele:
+        Rollen sind frei wählbare Tags — Beispiele:
         - 'recruiter' — externe(r) Personalvermittler(in)
         - 'headhunter' — proaktiv anschreibende(r) Recruiter(in)
         - 'hiring_manager' — entscheidende Person bei der Stelle
-        - 'interviewer' — fuehrt Gespraech
+        - 'interviewer' — führt Gespräch
         - 'hr' — Personalabteilung
         - 'kollege' — bekannte Person aus eigenem Netzwerk
         - 'mentor' — Mentor / Coach
         - 'sonstiges'
 
         Args:
-            name: Vollstaendiger Name (Pflicht).
+            name: Vollständiger Name (Pflicht).
             email: E-Mail-Adresse.
             firma: Firma der Person.
             position: Titel/Rolle bei der Firma.
@@ -67,7 +67,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def kontakt_anzeigen(kontakt_id: str) -> dict:
-        """Zeigt Details eines Kontakts inkl. Verknuepfungen."""
+        """Zeigt Details eines Kontakts inkl. Verknüpfungen."""
         # Typed-ID strippen wenn vorhanden
         from ..services.typed_ids import strip_prefix
         raw = strip_prefix(kontakt_id)
@@ -117,7 +117,7 @@ def register(mcp, db, logger):
                 "Ansprechpartner automatisch uebernehmen: "
                 "kontakte_aus_bewerbungen_extrahieren(). Einzeln geht es "
                 "mit kontakt_anlegen(name=...). Wer sich meldet, "
-                "steht dann beim naechsten Kontakt sofort parat.")
+                "steht dann beim nächsten Kontakt sofort parat.")
         return {
             "anzahl": len(contacts),
             "kontakte": contacts,
@@ -135,7 +135,7 @@ def register(mcp, db, logger):
         rollen: list[str] = None,
         notizen: str = None,
     ) -> dict:
-        """Aktualisiert ausgewaehlte Felder eines Kontakts (#563)."""
+        """Aktualisiert ausgewählte Felder eines Kontakts (#563)."""
         from ..services.typed_ids import strip_prefix
         raw = strip_prefix(kontakt_id)
         # Resolve short ID
@@ -166,13 +166,13 @@ def register(mcp, db, logger):
         if notizen is not None:
             data["notes"] = notizen or None
         if not data:
-            return {"fehler": "Keine Aenderungen angegeben."}
+            return {"fehler": "Keine Änderungen angegeben."}
         ok = db.update_contact(raw, data)
         return {"status": "aktualisiert" if ok else "nicht_gefunden", "kontakt_id": kontakt_id}
 
     @mcp.tool()
     def kontakt_loeschen(kontakt_id: str, bestaetigung: bool = False) -> dict:
-        """Loescht einen Kontakt. bestaetigung=True ist Pflicht."""
+        """Löscht einen Kontakt. bestaetigung=True ist Pflicht."""
         if not bestaetigung:
             return {"fehler": "Bitte mit bestaetigung=True bestaetigen."}
         from ..services.typed_ids import strip_prefix
@@ -197,7 +197,7 @@ def register(mcp, db, logger):
         rolle: str = "",
         notizen: str = "",
     ) -> dict:
-        """Verknuepft einen Kontakt mit Bewerbung/Meeting/Stelle/Firma.
+        """Verknüpft einen Kontakt mit Bewerbung/Meeting/Stelle/Firma.
 
         Args:
             kontakt_id: ID des Kontakts (mit oder ohne CON-Prefix).
@@ -242,7 +242,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def kontakt_entknuepfen(link_id: str) -> dict:
-        """Entfernt eine Verknuepfung zwischen Kontakt und Ziel."""
+        """Entfernt eine Verknüpfung zwischen Kontakt und Ziel."""
         ok = db.unlink_contact(link_id)
         return {"status": "entfernt" if ok else "nicht_gefunden"}
 
@@ -275,7 +275,7 @@ def register(mcp, db, logger):
     ) -> dict:
         """Markiert einen bestehenden Kontakt als Referenz (#884).
 
-        Es entsteht KEIN neuer Kontakt — die Referenz haengt am
+        Es entsteht KEIN neuer Kontakt — die Referenz hängt am
         vorhandenen, und der Kontakt bekommt das Etikett `referenz`.
         Ein Kontakt kann mehrfach Referenz sein (z.B. als Vorgesetzter
         in einer Station und als Kunde in einer anderen).
@@ -315,8 +315,8 @@ def register(mcp, db, logger):
         bewerbung_id: str | None = None,
         projekt_id: str | None = None,
     ) -> dict:
-        """Aendert eine Referenz. Nicht angegebene Felder bleiben stehen;
-        ein LEERER String loescht eine Angabe (z.B. bewerbung_id="" loest
+        """Ändert eine Referenz. Nicht angegebene Felder bleiben stehen;
+        ein LEERER String löscht eine Angabe (z.B. bewerbung_id="" löst
         den Bewerbungsbezug)."""
         from ..services import referenzen as _ref
         felder = {
@@ -338,12 +338,12 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def referenz_entfernen(referenz_id: str) -> dict:
-        """Nimmt eine Referenz-Markierung zurueck. Der Kontakt bleibt,
+        """Nimmt eine Referenz-Markierung zurück. Der Kontakt bleibt,
         ebenso sein Etikett `referenz` (es kann von Hand gesetzt sein)."""
         if db.delete_contact_reference(referenz_id):
             return {"status": "entfernt", "referenz_id": referenz_id}
         return {"status": "nicht_gefunden", "referenz_id": referenz_id,
-                "hinweis": "Pruefe die ID mit referenzen_anzeigen()."}
+                "hinweis": "Prüfe die ID mit referenzen_anzeigen()."}
 
     @mcp.tool()
     def referenzen_anzeigen(art: str = "", bewerbung_id: str = "",
@@ -420,7 +420,7 @@ def register(mcp, db, logger):
         Args:
             name: Anzeigename (z.B. 'Headhunter', 'Alumni')
             farbe: Optional Hex-Code. Leer = Auto-Farbe aus Palette
-                   (16 Farben, naechste freie wird gewaehlt).
+                   (16 Farben, nächste freie wird gewählt).
         """
         try:
             cid = db.add_contact_category(name, color=farbe or "")
@@ -432,7 +432,7 @@ def register(mcp, db, logger):
     def kontakt_kategorie_bearbeiten(
         kategorie_id: int, name: str = "", farbe: str = "",
     ) -> dict:
-        """Aendert Name oder Farbe einer Kategorie. Nur uebergebene Felder."""
+        """Ändert Name oder Farbe einer Kategorie. Nur übergebene Felder."""
         if not name and not farbe:
             return {"fehler": "Mindestens name oder farbe muss angegeben sein"}
         ok = db.update_contact_category(
@@ -441,15 +441,15 @@ def register(mcp, db, logger):
             color=farbe or None,
         )
         if not ok:
-            return {"fehler": "Kategorie nicht gefunden oder keine Aenderung"}
+            return {"fehler": "Kategorie nicht gefunden oder keine Änderung"}
         return {"status": "aktualisiert", "id": kategorie_id}
 
     @mcp.tool()
     def kontakt_kategorie_loeschen(kategorie_id: int) -> dict:
-        """Loescht eine Kategorie (#608).
+        """Löscht eine Kategorie (#608).
 
-        is_system=1-Kategorien sind geschuetzt und koennen nicht
-        geloescht werden. Wenn noch zugewiesen: Fehler mit Anzahl
+        is_system=1-Kategorien sind geschützt und können nicht
+        gelöscht werden. Wenn noch zugewiesen: Fehler mit Anzahl
         betroffener Kontakte.
         """
         return db.delete_contact_category(kategorie_id)
@@ -473,8 +473,8 @@ def register(mcp, db, logger):
         s = svc.get_status(force_refresh=True)
         if not s.ollama_available or not s.available_models:
             return {
-                "fehler": "Lokale AI nicht verfuegbar.",
-                "hinweis": "Ollama + installiertes Modell noetig.",
+                "fehler": "Lokale AI nicht verfügbar.",
+                "hinweis": "Ollama + installiertes Modell nötig.",
             }
         if s.user_state != "active":
             return {
@@ -581,22 +581,22 @@ def register(mcp, db, logger):
 
         Erweitert `kontakte_aus_bestand_importieren` um drei wichtige
         Quellen:
-        - `application_events.notes` (Timeline-Notizen mit Gespraechs-
+        - `application_events.notes` (Timeline-Notizen mit Gesprächs-
           partnern)
-        - Verknuepfte Dokumente (außer cv_path / cover_letter_path —
+        - Verknüpfte Dokumente (außer cv_path / cover_letter_path —
           das sind eigene Texte, keine Dritt-Kontaktdaten)
         - Konfigurierbares max_bewerbungen statt Hard-Cap 100
 
         Args:
             nur_ohne_kontakte: True (Default) = nur Bewerbungen die noch
-                keinen verknuepften Kontakt haben (extracted_from leer).
-                False = alle, auch schon mal extrahierte (ueberschreibt
+                keinen verknüpften Kontakt haben (extracted_from leer).
+                False = alle, auch schon mal extrahierte (überschreibt
                 NICHT, legt nur neue an).
             max_bewerbungen: Sicherheits-Cap pro Lauf (Default 20).
             dry_run: True (Default) = nur Vorschau ohne Schreiben.
 
         Returns:
-            status, geprueft, kandidaten, extrahiert (0 bei dry_run),
+            status, geprüft, kandidaten, extrahiert (0 bei dry_run),
             fehler, vorschau_sample (10 erste Kandidaten bei dry_run).
 
         Idempotent. Sicher: bei `extracted_from='application:<id>'`-
@@ -608,8 +608,8 @@ def register(mcp, db, logger):
         s = svc.get_status(force_refresh=True)
         if not s.ollama_available or not s.available_models:
             return {
-                "fehler": "Lokale AI nicht verfuegbar.",
-                "hinweis": "Ollama + installiertes Modell noetig.",
+                "fehler": "Lokale AI nicht verfügbar.",
+                "hinweis": "Ollama + installiertes Modell nötig.",
             }
         if s.user_state != "active":
             return {
@@ -763,7 +763,7 @@ def register(mcp, db, logger):
             "hinweis": (
                 f"Dry-Run mit max_bewerbungen={max_bewerbungen}. "
                 "Mit dry_run=False werden die Kontakte als 'pending' angelegt "
-                "und muessen via UI/MCP-Tool genehmigt werden."
+                "und müssen via UI/MCP-Tool genehmigt werden."
                 if dry_run else
                 f"{extracted} Kontakte als 'pending' angelegt. "
                 "Genehmigung in Kontakte-Tab."
@@ -776,11 +776,11 @@ def register(mcp, db, logger):
     def kontakt_historie(suchbegriff: str) -> dict:
         """Historie zu einer Person: wer hat schon mal angefragt, wie lief es? (#780)
 
-        Sucht ueber Personennamen, E-Mail und Telefonnummer — sowohl in der
+        Sucht über Personennamen, E-Mail und Telefonnummer — sowohl in der
         Kontaktdatenbank als auch in den FREITEXTFELDERN der Bewerbungen
         (`ansprechpartner`, `kontakt_email`). Damit funktioniert die Suche
-        auch fuer den Altbestand, in dem Ansprechpartner nie als Kontakt
-        angelegt wurden. Teilnamen genuegen ("van Wijk" findet
+        auch für den Altbestand, in dem Ansprechpartner nie als Kontakt
+        angelegt wurden. Teilnamen genügen ("van Wijk" findet
         "Saskia van Wijk").
 
         Typischer Ausloeser: ein Anruf — "Hier ist <Name>". Erst dieses Tool
@@ -895,12 +895,12 @@ def register(mcp, db, logger):
         """Aggregierte Historie eines Vermittlers/Personaldienstleisters (#780).
 
         Beantwortet vor der Reaktion auf eine neue Anfrage: Wie oft kam
-        dieser Vermittler schon? Wohin fuehrte es? Welche Endkunden, welche
-        Ansprechpartner? "Die sechste Anfrage, keine fuehrte zum Abschluss"
-        aendert die Antwort.
+        dieser Vermittler schon? Wohin führte es? Welche Endkunden, welche
+        Ansprechpartner? "Die sechste Anfrage, keine führte zum Abschluss"
+        ändert die Antwort.
 
         Args:
-            firma: Vermittler-Name (Substring genuegt).
+            firma: Vermittler-Name (Substring genügt).
         """
         name = (firma or "").strip()
         if len(name) < 2:
@@ -923,7 +923,7 @@ def register(mcp, db, logger):
                 "status": "nichts_gefunden",
                 "firma": name,
                 "hinweis": "Keine Bewerbung mit diesem Vermittler im Bestand. "
-                           "Fuer Einzelpersonen: kontakt_historie(name).",
+                           "Für Einzelpersonen: kontakt_historie(name).",
             }
 
         ausgaenge = {}
@@ -978,9 +978,9 @@ def register(mcp, db, logger):
             },
             "vorgaenge": vorgaenge,
             "hinweis": (
-                f"{gesamt + 1}. Anfrage waere die naechste. "
-                + ("Noch kein Vorgang fuehrte zu einem Interview."
+                f"{gesamt + 1}. Anfrage wäre die nächste. "
+                + ("Noch kein Vorgang führte zu einem Interview."
                    if interviews == 0 else
-                   f"{interviews} Vorgang/Vorgaenge erreichten ein Interview.")
+                   f"{interviews} Vorgang/Vorgänge erreichten ein Interview.")
             ),
         }

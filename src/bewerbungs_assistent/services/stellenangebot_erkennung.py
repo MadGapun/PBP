@@ -113,7 +113,7 @@ def ist_stellenangebot(text: str, dateiname: str = "") -> tuple[bool, dict]:
         "begruendung": (
             f"Rollenbezeichnung und {len(merkmale)} Ausschreibungs-Merkmale "
             f"({', '.join(merkmale)}) — das ist eine Stellenausschreibung, "
-            "keine gewoehnliche Korrespondenz."
+            "keine gewöhnliche Korrespondenz."
             if treffer else
             f"Rolle {'erkannt' if rolle else 'nicht erkannt'}, "
             f"{len(merkmale)} von mindestens {MINDEST_MERKMALE} Merkmalen."),

@@ -298,7 +298,7 @@ def finde_phantom_termine(db: Any) -> list:
                 "Titel, ohne Link, Notizen oder Ort"
                 + (" — alle im selben Importvorgang angelegt"
                    if len(stempel) == 1 else "")
-                + ". Typisches Muster fuer Sendezeiten aus einem zitierten "
+                + ". Typisches Muster für Sendezeiten aus einem zitierten "
                   "Mail-Thread (#922)."
             ),
         })

@@ -83,133 +83,133 @@ EINSTELLUNG = frozenset({
 # Kuratierte Beschreibungen fuer den Kernweg: Zweck, wann, wann nicht.
 KURZ = {
     "profil_status": (
-        "Prueft, ob es ein Profil gibt, und nennt den naechsten sinnvollen "
-        "Schritt. Zu Beginn jedes Gespraechs aufrufen, bevor du etwas "
+        "Prüft, ob es ein Profil gibt, und nennt den nächsten sinnvollen "
+        "Schritt. Zu Beginn jedes Gesprächs aufrufen, bevor du etwas "
         "empfiehlst: ohne Profil ist der Weg die Ersterfassung "
         "(ersterfassung_starten), mit Profil nennt die Antwort, was als "
-        "Naechstes fehlt (Suchbegriffe, erste Suche, offene Stellen). Liest "
-        "nur, veraendert nichts."),
+        "Nächstes fehlt (Suchbegriffe, erste Suche, offene Stellen). Liest "
+        "nur, verändert nichts."),
     "stellen_anzeigen": (
         "Listet die gespeicherten Stellen, sortiert nach Punkten; Stellen "
         "mit fachlichem k.o. stehen am Ende. Nutzen, wenn der Mensch sehen "
         "will, was gefunden wurde, oder bevor du eine Stelle einordnest. "
-        "Nicht fuer neue Treffer — dafuer jobsuche_starten. Punkte messen, "
+        "Nicht für neue Treffer — dafür jobsuche_starten. Punkte messen, "
         "wie gut eine Anzeige die Suchbegriffe trifft, nicht die Passung "
-        "zum Lebenslauf. Jede Stelle traegt einen Link ins Dashboard."),
+        "zum Lebenslauf. Jede Stelle trägt einen Link ins Dashboard."),
     "fit_analyse": (
-        "Liefert fuer eine Stelle den vollen Anzeigentext, die getroffenen "
+        "Liefert für eine Stelle den vollen Anzeigentext, die getroffenen "
         "und fehlenden Suchbegriffe, Rahmen (Entfernung, Gehalt, Remote) und "
-        "eine Einordnung. Nutzen, bevor du ueber eine einzelne Stelle "
+        "eine Einordnung. Nutzen, bevor du über eine einzelne Stelle "
         "urteilst. Liest nur. Hast du Anzeige und Profil gelesen, speichere "
         "dein Urteil mit stelle_urteil_speichern — sonst bleibt die Stelle "
         "'nicht beurteilt'."),
     "stelle_einordnen": (
         "Ordnet eine Stelle ein: behalten ('passt') oder aussortieren "
-        "('passt_nicht' mit Grund aus der Liste). Nutzen fuer einzelne "
-        "Stellen nach einer Entscheidung des Menschen. Fuer viele Stellen "
-        "stellen_bulk_bewerten, fuer ein gelesenes Urteil "
+        "('passt_nicht' mit Grund aus der Liste). Nutzen für einzelne "
+        "Stellen nach einer Entscheidung des Menschen. Für viele Stellen "
+        "stellen_bulk_bewerten, für ein gelesenes Urteil "
         "stelle_urteil_speichern. Nur Gruende aus 'verfuegbare_gruende' "
         "verwenden, nie eigene erfinden."),
     "stellen_bulk_bewerten": (
         "Sortiert viele Stellen auf einmal nach Filtern aus (Punkte, "
-        "Titelwoerter, Beschreibungswoerter, Quelle, Alter). Arbeitet nur in "
+        "Titelwörter, Beschreibungswörter, Quelle, Alter). Arbeitet nur in "
         "der Datenbank, ohne KI, und kostet deshalb nichts. Erst mit "
         "dry_run=True die Vorschau zeigen und bestaetigen lassen, dann mit "
-        "dry_run=False anwenden. Nicht fuer einzelne Stellen — dafuer "
+        "dry_run=False anwenden. Nicht für einzelne Stellen — dafür "
         "stelle_einordnen. Aussortieren ist umkehrbar (stelle_reaktivieren)."),
     "jobsuche_starten": (
-        "Startet eine Suche ueber die gewaehlten Jobboersen im Hintergrund "
-        "und gibt eine job_id zurueck. Nutzen, wenn Suchbegriffe gesetzt "
+        "Startet eine Suche über die gewählten Jobbörsen im Hintergrund "
+        "und gibt eine job_id zurück. Nutzen, wenn Suchbegriffe gesetzt "
         "sind und neue Stellen gebraucht werden. Nicht warten und nicht in "
         "einer Schleife pruefen: den Stand fragt jobsuche_status(), auch "
-        "ohne job_id. Browser-Jobboersen nennt die Antwort gesondert."),
+        "ohne job_id. Browser-Jobbörsen nennt die Antwort gesondert."),
     "jobsuche_status": (
         "Zeigt Stand und Ergebnis einer Jobsuche: Fortschritt, neue Stellen "
         "je Quelle, Quellen ohne Ergebnis. Ohne job_id die letzte Suche — so "
-        "funktioniert es auch in einem neuen Gespraech. Einmal fragen, wenn "
+        "funktioniert es auch in einem neuen Gespräch. Einmal fragen, wenn "
         "der Mensch wissen will, wie weit die Suche ist; nicht in einer "
         "Schleife aufrufen. Neue Stellen zeigt danach stellen_anzeigen."),
     "bewerbung_erstellen": (
         "Legt eine Bewerbung an (Firma, Titel, Status, optional Stelle, "
         "Kontakt, Notiz). Nutzen, wenn sich der Mensch beworben hat oder es "
         "gleich tut. Vorher firma_kontext aufrufen, damit keine doppelte "
-        "Bewerbung entsteht. Fuer Aenderungen bewerbung_bearbeiten, fuer "
+        "Bewerbung entsteht. Für Änderungen bewerbung_bearbeiten, für "
         "einen Statuswechsel bewerbung_status_aendern."),
     "bewerbung_status_aendern": (
         "Setzt den Status einer Bewerbung (beworben, Interview, "
         "Zweitgespraech, Angebot, angenommen, abgelehnt, zurueckgezogen), "
         "mit optionaler Notiz und Absagegrund; der Verlauf bekommt einen "
-        "Eintrag. Nutzen, wenn sich im Verfahren etwas tut. Absagegruende "
+        "Eintrag. Nutzen, wenn sich im Verfahren etwas tut. Absagegründe "
         "nur aus der Liste oder aus dem, was die Firma geschrieben hat — nie "
-        "erfinden. Fuer andere Felder bewerbung_bearbeiten."),
+        "erfinden. Für andere Felder bewerbung_bearbeiten."),
     "bewerbung_bearbeiten": (
-        "Aendert Felder einer Bewerbung: Titel, Firma, Ort, Gehalt, "
+        "Ändert Felder einer Bewerbung: Titel, Firma, Ort, Gehalt, "
         "Ansprechpartner, Vermittler, Endkunde, Bewerbungsweg. Eine Notiz "
-        "wird angehaengt, nie ueberschrieben. Nutzen, wenn sich Angaben "
-        "aendern oder nachgetragen werden. Fuer den Status "
-        "bewerbung_status_aendern, fuer eine reine Notiz bewerbung_notiz, "
-        "fuer Termine meeting_hinzufuegen."),
+        "wird angehaengt, nie überschrieben. Nutzen, wenn sich Angaben "
+        "aendern oder nachgetragen werden. Für den Status "
+        "bewerbung_status_aendern, für eine reine Notiz bewerbung_notiz, "
+        "für Termine meeting_hinzufuegen."),
     "bewerbung_details": (
         "Zeigt eine Bewerbung vollstaendig: Stelle mit Anzeigentext, "
         "Verlauf, Termine, Dokumente, Kontakte, Recherche, offene Aufgaben "
-        "und einen Link ins Dashboard. Nutzen, bevor du ueber eine "
+        "und einen Link ins Dashboard. Nutzen, bevor du über eine "
         "Bewerbung sprichst, ein Anschreiben oder eine Vorbereitung baust "
-        "oder etwas daran aenderst. Liest nur. Fuer die Liste aller "
+        "oder etwas daran änderst. Liest nur. Für die Liste aller "
         "Bewerbungen bewerbungen_anzeigen."),
     "bewerbungen_anzeigen": (
         "Listet die Bewerbungen mit Status, Datum, Firma und Link ins "
         "Dashboard, optional nach Status gefiltert; abgeschlossene nur auf "
-        "Wunsch. Nutzen fuer einen Ueberblick oder um eine Bewerbung zu "
-        "finden. Fuer eine einzelne Bewerbung mit allem Drum und Dran "
-        "bewerbung_details, fuer den Stand bei einer Firma firma_kontext. "
+        "Wunsch. Nutzen für einen Überblick oder um eine Bewerbung zu "
+        "finden. Für eine einzelne Bewerbung mit allem Drum und Dran "
+        "bewerbung_details, für den Stand bei einer Firma firma_kontext. "
         "Liest nur."),
     "firma_kontext": (
-        "Sagt, was PBP ueber eine Firma weiss: Bewerbungen mit Status, "
+        "Sagt, was PBP über eine Firma weiss: Bewerbungen mit Status, "
         "Stellen, Kontakte, Vermittler, Endkunden, Anfragen, Blacklist, "
         "jeweils mit Verweis, dazu eine Warnung vor Doppelvorstellung. "
-        "IMMER aufrufen, bevor du etwas ueber den Stand bei einer Firma "
-        "sagst oder eine Bewerbung anlegst — nie aus dem Gedaechtnis "
+        "IMMER aufrufen, bevor du etwas über den Stand bei einer Firma "
+        "sagst oder eine Bewerbung anlegst — nie aus dem Gedächtnis "
         "antworten. Liest nur."),
     "suchkriterien_setzen": (
         "Setzt die Suchbegriffe (MUSS, PLUS, MINUS, Ausschluss), Regionen, "
         "Wohnort, Anstellungsformen und Entfernung — ersetzt die Listen "
         "komplett. Nutzen nach der Ersterfassung oder wenn der Mensch neu "
-        "sortieren will. Einzelne Begriffe aendert suchkriterien_bearbeiten. "
+        "sortieren will. Einzelne Begriffe ändert suchkriterien_bearbeiten. "
         "Begriffe aus dem Profil ableiten, nicht raten."),
     "suchkriterien_anzeigen": (
         "Zeigt die aktuellen Suchbegriffe (MUSS, PLUS, MINUS, Ausschluss), "
         "Regionen, Wohnort, Entfernung, Gehaltsangaben und die Schwelle. "
-        "Nutzen, bevor du Suchbegriffe vorschlaegst, eine leere Trefferliste "
-        "erklaerst oder eine Suche startest. Liest nur; aendern mit "
+        "Nutzen, bevor du Suchbegriffe vorschlägst, eine leere Trefferliste "
+        "erklärst oder eine Suche startest. Liest nur; aendern mit "
         "suchkriterien_setzen (alles) oder suchkriterien_bearbeiten "
         "(einzelne Begriffe)."),
     "stelle_urteil_speichern": (
-        "Speichert dein Urteil ueber eine Stelle, nachdem du Anzeige und "
+        "Speichert dein Urteil über eine Stelle, nachdem du Anzeige und "
         "Profil gelesen hast (empfohlen, bedingt, nicht_empfohlen), mit "
         "Begruendung. Nur nach echtem Lesen, etwa nach fit_analyse — ein "
         "Urteil aus den Punkten abzuleiten ist falsch. Das Urteil steht "
         "danach an der Stelle und in der Trefferliste, bis sich Profil oder "
         "Anzeige aendern."),
     "aufgaben_uebersicht": (
-        "Zeigt alles Offene an einer Stelle: faellige und kommende "
-        "Nachfassungen, Aufgaben und Termine, nach Faelligkeit sortiert, je "
+        "Zeigt alles Offene an einer Stelle: fällige und kommende "
+        "Nachfassungen, Aufgaben und Termine, nach Fälligkeit sortiert, je "
         "mit Link ins Dashboard. Nutzen, wenn der Mensch fragt, was ansteht, "
         "oder zu Beginn einer Arbeitssitzung. Liest nur; erledigen mit "
         "follow_up_erledigen bzw. todo_erledigen, neue Aufgabe mit "
         "todo_anlegen."),
     "stelle_manuell_anlegen": (
         "Legt eine Stelle von Hand an (Titel, Firma, Anzeigentext, URL, "
-        "Kontakt), etwa aus einer Mail, einem Anruf oder einem Link. Prueft "
-        "Dubletten, Blacklist und fruehere Bewerbungen bei derselben Firma. "
-        "Ohne URL, Dokument oder Kontakt ist die Stelle spaeter kaum "
-        "wiederzufinden — dann nachfragen. Nicht fuer Treffer aus einer "
-        "Jobboerse; die legt die Suche selbst an."),
+        "Kontakt), etwa aus einer Mail, einem Anruf oder einem Link. Prüft "
+        "Dubletten, Blacklist und frühere Bewerbungen bei derselben Firma. "
+        "Ohne URL, Dokument oder Kontakt ist die Stelle später kaum "
+        "wiederzufinden — dann nachfragen. Nicht für Treffer aus einer "
+        "Jobbörse; die legt die Suche selbst an."),
     "profil_erstellen": (
-        "Legt das Profil an oder ergaenzt es (Name, Kontakt, Kurzprofil, "
+        "Legt das Profil an oder ergänzt es (Name, Kontakt, Kurzprofil, "
         "Praeferenzen). Teil der Ersterfassung. Die Antwort nennt Dokumente, "
-        "die dabei uebernommen wurden, und den naechsten Schritt — meist "
-        "extraktion_starten fuer den Lebenslauf. Nicht fuer ein zweites "
-        "Profil: dafuer neues_profil_erstellen, und nur nach Rueckfrage."),
+        "die dabei übernommen wurden, und den nächsten Schritt — meist "
+        "extraktion_starten für den Lebenslauf. Nicht für ein zweites "
+        "Profil: dafür neues_profil_erstellen, und nur nach Rückfrage."),
 }
 
 

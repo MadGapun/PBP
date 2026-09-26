@@ -132,7 +132,7 @@ def einordnung(job: dict, heute: Optional[date] = None) -> dict:
     if tage is None:
         return {
             "guete": "unbekannt",
-            "hinweis": ("Die Quelle liefert kein Veroeffentlichungsdatum. "
+            "hinweis": ("Die Quelle liefert kein Veröffentlichungsdatum. "
                         "`found_at` sagt nur, wann PBP die Stelle gesehen "
                         "hat — eine seit Monaten laufende Anzeige sieht "
                         "dort taufrisch aus."),
@@ -140,12 +140,12 @@ def einordnung(job: dict, heute: Optional[date] = None) -> dict:
     erg = {"guete": "belegt", "anzeigenalter_tage": tage}
     if tage >= SCHWELLE_TAGE:
         erg["hinweis"] = (
-            f"Die Anzeige laeuft seit {tage} Tagen. Das kann eine "
+            f"Die Anzeige läuft seit {tage} Tagen. Das kann eine "
             "Dauerausschreibung ohne konkrete Vakanz sein — oder eine "
-            "real unbesetzte Stelle, deren Anforderungen oder Verguetung "
+            "real unbesetzte Stelle, deren Anforderungen oder Vergütung "
             "den Markt nicht treffen. Kein Score-Malus, nur ein Hinweis.")
     elif tage <= 7:
         erg["hinweis"] = (
-            f"Frisch veroeffentlicht (vor {tage} Tagen) — erfahrungs"
-            "gemaess der Moment mit der besten Chance.")
+            f"Frisch veröffentlicht (vor {tage} Tagen) — erfahrungs"
+            "gemäss der Moment mit der besten Chance.")
     return erg

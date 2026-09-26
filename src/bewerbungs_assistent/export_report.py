@@ -238,7 +238,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.rect(30, box_start_y, 150, box_height, style="DF")
         pdf.set_y(box_start_y + 2)
         pdf.set_font("Helvetica", "B", 10)
-        _line_cell(pdf, 0, 6, _safe_text("Vorlage fuer das Arbeitsamt"), align="C")
+        _line_cell(pdf, 0, 6, _safe_text("Vorlage für das Arbeitsamt"), align="C")
         for label, value in ba_lines:
             pdf.set_x(36)
             pdf.set_font("Helvetica", "", 9)
@@ -252,16 +252,16 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     toc_items = [
         "1. Executive Summary",
         "2. Bewerbungen nach Status",
-        "3. Quellenanalyse (Qualitaet)",
+        "3. Quellenanalyse (Qualität)",
         "4. Bewerbungsart-Verteilung",
         "5. Fit-Score Verteilung",
         "6. Bewerbungsliste (detailliert)",
-        "7. Ablehnungsgruende",
+        "7. Ablehnungsgründe",
         "8. Offene Follow-ups",
         "9. Nicht beworben trotz gutem Score",
         "10. Keyword-Analyse",
-        "11. Aktivitaetsprotokoll",
-        "12. Quellen-Aktivitaet (Volumen)",
+        "11. Aktivitätsprotokoll",
+        "12. Quellen-Aktivität (Volumen)",
         "12b. Dokumente pro Bewerbung",
     ]
     if show_berater_kommentar:
@@ -334,7 +334,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             _line_cell(pdf, 0, 4, _safe_text(
                 f"Hinweis: {pre_pbp_count} Bewerbungen aus der Zeit vor PBP-Nutzung "
                 f"({_de_date(pbp_first_active_at)}) sind in der Liste markiert (kursiv/grau). "
-                "Sie wurden nachtraeglich aus Dateien rekonstruiert und haben "
+                "Sie wurden nachträglich aus Dateien rekonstruiert und haben "
                 "typischerweise nur 1-2 Timeline-Events. Interview- und "
                 "Zeitkennzahlen dieses Zeitraums sind eine UNTERGRENZE, "
                 "keine Wahrheit (#781)."
@@ -433,7 +433,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             _kanal_label = {
                 "vermittler_recruiter": "Vermittler/Recruiter",
                 "portal": "Portal/Jobboerse",
-                "netzwerk": "Persoenlicher Kontakt/Netzwerk",
+                "netzwerk": "Persönlicher Kontakt/Netzwerk",
                 "direktbewerbung": "Direktbewerbung",
                 "unklassifiziert": "Unklassifiziert",
             }
@@ -473,12 +473,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     pdf.ln(4)
 
     # --- 3. Quellenanalyse (#173) ---
-    _section_header(pdf, "3. Quellenanalyse (Qualitaet pro Quelle)")
+    _section_header(pdf, "3. Quellenanalyse (Qualität pro Quelle)")
     # v1.7.0-beta.31 (#598): expliziter Abgrenzungs-Hinweis zu Abschnitt 12
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(110, 110, 110)
     _line_cell(pdf, 0, 4, _safe_text(
-        "  Hinweis: Dieser Abschnitt zeigt die Qualitaet (Erfolgsquote) "
+        "  Hinweis: Dieser Abschnitt zeigt die Qualität (Erfolgsquote) "
         "pro Quelle. Abschnitt 12 zeigt das Volumen (Gesamttreffer)."
     ))
     pdf.set_text_color(0, 0, 0)
@@ -699,7 +699,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_text_color(110, 110, 110)
             _line_cell(pdf, 0, 4, _safe_text(
                 "* Vorgemerkte Stelle (angepinnt) — eigene Priorisierung, "
-                "unabhaengig vom Score."))
+                "unabhängig vom Score."))
             pdf.set_text_color(0, 0, 0)
 
         # Legende fuer Pre-PBP-Markierung
@@ -711,20 +711,20 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             pdf.set_text_color(110, 110, 110)
             _line_cell(pdf, 0, 4, _safe_text(
                 f"† Bewerbung vor PBP-Nutzung ({_de_date(pbp_first_active_at)}) — "
-                "nachtraeglich erfasst, Daten moeglicherweise unvollstaendig."
+                "nachträglich erfasst, Daten möglicherweise unvollständig."
             ))
             pdf.set_text_color(0, 0, 0)
     pdf.ln(4)
 
     # --- 7. Ablehnungsgruende ---
-    _section_header(pdf, "7. Ablehnungsgruende")
+    _section_header(pdf, "7. Ablehnungsgründe")
     # v1.7.10 (#781/D29): Kategorisierung VOR den Rohgruenden — die
     # bereinigte Quote trennt externe Faelle (Stelle gestrichen, Insolvenz)
     # von echten Absagen. Freitext-Gruende folgen darunter unveraendert.
     _abk = report_data.get("ablehnungs_kategorien") or {}
     if _abk.get("basis"):
         _kat_label = {
-            "stille_absage": "Stille Absage / keine Rueckmeldung",
+            "stille_absage": "Stille Absage / keine Rückmeldung",
             "automatische_ablehnung": "Automatische Ablehnung (< 72h)",
             "nach_interview": "Absage nach Interview",
             "vermittler_reject": "Vermittler-Reject",
@@ -743,7 +743,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
             _line_cell(pdf, 0, 5, _safe_text(
                 f"  Ablehnungsquote roh {_abk.get('ablehnungsquote_roh')}% / "
                 f"bereinigt {_abk.get('ablehnungsquote_bereinigt')}% "
-                "(ohne extern bedingte Faelle)"))
+                "(ohne extern bedingte Fälle)"))
         pdf.ln(2)
     if rejection_patterns and rejection_patterns.get("anzahl"):
         pdf.set_font("Helvetica", "", 8)
@@ -992,7 +992,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
 
     # --- 11. Aktivitaetsprotokoll (chronologische Timeline) ---
     pdf.add_page()
-    _section_header(pdf, "11. Aktivitaetsprotokoll")
+    _section_header(pdf, "11. Aktivitätsprotokoll")
     pdf.set_font("Helvetica", "", 8)
     _line_cell(pdf, 0, 5, _safe_text(
         "  Chronologie aller wichtigen Bewerbungs-Ereignisse im Berichtszeitraum."
@@ -1044,11 +1044,11 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_font("Helvetica", "I", 7)
         pdf.set_text_color(110, 110, 110)
         _line_cell(pdf, 0, 4, _safe_text(
-            f"  {len(timeline_events)} Ereignisse, vollstaendig aufgefuehrt."))
+            f"  {len(timeline_events)} Ereignisse, vollständig aufgeführt."))
         pdf.set_text_color(0, 0, 0)
     else:
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Keine Aktivitaeten im Berichtszeitraum erfasst."
+            "  Keine Aktivitäten im Berichtszeitraum erfasst."
         ))
     pdf.ln(4)
 
@@ -1062,10 +1062,10 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         for date, evt, target, status in timeline_events:
             per_day[date].append((evt, target, status))
         pdf.add_page()
-        _section_header(pdf, "11a. Taegliche Aktivitaets-Uebersicht")
+        _section_header(pdf, "11a. Tägliche Aktivitäts-Übersicht")
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Aktivitaeten gebuendelt pro Tag — als Nachweis konkreter Bemuehungen."
+            "  Aktivitäten gebündelt pro Tag — als Nachweis konkreter Bemühungen."
         ))
         pdf.ln(2)
         pdf.set_font("Helvetica", "B", 7)
@@ -1096,7 +1096,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # v1.7.0-beta.31 (#598): Gesamttreffer pro Quelle statt nur „letzte
     # Treffer". Macht klar welche Quelle wirklich produktiv ist.
     # Abgrenzung zu Abschnitt 3 ist explizit dokumentiert.
-    _section_header(pdf, "12. Quellen-Aktivitaet (Volumen pro Quelle)")
+    _section_header(pdf, "12. Quellen-Aktivität (Volumen pro Quelle)")
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(110, 110, 110)
     _line_cell(pdf, 0, 4, _safe_text(
@@ -1150,12 +1150,12 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         # (sollte bei aktualisiertem Schema nicht mehr passieren).
         pdf.set_font("Helvetica", "", 7)
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Volumen-Aufschluesselung noch nicht verfuegbar — Fallback auf scraper_health."
+            "  Volumen-Aufschlüsselung noch nicht verfügbar — Fallback auf scraper_health."
         ))
     else:
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Keine Quellen-Aktivitaet erfasst (noch keine Suchen durchgefuehrt)."
+            "  Keine Quellen-Aktivität erfasst (noch keine Suchen durchgefuehrt)."
         ))
     pdf.ln(4)
 
@@ -1170,7 +1170,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         pdf.set_text_color(110, 110, 110)
         _line_cell(pdf, 0, 4, _safe_text(
             "  Hinweis: Aufwandsindikator pro Bewerbung. Hilft die Frage "
-            "zu beantworten ob hoeherer Doku-Aufwand zu mehr Einladungen fuehrt."
+            "zu beantworten ob höherer Doku-Aufwand zu mehr Einladungen führt."
         ))
         pdf.set_text_color(0, 0, 0)
         pdf.ln(1)
@@ -1258,8 +1258,8 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
         _section_header(pdf, "13. Beraterkommentar")
         pdf.set_font("Helvetica", "", 8)
         _line_cell(pdf, 0, 5, _safe_text(
-            "  Platz fuer handschriftliche Anmerkungen oder gemeinsame Notizen "
-            "aus dem Beratungsgespraech."
+            "  Platz für handschriftliche Anmerkungen oder gemeinsame Notizen "
+            "aus dem Beratungsgespräch."
         ))
         pdf.ln(2)
         pdf.set_draw_color(180, 180, 180)
@@ -1307,7 +1307,7 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     pdf.ln(8)
 
     # Section: Persoenliche Daten
-    _section_header(pdf, "1. Persoenliche Daten")
+    _section_header(pdf, "1. Persönliche Daten")
     pdf.set_font("Helvetica", "", 9)
     if profile:
         fields = [
@@ -1384,7 +1384,7 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     _section_header(pdf, "4. Daten-Externalisierung")
     pdf.set_font("Helvetica", "", 9)
     pdf.multi_cell(0, 4.5, _safe_text(
-        "  PBP speichert Daten standardmaessig nur lokal auf deinem Geraet. "
+        "  PBP speichert Daten standardmässig nur lokal auf deinem Gerät. "
         "Externe Dienste werden nur dann genutzt, wenn du sie explizit aktivierst:"
     ))
     pdf.ln(1)
@@ -1394,10 +1394,10 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     ))
     _line_cell(pdf, 0, 4.5, _safe_text(
         "  - Claude (MCP): nur Daten, die du Claude aktiv im Chat zur "
-        "Verfuegung stellst."
+        "Verfügung stellst."
     ))
     _line_cell(pdf, 0, 4.5, _safe_text(
-        "  - Lokale AI (Ollama, optional): laeuft komplett auf deinem Geraet, "
+        "  - Lokale AI (Ollama, optional): läuft komplett auf deinem Gerät, "
         "keine Daten verlassen den PC."
     ))
     pdf.ln(4)
@@ -1406,10 +1406,10 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     _section_header(pdf, "5. Hinweise")
     pdf.set_font("Helvetica", "", 8)
     pdf.multi_cell(0, 4, _safe_text(
-        "  Diese PDF enthaelt keine Passwoerter, API-Keys oder vollstaendige "
+        "  Diese PDF enthält keine Passwörter, API-Keys oder vollständige "
         "Dokumenten-Inhalte — nur Metadaten und Anzahlen. Sie ist gedacht zur "
-        "eigenen Verwendung (Beratungsgespraech, Datenschutz-Behoerde, oder "
-        "zur Erklaerung an Familie/Freunde was PBP ueber dich speichert)."
+        "eigenen Verwendung (Beratungsgespräch, Datenschutz-Behörde, oder "
+        "zur Erklärung an Familie/Freunde was PBP über dich speichert)."
     ))
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(120, 120, 120)

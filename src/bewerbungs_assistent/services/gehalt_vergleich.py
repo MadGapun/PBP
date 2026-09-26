@@ -116,7 +116,7 @@ def vergleich(job: dict, criteria: dict) -> dict:
     if job.get("salary_estimated"):
         # #827: geschaetzt ist nicht "zu wenig" und nicht "keine Angabe".
         leer["stand"] = GESCHAETZT
-        leer["grund"] = "Gehalt: nur Schaetzung — neutral (#827)"
+        leer["grund"] = "Gehalt: nur Schätzung — neutral (#827)"
         return leer
 
     art = (job.get("salary_type") or "jaehrlich").lower()

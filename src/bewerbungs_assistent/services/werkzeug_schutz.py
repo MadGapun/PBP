@@ -69,24 +69,24 @@ KLEIN_SOFORT: dict[str, str] = {
     "kosten_loeschen": "eine einzelne Kostenzeile",
     "skill_zeitraum_loeschen": "ein einzelner Zeitraum an einem Skill",
     "stelle_analyse_loeschen": "ein gespeichertes Urteil; die Stelle bleibt",
-    "bewerbung_stelle_entknuepfen": "nur die Verknuepfung, beide Seiten bleiben",
-    "kontakt_entknuepfen": "nur die Verknuepfung, beide Seiten bleiben",
+    "bewerbung_stelle_entknuepfen": "nur die Verknüpfung, beide Seiten bleiben",
+    "kontakt_entknuepfen": "nur die Verknüpfung, beide Seiten bleiben",
     "referenz_entfernen": "nur die Referenz-Markierung, der Kontakt bleibt",
     "kontakt_kategorie_loeschen": "nur unbenutzte Kategorien; benutzte weist das Werkzeug ab",
     "custom_quelle_loeschen": "eine einzelne eigene Quelle, jederzeit neu anlegbar",
-    "dokument_entverknuepfen": "nur die Verknuepfung, das Dokument bleibt",
+    "dokument_entverknuepfen": "nur die Verknüpfung, das Dokument bleibt",
 }
 
 UMKEHRBAR: dict[str, str] = {
-    "stellen_auto_aussortieren": "aussortieren; Protokoll und stelle_reaktivieren holen zurueck",
+    "stellen_auto_aussortieren": "aussortieren; Protokoll und stelle_reaktivieren holen zurück",
     "stelle_einordnen": "aussortieren; stelle_reaktivieren holt zurueck",
     "follow_up_hinfaellig": "Status einer Nachfassung",
-    "todo_hinfaellig": "Status einer Aufgabe; todo_reaktivieren holt zurueck",
+    "todo_hinfaellig": "Status einer Aufgabe; todo_reaktivieren holt zurück",
     "dokument_archivieren": "dokument_reaktivieren holt zurueck",
     "dokumente_bulk_markieren": "Status-Markierung, erneut setzbar",
     "ablehnungsgrund_umbenennen": "Umbenennen ist in Gegenrichtung wiederholbar",
-    "extraktion_anwenden": "schreibt Vorschlaege ins Profil, die der Mensch bestaetigt hat",
-    "profil_importieren": "legt ein NEUES Profil an, ueberschreibt nichts",
+    "extraktion_anwenden": "schreibt Vorschläge ins Profil, die der Mensch bestaetigt hat",
+    "profil_importieren": "legt ein NEUES Profil an, überschreibt nichts",
 }
 
 # Namen, die nach Loeschen oder Massenaenderung klingen. Wer hier trifft,

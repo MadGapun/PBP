@@ -56,7 +56,7 @@ def test_950_die_schaetzung_ist_als_solche_gekennzeichnet():
     """Ohne das Wort waere sie nur eine zweite Zahl, der man ebenso
     glaubt wie der ersten."""
     befund = entfernung.befund(271.5)
-    assert "geschaetzt" in befund["entfernung_text"]
+    assert "geschätzt" in befund["entfernung_text"]
     assert "keine berechnete Route" in befund["fahrstrecke_hinweis"]
     assert str(entfernung.FAHRSTRECKEN_FAKTOR) in befund["fahrstrecke_hinweis"]
 

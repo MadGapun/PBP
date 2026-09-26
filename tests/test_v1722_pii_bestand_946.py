@@ -185,7 +185,7 @@ def test_946_tool_ist_registriert_und_warnt_deutlich(bestand, tmp_path):
     if isinstance(roh, tuple):
         roh = roh[1] if len(roh) > 1 else roh[0]
     assert roh["sauber"] is False
-    assert "NICHT veroeffentlichen" in roh["hinweis"]
+    assert "NICHT veröffentlichen" in roh["hinweis"]
 
 
 def test_946_pruefschritt_ist_im_ablauf_verankert():

@@ -74,7 +74,7 @@ def test_945_prompt_enthaelt_keine_mailadresse():
 
 def test_945_prompt_beruecksichtigt_den_stand():
     p = claude_prompt({**BEWERBUNG, "status": "interview_abgeschlossen"})
-    assert "Gespraech" in p
+    assert "Gespräch" in p
 
 
 # ── Verfahrensstand macht Nachfassungen gegenstandslos ───────────────
