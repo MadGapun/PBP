@@ -105,6 +105,89 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.138] - 2026-09-26 — Umlaute auch vom Server
+
+v1.7.134 hat die Oberfläche auf echte Umlaute umgestellt. Ein Teil der
+Texte im Dashboard kommt aber vom Server, und dort stand weiter „ae“,
+„oe“ und „ue“ — zum Beispiel „Nachfassen ist kein Stoeren“ direkt unter
+„HEUTE FÜR DICH“. Kein Schema-Eingriff; gespeicherte Daten bleiben, wie
+sie sind.
+
+### Changed
+
+- **Echte Umlaute in allen Server-Texten des Dashboards** (#1088 G73).
+  Rund 440 Texte in 25 Dateien:
+  - Tagesimpuls und Elwosa, samt Uhrzeit („Halb fünf“) und Monat („März“),
+  - Hinweise und Arbeitsstand,
+  - Datengüte-Marken an der Stellenliste,
+  - Quellenbeschreibungen,
+  - Faktoren im Fit-Dialog,
+  - Meldungen der Einstellungen, Statistik und Schwellen,
+  - Meldungen zum Löschen, zu Ordnern und zu Ollama.
+
+  Bezeichner, Statuswerte, SQL, Protokollzeilen und die Suchmuster, mit
+  denen PBP Mails und Anzeigen liest, bleiben unverändert. Die Suchmuster
+  kennen weiter beide Schreibweisen.
+- **Die Prüfung in der CI liest jetzt auch den Server** (#1088 G73).
+  `scripts/ui_texte_pruefen.py` prüft diese Dateien und den Tagesimpuls
+  mit. Neue Umschrift fällt dort auf, bevor sie ausgeliefert wird.
+
+### Gemessen
+
+Gegenprobe: 11 Mechanismen, jeder einzeln ausgebaut, jeder
+macht einen Test rot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.138.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.138.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.137] - 2026-09-25 — Lesbar für alle
 
 Siebte und letzte Welle aus dem UX-Review #1087: heller Modus,
