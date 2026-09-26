@@ -161,7 +161,7 @@ def test_981_mit_stelle_wird_nur_der_umfang_gefragt():
     text = _builder()(stelle="Fachkraft", firma="Musterbetrieb GmbH",
                       job_hash="abc123")
     assert "SCHRITT 0: UMFANG KLAEREN" in text
-    assert "KONTEXT (vorbefuellt)" in text
+    assert "KONTEXT (vorbefüllt)" in text
     assert "job_hash: abc123" in text
 
 
@@ -169,7 +169,7 @@ def test_981_mit_allem_keine_rueckfrage():
     text = _builder()(stelle="Fachkraft", firma="Musterbetrieb GmbH",
                       job_hash="abc123", bewerbung_id="APP-1",
                       nur="lebenslauf")
-    assert "SCHRITT 0 entfaellt" in text
+    assert "SCHRITT 0 entfällt" in text
     assert "NICHT nachfragen" in text
 
 

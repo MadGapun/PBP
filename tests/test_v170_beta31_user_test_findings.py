@@ -271,8 +271,8 @@ def test_export_report_section3_has_abgrenzungs_hinweis():
     p = PROJECT_ROOT / "src" / "bewerbungs_assistent" / "export_report.py"
     content = p.read_text(encoding="utf-8")
     # #598: explizite Abgrenzung zwischen Abschnitt 3 und 12
-    assert "3. Quellenanalyse (Qualitaet pro Quelle)" in content
-    assert "12. Quellen-Aktivitaet (Volumen pro Quelle)" in content
+    assert "3. Quellenanalyse (Qualität pro Quelle)" in content
+    assert "12. Quellen-Aktivität (Volumen pro Quelle)" in content
     assert "Volumen (Gesamttreffer" in content
 
 

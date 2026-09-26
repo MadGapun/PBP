@@ -415,8 +415,8 @@ def extrahieren(text: str) -> dict:
 
     if not gefunden:
         leer["grund"] = (
-            "Keine Zahl mit Waehrung oder Rate-Wort gefunden. Eine Zahl "
-            "neben dem Wort 'Stunden' ist ohne Waehrung fast immer "
+            "Keine Zahl mit Währung oder Rate-Wort gefunden. Eine Zahl "
+            "neben dem Wort 'Stunden' ist ohne Währung fast immer "
             "Arbeitszeit.")
         return leer
 

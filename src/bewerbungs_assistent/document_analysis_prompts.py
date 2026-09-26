@@ -27,10 +27,10 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "apply_to_profile": False,
         "focus": [
             "Tonalitaet: Standard-Autoantwort oder personalisiert?",
-            "Timeline-Hinweise: Bearbeitungsdauer oder naechster Schritt genannt?",
+            "Timeline-Hinweise: Bearbeitungsdauer oder nächster Schritt genannt?",
             "Kontaktperson (Name, Rolle, E-Mail) falls erkennbar",
             "Referenz-/Kennzeichen der Bewerbung",
-            "Empfohlene naechste Aktion (abwarten / nachfassen / Unterlagen nachreichen)",
+            "Empfohlene nächste Aktion (abwarten / nachfassen / Unterlagen nachreichen)",
             "Empfohlene Follow-up-Frist",
         ],
     },
@@ -53,7 +53,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "focus": [
             "Ablehnungsgrund: explizit oder generisch?",
             "Personalisiert oder Standardtext?",
-            "Tuer offen fuer spaeter? (Talentpool, andere Stellen)",
+            "Tuer offen für später? (Talentpool, andere Stellen)",
             "Empfehlung: Kontakt warm halten oder abhaken?",
             "Lessons-Learned zur Passung / zum Prozess",
             "Follow-up-Empfehlung (Talentpool-Registrierung, LinkedIn-Kontakt)",
@@ -63,11 +63,11 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "label": "Gespraechs-/Interview-Notiz",
         "apply_to_profile": False,
         "focus": [
-            "Commitments: Wer hat was fuer wann zugesagt?",
+            "Commitments: Wer hat was für wann zugesagt?",
             "Offene Fragen (beide Seiten)",
-            "Signale: Interesse vs. Zurueckhaltung",
+            "Signale: Interesse vs. Zurückhaltung",
             "Entscheider identifiziert?",
-            "Naechste Schritte (explizit oder implizit)",
+            "Nächste Schritte (explizit oder implizit)",
             "Empfohlene Follow-up-Aktion und -Frist",
         ],
     },
@@ -75,11 +75,11 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "label": "Vertrag / Angebot",
         "apply_to_profile": False,
         "focus": [
-            "Vertragliche Eckdaten (Gehalt, Boni, Urlaub, Kuendigungsfrist, Probezeit)",
-            "Abweichungen vom Marktueblichen",
+            "Vertragliche Eckdaten (Gehalt, Boni, Urlaub, Kündigungsfrist, Probezeit)",
+            "Abweichungen vom Marktüblichen",
             "Potenzielle Verhandlungspunkte",
             "Unklare / schwammige Klauseln",
-            "Rote Flaggen (Wettbewerbsverbote, Rueckzahlungsklauseln, Verfuegbarkeitspflichten)",
+            "Rote Flaggen (Wettbewerbsverbote, Rückzahlungsklauseln, Verfügbarkeitspflichten)",
             "Empfehlung: akzeptieren / verhandeln / ablehnen (mit Begruendung)",
         ],
     },
@@ -87,7 +87,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "label": "Profil-Dokument (CV, Zeugnis, Zertifikat)",
         "apply_to_profile": True,
         "focus": [
-            "Profilrelevante Informationen vollstaendig extrahieren",
+            "Profilrelevante Informationen vollständig extrahieren",
             "Positionen, Ausbildungen, Skills, Sprachen, Projekte erkennen",
             "Konflikte mit bestehenden Profildaten markieren",
         ],
@@ -98,8 +98,8 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         "focus": [
             "Kerninhalt kurz zusammenfassen",
             "Strukturierte Daten extrahieren (Personen, Firmen, Daten, Kennzeichen)",
-            "Relevanz fuer den Bewerbungsprozess",
-            "Empfohlene naechste Aktion",
+            "Relevanz für den Bewerbungsprozess",
+            "Empfohlene nächste Aktion",
         ],
     },
 }
@@ -224,7 +224,7 @@ def build_prompt(document: dict, template_key: str | None = None) -> dict[str, A
     ]
     if app_label:
         header_lines.insert(1, "")
-        header_lines.insert(1, f"Verknuepft mit Bewerbung: {app_label}")
+        header_lines.insert(1, f"Verknüpft mit Bewerbung: {app_label}")
 
     workflow_lines = [
         "",
@@ -235,15 +235,15 @@ def build_prompt(document: dict, template_key: str | None = None) -> dict[str, A
 
     if template["apply_to_profile"]:
         workflow_lines.extend([
-            "2. Analysiere den Inhalt vollstaendig auf profilrelevante Informationen.",
+            "2. Analysiere den Inhalt vollständig auf profilrelevante Informationen.",
             "3. Speichere das Ergebnis mit `extraktion_ergebnis_speichern(...)`.",
             "4. Wende verwertbare Daten mit `extraktion_anwenden(...)` direkt auf das aktive Profil an.",
-            "5. Fasse danach kurz zusammen: was uebernommen wurde, was unklar blieb, welche Ergaenzung noch fehlt.",
+            "5. Fasse danach kurz zusammen: was uebernommen wurde, was unklar blieb, welche Ergänzung noch fehlt.",
         ])
     else:
         workflow_lines.extend([
             "2. Analysiere den Inhalt entlang der unten genannten Fokus-Punkte.",
-            "3. Liefere das Ergebnis als strukturierte Zusammenfassung zurueck.",
+            "3. Liefere das Ergebnis als strukturierte Zusammenfassung zurück.",
             "4. Wenn konkrete Folgeaktionen sichtbar werden (Follow-up planen, Status aendern, Notiz speichern), "
             "nenne die passenden PBP-Tools (`nachfass_planen`, `bewerbung_status_aendern`, `bewerbung_notiz`).",
         ])
@@ -255,16 +255,16 @@ def build_prompt(document: dict, template_key: str | None = None) -> dict[str, A
     ]
 
     footer_lines = ["", "Wichtig:",
-                    "- Stelle keine Rueckfrage, ob du das Dokument analysieren sollst. Fang direkt an.",
+                    "- Stelle keine Rückfrage, ob du das Dokument analysieren sollst. Fang direkt an.",
                     "- Arbeite nur im aktiven Profil."]
     if is_email:
         footer_lines.append(
             "- Es handelt sich um eine E-Mail-Datei: Betreff, Absender, Nachrichtentext und "
-            "erkennbare Anhaenge beruecksichtigen."
+            "erkennbare Anhänge berücksichtigen."
         )
     if not extracted_available:
         footer_lines.append(
-            "- Falls das Dokument keinen lesbaren Text liefert, melde das klar zurueck und "
+            "- Falls das Dokument keinen lesbaren Text liefert, melde das klar zurück und "
             "nenne den wahrscheinlichsten Grund."
         )
 

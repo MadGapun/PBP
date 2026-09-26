@@ -225,10 +225,10 @@ def test_h32_der_gemeldete_satz_ist_weg(umgebung):
     _, mcp = umgebung
     erg = _call(mcp, "profil_einordnung")
     assert erg["status"] == "kein_profil"
-    assert erg["erklaerung"] == "Um dein Profil einordnen zu koennen, braucht PBP zuerst ein Profil."
+    assert erg["erklaerung"] == "Um dein Profil einordnen zu können, braucht PBP zuerst ein Profil."
 
 
 def test_h32_kein_profil_formuliert_richtig():
     from bewerbungs_assistent.services.nutzerfuehrung import kein_profil
-    assert kein_profil("deine Notizen aufraeumen")["erklaerung"].startswith(
-        "Um deine Notizen aufraeumen zu koennen")
+    assert kein_profil("deine Notizen aufräumen")["erklaerung"].startswith(
+        "Um deine Notizen aufräumen zu können")

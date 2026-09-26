@@ -61,7 +61,7 @@ VERDACHT = "verdacht"
 GRUND_TEXT = {
     "url": "Identische Anzeigen-URL (ohne Tracking-Parameter)",
     "titel_firma": "Gleiche Firma, gleicher Titel nach Normalisierung",
-    "aehnlich": "Gleiche Firma, aehnlicher Titel — bitte selbst pruefen",
+    "aehnlich": "Gleiche Firma, ähnlicher Titel — bitte selbst prüfen",
 }
 
 # Tracking-Parameter, die beim Vergleich wegfallen. Dieselbe Liste wie
@@ -273,7 +273,7 @@ def bestand_pruefen(db, *, max_stellen: int = 0) -> dict:
         "stichprobe": proben,
         "hinweis": (
             "Vorschau — es wurde nichts geschrieben und nichts "
-            "zusammengefuehrt. Fuer einen bestaetigten Fall ist "
+            "zusammengeführt. Für einen bestätigten Fall ist "
             "`stelle_mergen` der Weg (#470)."),
     }
 

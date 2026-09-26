@@ -62,13 +62,13 @@ FAELLE = (IDENTISCH, ABWEICHEND, ZUSAMMENGEFUEHRT, NUR_FELD, NUR_TIMELINE)
 
 BEDEUTUNG = {
     IDENTISCH: ("Feld und Anlage-Eintrag sind wortgleich — harmlose "
-                "Dublette, ein Rueckbau kostet nichts."),
-    ABWEICHEND: ("Beide gefuellt und verschieden — hier wurde gepflegt. "
+                "Dublette, ein Rückbau kostet nichts."),
+    ABWEICHEND: ("Beide gefüllt und verschieden — hier wurde gepflegt. "
                  "Welche Fassung gilt, ist eine inhaltliche Entscheidung."),
-    ZUSAMMENGEFUEHRT: ("Das Notizfeld enthaelt beide Fassungen. Nichts "
+    ZUSAMMENGEFUEHRT: ("Das Notizfeld enthält beide Fassungen. Nichts "
                        "ist verloren, nichts mehr zu tun."),
-    NUR_FELD: "Nur das Notizfeld ist gefuellt.",
-    NUR_TIMELINE: "Nur der Anlage-Eintrag ist gefuellt.",
+    NUR_FELD: "Nur das Notizfeld ist gefüllt.",
+    NUR_TIMELINE: "Nur der Anlage-Eintrag ist gefüllt.",
 }
 
 
@@ -186,16 +186,16 @@ def _hinweis(zaehler: dict) -> str:
     identisch = zaehler.get(IDENTISCH, 0)
     if abweichend == 0 and identisch == 0:
         return ("Keine Doppelung im Bestand — der Anlage-Eintrag aus "
-                "#224 hat hier nie gegriffen. Stufe 2 waere reine "
-                "Vorsorge fuer kuenftige Anlagen.")
+                "#224 hat hier nie gegriffen. Stufe 2 wäre reine "
+                "Vorsorge für künftige Anlagen.")
     if abweichend == 0:
         return (f"{identisch} Dublette(n), aber KEINE Drift: Feld und "
-                "Anlage-Eintrag sind ueberall wortgleich. Ein Rueckbau "
+                "Anlage-Eintrag sind überall wortgleich. Ein Rückbau "
                 "verliert damit nichts — es gibt keine zweite Fassung, "
-                "die jemand gepflegt haette.")
+                "die jemand gepflegt hätte.")
     return (f"{abweichend} Bewerbung(en) tragen ZWEI verschiedene "
-            "Fassungen derselben Notiz. Fuer die ist der Rueckbau kein "
-            "Aufraeumen, sondern eine inhaltliche Entscheidung — welche "
+            "Fassungen derselben Notiz. Für die ist der Rückbau kein "
+            "Aufräumen, sondern eine inhaltliche Entscheidung — welche "
             "Fassung gilt, kann nur der Mensch sagen.")
 
 
@@ -221,7 +221,7 @@ def _hinweis(zaehler: dict) -> str:
 # benannt, nicht gefuellt, und eine Information, die ein Mensch
 # geschrieben hat, wird nicht auf Verdacht weggeworfen (#989, #1010).
 
-TRENNZEILE = "--- frueherer Stand (aus dem Anlage-Eintrag) ---"
+TRENNZEILE = "--- früherer Stand (aus dem Anlage-Eintrag) ---"
 
 
 def _verketten(feld: str, timeline: str) -> str:
@@ -344,9 +344,9 @@ def zusammenfuehren(db, *, dry_run: bool = True, max_bewerbungen: int = 0) -> di
             "anzahl": nur_timeline,
             "bedeutung": (
                 "Hier steht die Notiz NUR im Anlage-Eintrag, das Feld "
-                "ist leer. Es gibt also nichts zusammenzufuehren — "
-                "diese Faelle bleiben unangetastet. Sie ins Feld zu "
-                "schieben waere ein Umzug und damit eine eigene "
+                "ist leer. Es gibt also nichts zusammenzuführen — "
+                "diese Fälle bleiben unangetastet. Sie ins Feld zu "
+                "schieben wäre ein Umzug und damit eine eigene "
                 "Entscheidung."),
         },
         "stichprobe": proben,
@@ -358,6 +358,6 @@ def zusammenfuehren(db, *, dry_run: bool = True, max_bewerbungen: int = 0) -> di
             "unangetastet."
             if dry_run else
             "Beide Fassungen stehen jetzt im Notizfeld. Nichts wurde "
-            "geloescht; der Timeline-Eintrag belegt weiterhin die "
+            "gelöscht; der Timeline-Eintrag belegt weiterhin die "
             "Herkunft des unteren Teils."),
     }

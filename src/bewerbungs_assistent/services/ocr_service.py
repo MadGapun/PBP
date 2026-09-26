@@ -75,17 +75,17 @@ def ocr_angebot(db) -> dict:
         "warum": (
             "Dieses PDF ist ein Scan ohne Text-Ebene. Mit der OCR-Komponente "
             "liest PBP den Text automatisch aus — einmal installieren, gilt "
-            "fuer alle kuenftigen Scans."
+            "für alle künftigen Scans."
         ),
         "naechster_schritt_mcp": (
             "komponente_installieren(name='tesseract', bestaetigt=True) "
-            "— nur nach RUECKFRAGE beim User ausfuehren, nie ungefragt."
+            "— nur nach RUECKFRAGE beim User ausführen, nie ungefragt."
         ),
         "naechster_schritt_ui": (
             "Einstellungen › Erweiterungen (Tesseract) OCR installieren"
         ),
         "alternative": (
-            "Text selbst extrahieren (z.B. Claude-OCR des angehaengten "
+            "Text selbst extrahieren (z.B. Claude-OCR des angehängten "
             "Scans) und per dokument_text_setzen(...) mit Quelle nachtragen."
         ),
     }
@@ -103,8 +103,8 @@ def _pick_langs(db) -> tuple[str, str]:
         return "deu", ""
     if "eng" in langs:
         return "eng", (
-            "deu-Sprachpaket fehlt — Erkennung lief nur mit 'eng'. Fuer "
-            "deutsche Dokumente: komponente_installieren laedt 'deu' nach, "
+            "deu-Sprachpaket fehlt — Erkennung lief nur mit 'eng'. Für "
+            "deutsche Dokumente: komponente_installieren lädt 'deu' nach, "
             "oder ensure_language('deu')."
         )
     return "", ""
@@ -135,7 +135,7 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
             "status": "fehler",
             "fehler": (
                 "Tesseract gefunden, aber keine Sprachdaten (tessdata) — "
-                "Installation unvollstaendig. ensure_language('deu') laedt "
+                "Installation unvollständig. ensure_language('deu') lädt "
                 "die Sprachpakete nach."
             ),
         }
@@ -147,7 +147,7 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
         return {
             "status": "fehler",
             "fehler": (
-                "pypdfium2 fehlt (PDF-Rendering). Update drueberinstallieren "
+                "pypdfium2 fehlt (PDF-Rendering). Update drüberinstallieren "
                 "oder: pip install pypdfium2 pillow"
             ),
         }
@@ -217,7 +217,7 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
         return {
             "status": "fehler",
             "fehler": (
-                "OCR lieferte keinen Text — Scan-Qualitaet zu schlecht oder "
+                "OCR lieferte keinen Text — Scan-Qualität zu schlecht oder "
                 "leere Seiten. Alternative: Text manuell extrahieren und per "
                 "dokument_text_setzen nachtragen."
             ),

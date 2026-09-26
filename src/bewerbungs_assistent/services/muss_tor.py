@@ -129,17 +129,17 @@ MODI = {
     AUTOMATISCH: (
         "Vorgabe. PBP entscheidet anhand deiner Pflichtbegriffe: nennen "
         "sie Techniken, gilt 'hart'; nennen sie einen Beruf, gilt "
-        "'gewichtet'. Laesst sich die Frage nicht beantworten, bleibt "
+        "'gewichtet'. Lässt sich die Frage nicht beantworten, bleibt "
         "es bei 'hart' — also beim bisherigen Verhalten."),
     HART: (
-        "Vorgabe. Ohne Pflichttreffer faellt die Stelle heraus — sie "
+        "Vorgabe. Ohne Pflichttreffer fällt die Stelle heraus — sie "
         "wird gar nicht erst gespeichert. Richtig, wenn die "
         "Pflichtbegriffe Techniken nennen: dann ist ihr Fehlen ein "
-        "echter Beleg fuer ein anderes Fachgebiet."),
+        "echter Beleg für ein anderes Fachgebiet."),
     GEWICHTET: (
         "Ohne Pflichttreffer steht die Stelle weit unten statt "
-        "nirgends. Sie kann nie ueber einer Stelle mit Pflichttreffer "
-        "stehen und traegt hoechstens die Haelfte dessen, was ein "
+        "nirgends. Sie kann nie über einer Stelle mit Pflichttreffer "
+        "stehen und trägt höchstens die Hälfte dessen, was ein "
         "einzelner Pflichttreffer wert ist. Richtig, wenn die "
         "Pflichtbegriffe einen Beruf nennen — derselbe Beruf heisst in "
         "vielen Anzeigen anders."),
@@ -171,7 +171,7 @@ def abgeleitet(arten: dict[str, str] | None) -> tuple[str, str]:
             + f"({', '.join(berufe[:3])}"
             + (" …" if len(berufe) > 3 else "")
             + "). Derselbe Beruf heisst in vielen Anzeigen anders — "
-              "sein Fehlen ist deshalb kein Beleg fuer ein anderes "
+              "sein Fehlen ist deshalb kein Beleg für ein anderes "
               "Fachgebiet.")
     if techniken:
         return HART, (
@@ -179,11 +179,11 @@ def abgeleitet(arten: dict[str, str] | None) -> tuple[str, str]:
             f"({', '.join(techniken[:3])}"
             + (" …" if len(techniken) > 3 else "")
             + "). Kommt eine davon in einer Anzeige nicht vor, ist das "
-              "ein echter Beleg fuer ein anderes Fachgebiet.")
+              "ein echter Beleg für ein anderes Fachgebiet.")
     return HART, (
         "Die Art deiner Pflichtbegriffe ist noch nicht bestimmt — es "
         "bleibt beim bisherigen Verhalten. Die Einordnung entsteht beim "
-        "naechsten Suchlauf.")
+        "nächsten Suchlauf.")
 
 
 def modus(db, criteria: dict | None = None) -> str:
@@ -236,11 +236,11 @@ def modus_setzen(db, wert: str) -> dict:
         "muss_tor": wert,
         "bedeutet": MODI[wert],
         "hinweis": (
-            "Wirkt ab dem naechsten Suchlauf. Der gespeicherte Bestand "
-            "aendert sich dadurch nicht — bereits verworfene Stellen "
-            "sind weg und kommen nicht zurueck."
+            "Wirkt ab dem nächsten Suchlauf. Der gespeicherte Bestand "
+            "ändert sich dadurch nicht — bereits verworfene Stellen "
+            "sind weg und kommen nicht zurück."
             if wert == GEWICHTET else
-            "Wirkt ab dem naechsten Suchlauf. Bereits gespeicherte "
+            "Wirkt ab dem nächsten Suchlauf. Bereits gespeicherte "
             "Stellen ohne Pflichttreffer bleiben stehen; "
             "scores_neu_berechnen() setzt sie auf 0."),
     }

@@ -224,19 +224,19 @@ FEHLER_TEXTE = {
         "LinkedIn hat die Decoration-ID hochgezogen (HTTP 400/426). Das ist "
         "kein leeres Ergebnis, sondern ein veralteter Aufruf: die aktuelle "
         "ID steht im Netzwerk-Tab eines echten LinkedIn-Jobsuchlaufs und "
-        "gehoert dann in linkedin_voyager.DECORATION_LISTE bzw. "
+        "gehört dann in linkedin_voyager.DECORATION_LISTE bzw. "
         "DECORATION_DETAIL."),
     "nicht_eingeloggt": (
-        "Kein gueltiger Login im Chrome-Tab (HTTP 401/403). Erst bei "
+        "Kein gültiger Login im Chrome-Tab (HTTP 401/403). Erst bei "
         "LinkedIn anmelden, dann den Lauf wiederholen — die Quelle bleibt "
         "aktiv und wartet."),
     "gedrosselt": (
         "LinkedIn drosselt (HTTP 429). Pause zwischen den Requests "
-        "erhoehen und spaeter fortsetzen; bereits geholte Treffer sind "
+        "erhöhen und später fortsetzen; bereits geholte Treffer sind "
         "nicht verloren."),
     "linkedin_stoerung": (
-        "LinkedIn antwortet mit einem Serverfehler — kein Befund ueber "
-        "den Stellenmarkt, spaeter erneut versuchen."),
+        "LinkedIn antwortet mit einem Serverfehler — kein Befund über "
+        "den Stellenmarkt, später erneut versuchen."),
     "unbekannter_fehler": (
         "Unerwartete Antwort von LinkedIn. Der Lauf gilt als "
         "fehlgeschlagen, nicht als leer."),

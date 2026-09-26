@@ -48,6 +48,7 @@ def test_g73_pruefer_meldet_umschrift_im_backend(tmp_path, monkeypatch):
     monkeypatch.setattr(p, "REPO", tmp_path)
     monkeypatch.setattr(p, "BACKEND_DATEIEN", [datei])
     monkeypatch.setattr(p, "UI_DATEIEN", [])
+    monkeypatch.setattr(p, "claude_dateien", lambda: [])
     monkeypatch.setattr(p, "katalog_texte", lambda: [])
     leer = tmp_path / "impulse.json"
     leer.write_text("[]", encoding="utf-8")

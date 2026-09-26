@@ -101,9 +101,9 @@ def schwellen(db, criteria=None) -> dict:
             "anzahl": len(beworben),
             "grundlage_fehlt": (
                 f"Nur {len(beworben)} bewertbare Bewerbungen — unter "
-                f"{MIN_BEWERBUNGEN} traegt die Verteilung keine Schwelle. "
+                f"{MIN_BEWERBUNGEN} trägt die Verteilung keine Schwelle. "
                 "Der Fachdaumen bleibt deshalb grau; eine Ersatzschwelle "
-                "waere geraten."),
+                "wäre geraten."),
         }
     sortiert = sorted(beworben)
     q25 = _quantil(sortiert, 0.25)
@@ -118,7 +118,7 @@ def schwellen(db, criteria=None) -> dict:
         "formel": (
             f"Unteres Viertel deiner Bewerbungen ({q25}) mal "
             f"{TRENN_TOLERANZ} = {trenn}. Darunter lohnt das Hinsehen "
-            f"erfahrungsgemaess nicht; ab {q75} liegst du im oberen "
+            f"erfahrungsgemäss nicht; ab {q75} liegst du im oberen "
             "Viertel dessen, worauf du dich beworben hast."),
     }
     # Wieviele aussortierte Stellen laegen ueber der Trennschwelle? Die
@@ -187,7 +187,7 @@ def daumen(punkte, schwellen_werte: dict, belegt: bool = True) -> dict:
     if punkte is None:
         return {"richtung": MITTEL, "farbe": GRAU,
                 "ungeprueft_weil": "ohne Punkte",
-                "grund": "Diese Stelle traegt keinen Fachwert."}
+                "grund": "Diese Stelle trägt keinen Fachwert."}
     fehlt = (schwellen_werte or {}).get("grundlage_fehlt")
     if fehlt:
         return {"richtung": MITTEL, "farbe": GRAU, "grund": fehlt,
@@ -207,10 +207,10 @@ def daumen(punkte, schwellen_werte: dict, belegt: bool = True) -> dict:
     elif wert < trenn:
         richtung, grund = RUNTER, (
             f"{wert:g} Punkte — unter der Schwelle, ab der sich das "
-            f"Hinsehen erfahrungsgemaess lohnt ({trenn:g}).")
+            f"Hinsehen erfahrungsgemäss lohnt ({trenn:g}).")
     else:
         richtung, grund = MITTEL, (
-            f"{wert:g} Punkte — ueber der Schwelle ({trenn:g}), aber "
+            f"{wert:g} Punkte — über der Schwelle ({trenn:g}), aber "
             f"unter deinem oberen Viertel ({oben:g}).")
     marke = {"richtung": richtung,
              "farbe": BELEGT if belegt else GRAU,

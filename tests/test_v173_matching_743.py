@@ -341,7 +341,7 @@ class TestAutoAssignDocument:
             "SELECT notes FROM application_events WHERE application_id=?",
             (app_id,)
         ).fetchall()
-        assert any("automatisch verknuepft" in (e["notes"] or "") for e in events)
+        assert any("automatisch verknüpft" in (e["notes"] or "") for e in events)
 
     def test_gleiche_konfidenz_aktive_gewinnt(self, tmp_db):
         """Tie-Break: bei gleicher Konfidenz gewinnt die aktive Bewerbung."""

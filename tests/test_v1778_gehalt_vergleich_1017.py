@@ -111,7 +111,7 @@ def test_1017_geschaetztes_gehalt_bringt_im_basis_score_nichts():
     assert echt["_rahmenscore"] > geschaetzt["_rahmenscore"], (
         "Eine geschaetzte Zahl bringt denselben Bonus wie eine echte.")
     assert _gehalts_faktor(geschaetzt) == {
-        "Gehalt: nur Schaetzung — neutral (#827)": 0}
+        "Gehalt: nur Schätzung — neutral (#827)": 0}
 
 
 def test_1017_stundensatz_wird_gegen_den_stundensatz_verglichen():

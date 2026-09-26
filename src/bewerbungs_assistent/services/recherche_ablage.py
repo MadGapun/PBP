@@ -57,7 +57,7 @@ KATEGORIE_MANUELL = "firmenrecherche"
 PROTOKOLL_MARKER = (
     "[Auto-Aussortierung]",
     "Recruiter-Anfrage abgelehnt",
-    "Bewerbung zurueck in Anfrage",
+    "Bewerbung zurück in Anfrage",
     "Bewerbung zurück in Anfrage",
 )
 

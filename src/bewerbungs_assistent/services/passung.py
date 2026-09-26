@@ -68,7 +68,7 @@ OHNE_URTEIL = {
         "zu vergleichen — hole zuerst die Beschreibung nach "
         "(stellenbeschreibung_nachladen)."),
     "kein_profil": (
-        "PBP kennt deine Kompetenzen nicht. Ohne Profil laesst sich "
+        "PBP kennt deine Kompetenzen nicht. Ohne Profil lässt sich "
         "keine Passung beurteilen — leg zuerst dein Profil an."),
     # H24 (#1087 G4): die Score-Deutung kommt aus EINER Konstante.
     "nicht_gelesen": (
@@ -130,7 +130,7 @@ def urteil(ko_gruende=None, beschreibung_vorhanden: bool = True,
             gruende = gespeicherte_analyse.get("veraltet_text") or [
                 "Dein Profil hat sich seither geändert"]
             antwort["hinweis"] = (
-                "; ".join(gruende) + " — das Urteil kann ueberholt sein.")
+                "; ".join(gruende) + " — das Urteil kann überholt sein.")
         return antwort
 
     if not beschreibung_vorhanden:

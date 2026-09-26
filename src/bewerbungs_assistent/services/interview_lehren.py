@@ -122,7 +122,7 @@ def lehren_auswerten(db) -> dict[str, Any]:
         ergebnis["muster_hinweis"] = (
             f"Erst ab {MIN_FAELLE} Reflexionen werden Muster ausgewiesen "
             f"(aktuell {anzahl}) — zwei Vorkommen sind kein Muster. Die "
-            "Einzeleintraege stehen in interview_reflexionen_anzeigen.")
+            "Einzeleinträge stehen in interview_reflexionen_anzeigen.")
         return ergebnis
 
     muster: dict[str, Any] = {}
@@ -133,9 +133,9 @@ def lehren_auswerten(db) -> dict[str, Any]:
     if ueberraschungen:
         muster["wiederkehrende_ueberraschungen"] = ueberraschungen
         muster["ueberraschungs_hinweis"] = (
-            "Dieselbe Art Ueberraschung mehrfach heisst: eine Frage fehlt "
-            "in der VORBEREITUNG — die Luecke liegt in der Recherche, "
-            "nicht im Gespraech.")
+            "Dieselbe Art Überraschung mehrfach heisst: eine Frage fehlt "
+            "in der VORBEREITUNG — die Lücke liegt in der Recherche, "
+            "nicht im Gespräch.")
     staerken = _wiederkehrend(reflexionen, "was_lief_gut")
     if staerken:
         muster["wiederkehrende_staerken"] = staerken
@@ -162,16 +162,16 @@ def lehren_auswerten(db) -> dict[str, Any]:
         }
         if gefuehl_schnitt >= 4 and positiv_quote < 0.4:
             blick["beobachtung"] = (
-                f"Dein Bauchgefuehl nach Gespraechen liegt im Schnitt bei "
+                f"Dein Bauchgefühl nach Gesprächen liegt im Schnitt bei "
                 f"{gefuehl_schnitt:.1f} von 5, der Ausgang war aber nur in "
-                f"{round(positiv_quote * 100)} % der Faelle positiv — das "
-                "Gefuehl direkt nach dem Gespraech ist bei dir ein "
-                "unzuverlaessiger Prognostiker.")
+                f"{round(positiv_quote * 100)} % der Fälle positiv — das "
+                "Gefuehl direkt nach dem Gespräch ist bei dir ein "
+                "unzuverlässiger Prognostiker.")
         muster["gefuehl_gegen_ausgang"] = blick
 
     ergebnis["muster"] = muster or None
     if not muster:
         ergebnis["muster_hinweis"] = (
-            "Keine wiederkehrenden Begriffe ueber die Reflexionen hinweg — "
-            "das ist keine Luecke, sondern ein Befund.")
+            "Keine wiederkehrenden Begriffe über die Reflexionen hinweg — "
+            "das ist keine Lücke, sondern ein Befund.")
     return ergebnis

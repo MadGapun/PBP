@@ -85,7 +85,7 @@ def test_540_arbeitsamt_enabled_but_empty_fields(setup_env):
         "ba_aktenzeichen": "",
     })
     text = _pdf_text(out)
-    assert "Vorlage fuer das Arbeitsamt" not in text
+    assert "Vorlage für das Arbeitsamt" not in text
 
 
 # ============= Bericht-Settings API ===============
@@ -149,12 +149,12 @@ def test_540_neue_sektionen_in_toc(setup_env):
     out = Path(tmpdir) / "toc.pdf"
     _generate_pdf(db, profile, out)
     text = _pdf_text(out)
-    assert "Aktivitaetsprotokoll" in text
-    assert "Quellen-Aktivitaet" in text
+    assert "Aktivitätsprotokoll" in text
+    assert "Quellen-Aktivität" in text
     # v1.6.8: Trichter ist raus
     assert "Bewerbungs-Trichter" not in text
     # v1.6.8: Effort-Proxy ist raus
-    assert "Geschaetzter Zeitaufwand" not in text
+    assert "Geschätzter Zeitaufwand" not in text
 
 
 # ============= Zeitraum-Filter ===============

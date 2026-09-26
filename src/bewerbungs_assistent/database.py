@@ -405,14 +405,14 @@ class Database:
                         f"Pre-Migration-Backup fehlgeschlagen ({exc}) — "
                         f"Migration abgebrochen, um Datenverlust zu vermeiden. "
                         f"Bitte Speicherplatz/Schreibrechte unter {backup_dir} "
-                        f"pruefen und PBP neu starten."
+                        f"prüfen und PBP neu starten."
                     ) from exc
                 # Die DB existiert hier garantiert (schema_version wurde gerade
                 # gelesen) — also MUSS ein gueltiges Backup entstanden sein.
                 if (not backup_path or not backup_path.exists()
                         or backup_path.stat().st_size < 1024):
                     raise RuntimeError(
-                        f"Pre-Migration-Backup wurde nicht gueltig geschrieben "
+                        f"Pre-Migration-Backup wurde nicht gültig geschrieben "
                         f"(Pfad: {backup_path}) — Migration abgebrochen, um "
                         f"Datenverlust zu vermeiden."
                     )
@@ -3600,7 +3600,7 @@ class Database:
         _FORMATIERUNG = ["---", "===", "***", "|||", "```", "<!--", "-->",
                          "##", "**", "__", "- -", "...", "~~~"]
         if any(m in roh for m in _FORMATIERUNG):
-            return "enthaelt Formatierungs-Reste (Markdown/HTML)"
+            return "enthält Formatierungs-Reste (Markdown/HTML)"
         if roh.isdigit():
             return "besteht nur aus Ziffern"
         if not any(c.isalnum() for c in roh):
@@ -3609,28 +3609,28 @@ class Database:
         # `C++` oder `C/C++` tragen naturgemaess viele Sonderzeichen.
         if len(roh) >= 6 and sum(
                 1 for c in roh if c.isalnum() or c == " ") < len(roh) * 0.5:
-            return "besteht ueberwiegend aus Sonderzeichen"
+            return "besteht überwiegend aus Sonderzeichen"
         if quelle == "eingabe":
             return None
 
         # --- nur Extraktion: Satzfragmente ------------------------------
         if len(roh) < 2:
-            return "kuerzer als zwei Zeichen"
+            return "kürzer als zwei Zeichen"
         if re.match(r'^\d+[\.\)]\s', roh):
             return "nummerierter Listenpunkt"
         if roh.startswith("("):
             return "beginnt mit einer Klammer"
         if ": " in roh and len(roh) > 30:
-            return "Ueberschrift mit Doppelpunkt"
+            return "Überschrift mit Doppelpunkt"
         if cls._ohne_klammerinhalt(roh).count(" ") > 5:
-            return "mehr als sechs Woerter ausserhalb von Klammern — eher ein Satz"
+            return "mehr als sechs Wörter ausserhalb von Klammern — eher ein Satz"
         if roh.isupper() and len(roh) > 20:
-            return "Ueberschrift in Grossbuchstaben"
+            return "Überschrift in Grossbuchstaben"
         _STOPWORDS = {"enabling", "efficient", "power", "detailliert", "sonstige",
                       "diverse", "verschiedene", "übersicht", "zusammenfassung",
                       "verantwortlich", "zustaendig", "erfahrung"}
         if klein in _STOPWORDS:
-            return "Fuellwort ohne Kompetenz"
+            return "Füllwort ohne Kompetenz"
         # #681: Satzfragmente aus der Extraktion ausfiltern (z.B.
         # "in Systemen wie Creo", "Programmierung in CATIA.").
         woerter = roh.split()
@@ -4455,7 +4455,7 @@ class Database:
             return {"fehler": "Kategorie nicht gefunden"}
         if row["is_system"]:
             return {
-                "fehler": "System-Kategorie kann nicht geloescht werden",
+                "fehler": "System-Kategorie kann nicht gelöscht werden",
                 "hinweis": "Du kannst Name + Farbe aendern, aber nicht loeschen.",
             }
         # Pruefen ob noch Kontakte zugeordnet
@@ -4561,7 +4561,7 @@ class Database:
             if not row:
                 raise ValueError(
                     f"Bewerbung nicht gefunden: {app_id}. "
-                    "Pruefe die ID mit bewerbungen_anzeigen().")
+                    "Prüfe die ID mit bewerbungen_anzeigen().")
             app_id = row["id"]
         if proj_id:
             row = conn.execute(
@@ -4573,7 +4573,7 @@ class Database:
             if not row:
                 raise ValueError(
                     f"Projekt nicht gefunden: {proj_id}. "
-                    "Pruefe die ID mit projekte_anzeigen().")
+                    "Prüfe die ID mit projekte_anzeigen().")
             proj_id = row["id"]
         return app_id, proj_id
 
@@ -4600,7 +4600,7 @@ class Database:
         if not row:
             raise ValueError(
                 f"Kontakt nicht gefunden: {contact_id}. "
-                "Pruefe die ID mit kontakte_auflisten().")
+                "Prüfe die ID mit kontakte_auflisten().")
         cid = row["id"]
         app_id, proj_id = self._referenz_bezuege_pruefen(
             conn, pid, application_id, project_id)
@@ -4748,7 +4748,7 @@ class Database:
         if not contact_row:
             raise ValueError(
                 f"Kontakt nicht gefunden: {contact_id}. "
-                "Pruefe die ID mit kontakte_auflisten()."
+                "Prüfe die ID mit kontakte_auflisten()."
             )
         # Existenz des Ziels (best-effort) — nicht harter FK, aber wir
         # warnen den Caller statt eines spaeteren orphaned Links
@@ -4760,7 +4760,7 @@ class Database:
             else:
                 raise ValueError(
                     f"Bewerbung nicht gefunden: {target_id}. "
-                    "Pruefe die ID mit bewerbungen_anzeigen()."
+                    "Prüfe die ID mit bewerbungen_anzeigen()."
                 )
         elif target_kind == "job":
             row = conn.execute("SELECT hash FROM jobs WHERE hash=? OR hash LIKE ? LIMIT 1",
@@ -4771,7 +4771,7 @@ class Database:
                 raise ValueError(
                     f"Stelle nicht gefunden: {target_id}. "
                     "Die referenzierte Stelle existiert nicht (mehr) in der Datenbank "
-                    "— evtl. orphaned FK (#616). Pruefe mit stellen_anzeigen()."
+                    "— evtl. orphaned FK (#616). Prüfe mit stellen_anzeigen()."
                 )
         elif target_kind == "meeting":
             # #685: Tabelle heisst application_meetings, nicht meetings.
@@ -5212,14 +5212,14 @@ class Database:
             # Add timeline event
             self.add_application_event(
                 best_match["id"], "dokument",
-                f"Dokument '{filename}' automatisch verknuepft (Konfidenz: {best_confidence:.0%})"
+                f"Dokument '{filename}' automatisch verknüpft (Konfidenz: {best_confidence:.0%})"
             )
             conn.commit()
             result["auto_verknuepft"] = True
         else:
             result["auto_verknuepft"] = False
             hinweis = (
-                f"Moeglicher Match mit '{best_match['company']}' "
+                f"Möglicher Match mit '{best_match['company']}' "
                 f"(Konfidenz: {best_confidence:.0%}). "
                 f"Nutze dokument_verknuepfen('{doc_id}', '{best_match['id'][:8]}') "
                 "um manuell zu verknuepfen."
@@ -5227,8 +5227,8 @@ class Database:
             if best_is_archived:
                 hinweis += (
                     f" Achtung: Diese Bewerbung ist bereits abgeschlossen "
-                    f"(Status: {best_match['status']}) — nur verknuepfen wenn "
-                    "das Dokument eindeutig zu dieser alten Bewerbung gehoert."
+                    f"(Status: {best_match['status']}) — nur verknüpfen wenn "
+                    "das Dokument eindeutig zu dieser alten Bewerbung gehört."
                 )
             result["hinweis"] = hinweis
             # add_document verwirft den Rueckgabewert — den Vorschlag hier
@@ -5627,9 +5627,9 @@ class Database:
                         verdacht_hash = treffer["stelle"]["hash"]
                         if verdacht_hash != stored_hash:
                             duplikat_notiz = (
-                                "[Auto-Aussortierung] Moegliches Duplikat von "
+                                "[Auto-Aussortierung] Mögliches Duplikat von "
                                 f"{self._public_job_hash(verdacht_hash, job_pid)} "
-                                f"({treffer['text']}). NICHT zusammengefuehrt.")
+                                f"({treffer['text']}). NICHT zusammengeführt.")
                     # Diese Stelle traegt ihre eigene erste Fundstelle.
                     try:
                         from .services import stellen_quellen
@@ -6485,7 +6485,7 @@ class Database:
                         app_id, when, follow_up_type="nachfass",
                         template=nachfass_text(
                             _app_tpl,
-                            anlass=(f"Nachfrage nach dem Gespraechsergebnis "
+                            anlass=(f"Nachfrage nach dem Gesprächsergebnis "
                                     f"(automatisch {delay_days} Tage nach "
                                     f"Abschluss)")),
                     )
@@ -7872,8 +7872,8 @@ class Database:
         # v1.7.23 (#943): Die Differenz zu scored_jobs war unerklaert.
         # Sie hat zwei Ursachen, und beide sind erwartetes Verhalten.
         stats["scored_jobs_hinweis"] = (
-            "scored_jobs zaehlt nur Stellen mit Score > 0 und ohne "
-            "Anpinnung; seit v1.7.22 zusaetzlich ohne die von der "
+            "scored_jobs zählt nur Stellen mit Score > 0 und ohne "
+            "Anpinnung; seit v1.7.22 zusätzlich ohne die von der "
             "Automatik aussortierten. Die Differenz zu dismissed_jobs "
             "sind Stellen, die nie bewertet wurden — meist weil die "
             "Beschreibung fehlte (#756).")
@@ -8017,11 +8017,11 @@ class Database:
         if _ohne_datum:
             stats["ausgeschlossen"] = {
                 "anzahl": len(_ohne_datum),
-                "grund": "applied_at fehlt — faellt aus der Segmentierung seit/vor PBP",
+                "grund": "applied_at fehlt — fällt aus der Segmentierung seit/vor PBP",
                 "bewerbungen": _ohne_datum,
                 "loesung": (
-                    "pbp_diagnose(auto_fix=True) traegt applied_at aus dem "
-                    "aeltesten Timeline-Event nach."
+                    "pbp_diagnose(auto_fix=True) trägt applied_at aus dem "
+                    "ältesten Timeline-Event nach."
                 ),
             }
         # Top-Level-Convenience (Gesamt-Basis), analog interview_rate/offer_rate
@@ -9222,7 +9222,7 @@ class Database:
             plan["geschaetzt_nicht_uebernommen"] = {
                 "felder": geschaetzt_liegen_lassen,
                 "hinweis": (
-                    "Das Gehalt des Duplikats ist eine Schaetzung und wird "
+                    "Das Gehalt des Duplikats ist eine Schätzung und wird "
                     "nicht uebernommen. Wer es trotzdem will: "
                     "feld_strategie={'salary_min': 'duplikat', ...}."),
             }
@@ -9367,7 +9367,7 @@ class Database:
     # `nachfass`. Interview-Erinnerungen / sonstige Notizen gehoeren in
     # die anderen Typen, lösen keinen Alarm aus.
     FOLLOWUP_TYPES = {
-        "nachfass": "Nachfass — bei Stille nachhaken (loest Banner aus)",
+        "nachfass": "Nachfass — bei Stille nachhaken (löst Banner aus)",
         "interview_erinnerung": "Interview-Erinnerung (kein Banner)",
         "danke": "Danke-Mail (kein Banner)",
         "info": "Info / Notiz (kein Banner)",
@@ -9502,7 +9502,7 @@ class Database:
     def complete_task(self, task_id: str, status: str = "erledigt",
                       notiz: str = "") -> bool:
         if status not in self._TASK_STATUS:
-            raise ValueError(f"Ungueltiger Status: {status}")
+            raise ValueError(f"Ungültiger Status: {status}")
         conn = self.connect()
         cur = conn.execute(
             "UPDATE tasks SET status=?, erledigt_am=?, notiz=COALESCE(NULLIF(?, ''), notiz), updated_at=? "
@@ -10275,7 +10275,7 @@ class Database:
             },
             {
                 "keywords": "Product Lifecycle Management",
-                "notiz": "Ausgeschriebener Begriff schlaegt Abkuerzung.",
+                "notiz": "Ausgeschriebener Begriff schlägt Abkürzung.",
             },
         ],
         "sekundaere_suchen": [
@@ -10306,8 +10306,8 @@ class Database:
             },
         ],
         "notizen": (
-            "LinkedIn-Volltextsuche scannt ueber Beschreibung statt nur "
-            "Titel. Generische Begriffe wie 'PLM' matchen viel Muell. "
+            "LinkedIn-Volltextsuche scannt über Beschreibung statt nur "
+            "Titel. Generische Begriffe wie 'PLM' matchen viel Müll. "
             "Branchen-Filter sind wichtiger als Phrase-Match."
         ),
     }
@@ -10987,7 +10987,7 @@ class Database:
                 "FROM scoring_config WHERE profile_id=?", (pid,)).fetchall():
             self._scoring_verlauf(
                 conn, pid, zeile["dimension"], zeile["sub_key"], zeile, None,
-                None, "ich", begruendung or "Alle Regler zurueckgesetzt", jetzt)
+                None, "ich", begruendung or "Alle Regler zurückgesetzt", jetzt)
         cur = conn.execute("DELETE FROM scoring_config WHERE profile_id=?",
                            (pid,))
         conn.commit()
@@ -11214,7 +11214,7 @@ class Database:
 
         if not profile:
             steps.append({"aktion": "Profil erstellen", "prioritaet": "hoch",
-                          "beschreibung": "Erstelle dein Bewerberprofil — per Gespraech, Dokument-Upload oder manuell.",
+                          "beschreibung": "Erstelle dein Bewerberprofil — per Gespräch, Dokument-Upload oder manuell.",
                           "action_type": "dashboard", "action_target": "wizardDocUpload()",
                           "action_label": "Lebenslauf hochladen",
                           "prompt": "/ersterfassung"})
@@ -11283,7 +11283,7 @@ class Database:
         if due_followups:
             steps.append({"aktion": f"{due_followups} faellige(s) Follow-up(s)",
                           "prioritaet": "hoch",
-                          "beschreibung": "Nachfass-Aktionen sind faellig — nicht vergessen!",
+                          "beschreibung": "Nachfass-Aktionen sind fällig — nicht vergessen!",
                           "action_type": "dashboard",
                           "action_target": "showPage('bewerbungen')",
                           "action_label": "Bewerbungen ansehen"})
@@ -11365,7 +11365,7 @@ class Database:
 
         if not steps:
             steps.append({"aktion": "Alles auf dem neuesten Stand", "prioritaet": "info",
-                          "beschreibung": "Weiter so! Pruefe regelmaessig deine Bewerbungen und starte neue Suchen.",
+                          "beschreibung": "Weiter so! Prüfe regelmässig deine Bewerbungen und starte neue Suchen.",
                           "prompt": ""})
         return steps
 
@@ -11450,7 +11450,7 @@ class Database:
         """
         if lifecycle not in self._LIFECYCLE_VALUES:
             raise ValueError(
-                f"Ungueltiger lifecycle-Wert '{lifecycle}'. "
+                f"Ungültiger lifecycle-Wert '{lifecycle}'. "
                 f"Erlaubt: {self._LIFECYCLE_VALUES}"
             )
         conn = self.connect()
@@ -11534,9 +11534,9 @@ class Database:
         for key in ["positions", "education", "skills", "documents"]:
             val = data.get(key)
             if val is not None and not isinstance(val, list):
-                raise ValueError(f"Ungueltiges Format für '{key}': Liste erwartet")
+                raise ValueError(f"Ungültiges Format für '{key}': Liste erwartet")
         if data.get("preferences") is not None and not isinstance(data.get("preferences"), (dict, str)):
-            raise ValueError("Ungueltiges Format für 'preferences': Dict erwartet")
+            raise ValueError("Ungültiges Format für 'preferences': Dict erwartet")
         # Ensure preferences is a dict (could be JSON string from export)
         if isinstance(data.get("preferences"), str):
             data["preferences"] = json.loads(data["preferences"])

@@ -192,7 +192,7 @@ def muss_treffer(titel: str, kriterien) -> list:
 def _empfehlung(eintrag, woerter, kollisionen, alter):
     if kollisionen:
         return ("Dieser Eintrag wirft Stellen weg, deren Titel deine "
-                "MUSS-Begriffe enthaelt. Setz eine Ausnahme statt den "
+                "MUSS-Begriffe enthält. Setz eine Ausnahme statt den "
                 "Eintrag zu loeschen: blacklist_verwalten('aendern', "
                 f"entry_id={eintrag.get('id')}, "
                 "ausser_wenn_titel_enthaelt=[...]).")
@@ -204,8 +204,8 @@ def _empfehlung(eintrag, woerter, kollisionen, alter):
                 f"entry_id={eintrag.get('id')}, "
                 "ausser_wenn_titel_enthaelt=[...]).")
     if not (eintrag.get("reason") or "").strip():
-        return ("Ohne Begruendung laesst sich der Eintrag spaeter nicht "
-                "mehr pruefen — auch nicht von dir selbst. Nachtragen: "
+        return ("Ohne Begruendung lässt sich der Eintrag später nicht "
+                "mehr prüfen — auch nicht von dir selbst. Nachtragen: "
                 f"blacklist_verwalten('aendern', entry_id={eintrag.get('id')}, "
                 "grund='...').")
     if woerter and alter is not None and alter >= PRUEF_INTERVALL_TAGE:

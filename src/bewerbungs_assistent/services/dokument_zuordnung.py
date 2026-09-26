@@ -69,8 +69,8 @@ def _warnung_alte_bewerbung(app: dict) -> str:
     if status not in ABGESCHLOSSEN:
         return ""
     return (f"Bewerbung bereits abgeschlossen (Status: {app.get('status')}) — "
-            "nur verknuepfen, wenn das Dokument eindeutig zu diesem alten "
-            "Vorgang gehoert, sonst unverknuepft lassen.")
+            "nur verknüpfen, wenn das Dokument eindeutig zu diesem alten "
+            "Vorgang gehört, sonst unverknüpft lassen.")
 
 
 def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
@@ -112,14 +112,14 @@ def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
 
         if (d.get("doc_type") or "") in _VORGANGS_TYPEN:
             gruende.append(
-                f"Typ '{d['doc_type']}' gehoert fast immer zu einem "
+                f"Typ '{d['doc_type']}' gehört fast immer zu einem "
                 "konkreten Vorgang")
 
         norm_treffer = next((n for n in firmen if n in fname_lc), None)
         if norm_treffer:
             app = firmen[norm_treffer]
             gruende.append(
-                f"Dateiname enthaelt die Firma einer vorhandenen Bewerbung")
+                f"Dateiname enthält die Firma einer vorhandenen Bewerbung")
             vorschlag = {"bewerbung_id": app.get("id"),
                          "firma": app.get("company"),
                          "stelle": app.get("title"),
@@ -163,7 +163,7 @@ def finde_lose_dokumente(db, nur_verdaechtige: bool = True) -> dict[str, Any]:
                 ziel = next(iter(ziele))
                 app = next((a for a in apps if a.get("id") == ziel), {})
                 gruende.append(
-                    "Ein Dokument mit demselben Betreff-Stamm haengt "
+                    "Ein Dokument mit demselben Betreff-Stamm hängt "
                     "bereits an einer Bewerbung (Thread-Signal)")
                 vorschlag = {"bewerbung_id": ziel,
                              "firma": app.get("company"),
@@ -213,5 +213,5 @@ def pruefe_verknuepfungs_integritaet(db) -> list[dict]:
         (pid,)).fetchall()
     return [{"dokument_id": r["id"], "dateiname": r["filename"],
              "zeigt_auf": r["linked_application_id"],
-             "befund": "Verknuepfung zeigt auf keine existierende Bewerbung"}
+             "befund": "Verknüpfung zeigt auf keine existierende Bewerbung"}
             for r in rows]

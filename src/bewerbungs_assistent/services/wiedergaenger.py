@@ -332,15 +332,15 @@ def grund_guete(job: dict) -> tuple[str, str]:
                 # v1.7.39 (#989): kein Beleg, kein halber — gar keiner.
                 return "ohne_grundlage", (
                     f"die Anzeige hatte nur {len(text)} Zeichen — daraus "
-                    "laesst sich ueber Fachgebiet, System oder Senioritaet "
-                    "nichts entnehmen; das Urteil zaehlt nicht mit")
+                    "lässt sich über Fachgebiet, System oder Seniorität "
+                    "nichts entnehmen; das Urteil zählt nicht mit")
             if len(text) < MINDESTLAENGE_BELASTBAR:
                 maengel.append(
                     f"die Anzeige hatte nur {len(text)} Zeichen — zu wenig, "
-                    "um Fachgebiet, System oder Senioritaet zu beurteilen")
+                    "um Fachgebiet, System oder Seniorität zu beurteilen")
 
     if gruende & _GEHALTS_GRUENDE and job.get("salary_estimated"):
-        maengel.append("die Gehaltsangabe war geschaetzt, nicht belegt")
+        maengel.append("die Gehaltsangabe war geschätzt, nicht belegt")
 
     if not maengel:
         return "belegt", ""
@@ -483,7 +483,7 @@ def find_wiedergaenger_pattern(
         "alle_gruende": dict(reason_counter),
         "gewicht_nach_guete": {r: round(w, 1) for r, w in gewicht.items()},
         "zaehlweise": ("Stellen je Grund; eine Stelle mit mehreren "
-                       "Gruenden zaehlt bei jedem einmal."),
+                       "Gründen zählt bei jedem einmal."),
         "beispiele": beispiele,
         "hinweis": (
             f"Firma '{company}' wurde bereits {anzahl}x mit Grund "
@@ -570,12 +570,12 @@ def firmen_historie(
         "aussortiert_anzahl": anzahl,
         "gruende": dict(reason_counter),
         "zaehlweise": ("Stellen je Grund; eine Stelle mit mehreren "
-                       "Gruenden zaehlt bei jedem einmal."),
+                       "Gründen zählt bei jedem einmal."),
         "beispiel_titel": titles[:5],
         "hinweis": (
             f"Zur Einordnung: bei '{company}' wurden {anzahl} andere "
-            f"Stellen aussortiert (haeufigster Grund: '{top_grund}'). Die "
-            "Gruende gelten je STELLE, nicht fuer die Firma (#757) — diese "
+            f"Stellen aussortiert (häufigster Grund: '{top_grund}'). Die "
+            "Gruende gelten je STELLE, nicht für die Firma (#757) — diese "
             "Rolle unvoreingenommen bewerten."
         ),
     }

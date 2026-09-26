@@ -84,7 +84,7 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
         )
     if not desc_ok:
         ko_gruende.append(
-            "Stellenbeschreibung fehlt — keine fachliche Bewertung moeglich. "
+            "Stellenbeschreibung fehlt — keine fachliche Bewertung möglich. "
             "Beschreibung nachladen vor Empfehlung."
         )
     elif fit_result.get("beschreibung_kurz"):
@@ -94,10 +94,10 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
         # fehlende Datengrundlage. Ehrlich als "nicht beurteilbar" ausweisen,
         # statt eine passende Rolle faelschlich als Gap abzuurteilen.
         ko_gruende.append(
-            "Beschreibung ist nur ein Kurztext, keine vollstaendige Anzeige — "
-            "der Score ist dadurch NICHT belastbar und dies ist ausdruecklich "
+            "Beschreibung ist nur ein Kurztext, keine vollständige Anzeige — "
+            "der Score ist dadurch NICHT belastbar und dies ist ausdrücklich "
             "keine fachliche Absage. Anzeigen-Volltext nachladen "
-            "(stellenbeschreibung_nachladen) oder einfuegen, dann neu bewerten."
+            "(stellenbeschreibung_nachladen) oder einfügen, dann neu bewerten."
         )
     # v1.7.35 (#972): der Hochschulabschluss-k.o. ist entfernt. Er
     # stuetzte sich auf ein Merkmal, dessen Profilseite nie modelliert
@@ -249,10 +249,10 @@ def _aehnliche_outcome_pattern(
     # faellt nur auf, wenn dabeisteht, worauf er sich stuetzt.
     _beleg = beispiele[0]["title"] if beispiele and beispiele[0].get("title") else ""
     risk_text = (
-        f"Aufmerksamkeit: {count} aehnliche Stellen wurden wegen "
+        f"Aufmerksamkeit: {count} ähnliche Stellen wurden wegen "
         f"'{top_reason}' aussortiert"
         + (f" (zuletzt: \"{_beleg}\")" if _beleg else "")
-        + ". Pruefe ob das hier auch zutrifft."
+        + ". Prüfe ob das hier auch zutrifft."
     )
     return {
         "risk_text": risk_text,
@@ -272,8 +272,8 @@ _MANUAL_SOURCES = {
     "linkedin": "LinkedIn (automatisch deaktiviert, #159) — nutze jobspy_linkedin oder Claude-in-Chrome",
     "xing": "XING (automatisch deaktiviert, #107) — nutze Claude-in-Chrome",
     "stepstone": "StepStone (Bot-Detection, #315) — nutze google_jobs_url oder Claude-in-Chrome",
-    "indeed": "Indeed (haeufig Timeout) — nutze jobspy_indeed",
-    "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension oeffnen",
+    "indeed": "Indeed (häufig Timeout) — nutze jobspy_indeed",
+    "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension öffnen",
 }
 
 # G17 (#744, v1.7.4): Bewaehrter Starter-Satz fuer den allerersten Suchlauf —
@@ -499,12 +499,12 @@ def register(mcp, db, logger):
         Die Suche dauert 5-10 Minuten. Prüfe den Fortschritt mit jobsuche_status().
         Ergebnisse danach mit stellen_anzeigen() ansehen.
 
-        HINWEIS #488: Wenn aktive Quellen dabei sind, die nur ueber die
+        HINWEIS #488: Wenn aktive Quellen dabei sind, die nur über die
         Claude-Erweiterung im Browser laufen (LinkedIn, StepStone, XING,
         Indeed, Google Jobs), meldet dieses Tool sie im Feld
-        `manuelle_quellen` zurueck UND ueberspringt sie im
+        `manuelle_quellen` zurück UND überspringt sie im
         Hintergrund-Job — statt auf stumme Timeouts zu laufen. Claude
-        soll den User vor dem Start ueber diese Quellen informieren und
+        soll den User vor dem Start über diese Quellen informieren und
         ihm empfehlen, sie via Chrome-Extension anzusteuern.
 
         ENTFERNUNG UND REMOTE (#1000, v1.7.48): dieses Tool hatte bis
@@ -514,13 +514,13 @@ def register(mcp, db, logger):
         ist als keiner. Was stattdessen wirkt:
 
         * Entfernung: `suchkriterien_setzen(max_entfernung_km=30)` —
-          gilt dauerhaft und fuer jeden Lauf. Entfernung ist dabei ein
+          gilt dauerhaft und für jeden Lauf. Entfernung ist dabei ein
           PREIS im Score, kein Ausschluss (#910/#988): eine weite Stelle
           rutscht nach unten, statt zu verschwinden.
-        * Remote: "Remote" gehoert in `regionen`, und das Gewicht dafuer
-          steht in `gewichtung.remote`. Ein harter Remote-Filter waere
-          gefaehrlich, weil sehr viele Anzeigen gar keine Angabe zum
-          Arbeitsmodell machen — er wuerde vor allem Unbekanntes
+        * Remote: "Remote" gehört in `regionen`, und das Gewicht dafür
+          steht in `gewichtung.remote`. Ein harter Remote-Filter wäre
+          gefährlich, weil sehr viele Anzeigen gar keine Angabe zum
+          Arbeitsmodell machen — er würde vor allem Unbekanntes
           wegwerfen (#989).
 
         Args:
@@ -540,10 +540,10 @@ def register(mcp, db, logger):
                     # (schnell, zuverlaessig, ohne Login).
                     "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
                     "nachricht": (
-                        "Keine Job-Quellen aktiviert. Empfehlung fuer den "
+                        "Keine Job-Quellen aktiviert. Empfehlung für den "
                         "ersten Lauf: jobsuche_starten(quellen="
                         f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
-                        "zuverlaessige Quellen ohne Login. Sie werden dabei "
+                        "zuverlässige Quellen ohne Login. Sie werden dabei "
                         "als aktive Quellen uebernommen. Weitere Quellen: "
                         "Einstellungen › Quellen."
                     ),
@@ -560,7 +560,7 @@ def register(mcp, db, logger):
                     "nachricht": (
                         "Noch keine Suchkriterien gesetzt. Lege sie mit "
                         "suchkriterien_setzen() fest oder nutze "
-                        "workflow_starten('jobsuche_workflow') — sonst wuerde "
+                        "workflow_starten('jobsuche_workflow') — sonst würde "
                         "PBP mit generischen Begriffen suchen."
                     ),
                 }
@@ -575,9 +575,9 @@ def register(mcp, db, logger):
                 "status": "nur_manuelle_quellen",
                 "manuelle_quellen": manuelle_info,
                 "nachricht": (
-                    "Alle ausgewaehlten Quellen laufen nur ueber Claude-in-Chrome "
+                    "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
                     "oder sind deprecated — es gibt nichts zu automatisieren. "
-                    "Siehe manuelle_quellen fuer den jeweiligen Ersatzweg."
+                    "Siehe manuelle_quellen für den jeweiligen Ersatzweg."
                 ),
             }
         quellen = auto_quellen
@@ -654,10 +654,10 @@ def register(mcp, db, logger):
                          name=f"pbp-watchdog-{job_id[:8]}").start()
 
         nachricht = (
-            f"Jobsuche laeuft im Hintergrund auf {len(params['quellen'])} Portalen. "
+            f"Jobsuche läuft im Hintergrund auf {len(params['quellen'])} Portalen. "
             f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
             f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
-            f"Wenn du spaeter prueft willst: jobsuche_status('{job_id}'). "
+            f"Wenn du später prüft willst: jobsuche_status('{job_id}'). "
             f"Wenn fertig: stellen_anzeigen()."
         )
         result = {
@@ -670,7 +670,7 @@ def register(mcp, db, logger):
         if manuelle_info:
             result["manuelle_quellen"] = manuelle_info
             result["hinweis"] = (
-                "Zusaetzlich muesstest du fuer folgende manuelle Quellen "
+                "Zusätzlich müsstest du für folgende manuelle Quellen "
                 "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
                 "sie sind im Hintergrund-Job NICHT enthalten."
             )
@@ -690,11 +690,11 @@ def register(mcp, db, logger):
                         "stellentyp": _typ,
                         "quellen_dafuer": sorted(_noetig),
                         "warnung": (
-                            f"Fuer '{_typ}' laeuft in dieser Suche KEINE "
+                            f"Für '{_typ}' läuft in dieser Suche KEINE "
                             f"Quelle ({', '.join(sorted(_noetig))} alle "
-                            "inaktiv/defekt). Die zugehoerigen Kriterien "
+                            "inaktiv/defekt). Die zugehörigen Kriterien "
                             "werden nicht ausgewertet. Alternativen: "
-                            "quelle_handoff() fuer die Browser-Recherche "
+                            "quelle_handoff() für die Browser-Recherche "
                             "oder scraper_diagnose(aktion='reaktivieren')."
                         ),
                     })
@@ -894,7 +894,7 @@ def register(mcp, db, logger):
         # spaeter von einer Hand-Einstellung nicht zu unterscheiden.
         db_ref.lerne_scoring_regler(
             dim, sub, new_val,
-            anlass=f"Lerneffekt: '{reason}' {count}x als Grund gewaehlt")
+            anlass=f"Lerneffekt: '{reason}' {count}x als Grund gewählt")
         # #908 Punkt 6: alt->neu benennen und den Rueckweg gleich mitgeben
         # — eine Automatik, die den Bestand umgewichtet, muss revidierbar
         # sein. Landet via auto_adjustments/hints beim Nutzer UND im Log.
@@ -954,7 +954,7 @@ def register(mcp, db, logger):
                     hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
                 elif normalized in ("zeitarbeit", "befristet"):
                     hints.append(
-                        f"Tipp: Der Malus fuer '{g}' eskaliert automatisch mit. "
+                        f"Tipp: Der Malus für '{g}' eskaliert automatisch mit. "
                         f"Noch schaerfer: scoring_konfigurieren('setzen', 'stellentyp', '{normalized}', wert=-8). "
                         "Komplett ausblenden nur bewusst mit ignorieren=True."
                     )
@@ -964,10 +964,10 @@ def register(mcp, db, logger):
                     # Festanstellungen erreichen. Vorschlag statt
                     # Automatik; gedrosselt (jede 10. Nennung).
                     hints.append(
-                        "Tipp: 'zu_junior' lernt ueber MINUS-Keywords, nicht ueber die Stellenart. "
+                        "Tipp: 'zu_junior' lernt über MINUS-Keywords, nicht über die Stellenart. "
                         "Kandidaten: suchkriterien_bearbeiten(aktion='hinzufuegen', kategorie='minus', "
                         "werte=['Junior', 'Berufseinsteiger', 'Entry Level', 'Trainee']) — "
-                        "Gewicht schaerfen via kategorie='gewichten' (#778). Keine Duplikate anlegen."
+                        "Gewicht schärfen via kategorie='gewichten' (#778). Keine Duplikate anlegen."
                     )
                 elif normalized == "falsches_fachgebiet" and counts.get(normalized, 0) % 25 == 0:
                     # #908 Befund 3: das staerkste Signal (1200+ Nennungen)
@@ -977,8 +977,8 @@ def register(mcp, db, logger):
                     # entscheidet. Stark gedrosselt (jede 25. Nennung).
                     hints.append(
                         f"Hinweis: '{normalized}' wurde inzwischen {counts[normalized]}x genutzt. "
-                        "keyword_vorschlaege() schlaegt daraus MINUS-Kandidaten mit Trefferzahlen "
-                        "und Beispielstellen vor — so lernt der Score aus dem haeufigsten Grund."
+                        "keyword_vorschlaege() schlägt daraus MINUS-Kandidaten mit Trefferzahlen "
+                        "und Beispielstellen vor — so lernt der Score aus dem häufigsten Grund."
                     )
                 elif normalized == "firma_uninteressant":
                     job = db.get_job(job_hash)
@@ -988,7 +988,7 @@ def register(mcp, db, logger):
                     # erledigt ist.
                     if company and not db.is_company_blacklisted(company):
                         hints.append(
-                            f"Tipp: Moechtest du '{company}' auf die Blacklist setzen? "
+                            f"Tipp: Möchtest du '{company}' auf die Blacklist setzen? "
                             f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{company}')."
                         )
 
@@ -1055,11 +1055,11 @@ def register(mcp, db, logger):
         Bei 'passt_nicht' wird der Grund gespeichert und für künftige Suchen gelernt.
         Häufig genutzte Gründe führen automatisch zu Gewichtungsanpassungen.
 
-        STRENG VERBOTEN: Die KI darf KEINE eigenen Ablehnungsgruende erfinden,
+        STRENG VERBOTEN: Die KI darf KEINE eigenen Ablehnungsgründe erfinden,
         generieren oder formulieren! Auch keine "intelligenten" Gruende wie
         "Duplikat — bereits als Bewerbung xyz erfasst". AUSSCHLIESSLICH die
         vordefinierten Gruende aus der Liste unten verwenden. Bei Unsicherheit
-        den Nutzer fragen oder 'sonstiges' waehlen. Jeder nicht-vordefinierte
+        den Nutzer fragen oder 'sonstiges' wählen. Jeder nicht-vordefinierte
         Grund wird automatisch auf 'sonstiges' normalisiert.
 
         FUER MEHRERE STELLEN AUF EINMAL: Nutze 'stellen_bulk_bewerten' mit
@@ -1070,7 +1070,7 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
             grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
-            gruende: Liste von Gruenden bei passt_nicht (Multi-Select, #108).
+            gruende: Liste von Gründen bei passt_nicht (Multi-Select, #108).
                 ERLAUBTE WERTE (nur diese, nichts anderes!):
                 zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
                 zu_junior, zu_senior, unpassendes_arbeitsmodell,
@@ -1082,7 +1082,7 @@ def register(mcp, db, logger):
         # Ablehnungs-Statistik hoch (Phantom-Eintraege im Lerneffekt).
         if not db.get_job(job_hash):
             return {"fehler": "Stelle nicht gefunden. "
-                              "Pruefe den Hash mit stellen_anzeigen()."}
+                              "Prüfe den Hash mit stellen_anzeigen()."}
 
         if bewertung == "passt_nicht":
             reason_list = _normalize_reason_list(grund, gruende)
@@ -1165,23 +1165,23 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle.
             urteil: EMPFOHLEN | BEDINGT | NICHT_EMPFOHLEN |
                 NICHT_BEURTEILBAR.
-            begruendung: warum — in einem oder zwei Saetzen, so wie du
-                es dem Menschen sagen wuerdest.
+            begruendung: warum — in einem oder zwei Sätzen, so wie du
+                es dem Menschen sagen würdest.
             grundlage: woher das Urteil stammt. Vorgabe
                 'detailanalyse' (du hast Anzeige und Profil gelesen).
 
-        **Wofuer das da ist.** Bis v1.7.60 kam die Empfehlung aus dem
+        **Wofür das da ist.** Bis v1.7.60 kam die Empfehlung aus dem
         Suchbegriff-Score — in den geht der Lebenslauf nicht ein. Seit
         #1003 sagt PBP ohne gelesene Analyse ehrlich
-        `NICHT_BEURTEILBAR`. Dein Urteil hier ist das, was diese Luecke
-        schliesst: es haengt danach an der Stelle, steht in der
-        Trefferliste und ueberlebt das Gespraech.
+        `NICHT_BEURTEILBAR`. Dein Urteil hier ist das, was diese Lücke
+        schliesst: es hängt danach an der Stelle, steht in der
+        Trefferliste und überlebt das Gespräch.
 
         **Voraussetzung: du hast die Anzeige WIRKLICH gegen das Profil
-        gelesen.** Ein Urteil, das aus dem Score abgeleitet ist, waere
+        gelesen.** Ein Urteil, das aus dem Score abgeleitet ist, wäre
         genau der Fehler, den #1003 behebt — nur diesmal von Hand.
-        Nutze `fit_analyse` fuer die Fakten und `projekte_anzeigen` /
-        `profil_zusammenfassung` fuer das Profil.
+        Nutze `fit_analyse` für die Fakten und `projekte_anzeigen` /
+        `profil_zusammenfassung` für das Profil.
 
         Ein Urteil ausserhalb der vier Kategorien wird abgewiesen, nicht
         stillschweigend umgedeutet.
@@ -1194,16 +1194,16 @@ def register(mcp, db, logger):
         if not geschrieben:
             return {
                 "fehler": "Stelle nicht gefunden.",
-                "hinweis": "Pruefe den Hash mit stellen_anzeigen().",
+                "hinweis": "Prüfe den Hash mit stellen_anzeigen().",
             }
         antwort = {
             "status": "gespeichert",
             "urteil": urteil.strip().upper(),
             "grundlage": grundlage or "detailanalyse",
-            "hinweis": ("Der Befund haengt jetzt an der Stelle und "
-                        "erscheint in der Trefferliste. Aendert sich dein "
-                        "Profil, wird er als moeglicherweise ueberholt "
-                        "gekennzeichnet — nicht geloescht."),
+            "hinweis": ("Der Befund hängt jetzt an der Stelle und "
+                        "erscheint in der Trefferliste. Ändert sich dein "
+                        "Profil, wird er als möglicherweise überholt "
+                        "gekennzeichnet — nicht gelöscht."),
         }
         # v1.7.122 (#1064): passt der Anzeigentext nicht in EINE Antwort,
         # kann das Urteil ihn nicht ganz gesehen haben. Der Fall ist nach
@@ -1234,7 +1234,7 @@ def register(mcp, db, logger):
     def stelle_analyse_loeschen(job_hash: str) -> dict:
         """Entfernt den gespeicherten Analyse-Befund einer Stelle (#1007).
 
-        Fuer den Fall, dass das Urteil falsch war. Danach steht die
+        Für den Fall, dass das Urteil falsch war. Danach steht die
         Stelle wieder auf `NICHT_BEURTEILBAR` — also auf "noch nicht
         gelesen", was ehrlicher ist als ein Urteil, dem niemand traut.
         """
@@ -1249,10 +1249,10 @@ def register(mcp, db, logger):
                              herkunft: str = "") -> dict:
         """Was wurde wann und von wem aussortiert (#1010).
 
-        Der Rueckholweg fuer einen Verklicker. Rueckholen ging schon
+        Der Rückholweg für einen Verklicker. Rückholen ging schon
         immer (`stelle_reaktivieren`, Filter "Ausgeblendet") — was
         fehlte, war das WIEDERFINDEN: es gab keinen Zeitpunkt der
-        Aussortierung, und `updated_at` taugt nicht dafuer (die Spalte
+        Aussortierung, und `updated_at` taugt nicht dafür (die Spalte
         fasst jede Score-Neuberechnung an).
 
         Manuelle und automatische Aussortierungen stehen bewusst in
@@ -1261,12 +1261,12 @@ def register(mcp, db, logger):
 
         Args:
             zeitfenster: 'heute', '7tage' (Standard), '30tage' oder 'alle'.
-            limit: hoechstens so viele Zeilen (Standard 50).
-            herkunft: '' fuer beide, 'ich' oder 'automatik'.
+            limit: höchstens so viele Zeilen (Standard 50).
+            herkunft: '' für beide, 'ich' oder 'automatik'.
 
         Stellen aus der Zeit vor v1.7.64 tragen keinen Zeitpunkt. Sie
         werden als solche ausgewiesen und erscheinen nur bei
-        zeitfenster='alle' — `updated_at` als Ersatz einzusetzen waere
+        zeitfenster='alle' — `updated_at` als Ersatz einzusetzen wäre
         eine erfundene Angabe (#987).
         """
         from ..services import aussortier_protokoll as _protokoll
@@ -1274,31 +1274,31 @@ def register(mcp, db, logger):
                                       limit=limit, herkunft_filter=herkunft)
         if "fehler" not in befund:
             befund["naechster_schritt"] = (
-                "Zurueckholen mit stelle_reaktivieren(job_hash).")
+                "Zurückholen mit stelle_reaktivieren(job_hash).")
         return befund
 
     @mcp.tool()
     def stelle_reaktivieren(job_hash: str, grund: str = "") -> dict:
         """Reaktiviert eine zuvor aussortierte Stelle (#664).
 
-        Setzt `is_active=1` und loescht `dismiss_reason`. Gegenstueck zu
+        Setzt `is_active=1` und löscht `dismiss_reason`. Gegenstück zu
         `stelle_einordnen('passt_nicht')` — analog zu `dokument_reaktivieren()`
-        fuer Dokumente. Notwendig wenn Claude oder der User eine Stelle
-        irrtuemlich aussortiert hat und sie wieder in der aktiven Liste
-        haben moechte, ohne ueber den DB-Bypass zu gehen (#514).
+        für Dokumente. Notwendig wenn Claude oder der User eine Stelle
+        irrtümlich aussortiert hat und sie wieder in der aktiven Liste
+        haben möchte, ohne über den DB-Bypass zu gehen (#514).
 
         Args:
             job_hash: Hash der Stelle (8-Zeichen-Kurzform oder voll).
             grund: Optionaler Hinweis warum reaktiviert wird (z.B.
                 "Irrtum — Firma nicht auf Blacklist"). Wird im Result
-                zurueckgegeben, nicht persistiert.
+                zurückgegeben, nicht persistiert.
         """
         from ..services.typed_ids import strip_prefix
         h = strip_prefix(job_hash)
         target_hash = db.resolve_job_hash(h)
         if not target_hash:
             return {
-                "fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."
+                "fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."
             }
         job_before = db.get_job(target_hash)
         if not job_before:
@@ -1343,7 +1343,7 @@ def register(mcp, db, logger):
             "war_automatisch_aussortiert": war_automatik,
             "lernhinweis": (
                 "Diese Stelle hatte die Automatik aussortiert. Die "
-                "Ruecknahme ist protokolliert — haeuft sich das, steht "
+                "Rücknahme ist protokolliert — häuft sich das, steht "
                 "die Regel zu scharf."
             ) if war_automatik else None,
             "job_hash": _kurz(target_hash),
@@ -1366,26 +1366,26 @@ def register(mcp, db, logger):
         schwellwert: int = 2,
         auto_aussortieren: bool = False,
     ) -> dict:
-        """Prueft ob eine Stelle ein "Wiedergaenger" ist (#671, Ebene 0, KI-frei).
+        """Prüft ob eine Stelle ein "Wiedergaenger" ist (#671, Ebene 0, KI-frei).
 
-        Ein Wiedergaenger ist eine Stelle, die inhaltlich derselben Firma +
-        Domaene entspricht, die bereits frueher mehrfach mit demselben Grund
+        Ein Wiedergänger ist eine Stelle, die inhaltlich derselben Firma +
+        Domäne entspricht, die bereits früher mehrfach mit demselben Grund
         aussortiert wurde — taucht aber unter neuem Hash (anderer Scrape/Quelle)
-        wieder als "frischer Fund" auf. Beispiel: Firma X + Domaene "PLM" wurde
+        wieder als "frischer Fund" auf. Beispiel: Firma X + Domäne "PLM" wurde
         schon 2x als `falsches_fachgebiet` verworfen.
 
-        **Rein deterministisch (Ebene 0) — keine lokale KI noetig.** Das Feature
-        funktioniert vollstaendig auch in Installationen ohne Ollama. Eine
+        **Rein deterministisch (Ebene 0) — keine lokale KI nötig.** Das Feature
+        funktioniert vollständig auch in Installationen ohne Ollama. Eine
         optionale Ollama-Verfeinerung (Ebene 1) und der Claude-Kontext in
         `fit_analyse` (Ebene 2) bauen darauf auf, sind aber nicht erforderlich.
 
         Args:
-            job_hash: Optional. Hash der zu pruefenden Stelle — Firma/Titel
-                werden daraus gelesen. Ueberschreibt firma/titel.
+            job_hash: Optional. Hash der zu prüfenden Stelle — Firma/Titel
+                werden daraus gelesen. Überschreibt firma/titel.
             firma: Firmenname (wenn kein job_hash gegeben).
             titel: Stellentitel (wenn kein job_hash gegeben).
-            schwellwert: Ab wie vielen frueheren Aussortierungen mit gleichem
-                Grund als Wiedergaenger gilt (Default 2).
+            schwellwert: Ab wie vielen früheren Aussortierungen mit gleichem
+                Grund als Wiedergänger gilt (Default 2).
             auto_aussortieren: Wenn True UND ein job_hash gegeben UND ein klares
                 Muster: die Stelle direkt mit dem Top-Grund aussortieren
                 (dismiss_reason = 'wiedergaenger:<grund>'). Default False
@@ -1398,7 +1398,7 @@ def register(mcp, db, logger):
             from ..services.typed_ids import strip_prefix
             resolved_hash = db.resolve_job_hash(strip_prefix(job_hash))
             if not resolved_hash:
-                return {"fehler": "Stelle nicht gefunden. Pruefe Hash mit stellen_anzeigen()."}
+                return {"fehler": "Stelle nicht gefunden. Prüfe Hash mit stellen_anzeigen()."}
             job = db.get_job(resolved_hash)
             if not job:
                 return {"fehler": "Stelle nicht gefunden."}
@@ -1420,8 +1420,8 @@ def register(mcp, db, logger):
                 "firma": firma,
                 "titel": titel,
                 "hinweis": (
-                    "Keine ausreichende Aussortier-Historie fuer diese "
-                    "Firma+Domaene/Rolle gefunden — als Neufund behandeln."
+                    "Keine ausreichende Aussortier-Historie für diese "
+                    "Firma+Domäne/Rolle gefunden — als Neufund behandeln."
                 ),
             }
             # v1.7.7 (#754/#757): Gibt es Historie zu ANDEREN Rollen der
@@ -1431,8 +1431,8 @@ def register(mcp, db, logger):
             if fh:
                 antwort["firmen_historie"] = fh
                 antwort["hinweis"] = (
-                    "Kein Wiedergaenger — die frueheren Aussortierungen "
-                    "dieser Firma betrafen andere Rollen/Domaenen. "
+                    "Kein Wiedergänger — die früheren Aussortierungen "
+                    "dieser Firma betrafen andere Rollen/Domänen. "
                     "Als Neufund bewerten (Gruende gelten je Stelle, #757)."
                 )
             return antwort
@@ -1449,7 +1449,7 @@ def register(mcp, db, logger):
             "empfehlung": (
                 f"Diese Stelle gleicht {pattern['anzahl']} frueher als "
                 f"'{pattern['top_grund']}' aussortierten Stellen derselben "
-                "Firma+Domaene. Wahrscheinlich erneut nicht passend — pruefen "
+                "Firma+Domäne. Wahrscheinlich erneut nicht passend — prüfen "
                 "ob sich etwas geaendert hat, sonst aussortieren."
             ),
         }
@@ -1491,14 +1491,14 @@ def register(mcp, db, logger):
     ) -> dict:
         """Bewertet mehrere aktive Stellen auf einmal anhand von Filtern (#514).
 
-        ANTI-DB-BYPASS: Nutze dieses Tool fuer das Aussortieren grosser Mengen
+        ANTI-DB-BYPASS: Nutze dieses Tool für das Aussortieren grosser Mengen
         von Stellen. NIEMALS direkt in die SQLite-Datei schreiben — die
         PBP-Logik (Audit-Log, Lerneffekte, Auto-Adjust-Scoring,
         dismiss_reasons-Statistik) wird hier durchlaufen, bei direkten
         DB-Writes nicht.
 
         SICHERHEITS-DEFAULT: dry_run=True. Erst Vorschau (Anzahl Treffer +
-        erste 10 Beispiele), dann mit dry_run=False ausfuehren. Das ist
+        erste 10 Beispiele), dann mit dry_run=False ausführen. Das ist
         bewusst nicht verhandelbar — der Filter trifft sonst zu viel.
 
         REAL-CASE: Bei einer Suche kommen 500 Stellen, davon 200 falsches
@@ -1508,30 +1508,30 @@ def register(mcp, db, logger):
                 bewertung='passt_nicht',
                 gruende=['falsches_fachgebiet'],
                 titel_enthaelt_nicht=['Pflege', 'Vertrieb'],
-                dry_run=True  # erst pruefen!
+                dry_run=True  # erst prüfen!
             )
 
         Args:
             bewertung: 'passt' oder 'passt_nicht'
             grund / gruende: wie bei stelle_einordnen. ABLEHNUNGSGRUENDE-Liste
                 gilt analog. KI darf KEINE eigenen Gruende erfinden.
-            dry_run: bei True (Default) wird NICHTS veraendert, nur Preview.
-                Bei False: alle Treffer werden tatsaechlich bewertet.
+            dry_run: bei True (Default) wird NICHTS verändert, nur Preview.
+                Bei False: alle Treffer werden tatsächlich bewertet.
             min_score / max_score: Score-Bereich (None = unbegrenzt)
             min_alter_tage / max_alter_tage: relativ zu found_at
             quelle: Quelle als String (z.B. 'bundesagentur')
             firma: Firmenname (case-insensitive Substring-Match)
             titel_enthaelt: AND-Liste — Titel muss ALLE Begriffe enthalten
             titel_enthaelt_nicht: NOR-Liste — Titel darf KEINEN davon enthalten
-            beschreibung_enthaelt_nicht: NOR-Liste fuer Beschreibung —
-                Hauptwerkzeug fuer Fachgebiets-Aussortierung
+            beschreibung_enthaelt_nicht: NOR-Liste für Beschreibung —
+                Hauptwerkzeug für Fachgebiets-Aussortierung
             max_treffer: harter Cap auf die Anzahl Treffer (0 = kein Limit).
                 Sinnvoll wenn man nicht sicher ist wie weit der Filter trifft.
 
         v1.7.0-beta.74 (#646): Wall-Clock-Budget von 90 Sekunden. Falls
-        ein Lauf laenger braucht (z.B. weil _run_auto_refetch_descriptions
+        ein Lauf länger braucht (z.B. weil _run_auto_refetch_descriptions
         parallel die DB sperrt), wird mit `status='timeout'` abgebrochen
-        statt stumm zu haengen. Reduziere max_treffer oder warte bis der
+        statt stumm zu hängen. Reduziere max_treffer oder warte bis der
         Auto-Engine-Step durch ist.
 
         Returns:
@@ -1566,13 +1566,13 @@ def register(mcp, db, logger):
                 "verarbeitet": processed,
                 "hinweis": (
                     "#646: stellen_bulk_bewerten hat ein Sicherheits-Budget "
-                    "um stilles Haengen zu vermeiden."
+                    "um stilles Hängen zu vermeiden."
                 ),
             }
 
         # 1) Bewertung validieren
         if bewertung not in ("passt", "passt_nicht"):
-            return {"fehler": "Ungueltige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
+            return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
         reason_list: list[str] = []
         if bewertung == "passt_nicht":
@@ -1685,9 +1685,9 @@ def register(mcp, db, logger):
                 "anzahl_treffer": len(matched),
                 "vorschau": preview,
                 "hinweis": (
-                    f"{len(matched)} Stellen wuerden bewertet werden. "
-                    "Pruefe die Vorschau und rufe das Tool erneut mit dry_run=False auf, "
-                    "um die Aenderung tatsaechlich anzuwenden."
+                    f"{len(matched)} Stellen würden bewertet werden. "
+                    "Prüfe die Vorschau und rufe das Tool erneut mit dry_run=False auf, "
+                    "um die Änderung tatsächlich anzuwenden."
                 ),
             }
 
@@ -1713,10 +1713,10 @@ def register(mcp, db, logger):
                     "bearbeitet": bearbeitet,
                     "verbleibend": len(matched) - bearbeitet,
                     "fehler": (
-                        f"Zeit-Budget ({_BULK_BUDGET_SEK}s) waehrend Bulk-Apply "
+                        f"Zeit-Budget ({_BULK_BUDGET_SEK}s) während Bulk-Apply "
                         f"erreicht. {bearbeitet} Stellen bearbeitet, "
                         f"{len(matched) - bearbeitet} unverarbeitet. Bei den "
-                        "verbleibenden kann der naechste Aufruf weitermachen."
+                        "verbleibenden kann der nächste Aufruf weitermachen."
                     ),
                     "dauer_sek": round(_time.monotonic() - _bulk_started_at, 1),
                     "stichprobe_bearbeitet": sample_processed,
@@ -1770,7 +1770,7 @@ def register(mcp, db, logger):
             hinweise.append(
                 "Hinweis: Bestehende Stellen-Scores wurden nicht neu berechnet. "
                 "Falls Du danach in stellen_anzeigen niedrigere Scores siehst, "
-                "ist das die Folge der Scoring-Anpassung — fuer einen "
+                "ist das die Folge der Scoring-Anpassung — für einen "
                 "konsistenten Stand 'fit_analyse' auf einzelne Stellen neu laufen lassen."
             )
 
@@ -1805,7 +1805,7 @@ def register(mcp, db, logger):
         """Zeigt gefundene Stellenangebote an.
 
         Gibt die Liste der Stellen zurück, sortiert nach Score — Stellen
-        mit fachlichem k.o. (Wiedergaenger-Muster, #671) sinken dabei ans
+        mit fachlichem k.o. (Wiedergänger-Muster, #671) sinken dabei ans
         Ende, egal wie hoch ihr Score ist (v1.7.12, #827/C32): der Score
         misst Begriffe, das k.o.-Muster misst deine dokumentierten
         Entscheidungen. Nutze stelle_einordnen() um einzelne Stellen zu
@@ -1824,11 +1824,11 @@ def register(mcp, db, logger):
                 gelesen wurden (#1007). Ohne gespeicherte Detailanalyse
                 gilt eine Stelle als NICHT_BEURTEILBAR — das ist etwas
                 anderes als "passt nicht", und wer die beurteilten
-                sehen will, soll sie nicht suchen muessen.
-            ohne_schwelle: True zeigt fuer DIESEN Aufruf auch die Stellen
+                sehen will, soll sie nicht suchen müssen.
+            ohne_schwelle: True zeigt für DIESEN Aufruf auch die Stellen
                 unter deiner Score-Schwelle (#1082); sie tragen dann
                 `unter_schwelle: true`. Die Einstellung selbst bleibt
-                unveraendert. Die Schwelle vergleicht den Fachwert —
+                unverändert. Die Schwelle vergleicht den Fachwert —
                 Entfernung, Remote und Gehalt blenden nie etwas aus.
         """
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
@@ -2011,16 +2011,16 @@ def register(mcp, db, logger):
                     "durch_schwelle_verborgen": durch_schwelle_verborgen,
                     "davon_allein_durch_rahmen": 0,
                     "nachricht": (
-                        f"Keine Stelle ueber deiner Score-Schwelle — aber "
+                        f"Keine Stelle über deiner Score-Schwelle — aber "
                         f"{durch_schwelle_verborgen} aktive Stelle(n) liegen "
                         "darunter und werden deshalb nicht angezeigt. Das ist "
                         "ein Filter, kein leerer Markt."),
                     "naechster_schritt": (
-                        "Fuer diesen Aufruf alle zeigen: stellen_anzeigen("
+                        "Für diesen Aufruf alle zeigen: stellen_anzeigen("
                         "ohne_schwelle=True). Die Schwelle dauerhaft "
                         "aendern: schwelle_stufe_setzen(bereich='liste', "
-                        "stufe=...). Ueber stellen_anzeigen(min_score=0) "
-                        "kommen sie NICHT zurueck — die Schwelle wirkt davor."),
+                        "stufe=...). Über stellen_anzeigen(min_score=0) "
+                        "kommen sie NICHT zurück — die Schwelle wirkt davor."),
                     "schwelle_vergleicht": _SCHWELLE_VERGLEICHT,
                 }
             return {
@@ -2259,7 +2259,7 @@ def register(mcp, db, logger):
                 entry["ohne_anker"] = True
                 entry["anker_hinweis"] = (
                     "Nicht verfolgbar: keine Detail-URL, kein Dokument, kein "
-                    "Ansprechpartner. So ist keine Bewerbung moeglich."
+                    "Ansprechpartner. So ist keine Bewerbung möglich."
                 )
             elif _a["anker"] != ["url_detail"]:
                 entry["anker"] = _a["anker"]
@@ -2339,9 +2339,9 @@ def register(mcp, db, logger):
             result["ohne_anker_hinweis"] = (
                 f"{ohne_anker} der angezeigten Stellen sind nicht verfolgbar "
                 "(keine Detail-URL, kein Dokument, kein Ansprechpartner). "
-                "Bestand heilen (Expertenmodus): stellen_urls_heilen(dry_run=True) traegt "
-                "wo moeglich eine Such-URL nach; den Rest per "
-                "stelle_bearbeiten(url=...) oder Kontakt ergaenzen."
+                "Bestand heilen (Expertenmodus): stellen_urls_heilen(dry_run=True) trägt "
+                "wo möglich eine Such-URL nach; den Rest per "
+                "stelle_bearbeiten(url=...) oder Kontakt ergänzen."
             )
         if filter == "aktiv":
             result["hinweis"] = (
@@ -2359,16 +2359,16 @@ def register(mcp, db, logger):
         zeitraum: str = "woche",
         ort: str = "",
     ) -> dict:
-        """Baut eine Google-Jobs-URL fuer Chrome-in-Claude (#501, #573).
+        """Baut eine Google-Jobs-URL für Chrome-in-Claude (#501, #573).
 
-        Google Jobs (`udm=8`) ist der groesste Aggregator in DE und
+        Google Jobs (`udm=8`) ist der grösste Aggregator in DE und
         indexiert u.a. StepStone-Stellen. Ein direkter HTTP-Abruf wird
-        von Google zuverlaessig blockiert, ein eingeloggter Chrome-Tab
+        von Google zuverlässig blockiert, ein eingeloggter Chrome-Tab
         mit Claude-in-Chrome funktioniert aber stabil.
 
         Workflow (v1.7.0-beta.14, #573):
         1. `google_jobs_url(keyword="PLM", ort="Hamburg")` aufrufen
-        2. URL im Browser mit der Claude-Erweiterung oeffnen
+        2. URL im Browser mit der Claude-Erweiterung öffnen
         3. Mit dem mitgelieferten `extraction_js` strukturierte Job-Daten
            via `javascript_tool()` aus dem DOM ziehen (statt Rohtext-Parsing)
         4. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
@@ -2393,14 +2393,14 @@ def register(mcp, db, logger):
             "url": url,
             "extraction_js": extraction_js,
             "hinweis": (
-                "Oeffne diese URL im Browser mit der Claude-Erweiterung und "
-                "fuehre `extraction_js` mit javascript_tool() aus. Pro "
+                "Öffne diese URL im Browser mit der Claude-Erweiterung und "
+                "führe `extraction_js` mit javascript_tool() aus. Pro "
                 "Treffer kommen titel, firma, ort, portal und (wenn "
-                "auffindbar) link — `portal` sagt, ueber welche Quelle die "
-                "Stelle laeuft, und taugt fuer den Dublettenabgleich. "
+                "auffindbar) link — `portal` sagt, über welche Quelle die "
+                "Stelle läuft, und taugt für den Dublettenabgleich. "
                 "Meldet das Skript ein `fehler`-Feld, NICHT die Liste "
                 "uebernehmen: dann hat sich die Seitenstruktur geaendert, "
-                "und das gehoert als Issue gemeldet. Google laedt weitere "
+                "und das gehört als Issue gemeldet. Google lädt weitere "
                 "Karten erst beim Scrollen nach."
             ),
         }
@@ -2413,10 +2413,10 @@ def register(mcp, db, logger):
         Wert ein — und neutral heisst dort nicht "unbekannt", sondern
         "kostet nichts". Was nichts kostet, steigt in der Sortierung. Am
         07.09.2026 stand deshalb ein inhaltsleerer Titel mit 101 Punkten
-        ueber einer vollstaendig beschriebenen, fachlich passenden Stelle
+        über einer vollständig beschriebenen, fachlich passenden Stelle
         mit 32.
 
-        Ob das ein Problem ist, haengt vom eigenen Kriterium ab — wer
+        Ob das ein Problem ist, hängt vom eigenen Kriterium ab — wer
         "nur remote oder im Nahbereich" sucht, will eine Stelle mit
         unbekanntem Ort im Zweifel NICHT als Nahstelle behandelt sehen.
         Deshalb ist es eine Einstellung und keine feste Regel.
@@ -2443,27 +2443,27 @@ def register(mcp, db, logger):
     def muss_tor_setzen(betriebsart: str = "") -> dict:
         """Ohne Pflichttreffer: verwerfen oder weit unten zeigen? (#968)
 
-        Das MUSS-Tor entscheidet, ob eine Anzeige ueberhaupt in Frage
+        Das MUSS-Tor entscheidet, ob eine Anzeige überhaupt in Frage
         kommt. Trifft kein einziger Pflichtbegriff, wird sie bisher
         verworfen — sie wird gar nicht erst gespeichert. Im
         dokumentierten Lauf aus #813 starben so 312 von 389
         Rohtreffern, bevor ein Mensch sie gesehen hat.
 
-        Ob das richtig ist, haengt daran, WAS deine Pflichtbegriffe
+        Ob das richtig ist, hängt daran, WAS deine Pflichtbegriffe
         nennen:
 
         * **Techniken** ("PLM", "SAP", "Python") — ihr Fehlen ist ein
-          echter Beleg: die Anzeige gehoert in ein anderes Fachgebiet.
-          Dafuer ist `hart` richtig.
+          echter Beleg: die Anzeige gehört in ein anderes Fachgebiet.
+          Dafür ist `hart` richtig.
         * **einen Beruf** ("Pflegefachkraft", "Erzieherin") — ihr
           Fehlen sagt wenig, weil derselbe Beruf in vielen Anzeigen
-          anders heisst. Dafuer ist `gewichtet` richtig.
+          anders heisst. Dafür ist `gewichtet` richtig.
 
         **Du musst hier nichts einstellen.** In der Vorgabe
         `automatisch` entscheidet PBP anhand deiner Pflichtbegriffe
         selbst — an derselben gemessenen Schwelle, die seit v1.7.36 die
         Alternativbezeichnungen absichert. Dieses Werkzeug zeigt die
-        Entscheidung samt Begruendung und laesst sie ueberstimmen.
+        Entscheidung samt Begruendung und lässt sie überstimmen.
 
         Args:
             betriebsart: leer = aktuellen Stand anzeigen. Sonst
@@ -2496,7 +2496,7 @@ def register(mcp, db, logger):
                     "dann sortiert die Schwelle ohnehin nur (#967)."
                     if not _muss else
                     "Ueberstimmen: muss_tor_setzen('gewichtet') oder "
-                    "('hart'); zurueck zur Ableitung mit "
+                    "('hart'); zurück zur Ableitung mit "
                     "('automatisch'). Betroffene Stellen tragen in "
                     "stellen_anzeigen die Marke 'muss_tor'."),
             }
@@ -2509,11 +2509,11 @@ def register(mcp, db, logger):
     ) -> dict:
         """Rechnet die Punkte aller (aktiven) Stellen neu (#554, v1.6.9).
 
-        Sinnvoll nach Aenderungen an:
+        Sinnvoll nach Änderungen an:
         - Suchkriterien (`suchkriterien_setzen`/`suchkriterien_bearbeiten`)
         - Profil (relevante Skills, Wunsch-Gehalt, Standort)
         - Scoring-Regler (`scoring_konfigurieren`)
-        - Geocoding-Cache (Standort-Aenderungen)
+        - Geocoding-Cache (Standort-Änderungen)
 
         Geht jede Stelle einmal durch `calculate_score()` und persistiert
         den neuen Wert via `db.update_job(hash, {"score": ...})`. Auto-
@@ -2521,7 +2521,7 @@ def register(mcp, db, logger):
 
         Args:
             nur_aktive: True (Standard) = nur is_active=1; False = auch aussortierte.
-            max_stellen: 0 = unbegrenzt, sonst harter Cap (sinnvoll fuer Tests).
+            max_stellen: 0 = unbegrenzt, sonst harter Cap (sinnvoll für Tests).
         """
         from ..job_scraper import calculate_score
         from ..services import scoring_kriterien
@@ -2601,7 +2601,7 @@ def register(mcp, db, logger):
                         "grund": (f"Ausschluss-Keyword "
                                   f"'{j['_ko_ausschluss']}' im Text — "
                                   "harter K.o. Steht der Begriff in einer "
-                                  "redaktionellen Notiz, gehoert sie "
+                                  "redaktionellen Notiz, gehört sie "
                                   "hinter eine '---'-Trennzeile (#603)."),
                     })
                 elif new_score - old_score <= -20:
@@ -2609,8 +2609,8 @@ def register(mcp, db, logger):
                         "hash": j.get("hash"),
                         "titel": j.get("title"),
                         "alt": old_score, "neu": new_score,
-                        "grund": "starker Rueckgang — Kriterien/Regler "
-                                 "pruefen (scoring_vorschau zeigt die "
+                        "grund": "starker Rückgang — Kriterien/Regler "
+                                 "prüfen (scoring_vorschau zeigt die "
                                  "Rechnung im Detail)",
                     })
             else:
@@ -2634,18 +2634,18 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def suchperformance_auswerten() -> dict:
-        """Welche Quelle fuehrt tatsaechlich zu Bewerbungen? (#783/B28, v1.7.10)
+        """Welche Quelle führt tatsächlich zu Bewerbungen? (#783/B28, v1.7.10)
 
-        Wertet die KOMPLETTE Kette rueckwirkend aus Bestandsdaten aus:
-        gefunden -> aussortiert (mit Top-Gruenden) -> beworben -> Interview/
+        Wertet die KOMPLETTE Kette rückwirkend aus Bestandsdaten aus:
+        gefunden -> aussortiert (mit Top-Gründen) -> beworben -> Interview/
         Angebot, je Quelle. Die eigentliche Kennzahl ist die BEWERBUNGSQUOTE
         pro Quelle, nicht die Trefferzahl — eine Quelle mit 7 Treffern und
-        2 Bewerbungen schlaegt eine mit 100 Treffern und 0.
+        2 Bewerbungen schlägt eine mit 100 Treffern und 0.
 
         Ehrliche Grenze (v1.7): Auswertung auf QUELLEN-Ebene. Die Ebene
         einzelner Such-Queries braucht eine Lauf-Protokollierung
         (search_runs) — das ist der v1.8-Teil von #783; die Beta-Linie
-        fuehrt mit `scraper_runs` (B25/#735) bereits eine Lauf-Historie.
+        führt mit `scraper_runs` (B25/#735) bereits eine Lauf-Historie.
         """
         conn = db.connect()
         pid = db.get_active_profile_id()
@@ -2749,7 +2749,7 @@ def register(mcp, db, logger):
             "quellen_ohne_einzige_bewerbung": trocken,
             "hinweis_trocken": (
                 "Quellen ohne Bewerbung trotz >=10 Funden sind KANDIDATEN "
-                "fuer die Deaktivierung — aber Vorschlag, keine Automatik: "
+                "für die Deaktivierung — aber Vorschlag, keine Automatik: "
                 "eine Quelle kann drei Monate trocken laufen und dann die "
                 "passende Stelle liefern."
             ) if trocken else "",
@@ -2774,12 +2774,12 @@ def register(mcp, db, logger):
         Auch findbar als: Schwellenwert vorschlagen, neuen Schwellenwert
         vorschlagen lassen (Dashboard-Hinweis), Score-Schwelle kalibrieren.
 
-        Prueft, wie die AKTUELLEN Kriterien die Vergangenheit bewertet
-        haetten: Score-Verteilung der Stellen, auf die tatsaechlich beworben
+        Prüft, wie die AKTUELLEN Kriterien die Vergangenheit bewertet
+        haetten: Score-Verteilung der Stellen, auf die tatsächlich beworben
         wurde (positive Labels), gegen eine Zufallsstichprobe der
         Aussortierten (negative Labels). Liefert einen Schwellen-Vorschlag
         (niedrigster Bewerbungs-Score x 0,8) und warnt, wenn historische
-        Bewerbungen unter der aktuellen `min_score_schwelle` laegen.
+        Bewerbungen unter der aktuellen `min_score_schwelle` lägen.
 
         ⛔ GARANTIE: Reine SCHATTENRECHNUNG. Dieses Tool ruft NIEMALS
         scores_neu_berechnen auf und schreibt keinen einzigen Score in die
@@ -2790,7 +2790,7 @@ def register(mcp, db, logger):
         dann entscheiden, dann (separat) scores_neu_berechnen().
 
         Args:
-            stichprobe_dismissed: Groesse der Zufallsstichprobe aussortierter
+            stichprobe_dismissed: Grösse der Zufallsstichprobe aussortierter
                 Stellen (Default 200).
             modus: 'aktuell' = Kriterien wie konfiguriert; 'idf' = mit
                 Seltenheitsgewichtung + Top-5-Deckelung; 'beide' = Vergleich
@@ -2828,11 +2828,11 @@ def register(mcp, db, logger):
     ) -> dict:
         """VERALTET: LinkedIn Browser-Suche ist deaktiviert (#159).
 
-        LinkedIn blockiert automatisierte Zugriffe zuverlaessig.
+        LinkedIn blockiert automatisierte Zugriffe zuverlässig.
         Nutze stattdessen Claude-in-Chrome Extension:
-        1. Oeffne LinkedIn im Chrome-Browser mit Claude-in-Chrome
+        1. Öffne LinkedIn im Chrome-Browser mit Claude-in-Chrome
         2. Suche manuell nach Stellen
-        3. Uebertrage gefundene Stellen mit stelle_manuell_anlegen()
+        3. Übertrage gefundene Stellen mit stelle_manuell_anlegen()
 
         Args:
             keywords: (ignoriert)
@@ -2844,10 +2844,10 @@ def register(mcp, db, logger):
             "status": "veraltet",
             "nachricht": (
                 "Die automatische LinkedIn-Suche via Playwright ist deaktiviert (#159). "
-                "LinkedIn blockiert automatisierte Zugriffe zuverlaessig. "
-                "Nutze stattdessen: 1) Claude-in-Chrome Extension oeffnen, "
+                "LinkedIn blockiert automatisierte Zugriffe zuverlässig. "
+                "Nutze stattdessen: 1) Claude-in-Chrome Extension öffnen, "
                 "2) LinkedIn manuell durchsuchen, "
-                "3) Stellen mit stelle_manuell_anlegen() uebertragen."
+                "3) Stellen mit stelle_manuell_anlegen() übertragen."
             ),
         }
 
@@ -2873,10 +2873,10 @@ def register(mcp, db, logger):
         if not treffer:
             return None
         return (
-            "Die Beschreibung enthaelt vermutlich redaktionelle Notizen "
+            "Die Beschreibung enthält vermutlich redaktionelle Notizen "
             f"(erkannt an: {', '.join(sorted(treffer)[:3])}), die NICHT "
             "durch eine '---'-Zeile vom Anzeigentext getrennt sind. "
-            "Solche Notizen zaehlen dann ins Scoring — ein Ausschluss-"
+            "Solche Notizen zählen dann ins Scoring — ein Ausschluss-"
             "Keyword darin setzt den Score hart auf 0 (#603/#917). "
             "Konvention: erst der Original-Anzeigentext, dann eine Zeile "
             "mit '---', dann die Notizen."
@@ -2906,8 +2906,8 @@ def register(mcp, db, logger):
     ) -> dict:
         """Legt eine Stelle manuell an (z.B. von LinkedIn/XING via Claude-in-Chrome) (#160).
 
-        Der Weg fuer alles, was PBP nicht selbst gefunden hat: eine Stelle
-        aus dem Browser, aus einer Mail, aus einem Gespraech. Prueft
+        Der Weg für alles, was PBP nicht selbst gefunden hat: eine Stelle
+        aus dem Browser, aus einer Mail, aus einem Gespräch. Prüft
         Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
         Anker (#766), berechnet den Score und legt an.
 
@@ -2917,7 +2917,7 @@ def register(mcp, db, logger):
             url: Link zur ORIGINAL-Ausschreibung (Detailseite, keine
                 Suchergebnis-URL — #645/#763).
             ort: Arbeitsort.
-            beschreibung: Anzeigentext. Je vollstaendiger, desto
+            beschreibung: Anzeigentext. Je vollständiger, desto
                 belastbarer der Score; unter 50 Zeichen gilt die Stelle
                 als unbewertet (#756/#989).
             quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite', ...).
@@ -2926,7 +2926,7 @@ def register(mcp, db, logger):
                 'werkstudent'.
             force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
             kontakt_name: Ansprechpartner — wird als Kontakt angelegt und
-                mit der Stelle verknuepft (Anker #766).
+                mit der Stelle verknüpft (Anker #766).
             kontakt_email: E-Mail des Ansprechpartners.
             kontakt_telefon: Telefonnummer des Ansprechpartners.
         """
@@ -3039,7 +3039,7 @@ def register(mcp, db, logger):
                 "blacklist_treffer": _bl_hit.get("value"),
                 "hinweis": "Mit force=True kann die Stelle dennoch angelegt werden.",
                 "hinweis_ausnahme": (
-                    "Wenn diese Firma grundsaetzlich unerwuenscht ist, aber "
+                    "Wenn diese Firma grundsätzlich unerwünscht ist, aber "
                     "einzelne Fachrollen passen (typisch bei Personal"
                     "dienstleistern), setze eine Ausnahme statt force: "
                     "blacklist_verwalten('hinzufuegen', 'firma', "
@@ -3123,16 +3123,16 @@ def register(mcp, db, logger):
                     **_zustand.aus_bewerbung(app)},
                 "grund": app_hit["grund"],
                 "nachricht": (
-                    f"Moegliches Duplikat: laufende Bewerbung {app['id'][:8]} bei "
+                    f"Mögliches Duplikat: laufende Bewerbung {app['id'][:8]} bei "
                     f"{app.get('company')} (Status: {app.get('status', 'unbekannt')}, "
                     f"Titel: '{app.get('title')}'). "
                     f"Match-Grund: {app_hit['grund']}"
                     + (f", gemeinsame Tokens: {app_hit.get('shared_tokens')}"
                        if app_hit.get("shared_tokens") else "")
                     + ". Die Stelle wurde NICHT angelegt. "
-                    "Falls es sich tatsaechlich um eine andere Stelle handelt, "
-                    "ergaenze den Titel eindeutig (z.B. Projekt- oder Team-Name) "
-                    "oder nutze stelle_mergen(), falls eine frueher angelegte "
+                    "Falls es sich tatsächlich um eine andere Stelle handelt, "
+                    "ergänze den Titel eindeutig (z.B. Projekt- oder Team-Name) "
+                    "oder nutze stelle_mergen(), falls eine früher angelegte "
                     "Stelle die zweite Variante ersetzt."
                 ),
                 "existing_application_id": app["id"][:8],
@@ -3173,7 +3173,7 @@ def register(mcp, db, logger):
                     f"'{existing.get('title')}' bei {existing.get('company')} "
                     f"(Quelle: {existing.get('source', 'unbekannt')}, "
                     f"Hash: {existing['hash']}). Es wird der vorhandene Hash "
-                    "zurueckgegeben — kein Duplikat in der DB."
+                    "zurückgegeben — kein Duplikat in der DB."
                 ),
                 "hash": existing["hash"],
                 "existing_hash": existing["hash"],
@@ -3230,7 +3230,7 @@ def register(mcp, db, logger):
                     "aktiv": bool(_alt.get("is_active")),
                     "aehnlichkeit_text": _treffer["aehnlichkeit"],
                     "hinweis": (
-                        f"Moeglicher Repost von '{_alt.get('title')}' "
+                        f"Möglicher Repost von '{_alt.get('title')}' "
                         f"({(_alt.get('hash') or '').split(':')[-1][:12]}): "
                         "Titel geaendert, Anzeigentext weitgehend gleich. "
                         "Gleiche Vakanz? Dann stelle_mergen()."),
@@ -3267,7 +3267,7 @@ def register(mcp, db, logger):
                     "hinweis": (
                         f"Laufende Bewerbung {(_vb.get('id') or '')[:8]} ueber "
                         f"'{_vb.get('company')}' nennt {firma} als Endkunden. "
-                        "Pruefen, ob dies dieselbe Stelle ist — sonst landet "
+                        "Prüfen, ob dies dieselbe Stelle ist — sonst landet "
                         "eine zweite Bewerbung am Vermittler vorbei beim "
                         "selben Arbeitgeber."),
                 }
@@ -3395,8 +3395,8 @@ def register(mcp, db, logger):
             result["hinweis"] = (
                 "quelle='manuell' gesetzt. Wenn die echte Herkunft bekannt "
                 "ist (z.B. 'linkedin', 'xing', 'firmenwebsite'), bitte den "
-                "Parameter quelle entsprechend setzen — sonst zaehlt die "
-                "Stelle faelschlich als manuell angelegt. Bei bekannter URL "
+                "Parameter quelle entsprechend setzen — sonst zählt die "
+                "Stelle fälschlich als manuell angelegt. Bei bekannter URL "
                 "wird die Quelle automatisch abgeleitet (#613/#733)."
             )
         # v1.7.0-beta.87 (#670): wenn ein Duplikat-Verdacht via force=True
@@ -3406,7 +3406,7 @@ def register(mcp, db, logger):
             result["nachricht"] += (
                 " HINWEIS: Es bestand ein Duplikat-Verdacht "
                 f"({uebersteuerter_verdacht['grund']}), der per force=True "
-                "uebersteuert wurde."
+                "übersteuert wurde."
             )
         # #762: Ohne Detail-URL ist stellenbeschreibung_nachladen blockiert
         # ("Stelle hat keine URL") — und genau das Nachladen macht aus dem
@@ -3414,7 +3414,7 @@ def register(mcp, db, logger):
         if not url:
             result["url_hinweis"] = (
                 "Keine URL angegeben — stellenbeschreibung_nachladen() kann die "
-                "Anzeige spaeter nicht holen. Wenn die Detail-URL der Anzeige "
+                "Anzeige später nicht holen. Wenn die Detail-URL der Anzeige "
                 "vorliegt, gleich beim Anlegen mitgeben oder per "
                 "stelle_bearbeiten(url=...) nachreichen."
             )
@@ -3425,7 +3425,7 @@ def register(mcp, db, logger):
             result["score_hinweis"] = (
                 "Die Beschreibung ist sehr kurz — der Score ist damit NICHT "
                 "belastbar. Erst mit dem Anzeigen-Volltext (nachladen oder "
-                "einfuegen) wird er aussagekraeftig."
+                "einfügen) wird er aussagekräftig."
             )
         # #436: Warnung wenn URL auf Suchergebnis-Seite zeigt
         from ..job_scraper import is_search_result_url
@@ -3433,7 +3433,7 @@ def register(mcp, db, logger):
             result["url_warnung"] = (
                 "Die angegebene URL zeigt auf eine Suchergebnis-Seite, nicht auf die "
                 "konkrete Stellenanzeige. Die Stelle wurde trotzdem angelegt, aber der "
-                "Link wird zur Such-Seite zurueckfuehren. Falls moeglich die Detail-URL "
+                "Link wird zur Such-Seite zurückführen. Falls möglich die Detail-URL "
                 "der Stellenanzeige statt der Suchergebnis-URL nutzen."
             )
         # #766: Anker-Pflicht. Die Stelle wird bewusst NICHT abgelehnt (das
@@ -3448,7 +3448,7 @@ def register(mcp, db, logger):
                 "eintrag": _bl_ausnahme["eintrag"],
                 "begriff": _bl_ausnahme["begriff"],
                 "hinweis": (
-                    f"Firma steht auf der Blacklist, der Titel enthaelt aber "
+                    f"Firma steht auf der Blacklist, der Titel enthält aber "
                     f"'{_bl_ausnahme['begriff']}' — die hinterlegte Ausnahme "
                     "greift, die Stelle wurde angelegt."
                 ),
@@ -3474,27 +3474,27 @@ def register(mcp, db, logger):
     @mcp.tool()
     def linkedin_lauf_plan(max_begriffe: int = 12, seit: str = "",
                            geo_id: str = "", seiten: int = 2) -> dict:
-        """Der erprobte LinkedIn-Weg als ausfuehrbarer Plan (#919).
+        """Der erprobte LinkedIn-Weg als ausführbarer Plan (#919).
 
-        Der Playwright-Adapter fuer LinkedIn liefert seit April 2026 nichts
+        Der Playwright-Adapter für LinkedIn liefert seit April 2026 nichts
         mehr. Die jobspy-Variante (`jobspy_linkedin`) LIEFERT — sie braucht
         nur lange (rund 12 s je Suchbegriff) und hat seit v1.7.120 ein
         eigenes Zeitbudget (#1038); ihre Treffer kommen aber OHNE
         Anzeigentext. Dieser Weg hier liefert den Volltext: HTTP von aussen
-        blockt LinkedIn zuverlaessig, Requests aus dem EINGELOGGTEN
+        blockt LinkedIn zuverlässig, Requests aus dem EINGELOGGTEN
         Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
-        dieser Weg vollstaendig durchgespielt: 22 Suchbegriffe, 511
-        deduplizierte Rohtreffer, 59 Volltexte, 3 uebernommene Stellen.
+        dieser Weg vollständig durchgespielt: 22 Suchbegriffe, 511
+        deduplizierte Rohtreffer, 59 Volltexte, 3 übernommene Stellen.
 
         Dieses Werkzeug liefert den Plan samt fertiger Browser-Skripte;
-        Claude fuehrt ihn in einem Tab auf linkedin.com aus, und
+        Claude führt ihn in einem Tab auf linkedin.com aus, und
         `linkedin_treffer_uebernehmen` schreibt das Ergebnis nach PBP.
 
-        **Der Volltext ist Pflicht, nicht Kuer.** Von 59 Titeln, die den
+        **Der Volltext ist Pflicht, nicht Kür.** Von 59 Titeln, die den
         Vorfilter passiert hatten, blieben nach dem Lesen der Volltexte 3
-        uebrig — der beste Titel-Treffer des Laufs verlangte im Fliesstext
+        übrig — der beste Titel-Treffer des Laufs verlangte im Fliesstext
         ein System von der harten Ausschlussliste. Wer nur Titel und
-        Kurzbeschreibung uebernimmt, liefert genau die falschen Stellen
+        Kurzbeschreibung übernimmt, liefert genau die falschen Stellen
         mit hohem Score ein.
 
         Args:
@@ -3536,7 +3536,7 @@ def register(mcp, db, logger):
             "js": {
                 "1_ernte": lv.js_mit_konfig(lv.JS_ERNTE, cfg),
                 "2_status": lv.JS_STATUS,
-                "3_volltexte": ("Vorlage — <IDS> durch die ausgewaehlten "
+                "3_volltexte": ("Vorlage — <IDS> durch die ausgewählten "
                                 "Job-IDs ersetzen (JSON-Liste): "
                                 + lv.JS_VOLLTEXTE.replace("__IDS__", "<IDS>")
                                   .replace("__CFG__", "CFG_PLATZHALTER")),
@@ -3544,11 +3544,11 @@ def register(mcp, db, logger):
             },
             "js_volltexte_konfig": cfg,
             "ablauf": [
-                "Tab auf die LinkedIn-Jobsuche oeffnen (eingeloggt).",
-                "Skript 1 ausfuehren — es laeuft als async IIFE weiter, "
-                "auch wenn der Aufruf sofort zurueckkommt.",
+                "Tab auf die LinkedIn-Jobsuche öffnen (eingeloggt).",
+                "Skript 1 ausführen — es läuft als async IIFE weiter, "
+                "auch wenn der Aufruf sofort zurückkommt.",
                 "Skript 2 wiederholt aufrufen, bis 'fertig' true ist.",
-                "Titel sichten und die Job-IDs waehlen, deren Volltext "
+                "Titel sichten und die Job-IDs wählen, deren Volltext "
                 "geholt werden soll (der Vorfilter).",
                 "Skript 3 mit diesen IDs starten, danach wieder Skript 2.",
                 "Skript 4 rendert das Ergebnis in die Seite; mit "
@@ -3557,17 +3557,17 @@ def register(mcp, db, logger):
                 "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen.",
             ],
             "stolpersteine": [
-                "Navigation loescht window.__pbp_ln — der ganze Lauf muss "
+                "Navigation löscht window.__pbp_ln — der ganze Lauf muss "
                 "auf EINEM Tab ohne Seitenwechsel passieren.",
                 "javascript_tool bricht nach rund 45 s ab. Deshalb laufen "
                 "die Schleifen als async IIFE und der Fortschritt wird "
                 "abgefragt statt abgewartet.",
-                "javascript_tool kappt die Rueckgabe bei rund 1000 "
-                "Zeichen. Anzeigentexte deshalb NIE zurueckgeben, sondern "
-                "ueber Skript 4 rendern und mit get_page_text holen.",
-                "URLs mit Query-String in einer Rueckgabe loesen einen "
+                "javascript_tool kappt die Rückgabe bei rund 1000 "
+                "Zeichen. Anzeigentexte deshalb NIE zurückgeben, sondern "
+                "über Skript 4 rendern und mit get_page_text holen.",
+                "URLs mit Query-String in einer Rückgabe lösen einen "
                 "Block aus. Die Skripte bauen ihre URLs deshalb selbst und "
-                "geben nur Zahlen zurueck.",
+                "geben nur Zahlen zurück.",
                 f"{lv.PAUSE_MS} ms zwischen den Requests — damit liefen "
                 "511 Trefferzeilen plus 59 Volltexte ohne Drosselung durch.",
             ],
@@ -3575,7 +3575,7 @@ def register(mcp, db, logger):
             "hinweis": (
                 "Ohne eingeloggten Chrome bricht der Lauf ab: "
                 "linkedin_treffer_uebernehmen(login_fehlt=True) meldet das "
-                "als 'wartet_auf_login'. Das ist KEIN Befund ueber den "
+                "als 'wartet_auf_login'. Das ist KEIN Befund über den "
                 "Stellenmarkt — die Quelle bleibt aktiv und wird nicht "
                 "automatisch deaktiviert (#906)."
             ),
@@ -3585,19 +3585,19 @@ def register(mcp, db, logger):
     def stellen_entfernen_nach_quelle(quelle: str, dry_run: bool = True) -> dict:
         """Entfernt die Stellen einer Quelle ENDGUELTIG aus dem Bestand (#1075).
 
-        Fuer den Fall, dass eine Quelle abgewaehlt wurde und ihre Treffer
+        Für den Fall, dass eine Quelle abgewählt wurde und ihre Treffer
         nicht mehr im Bestand stehen sollen — auch nicht aussortiert, weil
         aussortierte Stellen weiter in Statistik, Ablehnungsmustern und den
-        Schwellen-Stufen (#1063) zaehlen. Aussortieren ist
-        `stellen_bulk_bewerten`; das hier loescht.
+        Schwellen-Stufen (#1063) zählen. Aussortieren ist
+        `stellen_bulk_bewerten`; das hier löscht.
 
-        Geschuetzt bleiben Stellen mit Bewerbung und Stellen, die eine
-        GEWAEHLTE Quelle ebenfalls gefunden hat. Fundstellen, Verknuepfungen
+        Geschützt bleiben Stellen mit Bewerbung und Stellen, die eine
+        GEWAEHLTE Quelle ebenfalls gefunden hat. Fundstellen, Verknüpfungen
         und Kontakt-Verweise gehen mit; Kontakte selbst bleiben.
 
         Args:
             quelle: Quellen-Schluessel, z.B. 'hays' oder 'freelance_de'.
-            dry_run: Vorgabe True — zeigt nur, was entfernt wuerde.
+            dry_run: Vorgabe True — zeigt nur, was entfernt würde.
         """
         if not (quelle or "").strip():
             return {"fehler": "quelle ist Pflicht (z.B. 'hays')."}
@@ -3615,34 +3615,34 @@ def register(mcp, db, logger):
                                      rohtreffer: int = 0,
                                      volltexte_gelesen: int = 0,
                                      nach_lesen_verworfen: int = 0) -> dict:
-        """Uebernimmt die geernteten LinkedIn-Stellen nach PBP (#919).
+        """Übernimmt die geernteten LinkedIn-Stellen nach PBP (#919).
 
         Erwartet je Eintrag mindestens `job_id`, `titel`, `firma` und
         `beschreibung` (Volltext). Optional `ort`, `remote`,
         `anstellungsart` — und seit v1.7.67 (#1011) `kontakt_name`,
         `kontakt_email`, `kontakt_telefon`. Steht in der Anzeige eine
-        Ansprechpartnerin namentlich, gehoert sie hier hinein: bisher
+        Ansprechpartnerin namentlich, gehört sie hier hinein: bisher
         hing es am Anlageweg, ob ein Kontakt entsteht.
 
-        Schreibt ueber denselben Weg wie `stelle_manuell_anlegen` —
+        Schreibt über denselben Weg wie `stelle_manuell_anlegen` —
         Blacklist, Duplikat-Stufen, Anker-Pflicht und Scoring gelten
-        unveraendert. Eine zweite Fassung dieser Regeln waere genau der
+        unverändert. Eine zweite Fassung dieser Regeln wäre genau der
         Fehler, der PBP in #963, #987, #991 und #992 je einmal gekostet
         hat.
 
-        **Ohne Volltext keine Anlage.** Eintraege unter
+        **Ohne Volltext keine Anlage.** Einträge unter
         `linkedin_voyager.MIN_BESCHREIBUNG` Zeichen werden uebersprungen
-        und gezaehlt, statt mit halbem Text angelegt zu werden.
+        und gezählt, statt mit halbem Text angelegt zu werden.
 
         Args:
             treffer: die geernteten Stellen.
-            dry_run: True (Vorgabe) zeigt nur, was passieren wuerde.
+            dry_run: True (Vorgabe) zeigt nur, was passieren würde.
             login_fehlt: True meldet den Lauf als 'wartet_auf_login' —
-                kein Befund ueber den Markt, keine Auto-Deaktivierung.
+                kein Befund über den Markt, keine Auto-Deaktivierung.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
                 "3 angelegt" nicht einzuordnen (#813/#989).
             volltexte_gelesen: wie viele Volltexte im Browser gelesen
-                wurden (#1076) — auch die, die danach nicht uebergeben
+                wurden (#1076) — auch die, die danach nicht übergeben
                 wurden.
             nach_lesen_verworfen: wie viele davon nach dem Lesen
                 verworfen wurden.
@@ -3656,7 +3656,7 @@ def register(mcp, db, logger):
                 "nachricht": lv.FEHLER_TEXTE["nicht_eingeloggt"],
                 "hinweis": (
                     "Die Quelle bleibt aktiv und wird NICHT automatisch "
-                    "deaktiviert — ein fehlender Login sagt nichts ueber "
+                    "deaktiviert — ein fehlender Login sagt nichts über "
                     "den Stellenmarkt aus (#906)."
                 ),
             }
@@ -3666,9 +3666,9 @@ def register(mcp, db, logger):
         if not eintraege:
             return leer(
                 {"status": "leer", "trichter": trichter},
-                "Keine Treffer uebergeben.",
-                "Erst linkedin_lauf_plan() ausfuehren und die Ernte hier "
-                "uebergeben.")
+                "Keine Treffer übergeben.",
+                "Erst linkedin_lauf_plan() ausführen und die Ernte hier "
+                "übergeben.")
 
         trichter["rohtreffer"] = max(int(rohtreffer or 0), len(eintraege))
         trichter["nach_vorfilter"] = len(eintraege)
@@ -3703,7 +3703,7 @@ def register(mcp, db, logger):
                 continue
             if len(beschreibung) < lv.MIN_BESCHREIBUNG:
                 _skip(e, "volltext_fehlt",
-                      f"{len(beschreibung)} Zeichen, noetig sind "
+                      f"{len(beschreibung)} Zeichen, nötig sind "
                       f"{lv.MIN_BESCHREIBUNG}")
                 continue
             trichter["volltexte"] += 1
@@ -3800,7 +3800,7 @@ def register(mcp, db, logger):
         version_label: str = "",
         ist_primaer: bool = False,
     ) -> dict:
-        """Verknuepft eine Bewerbung mit einer (zusaetzlichen) Stelle (#472).
+        """Verknüpft eine Bewerbung mit einer (zusätzlichen) Stelle (#472).
 
         Use-Case: Eine Bewerbung kann sich auf MEHRERE Stellen-Versionen
         beziehen — z.B. wenn eine Firma die Stelle re-postet, oder wenn
@@ -3808,12 +3808,12 @@ def register(mcp, db, logger):
         (Vermittler + Endkunde, oder Senior + Lead Variante).
 
         Args:
-            bewerbung_id: ID der Bewerbung (mit oder ohne APP-Praefix).
-            stellen_hash: Hash der Stelle (mit oder ohne JOB-Praefix).
+            bewerbung_id: ID der Bewerbung (mit oder ohne APP-Präfix).
+            stellen_hash: Hash der Stelle (mit oder ohne JOB-Präfix).
             version_label: Optionale Bezeichnung (z.B. 'Senior-Variante',
                 'Repost vom 15.05.', 'Endkunde-Sicht').
-            ist_primaer: Wenn True, wird diese Verknuepfung als primaer
-                gesetzt (alle anderen werden auf nicht-primaer gesetzt).
+            ist_primaer: Wenn True, wird diese Verknüpfung als primär
+                gesetzt (alle anderen werden auf nicht-primär gesetzt).
         """
         from ..services.typed_ids import strip_prefix
         bid = strip_prefix(bewerbung_id)
@@ -3824,7 +3824,7 @@ def register(mcp, db, logger):
                 is_primary=ist_primaer
             )
         except Exception as e:
-            return {"fehler": f"Verknuepfung fehlgeschlagen: {e}"}
+            return {"fehler": f"Verknüpfung fehlgeschlagen: {e}"}
         return {
             "status": "verknuepft",
             "link_id": link_id,
@@ -3834,7 +3834,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def bewerbung_stelle_entknuepfen(bewerbung_id: str, stellen_hash: str) -> dict:
-        """Entfernt eine Stellen-Verknuepfung von einer Bewerbung."""
+        """Entfernt eine Stellen-Verknüpfung von einer Bewerbung."""
         from ..services.typed_ids import strip_prefix
         bid = strip_prefix(bewerbung_id)
         jhash = strip_prefix(stellen_hash)
@@ -3843,7 +3843,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def bewerbung_stellen_anzeigen(bewerbung_id: str) -> dict:
-        """Listet alle Stellen, die mit einer Bewerbung verknuepft sind (#472).
+        """Listet alle Stellen, die mit einer Bewerbung verknüpft sind (#472).
 
         Wenn die Bewerbung ein klassisches `applications.job_hash` hat,
         ist es als is_primary=True hier mit drin (durch Migration).
@@ -3861,12 +3861,12 @@ def register(mcp, db, logger):
     def stellenbeschreibung_nachladen(stellen_hash: str) -> dict:
         """Holt die Beschreibung einer Stelle aus ihrer URL nach (v1.7.0-beta.44, #622).
 
-        Wenn der Score einer Stelle unzuverlaessig wirkt weil die
+        Wenn der Score einer Stelle unzuverlässig wirkt weil die
         Beschreibung leer oder zu kurz ist, ruft dieses Tool die URL
-        auf, parsed sie und schreibt die Beschreibung zurueck in die DB.
+        auf, parsed sie und schreibt die Beschreibung zurück in die DB.
 
-        Eine HTTP-GET pro Aufruf — bewusst nicht fuer Massen-Crawl
-        gedacht. Fuer Bulk-Refetch nutzt PBP den Auto-Engine-Step
+        Eine HTTP-GET pro Aufruf — bewusst nicht für Massen-Crawl
+        gedacht. Für Bulk-Refetch nutzt PBP den Auto-Engine-Step
         `_run_auto_refetch_descriptions` (max 8 Stellen pro Lauf).
 
         Liefert {status, chars, preview} bei Erfolg, sonst
@@ -3951,12 +3951,12 @@ def register(mcp, db, logger):
             antwort["grenze_erreicht"] = True
             antwort["hinweis"] = (
                 f"Der Text erreicht die Speicher-Notbremse von "
-                f"{SPEICHER_MAX} Zeichen und koennte abgeschnitten sein.")
+                f"{SPEICHER_MAX} Zeichen und könnte abgeschnitten sein.")
         elif kappungs_grenze(text, quelle):
             antwort["grenze_erreicht"] = True
             antwort["hinweis"] = (
                 f"Der geholte Text ist exakt {kappungs_grenze(text, quelle)} "
-                "Zeichen lang — die Quelle selbst kappt hier moeglicherweise.")
+                "Zeichen lang — die Quelle selbst kappt hier möglicherweise.")
         if kappungs_grenze(vorher, quelle) and len(text) > len(vorher):
             antwort["gekappten_text_geheilt"] = True
             antwort["hinweis"] = (
@@ -3978,12 +3978,12 @@ def register(mcp, db, logger):
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
                                          nur_zaehlen: bool = True,
                                          umfang: str = "fehlend") -> dict:
-        """Laedt fehlende oder abgeschnittene Anzeigentexte nach (#1016).
+        """Lädt fehlende oder abgeschnittene Anzeigentexte nach (#1016).
 
-        Zwei verschiedene Schaeden, ein Werkzeug:
+        Zwei verschiedene Schäden, ein Werkzeug:
 
         * **fehlend** (Vorgabe) — die Stelle hat gar keinen brauchbaren
-          Text. Haeufigster Fall: die BA-Suche legt ab Treffer 21 je
+          Text. Häufigster Fall: die BA-Suche legt ab Treffer 21 je
           Suchbegriff Stellen ohne Volltext an (#500) und setzt voraus,
           dass Nachladen funktioniert.
         * **gekappt** — der Altbestand aus #952: bis v1.7.22 kappte
@@ -3994,12 +3994,12 @@ def register(mcp, db, logger):
         Bis v1.7.86 gab es nur den zweiten Fall, und zwar als einzige
         Auswahlregel. Eine Stelle ganz ohne Text hat `len 0` und fiel
         damit durch das Raster — das Werkzeug meldete "nichts zu tun"
-        fuer genau den Bestand, wegen dem man es aufruft.
+        für genau den Bestand, wegen dem man es aufruft.
 
         Der Lauf geht durch `services/nachladen` (#1014) und liefert
         dessen vier Befunde in der Bilanz. Eine Stelle, deren Anzeige
-        der Server ausdruecklich als entfernt meldet (404/410), wird
-        AUSSORTIERT statt beim naechsten Lauf erneut versucht.
+        der Server ausdrücklich als entfernt meldet (404/410), wird
+        AUSSORTIERT statt beim nächsten Lauf erneut versucht.
 
         Args:
             max_stellen: Obergrenze pro Lauf. Jede Stelle ist ein
@@ -4015,7 +4015,7 @@ def register(mcp, db, logger):
                 "Unbekannt" als Firma oder leerem Ort: Firma und Ort
                 kommen aus dem JobPosting der Detailseite, samt
                 Entfernung und neuem Score. Der Text bleibt, wenn er
-                schon vollstaendig ist.
+                schon vollständig ist.
         """
         import httpx
 
@@ -4201,7 +4201,7 @@ def register(mcp, db, logger):
                 "Die nachgeladenen Stellen sind neu ausgewertet — Gehalt, "
                 "Umfang, Entfernung und Score beruhen jetzt auf dem vollen "
                 "Text und der Detailseite; `gewachsen` nennt je Stelle den "
-                "Score vorher und nachher, `kopf_beispiele` ergaenzte Firma "
+                "Score vorher und nachher, `kopf_beispiele` ergänzte Firma "
                 "und Ort."
                 if geheilt else
                 # Der Klartext je Befund steht in `befunde_klartext` und
@@ -4210,7 +4210,7 @@ def register(mcp, db, logger):
                 # siebzehnmal gekostet hat, und der #1014-Guard hat sie
                 # beim ersten Lauf gefangen.
                 "Nichts geheilt. `befunde_klartext` sagt je Befund, "
-                "woran es lag und was der naechste Schritt ist."),
+                "woran es lag und was der nächste Schritt ist."),
         }
 
     def _nichts_zu_tun_hinweis(umfang: str, zaehlung: dict) -> str:
@@ -4257,14 +4257,14 @@ def register(mcp, db, logger):
         auto_aussortieren: bool = False,
         mit_ollama_validierung: bool = False,
     ) -> dict:
-        """Prueft URL-Health + Beschreibungs-Vollstaendigkeit aktiver Stellen (#645).
+        """Prüft URL-Health + Beschreibungs-Vollständigkeit aktiver Stellen (#645).
 
         Geht pro aktiver Stelle durch:
         1. URL-Reachability (HTTP-Status + Bot-Block-Erkennung)
         2. Body-Marker "Stelle vergeben/expired"
-        3. Workday-API-Cross-Check fuer Workday-SPAs
+        3. Workday-API-Cross-Check für Workday-SPAs
         4. Title-Token-Match Body vs. Titel (hat Server-Replacement geliefert?)
-        5. Beschreibungs-Laenge (>= 50 Zeichen)
+        5. Beschreibungs-Länge (>= 50 Zeichen)
 
         Kategorisiert in:
             ok              — alles fein
@@ -4283,14 +4283,14 @@ def register(mcp, db, logger):
             max_stellen: Maximum aktiver Stellen pro Lauf (Schutz gegen
                 lange Token-Runs).
             nur_problematische: Default True — nur Stellen mit Befund
-                zurueckliefern, nicht die OK-Stellen einzeln auflisten.
+                zurückliefern, nicht die OK-Stellen einzeln auflisten.
             auto_aussortieren: Default False (Vorschau). Bei True werden
                 Stellen mit url_404 oder url_expired sofort via
                 dismiss_job(reason='veraltet_url') ausgemustert.
-            mit_ollama_validierung: Default False. Bei True wird zusaetzlich
+            mit_ollama_validierung: Default False. Bei True wird zusätzlich
                 Ollama (lokale AI) genutzt um pro Stelle die Beschreibungs-
-                Vollstaendigkeit zu bewerten — liefert pro Stelle einen
-                "ollama"-Block mit {vollstaendig, score, vorhanden, fehlt,
+                Vollständigkeit zu bewerten — liefert pro Stelle einen
+                "ollama"-Block mit {vollständig, score, vorhanden, fehlt,
                 begruendung, claude_action}. Nur sinnvoll wenn lokale AI
                 aktiv ist; sonst kostet jeder Stelle einen Claude-Pending-
                 Call. Empfohlene Reihenfolge: erst URL-Health, dann
@@ -4489,9 +4489,9 @@ def register(mcp, db, logger):
                         f"{len(_schwach)} von {len(_verworfen)} "
                         f"Aussortierungen ({_q3} %) wurden an einer "
                         f"Anzeige unter {MINDESTLAENGE_BELASTBAR} Zeichen "
-                        "oder auf Basis eines geschaetzten Gehalts "
-                        "getroffen. Sie zaehlen im "
-                        "Wiedergaenger-Mechanismus nur halb. Zum "
+                        "oder auf Basis eines geschätzten Gehalts "
+                        "getroffen. Sie zählen im "
+                        "Wiedergänger-Mechanismus nur halb. Zum "
                         "Zurueckholen: stelle_reaktivieren(hash)."),
                 }
         except Exception:
@@ -4517,9 +4517,9 @@ def register(mcp, db, logger):
                     "hinweis": (
                         f"{len(_ohne)} von {len(_alle2)} aktiven Stellen "
                         f"({_q2} %) haben einen Ort, aber keine "
-                        "aufgeloeste Entfernung. Ihr Entfernungs-Malus "
-                        "entfaellt — sie stehen dadurch zu weit oben. "
-                        "Ort pruefen mit stelle_bearbeiten(), danach "
+                        "aufgelöste Entfernung. Ihr Entfernungs-Malus "
+                        "entfällt — sie stehen dadurch zu weit oben. "
+                        "Ort prüfen mit stelle_bearbeiten(), danach "
                         "scores_neu_berechnen()."),
                 }
         except Exception:
@@ -4542,9 +4542,9 @@ def register(mcp, db, logger):
     def stelle_vergleichen(hash_a: str, hash_b: str) -> dict:
         """Vergleicht zwei Stellen strukturiert (#580).
 
-        Liefert eine Gegenueberstellung von Skills (gemeinsam / nur A /
+        Liefert eine Gegenüberstellung von Skills (gemeinsam / nur A /
         nur B), Gehalt, Standort, Stellenart, Score und
-        Beschreibungs-Laenge. Sehr hilfreich um zu erkennen ob zwei
+        Beschreibungs-Länge. Sehr hilfreich um zu erkennen ob zwei
         Stellen wirklich verschieden sind oder nur Schreibvarianten.
         """
         from ..services.typed_ids import strip_prefix
@@ -4615,11 +4615,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def aehnliche_stellen_finden(stellen_hash: str, max_treffer: int = 5) -> dict:
-        """Findet aehnliche Stellen zu einer gegebenen Stelle (#580).
+        """Findet ähnliche Stellen zu einer gegebenen Stelle (#580).
 
         Algorithmus: Token-Overlap zwischen Title+Description. Bewerbungen
         und Stellen mit gleichem Hash werden ausgeschlossen. Liefert
-        zusaetzlich den Outcome-Status (erfolgreich/abgelehnt/aussortiert)
+        zusätzlich den Outcome-Status (erfolgreich/abgelehnt/aussortiert)
         wenn vorhanden — als Lern-Signal.
         """
         from ..services.typed_ids import strip_prefix
@@ -4637,7 +4637,7 @@ def register(mcp, db, logger):
             }
         target_tokens = _tokens(target.get("title", "") + " " + (target.get("description") or "")[:1500])
         if not target_tokens:
-            return {"hinweis": "Stelle hat zu wenig Text fuer Aehnlichkeits-Berechnung."}
+            return {"hinweis": "Stelle hat zu wenig Text für Ähnlichkeits-Berechnung."}
 
         # Alle anderen Stellen durchgehen
         all_jobs = db.get_active_jobs() + db.get_dismissed_jobs()
@@ -4701,26 +4701,26 @@ def register(mcp, db, logger):
         feld_strategie: dict | None = None,
         dry_run: bool = True,
     ) -> dict:
-        """Fuehrt zwei doppelt angelegte Stellen zusammen (#470).
+        """Führt zwei doppelt angelegte Stellen zusammen (#470).
 
         Typischer Flow:
         1. Erst ``dry_run=True`` (Default) aufrufen -> Vorschau mit Feld-
-           Entscheidungen, Konflikten und welche Bewerbungen umgehaengt werden.
-        2. Output pruefen, bei Konflikten ggf. ``feld_strategie`` mitgeben.
+           Entscheidungen, Konflikten und welche Bewerbungen umgehängt werden.
+        2. Output prüfen, bei Konflikten ggf. ``feld_strategie`` mitgeben.
         3. Mit ``dry_run=False`` finalisieren.
 
         Args:
             master_hash: Stelle, die erhalten bleibt.
-            duplikat_hash: Stelle, die aufgeloest (geloescht) wird.
+            duplikat_hash: Stelle, die aufgelöst (gelöscht) wird.
             feld_strategie: Optional dict pro Feld: 'master' | 'duplikat' |
-                'merge' (letzteres nur fuer 'description' sinnvoll).
-                Felder die nur im Duplikat gefuellt sind, werden automatisch
+                'merge' (letzteres nur für 'description' sinnvoll).
+                Felder die nur im Duplikat gefüllt sind, werden automatisch
                 uebernommen — ausser die Strategie nennt 'master' (#1077),
                 dann bleibt das Feld leer. Die Vorschau nennt diese Felder
                 unter 'ohne_rueckfrage_uebernommen'. Entfernung und
                 Koordinaten folgen dem Ort: kommt 'location' vom Master,
                 kommen auch sie vom Master. Felder die nur im Master
-                gefuellt sind, bleiben.
+                gefüllt sind, bleiben.
             dry_run: Default True. Bei True wird nichts geschrieben.
 
         Returns:
@@ -4738,7 +4738,7 @@ def register(mcp, db, logger):
         )
         if dry_run and "fehler" not in result:
             result["hinweis"] = (
-                "Vorschau. Mit dry_run=False ausfuehren. "
+                "Vorschau. Mit dry_run=False ausführen. "
                 "Bei Konflikten feld_strategie mitgeben "
                 "(z.B. {'description': 'merge', 'url': 'duplikat'})."
             )
@@ -4756,17 +4756,17 @@ def register(mcp, db, logger):
         bei einer entarteten Seite greift eine Notbremse, und dann steht
         dort, wie der Rest zu holen ist.
 
-        Reines LESEWERKZEUG (seit v1.7.24, #963): der Aufruf veraendert
+        Reines LESEWERKZEUG (seit v1.7.24, #963): der Aufruf verändert
         die Stelle nicht mehr. Bis v1.7.23 schrieb er den errechneten
         Wert still in `jobs.score` — wer sich eine Stelle nur genauer
         ansah, verschob damit ihre Position in der Trefferliste.
 
         Args:
             job_hash: Hash der Stelle (von stellen_anzeigen)
-            score_uebernehmen: True = den errechneten Wert ausdruecklich
+            score_uebernehmen: True = den errechneten Wert ausdrücklich
                 als neuen Score speichern. Standard False.
             beschreibung_ab: Ab welchem Zeichen der Anzeigentext
-                geliefert wird. Nur noetig, wenn `beschreibung_ausgabe`
+                geliefert wird. Nur nötig, wenn `beschreibung_ausgabe`
                 ein `weiter_ab_zeichen` nennt.
         """
         from ..job_scraper import fit_analyse as _fit_analyse
@@ -4859,8 +4859,8 @@ def register(mcp, db, logger):
                 "snapshot_at": job_dict.get("snapshot_at", ""),
                 "hinweis": (
                     "Live-Beschreibung fehlt/zu kurz — Analyse lief auf dem "
-                    "unveraenderlichen Volltext-Snapshot vom Anlage-Zeitpunkt "
-                    "(#687). Die Anzeige koennte offline sein."
+                    "unveränderlichen Volltext-Snapshot vom Anlage-Zeitpunkt "
+                    "(#687). Die Anzeige könnte offline sein."
                 ),
             }
 
@@ -4905,7 +4905,7 @@ def register(mcp, db, logger):
                         "bitte melden (pbp_grenze_melden oder ein Issue).")
                 else:
                     _hinweis += (
-                        "Meist ist der gespeicherte Wert aelter als die "
+                        "Meist ist der gespeicherte Wert älter als die "
                         "aktuellen Suchkriterien. Wurde seither nichts "
                         "geaendert, ist die Abweichung ein Befund.")
                 result["score_abweichung"] = {
@@ -5098,11 +5098,11 @@ def register(mcp, db, logger):
         """Aktualisiert Felder einer bestehenden Stelle (#446, #645).
 
         Nutze dies, um eine gescrapte oder manuell angelegte Stelle
-        nachtraeglich zu korrigieren oder zu verfeinern — z.B. wenn aus einer
-        E-Mail eine ausfuehrlichere Beschreibung hervorgeht oder die
+        nachträglich zu korrigieren oder zu verfeinern — z.B. wenn aus einer
+        E-Mail eine ausführlichere Beschreibung hervorgeht oder die
         Ortsangabe prezisiert werden muss.
 
-        Nur angegebene Felder werden geaendert. Leere Strings bleiben unveraendert.
+        Nur angegebene Felder werden geaendert. Leere Strings bleiben unverändert.
 
         v1.7.0-beta.71 (#645): `url` ist jetzt setzbar. Bei URL-Update wird
         `is_search_url` automatisch aus der URL bestimmt (Detail- vs.
@@ -5116,21 +5116,21 @@ def register(mcp, db, logger):
             ort: Neuer Arbeitsort
             beschreibung: Neue Stellenbeschreibung.
                 NOTIZEN-KONVENTION (#603/#917): eigene Anmerkungen,
-                Recherche-Ergebnisse oder Bewerberstatistiken gehoeren
+                Recherche-Ergebnisse oder Bewerberstatistiken gehören
                 HINTER eine Zeile mit '---' (erst Original-Anzeigentext,
                 dann '---', dann Notizen). Alles vor der Trennzeile
-                zaehlt ins Scoring — ein Ausschluss-Keyword in einer
+                zählt ins Scoring — ein Ausschluss-Keyword in einer
                 Notiz setzt den Score sonst hart auf 0 (belegter Fall:
                 eine LinkedIn-Bewerberstatistik mit '20 % Berufseinsteiger'
                 nullte eine passende Stelle).
             url: Neue Stellen-URL. Wird auch genutzt um nach #645 leere
                 URL-Felder bei XING/Stepstone/Email-Stellen nachzupflegen.
-            entfernung_km: Entfernung von Hand setzen (#1077), auch 0 fuer
+            entfernung_km: Entfernung von Hand setzen (#1077), auch 0 für
                 "am Wohnort antretbar". Gilt ab dann dauerhaft — kein
-                Suchlauf ueberschreibt sie. Fuer den Fall, dass die Anzeige
+                Suchlauf überschreibt sie. Für den Fall, dass die Anzeige
                 einen anderen Ort nennt als den, an dem man antritt.
             entfernung_zuruecksetzen: True = Entfernung auf "unbekannt"
-                setzen und fuer die Automatik freigeben.
+                setzen und für die Automatik freigeben.
         """
         # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
         # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
@@ -5139,10 +5139,10 @@ def register(mcp, db, logger):
         h = strip_prefix(job_hash)
         resolved = db.resolve_job_hash(h)
         if not resolved:
-            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+            return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
         job = db.get_job(resolved)
         if not job:
-            return {"fehler": "Stelle nicht gefunden. Pruefe den Hash mit stellen_anzeigen()."}
+            return {"fehler": "Stelle nicht gefunden. Prüfe den Hash mit stellen_anzeigen()."}
         # Ab hier den vollen aufgeloesten Hash verwenden
         job_hash = resolved
 
@@ -5167,12 +5167,12 @@ def register(mcp, db, logger):
                                "schliessen sich aus.")}
         if entfernung_km is not None and entfernung_km < 0:
             return {"fehler": ("entfernung_km darf nicht negativ sein. Zum "
-                               "Zuruecksetzen entfernung_zuruecksetzen=True.")}
+                               "Zurücksetzen entfernung_zuruecksetzen=True.")}
         entfernung_geaendert = (entfernung_km is not None
                                 or entfernung_zuruecksetzen)
 
         if not updates and not entfernung_geaendert:
-            return {"fehler": "Keine Aenderungen angegeben."}
+            return {"fehler": "Keine Änderungen angegeben."}
 
         if updates:
             db.update_job(job_hash, updates)
@@ -5219,13 +5219,13 @@ def register(mcp, db, logger):
                                 f"Ausschluss-Keyword '{_ko_kw}' kommt im neuen Text "
                                 "vor — das setzt den Score hart auf 0. Wenn das ein "
                                 "Fehltreffer ist, das Keyword in den Suchkriterien "
-                                "schaerfen (suchkriterien_anzeigen)."
+                                "schärfen (suchkriterien_anzeigen)."
                             )
                         elif fresh_job.get("_ko_kein_muss"):
                             score_recomputed["grund"] = (
                                 "Kein MUSS-Keyword im neuen Text gefunden — das setzt "
-                                "den Score auf 0. Pruefe die MUSS-Keywords "
-                                "(suchkriterien_anzeigen) oder ob der Text vollstaendig ist."
+                                "den Score auf 0. Prüfe die MUSS-Keywords "
+                                "(suchkriterien_anzeigen) oder ob der Text vollständig ist."
                             )
             except Exception as exc:
                 logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s", job_hash, exc)
@@ -5244,12 +5244,12 @@ def register(mcp, db, logger):
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",
-                 "hinweis": "Entfernung zurueckgesetzt; die Automatik darf "
+                 "hinweis": "Entfernung zurückgesetzt; die Automatik darf "
                             "sie wieder berechnen."}
                 if entfernung_zuruecksetzen else
                 {"wert_km": float(entfernung_km), "quelle": "mensch",
                  "hinweis": "Von Hand gesetzt — kein Suchlauf "
-                            "ueberschreibt diesen Wert."})
+                            "überschreibt diesen Wert."})
         elif "location" in updates and (job.get("distance_km") is not None):
             # Die gespeicherte Entfernung gehoert zum ALTEN Ort — sagen,
             # statt sie still stehen zu lassen oder still zu loeschen.
@@ -5262,10 +5262,10 @@ def register(mcp, db, logger):
         # der User der Link sei voll funktionsfaehig.
         if "url" in updates and updates.get("is_search_url"):
             result["url_warnung"] = (
-                "Die uebergebene URL zeigt auf eine Suchergebnis-Seite, nicht auf die "
+                "Die übergebene URL zeigt auf eine Suchergebnis-Seite, nicht auf die "
                 "konkrete Stellenanzeige. Sie wurde trotzdem gespeichert. "
                 "stellenbeschreibung_nachladen wird damit voraussichtlich nichts "
-                "Brauchbares zurueckliefern — fuer das Nachladen die Detail-URL nachreichen."
+                "Brauchbares zurückliefern — für das Nachladen die Detail-URL nachreichen."
             )
         # v1.7.17 (#917): Notizen ohne '---'-Trenner erkennen und warnen
         # — die #603-Konvention war unsichtbar, redaktionelle Texte
@@ -5287,7 +5287,7 @@ def register(mcp, db, logger):
 
         Statt Filter-Listen zu pflegen entscheidet die lokale AI pro Stelle,
         ob sie zum Profil passt. Skaliert mit beliebigen Berufsfeldern —
-        funktioniert fuer Senior-PLM genauso wie fuer Studenten oder
+        funktioniert für Senior-PLM genauso wie für Studenten oder
         Service-Berufe.
 
         Pro Stelle (max_stellen, sortiert nach Score absteigend):
@@ -5297,7 +5297,7 @@ def register(mcp, db, logger):
         - UNSICHER → unangetastet (User entscheidet manuell)
         - PASST → unangetastet
 
-        Voraussetzung: Lokale AI aktiv (Ollama laeuft, Modell installiert).
+        Voraussetzung: Lokale AI aktiv (Ollama läuft, Modell installiert).
         Fallback: ohne Lokale AI gibt es eine ehrliche Meldung — keine
         Heuristik-Raterei.
 
@@ -5305,14 +5305,14 @@ def register(mcp, db, logger):
         Wall-Clock-Budget max_dauer_sek=50s (#691, bewusst unter dem ~60s-
         MCP-Client-Timeout). Bei Erreichen des Budgets wird mit
         `status='teilweise'` und allen bis dahin verarbeiteten Stellen
-        zurueckgegeben — kein stilles Timeout, kein Schema-Validierungsfehler.
+        zurückgegeben — kein stilles Timeout, kein Schema-Validierungsfehler.
         Idempotent fortsetzbar: ein erneuter Aufruf bearbeitet die nicht
         verarbeiteten Reste.
 
         Args:
             max_stellen: Maximum Stellen pro Lauf (Default 10, war 50 vor
                          beta.74). Schutz gegen MCP-Timeout. Bei mehr
-                         Stellen mehrere Laeufe machen.
+                         Stellen mehrere Läufe machen.
             min_score: Mindest-Score-Schwelle. Stellen darunter werden gar
                        nicht erst der LLM vorgelegt (Default 0 = alle).
             dry_run: Wenn True, nur Vorschau ohne dismiss-Aktionen.
@@ -5356,8 +5356,8 @@ def register(mcp, db, logger):
             status = svc.get_status(force_refresh=True)
             if not status.ollama_available or not status.available_models:
                 return _err(
-                    "Lokale AI nicht verfuegbar.",
-                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Pruefe Einstellungen › Lokale KI.",
+                    "Lokale AI nicht verfügbar.",
+                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
                 )
             if status.user_state != "active":
                 return _err(
@@ -5409,7 +5409,7 @@ def register(mcp, db, logger):
         elif years >= 1:
             profile_seniority = f"Junior ({years} Jahre Erfahrung)"
         else:
-            profile_seniority = "Berufseinsteiger / Berufsanfaenger"
+            profile_seniority = "Berufseinsteiger / Berufsanfänger"
 
         # Kandidaten holen — aktive, noch nicht bewertete Stellen
         try:
@@ -5475,8 +5475,8 @@ def register(mcp, db, logger):
                     uebersprungen_details=uebersprungen_details,
                     hinweis=(
                         "Ohne Beschreibung kein fachliches Urteil (#756). "
-                        "Erst stellenbeschreibung_nachladen(hash) fuer die "
-                        "uebersprungenen Stellen, dann erneut aufrufen."
+                        "Erst stellenbeschreibung_nachladen(hash) für die "
+                        "übersprungenen Stellen, dann erneut aufrufen."
                     ),
                 )
             return _err(
@@ -5600,7 +5600,7 @@ def register(mcp, db, logger):
             result_payload["uebersprungen_hinweis"] = (
                 f"{len(ohne_beschreibung)} Stellen ohne Beschreibung wurden "
                 "NICHT bewertet (#756) — ohne Stellentext kein fachliches "
-                "Urteil. Naechster Schritt: stellenbeschreibung_nachladen(hash)."
+                "Urteil. Nächster Schritt: stellenbeschreibung_nachladen(hash)."
             )
         return result_payload
 
@@ -5610,20 +5610,20 @@ def register(mcp, db, logger):
         """Welche Firmen fragen Personio und Greenhouse ab? (#811)
 
         Diese Quellen suchen nicht, sie lesen die Stellenliste EINER Firma.
-        Bis v1.7.95 stand dafuer eine feste Liste fremder Arbeitgeber im
+        Bis v1.7.95 stand dafür eine feste Liste fremder Arbeitgeber im
         Code. Jetzt kommen die Firmen aus deinem Bestand — Bewerbungen,
-        Kontakte, gefundene Stellen — und jede wird geprueft, bevor sie
+        Kontakte, gefundene Stellen — und jede wird geprüft, bevor sie
         zaehlt: ein erfundener Name leitet bei Personio auf die Seite des
         Anbieters um und sieht sonst wie ein Treffer aus.
 
         Args:
             aktion: 'status' (wie viele Firmen je System abgefragt werden),
-                'ermitteln' (Bestand pruefen, erst als Vorschau),
+                'ermitteln' (Bestand prüfen, erst als Vorschau),
                 'hinzufuegen' (Wunscharbeitgeber: Firmennamen oder
                 Karriere-URLs in `firmen`), 'entfernen' (Slugs in `firmen`).
-            firmen: fuer 'hinzufuegen' und 'entfernen'.
+            firmen: für 'hinzufuegen' und 'entfernen'.
             dry_run: Vorgabe True — 'ermitteln' fragt dann nichts ab.
-            max_firmen: wie viele Firmennamen ein Lauf hoechstens prueft.
+            max_firmen: wie viele Firmennamen ein Lauf höchstens prüft.
         """
         from ..services import ats_firmen as _ats
 
@@ -5636,7 +5636,7 @@ def register(mcp, db, logger):
                 antwort["hinweis"] = (
                     f"Fuer {', '.join(leer)} fragt PBP nur die Beispielliste ab — "
                     "keine Firma aus deinem Bestand. "
-                    "ats_firmen_verwalten('ermitteln') prueft deine Bewerbungen, "
+                    "ats_firmen_verwalten('ermitteln') prüft deine Bewerbungen, "
                     "Kontakte und Stellen.")
             return antwort
 
@@ -5655,21 +5655,21 @@ def register(mcp, db, logger):
                         k["firma"] for k in kand if k.get("firma")))[:15],
                     "hinweis": (
                         "Vorschau — nichts wurde abgefragt. Jede Firma wird je "
-                        "System mit hoechstens zwei Schreibweisen geprueft; "
-                        "schon gepruefte fallen heraus. Mit dry_run=False "
+                        "System mit höchstens zwei Schreibweisen geprüft; "
+                        "schon geprüfte fallen heraus. Mit dry_run=False "
                         "geht es los."),
                 }
             ergebnis = _ats.ermitteln(db, max_namen=max_firmen)
             ergebnis["systeme"] = _ats.status(db)
             if ergebnis["gefunden"]:
                 ergebnis["naechster_schritt"] = (
-                    "Der naechste Suchlauf fragt diese Firmen direkt ab "
-                    "(Quellen personio bzw. greenhouse muessen aktiv sein).")
+                    "Der nächste Suchlauf fragt diese Firmen direkt ab "
+                    "(Quellen personio bzw. greenhouse müssen aktiv sein).")
             if ergebnis["nicht_erreichbar"]:
                 ergebnis["hinweis_nicht_erreichbar"] = (
                     "Einige Abfragen kamen nicht durch. Sie sind nicht als "
-                    "ungueltig gespeichert und werden beim naechsten Lauf "
-                    "erneut geprueft.")
+                    "ungültig gespeichert und werden beim nächsten Lauf "
+                    "erneut geprüft.")
             return ergebnis
 
         if aktion == "hinzufuegen":
@@ -5696,7 +5696,7 @@ def register(mcp, db, logger):
             antwort = {"aufgenommen": aufgenommen, "nicht_gefunden": nicht_gefunden}
             if nicht_gefunden:
                 antwort["hinweis"] = (
-                    "Fuer diese Firmen fand PBP weder bei Personio noch bei "
+                    "Für diese Firmen fand PBP weder bei Personio noch bei "
                     "Greenhouse eine Stellenliste. Mit der URL der "
                     "Karriereseite geht es genauer, falls die Firma eines der "
                     "beiden Systeme nutzt.")
@@ -5750,7 +5750,7 @@ def register(mcp, db, logger):
             return {
                 "status": "reaktiviert",
                 "scraper": scraper_name,
-                "nachricht": f"Scraper '{scraper_name}' wurde reaktiviert und wird bei der naechsten Suche wieder verwendet."
+                "nachricht": f"Scraper '{scraper_name}' wurde reaktiviert und wird bei der nächsten Suche wieder verwendet."
             }
 
         if scraper_name:
@@ -5863,7 +5863,7 @@ def register(mcp, db, logger):
             result["hinweis_defekt"] = (
                 f"{len(defekte)} Quelle(n) sind aktuell als defekt markiert "
                 "(URL veraltet, Bot-Schutz oder Timeout). Sie werden nicht "
-                "automatisch durchsucht. Workaround: Chrome-Extension oeffnen "
+                "automatisch durchsucht. Workaround: Chrome-Extension öffnen "
                 "und Stellen via stelle_manuell_anlegen nach PBP uebernehmen."
             )
         if ohne_passung:
@@ -5871,36 +5871,36 @@ def register(mcp, db, logger):
             result["hinweis_ohne_passung"] = (
                 f"{len(ohne_passung)} Quelle(n) liefern Stellen, aber keine, "
                 "die zu deinen Suchbegriffen passt. Das ist KEIN Defekt und "
-                "fuehrt nicht zur Abschaltung — die Quelle arbeitet, sie ist "
-                "nur die falsche fuer dieses Profil. Bei globalem Fokus "
-                "(regionen_fokus) lohnt es sich zu pruefen, ob sie "
+                "führt nicht zur Abschaltung — die Quelle arbeitet, sie ist "
+                "nur die falsche für dieses Profil. Bei globalem Fokus "
+                "(regionen_fokus) lohnt es sich zu prüfen, ob sie "
                 "eingeschaltet bleiben soll."
             )
         if stumme:
             result["stumme_quellen"] = stumme
             result["hinweis_stumm"] = (
-                f"{len(stumme)} Quelle(n) liefern seit mehreren Laeufen 0 Treffer. "
-                "Pruefe, ob Selektoren veraltet sind oder die Quelle den Standort nicht abdeckt."
+                f"{len(stumme)} Quelle(n) liefern seit mehreren Läufen 0 Treffer. "
+                "Prüfe, ob Selektoren veraltet sind oder die Quelle den Standort nicht abdeckt."
             )
         if deaktiviert_auto:
             result["auto_deaktiviert"] = deaktiviert_auto
             result["hinweis_reaktivierung"] = (
-                "Diese Quellen wurden nach 5+ stillen Laeufen automatisch deaktiviert. "
+                "Diese Quellen wurden nach 5+ stillen Läufen automatisch deaktiviert. "
                 "Reaktivierung via scraper_diagnose(scraper_name=..., aktion='reaktivieren')."
             )
         return result
 
     @mcp.tool()
     def quelle_handoff(quelle: str, keyword: str, ort: str = "") -> dict:
-        """Browser-Handoff fuer blockierte/SPA-tote Quellen (B25/#735).
+        """Browser-Handoff für blockierte/SPA-tote Quellen (B25/#735).
 
         Wenn eine Quelle per HTTP nicht scrapbar ist (Bot-Block, SPA-Shell,
         tot), liefert dieses Tool die Such-URL + ein generisches
         Extraktions-JS — Workflow wie bei `google_jobs_url` (#573):
-        URL in Chrome mit Claude-in-Chrome oeffnen, Treffer per
+        URL in Chrome mit Claude-in-Chrome öffnen, Treffer per
         javascript_tool() ziehen, mit stelle_manuell_anlegen uebernehmen.
 
-        Fuer eigene Karriereseiten: erst `custom_quelle_hinzufuegen`,
+        Für eigene Karriereseiten: erst `custom_quelle_hinzufuegen`,
         dann kommt der Handoff aus `custom_quellen_anzeigen`.
 
         Args:
@@ -5917,11 +5917,11 @@ def register(mcp, db, logger):
         """Langzeit-Auswertung der Job-Quellen (B25/#735, v1.8.0-beta.5).
 
         Wertet die Lauf-Historie (`scraper_runs`, seit beta.5 automatisch
-        mitgeschrieben) pro Quelle aus: Laeufe, Treffer, NEUE Stellen,
-        Fehlerklassen, Trend (zweite Haelfte vs. erste) und eine klare
+        mitgeschrieben) pro Quelle aus: Läufe, Treffer, NEUE Stellen,
+        Fehlerklassen, Trend (zweite Hälfte vs. erste) und eine klare
         Empfehlung (behalten / beobachten / deaktivieren+Handoff).
 
-        Ergaenzt `scraper_diagnose` (aktueller Zustand) um die Zeitachse:
+        Ergänzt `scraper_diagnose` (aktueller Zustand) um die Zeitachse:
         „Welche Quelle bringt mir seit Wochen nichts mehr?"
 
         Args:
@@ -5936,7 +5936,7 @@ def register(mcp, db, logger):
                 "status": "keine_daten",
                 "hinweis": (
                     "Noch keine Lauf-Historie — sie entsteht ab v1.8.0-beta.5 "
-                    "automatisch mit jeder Jobsuche. Nach ein paar Laeufen "
+                    "automatisch mit jeder Jobsuche. Nach ein paar Läufen "
                     "erneut aufrufen."
                 ),
             }
@@ -5968,10 +5968,10 @@ def register(mcp, db, logger):
                 trend = "zu_wenig_laeufe"
             fehlerquote = round(len(fehler) / n, 2)
             if fehlerquote >= 0.8 and n >= 3:
-                empfehlung = ("deaktivieren — dauerhaft fehlerhaft; fuer "
+                empfehlung = ("deaktivieren — dauerhaft fehlerhaft; für "
                               "Einzelrecherchen quelle_handoff nutzen")
             elif neu_gesamt == 0 and n >= 5:
-                empfehlung = "beobachten — liefert seit laengerem nichts Neues"
+                empfehlung = "beobachten — liefert seit längerem nichts Neues"
             else:
                 empfehlung = "behalten"
             auswertung.append({
@@ -5991,7 +5991,7 @@ def register(mcp, db, logger):
             "quellen": auswertung,
             "hinweis": (
                 "Deaktivieren: scraper_diagnose(scraper_name=..., "
-                "aktion='deaktivieren'); Browser-Recherche fuer blockierte "
+                "aktion='deaktivieren'); Browser-Recherche für blockierte "
                 "Quellen: quelle_handoff(quelle, keyword)."
             ),
         }
@@ -6000,9 +6000,9 @@ def register(mcp, db, logger):
     def custom_quelle_hinzufuegen(name: str, url: str) -> dict:
         """Eigene Karriereseiten-URL als Handoff-Quelle anlegen (B16/#627).
 
-        BEWUSST kein Auto-Scraping: Karriereseiten sind zu verschieden fuer
+        BEWUSST kein Auto-Scraping: Karriereseiten sind zu verschieden für
         stabile automatische Extraktion (Master-Plan-Optimierung, B18-
-        Begruendung). Stattdessen: PBP prueft die Erreichbarkeit im
+        Begruendung). Stattdessen: PBP prüft die Erreichbarkeit im
         quellen_health_check mit und liefert jederzeit den Browser-Handoff
         (URL + Extraktions-JS) — Claude zieht die Stellen strukturiert und
         legt sie mit stelle_manuell_anlegen an.
@@ -6027,7 +6027,7 @@ def register(mcp, db, logger):
             "hinweis": (
                 "Recherche starten: custom_quellen_anzeigen() liefert pro "
                 "Quelle den Browser-Handoff. Erreichbarkeit wird beim "
-                "quellen_health_check mitgeprueft."
+                "quellen_health_check mitgeprüft."
             ),
         }
 
@@ -6070,20 +6070,20 @@ def register(mcp, db, logger):
     @mcp.tool()
     def quellen_health_check(quellen: list[str] = [], parallel: bool = True,
                              budget_sekunden: int = 90) -> dict:
-        """v1.7.0-beta.51 (#624 Phase 2): Aktiver Probe-Check fuer Job-Quellen.
+        """v1.7.0-beta.51 (#624 Phase 2): Aktiver Probe-Check für Job-Quellen.
 
         Macht pro Quelle einen minimalen HTTP-Request (1 Stelle, keine
-        Filter) um zu pruefen ob die API/Feed-Endpoint erreichbar ist.
-        Ergaenzt scraper_diagnose (das auf Liefer-Statistiken basiert) —
+        Filter) um zu prüfen ob die API/Feed-Endpoint erreichbar ist.
+        Ergänzt scraper_diagnose (das auf Liefer-Statistiken basiert) —
         hier kommt die Info „API selbst erreichbar JA/NEIN" aus einem
         echten Request.
 
         Args:
-            quellen: Liste der zu pruefenden Source-Keys. Wenn leer:
+            quellen: Liste der zu prüfenden Source-Keys. Wenn leer:
                 alle mit definiertem Probe (~12 Quellen).
             parallel: Wenn True (Default), Probes parallel via Threads.
             budget_sekunden: Hartes Wall-Clock-Budget (Default 90s, min 10s).
-                Bei Ueberschreitung kommt ein TEILERGEBNIS zurueck
+                Bei Überschreitung kommt ein TEILERGEBNIS zurück
                 (`abgebrochen=True` + `nicht_geprueft`), statt in den
                 4-Minuten-MCP-Timeout zu laufen (#762/#761).
 
@@ -6265,11 +6265,11 @@ def register(mcp, db, logger):
                 f"{reachable} von {len(results)} Quellen antworten, "
                 f"{liefert} davon liefern auch Stellen. "
                 + (f"{len([r for r in results if r.get('error') == 'no_probe_defined'])} "
-                   "Quelle(n) haben gar keinen Probe — ueber sie sagt "
+                   "Quelle(n) haben gar keinen Probe — über sie sagt "
                    "dieser Check NICHTS, weder gut noch schlecht. "
                    if any(r.get("error") == "no_probe_defined" for r in results)
                    else "")
-                + "Ergaenzend zur Liefer-Statistik in scraper_diagnose; "
+                + "Ergänzend zur Liefer-Statistik in scraper_diagnose; "
                 "Zeitachse: quellen_langzeit_auswertung(). Blockierte/tote "
                 "Quellen per Browser recherchieren: quelle_handoff(quelle, "
                 "keyword)."
@@ -6280,9 +6280,9 @@ def register(mcp, db, logger):
             antwort["warnung"] = (
                 f"{len(auffaellig)} Quelle(n) antworten mit HTTP 200, "
                 "liefern aber nichts Verwertbares. Das ist der Fall, den "
-                "eine reine Statuspruefung nicht sieht — meist ein "
+                "eine reine Statusprüfung nicht sieht — meist ein "
                 "veralteter Endpunkt oder ein falscher Firmen-Slug, keine "
-                "Stoerung. Details je Quelle unter 'antwortet_ohne_stellen'.")
+                "Störung. Details je Quelle unter 'antwortet_ohne_stellen'.")
         if custom_results:
             antwort["custom_quellen"] = custom_results
         if wieder_erreichbar:
@@ -6298,12 +6298,12 @@ def register(mcp, db, logger):
             antwort["nicht_geprueft"] = nicht_geprueft
             antwort["hinweis"] = (
                 f"TEILERGEBNIS: Budget von {budget}s erreicht — "
-                f"{len(nicht_geprueft)} Quelle(n) wurden nicht geprueft "
+                f"{len(nicht_geprueft)} Quelle(n) wurden nicht geprüft "
                 f"({', '.join(nicht_geprueft[:8])}"
                 f"{' ...' if len(nicht_geprueft) > 8 else ''}). "
-                "Die restlichen Ergebnisse sind gueltig. Fuer die offenen "
+                "Die restlichen Ergebnisse sind gültig. Für die offenen "
                 "Quellen gezielt nachfassen: quellen_health_check(quellen=[...]) "
-                "oder budget_sekunden erhoehen."
+                "oder budget_sekunden erhöhen."
             )
         return antwort
 
@@ -6312,17 +6312,17 @@ def register(mcp, db, logger):
         """v1.7.0-beta.47 (#613): Korrigiert source='manuell' anhand der job-URL.
 
         Geht durch alle Stellen mit source='manuell' (egal ob aktiv oder
-        aussortiert) und prueft die URL. Wenn die URL einer bekannten
+        aussortiert) und prüft die URL. Wenn die URL einer bekannten
         Quelle zugeordnet werden kann (LinkedIn, StepStone, Indeed, ...),
         wird source umgesetzt.
 
         Args:
-            dry_run: Wenn True (Default), nur Vorschau ohne Aenderung.
-                     Mit dry_run=False wird tatsaechlich geschrieben.
+            dry_run: Wenn True (Default), nur Vorschau ohne Änderung.
+                     Mit dry_run=False wird tatsächlich geschrieben.
 
         Returns:
             count_total, count_changed, changes (Liste der geplanten
-            oder durchgefuehrten Aenderungen pro Stelle).
+            oder durchgeführten Änderungen pro Stelle).
 
         Idempotent: ein zweiter Lauf nach Erfolg findet 0 Kandidaten.
         """
@@ -6367,7 +6367,7 @@ def register(mcp, db, logger):
             "changes": changes[:50],
             "hinweis": (
                 "dry_run=True — kein Schreibvorgang. Nochmal mit "
-                "dry_run=False aufrufen um die Aenderungen zu speichern."
+                "dry_run=False aufrufen um die Änderungen zu speichern."
                 if dry_run else
                 f"{applied} Stellen umgestellt. Konversion in der Quellen-"
                 "Statistik des Bewerbungsbericht jetzt korrekter."
@@ -6379,24 +6379,24 @@ def register(mcp, db, logger):
         """v1.7.9 (#764): Gleicht `applications.job_hash` und `application_jobs` ab.
 
         Hintergrund: Die Junction-Tabelle aus #472 wurde bei der Migration v34
-        EINMALIG befuellt. Seitdem lief beides auseinander — die UI liest
+        EINMALIG befüllt. Seitdem lief beides auseinander — die UI liest
         `applications.job_hash`, `bewerbung_stellen_anzeigen` liest die
-        Junction. Folge: nach dem Umhaengen einer Bewerbung auf einen Repost
-        zeigte die Oberflaeche weiter die alte Version mit totem Link.
+        Junction. Folge: nach dem Umhängen einer Bewerbung auf einen Repost
+        zeigte die Oberfläche weiter die alte Version mit totem Link.
 
-        Fuehrend ist `application_jobs`. Geheilt werden vier Faelle:
+        Führend ist `application_jobs`. Geheilt werden vier Faelle:
 
         1. `job_hash` gesetzt, kein Junction-Eintrag -> Eintrag (is_primary=1)
            nachtragen.
-        2. Junction vorhanden, `job_hash` leer -> aus der primaeren
-           Verknuepfung zurueckschreiben.
+        2. Junction vorhanden, `job_hash` leer -> aus der primären
+           Verknüpfung zurückschreiben.
         3. Beide gesetzt, aber verschieden -> Junction gewinnt, `job_hash`
            wird darauf gezogen.
         4. Kein oder mehrere `is_primary` pro Bewerbung -> auf genau einen
-           normalisieren (juengste Verknuepfung gewinnt).
+           normalisieren (jüngste Verknüpfung gewinnt).
 
-        Zusaetzlich werden verwaiste Junction-Zeilen gemeldet (Bewerbung oder
-        Stelle existiert nicht mehr) — geloescht werden sie nur mit
+        Zusätzlich werden verwaiste Junction-Zeilen gemeldet (Bewerbung oder
+        Stelle existiert nicht mehr) — gelöscht werden sie nur mit
         dry_run=False.
 
         Args:
@@ -6457,7 +6457,7 @@ def register(mcp, db, logger):
                 changes.append({**basis, "fall": "divergenz",
                                 "job_hash_alt": jh[-12:],
                                 "job_hash_neu": primaer[-12:],
-                                "hinweis": "Junction ist fuehrend"})
+                                "hinweis": "Junction ist führend"})
                 _apply("UPDATE applications SET job_hash=?, updated_at=datetime('now') "
                        "WHERE id=?", (primaer, aid))
 
@@ -6509,19 +6509,19 @@ def register(mcp, db, logger):
     def stellen_dubletten_pruefen(max_stellen: int = 0) -> dict:
         """Findet Stellen, die mehrfach im Bestand liegen (#951).
 
-        Der Bestand ist gewachsen, bevor es die quellenuebergreifende
-        Erkennung gab. Dieser Lauf gruppiert ihn nachtraeglich —
-        **er schreibt nichts und fuehrt nichts zusammen.**
+        Der Bestand ist gewachsen, bevor es die quellenübergreifende
+        Erkennung gab. Dieser Lauf gruppiert ihn nachträglich —
+        **er schreibt nichts und führt nichts zusammen.**
 
         Gruppiert wird nur nach nachrechenbaren Merkmalen: identische
         Anzeigen-URL (ohne Tracking-Parameter) oder identischer
         normalisierter Titel bei gleicher Firma. Eine
-        Aehnlichkeitsrechnung wuerde hier schaetzen, und die
+        Ähnlichkeitsrechnung würde hier schätzen, und die
         Nutzervorgabe lautet Recall vor Praezision: zwei getrennte
-        Eintraege sind aergerlich, eine falsch verschmolzene Stelle ist
+        Einträge sind ärgerlich, eine falsch verschmolzene Stelle ist
         schlimmer.
 
-        Fuer einen bestaetigten Fall ist `stelle_mergen` der Weg (#470).
+        Für einen bestätigten Fall ist `stelle_mergen` der Weg (#470).
 
         Args:
             max_stellen: 0 = der ganze Bestand.
@@ -6540,10 +6540,10 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def stellen_urls_heilen(dry_run: bool = True, nur_aktive: bool = True) -> dict:
-        """v1.7.9 (#763): Heilt URL-Qualitaet im BESTAND (Datenmigration).
+        """v1.7.9 (#763): Heilt URL-Qualität im BESTAND (Datenmigration).
 
-        Hintergrund: Der Scraper-Fix aus #645 wirkte nur auf NEUE Laeufe —
-        das damals angekuendigte Akzeptanzkriterium AK5 (Bestands-Heilung)
+        Hintergrund: Der Scraper-Fix aus #645 wirkte nur auf NEUE Läufe —
+        das damals angekündigte Akzeptanzkriterium AK5 (Bestands-Heilung)
         wurde nie umgesetzt. Alle vor beta.71 angelegten Stellen tragen die
         Regression bis heute mit (leere URL bzw. Such-URL ohne Markierung).
 
@@ -6555,11 +6555,11 @@ def register(mcp, db, logger):
            save_jobs-Guard defensiv auf 1 setzte, obwohl inzwischen eine echte
            Detail-URL nachgepflegt wurde, werden wieder freigegeben (das
            entsperrt stellenbeschreibung_nachladen).
-        2. **Such-URL nachtragen** bei komplett leerer URL, sofern fuer die
+        2. **Such-URL nachtragen** bei komplett leerer URL, sofern für die
            Quelle ein Handoff-Template existiert. Ergebnis wird IMMER als
            `is_search_url=1` markiert — nie als Detail-URL ausgegeben.
 
-        EHRLICHE GRENZE: Eine echte Detail-URL laesst sich NICHT rekonstruieren.
+        EHRLICHE GRENZE: Eine echte Detail-URL lässt sich NICHT rekonstruieren.
         Die Portal-IDs (xing_job_id/linkedin_job_id) werden von den Scrapern
         zwar ins Job-Dict gelegt, aber nie in die DB geschrieben, und der
         stelle_hash ist Einweg-MD5 ohne ID-Anteil. Was hier entsteht, ist eine
@@ -6675,7 +6675,7 @@ def register(mcp, db, logger):
             "nicht_heilbar": nicht_heilbar[:20],
             "hinweis": (
                 "dry_run=True — kein Schreibvorgang. Nochmal mit dry_run=False "
-                "aufrufen, um die Aenderungen zu speichern."
+                "aufrufen, um die Änderungen zu speichern."
                 if dry_run else
                 f"{applied} Stellen geheilt. WICHTIG: nachgetragene URLs sind "
                 "SUCH-URLs (is_search_url=1), keine Detail-Links — echte "
@@ -6690,13 +6690,13 @@ def register(mcp, db, logger):
     ) -> dict:
         """v1.7.0-beta.47 (#616): Findet/bereinigt verwaiste job_hash-Refs in Bewerbungen.
 
-        Bewerbungen koennen einen `job_hash` referenzieren, dessen Stelle
+        Bewerbungen können einen `job_hash` referenzieren, dessen Stelle
         nicht (mehr) in der `jobs`-Tabelle existiert. Folge: stelle_bearbeiten
         scheitert, fit_analyse hat keinen Kontext, kontakt_verknuepfen
         bricht ab (#615).
 
         Args:
-            strategie: 'report' (Default) — nur auflisten ohne Aenderung.
+            strategie: 'report' (Default) — nur auflisten ohne Änderung.
                        'rekonstruieren' — eine Platzhalter-Stelle anlegen aus
                          title/company/url der Bewerbung.
                        'leeren' — job_hash der Bewerbung auf '' setzen.
@@ -6776,7 +6776,7 @@ def register(mcp, db, logger):
                                 "description": (
                                     "[Rekonstruiert v1.7.0-beta.47 (#616)] "
                                     "Diese Stelle wurde aus einer Bewerbung "
-                                    "rekonstruiert weil die urspruengliche "
+                                    "rekonstruiert weil die ursprüngliche "
                                     "Stelle nicht mehr in der jobs-Tabelle "
                                     "existierte."
                                 ),
@@ -6829,24 +6829,24 @@ def register(mcp, db, logger):
     @mcp.tool()
     def gehaelter_neu_auswerten(dry_run: bool = True,
                                 max_stellen: int = 0) -> dict:
-        """Wertet gespeicherte Gehaelter mit der heutigen Erkennung neu aus
+        """Wertet gespeicherte Gehälter mit der heutigen Erkennung neu aus
         (#1018).
 
-        Ein besserer Leser hilft nur neuen Stellen — der Bestand behaelt
-        seine Fehltreffer und sieht dabei unauffaellig aus. Das ist die
+        Ein besserer Leser hilft nur neuen Stellen — der Bestand behält
+        seine Fehltreffer und sieht dabei unauffällig aus. Das ist die
         Lehre aus #998, und sie gilt hier genauso: bis v1.7.78 landete
         "Teilzeit: 30-35 Stunden pro Woche" als Stundensatz von 30 bis 35
         Euro in der Datenbank, **mit `salary_estimated = 0`**, also als
-        BELEGT. Seit v1.7.78 zaehlen belegte Gehaelter im Score und
-        geschaetzte nicht — der falsche Wert ist damit der teurere.
+        BELEGT. Seit v1.7.78 zählen belegte Gehälter im Score und
+        geschätzte nicht — der falsche Wert ist damit der teurere.
 
         Am Bestand gemessen: von 12 `stuendlich`-Treffern waren **10 in
         Wahrheit Arbeitszeiten**.
 
         Angefasst werden nur Stellen mit Anzeigentext. Findet die neue
         Erkennung nichts, wird der alte Wert GELOESCHT statt durch eine
-        Schaetzung ersetzt — eine Anzeige, die kein Gehalt nennt, hat
-        keins, und eine Luecke gehoert benannt und nicht gefuellt (#989).
+        Schätzung ersetzt — eine Anzeige, die kein Gehalt nennt, hat
+        keins, und eine Lücke gehört benannt und nicht gefüllt (#989).
 
         Args:
             dry_run: Vorgabe True — es wird nichts geschrieben.
@@ -6918,7 +6918,7 @@ def register(mcp, db, logger):
             "hinweis": (
                 "Vorschau — es wurde nichts geschrieben. Mit dry_run=False "
                 "werden die Werte ersetzt; wo die Anzeige kein Gehalt "
-                "nennt, wird der alte Wert geloescht statt geschaetzt."
+                "nennt, wird der alte Wert gelöscht statt geschätzt."
                 if dry_run else
                 f"{len(aenderungen)} Stelle(n) neu ausgewertet, davon "
                 f"{geloescht} ohne Gehaltsangabe in der Anzeige."
@@ -6928,14 +6928,14 @@ def register(mcp, db, logger):
     @mcp.tool()
     def automatik_uebertragungen_pruefen(dry_run: bool = True,
                                          max_stellen: int = 0) -> dict:
-        """Findet Stellen, die ueber ein FREMDES Titel-Muster
+        """Findet Stellen, die über ein FREMDES Titel-Muster
         aussortiert wurden (#1020).
 
-        Bis v1.7.79 uebertrug die Automatik den haeufigsten
-        Ablehnungsgrund firmenuebergreifend ueber gemeinsame
+        Bis v1.7.79 übertrug die Automatik den häufigsten
+        Ablehnungsgrund firmenübergreifend über gemeinsame
         Titel-Tokens — auch `zu_weit_entfernt`, `gehalt_zu_niedrig` und
         `firma_uninteressant`. Das sind Eigenschaften der EINZELNEN
-        Anzeige: zwei Stellen mit identischem Titel koennen 5 km und
+        Anzeige: zwei Stellen mit identischem Titel können 5 km und
         500 km entfernt liegen.
 
         Gemeldet wurde eine Stelle in **9,2 km**, die als "zu weit
@@ -6943,15 +6943,15 @@ def register(mcp, db, logger):
         und die Zahl stand in derselben Datenbankzeile wie das Urteil.
 
         Am hiesigen Bestand gemessen: 245 Zeilen tragen einen
-        Wiedergaenger-Vermerk, 83 davon (34 %) mit einem Grund, der
-        nichts ueber die Art der Stelle sagt.
+        Wiedergänger-Vermerk, 83 davon (34 %) mit einem Grund, der
+        nichts über die Art der Stelle sagt.
 
-        Jede automatisch entfernte Stelle zaehlte beim naechsten Lauf
-        als weiterer Beleg fuer dasselbe Muster — die Regel konnte nur
-        schaerfer werden, nie milder. Deshalb ist die Ruecknahme mehr
+        Jede automatisch entfernte Stelle zählte beim nächsten Lauf
+        als weiterer Beleg für dasselbe Muster — die Regel konnte nur
+        schärfer werden, nie milder. Deshalb ist die Rücknahme mehr
         als Kosmetik: sie nimmt die Belege wieder aus der Grundlage.
 
-        Seit v1.7.92 (#1028) findet der Lauf zwei weitere Faelle, jeder
+        Seit v1.7.92 (#1028) findet der Lauf zwei weitere Fälle, jeder
         mit seinem `befund`:
 
         * `nur_fuellwoerter` — das Titel-Muster trug allein auf "für",
@@ -6959,7 +6959,7 @@ def register(mcp, db, logger):
           Umschrift ("fuer") und griff bei echten Titeln nie.
         * `firmen_platzhalter` — "dieselbe Firma" war ein Platzhalter
           wie "Nicht angegeben". Alle Stellen ohne Firmenangabe galten
-          quer ueber alle Quellen als ein Arbeitgeber.
+          quer über alle Quellen als ein Arbeitgeber.
 
         Der #1020-Fall heisst `grund_nicht_uebertragbar`.
 
@@ -7046,12 +7046,12 @@ def register(mcp, db, logger):
             "stichprobe": betroffen[:20],
             "hinweis": (
                 "Vorschau — es wurde nichts geschrieben. Diese Stellen "
-                "wurden ueber ein Titel-Muster einer FREMDEN Firma "
-                "aussortiert, auf einem Grund, der nichts ueber die Art "
-                "der Stelle sagt. Mit dry_run=False kommen sie zurueck."
+                "wurden über ein Titel-Muster einer FREMDEN Firma "
+                "aussortiert, auf einem Grund, der nichts über die Art "
+                "der Stelle sagt. Mit dry_run=False kommen sie zurück."
                 if dry_run else
-                f"{zurueckgeholt} Stelle(n) zurueckgeholt. Sie zaehlen "
-                "damit auch nicht mehr als Beleg fuer dasselbe Muster."
+                f"{zurueckgeholt} Stelle(n) zurückgeholt. Sie zählen "
+                "damit auch nicht mehr als Beleg für dasselbe Muster."
             ),
         }
 
@@ -7061,8 +7061,8 @@ def register(mcp, db, logger):
         """Echte Fahrstrecke und Fahrzeit statt Luftlinie (#950).
 
         Bis v1.7.93 rechnete PBP nur mit der Luftlinie — beschriftet, aber
-        fuer eine Stelle in 270 km Luftlinie waren es rund 390 km und vier
-        Stunden je Richtung. **Fuer die Frage, ob eine Stelle pendelbar
+        für eine Stelle in 270 km Luftlinie waren es rund 390 km und vier
+        Stunden je Richtung. **Für die Frage, ob eine Stelle pendelbar
         ist, sagt die Fahrzeit mehr als jede Kilometerzahl.**
 
         Mit einem Routing-Schluessel (OpenRouteService, kostenlos)
@@ -7070,12 +7070,12 @@ def register(mcp, db, logger):
         Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
 
         **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen im Detail, Karte Fahrstrecke), nicht hier: ein Schluessel, der durch den
-        Chat geht, stuende danach im Gespraechsverlauf.
+        Chat geht, stünde danach im Gesprächsverlauf.
 
         Args:
             aktion: 'status' (Stand, Kontingent, offene Stellen) oder
-                'nachziehen' (Fahrstrecken fuer vorhandene Stellen).
-            dry_run: Vorgabe True — zeigt nur, was abgefragt wuerde.
+                'nachziehen' (Fahrstrecken für vorhandene Stellen).
+            dry_run: Vorgabe True — zeigt nur, was abgefragt würde.
             max_stellen: 0 = alle offenen.
         """
         from ..services import routing as _routing
@@ -7141,8 +7141,8 @@ def register(mcp, db, logger):
                 "hinweis": (
                     "Vorschau — es wurde nichts abgefragt. Bereits "
                     "zwischengespeicherte Orte kosten keine Anfrage. Stellen "
-                    "ohne Koordinaten werden vorher ueber OpenStreetMap "
-                    "aufgeloest (eine Sekunde je Ort). Mit dry_run=False "
+                    "ohne Koordinaten werden vorher über OpenStreetMap "
+                    "aufgelöst (eine Sekunde je Ort). Mit dry_run=False "
                     "geht es los."),
             }
 

@@ -135,10 +135,10 @@ def neues_dokument(vorlage=None):
             "vorlage": "nicht_lesbar",
             "datei": pfad.name,
             "grund": str(exc)[:200],
-            "hinweis": "Die Vorlage liess sich nicht oeffnen — PBP hat das "
+            "hinweis": "Die Vorlage liess sich nicht öffnen — PBP hat das "
                        "eingebaute Layout genommen. Ist es wirklich eine "
                        "DOCX-Datei (kein DOC, kein PDF, nicht passwort"
-                       "geschuetzt)?",
+                       "geschützt)?",
         }
 
     _rumpf_leeren(doc)
@@ -741,9 +741,9 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     has_leadership = any(any(lw in t for lw in leadership_words) for t in titles)
     if has_leadership:
         score += 20
-        factors.append("Fuehrungserfahrung erkennbar")
+        factors.append("Führungserfahrung erkennbar")
     else:
-        empfehlungen.append("Fuehrungsverantwortung oder Teamleitung hervorheben (auch informell)")
+        empfehlungen.append("Führungsverantwortung oder Teamleitung hervorheben (auch informell)")
 
     # Career length and continuity
     if len(positions) >= 3:
@@ -756,11 +756,11 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     _gaps = _detect_career_gaps(positions)
     if not _gaps:
         score += 8
-        factors.append("Lueckenloser Werdegang")
+        factors.append("Lückenloser Werdegang")
     else:
         gap_desc = ", ".join(f"{g['from']}-{g['to']}" for g in _gaps[:3])
         empfehlungen.append(
-            f"Karriereluecken erkannt ({gap_desc}) — Personalberater fragen danach. "
+            f"Karrierelücken erkannt ({gap_desc}) — Personalberater fragen danach. "
             "Tipp: Weiterbildungen, Ehrenamt oder Familienzeit eintragen."
         )
 
@@ -771,7 +771,7 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
         factors.append(f"{len(soft_skills)} Soft Skills dokumentiert")
     elif soft_skills:
         score += 5
-        empfehlungen.append("Mehr Soft Skills ergaenzen (Kommunikation, Teamfaehigkeit, Problemloesung)")
+        empfehlungen.append("Mehr Soft Skills ergänzen (Kommunikation, Teamfähigkeit, Problemlösung)")
     else:
         empfehlungen.append("Soft Skills fehlen komplett — für Personalberater ein Warnsignal")
 
@@ -779,14 +779,14 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     summary = profile.get("summary", "")
     if len(summary) > 100:
         score += 12
-        factors.append("Aussagekraeftiges Profil-Statement vorhanden")
+        factors.append("Aussagekräftiges Profil-Statement vorhanden")
     elif summary:
         score += 6
-        empfehlungen.append("Profil-Statement ausführlicher formulieren (min. 2-3 Saetze)")
+        empfehlungen.append("Profil-Statement ausführlicher formulieren (min. 2-3 Sätze)")
     else:
         empfehlungen.append(
             "Profil-Statement fehlt — das ist das Erste was ein Personalberater liest. "
-            "Tipp: 3-4 Saetze mit Kernkompetenz, Branchenfokus und Alleinstellungsmerkmal."
+            "Tipp: 3-4 Sätze mit Kernkompetenz, Branchenfokus und Alleinstellungsmerkmal."
         )
 
     # Projects with results (STAR format)
@@ -804,7 +804,7 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     else:
         empfehlungen.append(
             "STAR-Projekte mit messbaren Ergebnissen hinzufügen — "
-            "Personalberater lieben konkrete Erfolge (Budget, Teamgroesse, Zeitersparnis)"
+            "Personalberater lieben konkrete Erfolge (Budget, Teamgrösse, Zeitersparnis)"
         )
 
     # Achievements vs. task descriptions — Erfolge statt Aufgabenbeschreibungen
@@ -835,14 +835,14 @@ def _score_personalberater(profile, skills, positions, job_text, job_words):
     ])
     if contact_complete:
         score += 5
-        factors.append("Kontaktdaten vollstaendig")
+        factors.append("Kontaktdaten vollständig")
     else:
-        empfehlungen.append("Kontaktdaten vervollstaendigen (Name, E-Mail, Telefon, Ort)")
+        empfehlungen.append("Kontaktdaten vervollständigen (Name, E-Mail, Telefon, Ort)")
 
     return {
         "score": min(score, 100),
         "label": "Personalberater (Executive Search)",
-        "fokus": "Karriereverlauf, Soft Skills, Fuehrung, Branchen-Fit, Lueckenlosigkeit",
+        "fokus": "Karriereverlauf, Soft Skills, Führung, Branchen-Fit, Lückenlosigkeit",
         "faktoren": factors,
         "empfehlungen": empfehlungen,
     }
@@ -908,10 +908,10 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     )
     if title_match:
         score += 12
-        factors.append("Jobtitel-Übereinstimmung mit frueheren Positionen")
+        factors.append("Jobtitel-Übereinstimmung mit früheren Positionen")
     else:
         empfehlungen.append(
-            "Fruehere Positionstitel aehnlicher zur Zielstelle formulieren — "
+            "Frühere Positionstitel ähnlicher zur Zielstelle formulieren — "
             "ATS vergleicht Jobtitel direkt."
         )
 
@@ -929,14 +929,14 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     elif len(numbers) >= 2:
         score += 8
         factors.append(f"{len(numbers)} messbare Erfolge gefunden")
-        empfehlungen.append("Mehr Zahlen und Metriken einbauen (%, Euro, Teamgroesse, Zeitersparnis)")
+        empfehlungen.append("Mehr Zahlen und Metriken einbauen (%, Euro, Teamgrösse, Zeitersparnis)")
     elif numbers:
         score += 4
-        empfehlungen.append("Mehr Zahlen und Metriken in Erfolge einbauen (%, Euro, Teamgroesse)")
+        empfehlungen.append("Mehr Zahlen und Metriken in Erfolge einbauen (%, Euro, Teamgrösse)")
     else:
         empfehlungen.append(
             "Keine messbaren Erfolge — ATS und Recruiter bevorzugen quantifizierte Ergebnisse. "
-            "Tipp: Jede Position sollte mind. eine Zahl enthalten (Budget, Teamgroesse, Ergebnis)."
+            "Tipp: Jede Position sollte mind. eine Zahl enthalten (Budget, Teamgrösse, Ergebnis)."
         )
 
     # Date format completeness — Monat/Jahr statt nur Jahr
@@ -972,7 +972,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     contact_score = sum([has_email, has_phone, has_city, has_name])
     if contact_score == 4:
         score += 8
-        factors.append("Kontaktdaten vollstaendig")
+        factors.append("Kontaktdaten vollständig")
     else:
         missing = []
         if not has_name: missing.append("Name")
@@ -1013,7 +1013,7 @@ def _score_ats(profile, skills, positions, education, job_text, job_words):
     return {
         "score": min(score, 100),
         "label": "ATS (Bewerbermanagementsystem)",
-        "fokus": "Keyword-Treffer, Standard-Format, messbare Erfolge, vollstaendige Daten, Datumsformat",
+        "fokus": "Keyword-Treffer, Standard-Format, messbare Erfolge, vollständige Daten, Datumsformat",
         "faktoren": factors,
         "empfehlungen": empfehlungen,
         "keyword_matches": exact_matches,
@@ -1056,7 +1056,7 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
         score += 8
         factors.append(f"Teilweise Tech-Match: {', '.join(tech_hits)}")
     else:
-        empfehlungen.append("Technologie-Stack stimmt kaum überein — Skills ggf. ergaenzen")
+        empfehlungen.append("Technologie-Stack stimmt kaum überein — Skills ggf. ergänzen")
 
     # Project complexity (projects with technologies and results)
     complex_projects = sum(
@@ -1159,14 +1159,14 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
         factors.append("1 Zertifizierung erkannt")
     else:
         empfehlungen.append(
-            "Zertifizierungen und Weiterbildungen ergaenzen — "
+            "Zertifizierungen und Weiterbildungen ergänzen — "
             "zeigt Engagement und aktuelle Fachkompetenz."
         )
 
     return {
         "score": min(score, 100),
         "label": "HR-Recruiter (Fachabteilung)",
-        "fokus": "Technische Tiefe, Projekt-Komplexitaet, roter Faden, Zertifizierungen",
+        "fokus": "Technische Tiefe, Projekt-Komplexität, roter Faden, Zertifizierungen",
         "faktoren": factors,
         "empfehlungen": empfehlungen,
     }

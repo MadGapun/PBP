@@ -27,8 +27,8 @@ INGEST_API_MAJOR = 1
 
 # Whitelist der Faehigkeiten, die die Ingest-API v1 anbietet.
 CAPABILITIES = {
-    "ingest:email": "E-Mails/.eml an PBP uebergeben (POST /api/v1/ingest/email)",
-    "ingest:job": "Stellenangebote an PBP uebergeben (POST /api/v1/ingest/job)",
+    "ingest:email": "E-Mails/.eml an PBP übergeben (POST /api/v1/ingest/email)",
+    "ingest:job": "Stellenangebote an PBP übergeben (POST /api/v1/ingest/job)",
 }
 
 _NAME_RE = re.compile(r"^[\w][\w .\-]{0,58}[\w.]$", re.UNICODE)
@@ -113,7 +113,7 @@ def pair_plugin(db, manifest: dict) -> dict:
         "api_key": api_key,
         "hinweis": (
             "Diesen Key JETZT ins Plugin kopieren — er wird nur dieses "
-            "eine Mal angezeigt. Jeder Ingest-Call traegt ihn als Header "
+            "eine Mal angezeigt. Jeder Ingest-Call trägt ihn als Header "
             "'X-PBP-API-Key'. Widerruf jederzeit in den Einstellungen."
         ),
     }

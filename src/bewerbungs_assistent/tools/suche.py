@@ -37,7 +37,7 @@ def _custom_widerspruch(kriterien: dict):
         f"In custom_kriterien steht {', '.join(doppelt)} — dieses Kriterium "
         "hat ein EIGENES Feld, und nur das wird beim Bewerten gelesen. Der "
         "Eintrag im Sammelbecken ist wirkungslos. Setze den Wert direkt, "
-        "dann stimmen Anzeige und Rechnung ueberein."
+        "dann stimmen Anzeige und Rechnung überein."
     )
 
 
@@ -69,7 +69,7 @@ def _entfernung_widerspruch(kriterien: dict):
         f"gerechnet wird aber je Stellenart: {paare}. Der Einzelwert "
         "hatte bis v1.7.47 gar keinen Leser. Setze ihn mit "
         "suchkriterien_setzen(max_entfernung_km=...) neu, dann gilt er "
-        "fuer alle Stellenarten — oder nutze max_entfernung, wenn die "
+        "für alle Stellenarten — oder nutze max_entfernung, wenn die "
         "Unterschiede Absicht sind."
     )
 
@@ -86,18 +86,18 @@ def _kategorienurteil_hinweis(grund: str):
     if not treffer:
         return None
     return (
-        f"Der Grund klingt nach einem Urteil ueber eine ganze Gattung "
-        f"('{treffer.strip()}'). Blacklist-Gruende werden bei spaeteren "
-        "Bewertungen mitgelesen — ein Kategorienurteil faerbt dann auf "
-        "unbeteiligte Firmen derselben Art ab. Praeziser ist, was mit "
-        "DIESER Firma passiert ist (z. B. 'nie Rueckmeldung auf 3 "
+        f"Der Grund klingt nach einem Urteil über eine ganze Gattung "
+        f"('{treffer.strip()}'). Blacklist-Gruende werden bei späteren "
+        "Bewertungen mitgelesen — ein Kategorienurteil färbt dann auf "
+        "unbeteiligte Firmen derselben Art ab. Präziser ist, was mit "
+        "DIESER Firma passiert ist (z. B. 'nie Rückmeldung auf 3 "
         "Bewerbungen'). Aendern geht jederzeit: "
         "blacklist_verwalten('aendern', entry_id=..., grund=...). "
         # v1.7.41 (#992): der Hinweis auf die Ausnahme kam bisher erst,
         # wenn eine Stelle schon abgewiesen war — also im schlechtest-
-        # moeglichen Moment. Personaldienstleister und Beratungen
+        # möglichen Moment. Personaldienstleister und Beratungen
         # schreiben quer durch alle Fachgebiete aus; ein pauschaler Block
-        # wirft dort zwangslaeufig auch die passenden Rollen weg.
+        # wirft dort zwangsläufig auch die passenden Rollen weg.
         "Und wenn die Gattung wirklich der Grund ist: blocke die Firma, "
         "aber lass deine Fachrollen durch — "
         "blacklist_verwalten('aendern', entry_id=..., "
@@ -156,19 +156,19 @@ def register(mcp, db, logger):
         **Nicht zu verwechseln mit der Kennzahl aus #986**, die
         `statistiken_abrufen` liefert: die sagt, welchen Score die
         Stellen hatten, auf die du dich BEWORBEN hast. Hier geht es um
-        den ganzen Bestand — die Grundlage fuer den Regler. Zwei Fragen,
+        den ganzen Bestand — die Grundlage für den Regler. Zwei Fragen,
         zwei Module (`services/schwellen_verteilung.py` gegen
         `services/score_verteilung.py`).
 
-        Die Grundlage fuer den Schwellenregler: seine Spanne, sein
+        Die Grundlage für den Schwellenregler: seine Spanne, sein
         Median und die drei Farbbereiche kommen aus dieser Verteilung
         und nicht aus einer festen Zahl. Der Regler reichte bis
-        v1.7.73 nur bis 20 — gemessen liegt der hoechste Score bei 110,
+        v1.7.73 nur bis 20 — gemessen liegt der höchste Score bei 110,
         er deckte also nicht einmal das oberste Zehntel ab.
 
         Gerechnet wird gegen die **Erst-Scores** (der Wert beim
         Speichern), weil `min_score_schwelle` beim Speichern filtert
-        und nicht in der Liste (#1008). Fuer Stellen aus der Zeit vor
+        und nicht in der Liste (#1008). Für Stellen aus der Zeit vor
         v1.7.74 gibt es keinen — dort steht der aktuelle Wert,
         gekennzeichnet als rekonstruiert.
 
@@ -176,7 +176,7 @@ def register(mcp, db, logger):
             nur_aktive: True = nur aktive Stellen. False nimmt den
                 ganzen Bestand, was bei wenigen aktiven Stellen die
                 einzige belastbare Grundlage ist.
-            schwelle: >= 0 rechnet zusaetzlich aus, wie viele Stellen
+            schwelle: >= 0 rechnet zusätzlich aus, wie viele Stellen
                 bei dieser Einstellung sichtbar blieben.
         """
         from ..services import schwellen_verteilung
@@ -203,18 +203,18 @@ def register(mcp, db, logger):
 
         Eine Zahl sagt nichts: ob 7 viel oder wenig ist, weiss nur, wer
         die Verteilung kennt — gemessen lag der Median bei 1, der
-        Hoechstwert bei 110, und eine 7 verwarf 82 % des Bestands. Und
-        sie verschiebt sich unter dir: jede Aenderung an Gewichten oder
+        Höchstwert bei 110, und eine 7 verwarf 82 % des Bestands. Und
+        sie verschiebt sich unter dir: jede Änderung an Gewichten oder
         Begriffslisten deutet dieselbe Zahl um. Eine Stufe bleibt
         dieselbe und rechnet neu.
 
         **Ohne Argumente** zeigt das Werkzeug die Stufen mit ihren
         heutigen Werten, wie viele Stellen sie sichtbar lassen und —
         das ist die wichtigere Zahl — wie viele deiner EIGENEN
-        Bewerbungen sie verworfen haetten.
+        Bewerbungen sie verworfen hätten.
 
         Args:
-            bereich: 'speichern' (waehrend der Suche, unwiederbringlich)
+            bereich: 'speichern' (während der Suche, unwiederbringlich)
                 oder 'liste' (blendet nur aus, jederzeit umkehrbar).
             stufe: alles_zeigen | offensichtliches_aus | locker |
                 ausgewogen | streng | nur_volltreffer.
@@ -226,9 +226,9 @@ def register(mcp, db, logger):
                 b: _st.gewaehlte_stufe(db, b) for b in _st.BEREICHE}
             antwort["hinweis"] = (
                 "Zum Setzen: schwelle_stufe_setzen(bereich='liste', "
-                "stufe='locker'). Der Bereich 'speichern' wirkt waehrend "
+                "stufe='locker'). Der Bereich 'speichern' wirkt während "
                 "der Suche — was er verwirft, kommt nie in den Bestand "
-                "und ist nicht zurueckzuholen. 'liste' blendet nur aus.")
+                "und ist nicht zurückzuholen. 'liste' blendet nur aus.")
             return antwort
         ergebnis = _st.stufe_setzen(db, bereich, stufe)
         if "fehler" in ergebnis:
@@ -236,10 +236,10 @@ def register(mcp, db, logger):
         if (bereich == _st.SPEICHERN
                 and ergebnis["stufe"].get("bewerbungen_darunter")):
             ergebnis["warnung"] = (
-                f"Diese Stufe haette "
+                f"Diese Stufe hätte "
                 f"{ergebnis['stufe']['bewerbungen_darunter']} Stellen "
-                "verworfen, auf die du dich tatsaechlich beworben hast — "
-                "und beim Speichern ist das endgueltig.")
+                "verworfen, auf die du dich tatsächlich beworben hast — "
+                "und beim Speichern ist das endgültig.")
         return ergebnis
 
     @mcp.tool()
@@ -265,37 +265,37 @@ def register(mcp, db, logger):
     ) -> dict:
         """Setzt die Suchkriterien für die Jobsuche (ersetzt die gesamte Liste).
 
-        MUSS-Keywords: Stelle wird nur beruecksichtigt wenn mindestens eins vorkommt.
-        PLUS-Keywords: Erhoehen den Score (= bessere Sortierung).
+        MUSS-Keywords: Stelle wird nur berücksichtigt wenn mindestens eins vorkommt.
+        PLUS-Keywords: Erhöhen den Score (= bessere Sortierung).
         MINUS-Keywords (#667, B19, beta.84): Senken den Score (weiche Abwertung).
-            Stelle bleibt sichtbar, rutscht aber nach unten. Gegenstueck zu PLUS.
+            Stelle bleibt sichtbar, rutscht aber nach unten. Gegenstück zu PLUS.
         AUSSCHLUSS-Keywords: Stelle wird komplett ignoriert wenn eins vorkommt.
 
         Wann was nutzen:
         - **Ausschluss**: harte k.o.-Begriffe (Junior, Werkstudent, Zeitarbeit, Bauwesen)
-        - **Minus**: weich unschoen, aber nicht disqualifizierend (Automotive,
+        - **Minus**: weich unschön, aber nicht disqualifizierend (Automotive,
           Versicherung, Beratungshaus, "SAP-only")
 
         Tipp: Leite die Keywords aus dem Profil ab! Was kann der User,
         was sucht er? Nutze profil_zusammenfassung() als Basis.
 
         MALUS VERSCHAERFEN (#908): NIE ein Keyword doppelt eintragen —
-        Listen werden dedupliziert. Der Weg zu einem staerkeren Einzel-
+        Listen werden dedupliziert. Der Weg zu einem stärkeren Einzel-
         Malus ist `keyword_gewichte` (#778):
         suchkriterien_bearbeiten(aktion='gewichten', ...).
 
         Args:
-            keywords_muss: Pflicht-Keywords (muessen vorkommen)
-            keywords_plus: Bonus-Keywords (erhoehen Score)
+            keywords_muss: Pflicht-Keywords (müssen vorkommen)
+            keywords_plus: Bonus-Keywords (erhöhen Score)
             keywords_minus: Malus-Keywords (senken Score, schliessen nicht aus)
             keywords_ausschluss: Ausschluss-Keywords (z.B. Junior, Praktikum)
             regionen: Bevorzugte Regionen
             standort: Wohnort des Bewerbers für Entfernungsberechnung (#167).
                 z.B. 'Bremen' oder 'Bremen, Deutschland'. Wird einmalig geocoded und gecacht.
-            stellentypen: Gewuenschte ANSTELLUNGSFORMEN als Multi-Select
+            stellentypen: Gewünschte ANSTELLUNGSFORMEN als Multi-Select
                 (#166, #1023): festanstellung, zeitarbeit, freelance,
                 praktikum, werkstudent, ausbildung. Die Auswahl
-                entscheidet, ob eine Stelle aktiv gefuehrt oder
+                entscheidet, ob eine Stelle aktiv geführt oder
                 ausgeblendet wird — aber nur, wenn der Titel die Form
                 ausweist. `teilzeit` wird als Altwert noch angenommen;
                 es ist seit #1023 ein UMFANG und kein Vertragstyp, und
@@ -305,11 +305,11 @@ def register(mcp, db, logger):
             max_entfernung: Max. Entfernung pro Stellentyp in km (#166).
                 z.B. {"festanstellung": 50, "freelance": 200, "teilzeit": 30}
                 Die Entfernung beeinflusst das Fit-Scoring als Malus.
-            max_entfernung_km: EINE Zahl fuer alle Stellentypen (#1000) —
-                der einfache Weg, wenn kein Unterschied noetig ist.
-                Ein Mensch sagt "hoechstens 30 km", nicht eine Karte je
-                Stellenart. Wird in `max_entfernung` uebersetzt und wirkt
-                damit ueberall, wo gerechnet wird. Wer BEIDES angibt,
+            max_entfernung_km: EINE Zahl für alle Stellentypen (#1000) —
+                der einfache Weg, wenn kein Unterschied nötig ist.
+                Ein Mensch sagt "höchstens 30 km", nicht eine Karte je
+                Stellenart. Wird in `max_entfernung` übersetzt und wirkt
+                damit überall, wo gerechnet wird. Wer BEIDES angibt,
                 bekommt `max_entfernung` — das ist der genauere Wunsch.
                 Hintergrund: dieses Feld stand vorher in den Kriterien
                 und hatte KEINEN Leser; gerechnet wurde allein gegen die
@@ -317,26 +317,26 @@ def register(mcp, db, logger):
             reisewiderstand: Barrieren, die den Weg teurer machen (#965).
                 Liste von {"richtung": "sueden"|"norden"|"osten"|"westen",
                 "aufschlag_km": 40, "name": "Flussquerung"}. Der Aufschlag
-                gilt fuer Ziele in dieser Richtung und wirkt auf den
+                gilt für Ziele in dieser Richtung und wirkt auf den
                 Entfernungs-MALUS, **nie auf die ausgewiesene Entfernung**
                 — die bleibt, was sie ist (#950).
                 Hintergrund: zwei Stellen mit derselben Kilometerzahl sind
                 nicht gleich weit, wenn zwischen Wohnort und einer davon
                 ein Fluss ohne dichte Querungen, eine Meerenge, ein
-                Gebirgskamm oder eine Grenze liegt. Leere Liste loescht
+                Gebirgskamm oder eine Grenze liegt. Leere Liste löscht
                 alle Regeln.
             min_gehalt: Wunsch-Jahresgehalt in EUR (#544). Beeinflusst Fit-Scoring
                 via Gehalt-Dimension (Malus bei deutlich niedrigerem Angebot).
-            min_tagessatz: Wunsch-Tagessatz in EUR fuer Freelance (#544).
-            min_stundensatz: Wunsch-Stundensatz in EUR fuer Teilzeit/Werkstudent (#544).
+            min_tagessatz: Wunsch-Tagessatz in EUR für Freelance (#544).
+            min_stundensatz: Wunsch-Stundensatz in EUR für Teilzeit/Werkstudent (#544).
             min_score_schwelle: Ab welchem Score eine gefundene Stelle
-                ueberhaupt GESPEICHERT wird. Wirkt waehrend der Suche,
+                überhaupt GESPEICHERT wird. Wirkt während der Suche,
                 nicht in der Liste — der Anzeige-Filter heisst
                 `schwellenwert/auto_ignore` und sitzt in
                 `scoring_konfigurieren` (#1008).
                 Seit v1.7.117 (#1052) ist der Score der Fachwert allein;
-                eine Schwelle aus der Zeit davor filtert schaerfer, als
-                sie sollte. Einen neuen Wert schlaegt
+                eine Schwelle aus der Zeit davor filtert schärfer, als
+                sie sollte. Einen neuen Wert schlägt
                 `kalibrierung_backtest()` aus der eigenen
                 Bewerbungshistorie vor.
             custom_kriterien: Eigene Kriterien mit Gewichtung, z.B. {"homeoffice": 8, "gehalt": 7}
@@ -422,14 +422,14 @@ def register(mcp, db, logger):
                 return {"fehler": "Reisewiderstand nicht gespeichert.",
                         "abgewiesen": fehler,
                         "hinweis": ("Nichts wurde geaendert — eine Regel, "
-                                    "die nicht wirken kann, gehoert nicht "
+                                    "die nicht wirken kann, gehört nicht "
                                     "gespeichert.")}
             db.set_search_criteria(_widerstand.EINSTELLUNG, geprueft)
             widerstand_hinweis = (
                 f"{len(geprueft)} Regel(n) gespeichert. Sie wirken auf den "
                 "Entfernungs-MALUS, nicht auf die ausgewiesene Entfernung. "
                 "Danach scores_neu_berechnen() aufrufen."
-                if geprueft else "Alle Reisewiderstand-Regeln geloescht.")
+                if geprueft else "Alle Reisewiderstand-Regeln gelöscht.")
         if max_entfernung is not None:
             db.set_search_criteria("max_entfernung", max_entfernung)
             # Den frueher toten Einzelwert nicht als Leiche stehen
@@ -470,7 +470,7 @@ def register(mcp, db, logger):
             if _kollision:
                 doppelt_hinweis = (
                     f"{', '.join(_kollision)} steht auch als eigenes "
-                    "Kriterium — beim Bewerten zaehlt NUR das eigene Feld, "
+                    "Kriterium — beim Bewerten zählt NUR das eigene Feld, "
                     "der Eintrag in custom_kriterien bleibt wirkungslos. "
                     "Setze ihn direkt, z.B. "
                     "suchkriterien_setzen(min_gehalt=70000).")
@@ -524,8 +524,8 @@ def register(mcp, db, logger):
         if _doppelt:
             result["hinweis_ueberschneidung"] = (
                 f"{len(_doppelt)} Begriff(e) stehen in MUSS UND PLUS "
-                f"({', '.join(_doppelt[:5])}) — sie zaehlen im Score nur "
-                "einmal (als MUSS). In PLUS gehoeren Begriffe, die KEIN "
+                f"({', '.join(_doppelt[:5])}) — sie zählen im Score nur "
+                "einmal (als MUSS). In PLUS gehören Begriffe, die KEIN "
                 "Pflichtkriterium sind, aber die Sortierung verbessern."
             )
         return result
@@ -546,7 +546,7 @@ def register(mcp, db, logger):
         - aktion='gewichten' setzt ein EINZELGEWICHT pro Keyword (Override
           des Kategorie-Gewichts, z.B. 'Arbeitnehmerueberlassung' mit
           Gewicht 2 statt Kategorie-Malus 6). aktion='gewicht_entfernen'
-          setzt zurueck auf das Kategorie-Gewicht.
+          setzt zurück auf das Kategorie-Gewicht.
         - kategorie='scoring', aktion='idf' mit werte=['an']/['aus']
           schaltet die IDF-Seltenheitsgewichtung + Top-5-Deckelung um
           (Default: aus). Danach `kalibrierung_backtest()` laufen lassen
@@ -556,13 +556,13 @@ def register(mcp, db, logger):
         - kategorie='scoring', aktion='deckel' mit werte=['rahmen'] oder
           ['minus'] und gewicht=Faktor setzt einen der beiden Deckel.
           Beide sind Anteile des Fachwerts (Vorgabe je 0.5): positive
-          Rahmenpunkte zaehlen hoechstens so viel, MINUS-Begriffe nehmen
-          hoechstens so viel.
+          Rahmenpunkte zählen höchstens so viel, MINUS-Begriffe nehmen
+          höchstens so viel.
 
         Args:
             kategorie: 'muss', 'plus', 'minus' oder 'ausschluss'
                 (minus seit #667 / B19, beta.84 — weiche Score-Abwertung);
-                'scoring' fuer aktion='idf' und aktion='deckel'
+                'scoring' für aktion='idf' und aktion='deckel'
             aktion: 'hinzufügen', 'entfernen', 'gewichten',
                 'gewicht_entfernen', 'idf' oder 'deckel'
             werte: Liste der Keywords (bei 'idf': ['an'] oder ['aus'];
@@ -585,7 +585,7 @@ def register(mcp, db, logger):
                     "Seltenheitsgewichtung (IDF) + Top-5-Deckelung der "
                     "MUSS-Summe sind jetzt "
                     + ("AKTIV. Empfehlung: erst kalibrierung_backtest() "
-                       "pruefen, dann scores_neu_berechnen()."
+                       "prüfen, dann scores_neu_berechnen()."
                        if an else "aus — das Scoring rechnet wieder klassisch. "
                        "scores_neu_berechnen() nicht vergessen.")
                 ),
@@ -618,7 +618,7 @@ def register(mcp, db, logger):
                         "scores_neu_berechnen() — die gespeicherten Scores "
                         "rechnen bis dahin mit dem alten Deckel.")
             if _faktor == 0:
-                _hinweis = (("Positive Rahmenpunkte zaehlen jetzt gar nicht mehr. "
+                _hinweis = (("Positive Rahmenpunkte zählen jetzt gar nicht mehr. "
                              if _seite == "rahmen" else
                              "MINUS-Begriffe wirken jetzt gar nicht mehr. ") + _hinweis)
             return {"status": "deckel_gesetzt", "seite": _seite,
@@ -646,7 +646,7 @@ def register(mcp, db, logger):
             if kategorie == "ausschluss":
                 return {"fehler": (
                     "Ausschluss-Keywords haben kein Gewicht — sie sind ein "
-                    "harter K.o. Fuer eine mildere Wirkung das Keyword nach "
+                    "harter K.o. Für eine mildere Wirkung das Keyword nach "
                     "'minus' verschieben und dort gewichten."
                 )}
             criteria_g = db.get_search_criteria()
@@ -670,8 +670,8 @@ def register(mcp, db, logger):
                 "kategorie": kategorie,
                 "geaendert": geaendert,
                 "alle_einzelgewichte": kg,
-                "hinweis": "Wirkt ab der naechsten Score-Berechnung — "
-                           "scores_neu_berechnen() fuer den Bestand.",
+                "hinweis": "Wirkt ab der nächsten Score-Berechnung — "
+                           "scores_neu_berechnen() für den Bestand.",
             }
 
         criteria = db.get_search_criteria()
@@ -741,25 +741,25 @@ def register(mcp, db, logger):
     ) -> dict:
         """Gleicht die Suchbegriffe gegen das Profil ab (#1054, v1.7.119).
 
-        Auch findbar als: Vorschlaege ansehen (Dashboard-Hinweis), Suchbegriffe
+        Auch findbar als: Vorschläge ansehen (Dashboard-Hinweis), Suchbegriffe
         mit Profil abgleichen, fehlende Skills in den Suchlisten.
 
         Der Fachwert misst, wie gut eine Anzeige die SUCHBEGRIFFE trifft.
-        Das sagt nur dann etwas ueber dich, wenn die Listen dein Profil
+        Das sagt nur dann etwas über dich, wenn die Listen dein Profil
         abbilden — und die driften, weil sie von Hand gepflegt werden.
-        Drei Pruefungen, drei getrennte Listen:
+        Drei Prüfungen, drei getrennte Listen:
 
         1. **fehlende_skills** — Profil-Skills, die weder in MUSS noch in
-           PLUS stehen (verglichen ueber die Begriffsgruppierung aus
-           #1012, nicht ueber Zeichenketten). Level 4/5 nach MUSS,
+           PLUS stehen (verglichen über die Begriffsgruppierung aus
+           #1012, nicht über Zeichenketten). Level 4/5 nach MUSS,
            darunter nach PLUS.
-        2. **widersprueche** — MINUS-Begriffe, die einen Profil-Skill
+        2. **widersprüche** — MINUS-Begriffe, die einen Profil-Skill
            treffen ODER in einer Stelle stehen, auf die du dich beworben
            hast. Beide Seiten werden genannt, nichts wird aufgeloest:
            ein bewusster MINUS bleibt deine Entscheidung.
         3. **rahmenbegriffe** — Orte, Arbeitsmodelle, Vertragsformen und
-           Zusatzleistungen in den Fachlisten. Sie gehoeren in Regler
-           und Regionen, sonst verfaelschen sie den Fachwert.
+           Zusatzleistungen in den Fachlisten. Sie gehören in Regler
+           und Regionen, sonst verfälschen sie den Fachwert.
 
         Nichts wird ohne Bestaetigung geaendert. Ein verworfener
         Vorschlag kommt erst wieder, wenn sich Profil oder Liste an
@@ -768,7 +768,7 @@ def register(mcp, db, logger):
         Args:
             aktion: 'anzeigen' (Vorgabe), 'uebernehmen' oder 'verwerfen'.
             schluessel: der `schluessel` eines Vorschlags aus 'anzeigen'
-                (fuer uebernehmen/verwerfen).
+                (für uebernehmen/verwerfen).
             ziel: nur bei uebernehmen eines fehlenden Skills —
                 'keywords_muss' oder 'keywords_plus', wenn du vom
                 Vorschlag abweichen willst.
@@ -803,7 +803,7 @@ def register(mcp, db, logger):
                 "Profil und Suchbegriffe passen zusammen — kein offener "
                 "Vorschlag." + (f" ({ergebnis['verworfen']} verworfene "
                                 "bleiben stumm.)" if ergebnis["verworfen"] else ""),
-                "Nach jeder Aenderung am Profil oder an den Listen lohnt "
+                "Nach jeder Änderung am Profil oder an den Listen lohnt "
                 "ein neuer Blick: profil_suchbegriffe_abgleichen().")
         ergebnis["zusammenfassung"] = _ab.kurzfassung(ergebnis)
         ergebnis["naechster_schritt"] = (
@@ -818,7 +818,7 @@ def register(mcp, db, logger):
         """Zeigt die aktuellen Suchkriterien an.
 
         Gibt alle MUSS-, PLUS-, MINUS- und AUSSCHLUSS-Keywords, Regionen und
-        benutzerdefinierte Kriterien zurueck. (MINUS seit #667 / B19, beta.84.)
+        benutzerdefinierte Kriterien zurück. (MINUS seit #667 / B19, beta.84.)
         """
         kriterien = db.get_search_criteria()
         # v1.7.21 (#927): Ein leeres {} war die haeufigste Sackgasse
@@ -829,10 +829,10 @@ def register(mcp, db, logger):
                 {"kriterien": {}},
                 "Es sind noch keine Suchkriterien gesetzt — ohne sie "
                 "findet die Jobsuche nichts Passendes.",
-                "Vorschlaege aus deinem Profil bekommst du mit "
+                "Vorschläge aus deinem Profil bekommst du mit "
                 "keyword_vorschlaege(); setzen kannst du sie mit "
                 "suchkriterien_setzen(keywords_muss=[...]). MUSS-Begriffe "
-                "muessen in der Anzeige vorkommen, PLUS-Begriffe "
+                "müssen in der Anzeige vorkommen, PLUS-Begriffe "
                 "verbessern nur die Reihenfolge.")
         antwort = {"kriterien": kriterien}
         # #931: Minimum und Nennwert GETRENNT ausgeben. Beide in einer
@@ -884,10 +884,10 @@ def register(mcp, db, logger):
             _betroffen = sum(len(g["begriffe"]) for g in _gruppen)
             antwort["hinweis_zusammenfassung"] = (
                 f"{_betroffen} deiner MUSS-Begriffe sind Schreibweisen "
-                f"desselben Sachverhalts und zaehlen als {len(_gruppen)} "
-                "Anforderung(en) — sonst haette eine Anzeige, die dieselbe "
+                f"desselben Sachverhalts und zählen als {len(_gruppen)} "
+                "Anforderung(en) — sonst hätte eine Anzeige, die dieselbe "
                 "Sache mehrfach benennt, ein Vielfaches an Punkten (#1012). "
-                "Fuer die SUCHE zaehlen weiterhin alle Begriffe einzeln; "
+                "Für die SUCHE zählen weiterhin alle Begriffe einzeln; "
                 "zusammengefasst wird nur beim Bewerten.")
             # Die Schwelle ist eine ABSOLUTE Zahl auf einer Skala, die
             # sich damit verschoben hat. Sie stillschweigend weiter
@@ -897,9 +897,9 @@ def register(mcp, db, logger):
             if _schwelle:
                 antwort["hinweis_schwelle"] = (
                     f"Deine Speicher-Schwelle steht auf {_schwelle}. Seit "
-                    "der Zusammenfassung faellt der Score fuer dieselbe "
+                    "der Zusammenfassung fällt der Score für dieselbe "
                     "Anzeige niedriger aus — die Schwelle filtert damit "
-                    "schaerfer als vorher, ohne dass du sie geaendert "
+                    "schärfer als vorher, ohne dass du sie geaendert "
                     "hast. Sieh sie einmal an: "
                     "suchkriterien_setzen(min_score_schwelle=N).")
         # v1.7.119 (#1054): der Abgleich gegen das Profil laeuft bei
@@ -935,7 +935,7 @@ def register(mcp, db, logger):
         - 'firma': Firmen die IMMER ignoriert werden (z.B. Musterfirma, Zeitarbeitsfirma XY)
         - 'keyword': Begriffe die IMMER ignoriert werden (z.B. Werkstudent, Praktikum)
 
-        Individuelle Ablehnungsgründe (zu_weit, zu_junior, etc.) gehoeren NICHT hierher!
+        Individuelle Ablehnungsgründe (zu_weit, zu_junior, etc.) gehören NICHT hierher!
         Diese werden automatisch bei stelle_einordnen() als dismiss_reason gespeichert.
 
         Args:
@@ -944,26 +944,26 @@ def register(mcp, db, logger):
                 korrigiert grund/wert/ausser_wenn_titel_enthaelt in place
                 (created_at bleibt, alter Grund wandert nach grund_vorher);
                 'deaktivieren' pausiert den Eintrag ohne Datenverlust —
-                fuer "die Firma will ich erstmal wieder zulassen, aber den
+                für "die Firma will ich erstmal wieder zulassen, aber den
                 Eintrag nicht wegwerfen".
             typ: 'firma' oder 'keyword' (keine anderen Typen mehr!)
             wert: Der Blacklist-Eintrag (Firmenname oder Keyword)
-            grund: Grund fuer den Eintrag. WICHTIG: beschreiben, was mit
-                DIESER Firma passiert ist ("nie Rueckmeldung auf 3
+            grund: Grund für den Eintrag. WICHTIG: beschreiben, was mit
+                DIESER Firma passiert ist ("nie Rückmeldung auf 3
                 Bewerbungen"), nicht ihre Gattung ("Beratungshaus") —
-                der Grund wird bei spaeteren Bewertungen mitgelesen, und
-                ein Kategorienurteil faerbt auf unbeteiligte Firmen
+                der Grund wird bei späteren Bewertungen mitgelesen, und
+                ein Kategorienurteil färbt auf unbeteiligte Firmen
                 derselben Branche ab.
             entry_id: ID des Eintrags (bei aendern/deaktivieren/
                 aktivieren/entfernen; steht im hinzufuegen-Result und in
                 'anzeigen')
-            force: True ueberstimmt die Warnung bei laufenden Bewerbungen
-                im Interview-Stadium (#699) und traegt trotzdem ein.
+            force: True überstimmt die Warnung bei laufenden Bewerbungen
+                im Interview-Stadium (#699) und trägt trotzdem ein.
             ausser_wenn_titel_enthaelt: v1.7.11 (#790/C31) — Liste von
                 Begriffen, bei denen ein FIRMEN-Block NICHT greift
-                (case-insensitiv im Stellentitel). Gedacht fuer
+                (case-insensitiv im Stellentitel). Gedacht für
                 Personaldienstleister und Beratungen, die quer durch alle
-                Fachgebiete ausschreiben: die Firma bleibt grundsaetzlich
+                Fachgebiete ausschreiben: die Firma bleibt grundsätzlich
                 geblockt, die fachlich passenden Rollen kommen trotzdem
                 durch. Beispiel: ausser_wenn_titel_enthaelt=['PLM', 'PDM'].
                 Wirkt auch retroaktiv in blacklist_anwenden().
@@ -1017,7 +1017,7 @@ def register(mcp, db, logger):
                             f"Firma '{wert.strip()}' hat {len(betroffene)} "
                             f"laufende Bewerbung(en) im Status "
                             f"{', '.join(sorted({r['status'] for r in betroffene}))}. "
-                            "Ein Blacklist-Eintrag wuerde die zugehoerigen "
+                            "Ein Blacklist-Eintrag würde die zugehörigen "
                             "Stellen deaktivieren."
                         ),
                         "betroffene_bewerbungen": details,
@@ -1044,8 +1044,8 @@ def register(mcp, db, logger):
                 result["muss_kollisionen"] = kollisionen
                 result["warnung_muss"] = (
                     f"Dieser Eintrag betrifft {len(kollisionen)} bekannte "
-                    "Stelle(n), deren Titel deine MUSS-Begriffe enthaelt "
-                    f"({', '.join(begriffe)}). Kuenftige Treffer dieser Art "
+                    "Stelle(n), deren Titel deine MUSS-Begriffe enthält "
+                    f"({', '.join(begriffe)}). Künftige Treffer dieser Art "
                     "werden ab jetzt still verworfen. Wenn das nicht "
                     "gewollt ist, setz eine Ausnahme: "
                     f"blacklist_verwalten('aendern', entry_id={neu_id}, "
@@ -1085,8 +1085,8 @@ def register(mcp, db, logger):
                 ok = db.remove_blacklist_entry(entry_id)
                 return {"status": "entfernt" if ok else "nicht_gefunden",
                         "hinweis": ("Loeschen verwirft Grund, Historie und "
-                                    "Titel-Ausnahmen. 'deaktivieren' behaelt "
-                                    "alles und laesst sich rueckgaengig machen.")}
+                                    "Titel-Ausnahmen. 'deaktivieren' behält "
+                                    "alles und lässt sich rückgängig machen.")}
             return {"fehler": "entry_id ist erforderlich zum Entfernen."}
         elif aktion == "aendern":
             # v1.7.12 (#828, C33): in place aendern statt loeschen+neu —
@@ -1130,7 +1130,7 @@ def register(mcp, db, logger):
                     "Der Eintrag bleibt sichtbar, greift aber nicht mehr — "
                     "weder bei neuen Funden noch in blacklist_anwenden. "
                     "Bereits deaktivierte Stellen der Firma bleiben "
-                    "deaktiviert; stelle_reaktivieren holt sie zurueck.")
+                    "deaktiviert; stelle_reaktivieren holt sie zurück.")
             return result
         elif aktion == "anzeigen":
             entries = db.get_blacklist(include_inactive=True)
@@ -1145,7 +1145,7 @@ def register(mcp, db, logger):
                 "anzahl": len(aktive),
                 "hinweis": ("Aendern: blacklist_verwalten('aendern', "
                             "entry_id=<id>, grund=...). Pausieren: "
-                            "'deaktivieren' statt 'entfernen' — behaelt "
+                            "'deaktivieren' statt 'entfernen' — behält "
                             "Grund und Ausnahmen.")
             }
             if inaktive:
@@ -1155,7 +1155,7 @@ def register(mcp, db, logger):
                     for e in inaktive
                 ]
                 res["inaktiv_hinweis"] = (
-                    f"{len(inaktive)} Eintraege sind deaktiviert und greifen "
+                    f"{len(inaktive)} Einträge sind deaktiviert und greifen "
                     "NICHT. Reaktivieren: blacklist_verwalten('aktivieren', "
                     "entry_id=<id>).")
             if mit_ausnahme:
@@ -1175,10 +1175,10 @@ def register(mcp, db, logger):
 
         Wenn die Blacklist NACH einer Jobsuche erweitert wird, bleiben Stellen
         der neuen Blacklist-Firmen weiter aktiv. Dieses Tool sortiert sie
-        nachtraeglich aus, ohne die Suche neu starten zu muessen.
+        nachträglich aus, ohne die Suche neu starten zu müssen.
 
         Args:
-            dry_run: True (Standard) zeigt nur die Vorschau, False fuehrt aus.
+            dry_run: True (Standard) zeigt nur die Vorschau, False führt aus.
 
         Returns:
             dry_run=True: {"betroffen": N, "vorschau": [...10...]}
@@ -1246,7 +1246,7 @@ def register(mcp, db, logger):
                 "betroffen": len(matched),
                 "vorschau": preview,
                 "hinweis": (
-                    f"{len(matched)} aktive Stelle(n) wuerden aussortiert. "
+                    f"{len(matched)} aktive Stelle(n) würden aussortiert. "
                     "Erneut mit dry_run=False aufrufen, um sie zu deaktivieren."
                 ),
             }
@@ -1288,8 +1288,8 @@ def register(mcp, db, logger):
     def blacklist_wirkung(limit: int = 30, nur_auffaellige: bool = False) -> dict:
         """Was wirft deine Blacklist gerade weg — und ist das noch richtig? (#992)
 
-        Ein Filter, dessen Wirkung niemand sehen kann, laesst sich nicht
-        ueberpruefen. Man weiss nicht, ob er richtig arbeitet, und man
+        Ein Filter, dessen Wirkung niemand sehen kann, lässt sich nicht
+        überprüfen. Man weiss nicht, ob er richtig arbeitet, und man
         merkt nicht, wenn seine Begruendung veraltet ist. Genau das ist
         am 07.09.2026 passiert: eine fachlich passende Stelle wurde von
         einem Eintrag geblockt, dessen Begruendung aus einer Zeit stammte,
@@ -1299,23 +1299,23 @@ def register(mcp, db, logger):
 
         1. **Welche Stellen hat die Blacklist verworfen?** Seit v1.7.41
            protokolliert PBP jede Blockade — aus dem Suchlauf, beim
-           Anlegen von Hand und ueber Plugins.
+           Anlegen von Hand und über Plugins.
         2. **Widerspricht ein Eintrag den eigenen Suchkriterien?** Ein
            Eintrag, der Titel mit MUSS-Begriffen wegwirft, sagt zwei
            Dinge gleichzeitig. Das ist maschinell erkennbar und steht
            deshalb ganz oben.
-        3. **Ist die Begruendung noch tragfaehig?** Gattungsurteile
+        3. **Ist die Begruendung noch tragfähig?** Gattungsurteile
            ("Zeitarbeit", "Consulting") beschreiben keine Firma, sondern
            eine Annahme; mit Alter wird daraus eine Vermutung mit Datum.
 
-        Der uebliche Ausweg ist nicht Loeschen, sondern eine Ausnahme:
+        Der übliche Ausweg ist nicht Loeschen, sondern eine Ausnahme:
         `blacklist_verwalten('aendern', entry_id=...,
-        ausser_wenn_titel_enthaelt=['PLM'])` haelt die Firma draussen und laesst die
+        ausser_wenn_titel_enthaelt=['PLM'])` hält die Firma draussen und lässt die
         Fachrollen durch.
 
         Args:
             limit: wie viele protokollierte Blockaden gelesen werden.
-            nur_auffaellige: True zeigt nur Eintraege mit Befund
+            nur_auffaellige: True zeigt nur Einträge mit Befund
                 (MUSS-Kollision, Gattungsurteil ohne Ausnahme, fehlende
                 Begruendung).
         """
@@ -1360,9 +1360,9 @@ def register(mcp, db, logger):
         if not blockaden:
             ergebnis["hinweis_protokoll"] = (
                 "Noch keine Blockade protokolliert. Das Protokoll beginnt "
-                "mit v1.7.41 — aeltere Blockaden sind nicht rekonstruierbar, "
-                "weil sie nie irgendwo standen. Nach dem naechsten Suchlauf "
-                "steht hier, was der Filter tatsaechlich wegwirft."
+                "mit v1.7.41 — ältere Blockaden sind nicht rekonstruierbar, "
+                "weil sie nie irgendwo standen. Nach dem nächsten Suchlauf "
+                "steht hier, was der Filter tatsächlich wegwirft."
             )
         # Die Zahl oben ist Protokoll, also Vergangenheit. Gewarnt wird
         # nur ueber das, was HEUTE noch blockt — sonst ermahnt PBP jemanden
@@ -1374,14 +1374,14 @@ def register(mcp, db, logger):
         if offen:
             ergebnis["warnung"] = (
                 f"{offen} verworfene Stelle(n) tragen einen deiner "
-                "MUSS-Begriffe im Titel und wuerden auch jetzt wieder "
+                "MUSS-Begriffe im Titel und würden auch jetzt wieder "
                 "verworfen. Das ist der Widerspruch aus #992 — sieh dir "
-                "die betroffenen Eintraege an."
+                "die betroffenen Einträge an."
             )
         elif behoben:
             ergebnis["hinweis_behoben"] = (
-                f"{behoben} frueher verworfene Stelle(n) mit MUSS-Begriff "
-                "kaemen inzwischen durch — die Ausnahme wirkt."
+                f"{behoben} früher verworfene Stelle(n) mit MUSS-Begriff "
+                "kämen inzwischen durch — die Ausnahme wirkt."
             )
         return ergebnis
 
@@ -1396,11 +1396,11 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def suchprofil_lesen(portal: str) -> dict:
-        """Liefert die Suchbegriffe je Jobboerse fuer ein Portal (#564).
+        """Liefert die Suchbegriffe je Jobbörse für ein Portal (#564).
 
         Im Dashboard heisst das "Suchbegriffe je Jobbörse" (B70, #1087 C5) —
         nicht zu verwechseln mit den Suchkriterien (MUSS/PLUS/MINUS), die
-        fuer alle Quellen gelten.
+        für alle Quellen gelten.
 
         Wird von der Chrome-Extension VOR jeder Suche aufgerufen, damit
         statt der naiven `keywords_muss` die portal-spezifisch erprobten
@@ -1429,7 +1429,7 @@ def register(mcp, db, logger):
     ) -> dict:
         """Aktualisiert das Such-Profil eines Portals (#564).
 
-        Nur die uebergebenen Felder werden ueberschrieben — leer/None
+        Nur die übergebenen Felder werden überschrieben — leer/None
         heisst „nicht aendern".
 
         Args:
@@ -1438,7 +1438,7 @@ def register(mcp, db, logger):
                 Format: [{"keywords": "PDM", "filter": {"branche": [...]},
                           "notiz": "treffsicher"}]
             sekundaere_suchen: Liste von Such-Fallbacks (z.B. generischere
-                Begriffe, die ohne Filter Muell liefern).
+                Begriffe, die ohne Filter Müll liefern).
             nicht_verwenden: Liste von ausgeschlossenen Suchen.
                 Format: [{"wert": "PLM Architect", "grund": "0 Treffer"}]
             notizen: Freitext mit Lessons.
@@ -1458,7 +1458,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def suchprofile_auflisten() -> dict:
-        """Listet die Suchbegriffe je Jobboerse (Portal-Such-Profile, #564)."""
+        """Listet die Suchbegriffe je Jobbörse (Portal-Such-Profile, #564)."""
         items = db.list_portal_search_profiles()
         if not items:
             return leer(
@@ -1477,7 +1477,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def ablehnungsgruende_anzeigen(nur_aktiv: bool = False) -> dict:
-        """Listet alle Ablehnungsgruende (Standard + Custom) mit Verwendungs-Haeufigkeit (#663 C20).
+        """Listet alle Ablehnungsgründe (Standard + Custom) mit Verwendungs-Häufigkeit (#663 C20).
 
         Args:
             nur_aktiv: True = nur aktive Gruende. False (Default) zeigt alle
@@ -1533,7 +1533,7 @@ def register(mcp, db, logger):
                     "hinweis": (
                         "Nutze ablehnungsgrund_aktivieren_setzen(id, True) "
                         "falls deaktiviert, oder ablehnungsgrund_umbenennen "
-                        "wenn du einen aehnlichen meintest."
+                        "wenn du einen ähnlichen meintest."
                     ),
                 }
         except Exception:
@@ -1555,7 +1555,7 @@ def register(mcp, db, logger):
     @mcp.tool()
     def ablehnungsgruende_vereinheitlichen(dry_run: bool = True,
                                            ziele: dict = None) -> dict:
-        """Fuehrt Gruende zusammen, die sich nur in der Schreibweise
+        """Führt Gruende zusammen, die sich nur in der Schreibweise
         unterscheiden (#663 C66).
 
         Am Bestand gemessen standen drei Gruppen doppelt — `Falsche
@@ -1564,15 +1564,15 @@ def register(mcp, db, logger):
         Ablehnungs-Statistik zersplittert, und genau aus ihr ziehen
         #908 und #778 ihre Lerneffekte.
 
-        **`ablehnungsgrund_umbenennen` reicht dafuer nicht.** Es
+        **`ablehnungsgrund_umbenennen` reicht dafür nicht.** Es
         vergleicht gegen das alte LABEL, in den Stellen steht aber eine
         dritte Schreibweise (`falsches system`, mit Leerzeichen). Der
-        Lauf hier gruppiert deshalb ueber einen normalisierten
+        Lauf hier gruppiert deshalb über einen normalisierten
         Schluessel und schreibt BEIDE Orte um.
 
         Zusammengefasst wird nur, was nach der Normalisierung IDENTISCH
         ist — `falsches_fachgebiet` und `falsches_system` bleiben
-        getrennt. Aehnlichkeit entscheidet hier nichts.
+        getrennt. Ähnlichkeit entscheidet hier nichts.
 
         Args:
             dry_run: Vorgabe True — es wird nichts geschrieben. Die
@@ -1590,9 +1590,9 @@ def register(mcp, db, logger):
 
         beta.92: bereits gespeicherte dismiss_reason-Werte in der jobs-Tabelle
         werden JETZT mit umgeschrieben — ein Tippfehler verschwindet damit
-        komplett aus den Daten, statt als Karteileiche zurueckzubleiben.
+        komplett aus den Daten, statt als Karteileiche zurückzubleiben.
         Kollidiert das neue Label mit einem bestehenden Grund, werden beide
-        zusammengefuehrt (Merge).
+        zusammengeführt (Merge).
 
         Args:
             grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
@@ -1614,18 +1614,18 @@ def register(mcp, db, logger):
     @mcp.tool()
     def ablehnungsgrund_loeschen(grund_id: int, neu_zuordnen_zu: str = "",
                                  bestaetigung: bool = False) -> dict:
-        """Loescht einen Ablehnungsgrund (#663 C20, beta.92).
+        """Löscht einen Ablehnungsgrund (#663 C20, beta.92).
 
         Wenn der Grund bereits Stellen zugeordnet ist (jobs.dismiss_reason),
         MUSS `neu_zuordnen_zu` einen anderen Grund nennen — diese Stellen
-        werden dann darauf umgehaengt, damit keine Stelle ohne gueltigen
-        Grund zurueckbleibt. Ohne Verwendung wird direkt geloescht.
+        werden dann darauf umgehängt, damit keine Stelle ohne gültigen
+        Grund zurückbleibt. Ohne Verwendung wird direkt gelöscht.
 
         Args:
             grund_id: ID des Grunds (aus ablehnungsgruende_anzeigen)
-            neu_zuordnen_zu: Label des Ziel-Grunds fuer betroffene Stellen
+            neu_zuordnen_zu: Label des Ziel-Grunds für betroffene Stellen
                 (z.B. 'sonstiges'). Pflicht, wenn der Grund verwendet wird.
-            bestaetigung: True loescht. Ohne kommt eine Vorschau mit der
+            bestaetigung: True löscht. Ohne kommt eine Vorschau mit der
                 Zahl der betroffenen Stellen (H27, #1087 G7).
         """
         if not bestaetigung:
@@ -1638,7 +1638,7 @@ def register(mcp, db, logger):
                             (row["label"],)).fetchone()[0]
             vorschau = {"status": "vorschau", "id": grund_id,
                         "label": row["label"], "betroffene_stellen": n,
-                        "hinweis": ("Noch nichts geloescht. Zum Loeschen "
+                        "hinweis": ("Noch nichts gelöscht. Zum Loeschen "
                                     "erneut mit bestaetigung=True aufrufen.")}
             if n and not neu_zuordnen_zu:
                 vorschau["hinweis"] = (
@@ -1665,7 +1665,7 @@ def register(mcp, db, logger):
         """Aktiviert/Deaktiviert einen Ablehnungsgrund (#663 C20).
 
         Deaktivierte Gruende werden nicht mehr in stelle_einordnen akzeptiert
-        (Treffer fallen auf 'sonstiges' zurueck), bleiben aber in
+        (Treffer fallen auf 'sonstiges' zurück), bleiben aber in
         ablehnungsgruende_anzeigen() sichtbar mit `is_active=False` und in
         den Statistiken erhalten.
 

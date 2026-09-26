@@ -104,7 +104,7 @@ def pruefe_interview_vollstaendigkeit(db) -> list[dict]:
                     "id": bid, "art": "kein_kontakt",
                     "bewerbung_id": aid, "firma": firma,
                     "befund": (f"Verfahren im Status '{app.get('status')}' "
-                               "ohne einen einzigen verknuepften Kontakt."),
+                               "ohne einen einzigen verknüpften Kontakt."),
                     "deeplink": deeplink,
                 })
         else:
@@ -127,8 +127,8 @@ def pruefe_interview_vollstaendigkeit(db) -> list[dict]:
                             "Verfahren mit Interview, aber kein "
                             "Ansprechpartner beim Endkunden erfasst — alle "
                             f"{len(kontakte)} Kontakte sind Vermittler oder "
-                            "fremde Firmen. Fuer die naechste Runde fehlt, "
-                            "wer im Gespraech war."),
+                            "fremde Firmen. Für die nächste Runde fehlt, "
+                            "wer im Gespräch war."),
                         "deeplink": deeplink,
                     })
 
@@ -166,10 +166,10 @@ def pruefe_interview_vollstaendigkeit(db) -> list[dict]:
                         "termin_id": mid, "termin_datum": datum_roh,
                         "befund": (
                             f"Interview am {datum_roh} ohne erfasste "
-                            "Teilnehmer. Wer sich auf die naechste Runde "
+                            "Teilnehmer. Wer sich auf die nächste Runde "
                             "vorbereitet, findet nicht, wer dabei war — "
                             "kontakt_verknuepfen(ziel_typ='meeting') "
-                            "traegt nach, auch 'Name unbekannt' zaehlt."),
+                            "trägt nach, auch 'Name unbekannt' zählt."),
                         "deeplink": f"pbp://termin/{mid}",
                     })
 
@@ -187,8 +187,8 @@ def pruefe_interview_vollstaendigkeit(db) -> list[dict]:
                         "termin_id": mid, "termin_datum": datum_roh,
                         "befund": (
                             f"Interview am {datum_roh} ohne Nachbereitung. "
-                            "Zwei Saetze direkt danach sind mehr wert als "
-                            "ein perfekter Bericht spaeter — "
+                            "Zwei Sätze direkt danach sind mehr wert als "
+                            "ein perfekter Bericht später — "
                             "interview_reflexion_speichern oder das "
                             "Formular in der Bewerbungs-Timeline."),
                         "deeplink": deeplink,
@@ -204,11 +204,11 @@ def pruefe_interview_vollstaendigkeit(db) -> list[dict]:
                         "id": bid, "art": "gespraech_nur_notiz",
                         "bewerbung_id": aid, "firma": firma,
                         "befund": (
-                            "Die Notizen erwaehnen ein Gespraech mit Datum, "
+                            "Die Notizen erwähnen ein Gespräch mit Datum, "
                             "aber es existiert kein Termin-Eintrag dazu — "
                             "Prozessdauer- und Kanal-Auswertung (#781) "
-                            "sehen dieses Gespraech nicht. "
-                            "meeting_hinzufuegen traegt es nach."),
+                            "sehen dieses Gespräch nicht. "
+                            "meeting_hinzufuegen trägt es nach."),
                         "deeplink": deeplink,
                     })
 

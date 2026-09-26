@@ -18,15 +18,15 @@ def register(mcp, db, logger: logging.Logger):
         """Zeigt alle optionalen Komponenten und ihren Zustand (I10, #751).
 
         Komponenten schalten PBP-Kernfunktionen frei — aktuell:
-        - **tesseract**: Texterkennung (OCR) fuer gescannte PDFs (E19).
+        - **tesseract**: Texterkennung (OCR) für gescannte PDFs (E19).
 
-        Ollama (Lokale KI) wird mit angezeigt, aber eigenstaendig verwaltet
+        Ollama (Lokale KI) wird mit angezeigt, aber eigenständig verwaltet
         (Einstellungen › Lokale KI).
 
-        Naechste Schritte je nach Zustand:
+        Nächste Schritte je nach Zustand:
         - nicht installiert → User fragen, dann
           `komponente_installieren(name, bestaetigt=True)`
-        - Installation laeuft → kurz warten, dann erneut `komponenten_status()`
+        - Installation läuft → kurz warten, dann erneut `komponenten_status()`
         - extern vorhanden → nichts zu tun, PBP nutzt sie automatisch
         """
         from ..services import components as comp
@@ -62,17 +62,17 @@ def register(mcp, db, logger: logging.Logger):
         """Installiert eine optionale Komponente — NUR mit User-Zustimmung.
 
         ⛔ PFLICHT-ABLAUF (I10-Grundregel, #751): Beim ersten Aufruf
-        `bestaetigt=False` lassen — das liefert Groesse, Quelle und Lizenz
+        `bestaetigt=False` lassen — das liefert Grösse, Quelle und Lizenz
         als ANGEBOT. Dieses dem User zeigen und FRAGEN. Erst wenn der User
-        ausdruecklich ja sagt: erneut mit `bestaetigt=True` aufrufen.
+        ausdrücklich ja sagt: erneut mit `bestaetigt=True` aufrufen.
         Niemals ungefragt bestaetigen.
 
-        Die Installation laeuft im Hintergrund (Download ~1-3 Minuten).
+        Die Installation läuft im Hintergrund (Download ~1-3 Minuten).
         Fortschritt: `komponenten_status()`.
 
         Args:
             name: Komponenten-Name (z.B. 'tesseract').
-            bestaetigt: True NUR nach ausdruecklicher User-Zustimmung.
+            bestaetigt: True NUR nach ausdrücklicher User-Zustimmung.
         """
         from ..services import components as comp
         status = comp.get_component_status(db, name)
@@ -97,7 +97,7 @@ def register(mcp, db, logger: logging.Logger):
                     "freigeschaltete_funktion": status.get("freigeschaltete_funktion"),
                     "download_groesse_mb": status.get("groesse_mb"),
                     "lizenz": status.get("lizenz"),
-                    "ziel": "AppData/BewerbungsAssistent/components/ (kein Admin noetig)",
+                    "ziel": "AppData/BewerbungsAssistent/components/ (kein Admin nötig)",
                 },
                 "naechster_schritt": (
                     "Dem User dieses Angebot zeigen und fragen. Bei Ja: "
@@ -110,7 +110,7 @@ def register(mcp, db, logger: logging.Logger):
         result = comp.start_install_job(db, name)
         if result.get("status") == "gestartet":
             result["hinweis"] = (
-                "Installation laeuft im Hintergrund (1-3 Min). Status: "
+                "Installation läuft im Hintergrund (1-3 Min). Status: "
                 "komponenten_status(). Danach werden Scans automatisch "
                 "erkannt; bereits hochgeladene Scan-PDFs: "
                 "dokument_ocr_ausfuehren(dokument_id)."
@@ -122,14 +122,14 @@ def register(mcp, db, logger: logging.Logger):
         """Zeigt gekoppelte Plugins und die Ingest-API v1 (J1/#504).
 
         Plugins sind EXTERNE Programme (Thunderbird-Add-on, Watch-Folder-
-        Skript, ...), die ueber die lokale REST-API `/api/v1/ingest/*`
+        Skript, ...), die über die lokale REST-API `/api/v1/ingest/*`
         Stellen oder E-Mails an PBP liefern. Kopplung + Widerruf laufen
-        BEWUSST nur ueber die UI: Einstellungen › Erweiterungen →
+        BEWUSST nur über die UI: Einstellungen › Erweiterungen →
         Gekoppelte Plugins (der API-Key wird dort genau einmal angezeigt
-        und gehoert nicht in den Chat).
+        und gehört nicht in den Chat).
 
-        Nutze dies fuer Diagnose: Welche Plugins sind gekoppelt, was
-        duerfen sie, wann kam der letzte Ingest?
+        Nutze dies für Diagnose: Welche Plugins sind gekoppelt, was
+        dürfen sie, wann kam der letzte Ingest?
         """
         from ..services import plugins as plug
         eintraege = db.get_plugins()
@@ -160,7 +160,7 @@ def register(mcp, db, logger: logging.Logger):
     def komponente_pfad_setzen(name: str, pfad: str) -> dict:
         """Registriert eine extern installierte Komponente per Pfad.
 
-        Fuer den Offline-/Selbstinstallierer-Fall: Tesseract ist schon da
+        Für den Offline-/Selbstinstallierer-Fall: Tesseract ist schon da
         (oder wurde manuell installiert), PBP soll es nutzen. Der Pfad darf
         aufs Binary oder den Installationsordner zeigen.
 

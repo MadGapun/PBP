@@ -353,7 +353,7 @@ def test_989_urteil_aus_anzeigenrumpf_zaehlt_nicht():
     guete, warum = grund_guete({
         "description": "PLM gesucht.", "dismiss_reason": "falsches_fachgebiet"})
     assert guete == "ohne_grundlage"
-    assert "zaehlt nicht mit" in warum
+    assert "zählt nicht mit" in warum
 
 
 def test_989_geschaetztes_gehalt_bleibt_ein_schwacher_beleg():

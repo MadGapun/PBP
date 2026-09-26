@@ -208,7 +208,7 @@ def bericht(db) -> dict:
         "gruppen": gefunden,
         "anzahl": len(gefunden),
         "regel": ("Die Whitelist-Schreibweise gewinnt, wenn die Gruppe "
-                  "eine enthaelt — sonst die haeufigste unter den "
+                  "eine enthält — sonst die häufigste unter den "
                   "gespeicherten Werten."),
         "schreibt": "nichts",
     }
@@ -267,8 +267,8 @@ def vereinheitlichen(db, *, dry_run: bool = True,
         "grund_eintraege_zusammengefuehrt": gruende_gesamt,
         "hinweis": (
             "Vorschau — es wurde nichts geschrieben. Die Zielschreibweise "
-            "je Gruppe steht oben; mit `ziele={...}` laesst sie sich "
-            "ueberschreiben, mit dry_run=False wird geschrieben."
+            "je Gruppe steht oben; mit `ziele={...}` lässt sie sich "
+            "überschreiben, mit dry_run=False wird geschrieben."
             if dry_run else
             "Je Grund gibt es jetzt eine Schreibweise — in der "
             "Grundliste UND in den Stellen. Ein zweiter Lauf findet "

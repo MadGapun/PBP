@@ -47,7 +47,7 @@ def _unsicherheits_praefix(n: int) -> str:
     """Bei duenner Datenlage steht die Unsicherheit IN der Aussage, nicht
     in einer Fussnote (Bericht-Designprinzip v1.6.8)."""
     if n < 5:
-        return "Erster Hinweis (nur wenige Faelle): "
+        return "Erster Hinweis (nur wenige Fälle): "
     if n < 15:
         return "Tendenz: "
     return ""
@@ -89,7 +89,7 @@ def _regel_aussortier_muster(db: Any) -> list:
             "dismiss_pattern", SCOPE_STRATEGIE,
             f"Bei {anteil} % deiner Aussortierungen war '{grund}' ein Grund "
             f"({n} von {gesamt}). Ein Filter, "
-            "der das vorab abfaengt, spart genau diese Sichtungsarbeit.",
+            "der das vorab abfängt, spart genau diese Sichtungsarbeit.",
             {"grund": grund, "anzahl": n,
              "gesamt_aussortiert": gesamt, "anteil_prozent": anteil},
             n))
@@ -110,14 +110,14 @@ def _regel_kanal(db: Any) -> list:
         return []
     if kanaele[beste]["interview_quote"] < kanaele[schlechteste]["interview_quote"] * 1.5:
         return []
-    label = {"vermittler_recruiter": "ueber Vermittler",
-             "portal": "ueber Jobportale", "netzwerk": "ueber Kontakte",
+    label = {"vermittler_recruiter": "über Vermittler",
+             "portal": "über Jobportale", "netzwerk": "über Kontakte",
              "direktbewerbung": "als Direktbewerbung"}
     n = kanaele[beste]["bewerbungen"]
     return [_kandidat(
         "kanal_pattern", SCOPE_STRATEGIE,
-        f"Bewerbungen {label.get(beste, beste)} fuehren bei dir deutlich "
-        f"haeufiger zu einem Interview ({kanaele[beste]['interview_quote']} %) "
+        f"Bewerbungen {label.get(beste, beste)} führen bei dir deutlich "
+        f"häufiger zu einem Interview ({kanaele[beste]['interview_quote']} %) "
         f"als {label.get(schlechteste, schlechteste)} "
         f"({kanaele[schlechteste]['interview_quote']} %).",
         {"kanaele": {k: {"bewerbungen": v["bewerbungen"],
@@ -174,8 +174,8 @@ def _regel_reaktionszeit(db: Any) -> list:
     tot_ab = int(max(median * 3, median + 21))
     return [_kandidat(
         "reaktionszeit", SCOPE_STRATEGIE,
-        f"Eine erste Rueckmeldung kommt bei dir typischerweise nach "
-        f"{median} Tagen (Median aus {r['anzahl']} Vorgaengen). Kommt nach "
+        f"Eine erste Rückmeldung kommt bei dir typischerweise nach "
+        f"{median} Tagen (Median aus {r['anzahl']} Vorgängen). Kommt nach "
         f"{tot_ab} Tagen nichts, lohnt Nachfassen mehr als Warten.",
         {"median_tage": median, "mittel_tage": r.get("mittel_tage"),
          "anzahl": r["anzahl"], "faustregel_tot_ab_tagen": tot_ab},

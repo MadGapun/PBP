@@ -29,10 +29,10 @@ STARTSATZ = "Starte die Ersterfassung"
 # Der Einstieg. Wird an genau einer Stelle formuliert, damit die
 # Anleitung nicht in 17 Varianten auseinanderlaeuft.
 ERSTERFASSUNG_HINWEIS = (
-    "Es ist noch kein Profil angelegt — PBP weiss also noch nichts ueber "
+    "Es ist noch kein Profil angelegt — PBP weiss also noch nichts über "
     "dich. Am einfachsten geht das gefuehrt: sag Claude einfach "
     "\"Starte die Ersterfassung\". Dann werden Lebenslauf, Kenntnisse und "
-    "Suchwuensche Schritt fuer Schritt aufgenommen. Wer lieber selbst "
+    "Suchwünsche Schritt für Schritt aufgenommen. Wer lieber selbst "
     "anfaengt: profil_erstellen(name, email) legt ein leeres Profil an."
 )
 
@@ -48,9 +48,9 @@ def kein_profil(aktion: str = "") -> dict:
             #1087 G14: "Um Ohne Profil gibt es nichts einzuordnen. zu
             koennen ..."); ein Test prueft jeden Aufrufer.
     """
-    grund = "Dafuer braucht PBP zuerst ein Profil."
+    grund = "Dafür braucht PBP zuerst ein Profil."
     if aktion:
-        grund = f"Um {aktion} zu koennen, braucht PBP zuerst ein Profil."
+        grund = f"Um {aktion} zu können, braucht PBP zuerst ein Profil."
     return {
         "status": "kein_profil",
         "fehler": "Kein aktives Profil vorhanden.",

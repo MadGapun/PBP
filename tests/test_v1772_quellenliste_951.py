@@ -211,7 +211,7 @@ def test_951_aehnlichkeit_fuehrt_nicht_zusammen(db):
     )
     assert treffer is not None
     assert treffer["sicherheit"] == sd.VERDACHT
-    assert "pruefen" in treffer["text"].lower()
+    assert "prüfen" in treffer["text"].lower()
 
 
 def test_951_die_aehnlichkeitsschwelle_aus_670_bleibt_stehen():

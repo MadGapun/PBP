@@ -151,7 +151,7 @@ def erneut_gesehen(db, job_hash: str) -> dict | None:
         "quelle": zeilen[0]["source"],
         "fundstellen": len(zeilen),
         "text": (f"Erneut gesehen am {zeilen[0]['zuletzt_gesehen'][:10]} "
-                 f"({zeilen[0]['source']}) — die Anzeige laeuft weiter."),
+                 f"({zeilen[0]['source']}) — die Anzeige läuft weiter."),
     }
 
 
@@ -178,8 +178,8 @@ def bericht(db) -> dict:
              "titel": z["title"], "aufgeloest_am": z["aufgeloest_am"],
              "wieder_da_seit": z["found_at"]}
             for z in zeilen],
-        "grenze": ("Zusammenfuehrungen vor v1.7.127 hinterliessen keine "
-                   "Spur. Wiedergekehrte Faelle daraus findet nur der "
+        "grenze": ("Zusammenführungen vor v1.7.127 hinterliessen keine "
+                   "Spur. Wiedergekehrte Fälle daraus findet nur der "
                    "Dublettenvergleich dieses Werkzeugs."),
         "auto_fix": False,
     }

@@ -33,7 +33,7 @@ HANDOFF_URL_TEMPLATES: dict[str, str] = {
 # Karriereseiten (Custom-Quellen) — Qualitaet prueft Claude beim Anlegen.
 GENERIC_EXTRACTION_JS = r"""
 (() => {
-  const stop = /^(mehr|alle|jetzt|hier|login|anmelden|impressum|datenschutz|agb|hilfe|kontakt|karriere|jobs?|stellenangebote|weiter|zurueck|zurück|filter|suche|profil|einstellungen|cookie.*)$/i;
+  const stop = /^(mehr|alle|jetzt|hier|login|anmelden|impressum|datenschutz|agb|hilfe|kontakt|karriere|jobs?|stellenangebote|weiter|zurück|zurück|filter|suche|profil|einstellungen|cookie.*)$/i;
   const seen = new Set();
   const jobs = [];
   for (const a of document.querySelectorAll('a[href]')) {
@@ -67,9 +67,9 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
             return {
                 "status": "kein_template",
                 "hinweis": (
-                    f"Fuer '{quelle}' ist keine Handoff-Such-URL hinterlegt. "
+                    f"Für '{quelle}' ist keine Handoff-Such-URL hinterlegt. "
                     "Bekannt: " + ", ".join(sorted(HANDOFF_URL_TEMPLATES))
-                    + ". Fuer eigene Karriereseiten: custom_quelle_hinzufuegen."
+                    + ". Für eigene Karriereseiten: custom_quelle_hinzufuegen."
                 ),
             }
         url = template.format(
@@ -84,7 +84,7 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
         "url": url,
         "extraction_js": GENERIC_EXTRACTION_JS,
         "anleitung": (
-            "1. URL in Chrome mit Claude-in-Chrome oeffnen (eingeloggte "
+            "1. URL in Chrome mit Claude-in-Chrome öffnen (eingeloggte "
             "Session umgeht Bot-Blocker). 2. Treffer mit javascript_tool() "
             "und `extraction_js` strukturiert aus dem DOM ziehen. "
             "3. Passende Stellen mit stelle_manuell_anlegen(titel, firma, "

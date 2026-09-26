@@ -360,7 +360,7 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
             return ""
         if grenze and dist <= grenze:
             return (f"{dist:.1f} km liegt innerhalb deiner "
-                    f"{grenze:.0f} km — die gemessene Entfernung schlaegt "
+                    f"{grenze:.0f} km — die gemessene Entfernung schlägt "
                     f"das Titel-Muster.")
         return ""
 
@@ -372,7 +372,7 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
         return ""
     if befund["erfuellt"]:
         return (f"{befund['job_text']} erreicht deinen Wunsch "
-                f"({befund['wunsch_text']}) — die belegte Zahl schlaegt "
+                f"({befund['wunsch_text']}) — die belegte Zahl schlägt "
                 f"das Titel-Muster.")
     return ""
 
@@ -470,7 +470,7 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         return {
             "aktion": "aussortieren",
             "grund": grund,
-            "beleg": (f"Wiedergaenger nach Fachgebiet: "
+            "beleg": (f"Wiedergänger nach Fachgebiet: "
                       f"{titel_muster['anzahl']}x mit Grund '{grund}' "
                       f"aussortiert (gemeinsam: "
                       f"{', '.join(titel_muster['tokens'][:4])})."),

@@ -141,7 +141,7 @@ def beschriftung(luftlinie_km) -> str:
     fahrt = fahrstrecke_schaetzung(km)
     if fahrt is None:
         return f"{km:g} km Luftlinie"
-    return f"{km:g} km Luftlinie (~{fahrt:g} km Fahrstrecke, geschaetzt)"
+    return f"{km:g} km Luftlinie (~{fahrt:g} km Fahrstrecke, geschätzt)"
 
 
 def _befund_fahrstrecke(job: dict, fahrt: float) -> dict:
@@ -197,9 +197,9 @@ def befund(wert) -> dict:
     if fahrt is not None:
         ergebnis["fahrstrecke_km_geschaetzt"] = fahrt
         ergebnis["fahrstrecke_hinweis"] = (
-            f"Schaetzung aus der Luftlinie (Faktor {FAHRSTRECKEN_FAKTOR}), "
-            "keine berechnete Route. Je nach Streckenfuehrung liegt der "
-            "wirkliche Wert darueber oder darunter. Mit einem "
+            f"Schätzung aus der Luftlinie (Faktor {FAHRSTRECKEN_FAKTOR}), "
+            "keine berechnete Route. Je nach Streckenführung liegt der "
+            "wirkliche Wert darüber oder darunter. Mit einem "
             "Routing-Schluessel rechnet PBP die echte Fahrstrecke samt "
             "Fahrzeit."
         )

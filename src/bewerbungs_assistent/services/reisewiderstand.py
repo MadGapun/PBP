@@ -69,11 +69,11 @@ def regel_pruefen(richtung: str, aufschlag_km, name: str = "") -> dict:
     km = _zahl(aufschlag_km)
     if km is None or km <= 0:
         return {"ok": False,
-                "fehler": "aufschlag_km muss eine Zahl groesser 0 sein."}
+                "fehler": "aufschlag_km muss eine Zahl grösser 0 sein."}
     if km > MAX_AUFSCHLAG_KM:
         return {"ok": False,
                 "fehler": (f"aufschlag_km ist auf {MAX_AUFSCHLAG_KM:g} "
-                           "begrenzt — ein unbegrenzter Aufschlag waere ein "
+                           "begrenzt — ein unbegrenzter Aufschlag wäre ein "
                            "versteckter Ausschluss, und Entfernung ist ein "
                            "Preis (#910).")}
     return {"ok": True, "regel": {"richtung": r, "aufschlag_km": km,

@@ -13,6 +13,6 @@ TON = ("Ehrlich, konkret und per Du. Keine Plattitüden wie „Kopf hoch“, "
 
 # Floskeln, die in keinem Text an den Bewerber mehr stehen.
 FLOSKELN = ("Kopf hoch", "Das wird schon", "das wird schon",
-            "Jeder Schritt zaehlt", "Jeder Schritt zählt",
+            "Jeder Schritt zählt", "Jeder Schritt zählt",
             "Du machst das grossartig", "Du machst das großartig",
-            "bringt dich näher ans Ziel", "bringt dich naeher ans Ziel")
+            "bringt dich näher ans Ziel", "bringt dich näher ans Ziel")

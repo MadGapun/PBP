@@ -57,7 +57,7 @@ MAXIMUM = 131072
 ZEICHEN_JE_TOKEN = 3.0
 
 SPEICHER_HINWEIS = (
-    "Ein groesseres Fenster braucht mehr Arbeitsspeicher. Ollama halbiert "
+    "Ein grösseres Fenster braucht mehr Arbeitsspeicher. Ollama halbiert "
     "den Bedarf mit den Umgebungsvariablen OLLAMA_KV_CACHE_TYPE=q8_0 und "
     "OLLAMA_FLASH_ATTENTION=1 — damit sind 16.384 auch auf Karten mit "
     "8 GB realistisch."
@@ -112,7 +112,7 @@ def lesen(db) -> dict:
         "hinweis": (
             "Das Kontextfenster der lokalen KI in Tokens. Passt ein Prompt "
             "nicht hinein, schickt PBP ihn nicht ab bzw. verwirft die "
-            "Antwort und nennt den Grund — Ollama wuerde den Anfang sonst "
+            "Antwort und nennt den Grund — Ollama würde den Anfang sonst "
             "still abschneiden."
         ),
         "speicher": SPEICHER_HINWEIS,
@@ -128,7 +128,7 @@ def setzen(db, wert: Any) -> dict:
     if zahl is None:
         return {
             "fehler": (
-                f"'{wert}' ist kein gueltiges Kontextfenster. Erlaubt sind "
+                f"'{wert}' ist kein gültiges Kontextfenster. Erlaubt sind "
                 f"ganze Zahlen von {MINIMUM} bis {MAXIMUM}. Nichts gespeichert."
             ),
             "aktueller_stand": lesen(db),
@@ -136,7 +136,7 @@ def setzen(db, wert: Any) -> dict:
     db.set_profile_setting(SCHLUESSEL, str(zahl))
     antwort = lesen(db)
     antwort["neu_laden"] = (
-        "Ollama laedt das Modell beim naechsten Aufruf einmalig neu, weil "
+        "Ollama lädt das Modell beim nächsten Aufruf einmalig neu, weil "
         "sich das Fenster geaendert hat."
     )
     return antwort
@@ -153,9 +153,9 @@ def vorab_pruefen(prompt: str, max_tokens: int, num_ctx: int) -> int:
     if geschaetzt + max_tokens > num_ctx:
         raise KontextZuKlein(
             f"Der Prompt passt nicht in das Kontextfenster der lokalen KI: "
-            f"geschaetzt {geschaetzt} Tokens plus {max_tokens} fuer die "
+            f"geschätzt {geschaetzt} Tokens plus {max_tokens} für die "
             f"Antwort, das Fenster hat {num_ctx}. Nicht abgeschickt, weil "
-            f"Ollama den Anfang still abgeschnitten haette. Groesseres "
+            f"Ollama den Anfang still abgeschnitten hätte. Grösseres "
             f"Fenster: ollama_kontext(aktion='setzen', wert=...)."
         )
     return geschaetzt
@@ -168,8 +168,8 @@ def nachher_pruefen(prompt_tokens: Any, max_tokens: int, num_ctx: int) -> None:
     if prompt_tokens + max_tokens > num_ctx:
         raise KontextZuKlein(
             f"Die lokale KI hat {prompt_tokens} Prompt-Tokens verarbeitet; "
-            f"mit {max_tokens} fuer die Antwort ist das mehr als das Fenster "
-            f"von {num_ctx}. Der Prompt wurde vermutlich gekuerzt, die "
-            f"Antwort ist deshalb verworfen. Groesseres Fenster: "
+            f"mit {max_tokens} für die Antwort ist das mehr als das Fenster "
+            f"von {num_ctx}. Der Prompt wurde vermutlich gekürzt, die "
+            f"Antwort ist deshalb verworfen. Grösseres Fenster: "
             f"ollama_kontext(aktion='setzen', wert=...)."
         )

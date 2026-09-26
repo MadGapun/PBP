@@ -143,7 +143,7 @@ def _rueckuebersetzen(conn, tabelle: str, spalte: str, ziel: str) -> dict:
                 "wert": str(r["wert"]),
                 "moegliche_ziele": treffer[:5],
                 "grund": ("mehrdeutig — der Wert passt rechnerisch zu "
-                          f"{len(treffer)} IDs (Ueberlauf)"
+                          f"{len(treffer)} IDs (Überlauf)"
                           if len(treffer) > 1 else
                           "kein passendes Ziel gefunden"),
             })
@@ -197,8 +197,8 @@ def heilen(db: Any, dry_run: bool = True) -> dict:
             "status": "vorschau",
             "befunde": diagnose["befunde"],
             "hinweis": ("Mit dry_run=False werden die Spalten auf TEXT "
-                        "gestellt und die Werte zurueckuebersetzt. "
-                        "Nicht eindeutig aufloesbare Verknuepfungen werden "
+                        "gestellt und die Werte zurückübersetzt. "
+                        "Nicht eindeutig auflösbare Verknüpfungen werden "
                         "geleert statt falsch belassen."),
         }
 

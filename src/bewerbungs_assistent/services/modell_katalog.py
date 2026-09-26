@@ -44,7 +44,7 @@ KATALOG = [
         "name": "Qwen3 4B",
         "size_gb": 2.5,
         "ram_gb": 8,
-        "description": "Laeuft auf jedem PC mit 8 GB RAM",
+        "description": "Läuft auf jedem PC mit 8 GB RAM",
     },
     {
         "id": "qwen3:8b",
@@ -52,7 +52,7 @@ KATALOG = [
         "name": "Qwen3 8B",
         "size_gb": 5.2,
         "ram_gb": 16,
-        "description": "Empfohlen, gutes Deutsch, laeuft mit 16 GB RAM",
+        "description": "Empfohlen, gutes Deutsch, läuft mit 16 GB RAM",
         "recommended": True,
     },
     {

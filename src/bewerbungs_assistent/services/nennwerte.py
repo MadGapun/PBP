@@ -124,14 +124,14 @@ def uebersicht(db) -> dict:
                 eintrag["hinweis"] = (
                     "Der Nennwert liegt UNTER deinem Minimum. Von der "
                     "genannten Zahl wird nach unten verhandelt, nie nach "
-                    "oben — gemeint war vermutlich der hoehere Wert.")
+                    "oben — gemeint war vermutlich der höhere Wert.")
         zeilen.append(eintrag)
     return {
         "werte": zeilen,
         "bedeutung": {
             "minimum": ("Filterschwelle — ab hier ist eine Stelle "
                         "interessant. Wirkt im Scoring."),
-            "wunsch": ("Nennwert fuers Gespraech. Merkposten — wirkt "
+            "wunsch": ("Nennwert fürs Gespräch. Merkposten — wirkt "
                        "NICHT im Scoring und filtert nichts."),
         },
     }
@@ -160,7 +160,7 @@ def vorbelegung(db, stellenart: str = "festanstellung") -> dict | None:
         "wert": werte[feld],
         "bezeichnung": BEZEICHNUNG[feld],
         "hinweis": ("Vorbelegung aus deinen Suchkriterien. Was du "
-                    "tatsaechlich nennst, entscheidest du je Stelle."),
+                    "tatsächlich nennst, entscheidest du je Stelle."),
     }
 
 

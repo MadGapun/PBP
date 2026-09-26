@@ -15,23 +15,23 @@ from .menue import pfad
 # Werkzeug -> (Funktion, Alternative ohne KI oder None)
 ZUORDNUNG: dict[str, tuple[str, str | None]] = {
     "jobsuche_starten": ("jobsuche", (
-        f"Die interne Suche im Dashboard ({pfad('interne_suche')}) laeuft "
-        "unabhaengig vom Schalter und nutzt deine aktiven Quellen.")),
+        f"Die interne Suche im Dashboard ({pfad('interne_suche')}) läuft "
+        "unabhängig vom Schalter und nutzt deine aktiven Quellen.")),
     "extraktion_starten": ("dokumentenanalyse", (
-        "Dokumente bleiben im Dashboard sichtbar; das Profil laesst sich "
+        "Dokumente bleiben im Dashboard sichtbar; das Profil lässt sich "
         f"von Hand pflegen ({pfad('profil')}).")),
     "dokument_profil_extrahieren": ("dokumentenanalyse", None),
     "dokumente_batch_analysieren": ("dokumentenanalyse", None),
     "fit_analyse": ("stellenanalyse", None),
     "skill_gap_analyse": ("stellenanalyse", None),
     "lebenslauf_angepasst_exportieren": ("bewerbungserstellung", (
-        "Der Standard-Lebenslauf (ohne KI-Anpassung) ueber "
+        "Der Standard-Lebenslauf (ohne KI-Anpassung) über "
         "lebenslauf_exportieren bleibt jederzeit nutzbar.")),
     "fachprofil_exportieren": ("bewerbungserstellung", None),
     "anschreiben_exportieren": ("bewerbungserstellung", None),
     "ablehnungs_muster": ("coaching", None),
     "ersterfassung_starten": ("ersterfassung", (
-        f"Profil von Hand pflegen ({pfad('profil')}) oder ueber die "
+        f"Profil von Hand pflegen ({pfad('profil')}) oder über die "
         "einzelnen Werkzeuge (profil_bearbeiten, position_hinzufuegen, "
         "skill_hinzufuegen ...).")),
 }

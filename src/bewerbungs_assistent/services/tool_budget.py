@@ -105,14 +105,14 @@ def timeout_ergebnis(tool_name: str, budget: float,
         "fehler": (f"{tool_name} hat innerhalb von {budget:.0f}s nicht "
                    "geantwortet (Wall-Clock-Budget, #915)."),
         "grund": ("blockierter Aufruf im Tool-Pfad — DB-Schicht oder "
-                  "haengende Hintergrund-Arbeit; ein SQLite-Lock haette "
+                  "hängende Hintergrund-Arbeit; ein SQLite-Lock hätte "
                   "sich vorher als 'database is locked' gemeldet"),
         "hintergrund_tasks": aktuelle_tasks(),
         "hintergrund_zuletzt": zuletzt_beendet(),
         "hinweis": (
-            "Der Aufruf laeuft serverseitig weiter und kann SPAETER noch "
+            "Der Aufruf läuft serverseitig weiter und kann SPAETER noch "
             f"wirken. Vor einer Wiederholung IMMER erst mit {lese_tool} "
-            "pruefen, ob der Datensatz inzwischen da ist — blindes "
+            "prüfen, ob der Datensatz inzwischen da ist — blindes "
             "Wiederholen erzeugt Dubletten. Hilft ein zweiter Versuch "
             "nicht: MCP-Server neu starten und das Muster in #915 melden."
         ),

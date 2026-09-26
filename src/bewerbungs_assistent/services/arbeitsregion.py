@@ -153,9 +153,9 @@ def hinweis(belege) -> str:
     """Der Satz, der im Ergebnis steht — konkret statt kategorisch."""
     namen = ", ".join(sorted({b.title() for b in (belege or [])})) or "Ausland"
     return (
-        f"Die Stelle ist ausdruecklich an {namen} gebunden. Von "
+        f"Die Stelle ist ausdrücklich an {namen} gebunden. Von "
         "Deutschland aus ist sie nicht 'weit weg', sondern nicht "
         "bewerbbar — Arbeitserlaubnis, Arbeitsrecht und Kernzeit "
-        "sprechen dagegen. 'Remote' heisst ohne festen Buerositz "
-        "INNERHALB eines Rechtsraums, nicht von ueberall."
+        "sprechen dagegen. 'Remote' heisst ohne festen Bürositz "
+        "INNERHALB eines Rechtsraums, nicht von überall."
     )

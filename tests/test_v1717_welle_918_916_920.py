@@ -99,7 +99,7 @@ def test_918_fit_analyse_schaetzung_ist_neutral():
     res = fit_analyse(job, criteria)
     assert "Gehalt passt zu Erwartung" not in res["factors"], \
         "Schaetzung darf keinen Bonus geben (#827/#918)"
-    neutral = [k for k in res["factors"] if "Schaetzung" in k]
+    neutral = [k for k in res["factors"] if "Schätzung" in k]
     assert neutral and res["factors"][neutral[0]] == 0, \
         "transparenter 0-Eintrag muss die leere Dimension erklaeren"
 

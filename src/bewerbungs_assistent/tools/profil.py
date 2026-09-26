@@ -183,8 +183,8 @@ def _feld_rueckmeldung(bereich, antwort, ignoriert):
         antwort["hinweis"] = (
             f"Nicht geschrieben: {', '.join(map(str, ignoriert))}. "
             f"Diese Feldnamen kennt der Bereich '{bereich}' nicht — "
-            "moegliche stehen in moegliche_felder (deutsche Bezeichnungen "
-            "wie 'aufgaben' oder 'erfolge' werden uebersetzt)."
+            "mögliche stehen in moegliche_felder (deutsche Bezeichnungen "
+            "wie 'aufgaben' oder 'erfolge' werden übersetzt)."
         )
     return antwort
 
@@ -225,8 +225,8 @@ _ID_WEGWEISER = {
     # Der Verweis auf skills_bereinigen stand schon im alten
     # delete_skill-Zweig und bleibt erhalten — er ist der Grund, warum
     # eine Skill-ID am haeufigsten ins Leere zeigt.
-    "skill": ("profil_zusammenfassung() nennt die Skill-IDs; fuer "
-              "Extraktions-Muell gibt es skills_bereinigen() im Expertenmodus."),
+    "skill": ("profil_zusammenfassung() nennt die Skill-IDs; für "
+              "Extraktions-Müll gibt es skills_bereinigen() im Expertenmodus."),
 }
 
 
@@ -314,7 +314,7 @@ def _schreibbefund(db, bereich, element_id, ok, antwort):
         "hinweis": (
             f"Das Element '{element_id}' gibt es, aber es war kein "
             f"schreibbares Feld dabei — geaendert wurde nichts. "
-            "Moegliche Feldnamen stehen in moegliche_felder."
+            "Mögliche Feldnamen stehen in moegliche_felder."
         ),
     }
 
@@ -363,10 +363,10 @@ def register(mcp, db, logger):
 
         Die informellen Profilnotizen beschreiben, wer du bist. Jede
         Ausgabe, die das Profil liest — Anschreiben, Dossier, die
-        Vorbereitung fuer eine ANDERE Firma — bekommt sie mit. Eine
-        Interview-Nachlese gehoert deshalb an die Bewerbung, nicht ins
+        Vorbereitung für eine ANDERE Firma — bekommt sie mit. Eine
+        Interview-Nachlese gehört deshalb an die Bewerbung, nicht ins
         Profil. Gemessen: drei Sektionen mit 11.700 Zeichen zu einer
-        einzigen, laengst abgelehnten Bewerbung standen im Profil.
+        einzigen, längst abgelehnten Bewerbung standen im Profil.
 
         `anzeigen` (Vorgabe) nennt Sektionen, deren UEBERSCHRIFT genau
         eine Firma aus deinen Bewerbungen nennt — mit Zielbewerbung.
@@ -374,18 +374,18 @@ def register(mcp, db, logger):
         nennen, werden nicht vorgeschlagen. Nichts wird ohne dich
         verschoben.
 
-        `verschieben` traegt die Sektion in die Timeline der Bewerbung
+        `verschieben` trägt die Sektion in die Timeline der Bewerbung
         ein und entfernt sie aus dem Profil — in einem Zug, und nur
         wenn der Eintrag gelungen ist.
 
         Args:
             aktion: 'anzeigen' oder 'verschieben'.
-            sektion: die Ueberschrift (fuer verschieben).
-            bewerbung_id: das Ziel (fuer verschieben).
+            sektion: die Überschrift (für verschieben).
+            bewerbung_id: das Ziel (für verschieben).
         """
         from ..services import notiz_routing as _nr
         if not db.get_profile():
-            return kein_profil("deine Profil-Notizen aufraeumen")
+            return kein_profil("deine Profil-Notizen aufräumen")
         if aktion == "verschieben":
             if not sektion or not bewerbung_id:
                 return {"fehler": "sektion und bewerbung_id sind Pflicht — "
@@ -398,7 +398,7 @@ def register(mcp, db, logger):
         if not vorschlaege:
             return leer(
                 {"vorschlaege": []},
-                "Keine Profilsektion nennt in der Ueberschrift eine Firma "
+                "Keine Profilsektion nennt in der Überschrift eine Firma "
                 "aus deinen Bewerbungen — nichts zu verschieben.",
                 "Neue Auswertungen mit Bewerbungsbezug landen seit v1.7.119 "
                 "von selbst in der Timeline.")
@@ -478,7 +478,7 @@ def register(mcp, db, logger):
         from ..services import praeferenzen_quelle as _pq
         _wunsch = _pq.wunschwerte(db)
         if _wunsch:
-            lines.append("\n--- Gehalt und Saetze (aus den Suchkriterien) ---")
+            lines.append("\n--- Gehalt und Sätze (aus den Suchkriterien) ---")
             for key, label in [
                 ("min_gehalt", "Min. Gehalt (EUR/Jahr)"),
                 ("ziel_gehalt", "Nennwert Gehalt (EUR/Jahr)"),
@@ -528,7 +528,7 @@ def register(mcp, db, logger):
         # sind gekuerzt. Fuer Bewerbungstexte den Volltext holen.
         if any(pos.get("projects") for pos in positions):
             lines.append(
-                "\n  Hinweis: Projektbeschreibungen sind gekuerzt (STAR-Felder "
+                "\n  Hinweis: Projektbeschreibungen sind gekürzt (STAR-Felder "
                 "fehlen hier) — Volltext via projekte_anzeigen()."
             )
 
@@ -604,13 +604,13 @@ def register(mcp, db, logger):
                 "Berufserfahrung und Ausbildung sind aenderbar: "
                 "profil_bearbeiten(bereich='position', aktion='aendern', "
                 "element_id=<id>, daten={...}). Die IDs stehen oben in eckigen "
-                "Klammern; den ungekuerzten Text dazu liefert "
+                "Klammern; den ungekürzten Text dazu liefert "
                 "positionen_anzeigen()."
             ),
             # #741: klar dokumentierter Weg zum Volltext
             "projekt_volltext_hinweis": (
-                "Projektbeschreibungen in dieser Zusammenfassung sind gekuerzt "
-                "und ohne STAR-Felder. Fuer Anschreiben/Lebenslauf den Volltext "
+                "Projektbeschreibungen in dieser Zusammenfassung sind gekürzt "
+                "und ohne STAR-Felder. Für Anschreiben/Lebenslauf den Volltext "
                 "mit projekte_anzeigen() abrufen."
             ),
         }
@@ -623,29 +623,29 @@ def register(mcp, db, logger):
         Stellen korrekt aus meinem Lebenslauf angelegt. Diese will ich im
         Nachhinein mit Claude besprechen und direkt aendern lassen.
         Allerdings sagt mir Claude immer, dass das Tool zum Bearbeiten
-        nicht zur Verfuegung steht."
+        nicht zur Verfügung steht."
 
         Das Werkzeug gab es: `profil_bearbeiten(bereich='position',
         aktion='aendern', element_id=..., daten=...)`. Was fehlte, war der
         Weg an die **element_id** — kein Lese-Werkzeug gab sie heraus.
         `profil_zusammenfassung` liefert formatierten Text, und
         `projekte_anzeigen` (H16/#741) nennt zwar `position_id`, aber nur
-        fuer Positionen, die schon Projekte tragen. Nach einem frischen
+        für Positionen, die schon Projekte tragen. Nach einem frischen
         Lebenslauf-Import trifft das fast nie zu.
 
-        Genau dafuer gibt es dieses Werkzeug. Es ist die Entsprechung von
-        `projekte_anzeigen` fuer die beiden Ebenen darueber:
-        ungekuerzte Felder, und je Eintrag die ID, die zum Aendern
+        Genau dafür gibt es dieses Werkzeug. Es ist die Entsprechung von
+        `projekte_anzeigen` für die beiden Ebenen darueber:
+        ungekürzte Felder, und je Eintrag die ID, die zum Aendern
         gebraucht wird.
 
-        **Der uebliche Ablauf:** `positionen_anzeigen()` aufrufen, mit dem
-        Menschen ueber die Luecken sprechen (Aufgaben, Erfolge,
+        **Der übliche Ablauf:** `positionen_anzeigen()` aufrufen, mit dem
+        Menschen über die Lücken sprechen (Aufgaben, Erfolge,
         Technologien fehlen nach einem CV-Import meist), und das Ergebnis
-        mit `profil_bearbeiten` zurueckschreiben.
+        mit `profil_bearbeiten` zurückschreiben.
 
         Args:
             nur_id: Optional — nur diese eine Position oder Ausbildung
-                (Kurz-ID/Praefix reicht). Leer = alles.
+                (Kurz-ID/Präfix reicht). Leer = alles.
         """
         profile = db.get_profile()
         if profile is None:
@@ -732,13 +732,13 @@ def register(mcp, db, logger):
             "aendern_mit": (
                 "profil_bearbeiten(bereich='position', aktion='aendern', "
                 "element_id=<position_id>, daten={'aufgaben': '...'}) — "
-                "fuer Ausbildung bereich='ausbildung' mit der "
+                "für Ausbildung bereich='ausbildung' mit der "
                 "ausbildung_id. Die Feldnamen aus dieser Antwort "
                 "funktionieren im daten-Dict (beschreibung, aufgaben, "
                 "erfolge, technologien, titel, firma, ort, stellenart, "
                 "branche), die englischen Spaltennamen ebenfalls. Was "
                 "weder das eine noch das andere ist, wird als "
-                "ignorierte_felder zurueckgemeldet statt still verworfen."
+                "ignorierte_felder zurückgemeldet statt still verworfen."
             ),
         }
         if luecken:
@@ -746,9 +746,9 @@ def register(mcp, db, logger):
             ergebnis["hinweis"] = (
                 f"{len(luecken)} Position(en) haben leere Felder — nach "
                 "einem Lebenslauf-Import ist das normal, ein CV nennt "
-                "selten Aufgaben, Erfolge und Technologien vollstaendig. "
+                "selten Aufgaben, Erfolge und Technologien vollständig. "
                 "Frag den Menschen danach und schreib die Antworten mit "
-                "profil_bearbeiten zurueck."
+                "profil_bearbeiten zurück."
             )
         return ergebnis
 
@@ -756,16 +756,16 @@ def register(mcp, db, logger):
     def projekte_anzeigen(position_id: str = "") -> dict:
         """Alle Projekte des Profils mit UNGEKUERZTEN STAR-Feldern (Volltext).
 
-        Fuer Anschreiben, Lebenslauf und Interview-Vorbereitung IMMER dieses
+        Für Anschreiben, Lebenslauf und Interview-Vorbereitung IMMER dieses
         Tool nutzen statt der Projektdarstellung aus profil_zusammenfassung —
-        dort sind Beschreibung/Ergebnis auf 100 Zeichen gekuerzt und
+        dort sind Beschreibung/Ergebnis auf 100 Zeichen gekürzt und
         Situation/Task/Action fehlen ganz (#741). Liefert ausserdem die
         Projekt-IDs, die profil_bearbeiten(bereich='projekt',
         aktion='aendern') als element_id braucht.
 
         Args:
             position_id: Optional — nur Projekte dieser Position
-                (Kurz-ID/Praefix reicht). Leer = alle Positionen.
+                (Kurz-ID/Präfix reicht). Leer = alle Positionen.
         """
         profile = db.get_profile()
         if profile is None:
@@ -826,8 +826,8 @@ def register(mcp, db, logger):
             "anzahl": len(projekte),
             "projekte": projekte,
             "hinweis": (
-                "Alle Felder sind Volltext (ungekuerzt). Diese STAR-"
-                "Beschreibungen sind die Basis fuer konkrete, belegbare "
+                "Alle Felder sind Volltext (ungekürzt). Diese STAR-"
+                "Beschreibungen sind die Basis für konkrete, belegbare "
                 "Formulierungen in Anschreiben und Lebenslauf."
             ),
         }
@@ -837,12 +837,12 @@ def register(mcp, db, logger):
                                   bereiche: list[str] = []) -> dict:
         """Restauriert echte Umlaute im Profil-Altbestand (#742, A20).
 
-        Aeltere Profil-/Projekttexte enthalten ASCII-Umschreibungen
-        (Mehrjaehrige, Oekosystem, fuer) — schlecht fuer generierte
-        Anschreiben. Ersetzt werden AUSSCHLIESSLICH Woerter aus einer
+        Ältere Profil-/Projekttexte enthalten ASCII-Umschreibungen
+        (Mehrjährige, Ökosystem, für) — schlecht für generierte
+        Anschreiben. Ersetzt werden AUSSCHLIESSLICH Wörter aus einer
         kuratierten Positivliste (wortweise, case-erhaltend). Legitime
-        ue/ae/oe-Sequenzen (neue, Steuerung, Aussage, Queue, Eigennamen)
-        und ss/ß bleiben grundsaetzlich unangetastet;
+        ü/ä/ö-Sequenzen (neue, Steuerung, Aussage, Queue, Eigennamen)
+        und ss/ß bleiben grundsätzlich unangetastet;
         `technologies`-Felder sind ausgenommen (Produktnamen).
 
         Default ist die VORSCHAU (anwenden=False) — zeige sie dem User
@@ -851,7 +851,7 @@ def register(mcp, db, logger):
 
         Args:
             anwenden: False = nur Diff-Vorschau (Default), True = schreiben.
-            bereiche: Optional einschraenken auf eine Teilmenge von
+            bereiche: Optional einschränken auf eine Teilmenge von
                 ['persoenlich', 'positionen', 'projekte', 'ausbildung',
                 'skills']. Leer = alle.
         """
@@ -936,9 +936,9 @@ def register(mcp, db, logger):
                 "nicht_gemappte_kandidaten": kandidaten_top,
                 "hinweis": (
                     "Nichts geschrieben (Dry-Run). Zeige dem User die "
-                    "Aenderungen; nach Bestaetigung mit anwenden=True "
-                    "aufrufen. nicht_gemappte_kandidaten sind ae/oe/ue-"
-                    "Woerter ausserhalb der kuratierten Liste — NICHT "
+                    "Änderungen; nach Bestaetigung mit anwenden=True "
+                    "aufrufen. nicht_gemappte_kandidaten sind ä/ö/ü-"
+                    "Wörter ausserhalb der kuratierten Liste — NICHT "
                     "automatisch ersetzen, ggf. als Kuratierungs-Vorschlag "
                     "an den Maintainer melden (problem_melden)."
                 ) if aenderungen else
@@ -947,7 +947,7 @@ def register(mcp, db, logger):
 
         if not aenderungen:
             return {"status": "nichts_zu_tun", "gesamt_ersetzungen": 0,
-                    "nachricht": "Keine reparierbaren Woerter gefunden."}
+                    "nachricht": "Keine reparierbaren Wörter gefunden."}
 
         # Pflicht-Backup VOR dem Schreiben (Reversibilitaet, #742-Kriterium).
         # Schlaegt das Backup fehl, wird HART abgebrochen (#705-Prinzip).
@@ -1052,7 +1052,7 @@ def register(mcp, db, logger):
         employment_type, branche->industry; ausbildung: einrichtung->
         institution, abschluss->degree, fachrichtung->field_of_study,
         note->grade. Ein Feldname, den weder die Liste noch die
-        Spaltennamen kennen, kommt als `ignorierte_felder` zurueck; er
+        Spaltennamen kennen, kommt als `ignorierte_felder` zurück; er
         wird nicht mehr still verworfen.
 
         Args:
@@ -1169,7 +1169,7 @@ def register(mcp, db, logger):
                 if _abgewiesen:
                     antwort["nicht_uebernommen"] = _abgewiesen
                     antwort["warum"] = (
-                        "Gehalt, Saetze und die Entfernungsgrenze stehen in den "
+                        "Gehalt, Sätze und die Entfernungsgrenze stehen in den "
                         "Suchkriterien (Dashboard: Suche & Bewertung), die auch "
                         "das Scoring liest. Bis v1.7.117 gab es sie zweimal mit "
                         "verschiedenen Werten (#1055).")
@@ -1636,7 +1636,7 @@ def register(mcp, db, logger):
             "profil_id": pid,
             **({"gehalt_in_suchkriterien": _in_kriterien,
                 "hinweis_gehalt": (
-                    "Gehalt und Saetze stehen in den Suchkriterien, nicht "
+                    "Gehalt und Sätze stehen in den Suchkriterien, nicht "
                     "im Profil — dort liest sie auch das Scoring. Aendern "
                     "mit suchkriterien_setzen(...) oder im Dashboard unter "
                     "Suche & Bewertung (#1055).")} if _in_kriterien else {}),
@@ -1645,12 +1645,12 @@ def register(mcp, db, logger):
                 "Ausbildung und Kompetenzen; erst danach nach dem fragen, "
                 "was fehlt." if waisen else
                 "erfassung_fortschritt_lesen() — die Antwort nennt den "
-                "naechsten offenen Bereich samt Anleitung."),
+                "nächsten offenen Bereich samt Anleitung."),
         }
         if waisen:
             result["uebernommene_dokumente"] = waisen
             result["hinweis_dokumente"] = (
-                f"{len(waisen)} vorher hochgeladene(s) Dokument(e) gehoeren jetzt "
+                f"{len(waisen)} vorher hochgeladene(s) Dokument(e) gehören jetzt "
                 "zu diesem Profil: " + ", ".join(waisen[:5])
                 + (" …" if len(waisen) > 5 else "") + ".")
         if existing:
@@ -1862,7 +1862,7 @@ def register(mcp, db, logger):
         level: int = None,
         notizen: str = "",
     ) -> dict:
-        """Fuegt einem Skill einen weiteren Zeitraum hinzu (#572).
+        """Fügt einem Skill einen weiteren Zeitraum hinzu (#572).
 
         Sinnvoll bei Skills mit diskontinuierlicher Erfahrung — z.B. eine
         Programmiersprache 2010-2015 genutzt, Pause, dann 2022-heute wieder.
@@ -1871,7 +1871,7 @@ def register(mcp, db, logger):
         Args:
             skill_id: ID des Skills.
             start_jahr: Beginn des Zeitraums (Jahr als Zahl).
-            end_jahr: Ende. None = laeuft noch.
+            end_jahr: Ende. None = läuft noch.
             level: Niveau 1-5 in diesem Zeitraum.
             notizen: Freitext (z.B. 'bei TestCorp im Team Backend').
         """
@@ -1886,7 +1886,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def skill_zeitraeume_anzeigen(skill_id: str) -> dict:
-        """Listet alle Zeitraeume eines Skills (#572)."""
+        """Listet alle Zeiträume eines Skills (#572)."""
         periods = db.get_skill_periods(skill_id)
         return {
             "skill_id": skill_id,
@@ -1896,7 +1896,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def skill_zeitraum_loeschen(zeitraum_id: str) -> dict:
-        """Loescht einen Skill-Zeitraum."""
+        """Löscht einen Skill-Zeitraum."""
         ok = db.delete_skill_period(zeitraum_id)
         return {"status": "geloescht" if ok else "nicht_gefunden"}
 
@@ -1906,7 +1906,7 @@ def register(mcp, db, logger):
 
         Die Skill-Extraktion erzeugt manchmal Satzfragmente statt echter
         Skills (z.B. 'in Systemen wie Creo', 'Programmierung in CATIA.',
-        'SAP oder vergleichbar)'). Dieses Tool findet sie ueber die
+        'SAP oder vergleichbar)'). Dieses Tool findet sie über die
         Garbage-Heuristik und entfernt sie auf Wunsch.
 
         Args:
@@ -1927,7 +1927,7 @@ def register(mcp, db, logger):
                 "skills": namen,
                 "kandidaten": kandidaten,
                 "hinweis": ("Mit skills_bereinigen(anwenden=True) entfernen. "
-                            "Vorher je Eintrag den Grund pruefen — ist ein "
+                            "Vorher je Eintrag den Grund prüfen — ist ein "
                             "echter Skill dabei, NICHT anwenden."),
             }
         geloescht = sum(1 for j in junk if db.delete_skill(j["id"]))
@@ -1982,12 +1982,12 @@ def register(mcp, db, logger):
     @mcp.tool()
     def neues_profil_erstellen(name: str, email: str = "",
                                bestaetigung: bool = False) -> dict:
-        """Legt ein ZWEITES Profil an und aktiviert es — fuer eine andere Person oder eine ganz andere Suche.
+        """Legt ein ZWEITES Profil an und aktiviert es — für eine andere Person oder eine ganz andere Suche.
 
-        Nicht fuer die Ersterfassung und nicht zum Ergaenzen des eigenen
-        Profils (dafuer profil_erstellen). Ohne bestaetigung=True kommt nur
+        Nicht für die Ersterfassung und nicht zum Ergänzen des eigenen
+        Profils (dafür profil_erstellen). Ohne bestaetigung=True kommt nur
         eine Rueckfrage: danach arbeitet PBP mit dem neuen, leeren Profil,
-        bis profil_wechseln zurueckschaltet.
+        bis profil_wechseln zurückschaltet.
 
         Args:
             name: Name der Person für das neue Profil
@@ -2005,7 +2005,7 @@ def register(mcp, db, logger):
                     f"Das legt ein zweites Profil '{name}' an und schaltet darauf um"
                     + (f"; '{aktiv.get('name')}' bleibt gespeichert" if aktiv.get("name") else "")
                     + ". Alle Listen zeigen danach das neue, leere Profil. Soll das so "
-                    "sein? Dann erneut mit bestaetigung=True. Zum Ergaenzen des "
+                    "sein? Dann erneut mit bestaetigung=True. Zum Ergänzen des "
                     "eigenen Profils ist profil_erstellen der richtige Weg."),
             }
         pid = db.create_profile(name, email)
@@ -2024,13 +2024,13 @@ def register(mcp, db, logger):
         Erstelle vorher ein Backup mit profil_exportieren().
 
         Zwei Schritte, immer: ohne bestaetigung=True kommt nur eine
-        Vorschau mit Zahlen (was wird geloescht). Erst der zweite Aufruf
-        mit bestaetigung=True loescht. Wenn das aktive Profil geloescht wird
-        und es weitere gibt, wechselt PBP automatisch zum naechsten.
+        Vorschau mit Zahlen (was wird gelöscht). Erst der zweite Aufruf
+        mit bestaetigung=True löscht. Wenn das aktive Profil gelöscht wird
+        und es weitere gibt, wechselt PBP automatisch zum nächsten.
 
         Args:
             profil_id: Die ID des zu löschenden Profils
-            bestaetigung: True loescht; ohne kommt nur die Vorschau.
+            bestaetigung: True löscht; ohne kommt nur die Vorschau.
         """
         active_id = db.get_active_profile_id()
         profiles = db.get_profiles()
@@ -2058,8 +2058,8 @@ def register(mcp, db, logger):
                 "je_bereich": je_bereich,
                 "dateien_auf_der_platte": v["dateien_auf_der_platte"],
                 "hinweis": (
-                    "Noch nichts geloescht. Das kann nicht rueckgaengig "
-                    "gemacht werden — vorher profil_exportieren() fuer ein "
+                    "Noch nichts gelöscht. Das kann nicht rückgängig "
+                    "gemacht werden — vorher profil_exportieren() für ein "
                     "Backup. Zum Loeschen erneut mit bestaetigung=True "
                     "aufrufen, nachdem der Mensch zugestimmt hat."),
             }
@@ -2252,11 +2252,11 @@ def register(mcp, db, logger):
                 return {
                     "status": "keine_titel",
                     "nachricht": (
-                        "Keine Titel uebergeben und lokale KI nicht "
-                        "verfuegbar/aktiv. Analysiere das Profil "
+                        "Keine Titel übergeben und lokale KI nicht "
+                        "verfügbar/aktiv. Analysiere das Profil "
                         "(profil_zusammenfassung + projekte_anzeigen) und rufe "
                         "jobtitel_speichern(titel=[...]) mit deinen "
-                        "Vorschlaegen auf."
+                        "Vorschlägen auf."
                     ),
                 }
 
@@ -2402,9 +2402,9 @@ def register(mcp, db, logger):
         """Wie PBP dein Profil einordnet — Feld, Niveau und Form.
 
         Die Einordnung steuert, welche Quellen empfohlen werden. Sie war
-        bis v1.7.125 ueber KEIN Werkzeug erreichbar: es gab sie nur im
-        Dashboard und intern fuer Elwosa, obwohl die Wiki-Seite einen
-        Weg ueber Claude versprach (#1070).
+        bis v1.7.125 über KEIN Werkzeug erreichbar: es gab sie nur im
+        Dashboard und intern für Elwosa, obwohl die Wiki-Seite einen
+        Weg über Claude versprach (#1070).
 
         Drei Angaben statt einer (an der Klassifikation der Berufe 2010
         orientiert):

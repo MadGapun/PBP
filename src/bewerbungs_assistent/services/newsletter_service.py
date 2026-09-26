@@ -262,7 +262,7 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
             "status": "keine_stellen", "label": label,
             "hinweis": ("Google-Jobs-Mail erkannt, aber kein Treffer-Block "
                         "gefunden. Der Textteil hat die Form '<Titel> / "
-                        "<Firma> / <Ort> / ueber <Portal>'. Aendert Google "
+                        "<Firma> / <Ort> / über <Portal>'. Ändert Google "
                         "das, bitte als Issue melden."),
         }
 
@@ -287,7 +287,7 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
         }
         if e.get("veroeffentlicht_am"):
             job["veroeffentlicht_am"] = e["veroeffentlicht_am"]
-        vermerk = [f"Ueber Google-Jobs-Alert gefunden, Originalquelle: "
+        vermerk = [f"Über Google-Jobs-Alert gefunden, Originalquelle: "
                    f"{e['portal']}."]
         if anfrage:
             vermerk.append(f"Suchanfrage: \"{anfrage}\".")
@@ -313,8 +313,8 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
         "portale": sorted({e["portal"] for e in treffer if e.get("portal")}),
         "hinweis": (
             "Die Stellen kommen ohne URL an — in der Mail zeigt jeder Link "
-            "auf einen Google-Redirect. Sie tragen dafuer das "
-            "Ursprungsportal als Vermerk, und ihr Veroeffentlichungsdatum "
+            "auf einen Google-Redirect. Sie tragen dafür das "
+            "Ursprungsportal als Vermerk, und ihr Veröffentlichungsdatum "
             "stammt aus der Mail: ein Alert liefert auch Monate alte "
             "Anzeigen. Direkt ansehen: stellen_anzeigen(quelle='"
             + quelle + "')."
@@ -387,7 +387,7 @@ def verarbeite_newsletter(db, parsed: dict, label: str) -> dict:
         "duplikate": stats.get("duplikate_erkannt", 0),
         "hinweis": (
             "Die Stellen kommen ohne Beschreibung an: sie erscheinen als "
-            "'unbewertet' (#756), der Auto-Refetch (#622) laedt die "
+            "'unbewertet' (#756), der Auto-Refetch (#622) lädt die "
             "Volltexte nach und C23 friert sie als Snapshot ein. Direkt "
             "ansehen: stellen_anzeigen(quelle='" + quelle + "')."
         ),

@@ -86,10 +86,10 @@ def register(mcp, db, logger):
         """Exportiert alle geplanten Bewerbungstermine als .ics-Kalenderdatei
         (J4.1/#481, v1.8.0-beta.3).
 
-        Die Datei laesst sich in Thunderbird, Outlook, Apple- oder
+        Die Datei lässt sich in Thunderbird, Outlook, Apple- oder
         Google-Kalender importieren (Doppelklick reicht meist). Enthalten
         sind alle Termine mit Status 'geplant': Titel + Firma, Zeitraum,
-        Ort, Meeting-Link und ein Ruecklink in die PBP-Bewerbung.
+        Ort, Meeting-Link und ein Rücklink in die PBP-Bewerbung.
 
         RFC-5545-fest (Escaping + Line-Folding) — identischer Kern wie der
         Download-Button im Kalender-Tab (`/api/meetings/export.ics`).
@@ -113,7 +113,7 @@ def register(mcp, db, logger):
             "datei": str(path),
             "termine": anzahl,
             "hinweis": (
-                "Import: Datei im Kalender-Programm oeffnen (Doppelklick) "
+                "Import: Datei im Kalender-Programm öffnen (Doppelklick) "
                 "oder in Thunderbird/Outlook importieren. Alternativ gibt "
                 "es den Download-Button im PBP-Kalender-Tab."
             ),
@@ -129,7 +129,7 @@ def register(mcp, db, logger):
         Erzeugt ein professionell formatiertes Dokument aus dem gespeicherten Profil.
         Die Datei landet im eingestellten Ausgabe-Ordner (#973) —
         ohne Einstellung im Datenordner von PBP. Die Antwort nennt
-        immer den tatsaechlichen Pfad.
+        immer den tatsächlichen Pfad.
 
         Default ist DOCX, weil ein direkt generiertes PDF typischerweise an Schrift,
         Layout und Formulierung als KI-generiert erkennbar ist. DOCX erlaubt es dir,
@@ -182,9 +182,9 @@ def register(mcp, db, logger):
         }
         if format == "pdf":
             result["empfehlung"] = (
-                "DOCX ist fuer Bewerbungen in der Regel besser geeignet: "
+                "DOCX ist für Bewerbungen in der Regel besser geeignet: "
                 "DOCX manuell im eigenen Template nachbearbeiten und erst dann als PDF speichern. "
-                "Direkt generierte PDFs wirken haeufig KI-generiert."
+                "Direkt generierte PDFs wirken häufig KI-generiert."
             )
         return result
 
@@ -252,26 +252,26 @@ def register(mcp, db, logger):
         Anders als `lebenslauf_angepasst_exportieren` (Lebenslauf-
         Format mit inline-Projekten unter Stationen) zieht dieses Tool
         die Projekte als eigene prominente Sektion heraus — nach
-        Stellen-Relevanz sortiert und ausfuehrlicher dargestellt.
+        Stellen-Relevanz sortiert und ausführlicher dargestellt.
 
         Aufbau:
         1. Header (Name + Zielposition + Kontakt)
-        2. Kurzprofil (3-4 Saetze)
+        2. Kurzprofil (3-4 Sätze)
         3. Kernkompetenzen (priorisiert nach Stellen-Match)
-        4. Referenzprojekte (Top-N, ausfuehrlich)
+        4. Referenzprojekte (Top-N, ausführlich)
         5. Berufliche Stationen (kompakt, ohne Projekt-Inline)
         6. Ausbildung
 
         Sinnvoll fuer:
-        - Direktkontakte ueber LinkedIn/XING wo ein einzelnes Dokument
+        - Direktkontakte über LinkedIn/XING wo ein einzelnes Dokument
           kompakter wirkt als CV + separate Projektliste
         - Freelance-Anfragen ohne formelle Ausschreibung
-        - Vorstellung beim ersten Recruiter-Gespraech
+        - Vorstellung beim ersten Recruiter-Gespräch
 
         Args:
             stelle: Zielposition (z.B. 'Senior PLM Architect')
             firma: Zielfirma (z.B. 'ACME GmbH')
-            stellenbeschreibung: Optional — fuer bessere Projekt-Priorisierung
+            stellenbeschreibung: Optional — für bessere Projekt-Priorisierung
             projekte_anzahl: Top-N relevanteste Projekte (Default 5)
             format: 'docx' (empfohlen, manuell nachbearbeitbar) oder 'pdf'
 
@@ -322,10 +322,10 @@ def register(mcp, db, logger):
             "format": format,
             "projekte_anzahl_genutzt": projekte_anzahl,
             "nachricht": (
-                f"Fachprofil & Referenzprojekte fuer '{stelle}' bei {firma} "
+                f"Fachprofil & Referenzprojekte für '{stelle}' bei {firma} "
                 f"als {format.upper()} exportiert: {path.name}. "
                 "Top-Projekte wurden nach Stellen-Relevanz priorisiert. "
-                "Bei DOCX bitte vor dem Versenden manuell pruefen "
+                "Bei DOCX bitte vor dem Versenden manuell prüfen "
                 "(Layout, Formulierungen). " + ablage.ziel_hinweis(db, path)
             ),
             "ordner": str(export_dir),
@@ -349,7 +349,7 @@ def register(mcp, db, logger):
         manuelle Nachbearbeiten im eigenen Template vor dem Versand.
 
         Args:
-            text: Der vollständige Anschreiben-Text (Absaetze mit Leerzeilen trennen)
+            text: Der vollständige Anschreiben-Text (Absätze mit Leerzeilen trennen)
             stelle: Stellentitel (z.B. 'Software Architect')
             firma: Firmenname (z.B. 'TechCorp GmbH')
             format: 'docx' (empfohlen), 'pdf', 'md' (Markdown) oder 'txt' (Klartext)
@@ -403,7 +403,7 @@ def register(mcp, db, logger):
             "datei": str(path),
             "format": format,
             "ordner": str(export_dir),
-            "nachricht": f"Anschreiben fuer {stelle} bei {firma} als "
+            "nachricht": f"Anschreiben für {stelle} bei {firma} als "
                          f"{format.upper()} exportiert: {path.name}. "
                          + ablage.ziel_hinweis(db, path)
         }
@@ -412,9 +412,9 @@ def register(mcp, db, logger):
             result["nachricht"] += " Im Stilarchiv abgelegt (#734)."
         if format == "pdf":
             result["empfehlung"] = (
-                "DOCX ist fuer Bewerbungen in der Regel besser geeignet: "
+                "DOCX ist für Bewerbungen in der Regel besser geeignet: "
                 "DOCX manuell im eigenen Template nachbearbeiten und erst dann als PDF speichern. "
-                "Direkt generierte PDFs wirken haeufig KI-generiert."
+                "Direkt generierte PDFs wirken häufig KI-generiert."
             )
         return result
 
@@ -470,7 +470,7 @@ def register(mcp, db, logger):
     ) -> dict:
         """Exportiert einen professionellen Bewerbungsbericht als PDF oder Excel (#173).
 
-        Enthält: Executive Summary, Status-Uebersicht, Quellenanalyse,
+        Enthält: Executive Summary, Status-Übersicht, Quellenanalyse,
         detaillierte Bewerbungsliste, Verteilung der Punkte und Keyword-Analyse.
         Mit PBP-Branding und Inhaltsverzeichnis.
 
@@ -601,7 +601,7 @@ def register(mcp, db, logger):
         Args:
             art: 'ausgabe' (wohin erzeugte Dateien gehen) oder
                 'vorlagen' (wo deine DOCX-Vorlagen liegen).
-            pfad: der vollstaendige Ordnerpfad. '-' loescht die
+            pfad: der vollständige Ordnerpfad. '-' löscht die
                 Einstellung und stellt das bisherige Verhalten wieder her.
 
         **Ausgabe-Ordner:** ist er gesetzt, landen Lebenslauf,
@@ -610,8 +610,8 @@ def register(mcp, db, logger):
 
         **Vorlagen-Ordner:** liegt dort eine `lebenslauf.docx`,
         `anschreiben.docx` oder `fachprofil.docx`, baut PBP das Dokument
-        AUF DIESER GRUNDLAGE — Schriften, Raender sowie Kopf- und
-        Fusszeilen bleiben deine. Fehlt eine Datei, gilt fuer sie das
+        AUF DIESER GRUNDLAGE — Schriften, Ränder sowie Kopf- und
+        Fusszeilen bleiben deine. Fehlt eine Datei, gilt für sie das
         eingebaute Layout.
 
         Ein Pfad, den es nicht gibt, wird ABGEWIESEN und nicht
@@ -634,25 +634,25 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def dokument_regeln_pruefen(pfad: str = "") -> dict:
-        """Prueft ein erzeugtes Dokument gegen die Versand-Regeln (#1006).
+        """Prüft ein erzeugtes Dokument gegen die Versand-Regeln (#1006).
 
         Args:
             pfad: DOCX-Datei. Leer = die zuletzt geaenderte DOCX-Datei im
                 Ausgabe-Ordner — also im Normalfall genau das, was gerade
                 erzeugt wurde.
 
-        Geprueft wird das ERGEBNIS, nicht der Quelltext: Platzhalter im
+        Geprüft wird das ERGEBNIS, nicht der Quelltext: Platzhalter im
         Text (`None`, `null`), Gedankenstriche als Satzzeichen,
         umschriebene Umlaute und dritte Person im Kurzprofil.
 
         Zwei Dinge, die das Werkzeug bewusst NICHT tut: es schreibt keine
-        Prosa um (aus "Er verfuegt ueber" wird maschinell kein guter
+        Prosa um (aus "Er verfügt über" wird maschinell kein guter
         Satz), und es meldet einen Bis-Strich zwischen zwei Datumsangaben
-        nicht als Fehler — der ist typografisch richtig. Ein Pruefer, der
+        nicht als Fehler — der ist typografisch richtig. Ein Prüfer, der
         bei korrektem Ergebnis Alarm gibt, wird nach dem zweiten Mal
         ignoriert.
 
-        Auch fuer eigene Vorlagen nutzbar: `pfad` auf die Vorlage zeigen
+        Auch für eigene Vorlagen nutzbar: `pfad` auf die Vorlage zeigen
         lassen, dann sagt PBP, was an ihr den Regeln widerspricht.
         """
         from pathlib import Path
@@ -679,12 +679,12 @@ def register(mcp, db, logger):
             return ergebnis
         if ergebnis["sauber"]:
             ergebnis["hinweis"] = (
-                "Keine Regelverstoesse gefunden — das Dokument ist ohne "
-                "Nachformatierung versandfaehig.")
+                "Keine Regelverstösse gefunden — das Dokument ist ohne "
+                "Nachformatierung versandfähig.")
         else:
             hart = [b for b in ergebnis["befunde"] if not b.get("weich")]
             ergebnis["hinweis"] = (
-                f"{len(hart)} Befund(e), die vor dem Versand gehoeren. "
+                f"{len(hart)} Befund(e), die vor dem Versand gehören. "
                 "Regel 8 (dritte Person) betrifft deinen Profiltext und "
                 "wird bewusst nicht automatisch umgeschrieben.")
         return ergebnis

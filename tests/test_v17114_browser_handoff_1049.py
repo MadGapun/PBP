@@ -161,7 +161,7 @@ def test_der_endpunkt_liefert_liste_und_prompt(umgebung):
     daten = tc.get("/api/jobsuche/browser-quellen").json()
     keys = {q["key"] for q in daten["quellen"] if q["art"] == bh.UEBERSPRUNGEN}
     assert keys == {"linkedin", "xing"}
-    assert daten["prompt"].startswith("Suche fuer mich")
+    assert daten["prompt"].startswith("Suche für mich")
 
 
 def test_der_start_haelt_die_uebersprungenen_quellen_fest(umgebung, monkeypatch):

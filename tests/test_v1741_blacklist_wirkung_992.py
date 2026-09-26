@@ -266,7 +266,7 @@ def test_992_gesetzte_ausnahme_beendet_die_ermahnung(db, mcp):
     res = _call(mcp, "blacklist_wirkung")
     assert res["muss_kollisionen_offen"] == 0
     assert "warnung" not in res
-    assert "kaemen inzwischen durch" in res["hinweis_behoben"]
+    assert "kämen inzwischen durch" in res["hinweis_behoben"]
 
 
 def test_992_wirkung_nennt_gattungsurteil_und_alter(db, mcp):

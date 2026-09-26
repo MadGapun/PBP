@@ -307,7 +307,7 @@ def register(mcp, db, logger):
             gap = ", ".join(g["skill"] for g in (skill_gap[:8] or []))
             txt = f"Markt-Trends ({total_jobs} Stellen). Top-Skills: {top}."
             if gap:
-                txt += f" Luecken im Profil: {gap}."
+                txt += f" Lücken im Profil: {gap}."
             ziel = _persist_recherche("markt", txt, bewerbung_id)
             if ziel:
                 ergebnis["gespeichert_als"] = ziel
@@ -415,15 +415,15 @@ def register(mcp, db, logger):
             result["match_prozent"] = None
             result["quote_hinweis"] = (
                 f"Keine Quote: nach dem Aussieben blieben nur "
-                f"{total_relevant} verwertbare Begriffe (noetig sind "
-                f"{MINDEST_BEGRIFFE}). Eine Prozentzahl daraus saehe aus "
-                "wie eine Kennzahl und waere keine.")
+                f"{total_relevant} verwertbare Begriffe (nötig sind "
+                f"{MINDEST_BEGRIFFE}). Eine Prozentzahl daraus sähe aus "
+                "wie eine Kennzahl und wäre keine.")
         # AK 3: die Fallzahl gehoert an die Zahl, nicht in eine
         # Fussnote. Ein Befund aus EINER Anzeige ist kein Trend.
         if len(jobs) == 1:
             result["grundlage"] = (
-                "Einzelbefund aus einer Stelle — keine Statistik. Fuer ein "
-                "Muster ueber den Bestand: skill_gap_analyse() ohne job_hash.")
+                "Einzelbefund aus einer Stelle — keine Statistik. Für ein "
+                "Muster über den Bestand: skill_gap_analyse() ohne job_hash.")
         else:
             result["grundlage"] = f"Ueber {len(jobs)} aktive Stellen gerechnet."
         if job_hash and jobs:
@@ -493,11 +493,11 @@ def register(mcp, db, logger):
         Erstellt einen Follow-up Eintrag mit Datum und Template-Vorschlag.
 
         v1.7.0-beta.83 (#665): Dubletten-Check. Wenn bereits ein offener
-        Nachfass (typ='nachfass', status='geplant') fuer dieselbe Bewerbung
+        Nachfass (typ='nachfass', status='geplant') für dieselbe Bewerbung
         existiert, wird je nach `wenn_dublette` reagiert:
 
         - `melden` (Default): KEIN neuer Eintrag wird angelegt. Stattdessen
-          liefert das Tool `status='dublette_offen'` zurueck — mit Details
+          liefert das Tool `status='dublette_offen'` zurück — mit Details
           zum bestehenden Nachfass und konkreten Handlungsoptionen.
           Claude soll dann den User fragen und mit dem expliziten
           `wenn_dublette`-Wert erneut aufrufen.
@@ -506,7 +506,7 @@ def register(mcp, db, logger):
           User aktiv neu plant.
         - `vorhandenen_verschieben`: bestehenden offenen Nachfass auf das
           neue Datum aktualisieren statt einen zweiten anzulegen.
-        - `trotzdem_neu`: bestehenden lassen + zusaetzlich neuen anlegen
+        - `trotzdem_neu`: bestehenden lassen + zusätzlich neuen anlegen
           (das alte Verhalten — bewusst zweite Dublette wollen).
 
         Args:
@@ -554,15 +554,15 @@ def register(mcp, db, logger):
                 "optionen": {
                     "vorhandenen_erledigen": (
                         "Bestehenden als 'gesendet' markieren und neuen "
-                        f"fuer {scheduled} anlegen (Default-Empfehlung, "
-                        "wenn der User sich aktiv neu kuemmert)."
+                        f"für {scheduled} anlegen (Default-Empfehlung, "
+                        "wenn der User sich aktiv neu kümmert)."
                     ),
                     "vorhandenen_verschieben": (
                         f"Bestehenden Nachfass auf {scheduled} "
                         "verschieben statt zweiten anzulegen."
                     ),
                     "trotzdem_neu": (
-                        "Beide behalten — nur waehlen wenn bewusst gewollt."
+                        "Beide behalten — nur wählen wenn bewusst gewollt."
                     ),
                 },
                 "naechster_aufruf": (
@@ -753,7 +753,7 @@ def register(mcp, db, logger):
             ergebnis["ueberholt"] = ueberholt
             ergebnis["hinweis"] = (
                 f"{len(ueberholt)} Nachfassung(en) sind durch den "
-                "Verfahrensstand gegenstandslos geworden (Gespraech laeuft "
+                "Verfahrensstand gegenstandslos geworden (Gespräch läuft "
                 "bereits oder Termin steht). Sie stehen unter 'ueberholt' "
                 "und lassen sich mit follow_up_hinfaellig(...) schliessen — "
                 "die Historie bleibt dabei erhalten.")
@@ -770,17 +770,17 @@ def register(mcp, db, logger):
     ) -> dict:
         """Speichert eine Anschreiben- oder Lebenslauf-Version im Stilarchiv (#577).
 
-        Beim naechsten Generieren werden die letzten Versionen als Kontext
+        Beim nächsten Generieren werden die letzten Versionen als Kontext
         mitgegeben — Claude bleibt im User-Stil und nutzt erfolgreiche
         Formulierungen wieder.
 
         Args:
             kind: 'cover_letter', 'cv' oder 'other'.
-            content: Der vollstaendige Text der Version.
+            content: Der vollständige Text der Version.
             title: Optionaler Titel (z.B. Firma+Position).
             application_id: Optionale Bewerbung zum Verlinken.
             outcome: Optional 'interview', 'abgelehnt', 'ohne_antwort' —
-                kann spaeter via stilarchiv_outcome_setzen ergaenzt werden.
+                kann später via stilarchiv_outcome_setzen ergänzt werden.
             notes: Freitext-Anmerkungen.
         """
         if kind not in ("cover_letter", "cv", "other"):
@@ -799,7 +799,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def stilarchiv_kontext(kind: str = "cover_letter", limit: int = 5) -> dict:
-        """Liefert die letzten N Versionen als Kontext fuer eine Neu-Generierung (#577).
+        """Liefert die letzten N Versionen als Kontext für eine Neu-Generierung (#577).
 
         Nutze das BEVOR du ein neues Anschreiben/Lebenslauf schreibst —
         damit der Stil konsistent bleibt und erfolgreiche Formulierungen
@@ -896,19 +896,19 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def stil_auswertung() -> dict:
-        """Wertet getrackte Anschreiben-Stile aus: Welcher Stil oeffnet mehr Tueren (Interviews)? (#454, #736)
+        """Wertet getrackte Anschreiben-Stile aus: Welcher Stil öffnet mehr Türen (Interviews)? (#454, #736)
 
         Liest alle stil_tracking-Events aus application_events. Die
         Interview-Quote misst, welcher Anteil der Bewerbungen eines Stils
-        MINDESTENS EIN Interview erreicht hat — bestimmt ueber den
-        Status-Verlauf (Timeline), nicht ueber den finalen Status (#736).
-        Eine Bewerbung mit Verlauf interview -> abgelehnt zaehlt also als
+        MINDESTENS EIN Interview erreicht hat — bestimmt über den
+        Status-Verlauf (Timeline), nicht über den finalen Status (#736).
+        Eine Bewerbung mit Verlauf interview -> abgelehnt zählt also als
         Interview-Treffer UND als (Nach-Interview-)Absage. Begruendung: das
-        Anschreiben beeinflusst die Einladung, nicht was im Gespraech folgt.
+        Anschreiben beeinflusst die Einladung, nicht was im Gespräch folgt.
 
         Pro Stil: Anzahl, Interview-Quote, Angebots-Quote, Absage-Quote
-        (zusaetzlich aufgeschluesselt in absage_nach_interview /
-        absage_ohne_interview). Mindestens 3 Bewerbungen pro Stil noetig
+        (zusätzlich aufgeschlüsselt in absage_nach_interview /
+        absage_ohne_interview). Mindestens 3 Bewerbungen pro Stil nötig
         damit eine Quote ausgegeben wird (sonst zu rauschig).
         """
         conn = db.connect()
@@ -1017,7 +1017,7 @@ def register(mcp, db, logger):
                 bucket["angebots_quote"] = round(bucket["angebote"] / n * 100, 1)
                 bucket["absage_quote"] = round(bucket["absagen"] / n * 100, 1)
             else:
-                bucket["hinweis"] = f"Nur {n} Bewerbungen — fuer Quoten mindestens {MIN_SAMPLES} noetig."
+                bucket["hinweis"] = f"Nur {n} Bewerbungen — für Quoten mindestens {MIN_SAMPLES} noetig."
 
         sortiert = sorted(
             per_stil.items(),
@@ -1048,7 +1048,7 @@ def register(mcp, db, logger):
         - Absage-Antworten (höflich und professionell)
 
         Args:
-            bewerbung_id: Optional: ID einer verknuepften Bewerbung (für Kontext)
+            bewerbung_id: Optional: ID einer verknüpften Bewerbung (für Kontext)
             kontext: Beschreibung der Situation (z.B. 'Recruiter fragt nach Verfügbarkeit')
             ton: professionell, locker, kurz (Standard: professionell)
             sprache: deutsch oder englisch (Standard: deutsch)
@@ -1082,7 +1082,7 @@ def register(mcp, db, logger):
                 f"Ton: {ton}. Sprache: {sprache}. "
                 "Halte die Antwort kurz (3-5 Sätze). "
                 "Verwende den Namen und die Kontaktdaten aus dem Profil. "
-                "Wenn eine Bewerbung verknuepft ist, beziehe dich auf die Stelle."
+                "Wenn eine Bewerbung verknüpft ist, beziehe dich auf die Stelle."
             ),
         }
 
@@ -1092,7 +1092,7 @@ def register(mcp, db, logger):
     @mcp.tool()
     @_mit_budget("dokument_verknuepfen", lese_tool="dokumente_zur_analyse")
     def dokument_verknuepfen(dokument_id: str, bewerbung_id: str) -> dict:
-        """Verknuepft ein hochgeladenes Dokument mit einer Bewerbung.
+        """Verknüpft ein hochgeladenes Dokument mit einer Bewerbung.
 
         Damit wird das Dokument (z.B. Lebenslauf, Anschreiben, Interview-Vorbereitung)
         direkt der Bewerbung zugeordnet und erscheint in bewerbung_details().
@@ -1111,7 +1111,7 @@ def register(mcp, db, logger):
             return {"fehler": "Dokument nicht gefunden. Prüfe die ID mit dokumente_zur_analyse()."}
 
         if not db.link_document_to_application(dokument_id, bewerbung_id, profile_id=db.get_active_profile_id()):
-            return {"fehler": "Dokument oder Bewerbung gehoeren nicht zum aktiven Profil."}
+            return {"fehler": "Dokument oder Bewerbung gehören nicht zum aktiven Profil."}
         return {
             "status": "verknuepft",
             "dokument": doc["filename"],
@@ -1136,36 +1136,36 @@ def register(mcp, db, logger):
         Dimensionen:
         - stellentyp: Bonus/Malus pro Stellenart (freelance, festanstellung, zeitarbeit, etc.)
         - remote: Bonus/Malus pro Remote-Level (remote, hybrid, vor_ort)
-        - entfernung_fest: km-Stufen-Malus fuer Festanstellung (30, 50, 80, 999)
-        - entfernung_freelance: km-Stufen-Malus fuer Freelance (100, 200, 999)
+        - entfernung_fest: km-Stufen-Malus für Festanstellung (30, 50, 80, 999)
+        - entfernung_freelance: km-Stufen-Malus für Freelance (100, 200, 999)
         - gehalt: Punkte pro 10% Abweichung vom Wunschgehalt
         - schwellenwert: Auto-Ignore-Schwelle (Stellen unter diesem Score werden ausgeblendet)
         - entfernung_gehalt_kompensation (#910): sub_key 'spanne' in
           EUR/Jahr. km sind ein PREIS, kein Ausschluss: liegt das ECHTE
-          Gehalt (nie Schaetzungen, #827) ueber dem Wunsch, reduziert
+          Gehalt (nie Schätzungen, #827) über dem Wunsch, reduziert
           sich der Entfernungs-Malus linear — bei Wunsch+Spanne auf 0.
           Beispiel: min_gehalt 80000, spanne 30000 -> 95000 EUR
           kompensieren 50 %. wert=0 (Default) = aus.
 
         ⚠ BRACKET-SEMANTIK Entfernung (#917): die km-Stufen sind
-        OBERGRENZEN — der Malus der Stufe X gilt fuer Stellen BIS X km
-        (genauer: oberhalb der naechstkleineren Stufe). Beispiel
+        OBERGRENZEN — der Malus der Stufe X gilt für Stellen BIS X km
+        (genauer: oberhalb der nächstkleineren Stufe). Beispiel
         entfernung_fest: Stufe '50' trifft Stellen zwischen 30 und 50 km,
-        Stufe '999' alles jenseits von 80 km. Wer FERNE Stellen staerker
-        abwerten will, verschaerft also '999' — NICHT '50'. Schluessel
+        Stufe '999' alles jenseits von 80 km. Wer FERNE Stellen stärker
+        abwerten will, verschärft also '999' — NICHT '50'. Schluessel
         immer als reine Zahl ('50'), nie '50km'.
 
         v1.7.17 (#917): 'setzen' aktualisiert jetzt wirklich (vorher
         entstanden Dubletten neben unerreichbaren Altzeilen), 'loeschen'
-        laesst einen Regler auf den Default zurueckfallen — auch der Weg,
+        lässt einen Regler auf den Default zurückfallen — auch der Weg,
         ein automatisch gesetztes Ignorieren-Flag loszuwerden. Explizit
         gesetzte Regler werden vom Ablehnungs-Lerneffekt nicht mehr
-        ueberschrieben.
+        überschrieben.
 
         Args:
             aktion: 'anzeigen' (alle Regler), 'setzen' (einen Regler aendern),
-                    'loeschen' (einen Regler auf Default zurueckfallen lassen),
-                    'reset' (alle auf Defaults zuruecksetzen)
+                    'loeschen' (einen Regler auf Default zurückfallen lassen),
+                    'reset' (alle auf Defaults zurücksetzen)
             dimension: Dimension des Reglers (stellentyp, remote, entfernung_fest, etc.)
             sub_key: Unter-Schluessel (z.B. 'freelance', 'zeitarbeit', '50', 'hybrid')
             wert: Punktwert (+/- Punkte). Positiv = Bonus, Negativ = Malus.
@@ -1174,7 +1174,7 @@ def register(mcp, db, logger):
                 Regler und im Verlauf gespeichert (#1053).
 
         Weitere Aktion seit v1.7.113 (#1053): 'verlauf' — die letzten
-        Aenderungen (optional je dimension), mit Vorgaengerwert, Zeitpunkt
+        Änderungen (optional je dimension), mit Vorgängerwert, Zeitpunkt
         und Herkunft ('ich', 'automatik', 'bereinigung').
         """
         from ..services import scoring_vokabular as _vokabular
@@ -1245,16 +1245,16 @@ def register(mcp, db, logger):
                         # Grund ist der aus #942: fuenf allgemeine
                         # Wunschbegriffe duerfen einen einzelnen
                         # Pflichttreffer nicht ueberholen.
-                        "bedeutet": ("PLUS-Begriffe zaehlen hoechstens bis zu "
+                        "bedeutet": ("PLUS-Begriffe zählen höchstens bis zu "
                                      "diesem Anteil der MUSS-Punkte. Remote, "
-                                     "Naehe und Gehalt stehen seit v1.7.117 im "
+                                     "Nähe und Gehalt stehen seit v1.7.117 im "
                                      "Rahmenwert und sind nicht gedeckelt."),
                         "wo": ("suchkriterien_bearbeiten(kategorie='scoring', "
                                "aktion='deckel', werte=['rahmen'], gewicht=N)"),
                     },
                     "minus": {
                         "faktor": minus_deckel_faktor(_krit_deckel),
-                        "bedeutet": ("Abzuege aus MINUS-Begriffen nehmen hoechstens "
+                        "bedeutet": ("Abzüge aus MINUS-Begriffen nehmen höchstens "
                                      "diesen Anteil des Fachwerts. MINUS ist eine "
                                      "Abwertung, kein Ausschluss."),
                         "wo": ("suchkriterien_bearbeiten(kategorie='scoring', "
@@ -1276,8 +1276,8 @@ def register(mcp, db, logger):
                         "wert": (db.get_search_criteria() or {}).get(
                             "min_score_schwelle", 1),
                         "bedeutet": ("Ab welchem Score eine gefundene Stelle "
-                                     "ueberhaupt gespeichert wird. Wirkt "
-                                     "waehrend der Suche, nicht in der Liste."),
+                                     "überhaupt gespeichert wird. Wirkt "
+                                     "während der Suche, nicht in der Liste."),
                         "wo": "suchkriterien_setzen(min_score_schwelle=N)",
                     },
                 },
@@ -1351,8 +1351,8 @@ def register(mcp, db, logger):
                 "status": "geloescht",
                 "dimension": dimension, "sub_key": sub_key,
                 "entfernte_zeilen": n,
-                "nachricht": (f"{dimension}/{sub_key} entfernt — faellt auf "
-                              "den Default zurueck (inkl. eventuell "
+                "nachricht": (f"{dimension}/{sub_key} entfernt — fällt auf "
+                              "den Default zurück (inkl. eventuell "
                               "gesetztem Ignorieren-Flag). Der alte Wert "
                               "steht im Verlauf."),
             }
@@ -1364,7 +1364,7 @@ def register(mcp, db, logger):
             return {
                 "status": "zurueckgesetzt",
                 "entfernte_zeilen": n,
-                "nachricht": "Alle Scoring-Regler auf Standard zurueckgesetzt. "
+                "nachricht": "Alle Scoring-Regler auf Standard zurückgesetzt. "
                              "Die Defaults werden beim nächsten Start geladen. "
                              "Die alten Werte stehen im Verlauf "
                              "(scoring_konfigurieren('verlauf'))."
@@ -1377,10 +1377,10 @@ def register(mcp, db, logger):
                 "status": "ok",
                 "anzahl": len(eintraege),
                 "verlauf": eintraege,
-                "hinweis": ("Juengste Aenderung zuerst. Herkunft 'ich' = von "
+                "hinweis": ("Jüngste Änderung zuerst. Herkunft 'ich' = von "
                             "Hand, 'automatik' = Lerneffekt aus Ablehnungs-"
-                            "gruenden, 'bereinigung' = von PBP entfernt. "
-                            "wert_neu leer = geloescht."),
+                            "gründen, 'bereinigung' = von PBP entfernt. "
+                            "wert_neu leer = gelöscht."),
             }
 
         return {"fehler": "Unbekannte Aktion. Nutze 'anzeigen', 'setzen', "
@@ -1388,7 +1388,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def scoring_vorschau(job_hash: str) -> dict:
-        """Zeigt die Scoring-Berechnung fuer eine Stelle im Detail (#169).
+        """Zeigt die Scoring-Berechnung für eine Stelle im Detail (#169).
 
         Zeigt den Basis-Score UND alle Scoring-Regler-Adjustments,
         sodass der User versteht warum eine Stelle hoch oder niedrig bewertet wird.
@@ -1460,9 +1460,9 @@ def register(mcp, db, logger):
                 antwort["reisewiderstand_km"] = _auf
                 antwort["reisewiderstand_begruendung"] = _belege
                 antwort["reisewiderstand_hinweis"] = (
-                    f"Fuer den Malus wird mit {_entf.preis_km(job, _krit)} + "
+                    f"Für den Malus wird mit {_entf.preis_km(job, _krit)} + "
                     f"{_auf:g} km gerechnet. **Die ausgewiesene Entfernung "
-                    "aendert sich dadurch nicht** — der Aufschlag ist ein "
+                    "ändert sich dadurch nicht** — der Aufschlag ist ein "
                     "Preis, keine Messung.")
         except Exception:
             pass
@@ -1537,13 +1537,13 @@ def register(mcp, db, logger):
                             f"{'Kontaktfelder (' + ', '.join(leere_kontaktfelder) + ')' if leere_kontaktfelder else ''}"
                             f"{' und ' if leere_kontaktfelder and notizen_leer else ''}"
                             f"{'die informellen Notizen' if notizen_leer else ''} sind leer — "
-                            "moeglicher Datenverlust (#705)."
+                            "möglicher Datenverlust (#705)."
                         ),
                         "loesung": (
-                            "Pruefe data/backups/ — vor jeder Migration wird ein Backup "
-                            "angelegt. Wiederherstellung einzelner Felder: Backup-DB oeffnen "
-                            "und Werte via profil_bearbeiten() zuruecktragen. "
-                            "Seit beta.101 ueberschreibt profil_erstellen() keine "
+                            "Prüfe data/backups/ — vor jeder Migration wird ein Backup "
+                            "angelegt. Wiederherstellung einzelner Felder: Backup-DB öffnen "
+                            "und Werte via profil_bearbeiten() zurücktragen. "
+                            "Seit beta.101 überschreibt profil_erstellen() keine "
                             "Bestandsfelder mehr."
                         ),
                     })
@@ -1692,7 +1692,7 @@ def register(mcp, db, logger):
                         if fixed_dates:
                             fixes.append(
                                 f"{fixed_dates} Bewerbungen: applied_at aus "
-                                "aeltestem Timeline-Event nachgetragen (#779)")
+                                "ältestem Timeline-Event nachgetragen (#779)")
                     else:
                         warnungen.append(eintrag)
 
@@ -1710,13 +1710,13 @@ def register(mcp, db, logger):
                             "bereich": "Bewerbungen",
                             "problem": (
                                 f"{len(nur_notiz)} Bewerbung(en) mit "
-                                "Gespraechs-Hinweisen im Notizfeld, aber ohne "
+                                "Gesprächs-Hinweisen im Notizfeld, aber ohne "
                                 "Interview-Event/Meeting — Interviews fehlen "
                                 "in der Statistik (#781)"
                             ),
                             "bewerbungen": nur_notiz[:10],
                             "loesung": (
-                                "Je Fall pruefen und manuell nachtragen: "
+                                "Je Fall prüfen und manuell nachtragen: "
                                 "bewerbung_event_datum_setzen / "
                                 "meeting_hinzufuegen. Bewusst KEIN auto_fix."
                             ),
@@ -1792,7 +1792,7 @@ def register(mcp, db, logger):
                     "bereich": "Blacklist",
                     "meldung": (f"{len(blockaden)} Stelle(n) von der Blacklist "
                                 "verworfen (protokolliert seit v1.7.41)"),
-                    "details": "blacklist_wirkung() zeigt Titel und Ausloeser.",
+                    "details": "blacklist_wirkung() zeigt Titel und Auslöser.",
                 })
                 if offen:
                     warnungen.append({
@@ -1810,8 +1810,8 @@ def register(mcp, db, logger):
             if ohne_grund:
                 warnungen.append({
                     "bereich": "Blacklist",
-                    "problem": (f"{len(ohne_grund)} Eintrag/Eintraege ohne "
-                                "Begruendung — spaeter nicht mehr ueberpruefbar"),
+                    "problem": (f"{len(ohne_grund)} Eintrag/Einträge ohne "
+                                "Begruendung — später nicht mehr überprüfbar"),
                     "loesung": ("blacklist_verwalten('aendern', entry_id=..., "
                                 "grund='...') nachtragen"),
                 })
@@ -1940,14 +1940,14 @@ def register(mcp, db, logger):
                         "problem": (
                             f"{len(missing)} von {len(docs)} Dokumenten haben fehlende Dateien "
                             "(DB-Eintrag vorhanden, Datei fehlt auf Disk). "
-                            "Moegliche Ursache: v1.4.x → v1.5.0 Dual-DB-Migration."
+                            "Mögliche Ursache: v1.4.x → v1.5.0 Dual-DB-Migration."
                         ),
                         "dokumente": missing[:10],
                         "loesung": (
-                            "1) pbp_diagnose(auto_fix=True) fuer automatische Reparatur "
+                            "1) pbp_diagnose(auto_fix=True) für automatische Reparatur "
                             "(findet Dateien im dokumente/-Ordner und korrigiert Pfade). "
                             "2) Fehlende Dateien erneut hochladen. "
-                            "3) Verwaiste DB-Eintraege manuell entfernen."
+                            "3) Verwaiste DB-Einträge manuell entfernen."
                         ),
                     }
                     if schwere == "kritisch":
@@ -1976,13 +1976,13 @@ def register(mcp, db, logger):
                         "Verdachtsmoment (Vorgangs-Typ, Firmenname oder "
                         "Thread-Geschwister an einer Bewerbung)"),
                     "loesung": ("dokumente_ohne_bewerbung() zeigt die "
-                                "Faelle samt Zuordnungs-Vorschlag."),
+                                "Fälle samt Zuordnungs-Vorschlag."),
                 })
             kaputt = pruefe_verknuepfungs_integritaet(db)
             if kaputt:
                 probleme.append({
                     "bereich": "Dokumente",
-                    "problem": (f"{len(kaputt)} Dokument-Verknuepfungen "
+                    "problem": (f"{len(kaputt)} Dokument-Verknüpfungen "
                                 "zeigen auf keine existierende Bewerbung"),
                     "loesung": ("dokumente_ohne_bewerbung() listet sie "
                                 "unter kaputte_verknuepfungen."),
@@ -2006,16 +2006,16 @@ def register(mcp, db, logger):
                     "problem": (
                         f"WAL-Datei ist {wal_bytes / 1024 / 1024:.1f} MB gross"
                         + (" und der Checkpoint wird blockiert — ein "
-                           "zweiter PBP-Prozess (Dashboard-Fenster?) haelt "
+                           "zweiter PBP-Prozess (Dashboard-Fenster?) hält "
                            "die Datenbank offen" if cp.get("blockiert")
                            else "")
                     ),
                     "loesung": (
                         "Alle PBP-Fenster ausser einem schliessen (auch das "
-                        "separate Dashboard-Konsolenfenster). Beim naechsten "
-                        "sauberen Beenden wird die WAL zurueckgeschrieben. "
+                        "separate Dashboard-Konsolenfenster). Beim nächsten "
+                        "sauberen Beenden wird die WAL zurückgeschrieben. "
                         "NICHT den Prozess hart beenden — die ausstehenden "
-                        "Schreibvorgaenge stecken in der WAL."
+                        "Schreibvorgänge stecken in der WAL."
                     ),
                 }
                 if cp.get("blockiert"):
@@ -2026,7 +2026,7 @@ def register(mcp, db, logger):
                 info.append({
                     "bereich": "Datenbank",
                     "meldung": (f"WAL gesund ({wal_bytes / 1024:.0f} KB, "
-                                "Checkpoint laeuft durch)."),
+                                "Checkpoint läuft durch)."),
                 })
         except Exception as e:
             logger.debug("WAL-Check fehlgeschlagen: %s", e)
@@ -2090,9 +2090,9 @@ def register(mcp, db, logger):
                 warnungen.append({
                     "bereich": "Datenbank",
                     "problem": f"{mixed_count} Stellen haben altes Hash-Format (ohne profile_id-Praefix)",
-                    "loesung": "Diese Eintraege werden bei Bedarf von _job_hash_candidates() trotzdem gefunden, "
-                               "aber stellen_anzeigen() koennte sie unterschlagen. Schema-Migration v31 erneut "
-                               "ausfuehren oder Issue auf GitHub melden.",
+                    "loesung": "Diese Einträge werden bei Bedarf von _job_hash_candidates() trotzdem gefunden, "
+                               "aber stellen_anzeigen() könnte sie unterschlagen. Schema-Migration v31 erneut "
+                               "ausführen oder Issue auf GitHub melden.",
                 })
         except Exception:
             pass
@@ -2135,13 +2135,13 @@ def register(mcp, db, logger):
                         "'erledigt', ohne dass eine Erledigt-Notiz dazu "
                         "existiert. Bis v1.7.31 speicherte der "
                         "Aufgaben-Tab 'hinfaellig' still als 'erledigt' "
-                        "(#980) — ein Teil dieser Eintraege koennte davon "
+                        "(#980) — ein Teil dieser Einträge könnte davon "
                         "stammen."),
                     "loesung": (
                         "Durchsehen und, wo es nicht stimmt, mit "
                         "follow_up_hinfaellig(id) korrigieren. Der Fehler "
                         "selbst ist ab v1.7.31 behoben; welche Zeile "
-                        "betroffen war, laesst sich nicht rekonstruieren "
+                        "betroffen war, lässt sich nicht rekonstruieren "
                         "— die Liste ist ein Anhaltspunkt, kein Befund."),
                     "eintraege": [
                         {"id": str(r["id"])[:8],
@@ -2215,24 +2215,24 @@ def register(mcp, db, logger):
     @mcp.tool()
     def dokumente_ohne_bewerbung(nur_verdaechtige: bool = True) -> dict:
         """v1.7.12 (#797, E20): findet lose Dokumente samt Zuordnungs-
-        Vorschlag — die Frage 'welche Dokumente haengen an keiner
+        Vorschlag — die Frage 'welche Dokumente hängen an keiner
         Bewerbung, obwohl es die passende gibt?' war vorher NUR per
         Direkt-SQL beantwortbar (#514-Verstoss; belegt: 48 von 223 lose,
-        9 davon gehoerten nachweislich zu einer Bewerbung).
+        9 davon gehörten nachweislich zu einer Bewerbung).
 
-        Drei Verdachtssignale, staerkstes zuerst: das Geschwister-
-        Dokument desselben Mail-Threads haengt bereits an einer Bewerbung
-        (Betreff-Stamm-Abgleich); der Dateiname enthaelt eine Firma aus
-        dem Bewerbungsbestand; der Dokumenttyp gehoert fast immer zu
+        Drei Verdachtssignale, stärkstes zuerst: das Geschwister-
+        Dokument desselben Mail-Threads hängt bereits an einer Bewerbung
+        (Betreff-Stamm-Abgleich); der Dateiname enthält eine Firma aus
+        dem Bewerbungsbestand; der Dokumenttyp gehört fast immer zu
         einem Vorgang (Absage, Angebot, Antwort, ...).
 
         KEIN auto_fix — Zuordnung ist eine inhaltliche Entscheidung.
-        Verknuepfen nach Bestaetigung: dokument_verknuepfen(dokument_id,
-        bewerbung_id). Zusaetzlich werden kaputte Verknuepfungen gemeldet
+        Verknüpfen nach Bestaetigung: dokument_verknuepfen(dokument_id,
+        bewerbung_id). Zusätzlich werden kaputte Verknüpfungen gemeldet
         (zeigen auf keine existierende Bewerbung, #796-Anschluss).
 
         Args:
-            nur_verdaechtige: True (Default) = nur Faelle mit
+            nur_verdaechtige: True (Default) = nur Fälle mit
                 Verdachtsmoment; False = alle losen Dokumente.
         """
         from ..services.dokument_zuordnung import (
@@ -2242,16 +2242,16 @@ def register(mcp, db, logger):
         if kaputt:
             result["kaputte_verknuepfungen"] = kaputt
         result["hinweis"] = (
-            "Vorschlaege mit Konfidenz 'hoch' stammen aus dem Thread-"
+            "Vorschläge mit Konfidenz 'hoch' stammen aus dem Thread-"
             "Signal. Verknuepfen: dokument_verknuepfen(dokument_id, "
             "bewerbung_id) — erst nach Sichtung, nie pauschal.")
         return result
 
     @mcp.tool()
     def diagnose_befund_abweisen(befund_id: str) -> dict:
-        """Weist einen Vollstaendigkeits-Befund DAUERHAFT ab (#825, D32).
+        """Weist einen Vollständigkeits-Befund DAUERHAFT ab (#825, D32).
 
-        Der Befund kommt bei keinem spaeteren pbp_diagnose-Lauf wieder —
+        Der Befund kommt bei keinem späteren pbp_diagnose-Lauf wieder —
         ein weggeklickter Hinweis, der wiederkehrt, wird nach dem dritten
         Mal ignoriert und entwertet auch die berechtigten. Die IDs stehen
         in pbp_diagnose() unter interview_vollstaendigkeit.
@@ -2341,8 +2341,8 @@ def register(mcp, db, logger):
                 "plus": vorschlag_plus,
             },
             "hinweis": (
-                "Noch keine Stellen im Bestand — diese Vorschlaege stammen aus "
-                "deinem Profil. Zeige sie dem User zur Bestaetigung, uebernimm "
+                "Noch keine Stellen im Bestand — diese Vorschläge stammen aus "
+                "deinem Profil. Zeige sie dem User zur Bestaetigung, übernimm "
                 "sie mit suchkriterien_setzen(keywords_muss=[...], "
                 "keywords_plus=[...]) und starte dann die erste Suche mit "
                 "jobsuche_starten()."
@@ -2366,12 +2366,12 @@ def register(mcp, db, logger):
                (alter Score-basierter Mechanismus, falls noch zu wenig
                Bewerbungen/Ablehnungen vorhanden).
 
-        TF-IDF-aehnliche Spezifitaets-Heuristik: Begriffe die in zu
-        vielen Quellen vorkommen werden abgewertet (Stoppwoerter sind
-        nicht alle Stoppwoerter, manche sind nur "in jeder
-        Stellenbeschreibung haeufig"). Ohne tiefere LLM-Analyse, aber
+        TF-IDF-ähnliche Spezifitaets-Heuristik: Begriffe die in zu
+        vielen Quellen vorkommen werden abgewertet (Stoppwörter sind
+        nicht alle Stoppwörter, manche sind nur "in jeder
+        Stellenbeschreibung häufig"). Ohne tiefere LLM-Analyse, aber
         deutlich brauchbarer als die alte Implementierung — siehe
-        v1.7.0 Local-LLM-Roadmap fuer den naechsten Schritt.
+        v1.7.0 Local-LLM-Roadmap für den nächsten Schritt.
         """
         criteria = db.get_search_criteria()
         muss = [kw.lower() for kw in criteria.get("keywords_muss", [])]
@@ -2421,7 +2421,7 @@ def register(mcp, db, logger):
             good_jobs = [j for j in all_jobs if j.get("score", 0) >= 3]
             bad_jobs = [j for j in all_jobs if j.get("score", 0) <= 1]
             datenquelle = (
-                f"Score-Vergleich (kein Bewerbungs-Vergleich moeglich, "
+                f"Score-Vergleich (kein Bewerbungs-Vergleich möglich, "
                 f"Bewerbungen: {len(applied_job_objs)}, "
                 f"Aussortiert: {len(dismissed_jobs)})"
             )
@@ -2656,7 +2656,7 @@ def register(mcp, db, logger):
         """Blendet Wartungs- und Entwicklerwerkzeuge ein oder aus.
 
         Vorgabe ist aus: im Alltag braucht niemand Reparatur- und
-        Nachziehlaeufe. Einschalten, wenn der Mensch ausdruecklich eine
+        Nachziehläufe. Einschalten, wenn der Mensch ausdrücklich eine
         Reparatur oder Diagnose will, die pbp_capabilities(kategorie=
         'wartung') nennt. Die Einstellung bleibt bis zum Ausschalten.
 
@@ -2672,35 +2672,35 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def pbp_capabilities(kategorie: str = "") -> dict:
-        """Liefert eine kuratierte Uebersicht aller PBP-MCP-Faehigkeiten (#514).
+        """Liefert eine kuratierte Übersicht aller PBP-MCP-Fähigkeiten (#514).
 
-        ZWECK: Wenn du als KI unklar bist was PBP fuer eine User-Anfrage anbieten
+        ZWECK: Wenn du als KI unklar bist was PBP für eine User-Anfrage anbieten
         kann — RUFE DIESES TOOL AUF, bevor du auf andere Tools (Filesystem,
         sqlite-MCP, Direct-DB-Write) ausweichst. Direkte Eingriffe in die
         SQLite-Datei umgehen die PBP-Lifecycle-Logik und korrumpieren die
         Datenkonsistenz.
 
         Args:
-            kategorie: Optional. Eine der folgenden Kategorien fuer Detail-View:
+            kategorie: Optional. Eine der folgenden Kategorien für Detail-View:
                 'profil', 'jobsuche', 'bewerbungen', 'dokumente', 'kalender',
                 'analyse', 'export', 'workflows', 'einstellungen', 'system'.
-                Leer = Uebersicht aller Kategorien.
+                Leer = Übersicht aller Kategorien.
         """
         catalog = {
             "profil": {
                 "use_case": "Profil aufbauen, bearbeiten, exportieren. Skills, Berufserfahrung, Ausbildung, Praeferenzen.",
                 "hauptwerkzeuge": [
-                    "ersterfassung_starten — Gefuehrtes Profil-Interview",
+                    "ersterfassung_starten — Geführtes Profil-Interview",
                     "dokument_profil_extrahieren — CV-Upload -> Profilfelder",
                     "profil_bearbeiten / position_hinzufuegen / skill_hinzufuegen / ausbildung_hinzufuegen",
                     "profile_auflisten / profil_wechseln / neues_profil_erstellen — Multi-Profil",
                     "profil_exportieren / profil_importieren — Backup & Migration",
                     # #696-B: war faelschlich unter 'bewerbungen' als Interview-Nachgang gelistet
-                    "kennlerngespraech_abschliessen — Profil-Onboarding-Gespraech als abgeschlossen markieren (Dashboard-Wizard geht weiter)",
+                    "kennlerngespraech_abschliessen — Profil-Onboarding-Gespräch als abgeschlossen markieren (Dashboard-Wizard geht weiter)",
                     "profil_notizen_aufraeumen — Profilnotizen mit Bewerbungsbezug in die Timeline verschieben (#1056)",
                     # #1070: die Einordnung war ueber kein Werkzeug
                     # erreichbar, obwohl das Wiki einen Weg versprach.
-                    "profil_einordnung — Wie PBP dein Profil einordnet: Berufsfeld, Anforderungsniveau, Beschaeftigungsform und die daraus empfohlenen Quellen",
+                    "profil_einordnung — Wie PBP dein Profil einordnet: Berufsfeld, Anforderungsniveau, Beschäftigungsform und die daraus empfohlenen Quellen",
                 ],
             },
             "jobsuche": {
@@ -2713,19 +2713,19 @@ def register(mcp, db, logger):
                     "stellen_bulk_bewerten — VIELE Stellen mit Filter aussortieren (#514). IMMER bevorzugen wenn mehr als ~10 Stellen betroffen. dry_run=True Default.",
                     "stelle_bearbeiten / stelle_manuell_anlegen / stelle_mergen",
                     "stelle_reaktivieren — aussortierte Stelle wieder aktivieren",
-                    "stellen_entfernen_nach_quelle — Stellen einer abgewaehlten Quelle ENDGUELTIG loeschen (#1075), dry_run=True Default",
+                    "stellen_entfernen_nach_quelle — Stellen einer abgewählten Quelle ENDGUELTIG loeschen (#1075), dry_run=True Default",
                     "stelle_wiedergaenger_pruefen — wiederkehrende Stellen erkennen (KI-frei)",
-                    "fit_analyse — Profil-vs-Stelle Punkt-fuer-Punkt-Vergleich",
+                    "fit_analyse — Profil-vs-Stelle Punkt-für-Punkt-Vergleich",
                     "scoring_konfigurieren / scoring_vorschau — Gewichtungs-Regler",
                     "suchkriterien_setzen / suchkriterien_bearbeiten / suchkriterien_anzeigen — inkl. keywords_minus (weiche Abwertung)",
                     "suchprofil_aktualisieren / suchprofile_auflisten — Kriterien als Suchprofil speichern",
                     # #1062: stand in keiner Kategorie — der Dashboard-Satz fuehrte
                     # deshalb zu `keyword_vorschlaege`, dem falschen Nachbarn.
-                    "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprueche, Rahmenbegriffe (Vorschlaege, schreibt nur auf Ansage)",
+                    "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprüche, Rahmenbegriffe (Vorschläge, schreibt nur auf Ansage)",
                     "kalibrierung_backtest — Schwellenwert aus der eigenen Bewerbungshistorie vorschlagen (Schattenrechnung, schreibt nichts)",
                     # #1063: die Schwelle ist eine STUFE, keine Zahl mehr.
                     "score_verteilung_anzeigen — Score-Verteilung samt den Schwellen-Stufen und ihrer Wirkung",
-                    "schwelle_stufe_setzen — Schwellenwert als benannte Stufe setzen (Speichern waehrend der Suche / Ausblenden in der Liste)",
+                    "schwelle_stufe_setzen — Schwellenwert als benannte Stufe setzen (Speichern während der Suche / Ausblenden in der Liste)",
                     "blacklist_verwalten — Firmen/Keywords ausschliessen",
                     "scraper_diagnose — Welche Quellen liefern aktuell?",
                 ],
@@ -2742,7 +2742,7 @@ def register(mcp, db, logger):
                     "nachfass_planen / nachfass_anzeigen — Follow-up-Tracking",
                     "follow_up_erledigen / _hinfaellig / _verschieben",
                     "interview_reflexion_speichern — Interview-Nachgang: eigene Notizen pro Interview-Termin",
-                    "todo_anlegen / todos_anzeigen / todo_erledigen — Aufgaben pro Bewerbung mit Faelligkeitsdatum",
+                    "todo_anlegen / todos_anzeigen / todo_erledigen — Aufgaben pro Bewerbung mit Fälligkeitsdatum",
                     "bewerbungsbericht_exportieren — PDF-Bericht",
                     "ablehnungs_muster — Was wird oft abgelehnt?",
                     "firma_kontext — alles zu einer Firma: Bewerbungen, Vermittler, Endkunde, Arbeitgeber, Projektkunde, Kontakte, Anfragen, Warnung vor Doppelvorstellung",
@@ -2750,10 +2750,10 @@ def register(mcp, db, logger):
                 ],
             },
             "dokumente": {
-                "use_case": "Dokumente hochladen, analysieren, mit Bewerbungen verknuepfen.",
+                "use_case": "Dokumente hochladen, analysieren, mit Bewerbungen verknüpfen.",
                 "hauptwerkzeuge": [
                     "dokumente_zur_analyse — Liste der noch nicht analysierten Dokumente",
-                    "dokument_lesen — Text eines Dokuments lesen (z.B. verknuepfte Absagemail), seitenweise",
+                    "dokument_lesen — Text eines Dokuments lesen (z.B. verknüpfte Absagemail), seitenweise",
                     "dokumente_batch_analysieren — Mehrere Dokumente analysieren",
                     "bewerbungs_dokumente_erkennen — Auto-Klassifikation",
                     "dokumente_bulk_markieren — Status-Bulk-Update",
@@ -2774,14 +2774,14 @@ def register(mcp, db, logger):
                 "use_case": "Stellen-, Markt-, Skill-, Stil-Auswertungen. Recherche speichern.",
                 "hauptwerkzeuge": [
                     "fit_analyse — Profil vs Stelle",
-                    "skill_gap_analyse — Welche Skills fehlen fuer Wunschstellen?",
+                    "skill_gap_analyse — Welche Skills fehlen für Wunschstellen?",
                     "lebenslauf_bewerten — 3-Perspektiven-Analyse (Recruiter/ATS/Berater)",
                     "gehalt_marktanalyse / branchen_trends — Marktdaten",
                     "firmen_recherche — Hintergrund zu einer Firma",
                     "keyword_vorschlaege — Welche Keywords aus erfolgreichen Bewerbungen?",
                     "stil_auswertung — Schreibstil-Profil",
                     "analyse_plan_erstellen — Welche Analysen sind sinnvoll?",
-                    "recherche_speichern — Permanente Notiz fuer Profil/Stelle/Bewerbung",
+                    "recherche_speichern — Permanente Notiz für Profil/Stelle/Bewerbung",
                 ],
             },
             "export": {
@@ -2791,15 +2791,15 @@ def register(mcp, db, logger):
                     "anschreiben_exportieren — PDF/DOCX",
                     "bewerbungsbericht_exportieren — PDF-Pipeline-Report",
                     "profil_report_exportieren — Profil-Snapshot",
-                    "profil_exportieren — Vollstaendiges Profil als JSON-Backup",
+                    "profil_exportieren — Vollständiges Profil als JSON-Backup",
                 ],
             },
             "workflows": {
-                "use_case": "Mehrstufige Gespraechsfuehrung mit dem User.",
+                "use_case": "Mehrstufige Gesprächsführung mit dem User.",
                 "hauptwerkzeuge": [
                     "workflow_starten — Generischer Workflow-Einstieg",
                     "ersterfassung_starten — Profil-Onboarding",
-                    "jobsuche_workflow_starten — Geleitete Suchkriterien-Ergaenzung",
+                    "jobsuche_workflow_starten — Geleitete Suchkriterien-Ergänzung",
                 ],
             },
             "einstellungen": {
@@ -2808,21 +2808,21 @@ def register(mcp, db, logger):
                     "scoring_konfigurieren / scoring_vorschau",
                     "blacklist_verwalten",
                     "jobtitel_speichern / jobtitel_verwalten",
-                    "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgruende verwalten",
+                    "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgründe verwalten",
                     "ollama_autostart — lokale KI (Ollama) mit PBP starten",
-                    "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknuepfung anlegen",
+                    "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknüpfung anlegen",
                 ],
             },
             "system": {
                 "use_case": "Diagnose, Capability-Discovery, Limitation-Reporting.",
                 "hauptwerkzeuge": [
                     "pbp_diagnose — System-Health-Check",
-                    "pbp_capabilities — Diese Tool-Uebersicht (#514)",
-                    "pbp_grenze_melden — Wenn PBP fuer eine Aufgabe nichts hat (#514). ANSTATT auf andere Tools auszuweichen.",
+                    "pbp_capabilities — Diese Tool-Übersicht (#514)",
+                    "pbp_grenze_melden — Wenn PBP für eine Aufgabe nichts hat (#514). ANSTATT auf andere Tools auszuweichen.",
                     "scraper_diagnose — Job-Quellen-Status",
                     # #1066: stand in keiner Kategorie — gefunden vom
                     # #1062-Guard, als ein Hinweis darauf zeigte.
-                    "quellen_health_check — Erreichbarkeit der Quellen pruefen, "
+                    "quellen_health_check — Erreichbarkeit der Quellen prüfen, "
                     "entfernte und defekte benennen",
                     "onboarding_hints_anzeigen — Tipps zu ungenutzten Features",
                     "expertenmodus_setzen — Wartungs- und Entwicklerwerkzeuge ein- oder ausblenden",
@@ -2831,7 +2831,7 @@ def register(mcp, db, logger):
             # H21 (#1087 G1): Reparatur-, Nachzieh- und Diagnosewerkzeuge.
             # Sie stehen nicht mehr ungekennzeichnet neben dem Alltag.
             "wartung": {
-                "use_case": "Einmalige Reparaturen, Nachziehlaeufe und Diagnose von PBP selbst. "
+                "use_case": "Einmalige Reparaturen, Nachziehläufe und Diagnose von PBP selbst. "
                             "Nur im Expertenmodus sichtbar — einschalten mit "
                             "expertenmodus_setzen(an=True).",
                 "hauptwerkzeuge": sorted(_werkzeug_katalog.WARTUNG | _werkzeug_katalog.ENTWICKLER),
@@ -2913,7 +2913,7 @@ def register(mcp, db, logger):
                     f"{count_text} Ruf dieses Tool mit "
                     "kategorie='profil', 'jobsuche', 'bewerbungen', 'dokumente', "
                     "'kalender', 'analyse', 'export', 'workflows', 'einstellungen', "
-                    "'system' oder 'wartung' fuer Detail-View auf."
+                    "'system' oder 'wartung' für Detail-View auf."
                 ),
                 # #647: getrennte Counts fuer Discoverability
                 "tools_gesamt": tools_gesamt,
@@ -2926,7 +2926,7 @@ def register(mcp, db, logger):
                     "im Wiki unter MCP-Tools."
                 ) if tools_gesamt and tools_gesamt > tools_kuratiert else None,
                 "anti_bypass_hinweis": (
-                    "WICHTIG: Wenn ein User ueber Bewerbungs-Daten redet, nutze IMMER "
+                    "WICHTIG: Wenn ein User über Bewerbungs-Daten redet, nutze IMMER "
                     "PBP-Tools — niemals direkte Eingriffe in die SQLite-Datei oder "
                     "Filesystem-Tools. Bei fehlender Tool-Abdeckung: pbp_grenze_melden."
                 ),
@@ -2934,7 +2934,7 @@ def register(mcp, db, logger):
                 "aufwand_klassen": aufwand_klassen,
                 "aufwand_hinweis": (
                     "Vor Bulk-Operationen der Klasse 'claude_teuer_bulk' dem User "
-                    "kurz das geschaetzte Token-Volumen nennen. Lokale AI "
+                    "kurz das geschätzte Token-Volumen nennen. Lokale AI "
                     "(Ollama) ist immer kostenlos — wenn der User Tokens sparen "
                     "will, lokale Tasks bevorzugen (Einstellungen › Claude (Cloud))."
                 ),
@@ -2947,9 +2947,9 @@ def register(mcp, db, logger):
                 # Werkzeug er meint.
                 "dashboard_saetze": _dashboard_saetze(),
                 "dashboard_saetze_hinweis": (
-                    "Nennt der Mensch einen dieser Saetze (auch ungefaehr), ist "
-                    "das zugehoerige Werkzeug gemeint — nicht ein Werkzeug mit "
-                    "aehnlichem Wort im Namen."
+                    "Nennt der Mensch einen dieser Sätze (auch ungefähr), ist "
+                    "das zugehörige Werkzeug gemeint — nicht ein Werkzeug mit "
+                    "ähnlichem Wort im Namen."
                 ),
             }
 
@@ -2974,15 +2974,15 @@ def register(mcp, db, logger):
     ) -> dict:
         """Meldet eine PBP-Tool-Grenze, die ein neues Issue rechtfertigt (#514).
 
-        ZWECK: Wenn du als KI eine User-Anfrage hast, fuer die PBP keine
+        ZWECK: Wenn du als KI eine User-Anfrage hast, für die PBP keine
         passenden Tools bietet — STATT auf Filesystem-MCP, sqlite-MCP oder
         direkte DB-Writes auszuweichen, melde die Grenze hier.
 
         Args:
-            was_versucht: Was wollte der User tun? (1-2 Saetze)
+            was_versucht: Was wollte der User tun? (1-2 Sätze)
             warum_pbp_nicht_passt: Welche PBP-Tools hast du gepruft und warum
-                reichen sie nicht? (1-3 Saetze)
-            vorschlag: Optional — wie koennte ein passendes Tool aussehen?
+                reichen sie nicht? (1-3 Sätze)
+            vorschlag: Optional — wie könnte ein passendes Tool aussehen?
         """
         from datetime import datetime as _dt
         from urllib.parse import quote
@@ -3012,7 +3012,7 @@ def register(mcp, db, logger):
             f"{warum_pbp_nicht_passt}\n\n"
         )
         if vorschlag:
-            issue_body += f"## Vorschlag fuer ein neues Tool / Erweiterung\n\n{vorschlag}\n\n"
+            issue_body += f"## Vorschlag für ein neues Tool / Erweiterung\n\n{vorschlag}\n\n"
         issue_body += (
             f"---\n\n"
             f"_Gemeldet aus PBP v{_ver} via `pbp_grenze_melden`. "
@@ -3048,22 +3048,22 @@ def register(mcp, db, logger):
                 "limitations.log dokumentiert. PBP wird nicht durch direkten "
                 "DB-Eingriff umgangen — stattdessen kann der unten verlinkte "
                 "GitHub-Issue-Entwurf gepostet werden, damit das Feature in "
-                "einer kuenftigen Version landet."
+                "einer künftigen Version landet."
             ),
             "gh_issue_url": gh_url,
             "vorgeschlagener_issue_titel": issue_title,
             "vorgeschlagener_issue_body": issue_body,
             "moeglicher_workaround": (
                 "Bis ein passendes Tool existiert: User kann die Aktion "
-                f"manuell im PBP-Dashboard ({_dashboard_link()}) durchfuehren — "
-                "dort werden alle Lifecycle-Hooks korrekt ausgeloest."
+                f"manuell im PBP-Dashboard ({_dashboard_link()}) durchführen — "
+                "dort werden alle Lifecycle-Hooks korrekt ausgelöst."
             ),
             "anonymisiert": anonymisiert,
         }
         if offen:
             antwort["zur_entscheidung"] = offen
             antwort["hinweis_vor_dem_posten"] = (
-                "Einige Woerter koennten Namen aus deinem Bestand sein und "
+                "Einige Wörter könnten Namen aus deinem Bestand sein und "
                 "wurden NICHT automatisch ersetzt. Vor dem Absenden des "
                 "Links ansehen.")
         # H28 (#1087 G10): die Regel fuer Texte nach aussen stand in den
@@ -3072,7 +3072,7 @@ def register(mcp, db, logger):
             "Bevor ein Text nach GitHub geht (Issue, Kommentar, "
             "Fehlerbericht): issue_text_pruefen(text=...) aufrufen. Meldet "
             "es Treffer, erneut mit anonymisieren=True und NUR den "
-            "zurueckgegebenen Text verwenden — eigenes Durchlesen genuegt "
+            "zurückgegebenen Text verwenden — eigenes Durchlesen genügt "
             "nicht, und GitHub zeigt die Bearbeitungshistorie.")
         return antwort
 
@@ -3087,7 +3087,7 @@ def register(mcp, db, logger):
         coaching, ersterfassung, guidance). Default: alles True.
 
         Use Case: User fragt 'welche KI-Features sind bei mir an?'
-        oder Claude will vor einer KI-Operation pruefen ob er darf.
+        oder Claude will vor einer KI-Operation prüfen ob er darf.
         """
         cfg = db.get_ki_features()
         return {
@@ -3112,16 +3112,16 @@ def register(mcp, db, logger):
         ersterfassung: bool | None = None,
         guidance: bool | None = None,
     ) -> dict:
-        """Aktualisiert KI-Feature-Toggles. Nur uebergebene Werte werden gesetzt.
+        """Aktualisiert KI-Feature-Toggles. Nur übergebene Werte werden gesetzt.
 
-        Args (jeweils True/False, None = unveraendert):
+        Args (jeweils True/False, None = unverändert):
             master: Master-Switch. False = alle KI-Features blockt.
             jobsuche: Jobsuche via Claude (Dashboard-Button bleibt immer).
             dokumentenanalyse: Profildaten aus Dokumenten extrahieren.
             stellenanalyse: Fit-Analyse, Skill-Gap, Score-Refinement.
             bewerbungserstellung: Anschreiben + angepasster CV via Claude.
             coaching: Interview-Sim, Gehaltsverhandlung.
-            ersterfassung: Profil-Gespraech via Claude.
+            ersterfassung: Profil-Gespräch via Claude.
             guidance: Dashboard-Hinweise die auf Claude verweisen.
         """
         fields = {
@@ -3160,7 +3160,7 @@ def register(mcp, db, logger):
         Ollama ist der Dienst hinter der lokalen KI. PBP kann ihn beim
         eigenen Start mit hochfahren — dann steht die lokale KI auch nach
         einem Neustart des Rechners bereit, ohne dass jemand das Dashboard
-        oeffnen und den Knopf druecken muss.
+        öffnen und den Knopf drücken muss.
 
         Args:
             aktion: 'anzeigen' (Vorgabe), 'an' oder 'aus'.
@@ -3170,7 +3170,7 @@ def register(mcp, db, logger):
 
         Wichtig: der Autostart greift nur, wenn die lokale KI auf 'active'
         steht. Steht sie auf 'off' oder 'paused', sagt die Antwort das —
-        eine Einstellung, die stillschweigend nichts tut, waere schlimmer
+        eine Einstellung, die stillschweigend nichts tut, wäre schlimmer
         als gar keine.
         """
         from ..services import ollama_start
@@ -3192,7 +3192,7 @@ def register(mcp, db, logger):
                        bestaetigt: bool = False) -> dict:
         """Ollama beenden — jetzt, beim Beenden von PBP oder per Desktop-Link (#1086).
 
-        Ollama haelt das Modell im Arbeitsspeicher, auch wenn PBP
+        Ollama hält das Modell im Arbeitsspeicher, auch wenn PBP
         stundenlang nicht benutzt wird.
 
         Args:
@@ -3202,10 +3202,10 @@ def register(mcp, db, logger):
                 'beim_pbp_ende' — setzt die Einstellung auf `wert`;
                 'verknuepfung' — legt auf dem Desktop "Ollama beenden" an
                 (fragt beim Doppelklick nach).
-            wert: fuer 'beim_pbp_ende': 'aus' (Vorgabe), 'gestartet' (nur
+            wert: für 'beim_pbp_ende': 'aus' (Vorgabe), 'gestartet' (nur
                 ein von PBP gestartetes Ollama) oder 'immer' (nur mit
                 bestaetigt=True — PBP kann beim Beenden nicht mehr fragen).
-            bestaetigt: die Antwort des Menschen auf die Rueckfrage.
+            bestaetigt: die Antwort des Menschen auf die Rückfrage.
         """
         from ..services import ollama_start
 
@@ -3231,7 +3231,7 @@ def register(mcp, db, logger):
         """Wie gross ist das Kontextfenster der lokalen KI (#787)?
 
         Das Fenster (`num_ctx`, in Tokens) bestimmt, wie viel Text Ollama
-        auf einmal sieht. Ist ein Prompt laenger, schneidet Ollama den
+        auf einmal sieht. Ist ein Prompt länger, schneidet Ollama den
         Anfang STILL ab und bewertet einen Torso. PBP schickt einen
         solchen Prompt deshalb nicht ab bzw. verwirft die Antwort und
         nennt den Grund.
@@ -3241,8 +3241,8 @@ def register(mcp, db, logger):
             wert: das neue Fenster bei 'setzen', ganze Zahl von 2048 bis
                 131072. Vorgabe ist 8192.
 
-        Ein groesseres Fenster braucht mehr Arbeitsspeicher; Ollama laedt
-        das Modell nach einer Aenderung einmalig neu. Ein ungueltiger Wert
+        Ein grösseres Fenster braucht mehr Arbeitsspeicher; Ollama lädt
+        das Modell nach einer Änderung einmalig neu. Ein ungültiger Wert
         wird abgewiesen, nicht still korrigiert.
         """
         from ..services import ollama_kontext as kontext
@@ -3293,13 +3293,13 @@ def register(mcp, db, logger):
         """Schaltet Telemetrie-Sharing an/aus oder setzt das Nachfrage-Intervall.
 
         Recovery-Pfad: falls der Datenschutz-Tab im Dashboard mal nicht
-        erreichbar ist, kann hierueber das Sharing wieder abgeschaltet werden.
+        erreichbar ist, kann hierüber das Sharing wieder abgeschaltet werden.
 
         Args:
             aktiv: True = Sharing erlauben (wochenweise Vorschau), False = aus.
-                None = unveraendert.
+                None = unverändert.
             intervall_tage: Nachfrage-Rhythmus: 0 (nie automatisch), 7, 14
-                oder 30. None = unveraendert.
+                oder 30. None = unverändert.
         """
         if aktiv is None and intervall_tage is None:
             return {
@@ -3326,11 +3326,11 @@ def register(mcp, db, logger):
         """Status der Hintergrund-Automatik (#677/#678).
 
         Zwei Tasks mit Intervall in Tagen (0 = aus):
-        - `lernen`: Ollama analysiert Aktivitaet + Dokumente (Pattern-Lernen).
+        - `lernen`: Ollama analysiert Aktivität + Dokumente (Pattern-Lernen).
         - `jobsuche`: die INTERNE Jobsuche (nur Scraper; Browser-/Login-
-          Quellen bleiben manuell ueber Claude-in-Chrome).
+          Quellen bleiben manuell über Claude-in-Chrome).
 
-        Liefert je Task Intervall, letzten und naechsten Lauf. Laeuft nur,
+        Liefert je Task Intervall, letzten und nächsten Lauf. Läuft nur,
         solange Claude Desktop / der MCP-Server offen ist (kein Dienst).
         """
         from ..services.automatik_scheduler import compute_status
@@ -3343,10 +3343,10 @@ def register(mcp, db, logger):
     ) -> dict:
         """Setzt die Intervalle der Hintergrund-Automatik (#677/#678).
 
-        Erlaubte Werte: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unveraendert.
+        Erlaubte Werte: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unverändert.
 
         Args:
-            jobsuche_intervall_tage: wie oft die INTERNE Jobsuche laeuft.
+            jobsuche_intervall_tage: wie oft die INTERNE Jobsuche läuft.
             lernen_intervall_tage: wie oft Ollama aus Verhalten/Dokumenten
                 lernt (greift nur, wenn der Lern-Modus an ist).
         """
@@ -3373,11 +3373,11 @@ def register(mcp, db, logger):
         nur_langsame: bool = False,
         threshold_sec: float = 5.0,
     ) -> dict:
-        """Liefert MCP-Tool-Call-Telemetrie fuer Diagnose von Hangern/Timeouts.
+        """Liefert MCP-Tool-Call-Telemetrie für Diagnose von Hangern/Timeouts.
 
         Use Case: Wenn ein Tool im Claude Desktop in einen 4-Minuten-Timeout
-        laeuft, hilft dieses Tool zu sehen ob der Server den Tool-Call ueberhaupt
-        empfangen und verarbeitet hat — und wie lange er dafuer brauchte.
+        läuft, hilft dieses Tool zu sehen ob der Server den Tool-Call überhaupt
+        empfangen und verarbeitet hat — und wie lange er dafür brauchte.
 
         Liefert:
         - Liste der letzten N Tool-Calls (neueste zuerst) mit Dauer + Status
@@ -3387,7 +3387,7 @@ def register(mcp, db, logger):
         Args:
             limit: Max Anzahl Calls (Default 30, max 200)
             nur_langsame: True = nur Calls >= threshold_sec
-            threshold_sec: Schwelle fuer "langsam" (Default 5.0)
+            threshold_sec: Schwelle für "langsam" (Default 5.0)
         """
         import os as _os
         import platform as _pf
@@ -3452,8 +3452,8 @@ def register(mcp, db, logger):
                 "Wenn ein Tool in Claude Desktop timeout, aber HIER nicht "
                 "auftaucht: der MCP-Server hat den Aufruf nie empfangen "
                 "(Transport-Problem). Wenn es auftaucht mit hoher Dauer: "
-                "der Tool-Code selbst haengt — bitte Issue mit den "
-                "args_summary-Daten oeffnen."
+                "der Tool-Code selbst hängt — bitte Issue mit den "
+                "args_summary-Daten öffnen."
             ),
         }
 
@@ -3461,20 +3461,20 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def onboarding_hints_anzeigen() -> dict:
-        """Liefert aktive Onboarding-Hints fuer ungenutzte Features (#652).
+        """Liefert aktive Onboarding-Hints für ungenutzte Features (#652).
 
-        Pro Hint wird die Condition geprueft (z.B. "0 Suchprofile + 3+
+        Pro Hint wird die Condition geprüft (z.B. "0 Suchprofile + 3+
         Bewerbungen"), bereits weggeklickte Hints werden uebersprungen.
-        Frontend zeigt die zurueckgegebenen Hints als kleine Tipp-Cards
+        Frontend zeigt die zurückgegebenen Hints als kleine Tipp-Cards
         in den jeweiligen Tabs.
 
         Use Case: User hat Features im Code, kennt sie aber nicht. Statt
         ihn mit Onboarding-Walkthrough zu nerven kommen die Tipps
-        kontextuell wenn sie wirklich relevant sind (z.B. die
+        kontextüll wenn sie wirklich relevant sind (z.B. die
         Aufwand-Erfassung erst nach 5 Terminen).
 
         Liefert: {hints: [...], anzahl: N}. Bei Fehler eine leere Liste —
-        Hints duerfen nie blocken.
+        Hints dürfen nie blocken.
         """
         from ..services.onboarding_hints import list_active_hints
         try:
@@ -3496,7 +3496,7 @@ def register(mcp, db, logger):
         """Markiert einen Onboarding-Hint als dauerhaft weggeklickt (#652).
 
         Die Hint-ID wird in `profile_settings.onboarding_hints_dismissed`
-        gespeichert (JSON-Liste). Beim naechsten `onboarding_hints_anzeigen`
+        gespeichert (JSON-Liste). Beim nächsten `onboarding_hints_anzeigen`
         erscheint sie nicht mehr — selbst wenn die Condition weiterhin
         zutrifft.
 
@@ -3517,22 +3517,22 @@ def register(mcp, db, logger):
                               budget_sekunden: int = 20) -> dict:
         """Leitet Erkenntnisse aus dem eigenen Bewerbungsverhalten ab (#799/F35).
 
-        Regelbasiert und OHNE lokale KI lauffaehig — alle Aussagen entstehen
-        aus Zaehlwerten der eigenen Datenbank: dominante Aussortier-Gruende,
-        Kanal-Unterschiede (welcher Weg fuehrt wirklich zum Interview),
-        Score-Realitaetscheck (hoher Score trotzdem aussortiert),
+        Regelbasiert und OHNE lokale KI lauffähig — alle Aussagen entstehen
+        aus Zählwerten der eigenen Datenbank: dominante Aussortier-Gruende,
+        Kanal-Unterschiede (welcher Weg führt wirklich zum Interview),
+        Score-Realitätscheck (hoher Score trotzdem aussortiert),
         Reaktionszeiten (ab wann ist ein Vorgang praktisch tot) und
-        zeitliche Muster. Jede Aussage traegt Evidenz und eine Konfidenz aus
-        der Fallzahl; bei duenner Datenlage steht die Unsicherheit IN der
+        zeitliche Muster. Jede Aussage trägt Evidenz und eine Konfidenz aus
+        der Fallzahl; bei dünner Datenlage steht die Unsicherheit IN der
         Aussage.
 
-        ⛔ GRUNDSATZ: Nichts wird ohne Nutzerbestaetigung wirksam. Dieses
-        Tool leitet ab und legt UNBESTAETIGT ab. Kuratierung ueber
+        ⛔ GRUNDSATZ: Nichts wird ohne Nutzerbestätigung wirksam. Dieses
+        Tool leitet ab und legt UNBESTAETIGT ab. Kuratierung über
         erkenntnis_bestaetigen(); Widersprochenes wird nie erneut
         vorgeschlagen.
 
-        v1.7.11 (#799): laeuft mit Wall-Clock-Budget und liefert bei
-        Ueberschreitung ein gekennzeichnetes TEILERGEBNIS, statt den
+        v1.7.11 (#799): läuft mit Wall-Clock-Budget und liefert bei
+        Überschreitung ein gekennzeichnetes TEILERGEBNIS, statt den
         MCP-Server zu blockieren. Speichert in `learning_insights` —
         dieselbe Tabelle, aus der sich die Lern-Karte im Dashboard speist
         (die separate `learned_insights` aus #784 war ein Fehlgriff und
@@ -3540,7 +3540,7 @@ def register(mcp, db, logger):
 
         Args:
             dry_run: True (Default) = nur anzeigen, nichts speichern.
-            budget_sekunden: Wall-Clock-Grenze fuer den gesamten Lauf.
+            budget_sekunden: Wall-Clock-Grenze für den gesamten Lauf.
         """
         from ..services.lerninsights import kandidaten_ableiten, speichern
         from .. import __version__ as _v
@@ -3566,7 +3566,7 @@ def register(mcp, db, logger):
             result["regeln_uebersprungen"] = lauf["regeln_uebersprungen"]
             result["hinweis_budget"] = (
                 f"Budget von {budget_sekunden}s erreicht — Teilergebnis. "
-                "Mit hoeherem budget_sekunden erneut aufrufen."
+                "Mit höherem budget_sekunden erneut aufrufen."
             )
         if lauf["regel_fehler"]:
             result["regel_fehler"] = lauf["regel_fehler"]
@@ -3580,10 +3580,10 @@ def register(mcp, db, logger):
         """Zeigt die abgeleiteten Erkenntnisse mit Evidenz und Status (#799).
 
         Args:
-            filter: 'alle', 'offen' (unbestaetigt), 'bestaetigt' oder
+            filter: 'alle', 'offen' (unbestätigt), 'bestaetigt' oder
                 'widersprochen'.
-            bereich: 'alle', 'strategie' (Aussagen ueber die eigene
-                Bewerbungslage) oder 'bedienung' (Hinweise zur Oberflaeche).
+            bereich: 'alle', 'strategie' (Aussagen über die eigene
+                Bewerbungslage) oder 'bedienung' (Hinweise zur Oberfläche).
                 Die Trennung ist Absicht — wer wissen will, was seine
                 Absagen verbindet, will nicht zugleich lesen, dass er viel
                 klickt.
@@ -3636,8 +3636,8 @@ def register(mcp, db, logger):
         if not eintraege:
             result["hinweis"] = (
                 "Noch keine Erkenntnisse abgelegt. "
-                "erkenntnisse_ableiten(dry_run=False) fuellt sie aus dem "
-                "vorhandenen Bestand — dafuer wird keine lokale KI gebraucht."
+                "erkenntnisse_ableiten(dry_run=False) füllt sie aus dem "
+                "vorhandenen Bestand — dafür wird keine lokale KI gebraucht."
             )
         return result
 
@@ -3645,7 +3645,7 @@ def register(mcp, db, logger):
     def erkenntnis_bestaetigen(erkenntnis_id: str, bestaetigen: bool) -> dict:
         """Kuratiert eine Erkenntnis: bestaetigen oder widersprechen (#799).
 
-        Widersprochene Erkenntnisse werden nicht geloescht, sondern markiert
+        Widersprochene Erkenntnisse werden nicht gelöscht, sondern markiert
         — dieselbe Fehlableitung wird dadurch nie erneut vorgeschlagen.
 
         Args:
@@ -3677,8 +3677,8 @@ def register(mcp, db, logger):
             "id": row["id"],
             "aussage": row["title"],
             "hinweis": (
-                "Bestaetigte Erkenntnisse stehen der lokalen KI als Kontext "
-                "zur Verfuegung (elwosa_fragen); automatisch ANGEWENDET "
+                "Bestätigte Erkenntnisse stehen der lokalen KI als Kontext "
+                "zur Verfügung (elwosa_fragen); automatisch ANGEWENDET "
                 "wird weiterhin nichts."
                 if bestaetigen else
                 "Wird nicht erneut vorgeschlagen."
@@ -3694,7 +3694,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def issue_text_pruefen(text: str, anonymisieren: bool = False) -> dict:
-        """PFLICHT vor jedem GitHub-Text: prueft gegen den eigenen Bestand.
+        """PFLICHT vor jedem GitHub-Text: prüft gegen den eigenen Bestand.
 
         Sucht Firmen- und Personennamen aus DEINER Datenbank
         (Bewerbungen, gesichtete Stellen, Kontakte) in einem Text, der
@@ -3702,21 +3702,21 @@ def register(mcp, db, logger):
         Fehlerbericht.
 
         Args:
-            text: Der vollstaendige Text, so wie er abgeschickt wuerde.
+            text: Der vollständige Text, so wie er abgeschickt würde.
             anonymisieren: True ersetzt gefundene Namen durch stabile
-                Platzhalter und liefert den fertigen Text zurueck.
+                Platzhalter und liefert den fertigen Text zurück.
                 Dieselbe Firma bekommt dabei immer denselben Platzhalter,
-                damit Belegketten ueber mehrere Issues lesbar bleiben.
+                damit Belegketten über mehrere Issues lesbar bleiben.
 
         Quellennamen (Jobportale), Job-Hashes und der eigene Klarname
-        loesen bewusst keinen Treffer aus.
+        lösen bewusst keinen Treffer aus.
         """
         from ..services import pii_bestand
 
         if not (text or "").strip():
-            return {"fehler": "Kein Text uebergeben.",
-                    "hinweis": "Gib den Text mit, der veroeffentlicht "
-                               "werden soll — vollstaendig, nicht gekuerzt."}
+            return {"fehler": "Kein Text übergeben.",
+                    "hinweis": "Gib den Text mit, der veröffentlicht "
+                               "werden soll — vollständig, nicht gekürzt."}
 
         bericht = pii_bestand.pruefe_text(db, text)
 
@@ -3728,18 +3728,18 @@ def register(mcp, db, logger):
         if bericht["sauber"] and not bericht["anzahl"]:
             bericht["hinweis"] = (
                 "Keine Namen aus deinem Bestand gefunden — der Text kann "
-                "so veroeffentlicht werden.")
+                "so veröffentlicht werden.")
         elif bericht["sauber"]:
             bericht["hinweis"] = (
                 f"{bericht['anzahl']} unsichere(r) Treffer: das sind "
-                "gewoehnliche Woerter, die zufaellig auch als Firmenname "
+                "gewöhnliche Wörter, die zufällig auch als Firmenname "
                 "im Bestand stehen. Kurz ansehen, meist unbedenklich.")
         else:
             bericht["hinweis"] = (
-                "NICHT veroeffentlichen. Die gefundenen Namen stammen aus "
+                "NICHT veröffentlichen. Die gefundenen Namen stammen aus "
                 "deinem Bewerbungsbestand. Mit anonymisieren=True bekommst "
-                "du den Text mit stabilen Platzhaltern zurueck. "
-                "Nachtraeglich korrigieren hilft nicht — GitHub zeigt die "
+                "du den Text mit stabilen Platzhaltern zurück. "
+                "Nachträglich korrigieren hilft nicht — GitHub zeigt die "
                 "Bearbeitungshistorie.")
         return bericht
 

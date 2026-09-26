@@ -87,8 +87,8 @@ def nachfass_text(app: dict, anlass: str = "") -> str:
 
 def _handlungsvorschlag(status: str) -> str:
     if status == "interview_abgeschlossen":
-        return ("Nach dem Ergebnis des Gespraechs fragen und Interesse "
-                "bekraeftigen.")
+        return ("Nach dem Ergebnis des Gesprächs fragen und Interesse "
+                "bekräftigen.")
     if status == "in_pruefung":
         return "Freundlich nach dem Stand der Pruefung fragen."
     return ("Kurz freundlich nach dem Stand fragen und auf die Bewerbung "
@@ -114,12 +114,12 @@ def claude_prompt(app: dict) -> str:
         teile.append(f"Ansprechpartner ist {ansprech}")
     status = (app.get("status") or "").strip()
     if status == "interview_abgeschlossen":
-        teile.append("das Gespraech hat bereits stattgefunden, frage nach "
+        teile.append("das Gespräch hat bereits stattgefunden, frage nach "
                      "dem Ergebnis")
     else:
-        teile.append("seither kam keine Rueckmeldung")
+        teile.append("seither kam keine Rückmeldung")
     return (", ".join(teile) +
-            ". Halte sie kurz, hoeflich und ohne Druck; nimm Bezug auf "
+            ". Halte sie kurz, höflich und ohne Druck; nimm Bezug auf "
             "die Bewerbung und biete an, offene Fragen zu beantworten.")
 
 
@@ -138,7 +138,7 @@ def ist_ueberholt(follow_up: dict, app: dict,
     status = (app or {}).get("status") or ""
     if status in UEBERHOLTE_STATUS:
         return True, (f"Der Bewerbungsstand ist inzwischen '{status}' — "
-                      "eine Routine-Nachfrage eruebrigt sich.")
+                      "eine Routine-Nachfrage erübrigt sich.")
 
     geplant_am = str((follow_up or {}).get("created_at") or "")[:10]
     for m in meetings or []:

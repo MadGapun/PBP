@@ -60,10 +60,10 @@ VOKABULAR: dict[str, frozenset[str] | str | None] = {
 STILLGELEGT: dict[str, str] = {
     "hochschulabschluss": (
         "Wirkungslos seit v1.7.35 (#972): die Hochschulabschluss-Pruefung "
-        "ist ersatzlos entfernt, nachdem sie in drei Anlaeufen nicht "
-        "zuverlaessig zwischen 'Abschluss gefordert' und 'Studium als "
+        "ist ersatzlos entfernt, nachdem sie in drei Anläufen nicht "
+        "zuverlässig zwischen 'Abschluss gefordert' und 'Studium als "
         "Zielgruppe' unterscheiden konnte. Der Ablehnungsgrund "
-        "'kein_hochschulabschluss' bleibt fuer Altdaten waehlbar."),
+        "'kein_hochschulabschluss' bleibt für Altdaten wählbar."),
 }
 
 
@@ -80,7 +80,7 @@ def pruefe(dimension: str, sub_key: str) -> str:
     if dim in STILLGELEGT:
         return STILLGELEGT[dim]
     if dim not in VOKABULAR:
-        return (f"Unbekannte Dimension '{dim}'. Moeglich sind: "
+        return (f"Unbekannte Dimension '{dim}'. Möglich sind: "
                 + ", ".join(sorted(VOKABULAR)) + ".")
     erlaubt = VOKABULAR[dim]
     if erlaubt == FREITEXT:
@@ -93,7 +93,7 @@ def pruefe(dimension: str, sub_key: str) -> str:
                     "OBERGRENZEN (#917).")
         return ""
     if sub not in erlaubt:
-        return (f"'{sub}' ist kein Regler von '{dim}'. Moeglich sind: "
+        return (f"'{sub}' ist kein Regler von '{dim}'. Möglich sind: "
                 + ", ".join(sorted(erlaubt)) + ".")
     return ""
 
