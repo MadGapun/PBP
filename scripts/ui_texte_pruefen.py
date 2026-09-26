@@ -194,6 +194,9 @@ def _uebersprungene_knoten(baum) -> set:
 def backend_texte():
     """(pfad, zeile, text) je Anzeigetext im Backend."""
     for pfad in BACKEND_DATEIEN:
+        if not pfad.exists():
+            # Module der 1.8-Linie (components.py) fehlen auf der Stable-Linie.
+            continue
         baum = ast.parse(pfad.read_text(encoding="utf-8-sig"))
         skip = _uebersprungene_knoten(baum)
         alle = pfad.name in BACKEND_NUR_ANZEIGE
