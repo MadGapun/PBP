@@ -190,7 +190,7 @@ def test_1061_teilergebnis_wird_uebernommen(lauf):
     h = _health(db, "jobspy_linkedin")
     assert h["last_count"] >= 1, "was bis zum Abbruch gefunden war, ging verloren"
     assert "von 3 Suchbegriffen" in h["last_status_detail"]
-    assert "ins Hoechstbudget passen etwa" in h["last_status_detail"]
+    assert "ins Höchstbudget passen etwa" in h["last_status_detail"]
     assert "jobspy_linkedin" in {j.get("source") for j in db.get_active_jobs()}
 
 

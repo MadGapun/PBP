@@ -28,7 +28,7 @@ class TestZeroTrefferDiagnose:
 
     def test_keine_quelle_gelaufen(self):
         d = zero_treffer_diagnose({}, {}, ok_count=0, error_count=0, timeout_count=0)
-        assert "Keine Quelle wurde tatsaechlich durchsucht" in d
+        assert "Keine Quelle wurde tatsächlich durchsucht" in d
 
     def test_alle_quellen_fehler(self):
         d = zero_treffer_diagnose(
@@ -39,7 +39,7 @@ class TestZeroTrefferDiagnose:
     def test_alle_uebersprungen(self):
         d = zero_treffer_diagnose(
             {}, {"a": {"status": "skipped"}}, ok_count=0, error_count=0, timeout_count=0)
-        assert "uebersprungen" in d
+        assert "übersprungen" in d
 
     def test_quellen_ok_aber_keywords_treffen_nichts(self):
         d = zero_treffer_diagnose(

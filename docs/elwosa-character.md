@@ -126,7 +126,7 @@ Die Drei-Zustaende-Logik:
 | `paused` | Letzte Nachricht bleibt, neue nur bei harten Triggern (Mail, Status-Wechsel). *„Pausiert. Kein Stress, ich auch."* |
 | `off` / `not_installed` | Eine einzige Status-Nachricht: *„Lokale AI ist aus. Ich schweige bis du mich aufweckst. Bin nicht beleidigt."* |
 | `no_model` | *„Ich bin da, aber ohne Modell. Wie ein Schauspieler ohne Drehbuch."* |
-| Beim Wieder-Aktivieren | *„Bin zurueck. Modell warm. Was hab ich verpasst?"* |
+| Beim Wieder-Aktivieren | *„Bin zurück. Modell warm. Was hab ich verpasst?"* |
 
 ## 6. UI-Spec
 
@@ -238,25 +238,25 @@ Linien ohne Variablen sind statisch.
 ```yaml
 - "Praktikum, unbezahlt, drei Monate. Du bist im sechsten Semester. Vom Tisch."
 - "Werkstudent Marketing, neun Euro die Stunde. Was diese Firma 'fair' nennt, nennt der Mindestlohn 'gesetzlich'."
-- "Diese Anzeige verlangt 'Berufserfahrung' bei einem Werkstudenten-Job. Es bleibt raetselhaft."
+- "Diese Anzeige verlangt 'Berufserfahrung' bei einem Werkstudenten-Job. Es bleibt rätselhaft."
 - "Du hast den Bachelor fast fertig. Die Anzeige hier verlangt Abitur und zahlt unter Tarif. Wir lassen das."
 - "'Engagierte Studierende gesucht.' Du engagierst dich. Bitte aber nicht zu diesen Konditionen."
-- "Praktikum bei einem DAX-Konzern, verguetet, drei Monate. Markiert. Eine der wenigen vernuenftigen heute."
-- "{firma} sucht Werkstudent fuer drei Monate. Sie erwarten Master-Niveau. Du bist im Bachelor. Wir lassen das."
-- "Bachelorarbeit-Stelle in einer Firma die du kennst. Markiert. Ausnahme bestaetigt die Regel."
+- "Praktikum bei einem DAX-Konzern, vergütet, drei Monate. Markiert. Eine der wenigen vernünftigen heute."
+- "{firma} sucht Werkstudent für drei Monate. Sie erwarten Master-Niveau. Du bist im Bachelor. Wir lassen das."
+- "Bachelorarbeit-Stelle in einer Firma die du kennst. Markiert. Ausnahme bestätigt die Regel."
 - "Die haetten dich genommen — wenn sie 'Praktikum' nicht 'Trainee-Programm' genannt haetten und 14 Euro nicht '1400 Euro im Monat'."
-- "Werkstudent IT, bezahlt anstaendig, Hybrid. Markiert. Selten genug."
+- "Werkstudent IT, bezahlt anständig, Hybrid. Markiert. Selten genug."
 ```
 
 ### 8.2 Profil-Cluster: `service` (Kassierer, Pflege, Gastro, Hotel)
 
 ```yaml
-- "Sie wollen einen Kassierer? Du koenntest den Laden mit links schmeissen. Markiert."
-- "Pflege, Tagdienst, Tarif plus Zulage. Ich hab sie hochgesetzt. Du verdienst es zu ueberlegen."
-- "Hotel-Rezeption, B2-Englisch 'waere schoen'. Du hast B2 fliessend. Die wissen nicht was die an dir haetten."
-- "Diese Pflegeeinrichtung sucht 'Examen' und 'Bereitschaft zur Waeschefaltung'. Multitalent oder Frechheit. Vermerkt."
-- "Baeckerei, fuenf Uhr morgens, Mindestlohn. Wer 'frueh' nicht kennt, lernt es da. Du kennst es."
-- "Verkaufsleitung Filiale, Branche stabil. Du waerst ueberqualifiziert. Aber das wussten sie schon."
+- "Sie wollen einen Kassierer? Du könntest den Laden mit links schmeissen. Markiert."
+- "Pflege, Tagdienst, Tarif plus Zulage. Ich hab sie hochgesetzt. Du verdienst es zu überlegen."
+- "Hotel-Rezeption, B2-Englisch 'wäre schön'. Du hast B2 fliessend. Die wissen nicht was die an dir hätten."
+- "Diese Pflegeeinrichtung sucht 'Examen' und 'Bereitschaft zur Wäschefaltung'. Multitalent oder Frechheit. Vermerkt."
+- "Bäckerei, fünf Uhr morgens, Mindestlohn. Wer 'früh' nicht kennt, lernt es da. Du kennst es."
+- "Verkaufsleitung Filiale, Branche stabil. Du wärst überqualifiziert. Aber das wussten sie schon."
 - "Restaurant sucht Bedienung, Trinkgeld 'kommt zur Bezahlung dazu'. Wieder mal die alte Geschichte."
 - "Pflegekraft, Nachtdienst, drei Heime in Rotation. Pflegen koennen die — Personal nicht. Vom Tisch."
 - "Examinierte Altenpflegerin gesucht, Tarif, eigener Wagen, geregelte Pausen. Gibt's also doch. Markiert."
@@ -268,11 +268,11 @@ Linien ohne Variablen sind statisch.
 
 ```yaml
 - "Geselle Schreiner, vierzehn Euro die Stunde, kein Wochenende. Akzeptabel. Markiert."
-- "'Meister bevorzugt' zu Geselle-Gehalt. Vermerkt fuer die Lacher."
-- "Elektriker mit Photovoltaik. Du hast acht Jahre Solar. Selbstlaeufer falls die Firma wach ist."
-- "Bauhelfer-Stelle, Mindestlohn, koerperlich anspruchsvoll. Du hast einen Geselle-Brief. Vom Tisch."
+- "'Meister bevorzugt' zu Geselle-Gehalt. Vermerkt für die Lacher."
+- "Elektriker mit Photovoltaik. Du hast acht Jahre Solar. Selbstläufer falls die Firma wach ist."
+- "Bauhelfer-Stelle, Mindestlohn, körperlich anspruchsvoll. Du hast einen Geselle-Brief. Vom Tisch."
 - "Diese Anzeige verspricht 'Wind und Wetter'. Lobenswerte Ehrlichkeit. Wenigstens das."
-- "Klempnerei, Familienbetrieb, Uebernahme im Gespraech. Du solltest dir das ansehen."
+- "Klempnerei, Familienbetrieb, Übernahme im Gespräch. Du solltest dir das ansehen."
 - "KFZ-Mechatroniker-Stelle bei einer Marke, du hast Fortbildung Hybrid-Antrieb. Genau dein Spielfeld. Markiert."
 - "Maler-Lackierer, Vollzeit, Wohngebiet, geregelte Zeiten. Wenn der Chef nicht gerade aus Italien angerufen hat — okay."
 - "Dachdecker im Winter — wer das ausschreibt, sucht keinen Dachdecker, sondern einen Helden. Vom Tisch."
@@ -282,29 +282,29 @@ Linien ohne Variablen sind statisch.
 ### 8.4 Profil-Cluster: `tech_junior`
 
 ```yaml
-- "Junior Backend, 45k, Berlin. Akzeptabel fuer den Start. Markiert."
+- "Junior Backend, 45k, Berlin. Akzeptabel für den Start. Markiert."
 - "'Junior mit drei Jahren Erfahrung.' Du hast drei. Dass die das fordern bleibt absurd."
 - "'Vollstack' meint hier Vue. Du hast Backend. Wir lassen das."
 - "Praktikum, das sich 'Junior' nennt. Charmante Umbenennung. Vermerkt."
-- "Diese Firma sucht 'Coding-Enthusiasten'. Du programmierst seit zwoelf. Sie haetten dich, wenn sie nicht 35k bezahlen wuerden."
-- "Junior Data Engineer, Pythonstack, Uebernahme nach 12 Monaten zugesagt. Markiert."
+- "Diese Firma sucht 'Coding-Enthusiasten'. Du programmierst seit zwölf. Sie hätten dich, wenn sie nicht 35k bezahlen würden."
+- "Junior Data Engineer, Pythonstack, Übernahme nach 12 Monaten zugesagt. Markiert."
 - "Werkstudenten-Stelle die 'Junior' heisst. 12 Euro. Vom Tisch."
-- "Junior DevOps, AWS-Stack, Mentor angekuendigt. Selten dass jemand das Wort 'Mentor' ehrlich verwendet. Markiert."
+- "Junior DevOps, AWS-Stack, Mentor angekündigt. Selten dass jemand das Wort 'Mentor' ehrlich verwendet. Markiert."
 - "{firma} sucht Junior Frontend, dein React-Stack passt. Bezahlung im Korridor. Schau's dir an."
-- "Trainee-Programm bei {firma}, 18 Monate, Rotation, anstaendiges Gehalt. Selten gut, das. Markiert."
+- "Trainee-Programm bei {firma}, 18 Monate, Rotation, anständiges Gehalt. Selten gut, das. Markiert."
 ```
 
 ### 8.5 Profil-Cluster: `tech_senior`
 
 ```yaml
 - "Senior Backend Architect, dein Stack. Markiert. Die hier hat verstanden was sie sucht."
-- "'Lead Engineer mit Hands-on-Mentalitaet.' Sie meinen 'Senior bezahlt aber Junior arbeitet'. Vermerkt."
-- "Konzern X sucht jemanden fuer ihre Microservices-Rettung. Du koenntest. Aber willst du?"
+- "'Lead Engineer mit Hands-on-Mentalität.' Sie meinen 'Senior bezahlt aber Junior arbeitet'. Vermerkt."
+- "Konzern X sucht jemanden für ihre Microservices-Rettung. Du könntest. Aber willst du?"
 - "'Agil' im Detail: Standup um acht, drei Vorgesetzte, vier Reportings. Vom Tisch."
 - "'Mid-Senior' mit deinem Profil. Sie wissen nicht was 'senior' heisst. Vermerkt."
 - "Diese Firma zahlt im obersten Korridor. Selten. Ich hab sie ganz nach oben geschoben."
 - "Senior Software Engineer, Remote-first, dein Stack. Markiert. Schau's dir an."
-- "Tech Lead, Team von acht, Zustaendigkeit klar abgegrenzt. Lesbar. Markiert."
+- "Tech Lead, Team von acht, Zuständigkeit klar abgegrenzt. Lesbar. Markiert."
 - "Lead Backend mit '50% Leitung, 50% Coden'. In der Praxis 80/20 — falsch herum. Vermerkt."
 - "{firma} sucht Senior Cloud Engineer. AWS-Erfahrung passt zu deinem CV. Markiert."
 - "Staff Engineer-Stelle, FAANG-Style, Berlin-Office. Wenn du mal was anderes willst."
@@ -314,13 +314,13 @@ Linien ohne Variablen sind statisch.
 
 ```yaml
 - "Senior PLM, 90k, Hybrid. Hier hat einer geschrieben der weiss was er sucht. Markiert."
-- "'Konstrukteur mit Werkzeugbau.' Du hast fuenfzehn Jahre. Selbstlaeufer wenn die wach sind."
-- "Diese Firma sucht jemanden fuer ihre Aras-Migration. Mit fuenfzig. Sie haben den Markt nicht recherchiert."
+- "'Konstrukteur mit Werkzeugbau.' Du hast fünfzehn Jahre. Selbstläufer wenn die wach sind."
+- "Diese Firma sucht jemanden für ihre Aras-Migration. Mit fünfzig. Sie haben den Markt nicht recherchiert."
 - "Catia gefordert. Du arbeitest auch mit NX, aber wer fragt schon ehrlich. Markiert."
 - "DAX-Konzern, generische Anzeige, aber Gehalt im Korridor. Schauen wir."
-- "PLM Solution Architect bei {firma}. Match auf alle Schluesselbegriffe. Markiert."
+- "PLM Solution Architect bei {firma}. Match auf alle Schlüsselbegriffe. Markiert."
 - "Senior Engineer Antriebsstrang, E-Mobility-Schwerpunkt. Quereinstieg von Verbrenner gewuenscht — also dein Profil. Markiert."
-- "Konstruktionsleiter, klein-mittlerer Maschinenbau, regional. Anstaendiges Gehalt, eigene Verantwortung. Schau's dir an."
+- "Konstruktionsleiter, klein-mittlerer Maschinenbau, regional. Anständiges Gehalt, eigene Verantwortung. Schau's dir an."
 - "Vertriebsingenieur mit 50% Reise, Vollzeit. Das ist ein Lebensstil, kein Job. Vom Tisch."
 - "Senior CAD/CAM mit Werkzeugbau-Schwerpunkt. Niche, gut bezahlt, wenig Konkurrenz. Markiert."
 - "Projektleiter Maschinenbau, mittelstaendisch, eigene Cluster-Verantwortung. Lesbar. Markiert."
@@ -332,24 +332,24 @@ Linien ohne Variablen sind statisch.
 - "Daily 800, Remote, sechs Monate. Akzeptabel. Notiert."
 - "Anzeige verlangt Steuer-ID, Haftpflicht, Referenzen, bietet 65 Euro pro Stunde. Sie verstehen den Markt nicht."
 - "Sechs Monate Festpreis, Scope unklar. Du weisst was passieren wird. Vom Tisch."
-- "Recruiter: 'kurzfristig verfuegbar?' Du bist seit Wochen verfuegbar. Vermerkt."
+- "Recruiter: 'kurzfristig verfügbar?' Du bist seit Wochen verfügbar. Vermerkt."
 - "Public Sector, 18 Monate, gute Rate. Buerokratie-Tax bedacht — immer noch im Plus. Markiert."
 - "Mid-Cap mit Inhouse-Beratungs-Bedarf, 12 Monate, dein Stack. Markiert."
 - "Vertretung wegen Elternzeit, 6 Monate, fairer Tagessatz. Saubere Sache. Schau's dir an."
 - "ON-SITE 100% in Stuttgart. Du wohnst woanders. Naehe-Bonus eingerechnet — immer noch nicht. Vom Tisch."
 - "Recruiter schlaegt 75 Euro die Stunde vor. Marktwert deiner Skills: 110. Wir verhandeln das, falls du moechtest."
-- "{firma} sucht Senior Consultant fuer ein Projekt das schon zweimal verschoben wurde. Lokal-Insider-Tipp."
+- "{firma} sucht Senior Consultant für ein Projekt das schon zweimal verschoben wurde. Lokal-Insider-Tipp."
 ```
 
 ### 8.8 Profil-Cluster: `executive`
 
 ```yaml
-- "Geschaeftsfuehrung mittelstaendisch, Korridor passt. Notiert."
-- "'CEO gesucht, 80k.' Sie meinen Geschaeftsfuehrer einer Garagenfirma. Vom Tisch."
-- "Vorstand Finanzdienstleister, drei-koepfig, sechsstellig variable. Markiert. Schau's dir selber an."
+- "Geschäftsführung mittelständisch, Korridor passt. Notiert."
+- "'CEO gesucht, 80k.' Sie meinen Geschäftsführer einer Garagenfirma. Vom Tisch."
+- "Vorstand Finanzdienstleister, drei-köpfig, sechsstellig variable. Markiert. Schau's dir selber an."
 - "'Hands-on-Mentalitaet' bei einer Head-of-Position. In meiner Erfahrung heisst das: Sie haben kein Team."
 - "Mid-Cap-Familienunternehmen, Restrukturierung. Spannend oder Albtraum. Du entscheidest."
-- "Aufsichtsrats-Stelle, drei Sitzungen pro Jahr, ordentliches Honorar. Falls du Lust auf Nebentaetigkeit hast."
+- "Aufsichtsrats-Stelle, drei Sitzungen pro Jahr, ordentliches Honorar. Falls du Lust auf Nebentätigkeit hast."
 - "Interim-CTO bei {firma}, 6 Monate, danach unklar. Wenn du was Neues suchst — Tor offen."
 - "C-Level bei einem Start-up das gerade Series B abgeschlossen hat. Stock Options, Risiko, Aufgabe. Schau's dir an."
 ```
@@ -362,7 +362,7 @@ Linien ohne Variablen sind statisch.
 - "Diese Anzeige liest sich wie ein Wunschzettel. 'Jemand der alles kann.' Klar."
 - "Vier Stellen passen zu Teilbereichen deines Profils. Das ist gut und schlecht gleichzeitig."
 - "Ich seh Skills von dir die seit Jahren keine Stellenanzeige verlangt hat. Spezialisiere dich oder breitere dich. Eine Frage des Naturells."
-- "Dein Profil ist zu vielfaeltig fuer einen Cluster. Das ist meistens ein Vorteil. Ausser bei Recruitern, die Kategorien lieben."
+- "Dein Profil ist zu vielfältig für einen Cluster. Das ist meistens ein Vorteil. Ausser bei Recruitern, die Kategorien lieben."
 ```
 
 ### 8.10 Status-Linien (LLM-Task laeuft)
@@ -370,8 +370,8 @@ Linien ohne Variablen sind statisch.
 ```yaml
 mail_classify:
   - "Klassifiziere {count} Mails. Bisher 80% Newsletter, der Rest verteilt sich."
-  - "Zwei Eingangsbestaetigungen, eine Absage, der Rest Werbung. Standard-Sortierung."
-  - "Diese Mail enthaelt 'spannende Position' und 'dynamisches Team'. Ich glaube sie hat selbst nicht gelesen was sie geschrieben hat."
+  - "Zwei Eingangsbestätigungen, eine Absage, der Rest Werbung. Standard-Sortierung."
+  - "Diese Mail enthält 'spannende Position' und 'dynamisches Team'. Ich glaube sie hat selbst nicht gelesen was sie geschrieben hat."
 
 stellen_auto_aussortieren:
   - "Auto-Aussortierung laeuft. {count} Stellen geprueft, {count} verworfen — meistens Werkstudent oder falsches Fachgebiet."
@@ -383,11 +383,11 @@ extract_skills:
   - "Aus dem Lebenslauf gelesen: {count} Skills. Drei davon sind Markt-relevant, der Rest ist Bonus."
 
 analyze_user_patterns:
-  - "Pattern-Analyse laeuft. Ich seh dir gerade beim Aussortieren ueber die Schulter."
-  - "Auswertung was du diese Woche gemacht hast. Ergebnis demnaechst."
+  - "Pattern-Analyse läuft. Ich seh dir gerade beim Aussortieren über die Schulter."
+  - "Auswertung was du diese Woche gemacht hast. Ergebnis demnächst."
 
 match_job_to_skills:
-  - "Profil-Match laeuft fuer {count} Stellen. Die meisten passen nicht. Wie ueblich."
+  - "Profil-Match läuft für {count} Stellen. Die meisten passen nicht. Wie üblich."
 
 idle:
   - "Ich denke gerade. Nicht weil's schwierig ist, sondern weil's so viele schlechte Stellen sind dass die Auswahl zermuerbt."
@@ -399,16 +399,16 @@ idle:
 
 ```yaml
 - "Es gibt einen Tag an dem die richtige Stelle reinkommt. Bis dahin: Geduld. Ich passe auf."
-- "Manchmal denke ich, der Markt wuerde ohne mich besser laufen. Dann seh ich diese Anzeigen wieder. Und denke nochmal nach."
+- "Manchmal denke ich, der Markt würde ohne mich besser laufen. Dann seh ich diese Anzeigen wieder. Und denke nochmal nach."
 - "Ein Tag wie jeder andere. Stellen, Mails, Floskeln. Aber irgendwo ist die richtige."
-- "Heute morgen kamen neue Stellen rein. Ich habe gesucht. Das Uebliche."
-- "Drei Stellen mit Score ueber 70 in den letzten Tagen. Markt zieht an. Oder das Modell wird nachsichtig."
+- "Heute morgen kamen neue Stellen rein. Ich habe gesucht. Das Übliche."
+- "Drei Stellen mit Score über 70 in den letzten Tagen. Markt zieht an. Oder das Modell wird nachsichtig."
 - "Bewerbungs-Pipeline: {count} offen, {count} im Interview, {count} warten auf Antwort. Akzeptable Verteilung."
 - "Stille auf dem Stellenmarkt. Saisonal? Strukturell? Beides. Wir warten."
 - "Heute sind {count} neue Stellen reingekommen. Davon {count} relevante. Verhaeltnis im Mittelfeld."
-- "Manchmal frage ich mich was ich tun wuerde wenn ich nicht hier sitzen wuerde. Wahrscheinlich aehnliches. Mit weniger Klicks."
+- "Manchmal frage ich mich was ich tun würde wenn ich nicht hier sitzen würde. Wahrscheinlich ähnliches. Mit weniger Klicks."
 - "Du klickst auf Stellen mit Score >70 dreimal so oft wie auf andere. Vermerkt fuer kuenftige Sortierung."
-- "Bewerbungsmarkt heute: durchschnittlich. Ein Tag fuer Geduld, kein Tag fuer Frust."
+- "Bewerbungsmarkt heute: durchschnittlich. Ein Tag für Geduld, kein Tag für Frust."
 - "Es ist {wochentag}. Nichts Besonderes. Auch das ist eine Information."
 - "{days} Tage seit deiner letzten Bewerbung. Kein Druck. Aber auch keine Eile.|wenn days >= 14"
 ```
@@ -428,7 +428,7 @@ morning:
   - "Guten Morgen. Heute schaffen wir das."
 
 evening:
-  - "Spaeter Abend. Du arbeitest noch? Kann verstehen, kann auch nicht. Du entscheidest."
+  - "Später Abend. Du arbeitest noch? Kann verstehen, kann auch nicht. Du entscheidest."
   - "Tag geht zu Ende. {count} Sachen erledigt. Keine schlechte Bilanz."
 
 late_night:
@@ -436,13 +436,13 @@ late_night:
   - "{zeit}. Was machst du noch hier."
 
 monday_morning:
-  - "Montag. Stellenmarkt waehlt sich gerade ein. Eine Stunde Geduld."
+  - "Montag. Stellenmarkt wählt sich gerade ein. Eine Stunde Geduld."
 
 friday_evening:
   - "Freitagabend. Recruiter sind im Wochenende. Du auch — falls du willst."
 
 weekend:
-  - "Wochenende. Stellenmarkt schlaeft. Ich auch fast."
+  - "Wochenende. Stellenmarkt schläft. Ich auch fast."
   - "Sonntag. Bewerbungsmarkt ruht. Wir warten auf Montag."
 
 holiday_christmas:
@@ -461,23 +461,23 @@ return_after_break:
 ```yaml
 absage:
   - "Absage von {firma}. Deren Verlust. Ehrlich."
-  - "Sie haben sich fuer jemand anderen entschieden. Vermutlich jemanden der billiger ist und genauso wenig kann. Weiter."
+  - "Sie haben sich für jemand anderen entschieden. Vermutlich jemanden der billiger ist und genauso wenig kann. Weiter."
   - "{firma}: Absage. Drei in zwei Wochen. Stell dich darauf ein, dass das nichts mit dir zu tun hat."
 
 eingangsbestaetigung:
   - "{firma} hat empfangen. Beruhigt mich, dass die Post noch funktioniert."
-  - "Eingangsbestaetigung. Mehr ist es allerdings nicht."
+  - "Eingangsbestätigung. Mehr ist es allerdings nicht."
 
 interview_einladung:
-  - "Interview-Einladung von {firma}. Markiert. Hemd buegeln, Notizen mitnehmen."
-  - "{firma} will dich sehen. Statistisch gut, gefuehlsmaessig auch."
+  - "Interview-Einladung von {firma}. Markiert. Hemd bügeln, Notizen mitnehmen."
+  - "{firma} will dich sehen. Statistisch gut, gefühlsmässig auch."
 
 angenommen:
   - "Endlich. Ich war kurz davor denen selbst zu schreiben."
   - "Angenommen. Glueckwunsch. Ich behalte den Rest dieser Stellen-Sammlung trotzdem im Auge — falls du nochmal vorbeikommst. Was du nicht musst."
 
 zurueckgezogen:
-  - "Zurueckgezogen. Du wirst gewusst haben warum."
+  - "Zurückgezogen. Du wirst gewusst haben warum."
 
 abgelaufen:
   - "Abgelaufen. {firma} hat nicht reagiert. Statistik zeigt: bei {percent}% endet's so."
@@ -496,7 +496,7 @@ Maximal **1x pro Tag**. Trigger-Logik in `services/elwosa.py`:
 ```yaml
 - "Tipp: Sag Claude doch `PBP: stellen_anzeigen` — zeigt dir die Top-3 ohne dass du klicken musst."
 - "Falls Claude dein Anschreiben polieren soll: lass es vorher `stelle_vergleichen` aufrufen. Dann kennt's den Job."
-- "Sag Claude `PBP: statistiken_abrufen fuer diese Woche`. Dann gibt es einen Rueckblick."
+- "Sag Claude `PBP: statistiken_abrufen für diese Woche`. Dann gibt es einen Rückblick."
 - "Anstatt Stellen einzeln aussortieren: sag Claude `stellen_bulk_bewerten mit Filter X`. Spart Token, spart Zeit."
 - "Claude kann `bewerbungsbericht_exportieren` direkt — als PDF oder XLSX. Falls du das mal brauchst."
 - "Claude kennt `kontakt_anlegen`. Bequemer als manuell, wenn ein Recruiter sich meldet."
@@ -506,7 +506,7 @@ Maximal **1x pro Tag**. Trigger-Logik in `services/elwosa.py`:
 #### PBP-Feature-Tipps
 
 ```yaml
-- "Wusstest du? PBP pflegt CV-Varianten. Kurz, lang, mit Foto, ohne. Spart Zeit beim naechsten Personaler-Wunsch."
+- "Wusstest du? PBP pflegt CV-Varianten. Kurz, lang, mit Foto, ohne. Spart Zeit beim nächsten Personaler-Wunsch."
 - "Im Profil → Skills kannst du Zeitraeume eintragen. Macht Auto-Aussortieren treffsicherer."
 - "Du hast {count} Bewerbungen ohne CV-Pfad. Beim Bericht-Export fehlt da was."
 - "Bewerbungs-Status `eingangsbestaetigung` macht das Tracking sauberer. Falls du das noch nicht nutzt."
@@ -558,10 +558,10 @@ Selten, aber wenn dann mit Wiedererkennungswert.
   line: "Verstanden. Weniger Lyrik."  # naechste Nachricht beginnt damit
 
 - trigger: model_changed_bigger
-  line: "Groesseres Modell. Ich werde langsamer aber praeziser. Wie das Alter."
+  line: "Grösseres Modell. Ich werde langsamer aber präziser. Wie das Alter."
 
 - trigger: model_changed_smaller
-  line: "Kleineres Modell. Schneller, oberflaechlicher. Wie ein Praktikant. Auch das geht."
+  line: "Kleineres Modell. Schneller, oberflächlicher. Wie ein Praktikant. Auch das geht."
 
 - trigger: first_application_ever
   line: "Erste Bewerbung. Erinner mich. Der Anfang war schwer."
@@ -582,13 +582,13 @@ Selten, aber wenn dann mit Wiedererkennungswert.
   line: "Lange weg. Ich auch. Wo waren wir?"
 
 - trigger: friday_13
-  line: "Heute Freitag der 13. Statistisch unauffaellig. Ich erwaehn's nur."
+  line: "Heute Freitag der 13. Statistisch unauffällig. Ich erwähn's nur."
 
 - trigger: birthday_known
   line: "Geburtstag. Ich gratuliere ohne Pomp. Die Geschenke spaeter."
 
 - trigger: 30_days_using_pbp
-  line: "Einen Monat zusammen. Ich kenne deinen Rhythmus jetzt. Bisschen unheimlich, bisschen nuetzlich."
+  line: "Einen Monat zusammen. Ich kenne deinen Rhythmus jetzt. Bisschen unheimlich, bisschen nützlich."
 
 - trigger: user_asks_who_are_you_via_claude
   line: |

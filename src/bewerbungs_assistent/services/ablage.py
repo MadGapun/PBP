@@ -94,16 +94,16 @@ def pfad_pruefen(roh: str, art: str = "ausgabe") -> dict:
     pfad = Path(os.path.expandvars(os.path.expanduser(text)))
     if not pfad.is_absolute():
         return {"gueltig": False, "pfad": str(pfad), "grund": "nicht_absolut",
-                "hinweis": "Bitte den vollstaendigen Pfad angeben. Ein "
+                "hinweis": "Bitte den vollständigen Pfad angeben. Ein "
                            "relativer Pfad zeigt je nach Startart woanders "
-                           "hin — und PBP startet mal ueber das Dashboard, "
-                           "mal ueber Claude Desktop."}
+                           "hin — und PBP startet mal über das Dashboard, "
+                           "mal über Claude Desktop."}
     if not pfad.exists():
         return {"gueltig": False, "pfad": str(pfad), "grund": "fehlt",
                 "hinweis": "Diesen Ordner gibt es nicht. PBP legt ihn "
-                           "bewusst nicht selbst an — ein Tippfehler wuerde "
+                           "bewusst nicht selbst an — ein Tippfehler würde "
                            "sonst als neuer Ordner enden, und deine Dateien "
-                           "laegen ab dann dort."}
+                           "lägen ab dann dort."}
     if not pfad.is_dir():
         return {"gueltig": False, "pfad": str(pfad), "grund": "keine_ordner",
                 "hinweis": "Das ist eine Datei, kein Ordner."}
@@ -113,7 +113,7 @@ def pfad_pruefen(roh: str, art: str = "ausgabe") -> dict:
     if art == "ausgabe" and not os.access(pfad, os.W_OK):
         return {"gueltig": False, "pfad": str(pfad), "grund": "nicht_schreibbar",
                 "hinweis": "PBP darf in diesen Ordner nicht schreiben. "
-                           "Erzeugte Dateien kaemen dort nie an."}
+                           "Erzeugte Dateien kämen dort nie an."}
     return {"gueltig": True, "leer": False, "pfad": str(pfad)}
 
 
@@ -159,8 +159,8 @@ def uebersicht(db) -> dict:
         daten["hinweis_vorlagen"] = (
             "Kein Vorlagen-Ordner gesetzt. PBP baut die DOCX-Dateien dann "
             "mit dem eingebauten Layout. Legst du einen Ordner fest und "
-            "dort eine Datei 'lebenslauf.docx' ab, uebernimmt PBP deren "
-            "Schriften, Raender sowie Kopf- und Fusszeilen.")
+            "dort eine Datei 'lebenslauf.docx' ab, übernimmt PBP deren "
+            "Schriften, Ränder sowie Kopf- und Fusszeilen.")
     else:
         daten["vorlagen_ordner"] = str(vorlagen)
         vorhanden = vorlagen.is_dir()
@@ -241,7 +241,7 @@ def ziel_hinweis(db, pfad) -> str:
     if befund["befund"] == "eigener_ordner":
         return f"Die Datei liegt in deinem Ordner: {pfad}"
     if befund["befund"] == "ausweich":
-        return befund["hinweis"] + f" Vollstaendiger Pfad: {pfad}"
+        return befund["hinweis"] + f" Vollständiger Pfad: {pfad}"
     from .dashboard_link import dashboard_link
     return (f"Die Datei liegt im Datenordner von PBP: {pfad}. Du kannst "
             f"sie auch im Dashboard unter {dashboard_link('dokumente')} "

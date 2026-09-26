@@ -155,7 +155,7 @@ def _entfernungs_befund(job: dict, criteria: dict) -> dict:
                 "ausschluss": "entfernung"}
     if str(job.get("remote_level") or "").strip().lower() == "remote":
         return {"stufe": HOCH, "belegt": True,
-                "grund": "Vollstaendig remote — die Entfernung faellt weg."}
+                "grund": "Vollständig remote — die Entfernung fällt weg."}
 
     km = preis_km(job, criteria)
     if km is None:
@@ -169,7 +169,7 @@ def _entfernungs_befund(job: dict, criteria: dict) -> dict:
 
     if km > grenze + band:
         return {"stufe": RUNTER, "belegt": True,
-                "grund": f"{km:.0f} km liegt ueber deiner Grenze von "
+                "grund": f"{km:.0f} km liegt über deiner Grenze von "
                          f"{grenze:.0f} km fuer {art}.",
                 "ausschluss": "entfernung", "entfernung_km": km,
                 "grenze_km": grenze}
@@ -206,7 +206,7 @@ def _gehalts_befund(job: dict, criteria: dict) -> dict:
         # #827: eine Schaetzung ist keine Angabe. Sie zaehlt im Score
         # gar nicht — und darf hier keinen Ausschluss tragen.
         return {"stufe": MITTEL, "belegt": False,
-                "grund": "Das Gehalt ist geschaetzt oder fehlt — daraus "
+                "grund": "Das Gehalt ist geschätzt oder fehlt — daraus "
                          "folgt kein Urteil (#827)."}
     betrag = _zahl(job.get("salary_min"))
     if str(job.get("salary_type") or "jaehrlich") != "jaehrlich":
@@ -225,7 +225,7 @@ def _gehalts_befund(job: dict, criteria: dict) -> dict:
                          f"({int(wunsch)}).",
                 "gehalt": betrag}
     return {"stufe": HOCH, "belegt": True,
-            "grund": f"{int(betrag)} EUR liegt auf oder ueber deinem Wunsch.",
+            "grund": f"{int(betrag)} EUR liegt auf oder über deinem Wunsch.",
             "gehalt": betrag}
 
 
@@ -265,8 +265,8 @@ def _zweitwohnsitz_ausweg(job: dict, criteria: dict, entfernung: dict) -> dict:
                 "grund": "Kein Zweitwohnsitz-Ausweg hinterlegt."}
     if not gehalt_belegt(job):
         return {"greift": False, "schwelle": schwelle,
-                "grund": "Der Zweitwohnsitz-Ausweg zaehlt nur bei belegtem "
-                         "Gehalt — aus einer Schaetzung wird keine "
+                "grund": "Der Zweitwohnsitz-Ausweg zählt nur bei belegtem "
+                         "Gehalt — aus einer Schätzung wird keine "
                          "Umzugsempfehlung."}
     betrag = _zahl(job.get("salary_min"))
     if str(job.get("salary_type") or "jaehrlich") != "jaehrlich":
@@ -274,10 +274,10 @@ def _zweitwohnsitz_ausweg(job: dict, criteria: dict, entfernung: dict) -> dict:
                 "grund": "Kein vergleichbarer Jahreswert in der Anzeige."}
     if betrag is None or betrag < schwelle:
         return {"greift": False, "schwelle": schwelle,
-                "grund": f"Fuer einen Zweitwohnsitz braeuchte es rund "
+                "grund": f"Für einen Zweitwohnsitz bräuchte es rund "
                          f"{int(schwelle)} EUR im Jahr."}
     return {"greift": True, "schwelle": schwelle,
-            "grund": f"{int(betrag)} EUR traegt einen Zweitwohnsitz (ab rund "
+            "grund": f"{int(betrag)} EUR trägt einen Zweitwohnsitz (ab rund "
                      f"{int(schwelle)} EUR) — das bleibt ein Preis, kein "
                      "Wunschwert."}
 

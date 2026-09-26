@@ -55,7 +55,7 @@ COMPONENT_DEFS: dict[str, dict] = {
     "tesseract": {
         "label": "Tesseract OCR",
         "beschreibung": (
-            "Texterkennung fuer gescannte PDFs — Zeugnisse, Zertifikate und "
+            "Texterkennung für gescannte PDFs — Zeugnisse, Zertifikate und "
             "alte Arbeitszeugnisse ohne Text-Ebene werden damit lesbar und "
             "fliessen in Profil-Extraktion und Dokumente-Analyse ein."
         ),
@@ -89,12 +89,12 @@ COMPONENT_DEFS: dict[str, dict] = {
     "playwright-chromium": {
         "label": "Browser (Playwright/Chromium)",
         "beschreibung": (
-            "Headless-Browser fuer Quellen, die ohne echten Browser nicht "
+            "Headless-Browser für Quellen, die ohne echten Browser nicht "
             "lesbar sind (SPA-Portale, LinkedIn-Suche). Wird vom Installer "
             "normalerweise mitgeliefert — hier sichtbar und reparierbar."
         ),
         "freigeschaltete_funktion": (
-            "Browser-gestuetzte Quellen-Adapter + linkedin_browser_search (B18)"
+            "Browser-gestützte Quellen-Adapter + linkedin_browser_search (B18)"
         ),
         "lizenz": "Apache-2.0 (Playwright) / BSD (Chromium)",
         "groesse_mb": 130,
@@ -332,7 +332,7 @@ def install_component(db, name: str,
                                    last_error="playwright-Paket fehlt")
             return {"status": "fehler",
                     "fehler": ("Das playwright-Python-Paket fehlt (scraper-"
-                               "Extra). PBP-Update drueberinstallieren, dann "
+                               "Extra). PBP-Update drüberinstallieren, dann "
                                "erneut versuchen.")}
         db.set_component_state(name, STATUS_WIRD_INSTALLIERT, last_error="")
         try:
@@ -385,9 +385,9 @@ def install_component(db, name: str,
         setup_path = components_dir() / f"{name}-setup.exe"
         _download(dl["url"], setup_path, progress, lo=1, hi=80)
 
-        progress(82, "Pruefe Download")
+        progress(82, "Prüfe Download")
         if not _sha256_ok(setup_path, dl.get("sha256", "")):
-            raise RuntimeError("Checksum-Pruefung fehlgeschlagen — Download verworfen.")
+            raise RuntimeError("Checksum-Prüfung fehlgeschlagen — Download verworfen.")
 
         progress(85, "Installiere (silent)")
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -414,7 +414,7 @@ def install_component(db, name: str,
         if not binary.is_file():
             raise RuntimeError(
                 f"Binary nach Installation nicht gefunden: {binary}. "
-                "Moeglicherweise enthaelt der Zielpfad Leerzeichen (NSIS-/D-"
+                "Möglicherweise enthält der Zielpfad Leerzeichen (NSIS-/D-"
                 "Grenze) — bitte manuell installieren und den Pfad in den "
                 "Einstellungen setzen."
             )
@@ -450,7 +450,7 @@ def start_install_job(db, name: str) -> dict:
         pass
     if running:
         return {"status": "laeuft_bereits", "job_id": running.get("id"),
-                "hinweis": "Es laeuft bereits eine Komponenten-Installation."}
+                "hinweis": "Es läuft bereits eine Komponenten-Installation."}
     job_id = db.create_background_job("komponente_install", {"name": name})
 
     def _run():
@@ -590,7 +590,7 @@ def ensure_language(db, lang: str = "deu",
     """
     progress = progress or (lambda pct, msg: None)
     if not re.fullmatch(r"[a-z_]{2,12}", lang):
-        return {"status": "fehler", "fehler": f"Ungueltiger Sprachcode: {lang!r}"}
+        return {"status": "fehler", "fehler": f"Ungültiger Sprachcode: {lang!r}"}
     if lang in available_languages(db):
         return {"status": "vorhanden", "sprache": lang}
     install_td = _install_tessdata_dir(db)

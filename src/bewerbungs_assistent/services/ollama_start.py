@@ -241,7 +241,7 @@ def ollama_starten(db) -> dict:
         "pid": prozess.pid,
         "binary": binary,
         "hinweis": "Ollama wurde gestartet. Der Status wechselt in den "
-                   "naechsten 10-30 Sekunden auf 'verfuegbar'.",
+                   "nächsten 10-30 Sekunden auf 'verfügbar'.",
     }
 
 
@@ -264,7 +264,7 @@ def beim_start(db) -> dict:
 
     if _autostart_thread is not None and _autostart_thread.is_alive():
         return {"status": "laeuft_schon",
-                "hinweis": "Ein Startversuch laeuft bereits."}
+                "hinweis": "Ein Startversuch läuft bereits."}
 
     def _versuch():
         try:
@@ -306,7 +306,7 @@ AUTOSTOP_SCHLUESSEL = "llm_local_autostop"
 
 #: Die drei Werte der Einstellung, mit dem Satz, der sie erklaert.
 AUTOSTOP_WERTE = {
-    "aus": "PBP laesst Ollama beim Beenden laufen.",
+    "aus": "PBP lässt Ollama beim Beenden laufen.",
     "gestartet": "PBP beendet Ollama beim Beenden, wenn PBP es selbst "
                  "gestartet hat. Ein Ollama, das schon vorher lief, bleibt.",
     "immer": "PBP beendet Ollama beim Beenden immer — auch wenn es schon "
@@ -372,7 +372,7 @@ def ollama_beenden() -> dict:
     global _von_pbp_gestartet
     if _systemdienst_aktiv():
         return {"status": "systemdienst",
-                "hinweis": "Ollama laeuft als Systemdienst und startet nach "
+                "hinweis": "Ollama läuft als Systemdienst und startet nach "
                            "einem Beenden von selbst neu. Beenden mit "
                            "'sudo systemctl stop ollama', dauerhaft mit "
                            "'sudo systemctl disable ollama'."}
@@ -404,7 +404,7 @@ def ollama_beenden() -> dict:
     return {"status": "beendet", "prozesse": beendet,
             "hinweis": "Ollama ist beendet, das Modell ist aus dem "
                        "Arbeitsspeicher. Neu starten mit dem Knopf "
-                       "'Ollama starten' oder beim naechsten Start von PBP, "
+                       "'Ollama starten' oder beim nächsten Start von PBP, "
                        "falls der Autostart an ist."}
 
 
@@ -544,7 +544,7 @@ def verknuepfung_anlegen(desktop=None) -> dict:
             return {"status": "fehler", "fehler": str(exc)}
         if r.returncode != 0 or not lnk.exists():
             return {"status": "fehler",
-                    "fehler": (r.stderr or "Verknuepfung nicht angelegt").strip()[:300]}
+                    "fehler": (r.stderr or "Verknüpfung nicht angelegt").strip()[:300]}
         return {"status": "angelegt", "verknuepfung": str(lnk), "skript": str(skript)}
 
     endung = ".command" if sys.platform == "darwin" else ".sh"

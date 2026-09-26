@@ -128,18 +128,18 @@ BESCHREIBUNG = {
                "Kompetenzen. Das ist die Arbeit, die am meisten Zeit "
                "gekostet hat."),
     "bewerbungen": ("Bewerbungen samt Verlauf, Terminen, Aufgaben und "
-                    "Kontakten. Enthaelt Namen und Mailadressen "
+                    "Kontakten. Enthält Namen und Mailadressen "
                     "Dritter."),
     "stellen": ("Der Stellen-Bestand samt Fundstellen. **Mit den "
                 "aussortierten Stellen verschwinden auch die "
-                "Lernsignale** — Ablehnungsgruende, "
-                "Wiedergaenger-Muster, Kalibrierung."),
+                "Lernsignale** — Ablehnungsgründe, "
+                "Wiedergänger-Muster, Kalibrierung."),
     "dokumente": ("Hochgeladene Dokumente samt Versionen und "
                   "Extraktionsverlauf. Die Dateien auf der Platte "
-                  "gehoeren dazu."),
+                  "gehören dazu."),
     "einstellungen": ("Suchkriterien, Scoring-Regler, Blacklist, eigene "
-                      "Ablehnungsgruende, Quellen-Konfiguration."),
-    "gelerntes": ("Aktivitaetsprotokoll, abgeleitete Erkenntnisse, "
+                      "Ablehnungsgründe, Quellen-Konfiguration."),
+    "gelerntes": ("Aktivitätsprotokoll, abgeleitete Erkenntnisse, "
                   "Quellen-Gesundheit, Elwosa-Verlauf."),
 }
 
@@ -455,7 +455,7 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
             "dateien_auf_der_platte": len(dateien),
             "haengende_verweise": haengend["verweise"],
             "haengende_zeilen": haengend["zeilen_gesamt"],
-            "hinweis": ("Geteilte Bereiche gelten fuer ALLE Profile und "
+            "hinweis": ("Geteilte Bereiche gelten für ALLE Profile und "
                         "bleiben beim Leeren eines einzelnen Profils "
                         "unangetastet." if profil_id else
                         "Ohne Profil-Angabe werden alle Profile erfasst.")}
@@ -563,7 +563,7 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
     vor = vorschau(db, bereiche, profil_id)
     if dry_run:
         return {"status": "vorschau", **vor,
-                "hinweis": "Vorschau — es wurde nichts geloescht."}
+                "hinweis": "Vorschau — es wurde nichts gelöscht."}
 
     gewaehlt = [b for b in (bereiche or BEREICHE) if b in BEREICHE]
     betroffen = [t for b in gewaehlt for t in BEREICHE[b]

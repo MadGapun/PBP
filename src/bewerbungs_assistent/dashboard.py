@@ -1837,7 +1837,7 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
     stats_blocks = [
         _stat("Bewerbung gesendet", applied_at[:10] if applied_at else "—",
               f"vor {days_since_applied} Tagen" if days_since_applied is not None else None),
-        _stat("Letzte Aktivitaet", last_activity.strftime("%d.%m.%Y") if last_activity else "—",
+        _stat("Letzte Aktivität", last_activity.strftime("%d.%m.%Y") if last_activity else "—",
               f"vor {days_since_activity} Tagen" if days_since_activity is not None else None),
         _stat("Reaktionszeit", f"{response_days} Tage" if response_days is not None else "Noch keine Reaktion",
               first_response_dt.strftime("%d.%m.%Y") if first_response_dt else None),
@@ -1894,7 +1894,7 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
     # Dokumente-Block
     docs_html = ""
     if documents:
-        docs_html = "<h2>Verknuepfte Dokumente</h2><table><tr><th>Datei</th><th>Typ</th><th>Hinzugefuegt</th></tr>"
+        docs_html = "<h2>Verknüpfte Dokumente</h2><table><tr><th>Datei</th><th>Typ</th><th>Hinzugefügt</th></tr>"
         for d in documents:
             created = (d.get("created_at") or "")[:10]
             docs_html += f"<tr><td>{_esc(d.get('filename') or '')}</td><td>{_esc(d.get('doc_type') or '—')}</td><td class='date-col'>{_esc(created)}</td></tr>"
@@ -2007,7 +2007,7 @@ a {{ color: #3182ce; }}
 
 {docs_html}
 
-<h2>Vollstaendige Chronologie ({len(entries)} Eintraege)</h2>
+<h2>Vollständige Chronologie ({len(entries)} Eintraege)</h2>
 <table>
 <tr><th>Datum</th><th>Typ</th><th>Beschreibung</th></tr>
 {rows_html if rows_html else '<tr><td colspan="3" style="text-align:center;color:#a0aec0;">Keine Eintraege.</td></tr>'}
@@ -2230,7 +2230,7 @@ def _render_mails_md(app_data: dict, emails: list) -> str:
         "",
     ]
     if not emails:
-        lines.append("_Keine E-Mails verknuepft._")
+        lines.append("_Keine E-Mails verknüpft._")
         return "\n".join(lines)
     for em in sorted(emails, key=lambda x: x.get("received_at") or x.get("sent_date") or ""):
         date = (em.get("received_at") or em.get("sent_date") or "")[:10]
@@ -2311,30 +2311,30 @@ def _render_inhalt_md(app_data, n_events, n_emails, n_meetings, n_dokumente,
         "",
         "| Datei | Beschreibung |",
         "|---|---|",
-        "| `00_INHALT.md` | Diese Uebersicht |",
-        "| `01_Bewerbungsprotokoll.html` | Vollstaendiges Bewerbungs-Dossier (in Browser oeffnen oder drucken) |",
+        "| `00_INHALT.md` | Diese Übersicht |",
+        "| `01_Bewerbungsprotokoll.html` | Vollständiges Bewerbungs-Dossier (in Browser öffnen oder drucken) |",
     ]
     if include_pdf:
         lines.append("| `01_Bewerbungsprotokoll.pdf` | Selbiges als PDF |")
     lines += [
         "| `02_Stellenanzeige.html` | Original-Stellenbeschreibung mit Link zur Anzeige |",
-        f"| `03_Notizen.md` | Alle Notizen ({n_events} Timeline-Eintraege gesamt) |",
+        f"| `03_Notizen.md` | Alle Notizen ({n_events} Timeline-Einträge gesamt) |",
         f"| `04_Termine.ics` | {n_meetings} Termin(e), in Outlook/Thunderbird/Apple Calendar importierbar |",
         f"| `05_Mail-Verlauf.md` | {n_emails} E-Mail(s) als Zusammenfassung |",
     ]
     if include_dokumente:
-        lines.append(f"| `dokumente/` | {n_dokumente} verknuepfte Original-Datei(en) |")
+        lines.append(f"| `dokumente/` | {n_dokumente} verknüpfte Original-Datei(en) |")
     if include_mails:
         lines.append("| `mails/` | Original-Mail-Dateien (.eml/.msg) falls vorhanden |")
     lines += [
         "",
         "## Tipps zum Lesen",
         "",
-        "- **HTML-Dateien** im Browser oeffnen (Doppelklick).",
-        "- **Markdown-Dateien** mit jedem Text-Editor lesbar; Renderer wie VS Code, Obsidian oder GitHub formatieren sie schoen.",
-        "- **`.ics`** in deinen Kalender importieren — alle verknuepften Termine kommen sauber rein.",
+        "- **HTML-Dateien** im Browser öffnen (Doppelklick).",
+        "- **Markdown-Dateien** mit jedem Text-Editor lesbar; Renderer wie VS Code, Obsidian oder GitHub formatieren sie schön.",
+        "- **`.ics`** in deinen Kalender importieren — alle verknüpften Termine kommen sauber rein.",
         "",
-        "Erstellt von [PBP — Persoenliches Bewerbungs-Portal](https://github.com/MadGapun/PBP).",
+        "Erstellt von [PBP — Persönliches Bewerbungs-Portal](https://github.com/MadGapun/PBP).",
     ]
     return "\n".join(lines)
 
@@ -3695,7 +3695,7 @@ async def api_keyword_suggestions():
         good_jobs = [j for j in all_jobs if j.get("score", 0) >= 3]
         bad_jobs = [j for j in all_jobs if j.get("score", 0) <= 1]
         datenquelle = (
-            f"Score-Vergleich (kein Bewerbungs-Vergleich moeglich, "
+            f"Score-Vergleich (kein Bewerbungs-Vergleich möglich, "
             f"Bewerbungen: {len(applied_job_objs)}, "
             f"Aussortiert: {len(dismissed_jobs)})"
         )
@@ -4907,7 +4907,7 @@ async def api_refetch_description(job_hash: str):
     if not url:
         return JSONResponse(
             {"error": "Stelle hat keine URL — Beschreibung muss manuell "
-                      "ueber 'Bearbeiten' eingetragen werden."},
+                      "über 'Bearbeiten' eingetragen werden."},
             status_code=400,
         )
     try:
@@ -5131,12 +5131,12 @@ async def api_schwellen_stufe(request: Request):
         raise HTTPException(
             status_code=400,
             detail=f"Unbekannter Bereich: {bereich!r}. "
-                   f"Moeglich: {', '.join(_st.BEREICHE)}")
+                   f"Möglich: {', '.join(_st.BEREICHE)}")
     if stufe not in _st.SCHLUESSEL:
         raise HTTPException(
             status_code=400,
             detail=f"Unbekannte Stufe: {stufe!r}. "
-                   f"Moeglich: {', '.join(_st.SCHLUESSEL)}")
+                   f"Möglich: {', '.join(_st.SCHLUESSEL)}")
     _st.stufe_setzen(_db, bereich, stufe)
     alle = _st.stufen(_db)
     return {
@@ -5162,7 +5162,7 @@ async def api_set_criteria(request: Request):
     # angesehen — danach schweigt der Umstellungs-Hinweis (#929).
     if "min_score_schwelle" in data:
         from .services import schwellen_umstellung as _su
-        _su.abhaken(_db, "min_score_schwelle ueber das Dashboard")
+        _su.abhaken(_db, "min_score_schwelle über das Dashboard")
     return {"status": "ok"}
 
 
@@ -5331,7 +5331,7 @@ async def api_update_task(task_id: str, request: Request):
     erlaubt = ("titel", "beschreibung", "faellig_am", "typ", "notiz")
     daten = {k: data[k] for k in erlaubt if k in data}
     if not daten:
-        return JSONResponse({"error": "Keine Aenderungen"}, status_code=400)
+        return JSONResponse({"error": "Keine Änderungen"}, status_code=400)
     ok = _db.update_task(task_id, daten)
     if not ok:
         return JSONResponse({"error": "Nicht gefunden"}, status_code=404)
@@ -5420,7 +5420,7 @@ async def api_adzuna_speichern(request: Request):
             return JSONResponse(
                 {"error": ("Adzuna lehnt die Keys ab (HTTP "
                            f"{r.status_code}). Auf developer.adzuna.com "
-                           "pruefen — der Free Tier reicht.")},
+                           "prüfen — der Free Tier reicht.")},
                 status_code=400)
         r.raise_for_status()
         anzahl = len((r.json() or {}).get("results") or [])
@@ -5432,7 +5432,7 @@ async def api_adzuna_speichern(request: Request):
     _db.set_setting("adzuna_app_key", app_key)
     return {"status": "verbunden", "test_treffer": anzahl,
             "hinweis": ("Adzuna ist einsatzbereit — in den Quellen "
-                        "aktivieren, dann laeuft sie beim naechsten "
+                        "aktivieren, dann läuft sie beim nächsten "
                         "Suchlauf mit.")}
 
 
@@ -5458,7 +5458,7 @@ async def api_routing_speichern(request: Request):
                             status_code=400)
     return {**_routing.status(_db), "status": ergebnis["status"],
             "hinweis": ("Fahrstrecke eingerichtet. Neue Stellen bekommen sie "
-                        "beim naechsten Suchlauf; vorhandene zieht Claude "
+                        "beim nächsten Suchlauf; vorhandene zieht Claude "
                         "mit fahrstrecken_verwalten('nachziehen') nach.")}
 
 
@@ -5544,7 +5544,7 @@ async def api_upload_document(
     # Reject Word temp files (~$...)
     if incoming_name.startswith("~$"):
         return JSONResponse(
-            {"error": "Temporaere Word-Datei (~$...) wird nicht importiert."},
+            {"error": "Temporäre Word-Datei (~$...) wird nicht importiert."},
             status_code=400,
         )
 
@@ -5588,7 +5588,7 @@ async def api_upload_document(
             "filename": existing_doc.get("filename"),
             "duplicate_of": did,
             "linked_application_id": linked_app,
-            "nachricht": "Dokument war schon vorhanden — wurde nur verknuepft.",
+            "nachricht": "Dokument war schon vorhanden — wurde nur verknüpft.",
         }
 
     doc_dir = _get_active_profile_document_dir()
@@ -5610,13 +5610,13 @@ async def api_upload_document(
             return JSONResponse(
                 {
                     "error": (
-                        "Outlook-Mails (.msg) werden in dieser Installation nicht unterstuetzt. "
+                        "Outlook-Mails (.msg) werden in dieser Installation nicht unterstützt. "
                         "Das Paket 'extract-msg' fehlt oder konnte nicht installiert werden."
                     ),
                     "hinweis": (
                         "Bitte PBP neu installieren (INSTALLIEREN.bat). "
                         "Falls das Problem bestehen bleibt: "
-                        "Die Mail in Outlook oeffnen und als .eml oder PDF speichern, "
+                        "Die Mail in Outlook öffnen und als .eml oder PDF speichern, "
                         "dann hier erneut hochladen. "
                         "(Datei > Speichern unter > 'Nur Text (*.eml)' oder PDF)"
                     ),
@@ -6246,9 +6246,9 @@ async def api_start_source_login(source_key: str):
                 # nuetzlichen Hinweis statt eines kryptischen Fehlers.
                 raise ValueError(
                     f"Quelle '{source_key}' braucht keinen Login-Flow im Dashboard — "
-                    f"nutze sie direkt ueber jobsuche_starten oder die zustaendige "
+                    f"nutze sie direkt über jobsuche_starten oder die zuständige "
                     f"Browser-/Chrome-Extension. Falls du hier landest, war "
-                    f"login_erforderlich faelschlich auf True gesetzt — bitte als "
+                    f"login_erforderlich fälschlich auf True gesetzt — bitte als "
                     f"Issue auf GitHub melden."
                 )
 
@@ -6572,8 +6572,8 @@ async def api_ingest_job(request: Request, payload: dict):
         if dup:
             kandidat = dup.get("job") or {}
             return JSONResponse(
-                {"error": "Zu dieser Firma laeuft bereits eine Bewerbung "
-                          "mit sehr aehnlichem Titel — nicht angelegt.",
+                {"error": "Zu dieser Firma läuft bereits eine Bewerbung "
+                          "mit sehr ähnlichem Titel — nicht angelegt.",
                  "duplikat": {
                      "titel": kandidat.get("title", ""),
                      "status": kandidat.get("status", ""),
@@ -6673,7 +6673,7 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
                 "status": "nur_manuelle_quellen",
                 "manuelle_quellen": manuelle_info,
                 "nachricht": (
-                    "Alle ausgewaehlten Quellen laufen nur ueber Claude-in-Chrome "
+                    "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
                     "oder sind deprecated \u2014 hier gibt es nichts zu automatisieren."
                 ),
             },
@@ -6685,7 +6685,7 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
         return {
             "status": "laeuft_bereits",
             "job_id": existing["id"],
-            "nachricht": "Eine Jobsuche laeuft bereits.",
+            "nachricht": "Eine Jobsuche läuft bereits.",
         }
 
     # #1000: die beiden Felder wurden aus dem Payload gelesen, in
@@ -6728,7 +6728,7 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
         "job_id": job_id,
         "quellen": auto_quellen,
         "nachricht": (
-            f"Jobsuche laeuft auf {len(auto_quellen)} Portalen. "
+            f"Jobsuche läuft auf {len(auto_quellen)} Portalen. "
             "Fortschritt in der Sidebar-Statusanzeige."
         ),
     }
@@ -6905,7 +6905,7 @@ async def api_follow_up_dismiss(follow_up_id: str, payload: dict = Body(default=
     grund = (payload or {}).get("grund") or ""
     if grund and fu.get("application_id"):
         try:
-            _db.add_application_note(fu["application_id"], f"Nachfass hinfaellig: {grund}")
+            _db.add_application_note(fu["application_id"], f"Nachfass hinfällig: {grund}")
         except Exception:
             pass
     return {"status": "hinfaellig", "id": follow_up_id}
@@ -6935,7 +6935,7 @@ async def api_adopt_position(app_id: str, payload: dict = Body(default={})):
         return JSONResponse({"error": "application_without_title_or_company"}, status_code=400)
     from datetime import date as _date
     start_date = (payload or {}).get("start_date") or _date.today().isoformat()
-    description = (payload or {}).get("description") or f"Uebernommen aus Bewerbung {app_id[:8]}"
+    description = (payload or {}).get("description") or f"Übernommen aus Bewerbung {app_id[:8]}"
     position_id = _db.add_position({
         "title": app_row["title"],
         "company": app_row["company"],
@@ -6947,7 +6947,7 @@ async def api_adopt_position(app_id: str, payload: dict = Body(default={})):
     try:
         _db.add_application_note(
             app_id,
-            f"Position ins Profil uebernommen (position_id={position_id}, Start {start_date})."
+            f"Position ins Profil übernommen (position_id={position_id}, Start {start_date})."
         )
     except Exception:
         pass
@@ -7149,11 +7149,11 @@ async def api_import_profile(file: UploadFile = File(...)):
     try:
         data = json.loads(content.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        return JSONResponse({"error": f"Ungueltige JSON-Datei: {e}"}, status_code=400)
+        return JSONResponse({"error": f"Ungültige JSON-Datei: {e}"}, status_code=400)
 
     if "_export_meta" not in data:
         return JSONResponse(
-            {"error": "Keine gueltige PBP-Backup-Datei (fehlende Metadaten)"},
+            {"error": "Keine gültige PBP-Backup-Datei (fehlende Metadaten)"},
             status_code=400
         )
 
@@ -7320,7 +7320,7 @@ async def api_analyze_documents(request: Request):
             "nachricht": (
                 "Keine strukturierten Profildaten erkannt. "
                 "Nutze im Profil den Button 'Profil-Prompt kopieren' oder den Analyse-Prompt des Dokuments "
-                "fuer die Claude-gestuetzte Auswertung."
+                "für die Claude-gestützte Auswertung."
             ),
             "basis_analysiert": len(doc_ids),
             "analysiert_leer": len(empty_text_doc_ids),
@@ -7391,7 +7391,7 @@ async def api_factory_reset(request: Request):
     """Factory reset â€” delete ALL data for clean testing."""
     data = await request.json()
     if data.get("confirm") != "RESET":
-        return JSONResponse({"error": "Bestaetigung fehlt (confirm: RESET)"}, status_code=400)
+        return JSONResponse({"error": "Bestätigung fehlt (confirm: RESET)"}, status_code=400)
     erg = _db.reset_all_data()
     # Bis v1.7.80 stand hier "Alle Daten geloescht" — und genau das
     # stimmte nicht: 29 von 47 Tabellen blieben stehen, darunter 81
@@ -7465,7 +7465,7 @@ async def api_danger_leeren(request: Request):
     data = await request.json()
     if data.get("confirm") != "LOESCHEN":
         return JSONResponse(
-            {"error": "Bestaetigung fehlt (confirm: LOESCHEN)"},
+            {"error": "Bestätigung fehlt (confirm: LOESCHEN)"},
             status_code=400)
 
     modus = (data.get("modus") or "bereiche").strip().lower()
@@ -7481,7 +7481,7 @@ async def api_danger_leeren(request: Request):
     gewaehlt = data.get("bereiche") or []
     if not isinstance(gewaehlt, list) or not gewaehlt:
         return JSONResponse(
-            {"error": "Kein Bereich gewaehlt. Waehle mindestens einen "
+            {"error": "Kein Bereich gewählt. Wähle mindestens einen "
                       f"aus: {', '.join(loeschbereiche.BEREICHE)}"},
             status_code=400)
     unbekannt = [b for b in gewaehlt if b not in loeschbereiche.BEREICHE]
@@ -7525,7 +7525,7 @@ async def _dsgvo_loeschen() -> dict:
             sub.mkdir()
             geloescht.append(subdir.capitalize())
     return {"status": "ok", "modus": "dsgvo", "deleted": geloescht,
-            "message": ("Datenbank und Dokumentordner geloescht. "
+            "message": ("Datenbank und Dokumentordner gelöscht. "
                         "Bitte Dashboard neu starten.")}
 
 
@@ -7564,7 +7564,7 @@ async def api_launch_uninstaller(request: Request):
     data = await request.json()
     if data.get("confirm") != "DEINSTALLIEREN":
         return JSONResponse(
-            {"error": "Bestaetigung fehlt (confirm: DEINSTALLIEREN)"},
+            {"error": "Bestätigung fehlt (confirm: DEINSTALLIEREN)"},
             status_code=400,
         )
     erg = deinstallation.starten()
@@ -7924,7 +7924,7 @@ async def api_unlink_app_job(app_id: str, job_hash: str):
     """Stellen-Verknuepfung von einer Bewerbung entfernen (#472)."""
     ok = _db.unlink_application_job(app_id, job_hash)
     if not ok:
-        return JSONResponse({"error": "Verknuepfung nicht gefunden"}, status_code=404)
+        return JSONResponse({"error": "Verknüpfung nicht gefunden"}, status_code=404)
     return {"status": "unlinked"}
 
 
@@ -8079,7 +8079,7 @@ async def api_update_contact_category(category_id: int, request: Request):
         sort_order=data.get("sort_order"),
     )
     if not ok:
-        return JSONResponse({"error": "Kategorie nicht gefunden oder keine Aenderung"},
+        return JSONResponse({"error": "Kategorie nicht gefunden oder keine Änderung"},
                              status_code=404)
     return {"status": "ok"}
 
@@ -8427,8 +8427,8 @@ async def api_contact_enrich_from_linkedin(request: Request):
 
     prompt = (
         f"PBP — LinkedIn-Profil-Anreicherung\n\n"
-        f"1. Oeffne im eingeloggten Chrome-Tab: {li_url}\n"
-        f"2. Fuehre dieses JavaScript aus (javascript_tool):\n\n"
+        f"1. Öffne im eingeloggten Chrome-Tab: {li_url}\n"
+        f"2. Führe dieses JavaScript aus (javascript_tool):\n\n"
         f"{extraction_js}\n\n"
         f"3. Aktualisiere den Kontakt mit den extrahierten Feldern via "
         f"PUT /api/contacts/{cid or '<contact_id>'}.\n\n"
@@ -8436,10 +8436,10 @@ async def api_contact_enrich_from_linkedin(request: Request):
         f"  name → full_name\n"
         f"  headline → position\n"
         f"  company → company\n"
-        f"  location → notes (anhaengen)\n"
-        f"  about_excerpt → notes (anhaengen)\n\n"
-        f"Wenn die Selektoren leer zurueckkommen (LinkedIn rotiert sie haeufig),\n"
-        f"falle auf get_page_text() zurueck und extrahiere manuell."
+        f"  location → notes (anhängen)\n"
+        f"  about_excerpt → notes (anhängen)\n\n"
+        f"Wenn die Selektoren leer zurückkommen (LinkedIn rotiert sie häufig),\n"
+        f"falle auf get_page_text() zurück und extrahiere manuell."
     )
 
     return {
@@ -8449,7 +8449,7 @@ async def api_contact_enrich_from_linkedin(request: Request):
         "prompt": prompt,
         "extraction_js": extraction_js,
         "hinweis": (
-            "LinkedIn-Profile koennen nicht direkt vom Server gescrapt werden "
+            "LinkedIn-Profile können nicht direkt vom Server gescrapt werden "
             "(Login-Wall, Bot-Detection). Nutze diesen Prompt mit Claude-in-"
             "Chrome — der eingeloggte Browser-Tab umgeht die Sperren."
         ),
@@ -8462,7 +8462,7 @@ async def api_update_contact(contact_id: str, request: Request):
     data = await request.json()
     ok = _db.update_contact(contact_id, data)
     if not ok:
-        return JSONResponse({"error": "Kontakt nicht gefunden oder keine Aenderungen"}, status_code=404)
+        return JSONResponse({"error": "Kontakt nicht gefunden oder keine Änderungen"}, status_code=404)
     return {"status": "updated"}
 
 
@@ -8506,7 +8506,7 @@ async def api_unlink_contact(link_id: str):
     """Loescht eine Kontakt-Verknuepfung (#563)."""
     ok = _db.unlink_contact(link_id)
     if not ok:
-        return JSONResponse({"error": "Verknuepfung nicht gefunden"}, status_code=404)
+        return JSONResponse({"error": "Verknüpfung nicht gefunden"}, status_code=404)
     return {"status": "unlinked"}
 
 
@@ -9038,7 +9038,7 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
                 r["id"], scheduled.isoformat(),
                 follow_up_type="nachfass",
                 template=(
-                    f"Auto-Reconciler: {default_days}d nach letzter Aktivitaet "
+                    f"Auto-Reconciler: {default_days}d nach letzter Aktivität "
                     "({last_seen}). Nachfrage senden falls keine Antwort?"
                 ).format(last_seen=last_seen)
             )
@@ -9715,7 +9715,7 @@ def _run_analyze_user_patterns(now_iso: str, days: int = 30,
             "skipped": True,
             "reason": (
                 f"Nur {aggregate.get('total_events', 0)} Events in letzten "
-                f"{days} Tagen — Mindestschwelle {min_events} fuer "
+                f"{days} Tagen — Mindestschwelle {min_events} für "
                 "Mustererkennung nicht erreicht."
             ),
             "insights": 0,
@@ -10737,7 +10737,7 @@ def _aggregate_user_activity(days: int = 30) -> dict:
                     f"Auf der Seite '{p['page']}' wird viel geklickt "
                     f"({p['clicks_per_view']} Klicks pro Besuch). "
                     "Vermutlich Sucht-Verhalten — Filter oder Sortierung "
-                    "koennten optimiert werden."
+                    "könnten optimiert werden."
                 ),
             })
     # 2. Workflow-Abbruch-Quote > 40%
@@ -10751,7 +10751,7 @@ def _aggregate_user_activity(days: int = 30) -> dict:
                 "value": round(aborts / starts * 100, 0),
                 "message": (
                     f"Workflow '{wfid}' wird in {round(aborts/starts*100)}% "
-                    "der Faelle abgebrochen. UX-Schwaeche?"
+                    "der Fälle abgebrochen. UX-Schwäche?"
                 ),
             })
 
@@ -11012,7 +11012,7 @@ def _format_telemetry_mail(payload: dict) -> dict:
         lines.append("")
 
     lines.append("---")
-    lines.append("Diese Mail enthaelt KEINE persoenlichen Daten:")
+    lines.append("Diese Mail enthält KEINE persönlichen Daten:")
     lines.append("- keine Job-Titel, keine Firmen, keine Profile-Inhalte")
     lines.append("- nur aggregierte Zahlen + abstrahierte Insights")
     lines.append("")
@@ -11048,7 +11048,7 @@ def _telemetry_should_trigger() -> dict:
             if delta < iv:
                 return {
                     "due": False,
-                    "reason": f"erst in {iv - delta} Tag(en) faellig",
+                    "reason": f"erst in {iv - delta} Tag(en) fällig",
                     "next_in_days": iv - delta,
                 }
         except Exception:
@@ -11612,7 +11612,7 @@ async def api_llm_test_connection():
         result["test_roundtrip"] = {
             "skipped": True,
             "reason": (
-                "Voraussetzungen fuer Test-Roundtrip nicht erfuellt: "
+                "Voraussetzungen für Test-Roundtrip nicht erfüllt: "
                 f"ollama_available={s.ollama_available}, "
                 f"models={len(s.available_models)}, "
                 f"user_state={s.user_state}"
@@ -11799,7 +11799,7 @@ async def api_quellen_meldung(quelle: str):
         return JSONResponse(
             {"error": "Diese Quelle ist nicht meldbar",
              "grund": ("Abgeschaltete Quellen sind eine Entscheidung, "
-                       "kein Defekt — eine Meldung darueber haette "
+                       "kein Defekt — eine Meldung darüber hätte "
                        "keinen Adressaten.")},
             status_code=409)
     return angebot
@@ -11931,14 +11931,14 @@ async def api_privacy_delete_all(request: Request):
     data = await request.json()
     if data.get("confirm") not in ("LOESCHEN", "ALLES_LOESCHEN"):
         return JSONResponse(
-            {"error": "Bestaetigung fehlt (confirm: LOESCHEN)"},
+            {"error": "Bestätigung fehlt (confirm: LOESCHEN)"},
             status_code=400
         )
     erg = await _dsgvo_loeschen()
     # Der alte Schluessel bleibt, damit bestehende Aufrufer nicht
     # brechen.
     return {"status": "ok", "deleted": erg["deleted"],
-            "message": "Alle Daten geloescht. Bitte Dashboard neu starten."}
+            "message": "Alle Daten gelöscht. Bitte Dashboard neu starten."}
 
 
 # === Export Package (v1.4.0, #289) ===

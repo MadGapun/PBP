@@ -96,10 +96,10 @@ def offen(db) -> dict:
         "schwellen": gesetzt,
         "erklaerung": (
             "Seit v1.7.117 (#1052) ist der Score der FACHWERT allein — "
-            "Entfernung, Remote-Anteil und Gehalt zaehlen nicht mehr mit "
+            "Entfernung, Remote-Anteil und Gehalt zählen nicht mehr mit "
             "hinein, sondern stehen als eigener Rahmenwert daneben. Die "
             "Zahl ist damit kleiner als vorher, und deine Schwelle "
-            "filtert schaerfer, ohne dass du sie angefasst hast."),
+            "filtert schärfer, ohne dass du sie angefasst hast."),
         "naechster_schritt": (
             "Lass den Backtest einen neuen Wert vorschlagen: "
             "kalibrierung_backtest(). Er rechnet ihn aus deiner eigenen "
@@ -131,8 +131,8 @@ def vorschlag(db, ergebnis: dict | None = None) -> dict:
     block = (ergebnis.get("varianten") or {}).get("aktuell") or {}
     if block.get("schwellen_vorschlag") is None:
         befund["hinweis"] = block.get("hinweis") or (
-            "Ohne bewerbungsverknuepfte Stellen gibt es keine Grundlage "
-            "fuer einen Vorschlag — und geraten wird nicht.")
+            "Ohne bewerbungsverknüpfte Stellen gibt es keine Grundlage "
+            "für einen Vorschlag — und geraten wird nicht.")
         return befund
 
     befund["vorschlag"] = block["schwellen_vorschlag"]
@@ -142,9 +142,9 @@ def vorschlag(db, ergebnis: dict | None = None) -> dict:
     befund["aussortierte_ueber_vorschlag"] = block.get(
         "aussortierte_ueber_vorschlag")
     befund["setzen_mit"] = (
-        "suchkriterien_setzen(min_score_schwelle=%s) fuer den Suchlauf, "
+        "suchkriterien_setzen(min_score_schwelle=%s) für den Suchlauf, "
         "scoring_konfigurieren('setzen', 'schwellenwert', 'auto_ignore', %s) "
-        "fuer die Liste." % (befund["vorschlag"], befund["vorschlag"]))
+        "für die Liste." % (befund["vorschlag"], befund["vorschlag"]))
     return befund
 
 

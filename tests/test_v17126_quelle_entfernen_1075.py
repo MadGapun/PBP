@@ -132,7 +132,7 @@ def test_1075_kontaktverweise_gehen_mit_der_kontakt_bleibt(env):
 def test_1075_gewaehlte_quelle_bekommt_eine_warnung(env):
     db, mcp = env
     res = _call(mcp, "stellen_entfernen_nach_quelle", {"quelle": "bundesagentur"})
-    assert "noch ausgewaehlt" in res["warnung"]
+    assert "noch ausgewählt" in res["warnung"]
 
 
 def test_1075_rest_weg(env):

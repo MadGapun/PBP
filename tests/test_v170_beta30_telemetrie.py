@@ -186,7 +186,7 @@ def test_mail_format_no_pii(setup_env):
     # Insights sollten drin sein
     assert "Score >= 70" in body
     # Hinweis-Text
-    assert "KEINE persoenlichen Daten" in body
+    assert "KEINE persönlichen Daten" in body
 
 
 def test_mail_subject_includes_version_and_count(setup_env):

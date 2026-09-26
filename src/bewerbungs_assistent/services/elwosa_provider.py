@@ -159,7 +159,7 @@ def betriebslage_kandidaten(db) -> list:
             else:
                 content = (f"{n} Stellen im Bestand haben weder Link noch "
                            "Ansprechpartner. Bewerben geht so nicht. "
-                           "stellen_urls_heilen hilft beim Aufraeumen (Expertenmodus).")
+                           "stellen_urls_heilen hilft beim Aufräumen (Expertenmodus).")
             kandidaten.append(Candidate(
                 content=content, trigger_kind="betriebslage",
                 trigger_ref=j.get("hash", ""),
@@ -183,13 +183,13 @@ def betriebslage_kandidaten(db) -> list:
         if row:
             kandidaten.append(Candidate(
                 content=(f"Die Quelle {row['scraper_name']} liefert seit "
-                         "mehreren Laeufen nichts mehr. Frueher kam dort "
+                         "mehreren Läufen nichts mehr. Früher kam dort "
                          "einiges. quellen_health_check zeigt den Stand."),
                 trigger_kind="betriebslage",
                 trigger_ref=row["scraper_name"],
                 dedup_key=f"quelle_versiegt:{row['scraper_name']}",
                 link_url="pbp://tab/einstellungen",
-                link_label="Quellen pruefen",
+                link_label="Quellen prüfen",
                 prioritaet=0))
     except Exception:
         pass

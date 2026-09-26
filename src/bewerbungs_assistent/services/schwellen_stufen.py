@@ -81,11 +81,11 @@ STUFEN = (
      "bedeutung": "Klare Fehlgriffe verschwinden.",
      "quelle": ("aussortiert", 0.5, "Median der aussortierten Stellen")},
     {"schluessel": "locker", "name": "Locker",
-     "bedeutung": "Was du ueblicherweise wegklickst, bleibt draussen.",
+     "bedeutung": "Was du üblicherweise wegklickst, bleibt draussen.",
      "quelle": ("aussortiert", 0.75,
                 "oberes Viertel der aussortierten Stellen")},
     {"schluessel": "ausgewogen", "name": "Ausgewogen",
-     "bedeutung": "Etwa das Niveau deiner schwaecheren Bewerbungen.",
+     "bedeutung": "Etwa das Niveau deiner schwächeren Bewerbungen.",
      "quelle": ("beworben", 0.25, "unteres Viertel deiner Bewerbungen")},
     {"schluessel": "streng", "name": "Streng",
      "bedeutung": "Etwa das Niveau deiner mittleren Bewerbungen.",
@@ -190,11 +190,11 @@ def stufen(db) -> dict:
     }
     if not belastbar:
         antwort["grund"] = (
-            f"Fuer berechnete Stufen braucht es mindestens {MIN_WERTE} "
+            f"Für berechnete Stufen braucht es mindestens {MIN_WERTE} "
             f"bewertbare Bewerbungen und {MIN_WERTE} aussortierte Stellen; "
             f"vorhanden sind {len(beworben)} und {len(aussortiert)}. "
             "Solange bleibt es bei 'Alles zeigen' — eine Stufe aus einer "
-            "Handvoll Werte waere geraten.")
+            "Handvoll Werte wäre geraten.")
     return antwort
 
 
@@ -213,10 +213,10 @@ def stufe_setzen(db, bereich: str, schluessel: str) -> dict:
     """Setzt die Stufe — und sagt, was sie bedeutet."""
     if bereich not in BEREICHE:
         return {"fehler": f"Unbekannter Bereich '{bereich}'. "
-                          f"Moeglich: {', '.join(BEREICHE)}."}
+                          f"Möglich: {', '.join(BEREICHE)}."}
     if schluessel not in SCHLUESSEL:
         return {"fehler": f"Unbekannte Stufe '{schluessel}'. "
-                          f"Moeglich: {', '.join(SCHLUESSEL)}."}
+                          f"Möglich: {', '.join(SCHLUESSEL)}."}
     db.set_profile_setting(_EINSTELLUNG[bereich], schluessel)
     befund = stufen(db)
     eintrag = next(s for s in befund["stufen"]

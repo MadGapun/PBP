@@ -188,7 +188,7 @@ SOURCE_REGISTRY = {
     # ── Schnelle Quellen (HTTP/API, parallel, < 10s) ──────────────
     "bundesagentur": {
         "name": "Bundesagentur für Arbeit",
-        "beschreibung": "Oeffentliche Jobboerse der Arbeitsagentur. Groesstes deutsches Stellenportal.",
+        "beschreibung": "Öffentliche Jobbörse der Arbeitsagentur. Grösstes deutsches Stellenportal.",
         "methode": "REST API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -207,14 +207,14 @@ SOURCE_REGISTRY = {
         # fiel auf Kategorieseiten mit zwei Karten zurueck und holte die
         # Detailseite JEDES Projekts, bis die Zeitgrenze griff.
         "name": "freelance.de",
-        "beschreibung": "Projektboerse fuer Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
+        "beschreibung": "Projektbörse für Freelancer und IT-Projekte. Grosse Auswahl an Projekten in DACH.",
         "methode": "Stichwort-Seiten (HTML)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "ingenieur_de": {
         "name": "ingenieur.de (VDI)",
-        "beschreibung": "Engineering-Jobboerse des VDI. Spezialisiert auf Ingenieur- und Technik-Stellen.",
+        "beschreibung": "Engineering-Jobbörse des VDI. Spezialisiert auf Ingenieur- und Technik-Stellen.",
         "methode": "HTML Scraping",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -222,7 +222,7 @@ SOURCE_REGISTRY = {
         # Alte URL `/jobs/` ist seit 2026-04-25 dauerhaft 404. Scraper-Code in
         # `ingenieur_de.py` muss auf die neue Subdomain umgestellt werden.
         "url_aktualisiert_am": "2026-06-01 (Issue #653)",
-        "manueller_fallback": "https://jobs.ingenieur.de/ (im Browser oder ueber die Claude-Erweiterung oeffnen)",
+        "manueller_fallback": "https://jobs.ingenieur.de/ (im Browser oder über die Claude-Erweiterung öffnen)",
     },
     "heise_jobs": {
         "name": "Heise Jobs",
@@ -234,12 +234,12 @@ SOURCE_REGISTRY = {
         # v1.7.107 (B53): Korrektur zu v1.7.106 — die 60 Links der Startseite
         # sind SEO-Linklisten, keine Stellen. Die Treffer kommen nur im Browser.
         "defekt": True,
-        "defekt_grund": "Erneut gemessen 14.09.2026: die Suchtreffer laedt jobs.heise.de erst im Browser nach. Ohne Browser liefert die Suchseite eine leere Huelle, und die Datenroute der Seite antwortet mit HTTP 500 — auch mit nachgestelltem Formular-Ablauf. Die 60 Links der Startseite, die v1.7.106 als Stellenkarten nannte, sind Linklisten. Im Browser funktioniert die Suche: der Weg ueber die Claude-Erweiterung.",
-        "manueller_fallback": "https://jobs.heise.de/search?q=<Begriff> im Browser oder ueber die Claude-Erweiterung",
+        "defekt_grund": "Erneut gemessen 14.09.2026: die Suchtreffer lädt jobs.heise.de erst im Browser nach. Ohne Browser liefert die Suchseite eine leere Hülle, und die Datenroute der Seite antwortet mit HTTP 500 — auch mit nachgestelltem Formular-Ablauf. Die 60 Links der Startseite, die v1.7.106 als Stellenkarten nannte, sind Linklisten. Im Browser funktioniert die Suche: der Weg über die Claude-Erweiterung.",
+        "manueller_fallback": "https://jobs.heise.de/search?q=<Begriff> im Browser oder über die Claude-Erweiterung",
     },
     "gulp": {
         "name": "GULP",
-        "beschreibung": "Top IT/Engineering Freelance-Projektboerse. Grosse Auswahl an IT-Projekten.",
+        "beschreibung": "Top IT/Engineering Freelance-Projektbörse. Grosse Auswahl an IT-Projekten.",
         "methode": "JSON-API (Projektsuche)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -252,11 +252,11 @@ SOURCE_REGISTRY = {
         # im Bundle. Die Quelle liefert wieder; der Handoff bleibt als
         # zweiter Weg.
         "handoff_verfuegbar": True,
-        "manueller_fallback": "quelle_handoff('gulp') — oeffnet die Projektsuche im Browser",
+        "manueller_fallback": "quelle_handoff('gulp') — öffnet die Projektsuche im Browser",
     },
     "solcom": {
         "name": "SOLCOM",
-        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister fuer IT-Projekte.",
+        "beschreibung": "IT + Engineering Projektportal. Personaldienstleister für IT-Projekte.",
         "methode": "Nur von Hand im Browser (Cloudflare-Block, kein automatischer Abruf)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -264,8 +264,8 @@ SOURCE_REGISTRY = {
         # dauerhaft aktiv (auch mit User-Agent-Spoofing 403). Quelle nur
         # noch via Chrome-Extension nutzbar. Aus Auto-Scraper-Liste raus.
         "deprecated": True,
-        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur ueber die Claude-Erweiterung im Browser",
-        "manueller_fallback": "https://www.solcom.de/projekte (im Browser oder ueber die Claude-Erweiterung)",
+        "deprecated_grund": "Cloudflare-Bot-Block dauerhaft aktiv — nur über die Claude-Erweiterung im Browser",
+        "manueller_fallback": "https://www.solcom.de/projekte (im Browser oder über die Claude-Erweiterung)",
     },
     "stellenanzeigen_de": {
         "name": "Stellenanzeigen.de",
@@ -277,9 +277,9 @@ SOURCE_REGISTRY = {
     "adzuna": {
         "name": "Adzuna",
         "beschreibung": (
-            "Aggregator-Jobsuche mit 19-Laender-Abdeckung. REST-API, "
+            "Aggregator-Jobsuche mit 19-Länder-Abdeckung. REST-API, "
             "deutsche Stellen, kostenlose Registrierung auf developer.adzuna.com. "
-            "Liefert Aggregations-Coverage aehnlich Bundesagentur."
+            "Liefert Aggregations-Coverage ähnlich Bundesagentur."
         ),
         "methode": "REST-API (JSON)",
         "login_erforderlich": False,
@@ -291,7 +291,7 @@ SOURCE_REGISTRY = {
     },
     "jobware": {
         "name": "Jobware",
-        "beschreibung": "Premium-Jobportal fuer Spezialisten und Fuehrungskraefte.",
+        "beschreibung": "Premium-Jobportal für Spezialisten und Führungskräfte.",
         "methode": "HTML Scraping + JSON-LD",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -311,12 +311,12 @@ SOURCE_REGISTRY = {
         # Plattform. Vermutlich SPA mit eigenem JSON-Endpoint. Erstmal HTML-
         # Scraping versuchen, ggf. Playwright-Update in B18.
         "url_aktualisiert_am": "2026-06-01 (Issue #653)",
-        "manueller_fallback": "https://touch.ferchau.com/de/de?type=3 (im Browser oder ueber die Claude-Erweiterung)",
+        "manueller_fallback": "https://touch.ferchau.com/de/de?type=3 (im Browser oder über die Claude-Erweiterung)",
     },
     "kimeta": {
         "name": "Kimeta",
-        "beschreibung": "Deutscher Job-Aggregator. Buendelt Stellen aus vielen Quellen.",
-        "methode": "Handoff (Suche im Browser oeffnen, kein automatischer Abruf)",
+        "beschreibung": "Deutscher Job-Aggregator. Bündelt Stellen aus vielen Quellen.",
+        "methode": "Handoff (Suche im Browser öffnen, kein automatischer Abruf)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         # v1.7.12 (#810/B32): SCRAPING EINGESTELLT — robots.txt untersagt
@@ -327,22 +327,22 @@ SOURCE_REGISTRY = {
         "deprecated": True,
         "deprecated_grund": "robots.txt untersagt automatisierten Abruf — Handoff statt Scraping",
         "handoff_verfuegbar": True,
-        "manueller_fallback": "quelle_handoff('kimeta') — oeffnet https://www.kimeta.de/jobs im Browser",
+        "manueller_fallback": "quelle_handoff('kimeta') — öffnet https://www.kimeta.de/jobs im Browser",
     },
     # ── JobSpy-basierte Quellen (#490, schnell, API-Scrapes via python-jobspy) ──
     "jobspy_linkedin": {
         "name": "LinkedIn (via JobSpy)",
-        "beschreibung": "LinkedIn-Stellen ueber die Open-Source-Bibliothek python-jobspy (MIT). "
-                         "Kein Login, keine API-Keys, kein Browser noetig.",
+        "beschreibung": "LinkedIn-Stellen über die Open-Source-Bibliothek python-jobspy (MIT). "
+                         "Kein Login, keine API-Keys, kein Browser nötig.",
         "methode": "python-jobspy",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
-        "warnung": "LinkedIn rate-limitet ab ca. Seite 10 pro IP — bei 429 wird die Site uebersprungen.",
+        "warnung": "LinkedIn rate-limitet ab ca. Seite 10 pro IP — bei 429 wird die Site übersprungen.",
         "beta": True,
     },
     "jobspy_indeed": {
         "name": "Indeed.de (via JobSpy)",
-        "beschreibung": "Indeed-Stellen ueber die Open-Source-Bibliothek python-jobspy (MIT). "
+        "beschreibung": "Indeed-Stellen über die Open-Source-Bibliothek python-jobspy (MIT). "
                          "Deckt Indeed DE/EU stabil ab, inkl. Volltext.",
         "methode": "python-jobspy",
         "login_erforderlich": False,
@@ -351,13 +351,13 @@ SOURCE_REGISTRY = {
     },
     "jobspy_glassdoor": {
         "name": "Glassdoor (via JobSpy)",
-        "beschreibung": "Glassdoor-Stellen ueber python-jobspy (MIT). Liefert oft 0 — "
-                         "Glassdoor blockiert API-Zugriffe haeufig. Wird trotzdem mitversucht.",
+        "beschreibung": "Glassdoor-Stellen über python-jobspy (MIT). Liefert oft 0 — "
+                         "Glassdoor blockiert API-Zugriffe häufig. Wird trotzdem mitversucht.",
         "methode": "python-jobspy",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         "beta": True,
-        "warnung": "Glassdoor blockiert API-Zugriffe haeufig — niedrige Trefferquote erwartet.",
+        "warnung": "Glassdoor blockiert API-Zugriffe häufig — niedrige Trefferquote erwartet.",
     },
     # ── Freie Aggregatoren ohne API-Key (#500) ──
     "arbeitnow": {
@@ -373,7 +373,7 @@ SOURCE_REGISTRY = {
         "name": "Personio (DACH-Mittelstand)",
         "beschreibung": "Personio ist DACH-spezifischer ATS, im KMU sehr verbreitet. "
                          "Stellen quer durch alle Branchen + Skill-Level (Azubi bis "
-                         "Geschaeftsfuehrer). Fuer Service/Pflege/Hotel/Einzelhandel "
+                         "Geschäftsführer). Für Service/Pflege/Hotel/Einzelhandel "
                          "oft die einzige zentrale Quelle.",
         "methode": "Public XML-Feed (jobs.personio.de/xml)",
         "login_erforderlich": False,
@@ -386,22 +386,22 @@ SOURCE_REGISTRY = {
         # vollem Anzeigentext, Ort und Weiterblaettern. Die alte Widget-API
         # je Firma antwortet dagegen leer oder 404 — sie war der tote Weg.
         "name": "Workable (Public Postings)",
-        "beschreibung": "Internationales Bewerbermanagement-System mit oeffentlicher "
-                         "Stellensuche ueber alle Kunden. Mid-Level breit gestreut, "
+        "beschreibung": "Internationales Bewerbermanagement-System mit öffentlicher "
+                         "Stellensuche über alle Kunden. Mid-Level breit gestreut, "
                          "auch nicht-Tech.",
-        "methode": "Oeffentliche Such-API",
+        "methode": "Öffentliche Such-API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "meinestadt": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Bot-Block fuer automatische Abrufe: HTTP 403 auf Suchseite und RSS (18.08.2026, erneut gemessen 14.09.2026). Im echten Browser laedt die Suche normal — der Weg ueber die Claude-Erweiterung funktioniert.",
-        "manueller_fallback": "Im Browser oder ueber die Claude-Erweiterung suchen und Treffer mit stelle_manuell_anlegen uebernehmen",
+        "defekt_grund": "Bot-Block für automatische Abrufe: HTTP 403 auf Suchseite und RSS (18.08.2026, erneut gemessen 14.09.2026). Im echten Browser lädt die Suche normal — der Weg über die Claude-Erweiterung funktioniert.",
+        "manueller_fallback": "Im Browser oder über die Claude-Erweiterung suchen und Treffer mit stelle_manuell_anlegen übernehmen",
         "name": "meinestadt.de (Regional)",
         "beschreibung": "Regionale DACH-Stellenseite mit Schwerpunkt Service-, Trade- "
                          "und Pflege-Berufe (Kassierer, Hotel, Gastro, Handwerk). "
-                         "Schliesst die Luecke zu JobSpy/LinkedIn fuer nicht-Tech.",
+                         "Schliesst die Lücke zu JobSpy/LinkedIn für nicht-Tech.",
         "methode": "RSS-Feed pro Stadt",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -459,8 +459,8 @@ SOURCE_REGISTRY = {
         # Suche laeuft ueber ein Formular mit Sitzung, die Detailseite traegt
         # JobPosting-Microdata. Fuer Senior-Profile ohne Treffer-Erwartung.
         "name": "Praktikum.de",
-        "beschreibung": "Groesste DACH-Plattform fuer Praktika und Werkstudenten-"
-                         "Stellen. Suche ueber das Formular der Seite.",
+        "beschreibung": "Grösste DACH-Plattform für Praktika und Werkstudenten-"
+                         "Stellen. Suche über das Formular der Seite.",
         "methode": "Suchformular (HTML)",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
@@ -475,7 +475,7 @@ SOURCE_REGISTRY = {
     },
     "berufsstart": {
         "name": "Berufsstart.de",
-        "beschreibung": "Karriere-Einstieg fuer Studenten und Absolventen "
+        "beschreibung": "Karriere-Einstieg für Studenten und Absolventen "
                          "(Trainee, Junior, Praktika, Direkteinstieg).",
         "methode": "RSS",
         "login_erforderlich": False,
@@ -485,7 +485,7 @@ SOURCE_REGISTRY = {
     "workday_dax": {
         # v1.7.19 (#927): live geprueft, kein automatischer Weg.
         "defekt": True,
-        "defekt_grund": "Die hinterlegten Karriereseiten sind veraltet (erneut gemessen 14.09.2026): die Adressen loesen wieder auf, die Such-Schnittstelle antwortet aber bei allen zehn mit HTTP 422, und die Karriereseite leitet im Browser auf eine Workday-Fehlerseite. Die Technik lebt, die Liste nicht — noetig waeren aktuelle Adressen je Firma.",
+        "defekt_grund": "Die hinterlegten Karriereseiten sind veraltet (erneut gemessen 14.09.2026): die Adressen lösen wieder auf, die Such-Schnittstelle antwortet aber bei allen zehn mit HTTP 422, und die Karriereseite leitet im Browser auf eine Workday-Fehlerseite. Die Technik lebt, die Liste nicht — nötig wären aktuelle Adressen je Firma.",
         "manueller_fallback": "Karriereseite der jeweiligen Firma direkt aufrufen; als Custom-Quelle hinterlegen (custom_quelle_hinzufuegen)",
         "name": "Workday-DAX-Cluster",
         "beschreibung": "Public Workday-Career-Sites grosser DACH-Konzerne "
@@ -503,26 +503,26 @@ SOURCE_REGISTRY = {
         "beschreibung": "Greenhouse-Karriereseiten einzelner Firmen. Abgefragt werden "
                          "die Firmen aus deinem Bestand, die Greenhouse nutzen "
                          "(ats_firmen_verwalten), dazu eine feste Beispielliste. "
-                         "Kein API-Key noetig.",
+                         "Kein API-Key nötig.",
         "methode": "Public Job-Board-API",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
     },
     "jobspy_google": {
         "name": "Google Jobs (via JobSpy)",
-        "beschreibung": "Google-Jobs-Aggregator ueber python-jobspy (MIT). Indiziert StepStone, "
+        "beschreibung": "Google-Jobs-Aggregator über python-jobspy (MIT). Indiziert StepStone, "
                          "Indeed, LinkedIn und Dutzende DACH-Boards in einer Anfrage.",
         "methode": "python-jobspy",
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         "beta": True,
         "warnung": "Google blockiert automatisierte Jobsuche oft — wenn 0 Treffer, "
-                    "ueber die Quelle \"Google Jobs (im Browser)\" manuell suchen.",
+                    "über die Quelle \"Google Jobs (im Browser)\" manuell suchen.",
     },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
         "name": "StepStone",
-        "beschreibung": "Grosses deutsches Jobportal fuer Fach- und Fuehrungskraefte.",
+        "beschreibung": "Grosses deutsches Jobportal für Fach- und Führungskräfte.",
         "login_erforderlich": False,
         # v1.7.17 (#906): laeuft faktisch nur ueber Claude-in-Chrome mit
         # eingeloggtem Konto — als aktive Hintergrund-Quelle sah sie nur so aus.
@@ -533,32 +533,32 @@ SOURCE_REGISTRY = {
     },
     "freelancermap": {
         "name": "Freelancermap",
-        "beschreibung": "Projektboerse fuer Freelancer und Selbststaendige.",
+        "beschreibung": "Projektbörse für Freelancer und Selbstständige.",
         "methode": "HTML Scraping + Playwright Fallback",
         "login_erforderlich": False,
         "geschwindigkeit": "langsam",
-        "warnung": "Nutzt bei Bedarf einen Browser als Fallback. Kann 30-60 Sekunden dauern.\nBei haeufigen Timeouts: Lass Claude direkt auf freelancermap.de suchen.",
+        "warnung": "Nutzt bei Bedarf einen Browser als Fallback. Kann 30-60 Sekunden dauern.\nBei häufigen Timeouts: Lass Claude direkt auf freelancermap.de suchen.",
         "beta": True,
     },
     "indeed": {
         "name": "Indeed",
-        "beschreibung": "Groesste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
+        "beschreibung": "Grösste Jobsuchmaschine weltweit. Aggregiert Stellen aus vielen Quellen.",
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://secure.indeed.com/account/register",
-        "login_hinweis": "Ein Indeed-Konto verbessert die Treffer (Standort/Praeferenzen).",
+        "login_hinweis": "Ein Indeed-Konto verbessert die Treffer (Standort/Präferenzen).",
         "geschwindigkeit": "langsam",
         "doppelt_mit": "jobspy_indeed",
     },
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "LinkedIn-Jobsuche ueber die interne Voyager-API im eingeloggten Browser (#919).",
+        "beschreibung": "LinkedIn-Jobsuche über die interne Voyager-API im eingeloggten Browser (#919).",
         "methode_zusatz": "Voyager-API",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.linkedin.com/signup",
-        "login_hinweis": "LinkedIn-Konto noetig und im Browser eingeloggt — HTTP von aussen blockt LinkedIn zuverlaessig, Requests aus dem eingeloggten Tab laufen durch.",
+        "login_hinweis": "LinkedIn-Konto nötig und im Browser eingeloggt — HTTP von aussen blockt LinkedIn zuverlässig, Requests aus dem eingeloggten Tab laufen durch.",
         # v1.7.42 (#919): NICHT mehr 'veraltet'. Der Playwright-Weg ist
         # tot (Erfolgsrate 0 % seit April 2026), der Voyager-Weg wurde am
         # 17.08.2026 vollstaendig durchgespielt: 511 Rohtreffer, 59
@@ -570,24 +570,24 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "manuell",
         "doppelt_mit": "jobspy_linkedin",
         "hinweis": "linkedin_lauf_plan() liefert Suchbegriffe und Browser-Skripte, linkedin_treffer_uebernehmen() schreibt die Ernte nach PBP. Ohne Login: Status 'wartet_auf_login' — die Quelle wird NICHT deaktiviert (#906).",
-        "manueller_fallback": "linkedin_lauf_plan() — der erprobte Weg ueber die Voyager-API",
+        "manueller_fallback": "linkedin_lauf_plan() — der erprobte Weg über die Voyager-API",
     },
     "xing": {
         "name": "XING",
-        "beschreibung": "XING-Suche ueber die Claude-Erweiterung im Browser (manuell, nicht automatisiert).",
+        "beschreibung": "XING-Suche über die Claude-Erweiterung im Browser (manuell, nicht automatisiert).",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
         "konto_url": "https://www.xing.com/signup",
-        "login_hinweis": "XING-Konto noetig und im Browser eingeloggt — sonst sind Suchergebnisse stark beschnitten.",
+        "login_hinweis": "XING-Konto nötig und im Browser eingeloggt — sonst sind Suchergebnisse stark beschnitten.",
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
-        "hinweis": "Automatische Suche deaktiviert (#107/#159). Treffer ueber die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() uebernehmen.",
+        "hinweis": "Automatische Suche deaktiviert (#107/#159). Treffer über die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() übernehmen.",
     },
     "google_jobs": {
         "name": "Google Jobs (im Browser)",
-        "beschreibung": "Groesster Aggregator fuer DE-Stellen — aggregiert StepStone, Jobware, "
-                         "Stellenanzeigen.de und Firmenwebseiten. Laeuft manuell ueber den "
+        "beschreibung": "Grösster Aggregator für DE-Stellen — aggregiert StepStone, Jobware, "
+                         "Stellenanzeigen.de und Firmenwebseiten. Läuft manuell über den "
                          "eingeloggten Browser (keine Bot-Detection). #501",
         # v1.6.5 (#541): kein klassischer Login-Flow noetig — aktivieren reicht.
         # Vorher loeste der Login-Button einen Backend-Fehler aus, weil
@@ -595,13 +595,13 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "zugriffsart": "browser_login",
         "konto_url": "https://accounts.google.com/signup",
-        "login_hinweis": "Eingeloggtes Google-Konto im Browser noetig — die Standortableitung der Jobsuche (udm=8) haengt daran.",
+        "login_hinweis": "Eingeloggtes Google-Konto im Browser nötig — die Standortableitung der Jobsuche (udm=8) hängt daran.",
         "manueller_fallback": True,
         "geschwindigkeit": "manuell",
         "doppelt_mit": "jobspy_google",
-        "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — im Browser oeffnen "
-                    "und Treffer mit stelle_manuell_anlegen() uebernehmen. Kein Login-Click "
-                    "im Dashboard noetig.",
+        "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — im Browser öffnen "
+                    "und Treffer mit stelle_manuell_anlegen() übernehmen. Kein Login-Click "
+                    "im Dashboard nötig.",
         "beta": True,
     },
 }
@@ -614,7 +614,7 @@ SOURCE_REGISTRY = {
 #: `doppelt_mit`).
 BROWSER_METHODE = "Claude-Erweiterung im eigenen Browser"
 BROWSER_HINWEIS = (
-    "Laeuft ueber die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge "
+    "Läuft über die Claude-Erweiterung in deinem Browser (Chrome, Brave, Edge "
     "oder Vivaldi) und verbraucht dabei mehr Token als eine automatische Quelle."
 )
 
@@ -1100,7 +1100,7 @@ def run_search(db, job_id: str, params: dict):
                 "naechster_schritt": _stand.get("naechster_schritt", ""),
                 "hinweis": (
                     "Ohne Suchbegriffe bewertet PBP jede gefundene Stelle "
-                    "mit 0 und verwirft sie anschliessend. Ein Lauf haette "
+                    "mit 0 und verwirft sie anschliessend. Ein Lauf hätte "
                     "die Quellen belastet und dir eine leere Liste "
                     "gezeigt."),
             },
@@ -1415,7 +1415,7 @@ def run_search(db, job_id: str, params: dict):
                 db.update_background_job(
                     job_id, "running",
                     progress=int((completed / total) * 100),
-                    message=f"{len(_haengend)} Quelle(n) im Timeout uebersprungen | {ok_count} OK"
+                    message=f"{len(_haengend)} Quelle(n) im Timeout übersprungen | {ok_count} OK"
                 )
 
         # #1038: Stufe 2 — die langlaufenden Quellen, jede mit ihrem Budget
@@ -1429,8 +1429,8 @@ def run_search(db, job_id: str, params: dict):
             db.update_background_job(
                 job_id, "running",
                 progress=int((completed / total) * 100),
-                message=(f"{_namen} laeuft noch — bei vielen Suchbegriffen dauert "
-                         f"das bis zu {_minuten} Min. Die uebrigen Quellen sind fertig.")
+                message=(f"{_namen} läuft noch — bei vielen Suchbegriffen dauert "
+                         f"das bis zu {_minuten} Min. Die übrigen Quellen sind fertig.")
             )
             try:
                 _einsammeln(max(1.0, max(_rest.values())))
@@ -1476,8 +1476,8 @@ def run_search(db, job_id: str, params: dict):
                         "status": "zu_langsam", "count": len(jobs), "time_s": budget,
                         "detail": (
                             f"zu langsam, teilweise: {fertig} von {abfragen} Suchbegriffen in {budget}s, "
-                            f"{len(jobs)} Stellen uebernommen"
-                            + (f" — ins Hoechstbudget passen etwa {_passen} Begriffe"
+                            f"{len(jobs)} Stellen übernommen"
+                            + (f" — ins Höchstbudget passen etwa {_passen} Begriffe"
                                if _passen else "")),
                     }
                     logger.info("%s: %d Stellen aus %d von %d Begriffen uebernommen",
@@ -1667,7 +1667,7 @@ def run_search(db, job_id: str, params: dict):
             reason = f"intervall*2 seit letzter Suche ({interval}d)"
         else:
             max_age_days = 21
-            reason = "Default fuer frische Installation/neue Quelle"
+            reason = "Default für frische Installation/neue Quelle"
         cutoff_dt = (now_dt - timedelta(days=max_age_days)).isoformat()
         cutoff_date = cutoff_dt[:10]
         before_age = len(unique)
@@ -1986,7 +1986,7 @@ def run_search(db, job_id: str, params: dict):
         result_data["ohne_muss_ungefiltert"] = (
             "Es sind keine MUSS-Begriffe gesetzt, deshalb wurde nichts "
             "aussortiert — die Liste ist nach Passung sortiert, aber "
-            "vollstaendig. Mit suchkriterien_setzen(keywords_muss=[...]) "
+            "vollständig. Mit suchkriterien_setzen(keywords_muss=[...]) "
             "wird sie enger.")
 
     # v1.6.9 (#548): Counter konsequent aus source_status ableiten — sonst
@@ -2059,9 +2059,9 @@ _STUFEN_TEXT = {
     # ohne jede Filterung (#813).
     "ohne_pflichttreffer_behalten": "ohne Pflichttreffer, trotzdem behalten",
     "ohne_pflichttreffer_ueber_grenze": (
-        "ohne Pflichttreffer und ueber der Behalten-Grenze"),
-    "automatisch_aussortiert": "automatisch aussortiert (Wiedergaenger)",
-    "ignoriert": "als Wiedergaenger ignoriert",
+        "ohne Pflichttreffer und über der Behalten-Grenze"),
+    "automatisch_aussortiert": "automatisch aussortiert (Wiedergänger)",
+    "ignoriert": "als Wiedergänger ignoriert",
 }
 
 
@@ -2118,7 +2118,7 @@ def _trichter_belege(stellen, schwelle, stichprobe=5):
             "hinweis": (
                 f"{len(knapp)} Stelle(n) haben einen fachlichen Anker und "
                 f"blieben trotzdem unter der Schwelle von {schwelle}. "
-                "Mit scoring_konfigurieren() laesst sie sich anpassen."),
+                "Mit scoring_konfigurieren() lässt sie sich anpassen."),
         }
     else:
         ergebnis_knapp = {}
@@ -2128,7 +2128,7 @@ def _trichter_belege(stellen, schwelle, stichprobe=5):
             "begriffe": [{"keyword": k, "treffer": n} for k, n in top],
             "hinweis": (
                 "So oft hat ein AUSSCHLUSS-Keyword eine Stelle verworfen. "
-                "Steht ein Begriff weit oben, ist er womoeglich zu breit "
+                "Steht ein Begriff weit oben, ist er womöglich zu breit "
                 "— suchkriterien_bearbeiten() korrigiert das."),
         }
     else:
@@ -2172,8 +2172,8 @@ def zero_treffer_diagnose(stats, source_status, ok_count, error_count,
     gelaufen = len(source_status or {})
     if quellen_konfiguriert and gelaufen < quellen_konfiguriert / 2:
         warnung = (f" ACHTUNG: nur {gelaufen} von {quellen_konfiguriert} "
-                   "konfigurierten Quellen sind ueberhaupt gelaufen — "
-                   "der Rest ist deaktiviert, defekt oder uebersprungen. "
+                   "konfigurierten Quellen sind überhaupt gelaufen — "
+                   "der Rest ist deaktiviert, defekt oder übersprungen. "
                    "scraper_diagnose() zeigt, welche.")
 
     if stufen and sum(stufen.values()) >= max(1, entfernt):
@@ -2192,32 +2192,32 @@ def zero_treffer_diagnose(stats, source_status, ok_count, error_count,
         return (
             f"Die Quellen lieferten Treffer, aber alle {entfernt} waren "
             "schon bekannt, bewertet oder geblacklistet — es gibt gerade "
-            "nichts Neues. Bei haeufigen Suchen ist das normal." + warnung
+            "nichts Neues. Bei häufigen Suchen ist das normal." + warnung
         )
     if not source_status:
         return (
-            "Keine Quelle wurde tatsaechlich durchsucht — alle "
-            "ausgewaehlten Quellen wurden vorab uebersprungen "
+            "Keine Quelle wurde tatsächlich durchsucht — alle "
+            "ausgewählten Quellen wurden vorab übersprungen "
             "(defekt, deaktiviert oder nur manuell nutzbar). "
-            "Pruefe quellen_health_check() oder aktiviere andere Quellen."
+            "Prüfe quellen_health_check() oder aktiviere andere Quellen."
         )
     if ok_count == 0 and (error_count or timeout_count):
         return (
             f"Keine Quelle hat geliefert ({error_count} Fehler, "
             f"{timeout_count} Timeout). Vermutlich Netzwerk- oder "
-            "Portal-Problem — pruefe quellen_health_check() und "
-            "versuche es spaeter erneut."
+            "Portal-Problem — prüfe quellen_health_check() und "
+            "versuche es später erneut."
         )
     if ok_count == 0:
         return (
-            "Alle Quellen wurden uebersprungen (defekt oder deaktiviert). "
+            "Alle Quellen wurden übersprungen (defekt oder deaktiviert). "
             "Aktiviere andere Quellen (Einstellungen › Quellen) oder "
-            "pruefe quellen_health_check()."
+            "prüfe quellen_health_check()."
         )
     return (
         f"{ok_count} Quelle(n) liefen fehlerfrei, fanden aber nichts "
         "zu deinen Suchbegriffen. Versuche breitere Keywords "
-        "(weniger MUSS-Begriffe), pruefe Region/Entfernung oder "
+        "(weniger MUSS-Begriffe), prüfe Region/Entfernung oder "
         "nimm weitere Quellen dazu (keyword_vorschlaege() hilft)."
     )
 
@@ -2990,16 +2990,16 @@ def entfernungs_guete(job: dict) -> tuple[str, str]:
     if _fremd:
         return "verletzt", arbeitsregion.hinweis(_belege)
     if (job.get("remote_level") or "") == "remote":
-        return "entfaellt", "Vollstaendig remote — Entfernung ohne Belang."
+        return "entfaellt", "Vollständig remote — Entfernung ohne Belang."
     ort = (job.get("location") or "").strip()
     if not ort:
         return "unbekannt", ("Kein Ort in der Anzeige — die Entfernung "
                              "konnte nicht bestimmt werden.")
     return "unbekannt", (
-        f"Der Ort '{ort}' liess sich nicht in Koordinaten aufloesen. "
+        f"Der Ort '{ort}' liess sich nicht in Koordinaten auflösen. "
         "Die Entfernung geht deshalb NICHT in den Score ein — die "
         "Stelle ist dadurch weder besser noch schlechter, als sie "
-        "aussieht, sondern ungeprueft.")
+        "aussieht, sondern ungeprüft.")
 
 
 def entfernungs_kompensationsgrad(job: dict, criteria: dict) -> float:
@@ -3105,7 +3105,7 @@ def _neigung_beleg(job: dict, criteria: dict, w: dict) -> dict:
         return {"punkte": 0.0, "label": ""}
     return {
         "punkte": punkte,
-        "label": (f"Aehnelt {s['aehnliche']} deiner Bewerbungen "
+        "label": (f"Ähnelt {s['aehnliche']} deiner Bewerbungen "
                   f"({', '.join(s['begriffe'])}) — hebt nur (#1052)"),
     }
 
@@ -3651,8 +3651,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                     f"AUSSCHLUSS-Keyword '{_ko_kw}' kommt im Anzeigentext "
                     "vor — harter K.o. wie in der Stellenliste. Falls der "
                     "Treffer aus einer redaktionellen Notiz stammt: Notizen "
-                    "gehoeren hinter eine '---'-Trennzeile (#603), dann "
-                    "zaehlen sie nicht."
+                    "gehören hinter eine '---'-Trennzeile (#603), dann "
+                    "zählen sie nicht."
                 ],
                 "ko_ausschluss": _ko_kw,
                 "beschreibung_vorhanden": len(_raw_desc.strip()) >= 50,
@@ -3825,7 +3825,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 total += _gutschrift
         elif dist > fit_type_max * 2:
             _basis = -1
-            factors[f"Entfernung: {int(dist)} km Luftlinie (ueber Max {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km Luftlinie (über Max {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -3833,11 +3833,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                         f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
                 total += _gutschrift
         elif dist <= fit_type_max * 0.6:
-            factors[f"Naehe: {int(dist)} km Luftlinie"] = w["naehe"]
+            factors[f"Nähe: {int(dist)} km Luftlinie"] = w["naehe"]
             total += w["naehe"]
         elif dist <= fit_type_max:
             pts = max(1, w["naehe"] - 1)
-            factors[f"Naehe: {int(dist)} km Luftlinie (im Rahmen)"] = pts
+            factors[f"Nähe: {int(dist)} km Luftlinie (im Rahmen)"] = pts
             total += pts
 
     risks = []
@@ -3874,7 +3874,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
             factors[f"Kompetenzen-Match ({len(skill_hits)} Skills)"] = len(skill_hits)
             total += len(skill_hits)
         if len(skill_miss) > len(skill_hits) and skill_miss:
-            risks.append(f"Wenige deiner Kompetenzen erwaehnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
+            risks.append(f"Wenige deiner Kompetenzen erwähnt ({len(skill_hits)}/{len(skill_hits)+len(skill_miss)})")
 
     # v1.7.35 (#972): Die automatische Hochschulabschluss-Pruefung ist
     # ERSATZLOS entfernt — Risiko-Hinweis, Malus und Feld.
@@ -3968,11 +3968,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     _tor_gewichtet = _kein_muss_tor and _tor.gewichtet_aktiv(criteria)
     if _kein_muss_tor:
         risks.insert(0,
-            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "
+            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfüllt keine "
             "deiner Pflichtanforderungen. PLUS-Keywords allein tragen "
             "keinen Score (#940)."
             if not _tor_gewichtet else
-            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfuellt keine "
+            "KEIN MUSS-KEYWORD GETROFFEN — die Stelle erfüllt keine "
             "deiner Pflichtanforderungen. Sie ist nicht verworfen, "
             "steht aber hinter jeder Stelle mit Pflichttreffer "
             "(MUSS-Tor: gewichtet).")
@@ -4004,7 +4004,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if _minus_begriffe > _minus_deckel:
             _entlastet = _minus_begriffe - _minus_deckel
             _minus_begriffe = _minus_deckel
-            factors["Abzuege ueber Deckel begrenzt (#1045)"] = round(_entlastet, 1)
+            factors["Abzüge über Deckel begrenzt (#1045)"] = round(_entlastet, 1)
         # Und derselbe Deckel auf die Wunschbegriffe wie in
         # `calculate_score`. Er ist nicht ganz entfallen: gegen die
         # Entfernung wirkt er nicht mehr, gegen PLUS sehr wohl — die
@@ -4013,7 +4013,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         if _fach_plus > _plus_deckel:
             _gekuerzt = _fach_plus - _plus_deckel
             _fach_plus = _plus_deckel
-            factors["Wunschbegriffe ueber Deckel gekuerzt (#942)"] =                 -round(_gekuerzt, 1)
+            factors["Wunschbegriffe über Deckel gekürzt (#942)"] =                 -round(_gekuerzt, 1)
     # Das Signal aus dem eigenen Verhalten, als eigener Faktor mit
     # Beleg — Nutzervorgabe: nachvollziehbar, und wer sieht, dass die
     # Aehnlichkeit an einem unerwuenschten Wort haengt, kann
@@ -4031,7 +4031,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         total = round(total + _neigung_signal.get("punkte", 0.0), 1)
         _fach = 0
         factors = {
-            f"Kein MUSS-Keyword getroffen — hoechstens "
+            f"Kein MUSS-Keyword getroffen — höchstens "
             f"{_tor.obergrenze(w['muss']):g} Punkte aus PLUS (#968)":
                 round(total - _neigung_signal.get("punkte", 0.0), 1),
         }
@@ -4108,10 +4108,10 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         _ergebnis["ohne_pflichttreffer"] = True
         _ergebnis["empfehlung"] = {
             "kategorie": "NICHT_EMPFOHLEN",
-            "kurz": "Keine Pflichtanforderung erfuellt.",
+            "kurz": "Keine Pflichtanforderung erfüllt.",
             "begruendung": (
                 "Von deinen MUSS-Keywords trifft keines zu. Ein hoher "
-                "PLUS-Anteil aendert daran nichts (#940)."
+                "PLUS-Anteil ändert daran nichts (#940)."
                 if not _tor_gewichtet else
                 "Von deinen MUSS-Keywords trifft keines zu. Die Stelle "
                 "bleibt sichtbar, steht aber hinter jeder Stelle mit "
