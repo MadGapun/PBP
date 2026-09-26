@@ -88,7 +88,7 @@ def verteilung(db, *, nur_aktive: bool = True) -> dict:
             "grund": (
                 f"Nur {len(werte)} Stellen im Bestand — unter {MIN_STELLEN} "
                 "ergibt eine Verteilung keine belastbare Empfehlung. Der "
-                f"Regler laeuft solange von 0 bis {RUECKFALL_MAX:g}."),
+                f"Regler läuft solange von 0 bis {RUECKFALL_MAX:g}."),
         }
 
     median = statistics.median(werte)
@@ -120,7 +120,7 @@ def verteilung(db, *, nur_aktive: bool = True) -> dict:
             "Speichern, nicht in der Liste — deshalb ist das die "
             "richtige Verteilung."
             if rekonstruiert < len(werte) else
-            "Aktuelle Scores, weil fuer den Altbestand kein Erst-Score "
+            "Aktuelle Scores, weil für den Altbestand kein Erst-Score "
             "vorliegt. Ab dieser Version wird er mitgeschrieben; die "
             "Empfehlung wird damit mit der Zeit genauer."),
     }
@@ -144,10 +144,10 @@ def _zonen(median: float, p90: float, obergrenze: float) -> list:
     return [
         {"farbe": "gruen", "von": 0.0, "bis": round(median, 1),
          "bedeutung": ("Bis zum Median geht nichts Relevantes verloren — "
-                       "die Haelfte aller Stellen liegt darueber.")},
+                       "die Hälfte aller Stellen liegt darüber.")},
         {"farbe": "gelb", "von": round(median, 1), "bis": round(p90, 1),
          "bedeutung": ("Hier fallen einzelne Stellen weg, die nach dem "
-                       "Nachladen der Beschreibung hoeher laegen.")},
+                       "Nachladen der Beschreibung höher lägen.")},
         {"farbe": "rot", "von": round(p90, 1), "bis": round(obergrenze, 1),
          "bedeutung": ("Oberhalb des obersten Zehntels — hier werden "
                        "systematisch gute Stellen aussortiert.")},
@@ -170,7 +170,7 @@ def wirkung(db, schwelle: float, *, nur_aktive: bool = True) -> dict:
     text = (f"Bei {grenze:g} bleiben {sichtbar} von {gesamt} Stellen "
             "sichtbar.")
     if sichtbar == 0:
-        text += (" Also KEINE — die Schwelle liegt ueber dem hoechsten "
+        text += (" Also KEINE — die Schwelle liegt über dem höchsten "
                  "vorkommenden Score.")
     elif sichtbar == gesamt:
         text += " Also alle — diese Schwelle filtert nichts."

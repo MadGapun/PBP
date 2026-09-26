@@ -35,18 +35,18 @@ logger = logging.getLogger(__name__)
 # gibt es nicht, und Prozent sind keine Aussage ueber Passung.
 SCORE_BEDEUTUNG = (
     "Die Punkte zeigen, wie gut eine Anzeige deine Suchbegriffe trifft "
-    "(Pflicht- und Wunschbegriffe, abzueglich Ausschlussbegriffe). Mehr "
-    "ist besser. Sie sind kein Urteil darueber, ob du passt — dein "
+    "(Pflicht- und Wunschbegriffe, abzüglich Ausschlussbegriffe). Mehr "
+    "ist besser. Sie sind kein Urteil darüber, ob du passt — dein "
     "Lebenslauf geht nicht ein, und Ort, Gehalt und Arbeitsmodell stehen "
     "getrennt daneben. Es gibt keine Prozentangabe und keine feste Skala; "
-    "wo ein Hoechstwert erreichbar ist, steht er dabei."
+    "wo ein Höchstwert erreichbar ist, steht er dabei."
 )
 
 # Faktoren des Fit-Dialogs, die in die Punkte eingehen. Alles andere
 # (Entfernung, Remote, Gehalt, Kompetenzen) ist Rahmen oder Information.
 FACH_PRAEFIXE = (
     "MUSS-Keywords", "PLUS-Keywords", "MINUS-Keywords",
-    "Abzuege ueber Deckel", "Wunschbegriffe ueber Deckel",
+    "Abzüge über Deckel", "Wunschbegriffe über Deckel",
     "Kein MUSS-Keyword", "AUSSCHLUSS-Keyword", "Ausserhalb des erreichbaren",
 )
 REGLER_LABEL = "Deine Regler für Begriffe"

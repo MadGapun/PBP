@@ -248,11 +248,9 @@ def test_h24_frontend_und_server_sagen_dasselbe():
     teile = re.findall(r'"([^"]*)"', block)
     frontend = "".join(teile)
 
-    def norm(t):
-        for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("Ä", "Ae"), ("Ö", "Oe"), ("Ü", "Ue"), ("ß", "ss")):
-            t = t.replace(a, b)
-        return t
-    assert norm(frontend) == SCORE_BEDEUTUNG
+    # Seit G73 (#1088) stehen beide Fassungen mit echten Umlauten —
+    # der Vergleich braucht keine Umschrift mehr.
+    assert frontend == SCORE_BEDEUTUNG
 
 
 def test_h24_fit_analyse_liefert_den_satz(umgebung):

@@ -43,8 +43,8 @@ _FORBIDDEN_PATTERNS = [
     # 'Sie' alleine ist mehrdeutig (Firma/Recruiter sind '3. Person Plural').
     # Hoeflichkeits-Anrede erkennen wir an Ihre/Ihnen/Ihres/Ihrem/Ihren —
     # die kommen NUR in Hoeflichkeitsform vor.
-    (r"\bIhre[nrsm]?\b", "Hoeflichkeits-'Ihr/Ihre' ist verboten — Elwosa duzt"),
-    (r"\bIhnen\b", "Hoeflichkeits-'Ihnen' ist verboten — Elwosa duzt"),
+    (r"\bIhre[nrsm]?\b", "Höflichkeits-'Ihr/Ihre' ist verboten — Elwosa duzt"),
+    (r"\bIhnen\b", "Höflichkeits-'Ihnen' ist verboten — Elwosa duzt"),
 ]
 
 _MAX_LINE_LENGTH = 280
@@ -125,14 +125,14 @@ def detect_world_trigger() -> Optional[str]:
 # "Drei Uhr morgens") — die war zur tatsaechlichen Zeit dann falsch und
 # wirkte wie ein kaputter Zeit-Abgleich. Jetzt setzt {zeit} die echte
 # LOKALE Uhrzeit ein (datetime.now() = Uhr des Rechners, auf dem PBP laeuft).
-_STUNDEN_12 = ["zwoelf", "eins", "zwei", "drei", "vier", "fuenf", "sechs",
+_STUNDEN_12 = ["zwölf", "eins", "zwei", "drei", "vier", "fünf", "sechs",
                "sieben", "acht", "neun", "zehn", "elf"]
 
 
 def format_uhrzeit(now: Optional[datetime] = None) -> str:
     """Aktuelle LOKALE Uhrzeit als natuerliches Deutsch.
 
-    Beispiele: 04:30 -> 'Halb fuenf', 16:00 -> 'Vier Uhr',
+    Beispiele: 04:30 -> 'Halb fünf', 16:00 -> 'Vier Uhr',
     15:15 -> 'Viertel nach drei', 04:32 -> '4:32 Uhr'.
     """
     now = now or datetime.now()
@@ -150,7 +150,7 @@ def format_uhrzeit(now: Optional[datetime] = None) -> str:
     return s[0].upper() + s[1:]
 
 
-MONATSNAMEN = ["Januar", "Februar", "Maerz", "April", "Mai", "Juni",
+MONATSNAMEN = ["Januar", "Februar", "März", "April", "Mai", "Juni",
                "Juli", "August", "September", "Oktober", "November",
                "Dezember"]
 
@@ -166,7 +166,8 @@ def _nennt_falschen_monat(line: str) -> bool:
     m = re.match(r"\s*([A-Za-zäöüÄÖÜ]+)[.!,: ]", line or "")
     if not m:
         return False
-    erstes_wort = m.group(1)
+    # Linien aus der lokalen KI koennen den Monat in Umschrift nennen.
+    erstes_wort = {"Maerz": "März"}.get(m.group(1), m.group(1))
     return erstes_wort in MONATSNAMEN and erstes_wort != aktueller
 
 

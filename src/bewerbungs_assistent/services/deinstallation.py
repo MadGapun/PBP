@@ -67,12 +67,12 @@ ENTFERNT = {
 BLEIBT = {
     "Windows": ["Claude Desktop", "Ollama"],
     "Darwin": [
-        "Der Projektordner samt Quellcode und .venv — den loeschst du "
+        "Der Projektordner samt Quellcode und .venv — den löschst du "
         "selbst, wenn du ihn nicht mehr brauchst",
         "Claude Desktop", "Ollama",
     ],
     "Linux": [
-        "Der Projektordner samt Quellcode und .venv — den loeschst du "
+        "Der Projektordner samt Quellcode und .venv — den löschst du "
         "selbst, wenn du ihn nicht mehr brauchst",
         "Claude Desktop", "Ollama",
     ],
@@ -127,7 +127,7 @@ def auskunft() -> dict:
         # Handlungs-Hinweis. Zwei verschiedene Saetze unter einem Namen
         # heisst, dass einer den anderen ueberschreibt.
         "hinweis_fremdsoftware": (
-            "Claude Desktop und Ollama muessen separat deinstalliert "
+            "Claude Desktop und Ollama müssen separat deinstalliert "
             "werden — PBP fasst sie nicht an."),
     }
 
@@ -166,9 +166,9 @@ def starten() -> dict:
             **auskunft(),
             "status": "nicht_gefunden",
             "fehler": (
-                "Der Deinstaller wurde nicht gefunden. Du laeufst "
+                "Der Deinstaller wurde nicht gefunden. Du läufst "
                 "vermutlich aus einer Entwickler-Version, oder die "
-                "Installation war unvollstaendig."),
+                "Installation war unvollständig."),
         }
 
     if _system() == "Windows":
@@ -201,7 +201,7 @@ def starten() -> dict:
             **auskunft(),
             "status": "befehl",
             "hinweis": ("Kein Terminal gefunden. Diesen Befehl in einem "
-                        "Terminal ausfuehren:"),
+                        "Terminal ausführen:"),
         }
     try:
         subprocess.Popen(kommando, start_new_session=True, close_fds=True)
@@ -211,5 +211,5 @@ def starten() -> dict:
         **auskunft(),
         "status": "gestartet",
         "hinweis": ("Ein Terminal-Fenster ist offen. Folge den Anweisungen "
-                    "dort — nichts wird ohne deine Bestaetigung geloescht."),
+                    "dort — nichts wird ohne deine Bestätigung gelöscht."),
     }

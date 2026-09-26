@@ -63,15 +63,15 @@ NACHRANGIG = "nachrangig"
 STRENG = "streng"
 UMGANG_MIT_UNBEKANNT = {
     MITMISCHEN: (
-        "Ungeprueftes mischt sich unter das Geprueftte — der Stand bis "
+        "Ungeprüftes mischt sich unter das Geprüfte — der Stand bis "
         "v1.7.38. Ehrlich nur, wenn man weiss, dass Score 0 kein Urteil "
         "ist."),
     NACHRANGIG: (
-        "Vorgabe. Der Score bleibt unveraendert, aber eine Stelle ohne "
-        "Bewertungsgrundlage steht nie ueber einer, die eine hat."),
+        "Vorgabe. Der Score bleibt unverändert, aber eine Stelle ohne "
+        "Bewertungsgrundlage steht nie über einer, die eine hat."),
     STRENG: (
-        "Zusaetzlich zaehlt eine unbekannte Entfernung wie eine zu "
-        "grosse. Fuer alle, deren Kriterium 'nur in der Naehe' lautet."),
+        "Zusätzlich zählt eine unbekannte Entfernung wie eine zu "
+        "grosse. Für alle, deren Kriterium 'nur in der Nähe' lautet."),
 }
 
 # Die Dimensionen, aus denen sich ein Score zusammensetzt. `traegt`
@@ -83,9 +83,9 @@ DIMENSIONEN: tuple[dict, ...] = (
                "der ganze Score",
      "tragend": True},
     {"id": "entfernung", "titel": "Entfernung",
-     "traegt": "Naehe-Bonus und Fern-Malus"},
+     "traegt": "Nähe-Bonus und Fern-Malus"},
     {"id": "gehalt", "titel": "Gehalt",
-     "traegt": "die Dimension mit dem hoechsten Gewicht"},
+     "traegt": "die Dimension mit dem höchsten Gewicht"},
     {"id": "remote", "titel": "Remote-Anteil",
      "traegt": "Remote-Bonus"},
     {"id": "stellenart", "titel": "Stellenart",
@@ -106,14 +106,14 @@ def umgang(db) -> str:
 def umgang_setzen(db, wert: str) -> dict:
     """Setzt die Einstellung; unbekannte Werte werden abgewiesen."""
     if wert not in UMGANG_MIT_UNBEKANNT:
-        return {"fehler": f"'{wert}' ist keine Einstellung. Moeglich: "
+        return {"fehler": f"'{wert}' ist keine Einstellung. Möglich: "
                           + ", ".join(sorted(UMGANG_MIT_UNBEKANNT))}
     db.set_profile_setting(EINSTELLUNG, wert)
     return {"status": "gesetzt", "umgang": wert,
             "bedeutet": UMGANG_MIT_UNBEKANNT[wert],
             "hinweis": "Wirkt auf die Reihenfolge der Trefferliste. Der "
-                       "gespeicherte Score aendert sich dadurch nicht — "
-                       "ausser bei 'streng', dort zaehlt eine unbekannte "
+                       "gespeicherte Score ändert sich dadurch nicht — "
+                       "ausser bei 'streng', dort zählt eine unbekannte "
                        "Entfernung wie eine zu grosse: dann einmal "
                        "scores_neu_berechnen() laufen lassen."}
 
@@ -129,13 +129,13 @@ def _entfernung(job: dict, criteria: dict) -> tuple[str, str]:
     if guete == "unbekannt":
         return UNGEPRUEFT, grund
     if guete == "entfaellt":
-        return GEPRUEFT, "Vollstaendig remote — Entfernung ohne Belang."
+        return GEPRUEFT, "Vollständig remote — Entfernung ohne Belang."
     dist = job.get("distance_km")
     art = job.get("employment_type") or "festanstellung"
     karte = criteria.get("max_entfernung") or {}
     wunsch = karte.get(art)
     if wunsch and dist is not None and dist > wunsch:
-        return VERLETZT, f"{dist:.0f} km — ueber deinem Wunschwert von {wunsch} km."
+        return VERLETZT, f"{dist:.0f} km — über deinem Wunschwert von {wunsch} km."
     return GEPRUEFT, ""
 
 
@@ -143,8 +143,8 @@ def _gehalt(job: dict, criteria: dict) -> tuple[str, str]:
     # #827: eine Schaetzung ist keine Angabe. Sie zaehlt im Score gar
     # nicht — und damit ist die Dimension ungeprueft, nicht erfuellt.
     if job.get("salary_estimated"):
-        return UNGEPRUEFT, ("Nur eine Schaetzung, keine Angabe aus der "
-                            "Anzeige — zaehlt im Score nicht (#827).")
+        return UNGEPRUEFT, ("Nur eine Schätzung, keine Angabe aus der "
+                            "Anzeige — zählt im Score nicht (#827).")
     betrag = job.get("salary_min")
     if not betrag:
         return UNGEPRUEFT, "Die Anzeige nennt kein Gehalt."
@@ -177,7 +177,7 @@ def _beschreibung(job: dict, criteria: dict) -> tuple[str, str]:
     laenge = len((job.get("description") or "").strip())
     return UNGEPRUEFT, (
         f"Nur {laenge} Zeichen Anzeigentext — zu wenig, um Fachgebiet, "
-        "System oder Senioritaet zu beurteilen. Der Score beruht damit "
+        "System oder Seniorität zu beurteilen. Der Score beruht damit "
         "allein auf dem Titel.")
 
 

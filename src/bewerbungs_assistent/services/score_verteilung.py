@@ -68,7 +68,7 @@ def kennzahlen(werte: list) -> dict:
         ergebnis["q75"] = _quantil(sortiert, 0.75)
     else:
         ergebnis["hinweis_wenig_daten"] = (
-            f"Nur {len(sortiert)} Werte — Quartile waeren die Verkleidung "
+            f"Nur {len(sortiert)} Werte — Quartile wären die Verkleidung "
             "eines Einzelfalls und bleiben deshalb weg.")
     return ergebnis
 
@@ -129,8 +129,8 @@ def verteilung(db, schwelle=None) -> dict:
     ergebnis = {"beworben": kennzahlen(bewertbar)}
     if not ergebnis["beworben"]:
         ergebnis["nachricht"] = (
-            "Keine Bewerbung traegt einen auswertbaren Score. Ohne "
-            "verknuepfte Stellen gibt es nichts zu verteilen — "
+            "Keine Bewerbung trägt einen auswertbaren Score. Ohne "
+            "verknüpfte Stellen gibt es nichts zu verteilen — "
             "bewerbungs_stellen_abgleichen() stellt die Verbindung her "
             "(Expertenmodus: expertenmodus_setzen(an=True)).")
         if ohne_stelle:
@@ -151,7 +151,7 @@ def verteilung(db, schwelle=None) -> dict:
             "bedeutung": (
                 "Score 0 heisst 'kein MUSS-Keyword getroffen' — die Stelle "
                 "wurde nicht inhaltlich schlecht bewertet, sondern gar "
-                "nicht beurteilt. Diese Bewerbungen zaehlen deshalb NICHT "
+                "nicht beurteilt. Diese Bewerbungen zählen deshalb NICHT "
                 "in Mittel und Median. Dass du dich trotzdem beworben "
                 "hast, ist der eigentliche Befund: die MUSS-Liste deckt "
                 "diese Rollen nicht ab."),
@@ -161,8 +161,8 @@ def verteilung(db, schwelle=None) -> dict:
             "anzahl": len(ohne_stelle),
             "beispiele": ohne_stelle[:5],
             "bedeutung": (
-                "Diese Bewerbungen haben keine verknuepfte Stelle und damit "
-                "keinen Score. Sie sind eine Datenluecke, kein Nullwert — "
+                "Diese Bewerbungen haben keine verknüpfte Stelle und damit "
+                "keinen Score. Sie sind eine Datenlücke, kein Nullwert — "
                 "bewerbungs_stellen_abgleichen() stellt die Verbindung her "
                 "(Expertenmodus: expertenmodus_setzen(an=True))."),
         }
@@ -175,8 +175,8 @@ def verteilung(db, schwelle=None) -> dict:
                 "bedeutung": (
                     f"Diese Bewerbungen lagen unter deiner Schwelle von "
                     f"{float(schwelle):g} — du hast dich also gegen die "
-                    "Einschaetzung des Modells beworben. Haeufen sie sich, "
-                    "sagt das mehr ueber die Kriterien als ueber die "
+                    "Einschätzung des Modells beworben. Häufen sie sich, "
+                    "sagt das mehr über die Kriterien als über die "
                     "Stellen."),
             }
     return ergebnis

@@ -130,7 +130,7 @@ def test_986_bewerbung_ohne_stelle_ist_eine_datenluecke(db):
     ergebnis = sv.verteilung(db)
     assert ergebnis["beworben"]["anzahl"] == 1
     assert ergebnis["ohne_verknuepfte_stelle"]["anzahl"] == 1
-    assert "Datenluecke" in ergebnis["ohne_verknuepfte_stelle"]["bedeutung"]
+    assert "Datenlücke" in ergebnis["ohne_verknuepfte_stelle"]["bedeutung"]
 
 
 # ── Segmentierung und Schwelle ────────────────────────────────────────

@@ -14,13 +14,13 @@ from bewerbungs_assistent.services.elwosa_lines import WORLD_LINES, EASTER_EGGS
 
 
 def test_format_uhrzeit_natuerlich():
-    assert format_uhrzeit(datetime(2026, 6, 3, 4, 30)) == "Halb fuenf"
+    assert format_uhrzeit(datetime(2026, 6, 3, 4, 30)) == "Halb fünf"
     assert format_uhrzeit(datetime(2026, 6, 3, 16, 0)) == "Vier Uhr"
     assert format_uhrzeit(datetime(2026, 6, 3, 15, 15)) == "Viertel nach drei"
     assert format_uhrzeit(datetime(2026, 6, 3, 17, 45)) == "Viertel vor sechs"
     assert format_uhrzeit(datetime(2026, 6, 3, 4, 32)) == "4:32 Uhr"
     assert format_uhrzeit(datetime(2026, 6, 3, 0, 30)) == "Halb eins"
-    assert format_uhrzeit(datetime(2026, 6, 3, 23, 30)) == "Halb zwoelf"
+    assert format_uhrzeit(datetime(2026, 6, 3, 23, 30)) == "Halb zwölf"
 
 
 def test_fill_template_setzt_zeit_ein():

@@ -18,6 +18,8 @@ Aufruf: ``python scripts/ui_texte_pruefen.py`` — Exit 1 bei Funden.
 """
 from __future__ import annotations
 
+import ast
+import json
 import re
 import sys
 from pathlib import Path
@@ -54,6 +56,8 @@ ECHTE_WOERTER = {
     "kauen", "hauen", "klauen", "tauen", "abschauen", "reinschauen",
     "nachschauen", "vorschauen", "durchschauen", "zuschauen", "zuschauer",
     "queere", "queer", "suez", "muenchen_false",
+    # Eigennamen und Schrift in Backend-Texten (G73)
+    "segoe", "poetisch", "schaeffler",
 }
 
 # Ein Wort je Begriff (Glossar). Links das verbotene Wort (klein), rechts
@@ -130,6 +134,82 @@ def katalog_texte():
         yield pfad, roh[:m.start()].count("\n") + 1, m.group(2)
 
 
+# ── Backend-Texte, die das Dashboard zeigt (G73) ─────────────────────
+#
+# Bis v1.7.137 las der Pruefer nur das Frontend. Tagesimpuls, Elwosa,
+# Hinweise, Quellenbeschreibungen, Meldungen der Endpunkte und die
+# Faktoren im Fit-Dialog kommen aber vom Server — dort stand
+# "Nachfassen ist kein Stoeren" neben "HEUTE FÜR DICH".
+BACKEND = REPO / "src" / "bewerbungs_assistent"
+BACKEND_DATEIEN = [BACKEND / p for p in (
+    "services/elwosa_lines.py", "services/elwosa.py", "services/elwosa_provider.py",
+    "services/onboarding_hints.py", "services/workspace_service.py",
+    "services/datenguete.py", "services/rahmen.py", "services/punkte.py",
+    "services/schwellen_stufen.py", "services/schwellen_verteilung.py",
+    "services/score_verteilung.py", "services/statistik_erweitert.py",
+    "services/loeschbereiche.py", "services/deinstallation.py", "services/ablage.py",
+    "services/ollama_start.py", "services/components.py", "services/quellen_meldung.py",
+    "services/schwellen_umstellung.py", "services/status_rueckweg.py",
+    "services/papierkorb.py", "services/stellen_nach_quelle.py",
+    "services/quellen_texte.py", "services/menue.py", "services/dashboard_bereiche.py",
+    "dashboard.py", "job_scraper/__init__.py",
+)]
+# Die ganze Datei ist Anzeige (Linienpool) — auch kleingeschriebene Texte.
+BACKEND_NUR_ANZEIGE = {"elwosa_lines.py"}
+TAGESIMPULSE = BACKEND / "content" / "tagesimpulse.json"
+
+# Kein Anzeigetext: SQL, Shell-Zeilen fuer Skripte.
+_KEIN_TEXT = re.compile(r"^\s*(SELECT|UPDATE|INSERT|DELETE|CREATE|ALTER|WITH|PRAGMA)\b"
+                        r"|\bFROM\b|\bWHERE\b|\bCASE WHEN\b|\becho\b")
+# Aufrufe, deren Zeichenketten Muster, Schluessel oder Protokoll sind.
+_KEIN_TEXT_AUFRUF = {"execute", "executemany", "compile", "sub", "search", "match",
+                     "findall", "fullmatch", "split", "get_setting", "set_setting",
+                     "get_profile_setting", "set_profile_setting", "startswith", "endswith"}
+
+
+def _uebersprungene_knoten(baum) -> set:
+    """Docstrings, Protokoll, Muster, Einstellungsschluessel, Dict-Schluessel
+    und Vergleiche. Kleingeschriebene Wortlisten (Suchmuster fuer Mails
+    und Anzeigen) fallen ueber die Grossbuchstaben-Regel weg — sie
+    vergleichen Text von aussen und muessen beide Schreibweisen kennen."""
+    skip = set()
+    for n in ast.walk(baum):
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Module)) \
+                and n.body and isinstance(n.body[0], ast.Expr) \
+                and isinstance(n.body[0].value, ast.Constant):
+            skip.add(id(n.body[0].value))
+        if isinstance(n, ast.Call):
+            f = n.func
+            name = f.attr if isinstance(f, ast.Attribute) else (f.id if isinstance(f, ast.Name) else "")
+            besitzer = f.value.id if isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name) else ""
+            if besitzer in ("logger", "log", "logging", "re") or name in _KEIN_TEXT_AUFRUF:
+                skip.update(id(s) for s in ast.walk(n) if s is not n.func)
+        if isinstance(n, ast.Dict):
+            skip.update(id(k) for k in n.keys if k is not None)
+        if isinstance(n, ast.Compare):
+            skip.update(id(s) for s in ast.walk(n))
+    return skip
+
+
+def backend_texte():
+    """(pfad, zeile, text) je Anzeigetext im Backend."""
+    for pfad in BACKEND_DATEIEN:
+        baum = ast.parse(pfad.read_text(encoding="utf-8-sig"))
+        skip = _uebersprungene_knoten(baum)
+        alle = pfad.name in BACKEND_NUR_ANZEIGE
+        for n in ast.walk(baum):
+            if not (isinstance(n, ast.Constant) and isinstance(n.value, str)) or id(n) in skip:
+                continue
+            t = n.value
+            if " " not in t or _KEIN_TEXT.search(t):
+                continue
+            if not alle and not (re.search(r"[A-ZÄÖÜ]", t) and _sieht_aus_wie_text(t)):
+                continue
+            yield pfad, n.lineno, t
+    for nr, eintrag in enumerate(json.loads(TAGESIMPULSE.read_text(encoding="utf-8")), 1):
+        yield TAGESIMPULSE, nr, eintrag["text"]
+
+
 def ist_umschrift(wort: str) -> bool:
     """Steht in diesem Wort ein umschriebener Umlaut?
 
@@ -181,11 +261,20 @@ def glossar_funde(text: str):
 def pruefen():
     funde = []
     quellen = [(p, z, t) for p in UI_DATEIEN for z, t in texte(p)] + list(katalog_texte())
+    backend = set()
+    for eintrag in backend_texte():
+        quellen.append(eintrag)
+        backend.add(id(eintrag[2]))
     for pfad, zeile, text in quellen:
         name = pfad.relative_to(REPO).as_posix()
+        ist_backend = id(text) in backend
         text = re.sub(r"\$\{[^}]*\}", " ", text)
         for wort in umlaut_funde(text):
             funde.append(f"{name}:{zeile}: Umschrift '{wort}' — echter Umlaut")
+        if ist_backend:
+            # Das Glossar gilt fuer die Oberflaeche; Backend-Texte nennen
+            # Werkzeugnamen und Server-Begriffe, die bleiben.
+            continue
         for verboten, statt in glossar_funde(text):
             funde.append(f"{name}:{zeile}: '{verboten}' — Glossar: {statt}")
     return funde

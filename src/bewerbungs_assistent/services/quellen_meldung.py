@@ -71,9 +71,9 @@ ERLAUBTE_FELDER = (
     ("error_class", "Fehlerklasse"),
     ("last_error", "Letzte Fehlermeldung"),
     ("consecutive_failures", "Fehler in Folge"),
-    ("consecutive_silent", "Stille Laeufe in Folge"),
-    ("total_runs", "Laeufe gesamt"),
-    ("total_successes", "Erfolgreiche Laeufe"),
+    ("consecutive_silent", "Stille Läufe in Folge"),
+    ("total_runs", "Läufe gesamt"),
+    ("total_successes", "Erfolgreiche Läufe"),
     ("last_run", "Letzter Lauf"),
     ("last_success", "Letzter Erfolg"),
     ("letzte_probe_am", "Letzte Probe"),
@@ -211,7 +211,7 @@ def angebot(zeile: dict, *, version: str = "", client=None) -> dict | None:
         "url": melde_url(zeile, version=version),
         "vorhandene": vorhandene_meldung(quelle, client=client),
         "hinweis": (
-            "PBP schickt nichts ab. Der Knopf oeffnet das "
+            "PBP schickt nichts ab. Der Knopf öffnet das "
             "GitHub-Formular mit diesen Angaben; abschicken tust du. "
             "Wichtig ist das Feld 'wozu brauchst du die Quelle' — "
             "der Defekt allein ist bekannt, der Bedarf nicht."),

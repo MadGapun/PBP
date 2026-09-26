@@ -186,12 +186,12 @@ def zeitliche_kennzahlen(db: Any) -> dict:
             if v
         },
         "zeitkennzahlen_basis": (
-            f"Vorgaenge mit Abstand 0 Tage sind ausgeschlossen "
-            f"({null_abstand} Faelle): bei rekonstruierten "
+            f"Vorgänge mit Abstand 0 Tage sind ausgeschlossen "
+            f"({null_abstand} Fälle): bei rekonstruierten "
             "Altbewerbungen wurden Bewerbungs- und Absagedatum am selben "
-            "Tag nachgetragen, was den Median auf 0 gedrueckt hat, ohne "
-            "etwas ueber den Markt auszusagen. Eine echte Absage nach "
-            "zwei Tagen zaehlt weiterhin mit. `anzahl` nennt je Kennzahl "
+            "Tag nachgetragen, was den Median auf 0 gedrückt hat, ohne "
+            "etwas über den Markt auszusagen. Eine echte Absage nach "
+            "zwei Tagen zählt weiterhin mit. `anzahl` nennt je Kennzahl "
             "die Fallzahl."),
         "zeitkennzahlen_ausgeschlossen": null_abstand,
         "zeit_bis_erste_reaktion": _median_mittel(reaktion),
@@ -411,11 +411,11 @@ def ablehnungs_kategorien(db: Any) -> dict:
     result["sicherheit"] = nach_sicherheit
     if nach_sicherheit.get("vermutet") or nach_sicherheit.get("eigene_wertung"):
         result["sicherheit_hinweis"] = (
-            f"{nach_sicherheit.get('vermutet', 0)} Vorgaenge tragen eine "
+            f"{nach_sicherheit.get('vermutet', 0)} Vorgänge tragen eine "
             f"Vermutung als Grund, {nach_sicherheit.get('eigene_wertung', 0)} "
             "eine eigene Zuschreibung ('als stille Absage gewertet'). Diese "
-            "Faelle sind KEINE mitgeteilten Absagen — sie zaehlen in der "
-            "Quote mit, taugen aber nicht als Befund ueber die eigenen "
+            "Fälle sind KEINE mitgeteilten Absagen — sie zählen in der "
+            "Quote mit, taugen aber nicht als Befund über die eigenen "
             "Unterlagen.")
 
     if submitted:
@@ -428,14 +428,14 @@ def ablehnungs_kategorien(db: Any) -> dict:
             f"{result['versandet_quote']} % versandet")
         result["ablehnungsquote_roh"] = round(gesamt / submitted * 100, 1)
         result["ablehnungsquote_hinweis"] = (
-            "ablehnungsquote_roh enthaelt abgelaufene Vorgaenge. Fuer die "
+            "ablehnungsquote_roh enthält abgelaufene Vorgänge. Für die "
             "Frage 'wie oft wurde ich abgelehnt' ist abgelehnt_quote der "
             "richtige Wert.")
         result["ablehnungsquote_bereinigt"] = round(
             echte_absagen / submitted * 100, 1)
         if extern:
             result["hinweis_bereinigung"] = (
-                f"{extern} Fall/Faelle sind extern bedingt (Stelle "
+                f"{extern} Fall/Fälle sind extern bedingt (Stelle "
                 "gestrichen, intern besetzt, Insolvenz, ...) — das ist "
                 "keine Ablehnung des Bewerbers. Die bereinigte Quote "
                 "rechnet sie heraus."
@@ -533,8 +533,8 @@ def erfolg_nach_score_band(db: Any) -> dict:
         "baender": ergebnis,
         "ohne_verknuepfte_stelle": ohne_score,
         "hinweis": (
-            "Bewerbungen ohne verknuepfte Stelle (Direkteintrag, "
-            "Vermittler-Anfrage) koennen hier nicht zugeordnet werden — "
+            "Bewerbungen ohne verknüpfte Stelle (Direkteintrag, "
+            "Vermittler-Anfrage) können hier nicht zugeordnet werden — "
             f"das sind {ohne_score}. Bei kleinen Fallzahlen je Band ist "
             "die Quote ein Hinweis, kein Beleg."),
     }
@@ -592,8 +592,8 @@ def nachfass_wirksamkeit(db: Any) -> dict:
                        "Reaktionen — vermutlich ein Auswahleffekt: "
                        "nachgefasst wird dort, wo es ohnehin still blieb.")
     else:
-        aussage = ("Zu wenige Faelle je Gruppe fuer eine Aussage "
-                   "(mindestens 5 je Seite noetig).")
+        aussage = ("Zu wenige Fälle je Gruppe für eine Aussage "
+                   "(mindestens 5 je Seite nötig).")
 
     return {"mit_nachfassen": mit, "ohne_nachfassen": ohne,
             "aussage": aussage}
@@ -628,7 +628,7 @@ def trend_vergleich(db: Any) -> dict:
             round(topf["interviews"] / topf["bewerbungen"] * 100, 1)
             if topf["bewerbungen"] else None)
 
-    aussage = "Zu wenige Daten fuer einen Vergleich."
+    aussage = "Zu wenige Daten für einen Vergleich."
     if aktuell["bewerbungen"] and davor["bewerbungen"]:
         d = aktuell["bewerbungen"] - davor["bewerbungen"]
         richtung = "mehr" if d > 0 else ("weniger" if d < 0 else "genauso viele")

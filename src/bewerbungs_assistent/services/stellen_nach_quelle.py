@@ -124,13 +124,13 @@ def entfernen(db, quelle: str, dry_run: bool = True) -> dict:
     }
     if plan["quelle_ist_gewaehlt"]:
         ergebnis["warnung"] = (
-            f"'{plan['quelle']}' ist noch ausgewaehlt — der naechste Suchlauf "
-            "bringt ihre Stellen zurueck. Erst abwaehlen, dann entfernen.")
+            f"'{plan['quelle']}' ist noch ausgewählt — der nächste Suchlauf "
+            "bringt ihre Stellen zurück. Erst abwählen, dann entfernen.")
     if dry_run or not weg:
         if dry_run:
             ergebnis["hinweis"] = (
-                "Vorschau, nichts geloescht. Mit dry_run=False endgueltig "
-                "entfernen — aussortierte Stellen zaehlen danach auch nicht "
+                "Vorschau, nichts gelöscht. Mit dry_run=False endgültig "
+                "entfernen — aussortierte Stellen zählen danach auch nicht "
                 "mehr in Statistik und Schwellen-Stufen.")
         return ergebnis
 

@@ -208,11 +208,11 @@ def build_workspace_summary(
                 if days_since >= 7:
                     inactivity_days = days_since
                     if days_since >= 21:
-                        inactivity_hint = f"Seit {days_since} Tagen keine Aktivitaet — brauchst du Hilfe beim Wiedereinstieg?"
+                        inactivity_hint = f"Seit {days_since} Tagen keine Aktivität — brauchst du Hilfe beim Wiedereinstieg?"
                     elif days_since >= 14:
                         inactivity_hint = f"Seit {days_since} Tagen nichts passiert — schau mal nach deinen offenen Bewerbungen."
                     else:
-                        inactivity_hint = f"Letzte Aktivitaet vor {days_since} Tagen. Bleib dran!"
+                        inactivity_hint = f"Letzte Aktivität vor {days_since} Tagen. Bleib dran!"
             except (ValueError, TypeError):
                 pass
 
@@ -316,21 +316,21 @@ def naechster_schritt(db, summary: dict | None = None) -> dict:
     if stufe == "profil_aufbauen":
         fehlt = ", ".join(profil.get("missing_areas") or []) or "einige Angaben"
         return {"stufe": stufe, "text": (
-            f"Das Profil ist noch unvollstaendig (es fehlen: {fehlt}). Lebenslauf "
-            "hochladen und mit extraktion_starten() uebernehmen, oder im Gespraech "
-            "ergaenzen: workflow_starten(name='profil_ueberpruefen').")}
+            f"Das Profil ist noch unvollständig (es fehlen: {fehlt}). Lebenslauf "
+            "hochladen und mit extraktion_starten() übernehmen, oder im Gespräch "
+            "ergänzen: workflow_starten(name='profil_ueberpruefen').")}
     if s.get("has_profile") and not kriterien.get("keywords_muss"):
         return {"stufe": "suchbegriffe", "text": (
             "Es gibt noch keine Suchbegriffe. Leite sie aus dem Profil ab "
             "(keyword_vorschlaege()) und setze sie mit suchkriterien_setzen().")}
     if stufe == "quellen_aktivieren":
         return {"stufe": stufe, "text": (
-            "Es ist keine Jobboerse ausgewaehlt. Das geht im Dashboard unter "
+            "Es ist keine Jobbörse ausgewählt. Das geht im Dashboard unter "
             f"Einstellungen › Quellen: {dashboard_link('einstellungen')}")}
     if stufe == "jobsuche_erneuern":
         nie = (s.get("search") or {}).get("status") == "nie"
         return {"stufe": stufe, "text": (
-            ("Es lief noch keine Suche. " if nie else "Die letzte Suche ist aelter als eine Woche. ")
+            ("Es lief noch keine Suche. " if nie else "Die letzte Suche ist älter als eine Woche. ")
             + "Starte sie mit jobsuche_starten(); den Stand fragt jobsuche_status().")}
     if stufe == "bewerben":
         return {"stufe": stufe, "text": (
@@ -339,7 +339,7 @@ def naechster_schritt(db, summary: dict | None = None) -> dict:
     if stufe == "nachfassen":
         return {"stufe": stufe, "text": (
             f"{(s.get('applications') or {}).get('follow_ups_due', 0)} Nachfassungen sind "
-            "faellig: aufgaben_uebersicht().")}
+            "fällig: aufgaben_uebersicht().")}
     return {"stufe": stufe, "text": (
         "Alles eingerichtet. Offenes zeigt aufgaben_uebersicht(), neue Stellen "
         "stellen_anzeigen().")}

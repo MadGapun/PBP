@@ -251,7 +251,7 @@ def _text_schwelle_ist_jetzt_stufe(db) -> str:
         namen = {s["schluessel"]: s["name"] for s in _st.STUFEN}
     except Exception:
         return ""
-    wo = {"speichern": "beim Speichern waehrend der Suche",
+    wo = {"speichern": "beim Speichern während der Suche",
           "liste": "beim Ausblenden in der Liste"}
     teile = []
     for e in beleg:
@@ -383,7 +383,7 @@ HINT_DEFINITIONS: list[dict] = [
         "tab": "suche",
         "title": "Gehalt und Sätze stehen jetzt nur noch an einer Stelle",
         "body": (
-            "Mindestgehalt, Tages- und Stundensaetze und die "
+            "Mindestgehalt, Tages- und Stundensätze und die "
             "Entfernungsgrenze standen doppelt: in den Suchkriterien "
             "(Suche & Bewertung) und in den Job-Präferenzen aus der "
             "Ersterfassung. Die zweiten hatten kein Eingabefeld und "
