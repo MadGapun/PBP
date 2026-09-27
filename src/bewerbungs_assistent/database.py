@@ -650,6 +650,28 @@ class Database:
             """)
             conn.commit()
 
+            # #1090 AK 6: aufgeloeste Orte dauerhaft. Vorher lebte der
+            # Zwischenspeicher nur im Arbeitsspeicher, und nach jedem
+            # Neustart fragte PBP den Dienst fuer jeden Ort wieder, mit
+            # einer Anfrage je Sekunde. `status` ist 'gefunden' oder
+            # 'nicht_gefunden' — ein AUSFALL des Dienstes steht hier nie,
+            # er ist kein Befund ueber den Ort (#950, #811).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS geo_cache (
+                    ort_key TEXT PRIMARY KEY,
+                    lat REAL,
+                    lon REAL,
+                    status TEXT NOT NULL,
+                    abgerufen_am TEXT
+                )
+            """)
+            conn.commit()
+            try:
+                from .services import geocoding_service as _geo
+                _geo.speicher_setzen(self)
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Geo-Speicher nicht angebunden: %s", exc)
+
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
             # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.
@@ -3132,6 +3154,18 @@ class Database:
         return self._serialize_job_row(self._find_job_row(job_hash, profile_id))
 
     def save_profile(self, data: dict) -> str:
+        """Speichert das Profil. Danach gilt der Wohnort als Standort,
+        solange keiner ausdruecklich gesetzt ist (#1090) — an diesem Nadeloehr,
+        damit jeder Schreibweg (Dashboard, Claude, Import) ihn mitnimmt."""
+        pid = self._save_profile_roh(data)
+        try:
+            from .services import eigener_standort
+            eigener_standort.nach_profil_speichern(self)
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Standort aus dem Profil nicht uebernommen: %s", exc)
+        return pid
+
+    def _save_profile_roh(self, data: dict) -> str:
         conn = self.connect()
         now = _now()
         cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")

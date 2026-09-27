@@ -18,6 +18,51 @@ _cache_lock = threading.Lock()
 _last_request_time = 0.0
 _rate_lock = threading.Lock()
 
+# #1090 AK 6: dauerhafter Speicher (Tabelle geo_cache). Angebunden von
+# Database.initialize; ohne ihn bleibt es beim Arbeitsspeicher.
+_speicher = None
+
+
+def speicher_setzen(db) -> None:
+    global _speicher
+    _speicher = db
+
+
+def _aus_speicher(loc_key: str):
+    """(True, Wert) wenn der Ort dauerhaft bekannt ist, sonst (False, None).
+    Wert ist (lat, lon) oder None fuer 'nicht gefunden'."""
+    if _speicher is None:
+        return False, None
+    try:
+        row = _speicher.connect().execute(
+            "SELECT lat, lon, status FROM geo_cache WHERE ort_key=?",
+            (loc_key,)).fetchone()
+    except Exception:
+        return False, None
+    if not row:
+        return False, None
+    if row[2] == "gefunden" and row[0] is not None:
+        return True, (float(row[0]), float(row[1]))
+    return True, None
+
+
+def _in_speicher(loc_key: str, coords) -> None:
+    if _speicher is None:
+        return
+    try:
+        from datetime import datetime, timezone
+        con = _speicher.connect()
+        con.execute(
+            "INSERT OR REPLACE INTO geo_cache (ort_key, lat, lon, status, abgerufen_am) "
+            "VALUES (?,?,?,?,?)",
+            (loc_key, coords[0] if coords else None, coords[1] if coords else None,
+             "gefunden" if coords else "nicht_gefunden",
+             datetime.now(timezone.utc).isoformat(timespec="seconds")))
+        con.commit()
+    except Exception as exc:
+        logger.debug("Geo-Speicher nicht beschreibbar: %s", exc)
+
+
 # User-Agent for Nominatim (required)
 _USER_AGENT = "PBP/0.32 bewerbungs-assistent (https://github.com/MadGapun/PBP)"
 
@@ -43,6 +88,12 @@ _ORT_ZUSATZ = {
     "m/w/d", "m/w/x", "w/m/d", "und umgebung", "umgebung", "raum",
     "deutschland", "germany",
 }
+
+
+def geocoding_aktiv() -> bool:
+    """False, wenn kein Weg ins Netz gehen darf (Test-Suite, #1090)."""
+    import os as _os
+    return _os.environ.get("PBP_GEOCODING") != "0"
 
 
 def normalisiere_ort(ort: str) -> str:
@@ -92,6 +143,17 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
     with _cache_lock:
         if loc_key in _geo_cache:
             return _geo_cache[loc_key]
+    bekannt, wert = _aus_speicher(loc_key)
+    if bekannt:
+        with _cache_lock:
+            _geo_cache[loc_key] = wert
+        return wert
+
+    # #1090: in der Test-Suite geht kein Weg ins Netz (wie
+    # PBP_BERUFE_LOOKUP, #969). Behandelt wie ein Ausfall: nichts gemerkt.
+    import os as _os
+    if _os.environ.get("PBP_GEOCODING") == "0":
+        return None
 
     # Geocode via Nominatim
     try:
@@ -131,11 +193,16 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
             coords = (result.latitude, result.longitude)
             with _cache_lock:
                 _geo_cache[loc_key] = coords
+            _in_speicher(loc_key, coords)
             logger.debug("Geocoded '%s' -> %s", location, coords)
             return coords
         else:
             with _cache_lock:
                 _geo_cache[loc_key] = None
+            # Der Dienst hat geantwortet und nichts gefunden — das ist ein
+            # Befund ueber den Ort. Ein Timeout oder Dienstfehler landet
+            # im except-Zweig unten und wird NICHT gemerkt.
+            _in_speicher(loc_key, None)
             logger.debug("Geocoding failed for '%s'", location)
             return None
 

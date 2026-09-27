@@ -16,6 +16,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 # Verhalten pruefen, reichen einen eigenen Client herein.
 os.environ.setdefault("PBP_BERUFE_LOOKUP", "0")
 
+# #1090: der Suchlauf loest jetzt den Wohnort aus dem Profil auf. Kein Test
+# fragt den echten Kartendienst; Tests, die Geocoding pruefen, setzen ein
+# Testdoppel fuer `geocode_location`.
+os.environ.setdefault("PBP_GEOCODING", "0")
+
 # H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge sind ohne Expertenmodus
 # ausgeblendet. Die Suite ruft sie direkt ueber `server.mcp` auf; den
 # Aus-Zustand prueft test_g1087_welle5_claude_seite.py ohne diese Variable.

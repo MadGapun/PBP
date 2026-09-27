@@ -1181,6 +1181,40 @@ def test_schalter_aussortieren_nach_suche(live_dashboard, browser):
     finally:
         context.close()
 
+def test_standort_karte_setzt_eigenen_ort(live_dashboard, browser, monkeypatch):
+    """#1090: die Karte nennt den Wohnort aus dem Profil, und ein eigener
+    Ort landet in der Datenbank (nicht nur im Toast)."""
+    from bewerbungs_assistent.services import eigener_standort as es
+    from bewerbungs_assistent.services import geocoding_service as gs
+    orte = {"Hamburg": (53.55, 10.0), "Bremen": (53.08, 8.8)}
+    monkeypatch.setattr(gs, "geocode_location", lambda o: orte.get((o or "").strip()))
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Standort"))
+    db.save_profile({**db.get_profile(), "city": "Hamburg"})
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#suche", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        karte = page.get_by_test_id("standort-karte")
+        karte.wait_for(state="visible", timeout=8000)
+        satz = page.get_by_test_id("standort-satz")
+        satz.filter(has_text="Hamburg").wait_for(timeout=8000)
+        assert "aus dem Profil" in satz.inner_text()
+        karte.get_by_label("Eigener Standort").fill("Bremen")
+        karte.get_by_role("button", name="Standort setzen", exact=True).click()
+        _warte_auf_datenbank(lambda: es.befund(db)["quelle"] == es.EIGENE,
+                             was="eigener Standort gespeichert")
+        assert es.befund(db)["ort"] == "Bremen"
+        satz.filter(has_text="von dir gesetzt").wait_for(timeout=8000)
+    finally:
+        context.close()
+        for t in threading.enumerate():
+            if t.name.startswith("pbp-"):
+                t.join(timeout=10)
+
+
 def test_kontakte_untermenue_referenzen(live_dashboard, browser):
     """#884 — die Referenz-Ansicht, bedient statt gegrept.
 

@@ -1701,6 +1701,13 @@ def run_search(db, job_id: str, params: dict):
     # Geocoding: calculate distance for jobs with location (#167)
     try:
         from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
+        # #1090: ohne ausdruecklichen Standort gilt der Wohnort aus dem
+        # Profil. Vorher uebersprang der Lauf die Entfernung hier still.
+        try:
+            from ..services import eigener_standort as _standort
+            _standort.aus_profil_uebernehmen(db, neu_rechnen=False)
+        except Exception as _exc:
+            logger.debug("Standort aus dem Profil nicht uebernommen: %s", _exc)
         user_coords = get_user_coordinates(db)
         if user_coords:
             geocoded_count = 0
@@ -2039,6 +2046,16 @@ def run_search(db, job_id: str, params: dict):
             filterstufen=filterstufen, quellen_konfiguriert=len(quellen))
         result_data["diagnose"] = diagnose
         msg_parts.append(diagnose)
+
+    # #1090 AK 5: Stellen mit Ort, aber ohne Entfernung nachholen —
+    # begrenzt je Lauf, eine Anfrage je verschiedenem Ort.
+    try:
+        from ..services import eigener_standort as _standort
+        _nach = _standort.nachholen(db)
+        if _nach.get("stellen"):
+            result_data["entfernungen_nachgeholt"] = _nach["stellen"]
+    except Exception as _exc:
+        logger.debug("Entfernungen nicht nachgeholt: %s", _exc)
 
     db.update_background_job(
         job_id, "fertig", progress=100,

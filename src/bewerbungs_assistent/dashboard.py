@@ -506,6 +506,31 @@ async def api_profile():
     return profile
 
 
+@app.get("/api/standort")
+async def api_standort():
+    """Von wo aus PBP Entfernungen rechnet (#1090)."""
+    from .services import eigener_standort
+    if not _db.get_profile():
+        return {"ort": "", "quelle": None, "aufgeloest": False, "profil_wohnort": ""}
+    return eigener_standort.befund(_db)
+
+
+@app.put("/api/standort")
+async def api_standort_setzen(request: Request):
+    """Standort ausdruecklich setzen; leer heisst: Wohnort aus dem Profil."""
+    from .services import eigener_standort
+    if not _db.get_profile():
+        return JSONResponse({"error": "Lege zuerst ein Profil an."}, status_code=400)
+    data = await request.json()
+    ort = data.get("ort", "")
+    if not isinstance(ort, str):
+        return JSONResponse({"error": "ort muss Text sein"}, status_code=400)
+    erg = eigener_standort.eigenen_setzen(_db, ort)
+    if erg.get("status") == "nicht_aufgeloest":
+        return JSONResponse({"error": erg["hinweis"], **erg}, status_code=422)
+    return {**erg, "befund": eigener_standort.befund(_db)}
+
+
 @app.post("/api/profile")
 async def api_save_profile(request: Request):
     data = await request.json()
