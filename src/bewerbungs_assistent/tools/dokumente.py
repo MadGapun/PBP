@@ -1450,11 +1450,11 @@ def register(mcp, db, logger):
         if not data:
             return {"fehler": "Profil nicht gefunden oder kein aktives Profil vorhanden."}
 
-        name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+        name_slug = ablage.dateiname_teil(data.get("name"), "profil")
         date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"profil_backup_{name_slug}_{date_str}.json"
         export_dir = ablage.ausgabe_ordner(db)
-        filepath = export_dir / filename
+        filepath = ablage.freier_pfad(export_dir, filename)
 
         filepath.write_text(
             json.dumps(data, ensure_ascii=False, indent=2, default=str),
