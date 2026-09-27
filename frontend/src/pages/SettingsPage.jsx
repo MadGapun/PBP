@@ -2909,7 +2909,7 @@ function RoutingCard({ pushToast }) {
   }
 
   async function entfernen() {
-    if (!(await bestaetigen({ text: "Routing-Schlüssel entfernen? PBP rechnet danach wieder mit der Luftlinie." }))) return;
+    if (!(await bestaetigen({ text: "Routing-Schlüssel entfernen? Der Haken „Echte Fahrstrecke und Fahrzeit verwenden“ wird dabei abgenommen, und PBP rechnet überall mit der Luftlinie — auch für Stellen, an denen schon eine Fahrstrecke steht." }))) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/routing");
@@ -2925,13 +2925,14 @@ function RoutingCard({ pushToast }) {
   return (
     <Card className="rounded-2xl" data-testid="routing-card">
       <SectionHeading
-        title="Fahrstrecke und Fahrzeit"
-        description="Ohne Schlüssel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schlüssel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Rahmen-Daumen und Gehaltsverrechnung nehmen die Fahrstrecke."
+        title="Fahrstrecke und Fahrzeit (nur Auto)"
+        description="Hier liegt nur der Schlüssel. Ob PBP ihn benutzt, entscheidest du mit dem Haken unter Suche & Bewertung › Max. Entfernung pro Stellentyp. Die Berechnung gilt fürs Auto (nicht für Bus und Bahn); ohne Haken bleibt es bei der Luftlinie."
       />
       <div className="grid gap-3">
         {status?.konfiguriert ? (
-          <p className="text-sm text-teal">
-            Eingerichtet — heute {status.anfragen_heute} von {status.tagesgrenze} Anfragen
+          <p className="text-sm text-teal" data-testid="routing-stand">
+            Schlüssel hinterlegt, Fahrstrecke {status.aktiv ? "an (nur Auto)" : "aus — der Haken ist nicht gesetzt"}.
+            Heute {status.anfragen_heute} von {status.tagesgrenze} Anfragen
             verbraucht, {status.zwischengespeichert} Routen zwischengespeichert.
           </p>
         ) : (
@@ -3512,6 +3513,9 @@ export default function SettingsPage() {
         {/* ── G70: die vollstaendige Quellenliste unter "Erweitert" ── */}
         {settingsTab === "quellen_details" && (
           <>
+            {/* v1.7.94 (#950), #1037 Punkt 4: nicht mehr am Seitenende
+                unter der Quellen-Gesundheit, sondern oben. */}
+            <RoutingCard pushToast={pushToast} />
             <Card className="rounded-2xl">
               <SectionHeading title="Alle Quellen" description="Welche Jobbörsen PBP durchsucht." />
               <SourceSelectionList
@@ -3525,9 +3529,6 @@ export default function SettingsPage() {
 
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />
-
-            {/* v1.7.94 (#950): Fahrstrecke statt Luftlinie */}
-            <RoutingCard pushToast={pushToast} />
           </>
         )}
 

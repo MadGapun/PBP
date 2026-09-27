@@ -673,6 +673,16 @@ class Database:
             """)
             conn.commit()
 
+            # #1037: Schluessel und Nutzung sind getrennt. Wer vorher einen
+            # Schluessel hatte, fuer den rechnete PBP schon mit der
+            # Fahrstrecke — der Haken wird fuer ihn einmal gesetzt, statt
+            # seine Scores still zu verschieben; ein Hinweis sagt es.
+            try:
+                from .services import routing as _routing_uebernahme
+                _routing_uebernahme.uebernahme(self)
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Routing-Uebernahme (#1037): %s", exc)
+
             # #1090 AK 6: aufgeloeste Orte dauerhaft. Vorher lebte der
             # Zwischenspeicher nur im Arbeitsspeicher, und nach jedem
             # Neustart fragte PBP den Dienst fuer jeden Ort wieder, mit
@@ -6778,7 +6788,8 @@ class Database:
         except Exception as e:
             logger.debug("Kompensations-Injektion (#910): %s", e)
         # v1.7.100 (#1037 Punkt 3): eine gespeicherte Fahrstrecke zaehlt nur,
-        # solange ein Routing-Schluessel eingerichtet ist. Die Rueckfrage
+        # solange die Fahrstrecke genutzt wird — seit #1037 Punkt 2 heisst
+        # das Haken gesetzt UND Schluessel da (`routing.aktiv`). Die Rueckfrage
         # beim Entfernen verspricht "PBP rechnet wieder mit der Luftlinie" —
         # `entfernung.preis_km` hatte den Schluessel nie gesehen.
         # Opt-in wie die Injektionen darueber: ohne Schluessel steht KEIN
@@ -6787,7 +6798,7 @@ class Database:
         # Profil den Hinweis auf den naechsten Schritt (#927).
         try:
             from .services import routing as _routing
-            if _routing.konfiguriert(self):
+            if _routing.aktiv(self):
                 criteria["_fahrstrecke_zaehlt"] = True
         except Exception as e:
             logger.debug("Routing-Injektion (#1037): %s", e)

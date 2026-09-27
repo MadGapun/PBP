@@ -127,8 +127,9 @@ def test_ak3_befund_nennt_fahrstrecke_fahrzeit_und_luftlinie():
     assert befund["entfernung_km"] == 390.4
     assert befund["luftlinie_km"] == 271.5
     assert befund["fahrzeit_text"] == "3 Std 55 Min"
+    # #1037 AK 6: die Luftlinie vorn, die Route als Zusatz mit dem Auto.
     assert befund["entfernung_text"] == (
-        "390.4 km Fahrstrecke, 3 Std 55 Min (271.5 km Luftlinie)")
+        "271.5 km Luftlinie · 390.4 km / 3 Std 55 Min mit dem Auto")
     assert "fahrstrecke_km_geschaetzt" not in befund, \
         "eine berechnete Route braucht keine Schaetzung daneben"
 
@@ -154,6 +155,7 @@ def test_ak5_ohne_schluessel_fragt_niemand_und_nichts_aendert_sich(db):
 
 def test_ak3_route_wird_gesetzt_und_die_anfrage_ist_korrekt(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     client = _Client()
     job = _stelle()
     ergebnis = routing.fuer_stellen(db, [job], START, client=client)
@@ -171,6 +173,7 @@ def test_ak3_route_wird_gesetzt_und_die_anfrage_ist_korrekt(db):
 
 def test_ak4_zwischenspeicher_spart_die_zweite_anfrage(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     client = _Client()
     routing.fuer_stellen(db, [_stelle(1)], START, client=client)
     zweite = _stelle(2)  # derselbe Ort, andere Stelle
@@ -182,6 +185,7 @@ def test_ak4_zwischenspeicher_spart_die_zweite_anfrage(db):
 
 def test_viele_stellen_am_selben_ort_kosten_ein_ziel(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     client = _Client()
     jobs = [_stelle(i) for i in range(5)]
     routing.fuer_stellen(db, jobs, START, client=client)
@@ -192,6 +196,7 @@ def test_viele_stellen_am_selben_ort_kosten_ein_ziel(db):
 
 def test_ein_ziel_ohne_route_wird_gemerkt_und_nicht_erneut_gefragt(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     client = _Client(km=None, sekunden=None)
     job = _stelle()
     assert routing.fuer_stellen(db, [job], START, client=client)["ohne_route"] == 1
@@ -209,6 +214,7 @@ def test_ein_ziel_ohne_route_wird_gemerkt_und_nicht_erneut_gefragt(db):
 def test_fehlschlaege_werden_benannt_und_nicht_zwischengespeichert(
         db, status, befund):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     job = _stelle()
     ergebnis = routing.fuer_stellen(db, [job], START,
                                     client=_Client(status=status))
@@ -220,6 +226,7 @@ def test_fehlschlaege_werden_benannt_und_nicht_zwischengespeichert(
 
 def test_ein_netzfehler_ist_nicht_erreichbar(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     ergebnis = routing.fuer_stellen(
         db, [_stelle()], START, client=_Client(fehler=TimeoutError("weg")))
     assert ergebnis["befund"] == routing.NICHT_ERREICHBAR
@@ -227,6 +234,7 @@ def test_ein_netzfehler_ist_nicht_erreichbar(db):
 
 def test_die_tagesgrenze_haelt_das_kontingent_ein(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     db.set_setting(routing.EINSTELLUNG_ZAEHLER,
                    {"datum": routing._heute(), "anzahl": routing.TAGESGRENZE})
     client = _Client()
@@ -260,6 +268,7 @@ def test_offensichtlich_kein_schluessel_kostet_keine_anfrage(db):
 
 def test_der_status_nennt_den_schluessel_nie(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     stand = routing.status(db)
     assert stand["konfiguriert"] is True
     assert SCHLUESSEL not in json.dumps(stand)
@@ -268,6 +277,7 @@ def test_der_status_nennt_den_schluessel_nie(db):
 
 def test_entfernen_setzt_zurueck(db):
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     routing.schluessel_entfernen(db)
     assert not routing.konfiguriert(db)
 
@@ -351,6 +361,7 @@ def test_ak6_die_fahrstrecke_kostet_im_scoring_regler_mehr(db):
     # v1.7.100 (#1037): die Fahrstrecke zaehlt nur mit eingerichtetem
     # Schluessel — die Voraussetzung steht jetzt ausdruecklich da.
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     nah = apply_scoring_adjustments({"distance_km": 20}, 50, db)
     weit = apply_scoring_adjustments(
         {"distance_km": 20, "fahrstrecke_km": 400}, 50, db)
@@ -422,6 +433,7 @@ def test_die_entfernung_aendert_den_score_ueberhaupt(db):
     # v1.7.100 (#1037): die Fahrstrecke zaehlt nur mit eingerichtetem
     # Schluessel — die Voraussetzung steht jetzt ausdruecklich da.
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     kriterien = scoring_kriterien.fuer_scoring(db)
     job = {"title": "Python Entwickler", "description": TEXT + " python",
            "remote_level": "vor_ort", "employment_type": "festanstellung"}
@@ -491,6 +503,7 @@ def test_werkzeug_nachziehen_vorschau_und_lauf(db, monkeypatch):
 
     db.save_jobs([_stelle(1), _stelle(2)])
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)  # #1037: Schluessel UND Haken
     monkeypatch.setattr(geocoding_service, "get_user_coordinates",
                         lambda _db: START)
     client = _Client()
@@ -559,6 +572,9 @@ def test_endpunkt_speichert_nur_nach_probe_und_zeigt_den_schluessel_nie(
 
 
 def test_die_stellenliste_traegt_die_entfernung_samt_art(client, db):
+    # #1037: die Fahrstrecke steht nur da, wenn sie auch zaehlt.
+    db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, SCHLUESSEL)
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)
     db.save_jobs([_stelle(1, fahrstrecke_km=390.4, fahrzeit_min=235,
                           route_quelle="openrouteservice"),
                   _stelle(2, lat=None, lon=None, location="Anderswo",

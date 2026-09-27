@@ -39,6 +39,12 @@ def _neue_entfernung(db, job_hash: str) -> float | None:
     return km
 
 
+def _luftlinie(km) -> str:
+    """Nie die blosse Zahl — sie wird als Wegstrecke gelesen (#950)."""
+    from .entfernung import beschriftung
+    return beschriftung(km) or f"{km} km"
+
+
 def aendern(db, job_hash: str, felder: dict, entfernung_km=None,
             entfernung_zuruecksetzen: bool = False) -> dict:
     """Aendert eine Stelle und rechnet nach. `felder` traegt Schluessel aus
@@ -89,10 +95,10 @@ def aendern(db, job_hash: str, felder: dict, entfernung_km=None,
             vorher = f" (vorher {alt_km} km zum bisherigen Ort)" if alt_km is not None else ""
             ergebnis["entfernung_neu_km"] = neu
             ergebnis["entfernung_text"] = (
-                f"Entfernung zum neuen Ort: {neu} km." if neu is not None else
+                f"Entfernung zum neuen Ort: {_luftlinie(neu)}." if neu is not None else
                 "Den neuen Ort kennt PBP noch nicht — die Entfernung steht auf unbekannt.")
             ergebnis["entfernung_hinweis"] = (
-                f"Entfernung zum neuen Ort: {neu} km{vorher}." if neu is not None else
+                f"Entfernung zum neuen Ort: {_luftlinie(neu)}{vorher}." if neu is not None else
                 f"Den neuen Ort kennt PBP noch nicht — die Entfernung steht jetzt "
                 f"auf unbekannt{vorher}. Wenn du sie weißt: entfernung_km setzen.")
 

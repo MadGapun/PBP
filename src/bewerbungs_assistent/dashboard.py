@@ -2679,7 +2679,7 @@ def _guete_anreichern(jobs: list) -> None:
         # und mit Routing-Schluessel steht dort die Fahrzeit.
         try:
             from .services import entfernung as _entfernung_befund
-            _entf = _entfernung_befund.befund(job)
+            _entf = _entfernung_befund.befund(job, krit)
             if _entf:
                 job["entfernung"] = _entf
         except Exception:  # pragma: no cover — nie eine Liste stoppen
@@ -5596,16 +5596,48 @@ async def api_routing_speichern(request: Request):
         return JSONResponse({"error": ergebnis["fehler"],
                              "befund": ergebnis.get("befund", "")},
                             status_code=400)
+    if ergebnis.get("haken"):
+        hinweis = ("Schlüssel gespeichert. Neue Stellen bekommen die Fahrstrecke "
+                   "(nur Auto) beim nächsten Suchlauf; vorhandene zieht Claude "
+                   "mit fahrstrecken_verwalten('nachziehen') nach.")
+    else:
+        # #1037: der Schluessel schaltet nichts ein.
+        hinweis = ("Schlüssel gespeichert und geprüft. Benutzt wird er erst, "
+                   "wenn du unter Suche & Bewertung › Max. Entfernung pro "
+                   "Stellentyp den Haken „Echte Fahrstrecke und Fahrzeit "
+                   "verwenden (nur Auto)“ setzt.")
     return {**_routing.status(_db), "status": ergebnis["status"],
-            "hinweis": ("Fahrstrecke eingerichtet. Neue Stellen bekommen sie "
-                        "beim nächsten Suchlauf; vorhandene zieht Claude "
-                        "mit fahrstrecken_verwalten('nachziehen') nach.")}
+            "hinweis": hinweis}
+
+
+@app.put("/api/routing/aktiv")
+async def api_routing_aktiv(request: Request):
+    """Der Haken aus #1037 — getrennt vom Schluessel."""
+    from .services import routing as _routing
+    body = await request.json()
+    ergebnis = _routing.haken_setzen(_db, bool(body.get("aktiv")))
+    if ergebnis.get("fehler"):
+        return JSONResponse({"error": ergebnis["fehler"],
+                             "befund": ergebnis.get("befund", "")},
+                            status_code=400)
+    return {**_routing.status(_db), **ergebnis,
+            "hinweis": ("Fahrstrecke (nur Auto) ist an. Vorhandene Stellen "
+                        "zieht Claude mit fahrstrecken_verwalten('nachziehen') "
+                        "nach, danach scores_neu_berechnen()."
+                        if ergebnis["status"] == "an" else
+                        "Fahrstrecke ist aus — PBP rechnet überall mit der "
+                        "Luftlinie, auch wo schon eine Fahrstrecke steht. "
+                        "Die Punkte zieht scores_neu_berechnen() nach.")}
 
 
 @app.delete("/api/routing")
 async def api_routing_entfernen():
     from .services import routing as _routing
-    return {**_routing.schluessel_entfernen(_db), **_routing.status(_db)}
+    return {**_routing.schluessel_entfernen(_db), **_routing.status(_db),
+            "hinweis": ("Schlüssel entfernt und der Haken abgenommen. PBP "
+                        "rechnet überall mit der Luftlinie, auch für Stellen, "
+                        "an denen schon eine Fahrstrecke steht. Die Punkte "
+                        "zieht scores_neu_berechnen() nach.")}
 
 
 @app.get("/api/blacklist")

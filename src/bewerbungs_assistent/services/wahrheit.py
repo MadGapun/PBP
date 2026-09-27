@@ -121,13 +121,13 @@ def _anforderungen(job: dict, beschreibung: dict) -> dict:
     return _eintrag(BELEGT, "anzeigentext", beschreibung["erhoben_am"], "")
 
 
-def _entfernung(job: dict) -> dict:
+def _entfernung(job: dict, kriterien=None) -> dict:
     from . import entfernung
     am = job.get("entfernung_am")
     km = job.get("distance_km")
     if job.get("entfernung_quelle") == "mensch" and km is not None:
         return _eintrag(BELEGT, "von_hand", am, f"{float(km):g} km, von dir eingetragen.")
-    b = entfernung.befund(job)
+    b = entfernung.befund(job, kriterien)
     if not b:
         return _eintrag(UNBEKANNT, "keine", None,
                         "Ohne Ort oder ohne Standort gibt es keine Entfernung.")
@@ -183,7 +183,7 @@ def felder(job: dict, kriterien=None, heute: date | None = None) -> dict:
     return {
         "beschreibung": b,
         "anforderungen": _anforderungen(job, b),
-        "entfernung": _entfernung(job),
+        "entfernung": _entfernung(job, kriterien),
         "gehalt": _gehalt(job),
         "veroeffentlicht": _veroeffentlicht(job, heute),
         "score": _score(job, kriterien),
