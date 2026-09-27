@@ -4684,7 +4684,9 @@ async def api_meetings_csv(from_: str = "", to: str = "",
         "SELECT m.*, a.title AS app_title, a.company AS app_company "
         "FROM application_meetings m "
         "LEFT JOIN applications a ON m.application_id = a.id "
-        "WHERE (a.profile_id=? OR a.profile_id IS NULL OR m.application_id IS NULL)"
+        # #1104: der Termin hat eine eigene profile_id. Ueber die Bewerbung
+        # gefiltert kamen Termine ohne Bewerbung aus allen Profilen.
+        "WHERE (m.profile_id=? OR m.profile_id IS NULL)"
     )
     params: list = [pid]
     if zeitraum_von:
