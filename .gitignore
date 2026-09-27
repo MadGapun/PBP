@@ -23,7 +23,11 @@ env/
 node_modules/
 frontend/node_modules/
 pnpm-debug.log*
-.claude/
+.claude/*
+# Geteilt (Cloud-Sitzungen + PII-Guard): Startskript und Hook-Konfiguration.
+# Persoenliches gehoert in .claude/settings.local.json (bleibt ignoriert).
+!.claude/settings.json
+!.claude/hooks/
 
 # OS
 .DS_Store
