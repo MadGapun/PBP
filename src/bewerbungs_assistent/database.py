@@ -583,7 +583,14 @@ class Database:
                                   # v1.7.126 (#1077): `mensch`, wenn die
                                   # Entfernung von Hand gesetzt wurde —
                                   # dann ueberschreibt sie kein Suchlauf.
-                                  ("entfernung_quelle", "TEXT")):
+                                  ("entfernung_quelle", "TEXT"),
+                                  # v1.7.140 (#954): wann Entfernung und
+                                  # Score erhoben wurden, und worauf der
+                                  # Score beruht (Anzeigentext +
+                                  # Suchkriterien, services/wahrheit.py).
+                                  ("entfernung_am", "TEXT"),
+                                  ("score_am", "TEXT"),
+                                  ("score_stand", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -5418,6 +5425,9 @@ class Database:
         # v1.7.126 (#1077): die Herkunft einer von Hand gesetzten
         # Entfernung, dasselbe Muster wie `salary_quelle`.
         "entfernung_quelle",
+        # v1.7.140 (#954): Erhebungszeitpunkte und Score-Grundlage. Ein
+        # Lauf, der den Wert nicht neu erhebt, laesst sie stehen.
+        "entfernung_am", "score_am", "score_stand",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5454,6 +5464,12 @@ class Database:
 
         conn = self.connect()
         now = _now()
+        # #954: Score-Grundlage — die Kriterien einmal je Aufruf.
+        from .services import wahrheit as _wahrheit
+        try:
+            _kriterien_fuer_stand = self.get_search_criteria()
+        except Exception:  # pragma: no cover
+            _kriterien_fuer_stand = {}
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
         duplikate = 0
@@ -5583,6 +5599,9 @@ class Database:
             # nachgestellt und bestaetigt. Die Aufteilung folgt deshalb
             # dem Wert, den sie erklaert.
             neue_teilscores = (job.get("_fachscore"), job.get("_rahmenscore"))
+            # #954: hat dieser Lauf bewertet? (Teilscores kommen nur aus
+            # calculate_score; ein Metadaten-Update traegt keine.)
+            _score_dieses_laufs = job.get("_fachscore") is not None
             if existing:
                 if existing["is_pinned"]:
                     new_pinned = 1
@@ -5590,6 +5609,7 @@ class Database:
                     new_score = existing["score"]
                     neue_teilscores = (existing["fachscore"],
                                        existing["rahmenscore"])
+                    _score_dieses_laufs = False
                 elif neue_teilscores == (None, None):
                     # Eine Aktualisierung ohne Bewertung (Metadaten,
                     # Beschreibung nachgeladen) darf die vorhandene
@@ -5883,6 +5903,25 @@ class Database:
                          job.get("route_quelle"), stored_hash))
                 except Exception as _exc:  # pragma: no cover
                     logger.debug("Fahrstrecke (#950): %s", _exc)
+
+            # v1.7.140 (#954): Erhebungszeitpunkt und Grundlage stempeln —
+            # nur, wenn DIESER Lauf den Wert erhoben hat. Sonst bleibt der
+            # bewahrte Stempel (#892) stehen.
+            try:
+                _stempel = {}
+                if (job.get("distance_km") is not None
+                        and bewahrt.get("entfernung_quelle") != "mensch"):
+                    _stempel["entfernung_am"] = now
+                if _score_dieses_laufs:
+                    _stempel["score_am"] = now
+                    _stempel["score_stand"] = _wahrheit.score_stand(
+                        job.get("description"), _kriterien_fuer_stand)
+                if _stempel:
+                    _setz = ", ".join(f"{k}=?" for k in _stempel)
+                    conn.execute(f"UPDATE jobs SET {_setz} WHERE hash=?",
+                                 (*_stempel.values(), stored_hash))
+            except Exception as _exc:  # pragma: no cover
+                logger.debug("Stempel (#954): %s", _exc)
 
             # v1.7.74 (#892, C64): der Erst-Score. Er wird NUR beim
             # ersten Speichern gesetzt und danach nie wieder angefasst —
@@ -6239,8 +6278,8 @@ class Database:
             return
         conn.execute(
             "UPDATE jobs SET score=?, fachscore=NULL, rahmenscore=NULL, "
-            "updated_at=? WHERE hash=?",
-            (score, _now(), target_hash)
+            "score_am=?, score_stand='mensch', updated_at=? WHERE hash=?",
+            (score, _now(), _now(), target_hash)
         )
         conn.commit()
 
@@ -9066,6 +9105,21 @@ class Database:
                     val = 1 if val else 0
                 vals.append(val)
         if sets:
+            if "score" in data:
+                # #954: worauf der neue Score beruht, und wann.
+                from .services import wahrheit
+                if "description" in data:
+                    text = data["description"]
+                else:
+                    row = conn.execute("SELECT description FROM jobs WHERE hash=?",
+                                       (target_hash,)).fetchone()
+                    text = row[0] if row else ""
+                try:
+                    kriterien = self.get_search_criteria()
+                except Exception:  # pragma: no cover
+                    kriterien = {}
+                sets += ["score_am=?", "score_stand=?"]
+                vals += [_now(), wahrheit.score_stand(text, kriterien)]
             sets.append("updated_at=?")
             vals.append(_now())
             vals.append(target_hash)
@@ -9133,11 +9187,12 @@ class Database:
             "salary_max", "salary_type", "employment_type", "research_notes",
             "veroeffentlicht_am", "lat", "lon",
             "fahrstrecke_km", "fahrzeit_min", "route_quelle",
-            "entfernung_quelle",
+            "entfernung_quelle", "entfernung_am",
         )
         # v1.7.126 (#1077): was aus dem Ort abgeleitet ist.
         ortsfelder = ("distance_km", "lat", "lon", "fahrstrecke_km",
-                      "fahrzeit_min", "route_quelle", "entfernung_quelle")
+                      "fahrzeit_min", "route_quelle", "entfernung_quelle",
+                      "entfernung_am")
         # #1077 (zweiter Beleg): eine GESCHAETZTE Gehaltsspanne des
         # Duplikats wanderte an eine Stelle mit laufender Bewerbung — und
         # weil `salary_estimated` gar nicht mitging, stand sie dort als
@@ -9404,15 +9459,17 @@ class Database:
             cur = conn.execute(
                 "UPDATE jobs SET distance_km=NULL, lat=NULL, lon=NULL, "
                 "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL, "
-                "entfernung_quelle=NULL, updated_at=? WHERE hash=?",
+                "entfernung_quelle=NULL, entfernung_am=NULL, updated_at=? "
+                "WHERE hash=?",
                 (_now(), stored))
         else:
             cur = conn.execute(
                 "UPDATE jobs SET distance_km=?, lat=NULL, lon=NULL, "
                 "fahrstrecke_km=NULL, "
                 "fahrzeit_min=NULL, route_quelle=NULL, "
-                "entfernung_quelle='mensch', updated_at=? WHERE hash=?",
-                (float(km), _now(), stored))
+                "entfernung_quelle='mensch', entfernung_am=?, updated_at=? "
+                "WHERE hash=?",
+                (float(km), _now(), _now(), stored))
         conn.commit()
         return cur.rowcount > 0
 

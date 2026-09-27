@@ -371,7 +371,38 @@ def _condition_standort_fehlt(db) -> bool:
         return False
 
 
+def _condition_herkunft_neu(db) -> bool:
+    """#954: einmal nach dem Update — solange aktive Stellen Punkte tragen,
+    von denen nicht bekannt ist, auf welchem Stand sie gerechnet wurden."""
+    try:
+        pid = db.get_active_profile_id()
+        if not pid:
+            return False
+        row = db.connect().execute(
+            "SELECT 1 FROM jobs WHERE is_active=1 AND profile_id=? "
+            "AND score_stand IS NULL LIMIT 1", (pid,)).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        # #954: die neue Kennzeichnung, einmal erklaert.
+        "id": "f954_herkunft_der_angaben",
+        "tab": "stellen",
+        "title": "Neu: PBP sagt, woher eine Angabe kommt",
+        "body": (
+            "In den Stellendetails steht jetzt bei Entfernung, Gehalt, "
+            "Anzeigentext und Punkten, ob der Wert belegt, geschätzt oder "
+            "unbekannt ist. Bei älteren Stellen weiß PBP nicht, auf welchem "
+            "Stand die Punkte gerechnet wurden — einmal neu berechnen, "
+            "dann ist es bekannt."
+        ),
+        "cta_label": "PBP: Scores neu berechnen",
+        "cta_tool": "scores_neu_berechnen",
+        "condition": _condition_herkunft_neu,
+    },
     {
         # #1090: ohne Standort keine Entfernung, und das war unsichtbar.
         "id": "f1090_standort_fehlt",

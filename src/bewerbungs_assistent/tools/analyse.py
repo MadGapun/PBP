@@ -1466,6 +1466,14 @@ def register(mcp, db, logger):
                     "Preis, keine Messung.")
         except Exception:
             pass
+        # v1.7.140 (#954): worauf die Punkte beruhen, und woher die
+        # Werte kommen, gegen die gerechnet wurde.
+        try:
+            from ..services import wahrheit as _wahrheit
+            antwort["herkunft"] = _wahrheit.felder(job, db.get_search_criteria())
+            antwort["herkunft_kurz"] = _wahrheit.kurz(antwort["herkunft"])
+        except Exception:  # pragma: no cover
+            pass
         return antwort
 
     @mcp.tool()
@@ -2723,6 +2731,7 @@ def register(mcp, db, logger):
                     # deshalb zu `keyword_vorschlaege`, dem falschen Nachbarn.
                     "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprüche, Rahmenbegriffe (Vorschläge, schreibt nur auf Ansage)",
                     "kalibrierung_backtest — Schwellenwert aus der eigenen Bewerbungshistorie vorschlagen (Schattenrechnung, schreibt nichts)",
+                    "scores_neu_berechnen — Punkte aller Stellen neu rechnen; danach ist bekannt, auf welchem Stand sie beruhen (#954)",
                     # #1063: die Schwelle ist eine STUFE, keine Zahl mehr.
                     "score_verteilung_anzeigen — Score-Verteilung samt den Schwellen-Stufen und ihrer Wirkung",
                     "schwelle_stufe_setzen — Schwellenwert als benannte Stufe setzen (Speichern während der Suche / Ausblenden in der Liste)",

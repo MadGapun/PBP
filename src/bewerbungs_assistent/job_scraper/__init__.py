@@ -3811,6 +3811,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # v1.7.94 (#950 AK 6): dieselbe Zahl wie calculate_score (#963).
     from ..services import entfernung as _entf_fit
     dist = _entf_fit.preis_km(job, criteria)
+    # #954: wie die Zahl entstanden ist, statt immer "Luftlinie".
+    _art = _entf_fit.art_wort(job, criteria)
     fit_emp_type = job.get("employment_type", "festanstellung")
     # v1.7.99 (#1036): dieselbe Grenze wie calculate_score und die Automatik.
     fit_type_max = _entf_fit.grenze_km(criteria, fit_emp_type)
@@ -3833,7 +3835,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         _fit_komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > fit_type_max * 4:
             _basis = -w["fern_malus"]
-            factors[f"Entfernung: {int(dist)} km Luftlinie (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km {_art} (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -3842,7 +3844,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 total += _gutschrift
         elif dist > fit_type_max * 2:
             _basis = -1
-            factors[f"Entfernung: {int(dist)} km Luftlinie (über Max {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km {_art} (über Max {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -3850,11 +3852,11 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                         f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
                 total += _gutschrift
         elif dist <= fit_type_max * 0.6:
-            factors[f"Nähe: {int(dist)} km Luftlinie"] = w["naehe"]
+            factors[f"Nähe: {int(dist)} km {_art}"] = w["naehe"]
             total += w["naehe"]
         elif dist <= fit_type_max:
             pts = max(1, w["naehe"] - 1)
-            factors[f"Nähe: {int(dist)} km Luftlinie (im Rahmen)"] = pts
+            factors[f"Nähe: {int(dist)} km {_art} (im Rahmen)"] = pts
             total += pts
 
     risks = []

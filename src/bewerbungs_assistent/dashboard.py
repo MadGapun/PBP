@@ -2671,6 +2671,13 @@ def _guete_anreichern(jobs: list) -> None:
                 job["entfernung"] = _entf
         except Exception:  # pragma: no cover — nie eine Liste stoppen
             pass
+        # v1.7.140 (#954): belegt / geschätzt / unbekannt je Feld — die
+        # Karte zeigt nur, was nicht belegt ist.
+        try:
+            from .services import wahrheit as _wahrheit
+            job["herkunft"] = _wahrheit.felder(job, _stand_krit)
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            pass
         # #1007: derselbe Aufruf wie in stellen_anzeigen. Zwei Fassungen
         # desselben Befunds waeren #963/#991 in der Trefferliste.
         try:
