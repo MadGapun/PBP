@@ -1343,19 +1343,21 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
              "SELECT COUNT(*) FROM jobs WHERE profile_id=? OR profile_id IS NULL"),
             ("Dokumente (Metadaten)",
              "SELECT COUNT(*) FROM documents WHERE profile_id=? OR profile_id IS NULL"),
+            # #1106-Klasse: auch Termine und Mails nur des aktiven Profils.
             ("Termine/Meetings",
-             "SELECT COUNT(*) FROM application_meetings"),
+             "SELECT COUNT(*) FROM application_meetings WHERE profile_id=? OR profile_id IS NULL"),
             ("E-Mails",
-             "SELECT COUNT(*) FROM application_emails"),
+             "SELECT COUNT(*) FROM application_emails WHERE profile_id=? OR profile_id IS NULL"),
             ("Skills",
              "SELECT COUNT(*) FROM skills WHERE profile_id=?"),
             ("Kontakte",
              "SELECT COUNT(*) FROM contacts WHERE profile_id=? OR profile_id IS NULL"),
             ("Follow-ups",
-             "SELECT COUNT(*) FROM follow_ups"),
+             "SELECT COUNT(*) FROM follow_ups f JOIN applications a ON a.id = f.application_id "
+             "WHERE a.profile_id=? OR a.profile_id IS NULL"),
         ]:
             try:
-                params = (pid, pid) if "?" in sql and sql.count("?") == 2 else ((pid,) if "?" in sql else ())
+                params = (pid,) * sql.count("?")
                 row = conn.execute(sql, params).fetchone()
                 n = row[0] if row else 0
                 counts.append((label, n))

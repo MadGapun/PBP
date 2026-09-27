@@ -3910,14 +3910,17 @@ async def api_stats_style():
     import re as _re
 
     conn = _db.connect()
+    # #1106-Klasse: nur die Bewerbungen des aktiven Profils.
     rows = conn.execute(
         """
         SELECT e.notes, e.application_id, a.status
         FROM application_events e
         JOIN applications a ON a.id = e.application_id
         WHERE e.status = 'stil_tracking'
+          AND (a.profile_id=? OR a.profile_id IS NULL)
         ORDER BY e.event_date ASC
-        """
+        """,
+        (_db.get_active_profile_id(),),
     ).fetchall()
 
     if not rows:

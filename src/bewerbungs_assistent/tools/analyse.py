@@ -920,13 +920,15 @@ def register(mcp, db, logger):
         damit eine Quote ausgegeben wird (sonst zu rauschig).
         """
         conn = db.connect()
+        # #1106-Klasse: nur die Bewerbungen des aktiven Profils.
         rows = conn.execute("""
             SELECT e.notes, e.application_id, a.status, a.has_reached_interview
             FROM application_events e
             JOIN applications a ON a.id = e.application_id
             WHERE e.status = 'stil_tracking'
+              AND (a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY e.event_date ASC
-        """).fetchall()
+        """, (db.get_active_profile_id(),)).fetchall()
 
         if not rows:
             return {
@@ -2138,11 +2140,13 @@ def register(mcp, db, logger):
                    LEFT JOIN applications a ON a.id = f.application_id
                    WHERE f.status = 'erledigt'
                      AND f.completed_at >= '2026-08-11'
+                     AND (a.profile_id=? OR a.profile_id IS NULL)
                      AND NOT EXISTS (
                          SELECT 1 FROM application_events e
                          WHERE e.application_id = f.application_id
                            AND e.notes LIKE 'Nachfass erledigt%')
-                   ORDER BY f.completed_at DESC""").fetchall()
+                   ORDER BY f.completed_at DESC""",
+                (db.get_active_profile_id(),)).fetchall()
             if verdaechtig:
                 warnungen.append({
                     "bereich": "Nachfassungen",

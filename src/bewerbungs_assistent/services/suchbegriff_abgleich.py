@@ -241,7 +241,8 @@ def _orte(db, profil: dict, krit: dict) -> set[str]:
         conn = db.connect()
         zeilen = conn.execute(
             "SELECT DISTINCT location FROM jobs WHERE location IS NOT NULL "
-            "AND location != '' LIMIT 5000").fetchall()
+            "AND location != '' AND (profile_id=? OR profile_id IS NULL) "
+            "LIMIT 5000", (db.get_active_profile_id(),)).fetchall()
     except Exception as exc:  # pragma: no cover
         logger.debug("Orte aus dem Bestand nicht lesbar (#1054): %s", exc)
         zeilen = []
