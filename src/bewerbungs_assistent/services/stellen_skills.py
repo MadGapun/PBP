@@ -177,12 +177,23 @@ def anzeigenteil(text: str) -> str:
     return teile[0]
 
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=4096)
+def _als_wort(begriff: str):
+    """Der Begriff als ganzes Wort (#1104). Ohne Grenze traf das gelernte
+    "rest" in "Restaurant" — dieselbe Klasse wie "ki" in "Kita" (#970)."""
+    return re.compile(r"(?<![\wäöüß])" + re.escape(begriff) + r"(?![\wäöüß])")
+
+
 def _kandidaten(text: str, gelernt: Optional[set] = None) -> Iterable[str]:
     klein = text.lower()
 
     # 0) Gelerntes zuerst — Mehrwortbegriffe vor der Zerlegung.
     for begriff in sorted(gelernt or (), key=len, reverse=True):
-        if len(begriff) >= MIN_LAENGE and begriff in klein:
+        if (len(begriff) >= MIN_LAENGE and begriff in klein
+                and _als_wort(begriff).search(klein)):
             yield begriff
 
     # 1) Normen als EIN Begriff, Schreibweise vereinheitlicht.
@@ -191,7 +202,7 @@ def _kandidaten(text: str, gelernt: Optional[set] = None) -> Iterable[str]:
 
     # 2) Mehrwortbegriffe vor der Einzelwort-Zerlegung.
     for begriff in _MEHRWORT:
-        if begriff in klein:
+        if begriff in klein and _als_wort(begriff).search(klein):
             yield begriff
 
     # 3) Kuratierte Einzelbegriffe.

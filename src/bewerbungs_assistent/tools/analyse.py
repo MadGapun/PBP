@@ -246,51 +246,59 @@ def register(mcp, db, logger):
             bewerbung_id: Optional — speichert die Markt-Analyse im selben Aufruf
                 an diese Bewerbung (#674, Kategorie 'markt').
         """
+        # #1104: gezaehlt werden ANZEIGEN je Begriff, nicht Vorkommen —
+        # sonst lag ein Begriff, der mehrfach je Anzeige steht, ueber 100 %.
+        # Die Begriffe kommen aus dem Extraktor mit Positivliste und
+        # Wortgrenzen (#963), erweitert um Profil und Bestand (#971) — nicht
+        # aus einer festen Liste einer Fachrichtung ("KI" traf "Skills",
+        # "REST" traf "Restaurant", und fuer eine Pflegekraft meldete die
+        # Luecke CAD-Systeme).
+        from ..services import stellen_skills as _sk
         descriptions = db.get_skill_frequency()
         if not descriptions:
             return {
                 "status": "keine_daten",
                 "hinweis": "Noch keine Stellenangebote vorhanden. Starte zuerst eine Jobsuche.",
             }
-
-        # Common tech/skill keywords to look for
-        skill_keywords = [
-            "Python", "Java", "JavaScript", "TypeScript", "C#", "C\\+\\+", "SQL", "NoSQL",
-            "React", "Angular", "Vue", "Node\\.js", "Docker", "Kubernetes", "AWS", "Azure",
-            "SAP", "ERP", "CRM", "PLM", "PDM", "CAD", "CAM", "MES", "PPS",
-            "Agile", "Scrum", "Kanban", "ITIL", "DevOps", "CI/CD",
-            "REST", "API", "Microservices", "Cloud", "Linux", "Windows Server",
-            "Machine Learning", "KI", "AI", "Data Science", "Big Data",
-            "Projektmanagement", "Teamleitung", "Fuehrung", "Consulting",
-            "PRO\\.FILE", "Teamcenter", "Windchill", "ENOVIA", "3DExperience",
-            "SolidWorks", "AutoCAD", "CATIA", "NX", "Inventor",
-            "Freelance", "Remote", "Hybrid", "Home.?Office",
-            "Englisch", "Deutsch",
-        ]
-
-        full_text = " ".join(descriptions)
         total_jobs = len(descriptions)
+        profile = db.get_profile()
+        if total_jobs < _sk.MIN_ANZEIGEN:
+            return {
+                "status": "zu_wenig_daten",
+                "analysierte_stellen": total_jobs,
+                "hinweis": (f"Erst {total_jobs} Stelle(n) mit Anzeigentext — zu wenig, "
+                            "um von Trends oder Lücken zu sprechen."),
+            }
+        vok = _sk.vokabular(db, profile)
         trend_counts = Counter()
+        anzeige_form: dict = {}
+        for text in descriptions:
+            gesehen = set()
+            for begriff in _sk.extrahiere_skills(text, vok):
+                schluessel = _sk.grundform(begriff)
+                if schluessel in gesehen:
+                    continue
+                gesehen.add(schluessel)
+                trend_counts[schluessel] += 1
+                anzeige_form.setdefault(schluessel, Counter())[begriff] += 1
 
-        for keyword in skill_keywords:
-            count = len(re.findall(keyword, full_text, re.IGNORECASE))
-            if count > 0:
-                clean_key = keyword.replace("\\", "").replace(".?", "-")
-                trend_counts[clean_key] = count
+        def _name(schluessel):
+            return anzeige_form[schluessel].most_common(1)[0][0]
 
         # Compare with user skills
-        profile = db.get_profile()
         user_skills = []
         skill_gap = []
         if profile:
-            user_skills = [s["name"].lower() for s in profile.get("skills", [])]
-            for skill, count in trend_counts.most_common(30):
-                if skill.lower() not in user_skills and count >= 2:
-                    skill_gap.append({"skill": skill, "nachfrage": count})
+            user_skills = {_sk.grundform(s["name"]) for s in profile.get("skills", [])
+                           if s.get("name")}
+            for schluessel, count in trend_counts.most_common(30):
+                if schluessel not in user_skills and count >= 2:
+                    skill_gap.append({"skill": _name(schluessel), "nachfrage": count})
 
         top_20 = [
-            {"skill": skill, "nennungen": count, "prozent_jobs": round(count / total_jobs * 100, 1)}
-            for skill, count in trend_counts.most_common(20)
+            {"skill": _name(k), "nennungen": count,
+             "prozent_jobs": round(count / total_jobs * 100, 1)}
+            for k, count in trend_counts.most_common(20)
         ]
 
         ergebnis = {

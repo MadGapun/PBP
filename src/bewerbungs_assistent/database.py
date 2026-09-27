@@ -3919,9 +3919,12 @@ class Database:
             "COUNT(*) AS termine "
             "FROM application_meetings"
         )
-        meet_params: list = []
+        # #1104: nur Termine des aktiven Profils — ohne Bewerbungsfilter
+        # summierten sich Reisekosten und Vorbereitung ueber alle Profile.
+        meet_q += " WHERE (profile_id=? OR profile_id IS NULL)"
+        meet_params: list = [pid]
         if application_id:
-            meet_q += " WHERE application_id=?"
+            meet_q += " AND application_id=?"
             meet_params.append(application_id)
         m = conn.execute(meet_q, meet_params).fetchone()
         reise_brutto = m["reise_brutto"] or 0
