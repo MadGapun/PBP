@@ -5230,6 +5230,16 @@ async def api_search_criteria():
     return _db.get_search_criteria()
 
 
+@app.get("/api/entfernung/vorgaben")
+async def api_entfernung_vorgaben():
+    """#1036: die Vorgaben der Entfernungsgrenze je Anstellungsform kommen
+    vom Server — im Profil stand eine dritte Fassung der Tabelle. Eigener
+    Endpunkt, damit leere Kriterien leer bleiben (#927)."""
+    from .services import entfernung as _entf
+    return {"grenzen": dict(_entf.VORGABE_GRENZE_KM),
+            "sonst": _entf.VORGABE_GRENZE_SONST}
+
+
 @app.post("/api/search-criteria")
 async def api_set_criteria(request: Request):
     data = await request.json()
