@@ -45,6 +45,7 @@ import {
 } from "@/components/ui";
 import { cn, docTypeLabel, formatDateTime, normalizeMonthDate } from "@/utils";
 import { SCORE_BEDEUTUNG } from "@/lib/score";
+import { zahlOderVorgabe } from "@/lib/zahl";
 
 const EMPTY_PROFILE = {
   name: "",
@@ -282,7 +283,7 @@ function criteriaDraftToPayload(criteriaDraft) {
       fern_malus: Number(criteriaDraft.gewichtung_fern_malus),
       gehalt: Number(criteriaDraft.gewichtung_gehalt),
     },
-    min_score_schwelle: Number(criteriaDraft.min_score_schwelle) || 1,
+    min_score_schwelle: zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1),
   };
 }
 
@@ -1633,7 +1634,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                   min={0}
                   max={scoreVerteilung?.regler_max ?? 20}
                   step={1}
-                  value={Number(criteriaDraft.min_score_schwelle) || 1}
+                  value={zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1)}
                   onChange={(event) => setCriteriaDraft((current) => ({
                     ...current,
                     min_score_schwelle: Number(event.target.value),
@@ -1641,7 +1642,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                   className="flex-1 h-1.5 cursor-pointer appearance-none rounded-full bg-sky/20 accent-sky"
                 />
                 <span className="w-12 text-right text-sm font-bold tabular-nums text-sky">
-                  {Number(criteriaDraft.min_score_schwelle) || 1}
+                  {zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1)}
                 </span>
               </div>
               {scoreVerteilung?.belastbar ? (

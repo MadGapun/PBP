@@ -832,7 +832,7 @@ def register(mcp, db, logger):
         auto_followup_id = None
         if status == "beworben":
             try:
-                default_days = int(db.get_setting("followup_default_days", 7) or 7)
+                default_days = db.get_setting_zahl("followup_default_days", 7)
             except Exception:
                 default_days = 7
             if default_days > 0:
@@ -1027,7 +1027,7 @@ def register(mcp, db, logger):
                 # #522: nur wenn auto_follow_up=True (Default)
                 if auto_follow_up:
                     try:
-                        default_days = int(db.get_setting("followup_default_days", 7) or 7)
+                        default_days = db.get_setting_zahl("followup_default_days", 7)
                     except Exception:
                         default_days = 7
                     if default_days > 0:
