@@ -89,6 +89,10 @@ class _DB:
     def connect(self):
         return self
 
+    def get_active_profile_id(self):
+        # #1106-Klasse: der Bericht fragt je Profil.
+        return "profil-957"
+
     def execute(self, sql, args=()):
         if "FROM applications" in sql:
             return _Ergebnis([
@@ -285,6 +289,9 @@ class _MigrationsDB:
 
     def connect(self):
         return self
+
+    def get_active_profile_id(self):
+        return "profil-957"
 
     def execute(self, sql, args=()):
         if "FROM jobs WHERE research_notes" in sql:
