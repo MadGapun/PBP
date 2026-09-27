@@ -6680,11 +6680,14 @@ class Database:
                 }
 
         conn = self.connect()
-        # Eventuell Cross-Profile blocken: app_id wenn gegeben muss matchen
-        sql = "SELECT id, application_id, status, event_date FROM application_events WHERE id=?"
-        params: list = [int(event_id)]
+        # Nur Events des aktiven Profils (#1106-Klasse): Event-IDs sind
+        # fortlaufende Zahlen, ohne Filter traf jede Zahl irgendein Profil.
+        sql = ("SELECT e.id, e.application_id, e.status, e.event_date "
+               "FROM application_events e JOIN applications a ON a.id = e.application_id "
+               "WHERE e.id=? AND (a.profile_id=? OR a.profile_id IS NULL)")
+        params: list = [int(event_id), self.get_active_profile_id()]
         if app_id is not None:
-            sql += " AND application_id=?"
+            sql += " AND e.application_id=?"
             params.append(app_id)
         row = conn.execute(sql, params).fetchone()
         if not row:
