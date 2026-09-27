@@ -679,6 +679,20 @@ class Database:
             except Exception as exc:  # pragma: no cover
                 logger.debug("Geo-Speicher nicht angebunden: %s", exc)
 
+            # #1110: ein abgelehnter Kontaktvorschlag hinterlaesst eine
+            # Spur, damit er beim naechsten Lauf nicht wiederkommt — als
+            # Hash, nicht als Name oder Mail: die Daten, die der Mensch
+            # gerade verworfen hat, sollen nicht liegen bleiben.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS kontakt_vorschlag_abgelehnt (
+                    profile_id TEXT,
+                    schluessel TEXT NOT NULL,
+                    created_at TEXT,
+                    PRIMARY KEY (profile_id, schluessel)
+                )
+            """)
+            conn.commit()
+
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
             # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.
@@ -4309,11 +4323,17 @@ class Database:
         return self._serialize_contact_row(row)
 
     def list_contacts(self, search: str = "", role: str = "",
-                      company: str = "") -> list[dict]:
-        """Liste aller Kontakte des aktiven Profils. Optional gefiltert."""
+                      company: str = "", mit_vorschlaegen: bool = False) -> list[dict]:
+        """Liste aller Kontakte des aktiven Profils. Optional gefiltert.
+
+        #1110: unbestaetigte Vorschlaege (`is_pending`) stehen nur mit
+        `mit_vorschlaegen=True` darin — sie haben einen eigenen Weg
+        (/api/contacts/pending) und gehoeren nicht neben die echten."""
         conn = self.connect()
         pid = self.get_active_profile_id()
         query = "SELECT * FROM contacts WHERE (profile_id=? OR profile_id IS NULL)"
+        if not mit_vorschlaegen:
+            query += " AND COALESCE(is_pending, 0)=0"
         params: list = [pid]
         if search:
             pattern = f"%{search.lower()}%"

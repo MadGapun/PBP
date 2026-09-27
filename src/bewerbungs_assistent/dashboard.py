@@ -8235,9 +8235,19 @@ async def api_approve_pending_contact(contact_id: str):
 
 @app.delete("/api/contacts/pending/{contact_id}")
 async def api_reject_pending_contact(contact_id: str):
-    """Verwirft einen pending-Kontakt (loescht ihn komplett)."""
+    """Verwirft einen pending-Kontakt (loescht ihn komplett).
+
+    #1110: vorher bleibt eine Spur (nur ein Hash), damit derselbe
+    Vorschlag beim naechsten Lauf nicht wiederkommt."""
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    zeile = conn.execute(
+        "SELECT full_name, email, company, phone FROM contacts "
+        "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",
+        (contact_id, pid)).fetchone()
+    if zeile:
+        from .services import kontakt_pflicht
+        kontakt_pflicht.ablehnung_merken(_db, dict(zeile))
     cur = conn.execute(
         "DELETE FROM contacts "
         "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",

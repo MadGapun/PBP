@@ -84,6 +84,8 @@ BEREICHE: dict[str, tuple] = {
         "follow_ups", "tasks", "contacts", "contact_links",
         # v1.7.88 (#884): haengt am Kontakt, gehoert also dorthin.
         "contact_references",
+        # v1.7.140 (#1110): abgelehnte Kontaktvorschlaege (nur Hashes).
+        "kontakt_vorschlag_abgelehnt",
         "contact_categories", "meeting_categories",
         "interview_reflections", "research_notes",
     ),
