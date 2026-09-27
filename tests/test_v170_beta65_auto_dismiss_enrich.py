@@ -34,6 +34,8 @@ def setup_env():
 
 class _FakeStatus:
     ollama_available = True
+    # #1092: der gemeinsame Weg prueft, wie das Werkzeug, auf ein Modell.
+    available_models = ["mock:7b"]
     user_state = "active"
     selected_model = "mock:7b"
     error = None
@@ -101,7 +103,10 @@ def test_auto_dismiss_now_actually_dismisses(setup_env, monkeypatch):
     assert bad["dismiss_reason"] == "profil_match_negativ"
 
 
-def test_score_enrichment_for_thin_description(setup_env, monkeypatch):
+def test_thin_description_is_not_judged_and_keeps_its_score(setup_env, monkeypatch):
+    """#1092: frueher hob "PASST" eine Stelle ohne Anzeigentext auf den
+    erfundenen Score 35. Jetzt wird sie gar nicht beurteilt (#756) und
+    behaelt ihren Score (#989, #999)."""
     db = setup_env
     _seed_jobs(db)
     db.set_profile_setting("auto_dismiss_after_search", "true")
@@ -121,8 +126,8 @@ def test_score_enrichment_for_thin_description(setup_env, monkeypatch):
 
     conn = db.connect()
     thin = conn.execute("SELECT score, is_active FROM jobs WHERE hash LIKE '%h-thin'").fetchone()
-    assert thin["is_active"] == 1, "PASST-Stelle darf nicht aussortiert werden"
-    assert thin["score"] == 35, f"Score-Anreicherung griff nicht: {thin['score']}"
+    assert thin["is_active"] == 1, "Stelle ohne Text darf nicht aussortiert werden"
+    assert thin["score"] == 0, f"Score wurde verändert: {thin['score']}"
 
 
 def test_fat_description_not_enriched(setup_env, monkeypatch):
@@ -164,4 +169,6 @@ def test_result_recorded_in_background_job(setup_env, monkeypatch):
     erg = job.get("result") or {}
     assert "auto_aussortiert" in erg
     assert erg["auto_aussortiert"]["aussortiert"] >= 1
-    assert "score_angereichert" in erg["auto_aussortiert"]
+    # #1092: keine Score-Anreicherung mehr; gezaehlt wird, was ohne
+    # Anzeigentext unbeurteilt blieb.
+    assert erg["auto_aussortiert"]["ohne_beschreibung"] == 1

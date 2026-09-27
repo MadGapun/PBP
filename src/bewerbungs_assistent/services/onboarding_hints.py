@@ -341,6 +341,17 @@ def _text_notizen_mit_bewerbungsbezug(db) -> str:
     return f"{len(v)} Sektion(en): {namen}{rest}"
 
 
+def _condition_auto_aussortieren_aus(db) -> bool:
+    """#1092: nur wer die lokale KI aktiv hat und den Schalter nie selbst
+    gesetzt hat — also genau die, bei denen die alte Vorgabe "an" wirkte."""
+    try:
+        from .auto_aussortierung import schalter_gesetzt
+        aktiv = db.get_profile_setting("llm_local_state", "off") == "active"
+        return aktiv and not schalter_gesetzt(db)
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
     {
         "id": "d47_notizen_an_die_bewerbung",
@@ -395,6 +406,24 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_tool": "suchkriterien_anzeigen",
         "condition": _condition_gehalt_aus_praeferenzen_entfernt,
         "detail": _text_gehalt_entfernt,
+    },
+    {
+        # #1092: bis v1.7.139 sortierte die lokale KI nach jeder Suche
+        # ungefragt aus (Vorgabe "an", ohne Schalter). Jetzt ist die
+        # Vorgabe aus — wer die KI aktiv hat, erfaehrt einmal davon.
+        "id": "f1092_auto_aussortieren_ist_jetzt_aus",
+        "tab": "einstellungen",
+        "title": "Die lokale KI sortiert nach der Suche nicht mehr von selbst aus",
+        "body": (
+            "Bisher hat die lokale KI nach jeder Jobsuche Stellen "
+            "aussortiert, ohne dass du das eingeschaltet hattest — auch "
+            "solche ohne Anzeigentext. Das ist jetzt aus. Unter "
+            "Einstellungen › Automatik kannst du es wieder einschalten; "
+            "Stellen ohne Anzeigentext beurteilt sie dann nicht mehr."
+        ),
+        "cta_label": "PBP: Automatik-Einstellungen ändern",
+        "cta_tool": "automatik_setzen",
+        "condition": _condition_auto_aussortieren_aus,
     },
     {
         "id": "c91_schwelle_ist_jetzt_stufe",

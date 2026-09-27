@@ -59,11 +59,18 @@ export function jobsucheHinweis(last) {
     // Ein Lauf ohne Zahl ist "nicht bekannt", nicht "null gefunden".
     return { ton: "ok", text: "Jobsuche fertig", titel: last.meldung || "" };
   }
+  // #1092 AK 6: was die lokale KI nach dem Lauf aussortiert hat — mit
+  // dem Weg dorthin, damit sich ein Fehlurteil zurückholen lässt.
+  const weg = typeof last.auto_aussortiert === "number" ? last.auto_aussortiert : 0;
+  const wegText = weg > 0
+    ? `${weg} von der lokalen KI aussortiert (zurückholen unter Stellen › Ausgeblendet)`
+    : "";
   if (neue === 0) {
     return {
       ton: "ok",
-      text: "Fertig — keine neuen Stellen",
-      titel: quellenText || "Der Suchlauf hat keine neuen Stellen gefunden.",
+      text: `Fertig — keine neuen Stellen${weg > 0 ? `, ${weg} aussortiert` : ""}`,
+      titel: [wegText, quellenText].filter(Boolean).join(" · ")
+        || "Der Suchlauf hat keine neuen Stellen gefunden.",
     };
   }
 
@@ -76,10 +83,11 @@ export function jobsucheHinweis(last) {
   if (aktiv !== null && aktiv !== neue) {
     teile.push(`${aktiv} davon in der Liste, ${neue - aktiv} sofort ausgeblendet`);
   }
+  if (wegText) teile.push(wegText);
   if (quellenText) teile.push(quellenText);
   return {
     ton: "ok",
-    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}`,
+    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}${weg > 0 ? `, ${weg} aussortiert` : ""}`,
     titel: teile.join(" · "),
   };
 }

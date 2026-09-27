@@ -3028,6 +3028,23 @@ async def api_set_report_settings(request: Request):
     return {"status": "ok", "gespeichert": out}
 
 
+@app.get("/api/settings/auto-aussortieren")
+async def api_get_auto_aussortieren():
+    """#1092: Schalter "Nach jeder Suche mit der lokalen KI aussortieren"."""
+    from .services import auto_aussortierung
+    return {"an": auto_aussortierung.schalter_an(_db)}
+
+
+@app.put("/api/settings/auto-aussortieren")
+async def api_set_auto_aussortieren(request: Request):
+    from .services import auto_aussortierung
+    data = await request.json()
+    if not isinstance(data.get("an"), bool):
+        return JSONResponse({"error": "an muss true oder false sein"}, status_code=400)
+    _db.set_profile_setting(auto_aussortierung.SCHALTER, "true" if data["an"] else "false")
+    return {"status": "ok", "an": data["an"]}
+
+
 @app.get("/api/settings/followup")
 async def api_get_followup_settings():
     """Liest die Follow-up-Automations-Einstellungen (#494)."""
@@ -6768,6 +6785,10 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
         try:
             from .job_scraper import run_search
             run_search(_db, job_id, params)
+            # #1092 AK 5: derselbe Schritt wie nach `jobsuche_starten` —
+            # vorher sortierte nur der Weg ueber Claude aus.
+            from .services import auto_aussortierung
+            auto_aussortierung.nach_suche(_db, job_id)
         except Exception as exc:
             logger.error("Jobsuche (Dashboard) fehlgeschlagen: %s", exc, exc_info=True)
             _db.update_background_job(job_id, "fehler", message=str(exc))
@@ -6905,6 +6926,9 @@ async def api_jobsuche_last():
         "neu_aktiv": _zahl(result.get("neu_aktiv")) if ergebnis == "fertig" else None,
         # C97 (#1087 C8): wie viele der neuen Stellen noch ohne Volltext sind.
         "ohne_volltext": _zahl(result.get("ohne_volltext")) if ergebnis == "fertig" else None,
+        # #1092 AK 6: was die lokale KI danach aussortiert hat.
+        "auto_aussortiert": _zahl((result.get("auto_aussortiert") or {}).get("aussortiert"))
+            if ergebnis == "fertig" else None,
         "quellen": zaehler,
         "timeout_quellen": zaehler["timeout"],
         "meldung": job.get("message") or "",
