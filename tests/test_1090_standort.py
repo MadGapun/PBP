@@ -91,6 +91,8 @@ def test_nicht_aufgeloester_wohnort_schreibt_nichts_und_wird_benannt(db):
     b = es.befund(db)
     assert b["quelle"] == es.PROFIL and not b["aufgeloest"]
     assert "standort_ort" not in (db.get_search_criteria() or {}), "leere Kriterien blieben nicht leer"
+    assert _condition_standort_fehlt(db) is False, "ohne Stellen noch kein Hinweis"
+    _stelle(db, "hinweis1090", "Bremen")
     assert _condition_standort_fehlt(db) is True
 
 
