@@ -110,6 +110,25 @@ def preis_km(job, criteria=None) -> float | None:
     return wert
 
 
+def art_wort(job, criteria=None) -> str:
+    """Wie die Zahl aus `preis_km` entstanden ist, als Wort (#954).
+
+    Bis v1.7.139 stand in der Fit-Analyse jede Entfernung als
+    "Luftlinie" da — auch eine berechnete Fahrstrecke und eine, die der
+    Mensch selbst eingetragen hat (#1077)."""
+    if not isinstance(job, dict):
+        return "Luftlinie"
+    if job.get("entfernung_quelle") == "mensch":
+        return "von dir eingetragen"
+    zaehlt = (criteria is None
+              or (isinstance(criteria, dict)
+                  and criteria.get("_fahrstrecke_zaehlt") is True))
+    fahrt = _zahl(job.get("fahrstrecke_km"))
+    if zaehlt and fahrt is not None and fahrt > 0:
+        return "Fahrstrecke"
+    return "Luftlinie"
+
+
 def fahrzeit_text(minuten) -> str:
     """"45 Min", "1 Std", "3 Std 55 Min" — oder leer."""
     m = _zahl(minuten)

@@ -36,6 +36,11 @@ PROFIL = "profil"
 NACHHOLEN_JE_LAUF = 40   # verschiedene Orte je Nachhol-Lauf
 
 
+def _jetzt() -> str:
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat()
+
+
 def wohnort_aus_profil(profil: dict | None) -> str:
     """"PLZ Ort", sonst Ort, sonst Adresse."""
     if not profil:
@@ -193,10 +198,10 @@ def entfernungen_nachziehen(db, alle: bool = False,
         if ziel:
             km = calculate_distance_km(start, ziel)
             con.execute(
-                f"UPDATE jobs SET distance_km=?, lat=?, lon=?, "
+                f"UPDATE jobs SET distance_km=?, lat=?, lon=?, entfernung_am=?, "
                 f"fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL "
                 f"WHERE hash IN ({platz})",
-                (km, ziel[0], ziel[1], *hashes))
+                (km, ziel[0], ziel[1], _jetzt(), *hashes))
             gerechnet += len(hashes)
         else:
             unaufloesbar += len(hashes)

@@ -39,6 +39,7 @@ import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertu
 import { kartenFakten as faktenZeile, kartenGrund, kernaussage } from "@/lib/stellenKarte";
 import MitClaude from "@/components/MitClaude";
 import { grundText, klartext, quelleText } from "@/lib/anzeige";
+import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
@@ -2459,6 +2460,15 @@ export default function JobsPage() {
                   <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
                   {entfernungText(detailDialog.job) ? (
                     <p className="text-xs text-muted">{entfernungText(detailDialog.job)}</p>
+                  ) : null}
+                  {nichtBelegt(detailDialog.job).length ? (
+                    <ul className="mt-1 space-y-0.5 text-xs text-muted" data-testid="herkunft-liste">
+                      {nichtBelegt(detailDialog.job).map((e) => (
+                        <li key={e.feld} title={e.text || undefined}>
+                          {e.name}: {e.wort}{e.text ? ` — ${e.text}` : ""}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {

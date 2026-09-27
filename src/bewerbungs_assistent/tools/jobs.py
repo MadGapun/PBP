@@ -1929,6 +1929,14 @@ def register(mcp, db, logger):
                 # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
                 # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
                 entry.update(_entfernung.befund(j))
+            # v1.7.140 (#954): woher die Werte kommen — eine Zeile, nur
+            # was nicht belegt ist. Die volle Aufstellung hat fit_analyse.
+            try:
+                from ..services import wahrheit as _wahrheit
+                entry["herkunft"] = _wahrheit.kurz(
+                    _wahrheit.felder(j, _krit_fuer_stand))
+            except Exception:  # pragma: no cover — nie eine Liste stoppen
+                pass
             # v1.7.22 (#942): Fach- und Rahmenanteil getrennt ausweisen.
             # "Score 31" allein verraet nicht, ob die Punkte fachlich
             # sind oder aus Rahmenbegriffen (Senior, Remote, Hamburg)
@@ -3108,6 +3116,14 @@ def register(mcp, db, logger):
         }
         if job.get("distance_km"):
             result.update(_entfernung.befund(job))
+        # v1.7.140 (#954): was an der neuen Stelle belegt ist und was nicht.
+        try:
+            from ..services import wahrheit as _wahrheit
+            _gespeichert = db.get_job(job_hash) or job
+            result["herkunft"] = _wahrheit.felder(_gespeichert, db.get_search_criteria())
+            result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
+        except Exception:  # pragma: no cover
+            pass
         # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
         # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer —
         # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
@@ -4708,6 +4724,15 @@ def register(mcp, db, logger):
         # Leitlinie lautet Recall vor Praezision.
         _alter = _anzeigenalter.einordnung(job_dict)
         result["anzeigenalter"] = _alter
+        # v1.7.140 (#954): je Feld belegt / geschätzt / unbekannt, mit
+        # Methode und Zeitpunkt. Claude soll einen geschaetzten Wert nicht
+        # wie einen belegten weitergeben.
+        try:
+            from ..services import wahrheit as _wahrheit
+            result["herkunft"] = _wahrheit.felder(job_dict, db.get_search_criteria())
+            result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
+        except Exception:  # pragma: no cover
+            pass
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
 

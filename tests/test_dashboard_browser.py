@@ -1366,6 +1366,29 @@ def _seed_popup_workspace(db) -> None:
     )
 
 
+def test_stellendetails_sagen_woher_die_angaben_kommen_954(live_dashboard, browser):
+    """#954: in den Stellendetails steht, was geschaetzt oder unbekannt
+    ist — mit den drei Alltagswoertern, ohne Methodennamen."""
+    _seed_popup_workspace(live_dashboard["db"])
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Sachbearbeitung Einkauf").first.click()
+        page.get_by_role("heading", name="Stellendetails").wait_for(state="visible")
+        liste = page.get_by_test_id("herkunft-liste")
+        liste.wait_for(state="visible", timeout=8000)
+        text = liste.inner_text()
+        assert "Entfernung: geschätzt" in text, text
+        assert "Gehalt: geschätzt" in text, text
+        assert "Anzeigentext" not in text, "belegt gehoert nicht in die Liste"
+        assert "luftlinie" not in text and "schaetzung_titel_ort" not in text, text
+    finally:
+        context.close()
+
+
 def test_popup_zeigt_die_stelle_wie_die_karte_1044(live_dashboard, browser):
     """#1044: das Popup "Stellendetails" las Rohwerte. Geprueft wird der
     GERENDERTE Text im Dialog, nicht der Quelltext (v1.7.71 MERKE 9)."""
