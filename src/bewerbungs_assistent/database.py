@@ -136,7 +136,9 @@ def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Opti
         return None
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_path = backup_dir / f"pbp-backup-{timestamp}.db"
+    # #1098: der Anlass steht im Namen — im selben Ordner liegen jetzt auch
+    # taegliche und manuelle Sicherungen (services/sicherung.py).
+    backup_path = backup_dir / f"pbp-backup-{timestamp}-vor_update.db"
     src = sqlite3.connect(str(db_path))
     dst = sqlite3.connect(str(backup_path))
     try:
@@ -146,8 +148,14 @@ def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Opti
         dst.close()
         src.close()
     logger.info("Backup erstellt: %s", backup_path)
-    # Rotate: keep only the newest max_backups
-    backups = sorted(backup_dir.glob("pbp-backup-*.db"), key=lambda p: p.stat().st_mtime)
+    # Rotate: keep only the newest max_backups — NUR unter den Sicherungen
+    # vor einem Update (#1098). Die uebrigen rotiert services/sicherung.
+    import re as _re
+    _update = _re.compile(
+        r"^pbp-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(-vor_update)?(-\d+)?\.db$")
+    backups = sorted((b for b in backup_dir.glob("pbp-backup-*.db")
+                      if _update.match(b.name)),
+                     key=lambda p: p.stat().st_mtime)
     while len(backups) > max_backups:
         oldest = backups.pop(0)
         oldest.unlink()
@@ -332,6 +340,14 @@ class Database:
                 vorgemerkte_loeschung_ausfuehren(self.db_path.parent)
             except Exception as exc:  # pragma: no cover
                 logger.warning("Vorgemerkte Loeschung nicht ausgefuehrt: %s", exc)
+            # #1098: eine vorgemerkte Sicherung — ebenfalls BEVOR die
+            # Datenbank geoeffnet wird. Nach einer DSGVO-Loeschung gibt es
+            # die Vormerkung nicht mehr (der ganze Ordner ist weg).
+            try:
+                from .services.sicherung import vorgemerkt_einspielen
+                vorgemerkt_einspielen(self.db_path)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Vorgemerkte Sicherung nicht eingespielt: %s", exc)
         conn = self.connect()
         conn.executescript(SCHEMA_SQL)
         # Check schema version

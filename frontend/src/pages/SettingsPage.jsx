@@ -4,6 +4,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import SicherungKarte from "@/components/SicherungKarte";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -3717,7 +3718,7 @@ export default function SettingsPage() {
       const a = document.createElement("a");
       a.href = url; a.download = `pbp_backup_${new Date().toISOString().slice(0, 10)}.db`; a.click();
       URL.revokeObjectURL(url);
-      pushToast("Datenbank-Backup heruntergeladen", "success");
+      pushToast("Sicherung angelegt und heruntergeladen.", "success");
     } catch (error) {
       pushToast(`Backup fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -4497,8 +4498,9 @@ export default function SettingsPage() {
             </Card>
 
             <Card className="rounded-2xl">
-              <SectionHeading title="Daten & Backup" description="Daten exportieren, sichern oder aus einer Datei importieren." />
+              <SectionHeading title="Daten & Sicherung" description="Sicherungen ansehen und zurückholen, Daten exportieren oder aus einer Datei importieren." />
               <div className="grid gap-3">
+                <SicherungKarte pushToast={pushToast} />
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Komplett-Export (ZIP)</p>
@@ -4511,8 +4513,8 @@ export default function SettingsPage() {
                 </div>
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-ink">Datenbank-Backup (SQLite)</p>
-                    <p className="text-xs text-muted">Rohe Datenbankdatei — für technische Wiederherstellung.</p>
+                    <p className="text-sm font-medium text-ink">Sicherung herunterladen (Datenbank)</p>
+                    <p className="text-xs text-muted">Legt eine Sicherung an und lädt die Datenbankdatei herunter — zum Aufbewahren außerhalb von PBP.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={downloadBackup}>
                     <Database size={14} /> Herunterladen

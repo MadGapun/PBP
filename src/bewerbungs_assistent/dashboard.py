@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, UploadFile, File, Form, Body
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 
 def _sanitize_for_json(obj):
@@ -7190,25 +7191,66 @@ async def api_backup():
     if not db_path.exists():
         return JSONResponse({"error": "Keine Datenbank vorhanden"}, status_code=404)
 
-    backup_dir = get_data_dir() / "backup"
-    backup_dir.mkdir(exist_ok=True)
-    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_name = f"pbp_backup_{date_str}.db"
-    backup_path = backup_dir / backup_name
-
-    # SQLite-safe backup via connection backup API
-    import sqlite3
-    src = sqlite3.connect(str(db_path))
-    dst = sqlite3.connect(str(backup_path))
-    src.backup(dst)
-    dst.close()
-    src.close()
-
+    # #1098: derselbe Ordner und dieselbe Rotation wie die automatischen
+    # Sicherungen, samt Dokumenten — und nicht mehr im Event-Loop.
+    from .services import sicherung as _sicherung
+    erg = await run_in_threadpool(_sicherung.sichern, _db, "manuell")
+    if erg["status"] != "gesichert":
+        return JSONResponse({"error": erg["fehler"]}, status_code=507)
+    backup_path = _sicherung.ordner(_db) / erg["name"]
     return FileResponse(
         str(backup_path),
-        filename=backup_name,
+        filename=erg["name"],
         media_type="application/octet-stream",
     )
+
+
+@app.get("/api/sicherungen")
+async def api_sicherungen():
+    """Liste der Sicherungen, die letzte, der Platz und eine Vormerkung (#1098)."""
+    from .services import sicherung as _sicherung
+    alle = _sicherung.liste(_db)
+    alter = _sicherung.alter_tage(_db)
+    return {"sicherungen": alle,
+            "letzte": alle[0] if alle else None,
+            "alter_tage": round(alter, 2) if alter is not None else None,
+            "platz_belegt": sum(e["groesse"] for e in alle),
+            "vorgemerkt": _sicherung.vormerkung(_db),
+            "regel": (f"Behalten werden alle Sicherungen der letzten "
+                      f"{_sicherung.TAGE_BEHALTEN} Tage und je eine der "
+                      f"{_sicherung.WOCHEN_BEHALTEN} Wochen davor.")}
+
+
+@app.post("/api/sicherungen")
+async def api_sicherung_anlegen():
+    """Jetzt sichern — im Hintergrund, mit Eintrag in der Statusanzeige."""
+    from .services import sicherung as _sicherung
+    return _sicherung.im_hintergrund(_db, "manuell")
+
+
+@app.post("/api/sicherungen/wiederherstellen")
+async def api_sicherung_wiederherstellen(payload: dict = Body(default={})):
+    """Eine Sicherung beim naechsten Start einspielen (#1098). Vorher wird
+    der aktuelle Stand gesichert."""
+    from .services import sicherung as _sicherung
+    if (payload or {}).get("confirm") != "WIEDERHERSTELLEN":
+        return JSONResponse({"error": "Bestätigung fehlt (confirm: WIEDERHERSTELLEN)"},
+                            status_code=400)
+    erg = await run_in_threadpool(_sicherung.vormerken, _db,
+                                  str((payload or {}).get("name") or ""))
+    if erg["status"] != "vorgemerkt":
+        return JSONResponse({"error": erg["fehler"]}, status_code=400)
+    erg["naechster_schritt"] = (
+        "Beende PBP und Claude Desktop ganz (Claude Desktop: Rechtsklick auf das "
+        "Symbol unten rechts in der Taskleiste → Beenden) und starte beides neu. "
+        "Beim Start wird der gewählte Stand eingespielt.")
+    return erg
+
+
+@app.delete("/api/sicherungen/wiederherstellen")
+async def api_sicherung_vormerkung_aufheben():
+    from .services import sicherung as _sicherung
+    return {"aufgehoben": _sicherung.vormerkung_aufheben(_db)}
 
 
 # === User Preferences (PBP v0.10.0) ===
@@ -7524,7 +7566,11 @@ async def api_danger_leeren(request: Request):
             status_code=400)
 
     pid = (data.get("profil_id") or "").strip() or None
-    erg = loeschbereiche.leeren(_db, gewaehlt, pid, dry_run=False)
+    # #1098: vorher sichern — samt Dokumenten; ohne Sicherung kein Leeren.
+    erg = await run_in_threadpool(loeschbereiche.leeren, _db, gewaehlt, pid,
+                                  dry_run=False, sichern=True)
+    if erg.get("status") == "abgebrochen":
+        return JSONResponse({**erg, "error": erg["fehler"]}, status_code=507)
     # `status` kommt aus dem Dienst ("geloescht") und wird hier NICHT
     # ueberschrieben: zwei Bedeutungen unter einem Feldnamen sind der
     # Fehler aus #1008.

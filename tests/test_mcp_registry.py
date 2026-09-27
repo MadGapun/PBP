@@ -284,6 +284,8 @@ EXPECTED_TOOL_NAMES = {
     "dokument_status_setzen",
     # v1.5.6: Scraper Health (#432)
     "schwelle_stufe_setzen",
+    "sicherung_anlegen",
+    "sicherungen_anzeigen",
     "scraper_diagnose",
     # v1.5.7: Journey-Abschluss (#453, #455)
     "follow_up_erledigen",
@@ -417,7 +419,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 266  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht
+        assert len(tools) == 268  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

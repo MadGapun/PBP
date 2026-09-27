@@ -585,7 +585,8 @@ def _reihenfolge(db, liste) -> list:
 
 
 def leeren(db, bereiche=None, profil_id: str | None = None,
-           dry_run: bool = True, dateien_loeschen: bool = True) -> dict:
+           dry_run: bool = True, dateien_loeschen: bool = True,
+           sichern: bool = False) -> dict:
     """Leert die gewaehlten Bereiche.
 
     `dry_run=True` ist die Vorgabe und aendert nichts.
@@ -593,11 +594,27 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
     `dateien_loeschen=False` laesst die Dateien auf der Platte liegen
     und raeumt nur die Datenbank ab. Das ist KEIN Normalfall — es gibt
     ihn, weil `delete_profile` diesen Vertrag seit jeher anbietet.
+
+    `sichern=True` (#1098): vorher eine Sicherung samt Dokumenten. Die
+    beiden Wege "Bereiche leeren" (Dashboard, Claude) setzen es; der
+    Factory Reset und das Loeschen eines Profils nicht — dort ist das
+    Loswerden der Zweck, wie bei der DSGVO-Loeschung. Scheitert die
+    Sicherung, wird NICHTS geloescht.
     """
     vor = vorschau(db, bereiche, profil_id)
     if dry_run:
         return {"status": "vorschau", **vor,
                 "hinweis": "Vorschau — es wurde nichts gelöscht."}
+
+    sicherung = None
+    if sichern:
+        from . import sicherung as _sicherung
+        sicherung = _sicherung.sichern(db, anlass="vor_leeren")
+        if sicherung["status"] != "gesichert":
+            return {"status": "abgebrochen", "sicherung": sicherung,
+                    "fehler": ("Vor dem Leeren ließ sich keine Sicherung anlegen — "
+                               "deshalb wurde nichts gelöscht. "
+                               + (sicherung.get("fehler") or ""))}
 
     gewaehlt = [b for b in (bereiche or BEREICHE) if b in BEREICHE]
     betroffen = [t for b in gewaehlt for t in BEREICHE[b]
@@ -639,7 +656,8 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
             "dateien_nicht_loeschbar": dateien_fehler,
             "dateien_bleiben_liegen": dateien_bleiben,
             "haengende_verweise": vor["haengende_verweise"],
-            "hinweis": vor["hinweis"]}
+            "hinweis": vor["hinweis"],
+            "sicherung": (sicherung or {}).get("name")}
 
 
 def verwaiste_profilzeilen(db) -> dict:

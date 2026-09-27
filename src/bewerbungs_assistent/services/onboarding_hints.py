@@ -386,6 +386,25 @@ def _condition_herkunft_neu(db) -> bool:
         return False
 
 
+def _condition_sicherung_alt(db) -> bool:
+    """#1098: die letzte Sicherung ist aelter als eine Woche (oder es gibt
+    keine), obwohl Daten da sind. Ein frisches Profil ohne Bewerbungen
+    und Stellen wird nicht ermahnt."""
+    try:
+        if not db.get_active_profile_id():
+            return False
+        con = db.connect()
+        daten = (con.execute("SELECT 1 FROM applications LIMIT 1").fetchone()
+                 or con.execute("SELECT 1 FROM jobs LIMIT 1").fetchone())
+        if not daten:
+            return False
+        from . import sicherung
+        alter = sicherung.alter_tage(db)
+        return alter is None or alter >= 7
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
     {
         # #954: die neue Kennzeichnung, einmal erklaert.
@@ -610,6 +629,22 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_label": "PBP: Interview-Reflexion zum letzten Gespräch speichern",
         "cta_tool": "interview_reflexion_speichern",
         "condition": _condition_keine_interview_reflexion_aber_interviews,
+    },
+    {
+        # #1098: eine Sicherung, die niemand bemerkt, schuetzt nicht.
+        "id": "f1098_sicherung_alt",
+        "tab": "dashboard",
+        "title": "Deine letzte Sicherung ist älter als eine Woche",
+        "body": (
+            "PBP sichert sonst einmal am Tag von selbst — das hat eine "
+            "Weile nicht geklappt, oder PBP lief nicht. Lege jetzt eine an: "
+            "Einstellungen › Datenschutz › Daten & Sicherung › „Jetzt "
+            "sichern“ — oder über Claude. Dort siehst du auch alle "
+            "Sicherungen und kannst einen Stand zurückholen."
+        ),
+        "cta_label": "PBP: Sicherung anlegen",
+        "cta_tool": "sicherung_anlegen",
+        "condition": _condition_sicherung_alt,
     },
 ]
 

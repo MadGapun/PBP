@@ -171,6 +171,13 @@ def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
 
 
 def _tick(db) -> None:
+    # #1098: einmal am Tag eine Sicherung — unabhaengig von den Schaltern
+    # der Automatik; sie laeuft im Hintergrund und blockiert den Tick nicht.
+    try:
+        from . import sicherung
+        sicherung.taeglich(db)
+    except Exception as exc:  # pragma: no cover — nie den Tick stoppen
+        logger.warning("Tägliche Sicherung: %s", exc)
     s = db.get_automatik_settings()
     now = _utcnow()
     if _is_due(s["lernen_intervall_tage"], s["lernen_last_at"], now):
