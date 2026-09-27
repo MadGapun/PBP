@@ -912,7 +912,7 @@ export default function JobsPage() {
       return;
     }
     try {
-      await postJson("/api/blacklist", {
+      const erg = await postJson("/api/blacklist", {
         type: blacklistDialog.type,
         value,
         reason: (blacklistDialog.begruendung || "").trim(),
@@ -930,7 +930,11 @@ export default function JobsPage() {
         });
       }
       refreshChrome({ quiet: true });
-      pushToast(`Blacklist-Eintrag gespeichert: ${value}`, "success");
+      // Der Server blendet die uebrigen aktiven Stellen dieser Firma aus.
+      const weg = erg?.stellen_deaktiviert || 0;
+      const andere = offen?.hash ? Math.max(0, weg - 1) : weg;
+      pushToast(`Blacklist-Eintrag gespeichert: ${value}${andere ? ` — ${andere} weitere ${andere === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet` : ""}`, "success");
+      if (weg) loadPage({ silent: true });
       setBlacklistDialog(EMPTY_BLACKLIST_DIALOG);
     } catch (error) {
       pushToast(`Blacklist-Eintrag fehlgeschlagen: ${error.message}`, "danger");

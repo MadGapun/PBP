@@ -1063,18 +1063,12 @@ def register(mcp, db, logger):
                 )
             # #109: Blacklist-Eintrag löscht sofort alle Stellen des Unternehmens
             # v1.7.11 (#790): ausser denen, die unter die Ausnahme fallen
+            # #992-Klasse: ueber den gemeinsamen Weg — dieselbe Regel wie der
+            # Suchlauf, nur das aktive Profil, mit Protokoll (#1010).
             if typ == "firma":
-                conn = db.connect()
-                firma_lower = wert.strip().lower()
-                sql = ("UPDATE jobs SET is_active=0, "
-                       "dismiss_reason='firma_blacklisted' "
-                       "WHERE is_active=1 AND LOWER(company) LIKE ?")
-                params = [f"%{firma_lower}%"]
-                for a in ausnahmen:
-                    sql += " AND LOWER(COALESCE(title,'')) NOT LIKE ?"
-                    params.append(f"%{a.lower()}%")
-                dismissed = conn.execute(sql, params).rowcount
-                conn.commit()
+                from ..services import blacklist_bestand
+                dismissed = blacklist_bestand.anwenden(
+                    db, dry_run=False, nur_wert=wert)["deaktiviert"]
                 if dismissed:
                     result["stellen_deaktiviert"] = dismissed
                     result["hinweis"] = (
@@ -1198,32 +1192,12 @@ def register(mcp, db, logger):
                 "nachricht": "Blacklist ist leer. Nutze blacklist_verwalten('hinzufuegen', ...).",
             }
 
-        # Aktive Stellen laden (ohne Blacklist-Filter, sonst sehen wir nichts)
-        active = db.get_active_jobs()
-
-        # v1.7.11 (#790/C31): Titel-Ausnahmen je Firmen-Eintrag. Ohne das
-        # entfernt ein retroaktiver Lauf genau die passenden Stellen wieder,
-        # die die Ausnahme beim Anlegen durchgelassen hat.
-        # v1.7.41 (#992/C52): ueber das Nadeloehr statt eigener Fassung.
-        verschont = []
-        matched = []
-        for j in active:
-            _rettung = blacklist_regel.verschont(
-                bl_entries, j.get("company") or "", j.get("title") or "")
-            if _rettung:
-                verschont.append({
-                    "hash": j.get("hash"), "titel": j.get("title"),
-                    "firma": j.get("company"),
-                    "ausnahme_begriff": _rettung["begriff"],
-                })
-            hit = blacklist_regel.treffer(
-                bl_entries, j.get("company") or "", j.get("title") or "")
-            if hit:
-                matched.append({
-                    "job": j,
-                    "trigger": hit["typ"],
-                    "wert": (hit["wert"] or "").lower(),
-                })
+        # v1.7.11 (#790/C31): Titel-Ausnahmen je Firmen-Eintrag;
+        # v1.7.41 (#992/C52): ueber das Nadeloehr statt eigener Fassung;
+        # #992-Klasse: Suche und Ausfuehrung im gemeinsamen Dienst.
+        from ..services import blacklist_bestand
+        lauf = blacklist_bestand.anwenden(db, dry_run=dry_run)
+        matched, verschont = lauf["treffer"], lauf["verschont"]
 
         if not matched:
             res = {
@@ -1263,22 +1237,8 @@ def register(mcp, db, logger):
                 res["durch_ausnahme_verschont"] = verschont
             return res
 
-        # Tatsaechlich anwenden — nutzt db.dismiss_job (resolve_job_hash inside),
-        # damit profile-scoped Hashes korrekt aufgeloest werden.
-        deaktiviert = 0
-        firmen_betroffen: dict[str, int] = {}
-        for m in matched:
-            job_hash = m["job"].get("hash")
-            if not job_hash:
-                continue
-            reason = f"{m['trigger']}_blacklisted"
-            try:
-                db.dismiss_job(job_hash, reason)
-                deaktiviert += 1
-                firma = m["job"].get("company") or "?"
-                firmen_betroffen[firma] = firmen_betroffen.get(firma, 0) + 1
-            except Exception as exc:
-                logger.warning("blacklist_anwenden: %s fehlgeschlagen: %s", job_hash, exc)
+        deaktiviert = lauf["deaktiviert"]
+        firmen_betroffen = lauf["firmen"]
         res = {
             "dry_run": False,
             "deaktiviert": deaktiviert,

@@ -5657,7 +5657,14 @@ async def api_blacklist():
 async def api_add_blacklist(request: Request):
     data = await request.json()
     _db.add_to_blacklist(data["type"], data["value"], data.get("reason", ""))
-    return {"status": "ok"}
+    # #992-Klasse: wie ueber Claude sortiert ein Firmen-Eintrag die
+    # aktiven Stellen dieser Firma gleich aus — derselbe Weg, dieselbe Regel.
+    deaktiviert = 0
+    if data["type"] == "firma":
+        from .services import blacklist_bestand
+        deaktiviert = blacklist_bestand.anwenden(
+            _db, dry_run=False, nur_wert=data["value"])["deaktiviert"]
+    return {"status": "ok", "stellen_deaktiviert": deaktiviert}
 
 
 @app.delete("/api/blacklist/{entry_id}")
