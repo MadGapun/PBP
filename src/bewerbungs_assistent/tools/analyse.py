@@ -2811,6 +2811,7 @@ def register(mcp, db, logger):
                     "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgründe verwalten",
                     "ollama_autostart — lokale KI (Ollama) mit PBP starten",
                     "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknüpfung anlegen",
+                    "automatik_status / automatik_setzen — Hintergrund-Automatik, auch Aussortieren nach der Suche (Vorgabe aus)",
                 ],
             },
             "system": {
@@ -3340,30 +3341,42 @@ def register(mcp, db, logger):
     def automatik_setzen(
         jobsuche_intervall_tage: int | None = None,
         lernen_intervall_tage: int | None = None,
+        nach_suche_aussortieren: bool | None = None,
     ) -> dict:
-        """Setzt die Intervalle der Hintergrund-Automatik (#677/#678).
+        """Setzt die Hintergrund-Automatik (#677/#678, #1092).
 
-        Erlaubte Werte: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unverändert.
+        Erlaubte Intervalle: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unverändert.
 
         Args:
             jobsuche_intervall_tage: wie oft die INTERNE Jobsuche läuft.
             lernen_intervall_tage: wie oft Ollama aus Verhalten/Dokumenten
                 lernt (greift nur, wenn der Lern-Modus an ist).
+            nach_suche_aussortieren: nach jeder Jobsuche mit der lokalen KI
+                aussortieren (Vorgabe aus). Stellen ohne Anzeigentext werden
+                dabei nie beurteilt.
         """
-        if jobsuche_intervall_tage is None and lernen_intervall_tage is None:
+        from ..services import auto_aussortierung
+        if (jobsuche_intervall_tage is None and lernen_intervall_tage is None
+                and nach_suche_aussortieren is None):
             return {
-                "fehler": "Mindestens ein Intervall angeben.",
+                "fehler": "Mindestens eine Einstellung angeben.",
                 "aktueller_stand": db.get_automatik_settings(),
+                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db),
             }
-        try:
-            db.set_automatik_settings(
-                jobsuche_intervall_tage=jobsuche_intervall_tage,
-                lernen_intervall_tage=lernen_intervall_tage,
-            )
-        except ValueError as exc:
-            return {"fehler": str(exc)}
+        if jobsuche_intervall_tage is not None or lernen_intervall_tage is not None:
+            try:
+                db.set_automatik_settings(
+                    jobsuche_intervall_tage=jobsuche_intervall_tage,
+                    lernen_intervall_tage=lernen_intervall_tage,
+                )
+            except ValueError as exc:
+                return {"fehler": str(exc)}
+        if nach_suche_aussortieren is not None:
+            db.set_profile_setting(auto_aussortierung.SCHALTER,
+                                   "true" if nach_suche_aussortieren else "false")
         from ..services.automatik_scheduler import compute_status
-        return {"status": "gespeichert", **compute_status(db)}
+        return {"status": "gespeichert", **compute_status(db),
+                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db)}
 
     # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
 

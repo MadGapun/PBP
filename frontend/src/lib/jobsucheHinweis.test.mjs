@@ -70,6 +70,20 @@ check("ohne Browser-Quellen kein Satz dazu",
   check("Text ohne Gesamtzahl", volltextText(3), "3 ohne Volltext — PBP lädt ihn nach, die Bewertung folgt");
 }
 
+// #1092 AK 6: die Zahl der KI-Aussortierung steht im Hinweis, mit Weg zurück.
+{
+  const h = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 4,
+    neu_aktiv: 4, auto_aussortiert: 2, quellen: {} });
+  check("KI-Aussortierung im Text", h.text.includes("2 aussortiert"), true);
+  check("Weg zurück im Titel", h.titel.includes("Stellen › Ausgeblendet"), true);
+  const ohne = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
+    auto_aussortiert: 1, quellen: {} });
+  check("auch ohne neue Stellen", ohne.text.includes("1 aussortiert"), true);
+  const nichts = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 3,
+    neu_aktiv: 3, quellen: {} });
+  check("ohne Aussortierung kein Zusatz", nichts.text.includes("aussortiert"), false);
+}
+
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);
   process.exit(1);

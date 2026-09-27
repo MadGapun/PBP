@@ -1152,6 +1152,35 @@ def test_gefahrenzone_dsgvo_nennt_was_geloescht_wird(live_dashboard, browser, tm
     finally:
         context.close()
 
+
+def test_schalter_aussortieren_nach_suche(live_dashboard, browser):
+    """#1092 AK 4: der Schalter steht unter Automatik, Vorgabe aus, und
+    ein Klick landet in der Datenbank (nicht nur im Toast)."""
+    from bewerbungs_assistent.services import auto_aussortierung as aa
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Automatik"))
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Automatik", exact=True).first.click()
+        karte = page.get_by_test_id("auto-aussortieren-card")
+        karte.wait_for(state="visible", timeout=8000)
+        kasten = karte.get_by_role("checkbox")
+        page.wait_for_load_state("networkidle")
+        assert not kasten.is_checked(), "Vorgabe muss aus sein"
+        kasten.click()
+        for _ in range(50):
+            if aa.schalter_an(db):
+                break
+            page.wait_for_timeout(100)
+        assert aa.schalter_an(db), "Klick kam nicht in der Datenbank an"
+    finally:
+        context.close()
+
 def test_kontakte_untermenue_referenzen(live_dashboard, browser):
     """#884 — die Referenz-Ansicht, bedient statt gegrept.
 

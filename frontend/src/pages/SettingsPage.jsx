@@ -1251,6 +1251,48 @@ function AutomatikSchedulerCard({ pushToast }) {
   );
 }
 
+// #1092: Die Aussortierung nach der Suche ist eine Automatik, die ohne
+// Zutun eingreift — deshalb ein Schalter, Vorgabe aus (#1001, #1037).
+function AutoAussortierenCard({ pushToast }) {
+  const [an, setAn] = useState(null);
+  useEffect(() => {
+    api("/api/settings/auto-aussortieren")
+      .then((d) => setAn(Boolean(d.an)))
+      .catch(() => setAn(false));
+  }, []);
+  async function umschalten(wert) {
+    setAn(wert);
+    try {
+      await putJson("/api/settings/auto-aussortieren", { an: wert });
+      pushToast(wert ? "Aussortieren nach der Suche ist an." : "Aussortieren nach der Suche ist aus.", "success");
+    } catch (err) {
+      setAn(!wert);
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+  return (
+    <Card className="rounded-2xl" data-testid="auto-aussortieren-card">
+      <label className="flex items-start gap-3 text-sm text-ink">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={Boolean(an)}
+          disabled={an === null}
+          onChange={(e) => umschalten(e.target.checked)}
+        />
+        <span>
+          <strong>Nach jeder Suche mit der lokalen KI aussortieren</strong>
+          <span className="mt-1 block text-xs text-muted">
+            Die lokale KI prüft neue Stellen gegen dein Profil und sortiert aus, was nicht passt.
+            Stellen ohne Anzeigentext beurteilt sie nicht. Aussortiertes holst du unter
+            Stellen › Ausgeblendet zurück. Braucht die lokale KI (Einstellungen › Lokale KI).
+          </span>
+        </span>
+      </label>
+    </Card>
+  );
+}
+
 function AutoActionsTab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -3489,6 +3531,7 @@ export default function SettingsPage() {
         {settingsTab === "automatik" && (
           <>
             <AutomatikSchedulerCard pushToast={pushToast} />
+            <AutoAussortierenCard pushToast={pushToast} />
             <AutoActionsTab pushToast={pushToast} />
           </>
         )}
