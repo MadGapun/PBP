@@ -1345,7 +1345,13 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def bewerbung_loeschen(bewerbung_id: str, bestaetigung: bool = False) -> dict:
-        """Löscht eine Bewerbung und alle zugehörigen Events/Timeline-Einträge.
+        """Löscht eine Bewerbung und alles, was an ihr hängt.
+
+        Timeline, Nachfassungen, Aufgaben, Termine, Kosten, Recherchen und
+        Verknüpfungen werden gelöscht; Dokumente, Mails, Dokumentversionen
+        und Referenzen bleiben und verlieren nur den Bezug. Der erste
+        Aufruf ohne bestaetigung zeigt vorher, was mit wie vielen Zeilen
+        geschieht.
 
         ACHTUNG: Diese Aktion kann nicht rückgängig gemacht werden!
 
@@ -1353,24 +1359,30 @@ def register(mcp, db, logger):
             bewerbung_id: ID der Bewerbung
             bestaetigung: Muss True sein um die Löschung zu bestätigen
         """
-        if not bestaetigung:
-            app = db.get_application(bewerbung_id)
-            if not app:
-                return {"fehler": "Bewerbung nicht gefunden."}
-            return {
-                "status": "bestaetigung_erforderlich",
-                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
-                "hinweis": "Setze bestaetigung=True um die Bewerbung unwiderruflich zu löschen."
-            }
+        from ..services import abhaengige_zeilen
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
+        if not bestaetigung:
+            vorschau = db.delete_application(bewerbung_id, dry_run=True)
+            return {
+                "status": "bestaetigung_erforderlich",
+                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                "folgen": abhaengige_zeilen.klartext(vorschau),
+                "geloescht": vorschau["geloescht"],
+                "geloest": vorschau["geloest"],
+                "hinweis": "Setze bestaetigung=True um die Bewerbung unwiderruflich zu löschen."
+            }
         title = app.get("title", "")
         company = app.get("company", "")
-        db.delete_application(bewerbung_id)
+        befund = db.delete_application(bewerbung_id)
         return {
             "status": "gelöscht",
-            "nachricht": f"Bewerbung '{title}' bei {company} wurde gelöscht."
+            "nachricht": f"Bewerbung '{title}' bei {company} wurde gelöscht.",
+            "folgen": abhaengige_zeilen.klartext(befund).replace(
+                "Löscht", "Gelöscht:", 1).replace("; löst", "; gelöst:", 1),
+            "geloescht": befund["geloescht"],
+            "geloest": befund["geloest"],
         }
 
     @mcp.tool()
