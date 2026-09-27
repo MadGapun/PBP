@@ -4195,6 +4195,18 @@ def register(mcp, db, logger):
         """
         if not master_hash or not duplikat_hash:
             return {"fehler": "master_hash und duplikat_hash sind Pflicht"}
+        sicherung_name = None
+        if not dry_run:
+            # #1098: das Zusammenfuehren loescht die Dublette — vorher eine
+            # Sicherung (nur die Datenbank; Dateien fasst es nicht an).
+            from ..services import sicherung as _sicherung
+            _s = _sicherung.sichern(db, anlass="vor_zusammenfuehren",
+                                    mit_dokumenten=False)
+            if _s["status"] != "gesichert":
+                return {"fehler": ("Vor dem Zusammenführen ließ sich keine "
+                                   "Sicherung anlegen — es wurde nichts "
+                                   "geändert. " + (_s.get("fehler") or ""))}
+            sicherung_name = _s["name"]
         result = db.merge_jobs(
             master_hash=master_hash,
             duplicate_hash=duplikat_hash,
@@ -4207,6 +4219,8 @@ def register(mcp, db, logger):
                 "Bei Konflikten feld_strategie mitgeben "
                 "(z.B. {'description': 'merge', 'url': 'duplikat'})."
             )
+        if sicherung_name:
+            result["sicherung"] = sicherung_name
         return result
 
     @mcp.tool()

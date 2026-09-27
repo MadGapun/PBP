@@ -2810,6 +2810,7 @@ def register(mcp, db, logger):
                     "bewerbungsbericht_exportieren — PDF-Pipeline-Report",
                     "profil_report_exportieren — Profil-Snapshot",
                     "profil_exportieren — Vollständiges Profil als JSON-Backup",
+                    "sicherung_anlegen / sicherungen_anzeigen — Datensicherung samt Dokumenten (#1098)",
                 ],
             },
             "workflows": {

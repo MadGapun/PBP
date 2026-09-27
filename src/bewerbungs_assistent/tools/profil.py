@@ -2347,6 +2347,45 @@ def register(mcp, db, logger):
         return v
 
     @mcp.tool()
+    def sicherungen_anzeigen() -> dict:
+        """Zeigt die Sicherungen von PBP: wann, warum, wie gross, ob mit
+        Dokumenten — und wann zuletzt gesichert wurde.
+
+        PBP sichert einmal am Tag von selbst, vor dem Leeren eines
+        Bereichs und vor dem Zusammenführen zweier Stellen. Zurückholen
+        geht im Dashboard (Einstellungen › Datenschutz › Daten &
+        Sicherung) und wirkt beim nächsten Start.
+        """
+        from ..services import sicherung
+        alle = sicherung.liste(db)
+        alter = sicherung.alter_tage(db)
+        return {
+            "sicherungen": alle[:20],
+            "anzahl": len(alle),
+            "letzte_vor_tagen": round(alter, 1) if alter is not None else None,
+            "vorgemerkt": sicherung.vormerkung(db),
+            "hinweis": (
+                "Noch keine Sicherung — sicherung_anlegen() legt eine an."
+                if alter is None else
+                "Einen Stand zurückholen: im Dashboard unter Einstellungen › "
+                "Datenschutz › Daten & Sicherung."),
+        }
+
+    @mcp.tool()
+    def sicherung_anlegen() -> dict:
+        """Legt jetzt eine Sicherung an — Datenbank und Dokumente, im
+        Hintergrund. Sinnvoll vor größeren Aufräumaktionen oder wenn die
+        letzte Sicherung alt ist (sicherungen_anzeigen)."""
+        from ..services import sicherung
+        erg = sicherung.im_hintergrund(db, "manuell")
+        if erg["status"] == "laeuft_bereits":
+            return {"status": "laeuft_bereits",
+                    "nachricht": "Eine Sicherung läuft gerade schon."}
+        return {"status": "gestartet", "job_id": erg["job_id"],
+                "nachricht": ("Sicherung läuft im Hintergrund. In einer Minute "
+                              "zeigt sicherungen_anzeigen() sie an.")}
+
+    @mcp.tool()
     def daten_bereiche_leeren(bereiche: list = None, profil_id: str = "",
                               bestaetigung: str = "") -> dict:
         """Leert ausgewählte Datenbereiche. Vorschau ist die Vorgabe.
@@ -2384,8 +2423,12 @@ def register(mcp, db, logger):
             return v
 
         vorher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
+        # #1098: vorher sichern; ohne Sicherung wird nichts geloescht.
         erg = loeschbereiche.leeren(
-            db, gewuenscht, profil_id=profil_id or None, dry_run=False)
+            db, gewuenscht, profil_id=profil_id or None, dry_run=False,
+            sichern=True)
+        if erg.get("status") == "abgebrochen":
+            return erg
         nachher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
         # Die Probe auf die eigene Arbeit: ein Löschvorgang darf keine
         # Zeile zurücklassen, die auf nichts mehr zeigt. Genau das war
