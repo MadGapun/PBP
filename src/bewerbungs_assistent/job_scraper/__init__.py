@@ -1876,7 +1876,7 @@ def run_search(db, job_id: str, params: dict):
     # verworfen werden. Ohne Schluessel passiert nichts (AK 5).
     try:
         from ..services import routing as _routing
-        if _routing.konfiguriert(db):
+        if _routing.aktiv(db):
             from ..services.geocoding_service import get_user_coordinates as _start
             _rout = _routing.fuer_stellen(db, unique, _start(db))
             logger.info("Routing (#950): %d Fahrstrecken, Befund %s",

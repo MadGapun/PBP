@@ -96,7 +96,91 @@ def schluessel(db) -> str:
 
 
 def konfiguriert(db) -> bool:
+    """Ob ein Schluessel hinterlegt ist — sagt NICHT, ob er benutzt wird."""
     return bool(schluessel(db))
+
+
+# ----------------------------------------------------------- Nutzung (#1037)
+
+#: Der Haken "Echte Fahrstrecke und Fahrzeit verwenden (nur Auto)". Bis
+#: v1.7.139 war der Schluessel zugleich der Schalter: wer ihn behalten und
+#: die Funktion abschalten wollte, konnte das nicht, und wer mit Bus und
+#: Bahn pendelt, bekam Autofahrzeiten in den Score.
+EINSTELLUNG_AKTIV = "routing_aktiv"
+#: Einmaliger Hinweis fuer Bestaende, die vor dem Haken einen Schluessel
+#: hatten: fuer sie bleibt alles, wie es war, und PBP sagt, wo der Haken ist.
+EINSTELLUNG_UEBERNAHME = "routing_aktiv_uebernommen"
+#: Gesetzt, wenn die Uebernahme den Haken tatsaechlich gesetzt hat — der
+#: Hinweis im Dashboard haengt daran.
+EINSTELLUNG_HAKEN_UEBERNOMMEN = "routing_haken_fuer_bestand_gesetzt"
+
+#: Das Routing-Profil ist `driving-car` (MATRIX_URL). Jede Anzeige einer
+#: Fahrstrecke oder Fahrzeit traegt diesen Zusatz; ein Guard haelt das fest.
+from .entfernung import NUR_AUTO  # eine Schreibweise fuer alle Anzeigen
+HAKEN_TEXT = "Echte Fahrstrecke und Fahrzeit verwenden (nur Auto)"
+ORT_SCHLUESSEL = "Einstellungen › Quellen im Detail › Fahrstrecke und Fahrzeit"
+ORT_HAKEN = "Suche & Bewertung › Max. Entfernung pro Stellentyp"
+
+
+def haken(db) -> bool:
+    """Der gesetzte Haken, unabhaengig vom Schluessel. Vorgabe: aus."""
+    try:
+        return db.get_setting(EINSTELLUNG_AKTIV, False) is True
+    except Exception:  # pragma: no cover — nie eine Liste stoppen
+        return False
+
+
+def aktiv(db) -> bool:
+    """Die EINE Bedingung, ob PBP Routen abfragt und mit ihnen rechnet.
+
+    Haken gesetzt UND Schluessel da. Suchlauf, manuelle Anlage, Nachziehen
+    und die Kriterien (`_fahrstrecke_zaehlt`) fragen nur hier — keine
+    zweite Regel (#963)."""
+    return haken(db) and konfiguriert(db)
+
+
+def haken_setzen(db, an: bool) -> dict:
+    """Den Haken setzen oder abnehmen. Ohne Schluessel laesst er sich nicht
+    setzen: ein Haken, der nichts bewirkt, waere eine Einstellung, der man
+    glaubt (#988)."""
+    an = bool(an)
+    if an and not konfiguriert(db):
+        return {"fehler": ("Es ist noch kein Routing-Schlüssel hinterlegt. "
+                           f"Er gehört unter {ORT_SCHLUESSEL}."),
+                "befund": KEIN_SCHLUESSEL}
+    db.set_setting(EINSTELLUNG_AKTIV, an)
+    if an:
+        hinweis = ("PBP rechnet ab jetzt mit der Fahrstrecke "
+                   f"{NUR_AUTO}. Neue Stellen bekommen sie beim nächsten "
+                   "Suchlauf; vorhandene zieht fahrstrecken_verwalten("
+                   "'nachziehen') nach, danach scores_neu_berechnen().")
+    else:
+        hinweis = ("PBP rechnet wieder mit der Luftlinie — auch für Stellen, "
+                   "an denen schon eine Fahrstrecke steht. Die gespeicherten "
+                   "Scores zieht scores_neu_berechnen() nach.")
+    return {"status": "an" if an else "aus", "hinweis": hinweis}
+
+
+def uebernahme(db) -> bool:
+    """Einmalig beim Start: wer VOR dem Haken einen Schluessel hatte, fuer
+    den rechnete PBP bereits mit der Fahrstrecke. Ihm den Haken still
+    abzunehmen, wuerde seine Scores ohne sein Zutun verschieben. Deshalb
+    wird der Haken fuer ihn gesetzt — und das einmal gesagt.
+
+    Gibt True zurueck, wenn diesmal uebernommen wurde."""
+    try:
+        if db.get_setting(EINSTELLUNG_UEBERNAHME, False):
+            return False
+        db.set_setting(EINSTELLUNG_UEBERNAHME, True)
+        if not konfiguriert(db):
+            return False
+        if db.get_setting(EINSTELLUNG_AKTIV, None) is not None:
+            return False
+        db.set_setting(EINSTELLUNG_AKTIV, True)
+        db.set_setting(EINSTELLUNG_HAKEN_UEBERNOMMEN, True)
+        return True
+    except Exception:  # pragma: no cover — nie den Start stoppen
+        return False
 
 
 def _heute() -> str:
@@ -336,11 +420,21 @@ def schluessel_setzen(db, key: str, *, client=None) -> dict:
     if befund != OK:
         return {"fehler": BEFUND_TEXT.get(befund, befund), "befund": befund}
     db.set_setting(EINSTELLUNG_SCHLUESSEL, key)
-    return {"status": "eingerichtet", "befund": OK}
+    # Ein Schluessel schaltet NICHTS ein (#1037): wer ihn eintraegt, soll
+    # den Haken selbst setzen — und dabei lesen, dass es nur ums Auto geht.
+    return {"status": "eingerichtet", "befund": OK,
+            "haken": haken(db),
+            "naechster_schritt": (
+                "" if haken(db) else
+                f"Den Haken \"{HAKEN_TEXT}\" unter {ORT_HAKEN} setzen — "
+                "erst dann rechnet PBP mit der Fahrstrecke.")}
 
 
 def schluessel_entfernen(db) -> dict:
     db.set_setting(EINSTELLUNG_SCHLUESSEL, "")
+    # Der Haken faellt mit: sonst waere er beim naechsten Schluessel ohne
+    # Nachfrage wieder an.
+    db.set_setting(EINSTELLUNG_AKTIV, False)
     return {"status": "entfernt",
             "hinweis": ("Ohne Schluessel rechnet PBP wieder mit der "
                         "Luftlinie — auch für Stellen, an denen schon eine "
@@ -352,6 +446,12 @@ def status(db) -> dict:
     """Was die Oberflaeche zeigt — nie den Schluessel selbst."""
     return {
         "konfiguriert": konfiguriert(db),
+        "haken": haken(db),
+        "aktiv": aktiv(db),
+        "nur_auto": ("Die Berechnung gilt fürs Auto (Profil driving-car), "
+                     "nicht für Bus und Bahn."),
+        "ort_haken": ORT_HAKEN,
+        "ort_schluessel": ORT_SCHLUESSEL,
         "anbieter": ANBIETER,
         "anfragen_heute": anfragen_heute(db),
         "tagesgrenze": TAGESGRENZE,

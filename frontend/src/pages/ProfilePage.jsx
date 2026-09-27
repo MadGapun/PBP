@@ -25,6 +25,7 @@ import { useApp } from "@/app-context";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import MitClaude from "@/components/MitClaude";
 import StandortKarte from "@/components/StandortKarte";
+import FahrstreckeHaken from "@/components/FahrstreckeHaken";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -1582,6 +1583,8 @@ export default function ProfilePage({ bereich = "profil" }) {
                 ))}
               </div>
               <p className="mt-1 text-xs text-muted">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
+              {/* #1037: Schluessel in den Einstellungen, die Nutzung hier. */}
+              <FahrstreckeHaken navigateTo={navigateTo} pushToast={pushToast} />
             </Field>
 
             {/* G69 (#1087 F3): die Regler sind Feinabstimmung — zum Anfangen

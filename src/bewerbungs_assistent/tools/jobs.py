@@ -1622,7 +1622,7 @@ def register(mcp, db, logger):
                 # #950: nie die blosse Zahl — sie wird als Wegstrecke
                 # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
                 # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
-                entry.update(_entfernung.befund(j))
+                entry.update(_entfernung.befund(j, _krit_fuer_stand))
             # v1.7.140 (#954): woher die Werte kommen — eine Zeile, nur
             # was nicht belegt ist. Die volle Aufstellung hat fit_analyse.
             try:
@@ -2775,7 +2775,7 @@ def register(mcp, db, logger):
                         _koord = geocode_location(ort)
                         if _koord:
                             job["lat"], job["lon"] = _koord
-                            if _routing.konfiguriert(db):
+                            if _routing.aktiv(db):
                                 _routing.fuer_stellen(db, [job], user_coords)
             except Exception:
                 pass
@@ -2810,7 +2810,7 @@ def register(mcp, db, logger):
                          f"Bewerte mit stelle_einordnen('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
-            result.update(_entfernung.befund(job))
+            result.update(_entfernung.befund(job, criteria))
         # v1.7.140 (#954): was an der neuen Stelle belegt ist und was nicht.
         try:
             from ..services import wahrheit as _wahrheit
@@ -6211,16 +6211,21 @@ def register(mcp, db, logger):
         Stunden je Richtung. **Für die Frage, ob eine Stelle pendelbar
         ist, sagt die Fahrzeit mehr als jede Kilometerzahl.**
 
-        Mit einem Routing-Schluessel (OpenRouteService, kostenlos)
-        berechnet PBP Fahrstrecke und Fahrzeit; Score und
-        Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
+        Mit einem Routing-Schluessel (OpenRouteService, kostenlos) UND
+        gesetztem Haken „Echte Fahrstrecke und Fahrzeit verwenden (nur
+        Auto)“ berechnet PBP Fahrstrecke und Fahrzeit; Score und
+        Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke. **Die
+        Berechnung gilt nur fürs Auto**, nicht für Bus und Bahn — sag das
+        dazu, wenn du eine Fahrzeit nennst (#1037).
 
         **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen im Detail, Karte Fahrstrecke), nicht hier: ein Schluessel, der durch den
         Chat geht, stünde danach im Gesprächsverlauf.
 
         Args:
-            aktion: 'status' (Stand, Kontingent, offene Stellen) oder
-                'nachziehen' (Fahrstrecken für vorhandene Stellen).
+            aktion: 'status' (Stand, Kontingent, offene Stellen),
+                'nachziehen' (Fahrstrecken für vorhandene Stellen),
+                'einschalten' oder 'ausschalten' (der Haken; nur auf
+                ausdrücklichen Wunsch des Menschen).
             dry_run: Vorgabe True — zeigt nur, was abgefragt würde.
             max_stellen: 0 = alle offenen.
         """
@@ -6249,9 +6254,21 @@ def register(mcp, db, logger):
             "einen kostenlosen Schluessel von OpenRouteService eintragen.")
 
         aktion = (aktion or "status").strip().lower()
+        if aktion in ("einschalten", "ausschalten"):
+            ergebnis = _routing.haken_setzen(db, aktion == "einschalten")
+            if ergebnis.get("fehler"):
+                return {**stand, **ergebnis,
+                        "naechster_schritt": kein_schluessel}
+            return {**_routing.status(db), **ergebnis}
         if aktion == "status":
             if not stand["konfiguriert"]:
                 stand["naechster_schritt"] = kein_schluessel
+            elif not stand["haken"]:
+                stand["naechster_schritt"] = (
+                    f"Schlüssel ist da, der Haken \"{_routing.HAKEN_TEXT}\" "
+                    f"aber nicht gesetzt ({_routing.ORT_HAKEN}). Ohne ihn "
+                    "rechnet PBP mit der Luftlinie. Auf Wunsch: "
+                    "fahrstrecken_verwalten('einschalten').")
             elif offen:
                 stand["naechster_schritt"] = (
                     "fahrstrecken_verwalten('nachziehen') — erst die "
@@ -6259,11 +6276,20 @@ def register(mcp, db, logger):
             return stand
         if aktion != "nachziehen":
             return {"fehler": f"Unbekannte Aktion '{aktion}'.",
-                    "moegliche_aktionen": ["status", "nachziehen"]}
+                    "moegliche_aktionen": ["status", "nachziehen",
+                                           "einschalten", "ausschalten"]}
         if not stand["konfiguriert"]:
             return {**stand,
                     "fehler": _routing.BEFUND_TEXT[_routing.KEIN_SCHLUESSEL],
                     "naechster_schritt": kein_schluessel}
+        if not stand["aktiv"]:
+            return {**stand,
+                    "fehler": ("Der Haken für die Fahrstrecke ist nicht "
+                               "gesetzt — ohne ihn fragt PBP keine Routen "
+                               "ab (#1037)."),
+                    "naechster_schritt": (
+                        f"Unter {_routing.ORT_HAKEN} den Haken setzen, oder "
+                        "auf Wunsch fahrstrecken_verwalten('einschalten').")}
         start = get_user_coordinates(db)
         if not start:
             return {**stand,

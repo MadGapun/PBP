@@ -106,6 +106,18 @@ def _jobboersen_ohne_suchbegriffe(db) -> list[str]:
     return namen
 
 
+def _condition_fahrstrecke_uebernommen(db) -> bool:
+    """#1037: wer vor dem Haken einen Routing-Schluessel hatte, fuer den
+    wurde der Haken gesetzt — damit sich seine Punkte nicht still
+    verschieben. Das wird einmal gesagt, solange der Haken noch steht."""
+    from . import routing
+    try:
+        return bool(db.get_setting(routing.EINSTELLUNG_HAKEN_UEBERNOMMEN, False)
+                    and routing.aktiv(db))
+    except Exception:
+        return False
+
+
 def _condition_keine_suchprofile_aber_bewerbungen(db) -> bool:
     """Hinweis, wenn eine gewaehlte Browser-Jobboerse keine Suchbegriffe hat
     und schon Bewerbungen laufen (dann lohnt die Pflege)."""
@@ -629,6 +641,23 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_label": "PBP: Interview-Reflexion zum letzten Gespräch speichern",
         "cta_tool": "interview_reflexion_speichern",
         "condition": _condition_keine_interview_reflexion_aber_interviews,
+    },
+    {
+        # #1037: Schluessel und Nutzung sind jetzt getrennt.
+        "id": "f1037_fahrstrecke_haken",
+        "tab": "dashboard",
+        "title": "Fahrstrecke und Fahrzeit gelten nur fürs Auto",
+        "body": (
+            "Du hattest einen Routing-Schlüssel eingerichtet, deshalb rechnet "
+            "PBP weiter mit der Fahrstrecke — so wie bisher. Neu ist: der "
+            "Schlüssel allein schaltet nichts mehr ein, das tut der Haken "
+            "„Echte Fahrstrecke und Fahrzeit verwenden (nur Auto)“ unter "
+            "Suche & Bewertung › Max. Entfernung pro Stellentyp. Pendelst du "
+            "mit Bus und Bahn, nimm ihn ab: dann gilt überall die Luftlinie."
+        ),
+        "cta_label": "PBP: Fahrstrecken-Stand anzeigen",
+        "cta_tool": "fahrstrecken_verwalten",
+        "condition": _condition_fahrstrecke_uebernommen,
     },
     {
         # #1098: eine Sicherung, die niemand bemerkt, schuetzt nicht.
