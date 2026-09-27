@@ -68,8 +68,8 @@ def _wiederkehrend(reflexionen: list, feld: str) -> list:
 # (laufend) bleibt neutral und wird nicht gewertet.
 _POSITIV = {"angebot", "angenommen", "zweitgespraech",
             "interview_abgeschlossen"}
-_NEGATIV = {"abgelehnt", "abgelaufen", "zurueckgezogen",
-            "arbeitgeber_ausgefallen"}
+from .bewerbung_status import ARCHIV as _ARCHIV  # noqa: E402  #1103
+_NEGATIV = set(_ARCHIV)
 
 
 def lehren_auswerten(db) -> dict[str, Any]:

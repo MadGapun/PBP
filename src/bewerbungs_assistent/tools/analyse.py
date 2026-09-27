@@ -2397,11 +2397,12 @@ def register(mcp, db, logger):
         from ..services.neigung import begriffe as _extract_terms
 
         # Versuch 1: Bewerbungen vs. abgelehnte Stellen (User-Wunsch)
+        from ..services import bewerbung_status as _status  # #1103
         applications = db.get_applications()
         applied_hashes = {
             a["job_hash"] for a in applications
             if a.get("job_hash") and a.get("status") not in (
-                "abgelehnt", "zurueckgezogen", "abgelaufen", "passt_nicht"
+                *_status.ARCHIV, "passt_nicht"
             )
         }
         dismissed_jobs = db.get_dismissed_jobs() if hasattr(db, "get_dismissed_jobs") else []

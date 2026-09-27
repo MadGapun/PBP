@@ -2840,10 +2840,10 @@ def register(mcp, db, logger):
         # v1.6.9 (#567): nur LAUFENDE Bewerbungen blocken — abgeschlossene
         # (abgelehnt/abgelaufen/zurueckgezogen/angenommen) sind kein Hindernis
         # fuer eine neue Bewerbung bei der gleichen Firma auf eine andere Stelle.
-        TERMINAL_STATUSES = ("abgelehnt", "abgelaufen", "zurueckgezogen", "angenommen")
+        # #1103: aus der gemeinsamen Quelle (auch `arbeitgeber_ausgefallen`).
+        from ..services.bewerbung_status import laeuft as _laeuft
         all_apps = db.get_applications()
-        running_apps = [a for a in all_apps
-                        if (a.get("status") or "") not in TERMINAL_STATUSES]
+        running_apps = [a for a in all_apps if _laeuft(a.get("status"))]
 
         # v1.7.0-beta.87 (#670): force=True ueberspringt den Duplikat-Block.
         # Der Verdacht wird aber gesammelt und im Erfolgs-Result transparent

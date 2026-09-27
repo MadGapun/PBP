@@ -5210,8 +5210,7 @@ class Database:
         best_confidence = 0
         best_is_archived = False
         # #743 (E17.1): Archiv-Status wie im E-Mail-Matcher (#389/#523)
-        _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen",
-                             "arbeitgeber_ausgefallen"}
+        from .services.bewerbung_status import ARCHIV as _archive_statuses
 
         for app in apps:
             company = (app["company"] or "").lower()
@@ -6037,7 +6036,7 @@ class Database:
         if exclude_applied:
             applied_hashes = {
                 r["job_hash"] for r in self.get_applications()
-                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen")
+                if r.get("job_hash") and r.get("status") not in _bewerbung_archiv()
             }
             if applied_hashes:
                 jobs = [j for j in jobs if j["hash"] not in applied_hashes]
@@ -6305,8 +6304,7 @@ class Database:
     # Statuses considered archived (inactive)
     # v1.7.10 (#779/D27): arbeitgeber_ausgefallen = Prozess endete ohne
     # Zutun des Bewerbers (Insolvenz, Stellenstreichung, Einstellungsstopp).
-    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen",
-                        "arbeitgeber_ausgefallen")
+    from .services.bewerbung_status import ARCHIV as ARCHIVE_STATUSES  # #1103
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,
@@ -12393,6 +12391,11 @@ def _safe_float(val, default=None):
         return f
     except (ValueError, TypeError):
         return default
+
+
+def _bewerbung_archiv() -> tuple:
+    from .services.bewerbung_status import ARCHIV
+    return ARCHIV
 
 
 def _now() -> str:

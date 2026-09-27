@@ -424,7 +424,7 @@ def match_email_to_application(parsed_email: dict, applications: list) -> tuple[
     match_text = recipients if direction == "ausgang" else sender
 
     # #389: Archive statuses are deprioritized; #743: nie per Domain-Signal allein
-    _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+    from .bewerbung_status import ARCHIV as _archive_statuses  # #1103
 
     candidates = []
 

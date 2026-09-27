@@ -55,6 +55,7 @@ from .services.search_service import (
 )
 from .services import ablage
 from .services import dateiablage as _dateiablage
+from .services import bewerbung_status as _bewerbung_status  # #1103
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
 from .document_analysis_prompts import (
     TEMPLATES as DOC_ANALYSIS_TEMPLATES,
@@ -3781,7 +3782,7 @@ async def api_keyword_suggestions():
     applied_hashes = {
         a["job_hash"] for a in applications
         if a.get("job_hash") and a.get("status") not in (
-            "abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen", "passt_nicht"
+            *_bewerbung_status.ARCHIV, "passt_nicht"
         )
     }
     dismissed_jobs = _db.get_dismissed_jobs() if hasattr(_db, "get_dismissed_jobs") else []
@@ -6681,9 +6682,9 @@ async def api_ingest_job(request: Request, payload: dict):
     # #317: laufende Bewerbung mit aehnlichem Titel? Plugin kann kein
     # force — ehrliche 409-Antwort, der User entscheidet in PBP.
     try:
+        # #1103: `arbeitgeber_ausgefallen` blockte bisher mit.
         apps = [a for a in _db.get_applications()
-                if a.get("status") not in ("abgelehnt", "abgelaufen",
-                                           "zurueckgezogen", "angenommen")]
+                if _bewerbung_status.laeuft(a.get("status"))]
         dup = find_duplicate_job(firma, titel, url, apps)
         if dup:
             kandidat = dup.get("job") or {}
