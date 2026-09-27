@@ -10,6 +10,10 @@ Nachfassungen nicht wiederbelebt.
 das neue Ereignis, die dabei geschlossenen und neu angelegten
 Nachfassungen. `zuruecknehmen` nimmt genau das zurueck und rechnet die
 Interview-Markierung aus der verbliebenen Timeline neu.
+
+Seit #1094 laeuft der Wechsel durch `bewerbung_lebenszyklus` — er setzt
+auch das Bewerbungsdatum, sortiert die Stelle aus und laesst Dokumente
+veralten. Der Rueckweg nimmt diese drei Dinge ebenfalls zurueck.
 """
 from __future__ import annotations
 
@@ -17,33 +21,13 @@ INTERVIEW_STUFEN = ("interview", "zweitgespraech", "interview_abgeschlossen",
                     "angebot", "angenommen")
 
 
-def _offene_nachfassungen(db, app_id: str) -> set[str]:
-    return {fu["id"] for fu in db.get_pending_follow_ups()
-            if fu.get("application_id") == app_id}
-
-
 def wechseln(db, app_id: str, neu: str, notizen: str = "",
-             profile_id: str | None = None) -> dict | None:
-    """Setzt den Status und liefert den Rueckweg — oder None."""
-    app = db.get_application(app_id)
-    if not app:
-        return None
-    vorher = app.get("status") or ""
-    offen_vorher = _offene_nachfassungen(db, app_id)
-    if not db.update_application_status(app_id, neu, notizen, profile_id=profile_id):
-        return None
-    zeile = db.connect().execute(
-        "SELECT MAX(id) AS id FROM application_events WHERE application_id=? AND status=?",
-        (app_id, neu)).fetchone()
-    offen_nachher = _offene_nachfassungen(db, app_id)
-    return {
-        "vorher": vorher,
-        "neu": neu,
-        "event_id": zeile["id"] if zeile else None,
-        "geschlossen": sorted(offen_vorher - offen_nachher),
-        "angelegt": sorted(offen_nachher - offen_vorher),
-        "archiviert": neu in db.ARCHIVE_STATUSES and vorher not in db.ARCHIVE_STATUSES,
-    }
+             profile_id: str | None = None) -> dict:
+    """Setzt den Status ueber den Lebenszyklus-Dienst (#1094) und liefert
+    den Rueckweg. Bei `ok=False` steht der Grund in `fehler`."""
+    from . import bewerbung_lebenszyklus
+    return bewerbung_lebenszyklus.status_wechseln(
+        db, app_id, neu, notizen, profile_id=profile_id)
 
 
 def zuruecknehmen(db, app_id: str, rueckweg: dict,
@@ -69,6 +53,14 @@ def zuruecknehmen(db, app_id: str, rueckweg: dict,
     for fid in rueckweg.get("angelegt") or []:
         conn.execute("DELETE FROM follow_ups WHERE id=? AND application_id=?",
                      (fid, app_id))
+    # #1094: was der Wechsel sonst noch angelegt hat
+    if rueckweg.get("applied_at_vorher") is not None:
+        conn.execute("UPDATE applications SET applied_at=? WHERE id=?",
+                     (rueckweg["applied_at_vorher"] or None, app_id))
+    for doc in rueckweg.get("dokumente_veraltet") or []:
+        if isinstance(doc, dict) and doc.get("id"):
+            conn.execute("UPDATE documents SET lifecycle=? WHERE id=? AND lifecycle='veraltet'",
+                         (doc.get("vorher") or "aktiv", doc["id"]))
     platz = ",".join("?" * len(INTERVIEW_STUFEN))
     hatte = conn.execute(
         f"SELECT 1 FROM application_events WHERE application_id=? AND status IN ({platz}) LIMIT 1",
@@ -76,4 +68,6 @@ def zuruecknehmen(db, app_id: str, rueckweg: dict,
     conn.execute("UPDATE applications SET has_reached_interview=? WHERE id=?",
                  (1 if hatte else 0, app_id))
     conn.commit()
+    if rueckweg.get("stelle_aussortiert"):
+        db.restore_job(str(rueckweg["stelle_aussortiert"]))
     return True

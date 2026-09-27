@@ -40,7 +40,7 @@ import { kartenFakten as faktenZeile, kartenGrund, kernaussage } from "@/lib/ste
 import MitClaude from "@/components/MitClaude";
 import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { nichtBelegt } from "@/lib/herkunft";
-import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
+import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -773,10 +773,10 @@ export default function JobsPage() {
     }
   }
 
-  async function saveApplication() {
+  async function saveApplication(force = false) {
     const entwurf = applicationDialog.draft;
     try {
-      const erg = await postJson("/api/applications", bewerbungNutzlast(entwurf));
+      const erg = await postJson("/api/applications", { ...bewerbungNutzlast(entwurf), force: force === true });
       setApplicationDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
       // D43 (#981): wer sich erst bewerben WILL, braucht als Naechstes
@@ -796,10 +796,19 @@ export default function JobsPage() {
           }
         );
       } else {
-        pushToast("Bewerbung angelegt.", "success");
+        pushToast(angelegtMeldung(erg), "success");
       }
       navigateTo("bewerbungen");
     } catch (error) {
+      // #1094: eine vermutete Dublette wird genannt, nicht still angelegt
+      const hinweis = dublettenHinweis(error);
+      if (hinweis) {
+        pushToast(hinweis, "amber", {
+          duration: 15000,
+          action: { label: "Trotzdem anlegen", onClick: () => saveApplication(true) },
+        });
+        return;
+      }
       pushToast(`Bewerbung konnte nicht angelegt werden: ${error.message}`, "danger");
     }
   }
@@ -2242,7 +2251,7 @@ export default function JobsPage() {
         open={applicationDialog.open}
         title={`${BEWERBUNG_ANLEGEN} (aus Stelle)`}
         onClose={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={saveApplication}>Bewerbung speichern</Button></div>}
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={() => saveApplication(false)}>Bewerbung speichern</Button></div>}
       >
         <div className="grid gap-4">
           {BEWERBUNG_FELDER.map(({ key, label, placeholder }) => (

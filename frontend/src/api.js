@@ -50,7 +50,12 @@ export async function api(path, options = {}) {
     } catch (error) {
       payload = null;
     }
-    throw new Error(getErrorMessage(payload, `HTTP ${response.status}`));
+    // #1094: Status und Antwort mitgeben — ein 409 (z.B. vermutete
+    // Dublette) braucht die Angaben aus der Antwort, nicht nur den Text.
+    const fehler = new Error(getErrorMessage(payload, `HTTP ${response.status}`));
+    fehler.status = response.status;
+    fehler.payload = payload;
+    throw fehler;
   }
 
   if (contentType.includes("application/json")) {

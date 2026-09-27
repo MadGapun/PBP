@@ -2884,60 +2884,63 @@ async def api_applications(
 
 @app.post("/api/applications")
 async def api_add_application(request: Request):
+    """Legt eine Bewerbung an — mit denselben Regeln wie `bewerbung_erstellen`
+    (#1094): Dublettenpruefung, Anzeigentext als Snapshot, Ansprechpartner
+    als Kontakt, Stelle aussortiert, Nachfass-Erinnerung. Der Status wird
+    geprueft (#981), auch fuer Plugins und Skripte.
+
+    Eine vermutete Dublette antwortet mit 409 und nennt die vorhandene
+    Bewerbung; `force: true` legt trotzdem an."""
+    from .services import bewerbung_lebenszyklus as _lz
     data = await request.json()
-    if not data.get("title", "").strip():
-        return JSONResponse({"error": "Stelle ist ein Pflichtfeld"}, status_code=400)
-    if not data.get("company", "").strip():
-        return JSONResponse({"error": "Firma ist ein Pflichtfeld"}, status_code=400)
-    # v1.7.32 (#981, D43): Status pruefen statt durchschreiben.
-    #
-    # Der Stellen-Dialog bot "Entwurf" an — ein Wert, den VALID_STATUSES
-    # nicht kennt. Hier lief er ungeprueft in die Datenbank, und die so
-    # entstandene Bewerbung war danach fuer bewerbung_status_aendern, die
-    # Statistik und die Status-Journey unsichtbar. Die Oberflaeche ist
-    # korrigiert; die Pruefung gehoert trotzdem hierher, weil dieser
-    # Endpunkt auch von Plugins und Skripten aufgerufen wird.
-    from .tools.bewerbungen import VALID_STATUSES
-    status = (data.get("status") or "").strip()
-    if status and status not in VALID_STATUSES:
-        return JSONResponse(
-            {"error": (f"Unbekannter Status '{status}'. Erlaubt sind: "
-                       + ", ".join(sorted(VALID_STATUSES)))},
-            status_code=400)
-    aid = _db.add_application(data)
-    return {"status": "ok", "id": aid}
+    force = bool(data.pop("force", False))
+    erg = _lz.anlegen(_db, data, force=force)
+    if not erg["ok"]:
+        if erg["grund"] == "duplikat":
+            return JSONResponse({
+                "error": erg["fehler"] + " Trotzdem anlegen, wenn es eine eigene, neue Bewerbung ist.",
+                "duplikat": {k: erg[k] for k in (
+                    "bestehende_bewerbung_id_voll", "bestehend_firma",
+                    "bestehend_titel", "bestehend_status", "match_typ")},
+            }, status_code=409)
+        return JSONResponse({"error": erg["fehler"]}, status_code=400)
+    antwort = {"status": "ok", "id": erg["id"]}
+    if erg.get("auto_follow_up_id"):
+        antwort["nachfass_in_tagen"] = erg["nachfass_tage"]
+    if erg.get("stelle_aussortiert"):
+        antwort["stelle_aussortiert"] = True
+    return antwort
 
 
 @app.put("/api/applications/{app_id}/status")
 async def api_update_app_status(app_id: str, request: Request):
+    """Wechselt den Status ueber den Lebenszyklus-Dienst (#1094) — mit
+    Bewerbungsdatum, aussortierter Stelle, Nachfass-Erinnerung und
+    veralteten Dokumenten wie `bewerbung_status_aendern`. Liefert den
+    Rueckweg fuer "Rueckgaengig" (G67)."""
     data = await request.json()
     new_status = data.get("status")
     if not new_status:
         return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
     profile_id = _get_active_profile_id()
-    # Zaehle offene Follow-ups vor dem Wechsel, damit UI das Lifecycle-Ergebnis anzeigen kann (#493/#494)
-    open_before = sum(
-        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
-    )
-    # G67 (#1087 D8): der Wechsel liefert seinen Rueckweg mit.
+    if not profile_id:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     from .services import status_rueckweg as _rueckweg
     rueckweg = _rueckweg.wechseln(_db, app_id, new_status, data.get("notes", ""),
-                                  profile_id=profile_id) if profile_id else None
-    if not rueckweg:
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    open_after = sum(
-        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
-    )
+                                  profile_id=profile_id)
+    if not rueckweg.get("ok"):
+        code = 404 if rueckweg.get("grund") == "nicht_gefunden" else 400
+        return JSONResponse({"error": rueckweg["fehler"]}, status_code=code)
     lifecycle = {
-        "followups_dismissed": max(0, open_before - open_after),
+        "followups_dismissed": len(rueckweg["geschlossen"]),
         "new_followup": None,
+        "applied_at": rueckweg.get("applied_at_gesetzt"),
+        "stelle_aussortiert": bool(rueckweg.get("stelle_aussortiert")),
+        "dokumente_veraltet": len(rueckweg.get("dokumente_veraltet") or []),
     }
-    if new_status == "interview_abgeschlossen":
-        # jungster offener Follow-up wurde soeben vom Lifecycle-Hook angelegt
-        pending = [
-            fu for fu in _db.get_pending_follow_ups()
-            if fu.get("application_id") == app_id
-        ]
+    if rueckweg["angelegt"]:
+        pending = [fu for fu in _db.get_pending_follow_ups()
+                   if fu.get("id") in set(rueckweg["angelegt"])]
         if pending:
             latest = max(pending, key=lambda f: f.get("created_at") or "")
             lifecycle["new_followup"] = {
@@ -4304,9 +4307,16 @@ async def api_apply_email_status(email_id: str, request: Request):
         return JSONResponse({"error": "E-Mail ist keiner Bewerbung zugeordnet"}, status_code=400)
 
     app_id = em["application_id"]
-    if not _db.update_application_status(app_id, status, profile_id=profile_id):
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    _db.add_application_event(app_id, status, f"Status aus E-Mail: {em.get('subject', '')}")
+    # #1094: ueber den Lebenszyklus-Dienst — geprueft, mit allen Folgen,
+    # und mit EINEM Timeline-Eintrag (vorher schrieb der Endpunkt nach dem
+    # Statuswechsel ein zweites Ereignis mit demselben Status).
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.status_wechseln(_db, app_id, status,
+                              f"Status aus E-Mail: {em.get('subject', '')}",
+                              profile_id=profile_id)
+    if not erg["ok"]:
+        code = 404 if erg["grund"] == "nicht_gefunden" else 400
+        return JSONResponse({"error": erg["fehler"]}, status_code=code)
     _db.update_email(email_id, {"is_processed": 1}, profile_id=profile_id)
 
     # Extract rejection feedback if applicable
@@ -6704,50 +6714,39 @@ async def api_follow_ups():
     }
 
 
+def _nachfassung_antwort(erg: dict, ok: dict):
+    if erg["ok"]:
+        return ok
+    codes = {"nicht_gefunden": 404, "zustand": 409, "leer": 400}
+    return JSONResponse({"error": erg["fehler"]}, status_code=codes.get(erg["grund"], 400))
+
+
 @app.post("/api/follow-ups/{follow_up_id}/complete")
 async def api_follow_up_complete(follow_up_id: str, payload: dict = Body(default={})):
-    """Mark follow-up as erledigt (done). #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    _db.complete_follow_up(follow_up_id, status="erledigt")
-    notiz = (payload or {}).get("notiz") or ""
-    if notiz and fu.get("application_id"):
-        try:
-            _db.add_application_note(fu["application_id"], f"Nachfass erledigt: {notiz}")
-        except Exception:
-            pass
-    return {"status": "erledigt", "id": follow_up_id}
+    """Nachfassung erledigt (#453). Nur eine geplante (#1094): 409 sonst."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_abschliessen(_db, follow_up_id, "erledigt",
+                                       (payload or {}).get("notiz") or "")
+    return _nachfassung_antwort(erg, {"status": "erledigt", "id": follow_up_id})
 
 
 @app.post("/api/follow-ups/{follow_up_id}/dismiss")
 async def api_follow_up_dismiss(follow_up_id: str, payload: dict = Body(default={})):
-    """Mark follow-up as hinfaellig (no longer relevant). #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    _db.complete_follow_up(follow_up_id, status="hinfaellig")
-    grund = (payload or {}).get("grund") or ""
-    if grund and fu.get("application_id"):
-        try:
-            _db.add_application_note(fu["application_id"], f"Nachfass hinfällig: {grund}")
-        except Exception:
-            pass
-    return {"status": "hinfaellig", "id": follow_up_id}
+    """Nachfassung hinfaellig (#453). Nur eine geplante (#1094): 409 sonst."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_abschliessen(_db, follow_up_id, "hinfaellig",
+                                       (payload or {}).get("grund") or "")
+    return _nachfassung_antwort(erg, {"status": "hinfaellig", "id": follow_up_id})
 
 
 @app.put("/api/follow-ups/{follow_up_id}")
 async def api_follow_up_reschedule(follow_up_id: str, payload: dict = Body(...)):
-    """Update (reschedule/edit) a follow-up. #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    allowed = {k: v for k, v in (payload or {}).items()
-               if k in ("scheduled_date", "template", "follow_up_type") and v is not None}
-    if not allowed:
-        return JSONResponse({"error": "no_valid_fields"}, status_code=400)
-    _db.update_follow_up(follow_up_id, allowed)
-    return {"status": "aktualisiert", "id": follow_up_id, "updated": list(allowed.keys())}
+    """Datum, Text oder Art einer geplanten Nachfassung aendern (#453).
+    Ein leerer Text wird abgewiesen (#816, #1094)."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_aendern(_db, follow_up_id, payload or {})
+    return _nachfassung_antwort(erg, {"status": "aktualisiert", "id": follow_up_id,
+                                      "updated": erg.get("geaendert", [])})
 
 
 @app.post("/api/applications/{app_id}/adopt-position")
