@@ -54,7 +54,9 @@ _TEXT_TYPEN = _VORGANGS_TYPEN + ("email", "mail", "korrespondenz_eingang")
 # Status, nach denen eine Bewerbung abgeschlossen ist. Neue Korrespondenz
 # derselben Firma — gerade von Vermittlern — gehoert dann meist NICHT zu
 # diesem alten Vorgang (#743, E17.4).
-ABGESCHLOSSEN = ("abgelehnt", "zurueckgezogen", "abgelaufen", "angenommen")
+# #1103: aus der gemeinsamen Quelle — ohne `arbeitgeber_ausgefallen`
+# griff der Schutz aus #743 dort nicht.
+from .bewerbung_status import ABGESCHLOSSEN  # noqa: E402
 
 
 def _warnung_alte_bewerbung(app: dict) -> str:

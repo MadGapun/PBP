@@ -55,6 +55,7 @@ from .services.search_service import (
 )
 from .services import ablage
 from .services import dateiablage as _dateiablage
+from .services import bewerbung_status as _bewerbung_status  # #1103
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
 from .document_analysis_prompts import (
     TEMPLATES as DOC_ANALYSIS_TEMPLATES,
@@ -3778,7 +3779,7 @@ async def api_keyword_suggestions():
     applied_hashes = {
         a["job_hash"] for a in applications
         if a.get("job_hash") and a.get("status") not in (
-            "abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen", "passt_nicht"
+            *_bewerbung_status.ARCHIV, "passt_nicht"
         )
     }
     dismissed_jobs = _db.get_dismissed_jobs() if hasattr(_db, "get_dismissed_jobs") else []

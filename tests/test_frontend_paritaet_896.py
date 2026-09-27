@@ -27,11 +27,11 @@ def _status_options_values():
 
 
 def _backend_valid_statuses():
-    text = (ROOT / "src" / "bewerbungs_assistent" / "tools" /
-            "bewerbungen.py").read_text(encoding="utf-8")
-    m = re.search(r"VALID_STATUSES = \{(.*?)\}", text, re.S)
-    assert m, "VALID_STATUSES nicht in tools/bewerbungen.py gefunden"
-    return set(re.findall(r'"([a-z_]+)"', m.group(1)))
+    # #1103: die Liste steht in services/bewerbung_status.py; gelesen wird
+    # der Wert, nicht die Schreibweise im Quelltext.
+    from bewerbungs_assistent.tools.bewerbungen import VALID_STATUSES
+    assert VALID_STATUSES, "VALID_STATUSES leer"
+    return set(VALID_STATUSES)
 
 
 def _reiter_ids():

@@ -22,17 +22,9 @@ from ..services.dashboard_link import dashboard_link as _dashboard_link
 # Whitelist, die nur an einer von mehreren Schreibstellen liegt, ist
 # keine Whitelist (dieselbe Lehre wie #913 und #924 — Regeln gehoeren
 # ans Nadeloehr).
-VALID_STATUSES = {
-    "in_vorbereitung", "offen", "beworben",
-    "eingangsbestaetigung", "interview", "zweitgespraech",
-    "interview_abgeschlossen", "angebot", "angenommen",
-    "abgelehnt", "zurueckgezogen", "abgelaufen",
-    # v1.7.10 (#779/D27): Prozess endete ohne Zutun des Bewerbers
-    # (Insolvenz, Stellenstreichung, Einstellungsstopp, Reorg). Zaehlt
-    # NICHT in die withdrawal_rate; ein vorher vorliegendes Angebot
-    # bleibt in der offer_rate erhalten.
-    "arbeitgeber_ausgefallen",
-}
+# #1103: die Liste steht in services/bewerbung_status.py.
+from ..services import bewerbung_status as _bewerbung_status
+VALID_STATUSES = set(_bewerbung_status.ALLE)
 
 # Die zwei Werte, mit denen eine Bewerbung ENTSTEHT (#170). Alles andere
 # ergibt sich aus dem Verlauf.
@@ -1094,8 +1086,7 @@ def register(mcp, db, logger):
         #
         # DB-only: physische Dateien werden NICHT angefasst.
         veraltet_docs: list[str] = []
-        if neuer_status in ("abgelehnt", "abgelaufen", "zurueckgezogen",
-                            "arbeitgeber_ausgefallen"):
+        if neuer_status in _bewerbung_status.ARCHIV:
             try:
                 pid_for_lc = db.get_active_profile_id()
                 for doc_id in db.get_documents_linked_to_application(bewerbung_id):
@@ -1226,8 +1217,7 @@ def register(mcp, db, logger):
         apps = db.get_applications(status_filter if status_filter else None)
 
         # #182: Archivierte Bewerbungen standardmäßig ausblenden
-        ARCHIVE_STATUSES = {"abgelehnt", "zurueckgezogen", "abgelaufen",
-                            "arbeitgeber_ausgefallen"}
+        ARCHIVE_STATUSES = set(_bewerbung_status.ARCHIV)
         if not archiv and not status_filter:
             aktive = [a for a in apps if a.get("status") not in ARCHIVE_STATUSES]
             archivierte_count = len(apps) - len(aktive)
