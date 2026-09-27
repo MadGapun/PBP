@@ -351,7 +351,9 @@ def run(verbose: bool = False) -> int:
         mapped = js._map_row(row, "linkedin")
         assert mapped["source"] == "jobspy_linkedin", mapped["source"]
         assert mapped["title"] == "Senior PLM Manager"
-        assert mapped["remote_level"] == "remote"
+        # #1072 (v1.7.126): JobSpys is_remote ist ein Stichwortfund, kein
+        # Arbeitsmodell — ohne Beleg im Anzeigentext gilt er als hybrid.
+        assert mapped["remote_level"] == "hybrid", mapped["remote_level"]
         assert mapped["url"] == "https://acme.com/careers/123", mapped["url"]
         assert mapped["salary_min"] == 75000 and mapped["salary_max"] == 95000, mapped
 
