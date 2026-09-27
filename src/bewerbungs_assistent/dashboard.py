@@ -3036,16 +3036,8 @@ async def api_get_report_settings():
     Alle Felder sind optional. Nicht gesetzte Felder werden im Bericht
     nicht gerendert — der Bericht funktioniert auch ohne Arbeitsamt-Daten.
     """
-    return {
-        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
-        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
-        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
-        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus — fokussiert auf taegliche Aktivitaet
-        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
-    }
+    from .services import bericht as _bericht  # #1111: eine Liste
+    return _bericht.einstellungen(_db)
 
 
 @app.put("/api/settings/report")
@@ -5096,37 +5088,17 @@ async def api_export_applications(
         from:   Start-Datum (YYYY-MM-DD), optional
         to:     End-Datum (YYYY-MM-DD), optional
     """
-    from .export_report import generate_application_report
+    # #1111: derselbe Dienst wie bewerbungsbericht_exportieren.
+    from .services import bericht as _bericht
     # FastAPI kann 'from' nicht als Parameter-Name nutzen -> aus request holen
     zeitraum_von = (request.query_params.get("from") if request else "") or ""
     zeitraum_bis = to or ""
-    report_data = _db.get_report_data()
-    profile = _db.get_profile()
-    # v1.6.6 (#540): Optionale Bericht-Einstellungen einlesen — nur gesetzte
-    # Werte werden im Bericht angezeigt. So funktioniert der Bericht weiter
-    # fuer Anwender, die NICHT ans Arbeitsamt reporten.
-    report_settings = {
-        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
-        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
-        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
-        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
-        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
-    }
-    # v1.7.0-beta.22: PBP-Nutzung-Beginn fuer Cover-Page + Pre-PBP-Markierung
-    pbp_first_active_at = _db.get_pbp_first_active_at()
-    from .database import get_data_dir
     export_dir = ablage.ausgabe_ordner(_db)
 
     if format == "xlsx":
         try:
-            from .export_report import generate_excel_report
             path = ablage.freier_pfad(export_dir, "bewerbungsbericht.xlsx")
-            generate_excel_report(report_data, profile, path,
-                                   zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
-                                   report_settings=report_settings)
+            _bericht.erzeugen(_db, path, "xlsx", zeitraum_von, zeitraum_bis)
             return FileResponse(
                 str(path),
                 filename="Bewerbungsbericht.xlsx",
@@ -5137,17 +5109,13 @@ async def api_export_applications(
                 {"error": "openpyxl nicht installiert. Installiere mit: pip install openpyxl"},
                 status_code=501
             )
-    else:
-        path = ablage.freier_pfad(export_dir, "bewerbungsbericht.pdf")
-        generate_application_report(report_data, profile, path,
-                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
-                                    report_settings=report_settings,
-                                    pbp_first_active_at=pbp_first_active_at)
-        return FileResponse(
-            str(path),
-            filename="Bewerbungsbericht.pdf",
-            media_type="application/pdf"
-        )
+    path = ablage.freier_pfad(export_dir, "bewerbungsbericht.pdf")
+    _bericht.erzeugen(_db, path, "pdf", zeitraum_von, zeitraum_bis)
+    return FileResponse(
+        str(path),
+        filename="Bewerbungsbericht.pdf",
+        media_type="application/pdf"
+    )
 
 
 @app.get("/api/datenguete/umgang")
