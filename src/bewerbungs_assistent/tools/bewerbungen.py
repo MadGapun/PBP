@@ -2,7 +2,6 @@
 
 from ..services.nutzerfuehrung import kein_profil, leer
 
-import hashlib
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.dashboard_link import dashboard_link as _dashboard_link
@@ -613,231 +612,55 @@ def register(mcp, db, logger):
                 ),
             }
 
-        # Check for duplicate applications (#63 / #531 v1.6.4)
-        # v1.6.4: Erweitert um fuzzy-match (Vermittler/Endkunde-Beziehungen
-        # und Stadt-/Internal-Suffixe). Vorher exakt company.lower() ==
-        # company.lower() — verfehlt z.B. "IQ ... (Endkunde: Siemens)" vs
-        # "Siemens (via IQ ...)". Plus Email-/Ansprechpartner-Match als
-        # zusaetzliches Signal.
-        # #709: force=True ueberspringt das Dedup-Gate bewusst (der frueher
-        # in der Fehlermeldung versprochene notes-Override war nie
-        # implementiert — jetzt gibt es den expliziten Parameter).
-        existing_apps = [] if force else db.get_applications()
-        norm_company = _normalize_company_for_dedup(company)
-        norm_title = _normalize_title_for_dedup(title)
-        norm_email = (kontakt_email or "").lower().strip()
-        norm_ansprech = (ansprechpartner or "").lower().strip()
-        norm_endkunde = (endkunde or "").lower().strip()
-
-        for existing in existing_apps:
-            # #710: Verschiedene Endkunden beim selben Vermittler sind
-            # KEINE Duplikate — getrennte Engagements.
-            ex_endkunde = (existing.get("endkunde") or "").lower().strip()
-            if norm_endkunde and ex_endkunde and norm_endkunde != ex_endkunde:
-                continue
-            ex_company = existing.get("company", "")
-            ex_title = existing.get("title", "")
-            ex_email = (existing.get("kontakt_email") or "").lower().strip()
-            ex_ansprech = (existing.get("ansprechpartner") or "").lower().strip()
-
-            # 1) Exakt-Match (alte Logik)
-            if ex_company.lower() == company.lower() and ex_title.lower() == title.lower():
-                return {
-                    "status": "duplikat",
-                    "match_typ": "exakt",
-                    "bestehende_bewerbung_id": existing["id"][:8],
-                    "nachricht": f"Es gibt bereits eine Bewerbung bei {company} für '{title}' "
-                                 f"(Status: {existing.get('status', '?')}). "
-                                 "Nutze bewerbung_bearbeiten() um diese zu aktualisieren — "
-                                 "oder force=True, wenn es wirklich eine neue, eigene Bewerbung ist."
-                }
-
-            # 2) Fuzzy-Match: aehnliche Firma + aehnlicher Titel
-            ex_norm_company = _normalize_company_for_dedup(ex_company)
-            ex_norm_title = _normalize_title_for_dedup(ex_title)
-            # Variante a: nach Klammer-Strip (gleiche Firma in zwei Schreibweisen)
-            company_match_clean = _is_company_overlap(norm_company, ex_norm_company)
-            # Variante b: Vermittler/Endkunde-Beziehung (z.B. "X (via Y)" vs "Y (Endkunde: X)")
-            company_match_vermittler = _is_vermittler_endkunde_match(company, ex_company)
-            company_match = company_match_clean or company_match_vermittler
-            title_match = (norm_title == ex_norm_title) or (
-                norm_title and ex_norm_title and (
-                    norm_title in ex_norm_title or ex_norm_title in norm_title
-                )
-            )
-            if company_match and title_match:
-                return {
-                    "status": "duplikat",
-                    "match_typ": "fuzzy_firma_titel",
-                    "bestehende_bewerbung_id": existing["id"][:8],
-                    "bestehend_firma": ex_company,
-                    "bestehend_titel": ex_title,
-                    "nachricht": (
-                        f"Ähnliche Bewerbung gefunden: '{ex_title}' bei {ex_company} "
-                        f"(Status: {existing.get('status', '?')}). "
-                        f"Vermutlich Vermittler/Endkunde-Beziehung oder Titelvariante. "
-                        f"Falls neue Bewerbung trotzdem gewuenscht: force=True setzen — "
-                        f"bei Vermittler-Engagements zusätzlich endkunde='...' angeben, "
-                        f"dann unterscheidet die Duplikat-Erkennung künftig selbst."
-                    )
-                }
-
-            # 3) Email- oder Ansprechpartner-Match plus aehnlicher Titel
-            #    (sehr starkes Signal — gleicher Recruiter zur gleichen Stelle)
-            if title_match and (
-                (norm_email and ex_email and norm_email == ex_email) or
-                (norm_ansprech and ex_ansprech and norm_ansprech == ex_ansprech)
-            ):
-                return {
-                    "status": "duplikat",
-                    "match_typ": "email_oder_ansprechpartner",
-                    "bestehende_bewerbung_id": existing["id"][:8],
-                    "bestehend_firma": ex_company,
-                    "bestehend_titel": ex_title,
-                    "nachricht": (
-                        f"Identischer Ansprechpartner/Email + ähnlicher Titel: "
-                        f"'{ex_title}' bei {ex_company} (Status: {existing.get('status', '?')}). "
-                        f"Sehr wahrscheinlich Duplikat. Falls doch eigenstaendig: force=True."
-                    )
-                }
-
-        # If no job_hash given, create a manual job entry so it appears in stellen_anzeigen
-        effective_hash = job_hash or None
-        if not effective_hash:
-            effective_hash = hashlib.md5(f"manuell:{company}:{title}:{url}".encode()).hexdigest()[:12]
-            # Check if job already exists
-            existing = db.get_job(effective_hash)
-            if not existing:
-                from datetime import datetime
-                # v1.7.0-beta.32 (#588): KEIN notes-Fallback mehr fuer
-                # description. Wenn der Aufrufer die Stellenbeschreibung
-                # nicht gibt, bleibt das Feld leer — sonst landen Notizen
-                # ("Vermittler ist X, Endkunde-Kandidaten sind Y") als
-                # Stellenbeschreibung in der DB und verschmutzen alle
-                # downstream-Tools (fit_analyse, Anschreiben).
-                # v1.7.0-beta.47 (#613): URL-basierte Source-Detection
-                # statt hartkodiert 'manuell' — wenn die URL klar auf
-                # LinkedIn/StepStone/etc. zeigt, wird das gespeichert.
-                # Sonst Fallback 'manuell'.
-                from ..services.url_to_source import detect_source_from_url
-                detected_source = detect_source_from_url(url)
-                db.save_jobs([{
-                    "hash": effective_hash,
-                    "title": title,
-                    "company": company,
-                    "location": "",
-                    "url": url,
-                    "source": detected_source,
-                    "description": stellenbeschreibung or "",
-                    "score": 0,
-                    "is_pinned": True,
-                    "remote_level": "unbekannt",
-                    "employment_type": "festanstellung",
-                    "found_at": datetime.now().isoformat(),
-                }])
-
-        # #178 Bug 1: source aus jobs-Tabelle übernehmen
-        source = ""
-        if effective_hash:
-            linked_job = db.get_job(effective_hash)
-            if linked_job:
-                source = linked_job.get("source", "") or ""
-
-        # v1.7.0-beta.32 (#588): description_snapshot ist der read-mostly
-        # Originalwortlaut der Stellenanzeige — explizit getrennt von
-        # `notes` (mutable, eigene Recherche). Bei Anlage einer Bewerbung
-        # snapshot wir den Job-Text falls vorhanden, sonst die explizit
-        # uebergebene stellenbeschreibung.
-        snapshot_text = stellenbeschreibung or ""
-        if effective_hash and not snapshot_text:
-            try:
-                _job = db.get_job(effective_hash) or {}
-                snapshot_text = _job.get("description") or ""
-            except Exception:
-                snapshot_text = ""
-        from datetime import datetime as _dt_snap
-
-        # v1.7.0-beta.46 (#602): applied_at-Default. Inbound-Recruiter-
-        # Anfragen kamen vorher ohne applied_at rein -> 14 verwaiste
-        # Eintraege im Bericht. Default = heute (oder created_at als
-        # Fallback bei status='in_vorbereitung').
-        if status != "in_vorbereitung" and not applied_at:
-            applied_at = _dt_snap.now().isoformat()[:10]
-
-        aid = db.add_application({
+        # #1094: Dublettenpruefung, Snapshot, Kontakt, aussortierte Stelle
+        # und Erinnerung stehen im Lebenszyklus-Dienst — dieselben Regeln
+        # fuer diesen Weg und fuer den Dialog im Dashboard.
+        from ..services import bewerbung_lebenszyklus as _lz
+        erg = _lz.anlegen(db, {
             "title": title, "company": company, "url": url,
-            "job_hash": effective_hash, "status": status,
-            "applied_at": applied_at if status != "in_vorbereitung" else "",
-            "notes": notes,
-            "bewerbungsart": bewerbungsart,
+            "job_hash": job_hash, "status": status, "applied_at": applied_at,
+            "notes": notes, "bewerbungsart": bewerbungsart,
             "lebenslauf_variante": lebenslauf_variante,
-            "ansprechpartner": ansprechpartner,
-            "kontakt_email": kontakt_email,
-            "portal_name": portal_name,
-            "source": source,
-            "description_snapshot": snapshot_text,
-            "snapshot_date": _dt_snap.now().isoformat() if snapshot_text else "",
+            "ansprechpartner": ansprechpartner, "kontakt_email": kontakt_email,
+            "portal_name": portal_name, "stellenbeschreibung": stellenbeschreibung,
             "endkunde": endkunde,
-        })
-
-        # v1.7.67 (#1011): Eine Bewerbung IST eine Interaktion — ab hier
-        # gibt es eine Historie, und die braucht jemanden, an dem sie
-        # haengt. `ansprechpartner` und `kontakt_email` lagen bisher nur
-        # als Freitext an der Bewerbung: ein Name, den keine Auswertung
-        # kennt und den kein Kontakt-Werkzeug findet.
-        kontakt_befund = None
-        if ansprechpartner or kontakt_email:
-            from ..services import kontakt_pflicht as _kp
-            kontakt_befund = _kp.sicherstellen(
-                db, name=ansprechpartner, email=kontakt_email, firma=company,
-                ziel_art="application", ziel_id=aid)
-
-        # #231: Stelle als inaktiv markieren wenn Bewerbung erstellt
-        if effective_hash:
-            try:
-                db.dismiss_job(effective_hash, reason="bewerbung_erstellt",
-                               herkunft="automatik")
-            except Exception:
-                pass  # Job existiert evtl. nicht
-
-        # v1.7.0-beta.40 (#609): Elwosa-Hook bei neuer Bewerbung
-        try:
-            from ..services import elwosa as _elwosa
-            _elwosa.speak(db, "bewerbung_angelegt", ctx={
-                "firma": company,
-                "ref": aid,
-            })
-        except Exception:
-            pass
-
-        # #224: Notiz als ersten Timeline-Eintrag speichern
-        if notes:
-            from datetime import datetime as dt_now
-            conn = db.connect()
-            conn.execute(
-                "INSERT INTO application_events (application_id, status, event_date, notes) VALUES (?, 'notiz', ?, ?)",
-                (aid, dt_now.now().isoformat(), notes)
-            )
-            conn.commit()
-
-        # #462: Auto-Follow-up direkt beim Anlegen einer beworbenen Bewerbung
-        auto_followup_id = None
-        if status == "beworben":
-            try:
-                default_days = db.get_setting_zahl("followup_default_days", 7)
-            except Exception:
-                default_days = 7
-            if default_days > 0:
-                from datetime import datetime as dt_auto, timedelta as td_auto
-                when = (dt_auto.now() + td_auto(days=default_days)).date().isoformat()
-                try:
-                    # #816: nie mehr als leerer Reminder anlegen
-                    _app_fuer_tpl = db.get_application(aid) or {}
-                    auto_followup_id = db.add_follow_up(
-                        aid, when, "nachfass",
-                        template=_nachfass_template(_app_fuer_tpl))
-                except Exception:
-                    auto_followup_id = None
+        }, force=force)
+        if not erg["ok"]:
+            if erg["grund"] != "duplikat":
+                return {k: v for k, v in erg.items() if k in ("fehler", "vorschlag_status")}
+            antwort = {
+                "status": "duplikat",
+                "match_typ": erg["match_typ"],
+                "bestehende_bewerbung_id": erg["bestehende_bewerbung_id"],
+                "bestehend_firma": erg["bestehend_firma"],
+                "bestehend_titel": erg["bestehend_titel"],
+            }
+            if erg["match_typ"] == "exakt":
+                antwort["nachricht"] = (
+                    f"Es gibt bereits eine Bewerbung bei {company} für '{title}' "
+                    f"(Status: {erg['bestehend_status'] or '?'}). "
+                    "Nutze bewerbung_bearbeiten() um diese zu aktualisieren — "
+                    "oder force=True, wenn es wirklich eine neue, eigene Bewerbung ist.")
+            elif erg["match_typ"] == "fuzzy_firma_titel":
+                antwort["nachricht"] = (
+                    f"Ähnliche Bewerbung gefunden: '{erg['bestehend_titel']}' bei "
+                    f"{erg['bestehend_firma']} (Status: {erg['bestehend_status'] or '?'}). "
+                    "Vermutlich Vermittler/Endkunde-Beziehung oder Titelvariante. "
+                    "Falls neue Bewerbung trotzdem gewuenscht: force=True setzen — "
+                    "bei Vermittler-Engagements zusätzlich endkunde='...' angeben, "
+                    "dann unterscheidet die Duplikat-Erkennung künftig selbst.")
+            else:
+                antwort["nachricht"] = (
+                    "Identischer Ansprechpartner/Email + ähnlicher Titel: "
+                    f"'{erg['bestehend_titel']}' bei {erg['bestehend_firma']} "
+                    f"(Status: {erg['bestehend_status'] or '?'}). "
+                    "Sehr wahrscheinlich Duplikat. Falls doch eigenstaendig: force=True.")
+            return antwort
+        aid = erg["id"]
+        effective_hash = erg["job_hash"]
+        kontakt_befund = erg["kontakt"]
+        auto_followup_id = erg["auto_follow_up_id"]
+        default_days = erg["nachfass_tage"]
 
         result = {
             "status": "erstellt",
@@ -970,160 +793,24 @@ def register(mcp, db, logger):
                     "hinweis": "Du hast eine ID des falschen Typs übergeben. "
                                "Bewerbungs-IDs haben das Präfix 'APP-'."}
 
-        if neuer_status not in VALID_STATUSES:
-            # Frueher genutzte Custom-Status auf den jetzt offiziellen Wert mappen
-            mapping = {
-                "warte_auf_rueckmeldung": "eingangsbestaetigung",
-                "abgesagt": "abgelaufen",
-            }
-            if neuer_status in mapping:
-                return {
-                    "fehler": (
-                        f"Status '{neuer_status}' existiert nicht mehr. "
-                        f"Nutze stattdessen '{mapping[neuer_status]}'."
-                    ),
-                    "vorschlag_status": mapping[neuer_status],
-                }
-            return {
-                "fehler": (
-                    f"Unbekannter Status '{neuer_status}'. "
-                    f"Erlaubt: {sorted(VALID_STATUSES)}"
-                ),
-            }
-
-        # v1.7.0-beta.40 (#609): App holen wir immer, damit Elwosa-Hook
-        # weiter unten die Firma kennt.
-        app = db.get_application(bewerbung_id)
-        # #695: unbekannte ID -> klarer Fehler statt stillem "aktualisiert"
-        if not app:
-            return {"fehler": "Bewerbung nicht gefunden. "
-                              "Prüfe die ID mit bewerbungen_anzeigen()."}
-
-        # Bei Wechsel von in_vorbereitung zu beworben: applied_at setzen + Stelle deaktivieren (#405)
-        auto_followup_id = None
-        if neuer_status == "beworben":
-            if app:
-                if not app.get("applied_at"):
-                    from datetime import datetime
-                    db.update_application(bewerbung_id, {"applied_at": datetime.now().isoformat()[:10]})
-                # #405: Stelle deaktivieren wenn Bewerbung auf "beworben" gesetzt
-                job_hash = app.get("job_hash")
-                if job_hash:
-                    try:
-                        db.dismiss_job(job_hash,
-                                       reason="bewerbung_erstellt",
-                                       herkunft="automatik")
-                    except Exception:
-                        pass
-                # #462: Auto-Follow-up nach Tageslücke (Default 7d), falls keiner offen
-                # #522: nur wenn auto_follow_up=True (Default)
-                if auto_follow_up:
-                    try:
-                        default_days = db.get_setting_zahl("followup_default_days", 7)
-                    except Exception:
-                        default_days = 7
-                    if default_days > 0:
-                        existing = [fu for fu in db.get_pending_follow_ups()
-                                    if fu.get("application_id") == bewerbung_id]
-                        if not existing:
-                            from datetime import datetime, timedelta
-                            when = (datetime.now() + timedelta(days=default_days)).date().isoformat()
-                            # #816: fallbezogener Inhalt statt leerer Reminder
-                            _app_tpl = db.get_application(bewerbung_id) or {}
-                            auto_followup_id = db.add_follow_up(
-                                bewerbung_id, when, "nachfass",
-                                template=_nachfass_template(_app_tpl))
-
-        # v1.7.10 (#779/D27): applied_at nachtragen, wenn ein Status erreicht
-        # wird, der eine erfolgte Bewerbung voraussetzt — bei Netzwerk-
-        # Kontakten wird 'beworben' oft uebersprungen (in_vorbereitung ->
-        # interview -> angebot) und die Bewerbung fiel aus jeder Statistik.
-        # Quelle: aeltester Timeline-Event, Fallback created_at.
-        applied_at_nachgetragen = None
-        _STATUS_SETZT_BEWERBUNG_VORAUS = {
-            "eingangsbestaetigung", "interview", "zweitgespraech",
-            "interview_abgeschlossen", "angebot", "angenommen",
-            "abgelehnt", "arbeitgeber_ausgefallen",
-        }
-        if (neuer_status in _STATUS_SETZT_BEWERBUNG_VORAUS
-                and not (app.get("applied_at") or "").strip()):
-            try:
-                row = db.connect().execute(
-                    "SELECT MIN(event_date) AS erster FROM application_events "
-                    "WHERE application_id=?",
-                    (bewerbung_id,),
-                ).fetchone()
-                quelle = "ältester Timeline-Event"
-                datum = (row["erster"] or "") if row else ""
-                if not datum:
-                    datum = app.get("created_at") or ""
-                    quelle = "created_at (keine Events vorhanden)"
-                if datum:
-                    db.update_application(
-                        bewerbung_id, {"applied_at": datum[:10]})
-                    applied_at_nachgetragen = {
-                        "datum": datum[:10], "quelle": quelle}
-            except Exception as e:
-                logger.debug("applied_at-Nachtrag fehlgeschlagen: %s", e)
-
-        # Lifecycle-Hooks (dismiss + auto-Nachfrage) laufen in
-        # db.update_application_status() selbst — siehe _apply_status_lifecycle (#493, #494, #497).
-        # Zaehlen vor/nach, damit der MCP-Caller das Ergebnis reporten kann.
-        open_before = sum(1 for fu in db.get_pending_follow_ups()
-                          if fu.get("application_id") == bewerbung_id)
-        db.update_application_status(bewerbung_id, neuer_status, notizen, ablehnungsgrund)
-
-        # v1.7.0-beta.79 (#657 E16): Auto-Veralten verknuepfter Dokumente.
-        # Wenn die Bewerbung in einen End-Status uebergeht (abgelehnt /
-        # abgelaufen / zurueckgezogen), werden die ausschliesslich mit
-        # dieser Bewerbung verknuepften Docs auf `lifecycle=veraltet`
-        # gesetzt — sie verschwinden damit aus den Default-Analyse-
-        # Ansichten, bleiben aber via `archiv=True` einsehbar und sind
-        # ueber `dokument_reaktivieren` jederzeit reversibel.
-        #
-        # Schema-Hinweis: linked_application_id ist 1:1 — ein Doku haengt
-        # max an EINER Bewerbung. "Exklusiv" ist damit automatisch erfuellt.
-        #
-        # DB-only: physische Dateien werden NICHT angefasst.
-        veraltet_docs: list[str] = []
-        if neuer_status in _bewerbung_status.ARCHIV:
-            try:
-                pid_for_lc = db.get_active_profile_id()
-                for doc_id in db.get_documents_linked_to_application(bewerbung_id):
-                    try:
-                        if db.update_document_lifecycle(
-                            doc_id, "veraltet", profile_id=pid_for_lc
-                        ):
-                            veraltet_docs.append(doc_id)
-                    except Exception as exc:  # noqa: BLE001
-                        logger.debug(
-                            "Auto-Veralten fuer Doku %s fehlgeschlagen: %s",
-                            doc_id, exc,
-                        )
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("Auto-Veralten-Hook (#657) fehlgeschlagen: %s", exc)
-
-        # v1.7.0-beta.40 (#609): Elwosa-Hook bei Status-Wechsel
-        try:
-            from ..services import elwosa as _elwosa
-            _trigger_map = {
-                "abgelehnt": "absage",
-                "eingangsbestaetigung": "eingangsbestaetigung",
-                "interview": "interview_einladung",
-                "zweitgespraech": "interview_einladung",
-                "angenommen": "angenommen",
-                "zurueckgezogen": "zurueckgezogen",
-                "abgelaufen": "abgelaufen",
-            }
-            t = _trigger_map.get(neuer_status)
-            if t:
-                _firma = (app or {}).get("company") or ""
-                _elwosa.speak(db, t, ctx={"firma": _firma, "ref": bewerbung_id})
-        except Exception:
-            pass
+        # #1094: der Wechsel und seine Folgen (Datum, Stelle, Erinnerung,
+        # Dokumente) laufen ueber den Lebenszyklus-Dienst — derselbe Weg
+        # wie das Auswahlfeld im Dashboard.
+        from ..services import bewerbung_lebenszyklus as _lz
+        erg = _lz.status_wechseln(db, bewerbung_id, neuer_status, notizen,
+                                  ablehnungsgrund, auto_follow_up=auto_follow_up)
+        if not erg["ok"]:
+            if erg["grund"] == "nicht_gefunden":
+                return {"fehler": "Bewerbung nicht gefunden. "
+                                  "Prüfe die ID mit bewerbungen_anzeigen()."}
+            return {k: v for k, v in erg.items() if k in ("fehler", "vorschlag_status")}
+        auto_followup_id = erg["auto_follow_up_id"]
+        default_days = erg["nachfass_tage"]
+        applied_at_nachgetragen = erg["applied_at_nachgetragen"]
+        veraltet_docs = [d["id"] for d in erg["dokumente_veraltet"]]
         pending_after = [fu for fu in db.get_pending_follow_ups()
                          if fu.get("application_id") == bewerbung_id]
-        dismissed_followups = max(0, open_before - len(pending_after))
+        dismissed_followups = len(erg["geschlossen"])
         result = {
             "status": "aktualisiert",
             "neuer_status": neuer_status,
@@ -2532,19 +2219,11 @@ def register(mcp, db, logger):
             follow_up_id: ID des Follow-ups
             notiz: Optionale Notiz zu wie es erledigt wurde (wird an die Bewerbung gehängt)
         """
-        fu = db.get_follow_up(follow_up_id)
-        if not fu:
-            return {"fehler": "Follow-up nicht gefunden."}
-        if fu.get("status") != "geplant":
-            return {
-                "fehler": f"Follow-up ist bereits '{fu.get('status')}' — kann nicht erneut erledigt werden.",
-            }
-        db.complete_follow_up(follow_up_id, status="erledigt")
-        if notiz:
-            try:
-                db.add_application_note(fu["application_id"], f"Nachfass erledigt: {notiz}")
-            except Exception:
-                pass
+        # #1094: dieselbe Pruefung wie im Dashboard, an einer Stelle
+        from ..services import bewerbung_lebenszyklus as _lz
+        erg = _lz.nachfassung_abschliessen(db, follow_up_id, "erledigt", notiz)
+        if not erg["ok"]:
+            return {"fehler": erg["fehler"]}
         return {
             "status": "erledigt",
             "follow_up_id": follow_up_id,
@@ -2561,19 +2240,10 @@ def register(mcp, db, logger):
             follow_up_id: ID des Follow-ups
             grund: Optional — warum hinfaellig (Absage erhalten, Bewerbung zurueckgezogen, ...)
         """
-        fu = db.get_follow_up(follow_up_id)
-        if not fu:
-            return {"fehler": "Follow-up nicht gefunden."}
-        if fu.get("status") != "geplant":
-            return {
-                "fehler": f"Follow-up ist bereits '{fu.get('status')}'.",
-            }
-        db.complete_follow_up(follow_up_id, status="hinfaellig")
-        if grund:
-            try:
-                db.add_application_note(fu["application_id"], f"Nachfass hinfaellig: {grund}")
-            except Exception:
-                pass
+        from ..services import bewerbung_lebenszyklus as _lz
+        erg = _lz.nachfassung_abschliessen(db, follow_up_id, "hinfaellig", grund)
+        if not erg["ok"]:
+            return {"fehler": erg["fehler"]}
         return {
             "status": "hinfaellig",
             "follow_up_id": follow_up_id,

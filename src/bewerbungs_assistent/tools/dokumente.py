@@ -2884,7 +2884,9 @@ def register(mcp, db, logger):
                 title=args.get("titel") or args.get("title") or "",
                 company=args.get("firma") or args.get("company") or "",
                 url=args.get("url") or "",
-                status=args.get("status") or "anfrage",
+                # #1094: "anfrage" gab es als Status nie — die Bewerbung war
+                # danach fuer Statistik und Status-Journey unsichtbar (#981).
+                status=args.get("status") or "offen",
                 notes=args.get("notes") or args.get("notizen") or "",
             )
 
@@ -2895,6 +2897,25 @@ def register(mcp, db, logger):
             return {
                 "fehler": f"Unbekannte Aktion '{aktion}'.",
                 "bekannte_aktionen": sorted(set(_DOC_ROUTING_ACTIONS.values())),
+            }
+
+        # #1094: Hat das delegierte Werkzeug abgelehnt (Fehler, Dublette),
+        # ist nichts umgesetzt — das Dokument bleibt im Plan, statt als
+        # verarbeitet zu verschwinden.
+        if isinstance(delegiert, dict) and (
+                delegiert.get("fehler") or delegiert.get("status") == "duplikat"):
+            return {
+                "status": "nicht_umgesetzt",
+                "dokument_id": dokument_id,
+                "aktion": aktion,
+                "delegiert_an_tool_result": delegiert,
+                "hinweis": (
+                    "Die Aktion wurde nicht ausgeführt — das Dokument bleibt im "
+                    "Analyse-Plan. Grund steht in delegiert_an_tool_result."
+                    + (" Die Bewerbung gibt es schon: das Dokument mit "
+                       "dokument_verknuepfen(dokument_id, bewerbung_id) an sie hängen."
+                       if delegiert.get("status") == "duplikat" else "")
+                ),
             }
 
         # Status auf `angewendet` heben — Doku gilt damit als verarbeitet

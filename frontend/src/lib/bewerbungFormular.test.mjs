@@ -30,3 +30,14 @@ assert.equal(bewerbungNutzlast({ status: "beworben", applied_at: "2026-09-01" })
 assert.equal(heuteIso(new Date(2026, 0, 5, 0, 30)), "2026-01-05");
 
 console.log("bewerbungFormular: ok");
+
+// #1094
+import { angelegtMeldung, dublettenHinweis } from "./bewerbungFormular.js";
+assert.equal(angelegtMeldung({}), "Bewerbung angelegt.");
+assert.match(angelegtMeldung({ nachfass_in_tagen: 7, stelle_aussortiert: true }),
+  /aktiven Liste.*Nachfassen in 7 Tagen/);
+assert.equal(dublettenHinweis(new Error("x")), null);
+const dup = Object.assign(new Error("x"), { status: 409,
+  payload: { duplikat: { bestehend_titel: "Sachbearbeitung", bestehend_firma: "Musterbetrieb GmbH" } } });
+assert.match(dublettenHinweis(dup), /„Sachbearbeitung bei Musterbetrieb GmbH“/);
+console.log("bewerbungFormular #1094 ok");
