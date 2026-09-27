@@ -150,8 +150,10 @@ def _condition_keine_aufwandskosten_aber_termine(db) -> bool:
     try:
         conn = db.connect()
         pid = db.get_active_profile_id()
+        # Die Tabelle heisst application_meetings. Bis hierher stand hier
+        # `meetings`, die Abfrage scheiterte still, und der Tipp erschien nie.
         meeting_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM meetings WHERE "
+            "SELECT COUNT(*) AS n FROM application_meetings WHERE "
             "(profile_id=? OR profile_id IS NULL)", (pid,)
         ).fetchone()
         if not meeting_count or (meeting_count["n"] or 0) < 5:
@@ -162,10 +164,10 @@ def _condition_keine_aufwandskosten_aber_termine(db) -> bool:
         ).fetchone()
         if kosten_count and (kosten_count["n"] or 0) > 0:
             return False
-        # Plus: Vorbereitungszeit pruefen (kommt aus meetings.preparation_minutes)
+        # Plus: Vorbereitungszeit pruefen (application_meetings.vorbereitungszeit_min)
         prep_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM meetings WHERE "
-            "(profile_id=? OR profile_id IS NULL) AND preparation_minutes > 0",
+            "SELECT COUNT(*) AS n FROM application_meetings WHERE "
+            "(profile_id=? OR profile_id IS NULL) AND vorbereitungszeit_min > 0",
             (pid,)
         ).fetchone()
         return not (prep_count and (prep_count["n"] or 0) > 0)
