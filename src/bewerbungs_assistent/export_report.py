@@ -1372,10 +1372,16 @@ def generate_data_self_disclosure(db, profile: Optional[dict],
     _section_header(pdf, "3. Speicher-Orte")
     pdf.set_font("Helvetica", "", 9)
     try:
+        # #1097: alle Orte mit persoenlichen Daten, aus derselben Liste
+        # wie die DSGVO-Loeschung — vorher standen hier drei.
+        from .services import datenordner
         data_dir = get_data_dir()
-        _line_cell(pdf, 0, 5, _safe_text(f"  Datenbank: {data_dir / 'pbp.db'}"))
-        _line_cell(pdf, 0, 5, _safe_text(f"  Dokumente: {data_dir / 'dokumente'}"))
-        _line_cell(pdf, 0, 5, _safe_text(f"  Backups:   {data_dir / 'backups'}"))
+        _line_cell(pdf, 0, 5, _safe_text(f"  Datenordner: {data_dir}"))
+        for eintrag in datenordner.INHALT:
+            if eintrag["persoenlich"] and (data_dir / eintrag["name"]).exists():
+                _line_cell(pdf, 0, 5, _safe_text(
+                    f"    {eintrag['name']}: {eintrag['was']}"))
+        pdf.multi_cell(0, 4.5, _safe_text("  " + datenordner.AUSSERHALB_SATZ))
     except Exception as e:
         _line_cell(pdf, 0, 5, f"  Pfad konnte nicht ermittelt werden: {e}")
     pdf.ln(4)

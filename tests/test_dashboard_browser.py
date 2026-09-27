@@ -1119,6 +1119,39 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         context.close()
 
 
+
+def test_gefahrenzone_dsgvo_nennt_was_geloescht_wird(live_dashboard, browser, tmp_path):
+    """#1097: der DSGVO-Modus nennt, was gelöscht wird — auch Sicherungen,
+    Mails und Browser-Sitzungen — und was außerhalb liegen bleibt."""
+    _seed_gefahrenzone(live_dashboard["db"])
+    for ordner in ("backups", "emails", "linkedin_session"):
+        (tmp_path / ordner).mkdir(exist_ok=True)
+        (tmp_path / ordner / "inhalt").write_text("x", encoding="utf-8")
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
+        page.get_by_role("heading", name="Daten löschen").first.wait_for(
+            state="visible", timeout=8000)
+        page.get_by_role("radio").nth(1).check()
+        page.get_by_role("button", name="Endgültig löschen").wait_for(
+            state="visible")
+        for name in ("backups", "emails", "linkedin_session"):
+            page.get_by_text(name, exact=True).first.wait_for(
+                state="visible", timeout=4000)
+        page.get_by_text("außerhalb des Datenordners", exact=False).first.wait_for(
+            state="visible", timeout=4000)
+        # Das alte Versprechen "nur Datenbank und Dokumentordner" ist weg.
+        assert page.get_by_text("Die Datenbankdatei und die Ordner",
+                                exact=False).count() == 0
+    finally:
+        context.close()
+
 def test_kontakte_untermenue_referenzen(live_dashboard, browser):
     """#884 — die Referenz-Ansicht, bedient statt gegrept.
 

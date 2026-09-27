@@ -7274,11 +7274,19 @@ async def api_danger_bereiche(bereiche: str = "", profil_id: str = ""):
     # v1.7.83 nur das gerade gewaehlte an.
     profile = [{"id": p["id"], "name": p.get("name") or p["id"]}
                for p in (_db.get_profiles() or [])]
+    # #1097: was der DSGVO-Modus loescht — aus derselben Liste wie die
+    # Loeschung, die Datenuebersicht und die Selbstauskunft.
+    from .services import datenordner
     return {
         **vor,
         "profile": profile,
         "bereiche_reihenfolge": list(loeschbereiche.BEREICHE),
         "bestaetigungswort": "LOESCHEN",
+        "dsgvo": {
+            "inhalt": datenordner.uebersicht(),
+            "ausserhalb": datenordner.ausserhalb(_db),
+            "ausserhalb_hinweis": datenordner.AUSSERHALB_SATZ,
+        },
     }
 
 
@@ -7313,7 +7321,10 @@ async def api_danger_leeren(request: Request):
             status_code=400)
 
     if modus == "dsgvo":
-        return await _dsgvo_loeschen()
+        erg = await _dsgvo_loeschen()
+        if erg["status"] == "abgelehnt":
+            return JSONResponse(erg, status_code=409)
+        return erg
 
     gewaehlt = data.get("bereiche") or []
     if not isinstance(gewaehlt, list) or not gewaehlt:
@@ -7344,26 +7355,43 @@ async def _dsgvo_loeschen() -> dict:
     Herausgeloest aus `api_privacy_delete_all`, damit beide Wege
     dieselbe Mechanik nehmen. Zwei Fassungen davon waeren genau das
     Muster, gegen das #1025 angetreten ist.
+
+    #1097: geleert wird der GANZE Datenordner — Sicherungen, Mails,
+    Protokolle, WAL-Datei und Browser-Sitzungen eingeschlossen, nicht nur
+    Datenbank, `dokumente/` und `export/`. Laeuft Hintergrundarbeit,
+    wird abgelehnt (`status: abgelehnt`), statt eine benutzte Verbindung
+    zu schliessen (v1.7.11, Exit 139). Was sich nicht loeschen laesst,
+    wird benannt (`status: teilweise`) und beim naechsten Start entfernt.
     """
-    import shutil
     from .database import get_data_dir
+    from .services import datenordner
+
+    laufend = datenordner.laufende_arbeit()
+    if laufend:
+        return {"status": "abgelehnt", "modus": "dsgvo", "deleted": [],
+                "laufend": laufend,
+                "message": (f"Gerade läuft {datenordner.arbeit_klartext(laufend)}. "
+                            "Warte, bis sie fertig ist, und lösche dann erneut — "
+                            "sonst könnte PBP mitten im Schreiben abbrechen.")}
 
     data_dir = get_data_dir()
-    geloescht = []
-    db_path = data_dir / "pbp.db"
-    if db_path.exists():
-        _db.close()
-        db_path.unlink()
-        geloescht.append("Datenbank")
-    for subdir in ["dokumente", "export"]:
-        sub = data_dir / subdir
-        if sub.exists():
-            shutil.rmtree(sub)
-            sub.mkdir()
-            geloescht.append(subdir.capitalize())
-    return {"status": "ok", "modus": "dsgvo", "deleted": geloescht,
-            "message": ("Datenbank und Dokumentordner gelöscht. "
-                        "Bitte Dashboard neu starten.")}
+    ausserhalb = datenordner.ausserhalb(_db)
+    _db.close()
+    erg = datenordner.alles_loeschen(data_dir)
+    antwort = {"modus": "dsgvo", "deleted": erg["geloescht"],
+               "nicht_geloescht": erg["fehler"],
+               "ausserhalb": ausserhalb,
+               "ausserhalb_hinweis": datenordner.AUSSERHALB_SATZ}
+    if erg["fehler"]:
+        return {**antwort, "status": "teilweise",
+                "message": (
+                    f"{len(erg['fehler'])} Einträge ließen sich nicht löschen, "
+                    "vermutlich hält Claude Desktop sie noch offen. Beende "
+                    "Claude Desktop und PBP; beim nächsten Start löscht PBP "
+                    "den Rest, bevor es etwas anderes tut.")}
+    return {**antwort, "status": "ok",
+            "message": ("Alle Daten im Datenordner gelöscht. Bitte PBP und "
+                        "Claude Desktop neu starten.")}
 
 
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
@@ -11682,14 +11710,17 @@ async def api_privacy_info():
         "documents": len(profile.get("documents", [])) if profile else 0,
     }
 
+    # #1097: alle Ordner, die PBP im Datenordner anlegt — aus derselben
+    # Liste wie die DSGVO-Loeschung. Vorher standen hier vier von zehn.
+    from .services import datenordner
     subdirs = {}
-    for name in ["dokumente", "export", "logs", "backup"]:
-        sub = data_dir / name
-        if sub.exists():
-            files = list(sub.glob("*"))
-            subdirs[name] = {"path": str(sub), "file_count": len(files)}
-        else:
-            subdirs[name] = {"path": str(sub), "file_count": 0}
+    for eintrag in datenordner.INHALT:
+        if eintrag["art"] != "ordner":
+            continue
+        sub = data_dir / eintrag["name"]
+        anzahl = len(list(sub.glob("*"))) if sub.exists() else 0
+        subdirs[eintrag["name"]] = {"path": str(sub), "file_count": anzahl,
+                                    "was": eintrag["was"]}
 
     return {
         "storage": storage,
@@ -11730,10 +11761,14 @@ async def api_privacy_delete_all(request: Request):
             status_code=400
         )
     erg = await _dsgvo_loeschen()
+    if erg["status"] == "abgelehnt":
+        return JSONResponse(erg, status_code=409)
     # Der alte Schluessel bleibt, damit bestehende Aufrufer nicht
-    # brechen.
-    return {"status": "ok", "deleted": erg["deleted"],
-            "message": "Alle Daten gelöscht. Bitte Dashboard neu starten."}
+    # brechen. `status` meldet eine teilweise Loeschung nicht als Erfolg
+    # (#1097, #997).
+    return {"status": erg["status"], "deleted": erg["deleted"],
+            "nicht_geloescht": erg["nicht_geloescht"],
+            "message": erg["message"]}
 
 
 # === Export Package (v1.4.0, #289) ===
