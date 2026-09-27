@@ -443,49 +443,16 @@ def register(mcp, db, logger):
             zeitraum_von: Optional: Start-Datum (YYYY-MM-DD)
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
         """
+        # #1111: derselbe Weg wie der Knopf im Dashboard — Einstellungen,
+        # Taetigkeitsbericht und Beginn der PBP-Nutzung inklusive.
+        from ..services import bericht as _bericht
         profile = db.get_profile()
-        # Kanonische Report-Daten aus DB (inkl. rejection_patterns, follow_ups,
-        # bewerbungsart-Verteilung). Keine doppelte Aggregation hier.
-        report_data = db.get_report_data()
-        # v1.7.10 (#781/D29): Prozess-Kennzahlen, Kanal-Erfolg,
-        # Ablehnungs-Kategorien und Aufwand in den Bericht. Fehler hier
-        # duerfen den Bericht nie verhindern.
-        try:
-            from ..services import statistik_erweitert as _se
-            report_data["prozess_kennzahlen"] = _se.zeitliche_kennzahlen(db)
-            report_data["kanal_auswertung"] = _se.kanal_auswertung(db)
-            report_data["ablehnungs_kategorien"] = _se.ablehnungs_kategorien(db)
-            report_data["aufwand"] = db.get_aufwand_summary()
-        except Exception as _e:
-            logger.warning("Bericht-Erweiterung (#781) fehlgeschlagen: %s", _e)
-        # v1.6.6 (#540): Optionale Bericht-Einstellungen
-        report_settings = {
-            "arbeitsamt_block_enabled": bool(db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-            "ba_vermittlungsnummer": db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-            "ba_aktenzeichen": db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-            "ba_berater_name": db.get_profile_setting("report_ba_berater_name", "") or "",
-            "ba_berater_stelle": db.get_profile_setting("report_ba_berater_stelle", "") or "",
-            "berater_kommentar_block": bool(db.get_profile_setting("report_berater_kommentar_block", False)),
-        }
-
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
         name_slug = ablage.dateiname_teil(profile.get("name") if profile else "", "bericht")
-
-        if format == "excel":
-            from ..export_report import generate_excel_report
-            path = ablage.freier_pfad(export_dir, f"bewerbungsbericht_{name_slug}.xlsx")
-            generate_excel_report(report_data, profile, path,
-                                  zeitraum_von=zeitraum_von,
-                                  zeitraum_bis=zeitraum_bis,
-                                  report_settings=report_settings)
-        else:
-            from ..export_report import generate_application_report
-            path = ablage.freier_pfad(export_dir, f"bewerbungsbericht_{name_slug}.pdf")
-            generate_application_report(report_data, profile, path,
-                                        zeitraum_von=zeitraum_von,
-                                        zeitraum_bis=zeitraum_bis,
-                                        report_settings=report_settings)
+        endung = "xlsx" if format == "excel" else "pdf"
+        path = ablage.freier_pfad(export_dir, f"bewerbungsbericht_{name_slug}.{endung}")
+        report_data = _bericht.erzeugen(db, path, format, zeitraum_von, zeitraum_bis)
 
         return {
             # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).
