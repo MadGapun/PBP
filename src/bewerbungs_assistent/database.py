@@ -1232,6 +1232,12 @@ class Database:
             self.termine_normalisieren()
         except Exception as e:
             logger.debug("Termin-Normalisierung uebersprungen (#1102): %s", e)
+        # v1.7.140 (#1109): umbenannte Systemkategorien finden ihre
+        # Kontakte wieder. Idempotent.
+        try:
+            self.kontakt_kategorien_reparieren()
+        except Exception as e:
+            logger.debug("Kategorie-Reparatur uebersprungen (#1109): %s", e)
         # v1.7.124 (#1063): eine gesetzte Zahl wird zur naechstliegenden
         # Stufe. Idempotent, und wer nie eine Schwelle gesetzt hat,
         # merkt nichts davon.
@@ -4364,6 +4370,43 @@ class Database:
 
     # === v1.7.0-beta.39 (#608): Kontakt-Kategorien ===
 
+    def kontakt_kategorien_reparieren(self) -> dict:
+        """Bestand aus der Zeit vor #1109: eine umbenannte Systemkategorie
+        bekam einen neuen Schluessel. Gibt es ihren alten Schluessel im
+        Profil nicht noch einmal, bekommt sie ihn zurueck — dann finden
+        ihre Kontakte sie wieder. Gibt es ihn schon (die Systemkategorie
+        wurde neu angelegt), wird das nur gemeldet, nicht still geloescht.
+        Idempotent."""
+        from .services.contact_colors import DEFAULT_CATEGORIES
+        standard = {c["sort_order"]: c["slug"] for c in DEFAULT_CATEGORIES}
+        standard_slugs = set(standard.values())
+        conn = self.connect()
+        repariert, doppelt = [], []
+        zeilen = conn.execute(
+            "SELECT id, profile_id, name, slug, sort_order FROM contact_categories "
+            "WHERE is_system=1").fetchall()
+        for r in zeilen:
+            if r["slug"] in standard_slugs:
+                continue
+            alt = standard.get(r["sort_order"])
+            if not alt:
+                continue
+            schon_da = conn.execute(
+                "SELECT id FROM contact_categories WHERE slug=? "
+                "AND (profile_id IS ? OR profile_id=?)",
+                (alt, r["profile_id"], r["profile_id"])).fetchone()
+            if schon_da:
+                doppelt.append({"id": r["id"], "name": r["name"], "zweite_id": schon_da["id"]})
+                continue
+            conn.execute("UPDATE contact_categories SET slug=?, updated_at=? WHERE id=?",
+                         (alt, _now(), r["id"]))
+            repariert.append({"id": r["id"], "name": r["name"], "schluessel": alt})
+        if repariert:
+            conn.commit()
+        if doppelt:
+            logger.warning("Kontakt-Kategorien doppelt nach Umbenennung (#1109): %s", doppelt)
+        return {"repariert": repariert, "doppelt": doppelt}
+
     def _ensure_default_categories(self) -> int:
         """Legt die 7 Default-Kategorien fuer das aktive Profil an,
         falls noch keine vorhanden sind. Idempotent."""
@@ -4450,14 +4493,19 @@ class Database:
         slug = slug_for_name(name)
         pid = self.get_active_profile_id()
         conn = self.connect()
-        # Duplikat-Check
-        existing = conn.execute(
-            "SELECT id FROM contact_categories "
-            "WHERE (profile_id=? OR profile_id IS NULL) AND slug=? LIMIT 1",
-            (pid, slug)
-        ).fetchone()
-        if existing:
-            raise ValueError(f"Kategorie mit Slug '{slug}' existiert bereits")
+        # Duplikat-Check — ueber den NAMEN (#1109): seit Umbenennen den
+        # Schluessel stehen laesst, kann ein Schluessel zu einer Kategorie
+        # mit anderem Namen gehoeren. Dann bekommt die neue einen freien.
+        vorhandene = {r["slug"]: r["name"] for r in conn.execute(
+            "SELECT slug, name FROM contact_categories "
+            "WHERE (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()}
+        if any((n or "").strip().lower() == name.strip().lower()
+               for n in vorhandene.values()):
+            raise ValueError(f"Kategorie '{name.strip()}' existiert bereits")
+        basis, nr = slug, 2
+        while slug in vorhandene:
+            slug = f"{basis}-{nr}"
+            nr += 1
         if not color:
             existing_colors = [r["color"] for r in conn.execute(
                 "SELECT color FROM contact_categories "
@@ -4487,15 +4535,16 @@ class Database:
                                  name: Optional[str] = None,
                                  color: Optional[str] = None,
                                  sort_order: Optional[int] = None) -> bool:
-        from .services.contact_colors import slug_for_name
         conn = self.connect()
         sets = []
         vals: list = []
         if name is not None and name.strip():
+            # #1109: nur der Name aendert sich. Die Kontakte tragen den
+            # SCHLUESSEL in ihren Tags; ein neuer Schluessel trennte die
+            # Kategorie von ihren Kontakten, und eine umbenannte
+            # Systemkategorie entstand beim naechsten Aufruf neu.
             sets.append("name=?")
             vals.append(name.strip())
-            sets.append("slug=?")
-            vals.append(slug_for_name(name))
         if color is not None and color:
             sets.append("color=?")
             vals.append(color)
