@@ -35,7 +35,16 @@ fi
 "$VENV/bin/python" -m pip install --quiet --disable-pip-version-check -e ".[docs,dev,scraper]"
 
 # Chromium fuer die Dashboard-Browser-Tests ist im Container vorinstalliert
-# (PLAYWRIGHT_BROWSERS_PATH). Nie `playwright install` ausfuehren.
+# (PLAYWRIGHT_BROWSERS_PATH). Nie `playwright install` ausfuehren. Das
+# neueste Python-Playwright erwartet aber eine neuere Chromium-Revision als
+# die vorhandene, und die Browser-Tests werden dann still uebersprungen.
+# Deshalb Python-Playwright auf die Version des mitgelieferten
+# Node-Playwright setzen — dessen Chromium liegt im Container.
+PW_NODE=$(node -p 'require(require("child_process").execSync("npm root -g").toString().trim() + "/playwright/package.json").version' 2>/dev/null || true)
+if [ -n "$PW_NODE" ]; then
+  PW_MINOR=$(echo "$PW_NODE" | cut -d. -f1,2)
+  "$VENV/bin/python" -m pip install --quiet --disable-pip-version-check "playwright==${PW_MINOR}.*"
+fi
 
 # Die Umgebung fuer die ganze Sitzung aktivieren: `python` und `pytest`
 # zeigen danach auf .venv.
