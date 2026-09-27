@@ -937,12 +937,15 @@ export default function ProfilePage({ bereich = "profil" }) {
       return;
     }
     try {
-      await postJson("/api/blacklist", { ...blacklistForm, value });
+      const erg = await postJson("/api/blacklist", { ...blacklistForm, value });
       setBlacklistForm({ type: "firma", value: "" });
       const rows = await api("/api/blacklist");
       startTransition(() => setBlacklist(rows || []));
       await refreshChrome({ quiet: true });
-      pushToast("Blacklist-Eintrag angelegt.", "success");
+      const weg = erg?.stellen_deaktiviert || 0;
+      pushToast(weg
+        ? `Blacklist-Eintrag angelegt — ${weg} aktive ${weg === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet (zurückholen unter Stellen › Ausgeblendet).`
+        : "Blacklist-Eintrag angelegt.", "success");
     } catch (error) {
       pushToast(`Blacklist-Eintrag fehlgeschlagen: ${error.message}`, "danger");
     }
