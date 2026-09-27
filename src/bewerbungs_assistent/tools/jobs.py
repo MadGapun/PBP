@@ -3420,7 +3420,8 @@ def register(mcp, db, logger):
     # Mengenweg und beantwortete nur den Altfall aus #952.
     # v1.7.110 (#1047): `flach` — lange Texte ganz ohne Zeilenumbruch, die
     # Spur des alten Lesers. `beide` bleibt, was es war: fehlend + gekappt.
-    UMFAENGE = ("fehlend", "gekappt", "flach", "beide", "ohne_firma_ort")
+    UMFAENGE = ("fehlend", "gekappt", "flach", "beide", "ohne_firma_ort",
+                "linkedin_kasten")
 
     @mcp.tool()
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
@@ -3464,6 +3465,10 @@ def register(mcp, db, logger):
                 kommen aus dem JobPosting der Detailseite, samt
                 Entfernung und neuem Score. Der Text bleibt, wenn er
                 schon vollständig ist.
+                `linkedin_kasten` (#1085) sind LinkedIn-Stellen, deren
+                Text nur der Gehaltskasten ist oder mit dem Kasten zur
+                Ansprechperson beginnt. Hier ersetzt der neue Text den
+                alten auch dann, wenn er kürzer ist — der Kasten fällt weg.
         """
         import httpx
 
@@ -3516,12 +3521,23 @@ def register(mcp, db, logger):
                      if nachladen.fehlender_kopf(j)
                      and (j.get("url") or "").strip()
                      and not j.get("is_search_url")]
+        # #1085: LinkedIn-Text, der nur der Gehaltskasten ist oder den
+        # Kasten zur Ansprechperson traegt. Die Auswahl liest den Text —
+        # geschnitten wird er hier nicht, sondern neu geladen.
+        from ..job_scraper.linkedin_seite import nur_gehaltskasten, traegt_ansprechkasten
+        li_kasten = [j for j in aktive
+                     if "linkedin" in (j.get("source") or "").lower()
+                     and (j.get("url") or "").strip()
+                     and (nur_gehaltskasten(j.get("description"))
+                          or traegt_ansprechkasten(j.get("description")))]
         auswahl = {"fehlend": fehlend, "gekappt": gekappt, "flach": flach,
                    "beide": fehlend + gekappt,
-                   "ohne_firma_ort": ohne_kopf}[gewaehlt]
+                   "ohne_firma_ort": ohne_kopf,
+                   "linkedin_kasten": li_kasten}[gewaehlt]
 
         zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt),
-                    "flach": len(flach), "ohne_firma_ort": len(ohne_kopf)}
+                    "flach": len(flach), "ohne_firma_ort": len(ohne_kopf),
+                    "linkedin_kasten": len(li_kasten)}
         if not auswahl:
             return {
                 "status": "nichts_zu_tun",
@@ -3595,7 +3611,8 @@ def register(mcp, db, logger):
                 gegliedert = (_ist_flach(job.get("description"))
                               and "\n" in text
                               and len(text) >= 0.9 * alt_laenge)
-                if len(text) <= alt_laenge and not gegliedert:
+                if (len(text) <= alt_laenge and not gegliedert
+                        and gewaehlt != "linkedin_kasten"):
                     # v1.7.128 (#1040 Punkt 5): der Text ist schon da, aber
                     # Firma oder Ort fehlen — dann nur den Kopf nachziehen.
                     if (befund.kopf
@@ -3687,6 +3704,8 @@ def register(mcp, db, logger):
             # #1040
             "ohne_firma_ort": ("Jede aktive Stelle mit Detailseite traegt "
                                "Firma und Ort."),
+            "linkedin_kasten": ("Keine LinkedIn-Stelle traegt den Gehaltskasten "
+                                "oder den Kasten zur Ansprechperson als Text."),
         }[umfang]
         if rest and rest[1]:
             satz += (f" Im Umfang '{rest[0]}' waeren es {rest[1]} — "

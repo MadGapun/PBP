@@ -2454,19 +2454,42 @@ def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
 
     Gefunden vom eigenen Test, der die Aufrufe zaehlt.
     """
+    return seite_lesen(html, max_chars=max_chars)[0]
+
+
+def seite_lesen(html: str, *, max_chars: int | None = None) -> tuple[str, dict]:
+    """Text und Nebenbefunde einer geholten Seite: (text, extras).
+
+    `extras["gehalt_text"]` traegt den Gehaltskasten einer LinkedIn-Seite
+    (#1085) — er wird aus dem Text entfernt und eigens ausgewertet.
+    """
     from .textgrenzen import SPEICHER_MAX
     if max_chars is None:
         max_chars = SPEICHER_MAX
+    extras: dict = {}
     try:
         from bs4 import BeautifulSoup
+        from .html_text import gegliederter_text
 
         # Strategy 1: JSON-LD structured data — uses zentralen Helper
         jp = extract_jobposting_jsonld(html, max_chars=max_chars)
         if jp.get("description"):
-            return jp["description"]
+            return jp["description"], extras
+
+        soup = BeautifulSoup(html, "html.parser")
+        # #1085: LinkedIn — Kasten zur Ansprechperson und Gehaltskasten
+        # verlassen das DOM, BEVOR Text entsteht; dann der Beschreibungsblock.
+        from . import linkedin_seite
+        linkedin = linkedin_seite.ist_linkedin_seite(soup)
+        if linkedin:
+            extras = linkedin_seite.bereinigen(soup)
+            el = linkedin_seite.beschreibung(soup)
+            if el is not None:
+                text = gegliederter_text(str(el))
+                if len(text) > 100 and not linkedin_seite.nur_gehaltskasten(text):
+                    return text[:max_chars], extras
 
         # Strategy 2: Common content selectors als Fallback
-        soup = BeautifulSoup(html, "html.parser")
         for selector in [
             "[class*='job-description']", "[class*='jobDescription']",
             "[class*='stellenbeschreibung']", "[class*='description']",
@@ -2477,15 +2500,16 @@ def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
             el = soup.select_one(selector)
             if el:
                 # #1047: mit Absaetzen und Listen, wie der JSON-LD-Weg.
-                from .html_text import gegliederter_text
                 text = gegliederter_text(str(el))
                 if len(text) > 100:
-                    return text[:max_chars]
+                    if linkedin and linkedin_seite.nur_gehaltskasten(text):
+                        return "", extras  # #1085: kein Anzeigentext
+                    return text[:max_chars], extras
 
-        return ""
+        return "", extras
     except Exception as e:
         logger.debug("HTML-Auswertung fehlgeschlagen: %s", e)
-        return ""
+        return "", extras
 
 
 def _parse_weights(criteria: dict) -> dict:

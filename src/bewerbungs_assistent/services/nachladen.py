@@ -187,8 +187,6 @@ def beschreibung_holen(url: str, client, *, timeout: float = 15,
     waeren derselbe Fehler in vier Gestalten — genau das schreibt der
     Melder in sein Issue.
     """
-    from ..job_scraper import text_aus_html
-
     if ist_bundesagentur(url):
         befund = _ueber_detail_api(url, client)
         if befund.status != LEBT_UNLESBAR:
@@ -214,8 +212,14 @@ def beschreibung_holen(url: str, client, *, timeout: float = 15,
     # Die Seite ist schon geholt — ein zweiter Abruf fuer denselben
     # Text waere die Haelfte aller Anfragen umsonst.
     roh = getattr(antwort, "text", "") or ""
-    text = text_aus_html(roh, max_chars=max_chars) or ""
+    from ..job_scraper import seite_lesen
+    text, extras = seite_lesen(roh, max_chars=max_chars)
+    text = text or ""
     kopf = kopf_aus_html(roh)
+    # #1085: der Gehaltskasten einer LinkedIn-Seite steht nicht im Text,
+    # wird aber ausgewertet (kopf_ergaenzen) — auch wenn es sonst nichts gab.
+    if extras.get("gehalt_text"):
+        kopf["gehalt_text"] = extras["gehalt_text"]
     if text.strip():
         return Befund(status=GELESEN, text=text, http_status=200, quelle="html",
                       kopf=kopf)
@@ -293,6 +297,7 @@ def kopf_ergaenzen(db, job_hash: str, kopf: dict | None) -> list[str]:
     job = db.get_job(job_hash) or {}
     if not job:
         return []
+    gehalt = _gehalt_aus_kopf(db, job, kopf)  # #1085
     fehlt = fehlender_kopf(job)
     spalten: dict = {}
     if "firma" in fehlt and kopf.get("firma"):
@@ -310,14 +315,35 @@ def kopf_ergaenzen(db, job_hash: str, kopf: dict | None) -> list[str]:
         except Exception as exc:  # pragma: no cover — Ort bleibt trotzdem
             logger.debug("Geocoding nach Nachladen (%s): %s", job_hash, exc)
     if not spalten:
-        return []
+        return gehalt
     ziel = db.resolve_job_hash(job_hash) or job_hash
     conn = db.connect()
     conn.execute(
         f"UPDATE jobs SET {', '.join(f'{k}=?' for k in spalten)} WHERE hash=?",
         (*spalten.values(), ziel))
     conn.commit()
-    return sorted(k for k in ("company", "location", "distance_km") if k in spalten)
+    return gehalt + sorted(k for k in ("company", "location", "distance_km") if k in spalten)
+
+
+def _gehalt_aus_kopf(db, job: dict, kopf: dict) -> list[str]:
+    """Das Gehalt aus dem LinkedIn-Gehaltskasten (#1085) — nur eindeutig
+    und nur, wo noch kein belegtes Gehalt steht. Ein von Hand gesetztes
+    weist `save_salary_data` ohnehin ab (#1026)."""
+    if not kopf.get("gehalt_text"):
+        return []
+    if job.get("salary_min") and not job.get("salary_estimated"):
+        return []
+    from ..job_scraper.linkedin_seite import gehalt_aus_kasten
+    g = gehalt_aus_kasten(kopf["gehalt_text"])
+    if not g:
+        return []
+    try:
+        if db.save_salary_data(job["hash"], g["min"], g["max"], g["art"],
+                               salary_estimated=0):
+            return ["salary"]
+    except Exception as exc:  # pragma: no cover — nie das Nachladen kippen
+        logger.debug("Gehalt aus dem Kasten (%s): %s", job.get("hash"), exc)
+    return []
 
 
 def kopf_nachziehen(db, job_hash: str, kopf: dict | None) -> dict:
