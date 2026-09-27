@@ -1188,6 +1188,10 @@ function AutomatikSchedulerCard({ pushToast }) {
         msg = "Interne Jobsuche gestartet.";
       } else if (r.status === "keine_internen_quellen") {
         msg = "Keine internen Quellen aktiv — nichts zu suchen.";
+      } else if (r.status === "keine_suchbegriffe") {
+        // #1096: ohne Suchbegriffe startet auch die Automatik nicht
+        msg = "Noch keine Suchbegriffe — lege sie unter Profil › Suche & Bewertung fest.";
+        ton = "sky";
       } else if (r.status === "laeuft_bereits") {
         msg = "Eine Jobsuche läuft bereits.";
       }

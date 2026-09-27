@@ -194,15 +194,17 @@ def test_kein_fester_score_mehr():
 def _ruft(datei: Path, funktion: str, ziel: str) -> bool:
     baum = ast.parse(datei.read_text(encoding="utf-8-sig"))
     for f in ast.walk(baum):
-        if isinstance(f, ast.FunctionDef) and f.name == funktion:
+        if isinstance(f, (ast.FunctionDef, ast.AsyncFunctionDef)) and f.name == funktion:
             return any(isinstance(c, ast.Call) and getattr(c.func, "attr",
                        getattr(c.func, "id", "")) == ziel for c in ast.walk(f))
     return False
 
 
 def test_beide_startwege_rufen_den_schritt():
-    assert _ruft(SRC / "dashboard.py", "_run_search", "nach_suche"), "Dashboard-Knopf"
-    assert _ruft(SRC / "tools" / "jobs.py", "_run_search",
-                 "_maybe_auto_dismiss_after_search"), "jobsuche_starten"
+    # #1096: alle Startwege laufen ueber services/jobsuche_start, dessen
+    # Lauf den Nachlauf ruft — und die Startwege rufen den Dienst.
+    assert _ruft(SRC / "services" / "jobsuche_start.py", "_lauf", "nach_suche")
+    assert _ruft(SRC / "dashboard.py", "api_jobsuche_start", "starten"), "Dashboard-Knopf"
+    assert _ruft(SRC / "services" / "automatik_scheduler.py", "run_jobsuche_now", "starten")
     assert _ruft(SRC / "tools" / "jobs.py", "_maybe_auto_dismiss_after_search",
                  "nach_suche")

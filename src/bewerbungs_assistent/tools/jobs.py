@@ -3,7 +3,6 @@
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.dashboard_link import dashboard_link as _dashboard_link
-import threading
 from collections import Counter
 from typing import Optional
 from urllib.parse import quote_plus
@@ -349,173 +348,89 @@ def register(mcp, db, logger):
             quellen: Welche Portale durchsuchen (Standard: alle aktiven)
         """
 
-        # Default sources from DB settings (all disabled by default)
-        if not quellen:
-            from ..services.search_service import aktive_quellen
-            quellen = aktive_quellen(db) or []
-            if not quellen:
-                return {
-                    "status": "keine_quellen",
-                    # G17 (#744, v1.7.4): Einsteiger nicht in den Einstellungs-
-                    # Tab schicken, sondern den bewaehrten Starter-Satz anbieten
-                    # (schnell, zuverlaessig, ohne Login).
-                    "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
-                    "nachricht": (
-                        "Keine Job-Quellen aktiviert. Empfehlung für den "
-                        "ersten Lauf: jobsuche_starten(quellen="
-                        f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
-                        "zuverlässige Quellen ohne Login. Sie werden dabei "
-                        "als aktive Quellen übernommen. Weitere Quellen: "
-                        "Einstellungen › Quellen."
-                    ),
-                }
-
-        # #695: Ohne Suchbegriffe nicht starten — sonst faellt z.B. der
-        # Bundesagentur-Adapter still auf generische DEFAULT_KEYWORDS zurueck
-        # und flutet die Stellen-Liste eines Neulings mit profil-fremden Jobs.
-        if not keywords:
-            crit = db.get_search_criteria()
-            if not (crit.get("keywords_muss") or crit.get("keywords_plus")):
-                return {
-                    "status": "keine_suchbegriffe",
-                    "nachricht": (
-                        "Noch keine Suchkriterien gesetzt. Lege sie mit "
-                        "suchkriterien_setzen() fest oder nutze "
-                        "workflow_starten('jobsuche_workflow') — sonst würde "
-                        "PBP mit generischen Begriffen suchen."
-                    ),
-                }
-
-        # #488: Manuelle/deprecated Quellen rausfiltern und separat melden.
-        manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
-        auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
-        manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
-
-        if not auto_quellen:
+        # #1096: derselbe Startweg wie Dashboard-Knopf und Automatik —
+        # Quellen, Suchbegriffe, Browser-Quellen, #906-Pruefung, Watchdog
+        # und Nachlauf stehen in services/jobsuche_start.
+        from ..services import jobsuche_start
+        erg = jobsuche_start.starten(db, quellen=quellen, keywords=keywords,
+                                     herkunft="claude")
+        status = erg["status"]
+        if status == "keine_quellen":
+            return {
+                "status": "keine_quellen",
+                # G17 (#744, v1.7.4): Einsteiger nicht in den Einstellungs-
+                # Tab schicken, sondern den bewaehrten Starter-Satz anbieten.
+                "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
+                "nachricht": (
+                    "Keine Job-Quellen aktiviert. Empfehlung für den "
+                    "ersten Lauf: jobsuche_starten(quellen="
+                    f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
+                    "zuverlässige Quellen ohne Login. Sie werden dabei "
+                    "als aktive Quellen uebernommen. Weitere Quellen: "
+                    "Einstellungen › Quellen."
+                ),
+            }
+        if status == "keine_suchbegriffe":
+            return {
+                "status": "keine_suchbegriffe",
+                "nachricht": (
+                    "Noch keine Suchkriterien gesetzt. Lege sie mit "
+                    "suchkriterien_setzen() fest oder nutze "
+                    "workflow_starten('jobsuche_workflow') — sonst würde "
+                    "PBP mit generischen Begriffen suchen."
+                ),
+            }
+        if status == "nur_manuelle_quellen":
             return {
                 "status": "nur_manuelle_quellen",
-                "manuelle_quellen": manuelle_info,
+                "manuelle_quellen": erg["manuelle_quellen"],
                 "nachricht": (
                     "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
                     "oder sind deprecated — es gibt nichts zu automatisieren. "
                     "Siehe manuelle_quellen für den jeweiligen Ersatzweg."
                 ),
             }
-        quellen = auto_quellen
-
-        # G17 (#744, v1.7.4): Erster Lauf mit explizit uebergebenen Quellen
-        # (z.B. Smart-Defaults aus der Ersterfassung, nach User-Ok) — als
-        # aktive Quellen uebernehmen, damit Dashboard-Button ("Jetzt suchen")
-        # und Tagesroutine dieselben Quellen nutzen. Nur wenn noch KEINE
-        # gesetzt sind; bestehende Konfiguration wird nie ueberschrieben.
-        quellen_uebernommen = False
-        try:
-            if not db.get_profile_setting("active_sources", []):
-                # #1039: eine defekte Quelle wird nie in die Auswahl uebernommen.
-                from ..job_scraper import SOURCE_REGISTRY as _registry
-                from ..services.search_service import ohne_defekte
-                _uebernahme = ohne_defekte(quellen, _registry)
-                if _uebernahme:
-                    db.set_profile_setting("active_sources", _uebernahme)
-                    quellen_uebernommen = True
-        except Exception as e:
-            logger.debug("active_sources-Uebernahme fehlgeschlagen: %s", e)
-
-        # Prevent duplicate concurrent searches (#265)
-        existing = db.get_running_background_job("jobsuche")
-        if existing:
+        if status == "laeuft_bereits":
             return {
                 "status": "laeuft_bereits",
-                "job_id": existing["id"],
+                "job_id": erg["job_id"],
                 "nachricht": "Eine Jobsuche läuft bereits. "
-                            f"Prüfe den Fortschritt mit jobsuche_status('{existing['id']}')."
+                            f"Prüfe den Fortschritt mit jobsuche_status('{erg['job_id']}')."
             }
-
-        params = {
-            "keywords": keywords,
-            "quellen": quellen,
-            # v1.7.114 (#1049): derselbe Vermerk wie im Dashboard-Start —
-            # die Lauf-Bilanz nennt die uebersprungenen Browser-Quellen.
-            "browser_quellen": manuelle,
-        }
-        job_id = db.create_background_job("jobsuche", params)
-
-        # Start background search with timeout
-        def _run_search():
-            # v1.7.17 (#915): im DB-freien Register anmelden, damit ein
-            # Budget-Timeout anderer Tools den Sperrhalter benennen kann.
-            from ..services.hintergrund_status import laufender_task
-            try:
-                with laufender_task(f"jobsuche:{job_id[:8]}"):
-                    from ..job_scraper import run_search
-                    run_search(db, job_id, params)
-                    # v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach
-                    # erfolgreicher Suche — laeuft im selben Background-Thread
-                    # damit User keine extra Aktion machen muss.
-                    _maybe_auto_dismiss_after_search(db, job_id)
-            except Exception as e:
-                logger.error("Jobsuche fehlgeschlagen: %s", e, exc_info=True)
-                db.update_background_job(job_id, "fehler", message=str(e))
-
-        thread = threading.Thread(target=_run_search, daemon=True)
-        thread.start()
-
-        # Timeout watchdog: mark as failed if still running after 10 minutes
-        def _timeout_watchdog():
-            thread.join(timeout=600)
-            if thread.is_alive():
-                logger.warning("Jobsuche Timeout nach 10 Minuten (Job %s)", job_id)
-                db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
-
-        threading.Thread(target=_timeout_watchdog, daemon=True).start()
-
-        nachricht = (
-            f"Jobsuche läuft im Hintergrund auf {len(params['quellen'])} Portalen. "
-            f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
-            f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
-            f"Wenn du später prüft willst: jobsuche_status('{job_id}'). "
-            f"Wenn fertig: stellen_anzeigen()."
-        )
+        job_id = erg["job_id"]
         result = {
             "job_id": job_id,
             "status": "gestartet",
-            "nachricht": nachricht,
+            "nachricht": (
+                f"Jobsuche läuft im Hintergrund auf {len(erg['quellen'])} Portalen. "
+                f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
+                f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
+                f"Wenn du später prüft willst: jobsuche_status('{job_id}'). "
+                f"Wenn fertig: stellen_anzeigen()."
+            ),
         }
-        if quellen_uebernommen:
-            result["quellen_als_aktiv_uebernommen"] = quellen
-        if manuelle_info:
-            result["manuelle_quellen"] = manuelle_info
+        if erg["quellen_uebernommen"]:
+            result["quellen_als_aktiv_uebernommen"] = erg["quellen"]
+        if erg["manuelle_quellen"]:
+            result["manuelle_quellen"] = erg["manuelle_quellen"]
             result["hinweis"] = (
                 "Zusätzlich müsstest du für folgende manuelle Quellen "
                 "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
                 "sie sind im Hintergrund-Job NICHT enthalten."
             )
-        # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen. Der
-        # Nutzer suchte monatelang nur Festanstellung, obwohl sein Profil
-        # auch freelance sagte — ALLE Freelance-Quellen waren aus, und
-        # nichts wies darauf hin. Ein Kriterium, das niemand auswertet,
-        # ist schlimmer als ein fehlendes: es erzeugt falsche Sicherheit.
-        try:
-            from ..job_scraper import STELLENTYP_QUELLEN
-            _typen = db.get_search_criteria().get("stellentypen") or []
-            _laufende = set(params.get("quellen") or [])
-            for _typ in _typen:
-                _noetig = STELLENTYP_QUELLEN.get(_typ)
-                if _noetig and not (_noetig & _laufende):
-                    result.setdefault("stellentyp_ohne_quelle", []).append({
-                        "stellentyp": _typ,
-                        "quellen_dafuer": sorted(_noetig),
-                        "warnung": (
-                            f"Für '{_typ}' läuft in dieser Suche KEINE "
-                            f"Quelle ({', '.join(sorted(_noetig))} alle "
-                            "inaktiv/defekt). Die zugehörigen Kriterien "
-                            "werden nicht ausgewertet. Alternativen: "
-                            "die Quellen-Seite im Browser öffnen "
-                            "oder scraper_diagnose(aktion='reaktivieren')."
-                        ),
-                    })
-        except Exception as exc:
-            logger.debug("Stellentyp-Warnung (#906) uebersprungen: %s", exc)
+        # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen.
+        for befund in erg["stellentyp_ohne_quelle"]:
+            result.setdefault("stellentyp_ohne_quelle", []).append({
+                **befund,
+                "warnung": (
+                    f"Für '{befund['stellentyp']}' läuft in dieser Suche KEINE "
+                    f"Quelle ({', '.join(befund['quellen_dafuer'])} alle "
+                    "inaktiv/defekt). Die zugehörigen Kriterien "
+                    "werden nicht ausgewertet. Alternativen: "
+                    "die Quellen-Seite im Browser öffnen "
+                    "oder scraper_diagnose(aktion='reaktivieren')."
+                ),
+            })
         return result
 
     @mcp.tool()

@@ -84,8 +84,17 @@ check("ohne Browser-Quellen kein Satz dazu",
   check("ohne Aussortierung kein Zusatz", nichts.text.includes("aussortiert"), false);
 }
 
+// #1096/#906: Stellenart ohne laufende Quelle steht im Hinweis
+const ohneQuelle = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 3,
+  quellen: { ok: 2 }, stellentyp_ohne_quelle: ["freelance"] });
+check("Stellenart ohne Quelle genannt", ohneQuelle.titel.includes("für freelance lief keine Quelle"), true);
+const ohneQuelle0 = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
+  quellen: {}, stellentyp_ohne_quelle: ["freelance"] });
+check("auch ohne Funde genannt", ohneQuelle0.titel.includes("freelance"), true);
+
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);
   process.exit(1);
 }
 console.log("\nalle Faelle ok");
+

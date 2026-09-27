@@ -1116,9 +1116,13 @@ export default function App() {
     try {
       const result = await postJson("/api/jobsuche/start", options);
       if (result?.status === "gestartet") {
+        // #1096/#906: eine Stellenart ohne laufende Quelle wird genannt
+        const ohne = (result.stellentyp_ohne_quelle || []).map((b) => b.stellentyp);
         pushToast(
-          `Jobsuche läuft auf ${result.quellen?.length || 0} Portalen. Fortschritt siehst du in der Sidebar.`,
-          "teal",
+          `Jobsuche läuft auf ${result.quellen?.length || 0} Portalen. Fortschritt siehst du in der Sidebar.`
+            + (ohne.length ? ` Für ${ohne.join(", ")} läuft dabei keine Quelle — unter Einstellungen › Quellen eine passende auswählen.` : ""),
+          ohne.length ? "amber" : "teal",
+          ohne.length ? { duration: 12000 } : undefined,
         );
         refreshChrome();
         return result;

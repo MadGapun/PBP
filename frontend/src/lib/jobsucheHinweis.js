@@ -38,6 +38,10 @@ export function jobsucheHinweis(last) {
       ? `${quellen.nur_browser} übersprungen, nur über den Browser erreichbar`
       : null,
   ].filter(Boolean).join(", ");
+  // #1096/#906: eine Stellenart, fuer die im Lauf keine Quelle lief
+  const ohneQuelle = (last.stellentyp_ohne_quelle || []).length
+    ? `für ${last.stellentyp_ohne_quelle.join(", ")} lief keine Quelle`
+    : "";
 
   if (last.ergebnis === "fehlgeschlagen") {
     return {
@@ -69,7 +73,7 @@ export function jobsucheHinweis(last) {
     return {
       ton: "ok",
       text: `Fertig — keine neuen Stellen${weg > 0 ? `, ${weg} aussortiert` : ""}`,
-      titel: [wegText, quellenText].filter(Boolean).join(" · ")
+      titel: [wegText, quellenText, ohneQuelle].filter(Boolean).join(" · ")
         || "Der Suchlauf hat keine neuen Stellen gefunden.",
     };
   }
@@ -85,6 +89,7 @@ export function jobsucheHinweis(last) {
   }
   if (wegText) teile.push(wegText);
   if (quellenText) teile.push(quellenText);
+  if (ohneQuelle) teile.push(ohneQuelle);
   return {
     ton: "ok",
     text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}${weg > 0 ? `, ${weg} aussortiert` : ""}`,

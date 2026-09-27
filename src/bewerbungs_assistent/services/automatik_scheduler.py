@@ -156,35 +156,18 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
 def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
     """Startet die INTERNE Jobsuche im Hintergrund (nur Scraper-Quellen).
 
-    Manuelle/Browser-Quellen (`_MANUAL_SOURCES`) werden ausgelassen — die
-    laufen weiter ueber Claude-in-Chrome.
-    """
-    try:
-        from ..tools.jobs import _MANUAL_SOURCES
-    except Exception:  # pragma: no cover
-        _MANUAL_SOURCES = {}
-    from .search_service import aktive_quellen
-    quellen = aktive_quellen(db) or []  # #1039: ohne defekte Quellen
-    auto = [q for q in quellen if q not in _MANUAL_SOURCES]
-    if not auto:
+    #1096: derselbe Startweg wie Claude und der Dashboard-Knopf — mit
+    Watchdog, Nachlauf und einem Fehlerzustand bei Abbruch. Browser-
+    Quellen stehen im Lauf-Hinweis. Die Automatik uebernimmt keine
+    Erstauswahl der Quellen."""
+    from . import jobsuche_start
+    erg = jobsuche_start.starten(db, herkunft="automatik")
+    status = erg["status"]
+    if status in ("keine_quellen", "nur_manuelle_quellen"):
         return {"status": "keine_internen_quellen"}
-    if db.get_running_background_job("jobsuche"):
-        return {"status": "laeuft_bereits"}
-    params = {
-        "keywords": None,
-        "quellen": auto,
-    }
-    job_id = db.create_background_job("jobsuche", params)
-
-    def _run():
-        try:
-            from ..job_scraper import run_search
-            run_search(db, job_id, params)
-        except Exception as exc:  # pragma: no cover
-            log.warning("Automatik-Jobsuche-Fehler: %s", exc)
-
-    threading.Thread(target=_run, daemon=True, name="automatik-jobsuche").start()
-    return {"status": "gestartet", "job_id": job_id, "quellen": auto}
+    if status != "gestartet":
+        return {"status": status}
+    return {"status": "gestartet", "job_id": erg["job_id"], "quellen": erg["quellen"]}
 
 
 def _tick(db) -> None:
@@ -203,7 +186,7 @@ def _tick(db) -> None:
         # Nur als gelaufen markieren, wenn es etwas zu tun gab (gestartet)
         # oder definitiv nichts zu tun ist (keine internen Quellen) — bei
         # 'laeuft_bereits' NICHT markieren, dann beim naechsten Tick erneut.
-        if res.get("status") in ("gestartet", "keine_internen_quellen"):
+        if res.get("status") in ("gestartet", "keine_internen_quellen", "keine_suchbegriffe"):
             db.mark_automatik_run("jobsuche")
 
 

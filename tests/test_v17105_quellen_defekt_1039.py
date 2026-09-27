@@ -122,7 +122,7 @@ def test_jeder_leseweg_geht_ueber_die_bereinigung():
     Datenbank-Hilfe, falls der Import scheitert."""
     erlaubt = {
         ("search_service.py", 'gespeichert = db.get_profile_setting("active_sources", None)'),
-        ("jobs.py", 'if not db.get_profile_setting("active_sources", []):'),
+        ("jobsuche_start.py", 'if not db.get_profile_setting("active_sources", []):'),  # #1096
         ("database.py", 'active_sources = self.get_profile_setting("active_sources", [])'),
     }
     gefunden = set()
@@ -137,7 +137,7 @@ def test_jeder_schreibweg_filtert():
     erlaubt = {
         ("search_service.py", 'db.set_profile_setting("active_sources", bereinigt)'),
         ("dashboard.py", '_db.set_profile_setting("active_sources", active)'),
-        ("jobs.py", 'db.set_profile_setting("active_sources", _uebernahme)'),
+        ("jobsuche_start.py", 'db.set_profile_setting("active_sources", auswahl)'),  # #1096
     }
     gefunden = set()
     for datei in SRC.rglob("*.py"):
@@ -150,8 +150,9 @@ def test_jeder_schreibweg_filtert():
     assert "ohne_defekte(" in block
     # Erstuebernahme in jobsuche_starten (G17/#744): gefiltert wird VOR dem
     # Schreiben, nicht erst beim naechsten Lesen.
-    assert "_uebernahme = ohne_defekte(quellen, _registry)" in (
-        SRC / "tools" / "jobs.py").read_text(encoding="utf-8")
+    # #1096: die Erstuebernahme steht im gemeinsamen Startweg.
+    assert "auswahl = ohne_defekte(auto, SOURCE_REGISTRY)" in (
+        SRC / "services" / "jobsuche_start.py").read_text(encoding="utf-8")
 
 
 # ====================================================== Empfehlungen
