@@ -278,6 +278,26 @@ def grenze_km(criteria, art) -> float:
     karte = criteria.get("max_entfernung") or {}
     if isinstance(karte, dict):
         wert = _zahl(karte.get(form))
-        if wert is not None and wert > 0:
+        # #1036: eine eingetragene 0 bleibt 0 ("nur am Wohnort oder
+        # remote"). Bis hierher wurde sie still zur Vorgabe.
+        if wert is not None and wert >= 0:
             return wert
     return float(VORGABE_GRENZE_KM.get(form, VORGABE_GRENZE_SONST))
+
+
+def naehe_punkte(dist, grenze, gewicht) -> float | None:
+    """Naehe-Punkte innerhalb der Grenze — gleitend statt in Stufen (#1036).
+
+    Voll bei 0 km, 0 an der Grenze, dazwischen gleichmaessig. Bis
+    v1.7.140 gab es zwei Stufen (bis 60 % der Grenze das volle Gewicht,
+    danach eins weniger): eine Stelle in 29 km bekam bei 50 km Grenze
+    dasselbe wie eine vor der Haustuer, eine in 31 km einen Punkt weniger.
+    `None` jenseits der Grenze — dort gilt der Malus, nicht die Naehe.
+    Eine Stelle, fuer beide Rechenwege (#963)."""
+    d = _zahl(dist)
+    g = _zahl(grenze)
+    if d is None or g is None or d > g:
+        return None
+    if g <= 0:
+        return float(gewicht)
+    return round(float(gewicht) * (1 - d / g), 1)

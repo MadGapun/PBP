@@ -238,7 +238,9 @@ def test_stufe1_fachliche_gruende_wandern_weiter_ortsunabhaengig(db):
     ({}, "teilzeit", 30),
     ({}, "gibtesnicht", 50),
     ({"max_entfernung": {"festanstellung": "abc"}}, "festanstellung", 50),
-    ({"max_entfernung": {"festanstellung": 0}}, "festanstellung", 50),
+    # v1.7.141 (#1036): eine eingetragene 0 bleibt 0 ("nur am Wohnort oder
+    # remote") — vorher wurde sie still zur Vorgabe.
+    ({"max_entfernung": {"festanstellung": 0}}, "festanstellung", 0),
     (None, None, 50),
 ])
 def test_grenze_km(kriterien, art, erwartet):

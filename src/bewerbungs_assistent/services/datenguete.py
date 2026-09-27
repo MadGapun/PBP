@@ -130,12 +130,16 @@ def _entfernung(job: dict, criteria: dict) -> tuple[str, str]:
         return UNGEPRUEFT, grund
     if guete == "entfaellt":
         return GEPRUEFT, "Vollständig remote — Entfernung ohne Belang."
-    dist = job.get("distance_km")
-    art = job.get("employment_type") or "festanstellung"
-    karte = criteria.get("max_entfernung") or {}
-    wunsch = karte.get(art)
-    if wunsch and dist is not None and dist > wunsch:
-        return VERLETZT, f"{dist:.0f} km — über deinem Wunschwert von {wunsch} km."
+    # #1036: dieselbe Zahl und dieselbe Grenze wie Score und Rahmendaumen.
+    # Hier stand eine eigene Fassung: rohe Luftlinie gegen die rohe Karte,
+    # ohne Vorgabe je Form — eine Festanstellung ohne eigenen Eintrag galt
+    # nie als zu weit, und die Fahrstrecke (#1037) sah sie nicht.
+    from .entfernung import art_wort, grenze_km, preis_km
+    dist = preis_km(job, criteria)
+    grenze = grenze_km(criteria, job.get("employment_type") or "festanstellung")
+    if dist is not None and dist > grenze:
+        return VERLETZT, (f"{dist:.0f} km {art_wort(job, criteria)} — über "
+                          f"deiner Grenze von {grenze:g} km.")
     return GEPRUEFT, ""
 
 

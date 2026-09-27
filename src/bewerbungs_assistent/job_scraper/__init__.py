@@ -3499,12 +3499,12 @@ def calculate_score(job: dict, criteria: dict) -> int:
         elif dist > type_max_dist * 2:
             # Moderately beyond: slight penalty
             rahmen_minus += 1 * (1 - _komp)
-        elif dist <= type_max_dist * 0.6:
-            # Well within range: bonus
-            rahmen_plus += w["naehe"]
-        elif dist <= type_max_dist:
-            # Within range: smaller bonus
-            rahmen_plus += max(1, w["naehe"] - 1)
+        else:
+            # #1036: gleitend innerhalb der Grenze, dieselbe Funktion wie
+            # in fit_analyse.
+            _naehe = _entf_score.naehe_punkte(dist, type_max_dist, w["naehe"])
+            if _naehe:
+                rahmen_plus += _naehe
 
     # Remote bonus (#60) — differentiate remote vs hybrid
     remote = job.get("remote_level", "unbekannt")
@@ -3875,13 +3875,12 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 factors[f"Entfernungs-Malus durch Gehalt kompensiert "
                         f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
                 total += _gutschrift
-        elif dist <= fit_type_max * 0.6:
-            factors[f"Nähe: {int(dist)} km {_art}"] = w["naehe"]
-            total += w["naehe"]
-        elif dist <= fit_type_max:
-            pts = max(1, w["naehe"] - 1)
-            factors[f"Nähe: {int(dist)} km {_art} (im Rahmen)"] = pts
-            total += pts
+        else:
+            # #1036: gleitend, dieselbe Funktion wie calculate_score.
+            pts = _entf_fit.naehe_punkte(dist, fit_type_max, w["naehe"])
+            if pts:
+                factors[f"Nähe: {int(dist)} km {_art} (Grenze {fit_type_max:g} km)"] = pts
+                total += pts
 
     risks = []
 
