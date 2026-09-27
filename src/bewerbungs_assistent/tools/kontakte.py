@@ -456,6 +456,20 @@ def register(mcp, db, logger):
 
     # === v1.7.0-beta.39 (#606): Auto-Import via lokale LLM ===
 
+    def _vorschlag(kandidat: dict, app_id: str) -> str:
+        """#1110: ein Kontaktvorschlag ueber das Nadeloehr aus #1011 —
+        Wiedererkennung (auch innerhalb eines Laufs), keine frueher
+        verworfenen Personen. Rueckgabe: angelegt / vorhanden / abgelehnt /
+        uebersprungen / fehler."""
+        from ..services import kontakt_pflicht
+        erg = kontakt_pflicht.sicherstellen(
+            db, name=kandidat.get("name", ""), email=kandidat.get("email", ""),
+            telefon=kandidat.get("telefon", ""), firma=kandidat.get("firma", ""),
+            tags=[kandidat.get("kategorie") or "sonstiges"], vorschlag=True,
+            zusatz={"is_pending": 1, "position": kandidat.get("rolle", ""),
+                    "extracted_from": f"application:{app_id}"})
+        return erg.get("status", "fehler")
+
     @mcp.tool()
     def kontakte_aus_bestand_importieren(dry_run: bool = True) -> dict:
         """One-Shot-Migration: scannt alle Bewerbungen + Mails nach
@@ -503,6 +517,7 @@ def register(mcp, db, logger):
         candidates: list[dict] = []
         extracted = 0
         errors = 0
+        zaehler: dict = {}
         for app_row in rows[:100]:  # Cap bei 100 fuer einen Lauf
             text_parts = [
                 app_row["company"] or "",
@@ -540,25 +555,19 @@ def register(mcp, db, logger):
                 }
                 candidates.append(candidate)
                 if not dry_run:
-                    try:
-                        db.add_contact({
-                            "full_name": candidate["name"],
-                            "email": candidate["email"],
-                            "company": candidate["firma"],
-                            "position": candidate["rolle"],
-                            "tags": [candidate["kategorie"]],
-                            "is_pending": 1,
-                            "extracted_from": f"application:{app_row['id']}",
-                        })
-                        extracted += 1
-                    except Exception:
-                        errors += 1
+                    erg = _vorschlag(candidate, app_row["id"])
+                    zaehler[erg] = zaehler.get(erg, 0) + 1
+                    extracted += erg == "angelegt"
+                    errors += erg == "fehler"
 
         return {
             "status": "vorschau" if dry_run else "ausgefuehrt",
             "geprueft": len(rows),
             "kandidaten": len(candidates),
             "extrahiert": 0 if dry_run else extracted,
+            # #1110: schon bekannt oder frueher verworfen — kein neuer Vorschlag.
+            "schon_vorhanden": zaehler.get("vorhanden", 0),
+            "frueher_abgelehnt": zaehler.get("abgelehnt", 0),
             "fehler": errors,
             "vorschau_sample": candidates[:10] if dry_run else None,
             "hinweis": (
@@ -650,6 +659,7 @@ def register(mcp, db, logger):
         candidates: list[dict] = []
         extracted = 0
         errors = 0
+        zaehler: dict = {}
         for app_row in rows:
             text_parts = [
                 f"Firma: {app_row['company']}" if app_row["company"] else "",
@@ -738,26 +748,19 @@ def register(mcp, db, logger):
                 }
                 candidates.append(candidate)
                 if not dry_run:
-                    try:
-                        db.add_contact({
-                            "full_name": candidate["name"],
-                            "email": candidate["email"],
-                            "phone": candidate["telefon"],
-                            "company": candidate["firma"],
-                            "position": candidate["rolle"],
-                            "tags": [candidate["kategorie"]],
-                            "is_pending": 1,
-                            "extracted_from": f"application:{app_row['id']}",
-                        })
-                        extracted += 1
-                    except Exception:
-                        errors += 1
+                    erg = _vorschlag(candidate, app_row["id"])
+                    zaehler[erg] = zaehler.get(erg, 0) + 1
+                    extracted += erg == "angelegt"
+                    errors += erg == "fehler"
 
         return {
             "status": "vorschau" if dry_run else "ausgefuehrt",
             "geprueft": len(rows),
             "kandidaten": len(candidates),
             "extrahiert": 0 if dry_run else extracted,
+            # #1110: schon bekannt oder frueher verworfen — kein neuer Vorschlag.
+            "schon_vorhanden": zaehler.get("vorhanden", 0),
+            "frueher_abgelehnt": zaehler.get("abgelehnt", 0),
             "fehler": errors,
             "vorschau_sample": candidates[:10] if dry_run else None,
             "hinweis": (

@@ -56,7 +56,7 @@ def _norm(wert) -> str:
     return _LEER.sub(" ", str(wert or "").lower()).strip()
 
 
-def _vorhandener(db, name: str, email: str, firma: str):
+def _vorhandener(db, name: str, email: str, firma: str, telefon: str = ""):
     """Der bereits erfasste Kontakt, oder None."""
     # Die Methode heisst `list_contacts` — mein erster Entwurf rief
     # `get_contacts()`, und das `except` haette den AttributeError still
@@ -65,7 +65,9 @@ def _vorhandener(db, name: str, email: str, firma: str):
     # bei einer DB-Abfrage wirklich schiefgehen kann, und ein Test
     # prueft, dass die Wiedererkennung greift.
     try:
-        alle = db.list_contacts() or []
+        # #1110: auch unbestaetigte Vorschlaege — sonst wird dieselbe
+        # Person bei jedem Lauf ein weiterer Vorschlag.
+        alle = db.list_contacts(mit_vorschlaegen=True) or []
     except Exception:
         return None
     email_n = _norm(email)
@@ -79,14 +81,69 @@ def _vorhandener(db, name: str, email: str, firma: str):
             if (_norm(k.get("full_name")) == name_n
                     and _norm(k.get("company")) == firma_n):
                 return k
+    telefon_n = _nur_ziffern(telefon)
+    if telefon_n and not name_n and not email_n:
+        # #1110: ein Kontakt nur mit Telefonnummer wurde nie wiedererkannt.
+        for k in alle:
+            if _nur_ziffern(k.get("phone")) == telefon_n:
+                return k
     return None
+
+
+def _nur_ziffern(wert) -> str:
+    ziffern = re.sub(r"\D", "", str(wert or ""))
+    return ziffern if len(ziffern) >= 6 else ""
+
+
+def _vorschlag_schluessel(name: str, email: str, firma: str, telefon: str = "") -> str:
+    """Hash, an dem eine Ablehnung wiedererkannt wird (#1110) — wie die
+    Wiedererkennung: Mail, sonst Name plus Firma, sonst Telefon."""
+    import hashlib
+    if _norm(email):
+        roh = "m:" + _norm(email)
+    elif _norm(name) and _norm(firma):
+        roh = "n:" + _norm(name) + "|" + _norm(firma)
+    elif _nur_ziffern(telefon):
+        roh = "t:" + _nur_ziffern(telefon)
+    else:
+        return ""
+    return hashlib.sha256(roh.encode("utf-8")).hexdigest()[:32]
+
+
+def ablehnung_merken(db, kontakt: dict) -> bool:
+    """Ein verworfener Vorschlag kommt nicht wieder (#1110)."""
+    s = _vorschlag_schluessel(kontakt.get("full_name") or "", kontakt.get("email") or "",
+                              kontakt.get("company") or "", kontakt.get("phone") or "")
+    if not s:
+        return False
+    from datetime import datetime, timezone
+    con = db.connect()
+    con.execute("INSERT OR IGNORE INTO kontakt_vorschlag_abgelehnt "
+                "(profile_id, schluessel, created_at) VALUES (?, ?, ?)",
+                (db.get_active_profile_id(), s, datetime.now(timezone.utc).isoformat()))
+    con.commit()
+    return True
+
+
+def _abgelehnt(db, name: str, email: str, firma: str, telefon: str) -> bool:
+    s = _vorschlag_schluessel(name, email, firma, telefon)
+    if not s:
+        return False
+    try:
+        return db.connect().execute(
+            "SELECT 1 FROM kontakt_vorschlag_abgelehnt WHERE schluessel=? "
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (s, db.get_active_profile_id())).fetchone() is not None
+    except Exception:
+        return False
 
 
 def sicherstellen(db, *, name: str = "", email: str = "", telefon: str = "",
                   firma: str = "", ziel_art: str = "", ziel_id: str = "",
                   rolle: str = "ansprechpartner",
                   tags: list | None = None,
-                  zusatz: dict | None = None) -> dict:
+                  zusatz: dict | None = None,
+                  vorschlag: bool = False) -> dict:
     """Sorgt dafuer, dass es zu dieser Interaktion einen Kontakt gibt.
 
     Args:
@@ -119,9 +176,18 @@ def sicherstellen(db, *, name: str = "", email: str = "", telefon: str = "",
                 "grund": "keine Angaben zur Person"}
 
     try:
-        vorhanden = _vorhandener(db, name, email, firma)
+        # #1110: ein automatischer Vorschlag, den der Mensch schon einmal
+        # verworfen hat, kommt nicht wieder.
+        if vorschlag and _abgelehnt(db, name, email, firma, telefon):
+            return {"status": "abgelehnt", "name": name or firma}
+        vorhanden = _vorhandener(db, name, email, firma, telefon)
         if vorhanden:
             kid = vorhanden.get("id") or ""
+            if vorschlag:
+                # Ein Vorschlag verknuepft nichts — erst die Bestaetigung
+                # macht aus ihm einen Kontakt dieser Bewerbung.
+                return {"status": "vorhanden", "id": kid[:8],
+                        "name": vorhanden.get("full_name") or name}
             _verknuepfen(db, kid, ziel_art, ziel_id, rolle)
             return {"status": "vorhanden", "id": kid[:8],
                     "name": vorhanden.get("full_name") or name}
