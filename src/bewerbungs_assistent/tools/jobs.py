@@ -6121,7 +6121,11 @@ def register(mcp, db, logger):
         zeilen = conn.execute(
             "SELECT hash, title, description, salary_min, salary_max, "
             "salary_type, salary_estimated FROM jobs "
-            "WHERE description IS NOT NULL AND LENGTH(description) > 50"
+            "WHERE description IS NOT NULL AND LENGTH(description) > 50 "
+            # #1106: nur das aktive Profil — ein echter Lauf aenderte
+            # sonst Gehaltsfelder fremder Profile.
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)
         ).fetchall()
 
         aenderungen, geloescht, unveraendert = [], 0, 0
@@ -6264,7 +6268,10 @@ def register(mcp, db, logger):
             "AND (dismiss_note LIKE '%iedergaenger nach Fachgebiet%' "
             "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%' "
             "     OR dismiss_note LIKE '%iedergaenger: dieselbe Firma%' "
-            "     OR dismiss_note LIKE '%iedergänger: dieselbe Firma%')"
+            "     OR dismiss_note LIKE '%iedergänger: dieselbe Firma%') "
+            # #1106: nur das aktive Profil.
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)
         ).fetchall()
 
         betroffen, zurueckgeholt = [], 0

@@ -812,14 +812,18 @@ def _enrich_document_for_prompt(document: dict) -> dict:
         try:
             conn = _db.connect()
             row = conn.execute(
-                "SELECT company, position FROM applications WHERE id=?",
+                # #1106: die Spalte heisst `title`. Mit `position` scheiterte
+                # die Abfrage seit jeher, und der Prompt kam ohne Firma
+                # und Stelle heraus — nur als Debug-Zeile vermerkt.
+                "SELECT company, title FROM applications WHERE id=?",
                 (app_id,),
             ).fetchone()
             if row:
                 enriched["app_company"] = row["company"]
-                enriched["app_title"] = row["position"]
+                enriched["app_title"] = row["title"]
         except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("enrich document %s failed: %s", document.get("id"), exc)
+            logger.warning("Bewerbungskontext fuer Dokument %s nicht lesbar: %s",
+                           document.get("id"), exc)
     return enriched
 
 
@@ -7715,59 +7719,34 @@ async def api_stats_heatmap(days: int = 365):
     conn = _db.connect()
 
     counts = defaultdict(lambda: {"applications": 0, "events": 0, "meetings": 0, "followups": 0})
-
-    # Bewerbungen
-    try:
-        rows = conn.execute(
-            "SELECT applied_at FROM applications "
-            "WHERE applied_at >= ? AND (profile_id=? OR profile_id IS NULL)",
-            (cutoff, pid)
-        ).fetchall()
-        for r in rows:
-            d = (r["applied_at"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["applications"] += 1
-    except Exception:
-        pass
-
-    # Status-Events
-    try:
-        rows = conn.execute(
-            "SELECT event_at FROM application_events WHERE event_at >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["event_at"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["events"] += 1
-    except Exception:
-        pass
-
-    # Termine
-    try:
-        rows = conn.execute(
-            "SELECT meeting_date FROM application_meetings WHERE meeting_date >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["meeting_date"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["meetings"] += 1
-    except Exception:
-        pass
-
-    # Follow-ups
-    try:
-        rows = conn.execute(
-            "SELECT scheduled_date FROM follow_ups WHERE scheduled_date >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["scheduled_date"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["followups"] += 1
-    except Exception:
-        pass
+    # #1106: jede Quelle mit Profilfilter, und eine Abfrage, die scheitert,
+    # wird benannt statt still als 0 gezaehlt (#989).
+    luecken = []
+    quellen = (
+        ("applications",
+         "SELECT applied_at AS tag FROM applications "
+         "WHERE applied_at >= ? AND (profile_id=? OR profile_id IS NULL)"),
+        ("events",
+         "SELECT e.event_date AS tag FROM application_events e "
+         "JOIN applications a ON a.id = e.application_id "
+         "WHERE e.event_date >= ? AND (a.profile_id=? OR a.profile_id IS NULL)"),
+        ("meetings",
+         "SELECT meeting_date AS tag FROM application_meetings "
+         "WHERE meeting_date >= ? AND (profile_id=? OR profile_id IS NULL)"),
+        ("followups",
+         "SELECT f.scheduled_date AS tag FROM follow_ups f "
+         "JOIN applications a ON a.id = f.application_id "
+         "WHERE f.scheduled_date >= ? AND (a.profile_id=? OR a.profile_id IS NULL)"),
+    )
+    for art, sql in quellen:
+        try:
+            for r in conn.execute(sql, (cutoff, pid)).fetchall():
+                d = (r["tag"] or "")[:10]
+                if d >= cutoff:
+                    counts[d][art] += 1
+        except Exception as exc:
+            logger.warning("Heatmap: %s nicht lesbar: %s", art, exc)
+            luecken.append(art)
 
     result = []
     for day_str, data in sorted(counts.items()):
@@ -7782,6 +7761,8 @@ async def api_stats_heatmap(days: int = 365):
         "total_active_days": len(result),
         "max_per_day": max((r["count"] for r in result), default=0),
         "data": result,
+        # #1106: was fehlt, ist keine 0.
+        "nicht_lesbar": luecken,
     }
 
 
@@ -8651,6 +8632,8 @@ async def api_global_search(q: str = "", limit: int = 8):
     pattern = f"%{query}%"
 
     groups = []
+    # #1106: eine Gruppe, deren Abfrage scheitert, wird benannt (#989).
+    luecken = []
     total = 0
 
     # 1. Bewerbungen
@@ -8728,16 +8711,18 @@ async def api_global_search(q: str = "", limit: int = 8):
             } for d in docs]
             groups.append({"label": "Dokumente", "kind": "document", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Dokumente nicht lesbar: %s", exc)
+        luecken.append("Dokumente")
 
     # 5. E-Mails
     try:
         emails = conn.execute(
-            "SELECT id, subject, sender_email, application_id FROM application_emails "
-            "WHERE LOWER(subject) LIKE ? OR LOWER(sender_email) LIKE ? "
-            "OR LOWER(plain_body) LIKE ? LIMIT ?",
-            (pattern, pattern, pattern, limit)
+            "SELECT id, subject, sender, application_id FROM application_emails "
+            "WHERE (LOWER(subject) LIKE ? OR LOWER(sender) LIKE ? "
+            "OR LOWER(body_text) LIKE ?) "
+            "AND (profile_id=? OR profile_id IS NULL) LIMIT ?",
+            (pattern, pattern, pattern, pid, limit)
         ).fetchall()
         if emails:
             items = [{
@@ -8745,22 +8730,24 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id": e["id"],
                 "id_typed": f"EML-{e['id'][:8]}",
                 "title": e["subject"] or "(ohne Betreff)",
-                "subtitle": f"Von: {e['sender_email'] or '?'}",
+                "subtitle": f"Von: {e['sender'] or '?'}",
                 "url": (f"#bewerbungen?id={e['application_id']}"
                        if e['application_id'] else "#bewerbungen"),
             } for e in emails]
             groups.append({"label": "E-Mails", "kind": "email", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Mails nicht lesbar: %s", exc)
+        luecken.append("E-Mails")
 
     # 6. Termine
     try:
         meetings = conn.execute(
             "SELECT m.id, m.title, m.notes, m.meeting_date, a.company, a.id as app_id "
             "FROM application_meetings m LEFT JOIN applications a ON a.id = m.application_id "
-            "WHERE LOWER(m.title) LIKE ? OR LOWER(m.notes) LIKE ? LIMIT ?",
-            (pattern, pattern, limit)
+            "WHERE (LOWER(m.title) LIKE ? OR LOWER(m.notes) LIKE ?) "
+            "AND (m.profile_id=? OR m.profile_id IS NULL) LIMIT ?",
+            (pattern, pattern, pid, limit)
         ).fetchall()
         if meetings:
             items = [{
@@ -8774,10 +8761,11 @@ async def api_global_search(q: str = "", limit: int = 8):
             } for m in meetings]
             groups.append({"label": "Termine", "kind": "meeting", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Termine nicht lesbar: %s", exc)
+        luecken.append("Termine")
 
-    return {"query": q, "groups": groups, "total": total}
+    return {"query": q, "groups": groups, "total": total, "nicht_lesbar": luecken}
 
 
 # === Recap-Funktion (v1.7.0 #576) ===
@@ -11150,52 +11138,58 @@ async def api_recap():
         (since_iso, pid)
     ).fetchone()["n"]
 
-    status_changes = 0
-    try:
-        status_changes = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_events WHERE event_at >= ? "
-            "AND event_type='status_change'",
-            (since_iso,)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # #1106: jede Zahl mit Profilfilter und richtigen Spalten; eine
+    # Abfrage, die scheitert, wird benannt statt still als 0 gemeldet.
+    luecken = []
 
-    new_emails = 0
-    try:
-        new_emails = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_emails WHERE created_at >= ?",
-            (since_iso,)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    def _zahl(name, sql, args):
+        try:
+            return conn.execute(sql, args).fetchone()["n"]
+        except Exception as exc:
+            logger.warning("Rueckschau: %s nicht lesbar: %s", name, exc)
+            luecken.append(name)
+            return 0
+
+    # Statusaenderung ist ein Ereignis, das einen Bewerbungsstatus traegt —
+    # nicht jede Timeline-Zeile (Dokument verknuepft, Notiz ...).
+    from .tools.bewerbungen import VALID_STATUSES as _stati
+    _platz = ",".join("?" * len(_stati))
+    status_changes = _zahl(
+        "status_changes",
+        "SELECT COUNT(*) AS n FROM application_events e "
+        "JOIN applications a ON a.id = e.application_id "
+        f"WHERE e.event_date >= ? AND e.status IN ({_platz}) "
+        "AND (a.profile_id=? OR a.profile_id IS NULL)",
+        (since_iso, *sorted(_stati), pid))
+
+    new_emails = _zahl(
+        "new_emails",
+        "SELECT COUNT(*) AS n FROM application_emails WHERE created_at >= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (since_iso, pid))
 
     # Faellige Follow-ups (heute oder ueberfaellig)
     # v1.7.0-beta.13 (#518): nur Typ `nachfass` (+ legacy) zaehlen als Banner-faellig.
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    overdue_followups = 0
-    try:
-        overdue_followups = conn.execute(
-            "SELECT COUNT(*) AS n FROM follow_ups f "
-            "JOIN applications a ON f.application_id = a.id "
-            "WHERE f.scheduled_date <= ? AND f.status='geplant' "
-            "AND (f.follow_up_type IS NULL OR f.follow_up_type='' OR f.follow_up_type='nachfass') "
-            "AND (a.profile_id=? OR a.profile_id IS NULL)",
-            (today_iso, pid)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # `scheduled_date` ist ein LOKALES Datum (v1.7.21).
+    today_iso = datetime.now().date().isoformat()
+    overdue_followups = _zahl(
+        "overdue_followups",
+        "SELECT COUNT(*) AS n FROM follow_ups f "
+        "JOIN applications a ON f.application_id = a.id "
+        "WHERE f.scheduled_date <= ? AND f.status='geplant' "
+        "AND (f.follow_up_type IS NULL OR f.follow_up_type='' OR f.follow_up_type='nachfass') "
+        "AND (a.profile_id=? OR a.profile_id IS NULL)",
+        (today_iso, pid))
 
-    # Anstehende Termine (next 7 days)
-    upcoming_meetings = 0
-    try:
-        in_7_days = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-        upcoming_meetings = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_meetings "
-            "WHERE meeting_date >= ? AND meeting_date <= ?",
-            (datetime.now(timezone.utc).isoformat(), in_7_days)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # Anstehende Termine (naechste 7 Tage). Terminzeiten stehen als
+    # LOKALE Zeit ohne Zone da — verglichen wird deshalb mit lokaler Zeit.
+    _jetzt_lokal = datetime.now().replace(microsecond=0)
+    upcoming_meetings = _zahl(
+        "upcoming_meetings",
+        "SELECT COUNT(*) AS n FROM application_meetings "
+        "WHERE meeting_date >= ? AND meeting_date <= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (_jetzt_lokal.isoformat(), (_jetzt_lokal + timedelta(days=7)).isoformat(), pid))
 
     # last_login_at aktualisieren — beim naechsten Aufruf gilt das Fenster ab jetzt
     _db.set_profile_setting("last_login_at", datetime.now(timezone.utc).isoformat())
@@ -11215,6 +11209,8 @@ async def api_recap():
         "status_changes": status_changes,
         "overdue_followups": overdue_followups,
         "upcoming_meetings": upcoming_meetings,
+        # #1106: was fehlt, ist keine 0.
+        "nicht_lesbar": luecken,
     }
 
 
