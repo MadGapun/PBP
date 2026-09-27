@@ -804,6 +804,16 @@ def _document_type_label(doc_type: str | None) -> str:
     return labels.get(doc_type or "", doc_type or "Dokument")
 
 
+def _termin_aus_mail(daten: dict):
+    """Ein Termin aus einer Mail. Eine unlesbare Zeit (#1102) kostet nur
+    diesen Termin, nicht den ganzen Mail-Import."""
+    try:
+        return _db.add_meeting(daten)
+    except ValueError as exc:
+        logger.warning("Termin aus Mail nicht uebernommen: %s", exc)
+        return None
+
+
 def _enrich_document_for_prompt(document: dict) -> dict:
     """Laedt Bewerbungs-Kontext (Firma/Stelle) zum Dokument, falls verknuepft."""
     enriched = dict(document)
@@ -4129,7 +4139,7 @@ async def api_upload_email(file: UploadFile = File(...)):
     if match_app_id and meetings:
         for m in meetings:
             if m.get("start"):
-                mid = _db.add_meeting({
+                mid = _termin_aus_mail({
                     "application_id": match_app_id,
                     "email_id": email_id,
                     "title": m.get("title", "Termin"),
@@ -4148,7 +4158,8 @@ async def api_upload_email(file: UploadFile = File(...)):
                                      or m.get("meeting_url")
                                      else "sonstiges"),
                 })
-                stored_meetings.append({"id": mid, **m})
+                if mid:
+                    stored_meetings.append({"id": mid, **m})
 
     # Add timeline event if matched
     if match_app_id:
@@ -4271,7 +4282,7 @@ async def api_confirm_email_match(email_id: str, request: Request):
         })
         for m in meetings:
             if m.get("start"):
-                _db.add_meeting({
+                _termin_aus_mail({
                     "application_id": app_id,
                     "email_id": email_id,
                     "title": m.get("title", "Termin"),
@@ -4777,7 +4788,11 @@ async def api_update_meeting(meeting_id: str, request: Request):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
-    if not _db.update_meeting(meeting_id, data, profile_id=profile_id):
+    try:
+        geaendert = _db.update_meeting(meeting_id, data, profile_id=profile_id)
+    except ValueError as exc:  # #1102: unlesbare Zeit
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    if not geaendert:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
@@ -4806,6 +4821,14 @@ async def api_create_meeting(request: Request):
         )
     if app_id and not _get_application_row_for_active_profile(app_id):
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    # #1102: eine Form fuer alle Termine; Unlesbares wird abgewiesen.
+    from .services import termin_zeit as _termin_zeit
+    try:
+        meeting_date = _termin_zeit.normalisieren(meeting_date)
+        if data.get("meeting_end"):
+            data["meeting_end"] = _termin_zeit.normalisieren(data["meeting_end"])
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
     mid = _db.add_meeting({
         "application_id": app_id or None,
         "title": data.get("title", "Termin"),
@@ -4913,74 +4936,12 @@ async def api_meeting_ics(meeting_id: str):
     if not row:
         return JSONResponse({"error": "Meeting nicht gefunden"}, status_code=404)
 
-    m = dict(row)
-    from datetime import datetime as _dt
-    import uuid as _uuid
-
-    # Build .ics content
-    start = m.get("meeting_date", "")
-    end = m.get("meeting_end") or ""
-    title = m.get("title", "Termin")
-    company = m.get("app_company", "")
-    app_title = m.get("app_title", "")
-    location = m.get("location", "")
-    meeting_url = m.get("meeting_url", "")
-    notes = m.get("notes", "") or ""
-    app_id = m.get("app_id", "")
-
-    # PBP-Link zur Bewerbung einbetten (#263)
-    from .services.dashboard_link import dashboard_link
-    pbp_link = dashboard_link("bewerbungen", app_id) if app_id else ""
-    description_parts = []
-    if company and app_title:
-        description_parts.append(f"Bewerbung: {app_title} bei {company}")
-    if pbp_link:
-        description_parts.append(f"PBP-Link: {pbp_link}")
-    if meeting_url:
-        description_parts.append(f"Meeting-Link: {meeting_url}")
-    if notes:
-        description_parts.append(f"Notizen: {notes}")
-    description = "\\n".join(description_parts)
-
-    def _fmt_dt(iso_str):
-        """Format ISO datetime to iCal DTSTART format."""
-        if not iso_str:
-            return None
-        try:
-            dt = _dt.fromisoformat(iso_str)
-            return dt.strftime("%Y%m%dT%H%M%S")
-        except (ValueError, TypeError):
-            return None
-
-    dt_start = _fmt_dt(start)
-    if not dt_start:
+    # #1102: derselbe Weg wie der Gesamtexport — maskiert, gefaltet,
+    # Zeitzonen als UTC. Vorher eine zweite Fassung ohne beides.
+    from .services.ics_service import build_meeting_ics
+    ics_content = build_meeting_ics(dict(row))
+    if not ics_content:
         return JSONResponse({"error": "Ungültiges Meeting-Datum"}, status_code=400)
-    dt_end = _fmt_dt(end) or _fmt_dt(start)  # fallback: same as start
-
-    uid = f"{meeting_id}@pbp.local"
-    now_stamp = _dt.now().strftime("%Y%m%dT%H%M%SZ")
-
-    ics_lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//PBP Bewerbungs-Assistent//DE",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH",
-        "BEGIN:VEVENT",
-        f"UID:{uid}",
-        f"DTSTAMP:{now_stamp}",
-        f"DTSTART:{dt_start}",
-        f"DTEND:{dt_end}",
-        f"SUMMARY:{title}" + (f" — {company}" if company else ""),
-        f"DESCRIPTION:{description}",
-    ]
-    if location:
-        ics_lines.append(f"LOCATION:{location}")
-    if meeting_url:
-        ics_lines.append(f"URL:{meeting_url}")
-    ics_lines.extend(["END:VEVENT", "END:VCALENDAR"])
-
-    ics_content = "\r\n".join(ics_lines)
 
     from starlette.responses import Response
     return Response(

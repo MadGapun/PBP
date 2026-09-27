@@ -1226,6 +1226,12 @@ class Database:
             _pq.bereinigen(self)
         except Exception as e:
             logger.debug("Praeferenzen-Bereinigung uebersprungen (#1055): %s", e)
+        # v1.7.140 (#1102): Terminzeiten in eine Form (Ortszeit mit `T`).
+        # Unlesbares bleibt stehen und wird gemeldet. Idempotent.
+        try:
+            self.termine_normalisieren()
+        except Exception as e:
+            logger.debug("Termin-Normalisierung uebersprungen (#1102): %s", e)
         # v1.7.124 (#1063): eine gesetzte Zahl wird zur naechstliegenden
         # Stufe. Idempotent, und wer nie eine Schwelle gesetzt hat,
         # merkt nichts davon.
@@ -11601,7 +11607,17 @@ class Database:
     # === Meetings ===
 
     def add_meeting(self, data: dict) -> str:
-        """Store a meeting/appointment."""
+        """Store a meeting/appointment.
+
+        #1102: die Zeit wird hier in eine Form gebracht — jeder Weg (MCP,
+        Dashboard, Mail-Import) kommt hier vorbei. Unlesbares wirft
+        ValueError mit den erlaubten Formen.
+        """
+        from .services import termin_zeit
+        data = dict(data)
+        data["meeting_date"] = termin_zeit.normalisieren(data.get("meeting_date"))
+        if data.get("meeting_end"):
+            data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
         conn = self.connect()
         mid = _gen_id()
         pid = self.get_active_profile_id()
@@ -11640,20 +11656,56 @@ class Database:
         """Get upcoming meetings for the active profile within N days."""
         conn = self.connect()
         pid = self.get_active_profile_id()
-        now = datetime.now().isoformat()
-        cutoff = (datetime.now() + timedelta(days=days)).isoformat()
+        # #1102: Termine stehen als Ortszeit mit `T` (termin_zeit); der
+        # Vergleich nimmt dieselbe Form. Ein ganztaegiger Termin von heute
+        # ist noch kommend, auch wenn "jetzt" als Text groesser ist.
+        from .services import termin_zeit
+        now = termin_zeit.jetzt_lokal()
+        heute = now[:10]
+        cutoff = termin_zeit._format(
+            (datetime.now() + timedelta(days=days)).replace(microsecond=0))
         rows = conn.execute(
             """SELECT m.*, a.title as app_title, a.company as app_company
                FROM application_meetings m
                LEFT JOIN applications a ON m.application_id = a.id
                WHERE m.status != 'abgesagt'
-                 AND m.meeting_date >= ?
+                 AND (m.meeting_date >= ?
+                      OR (LENGTH(m.meeting_date) = 10 AND m.meeting_date >= ?))
                  AND m.meeting_date <= ?
                  AND (m.profile_id=? OR m.profile_id IS NULL)
                ORDER BY m.meeting_date ASC""",
-            (now, cutoff, pid),
+            (now, heute, cutoff, pid),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def termine_normalisieren(self) -> dict:
+        """Bestand in die gemeinsame Form bringen (#1102). Idempotent;
+        Unlesbares bleibt stehen und wird genannt."""
+        from .services import termin_zeit
+        conn = self.connect()
+        geaendert, unlesbar = 0, []
+        for r in conn.execute(
+                "SELECT id, meeting_date, meeting_end FROM application_meetings").fetchall():
+            satz = {}
+            for feld in ("meeting_date", "meeting_end"):
+                if not r[feld]:
+                    continue
+                try:
+                    neu = termin_zeit.normalisieren(r[feld])
+                except ValueError:
+                    unlesbar.append(r["id"])
+                    continue
+                if neu != r[feld]:
+                    satz[feld] = neu
+            if satz:
+                setz = ", ".join(f"{k}=?" for k in satz)
+                conn.execute(f"UPDATE application_meetings SET {setz} WHERE id=?",
+                             (*satz.values(), r["id"]))
+                geaendert += 1
+        conn.commit()
+        if unlesbar:
+            logger.warning("Termine mit unlesbarer Zeit (#1102): %s", unlesbar)
+        return {"geaendert": geaendert, "unlesbar": unlesbar}
 
     def get_meetings_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Get all meetings for a specific application."""
@@ -11673,6 +11725,13 @@ class Database:
         allowed = {"title", "meeting_date", "meeting_end", "location",
                     "meeting_url", "meeting_type", "platform", "notes", "status",
                     "is_private", "duration_minutes", "category_id", "application_id"}
+        # #1102: dieselbe Form wie beim Anlegen.
+        from .services import termin_zeit
+        data = dict(data)
+        if "meeting_date" in data:
+            data["meeting_date"] = termin_zeit.normalisieren(data["meeting_date"])
+        if data.get("meeting_end"):
+            data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
         sets = []
         vals = []
         for k, v in data.items():
