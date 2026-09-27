@@ -1263,8 +1263,23 @@ class Database:
                 )
                 candidates.insert(0, Path(fixed))
 
+            # #1099: nur ueber den Dateinamen gesucht, traefe ein Kandidat
+            # oft die Datei eines ANDEREN Dokuments ("Anschreiben.pdf").
+            # Umgebogen wird deshalb nur auf eine Datei, die kein anderer
+            # Eintrag benutzt und deren Inhalt passt, wo er bekannt ist.
+            from .services import dateiablage
+            try:
+                erwartet = conn.execute(
+                    "SELECT content_hash FROM documents WHERE id=?",
+                    (doc_id,)).fetchone()[0]
+            except Exception:
+                erwartet = None
             for cand in candidates:
                 if cand and cand.exists():
+                    if dateiablage.verweise(self, cand):
+                        continue
+                    if erwartet and dateiablage.inhalt_hash(cand) != erwartet:
+                        continue
                     conn.execute(
                         "UPDATE documents SET filepath=? WHERE id=?",
                         (str(cand), doc_id)
@@ -4902,15 +4917,26 @@ class Database:
         return cur.rowcount > 0
 
     def delete_document(self, doc_id: str, profile_id: str = None) -> bool:
+        befund = self.delete_document_mit_befund(doc_id, profile_id=profile_id)
+        return bool(befund and befund["eintrag_geloescht"])
+
+    def delete_document_mit_befund(self, doc_id: str,
+                                   profile_id: str = None) -> dict | None:
+        """Loescht einen Dokument-Eintrag und — nur wenn PBP darf — die Datei.
+
+        #1099: Die Datei wird nur entfernt, wenn sie im Datenordner liegt
+        und kein anderer Eintrag (auch in anderen Profilen) auf sie zeigt.
+        Sonst bleibt sie liegen, und `datei.grund` sagt warum. Rueckgabe
+        None, wenn es den Eintrag nicht gibt."""
+        from .services import dateiablage
         conn = self.connect()
         row = self.get_document(doc_id, profile_id=profile_id)
         if not row:
-            return False
+            return None
+        datei = {"geloescht": False, "grund": "kein Pfad"}
         if row["filepath"]:
-            try:
-                Path(row["filepath"]).unlink(missing_ok=True)
-            except Exception as e:
-                logger.warning("Dokument-Datei konnte nicht gelöscht werden: %s", e)
+            datei = dateiablage.datei_loeschen(
+                self, row["filepath"], eigene=("documents", str(doc_id)))
         query = "DELETE FROM documents WHERE id = ?"
         params: list[str] = [str(doc_id)]
         if profile_id is not None:
@@ -4918,7 +4944,8 @@ class Database:
             params.append(profile_id)
         cur = conn.execute(query, params)
         conn.commit()
-        return cur.rowcount > 0
+        return {"eintrag_geloescht": cur.rowcount > 0, "datei": datei,
+                "pfad": row["filepath"] or ""}
 
     def _auto_link_documents(self, application_id: str, company: str):
         """Auto-link unlinked documents whose filename contains the company name."""
@@ -11231,12 +11258,36 @@ class Database:
             skill["profile_id"] = pid
             self.add_skill(skill)
 
-        # Import document metadata (not files themselves)
+        # Import document metadata. #1099: der Pfad aus der Exportdatei
+        # zeigt auf die Datei eines ANDEREN Profils (oder eines anderen
+        # Rechners). Uebernommen, haetten zwei Eintraege eine Datei geteilt,
+        # und Loeschen im einen Profil haette sie dem anderen genommen.
+        # Liegt die Datei vor, bekommt das neue Profil eine eigene Kopie;
+        # sonst bleibt der Eintrag ohne Datei (Text und Metadaten bleiben).
+        import shutil
+        from .services import dateiablage
+        ziel_ordner = get_data_dir() / "dokumente" / str(pid)
         for doc in documents:
             doc.pop("id", None)
             doc["profile_id"] = pid
             doc.pop("extraction_status", None)
             doc.pop("last_extraction_at", None)
+            quelle = doc.get("filepath") or ""
+            doc["filepath"] = ""
+            if quelle and Path(quelle).is_file():
+                try:
+                    ziel_ordner.mkdir(parents=True, exist_ok=True)
+                    ziel = dateiablage.eindeutiges_ziel(
+                        ziel_ordner, Path(quelle).name)
+                    shutil.copy2(quelle, ziel)
+                    doc["filepath"] = str(ziel)
+                except Exception as exc:
+                    logger.warning(
+                        "Profil-Import: Datei %s nicht kopiert (%s) — "
+                        "Eintrag ohne Datei", quelle, exc)
+            elif quelle:
+                logger.info("Profil-Import: Datei fehlt, Eintrag ohne Datei: %s",
+                            quelle)
             self.add_document(doc)
 
         return pid
