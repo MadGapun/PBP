@@ -90,9 +90,20 @@ def test_von_hand_gesetzte_entfernung_heisst_nicht_luftlinie(db):
 
 
 def test_fahrstrecke_ist_belegt(db):
+    # #1037: eine gespeicherte Route zaehlt nur mit Schluessel UND Haken.
+    from bewerbungs_assistent.services import routing
+    db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, "test-schluessel-ohne-bedeutung-954")
+    db.set_setting(routing.EINSTELLUNG_AKTIV, True)
     f = _felder(db, _stelle(db, "d954", distance_km=30.0, fahrstrecke_km=41.0,
                             fahrzeit_min=35, route_quelle="ors"))
     assert (f["entfernung"]["guete"], f["entfernung"]["methode"]) == ("belegt", "routing")
+
+
+def test_fahrstrecke_ohne_haken_ist_die_luftlinie(db):
+    """Die Gegenrichtung (#1037): ohne Haken ist die Entfernung geschaetzt."""
+    f = _felder(db, _stelle(db, "g954", distance_km=30.0, fahrstrecke_km=41.0,
+                            fahrzeit_min=35, route_quelle="ors"))
+    assert (f["entfernung"]["guete"], f["entfernung"]["methode"]) == ("geschaetzt", "luftlinie")
 
 
 def test_ohne_entfernung_unbekannt(db):
