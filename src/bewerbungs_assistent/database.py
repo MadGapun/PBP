@@ -9861,6 +9861,21 @@ class Database:
         row = cur.fetchone()
         return json.loads(row["value"]) if row else default
 
+    def get_setting_zahl(self, key: str, vorgabe: int) -> int:
+        """Eine ganzzahlige Einstellung — und eine 0 bleibt 0 (#1091).
+
+        `int(get_setting(k, 14) or 14)` hielt eine eingetragene 0 fuer
+        "fehlt" und machte daraus die Vorgabe: "0 schaltet sie ab" stand
+        im Hilfetext, und nach dem Neuladen stand 14 im Feld. Die Vorgabe
+        gilt nur, wenn nichts oder etwas Unlesbares gespeichert ist."""
+        wert = self.get_setting(key, None)
+        if wert is None or wert == "":
+            return vorgabe
+        try:
+            return int(wert)
+        except (TypeError, ValueError):
+            return vorgabe
+
     def set_setting(self, key: str, value):
         conn = self.connect()
         conn.execute("""

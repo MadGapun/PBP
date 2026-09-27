@@ -3032,11 +3032,11 @@ async def api_set_report_settings(request: Request):
 async def api_get_followup_settings():
     """Liest die Follow-up-Automations-Einstellungen (#494)."""
     try:
-        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+        default_days = _db.get_setting_zahl("followup_default_days", 7)
     except Exception:
         default_days = 7
     try:
-        interview_delay = int(_db.get_setting("followup_interview_delay_days", 14) or 14)
+        interview_delay = _db.get_setting_zahl("followup_interview_delay_days", 14)
     except Exception:
         interview_delay = 14
     return {
@@ -8970,11 +8970,11 @@ def _run_auto_expire(now_iso: str) -> dict:
     """
     from datetime import datetime, timedelta
     try:
-        d_default = int(_db.get_setting("expire_default_days", 60) or 60)
+        d_default = _db.get_setting_zahl("expire_default_days", 60)
     except Exception:
         d_default = 60
     try:
-        d_eb = int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30)
+        d_eb = _db.get_setting_zahl("expire_eingangsbestaetigung_days", 30)
     except Exception:
         d_eb = 30
 
@@ -9080,7 +9080,7 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
     """
     from datetime import datetime, timedelta
     try:
-        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+        default_days = _db.get_setting_zahl("followup_default_days", 7)
     except Exception:
         default_days = 7
 
@@ -10598,11 +10598,11 @@ async def api_auto_actions_status():
     return {
         "last_run_at": last,
         "settings": {
-            "expire_default_days": int(_db.get_setting("expire_default_days", 60) or 60),
+            "expire_default_days": _db.get_setting_zahl("expire_default_days", 60),
             "expire_eingangsbestaetigung_days":
-                int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30),
+                _db.get_setting_zahl("expire_eingangsbestaetigung_days", 30),
             "followup_default_days":
-                int(_db.get_setting("followup_default_days", 7) or 7),
+                _db.get_setting_zahl("followup_default_days", 7),
         },
     }
 
