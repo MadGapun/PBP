@@ -1590,6 +1590,19 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokument_dateien_uebersicht() -> dict:
+        """Prüft, worauf die Dokument-Einträge zeigen (#1099), und ändert nichts.
+
+        Nennt Einträge, deren Datei außerhalb des PBP-Datenordners liegt
+        (Dateien des Nutzers, die PBP nie löscht), Einträge, die sich eine
+        Datei teilen, und Einträge, deren Datei fehlt. Nutzen, wenn beim
+        Löschen eines Dokuments die Datei liegen geblieben ist oder ein
+        Dokument die falsche Datei öffnet.
+        """
+        from ..services import dateiablage
+        return dateiablage.bestandsbericht(db)
+
+    @mcp.tool()
     def dokument_loeschen(dokument_id: str, bestaetigung: bool = False) -> dict:
         """Löscht ein Dokument komplett — DB-Eintrag und physische Datei (#447).
 
@@ -1611,14 +1624,22 @@ def register(mcp, db, logger):
                 "dokument": doc.get("filename", ""),
                 "hinweis": "Setze bestaetigung=True um Dokument und Datei unwiderruflich zu loeschen.",
             }
-        deleted = db.delete_document(dokument_id, profile_id=profile_id)
-        if not deleted:
+        befund = db.delete_document_mit_befund(dokument_id, profile_id=profile_id)
+        if not befund or not befund["eintrag_geloescht"]:
             return {"fehler": "Dokument konnte nicht gelöscht werden."}
-        return {
+        antwort = {
             "status": "geloescht",
             "dokument_id": dokument_id,
-            "nachricht": f"Dokument '{doc.get('filename', '')}' wurde geloescht.",
+            "nachricht": f"Dokument '{doc.get('filename', '')}' wurde gelöscht.",
+            "datei_geloescht": befund["datei"]["geloescht"],
         }
+        # #1099: Eine Datei, die PBP nicht gehoert oder die ein anderer
+        # Eintrag noch benutzt, bleibt liegen — und das wird gesagt.
+        grund = befund["datei"]["grund"]
+        if not befund["datei"]["geloescht"] and grund != "kein Pfad":
+            antwort["datei_hinweis"] = (
+                f"Die Datei wurde nicht gelöscht: sie {grund}.")
+        return antwort
 
     @mcp.tool()
     def dokument_typen_nachziehen(dry_run: bool = True,

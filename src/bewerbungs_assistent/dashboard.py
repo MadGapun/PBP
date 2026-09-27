@@ -54,6 +54,7 @@ from .services.search_service import (
     summarize_active_sources,
 )
 from .services import ablage
+from .services import dateiablage as _dateiablage
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
 from .document_analysis_prompts import (
     TEMPLATES as DOC_ANALYSIS_TEMPLATES,
@@ -722,9 +723,15 @@ async def api_delete_document(doc_id: str):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    if not _db.delete_document(doc_id, profile_id=profile_id):
+    befund = _db.delete_document_mit_befund(doc_id, profile_id=profile_id)
+    if not befund or not befund["eintrag_geloescht"]:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    antwort = {"status": "ok", "datei_geloescht": befund["datei"]["geloescht"]}
+    # #1099: fremde oder geteilte Dateien bleiben liegen, mit Grund.
+    if not befund["datei"]["geloescht"] and befund["datei"]["grund"] != "kein Pfad":
+        antwort["datei_hinweis"] = (
+            f"Die Datei wurde nicht gelöscht: sie {befund['datei']['grund']}.")
+    return antwort
 
 
 @app.put("/api/document/{doc_id}/doc-type")
@@ -1384,6 +1391,34 @@ async def api_browse_directory(request: Request):
     }
 
 
+def _import_dublette(content_hash: str, dateiname: str) -> bool:
+    """Gibt es im aktiven Profil schon ein Dokument mit diesem Inhalt?
+
+    #1099: Neben `content_hash` (seit #570 beim Upload gesetzt) werden
+    Alteintraege ohne Hash mit gleichem Dateinamen ueber ihre Datei
+    verglichen — sonst legte der erste Import nach dem Update alles, was
+    frueher importiert wurde, noch einmal an. Ein Treffer traegt danach
+    seinen Hash, der naechste Vergleich ist billig."""
+    pid = _get_active_profile_id() if _db else None
+    if not pid:
+        return False
+    conn = _db.connect()
+    if conn.execute(
+            "SELECT 1 FROM documents WHERE content_hash=? AND profile_id=? LIMIT 1",
+            (content_hash, pid)).fetchone():
+        return True
+    for row in conn.execute(
+            "SELECT id, filepath FROM documents WHERE profile_id=? "
+            "AND (content_hash IS NULL OR content_hash='') AND filename=?",
+            (pid, dateiname)).fetchall():
+        if row["filepath"] and _dateiablage.inhalt_hash(row["filepath"]) == content_hash:
+            conn.execute("UPDATE documents SET content_hash=? WHERE id=?",
+                         (content_hash, row["id"]))
+            conn.commit()
+            return True
+    return False
+
+
 @app.post("/api/documents/import-folder")
 async def api_import_folder(request: Request):
     data = await request.json()
@@ -1408,6 +1443,7 @@ async def api_import_folder(request: Request):
     docs_imported = 0
     apps_found = 0
     skipped_files = 0
+    skipped_duplicates = 0
     auto_linked_documents = 0
     warnings = []
     supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
@@ -1423,6 +1459,16 @@ async def api_import_folder(request: Request):
         if fpath.name.startswith("~$"):
             continue
         files_found += 1
+
+        # #1099: Dublette ueber den INHALT, wie beim Upload (#570). Ein
+        # zweiter Import desselben Ordners legt nichts noch einmal an —
+        # auch keine Bewerbung aus dem Ordnernamen.
+        content_hash = None
+        if import_docs:
+            content_hash = _dateiablage.inhalt_hash(fpath)
+            if content_hash and _import_dublette(content_hash, fpath.name):
+                skipped_duplicates += 1
+                continue
 
         extracted = ""
         email_context = None
@@ -1457,14 +1503,23 @@ async def api_import_folder(request: Request):
         doc_type = _detect_doc_type(fpath.name, extracted) or "sonstiges"
 
         if import_docs:
-            # Copy file to doc_dir
+            # #1099: jede Datei bekommt ihre EIGENE Kopie mit freiem Namen
+            # (FirmaA/Anschreiben.pdf und FirmaB/Anschreiben.pdf sind zwei
+            # Dateien). Scheitert das Kopieren, entsteht kein Eintrag — ein
+            # Eintrag auf das Original im Ordner des Nutzers wuerde beim
+            # Loeschen genau dieses Original treffen.
             import shutil
-            dest = doc_dir / fpath.name
-            if not dest.exists():
-                try:
-                    shutil.copy2(str(fpath), str(dest))
-                except Exception:
-                    dest = fpath  # Use original path
+            dest = _dateiablage.eindeutiges_ziel(
+                doc_dir, _sanitize_upload_filename(fpath.name))
+            try:
+                shutil.copy2(str(fpath), str(dest))
+            except Exception as exc:
+                warnings.append(
+                    f"{fpath.name}: nicht importiert, die Datei ließ sich "
+                    f"nicht in den PBP-Datenordner kopieren ({exc})")
+                skipped_files += 1
+                logger.warning("Import: Kopieren fehlgeschlagen fuer %s: %s", fpath, exc)
+                continue
 
             did = _db.add_document({
                 "filename": fpath.name,
@@ -1472,6 +1527,7 @@ async def api_import_folder(request: Request):
                 "doc_type": doc_type,
                 "extracted_text": extracted,
                 "linked_application_id": (email_context or {}).get("match_application_id"),
+                "content_hash": content_hash,
             })
             if email_context and email_context.get("match_application_id"):
                 try:
@@ -1513,6 +1569,7 @@ async def api_import_folder(request: Request):
         "documents_imported": docs_imported,
         "applications_found": apps_found,
         "skipped_files": skipped_files,
+        "skipped_duplicates": skipped_duplicates,
         "auto_linked_documents": auto_linked_documents,
         "warning_count": len(warnings),
         "warnings": warnings,

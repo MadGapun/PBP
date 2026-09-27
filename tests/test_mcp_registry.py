@@ -279,6 +279,8 @@ EXPECTED_TOOL_NAMES = {
     "stil_auswertung",
     "dokument_entverknuepfen",
     "dokument_loeschen",
+    # #1099: lesender Bericht ueber Dokument-Dateien (Expertenmodus)
+    "dokument_dateien_uebersicht",
     "dokument_status_setzen",
     # v1.5.6: Scraper Health (#432)
     "schwelle_stufe_setzen",
@@ -415,7 +417,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 265  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben
+        assert len(tools) == 266  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht
         assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
         assert len(resources) == 6
     finally:

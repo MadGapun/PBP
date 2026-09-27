@@ -41,6 +41,7 @@ WARTUNG = frozenset({
     "bewerbung_notiz_drift",
     "bewerbung_notizen_zusammenfuehren",
     "bewerbungs_stellen_abgleichen",
+    "dokument_dateien_uebersicht",
     "dokument_typen_nachziehen",
     "dokumente_text_nachziehen",
     "gehaelter_neu_auswerten",
