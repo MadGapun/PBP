@@ -68,6 +68,8 @@ export const HILFE = {
     abschnitte: [
       { titel: "Suchbegriffe", text: "MUSS-Begriffe muss eine Stelle treffen, PLUS-Begriffe bringen zusätzliche Punkte, MINUS-Begriffe ziehen welche ab, und AUSSCHLUSS-Begriffe blenden eine Stelle ganz aus." },
       { titel: "Punkte", text: "Die Punkte sagen, wie gut eine Anzeige deine Suchbegriffe trifft. Sie sind keine Prozentzahl und kein Urteil darüber, ob die Stelle zu dir passt — das entsteht erst, wenn jemand Anzeige und Profil gelesen hat." },
+      { titel: "Entfernung", text: "Trag je Anstellungsform eine Grenze in Kilometern ein. Ein leeres Feld nimmt die grau angezeigte Vorgabe, 0 heißt „nur am Wohnort oder remote“. Innerhalb der Grenze gilt: je näher, desto besser. Gerechnet wird mit der Luftlinie — so, wie die Jobbörsen sie angeben." },
+      { titel: "Fahrstrecke und Fahrzeit", text: "Mit einem kostenlosen Routing-Schlüssel (Einstellungen › Quellen im Detail) und dem Haken „Echte Fahrstrecke und Fahrzeit verwenden“ rechnet PBP mit der Fahrstrecke. Sie gilt fürs Auto, nicht für Bus und Bahn — wer so pendelt, lässt den Haken aus." },
       { titel: "Feinabstimmung", text: "Die Regler für Entfernung, Remote-Anteil und Gehalt ändern die Reihenfolge der Liste. Du brauchst sie nicht, um anzufangen." },
     ],
     prompts: ["jobsuche_workflow"],
@@ -128,6 +130,7 @@ export const HILFE = {
     abschnitte: [
       { titel: "Grundlagen", text: "Quellen, Erscheinungsbild, Datenschutz und Ordner — damit kommst du aus. Alles Weitere steht unter „Erweitert“." },
       { titel: "Quellen", text: "PBP empfiehlt Quellen passend zu deinem Profil. Manche Börsen gehen nur über den Browser mit Claude; die Karte sagt, welche." },
+      { titel: "Datensicherung", text: "PBP sichert einmal am Tag von selbst, vor dem Leeren eines Bereichs und vor dem Zusammenführen zweier Stellen — samt deiner Dokumente. Unter Datenschutz › Daten & Sicherung legst du selbst eine an oder holst einen früheren Stand zurück; er wird beim nächsten Start eingespielt." },
     ],
     prompts: ["tipps_und_tricks"],
   },
@@ -142,6 +145,7 @@ export const FAQ = [
   { q: "Wie funktioniert die Jobsuche?", a: "Quellen in den Einstellungen wählen, dann „Jobsuche mit Claude“ kopieren und in Claude einfügen. Claude fragt die Börsen ab und übernimmt die Treffer." },
   { q: "Welche Dateiformate gehen?", a: "PDF, DOCX, DOC, TXT, Markdown, RTF und Mails (EML, MSG)." },
   { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und quelloffen (MIT-Lizenz). Für Claude brauchst du ein Konto bei Anthropic." },
+  { q: "Wie hole ich einen früheren Stand zurück?", a: "Einstellungen › Datenschutz › Daten & Sicherung: die Liste der Sicherungen öffnen und „Diesen Stand wiederherstellen“ wählen. Dein jetziger Stand wird vorher selbst gesichert. Danach PBP und Claude Desktop ganz beenden und neu starten — beim Start wird der Stand eingespielt." },
   { q: "Wie aktualisiere ich PBP?", a: "Neue Version herunterladen und den Installer erneut starten. Deine Daten bleiben erhalten; vorher legt PBP eine Sicherung an." },
 ];
 
@@ -150,5 +154,7 @@ export const PROBLEME = [
   { q: "Das Dashboard startet nicht", a: "1. Läuft PBP schon in einem anderen Fenster? Dann ist der Port belegt.\n2. Die Protokolle stehen unter Einstellungen > Erweitert > Logs." },
   { q: "Die Jobsuche findet nichts", a: "1. Sind Quellen gewählt?\n2. Sind Suchbegriffe gesetzt? Ohne MUSS-Begriffe gibt es nichts zu finden.\n3. Nach dem Lauf sagt PBP, wie viele Treffer an welchem Filter hängen geblieben sind." },
   { q: "Eine Börse blockiert", a: "Manche Börsen erkennen automatische Abrufe. Diese Quellen laufen über den Browser mit Claude: „Jobsuche mit Claude“ nennt sie und erklärt den Weg." },
+  { q: "Die Fahrzeit ist viel zu kurz", a: "Fahrstrecke und Fahrzeit gelten fürs Auto. Wer mit Bus und Bahn pendelt, nimmt unter Suche & Bewertung › Max. Entfernung pro Stellentyp den Haken „Echte Fahrstrecke und Fahrzeit verwenden“ ab; dann rechnet PBP mit der Luftlinie." },
+  { q: "Stellen ohne Anzeigentext", a: "Manche Börsen liefern in der Trefferliste keinen Text. PBP lädt ihn nach der Suche im Hintergrund nach, die Zahl steht im Hinweis zur Jobsuche; der Rest folgt mit der Automatik." },
   { q: "Ein Dokument liefert keinen Text", a: "Gescannte PDFs haben oft keine Textebene. PBP sagt das beim Hochladen; den Text kannst du über Claude nachtragen." },
 ];
