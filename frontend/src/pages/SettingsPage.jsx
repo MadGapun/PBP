@@ -4577,6 +4577,38 @@ export default function SettingsPage() {
 // ueberschriebe die Eingabe des Menschen — und die vollen Haekchen
 // behaupteten etwas Falsches, denn geloescht werden dann nicht die
 // Bereiche, sondern die Datei.
+// #1097: Was der DSGVO-Modus löscht — aus derselben Liste wie die Löschung
+// selbst (services/datenordner.py), dazu was außerhalb liegen bleibt.
+function DsgvoFolge({ dsgvo }) {
+  const inhalt = dsgvo?.inhalt || [];
+  const ausserhalb = dsgvo?.ausserhalb || [];
+  return (
+    <div className="grid gap-2 text-ink">
+      <p>
+        Der ganze Datenordner wird geleert. Das lässt sich nicht rückgängig
+        machen — auch nicht für einzelne Bereiche.
+      </p>
+      {inhalt.length > 0 && (
+        <ul className="grid gap-0.5 text-xs">
+          {inhalt.map((e) => (
+            <li key={e.name}>
+              <strong>{e.name}</strong> — {e.was} ({formatBytes(e.bytes || 0)})
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs">{dsgvo?.ausserhalb_hinweis}</p>
+      {ausserhalb.length > 0 && (
+        <ul className="grid gap-0.5 text-xs">
+          {ausserhalb.map((o) => (
+            <li key={o.pfad}>Bleibt: {o.was} <strong>{o.pfad}</strong></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function LoeschBereichSection({ pushToast, refreshChrome }) {
   const [modus, setModus] = useState("bereiche");
   const [profilId, setProfilId] = useState("");
@@ -4633,7 +4665,9 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         profil_id: dsgvo ? "" : profilId,
       });
       if (dsgvo) {
-        pushToast("Datenbank und Dokumente gelöscht. Seite wird neu geladen.", "success");
+        // #1097: eine teilweise Löschung ist kein Erfolg.
+        pushToast(erg.message || "Datenordner gelöscht.",
+          erg.status === "ok" ? "success" : "danger");
       } else {
         pushToast(
           `${erg.zeilen_gesamt ?? 0} Zeilen und ${erg.dateien_geloescht ?? 0} Dateien gelöscht.`,
@@ -4665,7 +4699,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
             ["bereiche", "Ausgewählte Bereiche leeren",
              "Entfernt Zeilen aus der Datenbank. Die Datei bleibt bestehen."],
             ["dsgvo", "Alles unwiderruflich löschen (DSGVO)",
-             "Löscht die Datenbankdatei und die Dokumentordner. Auch verwaiste Dateien, die in keiner Tabelle stehen."],
+             "Leert den ganzen Datenordner: Datenbank, Sicherungskopien, Dokumente, Mails, Protokolle und Browser-Sitzungen."],
           ].map(([wert, label, hilfe]) => (
             <label key={wert} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/60 p-3">
               <input
@@ -4748,11 +4782,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         {/* Was das kostet */}
         <div className="rounded-xl border border-coral/40 bg-coral/5 p-3 text-sm">
           {dsgvo ? (
-            <p className="text-ink">
-              Die Datenbankdatei und die Ordner <strong>dokumente</strong> und{" "}
-              <strong>export</strong> werden gelöscht. Das lässt sich nicht rückgängig
-              machen — auch nicht für einzelne Bereiche.
-            </p>
+            <DsgvoFolge dsgvo={vorschau?.dsgvo} />
           ) : gewaehlt.length === 0 ? (
             <p className="text-muted">Noch kein Bereich gewählt.</p>
           ) : (

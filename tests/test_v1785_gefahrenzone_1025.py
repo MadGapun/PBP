@@ -237,8 +237,9 @@ def test_die_dsgvo_loeschung_liegt_nur_noch_an_einem_ort():
               / "dashboard.py").read_text(encoding="utf-8")
     assert quelle.count("async def _dsgvo_loeschen") == 1
     assert quelle.count("await _dsgvo_loeschen()") == 2
-    # Die Dateisystem-Operationen stehen genau einmal.
-    assert quelle.count('for subdir in ["dokumente", "export"]') == 1
+    # Die Dateisystem-Operationen stehen genau einmal — seit #1097 im
+    # Dienst `datenordner`, der den ganzen Datenordner leert.
+    assert quelle.count("datenordner.alles_loeschen(") == 1
 
 
 # ---------------------------------------------- AK 6: ein Bestaetigungswort

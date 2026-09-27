@@ -322,6 +322,16 @@ class Database:
 
     def initialize(self):
         """Create all tables if they don't exist."""
+        # #1097: eine DSGVO-Loeschung, die im laufenden Betrieb nicht alles
+        # entfernen konnte (Datei von einem zweiten Prozess gesperrt), hat
+        # eine Vormerkung hinterlassen. Der Rest geht JETZT, bevor die
+        # Datenbank geoeffnet wird — danach waere sie wieder gesperrt.
+        if not self._conns:
+            try:
+                from .services.datenordner import vorgemerkte_loeschung_ausfuehren
+                vorgemerkte_loeschung_ausfuehren(self.db_path.parent)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Vorgemerkte Loeschung nicht ausgefuehrt: %s", exc)
         conn = self.connect()
         conn.executescript(SCHEMA_SQL)
         # Check schema version
