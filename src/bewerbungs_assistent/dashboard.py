@@ -5121,7 +5121,7 @@ async def api_export_applications(
     if format == "xlsx":
         try:
             from .export_report import generate_excel_report
-            path = export_dir / "bewerbungsbericht.xlsx"
+            path = ablage.freier_pfad(export_dir, "bewerbungsbericht.xlsx")
             generate_excel_report(report_data, profile, path,
                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
                                    report_settings=report_settings)
@@ -5136,7 +5136,7 @@ async def api_export_applications(
                 status_code=501
             )
     else:
-        path = export_dir / "bewerbungsbericht.pdf"
+        path = ablage.freier_pfad(export_dir, "bewerbungsbericht.pdf")
         generate_application_report(report_data, profile, path,
                                     zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
                                     report_settings=report_settings,
@@ -6377,10 +6377,10 @@ async def api_export_cv(fmt: str):
     from .export import generate_cv_docx, generate_cv_pdf
 
     export_dir = ablage.ausgabe_ordner(_db)
-    name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
+    name_slug = ablage.dateiname_teil(profile.get("name"), "lebenslauf")
 
     if fmt == "docx":
-        path = export_dir / f"lebenslauf_{name_slug}.docx"
+        path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}.docx")
         # #973: dieselbe Vorlage wie ueber Claude. Zwei Layouts fuer
         # dasselbe Dokument, je nachdem wo geklickt wurde, waere das
         # Muster aus #963/#991.
@@ -6389,7 +6389,7 @@ async def api_export_cv(fmt: str):
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
-        path = export_dir / f"lebenslauf_{name_slug}.pdf"
+        path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}.pdf")
         generate_cv_pdf(profile, path)
         return FileResponse(str(path), filename=path.name, media_type="application/pdf")
     return JSONResponse({"error": "Format muss 'docx' oder 'pdf' sein"}, status_code=400)
@@ -6411,17 +6411,17 @@ async def api_export_cover_letter(fmt: str, request: Request):
     from .export import generate_cover_letter_docx, generate_cover_letter_pdf
 
     export_dir = ablage.ausgabe_ordner(_db)
-    firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
+    firma_slug = ablage.dateiname_teil(firma, "bewerbung")
 
     if fmt == "docx":
-        path = export_dir / f"anschreiben_{firma_slug}.docx"
+        path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.docx")
         _vorlage, _ = ablage.vorlage_finden(_db, "anschreiben")
         generate_cover_letter_docx(profile, text, stelle, firma, path,
                                    vorlage=_vorlage)
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
-        path = export_dir / f"anschreiben_{firma_slug}.pdf"
+        path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.pdf")
         generate_cover_letter_pdf(profile, text, stelle, firma, path)
         return FileResponse(str(path), filename=path.name, media_type="application/pdf")
     return JSONResponse({"error": "Format muss 'docx' oder 'pdf' sein"}, status_code=400)
@@ -7148,12 +7148,12 @@ async def api_export_profile():
     if not data:
         return JSONResponse({"error": "Profil nicht gefunden"}, status_code=404)
 
-    name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+    name_slug = ablage.dateiname_teil(data.get("name"), "profil")
     date_str = datetime.now().strftime("%Y%m%d")
     filename = f"profil_backup_{name_slug}_{date_str}.json"
 
     export_dir = ablage.ausgabe_ordner(_db)
-    filepath = export_dir / filename
+    filepath = ablage.freier_pfad(export_dir, filename)
     filepath.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8"
@@ -7873,7 +7873,7 @@ async def api_privacy_self_disclosure():
     profile = _db.get_profile()
     from .database import get_data_dir
     export_dir = ablage.ausgabe_ordner(_db)
-    path = export_dir / "datenauskunft.pdf"
+    path = ablage.freier_pfad(export_dir, "datenauskunft.pdf")
     generate_data_self_disclosure(_db, profile, path)
     return FileResponse(
         str(path),

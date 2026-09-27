@@ -278,3 +278,56 @@ def vorlage_finden(db, art: str):
         if treffer is not None:
             return treffer, "gefunden"
     return None, "keine_datei"
+
+
+# -- Dateinamen (#1101) -----------------------------------------------
+#
+# Die Namen der Exporte entstanden aus Firmen- und Personennamen mit
+# `.replace(" ", "_").lower()`. Ein `/` in der Firma wurde zum Unterordner,
+# `?*"<>|` brechen unter Windows ab, ein `:` erzeugt dort einen
+# alternativen Datenstrom (Erfolgsmeldung, keine sichtbare Datei). Und ein
+# zweiter Export fuer dieselbe Firma ueberschrieb den ersten — auch eine
+# von Hand nachbearbeitete Fassung.
+
+import re as _re
+
+_VERBOTEN = _re.compile(r'[<>:"/\\|?*\x00-\x1f]+')
+_RESERVIERT = {"con", "prn", "aux", "nul",
+               *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}
+NAME_MAX = 60
+
+
+def dateiname_teil(text, vorgabe: str = "export") -> str:
+    """Ein Namensteil, der auf allen drei Systemen geht. Umlaute bleiben —
+    sonst waeren "Müller" und "Muller" derselbe Name."""
+    teil = _VERBOTEN.sub("-", str(text or "").strip())
+    teil = _re.sub(r"\s+", "_", teil).lower()
+    teil = _re.sub(r"[-_]{2,}", "_", teil).strip(" ._-")
+    teil = teil[:NAME_MAX].rstrip(" ._-")
+    if not teil:
+        teil = vorgabe
+    if teil.split(".")[0] in _RESERVIERT:
+        teil = f"_{teil}"
+    return teil
+
+
+def freier_pfad(ordner, dateiname: str):
+    """Der Pfad fuer einen neuen Export. Gibt es die Datei schon, bekommt
+    der neue Export das Datum und bei Bedarf eine Nummer — ueberschrieben
+    wird nie (#1101)."""
+    from datetime import date
+    ordner = Path(ordner)
+    ziel = ordner / dateiname
+    if not ziel.exists():
+        return ziel
+    stamm, punkt, endung = dateiname.rpartition(".")
+    if not punkt:
+        stamm, endung = dateiname, ""
+    endung = f".{endung}" if endung else ""
+    heute = date.today().isoformat()
+    ziel = ordner / f"{stamm}_{heute}{endung}"
+    n = 2
+    while ziel.exists():
+        ziel = ordner / f"{stamm}_{heute}_{n}{endung}"
+        n += 1
+    return ziel
