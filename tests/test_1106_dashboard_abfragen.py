@@ -6,8 +6,11 @@ mehr Sicherheit annimmt als da ist):
 
 * f-Strings und zusammengesetzte Abfragen erreicht er nicht — nur
   Literale, die mit SELECT/UPDATE/INSERT/DELETE/WITH beginnen.
-* Tabellen, die erst bei Bedarf entstehen, meldet er nicht ("no such
-  table" zaehlt nicht), nur unbekannte SPALTEN.
+* Tabellen, die erst bei Bedarf entstehen, legt er vorher mit ihren
+  eigenen Anlegern an. Ausgenommen sind nur die Tabellen in
+  `NUR_ALTBESTAND` — jede mit Grund. Bis v1.7.140 zaehlte "no such
+  table" gar nicht, und drei Abfragen auf eine Tabelle `meetings`, die
+  es nie gab, lieferten still 0 (Aufwand-Tipp, Gespraechs-Check).
 * Er prueft das Schema der Linie, auf der er laeuft (v48 oder v52).
 """
 from __future__ import annotations
@@ -37,10 +40,34 @@ def db(tmp_path):
     os.environ.pop("BA_DATA_DIR", None)
 
 
+#: Tabellen, die nur in gewachsenen Bestaenden vorkommen. Wer sie liest,
+#: prueft vorher, ob es sie gibt (sqlite_master oder try mit Kommentar).
+NUR_ALTBESTAND = {
+    "documents_new": "Zwischentabelle einer Migration, entsteht direkt davor",
+    "learned_insights": "Doppelanlage aus F28 (#799), wird uebernommen, wenn es sie gibt",
+    "profile_settings": "Altbestand einer profilbezogenen Migration (Safety-Net)",
+}
+
+
+def _bei_bedarf_anlegen(db):
+    """Die Tabellen, die ihr Dienst erst beim ersten Schreiben anlegt."""
+    from bewerbungs_assistent.services import (
+        pii_bestand, stellen_grabstein, stellen_quellen)
+    conn = db.connect()
+    stellen_quellen.tabelle_anlegen(conn)
+    stellen_grabstein.tabelle_anlegen(conn)
+    pii_bestand._tabelle_anlegen(db)
+
+
 def _sql_literale():
     for p in sorted(SRC.rglob("*.py")):
         baum = ast.parse(p.read_text(encoding="utf-8-sig"))
+        # Bruchstuecke eines f-Strings sind keine Abfrage fuer sich.
+        teile = {id(v) for j in ast.walk(baum) if isinstance(j, ast.JoinedStr)
+                 for v in j.values}
         for n in ast.walk(baum):
+            if id(n) in teile:
+                continue
             if isinstance(n, ast.Constant) and isinstance(n.value, str) \
                     and START.match(n.value):
                 yield p.relative_to(REPO), n.lineno, n.value
@@ -49,6 +76,7 @@ def _sql_literale():
 # ── AK 4: der Guard ─────────────────────────────────────────────────
 
 def test_jede_sql_abfrage_kennt_ihre_spalten(db):
+    _bei_bedarf_anlegen(db)
     con = db.connect()
     funde, geprueft = [], 0
     for datei, zeile, sql in _sql_literale():
@@ -56,8 +84,13 @@ def test_jede_sql_abfrage_kennt_ihre_spalten(db):
             con.execute("EXPLAIN " + sql)
             geprueft += 1
         except sqlite3.OperationalError as exc:
-            if "no such column" in str(exc):
+            text = str(exc)
+            if "no such column" in text:
                 funde.append(f"{datei}:{zeile}: {exc}")
+            elif "no such table" in text:
+                tabelle = text.split(":", 1)[1].strip()
+                if tabelle not in NUR_ALTBESTAND:
+                    funde.append(f"{datei}:{zeile}: {exc}")
         except Exception:
             geprueft += 1  # Bindungen fehlen — vorbereitet ist sie
     assert geprueft > 500, f"Guard sieht zu wenig ({geprueft})"
@@ -68,10 +101,11 @@ def test_jede_sql_abfrage_kennt_ihre_spalten(db):
     "SELECT event_at FROM application_events WHERE event_at >= ?",
     "SELECT COUNT(*) AS n FROM application_events WHERE event_at >= ? AND event_type='status_change'",
     "SELECT id FROM application_emails WHERE LOWER(plain_body) LIKE ?",
+    "SELECT COUNT(*) AS n FROM meetings WHERE application_id=?",
     "SELECT company, position FROM applications WHERE id=?",
 ])
 def test_guard_erkennt_die_urspruenglichen_abfragen(db, sql):
-    with pytest.raises(sqlite3.OperationalError, match="no such column"):
+    with pytest.raises(sqlite3.OperationalError, match="no such (column|table)"):
         db.connect().execute("EXPLAIN " + sql)
 
 
@@ -219,3 +253,36 @@ def test_kein_stummes_except(funktion):
         if isinstance(h, ast.ExceptHandler):
             assert not (len(h.body) == 1 and isinstance(h.body[0], ast.Pass)), \
                 f"{funktion}: stummes except in Zeile {h.lineno}"
+
+
+# ── Nachtrag: `meetings` gab es nie (Tabelle heisst application_meetings) ──
+
+def test_aufwand_tipp_zaehlt_die_termine(db):
+    """Der Tipp "Aufwand-Tracking" erschien nie: die Abfrage lief auf
+    `meetings` und scheiterte still."""
+    from bewerbungs_assistent.services import onboarding_hints as oh
+    db.switch_profile(db.create_profile("Termine"))
+    app = db.add_application({"title": "Sachbearbeitung", "company": "Musterbetrieb GmbH",
+                              "status": "interview"})
+    for tag in range(1, 6):
+        db.add_meeting({"application_id": app, "title": f"Gespraech {tag}",
+                        "meeting_date": f"2026-10-0{tag} 10:00"})
+    assert oh._condition_keine_aufwandskosten_aber_termine(db) is True
+    db.connect().execute("UPDATE application_meetings SET vorbereitungszeit_min=30")
+    db.connect().commit()
+    assert oh._condition_keine_aufwandskosten_aber_termine(db) is False
+
+
+def test_gespraechs_check_kennt_eingetragene_termine(db):
+    """Eine Bewerbung mit Gespraech in den Notizen UND eingetragenem Termin
+    ist kein Fund — vorher war die Terminzahl immer 0."""
+    from bewerbungs_assistent.services import statistik_erweitert
+    db.switch_profile(db.create_profile("Notizen"))
+    app = db.add_application({
+        "title": "Sachbearbeitung", "company": "Musterbetrieb GmbH",
+        "status": "beworben",
+        "notes": "Telefonat mit der Fachabteilung am 12.10.2026, lief gut und freundlich."})
+    assert [t["id"] for t in statistik_erweitert.notizen_gespraeche_check(db)] == [app[:8]]
+    db.add_meeting({"application_id": app, "title": "Telefonat",
+                    "meeting_date": "2026-10-12 10:00"})
+    assert statistik_erweitert.notizen_gespraeche_check(db) == []

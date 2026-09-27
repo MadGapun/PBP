@@ -463,7 +463,7 @@ def notizen_gespraeche_check(db: Any) -> list:
         hat_iv_event = any(e["status"] in INTERVIEW_STATUS for e in evs)
         try:
             meetings = conn.execute(
-                "SELECT COUNT(*) AS n FROM meetings WHERE application_id=?",
+                "SELECT COUNT(*) AS n FROM application_meetings WHERE application_id=?",
                 (a["id"],),
             ).fetchone()["n"]
         except Exception:
