@@ -6532,13 +6532,20 @@ class Database:
                     pass
         return result
 
-    def delete_application(self, app_id: str):
-        """Delete an application and all its events."""
-        conn = self.connect()
-        conn.execute("DELETE FROM application_events WHERE application_id=?", (app_id,))
-        conn.execute("DELETE FROM follow_ups WHERE application_id=?", (app_id,))
-        conn.execute("DELETE FROM applications WHERE id=?", (app_id,))
-        conn.commit()
+    def delete_application(self, app_id: str, dry_run: bool = False) -> dict:
+        """Loescht eine Bewerbung samt allem, was an ihr haengt (#1100).
+
+        Vorher blieben alle Bezuege ohne Fremdschluessel stehen:
+        Stellen-Verknuepfungen (die Stelle galt weiter als beworben),
+        Kosten (zaehlten im Aufwand weiter), Recherchen und die
+        polymorphen Kontakt-Verknuepfungen. Dokumente, Mails,
+        Dokumentversionen und Referenzen werden nur geloest.
+
+        Rueckgabe: {"geloescht": {Tabelle: n}, "geloest": {Tabelle: n}};
+        mit `dry_run=True` nur gezaehlt."""
+        from .services import abhaengige_zeilen
+        return abhaengige_zeilen.mit_bezuegen_loeschen(
+            self, "applications", app_id, dry_run=dry_run)
 
     def update_application(self, app_id: str, data: dict):
         """Update application fields (#181: employment_type/source/vermittler/endkunde, #448: cover_letter_path/cv_path, #460: final_salary)."""
@@ -11934,16 +11941,20 @@ class Database:
         return cur.rowcount > 0
 
     def delete_meeting(self, meeting_id: str, profile_id: str = None) -> bool:
-        """Delete a meeting."""
+        """Loescht einen Termin samt Kontakt-Verknuepfungen (#1100); eine
+        Interview-Reflexion bleibt und verliert nur den Terminbezug."""
         conn = self.connect()
-        query = "DELETE FROM application_meetings WHERE id=?"
+        query = "SELECT 1 FROM application_meetings WHERE id=?"
         params: list[str] = [meeting_id]
         if profile_id is not None:
             query += " AND (profile_id=? OR profile_id IS NULL)"
             params.append(profile_id)
-        cur = conn.execute(query, params)
-        conn.commit()
-        return cur.rowcount > 0
+        if not conn.execute(query, params).fetchone():
+            return False
+        from .services import abhaengige_zeilen
+        abhaengige_zeilen.mit_bezuegen_loeschen(
+            self, "application_meetings", meeting_id, dry_run=False)
+        return True
 
     # === Meeting Categories (#417) ===
 
