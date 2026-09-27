@@ -62,6 +62,13 @@ def _lauf(db, job_id: str, params: dict) -> None:
                     job_id, "fehler",
                     message="Die Suche endete ohne Abschluss — bitte erneut starten.")
                 return
+            # #1038 Punkt 4: erst die Anzeigentexte der neuen Treffer, dann
+            # die Aussortierung — sie ueberspringt Stellen ohne Text (#756).
+            from . import text_nachzug
+            try:
+                text_nachzug.nach_suche(db, job_id)
+            except Exception as exc:  # noqa: BLE001 — die Suche war gut
+                logger.warning("Anzeigentexte nach der Suche: %s", exc)
             from . import auto_aussortierung
             try:
                 auto_aussortierung.nach_suche(db, job_id)  # #1092, Schalter

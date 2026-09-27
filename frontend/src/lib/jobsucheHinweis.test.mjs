@@ -1,6 +1,6 @@
 // #1033: Regeln fuer den Jobsuche-Hinweis in der Navigation. Framework-frei:
 //   node src/lib/jobsucheHinweis.test.mjs
-import { jobsucheHinweis, volltextText } from "./jobsucheHinweis.js";
+import { nachgeladenText, jobsucheHinweis, volltextText } from "./jobsucheHinweis.js";
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -91,6 +91,15 @@ check("Stellenart ohne Quelle genannt", ohneQuelle.titel.includes("für freelanc
 const ohneQuelle0 = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
   quellen: {}, stellentyp_ohne_quelle: ["freelance"] });
 check("auch ohne Funde genannt", ohneQuelle0.titel.includes("freelance"), true);
+
+// #1038 Punkt 4: was nach der Suche nachgeladen wurde
+check("nachgeladen genannt", nachgeladenText({ geholt: 12, fehlgeschlagen: 1, offen: 3 }),
+  "12 Anzeigentexte nachgeladen, 3 folgen mit der Automatik");
+check("einer", nachgeladenText({ geholt: 1, offen: 0 }), "1 Anzeigentext nachgeladen");
+check("nichts gelaufen", nachgeladenText(null), "");
+const mitNach = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 20,
+  quellen: {}, nachgeladen: { geholt: 7, offen: 0 } });
+check("im Tooltip", mitNach.titel.includes("7 Anzeigentexte nachgeladen"), true);
 
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);

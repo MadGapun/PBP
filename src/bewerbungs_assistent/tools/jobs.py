@@ -2927,8 +2927,11 @@ def register(mcp, db, logger):
         Der Playwright-Adapter für LinkedIn liefert seit April 2026 nichts
         mehr. Die jobspy-Variante (`jobspy_linkedin`) LIEFERT — sie braucht
         nur lange (rund 12 s je Suchbegriff) und hat seit v1.7.120 ein
-        eigenes Zeitbudget (#1038); ihre Treffer kommen aber OHNE
-        Anzeigentext. Dieser Weg hier liefert den Volltext: HTTP von aussen
+        eigenes Zeitbudget (#1038); ihre Treffer kommen OHNE Anzeigentext,
+        PBP lädt ihn nach dem Suchlauf im Hintergrund nach — für die
+        Treffer, die den Filter passiert haben, höchstens 60 je Lauf, der
+        Rest mit der Automatik. Die Zahl steht im Lauf-Hinweis. Dieser
+        Weg hier liefert den Volltext sofort: HTTP von aussen
         blockt LinkedIn zuverlässig, Requests aus dem EINGELOGGTEN
         Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
         dieser Weg vollständig durchgespielt: 22 Suchbegriffe, 511

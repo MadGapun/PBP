@@ -5133,20 +5133,15 @@ async def api_refetch_description(job_hash: str):
 
 
 def _bump_refetch_failure(job_hash: str) -> None:
-    """Notiert eine fehlgeschlagene Beschreibungs-Holung (fuer Backoff in Layer C)."""
-    try:
-        key = f"refetch_fail:{job_hash}"
-        prev = int(_db.get_setting(key, "0") or "0")
-        _db.set_setting(key, str(prev + 1))
-    except Exception:
-        pass
+    """Notiert eine fehlgeschlagene Beschreibungs-Holung (Backoff, #1038:
+    derselbe Zaehler wie text_nachzug)."""
+    from .services import text_nachzug
+    text_nachzug.fehlversuch_zaehlen(_db, job_hash)
 
 
 def _reset_refetch_failure(job_hash: str) -> None:
-    try:
-        _db.set_setting(f"refetch_fail:{job_hash}", "0")
-    except Exception:
-        pass
+    from .services import text_nachzug
+    text_nachzug.fehlversuche_loeschen(_db, job_hash)
 
 
 # v1.7.0-beta.31 (#595): GET /api/jobs/{hash} wird weiter unten nach
@@ -6685,6 +6680,9 @@ async def api_jobsuche_last():
         "neu_aktiv": _zahl(result.get("neu_aktiv")) if ergebnis == "fertig" else None,
         # C97 (#1087 C8): wie viele der neuen Stellen noch ohne Volltext sind.
         "ohne_volltext": _zahl(result.get("ohne_volltext")) if ergebnis == "fertig" else None,
+        # #1038 Punkt 4: was danach im Hintergrund nachgeladen wurde
+        # ({geholt, fehlgeschlagen, offen}); None, solange es nicht lief.
+        "nachgeladen": result.get("nachgeladen") if ergebnis == "fertig" else None,
         # #1092 AK 6: was die lokale KI danach aussortiert hat.
         "auto_aussortiert": _zahl((result.get("auto_aussortiert") or {}).get("aussortiert"))
             if ergebnis == "fertig" else None,
@@ -8958,75 +8956,32 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
 def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     """v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Stellenbeschreibungen.
 
-    Iteriert ueber bis zu max_jobs aktive Stellen mit leerer/zu kurzer
-    Beschreibung und versucht sie via httpx + fetch_description_from_detail
-    nachzuziehen. Mit Backoff: Stellen mit >= 3 Fehlversuchen werden
-    fuer diesen Lauf uebersprungen (gespeichert in settings als
-    `refetch_fail:{hash}`).
+    Bis zu max_jobs aktive Stellen mit leerer/zu kurzer Beschreibung.
+    Seit #1038 dieselbe Schleife wie das Nachladen nach dem Suchlauf
+    (`services/text_nachzug.holen`): Backoff nach drei Fehlversuchen,
+    Text samt Kopf und Neubewertung ueber `nachladen.text_uebernehmen`.
 
     Bewusst niedriger max_jobs-Default — wir bombardieren keine
-    fremden Server. User kann manuell pro Stelle nachschieben (Layer B).
-
-    Postet eine zusammenfassende Elwosa-Linie wenn was passiert ist.
+    fremden Server. Postet eine Elwosa-Linie, wenn etwas passiert ist.
     """
-    import httpx
-    from .job_scraper import fetch_description_from_detail
+    from .services import text_nachzug
+    from .services.datenguete import MIN_BESCHREIBUNG
     pid = _db.get_active_profile_id()
     conn = _db.connect()
     rows = conn.execute(
-        "SELECT hash, url FROM jobs "
+        "SELECT hash FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
         "AND url IS NOT NULL AND url != '' "
         # #645: Such-URL-Stellen ausschliessen — sonst landet als
-        # "Beschreibung" der Anriss der Suchergebnis-Seite, nicht die
-        # echte Anzeige, und der Score wird wieder unzuverlaessig.
+        # "Beschreibung" der Anriss der Suchergebnis-Seite.
         "AND COALESCE(is_search_url, 0) = 0 "
-        "AND (description IS NULL OR LENGTH(description) < 50) "
+        "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
         "LIMIT ?",
-        (pid, max_jobs * 3)  # Overshoot — manche werden via Backoff geskippt
+        (pid, MIN_BESCHREIBUNG, max_jobs * 3)  # Overshoot — Backoff ueberspringt
     ).fetchall()
-
-    successes = 0
-    failures = 0
-    skipped_backoff = 0
-    processed = 0
-    try:
-        with httpx.Client(follow_redirects=True, timeout=15,
-                           headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-            for row in rows:
-                if processed >= max_jobs:
-                    break
-                h = row["hash"]
-                # Backoff: skip nach 3+ Failures
-                fail_count = 0
-                try:
-                    fail_count = int(_db.get_setting(f"refetch_fail:{h}", "0") or "0")
-                except Exception:
-                    pass
-                if fail_count >= 3:
-                    skipped_backoff += 1
-                    continue
-                processed += 1
-                try:
-                    from .services import nachladen as _nachladen
-                    _befund = _nachladen.beschreibung_holen(
-                        row["url"], client, timeout=15)
-                    text = _befund.text
-                    _kopf = _befund.kopf
-                except Exception:
-                    text = ""
-                    _kopf = {}
-                if text and len(text) >= 50:
-                    # #1048: Text UND was an ihm haengt (Snapshot, Gehalt,
-                    # Umfang, Score) — bisher nur der Text.
-                    _nachladen.text_uebernehmen(_db, h, text, kopf=_kopf)
-                    _reset_refetch_failure(h)
-                    successes += 1
-                else:
-                    _bump_refetch_failure(h)
-                    failures += 1
-    except Exception:
-        pass
+    erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
+    successes, failures = erg["geholt"], erg["fehlgeschlagen"]
+    processed, skipped_backoff = erg["versucht"], erg["backoff"]
 
     if successes > 0 or failures > 0:
         _elwosa_speak_safe("auto_refetch_descriptions", ctx={

@@ -312,11 +312,16 @@ def _funktion(pfad: Path, name: str) -> str:
     ("tools/jobs.py", "beschreibungen_nachladen_bestand"),
     ("dashboard.py", "api_refetch_description"),
     ("dashboard.py", "_run_auto_refetch_descriptions"),
+    # #1038: die gemeinsame Schleife fuer Auto-Nachzug und Nachladen nach
+    # der Suche.
+    ("services/text_nachzug.py", "holen"),
 ])
 def test_jeder_nachladeweg_geht_durch_text_uebernehmen(datei, name):
-    """Vier Aufrufer, und bis v1.7.108 bewertete keiner neu (#963)."""
+    """Vier Aufrufer, und bis v1.7.108 bewertete keiner neu (#963).
+    Seit #1038 darf ein Weg auch ueber `text_nachzug.holen` gehen, das
+    selbst in dieser Liste steht."""
     block = _funktion(_repo() / "src" / "bewerbungs_assistent" / datei, name)
-    assert "text_uebernehmen(" in block
+    assert "text_uebernehmen(" in block or "text_nachzug.holen(" in block
     assert not re.search(r'update_job\([^)]*\{\s*"description"', block), (
         f"{name} schreibt den Text wieder selbst")
 
