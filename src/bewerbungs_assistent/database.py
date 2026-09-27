@@ -6123,7 +6123,7 @@ class Database:
         return cur.rowcount > 0
 
     def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich",
-                    notiz: str = ""):
+                    notiz: str = "") -> bool:
         """Sortiert eine Stelle aus. `notiz` ist der Freitext dazu (#956).
 
         Vor v1.7.70 haengten drei Aufrufer ihren Protokolltext an
@@ -6142,7 +6142,7 @@ class Database:
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
-            return
+            return False  # #1095: der Aufrufer soll wissen, dass nichts geschah
         # v1.7.17 (#913): SCHREIBSCHUTZ — dies ist die eine Stelle, durch
         # die alle dismiss_reason-Writes laufen. Werte ausserhalb der
         # Whitelist werden normalisiert, Freitext wandert nach
@@ -6169,7 +6169,7 @@ class Database:
         jetzt = _now()
         wer = "automatik" if herkunft == "automatik" else "ich"
         if freitexte:
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
                 "dismiss_note=?, dismissed_at=?, dismissed_by=?, "
                 "updated_at=? WHERE hash=?",
@@ -6177,27 +6177,33 @@ class Database:
                  target_hash)
             )
         else:
-            conn.execute(
-                "UPDATE jobs SET is_active=0, dismiss_reason=?, "
+            # #1095: ohne Freitext gibt es keine Notiz — eine alte aus
+            # einer frueheren Aussortierung waere jetzt eine falsche
+            # Begruendung im Protokoll (#1010).
+            cur = conn.execute(
+                "UPDATE jobs SET is_active=0, dismiss_reason=?, dismiss_note=NULL, "
                 "dismissed_at=?, dismissed_by=?, updated_at=? WHERE hash=?",
                 (reason, jetzt, wer, jetzt, target_hash)
             )
         conn.commit()
+        return cur.rowcount > 0
 
-    def restore_job(self, job_hash: str):
+    def restore_job(self, job_hash: str) -> bool:
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
-            return
+            return False
         # v1.7.64 (#1010): mit dem Grund faellt auch der Zeitpunkt. Eine
         # zurueckgeholte Stelle ist nicht aussortiert — ein Datum, das
         # stehenbliebe, wuerde sie im Protokoll weiter fuehren.
-        conn.execute(
-            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, "
+        # #1095: auch die Notiz der Aussortierung faellt mit.
+        cur = conn.execute(
+            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, dismiss_note=NULL, "
             "dismissed_at=NULL, dismissed_by=NULL, updated_at=? WHERE hash=?",
             (_now(), target_hash)
         )
         conn.commit()
+        return cur.rowcount > 0
 
     def update_job_score(self, job_hash: str, score: float):
         """Manually update a job's score.

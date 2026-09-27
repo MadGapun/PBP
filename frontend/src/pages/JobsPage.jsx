@@ -849,7 +849,7 @@ export default function JobsPage() {
     const hash = dismissDialog.job?.hash;
     if (!hash) return;
     try {
-      await postJson("/api/jobs/dismiss", { hash, reasons });
+      const antwort = await postJson("/api/jobs/dismiss", { hash, reasons });
       // Die Stelle VOR dem Entfernen festhalten — der Rueckgaengig-Knopf
       // im Toast braucht sie noch, und aus der Liste ist sie dann weg.
       const dismissed = jobs.find((j) => String(j.hash) === String(hash));
@@ -866,8 +866,10 @@ export default function JobsPage() {
       // #1010: der Verklicker faellt in Sekunden auf, nicht in Tagen —
       // dort gehoert die Umkehr hin. Das Protokoll ist der zweite Weg,
       // fuer den Fall, dass der Toast schon weg ist.
-      pushToast("Stelle aussortiert.", "success", {
-        duration: 9000,
+      // #1095: ein ausgeloester Lerneffekt wird genannt, nicht verschwiegen
+      const gelernt = (antwort?.lerneffekt || []).join(" ");
+      pushToast(gelernt ? `Stelle aussortiert. ${gelernt}` : "Stelle aussortiert.", "success", {
+        duration: gelernt ? 14000 : 9000,
         action: {
           label: "Rückgängig",
           onClick: () => holeZurueck(dismissed || { hash }),
@@ -2453,8 +2455,12 @@ export default function JobsPage() {
               </Field>
               <div className="flex gap-2">
                 <Button variant="primary" onClick={async () => {
-                  await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
-                  pushToast("Stelle aktualisiert", "success");
+                  const antwort = await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
+                  // #1095: sagen, dass neu gerechnet wurde — und was mit der Entfernung ist
+                  const teile = ["Stelle aktualisiert."];
+                  if (antwort?.score) teile.push("Punkte neu berechnet.");
+                  if (antwort?.entfernung_hinweis) teile.push(antwort.entfernung_hinweis);
+                  pushToast(teile.join(" "), "success", { duration: teile.length > 1 ? 10000 : 5000 });
                   setDetailDialog({ open: false, job: null, editing: false });
                   loadPage({ silent: true });
                 }}>Speichern</Button>

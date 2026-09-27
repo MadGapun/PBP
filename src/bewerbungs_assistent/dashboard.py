@@ -2713,17 +2713,23 @@ def _guete_anreichern(jobs: list) -> None:
 
 @app.post("/api/jobs/dismiss")
 async def api_dismiss_job(request: Request):
+    """Sortiert eine Stelle aus — ueber denselben Dienst wie
+    `stelle_einordnen` (#1095): Zaehler, Lerneffekt (#908) und Hinweise.
+    Die Hinweise kommen mit, damit die Oberflaeche einen ausgeloesten
+    Lerneffekt nennen kann."""
+    from .services import aussortieren as _aus
     data = await request.json()
-    reasons = data.get("reasons", [])
-    reason_str = data.get("reason", "")
-    # Support both single reason (legacy) and multi-select reasons (#108, #120)
-    if reasons:
-        reason_str = json.dumps(reasons, ensure_ascii=False)
-        _db.increment_dismiss_reason_usage(reasons)
-    elif not reason_str:
+    # Einzelgrund (alt) oder Mehrfachauswahl (#108, #120)
+    reasons = [str(r) for r in (data.get("reasons") or []) if str(r).strip()]
+    if not reasons and str(data.get("reason") or "").strip():
+        reasons = [str(data["reason"]).strip()]
+    if not reasons:
         return JSONResponse({"error": "Mindestens ein Ablehnungsgrund ist erforderlich"}, status_code=400)
-    _db.dismiss_job(data["hash"], reason_str)
-    return {"status": "ok"}
+    if not _db.get_job(str(data.get("hash") or "")):
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    erg = _aus.aussortieren(_db, data["hash"], reasons)
+    return {"status": "ok", "lerneffekt": erg["lerneffekt_text"],
+            "hinweise": erg["hints"]}
 
 
 @app.get("/api/jobs/auto-dismissed")
@@ -2775,7 +2781,8 @@ async def api_restore_job(request: Request):
             })
     except Exception:
         logger.debug("Lernsignal fuer %s nicht protokolliert", data.get("hash"))
-    _db.restore_job(data["hash"])
+    if not _db.restore_job(str(data.get("hash") or "")):
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -5025,10 +5032,25 @@ async def api_toggle_job_pin(job_hash: str):
 
 @app.put("/api/jobs/{job_hash}")
 async def api_update_job(job_hash: str, request: Request):
-    """Update editable fields of a job (#90)."""
+    """Titel, Firma, Ort, Beschreibung oder Link einer Stelle aendern (#90).
+
+    #1095: ueber denselben Dienst wie `stelle_bearbeiten` — danach stimmen
+    Punkte und Faktoren mit der neuen Beschreibung, und ein neuer Ort
+    bekommt eine neue Entfernung."""
+    from .services import stelle_aendern as _aendern
     data = await request.json()
-    _db.update_job(job_hash, data)
-    return {"status": "ok"}
+    erg = _aendern.aendern(_db, job_hash, data or {})
+    if not erg["ok"]:
+        if erg["grund"] == "leer":
+            return {"status": "unveraendert"}
+        code = 404 if erg["grund"] == "nicht_gefunden" else 400
+        return JSONResponse({"error": erg["fehler"]}, status_code=code)
+    antwort = {"status": "ok", "geaendert": sorted(k for k in erg["updates"] if k != "is_search_url")}
+    if erg.get("score_neu_berechnet"):
+        antwort["score"] = erg["score_neu_berechnet"]
+    if erg.get("entfernung_text"):
+        antwort["entfernung_hinweis"] = erg["entfernung_text"]
+    return antwort
 
 
 # v1.7.0-beta.44 (#622): Beschreibung von URL nachladen (Layer B)
