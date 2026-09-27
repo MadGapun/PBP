@@ -2000,6 +2000,13 @@ def register(mcp, db, logger):
             return {"fehler": "Bewerbung nicht gefunden. Prüfe die ID mit bewerbungen_anzeigen()."}
         if not datum:
             return {"fehler": "Datum ist ein Pflichtfeld."}
+        # #1102: eine Form fuer alle Termine — vor der Dublettenpruefung,
+        # damit sie dieselbe Zeit vergleicht, die gespeichert wird.
+        from ..services import termin_zeit as _termin_zeit
+        try:
+            datum = _termin_zeit.normalisieren(datum)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
         if wenn_dublette not in ("melden", "zusammenfuehren", "trotzdem_neu"):
             return {"fehler": "wenn_dublette muss 'melden', 'zusammenfuehren' "
                               "oder 'trotzdem_neu' sein."}
@@ -2274,7 +2281,12 @@ def register(mcp, db, logger):
         if titel:
             updates["title"] = titel
         if datum:
-            updates["meeting_date"] = datum
+            # #1102: Unlesbares wird benannt, nicht gespeichert.
+            from ..services import termin_zeit as _termin_zeit
+            try:
+                updates["meeting_date"] = _termin_zeit.normalisieren(datum)
+            except ValueError as exc:
+                return {"fehler": str(exc)}
         if ort:
             updates["location"] = ort
         if platform:
