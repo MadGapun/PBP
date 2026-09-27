@@ -1503,7 +1503,7 @@ def register(mcp, db, logger):
         nationality: str = "",
         summary: str = "",
         informal_notes: str = "",
-        stellentyp: str = "beides",
+        stellentyp: str = "",
         arbeitsmodell: str = "hybrid",
         min_gehalt: int = 0,
         ziel_gehalt: int = 0,
@@ -1529,7 +1529,7 @@ def register(mcp, db, logger):
             nationality: Staatsangehörigkeit
             summary: Kurzprofil / Zusammenfassung
             informal_notes: Zwanglose Informationen (Neigungen, Motivation, Wünsche)
-            stellentyp: festanstellung, freelance, oder beides
+            stellentyp: festanstellung, freelance, oder beides (leer lassen, solange der Mensch es nicht gesagt hat)
             arbeitsmodell: remote, hybrid, vor_ort
             min_gehalt: Mindestgehalt Festanstellung (EUR/Jahr)
             ziel_gehalt: Zielgehalt Festanstellung (EUR/Jahr)
@@ -1539,7 +1539,10 @@ def register(mcp, db, logger):
             umzug_moeglich: Umzugsbereitschaft
         """
         preferences = {
-            "stellentyp": stellentyp,
+            # #1108: nur eine Antwort wird geschrieben — die Vorgabe
+            # "beides" machte die Praeferenzen vor der ersten Frage
+            # "erledigt".
+            **({"stellentyp": stellentyp} if stellentyp else {}),
             "arbeitsmodell": arbeitsmodell,
             "min_gehalt": min_gehalt,
             "ziel_gehalt": ziel_gehalt,
@@ -1597,7 +1600,7 @@ def register(mcp, db, logger):
             if isinstance(existing_prefs, str):
                 existing_prefs = json.loads(existing_prefs) if existing_prefs else {}
             _PREF_DEFAULTS = {
-                "stellentyp": "beides", "arbeitsmodell": "hybrid",
+                "stellentyp": "", "arbeitsmodell": "hybrid",
                 "min_gehalt": 0, "ziel_gehalt": 0,
                 "min_tagessatz": 0, "ziel_tagessatz": 0,
                 "reisebereitschaft": "mittel", "umzug_moeglich": False,
@@ -2101,18 +2104,11 @@ def register(mcp, db, logger):
 
         # Automatisch berechnen was schon da ist
         fortschritt = profile.get("erfassung_fortschritt", {})
-        prefs = get_profile_preferences(profile)
-        auto_check = {
-            "persoenliche_daten": bool(profile.get("name") and profile.get("email")),
-            "berufserfahrung": len(profile.get("positions", [])) > 0,
-            "ausbildung": len(profile.get("education", [])) > 0,
-            "kompetenzen": len(profile.get("skills", [])) > 0,
-            "praeferenzen": bool(prefs.get("stellentyp")),
-            "review_abgeschlossen": fortschritt.get("review_abgeschlossen", False),
-        }
         # H30 (#1087 G9): die Anleitung fuer den naechsten Schritt kommt
         # mit dieser Antwort, nicht vorab im Prompt.
+        # #1108: dieselbe Regel wie ueberall (vorher eine dritte Fassung).
         from ..services import ersterfassung_phasen as _phasen
+        auto_check = _phasen.stand(profile, fortschritt)
         phase, anleitung = _phasen.anleitung(auto_check)
         return {
             "status": "ok",
@@ -2137,10 +2133,17 @@ def register(mcp, db, logger):
         So kann die Ersterfassung jederzeit unterbrochen und später fortgesetzt werden.
 
         Args:
-            bereich: Name des Bereichs (persönliche_daten, berufserfahrung, ausbildung, kompetenzen, präferenzen, review_abgeschlossen)
+            bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen). Hat der Mensch keine Berufserfahrung oder keine Ausbildung, bestätige den Bereich mit abgeschlossen=True — dann gilt er als erledigt.
             abgeschlossen: Ob der Bereich fertig ist
             notizen: Optionale Notizen zum Fortschritt
         """
+        from ..services import ersterfassung_phasen as _phasen
+        schluessel = _phasen.bereich_schluessel(bereich)
+        if not schluessel:
+            # #1108: ein unbekannter Bereich wurde still gespeichert und nie gelesen.
+            return {"fehler": f"Unbekannter Bereich '{bereich}'.",
+                    "moegliche_bereiche": list(_phasen.BEREICHE)}
+        bereich = schluessel
         fortschritt = db.get_erfassung_fortschritt()
         fortschritt[bereich] = abgeschlossen
         if notizen:
