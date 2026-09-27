@@ -2948,10 +2948,11 @@ def register(mcp, db, logger):
             from ..duplicate_detection import find_repost_of_application
             wiedergaenger_bewerbung = find_repost_of_application(
                 {"hash": job_hash, "title": titel, "company": firma},
-                [a for a in all_apps
-                 if (a.get("status") or "") in TERMINAL_STATUSES], db=db)
+                [a for a in all_apps if not _laeuft(a.get("status"))], db=db)
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
-            logger.debug("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
+            # Sichtbar statt debug: hier verschwand ein NameError still,
+            # und mit ihm der Hinweis auf eine abgelehnte Bewerbung.
+            logger.warning("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
 
         # Stufe D — v1.7.126 (#1076): dieselbe Vakanz auf zwei Wegen, die
         # A und B nicht sehen. Ein Repost unter NEUEM Titel (verglichen wird
