@@ -6712,108 +6712,51 @@ async def api_ingest_email(request: Request, file: UploadFile = File(...)):
 
 @app.post("/api/jobsuche/start")
 async def api_jobsuche_start(payload: dict = Body(default={})):
-    """Startet eine Jobsuche direkt aus dem Dashboard (#461).
+    """Startet die interne Jobsuche aus dem Dashboard (#461).
 
-    Spiegelt die Logik des MCP-Tools `jobsuche_starten` — manuelle
-    Quellen werden rausgefiltert, laufende Jobs verhindern Doppel-
-    Starts, der eigentliche Scrape laeuft im Thread.
-    """
-    import threading
-    from .tools.jobs import _MANUAL_SOURCES
-
-    keywords = payload.get("keywords") or None
-    quellen = payload.get("quellen") or []
-
-    if not quellen:
-        from .services.search_service import aktive_quellen
-        quellen = aktive_quellen(_db) or []
-    if not quellen:
-        return JSONResponse(
-            {
-                "status": "keine_quellen",
-                "nachricht": (
-                    "Keine Jobb\u00f6rse ausgew\u00e4hlt. W\u00e4hle Jobb\u00f6rsen unter "
-                    "Einstellungen \u203a Quellen."
-                ),
-            },
-            status_code=400,
-        )
-
-    manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
-    auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
-    manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
-
-    if not auto_quellen:
-        return JSONResponse(
-            {
-                "status": "nur_manuelle_quellen",
-                "manuelle_quellen": manuelle_info,
-                "nachricht": (
-                    "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
-                    "oder sind deprecated \u2014 hier gibt es nichts zu automatisieren."
-                ),
-            },
-            status_code=400,
-        )
-
-    existing = _db.get_running_background_job("jobsuche")
-    if existing:
-        return {
-            "status": "laeuft_bereits",
-            "job_id": existing["id"],
-            "nachricht": "Eine Jobsuche läuft bereits.",
-        }
-
-    # #1000: die beiden Felder wurden aus dem Payload gelesen, in
-    # die Job-Parameter geschrieben und von run_search nie wieder
-    # angesehen. Sie sind entfallen.
-    params = {
-        "keywords": keywords,
-        "quellen": auto_quellen,
-        # v1.7.114 (#1049): was der interne Lauf uebersprungen hat. Ohne
-        # diese Angabe meldete die Bilanz "14 Quellen ok", waehrend sechs
-        # gewaehlte Quellen gar nicht mitliefen (#813, #989).
-        "browser_quellen": manuelle,
-    }
-    job_id = _db.create_background_job("jobsuche", params)
-
-    def _run_search():
-        try:
-            from .job_scraper import run_search
-            run_search(_db, job_id, params)
-            # #1092 AK 5: derselbe Schritt wie nach `jobsuche_starten` —
-            # vorher sortierte nur der Weg ueber Claude aus.
-            from .services import auto_aussortierung
-            auto_aussortierung.nach_suche(_db, job_id)
-        except Exception as exc:
-            logger.error("Jobsuche (Dashboard) fehlgeschlagen: %s", exc, exc_info=True)
-            _db.update_background_job(job_id, "fehler", message=str(exc))
-
-    thread = threading.Thread(target=_run_search, daemon=True)
-    thread.start()
-
-    def _timeout_watchdog():
-        thread.join(timeout=600)
-        if thread.is_alive():
-            logger.warning("Jobsuche (Dashboard) Timeout nach 10min (Job %s)", job_id)
-            _db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
-
-    threading.Thread(target=_timeout_watchdog, daemon=True).start()
+    #1096: derselbe Startweg wie `jobsuche_starten` und die Automatik
+    (services/jobsuche_start) — mit Suchbegriff-Pruefung, #906-Warnung,
+    Browser-Quellen im Lauf-Hinweis, Watchdog und Nachlauf."""
+    from .services import jobsuche_start
+    erg = jobsuche_start.starten(_db, quellen=payload.get("quellen") or [],
+                                 keywords=payload.get("keywords") or None,
+                                 herkunft="dashboard")
+    status = erg["status"]
+    if status == "keine_quellen":
+        return JSONResponse({"status": status, "nachricht": (
+            "Keine Jobbörse ausgewählt. Wähle Jobbörsen unter "
+            "Einstellungen › Quellen.")}, status_code=400)
+    if status == "keine_suchbegriffe":
+        return JSONResponse({"status": status, "nachricht": (
+            "Noch keine Suchbegriffe — ohne sie würde PBP mit allgemeinen "
+            "Begriffen suchen. Lege sie unter Profil › Suche & Bewertung fest "
+            "oder bitte Claude: „Hilf mir, meine Suchbegriffe festzulegen“.")},
+            status_code=400)
+    if status == "nur_manuelle_quellen":
+        return JSONResponse({"status": status,
+                             "manuelle_quellen": erg["manuelle_quellen"],
+                             "nachricht": (
+            "Alle ausgewählten Quellen laufen nur über den Browser mit Claude "
+            "— hier gibt es nichts, was PBP selbst abfragen kann.")}, status_code=400)
+    if status == "laeuft_bereits":
+        return {"status": status, "job_id": erg["job_id"],
+                "nachricht": "Eine Jobsuche läuft bereits."}
 
     # v1.7.0-beta.40 (#609): Elwosa kommentiert den Suchstart
-    _elwosa_speak_safe("llm_task_running", ctx={"count": len(auto_quellen)})
-
+    _elwosa_speak_safe("llm_task_running", ctx={"count": len(erg["quellen"])})
     result = {
         "status": "gestartet",
-        "job_id": job_id,
-        "quellen": auto_quellen,
+        "job_id": erg["job_id"],
+        "quellen": erg["quellen"],
         "nachricht": (
-            f"Jobsuche läuft auf {len(auto_quellen)} Portalen. "
+            f"Jobsuche läuft auf {len(erg['quellen'])} Portalen. "
             "Fortschritt in der Sidebar-Statusanzeige."
         ),
     }
-    if manuelle_info:
-        result["manuelle_quellen"] = manuelle_info
+    if erg["manuelle_quellen"]:
+        result["manuelle_quellen"] = erg["manuelle_quellen"]
+    if erg["stellentyp_ohne_quelle"]:
+        result["stellentyp_ohne_quelle"] = erg["stellentyp_ohne_quelle"]
     return result
 
 
@@ -6910,6 +6853,9 @@ async def api_jobsuche_last():
     # Job-Parametern, nicht im Ergebnis — der Lauf fasst sie nie an.
     params = job.get("params") if isinstance(job.get("params"), dict) else {}
     zaehler["nur_browser"] = len(params.get("browser_quellen") or [])
+    # #1096: Stellenarten, fuer die in diesem Lauf keine Quelle lief (#906)
+    ohne_quelle = [b.get("stellentyp") for b in (params.get("stellentyp_ohne_quelle") or [])
+                   if isinstance(b, dict) and b.get("stellentyp")]
 
     neue = _zahl(result.get("total"))
     return {
@@ -6927,6 +6873,7 @@ async def api_jobsuche_last():
             if ergebnis == "fertig" else None,
         "quellen": zaehler,
         "timeout_quellen": zaehler["timeout"],
+        "stellentyp_ohne_quelle": ohne_quelle,
         "meldung": job.get("message") or "",
         "updated_at": job.get("updated_at"),
     }
@@ -11234,7 +11181,7 @@ async def api_automatik_run_now(request: Request):
             _db.mark_automatik_run("lernen")
     elif kind == "jobsuche":
         res = run_jobsuche_now(_db)
-        if res.get("status") in ("gestartet", "keine_internen_quellen"):
+        if res.get("status") in ("gestartet", "keine_internen_quellen", "keine_suchbegriffe"):
             _db.mark_automatik_run("jobsuche")
     else:
         return JSONResponse(

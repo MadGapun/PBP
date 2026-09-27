@@ -12,7 +12,8 @@ function withJsonHeaders(options = {}) {
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
   if (typeof data === "string") return data;
-  return data.error || data.fehler || data.message || fallback;
+  // #1096: manche Endpunkte antworten mit `nachricht` (sonst stand nur "HTTP 400" da)
+  return data.error || data.fehler || data.message || data.nachricht || fallback;
 }
 
 function normalizeBaseUrl(baseUrl = "") {
