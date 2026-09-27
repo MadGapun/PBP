@@ -353,13 +353,20 @@ def _condition_auto_aussortieren_aus(db) -> bool:
 
 
 def _condition_standort_fehlt(db) -> bool:
-    """#1090: ein Profil, aber kein aufgeloester Standort — PBP rechnet
-    dann keine einzige Entfernung, und das sagte bisher nichts."""
+    """#1090: kein aufgeloester Standort, aber Stellen mit Ort — PBP
+    rechnet dann keine Entfernung, und das sagte bisher nichts. Bei einem
+    frischen Profil ohne Stellen bleibt es beim naechsten Schritt (#652)."""
     try:
-        if not db.get_profile():
+        pid = db.get_active_profile_id()
+        if not pid:
             return False
         from .eigener_standort import befund
-        return not befund(db)["aufgeloest"]
+        if befund(db)["aufgeloest"]:
+            return False
+        return db.connect().execute(
+            "SELECT 1 FROM jobs WHERE is_active=1 AND profile_id=? "
+            "AND location IS NOT NULL AND TRIM(location) != '' LIMIT 1",
+            (pid,)).fetchone() is not None
     except Exception:
         return False
 
