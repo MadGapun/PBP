@@ -517,7 +517,8 @@ def register(mcp, db, logger):
         wird damit korrekt.
 
         Args:
-            event_id: ID des Events (siehe `bewerbung_details` -> events)
+            event_id: ID des Events (steht in `bewerbung_details` unter
+                `timeline` als `event_id`)
             neues_datum: YYYY-MM-DD oder DD.MM.YYYY oder ISO-Timestamp
             bewerbung_id: Optional — Cross-Profile-Schutz (wenn gesetzt, muss
                 der Event zur angegebenen Bewerbung gehören)
@@ -1359,6 +1360,9 @@ def register(mcp, db, logger):
         if app.get("events"):
             result["timeline"] = [
                 {
+                    # Ohne die ID liess sich ein Datum nicht korrigieren
+                    # (bewerbung_event_datum_setzen verweist hierher).
+                    "event_id": e.get("id"),
                     "datum": e.get("event_date", ""),
                     "status": e.get("status", ""),
                     "notiz": e.get("notes", ""),
