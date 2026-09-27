@@ -226,8 +226,10 @@ def bestand_pruefen(db, *, max_stellen: int = 0) -> dict:
     try:
         zeilen = [dict(r) for r in db.connect().execute(
             "SELECT hash, title, company, url, source, is_active "
-            "FROM jobs WHERE company IS NOT NULL AND TRIM(company) != ''"
-        ).fetchall()]
+            "FROM jobs WHERE company IS NOT NULL AND TRIM(company) != '' "
+            # #1106-Klasse: Dubletten gibt es nur innerhalb eines Profils.
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)).fetchall()]
     except Exception as exc:  # pragma: no cover
         logger.debug("Bestand nicht lesbar: %s", exc)
         return {"status": "fehler", "fehler": str(exc)[:200]}

@@ -227,9 +227,12 @@ def register(mcp, db, logger):
         # Kurz-IDs aufloesen
         if len(kraw) <= 8:
             conn = db.connect()
+            # #1106-Klasse: eine Kurz-ID trifft nur Kontakte des aktiven
+            # Profils — sonst liesse sich ein fremder Kontakt verknuepfen.
             row = conn.execute(
-                "SELECT id FROM contacts WHERE id LIKE ? LIMIT 1",
-                (f"{kraw}%",)
+                "SELECT id FROM contacts WHERE id LIKE ? "
+                "AND (profile_id=? OR profile_id IS NULL) LIMIT 1",
+                (f"{kraw}%", db.get_active_profile_id())
             ).fetchone()
             if not row:
                 return {"fehler": "Kontakt nicht gefunden."}
