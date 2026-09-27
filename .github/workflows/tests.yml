@@ -13,6 +13,21 @@ on:
   workflow_dispatch:
 
 jobs:
+  syntax-py311:
+    # pyproject verspricht Python >= 3.11, der Hauptjob laeuft mit 3.13.
+    # Ab 3.12 erlaubte Syntax (PEP 701: Backslash im f-String-Ausdruck)
+    # faellt nur mit einem echten 3.11 auf — so lief einmal ein Dashboard,
+    # das unter 3.11 gar nicht startete. Nur Kompilieren, kein Install.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Quellen mit Python 3.11 kompilieren
+        run: python -m compileall -q src scripts
+
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 30

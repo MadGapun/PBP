@@ -1923,7 +1923,13 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
         contact_partner = app_data.get("ansprechpartner") or ""
         contact_email = app_data.get("kontakt_email") or ""
         if contact_partner or contact_email:
-            job_html += f"<dt>Ansprechpartner</dt><dd>{_esc(contact_partner)}{' — <a href=\"mailto:' + _esc(contact_email) + '\">' + _esc(contact_email) + '</a>' if contact_email else ''}</dd>"
+            # Ohne Backslash im f-String-Ausdruck: der ist erst ab Python 3.12
+            # erlaubt, und unter 3.11 startete das Dashboard sonst gar nicht.
+            mail_link = (
+                f' — <a href="mailto:{_esc(contact_email)}">{_esc(contact_email)}</a>'
+                if contact_email else ""
+            )
+            job_html += f"<dt>Ansprechpartner</dt><dd>{_esc(contact_partner)}{mail_link}</dd>"
         if app_data.get("bewerbungsart"):
             job_html += f"<dt>Bewerbungsart</dt><dd>{_esc(app_data['bewerbungsart'])}</dd>"
         if app_data.get("lebenslauf_variante"):
