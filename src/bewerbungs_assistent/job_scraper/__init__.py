@@ -2057,6 +2057,18 @@ def run_search(db, job_id: str, params: dict):
     except Exception as _exc:
         logger.debug("Entfernungen nicht nachgeholt: %s", _exc)
 
+    # #1038 Punkt 4: Treffer, die den Filter passiert haben und keinen
+    # Anzeigentext tragen — genau diese laedt text_nachzug danach im
+    # Hintergrund nach. Verworfene Treffer loesen keinen Abruf aus (#1057).
+    try:
+        from ..services.datenguete import MIN_BESCHREIBUNG as _min_text
+        result_data["ohne_anzeigentext"] = [
+            j["hash"] for j in unique
+            if j.get("hash") and j.get("url") and not j.get("is_search_url")
+            and len((j.get("description") or "").strip()) < _min_text]
+    except Exception as _exc:  # pragma: no cover
+        logger.debug("Treffer ohne Text nicht gemerkt: %s", _exc)
+
     db.update_background_job(
         job_id, "fertig", progress=100,
         message=" | ".join(msg_parts),

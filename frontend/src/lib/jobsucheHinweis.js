@@ -22,6 +22,17 @@ export function volltextText(ohne, gesamt) {
   return `${ohne}${von} ohne Volltext — PBP lädt ihn nach, die Bewertung folgt`;
 }
 
+/** #1038: "12 Anzeigentexte nachgeladen, 3 folgen mit der Automatik". */
+export function nachgeladenText(nachgeladen) {
+  if (!nachgeladen) return "";
+  const geholt = Number(nachgeladen.geholt) || 0;
+  const offen = Number(nachgeladen.offen) || 0;
+  const teile = [];
+  if (geholt) teile.push(`${geholt} ${geholt === 1 ? "Anzeigentext" : "Anzeigentexte"} nachgeladen`);
+  if (offen) teile.push(`${offen} folgen mit der Automatik`);
+  return teile.join(", ");
+}
+
 export function jobsucheHinweis(last) {
   if (!last || !last.vorhanden) return null;
 
@@ -84,6 +95,8 @@ export function jobsucheHinweis(last) {
   // durch das Nachladen. Das steht jetzt im Hinweis selbst.
   const ohne = typeof last.ohne_volltext === "number" ? last.ohne_volltext : 0;
   if (ohne > 0) teile.push(volltextText(ohne, neue));
+  const nach = nachgeladenText(last.nachgeladen);
+  if (nach) teile.push(nach);
   if (aktiv !== null && aktiv !== neue) {
     teile.push(`${aktiv} davon in der Liste, ${neue - aktiv} sofort ausgeblendet`);
   }
