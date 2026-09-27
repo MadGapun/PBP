@@ -2295,27 +2295,52 @@ def register(mcp, db, logger):
     _veraltet(mcp, "jobtitel_vorschlagen", jobtitel_speichern, "jobtitel_speichern")
 
     @mcp.tool()
-    def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:
-        """Verwaltet einen vorgeschlagenen Jobtitel (ändern, löschen, deaktivieren).
+    def jobtitel_verwalten(titel_id: str = "", aktion: str = "loeschen", neuer_titel: str = "") -> dict:
+        """Verwaltet die gespeicherten Jobtitel (anzeigen, ändern, löschen, deaktivieren).
+
+        Mit `aktion='anzeigen'` kommen alle Titel samt ID. Statt der ID
+        genügt auch der Titeltext, genau wie er gespeichert ist.
 
         Args:
-            titel_id: ID des Jobtitels
-            aktion: 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
+            titel_id: ID des Jobtitels oder der Titeltext
+            aktion: 'anzeigen', 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
             neuer_titel: Neuer Titeltext (nur bei aktion='aendern')
         """
+        pid = db.get_active_profile_id()
+        titel = db.get_suggested_job_titles(pid)
+        if aktion == "anzeigen":
+            return {"titel": [{"id": t["id"], "titel": t["title"],
+                               "aktiv": bool(t.get("is_active", 1)),
+                               "quelle": t.get("source")} for t in titel],
+                    "anzahl": len(titel)}
+        if aktion not in ("loeschen", "aendern", "deaktivieren", "aktivieren"):
+            return {"fehler": f"Unbekannte Aktion: {aktion}",
+                    "moegliche_aktionen": ["anzeigen", "loeschen", "aendern",
+                                           "deaktivieren", "aktivieren"]}
+        # Bis hierher gab kein Werkzeug die IDs heraus, und eine unbekannte
+        # ID meldete trotzdem Erfolg (#997-Klasse). Jetzt: ID oder Text,
+        # und "nicht gefunden", wenn es den Titel in diesem Profil nicht gibt.
+        wunsch = (titel_id or "").strip()
+        treffer = next((t for t in titel if t["id"] == wunsch), None) or next(
+            (t for t in titel if (t["title"] or "").strip().lower() == wunsch.lower()), None)
+        if not treffer:
+            return {"status": "nicht_gefunden",
+                    "fehler": f"Keinen Jobtitel '{wunsch}' in diesem Profil gefunden.",
+                    "naechster_schritt": "jobtitel_verwalten(aktion='anzeigen') nennt alle Titel mit ID."}
+        tid = treffer["id"]
         if aktion == "loeschen":
-            db.delete_job_title(titel_id)
-            return {"status": "geloescht"}
-        elif aktion == "aendern" and neuer_titel:
-            db.update_job_title(titel_id, {"title": neuer_titel})
-            return {"status": "geaendert", "titel": neuer_titel}
-        elif aktion == "deaktivieren":
-            db.update_job_title(titel_id, {"is_active": 0})
-            return {"status": "deaktiviert"}
-        elif aktion == "aktivieren":
-            db.update_job_title(titel_id, {"is_active": 1})
-            return {"status": "aktiviert"}
-        return {"fehler": f"Unbekannte Aktion: {aktion}"}
+            ok = db.delete_job_title(tid, profile_id=pid)
+            return {"status": "geloescht" if ok else "nicht_gefunden", "titel": treffer["title"]}
+        if aktion == "aendern":
+            if not (neuer_titel or "").strip():
+                return {"fehler": "neuer_titel fehlt."}
+            ok = db.update_job_title(tid, {"title": neuer_titel.strip()}, profile_id=pid)
+            return {"status": "geaendert" if ok else "nicht_gefunden",
+                    "vorher": treffer["title"], "titel": neuer_titel.strip()}
+        ok = db.update_job_title(tid, {"is_active": 0 if aktion == "deaktivieren" else 1},
+                                 profile_id=pid)
+        return {"status": ("deaktiviert" if aktion == "deaktivieren" else "aktiviert")
+                if ok else "nicht_gefunden", "titel": treffer["title"]}
 
     # --- Datenbereiche loeschen (#1025) ---
 
