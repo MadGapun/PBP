@@ -7512,9 +7512,16 @@ class Database:
         conn.commit()
         return jid
 
+    #: #1107: die Status, die ein Hintergrund-Job tragen kann. Wer etwas
+    #: anderes schreibt, ist fuer `get_running_background_job` und die
+    #: Bereinigung beim Start unsichtbar — so lief der Lernlauf doppelt.
+    BACKGROUND_JOB_STATUS = ("pending", "running", "fertig", "fehler", "abgebrochen")
+
     def update_background_job(self, job_id: str, status: str,
                                progress: int = 0, message: str = "",
                                result: dict = None):
+        if status not in self.BACKGROUND_JOB_STATUS:
+            raise ValueError(f"Unbekannter Job-Status {status!r} (#1107)")
         conn = self.connect()
         conn.execute("""
             UPDATE background_jobs SET status=?, progress=?, message=?,
@@ -7526,6 +7533,19 @@ class Database:
             _now(), job_id
         ))
         conn.commit()
+
+    def unterbrochene_jobs_abbrechen(self) -> int:
+        """Beim Start: was noch als laufend markiert ist, lief beim letzten
+        Beenden und laeuft jetzt nicht mehr (#303). #1107: dazu das alte
+        'laeuft', das bis v1.7.139 nur der Lernlauf schrieb."""
+        conn = self.connect()
+        n = conn.execute(
+            "UPDATE background_jobs SET status='abgebrochen', "
+            "message='Server-Neustart: Job war noch als laufend markiert', "
+            "updated_at=? WHERE status IN ('running', 'pending', 'laeuft')",
+            (_now(),)).rowcount
+        conn.commit()
+        return n
 
     def get_background_job(self, job_id: str) -> Optional[dict]:
         conn = self.connect()

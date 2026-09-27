@@ -11002,7 +11002,9 @@ async def api_automatik_run_now(request: Request):
     from .services.automatik_scheduler import run_lernen_now, run_jobsuche_now
     if kind == "lernen":
         res = run_lernen_now(_db)
-        _db.mark_automatik_run("lernen")
+        # #1107: "laeuft_bereits" ist kein neuer Lauf.
+        if res.get("status") == "gestartet":
+            _db.mark_automatik_run("lernen")
     elif kind == "jobsuche":
         res = run_jobsuche_now(_db)
         if res.get("status") in ("gestartet", "keine_internen_quellen"):
@@ -11889,7 +11891,8 @@ def _cleanup_stale_jobs(db):
         conn = db.connect()
         rows = conn.execute(
             "SELECT id, updated_at, created_at FROM background_jobs "
-            "WHERE status IN ('running', 'pending')"
+            # #1107: 'laeuft' schrieb bis v1.7.139 nur der Lernlauf.
+            "WHERE status IN ('running', 'pending', 'laeuft')"
         ).fetchall()
         now = datetime.now()
         cleaned = 0

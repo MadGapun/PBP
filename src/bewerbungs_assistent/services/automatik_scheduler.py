@@ -103,6 +103,13 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
     Stufe 1 laeuft zuerst, damit der Nutzer auch dann Erkenntnisse
     bekommt, wenn Stufe 2 uebersprungen wird oder scheitert.
     """
+    # #1107: die Automatik-Karte verspricht "läuft nur, wenn das Lernen
+    # unter Datenschutz eingeschaltet ist". Das gilt fuer BEIDE Stufen —
+    # bis v1.7.139 prueften nur die Muster den Schalter, die Regeln nicht.
+    if not db.is_learning_enabled():
+        return {"status": "lernen_aus",
+                "grund": "Das Lernen ist unter Datenschutz ausgeschaltet — "
+                         "es wird nichts abgeleitet und nichts gespeichert."}
     if db.get_running_background_job("lernen"):
         return {"status": "laeuft_bereits"}
     job_id = db.create_background_job("lernen", {"quelle": "automatik"})
@@ -110,7 +117,7 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
     def _run():
         ergebnis: dict = {}
         try:
-            db.update_background_job(job_id, "laeuft", progress=10,
+            db.update_background_job(job_id, "running", progress=10,
                                      message="Regelbasierte Erkenntnisse")
             from ..services.lerninsights import kandidaten_ableiten, speichern
             from .. import __version__ as _v
@@ -125,7 +132,7 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
             ergebnis["regelbasiert_fehler"] = str(exc)
 
         try:
-            db.update_background_job(job_id, "laeuft", progress=60,
+            db.update_background_job(job_id, "running", progress=60,
                                      message="Pattern-Analyse (lokale KI)")
             from ..dashboard import _run_analyze_user_patterns
             ergebnis["pattern_analyse"] = _run_analyze_user_patterns(
@@ -185,8 +192,11 @@ def _tick(db) -> None:
     now = _utcnow()
     if _is_due(s["lernen_intervall_tage"], s["lernen_last_at"], now):
         logger.info("Automatik: Lern-Lauf faellig -> starte")
-        run_lernen_now(db)
-        db.mark_automatik_run("lernen")
+        res = run_lernen_now(db)
+        # #1107: nur ein gestarteter Lauf gilt als gelaufen. "lernen_aus"
+        # zaehlt mit, sonst versuchte es jeder Tick erneut.
+        if res.get("status") in ("gestartet", "lernen_aus"):
+            db.mark_automatik_run("lernen")
     if _is_due(s["jobsuche_intervall_tage"], s["jobsuche_last_at"], now):
         logger.info("Automatik: interne Jobsuche faellig -> starte")
         res = run_jobsuche_now(db)

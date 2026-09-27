@@ -1172,9 +1172,18 @@ function AutomatikSchedulerCard({ pushToast }) {
     try {
       const r = await postJson("/api/automatik/run-now", { kind });
       await reload();
-      let msg = "Angestossen.";
+      let msg = "Angestoßen.";
+      let ton = "success";
       if (kind === "lernen") {
-        msg = "Lern-Lauf angestossen.";
+        // #1107: sagen, was wirklich passiert ist.
+        if (r.status === "lernen_aus") {
+          msg = r.grund || "Das Lernen ist unter Datenschutz ausgeschaltet.";
+          ton = "sky";
+        } else if (r.status === "laeuft_bereits") {
+          msg = "Ein Lern-Lauf läuft bereits.";
+        } else {
+          msg = "Lern-Lauf angestoßen.";
+        }
       } else if (r.status === "gestartet") {
         msg = "Interne Jobsuche gestartet.";
       } else if (r.status === "keine_internen_quellen") {
@@ -1182,7 +1191,7 @@ function AutomatikSchedulerCard({ pushToast }) {
       } else if (r.status === "laeuft_bereits") {
         msg = "Eine Jobsuche läuft bereits.";
       }
-      pushToast(msg, "success");
+      pushToast(msg, ton);
     } catch (err) {
       pushToast(err?.message || "Lauf fehlgeschlagen.", "danger");
     } finally {

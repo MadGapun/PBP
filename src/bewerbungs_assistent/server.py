@@ -26,16 +26,11 @@ logger = logging.getLogger("bewerbungs_assistent")
 db = Database()
 db.initialize()
 
-# #303: Zombie-Background-Jobs bereinigen (status='running' von vorherigem Absturz)
+# #303: Zombie-Background-Jobs bereinigen (von vorherigem Absturz).
+# #1107: als Methode, damit sie pruefbar ist; sie kennt auch das alte
+# 'laeuft' des Lernlaufs.
 try:
-    conn = db.connect()
-    zombie_count = conn.execute(
-        "UPDATE background_jobs SET status='abgebrochen', "
-        "message='Server-Neustart: Job war noch als running markiert', "
-        "updated_at=datetime('now') "
-        "WHERE status IN ('running', 'pending')"
-    ).rowcount
-    conn.commit()
+    zombie_count = db.unterbrochene_jobs_abbrechen()
     if zombie_count:
         logger.info("Zombie-Jobs bereinigt: %d Jobs auf 'abgebrochen' gesetzt", zombie_count)
 except Exception as e:
