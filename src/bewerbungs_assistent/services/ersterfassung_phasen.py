@@ -32,6 +32,10 @@ Arbeite dich organisch durch, was fehlt; speichere sofort.
   aktion='anhang', ...).
 - Praeferenzen: Zielrollen, Festanstellung oder Freelance, Region,
   Remote, Reisebereitschaft, Umzug: profil_erstellen().
+- Wohnort mit PLZ: profil_erstellen(plz=..., city=...). Von dort rechnet
+  PBP die Entfernung zu jeder Stelle; fehlt er, gibt es keine. Soll von
+  einem anderen Ort aus gerechnet werden (Zweitwohnsitz, geplanter Umzug):
+  suchkriterien_setzen(standort='PLZ Ort').
 - Gehalt, Tages- und Stundensatz und die Entfernungsgrenze gehören in
   die Suchkriterien, nicht ins Profil: suchkriterien_setzen(min_gehalt=...,
   wunsch_gehalt=..., min_tagessatz=..., wunsch_tagessatz=...,

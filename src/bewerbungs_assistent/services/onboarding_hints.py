@@ -352,7 +352,33 @@ def _condition_auto_aussortieren_aus(db) -> bool:
         return False
 
 
+def _condition_standort_fehlt(db) -> bool:
+    """#1090: ein Profil, aber kein aufgeloester Standort — PBP rechnet
+    dann keine einzige Entfernung, und das sagte bisher nichts."""
+    try:
+        if not db.get_profile():
+            return False
+        from .eigener_standort import befund
+        return not befund(db)["aufgeloest"]
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        # #1090: ohne Standort keine Entfernung, und das war unsichtbar.
+        "id": "f1090_standort_fehlt",
+        "tab": "suche",
+        "title": "PBP weiß nicht, von wo aus es Entfernungen rechnen soll",
+        "body": (
+            "Ohne Standort bekommt keine Stelle eine Entfernung, und die "
+            "Nähe zählt nicht in die Punkte. Trage deinen Wohnort im Profil "
+            "ein oder setze unter „Standort“ einen eigenen Ort."
+        ),
+        "cta_label": "PBP: Standort in den Suchkriterien setzen",
+        "cta_tool": "suchkriterien_setzen",
+        "condition": _condition_standort_fehlt,
+    },
     {
         "id": "d47_notizen_an_die_bewerbung",
         "tab": "profil",

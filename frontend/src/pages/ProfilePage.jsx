@@ -24,6 +24,7 @@ import { api, apiUrl, deleteRequest, optionalApi, postJson, putJson } from "@/ap
 import { useApp } from "@/app-context";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import MitClaude from "@/components/MitClaude";
+import StandortKarte from "@/components/StandortKarte";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -1379,6 +1380,8 @@ export default function ProfilePage({ bereich = "profil" }) {
         </Card>
 
         </>)}
+
+        {zeigeSuche && <StandortKarte pushToast={pushToast} />}
 
         {zeigeSuche && (
         <Card id="suche-begriffe" className="rounded-2xl">

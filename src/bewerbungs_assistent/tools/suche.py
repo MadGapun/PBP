@@ -493,13 +493,17 @@ def register(mcp, db, logger):
         # Geocode user location (#167)
         geo_info = None
         if standort:
+            # #1090: ein ausdruecklich gesetzter Standort gewinnt vor dem
+            # Wohnort aus dem Profil; aendert er sich, werden die
+            # gespeicherten Entfernungen im Hintergrund neu gerechnet.
             try:
-                from ..services.geocoding_service import cache_user_coordinates
-                coords = cache_user_coordinates(db, standort)
-                if coords:
-                    geo_info = f"Standort '{standort}' geocoded: {coords[0]:.4f}, {coords[1]:.4f}"
+                from ..services import eigener_standort
+                erg = eigener_standort.eigenen_setzen(db, standort)
+                if erg.get("status") == "gesetzt":
+                    geo_info = (f"Standort '{standort}' gilt jetzt für Entfernungen; "
+                                "gespeicherte Entfernungen werden neu gerechnet.")
                 else:
-                    geo_info = f"Standort '{standort}' konnte nicht geocoded werden."
+                    geo_info = erg.get("hinweis") or f"Standort '{standort}' konnte nicht aufgelöst werden."
             except Exception as e:
                 geo_info = f"Geocoding fehlgeschlagen: {e}"
 
