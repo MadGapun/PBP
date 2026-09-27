@@ -204,10 +204,11 @@ def test_1065_der_sammelweg_verhaelt_sich_gleich(db):
 def test_1065_nur_eine_regel_fuer_dieselbe_frage():
     """Guard: `_detect_duplicate` hatte eine eigene Wortzaehlung. Eine
     zweite Fassung derselben Frage war die Ursache (#963)."""
-    quelle = (ROOT / "src/bewerbungs_assistent/tools/jobs.py").read_text(
+    # #1095: die Regel steht jetzt im Dienst services/aussortieren
+    quelle = (ROOT / "src/bewerbungs_assistent/services/aussortieren.py").read_text(
         encoding="utf-8-sig")
-    block = quelle[quelle.index("def _detect_duplicate"):]
-    block = block[:block.index("\n    def _normalize_dismiss_reason")]
+    block = quelle[quelle.index("def duplikat_finden"):]
+    block = block[:block.index("\ndef regler_anpassen")]
     assert "find_duplicate_job" in block
     assert "title_words" not in block
     assert "overlap" not in block

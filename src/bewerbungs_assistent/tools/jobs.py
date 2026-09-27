@@ -579,57 +579,9 @@ def register(mcp, db, logger):
     ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
 
     def _detect_duplicate(job_hash: str) -> dict | None:
-        """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert.
-
-        v1.7.122 (#1065): fragt `find_duplicate_job` — dieselbe Regel wie
-        die Anlage. Bis hierher stand hier eine EIGENE, vierte Fassung
-        (Firma als Teilstring, zwei gemeinsame Titelwoerter), und deshalb
-        antworteten Anlage und Aussortieren fuer dieselbe Stelle
-        verschieden: die Anlage sagte "angelegt", das Aussortieren
-        "duplikat_erkannt". Gemeldet mit zwei belegten Faellen.
-
-        Die gemeinsame Regel ist die schaerfere und die gepruefte (#670,
-        #951): sie kennt Rechtsform-Normalisierung, URL-Gleichheit und
-        eine Titel-Schwelle statt einer Wortzaehlung.
-        """
-        job = db.get_job(job_hash)
-        if not job:
-            return None
-        titel = job.get("title") or ""
-        firma = job.get("company") or ""
-        if not titel or not firma:
-            return None
-        from ..duplicate_detection import find_duplicate_job
-        url = job.get("url") or ""
-
-        treffer = find_duplicate_job(firma, titel, url, db.get_applications())
-        if treffer:
-            app = treffer["job"]
-            return {
-                "typ": "bewerbung",
-                "id": (app.get("id") or "")[:8],
-                "titel": app.get("title"),
-                "firma": app.get("company"),
-                "status": app.get("status"),
-                "grund": treffer.get("grund"),
-            }
-
-        eigener = job.get("hash") or ""
-        treffer = find_duplicate_job(
-            firma, titel, url,
-            [d for d in db.get_dismissed_jobs()
-             if (d.get("hash") or "") != eigener])
-        if treffer:
-            dj = treffer["job"]
-            return {
-                "typ": "aussortierte_stelle",
-                "hash": _kurz(dj["hash"]),
-                "titel": dj.get("title"),
-                "firma": dj.get("company"),
-                "grund": dj.get("dismiss_reason"),
-                "match_grund": treffer.get("grund"),
-            }
-        return None
+        """#1095: die Regel steht in services/aussortieren.duplikat_finden."""
+        from ..services import aussortieren as _aus
+        return _aus.duplikat_finden(db, job_hash)
 
     def _normalize_dismiss_reason(reason: str) -> str:
         """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158).
@@ -652,192 +604,19 @@ def register(mcp, db, logger):
             return set()
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
-        """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern.
-
-        Bug #269: Seed-Daten haben profile_id='', daher muss mit
-        (profile_id=? OR profile_id='') gesucht werden.
-        """
-        # v1.7.17 (#917/#908): Die Automatik setzt KEIN ignore_flag mehr —
-        # "schaerfer statt aus". Der Nutzer wollte Stellenarten abgewertet,
-        # nicht ausgeblendet (Recall vor Praezision); die Flags waren zudem
-        # ueber MCP nicht zuruecknehmbar (#917 Defekt A). Jeder Grund traegt
-        # (dimension, sub_key, start_malus, max_malus).
-        #
-        # Entfernung (#917 Defekt C): Ziel-Stufe ist '999' — die Brackets
-        # sind OBERGRENZEN ("Malus fuer Stellen BIS X km"). Der alte
-        # Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50
-        # und bestrafte damit Stellen ZWISCHEN 30 und 50 km — genau den
-        # Bereich, den der Nutzer will. Der Lerneffekt war invertiert.
-        #
-        # zu_junior ist BEWUSST raus (#908 Befund 4): es mappte auf
-        # stellentyp/praktikum — ausgeloest aber von Festanstellungen
-        # ("mind. 2 Jahre Erfahrung"), die der Hebel nie erreicht.
-        # Senioritaet ist keine Stellenart; der Weg sind MINUS-Keywords
-        # (Hint unten in _apply_dismiss_with_lifecycle).
-        LEARN_MAP = {
-            "zu_weit_entfernt": ("entfernung_fest", "999", -2, -10),
-            "zeitarbeit": ("stellentyp", "zeitarbeit", -2, -8),
-            "befristet": ("stellentyp", "befristet", -2, -6),
-        }
-        if reason not in LEARN_MAP:
-            return None
-        dim, sub, start_malus, max_malus = LEARN_MAP[reason]
-        conn = db_ref.connect()
-        pid = db_ref.get_active_profile_id() or ""
-        # #269: Seed-Daten haben profile_id='' — beides prüfen
-        existing = conn.execute(
-            "SELECT id, value, ignore_flag, profile_id, set_by_user "
-            "FROM scoring_config "
-            "WHERE (profile_id=? OR profile_id='') AND dimension=? AND sub_key=? "
-            "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
-            (pid, dim, sub, pid)
-        ).fetchone()
-        # v1.7.17 (#917): explizite Nutzer-Entscheidung ist unantastbar.
-        # Belegt: Nutzer schaltete das Ignorieren ab, die naechste
-        # Aussortierung mit demselben Grund (Zaehler 71, Schwelle 5)
-        # kehrte sie kommentarlos wieder um.
-        if existing and existing["set_by_user"]:
-            return None
-        # #908 Befund 5: die alte Formel (count-5)*0.5 erreichte den
-        # Deckel schon bei ~13 Nennungen — faktisch ein Zweistufen-
-        # Schalter. Jetzt linear ueber den realen Nennungsbereich:
-        # Schwelle 5 = start_malus, ab 155 Nennungen = max_malus,
-        # dazwischen gleichmaessig (halbe Punkte, monoton).
-        fortschritt = min(1.0, max(0.0, (count - 5) / 150.0))
-        new_val = start_malus + (max_malus - start_malus) * fortschritt
-        new_val = round(new_val * 2) / 2
-        alt_val = existing["value"] if existing else None
-        if existing and existing["value"] <= new_val:
-            return None  # already penalized enough
-        # v1.7.113 (#1053): ueber das Nadeloehr der Datenbank — mit
-        # Zeitpunkt, Vorgaengerwert und Herkunft "automatik". Bis hierher
-        # schrieb der Lerneffekt eigenes SQL, und seine Aenderungen waren
-        # spaeter von einer Hand-Einstellung nicht zu unterscheiden.
-        db_ref.lerne_scoring_regler(
-            dim, sub, new_val,
-            anlass=f"Lerneffekt: '{reason}' {count}x als Grund gewählt")
-        # #908 Punkt 6: alt->neu benennen und den Rueckweg gleich mitgeben
-        # — eine Automatik, die den Bestand umgewichtet, muss revidierbar
-        # sein. Landet via auto_adjustments/hints beim Nutzer UND im Log.
-        logger.info("Auto-Scoring (#908): '%s' -> %s/%s Malus %s -> %s "
-                    "(Nennungen: %d)", reason, dim, sub, alt_val, new_val,
-                    count)
-        return (f"'{reason}' → {dim}/{sub} Malus "
-                f"{alt_val if alt_val is not None else 'Default'} → {new_val} "
-                f"(zuruecknehmbar via scoring_konfigurieren('setzen'/"
-                f"'loeschen', '{dim}', '{sub}'))")
+        """#1095: der Lerneffekt steht in services/aussortieren.regler_anpassen."""
+        from ..services import aussortieren as _aus
+        return _aus.regler_anpassen(db_ref, reason, count)
 
     def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
                                        collect_hints: bool = True,
                                        skip_auto_adjust: bool = False) -> dict:
-        """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
-
-        Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
-        dismiss_reasons-Statistik. Wird von stelle_einordnen UND von
-        stellen_bulk_bewerten aufgerufen, damit Audit/Lerneffekt/Statistik in
-        beiden Wegen identisch durchlaufen (#514: Anti-DB-Bypass-Pattern).
-
-        Args:
-            job_hash: Hash der Stelle
-            reason_list: bereits validierte/normalisierte Gruende
-            collect_hints: bei Bulk auf False setzen — Tipps werden dann nur
-                in der Aggregat-Antwort summiert, nicht pro Einzelaufruf
-            skip_auto_adjust: v1.6.5 (#558) — Bulk-Path uebernimmt den
-                Auto-Adjust selbst (einmalig am Ende). Verhindert dass jeder
-                der 100 Einzelaufrufe das Scoring weiter eskaliert (Drift).
-        """
-        import json as _json
-        reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
-
-        # #168: Duplikat-Erkennung
-        dup_info = None
-        if "duplikat" in reason_list:
-            dup_info = _detect_duplicate(job_hash)
-
-        db.dismiss_job(job_hash, reason_str)
-
-        # Track rejection counts for learning (#66)
-        counts = db.get_setting("dismiss_counts", {})
-        hints = []
-        for g in reason_list:
-            normalized = g.lower().strip()
-            counts[normalized] = counts.get(normalized, 0) + 1
-
-            # Suggest scoring adjustments (#169) when patterns are strong
-            # v1.7.17 (#908): kein Vorschlag lautet mehr "Komplett
-            # Ignorieren" — ein wiederholt genutzter Grund ist ein
-            # RELEVANTER Grund und gehoert verschaerft, nicht
-            # abgeschaltet. ignore_flag setzt nur noch der Nutzer selbst.
-            if collect_hints and counts.get(normalized, 0) >= 3:
-                if normalized == "zu_weit_entfernt":
-                    hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren, Stufe '999' = jenseits aller Grenzen).")
-                elif normalized == "gehalt_zu_niedrig":
-                    hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
-                elif normalized in ("zeitarbeit", "befristet"):
-                    hints.append(
-                        f"Tipp: Der Malus für '{g}' eskaliert automatisch mit. "
-                        f"Noch schaerfer: scoring_konfigurieren('setzen', 'stellentyp', '{normalized}', wert=-8). "
-                        "Komplett ausblenden nur bewusst mit ignorieren=True."
-                    )
-                elif normalized == "zu_junior" and counts.get(normalized, 0) % 10 == 3:
-                    # #908 Befund 4: Senioritaet ist keine Stellenart —
-                    # der wirksame Hebel sind MINUS-Keywords, die auch
-                    # Festanstellungen erreichen. Vorschlag statt
-                    # Automatik; gedrosselt (jede 10. Nennung).
-                    hints.append(
-                        "Tipp: 'zu_junior' lernt über MINUS-Keywords, nicht über die Stellenart. "
-                        "Kandidaten: suchkriterien_bearbeiten(aktion='hinzufuegen', kategorie='minus', "
-                        "werte=['Junior', 'Berufseinsteiger', 'Entry Level', 'Trainee']) — "
-                        "Gewicht schärfen via kategorie='gewichten' (#778). Keine Duplikate anlegen."
-                    )
-                elif normalized == "falsches_fachgebiet" and counts.get(normalized, 0) % 25 == 0:
-                    # #908 Befund 3: das staerkste Signal (1200+ Nennungen)
-                    # erzeugte NULL Lerneffekt. Der Lerneffekt liegt in den
-                    # Begriffen — keyword_vorschlaege rechnet die
-                    # MINUS-Kandidaten mit Belegen vor, der Nutzer
-                    # entscheidet. Stark gedrosselt (jede 25. Nennung).
-                    hints.append(
-                        f"Hinweis: '{normalized}' wurde inzwischen {counts[normalized]}x genutzt. "
-                        "keyword_vorschlaege() schlägt daraus MINUS-Kandidaten mit Trefferzahlen "
-                        "und Beispielstellen vor — so lernt der Score aus dem häufigsten Grund."
-                    )
-                elif normalized == "firma_uninteressant":
-                    job = db.get_job(job_hash)
-                    company = (job or {}).get("company", "")
-                    # #729: Hinweis nur wenn die Firma noch NICHT auf der
-                    # Blacklist steht — sonst schlaegt PBP etwas vor, das schon
-                    # erledigt ist.
-                    if company and not db.is_company_blacklisted(company):
-                        hints.append(
-                            f"Tipp: Möchtest du '{company}' auf die Blacklist setzen? "
-                            f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{company}')."
-                        )
-
-        db.set_setting("dismiss_counts", counts)
-        db.increment_dismiss_reason_usage(reason_list)
-
-        # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern.
-        # v1.6.5 (#558): Bei Bulk wird das einmalig am Ende ausgefuehrt, nicht
-        # pro Einzelaufruf. Sonst eskaliert (count-5)*0.5 mit jedem Job und
-        # treibt den Score-Malus immer weiter ins Negative ("Score-Drift").
-        auto_adjustments = []
-        if not skip_auto_adjust:
-            for g in reason_list:
-                normalized = g.lower().strip()
-                cnt = counts.get(normalized, 0)
-                if cnt >= 5:
-                    _auto = _auto_adjust_scoring(db, normalized, cnt)
-                    if _auto:
-                        auto_adjustments.append(_auto)
-            if collect_hints and auto_adjustments:
-                hints.append("Scoring wurde automatisch angepasst: " + "; ".join(auto_adjustments))
-
-        return {
-            "counts": counts,
-            "hints": hints,
-            "auto_adjustments": auto_adjustments,
-            "duplikat_info": dup_info,
-        }
+        """#1095: Zaehler, Lerneffekt und Hinweise stehen im Dienst
+        services/aussortieren — derselbe Weg wie das Dashboard."""
+        from ..services import aussortieren as _aus
+        return _aus.aussortieren(db, job_hash, reason_list,
+                                 collect_hints=collect_hints,
+                                 skip_auto_adjust=skip_auto_adjust)
 
     def _get_active_custom_reasons() -> set:
         """v45 (#663 C20, beta.85): Zusaetzlich erlaubte Custom-Gruende
@@ -4914,89 +4693,19 @@ def register(mcp, db, logger):
         # Ab hier den vollen aufgeloesten Hash verwenden
         job_hash = resolved
 
-        updates: dict = {}
-        if titel:
-            updates["title"] = titel
-        if firma:
-            updates["company"] = firma
-        if ort:
-            updates["location"] = ort
-        if beschreibung:
-            updates["description"] = beschreibung
-        if url:
-            from ..job_scraper import is_search_result_url
-            updates["url"] = url
-            updates["is_search_url"] = is_search_result_url(url)
-
-        # #1077: die Entfernung war ueber kein Werkzeug erreichbar — ein
-        # falscher Wert liess sich nur per SQL korrigieren (#514).
-        if entfernung_km is not None and entfernung_zuruecksetzen:
-            return {"fehler": ("entfernung_km und entfernung_zuruecksetzen "
-                               "schliessen sich aus.")}
-        if entfernung_km is not None and entfernung_km < 0:
-            return {"fehler": ("entfernung_km darf nicht negativ sein. Zum "
-                               "Zurücksetzen entfernung_zuruecksetzen=True.")}
-        entfernung_geaendert = (entfernung_km is not None
-                                or entfernung_zuruecksetzen)
-
-        if not updates and not entfernung_geaendert:
-            return {"fehler": "Keine Änderungen angegeben."}
-
-        if updates:
-            db.update_job(job_hash, updates)
-        if entfernung_geaendert:
-            db.set_job_entfernung(
-                job_hash, None if entfernung_zuruecksetzen else entfernung_km)
-
-        # #535 v1.6.4: Score nach Beschreibungs-/Titel-Update neu berechnen.
-        # Vorher blieb der persistente score-Wert in jobs.score auf dem Stand
-        # der initialen Scrape-Beschreibung — fit_analyse rechnete live mit
-        # der neuen Beschreibung, stellen_anzeigen mit dem alten score.
-        # Drei verschiedene Werte fuer dieselbe Stelle waren die Folge.
-        score_recomputed = None
-        if ("description" in updates or "title" in updates
-                or entfernung_geaendert):
-            try:
-                from ..job_scraper import calculate_score
-                # v1.7.112 (#1051): das Nadeloehr, wie bei der Anlage —
-                # sonst rechnet `fit_analyse` gleich danach eine andere Zahl.
-                from ..services import scoring_kriterien as _skrit_bearb
-                criteria = _skrit_bearb.fuer_scoring(db)
-                fresh_job = db.get_job(job_hash) or {}
-                new_score = calculate_score(fresh_job, criteria)
-                if new_score is not None:
-                    # v1.7.95 (#1035): die Teile mitschreiben — sonst stand
-                    # die Aufteilung des alten Texts neben dem neuen Score.
-                    db.update_job(job_hash, {
-                        "score": new_score,
-                        "fachscore": fresh_job.get("_fachscore"),
-                        "rahmenscore": fresh_job.get("_rahmenscore"),
-                    })
-                    score_recomputed = {
-                        "alter_score": job.get("score"),
-                        "neuer_score": new_score,
-                    }
-                    # #762: Faellt der Score auf 0, den GRUND nennen. Sonst
-                    # wirkt das Nachpflegen eines echten Volltexts wie ein
-                    # Bug ("Score war 45, jetzt 0") — der haeufigste Fall ist
-                    # ein Ausschluss-Keyword, das erst im laengeren Text steht.
-                    if new_score == 0:
-                        _ko_kw = fresh_job.get("_ko_ausschluss")
-                        if _ko_kw:
-                            score_recomputed["grund"] = (
-                                f"Ausschluss-Keyword '{_ko_kw}' kommt im neuen Text "
-                                "vor — das setzt den Score hart auf 0. Wenn das ein "
-                                "Fehltreffer ist, das Keyword in den Suchkriterien "
-                                "schärfen (suchkriterien_anzeigen)."
-                            )
-                        elif fresh_job.get("_ko_kein_muss"):
-                            score_recomputed["grund"] = (
-                                "Kein MUSS-Keyword im neuen Text gefunden — das setzt "
-                                "den Score auf 0. Prüfe die MUSS-Keywords "
-                                "(suchkriterien_anzeigen) oder ob der Text vollständig ist."
-                            )
-            except Exception as exc:
-                logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s", job_hash, exc)
+        # #1095: Aenderung und Neuberechnung (#535, #987) stehen im Dienst
+        # services/stelle_aendern — derselbe Weg wie der Bearbeiten-Dialog
+        # im Dashboard. Ein neuer Ort rechnet die Entfernung neu.
+        from ..services import stelle_aendern as _aendern
+        erg = _aendern.aendern(
+            db, job_hash, {"title": titel, "company": firma, "location": ort,
+                           "description": beschreibung, "url": url},
+            entfernung_km=entfernung_km,
+            entfernung_zuruecksetzen=entfernung_zuruecksetzen)
+        if not erg["ok"]:
+            return {"fehler": erg["fehler"]}
+        updates = erg["updates"]
+        entfernung_geaendert = entfernung_km is not None or entfernung_zuruecksetzen
 
         result = {
             "status": "aktualisiert",
@@ -5007,8 +4716,8 @@ def register(mcp, db, logger):
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
         }
-        if score_recomputed:
-            result["score_neu_berechnet"] = score_recomputed
+        if erg.get("score_neu_berechnet"):
+            result["score_neu_berechnet"] = erg["score_neu_berechnet"]
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",
@@ -5018,13 +4727,8 @@ def register(mcp, db, logger):
                 {"wert_km": float(entfernung_km), "quelle": "mensch",
                  "hinweis": "Von Hand gesetzt — kein Suchlauf "
                             "überschreibt diesen Wert."})
-        elif "location" in updates and (job.get("distance_km") is not None):
-            # Die gespeicherte Entfernung gehoert zum ALTEN Ort — sagen,
-            # statt sie still stehen zu lassen oder still zu loeschen.
-            result["entfernung_hinweis"] = (
-                f"Die gespeicherte Entfernung ({job.get('distance_km')} km) "
-                "bezieht sich auf den bisherigen Ort. Stimmt sie nicht mehr: "
-                "entfernung_km setzen oder entfernung_zuruecksetzen=True.")
+        elif erg.get("entfernung_hinweis"):
+            result["entfernung_hinweis"] = erg["entfernung_hinweis"]
         # #645: Wenn die neue URL eine Such-URL ist, das wie bei
         # stelle_manuell_anlegen transparent zurueckmelden — sonst denkt
         # der User der Link sei voll funktionsfaehig.
