@@ -5239,15 +5239,11 @@ async def api_schwellen_stufe(request: Request):
     bereich = str(daten.get("bereich") or "")
     stufe = str(daten.get("stufe") or "")
     if bereich not in _st.BEREICHE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannter Bereich: {bereich!r}. "
-                   f"Möglich: {', '.join(_st.BEREICHE)}")
+        return JSONResponse({"error": f"Unbekannter Bereich: {bereich!r}. "
+                   f"Möglich: {', '.join(_st.BEREICHE)}"}, status_code=400)
     if stufe not in _st.SCHLUESSEL:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannte Stufe: {stufe!r}. "
-                   f"Möglich: {', '.join(_st.SCHLUESSEL)}")
+        return JSONResponse({"error": f"Unbekannte Stufe: {stufe!r}. "
+                   f"Möglich: {', '.join(_st.SCHLUESSEL)}"}, status_code=400)
     _st.stufe_setzen(_db, bereich, stufe)
     alle = _st.stufen(_db)
     return {
