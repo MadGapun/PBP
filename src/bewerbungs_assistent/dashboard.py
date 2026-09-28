@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, UploadFile, File, Form, Body
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 
 def _sanitize_for_json(obj):
@@ -54,6 +55,8 @@ from .services.search_service import (
     summarize_active_sources,
 )
 from .services import ablage
+from .services import dateiablage as _dateiablage
+from .services import bewerbung_status as _bewerbung_status  # #1103
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
 from .document_analysis_prompts import (
     TEMPLATES as DOC_ANALYSIS_TEMPLATES,
@@ -505,6 +508,31 @@ async def api_profile():
     return profile
 
 
+@app.get("/api/standort")
+async def api_standort():
+    """Von wo aus PBP Entfernungen rechnet (#1090)."""
+    from .services import eigener_standort
+    if not _db.get_profile():
+        return {"ort": "", "quelle": None, "aufgeloest": False, "profil_wohnort": ""}
+    return eigener_standort.befund(_db)
+
+
+@app.put("/api/standort")
+async def api_standort_setzen(request: Request):
+    """Standort ausdruecklich setzen; leer heisst: Wohnort aus dem Profil."""
+    from .services import eigener_standort
+    if not _db.get_profile():
+        return JSONResponse({"error": "Lege zuerst ein Profil an."}, status_code=400)
+    data = await request.json()
+    ort = data.get("ort", "")
+    if not isinstance(ort, str):
+        return JSONResponse({"error": "ort muss Text sein"}, status_code=400)
+    erg = eigener_standort.eigenen_setzen(_db, ort)
+    if erg.get("status") == "nicht_aufgeloest":
+        return JSONResponse({"error": erg["hinweis"], **erg}, status_code=422)
+    return {**erg, "befund": eigener_standort.befund(_db)}
+
+
 @app.post("/api/profile")
 async def api_save_profile(request: Request):
     data = await request.json()
@@ -722,9 +750,15 @@ async def api_delete_document(doc_id: str):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    if not _db.delete_document(doc_id, profile_id=profile_id):
+    befund = _db.delete_document_mit_befund(doc_id, profile_id=profile_id)
+    if not befund or not befund["eintrag_geloescht"]:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    antwort = {"status": "ok", "datei_geloescht": befund["datei"]["geloescht"]}
+    # #1099: fremde oder geteilte Dateien bleiben liegen, mit Grund.
+    if not befund["datei"]["geloescht"] and befund["datei"]["grund"] != "kein Pfad":
+        antwort["datei_hinweis"] = (
+            f"Die Datei wurde nicht gelöscht: sie {befund['datei']['grund']}.")
+    return antwort
 
 
 @app.put("/api/document/{doc_id}/doc-type")
@@ -771,6 +805,16 @@ def _document_type_label(doc_type: str | None) -> str:
     return labels.get(doc_type or "", doc_type or "Dokument")
 
 
+def _termin_aus_mail(daten: dict):
+    """Ein Termin aus einer Mail. Eine unlesbare Zeit (#1102) kostet nur
+    diesen Termin, nicht den ganzen Mail-Import."""
+    try:
+        return _db.add_meeting(daten)
+    except ValueError as exc:
+        logger.warning("Termin aus Mail nicht uebernommen: %s", exc)
+        return None
+
+
 def _enrich_document_for_prompt(document: dict) -> dict:
     """Laedt Bewerbungs-Kontext (Firma/Stelle) zum Dokument, falls verknuepft."""
     enriched = dict(document)
@@ -780,14 +824,18 @@ def _enrich_document_for_prompt(document: dict) -> dict:
         try:
             conn = _db.connect()
             row = conn.execute(
-                "SELECT company, position FROM applications WHERE id=?",
+                # #1106: die Spalte heisst `title`. Mit `position` scheiterte
+                # die Abfrage seit jeher, und der Prompt kam ohne Firma
+                # und Stelle heraus — nur als Debug-Zeile vermerkt.
+                "SELECT company, title FROM applications WHERE id=?",
                 (app_id,),
             ).fetchone()
             if row:
                 enriched["app_company"] = row["company"]
-                enriched["app_title"] = row["position"]
+                enriched["app_title"] = row["title"]
         except Exception as exc:  # pragma: no cover - defensive
-            logger.debug("enrich document %s failed: %s", document.get("id"), exc)
+            logger.warning("Bewerbungskontext fuer Dokument %s nicht lesbar: %s",
+                           document.get("id"), exc)
     return enriched
 
 
@@ -1384,6 +1432,34 @@ async def api_browse_directory(request: Request):
     }
 
 
+def _import_dublette(content_hash: str, dateiname: str) -> bool:
+    """Gibt es im aktiven Profil schon ein Dokument mit diesem Inhalt?
+
+    #1099: Neben `content_hash` (seit #570 beim Upload gesetzt) werden
+    Alteintraege ohne Hash mit gleichem Dateinamen ueber ihre Datei
+    verglichen — sonst legte der erste Import nach dem Update alles, was
+    frueher importiert wurde, noch einmal an. Ein Treffer traegt danach
+    seinen Hash, der naechste Vergleich ist billig."""
+    pid = _get_active_profile_id() if _db else None
+    if not pid:
+        return False
+    conn = _db.connect()
+    if conn.execute(
+            "SELECT 1 FROM documents WHERE content_hash=? AND profile_id=? LIMIT 1",
+            (content_hash, pid)).fetchone():
+        return True
+    for row in conn.execute(
+            "SELECT id, filepath FROM documents WHERE profile_id=? "
+            "AND (content_hash IS NULL OR content_hash='') AND filename=?",
+            (pid, dateiname)).fetchall():
+        if row["filepath"] and _dateiablage.inhalt_hash(row["filepath"]) == content_hash:
+            conn.execute("UPDATE documents SET content_hash=? WHERE id=?",
+                         (content_hash, row["id"]))
+            conn.commit()
+            return True
+    return False
+
+
 @app.post("/api/documents/import-folder")
 async def api_import_folder(request: Request):
     data = await request.json()
@@ -1408,6 +1484,7 @@ async def api_import_folder(request: Request):
     docs_imported = 0
     apps_found = 0
     skipped_files = 0
+    skipped_duplicates = 0
     auto_linked_documents = 0
     warnings = []
     supported = (".pdf", ".docx", ".doc", ".txt", ".md", ".csv", ".json",
@@ -1423,6 +1500,16 @@ async def api_import_folder(request: Request):
         if fpath.name.startswith("~$"):
             continue
         files_found += 1
+
+        # #1099: Dublette ueber den INHALT, wie beim Upload (#570). Ein
+        # zweiter Import desselben Ordners legt nichts noch einmal an —
+        # auch keine Bewerbung aus dem Ordnernamen.
+        content_hash = None
+        if import_docs:
+            content_hash = _dateiablage.inhalt_hash(fpath)
+            if content_hash and _import_dublette(content_hash, fpath.name):
+                skipped_duplicates += 1
+                continue
 
         extracted = ""
         email_context = None
@@ -1457,14 +1544,23 @@ async def api_import_folder(request: Request):
         doc_type = _detect_doc_type(fpath.name, extracted) or "sonstiges"
 
         if import_docs:
-            # Copy file to doc_dir
+            # #1099: jede Datei bekommt ihre EIGENE Kopie mit freiem Namen
+            # (FirmaA/Anschreiben.pdf und FirmaB/Anschreiben.pdf sind zwei
+            # Dateien). Scheitert das Kopieren, entsteht kein Eintrag — ein
+            # Eintrag auf das Original im Ordner des Nutzers wuerde beim
+            # Loeschen genau dieses Original treffen.
             import shutil
-            dest = doc_dir / fpath.name
-            if not dest.exists():
-                try:
-                    shutil.copy2(str(fpath), str(dest))
-                except Exception:
-                    dest = fpath  # Use original path
+            dest = _dateiablage.eindeutiges_ziel(
+                doc_dir, _sanitize_upload_filename(fpath.name))
+            try:
+                shutil.copy2(str(fpath), str(dest))
+            except Exception as exc:
+                warnings.append(
+                    f"{fpath.name}: nicht importiert, die Datei ließ sich "
+                    f"nicht in den PBP-Datenordner kopieren ({exc})")
+                skipped_files += 1
+                logger.warning("Import: Kopieren fehlgeschlagen fuer %s: %s", fpath, exc)
+                continue
 
             did = _db.add_document({
                 "filename": fpath.name,
@@ -1472,6 +1568,7 @@ async def api_import_folder(request: Request):
                 "doc_type": doc_type,
                 "extracted_text": extracted,
                 "linked_application_id": (email_context or {}).get("match_application_id"),
+                "content_hash": content_hash,
             })
             if email_context and email_context.get("match_application_id"):
                 try:
@@ -1513,6 +1610,7 @@ async def api_import_folder(request: Request):
         "documents_imported": docs_imported,
         "applications_found": apps_found,
         "skipped_files": skipped_files,
+        "skipped_duplicates": skipped_duplicates,
         "auto_linked_documents": auto_linked_documents,
         "warning_count": len(warnings),
         "warnings": warnings,
@@ -1926,7 +2024,13 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
         contact_partner = app_data.get("ansprechpartner") or ""
         contact_email = app_data.get("kontakt_email") or ""
         if contact_partner or contact_email:
-            job_html += f"<dt>Ansprechpartner</dt><dd>{_esc(contact_partner)}{' — <a href=\"mailto:' + _esc(contact_email) + '\">' + _esc(contact_email) + '</a>' if contact_email else ''}</dd>"
+            # Ohne Backslash im f-String-Ausdruck: der ist erst ab Python 3.12
+            # erlaubt, und unter 3.11 startete das Dashboard sonst gar nicht.
+            mail_link = (
+                f' — <a href="mailto:{_esc(contact_email)}">{_esc(contact_email)}</a>'
+                if contact_email else ""
+            )
+            job_html += f"<dt>Ansprechpartner</dt><dd>{_esc(contact_partner)}{mail_link}</dd>"
         if app_data.get("bewerbungsart"):
             job_html += f"<dt>Bewerbungsart</dt><dd>{_esc(app_data['bewerbungsart'])}</dd>"
         if app_data.get("lebenslauf_variante"):
@@ -2578,9 +2682,16 @@ def _guete_anreichern(jobs: list) -> None:
         # und mit Routing-Schluessel steht dort die Fahrzeit.
         try:
             from .services import entfernung as _entfernung_befund
-            _entf = _entfernung_befund.befund(job)
+            _entf = _entfernung_befund.befund(job, krit)
             if _entf:
                 job["entfernung"] = _entf
+        except Exception:  # pragma: no cover — nie eine Liste stoppen
+            pass
+        # v1.7.140 (#954): belegt / geschätzt / unbekannt je Feld — die
+        # Karte zeigt nur, was nicht belegt ist.
+        try:
+            from .services import wahrheit as _wahrheit
+            job["herkunft"] = _wahrheit.felder(job, _stand_krit)
         except Exception:  # pragma: no cover — nie eine Liste stoppen
             pass
         # #1007: derselbe Aufruf wie in stellen_anzeigen. Zwei Fassungen
@@ -2606,17 +2717,23 @@ def _guete_anreichern(jobs: list) -> None:
 
 @app.post("/api/jobs/dismiss")
 async def api_dismiss_job(request: Request):
+    """Sortiert eine Stelle aus — ueber denselben Dienst wie
+    `stelle_einordnen` (#1095): Zaehler, Lerneffekt (#908) und Hinweise.
+    Die Hinweise kommen mit, damit die Oberflaeche einen ausgeloesten
+    Lerneffekt nennen kann."""
+    from .services import aussortieren as _aus
     data = await request.json()
-    reasons = data.get("reasons", [])
-    reason_str = data.get("reason", "")
-    # Support both single reason (legacy) and multi-select reasons (#108, #120)
-    if reasons:
-        reason_str = json.dumps(reasons, ensure_ascii=False)
-        _db.increment_dismiss_reason_usage(reasons)
-    elif not reason_str:
+    # Einzelgrund (alt) oder Mehrfachauswahl (#108, #120)
+    reasons = [str(r) for r in (data.get("reasons") or []) if str(r).strip()]
+    if not reasons and str(data.get("reason") or "").strip():
+        reasons = [str(data["reason"]).strip()]
+    if not reasons:
         return JSONResponse({"error": "Mindestens ein Ablehnungsgrund ist erforderlich"}, status_code=400)
-    _db.dismiss_job(data["hash"], reason_str)
-    return {"status": "ok"}
+    if not _db.get_job(str(data.get("hash") or "")):
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
+    erg = _aus.aussortieren(_db, data["hash"], reasons)
+    return {"status": "ok", "lerneffekt": erg["lerneffekt_text"],
+            "hinweise": erg["hints"]}
 
 
 @app.get("/api/jobs/auto-dismissed")
@@ -2668,7 +2785,8 @@ async def api_restore_job(request: Request):
             })
     except Exception:
         logger.debug("Lernsignal fuer %s nicht protokolliert", data.get("hash"))
-    _db.restore_job(data["hash"])
+    if not _db.restore_job(str(data.get("hash") or "")):
+        return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
 
@@ -2777,60 +2895,63 @@ async def api_applications(
 
 @app.post("/api/applications")
 async def api_add_application(request: Request):
+    """Legt eine Bewerbung an — mit denselben Regeln wie `bewerbung_erstellen`
+    (#1094): Dublettenpruefung, Anzeigentext als Snapshot, Ansprechpartner
+    als Kontakt, Stelle aussortiert, Nachfass-Erinnerung. Der Status wird
+    geprueft (#981), auch fuer Plugins und Skripte.
+
+    Eine vermutete Dublette antwortet mit 409 und nennt die vorhandene
+    Bewerbung; `force: true` legt trotzdem an."""
+    from .services import bewerbung_lebenszyklus as _lz
     data = await request.json()
-    if not data.get("title", "").strip():
-        return JSONResponse({"error": "Stelle ist ein Pflichtfeld"}, status_code=400)
-    if not data.get("company", "").strip():
-        return JSONResponse({"error": "Firma ist ein Pflichtfeld"}, status_code=400)
-    # v1.7.32 (#981, D43): Status pruefen statt durchschreiben.
-    #
-    # Der Stellen-Dialog bot "Entwurf" an — ein Wert, den VALID_STATUSES
-    # nicht kennt. Hier lief er ungeprueft in die Datenbank, und die so
-    # entstandene Bewerbung war danach fuer bewerbung_status_aendern, die
-    # Statistik und die Status-Journey unsichtbar. Die Oberflaeche ist
-    # korrigiert; die Pruefung gehoert trotzdem hierher, weil dieser
-    # Endpunkt auch von Plugins und Skripten aufgerufen wird.
-    from .tools.bewerbungen import VALID_STATUSES
-    status = (data.get("status") or "").strip()
-    if status and status not in VALID_STATUSES:
-        return JSONResponse(
-            {"error": (f"Unbekannter Status '{status}'. Erlaubt sind: "
-                       + ", ".join(sorted(VALID_STATUSES)))},
-            status_code=400)
-    aid = _db.add_application(data)
-    return {"status": "ok", "id": aid}
+    force = bool(data.pop("force", False))
+    erg = _lz.anlegen(_db, data, force=force)
+    if not erg["ok"]:
+        if erg["grund"] == "duplikat":
+            return JSONResponse({
+                "error": erg["fehler"] + " Trotzdem anlegen, wenn es eine eigene, neue Bewerbung ist.",
+                "duplikat": {k: erg[k] for k in (
+                    "bestehende_bewerbung_id_voll", "bestehend_firma",
+                    "bestehend_titel", "bestehend_status", "match_typ")},
+            }, status_code=409)
+        return JSONResponse({"error": erg["fehler"]}, status_code=400)
+    antwort = {"status": "ok", "id": erg["id"]}
+    if erg.get("auto_follow_up_id"):
+        antwort["nachfass_in_tagen"] = erg["nachfass_tage"]
+    if erg.get("stelle_aussortiert"):
+        antwort["stelle_aussortiert"] = True
+    return antwort
 
 
 @app.put("/api/applications/{app_id}/status")
 async def api_update_app_status(app_id: str, request: Request):
+    """Wechselt den Status ueber den Lebenszyklus-Dienst (#1094) — mit
+    Bewerbungsdatum, aussortierter Stelle, Nachfass-Erinnerung und
+    veralteten Dokumenten wie `bewerbung_status_aendern`. Liefert den
+    Rueckweg fuer "Rueckgaengig" (G67)."""
     data = await request.json()
     new_status = data.get("status")
     if not new_status:
         return JSONResponse({"error": "status ist erforderlich"}, status_code=400)
     profile_id = _get_active_profile_id()
-    # Zaehle offene Follow-ups vor dem Wechsel, damit UI das Lifecycle-Ergebnis anzeigen kann (#493/#494)
-    open_before = sum(
-        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
-    )
-    # G67 (#1087 D8): der Wechsel liefert seinen Rueckweg mit.
+    if not profile_id:
+        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
     from .services import status_rueckweg as _rueckweg
     rueckweg = _rueckweg.wechseln(_db, app_id, new_status, data.get("notes", ""),
-                                  profile_id=profile_id) if profile_id else None
-    if not rueckweg:
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    open_after = sum(
-        1 for fu in _db.get_pending_follow_ups() if fu.get("application_id") == app_id
-    )
+                                  profile_id=profile_id)
+    if not rueckweg.get("ok"):
+        code = 404 if rueckweg.get("grund") == "nicht_gefunden" else 400
+        return JSONResponse({"error": rueckweg["fehler"]}, status_code=code)
     lifecycle = {
-        "followups_dismissed": max(0, open_before - open_after),
+        "followups_dismissed": len(rueckweg["geschlossen"]),
         "new_followup": None,
+        "applied_at": rueckweg.get("applied_at_gesetzt"),
+        "stelle_aussortiert": bool(rueckweg.get("stelle_aussortiert")),
+        "dokumente_veraltet": len(rueckweg.get("dokumente_veraltet") or []),
     }
-    if new_status == "interview_abgeschlossen":
-        # jungster offener Follow-up wurde soeben vom Lifecycle-Hook angelegt
-        pending = [
-            fu for fu in _db.get_pending_follow_ups()
-            if fu.get("application_id") == app_id
-        ]
+    if rueckweg["angelegt"]:
+        pending = [fu for fu in _db.get_pending_follow_ups()
+                   if fu.get("id") in set(rueckweg["angelegt"])]
         if pending:
             latest = max(pending, key=lambda f: f.get("created_at") or "")
             lifecycle["new_followup"] = {
@@ -2926,16 +3047,8 @@ async def api_get_report_settings():
     Alle Felder sind optional. Nicht gesetzte Felder werden im Bericht
     nicht gerendert — der Bericht funktioniert auch ohne Arbeitsamt-Daten.
     """
-    return {
-        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
-        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
-        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
-        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus — fokussiert auf taegliche Aktivitaet
-        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
-    }
+    from .services import bericht as _bericht  # #1111: eine Liste
+    return _bericht.einstellungen(_db)
 
 
 @app.put("/api/settings/report")
@@ -2965,15 +3078,32 @@ async def api_set_report_settings(request: Request):
     return {"status": "ok", "gespeichert": out}
 
 
+@app.get("/api/settings/auto-aussortieren")
+async def api_get_auto_aussortieren():
+    """#1092: Schalter "Nach jeder Suche mit der lokalen KI aussortieren"."""
+    from .services import auto_aussortierung
+    return {"an": auto_aussortierung.schalter_an(_db)}
+
+
+@app.put("/api/settings/auto-aussortieren")
+async def api_set_auto_aussortieren(request: Request):
+    from .services import auto_aussortierung
+    data = await request.json()
+    if not isinstance(data.get("an"), bool):
+        return JSONResponse({"error": "an muss true oder false sein"}, status_code=400)
+    _db.set_profile_setting(auto_aussortierung.SCHALTER, "true" if data["an"] else "false")
+    return {"status": "ok", "an": data["an"]}
+
+
 @app.get("/api/settings/followup")
 async def api_get_followup_settings():
     """Liest die Follow-up-Automations-Einstellungen (#494)."""
     try:
-        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+        default_days = _db.get_setting_zahl("followup_default_days", 7)
     except Exception:
         default_days = 7
     try:
-        interview_delay = int(_db.get_setting("followup_interview_delay_days", 14) or 14)
+        interview_delay = _db.get_setting_zahl("followup_interview_delay_days", 14)
     except Exception:
         interview_delay = 14
     return {
@@ -3665,7 +3795,7 @@ async def api_keyword_suggestions():
     applied_hashes = {
         a["job_hash"] for a in applications
         if a.get("job_hash") and a.get("status") not in (
-            "abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen", "passt_nicht"
+            *_bewerbung_status.ARCHIV, "passt_nicht"
         )
     }
     dismissed_jobs = _db.get_dismissed_jobs() if hasattr(_db, "get_dismissed_jobs") else []
@@ -3780,14 +3910,17 @@ async def api_stats_style():
     import re as _re
 
     conn = _db.connect()
+    # #1106-Klasse: nur die Bewerbungen des aktiven Profils.
     rows = conn.execute(
         """
         SELECT e.notes, e.application_id, a.status
         FROM application_events e
         JOIN applications a ON a.id = e.application_id
         WHERE e.status = 'stil_tracking'
+          AND (a.profile_id=? OR a.profile_id IS NULL)
         ORDER BY e.event_date ASC
-        """
+        """,
+        (_db.get_active_profile_id(),),
     ).fetchall()
 
     if not rows:
@@ -4015,7 +4148,7 @@ async def api_upload_email(file: UploadFile = File(...)):
     if match_app_id and meetings:
         for m in meetings:
             if m.get("start"):
-                mid = _db.add_meeting({
+                mid = _termin_aus_mail({
                     "application_id": match_app_id,
                     "email_id": email_id,
                     "title": m.get("title", "Termin"),
@@ -4034,7 +4167,8 @@ async def api_upload_email(file: UploadFile = File(...)):
                                      or m.get("meeting_url")
                                      else "sonstiges"),
                 })
-                stored_meetings.append({"id": mid, **m})
+                if mid:
+                    stored_meetings.append({"id": mid, **m})
 
     # Add timeline event if matched
     if match_app_id:
@@ -4157,7 +4291,7 @@ async def api_confirm_email_match(email_id: str, request: Request):
         })
         for m in meetings:
             if m.get("start"):
-                _db.add_meeting({
+                _termin_aus_mail({
                     "application_id": app_id,
                     "email_id": email_id,
                     "title": m.get("title", "Termin"),
@@ -4187,9 +4321,16 @@ async def api_apply_email_status(email_id: str, request: Request):
         return JSONResponse({"error": "E-Mail ist keiner Bewerbung zugeordnet"}, status_code=400)
 
     app_id = em["application_id"]
-    if not _db.update_application_status(app_id, status, profile_id=profile_id):
-        return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
-    _db.add_application_event(app_id, status, f"Status aus E-Mail: {em.get('subject', '')}")
+    # #1094: ueber den Lebenszyklus-Dienst — geprueft, mit allen Folgen,
+    # und mit EINEM Timeline-Eintrag (vorher schrieb der Endpunkt nach dem
+    # Statuswechsel ein zweites Ereignis mit demselben Status).
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.status_wechseln(_db, app_id, status,
+                              f"Status aus E-Mail: {em.get('subject', '')}",
+                              profile_id=profile_id)
+    if not erg["ok"]:
+        code = 404 if erg["grund"] == "nicht_gefunden" else 400
+        return JSONResponse({"error": erg["fehler"]}, status_code=code)
     _db.update_email(email_id, {"is_processed": 1}, profile_id=profile_id)
 
     # Extract rejection feedback if applicable
@@ -4556,7 +4697,9 @@ async def api_meetings_csv(from_: str = "", to: str = "",
         "SELECT m.*, a.title AS app_title, a.company AS app_company "
         "FROM application_meetings m "
         "LEFT JOIN applications a ON m.application_id = a.id "
-        "WHERE (a.profile_id=? OR a.profile_id IS NULL OR m.application_id IS NULL)"
+        # #1104: der Termin hat eine eigene profile_id. Ueber die Bewerbung
+        # gefiltert kamen Termine ohne Bewerbung aus allen Profilen.
+        "WHERE (m.profile_id=? OR m.profile_id IS NULL)"
     )
     params: list = [pid]
     if zeitraum_von:
@@ -4597,7 +4740,11 @@ async def api_update_meeting(meeting_id: str, request: Request):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
-    if not _db.update_meeting(meeting_id, data, profile_id=profile_id):
+    try:
+        geaendert = _db.update_meeting(meeting_id, data, profile_id=profile_id)
+    except ValueError as exc:  # #1102: unlesbare Zeit
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    if not geaendert:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
     return {"status": "ok"}
 
@@ -4626,6 +4773,14 @@ async def api_create_meeting(request: Request):
         )
     if app_id and not _get_application_row_for_active_profile(app_id):
         return JSONResponse({"error": "Bewerbung nicht gefunden"}, status_code=404)
+    # #1102: eine Form fuer alle Termine; Unlesbares wird abgewiesen.
+    from .services import termin_zeit as _termin_zeit
+    try:
+        meeting_date = _termin_zeit.normalisieren(meeting_date)
+        if data.get("meeting_end"):
+            data["meeting_end"] = _termin_zeit.normalisieren(data["meeting_end"])
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
     mid = _db.add_meeting({
         "application_id": app_id or None,
         "title": data.get("title", "Termin"),
@@ -4733,74 +4888,12 @@ async def api_meeting_ics(meeting_id: str):
     if not row:
         return JSONResponse({"error": "Meeting nicht gefunden"}, status_code=404)
 
-    m = dict(row)
-    from datetime import datetime as _dt
-    import uuid as _uuid
-
-    # Build .ics content
-    start = m.get("meeting_date", "")
-    end = m.get("meeting_end") or ""
-    title = m.get("title", "Termin")
-    company = m.get("app_company", "")
-    app_title = m.get("app_title", "")
-    location = m.get("location", "")
-    meeting_url = m.get("meeting_url", "")
-    notes = m.get("notes", "") or ""
-    app_id = m.get("app_id", "")
-
-    # PBP-Link zur Bewerbung einbetten (#263)
-    from .services.dashboard_link import dashboard_link
-    pbp_link = dashboard_link("bewerbungen", app_id) if app_id else ""
-    description_parts = []
-    if company and app_title:
-        description_parts.append(f"Bewerbung: {app_title} bei {company}")
-    if pbp_link:
-        description_parts.append(f"PBP-Link: {pbp_link}")
-    if meeting_url:
-        description_parts.append(f"Meeting-Link: {meeting_url}")
-    if notes:
-        description_parts.append(f"Notizen: {notes}")
-    description = "\\n".join(description_parts)
-
-    def _fmt_dt(iso_str):
-        """Format ISO datetime to iCal DTSTART format."""
-        if not iso_str:
-            return None
-        try:
-            dt = _dt.fromisoformat(iso_str)
-            return dt.strftime("%Y%m%dT%H%M%S")
-        except (ValueError, TypeError):
-            return None
-
-    dt_start = _fmt_dt(start)
-    if not dt_start:
+    # #1102: derselbe Weg wie der Gesamtexport — maskiert, gefaltet,
+    # Zeitzonen als UTC. Vorher eine zweite Fassung ohne beides.
+    from .services.ics_service import build_meeting_ics
+    ics_content = build_meeting_ics(dict(row))
+    if not ics_content:
         return JSONResponse({"error": "Ungültiges Meeting-Datum"}, status_code=400)
-    dt_end = _fmt_dt(end) or _fmt_dt(start)  # fallback: same as start
-
-    uid = f"{meeting_id}@pbp.local"
-    now_stamp = _dt.now().strftime("%Y%m%dT%H%M%SZ")
-
-    ics_lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//PBP Bewerbungs-Assistent//DE",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH",
-        "BEGIN:VEVENT",
-        f"UID:{uid}",
-        f"DTSTAMP:{now_stamp}",
-        f"DTSTART:{dt_start}",
-        f"DTEND:{dt_end}",
-        f"SUMMARY:{title}" + (f" — {company}" if company else ""),
-        f"DESCRIPTION:{description}",
-    ]
-    if location:
-        ics_lines.append(f"LOCATION:{location}")
-    if meeting_url:
-        ics_lines.append(f"URL:{meeting_url}")
-    ics_lines.extend(["END:VEVENT", "END:VCALENDAR"])
-
-    ics_content = "\r\n".join(ics_lines)
 
     from starlette.responses import Response
     return Response(
@@ -4880,10 +4973,25 @@ async def api_toggle_job_pin(job_hash: str):
 
 @app.put("/api/jobs/{job_hash}")
 async def api_update_job(job_hash: str, request: Request):
-    """Update editable fields of a job (#90)."""
+    """Titel, Firma, Ort, Beschreibung oder Link einer Stelle aendern (#90).
+
+    #1095: ueber denselben Dienst wie `stelle_bearbeiten` — danach stimmen
+    Punkte und Faktoren mit der neuen Beschreibung, und ein neuer Ort
+    bekommt eine neue Entfernung."""
+    from .services import stelle_aendern as _aendern
     data = await request.json()
-    _db.update_job(job_hash, data)
-    return {"status": "ok"}
+    erg = _aendern.aendern(_db, job_hash, data or {})
+    if not erg["ok"]:
+        if erg["grund"] == "leer":
+            return {"status": "unveraendert"}
+        code = 404 if erg["grund"] == "nicht_gefunden" else 400
+        return JSONResponse({"error": erg["fehler"]}, status_code=code)
+    antwort = {"status": "ok", "geaendert": sorted(k for k in erg["updates"] if k != "is_search_url")}
+    if erg.get("score_neu_berechnet"):
+        antwort["score"] = erg["score_neu_berechnet"]
+    if erg.get("entfernung_text"):
+        antwort["entfernung_hinweis"] = erg["entfernung_text"]
+    return antwort
 
 
 # v1.7.0-beta.44 (#622): Beschreibung von URL nachladen (Layer B)
@@ -4965,20 +5073,15 @@ async def api_refetch_description(job_hash: str):
 
 
 def _bump_refetch_failure(job_hash: str) -> None:
-    """Notiert eine fehlgeschlagene Beschreibungs-Holung (fuer Backoff in Layer C)."""
-    try:
-        key = f"refetch_fail:{job_hash}"
-        prev = int(_db.get_setting(key, "0") or "0")
-        _db.set_setting(key, str(prev + 1))
-    except Exception:
-        pass
+    """Notiert eine fehlgeschlagene Beschreibungs-Holung (Backoff, #1038:
+    derselbe Zaehler wie text_nachzug)."""
+    from .services import text_nachzug
+    text_nachzug.fehlversuch_zaehlen(_db, job_hash)
 
 
 def _reset_refetch_failure(job_hash: str) -> None:
-    try:
-        _db.set_setting(f"refetch_fail:{job_hash}", "0")
-    except Exception:
-        pass
+    from .services import text_nachzug
+    text_nachzug.fehlversuche_loeschen(_db, job_hash)
 
 
 # v1.7.0-beta.31 (#595): GET /api/jobs/{hash} wird weiter unten nach
@@ -5016,37 +5119,17 @@ async def api_export_applications(
         from:   Start-Datum (YYYY-MM-DD), optional
         to:     End-Datum (YYYY-MM-DD), optional
     """
-    from .export_report import generate_application_report
+    # #1111: derselbe Dienst wie bewerbungsbericht_exportieren.
+    from .services import bericht as _bericht
     # FastAPI kann 'from' nicht als Parameter-Name nutzen -> aus request holen
     zeitraum_von = (request.query_params.get("from") if request else "") or ""
     zeitraum_bis = to or ""
-    report_data = _db.get_report_data()
-    profile = _db.get_profile()
-    # v1.6.6 (#540): Optionale Bericht-Einstellungen einlesen — nur gesetzte
-    # Werte werden im Bericht angezeigt. So funktioniert der Bericht weiter
-    # fuer Anwender, die NICHT ans Arbeitsamt reporten.
-    report_settings = {
-        "arbeitsamt_block_enabled": bool(_db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-        "ba_vermittlungsnummer": _db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-        "ba_aktenzeichen": _db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-        "ba_berater_name": _db.get_profile_setting("report_ba_berater_name", "") or "",
-        "ba_berater_stelle": _db.get_profile_setting("report_ba_berater_stelle", "") or "",
-        "berater_kommentar_block": bool(_db.get_profile_setting("report_berater_kommentar_block", False)),
-        # v1.7.0-beta.12 (#582): Taetigkeitsbericht-Modus
-        "taetigkeitsbericht_mode": bool(_db.get_profile_setting("report_taetigkeitsbericht_mode", False)),
-    }
-    # v1.7.0-beta.22: PBP-Nutzung-Beginn fuer Cover-Page + Pre-PBP-Markierung
-    pbp_first_active_at = _db.get_pbp_first_active_at()
-    from .database import get_data_dir
     export_dir = ablage.ausgabe_ordner(_db)
 
     if format == "xlsx":
         try:
-            from .export_report import generate_excel_report
-            path = export_dir / "bewerbungsbericht.xlsx"
-            generate_excel_report(report_data, profile, path,
-                                   zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
-                                   report_settings=report_settings)
+            path = ablage.freier_pfad(export_dir, "bewerbungsbericht.xlsx")
+            _bericht.erzeugen(_db, path, "xlsx", zeitraum_von, zeitraum_bis)
             return FileResponse(
                 str(path),
                 filename="Bewerbungsbericht.xlsx",
@@ -5057,17 +5140,13 @@ async def api_export_applications(
                 {"error": "openpyxl nicht installiert. Installiere mit: pip install openpyxl"},
                 status_code=501
             )
-    else:
-        path = export_dir / "bewerbungsbericht.pdf"
-        generate_application_report(report_data, profile, path,
-                                    zeitraum_von=zeitraum_von, zeitraum_bis=zeitraum_bis,
-                                    report_settings=report_settings,
-                                    pbp_first_active_at=pbp_first_active_at)
-        return FileResponse(
-            str(path),
-            filename="Bewerbungsbericht.pdf",
-            media_type="application/pdf"
-        )
+    path = ablage.freier_pfad(export_dir, "bewerbungsbericht.pdf")
+    _bericht.erzeugen(_db, path, "pdf", zeitraum_von, zeitraum_bis)
+    return FileResponse(
+        str(path),
+        filename="Bewerbungsbericht.pdf",
+        media_type="application/pdf"
+    )
 
 
 @app.get("/api/datenguete/umgang")
@@ -5128,15 +5207,11 @@ async def api_schwellen_stufe(request: Request):
     bereich = str(daten.get("bereich") or "")
     stufe = str(daten.get("stufe") or "")
     if bereich not in _st.BEREICHE:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannter Bereich: {bereich!r}. "
-                   f"Möglich: {', '.join(_st.BEREICHE)}")
+        return JSONResponse({"error": f"Unbekannter Bereich: {bereich!r}. "
+                   f"Möglich: {', '.join(_st.BEREICHE)}"}, status_code=400)
     if stufe not in _st.SCHLUESSEL:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unbekannte Stufe: {stufe!r}. "
-                   f"Möglich: {', '.join(_st.SCHLUESSEL)}")
+        return JSONResponse({"error": f"Unbekannte Stufe: {stufe!r}. "
+                   f"Möglich: {', '.join(_st.SCHLUESSEL)}"}, status_code=400)
     _st.stufe_setzen(_db, bereich, stufe)
     alle = _st.stufen(_db)
     return {
@@ -5151,6 +5226,16 @@ async def api_schwellen_stufe(request: Request):
 @app.get("/api/search-criteria")
 async def api_search_criteria():
     return _db.get_search_criteria()
+
+
+@app.get("/api/entfernung/vorgaben")
+async def api_entfernung_vorgaben():
+    """#1036: die Vorgaben der Entfernungsgrenze je Anstellungsform kommen
+    vom Server — im Profil stand eine dritte Fassung der Tabelle. Eigener
+    Endpunkt, damit leere Kriterien leer bleiben (#927)."""
+    from .services import entfernung as _entf
+    return {"grenzen": dict(_entf.VORGABE_GRENZE_KM),
+            "sonst": _entf.VORGABE_GRENZE_SONST}
 
 
 @app.post("/api/search-criteria")
@@ -5456,16 +5541,48 @@ async def api_routing_speichern(request: Request):
         return JSONResponse({"error": ergebnis["fehler"],
                              "befund": ergebnis.get("befund", "")},
                             status_code=400)
+    if ergebnis.get("haken"):
+        hinweis = ("Schlüssel gespeichert. Neue Stellen bekommen die Fahrstrecke "
+                   "(nur Auto) beim nächsten Suchlauf; vorhandene zieht Claude "
+                   "mit fahrstrecken_verwalten('nachziehen') nach.")
+    else:
+        # #1037: der Schluessel schaltet nichts ein.
+        hinweis = ("Schlüssel gespeichert und geprüft. Benutzt wird er erst, "
+                   "wenn du unter Suche & Bewertung › Max. Entfernung pro "
+                   "Stellentyp den Haken „Echte Fahrstrecke und Fahrzeit "
+                   "verwenden (nur Auto)“ setzt.")
     return {**_routing.status(_db), "status": ergebnis["status"],
-            "hinweis": ("Fahrstrecke eingerichtet. Neue Stellen bekommen sie "
-                        "beim nächsten Suchlauf; vorhandene zieht Claude "
-                        "mit fahrstrecken_verwalten('nachziehen') nach.")}
+            "hinweis": hinweis}
+
+
+@app.put("/api/routing/aktiv")
+async def api_routing_aktiv(request: Request):
+    """Der Haken aus #1037 — getrennt vom Schluessel."""
+    from .services import routing as _routing
+    body = await request.json()
+    ergebnis = _routing.haken_setzen(_db, bool(body.get("aktiv")))
+    if ergebnis.get("fehler"):
+        return JSONResponse({"error": ergebnis["fehler"],
+                             "befund": ergebnis.get("befund", "")},
+                            status_code=400)
+    return {**_routing.status(_db), **ergebnis,
+            "hinweis": ("Fahrstrecke (nur Auto) ist an. Vorhandene Stellen "
+                        "zieht Claude mit fahrstrecken_verwalten('nachziehen') "
+                        "nach, danach scores_neu_berechnen()."
+                        if ergebnis["status"] == "an" else
+                        "Fahrstrecke ist aus — PBP rechnet überall mit der "
+                        "Luftlinie, auch wo schon eine Fahrstrecke steht. "
+                        "Die Punkte zieht scores_neu_berechnen() nach.")}
 
 
 @app.delete("/api/routing")
 async def api_routing_entfernen():
     from .services import routing as _routing
-    return {**_routing.schluessel_entfernen(_db), **_routing.status(_db)}
+    return {**_routing.schluessel_entfernen(_db), **_routing.status(_db),
+            "hinweis": ("Schlüssel entfernt und der Haken abgenommen. PBP "
+                        "rechnet überall mit der Luftlinie, auch für Stellen, "
+                        "an denen schon eine Fahrstrecke steht. Die Punkte "
+                        "zieht scores_neu_berechnen() nach.")}
 
 
 @app.get("/api/blacklist")
@@ -5477,7 +5594,14 @@ async def api_blacklist():
 async def api_add_blacklist(request: Request):
     data = await request.json()
     _db.add_to_blacklist(data["type"], data["value"], data.get("reason", ""))
-    return {"status": "ok"}
+    # #992-Klasse: wie ueber Claude sortiert ein Firmen-Eintrag die
+    # aktiven Stellen dieser Firma gleich aus — derselbe Weg, dieselbe Regel.
+    deaktiviert = 0
+    if data["type"] == "firma":
+        from .services import blacklist_bestand
+        deaktiviert = blacklist_bestand.anwenden(
+            _db, dry_run=False, nur_wert=data["value"])["deaktiviert"]
+    return {"status": "ok", "stellen_deaktiviert": deaktiviert}
 
 
 @app.delete("/api/blacklist/{entry_id}")
@@ -5721,7 +5845,9 @@ async def api_upload_document(
             meetings = extract_meetings_from_email(parsed)
             for m in meetings:
                 if m.get("start"):
-                    mid = _db.add_meeting({
+                    # #1102: eine unlesbare Zeit kostet nur diesen Termin —
+                    # nicht die uebrigen und nicht den Timeline-Eintrag der Mail.
+                    mid = _termin_aus_mail({
                         "application_id": linked_app,
                         "title": m.get("title", "Termin"),
                         "meeting_date": m["start"],
@@ -5731,7 +5857,8 @@ async def api_upload_document(
                         "platform": m.get("platform"),
                         "meeting_type": "interview",
                     })
-                    stored_meetings.append({"id": mid, **m})
+                    if mid:
+                        stored_meetings.append({"id": mid, **m})
 
             # Add timeline event
             direction = email_context.get("direction", "eingang")
@@ -6299,10 +6426,10 @@ async def api_export_cv(fmt: str):
     from .export import generate_cv_docx, generate_cv_pdf
 
     export_dir = ablage.ausgabe_ordner(_db)
-    name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
+    name_slug = ablage.dateiname_teil(profile.get("name"), "lebenslauf")
 
     if fmt == "docx":
-        path = export_dir / f"lebenslauf_{name_slug}.docx"
+        path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}.docx")
         # #973: dieselbe Vorlage wie ueber Claude. Zwei Layouts fuer
         # dasselbe Dokument, je nachdem wo geklickt wurde, waere das
         # Muster aus #963/#991.
@@ -6311,7 +6438,7 @@ async def api_export_cv(fmt: str):
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
-        path = export_dir / f"lebenslauf_{name_slug}.pdf"
+        path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}.pdf")
         generate_cv_pdf(profile, path)
         return FileResponse(str(path), filename=path.name, media_type="application/pdf")
     return JSONResponse({"error": "Format muss 'docx' oder 'pdf' sein"}, status_code=400)
@@ -6333,17 +6460,17 @@ async def api_export_cover_letter(fmt: str, request: Request):
     from .export import generate_cover_letter_docx, generate_cover_letter_pdf
 
     export_dir = ablage.ausgabe_ordner(_db)
-    firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
+    firma_slug = ablage.dateiname_teil(firma, "bewerbung")
 
     if fmt == "docx":
-        path = export_dir / f"anschreiben_{firma_slug}.docx"
+        path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.docx")
         _vorlage, _ = ablage.vorlage_finden(_db, "anschreiben")
         generate_cover_letter_docx(profile, text, stelle, firma, path,
                                    vorlage=_vorlage)
         return FileResponse(str(path), filename=path.name,
                           media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
     elif fmt == "pdf":
-        path = export_dir / f"anschreiben_{firma_slug}.pdf"
+        path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.pdf")
         generate_cover_letter_pdf(profile, text, stelle, firma, path)
         return FileResponse(str(path), filename=path.name, media_type="application/pdf")
     return JSONResponse({"error": "Format muss 'docx' oder 'pdf' sein"}, status_code=400)
@@ -6565,9 +6692,9 @@ async def api_ingest_job(request: Request, payload: dict):
     # #317: laufende Bewerbung mit aehnlichem Titel? Plugin kann kein
     # force — ehrliche 409-Antwort, der User entscheidet in PBP.
     try:
+        # #1103: `arbeitgeber_ausgefallen` blockte bisher mit.
         apps = [a for a in _db.get_applications()
-                if a.get("status") not in ("abgelehnt", "abgelaufen",
-                                           "zurueckgezogen", "angenommen")]
+                if _bewerbung_status.laeuft(a.get("status"))]
         dup = find_duplicate_job(firma, titel, url, apps)
         if dup:
             kandidat = dup.get("job") or {}
@@ -6636,104 +6763,51 @@ async def api_ingest_email(request: Request, file: UploadFile = File(...)):
 
 @app.post("/api/jobsuche/start")
 async def api_jobsuche_start(payload: dict = Body(default={})):
-    """Startet eine Jobsuche direkt aus dem Dashboard (#461).
+    """Startet die interne Jobsuche aus dem Dashboard (#461).
 
-    Spiegelt die Logik des MCP-Tools `jobsuche_starten` — manuelle
-    Quellen werden rausgefiltert, laufende Jobs verhindern Doppel-
-    Starts, der eigentliche Scrape laeuft im Thread.
-    """
-    import threading
-    from .tools.jobs import _MANUAL_SOURCES
-
-    keywords = payload.get("keywords") or None
-    quellen = payload.get("quellen") or []
-
-    if not quellen:
-        from .services.search_service import aktive_quellen
-        quellen = aktive_quellen(_db) or []
-    if not quellen:
-        return JSONResponse(
-            {
-                "status": "keine_quellen",
-                "nachricht": (
-                    "Keine Jobb\u00f6rse ausgew\u00e4hlt. W\u00e4hle Jobb\u00f6rsen unter "
-                    "Einstellungen \u203a Quellen."
-                ),
-            },
-            status_code=400,
-        )
-
-    manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
-    auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
-    manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
-
-    if not auto_quellen:
-        return JSONResponse(
-            {
-                "status": "nur_manuelle_quellen",
-                "manuelle_quellen": manuelle_info,
-                "nachricht": (
-                    "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
-                    "oder sind deprecated \u2014 hier gibt es nichts zu automatisieren."
-                ),
-            },
-            status_code=400,
-        )
-
-    existing = _db.get_running_background_job("jobsuche")
-    if existing:
-        return {
-            "status": "laeuft_bereits",
-            "job_id": existing["id"],
-            "nachricht": "Eine Jobsuche läuft bereits.",
-        }
-
-    # #1000: die beiden Felder wurden aus dem Payload gelesen, in
-    # die Job-Parameter geschrieben und von run_search nie wieder
-    # angesehen. Sie sind entfallen.
-    params = {
-        "keywords": keywords,
-        "quellen": auto_quellen,
-        # v1.7.114 (#1049): was der interne Lauf uebersprungen hat. Ohne
-        # diese Angabe meldete die Bilanz "14 Quellen ok", waehrend sechs
-        # gewaehlte Quellen gar nicht mitliefen (#813, #989).
-        "browser_quellen": manuelle,
-    }
-    job_id = _db.create_background_job("jobsuche", params)
-
-    def _run_search():
-        try:
-            from .job_scraper import run_search
-            run_search(_db, job_id, params)
-        except Exception as exc:
-            logger.error("Jobsuche (Dashboard) fehlgeschlagen: %s", exc, exc_info=True)
-            _db.update_background_job(job_id, "fehler", message=str(exc))
-
-    thread = threading.Thread(target=_run_search, daemon=True)
-    thread.start()
-
-    def _timeout_watchdog():
-        thread.join(timeout=600)
-        if thread.is_alive():
-            logger.warning("Jobsuche (Dashboard) Timeout nach 10min (Job %s)", job_id)
-            _db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
-
-    threading.Thread(target=_timeout_watchdog, daemon=True).start()
+    #1096: derselbe Startweg wie `jobsuche_starten` und die Automatik
+    (services/jobsuche_start) — mit Suchbegriff-Pruefung, #906-Warnung,
+    Browser-Quellen im Lauf-Hinweis, Watchdog und Nachlauf."""
+    from .services import jobsuche_start
+    erg = jobsuche_start.starten(_db, quellen=payload.get("quellen") or [],
+                                 keywords=payload.get("keywords") or None,
+                                 herkunft="dashboard")
+    status = erg["status"]
+    if status == "keine_quellen":
+        return JSONResponse({"status": status, "nachricht": (
+            "Keine Jobbörse ausgewählt. Wähle Jobbörsen unter "
+            "Einstellungen › Quellen.")}, status_code=400)
+    if status == "keine_suchbegriffe":
+        return JSONResponse({"status": status, "nachricht": (
+            "Noch keine Suchbegriffe — ohne sie würde PBP mit allgemeinen "
+            "Begriffen suchen. Lege sie unter Profil › Suche & Bewertung fest "
+            "oder bitte Claude: „Hilf mir, meine Suchbegriffe festzulegen“.")},
+            status_code=400)
+    if status == "nur_manuelle_quellen":
+        return JSONResponse({"status": status,
+                             "manuelle_quellen": erg["manuelle_quellen"],
+                             "nachricht": (
+            "Alle ausgewählten Quellen laufen nur über den Browser mit Claude "
+            "— hier gibt es nichts, was PBP selbst abfragen kann.")}, status_code=400)
+    if status == "laeuft_bereits":
+        return {"status": status, "job_id": erg["job_id"],
+                "nachricht": "Eine Jobsuche läuft bereits."}
 
     # v1.7.0-beta.40 (#609): Elwosa kommentiert den Suchstart
-    _elwosa_speak_safe("llm_task_running", ctx={"count": len(auto_quellen)})
-
+    _elwosa_speak_safe("llm_task_running", ctx={"count": len(erg["quellen"])})
     result = {
         "status": "gestartet",
-        "job_id": job_id,
-        "quellen": auto_quellen,
+        "job_id": erg["job_id"],
+        "quellen": erg["quellen"],
         "nachricht": (
-            f"Jobsuche läuft auf {len(auto_quellen)} Portalen. "
+            f"Jobsuche läuft auf {len(erg['quellen'])} Portalen. "
             "Fortschritt in der Sidebar-Statusanzeige."
         ),
     }
-    if manuelle_info:
-        result["manuelle_quellen"] = manuelle_info
+    if erg["manuelle_quellen"]:
+        result["manuelle_quellen"] = erg["manuelle_quellen"]
+    if erg["stellentyp_ohne_quelle"]:
+        result["stellentyp_ohne_quelle"] = erg["stellentyp_ohne_quelle"]
     return result
 
 
@@ -6830,6 +6904,9 @@ async def api_jobsuche_last():
     # Job-Parametern, nicht im Ergebnis — der Lauf fasst sie nie an.
     params = job.get("params") if isinstance(job.get("params"), dict) else {}
     zaehler["nur_browser"] = len(params.get("browser_quellen") or [])
+    # #1096: Stellenarten, fuer die in diesem Lauf keine Quelle lief (#906)
+    ohne_quelle = [b.get("stellentyp") for b in (params.get("stellentyp_ohne_quelle") or [])
+                   if isinstance(b, dict) and b.get("stellentyp")]
 
     neue = _zahl(result.get("total"))
     return {
@@ -6842,8 +6919,15 @@ async def api_jobsuche_last():
         "neu_aktiv": _zahl(result.get("neu_aktiv")) if ergebnis == "fertig" else None,
         # C97 (#1087 C8): wie viele der neuen Stellen noch ohne Volltext sind.
         "ohne_volltext": _zahl(result.get("ohne_volltext")) if ergebnis == "fertig" else None,
+        # #1038 Punkt 4: was danach im Hintergrund nachgeladen wurde
+        # ({geholt, fehlgeschlagen, offen}); None, solange es nicht lief.
+        "nachgeladen": result.get("nachgeladen") if ergebnis == "fertig" else None,
+        # #1092 AK 6: was die lokale KI danach aussortiert hat.
+        "auto_aussortiert": _zahl((result.get("auto_aussortiert") or {}).get("aussortiert"))
+            if ergebnis == "fertig" else None,
         "quellen": zaehler,
         "timeout_quellen": zaehler["timeout"],
+        "stellentyp_ohne_quelle": ohne_quelle,
         "meldung": job.get("message") or "",
         "updated_at": job.get("updated_at"),
     }
@@ -6879,50 +6963,39 @@ async def api_follow_ups():
     }
 
 
+def _nachfassung_antwort(erg: dict, ok: dict):
+    if erg["ok"]:
+        return ok
+    codes = {"nicht_gefunden": 404, "zustand": 409, "leer": 400}
+    return JSONResponse({"error": erg["fehler"]}, status_code=codes.get(erg["grund"], 400))
+
+
 @app.post("/api/follow-ups/{follow_up_id}/complete")
 async def api_follow_up_complete(follow_up_id: str, payload: dict = Body(default={})):
-    """Mark follow-up as erledigt (done). #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    _db.complete_follow_up(follow_up_id, status="erledigt")
-    notiz = (payload or {}).get("notiz") or ""
-    if notiz and fu.get("application_id"):
-        try:
-            _db.add_application_note(fu["application_id"], f"Nachfass erledigt: {notiz}")
-        except Exception:
-            pass
-    return {"status": "erledigt", "id": follow_up_id}
+    """Nachfassung erledigt (#453). Nur eine geplante (#1094): 409 sonst."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_abschliessen(_db, follow_up_id, "erledigt",
+                                       (payload or {}).get("notiz") or "")
+    return _nachfassung_antwort(erg, {"status": "erledigt", "id": follow_up_id})
 
 
 @app.post("/api/follow-ups/{follow_up_id}/dismiss")
 async def api_follow_up_dismiss(follow_up_id: str, payload: dict = Body(default={})):
-    """Mark follow-up as hinfaellig (no longer relevant). #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    _db.complete_follow_up(follow_up_id, status="hinfaellig")
-    grund = (payload or {}).get("grund") or ""
-    if grund and fu.get("application_id"):
-        try:
-            _db.add_application_note(fu["application_id"], f"Nachfass hinfällig: {grund}")
-        except Exception:
-            pass
-    return {"status": "hinfaellig", "id": follow_up_id}
+    """Nachfassung hinfaellig (#453). Nur eine geplante (#1094): 409 sonst."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_abschliessen(_db, follow_up_id, "hinfaellig",
+                                       (payload or {}).get("grund") or "")
+    return _nachfassung_antwort(erg, {"status": "hinfaellig", "id": follow_up_id})
 
 
 @app.put("/api/follow-ups/{follow_up_id}")
 async def api_follow_up_reschedule(follow_up_id: str, payload: dict = Body(...)):
-    """Update (reschedule/edit) a follow-up. #453"""
-    fu = _db.get_follow_up(follow_up_id)
-    if not fu:
-        return JSONResponse({"error": "follow_up_not_found"}, status_code=404)
-    allowed = {k: v for k, v in (payload or {}).items()
-               if k in ("scheduled_date", "template", "follow_up_type") and v is not None}
-    if not allowed:
-        return JSONResponse({"error": "no_valid_fields"}, status_code=400)
-    _db.update_follow_up(follow_up_id, allowed)
-    return {"status": "aktualisiert", "id": follow_up_id, "updated": list(allowed.keys())}
+    """Datum, Text oder Art einer geplanten Nachfassung aendern (#453).
+    Ein leerer Text wird abgewiesen (#816, #1094)."""
+    from .services import bewerbung_lebenszyklus as _lz
+    erg = _lz.nachfassung_aendern(_db, follow_up_id, payload or {})
+    return _nachfassung_antwort(erg, {"status": "aktualisiert", "id": follow_up_id,
+                                      "updated": erg.get("geaendert", [])})
 
 
 @app.post("/api/applications/{app_id}/adopt-position")
@@ -7063,12 +7136,12 @@ async def api_export_profile():
     if not data:
         return JSONResponse({"error": "Profil nicht gefunden"}, status_code=404)
 
-    name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+    name_slug = ablage.dateiname_teil(data.get("name"), "profil")
     date_str = datetime.now().strftime("%Y%m%d")
     filename = f"profil_backup_{name_slug}_{date_str}.json"
 
     export_dir = ablage.ausgabe_ordner(_db)
-    filepath = export_dir / filename
+    filepath = ablage.freier_pfad(export_dir, filename)
     filepath.write_text(
         json.dumps(data, ensure_ascii=False, indent=2, default=str),
         encoding="utf-8"
@@ -7171,25 +7244,66 @@ async def api_backup():
     if not db_path.exists():
         return JSONResponse({"error": "Keine Datenbank vorhanden"}, status_code=404)
 
-    backup_dir = get_data_dir() / "backup"
-    backup_dir.mkdir(exist_ok=True)
-    date_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_name = f"pbp_backup_{date_str}.db"
-    backup_path = backup_dir / backup_name
-
-    # SQLite-safe backup via connection backup API
-    import sqlite3
-    src = sqlite3.connect(str(db_path))
-    dst = sqlite3.connect(str(backup_path))
-    src.backup(dst)
-    dst.close()
-    src.close()
-
+    # #1098: derselbe Ordner und dieselbe Rotation wie die automatischen
+    # Sicherungen, samt Dokumenten — und nicht mehr im Event-Loop.
+    from .services import sicherung as _sicherung
+    erg = await run_in_threadpool(_sicherung.sichern, _db, "manuell")
+    if erg["status"] != "gesichert":
+        return JSONResponse({"error": erg["fehler"]}, status_code=507)
+    backup_path = _sicherung.ordner(_db) / erg["name"]
     return FileResponse(
         str(backup_path),
-        filename=backup_name,
+        filename=erg["name"],
         media_type="application/octet-stream",
     )
+
+
+@app.get("/api/sicherungen")
+async def api_sicherungen():
+    """Liste der Sicherungen, die letzte, der Platz und eine Vormerkung (#1098)."""
+    from .services import sicherung as _sicherung
+    alle = _sicherung.liste(_db)
+    alter = _sicherung.alter_tage(_db)
+    return {"sicherungen": alle,
+            "letzte": alle[0] if alle else None,
+            "alter_tage": round(alter, 2) if alter is not None else None,
+            "platz_belegt": sum(e["groesse"] for e in alle),
+            "vorgemerkt": _sicherung.vormerkung(_db),
+            "regel": (f"Behalten werden alle Sicherungen der letzten "
+                      f"{_sicherung.TAGE_BEHALTEN} Tage und je eine der "
+                      f"{_sicherung.WOCHEN_BEHALTEN} Wochen davor.")}
+
+
+@app.post("/api/sicherungen")
+async def api_sicherung_anlegen():
+    """Jetzt sichern — im Hintergrund, mit Eintrag in der Statusanzeige."""
+    from .services import sicherung as _sicherung
+    return _sicherung.im_hintergrund(_db, "manuell")
+
+
+@app.post("/api/sicherungen/wiederherstellen")
+async def api_sicherung_wiederherstellen(payload: dict = Body(default={})):
+    """Eine Sicherung beim naechsten Start einspielen (#1098). Vorher wird
+    der aktuelle Stand gesichert."""
+    from .services import sicherung as _sicherung
+    if (payload or {}).get("confirm") != "WIEDERHERSTELLEN":
+        return JSONResponse({"error": "Bestätigung fehlt (confirm: WIEDERHERSTELLEN)"},
+                            status_code=400)
+    erg = await run_in_threadpool(_sicherung.vormerken, _db,
+                                  str((payload or {}).get("name") or ""))
+    if erg["status"] != "vorgemerkt":
+        return JSONResponse({"error": erg["fehler"]}, status_code=400)
+    erg["naechster_schritt"] = (
+        "Beende PBP und Claude Desktop ganz (Claude Desktop: Rechtsklick auf das "
+        "Symbol unten rechts in der Taskleiste → Beenden) und starte beides neu. "
+        "Beim Start wird der gewählte Stand eingespielt.")
+    return erg
+
+
+@app.delete("/api/sicherungen/wiederherstellen")
+async def api_sicherung_vormerkung_aufheben():
+    from .services import sicherung as _sicherung
+    return {"aufgehoben": _sicherung.vormerkung_aufheben(_db)}
 
 
 # === User Preferences (PBP v0.10.0) ===
@@ -7437,11 +7551,19 @@ async def api_danger_bereiche(bereiche: str = "", profil_id: str = ""):
     # v1.7.83 nur das gerade gewaehlte an.
     profile = [{"id": p["id"], "name": p.get("name") or p["id"]}
                for p in (_db.get_profiles() or [])]
+    # #1097: was der DSGVO-Modus loescht — aus derselben Liste wie die
+    # Loeschung, die Datenuebersicht und die Selbstauskunft.
+    from .services import datenordner
     return {
         **vor,
         "profile": profile,
         "bereiche_reihenfolge": list(loeschbereiche.BEREICHE),
         "bestaetigungswort": "LOESCHEN",
+        "dsgvo": {
+            "inhalt": datenordner.uebersicht(),
+            "ausserhalb": datenordner.ausserhalb(_db),
+            "ausserhalb_hinweis": datenordner.AUSSERHALB_SATZ,
+        },
     }
 
 
@@ -7476,7 +7598,10 @@ async def api_danger_leeren(request: Request):
             status_code=400)
 
     if modus == "dsgvo":
-        return await _dsgvo_loeschen()
+        erg = await _dsgvo_loeschen()
+        if erg["status"] == "abgelehnt":
+            return JSONResponse(erg, status_code=409)
+        return erg
 
     gewaehlt = data.get("bereiche") or []
     if not isinstance(gewaehlt, list) or not gewaehlt:
@@ -7494,7 +7619,11 @@ async def api_danger_leeren(request: Request):
             status_code=400)
 
     pid = (data.get("profil_id") or "").strip() or None
-    erg = loeschbereiche.leeren(_db, gewaehlt, pid, dry_run=False)
+    # #1098: vorher sichern — samt Dokumenten; ohne Sicherung kein Leeren.
+    erg = await run_in_threadpool(loeschbereiche.leeren, _db, gewaehlt, pid,
+                                  dry_run=False, sichern=True)
+    if erg.get("status") == "abgebrochen":
+        return JSONResponse({**erg, "error": erg["fehler"]}, status_code=507)
     # `status` kommt aus dem Dienst ("geloescht") und wird hier NICHT
     # ueberschrieben: zwei Bedeutungen unter einem Feldnamen sind der
     # Fehler aus #1008.
@@ -7507,26 +7636,50 @@ async def _dsgvo_loeschen() -> dict:
     Herausgeloest aus `api_privacy_delete_all`, damit beide Wege
     dieselbe Mechanik nehmen. Zwei Fassungen davon waeren genau das
     Muster, gegen das #1025 angetreten ist.
+
+    #1097: geleert wird der GANZE Datenordner — Sicherungen, Mails,
+    Protokolle, WAL-Datei und Browser-Sitzungen eingeschlossen, nicht nur
+    Datenbank, `dokumente/` und `export/`. Laeuft Hintergrundarbeit,
+    wird abgelehnt (`status: abgelehnt`), statt eine benutzte Verbindung
+    zu schliessen (v1.7.11, Exit 139). Was sich nicht loeschen laesst,
+    wird benannt (`status: teilweise`) und beim naechsten Start entfernt.
     """
-    import shutil
     from .database import get_data_dir
+    from .services import datenordner
+
+    laufend = datenordner.laufende_arbeit()
+    if laufend:
+        return {"status": "abgelehnt", "modus": "dsgvo", "deleted": [],
+                "laufend": laufend,
+                "message": (f"Gerade läuft {datenordner.arbeit_klartext(laufend)}. "
+                            "Warte, bis sie fertig ist, und lösche dann erneut — "
+                            "sonst könnte PBP mitten im Schreiben abbrechen.")}
 
     data_dir = get_data_dir()
-    geloescht = []
-    db_path = data_dir / "pbp.db"
-    if db_path.exists():
-        _db.close()
-        db_path.unlink()
-        geloescht.append("Datenbank")
-    for subdir in ["dokumente", "export"]:
-        sub = data_dir / subdir
-        if sub.exists():
-            shutil.rmtree(sub)
-            sub.mkdir()
-            geloescht.append(subdir.capitalize())
-    return {"status": "ok", "modus": "dsgvo", "deleted": geloescht,
-            "message": ("Datenbank und Dokumentordner gelöscht. "
-                        "Bitte Dashboard neu starten.")}
+    ausserhalb = datenordner.ausserhalb(_db)
+    _db.close()
+    erg = datenordner.alles_loeschen(data_dir)
+    antwort = {"modus": "dsgvo", "deleted": erg["geloescht"],
+               "nicht_geloescht": erg["fehler"],
+               # Nicht von PBP angelegt (fremde Dateien, Programmteile):
+               # bleibt liegen und wird genannt.
+               "unberuehrt": erg.get("unberuehrt", []),
+               "ausserhalb": ausserhalb,
+               "ausserhalb_hinweis": datenordner.AUSSERHALB_SATZ}
+    if erg["fehler"]:
+        return {**antwort, "status": "teilweise",
+                "message": (
+                    f"{len(erg['fehler'])} Einträge ließen sich nicht löschen, "
+                    "vermutlich hält Claude Desktop sie noch offen. Beende "
+                    "Claude Desktop und PBP; beim nächsten Start löscht PBP "
+                    "den Rest, bevor es etwas anderes tut.")}
+    bleibt = ""
+    if antwort["unberuehrt"]:
+        bleibt = (" Nicht angefasst, weil PBP es nicht angelegt hat: "
+                  + ", ".join(antwort["unberuehrt"]) + ".")
+    return {**antwort, "status": "ok",
+            "message": ("Alle Daten von PBP im Datenordner gelöscht." + bleibt
+                        + " Bitte PBP und Claude Desktop neu starten.")}
 
 
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
@@ -7760,7 +7913,7 @@ async def api_privacy_self_disclosure():
     profile = _db.get_profile()
     from .database import get_data_dir
     export_dir = ablage.ausgabe_ordner(_db)
-    path = export_dir / "datenauskunft.pdf"
+    path = ablage.freier_pfad(export_dir, "datenauskunft.pdf")
     generate_data_self_disclosure(_db, profile, path)
     return FileResponse(
         str(path),
@@ -7794,59 +7947,34 @@ async def api_stats_heatmap(days: int = 365):
     conn = _db.connect()
 
     counts = defaultdict(lambda: {"applications": 0, "events": 0, "meetings": 0, "followups": 0})
-
-    # Bewerbungen
-    try:
-        rows = conn.execute(
-            "SELECT applied_at FROM applications "
-            "WHERE applied_at >= ? AND (profile_id=? OR profile_id IS NULL)",
-            (cutoff, pid)
-        ).fetchall()
-        for r in rows:
-            d = (r["applied_at"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["applications"] += 1
-    except Exception:
-        pass
-
-    # Status-Events
-    try:
-        rows = conn.execute(
-            "SELECT event_at FROM application_events WHERE event_at >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["event_at"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["events"] += 1
-    except Exception:
-        pass
-
-    # Termine
-    try:
-        rows = conn.execute(
-            "SELECT meeting_date FROM application_meetings WHERE meeting_date >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["meeting_date"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["meetings"] += 1
-    except Exception:
-        pass
-
-    # Follow-ups
-    try:
-        rows = conn.execute(
-            "SELECT scheduled_date FROM follow_ups WHERE scheduled_date >= ?",
-            (cutoff,)
-        ).fetchall()
-        for r in rows:
-            d = (r["scheduled_date"] or "")[:10]
-            if d >= cutoff:
-                counts[d]["followups"] += 1
-    except Exception:
-        pass
+    # #1106: jede Quelle mit Profilfilter, und eine Abfrage, die scheitert,
+    # wird benannt statt still als 0 gezaehlt (#989).
+    luecken = []
+    quellen = (
+        ("applications",
+         "SELECT applied_at AS tag FROM applications "
+         "WHERE applied_at >= ? AND (profile_id=? OR profile_id IS NULL)"),
+        ("events",
+         "SELECT e.event_date AS tag FROM application_events e "
+         "JOIN applications a ON a.id = e.application_id "
+         "WHERE e.event_date >= ? AND (a.profile_id=? OR a.profile_id IS NULL)"),
+        ("meetings",
+         "SELECT meeting_date AS tag FROM application_meetings "
+         "WHERE meeting_date >= ? AND (profile_id=? OR profile_id IS NULL)"),
+        ("followups",
+         "SELECT f.scheduled_date AS tag FROM follow_ups f "
+         "JOIN applications a ON a.id = f.application_id "
+         "WHERE f.scheduled_date >= ? AND (a.profile_id=? OR a.profile_id IS NULL)"),
+    )
+    for art, sql in quellen:
+        try:
+            for r in conn.execute(sql, (cutoff, pid)).fetchall():
+                d = (r["tag"] or "")[:10]
+                if d >= cutoff:
+                    counts[d][art] += 1
+        except Exception as exc:
+            logger.warning("Heatmap: %s nicht lesbar: %s", art, exc)
+            luecken.append(art)
 
     result = []
     for day_str, data in sorted(counts.items()):
@@ -7861,6 +7989,8 @@ async def api_stats_heatmap(days: int = 365):
         "total_active_days": len(result),
         "max_per_day": max((r["count"] for r in result), default=0),
         "data": result,
+        # #1106: was fehlt, ist keine 0.
+        "nicht_lesbar": luecken,
     }
 
 
@@ -8143,9 +8273,19 @@ async def api_approve_pending_contact(contact_id: str):
 
 @app.delete("/api/contacts/pending/{contact_id}")
 async def api_reject_pending_contact(contact_id: str):
-    """Verwirft einen pending-Kontakt (loescht ihn komplett)."""
+    """Verwirft einen pending-Kontakt (loescht ihn komplett).
+
+    #1110: vorher bleibt eine Spur (nur ein Hash), damit derselbe
+    Vorschlag beim naechsten Lauf nicht wiederkommt."""
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    zeile = conn.execute(
+        "SELECT full_name, email, company, phone FROM contacts "
+        "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",
+        (contact_id, pid)).fetchone()
+    if zeile:
+        from .services import kontakt_pflicht
+        kontakt_pflicht.ablehnung_merken(_db, dict(zeile))
     cur = conn.execute(
         "DELETE FROM contacts "
         "WHERE id=? AND (profile_id=? OR profile_id IS NULL) AND is_pending=1",
@@ -8730,6 +8870,8 @@ async def api_global_search(q: str = "", limit: int = 8):
     pattern = f"%{query}%"
 
     groups = []
+    # #1106: eine Gruppe, deren Abfrage scheitert, wird benannt (#989).
+    luecken = []
     total = 0
 
     # 1. Bewerbungen
@@ -8807,16 +8949,18 @@ async def api_global_search(q: str = "", limit: int = 8):
             } for d in docs]
             groups.append({"label": "Dokumente", "kind": "document", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Dokumente nicht lesbar: %s", exc)
+        luecken.append("Dokumente")
 
     # 5. E-Mails
     try:
         emails = conn.execute(
-            "SELECT id, subject, sender_email, application_id FROM application_emails "
-            "WHERE LOWER(subject) LIKE ? OR LOWER(sender_email) LIKE ? "
-            "OR LOWER(plain_body) LIKE ? LIMIT ?",
-            (pattern, pattern, pattern, limit)
+            "SELECT id, subject, sender, application_id FROM application_emails "
+            "WHERE (LOWER(subject) LIKE ? OR LOWER(sender) LIKE ? "
+            "OR LOWER(body_text) LIKE ?) "
+            "AND (profile_id=? OR profile_id IS NULL) LIMIT ?",
+            (pattern, pattern, pattern, pid, limit)
         ).fetchall()
         if emails:
             items = [{
@@ -8824,22 +8968,24 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id": e["id"],
                 "id_typed": f"EML-{e['id'][:8]}",
                 "title": e["subject"] or "(ohne Betreff)",
-                "subtitle": f"Von: {e['sender_email'] or '?'}",
+                "subtitle": f"Von: {e['sender'] or '?'}",
                 "url": (f"#bewerbungen?id={e['application_id']}"
                        if e['application_id'] else "#bewerbungen"),
             } for e in emails]
             groups.append({"label": "E-Mails", "kind": "email", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Mails nicht lesbar: %s", exc)
+        luecken.append("E-Mails")
 
     # 6. Termine
     try:
         meetings = conn.execute(
             "SELECT m.id, m.title, m.notes, m.meeting_date, a.company, a.id as app_id "
             "FROM application_meetings m LEFT JOIN applications a ON a.id = m.application_id "
-            "WHERE LOWER(m.title) LIKE ? OR LOWER(m.notes) LIKE ? LIMIT ?",
-            (pattern, pattern, limit)
+            "WHERE (LOWER(m.title) LIKE ? OR LOWER(m.notes) LIKE ?) "
+            "AND (m.profile_id=? OR m.profile_id IS NULL) LIMIT ?",
+            (pattern, pattern, pid, limit)
         ).fetchall()
         if meetings:
             items = [{
@@ -8853,10 +8999,11 @@ async def api_global_search(q: str = "", limit: int = 8):
             } for m in meetings]
             groups.append({"label": "Termine", "kind": "meeting", "items": items})
             total += len(items)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Suche: Termine nicht lesbar: %s", exc)
+        luecken.append("Termine")
 
-    return {"query": q, "groups": groups, "total": total}
+    return {"query": q, "groups": groups, "total": total, "nicht_lesbar": luecken}
 
 
 # === Recap-Funktion (v1.7.0 #576) ===
@@ -8879,11 +9026,11 @@ def _run_auto_expire(now_iso: str) -> dict:
     """
     from datetime import datetime, timedelta
     try:
-        d_default = int(_db.get_setting("expire_default_days", 60) or 60)
+        d_default = _db.get_setting_zahl("expire_default_days", 60)
     except Exception:
         d_default = 60
     try:
-        d_eb = int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30)
+        d_eb = _db.get_setting_zahl("expire_eingangsbestaetigung_days", 30)
     except Exception:
         d_eb = 30
 
@@ -8989,7 +9136,7 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
     """
     from datetime import datetime, timedelta
     try:
-        default_days = int(_db.get_setting("followup_default_days", 7) or 7)
+        default_days = _db.get_setting_zahl("followup_default_days", 7)
     except Exception:
         default_days = 7
 
@@ -9055,75 +9202,32 @@ def _run_auto_followup_reconciler(now_iso: str) -> dict:
 def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     """v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Stellenbeschreibungen.
 
-    Iteriert ueber bis zu max_jobs aktive Stellen mit leerer/zu kurzer
-    Beschreibung und versucht sie via httpx + fetch_description_from_detail
-    nachzuziehen. Mit Backoff: Stellen mit >= 3 Fehlversuchen werden
-    fuer diesen Lauf uebersprungen (gespeichert in settings als
-    `refetch_fail:{hash}`).
+    Bis zu max_jobs aktive Stellen mit leerer/zu kurzer Beschreibung.
+    Seit #1038 dieselbe Schleife wie das Nachladen nach dem Suchlauf
+    (`services/text_nachzug.holen`): Backoff nach drei Fehlversuchen,
+    Text samt Kopf und Neubewertung ueber `nachladen.text_uebernehmen`.
 
     Bewusst niedriger max_jobs-Default — wir bombardieren keine
-    fremden Server. User kann manuell pro Stelle nachschieben (Layer B).
-
-    Postet eine zusammenfassende Elwosa-Linie wenn was passiert ist.
+    fremden Server. Postet eine Elwosa-Linie, wenn etwas passiert ist.
     """
-    import httpx
-    from .job_scraper import fetch_description_from_detail
+    from .services import text_nachzug
+    from .services.datenguete import MIN_BESCHREIBUNG
     pid = _db.get_active_profile_id()
     conn = _db.connect()
     rows = conn.execute(
-        "SELECT hash, url FROM jobs "
+        "SELECT hash FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
         "AND url IS NOT NULL AND url != '' "
         # #645: Such-URL-Stellen ausschliessen — sonst landet als
-        # "Beschreibung" der Anriss der Suchergebnis-Seite, nicht die
-        # echte Anzeige, und der Score wird wieder unzuverlaessig.
+        # "Beschreibung" der Anriss der Suchergebnis-Seite.
         "AND COALESCE(is_search_url, 0) = 0 "
-        "AND (description IS NULL OR LENGTH(description) < 50) "
+        "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
         "LIMIT ?",
-        (pid, max_jobs * 3)  # Overshoot — manche werden via Backoff geskippt
+        (pid, MIN_BESCHREIBUNG, max_jobs * 3)  # Overshoot — Backoff ueberspringt
     ).fetchall()
-
-    successes = 0
-    failures = 0
-    skipped_backoff = 0
-    processed = 0
-    try:
-        with httpx.Client(follow_redirects=True, timeout=15,
-                           headers={"User-Agent": "PBP/1.7 (+github.com/MadGapun/PBP)"}) as client:
-            for row in rows:
-                if processed >= max_jobs:
-                    break
-                h = row["hash"]
-                # Backoff: skip nach 3+ Failures
-                fail_count = 0
-                try:
-                    fail_count = int(_db.get_setting(f"refetch_fail:{h}", "0") or "0")
-                except Exception:
-                    pass
-                if fail_count >= 3:
-                    skipped_backoff += 1
-                    continue
-                processed += 1
-                try:
-                    from .services import nachladen as _nachladen
-                    _befund = _nachladen.beschreibung_holen(
-                        row["url"], client, timeout=15)
-                    text = _befund.text
-                    _kopf = _befund.kopf
-                except Exception:
-                    text = ""
-                    _kopf = {}
-                if text and len(text) >= 50:
-                    # #1048: Text UND was an ihm haengt (Snapshot, Gehalt,
-                    # Umfang, Score) — bisher nur der Text.
-                    _nachladen.text_uebernehmen(_db, h, text, kopf=_kopf)
-                    _reset_refetch_failure(h)
-                    successes += 1
-                else:
-                    _bump_refetch_failure(h)
-                    failures += 1
-    except Exception:
-        pass
+    erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
+    successes, failures = erg["geholt"], erg["fehlgeschlagen"]
+    processed, skipped_backoff = erg["versucht"], erg["backoff"]
 
     if successes > 0 or failures > 0:
         _elwosa_speak_safe("auto_refetch_descriptions", ctx={
@@ -10507,11 +10611,11 @@ async def api_auto_actions_status():
     return {
         "last_run_at": last,
         "settings": {
-            "expire_default_days": int(_db.get_setting("expire_default_days", 60) or 60),
+            "expire_default_days": _db.get_setting_zahl("expire_default_days", 60),
             "expire_eingangsbestaetigung_days":
-                int(_db.get_setting("expire_eingangsbestaetigung_days", 30) or 30),
+                _db.get_setting_zahl("expire_eingangsbestaetigung_days", 30),
             "followup_default_days":
-                int(_db.get_setting("followup_default_days", 7) or 7),
+                _db.get_setting_zahl("followup_default_days", 7),
         },
     }
 
@@ -10858,6 +10962,26 @@ async def api_local_ai_auto_dismissed(limit: int = 50):
     return {"items": items, "count": len(items)}
 
 
+@app.get("/api/lernen/transparenz")
+async def api_lernen_transparenz(limit: int = 10):
+    """#792: was fliesst ins Lernen ein, und was haben die letzten Laeufe
+    ergeben — derselbe Inhalt wie `lernprotokoll_anzeigen`."""
+    from .services.lernprotokoll import anzeigen
+    from .services.lernquellen import uebersicht
+    return {"lernen_eingeschaltet": _db.is_learning_enabled(),
+            "quellen": uebersicht(_db), "laeufe": anzeigen(_db, limit=limit)}
+
+
+@app.get("/api/lernen/export")
+async def api_lernen_export():
+    """#792: die Lerndaten als ZIP — derselbe Export wie
+    `lerndaten_exportieren`. Er liegt danach auch im Ausgabe-Ordner."""
+    from .services.lernprotokoll import export_erstellen
+    erg = export_erstellen(_db)
+    datei = Path(erg["datei"])
+    return FileResponse(str(datei), filename=datei.name, media_type="application/zip")
+
+
 @app.get("/api/learning/insights")
 async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
     """Liefert die LLM-generierten + heuristischen learning_insights
@@ -11134,11 +11258,13 @@ async def api_automatik_run_now(request: Request):
     kind = data.get("kind")
     from .services.automatik_scheduler import run_lernen_now, run_jobsuche_now
     if kind == "lernen":
-        res = run_lernen_now(_db)
-        _db.mark_automatik_run("lernen")
+        res = run_lernen_now(_db, ausloeser="manuell")
+        # #1107: "laeuft_bereits" ist kein neuer Lauf.
+        if res.get("status") == "gestartet":
+            _db.mark_automatik_run("lernen")
     elif kind == "jobsuche":
         res = run_jobsuche_now(_db)
-        if res.get("status") in ("gestartet", "keine_internen_quellen"):
+        if res.get("status") in ("gestartet", "keine_internen_quellen", "keine_suchbegriffe"):
             _db.mark_automatik_run("jobsuche")
     else:
         return JSONResponse(
@@ -11271,52 +11397,58 @@ async def api_recap():
         (since_iso, pid)
     ).fetchone()["n"]
 
-    status_changes = 0
-    try:
-        status_changes = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_events WHERE event_at >= ? "
-            "AND event_type='status_change'",
-            (since_iso,)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # #1106: jede Zahl mit Profilfilter und richtigen Spalten; eine
+    # Abfrage, die scheitert, wird benannt statt still als 0 gemeldet.
+    luecken = []
 
-    new_emails = 0
-    try:
-        new_emails = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_emails WHERE created_at >= ?",
-            (since_iso,)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    def _zahl(name, sql, args):
+        try:
+            return conn.execute(sql, args).fetchone()["n"]
+        except Exception as exc:
+            logger.warning("Rueckschau: %s nicht lesbar: %s", name, exc)
+            luecken.append(name)
+            return 0
+
+    # Statusaenderung ist ein Ereignis, das einen Bewerbungsstatus traegt —
+    # nicht jede Timeline-Zeile (Dokument verknuepft, Notiz ...).
+    from .tools.bewerbungen import VALID_STATUSES as _stati
+    _platz = ",".join("?" * len(_stati))
+    status_changes = _zahl(
+        "status_changes",
+        "SELECT COUNT(*) AS n FROM application_events e "
+        "JOIN applications a ON a.id = e.application_id "
+        f"WHERE e.event_date >= ? AND e.status IN ({_platz}) "
+        "AND (a.profile_id=? OR a.profile_id IS NULL)",
+        (since_iso, *sorted(_stati), pid))
+
+    new_emails = _zahl(
+        "new_emails",
+        "SELECT COUNT(*) AS n FROM application_emails WHERE created_at >= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (since_iso, pid))
 
     # Faellige Follow-ups (heute oder ueberfaellig)
     # v1.7.0-beta.13 (#518): nur Typ `nachfass` (+ legacy) zaehlen als Banner-faellig.
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    overdue_followups = 0
-    try:
-        overdue_followups = conn.execute(
-            "SELECT COUNT(*) AS n FROM follow_ups f "
-            "JOIN applications a ON f.application_id = a.id "
-            "WHERE f.scheduled_date <= ? AND f.status='geplant' "
-            "AND (f.follow_up_type IS NULL OR f.follow_up_type='' OR f.follow_up_type='nachfass') "
-            "AND (a.profile_id=? OR a.profile_id IS NULL)",
-            (today_iso, pid)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # `scheduled_date` ist ein LOKALES Datum (v1.7.21).
+    today_iso = datetime.now().date().isoformat()
+    overdue_followups = _zahl(
+        "overdue_followups",
+        "SELECT COUNT(*) AS n FROM follow_ups f "
+        "JOIN applications a ON f.application_id = a.id "
+        "WHERE f.scheduled_date <= ? AND f.status='geplant' "
+        "AND (f.follow_up_type IS NULL OR f.follow_up_type='' OR f.follow_up_type='nachfass') "
+        "AND (a.profile_id=? OR a.profile_id IS NULL)",
+        (today_iso, pid))
 
-    # Anstehende Termine (next 7 days)
-    upcoming_meetings = 0
-    try:
-        in_7_days = (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
-        upcoming_meetings = conn.execute(
-            "SELECT COUNT(*) AS n FROM application_meetings "
-            "WHERE meeting_date >= ? AND meeting_date <= ?",
-            (datetime.now(timezone.utc).isoformat(), in_7_days)
-        ).fetchone()["n"]
-    except Exception:
-        pass
+    # Anstehende Termine (naechste 7 Tage). Terminzeiten stehen als
+    # LOKALE Zeit ohne Zone da — verglichen wird deshalb mit lokaler Zeit.
+    _jetzt_lokal = datetime.now().replace(microsecond=0)
+    upcoming_meetings = _zahl(
+        "upcoming_meetings",
+        "SELECT COUNT(*) AS n FROM application_meetings "
+        "WHERE meeting_date >= ? AND meeting_date <= ? "
+        "AND (profile_id=? OR profile_id IS NULL)",
+        (_jetzt_lokal.isoformat(), (_jetzt_lokal + timedelta(days=7)).isoformat(), pid))
 
     # last_login_at aktualisieren — beim naechsten Aufruf gilt das Fenster ab jetzt
     _db.set_profile_setting("last_login_at", datetime.now(timezone.utc).isoformat())
@@ -11336,6 +11468,8 @@ async def api_recap():
         "status_changes": status_changes,
         "overdue_followups": overdue_followups,
         "upcoming_meetings": upcoming_meetings,
+        # #1106: was fehlt, ist keine 0.
+        "nicht_lesbar": luecken,
     }
 
 
@@ -11887,14 +12021,17 @@ async def api_privacy_info():
         "documents": len(profile.get("documents", [])) if profile else 0,
     }
 
+    # #1097: alle Ordner, die PBP im Datenordner anlegt — aus derselben
+    # Liste wie die DSGVO-Loeschung. Vorher standen hier vier von zehn.
+    from .services import datenordner
     subdirs = {}
-    for name in ["dokumente", "export", "logs", "backup"]:
-        sub = data_dir / name
-        if sub.exists():
-            files = list(sub.glob("*"))
-            subdirs[name] = {"path": str(sub), "file_count": len(files)}
-        else:
-            subdirs[name] = {"path": str(sub), "file_count": 0}
+    for eintrag in datenordner.INHALT:
+        if eintrag["art"] != "ordner":
+            continue
+        sub = data_dir / eintrag["name"]
+        anzahl = len(list(sub.glob("*"))) if sub.exists() else 0
+        subdirs[eintrag["name"]] = {"path": str(sub), "file_count": anzahl,
+                                    "was": eintrag["was"]}
 
     return {
         "storage": storage,
@@ -11935,10 +12072,14 @@ async def api_privacy_delete_all(request: Request):
             status_code=400
         )
     erg = await _dsgvo_loeschen()
+    if erg["status"] == "abgelehnt":
+        return JSONResponse(erg, status_code=409)
     # Der alte Schluessel bleibt, damit bestehende Aufrufer nicht
-    # brechen.
-    return {"status": "ok", "deleted": erg["deleted"],
-            "message": "Alle Daten gelöscht. Bitte Dashboard neu starten."}
+    # brechen. `status` meldet eine teilweise Loeschung nicht als Erfolg
+    # (#1097, #997).
+    return {"status": erg["status"], "deleted": erg["deleted"],
+            "nicht_geloescht": erg["nicht_geloescht"],
+            "message": erg["message"]}
 
 
 # === Export Package (v1.4.0, #289) ===
@@ -12007,7 +12148,8 @@ def _cleanup_stale_jobs(db):
         conn = db.connect()
         rows = conn.execute(
             "SELECT id, updated_at, created_at FROM background_jobs "
-            "WHERE status IN ('running', 'pending')"
+            # #1107: 'laeuft' schrieb bis v1.7.139 nur der Lernlauf.
+            "WHERE status IN ('running', 'pending', 'laeuft')"
         ).fetchall()
         now = datetime.now()
         cleaned = 0

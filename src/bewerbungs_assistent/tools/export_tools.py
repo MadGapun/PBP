@@ -145,27 +145,27 @@ def register(mcp, db, logger):
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
-        suffix = f"_{angepasst_fuer.replace(' ', '_').lower()}" if angepasst_fuer else ""
+        name_slug = ablage.dateiname_teil(profile.get("name"), "lebenslauf")
+        suffix = ("_" + ablage.dateiname_teil(angepasst_fuer, "angepasst")) if angepasst_fuer else ""
 
         if format == "docx":
             from ..export import generate_cv_docx
-            path = export_dir / f"lebenslauf_{name_slug}{suffix}.docx"
+            path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}{suffix}.docx")
             _vorlage, _ = ablage.vorlage_finden(db, "lebenslauf")
             generate_cv_docx(profile, path, vorlage=_vorlage,
                              befund=vorlagen_befund)
         elif format == "pdf":
             from ..export import generate_cv_pdf
-            path = export_dir / f"lebenslauf_{name_slug}{suffix}.pdf"
+            path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}{suffix}.pdf")
             generate_cv_pdf(profile, path)
         elif format in ("md", "markdown"):
             from ..export import generate_cv_markdown
-            path = export_dir / f"lebenslauf_{name_slug}{suffix}.md"
+            path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}{suffix}.md")
             generate_cv_markdown(profile, path)
             format = "md"
         elif format in ("txt", "text"):
             from ..export import generate_cv_text
-            path = export_dir / f"lebenslauf_{name_slug}{suffix}.txt"
+            path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}{suffix}.txt")
             generate_cv_text(profile, path)
             format = "txt"
         else:
@@ -213,10 +213,10 @@ def register(mcp, db, logger):
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        name_slug = (profile.get("name") or "lebenslauf").replace(" ", "_").lower()
-        firma_slug = (firma or "stelle").replace(" ", "_").lower()
+        name_slug = ablage.dateiname_teil(profile.get("name"), "lebenslauf")
+        firma_slug = ablage.dateiname_teil(firma, "stelle")
 
-        path = export_dir / f"lebenslauf_{name_slug}_{firma_slug}.docx"
+        path = ablage.freier_pfad(export_dir, f"lebenslauf_{name_slug}_{firma_slug}.docx")
         _vorlage, _ = ablage.vorlage_finden(db, "lebenslauf")
         generate_tailored_cv_docx(profile, stelle, stellenbeschreibung, path,
                                   vorlage=_vorlage, befund=vorlagen_befund)
@@ -288,10 +288,10 @@ def register(mcp, db, logger):
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        name_slug = (profile.get("name") or "fachprofil").replace(" ", "_").lower()
-        firma_slug = (firma or "stelle").replace(" ", "_").lower()
+        name_slug = ablage.dateiname_teil(profile.get("name"), "fachprofil")
+        firma_slug = ablage.dateiname_teil(firma, "stelle")
 
-        path = export_dir / f"fachprofil_{name_slug}_{firma_slug}.{format}"
+        path = ablage.freier_pfad(export_dir, f"fachprofil_{name_slug}_{firma_slug}.{format}")
         if format == "docx":
             _vorlage, _ = ablage.vorlage_finden(db, "fachprofil")
             generate_fachprofil_docx(
@@ -362,26 +362,26 @@ def register(mcp, db, logger):
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        firma_slug = (firma or "bewerbung").replace(" ", "_").lower()
+        firma_slug = ablage.dateiname_teil(firma, "bewerbung")
 
         if format == "docx":
             from ..export import generate_cover_letter_docx
-            path = export_dir / f"anschreiben_{firma_slug}.docx"
+            path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.docx")
             _vorlage, _ = ablage.vorlage_finden(db, "anschreiben")
             generate_cover_letter_docx(profile, text, stelle, firma, path,
                                        vorlage=_vorlage,
                                        befund=vorlagen_befund)
         elif format == "pdf":
             from ..export import generate_cover_letter_pdf
-            path = export_dir / f"anschreiben_{firma_slug}.pdf"
+            path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.pdf")
             generate_cover_letter_pdf(profile, text, stelle, firma, path)
         elif format in ("md", "markdown"):
-            path = export_dir / f"anschreiben_{firma_slug}.md"
+            path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.md")
             from ..export import generate_cover_letter_text
             generate_cover_letter_text(profile, text, stelle, firma, path, markdown=True)
             format = "md"
         elif format in ("txt", "text"):
-            path = export_dir / f"anschreiben_{firma_slug}.txt"
+            path = ablage.freier_pfad(export_dir, f"anschreiben_{firma_slug}.txt")
             from ..export import generate_cover_letter_text
             generate_cover_letter_text(profile, text, stelle, firma, path, markdown=False)
             format = "txt"
@@ -439,13 +439,13 @@ def register(mcp, db, logger):
 
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        name_slug = (profile.get("name") or "profil").replace(" ", "_").lower()
+        name_slug = ablage.dateiname_teil(profile.get("name"), "profil")
 
         if format != "pdf":
             return {"fehler": "Aktuell wird nur PDF unterstützt."}
 
         from ..export import generate_cv_pdf
-        path = export_dir / f"profil_report_{name_slug}.pdf"
+        path = ablage.freier_pfad(export_dir, f"profil_report_{name_slug}.pdf")
         generate_cv_pdf(profile, path)
 
         return {
@@ -481,49 +481,16 @@ def register(mcp, db, logger):
             zeitraum_von: Optional: Start-Datum (YYYY-MM-DD)
             zeitraum_bis: Optional: End-Datum (YYYY-MM-DD)
         """
+        # #1111: derselbe Weg wie der Knopf im Dashboard — Einstellungen,
+        # Taetigkeitsbericht und Beginn der PBP-Nutzung inklusive.
+        from ..services import bericht as _bericht
         profile = db.get_profile()
-        # Kanonische Report-Daten aus DB (inkl. rejection_patterns, follow_ups,
-        # bewerbungsart-Verteilung). Keine doppelte Aggregation hier.
-        report_data = db.get_report_data()
-        # v1.7.10 (#781/D29): Prozess-Kennzahlen, Kanal-Erfolg,
-        # Ablehnungs-Kategorien und Aufwand in den Bericht. Fehler hier
-        # duerfen den Bericht nie verhindern.
-        try:
-            from ..services import statistik_erweitert as _se
-            report_data["prozess_kennzahlen"] = _se.zeitliche_kennzahlen(db)
-            report_data["kanal_auswertung"] = _se.kanal_auswertung(db)
-            report_data["ablehnungs_kategorien"] = _se.ablehnungs_kategorien(db)
-            report_data["aufwand"] = db.get_aufwand_summary()
-        except Exception as _e:
-            logger.warning("Bericht-Erweiterung (#781) fehlgeschlagen: %s", _e)
-        # v1.6.6 (#540): Optionale Bericht-Einstellungen
-        report_settings = {
-            "arbeitsamt_block_enabled": bool(db.get_profile_setting("report_arbeitsamt_block_enabled", False)),
-            "ba_vermittlungsnummer": db.get_profile_setting("report_ba_vermittlungsnummer", "") or "",
-            "ba_aktenzeichen": db.get_profile_setting("report_ba_aktenzeichen", "") or "",
-            "ba_berater_name": db.get_profile_setting("report_ba_berater_name", "") or "",
-            "ba_berater_stelle": db.get_profile_setting("report_ba_berater_stelle", "") or "",
-            "berater_kommentar_block": bool(db.get_profile_setting("report_berater_kommentar_block", False)),
-        }
-
         export_dir = ablage.ausgabe_ordner(db)
         vorlagen_befund: dict = {}
-        name_slug = (profile.get("name", "bericht") if profile else "bericht").replace(" ", "_").lower()
-
-        if format == "excel":
-            from ..export_report import generate_excel_report
-            path = export_dir / f"bewerbungsbericht_{name_slug}.xlsx"
-            generate_excel_report(report_data, profile, path,
-                                  zeitraum_von=zeitraum_von,
-                                  zeitraum_bis=zeitraum_bis,
-                                  report_settings=report_settings)
-        else:
-            from ..export_report import generate_application_report
-            path = export_dir / f"bewerbungsbericht_{name_slug}.pdf"
-            generate_application_report(report_data, profile, path,
-                                        zeitraum_von=zeitraum_von,
-                                        zeitraum_bis=zeitraum_bis,
-                                        report_settings=report_settings)
+        name_slug = ablage.dateiname_teil(profile.get("name") if profile else "", "bericht")
+        endung = "xlsx" if format == "excel" else "pdf"
+        path = ablage.freier_pfad(export_dir, f"bewerbungsbericht_{name_slug}.{endung}")
+        report_data = _bericht.erzeugen(db, path, format, zeitraum_von, zeitraum_bis)
 
         return {
             # Leer heisst: dieser Zweig hat kein DOCX gebaut (PDF, MD, TXT).

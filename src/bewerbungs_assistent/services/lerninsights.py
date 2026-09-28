@@ -206,6 +206,24 @@ def _regel_zeitmuster(db: Any) -> list:
          "interview_quote_prozent": quote}, b_gesamt)]
 
 
+#: Je Regel: Anzeigename und was sie mindestens braucht (#792). Damit
+#: sagt ein Lauf ohne Ergebnis, WARUM — statt nur "keine Erkenntnisse".
+#: Die Zahlen stehen in den Regeln selbst; ein Test haelt beide zusammen.
+MINDESTENS = {
+    "aussortier_muster": ("Häufige Ablehnungsgründe",
+                          "mindestens 5 aussortierte Stellen mit demselben Grund"),
+    "kanal": ("Welcher Weg zu Interviews führt",
+              "mindestens zwei Bewerbungswege mit je 3 Bewerbungen und einen "
+              "deutlichen Unterschied bei den Interviews"),
+    "score_realitaet": ("Hohe Punkte, trotzdem aussortiert",
+                        "mindestens 3 aussortierte Stellen mit doppelt so vielen "
+                        "Punkten wie der Durchschnitt"),
+    "reaktionszeit": ("Zeit bis zur ersten Rückmeldung",
+                      "mindestens 5 Bewerbungen mit einer Rückmeldung im Verlauf"),
+    "zeitmuster": ("Bewerbungen je Monat",
+                   "Bewerbungen aus mindestens 3 verschiedenen Monaten"),
+}
+
 _REGELN = [
     ("aussortier_muster", _regel_aussortier_muster),
     ("kanal", _regel_kanal),
@@ -223,19 +241,24 @@ def kandidaten_ableiten(db: Any,
     kandidaten: list = []
     gelaufen: list = []
     uebersprungen: list = []
+    mit_ergebnis: list = []
     fehler: dict = {}
     for name, regel in _REGELN:
         if time.time() - start > budget_sekunden:
             uebersprungen.append(name)
             continue
         try:
-            kandidaten.extend(regel(db))
+            gefunden = regel(db)
+            kandidaten.extend(gefunden)
             gelaufen.append(name)
+            if gefunden:
+                mit_ergebnis.append(name)
         except Exception as e:  # eine kaputte Regel kippt den Lauf nicht
             fehler[name] = f"{type(e).__name__}: {e}"
     return {
         "kandidaten": kandidaten,
         "regeln_gelaufen": gelaufen,
+        "regeln_mit_ergebnis": mit_ergebnis,
         "regeln_uebersprungen": uebersprungen,
         "regel_fehler": fehler,
         "dauer_ms": int((time.time() - start) * 1000),

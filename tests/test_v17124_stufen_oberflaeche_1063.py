@@ -201,3 +201,32 @@ def test_1063_die_zahl_bleibt_erreichbar(browser, server):
         assert "für Fortgeschrittene" in page.inner_text("body")
     finally:
         page.close()
+
+
+def test_1091_schwelle_null_bleibt_null(browser, server):
+    """#1091 AK 1: der Regler bleibt auf 0, zeigt 0 und speichert 0.
+
+    Geprueft an der DATENBANK, nicht an der Anzeige (v1.7.105 MERKE 2).
+    Vorher machte `Number(...) || 1` aus der 0 eine 1 — und mit 1 verwirft
+    der Suchlauf Stellen mit Fachwert 0 unwiederbringlich."""
+    url, db = server
+    page = _profil_scoring(browser, url)
+    try:
+        # Nur der Regler im Aufklappbereich der Schwelle — die
+        # Gewichtungsregler beginnen ebenfalls bei 0 (ein zu breiter
+        # Locator misst den Test, v1.7.103 MERKE 6).
+        bereich = page.locator("details", has_text="Schwelle als Zahl setzen").first
+        bereich.locator("summary").click()
+        regler = bereich.locator('input[type="range"]').first
+        regler.wait_for(state="visible", timeout=8000)
+        regler.fill("0")
+        wert = None
+        for _ in range(60):
+            wert = (db.get_search_criteria() or {}).get("min_score_schwelle")
+            if wert == 0:
+                break
+            page.wait_for_timeout(100)
+        assert wert == 0, f"gespeichert wurde {wert!r} statt 0"
+        assert regler.input_value() == "0", "Regler sprang zurück"
+    finally:
+        page.close()

@@ -54,6 +54,10 @@ def _schluessel_setzen(db, wert):
     from bewerbungs_assistent.services import routing
 
     db.set_setting(routing.EINSTELLUNG_SCHLUESSEL, wert)
+    # Seit #1037 Punkt 2 ist der Schluessel nicht mehr der Schalter. Die
+    # Absicht dieser Faelle ("Fahrstrecke eingerichtet" gegen "entfernt")
+    # braucht deshalb beides: Schluessel und Haken.
+    db.set_setting(routing.EINSTELLUNG_AKTIV, bool(wert))
 
 
 # ====================================================== preis_km

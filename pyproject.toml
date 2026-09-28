@@ -83,6 +83,9 @@ email = [
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    # tests/test_undefinierte_namen.py: ein Name, den es nicht gibt, faellt
+    # in Python erst zur Laufzeit auf — und ein `except` schluckt ihn still.
+    "pyflakes>=3.0",
 ]
 all = [
     "bewerbungs-assistent[scraper,docs,export,email]",

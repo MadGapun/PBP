@@ -159,7 +159,8 @@ def build_workspace_summary(
     """Aggregate the workspace state for top-level guidance."""
     jobs = list(jobs or [])
     applications = list(applications or [])
-    archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen"}
+    # #1103: ohne `arbeitgeber_ausgefallen` zaehlte sie als aktiv.
+    from .bewerbung_status import ARCHIV as archive_statuses
     active_applications = [a for a in applications if a.get("status") not in archive_statuses]
     profile_summary = summarize_profile(profile)
     completeness = get_profile_completeness(profile)
@@ -194,13 +195,15 @@ def build_workspace_summary(
     inactivity_days = None
     inactivity_hint = None
     if applications:
-        last_dates = []
-        for a in applications:
-            for field in ("applied_at", "updated_at", "created_at"):
-                d = a.get(field)
-                if d:
-                    last_dates.append(d[:10])
-                    break
+        # #1103: das JUENGSTE Datum, nicht das erste vorhandene — sonst
+        # zaehlt eine Statusaenderung von gestern nie, sobald applied_at
+        # gesetzt ist.
+        last_dates = [
+            str(a.get(field))[:10]
+            for a in applications
+            for field in ("applied_at", "updated_at", "created_at")
+            if a.get(field)
+        ]
         if last_dates:
             try:
                 last_activity = max(last_dates)

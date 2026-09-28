@@ -39,7 +39,8 @@ import { detailbewertungKnopf, detailbewertungPrompt } from "@/lib/detailbewertu
 import { kartenFakten as faktenZeile, kartenGrund, kernaussage } from "@/lib/stellenKarte";
 import MitClaude from "@/components/MitClaude";
 import { grundText, klartext, quelleText } from "@/lib/anzeige";
-import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, heuteIso } from "@/lib/bewerbungFormular";
+import { nichtBelegt } from "@/lib/herkunft";
+import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -772,10 +773,10 @@ export default function JobsPage() {
     }
   }
 
-  async function saveApplication() {
+  async function saveApplication(force = false) {
     const entwurf = applicationDialog.draft;
     try {
-      const erg = await postJson("/api/applications", bewerbungNutzlast(entwurf));
+      const erg = await postJson("/api/applications", { ...bewerbungNutzlast(entwurf), force: force === true });
       setApplicationDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
       // D43 (#981): wer sich erst bewerben WILL, braucht als Naechstes
@@ -795,10 +796,19 @@ export default function JobsPage() {
           }
         );
       } else {
-        pushToast("Bewerbung angelegt.", "success");
+        pushToast(angelegtMeldung(erg), "success");
       }
       navigateTo("bewerbungen");
     } catch (error) {
+      // #1094: eine vermutete Dublette wird genannt, nicht still angelegt
+      const hinweis = dublettenHinweis(error);
+      if (hinweis) {
+        pushToast(hinweis, "amber", {
+          duration: 15000,
+          action: { label: "Trotzdem anlegen", onClick: () => saveApplication(true) },
+        });
+        return;
+      }
       pushToast(`Bewerbung konnte nicht angelegt werden: ${error.message}`, "danger");
     }
   }
@@ -839,7 +849,7 @@ export default function JobsPage() {
     const hash = dismissDialog.job?.hash;
     if (!hash) return;
     try {
-      await postJson("/api/jobs/dismiss", { hash, reasons });
+      const antwort = await postJson("/api/jobs/dismiss", { hash, reasons });
       // Die Stelle VOR dem Entfernen festhalten — der Rueckgaengig-Knopf
       // im Toast braucht sie noch, und aus der Liste ist sie dann weg.
       const dismissed = jobs.find((j) => String(j.hash) === String(hash));
@@ -856,8 +866,10 @@ export default function JobsPage() {
       // #1010: der Verklicker faellt in Sekunden auf, nicht in Tagen —
       // dort gehoert die Umkehr hin. Das Protokoll ist der zweite Weg,
       // fuer den Fall, dass der Toast schon weg ist.
-      pushToast("Stelle aussortiert.", "success", {
-        duration: 9000,
+      // #1095: ein ausgeloester Lerneffekt wird genannt, nicht verschwiegen
+      const gelernt = (antwort?.lerneffekt || []).join(" ");
+      pushToast(gelernt ? `Stelle aussortiert. ${gelernt}` : "Stelle aussortiert.", "success", {
+        duration: gelernt ? 14000 : 9000,
         action: {
           label: "Rückgängig",
           onClick: () => holeZurueck(dismissed || { hash }),
@@ -900,7 +912,7 @@ export default function JobsPage() {
       return;
     }
     try {
-      await postJson("/api/blacklist", {
+      const erg = await postJson("/api/blacklist", {
         type: blacklistDialog.type,
         value,
         reason: (blacklistDialog.begruendung || "").trim(),
@@ -918,7 +930,11 @@ export default function JobsPage() {
         });
       }
       refreshChrome({ quiet: true });
-      pushToast(`Blacklist-Eintrag gespeichert: ${value}`, "success");
+      // Der Server blendet die uebrigen aktiven Stellen dieser Firma aus.
+      const weg = erg?.stellen_deaktiviert || 0;
+      const andere = offen?.hash ? Math.max(0, weg - 1) : weg;
+      pushToast(`Blacklist-Eintrag gespeichert: ${value}${andere ? ` — ${andere} weitere ${andere === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet` : ""}`, "success");
+      if (weg) loadPage({ silent: true });
       setBlacklistDialog(EMPTY_BLACKLIST_DIALOG);
     } catch (error) {
       pushToast(`Blacklist-Eintrag fehlgeschlagen: ${error.message}`, "danger");
@@ -1349,6 +1365,19 @@ export default function JobsPage() {
               <SlidersHorizontal size={15} />
               {`Filter (${filterAnzahl})`}
             </Button>
+            {/* #1112: die ganze Liste gegen das Profil — ein Prompt aus der
+                Registry, derselbe Text wie /stellen_abgleich. */}
+            {filters.view !== "dismissed" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                data-stellen-abgleich
+                title="Kopiert eine Anleitung für Claude: jede Stelle gegen dein Profil prüfen, einordnen und begründen"
+                onClick={() => copyPrompt("/stellen_abgleich")}
+              >
+                <MitClaude size={14}>Liste abgleichen</MitClaude>
+              </Button>
+            ) : null}
             {/* Sortierung */}
             <SelectInput
               className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
@@ -2241,7 +2270,7 @@ export default function JobsPage() {
         open={applicationDialog.open}
         title={`${BEWERBUNG_ANLEGEN} (aus Stelle)`}
         onClose={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={saveApplication}>Bewerbung speichern</Button></div>}
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setApplicationDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={() => saveApplication(false)}>Bewerbung speichern</Button></div>}
       >
         <div className="grid gap-4">
           {BEWERBUNG_FELDER.map(({ key, label, placeholder }) => (
@@ -2443,8 +2472,12 @@ export default function JobsPage() {
               </Field>
               <div className="flex gap-2">
                 <Button variant="primary" onClick={async () => {
-                  await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
-                  pushToast("Stelle aktualisiert", "success");
+                  const antwort = await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
+                  // #1095: sagen, dass neu gerechnet wurde — und was mit der Entfernung ist
+                  const teile = ["Stelle aktualisiert."];
+                  if (antwort?.score) teile.push("Punkte neu berechnet.");
+                  if (antwort?.entfernung_hinweis) teile.push(antwort.entfernung_hinweis);
+                  pushToast(teile.join(" "), "success", { duration: teile.length > 1 ? 10000 : 5000 });
                   setDetailDialog({ open: false, job: null, editing: false });
                   loadPage({ silent: true });
                 }}>Speichern</Button>
@@ -2459,6 +2492,15 @@ export default function JobsPage() {
                   <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
                   {entfernungText(detailDialog.job) ? (
                     <p className="text-xs text-muted">{entfernungText(detailDialog.job)}</p>
+                  ) : null}
+                  {nichtBelegt(detailDialog.job).length ? (
+                    <ul className="mt-1 space-y-0.5 text-xs text-muted" data-testid="herkunft-liste">
+                      {nichtBelegt(detailDialog.job).map((e) => (
+                        <li key={e.feld} title={e.text || undefined}>
+                          {e.name}: {e.wort}{e.text ? ` — ${e.text}` : ""}
+                        </li>
+                      ))}
+                    </ul>
                   ) : null}
                 </div>
                 <Button size="sm" variant="ghost" onClick={() => {

@@ -28,8 +28,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 INTERVIEW_STATUS = ("interview", "zweitgespraech", "interview_abgeschlossen")
-TERMINAL_STATUS = ("abgelehnt", "angenommen", "abgelaufen",
-                   "zurueckgezogen", "arbeitgeber_ausgefallen")
+from .bewerbung_status import ABGESCHLOSSEN as TERMINAL_STATUS  # noqa: E402  #1103
 
 _EXTERN_MUSTER = re.compile(
     r"intern besetzt|intern vergeben|gestrichen|budget|insolven|"
@@ -464,7 +463,7 @@ def notizen_gespraeche_check(db: Any) -> list:
         hat_iv_event = any(e["status"] in INTERVIEW_STATUS for e in evs)
         try:
             meetings = conn.execute(
-                "SELECT COUNT(*) AS n FROM meetings WHERE application_id=?",
+                "SELECT COUNT(*) AS n FROM application_meetings WHERE application_id=?",
                 (a["id"],),
             ).fetchone()["n"]
         except Exception:

@@ -1119,6 +1119,102 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
         context.close()
 
 
+
+def test_gefahrenzone_dsgvo_nennt_was_geloescht_wird(live_dashboard, browser, tmp_path):
+    """#1097: der DSGVO-Modus nennt, was gelöscht wird — auch Sicherungen,
+    Mails und Browser-Sitzungen — und was außerhalb liegen bleibt."""
+    _seed_gefahrenzone(live_dashboard["db"])
+    for ordner in ("backups", "emails", "linkedin_session"):
+        (tmp_path / ordner).mkdir(exist_ok=True)
+        (tmp_path / ordner / "inhalt").write_text("x", encoding="utf-8")
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
+        page.get_by_role("heading", name="Daten löschen").first.wait_for(
+            state="visible", timeout=8000)
+        page.get_by_role("radio").nth(1).check()
+        page.get_by_role("button", name="Endgültig löschen").wait_for(
+            state="visible")
+        for name in ("backups", "emails", "linkedin_session"):
+            page.get_by_text(name, exact=True).first.wait_for(
+                state="visible", timeout=4000)
+        page.get_by_text("außerhalb des Datenordners", exact=False).first.wait_for(
+            state="visible", timeout=4000)
+        # Das alte Versprechen "nur Datenbank und Dokumentordner" ist weg.
+        assert page.get_by_text("Die Datenbankdatei und die Ordner",
+                                exact=False).count() == 0
+    finally:
+        context.close()
+
+
+def test_schalter_aussortieren_nach_suche(live_dashboard, browser):
+    """#1092 AK 4: der Schalter steht unter Automatik, Vorgabe aus, und
+    ein Klick landet in der Datenbank (nicht nur im Toast)."""
+    from bewerbungs_assistent.services import auto_aussortierung as aa
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Automatik"))
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#einstellungen",
+                  wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("button", name="Automatik", exact=True).first.click()
+        karte = page.get_by_test_id("auto-aussortieren-card")
+        karte.wait_for(state="visible", timeout=8000)
+        kasten = karte.get_by_role("checkbox")
+        page.wait_for_load_state("networkidle")
+        assert not kasten.is_checked(), "Vorgabe muss aus sein"
+        kasten.click()
+        for _ in range(50):
+            if aa.schalter_an(db):
+                break
+            page.wait_for_timeout(100)
+        assert aa.schalter_an(db), "Klick kam nicht in der Datenbank an"
+    finally:
+        context.close()
+
+def test_standort_karte_setzt_eigenen_ort(live_dashboard, browser, monkeypatch):
+    """#1090: die Karte nennt den Wohnort aus dem Profil, und ein eigener
+    Ort landet in der Datenbank (nicht nur im Toast)."""
+    from bewerbungs_assistent.services import eigener_standort as es
+    from bewerbungs_assistent.services import geocoding_service as gs
+    orte = {"Hamburg": (53.55, 10.0), "Bremen": (53.08, 8.8)}
+    monkeypatch.setattr(gs, "geocode_location", lambda o: orte.get((o or "").strip()))
+    db = live_dashboard["db"]
+    db.switch_profile(db.create_profile("Standort"))
+    db.save_profile({**db.get_profile(), "city": "Hamburg"})
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#suche", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        karte = page.get_by_test_id("standort-karte")
+        karte.wait_for(state="visible", timeout=8000)
+        satz = page.get_by_test_id("standort-satz")
+        satz.filter(has_text="Hamburg").wait_for(timeout=8000)
+        assert "aus dem Profil" in satz.inner_text()
+        karte.get_by_label("Eigener Standort").fill("Bremen")
+        karte.get_by_role("button", name="Standort setzen", exact=True).click()
+        _warte_auf_datenbank(lambda: es.befund(db)["quelle"] == es.EIGENE,
+                             was="eigener Standort gespeichert")
+        assert es.befund(db)["ort"] == "Bremen"
+        satz.filter(has_text="von dir gesetzt").wait_for(timeout=8000)
+    finally:
+        context.close()
+        for t in threading.enumerate():
+            if t.name.startswith("pbp-"):
+                t.join(timeout=10)
+
+
 def test_kontakte_untermenue_referenzen(live_dashboard, browser):
     """#884 — die Referenz-Ansicht, bedient statt gegrept.
 
@@ -1268,6 +1364,29 @@ def _seed_popup_workspace(db) -> None:
             },
         ]
     )
+
+
+def test_stellendetails_sagen_woher_die_angaben_kommen_954(live_dashboard, browser):
+    """#954: in den Stellendetails steht, was geschaetzt oder unbekannt
+    ist — mit den drei Alltagswoertern, ohne Methodennamen."""
+    _seed_popup_workspace(live_dashboard["db"])
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Sachbearbeitung Einkauf").first.click()
+        page.get_by_role("heading", name="Stellendetails").wait_for(state="visible")
+        liste = page.get_by_test_id("herkunft-liste")
+        liste.wait_for(state="visible", timeout=8000)
+        text = liste.inner_text()
+        assert "Entfernung: geschätzt" in text, text
+        assert "Gehalt: geschätzt" in text, text
+        assert "Anzeigentext" not in text, "belegt gehoert nicht in die Liste"
+        assert "luftlinie" not in text and "schaetzung_titel_ort" not in text, text
+    finally:
+        context.close()
 
 
 def test_popup_zeigt_die_stelle_wie_die_karte_1044(live_dashboard, browser):

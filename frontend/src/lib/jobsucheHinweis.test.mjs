@@ -1,6 +1,6 @@
 // #1033: Regeln fuer den Jobsuche-Hinweis in der Navigation. Framework-frei:
 //   node src/lib/jobsucheHinweis.test.mjs
-import { jobsucheHinweis, volltextText } from "./jobsucheHinweis.js";
+import { nachgeladenText, jobsucheHinweis, volltextText } from "./jobsucheHinweis.js";
 
 let failed = 0;
 function check(name, actual, expected) {
@@ -70,8 +70,40 @@ check("ohne Browser-Quellen kein Satz dazu",
   check("Text ohne Gesamtzahl", volltextText(3), "3 ohne Volltext — PBP lädt ihn nach, die Bewertung folgt");
 }
 
+// #1092 AK 6: die Zahl der KI-Aussortierung steht im Hinweis, mit Weg zurück.
+{
+  const h = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 4,
+    neu_aktiv: 4, auto_aussortiert: 2, quellen: {} });
+  check("KI-Aussortierung im Text", h.text.includes("2 aussortiert"), true);
+  check("Weg zurück im Titel", h.titel.includes("Stellen › Ausgeblendet"), true);
+  const ohne = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
+    auto_aussortiert: 1, quellen: {} });
+  check("auch ohne neue Stellen", ohne.text.includes("1 aussortiert"), true);
+  const nichts = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 3,
+    neu_aktiv: 3, quellen: {} });
+  check("ohne Aussortierung kein Zusatz", nichts.text.includes("aussortiert"), false);
+}
+
+// #1096/#906: Stellenart ohne laufende Quelle steht im Hinweis
+const ohneQuelle = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 3,
+  quellen: { ok: 2 }, stellentyp_ohne_quelle: ["freelance"] });
+check("Stellenart ohne Quelle genannt", ohneQuelle.titel.includes("für freelance lief keine Quelle"), true);
+const ohneQuelle0 = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
+  quellen: {}, stellentyp_ohne_quelle: ["freelance"] });
+check("auch ohne Funde genannt", ohneQuelle0.titel.includes("freelance"), true);
+
+// #1038 Punkt 4: was nach der Suche nachgeladen wurde
+check("nachgeladen genannt", nachgeladenText({ geholt: 12, fehlgeschlagen: 1, offen: 3 }),
+  "12 Anzeigentexte nachgeladen, 3 folgen mit der Automatik");
+check("einer", nachgeladenText({ geholt: 1, offen: 0 }), "1 Anzeigentext nachgeladen");
+check("nichts gelaufen", nachgeladenText(null), "");
+const mitNach = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 20,
+  quellen: {}, nachgeladen: { geholt: 7, offen: 0 } });
+check("im Tooltip", mitNach.titel.includes("7 Anzeigentexte nachgeladen"), true);
+
 if (failed) {
   console.error(`\n${failed} Fall/Faelle fehlgeschlagen`);
   process.exit(1);
 }
 console.log("\nalle Faelle ok");
+

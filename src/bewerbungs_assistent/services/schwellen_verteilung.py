@@ -180,12 +180,16 @@ def wirkung(db, schwelle: float, *, nur_aktive: bool = True) -> dict:
 
 def _werte(db, *, nur_aktive: bool = True) -> list:
     """Je Stelle der Erst-Score — oder ersatzweise der aktuelle."""
+    # #1106-Klasse: nur die Stellen des aktiven Profils — sonst zaehlte
+    # der Schwellen-Regler die Stellen aller Profile.
     frage = ("SELECT COALESCE(score, 0) AS score, initial_score, "
-             "initial_score_rekonstruiert FROM jobs")
+             "initial_score_rekonstruiert FROM jobs "
+             "WHERE (profile_id=? OR profile_id IS NULL)")
     if nur_aktive:
-        frage += " WHERE is_active=1"
+        frage += " AND is_active=1"
     try:
-        zeilen = db.connect().execute(frage).fetchall()
+        zeilen = db.connect().execute(
+            frage, (db.get_active_profile_id(),)).fetchall()
     except Exception as exc:  # pragma: no cover — Spalten fehlen noch
         logger.debug("Verteilung nicht lesbar: %s", exc)
         return []

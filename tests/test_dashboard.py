@@ -1324,6 +1324,10 @@ class TestStatistics:
 
     def test_jobsuche_start_ueberspringt_manuelle_quellen(self, client):
         """Nur manuelle Quellen -> nur_manuelle_quellen (#461, #488)."""
+        import bewerbungs_assistent.dashboard as dash
+        # #1096: ohne Suchbegriffe startet seit dem gemeinsamen Startweg
+        # kein Weg mehr (#695) — die Absicht hier ist die Quellenpruefung.
+        dash._db.set_search_criteria("keywords_muss", ["einkauf"])
         r = client.post(
             "/api/jobsuche/start",
             json={"quellen": ["linkedin", "xing"]},
@@ -1336,6 +1340,7 @@ class TestStatistics:
     def test_jobsuche_start_erkennt_laufenden_job(self, client):
         """Ein laufender Jobsuche-Job blockt weitere Starts (#461, #265)."""
         import bewerbungs_assistent.dashboard as dash
+        dash._db.set_search_criteria("keywords_muss", ["einkauf"])  # #1096
         running_id = dash._db.create_background_job(
             "jobsuche", {"quellen": ["bundesagentur"]}
         )

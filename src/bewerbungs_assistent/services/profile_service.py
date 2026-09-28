@@ -87,18 +87,21 @@ def _build_profile_checks(profile: dict | None) -> dict:
     positions = profile.get("positions", [])
     education = profile.get("education", [])
     skills = profile.get("skills", [])
-    prefs = get_profile_preferences(profile)
+    from .ersterfassung_phasen import stand as _phasen_stand
+    _stand = _phasen_stand(profile)
 
     return {
         "name": bool(profile.get("name")),
         "kontakt": bool(profile.get("email") or profile.get("phone")),
         "adresse": bool(profile.get("address") or profile.get("city")),
         "zusammenfassung": bool(profile.get("summary")),
-        "berufserfahrung": len(positions) > 0,
+        # #1108: dieselbe Regel wie die Ersterfassung — ein bestaetigtes
+        # "trifft nicht zu" ist erledigt.
+        "berufserfahrung": _stand["berufserfahrung"],
         "projekte": any(pos.get("projects") for pos in positions),
-        "ausbildung": len(education) > 0,
+        "ausbildung": _stand["ausbildung"],
         "skills": len(skills) > 0,
-        "praeferenzen": bool(prefs.get("stellentyp")),
+        "praeferenzen": _stand["praeferenzen"],
     }
 
 

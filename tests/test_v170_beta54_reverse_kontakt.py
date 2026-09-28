@@ -158,7 +158,9 @@ def test_apply_creates_pending_contacts(setup_env):
                      {"dry_run": False, "max_bewerbungen": 5})
     assert out["status"] == "ausgefuehrt"
     assert out["extrahiert"] >= 1
-    contacts = db.list_contacts()
+    # #1110: Vorschlaege stehen nicht mehr in der Hauptliste.
+    assert db.list_contacts() == []
+    contacts = db.list_contacts(mit_vorschlaegen=True)
     assert len(contacts) >= 1
     # Pending-Markierung
     assert any(c.get("is_pending") for c in contacts)

@@ -32,6 +32,10 @@ Arbeite dich organisch durch, was fehlt; speichere sofort.
   aktion='anhang', ...).
 - Praeferenzen: Zielrollen, Festanstellung oder Freelance, Region,
   Remote, Reisebereitschaft, Umzug: profil_erstellen().
+- Wohnort mit PLZ: profil_erstellen(plz=..., city=...). Von dort rechnet
+  PBP die Entfernung zu jeder Stelle; fehlt er, gibt es keine. Soll von
+  einem anderen Ort aus gerechnet werden (Zweitwohnsitz, geplanter Umzug):
+  suchkriterien_setzen(standort='PLZ Ort').
 - Gehalt, Tages- und Stundensatz und die Entfernungsgrenze gehören in
   die Suchkriterien, nicht ins Profil: suchkriterien_setzen(min_gehalt=...,
   wunsch_gehalt=..., min_tagessatz=..., wunsch_tagessatz=...,
@@ -76,11 +80,40 @@ Ziel: der Mensch verlässt das Gespräch mit einer laufenden Suche.
 """
 
 
+#: Umlaut-Schreibweisen der Bereiche (#1108). Der Docstring nannte sie
+#: so, gespeichert und gelesen wird die Umschrift.
+_ALIAS = {"persönliche_daten": "persoenliche_daten", "präferenzen": "praeferenzen"}
+
+
+def bereich_schluessel(bereich) -> str | None:
+    """Der gespeicherte Schluessel eines Bereichs, oder None, wenn es ihn
+    nicht gibt (#1108: ein unbekannter Bereich wurde still gespeichert)."""
+    b = str(bereich or "").strip().lower()
+    b = _ALIAS.get(b, b)
+    return b if b in BEREICHE else None
+
+
+def _bestaetigt(fortschritt: dict, bereich: str) -> bool:
+    return fortschritt.get(bereich) is True
+
+
 def stand(profile: dict | None, fortschritt: dict | None = None) -> dict:
-    """Welche Bereiche erledigt sind — aus dem Profil, nicht nur aus Haken."""
+    """Welche Bereiche erledigt sind.
+
+    #1108: ein Bereich ist erledigt, wenn er Daten hat ODER ausdruecklich
+    bestaetigt wurde (`erfassung_fortschritt_speichern(bereich,
+    abgeschlossen=True)`). Ohne das kam, wer keine Berufserfahrung oder
+    keinen Abschluss hat, nie zum Abschluss. Dashboard und Ersterfassung
+    lesen diese eine Regel."""
     if not profile:
         return {b: False for b in BEREICHE}
     fortschritt = fortschritt if fortschritt is not None else (profile.get("erfassung_fortschritt") or {})
+    if isinstance(fortschritt, str):
+        import json
+        try:
+            fortschritt = json.loads(fortschritt) or {}
+        except ValueError:
+            fortschritt = {}
     prefs = profile.get("preferences") or {}
     if isinstance(prefs, str):
         import json
@@ -88,14 +121,17 @@ def stand(profile: dict | None, fortschritt: dict | None = None) -> dict:
             prefs = json.loads(prefs) if prefs else {}
         except ValueError:
             prefs = {}
-    return {
+    daten = {
         "persoenliche_daten": bool(profile.get("name") and profile.get("email")),
-        "berufserfahrung": len(profile.get("positions", [])) > 0,
-        "ausbildung": len(profile.get("education", [])) > 0,
-        "kompetenzen": len(profile.get("skills", [])) > 0,
+        "berufserfahrung": len(profile.get("positions") or []) > 0,
+        "ausbildung": len(profile.get("education") or []) > 0,
+        "kompetenzen": len(profile.get("skills") or []) > 0,
+        # #1108: die Vorgabe "beides" schrieb profil_erstellen bis v1.7.139
+        # bei jedem Aufruf mit — seitdem steht hier nur eine Antwort.
         "praeferenzen": bool(prefs.get("stellentyp")),
-        "review_abgeschlossen": bool(fortschritt.get("review_abgeschlossen", False)),
+        "review_abgeschlossen": False,
     }
+    return {b: bool(daten[b]) or _bestaetigt(fortschritt, b) for b in BEREICHE}
 
 
 def anleitung(bereiche: dict) -> tuple[str, str]:

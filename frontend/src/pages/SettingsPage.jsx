@@ -4,6 +4,8 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import SicherungKarte from "@/components/SicherungKarte";
+import LernTransparenz from "@/components/LernTransparenz";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -1172,17 +1174,30 @@ function AutomatikSchedulerCard({ pushToast }) {
     try {
       const r = await postJson("/api/automatik/run-now", { kind });
       await reload();
-      let msg = "Angestossen.";
+      let msg = "Angestoßen.";
+      let ton = "success";
       if (kind === "lernen") {
-        msg = "Lern-Lauf angestossen.";
+        // #1107: sagen, was wirklich passiert ist.
+        if (r.status === "lernen_aus") {
+          msg = r.grund || "Das Lernen ist unter Datenschutz ausgeschaltet.";
+          ton = "sky";
+        } else if (r.status === "laeuft_bereits") {
+          msg = "Ein Lern-Lauf läuft bereits.";
+        } else {
+          msg = "Lern-Lauf angestoßen.";
+        }
       } else if (r.status === "gestartet") {
         msg = "Interne Jobsuche gestartet.";
       } else if (r.status === "keine_internen_quellen") {
         msg = "Keine internen Quellen aktiv — nichts zu suchen.";
+      } else if (r.status === "keine_suchbegriffe") {
+        // #1096: ohne Suchbegriffe startet auch die Automatik nicht
+        msg = "Noch keine Suchbegriffe — lege sie unter Profil › Suche & Bewertung fest.";
+        ton = "sky";
       } else if (r.status === "laeuft_bereits") {
         msg = "Eine Jobsuche läuft bereits.";
       }
-      pushToast(msg, "success");
+      pushToast(msg, ton);
     } catch (err) {
       pushToast(err?.message || "Lauf fehlgeschlagen.", "danger");
     } finally {
@@ -1247,6 +1262,48 @@ function AutomatikSchedulerCard({ pushToast }) {
         )}
         <p className="text-xs text-muted">{status.hinweis}</p>
       </div>
+    </Card>
+  );
+}
+
+// #1092: Die Aussortierung nach der Suche ist eine Automatik, die ohne
+// Zutun eingreift — deshalb ein Schalter, Vorgabe aus (#1001, #1037).
+function AutoAussortierenCard({ pushToast }) {
+  const [an, setAn] = useState(null);
+  useEffect(() => {
+    api("/api/settings/auto-aussortieren")
+      .then((d) => setAn(Boolean(d.an)))
+      .catch(() => setAn(false));
+  }, []);
+  async function umschalten(wert) {
+    setAn(wert);
+    try {
+      await putJson("/api/settings/auto-aussortieren", { an: wert });
+      pushToast(wert ? "Aussortieren nach der Suche ist an." : "Aussortieren nach der Suche ist aus.", "success");
+    } catch (err) {
+      setAn(!wert);
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    }
+  }
+  return (
+    <Card className="rounded-2xl" data-testid="auto-aussortieren-card">
+      <label className="flex items-start gap-3 text-sm text-ink">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={Boolean(an)}
+          disabled={an === null}
+          onChange={(e) => umschalten(e.target.checked)}
+        />
+        <span>
+          <strong>Nach jeder Suche mit der lokalen KI aussortieren</strong>
+          <span className="mt-1 block text-xs text-muted">
+            Die lokale KI prüft neue Stellen gegen dein Profil und sortiert aus, was nicht passt.
+            Stellen ohne Anzeigentext beurteilt sie nicht. Aussortiertes holst du unter
+            Stellen › Ausgeblendet zurück. Braucht die lokale KI (Einstellungen › Lokale KI).
+          </span>
+        </span>
+      </label>
     </Card>
   );
 }
@@ -1605,7 +1662,7 @@ function LernprotokollSection() {
       <button type="button" className="w-full flex items-center justify-between text-left"
         onClick={() => setOpen(!open)}>
         <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-          Lernprotokoll — was Ollama gelernt hat ({items.length})
+          Gelernte Aussagen ({items.length})
         </p>
         <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>
       </button>
@@ -2275,6 +2332,7 @@ function LocalAITab({ pushToast }) {
 
       {/* beta.104 (#689 / F21): Transparenz — was wurde aussortiert, was gelernt */}
       <AutoDismissedSection />
+      <LernTransparenz />
       <LernprotokollSection />
 
       {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}
@@ -2860,7 +2918,7 @@ function RoutingCard({ pushToast }) {
   }
 
   async function entfernen() {
-    if (!(await bestaetigen({ text: "Routing-Schlüssel entfernen? PBP rechnet danach wieder mit der Luftlinie." }))) return;
+    if (!(await bestaetigen({ text: "Routing-Schlüssel entfernen? Der Haken „Echte Fahrstrecke und Fahrzeit verwenden“ wird dabei abgenommen, und PBP rechnet überall mit der Luftlinie — auch für Stellen, an denen schon eine Fahrstrecke steht." }))) return;
     setBusy(true);
     try {
       const res = await deleteRequest("/api/routing");
@@ -2876,13 +2934,14 @@ function RoutingCard({ pushToast }) {
   return (
     <Card className="rounded-2xl" data-testid="routing-card">
       <SectionHeading
-        title="Fahrstrecke und Fahrzeit"
-        description="Ohne Schlüssel rechnet PBP mit der Luftlinie. Mit einem kostenlosen Schlüssel von OpenRouteService stehen echte Fahrstrecke und Fahrzeit an jeder Stelle, und Rahmen-Daumen und Gehaltsverrechnung nehmen die Fahrstrecke."
+        title="Fahrstrecke und Fahrzeit (nur Auto)"
+        description="Hier liegt nur der Schlüssel. Ob PBP ihn benutzt, entscheidest du mit dem Haken unter Suche & Bewertung › Max. Entfernung pro Stellentyp. Die Berechnung gilt fürs Auto (nicht für Bus und Bahn); ohne Haken bleibt es bei der Luftlinie."
       />
       <div className="grid gap-3">
         {status?.konfiguriert ? (
-          <p className="text-sm text-teal">
-            Eingerichtet — heute {status.anfragen_heute} von {status.tagesgrenze} Anfragen
+          <p className="text-sm text-teal" data-testid="routing-stand">
+            Schlüssel hinterlegt, Fahrstrecke {status.aktiv ? "an (nur Auto)" : "aus — der Haken ist nicht gesetzt"}.
+            Heute {status.anfragen_heute} von {status.tagesgrenze} Anfragen
             verbraucht, {status.zwischengespeichert} Routen zwischengespeichert.
           </p>
         ) : (
@@ -3662,7 +3721,7 @@ export default function SettingsPage() {
       const a = document.createElement("a");
       a.href = url; a.download = `pbp_backup_${new Date().toISOString().slice(0, 10)}.db`; a.click();
       URL.revokeObjectURL(url);
-      pushToast("Datenbank-Backup heruntergeladen", "success");
+      pushToast("Sicherung angelegt und heruntergeladen.", "success");
     } catch (error) {
       pushToast(`Backup fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -3894,6 +3953,9 @@ export default function SettingsPage() {
         {/* ── G70: die vollstaendige Quellenliste unter "Erweitert" ── */}
         {settingsTab === "quellen_details" && (
           <>
+            {/* v1.7.94 (#950), #1037 Punkt 4: nicht mehr am Seitenende
+                unter der Quellen-Gesundheit, sondern oben. */}
+            <RoutingCard pushToast={pushToast} />
             <Card className="rounded-2xl">
               <SectionHeading title="Alle Quellen" description="Welche Jobbörsen PBP durchsucht." />
               <SourceSelectionList
@@ -3907,9 +3969,6 @@ export default function SettingsPage() {
 
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />
-
-            {/* v1.7.94 (#950): Fahrstrecke statt Luftlinie */}
-            <RoutingCard pushToast={pushToast} />
           </>
         )}
 
@@ -3932,6 +3991,7 @@ export default function SettingsPage() {
         {settingsTab === "automatik" && (
           <>
             <AutomatikSchedulerCard pushToast={pushToast} />
+            <AutoAussortierenCard pushToast={pushToast} />
             <AutoActionsTab pushToast={pushToast} />
           </>
         )}
@@ -4441,8 +4501,9 @@ export default function SettingsPage() {
             </Card>
 
             <Card className="rounded-2xl">
-              <SectionHeading title="Daten & Backup" description="Daten exportieren, sichern oder aus einer Datei importieren." />
+              <SectionHeading title="Daten & Sicherung" description="Sicherungen ansehen und zurückholen, Daten exportieren oder aus einer Datei importieren." />
               <div className="grid gap-3">
+                <SicherungKarte pushToast={pushToast} />
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">Komplett-Export (ZIP)</p>
@@ -4455,8 +4516,8 @@ export default function SettingsPage() {
                 </div>
                 <div className="glass-card p-3 flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-medium text-ink">Datenbank-Backup (SQLite)</p>
-                    <p className="text-xs text-muted">Rohe Datenbankdatei — für technische Wiederherstellung.</p>
+                    <p className="text-sm font-medium text-ink">Sicherung herunterladen (Datenbank)</p>
+                    <p className="text-xs text-muted">Legt eine Sicherung an und lädt die Datenbankdatei herunter — zum Aufbewahren außerhalb von PBP.</p>
                   </div>
                   <Button variant="secondary" size="sm" onClick={downloadBackup}>
                     <Database size={14} /> Herunterladen
@@ -4577,6 +4638,40 @@ export default function SettingsPage() {
 // ueberschriebe die Eingabe des Menschen — und die vollen Haekchen
 // behaupteten etwas Falsches, denn geloescht werden dann nicht die
 // Bereiche, sondern die Datei.
+// #1097: Was der DSGVO-Modus löscht — aus derselben Liste wie die Löschung
+// selbst (services/datenordner.py), dazu was außerhalb liegen bleibt.
+function DsgvoFolge({ dsgvo }) {
+  const inhalt = dsgvo?.inhalt || [];
+  const ausserhalb = dsgvo?.ausserhalb || [];
+  return (
+    <div className="grid gap-2 text-ink">
+      <p>
+        Gelöscht wird alles, was PBP im Datenordner angelegt hat. Das lässt
+        sich nicht rückgängig machen — auch nicht für einzelne Bereiche.
+        Was PBP nicht angelegt hat, bleibt liegen und steht unten mit „Bleibt“.
+      </p>
+      {inhalt.length > 0 && (
+        <ul className="grid gap-0.5 text-xs">
+          {inhalt.map((e) => (
+            <li key={e.name}>
+              {e.loeschen === false && <>Bleibt: </>}
+              <strong>{e.name}</strong> — {e.was} ({formatBytes(e.bytes || 0)})
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs">{dsgvo?.ausserhalb_hinweis}</p>
+      {ausserhalb.length > 0 && (
+        <ul className="grid gap-0.5 text-xs">
+          {ausserhalb.map((o) => (
+            <li key={o.pfad}>Bleibt: {o.was} <strong>{o.pfad}</strong></li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function LoeschBereichSection({ pushToast, refreshChrome }) {
   const [modus, setModus] = useState("bereiche");
   const [profilId, setProfilId] = useState("");
@@ -4633,7 +4728,9 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         profil_id: dsgvo ? "" : profilId,
       });
       if (dsgvo) {
-        pushToast("Datenbank und Dokumente gelöscht. Seite wird neu geladen.", "success");
+        // #1097: eine teilweise Löschung ist kein Erfolg.
+        pushToast(erg.message || "Datenordner gelöscht.",
+          erg.status === "ok" ? "success" : "danger");
       } else {
         pushToast(
           `${erg.zeilen_gesamt ?? 0} Zeilen und ${erg.dateien_geloescht ?? 0} Dateien gelöscht.`,
@@ -4665,7 +4762,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
             ["bereiche", "Ausgewählte Bereiche leeren",
              "Entfernt Zeilen aus der Datenbank. Die Datei bleibt bestehen."],
             ["dsgvo", "Alles unwiderruflich löschen (DSGVO)",
-             "Löscht die Datenbankdatei und die Dokumentordner. Auch verwaiste Dateien, die in keiner Tabelle stehen."],
+             "Löscht alles, was PBP im Datenordner angelegt hat: Datenbank, Sicherungskopien, Dokumente, Mails, Protokolle und Browser-Sitzungen."],
           ].map(([wert, label, hilfe]) => (
             <label key={wert} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/60 p-3">
               <input
@@ -4748,11 +4845,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
         {/* Was das kostet */}
         <div className="rounded-xl border border-coral/40 bg-coral/5 p-3 text-sm">
           {dsgvo ? (
-            <p className="text-ink">
-              Die Datenbankdatei und die Ordner <strong>dokumente</strong> und{" "}
-              <strong>export</strong> werden gelöscht. Das lässt sich nicht rückgängig
-              machen — auch nicht für einzelne Bereiche.
-            </p>
+            <DsgvoFolge dsgvo={vorschau?.dsgvo} />
           ) : gewaehlt.length === 0 ? (
             <p className="text-muted">Noch kein Bereich gewählt.</p>
           ) : (

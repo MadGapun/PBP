@@ -84,6 +84,8 @@ BEREICHE: dict[str, tuple] = {
         "follow_ups", "tasks", "contacts", "contact_links",
         # v1.7.88 (#884): haengt am Kontakt, gehoert also dorthin.
         "contact_references",
+        # v1.7.140 (#1110): abgelehnte Kontaktvorschlaege (nur Hashes).
+        "kontakt_vorschlag_abgelehnt",
         "contact_categories", "meeting_categories",
         "interview_reflections", "research_notes",
     ),
@@ -108,12 +110,16 @@ BEREICHE: dict[str, tuple] = {
         # v1.7.94 (#950): Routen vom eigenen Wohnort — sie tragen dessen
         # Koordinaten und gehoeren deshalb zu den Suchkriterien.
         "routen_cache",
+        # #1090: aufgeloeste Orte — darunter der eigene Wohnort.
+        "geo_cache",
         # v1.7.96 (#811): Wunscharbeitgeber und gepruefte Firmen-Slugs —
         # eine Einstellung der Suche, keine Stelle.
         "ats_firmen",
     ),
     "gelerntes": (
         "user_activity_events", "learning_insights", "blacklist_blocks",
+        # #792: das Protokoll der Lernlaeufe gehoert zum Gelernten.
+        "learning_runs",
         "scraper_health", "scraper_runs", "background_jobs",
         "elwosa_messages", "elwosa_pending_lines", "anonymisierung_map",
     ),
@@ -448,11 +454,15 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
         if fein:
             ergebnis[bereich]["aufteilung"] = fein
         gesamt += summe
-    dateien = _dateien(db, profil_id) if "dokumente" in gewaehlt else []
+    dateien, bleiben = (_dateien_pruefen(db, profil_id)
+                        if "dokumente" in gewaehlt else ([], []))
     haengend = haengende_verweise(db, gewaehlt, profil_id)
     return {"bereiche": ergebnis, "zeilen_gesamt": gesamt,
             "profil_id": profil_id,
             "dateien_auf_der_platte": len(dateien),
+            # #1099: Dateien des Nutzers ausserhalb von PBP und Dateien,
+            # die ein anderes Profil noch benutzt, bleiben liegen.
+            "dateien_bleiben_liegen": len(bleiben),
             "haengende_verweise": haengend["verweise"],
             "haengende_zeilen": haengend["zeilen_gesamt"],
             "hinweis": ("Geteilte Bereiche gelten für ALLE Profile und "
@@ -461,8 +471,9 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
                         "Ohne Profil-Angabe werden alle Profile erfasst.")}
 
 
-def _dateien(db, profil_id: str | None) -> list:
-    """Die Dateien auf der Platte, die zum Bereich `dokumente` gehoeren.
+def _dateizeilen(db, profil_id: str | None) -> list:
+    """(Tabelle, id, Pfad) je Dokument-Zeile mit Datei im Bereich
+    `dokumente`.
 
     Eine Zeile in `documents` zu loeschen entfernt die Datei nicht — und
     genau die traegt den Inhalt. Ein Loeschvorgang, der die Datenbank
@@ -478,15 +489,40 @@ def _dateien(db, profil_id: str | None) -> list:
             continue
         try:
             rows = con.execute(
-                f"SELECT filepath FROM {tab} WHERE filepath IS NOT NULL "
+                f"SELECT id, filepath FROM {tab} WHERE filepath IS NOT NULL "
                 f"AND filepath != ''"
                 + _bedingung(db, tab, profil_id).replace(" WHERE ", " AND ", 1),
                 {"pid": profil_id} if profil_id else {}).fetchall()
         except Exception as exc:  # pragma: no cover
             logger.debug("Dateiliste aus %s nicht lesbar: %s", tab, exc)
             continue
-        gefunden.extend(r[0] for r in rows if r[0])
-    return sorted(set(gefunden))
+        gefunden.extend((tab, str(r[0]), r[1]) for r in rows if r[1])
+    return gefunden
+
+
+def _dateien(db, profil_id: str | None) -> list:
+    """Die Dateien auf der Platte, die zum Bereich `dokumente` gehoeren."""
+    return sorted({pfad for _t, _i, pfad in _dateizeilen(db, profil_id)})
+
+
+def _dateien_pruefen(db, profil_id: str | None) -> tuple:
+    """(loeschbar, bleiben) fuer den Bereich `dokumente` (#1099).
+
+    Eine Datei wird nur geloescht, wenn sie im PBP-Datenordner liegt und
+    kein Eintrag AUSSERHALB dieses Loeschvorgangs auf sie zeigt — etwa
+    ein anderes Profil. Eintraege, die im selben Vorgang mitgehen, zaehlen
+    nicht. `bleiben` ist eine Liste {pfad, grund}."""
+    from . import dateiablage
+    zeilen = _dateizeilen(db, profil_id)
+    mitgeloescht = {(t, i) for t, i, _p in zeilen}
+    loeschbar, bleiben = [], []
+    for pfad in sorted({p for _t, _i, p in zeilen}):
+        ok, grund = dateiablage.loeschbar(db, pfad, ausser=mitgeloescht)
+        if ok:
+            loeschbar.append(pfad)
+        else:
+            bleiben.append({"pfad": pfad, "grund": grund})
+    return loeschbar, bleiben
 
 
 def _alle_eltern(db, tabelle: str) -> set:
@@ -551,7 +587,8 @@ def _reihenfolge(db, liste) -> list:
 
 
 def leeren(db, bereiche=None, profil_id: str | None = None,
-           dry_run: bool = True, dateien_loeschen: bool = True) -> dict:
+           dry_run: bool = True, dateien_loeschen: bool = True,
+           sichern: bool = False) -> dict:
     """Leert die gewaehlten Bereiche.
 
     `dry_run=True` ist die Vorgabe und aendert nichts.
@@ -559,11 +596,27 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
     `dateien_loeschen=False` laesst die Dateien auf der Platte liegen
     und raeumt nur die Datenbank ab. Das ist KEIN Normalfall — es gibt
     ihn, weil `delete_profile` diesen Vertrag seit jeher anbietet.
+
+    `sichern=True` (#1098): vorher eine Sicherung samt Dokumenten. Die
+    beiden Wege "Bereiche leeren" (Dashboard, Claude) setzen es; der
+    Factory Reset und das Loeschen eines Profils nicht — dort ist das
+    Loswerden der Zweck, wie bei der DSGVO-Loeschung. Scheitert die
+    Sicherung, wird NICHTS geloescht.
     """
     vor = vorschau(db, bereiche, profil_id)
     if dry_run:
         return {"status": "vorschau", **vor,
                 "hinweis": "Vorschau — es wurde nichts gelöscht."}
+
+    sicherung = None
+    if sichern:
+        from . import sicherung as _sicherung
+        sicherung = _sicherung.sichern(db, anlass="vor_leeren")
+        if sicherung["status"] != "gesichert":
+            return {"status": "abgebrochen", "sicherung": sicherung,
+                    "fehler": ("Vor dem Leeren ließ sich keine Sicherung anlegen — "
+                               "deshalb wurde nichts gelöscht. "
+                               + (sicherung.get("fehler") or ""))}
 
     gewaehlt = [b for b in (bereiche or BEREICHE) if b in BEREICHE]
     betroffen = [t for b in gewaehlt for t in BEREICHE[b]
@@ -573,9 +626,11 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
     # nach einem Abbruch mittendrin die Pfade weg und die Dateien da —
     # also nicht mehr auffindbar.
     dateien_weg, dateien_fehler = 0, 0
+    dateien_bleiben: list = []
     if "dokumente" in gewaehlt and dateien_loeschen:
         from pathlib import Path
-        for pfad in _dateien(db, profil_id):
+        loeschbar, dateien_bleiben = _dateien_pruefen(db, profil_id)
+        for pfad in loeschbar:
             try:
                 Path(pfad).unlink(missing_ok=True)
                 dateien_weg += 1
@@ -601,8 +656,10 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
             "zeilen_gesamt": sum(geloescht.values()),
             "dateien_geloescht": dateien_weg,
             "dateien_nicht_loeschbar": dateien_fehler,
+            "dateien_bleiben_liegen": dateien_bleiben,
             "haengende_verweise": vor["haengende_verweise"],
-            "hinweis": vor["hinweis"]}
+            "hinweis": vor["hinweis"],
+            "sicherung": (sicherung or {}).get("name")}
 
 
 def verwaiste_profilzeilen(db) -> dict:

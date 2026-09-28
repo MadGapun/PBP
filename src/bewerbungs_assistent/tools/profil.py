@@ -1503,7 +1503,7 @@ def register(mcp, db, logger):
         nationality: str = "",
         summary: str = "",
         informal_notes: str = "",
-        stellentyp: str = "beides",
+        stellentyp: str = "",
         arbeitsmodell: str = "hybrid",
         min_gehalt: int = 0,
         ziel_gehalt: int = 0,
@@ -1529,7 +1529,7 @@ def register(mcp, db, logger):
             nationality: Staatsangehörigkeit
             summary: Kurzprofil / Zusammenfassung
             informal_notes: Zwanglose Informationen (Neigungen, Motivation, Wünsche)
-            stellentyp: festanstellung, freelance, oder beides
+            stellentyp: festanstellung, freelance, oder beides (leer lassen, solange der Mensch es nicht gesagt hat)
             arbeitsmodell: remote, hybrid, vor_ort
             min_gehalt: Mindestgehalt Festanstellung (EUR/Jahr)
             ziel_gehalt: Zielgehalt Festanstellung (EUR/Jahr)
@@ -1539,7 +1539,10 @@ def register(mcp, db, logger):
             umzug_moeglich: Umzugsbereitschaft
         """
         preferences = {
-            "stellentyp": stellentyp,
+            # #1108: nur eine Antwort wird geschrieben — die Vorgabe
+            # "beides" machte die Praeferenzen vor der ersten Frage
+            # "erledigt".
+            **({"stellentyp": stellentyp} if stellentyp else {}),
             "arbeitsmodell": arbeitsmodell,
             "min_gehalt": min_gehalt,
             "ziel_gehalt": ziel_gehalt,
@@ -1597,7 +1600,7 @@ def register(mcp, db, logger):
             if isinstance(existing_prefs, str):
                 existing_prefs = json.loads(existing_prefs) if existing_prefs else {}
             _PREF_DEFAULTS = {
-                "stellentyp": "beides", "arbeitsmodell": "hybrid",
+                "stellentyp": "", "arbeitsmodell": "hybrid",
                 "min_gehalt": 0, "ziel_gehalt": 0,
                 "min_tagessatz": 0, "ziel_tagessatz": 0,
                 "reisebereitschaft": "mittel", "umzug_moeglich": False,
@@ -2101,18 +2104,11 @@ def register(mcp, db, logger):
 
         # Automatisch berechnen was schon da ist
         fortschritt = profile.get("erfassung_fortschritt", {})
-        prefs = get_profile_preferences(profile)
-        auto_check = {
-            "persoenliche_daten": bool(profile.get("name") and profile.get("email")),
-            "berufserfahrung": len(profile.get("positions", [])) > 0,
-            "ausbildung": len(profile.get("education", [])) > 0,
-            "kompetenzen": len(profile.get("skills", [])) > 0,
-            "praeferenzen": bool(prefs.get("stellentyp")),
-            "review_abgeschlossen": fortschritt.get("review_abgeschlossen", False),
-        }
         # H30 (#1087 G9): die Anleitung fuer den naechsten Schritt kommt
         # mit dieser Antwort, nicht vorab im Prompt.
+        # #1108: dieselbe Regel wie ueberall (vorher eine dritte Fassung).
         from ..services import ersterfassung_phasen as _phasen
+        auto_check = _phasen.stand(profile, fortschritt)
         phase, anleitung = _phasen.anleitung(auto_check)
         return {
             "status": "ok",
@@ -2137,10 +2133,17 @@ def register(mcp, db, logger):
         So kann die Ersterfassung jederzeit unterbrochen und später fortgesetzt werden.
 
         Args:
-            bereich: Name des Bereichs (persönliche_daten, berufserfahrung, ausbildung, kompetenzen, präferenzen, review_abgeschlossen)
+            bereich: Name des Bereichs (persoenliche_daten, berufserfahrung, ausbildung, kompetenzen, praeferenzen, review_abgeschlossen). Hat der Mensch keine Berufserfahrung oder keine Ausbildung, bestätige den Bereich mit abgeschlossen=True — dann gilt er als erledigt.
             abgeschlossen: Ob der Bereich fertig ist
             notizen: Optionale Notizen zum Fortschritt
         """
+        from ..services import ersterfassung_phasen as _phasen
+        schluessel = _phasen.bereich_schluessel(bereich)
+        if not schluessel:
+            # #1108: ein unbekannter Bereich wurde still gespeichert und nie gelesen.
+            return {"fehler": f"Unbekannter Bereich '{bereich}'.",
+                    "moegliche_bereiche": list(_phasen.BEREICHE)}
+        bereich = schluessel
         fortschritt = db.get_erfassung_fortschritt()
         fortschritt[bereich] = abgeschlossen
         if notizen:
@@ -2292,27 +2295,52 @@ def register(mcp, db, logger):
     _veraltet(mcp, "jobtitel_vorschlagen", jobtitel_speichern, "jobtitel_speichern")
 
     @mcp.tool()
-    def jobtitel_verwalten(titel_id: str, aktion: str = "loeschen", neuer_titel: str = "") -> dict:
-        """Verwaltet einen vorgeschlagenen Jobtitel (ändern, löschen, deaktivieren).
+    def jobtitel_verwalten(titel_id: str = "", aktion: str = "loeschen", neuer_titel: str = "") -> dict:
+        """Verwaltet die gespeicherten Jobtitel (anzeigen, ändern, löschen, deaktivieren).
+
+        Mit `aktion='anzeigen'` kommen alle Titel samt ID. Statt der ID
+        genügt auch der Titeltext, genau wie er gespeichert ist.
 
         Args:
-            titel_id: ID des Jobtitels
-            aktion: 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
+            titel_id: ID des Jobtitels oder der Titeltext
+            aktion: 'anzeigen', 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
             neuer_titel: Neuer Titeltext (nur bei aktion='aendern')
         """
+        pid = db.get_active_profile_id()
+        titel = db.get_suggested_job_titles(pid)
+        if aktion == "anzeigen":
+            return {"titel": [{"id": t["id"], "titel": t["title"],
+                               "aktiv": bool(t.get("is_active", 1)),
+                               "quelle": t.get("source")} for t in titel],
+                    "anzahl": len(titel)}
+        if aktion not in ("loeschen", "aendern", "deaktivieren", "aktivieren"):
+            return {"fehler": f"Unbekannte Aktion: {aktion}",
+                    "moegliche_aktionen": ["anzeigen", "loeschen", "aendern",
+                                           "deaktivieren", "aktivieren"]}
+        # Bis hierher gab kein Werkzeug die IDs heraus, und eine unbekannte
+        # ID meldete trotzdem Erfolg (#997-Klasse). Jetzt: ID oder Text,
+        # und "nicht gefunden", wenn es den Titel in diesem Profil nicht gibt.
+        wunsch = (titel_id or "").strip()
+        treffer = next((t for t in titel if t["id"] == wunsch), None) or next(
+            (t for t in titel if (t["title"] or "").strip().lower() == wunsch.lower()), None)
+        if not treffer:
+            return {"status": "nicht_gefunden",
+                    "fehler": f"Keinen Jobtitel '{wunsch}' in diesem Profil gefunden.",
+                    "naechster_schritt": "jobtitel_verwalten(aktion='anzeigen') nennt alle Titel mit ID."}
+        tid = treffer["id"]
         if aktion == "loeschen":
-            db.delete_job_title(titel_id)
-            return {"status": "geloescht"}
-        elif aktion == "aendern" and neuer_titel:
-            db.update_job_title(titel_id, {"title": neuer_titel})
-            return {"status": "geaendert", "titel": neuer_titel}
-        elif aktion == "deaktivieren":
-            db.update_job_title(titel_id, {"is_active": 0})
-            return {"status": "deaktiviert"}
-        elif aktion == "aktivieren":
-            db.update_job_title(titel_id, {"is_active": 1})
-            return {"status": "aktiviert"}
-        return {"fehler": f"Unbekannte Aktion: {aktion}"}
+            ok = db.delete_job_title(tid, profile_id=pid)
+            return {"status": "geloescht" if ok else "nicht_gefunden", "titel": treffer["title"]}
+        if aktion == "aendern":
+            if not (neuer_titel or "").strip():
+                return {"fehler": "neuer_titel fehlt."}
+            ok = db.update_job_title(tid, {"title": neuer_titel.strip()}, profile_id=pid)
+            return {"status": "geaendert" if ok else "nicht_gefunden",
+                    "vorher": treffer["title"], "titel": neuer_titel.strip()}
+        ok = db.update_job_title(tid, {"is_active": 0 if aktion == "deaktivieren" else 1},
+                                 profile_id=pid)
+        return {"status": ("deaktiviert" if aktion == "deaktivieren" else "aktiviert")
+                if ok else "nicht_gefunden", "titel": treffer["title"]}
 
     # --- Datenbereiche loeschen (#1025) ---
 
@@ -2342,6 +2370,45 @@ def register(mcp, db, logger):
                 "es nicht mehr gibt — Altschaden der bisherigen "
                 "Löschwege. `daten_bereiche_leeren` legt keine neuen an.")
         return v
+
+    @mcp.tool()
+    def sicherungen_anzeigen() -> dict:
+        """Zeigt die Sicherungen von PBP: wann, warum, wie gross, ob mit
+        Dokumenten — und wann zuletzt gesichert wurde.
+
+        PBP sichert einmal am Tag von selbst, vor dem Leeren eines
+        Bereichs und vor dem Zusammenführen zweier Stellen. Zurückholen
+        geht im Dashboard (Einstellungen › Datenschutz › Daten &
+        Sicherung) und wirkt beim nächsten Start.
+        """
+        from ..services import sicherung
+        alle = sicherung.liste(db)
+        alter = sicherung.alter_tage(db)
+        return {
+            "sicherungen": alle[:20],
+            "anzahl": len(alle),
+            "letzte_vor_tagen": round(alter, 1) if alter is not None else None,
+            "vorgemerkt": sicherung.vormerkung(db),
+            "hinweis": (
+                "Noch keine Sicherung — sicherung_anlegen() legt eine an."
+                if alter is None else
+                "Einen Stand zurückholen: im Dashboard unter Einstellungen › "
+                "Datenschutz › Daten & Sicherung."),
+        }
+
+    @mcp.tool()
+    def sicherung_anlegen() -> dict:
+        """Legt jetzt eine Sicherung an — Datenbank und Dokumente, im
+        Hintergrund. Sinnvoll vor größeren Aufräumaktionen oder wenn die
+        letzte Sicherung alt ist (sicherungen_anzeigen)."""
+        from ..services import sicherung
+        erg = sicherung.im_hintergrund(db, "manuell")
+        if erg["status"] == "laeuft_bereits":
+            return {"status": "laeuft_bereits",
+                    "nachricht": "Eine Sicherung läuft gerade schon."}
+        return {"status": "gestartet", "job_id": erg["job_id"],
+                "nachricht": ("Sicherung läuft im Hintergrund. In einer Minute "
+                              "zeigt sicherungen_anzeigen() sie an.")}
 
     @mcp.tool()
     def daten_bereiche_leeren(bereiche: list = None, profil_id: str = "",
@@ -2381,8 +2448,12 @@ def register(mcp, db, logger):
             return v
 
         vorher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
+        # #1098: vorher sichern; ohne Sicherung wird nichts geloescht.
         erg = loeschbereiche.leeren(
-            db, gewuenscht, profil_id=profil_id or None, dry_run=False)
+            db, gewuenscht, profil_id=profil_id or None, dry_run=False,
+            sichern=True)
+        if erg.get("status") == "abgebrochen":
+            return erg
         nachher = loeschbereiche.verwaiste_zeilen(db)["zeilen_gesamt"]
         # Die Probe auf die eigene Arbeit: ein Löschvorgang darf keine
         # Zeile zurücklassen, die auf nichts mehr zeigt. Genau das war

@@ -128,8 +128,11 @@ def bericht(db, *, beispiele: int = 5) -> dict:
         # (Der erste Entwurf holte `position` — die Spalte heisst
         # `title`. Feldnamen gehoeren nachgeschlagen, nicht geraten,
         # #949.)
+        # #1106-Klasse: nur die Bewerbungen des aktiven Profils.
         zeilen = conn.execute(
-            "SELECT id, notes FROM applications"
+            "SELECT id, notes FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)
         ).fetchall()
     except Exception as exc:  # pragma: no cover — eine Diagnose stoppt nie
         logger.debug("Bewerbungen nicht lesbar: %s", exc)
@@ -268,7 +271,10 @@ def zusammenfuehren(db, *, dry_run: bool = True, max_bewerbungen: int = 0) -> di
     """
     try:
         conn = db.connect()
-        zeilen = conn.execute("SELECT id, notes FROM applications").fetchall()
+        zeilen = conn.execute(
+            "SELECT id, notes FROM applications "
+            "WHERE (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)).fetchall()
     except Exception as exc:  # pragma: no cover
         logger.debug("Bewerbungen nicht lesbar: %s", exc)
         return {"status": "fehler", "fehler": str(exc)[:200]}

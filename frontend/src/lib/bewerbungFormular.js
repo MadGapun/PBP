@@ -56,3 +56,30 @@ export function bewerbungNutzlast(entwurf) {
   }
   return daten;
 }
+
+/**
+ * #1094: Was nach dem Anlegen passiert ist, in einem Satz — der Server
+ * setzt jetzt dieselben Folgen wie Claude (Stelle aussortiert, Erinnerung).
+ * Wer das nicht liest, sucht die Stelle danach in der Liste.
+ */
+export function angelegtMeldung(antwort) {
+  const teile = ["Bewerbung angelegt."];
+  if (antwort?.stelle_aussortiert) teile.push("Die Stelle ist aus der aktiven Liste genommen.");
+  if (antwort?.nachfass_in_tagen) {
+    teile.push(`Erinnerung zum Nachfassen in ${antwort.nachfass_in_tagen} Tagen.`);
+  }
+  return teile.join(" ");
+}
+
+/**
+ * #1094: Eine vermutete Dublette kommt als 409 mit der vorhandenen
+ * Bewerbung. Liefert den Satz fuer den Hinweis — oder null, wenn der
+ * Fehler keine Dublette ist.
+ */
+export function dublettenHinweis(fehler) {
+  const d = fehler?.status === 409 ? fehler?.payload?.duplikat : null;
+  if (!d) return null;
+  const was = [d.bestehend_titel, d.bestehend_firma].filter(Boolean).join(" bei ");
+  return `Diese Bewerbung gibt es vermutlich schon${was ? `: „${was}“` : ""}. `
+    + "Nur anlegen, wenn es wirklich eine eigene, neue Bewerbung ist.";
+}

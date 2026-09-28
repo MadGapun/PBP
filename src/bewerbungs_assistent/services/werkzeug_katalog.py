@@ -41,6 +41,7 @@ WARTUNG = frozenset({
     "bewerbung_notiz_drift",
     "bewerbung_notizen_zusammenfuehren",
     "bewerbungs_stellen_abgleichen",
+    "dokument_dateien_uebersicht",
     "dokument_typen_nachziehen",
     "dokumente_text_nachziehen",
     "gehaelter_neu_auswerten",
@@ -77,7 +78,8 @@ EINSTELLUNG = frozenset({
     "kontakt_kategorie_bearbeiten", "kontakt_kategorie_loeschen",
     "kontakt_kategorien_auflisten", "muss_tor_setzen", "ollama_autostart",
     "ollama_beenden", "ollama_kontext", "plugins_anzeigen", "schnellzugriff_setzen",
-    "schwelle_stufe_setzen", "scoring_konfigurieren", "stellen_entfernen_nach_quelle",
+    "schwelle_stufe_setzen", "scoring_konfigurieren", "sicherung_anlegen",
+    "sicherungen_anzeigen", "stellen_entfernen_nach_quelle",
     "suchkriterien_bearbeiten", "suchkriterien_setzen", "telemetrie_setzen",
     "telemetrie_status", "umgang_mit_unbekannt_setzen",
 })

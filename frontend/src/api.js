@@ -12,7 +12,8 @@ function withJsonHeaders(options = {}) {
 function getErrorMessage(data, fallback) {
   if (!data) return fallback;
   if (typeof data === "string") return data;
-  return data.error || data.fehler || data.message || fallback;
+  // #1096: manche Endpunkte antworten mit `nachricht` (sonst stand nur "HTTP 400" da)
+  return data.error || data.fehler || data.message || data.nachricht || fallback;
 }
 
 function normalizeBaseUrl(baseUrl = "") {
@@ -50,7 +51,12 @@ export async function api(path, options = {}) {
     } catch (error) {
       payload = null;
     }
-    throw new Error(getErrorMessage(payload, `HTTP ${response.status}`));
+    // #1094: Status und Antwort mitgeben — ein 409 (z.B. vermutete
+    // Dublette) braucht die Angaben aus der Antwort, nicht nur den Text.
+    const fehler = new Error(getErrorMessage(payload, `HTTP ${response.status}`));
+    fehler.status = response.status;
+    fehler.payload = payload;
+    throw fehler;
   }
 
   if (contentType.includes("application/json")) {

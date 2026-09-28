@@ -22,6 +22,17 @@ export function volltextText(ohne, gesamt) {
   return `${ohne}${von} ohne Volltext — PBP lädt ihn nach, die Bewertung folgt`;
 }
 
+/** #1038: "12 Anzeigentexte nachgeladen, 3 folgen mit der Automatik". */
+export function nachgeladenText(nachgeladen) {
+  if (!nachgeladen) return "";
+  const geholt = Number(nachgeladen.geholt) || 0;
+  const offen = Number(nachgeladen.offen) || 0;
+  const teile = [];
+  if (geholt) teile.push(`${geholt} ${geholt === 1 ? "Anzeigentext" : "Anzeigentexte"} nachgeladen`);
+  if (offen) teile.push(`${offen} folgen mit der Automatik`);
+  return teile.join(", ");
+}
+
 export function jobsucheHinweis(last) {
   if (!last || !last.vorhanden) return null;
 
@@ -38,6 +49,10 @@ export function jobsucheHinweis(last) {
       ? `${quellen.nur_browser} übersprungen, nur über den Browser erreichbar`
       : null,
   ].filter(Boolean).join(", ");
+  // #1096/#906: eine Stellenart, fuer die im Lauf keine Quelle lief
+  const ohneQuelle = (last.stellentyp_ohne_quelle || []).length
+    ? `für ${last.stellentyp_ohne_quelle.join(", ")} lief keine Quelle`
+    : "";
 
   if (last.ergebnis === "fehlgeschlagen") {
     return {
@@ -59,11 +74,18 @@ export function jobsucheHinweis(last) {
     // Ein Lauf ohne Zahl ist "nicht bekannt", nicht "null gefunden".
     return { ton: "ok", text: "Jobsuche fertig", titel: last.meldung || "" };
   }
+  // #1092 AK 6: was die lokale KI nach dem Lauf aussortiert hat — mit
+  // dem Weg dorthin, damit sich ein Fehlurteil zurückholen lässt.
+  const weg = typeof last.auto_aussortiert === "number" ? last.auto_aussortiert : 0;
+  const wegText = weg > 0
+    ? `${weg} von der lokalen KI aussortiert (zurückholen unter Stellen › Ausgeblendet)`
+    : "";
   if (neue === 0) {
     return {
       ton: "ok",
-      text: "Fertig — keine neuen Stellen",
-      titel: quellenText || "Der Suchlauf hat keine neuen Stellen gefunden.",
+      text: `Fertig — keine neuen Stellen${weg > 0 ? `, ${weg} aussortiert` : ""}`,
+      titel: [wegText, quellenText, ohneQuelle].filter(Boolean).join(" · ")
+        || "Der Suchlauf hat keine neuen Stellen gefunden.",
     };
   }
 
@@ -73,13 +95,17 @@ export function jobsucheHinweis(last) {
   // durch das Nachladen. Das steht jetzt im Hinweis selbst.
   const ohne = typeof last.ohne_volltext === "number" ? last.ohne_volltext : 0;
   if (ohne > 0) teile.push(volltextText(ohne, neue));
+  const nach = nachgeladenText(last.nachgeladen);
+  if (nach) teile.push(nach);
   if (aktiv !== null && aktiv !== neue) {
     teile.push(`${aktiv} davon in der Liste, ${neue - aktiv} sofort ausgeblendet`);
   }
+  if (wegText) teile.push(wegText);
   if (quellenText) teile.push(quellenText);
+  if (ohneQuelle) teile.push(ohneQuelle);
   return {
     ton: "ok",
-    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}`,
+    text: `Fertig — ${neue} ${neue === 1 ? "neue Stelle" : "neue Stellen"}${ohne > 0 ? `, ${ohne} ohne Volltext` : ""}${weg > 0 ? `, ${weg} aussortiert` : ""}`,
     titel: teile.join(" · "),
   };
 }

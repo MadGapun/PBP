@@ -106,6 +106,18 @@ def _jobboersen_ohne_suchbegriffe(db) -> list[str]:
     return namen
 
 
+def _condition_fahrstrecke_uebernommen(db) -> bool:
+    """#1037: wer vor dem Haken einen Routing-Schluessel hatte, fuer den
+    wurde der Haken gesetzt — damit sich seine Punkte nicht still
+    verschieben. Das wird einmal gesagt, solange der Haken noch steht."""
+    from . import routing
+    try:
+        return bool(db.get_setting(routing.EINSTELLUNG_HAKEN_UEBERNOMMEN, False)
+                    and routing.aktiv(db))
+    except Exception:
+        return False
+
+
 def _condition_keine_suchprofile_aber_bewerbungen(db) -> bool:
     """Hinweis, wenn eine gewaehlte Browser-Jobboerse keine Suchbegriffe hat
     und schon Bewerbungen laufen (dann lohnt die Pflege)."""
@@ -138,8 +150,10 @@ def _condition_keine_aufwandskosten_aber_termine(db) -> bool:
     try:
         conn = db.connect()
         pid = db.get_active_profile_id()
+        # Die Tabelle heisst application_meetings. Bis hierher stand hier
+        # `meetings`, die Abfrage scheiterte still, und der Tipp erschien nie.
         meeting_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM meetings WHERE "
+            "SELECT COUNT(*) AS n FROM application_meetings WHERE "
             "(profile_id=? OR profile_id IS NULL)", (pid,)
         ).fetchone()
         if not meeting_count or (meeting_count["n"] or 0) < 5:
@@ -150,10 +164,10 @@ def _condition_keine_aufwandskosten_aber_termine(db) -> bool:
         ).fetchone()
         if kosten_count and (kosten_count["n"] or 0) > 0:
             return False
-        # Plus: Vorbereitungszeit pruefen (kommt aus meetings.preparation_minutes)
+        # Plus: Vorbereitungszeit pruefen (application_meetings.vorbereitungszeit_min)
         prep_count = conn.execute(
-            "SELECT COUNT(*) AS n FROM meetings WHERE "
-            "(profile_id=? OR profile_id IS NULL) AND preparation_minutes > 0",
+            "SELECT COUNT(*) AS n FROM application_meetings WHERE "
+            "(profile_id=? OR profile_id IS NULL) AND vorbereitungszeit_min > 0",
             (pid,)
         ).fetchone()
         return not (prep_count and (prep_count["n"] or 0) > 0)
@@ -341,7 +355,101 @@ def _text_notizen_mit_bewerbungsbezug(db) -> str:
     return f"{len(v)} Sektion(en): {namen}{rest}"
 
 
+def _condition_auto_aussortieren_aus(db) -> bool:
+    """#1092: nur wer die lokale KI aktiv hat und den Schalter nie selbst
+    gesetzt hat — also genau die, bei denen die alte Vorgabe "an" wirkte."""
+    try:
+        from .auto_aussortierung import schalter_gesetzt
+        aktiv = db.get_profile_setting("llm_local_state", "off") == "active"
+        return aktiv and not schalter_gesetzt(db)
+    except Exception:
+        return False
+
+
+def _condition_standort_fehlt(db) -> bool:
+    """#1090: kein aufgeloester Standort, aber Stellen mit Ort — PBP
+    rechnet dann keine Entfernung, und das sagte bisher nichts. Bei einem
+    frischen Profil ohne Stellen bleibt es beim naechsten Schritt (#652)."""
+    try:
+        pid = db.get_active_profile_id()
+        if not pid:
+            return False
+        from .eigener_standort import befund
+        if befund(db)["aufgeloest"]:
+            return False
+        return db.connect().execute(
+            "SELECT 1 FROM jobs WHERE is_active=1 AND profile_id=? "
+            "AND location IS NOT NULL AND TRIM(location) != '' LIMIT 1",
+            (pid,)).fetchone() is not None
+    except Exception:
+        return False
+
+
+def _condition_herkunft_neu(db) -> bool:
+    """#954: einmal nach dem Update — solange aktive Stellen Punkte tragen,
+    von denen nicht bekannt ist, auf welchem Stand sie gerechnet wurden."""
+    try:
+        pid = db.get_active_profile_id()
+        if not pid:
+            return False
+        row = db.connect().execute(
+            "SELECT 1 FROM jobs WHERE is_active=1 AND profile_id=? "
+            "AND score_stand IS NULL LIMIT 1", (pid,)).fetchone()
+        return row is not None
+    except Exception:
+        return False
+
+
+def _condition_sicherung_alt(db) -> bool:
+    """#1098: die letzte Sicherung ist aelter als eine Woche (oder es gibt
+    keine), obwohl Daten da sind. Ein frisches Profil ohne Bewerbungen
+    und Stellen wird nicht ermahnt."""
+    try:
+        if not db.get_active_profile_id():
+            return False
+        con = db.connect()
+        daten = (con.execute("SELECT 1 FROM applications LIMIT 1").fetchone()
+                 or con.execute("SELECT 1 FROM jobs LIMIT 1").fetchone())
+        if not daten:
+            return False
+        from . import sicherung
+        alter = sicherung.alter_tage(db)
+        return alter is None or alter >= 7
+    except Exception:
+        return False
+
+
 HINT_DEFINITIONS: list[dict] = [
+    {
+        # #954: die neue Kennzeichnung, einmal erklaert.
+        "id": "f954_herkunft_der_angaben",
+        "tab": "stellen",
+        "title": "Neu: PBP sagt, woher eine Angabe kommt",
+        "body": (
+            "In den Stellendetails steht jetzt bei Entfernung, Gehalt, "
+            "Anzeigentext und Punkten, ob der Wert belegt, geschätzt oder "
+            "unbekannt ist. Bei älteren Stellen weiß PBP nicht, auf welchem "
+            "Stand die Punkte gerechnet wurden — einmal neu berechnen, "
+            "dann ist es bekannt."
+        ),
+        "cta_label": "PBP: Scores neu berechnen",
+        "cta_tool": "scores_neu_berechnen",
+        "condition": _condition_herkunft_neu,
+    },
+    {
+        # #1090: ohne Standort keine Entfernung, und das war unsichtbar.
+        "id": "f1090_standort_fehlt",
+        "tab": "suche",
+        "title": "PBP weiß nicht, von wo aus es Entfernungen rechnen soll",
+        "body": (
+            "Ohne Standort bekommt keine Stelle eine Entfernung, und die "
+            "Nähe zählt nicht in die Punkte. Trage deinen Wohnort im Profil "
+            "ein oder setze unter „Standort“ einen eigenen Ort."
+        ),
+        "cta_label": "PBP: Standort in den Suchkriterien setzen",
+        "cta_tool": "suchkriterien_setzen",
+        "condition": _condition_standort_fehlt,
+    },
     {
         "id": "d47_notizen_an_die_bewerbung",
         "tab": "profil",
@@ -395,6 +503,24 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_tool": "suchkriterien_anzeigen",
         "condition": _condition_gehalt_aus_praeferenzen_entfernt,
         "detail": _text_gehalt_entfernt,
+    },
+    {
+        # #1092: bis v1.7.139 sortierte die lokale KI nach jeder Suche
+        # ungefragt aus (Vorgabe "an", ohne Schalter). Jetzt ist die
+        # Vorgabe aus — wer die KI aktiv hat, erfaehrt einmal davon.
+        "id": "f1092_auto_aussortieren_ist_jetzt_aus",
+        "tab": "einstellungen",
+        "title": "Die lokale KI sortiert nach der Suche nicht mehr von selbst aus",
+        "body": (
+            "Bisher hat die lokale KI nach jeder Jobsuche Stellen "
+            "aussortiert, ohne dass du das eingeschaltet hattest — auch "
+            "solche ohne Anzeigentext. Das ist jetzt aus. Unter "
+            "Einstellungen › Automatik kannst du es wieder einschalten; "
+            "Stellen ohne Anzeigentext beurteilt sie dann nicht mehr."
+        ),
+        "cta_label": "PBP: Automatik-Einstellungen ändern",
+        "cta_tool": "automatik_setzen",
+        "condition": _condition_auto_aussortieren_aus,
     },
     {
         "id": "c91_schwelle_ist_jetzt_stufe",
@@ -517,6 +643,39 @@ HINT_DEFINITIONS: list[dict] = [
         "cta_label": "PBP: Interview-Reflexion zum letzten Gespräch speichern",
         "cta_tool": "interview_reflexion_speichern",
         "condition": _condition_keine_interview_reflexion_aber_interviews,
+    },
+    {
+        # #1037: Schluessel und Nutzung sind jetzt getrennt.
+        "id": "f1037_fahrstrecke_haken",
+        "tab": "dashboard",
+        "title": "Fahrstrecke und Fahrzeit gelten nur fürs Auto",
+        "body": (
+            "Du hattest einen Routing-Schlüssel eingerichtet, deshalb rechnet "
+            "PBP weiter mit der Fahrstrecke — so wie bisher. Neu ist: der "
+            "Schlüssel allein schaltet nichts mehr ein, das tut der Haken "
+            "„Echte Fahrstrecke und Fahrzeit verwenden (nur Auto)“ unter "
+            "Suche & Bewertung › Max. Entfernung pro Stellentyp. Pendelst du "
+            "mit Bus und Bahn, nimm ihn ab: dann gilt überall die Luftlinie."
+        ),
+        "cta_label": "PBP: Fahrstrecken-Stand anzeigen",
+        "cta_tool": "fahrstrecken_verwalten",
+        "condition": _condition_fahrstrecke_uebernommen,
+    },
+    {
+        # #1098: eine Sicherung, die niemand bemerkt, schuetzt nicht.
+        "id": "f1098_sicherung_alt",
+        "tab": "dashboard",
+        "title": "Deine letzte Sicherung ist älter als eine Woche",
+        "body": (
+            "PBP sichert sonst einmal am Tag von selbst — das hat eine "
+            "Weile nicht geklappt, oder PBP lief nicht. Lege jetzt eine an: "
+            "Einstellungen › Datenschutz › Daten & Sicherung › „Jetzt "
+            "sichern“ — oder über Claude. Dort siehst du auch alle "
+            "Sicherungen und kannst einen Stand zurückholen."
+        ),
+        "cta_label": "PBP: Sicherung anlegen",
+        "cta_tool": "sicherung_anlegen",
+        "condition": _condition_sicherung_alt,
     },
 ]
 

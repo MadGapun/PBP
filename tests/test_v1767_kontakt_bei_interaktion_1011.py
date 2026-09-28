@@ -262,25 +262,31 @@ def test_1011_die_anlage_steht_an_genau_einer_stelle():
     Wiedererkennung wieder verlorengeht. Erlaubt bleibt es nur im Dienst
     selbst und im Kontakt-Werkzeug, wo der Mensch bewusst anlegt.
     """
-    # `kontakte.py` und der REST-Endpunkt `POST /api/contacts` sind der
-    # BEWUSSTE Anlage-Weg: dort legt der Mensch selbst an und weiss, was
-    # er tut. Alles andere ist eine Interaktion und gehoert durchs
-    # Nadeloehr.
-    erlaubt = {"kontakt_pflicht.py", "kontakte.py", "database.py"}
-    bewusst = {"dashboard.py": {"api_create_contact"}}
+    # Der BEWUSSTE Anlage-Weg (Werkzeug `kontakt_anlegen`, REST-Endpunkt
+    # `POST /api/contacts`): dort legt der Mensch selbst an. Alles andere
+    # ist eine Interaktion und gehoert durchs Nadeloehr.
+    # #1110: je FUNKTION, nicht je Datei — die Ausnahme fuer ganz
+    # `kontakte.py` liess die beiden Uebernahme-Werkzeuge mit durch.
+    import ast
+    erlaubt_dateien = {"kontakt_pflicht.py", "database.py"}
+    bewusst = {("kontakte.py", "kontakt_anlegen"), ("dashboard.py", "api_create_contact")}
     treffer = []
     for pfad in (_repo() / "src" / "bewerbungs_assistent").rglob("*.py"):
-        if pfad.name in erlaubt:
+        if pfad.name in erlaubt_dateien:
             continue
-        zeilen = pfad.read_text(encoding="utf-8", errors="replace").split("\n")
-        for nr, zeile in enumerate(zeilen, 1):
-            if "add_contact(" not in zeile.split("#")[0]:
-                continue
-            # Der bewusste Anlage-Endpunkt darf direkt schreiben.
-            umfeld = "\n".join(zeilen[max(0, nr - 8):nr])
-            if any(name in umfeld for name in bewusst.get(pfad.name, ())):
-                continue
-            treffer.append(f"{pfad.name}:{nr}")
+        baum = ast.parse(pfad.read_text(encoding="utf-8-sig"))
+
+        def besuchen(knoten, funktion=""):
+            for kind in ast.iter_child_nodes(knoten):
+                name = funktion
+                if isinstance(kind, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    name = kind.name
+                if (isinstance(kind, ast.Call)
+                        and getattr(kind.func, "attr", "") == "add_contact"
+                        and (pfad.name, name) not in bewusst):
+                    treffer.append(f"{pfad.name}:{kind.lineno} ({name})")
+                besuchen(kind, name)
+        besuchen(baum)
     assert not treffer, (
         "Kontakt-Anlage am Nadeloehr vorbei — die Wiedererkennung "
         f"greift dort nicht: {treffer}")

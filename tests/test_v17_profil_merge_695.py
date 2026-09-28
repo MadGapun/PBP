@@ -176,7 +176,9 @@ def test_695_frische_db_legt_normal_an(setup_env):
     assert str(_kriterium(db, "min_gehalt")) == "50000"
     assert "min_gehalt" not in p["preferences"]
     assert result["gehalt_in_suchkriterien"] == {"min_gehalt": 50000}
-    assert p["preferences"]["stellentyp"] == "beides"
+    # #1108: ohne Antwort keine Vorgabe — "beides" machte die
+    # Praeferenzen vor der ersten Frage "erledigt".
+    assert "stellentyp" not in p["preferences"]
 
 
 def test_695_leerstring_informal_notes_bewahrt_bestand(setup_env):

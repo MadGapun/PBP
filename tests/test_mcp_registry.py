@@ -99,6 +99,9 @@ EXPECTED_TOOL_NAMES = {
     "kontakt_historie",
     "vermittler_historie",
     "erkenntnisse_ableiten",
+    # #792: was PBP lernt, nachlesbar
+    "lernprotokoll_anzeigen",
+    "lerndaten_exportieren",
     "erkenntnisse_anzeigen",
     "erkenntnis_bestaetigen",
     # v1.7.11 (#804/D30): Termin-Dubletten im Bestand aufraeumen
@@ -279,9 +282,13 @@ EXPECTED_TOOL_NAMES = {
     "stil_auswertung",
     "dokument_entverknuepfen",
     "dokument_loeschen",
+    # #1099: lesender Bericht ueber Dokument-Dateien (Expertenmodus)
+    "dokument_dateien_uebersicht",
     "dokument_status_setzen",
     # v1.5.6: Scraper Health (#432)
     "schwelle_stufe_setzen",
+    "sicherung_anlegen",
+    "sicherungen_anzeigen",
     "scraper_diagnose",
     # v1.5.7: Journey-Abschluss (#453, #455)
     "follow_up_erledigen",
@@ -335,6 +342,8 @@ EXPECTED_PROMPT_NAMES = {
     "tipps_und_tricks",
     # v1.7.4 (#746, H17): Melde-Hilfe — Sofortloesung + anonymisierter Report
     "problem_melden",
+    # #1112: die ganze Stellenliste gegen das Profil
+    "stellen_abgleich",
     # v1.7.0-beta.37 (#599): Elwosa-Bridge-Prompts
     "elwosa_status_anzeigen",
     "elwosa_pause_anfordern",
@@ -415,8 +424,8 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 265  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben
-        assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
+        assert len(tools) == 270  # #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
+        assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:
         db.close()

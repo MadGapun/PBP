@@ -55,12 +55,96 @@ def ics_fold(line: str) -> str:
 
 
 def _fmt_dt(iso_str) -> str | None:
+    """Wert fuer DTSTART/DTEND ohne Eigenschaftsnamen.
+
+    #1102: eine Zeit MIT Zone wird als UTC (`...Z`) geschrieben — ohne
+    Zone liest der Kalender sie als Ortszeit, und eine Einladung fuer
+    12:00 UTC stand bei 12:00 statt 14:00. Ohne Zone bleibt es Ortszeit;
+    so speichert PBP seit #1102 alle Termine."""
     if not iso_str:
         return None
     try:
-        return datetime.fromisoformat(str(iso_str)).strftime("%Y%m%dT%H%M%S")
+        dt = datetime.fromisoformat(str(iso_str).replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
+    if dt.tzinfo is not None:
+        from datetime import timezone
+        return dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return dt.strftime("%Y%m%dT%H%M%S")
+
+
+def _zeitzeilen(start, ende) -> list | None:
+    """DTSTART/DTEND; ein reines Datum ist ein ganztaegiger Termin."""
+    from datetime import date, timedelta
+    text = str(start or "").strip()
+    if len(text) == 10:
+        try:
+            tag = date.fromisoformat(text)
+        except ValueError:
+            return None
+        return [f"DTSTART;VALUE=DATE:{tag.strftime('%Y%m%d')}",
+                f"DTEND;VALUE=DATE:{(tag + timedelta(days=1)).strftime('%Y%m%d')}"]
+    dt_start = _fmt_dt(start)
+    if not dt_start:
+        return None
+    return [f"DTSTART:{dt_start}", f"DTEND:{_fmt_dt(ende) or dt_start}"]
+
+
+def _vevent(m: dict, now_stamp: str) -> list | None:
+    """Die Zeilen eines Termins — fuer Gesamt- UND Einzelexport (#1102)."""
+    zeiten = _zeitzeilen(m.get("meeting_date"), m.get("meeting_end"))
+    if not zeiten:
+        return None
+    title = m.get("title", "Termin") or "Termin"
+    company = m.get("app_company", "") or ""
+    app_title = m.get("app_title", "") or ""
+    app_id = m.get("app_id", "") or ""
+    location = m.get("location", "") or ""
+    meeting_url = m.get("meeting_url", "") or ""
+    notes = m.get("notes", "") or ""
+
+    desc_parts = []
+    if company and app_title:
+        desc_parts.append(f"Bewerbung: {app_title} bei {company}")
+    if app_id:
+        desc_parts.append(f"PBP-Link: {dashboard_link('bewerbungen', app_id)}")
+    if meeting_url:
+        desc_parts.append(f"Meeting-Link: {meeting_url}")
+    if notes:
+        desc_parts.append(f"Notizen: {notes}")
+
+    summary = title + (f" — {company}" if company else "")
+    zeilen = ["BEGIN:VEVENT", f"UID:{m['id']}@pbp.local", f"DTSTAMP:{now_stamp}",
+              *zeiten,
+              "SUMMARY:" + ics_escape(summary),
+              "DESCRIPTION:" + ics_escape("\n".join(desc_parts))]
+    if location:
+        zeilen.append("LOCATION:" + ics_escape(location))
+    if meeting_url:
+        # URL ist kein TEXT-Typ — nicht escapen, nur uebernehmen
+        zeilen.append(f"URL:{meeting_url}")
+    zeilen.append("END:VEVENT")
+    return zeilen
+
+
+def _kalender(ereignisse: list, name: str = "") -> str:
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0",
+             "PRODID:-//PBP Bewerbungs-Assistent//DE",
+             "CALSCALE:GREGORIAN", "METHOD:PUBLISH"]
+    if name:
+        lines.append(f"X-WR-CALNAME:{name}")
+    for e in ereignisse:
+        lines.extend(e)
+    lines.append("END:VCALENDAR")
+    return "\r\n".join(ics_fold(line) for line in lines) + "\r\n"
+
+
+def build_meeting_ics(meeting: dict) -> str | None:
+    """Ein einzelner Termin als Kalenderdatei. None bei unlesbarer Zeit."""
+    from datetime import timezone
+    now_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    e = _vevent(dict(meeting), now_stamp)
+    return _kalender([e]) if e else None
 
 
 def build_meetings_ics(db) -> tuple[str, int]:
@@ -81,56 +165,7 @@ def build_meetings_ics(db) -> tuple[str, int]:
         (pid,),
     ).fetchall()
 
-    now_stamp = datetime.now().strftime("%Y%m%dT%H%M%SZ")
-    lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//PBP Bewerbungs-Assistent//DE",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH",
-        "X-WR-CALNAME:PBP Bewerbungstermine",
-    ]
-
-    count = 0
-    for r in rows:
-        m = dict(r)
-        dt_start = _fmt_dt(m.get("meeting_date"))
-        if not dt_start:
-            continue
-        dt_end = _fmt_dt(m.get("meeting_end")) or dt_start
-        title = m.get("title", "Termin") or "Termin"
-        company = m.get("app_company", "") or ""
-        app_title = m.get("app_title", "") or ""
-        app_id = m.get("app_id", "") or ""
-        location = m.get("location", "") or ""
-        meeting_url = m.get("meeting_url", "") or ""
-        notes = m.get("notes", "") or ""
-
-        desc_parts = []
-        if company and app_title:
-            desc_parts.append(f"Bewerbung: {app_title} bei {company}")
-        if app_id:
-            desc_parts.append(f"PBP-Link: {dashboard_link('bewerbungen', app_id)}")
-        if meeting_url:
-            desc_parts.append(f"Meeting-Link: {meeting_url}")
-        if notes:
-            desc_parts.append(f"Notizen: {notes}")
-
-        summary = title + (f" — {company}" if company else "")
-        lines.append("BEGIN:VEVENT")
-        lines.append(f"UID:{m['id']}@pbp.local")
-        lines.append(f"DTSTAMP:{now_stamp}")
-        lines.append(f"DTSTART:{dt_start}")
-        lines.append(f"DTEND:{dt_end}")
-        lines.append("SUMMARY:" + ics_escape(summary))
-        lines.append("DESCRIPTION:" + ics_escape("\n".join(desc_parts)))
-        if location:
-            lines.append("LOCATION:" + ics_escape(location))
-        if meeting_url:
-            # URL ist kein TEXT-Typ — nicht escapen, nur uebernehmen
-            lines.append(f"URL:{meeting_url}")
-        lines.append("END:VEVENT")
-        count += 1
-
-    lines.append("END:VCALENDAR")
-    return "\r\n".join(ics_fold(line) for line in lines) + "\r\n", count
+    from datetime import timezone
+    now_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    ereignisse = [e for e in (_vevent(dict(r), now_stamp) for r in rows) if e]
+    return _kalender(ereignisse, "PBP Bewerbungstermine"), len(ereignisse)

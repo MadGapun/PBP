@@ -30,7 +30,7 @@ DATENFLUSS = {
     "external_requests": [
         "Jobbörsen (nur bei einer Suche)",
         "JobSpy (läuft lokal und fragt Indeed und LinkedIn ab)",
-        "OpenStreetMap Nominatim (Orte in Koordinaten für die Entfernung)",
+        "OpenStreetMap Nominatim (dein Wohnort und die Orte der Stellen, als Koordinaten für die Entfernung)",
         "OpenRouteService (Fahrstrecken, nur mit eigenem Schlüssel)",
         "GitHub und elwosa.de (Update-Prüfung und Tipps, anonym)",
     ],

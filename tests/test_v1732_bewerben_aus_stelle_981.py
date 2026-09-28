@@ -76,8 +76,12 @@ def test_981_endpunkt_weist_unbekannten_status_ab():
               / "dashboard.py").read_text(encoding="utf-8")
     block = quelle[quelle.index("async def api_add_application"):]
     block = block[:block.index("@app.put(\"/api/applications/{app_id}/status\")")]
-    assert "VALID_STATUSES" in block
+    # #1094: die Pruefung sitzt jetzt im Lebenszyklus-Dienst, den der
+    # Endpunkt aufruft — dieselbe Absicht, eine Stelle fuer alle Wege.
+    assert "bewerbung_lebenszyklus" in block and "_lz.anlegen(" in block
     assert "status_code=400" in block
+    from bewerbungs_assistent.services import bewerbung_lebenszyklus as lz
+    assert lz.status_pruefen("entwurf") and lz.status_pruefen("beworben") is None
 
 
 def test_981_stellen_dialog_bietet_entwurf_nicht_mehr_an():

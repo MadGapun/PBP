@@ -59,6 +59,11 @@ ART_LUFTLINIE = "luftlinie"
 ART_FAHRSTRECKE = "fahrstrecke"
 
 
+#: Das Routing-Profil ist `driving-car` (#1037) — jede Angabe einer
+#: berechneten Fahrstrecke oder Fahrzeit traegt diesen Zusatz.
+NUR_AUTO = "mit dem Auto"
+
+
 def _zahl(wert) -> float | None:
     if wert is None or isinstance(wert, bool):
         return None
@@ -86,9 +91,7 @@ def preis_km(job, criteria=None) -> float | None:
     """
     if not isinstance(job, dict):
         return None
-    zaehlt = (criteria is None
-              or (isinstance(criteria, dict)
-                  and criteria.get("_fahrstrecke_zaehlt") is True))
+    zaehlt = _fahrt_zaehlt(criteria)
     fahrt = _zahl(job.get("fahrstrecke_km"))
     if zaehlt and fahrt is not None and fahrt > 0:
         wert, ist_fahrt = fahrt, True
@@ -108,6 +111,30 @@ def preis_km(job, criteria=None) -> float | None:
             if wert is None or km < wert:
                 return km
     return wert
+
+
+def _fahrt_zaehlt(criteria) -> bool:
+    """Die Regel aus `preis_km`, an einer Stelle fuer alle Leser."""
+    return (criteria is None
+            or (isinstance(criteria, dict)
+                and criteria.get("_fahrstrecke_zaehlt") is True))
+
+
+def art_wort(job, criteria=None) -> str:
+    """Wie die Zahl aus `preis_km` entstanden ist, als Wort (#954).
+
+    Bis v1.7.139 stand in der Fit-Analyse jede Entfernung als
+    "Luftlinie" da — auch eine berechnete Fahrstrecke und eine, die der
+    Mensch selbst eingetragen hat (#1077)."""
+    if not isinstance(job, dict):
+        return "Luftlinie"
+    if job.get("entfernung_quelle") == "mensch":
+        return "von dir eingetragen"
+    zaehlt = _fahrt_zaehlt(criteria)
+    fahrt = _zahl(job.get("fahrstrecke_km"))
+    if zaehlt and fahrt is not None and fahrt > 0:
+        return "Fahrstrecke"
+    return "Luftlinie"
 
 
 def fahrzeit_text(minuten) -> str:
@@ -147,12 +174,12 @@ def beschriftung(luftlinie_km) -> str:
 def _befund_fahrstrecke(job: dict, fahrt: float) -> dict:
     luft = _zahl(job.get("distance_km"))
     minuten = _zahl(job.get("fahrzeit_min"))
-    text = f"{fahrt:g} km Fahrstrecke"
     zeit = fahrzeit_text(minuten)
-    if zeit:
-        text += f", {zeit}"
-    if luft is not None:
-        text += f" ({luft:g} km Luftlinie)"
+    # #1037: die Luftlinie bleibt die Hauptangabe (so nennen sie auch die
+    # Jobboersen), die Route steht als Zusatz dahinter — und sagt, dass
+    # sie fuers Auto gilt. Wer mit Bus und Bahn pendelt, braucht laenger.
+    route = f"{fahrt:g} km" + (f" / {zeit}" if zeit else "") + f" {NUR_AUTO}"
+    text = f"{luft:g} km Luftlinie · {route}" if luft is not None else route
     ergebnis = {
         "entfernung_km": fahrt,
         "entfernung_art": ART_FAHRSTRECKE,
@@ -169,12 +196,18 @@ def _befund_fahrstrecke(job: dict, fahrt: float) -> dict:
     return ergebnis
 
 
-def befund(wert) -> dict:
+def befund(wert, criteria=None) -> dict:
     """Der vollstaendige Befund zu einer Entfernung.
 
     Args:
         wert: die ganze Stelle (bevorzugt — dann kennt der Befund auch die
             Fahrstrecke) oder, wie bis v1.7.93, die Luftlinie als Zahl.
+        criteria: die Suchkriterien. Eine gespeicherte Fahrstrecke wird nur
+            genannt, wenn sie auch ZAEHLT (#1037: Haken gesetzt und
+            Schluessel da, `_fahrstrecke_zaehlt`). Sonst stuende an der
+            Stelle eine Fahrzeit, mit der nichts rechnet. Ein Guard
+            verlangt die Kriterien von jedem Aufrufer, der eine Stelle
+            uebergibt; `None` bleibt fuer Alt-Aufrufe beim alten Verhalten.
 
     Returns:
         Leeres dict, wenn keine Entfernung vorliegt — ein Aufrufer soll
@@ -182,7 +215,7 @@ def befund(wert) -> dict:
     """
     if isinstance(wert, dict):
         fahrt = _zahl(wert.get("fahrstrecke_km"))
-        if fahrt is not None and fahrt > 0:
+        if fahrt is not None and fahrt > 0 and _fahrt_zaehlt(criteria):
             return _befund_fahrstrecke(wert, fahrt)
         wert = wert.get("distance_km")
     km = _zahl(wert)
@@ -245,6 +278,26 @@ def grenze_km(criteria, art) -> float:
     karte = criteria.get("max_entfernung") or {}
     if isinstance(karte, dict):
         wert = _zahl(karte.get(form))
-        if wert is not None and wert > 0:
+        # #1036: eine eingetragene 0 bleibt 0 ("nur am Wohnort oder
+        # remote"). Bis hierher wurde sie still zur Vorgabe.
+        if wert is not None and wert >= 0:
             return wert
     return float(VORGABE_GRENZE_KM.get(form, VORGABE_GRENZE_SONST))
+
+
+def naehe_punkte(dist, grenze, gewicht) -> float | None:
+    """Naehe-Punkte innerhalb der Grenze — gleitend statt in Stufen (#1036).
+
+    Voll bei 0 km, 0 an der Grenze, dazwischen gleichmaessig. Bis
+    v1.7.140 gab es zwei Stufen (bis 60 % der Grenze das volle Gewicht,
+    danach eins weniger): eine Stelle in 29 km bekam bei 50 km Grenze
+    dasselbe wie eine vor der Haustuer, eine in 31 km einen Punkt weniger.
+    `None` jenseits der Grenze — dort gilt der Malus, nicht die Naehe.
+    Eine Stelle, fuer beide Rechenwege (#963)."""
+    d = _zahl(dist)
+    g = _zahl(grenze)
+    if d is None or g is None or d > g:
+        return None
+    if g <= 0:
+        return float(gewicht)
+    return round(float(gewicht) * (1 - d / g), 1)

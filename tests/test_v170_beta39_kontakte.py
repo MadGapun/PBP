@@ -118,14 +118,17 @@ def test_add_category_duplicate_slug_raises(setup_env):
         db.add_contact_category("Headhunter")
 
 
-def test_update_category_name_changes_slug(setup_env):
+def test_update_category_name_keeps_slug(setup_env):
+    """#1109: der Schluessel bleibt — die Kontakte tragen ihn in den Tags.
+    Bis v1.7.139 wanderte er mit dem Namen, und die Kategorie verlor ihre
+    Kontakte."""
     db = setup_env
     cid = db.add_contact_category("Alumni")
     db.update_contact_category(cid, name="Ehemalige")
     cats = db.list_contact_categories()
     cat = next(c for c in cats if c["id"] == cid)
     assert cat["name"] == "Ehemalige"
-    assert cat["slug"] == "ehemalige"
+    assert cat["slug"] == "alumni"
 
 
 def test_update_category_color(setup_env):

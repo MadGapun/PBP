@@ -24,6 +24,8 @@ import { api, apiUrl, deleteRequest, optionalApi, postJson, putJson } from "@/ap
 import { useApp } from "@/app-context";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import MitClaude from "@/components/MitClaude";
+import StandortKarte from "@/components/StandortKarte";
+import FahrstreckeHaken from "@/components/FahrstreckeHaken";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -45,6 +47,8 @@ import {
 } from "@/components/ui";
 import { cn, docTypeLabel, formatDateTime, normalizeMonthDate } from "@/utils";
 import { SCORE_BEDEUTUNG } from "@/lib/score";
+import { zahlOderVorgabe } from "@/lib/zahl";
+import { ANSTELLUNGSFORM_TEXT } from "@/lib/stellenAngaben";
 
 const EMPTY_PROFILE = {
   name: "",
@@ -172,17 +176,13 @@ function normalizeProfile(draft) {
   return { ...draft, preferences };
 }
 
-const STELLENTYPEN_OPTIONS = [
-  { value: "festanstellung", label: "Festanstellung" },
-  { value: "freelance", label: "Freelance" },
-  { value: "teilzeit", label: "Teilzeit" },
-  { value: "praktikum", label: "Praktikum" },
-  { value: "werkstudent", label: "Werkstudent" },
-];
+// #1036: dieselben Anstellungsformen wie der Stellenfilter (lib/stellenAngaben.js).
+// Teilzeit ist seit #1023 ein Umfang, keine Form; ein altes "teilzeit" bleibt
+// in der Auswahl stehen (der Server liest es als Umfang) und wird benannt.
+const STELLENTYPEN_OPTIONS = Object.entries(ANSTELLUNGSFORM_TEXT).map(([value, label]) => ({ value, label }));
+const FORM_WERTE = new Set(STELLENTYPEN_OPTIONS.map(({ value }) => value));
 
-const DEFAULT_MAX_ENTFERNUNG = { festanstellung: 50, freelance: 200, teilzeit: 30, praktikum: 50, werkstudent: 50 };
-
-function criteriaToDraft(criteria) {
+function criteriaToDraft(criteria, grenzeVorgaben = {}) {
   // Migrate legacy stellentyp (string) to stellentypen (list) (#166)
   let stellentypen = criteria?.stellentypen || [];
   if (!stellentypen.length && criteria?.stellentyp) {
@@ -191,6 +191,11 @@ function criteriaToDraft(criteria) {
   if (!stellentypen.length) stellentypen = ["festanstellung"];
 
   const maxEnt = criteria?.max_entfernung || {};
+  // #1036: Vorgaben vom Server (entfernung.VORGABE_GRENZE_KM) — hier stand
+  // eine dritte Fassung der Tabelle. Leeres Feld = Vorgabe, 0 bleibt 0.
+  const maxEntWerte = Object.fromEntries(
+    Object.entries(maxEnt).map(([form, km]) => [form, km ?? ""]),
+  );
 
   return {
     keywords_muss: [...(criteria?.keywords_muss || [])],
@@ -210,11 +215,8 @@ function criteriaToDraft(criteria) {
     wunsch_stundensatz: criteria?.wunsch_stundensatz ?? "",
     max_entfernung_km: criteria?.max_entfernung_km ?? "",
     stellentypen,
-    max_entfernung_festanstellung: maxEnt.festanstellung ?? DEFAULT_MAX_ENTFERNUNG.festanstellung,
-    max_entfernung_freelance: maxEnt.freelance ?? DEFAULT_MAX_ENTFERNUNG.freelance,
-    max_entfernung_teilzeit: maxEnt.teilzeit ?? DEFAULT_MAX_ENTFERNUNG.teilzeit,
-    max_entfernung_praktikum: maxEnt.praktikum ?? DEFAULT_MAX_ENTFERNUNG.praktikum,
-    max_entfernung_werkstudent: maxEnt.werkstudent ?? DEFAULT_MAX_ENTFERNUNG.werkstudent,
+    max_entfernung_werte: maxEntWerte,
+    grenze_vorgaben: grenzeVorgaben || {},
     gewichtung_muss: criteria?.gewichtung?.muss ?? 2,
     gewichtung_plus: criteria?.gewichtung?.plus ?? 1,
     gewichtung_minus: criteria?.gewichtung?.minus ?? 1,
@@ -266,13 +268,13 @@ function criteriaDraftToPayload(criteriaDraft) {
     wunsch_stundensatz: criteriaDraft.wunsch_stundensatz === "" ? null : Number(criteriaDraft.wunsch_stundensatz),
     max_entfernung_km: criteriaDraft.max_entfernung_km === "" ? null : Number(criteriaDraft.max_entfernung_km),
     stellentypen: criteriaDraft.stellentypen,
-    max_entfernung: {
-      festanstellung: Number(criteriaDraft.max_entfernung_festanstellung) || 50,
-      freelance: Number(criteriaDraft.max_entfernung_freelance) || 200,
-      teilzeit: Number(criteriaDraft.max_entfernung_teilzeit) || 30,
-      praktikum: Number(criteriaDraft.max_entfernung_praktikum) || 50,
-      werkstudent: Number(criteriaDraft.max_entfernung_werkstudent) || 50,
-    },
+    // #1036: nur eingetragene Werte; ein leeres Feld heisst Vorgabe des
+    // Servers, eine 0 bleibt 0 (vorher machte `|| 50` daraus 50 km).
+    max_entfernung: Object.fromEntries(
+      Object.entries(criteriaDraft.max_entfernung_werte || {})
+        .map(([form, km]) => [form, zahlOderVorgabe(km, null)])
+        .filter(([, km]) => km !== null && km >= 0),
+    ),
     gewichtung: {
       muss: Number(criteriaDraft.gewichtung_muss),
       plus: Number(criteriaDraft.gewichtung_plus),
@@ -282,7 +284,7 @@ function criteriaDraftToPayload(criteriaDraft) {
       fern_malus: Number(criteriaDraft.gewichtung_fern_malus),
       gehalt: Number(criteriaDraft.gewichtung_gehalt),
     },
-    min_score_schwelle: Number(criteriaDraft.min_score_schwelle) || 1,
+    min_score_schwelle: zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1),
   };
 }
 
@@ -492,6 +494,7 @@ export default function ProfilePage({ bereich = "profil" }) {
         api("/api/search-criteria"),
         api("/api/blacklist"),
         optionalApi("/api/keyword-suggestions"),
+        optionalApi("/api/entfernung/vorgaben"),
       ]);
       const profileData = results[0].status === "fulfilled" ? results[0].value : null;
       const completenessData = results[1].status === "fulfilled" ? results[1].value : null;
@@ -500,7 +503,8 @@ export default function ProfilePage({ bereich = "profil" }) {
       const blacklistRows = results[4].status === "fulfilled" ? results[4].value : [];
       const keywordSuggestionsData = results[5].status === "fulfilled" ? results[5].value : null;
       const nextDraft = toDraft(profileData);
-      const nextCriteriaDraft = criteriaToDraft(searchCriteria || {});
+      const grenzeVorgaben = results[6].status === "fulfilled" ? results[6].value?.grenzen : null;
+      const nextCriteriaDraft = criteriaToDraft(searchCriteria || {}, grenzeVorgaben || {});
       suppressProfileAutosaveRef.current = true;
       lastSavedProfileSnapshotRef.current = profileData
         ? JSON.stringify(normalizeProfile(nextDraft))
@@ -933,12 +937,15 @@ export default function ProfilePage({ bereich = "profil" }) {
       return;
     }
     try {
-      await postJson("/api/blacklist", { ...blacklistForm, value });
+      const erg = await postJson("/api/blacklist", { ...blacklistForm, value });
       setBlacklistForm({ type: "firma", value: "" });
       const rows = await api("/api/blacklist");
       startTransition(() => setBlacklist(rows || []));
       await refreshChrome({ quiet: true });
-      pushToast("Blacklist-Eintrag angelegt.", "success");
+      const weg = erg?.stellen_deaktiviert || 0;
+      pushToast(weg
+        ? `Blacklist-Eintrag angelegt — ${weg} aktive ${weg === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet (zurückholen unter Stellen › Ausgeblendet).`
+        : "Blacklist-Eintrag angelegt.", "success");
     } catch (error) {
       pushToast(`Blacklist-Eintrag fehlgeschlagen: ${error.message}`, "danger");
     }
@@ -1379,6 +1386,8 @@ export default function ProfilePage({ bereich = "profil" }) {
 
         </>)}
 
+        {zeigeSuche && <StandortKarte pushToast={pushToast} />}
+
         {zeigeSuche && (
         <Card id="suche-begriffe" className="rounded-2xl">
           <SectionHeading title="Suchbegriffe" description="Welche Stellen gefunden werden und wofür sie Punkte bekommen." />
@@ -1552,7 +1561,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                         const next = current.stellentypen?.includes(value)
                           ? current.stellentypen.filter((t) => t !== value)
                           : [...(current.stellentypen || []), value];
-                        return { ...current, stellentypen: next.length ? next : ["festanstellung"] };
+                        return { ...current, stellentypen: next.some((t) => FORM_WERTE.has(t)) ? next : [...next, "festanstellung"] };
                       })}
                       className="h-4 w-4 accent-sky"
                     />
@@ -1560,6 +1569,12 @@ export default function ProfilePage({ bereich = "profil" }) {
                   </label>
                 ))}
               </div>
+              {criteriaDraft.stellentypen?.includes("teilzeit") ? (
+                <p className="mt-1 text-xs text-muted" data-testid="teilzeit-ist-umfang">
+                  Früher gewählt: „Teilzeit“. Das ist kein Vertragstyp, sondern der Umfang — PBP
+                  zeigt Teilzeitstellen weiter an, schließt aber keine Vollzeitstelle deswegen aus.
+                </p>
+              ) : null}
             </Field>
 
             <Field label="Max. Entfernung pro Stellentyp (km)">
@@ -1569,15 +1584,23 @@ export default function ProfilePage({ bereich = "profil" }) {
                     <span className="min-w-[7rem] text-xs text-muted">{label}:</span>
                     <TextInput
                       type="number"
+                      min="0"
                       className="!w-20"
-                      value={criteriaDraft[`max_entfernung_${value}`]}
-                      onChange={(event) => setCriteriaDraft((current) => ({ ...current, [`max_entfernung_${value}`]: event.target.value }))}
+                      aria-label={`Maximale Entfernung ${label} in km`}
+                      placeholder={String(criteriaDraft.grenze_vorgaben?.[value] ?? "")}
+                      value={criteriaDraft.max_entfernung_werte?.[value] ?? ""}
+                      onChange={(event) => setCriteriaDraft((current) => ({
+                        ...current,
+                        max_entfernung_werte: { ...(current.max_entfernung_werte || {}), [value]: event.target.value },
+                      }))}
                     />
                     <span className="text-xs text-muted">km</span>
                   </div>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-muted">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen. Freelance hat standardmäßig eine höhere Toleranz.</p>
+              <p className="mt-1 text-xs text-muted">Entfernung zählt nicht in die Punkte, sondern in den Rahmen-Daumen: je näher, desto besser, bis zur Grenze. Leeres Feld = die grau angezeigte Vorgabe; 0 heißt „nur am Wohnort oder remote“.</p>
+              {/* #1037: Schluessel in den Einstellungen, die Nutzung hier. */}
+              <FahrstreckeHaken navigateTo={navigateTo} pushToast={pushToast} />
             </Field>
 
             {/* G69 (#1087 F3): die Regler sind Feinabstimmung — zum Anfangen
@@ -1633,7 +1656,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                   min={0}
                   max={scoreVerteilung?.regler_max ?? 20}
                   step={1}
-                  value={Number(criteriaDraft.min_score_schwelle) || 1}
+                  value={zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1)}
                   onChange={(event) => setCriteriaDraft((current) => ({
                     ...current,
                     min_score_schwelle: Number(event.target.value),
@@ -1641,7 +1664,7 @@ export default function ProfilePage({ bereich = "profil" }) {
                   className="flex-1 h-1.5 cursor-pointer appearance-none rounded-full bg-sky/20 accent-sky"
                 />
                 <span className="w-12 text-right text-sm font-bold tabular-nums text-sky">
-                  {Number(criteriaDraft.min_score_schwelle) || 1}
+                  {zahlOderVorgabe(criteriaDraft.min_score_schwelle, 1)}
                 </span>
               </div>
               {scoreVerteilung?.belastbar ? (

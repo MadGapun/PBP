@@ -246,51 +246,59 @@ def register(mcp, db, logger):
             bewerbung_id: Optional — speichert die Markt-Analyse im selben Aufruf
                 an diese Bewerbung (#674, Kategorie 'markt').
         """
+        # #1104: gezaehlt werden ANZEIGEN je Begriff, nicht Vorkommen —
+        # sonst lag ein Begriff, der mehrfach je Anzeige steht, ueber 100 %.
+        # Die Begriffe kommen aus dem Extraktor mit Positivliste und
+        # Wortgrenzen (#963), erweitert um Profil und Bestand (#971) — nicht
+        # aus einer festen Liste einer Fachrichtung ("KI" traf "Skills",
+        # "REST" traf "Restaurant", und fuer eine Pflegekraft meldete die
+        # Luecke CAD-Systeme).
+        from ..services import stellen_skills as _sk
         descriptions = db.get_skill_frequency()
         if not descriptions:
             return {
                 "status": "keine_daten",
                 "hinweis": "Noch keine Stellenangebote vorhanden. Starte zuerst eine Jobsuche.",
             }
-
-        # Common tech/skill keywords to look for
-        skill_keywords = [
-            "Python", "Java", "JavaScript", "TypeScript", "C#", "C\\+\\+", "SQL", "NoSQL",
-            "React", "Angular", "Vue", "Node\\.js", "Docker", "Kubernetes", "AWS", "Azure",
-            "SAP", "ERP", "CRM", "PLM", "PDM", "CAD", "CAM", "MES", "PPS",
-            "Agile", "Scrum", "Kanban", "ITIL", "DevOps", "CI/CD",
-            "REST", "API", "Microservices", "Cloud", "Linux", "Windows Server",
-            "Machine Learning", "KI", "AI", "Data Science", "Big Data",
-            "Projektmanagement", "Teamleitung", "Fuehrung", "Consulting",
-            "PRO\\.FILE", "Teamcenter", "Windchill", "ENOVIA", "3DExperience",
-            "SolidWorks", "AutoCAD", "CATIA", "NX", "Inventor",
-            "Freelance", "Remote", "Hybrid", "Home.?Office",
-            "Englisch", "Deutsch",
-        ]
-
-        full_text = " ".join(descriptions)
         total_jobs = len(descriptions)
+        profile = db.get_profile()
+        if total_jobs < _sk.MIN_ANZEIGEN:
+            return {
+                "status": "zu_wenig_daten",
+                "analysierte_stellen": total_jobs,
+                "hinweis": (f"Erst {total_jobs} Stelle(n) mit Anzeigentext — zu wenig, "
+                            "um von Trends oder Lücken zu sprechen."),
+            }
+        vok = _sk.vokabular(db, profile)
         trend_counts = Counter()
+        anzeige_form: dict = {}
+        for text in descriptions:
+            gesehen = set()
+            for begriff in _sk.extrahiere_skills(text, vok):
+                schluessel = _sk.grundform(begriff)
+                if schluessel in gesehen:
+                    continue
+                gesehen.add(schluessel)
+                trend_counts[schluessel] += 1
+                anzeige_form.setdefault(schluessel, Counter())[begriff] += 1
 
-        for keyword in skill_keywords:
-            count = len(re.findall(keyword, full_text, re.IGNORECASE))
-            if count > 0:
-                clean_key = keyword.replace("\\", "").replace(".?", "-")
-                trend_counts[clean_key] = count
+        def _name(schluessel):
+            return anzeige_form[schluessel].most_common(1)[0][0]
 
         # Compare with user skills
-        profile = db.get_profile()
         user_skills = []
         skill_gap = []
         if profile:
-            user_skills = [s["name"].lower() for s in profile.get("skills", [])]
-            for skill, count in trend_counts.most_common(30):
-                if skill.lower() not in user_skills and count >= 2:
-                    skill_gap.append({"skill": skill, "nachfrage": count})
+            user_skills = {_sk.grundform(s["name"]) for s in profile.get("skills", [])
+                           if s.get("name")}
+            for schluessel, count in trend_counts.most_common(30):
+                if schluessel not in user_skills and count >= 2:
+                    skill_gap.append({"skill": _name(schluessel), "nachfrage": count})
 
         top_20 = [
-            {"skill": skill, "nennungen": count, "prozent_jobs": round(count / total_jobs * 100, 1)}
-            for skill, count in trend_counts.most_common(20)
+            {"skill": _name(k), "nennungen": count,
+             "prozent_jobs": round(count / total_jobs * 100, 1)}
+            for k, count in trend_counts.most_common(20)
         ]
 
         ergebnis = {
@@ -912,13 +920,15 @@ def register(mcp, db, logger):
         damit eine Quote ausgegeben wird (sonst zu rauschig).
         """
         conn = db.connect()
+        # #1106-Klasse: nur die Bewerbungen des aktiven Profils.
         rows = conn.execute("""
             SELECT e.notes, e.application_id, a.status, a.has_reached_interview
             FROM application_events e
             JOIN applications a ON a.id = e.application_id
             WHERE e.status = 'stil_tracking'
+              AND (a.profile_id=? OR a.profile_id IS NULL)
             ORDER BY e.event_date ASC
-        """).fetchall()
+        """, (db.get_active_profile_id(),)).fetchall()
 
         if not rows:
             return {
@@ -1465,6 +1475,14 @@ def register(mcp, db, logger):
                     "ändert sich dadurch nicht** — der Aufschlag ist ein "
                     "Preis, keine Messung.")
         except Exception:
+            pass
+        # v1.7.140 (#954): worauf die Punkte beruhen, und woher die
+        # Werte kommen, gegen die gerechnet wurde.
+        try:
+            from ..services import wahrheit as _wahrheit
+            antwort["herkunft"] = _wahrheit.felder(job, db.get_search_criteria())
+            antwort["herkunft_kurz"] = _wahrheit.kurz(antwort["herkunft"])
+        except Exception:  # pragma: no cover
             pass
         return antwort
 
@@ -2122,11 +2140,13 @@ def register(mcp, db, logger):
                    LEFT JOIN applications a ON a.id = f.application_id
                    WHERE f.status = 'erledigt'
                      AND f.completed_at >= '2026-08-11'
+                     AND (a.profile_id=? OR a.profile_id IS NULL)
                      AND NOT EXISTS (
                          SELECT 1 FROM application_events e
                          WHERE e.application_id = f.application_id
                            AND e.notes LIKE 'Nachfass erledigt%')
-                   ORDER BY f.completed_at DESC""").fetchall()
+                   ORDER BY f.completed_at DESC""",
+                (db.get_active_profile_id(),)).fetchall()
             if verdaechtig:
                 warnungen.append({
                     "bereich": "Nachfassungen",
@@ -2389,11 +2409,12 @@ def register(mcp, db, logger):
         from ..services.neigung import begriffe as _extract_terms
 
         # Versuch 1: Bewerbungen vs. abgelehnte Stellen (User-Wunsch)
+        from ..services import bewerbung_status as _status  # #1103
         applications = db.get_applications()
         applied_hashes = {
             a["job_hash"] for a in applications
             if a.get("job_hash") and a.get("status") not in (
-                "abgelehnt", "zurueckgezogen", "abgelaufen", "passt_nicht"
+                *_status.ARCHIV, "passt_nicht"
             )
         }
         dismissed_jobs = db.get_dismissed_jobs() if hasattr(db, "get_dismissed_jobs") else []
@@ -2723,6 +2744,7 @@ def register(mcp, db, logger):
                     # deshalb zu `keyword_vorschlaege`, dem falschen Nachbarn.
                     "profil_suchbegriffe_abgleichen — Suchbegriffe gegen das Profil: fehlende Skills, Widersprüche, Rahmenbegriffe (Vorschläge, schreibt nur auf Ansage)",
                     "kalibrierung_backtest — Schwellenwert aus der eigenen Bewerbungshistorie vorschlagen (Schattenrechnung, schreibt nichts)",
+                    "scores_neu_berechnen — Punkte aller Stellen neu rechnen; danach ist bekannt, auf welchem Stand sie beruhen (#954)",
                     # #1063: die Schwelle ist eine STUFE, keine Zahl mehr.
                     "score_verteilung_anzeigen — Score-Verteilung samt den Schwellen-Stufen und ihrer Wirkung",
                     "schwelle_stufe_setzen — Schwellenwert als benannte Stufe setzen (Speichern während der Suche / Ausblenden in der Liste)",
@@ -2792,6 +2814,7 @@ def register(mcp, db, logger):
                     "bewerbungsbericht_exportieren — PDF-Pipeline-Report",
                     "profil_report_exportieren — Profil-Snapshot",
                     "profil_exportieren — Vollständiges Profil als JSON-Backup",
+                    "sicherung_anlegen / sicherungen_anzeigen — Datensicherung samt Dokumenten (#1098)",
                 ],
             },
             "workflows": {
@@ -2810,7 +2833,9 @@ def register(mcp, db, logger):
                     "jobtitel_speichern / jobtitel_verwalten",
                     "ablehnungsgruende_anzeigen / ablehnungsgrund_anlegen — eigene Ablehnungsgründe verwalten",
                     "ollama_autostart — lokale KI (Ollama) mit PBP starten",
+                    "fahrstrecken_verwalten — Fahrstrecke und Fahrzeit (nur Auto): Stand, einschalten/ausschalten, nachziehen (#1037)",
                     "ollama_beenden — Ollama jetzt oder beim Beenden von PBP beenden, Desktop-Verknüpfung anlegen",
+                    "automatik_status / automatik_setzen — Hintergrund-Automatik, auch Aussortieren nach der Suche (Vorgabe aus)",
                 ],
             },
             "system": {
@@ -3340,30 +3365,42 @@ def register(mcp, db, logger):
     def automatik_setzen(
         jobsuche_intervall_tage: int | None = None,
         lernen_intervall_tage: int | None = None,
+        nach_suche_aussortieren: bool | None = None,
     ) -> dict:
-        """Setzt die Intervalle der Hintergrund-Automatik (#677/#678).
+        """Setzt die Hintergrund-Automatik (#677/#678, #1092).
 
-        Erlaubte Werte: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unverändert.
+        Erlaubte Intervalle: 0 (aus), 1, 3, 7, 14, 30 Tage. None = unverändert.
 
         Args:
             jobsuche_intervall_tage: wie oft die INTERNE Jobsuche läuft.
             lernen_intervall_tage: wie oft Ollama aus Verhalten/Dokumenten
                 lernt (greift nur, wenn der Lern-Modus an ist).
+            nach_suche_aussortieren: nach jeder Jobsuche mit der lokalen KI
+                aussortieren (Vorgabe aus). Stellen ohne Anzeigentext werden
+                dabei nie beurteilt.
         """
-        if jobsuche_intervall_tage is None and lernen_intervall_tage is None:
+        from ..services import auto_aussortierung
+        if (jobsuche_intervall_tage is None and lernen_intervall_tage is None
+                and nach_suche_aussortieren is None):
             return {
-                "fehler": "Mindestens ein Intervall angeben.",
+                "fehler": "Mindestens eine Einstellung angeben.",
                 "aktueller_stand": db.get_automatik_settings(),
+                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db),
             }
-        try:
-            db.set_automatik_settings(
-                jobsuche_intervall_tage=jobsuche_intervall_tage,
-                lernen_intervall_tage=lernen_intervall_tage,
-            )
-        except ValueError as exc:
-            return {"fehler": str(exc)}
+        if jobsuche_intervall_tage is not None or lernen_intervall_tage is not None:
+            try:
+                db.set_automatik_settings(
+                    jobsuche_intervall_tage=jobsuche_intervall_tage,
+                    lernen_intervall_tage=lernen_intervall_tage,
+                )
+            except ValueError as exc:
+                return {"fehler": str(exc)}
+        if nach_suche_aussortieren is not None:
+            db.set_profile_setting(auto_aussortierung.SCHALTER,
+                                   "true" if nach_suche_aussortieren else "false")
         from ..services.automatik_scheduler import compute_status
-        return {"status": "gespeichert", **compute_status(db)}
+        return {"status": "gespeichert", **compute_status(db),
+                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db)}
 
     # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
 
@@ -3542,8 +3579,7 @@ def register(mcp, db, logger):
             dry_run: True (Default) = nur anzeigen, nichts speichern.
             budget_sekunden: Wall-Clock-Grenze für den gesamten Lauf.
         """
-        from ..services.lerninsights import kandidaten_ableiten, speichern
-        from .. import __version__ as _v
+        from ..services.lerninsights import kandidaten_ableiten
         lauf = kandidaten_ableiten(db, budget_sekunden=budget_sekunden)
         kandidaten = lauf["kandidaten"]
         strategie = [k for k in kandidaten if k["scope"] == "strategie"]
@@ -3570,9 +3606,58 @@ def register(mcp, db, logger):
             )
         if lauf["regel_fehler"]:
             result["regel_fehler"] = lauf["regel_fehler"]
-        if not dry_run and kandidaten:
-            result["gespeichert"] = speichern(db, kandidaten, app_version=_v)
+        if not dry_run:
+            # #792: ein echter Lauf steht im Lernprotokoll — derselbe Weg
+            # wie die Automatik, mit dem Datenschutz-Schalter (#1107).
+            from ..services.lernprotokoll import regeln_lauf
+            eintrag = regeln_lauf(db, "manuell", budget_sekunden=budget_sekunden)
+            if eintrag.get("status") == "lernen_aus":
+                return {"status": "lernen_aus",
+                        "hinweis": "Das Lernen ist unter Datenschutz ausgeschaltet — "
+                                   "es wurde nichts gespeichert. Einschalten unter "
+                                   "Einstellungen › Datenschutz."}
+            result["gespeichert"] = eintrag.get("gespeichert") or {}
+            result["lauf_id"] = eintrag.get("id")
         return result
+
+    @mcp.tool()
+    def lernprotokoll_anzeigen(limit: int = 10) -> dict:
+        """Zeigt, was PBP über dich lernt: die Datenquellen und die letzten Lernläufe (#792).
+
+        Je Quelle steht da, ob sie einfließt, wie viele Datensätze es sind und
+        aus welchem Zeitraum — auch das ausdrückliche „nein“. Je Lauf: wann,
+        wodurch ausgelöst, welche Aussagen gefunden wurden, wie viele davon neu
+        waren, und bei einem Lauf ohne neue Erkenntnis der Grund.
+
+        Args:
+            limit: Wie viele Läufe (neueste zuerst, höchstens 200).
+        """
+        from ..services.lernprotokoll import anzeigen
+        from ..services.lernquellen import uebersicht
+        laeufe = anzeigen(db, limit=limit)
+        antwort = {"lernen_eingeschaltet": db.is_learning_enabled(),
+                   "quellen": uebersicht(db), "laeufe": laeufe}
+        if not laeufe:
+            antwort["hinweis"] = ("Noch kein Lernlauf protokolliert. Er läuft mit der "
+                                  "Automatik oder sofort über erkenntnisse_ableiten("
+                                  "dry_run=False).")
+        return antwort
+
+    @mcp.tool()
+    def lerndaten_exportieren() -> dict:
+        """Exportiert alles, was das Lernen auswertet, als ZIP zum Nachlesen (#792).
+
+        Inhalt: eine Übersicht (Markdown), die Rohdaten als CSV (aussortierte
+        Stellen, Bewerbungen, Verlauf, Nutzung der letzten 30 Tage), die
+        Erkenntnisse mit Beleg als JSON und das Protokoll der Läufe. Der
+        Export enthält Firmennamen — nicht unbedacht weitergeben. Er landet
+        im Ausgabe-Ordner.
+        """
+        from ..services.lernprotokoll import export_erstellen
+        from ..services.ablage import ziel_hinweis
+        erg = export_erstellen(db)
+        erg["hinweis"] = ziel_hinweis(db, erg["datei"])
+        return erg
 
     @mcp.tool()
     def erkenntnisse_anzeigen(filter: str = "alle",

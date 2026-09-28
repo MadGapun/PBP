@@ -136,7 +136,9 @@ def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Opti
         return None
     backup_dir.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    backup_path = backup_dir / f"pbp-backup-{timestamp}.db"
+    # #1098: der Anlass steht im Namen — im selben Ordner liegen jetzt auch
+    # taegliche und manuelle Sicherungen (services/sicherung.py).
+    backup_path = backup_dir / f"pbp-backup-{timestamp}-vor_update.db"
     src = sqlite3.connect(str(db_path))
     dst = sqlite3.connect(str(backup_path))
     try:
@@ -146,8 +148,14 @@ def create_backup(db_path: Path, backup_dir: Path, max_backups: int = 5) -> Opti
         dst.close()
         src.close()
     logger.info("Backup erstellt: %s", backup_path)
-    # Rotate: keep only the newest max_backups
-    backups = sorted(backup_dir.glob("pbp-backup-*.db"), key=lambda p: p.stat().st_mtime)
+    # Rotate: keep only the newest max_backups — NUR unter den Sicherungen
+    # vor einem Update (#1098). Die uebrigen rotiert services/sicherung.
+    import re as _re
+    _update = _re.compile(
+        r"^pbp-backup-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}(-vor_update)?(-\d+)?\.db$")
+    backups = sorted((b for b in backup_dir.glob("pbp-backup-*.db")
+                      if _update.match(b.name)),
+                     key=lambda p: p.stat().st_mtime)
     while len(backups) > max_backups:
         oldest = backups.pop(0)
         oldest.unlink()
@@ -322,6 +330,24 @@ class Database:
 
     def initialize(self):
         """Create all tables if they don't exist."""
+        # #1097: eine DSGVO-Loeschung, die im laufenden Betrieb nicht alles
+        # entfernen konnte (Datei von einem zweiten Prozess gesperrt), hat
+        # eine Vormerkung hinterlassen. Der Rest geht JETZT, bevor die
+        # Datenbank geoeffnet wird — danach waere sie wieder gesperrt.
+        if not self._conns:
+            try:
+                from .services.datenordner import vorgemerkte_loeschung_ausfuehren
+                vorgemerkte_loeschung_ausfuehren(self.db_path.parent)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Vorgemerkte Loeschung nicht ausgefuehrt: %s", exc)
+            # #1098: eine vorgemerkte Sicherung — ebenfalls BEVOR die
+            # Datenbank geoeffnet wird. Nach einer DSGVO-Loeschung gibt es
+            # die Vormerkung nicht mehr (der ganze Ordner ist weg).
+            try:
+                from .services.sicherung import vorgemerkt_einspielen
+                vorgemerkt_einspielen(self.db_path)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("Vorgemerkte Sicherung nicht eingespielt: %s", exc)
         conn = self.connect()
         conn.executescript(SCHEMA_SQL)
         # Check schema version
@@ -573,7 +599,14 @@ class Database:
                                   # v1.7.126 (#1077): `mensch`, wenn die
                                   # Entfernung von Hand gesetzt wurde —
                                   # dann ueberschreibt sie kein Suchlauf.
-                                  ("entfernung_quelle", "TEXT")):
+                                  ("entfernung_quelle", "TEXT"),
+                                  # v1.7.140 (#954): wann Entfernung und
+                                  # Score erhoben wurden, und worauf der
+                                  # Score beruht (Anzeigentext +
+                                  # Suchkriterien, services/wahrheit.py).
+                                  ("entfernung_am", "TEXT"),
+                                  ("score_am", "TEXT"),
+                                  ("score_stand", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -638,6 +671,58 @@ class Database:
                     PRIMARY KEY (start_lat, start_lon, ziel_lat, ziel_lon)
                 )
             """)
+            conn.commit()
+
+            # #1037: Schluessel und Nutzung sind getrennt. Wer vorher einen
+            # Schluessel hatte, fuer den rechnete PBP schon mit der
+            # Fahrstrecke — der Haken wird fuer ihn einmal gesetzt, statt
+            # seine Scores still zu verschieben; ein Hinweis sagt es.
+            try:
+                from .services import routing as _routing_uebernahme
+                _routing_uebernahme.uebernahme(self)
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Routing-Uebernahme (#1037): %s", exc)
+
+            # #1090 AK 6: aufgeloeste Orte dauerhaft. Vorher lebte der
+            # Zwischenspeicher nur im Arbeitsspeicher, und nach jedem
+            # Neustart fragte PBP den Dienst fuer jeden Ort wieder, mit
+            # einer Anfrage je Sekunde. `status` ist 'gefunden' oder
+            # 'nicht_gefunden' — ein AUSFALL des Dienstes steht hier nie,
+            # er ist kein Befund ueber den Ort (#950, #811).
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS geo_cache (
+                    ort_key TEXT PRIMARY KEY,
+                    lat REAL,
+                    lon REAL,
+                    status TEXT NOT NULL,
+                    abgerufen_am TEXT
+                )
+            """)
+            conn.commit()
+            try:
+                from .services import geocoding_service as _geo
+                _geo.speicher_setzen(self)
+            except Exception as exc:  # pragma: no cover
+                logger.debug("Geo-Speicher nicht angebunden: %s", exc)
+
+            # #1110: ein abgelehnter Kontaktvorschlag hinterlaesst eine
+            # Spur, damit er beim naechsten Lauf nicht wiederkommt — als
+            # Hash, nicht als Name oder Mail: die Daten, die der Mensch
+            # gerade verworfen hat, sollen nicht liegen bleiben.
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS kontakt_vorschlag_abgelehnt (
+                    profile_id TEXT,
+                    schluessel TEXT NOT NULL,
+                    created_at TEXT,
+                    PRIMARY KEY (profile_id, schluessel)
+                )
+            """)
+            conn.commit()
+
+            # #792: ein Eintrag je Lernlauf — was ausgewertet wurde, was
+            # herauskam und warum nichts kam.
+            from .services import lernprotokoll as _lernprotokoll
+            _lernprotokoll.tabelle_anlegen(conn)
             conn.commit()
 
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
@@ -1187,6 +1272,18 @@ class Database:
             _pq.bereinigen(self)
         except Exception as e:
             logger.debug("Praeferenzen-Bereinigung uebersprungen (#1055): %s", e)
+        # v1.7.140 (#1102): Terminzeiten in eine Form (Ortszeit mit `T`).
+        # Unlesbares bleibt stehen und wird gemeldet. Idempotent.
+        try:
+            self.termine_normalisieren()
+        except Exception as e:
+            logger.debug("Termin-Normalisierung uebersprungen (#1102): %s", e)
+        # v1.7.140 (#1109): umbenannte Systemkategorien finden ihre
+        # Kontakte wieder. Idempotent.
+        try:
+            self.kontakt_kategorien_reparieren()
+        except Exception as e:
+            logger.debug("Kategorie-Reparatur uebersprungen (#1109): %s", e)
         # v1.7.124 (#1063): eine gesetzte Zahl wird zur naechstliegenden
         # Stufe. Idempotent, und wer nie eine Schwelle gesetzt hat,
         # merkt nichts davon.
@@ -1263,8 +1360,23 @@ class Database:
                 )
                 candidates.insert(0, Path(fixed))
 
+            # #1099: nur ueber den Dateinamen gesucht, traefe ein Kandidat
+            # oft die Datei eines ANDEREN Dokuments ("Anschreiben.pdf").
+            # Umgebogen wird deshalb nur auf eine Datei, die kein anderer
+            # Eintrag benutzt und deren Inhalt passt, wo er bekannt ist.
+            from .services import dateiablage
+            try:
+                erwartet = conn.execute(
+                    "SELECT content_hash FROM documents WHERE id=?",
+                    (doc_id,)).fetchone()[0]
+            except Exception:
+                erwartet = None
             for cand in candidates:
                 if cand and cand.exists():
+                    if dateiablage.verweise(self, cand):
+                        continue
+                    if erwartet and dateiablage.inhalt_hash(cand) != erwartet:
+                        continue
                     conn.execute(
                         "UPDATE documents SET filepath=? WHERE id=?",
                         (str(cand), doc_id)
@@ -3229,6 +3341,18 @@ class Database:
         return self._serialize_job_row(self._find_job_row(job_hash, profile_id))
 
     def save_profile(self, data: dict) -> str:
+        """Speichert das Profil. Danach gilt der Wohnort als Standort,
+        solange keiner ausdruecklich gesetzt ist (#1090) — an diesem Nadeloehr,
+        damit jeder Schreibweg (Dashboard, Claude, Import) ihn mitnimmt."""
+        pid = self._save_profile_roh(data)
+        try:
+            from .services import eigener_standort
+            eigener_standort.nach_profil_speichern(self)
+        except Exception as exc:  # pragma: no cover
+            logger.debug("Standort aus dem Profil nicht uebernommen: %s", exc)
+        return pid
+
+    def _save_profile_roh(self, data: dict) -> str:
         conn = self.connect()
         now = _now()
         cur = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1")
@@ -3969,9 +4093,12 @@ class Database:
             "COUNT(*) AS termine "
             "FROM application_meetings"
         )
-        meet_params: list = []
+        # #1104: nur Termine des aktiven Profils — ohne Bewerbungsfilter
+        # summierten sich Reisekosten und Vorbereitung ueber alle Profile.
+        meet_q += " WHERE (profile_id=? OR profile_id IS NULL)"
+        meet_params: list = [pid]
         if application_id:
-            meet_q += " WHERE application_id=?"
+            meet_q += " AND application_id=?"
             meet_params.append(application_id)
         m = conn.execute(meet_q, meet_params).fetchone()
         reise_brutto = m["reise_brutto"] or 0
@@ -4228,11 +4355,17 @@ class Database:
         return self._serialize_contact_row(row)
 
     def list_contacts(self, search: str = "", role: str = "",
-                      company: str = "") -> list[dict]:
-        """Liste aller Kontakte des aktiven Profils. Optional gefiltert."""
+                      company: str = "", mit_vorschlaegen: bool = False) -> list[dict]:
+        """Liste aller Kontakte des aktiven Profils. Optional gefiltert.
+
+        #1110: unbestaetigte Vorschlaege (`is_pending`) stehen nur mit
+        `mit_vorschlaegen=True` darin — sie haben einen eigenen Weg
+        (/api/contacts/pending) und gehoeren nicht neben die echten."""
         conn = self.connect()
         pid = self.get_active_profile_id()
         query = "SELECT * FROM contacts WHERE (profile_id=? OR profile_id IS NULL)"
+        if not mit_vorschlaegen:
+            query += " AND COALESCE(is_pending, 0)=0"
         params: list = [pid]
         if search:
             pattern = f"%{search.lower()}%"
@@ -4288,6 +4421,43 @@ class Database:
         return cur.rowcount > 0
 
     # === v1.7.0-beta.39 (#608): Kontakt-Kategorien ===
+
+    def kontakt_kategorien_reparieren(self) -> dict:
+        """Bestand aus der Zeit vor #1109: eine umbenannte Systemkategorie
+        bekam einen neuen Schluessel. Gibt es ihren alten Schluessel im
+        Profil nicht noch einmal, bekommt sie ihn zurueck — dann finden
+        ihre Kontakte sie wieder. Gibt es ihn schon (die Systemkategorie
+        wurde neu angelegt), wird das nur gemeldet, nicht still geloescht.
+        Idempotent."""
+        from .services.contact_colors import DEFAULT_CATEGORIES
+        standard = {c["sort_order"]: c["slug"] for c in DEFAULT_CATEGORIES}
+        standard_slugs = set(standard.values())
+        conn = self.connect()
+        repariert, doppelt = [], []
+        zeilen = conn.execute(
+            "SELECT id, profile_id, name, slug, sort_order FROM contact_categories "
+            "WHERE is_system=1").fetchall()
+        for r in zeilen:
+            if r["slug"] in standard_slugs:
+                continue
+            alt = standard.get(r["sort_order"])
+            if not alt:
+                continue
+            schon_da = conn.execute(
+                "SELECT id FROM contact_categories WHERE slug=? "
+                "AND (profile_id IS ? OR profile_id=?)",
+                (alt, r["profile_id"], r["profile_id"])).fetchone()
+            if schon_da:
+                doppelt.append({"id": r["id"], "name": r["name"], "zweite_id": schon_da["id"]})
+                continue
+            conn.execute("UPDATE contact_categories SET slug=?, updated_at=? WHERE id=?",
+                         (alt, _now(), r["id"]))
+            repariert.append({"id": r["id"], "name": r["name"], "schluessel": alt})
+        if repariert:
+            conn.commit()
+        if doppelt:
+            logger.warning("Kontakt-Kategorien doppelt nach Umbenennung (#1109): %s", doppelt)
+        return {"repariert": repariert, "doppelt": doppelt}
 
     def _ensure_default_categories(self) -> int:
         """Legt die 7 Default-Kategorien fuer das aktive Profil an,
@@ -4375,14 +4545,19 @@ class Database:
         slug = slug_for_name(name)
         pid = self.get_active_profile_id()
         conn = self.connect()
-        # Duplikat-Check
-        existing = conn.execute(
-            "SELECT id FROM contact_categories "
-            "WHERE (profile_id=? OR profile_id IS NULL) AND slug=? LIMIT 1",
-            (pid, slug)
-        ).fetchone()
-        if existing:
-            raise ValueError(f"Kategorie mit Slug '{slug}' existiert bereits")
+        # Duplikat-Check — ueber den NAMEN (#1109): seit Umbenennen den
+        # Schluessel stehen laesst, kann ein Schluessel zu einer Kategorie
+        # mit anderem Namen gehoeren. Dann bekommt die neue einen freien.
+        vorhandene = {r["slug"]: r["name"] for r in conn.execute(
+            "SELECT slug, name FROM contact_categories "
+            "WHERE (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()}
+        if any((n or "").strip().lower() == name.strip().lower()
+               for n in vorhandene.values()):
+            raise ValueError(f"Kategorie '{name.strip()}' existiert bereits")
+        basis, nr = slug, 2
+        while slug in vorhandene:
+            slug = f"{basis}-{nr}"
+            nr += 1
         if not color:
             existing_colors = [r["color"] for r in conn.execute(
                 "SELECT color FROM contact_categories "
@@ -4412,15 +4587,16 @@ class Database:
                                  name: Optional[str] = None,
                                  color: Optional[str] = None,
                                  sort_order: Optional[int] = None) -> bool:
-        from .services.contact_colors import slug_for_name
         conn = self.connect()
         sets = []
         vals: list = []
         if name is not None and name.strip():
+            # #1109: nur der Name aendert sich. Die Kontakte tragen den
+            # SCHLUESSEL in ihren Tags; ein neuer Schluessel trennte die
+            # Kategorie von ihren Kontakten, und eine umbenannte
+            # Systemkategorie entstand beim naechsten Aufruf neu.
             sets.append("name=?")
             vals.append(name.strip())
-            sets.append("slug=?")
-            vals.append(slug_for_name(name))
         if color is not None and color:
             sets.append("color=?")
             vals.append(color)
@@ -5024,15 +5200,26 @@ class Database:
         return cur.rowcount > 0
 
     def delete_document(self, doc_id: str, profile_id: str = None) -> bool:
+        befund = self.delete_document_mit_befund(doc_id, profile_id=profile_id)
+        return bool(befund and befund["eintrag_geloescht"])
+
+    def delete_document_mit_befund(self, doc_id: str,
+                                   profile_id: str = None) -> dict | None:
+        """Loescht einen Dokument-Eintrag und — nur wenn PBP darf — die Datei.
+
+        #1099: Die Datei wird nur entfernt, wenn sie im Datenordner liegt
+        und kein anderer Eintrag (auch in anderen Profilen) auf sie zeigt.
+        Sonst bleibt sie liegen, und `datei.grund` sagt warum. Rueckgabe
+        None, wenn es den Eintrag nicht gibt."""
+        from .services import dateiablage
         conn = self.connect()
         row = self.get_document(doc_id, profile_id=profile_id)
         if not row:
-            return False
+            return None
+        datei = {"geloescht": False, "grund": "kein Pfad"}
         if row["filepath"]:
-            try:
-                Path(row["filepath"]).unlink(missing_ok=True)
-            except Exception as e:
-                logger.warning("Dokument-Datei konnte nicht gelöscht werden: %s", e)
+            datei = dateiablage.datei_loeschen(
+                self, row["filepath"], eigene=("documents", str(doc_id)))
         query = "DELETE FROM documents WHERE id = ?"
         params: list[str] = [str(doc_id)]
         if profile_id is not None:
@@ -5040,7 +5227,8 @@ class Database:
             params.append(profile_id)
         cur = conn.execute(query, params)
         conn.commit()
-        return cur.rowcount > 0
+        return {"eintrag_geloescht": cur.rowcount > 0, "datei": datei,
+                "pfad": row["filepath"] or ""}
 
     def _auto_link_documents(self, application_id: str, company: str):
         """Auto-link unlinked documents whose filename contains the company name."""
@@ -5132,8 +5320,7 @@ class Database:
         best_confidence = 0
         best_is_archived = False
         # #743 (E17.1): Archiv-Status wie im E-Mail-Matcher (#389/#523)
-        _archive_statuses = {"abgelehnt", "zurueckgezogen", "abgelaufen",
-                             "arbeitgeber_ausgefallen"}
+        from .services.bewerbung_status import ARCHIV as _archive_statuses
 
         for app in apps:
             company = (app["company"] or "").lower()
@@ -5347,6 +5534,9 @@ class Database:
         # v1.7.126 (#1077): die Herkunft einer von Hand gesetzten
         # Entfernung, dasselbe Muster wie `salary_quelle`.
         "entfernung_quelle",
+        # v1.7.140 (#954): Erhebungszeitpunkte und Score-Grundlage. Ein
+        # Lauf, der den Wert nicht neu erhebt, laesst sie stehen.
+        "entfernung_am", "score_am", "score_stand",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5383,6 +5573,12 @@ class Database:
 
         conn = self.connect()
         now = _now()
+        # #954: Score-Grundlage — die Kriterien einmal je Aufruf.
+        from .services import wahrheit as _wahrheit
+        try:
+            _kriterien_fuer_stand = self.get_search_criteria()
+        except Exception:  # pragma: no cover
+            _kriterien_fuer_stand = {}
         active_pid = self.get_active_profile_id()
         new_per_source: dict[str, int] = {}
         duplikate = 0
@@ -5512,6 +5708,9 @@ class Database:
             # nachgestellt und bestaetigt. Die Aufteilung folgt deshalb
             # dem Wert, den sie erklaert.
             neue_teilscores = (job.get("_fachscore"), job.get("_rahmenscore"))
+            # #954: hat dieser Lauf bewertet? (Teilscores kommen nur aus
+            # calculate_score; ein Metadaten-Update traegt keine.)
+            _score_dieses_laufs = job.get("_fachscore") is not None
             if existing:
                 if existing["is_pinned"]:
                     new_pinned = 1
@@ -5519,6 +5718,7 @@ class Database:
                     new_score = existing["score"]
                     neue_teilscores = (existing["fachscore"],
                                        existing["rahmenscore"])
+                    _score_dieses_laufs = False
                 elif neue_teilscores == (None, None):
                     # Eine Aktualisierung ohne Bewertung (Metadaten,
                     # Beschreibung nachgeladen) darf die vorhandene
@@ -5813,6 +6013,25 @@ class Database:
                 except Exception as _exc:  # pragma: no cover
                     logger.debug("Fahrstrecke (#950): %s", _exc)
 
+            # v1.7.140 (#954): Erhebungszeitpunkt und Grundlage stempeln —
+            # nur, wenn DIESER Lauf den Wert erhoben hat. Sonst bleibt der
+            # bewahrte Stempel (#892) stehen.
+            try:
+                _stempel = {}
+                if (job.get("distance_km") is not None
+                        and bewahrt.get("entfernung_quelle") != "mensch"):
+                    _stempel["entfernung_am"] = now
+                if _score_dieses_laufs:
+                    _stempel["score_am"] = now
+                    _stempel["score_stand"] = _wahrheit.score_stand(
+                        job.get("description"), _kriterien_fuer_stand)
+                if _stempel:
+                    _setz = ", ".join(f"{k}=?" for k in _stempel)
+                    conn.execute(f"UPDATE jobs SET {_setz} WHERE hash=?",
+                                 (*_stempel.values(), stored_hash))
+            except Exception as _exc:  # pragma: no cover
+                logger.debug("Stempel (#954): %s", _exc)
+
             # v1.7.74 (#892, C64): der Erst-Score. Er wird NUR beim
             # ersten Speichern gesetzt und danach nie wieder angefasst —
             # sonst waere er der aktuelle Score unter anderem Namen.
@@ -5927,7 +6146,7 @@ class Database:
         if exclude_applied:
             applied_hashes = {
                 r["job_hash"] for r in self.get_applications()
-                if r.get("job_hash") and r.get("status") not in ("abgelehnt", "zurueckgezogen", "abgelaufen", "arbeitgeber_ausgefallen")
+                if r.get("job_hash") and r.get("status") not in _bewerbung_archiv()
             }
             if applied_hashes:
                 jobs = [j for j in jobs if j["hash"] not in applied_hashes]
@@ -6078,7 +6297,7 @@ class Database:
         return cur.rowcount > 0
 
     def dismiss_job(self, job_hash: str, reason: str, herkunft: str = "ich",
-                    notiz: str = ""):
+                    notiz: str = "") -> bool:
         """Sortiert eine Stelle aus. `notiz` ist der Freitext dazu (#956).
 
         Vor v1.7.70 haengten drei Aufrufer ihren Protokolltext an
@@ -6097,7 +6316,7 @@ class Database:
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
-            return
+            return False  # #1095: der Aufrufer soll wissen, dass nichts geschah
         # v1.7.17 (#913): SCHREIBSCHUTZ — dies ist die eine Stelle, durch
         # die alle dismiss_reason-Writes laufen. Werte ausserhalb der
         # Whitelist werden normalisiert, Freitext wandert nach
@@ -6124,7 +6343,7 @@ class Database:
         jetzt = _now()
         wer = "automatik" if herkunft == "automatik" else "ich"
         if freitexte:
-            conn.execute(
+            cur = conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
                 "dismiss_note=?, dismissed_at=?, dismissed_by=?, "
                 "updated_at=? WHERE hash=?",
@@ -6132,27 +6351,33 @@ class Database:
                  target_hash)
             )
         else:
-            conn.execute(
-                "UPDATE jobs SET is_active=0, dismiss_reason=?, "
+            # #1095: ohne Freitext gibt es keine Notiz — eine alte aus
+            # einer frueheren Aussortierung waere jetzt eine falsche
+            # Begruendung im Protokoll (#1010).
+            cur = conn.execute(
+                "UPDATE jobs SET is_active=0, dismiss_reason=?, dismiss_note=NULL, "
                 "dismissed_at=?, dismissed_by=?, updated_at=? WHERE hash=?",
                 (reason, jetzt, wer, jetzt, target_hash)
             )
         conn.commit()
+        return cur.rowcount > 0
 
-    def restore_job(self, job_hash: str):
+    def restore_job(self, job_hash: str) -> bool:
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
-            return
+            return False
         # v1.7.64 (#1010): mit dem Grund faellt auch der Zeitpunkt. Eine
         # zurueckgeholte Stelle ist nicht aussortiert — ein Datum, das
         # stehenbliebe, wuerde sie im Protokoll weiter fuehren.
-        conn.execute(
-            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, "
+        # #1095: auch die Notiz der Aussortierung faellt mit.
+        cur = conn.execute(
+            "UPDATE jobs SET is_active=1, dismiss_reason=NULL, dismiss_note=NULL, "
             "dismissed_at=NULL, dismissed_by=NULL, updated_at=? WHERE hash=?",
             (_now(), target_hash)
         )
         conn.commit()
+        return cur.rowcount > 0
 
     def update_job_score(self, job_hash: str, score: float):
         """Manually update a job's score.
@@ -6168,8 +6393,8 @@ class Database:
             return
         conn.execute(
             "UPDATE jobs SET score=?, fachscore=NULL, rahmenscore=NULL, "
-            "updated_at=? WHERE hash=?",
-            (score, _now(), target_hash)
+            "score_am=?, score_stand='mensch', updated_at=? WHERE hash=?",
+            (score, _now(), _now(), target_hash)
         )
         conn.commit()
 
@@ -6195,8 +6420,7 @@ class Database:
     # Statuses considered archived (inactive)
     # v1.7.10 (#779/D27): arbeitgeber_ausgefallen = Prozess endete ohne
     # Zutun des Bewerbers (Insolvenz, Stellenstreichung, Einstellungsstopp).
-    ARCHIVE_STATUSES = ("abgelehnt", "zurueckgezogen", "abgelaufen",
-                        "arbeitgeber_ausgefallen")
+    from .services.bewerbung_status import ARCHIV as ARCHIVE_STATUSES  # #1103
 
     def get_applications(self, status: Optional[str] = None,
                          include_archived: bool = True,
@@ -6495,13 +6719,20 @@ class Database:
                     pass
         return result
 
-    def delete_application(self, app_id: str):
-        """Delete an application and all its events."""
-        conn = self.connect()
-        conn.execute("DELETE FROM application_events WHERE application_id=?", (app_id,))
-        conn.execute("DELETE FROM follow_ups WHERE application_id=?", (app_id,))
-        conn.execute("DELETE FROM applications WHERE id=?", (app_id,))
-        conn.commit()
+    def delete_application(self, app_id: str, dry_run: bool = False) -> dict:
+        """Loescht eine Bewerbung samt allem, was an ihr haengt (#1100).
+
+        Vorher blieben alle Bezuege ohne Fremdschluessel stehen:
+        Stellen-Verknuepfungen (die Stelle galt weiter als beworben),
+        Kosten (zaehlten im Aufwand weiter), Recherchen und die
+        polymorphen Kontakt-Verknuepfungen. Dokumente, Mails,
+        Dokumentversionen und Referenzen werden nur geloest.
+
+        Rueckgabe: {"geloescht": {Tabelle: n}, "geloest": {Tabelle: n}};
+        mit `dry_run=True` nur gezaehlt."""
+        from .services import abhaengige_zeilen
+        return abhaengige_zeilen.mit_bezuegen_loeschen(
+            self, "applications", app_id, dry_run=dry_run)
 
     def update_application(self, app_id: str, data: dict):
         """Update application fields (#181: employment_type/source/vermittler/endkunde, #448: cover_letter_path/cv_path, #460: final_salary)."""
@@ -6597,11 +6828,14 @@ class Database:
                 }
 
         conn = self.connect()
-        # Eventuell Cross-Profile blocken: app_id wenn gegeben muss matchen
-        sql = "SELECT id, application_id, status, event_date FROM application_events WHERE id=?"
-        params: list = [int(event_id)]
+        # Nur Events des aktiven Profils (#1106-Klasse): Event-IDs sind
+        # fortlaufende Zahlen, ohne Filter traf jede Zahl irgendein Profil.
+        sql = ("SELECT e.id, e.application_id, e.status, e.event_date "
+               "FROM application_events e JOIN applications a ON a.id = e.application_id "
+               "WHERE e.id=? AND (a.profile_id=? OR a.profile_id IS NULL)")
+        params: list = [int(event_id), self.get_active_profile_id()]
         if app_id is not None:
-            sql += " AND application_id=?"
+            sql += " AND e.application_id=?"
             params.append(app_id)
         row = conn.execute(sql, params).fetchone()
         if not row:
@@ -6705,7 +6939,8 @@ class Database:
         except Exception as e:
             logger.debug("Kompensations-Injektion (#910): %s", e)
         # v1.7.100 (#1037 Punkt 3): eine gespeicherte Fahrstrecke zaehlt nur,
-        # solange ein Routing-Schluessel eingerichtet ist. Die Rueckfrage
+        # solange die Fahrstrecke genutzt wird — seit #1037 Punkt 2 heisst
+        # das Haken gesetzt UND Schluessel da (`routing.aktiv`). Die Rueckfrage
         # beim Entfernen verspricht "PBP rechnet wieder mit der Luftlinie" —
         # `entfernung.preis_km` hatte den Schluessel nie gesehen.
         # Opt-in wie die Injektionen darueber: ohne Schluessel steht KEIN
@@ -6714,7 +6949,7 @@ class Database:
         # Profil den Hinweis auf den naechsten Schritt (#927).
         try:
             from .services import routing as _routing
-            if _routing.konfiguriert(self):
+            if _routing.aktiv(self):
                 criteria["_fahrstrecke_zaehlt"] = True
         except Exception as e:
             logger.debug("Routing-Injektion (#1037): %s", e)
@@ -7769,9 +8004,16 @@ class Database:
         conn.commit()
         return jid
 
+    #: #1107: die Status, die ein Hintergrund-Job tragen kann. Wer etwas
+    #: anderes schreibt, ist fuer `get_running_background_job` und die
+    #: Bereinigung beim Start unsichtbar — so lief der Lernlauf doppelt.
+    BACKGROUND_JOB_STATUS = ("pending", "running", "fertig", "fehler", "abgebrochen")
+
     def update_background_job(self, job_id: str, status: str,
                                progress: int = 0, message: str = "",
                                result: dict = None):
+        if status not in self.BACKGROUND_JOB_STATUS:
+            raise ValueError(f"Unbekannter Job-Status {status!r} (#1107)")
         conn = self.connect()
         conn.execute("""
             UPDATE background_jobs SET status=?, progress=?, message=?,
@@ -7783,6 +8025,19 @@ class Database:
             _now(), job_id
         ))
         conn.commit()
+
+    def unterbrochene_jobs_abbrechen(self) -> int:
+        """Beim Start: was noch als laufend markiert ist, lief beim letzten
+        Beenden und laeuft jetzt nicht mehr (#303). #1107: dazu das alte
+        'laeuft', das bis v1.7.139 nur der Lernlauf schrieb."""
+        conn = self.connect()
+        n = conn.execute(
+            "UPDATE background_jobs SET status='abgebrochen', "
+            "message='Server-Neustart: Job war noch als laufend markiert', "
+            "updated_at=? WHERE status IN ('running', 'pending', 'laeuft')",
+            (_now(),)).rowcount
+        conn.commit()
+        return n
 
     def get_background_job(self, job_id: str) -> Optional[dict]:
         conn = self.connect()
@@ -8988,6 +9243,21 @@ class Database:
                     val = 1 if val else 0
                 vals.append(val)
         if sets:
+            if "score" in data:
+                # #954: worauf der neue Score beruht, und wann.
+                from .services import wahrheit
+                if "description" in data:
+                    text = data["description"]
+                else:
+                    row = conn.execute("SELECT description FROM jobs WHERE hash=?",
+                                       (target_hash,)).fetchone()
+                    text = row[0] if row else ""
+                try:
+                    kriterien = self.get_search_criteria()
+                except Exception:  # pragma: no cover
+                    kriterien = {}
+                sets += ["score_am=?", "score_stand=?"]
+                vals += [_now(), wahrheit.score_stand(text, kriterien)]
             sets.append("updated_at=?")
             vals.append(_now())
             vals.append(target_hash)
@@ -9055,11 +9325,12 @@ class Database:
             "salary_max", "salary_type", "employment_type", "research_notes",
             "veroeffentlicht_am", "lat", "lon",
             "fahrstrecke_km", "fahrzeit_min", "route_quelle",
-            "entfernung_quelle",
+            "entfernung_quelle", "entfernung_am",
         )
         # v1.7.126 (#1077): was aus dem Ort abgeleitet ist.
         ortsfelder = ("distance_km", "lat", "lon", "fahrstrecke_km",
-                      "fahrzeit_min", "route_quelle", "entfernung_quelle")
+                      "fahrzeit_min", "route_quelle", "entfernung_quelle",
+                      "entfernung_am")
         # #1077 (zweiter Beleg): eine GESCHAETZTE Gehaltsspanne des
         # Duplikats wanderte an eine Stelle mit laufender Bewerbung — und
         # weil `salary_estimated` gar nicht mitging, stand sie dort als
@@ -9326,15 +9597,17 @@ class Database:
             cur = conn.execute(
                 "UPDATE jobs SET distance_km=NULL, lat=NULL, lon=NULL, "
                 "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL, "
-                "entfernung_quelle=NULL, updated_at=? WHERE hash=?",
+                "entfernung_quelle=NULL, entfernung_am=NULL, updated_at=? "
+                "WHERE hash=?",
                 (_now(), stored))
         else:
             cur = conn.execute(
                 "UPDATE jobs SET distance_km=?, lat=NULL, lon=NULL, "
                 "fahrstrecke_km=NULL, "
                 "fahrzeit_min=NULL, route_quelle=NULL, "
-                "entfernung_quelle='mensch', updated_at=? WHERE hash=?",
-                (float(km), _now(), stored))
+                "entfernung_quelle='mensch', entfernung_am=?, updated_at=? "
+                "WHERE hash=?",
+                (float(km), _now(), _now(), stored))
         conn.commit()
         return cur.rowcount > 0
 
@@ -9816,6 +10089,21 @@ class Database:
         cur = conn.execute("SELECT value FROM settings WHERE key=?", (key,))
         row = cur.fetchone()
         return json.loads(row["value"]) if row else default
+
+    def get_setting_zahl(self, key: str, vorgabe: int) -> int:
+        """Eine ganzzahlige Einstellung — und eine 0 bleibt 0 (#1091).
+
+        `int(get_setting(k, 14) or 14)` hielt eine eingetragene 0 fuer
+        "fehlt" und machte daraus die Vorgabe: "0 schaltet sie ab" stand
+        im Hilfetext, und nach dem Neuladen stand 14 im Feld. Die Vorgabe
+        gilt nur, wenn nichts oder etwas Unlesbares gespeichert ist."""
+        wert = self.get_setting(key, None)
+        if wert is None or wert == "":
+            return vorgabe
+        try:
+            return int(wert)
+        except (TypeError, ValueError):
+            return vorgabe
 
     def set_setting(self, key: str, value):
         conn = self.connect()
@@ -11605,12 +11893,36 @@ class Database:
             skill["profile_id"] = pid
             self.add_skill(skill)
 
-        # Import document metadata (not files themselves)
+        # Import document metadata. #1099: der Pfad aus der Exportdatei
+        # zeigt auf die Datei eines ANDEREN Profils (oder eines anderen
+        # Rechners). Uebernommen, haetten zwei Eintraege eine Datei geteilt,
+        # und Loeschen im einen Profil haette sie dem anderen genommen.
+        # Liegt die Datei vor, bekommt das neue Profil eine eigene Kopie;
+        # sonst bleibt der Eintrag ohne Datei (Text und Metadaten bleiben).
+        import shutil
+        from .services import dateiablage
+        ziel_ordner = get_data_dir() / "dokumente" / str(pid)
         for doc in documents:
             doc.pop("id", None)
             doc["profile_id"] = pid
             doc.pop("extraction_status", None)
             doc.pop("last_extraction_at", None)
+            quelle = doc.get("filepath") or ""
+            doc["filepath"] = ""
+            if quelle and Path(quelle).is_file():
+                try:
+                    ziel_ordner.mkdir(parents=True, exist_ok=True)
+                    ziel = dateiablage.eindeutiges_ziel(
+                        ziel_ordner, Path(quelle).name)
+                    shutil.copy2(quelle, ziel)
+                    doc["filepath"] = str(ziel)
+                except Exception as exc:
+                    logger.warning(
+                        "Profil-Import: Datei %s nicht kopiert (%s) — "
+                        "Eintrag ohne Datei", quelle, exc)
+            elif quelle:
+                logger.info("Profil-Import: Datei fehlt, Eintrag ohne Datei: %s",
+                            quelle)
             self.add_document(doc)
 
         return pid
@@ -11783,7 +12095,17 @@ class Database:
     # === Meetings ===
 
     def add_meeting(self, data: dict) -> str:
-        """Store a meeting/appointment."""
+        """Store a meeting/appointment.
+
+        #1102: die Zeit wird hier in eine Form gebracht — jeder Weg (MCP,
+        Dashboard, Mail-Import) kommt hier vorbei. Unlesbares wirft
+        ValueError mit den erlaubten Formen.
+        """
+        from .services import termin_zeit
+        data = dict(data)
+        data["meeting_date"] = termin_zeit.normalisieren(data.get("meeting_date"))
+        if data.get("meeting_end"):
+            data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
         conn = self.connect()
         mid = _gen_id()
         pid = self.get_active_profile_id()
@@ -11822,20 +12144,56 @@ class Database:
         """Get upcoming meetings for the active profile within N days."""
         conn = self.connect()
         pid = self.get_active_profile_id()
-        now = datetime.now().isoformat()
-        cutoff = (datetime.now() + timedelta(days=days)).isoformat()
+        # #1102: Termine stehen als Ortszeit mit `T` (termin_zeit); der
+        # Vergleich nimmt dieselbe Form. Ein ganztaegiger Termin von heute
+        # ist noch kommend, auch wenn "jetzt" als Text groesser ist.
+        from .services import termin_zeit
+        now = termin_zeit.jetzt_lokal()
+        heute = now[:10]
+        cutoff = termin_zeit._format(
+            (datetime.now() + timedelta(days=days)).replace(microsecond=0))
         rows = conn.execute(
             """SELECT m.*, a.title as app_title, a.company as app_company
                FROM application_meetings m
                LEFT JOIN applications a ON m.application_id = a.id
                WHERE m.status != 'abgesagt'
-                 AND m.meeting_date >= ?
+                 AND (m.meeting_date >= ?
+                      OR (LENGTH(m.meeting_date) = 10 AND m.meeting_date >= ?))
                  AND m.meeting_date <= ?
                  AND (m.profile_id=? OR m.profile_id IS NULL)
                ORDER BY m.meeting_date ASC""",
-            (now, cutoff, pid),
+            (now, heute, cutoff, pid),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def termine_normalisieren(self) -> dict:
+        """Bestand in die gemeinsame Form bringen (#1102). Idempotent;
+        Unlesbares bleibt stehen und wird genannt."""
+        from .services import termin_zeit
+        conn = self.connect()
+        geaendert, unlesbar = 0, []
+        for r in conn.execute(
+                "SELECT id, meeting_date, meeting_end FROM application_meetings").fetchall():
+            satz = {}
+            for feld in ("meeting_date", "meeting_end"):
+                if not r[feld]:
+                    continue
+                try:
+                    neu = termin_zeit.normalisieren(r[feld])
+                except ValueError:
+                    unlesbar.append(r["id"])
+                    continue
+                if neu != r[feld]:
+                    satz[feld] = neu
+            if satz:
+                setz = ", ".join(f"{k}=?" for k in satz)
+                conn.execute(f"UPDATE application_meetings SET {setz} WHERE id=?",
+                             (*satz.values(), r["id"]))
+                geaendert += 1
+        conn.commit()
+        if unlesbar:
+            logger.warning("Termine mit unlesbarer Zeit (#1102): %s", unlesbar)
+        return {"geaendert": geaendert, "unlesbar": unlesbar}
 
     def get_meetings_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Get all meetings for a specific application."""
@@ -11855,6 +12213,13 @@ class Database:
         allowed = {"title", "meeting_date", "meeting_end", "location",
                     "meeting_url", "meeting_type", "platform", "notes", "status",
                     "is_private", "duration_minutes", "category_id", "application_id"}
+        # #1102: dieselbe Form wie beim Anlegen.
+        from .services import termin_zeit
+        data = dict(data)
+        if "meeting_date" in data:
+            data["meeting_date"] = termin_zeit.normalisieren(data["meeting_date"])
+        if data.get("meeting_end"):
+            data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
         sets = []
         vals = []
         for k, v in data.items():
@@ -11873,16 +12238,20 @@ class Database:
         return cur.rowcount > 0
 
     def delete_meeting(self, meeting_id: str, profile_id: str = None) -> bool:
-        """Delete a meeting."""
+        """Loescht einen Termin samt Kontakt-Verknuepfungen (#1100); eine
+        Interview-Reflexion bleibt und verliert nur den Terminbezug."""
         conn = self.connect()
-        query = "DELETE FROM application_meetings WHERE id=?"
+        query = "SELECT 1 FROM application_meetings WHERE id=?"
         params: list[str] = [meeting_id]
         if profile_id is not None:
             query += " AND (profile_id=? OR profile_id IS NULL)"
             params.append(profile_id)
-        cur = conn.execute(query, params)
-        conn.commit()
-        return cur.rowcount > 0
+        if not conn.execute(query, params).fetchone():
+            return False
+        from .services import abhaengige_zeilen
+        abhaengige_zeilen.mit_bezuegen_loeschen(
+            self, "application_meetings", meeting_id, dry_run=False)
+        return True
 
     # === Meeting Categories (#417) ===
 
@@ -12195,6 +12564,11 @@ def _safe_float(val, default=None):
         return f
     except (ValueError, TypeError):
         return default
+
+
+def _bewerbung_archiv() -> tuple:
+    from .services.bewerbung_status import ARCHIV
+    return ARCHIV
 
 
 def _now() -> str:

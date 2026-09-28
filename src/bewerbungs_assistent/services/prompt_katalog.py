@@ -133,6 +133,12 @@ EINTRAEGE: tuple[dict, ...] = (
     # Rueckt in den Standard nach, weil "Bewerbung aus Anzeige" ihn
     # verlaesst (#979 E) — sonst haette die Kategorie nur zwei Karten,
     # waehrend die anderen drei haben.
+    # #1112: die ganze Liste gegen das Profil — der Einzelstellen-Weg
+    # ("Detailbewertung" an der Karte) gibt es schon.
+    {"id": "stellen_abgleich", "prompt": "stellen_abgleich",
+     "kategorie": "Jobsuche & Bewerbung", "titel": "Stellenliste abgleichen",
+     "beschreibung": "Alle aktiven Stellen gegen dein Profil prüfen, einordnen und begründen",
+     "icon": "check", "standard": False},
     {"id": "bewerbung_vorbereitung", "prompt": "bewerbung_vorbereitung",
      "kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
      "beschreibung": "Schritt für Schritt zur fertigen Bewerbung",

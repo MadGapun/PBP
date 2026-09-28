@@ -44,7 +44,7 @@ import { VORSCHAU_ZEILEN, alleAufgabenText } from "@/lib/arbeitsliste";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
-import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, bewerbungNutzlast, brauchtBewerbungsdatum, heuteIso } from "@/lib/bewerbungFormular";
+import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, brauchtBewerbungsdatum, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 
 const EMPTY_APPLICATION = {
   title: "",
@@ -248,9 +248,17 @@ export default function ApplicationsPage() {
       // bietet den Rueckweg an und sagt, wenn die Bewerbung dabei ins
       // Archiv gewandert ist.
       const rueckweg = antwort?.rueckweg;
-      const meldung = rueckweg?.archiviert
+      // #1094: sagen, was der Wechsel sonst noch getan hat
+      const folgen = [];
+      const lc = antwort?.lifecycle || {};
+      if (lc.applied_at) folgen.push(`Bewerbungsdatum ${formatDate(lc.applied_at)} eingetragen.`);
+      if (lc.stelle_aussortiert) folgen.push("Stelle aus der aktiven Liste genommen.");
+      if (status === "beworben" && lc.new_followup?.scheduled_date) {
+        folgen.push(`Erinnerung zum Nachfassen am ${formatDate(lc.new_followup.scheduled_date)}.`);
+      }
+      const meldung = (rueckweg?.archiviert
         ? `Status: ${statusLabel(status)} — die Bewerbung ist jetzt im Archiv.`
-        : `Status: ${statusLabel(status)}.`;
+        : `Status: ${statusLabel(status)}.`) + (folgen.length ? ` ${folgen.join(" ")}` : "");
       pushToast(meldung, "success", rueckweg ? {
         duration: 9000,
         dedupe: false,
@@ -316,13 +324,23 @@ export default function ApplicationsPage() {
     }
   }
 
-  async function saveApplication() {
+  async function saveApplication(force = false) {
     try {
-      await postJson("/api/applications", bewerbungNutzlast(createDialog.draft));
+      const erg = await postJson("/api/applications",
+        { ...bewerbungNutzlast(createDialog.draft), force: force === true });
       setCreateDialog({ open: false, draft: EMPTY_APPLICATION });
       await refreshChrome();
-      pushToast("Bewerbung angelegt.", "success");
+      pushToast(angelegtMeldung(erg), "success");
     } catch (error) {
+      // #1094: eine vermutete Dublette wird genannt, nicht still angelegt
+      const hinweis = dublettenHinweis(error);
+      if (hinweis) {
+        pushToast(hinweis, "amber", {
+          duration: 15000,
+          action: { label: "Trotzdem anlegen", onClick: () => saveApplication(true) },
+        });
+        return;
+      }
       pushToast(`Bewerbung konnte nicht angelegt werden: ${error.message}`, "danger");
     }
   }
@@ -1071,7 +1089,7 @@ export default function ApplicationsPage() {
         open={createDialog.open}
         title={BEWERBUNG_ANLEGEN}
         onClose={() => setCreateDialog({ open: false, draft: EMPTY_APPLICATION })}
-        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setCreateDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={saveApplication}>Bewerbung speichern</Button></div>}
+        footer={<div className="flex justify-end gap-3"><Button variant="ghost" onClick={() => setCreateDialog({ open: false, draft: EMPTY_APPLICATION })}>Abbrechen</Button><Button onClick={() => saveApplication(false)}>Bewerbung speichern</Button></div>}
       >
         <div className="grid gap-4">
           {BEWERBUNG_FELDER.map(({ key, label, placeholder }) => (

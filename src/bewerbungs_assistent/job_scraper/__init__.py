@@ -1701,6 +1701,13 @@ def run_search(db, job_id: str, params: dict):
     # Geocoding: calculate distance for jobs with location (#167)
     try:
         from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
+        # #1090: ohne ausdruecklichen Standort gilt der Wohnort aus dem
+        # Profil. Vorher uebersprang der Lauf die Entfernung hier still.
+        try:
+            from ..services import eigener_standort as _standort
+            _standort.aus_profil_uebernehmen(db, neu_rechnen=False)
+        except Exception as _exc:
+            logger.debug("Standort aus dem Profil nicht uebernommen: %s", _exc)
         user_coords = get_user_coordinates(db)
         if user_coords:
             geocoded_count = 0
@@ -1869,7 +1876,7 @@ def run_search(db, job_id: str, params: dict):
     # verworfen werden. Ohne Schluessel passiert nichts (AK 5).
     try:
         from ..services import routing as _routing
-        if _routing.konfiguriert(db):
+        if _routing.aktiv(db):
             from ..services.geocoding_service import get_user_coordinates as _start
             _rout = _routing.fuer_stellen(db, unique, _start(db))
             logger.info("Routing (#950): %d Fahrstrecken, Befund %s",
@@ -2039,6 +2046,28 @@ def run_search(db, job_id: str, params: dict):
             filterstufen=filterstufen, quellen_konfiguriert=len(quellen))
         result_data["diagnose"] = diagnose
         msg_parts.append(diagnose)
+
+    # #1090 AK 5: Stellen mit Ort, aber ohne Entfernung nachholen —
+    # begrenzt je Lauf, eine Anfrage je verschiedenem Ort.
+    try:
+        from ..services import eigener_standort as _standort
+        _nach = _standort.nachholen(db)
+        if _nach.get("stellen"):
+            result_data["entfernungen_nachgeholt"] = _nach["stellen"]
+    except Exception as _exc:
+        logger.debug("Entfernungen nicht nachgeholt: %s", _exc)
+
+    # #1038 Punkt 4: Treffer, die den Filter passiert haben und keinen
+    # Anzeigentext tragen — genau diese laedt text_nachzug danach im
+    # Hintergrund nach. Verworfene Treffer loesen keinen Abruf aus (#1057).
+    try:
+        from ..services.datenguete import MIN_BESCHREIBUNG as _min_text
+        result_data["ohne_anzeigentext"] = [
+            j["hash"] for j in unique
+            if j.get("hash") and j.get("url") and not j.get("is_search_url")
+            and len((j.get("description") or "").strip()) < _min_text]
+    except Exception as _exc:  # pragma: no cover
+        logger.debug("Treffer ohne Text nicht gemerkt: %s", _exc)
 
     db.update_background_job(
         job_id, "fertig", progress=100,
@@ -2437,19 +2466,42 @@ def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
 
     Gefunden vom eigenen Test, der die Aufrufe zaehlt.
     """
+    return seite_lesen(html, max_chars=max_chars)[0]
+
+
+def seite_lesen(html: str, *, max_chars: int | None = None) -> tuple[str, dict]:
+    """Text und Nebenbefunde einer geholten Seite: (text, extras).
+
+    `extras["gehalt_text"]` traegt den Gehaltskasten einer LinkedIn-Seite
+    (#1085) — er wird aus dem Text entfernt und eigens ausgewertet.
+    """
     from .textgrenzen import SPEICHER_MAX
     if max_chars is None:
         max_chars = SPEICHER_MAX
+    extras: dict = {}
     try:
         from bs4 import BeautifulSoup
+        from .html_text import gegliederter_text
 
         # Strategy 1: JSON-LD structured data — uses zentralen Helper
         jp = extract_jobposting_jsonld(html, max_chars=max_chars)
         if jp.get("description"):
-            return jp["description"]
+            return jp["description"], extras
+
+        soup = BeautifulSoup(html, "html.parser")
+        # #1085: LinkedIn — Kasten zur Ansprechperson und Gehaltskasten
+        # verlassen das DOM, BEVOR Text entsteht; dann der Beschreibungsblock.
+        from . import linkedin_seite
+        linkedin = linkedin_seite.ist_linkedin_seite(soup)
+        if linkedin:
+            extras = linkedin_seite.bereinigen(soup)
+            el = linkedin_seite.beschreibung(soup)
+            if el is not None:
+                text = gegliederter_text(str(el))
+                if len(text) > 100 and not linkedin_seite.nur_gehaltskasten(text):
+                    return text[:max_chars], extras
 
         # Strategy 2: Common content selectors als Fallback
-        soup = BeautifulSoup(html, "html.parser")
         for selector in [
             "[class*='job-description']", "[class*='jobDescription']",
             "[class*='stellenbeschreibung']", "[class*='description']",
@@ -2460,15 +2512,16 @@ def text_aus_html(html: str, *, max_chars: int | None = None) -> str:
             el = soup.select_one(selector)
             if el:
                 # #1047: mit Absaetzen und Listen, wie der JSON-LD-Weg.
-                from .html_text import gegliederter_text
                 text = gegliederter_text(str(el))
                 if len(text) > 100:
-                    return text[:max_chars]
+                    if linkedin and linkedin_seite.nur_gehaltskasten(text):
+                        return "", extras  # #1085: kein Anzeigentext
+                    return text[:max_chars], extras
 
-        return ""
+        return "", extras
     except Exception as e:
         logger.debug("HTML-Auswertung fehlgeschlagen: %s", e)
-        return ""
+        return "", extras
 
 
 def _parse_weights(criteria: dict) -> dict:
@@ -3458,12 +3511,12 @@ def calculate_score(job: dict, criteria: dict) -> int:
         elif dist > type_max_dist * 2:
             # Moderately beyond: slight penalty
             rahmen_minus += 1 * (1 - _komp)
-        elif dist <= type_max_dist * 0.6:
-            # Well within range: bonus
-            rahmen_plus += w["naehe"]
-        elif dist <= type_max_dist:
-            # Within range: smaller bonus
-            rahmen_plus += max(1, w["naehe"] - 1)
+        else:
+            # #1036: gleitend innerhalb der Grenze, dieselbe Funktion wie
+            # in fit_analyse.
+            _naehe = _entf_score.naehe_punkte(dist, type_max_dist, w["naehe"])
+            if _naehe:
+                rahmen_plus += _naehe
 
     # Remote bonus (#60) — differentiate remote vs hybrid
     remote = job.get("remote_level", "unbekannt")
@@ -3794,6 +3847,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # v1.7.94 (#950 AK 6): dieselbe Zahl wie calculate_score (#963).
     from ..services import entfernung as _entf_fit
     dist = _entf_fit.preis_km(job, criteria)
+    # #954: wie die Zahl entstanden ist, statt immer "Luftlinie".
+    _art = _entf_fit.art_wort(job, criteria)
     fit_emp_type = job.get("employment_type", "festanstellung")
     # v1.7.99 (#1036): dieselbe Grenze wie calculate_score und die Automatik.
     fit_type_max = _entf_fit.grenze_km(criteria, fit_emp_type)
@@ -3816,7 +3871,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
         _fit_komp = entfernungs_kompensationsgrad(job, criteria)
         if dist > fit_type_max * 4:
             _basis = -w["fern_malus"]
-            factors[f"Entfernung: {int(dist)} km Luftlinie (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km {_art} (Max {fit_emp_type}: {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
@@ -3825,20 +3880,19 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
                 total += _gutschrift
         elif dist > fit_type_max * 2:
             _basis = -1
-            factors[f"Entfernung: {int(dist)} km Luftlinie (über Max {fit_type_max} km)"] = _basis
+            factors[f"Entfernung: {int(dist)} km {_art} (über Max {fit_type_max} km)"] = _basis
             total += _basis
             if _fit_komp > 0:
                 _gutschrift = round(-_basis * _fit_komp, 1)
                 factors[f"Entfernungs-Malus durch Gehalt kompensiert "
                         f"({int(_fit_komp * 100)} %, #910)"] = _gutschrift
                 total += _gutschrift
-        elif dist <= fit_type_max * 0.6:
-            factors[f"Nähe: {int(dist)} km Luftlinie"] = w["naehe"]
-            total += w["naehe"]
-        elif dist <= fit_type_max:
-            pts = max(1, w["naehe"] - 1)
-            factors[f"Nähe: {int(dist)} km Luftlinie (im Rahmen)"] = pts
-            total += pts
+        else:
+            # #1036: gleitend, dieselbe Funktion wie calculate_score.
+            pts = _entf_fit.naehe_punkte(dist, fit_type_max, w["naehe"])
+            if pts:
+                factors[f"Nähe: {int(dist)} km {_art} (Grenze {fit_type_max:g} km)"] = pts
+                total += pts
 
     risks = []
 

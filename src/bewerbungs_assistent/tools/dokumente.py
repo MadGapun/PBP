@@ -1450,11 +1450,11 @@ def register(mcp, db, logger):
         if not data:
             return {"fehler": "Profil nicht gefunden oder kein aktives Profil vorhanden."}
 
-        name_slug = (data.get("name") or "profil").replace(" ", "_").lower()
+        name_slug = ablage.dateiname_teil(data.get("name"), "profil")
         date_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         filename = f"profil_backup_{name_slug}_{date_str}.json"
         export_dir = ablage.ausgabe_ordner(db)
-        filepath = export_dir / filename
+        filepath = ablage.freier_pfad(export_dir, filename)
 
         filepath.write_text(
             json.dumps(data, ensure_ascii=False, indent=2, default=str),
@@ -1590,6 +1590,19 @@ def register(mcp, db, logger):
         }
 
     @mcp.tool()
+    def dokument_dateien_uebersicht() -> dict:
+        """Prüft, worauf die Dokument-Einträge zeigen (#1099), und ändert nichts.
+
+        Nennt Einträge, deren Datei außerhalb des PBP-Datenordners liegt
+        (Dateien des Nutzers, die PBP nie löscht), Einträge, die sich eine
+        Datei teilen, und Einträge, deren Datei fehlt. Nutzen, wenn beim
+        Löschen eines Dokuments die Datei liegen geblieben ist oder ein
+        Dokument die falsche Datei öffnet.
+        """
+        from ..services import dateiablage
+        return dateiablage.bestandsbericht(db)
+
+    @mcp.tool()
     def dokument_loeschen(dokument_id: str, bestaetigung: bool = False) -> dict:
         """Löscht ein Dokument komplett — DB-Eintrag und physische Datei (#447).
 
@@ -1611,14 +1624,22 @@ def register(mcp, db, logger):
                 "dokument": doc.get("filename", ""),
                 "hinweis": "Setze bestaetigung=True um Dokument und Datei unwiderruflich zu loeschen.",
             }
-        deleted = db.delete_document(dokument_id, profile_id=profile_id)
-        if not deleted:
+        befund = db.delete_document_mit_befund(dokument_id, profile_id=profile_id)
+        if not befund or not befund["eintrag_geloescht"]:
             return {"fehler": "Dokument konnte nicht gelöscht werden."}
-        return {
+        antwort = {
             "status": "geloescht",
             "dokument_id": dokument_id,
-            "nachricht": f"Dokument '{doc.get('filename', '')}' wurde geloescht.",
+            "nachricht": f"Dokument '{doc.get('filename', '')}' wurde gelöscht.",
+            "datei_geloescht": befund["datei"]["geloescht"],
         }
+        # #1099: Eine Datei, die PBP nicht gehoert oder die ein anderer
+        # Eintrag noch benutzt, bleibt liegen — und das wird gesagt.
+        grund = befund["datei"]["grund"]
+        if not befund["datei"]["geloescht"] and grund != "kein Pfad":
+            antwort["datei_hinweis"] = (
+                f"Die Datei wurde nicht gelöscht: sie {grund}.")
+        return antwort
 
     @mcp.tool()
     def dokument_typen_nachziehen(dry_run: bool = True,
@@ -2863,7 +2884,9 @@ def register(mcp, db, logger):
                 title=args.get("titel") or args.get("title") or "",
                 company=args.get("firma") or args.get("company") or "",
                 url=args.get("url") or "",
-                status=args.get("status") or "anfrage",
+                # #1094: "anfrage" gab es als Status nie — die Bewerbung war
+                # danach fuer Statistik und Status-Journey unsichtbar (#981).
+                status=args.get("status") or "offen",
                 notes=args.get("notes") or args.get("notizen") or "",
             )
 
@@ -2874,6 +2897,25 @@ def register(mcp, db, logger):
             return {
                 "fehler": f"Unbekannte Aktion '{aktion}'.",
                 "bekannte_aktionen": sorted(set(_DOC_ROUTING_ACTIONS.values())),
+            }
+
+        # #1094: Hat das delegierte Werkzeug abgelehnt (Fehler, Dublette),
+        # ist nichts umgesetzt — das Dokument bleibt im Plan, statt als
+        # verarbeitet zu verschwinden.
+        if isinstance(delegiert, dict) and (
+                delegiert.get("fehler") or delegiert.get("status") == "duplikat"):
+            return {
+                "status": "nicht_umgesetzt",
+                "dokument_id": dokument_id,
+                "aktion": aktion,
+                "delegiert_an_tool_result": delegiert,
+                "hinweis": (
+                    "Die Aktion wurde nicht ausgeführt — das Dokument bleibt im "
+                    "Analyse-Plan. Grund steht in delegiert_an_tool_result."
+                    + (" Die Bewerbung gibt es schon: das Dokument mit "
+                       "dokument_verknuepfen(dokument_id, bewerbung_id) an sie hängen."
+                       if delegiert.get("status") == "duplikat" else "")
+                ),
             }
 
         # Status auf `angewendet` heben — Doku gilt damit als verarbeitet

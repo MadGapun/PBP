@@ -3,7 +3,6 @@
 import re
 from ..services.typed_ids import kurz_job_kennung as _kurz
 from ..services.dashboard_link import dashboard_link as _dashboard_link
-import threading
 from collections import Counter
 from typing import Optional
 from urllib.parse import quote_plus
@@ -291,194 +290,15 @@ _SCHWELLE_VERGLEICHT = (
 
 
 def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
-    """v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach Jobsuche.
-
-    Bedingungen:
-    - Lokale-KI aktiv (Ollama erreichbar + user_state='active')
-    - Setting `auto_dismiss_after_search` ist True (Default True wenn KI aktiv)
-    - Der Such-Job war erfolgreich (Status 'erledigt')
-
-    Laeuft synchron im Background-Thread des Such-Jobs (nicht in einem
-    neuen Thread), damit der `mit Ollama analysiert`-Schritt im jobsuche-
-    Job sichtbar ist und User nicht parallel klicken kann was sich
-    inkonsistent verhaelt.
-    """
-    import logging as _log
-    log = _log.getLogger("bewerbungs_assistent.tools.jobs")
+    """Nach der Suche aussortieren — seit #1092 nur noch ein Aufruf des
+    gemeinsamen Dienstes, mit Schalter (Vorgabe aus)."""
     try:
-        # Setting pruefen
-        setting = db.get_profile_setting("auto_dismiss_after_search", "true")
-        if str(setting).lower() in ("false", "0", "no", "off"):
-            log.info("auto_dismiss_after_search ist OFF — uebersprungen")
-            return
-
-        # Ollama-Status pruefen
-        from ..services.llm_service import get_llm_service
-        svc = get_llm_service(db)
-        s = svc.get_status(force_refresh=False)
-        if not s.ollama_available or s.user_state != "active":
-            log.info(
-                "auto_dismiss: Ollama nicht aktiv (avail=%s, state=%s) — uebersprungen",
-                s.ollama_available, s.user_state,
-            )
-            return
-
-        # Such-Job-Status pruefen.
-        # v1.7.0-beta.65 (#638): run_search setzt status='fertig', NICHT
-        # 'erledigt'. Der beta.63-Check auf 'erledigt' war falsch — der Hook
-        # sprang IMMER raus und lief nie. Beide Werte akzeptieren.
-        job = db.get_background_job(job_id)
-        if not job or job.get("status") not in ("fertig", "erledigt"):
-            log.info("auto_dismiss: Such-Job nicht fertig (status=%s) — uebersprungen",
-                     job.get("status") if job else None)
-            return
-
-        # Erst die Stellen pruefen, dann auto-dismiss aufrufen
-        active_jobs = db.get_active_jobs()
-        if not active_jobs:
-            log.info("auto_dismiss: keine aktiven Stellen — uebersprungen")
-            return
-
-        log.info(
-            "auto_dismiss: starte stellen_auto_aussortieren nach Job %s (%d aktive Stellen)",
-            job_id, len(active_jobs),
-        )
-
-        # Direkt die DB-/LLM-Logik aufrufen statt das MCP-Tool durchzugehen
-        # (waere Wrapper-on-Wrapper). Wir nutzen den selben Code-Pfad via
-        # Direktimport, ohne MCP-Decorator-Overhead.
-        from ..services.llm_service import TaskKind, Backend
-        # Limit auf 30 Stellen pro Auto-Run damit es nicht 10 Min Modell-RAM blockt
-        max_pro_run = 30
-        profile = db.get_profile() or {}
-        profile_skills = [
-            sk.get("name", "") for sk in (profile.get("skills") or [])[:15]
-        ]
-        positions = profile.get("positions") or []
-        profile_position = positions[0].get("title", "") if positions else ""
-        # #638 Stufe 3: Lernkontext einmal pro Auto-Run laden (statt pro Stelle)
-        try:
-            dismiss_reasons_raw = db.get_dismiss_reasons() or []
-            # Top-3 nach usage_count
-            dismiss_top = [
-                {"reason": r.get("label"), "count": r.get("usage_count", 0)}
-                for r in dismiss_reasons_raw[:3]
-                if r.get("usage_count", 0) > 0
-            ]
-        except Exception:
-            dismiss_top = []
-        try:
-            recent_dismissals = db.get_recent_user_dismissals(limit=10)
-        except Exception:
-            recent_dismissals = []
-        bewertet = 0
-        aussortiert = 0
-        angereichert = 0
-        try:
-            for jobitem in active_jobs[:max_pro_run]:
-                if jobitem.get("score") is not None and jobitem.get("score", 0) < 0:
-                    continue
-                # Skip wenn schon eine Bewerbung dazu existiert
-                job_hash = jobitem.get("hash", "")
-                try:
-                    has_app = db.connect().execute(
-                        "SELECT 1 FROM applications WHERE job_hash=? LIMIT 1",
-                        (job_hash,)
-                    ).fetchone()
-                except Exception:
-                    has_app = None
-                if has_app:
-                    continue
-                desc = (jobitem.get("description") or "").strip()
-                payload = {
-                    "job_title": jobitem.get("title", ""),
-                    "job_company": jobitem.get("company", ""),
-                    "job_description": desc[:1500],
-                    "profile_position": profile_position,
-                    "profile_skills": profile_skills,
-                    # #638 Stufe 3: Few-Shot-Lernschleife
-                    "dismiss_reasons_top": dismiss_top,
-                    "recent_dismissals": recent_dismissals,
-                }
-                try:
-                    # v1.7.0-beta.65 (#638): FIX — Methode heisst run() nicht
-                    # run_task(); Parser liefert 'decision' nicht 'verdict'.
-                    # In beta.63 lief der Hook deshalb nie durch (AttributeError
-                    # wurde verschluckt). Jetzt korrekt.
-                    result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
-                except Exception:
-                    continue
-                bewertet += 1
-                if not result.success or not result.payload:
-                    continue
-                decision = (result.payload.get("decision") or "").upper()
-                reason = result.payload.get("reason", "") or ""
-                if decision == "PASST_NICHT":
-                    try:
-                        db.dismiss_job(
-                            jobitem.get("hash", ""),
-                            reason=f"auto:profil_match_negativ:{reason[:120]}",
-                            # #1010: Herkunft explizit. Das `auto:`-Praefix
-                            # ueberlebt die Normalisierung aus #913 NICHT —
-                            # aus dem gespeicherten Grund waere die
-                            # Automatik danach nicht mehr erkennbar.
-                            herkunft="automatik",
-                        )
-                        aussortiert += 1
-                    except Exception:
-                        pass
-                elif decision == "PASST":
-                    # v1.7.0-beta.65 (#638 Stufe 2): Score-Anreicherung.
-                    # Stellen ohne (oder mit duenner) Beschreibung haben oft
-                    # Score 0 und versacken unten in der Liste — obwohl Ollama
-                    # sie als passend einstuft. Wir heben sie auf einen
-                    # moderaten Score damit sie sichtbar werden. Nur wenn
-                    # noch nicht hoeher bewertet + nicht gepinnt.
-                    cur_score = jobitem.get("score") or 0
-                    thin_desc = len(desc) < 120
-                    if thin_desc and cur_score < 35 and not jobitem.get("is_pinned"):
-                        try:
-                            db.update_job(jobitem.get("hash", ""),
-                                          {"score": 35})
-                            angereichert += 1
-                        except Exception:
-                            pass
-        except Exception as exc:
-            log.warning("auto_dismiss-Schleife abgebrochen: %s", exc)
-
-        # Ergebnis im Background-Job vermerken.
-        # v1.7.0-beta.65 (#638): Feld heisst 'result' (nicht 'ergebnis'),
-        # update_background_job-kwarg ebenfalls 'result='. Status 'fertig'
-        # erhalten (nicht auf 'erledigt' umbiegen). beta.63 nutzte falsche
-        # Namen -> TypeError verschluckt -> nichts gespeichert.
-        try:
-            job = db.get_background_job(job_id)
-            result_data = job.get("result") or {}
-            if not isinstance(result_data, dict):
-                result_data = {}
-            result_data["auto_aussortiert"] = {
-                "bewertet": bewertet,
-                "aussortiert": aussortiert,
-                "score_angereichert": angereichert,
-                "von_aktiven": len(active_jobs),
-            }
-            db.update_background_job(
-                job_id, job.get("status", "fertig"),
-                progress=job.get("progress", 100),
-                message=job.get("message", ""),
-                result=result_data,
-            )
-        except Exception as exc:
-            log.warning("auto_dismiss: Ergebnis-Speicherung fehlgeschlagen: %s", exc)
-
-        log.info(
-            "auto_dismiss: fertig — %d/%d bewertet, %d aussortiert, %d angereichert",
-            bewertet, max_pro_run, aussortiert, angereichert,
-        )
-
-    except Exception as exc:
-        # Nicht-fatal — Auto-Dismiss ist optional, Suche selbst war OK
-        log.warning("auto_dismiss-Hook fehlgeschlagen (ignoriert): %s", exc)
+        from ..services import auto_aussortierung
+        auto_aussortierung.nach_suche(db, job_id)
+    except Exception as exc:  # nicht fatal — die Suche selbst war gut
+        import logging as _log
+        _log.getLogger("bewerbungs_assistent.tools.jobs").warning(
+            "Auto-Aussortierung nach der Suche fehlgeschlagen: %s", exc)
 
 
 def register(mcp, db, logger):
@@ -528,178 +348,89 @@ def register(mcp, db, logger):
             quellen: Welche Portale durchsuchen (Standard: alle aktiven)
         """
 
-        # Default sources from DB settings (all disabled by default)
-        if not quellen:
-            from ..services.search_service import aktive_quellen
-            quellen = aktive_quellen(db) or []
-            if not quellen:
-                return {
-                    "status": "keine_quellen",
-                    # G17 (#744, v1.7.4): Einsteiger nicht in den Einstellungs-
-                    # Tab schicken, sondern den bewaehrten Starter-Satz anbieten
-                    # (schnell, zuverlaessig, ohne Login).
-                    "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
-                    "nachricht": (
-                        "Keine Job-Quellen aktiviert. Empfehlung für den "
-                        "ersten Lauf: jobsuche_starten(quellen="
-                        f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
-                        "zuverlässige Quellen ohne Login. Sie werden dabei "
-                        "als aktive Quellen uebernommen. Weitere Quellen: "
-                        "Einstellungen › Quellen."
-                    ),
-                }
-
-        # #695: Ohne Suchbegriffe nicht starten — sonst faellt z.B. der
-        # Bundesagentur-Adapter still auf generische DEFAULT_KEYWORDS zurueck
-        # und flutet die Stellen-Liste eines Neulings mit profil-fremden Jobs.
-        if not keywords:
-            crit = db.get_search_criteria()
-            if not (crit.get("keywords_muss") or crit.get("keywords_plus")):
-                return {
-                    "status": "keine_suchbegriffe",
-                    "nachricht": (
-                        "Noch keine Suchkriterien gesetzt. Lege sie mit "
-                        "suchkriterien_setzen() fest oder nutze "
-                        "workflow_starten('jobsuche_workflow') — sonst würde "
-                        "PBP mit generischen Begriffen suchen."
-                    ),
-                }
-
-        # #488: Manuelle/deprecated Quellen rausfiltern und separat melden.
-        manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
-        auto_quellen = [q for q in quellen if q not in _MANUAL_SOURCES]
-        manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
-
-        if not auto_quellen:
+        # #1096: derselbe Startweg wie Dashboard-Knopf und Automatik —
+        # Quellen, Suchbegriffe, Browser-Quellen, #906-Pruefung, Watchdog
+        # und Nachlauf stehen in services/jobsuche_start.
+        from ..services import jobsuche_start
+        erg = jobsuche_start.starten(db, quellen=quellen, keywords=keywords,
+                                     herkunft="claude")
+        status = erg["status"]
+        if status == "keine_quellen":
+            return {
+                "status": "keine_quellen",
+                # G17 (#744, v1.7.4): Einsteiger nicht in den Einstellungs-
+                # Tab schicken, sondern den bewaehrten Starter-Satz anbieten.
+                "empfohlene_start_quellen": list(_SMART_DEFAULT_QUELLEN),
+                "nachricht": (
+                    "Keine Job-Quellen aktiviert. Empfehlung für den "
+                    "ersten Lauf: jobsuche_starten(quellen="
+                    f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
+                    "zuverlässige Quellen ohne Login. Sie werden dabei "
+                    "als aktive Quellen uebernommen. Weitere Quellen: "
+                    "Einstellungen › Quellen."
+                ),
+            }
+        if status == "keine_suchbegriffe":
+            return {
+                "status": "keine_suchbegriffe",
+                "nachricht": (
+                    "Noch keine Suchkriterien gesetzt. Lege sie mit "
+                    "suchkriterien_setzen() fest oder nutze "
+                    "workflow_starten('jobsuche_workflow') — sonst würde "
+                    "PBP mit generischen Begriffen suchen."
+                ),
+            }
+        if status == "nur_manuelle_quellen":
             return {
                 "status": "nur_manuelle_quellen",
-                "manuelle_quellen": manuelle_info,
+                "manuelle_quellen": erg["manuelle_quellen"],
                 "nachricht": (
                     "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
                     "oder sind deprecated — es gibt nichts zu automatisieren. "
                     "Siehe manuelle_quellen für den jeweiligen Ersatzweg."
                 ),
             }
-        quellen = auto_quellen
-
-        # G17 (#744, v1.7.4): Erster Lauf mit explizit uebergebenen Quellen
-        # (z.B. Smart-Defaults aus der Ersterfassung, nach User-Ok) — als
-        # aktive Quellen uebernehmen, damit Dashboard-Button ("Jetzt suchen")
-        # und Tagesroutine dieselben Quellen nutzen. Nur wenn noch KEINE
-        # gesetzt sind; bestehende Konfiguration wird nie ueberschrieben.
-        quellen_uebernommen = False
-        try:
-            if not db.get_profile_setting("active_sources", []):
-                # #1039: eine defekte Quelle wird nie in die Auswahl uebernommen.
-                from ..job_scraper import SOURCE_REGISTRY as _registry
-                from ..services.search_service import ohne_defekte
-                _uebernahme = ohne_defekte(quellen, _registry)
-                if _uebernahme:
-                    db.set_profile_setting("active_sources", _uebernahme)
-                    quellen_uebernommen = True
-        except Exception as e:
-            logger.debug("active_sources-Uebernahme fehlgeschlagen: %s", e)
-
-        # Prevent duplicate concurrent searches (#265)
-        existing = db.get_running_background_job("jobsuche")
-        if existing:
+        if status == "laeuft_bereits":
             return {
                 "status": "laeuft_bereits",
-                "job_id": existing["id"],
+                "job_id": erg["job_id"],
                 "nachricht": "Eine Jobsuche läuft bereits. "
-                            f"Prüfe den Fortschritt mit jobsuche_status('{existing['id']}')."
+                            f"Prüfe den Fortschritt mit jobsuche_status('{erg['job_id']}')."
             }
-
-        params = {
-            "keywords": keywords,
-            "quellen": quellen,
-            # v1.7.114 (#1049): derselbe Vermerk wie im Dashboard-Start —
-            # die Lauf-Bilanz nennt die uebersprungenen Browser-Quellen.
-            "browser_quellen": manuelle,
-        }
-        job_id = db.create_background_job("jobsuche", params)
-
-        # Start background search with timeout
-        def _run_search():
-            # v1.7.17 (#915): im DB-freien Register anmelden, damit ein
-            # Budget-Timeout anderer Tools den Sperrhalter benennen kann.
-            from ..services.hintergrund_status import laufender_task
-            try:
-                with laufender_task(f"jobsuche:{job_id[:8]}"):
-                    from ..job_scraper import run_search
-                    run_search(db, job_id, params)
-                    # v1.7.0-beta.63 (#638 Stufe 1): Auto-Aussortierung nach
-                    # erfolgreicher Suche — laeuft im selben Background-Thread
-                    # damit User keine extra Aktion machen muss.
-                    _maybe_auto_dismiss_after_search(db, job_id)
-            except Exception as e:
-                logger.error("Jobsuche fehlgeschlagen: %s", e, exc_info=True)
-                db.update_background_job(job_id, "fehler", message=str(e))
-
-        # A22 (#759): benannte Threads — die Test-Suite joint alle
-        # "pbp-"-Threads im conftest-Drain, bevor die DB geschlossen wird
-        # (SQLite-Use-after-close segfaultete sonst sporadisch im Linux-CI).
-        thread = threading.Thread(target=_run_search, daemon=True,
-                                  name=f"pbp-jobsuche-{job_id[:8]}")
-        thread.start()
-
-        # Timeout watchdog: mark as failed if still running after 10 minutes
-        def _timeout_watchdog():
-            thread.join(timeout=600)
-            if thread.is_alive():
-                logger.warning("Jobsuche Timeout nach 10 Minuten (Job %s)", job_id)
-                db.update_background_job(job_id, "fehler", message="Timeout nach 10 Minuten")
-
-        threading.Thread(target=_timeout_watchdog, daemon=True,
-                         name=f"pbp-watchdog-{job_id[:8]}").start()
-
-        nachricht = (
-            f"Jobsuche läuft im Hintergrund auf {len(params['quellen'])} Portalen. "
-            f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
-            f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
-            f"Wenn du später prüft willst: jobsuche_status('{job_id}'). "
-            f"Wenn fertig: stellen_anzeigen()."
-        )
+        job_id = erg["job_id"]
         result = {
             "job_id": job_id,
             "status": "gestartet",
-            "nachricht": nachricht,
+            "nachricht": (
+                f"Jobsuche läuft im Hintergrund auf {len(erg['quellen'])} Portalen. "
+                f"Das dauert 5-10 Minuten — du musst jetzt NICHT warten. "
+                f"Die Status-Badge in der Sidebar zeigt den Fortschritt. "
+                f"Wenn du später prüft willst: jobsuche_status('{job_id}'). "
+                f"Wenn fertig: stellen_anzeigen()."
+            ),
         }
-        if quellen_uebernommen:
-            result["quellen_als_aktiv_uebernommen"] = quellen
-        if manuelle_info:
-            result["manuelle_quellen"] = manuelle_info
+        if erg["quellen_uebernommen"]:
+            result["quellen_als_aktiv_uebernommen"] = erg["quellen"]
+        if erg["manuelle_quellen"]:
+            result["manuelle_quellen"] = erg["manuelle_quellen"]
             result["hinweis"] = (
                 "Zusätzlich müsstest du für folgende manuelle Quellen "
                 "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
                 "sie sind im Hintergrund-Job NICHT enthalten."
             )
-        # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen. Der
-        # Nutzer suchte monatelang nur Festanstellung, obwohl sein Profil
-        # auch freelance sagte — ALLE Freelance-Quellen waren aus, und
-        # nichts wies darauf hin. Ein Kriterium, das niemand auswertet,
-        # ist schlimmer als ein fehlendes: es erzeugt falsche Sicherheit.
-        try:
-            from ..job_scraper import STELLENTYP_QUELLEN
-            _typen = db.get_search_criteria().get("stellentypen") or []
-            _laufende = set(params.get("quellen") or [])
-            for _typ in _typen:
-                _noetig = STELLENTYP_QUELLEN.get(_typ)
-                if _noetig and not (_noetig & _laufende):
-                    result.setdefault("stellentyp_ohne_quelle", []).append({
-                        "stellentyp": _typ,
-                        "quellen_dafuer": sorted(_noetig),
-                        "warnung": (
-                            f"Für '{_typ}' läuft in dieser Suche KEINE "
-                            f"Quelle ({', '.join(sorted(_noetig))} alle "
-                            "inaktiv/defekt). Die zugehörigen Kriterien "
-                            "werden nicht ausgewertet. Alternativen: "
-                            "quelle_handoff() für die Browser-Recherche "
-                            "oder scraper_diagnose(aktion='reaktivieren')."
-                        ),
-                    })
-        except Exception as exc:
-            logger.debug("Stellentyp-Warnung (#906) uebersprungen: %s", exc)
+        # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen.
+        for befund in erg["stellentyp_ohne_quelle"]:
+            result.setdefault("stellentyp_ohne_quelle", []).append({
+                **befund,
+                "warnung": (
+                    f"Für '{befund['stellentyp']}' läuft in dieser Suche KEINE "
+                    f"Quelle ({', '.join(befund['quellen_dafuer'])} alle "
+                    "inaktiv/defekt). Die zugehörigen Kriterien "
+                    "werden nicht ausgewertet. Alternativen: "
+                    "quelle_handoff() für die Browser-Recherche "
+                    "oder scraper_diagnose(aktion='reaktivieren')."
+                ),
+            })
         return result
 
     @mcp.tool()
@@ -758,57 +489,9 @@ def register(mcp, db, logger):
     ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
 
     def _detect_duplicate(job_hash: str) -> dict | None:
-        """Duplikat-Erkennung (#168): Prüft ob eine ähnliche Stelle existiert.
-
-        v1.7.122 (#1065): fragt `find_duplicate_job` — dieselbe Regel wie
-        die Anlage. Bis hierher stand hier eine EIGENE, vierte Fassung
-        (Firma als Teilstring, zwei gemeinsame Titelwoerter), und deshalb
-        antworteten Anlage und Aussortieren fuer dieselbe Stelle
-        verschieden: die Anlage sagte "angelegt", das Aussortieren
-        "duplikat_erkannt". Gemeldet mit zwei belegten Faellen.
-
-        Die gemeinsame Regel ist die schaerfere und die gepruefte (#670,
-        #951): sie kennt Rechtsform-Normalisierung, URL-Gleichheit und
-        eine Titel-Schwelle statt einer Wortzaehlung.
-        """
-        job = db.get_job(job_hash)
-        if not job:
-            return None
-        titel = job.get("title") or ""
-        firma = job.get("company") or ""
-        if not titel or not firma:
-            return None
-        from ..duplicate_detection import find_duplicate_job
-        url = job.get("url") or ""
-
-        treffer = find_duplicate_job(firma, titel, url, db.get_applications())
-        if treffer:
-            app = treffer["job"]
-            return {
-                "typ": "bewerbung",
-                "id": (app.get("id") or "")[:8],
-                "titel": app.get("title"),
-                "firma": app.get("company"),
-                "status": app.get("status"),
-                "grund": treffer.get("grund"),
-            }
-
-        eigener = job.get("hash") or ""
-        treffer = find_duplicate_job(
-            firma, titel, url,
-            [d for d in db.get_dismissed_jobs()
-             if (d.get("hash") or "") != eigener])
-        if treffer:
-            dj = treffer["job"]
-            return {
-                "typ": "aussortierte_stelle",
-                "hash": _kurz(dj["hash"]),
-                "titel": dj.get("title"),
-                "firma": dj.get("company"),
-                "grund": dj.get("dismiss_reason"),
-                "match_grund": treffer.get("grund"),
-            }
-        return None
+        """#1095: die Regel steht in services/aussortieren.duplikat_finden."""
+        from ..services import aussortieren as _aus
+        return _aus.duplikat_finden(db, job_hash)
 
     def _normalize_dismiss_reason(reason: str) -> str:
         """Normalisiere Freitext-Ablehnungsgründe auf Standard-Keywords (#158).
@@ -831,192 +514,19 @@ def register(mcp, db, logger):
             return set()
 
     def _auto_adjust_scoring(db_ref, reason: str, count: int) -> str | None:
-        """#110: Automatische Scoring-Anpassung bei wiederholten Ablehnungsmustern.
-
-        Bug #269: Seed-Daten haben profile_id='', daher muss mit
-        (profile_id=? OR profile_id='') gesucht werden.
-        """
-        # v1.7.17 (#917/#908): Die Automatik setzt KEIN ignore_flag mehr —
-        # "schaerfer statt aus". Der Nutzer wollte Stellenarten abgewertet,
-        # nicht ausgeblendet (Recall vor Praezision); die Flags waren zudem
-        # ueber MCP nicht zuruecknehmbar (#917 Defekt A). Jeder Grund traegt
-        # (dimension, sub_key, start_malus, max_malus).
-        #
-        # Entfernung (#917 Defekt C): Ziel-Stufe ist '999' — die Brackets
-        # sind OBERGRENZEN ("Malus fuer Stellen BIS X km"). Der alte
-        # Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50
-        # und bestrafte damit Stellen ZWISCHEN 30 und 50 km — genau den
-        # Bereich, den der Nutzer will. Der Lerneffekt war invertiert.
-        #
-        # zu_junior ist BEWUSST raus (#908 Befund 4): es mappte auf
-        # stellentyp/praktikum — ausgeloest aber von Festanstellungen
-        # ("mind. 2 Jahre Erfahrung"), die der Hebel nie erreicht.
-        # Senioritaet ist keine Stellenart; der Weg sind MINUS-Keywords
-        # (Hint unten in _apply_dismiss_with_lifecycle).
-        LEARN_MAP = {
-            "zu_weit_entfernt": ("entfernung_fest", "999", -2, -10),
-            "zeitarbeit": ("stellentyp", "zeitarbeit", -2, -8),
-            "befristet": ("stellentyp", "befristet", -2, -6),
-        }
-        if reason not in LEARN_MAP:
-            return None
-        dim, sub, start_malus, max_malus = LEARN_MAP[reason]
-        conn = db_ref.connect()
-        pid = db_ref.get_active_profile_id() or ""
-        # #269: Seed-Daten haben profile_id='' — beides prüfen
-        existing = conn.execute(
-            "SELECT id, value, ignore_flag, profile_id, set_by_user "
-            "FROM scoring_config "
-            "WHERE (profile_id=? OR profile_id='') AND dimension=? AND sub_key=? "
-            "ORDER BY CASE WHEN profile_id=? THEN 0 ELSE 1 END LIMIT 1",
-            (pid, dim, sub, pid)
-        ).fetchone()
-        # v1.7.17 (#917): explizite Nutzer-Entscheidung ist unantastbar.
-        # Belegt: Nutzer schaltete das Ignorieren ab, die naechste
-        # Aussortierung mit demselben Grund (Zaehler 71, Schwelle 5)
-        # kehrte sie kommentarlos wieder um.
-        if existing and existing["set_by_user"]:
-            return None
-        # #908 Befund 5: die alte Formel (count-5)*0.5 erreichte den
-        # Deckel schon bei ~13 Nennungen — faktisch ein Zweistufen-
-        # Schalter. Jetzt linear ueber den realen Nennungsbereich:
-        # Schwelle 5 = start_malus, ab 155 Nennungen = max_malus,
-        # dazwischen gleichmaessig (halbe Punkte, monoton).
-        fortschritt = min(1.0, max(0.0, (count - 5) / 150.0))
-        new_val = start_malus + (max_malus - start_malus) * fortschritt
-        new_val = round(new_val * 2) / 2
-        alt_val = existing["value"] if existing else None
-        if existing and existing["value"] <= new_val:
-            return None  # already penalized enough
-        # v1.7.113 (#1053): ueber das Nadeloehr der Datenbank — mit
-        # Zeitpunkt, Vorgaengerwert und Herkunft "automatik". Bis hierher
-        # schrieb der Lerneffekt eigenes SQL, und seine Aenderungen waren
-        # spaeter von einer Hand-Einstellung nicht zu unterscheiden.
-        db_ref.lerne_scoring_regler(
-            dim, sub, new_val,
-            anlass=f"Lerneffekt: '{reason}' {count}x als Grund gewählt")
-        # #908 Punkt 6: alt->neu benennen und den Rueckweg gleich mitgeben
-        # — eine Automatik, die den Bestand umgewichtet, muss revidierbar
-        # sein. Landet via auto_adjustments/hints beim Nutzer UND im Log.
-        logger.info("Auto-Scoring (#908): '%s' -> %s/%s Malus %s -> %s "
-                    "(Nennungen: %d)", reason, dim, sub, alt_val, new_val,
-                    count)
-        return (f"'{reason}' → {dim}/{sub} Malus "
-                f"{alt_val if alt_val is not None else 'Default'} → {new_val} "
-                f"(zuruecknehmbar via scoring_konfigurieren('setzen'/"
-                f"'loeschen', '{dim}', '{sub}'))")
+        """#1095: der Lerneffekt steht in services/aussortieren.regler_anpassen."""
+        from ..services import aussortieren as _aus
+        return _aus.regler_anpassen(db_ref, reason, count)
 
     def _apply_dismiss_with_lifecycle(job_hash: str, reason_list: list[str],
                                        collect_hints: bool = True,
                                        skip_auto_adjust: bool = False) -> dict:
-        """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
-
-        Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
-        dismiss_reasons-Statistik. Wird von stelle_einordnen UND von
-        stellen_bulk_bewerten aufgerufen, damit Audit/Lerneffekt/Statistik in
-        beiden Wegen identisch durchlaufen (#514: Anti-DB-Bypass-Pattern).
-
-        Args:
-            job_hash: Hash der Stelle
-            reason_list: bereits validierte/normalisierte Gruende
-            collect_hints: bei Bulk auf False setzen — Tipps werden dann nur
-                in der Aggregat-Antwort summiert, nicht pro Einzelaufruf
-            skip_auto_adjust: v1.6.5 (#558) — Bulk-Path uebernimmt den
-                Auto-Adjust selbst (einmalig am Ende). Verhindert dass jeder
-                der 100 Einzelaufrufe das Scoring weiter eskaliert (Drift).
-        """
-        import json as _json
-        reason_str = _json.dumps(reason_list, ensure_ascii=False) if len(reason_list) > 1 else reason_list[0]
-
-        # #168: Duplikat-Erkennung
-        dup_info = None
-        if "duplikat" in reason_list:
-            dup_info = _detect_duplicate(job_hash)
-
-        db.dismiss_job(job_hash, reason_str)
-
-        # Track rejection counts for learning (#66)
-        counts = db.get_setting("dismiss_counts", {})
-        hints = []
-        for g in reason_list:
-            normalized = g.lower().strip()
-            counts[normalized] = counts.get(normalized, 0) + 1
-
-            # Suggest scoring adjustments (#169) when patterns are strong
-            # v1.7.17 (#908): kein Vorschlag lautet mehr "Komplett
-            # Ignorieren" — ein wiederholt genutzter Grund ist ein
-            # RELEVANTER Grund und gehoert verschaerft, nicht
-            # abgeschaltet. ignore_flag setzt nur noch der Nutzer selbst.
-            if collect_hints and counts.get(normalized, 0) >= 3:
-                if normalized == "zu_weit_entfernt":
-                    hints.append("Tipp: Passe den Entfernungs-Malus im Scoring-Regler an (scoring_konfigurieren, Stufe '999' = jenseits aller Grenzen).")
-                elif normalized == "gehalt_zu_niedrig":
-                    hints.append("Tipp: Passe den Gehalts-Regler im Scoring an (scoring_konfigurieren).")
-                elif normalized in ("zeitarbeit", "befristet"):
-                    hints.append(
-                        f"Tipp: Der Malus für '{g}' eskaliert automatisch mit. "
-                        f"Noch schaerfer: scoring_konfigurieren('setzen', 'stellentyp', '{normalized}', wert=-8). "
-                        "Komplett ausblenden nur bewusst mit ignorieren=True."
-                    )
-                elif normalized == "zu_junior" and counts.get(normalized, 0) % 10 == 3:
-                    # #908 Befund 4: Senioritaet ist keine Stellenart —
-                    # der wirksame Hebel sind MINUS-Keywords, die auch
-                    # Festanstellungen erreichen. Vorschlag statt
-                    # Automatik; gedrosselt (jede 10. Nennung).
-                    hints.append(
-                        "Tipp: 'zu_junior' lernt über MINUS-Keywords, nicht über die Stellenart. "
-                        "Kandidaten: suchkriterien_bearbeiten(aktion='hinzufuegen', kategorie='minus', "
-                        "werte=['Junior', 'Berufseinsteiger', 'Entry Level', 'Trainee']) — "
-                        "Gewicht schärfen via kategorie='gewichten' (#778). Keine Duplikate anlegen."
-                    )
-                elif normalized == "falsches_fachgebiet" and counts.get(normalized, 0) % 25 == 0:
-                    # #908 Befund 3: das staerkste Signal (1200+ Nennungen)
-                    # erzeugte NULL Lerneffekt. Der Lerneffekt liegt in den
-                    # Begriffen — keyword_vorschlaege rechnet die
-                    # MINUS-Kandidaten mit Belegen vor, der Nutzer
-                    # entscheidet. Stark gedrosselt (jede 25. Nennung).
-                    hints.append(
-                        f"Hinweis: '{normalized}' wurde inzwischen {counts[normalized]}x genutzt. "
-                        "keyword_vorschlaege() schlägt daraus MINUS-Kandidaten mit Trefferzahlen "
-                        "und Beispielstellen vor — so lernt der Score aus dem häufigsten Grund."
-                    )
-                elif normalized == "firma_uninteressant":
-                    job = db.get_job(job_hash)
-                    company = (job or {}).get("company", "")
-                    # #729: Hinweis nur wenn die Firma noch NICHT auf der
-                    # Blacklist steht — sonst schlaegt PBP etwas vor, das schon
-                    # erledigt ist.
-                    if company and not db.is_company_blacklisted(company):
-                        hints.append(
-                            f"Tipp: Möchtest du '{company}' auf die Blacklist setzen? "
-                            f"Nutze blacklist_verwalten('hinzufuegen', 'firma', '{company}')."
-                        )
-
-        db.set_setting("dismiss_counts", counts)
-        db.increment_dismiss_reason_usage(reason_list)
-
-        # #110: Lernender Score — automatische Scoring-Anpassungen bei starken Mustern.
-        # v1.6.5 (#558): Bei Bulk wird das einmalig am Ende ausgefuehrt, nicht
-        # pro Einzelaufruf. Sonst eskaliert (count-5)*0.5 mit jedem Job und
-        # treibt den Score-Malus immer weiter ins Negative ("Score-Drift").
-        auto_adjustments = []
-        if not skip_auto_adjust:
-            for g in reason_list:
-                normalized = g.lower().strip()
-                cnt = counts.get(normalized, 0)
-                if cnt >= 5:
-                    _auto = _auto_adjust_scoring(db, normalized, cnt)
-                    if _auto:
-                        auto_adjustments.append(_auto)
-            if collect_hints and auto_adjustments:
-                hints.append("Scoring wurde automatisch angepasst: " + "; ".join(auto_adjustments))
-
-        return {
-            "counts": counts,
-            "hints": hints,
-            "auto_adjustments": auto_adjustments,
-            "duplikat_info": dup_info,
-        }
+        """#1095: Zaehler, Lerneffekt und Hinweise stehen im Dienst
+        services/aussortieren — derselbe Weg wie das Dashboard."""
+        from ..services import aussortieren as _aus
+        return _aus.aussortieren(db, job_hash, reason_list,
+                                 collect_hints=collect_hints,
+                                 skip_auto_adjust=skip_auto_adjust)
 
     def _get_active_custom_reasons() -> set:
         """v45 (#663 C20, beta.85): Zusaetzlich erlaubte Custom-Gruende
@@ -1800,7 +1310,8 @@ def register(mcp, db, logger):
         nur_nicht_beworben: bool = False,
         nur_empfohlen: bool = False,
         nur_beurteilt: bool = False,
-        ohne_schwelle: bool = False
+        ohne_schwelle: bool = False,
+        gefunden_seit: str = ""
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -1830,7 +1341,20 @@ def register(mcp, db, logger):
                 `unter_schwelle: true`. Die Einstellung selbst bleibt
                 unverändert. Die Schwelle vergleicht den Fachwert —
                 Entfernung, Remote und Gehalt blenden nie etwas aus.
+            gefunden_seit: Datum YYYY-MM-DD — nur Stellen, die PBP an
+                diesem Tag oder später gefunden hat (#1112, z. B. für
+                einen Abgleich nur der neuen Stellen). Leer = alle.
         """
+        # #1112: das Funddatum als Filter. Verglichen wird der Tag, weil
+        # found_at je nach Quelle mit oder ohne Zeitzone gespeichert ist.
+        seit = (gefunden_seit or "").strip()
+        if seit:
+            from datetime import date as _date
+            try:
+                seit = _date.fromisoformat(seit[:10]).isoformat()
+            except ValueError:
+                return {"fehler": (f"gefunden_seit '{gefunden_seit}' ist kein Datum. "
+                                   "Erwartet: YYYY-MM-DD, z. B. 2026-09-20.")}
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
         # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
@@ -1892,6 +1416,8 @@ def register(mcp, db, logger):
             from datetime import datetime, timedelta
             cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
+        if seit:
+            jobs = [j for j in jobs if (j.get("found_at") or "")[:10] >= seit]
 
         # Apply scoring adjustments (#169)
         durch_schwelle_verborgen = 0
@@ -2112,7 +1638,15 @@ def register(mcp, db, logger):
                 # #950: nie die blosse Zahl — sie wird als Wegstrecke
                 # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
                 # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
-                entry.update(_entfernung.befund(j))
+                entry.update(_entfernung.befund(j, _krit_fuer_stand))
+            # v1.7.140 (#954): woher die Werte kommen — eine Zeile, nur
+            # was nicht belegt ist. Die volle Aufstellung hat fit_analyse.
+            try:
+                from ..services import wahrheit as _wahrheit
+                entry["herkunft"] = _wahrheit.kurz(
+                    _wahrheit.felder(j, _krit_fuer_stand))
+            except Exception:  # pragma: no cover — nie eine Liste stoppen
+                pass
             # v1.7.22 (#942): Fach- und Rahmenanteil getrennt ausweisen.
             # "Score 31" allein verraet nicht, ob die Punkte fachlich
             # sind oder aus Rahmenbegriffen (Senior, Remote, Hamburg)
@@ -2550,87 +2084,8 @@ def register(mcp, db, logger):
         if max_stellen and max_stellen > 0:
             jobs = jobs[:max_stellen]
 
-        recomputed = 0
-        unchanged = 0
-        deltas: list[int] = []
-        # v1.7.17 (#917 Defekt D): der Batch setzte Scores STUMM auf 0 —
-        # eine gute Stelle rutschte von 83 auf 0 (Ausschluss-Keyword in
-        # einer redaktionellen Notiz) und niemand erfuhr warum, waehrend
-        # stelle_bearbeiten denselben Fall sauber begruendet. Jetzt
-        # liefert der Lauf fuer harte Nullungen und grosse Ruecklaeufe
-        # den Grund mit.
-        auffaellig: list[dict] = []
-        for j in jobs:
-            # v1.7.95 (#1035): `int()` rundet nicht, es schneidet ab — aus
-            # 18,7 wurde 18, und 3,8 gegen 3,0 galt als unveraendert. Der
-            # Score hat eine Nachkommastelle; so wird er verglichen und
-            # gespeichert.
-            old_score = round(float(j.get("score") or 0), 1)
-            try:
-                new_score = round(float(calculate_score(j, criteria)), 1)
-            except Exception as e:
-                logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s",
-                               j.get("hash"), e)
-                continue
-            # v1.7.22 (#942): Teilscores immer nachziehen, auch wenn die
-            # Summe gleich bleibt — der Bestand hat sie noch gar nicht,
-            # und ohne sie zeigt die Liste weiter nur eine nackte Zahl.
-            _teile = {}
-            if j.get("_fachscore") is not None:
-                _teile = {"fachscore": j.get("_fachscore"),
-                          "rahmenscore": j.get("_rahmenscore")}
-            if new_score == old_score and _teile:
-                try:
-                    db.update_job(j.get("hash"), _teile)
-                except Exception:
-                    pass
-            if new_score != old_score:
-                try:
-                    db.update_job(j.get("hash"), {"score": new_score, **_teile})
-                    recomputed += 1
-                    deltas.append(new_score - old_score)
-                except Exception as e:
-                    logger.warning("update_job fuer %s fehlgeschlagen: %s",
-                                   j.get("hash"), e)
-                    continue
-                if new_score == 0 and j.get("_ko_ausschluss"):
-                    auffaellig.append({
-                        "hash": j.get("hash"),
-                        "titel": j.get("title"),
-                        "alt": old_score, "neu": 0,
-                        "grund": (f"Ausschluss-Keyword "
-                                  f"'{j['_ko_ausschluss']}' im Text — "
-                                  "harter K.o. Steht der Begriff in einer "
-                                  "redaktionellen Notiz, gehört sie "
-                                  "hinter eine '---'-Trennzeile (#603)."),
-                    })
-                elif new_score - old_score <= -20:
-                    auffaellig.append({
-                        "hash": j.get("hash"),
-                        "titel": j.get("title"),
-                        "alt": old_score, "neu": new_score,
-                        "grund": "starker Rückgang — Kriterien/Regler "
-                                 "prüfen (scoring_vorschau zeigt die "
-                                 "Rechnung im Detail)",
-                    })
-            else:
-                unchanged += 1
-
-        avg_delta = sum(deltas) / len(deltas) if deltas else 0
-        result = {
-            "status": "fertig",
-            "verarbeitet": len(jobs),
-            "geaendert": recomputed,
-            "unveraendert": unchanged,
-            "durchschnittliche_aenderung": round(avg_delta, 1),
-            "max_anstieg": max(deltas) if deltas else 0,
-            "max_rueckgang": min(deltas) if deltas else 0,
-        }
-        if auffaellig:
-            result["auffaellige_aenderungen"] = auffaellig[:20]
-            if len(auffaellig) > 20:
-                result["auffaellige_aenderungen_gesamt"] = len(auffaellig)
-        return result
+        from ..services.neu_bewerten import neu_bewerten
+        return neu_bewerten(db, jobs, criteria)
 
     @mcp.tool()
     def suchperformance_auswerten() -> dict:
@@ -3090,10 +2545,10 @@ def register(mcp, db, logger):
         # v1.6.9 (#567): nur LAUFENDE Bewerbungen blocken — abgeschlossene
         # (abgelehnt/abgelaufen/zurueckgezogen/angenommen) sind kein Hindernis
         # fuer eine neue Bewerbung bei der gleichen Firma auf eine andere Stelle.
-        TERMINAL_STATUSES = ("abgelehnt", "abgelaufen", "zurueckgezogen", "angenommen")
+        # #1103: aus der gemeinsamen Quelle (auch `arbeitgeber_ausgefallen`).
+        from ..services.bewerbung_status import laeuft as _laeuft
         all_apps = db.get_applications()
-        running_apps = [a for a in all_apps
-                        if (a.get("status") or "") not in TERMINAL_STATUSES]
+        running_apps = [a for a in all_apps if _laeuft(a.get("status"))]
 
         # v1.7.0-beta.87 (#670): force=True ueberspringt den Duplikat-Block.
         # Der Verdacht wird aber gesammelt und im Erfolgs-Result transparent
@@ -3198,10 +2653,11 @@ def register(mcp, db, logger):
             from ..duplicate_detection import find_repost_of_application
             wiedergaenger_bewerbung = find_repost_of_application(
                 {"hash": job_hash, "title": titel, "company": firma},
-                [a for a in all_apps
-                 if (a.get("status") or "") in TERMINAL_STATUSES], db=db)
+                [a for a in all_apps if not _laeuft(a.get("status"))], db=db)
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
-            logger.debug("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
+            # Sichtbar statt debug: hier verschwand ein NameError still,
+            # und mit ihm der Hinweis auf eine abgelehnte Bewerbung.
+            logger.warning("Wiedergaenger-Pruefung (#1065) fehlgeschlagen: %s", exc)
 
         # Stufe D — v1.7.126 (#1076): dieselbe Vakanz auf zwei Wegen, die
         # A und B nicht sehen. Ein Repost unter NEUEM Titel (verglichen wird
@@ -3335,7 +2791,7 @@ def register(mcp, db, logger):
                         _koord = geocode_location(ort)
                         if _koord:
                             job["lat"], job["lon"] = _koord
-                            if _routing.konfiguriert(db):
+                            if _routing.aktiv(db):
                                 _routing.fuer_stellen(db, [job], user_coords)
             except Exception:
                 pass
@@ -3370,7 +2826,15 @@ def register(mcp, db, logger):
                          f"Bewerte mit stelle_einordnen('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
         if job.get("distance_km"):
-            result.update(_entfernung.befund(job))
+            result.update(_entfernung.befund(job, criteria))
+        # v1.7.140 (#954): was an der neuen Stelle belegt ist und was nicht.
+        try:
+            from ..services import wahrheit as _wahrheit
+            _gespeichert = db.get_job(job_hash) or job
+            result["herkunft"] = _wahrheit.felder(_gespeichert, db.get_search_criteria())
+            result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
+        except Exception:  # pragma: no cover
+            pass
         # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
         # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer —
         # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
@@ -3479,8 +2943,11 @@ def register(mcp, db, logger):
         Der Playwright-Adapter für LinkedIn liefert seit April 2026 nichts
         mehr. Die jobspy-Variante (`jobspy_linkedin`) LIEFERT — sie braucht
         nur lange (rund 12 s je Suchbegriff) und hat seit v1.7.120 ein
-        eigenes Zeitbudget (#1038); ihre Treffer kommen aber OHNE
-        Anzeigentext. Dieser Weg hier liefert den Volltext: HTTP von aussen
+        eigenes Zeitbudget (#1038); ihre Treffer kommen OHNE Anzeigentext,
+        PBP lädt ihn nach dem Suchlauf im Hintergrund nach — für die
+        Treffer, die den Filter passiert haben, höchstens 60 je Lauf, der
+        Rest mit der Automatik. Die Zahl steht im Lauf-Hinweis. Dieser
+        Weg hier liefert den Volltext sofort: HTTP von aussen
         blockt LinkedIn zuverlässig, Requests aus dem EINGELOGGTEN
         Chrome-Tab laufen dagegen durch. Am 17.08.2026 wurde
         dieser Weg vollständig durchgespielt: 22 Suchbegriffe, 511
@@ -3972,7 +3439,8 @@ def register(mcp, db, logger):
     # Mengenweg und beantwortete nur den Altfall aus #952.
     # v1.7.110 (#1047): `flach` — lange Texte ganz ohne Zeilenumbruch, die
     # Spur des alten Lesers. `beide` bleibt, was es war: fehlend + gekappt.
-    UMFAENGE = ("fehlend", "gekappt", "flach", "beide", "ohne_firma_ort")
+    UMFAENGE = ("fehlend", "gekappt", "flach", "beide", "ohne_firma_ort",
+                "linkedin_kasten")
 
     @mcp.tool()
     def beschreibungen_nachladen_bestand(max_stellen: int = 25,
@@ -4016,6 +3484,10 @@ def register(mcp, db, logger):
                 kommen aus dem JobPosting der Detailseite, samt
                 Entfernung und neuem Score. Der Text bleibt, wenn er
                 schon vollständig ist.
+                `linkedin_kasten` (#1085) sind LinkedIn-Stellen, deren
+                Text nur der Gehaltskasten ist oder mit dem Kasten zur
+                Ansprechperson beginnt. Hier ersetzt der neue Text den
+                alten auch dann, wenn er kürzer ist — der Kasten fällt weg.
         """
         import httpx
 
@@ -4068,12 +3540,23 @@ def register(mcp, db, logger):
                      if nachladen.fehlender_kopf(j)
                      and (j.get("url") or "").strip()
                      and not j.get("is_search_url")]
+        # #1085: LinkedIn-Text, der nur der Gehaltskasten ist oder den
+        # Kasten zur Ansprechperson traegt. Die Auswahl liest den Text —
+        # geschnitten wird er hier nicht, sondern neu geladen.
+        from ..job_scraper.linkedin_seite import nur_gehaltskasten, traegt_ansprechkasten
+        li_kasten = [j for j in aktive
+                     if "linkedin" in (j.get("source") or "").lower()
+                     and (j.get("url") or "").strip()
+                     and (nur_gehaltskasten(j.get("description"))
+                          or traegt_ansprechkasten(j.get("description")))]
         auswahl = {"fehlend": fehlend, "gekappt": gekappt, "flach": flach,
                    "beide": fehlend + gekappt,
-                   "ohne_firma_ort": ohne_kopf}[gewaehlt]
+                   "ohne_firma_ort": ohne_kopf,
+                   "linkedin_kasten": li_kasten}[gewaehlt]
 
         zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt),
-                    "flach": len(flach), "ohne_firma_ort": len(ohne_kopf)}
+                    "flach": len(flach), "ohne_firma_ort": len(ohne_kopf),
+                    "linkedin_kasten": len(li_kasten)}
         if not auswahl:
             return {
                 "status": "nichts_zu_tun",
@@ -4147,7 +3630,8 @@ def register(mcp, db, logger):
                 gegliedert = (_ist_flach(job.get("description"))
                               and "\n" in text
                               and len(text) >= 0.9 * alt_laenge)
-                if len(text) <= alt_laenge and not gegliedert:
+                if (len(text) <= alt_laenge and not gegliedert
+                        and gewaehlt != "linkedin_kasten"):
                     # v1.7.128 (#1040 Punkt 5): der Text ist schon da, aber
                     # Firma oder Ort fehlen — dann nur den Kopf nachziehen.
                     if (befund.kopf
@@ -4239,6 +3723,8 @@ def register(mcp, db, logger):
             # #1040
             "ohne_firma_ort": ("Jede aktive Stelle mit Detailseite traegt "
                                "Firma und Ort."),
+            "linkedin_kasten": ("Keine LinkedIn-Stelle traegt den Gehaltskasten "
+                                "oder den Kasten zur Ansprechperson als Text."),
         }[umfang]
         if rest and rest[1]:
             satz += (f" Im Umfang '{rest[0]}' waeren es {rest[1]} — "
@@ -4730,6 +4216,18 @@ def register(mcp, db, logger):
         """
         if not master_hash or not duplikat_hash:
             return {"fehler": "master_hash und duplikat_hash sind Pflicht"}
+        sicherung_name = None
+        if not dry_run:
+            # #1098: das Zusammenfuehren loescht die Dublette — vorher eine
+            # Sicherung (nur die Datenbank; Dateien fasst es nicht an).
+            from ..services import sicherung as _sicherung
+            _s = _sicherung.sichern(db, anlass="vor_zusammenfuehren",
+                                    mit_dokumenten=False)
+            if _s["status"] != "gesichert":
+                return {"fehler": ("Vor dem Zusammenführen ließ sich keine "
+                                   "Sicherung anlegen — es wurde nichts "
+                                   "geändert. " + (_s.get("fehler") or ""))}
+            sicherung_name = _s["name"]
         result = db.merge_jobs(
             master_hash=master_hash,
             duplicate_hash=duplikat_hash,
@@ -4742,6 +4240,8 @@ def register(mcp, db, logger):
                 "Bei Konflikten feld_strategie mitgeben "
                 "(z.B. {'description': 'merge', 'url': 'duplikat'})."
             )
+        if sicherung_name:
+            result["sicherung"] = sicherung_name
         return result
 
     @mcp.tool()
@@ -4991,6 +4491,15 @@ def register(mcp, db, logger):
         # Leitlinie lautet Recall vor Praezision.
         _alter = _anzeigenalter.einordnung(job_dict)
         result["anzeigenalter"] = _alter
+        # v1.7.140 (#954): je Feld belegt / geschätzt / unbekannt, mit
+        # Methode und Zeitpunkt. Claude soll einen geschaetzten Wert nicht
+        # wie einen belegten weitergeben.
+        try:
+            from ..services import wahrheit as _wahrheit
+            result["herkunft"] = _wahrheit.felder(job_dict, db.get_search_criteria())
+            result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
+        except Exception:  # pragma: no cover
+            pass
         if job_dict.get("veroeffentlicht_am"):
             result["veroeffentlicht_am"] = job_dict["veroeffentlicht_am"]
 
@@ -5146,89 +4655,19 @@ def register(mcp, db, logger):
         # Ab hier den vollen aufgeloesten Hash verwenden
         job_hash = resolved
 
-        updates: dict = {}
-        if titel:
-            updates["title"] = titel
-        if firma:
-            updates["company"] = firma
-        if ort:
-            updates["location"] = ort
-        if beschreibung:
-            updates["description"] = beschreibung
-        if url:
-            from ..job_scraper import is_search_result_url
-            updates["url"] = url
-            updates["is_search_url"] = is_search_result_url(url)
-
-        # #1077: die Entfernung war ueber kein Werkzeug erreichbar — ein
-        # falscher Wert liess sich nur per SQL korrigieren (#514).
-        if entfernung_km is not None and entfernung_zuruecksetzen:
-            return {"fehler": ("entfernung_km und entfernung_zuruecksetzen "
-                               "schliessen sich aus.")}
-        if entfernung_km is not None and entfernung_km < 0:
-            return {"fehler": ("entfernung_km darf nicht negativ sein. Zum "
-                               "Zurücksetzen entfernung_zuruecksetzen=True.")}
-        entfernung_geaendert = (entfernung_km is not None
-                                or entfernung_zuruecksetzen)
-
-        if not updates and not entfernung_geaendert:
-            return {"fehler": "Keine Änderungen angegeben."}
-
-        if updates:
-            db.update_job(job_hash, updates)
-        if entfernung_geaendert:
-            db.set_job_entfernung(
-                job_hash, None if entfernung_zuruecksetzen else entfernung_km)
-
-        # #535 v1.6.4: Score nach Beschreibungs-/Titel-Update neu berechnen.
-        # Vorher blieb der persistente score-Wert in jobs.score auf dem Stand
-        # der initialen Scrape-Beschreibung — fit_analyse rechnete live mit
-        # der neuen Beschreibung, stellen_anzeigen mit dem alten score.
-        # Drei verschiedene Werte fuer dieselbe Stelle waren die Folge.
-        score_recomputed = None
-        if ("description" in updates or "title" in updates
-                or entfernung_geaendert):
-            try:
-                from ..job_scraper import calculate_score
-                # v1.7.112 (#1051): das Nadeloehr, wie bei der Anlage —
-                # sonst rechnet `fit_analyse` gleich danach eine andere Zahl.
-                from ..services import scoring_kriterien as _skrit_bearb
-                criteria = _skrit_bearb.fuer_scoring(db)
-                fresh_job = db.get_job(job_hash) or {}
-                new_score = calculate_score(fresh_job, criteria)
-                if new_score is not None:
-                    # v1.7.95 (#1035): die Teile mitschreiben — sonst stand
-                    # die Aufteilung des alten Texts neben dem neuen Score.
-                    db.update_job(job_hash, {
-                        "score": new_score,
-                        "fachscore": fresh_job.get("_fachscore"),
-                        "rahmenscore": fresh_job.get("_rahmenscore"),
-                    })
-                    score_recomputed = {
-                        "alter_score": job.get("score"),
-                        "neuer_score": new_score,
-                    }
-                    # #762: Faellt der Score auf 0, den GRUND nennen. Sonst
-                    # wirkt das Nachpflegen eines echten Volltexts wie ein
-                    # Bug ("Score war 45, jetzt 0") — der haeufigste Fall ist
-                    # ein Ausschluss-Keyword, das erst im laengeren Text steht.
-                    if new_score == 0:
-                        _ko_kw = fresh_job.get("_ko_ausschluss")
-                        if _ko_kw:
-                            score_recomputed["grund"] = (
-                                f"Ausschluss-Keyword '{_ko_kw}' kommt im neuen Text "
-                                "vor — das setzt den Score hart auf 0. Wenn das ein "
-                                "Fehltreffer ist, das Keyword in den Suchkriterien "
-                                "schärfen (suchkriterien_anzeigen)."
-                            )
-                        elif fresh_job.get("_ko_kein_muss"):
-                            score_recomputed["grund"] = (
-                                "Kein MUSS-Keyword im neuen Text gefunden — das setzt "
-                                "den Score auf 0. Prüfe die MUSS-Keywords "
-                                "(suchkriterien_anzeigen) oder ob der Text vollständig ist."
-                            )
-            except Exception as exc:
-                logger.warning("Score-Recompute fuer %s fehlgeschlagen: %s", job_hash, exc)
+        # #1095: Aenderung und Neuberechnung (#535, #987) stehen im Dienst
+        # services/stelle_aendern — derselbe Weg wie der Bearbeiten-Dialog
+        # im Dashboard. Ein neuer Ort rechnet die Entfernung neu.
+        from ..services import stelle_aendern as _aendern
+        erg = _aendern.aendern(
+            db, job_hash, {"title": titel, "company": firma, "location": ort,
+                           "description": beschreibung, "url": url},
+            entfernung_km=entfernung_km,
+            entfernung_zuruecksetzen=entfernung_zuruecksetzen)
+        if not erg["ok"]:
+            return {"fehler": erg["fehler"]}
+        updates = erg["updates"]
+        entfernung_geaendert = entfernung_km is not None or entfernung_zuruecksetzen
 
         result = {
             "status": "aktualisiert",
@@ -5239,8 +4678,8 @@ def register(mcp, db, logger):
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
         }
-        if score_recomputed:
-            result["score_neu_berechnet"] = score_recomputed
+        if erg.get("score_neu_berechnet"):
+            result["score_neu_berechnet"] = erg["score_neu_berechnet"]
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",
@@ -5250,13 +4689,8 @@ def register(mcp, db, logger):
                 {"wert_km": float(entfernung_km), "quelle": "mensch",
                  "hinweis": "Von Hand gesetzt — kein Suchlauf "
                             "überschreibt diesen Wert."})
-        elif "location" in updates and (job.get("distance_km") is not None):
-            # Die gespeicherte Entfernung gehoert zum ALTEN Ort — sagen,
-            # statt sie still stehen zu lassen oder still zu loeschen.
-            result["entfernung_hinweis"] = (
-                f"Die gespeicherte Entfernung ({job.get('distance_km')} km) "
-                "bezieht sich auf den bisherigen Ort. Stimmt sie nicht mehr: "
-                "entfernung_km setzen oder entfernung_zuruecksetzen=True.")
+        elif erg.get("entfernung_hinweis"):
+            result["entfernung_hinweis"] = erg["entfernung_hinweis"]
         # #645: Wenn die neue URL eine Such-URL ist, das wie bei
         # stelle_manuell_anlegen transparent zurueckmelden — sonst denkt
         # der User der Link sei voll funktionsfaehig.
@@ -5323,286 +4757,10 @@ def register(mcp, db, logger):
         Idempotent: bewertet keine Stelle erneut die schon `passt_nicht`
         oder eine Bewerbung hat.
         """
-        import time as _time
-        run_started_at = _time.monotonic()
-        # Defensive Caps (#646, #691): Der MCP-Client (Claude Desktop) bricht
-        # einen Tool-Call schon nach ~60s ab. Ein laengerer Lauf wird dann
-        # gecancelt und FastMCP 3.x liefert "outputSchema defined but no
-        # structured output returned" statt eines sauberen Teil-Ergebnisses.
-        # Darum Budget-Default 50s (cap 90s); der Wall-Clock-Check unten gibt
-        # VOR dem Client-Timeout ein schemakonformes status='teilweise' zurueck.
-        max_stellen = max(1, min(int(max_stellen or 10), 30))
-        max_dauer_sek = max(20, min(int(max_dauer_sek or 50), 90))
-        # v1.7.0-beta.46 (#610): Try/except um den ganzen Body, alle
-        # Returns mit uniformem Schema. Vorher: outputSchema-Validierungs-
-        # fehler weil error-Pfade andere Keys hatten als Success-Pfade.
-        def _err(msg: str, **extra) -> dict:
-            base = {
-                "status": "fehler",
-                "fehler": msg,
-                "geprueft": 0, "passt_nicht": 0, "unsicher": 0, "passt": 0,
-                "errors_count": 0,
-                "passt_nicht_details": [], "unsicher_details": [],
-                "passt_details": [], "errors": [],
-                "modell": "",
-            }
-            base.update(extra)
-            return base
-
-        try:
-            from ..services.llm_service import get_llm_service, TaskKind, Backend
-
-            svc = get_llm_service(db)
-            status = svc.get_status(force_refresh=True)
-            if not status.ollama_available or not status.available_models:
-                return _err(
-                    "Lokale AI nicht verfügbar.",
-                    hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
-                )
-            if status.user_state != "active":
-                return _err(
-                    f"Lokale AI ist im State '{status.user_state}'.",
-                    hinweis="Setze State auf 'active' in Einstellungen › Lokale KI.",
-                )
-            # v1.7.0-beta.62 (#638): Pre-Warmup damit der erste Modell-Call
-            # nicht 50-60s Cold-Load + MCP-Timeout ausloest. Warmup ist
-            # idempotent — bei warmem Modell Millisekunden, bei kaltem max 90s.
-            try:
-                warmup_result = svc.warmup()
-                if warmup_result.get("status") == "warm":
-                    logger.info(
-                        "Ollama-Warmup vor stellen_auto_aussortieren: %.2fs",
-                        warmup_result.get("duration_sec", 0),
-                    )
-            except Exception as warmup_exc:
-                # Warmup-Fehler nicht fatal — falls Bulk-Call durchgeht, ok
-                logger.warning("Warmup-Fehler (ignoriert): %s", warmup_exc)
-        except Exception as exc:
-            return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
-
-        # Profil-Kontext sammeln
-        try:
-            profile = db.get_profile() or {}
-        except Exception as exc:  # #691: schemakonformer Fehler statt Crash
-            return _err(f"profil_lesen_fehlgeschlagen: {str(exc)[:150]}")
-        profile_skills = [
-            s.get("name", "") for s in (profile.get("skills") or [])[:15]
-        ]
-        positions = profile.get("positions") or []
-        latest_pos = positions[0] if positions else {}
-        profile_position = latest_pos.get("title", "")
-        # Heuristik: Karriere-Stufe aus aktueller Position + Jahren ableiten
-        years = 0
-        for p in positions:
-            try:
-                start = int((p.get("start_date") or "0000")[:4])
-                end_raw = (p.get("end_date") or "")[:4]
-                end = int(end_raw) if end_raw.isdigit() else 2026
-                if start > 1900:
-                    years += max(0, end - start)
-            except Exception:
-                pass
-        if years >= 10:
-            profile_seniority = f"Senior ({years} Jahre Erfahrung)"
-        elif years >= 5:
-            profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
-        elif years >= 1:
-            profile_seniority = f"Junior ({years} Jahre Erfahrung)"
-        else:
-            profile_seniority = "Berufseinsteiger / Berufsanfänger"
-
-        # Kandidaten holen — aktive, noch nicht bewertete Stellen
-        try:
-            all_active = db.get_active_jobs()
-        except Exception as exc:  # #691: schemakonformer Fehler statt Crash
-            return _err(f"stellen_lesen_fehlgeschlagen: {str(exc)[:150]}")
-        # Filter: keine Bewerbung, kein dismiss-Reason
-        candidates = [
-            j for j in all_active
-            if not j.get("dismiss_reason")
-            and (j.get("score") or 0) >= min_score
-        ]
-        # v1.7.7 (#756): Beschreibung-zuerst — ohne Stellentext gibt es kein
-        # fachliches Urteil. Die lokale KI wuerde sonst auf Titel+Firma raten
-        # (Praxis-Fund 13.07.: passende Stellen flogen mangels Beschreibung
-        # raus). Schwelle 50 Zeichen, konsistent mit fit_analyse (#180).
-        ohne_beschreibung = [
-            j for j in candidates
-            if len((j.get("description") or "").strip()) < 50
-        ]
-        candidates = [
-            j for j in candidates
-            if len((j.get("description") or "").strip()) >= 50
-        ]
-        candidates.sort(key=lambda j: -(j.get("score") or 0))
-        candidates = candidates[:max_stellen]
-        uebersprungen_details = [
-            {
-                "hash": j["hash"], "title": j.get("title"),
-                "company": j.get("company"), "score": j.get("score"),
-            }
-            for j in ohne_beschreibung[:10]
-        ]
-
-        # v1.7.0-beta.28 (#594 Stufe 3): adaptive Prompt-Anreicherung —
-        # Top-3 dismiss_reasons des Users bekommt die LLM mit, damit sie
-        # bekannte Anti-Muster wiedererkennen kann.
-        dismiss_reasons_top: list[dict] = []
-        try:
-            conn = db.connect()
-            pid = db.get_active_profile_id()
-            from ..services.ablehnungsgruende import gruende_zaehlen
-            liste, _ = gruende_zaehlen(conn, pid, ausser=())
-            dismiss_reasons_top = [
-                {"reason": g, "count": n} for g, n in liste[:3]
-            ]
-        except Exception:
-            pass
-
-        # v1.7.0-beta.63 (#638 Stufe 3): konkrete Few-Shot-Beispiele
-        try:
-            recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)
-        except Exception:
-            recent_dismissals_fewshot = []
-
-        if not candidates:
-            if ohne_beschreibung:
-                return _err(
-                    "Keine bewertbaren Stellen — alle Kandidaten haben "
-                    "keine Stellenbeschreibung.",
-                    status="leer",
-                    uebersprungen_ohne_beschreibung=len(ohne_beschreibung),
-                    uebersprungen_details=uebersprungen_details,
-                    hinweis=(
-                        "Ohne Beschreibung kein fachliches Urteil (#756). "
-                        "Erst stellenbeschreibung_nachladen(hash) für die "
-                        "übersprungenen Stellen, dann erneut aufrufen."
-                    ),
-                )
-            return _err(
-                "Keine ungerateten Stellen oberhalb min_score.",
-                status="leer",
-            )
-
-        passt_nicht_results = []
-        unsicher_results = []
-        passt_results = []
-        errors = []
-        budget_erschoepft = False  # #646
-        unverarbeitet = 0  # #646
-
-        for idx, job in enumerate(candidates):
-            # #646: Wall-Clock-Budget-Check vor jedem Ollama-Call.
-            # Verhindert das stille 4-Min-Timeout.
-            elapsed = _time.monotonic() - run_started_at
-            if elapsed >= max_dauer_sek:
-                budget_erschoepft = True
-                unverarbeitet = len(candidates) - idx
-                logger.info(
-                    "stellen_auto_aussortieren: Budget %ds erschoepft nach %d/%d Stellen",
-                    max_dauer_sek, idx, len(candidates),
-                )
-                break
-            try:
-                payload = {
-                    "profile_skills": profile_skills,
-                    "profile_position": profile_position,
-                    "profile_seniority": profile_seniority,
-                    "job_title": job.get("title") or "",
-                    "job_company": job.get("company") or "",
-                    "job_description": (job.get("description") or "")[:1500],
-                    "dismiss_reasons_top": dismiss_reasons_top,
-                    # v1.7.0-beta.63 (#638 Stufe 3): Few-Shot-Beispiele
-                    "recent_dismissals": recent_dismissals_fewshot,
-                }
-                result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
-                if not result.success:
-                    errors.append({
-                        "hash": job["hash"],
-                        "title": job.get("title"),
-                        "error": result.fallback_message or "unknown",
-                    })
-                    continue
-                decision = (result.payload or {}).get("decision", "UNSICHER")
-                # #691: leere/Platzhalter-Begruendung nicht roh durchreichen
-                reason = ((result.payload or {}).get("reason") or "").strip()
-                if not reason:
-                    reason = "(lokale KI lieferte keine Begruendung)"
-                entry = {
-                    "hash": job["hash"],
-                    "title": job.get("title"),
-                    "company": job.get("company"),
-                    "score": job.get("score"),
-                    "reason": reason,
-                }
-                if decision == "PASST_NICHT":
-                    if not dry_run:
-                        # v1.7.70 (#956): der Vermerk gehoert nach
-                        # `dismiss_note`, nicht in den Firmen-Recherche-
-                        # Notizblock. Gemessen: 30 der 143 gefuellten
-                        # Spalten trugen genau dieses Protokoll.
-                        try:
-                            db.dismiss_job(
-                                job["hash"], reason="profil_match_negativ",
-                                notiz=f"[Auto-Aussortierung] {reason}")
-                        except Exception as exc:
-                            errors.append({
-                                "hash": job["hash"], "error": str(exc)[:200],
-                            })
-                    passt_nicht_results.append(entry)
-                elif decision == "PASST":
-                    passt_results.append(entry)
-                else:
-                    unsicher_results.append(entry)
-            except Exception as exc:
-                errors.append({
-                    "hash": job.get("hash"), "error": str(exc)[:200],
-                })
-
-        try:
-            modell_name = status.selected_model or ""
-        except Exception:
-            modell_name = ""
-        # #646: Status differenziert nach Budget-Erschoepfung
-        verarbeitet = (
-            len(passt_nicht_results) + len(unsicher_results)
-            + len(passt_results) + len(errors)
-        )
-        run_status = "teilweise" if budget_erschoepft else "ok"
-        result_payload = {
-            "status": run_status,
-            "dry_run": dry_run,
-            "fehler": "",
-            "geprueft": verarbeitet,
-            "kandidaten_gesamt": len(candidates),
-            "passt_nicht": len(passt_nicht_results),
-            "unsicher": len(unsicher_results),
-            "passt": len(passt_results),
-            "errors_count": len(errors),
-            "passt_nicht_details": passt_nicht_results[:20],
-            "unsicher_details": unsicher_results[:10],
-            "passt_details": passt_results[:10],
-            "errors": errors[:5],
-            "modell": modell_name,
-            "dauer_sek": round(_time.monotonic() - run_started_at, 1),
-        }
-        if budget_erschoepft:
-            result_payload["unverarbeitet"] = unverarbeitet
-            result_payload["hinweis"] = (
-                f"Zeit-Budget von {max_dauer_sek}s erreicht — {unverarbeitet} "
-                "Stellen unverarbeitet. Erneut aufrufen um die Reste zu "
-                "bearbeiten (idempotent — bereits aussortierte werden "
-                "uebersprungen)."
-            )
-        if ohne_beschreibung:
-            result_payload["uebersprungen_ohne_beschreibung"] = len(ohne_beschreibung)
-            result_payload["uebersprungen_details"] = uebersprungen_details
-            result_payload["uebersprungen_hinweis"] = (
-                f"{len(ohne_beschreibung)} Stellen ohne Beschreibung wurden "
-                "NICHT bewertet (#756) — ohne Stellentext kein fachliches "
-                "Urteil. Nächster Schritt: stellenbeschreibung_nachladen(hash)."
-            )
-        return result_payload
+        from ..services import auto_aussortierung
+        return auto_aussortierung.aussortieren(
+            db, max_stellen=max_stellen, min_score=min_score,
+            dry_run=dry_run, max_dauer_sek=max_dauer_sek)
 
     @mcp.tool()
     def ats_firmen_verwalten(aktion: str = "status", firmen: list[str] = None,
@@ -6858,7 +6016,11 @@ def register(mcp, db, logger):
         zeilen = conn.execute(
             "SELECT hash, title, description, salary_min, salary_max, "
             "salary_type, salary_estimated FROM jobs "
-            "WHERE description IS NOT NULL AND LENGTH(description) > 50"
+            "WHERE description IS NOT NULL AND LENGTH(description) > 50 "
+            # #1106: nur das aktive Profil — ein echter Lauf aenderte
+            # sonst Gehaltsfelder fremder Profile.
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)
         ).fetchall()
 
         aenderungen, geloescht, unveraendert = [], 0, 0
@@ -7001,7 +6163,10 @@ def register(mcp, db, logger):
             "AND (dismiss_note LIKE '%iedergaenger nach Fachgebiet%' "
             "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%' "
             "     OR dismiss_note LIKE '%iedergaenger: dieselbe Firma%' "
-            "     OR dismiss_note LIKE '%iedergänger: dieselbe Firma%')"
+            "     OR dismiss_note LIKE '%iedergänger: dieselbe Firma%') "
+            # #1106: nur das aktive Profil.
+            "AND (profile_id=? OR profile_id IS NULL)",
+            (db.get_active_profile_id(),)
         ).fetchall()
 
         betroffen, zurueckgeholt = [], 0
@@ -7065,16 +6230,21 @@ def register(mcp, db, logger):
         Stunden je Richtung. **Für die Frage, ob eine Stelle pendelbar
         ist, sagt die Fahrzeit mehr als jede Kilometerzahl.**
 
-        Mit einem Routing-Schluessel (OpenRouteService, kostenlos)
-        berechnet PBP Fahrstrecke und Fahrzeit; Score und
-        Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke.
+        Mit einem Routing-Schluessel (OpenRouteService, kostenlos) UND
+        gesetztem Haken „Echte Fahrstrecke und Fahrzeit verwenden (nur
+        Auto)“ berechnet PBP Fahrstrecke und Fahrzeit; Score und
+        Gehaltsverrechnung (#910) nehmen dann die Fahrstrecke. **Die
+        Berechnung gilt nur fürs Auto**, nicht für Bus und Bahn — sag das
+        dazu, wenn du eine Fahrzeit nennst (#1037).
 
         **Den Schluessel richtest du im Dashboard ein** (Einstellungen › Quellen im Detail, Karte Fahrstrecke), nicht hier: ein Schluessel, der durch den
         Chat geht, stünde danach im Gesprächsverlauf.
 
         Args:
-            aktion: 'status' (Stand, Kontingent, offene Stellen) oder
-                'nachziehen' (Fahrstrecken für vorhandene Stellen).
+            aktion: 'status' (Stand, Kontingent, offene Stellen),
+                'nachziehen' (Fahrstrecken für vorhandene Stellen),
+                'einschalten' oder 'ausschalten' (der Haken; nur auf
+                ausdrücklichen Wunsch des Menschen).
             dry_run: Vorgabe True — zeigt nur, was abgefragt würde.
             max_stellen: 0 = alle offenen.
         """
@@ -7103,9 +6273,21 @@ def register(mcp, db, logger):
             "einen kostenlosen Schluessel von OpenRouteService eintragen.")
 
         aktion = (aktion or "status").strip().lower()
+        if aktion in ("einschalten", "ausschalten"):
+            ergebnis = _routing.haken_setzen(db, aktion == "einschalten")
+            if ergebnis.get("fehler"):
+                return {**stand, **ergebnis,
+                        "naechster_schritt": kein_schluessel}
+            return {**_routing.status(db), **ergebnis}
         if aktion == "status":
             if not stand["konfiguriert"]:
                 stand["naechster_schritt"] = kein_schluessel
+            elif not stand["haken"]:
+                stand["naechster_schritt"] = (
+                    f"Schlüssel ist da, der Haken \"{_routing.HAKEN_TEXT}\" "
+                    f"aber nicht gesetzt ({_routing.ORT_HAKEN}). Ohne ihn "
+                    "rechnet PBP mit der Luftlinie. Auf Wunsch: "
+                    "fahrstrecken_verwalten('einschalten').")
             elif offen:
                 stand["naechster_schritt"] = (
                     "fahrstrecken_verwalten('nachziehen') — erst die "
@@ -7113,11 +6295,20 @@ def register(mcp, db, logger):
             return stand
         if aktion != "nachziehen":
             return {"fehler": f"Unbekannte Aktion '{aktion}'.",
-                    "moegliche_aktionen": ["status", "nachziehen"]}
+                    "moegliche_aktionen": ["status", "nachziehen",
+                                           "einschalten", "ausschalten"]}
         if not stand["konfiguriert"]:
             return {**stand,
                     "fehler": _routing.BEFUND_TEXT[_routing.KEIN_SCHLUESSEL],
                     "naechster_schritt": kein_schluessel}
+        if not stand["aktiv"]:
+            return {**stand,
+                    "fehler": ("Der Haken für die Fahrstrecke ist nicht "
+                               "gesetzt — ohne ihn fragt PBP keine Routen "
+                               "ab (#1037)."),
+                    "naechster_schritt": (
+                        f"Unter {_routing.ORT_HAKEN} den Haken setzen, oder "
+                        "auf Wunsch fahrstrecken_verwalten('einschalten').")}
         start = get_user_coordinates(db)
         if not start:
             return {**stand,
