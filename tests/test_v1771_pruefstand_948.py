@@ -335,11 +335,13 @@ def test_948_der_einstieg_steht_in_der_fusszeile():
     fussstart = seite.index("footer={(")
     fussende = seite.index("Schließen</Button>", fussstart)
     fusszeile = seite[fussstart:fussende]
-    # G72 (#1087 E4): einheitliches Etikett "… mit Claude".
-    assert "<MitClaude>Detailbewertung</MitClaude>" in fusszeile
+    # G72 (#1087 E4): einheitliches Etikett "… mit Claude"; seit #1113
+    # derselbe Name wie auf der Karte ("Bewerten" bzw. "Neu bewerten").
+    etikett = "<MitClaude>{detailbewertungKnopf({ analyse: fitDialog.analysis?.analyse }).text}</MitClaude>"
+    assert etikett in fusszeile
 
     # ... und genau EINMAL auf der Seite, nicht zweimal (#979).
-    assert seite.count("<MitClaude>Detailbewertung</MitClaude>") == 1
+    assert seite.count(etikett) == 1
 
     ui = (_repo() / "frontend" / "src" / "components"
           / "ui.jsx").read_text(encoding="utf-8")
