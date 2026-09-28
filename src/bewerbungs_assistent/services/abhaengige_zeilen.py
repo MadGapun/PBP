@@ -17,9 +17,10 @@ neuen Stelle.
 Zwei Aktionen, mehr nicht:
 
 * ``loeschen`` — die Zeile ergibt ohne ihr Elternteil keinen Sinn
-  (Timeline-Eintrag, Kosten, Verknuepfung, Recherche zu DIESER Bewerbung).
+  (Timeline-Eintrag, Kosten, Verknuepfung).
 * ``loesen`` — die Zeile hat einen eigenen Wert und verliert nur den
-  Verweis (Dokument, Mail, Dokumentversion, Referenz). Das folgt dem
+  Verweis (Dokument, Mail, Dokumentversion, Referenz, Recherche —
+  sie ist Wissen ueber die Firma und bleibt fuer `firma_kontext`). Das folgt dem
   `ON DELETE SET NULL` des Schemas, wo es eins gibt.
 
 Vorschau und Ausfuehrung laufen durch dieselbe Funktion, damit die Zahl
@@ -44,7 +45,9 @@ LOESEN = "loesen"
 #: (Tabelle, Spalte, Elterntabelle, Aktion)
 WEITERE_BEZUEGE = (
     ("application_costs", "application_id", "applications", LOESCHEN),
-    ("research_notes", "bewerbung_id", "applications", LOESCHEN),
+    # Eine Recherche ist Wissen ueber die FIRMA, nicht nur ueber diese
+    # Bewerbung; `firma_kontext` findet sie auch ueber ihren Text.
+    ("research_notes", "bewerbung_id", "applications", LOESEN),
     ("document_versions", "application_id", "applications", LOESEN),
     ("contact_references", "application_id", "applications", LOESEN),
     ("interview_reflections", "meeting_id", "application_meetings", LOESEN),

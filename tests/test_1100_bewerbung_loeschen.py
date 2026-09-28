@@ -125,6 +125,9 @@ def test_dokumente_mails_und_referenzen_bleiben_erhalten(db):
     assert con.execute("SELECT COUNT(*) FROM application_emails").fetchone()[0] == 1
     assert con.execute("SELECT COUNT(*) FROM document_versions").fetchone()[0] == 1
     assert con.execute("SELECT COUNT(*) FROM contact_references").fetchone()[0] == 1
+    # Die Recherche ist Wissen ueber die Firma: sie bleibt, ohne Verweis.
+    rest = con.execute("SELECT bewerbung_id, text FROM research_notes").fetchall()
+    assert [(r[0], r[1]) for r in rest] == [(None, "Mittelständler")]
     assert con.execute("SELECT COUNT(*) FROM interview_reflections").fetchone()[0] == 0, \
         "die Reflexion gehört zur Bewerbung und geht mit"
     assert con.execute("SELECT COUNT(*) FROM contacts WHERE id=?", (b["kontakt"],)).fetchone()[0] == 1
@@ -140,6 +143,8 @@ def test_vorschau_gleich_ausfuehrung(db):
     assert vorher == nachher
     assert nachher["geloest"]["documents"] == 1
     assert nachher["geloescht"]["application_costs"] == 1
+    assert nachher["geloest"]["research_notes"] == 1
+    assert "research_notes" not in nachher["geloescht"]
     assert nachher["geloescht"]["contact_links"] == 2
     assert "interview_reflections" not in nachher["geloest"], "doppelt gezählt"
 
