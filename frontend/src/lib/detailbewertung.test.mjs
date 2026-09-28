@@ -33,7 +33,7 @@ check("ohne Befund kein Neubewerten", text.includes("bereits ein Befund"), false
 const bewertet = { ...stelle, analyse: { urteil: "BEDINGT", am: "2026-09-15T12:43:00" } };
 const neu = detailbewertungPrompt(bewertet);
 check("vorhandener Befund benannt", neu.includes("bereits ein Befund vor (BEDINGT, vom 2026-09-15)"), true);
-check("Knopf ohne Befund", detailbewertungKnopf(stelle).text, "Detailbewertung");
+check("Knopf ohne Befund", detailbewertungKnopf(stelle).text, "Bewerten");
 check("Knopf mit Befund", detailbewertungKnopf(bewertet).text, "Neu bewerten");
 check("Knopf nennt den Befund", detailbewertungKnopf(bewertet).befund, "BEDINGT");
 

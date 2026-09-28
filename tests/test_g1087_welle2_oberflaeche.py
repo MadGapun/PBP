@@ -100,9 +100,8 @@ def test_c96_karte_und_dialog_zeigen_dieselbe_zahl(browser, server):
     try:
         karte = page.locator("[data-punkte]").first.inner_text().strip()
         assert PUNKTE.search(karte), karte
-        # G62 (#1087 C3): "Genauer prüfen" -> "Sofort prüfen".
-        page.locator("[data-genauer-pruefen]").first.click()
-        page.get_by_role("menuitem").filter(has_text="Sofort prüfen").first.click()
+        # #1113: ein Klick direkt zur lokalen Nachrechnung.
+        page.locator("[data-punkte-ansehen]").first.click()
         dialog = page.locator("[data-punkte-dialog]").first
         dialog.wait_for(timeout=10000)
         assert dialog.inner_text().strip() == karte

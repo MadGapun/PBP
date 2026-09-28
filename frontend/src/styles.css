@@ -113,6 +113,14 @@
     box-shadow: 0 1px 3px rgb(var(--surface-shadow) / 0.2);
   }
 
+  /* #1113: backdrop-filter gibt jeder Karte einen eigenen Stacking
+     Context — ein offenes Menue lag darum UNTER der naechsten Karte.
+     Die Karte mit offenem Menue hebt sich selbst ueber ihre Nachbarn. */
+  .glass-card:has([data-menue-offen]) {
+    position: relative;
+    z-index: 30;
+  }
+
   .glass-card {
     @apply backdrop-blur-xl;
     background: rgb(var(--color-panel) / 0.65);

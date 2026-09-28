@@ -840,12 +840,14 @@ def test_jobs_page_zeigt_den_pruefstand_und_filtert_danach(live_dashboard, brows
 
         # AK 7: der Klick auf das Abzeichen fuehrt zum Ergebnis.
         page.get_by_text("Bedingt ⚠ überholt").first.click()
-        page.get_by_role("heading", name="Genauer prüfen — PLM Consultant").wait_for(state="visible")
+        page.get_by_role("heading", name="Woher die Punkte kommen — PLM Consultant").wait_for(state="visible")
         page.get_by_text("Gelesenes Urteil").wait_for(state="visible")
         page.get_by_text("Methodenluecke, ueberbrueckbar").wait_for(state="visible")
 
         # AK 1/2: der Einstieg steht in der Fusszeile, also ohne Scrollen.
-        einstieg = page.get_by_role("button", name="Detailbewertung mit Claude")
+        # #1113: mit vorhandenem Urteil heisst der Knopf "Neu bewerten".
+        # Im Dialog selbst — die Karte darunter traegt denselben Knopf.
+        einstieg = page.get_by_role("dialog").get_by_role("button", name="Neu bewerten mit Claude")
         einstieg.wait_for(state="visible")
         assert einstieg.count() == 1, "Der Einstieg steht doppelt im Dialog."
     finally:
@@ -1537,11 +1539,8 @@ def test_jobs_page_detailbewertung_auf_der_karte_und_sperre_im_aussortieren(live
         _dismiss_setup_overlay(page)
         page.get_by_role("heading", name="Stellen").wait_for(state="visible")
 
-        page.locator("[data-genauer-pruefen]").first.click()
-        # G62 (#1087 C3): der Claude-Weg steht im Menue "Genauer prüfen".
-        page.get_by_role("menuitem").filter(has_text="Detailbewertung mit Claude").first.wait_for(state="visible")
-        page.keyboard.press("Escape")
-        page.locator("[data-genauer-pruefen]").first.click()
+        # #1113: der Claude-Weg ist ein eigener Knopf auf der Karte.
+        page.locator("[data-mit-claude-bewerten]").first.wait_for(state="visible")
         assert page.get_by_role("button", name="Zur Blacklist").count() == 0, (
             "Der Blacklist-Knopf steht noch auf der Karte.")
 

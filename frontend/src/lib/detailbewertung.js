@@ -47,9 +47,11 @@ export function detailbewertungPrompt(job) {
 // AK 3: liegt ein Befund vor, sagt der Knopf das — und bietet Neubewerten an.
 export function detailbewertungKnopf(job) {
   const vorhanden = job?.analyse?.urteil;
+  // #1113: der Name sagt, was passiert — mit MitClaude wird daraus
+  // "Bewerten mit Claude", gleich auf Karte, Detail- und Fit-Dialog.
   if (!vorhanden) {
     return {
-      text: "Detailbewertung",
+      text: "Bewerten",
       titel: "Prompt für Claude kopieren: Stelle gegen dein Profil lesen und das Urteil speichern",
       befund: "",
     };

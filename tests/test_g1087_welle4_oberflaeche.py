@@ -112,16 +112,92 @@ def test_g62_karte_eine_kernaussage_und_ein_menue(browser, server):
         page.close()
 
 
-def test_g62_genauer_pruefen_bietet_zwei_wege(browser, server):
+def _oben_liegt(page, locator, frist=10.0):
+    """Liegt das Element an seiner Mitte wirklich oben? (#1113)
+
+    `inner_text()` und Rollen-Suchen finden auch verdeckte Elemente — so
+    rutschte ein Menue unter der naechsten Karte durch. Gewartet wird auf
+    den Zustand, nicht auf Zeit: waehrend die Liste noch rendert, liegt
+    kurz etwas anderes an der Stelle."""
+    locator.scroll_into_view_if_needed()
+    ende = time.monotonic() + frist
+    while True:
+        if _oben_jetzt(locator) or time.monotonic() > ende:
+            return _oben_jetzt(locator)
+        page.wait_for_timeout(100)
+
+
+def _oben_jetzt(locator):
+    return locator.evaluate(
+        """(el) => {
+            const r = el.getBoundingClientRect();
+            const oben = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+            return !!oben && (oben === el || el.contains(oben));
+        }""")
+
+
+def test_1113_zwei_direkte_knoepfe(browser, server):
     url, _db, _voll = server
     page = _stellen(browser, url)
     try:
-        page.locator("[data-genauer-pruefen]").first.click()
+        assert page.locator("[data-genauer-pruefen]").count() == 0
+        lokal = page.locator("[data-punkte-ansehen]").first
+        claude = page.locator("[data-mit-claude-bewerten]").first
+        assert lokal.inner_text().strip() == "Punkte ansehen"
+        assert claude.inner_text().strip() == "Bewerten mit Claude"
+        assert _oben_liegt(page, lokal) and _oben_liegt(page, claude)
+        lokal.click()
+        page.get_by_role("heading", name="Woher die Punkte kommen", exact=False).wait_for(timeout=15000)
+        page.get_by_role("button", name="Bewerten mit Claude").last.wait_for(timeout=15000)
+    finally:
+        page.close()
+
+
+def test_1113_fuer_claude_menue_liegt_ueber_der_naechsten_karte(browser, server):
+    url, db, _voll = server
+    # Eine Folgekarte, die das Menue ueberdecken koennte.
+    db.save_jobs([{"hash": "g62ui2", "title": "Sachbearbeitung Einkauf Zwei",
+                   "company": "Musterbetrieb GmbH", "url": "https://example.com/g62ui2",
+                   "source": "manuell", "description": TEXT, "remote_level": "hybrid",
+                   "location": "Hamburg", "score": 3}])
+    page = _stellen(browser, url)
+    try:
+        page.locator("[data-stellenkarte]").nth(1).wait_for(timeout=15000)
+        # Der Risikofall: eine kurze Karte, deren Menue in die Folgekarte
+        # ragt. Bei normaler Hoehe endet das Menue in der eigenen Karte,
+        # und der Test waere ohne den Fix gruen geblieben (Gegenprobe).
+        # Als Stylesheet, damit ein Neuzeichnen der Liste es nicht verliert.
+        karte = page.locator("[data-fuer-claude]").first.evaluate(
+            """(el) => {
+                const karte = el.closest('[data-stellenkarte]');
+                return {id: karte.id, hoehe: Math.ceil(
+                    el.getBoundingClientRect().bottom - karte.getBoundingClientRect().top) + 8};
+            }""")
+        assert karte["id"], "Karte ohne id"
+        page.add_style_tag(content=(
+            '[id="%s"] { height: %dpx !important; min-height: 0 !important;'
+            ' overflow: visible !important; }' % (karte["id"], karte["hoehe"])))
+        page.wait_for_function(
+            "(k) => { const e = document.getElementById(k.id); return !!e && e.getBoundingClientRect().height <= k.hoehe + 1; }",
+            arg=karte)
+        page.locator("[data-fuer-claude]").first.click()
         menue = page.get_by_role("menu").first
-        assert "Sofort prüfen" in menue.inner_text()
-        assert "Detailbewertung mit Claude" in menue.inner_text()
-        menue.get_by_role("menuitem").filter(has_text="Sofort prüfen").click()
-        page.get_by_text("Detailbewertung mit Claude").last.wait_for(timeout=15000)
+        menue.wait_for(timeout=5000)
+        # Vorbedingung: das Menue ueberschneidet die Folgekarte tatsaechlich.
+        lage = page.evaluate("""() => {
+            const m = document.querySelector('[role=menu]').getBoundingClientRect();
+            const k = document.querySelectorAll('[data-stellenkarte]')[1].getBoundingClientRect();
+            return m.left < k.right && k.left < m.right && m.top < k.bottom && k.top < m.bottom;
+        }""")
+        assert lage, "Aufbau falsch: das Menue reicht nicht in die Folgekarte"
+        for eintrag in menue.get_by_role("menuitem").all():
+            assert _oben_liegt(page, eintrag), eintrag.inner_text()
+        page.keyboard.press("Escape")
+        menue.wait_for(state="detached", timeout=5000)
+        page.locator("[data-fuer-claude]").first.click()
+        page.get_by_role("menu").first.wait_for(timeout=5000)
+        page.locator("[data-filter-knopf]").click()
+        page.get_by_role("menu").first.wait_for(state="detached", timeout=5000)
     finally:
         page.close()
 
@@ -149,8 +225,7 @@ def test_g72_fehlschlag_zeigt_text_zum_selbstkopieren(browser, server):
     url, _db, _voll = server
     page = _stellen(browser, url, clipboard_kaputt=True)
     try:
-        page.locator("[data-genauer-pruefen]").first.click()
-        page.get_by_role("menu").first.get_by_role("menuitem").filter(has_text="mit Claude").click()
+        page.locator("[data-mit-claude-bewerten]").first.click()
         feld = page.locator("[data-manuell-kopieren]")
         feld.wait_for(timeout=10000)
         assert "stelle_urteil_speichern" in feld.input_value()  # H29: neuer Name
