@@ -11,12 +11,17 @@ mehrfach daneben.
 
 Zwei Regeln, die dieses Modul traegt:
 
-(1) **Die Loeschung leert den GANZEN Datenordner**, nicht die Eintraege
-    einer Liste. Eine Liste waere beim naechsten neuen Unterordner
-    unvollstaendig; genau so ist der Fehler entstanden. `INHALT` dient
-    der Auskunft (Gefahrenzone, Datenuebersicht, Selbstauskunft) und
-    wird von einem Guard gegen den Code gehalten — die Loeschung haengt
-    nicht an ihr.
+(1) **Die Loeschung entfernt alles, was PBP im Datenordner anlegt —
+    und nichts anderes.** Massgeblich ist `INHALT`; ein Guard
+    (tests/test_1097_datenordner.py) haelt jeden Namen, den der Code
+    unter `get_data_dir()` baut, gegen diese Liste, damit sie beim
+    naechsten neuen Unterordner nicht unvollstaendig wird.
+    Eine erste Fassung leerte den GANZEN Ordner. Das traf, was nicht
+    PBP gehoert: `installer/install.ps1` setzt `BA_DATA_DIR` auf den
+    Ordner, in dem auch `python\\` und `src\\` liegen — die DSGVO-Loeschung
+    haette das Programm mitgenommen. Und wer `BA_DATA_DIR` auf einen
+    eigenen Ordner setzt, verloere dessen fremde Dateien. Unbekanntes
+    wird deshalb genannt, aber nicht angefasst.
 
 (2) **Eine teilweise Loeschung ist kein Erfolg** (#997). Unter Windows
     haelt ein zweiter Prozess (der MCP-Server in Claude Desktop) die
@@ -101,6 +106,12 @@ INHALT = (
 
 NAMEN = frozenset(e["name"] for e in INHALT)
 
+# Programmteile, die bei manchen Installationswegen im selben Ordner wie
+# die Daten liegen (`installer/install.ps1`: python\ und src\). Sie werden
+# nie geloescht und in der Uebersicht ausdruecklich als "bleibt" genannt.
+PROGRAMMTEILE = frozenset({"python", "src", "app", ".venv", "venv", "Scripts",
+                           "installer"})
+
 AUSSERHALB_SATZ = (
     "Nicht gelöscht wird, was außerhalb des Datenordners liegt: selbst "
     "gewählte Ablage- und Vorlagenordner, Originaldateien, aus denen "
@@ -123,23 +134,28 @@ def _groesse(p: Path) -> int:
 
 
 def uebersicht(datenordner: Path | None = None) -> list:
-    """Was davon gerade vorhanden ist, mit Groesse. Dazu jeder Eintrag im
-    Datenordner, den `INHALT` nicht kennt — er wird bei der Loeschung
-    ebenfalls entfernt und soll deshalb auch hier stehen."""
+    """Was davon gerade vorhanden ist, mit Groesse und ob die Loeschung es
+    entfernt (`loeschen`). Eintraege, die `INHALT` nicht kennt, stehen mit
+    `loeschen: False` dabei — PBP hat sie nicht angelegt und fasst sie
+    nicht an; Programmteile werden als solche benannt."""
     basis = Path(datenordner) if datenordner else _datenordner()
     out = []
     for e in INHALT:
         p = basis / e["name"]
         if p.exists():
-            out.append({**e, "pfad": str(p), "bytes": _groesse(p)})
+            out.append({**e, "pfad": str(p), "bytes": _groesse(p),
+                        "loeschen": True})
     try:
         fremd = sorted(c for c in basis.iterdir() if c.name not in NAMEN)
     except OSError:
         fremd = []
     for p in fremd:
+        programm = p.name in PROGRAMMTEILE
         out.append({"name": p.name, "art": "ordner" if p.is_dir() else "datei",
-                    "was": "Sonstige Datei im Datenordner",
-                    "persoenlich": True, "pfad": str(p), "bytes": _groesse(p)})
+                    "was": ("Programmdateien von PBP — bleiben" if programm else
+                            "Nicht von PBP angelegt — bleibt liegen"),
+                    "persoenlich": not programm, "pfad": str(p),
+                    "bytes": _groesse(p), "loeschen": False})
     return out
 
 
@@ -216,22 +232,28 @@ def _protokolle_schliessen(basis: Path) -> None:
 
 
 def alles_loeschen(datenordner: Path | None = None) -> dict:
-    """Leert den Datenordner vollstaendig. Wirft nicht.
+    """Loescht alles, was PBP im Datenordner anlegt (`INHALT`). Wirft nicht.
 
-    Rueckgabe: {"geloescht": [namen], "fehler": [{"pfad", "grund"}]}.
-    Bleibt etwas zurueck, steht eine Vormerkung im Ordner, die den Rest
-    beim naechsten Start entfernt."""
+    Rueckgabe: {"geloescht": [namen], "fehler": [{"pfad", "grund"}],
+    "unberuehrt": [namen]}. `unberuehrt` sind Eintraege, die PBP nicht
+    angelegt hat — sie bleiben. Bleibt von PBPs Eigenem etwas zurueck,
+    steht eine Vormerkung im Ordner, die den Rest beim naechsten Start
+    entfernt."""
     basis = Path(datenordner) if datenordner else _datenordner()
-    geloescht, fehler = [], []
+    geloescht, fehler, unberuehrt = [], [], []
     if not basis.exists():
-        return {"geloescht": [], "fehler": []}
+        return {"geloescht": [], "fehler": [], "unberuehrt": []}
     _protokolle_schliessen(basis)
     try:
         eintraege = sorted(basis.iterdir())
     except OSError as exc:
-        return {"geloescht": [], "fehler": [{"pfad": str(basis), "grund": str(exc)}]}
+        return {"geloescht": [], "fehler": [{"pfad": str(basis), "grund": str(exc)}],
+                "unberuehrt": []}
     for p in eintraege:
         if p.name == VORMERKUNG:
+            continue
+        if p.name not in NAMEN:
+            unberuehrt.append(p.name)
             continue
         try:
             if p.is_dir() and not p.is_symlink():
@@ -249,7 +271,7 @@ def alles_loeschen(datenordner: Path | None = None) -> dict:
             logger.warning("Vormerkung nicht schreibbar: %s", exc)
     else:
         marke.unlink(missing_ok=True)
-    return {"geloescht": geloescht, "fehler": fehler}
+    return {"geloescht": geloescht, "fehler": fehler, "unberuehrt": unberuehrt}
 
 
 def vorgemerkte_loeschung_ausfuehren(datenordner: Path) -> dict | None:

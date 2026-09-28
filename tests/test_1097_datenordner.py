@@ -40,9 +40,12 @@ def umgebung(tmp_path):
 def _befuellen(daten: Path, wal: bool = True) -> None:
     """Jede Art Datei, die PBP im Datenordner anlegt.
 
-    Eine Attrappe der WAL-Datei neben einer offenen Datenbank liest SQLite
-    als echt — nur Tests, die gleich löschen, legen sie an."""
-    if wal:
+    Die WAL-Datei legt SQLite im WAL-Modus selbst an. Eine Attrappe nur,
+    wenn keine echte da ist: neben einer offenen Datenbank liest SQLite sie
+    als echt, und unter Windows gibt es die Datei danach nicht mehr frei —
+    die Loeschung meldete dann "teilweise", ohne dass PBP etwas falsch
+    machte."""
+    if wal and not (daten / "pbp.db-wal").exists():
         (daten / "pbp.db-wal").write_bytes(b"wal")
     for ordner, datei in [("backups", "pbp_vor_update.db"), ("backup", "pbp_x.db"),
                           ("emails", "absage.eml"), ("logs", "pbp.log"),
@@ -66,9 +69,13 @@ def test_dsgvo_leert_den_ganzen_datenordner(umgebung):
     _befuellen(daten)
     r = _dsgvo(umgebung["client"])
     assert r.status_code == 200, r.text
-    assert r.json()["status"] == "ok", r.json()
+    body = r.json()
+    assert body["status"] == "ok", body
     rest = sorted(p.name for p in daten.iterdir())
-    assert rest == [], f"liegen geblieben: {rest}"
+    # Was PBP nicht angelegt hat, bleibt — und wird genannt.
+    assert rest == ["unbekannt_neu.json"], f"liegen geblieben: {rest}"
+    assert body["unberuehrt"] == ["unbekannt_neu.json"]
+    assert "unbekannt_neu.json" in body["message"]
     assert daten.exists(), "der Datenordner selbst bleibt"
 
 
@@ -79,7 +86,7 @@ def test_alter_weg_nimmt_dieselbe_mechanik(umgebung):
                                    json={"confirm": "ALLES_LOESCHEN"})
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
-    assert list(daten.iterdir()) == []
+    assert sorted(p.name for p in daten.iterdir()) == ["unbekannt_neu.json"]
 
 
 # ── AK 3: keine Löschung unter laufender Hintergrundarbeit ───────────
@@ -202,6 +209,10 @@ def test_gefahrenzone_nennt_was_geloescht_wird(umgebung):
     namen = {e["name"] for e in v["dsgvo"]["inhalt"]}
     assert {"pbp.db", "backups", "emails", "logs", "linkedin_session"} <= namen
     assert "unbekannt_neu.json" in namen, "Unbekanntes fehlt in der Anzeige"
+    fremd = next(e for e in v["dsgvo"]["inhalt"] if e["name"] == "unbekannt_neu.json")
+    assert fremd["loeschen"] is False, "Unbekanntes darf nicht als geloescht gelten"
+    db_eintrag = next(e for e in v["dsgvo"]["inhalt"] if e["name"] == "pbp.db")
+    assert db_eintrag["loeschen"] is True
     assert "außerhalb" in v["dsgvo"]["ausserhalb_hinweis"]
     assert "Anthropic" in v["dsgvo"]["ausserhalb_hinweis"]
 
@@ -230,3 +241,30 @@ def test_selbstauskunft_liest_dieselbe_liste():
     text = (SRC / "export_report.py").read_text(encoding="utf-8")
     assert "datenordner.INHALT" in text
     assert "datenordner.AUSSERHALB_SATZ" in text
+
+
+# ── Programm im Datenordner (installer/install.ps1) ──────────────────
+
+def test_programm_im_datenordner_bleibt(umgebung):
+    """`install.ps1` setzt BA_DATA_DIR auf den Ordner, in dem auch
+    python/ und src/ liegen. Eine Fassung, die den ganzen Ordner
+    leert, nahm das Programm mit. Geloescht wird nur, was PBP anlegt."""
+    daten = umgebung["daten"]
+    _befuellen(daten)
+    for teil, datei in [("python", "python.exe"),
+                        ("src", "bewerbungs_assistent.py")]:
+        (daten / teil).mkdir()
+        (daten / teil / datei).write_text("programm", encoding="utf-8")
+    v = umgebung["client"].get("/api/danger/bereiche").json()
+    programm = {e["name"]: e for e in v["dsgvo"]["inhalt"]
+                if e["name"] in ("python", "src")}
+    assert set(programm) == {"python", "src"}
+    assert all(e["loeschen"] is False for e in programm.values())
+    assert all("Programm" in e["was"] for e in programm.values())
+
+    r = _dsgvo(umgebung["client"])
+    assert r.json()["status"] == "ok", r.json()
+    assert (daten / "python" / "python.exe").exists(), "Programm geloescht"
+    assert (daten / "src" / "bewerbungs_assistent.py").exists(), "Programm geloescht"
+    assert not (daten / "pbp.db").exists()
+    assert not (daten / "emails").exists()

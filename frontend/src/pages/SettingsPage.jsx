@@ -4646,13 +4646,15 @@ function DsgvoFolge({ dsgvo }) {
   return (
     <div className="grid gap-2 text-ink">
       <p>
-        Der ganze Datenordner wird geleert. Das lässt sich nicht rückgängig
-        machen — auch nicht für einzelne Bereiche.
+        Gelöscht wird alles, was PBP im Datenordner angelegt hat. Das lässt
+        sich nicht rückgängig machen — auch nicht für einzelne Bereiche.
+        Was PBP nicht angelegt hat, bleibt liegen und steht unten mit „Bleibt“.
       </p>
       {inhalt.length > 0 && (
         <ul className="grid gap-0.5 text-xs">
           {inhalt.map((e) => (
             <li key={e.name}>
+              {e.loeschen === false && <>Bleibt: </>}
               <strong>{e.name}</strong> — {e.was} ({formatBytes(e.bytes || 0)})
             </li>
           ))}
@@ -4760,7 +4762,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
             ["bereiche", "Ausgewählte Bereiche leeren",
              "Entfernt Zeilen aus der Datenbank. Die Datei bleibt bestehen."],
             ["dsgvo", "Alles unwiderruflich löschen (DSGVO)",
-             "Leert den ganzen Datenordner: Datenbank, Sicherungskopien, Dokumente, Mails, Protokolle und Browser-Sitzungen."],
+             "Löscht alles, was PBP im Datenordner angelegt hat: Datenbank, Sicherungskopien, Dokumente, Mails, Protokolle und Browser-Sitzungen."],
           ].map(([wert, label, hilfe]) => (
             <label key={wert} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line/60 p-3">
               <input
