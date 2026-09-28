@@ -27,8 +27,25 @@ SCHRITTE = {
     "automatik": {"erstauswahl": False},
 }
 
-#: Watchdog: ein Lauf, der danach noch lebt, gilt als gescheitert.
+#: Watchdog: Grundzeit fuer die schnellen Quellen und das Speichern. Eine
+#: Suche, die danach noch nicht abgeschlossen ist, gilt als gescheitert.
 ZEITLIMIT_SEK = 600
+#: Langlaufende Quellen bringen ihr eigenes Budget mit (#1038): LinkedIn
+#: ueber JobSpy darf bis zu `LINKEDIN_BUDGET_MAX` laufen. Mit einem festen
+#: Zeitlimit von zehn Minuten meldete der Watchdog einen solchen Lauf als
+#: gescheitert, waehrend die Ergebnisse noch eintrafen — und ein zweiter
+#: Start lief parallel, weil der Job nicht mehr als laufend galt.
+LANGLAUF_QUELLEN = frozenset({"jobspy_linkedin"})
+
+
+def zeitlimit(quellen: list[str]) -> int:
+    """Wie lange der Watchdog wartet, bevor er einen Lauf fuer gescheitert
+    haelt: die Grundzeit plus das Hoechstbudget jeder langlaufenden Quelle."""
+    limit = ZEITLIMIT_SEK
+    if LANGLAUF_QUELLEN & set(quellen or ()):
+        from ..job_scraper.jobspy_source import LINKEDIN_BUDGET_MAX
+        limit += LINKEDIN_BUDGET_MAX
+    return limit
 
 
 def _stellentyp_ohne_quelle(db, laufende: list[str]) -> list[dict]:
@@ -147,12 +164,21 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
     thread.start()
     schritte += ["nachlauf", "watchdog"]
 
+    grenze = zeitlimit(auto)
+
     def _watchdog():
-        thread.join(timeout=ZEITLIMIT_SEK)
-        if thread.is_alive():
-            logger.warning("Jobsuche Timeout nach %s s (Job %s)", ZEITLIMIT_SEK, job_id)
-            db.update_background_job(job_id, "fehler",
-                                     message=f"Zeitlimit von {ZEITLIMIT_SEK // 60} Minuten überschritten")
+        thread.join(timeout=grenze)
+        if not thread.is_alive():
+            return
+        # Nach dem Suchlauf arbeitet derselbe Thread weiter (Anzeigentexte
+        # nachladen, Auto-Aussortierung). Ist die Suche selbst schon
+        # abgeschlossen, ist das kein gescheiterter Lauf.
+        job = db.get_background_job(job_id) or {}
+        if job.get("status") not in ("pending", "running"):
+            return
+        logger.warning("Jobsuche Timeout nach %s s (Job %s)", grenze, job_id)
+        db.update_background_job(job_id, "fehler",
+                                 message=f"Zeitlimit von {grenze // 60} Minuten überschritten")
 
     threading.Thread(target=_watchdog, daemon=True,
                      name=f"pbp-watchdog-{job_id[:8]}").start()
