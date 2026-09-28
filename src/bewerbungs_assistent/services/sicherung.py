@@ -25,7 +25,7 @@ Regeln:
   Threads (und des MCP-Servers in Claude Desktop) auf die Datei; sie
   darunter auszutauschen war die Absturzursache aus v1.7.11. Vor dem
   Vormerken wird der aktuelle Stand selbst gesichert.
-* **Nicht vor der DSGVO-Loeschung.** Die leert den ganzen Datenordner,
+* **Nicht vor der DSGVO-Loeschung.** Die loescht alles, was PBP im Datenordner anlegt,
   Sicherungen eingeschlossen (#1097); eine Sicherung davor waere genau
   das, was sie verhindern soll.
 """

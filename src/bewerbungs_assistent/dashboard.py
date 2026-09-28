@@ -7432,6 +7432,9 @@ async def _dsgvo_loeschen() -> dict:
     erg = datenordner.alles_loeschen(data_dir)
     antwort = {"modus": "dsgvo", "deleted": erg["geloescht"],
                "nicht_geloescht": erg["fehler"],
+               # Nicht von PBP angelegt (fremde Dateien, Programmteile):
+               # bleibt liegen und wird genannt.
+               "unberuehrt": erg.get("unberuehrt", []),
                "ausserhalb": ausserhalb,
                "ausserhalb_hinweis": datenordner.AUSSERHALB_SATZ}
     if erg["fehler"]:
@@ -7441,9 +7444,13 @@ async def _dsgvo_loeschen() -> dict:
                     "vermutlich hält Claude Desktop sie noch offen. Beende "
                     "Claude Desktop und PBP; beim nächsten Start löscht PBP "
                     "den Rest, bevor es etwas anderes tut.")}
+    bleibt = ""
+    if antwort["unberuehrt"]:
+        bleibt = (" Nicht angefasst, weil PBP es nicht angelegt hat: "
+                  + ", ".join(antwort["unberuehrt"]) + ".")
     return {**antwort, "status": "ok",
-            "message": ("Alle Daten im Datenordner gelöscht. Bitte PBP und "
-                        "Claude Desktop neu starten.")}
+            "message": ("Alle Daten von PBP im Datenordner gelöscht." + bleibt
+                        + " Bitte PBP und Claude Desktop neu starten.")}
 
 
 # === PBP Komplett-Deinstallation aus der Gefahrenzone (#620 Folge-Issue) ===
