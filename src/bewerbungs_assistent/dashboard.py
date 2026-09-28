@@ -4449,81 +4449,14 @@ async def api_upcoming_meetings(days: int = 30):
 
 @app.get("/api/meetings/export.ics")
 async def api_meetings_export_ics():
-    """Export all planned meetings as a single .ics calendar file (#310)."""
-    conn = _db.connect()
-    pid = _db.get_active_profile_id()
-    rows = conn.execute(
-        """SELECT m.*, a.title as app_title, a.company as app_company, a.id as app_id
-           FROM application_meetings m
-           LEFT JOIN applications a ON m.application_id = a.id
-           WHERE m.status='geplant'
-             AND (m.profile_id=? OR m.profile_id IS NULL)
-           ORDER BY m.meeting_date ASC""",
-        (pid,),
-    ).fetchall()
+    """Export all planned meetings as a single .ics calendar file (#310).
 
-    from datetime import datetime as _dt
-    now_stamp = _dt.now().strftime("%Y%m%dT%H%M%SZ")
-
-    def _fmt_dt(iso_str):
-        if not iso_str:
-            return None
-        try:
-            return _dt.fromisoformat(iso_str).strftime("%Y%m%dT%H%M%S")
-        except (ValueError, TypeError):
-            return None
-
-    ics_lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//PBP Bewerbungs-Assistent//DE",
-        "CALSCALE:GREGORIAN",
-        "METHOD:PUBLISH",
-        "X-WR-CALNAME:PBP Bewerbungstermine",
-    ]
-
-    for r in rows:
-        m = dict(r)
-        dt_start = _fmt_dt(m.get("meeting_date"))
-        if not dt_start:
-            continue
-        dt_end = _fmt_dt(m.get("meeting_end")) or dt_start
-        title = m.get("title", "Termin")
-        company = m.get("app_company", "")
-        app_title = m.get("app_title", "")
-        app_id = m.get("app_id", "")
-        location = m.get("location", "")
-        meeting_url = m.get("meeting_url", "")
-        notes = m.get("notes", "") or ""
-
-        desc_parts = []
-        if company and app_title:
-            desc_parts.append(f"Bewerbung: {app_title} bei {company}")
-        if app_id:
-            # H31 (#1087 G13): der alte Link zeigte auf eine Route, die es nicht gibt.
-            from .services.dashboard_link import dashboard_link
-            desc_parts.append(f"PBP-Link: {dashboard_link('bewerbungen', app_id)}")
-        if meeting_url:
-            desc_parts.append(f"Meeting-Link: {meeting_url}")
-        if notes:
-            desc_parts.append(f"Notizen: {notes}")
-
-        ics_lines.append("BEGIN:VEVENT")
-        ics_lines.append(f"UID:{m['id']}@pbp.local")
-        ics_lines.append(f"DTSTAMP:{now_stamp}")
-        ics_lines.append(f"DTSTART:{dt_start}")
-        ics_lines.append(f"DTEND:{dt_end}")
-        ics_lines.append(f"SUMMARY:{title}" + (f" — {company}" if company else ""))
-        desc_text = "\\n".join(desc_parts)
-        ics_lines.append(f"DESCRIPTION:{desc_text}")
-        if location:
-            ics_lines.append(f"LOCATION:{location}")
-        if meeting_url:
-            ics_lines.append(f"URL:{meeting_url}")
-        ics_lines.append("END:VEVENT")
-
-    ics_lines.append("END:VCALENDAR")
-    ics_content = "\r\n".join(ics_lines)
+    #1102: derselbe Kern wie der Einzelexport (services/ics_service) —
+    maskiert, gefaltet, Zeiten mit Zone als UTC, ganztaegige Termine als
+    Datum. Vorher eine eigene Fassung ohne all das.
+    """
+    from .services.ics_service import build_meetings_ics
+    ics_content, _count = build_meetings_ics(_db)
 
     from starlette.responses import Response
     return Response(

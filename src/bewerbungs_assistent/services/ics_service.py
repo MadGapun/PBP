@@ -2,7 +2,8 @@
 
 Die Basis (Export aller geplanten Termine als .ics) existiert seit #310 im
 Dashboard-Endpoint. Hier lebt seit beta.3 der gemeinsame, RFC-5545-feste
-Kern fuer REST-Endpoint UND MCP-Tool:
+Kern fuer REST-Endpoint UND MCP-Tool (auf der 1.7-Linie seit v1.7.140
+mit #1102, dort nur fuer die beiden Dashboard-Exporte):
 
   - **Escaping** von Komma/Semikolon/Backslash/Zeilenumbruechen in
     SUMMARY/LOCATION/DESCRIPTION — vorher zerbrach ein Titel wie
