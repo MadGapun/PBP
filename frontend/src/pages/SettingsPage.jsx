@@ -5,6 +5,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SicherungKarte from "@/components/SicherungKarte";
+import LernTransparenz from "@/components/LernTransparenz";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -1661,7 +1662,7 @@ function LernprotokollSection() {
       <button type="button" className="w-full flex items-center justify-between text-left"
         onClick={() => setOpen(!open)}>
         <p className="text-xs font-semibold text-muted uppercase tracking-wide">
-          Lernprotokoll — was Ollama gelernt hat ({items.length})
+          Gelernte Aussagen ({items.length})
         </p>
         <span className="text-muted text-xs">{open ? "▲" : "▼"}</span>
       </button>
@@ -2331,6 +2332,7 @@ function LocalAITab({ pushToast }) {
 
       {/* beta.104 (#689 / F21): Transparenz — was wurde aussortiert, was gelernt */}
       <AutoDismissedSection />
+      <LernTransparenz />
       <LernprotokollSection />
 
       {/* v1.7.0-beta.24 (#584): Test-Verbindung-Button */}

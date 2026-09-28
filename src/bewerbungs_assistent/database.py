@@ -719,6 +719,12 @@ class Database:
             """)
             conn.commit()
 
+            # #792: ein Eintrag je Lernlauf — was ausgewertet wurde, was
+            # herauskam und warum nichts kam.
+            from .services import lernprotokoll as _lernprotokoll
+            _lernprotokoll.tabelle_anlegen(conn)
+            conn.commit()
+
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
             # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.

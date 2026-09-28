@@ -48,9 +48,12 @@ def regeln(monkeypatch):
     from bewerbungs_assistent.services import lerninsights
     gerufen = []
 
-    def ableiten(db):
+    def ableiten(db, budget_sekunden=20):
         gerufen.append(1)
-        return {"kandidaten": [], "regeln_gelaufen": 1, "abgebrochen": False}
+        # #792: dieselbe Form wie der echte Rueckgabewert
+        return {"kandidaten": [], "regeln_gelaufen": ["zeitmuster"],
+                "regeln_mit_ergebnis": [], "regeln_uebersprungen": [],
+                "regel_fehler": {}, "dauer_ms": 0, "abgebrochen": False}
     monkeypatch.setattr(lerninsights, "kandidaten_ableiten", ableiten)
     import bewerbungs_assistent.dashboard as dash
     monkeypatch.setattr(dash, "_run_analyze_user_patterns", lambda *a, **k: {"status": "test"})
@@ -102,10 +105,12 @@ def test_zweiter_start_waehrend_des_laufs(db, monkeypatch):
     import bewerbungs_assistent.dashboard as dash
     halt, drin = threading.Event(), threading.Event()
 
-    def ableiten(db):
+    def ableiten(db, budget_sekunden=20):
         drin.set()
         halt.wait(10)
-        return {"kandidaten": [], "regeln_gelaufen": 0, "abgebrochen": False}
+        return {"kandidaten": [], "regeln_gelaufen": [], "regeln_mit_ergebnis": [],
+                "regeln_uebersprungen": [], "regel_fehler": {}, "dauer_ms": 0,
+                "abgebrochen": False}
     monkeypatch.setattr(lerninsights, "kandidaten_ableiten", ableiten)
     monkeypatch.setattr(dash, "_run_analyze_user_patterns", lambda *a, **k: {})
     try:

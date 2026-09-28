@@ -147,6 +147,7 @@ export const FAQ = [
   { q: "Welche Dateiformate gehen?", a: "PDF, DOCX, DOC, TXT, Markdown, RTF und Mails (EML, MSG)." },
   { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und quelloffen (MIT-Lizenz). Für Claude brauchst du ein Konto bei Anthropic." },
   { q: "Wie hole ich einen früheren Stand zurück?", a: "Einstellungen › Datenschutz › Daten & Sicherung: die Liste der Sicherungen öffnen und „Diesen Stand wiederherstellen“ wählen. Dein jetziger Stand wird vorher selbst gesichert. Danach PBP und Claude Desktop ganz beenden und neu starten — beim Start wird der Stand eingespielt." },
+  { q: "Was lernt PBP über mich?", a: "Einstellungen › Lokale KI › „Was PBP über dich lernt“ zeigt, welche Daten einfließen (aussortierte Stellen, Bewerbungen und ihr Verlauf, mit lokaler KI auch die Nutzung der letzten 30 Tage) und welche nicht (Dokumente, Mails, Profil, Kontakte). Jeder Lernlauf steht dort mit Ergebnis — und wenn nichts herauskam, mit dem Grund. „Lerndaten exportieren“ lädt alles zum Nachlesen herunter. Ausschalten kannst du das Lernen unter Datenschutz." },
   { q: "Wie aktualisiere ich PBP?", a: "Neue Version herunterladen und den Installer erneut starten. Deine Daten bleiben erhalten; vorher legt PBP eine Sicherung an." },
 ];
 
