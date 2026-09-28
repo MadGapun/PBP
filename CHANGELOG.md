@@ -75,6 +75,13 @@ die gespeicherten Daten bleiben erhalten.
   - Bewerbungsbericht (#1111)
   - Blacklist auf den Bestand anwenden: vorher wirkte das über alle
     Profile hinweg und ohne Protokoll
+- **Stellenkarte: zwei direkte Knöpfe statt „Genauer prüfen“** (#1113).
+  Das Menü lag unter der nächsten Karte, sichtbar war nur „Sofort
+  prüfen“ — es wirkte wie eine zweite Rückfrage. Jetzt steht der
+  Unterschied im Namen: „Punkte ansehen“ rechnet lokal nach, „Bewerten
+  mit Claude“ (bzw. „Neu bewerten“) kopiert den Prompt. Karte, Detail- und
+  Fit-Dialog nutzen dieselben Namen. Das Menü „Für Claude kopieren“ liegt
+  über der Folgekarte und schließt per Klick daneben oder Escape.
 - **Nähe-Punkte gleitend bis zur Grenze**, eine Grenze für alle Wege; die
   Luftlinie ist die Hauptangabe (#1036, #1037).
 - **Der Wohnort aus dem Profil gilt als Standort** (#1090), Entfernungen
