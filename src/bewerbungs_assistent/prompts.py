@@ -506,6 +506,92 @@ SCHRITT 4 — ABGEBEN (zwei Wege, beide gleichwertig):
 Sprich Deutsch und per Du. Kurz und lösungsorientiert — erst helfen, dann melden."""
 
 
+def build_stellen_abgleich_prompt(db, gefunden_seit: str = '') -> str:
+    """Text des Prompts `stellen_abgleich` (#1112) — die ganze Stellenliste
+    gegen das Profil. Eine Quelle fuer Slash-Befehl und Dashboard (H22).
+
+    Die Regeln stammen aus zwei echten Durchgaengen, in denen Claude eine
+    harte Entfernungsgrenze aufweichte, Vorgeschichte uebersah, verborgene
+    Stellen nie las, falsche Gruende waehlte und aus dem Titel urteilte."""
+    from datetime import date as _date
+    seit = (gefunden_seit or "").strip()
+    try:
+        seit = _date.fromisoformat(seit[:10]).isoformat() if seit else ""
+    except ValueError:
+        seit = ""
+    if seit:
+        umfang = f"Gleiche die Stellen ab, die PBP seit dem {seit} gefunden hat, mit meinem Profil ab."
+        liste = (f"- stellen_anzeigen(ohne_schwelle=True, pro_seite=50, "
+                 f"gefunden_seit='{seit}'), bei mehr Stellen mit seite=2, 3 ... weiterblättern")
+    else:
+        umfang = "Gleiche meine aktiven Stellen mit meinem Profil ab."
+        liste = ("- stellen_anzeigen(ohne_schwelle=True, pro_seite=50), bei mehr "
+                 "Stellen mit seite=2, 3 ... weiterblättern")
+    return f"""{umfang}
+
+SCHRITT 1: RAHMEN LESEN, BEVOR DU EINE STELLE ANSIEHST
+- suchkriterien_anzeigen(): Entfernungsgrenze je Stellentyp, Mindestgehalt,
+  Tagessatz, Stellentypen, Remote-Wunsch
+- profil_zusammenfassung(): Kern, Systeme, Positionen, Profilnotizen
+- bewerbungen_anzeigen(archiv=True): laufende UND frühere Bewerbungen
+
+SCHRITT 2: LISTE HOLEN
+{liste}
+- ohne_schwelle=True ist Pflicht: auch Stellen unter der Schwelle gehören
+  dazu. Verborgen heißt nicht gelesen.
+
+SCHRITT 3: JEDE STELLE EINORDNEN
+Harte Grenzen zuerst (sofort aussortieren, ohne Rückfrage):
+- Entfernung über der Grenze des Stellentyps und kein volles Remote von
+  Anfang an -> zu_weit_entfernt. "Remote nach Einarbeitung", "Standort
+  offen" oder "hybrid" heben die Grenze NICHT auf. Nennt die Anzeige einen
+  Standort innerhalb der Grenze, zählt dieser.
+- Vertragsform nicht in den Stellentypen (z. B. Zeitarbeit, befristet)
+  -> der passende Grund (zeitarbeit, befristet)
+- Gehalt oder Tagessatz BELEGT unter dem Minimum -> gehalt_zu_niedrig.
+  Geschätzte Werte sind kein Grund.
+Vorgeschichte (vor jedem inhaltlichen Urteil):
+- Steht eine Repost-Warnung an der Stelle? Den dokumentierten Absagegrund
+  lesen (bewerbung_details, dokument_lesen) und gegen die neue Anzeige
+  halten. Eine Neuausschreibung ist nicht automatisch eine zweite Chance.
+- firma_kontext(firmenname): bei Vermittlern auch den Endkunden bedenken
+- Schon beworben auf dieselbe Rolle -> bereits_beworben, nicht duplikat
+Inhalt:
+- Bei allem, was die harten Grenzen besteht und fachlich in Frage kommt:
+  fit_analyse(job_hash) lesen, vollständig
+- Fehlt der Anzeigentext: stellenbeschreibung_nachladen(stellen_hash);
+  klappt das nicht, NICHT_BEURTEILBAR mit Grund. Nicht aus dem Titel urteilen.
+- Achtung Begriffe: ein Pflichtbegriff kann in einer anderen Bedeutung
+  vorkommen (z. B. "Change Management" als Organisations- oder HR-Wandel
+  statt als Änderungswesen im Engineering). Lies, was gemeint ist.
+- Eindeutig fachfremde Titel dürfen gesammelt aussortiert werden:
+  stellen_bulk_bewerten(bewertung='passt_nicht', gruende=[...],
+  titel_enthaelt=[...], dry_run=True) — erst die Vorschau zeigen, dann
+  mit dry_run=False.
+
+SCHRITT 4: ERGEBNIS SICHERN
+- Aussortieren: stelle_einordnen(job_hash, bewertung='passt_nicht',
+  gruende=[...]) — Gründe nur aus der Liste, die das Werkzeug nennt
+- Jede gelesene Stelle: stelle_urteil_speichern(job_hash, urteil,
+  begruendung) mit einem oder zwei Sätzen Begründung. urteil ist
+  EMPFOHLEN, BEDINGT, NICHT_EMPFOHLEN oder NICHT_BEURTEILBAR.
+- Befunde zu Firmen oder Kontakten zurück nach PBP schreiben, nicht nur
+  im Chat nennen
+
+SCHRITT 5: BERICHT
+- Wie viele Stellen gelesen, wie viele aussortiert (nach Grund gruppiert)
+- Tabelle der verbleibenden Stellen: Urteil, Kernaussage, was vor einer
+  Bewerbung zu klären ist
+- Auffälligkeiten an Suchbegriffen oder Quellen als Vorschlag — nichts
+  selbst an den Suchkriterien ändern
+
+REGELN
+- Keine Vermutungen als Fakten; bei Unklarheit nachfragen
+- Aussortieren ist umkehrbar, löschen nie
+- Bewerbungen, Aufgaben und Termine nicht verändern
+- Sprich Deutsch und per Du"""
+
+
 def build_interview_vorbereitung_prompt(db, stelle: str = '', firma: str = '') -> str:
     """Text des Prompts `interview_vorbereitung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
     # G16 (#706): vorbefuellbar — der Knopf in Bewerbungen und Timeline
@@ -1345,6 +1431,12 @@ def register_prompts(mcp, db, logger):
         return _prompt_registry(db)["bewerbung_schreiben"](
             stelle=stelle, firma=firma, job_hash=job_hash,
             bewerbung_id=bewerbung_id, nur=nur)
+
+    @mcp.prompt()
+    def stellen_abgleich(gefunden_seit: str = "") -> str:
+        """Die ganze Stellenliste gegen dein Profil prüfen, einordnen und begründen (#1112)."""
+        from .tools.workflows import _prompt_registry
+        return _prompt_registry(db)["stellen_abgleich"](gefunden_seit=gefunden_seit)
 
     @mcp.prompt()
     def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:

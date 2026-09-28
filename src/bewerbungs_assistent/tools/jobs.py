@@ -1310,7 +1310,8 @@ def register(mcp, db, logger):
         nur_nicht_beworben: bool = False,
         nur_empfohlen: bool = False,
         nur_beurteilt: bool = False,
-        ohne_schwelle: bool = False
+        ohne_schwelle: bool = False,
+        gefunden_seit: str = ""
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -1340,7 +1341,20 @@ def register(mcp, db, logger):
                 `unter_schwelle: true`. Die Einstellung selbst bleibt
                 unverändert. Die Schwelle vergleicht den Fachwert —
                 Entfernung, Remote und Gehalt blenden nie etwas aus.
+            gefunden_seit: Datum YYYY-MM-DD — nur Stellen, die PBP an
+                diesem Tag oder später gefunden hat (#1112, z. B. für
+                einen Abgleich nur der neuen Stellen). Leer = alle.
         """
+        # #1112: das Funddatum als Filter. Verglichen wird der Tag, weil
+        # found_at je nach Quelle mit oder ohne Zeitzone gespeichert ist.
+        seit = (gefunden_seit or "").strip()
+        if seit:
+            from datetime import date as _date
+            try:
+                seit = _date.fromisoformat(seit[:10]).isoformat()
+            except ValueError:
+                return {"fehler": (f"gefunden_seit '{gefunden_seit}' ist kein Datum. "
+                                   "Erwartet: YYYY-MM-DD, z. B. 2026-09-20.")}
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
         # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
@@ -1402,6 +1416,8 @@ def register(mcp, db, logger):
             from datetime import datetime, timedelta
             cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
+        if seit:
+            jobs = [j for j in jobs if (j.get("found_at") or "")[:10] >= seit]
 
         # Apply scoring adjustments (#169)
         durch_schwelle_verborgen = 0

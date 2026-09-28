@@ -1365,6 +1365,19 @@ export default function JobsPage() {
               <SlidersHorizontal size={15} />
               {`Filter (${filterAnzahl})`}
             </Button>
+            {/* #1112: die ganze Liste gegen das Profil — ein Prompt aus der
+                Registry, derselbe Text wie /stellen_abgleich. */}
+            {filters.view !== "dismissed" ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                data-stellen-abgleich
+                title="Kopiert eine Anleitung für Claude: jede Stelle gegen dein Profil prüfen, einordnen und begründen"
+                onClick={() => copyPrompt("/stellen_abgleich")}
+              >
+                <MitClaude size={14}>Liste abgleichen</MitClaude>
+              </Button>
+            ) : null}
             {/* Sortierung */}
             <SelectInput
               className="!h-9 !min-h-0 !w-auto !rounded-xl !border-white/5 !bg-white/[0.03] !pl-3 !pr-3 !py-0 !text-[13px] !text-muted"
