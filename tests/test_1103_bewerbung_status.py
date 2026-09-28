@@ -31,7 +31,7 @@ AUSNAHMEN = {
 
 def _listen():
     for p in sorted(SRC.rglob("*.py")):
-        rel = str(p.relative_to(SRC))
+        rel = p.relative_to(SRC).as_posix()
         if rel == "services/bewerbung_status.py":
             continue
         for n in ast.walk(ast.parse(p.read_text(encoding="utf-8-sig"))):

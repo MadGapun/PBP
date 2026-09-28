@@ -103,7 +103,7 @@ def _funde(mit_profil: set) -> list:
         baum = ast.parse(p.read_text(encoding="utf-8-sig"))
         teile = {id(v) for j in ast.walk(baum) if isinstance(j, ast.JoinedStr)
                  for v in j.values}
-        rel = str(p.relative_to(SRC))
+        rel = p.relative_to(SRC).as_posix()
         for k in ast.walk(baum):
             if id(k) in teile or not (isinstance(k, ast.Constant) and isinstance(k.value, str)):
                 continue
