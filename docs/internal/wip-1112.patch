@@ -1,0 +1,183 @@
+diff --git a/src/bewerbungs_assistent/prompts.py b/src/bewerbungs_assistent/prompts.py
+index 33a18ae..295bb65 100644
+--- a/src/bewerbungs_assistent/prompts.py
++++ b/src/bewerbungs_assistent/prompts.py
+@@ -506,6 +506,92 @@ SCHRITT 4 — ABGEBEN (zwei Wege, beide gleichwertig):
+ Sprich Deutsch und per Du. Kurz und lösungsorientiert — erst helfen, dann melden."""
+ 
+ 
++def build_stellen_abgleich_prompt(db, gefunden_seit: str = '') -> str:
++    """Text des Prompts `stellen_abgleich` (#1112) — die ganze Stellenliste
++    gegen das Profil. Eine Quelle fuer Slash-Befehl und Dashboard (H22).
++
++    Die Regeln stammen aus zwei echten Durchgaengen, in denen Claude eine
++    harte Entfernungsgrenze aufweichte, Vorgeschichte uebersah, verborgene
++    Stellen nie las, falsche Gruende waehlte und aus dem Titel urteilte."""
++    from datetime import date as _date
++    seit = (gefunden_seit or "").strip()
++    try:
++        seit = _date.fromisoformat(seit[:10]).isoformat() if seit else ""
++    except ValueError:
++        seit = ""
++    if seit:
++        umfang = f"Gleiche die Stellen ab, die PBP seit dem {seit} gefunden hat, mit meinem Profil ab."
++        liste = (f"- stellen_anzeigen(ohne_schwelle=True, pro_seite=50, "
++                 f"gefunden_seit='{seit}'), bei mehr Stellen mit seite=2, 3 ... weiterblättern")
++    else:
++        umfang = "Gleiche meine aktiven Stellen mit meinem Profil ab."
++        liste = ("- stellen_anzeigen(ohne_schwelle=True, pro_seite=50), bei mehr "
++                 "Stellen mit seite=2, 3 ... weiterblättern")
++    return f"""{umfang}
++
++SCHRITT 1: RAHMEN LESEN, BEVOR DU EINE STELLE ANSIEHST
++- suchkriterien_anzeigen(): Entfernungsgrenze je Stellentyp, Mindestgehalt,
++  Tagessatz, Stellentypen, Remote-Wunsch
++- profil_zusammenfassung(): Kern, Systeme, Positionen, Profilnotizen
++- bewerbungen_anzeigen(archiv=True): laufende UND frühere Bewerbungen
++
++SCHRITT 2: LISTE HOLEN
++{liste}
++- ohne_schwelle=True ist Pflicht: auch Stellen unter der Schwelle gehören
++  dazu. Verborgen heißt nicht gelesen.
++
++SCHRITT 3: JEDE STELLE EINORDNEN
++Harte Grenzen zuerst (sofort aussortieren, ohne Rückfrage):
++- Entfernung über der Grenze des Stellentyps und kein volles Remote von
++  Anfang an -> zu_weit_entfernt. "Remote nach Einarbeitung", "Standort
++  offen" oder "hybrid" heben die Grenze NICHT auf. Nennt die Anzeige einen
++  Standort innerhalb der Grenze, zählt dieser.
++- Vertragsform nicht in den Stellentypen (z. B. Zeitarbeit, befristet)
++  -> der passende Grund (zeitarbeit, befristet)
++- Gehalt oder Tagessatz BELEGT unter dem Minimum -> gehalt_zu_niedrig.
++  Geschätzte Werte sind kein Grund.
++Vorgeschichte (vor jedem inhaltlichen Urteil):
++- Steht eine Repost-Warnung an der Stelle? Den dokumentierten Absagegrund
++  lesen (bewerbung_details, dokument_lesen) und gegen die neue Anzeige
++  halten. Eine Neuausschreibung ist nicht automatisch eine zweite Chance.
++- firma_kontext(firmenname): bei Vermittlern auch den Endkunden bedenken
++- Schon beworben auf dieselbe Rolle -> bereits_beworben, nicht duplikat
++Inhalt:
++- Bei allem, was die harten Grenzen besteht und fachlich in Frage kommt:
++  fit_analyse(job_hash) lesen, vollständig
++- Fehlt der Anzeigentext: stellenbeschreibung_nachladen(stellen_hash);
++  klappt das nicht, NICHT_BEURTEILBAR mit Grund. Nicht aus dem Titel urteilen.
++- Achtung Begriffe: ein Pflichtbegriff kann in einer anderen Bedeutung
++  vorkommen (z. B. "Change Management" als Organisations- oder HR-Wandel
++  statt als Änderungswesen im Engineering). Lies, was gemeint ist.
++- Eindeutig fachfremde Titel dürfen gesammelt aussortiert werden:
++  stellen_bulk_bewerten(bewertung='passt_nicht', gruende=[...],
++  titel_enthaelt=[...], dry_run=True) — erst die Vorschau zeigen, dann
++  mit dry_run=False.
++
++SCHRITT 4: ERGEBNIS SICHERN
++- Aussortieren: stelle_einordnen(job_hash, bewertung='passt_nicht',
++  gruende=[...]) — Gründe nur aus der Liste, die das Werkzeug nennt
++- Jede gelesene Stelle: stelle_urteil_speichern(job_hash, urteil,
++  begruendung) mit einem oder zwei Sätzen Begründung. urteil ist
++  EMPFOHLEN, BEDINGT, NICHT_EMPFOHLEN oder NICHT_BEURTEILBAR.
++- Befunde zu Firmen oder Kontakten zurück nach PBP schreiben, nicht nur
++  im Chat nennen
++
++SCHRITT 5: BERICHT
++- Wie viele Stellen gelesen, wie viele aussortiert (nach Grund gruppiert)
++- Tabelle der verbleibenden Stellen: Urteil, Kernaussage, was vor einer
++  Bewerbung zu klären ist
++- Auffälligkeiten an Suchbegriffen oder Quellen als Vorschlag — nichts
++  selbst an den Suchkriterien ändern
++
++REGELN
++- Keine Vermutungen als Fakten; bei Unklarheit nachfragen
++- Aussortieren ist umkehrbar, löschen nie
++- Bewerbungen, Aufgaben und Termine nicht verändern
++- Sprich Deutsch und per Du"""
++
++
+ def build_interview_vorbereitung_prompt(db, stelle: str = '', firma: str = '') -> str:
+     """Text des Prompts `interview_vorbereitung` — eine Quelle fuer Slash-Befehl und Dashboard (H22)."""
+     # G16 (#706): vorbefuellbar — der Knopf in Bewerbungen und Timeline
+@@ -1346,6 +1432,12 @@ def register_prompts(mcp, db, logger):
+             stelle=stelle, firma=firma, job_hash=job_hash,
+             bewerbung_id=bewerbung_id, nur=nur)
+ 
++    @mcp.prompt()
++    def stellen_abgleich(gefunden_seit: str = "") -> str:
++        """Die ganze Stellenliste gegen dein Profil prüfen, einordnen und begründen (#1112)."""
++        from .tools.workflows import _prompt_registry
++        return _prompt_registry(db)["stellen_abgleich"](gefunden_seit=gefunden_seit)
++
+     @mcp.prompt()
+     def interview_vorbereitung(stelle: str = "", firma: str = "") -> str:
+         """Umfassende Vorbereitung auf ein Bewerbungsgespräch — personalisiert aus dem Profil."""
+diff --git a/src/bewerbungs_assistent/services/prompt_katalog.py b/src/bewerbungs_assistent/services/prompt_katalog.py
+index 21cb5ac..bb0ba68 100644
+--- a/src/bewerbungs_assistent/services/prompt_katalog.py
++++ b/src/bewerbungs_assistent/services/prompt_katalog.py
+@@ -133,6 +133,12 @@ EINTRAEGE: tuple[dict, ...] = (
+     # Rueckt in den Standard nach, weil "Bewerbung aus Anzeige" ihn
+     # verlaesst (#979 E) — sonst haette die Kategorie nur zwei Karten,
+     # waehrend die anderen drei haben.
++    # #1112: die ganze Liste gegen das Profil — der Einzelstellen-Weg
++    # ("Detailbewertung" an der Karte) gibt es schon.
++    {"id": "stellen_abgleich", "prompt": "stellen_abgleich",
++     "kategorie": "Jobsuche & Bewerbung", "titel": "Stellenliste abgleichen",
++     "beschreibung": "Alle aktiven Stellen gegen dein Profil prüfen, einordnen und begründen",
++     "icon": "check", "standard": False},
+     {"id": "bewerbung_vorbereitung", "prompt": "bewerbung_vorbereitung",
+      "kategorie": "Jobsuche & Bewerbung", "titel": "Bewerbung vorbereiten",
+      "beschreibung": "Schritt für Schritt zur fertigen Bewerbung",
+diff --git a/src/bewerbungs_assistent/tools/jobs.py b/src/bewerbungs_assistent/tools/jobs.py
+index e782a68..e271e49 100644
+--- a/src/bewerbungs_assistent/tools/jobs.py
++++ b/src/bewerbungs_assistent/tools/jobs.py
+@@ -1310,7 +1310,8 @@ def register(mcp, db, logger):
+         nur_nicht_beworben: bool = False,
+         nur_empfohlen: bool = False,
+         nur_beurteilt: bool = False,
+-        ohne_schwelle: bool = False
++        ohne_schwelle: bool = False,
++        gefunden_seit: str = ""
+     ) -> dict:
+         """Zeigt gefundene Stellenangebote an.
+ 
+@@ -1340,7 +1341,20 @@ def register(mcp, db, logger):
+                 `unter_schwelle: true`. Die Einstellung selbst bleibt
+                 unverändert. Die Schwelle vergleicht den Fachwert —
+                 Entfernung, Remote und Gehalt blenden nie etwas aus.
++            gefunden_seit: Datum YYYY-MM-DD — nur Stellen, die PBP an
++                diesem Tag oder später gefunden hat (#1112, z. B. für
++                einen Abgleich nur der neuen Stellen). Leer = alle.
+         """
++        # #1112: das Funddatum als Filter. Verglichen wird der Tag, weil
++        # found_at je nach Quelle mit oder ohne Zeitzone gespeichert ist.
++        seit = (gefunden_seit or "").strip()
++        if seit:
++            from datetime import date as _date
++            try:
++                seit = _date.fromisoformat(seit[:10]).isoformat()
++            except ValueError:
++                return {"fehler": (f"gefunden_seit '{gefunden_seit}' ist kein Datum. "
++                                   "Erwartet: YYYY-MM-DD, z. B. 2026-09-20.")}
+         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
+         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
+         # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
+@@ -1402,6 +1416,8 @@ def register(mcp, db, logger):
+             from datetime import datetime, timedelta
+             cutoff = (datetime.now() - timedelta(days=max_alter_tage)).isoformat()
+             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
++        if seit:
++            jobs = [j for j in jobs if (j.get("found_at") or "")[:10] >= seit]
+ 
+         # Apply scoring adjustments (#169)
+         durch_schwelle_verborgen = 0
+diff --git a/src/bewerbungs_assistent/tools/workflows.py b/src/bewerbungs_assistent/tools/workflows.py
+index e08c011..fb3bb10 100644
+--- a/src/bewerbungs_assistent/tools/workflows.py
++++ b/src/bewerbungs_assistent/tools/workflows.py
+@@ -311,6 +311,7 @@ REGELN
+         "profil_analyse": functools.partial(_p.build_profil_analyse_prompt, db),
+         "profil_ueberpruefen": functools.partial(_p.build_profil_ueberpruefen_prompt, db),
+         "bewerbung_schreiben": _bewerbung_schreiben,
++        "stellen_abgleich": functools.partial(_p.build_stellen_abgleich_prompt, db),
+         "interview_vorbereitung": functools.partial(_p.build_interview_vorbereitung_prompt, db),
+         "interview_simulation": functools.partial(_p.build_interview_simulation_prompt, db),
+         "gehaltsverhandlung": functools.partial(_p.build_gehaltsverhandlung_prompt, db),
