@@ -158,3 +158,56 @@ def test_nur_ein_ort_legt_den_suchjob_an():
         if 'create_background_job("jobsuche"' in text:
             funde.append(p.relative_to(SRC).as_posix())
     assert funde == ["services/jobsuche_start.py"], funde
+
+
+# ── Watchdog: Zeitlimit je Quelle, ein fertiger Lauf bleibt fertig ───
+
+def test_zeitlimit_richtet_sich_nach_den_quellen():
+    from bewerbungs_assistent.job_scraper.jobspy_source import LINKEDIN_BUDGET_MAX
+    from bewerbungs_assistent.services import jobsuche_start as js
+    assert js.zeitlimit(["bundesagentur"]) == js.ZEITLIMIT_SEK
+    assert js.zeitlimit(["bundesagentur", "jobspy_linkedin"]) == \
+        js.ZEITLIMIT_SEK + LINKEDIN_BUDGET_MAX
+
+
+def test_langlauf_quellen_wie_im_suchlauf():
+    """Der Suchlauf fuehrt seine Langlaeufer in _LANGLAUF_SCHAETZER; der
+    Watchdog muss dieselben kennen, sonst kappt er deren Budget."""
+    import re
+    from bewerbungs_assistent.services import jobsuche_start as js
+    text = (SRC / "job_scraper" / "__init__.py").read_text(encoding="utf-8")
+    zeile = re.search(r"_LANGLAUF_SCHAETZER = \{([^}]*)\}", text).group(1)
+    assert set(re.findall(r'"([a-z_]+)"\s*:', zeile)) == set(js.LANGLAUF_QUELLEN)
+
+
+def _watchdog_lauf(db, monkeypatch, fertig_vorher: bool):
+    """Ein Lauf, der laenger als das Zeitlimit lebt; wahlweise hat die
+    Suche selbst schon abgeschlossen (Nachladen laeuft noch)."""
+    import bewerbungs_assistent.job_scraper as scr
+    from bewerbungs_assistent.services import jobsuche_start as js
+    monkeypatch.setattr(js, "ZEITLIMIT_SEK", 0.2)
+    halt = threading.Event()
+
+    def lang(db_, job_id, params):
+        if fertig_vorher:
+            db_.update_background_job(job_id, "fertig", progress=100, result={"total": 0})
+        else:
+            db_.update_background_job(job_id, "running", progress=10)
+        halt.wait(5)
+    monkeypatch.setattr(scr, "run_search", lang)
+    erg = js.starten(db, herkunft="automatik")
+    job_id = erg["job_id"]
+    for t in threading.enumerate():
+        if t.name == f"pbp-watchdog-{job_id[:8]}":
+            t.join(timeout=5)
+    status = (db.get_background_job(job_id) or {}).get("status")
+    halt.set()
+    return status
+
+
+def test_watchdog_ueberschreibt_keinen_fertigen_lauf(db, monkeypatch):
+    assert _watchdog_lauf(db, monkeypatch, fertig_vorher=True) == "fertig"
+
+
+def test_watchdog_beendet_eine_haengende_suche(db, monkeypatch):
+    assert _watchdog_lauf(db, monkeypatch, fertig_vorher=False) == "fehler"
