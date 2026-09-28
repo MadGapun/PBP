@@ -3,6 +3,7 @@ mit Zeitzone. Zeitzone der Tests: Europe/Berlin (Sommer- und Winterzeit)."""
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import time
 from datetime import datetime, timedelta
 
@@ -140,6 +141,26 @@ def test_mail_import_verliert_nur_den_einen_termin(db):
     dash._db = db
     assert dash._termin_aus_mail({"application_id": _app(db), "title": "X",
                                   "meeting_date": "unlesbar"}) is None
+
+
+def test_jeder_mail_weg_nimmt_den_helfer():
+    """Ein direkter add_meeting im Upload-Weg liess bei einer unlesbaren
+    Zeit die uebrigen Termine UND den Timeline-Eintrag der Mail fallen."""
+    import ast
+    quelle = (Path(__file__).resolve().parents[1] / "src" / "bewerbungs_assistent"
+              / "dashboard.py").read_text(encoding="utf-8-sig")
+    baum = ast.parse(quelle)
+    direkt = []
+    for fn in ast.walk(baum):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if fn.name in ("_termin_aus_mail", "api_create_meeting"):
+            continue
+        for k in ast.walk(fn):
+            if (isinstance(k, ast.Call) and isinstance(k.func, ast.Attribute)
+                    and k.func.attr == "add_meeting"):
+                direkt.append(fn.name)
+    assert not direkt, f"add_meeting ohne _termin_aus_mail: {direkt}"
 
 
 # ── AK 3 und 4: Kalenderexport ──────────────────────────────────────
