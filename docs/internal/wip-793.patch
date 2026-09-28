@@ -1,0 +1,405 @@
+diff --git a/src/bewerbungs_assistent/database.py b/src/bewerbungs_assistent/database.py
+index 557ff33..33a5d10 100755
+--- a/src/bewerbungs_assistent/database.py
++++ b/src/bewerbungs_assistent/database.py
+@@ -724,6 +724,10 @@ class Database:
+             from .services import lernprotokoll as _lernprotokoll
+             _lernprotokoll.tabelle_anlegen(conn)
+             conn.commit()
++            # #793: jede Statusaenderung einer Erkenntnis bleibt nachlesbar.
++            from .services import erkenntnis_status as _erkenntnis_status
++            _erkenntnis_status.tabelle_anlegen(conn)
++            conn.commit()
+ 
+             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
+             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
+@@ -10299,11 +10303,15 @@ class Database:
+             # Echte Erkenntnis-Saetze sind deutlich laenger.
+             if len(ziel.strip()) < 25:
+                 ziel = None
++            # #793: ein Widerspruch gilt auch, wenn die Zeile spaeter
++            # stummgeschaltet wurde (is_active=0) — sonst kam die
++            # Fehlableitung nach "stumm" beim naechsten Lauf wieder.
+             for r in (conn.execute(
+-                "SELECT id, observed_count, title, bestaetigt_vom_user "
++                "SELECT id, observed_count, title, bestaetigt_vom_user, is_active "
+                 "FROM learning_insights "
+                 "WHERE (profile_id=? OR (profile_id IS NULL AND ? IS NULL)) "
+-                "AND kind=? AND is_active=1", (pid, pid, kind)
++                "AND kind=? AND (is_active=1 OR bestaetigt_vom_user=-1)",
++                (pid, pid, kind)
+             ).fetchall() if ziel else []):
+                 if _norm(r["title"]) == ziel:
+                     if r["bestaetigt_vom_user"] == -1:
+diff --git a/src/bewerbungs_assistent/services/erkenntnis_status.py b/src/bewerbungs_assistent/services/erkenntnis_status.py
+new file mode 100644
+index 0000000..2b531fa
+--- /dev/null
++++ b/src/bewerbungs_assistent/services/erkenntnis_status.py
+@@ -0,0 +1,179 @@
++"""Gelerntes verwalten: bestaetigen, widersprechen, vergessen, loeschen (#793).
++
++Bis hierher kannte eine Erkenntnis drei Zustaende: offen (0), bestaetigt
++(1) und widersprochen (-1, wird nie wieder vorgeschlagen). Es fehlte der
++Fall "war richtig, gilt nicht mehr" — etwa nach einer geaenderten Haltung
++zu einer Vertragsform. Widersprechen haette das Thema fuer immer
++verbrannt, Bestaetigen liesse mit einer falschen Praemisse weiterarbeiten.
++
++Deshalb der vierte Zustand **vergessen** (-2): die Aussage verschwindet aus
++dem aktiven Kontext (`is_active=0`, kein Ollama-Kontext), bleibt aber als
++Geschichte erhalten und blockiert die Neu-Ableitung NICHT — beim naechsten
++Lauf darf dieselbe Aussage aus den aktuellen Daten wieder entstehen.
++
++Jede Aenderung steht in `learning_insight_events` (von, nach, wann, wodurch).
++Ohne das liesse sich spaeter nicht rekonstruieren, warum PBP an einem Tag
++anders entschieden hat.
++
++Rohdaten bleiben unangetastet: hier werden nur Erkenntnisse geaendert,
++nie Bewerbungen, Stellen oder Aussortier-Gruende.
++"""
++from __future__ import annotations
++
++from datetime import date, datetime
++from typing import Any
++
++STATUS = {"offen": 0, "bestaetigt": 1, "widersprochen": -1, "vergessen": -2}
++_NAME = {v: k for k, v in STATUS.items()}
++
++#: Ein Satz je Zustand — derselbe in Werkzeug und Oberflaeche.
++ERKLAERUNG = {
++    "bestaetigt": "Stimmt — darf der lokalen KI als Hintergrund dienen.",
++    "widersprochen": "War falsch — PBP schlägt diese Aussage nie wieder vor.",
++    "vergessen": ("War einmal richtig, gilt aber nicht mehr — PBP darf sie "
++                  "aus den heutigen Daten neu ableiten."),
++    "geloescht": "Zeile weg, ohne Merker — etwa für Reste aus Testläufen.",
++}
++
++
++def status_name(wert) -> str:
++    return _NAME.get(int(wert or 0), "offen")
++
++
++def tabelle_anlegen(conn) -> None:
++    """Safety-Net statt Schema-Bump."""
++    conn.execute("""
++        CREATE TABLE IF NOT EXISTS learning_insight_events (
++            id INTEGER PRIMARY KEY AUTOINCREMENT,
++            profile_id TEXT,
++            insight_id INTEGER,
++            aussage TEXT DEFAULT '',
++            von TEXT DEFAULT '',
++            nach TEXT NOT NULL,
++            herkunft TEXT DEFAULT '',
++            am TEXT NOT NULL
++        )
++    """)
++
++
++def _jetzt() -> str:
++    return datetime.now().isoformat(timespec="seconds")
++
++
++def _zeile(db, insight_id):
++    try:
++        iid = int(str(insight_id).strip())
++    except (TypeError, ValueError):
++        return None
++    return db.connect().execute(
++        "SELECT id, title, COALESCE(bestaetigt_vom_user, 0) AS bvu, is_active "
++        "FROM learning_insights WHERE id=? "
++        "AND (profile_id=? OR profile_id='' OR profile_id IS NULL)",
++        (iid, db.get_active_profile_id() or "")).fetchone()
++
++
++def _protokoll(conn, pid, row, nach: str, herkunft: str) -> None:
++    tabelle_anlegen(conn)
++    conn.execute(
++        "INSERT INTO learning_insight_events (profile_id, insight_id, aussage, "
++        "von, nach, herkunft, am) VALUES (?,?,?,?,?,?,?)",
++        (pid, row["id"], row["title"], status_name(row["bvu"]) if row["is_active"]
++         or row["bvu"] else "stumm", nach, herkunft, _jetzt()))
++
++
++_NICHT_GEFUNDEN = {"fehler": "Erkenntnis nicht gefunden. IDs liefert erkenntnisse_anzeigen()."}
++
++
++def setzen(db: Any, insight_id, status: str, herkunft: str = "ich") -> dict:
++    """Setzt einen der vier Zustaende oder loescht (`status='loeschen'`)."""
++    if status == "loeschen":
++        return loeschen(db, insight_id, herkunft=herkunft)
++    if status not in STATUS or status == "offen":
++        return {"fehler": "status muss bestaetigt, widersprochen, vergessen oder loeschen sein."}
++    row = _zeile(db, insight_id)
++    if not row:
++        return dict(_NICHT_GEFUNDEN)
++    conn = db.connect()
++    pid = db.get_active_profile_id() or ""
++    aktiv = 0 if status == "vergessen" else 1
++    conn.execute(
++        "UPDATE learning_insights SET bestaetigt_vom_user=?, is_active=?, "
++        "dismissed_at=CASE WHEN ?=0 THEN ? ELSE dismissed_at END WHERE id=?",
++        (STATUS[status], aktiv, aktiv, _jetzt(), row["id"]))
++    _protokoll(conn, pid, row, status, herkunft)
++    conn.commit()
++    return {"status": status, "id": row["id"], "aussage": row["title"],
++            "bedeutung": ERKLAERUNG[status]}
++
++
++def loeschen(db: Any, insight_id, herkunft: str = "ich") -> dict:
++    row = _zeile(db, insight_id)
++    if not row:
++        return dict(_NICHT_GEFUNDEN)
++    conn = db.connect()
++    _protokoll(conn, db.get_active_profile_id() or "", row, "geloescht", herkunft)
++    conn.execute("DELETE FROM learning_insights WHERE id=?", (row["id"],))
++    conn.commit()
++    return {"status": "geloescht", "id": row["id"], "aussage": row["title"],
++            "bedeutung": ERKLAERUNG["geloescht"]}
++
++
++def zuruecksetzen(db: Any, kategorie: str = "", stichtag: str = "",
++                  dry_run: bool = True) -> dict:
++    """Setzt Erkenntnisse auf `vergessen` — alle, eine Art oder alle, die
++    VOR einem Stichtag zuerst abgeleitet wurden.
++
++    Widersprochene bleiben widersprochen: ein Zuruecksetzen soll alte
++    Muster neu pruefen lassen, nicht Fehlableitungen wiederbeleben."""
++    tag = ""
++    if stichtag:
++        try:
++            tag = date.fromisoformat(str(stichtag).strip()[:10]).isoformat()
++        except ValueError:
++            return {"fehler": "stichtag ist ein Datum im Format JJJJ-MM-TT, z. B. 2026-07-24."}
++    conn = db.connect()
++    pid = db.get_active_profile_id() or ""
++    sql = ("SELECT id, kind, title, first_seen_at, COALESCE(bestaetigt_vom_user, 0) AS bvu, "
++           "is_active FROM learning_insights "
++           "WHERE (profile_id=? OR profile_id='' OR profile_id IS NULL) AND is_active=1 "
++           "AND COALESCE(bestaetigt_vom_user, 0) IN (0, 1)")
++    args: list = [pid]
++    if kategorie:
++        sql += " AND kind=?"
++        args.append(kategorie)
++    if tag:
++        sql += " AND substr(first_seen_at, 1, 10) < ?"
++        args.append(tag)
++    rows = conn.execute(sql + " ORDER BY first_seen_at", args).fetchall()
++    betroffen = [{"id": r["id"], "art": r["kind"], "aussage": r["title"],
++                  "abgeleitet_am": (r["first_seen_at"] or "")[:10],
++                  "status": status_name(r["bvu"])} for r in rows]
++    antwort = {"betroffen": betroffen, "anzahl": len(betroffen),
++               "hinweis": ("Betroffen sind nur Erkenntnisse — Bewerbungen, Stellen "
++                           "und Aussortier-Gründe bleiben unverändert.")}
++    if dry_run:
++        antwort["status"] = "vorschau"
++        antwort["naechster_schritt"] = ("Mit dry_run=False ausführen, danach "
++                                        "erkenntnisse_ableiten(dry_run=True) für eine "
++                                        "Vorschau der neuen Ableitung.")
++        return antwort
++    for r in rows:
++        conn.execute(
++            "UPDATE learning_insights SET bestaetigt_vom_user=?, is_active=0, "
++            "dismissed_at=? WHERE id=?", (STATUS["vergessen"], _jetzt(), r["id"]))
++        _protokoll(conn, pid, r, "vergessen", "zuruecksetzen")
++    conn.commit()
++    antwort["status"] = "vergessen"
++    antwort["naechster_schritt"] = ("Jetzt neu ableiten: erkenntnisse_ableiten("
++                                    "dry_run=True) zeigt, was aus den heutigen Daten "
++                                    "entstuende.")
++    return antwort
++
++
++def verlauf(db: Any, limit: int = 50) -> list[dict]:
++    conn = db.connect()
++    tabelle_anlegen(conn)
++    return [dict(r) for r in conn.execute(
++        "SELECT insight_id, aussage, von, nach, herkunft, am FROM learning_insight_events "
++        "WHERE profile_id=? ORDER BY id DESC LIMIT ?",
++        (db.get_active_profile_id() or "", max(1, min(int(limit or 50), 500))))]
+diff --git a/src/bewerbungs_assistent/services/lerninsights.py b/src/bewerbungs_assistent/services/lerninsights.py
+index e2d259d..0ab3822 100644
+--- a/src/bewerbungs_assistent/services/lerninsights.py
++++ b/src/bewerbungs_assistent/services/lerninsights.py
+@@ -286,9 +286,12 @@ def speichern(db: Any, kandidaten: list, app_version: str = "") -> dict:
+         if len(ziel.strip()) < 25:
+             ziel = None
+         vorher = None
++        # #793: widersprochen gilt auch fuer stummgeschaltete Zeilen;
++        # vergessene (-2) blockieren nicht — sie duerfen neu entstehen.
+         for r in (conn.execute(
+             "SELECT id, title, bestaetigt_vom_user FROM learning_insights "
+-            "WHERE (profile_id=? OR profile_id='') AND kind=? AND is_active=1",
++            "WHERE (profile_id=? OR profile_id='') AND kind=? "
++            "AND (is_active=1 OR bestaetigt_vom_user=-1)",
+             (pid, k["kind"])
+         ).fetchall() if ziel else []):
+             if _norm(r["title"]) == ziel:
+diff --git a/src/bewerbungs_assistent/services/loeschbereiche.py b/src/bewerbungs_assistent/services/loeschbereiche.py
+index 7c32bf3..4c6e66b 100644
+--- a/src/bewerbungs_assistent/services/loeschbereiche.py
++++ b/src/bewerbungs_assistent/services/loeschbereiche.py
+@@ -120,6 +120,8 @@ BEREICHE: dict[str, tuple] = {
+         "user_activity_events", "learning_insights", "blacklist_blocks",
+         # #792: das Protokoll der Lernlaeufe gehoert zum Gelernten.
+         "learning_runs",
++        # #793: Verlauf der Statusaenderungen an Erkenntnissen.
++        "learning_insight_events",
+         "scraper_health", "scraper_runs", "background_jobs",
+         "elwosa_messages", "elwosa_pending_lines", "anonymisierung_map",
+     ),
+diff --git a/src/bewerbungs_assistent/tools/analyse.py b/src/bewerbungs_assistent/tools/analyse.py
+index bba8c96..b86d6dc 100644
+--- a/src/bewerbungs_assistent/tools/analyse.py
++++ b/src/bewerbungs_assistent/tools/analyse.py
+@@ -3665,8 +3665,9 @@ def register(mcp, db, logger):
+         """Zeigt die abgeleiteten Erkenntnisse mit Evidenz und Status (#799).
+ 
+         Args:
+-            filter: 'alle', 'offen' (unbestätigt), 'bestaetigt' oder
+-                'widersprochen'.
++            filter: 'alle' (alle wirksamen), 'offen' (unbestätigt),
++                'bestaetigt', 'widersprochen' oder 'vergessen' (#793: war
++                richtig, gilt nicht mehr — steht nur noch als Geschichte da).
+             bereich: 'alle', 'strategie' (Aussagen über die eigene
+                 Bewerbungslage) oder 'bedienung' (Hinweise zur Oberfläche).
+                 Die Trennung ist Absicht — wer wissen will, was seine
+@@ -3675,19 +3676,21 @@ def register(mcp, db, logger):
+         """
+         conn = db.connect()
+         pid = db.get_active_profile_id() or ""
+-        status_map = {"offen": 0, "bestaetigt": 1, "widersprochen": -1}
++        from ..services.erkenntnis_status import STATUS as status_map, status_name
+         sql = ("SELECT id, kind, scope, title, details_json, score, "
+                "observed_count, last_seen_at, "
+                "COALESCE(bestaetigt_vom_user, 0) AS bvu "
+                "FROM learning_insights "
+-               "WHERE (profile_id=? OR profile_id='' OR profile_id IS NULL) "
+-               "AND is_active=1")
++               "WHERE (profile_id=? OR profile_id='' OR profile_id IS NULL) ")
++        # #793: vergessene Erkenntnisse sind nicht mehr aktiv — sie stehen
++        # nur unter filter='vergessen' da.
++        sql += "" if filter == "vergessen" else "AND is_active=1"
+         params: list = [pid]
+         if filter in status_map:
+             sql += " AND COALESCE(bestaetigt_vom_user, 0)=?"
+             params.append(status_map[filter])
+         elif filter != "alle":
+-            return {"fehler": "filter muss alle/offen/bestaetigt/widersprochen sein."}
++            return {"fehler": "filter muss alle/offen/bestaetigt/widersprochen/vergessen sein."}
+         if bereich == "strategie":
+             sql += " AND COALESCE(scope,'') != 'bedienung'"
+         elif bereich == "bedienung":
+@@ -3711,8 +3714,7 @@ def register(mcp, db, logger):
+                 "konfidenz": round(r["score"] or 0, 2),
+                 "belegt_durch_n": details.get("belegt_durch_n",
+                                               r["observed_count"]),
+-                "status": {0: "offen", 1: "bestaetigt",
+-                           -1: "widersprochen"}.get(r["bvu"], "offen"),
++                "status": status_name(r["bvu"]),
+                 "evidenz": details.get("evidenz", details),
+                 "zuletzt_gesehen": r["last_seen_at"],
+             })
+@@ -3731,44 +3733,71 @@ def register(mcp, db, logger):
+         """Kuratiert eine Erkenntnis: bestaetigen oder widersprechen (#799).
+ 
+         Widersprochene Erkenntnisse werden nicht gelöscht, sondern markiert
+-        — dieselbe Fehlableitung wird dadurch nie erneut vorgeschlagen.
++        — dieselbe Fehlableitung wird dadurch nie erneut vorgeschlagen. Für
++        eine Aussage, die einmal stimmte und heute nicht mehr gilt, ist
++        erkenntnis_status_setzen(status='vergessen') der richtige Weg (#793).
+ 
+         Args:
+             erkenntnis_id: ID aus erkenntnisse_anzeigen.
+             bestaetigen: True = bestaetigt (darf als Kontext dienen),
+                 False = widersprochen.
+         """
+-        conn = db.connect()
+-        pid = db.get_active_profile_id() or ""
+-        try:
+-            iid = int(str(erkenntnis_id).strip())
+-        except (TypeError, ValueError):
+-            return {"fehler": "erkenntnis_id ist eine Zahl — "
+-                              "IDs liefert erkenntnisse_anzeigen()."}
+-        row = conn.execute(
+-            "SELECT id, title FROM learning_insights WHERE id=? "
+-            "AND (profile_id=? OR profile_id='' OR profile_id IS NULL)",
+-            (iid, pid)).fetchone()
+-        if not row:
+-            return {"fehler": "Erkenntnis nicht gefunden. "
+-                              "IDs liefert erkenntnisse_anzeigen()."}
+-        wert = 1 if bestaetigen else -1
+-        conn.execute(
+-            "UPDATE learning_insights SET bestaetigt_vom_user=? WHERE id=?",
+-            (wert, row["id"]))
+-        conn.commit()
+-        return {
+-            "status": "bestaetigt" if bestaetigen else "widersprochen",
+-            "id": row["id"],
+-            "aussage": row["title"],
+-            "hinweis": (
+-                "Bestätigte Erkenntnisse stehen der lokalen KI als Kontext "
+-                "zur Verfügung (elwosa_fragen); automatisch ANGEWENDET "
+-                "wird weiterhin nichts."
+-                if bestaetigen else
+-                "Wird nicht erneut vorgeschlagen."
+-            ),
+-        }
++        from ..services.erkenntnis_status import setzen
++        erg = setzen(db, erkenntnis_id, "bestaetigt" if bestaetigen else "widersprochen")
++        if "fehler" in erg:
++            return erg
++        erg["hinweis"] = (
++            "Bestätigte Erkenntnisse stehen der lokalen KI als Kontext "
++            "zur Verfügung (elwosa_fragen); automatisch ANGEWENDET "
++            "wird weiterhin nichts."
++            if bestaetigen else
++            "Wird nicht erneut vorgeschlagen.")
++        return erg
++
++    @mcp.tool()
++    def erkenntnis_status_setzen(erkenntnis_id: str, status: str) -> dict:
++        """Setzt den Status einer Erkenntnis — auch „vergessen“ und „loeschen“ (#793).
++
++        - bestaetigt: stimmt, darf der lokalen KI als Hintergrund dienen
++        - widersprochen: war falsch, wird nie wieder vorgeschlagen
++        - vergessen: war einmal richtig, gilt nicht mehr (z. B. nach einer
++          geänderten Haltung). Verschwindet aus dem Kontext, bleibt als
++          Geschichte stehen, und PBP darf sie aus den heutigen Daten neu
++          ableiten.
++        - loeschen: Zeile weg, ohne Merker (für Reste aus Testläufen)
++
++        Jede Änderung wird protokolliert. Bewerbungen und Stellen bleiben
++        unberührt.
++
++        Args:
++            erkenntnis_id: ID aus erkenntnisse_anzeigen.
++            status: bestaetigt, widersprochen, vergessen oder loeschen.
++        """
++        from ..services.erkenntnis_status import setzen
++        return setzen(db, erkenntnis_id, (status or "").strip().lower())
++
++    @mcp.tool()
++    def erkenntnisse_zuruecksetzen(kategorie: str = "", stichtag: str = "",
++                                   dry_run: bool = True) -> dict:
++        """Setzt Gelerntes auf „vergessen“, damit PBP neu lernen kann (#793).
++
++        Wahlweise alle Erkenntnisse, nur eine Art, oder nur die, die vor
++        einem Stichtag abgeleitet wurden — etwa „alles vor meiner
++        Kriterienänderung vom 24.07.“. Widersprochene bleiben widersprochen.
++        Betroffen sind nur Erkenntnisse, nie Bewerbungen, Stellen oder
++        Aussortier-Gründe. Danach mit erkenntnisse_ableiten(dry_run=True)
++        ansehen, was neu entstünde.
++
++        Args:
++            kategorie: Art der Erkenntnis (z. B. dismiss_pattern, kanal_pattern,
++                reaktionszeit) — leer = alle.
++            stichtag: JJJJ-MM-TT — nur Erkenntnisse, die VOR diesem Tag zuerst
++                abgeleitet wurden. Leer = unabhängig vom Datum.
++            dry_run: True (Vorgabe) = nur zeigen, was betroffen wäre.
++        """
++        from ..services.erkenntnis_status import zuruecksetzen
++        return zuruecksetzen(db, kategorie=(kategorie or "").strip(),
++                             stichtag=stichtag, dry_run=dry_run)
+ 
+     # === #946: Pruefschritt VOR dem Anlegen eines Issues =================
+     # Dreimal innerhalb von zwei Tagen sind Bewerbungsdaten in oeffentliche
