@@ -84,6 +84,24 @@ function DaumenAbzeichen({ marke, art }) {
 // zeigen — auf der Karte war es Rauschen.
 function FuerClaudeMenue({ job, pushToast }) {
   const [offen, setOffen] = useState(false);
+  const huelle = useRef(null);
+  // #1113: schliesst per Klick daneben und per Escape, nicht nur ueber
+  // den eigenen Knopf.
+  useEffect(() => {
+    if (!offen) return undefined;
+    function klick(event) {
+      if (huelle.current && !huelle.current.contains(event.target)) setOffen(false);
+    }
+    function taste(event) {
+      if (event.key === "Escape") setOffen(false);
+    }
+    document.addEventListener("mousedown", klick);
+    document.addEventListener("keydown", taste);
+    return () => {
+      document.removeEventListener("mousedown", klick);
+      document.removeEventListener("keydown", taste);
+    };
+  }, [offen]);
   async function kopieren(text, meldung) {
     setOffen(false);
     try {
@@ -95,7 +113,7 @@ function FuerClaudeMenue({ job, pushToast }) {
   }
   const kennung = String(job.hash || "");
   return (
-    <span className="relative">
+    <span className="relative" ref={huelle} data-menue-offen={offen ? "" : undefined}>
       <button
         type="button"
         data-fuer-claude
@@ -124,34 +142,25 @@ function FuerClaudeMenue({ job, pushToast }) {
   );
 }
 
-// G62 (#1087 C3): ein Knopf, zwei Wege.
-function GenauerPruefen({ job, onLokal, onClaude }) {
-  const [offen, setOffen] = useState(false);
+// #1113 (Variante A): zwei direkte Knoepfe statt eines Menues. Das Menue
+// aus G62 (#1087 C3) lag unter der naechsten Karte, sichtbar war nur
+// "Sofort prüfen" — es wirkte wie eine zweite Rueckfrage. Der Unterschied
+// steht jetzt im Namen: lokal nachrechnen oder mit Claude bewerten.
+const PUNKTE_ANSEHEN = "Punkte ansehen";
+const PUNKTE_ANSEHEN_TITEL = "PBP rechnet die Punkte hier auf dem Rechner nach und zeigt, woher sie kommen.";
+
+function PruefenKnoepfe({ job, onLokal, onClaude }) {
   const knopf = detailbewertungKnopf(job);
   return (
-    <span className="relative">
-      <Button variant="secondary" data-genauer-pruefen aria-expanded={offen} onClick={() => setOffen((o) => !o)}>
-        <Search size={15} />
-        Genauer prüfen
+    <>
+      <Button variant="secondary" data-punkte-ansehen title={PUNKTE_ANSEHEN_TITEL} onClick={onLokal}>
+        <Target size={15} />
+        {PUNKTE_ANSEHEN}
       </Button>
-      {offen ? (
-        <span role="menu" className="glass-card absolute left-0 top-full z-20 mt-1 flex w-80 flex-col rounded-xl p-1.5 text-left shadow-lg">
-          <button type="button" role="menuitem" className="rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
-            onClick={() => { setOffen(false); onLokal(); }}>
-            <span className="block text-[13px] font-semibold text-ink">Sofort prüfen</span>
-            <span className="block text-[12px] text-muted">PBP rechnet die Punkte hier auf dem Rechner nach und zeigt, woher sie kommen.</span>
-          </button>
-          <button type="button" role="menuitem" className="rounded-lg px-3 py-2 text-left hover:bg-white/[0.06]"
-            title={knopf.titel}
-            onClick={() => { setOffen(false); onClaude(); }}>
-            <span className="flex items-center gap-1.5 text-[13px] font-semibold text-ink">
-              <MitClaude size={14}>{knopf.befund ? "Neu bewerten" : "Detailbewertung"}</MitClaude>
-            </span>
-            <span className="block text-[12px] text-muted">Claude liest Anzeige und Profil und speichert ein Urteil an der Stelle.</span>
-          </button>
-        </span>
-      ) : null}
-    </span>
+      <Button variant="secondary" data-mit-claude-bewerten title={knopf.titel} onClick={onClaude}>
+        <MitClaude>{knopf.text}</MitClaude>
+      </Button>
+    </>
   );
 }
 
@@ -1889,12 +1898,10 @@ export default function JobsPage() {
                     {job.is_pinned ? <PinOff size={15} /> : <Pin size={15} />}
                     {job.is_pinned ? "Entpinnen" : "Anpinnen"}
                   </Button>
-                  {/* G62 (#1087 C3): "Fit-Analyse" und "Detailbewertung"
-                      standen nebeneinander, ohne dass der Unterschied
-                      erklaert war. Ein Knopf, zwei Wege: sofort lokal oder
-                      gruendlich mit Claude (#1050: das Urteil wird dort
-                      gespeichert). */}
-                  <GenauerPruefen
+                  {/* #1113: zwei Wege, je ein Knopf mit sprechendem Namen —
+                      lokal nachrechnen oder gruendlich mit Claude (#1050:
+                      das Urteil wird dort gespeichert). */}
+                  <PruefenKnoepfe
                     job={job}
                     onLokal={() => showFitAnalysis(job)}
                     onClaude={() => copyPrompt(detailbewertungPrompt(job))}
@@ -2066,7 +2073,7 @@ export default function JobsPage() {
 
       <Modal
         open={fitDialog.open}
-        title={`Genauer prüfen — ${fitDialog.title}`}
+        title={`Woher die Punkte kommen — ${fitDialog.title}`}
         onClose={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}
         /* #948 (AK 1/2): der Einstieg zur vertieften Analyse stand am
            ENDE eines langen Dialogs — man musste an Score, Faktoren,
@@ -2088,7 +2095,7 @@ export default function JobsPage() {
                 analyse: fitDialog.analysis?.analyse,
               }))}
             >
-              <MitClaude>Detailbewertung</MitClaude>
+              <MitClaude>{detailbewertungKnopf({ analyse: fitDialog.analysis?.analyse }).text}</MitClaude>
             </Button>
             <Button variant="secondary" onClick={() => setFitDialog({ open: false, title: "", hash: "", analysis: null })}>Schließen</Button>
           </div>
@@ -2654,12 +2661,15 @@ export default function JobsPage() {
                 }}>
                   <Plus size={15} /> {BEWERBUNG_ANLEGEN}
                 </Button>
-                <Button variant="secondary" onClick={() => {
-                  setDetailDialog({ open: false, job: null, editing: false });
-                  showFitAnalysis(detailDialog.job);
-                }}>
-                  <Target size={15} /> Sofort prüfen
-                </Button>
+                {/* #1113: dieselben Namen wie auf der Karte. */}
+                <PruefenKnoepfe
+                  job={detailDialog.job}
+                  onLokal={() => {
+                    setDetailDialog({ open: false, job: null, editing: false });
+                    showFitAnalysis(detailDialog.job);
+                  }}
+                  onClaude={() => copyPrompt(detailbewertungPrompt(detailDialog.job))}
+                />
                 <Button variant={detailDialog.job.is_pinned ? "subtle" : "secondary"} onClick={async () => {
                   await togglePin(detailDialog.job);
                   setDetailDialog((d) => ({ ...d, job: { ...d.job, is_pinned: d.job.is_pinned ? 0 : 1 } }));
