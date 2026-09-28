@@ -115,7 +115,8 @@ def test_g62_karte_ohne_kennung_und_quelle_als_abzeichen():
     assert "<DaumenAbzeichen marke={job.fach_daumen}" not in jobs
     assert "kernaussage(job)" in jobs and "kartenGrund(job, datenguetMarke(job))" in jobs
     assert "<FuerClaudeMenue job={job}" in jobs
-    assert "<GenauerPruefen" in jobs
+    # #1113: zwei direkte Knoepfe statt des Menues "Genauer pruefen".
+    assert "<PruefenKnoepfe" in jobs and "<GenauerPruefen" not in jobs
     assert "Fit-Analyse\n" not in jobs.replace("\r\n", "\n")
 
 
