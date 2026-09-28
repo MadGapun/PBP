@@ -118,6 +118,8 @@ BEREICHE: dict[str, tuple] = {
     ),
     "gelerntes": (
         "user_activity_events", "learning_insights", "blacklist_blocks",
+        # #792: das Protokoll der Lernlaeufe gehoert zum Gelernten.
+        "learning_runs",
         "scraper_health", "scraper_runs", "background_jobs",
         "elwosa_messages", "elwosa_pending_lines", "anonymisierung_map",
     ),

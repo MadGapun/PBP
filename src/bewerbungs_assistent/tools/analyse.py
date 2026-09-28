@@ -3579,8 +3579,7 @@ def register(mcp, db, logger):
             dry_run: True (Default) = nur anzeigen, nichts speichern.
             budget_sekunden: Wall-Clock-Grenze für den gesamten Lauf.
         """
-        from ..services.lerninsights import kandidaten_ableiten, speichern
-        from .. import __version__ as _v
+        from ..services.lerninsights import kandidaten_ableiten
         lauf = kandidaten_ableiten(db, budget_sekunden=budget_sekunden)
         kandidaten = lauf["kandidaten"]
         strategie = [k for k in kandidaten if k["scope"] == "strategie"]
@@ -3607,9 +3606,58 @@ def register(mcp, db, logger):
             )
         if lauf["regel_fehler"]:
             result["regel_fehler"] = lauf["regel_fehler"]
-        if not dry_run and kandidaten:
-            result["gespeichert"] = speichern(db, kandidaten, app_version=_v)
+        if not dry_run:
+            # #792: ein echter Lauf steht im Lernprotokoll — derselbe Weg
+            # wie die Automatik, mit dem Datenschutz-Schalter (#1107).
+            from ..services.lernprotokoll import regeln_lauf
+            eintrag = regeln_lauf(db, "manuell", budget_sekunden=budget_sekunden)
+            if eintrag.get("status") == "lernen_aus":
+                return {"status": "lernen_aus",
+                        "hinweis": "Das Lernen ist unter Datenschutz ausgeschaltet — "
+                                   "es wurde nichts gespeichert. Einschalten unter "
+                                   "Einstellungen › Datenschutz."}
+            result["gespeichert"] = eintrag.get("gespeichert") or {}
+            result["lauf_id"] = eintrag.get("id")
         return result
+
+    @mcp.tool()
+    def lernprotokoll_anzeigen(limit: int = 10) -> dict:
+        """Zeigt, was PBP über dich lernt: die Datenquellen und die letzten Lernläufe (#792).
+
+        Je Quelle steht da, ob sie einfließt, wie viele Datensätze es sind und
+        aus welchem Zeitraum — auch das ausdrückliche „nein“. Je Lauf: wann,
+        wodurch ausgelöst, welche Aussagen gefunden wurden, wie viele davon neu
+        waren, und bei einem Lauf ohne neue Erkenntnis der Grund.
+
+        Args:
+            limit: Wie viele Läufe (neueste zuerst, höchstens 200).
+        """
+        from ..services.lernprotokoll import anzeigen
+        from ..services.lernquellen import uebersicht
+        laeufe = anzeigen(db, limit=limit)
+        antwort = {"lernen_eingeschaltet": db.is_learning_enabled(),
+                   "quellen": uebersicht(db), "laeufe": laeufe}
+        if not laeufe:
+            antwort["hinweis"] = ("Noch kein Lernlauf protokolliert. Er läuft mit der "
+                                  "Automatik oder sofort über erkenntnisse_ableiten("
+                                  "dry_run=False).")
+        return antwort
+
+    @mcp.tool()
+    def lerndaten_exportieren() -> dict:
+        """Exportiert alles, was das Lernen auswertet, als ZIP zum Nachlesen (#792).
+
+        Inhalt: eine Übersicht (Markdown), die Rohdaten als CSV (aussortierte
+        Stellen, Bewerbungen, Verlauf, Nutzung der letzten 30 Tage), die
+        Erkenntnisse mit Beleg als JSON und das Protokoll der Läufe. Der
+        Export enthält Firmennamen — nicht unbedacht weitergeben. Er landet
+        im Ausgabe-Ordner.
+        """
+        from ..services.lernprotokoll import export_erstellen
+        from ..services.ablage import ziel_hinweis
+        erg = export_erstellen(db)
+        erg["hinweis"] = ziel_hinweis(db, erg["datei"])
+        return erg
 
     @mcp.tool()
     def erkenntnisse_anzeigen(filter: str = "alle",

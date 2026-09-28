@@ -99,6 +99,9 @@ EXPECTED_TOOL_NAMES = {
     "kontakt_historie",
     "vermittler_historie",
     "erkenntnisse_ableiten",
+    # #792: was PBP lernt, nachlesbar
+    "lernprotokoll_anzeigen",
+    "lerndaten_exportieren",
     "erkenntnisse_anzeigen",
     "erkenntnis_bestaetigen",
     # v1.7.11 (#804/D30): Termin-Dubletten im Bestand aufraeumen
@@ -421,7 +424,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 268  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
+        assert len(tools) == 270  # #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
         assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:

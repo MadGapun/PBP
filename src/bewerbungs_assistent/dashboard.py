@@ -10952,6 +10952,26 @@ async def api_local_ai_auto_dismissed(limit: int = 50):
     return {"items": items, "count": len(items)}
 
 
+@app.get("/api/lernen/transparenz")
+async def api_lernen_transparenz(limit: int = 10):
+    """#792: was fliesst ins Lernen ein, und was haben die letzten Laeufe
+    ergeben — derselbe Inhalt wie `lernprotokoll_anzeigen`."""
+    from .services.lernprotokoll import anzeigen
+    from .services.lernquellen import uebersicht
+    return {"lernen_eingeschaltet": _db.is_learning_enabled(),
+            "quellen": uebersicht(_db), "laeufe": anzeigen(_db, limit=limit)}
+
+
+@app.get("/api/lernen/export")
+async def api_lernen_export():
+    """#792: die Lerndaten als ZIP — derselbe Export wie
+    `lerndaten_exportieren`. Er liegt danach auch im Ausgabe-Ordner."""
+    from .services.lernprotokoll import export_erstellen
+    erg = export_erstellen(_db)
+    datei = Path(erg["datei"])
+    return FileResponse(str(datei), filename=datei.name, media_type="application/zip")
+
+
 @app.get("/api/learning/insights")
 async def api_get_learning_insights(only_active: int = 1, limit: int = 20):
     """Liefert die LLM-generierten + heuristischen learning_insights
@@ -11228,7 +11248,7 @@ async def api_automatik_run_now(request: Request):
     kind = data.get("kind")
     from .services.automatik_scheduler import run_lernen_now, run_jobsuche_now
     if kind == "lernen":
-        res = run_lernen_now(_db)
+        res = run_lernen_now(_db, ausloeser="manuell")
         # #1107: "laeuft_bereits" ist kein neuer Lauf.
         if res.get("status") == "gestartet":
             _db.mark_automatik_run("lernen")

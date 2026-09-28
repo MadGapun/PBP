@@ -83,7 +83,8 @@ def compute_status(db) -> dict:
     }
 
 
-def run_lernen_now(db, log: logging.Logger = logger) -> dict:
+def run_lernen_now(db, log: logging.Logger = logger,
+                   ausloeser: str = "automatik") -> dict:
     """Startet den Lern-Lauf im HINTERGRUND (v1.7.11, #799).
 
     Vorher lief das synchron im Scheduler-Thread — inklusive des
@@ -107,25 +108,33 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
     # unter Datenschutz eingeschaltet ist". Das gilt fuer BEIDE Stufen —
     # bis v1.7.139 prueften nur die Muster den Schalter, die Regeln nicht.
     if not db.is_learning_enabled():
+        # #792: auch ein ausgelassener Lauf steht im Protokoll — sonst sieht
+        # ein leerer Tag aus wie ein Fehler.
+        try:
+            from .lernprotokoll import regeln_lauf
+            regeln_lauf(db, ausloeser)
+        except Exception as exc:  # pragma: no cover
+            log.debug("Lernprotokoll: %s", exc)
         return {"status": "lernen_aus",
                 "grund": "Das Lernen ist unter Datenschutz ausgeschaltet — "
                          "es wird nichts abgeleitet und nichts gespeichert."}
     if db.get_running_background_job("lernen"):
         return {"status": "laeuft_bereits"}
-    job_id = db.create_background_job("lernen", {"quelle": "automatik"})
+    job_id = db.create_background_job("lernen", {"quelle": ausloeser})
 
     def _run():
         ergebnis: dict = {}
         try:
             db.update_background_job(job_id, "running", progress=10,
                                      message="Regelbasierte Erkenntnisse")
-            from ..services.lerninsights import kandidaten_ableiten, speichern
-            from .. import __version__ as _v
-            lauf = kandidaten_ableiten(db)
-            ergebnis["regelbasiert"] = speichern(
-                db, lauf["kandidaten"], app_version=_v)
-            ergebnis["regeln_gelaufen"] = lauf["regeln_gelaufen"]
-            if lauf["abgebrochen"]:
+            # #792: derselbe Weg wie erkenntnisse_ableiten — mit Eintrag
+            # im Lernprotokoll.
+            from .lernprotokoll import regeln_lauf
+            lauf = regeln_lauf(db, ausloeser)
+            ergebnis["lauf_id"] = lauf.get("id")
+            ergebnis["regelbasiert"] = lauf.get("gespeichert") or {}
+            ergebnis["regeln_gelaufen"] = lauf.get("regeln_gelaufen") or []
+            if lauf.get("regeln_uebersprungen"):
                 ergebnis["regeln_uebersprungen"] = lauf["regeln_uebersprungen"]
         except Exception as exc:
             log.warning("Regelbasierte Erkenntnisse fehlgeschlagen: %s", exc)
@@ -137,6 +146,9 @@ def run_lernen_now(db, log: logging.Logger = logger) -> dict:
             from ..dashboard import _run_analyze_user_patterns
             ergebnis["pattern_analyse"] = _run_analyze_user_patterns(
                 _utcnow().isoformat())
+            if ergebnis.get("lauf_id"):
+                from .lernprotokoll import ki_nachtragen
+                ki_nachtragen(db, ergebnis["lauf_id"], ergebnis["pattern_analyse"])
         except Exception as exc:
             log.warning("Pattern-Analyse fehlgeschlagen: %s", exc)
             ergebnis["pattern_analyse_fehler"] = str(exc)
