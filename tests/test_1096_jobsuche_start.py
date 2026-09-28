@@ -156,5 +156,5 @@ def test_nur_ein_ort_legt_den_suchjob_an():
     for p in SRC.rglob("*.py"):
         text = p.read_text(encoding="utf-8-sig")
         if 'create_background_job("jobsuche"' in text:
-            funde.append(str(p.relative_to(SRC)))
+            funde.append(p.relative_to(SRC).as_posix())
     assert funde == ["services/jobsuche_start.py"], funde

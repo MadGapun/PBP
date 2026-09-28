@@ -298,7 +298,7 @@ ERLAUBT = {
 def _aufrufer():
     """(Datei, innerste umschliessende Funktion) je Aufruf."""
     for p in SRC.rglob("*.py"):
-        rel = str(p.relative_to(SRC))
+        rel = p.relative_to(SRC).as_posix()
         if rel in ("services/bewerbung_lebenszyklus.py", "database.py"):
             continue
 
