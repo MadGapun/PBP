@@ -311,6 +311,7 @@ REGELN
         "profil_analyse": functools.partial(_p.build_profil_analyse_prompt, db),
         "profil_ueberpruefen": functools.partial(_p.build_profil_ueberpruefen_prompt, db),
         "bewerbung_schreiben": _bewerbung_schreiben,
+        "stellen_abgleich": functools.partial(_p.build_stellen_abgleich_prompt, db),
         "interview_vorbereitung": functools.partial(_p.build_interview_vorbereitung_prompt, db),
         "interview_simulation": functools.partial(_p.build_interview_simulation_prompt, db),
         "gehaltsverhandlung": functools.partial(_p.build_gehaltsverhandlung_prompt, db),

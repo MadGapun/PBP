@@ -339,6 +339,8 @@ EXPECTED_PROMPT_NAMES = {
     "tipps_und_tricks",
     # v1.7.4 (#746, H17): Melde-Hilfe — Sofortloesung + anonymisierter Report
     "problem_melden",
+    # #1112: die ganze Stellenliste gegen das Profil
+    "stellen_abgleich",
     # v1.7.0-beta.37 (#599): Elwosa-Bridge-Prompts
     "elwosa_status_anzeigen",
     "elwosa_pause_anfordern",
@@ -420,7 +422,7 @@ def test_mcp_registry_counts(tmp_path):
     try:
         tools, prompts, resources = _collect_names(mcp)
         assert len(tools) == 268  # #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
-        assert len(prompts) == 25  # v1.7.4 (#746): + problem_melden
+        assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:
         db.close()

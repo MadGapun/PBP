@@ -87,8 +87,9 @@ export const HILFE = {
       { titel: "Stellen finden", text: "Wähle die Quellen in den Einstellungen und starte die Suche mit „Jobsuche mit Claude“ oder mit „Interne Jobsuche starten“. Jede Stelle bekommt Punkte." },
       { titel: "Punkte und Urteil", text: "Die Punkte zeigen, wie gut die Anzeige deine Suchbegriffe trifft. Ob die Stelle zu dir passt, sagt erst die Detailbewertung: sie liest Anzeige und Profil und bleibt an der Stelle stehen." },
       { titel: "Aussortieren", text: "„Passt nicht“ nimmt eine Stelle mit Grund aus der Liste. Das Aussortier-Protokoll zeigt, was weg ist, und holt es zurück. Eine Firma, die du nie sehen willst, kommt auf die Blacklist." },
+      { titel: "Die ganze Liste prüfen", text: "„Liste abgleichen mit Claude“ über der Liste kopiert eine Anleitung: Claude liest jede Stelle gegen dein Profil, sortiert aus, was deine Grenzen verletzt, und schreibt zu jeder Stelle ein Urteil mit Begründung. An deinen Suchkriterien ändert Claude dabei nichts." },
     ],
-    prompts: ["jobsuche_workflow", "auto_bewerbung"],
+    prompts: ["jobsuche_workflow", "stellen_abgleich", "auto_bewerbung"],
   },
   bewerbungen: {
     abschnitte: [
