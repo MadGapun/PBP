@@ -75,7 +75,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         if not status.ollama_available or not status.available_models:
             return _err(
                 "Lokale AI nicht verfügbar.",
-                hinweis="Stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
+                hinweis="stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
             )
         if status.user_state != "active":
             return _err(

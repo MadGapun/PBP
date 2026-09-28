@@ -5915,7 +5915,9 @@ async def api_upload_document(
             meetings = extract_meetings_from_email(parsed)
             for m in meetings:
                 if m.get("start"):
-                    mid = _db.add_meeting({
+                    # #1102: eine unlesbare Zeit kostet nur diesen Termin —
+                    # nicht die uebrigen und nicht den Timeline-Eintrag der Mail.
+                    mid = _termin_aus_mail({
                         "application_id": linked_app,
                         "title": m.get("title", "Termin"),
                         "meeting_date": m["start"],
@@ -5925,7 +5927,8 @@ async def api_upload_document(
                         "platform": m.get("platform"),
                         "meeting_type": "interview",
                     })
-                    stored_meetings.append({"id": mid, **m})
+                    if mid:
+                        stored_meetings.append({"id": mid, **m})
 
             # Add timeline event
             direction = email_context.get("direction", "eingang")
