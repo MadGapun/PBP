@@ -366,7 +366,7 @@ def register(mcp, db, logger):
                     "ersten Lauf: jobsuche_starten(quellen="
                     f"{list(_SMART_DEFAULT_QUELLEN)}) — schnelle, "
                     "zuverlässige Quellen ohne Login. Sie werden dabei "
-                    "als aktive Quellen uebernommen. Weitere Quellen: "
+                    "als aktive Quellen übernommen. Weitere Quellen: "
                     "Einstellungen › Quellen."
                 ),
             }

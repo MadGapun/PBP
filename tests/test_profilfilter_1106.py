@@ -37,8 +37,6 @@ sys.path.insert(0, str(_repo() / "src"))
 UEBER_ALLE_PROFILE = {
     ("dashboard.py", "SELECT (SELECT COUNT(*) FROM applications) AS a_cnt"):
         "Aenderungs-Marker fuers Nachladen: eine Aenderung irgendwo darf neu laden",
-    ("dashboard.py", "SELECT COUNT(*) AS n FROM jobs WHERE (description_snapshot IS NULL"):
-        "Wartung: Snapshot-Nachzug ueber den ganzen Bestand (#688), nur ein Log",
     ("services/gruende_schreibweise.py", "SELECT dismiss_reason FROM jobs"):
         "Ablehnungsgruende sind profiluebergreifend (dismiss_reasons ohne profile_id)",
     ("services/gruende_schreibweise.py", "SELECT hash, dismiss_reason FROM jobs"):
