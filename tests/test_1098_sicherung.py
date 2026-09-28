@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import threading
 from collections import namedtuple
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -245,6 +245,74 @@ def test_wal_des_alten_stands_faellt_weg(tmp_path):
     assert erg["status"] == "eingespielt"
     assert not (tmp_path / "pbp.db-wal").exists()
     assert (tmp_path / "pbp.db").read_bytes() == b"x"
+
+
+def _vormerken_mit_heartbeat(tmp_path, pid, alter_sek=5):
+    import json
+    from bewerbungs_assistent.services import sicherung
+    (tmp_path / "backups").mkdir()
+    name = "pbp-backup-2026-09-01_10-00-00-manuell.db"
+    (tmp_path / "backups" / name).write_bytes(b"x")
+    (tmp_path / "pbp.db").write_bytes(b"y")
+    (tmp_path / sicherung.VORMERKUNG).write_text(name, encoding="utf-8")
+    zeit = datetime.now(timezone.utc) - timedelta(seconds=alter_sek)
+    (tmp_path / "mcp_heartbeat.json").write_text(json.dumps(
+        {"last_heartbeat": zeit.isoformat(), "pid": pid}), encoding="utf-8")
+
+
+def _kill_mit(lebende):
+    def kill(pid, sig):
+        assert sig == 0, "Pruefung darf nie ein echtes Signal senden"
+        if pid not in lebende:
+            raise ProcessLookupError(pid)
+    return kill
+
+
+def test_laufender_mcp_server_haelt_wiederherstellen_auf(tmp_path, monkeypatch):
+    """#1098: unter POSIX laesst sich die offene DB ueberschreiben — laeuft
+    Claude Desktop noch, wartet die Vormerkung auf den naechsten Start."""
+    from bewerbungs_assistent.services import sicherung
+    monkeypatch.setattr(sicherung, "_IST_POSIX", True)
+    monkeypatch.setattr(sicherung.os, "kill", _kill_mit({424242}))
+    _vormerken_mit_heartbeat(tmp_path, 424242)
+    erg = sicherung.vorgemerkt_einspielen(tmp_path / "pbp.db")
+    assert erg == {"status": "wartet", "pid": 424242}
+    assert (tmp_path / "pbp.db").read_bytes() == b"y"
+    assert (tmp_path / sicherung.VORMERKUNG).exists()
+
+
+@pytest.mark.parametrize("pid, alter, lebende", [
+    (424242, 300, {424242}),   # Heartbeat veraltet
+    (424242, 5, set()),        # Prozess beendet
+    (os.getpid(), 5, {os.getpid()}),  # der eigene Prozess
+])
+def test_ohne_fremden_prozess_wird_eingespielt(tmp_path, monkeypatch, pid, alter, lebende):
+    from bewerbungs_assistent.services import sicherung
+    monkeypatch.setattr(sicherung, "_IST_POSIX", True)
+    monkeypatch.setattr(sicherung.os, "kill", _kill_mit(lebende))
+    _vormerken_mit_heartbeat(tmp_path, pid, alter)
+    assert sicherung.vorgemerkt_einspielen(tmp_path / "pbp.db")["status"] == "eingespielt"
+    assert (tmp_path / "pbp.db").read_bytes() == b"x"
+
+
+def test_windows_prueft_keine_prozesse(tmp_path, monkeypatch):
+    """os.kill beendet unter Windows den Prozess — dort nie aufrufen."""
+    from bewerbungs_assistent.services import sicherung
+    monkeypatch.setattr(sicherung, "_IST_POSIX", False)
+    def verboten(*a):
+        raise AssertionError("os.kill unter Windows")
+    monkeypatch.setattr(sicherung.os, "kill", verboten)
+    _vormerken_mit_heartbeat(tmp_path, 424242)
+    assert sicherung.anderer_prozess_aktiv(tmp_path) is None
+
+
+def test_heartbeat_traegt_die_prozess_id(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setenv("BA_DATA_DIR", str(tmp_path))
+    from bewerbungs_assistent import heartbeat
+    heartbeat._write_heartbeat_file("test", is_alive=True)
+    daten = json.loads((tmp_path / heartbeat._HEARTBEAT_FILE).read_text(encoding="utf-8"))
+    assert daten["pid"] == os.getpid()
 
 
 def test_unbekannte_sicherung_wird_nicht_vorgemerkt(db):

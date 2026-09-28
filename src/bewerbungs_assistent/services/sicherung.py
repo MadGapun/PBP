@@ -32,12 +32,14 @@ Regeln:
 from __future__ import annotations
 
 import logging
+import os
+import json
 import re
 import shutil
 import sqlite3
 import threading
 import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -333,13 +335,65 @@ def vormerkung_aufheben(db) -> bool:
         return False
 
 
+#: Unter Windows sperrt das Betriebssystem die offene Datenbank selbst.
+_IST_POSIX = os.name == "posix"
+
+#: So lange gilt ein Heartbeat als Lebenszeichen (er wird alle 30 s geschrieben).
+HEARTBEAT_FRISCH_SEK = 90
+
+
+def anderer_prozess_aktiv(basis: Path) -> int | None:
+    """Die Prozess-ID eines ANDEREN PBP-Prozesses, der die Datenbank gerade
+    benutzt — oder None.
+
+    Grundlage ist der Heartbeat des MCP-Servers (`mcp_heartbeat.json`, alle
+    30 s). Geprueft wird nur unter POSIX: dort laesst sich eine offene
+    Datenbank ohne Fehler loeschen und ueberschreiben, und der laufende
+    Prozess schriebe danach in eine ausgetauschte Datei. Unter Windows
+    sperrt das Betriebssystem die Datei, das Loeschen scheitert, und die
+    Vormerkung wartet von selbst — `os.kill(pid, 0)` wuerde dort den
+    Prozess beenden statt ihn zu pruefen."""
+    if not _IST_POSIX:
+        return None
+    try:
+        from ..heartbeat import _HEARTBEAT_FILE
+        daten = json.loads((Path(basis) / _HEARTBEAT_FILE).read_text(encoding="utf-8"))
+        pid = int(daten.get("pid") or 0)
+        zeit = datetime.fromisoformat(str(daten.get("last_heartbeat")))
+    except (OSError, ValueError, TypeError):
+        return None
+    if not pid or pid == os.getpid():
+        return None
+    alter = (datetime.now(timezone.utc) - zeit).total_seconds()
+    if alter > HEARTBEAT_FRISCH_SEK:
+        return None
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return None
+    except PermissionError:
+        return pid  # lebt, gehoert nur einem anderen Nutzer
+    except OSError:
+        return None
+    return pid
+
+
 def vorgemerkt_einspielen(db_path: Path) -> dict | None:
-    """Beim Start, BEVOR die Datenbank geoeffnet wird. Ohne Vormerkung None."""
+    """Beim Start, BEVOR die Datenbank geoeffnet wird. Ohne Vormerkung None.
+
+    Benutzt ein anderer PBP-Prozess die Datenbank noch (Claude Desktop
+    laeuft weiter, nur das Dashboard wurde neu gestartet), wird NICHT
+    eingespielt: die Vormerkung bleibt fuer den naechsten Start."""
     db_path = Path(db_path)
     basis = db_path.parent
     marke = basis / VORMERKUNG
     if not marke.exists():
         return None
+    fremd = anderer_prozess_aktiv(basis)
+    if fremd:
+        logger.warning("Sicherung nicht eingespielt: PBP-Prozess %s benutzt die "
+                       "Datenbank noch (Claude Desktop). Vormerkung bleibt.", fremd)
+        return {"status": "wartet", "pid": fremd}
     name = marke.read_text(encoding="utf-8").strip()
     quelle = basis / ORDNER / name
     if not _NAME.match(name) or not quelle.is_file():
