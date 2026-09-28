@@ -33,6 +33,151 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.140] - 2026-09-28 — Datensicherung, ein Weg für Dashboard und Claude
+
+Eine große Welle aus Anwenderproblemen: Was im Dashboard passierte, lief
+oft an anderen Regeln vorbei als derselbe Schritt über Claude. Dazu kommen
+eine Datensicherung mit Weg zurück und mehrere Datenschutz-Fixes. Kein
+Schema-Sprung (bleibt 48): neue Tabellen legt PBP beim Start selbst an,
+die gespeicherten Daten bleiben erhalten.
+
+### Added
+
+- **Datensicherung** (#1098). PBP sichert täglich, vor dem Leeren eines
+  Bereichs und vor dem Zusammenführen zweier Stellen, jeweils mit den
+  Dokumenten. Unter Einstellungen › Datenschutz lässt sich ein früherer
+  Stand zurückholen. Er wird beim nächsten Start eingespielt, nicht
+  mitten im Betrieb. Neue Werkzeuge: `sicherung_anlegen`,
+  `sicherungen_anzeigen`.
+- **Lernmodus nachvollziehbar** (#792). PBP zeigt, aus welchen Quellen es
+  lernt, schreibt je Lauf ein Protokoll (mit Grund, wenn nichts gelernt
+  wurde) und exportiert die Lerndaten als ZIP. Neue Werkzeuge:
+  `lernprotokoll_anzeigen`, `lerndaten_exportieren`.
+- **Stellenliste mit Claude abgleichen** (#1112). Neuer Prompt
+  `stellen_abgleich`, über der Stellenliste ein Knopf dafür;
+  `stellen_anzeigen` kennt `gefunden_seit`.
+- **Anzeigentexte werden nach der Suche im Hintergrund nachgeladen**
+  (#1038), höchstens 60 je Lauf und nur für Treffer nach dem Filter.
+- **Haken „Echte Fahrstrecke und Fahrzeit verwenden (nur Auto)“** (#1037).
+  Ohne Haken gilt überall die Luftlinie.
+- **Herkunft je Angabe** (#954): belegt, geschätzt oder unbekannt, mit
+  Methode und Zeitpunkt.
+- Hilfe und FAQ zu Entfernung, Fahrstrecke, Datensicherung und
+  nachgeladenen Anzeigentexten.
+
+### Changed
+
+- **Ein Weg für Dashboard und Claude.** Bisher hatten diese Schritte im
+  Dashboard eigene Regeln:
+  - Bewerbungen anlegen, Status ändern, Nachfassen (#1094)
+  - Stellen aussortieren und bearbeiten, mit Lerneffekt (#1095)
+  - Jobsuche starten, auch aus der Automatik (#1096)
+  - Bewerbungsbericht (#1111)
+  - Blacklist auf den Bestand anwenden: vorher wirkte das über alle
+    Profile hinweg und ohne Protokoll
+- **Nähe-Punkte gleitend bis zur Grenze**, eine Grenze für alle Wege; die
+  Luftlinie ist die Hauptangabe (#1036, #1037).
+- **Der Wohnort aus dem Profil gilt als Standort** (#1090), Entfernungen
+  ziehen nach. Die Datenschutz-Übersicht nennt, dass dafür Wohnort und
+  Stellenorte an OpenStreetMap Nominatim gehen.
+
+### Fixed
+
+- **Datenschutz**
+  - Die DSGVO-Löschung entfernt alles, was PBP im Datenordner angelegt
+    hat. Fremde Dateien und Programmteile bleiben liegen und werden
+    genannt (#1097).
+  - PBP löscht nur Dateien, die ihm gehören (#1099).
+  - Eine Bewerbung löschen räumt alle Bezüge ab; Recherchen zur Firma
+    bleiben und verlieren nur die Verknüpfung (#1100).
+  - Keine Daten anderer Profile mehr in Heatmap, Rückschau, Suche,
+    Datenauskunft, Stil-Auswertung, Schwellen-Regler und weiteren Stellen
+    (#1106).
+- **Das Dashboard startet wieder unter Python 3.11** (macOS/Linux). Eine
+  Schreibweise, die erst ab 3.12 erlaubt ist, verhinderte den Start; eine
+  neue CI-Prüfung kompiliert mit 3.11.
+- Eine eingetragene 0 bleibt 0 (#1091, #1036).
+- Die Auto-Aussortierung nach der Suche läuft nur mit Schalter (#1092).
+- Der Lernlauf hält „Lernen aus“ ein und läuft nicht doppelt (#1107).
+- Lange LinkedIn-Läufe werden nicht mehr nach 10 Minuten als Fehler
+  markiert (#1096).
+- **Termine** (#1102): Zeiten in einer Form, heutige Termine gelten als
+  kommend, der Kalenderexport schreibt Zeitzonen richtig. Eine unlesbare
+  Terminzeit in einer Mail kostet nur diesen Termin, nicht den Upload.
+- Exportnamen sind dateisicher, und kein Export überschreibt einen anderen
+  (#1101).
+- Statuslisten aus einer Quelle; `arbeitgeber_ausgefallen` gilt überall
+  als abgeschlossen (#1103).
+- `branchen_trends` zählt mit Wortgrenzen; Aufwand und Termin-Export je
+  Profil (#1104).
+- Die Ersterfassung endet auch ohne Berufserfahrung oder Ausbildung
+  (#1108).
+- Eine Kontakt-Kategorie umbenennen behält ihre Kontakte (#1109).
+- Die Kontaktübernahme legt keine Dubletten an und fragt Abgelehntes nicht
+  wieder (#1110).
+- Der LinkedIn-Anzeigentext kommt ohne Gehaltskasten und ohne
+  Ansprechperson (#1085).
+- `jobtitel_verwalten` und `bewerbung_event_datum_setzen` nennen ihre IDs
+  und melden keinen Erfolg über nichts.
+
+### Gemessen
+
+Gegenproben je Mechanismus (ausgebaut, Test rot), unter anderem #1094
+27/27, #1098 25/25, #1037 22/22, #1085 18/18, #792 16/16, #1095 15/15.
+Werkzeuge: 257 (+5), Prompts: 26 (+1).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.140.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.140.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.139] - 2026-09-26 — Umlaute auch für Claude
 
 v1.7.138 hat die Texte im Dashboard umgestellt. Was Claude liest, trug
