@@ -1,0 +1,8815 @@
+Archiv der CLAUDE.md bis v1.7.139, Stand 2026-09-27. Nicht automatisch geladen. Suche hier per grep nach Issue-Nummern und MERKE-Punkten.
+# PBP — Claude-Code-Memory
+
+Persoenliches Bewerbungs-Portal (PBP). MCP-Server (Python/FastMCP 3.x) +
+React-Frontend + SQLite. **v1.7.139** ist Stable (`--latest`, 2026-09-26; echte Umlaute auch in den Texten fuer Claude — Werkzeugbeschreibungen, Antworten, Prompts, Server-Anleitung; Werte, die Claude zurueckschickt, bleiben in Umschrift (#1089 H33). Details im Stand-Block unten). Davor **v1.7.138** war Stable (`--latest`, 2026-09-26; echte Umlaute auch in den Server-Texten des Dashboards — Tagesimpuls, Elwosa, Hinweise, Quellenbeschreibungen, Fit-Faktoren, Meldungen; der Umlaut-Pruefer liest den Server mit (#1088 G73). Details im Stand-Block unten). Davor **v1.7.137** war Stable (`--latest`, 2026-09-25; Welle 7 aus #1087 und damit ihr Abschluss — Paletten mit 4,5:1 in beiden Modi, Lesefarben voll deckend, Schrift ab 12 px, Dialoge mit Fokusfalle, Live-Region, Auswahlfeld mit Tastatur, Suche auf dem Handy, README und Wiki ohne zweite Zahlenstellen, Screenshots aus dem Stable-Stand (G71, L13). Details im Stand-Block unten). Davor **v1.7.136** war Stable (`--latest`, 2026-09-25; Welle 6 aus #1087 — Einstellungen in Grundlagen und Erweitert mit einem Satz je Quelle, "Suche & Bewertung" als eigener Bereich, Hilfe fuer jede Seite mit beiden Meldewegen, Kennzahlen mit fester Bedeutung, Rueckgaengig nach Statuswechsel und Loeschen (G61, G67, G68, G69, G70). Details im Stand-Block unten). Davor **v1.7.135** war Stable (`--latest`, 2026-09-25; Welle 5 aus #1087 — Werkzeugkatalog mit Tags und Expertenmodus, Prompts aus einer Quelle, Datenschutz-Anzeige und zentrale KI-Sperre, Server-Instructions fuer den Bewerber, Werkzeugnamen nach Wirkung, Ersterfassung in Phasen, Links ins Dashboard, keine Sackgassen (H21, H22, H25, H28, H29, H30, H31, H32). Details im Stand-Block unten). Davor **v1.7.134** war Stable (`--latest`, 2026-09-25; Welle 4 aus #1087 — eine Kernaussage je Stellenkarte, "Genauer pruefen" statt zwei Knoepfen, Suche plus "Filter (n)", eine Arbeitsliste, Anzeigenamen statt Rohwerten, echte Umlaute und ein Wort je Begriff, Suchbegriffe je Jobboerse, ein Kopierweg fuer Claude (G62, G64, G65, G66, B70, G72). Details im Stand-Block unten). Davor **v1.7.133** war Stable (`--latest`, 2026-09-25; Welle 3 aus #1087 — ein Einstieg statt drei, hoechstens ein Hinweis und nur auf dem Dashboard, "Zuerst dein Profil", Quellen-Erstauswahl aus der Empfehlung, Installer-Ampel (G59, G60, G63, B69, I15). Details im Stand-Block unten). Davor **v1.7.132** war Stable (`--latest`, 2026-09-25; Welle 2 aus #1087 — ein Wert je Stelle: Karte, Dashboard, Fit-Dialog, Timeline und `stellen_anzeigen` zeigen dieselben Punkte, die Faktoren ergeben die Zahl, ein Satz fuer die Bedeutung, die erste Trefferliste sagt was fehlt (C96, H24, C97). Details im Stand-Block unten). Davor **v1.7.131** war Stable (`--latest`, 2026-09-25; Welle 1 aus dem UX-Review #1087 — was im Kernweg kaputt war: Mail-Detail stuerzte ab, Formulare mit Datenbank-Feldnamen, Spruenge ohne Ziel, Prompt-Aufrufe mit falschen Parametern, Loeschen ohne Rueckfrage (G57, G58, D49, H23, H26, H27, H32-Teil). Details im Stand-Block unten). Davor **v1.7.130** war Stable (`--latest`, 2026-09-25; Inhalt des geplanten v1.7.129, dessen Tag versehentlich auf main lag — v1.7.129 ist Prerelease mit Warnhinweis; eine Firma, alle Bezüge — `firma_kontext` sah nur Bewerbungen und Stellen, jetzt jede Rolle (Vermittler, Endkunde, Arbeitgeber, Projektkunde, Kontakt, Anfrage, Recherche, Blacklist) als Verweis, mit Warnung vor Doppelvorstellung (#1080 Stufe 1); dazu Ollama beenden per Knopf, Desktop-Verknüpfung oder beim Ende von PBP (#1086). Details im Stand-Block unten). Davor **v1.7.128** war Stable (`--latest`, 2026-09-25; Firma, Ort und Region aus der Quelle — das Nachladen holte die Detailseite und warf Arbeitgeber und Arbeitsort weg, und Jobware und ingenieur.de fragten fest bundesweit (#1040, #1041, #1042 Restpunkte). Details im Stand-Block unten). Davor **v1.7.127** war Stable (`--latest`, 2026-09-24; was die Schwelle vergleicht, was wiederkommt, was in der Mail steht — eine fachlich starke Stelle in 450 km verschwand, weil die Schwelle den Wert samt Entfernungs-Regler las und bei 0 kappte, der Stellen-Tab wandte sie gar nicht an, eine zusammengefuehrte Dublette kam mit dem naechsten Suchlauf zurueck, und eine Absagemail war nur per SQL lesbar (#1079, #1082-#1084). Details im Stand-Block unten). Davor **v1.7.126** war Stable (`--latest`, 2026-09-23; was angelegt wird, was gesucht wird, was bleibt — sieben Meldungen aus zwei Tagen: `C++` liess sich nicht als Skill anlegen und `skills_bereinigen` loeschte es, `stelle_mergen` ueberstimmte eine ausdrueckliche Strategie und liess Bezuege auf die geloeschte Stelle zeigen, die Einordnung las nur den Lebenslauf, JobSpys `is_remote` blendete die Entfernung hybrider Stellen aus, und PLUS-Begriffe suchten nur Beifang (#1071-#1077). Details im Stand-Block unten). Davor **v1.7.125** war Stable (`--latest`, 2026-09-21; drei Angaben statt eines Schluessels — die fuenfzehn Profil-Cluster mischten Berufsfeld, Erfahrungsstufe und Beschaeftigungsform, und der erste Treffer gewann; gemessen am Bestand des Melders: fuenf Quellen statt dreizehn, acht Fachquellen verloren. Dazu ein ungemeldeter Befund: `leiter` steckt in `Begleiter`, und Schulbegleiterinnen galten als Fuehrungskraft (#1070, B61). Details im Stand-Block unten). Davor **v1.7.124** ist Stable (`--latest`, 2026-09-21; eine Stufe statt einer Zahl — die Score-Schwelle war eine Zahl ohne Bezugsgroesse, verschob sich unter dem Nutzer und hatte direkt ueber der Vorgabe eine Klippe; jetzt sechs benannte Stufen mit Werten aus dem eigenen Bestand, und neben jeder steht, wie viele eigene Bewerbungen sie verworfen haette (#1063, C91). Details im Stand-Block unten). Davor **v1.7.123** war Stable (`--latest`, 2026-09-21; das Dashboard sagt, wenn es nichts weiss — der Befund war da, die Anzeige las ihn nicht (#1069 AK 4)). Davor **v1.7.122** war Stable (`--latest`, 2026-09-21; der ganze Anzeigentext, und was es nicht mehr gibt — die Detailanalyse las seit v1.7.61 nur die ersten 2000 Zeichen und sagte es nicht (#1064), eine Stelle zu einer abgelehnten Bewerbung kam ohne Hinweis herein (#1065), Monster wurde seit #653 als veraltet gefuehrt und trotzdem angeboten (#1066), die Google-Jobs-Auswertung fand nur noch die Suchreiter (#1067), und die Update-Pruefung stand auf einem Bein (#1069). Details im Stand-Block unten). Davor **v1.7.121** war Stable (`--latest`, 2026-09-18; die Ernte kommt an — LinkedIn ueber JobSpy verwarf auch nach v1.7.120 alles, was nach dem eigenen Budget kam (#1061), ein Dashboard-Satz fuehrte Claude zum falschen Werkzeug (#1062), und die Browser-Quellen sagten dasselbe dreimal verschieden (#1060). Details im Stand-Block unten). Davor **v1.7.120** war Stable (`--latest`, 2026-09-18; ein Knopf liefert, was er verspricht — "Dokumente verarbeiten" kopierte den rohen Schraegstrich-Befehl, weil die Dashboard-Registry den Prompt nicht kannte, und der Prompt selbst stuerzte seit beta.58 fuer jeden mit Profil ab; LinkedIn ueber JobSpy lieferte ueber 1.000 Stellen und wurde als `server_weg` verworfen (#1038). Details im Stand-Block unten). Davor **v1.7.119** war Stable (`--latest`, 2026-09-17; die Listen passen zum Profil, die Notizen zur Bewerbung — ein Abgleich, der fehlende Skills, Widersprueche und Rahmenbegriffe in den Suchlisten als Vorschlagsliste nennt (#1054, C87), und Notizen mit Bewerbungsbezug gehen in die Timeline statt ins Profil (#1056, D47). Details im Stand-Block unten). Davor **v1.7.118** war Stable (`--latest`, 2026-09-17; eine Quelle fuer Gehalt, und Geocoding erst nach dem Filter — dasselbe Mindestgehalt stand an zwei Orten mit verschiedenen Zahlen, und die Fit-Analyse ueberschrieb die Kriterien damit hinter dem Nadeloehr (#1055, C86); das Geocoding lief ueber die Rohtreffer und meldete mehr Standorte, als es Stellen gibt (#1057, C85). Details im Stand-Block unten). Davor **v1.7.117** war Stable (`--latest`, 2026-09-16; zwei Daumen statt einer Zahl — der Score war die Summe aus Fachwert und Rahmen, und 400 km zogen den fachlich besten Treffer des Bestands auf 0, wo er von einer fachfremden Anzeige nicht mehr zu unterscheiden war (#1052 Schritt 2, C83). Details im Stand-Block unten). Davor **v1.7.116** war Stable (`--latest`, 2026-09-15; Abzuege mit Grenze, Schwelle aus dem Quantil — die MINUS-Summe war ungedeckelt und drueckte schwache Fachtreffer ins Minus, und der Backtest rechnete mit anderen Kriterien als die Liste (#1052 Schritt 1, #1045). Details im Stand-Block unten). Davor **v1.7.115** war Stable (`--latest`, 2026-09-15; die Detailbewertung auf der Karte — der Prompt im Fit-Dialog verlangte das Speichern nicht, auf der Karte fehlte der Weg ganz, und die Blacklist stand gleichrangig neben dem Aussortieren (#1050, G51). Details im Stand-Block unten). Davor **v1.7.114** war Stable (`--latest`, 2026-09-15; der Weg zu den Browser-Quellen — der Knopf startete nur den internen Lauf, sechs gewaehlte Quellen mit Browser-Zugang liefen monatelang nicht mit, und kein Weg fuehrte im Dashboard zu Claude (#1049, G50). Details im Stand-Block unten). Davor **v1.7.113** war Stable (`--latest`, 2026-09-15; jeder Regler hinterlaesst eine Spur — Scoring-Regler hatten weder Zeitpunkt noch Vorgaengerwert, ein wirkungsloser Eintrag war nicht mehr zuzuordnen, und Begriffs-Regler galten seit v1.7.36 faelschlich als wirkungslos (#1053, C84). Details im Stand-Block unten). Davor **v1.7.112** war Stable (`--latest`, 2026-09-15; ein Urteil bleibt gueltig, bis sich seine Grundlage aendert — eine Detailanalyse galt im Moment ihrer Entstehung als veraltet, weil zwei Rechenwege verglichen wurden, und die manuelle Anlage rechnete mit anderen Kriterien als die Fit-Analyse (#1051, C82). Details im Stand-Block unten). Davor **v1.7.111** war Stable (`--latest`, 2026-09-14; was aus der vorhandenen Stelle geworden ist — die Duplikat-Meldung nannte nur die Kennung, und daraus wurde vorgeschlagen, laengst aussortierte Stellen auszusortieren (#1046, B57). Details im Stand-Block unten). Davor **v1.7.110** war Stable (`--latest`, 2026-09-14; Absaetze, Listen und Ueberschriften bleiben — dreizehn Adapter und der Nachlade-Leser machten aus jeder Anzeige einen Absatz, und die Detailansicht fasste ihn noch einmal zusammen (#1047, B56). Details im Stand-Block unten). Davor **v1.7.109** war Stable (`--latest`, 2026-09-14; der ganze Anzeigentext, auch bei hays — der Adapter kappte bei 500 Zeichen, das Nachladen erkannte es nicht, und kein Nachlade-Weg bewertete danach neu (#1048, B55). Details im Stand-Block unten). Davor **v1.7.108** war Stable (`--latest`, 2026-09-14; Kommentare sind kein Text — der Kartenleser fuer Jobware und ingenieur.de nahm HTML-Kommentare in Titel, Firma und Ort mit, und die Kennung aus dem verfaelschten Titel hebelte den Uebergang aus v1.7.104 aus; der Bestand wird vor dem Speichern geheilt (#1041, B54). Details im Stand-Block unten). Davor **v1.7.107** war Stable (`--latest`, 2026-09-14; zwei Kartenleser — freelance.de und Praktikum.de liefern wieder, und der Heise-Befund aus v1.7.106 ist berichtigt: die Treffer kommen nur im Browser (B53). Details im Stand-Block unten). Davor **v1.7.106** war Stable (`--latest`, 2026-09-14; zwei tote Quellen liefern wieder — GULP und Workable standen als defekt, hatten aber beide eine offene Such-Schnittstelle; die fuenf uebrigen tragen den Befund der Nachmessung (B53). Details im Stand-Block unten). Davor **v1.7.105** war Stable (`--latest`, 2026-09-14; was ausgewaehlt ist, steht auch so da — eine defekte Quelle blieb in der gespeicherten Auswahl, obwohl ihr Haken leer und gesperrt gezeichnet wurde, und die Empfehlungen boten defekte Quellen an (#1039). Details im Stand-Block unten). Davor **v1.7.104** war Stable (`--latest`, 2026-09-14; jede Karte, einmal, mit Firma und Ort — Jobware lieferte 1-2 Stellen je Lauf mit falschem Titel, ingenieur.de jede Stelle mehrfach ohne Firma (#1041, #1042). Details im Stand-Block unten). Davor **v1.7.103** war Stable (`--latest`, 2026-09-14; Karte und Popup sagen dasselbe — das Popup "Stellendetails" zeigte Rohwerte und keine Entfernung (#1044). Details im Stand-Block unten). Davor **v1.7.102** war Stable (`--latest`, 2026-09-14; jede Stufe erzeugt eine Regel — Deckkraft-Klassen wie `border-white/8` erzeugten kein CSS, graue Badges und Felder bekamen einen hellen Rahmen (#1043). Details im Stand-Block unten). Davor **v1.7.101** war Stable (`--latest`, 2026-09-14; Firma und Ort, fuer jeden Suchbegriff — stellenanzeigen.de lieferte jede Stelle als "Unbekannt" ohne Ort und wertete nur den ersten Suchbegriff aus (#1040). Details im Stand-Block unten). Davor **v1.7.100** war Stable (`--latest`, 2026-09-13; entfernt heisst entfernt — nach dem Entfernen des Routing-Schluessels rechnete der Score weiter mit gespeicherten Fahrstrecken, obwohl die Rueckfrage die Luftlinie versprach (#1037). Details im Stand-Block unten). Davor **v1.7.99** war Stable (`--latest`, 2026-09-13; die nahe Filiale bleibt sichtbar — die Auto-Aussortierung uebertrug "zu weit entfernt" auf dieselbe Stelle an einem anderen Ort, und Score und Automatik rechneten mit zwei verschiedenen Entfernungsgrenzen (#1036). Details im Stand-Block unten). Davor **v1.7.98** war Stable (`--latest`, 2026-09-13; ein Beleg, der den Pruefer besteht — die Anonymisierung liess Mail und Telefon stehen, und der PII-Sweep laeuft jetzt woechentlich, ohne seine Funde ins oeffentliche Log zu schreiben (#817). Details im Stand-Block unten). Davor **v1.7.97** war Stable (`--latest`, 2026-09-13; der Modell-Katalog hat einen Stand — die Empfehlungen fuer die lokale KI standen seit Ende 2024 unveraendert, jetzt die Qwen3-Reihe mit Stand, Nachfolger-Hinweis und Schutz gegen ihren Denkmodus (#785). Details im Stand-Block unten). Davor **v1.7.96** war Stable (`--latest`, 2026-09-13; die Firmen, die dich interessieren — Personio und Greenhouse fragten eine feste Liste fremder Arbeitgeber ab, ein erfundener Personio-Name sah wie ein Treffer aus, und eigene Personio-Firmen kamen nie beim Adapter an (#811). Details im Stand-Block unten). Davor **v1.7.95** war Stable (`--latest`, 2026-09-13; eine Nachkommastelle, und die Teile ergeben die Summe — der Score stand als 6.199999999999999 auf der Karte, die Neuberechnung schnitt Zehntel ab, und fachlich plus Rahmen ergab nicht den Score (#1035). Details im Stand-Block unten). Davor **v1.7.94** war Stable (`--latest`, 2026-09-13; wie weit ist es wirklich — mit einem Schluessel von OpenRouteService rechnet PBP echte Fahrstrecke und Fahrzeit statt der Luftlinie, und Score, Regler, Fit-Analyse und Automatik nehmen die Fahrstrecke (#950 AK 3-6). Details im Stand-Block unten). Davor **v1.7.93** war Stable (`--latest`, 2026-09-13; der Filter wirkt auf den Bestand — Filter und Sortierung im Stellen-Tab wirkten nur auf die geladenen 20 Stellen, "buchhaltung" fand 5 statt 209 (#1030), und nach dem Fund-Datum liess sich nicht sortieren (#1032). Details im Stand-Block unten). Davor **v1.7.92** war Stable (`--latest`, 2026-09-13; ein Wort ist kein Fachgebiet — die Auto-Aussortierung hielt "für" und "als" fuer ein gemeinsames Fachgebiet und Firmen-Platzhalter wie "Nicht angegeben" fuer denselben Arbeitgeber (#1028). Details im Stand-Block unten). Davor **v1.7.91** war Stable (`--latest`, 2026-09-13; die richtige Zahl am richtigen Ort — der Jobsuche-Hinweis zeigte nach jedem Lauf "0 neue Stellen" (#1033), "Voll- oder Teilzeit" galt als Teilzeit (#1031), ein Jahresgehalt wurde mal zwoelf gerechnet und Kurz-Kennungen trafen irgendeine Stelle (#1029). Details im Stand-Block unten). Davor **v1.7.90** war Stable (`--latest`, 2026-09-12; nichts wird still abgeschnitten — die lokale KI bekam kein `num_ctx`, Ollama kuerzte laengere Prompts still auf sein Vorgabefenster; jetzt ein festes Fenster je Profil, und ein Prompt, der nicht passt, wird benannt (#787 Teil 1). Details im Stand-Block unten). Davor **v1.7.89** war Stable (`--latest`, 2026-09-12; die Antwort, nicht nur die Frage — Auswahlfelder nannten Screenreadern die Feldbeschriftung und nie den gewaehlten Wert, weil `Field` den Knopf in ein `<label>` wickelt (#1027). Details im Stand-Block unten). Davor **v1.7.88** war Stable (`--latest`, 2026-09-12; wer kann was ueber mich sagen — Kontakte als Referenz markieren, nach Art filtern und als Referenzliste (DOCX/PDF) ausgeben, Kontaktdaten nur auf Wunsch (#884). Details im Stand-Block unten). Davor **v1.7.87** war Stable (`--latest`, 2026-09-12; der Mengenweg deckt fehlende Beschreibungen ab — `beschreibungen_nachladen_bestand` meldete "nichts zu tun" bei 984 geprueften Stellen, waehrend 370 ohne jeden Anzeigentext danebenstanden (#1016). Details im Stand-Block unten). Davor **v1.7.86** war Stable (`--latest`, 2026-09-12; die Uhrzeit eines Termins kommt aus dem Text und nicht aus dem Mail-Kopf — aus `Datum: 2026-09-10T14:43:25` wurde `moegliche_uhrzeit = "43:25"`, und der Routing-Plan schlug damit `termin_anlegen` vor (#1019). Details im Stand-Block unten). Davor **v1.7.85** war Stable (`--latest`, 2026-09-12; ein Loeschbereich statt vier — „Alle Daten loeschen“ und „Factory Reset“ beschrieben sich fast gleich und taten sehr Verschiedenes: das eine loescht die Datei, das andere Zeilen (#1025 Stufe 2, #1024). Details im Stand-Block unten). Davor **v1.7.84** war Stable (`--latest`, 2026-09-12; Anstellungsform und Umfang sind zwei Fragen — „Festanstellung in Teilzeit“ ist der Normalfall und im Ein-Feld-Modell nicht ausdrueckbar: von 103 aktiven Titeln mit „Teilzeit“ waren 102 als `festanstellung` gespeichert und 0 als `teilzeit` (#1023). Details im Stand-Block unten). Davor **v1.7.83** war Stable (`--latest`, 2026-09-11; die Kopfzeile zeigt den Bestand — die Kachel zaehlte die GELADENEN Zeilen, meldete 20 bei 1.110 aktiven Stellen, und die Kennzahlen rechneten ueber die geladene Seite, also systematisch ueber die besten (#1022). Details im Stand-Block unten). Davor **v1.7.82** war Stable (`--latest`, 2026-09-11; eine Telefonnummer ist kein Jahresgehalt — die Plausibilitaetsgrenze prueste nur den ersten Wert einer Spanne, das Waehrungswort hatte keine Wortgrenze, und ein falsch erkanntes Gehalt liess sich gar nicht korrigieren (#1026). Details im Stand-Block unten). Davor **v1.7.81** war Stable (`--latest`, 2026-09-11; was gehoert wozu, wenn geloescht wird — der Factory Reset liess 29 von 47 Tabellen stehen, darunter 81 Kontakte mit Namen und Mailadressen Dritter, und das Profil-Loeschen hinterliess verwaiste Zeilen (#1025 Stufe 1). Details im Stand-Block unten). Davor **v1.7.80** war Stable (`--latest`, 2026-09-11; nur die Art der Stelle wandert — die Auto-Aussortierung uebertrug "zu weit entfernt" per Titel-Muster auf fremde Firmen, 108 von 241 Uebertragungen liefen auf einem Grund, der nichts ueber die Art der Stelle sagt (#1020). Details im Stand-Block unten). Davor **v1.7.79** war Stable (`--latest`, 2026-09-11; Arbeitszeit ist kein Stundenlohn — "Teilzeit: 30-35 Stunden pro Woche" wurde als Stundensatz gespeichert, und zwar als BELEGT; von 12 `stuendlich`-Treffern waren 10 Arbeitszeiten (#1018). Details im Stand-Block unten). Davor **v1.7.78** war Stable (`--latest`, 2026-09-11; ein Jahresaequivalent, zwei Rechenwege — der Basis-Score vergab den Gehaltsbonus auf eine erfundene Zahl, und 2.406 von 2.535 Stellen tragen ein geschaetztes Gehalt (#1017); `stellentypen` hatte keinen filternden Leser (#1015). Details im Stand-Block unten). Davor **v1.7.77** war Stable (`--latest`, 2026-09-10; ein Grund, eine Schreibweise — Label und gespeicherter Wert sind zwei verschiedene Zeichenketten, und darauf faellt jedes Umbenennen herein (#663). Details im Stand-Block unten). Davor **v1.7.76** war Stable (`--latest`, 2026-09-10; beide behalten — Notizen werden verkettet statt entschieden (#957), und das Umbenennen eines Ablehnungsgrunds schreibt die Altwerte wirklich um (#663). Details im Stand-Block unten). Davor **v1.7.75** war Stable (`--latest`, 2026-09-10; melden, was du brauchst — der Defekt ist bekannt, der Bedarf nicht (#937). Details im Stand-Block unten). Davor **v1.7.74** war Stable (`--latest`, 2026-09-10; der Regler kennt deinen Bestand — und ein erneuter Suchlauf loeschte bis hierher still das gelesene Urteil (#892). Details im Stand-Block unten). Davor **v1.7.73** war Stable (`--latest`, 2026-09-10; was ich mindestens nehme und was ich sage — ein Feld erfuellte zwei Zwecke, die einander widersprechen (#931). Details im Stand-Block unten). Davor **v1.7.72** war Stable (`--latest`, 2026-09-10; eine Stelle, mehrere Fundstellen — dieselbe Frage wurde an zwei Stellen mit verschiedenen Regeln beantwortet, und die schwaechere lief im Suchlauf (#951). Details im Stand-Block unten). Davor **v1.7.71** war Stable (`--latest`, 2026-09-10; angesehen ist nicht beurteilt — eine vertiefte Analyse hinterliess gar keine Spur, und "ueberholt" haengt jetzt am Score statt nur am Profil (#948). Details im Stand-Block unten). Davor **v1.7.70** war Stable (`--latest`, 2026-09-10; ein Befund statt einer Vermutung — der Nachlade-Pfad verwarf den HTTP-Status, aus 410 Gone wurde "vermutlich Bot-Block" (#1014); Firmen-Recherche liegt an einem Ort statt in zwei Speichern (#956); ein Report ueber die Notiz-Drift ohne jeden Schreibzugriff (#957 Stufe 1). Details im Stand-Block unten). Davor **v1.7.69** war Stable (`--latest`, 2026-09-10; die Vorgabe kommt aus deinen Begriffen — die Betriebsart des MUSS-Tors wird abgeleitet statt an EINEM Bestand kalibriert (#968, Nutzer-Korrektur). Details im Stand-Block unten). Davor **v1.7.68** war Stable (`--latest`, 2026-09-09; weit unten statt nirgends — das MUSS-Tor ist umschaltbar, und die Vorgabe bleibt `hart`, weil die Messung dagegen spricht (#968). Details im Stand-Block unten). Davor **v1.7.67** war Stable (`--latest`, 2026-09-09; wer gehoert dazu — ein Kontakt entsteht bei der INTERAKTION statt am Anlageweg (#1011), und die Meta-Bedienelemente der Karten sind Symbole statt Textzeilen (#1013). Details im Stand-Block unten). Davor **v1.7.66** war Stable (`--latest`, 2026-09-09; eine Anforderung, ein Punkt — Schreibvarianten desselben Sachverhalts zaehlten mehrfach, 37 MUSS-Begriffe sind 15 Anforderungen (#1012). Details im Stand-Block unten). Davor **v1.7.65** war Stable (`--latest`, 2026-09-09; was ist eigentlich ein Fachgebiet — ein Herstellername galt als Domaene (#1004), ein Wort als Kompetenz (#1005). Details im Stand-Block unten). Davor **v1.7.64** war Stable (`--latest`, 2026-09-09; nach der Entscheidung — Handlung direkt im Fit-Dialog und ein Aussortier-Protokoll mit Zeitpunkt, Herkunft und Rueckgaengig (#1009, #1010). Details im Stand-Block unten). Davor **v1.7.63** war Stable (`--latest`, 2026-09-09; nach dem Urteil filtern — das siebte und letzte Akzeptanzkriterium von #1007, und ein Issue mit sechs von sieben erfuellten Punkten ist nicht erledigt (DoD 8a). Der neue Filter faellt selbst unter die Lehre aus #1008: Vorgabe AUS, benannt, und er sagt wie viele Stellen er ausblendet). Davor **v1.7.62** war Stable (`--latest`, 2026-09-09; die Liste sagt jetzt, was sie verbirgt — ein Filter, den niemand gesetzt hat, verbarg 7 von 8 Stellen, und #993 hatte ihn zwei Versionen zuvor erst scharfgeschaltet (#1008). Details im Stand-Block unten). Davor **v1.7.61** war Stable (`--latest`, 2026-09-09; die Empfehlung kommt nicht mehr aus dem Score — der Score ist nur ein Indikator fuer die Suchbegriffe, das Urteil entsteht aus der Detailanalyse gegen das Profil (#1003, #1007). Der Stand-Block dazu wurde mit v1.7.63 nachgetragen). Davor **v1.7.60** war Stable (`--latest`, 2026-09-09; erzeugte Dokumente sind versandfertig — viermal `None` im Lebenslauf, und es war keine Regression, sondern zwei Werkzeuge (#1006). Details im Stand-Block unten). Davor **v1.7.59** war Stable (`--latest`, 2026-09-09; Ausgabe- und Vorlagen-Ordner einstellbar — der Zielordner stand an dreizehn Stellen, Vorlagen gab es gar nicht (#973 Teil 1). Details im Stand-Block unten). Davor **v1.7.58** war Stable (`--latest`, 2026-09-09; Ollama startet auf Wunsch mit PBP — Vorgabe AUS, eine Start-Logik fuer Knopf und Autostart (#1001). Details im Stand-Block unten). Davor **v1.7.57** war Stable (`--latest`, 2026-09-09; im Bewerbungs-Detail stand Schreiben vor Lesen, und der Prompt-Knopf speicherte nichts (#958). Details im Stand-Block unten). Davor **v1.7.56** war Stable (`--latest`, 2026-09-09; Score-Verteilung der beworbenen Stellen als eigene Kennzahl (#986). Details im Stand-Block unten). Davor **v1.7.55** war Stable (`--latest`, 2026-09-09; der Installer stoppte Prozesse noch per wmic — auf Win11 24H2 entfernt (#739). Details im Stand-Block unten). Davor **v1.7.54** war Stable (`--latest`, 2026-09-09; der Filtertrichter belegt jetzt, was er zaehlt — #813 vollstaendig abgeschlossen. Details im Stand-Block unten). Davor **v1.7.53** war Stable (`--latest`, 2026-09-09; der PII-Pruefer fand nur die wortgleiche Schreibweise — 39 Issues tragen einen Bestandsnamen. Details im Stand-Block unten). Davor **v1.7.52** war Stable (`--latest`, 2026-09-08; Reisewiderstand — nicht jeder Kilometer kostet gleich viel (#965 Befund 2). Details im Stand-Block unten). Davor **v1.7.51** war Stable (`--latest`, 2026-09-08; "liefert nichts" und "liefert nichts Passendes" waren dieselbe Zahl — und beide fuehrten zur Abschaltung (#995). Details im Stand-Block unten). Davor **v1.7.50** war Stable (`--latest`, 2026-09-08; ein `chrome`-Feld, das es nie gab, und eine Entfernung ohne Einheit (#993, #950). Details im Stand-Block unten). Davor **v1.7.49** war Stable (`--latest`, 2026-09-08; die Empfehlung hielt feste Schwellen gegen eine Skala ohne 100 — perfekte Passung ergab "Gap zu gross" (#999). Details im Stand-Block unten). Davor **v1.7.48** war Stable (`--latest`, 2026-09-08; das tausendste Issue — zwei Parameter von `jobsuche_starten` ohne jeden Leser (#1000). Details im Stand-Block unten). Davor **v1.7.47** war Stable (`--latest`, 2026-09-08; der DOCX-Import las keine Tabellen — ein Lebenslauf im Tabellenlayout ergab 26 Zeichen (#998). Details im Stand-Block unten). Davor **v1.7.46** war Stable (`--latest`, 2026-09-08; `profil_bearbeiten` meldete Erfolg fuer IDs, die es nicht gibt — der Rueckgabewert der DB-Ebene wurde an sieben Stellen verworfen (#997). Details im Stand-Block unten). Davor **v1.7.45** war Stable (`--latest`, 2026-09-08; "remote" schaltete die Ortspruefung ab — US-Stellen im DACH-Bestand (#996). Details im Stand-Block unten). Davor **v1.7.44** war Stable (`--latest`, 2026-09-08; Quellenpflege — eine abgeschaltete Quelle lebte, und die Abschaltung war eine Einbahnstrasse (#813). Details im Stand-Block unten). Davor **v1.7.43** war Stable (`--latest`, 2026-09-07; der LinkedIn-Weg im echten Browser nachgemessen — AK1 erfuellt, und LinkedIn sanitisiert `innerHTML` (#919). Details im Stand-Block unten). Davor **v1.7.42** war Stable (`--latest`, 2026-09-07; LinkedIn liefert wieder — der erprobte Voyager-Weg ist Werkzeug statt Notiz (#919). Details im Stand-Block unten). Davor **v1.7.41** war Stable (`--latest`, 2026-09-07; die Blacklist warf unsichtbar weg, und die Ausnahme wirkte nicht im Suchlauf (#992). Details im Stand-Block unten). Davor **v1.7.40** war Stable (`--latest`, 2026-09-07; das Werkzeug gab es, der Weg dorthin fehlte — erster Fund eines fremden Anwenders im Profil-Bereich (#994). Details im Stand-Block unten). Davor **v1.7.39** war Stable (`--latest`, 2026-09-07; Ungeprueftes wirkte wie Unauffaelliges — was nichts kostet, stand oben (#989). Details im Stand-Block unten). Davor **v1.7.38** war Stable (`--latest`, 2026-09-07; der Analyseplan schlug 962 Dokument-Zuordnungen vor statt 8 — zum fuenften Mal zwei Wege fuer dieselbe Frage (#991). Details im Stand-Block unten). Davor **v1.7.37** war Stable (`--latest`, 2026-09-07; eine Klammer hat den Installer abgebrochen — erster Bericht eines fremden Anwenders (#990). Details im Stand-Block unten). Davor **v1.7.36** war Stable (`--latest`, 2026-09-07; die Trefferliste stand auf dem Kopf — 86 von 86 Stellen zu hoch bewertet (#987), die Entfernung wirkte nicht (#988). Details im Stand-Block unten). Davor **v1.7.35** war Stable (`--latest`, 2026-09-07; das Dashboard gehoert dem Nutzer — Bereiche an/aus, sortierbar, einklappbar (#985), dazu drei Nachzuegler #833/#972/#975 und ein Asset-Fehler, der die ganze Gestaltung gekostet haette. Details im Stand-Block unten). Davor **v1.7.34** war Stable (`--latest`, 2026-09-07; Abschluss von Epic #978 — vier Releases an einem Tag. v1.7.31 die sechs Dashboard-Sub-Issues plus #980 (der Aufgaben-Tab speicherte "hinfaellig" still als "erledigt"), v1.7.32 #981 (der Stellen-Dialog bot einen Status an, den es nicht gibt), v1.7.33 #979 (Prompt-Katalog als einzige Quelle, waehlbarer Schnellzugriff), v1.7.34 zwei Layout-Fehler, die erst der erneuerte Screenshot zeigte. Details im Stand-Block unten). Davor **v1.7.30** war Stable (`--latest`, 2026-09-04; Kompetenzen aus dem Bestand #971 — Abschluss der Berufsfeld-Recherche. Vier von fuenf Issues erledigt, offen bleibt allein #968 als Nutzerentscheidung). Davor **v1.7.29** war Stable (`--latest`, 2026-09-04; Profil-Erkennung #970 — "Kita" enthielt "ki", eine Erzieherin galt als Tech-Seniorin. Sechs Berufsfelder ergaenzt). Davor **v1.7.28** war Stable (`--latest`, 2026-09-04; Berufsbezeichnungen #969 — derselbe Beruf unter anderem Namen erscheint wieder; dazu ein Nachtrag zu #949, dessen Feldname geraten statt nachgeschlagen war). Davor **v1.7.27** war Stable (`--latest`, 2026-09-02; Kaltstart-Fix #967 — ein frisches Profil fand strukturell nichts. Erster Schritt aus der Berufsfeld-Recherche, siehe Stand-Block). Davor **v1.7.26** war Stable (`--latest`, 2026-09-02; drei Defekte aus der Issue-Durchsicht: Anzeigenalter #949, ehrliche 0-Treffer-Meldung #813, Flaky-Test #767). Davor **v1.7.25** war Stable (`--latest`, 2026-09-02; Wartungsversion — der PII-Guard deckt jetzt auch den MCP-Weg ab, siehe DoD-Punkt 9). Davor **v1.7.24** war Stable (`--latest`, 2026-09-02; sieben Praxis-Befunde #960-#966, Details im Stand-Block unten). Davor **v1.7.19** war Stable (`--latest`, 2026-08-18; zwei totgeglaubte Quellen wiederbelebt — Freelance-Schiene und Engineering-Dienstleister, #925/#926). Davor **v1.7.18** war Stable (`--latest`, 2026-08-18; Nachzug #922/#918-Defekt-2 auf die Praxis-Welle v1.7.17 desselben Tages, Details im Stand-Block unten). Davor **v1.7.16** war Stable (`--latest`, 2026-08-14; erster 1.7er-Release MIT der Sichtbarkeits-Arbeit — bis v1.7.15 lag sie nur auf main. MERKE: Schaufenster-Arbeit ist erst beim Nutzer, wenn sie in der Stable-Linie ist) —
+Hotfix aus Branch `hotfix/v1.7.8` vom Tag v1.7.7: Ausschluss-Keywords matchen
+strikt (#762; der harte K.o. feuerte fuzzy beim Volltext-Nachpflegen und nullte
+den Score). MERKE: Fixes, die auch das Stable betreffen, gehoeren in die
+1.7-Linie und nicht nur in die 1.8-Beta — die Beta zieht kaum jemand.
+Davor: **v1.7.7** war Stable — v1.7.0 wurde am
+2026-06-18 aus beta.108 promotet (User-Wort); v1.7.1 #737-Hotfix, v1.7.2
+Windows-Deinstaller (#739), v1.7.3 Matching-Haertung + `projekte_anzeigen`
++ Schema-Parity (#743/#741/#738), v1.7.4 die **Einsteiger-Welle** (G17
+gefuehrte Kette #744, F24 Ollama-Vorschlaege #745, H17 Melde-Hilfe #746
+inkl. Mail-Weg PBP-Service@Elwosa.de, B13-Teil-1 #747), v1.7.5
+(2026-07-03) **Fuehrung & Pflege**: G11 Onboarding-Hints im Frontend
+(#652), Probes adapter-konsistent (#748), Umlaut-Restaurierung
+`profil_umlaute_reparieren` (A20/#742), v1.7.6 (2026-07-03)
+**Alltags-Fuehrung** (#706/#707/#689/#749), v1.7.7 (2026-07-14)
+**Scoring-Fairness & Praxis-Funde** vom 13.07. (#750/#752-#757).
+**Leitlinie des Users: Benutzerfuehrung ist oberste Prioritaet** — jeder
+Flow fuehrt zum naechsten logischen Schritt; Melde-Kultur gehoert zur
+DNA. v1.6.10 bleibt als aelterer Release verfuegbar. **v1.8-Beta-Linie
+eroeffnet (Planungswelle 2026-07-14, User-Wort):** Architektur-Entwurf
+D1–D5 (Plugins = EXTERNE Prozesse gegen versionierte Ingest-API, kein
+Code-Loading; Komponenten ≠ Plugins; Pairing statt Discovery) + Beta-
+Fahrplan in Plan-Roadmap-v18; Beta-Exit-Kriterium v1.8 im Master-Plan.
+**beta.0 = I10 Komponenten-Framework (#751) + E19 Auto-OCR (#750-T2,
+Schema v49)**, beta.1 = J1 Ingest-API v1 (#504), beta.2 = J2 Thunderbird
++ J4.1 ics, beta.3 = J5 Newsletter, beta.5 = Welle B (B25/B16/B18-Teil,
+Schema v52), beta.6 = Hotfix #760 (stderr-Backpressure-Freeze).
+Betas sind GitHub-Prereleases,
+`--latest` bleibt v1.7.7; Hotfix-Pfad: Branch vom Tag v1.7.7. **ALLE 25
+offenen Issues sind Wellen zugeordnet** (Tabelle im Master-Plan →
+Naechste Schritte): Kern-Wellen B (Quellen: #656 Playwright-Komponente,
+#735/B25 neu, #627), F (Lokale KI: #669, #714, #632, F16-Rest), D
+(Bewerbungs-Mehrwert: #740 Referenzen, #452 Interview-Arc), J8
+(Branchen-Radar #718/#716/#717, zuletzt); beta.0-Beipack A21/#758,
+beta.1-Beipack #687/#688 (Snapshots). #671 wurde 2026-07-14 geschlossen
+(Ebene 0+2 fertig, Ollama-Rest in Welle F). ACHTUNG Schema: v49 ist fuer
+`components` (beta.0) reserviert — D24/#740 bekommt die naechste Nummer.
+
+## Stand 2026-09-26 (v1.7.139 Stable) — Umlaute auch für Claude
+
+**#1089** (H33), Nutzerauftrag direkt nach v1.7.138. **Tests: 5493 (main) /
+5391 (Stable).** MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **In Claude-Texten stehen Werte, die Claude zurueckschickt.** Status
+(`zurueckgezogen`), Aktionen (`loeschen`, `hinzufuegen`), Gehaltsarten
+(`jaehrlich`), Parameternamen. Schreibt man sie um, schickt Claude einen
+Wert, den der Code nicht kennt. Geschuetzt ist deshalb, was Claude senden
+kann: Werkzeugnamen, Parameter und ihre Vorgaben, Werte in Vergleichen
+mit einem Parameter oder einer Werte-Variable, Werte-Listen (Status,
+Gruende, Aktionen ...) und Woerter rundum in Anfuehrungszeichen.
+`ui_texte_pruefen.geschuetzte_werte()` rechnet das aus dem Code.
+
+(2) **Der Schutz war dreimal zu breit, bevor er stimmte.** Erst zerlegte
+er Bezeichner an Unterstrichen (`fuer_scoring` sperrte "fuer"), dann
+zaehlten lokale Variablen (`ueber`, `naechste`) und Stoppwort-Vergleiche
+(`tok in (...)`). Am Ende 33 geschuetzte Woerter, alle echte Werte.
+**Gemessen hat es die ausgegebene Liste, nicht das Nachdenken** — jede
+Fassung wurde einmal ausgedruckt und gelesen.
+
+(3) **Die Zitat-Regel liess die erste Zeile jeder Beschreibung stehen.**
+Ein Wort direkt nach `"""` galt als Wert. Geschuetzt ist jetzt nur, was
+auf BEIDEN Seiten dasselbe Anfuehrungszeichen hat.
+
+(4) **Docstrings: nur die von Werkzeugen und Prompts.** Sie sind die
+Beschreibung, die Claude liest (und die Parametertexte kommen aus ihrem
+`Args:`-Block, #H21). Alle anderen Docstrings sind Code und bleiben in
+Umschrift. Die Parameternamen im `Args:`-Block schuetzt die Regel "vor
+einem Doppelpunkt", der Test prueft, dass jeder Parametername ASCII ist.
+
+(5) **Prompts an die lokale KI bleiben** (`llm_service`, `elwosa_dialog`):
+anderes Modell, eigene Messungen (#787). Eine Aenderung dort waere eine
+neue Messung wert, keine Nebenwirkung einer Schreibweise.
+
+(6) **Schreiber umgestellt, Leser nicht — dieselbe Frage wie in G73,
+systematisch geprueft.** Jede Lese-Stelle (`startswith`, `LIKE`, Regex,
+`in`-Vergleich) mit Umschrift wurde gegen die neue Umlaut-Form im Code
+gehalten. Gefunden: nur geschuetzte Einzelwerte und der #1028-Leser, der
+beide Schreibweisen schon kennt.
+
+(7) **27 Alt-Tests hielten die Umschrift fest**, dazu zwei `not in`-
+Pruefungen, die nach der Umstellung immer wahr gewesen waeren. Beim
+zeilengenauen Umschreiben wurde einmal ein Schluessel mitgenommen
+(`["erklaerung"]`) — Schluessel bleiben, zurueckgestellt.
+
+(8) **Stable per Umschreiber statt Cherry-Pick.** Auf Stable fehlt ein
+1.8-Werkzeug, das "uebernommen" vergleicht; dort ist das Wort deshalb
+umgestellt, auf main nicht. Beide Linien sind in sich stimmig.
+
+(9) **Gegenprobe:** neun Mechanismen, neunmal rot — nach einem
+Testnachtrag: der Ausschluss langer Wortlisten war wirksam (ohne ihn
+waeren "gespraech" und "rueckfrage" geschuetzt), aber kein Fall pruefte
+es.
+
+## Stand 2026-09-26 (v1.7.138 Stable) — Umlaute auch vom Server
+
+**#1088** (G73), Folge-Befund aus den Screenshots zu v1.7.137 ("Nachfassen
+ist kein Stoeren" unter "HEUTE FÜR DICH"). **Tests: 5487 (main) / 5385
+(Stable).** MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **G66 hat die Oberflaeche geprueft, nicht das, was sie anzeigt.**
+Rund 440 Texte in 25 Server-Dateien kamen ungeprueft ins Dashboard.
+`ui_texte_pruefen.py` liest jetzt `BACKEND_DATEIEN` und den Tagesimpuls.
+**Ein Pruefer fuer "sichtbare Texte" muss dort lesen, wo sie entstehen.**
+
+(2) **Ein Anzeigetext kann zugleich ein Schluessel sein.** Die
+Fit-Faktoren (`factors["Abzuege ueber Deckel begrenzt"]`) werden in
+`punkte.FACH_PRAEFIXE` per `startswith` gezaehlt. Der Umschreiber hat die
+Praefixliste umgestellt und die Faktornamen (Subscript) ausgelassen — die
+Deckel-Faktoren waeren still aus den Punkten gefallen. Gefunden beim
+Durchsehen der uebersprungenen Stellen, nicht von einem Test; jetzt haelt
+ein Test beide Seiten zusammen.
+
+(3) **Kleingeschriebene Wortlisten sind Suchmuster, keine Anzeige.** Die
+Mail-Erkennung (`"persoenliche rueckmeldung"`), `_WIR_SIGNALE` und die
+Remote-Erkennung vergleichen Text von aussen und muessen beide
+Schreibweisen kennen. Die Regel "ein Anzeigetext hat einen
+Grossbuchstaben" trennt sie zuverlaessig; der Linienpool von Elwosa ist
+ausdruecklich ganz Anzeige.
+
+(4) **Zwei Absicherungen neben der Regel:** ein Vergleich der Bezeichner,
+Dict-Schluessel und Vergleichskonstanten je Datei vorher/nachher (keine
+Abweichung in 22 Dateien), und SQL (`CASE WHEN ... 'zurueckgezogen'`) sowie
+Shell-Zeilen (`echo ... laeuft weiter` fuer .bat) als eigene Ausnahme.
+
+(5) **Der Stable-Port brauchte den Umschreiber ein zweites Mal.**
+`dashboard.py` und `job_scraper/__init__.py` weichen zwischen den Linien
+ab; die Stable-Fassung plus derselbe deterministische Umschreiber ist
+sauberer als ein Konfliktblock. Und `components.py` gibt es nur in 1.8 —
+der Pruefer ueberspringt fehlende Dateien.
+
+(6) **Wieder eine Kette mit `;` statt `&&`**: der PII-Pruefer meldete,
+der Commit lief trotzdem. Der Fund war eine unveraenderte Kontextzeile
+und Git-Dateimodi, aber die Kette hat nicht geschuetzt.
+
+(7) **Gegenprobe:** elf Mechanismen, elfmal rot, Arbeitsstand jedes Mal
+bytegleich.
+
+## Stand 2026-09-25 (v1.7.137 Stable) — Lesbar für alle
+
+**#1087 Welle 7** (G71, L13) — damit sind alle 35 Positionen des
+UX-Reviews umgesetzt (34 ✅, H29 🟨 mit benanntem Rest). **Tests:
+5480 (main) / 5378 (Stable).** MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Nur volle Deckkraft erreicht 4,5:1.** Gerechnet, nicht geschaetzt:
+`text-muted` hat im dunklen Modus 5,6:1 auf der Kartenflaeche, mit 80 %
+Deckkraft nur noch 4,1, mit 50 % 2,4 — im hellen Modus faellt schon 90 %
+unter die Grenze. Deshalb ist jede abgeschwaechte Lesefarbe weg (810
+Stellen), nicht nur die schwaechsten. Die Paletten prueft ein Node-Test
+ueber jede Voreinstellung in beiden Modi; die Standardpalette traf im
+hellen Modus weder mit Teal noch mit Amber die Grenze.
+
+(2) **`white` war im hellen Modus unsichtbar, und das stand in rund 450
+Klassen.** Fast jede `white`-Klasse ist eine durchscheinende
+Ueberlagerung (`border-white/10`, `bg-white/[0.03]`); die Variable, die
+im hellen Modus ins Dunkle kippt, gab es schon (`--surface-overlay-*`).
+Ein Eintrag in `tailwind.config.js` statt 450 Aenderungen.
+
+(3) **Eine combobox bekommt ihren Namen nicht aus dem Inhalt.** Mit der
+Rolle fuer die Tastaturbedienung war jedes Auswahlfeld ohne
+Feldbeschriftung namenlos — die Browser-Tests, die das Feld ueber den
+gewaehlten Wert fanden, sagten es sofort. Der Wert ist jetzt die
+Beschriftung (`aria-labelledby` auf den eigenen Wert).
+
+(4) **Ein Test, der `document.activeElement.textContent` prueft, prueft
+nach dem Schliessen den ganzen Seitentext.** Ohne Fokus-Rueckgabe steht
+der Fokus auf `body`, und der enthaelt den Knopftext auch. Die
+Gegenprobe hat es gezeigt; geprueft wird jetzt das Element.
+
+(5) **Der #964-Guard hielt `ring-inset` fuer eine Farbe.** Statt den
+Guard aufzuweichen, markiert das Auswahlfeld den aktiven Eintrag mit
+einer Flaeche.
+
+(6) **Screenshots gehoeren auf die Stable-Linie.** Auf main erzeugt,
+zeigten sie "v1.8.0-beta.15". Sie entstehen auf dem Release-Branch mit
+einem Heartbeat im isolierten Datenverzeichnis (Zusicherung im
+Generator) und wandern von dort nach main.
+
+(7) **Gegenprobe:** einundzwanzig Mechanismen, einundzwanzigmal rot
+(nach einem Testnachtrag), Arbeitsstand jedes Mal bytegleich.
+
+## Stand 2026-09-25 (v1.7.136 Stable) — Wo was steht
+
+**#1087 Welle 6** (G61, G67, G68, G69, G70). **Tests: 5454 (main) / 5352 (Stable).**
+MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Eine Eingabe, die "0 schaltet ab" verspricht, und ein Leser, der
+0 als 7 liest.** Die Nachfass-Frist stand zweimal (System und
+Automatik, beide `followup_default_days`); der System-Text versprach das
+Abschalten, `get_setting(...) or 7` machte daraus sieben Tage. Beim
+Zusammenlegen gewinnt die Eingabe, deren Grenzen der Leser einhaelt
+(1-60), nicht die, deren Text freundlicher klingt.
+
+(2) **Ein Bereich statt einer zweiten Seite.** "Suche & Bewertung" ist
+`ProfilePage bereich="suche"`. Die Kriterien speichern automatisch und
+teilen Zustand mit Schwellen und Verteilung; eine eigene Seite haette
+Laden und Speichern ein zweites Mal gebraucht (#963 im Frontend).
+
+(3) **Eine Liste der Reiter, drei Leser.** `lib/einstellungenReiter.js`
+zeichnet die Reiter, fuellt die Seitenleiste, und `services/menue.py`
+nennt dieselben Namen; ein Test haelt alle drei gleich und prueft, dass
+jeder Reiter Inhalt hat und jeder Inhalt einen Reiter.
+
+(4) **Ein kontrolliertes Kontrollkaestchen und Playwrights `check()`.**
+`check()` prueft den Zustand sofort nach dem Klick; die Auswahl kommt
+erst nach dem Speichern zurueck. Der Test klickt und wartet auf die
+DATENBANK (v1.7.105 MERKE 2).
+
+(5) **Registertexte bleiben, das Dashboard bekommt einen eigenen
+Satz.** Die Quellenbeschreibungen werden in Diagnosen und
+Werkzeugantworten gelesen; sie umzuschreiben haette dort Messdaten und
+Hinweise gekostet. `services/quellen_texte.py` traegt einen Satz je
+Quelle, und der Test prueft jede Quelle des Registers.
+
+(6) **Zum wiederholten Mal die Heredoc-Falle** — diesmal brach die
+Shell ab, bevor etwas geschrieben war. Patch-Skripte stehen als Datei.
+
+(7) **Gegenprobe:** fuenfundzwanzig Mechanismen, fuenfundzwanzigmal rot
+(nach einem Testnachtrag), Arbeitsstand jedes Mal bytegleich. Stumm blieb
+zuerst der Rueckweg des Notiz-Endpunkts: der Endpunkt-Test pruefte Status
+und Aufgabe, nicht die Notiz.
+
+(8) **Beim Stable-Port nahm ein `git add -A` die gebaute `index.html`
+MIT Konfliktmarkern auf.** Die Inhaltskonflikte waren geloest, der
+Asset-Konflikt nicht — und `add` loest einen Konflikt, indem es die Datei
+nimmt, wie sie ist. Gefunden, weil der Asset-Helfer danach `--ours` nicht
+mehr ausfuehren konnte. Bei einem Pick mit Konflikten nur die geloesten
+Dateien einzeln hinzufuegen; die Assets entstehen ohnehin neu.
+
+## Stand 2026-09-25 (v1.7.135 Stable) — Was Claude sieht
+
+**#1087 Welle 5** (H21, H22, H25, H28, H29, H30, H31, H32-Rest).
+**Tests: 5419 (main) / 5317 (Stable).** MCP-Tools +4 (`expertenmodus_setzen`, dazu
+`stelle_einordnen`, `stelle_urteil_speichern`, `jobtitel_speichern` neben
+ihren alten Namen). Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Ein ausgeblendetes Werkzeug kann Claude nicht aufrufen.** FastMCP 3
+blendet ueber Tags aus (`mcp.disable(tags=...)`); `get_tool` liefert
+danach `None`. Deshalb: kein Text eines sichtbaren Werkzeugs, Prompts
+oder Dienstes nennt ein Wartungswerkzeug, ohne "Expertenmodus" zu sagen
+(AST-Guard), und `ollama_kontext` blieb sichtbar, weil eine
+Fehlermeldung der lokalen KI darauf verweist. Die Suite setzt
+`BA_EXPERTENMODUS=1` in der conftest, weil sie Wartungswerkzeuge direkt
+ueber `server.mcp` aufruft; den Aus-Zustand prueft ein eigener Fall
+ohne die Variable.
+
+(2) **Parametertexte gehoeren ins Schema.** FastMCP liest
+Parameterbeschreibungen nur aus `Annotated[..., Field(description=)]`,
+nie aus dem Docstring. Der Proxy setzt sie beim Registrieren aus dem
+`Args:`-Block; die Beschreibung selbst bleibt fuer Zweck und Einsatz.
+175.000 -> 78.000 Zeichen Beschreibung ueber 262 Werkzeuge.
+
+(3) **Beim Zusammenlegen zweier Prompt-Fassungen trug die kuerzere
+Regeln, die der laengeren fehlten.** Die Slash-Fassung war fast ueberall
+reicher; die Dashboard-Fassung hatte "NICHT in einer Schleife warten",
+die manuellen Quellen, `projekte_anzeigen` und die Aufgabe bei der
+Interview-Vorbereitung, die Regeln aus #707/#753 im Willkommen und die
+Vorbefuellung mit "NICHT nochmal fragen". Gefunden haben es zeilenweiser
+Vergleich und Alt-Tests. **Beim Zusammenfuehren zweier Fassungen beide
+lesen, nicht die groessere nehmen.**
+
+(4) **`textwrap.dedent` rueckt mehrzeilige Strings nicht aus, wenn deren
+Zeilen am Rand beginnen.** Die erste Umstellung ergab einen
+IndentationError; die zweite rueckt tokenbasiert aus (nur Zeilen, die
+nicht in einem String beginnen) und belegt die Byte-Gleichheit aller
+Slash-Texte vorher und nachher.
+
+(5) **Eine Sperre in neun Werkzeugen ist neun Mal vergessen koennen.**
+`extraktion_starten` (liefert Claude den Lebenslauftext) lief an ihr
+vorbei. Die Zuordnung steht jetzt in `services/ki_zuordnung.py`, der
+Proxy wickelt jedes genannte Werkzeug ein. Tests, die Module an einen
+nackten FastMCP haengen, umgehen den Proxy — sie registrieren jetzt ueber
+`tools.mit_katalog(mcp, db)`, denselben Weg wie `register_all`.
+
+(6) **Ein neuer Einstellungsreiter braucht einen Eintrag in der
+Seitenleiste**, und der Guard aus #896 hat es gemeldet, nicht ich.
+
+(7) **Die Heredoc-Falle zweimal an einem Nachmittag**, beide Male an
+`\n` und `→` in Patch-Skripten; beide Male hat die Zusicherung im
+Skript (Anker 0x statt 1x) es gefangen. Grosse Skripte stehen als Datei
+(Write-Werkzeug), Stellen mit Backslash macht das Edit-Werkzeug.
+
+(8) **Die volle Suite fand 72 Fehlschlaege, die keine gezielte Auswahl
+gesehen hat.** 54 davon kamen aus einem Satz: 29 Test-Doppel
+(`FakeMCP.tool(self)`) kannten das Argument `name=`, mit dem sich die
+Weiterleitungen registrieren, nicht. Ein Doppel, das nur den heutigen
+Aufruf nachbildet, bricht beim naechsten — sie nehmen jetzt `name=` wie
+FastMCP. Dazu ein Browser-Test aus Welle 4, der den alten
+Werkzeugnamen im kopierten Prompt erwartete, und ein Test, der eine
+Funktion per festem Nachbarn aus dem Quelltext schnitt (jetzt ueber den
+Syntaxbaum). **Nach einer Umbenennung gehoeren auch die Browser-Tests
+durchsucht** — mein Umbenennungsskript lief ueber `src/` und
+`frontend/`, nicht ueber `tests/`.
+
+(9) **Gegenprobe:** vierundvierzig Mechanismen, vierundvierzigmal rot,
+Arbeitsstand jedes Mal bytegleich; zwei mit Neubau und Browser-Test.
+Stumm blieb zuerst "Registry zeigt auf den falschen Builder": der
+Gleichheitstest zwischen Slash und Dashboard kann das nicht sehen, weil
+der Slash-Befehl an die Registry weiterleitet — **ein Test, der zwei Wege
+vergleicht, die jetzt ein Weg sind, prueft nichts mehr.** Jetzt verlangt
+ein Fall, dass jeder Eintrag seinen eigenen Text liefert. Und eine
+Mutation war falsch gebaut (leere JSX-Klammer, Build kaputt) — mit
+`null` statt der Karte war sie rot.
+
+## Stand 2026-09-25 (v1.7.134 Stable) — Eine Karte, ein Wort, eine Liste
+
+**#1087 Welle 4** (G62, G64, G65, G66, B70, G72). **Tests: 5350 (main) / 5248 (Stable).**
+MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **26 Kopierstellen, zwei Wege, und der zweite zeigte bei einem Fehler
+den Text nicht.** Die direkten `clipboard.writeText`-Aufrufe fingen den
+Fehler mit "Anleitung konnte nicht geladen werden" — die Anleitung WAR
+geladen, das Kopieren scheiterte. `copyPrompt` trennt beides jetzt:
+Laden-Fehler bleibt ein Toast, Kopier-Fehler oeffnet ein Fenster mit dem
+Text. Der Guard prueft das ARGUMENT jeder Direktkopie gegen eine Liste
+erlaubter Kennungen, nicht nur ihr Vorkommen.
+
+(2) **Der Umlaut-Pruefer brauchte eine Regel, keine Liste.** "ue" nach
+einem Vokal oder nach "q" ist nie ein Umlaut (dauern, neueste, Steuer,
+Quelle); dazu Bezeichner (camelCase, GROSS) und `${...}` in Vorlagen
+ausnehmen. Mit einer reinen Ausnahmeliste meldete die erste Fassung
+"Jobquellen" und "KI-Steuerung". Der Umschreiber fasste nur Literale mit
+Leerzeichen an — Einzelwoerter in Kleinschrift sind oft gespeicherte
+Schluessel (`zurueckgezogen`), und die 20 Einzel-Beschriftungen danach
+wurden von Hand geprueft.
+
+(3) **Eine Liste, die zweimal im Code stand, lief schon auseinander.**
+Die Kontaktrollen lagen in Kontakte- und Bewerbungen-Tab getrennt (eine
+mit "Headhunter", eine ohne). Jetzt `lib/anzeige.js` KONTAKTROLLEN fuer
+beide — und die Quellennamen dort werden per Test gegen die Registry
+gehalten, sonst waere das die naechste Doppelung.
+
+(4) **Der Kalender war der vierte Ort derselben Nachfassung.** Er bekam
+sie vom Server (#364) als Pseudo-Termin. Jetzt nur echte Termine plus
+`nachfassen_anzahl`, und ein Verweis auf den Aufgaben-Tab.
+
+(5) **"Suchprofil" meinte das Portal-Suchprofil, der Nutzer las
+Suchkriterien.** Die Bedingung zaehlte ueberhaupt keinen Portal-Eintrag
+— jetzt nur eine GEWAEHLTE Browser-Jobboerse ohne eigene Suchbegriffe,
+und der Tipp nennt sie (`body_fn`). Nachsehen legt nichts an
+(`find_portal_search_profile`, #1049).
+
+(6) **Die Karte behaelt, was Alt-Tests brauchten, unter neuem Namen.**
+Das Urteil ist weiter klickbar (#948 AK 5), die Punkte bleiben von Hand
+setzbar (#1035), und "Bereits beworben" fuehrt jetzt zur Bewerbung
+statt nur zum Tab.
+
+(7) **Der Umschreiber hat drei Bezeichner mit umgeschrieben, und die
+volle Suite hat es gefunden, nicht die Pruefung dafuer.** `begruendung=`
+im Detailbewertungs-Prompt (ein Werkzeugparameter), `naechster_schritt:`
+(ein Objektschluessel) und `analysis.pruefstand.ueberholt` (ein
+Feldzugriff) standen zwischen einem `>` und einem `<` im Code — die
+Textknoten-Regel hielt sie fuer JSX-Text. **Meine erste Kontrolle nahm
+dieselbe Regel und fand deshalb nichts** (Master-Plan-Guard-Lehre: eine
+Kontrolle mit derselben Annahme prueft nichts). Gefunden hat es erst ein
+Wortvergleich Zeile fuer Zeile; jetzt ein Guard gegen Umlaute in
+Bezeichnern, und der Pruefer laesst Woerter vor `=`/`_`/`(` aus.
+
+(8) **Die CI der Stable-Linie war rot, und zwar an einem Node-Test,
+den ich lokal nicht hatte laufen lassen.** `quellenBadges.test.mjs`
+erwartete "Konto noetig"; die Umlaut-Umstellung hatte das Etikett zu
+"Konto nötig" gemacht. Lokal liefen nur die drei NEUEN Node-Tests —
+pytest sieht die Node-Tests gar nicht, sie sind eigene CI-Schritte.
+**Nach einer Massenumstellung von Texten laufen ALLE zwanzig
+Node-Tests**, nicht die, die man fuer betroffen haelt (v1.7.112 MERKE 7
+in anderer Gestalt). Dazu ein Browser-Test, der in der vollen Suite den
+body-Text zu frueh las: jetzt wartet er auf beide Dialogknoepfe.
+
+(9) **Gegenprobe:** neunundzwanzig Mechanismen, neunundzwanzigmal rot,
+Arbeitsstand jedes Mal bytegleich; drei davon mit Neubau und
+Browser-Test.
+
+## Stand 2026-09-25 (v1.7.133 Stable) — Ein Einstieg, ein Hinweis
+
+**#1087 Welle 3** (G59, G60, G63, B69, I15). **Tests: 5319 (main) / 5217 (Stable).**
+MCP-Tools unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **"Laeuft" war eine Behauptung des Kopier-Knopfs.** `copyPrompt` und
+der Onboarding-Knopf setzten beim KOPIEREN `profile_onboarding_started`
+und `conversation=active` — ob Claude je etwas tat, wusste niemand. Der
+Server setzt den Zustand ohnehin, sobald `erfassung_fortschritt_speichern`
+laeuft; dazu jetzt `ersterfassung_starten`. **Eine Anzeige, die der
+Absender setzt statt der Empfaenger, meldet den Versuch, nicht das
+Ergebnis** (#980 in anderer Gestalt).
+
+(2) **Eine Reihenfolge statt fuenf Bedingungen.** Die Banner hatten je
+eine eigene Bedingung und keine davon kannte die anderen. Jetzt
+`lib/hinweisZone.js` mit Node-Test; die Folgehinweise (Einstieg,
+gelernt, Ankuendigung, lokale KI) melden per `onLeer`, dass sie nichts zu
+sagen haben, und erst dann kommt der naechste.
+
+(3) **#1069 AK 4 ("kein stilles alles aktuell") und G60 ("Update-Banner
+nur bei bekanntem Update") widersprachen sich nur scheinbar.** Die
+Auskunft bleibt — leise unter der Version in der Seitenleiste. Ein Banner
+ist die falsche Bauform fuer eine Auskunft, die keine Handlung verlangt.
+Ebenso das bekannte Update: Stufe 4 der Zone UND ein Link in der
+Seitenleiste, weil es sonst hinter Verbindung und Quellen verschwaende.
+
+(4) **Die Erstauswahl der Quellen war "alles ohne Login"** — eine Regel
+aus #500, als es fuenfzehn Quellen gab. Jetzt die Profil-Empfehlung
+(#590/#1070), sichtbar in einem Kasten, und eine eigene Aenderung der
+Auswahl gilt als Bestaetigung. Die Kopfleiste las den geschriebenen Wert
+erst beim naechsten Laden; der Kasten ruft `refreshChrome` einmal beim
+Oeffnen. **`refreshChrome` wechselt je Render die Identitaet** — als
+Effekt-Abhaengigkeit haette es eine Endlosschleife ergeben (vor dem
+ersten Lauf gefunden).
+
+(5) **Der Installer meldete "ERFOLGREICH" nach "[!!] Claude-
+Konfiguration fehlgeschlagen".** Jetzt `CLAUDE_OK` und `DASH_OK`, Ampel
+ueber Sprungmarken statt if-Bloecke (#990: keine Klammern in echo-Zeilen
+innerhalb von Bloecken). Der Test sucht die Sprungmarke am Zeilenanfang —
+die erste Fassung fand die `goto`-Zeile davor und hielt die Reihenfolge
+fuer falsch.
+
+(6) **Die Gegenprobe fand einen doppelten Rueckfall**: die Startquellen
+standen vor UND nach dem Filtern; der erste war wirkungslos und ist weg.
+Und eine Nachprobe meldete "rot", obwohl die Testdatei einen Syntaxfehler
+hatte (Heredoc-Falle, zum wiederholten Mal). **Ein Sammelfehler ist kein
+rotes Ergebnis** — das Gegenprobe-Skript unterscheidet jetzt UNGUELTIG.
+
+(7) **Gegenprobe:** neunzehn Mechanismen, neunzehnmal rot (nach
+Ausbau des doppelten Rueckfalls und einem schaerferen Guard fuer "Zone
+oder Folgehinweis"), Arbeitsstand jedes Mal bytegleich.
+
+## Stand 2026-09-25 (v1.7.132 Stable) — Ein Wert je Stelle
+
+**#1087 Welle 2** (C96, H24, C97). **Tests: 5296 (main) / 5194 (Stable).** MCP-Tools
+unveraendert. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Es waren nicht vier Rechenwege, sondern drei Quellen und ein
+Etikett.** `/api/jobs` (Karte UND Dashboard) lieferte den Wert samt
+Rahmen-Reglern unter dem Namen "Fachwert"; die Timeline las `get_job`
+roh; der Fit-Dialog rechnete frisch; `stellen_anzeigen` wandte die Regler
+selbst an. Jetzt `services/punkte.py`: `anreichern` fuer alles
+Gespeicherte (auch aus `_mit_scoring_reglern` heraus), `fuer_frisch` fuer
+den Dialog. Die Punkte sind `fach_score` aus v1.7.127 — kein neuer
+Rechenweg, nur ein Leser.
+
+(2) **"Faktoren addieren sich zur Zahl" war seit v1.7.117 falsch und
+fiel nicht auf, weil der Dialog nie addiert hat.** `fit_analyse` legte
+Fach- und Rahmenfaktoren in dasselbe dict; `total` ist seit #1052 nur
+der Fachteil. Getrennt in `faktoren_fach`/`faktoren_rahmen`, belegt mit
+einer Summenprobe ueber 300 Zufallsanzeigen (0 Abweichungen) und einem
+Test, der dieselbe Eigenschaft ohne Datenbank prueft.
+
+(3) **Die Zahl einer Stelle darf sich aendern, wenn sich die Lage
+aendert — und mein Browser-Test hielt das fuer einen Fehler.** Mit einer
+Bewerbung greift der Regler "Beworben-Bonus"; die Karte von vorher und
+die Timeline von nachher unterschieden sich um genau ihn. **Ein
+Vergleich zweier Orte gehoert zum selben Zeitpunkt gemacht**, sonst misst
+er den Zustand, nicht die Anzeige.
+
+(4) **Meine erste Erwartung im Fuenf-Orte-Test war eine Rechnung, keine
+Absicht.** "frisch + 2" fuer einen Regler mit Wert 2 — der Regler wirkt
+anders als eine Addition seines Werts. Die Absicht ist Gleichheit der
+Orte und "Begriffs-Regler zaehlt, Rahmen-Regler nicht"; so steht es
+jetzt da.
+
+(5) **Die Deutung stand in einem Hilfetext falsch, den kein Prompt-Guard
+sah:** der Profil-Tab erklaerte "einen Score von 0-100". H24 prueft
+deshalb Prompts, Werkzeug-Literale UND die JSX-Dateien, und Python- und
+Frontend-Fassung des Satzes werden nach Umlaut-Umschrift verglichen.
+
+(6) **Die Gegenprobe fand einen stummen Test: er las `punkte_text` an
+der falschen Stelle der Antwort** (oben statt in `empfehlung`) und
+pruefte damit eine leere Zeichenkette auf "%". Siebter Fall von
+v1.7.79 MERKE 9 in diesem Projekt: ein Test, der "nichts ist falsch"
+prueft, muss zuerst zeigen, dass er etwas sieht.
+
+(7) **"Geschaetzt" stand schon auf der Karte** (#1044) — C97 Punkt 2 war
+erfuellt und ist nur nachgewiesen, nicht gebaut.
+
+(8) **Gegenprobe:** neunzehn Mechanismen, neunzehnmal rot (nach dem
+Testnachtrag), Arbeitsstand jedes Mal bytegleich.
+
+(9) **Die CI der Stable-Linie war zweimal rot, und beide Male am
+Welle-1-Test, nicht am Code.** Der Zusage-Dialog-Test wartete erst auf
+den Titel, dann auf `get_by_role("button", name="Später")` — und das traf
+"Später (7 Tage)" an anderer Stelle der Seite, wartete also gar nicht.
+Lokal schneller, auf dem Linux-Runner zu frueh gelesen. **Ein Locator ohne
+`exact=True` sucht einen Teilstring** (v1.7.117 MERKE 10, zum zweiten
+Mal). Die Regel "Tag erst nach gruener CI" hat beide Male gehalten.
+
+## Stand 2026-09-25 (v1.7.131 Stable) — Was im Kernweg kaputt war
+
+**#1087 Welle 1** (G57, G58, D49, H23, H26, H27, H32-Teil). **Tests: 5280 (main) / 5178 (Stable).**
+MCP-Tools unveraendert 261 / 248. Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Drei der vier Frontend-Defekte waren ReferenceErrors, und keiner
+hat je einen Build gebrochen.** `buildReplyMailto` ohne Import,
+`loadData()` und `loadTimeline()`, die es nicht gibt: Vite baut das,
+weil ein unbekannter Bezeichner in JS erst zur Laufzeit faellt. Der
+Mail-Absturz traf seit v1.7.35 (#985) JEDEN Klick auf eine Mail. **Ein
+gruener Build sagt nichts ueber einen Weg, den kein Test klickt** — der
+Beleg ist jetzt ein Browser-Test je Weg.
+
+(2) **Der Termin-Fix im ersten Anlauf war auch falsch, und der
+Browser-Test hat es gezeigt.** `reloadTimeline()` statt `loadTimeline()`
+war syntaktisch die naheliegende Korrektur — aber die Termine liegen in
+eigenem State (`timelineMeetings`), den `reloadTimeline` nicht anfasst.
+Der Termin war in der DB weg und stand weiter im Dialog. **Eine
+Korrektur, die nur den Namen repariert, repariert nicht die Absicht.**
+
+(3) **Unicode-Escapes wirken in JS-Strings, nicht in JSX-Text und
+nicht in Attributen mit Anfuehrungszeichen.** Ersetzt sind sie in allen
+Frontend-Dateien, auch dort, wo sie wirkten (gleichwertig), damit die
+naechste Kopie aus einem JS-String in JSX nicht wieder `ä` zeigt.
+Ausgenommen die Regex in `utils.js` (Unicode-Bereich, lesbarer als
+Escape).
+
+(4) **Der Sprung-Empfaenger bekam einen Alias, und das macht den Sender
+fuer die Gegenprobe unsichtbar.** `highlight` bleibt als Alias fuer
+`applicationId`. Eine Mutation, die den Kalender wieder `highlight`
+senden laesst, bleibt deshalb gruen — gewollt. Geprueft wird der Sender
+mit einer Mutation, die GAR KEIN Ziel sendet.
+
+(5) **Der Signatur-Guard aus #1000 kannte einen Prompt und ein
+Werkzeug; der neue liest alle und fand sechs Faelle, die in keinem
+Bericht standen** (`stellen_anzeigen(limit=)`, `stelle_bearbeiten(
+location=)`, `profil_bearbeiten(name=)`, `kontakt_anlegen(full_name=)`,
+ein Zeilenumbruch mitten in `ausser_wenn_titel_enthaelt`, zwei
+Umlaut-Werkzeugnamen). Die erste Fassung meldete dazu einen
+Fehlalarm: eine Klammer, die in einer Zeichenkette aufgeht und in der
+naechsten zugeht (`"...(batch_nr=" + str(n) + ")"`). Die Literale werden
+jetzt mit einem Trenner verbunden, an dem die Klammersuche endet.
+
+(6) **Annotations an einer Stelle statt an 261 Decorators.**
+`tools.register_all` wickelt den Server in einen Proxy, der beim
+Registrieren `readOnlyHint`/`destructiveHint` aus
+`services/werkzeug_schutz.py` setzt. Ein Test prueft, dass der Proxy in
+`register_all` wirklich benutzt wird (DoD 8c) — die Gegenprobe ohne
+diese Zeile macht ihn rot.
+
+(7) **`readOnlyHint` bewusst eng.** Vergeben nur fuer Namen auf
+`_anzeigen`, `_lesen`, `_auflisten`, `_details`, `_historie`,
+`_uebersicht`, `_vorschau`, `_status`, `_kontext`; vorher per AST
+geprueft, dass keines davon schreibt (alle `execute` darin sind
+SELECT). Ein falsches "nur lesend" ist schlimmer als ein fehlendes.
+
+(8) **`stellen_auto_aussortieren` behaelt `dry_run=False`.** Die
+Vorgabe auf Vorschau zu drehen hiesse, dieselben zehn Stellen zweimal
+der lokalen KI vorzulegen (bis 50 s je Lauf) — und Aussortieren ist
+umkehrbar (Protokoll, `stelle_reaktivieren`). Einordnung `umkehrbar`,
+Entscheidung im Issue-Kommentar.
+
+(9) **Die Frontend-Dateien sind fast alle CRLF mit BOM.** Mein erster
+Patch lief ueber `grep -q $'\r'`, das in dieser Shell nichts fand, und
+drei Ersetzungen scheiterten an den Zeilenenden. Neu ein Patch-Helfer im
+Scratchpad, der BOM und Zeilenenden aus der Datei liest und die Anker
+anpasst (v1.7.102 MERKE 6, zum dritten Mal).
+
+(10) **Gegenprobe:** neunzehn Mechanismen, neunzehnmal rot, Arbeitsstand
+jedes Mal bytegleich; Frontend-Mutationen mit Neubau je Mutation.
+
+## Stand 2026-09-25 (v1.7.130 Stable, geplant als v1.7.129) — Eine Firma, alle Bezüge, und Ollama beenden
+
+**#1080 Stufe 1** (D48) und **#1086** (F45). **Tests: 5252 (main) / 5150 (Stable).**
+MCP-Tools 248 / 261 (+`firmen_bestand_pruefen`, +`ollama_beenden`). Kein Schema-Eingriff.
+
+MERKE-Punkte:
+
+(1) **Das Nutzerwort kam mitten in der Arbeit und hat die Antwortform
+bestimmt:** "oft reicht die Verlinkung zu den einzelnen Bereichen".
+Die erste Fassung schrieb Stationen, Kontakte und Dokumentdetails aus.
+Jetzt ist jeder Treffer eine Zeile mit `bereich` und `oeffnen` (der
+Aufruf, der die Details zeigt), und ein Test prueft, dass der Inhalt
+eines Dokuments oder einer Kontaktnotiz NICHT in der Antwort steht.
+**Ein Lookup, der alles hinschreibt, verdraengt die Frage, fuer die er
+aufgerufen wurde.** Aussortierte Stellen bleiben mit Grund und Verweis
+drin — auch "passt nicht" sagt etwas ueber eine Firma.
+
+(2) **Fuenfter Fall der Teilstring-Klasse, diesmal im Firmenvergleich.**
+`_firma_matcht` verglich Buchstabenfolgen in beide Richtungen: "Nord"
+fand "Nordwerk". Jetzt Wortfolgen auf einer Namensform (Umlaut
+umschrieben, Rechtsform und Fuellwoerter weg), dazu Abkuerzungen aus
+Anfangsbuchstaben als schwaechster, gekennzeichneter Abgleich. Die
+Regel sitzt in `services/firmen_bezuege.py`, und `firma_kontext`
+vergleicht Bewerbungen, Stellen und alle anderen Quellen nach ihr.
+
+(3) **Ein Lebenslauf ist keine Korrespondenz.** Dokumente zaehlen nur
+bei Anfrage-, Korrespondenz- und Anzeigetypen. Im Lebenslauf steht jeder
+fruehere Arbeitgeber — der Treffer dort ist die Station, und die Rolle
+`arbeitgeber_frueher` deckt ihn schon ab.
+
+(4) **Ein vermuteter Endkunde ist kein Endkunde.** Nennen nur die
+Notizen einer laufenden Vermittler-Bewerbung die Firma, gibt es einen
+Pruefhinweis und KEINE Doppelvorstellungs-Warnung. Nachgetragen wird mit
+`bewerbung_bearbeiten(endkunde=...)`, vom Menschen. Freitext wird erst
+ab vier Zeichen Namensform durchsucht.
+
+(5) **Mein erster Abkuerzungs-Test war falsch, nicht der Code:** "NWM"
+fuer "Nordwerk Maschinen" — die Anfangsbuchstaben sind "NM". Und ein
+Zwei-Buchstaben-Fall war zufaellig eine echte Abkuerzung. Testdaten, die
+das Gegenteil ihrer Absicht beweisen, fallen nur auf, wenn man den
+Fehlschlag liest statt die Erwartung anzupassen.
+
+(6) **Gemessen an einer Kopie** (danach geloescht): von 102 Firmen aus
+Bewerbungen tragen 70 einen Bezug ausserhalb der Bewerbungen; 12
+Bewerbungen laufen ueber Vermittler mit eingetragenem Endkunden, 2
+nennen ihn nur in den Notizen (1 davon laufend), 1 Firma steht in
+mehreren Schreibweisen.
+
+(7) **Gegenprobe:** dreissig Mechanismen, dreissigmal rot, Arbeitsstand
+jedes Mal bytegleich. Stumm blieben zuerst zwei: der Vermittler selbst
+in seinen eigenen Notizen und die alte Teilstring-Regel im
+Bewerbungsweg — fuer beide fehlte ein isolierender Fall.
+
+(8) **Offen:** Stufe 2 (Firmen-Stammsatz, der Schreibweisen
+zusammenfuehrt) braucht eine Nutzerentscheidung; #1080 bleibt offen.
+
+(9) **#1086 kam vor dem Release herein und ging mit.** PBP startet
+Ollama seit #1001 losgeloest, einen Weg zum Beenden gab es nicht. Die
+Bauform folgt aus einer Tatsache: **PBP endet meist, wenn Claude Desktop
+schliesst, und dann gibt es kein Fenster fuer eine Rueckfrage.** Deshalb
+fragt die Desktop-Verknuepfung selbst (`choice`), der Knopf fragt im
+Dialog, und die Einstellung "immer" fragt beim EINSCHALTEN. Vorgabe
+"aus"; "gestartet" beendet nur ein Ollama, das DIESER Prozess gestartet
+hat (`_von_pbp_gestartet`). Windows beendet die Tray-App zuerst — sonst
+startet sie den Dienst neu. Ein Linux-Systemdienst wird benannt statt
+still nicht beendet. Das Stopp-Skript hat keine Klammerbloecke (#990).
+`beim_beenden` laeuft je Prozess hoechstens einmal, weil atexit und das
+Ende von uvicorn beide feuern.
+Gegenprobe zwanzig Mechanismen, zwanzigmal rot — nach einem Nachtrag:
+der Oberflaechen-Guard suchte `window.confirm` im ganzen Block, und das
+Wort steht dort zweimal (v1.7.115 MERKE 6 zum dritten Mal).
+
+(11) **Der Tag v1.7.129 landete auf main, und die Kette hat es
+angezeigt statt verhindert.** Nach einem Neustart der Sitzung stand der
+Checkout auf main; `git branch --show-current` stand in der Tag-Kette,
+aber als Ausgabe, nicht als Bedingung. DoD 8b beschreibt genau das —
+und eine Regel, deren Pruefung nur druckt, ist keine Pruefung.
+Korrigiert ohne Loeschen (Nutzerentscheidung): v1.7.129 als Prerelease
+mit Warnhinweis, v1.7.128 kurz wieder latest, dann v1.7.130 vom
+Stable-Branch. **Die Tag-Kette prueft jetzt mit `test`**: sauberer
+Baum, Branch-Name, erwarteter Commit, Versionsstring — und der Tag
+selbst wird danach gegen den Commit gehalten.
+
+(12) **Actions-Speicher bei 90 %** (Mail vom 22.09.): elf pip-Caches mit
+3,5 GB, zehn davon von Hotfix-Branches. Der Cache-Aufraeumer aus August
+reagiert auf das Loeschen eines Branches — Hotfix-Branches werden nie
+geloescht, also lief er nie. Von Hand geraeumt; der Aufraeumer laeuft
+jetzt zusaetzlich taeglich.
+
+(10) **Zweimal an diesem Tag die Heredoc-Falle, und zweimal ein Test,
+der an einem Kommentar haengen blieb.** Der Reihenfolge-Test fuer
+`_cleanup` fand "db.close()" zuerst im eigenen Erklaerkommentar. Er
+sucht jetzt die Aufrufzeile.
+
+## Stand 2026-09-25 (v1.7.128 Stable) — Firma, Ort und Region aus der Quelle
+
+Restpunkte von **#1040**, **#1041**, **#1042** (B66, B67). **Tests: 5215 (main) / 5113 (Stable).** MCP-Tools
+unveraendert 246 / 259. Dazu #1061 geschlossen, sein Nebenbefund als
+**#1085** (B68) ausgegliedert.
+
+MERKE-Punkte:
+
+(1) **Mein Vorschlag, die vier Issues "mit Versionsbezug zu schliessen",
+war falsch.** Die Kommentare zeigten: alle vier standen bewusst offen,
+je mit benannten Restpunkten, und der Master-Plan fuehrte B49/B51/B52 zu
+Recht auf 🟨. **Vor dem Schliessen die letzten Kommentare lesen, nicht
+den Titel gegen den Stand-Block halten** (DoD 8a in Gegenrichtung).
+
+(2) **Die Seite war geholt, und die Antwort lag darin.** `nachladen`
+lud die Detailseite und nahm nur den Text; das `JobPosting` mit Firma und
+Ort fiel weg. Jetzt traegt der Befund einen `kopf`, und
+`text_uebernehmen` ergaenzt FEHLENDES (nie ueberschreiben, "Unbekannt"
+zaehlt als fehlend, #1028), geocodet den Ort und bewertet danach neu.
+Ein AST-Guard verlangt `kopf=` an jedem Aufruf von `text_uebernehmen` —
+**die erste Fassung des Guards war ein Regex und endete an der Klammer
+von `job.get("hash")`** (v1.7.110 MERKE 6, schon wieder).
+
+(3) **Die Region wirkt bei den beiden Boersen verschieden, und das hat
+die Bauform bestimmt.** Jobware: mit `l=<Stadt>` 15 von 20 Treffern dort,
+bundesweit 2 von 20, Schnittmenge 1-2. ingenieur.de: nur `l=` wirkt, als
+ENGER Filter (20 -> 9 bzw. 1). Deshalb regional ZUSAETZLICH zu
+bundesweit, nie statt (Recall vor Praezision, #910). Die Region kommt
+aus `regionen[0]` der Suchkriterien — ohne Eintrag wie bisher.
+stellenanzeigen.de gibt sie nachweislich nicht her (13.09.).
+
+(4) **Zwei stumme Mechanismen hatten eine Ursache: ein Zeichen.** Der
+Mengenweg vergleicht nach `strip()`, mein Testtext endete auf einem
+Zeilenumbruch — der nachgeladene Text war damit "laenger" und nahm den
+Textweg, der Kopf-Zweig wurde nie erreicht. Dritter Fall nach v1.7.110
+MERKE 8.
+
+(5) **Dreimal die Heredoc-Falle an einem Tag** (ein escapter
+Zeilenumbruch wurde zum echten): zweimal im Gegenprobe-Skript, einmal
+in genau diesem Stand-Block. Das Skript steht jetzt als Datei,
+geschrieben mit dem Write-Werkzeug, und Text mit Backslashes geht nur
+noch ueber das Edit-Werkzeug. Die Gegenprobe lief diesmal von Anfang an mit Zeitlimit
+je Testlauf (v1.7.127 MERKE 6 angewandt).
+
+(6) **Gegenprobe:** neunzehn Mechanismen, neunzehnmal rot (nach dem
+Testnachtrag), Arbeitsstand jedes Mal bytegleich.
+
+## Stand 2026-09-24 (v1.7.127 Stable) — Was die Schwelle vergleicht, was wiederkommt, was in der Mail steht
+
+**#1082** (C94), **#1084** (C95, ersetzt #1081), **#1083** (E28), **Tests: 5202 (main) / 5100 (Stable).**
+**#1079** (G56). MCP-Tools 246 / 259 (+`dokument_lesen`).
+
+MERKE-Punkte:
+
+(1) **Eine Einstellung versprach eine Wirkung an einem Ort, an dem sie
+nie ankam (#1082).** Die Listen-Schwelle aus v1.7.124 "blendet in der
+Liste aus" — der Stellen-Tab wandte sie nie an, nur `stellen_anzeigen`.
+Und dort las sie die rohe Zahl statt der gewaehlten Stufe, verglich den
+Wert SAMT Entfernungs-, Remote- und Gehaltsreglern und kappte bei 0.
+**Vier Ursachen fuer ein Symptom**, und jede allein haette die Stelle
+nicht versteckt. Jetzt: Schwelle aus `get_scoring_threshold`, Vergleich
+gegen den Fachwert, Rahmen wirkt nur auf die Reihenfolge, keine Kappung,
+`ohne_schwelle=True` fuer einen Aufruf, Schalter mit Zahl im Tab.
+
+(2) **Ein weiterer Standort braucht Koordinaten, und die kommen nicht
+aus dem Netz.** Ein Score haengt nie an einer Abfrage (v1.7.36 MERKE 3).
+`services/standorte.py` nimmt die Orte, die PBP im Bestand schon
+geocodet hat, und liest Ortsangaben nur im Standort-Zusammenhang. Die
+Grenze steht im Changelog: ein nie gesehener Ort zaehlt nicht. Die
+Regler rechnen per Kriterien-Kopie mit — sonst rechneten Regler und
+Rahmendaumen verschieden (#963).
+
+(3) **Loeschen ohne Spur heisst Wiederkommen (#1084).** `merge_jobs`
+loeschte die Dublette, und der Import verglich nur `jobs.url`. Jetzt
+Grabstein (`job_tombstones`, Spalte `job_hash`, damit das generische
+Umhaengen aus #1077 Ketten mitnimmt), beide URLs als Fundstellen, und
+der Import vergleicht gegen alle Fundstellen-URLs. **Die Tabelle wird VOR
+der Merge-Transaktion angelegt:** `stellen_quellen.tabelle_anlegen`
+committet, ein commit mittendrin haette das Zusammenfuehren halbiert.
+Und die neue Tabelle steht in einem Loeschbereich (#1025-Guard).
+
+(4) **Fuer frueher Zusammengefuehrtes gibt es keine Spur**, und das
+steht im Bericht (`stellen_dubletten_pruefen`) statt einer geratenen
+Rekonstruktion.
+
+(5) **Der Grund stand in PBP und wurde nie gezeigt (#1083).** Die
+Repost-Warnung sagte "Ablehnungsgrund dokumentiert: ja" — der Text lag
+in der verknuepften Absagemail. `find_repost_of_application(db=...)`
+zitiert ihn jetzt (Bewerbungsfeld vor Mail), `dokument_lesen` liest
+seitenweise, `bewerbung_details` zeigt den Textanfang.
+
+(6) **Die Gegenprobe hing sich auf, und ich habe sie zweimal falsch
+gestartet.** Erst lief sie im Vordergrund und der Tool-Timeout erschlug
+das Skript MITTEN in einer Mutation — der `finally`-Block lief nicht,
+`dokument_text.py` stand mutiert im Arbeitsbaum. Gefunden, weil die
+Datei danach als geaendert gemeldet wurde; geprueft ueber alle 40
+Anker. Dann hing der Paginierungstest endlos, weil ein Weg, der
+`ab_zeichen` ignoriert, immer wieder `weiter_ab_zeichen` meldet. **Eine
+Schleife im Test braucht eine Obergrenze, und eine Gegenprobe laeuft im
+Hintergrund mit Log-Datei, nie unter einem Tool-Timeout.**
+
+(7) **Gegenprobe:** vierzig Mechanismen, vierzigmal rot (nach einem
+Nachtrag), Arbeitsstand bytegleich. Stumm blieb "URLs am Master": fuer
+Stellen mit Fundstellenzeile haengt `merge_jobs` sie ohnehin um. Der
+isolierende Fall ist Altbestand ohne Fundstelle (vor #951).
+
+(8) **Bewusst offen:** #1080 (Firmen-Entitaet ueber Vermittler hinweg)
+kommt gestuft, erst ein lesender Bestandsbericht.
+
+## Stand 2026-09-23 (v1.7.126 Stable) — Was angelegt wird, was gesucht wird, was bleibt
+
+**#1071 bis #1077** (A36, B62-B65, C92, C93), sieben Meldungen aus zwei
+Tagen. **Tests: 5061.** MCP-Tools 245 / 258.
+
+MERKE-Punkte:
+
+(1) **Eine Regel fuer Extraktions-Muell lief auf Eingaben eines
+Menschen (#1073).** Die Satzfragment-Heuristik aus #43/#129/#681 wurde
+fuer Bruchstuecke aus Dokumenten gebaut und sass in `add_skill` — also
+auf jedem Weg. `C++` fiel an der Zeichen-Quote, eine Klammer-Aufzaehlung
+an der Leerzeichen-Regel. **Eine Regel gehoert an den Weg, fuer den sie
+gebaut wurde, nicht an das Nadeloehr aller Wege.** Jetzt zwei
+Regelsaetze und ein Grund statt eines Wahrheitswerts.
+
+(2) **Drei Wege meldeten Erfolg ohne ID — #997 zum zweiten Mal.** Dort
+war es das Aendern, hier das Anlegen; einer von vier Aufrufern wertete
+die leere ID aus. Und `skills_bereinigen` loeschte mit derselben Regel
+im Altbestand, was die Anlage abgewiesen haette: **Datenverlust mit
+Erfolgsmeldung.**
+
+(3) **`profil_bearbeiten(hinzufuegen_bulk)` war ueber den MCP-Weg nie
+aufrufbar.** `daten: dict` — die Liste, die der Docstring verspricht,
+wies das Schema ab. Gefunden, weil der Test den Weg wirklich aufrief;
+der Code darunter hat nie eine Liste gesehen.
+
+(4) **Ein leeres Feld kann eine Entscheidung sein (#1077).** `merge_jobs`
+fuellte leere Master-Felder immer aus dem Duplikat, "weil es keinen
+Konflikt gibt" — so stand es im Docstring. Dazu drei ungemeldete
+Befunde beim Nachsehen: `0 km` galt als leer (genau der Wert "am
+Wohnort"), Entfernung und Koordinaten wanderten unabhaengig vom Ort, und
+das Zusammenfuehren haengte nur `applications.job_hash` um —
+`application_jobs` (#764), `job_sources` (#951) und die polymorphen
+`contact_links` zeigten danach auf eine geloeschte Stelle. **Eine
+Funktion, die Zeilen loescht, muss jeden Bezug kennen — und
+polymorphe Bezuege findet keine Schema-Suche.**
+
+(5) **Die Einordnung aus v1.7.125 las nur die Vergangenheit (#1074).**
+Fuer einen Quereinsteiger ist das Feld, aus dem er heraus will, die
+falsche Antwort. Das Ziel (Kurzprofil, Jobtitel, MUSS-Begriffe) zaehlt
+jetzt — **und die Messung am eigenen Bestand hat die Regel dafuer
+korrigiert, bevor sie ausgeliefert war**: eine Mehrheitsregel machte den
+PLM-Berater zum Quereinsteiger in die IT, weil sein Kurzprofil "Data",
+"Engineer" und "Architect" traegt. Das Ziel ueberstimmt den Lebenslauf
+nur, wenn dessen Feld im Ziel gar nicht vorkommt. Hauptprofil danach
+unveraendert: Ingenieurwesen, Spezialist, 13 Quellen.
+
+(6) **Eine Selbstaendigkeit von 2018 ist keine Form fuer 2026.** Die Form
+kommt jetzt aus Praeferenz, dann aus den aktuellen Stationen (laufend
+oder vor hoechstens zwei Jahren beendet). `festanstellung` stand in
+`FORM_QUELLEN` und wurde nie vergeben — **eine Tabelle mit einem
+Schluessel, den niemand erzeugt, ist dieselbe Klasse wie ein Leser ohne
+Schreiber** (#993).
+
+(7) **JobSpys `is_remote` war ein Stichwortfund, kein Arbeitsmodell
+(#1072) — und PBPs eigene Erkennung hatte denselben Fehler.** Gemessen
+an der Bestandskopie: nach dem Umstellen auf den ganzen Anzeigentext
+wurden 20 Stellen von `vor_ort` zu `remote`, weil "mobiles Arbeiten"
+unter den Vorteilen und "bundesweit rund 4.000 Mitarbeitende" als
+Remote-Signal galten. Jetzt: Anteile unter 100 % und Homeoffice als
+Angebot sind `hybrid`, ein Hinweis ohne Textbeleg ebenfalls. **Die
+Rangfolge ist eine Kostenfrage:** ein falsches `hybrid` kostet einen
+Abzug, ein falsches `remote` blendet die Entfernung aus.
+
+(8) **PLUS-Begriffe sind Bewertungsbegriffe (#1071).** Beim Hauptprofil
+sucht Indeed jetzt mit den zwei Titelsuchen des Suchprofils statt mit
+159 Einzelbegriffen, die uebrigen API-Quellen mit 56 statt 159.
+**Bewusst offen:** kurze Kuerzel (ECO, ECN, BOM) nur in Kombination zu
+schicken braucht je Quelle eine eigene Abfragesyntax — `PLM` und `PDM`
+sind ebenfalls drei Buchstaben und tragen allein.
+
+(9) **Firmen-Textbausteine machten verschiedene Rollen gleich (#1076).**
+Die reine Textueberdeckung ergab bis zu 100 % zwischen "Teamleiter
+Automatisierung" und "PLM Solution Architekt". Verglichen wird nur, was
+keine dritte Anzeige derselben Firma enthaelt; gemessen ueber 2.098
+Paare liegen dann 29 ueber 0,5, die Spitzen sind echte Umbenennungen.
+
+(10) **Ein Trichter zaehlte angelegte Stellen als verworfen.** Seit #1065
+traegt eine angelegte Stelle eine Warnung, und
+`linkedin_treffer_uebernehmen` zaehlte jede Antwort mit Warnung als
+uebersprungen. Gefunden beim Einbau der neuen Hinweise, die es sonst
+haeufiger gemacht haetten.
+
+(10a) **Zwei Nachtraege kamen waehrend der Arbeit, und der
+Pre-Release-Check hat sie gefangen.** Zu #1077: `salary_estimated` stand
+nicht in der Liste der zusammengefuehrten Felder — eine GESCHAETZTE
+Spanne wanderte an den Master, und dessen Kennzeichen sagte "belegt".
+Gehaltsfelder sind jetzt eine Einheit, eine Schaetzung kommt nie ohne
+Rueckfrage. Zu #1076: die Anlage und `fit_analyse` fragten DIESELBE
+Funktion, aber die Anlage reichte die URL mit, und bei abweichender URL
+gilt die strenge Schwelle aus #670 (0,85). **Dieselbe Funktion mit
+anderem Eingang ist eine zweite Regel.** Dazu zaehlt ein Portal-Vorspann
+("Freelancer Opportunity -") nicht mehr zum Titel.
+
+(11) **Loeschen nach Filter statt nach Bereich (#1075).** Die
+Kind-Tabellen kommen aus dem Schema wie bei den Loeschbereichen (#1025),
+dazu die polymorphen Kontakt-Verweise von Hand. Geschuetzt bleibt, was
+mehr ist als ein Treffer: eine Bewerbung oder eine Fundstelle einer
+GEWAEHLTEN Quelle — eine abgewaehlte schuetzt nicht.
+
+(12) **Meine Patch-Skripte schrieben unter Windows CRLF.**
+`Path.write_text` uebersetzt `\n` in `os.linesep`; sechs Dateien standen
+danach mit fremden Zeilenenden da. Gefunden an der Git-Warnung, nicht an
+einem Test — die Dateien waren gueltiges Python. Zurueckgesetzt ueber
+den Vergleich mit HEAD. **Patch-Skripte schreiben Bytes, nicht Text.**
+
+(13) **Gegenprobe:** sechzig Mechanismen, sechzigmal rot (fuenf davon
+aus den Nachtraegen), Arbeitsstand jedes Mal bytegleich. Der erste Durchgang meldete
+sechs stumm, und jeder hatte einen anderen Grund. Drei Regeln aus #1073
+deckten sich gegenseitig (`C++` kam ohne Kurzbezeichner-Liste durch die
+Mindestlaenge und umgekehrt) — jetzt je ein Fall, den nur eine rettet.
+Die Primaer-Markierung wandert ohne Konflikt ohnehin mit. Der Test fuer
+"der ganze Text zaehlt" gab `is_remote=True` mit, und der Hinweis ergab
+ebenfalls `hybrid`: **er pruefte die Rueckfallregel, nicht den Text.** Und
+der Firmentext im Repost-Test war zu kurz — mit 0,49 lag die rohe
+Aehnlichkeit knapp unter der Schwelle, der Test haette also auch ohne
+das Herausnehmen der Textbausteine bestanden.
+
+(14) **PII-Sweep nach dem Release, Nutzerentscheidung "Nummern
+verbrennen" (23.09.2026).** Von sechs gemeldeten Artefakten trugen zwei
+echte Firmennamen aus Stellenanzeigen: **#1067 ist geloescht** (Inhalt
+steht in B60 und im CHANGELOG v1.7.122), und der Nachtrag mit den
+echten Alert-Mails in **#1068** ist anonymisiert neu eingestellt und das
+Original entfernt — ein offenes Issue verbrennt man nicht, wenn nur ein
+Kommentar betroffen ist, und ein geloeschter Kommentar behaelt keine
+Edit-Historie. **Vier waren Fehlalarme und bleiben:** `hays` in
+Grossschreibung als Quellenname (#1064, #1074, #1075) und die
+Platzhalter-Nummer `01234-56789-10` in #1026. **Vor dem Loeschen jeden
+Fund einzeln ansehen** — der Sweep meldet ohne Namen, und eine
+geloeschte Nummer kommt nicht wieder.
+
+(15) **Und danach den Pruefer angepasst, statt die Fehlalarme zu
+verwalten (#1078, A37, nur main — Werkzeug, kein Release).** Ein
+Quellenname in Grossschreibung gilt je VORKOMMEN als Quelle, wenn eine
+weitere Quelle danebensteht, ein Wort wie "Quelle"/"Portal" davor oder
+ein technisches Kompositum dahinter — und bleibt ein Fund, sobald
+Bewerbung, Interview, Absage oder Recruiterin in der Naehe stehen. Acht
+aufsteigende Ziffern machen eine Rufnummer zum Platzhalter. **Die
+Guard-Tests aus v1.7.25 lebten selbst von einer Platzhalter-Nummer**
+(`+49 40 123456789`) und wurden rot, sobald die Regel griff; ihr
+Ausloeser ist jetzt `0100 ...`, eine Verbindungsnetz-Vorwahl, die keine
+echte Anschlussnummer sein kann. Testnummern in einer echten Vorwahl
+waeren selbst ein PII-Risiko im Repository. Gegenprobe neun
+Mechanismen, neunmal rot; der Sweep ueber 913 Artefakte ist danach
+sauber.
+
+## Stand 2026-09-21 (v1.7.125 Stable) — Drei Angaben statt eines Schluessels
+
+**#1070** (B61), Nutzerbericht vom 21.09.2026. **Tests: 4948.**
+MCP-Tools 244 / 257.
+
+MERKE-Punkte:
+
+(1) **Eine Liste, die drei Fragen beantwortet, beantwortet keine
+richtig.** Die fuenfzehn Cluster mischten Berufsfeld, Erfahrungsstufe
+und Beschaeftigungsform — `health` sagt WO, `tech_senior` zusaetzlich
+WIE WEIT, `freelance` die FORM. Der Melder hat daraus die richtige
+Frage abgeleitet: es gibt `tech_junior` und `tech_senior`, weil das
+Raster ausgerechnet dort feiner ist, und kein `health_junior`, weil
+dort niemand nachgeschaerft hat. **Das ist keine Systematik, sondern
+Entstehungsgeschichte.**
+
+(2) **Die Messung war der Melder selbst.** Auf einer Kopie des
+Bestands: sein Profil galt als `freelance` und bekam **fuenf** Quellen.
+Mit den drei Angaben (Ingenieurwesen, Spezialist, freiberuflich) sind
+es **dreizehn** — acht Fachquellen, darunter ingenieur.de, waren an die
+Erst-Treffer-Regel verlorengegangen. **Der Cluster steuert die
+Quellen-Empfehlung; eine falsche Einordnung kostet nicht ein Etikett,
+sondern die halbe Trefferliste.**
+
+(3) **Der schwerste Befund stand in keinem Bericht: `leiter` steckt in
+`Begleiter`.** Schulbegleiterin, Alltagsbegleiterin,
+Integrationsbegleiter und Reisebegleiter galten ab zehn Berufsjahren
+als Fuehrungskraft und bekamen Konzern-Boards; `GF-Assistenz` ebenso
+ueber `gf`. Dieselbe Klasse wie "ki" in "Kita" (#970) — und sie trifft
+zum zweiten Mal genau die Berufe, fuer die PBP ausdruecklich mitgebaut
+ist. **Gefunden beim Nachmessen des Berichts, nicht im Bericht.**
+
+(4) **Ein Deckel, den erst die Messung erzwungen hat.** Mein erster
+Entwurf leitete das Niveau bei fehlender Bezeichnung aus den
+Berufsjahren ab — und machte damit jedes Profil ab sieben Jahren zum
+`spezialist`, was `NIVEAU_QUELLEN` Konzern-Boards auf die Empfehlung
+legen liess. Sicherheitsmitarbeiter, Berufskraftfahrer und
+Produktionsmitarbeiter waren betroffen. **Das ist derselbe Schaden, den
+das Issue meldet, nur durch eine andere Tuer** — das Anforderungsniveau
+der KldB beschreibt die KOMPLEXITAET, nicht die Dauer.
+
+(5) **Und der Deckel riss prompt etwas anderes mit.** Der
+Junior/Senior-Schnitt der ALTEN Schluessel lief immer ueber die
+Berufsjahre; mit dem konservativen Niveau als Grundlage wurde ein
+Softwareentwickler mit zehn Jahren `tech_junior` und ein PLM-Berater
+sogar `trade`. **Zwei Groessen, die sich aehnlich anfuehlen, sind
+deshalb noch nicht dieselbe** — und genau ihre Vermischung war der
+Anlass des Issues. Gefunden hat es die VOLLE Suite, nicht die gezielte
+Auswahl (vierter Fall nach v1.7.100 MERKE 6).
+
+(6) **Die Rangfolge wurde von einem Gleichstand korrigiert.**
+"Servicetechniker Aussendienst" traf je einmal Handel, Handwerk und
+Ingenieurwesen — und die erste Fassung gab ihn dem Handel, weil er
+weiter vorn stand. Entschieden wird nach der ZAHL der Treffer; die
+Fachberufe stehen jetzt vor den kaufmaennischen Sammelbegriffen.
+
+(7) **Drei Begriffe aus dem ersten Entwurf trafen zu breit und sind
+wieder raus.** `techniker` matcht in "Servicetechniker" (eine
+Fachkraft), `berater` in "Kundenberater", `consultant` in jeder
+Junior-Rolle. **Eine Liste, die beim Schreiben plausibel aussieht,
+gehoert gegen echte Titel gehalten, bevor sie entscheidet.**
+
+(8) **`PROFILE_TYPE_CLUSTERS` ist ersatzlos weg, nicht danebengestellt.**
+Eine Liste je Schluessel neben der Kombination waere #963 an einer
+neuen Stelle gewesen. Die fuenfzehn Schluessel bleiben als abgeleitete
+Sicht — sie tragen Elwosa-Linien und Alt-Auswertungen, und ein Test
+prueft, dass es kein Label ohne erreichbaren Typ gibt und umgekehrt.
+
+(9) **Sechs Alt-Tests auf ihre ABSICHT gedreht, keiner geloescht.**
+Die Verkaeuferin heisst jetzt `retail_logistics` statt `service` (das
+war ein Sammelbecken), die Matcher-Faelle zeigen auf
+`berufsfeld.treffer`, und die Cluster-Tabellen-Tests auf die drei neuen
+Tabellen. Zwei Tests arbeiteten mit einem Testdoppel auf
+`detect_profile_type`, das nur `type` lieferte — **ein Doppel, das die
+neue Grundlage nicht kennt, prueft den Weg nicht mehr, den der Nutzer
+geht**; sie laufen jetzt ueber echte Profile.
+
+(10) **Der #927-Guard hat mein neues Werkzeug abstuerzen sehen.**
+`profil_einordnung` rief `get_db()`, das es in dem Modul nicht gibt —
+die Registrierung reicht `db` herein. Ein Guard, der jedes argumentlose
+Werkzeug auf einer leeren Datenbank aufruft, faengt genau das.
+
+(11) **Die Wiki-Seite beschrieb einen Stand, den es nie gab.** Sie
+nannte neun Cluster (gebaut waren fuenfzehn), eine Funktion
+`classify_profile`, die es nie gab, ein manuelles Ueberstimmen, das es
+nicht gibt, und einen Weg ueber Claude — **und die Einordnung war ueber
+gar kein Werkzeug erreichbar.** Neu `profil_einordnung()`; die Seite
+ist gegen den Code geprueft, nicht nur neu geschrieben.
+
+(12) **Gegenprobe:** achtzehn Mechanismen, achtzehnmal rot,
+Arbeitsstand jedes Mal bytegleich. Der erste Durchgang meldete neun
+stumm — **sechs davon waren ein Befund ueber das Skript**: es mutierte
+LF-Anker in einer CRLF-Datei und veraenderte gar nichts (v1.7.102
+MERKE 6, exakt wiederholt). Die vier echt stummen haben je einen
+isolierenden Fall bekommen, darunter der Gruendungsfall von #970.
+
+(13) **Zweimal in die Heredoc-Falle** (v1.7.24 MERKE 4), beide Male im
+Gegenprobe-Skript: `\n` wurde zum Zeilenumbruch, und beim zweiten
+Versuch verschluckte sie eine Fortsetzungszeile im PRODUKTIV-Code —
+gueltiges Python, eine unlesbare Zeile mit dreizehn Leerzeichen in der
+Mitte (v1.7.117 MERKE 11). Eine Pruefung auf Zeilen ueber 100 Zeichen
+hat sie gefunden.
+
+(14) **Bewusst offen:** Scheibe 3 des Issues nennt die Wiki-Seite,
+Scheibe 1 und 2 sind umgesetzt. Nicht umgesetzt ist die
+Protokollierung der `mixed`-Faelle — sie waere ein zweiter Ort fuer
+eine Auskunft, die `profil_einordnung` jetzt auf Anfrage gibt.
+
+## Stand 2026-09-21 (v1.7.122 Stable) — Der ganze Anzeigentext, und was es nicht mehr gibt
+
+Fuenf Meldungen eines Vormittags: **#1064**, **#1065**, **#1066**,
+**#1067**, **#1069**. **Tests: 4955.** MCP-Tools 242 / 255.
+
+MERKE-Punkte:
+
+(1) **Die Ausgabegrenze trug dieselbe Zahl wie die Kappung, die #952
+gerade entfernt hatte — und setzte den Fehler damit eine Ebene hoeher
+fort (#1064).** `AUSGABE_MAX = 2000` stand seit v1.7.23 da, mit dem
+Kommentar "diese Begrenzung ist berechtigt und bleibt". Sie war es
+nicht: seit #1003/#1007 ist `fit_analyse` die einzige Grundlage eines
+gespeicherten Urteils. **Wer eine Grenze verschiebt, muss fragen, ob
+ihre Begruendung an der neuen Stelle noch gilt** — hier hat sich die
+Bedeutung der Funktion darunter geaendert.
+
+(2) **Die Messung hat die neue Grenze bestimmt, nicht das Gefuehl.**
+2.271 Anzeigen mit Text: laengste 11.741 Zeichen, keine erreicht 12.000.
+Die Notbremse liegt bei 20.000 — oberhalb von allem Realen. Und die
+Schadenszahl: **bei 29,5 % der Anzeigen ueber 2.000 Zeichen beginnt der
+Anforderungsteil ERST hinter der alten Grenze.** Am gemeldeten Fall
+gegengeprueft: der entscheidende Satz steht bei Zeichen 4462.
+
+(3) **Eine Funktion, die nur den gekuerzten Text liefert, verlaesst sich
+darauf, dass der Aufrufer an die Meldung denkt.** Er hat es nicht getan.
+`ausgabe()` gibt Text UND Befund zurueck; `fuer_ausgabe` ist ersatzlos
+weg, samt Guard. **Die Bauform entscheidet, nicht die Sorgfalt.**
+
+(4) **Der Melder war zu bescheiden, und die Messung hat ihm recht
+gegeben.** "Nachladen verliert Kopfdaten" stand als kleiner Nebenbefund
+da. Nachgesehen: "Unbefristet" steht im gespeicherten Text ueberhaupt
+nicht mehr. Die Kopfzeilen-Regel ist trotzdem eine GESCHLOSSENE Liste —
+gemessen tragen nur 47 von 1.578 Anzeigen Kopfzeilen, und die generische
+Form `Wort: Wert` fing dabei schon Fliesstext mit. **Eine Regel, die bei
+3 % Nutzen Fehltreffer erzeugt, ist die falsche Bauform.**
+
+(5) **Der Mechanismus fuer #1065 war fertig gebaut und wurde nie
+gefragt.** `find_repost_of_application` (#782) beantwortet genau die
+Frage, mit derselben Regel wie Duplikat-Stufe A, und `stellen_anzeigen`
+und `fit_analyse` zeigen sein Ergebnis laengst. Die Anlage rief ihn
+nicht. Dritter Fall nach #994 und #1014. **Vor einer neuen Regel
+nachsehen, wer die Frage schon beantwortet** — sonst entsteht die
+fuenfte Fassung.
+
+(6) **`_detect_duplicate` hatte eine VIERTE Regel fuer dieselbe Frage**
+(Firma als Teilstring, zwei gemeinsame Titelwoerter). Deshalb sagte die
+Anlage "angelegt" und das Aussortieren "duplikat_erkannt". Die gemeinsame
+Regel ist die gepruefte (#670, #951).
+
+(7) **Ein Alt-Test pruefte seine Absicht ueber einen Stellvertreter, der
+nicht mehr gleichbedeutend war.** `test_567_terminal_application_does_
+not_block` hiess "blockt nicht" und pruefte "gar keine Warnung". Seit
+#1065 kann eine Warnung neben einer erfolgreichen Anlage stehen. Die
+Absicht gilt, der Stellvertreter nicht (v1.7.31 MERKE 2, jetzt im
+fuenften Fall).
+
+(8) **`deprecated` hat fuer eine tote Quelle nicht gereicht (#1066).**
+Monster stand seit #653 so markiert — und wurde weiter als Browser-Quelle
+mit Konto-Link angeboten, bekam ein Zeitbudget, eine Prioritaet, einen
+Platz im Claude-Handoff (#1049) und mit **#1060 sogar noch einen neuen
+Kartentext von mir**. Ich habe vier Tage vorher Text fuer eine Quelle
+gepflegt, die es nicht mehr gibt. Jetzt `ENTFERNTE_QUELLEN` mit Grund,
+Datum und Ersatz — generisch, weil StepStone der naechste Fall ist.
+
+(9) **Ein Filter, der nur `defekt` kennt, laesst einen unbekannten
+Schluessel durch.** Haette ich Monster nur aus der Registry genommen,
+waere "monster" unsichtbar in der gespeicherten Auswahl stehen
+geblieben: gezeichnet wird er nicht, gewaehlt bleibt er. Das ist
+#1039/#1008 in die andere Richtung, und es faellt nur auf, wenn man beim
+Entfernen fragt, wer die Liste LIEST.
+
+(10) **Ein Selektor mit Verfallsdatum, und der Kommentar sagte es
+voraus (#1067).** "DOM-Selektoren (Stand Mai 2026). Klassen rotieren."
+Sie sind rotiert, und das Skript lieferte 13 "Stellen" namens KI-Modus,
+Bilder, News — **ohne Fehler**. Jetzt am sichtbaren Text verankert, mit
+drei benannten Fehlerzustaenden. **Eine plausible falsche Liste ist
+teurer als eine leere.**
+
+(11) **Ein Skript, das mit Kommentarzeilen beginnt, liefert bei
+`return <skript>` still `undefined`** (ASI). Gefunden, weil mein eigener
+Node-Test nichts zurueckbekam. Der Kommentar steht jetzt INNERHALB der
+Funktion — und damit bleibt der Alt-Test aus #573 ("beginnt mit `(()`")
+unveraendert gueltig, statt angepasst zu werden.
+
+(12) **Eine Gegenprobe, die nur einen Kanal laeuft, meldet fuenf
+Mechanismen als stumm.** Bei #1067 haengen die JS-Mechanismen am
+Node-Test; mein Skript lief nur pytest. Zweiter Fall nach v1.7.114
+MERKE 9, diesmal nicht am Ausgabekanal, sondern am Testlaeufer.
+
+(13) **Der ELWOSA-Endpunkt aus #1069 antwortet heute mit HTTP 404.**
+Die Domain gibt es, die Route nicht. Er steht trotzdem an erster Stelle
+— damit ist der Rueckfall auf GitHub vom ersten Tag an der reale Pfad
+und nicht nur eine Behauptung. **Ein Rueckfall, der nie benutzt wird,
+ist ungeprueft.**
+
+(14) **Der #1062-Guard von gestern hat heute zweimal gegriffen:**
+`quellen_health_check` stand in keiner `pbp_capabilities`-Kategorie, als
+ein neuer Hinweis darauf zeigte. Ein Guard, der am Tag nach seiner
+Einfuehrung fremde Arbeit faengt, war die richtige Investition.
+
+(15) **Gegenprobe:** zehn Mechanismen fuer #1064, vier fuer #1065, sechs
+fuer #1066, sieben fuer #1067, acht fuer #1069 — fuenfunddreissigmal
+rot, Arbeitsstand jedes Mal bytegleich. Zwei blieben zuerst stumm und
+haben beide eine Luecke gezeigt: der Filter auf abgeschlossene
+Bewerbungen wirkt nur bei `force=True`, und die JS-Mechanismen brauchten
+den Node-Test.
+
+(16) **Berichtigt:** der Installer nennt Monster entgegen dem Bericht
+nicht. **Bewusst offen:** der Link je Google-Jobs-Treffer ist am echten
+Google nicht nachgemessen. Der Banner "Stand unbekannt" ist mit einem
+Browser-Test belegt, nicht mit einem Grep.
+
+## Stand 2026-09-21 (v1.7.124 Stable) — Eine Stufe statt einer Zahl
+
+**#1063** (C91), Nutzerbericht vom 21.09.2026. **Tests: 4915.**
+MCP-Tools 243 / 256.
+
+MERKE-Punkte:
+
+(1) **Eine Zahl ohne Bezugsgroesse ist keine Einstellung, sondern eine
+Wette.** Ueber 2.780 Stellen gemessen: Median 1, p90 21, max 110. Die
+eingestellte 7 sah nach "eher niedrig" aus und verwarf 82 % des
+Bestands. Dazu zwei Eigenschaften, die keine Zahl haben darf: sie
+verschiebt sich unter dem Nutzer (seit #1012 faellt der Score fuer
+dieselbe Anzeige niedriger aus), und direkt ueber der Vorgabe liegt
+eine Klippe — von 1 auf 2 halbiert sich der sichtbare Bestand.
+**Gespeichert wird deshalb die STUFE, gerechnet wird beim Lesen.**
+
+(2) **Die Vorgabe ist gemessen, nicht gesetzt — und die Messung hat
+die Anzeige bestimmt.** Auf einer Bestandskopie (57 bewertbare
+Bewerbungen, 2.765 Aussortierte) haette schon die mildeste Stufe 4 von
+57 Stellen verworfen, auf die sich der Mensch tatsaechlich beworben
+hat; Streng 49 %. Ohne diese Zahl neben "wie viele bleiben sichtbar"
+sieht jede Stufe billig aus. **Eine Auskunft, die nur die guenstige
+Haelfte einer Rechnung zeigt, ist Werbung fuer die eigene Voreinstellung.**
+
+(3) **Die Stufen rechnen mit fremden Bausteinen, und zwar mit
+Absicht.** Quantile aus `score_verteilung`, Werte aus
+`fachwert._fachwerte` — dieselbe Rechnung wie Fachdaumen und Backtest.
+Eine eigene Fassung haette bedeutet, dass der Backtest einen Wert
+vorschlaegt, den keine Stufe trifft (#963, und #1052 MERKE 1 in
+Gegenrichtung).
+
+(4) **Der Browser-Test hat einen echten Fehler gefunden, keinen
+Testfehler.** Der Klick auf "Locker" speicherte "Alles zeigen": im
+`<label>` von `Field` geht ein Klick an das erste labelable element,
+und ein `<button>` ist eines (#1027). Ein Grep haette die Stufen
+gefunden und nichts gemerkt; ein Test, der nur den Toast prueft,
+ebenfalls nicht — der Beleg ist die DATENBANK nach dem Klick
+(v1.7.105 MERKE 2). **Die Stufen stehen deshalb ausserhalb von `Field`.**
+
+(5) **Die Stufen steigen zwingend, auch wenn die Quantile es nicht
+tun.** Bei schiefen Bestaenden kann das obere Viertel der Aussortierten
+ueber dem unteren Viertel der Bewerbungen liegen — dann waere "Locker"
+strenger als "Ausgewogen", und die Namen logen. Ein angehobener Wert
+wird BENANNT (`angehoben_auf_vorstufe`), nicht still gesetzt.
+
+(6) **Ein gesetzter Wert darf nicht still wandern** (#1053). Die
+Umstellung schreibt einen Beleg und loest einen einmaligen Hinweis aus,
+der die alte Zahl und die Stufe nennt. Die Zahl selbst bleibt unter
+"fuer Fortgeschrittene" erreichbar und wirkt, solange die Stufe auf
+"Alles zeigen" steht — AK 1 verlangt genau das, und die Oberflaeche
+sagt dazu, wann sie NICHT wirkt.
+
+(7) **Der Listen-Bereich hatte ueberhaupt keine Oberflaeche.**
+`schwellenwert/auto_ignore` war nur ueber ein Werkzeug erreichbar —
+gefunden beim Suchen nach dem Regler, nicht gemeldet. Das ist die
+zweite Haelfte von #1008: dort war ein Filter unsichtbar gesetzt, hier
+ist er unsichtbar EINSTELLBAR.
+
+(8) **Zu wenige Werte, keine Stufe.** Unter 20 bewertbaren Bewerbungen
+und 20 Aussortierten bleiben die berechneten Stufen gesperrt und sagen
+warum. Eine Stufe aus einer Handvoll Werte waere geraten — dieselbe
+Linie wie der graue Rahmendaumen (v1.7.117 MERKE 3).
+
+(9) **Der #1062-Guard hat beim ersten Lauf gegriffen**, und die
+gezielten Tests sahen es nicht — nur die volle Suite. Das neue Werkzeug
+stand in keiner Kategorie von `pbp_capabilities`; Claude waehlt nach
+NAMEN, und "schwelle" steht in keinem anderen. Vierter Fall von
+v1.7.113 MERKE 8.
+
+(10) **Gegenprobe:** zwoelf Mechanismen, zwoelfmal rot, Arbeitsstand
+jedes Mal bytegleich. Zwei Nachtraege im ersten Durchgang. Stumm blieb
+"die Umstellung schaltet ohne Stufen ab" — der Test prueft jetzt, dass
+dann WEDER Beleg NOCH Hinweis entsteht; ohne das meldete die Umstellung
+eine Umstellung, die nicht stattgefunden hat. Und ein Mutations-Anker
+stand zweimal in der Datei, traf also nicht die Stelle, um die es ging
+(v1.7.115 MERKE 6).
+
+(11) **Beim Release gefunden: der CHANGELOG-Eintrag fuer v1.7.123 hat
+main nie erreicht.** Auf dem Tag steht er, auf main fehlte er — zum
+zweiten Mal nach v1.7.81 MERKE 11. **Ein Release-Schritt aus mehreren
+Dateien faellt stueckweise aus, ohne dass irgendetwas rot wird.**
+Nachgetragen.
+
+(12) **Bewusst offen:** Der Backtest schlaegt weiter eine ZAHL vor
+(#778); sie auf die naechstliegende Stufe abzubilden waere der naechste
+Schritt, ist aber eine Aenderung an seinem Vertrag. Und die drei
+historischen Bewerbungen mit Score 0 aus dem Bericht sind NICHT
+geprueft — vermutlich wurde die Beschreibung erst spaeter nachgeladen.
+
+## Stand 2026-09-18 (v1.7.121 Stable) — Die Ernte kommt an
+
+Nutzerversuch "Schwellenwert vorschlagen lassen", dazu **#1060**,
+**#1061** und **#1062**, alle drei waehrend der Release-Arbeit
+eingegangen. **Tests: 4904.** MCP-Tools 242 / 255.
+
+MERKE-Punkte:
+
+(1) **Eine Zusage aus dem eigenen Fix hielt nicht, und der Test sah es
+nicht.** v1.7.120 versprach "spaete Ergebnisse werden gespeichert"; der
+Test dazu liess LinkedIn INNERHALB des eigenen Budgets fertig werden.
+Der gemeldete Fall lag 39 s DANACH — und genau dort wurde weiter
+verworfen. **Ein Test, der den Fall nur diesseits der Grenze prueft,
+belegt die Grenze nicht.** Jetzt haelt der Adapter nach dem laufenden
+Begriff an (`_zwischenstand`, Stopp-Signal), und das bis dahin
+Gefundene geht durch dieselben Filter.
+
+(2) **Eine Konstante, die zweimal gemessen wurde, ist keine Konstante.**
+11,3 s im ersten Bericht, 14 s im zweiten. Die Dauer je Begriff wird
+jetzt gemessen und abgelegt (`jobspy_linkedin_sekunden_je_abfrage`),
+die 12 s sind nur noch die Untergrenze. Die Testattrappe arbeitet dafuer
+Begriff fuer Begriff wie der echte Adapter — die alte schlief einmal
+und gab alles zurueck, damit konnte sie weder Teilergebnis noch Messung
+pruefen.
+
+(3) **Der Satz im Dashboard war nur im Dashboard eindeutig (#1062).**
+Im Chat kommt "Vorschlaege ansehen" ohne den Hinweis darueber an, und
+drei andere Werkzeuge tragen "vorschlag" im Namen. Claude laedt Schemas
+erst bei Bedarf und waehlt nach NAMEN. Jetzt beginnt jeder Satz mit
+"PBP:" und traegt einen Wortstamm des Werkzeugs; `pbp_capabilities`
+liefert die Zuordnung. **Der Nutzer war heute selbst betroffen:**
+"Neuen Schwellenwert vorschlagen lassen" zeigt auf `kalibrierung_backtest`,
+in dessen Namen kein "Schwell" steht.
+
+(4) **Der Guard fand beim ersten Lauf drei weitere Luecken.** Drei
+Zielwerkzeuge standen in keiner Kategorie von `pbp_capabilities`, eines
+nur als Abkuerzung (`suchkriterien_setzen / _bearbeiten / _anzeigen` —
+ein Mensch liest das, eine Namenssuche nicht). Und ein zweiter "Sag
+Claude"-Satz steckte im TEXT eines Hinweises, wo ein Guard ueber
+`cta_label` allein ihn nie gesehen haette.
+
+(5) **#1059 hat die Etiketten vereinheitlicht und die Texte daneben
+stehen lassen (#1060).** Zweiter Durchgang von Hand haette dasselbe
+Risiko wieder eingebaut; der gemeinsame Satz wird jetzt aus
+`zugriffsart` abgeleitet (`_registry_texte_ableiten`), und ein
+AST-Guard verbietet `warnung`/`methode` von Hand in Browser-Eintraegen.
+Er hat beim ersten Lauf gegriffen: StepStone, Indeed und Monster trugen
+die Methode noch von Hand.
+
+(6) **Ein Text, an dem Logik haengt, ist kein Text.** `zugriffsart_von`
+und `search_service._zugriffsart` leiten die Zugriffsart im Rueckfall
+aus `methode.startswith("Claude-in-Chrome")` ab. Den Wortlaut zu
+aendern haette die Einteilung still umgestellt — heute ohne Wirkung,
+weil alle Browser-Quellen `zugriffsart` ausdruecklich tragen, beim
+naechsten Eintrag nicht. Beide erkennen jetzt auch den neuen Wortlaut;
+SOLCOM bekam einen Methodentext, der NICHT so beginnt, sonst waere die
+abgeschaltete Quelle zur Browser-Quelle geworden. **Vor dem Umformulieren
+eines Registry-Feldes nach `startswith`/`in` auf dieses Feld suchen.**
+
+(7) **Zwei Speicherformen, vier Zaehler, einer davon richtig.** Die
+erweiterte Statistik normalisierte seit jeher selbst; Erkenntnisse,
+Lern-Karte und der Auto-Aussortier-Prompt zaehlten mit `GROUP BY
+dismiss_reason`. Jetzt `ablehnungsgruende.gruende_zaehlen` fuer alle,
+und ein Guard verbietet `GROUP BY dismiss_reason` ausserhalb. Der Chat
+des Nutzers hatte daraus geschlossen, auch der Backtest rechne verzerrt —
+er fragt keine Gruende und war nicht betroffen.
+
+(8) **Ein Umlaut im Parameternamen macht ein Werkzeug fuer die API
+ungueltig.** `lebenslauf_exportieren(angepasst_für)` stand seit v0.30.0
+da; Claude Code laesst das Werkzeug weg. Ob es auch die in Claude
+Desktop nach `fit_analyse` abgeschnittene Liste erklaert, ist NICHT
+belegt. Ein Guard prueft jeden registrierten Namen gegen
+`[a-zA-Z0-9_.-]{1,64}`.
+
+(9) **Zwei Alt-Tests hielten das Wort "Chrome" fest** (B53, v1.7.106 und
+v1.7.107). Ihre Absicht — die Quelle nennt den funktionierenden
+Browser-Weg — gilt weiter; gefunden hat den zweiten erst die volle
+Suite, nicht die gezielte Auswahl (v1.7.112 MERKE 7, wieder).
+
+(10) **Gegenprobe:** fuenf Mechanismen fuer #1061, sechs fuer #1062,
+fuenf fuer #1060 — sechzehnmal rot, Arbeitsstand jedes Mal bytegleich.
+
+(11) **Bewusst offen:** der Anzeigentext der JobSpy-Treffer (#1038
+Punkt 4) und die Frage, ob die Werkzeugliste in Claude Desktop jetzt
+vollstaendig ist — das zeigt erst ein Lauf beim Nutzer.
+
+## Stand 2026-09-18 (v1.7.120 Stable) — Ein Knopf liefert, was er verspricht
+
+Nutzerbericht vom 18.09. (Bildschirmfotos), **#1038** und **#1059**. **Tests: 4878.**
+MCP-Tools 242 / 255.
+
+MERKE-Punkte:
+
+(1) **Drei Listen, und nur zwei wurden gegeneinander geprueft.**
+Registrierte MCP-Prompts (`prompts.py`), Katalog (`prompt_katalog.py`)
+und die Registry, gegen die das Dashboard aufloest
+(`tools/workflows._prompt_registry`). Der #979-Guard haelt die ersten
+beiden zusammen — die dritte ist die einzige, die der Knopf fragt, und
+ihr fehlten `dokumente_verarbeiten` und `problem_melden`. Dritter Fall
+nach #560 und v1.6.6. **Wer zwei von drei Listen abgleicht, hat einen
+Guard fuer die falsche Frage.** Jetzt: jeder Katalogeintrag gegen die
+Registry, und der Endpunkt fuer jeden Eintrag.
+
+(2) **Ein Fallback, der eine andere Bedeutung kopiert, ist keine
+Fehlertoleranz** (#980 in der Zwischenablage). Im Fehlerfall kopierte
+`copyPrompt` den rohen Schraegstrich-Befehl — in Claude Desktop ein
+unbekannter Skill — und meldete "Anleitung kopiert!". Jetzt wird nichts
+kopiert, und die Funktion gibt true/false zurueck. Der Knopf im
+Dokumente-Tab hatte zusaetzlich einen eigenen Erfolgstoast: drei
+Meldungen, zwei davon falsch.
+
+(3) **Ein Prompt, den seit einem Jahr niemand mit Profil gerendert hat.**
+`dokumente_verarbeiten` fragte seit beta.58 (#634)
+`documents.application_id` ab; die Spalte heisst
+`linked_application_id`. Ohne Profil wird die Abfrage uebersprungen,
+und genau so riefen die Tests ihn auf. Der neue Test rendert ALLE
+registrierten Prompts mit Profil, Dokument und Bewerbung. **Ein Test,
+der nur den leeren Zustand kennt, prueft den Zweig, den kein Nutzer
+nimmt.**
+
+(4) **Ein Werkzeugname ist kein Workflow.** `/firmen_recherche` lief in
+dasselbe 404. `lib/promptAufloesung.js` trennt: ein "/name" ist ein
+Workflow oder ein Fehler, ein Werkzeug geht als Satz hinaus. Und die
+Argumente (`stelle="..."`) fielen beim Aufloesen weg — der Kalender-
+Knopf lieferte seit #457 die allgemeine Anleitung.
+
+(5) **#1038: ein Ergebnis, das nach dem Budget kommt, sah aus wie ein
+Ausfall.** Das Phasen-Budget (#668) sollte haengende Adapter abfangen
+und behandelte eine Quelle, deren Dauer mit der Zahl der Suchbegriffe
+waechst, wie eine haengende. Jetzt zwei Stufen ueber EINEN
+Einsammelweg: Stufe 1 endet, sobald keine schnelle Quelle mehr
+aussteht; Stufe 2 wartet je Langlaeufer auf dessen eigenes Budget.
+
+(6) **Eine neue Fehlerklasse haette LinkedIn schlimmer getroffen als
+der Fehler selbst.** In `update_scraper_health` pausieren nur
+`server_weg`/`blockiert` (TEMPORARY_CLASSES); jede andere Klasse fuehrt
+nach fuenf Laeufen zur HARTEN Deaktivierung. "Zu langsam" ist deshalb
+ein eigener Zustand `langsam`: zaehlt als Lauf, ist kein Erfolg, fasst
+die Fehlerserie nicht an. **Bevor ein neuer Befund eine Klasse bekommt,
+nachsehen, welche Reaktion an Klassen haengt.**
+
+(7) **Das Budget kommt aus derselben Begriffsliste wie die Abfrage**
+(`linkedin_abfragen` ueber `_expand_keywords_for_linkedin`, #490) —
+eine zweite Zaehlung liefe bei der naechsten Aenderung auseinander.
+12 s je Abfrage (gemessen 11,3 s im Bericht), hoechstens 20 Min.
+
+(8) **Gegenprobe:** sechs Mechanismen (Prompts), sechsmal rot; sechs fuer
+#1038, fuenfmal rot. Stumm blieb "Langlaeufer zaehlen nicht ins
+Phasen-Budget": im Test bestimmt die Bundesagentur (180 s) das Budget
+ohnehin. Der Unterschied zeigt sich nur mit ausschliesslich schnellen
+Quellen, und ein Test dafuer muesste 105 s warten. **Benannt statt
+vorgetaeuscht.** Der Prompt-Text ist nach dem Umzug in eine
+Modul-Funktion zeichengleich (sha256 vorher/nachher).
+
+(9) **Offen aus #1038:** der Anzeigentext (`linkedin_fetch_description`)
+verlaengert den Lauf weiter — eigene Entscheidung.
+
+(10) **#1059: vier Quellen, ein Weg, vier Beschreibungen.** Die
+Badge-Kette der Quellen-Karte mischte TEMPO, ZUGANGSWEG, EIGENSCHAFT und
+ZUSTAND. `langsam` hiess "Browser" und las sich wie ein Wegweiser; XING
+trug zweimal "Manuell" (einmal aus `veraltet`, einmal aus dem Tempo).
+Neu `lib/quellenBadges.js` mit zwei Regeln: **der Weg schlaegt das
+Tempo**, und **jeder Text steht hoechstens einmal**. Die Regel gilt fuer
+JEDE Browser-Quelle — Monster stand in keinem Bericht und trug denselben
+Widerspruch (`methode: Playwright` bei `browser_login`, das die Quelle
+vom internen Lauf ausnimmt). Der Beleg ist der gerenderte Dialog auf
+einer isolierten DB, nicht der Quelltext.
+
+(11) **Der Pre-Release-Check hat zwei Issues gefangen, und der Nutzer
+auch.** #1058 und #1059 kamen waehrend der Release-Arbeit herein. #1059
+ging mit (Anzeigefehler, aus dem man falsche Schluesse zieht); #1058
+nicht: meinestadt als Browser-Quelle ist ein Umbau mit Entscheidungen,
+die der Melder ausdruecklich offen laesst (robots.txt, Nutzung der
+JSON-Antwort im Browser-Kontext).
+
+(12) **Das Release-Gate las "v1.7.12" aus "v1.7.120".** Die
+README-Pruefung sammelte Versionen aus dem GANZEN Text und pruefte dann
+per Teilstring, ob sie im Kopf stehen — "v1.7.12" aus der Roadmap steckt
+in "v1.7.120". Ab dieser Version haette das Gate bei jedem Release
+gewarnt, und `--fix` haette aus "v1.7.120" ein "v1.7.1190" gemacht.
+Vierter Fall der Teilstring-Klasse nach "ki" in "Kita" (#970), "us" in
+"Kundenservice" (#996) und "Eur" in "Europastr." (#1026) — diesmal im
+eigenen Pruefwerkzeug. **Eine Versionsnummer ist kein Praefix.**
+
+(13) **Die lokale Umgebung fuhr FastMCP 2.12.4, das Projekt verlangt
+>= 3.0 — und die CI hat es gefunden, nicht ich.** Der erste CI-Lauf fuer
+v1.7.120 war auf beiden Linien rot: `prompt.render()` gibt in 2.x eine
+Liste zurueck, in 3.x ein `PromptResult` mit `.messages`, und ein direkt
+iteriertes Pydantic-Modell liefert (Feld, Wert)-Tupel. Das Produkt war
+in Ordnung, mein Test-Helfer nicht. **Alle lokalen Suiten dieser Tage
+liefen gegen die falsche Hauptversion** — gruen lokal war hier kein
+Beleg. Die Regel "Tag erst nach gruener CI" hat die Versionsnummer
+gerettet. Geprueft wurde der Fix gegen ein echtes 3.4.7 in einer
+Wegwerf-Umgebung (`python -m venv` im Scratchpad, `pip install -e .`),
+nicht geraten. **Offen:** die Entwicklungsumgebung auf FastMCP 3.x
+heben; bis dahin ist die CI der einzige Lauf gegen die ausgelieferte
+Version. Der Abschnitt "Test-Helper fuer FastMCP 2.12+" weiter unten
+beschreibt den ALTEN Stand.
+
+## Stand 2026-09-17 (v1.7.119 Stable) — Die Listen passen zum Profil, die Notizen zur Bewerbung
+
+**#1054** (C87) und **#1056** (D47), zwei Nutzervorgaben vom 17.09.2026.
+**Tests: 4856.** MCP-Tools 242 / 255.
+
+MERKE-Punkte:
+
+(1) **Der paarweise Vergleich war die falsche Bauform, und zwar
+gerade dort, wo er richtig aussah.** "Product Lifecycle Management"
+gegen "PLM System": keine der drei belegbaren Beziehungen aus #1012
+verbindet die beiden DIREKT — die Abkuerzung "PLM" steht in keinem der
+Begriffe allein. In der transitiven Gruppe, mit der der Fachwert
+rechnet, sind es drei Schreibweisen einer Sache. **Wer den Vergleich
+anders rechnet als das Scoring, meldet als fehlend, was das Scoring
+laengst zaehlt.** Gruppiert wird jetzt ALLES zusammen, Listen und
+Skills.
+
+(2) **Eine Menge als Wahrheitswert gelesen — und alle zwanzig Skills
+des Regressionsfalls verschwanden still.** `_vorhandene_skills` liefert
+die Menge der belegten Namen; `not _vorhandene_skills([b], ...)` war
+falsch, sobald irgendein Listeneintrag existierte. Gefunden hat es der
+Regressionsfall aus dem Issue (0 statt 20), nicht das Nachdenken.
+Der Filter erwies sich danach in der Gegenprobe als wirkungslos —
+Enthaltensein deckt die bereinigte Form immer ab — und ist ausgebaut
+(v1.7.104 MERKE 3).
+
+(3) **Die Messung hat die Regeln dreimal korrigiert, bevor sie
+geschrieben waren.** Auf der Bestandskopie standen "Deutsch
+(Muttersprache)" und "Verhandlungsfuehrung" als MUSS-Vorschlag (Level
+5 und 4); 43 der 62 fehlenden Skills trugen Level 1 bis 3; sechs von
+zwoelf Widerspruechen hatten genau EINEN Texttreffer in einer langen
+Anzeige. Jede dieser drei Zahlen ist zu einer Regel geworden: Sprachen
+und Soft Skills nie, unter Level 3 kein Vorschlag, ein Texttreffer erst
+ab zwei Bewerbungen (im Titel immer). **Eine Vorschlagsliste, die man
+einzeln wegklickt, ist die Bauform, mit der ein Hinweis zur Tapete
+wird** (#929) — 43 statt 74 offen.
+
+(4) **Die Kategorie steht im Bestand als Freitext, das Level als
+String.** `Tools`, `Softskills`, `KI/AI` neben `tool` und `soft_skill`;
+`add_skill` glaettet, andere Schreiber nicht. Verglichen wird nach
+Wortanfang, und der Test setzt die Freitextformen per SQL auf der
+isolierten Datenbank — sonst haette `add_skill` sie weggeglaettet, und
+die Normalisierung im Abgleich waere ungeprueft geblieben (in der
+Gegenprobe stumm, bis der Test das tat).
+
+(5) **Fachliche Synonymie wird nicht geraten — die eigenen
+Bewerbungen sind der Beleg.** "Konfigurationsmanagement" ist im
+Zielumfeld der Name fuer Aenderungswesen; keine belegbare Beziehung
+verbindet die Woerter. Ueber das Profil allein waere der gemeldete
+Widerspruch unsichtbar. Sichtbar ist er ueber die Stellen, auf die sich
+der Mensch beworben hat — gemessen mit `_strict_keyword_match`, also
+mit derselben Regel, die den Begriff im Score bestraft (#755). Eine
+weichere Regel hier haette Widersprueche gemeldet, die das Scoring nie
+bestraft.
+
+(6) **Vertragsformen in MINUS zaehlen doppelt — und das Issue nannte
+MINUS nicht.** Sechs standen auf der Bestandskopie ("befristet",
+"Zeitarbeit", ...), jede zusaetzlich als Regler `stellentyp/...`
+gewertet. Dieselbe Begruendung wie fuer MUSS/PLUS, also dieselbe Regel;
+ein Ort in MINUS bleibt, weil es dafuer keinen Regler gibt.
+
+(7) **Die Ueberschrift entscheidet, nicht der Text — und die Messung
+hat die Regel bestaetigt.** 24 Sektionen auf der Bestandskopie, keine
+mit Firma in der Ueberschrift (von Hand aufgeraeumt am 17.09.); drei
+nennen eine Firma nur im Text, und alle drei beschreiben den Menschen
+(Selbstvermarktung, Gespraechsbausteine, Zeugnisse). Eine Regel ueber
+den Text haette genau diese drei verschoben.
+
+(8) **Der Schreibweg-Guard aus #1055 hat beim ersten Suitenlauf
+gegriffen.** `notiz_routing.verschieben` schreibt ein Profil mit
+Praeferenz-Block — der Guard meldete den neuen Weg, und er steht jetzt
+mit Begruendung im Inventar. Sechs Stunden nach seinem Bau hat er die
+Entscheidung erzwungen, fuer die er gebaut wurde.
+
+(9) **Verschieben in einem Zug heisst: Reihenfolge ist Inhalt.** Erst
+der Timeline-Eintrag, dann das Entfernen; schlaegt der Eintrag fehl,
+bleibt die Sektion. Ein Test bricht `add_application_note` ab und
+prueft, dass das Profil unveraendert ist.
+
+(10) **Ein Inline-Parser weniger.** `profil_bearbeiten` zerlegte die
+Notizen seit #680 an drei Stellen selbst; das Aufraeumen haette den
+vierten gebraucht. Jetzt `notiz_routing.sektionen` fuer alle, und ein
+Guard verbietet `st.startswith("## ")` im Werkzeug.
+
+(11) **Gegenprobe:** vierundvierzig Mechanismen fuer #1054 und zwanzig
+fuer #1056, jeder rot, Arbeitsstand jedes Mal bytegleich. Stumm blieben
+zuerst vier: die Kategorie-Normalisierung (siehe 4), der wirkungslose
+Filter (siehe 2), "jede Stelle gilt als beworben" (der Fall trug den
+Begriff nur im Text einer nicht beworbenen Stelle — unter der neuen
+Zwei-Treffer-Regel unsichtbar; jetzt im Titel) und das Werkzeug ohne
+Sektion (kein Fall rief es auf). Drei Anker waren nach den
+Regelaenderungen verschoben — eine Gegenprobe gehoert nach jeder
+Aenderung neu gelaufen, nicht nur nachgezogen.
+
+(12) **Bewusst offen:** Widersprueche und Rahmenbegriffe im Dashboard
+sind ein Hinweis, keine Oberflaeche; uebernommen wird ueber Claude.
+Und der Abgleich rechnet beim Lesen — bei sehr grossen Skill-Listen
+waere ein Zwischenspeicher zu pruefen (gemessen: 0,2 s bei 86 Skills
+und 160 Begriffen).
+
+## Stand 2026-09-17 (v1.7.118 Stable) — Eine Quelle fuer Gehalt, Geocoding nach dem Filter
+
+**#1055** (C86) und **#1057** (C85), zwei Nutzerbeobachtungen.
+**Tests: 4804.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Dieselbe Angabe an zwei Orten, und nur einer hat ein
+Eingabefeld.** Suchkriterien 75.000 gegen Job-Praeferenzen 80.000,
+Tagessatz 800 gegen 900, Ziel-Tagessatz 1.350 gegen 1.200. Die
+Praeferenzen stammen aus der Ersterfassung im Gespraech; es gibt in
+keiner Oberflaeche einen Weg, sie zu aendern. **Ein zweiter Ort, den
+niemand pflegen kann, driftet nicht zufaellig, sondern zwangslaeufig.**
+
+(2) **Der teuerste Leser ueberschrieb HINTER dem Nadeloehr.**
+`fit_analyse` holte die Kriterien durch `fuer_scoring` (#987) und setzte
+`min_gehalt` danach aus den Praeferenzen darueber. Dieselbe Stelle trug
+in der Liste einen anderen Rahmenwert als in der Detailansicht, und
+beide Zahlen hiessen "dein Minimum". Das ist #963 an der Stelle, an der
+es am wenigsten auffaellt: ein Nadeloehr schuetzt nur bis zu seiner
+Ausgabe.
+
+(3) **Vier Schreibwege, und drei standen in keinem Bericht.** Die
+Abweisung sass in `profil_bearbeiten`. Gefunden wurden danach
+`extraktion_anwenden` (ein Lebenslauf mit Gehaltsvorstellung),
+`import_profile_json` und — am schwersten wiegend — `profil_erstellen`,
+also die ERSTERFASSUNG: genau der Weg, auf dem die Doppelung entstanden
+ist. Der Prompt weist Claude auf `suchkriterien_setzen` hin, **aber ein
+Prompt ist keine Sperre.**
+
+(4) **Abweisen und Umleiten sind zwei verschiedene richtige
+Antworten.** Wo ein Mensch danebensteht, wird abgewiesen und der
+richtige Ort genannt. Wo keiner danebensteht (Ersterfassung, Import),
+wandert die Angabe in die Kriterien — sie wegzuwerfen waere schlimmer,
+als sie an den richtigen Ort zu legen. **Die Frage ist nicht, ob der
+Wert falsch ist, sondern ob jemand da ist, den man fragen kann.**
+
+(5) **Die Umleitung darf nur nehmen, was der AUFRUF mitbringt.** Der
+erste Entwurf leitete den fertig gemergten Block um: ein
+`profil_erstellen(name=...)` ohne jede Gehaltsangabe haette damit die
+Altwerte aus den Praeferenzen ueber die Einstellungsseite geschoben,
+also genau in die falsche Richtung. Und geschrieben wird erst NACH dem
+Speichern, weil die Kriterien am Profil haengen und es auf einer
+frischen Datenbank vorher keines gibt — gefunden vom #695-Test, der
+genau diesen Fall prueft.
+
+(6) **Ein Guard mit festem Fenster misst den Abstand, nicht den
+Aufruf.** Der #1000-Guard las 600 Zeichen ab dem ersten
+`suchkriterien_setzen(` und zaehlte jedes `name=` darin als Parameter.
+Der neue Absatz nennt daneben `profil_bearbeiten(bereich=...)` als das,
+was man NICHT tun soll — `bereich` galt damit als Parameter, den es
+nicht gibt. Er liest jetzt die Klammer, und zwar jede im Prompt. Zweiter
+Fall nach v1.7.110 MERKE 6.
+
+(7) **Ein Zaehler, der den Beleg mitzaehlt, meldet die Summe statt den
+Lauf.** `bereinigen` gab als `entfernt` die Groesse des
+zusammengefuehrten Belegs zurueck. Der Beleg waechst ueber alle Laeufe —
+das ist seine Aufgabe —, also haette ein Lauf, der ein Feld entfernt,
+"2 entfernt" gemeldet, sobald schon einer dastand. Gefunden beim
+Schreiben des Falls, den die Gegenprobe verlangt hat.
+
+(8) **Gemessen auf einer Kopie des Bestands** (Original unter AppData
+nie angefasst, BA_DATA_DIR-Zusicherung): vier Felder mit Wert entfernt,
+drei davon abweichend, das vierte zufaellig gleich. Zwei weitere standen
+mit `null` da — sie tragen keinen Wert, also gibt es nichts zu belegen,
+aber der SCHLUESSEL bleibt sonst liegen, und seit diesem Release kann
+ihn niemand mehr setzen. Zweiter Lauf: nichts mehr zu tun, Beleg
+unveraendert.
+
+(9) **Die uebrigen Praeferenz-Felder haben das Problem NICHT, und das
+ist gemessen statt vermutet.** `arbeitsmodell`, `reisebereitschaft`,
+`remote_anteil`, `max_vor_ort_tage` und `umzug_moeglich` stehen an genau
+einem Ort und haben auf der Einstellungsseite kein Gegenstueck; sie
+bleiben. `stellentyp` wird zweimal gelesen, beide Male nur als Haken
+"Praeferenzen sind erfasst". **Dabei faellt ein anderer Befund an:
+Angaben, die ein Mensch im Gespraech macht und die danach nirgends
+wirken** — das ist nicht dieselbe Sache und gehoert nicht in dieses
+Issue.
+
+(10) **Vier Alt-Tests aus #695 wurden rot und sind auf ihre ABSICHT
+gedreht.** Sie halten die Merge-Semantik fest ("ein Teilupdate verliert
+keinen frueher gesetzten Wert"); das Gehalt war darin das
+Transportmittel, nicht der Gegenstand. Die Merge-Semantik ist die
+Spezifikation, die Ablage in den Praeferenzen war die alte Loesung
+(v1.7.31 MERKE 2, jetzt im vierten Fall).
+
+(11) **#1057: der Suchlauf fragte einen fremden Dienst fuer Stellen, die
+er gleich darauf wegwirft.** Das Geocoding lief ueber die deduplizierten
+ROHTREFFER — vor Altersfilter, Schwelle und Ausschluss-Begriffen. Die
+Reihenfolge ist zur Haelfte Absicht (#1034: der Score liest die
+Entfernung), die MENGE nicht: eine Stelle mit Ausschluss-Treffer oder
+ausserhalb des Rechtsraums bekommt einen harten k.o., und der liest die
+Entfernung nie.
+
+(12) **Der gemeldete Widerspruch war eine Anzeigefrage, und zwar eine
+mit Folgen.** Gezaehlt wurden STELLEN, gefragt wird der Dienst je ORT:
+auf der Bestandskopie tragen 2458 Stellen mit Ort nur 501 verschiedene
+Ortsangaben, die haeufigste 918-mal. Die Karte sagte fuer einen Lauf 75
+Minuten voraus. **Eine Zahl, die um das Fuenffache ueber dem liegt, was
+geschieht, laesst den Lauf teurer aussehen als er ist** — dieselbe
+Klasse wie #1022 und #813.
+
+(13) **Der erste `harter_ausschluss`-Entwurf enthielt ZWEI Funktionen
+mit identischer Logik** — also genau der Fehler, den das Nadeloehr
+verhindern soll, beim Bauen des Nadeloehrs. Gefunden beim Durchlesen
+vor dem ersten Lauf. Zweiter Fall nach v1.7.79 MERKE 7.
+
+(14) **Gegenprobe:** vierzig Mechanismen in drei Durchgaengen,
+vierzigmal rot, Arbeitsstand jedes Mal bytegleich (zehn fuer #1057,
+siebenundzwanzig fuer #1055 Schritt 1, dreizehn fuer die Schreibwege).
+Stumm blieben zuerst fuenf, und jeder aus einem anderen Grund. Das
+Zusammenfuehren zweier Belege erreichte der Idempotenz-Test nicht, weil
+sein zweiter Lauf vorher aussteigt — der isolierende Fall hat gleich den
+falschen Zaehler aus (7) gefunden. "Ohne Wert kein Beleg" war blind,
+weil `entfernte_werte` eine fehlende Ablage und eine mit leerer
+Feldliste gleich beantwortet. `gehalt_extrahieren` und der Profil-Import
+hatten gar keinen Fall. Und das Safety-Net war ueber `initialize()` nie
+geprueft: der Test rief `bereinigen` direkt auf, der DRAHT haette fehlen
+koennen (DoD 8c).
+
+(15) **Der Schreibweg-Guard ist ein INVENTAR, keine Heuristik.** Die
+erste Fassung riet, ob ein Weg die Praeferenzen nur durchreicht, und
+meldete drei korrekte Wege mit — ein Pruefer, der bei richtigem Zustand
+Alarm gibt, wird nach dem zweiten Mal ignoriert (#929). Jetzt steht
+jeder Weg mit BEGRUENDUNG in der Liste, wie bei den Loeschbereichen
+(#1025). Gezaehlt wird die innerste umschliessende Funktion (v1.7.112
+MERKE 8), und gelesen wird ihr Rumpf statt des Arguments — das Dict
+entsteht oft vorher, und die erste Fassung sah so 3 von 8 Wegen.
+
+## Stand 2026-09-16 (v1.7.117 Stable) — Zwei Daumen statt einer Zahl
+
+**#1052 Schritt 2** (C83). **Tests: 4707 / 4773.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Der Anlass war eine Zahl, in der zwei Fragen steckten.** 400 km
+zogen den fachlich besten Treffer auf 0 — dort stand er neben jeder
+fachfremden Anzeige, die das MUSS-Tor nie passiert hat. Seit diesem
+Release ist `score` der FACHWERT; Entfernung, Remote-Anteil und Gehalt
+stehen als Rahmenwert daneben und werden **nirgends** addiert. Die
+Kappung bei 0 ist weg: eine Stelle bei -8 darf nicht aussehen wie eine
+bei 0 (Nutzerwort 16.09.2026).
+
+(2) **Zwei Kanaele, nicht einer.** Die RICHTUNG kommt aus den Daten, die
+FARBE sagt, wie belegt sie sind. Ein grauer Daumen nach unten heisst
+"sieht schlecht aus, aber ungeprueft". Beides in ein Symbol zu ziehen
+haette "ungeprueft" wieder wie "passt nicht" aussehen lassen — das ist
+#989, und die Trennung ist die Antwort darauf.
+
+(3) **Die Schwellen kommen aus dem eigenen Bestand, nicht aus einer
+Konstanten.** Unteres Viertel der Bewerbungen mal 0,8 (die Toleranz aus
+#778), oberes Viertel als obere Grenze; unter zwanzig Bewerbungen bleibt
+der Daumen grau, weil eine Ersatzschwelle geraten waere. Damit gilt
+dieselbe Rechnung wie im Backtest — zwei Fassungen haetten einen
+Vorschlag erzeugt, den der Daumen nicht benutzt.
+
+(4) **Der Filter ist die Ausnahme von #1008, und deshalb gilt dessen
+zweiter Teil schaerfer.** "Rahmen passt nicht ausblenden" steht auf AN
+(Nutzerantwort 15.09.2026) — er steht sichtbar in der Filterzeile, nennt
+die Zahl der ausgeblendeten Stellen und ist mit einem Klick aus.
+Ausgeblendet wird nur, was BELEGT nicht passt.
+
+(5) **Gemessen auf einer Kopie des Bestands, ueber 500 aussortierte
+Stellen** (aktiv ist genau eine, eine Messung darueber waere keine —
+v1.7.65 MERKE 2): der Rahmendaumen ist bei **87 % grau**, weil
+Entfernung oder Gehalt nicht belegt sind. Der Filter blendet in der
+Vorgabe **3 von 500** aus, keine davon fachlich im oberen Viertel; 63
+weitere zeigen nach unten und bleiben stehen. Von 203 Stellen, die der
+Mensch selbst als "zu weit entfernt" aussortiert hat, zeigt der Daumen
+bei 89 nach unten, belegt nur bei zweien. **Das ist kein Defekt, sondern
+die ehrliche Auskunft** — und es sagt genau, was den Indikator
+aussagekraeftig macht: geocodete Orte und belegte Gehaelter.
+
+(6) **Ein Hoechstwert fuer eine Zahl, die niemand mehr bildet.**
+`score_maximum` rechnete weiter `fach + min(rahmen, Deckel x fach)`.
+Gelesen hat das Ergebnis genau ein Feld (`gesamt_score_max`), und das
+las niemand. Beides ist weg — der Name lud dazu ein, die Summe wieder zu
+bauen. Dieselbe Klasse wie #993/#1000, nur in eigener Sache.
+
+(7) **Ein Leser ohne Parameter.** `suchkriterien_setzen(
+min_score_schwelle=N)` stand an DREI Stellen als der Weg zur
+Aufnahmeschwelle — das Werkzeug hatte ihn nicht; gesetzt werden konnte
+sie nur ueber die Oberflaeche. #1000 in Gegenrichtung, und beide Male
+sieht die Anleitung richtig aus.
+
+(8) **Die Schwelle meint jetzt etwas anderes, und das wird gesagt.** Sie
+wurde auf die Summe gesetzt und filtert seither gegen den Fachwert
+allein, also schaerfer, ohne dass jemand sie angefasst hat (#1012, #988).
+Der Vorschlag kommt aus dem BACKTEST, nicht aus einer Umrechnungsformel
+(Nutzerantwort 16.09.2026) — und `kalibrierung_backtest` reicht seinen
+eigenen Lauf durch, statt ihn ein zweites Mal zu rechnen. Abgehakt wird
+ueber alle drei Setzwege, auch wenn der Mensch die Schwelle bewusst
+LAESST: ein Hinweis, der eine Entscheidung nicht akzeptiert, wird zur
+Tapete (#929).
+
+(9) **Der Ton heisst `danger`, nicht `coral`.** Im neuen Anzeige-Modul
+stand zuerst der Farbname; `Badge` kennt ihn nicht, und Tailwind haette
+weder eine Regel noch einen Fehler erzeugt (#964, vierter Treffer dieser
+Klasse).
+
+(10) **Ein fremder Test klickte meinen neuen Filter.** Der #1050-Test
+suchte `get_by_role("button", name="Passt nicht")` — Playwright sucht
+als TEILSTRING, und "Rahmen passt nicht ausblenden" steht in der
+Filterzeile weiter oben. Der Klick schaltete also einen Filter um, und
+der Dialog kam nie. Gefunden hat es die VOLLE Suite, nicht die gezielten
+Tests — zum wiederholten Mal (v1.7.113 MERKE 8). Jetzt `exact=True`.
+
+(11) **Die Gegenprobe hat einen eigenen Guard entwertet.**
+Vierunddreissig Mechanismen, vierunddreissigmal rot — nach zwei
+Korrekturen. Stumm blieb der Schalter-Guard: er verlangte das WORT
+`rahmenVerborgen` irgendwo in der Datei, und eine Mutation, die den
+Namen stehen liess und die Zahl auf 0 setzte, kam durch. Und ein Anker
+passte nicht, weil ein Backslash am Zeilenende INNERHALB eines
+dreifach zitierten Strings eine Fortsetzung ist: die Zeile, die den
+Zaehler rechnet, war beim Patchen zu einer einzigen zusammengelaufen.
+Gueltiger Code, unlesbare Zeile — die Heredoc-Falle (v1.7.24 MERKE 4)
+in neuer Gestalt.
+
+(12) **Browser-Tests stehen bewusst nicht in der Gegenprobe** (v1.7.115):
+das Dashboard liefert das GEBAUTE Bundle aus, eine Mutation im JSX
+erreicht sie ohne Neubau nie. Der Beleg fuer die Oberflaeche ist
+trotzdem ein Browser-Test — zwei fachlich gleiche Stellen in 12 und 400
+km, die ferne ausgeblendet, der Filter nennt "(1)", ein Klick holt sie
+zurueck.
+
+(13) **Bewusst offen:** der positive Deckel heisst weiter `rahmen`,
+wirkt aber auf die PLUS-Begriffe INNERHALB des Fachwerts. Den Schluessel
+umzubenennen waere eine Vertragsaenderung an einer Einstellung, die
+Menschen gesetzt haben; die Anzeige sagt jetzt, was er tut. Und die
+Neigungs-Bausteine aus Schritt 2 (`services/neigung.py`) wirken im
+Fachwert, haben aber noch keine eigene Oberflaeche.
+
+## Stand 2026-09-15 (v1.7.116 Stable) — Abzuege mit Grenze, Schwelle aus dem Quantil
+
+**#1052 Schritt 1 und #1045** (AK 1-3, 6, 7). **Tests: 4631 /
+4697.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Die Messvorschrift des Issues rechnete selbst falsch.** "Erst
+`kalibrierung_backtest`, dann entscheiden" — und der Backtest las die
+Kriterien roh, am Nadeloehr aus #987 vorbei. Der Bericht nennt als Median
+der Aussortierten 1,0; auf dem Rechenweg der Liste sind es 3,5, die
+Obergrenze aus #968. Der Guard aus #1051 sah es nicht, weil er jeden
+Aufruf durchliess, dessen Kriterien als Funktionsparameter hereinkommen:
+`schatten_score(job, criteria)` wusch rohe Kriterien. Der neue Guard
+prueft eine Ebene hoeher. **Bevor eine Messung eine Entscheidung traegt,
+gehoert geprueft, ob sie dieselbe Rechnung misst wie das Ergebnis.**
+
+(2) **Mein erster Deckel erfasste alle Abzuege, und vier Alt-Tests hatten
+recht.** Mit dem Entfernungsmalus unter demselben Deckel behielt eine
+Stelle in 400 km die Haelfte ihres Fachwerts (#968, #950). Das Issue will
+die Entfernung aus der Zahl nehmen — aber als TOR, und das Tor gibt es
+erst mit Schritt 2. Vorher zu deckeln hiesse, die Stelle ohne Ersatz nach
+oben zu holen. Gedeckelt sind jetzt nur die MINUS-Begriffe; das deckt
+#1045 AK 2 woertlich. **Ein Deckel auf eine Groesse, deren Ersatz noch
+fehlt, verschiebt den Fehler, statt ihn zu beheben.**
+
+(3) **Eine Messung gilt fuer den Code, an dem sie lief.** Die erste
+Backtest-Reihe (0,5 hebt zwei Bewerbungen und drei Aussortierte ueber
+7) entstand mit dem zu breiten Deckel. Nach der Korrektur: eine und zwei.
+Der Kommentar an der Konstante stand zwischenzeitlich mit den alten
+Zahlen da. Die Richtung blieb, die Groesse nicht — und der Effekt ist
+klein, das steht so im Changelog.
+
+(4) **Die Gruppierung auf PLUS und MINUS aendert am eigenen Bestand fast
+nichts.** Der gemeldete Fall (vier zusammengefasste Begriffe, gerechnet
+als sechs Treffer) betrifft MUSS, und MUSS rechnet seit v1.7.66
+gruppiert. Auf der Kopie traegt eine aktive Stelle gespeichert 42 Punkte
+Fachwert, neu gerechnet 21: **der gespeicherte Score ist aelter als die
+Rechnung**, nicht die Rechnung falsch. Das ist ein Grund fuer
+`scores_neu_berechnen`, nicht fuer eine weitere Formel.
+
+(5) **Eine Einstellung ohne Setzer, seit v1.7.22.** Der Docstring von
+`rahmen_deckel_faktor` nannte `suchkriterien_bearbeiten` als Weg; kein
+Aufrufer schrieb den Schluessel. Dieselbe Klasse wie #1000 in
+Gegenrichtung. Jetzt `aktion='deckel'` fuer beide Seiten, und die
+Anzeige nennt Wert, Bedeutung und Weg.
+
+(6) **Bewusst offen, mit Grund:** Fachwert in Prozent, Rahmen als Tor mit
+Richtung und Farbe, die Entfernungsgrenze fuer Festanstellung und der
+Zweitwohnsitz-Ausweg. Die Zahlen aus dem Entwurfsgespraech (30 km,
+110.000 EUR) sind die eines Profils und kommen als Einstellung, nicht als
+Vorgabe (v1.7.69). #1045 AK 4 (zwei Zahlen unter dem Namen "Score") loest
+sich erst mit der Trennung in Fachwert und Rahmen.
+
+(7) **Gegenprobe:** siebzehn Mechanismen, siebzehnmal rot, und der Arbeitsstand danach
+jedes Mal bytegleich. Der erste Durchgang machte vierzehn rot; stumm
+blieben drei, und jeder aus einem anderen Grund. Die MINUS-Gruppierung in
+`fit_analyse`: der Vergleichsfall hatte so viele Abzuege, dass der neue
+Deckel gruppiert wie ungruppiert auf dieselbe Grenze kappte — ein
+Mechanismus kann den anderen verdecken, auch im eigenen Test. Der
+ungedeckelte Rahmenanteil: kein Fall las ihn. Der Schwellenvorschlag aus
+dem Quantil: mit einer einzigen Bewerbung sind Minimum und unteres
+Viertel dieselbe Zahl, der Test pruefte also die alte Formel mit. Jetzt
+steht der gemeldete Fall da, ein Ausreisser mit 0 neben drei Treffern;
+nach den Nachtraegen drei von drei rot. Den Deckel auf die MINUS-Seite
+auszubauen macht sechs Faelle rot, darunter den Vergleich beider
+Rechenwege aus #963; ihn auf die Entfernung auszudehnen fuenf, darunter
+drei Alt-Tests aus #968, #950 und `test_scoring` — dieselben, die den
+ersten Entwurf gestoppt haben. Je genau einen fangen der MINUS-Leser, die
+Hoechstwert-Gruppierung, die MINUS-Gruppierung beider Wege, der
+Ersatz-Score ohne Pflichttreffer, der Faktor-Leser, der Setzer und seine
+Pruefung und die Anzeige.
+
+## Stand 2026-09-15 (v1.7.115 Stable) — Die Detailbewertung auf der Karte
+
+**#1050**, Nutzerbericht zur Stellenkarte. **Tests: 4610 /
+4676.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Der Prompt, der zum Befund fuehren sollte, verlangte den Befund
+nicht.** Der Knopf im Fit-Dialog kopierte "bewerte die Stelle ... und gib
+mir eine ehrliche Einschaetzung" — von `stelle_analyse_speichern` kein
+Wort. Claude antwortete im Chat, und die Stelle blieb *nicht beurteilt*.
+Das ist der Grund, warum das Feld aus #1007 im Bestand leer blieb, obwohl
+Analysen liefen — nicht nur der fehlende Knopf auf der Karte, den der
+Bericht nennt. **Ein Einstieg, der beim Schritt davor aufhoert, ist kein
+Weg zum Ergebnis.**
+
+(2) **Ein Modul fuer Karte und Dialog, und ein Test gegen das Werkzeug.**
+`lib/detailbewertung.js` baut den Prompt fuer beide; eine zweite Fassung
+auf der Karte waere #963 im Frontend gewesen. Der Python-Test liest die
+Parameternamen aus dem Prompt und haelt sie gegen die echte Signatur von
+`stelle_analyse_speichern`, die vier Urteile gegen `passung.KATEGORIEN` —
+dieselbe Lehre wie #1000 und #1049.
+
+(3) **Zwei Dialoge uebereinander haetten nicht funktioniert.** Der
+Blacklist-Dialog steht im JSX VOR dem Aussortier-Dialog und waere unter
+ihm gerendert worden. Die Eskalation schliesst deshalb den
+Aussortier-Dialog und nimmt die gewaehlten Gruende mit — als Vorschlag
+fuer die Begruendung und als offene Aussortierung, die erst mit
+"Blockieren" ausgefuehrt wird. So bleibt der Lerneffekt des Grundes
+erhalten, und Abbrechen aendert nichts (AK 6).
+
+(4) **Die Begruendung hatte keinen Platz.** `POST /api/blacklist` nahm
+`reason` laengst an; der Dialog hatte kein Feld dafuer und schickte nie
+eins. Die 5 von 28 Eintraegen ohne Begruendung im Bestand sind damit
+erklaert. Neu das Feld "Begründung".
+
+(5) **Bewusst gelassen:** der Blacklist-Knopf im Dialog "Stellendetails".
+Dort steht kein Aussortieren daneben, also auch nicht der Knopfabstand,
+um den es im Bericht ging.
+
+(6) **Gegenprobe:** fuenfzehn Mechanismen, fuenfzehnmal rot, und der Arbeitsstand danach
+jedes Mal bytegleich — elf ueber pytest, vier ueber den Node-Test des
+Prompt-Bausteins. Der erste Durchgang machte neun von elf rot; stumm
+blieben zwei Guards, und beide pruefen jetzt, was sie behaupten. Das
+Knopf-Etikett: der Guard verlangte `detailbewertungKnopf(job)` irgendwo
+in der Aktionszeile, und das stand auch mit fest verdrahteter
+Beschriftung noch da — im `title`. Die offene Aussortierung: der Guard
+pruefte die REIHENFOLGE der beiden Aufrufe, und die blieb mit
+`if (false)` gleich. **Ein Guard, der ein Wort sucht, das an zwei Stellen
+steht, prueft die Stelle nicht, um die es geht** (v1.7.105 MERKE 5).
+Browser-Tests stehen bewusst nicht in der Gegenprobe: das Dashboard
+liefert das GEBAUTE Bundle aus, eine Mutation im Quelltext erreicht sie
+ohne Neubau nie. Je genau einen Fall fangen alle fuenfzehn Mechanismen:
+der Knopf, sein Etikett, der gemeinsame Prompt im Fit-Dialog, die
+entfernte Blacklist, die Eskalation, der vorgeschlagene Grund, die
+gesendete Begruendung, die Aussortierung erst nach der Sperre und ihre
+Gruende, der Speicherweg und die Urteilsliste im Prompt, dazu im Node-Test
+der vorhandene Befund, "Neu bewerten", die Firma und "nicht nur im Chat".
+
+## Stand 2026-09-15 (v1.7.114 Stable) — Der Weg zu den Browser-Quellen
+
+**#1049**, Nutzerbericht zum Jobsuche-Knopf. **Tests: 4601 /
+4667.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Ein Fix, der nur im Prompt wirkt, erreicht nur, wer den Prompt
+nimmt.** #704 hat die Anweisung "arbeite die manuellen Quellen ab" in den
+Workflow-Prompt geschrieben, und #719 hat die fehlende Bruecke vom
+Dashboard benannt und auf 1.8 vertagt. Wer den Knopf drueckte, bekam die
+sechs Quellen weiter nicht — und das Feld `manuelle_quellen` stand
+laengst in der Antwort des Starts, das Frontend las es nur im Fall "alle
+Quellen manuell". **Eine Auskunft, die der Server liefert und die
+Oberflaeche verwirft, ist fuer den Menschen dieselbe wie keine** (#989).
+
+(2) **Zwei Elemente, ein Name, verschiedene Wirkung.** "Jobsuche starten"
+hiess die Prompt-Karte (Claude) und der Knopf (interner Lauf). Umbenannt
+ist nach dem, was die Aktion TUT: `startJobsuche()` heisst "Interne
+Jobsuche starten", ein Prompt "Jobsuche mit Claude" — auch der
+Workspace-Hinweis, der den Prompt oeffnet und bis hierher ebenfalls
+"Jobsuche starten" hiess. Ein Test sucht jeden Aufruf von
+`startJobsuche()` und verbietet das alte Etikett in seiner Naehe.
+
+(3) **Liste und Prompt entstehen auf dem Server.** Der Prompt setzt die
+Suchbegriffe je Portal ein (#564), die nur der Server kennt; eine zweite
+Fassung im Frontend waere #963 an einer neuen Stelle. Die Karte liest
+beides nur vor, und ein Guard verbietet die Pflichten-Texte in der
+Komponente.
+
+(4) **Neun Quellen, zwei Regeln, und die zweite brauchte beide Felder.**
+Sechs tragen `zugriffsart: browser_login`, drei sind als defekt gefuehrt
+und liefern nur im Browser. Die erste Fassung der Regel suchte "Chrome"
+im Ersatzweg und haette `workday_dax` verloren — dort steht "Browser",
+und zwar nur im Grund. **Eine Regel, die an EINEM Eintrag geeicht ist,
+findet die Eintraege, die so aussehen wie er.** Gemessen an der
+Registry, bevor die Regel geschrieben war.
+
+(5) **Nachsehen darf nichts anlegen.** `get_portal_search_profile` legt
+beim ersten Lesen ein Profil an, fuer LinkedIn mit Vorgaben. Eine Karte,
+die nur nachsieht, ob es Suchbegriffe gibt, haette danach welche — und
+zwar fremde. Neu `find_portal_search_profile`, ein Test zaehlt die
+Zeilen nach dem Lesen. Dabei aufgefallen und als eigene Aufgabe
+vorgemerkt: diese LinkedIn-Vorgaben tragen Fachbegriffe einer einzigen
+Fachrichtung — dieselbe Klasse wie v1.7.69.
+
+(6) **Ein Prompt, der auf Werkzeuge zeigt, gehoert gegen die
+registrierten Werkzeuge geprueft** (#1000). Der Test registriert alle
+Werkzeuge und sucht jeden genannten Namen darunter.
+
+(7) **Ein Startweg ohne Test waere in der Gegenprobe stumm geblieben.**
+Den Vermerk der uebersprungenen Quellen schreiben Dashboard-Start und
+`jobsuche_starten`; getestet war zuerst nur der Dashboard-Weg. Der Fall
+fuer den MCP-Weg kam vor der Gegenprobe dazu — beim Schreiben der
+Mutationen fiel auf, dass sie keinen Test haette.
+
+(8) **Ein Test, der ein ganzes dict festhaelt, meldet jedes neue Feld als
+Fehler.** Der Test aus #1033 verglich `quellen` aus `/api/jobsuche/last`
+woertlich; `nur_browser` kam dazu, und er wurde rot, obwohl alle alten
+Werte stimmten. Gefunden hat es die volle Suite, nicht die gezielten
+Tests — zum dritten Mal in dieser Woche nach dem Browser-Test aus
+v1.7.112 und dem Loeschbereichs-Guard aus v1.7.113. Die Absicht des Tests
+(der Timeout-Zaehler liest `quellen_status`) gilt weiter; die Erwartung
+nennt jetzt das neue Feld mit.
+
+(9) **Gegenprobe:** dreiundzwanzig Mechanismen, dreiundzwanzigmal rot, und der Arbeitsstand
+danach jedes Mal bytegleich. Zweiundzwanzig laufen ueber pytest, der
+dreiundzwanzigste — die Zeile im Lauf-Hinweis — ueber den Node-Test, der
+in der CI als eigener Schritt steht. Das Skript zaehlte beim ersten
+Durchgang null rote Faelle, obwohl der Test mit Fehler endete: der
+Node-Test schreibt Fehlschlaege nach stderr, das Skript las stdout.
+**Eine Gegenprobe, die nur einen Ausgabekanal liest, meldet "stumm", wo
+"rot" steht** — sie haette sonst einen gedeckten Mechanismus als Luecke
+gefuehrt. Je zwei Faelle fangen die Auswahl der gewaehlten Quellen, die
+defekten Browser-Quellen, der Grund neben dem Ersatzweg und das Werkzeug
+je Portal; je genau einen die Begriffe aus beiden Eintragsformen, die
+gesperrten Begriffe, das Lesen ohne Anlegen, der Hinweis ohne Suchprofil,
+Volltext- und Rueckmeldepflicht, die optionale Gruppe, beide Startwege,
+`/last`, der Endpunkt, Katalog-Titel, Workspace-Etikett, die drei
+Knoepfe, die Einbindung der Karte und ihre Prompt-Quelle.
+
+## Stand 2026-09-15 (v1.7.113 Stable) — Jeder Regler hinterlaesst eine Spur
+
+**#1053**, Nutzerbericht zu den Scoring-Reglern. **Tests: 4581 /
+4647.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Die Einstellung, die jede Sortierentscheidung mitbestimmt, war der
+einzige Bereich ohne Spur.** Blacklist (#828), Ablehnungsgruende und
+Aussortierungen (#1010) tragen Zeitpunkt, Vorgaenger und Herkunft; die
+Scoring-Regler trugen nur `created_at`. Der wirkungslose Eintrag
+`schwellenwert/schwellenwert` war deshalb nicht mehr zuzuordnen — und
+das ist genau die Lage, in der #1052 die Regler neu belegen wird.
+
+(2) **Drei Schreiber mit eigenem SQL sind drei Stellen, an denen die Spur
+fehlen kann.** Neben dem Werkzeug schrieben der Lerneffekt (#908) und das
+Zuruecksetzen direkt in die Tabelle. Jetzt gehen alle durch
+`_scoring_schreiben` in der Datenbank, mit Herkunft `ich`, `automatik`
+oder `bereinigung`; ein Guard verbietet schreibendes SQL auf
+`scoring_config` ausserhalb von `database.py`. Die Pruefung des Vokabulars
+sitzt ebenfalls dort — vorher schuetzte sie nur den Werkzeug-Weg.
+
+(3) **Die Pruefung in die Datenbank zu verschieben hat einen Fehler aus
+v1.7.36 sichtbar gemacht.** `keyword/<Begriff>` und
+`muss_kriterium/<Begriff>` liest der Scoring-Dienst, im Vokabular fehlten
+sie. Das Werkzeug wies wirksame Regler also seit #988 ab, und `anzeigen`
+meldete bestehende als "wirkt nicht" — ein Fehlalarm ueber eine
+Einstellung, die wirkt. **Ein Vokabular, das aus den Schreibern statt aus
+den Lesern entsteht, sperrt, was gelesen wird.** Ein Guard haelt jetzt
+jede Dimension, die `scoring_service` liest, gegen die Liste.
+
+(4) **Ein Test hat den Fehler verdeckt, und zwar mit Absicht gebaut.**
+`test_944` setzte `firma/...` — eine Dimension ohne Leser — in einem
+`try` mit `pytest.skip`. Nach der Aenderung waere er still ausgesetzt
+worden statt rot. Er setzt jetzt `keyword/PLM` ohne Ausweg. **Ein
+`try/skip` um den Aufbau eines Tests macht aus einer Regression eine
+Uebersprungzahl.**
+
+(5) **Ein erneutes Setzen desselben Werts ist keine Geschichte.** Vorgaenger
+und Begruendung bleiben dann stehen, und der Verlauf bekommt keinen
+Eintrag — sonst ueberschriebe jedes Speichern im Dialog den Beleg, den
+es festhalten soll.
+
+(6) **Der wirkungslose Eintrag faellt weg, und die Entfernung ist selbst
+eine Aenderung.** v1.7.36 hat ihn bewusst benannt statt geloescht; die
+Nutzervorgabe lautete, ihn zu entfernen, wenn die Historie keinen Zweck
+nennt. Sie nennt nur, dass er ungeprueft angelegt wurde. Das Safety-Net
+schreibt den alten Wert mit Herkunft `bereinigung` in den Verlauf und ist
+idempotent.
+
+(7) **Ein Vorgabewert ist ein Wert.** Der erste Test erwartete fuer einen
+"neuen" Regler keinen Vorgaenger und scheiterte: die Migration legt die
+Vorgaben als Zeilen an. Der Mechanismus hatte recht; der Test entfernt
+die Vorgabe jetzt, bevor er einen neuen Regler prueft.
+
+(8) **Eine neue Tabelle braucht einen Loeschbereich, und das hat der Guard
+aus #1025 gewusst, nicht ich.** `scoring_config_verlauf` stand nach dem
+Commit in keinem Bereich — ein Profil-Loeschen oder Factory Reset haette
+den Verlauf stehen lassen. Die gezielten Tests (418 Faelle) sahen es nicht,
+die volle Suite schon. Zum zweiten Mal in derselben Woche nach dem
+Browser-Test aus v1.7.112: **eine Tabelle anzulegen heisst auch, sie beim
+Loeschen einem Bereich zuzuordnen**, und die Auswahl "betroffener" Tests
+kennt keine Guards, die ueber das ganze Schema laufen.
+
+(9) **Gemessen auf einer Kopie eines Bestands**, mit Isolations-Zusicherung:
+20 Regler, darunter der gemeldete `schwellenwert/schwellenwert` mit 35,
+4 von Hand gesetzt, keine Begriffs-Regler. Nach dem ersten Start sind die
+drei Spalten da, der Eintrag ist weg, der Verlauf traegt genau einen
+Eintrag (Vorgaenger 35, Herkunft `bereinigung`), und kein Regler steht
+mehr als wirkungslos in der Anzeige. Der Fehlalarm aus (3) hat diesen
+Bestand nicht getroffen — er haette jeden getroffen, der einen
+Begriffs-Regler setzen wollte.
+
+(10) **Gegenprobe:** zwanzig Mechanismen, zwanzigmal rot, und der Arbeitsstand danach
+jedes Mal bytegleich. Der fehlende Vorgaengerwert und ein Setzen ohne
+Verlauf fangen je vier Faelle; der Lerneffekt als Handzeile faengt neben
+dem neuen Fall auch den Eskalationstest aus #908 — die gelernte Zeile
+waere sonst fuer jede weitere Vertiefung gesperrt gewesen. Den
+Lerneffekt mit eigenem SQL fangen Verhaltensfall und Guard zugleich, die
+beiden Vokabular-Eintraege der Test aus #944 und der Dimensions-Guard.
+Je genau einen fangen der Anlagezeitpunkt, der ueberschriebene
+Vorgaenger bei gleichem Wert, der Verlauf ohne Aenderung, die Pruefung
+in der Datenbank, Loeschen und Zuruecksetzen ohne Spur, die
+weitergereichte Begruendung, die beiden Anzeigefelder und die Aktion
+`verlauf`.
+
+## Stand 2026-09-15 (v1.7.112 Stable) — Ein Urteil bleibt gueltig, bis sich seine Grundlage aendert
+
+**#1051**, Nutzerbericht zur Stellenliste. **Tests: 4568 /
+4634.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Die Veraltet-Pruefung verglich zwei Rechenwege.** `set_job_analysis`
+speicherte `jobs.score` roh; beide Listen ueberschreiben `score` mit dem
+Wert MIT den Scoring-Reglern, bevor sie den Befund lesen. Auf der
+Bestandskopie galten von 12 Zeilen mit Urteil oder Sichtung 9 im
+Listenweg als ueberholt und 0 im Rohweg. **Die Messung aus v1.7.71
+(381 unveraendert, 219 abweichend, kein Rauschband) war richtig und mass
+trotzdem das Falsche:** sie verglich beide Seiten auf demselben Weg. Die
+Liste tat das nie.
+
+(2) **Ein Signal, das mehrere Wege verschieden erzeugen, integriert auch
+deren Unterschied.** #948 begruendete den Score als "integrierendes
+Signal" — Beschreibung, Kriterien und Regler wirken ueber ihn. Das
+stimmte, und genau deshalb taugte er nicht: er ist ein Rechenergebnis,
+und PBP rechnet ihn an mehreren Stellen. Die Nutzereinordnung ("der
+Score ist nur ein Anhaltspunkt") und #1003 (eine Detailanalyse liest ihn
+nicht) zeigen in dieselbe Richtung. "Ueberholt" haengt jetzt an den
+EINGABEN: Fingerabdruecke von Profil, Anzeigentext und Suchkriterien.
+
+(3) **Die zweite Ursache stand im eigenen Docstring.** `fuer_scoring`
+nannte die manuelle Anlage als Aufrufer — sie holte ihre Kriterien roh,
+`stelle_bearbeiten` ebenso. Ohne die abgeleitete Betriebsart des
+MUSS-Tors (#968) gilt `hart`: eine Stelle ohne Pflichttreffer wurde mit
+0 gespeichert, `fit_analyse` rechnete gleich danach 3.5 (auch #1045,
+Kommentar 1). Auf der Kopie ergeben 2 von 3 aktiven Stellen mit rohen
+Kriterien 0 und ueber das Nadeloehr 3.5. Der Guard aus #987 pruefte,
+dass niemand die Anreicherung NACHBAUT, nicht, dass jeder Aufrufer sie
+BEKOMMT. **Ein Docstring, der seine Aufrufer aufzaehlt, ist eine Liste,
+die niemand prueft** — der neue Guard liest den Syntaxbaum: jedes
+`calculate_score` bekommt Kriterien aus `fuer_scoring` oder als
+Parameter.
+
+(4) **Was nicht zur Grundlage gehoert, faellt vor dem Hash weg.**
+Leerraum im Anzeigentext (v1.7.110 hat Texte neu gegliedert, ohne ein
+Wort zu aendern), Kriterien mit Unterstrich (die beworbenen Titel aendern
+sich mit jeder Bewerbung) und die Nennwerte fuers Gespraech (#931). Ein
+weggebrochener Text macht nichts ueberholt: das Urteil hat gelesen, was
+damals dastand.
+
+(5) **Kein Rueckfall auf den Score fuer den Altbestand.** Ein Urteil von
+vor v1.7.112 kennt nur seinen Profil-Stand und wird nur daran gemessen.
+Mit einem Score-Rueckfall bliebe ausgerechnet der gemeldete Fall veraltet
+— die Analyse stammte vom selben Tag und traegt keinen neuen Stand.
+
+(6) **Ein eigener Test lag zuerst falsch.** Er erwartete den Grund im
+Hinweis der Empfehlung. Ohne Pflichttreffer nimmt `_build_empfehlung`
+den k.o.-Zweig, der ein Urteil bewusst uebergeht (#671) und keinen
+Hinweis traegt; der Grund steht am gespeicherten Befund.
+
+(7) **Ein Browser-Test hielt die alte Kopplung fest, und nur die volle
+Suite fand ihn.** Er aenderte den Score und wartete auf das Abzeichen
+"⚠ ueberholt". Die 205 gezielten Tests waren gruen — ausgewaehlt nach
+Dateien, die das Modul im Namen tragen; der Browser-Test heisst anders.
+Seine Absicht (AK 5 aus #948: eine geaenderte Grundlage wird benannt)
+bleibt, der Ausloeser ist jetzt ein nachgeladener Absatz. Dritter Fall
+nach v1.7.100 MERKE 6: **die Auswahl "betroffener" Tests ist eine
+Annahme, keine Pruefung.**
+
+(8) **Gegenprobe:** siebenundzwanzig Mechanismen, und der Arbeitsstand danach
+jedes Mal bytegleich. Der erste Durchgang machte alle siebenundzwanzig
+rot — und verbarg dabei einen stummen Guard: die rohen Kriterien in der
+Anlage fingen nur die Verhaltensfaelle, der neue Syntaxbaum-Guard blieb
+gruen. Er durchsuchte jede umgebende Funktion ganz und fand fuer
+`_stelle_uebernehmen` die Zuweisung eines ANDEREN Werkzeugs in
+`register`. **Eine Gegenprobe, deren Mechanismus rot wird, sagt nicht,
+welcher Test ihn faengt** — erst die Liste der roten Namen zeigte, dass
+der Guard fehlte. Jetzt zaehlt die innerste Funktion, die den Namen
+bindet; eine eigene Probe nur gegen den Guard macht beide
+Kriterien-Mutationen rot. Die Grundlage des Stands (Urteil schreibt
+keinen Stand) faengt vier Faelle, der Profilvergleich vier, der
+Textvergleich drei; je genau einen fangen die Leerraum-Normalisierung,
+die Laufzeit-Eintraege, die Nennwerte, der weggebrochene Text, der
+Hinweistext, das Loeschen, beide Oberflaechen-Stellen und jeder der
+sechs Wege, der die Kriterien hereinreichen muss — diese sechs haengen
+alle an einem Fall, der die vier Wege nacheinander prueft.
+
+(9) **Bewusst nicht Teil:** Ein Rahmenbonus ohne jeden Fachtreffer hebt
+die Liste (Fachwert 0, Remote-Regler +10) und sieht dort aus wie
+fachliche Qualitaet. Welcher Wert fuehrt, ist damit beantwortet — der
+gespeicherte (Fach plus Rahmen), die Liste addiert die Regler —, aber
+beide heissen noch "score". Das trennt #1052 (C83).
+
+## Stand 2026-09-14 (v1.7.111 Stable) — Was aus der vorhandenen Stelle geworden ist
+
+**#1046**, Melder-Bericht zur Duplikat-Meldung. **Tests: 4551 /
+4617.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Eine Meldung, die zu einer falschen Handlung verleitet, ist
+schlechter als keine.** "Diese Stelle existiert bereits (Hash: ...)" war
+richtig und fuehrte trotzdem zum Vorschlag, zwei Stellen auszusortieren,
+die laengst aussortiert waren. Die Auskunft, die das verhindert haette,
+lag in derselben Zeile wie die Kennung. Das ist #927 in einer Warnung:
+Grund UND naechster Schritt — und der naechste Schritt haengt am Zustand.
+
+(2) **Drei Stufen fanden Duplikate, und nur eine hatte einen Zustand.**
+Gemeldet war die gleiche Kennung. Die Stufe "gleiche aktive Stelle aus
+anderer Quelle" traegt beworbene Stellen mit (`exclude_applied=False`),
+war also ebenso mehrdeutig, und die Stufe "laufende Bewerbung" kannte den
+Zustand, sagte ihn aber nur im Fliesstext. Jetzt `services/stellen_zustand`
+fuer alle drei. Abgrenzung zu `stellen_dublette`: dort wird ERKANNT, ob
+zwei Eintraege dieselbe Stelle sind, hier BESCHRIEBEN, was aus der
+vorhandenen geworden ist.
+
+(3) **Die alten Warnungsnamen bleiben, weil Tests sie festhalten — und
+das ist richtig so.** `duplikat_bewerbung` und `duplikat_aktive_stelle`
+nennen die Stufe, die gefunden hat; der Zustand ist eine zweite Angabe und
+bekommt ein eigenes Feld (`duplikat`). Den Namen umzudeuten haette jeden
+Aufrufer still geaendert, der auf ihn prueft.
+
+(4) **Ein Test, der die Gleichheit zweier Namen nutzt, prueft die Wahl
+nicht.** Bei gleicher Kennung ist der Warnungsname schon der Zustand; der
+LinkedIn-Trichter haette auch mit `res["warnung"]` richtig gezaehlt.
+Erst der Fall ueber eine laufende Bewerbung (andere Kennung, Stufe A)
+unterscheidet `duplikat` von der Stufe. Der Fall wurde vor der Gegenprobe
+ergaenzt, weil die Luecke beim Schreiben der Mutationen auffiel.
+
+(5) **Der erste LinkedIn-Test scheiterte an der Fixture.** "Berater
+Produktdaten 1/2/3" bei derselben Firma hielt die Stufe B beim ersten Lauf
+zu Recht fuer dieselbe Stelle — angelegt wurde eine statt drei. Die Titel
+sind jetzt verschieden. **Testdaten, die ein Duplikat-Pruefer als gleich
+ansieht, pruefen den Pruefer, nicht den Fall.**
+
+(6) **Gegenprobe:** elf Mechanismen, elfmal rot, und der Arbeitsstand danach
+bytegleich. Die gleiche Kennung ohne Zustandsfeld faengt vier Faelle, der
+Vorrang der Bewerbung drei; je genau einen fangen der Aussortier-Grund,
+der Zeitpunkt, die Stufe B und die Frage, ob der LinkedIn-Trichter den
+Zustand oder die Stufe zaehlt — Letzteres nur, weil der Fall ueber eine
+laufende Bewerbung vorher ergaenzt wurde; mit gleicher Kennung allein
+waere dieser Mechanismus stumm geblieben.
+
+## Stand 2026-09-14 (v1.7.110 Stable) — Absaetze, Listen und Ueberschriften bleiben
+
+**#1047**, Melder-Bericht zur Lesbarkeit der Anzeigentexte. **Tests:
+4542 / 4608.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Dieselbe Zeile stand dreizehnmal da, und auch das Nachladen hatte
+sie.** `re.sub(r"<[^>]+>", " ", ...)` plus `\s+` -> Leerzeichen in den
+Adaptern, `get_text(separator=" ")` im Nachlade-Leser — erneutes Nachladen
+holte also denselben Einzeiler. Dazu drei Wege, die in keinem Bericht
+standen: freelancermap (`get_text()` ohne Trenner, dort klebten sogar
+Woerter zweier Absaetze aneinander), StepStone (`textContent` im Browser)
+und zwei Abrufe im Dashboard. Jetzt `job_scraper/html_text.py` fuer alle.
+**Wer einen Fehler in einem Adapter findet, sucht dieselbe Zeile im
+Nachlade-Weg** — sonst heilt der Weg, der heilen soll, nichts (#952 in
+anderer Gestalt).
+
+(2) **Eine Aenderung an der Form der Daten verschiebt die Bedeutung von
+Mustern, die an der alten Form geeicht sind.** Die Pruefung, wer die
+Beschreibung liest, fand zwei Stellen, die bis hierher nie greifen
+konnten: `_strip_pbp_notes` und `stellen_skills.anzeigenteil` schneiden an
+einer Zeile `---` ab, dem Trenner vor PBP-Notizen. In einem Einzeiler gab
+es keine solche Zeile; mit Umbruechen haette eine Schmucklinie in der
+Anzeige den Rest aus Score und Kompetenzen genommen. Der Leser entfernt
+reine Strichzeilen. **Vor einer Formaenderung fragen, wer die alte Form
+voraussetzt, nicht nur wer die neue anzeigt.**
+
+(3) **Ein Helfer fuer Titel und Beschreibung ist ein Helfer fuer keines
+von beiden.** GULP und Workable reinigten mit demselben `_text` Titel, Ort
+und Beschreibung. Den Helfer umzustellen haette Titel mit Zeilenumbruch
+erzeugt. Umgestellt ist nur der Aufruf fuer die Beschreibung, und ein
+Test haelt fest, dass der Titel einzeilig bleibt.
+
+(4) **Die Laenge taugt nicht mehr als Mass fuer "besser".** Der Mengenweg
+aus #1016 ersetzte einen Text nur, wenn der neue laenger war. Ein
+gegliederter Text ist oft nicht laenger — aus Leerzeichen werden
+Umbrueche. Jetzt ersetzt er einen flachen auch bei gleicher Laenge; unter
+90 % bleibt der alte, dann fehlt Inhalt. Auf der Bestandskopie waehlt
+`umfang="flach"` 158 Texte, einer davon aktiv; hays bleibt aussen vor,
+weil der Text dort schon an der Quelle keine Gliederung traegt.
+
+(5) **Eine Folge ist gewollt, und sie gehoert gesagt.** `_firmenabsatz_ende`
+erkennt ohne Aufgaben-Ueberschrift den ersten Absatz als Firmenzone, wenn
+er nach Wir-Prosa aussieht, und zaehlt Treffer dort geringer (#827). Mit
+Einzeilern konnte das nie greifen; fuer die Bundesagentur galt es immer.
+Scores der betroffenen Quellen koennen sich deshalb verschieben — das ist
+die Angleichung, kein Rueckschritt, und steht so im Changelog.
+
+(6) **Zwei Testfehler, beide lehrreich.** Ein JSON-LD-Fall trug
+`</script>` im Beispiel-HTML; das beendete das ld+json-Tag vorzeitig,
+echte Seiten schreiben `<\/`. Und ein Guard aus #1016 suchte einen Aufruf
+in den ersten 6.000 Zeichen der Funktion — der neue Docstring schob ihn
+hinaus, ohne dass er fehlte. **Ein Guard mit festem Fenster misst den
+Abstand, nicht den Aufruf**; er liest jetzt bis zur naechsten Funktion.
+
+(7) **Der Pruefer meldete auch ferchau in Grossschreibung.** Wie bei hays
+(v1.7.109 MERKE 6): Quellen-Key in Kleinschreibung statt am Pruefer
+vorbei.
+
+(8) **Gegenprobe:** vierundzwanzig Mechanismen, und der Arbeitsstand danach
+jedes Mal bytegleich. Der erste Durchgang machte zwanzig rot; stumm blieben
+vier, und jeder aus einem anderen Grund. Das Entfernen von Skripten war
+nur mit einem Skript im Beispiel geprueft — `get_text()` laesst Skripte
+ohnehin aus, Seitentitel und `<noscript>` aber nicht; jetzt steht dieser
+Fall da. Der Sonderweg fuer Text ohne Markup aenderte gar nichts: der
+Parser behaelt Umbrueche und loest Entitaeten genauso auf. Er ist
+ausgebaut statt getestet. Der Bewerbungs-Snapshot im Dashboard fiel durch,
+weil ein zweiter Aufruf in derselben Datei die Pruefung auf
+`gegliederter_text(` schon erfuellte; der Guard prueft jetzt die alte
+Zeile selbst. Und der Fall "ersetzt ohne zu wachsen" war um ein Zeichen
+laenger als der gespeicherte Text (verglichen wird nach `strip()`) — er
+pruefte also den alten Weg. Nach den Korrekturen drei von drei rot. Die
+Leser-Regeln (Listenstrich, Bloecke, `<br>`, `<li><p>`, Leerzeilen
+zwischen Punkten) fangen je fuenfzehn bis sechzehn Faelle, weil jeder
+Adapter-Fall durch sie laeuft; je genau einen fangen die Schmucklinien,
+die drei Einzeladapter, die Wege mit Netz oder Browser, die
+Quellen-Ausnahme, der Ersatz ohne Laengenzuwachs, die 90-Prozent-Grenze
+und die Detailansicht.
+
+## Stand 2026-09-14 (v1.7.109 Stable) — Der ganze Anzeigentext, auch bei hays
+
+**#1048**, Melder-Bericht zur Quelle hays. **Tests: 4510 / 4576.**
+MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Der Guard aus #952 suchte eine Zahl, nicht eine Bauform.** Er
+verbot die Zeichenkette `[:2000]` in den Adaptern und liess `[:500]`
+durch — seit v1.7.23 standen alle hays-Stellen mit exakt 500 Zeichen in
+der Ablage. Der neue Guard prueft den Syntaxbaum: ein Slice mit fester
+Obergrenze als Wert von `description`, direkt oder ueber eine Variable.
+Beim ersten Lauf fand er eine zweite Gestalt, die in keinem Bericht stand:
+`extract_jobposting_jsonld(html, max_chars=2000)` als VORGABE. **Ein
+Guard gegen eine Fehlerklasse deckt nur die Gestalt ab, in der sie zuerst
+auftrat** — v1.7.102 MERKE 1, eine Ebene tiefer.
+
+(2) **Eine Grenze gehoert zu ihrer Quelle.** 500 Zeichen sind bei jeder
+anderen Quelle eine kurze Anzeige. Die Erkennung prueft die Grenze
+deshalb nur zusammen mit der Quelle (`QUELLEN_KAPPUNG`); ohne Quelle
+bleibt es beim alten Verhalten. Ein Nachladen aller 500-Zeichen-Texte
+haette fremde Server fuer nichts befragt, und der Befund "gekappt" waere
+nach dem zweiten Fehlalarm ignoriert worden (#929).
+
+(3) **Vier Nachlade-Wege, und keiner bewertete neu.** Das stand nicht im
+Bericht, es folgte aus seinem dritten Akzeptanzkriterium: nach dem
+Nachladen stand der volle Text neben einem Score aus dem abgeschnittenen.
+Der Mengenweg bat wenigstens darum, danach den ganzen Bestand neu zu
+berechnen; Einzelwerkzeug, Knopf und Auto-Nachzug sagten nichts. Jetzt
+`nachladen.text_uebernehmen` fuer alle vier, und ein Test haelt jeden
+Weg daran fest (#963).
+
+(4) **Nachziehen heisst ergaenzen, nicht umdeuten.** Ein laengerer Text
+bringt nur zusaetzliche Belege. Deshalb schreibt der Weg ein Gehalt nur
+mit Beleg im Text (ein von Hand gesetztes weist `save_salary_data` ab),
+einen Umfang nur, wo keiner steht — ein gespeicherter Wert, der sich
+beim naechsten Lauf selbst bestaetigt, war schon einmal der Fehler
+(#1031) — und die Befristung nur von nein auf ja.
+
+(5) **Die Messung hat die Frage "kappt noch jemand?" beantwortet.** Auf
+der Kopie standen 800 Texte mit exakt 2000 Zeichen, bei sieben Quellen.
+Alle stammen von vor v1.7.23; ab dem 26.08. keiner. Ohne diese Zaehlung
+nach Funddatum haette die Liste nach einem zweiten Adapter-Fehler
+ausgesehen.
+
+(6) **Der PII-Pruefer hat den Namen der Quelle gemeldet, und er hatte
+recht, es zu melden.** Der Name ist zugleich Quelle und Unternehmen; als
+Ausnahme gilt nur der Quellen-Key in Kleinschreibung. Kommentare, Tests und Texte
+schreiben deshalb `hays` — nicht am Pruefer vorbei, sondern in der Form,
+die er als Quelle kennt (v1.7.82 MERKE 10).
+
+(7) **`dashboard.py` beginnt mit einem BOM.** Der Guard, der die
+Nachlade-Wege per Syntaxbaum liest, scheiterte daran mit "invalid
+non-printable character U+FEFF". Gelesen wird mit `utf-8-sig`.
+
+(8) **Gegenprobe:** neunzehn Mechanismen, und der Arbeitsstand danach
+jedes Mal bytegleich. Der erste Durchgang machte sechzehn von achtzehn
+rot; stumm blieben die Notbremse im JSON-LD-Leser (`text[:None]` liefert
+ebenfalls den ganzen Text, der Unterschied liegt erst jenseits der
+Grenze) und die Quelle in `stellen_qualitaet_pruefen`, fuer die es gar
+keinen Fall gab. Beide haben jetzt einen, dazu die Gesamtzahl derselben
+Pruefung als neunzehnter Mechanismus — drei von drei rot. Die fehlende
+Quellen-Kappung faengt sechs Faelle; je genau einen fangen die
+Normalisierung der Quelle, die Herkunft im Hinweis, die Fit-Analyse, der
+Knopf, der Auto-Nachzug, das Gehalt ohne Beleg, das Handgehalt, der
+gespeicherte Umfang und die Befristung.
+
+## Stand 2026-09-14 (v1.7.108 Stable) — Kommentare sind kein Text
+
+**#1041, Nachtrag des Melders nach v1.7.107** (B54). **Tests: 4488 / 4554.**
+MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Der Test konnte den Fehler nicht sehen, und das lag an der Fixture.**
+Die Karten aus v1.7.104 bildeten die gemessene Struktur nach — ohne die
+HTML-Kommentare, die die Plattform vor jeden Text setzt. `get_text()` laesst
+Kommentare aus, die eigene Schleife ueber `descendants` nahm sie mit, weil
+ein Kommentar in BeautifulSoup ein Textknoten ist. **Eine nachgebaute
+Fixture enthaelt, was man beim Nachbauen gesehen hat — Kommentare sieht man
+im Browser nicht.** Die neuen Karten tragen die gemessenen Kommentarformen.
+
+(2) **Der korrigierte Leser allein haette den Schaden vergroessert.** Die
+Kennung ist ein Vertrag mit dem Bestand (v1.7.104 MERKE 2) — und dieser war
+mit dem verfaelschten Titel geschlossen. Ein sauberer Neufund bekaeme eine
+andere Kennung, und die Duplikat-Erkennung sortierte ihn ueber die URL als
+`duplikat` aus. Genau das hatte der Melder beobachtet. Deshalb heilt PBP den
+Bestand VOR dem Speichern des Suchlaufs und nicht erst beim Wiederfund.
+
+(3) **Die Heilung beruht auf einer Messung, nicht auf einem Muster.** Der
+bereinigte verfaelschte Wert war an echten Seiten in 36 von 36 Karten und
+allen drei Feldern zeichengleich mit dem, was der korrigierte Leser
+liefert. Umbenannt wird nur eine Zeile, deren Kennung nachweislich aus dem
+gespeicherten Titel stammt — mit der Formel des Adapters.
+
+(4) **Der Fremdschluessel hat einen eigenen Test gefunden.**
+`applications.job_hash` verweist auf `jobs.hash`. Ein Altbestandsverweis in
+oeffentlicher Form (v1.7.56 MERKE 4) liess sich nicht wieder auf eine
+oeffentliche Form umhaengen: der Fremdschluessel schlug an, und die ganze
+Heilung dieser Stelle rollte zurueck. Ziel ist jetzt immer die gespeicherte
+Kennung.
+
+(5) **Drei Mechanismen ausgebaut, bevor die Gegenprobe sie stumm melden
+konnte.** Die Uebernahme des Lebenslaufs bei einer Zusammenfuehrung (die
+Lage entsteht nicht: der verfaelschte Eintrag ist immer der spaetere), das
+Leeren der Ortsspalten (ein verfaelschter Ort hatte nie eine Entfernung) und
+der Schutz gegen Skript-Text im Leser (Titel, Firma und Ort enthalten keine
+Skripte). **Ein Mechanismus, den kein realer Fall ausloest, ist Code, dem
+man vertraut, ohne dass ihn etwas prueft.**
+
+(6) **Gemessen auf einer Kopie des echten Bestands**, mit Isolations-Zusicherung:
+4 Jobware-Zeilen (3 mit Kommentar-Rest, 1 im alten Knopf-Format), alle 4
+bereinigt, 2 auf die richtige Kennung umgezogen, 1 zusammengefuehrt; ein
+zweiter Lauf fand nichts mehr.
+
+(7) **Waehrend der Arbeit kamen #1045 und #1046 herein** (Rahmen-Deckel,
+Duplikat-Meldung). Andere Dimension, eigene Releases. #1046 beruehrt
+dieselbe Duplikat-Erkennung, aber ihre Meldung, nicht ihre Entscheidung.
+
+(8) **Gegenprobe:** zwanzig Mechanismen, zwanzigmal rot, und der Arbeitsstand danach
+bytegleich. Der Leser mit Kommentaren macht drei Faelle rot; die
+Bereinigung ohne `t=` acht. Je genau einen Fall fangen: die Firma aus
+reinen Resten, die unbekannte Herkunft, das Loeschen der Zusatzzeile, die
+Platzhalter-Firma der bestehenden Zeile, die oeffentliche Verweisform, das
+Umhaengen auf die gespeicherte Kennung, die Fundstellen, Entfernung, Score,
+der Quellenfilter und der Aufruf im Suchlauf.
+
+## Stand 2026-09-14 (v1.7.107 Stable) — Zwei Kartenleser, und ein Befund berichtigt
+
+**B53**, Nutzerauftrag: Kartenleser fuer Heise Jobs, freelance.de und
+Praktikum.de. Zwei davon liefern, der dritte geht nur im Browser.
+**Tests: 4470 / 4536.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Mein eigener Befund aus v1.7.106 war falsch, und er stand schon in
+Registry, Wiki und Changelog.** "Rund 60 Stellenkarten im HTML" bei Heise
+Jobs: das Strukturskript zaehlte Links, die wie Stellenadressen aussahen,
+und sah nicht nach, ob sie in einer Karte stehen. Es waren SEO-Linklisten
+der Startseite. Beim Bauen des Lesers kam es heraus — die Karte, die er
+lesen sollte, gab es nicht. **Eine Zahl passender Links ist keine Zahl von
+Karten; eine Karte gehoert geoeffnet, bevor sie gezaehlt wird.** Berichtigt
+in Registry, Wiki und diesem Changelog, nicht still ersetzt.
+
+(2) **Die Suche je Suchbegriff war die falsche Bauform, und das zeigte erst
+die zweite Messreihe.** Praktikum.de traegt 24 Angebote. Das Stichwort
+filtert innerhalb dieser Menge ("IT" lieferte alle 24, "Informatik" keines);
+ein Lauf je Begriff haette dieselben Seiten mehrfach geholt. Gefunden hat es
+ein Vergleich zweier Formularvarianten hintereinander — die zweite Reihe
+bekam durchgehend HTTP 429. **Vor "eine Suche je Begriff" messen, ob die
+Boerse groesser ist als eine Suche.**
+
+(3) **Ein Abruf ohne Formular sieht aus wie eine tote Quelle.** Die erste
+Praktikum-Messung per GET lieferte eine Seite ohne Treffer; erst derselbe
+Client nach einem abgeschickten Formular bekam die Karten. Deshalb auch
+keine Probe fuer diese Quelle: ein GET wuerde "gruen" melden, ohne etwas
+ueber Treffer zu sagen (#808).
+
+(4) **Den Ortsfehler fand der Rauchtest, nicht die Fixture.** Drei Projekte
+trugen "D-Remote" im Ortsfeld — ein Arbeitsmodell, das geocodet nichts
+ergaebe. Der Rauchtest zaehlte Ortsfelder mit Nicht-Ort-Woertern, weil
+genau das bei stellenanzeigen.de schon einmal geschah (#1040). **Ein
+Rauchtest, der nur Mengen zaehlt, prueft den Abruf, nicht das Lesen.**
+
+(5) **Eine Laufzeit, die sich nicht wiederholen liess, bleibt eine
+Messung.** Der erste Rauchtest brauchte fuer freelance.de 76 Sekunden, der
+instrumentierte zweite 19 (davon 10,5 Pausen, Abrufe je unter einer
+Sekunde). Die Ursache ist nicht gefunden; die Grenze fuer Detailseiten
+bleibt, und die Zahl steht so im Changelog.
+
+(6) **Mehr Text gibt es nicht, und das ist gemessen.** Die Detailseiten von
+freelance.de tragen ohne Anmeldung rund 400 Zeichen, und genau so lang ist
+auch die Beschreibung in ihrem JobPosting. Der Leser verspricht deshalb
+keinen Volltext.
+
+(7) **Gegenprobe:** zwanzig Mechanismen, zwanzigmal rot, und der Arbeitsstand danach
+bytegleich. Den Rueckfall auf die Kategorieseiten fangen acht Faelle, den
+Abruf ohne Formular sieben; die Anfragegrenze, das Blaettern ohne
+Seitenlink, das Etikett "Firmenname:" vor dem Namen und die Felder der
+eingebetteten Firma faengt je genau einer.
+
+## Stand 2026-09-14 (v1.7.106 Stable) — Zwei tote Quellen liefern wieder
+
+**B53**, Nutzerauftrag: die sieben defekten Quellen neu vermessen, zurueckholen
+was geht, den Rest begruendet ausgegraut lassen. **Tests: 4456 / 4522.**
+MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Die Schnittstelle stand nicht im Code der Seite, sondern im Netz.** GULP
+ist eine Angular-App; die Suche im 240-KB-Bundle nach `api`/`rest`/`search`
+fand nichts Brauchbares. Erst der Netzwerk-Mitschnitt im echten Browser zeigte
+`POST /gulp2/rest/internal/projects/search` — offen, ohne Anmeldung, und mit
+plain `httpx` sofort 200. **Bei einer App-Huelle zuerst mitschneiden, was der
+Browser tatsaechlich abfragt, statt das Bundle zu durchsuchen.**
+
+(2) **Nicht die Quelle war tot, sondern der Weg.** Workable stand als defekt,
+weil die Einbettungs-Schnittstelle je Firma leer oder mit 404 antwortet — die
+oeffentliche Stellensuche derselben Seite hat eine vollstaendige JSON-API. Das
+ist #925/#926 zum dritten Mal: **bevor eine Quelle als tot gilt, muessen alle
+Zugaenge gemessen sein, nicht der eine, den der Adapter kennt.**
+
+(3) **Die erste Workday-Messung war ein Fehler des Messskripts.** Zehnmal
+`ConnectError`, weil ich die Tupel `(firma, tenant, wd, site)` in falscher
+Reihenfolge zerlegt hatte — der Firmenname landete im Hostnamen. Mit der
+richtigen Reihenfolge: Adressen loesen auf, Schnittstelle 422, Karriereseiten
+leiten auf eine Fehlerseite. **Eine Messung, die zu glatt "tot" sagt, gehoert
+selbst geprueft** (v1.7.102 MERKE 2).
+
+(4) **Ein Platzhalter ist keine Firma — auch nicht der Name der Boerse.** Der
+alte Adapter setzte bei fehlendem Auftraggeber "GULP" ein. Bei rund einem
+Viertel der Projekte (Vermittlung ohne genannten Kunden) waeren damit alle
+dieselbe Firma — Wiedergaenger und Blacklist haetten sie zusammengezogen
+(#1028). Jetzt "Nicht angegeben".
+
+(5) **"Remote moeglich" ist nicht "remote".** GULP liefert
+`isRemoteWorkPossible`; als `remote` abgebildet haette es die Ortspruefung
+abgeschaltet (#996). Abgebildet als `hybrid`, solange der Text nichts anderes
+sagt. Bei Workable gewinnt das Feld `workplace` vor dem Text: "Homeoffice"
+unter den Vorteilen ist kein Remote-Arbeitsplatz.
+
+(6) **Ein Patch-Skript hatte dieselbe Falle zweimal.** Doppelte Backslashes
+(`b"\\r\\n"`) im Python-Quelltext haetten die Zeilenenden-Anpassung still
+wirkungslos gemacht — gefunden beim Durchlesen vor dem Lauf, an der ersten
+Stelle, und die zweite erst beim zweiten Durchlesen. Das ist v1.7.102 MERKE 6
+in anderer Gestalt: **eine Anpassung, die nie greift, sieht aus wie eine, die
+nicht noetig war.**
+
+(7) **Gegenprobe:** sechzehn Mechanismen, sechzehnmal rot, und der Arbeitsstand danach
+bytegleich. Jeder Mechanismus trifft einen eigenen Fall: Blaettern bis zur
+Gesamtzahl, Dubletten ueber Suchbegriffe, Hervorhebungen im Text,
+Platzhalter statt Boersenname, "remote moeglich" als hybrid, Anforderungen
+im Anzeigentext, ein Fehler kostet nur den einen Begriff; bei Workable
+Seiten-Token, Arbeitsmodell vor Text, Stadt statt Land, `workable_firmen`
+als Suchbegriff, Dubletten, Umfang; dazu Registry, Probe-Adresse und der
+Chrome-Weg im Grund von meinestadt. Die Live-Zahlen stehen daneben: GULP
+100 statt 0 Projekte, Workable 61 statt 0 Stellen — gemessen mit dem
+fertigen Adapter, nicht mit dem Messskript.
+
+## Stand 2026-09-14 (v1.7.105 Stable) — Was ausgewaehlt ist, steht auch so da
+
+**#1039**, Melder-Bericht zur Quellenliste. **Tests: 4435 / 4501.**
+MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Heilen beim Lesen, nicht Filtern in der Anzeige.** Der Fehler war ein
+Widerspruch zwischen Speicher und Bild: gespeichert "ausgewaehlt", gezeichnet
+"leer und gesperrt" (Klasse #1008). Die Anzeige allein zu korrigieren haette
+den Widerspruch nur verschoben. `search_service.aktive_quellen(db)` liest,
+wirft defekte Quellen hinaus und schreibt zurueck; alle sechs Lesewege laufen
+darueber, das Speichern filtert vor dem Schreiben. Zwei Guard-Tests halten
+JEDEN Lese- und Schreibweg der Einstellung gegen eine Positivliste — ein
+neuer roher Leser braechte den Fehler zurueck.
+
+(2) **Der zweite Fehler kam erst im Browser-Test heraus.** "N fehlende
+empfohlene Quellen aktivieren" rief je Quelle `toggleSource` auf, und das
+rechnete jedes Mal von DERSELBEN Auswahl aus dem Render-Abschluss — gespeichert
+blieb nur die letzte. Im Quelltext sieht die Schleife richtig aus. Der Test
+prueft deshalb die DATENBANK nach dem Klick, nicht den Toast.
+
+(3) **Ein alter Test hielt den Fehler fest.** Der #590-Test verlangte, dass
+das Service-Profil `meinestadt` empfohlen bekommt — eine defekte Quelle.
+Umgeschrieben: sie steht jetzt in `ausgelassen_defekt`. **Ein Test, der eine
+Liste festnagelt, nagelt auch ihre Fehler fest.** Die Cluster-Listen bleiben
+die Absicht; gefiltert wird zur Laufzeit, weil sich die Defekt-Markierung mit
+jeder Reparatur aendert.
+
+(4) **Nachtrag zu v1.7.104: ein Test, der die Uhr zurueckdreht, muss die
+Tagesgrenze kennen.** Der Elwosa-Test datierte eine Nachricht um drei Stunden
+zurueck; zwischen 00:00 und 03:00 UTC landete sie auf dem Vortag, und das
+Tageskontingent zaehlt je UTC-Kalendertag. Rot nur im CI-Lauf um 00:01 UTC.
+Geklemmt auf `max(jetzt - 2 min, Mitternacht)`.
+
+(5) **Gegenprobe:** dreizehn Mechanismen, dreizehnmal rot, und der
+Arbeitsstand danach bytegleich. Die Probe mit dem alten Knopf-Verhalten
+(je Quelle ein Speichervorgang) macht den Browser-Test rot — der Fehler
+aus (2) ist also wirklich nachgestellt und nicht nur beschrieben. Zwei
+Mechanismen faengt nur ein Quelltext-Guard (die Erstuebernahme und der
+Leseweg in `jobsuche_starten`): beide sitzen hinter Gates und einem
+Suchthread, ein Verhaltensfall haette dort mehr getestet als die Regel.
+**Ein Guard, der eine Zeichenkette verlangt, belegt die Absicht nur,
+solange niemand den Mechanismus anders baut** (v1.7.93 MERKE 5).
+
+## Stand 2026-09-14 (v1.7.104 Stable) — Jede Karte, einmal, mit Firma und Ort
+
+**#1041 und #1042**, zwei Melder-Berichte zu Jobware und ingenieur.de.
+**Tests: 4421 / 4487.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Zwei Boersen, eine Plattform, zwei Fassungen desselben Fehlers.**
+Beide Adapter waehlten Karten mit `[class*='job-card']` und trafen damit
+jeden Bestandteil (173 Treffer bei 15 Karten). Beide suchten Firma und Ort
+ueber Klassennamen, die es nicht gibt, und beide lasen den Ort samt dem nur
+fuer Screenreader gedachten "in" (`inBerlin` — kein Geocoding). Jetzt ein
+Kartenleser fuer beide. Dritter Fall von #1040 in derselben Nacht: **die
+Zahl im Log sah nach Markt aus** — 1-2 Stellen je Lauf bei Jobware, 44
+"Stellen" bei ingenieur.de, die Kopien waren.
+
+(2) **Der Hinweis des Melders zum Bestand war der wertvollste Satz.** Mit
+korrigiertem Titel aendert sich die Kennung einer Jobware-Stelle; der
+Neufund waere ueber die gleiche URL als Duplikat des kaputten Eintrags
+aussortiert worden, und der kaputte bliebe aktiv. Die Loesung ist keine
+Migration: die Kennung wird aus DEMSELBEN Text gebildet wie bis v1.7.103
+(`Job"<Titel>"ansehen`) — der alte Knopftext laesst sich aus dem richtigen
+Titel exakt nachbilden, gemessen an einer echten Karte. Ein Wiederfund
+landet so auf seiner Zeile und wird dort korrigiert. **Eine Kennung ist
+ein Vertrag mit dem Bestand, nicht eine Beschreibung der Stelle.**
+
+(3) **Die Gegenprobe fand eine Pruefung, die nichts pruefte.** "Die Klasse
+ist wirklich `job-card`" war redundant: `find_all(class_=...)` vergleicht
+ohnehin je Klasse, und Bestandteile INNERHALB einer Karte faengt der
+URL-Abgleich. Ausgebaut, Test blieb gruen. Die Auswahl entscheidet erst
+bei einem `job-card__...`-Element AUSSERHALB einer Karte — jetzt ein
+eigener Fall. **Eine Gegenprobe, die nichts rot macht, kann auch heissen:
+der Mechanismus existiert gar nicht** (v1.7.91 MERKE 3).
+
+(4) **Gemessen wurde am gespeicherten Abruf, und die Ausgabe scheiterte an
+der Konsole.** Beide Messlaeufe brachen beim Drucken eines Klassennamens
+mit Emoji ab (cp1252). Die HTML-Seiten waren da schon gespeichert; die
+Auswertung lief danach offline mit `PYTHONIOENCODING=utf-8` und `ascii()`,
+ohne erneuten Abruf.
+
+(5) **Bewusst offen: die Region.** Jobware wertet den Ort laut Bericht aus,
+ingenieur.de ebenfalls. Ihn zu nutzen aendert die Treffermenge und gehoert
+in einen eigenen Schritt, nicht in eine Fehlerbehebung.
+
+## Stand 2026-09-14 (v1.7.103 Stable) — Karte und Popup sagen dasselbe
+
+**#1044**, Melder-Bericht zur Stellenliste. **Tests: 4407 /
+4473.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **#963 im Frontend.** Das Popup "Stellendetails" hatte seine eigene
+Darstellung derselben Stelle: keine Entfernung, "festanstellung" als
+Rohwert in Grau, kein Umfang, ein Gehalt mit Bindestrich samt
+"(jaehrlich)" und "(geschaetzt)", "Unbekannt" statt "Unbekannte Firma".
+Die Daten waren dieselben, die Karte war laengst richtig — das Popup
+wurde bei keiner der Aenderungen an der Karte mitgezogen. **Zwei
+Ansichten derselben Sache laufen auseinander, sobald eine davon gepflegt
+wird.**
+
+(2) **Die Darstellung wohnt jetzt in einem Modul, nicht in einer Seite.**
+`lib/stellenAngaben.js` traegt die Tabellen und fuenf Helfer; Karte,
+Popup und Filter lesen sie. Der Waehrungsformatierer wird hineingereicht,
+damit der Node-Test ohne Build und ohne Pfad-Alias laeuft — dasselbe
+Muster wie `lib/score.js` (#1035).
+
+(3) **Der Patch hat sich selbst angehalten, bevor er schrieb.** Alle
+Anker passten, aber die Restpruefung fand `ANSTELLUNGSFORM_TEXT[` im
+Anstellungsform-Filter — eine dritte Leserin der Tabelle, die in keinem
+Bericht stand. Ohne die Pruefung waere die Seite mit einer entfernten
+Konstante gebaut worden und erst im Browser umgefallen. **Erst alle
+Pruefungen, dann alle Schreibvorgaenge** (v1.7.93 MERKE 10) — und die
+Restpruefung gehoert zu den Pruefungen.
+
+(4) **`JobsPage.jsx` hat CRLF-Zeilenenden.** Der Patch passt seine Anker
+daran an — die Lehre aus der Gegenprobe von v1.7.102, eine Version
+spaeter angewandt statt wiederholt.
+
+(5) **Die Gegenprobe fand eine Luecke im eigenen Guard.** Der Test pruefte,
+dass jeder Helfer im Popup AUFGERUFEN wird. Mit leerer Entfernungszeile
+blieb er gruen, weil `entfernungText(...)` noch in der Bedingung stand.
+Jetzt prueft ein zweiter Test die AUSGABE im Element, fuer Karte und Popup.
+Sieben Mechanismen, siebenmal rot. **Ein Aufruf ist noch keine Anzeige** —
+dieselbe Klasse wie DoD 8c, eine Ebene tiefer.
+
+(6) **Der Beleg ist der gerenderte Dialog, und sein erster Lauf scheiterte
+am Test.** Ein Browser-Test oeffnet das Popup und liest den Text im
+Overlay. `.glass-overlay` traf dabei auch das verborgene
+Einrichtungs-Overlay — zwei Elemente, strikter Modus, rot. Die Fehlermeldung
+zeigte im zweiten Treffer schon den richtigen Dialog. Vierter Fall nach
+v1.7.83 MERKE 8 und v1.7.88 MERKE 5: **ein zu breiter Locator misst den
+Test, nicht den Code.** Die Quelltext-Guards bleiben daneben stehen; sie
+sind schnell, der Browser-Test ist der Beweis.
+
+## Stand 2026-09-14 (v1.7.102 Stable) — Jede Stufe erzeugt eine Regel
+
+**#1043**, Melder-Bericht zur Oberflaeche. **Tests: 4400 /
+4466.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Dieselbe Fehlerklasse wie #964, eine Ebene tiefer.** Dort erzeugte
+eine unbekannte FARBE keine Regel, hier eine unbekannte STUFE: Tailwind
+3.4 kennt fuer `/N` nur seine `opacity`-Skala (0, 5, 10 ...). `border-white/8`
+stand 33-mal im Code und tat nichts — bei Rahmen griff die Grundregel, ein
+voll deckendes Hellgrau. Der #964-Guard pruefte Farbnamen und liess jede
+Stufe durch. **Ein Guard gegen eine Fehlerklasse deckt nur die Gestalt ab,
+in der sie zuerst auftrat.**
+
+(2) **Meine erste Messung hat dem Melder zweimal widersprochen, und beide
+Male lag sie falsch.** Sie meldete 32 fehlende Klassen statt 13, weil sie
+nach `.klasse` suchte und damit jede Variante (`hover:bg-sky/25`) als
+fehlend zaehlte. Und sie las "opacity" in der Config als erweiterte Skala
+— es waren Keyframes. **Eine Messung, die dem Bericht widerspricht, gehoert
+selbst geprueft, bevor sie in eine Antwort geht.**
+
+(3) **Der Beleg ist das ausgelieferte CSS, nicht die Skala.** Der Guard
+prueft beides: jede verwendete Stufe gegen Skala plus Erweiterung, und
+jede verwendete Klasse als Teilstring im gebauten CSS. Vor dem Neubau war
+die zweite Pruefung nachweislich rot (12 Klassen), die erste gruen — genau
+die Lage, in der nur das CSS die Wahrheit sagt.
+
+(4) **`text-current/50` laesst sich nicht ueber die Skala retten.** Die
+aktuelle Textfarbe hat keine Kanalwerte, also erzeugt ein Modifikator
+nichts. Jetzt `opacity-50`, und ein eigener Fall verbietet den Modifikator
+auf current, transparent und inherit.
+
+(5) **Ein JSX-Kommentar hat den Build gebrochen.** `{/* ... */}` vor einem
+`<Badge>` innerhalb von `? ( ... )` sind zwei Ausdruecke nebeneinander.
+Die Fehlermeldung schnitt `tail` ab; gefunden am Code, nicht an der
+Ausgabe. **Bei einem fehlgeschlagenen Build die Ausgabe nach dem Fehler
+durchsuchen, nicht ihr Ende lesen.**
+
+(6) **Die Gegenprobe meldete einen stummen Mechanismus, der gar nicht
+ausgebaut war.** Das Skript pruefte seine Anker mit `read_text`
+(Zeilenenden uebersetzt) und mutierte die rohen Bytes. In der CRLF-Datei
+`tailwind.config.js` passte der Anker mit `\n` in der Pruefung und
+ersetzte beim Mutieren nichts — "0 rot" war ein Befund ueber das Skript.
+Jetzt lesen Pruefung und Mutation dieselben Bytes, und die Probe ist rot.
+Die Gegenproben aus v1.7.99 bis v1.7.101 trugen denselben Fehler, aber
+dort war jede Mutation rot, also auch jede angewandt. **Eine stumme
+Gegenprobe gehoert zuerst daraufhin geprueft, ob sie ueberhaupt etwas
+veraendert hat.**
+
+## Stand 2026-09-14 (v1.7.101 Stable) — Firma und Ort, fuer jeden Suchbegriff
+
+**#1040**, Melder-Bericht zur Quelle stellenanzeigen.de. **Tests:
+4395 / 4461.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Eine Schleifenbedingung hat eine Quelle auf ein Viertel gedrosselt,
+und die Zahl sah nach Markt aus.** Der Kartenweg lief nur, solange die
+Sammelliste leer war — also nur fuer den ersten Suchbegriff. Die Seiten
+der uebrigen wurden abgerufen und verworfen. "25 Stellen" stand in jedem
+Lauf; drei Seiten trugen 43. Dieselbe Klasse wie #995: eine Quelle wirkt
+schwach, und die Zahl sagt nicht, warum.
+
+(2) **Klassennamen sind kein Vertrag, die Reihenfolge schon eher.** Die
+Seite nutzt generierte Namen, also fand die Suche nach
+`company|firma|arbeitgeber` nie etwas, und jede Stelle hiess
+"Unbekannt". Firma und Ort stehen in jeder Karte direkt hinter dem Titel.
+Die Karte ist der groesste Vorfahr ohne FREMDEN Anzeigen-Link — die erste
+Fassung nahm den naechsten Vorfahr mit etwas Text und schnitt in 11 von 25
+Karten den Ort ab. **Gemessen am gespeicherten Abruf, bevor der Parser
+geschrieben war.**
+
+(3) **Ein fehlender Ort zieht mehr nach sich als eine leere Zelle.** Ohne
+Ort keine Entfernung, also weder Grenze noch Preis; ohne Firma weder
+Blacklist noch Wiedergaenger — "Unbekannt" gilt seit #1028 nicht als
+Firma. Fehlt der Ort in einer Karte, steht an seiner Stelle eine
+Arbeitszeit; die gehoert nicht ins Ortsfeld, sonst geocodet PBP
+"Vollzeit".
+
+(4) **Der Hash bleibt, obwohl er falsch ist — und der Grund ist ein
+anderer Fehler.** `stelle_hash` nimmt nur den Titel: 43 Anzeigen, 38
+Kennungen. Ein neuer Hash haette jede bereits AUSSORTIERTE Stelle dieser
+Quelle beim naechsten Fund als neue aktive Stelle angelegt, weil der
+Duplikat-Abgleich nur aktive Stellen sieht (#951). Mit dem alten Hash
+landet ein Wiederfund auf seiner Zeile, und Firma und Ort fuellen sich
+dort von selbst. Als B50 im Plan, mit Test, der den Stand festhaelt.
+**Eine Korrektur, die einen zweiten Fehler ausloest, wartet auf dessen
+Behebung.**
+
+(5) **Punkt 4 des Berichts laesst sich nicht erfuellen, und das ist
+gemessen.** `wo=Hamburg` statt `Deutschland` brachte 3 statt 2 Hamburger
+Stellen. Der Melder hatte das selbst vermutet.
+
+(6) **Der PII-Pruefer hat zwei meiner erfundenen Firmennamen gemeldet.**
+Sie begannen nicht mit einem Platzhalter-Wort. Umbenannt statt
+ausgenommen — ein Schutzwerkzeug, um das man herumarbeitet, ist keines
+(v1.7.82 MERKE 10).
+
+## Stand 2026-09-13 (v1.7.100 Stable) — Entfernt heisst entfernt
+
+**#1037 Punkt 3**, ein Fehler aus meiner eigenen #950-Arbeit. **Tests:
+4383 / 4449.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Eine Rueckfrage ist eine Zusage, und der Code hielt sie nicht.**
+"PBP rechnet danach wieder mit der Luftlinie" stand im Dialog;
+`entfernung.preis_km(job)` bekam den Schluessel nie zu sehen und nahm
+jede gespeicherte Fahrstrecke. Gebaut in v1.7.94, beschrieben in
+v1.7.94, von niemandem geprueft — auch nicht von mir. **Ein Satz in
+einer Rueckfrage gehoert getestet wie ein Rueckgabewert.**
+
+(2) **Die Angabe wandert ueber die Kriterien, nicht ueber einen neuen
+Parameter an jedem Aufrufer.** `get_search_criteria` legt
+`_fahrstrecke_zaehlt` dazu — dasselbe Muster wie `_idf_faktoren` und
+`_entfernung_gehalt_spanne`. Fehlt die Angabe, bleibt es beim alten
+Verhalten; ein Guard verbietet `preis_km(job)` ohne Kriterien, damit der
+naechste Rechenweg nicht wieder daran vorbeigeht.
+
+(3) **Beim Bauen die vierte Tabelle gefunden, die v1.7.99 uebersehen
+hat.** `scoring_service.STANDARD_WUNSCH` trug dieselben Grenzen wie die
+drei Stellen aus #1036, mit dem Kommentar "dieselben Werte wie in
+calculate_score". Ein Kommentar haelt nichts zusammen (#963) — und der
+Guard aus #1036 zaehlte die Funktionen ab, statt die Bauform zu
+verbieten. **Wer Fundstellen aufzaehlt, findet die, die er kennt.**
+
+(4) **Zwei Alt-Tests aus #950 wurden rot, und ihre Absicht gilt weiter.**
+Sie rechneten mit einer gespeicherten Fahrstrecke ohne eingerichteten
+Schluessel — bis hierher war das dasselbe. Die Voraussetzung steht jetzt
+ausdruecklich im Test; die Gegenrichtung (ohne Schluessel die Luftlinie)
+steht als eigener Fall daneben (#966).
+
+(5) **Die Gegenprobe fand keinen stummen Mechanismus, aber zwei, die
+nur ein Quelltext-Guard fing.** Fuer den Regler ohne Kriterien steht
+jetzt ein Verhaltensfall da; ein Guard, der eine Zeichenkette prueft,
+belegt die Wirkung nicht (v1.7.93 MERKE 3). Die vierte Tabelle bleibt
+bewusst beim Guard: die Zahlen sind gleich, es geht um die Bauform.
+
+(6) **Meine erste Fassung setzte die Angabe IMMER, und das hat eine
+Sackgasse zurueckgebracht.** `_fahrstrecke_zaehlt: False` stand auch in
+den Kriterien eines frischen Profils — leere Kriterien waren damit nicht
+mehr leer, und `suchkriterien_anzeigen` verlor den Hinweis auf den
+naechsten Schritt (#927). Gefunden hat es die volle Suite, nicht die
+37 Dateien, die ich fuer "betroffen" hielt. Jetzt Opt-in wie
+`_idf_faktoren` und `_entfernung_gehalt_spanne`: ohne Schluessel steht
+kein Eintrag da. **Eine Injektion in ein Ergebnis, das andere auf "leer"
+pruefen, darf nur mit Inhalt kommen** — und die Auswahl "betroffener"
+Tests ist eine Annahme, keine Pruefung.
+
+(7) **Die uebrigen Punkte aus #1037 sind Wuensche und bleiben offen**
+(Hinweis "nur Auto", Haken im Profil statt Schluessel als Schalter,
+Anzeige, Ort der Karte). Der Haken wuerde dieselbe Frage beantworten,
+die hier der Schluessel beantwortet — deshalb sitzt die Regel an EINER
+Stelle und laesst sich spaeter umhaengen.
+
+## Stand 2026-09-13 (v1.7.99 Stable) — Die nahe Filiale bleibt sichtbar
+
+**#1036**, zwei Fehler aus einem Melder-Bericht, ohne dessen
+Richtungsfrage. **Tests: 4370 / 4436.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Die Begruendung stand im Code, die Pruefung nicht.** #1020 hat
+`zu_weit_entfernt` in Stufe 1 erlaubt, weil "derselbe Arbeitgeber am
+selben Ort beim naechsten Mal wieder gleich weit weg ist". Den Ort
+verglich niemand. Bei einer Filialkette ist genau das falsch — und in
+Stufe 2 war die Folge unsichtbar, weil `ignorieren` nichts speichert.
+Dritter Fall nach #1028 MERKE 3, in dem Stufe 2 einen Fehler ohne Spur
+macht.
+
+(2) **Meine erste Regel war zu streng, und drei Alt-Tests hatten
+recht.** Ich hatte "unbekannter Ort heisst kein Beleg" gebaut. Die
+#1020-Tests arbeiten ohne Ortsangabe und verlangen ausdruecklich, dass
+eine fehlende Entfernung das Urteil nicht entkraeftet. Ein fehlender Ort
+ist dasselbe: nicht "anderswo", sondern unbekannt (#989). Die Regel
+greift jetzt nur bei zwei BEKANNTEN, verschiedenen Orten — und das ist
+genau der gemeldete Fall. **Ein roter Alt-Test ist zuerst zu lesen**
+(v1.7.31 MERKE 2, jetzt gegen die eigene Haertung).
+
+(3) **Zwei Mechanismen deckten sich gegenseitig, und die Gegenprobe
+zeigte beide als stumm.** Der Filter vor dem Muster und der doppelte
+Boden danach verhinderten beide die falsche Uebertragung. Getrennt tun
+sie Verschiedenes: ohne Filter verdraengen Entfernungs-Urteile anderer
+Orte ein echtes fachliches Urteil als haeufigsten Grund, ohne Boden
+wandert die Entfernung ueber Belege mit mehreren Gruenden. Je ein
+isolierender Fall; sieben Mechanismen, siebenmal rot. Achter Fall von
+v1.7.79 MERKE 9.
+
+(4) **Der Test fuer den doppelten Boden pruefte zuerst gar nichts.**
+Er baute mehrere Gruende als JSON-Zeichenkette im Einzelfeld. Gelesen
+kommen sie als Liste in `dismiss_reasons` (`_serialize_job_row`, #574),
+und ein Einzelfeld mit Klammern ist fuer die Automatik ein unbekannter
+Grund. Der Test war gruen, weil das Ergebnis zufaellig nicht
+`zu_weit_entfernt` hiess. **Eine Testeingabe gehoert in der Form gebaut,
+in der der Aufrufer sie bekommt — nicht in der, in der sie gespeichert
+ist.** Gefunden erst mit einem Diagnoselauf, nachdem die zweite
+Gegenprobe noch immer stumm war.
+
+(5) **Auch mein erster Stufe-1-Test lag an der Fixture.** Ein
+fachliches Urteil an einer Anzeige unter 200 Zeichen zaehlt nur halb
+(#966), zwei solche erreichen die Schwelle nicht. Die Automatik hatte
+recht, der Text war zu kurz.
+
+(6) **`max_entfernung_km` ist kein Rueckfall, obwohl er so aussieht.**
+Der erste Entwurf von `grenze_km` las ihn nach der Karte. #1000 hat
+entschieden, dass ein Altwert neben der Karte BENANNT und nicht
+umgedeutet wird — und der Score las ihn nie. Ohne ihn aendert die
+Zusammenlegung den Score um keinen Punkt; nur die Automatik rechnet
+jetzt wie er. **Bei einer Zusammenlegung zuerst fragen, welche Fassung
+die gepruefte ist.**
+
+(7) **Der Pre-Release-Issue-Check von v1.7.98 hat #1037 gefangen** —
+eine halbe Stunde nach dem ersten Check. Nicht zurueckgehalten (andere
+Dimension), aber mit einem echten Fehler aus #950: nach dem Entfernen
+des Routing-Schluessels rechnet der Score weiter mit gespeicherten
+Fahrstrecken, obwohl die Rueckfrage die Luftlinie verspricht. Als
+Kommentar abgegrenzt; die Grenze aus #1036 folgt kuenftig derselben
+Regel wie der Score.
+
+## Stand 2026-09-13 (v1.7.98 Stable) — Ein Beleg, der den Pruefer besteht
+
+**#817**, die zwei offenen Punkte eines Issues vom 07.08. **Tests: 4345 /
+4411.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Ein Issue von August war zu drei Vierteln erledigt, und das musste
+erst nachgesehen werden.** Der Titel nannte die Luecke "der Hook deckt
+den MCP-Weg nicht ab" — seit v1.7.25 geschlossen. Der anonymisierte
+Ausgabemodus kam mit #946 als `issue_text_pruefen(anonymisieren=True)`,
+die Server-Instructions verlangen ihn. **Offen waren genau zwei Punkte,
+und beide sah man erst beim Messen.**
+
+(2) **"Namen ersetzt" ist nicht "besteht den Pruefer".** Gemessen an
+einem Beleg mit Firma, Kontakt, Mailadresse und Telefonnummer: Firma und
+Person wurden zu stabilen Platzhaltern, IDs, Daten und Zahlen blieben
+stehen — und `scrub_pii.py --check` meldete Mail und Telefon. Das
+Akzeptanzkriterium "ohne Nacharbeit" war damit nicht erfuellt, obwohl
+das Werkzeug seine Aufgabe laut Docstring erledigte.
+
+(3) **Ersetzt wird nach den Regeln, nach denen gefunden wird.** Eine
+zweite Definition von "Telefonnummer" im Paket haette zwei Pruefer
+ergeben, die sich widersprechen — #963 in einem Schutzwerkzeug. Die
+Funktion steht deshalb in `scrub_pii.py` neben `find_pii`, mit denselben
+Ausnahmen (Systemadressen, 555-Nummern, Inline-Code). Mehr zu ersetzen
+als gefunden wird, haette Belege entstellt.
+
+(4) **Ein automatischer Sweep in einem oeffentlichen Repository haette
+veroeffentlicht, was er finden soll.** `gh_pii_sweep.py` druckte jeden
+Fund mit Namen; die Actions-Logs sind oeffentlich. Der woechentliche
+Workflow benutzt deshalb `--ohne-namen` (Fundstelle, Anzahl, Art), und
+ein Test haelt fest, dass jeder Aufruf im Workflow den Schalter traegt.
+**Bei jeder Kontrolle, die ins Freie laeuft, zuerst fragen, wohin ihr
+Ergebnis geschrieben wird.**
+
+(5) **Geplante Workflows laufen nur auf dem Standard-Branch.** Der
+Sweep-Workflow lebt also auf main; dass die Stable-Linie eine
+Ausnahme-Zeile weniger kennt (#930), beruehrt ihn nicht.
+
+## Stand 2026-09-13 (v1.7.97 Stable) — Der Modell-Katalog hat einen Stand
+
+**#785**, Befund vom 24.07. **Tests: 4339 /
+4405.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Ein Vorschlag im Issue ist ein Stand, keine Messung.** Das Issue
+nannte qwen3:4b mit ~2,6 GB und qwen3:14b mit ~9 GB und sagte selbst
+"bei Umsetzung gegen ollama.com verifizieren". Nachgemessen: 2,5 und
+9,3 GB. Klein, aber es steht auf einem Knopf, auf den jemand mit einem
+knappen Datentarif klickt.
+
+(2) **Der teuerste Befund stand nicht im Issue: der Denkmodus.** Die
+Qwen3-Reihe schreibt in der Vorgabe einen `<think>`-Block vor die
+Antwort. PBPs Auswertungen erwarten die Antwort selbst — eine
+Empfehlung auf die bessere Generation haette die lokale KI still
+schlechter gemacht, und zwar genau fuer die, die der Empfehlung folgen.
+**Bevor eine Empfehlung umgestellt wird, fragen, ob das Empfohlene mit
+dem Rest zusammenarbeitet** — nicht nur, ob es besser ist.
+
+(3) **Zwei Riegel, weil einer allein nicht fuer alle Installationen
+traegt.** `think: false` schaltet den Modus bei aktuellem Ollama ab;
+aeltere Versionen kennen das Feld nicht und liefern den Block trotzdem.
+Deshalb entfernt `ohne_denkblock` ihn zusaetzlich — und zwar nur am
+Anfang. Die Gegenprobe hat gezeigt, dass mein Test das anfangs gar
+nicht pruefte: der Fall "mittendrin" hatte keinen schliessenden Tag und
+blieb auch ohne Anfangspruefung unveraendert. Jetzt steht ein
+geschlossener Block in einer JSON-Antwort als Fall da.
+
+(4) **Warmup und Aufruf muessen identisch sein, auch beim neuen Feld.**
+Das ist die Lehre aus #638 und #787: ein anderer Warmup-Request heisst
+im schlimmsten Fall Neuladen beim ersten echten Aufruf. `think: false`
+steht deshalb in beiden, und beide sind getestet.
+
+(5) **Ein Alt-Test hielt den Modellnamen fest statt der Absicht.**
+beta.14 verlangte "llama" in der Empfehlungsliste — jede Aktualisierung
+des Katalogs haette ihn rot gemacht, ohne dass etwas kaputt waere. Er
+prueft jetzt: eine Empfehlung, und die Liste kommt aus einer Stelle.
+Dritter Fall von v1.7.83 MERKE 7.
+
+(6) **Ehrliche Grenzen, beide benannt.** Ein echter Lauf mit einem
+Qwen3-Modell liess sich nicht pruefen (dafuer haette ein Modell geladen
+werden muessen). Und der Nachfolger-Hinweis im Tab ist ueber den
+Quelltext abgesichert, nicht im Browser: ohne laufendes Ollama zeigt der
+Tab die Variante "nicht erreichbar", und die Modell-Liste rendert gar
+nicht. Beides steht im Changelog.
+
+(7) **Der Wiki-Abschnitt ging einen Release zu frueh raus.** Der lokale
+Commit mit dem #785-Text lag im Wiki-Clone, als der v1.7.96-Push lief —
+`git push` nimmt alle lokalen Commits mit, nicht nur den gemeinten.
+Kein Schaden, weil v1.7.97 unmittelbar folgte, aber **Doku fuer einen
+kommenden Release gehoert erst nach dem vorigen Push committet.**
+
+## Stand 2026-09-13 (v1.7.96 Stable) — Die Firmen, die dich interessieren
+
+**#811**, Befund aus der Quellen-Analyse vom 06.08. **Tests: 4311 /
+4377.** MCP-Tools 240 / 253.
+
+MERKE-Punkte:
+
+(1) **Der Bericht vom August beschrieb den August — die Messung vom
+September hat die Pruefregel umgedreht.** Im Issue lieferte ein
+erfundener Personio-Slug HTTP 200 mit 1,7 MB. Nachgemessen am 13.09.
+endete derselbe Abruf mit **HTTP 429** auf personio.com. Mein erster
+Entwurf pruefte den Status vor dem Host und haette den Fall als "nicht
+erreichbar" gefuehrt, also beim naechsten Lauf wieder gefragt — fuer
+immer. **Entscheidend ist, WO die Antwort endet, nicht WIE.** Der Host
+steht jetzt vor dem Status, und beide Messungen stehen als Test da.
+
+(2) **Zum vierten Mal ein Regler ohne Draht.** `personio_firmen` und
+`workable_firmen` versprachen die Adapter seit #590 im Docstring;
+`build_search_keywords` reichte nur `greenhouse_companies` durch. Kein
+Werkzeug setzte die Schluessel, kein Test rief den Weg bis zum Adapter
+auf. Dieselbe Klasse wie #993, #1000 und #988 — und wie dort sah der
+Docstring nach einer funktionierenden Einstellung aus.
+
+(3) **Ein Adapter, fuer den es keinen Weg mehr gibt, bekommt keine
+Einstellung.** Die Workable-Schnittstelle antwortet selbst fuer
+Workables eigenen Account mit 404; die Quelle ist seit #927 als defekt
+markiert und laeuft nicht. Slugs dafuer zu ermitteln haette Arbeit und
+Anfragen gekostet und nichts bewirkt. Die Messung hat die Frage beendet,
+bevor sie eine Designfrage wurde.
+
+(4) **Die Ableitung aus URLs traegt fast nichts — gemessen, nicht
+vermutet.** Auf einer Kopie des eigenen Bestands zeigen von 2.578
+Stellen-URLs 4 auf Greenhouse und keine auf Personio. Der sichere Weg
+ist also der seltene; der Weg ueber Firmennamen ist der eigentliche und
+muss deshalb geprueft werden, bevor ein Slug zaehlt.
+
+(5) **Keine Aehnlichkeitssuche, mit Absicht.** "Musterbetrieb Nord" wird
+nicht zu "musterbetrieb" gekuerzt: ein falscher Treffer fragte die
+Stellen einer FREMDEN Firma ab und importierte sie unter dem falschen
+Namen. Dieselbe Linie wie #951 (lieber zwei Eintraege als eine falsch
+verschmolzene Stelle).
+
+(6) **Die Gegenprobe fand drei Luecken, und eine davon war ein
+realistischer Fall, den ich nicht bedacht hatte.** Den Personio-Adapter
+auf "nur Status 200" zurueckzudrehen machte nichts rot, weil die
+Weiterleitung auf personio.com HTML liefert und ohnehin am XML-Parsen
+scheitert. Der unterscheidende Fall ist ein **umbenannter Slug, der auf
+das Board einer anderen Firma weiterleitet** — gueltiger Feed, fremde
+Stellen. Ohne Hostpruefung stuenden sie unter dem angefragten Namen im
+Bestand. Zehnter Fall von v1.7.79 MERKE 9.
+
+(7) **Ein Testdoppel ist kein Host.** Drei Alt-Tests aus beta.34 wurden
+rot, weil ein `MagicMock` fuer `url.host` wieder einen Mock liefert und
+der als fremder Host galt. Verglichen wird jetzt nur ein Host, der Text
+ist — eine echte httpx-Antwort hat immer einen. Die Alt-Tests blieben
+unveraendert; die Pruefung ist dadurch nicht schwaecher, das zeigt der
+eigene Umleitungstest in der Gegenprobe.
+
+(8) **Ein Ausfall ist kein Befund ueber den Slug.** Timeout und 5xx
+werden nicht gespeichert, sondern beim naechsten Lauf erneut geprueft —
+dieselbe Regel wie beim Routen-Zwischenspeicher aus #950. Sonst gaelte
+ein schlechter Nachmittag dauerhaft als "diese Firma nutzt kein
+Personio".
+
+## Stand 2026-09-13 (v1.7.95 Stable) — Eine Nachkommastelle, und die Teile ergeben die Summe
+
+**#1035**, Melder-Bericht vom 13.09., beim Pre-Release-Check von v1.7.94
+eingegangen. **Tests: 4271 /
+4337.** MCP-Tools 239 / 252.
+
+MERKE-Punkte:
+
+(1) **`int()` rundet nicht, es schneidet ab — und der Vergleich danach
+erbt den Fehler.** `scores_neu_berechnen` machte aus 18,7 eine 18 und
+verglich abgeschnittene Werte: ein gespeicherter Score von 3,8 gegen eine
+Neuberechnung von 3,0 galt als unveraendert und blieb stehen. Beim Melder
+waren 1.156 von 1.174 Scores ganzzahlig, obwohl die Bewertung Zehntel
+kennt. Dieselbe Bauform stand in `fit_analyse(score_uebernehmen)` und im
+Backtest. **Eine Umwandlung, die in einem Rechenweg sitzt, gehoert an
+jeder Stelle gesucht, die denselben Wert schreibt** — gefunden hat den
+Backtest erst die Suche nach `int(calculate_score`, nicht der Bericht.
+
+(2) **Einzeln runden und dann addieren ist nicht dasselbe wie addieren
+und dann runden.** Fach- und Rahmenwert wurden fuer die Anzeige gerundet,
+die Summe aus den ungerundeten Werten gebildet — zwei Teile, die jeweils
+aufrunden, lagen zusammen ein Zehntel ueber dem Score. Die Aufteilung aus
+#942 soll erklaeren, woher die Punkte kommen; **eine Erklaerung, die nicht
+aufgeht, ist schlimmer als keine**, weil sie am ganzen Score zweifeln
+laesst.
+
+(3) **Die Gegenprobe hat den Test zum Meldefall entwertet.** Der erste
+Test nahm die Zahl aus dem Bericht (11,2 mit Abzug) — mit dem hier
+geltenden Regler-Abzug ergab das zufaellig eine glatte Summe, und die
+Rundung auszubauen machte NICHTS rot. **Ein Meldefall ist eine
+Beobachtung an einer fremden Konfiguration**, kein Testfall. Der Test
+sucht jetzt eine Basis, deren ungerundete Summe wirklich einen Rechenrest
+traegt. Neunter Fall von v1.7.79 MERKE 9.
+
+(4) **Ein Handwert hat keine Aufteilung.** `PUT /api/jobs/{hash}/score`
+setzte nur den Score, die alten Teile blieben stehen und behaupteten eine
+Herkunft, die der neue Wert nicht hat. Jetzt werden sie geleert, und die
+Scoring-Vorschau sagt "keine Aufteilung". Dieselbe Linie wie #1026: ein
+Wert von Hand ist eine andere Aussage als ein berechneter.
+
+(5) **Die Anzeige rundet trotzdem selbst.** Der Server liefert jetzt eine
+Nachkommastelle; `lib/score.js` haelt die Anzeige zusaetzlich fest, und
+ein Guard verbietet rohe `.score`-Ausgaben in JSX. Sechs Stellen gaben den
+Wert roh aus — ein kuenftiger ungerundeter Weg soll nicht wieder als
+Zahlensalat auf der Karte landen.
+
+(6) **Nicht zurueckgehalten: v1.7.94 ging raus, obwohl #1035 waehrend der
+CI hereinkam.** Andere Dimension, der Schaden wuchs durch den Release
+nicht. Eine Beruehrung gab es aber, und die gehoert gesagt: v1.7.94
+empfiehlt nach dem Nachziehen der Fahrstrecken `scores_neu_berechnen()` —
+genau das schnitt Zehntel ab. Deshalb v1.7.95 unmittelbar danach statt in
+der naechsten Welle.
+
+## Stand 2026-09-13 (v1.7.94 Stable) — Wie weit ist es wirklich
+
+**#950 AK 3-6** (Nutzerentscheidung: Schluessel ja) und **#1034**, beim
+Einbau gefunden. **Tests: 4260 /
+4326.** MCP-Tools 239 / 252.
+
+MERKE-Punkte:
+
+(1) **Eine Rechengroesse, eine Stelle, die ueber sie entscheidet.** Die
+Entfernung lesen vier Rechenwege: Basis-Score, Fit-Analyse,
+Scoring-Regler und die Aussortier-Automatik. Jeder davon haette die
+Fahrstrecke selbst waehlen koennen — und beim ersten Vergessen traegt
+dieselbe Stelle wieder zwei Scores (#963). `entfernung.preis_km` waehlt,
+die vier fragen. `distance_km` bleibt die Luftlinie: eine Messung behaelt
+ihre Bedeutung, die Fahrstrecke bekommt eigene Spalten.
+
+(2) **Der Schluessel ist Sache des Menschen, und das bestimmt die
+Bauform.** PBP legt kein Konto an und traegt keinen Schluessel ein, den
+es nicht bekommen hat. Deshalb: Eingabe im Dashboard, gespeichert nur nach
+erfolgreicher Probeanfrage (dasselbe Vorgehen wie Adzuna), und KEIN
+MCP-Parameter dafuer — ein Schluessel, der durch den Chat geht, stuende
+im Gespraechsverlauf. Der Status sagt nur, OB einer gesetzt ist; ein Test
+prueft jede Antwort der drei Endpunkte und des Werkzeugs auf den
+Schluessel.
+
+(3) **Der teuerste Fund war nicht bestellt: der Suchlauf rechnete den
+Score vor der Anreicherung (#1034).** `calculate_score` stand VOR
+Gehaltserkennung, Freelance-Heuristik und Geocoding. Der gespeicherte
+Score einer frisch gefundenen Stelle kannte weder Entfernung noch Gehalt
+noch Anstellungsart; `scores_neu_berechnen` kannte alle drei. Das ist
+#987 an der REIHENFOLGE statt an den Kriterien — und es fiel erst auf,
+weil eine Route an genau derselben Stelle nie in den Score gekommen
+waere. **Beim Einbau einer neuen Eingabe fragen, ob der Rechenweg sie zu
+dem Zeitpunkt ueberhaupt schon sieht.** Dieselbe Reihenfolge stand in
+`stelle_manuell_anlegen`; Ingest und Newsletter reichern nach dem Score
+nichts an.
+
+(4) **Die erste Fassung haette das Kontingent verschenkt.** Die Route
+sass im Geocoding-Block, also VOR Score-Schwelle, Cleanup und Automatik —
+jede Stelle, die zwei Schritte spaeter verworfen wird, haette eine
+Anfrage gekostet. Jetzt nach allen Filtern, und der Score wird fuer die
+gerouteten Stellen neu gerechnet. Ein Test haelt beide Positionen fest.
+
+(5) **Ein Fehlschlag ist keine fehlende Route.** Der Zwischenspeicher
+merkt sich auch "fuer dieses Ziel gibt es keine Route", damit ein
+unerreichbarer Ort nicht jeden Tag neu fragt. Ein abgelehnter Schluessel,
+ein 429 oder ein Timeout duerfen dort NICHT landen — sonst gaelte ein
+voruebergehender Ausfall dauerhaft als "keine Route". Parametrisiert je
+Status.
+
+(6) **Die Schnittstelle erwartet `[lon, lat]`.** Vertauscht laege das
+Ziel im Indischen Ozean, und die Antwort waere trotzdem HTTP 200 mit
+einer Zahl darin. Ein Test prueft die Reihenfolge in der Anfrage, und die
+Gegenprobe hat ihn rot gemacht.
+
+(7) **Die Gegenprobe: 24 Mechanismen, keiner stumm.** Drei der vier
+`preis_km`-Leser waren zuerst nur ueber den Quelltext abgesichert; fuer
+den Basis-Score steht jetzt ein Verhaltensfall daneben (die Fahrstrecke
+kostet wie dieselbe Luftlinie). Ein Guard, der eine Zeichenkette
+verlangt, belegt die Absicht nur, solange niemand den Mechanismus
+anders baut (v1.7.93 MERKE 5).
+
+(8) **Zwei Fehler des Browser-Tests, beide nicht im Produkt.** Ohne
+Profil lag der Einrichtungs-Assistent ueber der Seite und fing den Klick
+ab. Danach wurde der Knopf aus dem DOM geloest und kam gesperrt wieder:
+die Einstellungsseite laedt nach dem ersten Rendern noch einmal nach und
+baut die Karten neu auf, ein zu frueh eingetippter Wert ist dann weg.
+Gewartet wird jetzt auf `networkidle`. **Eine Diagnose-Ausgabe im Test
+(Wert, Knopfzustand, Position) hat beide Ursachen in zwei Laeufen
+gezeigt** — die Fehlermeldung "not stable" allein haette auf ein
+Timing-Problem getippt.
+
+(9) **Ein Platzhalter im eigenen Code, gefunden beim Lesen.** In
+`save_jobs` stand nach dem ersten Entwurf ein Aufruf einer Hilfsfunktion,
+die es nicht gab — ausserhalb jedes `try`. Jeder Speichervorgang waere
+mit NameError umgefallen. Gefunden vor dem ersten Testlauf, weil ich die
+Variablennamen dort nachgeschlagen habe (v1.7.85 MERKE 2: einen Namen
+nachschlagen, nicht voraussetzen).
+
+## Stand 2026-09-13 (v1.7.93 Stable) — Der Filter wirkt auf den Bestand
+
+**#1030, #1032**, zwei Rueckmeldungen vom 13.09. **Tests: 4216 /
+4282.** MCP-Tools 238 / 251.
+
+MERKE-Punkte:
+
+(1) **Ein Filter, der nur auf die geladene Seite wirkt, beantwortet eine
+andere Frage als die, die er stellt.** Der Endpunkt hatte die volle Liste
+in der Hand und schnitt die Seite heraus, bevor jemand filterte — der
+Kommentar dort sagte "sortiert wird im Frontend", und das Frontend kannte
+20 Stellen. "buchhaltung" fand 5 statt 209, und der Hinweis nannte die
+Filter "strenger als noetig". Dieselbe Klasse wie #1022, eine Ebene
+weiter: dort war eine Kennzahl ueber die Seite falsch, hier die Liste.
+
+(2) **Server statt "alles laden", und der Grund ist die Zahl der
+Fassungen, nicht die Datenmenge.** Beide Wege erfuellen die
+Akzeptanzkriterien. Die Ausgeblendet-Ansicht filterte schon im Browser;
+bekaeme nur "Aktive" den Server, gaebe es zehn Filter in Python und in
+JavaScript. **Bei "machen wir das im Frontend oder im Backend" zuerst
+fragen, ob danach eine oder zwei Fassungen der Regel existieren** — das
+ist #963 als Architekturfrage statt als Fundstelle.
+
+(3) **Die Sortierung des Protokolls hat nie gewirkt.** `protokollListe`
+sortierte nach `dismissed_at`, danach sortierte `filteredJobs` dieselbe
+Liste nach dem gewaehlten Kriterium — Vorgabe Score. Die Reihenfolge aus
+#1010 hielt nur bei gleichem Score, und ein Guard pruefte, dass im
+Vorsortier-Block `dismissed_at` steht. **Er war gruen, weil er die
+Zeichenkette pruefte und nicht die Reihenfolge.** Gefunden erst beim
+Umzug, weil dabei klar sein musste, welche Ordnung der Server liefern
+soll.
+
+(4) **Zwei Fassungen von "beworben", gefunden beim Zusammenfuehren.** Der
+Browser kannte `abgelehnt, zurueckgezogen, abgelaufen`, die Datenbank
+dazu `arbeitgeber_ausgefallen` (#779). **Und genau dieser Unterschied
+machte in der Gegenprobe zuerst nichts rot** — mein Endpunkt-Test legte
+nur eine Bewerbung mit Status "beworben" an. Achter Fall von v1.7.79
+MERKE 9, jetzt mit isolierendem Fall.
+
+(5) **Neun Alt-Guards hielten den MECHANISMUS fest, nicht die Absicht.**
+`typeMatch && umfangMatch`, `a.muss_tor ? 1 : 0`, `job.pruefstand?.art`,
+`currentList.length - filteredJobs.length` — alles Zeichenketten im
+Browser. Keiner wurde geloescht: jeder prueft seine Absicht jetzt am
+Dienst, und dazu, dass der Browser die Regel NICHT wieder selbst rechnet.
+**Ein Guard, der eine Zeichenkette verlangt, verhindert den Umzug, den er
+schuetzen soll** — v1.7.83 MERKE 7 zum dritten Mal.
+
+(6) **Ein Browser-Test mass das Timing eines Knopfes.** Der #1022-Test
+klickte "Mehr laden"; mit dem neuen Nachladen beim Scrollen war der Knopf
+schon wieder weg, und der Klick lief 30 Sekunden ins Leere. Gewartet wird
+jetzt auf den ZUSTAND (alle Karten im DOM) — und damit prueft der Test das
+Nachladen beim Scrollen gleich mit. Die Warnung davor stand im Test
+selbst ("auf den ZUSTAND warten, nicht auf eine Dauer"); ein Bedienelement
+ist nur eine andere Form von Dauer.
+
+(7) **Ein reines Datum ist ein Ortsdatum.** `new Date("2026-09-01")` liest
+Mitternacht UTC; westlich von UTC waere es der Vortag. Nur die
+Bundesagentur liefert das Feld, also waere es niemandem aufgefallen, der
+hier sitzt. Der Test prueft `getDate()` und `getHours()`, nicht die
+formatierte Zeichenkette — die waere in UTC+2 zufaellig richtig.
+
+(8) **Kleiner Fund am Rand: `||` bei einer Groesse, die 0 sein darf.**
+"Alle" als Seitengroesse ist 0, und `options?.pageSize || jobsPageSize`
+fiel auf den alten Wert zurueck, weil der State beim Aufruf noch nicht
+umgestellt war. Dieselbe Klasse wie `dict.get` mit Vorgabe bei NULL
+(v1.7.60 MERKE 1): ein Rueckfall, der einen gueltigen Wert fuer "fehlt"
+haelt.
+
+(9) **Die CI war rot, und die Ursache stand in meiner eigenen Notiz.**
+Beim Umbau hatte ich zwei Browser-Tests als gefaehrdet notiert: sie
+pruefen `count() == 0` direkt nach dem Klick auf einen Filter, und das
+traegt nur, solange der Browser SYNCHRON filtert. Lokal waren beide
+gruen — der Server antwortete schneller als die Pruefung —, also habe
+ich sie nicht umgestellt. Auf dem Linux-Runner kam die Antwort spaeter,
+beide rot, der Tag blieb zurueck. **Eine notierte Gefahr, die lokal nicht
+eintritt, ist nicht erledigt, sondern ungeprueft.** Belegt wurde die
+Umstellung erst mit einer kuenstlich um 1,5 s verzoegerten
+Server-Antwort (beide gruen, Laufzeit 10 s -> 32 s, die Verzoegerung hat
+also gegriffen). Das ist v1.7.83 MERKE 8 zum dritten Mal: ein Test, der
+auf das Timing statt auf den Zustand wartet, misst den Rechner.
+
+(10) **Ein Doku-Skript, das sofort schreibt, hinterlaesst bei einem
+Abbruch einen halben Stand.** Die README war schon umgestellt, als die
+Zusicherung am Stand-Block anschlug — der Platzhalter stand ueber einen
+Zeilenumbruch verteilt (`STABLE_ZAHL /` am Zeilenende, `MAIN_ZAHL.`
+darunter) und wurde als EIN String gesucht. Ein zweiter Aufruf waere an
+den schon geaenderten README-Ankern gescheitert. Die Zusicherung hat
+getragen, nur zu spaet: **erst alle Pruefungen, dann alle Schreibvorgaenge**
+— oder jeder Schritt erkennt, dass er schon gelaufen ist.
+
+## Stand 2026-09-13 (v1.7.92 Stable) — Ein Wort ist kein Fachgebiet
+
+**#1028**, Melder-Bericht vom 13.09. **Tests: 4180 / 4246.**
+MCP-Tools 238 / 251.
+
+MERKE-Punkte:
+
+(1) **Eine Stoppwortliste in Umschrift gegen einen Tokenizer mit
+Umlauten.** `_TITLE_STOPS` fuehrte "fuer", `_domain_tokens` zerlegt mit
+`[a-zäöüß0-9]+` und behaelt "für". Der Eintrag stand seit #671 da und
+hat nie gegriffen. Das ist v1.7.53 (#956) an einer neuen Stelle: **eine
+Liste findet nur die Schreibweise, in der sie steht.** Die Abhilfe ist
+deshalb keine zweite Schreibweise je Wort, sondern ein Vergleich, der
+beide umschreibt — sonst haengt die Liste beim naechsten Eintrag wieder
+an der Schreibweise.
+
+(2) **Der Docstring versprach genau das, was nicht geschah.**
+`find_titel_muster` sagt *"ein einzelnes geteiltes Allerweltswort
+genuegt nicht"* — und genau das genuegte. Die Schnittmenge ueber alle
+Belege hielt, weil "für" in jedem deutschen Titel steht. **Eine
+Schutzregel ueber eine Schnittmenge ist nur so gut wie das, was in die
+Menge darf.**
+
+(3) **Ein Platzhalter ist ein fehlender Wert, der wie ein vorhandener
+aussieht.** "Nicht angegeben" ist nicht leer, also galt es als Firma,
+und zwar als DIESELBE fuer alle Stellen ohne Angabe quer ueber alle
+Quellen. Das ist #989 in Reinform: fehlende Information wirkt wie ein
+Befund. Und in Stufe 2 war die Folge unsichtbar: `ignorieren`
+speichert die Stelle gar nicht, es gibt keine Spur und keine
+Rueckholung.
+
+(4) **Die Regel sitzt dort, wo alle Aufrufer schon fragen.** Alle fuenf
+Aufrufer von `normalize_company` pruefen auf einen leeren Namen.
+Gibt die Funktion fuer einen Platzhalter leer zurueck, bekommen
+Wiedergaenger, Stufe 2, Firmen-Historie, Dokument-Zuordnung und
+Interview-Vollstaendigkeit die Regel ohne eigene Zeile. Der Pruefer
+`issue_text_pruefen` fragt dieselbe Menge — **zwei Stellen, die "keine
+Firma" verschieden definieren, waeren der naechste Bericht.**
+
+(5) **Die Gegenprobe fand wieder eine Testluecke, und zwar an der
+Stelle, die ich selbst als Vorsicht eingebaut hatte.** Die
+Bestandskorrektur liest die gemeinsamen Woerter aus der Notiz, und die
+Notiz kuerzt sie auf vier. Stehen dort vier Fuellwoerter, kann ein
+fuenftes, echtes Fachwort dahinter gestanden haben — also holt der Lauf
+dann nichts zurueck. Diese Grenze auszubauen machte zuerst NICHTS rot.
+Jetzt steht ein isolierender Fall da; zehn Mechanismen, zehnmal rot.
+Siebter Fall von v1.7.79 MERKE 9.
+
+(6) **Die Gegenrichtung gehoert in denselben Test** (#966, #991 MERKE 3).
+Neben "Sachbearbeitung für die Buchhaltung bleibt aktiv" steht "drei
+CRM-Stellen tragen das Muster weiter", neben "Platzhalter sind nicht
+dieselbe Firma" steht "eine echte gleiche Firma bleibt in Stufe 2", und
+"Unbekannt Software GmbH" bleibt eine Firma. Eine Haertung, die nur in
+eine Richtung gemessen ist, kann die Automatik auch still abschalten.
+
+(7) **"Vollzeit" und "Quereinsteiger" sind mit hineingekommen, ohne im
+Bericht zu stehen.** Der Umfang ist seit #1023 ausdruecklich keine
+Aussage ueber die Art der Stelle, und "Vollzeit" steht in einem grossen
+Teil aller Titel — es haette nach "für" die naechste Scheinueberlappung
+getragen.
+
+(8) **Zum sechsten Mal die Heredoc-Falle** (v1.7.24 MERKE 4), diesmal
+beim Wiki-Plan-Skript: aus `(?<!\\)` wurde `(?<!\)`, obwohl der Heredoc
+in Anfuehrungszeichen stand. Geschrieben wurde nichts, das Skript brach
+an der Regex ab. **Und die Kette dahinter zeigte einen falschen Wert:**
+`a && b ; echo $?` gibt den Exit-Code von `a` aus, wenn `a` scheitert —
+"guard=1" stammte vom Skript, der Guard lief nie. Skripte gehoeren als
+Datei geschrieben, Backslashes als `chr(92)`, und ein Exit-Code wird
+direkt nach dem Kommando gelesen, das er meinen soll.
+
+## Stand 2026-09-13 (v1.7.91 Stable) — Die richtige Zahl am richtigen Ort
+
+**#1031, #1033, #1029**, drei Melder-Berichte vom 13.09. **Tests:
+4140 / 4206.** MCP-Tools 238 / 251.
+
+MERKE-Punkte:
+
+(1) **Ein Schluessel, den niemand schreibt, liefert still eine Null.**
+`/api/jobsuche/last` las `neue_stellen`; der Suchlauf schreibt `total`.
+Der Name kam im ganzen Code genau EINMAL vor — beim Leser. Dieselbe
+Klasse wie das `chrome`-Feld aus #993, und der Timeout-Zaehler daneben
+suchte seinen Status in einem Dict, das nur Zahlen traegt. Dazu zwei
+Zustaende, die ebenfalls als "0 neue Stellen" erschienen: ein
+abgebrochener Lauf und einer ohne Suchbegriffe (#967). **Vier Lagen,
+eine Anzeige — und keine davon war falsch geschrieben, sondern falsch
+gelesen.**
+
+(2) **Das Muster allein haette #1031 AK 4 nicht erfuellt, und das zeigte
+nur die Gegenprobe.** `stellen_merkmale_nachziehen` schreibt den
+erkannten Umfang in `arbeitsumfang` — und `umfang_erkennen` liest dieses
+Feld beim naechsten Lauf als Angabe der QUELLE, mit Vorrang vor dem
+Titel. Ein einmal gespeichertes `teilzeit` bestaetigte sich damit
+selbst. **Ein Werkzeug, das sein Ergebnis dorthin schreibt, wo es seine
+Eingabe liest, kann sich nicht mehr korrigieren** — dieselbe
+Selbstbestaetigung wie bei der Auto-Aussortierung in #1020.
+
+(3) **Der Vorschlag aus dem Issue war eingebaut und musste wieder raus.**
+Eine linke Wortgrenze vor "Gehalt" sollte "Jahresgehalt" aus der
+Monatsart halten. Die Gegenprobe machte ohne sie NICHTS rot (die
+Umfeld-Sperre deckt den Fall ab) — und beim Suchen nach dem Grund kam
+heraus, dass `\bgehalt` "Einstiegsgehalt", "Fixgehalt" und "Zielgehalt"
+nicht mehr trifft. **Eine Gegenprobe, die nichts rot macht, kann auch
+heissen: der Mechanismus ist nicht nur ueberfluessig, sondern
+schaedlich.** Sechster Fall von v1.7.79 MERKE 9, und der erste, in dem
+die Antwort "ausbauen" statt "Test ergaenzen" war.
+
+(4) **Die Monatssperre machte zuerst ebenfalls nichts rot**, und hier war
+es wirklich eine Testluecke: mit der gesenkten Jahres-Untergrenze gewinnt
+der Jahreswert ohnehin ueber die Rangfolge. Der isolierende Fall liegt
+unter BEIDEN Jahresgrenzen ("Gehalt: 5.000 EUR im Jahr") — dort wird
+ohne Sperre 60.000 daraus.
+
+(5) **Eine kaputte Kurz-Kennung war als Eingabe gefaehrlicher als als
+Ausgabe.** `[:8]` auf einen gespeicherten Hash ergibt den
+Profil-Praefix. `_find_job_row` hat fuer kurze Eingaben einen Rueckfall
+OHNE Praefix — `hash LIKE '<kurz>%'` passte damit auf jede Stelle des
+Profils, und `LIMIT 1` nahm irgendeine. Ein Aufrufvorschlag wie
+`stelle_bewerten('<kennung>', ...)` aus einer Werkzeugantwort haette eine
+beliebige Stelle bewertet. **Gefunden beim Nachsehen, ob die korrigierte
+Kennung als Eingabe funktioniert** — nicht gemeldet.
+
+(6) **Eine Funktion, die fuer beide Formen richtig ist, erspart das
+Raten an jeder Fundstelle.** Ob an einer `[:8]`-Stelle ein gespeicherter
+oder ein oeffentlicher Hash ankommt, laesst sich nicht ueberall sicher
+sagen. `kurz_job_kennung` nimmt den Teil nach dem Doppelpunkt — fuer
+einen oeffentlichen Hash ist das `[:8]`. Ein Guard verbietet die Bauform
+statt Fundstellen abzuzaehlen.
+
+(7) **Zwei Testfehler waren Fehler der Fixture.** Meine Hashes
+`k1029stelle0/1/2` teilten die ersten acht Zeichen — die Kurz-Kennung
+war zu Recht dreimal dieselbe. Und im #1031-Test stand zweimal eine
+Spalte `umfang`, die `arbeitsumfang` heisst; einmal korrigiert, einmal
+uebersehen. **Beim Korrigieren eines Namens alle Vorkommen in der Datei
+suchen, nicht nur das, an dem der Fehler gerade auftrat.**
+
+(8) **Nachgemessen statt angenommen:** alte gegen neue Gehaltserkennung
+ueber 1.380 Anzeigen der Kopie — 0 weg, 0 neu, 1 korrigiert (eine
+gerechnete Spanne wird zur genannten). Die Zahlen des Melders (90 Faelle
+"X € bis Y €") liessen sich nicht nachstellen: 1 im hiesigen Bestand, und
+die Kopie ist aelter als seine 368 nachgeladenen Beschreibungen.
+
+(9) **Zum fuenften Mal die Heredoc-Falle** (v1.7.24 MERKE 4), diesmal
+an einem Suchtext mit `\n` in einem Anpass-Skript: 0 Treffer, weil die
+Shell die Backslashes umgedeutet hatte. Die Assertion im Skript hat es
+gefangen; umgestellt hat es das Edit-Werkzeug.
+
+## Stand 2026-09-12 (v1.7.90 Stable) — Nichts wird still abgeschnitten
+
+**#787 Teil 1** (F32 auf 🟨). **Tests: 4085 / 4151.**
+MCP-Tools 238 / 251.
+
+MERKE-Punkte:
+
+(1) **Ein fehlender Parameter wirkte wie ein Ergebnis.** Ohne `num_ctx`
+nahm Ollama sein eigenes Vorgabefenster und schnitt einen laengeren
+Prompt STILL ab. Das Modell bewertete einen Torso, und die Antwort sah
+aus wie jede andere. Das ist #756 ("auf Titel-Basis geraten") eine
+Ebene tiefer: dort fehlte die Eingabe, hier fehlte ein Teil davon, ohne
+dass es irgendwo stand.
+
+(2) **Ein fester Wert, weil ein mitwachsender den Warmup entwertet.**
+Aendert sich `num_ctx` zwischen zwei Aufrufen, laedt Ollama das Modell
+neu — genau der Kaltstart von 50-60 Sekunden, gegen den #638 den Warmup
+gebaut hat. Die naheliegende Loesung (je Prompt passend waehlen) haette
+also fast jeden Aufruf zu einem Neuladen gemacht. Und der Warmup schickt
+DENSELBEN Wert; mit einem anderen haette er gewaermt und der erste
+echte Aufruf trotzdem neu geladen.
+
+(3) **Die Vorgabe kam aus einer Messung, und die Messung hat sich
+selbst zweimal korrigiert.** Erste Fassung: jedes Payload-Feld auf
+44.000 Zeichen — drei Builder schienen unbegrenzt (184.770 Zeichen).
+Nachgelesen waren das Dateiname, Titel, Firma und eine Kategorienliste,
+die Zeichen fuer Zeichen verbunden wurde. **Eine Messung, die jedes
+Feld gleich behandelt, misst die Messung.** Realistisch liegt der
+groesste Prompt bei rund 5.000 Zeichen, Elwosa am echten Bestand bei
+4.100 — daher 8.192.
+
+(4) **Zwei Pruefungen, die nachweislich nicht redundant sind.** Die
+Schaetzung aus der Zeichenzahl haelt einen sicher zu langen Prompt
+zurueck; `prompt_eval_count` aus der Antwort ist die GEMESSENE Zahl des
+Modells und verwirft eine Antwort am Fensterrand. Gegenprobe: Vorab aus
+-> 2 rot, Nachher aus -> genau 1 rot (der Fall mit kurzem Prompt und
+vollem Kontext), Fenster im Aufruf aus -> 4, im Warmup aus -> 2, Grund
+im Ausweichweg aus -> 1.
+
+(5) **Die sechste Gegenprobe hat den Builder-Guard entwertet, bevor er
+etwas belegt hat.** Eine auf 30.000 angehobene Kappung blieb gruen,
+weil meine "realistischen Hoechstwerte" die Textfelder nur auf 20.000
+Zeichen setzten — kuerzer als der Fall, den der Guard finden soll.
+Jetzt 60.000, und dieselbe Probe wird rot. Fuenfter Fall von v1.7.79
+MERKE 9: **eine Gegenprobe, die nichts rot macht, ist ein Befund ueber
+die Tests.**
+
+(6) **Ein zu breiter Guard, zum wiederholten Mal.** Mein erster Test
+zaehlte jedes `"num_ctx":` in der Datei und fand ein drittes im
+Merkzettel `letzter_aufruf`. Gezaehlt wird jetzt nur innerhalb der
+`options` eines Request-Bodys (v1.7.83 MERKE 8).
+
+(7) **Der Grund steht im Ausweichweg — und NUR dann.** Ein zu kleines
+Fenster sah vorher aus wie eine ausgefallene KI. Ein anderer lokaler
+Fehler (Verbindung weg) behauptet dagegen keinen Kontextgrund; auch das
+steht als Test da, sonst waere die Meldung nach dem zweiten Fehlalarm
+wertlos (#929).
+
+(8) **Bewusst nur Teil 1.** Structured Outputs (JSON-Schema statt der
+Freitext-Parser) und Modell-Routing je Aufgabentyp sind Umbauten, keine
+Fehlerbehebung; #787 bleibt offen, F32 auf 🟨 (DoD 8a).
+
+## Stand 2026-09-12 (v1.7.89 Stable) — Die Antwort, nicht nur die Frage
+
+**#1027**, eigener Nebenbefund aus #1025 Stufe 2. **Tests: 4061 /
+4127.** MCP-Tools 237 / 250.
+
+MERKE-Punkte:
+
+(1) **Zwei korrekte Bausteine, ein falsches Paar.** `Field` wickelt in
+ein `<label>` — fuer native Eingabefelder richtig. `SelectInput` ist
+ein `<button>` — fuer ein Panel mit Portal richtig. Zusammen gewinnt
+das Label gegen den Knopfinhalt, und der Name nennt die Frage statt der
+Antwort. **Keiner der beiden war fuer sich fehlerhaft**, deshalb haette
+eine Pruefung je Baustein nichts gefunden. Dieselbe Klasse wie v1.7.34
+MERKE 10: zwei Issues, die sich gegenseitig einen Fehler bauen — hier
+zwei Komponenten.
+
+(2) **Die Beschriftung bleibt im Namen.** Der naheliegende Fix (nur den
+Wert ansagen, oder `aria-label` je Aufrufer) haette das Problem
+umgedreht: Wert ohne Frage, oder ein fester Text statt des Werts. Der
+Name ist jetzt `aria-labelledby` aus Beschriftung UND Wert; die Kennung
+der Beschriftung kommt per Kontext, damit `Field` nicht wissen muss,
+was sein Kind ist.
+
+(3) **Gefunden hatte es ein Test, der die Auswahl wirklich bedienen
+musste** — und der Test stand danach mit einem Workaround da. Der ist
+jetzt weg, und genau dieser Test ist der Beleg: er spricht das Feld
+ueber den Namen an, wechselt den Wert und prueft, dass der Name
+mitwandert. **Ein Workaround im Test, der auf ein Issue verweist, ist
+ein Akzeptanzkriterium, das schon geschrieben ist.**
+
+(4) **Die Gegenprobe war eindeutig**: Name abgeschaltet -> genau die
+Namenspruefung rot (`0 == 1`), nach der Ruecknahme gruen. Zurueckgenommen
+per gezieltem Edit, nicht per `checkout` (v1.7.86 MERKE 9), und der
+Asset-Hash nach dem Neubau war derselbe wie vorher.
+
+(5) **Nebenbei ein Timing-Fehler im #1022-Test**, und zwar einer, den
+v1.7.83 MERKE 8 schon beschreibt: er mass die Kennzahl-Karten, sobald
+der TEXT "Aktive Stellen" im DOM stand, also vor den Karten. Allein
+gruen, in der vollen Suite rot. Jetzt wird auf die Karten gewartet.
+**Eine notierte Lehre schuetzt den Test nicht, an dem sie gelernt
+wurde, wenn nur eine von zwei Wartestellen umgestellt wurde.**
+
+## Stand 2026-09-12 (v1.7.88 Stable) — Wer kann was ueber mich sagen
+
+**#884** (D24, ersetzt #740). **Tests: 4056 / 4122.** MCP-Tools
+237 / 250.
+
+MERKE-Punkte:
+
+(1) **Der Plan-Eintrag war zwei Monate alt und trotzdem richtig.** D24
+stand seit dem 02.07. mit einer Vorab-Analyse im Plan: eigene Tabelle
+statt `contact_links` (harte `target_kind`-Whitelist, NOT-NULL-Ziel,
+keine Felder fuer Art und Zeitraum), Stolpersteine Schema-Paritaet,
+Routen-Reihenfolge unter `/api/contacts/{id}` (#578), Verhaeltnis zur
+Kategorie `referenz`, Maskierung im Export. Alle vier Punkte haben
+getragen. **Eine gute Vorab-Analyse spart nicht die Arbeit, sondern
+die falschen Abzweigungen.** Veraltet war nur die Schema-Nummer: seit
+v1.7.10 kommen additive Tabellen als Safety-Net ohne Bump.
+
+(2) **Die Maskierung der Kontaktdaten ist die Vorgabe, nicht die
+Option.** Die Liste geht an Dritte. Mail und Telefon einer Person
+weiterzugeben ist eine Entscheidung je Liste — eine Vorgabe "mit
+Kontaktdaten" haette sie beim ersten Klick fuer den Menschen
+getroffen. Dieselbe Linie wie Ollama-Autostart AUS (#1001).
+
+(3) **Tabelle ist Quelle, Kategorie ist Etikett — und das Etikett wird
+beim Entfernen NICHT abgenommen.** Die naheliegende Symmetrie
+(Markierung weg -> Etikett weg) haette ein von Hand gesetztes Etikett
+still geloescht. #988 in der Gegenrichtung: nicht eine Einstellung
+ohne Wirkung, sondern eine Wirkung ohne Einstellung.
+
+(4) **Die Gegenprobe traf je Mechanismus eigene Tests.** Art-Pruefung
+aus -> 3 rot, Etikett aus -> 1, Bezugspruefung aus -> 1, Kontaktdaten
+immer drin -> 1. Keiner der vier war redundant abgesichert.
+
+(5) **Der erste Lauf des Browser-Tests scheiterte am Test.** Der
+Locator auf "Projektpartner" traf den Listeneintrag UND die
+gleichlautende `<option>` im Auswahlfeld. Die Referenz war zu diesem
+Zeitpunkt laengst angelegt. Dritter Fall nach v1.7.83 MERKE 8: **ein
+zu breiter Locator misst den Test, nicht den Code.**
+
+(6) **Beide Patch-Versuche per Heredoc sind an der Shell gescheitert,
+bevor Python lief** — einmal mit `'''`-Bloecken im Python, einmal mit
+JSX-Backticks. Nichts wurde geschrieben, weil die Shell abbrach. Die
+Patches liegen deshalb als Dateien im Scratchpad und laufen mit
+`python datei.py`; jede Ersetzung prueft vorher `count(alt) == 1`.
+**Das ist die sichere Form fuer grosse Patches** — sie umgeht die
+Heredoc-Falle (v1.7.24 MERKE 4) ganz, statt sie zu entschaerfen.
+
+(7) **Natives `<select>` statt `SelectInput` in der neuen Ansicht**,
+wegen #1027. Die gemeinsame Komponente zu reparieren gehoert in jenes
+Issue; hier wurde nur vermieden, den Fehler an zwei weiteren Stellen
+einzubauen.
+
+## Stand 2026-09-12 (v1.7.87 Stable) — Der Mengenweg deckt den haeufigen Fall ab
+
+**#1016**, Nachtrag zu #1014. **Tests: 4027 / 4093.** MCP-Tools
+232 / 245.
+
+MERKE-Punkte:
+
+(1) **Das Werkzeug trug den Namen fuer den Mengenweg und beantwortete
+nur den Altfall.** `beschreibungen_nachladen_bestand` waehlte ueber
+`ist_gekappt()`, also `len(text) == 2000` — gebaut fuer #952 ("Text
+da, aber halb"). Eine Stelle GANZ OHNE Text hat `len 0` und fiel durch
+das Raster. Gemeldet als `geprueft: 984, betroffen: 0` samt "nichts zu
+tun", waehrend 370 textlose Stellen danebenlagen. **Ein Name, der eine
+Frage verspricht, die das Werkzeug nicht beantwortet, ist teurer als
+ein fehlendes Werkzeug** — man sucht danach nicht weiter.
+
+(2) **Die Entwarnung war RICHTIG und trotzdem irrefuehrend.** "Kein
+aktiver Anzeigentext ist exakt 2000 Zeichen lang" stimmt. Sie gilt nur
+fuer einen Teil der Frage, und das stand nicht dabei. Jetzt nennt sie,
+was der ANDERE Umfang faende. Verwandt mit #995 ("liefert nichts" und
+"liefert nichts Passendes" waren dieselbe Zahl) und #1022.
+
+(3) **Die Messung hat die Auswahlbedingung entschieden, nicht das
+Nachdenken.** Ueber alle 2.578 Stellen: 1.198 (46,5 %) ohne
+brauchbaren Text — davon nur **549 wirklich NULL**, die uebrigen 649
+tragen einen Stummel von 13 bis 46 Zeichen. **Eine Pruefung auf
+`IS NULL` haette mehr als die Haelfte uebersehen.** Deshalb die
+Laengenbedingung aus dem Auto-Refetch und `MIN_BESCHREIBUNG` aus dem
+Nadeloehr (#989) statt einer achten getippten 50.
+
+(4) **Ein Parameter statt eines Austauschs — und die Zahl sagt warum.**
+Beim Melder: 0 gekappte Stellen. Hier: 800. Beide Faelle sind echt,
+also waere jede Entscheidung fuer EINE Regel fuer irgendeinen Bestand
+falsch. Das ist dieselbe Ueberlegung wie beim MUSS-Tor in #968: zwei
+Nutzer, dieselbe Mechanik, entgegengesetzte richtige Antwort.
+
+(5) **Der Befund wurde geholt und weggeworfen.** Der Mengenweg rief
+seit v1.7.70 schon `nachladen.beschreibung_holen(...)` — und griff sich
+`.text` heraus. Danach wusste er nicht mehr, WARUM nichts kam. Das ist
+DoD 8c im Kleinen: **der Mechanismus war da, sein Ergebnis wurde
+verworfen.** Dazu stand ein ungenutzter Import von
+`fetch_description_from_detail` daneben, also der Weg, den #1014
+gerade abgeloest hatte.
+
+(6) **`weg` sortiert aus, `geblockt` nicht.** Ein 404/410 ist eine
+Aussage ueber die Anzeige, ein 403 eine ueber diesen Moment. Beide
+gleich zu behandeln waere in der einen Richtung eine unnoetige
+HTTP-Last, in der anderen ein falscher Ausschluss — und der ist
+teurer (#827). Beide Richtungen stehen als Test da (#966).
+
+(7) **Der #1014-Guard hat beim ersten Lauf gegriffen.** Mein
+Hinweistext erklaerte, was `lebt_unlesbar` bedeutet — und wiederholte
+dabei den Satz "Login-Wall oder Bot-Block", der ausschliesslich dorthin
+gehoert, wo der Dienst ihn formuliert. Der Guard ist die Spezifikation,
+nicht das Hindernis: der Klartext steht jetzt nur in
+`services/nachladen`, und die Antwort verweist auf
+`befunde_klartext`. **Ein Alt-Test, der einem im Weg steht, ist zuerst
+zu lesen** (v1.7.72 MERKE 5, jetzt an einem Guard statt an einer
+Schwelle).
+
+(8) **Der Cherry-Pick brachte einen 1.8-only-Aufruf mit.**
+`set_description_snapshot_if_empty` (C23/#687) gibt es auf der
+1.7-Linie nicht, und der Einzelweg ruft ihn dort ebenfalls nicht — der
+Mengenweg waere beim ersten Lauf mit einem AttributeError umgefallen.
+Gefunden hat es die volle Suite auf der Stable-Linie, nicht die
+Konfliktmeldung (es gab keinen Konflikt). Das ist v1.7.47 MERKE 6
+woertlich: **beim Port die SIGNATUREN der aufgerufenen Funktionen
+abgleichen, nicht nur den Code.**
+
+(9) **Ein Test von v1.7.85 ist auf dem Linux-Runner umgefallen und
+lokal nie.** `assert 7 == 8` ueber die Zeilenzahl in `jobs`, waehrend
+derselbe Test lokal fuenfmal in Folge und in der vollen Suite gruen
+war. Die fehlende Zeile war schon VOR dem Endpunktaufruf nicht in der
+Tabelle — mit der geprueften Sache hatte das nichts zu tun. Die
+Erwartung kommt jetzt aus der DATENBANK: der Endpunkt soll sagen, was
+dort steht, und genau das prueft der Test. Faellt das Speichern erneut
+aus, schlaegt die erste Zusicherung an und zeigt auf `save_jobs` statt
+auf die Vorschau. **Eine feste Zahl im Test macht aus einem Befund
+ueber A einen Fehlalarm ueber B.**
+
+(10) **Der Testdoppel patcht den Abruf, nicht den Parser.** Sieben
+Alt-Tests des Refetch-Pfades hatten das umgekehrt gemacht und waeren
+auf einem Runner ohne Netz zu echten HTTP-Aufrufen geworden (v1.7.70
+MERKE 4). Hier ersetzt ein `monkeypatch` auf
+`nachladen.beschreibung_holen` das Netz vollstaendig, und je Fall
+steht ein eigener Befund bereit.
+
+## Stand 2026-09-12 (v1.7.86 Stable) — Die Uhrzeit kommt aus dem Text
+
+**#1019**, Nutzer-Issue vom 11.09.2026. **Tests: 4010 / 4076.**
+MCP-Tools 232 / 245.
+
+MERKE-Punkte:
+
+(1) **Dieselbe Wortgrenze, dritter Fundort.** `\b` oeffnet auch
+HINTER einem Doppelpunkt: in `Datum: 2026-09-10T14:43:25` setzte
+`\b\d{1,2}:\d{2}` dort neu an und las `43:25` als Uhrzeit. Nach "p.a."
+ohne rechte Grenze (#1018), "Eur" in "Europastr." (#1026) und
+"intern" in "International" (#1015) ist das der vierte Fall der
+Wortgrenzen-Klasse — und der erste, bei dem die Grenze nicht zu WEIT
+war, sondern an der falschen STELLE aufging.
+
+(2) **Zwei Riegel, und sie sind nachweislich nicht redundant.** Das
+ist der Ertrag der Gegenprobe: Kopf-Abschnitt aus -> 10 rot, aber der
+MELDEFALL bleibt gruen (der Pruefer faengt `43:25` ab). Pruefer aus ->
+7 rot, aber der Kopf-Fall bleibt gruen. Der isolierende Test ist
+`test_eine_gueltige_uhrzeit_im_kopf_wird_trotzdem_nicht_genommen`:
+aus `...T09:15:30` liest dieselbe Mechanik `09:15` — eine
+einwandfreie Tageszeit, die trotzdem der Sendezeitpunkt ist. **Ohne
+den Kopf-Riegel waere dieser Fehler still.** Vierter Fall nach
+v1.7.79, v1.7.81 und v1.7.82: zwei Fixes, die denselben Fall
+abdecken, belegen einander nicht.
+
+(3) **Der Nebenbefund wiegt fast so schwer wie der gemeldete, und er
+kam aus der Messung.** Das DATUM war nur um ein Zeichen richtig:
+hinter der `10` in `2026-09-10T14:43:25` steht ein `T`, und daran
+scheitert das Datums-Muster. Nachgemessen:
+`'Datum: 2026-09-10 14:43:25'` (Leerzeichen statt `T`, die uebliche
+Form vieler Mailprogramme) -> `['2026-09-10']`. Dasselbe Dokument
+haette damit das SENDEDATUM als Termindatum geliefert. Der Bericht
+nennt nur die Uhrzeit. **Wer einen Bericht nachmisst, findet mehr als
+das Gemeldete** (v1.7.79 MERKE 4, zum zweiten Mal).
+
+(4) **Der Wert kommt jetzt in Maschinenform heraus.** Am Bestand
+gemessen trug er einmal einen Zeilenumbruch (`'43:47\n'`) und zweimal
+einen Nachsatz (`'14:00 Uhr'`). Er wandert als Argument in
+`termin_anlegen` — **ein Maschinen-Argument gehoert in
+Maschinenform**, und dass es das nicht war, stand in keinem Bericht.
+
+(5) **Gesucht wird weiter, nicht abgebrochen.** Meine erste Fassung
+haette beim ersten Treffer aufgehoert; ein Unsinnstreffer weiter vorn
+(eine Referenznummer etwa) haette dann die richtige Angabe dahinter
+verschluckt, und das Ergebnis waere LEER statt richtig gewesen. Als
+eigener Test festgehalten.
+
+(6) **Verworfen statt korrigiert.** Bei `43:25` weiss niemand, was
+gemeint war — 04:32? 14:25? Ein Ersatzwert waere eine erfundene Angabe.
+Dieselbe Grenze wie beim fehlenden Monat in #1006 und beim
+Hand-Gehalt in #1026.
+
+(7) **Das Zitat schneidet `strip_quoted_reply` aus #922 ab**, nicht
+eine zweite Fassung davon. Dort war es dieselbe Wurzel (Phantom-
+Termine aus zitierten Sendezeiten), und eine eigene Fassung waere das
+Muster gewesen, das dieses Projekt siebzehnmal gekostet hat. Ein Test
+prueft den AUFRUF, nicht das Verhalten allein.
+
+(8) **Die Kopf-Erkennung ist eine Liste bekannter Feldnamen, keine
+Regel ueber Doppelpunkte.** "Termin:" und "Ort:" mitten im Text sind
+keine Kopfzeilen — eine Regel "alles vor dem ersten Doppelpunkt"
+haette den halben Text weggeworfen. Und ohne Kopfblock (PDF, DOCX,
+Freitext) bleibt der Text unveraendert: derselbe Extraktor sieht auch
+Dokumente, die nie eine Mail waren.
+
+(9) **Ein `git checkout -- <datei>` hat eine fertige, nicht
+committete Aenderung mitgenommen.** Beim Zuruecksetzen einer
+Gegenprobe in `tools/dokumente.py` verschwand der Routing-Hinweis
+komplett; gemerkt habe ich es nur, weil ein Test rot blieb. Das ist
+v1.7.45 MERKE 7 woertlich, und die Lehre stand seit vier Tagen da:
+**vor einem riskanten Eingriff committen, oder die Gegenprobe mit
+einem gezielten Edit zuruecknehmen statt mit `checkout`.**
+
+(10) **Zum vierten Mal die Heredoc-Falle** (v1.7.24 MERKE 4). Der
+Regex-Austausch per Patch-Skript scheiterte an `\d` und `\b` im
+nicht-rohen String; diesmal hat die Assertion im Skript ihn gefangen,
+bevor etwas geschrieben wurde. Gemacht hat es dann das Edit-Werkzeug.
+Die Steuerzeichen-Pruefung ueber die geaenderten Dateien lief
+trotzdem — sie kostet nichts und hat schon einmal etwas gefunden.
+
+## Stand 2026-09-12 (v1.7.85 Stable) — Ein Loeschbereich statt vier
+
+**#1025 Stufe 2** (Oberflaeche) und damit **#1024**. Stufe 1 lief mit
+v1.7.81. **Tests: 3972 / 4038.** MCP-Tools 232 / 245.
+
+MERKE-Punkte:
+
+(1) **Der Satz des Melders war die Bauform, und zwar woertlich.** *"Der
+Modus gehoert als Umschalter, nicht als Checkbox. Eine DSGVO-Checkbox,
+die beim Anhaken alle anderen zwangsweise mitanhakt, ueberschreibt die
+Eingabe des Nutzers — und die vollen Haekchen behaupten dann etwas
+Falsches, denn geloescht werden nicht die Bereiche, sondern die
+Datei."* Zwei Modi, die einander ausschliessen, so wie in der Sache
+auch; im DSGVO-Modus ist die Bereichsliste **gesperrte Anzeige der
+Folge**. Zweiter Fall nach #1025 Stufe 1, in dem ein Bericht die
+Loesung praeziser beschreibt als die Frage.
+
+(2) **`db.list_profiles()` gibt es nicht — und mein `except Exception`
+haette es verschluckt.** Die Methode heisst `get_profiles`. Die
+Profil-Auswahl waere LEER geblieben, ohne Fehler und ohne Hinweis, und
+damit haette ausgerechnet das Akzeptanzkriterium "alle Profile stehen
+zur Auswahl" still nichts geliefert. Das ist v1.7.67 MERKE 4
+woertlich: **ein `except Exception` um einen Aufruf, dessen Namen man
+nicht nachgeschlagen hat, ist eine Wette.** Der weite `except` ist weg,
+nicht nur der Name korrigiert.
+
+(3) **Mein eigener Guard war zu breit und hat an vier korrekten
+Stellen angeschlagen.** Er verbot JEDES `DELETE FROM` in
+`dashboard.py` und traf damit das Aufraeumen des Extraktionsverlaufs
+und das Entknuepfen eines Kontakts — beides richtig. Geprueft werden
+jetzt die LOESCHWEGE ueber `inspect.getsource`, nicht die Datei. Dritter
+Fall dieser Klasse nach #1017 und #929: **ein Pruefer, der bei
+korrektem Zustand Alarm gibt, wird nach dem zweiten Mal ignoriert.**
+
+(4) **Die Gegenprobe zum Profil-Filter machte zunaechst GAR NICHTS
+rot.** Mit `pid = None` blieb die ganze Datei gruen, weil jeder Fall
+mit genau EINEM Profil arbeitete — dort trifft "dieses Profil"
+dieselbe Menge wie "alle". Das ist ein Befund ueber die TESTS, nicht
+ueber den Code; jetzt stellen zwei Faelle die Lage mit zwei Profilen
+her, je einer fuer den Schreib- und den Lese-Weg. Dritter Fall nach
+v1.7.79 und v1.7.81.
+
+(5) **Eine Testannahme war falsch, die Zahl richtig.** Ich erwartete
+`zeilen_gesamt == 5` fuer fuenf Stellen; es sind 10, weil seit #951 zu
+jeder Stelle eine Fundstelle in `job_sources` gehoert und
+`zeilen_gesamt` ueber den BEREICH summiert. **Vor dem Zuschreiben eines
+Fehlers pruefen, ob die Erwartung das Modell trifft** — hier war die
+Vorschau genauer als mein Test.
+
+(6) **Die Aufteilung aktiv/aussortiert ist Teil der VORSCHAU und kein
+zweiter Bereich.** #1024 schlug zwei Varianten vor ("nur aktive
+leeren" / "alle leeren"). Als zwei Bereiche waeren das zwei Modelle
+fuer dieselbe Frage gewesen — genau die Bauform, gegen die #1025
+angetreten ist. Die Zahl steht trotzdem getrennt da, und zwar mit
+seiner Begruendung: mit den aussortierten Stellen verschwinden die
+Lernsignale, und das sieht man einer Gesamtzahl nicht an.
+
+(7) **Beide Auspraegungen stehen auch bei 0 da.** Eine fehlende Zeile
+in der Gruppierung waere von "keine" nicht zu unterscheiden (#989), und
+gerade bei einer Loeschvorschau ist der Unterschied die ganze Auskunft.
+
+(8) **Die DSGVO-Loeschung lag zweimal im Code, und das war der Befund
+des Issues in eigener Sache.** Der neue Endpunkt haette sie ein
+zweites Mal bekommen; jetzt rufen beide `_dsgvo_loeschen()`. Das alte
+Bestaetigungswort `ALLES_LOESCHEN` gilt weiter — es abzuschaffen waere
+eine Vertragsaenderung, um die niemand gebeten hat.
+
+(9) **Ein unbekannter Bereich oder Modus wird BENANNT und abgewiesen.**
+Ihn still zu ignorieren waere #988: eine Auswahl, der man glaubt, die
+aber nichts bewirkt. Dasselbe gilt fuer die leere Auswahl — sie ist
+kein "alles".
+
+(10) **Das Bestaetigungswort wird am SERVER geprueft.** Der Knopf ist
+zusaetzlich gesperrt, aber eine Freigabe, die allein in der
+Oberflaeche sitzt, ist keine. Der Test schickt vier Worte durch und
+prueft nach jedem den Bestand.
+
+(11) **Nebenbefund aus dem Browser-Test, als #1027 erfasst:** der
+barrierefreie Name eines `SelectInput` ist die FELDBESCHRIFTUNG und nie
+der gewaehlte Wert — `Field` wickelt ihn in ein `<label>`, und ein
+`<button>` ist ein labelable element, also gewinnt das Label gegen den
+Knopfinhalt. Am laufenden Dashboard ausgelesen: `NAME: 'Welches
+Profil?'`, waehrend sichtbar `Alle Profile` steht.
+`get_by_role("button", name="Alle Profile")` findet 0 Elemente.
+**Gefunden nur, weil der Test die Auswahl wirklich bedienen musste** —
+ein Grep haette die Zeichenkette gefunden und nichts gemerkt. Betrifft
+jedes Field+SelectInput-Paar der Anwendung und ist deshalb ein eigener
+Vorgang, keine Nebenaenderung in einer Fehlerbehebung.
+
+## Stand 2026-09-12 (v1.7.84 Stable) — Anstellungsform und Umfang sind zwei Fragen
+
+**#1023**, achter Melder-Bericht, elf Akzeptanzkriterien.
+**Tests: 3942 / 4008.** MCP-Tools 232 / 245.
+
+MERKE-Punkte:
+
+(1) **Der Bericht stellt eine MODELLFRAGE, keinen Zeilenfehler.** Eine
+Stelle hat eine Anstellungsform UND einen Umfang; "Festanstellung in
+Teilzeit" ist der Normalfall und im Ein-Feld-Modell nicht
+ausdrueckbar. Der Adapter muss sich entscheiden, waehlt immer die
+Vertragsart, und der Umfang faellt weg. Die Zahl dazu: **103 aktive
+Titel mit "Teilzeit", davon 102 gespeichert als `festanstellung` und 0
+als `teilzeit`.** Wer nur `_normalize_job_type` um einen
+`parttime`-Zweig ergaenzt haette, haette die Teilzeitangabe gegen die
+Vertragsart getauscht — also den Verlust nur umgedreht.
+
+(2) **Der Docstring nannte den Zweig, den es nicht gab.**
+`_normalize_job_type` fuehrte `parttime` in seiner Aufzaehlung, und
+jede Teilzeitstelle fiel bis zum letzten `return` durch. Ein
+Docstring, der eine Fallunterscheidung beschreibt, ist keine.
+
+(3) **Die Zahlen des Melders liessen sich NICHT nachstellen, und das
+gehoert in die Antwort.** Seine 103 Teilzeit-Titel und 36
+Ausbildungsstellen stehen gegen 14 und 0 im hiesigen Bestand. **Ein
+Bericht beschreibt den Bestand, an dem er entstanden ist** — der
+Mechanismus ist derselbe, die Groessenordnung nicht. Gemessen wurde
+deshalb, was die neue Erkennung AENDERT: vorher trug **keine** der
+2.535 Stellen einen Umfang (das Feld gab es nicht), nachher **219**
+(167 vollzeit, 41 beides, 11 teilzeit); werkstudent 0 -> 7, praktikum
+3 -> 10, zeitarbeit 0 -> 2, befristet 30.
+
+(4) **Der Nebenbefund kam aus der Messung, nicht aus dem Code.** Eine
+Stelle trug `employment_type = "arbeitnehmerueberlassung"` — ein Wert,
+den **keines der drei Vokabulare kennt** (Suchkriterien, Scoring,
+Adapter-Zuordnung). Sie war weder filterbar noch bewertbar, obwohl das
+Feld genau das sagt, wonach der Bericht fragt. Deshalb
+`normalisiere_form()`: Unbekanntes wird durchgereicht statt geraten
+(#989), Bekanntes zugeordnet.
+
+(5) **Die Auswahl darf nur ueber EINE der beiden Dimensionen
+entscheiden.** Der Umfang fehlt bei 993 von 1.110 Stellen; ein
+Ausschluss darauf traefe vor allem die, bei denen die Angabe nur
+FEHLT. Dieselbe Linie wie Remote (#989) und Entfernung (#910/#988) —
+und der Melder hat sie selbst gezogen, statt die naheliegende
+Symmetrie zu verlangen. **Zwei neue Merkmale heissen nicht zwei neue
+Filter der Suche.**
+
+(6) **Eine Auswahl aus nur `teilzeit` haette nach der Trennung JEDE
+Stelle verworfen.** `teilzeit` war bis hierher ein zulaessiger
+`stellentypen`-Wert; wer nur ihn gepflegt hatte, haette danach eine
+Auswahl ohne jede Anstellungsform gehabt — und die rohe Liste haette
+alles mit belegter Form ausgeschlossen. `fuer_form()` reduziert die
+Auswahl deshalb auf echte Formen, und `umfang_aus_auswahl()` laesst
+die Einstellung als UMFANG weiterleben, statt sie still zu verwerfen
+(#988). **Bei einer Dimensionstrennung zuerst fragen, was mit den
+Altwerten passiert, die jetzt in der anderen Dimension liegen.**
+
+(7) **"Vollzeit / Teilzeit" ist eine Zusage, keine Mehrdeutigkeit.**
+Ein Etikett mit zwei Werten macht daraus eine Falschangabe, egal
+welches es waehlt — deshalb vier Zustaende und nicht zwei plus
+Vermutung. Im Filter zaehlt `beides` fuer beide Richtungen.
+
+(8) **Mein `_VOLLZEIT`-Muster liess nur EIN Trennzeichen zu**
+(`[-\s/]?`) und verfehlte damit "Voll-/Teilzeit" — die haeufigste
+Schreibweise ueberhaupt. Die Stelle galt dann als reine
+Teilzeitstelle, obwohl der Titel ausdruecklich beides anbietet.
+Gefunden beim Durchspielen der Beispiele, nicht beim Nachdenken.
+
+(9) **Der Alt-Test aus #1015 wurde auf die andere DIMENSION gedreht,
+nicht geloescht.** Er erwartete `TEILZEIT` als `art` — das war die
+richtige Spezifikation in einem Ein-Feld-Modell und ist es in einem
+Zwei-Feld-Modell nicht mehr. **Ein roter Alt-Test ist zuerst zu lesen:
+er kann die Spezifikation sein oder die alte Loesung** (v1.7.31 MERKE
+2, jetzt im dritten Fall).
+
+(10) **Zum vierten Mal die Heredoc-Falle** (v1.7.24 MERKE 4): `\b` in
+einem Patch-Skript wurde zum literalen BACKSPACE, diesmal in
+`stellenart.py`. `grep` zeigt eine unauffaellige Zeile, `cat -v` nicht.
+Die Steuerzeichen-Pruefung ueber die geaenderten Dateien steht seit
+v1.7.82 als eigener Schritt vor dem Commit — sie hat gegriffen.
+
+(11) **Die Gegenprobe traf je einen Test pro Mechanismus, und zwar
+sauber getrennt.** Umfang-Erkennung aus: 10 rot, aber
+`test_ohne_angabe_ist_der_umfang_unbekannt` blieb gruen (richtig — er
+prueft genau den Zustand, den die Abschaltung herstellt). `fuer_form`
+roh: **genau 1** rot, der isolierende Fall aus (6). Beide
+Quellen-Adapter aus: 8 rot. Filter entkoppelt: 1 rot. Vier
+Mechanismen, vier verschiedene Testmengen — das ist die Form, in der
+eine Gegenprobe etwas belegt.
+
+## Stand 2026-09-11 (v1.7.83 Stable) — Die Kopfzeile zeigt den Bestand
+
+**#1022**, siebter Melder-Bericht des Tages. **Tests: 3901 / 3967.**
+MCP-Tools 231 / 244.
+
+MERKE-Punkte:
+
+(1) **Mein eigener Fix aus #1008 war die Behandlung des Symptoms, und
+der Melder hat das genauer benannt als ich es gebaut hatte.** Dort
+widersprach sich die Karte selbst (Ueberschrift "Aktive Stellen",
+Zahl = gefilterte Liste); statt die ZAHL richtigzustellen bekam die
+UEBERSCHRIFT einen Wechsel. Der haengt an `verborgeneStellen`, also nur
+an den durch FILTER verborgenen — **Paginierung loest ihn nicht aus**,
+und Paginierung ist der Normalfall. Der Widerspruch war damit von
+Anfang an eingebaut, nur an anderer Stelle. **Wer ein Symptom
+behandelt, verschiebt es dorthin, wo die Behandlung nicht greift.**
+
+(2) **Die Wirkung stand im Satz des Melders, nicht in der Zahl.**
+*"ich hab immer gedacht, es gibt nur zwanzig Stellen fuer mich."* Der
+Defekt war kosmetisch beschreibbar und hat einen Menschen monatelang
+glauben lassen, sein Bestand sei winzig. Dieselbe Klasse wie #813 und
+#1008: **eine Zahl, die etwas anderes bedeutet als sie sagt, aendert
+das Verhalten des Nutzers.**
+
+(3) **Der geladene Ausschnitt ist SYSTEMATISCH besser als der
+Bestand**, weil nach Score sortiert wird. Gemessen vom Melder:
+Durchschnittsscore 13,82 ueber die ersten 20 gegen **3,59** ueber alle
+1.110. Es ist also kein Rauschen, sondern eine Schieflage mit
+Vorzeichen. **Eine Kennzahl, die sich beim Blaettern aendert, misst das
+Blaettern.**
+
+(4) **Die Grundlage wandert heraus, nicht das Ergebnis.** Der Melder
+schrieb "Die Werte liegen im Backend vor" — richtig, die RECHNUNG aber
+nicht. Sie steht in `lib/gehaltsKennzahl.js`, einem Modul, das v1.7.78
+angelegt hat, weil sie vorher wortgleich in zwei Seiten lag. Sie in
+Python nachzubauen waere dasselbe Muster ueber die Sprachgrenze hinweg.
+Also gibt der Endpunkt fuenf Felder je Stelle mit; er hat die volle
+Liste ohnehin in der Hand und schneidet die Seite erst danach heraus.
+**Bei "das kann der Server doch rechnen" zuerst fragen, wo die Regel
+heute WOHNT.**
+
+(5) **Die 54 im Ausgeblendet-Tab waren das 7-Tage-Fenster aus #1010.**
+Der Melder hat Blacklist, Bewerbungen und Duplikate durchgerechnet und
+die Zahl nicht aufloesen koennen — von aussen ist ein ungesetzter
+Filter unsichtbar. **Er verbarg 118 von 172 Zeilen**, und das ist
+woertlich #1008: Vorgabe AUS, benannt. Der Schalter bleibt; der
+urspruengliche Zweck ("was habe ich gerade weggeklickt") faellt der
+SORTIERUNG zu, nicht einem Filter. **Ein Ordnungswunsch braucht keine
+Verbergung.**
+
+(6) **Der Farbklassen-Guard aus #964 hat zum vierten Mal gegriffen.**
+Der Melder schlug `tone: danger` / `text-rose` vor; der Gefahren-Ton
+dieses Projekts heisst `coral`. `text-rose` erzeugt in Tailwind weder
+eine Regel noch einen Fehler — der Vorschlag waere still wirkungslos
+geblieben. **Ein Vorschlag aus einem Issue gehoert geprueft, nicht
+uebernommen** (v1.7.24 MERKE 1, fuenfter Fall).
+
+(7) **Der Alt-Test aus #1008 wurde auf seine ABSICHT umgestellt, nicht
+geloescht.** Sein Docstring nennt sie: "Ueberschrift und Zahl meinen
+dieselbe Groesse". Das gilt weiter — nur nicht mehr ueber den
+Mechanismus, der sich als zu eng erwiesen hat. **Ein roter Alt-Test ist
+zuerst zu LESEN: er kann die Spezifikation sein oder die alte Loesung**
+(v1.7.31 MERKE 2, jetzt im zweiten Fall).
+
+(8) **Mein Browser-Test hatte zwei eigene Fehler, und beide sind
+lehrreich.** Seine Messung filterte alle `div` nach Textinhalt und fing
+damit die ganze Seite ein — der Vergleich schlug an der Stellenliste
+an, die sich beim Nachladen zu Recht aendert. **Ein Test, dessen
+Messung zu breit ist, meldet einen Fehler im Code, wo einer im Test
+steckt.** Und sein Warten war ein fester `wait_for_timeout(900)`:
+allein gruen, in der vollen Suite rot, weil der Vergleich mitten in die
+Aktualisierung fiel. **Ein fester Timeout ist eine Annahme darueber,
+wie schnell der Rechner gerade ist** — gewartet wird jetzt auf den
+Zaehler.
+
+(9) **Die Gegenprobe traf je einen Test pro Mechanismus**, und der
+Browser-Test faengt alle drei: Kachel zurueckgedreht, Kennzahlen
+zurueckgedreht, Zeitfenster zurueckgedreht. Vier der sieben
+Akzeptanzkriterien betreffen die Oberflaeche — dort ist der Grep kein
+Beleg (v1.7.71 MERKE 9).
+
+## Stand 2026-09-11 (v1.7.82 Stable) — Eine Telefonnummer ist kein Jahresgehalt
+
+**#1026**, sechster Melder-Bericht des Tages und Nachtrag zu #1018.
+**Tests: 3889 / 3955.** MCP-Tools 231 / 244.
+
+MERKE-Punkte:
+
+(1) **Die Grenze stand im Modul und wurde nicht angewandt.** `GRENZEN`
+gibt es seit v1.7.79; `_kandidat` hielt aber nur `zahlen[0]` dagegen.
+Bei einer Spanne kam der zweite Wert ungeprueft durch, und danach
+vertauschte `min()` die beiden — **die Pruefung stand vor der
+Sortierung, und die Sortierung hat den geprueften Wert vertauscht.**
+Aus einer Telefonnummer mit Durchwahl wurde so ein Jahresgehalt von 10
+EUR, gespeichert als BELEGT. Das ist DoD 8c an einer neuen Stelle:
+geschrieben ist nicht aufgerufen — hier sogar: aufgerufen ist nicht
+vollstaendig aufgerufen.
+
+(2) **Dieselbe Regel, zwei Stellen, eine davon vergessen.** In #1018
+habe ich die Wortgrenze bei `p. a.` ausdruecklich nachgezogen und beim
+WAEHRUNGSWORT nicht. `Eur` traf damit in "Europastr.", "Eurotunnel",
+"europaweit". Dritter Fall dieser Klasse nach "ki" in "Kita" (#970) und
+"us" in "Kundenservice" (#996) — und der erste, bei dem die Lehre im
+SELBEN Release schon einmal angewandt worden war.
+
+(3) **Ein Akzeptanzkriterium war abgehakt, ohne dass eine Pruefung
+dahinterstand.** `salary_min > salary_max` kommt nicht mehr vor — das
+stand so in #1018, und der Riegel sass am Nadeloehr. Der ERKENNUNGS-Weg
+konnte das Paar trotzdem erzeugen; getauscht wurde erst beim
+Schreiben, und der falsche Wert blieb. **Ein Haken an einem Kriterium
+ist keine Zusicherung, solange nicht dasteht, wer sie einloest.**
+
+(4) **Der teuerste Befund war der, den der Melder NICHT melden
+konnte.** Beim Nachmessen der eigenen Aenderung an 1.337 Anzeigen
+fielen drei echte Gehaelter weg. Ursache lag tiefer: `_ZAHL` verlangte
+hinter einem Punkt DREI Ziffern (Tausendertrenner), `72.5-103k EUR`
+wurde als "5 bis 103" gelesen. Das scheiterte an der Grenze, und
+**danach** entstand der Schaden: der Einzelwert-Pfad griff sich `103k`
+heraus und machte daraus 103.000 bis 113.300 — die OBERGRENZE als
+Untergrenze. Drei Anzeigen sahen dadurch besser bezahlt aus als sie
+sind, und genau dieser Wert geht in den Score ein. Ueber 1.337
+Anzeigen: **0 fallen weg, 6 kommen dazu, 3 werden korrigiert.**
+
+(5) **Ein Fehltreffer war bis hierher UNKORRIGIERBAR, und das ist die
+eigentliche Schwere des Berichts.** `gehalt_extrahieren` liest denselben
+Text wieder gleich, `stelle_bearbeiten` kennt die Gehaltsfelder nicht.
+Damit war nicht dieser eine Wert falsch, sondern **jeder Fehltreffer
+dauerhaft**. Der Melder hat den richtigen Vergleich genannt:
+`dokument_text_setzen` gibt es fuer genau diesen Zweck. Neu
+`gehalt_setzen`.
+
+(6) **Der Schutz brauchte ZWEI Stellen, nicht eine.** Am Nadeloehr
+`save_salary_data`, damit alle drei Schreibwege ihn erben — und eine
+EIGENE Zeile in `save_jobs`, weil `_BEWAHREN` (v1.7.74) nur Spalten
+AUSSERHALB der INSERT-Liste schuetzt und `salary_min` darin steht. Ohne
+die zweite haette die Korrektur bis zum naechsten Suchlauf gehalten:
+lange genug, um sie fuer dauerhaft zu halten, kurz genug, um unbemerkt
+zu verschwinden.
+
+(7) **Die Gegenprobe hat zwei Testluecken gezeigt, bevor sie etwas
+belegt hat.** Den Meldefall decken die beiden Fixes JEWEILS ALLEIN ab —
+die Wortgrenze verhindert den Treffer, und ohne sie faengt ihn die
+Grenze. Und meine Wortgrenzen-Tests uebten die Wortgrenze gar nicht
+aus ("Europastr. 1, 45000 Musterstadt" enthaelt weder Spanne noch
+Beleg dahinter). Beides blieb gruen, als ich die Mechanismen zur Probe
+ausbaute. **Zwei Fixes, die denselben Fall abdecken, belegen einander
+nicht** — jetzt trennt je ein Fall die Mechanismen. Dritter Fall nach
+v1.7.79 und v1.7.81.
+
+(8) **Zum dritten Mal in die Heredoc-Falle gelaufen** (v1.7.24 MERKE
+4). Aus `\b` wurde ein literales BACKSPACE-Zeichen; `_WAEHRUNG`
+enthielt danach `\x08`, zwei vorher gruene Faelle wurden rot, und
+`grep` zeigte eine voellig unauffaellige Zeile. Sichtbar gemacht hat es
+erst `cat -v`. Zwei Lehren: die Abhilfe heisst `chr(92)` oder das
+Edit-Werkzeug — **und ein Test, der Steuerzeichen im Modul verbietet**,
+weil man sie sonst nicht sieht.
+
+(9) **Bei einem Handwert wird `min > max` ABGEWIESEN statt getauscht.**
+Am Nadeloehr tauscht `_gehalt_gesund` — das ist ein Riegel gegen
+kaputte Automatik-Werte. Nennt ein MENSCH zwei Zahlen, weiss nur er,
+welche er gemeint hat. Dieselbe Grenze wie beim fehlenden Monat in
+#1006: eine Luecke gehoert benannt, nicht gefuellt.
+
+(10) **Der PII-Pruefer hat die Reproduktionszeile des Melders zu Recht
+gemeldet** — sie enthaelt ein Telefonmuster. Statt daran vorbeizuarbeiten
+steht die Testnummer jetzt in der 555-Fiktionskonvention des Projekts
+(`_ist_fiktive_nummer`), und der Defekt reproduziert sich identisch.
+**Ein Schutzwerkzeug, um das man herumarbeitet, ist keines.**
+
+## Stand 2026-09-11 (v1.7.81 Stable) — Was gehoert wozu, wenn geloescht wird
+
+**#1025 Stufe 1**, fuenfter Melder-Bericht des Tages. **Tests: 3836 /
+3902.** MCP-Tools 230 / 243. Stufe 2 (Oberflaeche) offen, #1024
+schliesst erst damit.
+
+MERKE-Punkte:
+
+(1) **Ein Bedienbarkeits-Bericht war in Wahrheit ein
+Datenschutz-Befund, und das ergab erst die Messung.** Gemeldet war
+"zwei Eintraege lesen sich gleich und tun Verschiedenes". Am Bestand
+nachgerechnet raeumte der Factory Reset 18 von 47 Tabellen ab und
+liess 29 stehen — darunter **81 Kontakte mit Namen und Mailadressen
+Dritter**, 68 Verknuepfungen, 26 Dokumentversionen, 15
+Recherche-Notizen, 1.304 Zeilen Aktivitaetsprotokoll. Wer den Weg
+waehlt, um den Rechner weiterzugeben, liess fremde Daten zurueck.
+**Der Bericht war zu bescheiden formuliert** — dritter Fall nach #998
+und #1014, in dem der wirkliche Zustand schlechter war als die
+Meldung.
+
+(2) **Der Satz des Melders ist die Bauform geworden.** *"Vollstaendig
+ist nur der DSGVO-Weg — und zwar nicht, weil seine Liste besser
+gepflegt waere, sondern weil er keine hat."* Also abgeleitet statt
+aufgezaehlt: `sqlite_master` sagt, welche Tabellen es gibt, `PRAGMA
+table_info` und `PRAGMA foreign_key_list` sagen, wie sie haengen.
+Aufgezaehlt ist nur noch die ZUORDNUNG, und ein Guard haelt jede
+Tabelle der Datenbank dagegen. Eine Aufzaehlung schuetzt einmal, eine
+Strukturpruefung immer (v1.7.74, jetzt an einer zweiten Stelle).
+
+(3) **Die Loeschreihenfolge war invertiert, und CASCADE hat es
+verdeckt.** Eltern vor Kindern — eine Kind-Tabelle wird ueber ihre
+Eltern eingeschraenkt (`job_hash IN (SELECT hash FROM jobs ...)`),
+sind die Eltern weg, findet die Unterabfrage nichts. Liegen blieben
+**43 `job_sources` und 68 `application_jobs`**: ausgerechnet die
+beiden Tabellen OHNE Fremdschluessel, also genau die, fuer die
+`_ZUSATZ_BEZUG` existiert. Alle anderen hat SQLites CASCADE
+aufgeraeumt — **der Mechanismus, der den Fehler harmlos machte, war
+derselbe, der ihn unsichtbar machte.**
+
+(4) **Gefunden hat ihn eine Zahl, die nicht aufging**, nicht das
+Nachdenken: Vorschau 6.593 Zeilen, geloescht 5.296. Daraus wurde der
+wichtigste Test der Arbeit — er prueft keine Tabelle, sondern die
+GLEICHHEIT der beiden Zahlen und faellt bei jeder kuenftigen
+Reihenfolgen-Verwechslung um, auch an einer Tabelle, die es heute
+nicht gibt. **Eine Kennzahl, die zwei Wege vergleicht, ist mehr wert
+als eine Liste erwarteter Tabellen.**
+
+(5) **Der eigene Waisen-Pruefer hat dabei Entwarnung gegeben.** Er sah
+nur `profile_id`, und `job_sources` hat keine. **Ein Pruefer, der nur
+eine von zwei Bezugsarten kennt, gibt Entwarnung fuer die andere** —
+daher `verwaiste_bezugszeilen` neben `verwaiste_profilzeilen`. Das ist
+#929 in neuer Gestalt: nicht ein Fehlalarm, sondern ein Falsch-negativ
+in einem Pruefwerkzeug.
+
+(6) **Der zweite eigene Fehler faellt NUR auf einer frischen Datenbank
+auf.** `_eltern` nahm den ersten Fremdschluessel; bei
+`application_events` ist das im frischen Schema ein SELBSTBEZUG
+(`parent_event_id`, die Antwort-Kette). Die Tabelle galt damit als
+`geteilt` und waere beim Profil-Loeschen nicht angefasst worden. In
+der gewachsenen Datenbank fehlt der Selbstbezug, dort lief alles
+richtig. **Eine Messung am eigenen Bestand prueft eine Installation,
+nicht das Programm** — die Kopie der echten Datenbank, sonst das
+schaerfste Werkzeug dieses Projekts, konnte diesen Fehler nicht
+finden.
+
+(7) **Die Gegenprobe zu (6) machte zuerst NICHTS rot.** Der
+Selbstbezug-Filter ist heute redundant: `_eltern` bevorzugt ein
+Elternteil mit `profile_id`, und `applications` hat eine. Der Filter
+greift erst, wenn KEIN Kandidat eine traegt — dann faellt die Funktion
+auf den ersten zurueck, und das waere die Tabelle selbst. Statt die
+Luecke stehen zu lassen, stellt ein Test diese Lage her (zwei
+Hilfstabellen im Test-Schema). Zweiter Fall nach v1.7.79: **eine
+Gegenprobe, die nichts rot macht, ist ein Befund ueber die TESTS.**
+
+(8) **Der Guard hat beim ersten Lauf auf der Stable-Linie gemeldet —
+und das war kein Fehlalarm, sondern die richtige Frage.** Fuenf
+Tabellen gibt es nur auf der 1.8-Linie (`components`, `plugins`,
+`newsletter_sources`, `custom_sources`, `scraper_runs`), drei
+entstehen erst bei Bedarf. Ihr Fehlen ist richtig, ihre fehlende
+ZUORDNUNG waere ein Defekt: wer von 1.7 auf 1.8 wechselt, bekaeme sie
+dazu und koennte sie ab dann nicht mehr loeschen. Die Ausnahmeliste
+traegt je Eintrag den Grund, und ein Test prueft, dass sie ihn traegt
+(#1004/#1005: eine kuratierte Liste ohne Aufnahmekriterium waechst
+beliebig).
+
+(9) **Ein Zwischenstand haette beim Leeren NUR der Stellen das Profil
+geloescht.** Die Profiltabelle gehoert ans Ende der Reihenfolge — mein
+Nachtrag haengte sie bedingungslos an, statt nur wenn ihr Bereich
+gewaehlt ist. Vom eigenen Test gefunden, bevor etwas lief. **Eine
+Sonderbehandlung am Ende einer Sortierung muss dieselbe Bedingung
+tragen wie die Liste selbst.**
+
+(10) **Der Bestandstest zum REST-Reset sah den gemeldeten Defekt
+nicht.** Er prueft seit jeher, dass HTTP 200 zurueckkommt und danach
+kein Profil mehr da ist — **beides war auch VOR der Korrektur wahr**,
+waehrend 29 Tabellen stehen blieben. Der neue Test prueft die Auskunft
+selbst: die Meldung muss die Zahl nennen, die sie gerade ermittelt
+hat. Ein Test, der den gemeldeten Defekt nicht sieht, ist kein Schutz.
+
+(11) **Beim Portieren auf main gefunden: dort fehlten die
+CHANGELOG-Eintraege fuer v1.7.79 und v1.7.80.** main kannte nach
+beta.15 direkt beta.14; die Stand-Bloecke in CLAUDE.md waren dagegen
+vollstaendig. Der Nachzug auf main ist also nicht als Ganzes
+ausgefallen, sondern EIN Teil davon — und zwar der, den niemand liest,
+solange er fehlt. Alle drei Eintraege nachgetragen. **Ein
+Release-Schritt, der aus mehreren Dateien besteht, faellt
+stueckweise aus, ohne dass irgendetwas rot wird.**
+
+(12) **Der Pre-Release-Issue-Check hat #1026 gefangen** — einen Defekt
+in der Gehalts-Extraktion von v1.7.79, also in der Arbeit desselben
+Tages: eine Telefonnummer mit Durchwahl wird als Jahresgehalt von 10
+EUR gelesen und als BELEGT gespeichert, weil die Plausibilitaetsgrenzen
+im neuen Modul zwar stehen, aber nicht angewandt werden, und weil
+"Eur" ohne Wortgrenze auch in "Europastr." trifft. Geprueft und
+BEWUSST nicht zurueckgehalten: andere Dimension, und #1025 behebt
+einen Datenschutz-Defekt, der nicht auf einen weiteren Release warten
+sollte. Als Kommentar an #1026 abgegrenzt.
+
+## Stand 2026-09-11 (v1.7.80 Stable) — Nur die Art der Stelle wandert
+
+**#1020**, vierter Melder-Bericht des Tages. **Tests: 3810 / 3812.**
+MCP-Tools 228 / 241.
+
+MERKE-Punkte:
+
+(1) **Siebzehnter Fall desselben Musters — und dieses Mal stand die
+Regel im Projekt schon ZWEIMAL richtig da.** `_FACHLICHE_KO_GRUENDE` in
+`tools/jobs.py` ("Gehalt/Entfernung koennen sich aendern, taugen nicht
+als k.o.") und `_TEXTABHAENGIGE_GRUENDE` in `wiedergaenger.py`
+("`firma_uninteressant` und `zu_weit_entfernt` sind ohnehin keine
+Aussagen ueber den Text"). Der Aussortier-Pfad ist an beiden
+vorbeigelaufen. **Wenn eine Regel an zwei Orten formuliert ist und an
+einem dritten fehlt, ist der dritte fast immer der folgenreichste** —
+hier laesst er die Stelle verschwinden, waehrend die anderen beiden nur
+eine Anzeige einfaerben.
+
+(2) **Die Zahl stand in derselben Datenbankzeile wie das Urteil.** Eine
+Stelle in 9,2 km wurde als "zu weit entfernt" aussortiert, bei einem
+Wunschwert von 20 km. Das ist der praegnanteste Satz des Berichts, und
+er beschreibt eine ganze Fehlerklasse: ein Muster, das eine vorhandene
+Messung ueberstimmt.
+
+(3) **Ueber die aktiven Stellen gerechnet gibt es genau eine.** Also
+ueber eine Stichprobe von 400 AUSSORTIERTEN gemessen, jede behandelt
+als kaeme sie frisch herein (#1012 MERKE 5, zum zweiten Mal angewandt).
+Das Titel-Muster greift bei 241 — **108 davon (45 %) auf einem Grund,
+der nichts ueber die Art der Stelle sagt**, 20 davon `zu_weit_entfernt`
+bei Stellen INNERHALB des Wunschwerts. Der Bericht nannte 31 Faelle;
+die Bauform dahinter traegt fast die Haelfte aller Uebertragungen.
+
+(4) **Ein einzelner generischer Titel trug 86 Belege.** Das ist die
+Rueckkopplung, die der Melder beschreibt: jede automatisch entfernte
+Stelle zaehlt beim naechsten Lauf als weiterer Beleg fuer dasselbe
+Muster. **Eine Automatik, die ihre eigene Grundlage erzeugt, kann nur
+schaerfer werden.** Deshalb holt die Bestandskorrektur die Stellen
+nicht nur zurueck, sie nimmt sie auch aus der Belegmenge.
+
+(5) **Die Filterung sitzt IN der Musterfunktion, nicht beim Aufrufer.**
+Sonst haette der naechste Aufrufer sie wieder nicht — also genau die
+Bauform, um die es in diesem Issue geht. Dieselbe Ueberlegung wie bei
+`fuer_scoring` (#931) und `gehalt_vergleich` (#1017).
+
+(6) **In Stufe 1 bleiben alle drei Gruende erlaubt, und das ist kein
+Kompromiss.** Bei GLEICHER Firma ist der Bezug gegeben: derselbe
+Arbeitgeber am selben Ort ist beim naechsten Mal wieder gleich weit
+weg. Eine Regel, die auch dort sperrt, waere ueberschiessend — beide
+Richtungen messen (#966).
+
+(7) **Fuer die Gehaltsseite wurde die Regel NICHT neu formuliert.**
+`_zahl_widerspricht` fragt `gehalt_vergleich.vergleich` aus v1.7.78 —
+dort steckt schon, dass eine Schaetzung nichts belegt (#827), und die
+Umrechnung zwischen Stunden-, Tages- und Jahreswerten ebenfalls. Eine
+dritte Fassung waere das Muster gewesen, das dieses Release behebt.
+
+(8) **Nebenbefund beim Testschreiben, und er entlastet die eigene
+Aenderung.** Mein Gruendungsfall-Test (#991 MERKE 3: eine Haertung darf
+ihren Gruendungsfall nicht mitnehmen) schlug fehl. Ursache war nicht
+die Filterung: das Beispiel im #941-Docstring nennt drei VERSCHIEDENE
+Gruende, das Muster gruppiert aber je Grund bei Schwelle 3 — die
+Kombination haette nie ausgeloest, auch vorher nicht. **Vor dem
+Zuschreiben eines Fehlers pruefen, ob er vor der eigenen Aenderung
+schon da war.**
+
+(9) **Die Gegenprobe traf genau drei Tests, einen je Mechanismus.**
+Filter aus, Entfernungs-Tor aus, Gehalts-Tor aus: drei rot, 22 gruen.
+Nach dem Zuruecksetzen alle 25 gruen. Das ist die Form, in der eine
+Gegenprobe etwas belegt — anders als in v1.7.79, wo sie zunaechst gar
+nichts rot machte und damit eine Testluecke zeigte.
+
+## Stand 2026-09-11 (v1.7.79 Stable) — Arbeitszeit ist kein Stundenlohn
+
+**#1018**, dritter Melder-Bericht in derselben Dimension an einem Tag.
+**Tests: 3785 / 3787.** MCP-Tools 227 / 240.
+
+MERKE-Punkte:
+
+(1) **Der Bericht nannte "mindestens vier", gemessen waren es zehn von
+zwoelf.** `extract_salary_from_text` verlangte NIRGENDS ein
+Waehrungszeichen, und als Nachsatz genuegte das Wort "Stunde" — auf das
+"Stunden" ebenso passt. Ueber 1.337 Anzeigen mit Text: `stuendlich`
+12 -> 4, davon echte Stundensaetze 2 -> 4, Jahresgehaelter 38 -> 60.
+**Ein Bericht nennt den Fall; die Messung nennt den Umfang**, und sie
+war hier fast dreimal so gross.
+
+(2) **Die Regel "ohne Waehrung am Treffer kein Gehalt" erledigt den
+Vorrang von selbst.** Der gefaehrlichste Fall trug beides im selben
+Satz: *"32-40h/Woche, 100% Remote. Stundensatz: 60 EUR/h."* Es waere
+naheliegend gewesen, eine Rangfolge zwischen "Zahl mit Waehrung" und
+"Zahl ohne" zu bauen. Noetig ist sie nicht: eine Arbeitszeit ohne
+Waehrung ist gar kein Kandidat, also gewinnt das Gehalt daneben.
+**Eine Regel, die eine Fallunterscheidung ueberfluessig macht, ist
+besser als eine, die sie richtig trifft.**
+
+(3) **Die Naehe genuegt nicht, die Anbindung schon.** Mein erster
+Messansatz prueste, ob eine Waehrung im UMFELD des Treffers steht — und
+gab dem Fall aus (2) gruenes Licht, weil `Stundensatz: 60 EUR/h` keine
+zwanzig Zeichen daneben stand. Ein zweiter Fehlalarm kam ueber
+"Verguetung" im selben Absatz. Verlangt wird jetzt, dass der Beleg am
+Treffer HAENGT.
+
+(4) **Zwei Funde aus der Messung standen in keinem Bericht.** **348 der
+1.337 Beschreibungen tragen Markdown-Escapes** (`43\.933 \- 52\.962 €
+/ Jahr`) — ein escapter Tausenderpunkt macht aus der Zahl etwas, das
+kein Muster mehr trifft, und allein die Entschaerfung findet vier echte
+Jahresgehaelter. Und fuer **Monatsangaben gab es gar kein Muster**,
+obwohl das in Teilzeitanzeigen die uebliche Form ist. **Wer einen
+Bericht nachmisst, findet mehr als das Gemeldete — wer ihn nur
+umsetzt, nicht.**
+
+(5) **Kein vierter `salary_type`.** Monatsangaben werden mit zwoelf
+multipliziert und als `jaehrlich` gefuehrt; `monat_erkannt` sagt, woher
+der Wert kam. Ein vierter Wert braeuchte an rund zwanzig Stellen einen
+Zweig, den man vergessen kann — genau die Bauform, aus der #1015
+entstanden ist. Den Vorschlag dazu hat der Melder selbst gemacht.
+
+(6) **Drei eigene Fehler, alle vom BESTAND gefunden, keiner vom
+Nachdenken.** **`p.a.` ohne rechte Wortgrenze trifft jedes "Pa"**: aus
+"23.800 Patient:innen" und "100.000 Paletten-Stellplaetzen" wurden
+Jahresgehaelter — und zwar ganz ohne Waehrung, womit meine eigene Regel
+aus dem Modulkopf verletzt war. Vierter Fall nach "ki" in "Kita"
+(#970), "us" in "Kundenservice" (#996) und "intern" in "International"
+(#1015), und der erste, den ich selbst gebaut habe. Dazu: die Einheit
+im Spannen-Muster war optional, womit "900-1100 EUR" gleichzeitig auf
+Monat, Tag und Stunde passte (aus "Tagessatz 900-1100 EUR" wurden
+10.800 im Jahr), und `\d{1,3}` las aus "1100" die "110".
+
+(7) **Dieselbe Regel an zwei Orten, verschieden umgesetzt — im eigenen
+neuen Modul.** Das Spannen-Muster verlangte eine Waehrung, das
+Einzelwert-Muster nicht; "40.000 pro Jahr" kam damit durch. Gefunden
+hat es ein eigener Test, nicht der Bestand. **Das ist die Bauform, um
+die es in diesem Projekt seit #963 geht, und sie entsteht auch beim
+Bauen des Nadeloehrs selbst.**
+
+(8) **Die Arbeitszeit-Pruefung galt fuer JEDE Art** und verwarf damit
+"Gehalt: 58.000 - 62.000 Euro, Wochenstunden: 35" als Arbeitszeit —
+danach griff das Einzelmuster und ERFAND ein Maximum von 63.800. Genau
+der Randbefund des Melders, von mir neu gebaut. Ein Jahresgehalt laesst
+sich mit einer Wochenarbeitszeit nicht verwechseln; die Pruefung gilt
+jetzt nur fuer Stundenwerte.
+
+(9) **Die Gegenprobe hat nichts rot gemacht, und das war der Befund.**
+Mit abgeschalteter Arbeitszeit-Pruefung blieben ALLE 45 Tests gruen.
+Die Waehrungspflicht deckt die gemeldeten Faelle bereits ab — es sah
+damit nach einer Regel aus, die nie greift. Tatsaechlich fehlte der
+Fall, in dem sie greift: das Rate-Wort-Muster verlangt keine Einheit,
+also kommt "Stundensatz 30-35 Stunden pro Woche" nur ueber diese
+Pruefung nicht durch. **Eine Gegenprobe, die nichts rot macht, ist ein
+Befund ueber die TESTS und nicht ueber den Code.**
+
+(10) **`ast.parse` sagte "ok" und die Klasse war zerstoert.** Mein
+Patch-Skript setzte einen nicht eingerueckten `def` mitten in den
+Rumpf von `class Database`. Ein Dedent beendet die Klasse — alles
+danach, `save_jobs` eingeschlossen, stand ploetzlich auf Modulebene.
+Syntaktisch voellig gueltig. Gefunden hat es ein `hasattr`-Test ueber
+fuenf Methoden, den ich aus Misstrauen nachgeschoben habe. **Ein
+Syntax-Check ist keine Strukturpruefung**, und bei Skript-Patches an
+Klassenrumpfen gehoert genau das geprueft.
+
+(11) **Der Pre-Release-Issue-Check hat VIER neue Meldungen gefangen**
+(#1022, #1023, #1024, #1025), alle vom selben Tag. Geprueft, keine
+gehoert in diesen Release. #1023 (Stellentyp steuert weder Suche noch
+Liste) steht auf v1.7.77 und wird von v1.7.78 teilweise erledigt — das
+gehoert dort kommentiert, sonst meldet jemand nach, was schon behoben
+ist.
+
+## Stand 2026-09-11 (v1.7.78 Stable) — Ein Jahresaequivalent, zwei Rechenwege
+
+**#1017** (Melder-Bericht) und **#1015** (Nutzerbeobachtung).
+**Tests: 3737 / 3805.** MCP-Tools 226 / 239.
+
+MERKE-Punkte:
+
+(1) **Der Rechenweg, dem die Regel fehlte, war beide Male der, dessen
+Ergebnis GESPEICHERT wird.** `fit_analyse` neutralisiert geschaetzte
+Gehaelter seit #827/#918, der Scoring-Regler ebenfalls —
+`calculate_score` prueste `salary_estimated` gar nicht, und genau sein
+Wert landet in `jobs.score` und sortiert die Trefferliste. Dasselbe bei
+#1015: `stellentypen` hatte drei Leser, aber keiner davon war
+`save_jobs`. **Beim Suchen nach Doppelungen zuerst fragen, welcher Weg
+schreibt** — das ist die Richtung aus #991 und #1008, jetzt zum
+dritten Mal.
+
+(2) **Die Zahl macht den Befund erst gross.** 2.406 von 2.535 Stellen
+tragen ein GESCHAETZTES Gehalt, nur 60 eine echte Angabe. Der Bonus
+beruhte also bei 95 Prozent des Bestands auf einer Zahl, die in der
+Anzeige nie stand. Ohne diese Messung waere es ein Randfall gewesen.
+
+(3) **Nicht zwei Fassungen, sondern vier — und die vierte fand der
+Guard.** Neben `calculate_score` und `fit_analyse` rechnete
+`_gehalt_kompensation` (#910/#965) ein eigenes Jahresaequivalent:
+Schaetzungen schloss sie korrekt aus, `stuendlich` rechnete sie korrekt
+um, aber `min_stundensatz` kannte sie gar nicht. Wer nur einen
+Stundensatz gepflegt hatte, bekam keine Kompensation. **Gemeldet hatte
+das niemand**; der Guard aus #1017 hat es beim ERSTEN Lauf gefunden.
+Vierter Fall nach #1009, #1011 und #1014.
+
+(4) **Die Gegenprobe hat den wichtigsten Test entwertet, und das ist
+der Ertrag.** Mit abgeschalteter Neutralisierung wurden nur 2 von 17
+Tests rot — der Gleichheits-Test, also das woertliche
+Akzeptanzkriterium des Melders, blieb GRUEN. Das ist die Folge des
+Nadeloehrs: beide Wege fragen dieselbe Funktion und sind sich deshalb
+auch dann einig, wenn sie gemeinsam falsch liegen. Die Gleichheit
+belegt die AUFLOESUNG der Divergenz, nicht die Richtigkeit der Regel.
+**Ein Test, der ein Kriterium woertlich nachbaut, prueft nicht
+automatisch die Sache dahinter** (#931 MERKE 3, an neuer Stelle).
+
+(5) **213 Stellen fallen auf 0 und heissen danach "unbewertet" — zu
+Recht.** Von 479 Score-Aenderungen gehen 230 auf 0, und 213 davon
+haben keine Beschreibung. Der Marker aus #756 verlangt beides, greift
+hier also. Das sieht nach einem Schaden aus und ist das Gegenteil:
+ihre Punkte stammten aus einer erfundenen Gehaltszahl plus einem
+Titeltreffer, bewertet war daran nichts. **Der Fix macht sie ehrlich,
+statt sie zu verstecken** — und liefert nebenbei die Arbeitsliste fuer
+das Nachladen der Beschreibungen (#1016).
+
+(6) **Die Messung hat die Marker fuer #1015 ZWEIMAL korrigiert, bevor
+sie geschrieben haben.** `\bintern` ohne rechte Wortgrenze trifft
+"International", "Internal", "Internationaler" — 11 von 14 Treffern
+waren Fehlalarme, darunter ein Senior IT Projektmanager, der damit
+automatisch aussortiert worden waere. Dritter Fall nach "ki" in "Kita"
+(#970) und "us" in "Kundenservice" (#996). Und **"Teilzeit" steht in 6
+von 16 Titeln neben "Vollzeit"**: die Stelle wird als BEIDES angeboten,
+sie als Teilzeit auszuschliessen wuerde eine Vollzeitstelle wegwerfen.
+
+(7) **Gefiltert wird nur mit positivem Beleg.** Die Angabe der Quelle
+taugt nicht: `bundesagentur` schreibt fuer JEDE Stelle
+`festanstellung`, `stellenanzeigen_de` an zwei Stellen ebenso. Es gab
+gar keine zentrale Typ-Erkennung — deshalb wurden zwei Pflichtpraktika
+unterschiedlich eingeordnet. Ausgeschlossen wird jetzt nur, was der
+TITEL ausweist; alles andere bleibt aktiv. Dieselbe Bauform wie die
+DACH-Pruefung aus #996.
+
+(8) **Zwei eigene Tests fanden vor dem Release zwei Luecken.** Der
+Handeintrag war nicht von der Automatik ausgenommen (die Bedingung des
+Nicht-DACH-Blocks fehlte), und die Vollzeit-Erkennung uebersah die
+Schraegstrich-Form "Voll/Teilzeit" — dort steht der Trenner VOR
+"teilzeit", das Wort "vollzeit" kommt gar nicht vor.
+
+(9) **Mein eigener Guard war zweimal zu breit, und beide Male hatte
+der Bestand recht.** Erst verbot er das Wort "pflichtpraktikum" in der
+ganzen Datei und schlug an einer vorbestehenden Synonymliste fuer den
+Keyword-Abgleich an, in der es zu Recht steht. Dann verbot er
+"werkstudent" im Funktionskoerper und traf `_art_modul.WERKSTUDENT` —
+also die Referenz auf die Konstante des Nadeloehrs, genau das
+Richtige. Jetzt: STRING-LITERALE im Koerper von `estimate_salary`.
+**Ein Guard, der bei korrektem Zustand Alarm gibt, wird nach dem
+zweiten Mal ignoriert** (#929).
+
+(10) **Die Kennzahl verschwieg ihre Grundlage.** `allEstimated`
+beantwortete nur die Extremfrage "gar keine echte Angabe" und schwieg
+zu jeder Mischung — gemeldet wurde ein Durchschnitt ueber acht
+Stellen, in den zwei geschaetzte Praktikumsgehaelter eingeflossen sind.
+Jetzt steht der Schaetzanteil dabei. `buildAnnualSalaryMetrics` lag
+dafuer WORTGLEICH in zwei Seiten; die Doppelung war vorgefunden, nicht
+angelegt, und waere beim Ergaenzen um eine dritte Abweichung
+gewachsen. Jetzt `lib/gehaltsKennzahl.js` mit eigenem CI-Schritt.
+
+(11) **Beim Plan-Eintrag in die falsche SPALTE geschrieben — und der
+Tabellen-Guard konnte das nicht finden.** Mein Skript haengte den
+Umsetzungstext an `felder[1]`, also an die ID-Zelle statt an die
+Funktions-Spalte. Spaltenzahl und letztes Rohr stimmten, deshalb war
+`masterplan_pruefen.py` zufrieden — er prueft die STRUKTUR, nicht die
+Semantik. Gefangen hat es eine eigene Nachkontrolle. **Und die war
+beim naechsten Versuch selbst falsch:** sie las die ERSTE
+`| Nr |`-Kopfzeile der Datei (vier Spalten) statt der zu C67
+gehoerenden (fuenf) und meldete einen Fehlalarm. In v1.7.69 erzeugte
+dieselbe Wurzel eine falsche Bestaetigung, hier einen falschen Alarm —
+**eine Kontrolle muss sich an derselben Tabelle verankern wie der
+Schreibvorgang.**
+
+(12) **Der Pre-Release-Issue-Check hat drei neue Meldungen gefangen**
+(#1018, #1019, #1020), alle vom selben Vormittag. Geprueft und BEWUSST
+nicht zurueckgehalten: #1018 liegt in derselben Dimension (der
+Gehalts-Extraktor liest "30-35 Stunden pro Woche" als Stundensatz und
+speichert ihn mit `salary_estimated=0`, also als BELEGT). Die falsche
+Zahl bekam den Bonus aber schon vorher — der Schaden waechst durch
+diesen Release nicht, er wird nur relativ sichtbarer, weil geschaetzte
+Werte ihn jetzt verlieren. Als Kommentar an #1018 abgegrenzt, statt
+den Eindruck zu erzeugen, es sei erledigt.
+
+## Stand 2026-09-10 (v1.7.77 Stable) — Ein Grund, eine Schreibweise
+
+**#663 C66**, Nutzerauftrag. **Tests: 3687 / 3755.** MCP-Tools 226 / 239.
+
+MERKE-Punkte:
+
+(1) **Label und gespeicherter Wert sind zwei verschiedene
+Zeichenketten, und darauf faellt jedes Umbenennen herein.** Der Grund
+heisst `Falsches System`, in `jobs.dismiss_reason` steht `falsches
+system` — mit Leerzeichen und klein. `ablehnungsgrund_umbenennen`
+vergleicht gegen das alte LABEL und haette nur die fuenf Zeilen mit
+Unterstrich getroffen; die fuenfzig mit Leerzeichen waeren geblieben.
+**Die Spaltung waere nicht behoben, sondern verschoben gewesen** —
+und der Lauf haette Erfolg gemeldet.
+
+(2) **Die erste Fassung haette JEDES Custom-Label kleingeschrieben.**
+Sie zaehlte jede Gruppe als Spaltung, in der sich Label und
+gespeicherter Wert unterscheiden — das trifft aber auf jeden
+Custom-Grund zu, weil `stelle_bewerten` klein schreibt. `Veraltet`
+gegen `veraltet` ist die normale Ablage. Der Lauf haette die ANZEIGE
+umgebaut statt Daten aufzuraeumen. Aufgefallen ist es erst am echten
+Bestand: die Vorschau nannte sechs Gruppen, wo zwei gemeint waren.
+**Eine Regel, die in der Theorie stimmt, gehoert gegen den Bestand
+gehalten, bevor sie schreibt.**
+
+(3) **Ein dict nach Label-TEXT verschluckt Dubletten.** Eine frische
+Datenbank bringt `falsches_system` bereits als Standardgrund mit; wer
+ihn von Hand anlegt, hat zwei Zeilen mit exakt demselben Label. Meine
+Gruppierung schluesselte nach dem Text und sah nur eine davon — der
+Lauf brauchte drei Durchgaenge statt einem und sah nicht-idempotent
+aus. Gefunden hat es der Idempotenz-Test, nicht das Nachdenken.
+**Wenn ein Schluessel nicht eindeutig ist, gehoert eine Liste
+dahinter.**
+
+(4) **Was zusammengefasst wird, ist eng definiert — mit Absicht.**
+Gruppiert wird ausschliesslich, was nach der Normalisierung IDENTISCH
+ist. `falsches_fachgebiet` und `falsches_system` bleiben getrennt, und
+`Dublikat` gegen `duplikat` ist ein vertauschter Buchstabe, also ein
+Tippfehler und kein Schreibfall. Dafuer bleibt das Umbenennen
+zustaendig, **wo ein Mensch das Ziel nennt**. Eine Aehnlichkeitsregel
+haette hier geschaetzt, und ein falsch zusammengezogener Grund kostet
+eine Unterscheidung, die ein Mensch gemeint hat (#1012).
+
+(5) **Die Zielschreibweise ist eine Entscheidung und steht deshalb in
+der Vorschau.** Die Whitelist-Form gewinnt, wenn es eine gibt — jede
+andere Schreibweise wird von `stelle_bewerten` still auf `sonstiges`
+normalisiert und verfaelscht genau die Statistik, um die es geht.
+Sonst die haeufigste gespeicherte Form. Ueberschreibbar je Gruppe:
+eine Schreibweise, die PBP sich aussucht und stillschweigend
+durchsetzt, waere dieselbe Bevormundung wie ein erfundener
+Ablehnungsgrund.
+
+(6) **Der wichtigste Befund des Tages steht nicht im Code.** Beim
+Ausfuehren an den echten Daten stellte sich heraus: **installiert ist
+v1.7.56**, zwanzig Releases alt. Der MCP-Server faehrt diesen Stand,
+nicht das Repo. Ein Aufruf des Umbenennens haette also den ALTEN,
+kaputten Weg genommen und 18 Zeilen verwaist zurueckgelassen. Das
+erklaert nebenbei, warum die echte Datenbank die `analyse_*`-Spalten
+aus #1007 nicht trug — nicht kaputt, nur nie gestartet. **Vor einer
+Datenaenderung ueber den MCP pruefen, welche Version dort laeuft.**
+
+## Stand 2026-09-10 (v1.7.76 Stable) — Beide behalten
+
+Zwei Nutzerentscheidungen, und unter beiden lag ein Fund.
+**Tests: 3664 / 3732.** MCP-Tools 225 / 238.
+
+MERKE-Punkte:
+
+(1) **Die Entscheidung war nur moeglich, weil Stufe 1 gemessen hat.**
+23 von 97 Bewerbungen mit zwei Fassungen, Abweichung in BEIDE
+Richtungen — daraus folgt, dass es keine ableitbare Regel gibt, und
+genau deshalb war die Frage eine Nutzerentscheidung und keine
+Migration. Die Antwort lautete "beide behalten, verkettet". **Ein
+Report, der eine Entscheidung vorbereitet, ist mehr wert als ein
+Automatismus, der sie vorwegnimmt.**
+
+(2) **Der fuenfte Zustand kam beim MESSEN, nicht beim Nachdenken.**
+Nach dem ersten echten Lauf meldete der Report weiter `abweichend: 23`
+— technisch richtig (die Texte sind verschieden), in der Sache falsch
+(beide Fassungen liegen an einem Ort). Ein Pruefer, der bei korrektem
+Zustand Alarm gibt, wird nach dem zweiten Mal ignoriert (#929).
+`zusammengefuehrt` macht den Lauf nebenbei idempotent, **ohne
+Merkliste und ohne Zeitstempel**: der Zustand selbst ist das
+Gedaechtnis.
+
+(3) **Das Werkzeug fuer den Tippfehler konnte den Tippfehler nicht.**
+`ablehnungsgrund_umbenennen` gibt es seit beta.92 genau dafuer, und
+sein Docstring verspricht, die Altwerte mitzuziehen. Der Probelauf auf
+einer Kopie: `reassigned_jobs: 0` bei Status "zusammengefuehrt" — 18
+Stellen haetten den Tippfehler behalten und danach auf einen Grund
+gezeigt, den es nicht mehr gibt. **Das waere schlimmer gewesen als
+nichts zu tun**, und es ist #994/#997 woertlich: eine Erfolgsmeldung
+ueber eine Nicht-Aenderung beendet die Fehlersuche.
+
+(4) **Zwei Ursachen, beide aus derselben Zeile.** `WHERE
+dismiss_reason = ?` verglich (a) exakt und damit
+gross-/kleinschreibungsempfindlich — der Grund heisst `Dublikat`,
+gespeichert ist `dublikat` — und kannte (b) die LISTENFORM nicht, in
+der Gruende seit #913 normalerweise stehen. **Ein Vergleich auf den
+nackten String sieht von einer JSON-Liste nichts**, und beide Formen
+existieren im selben Feld nebeneinander.
+
+(5) **Der Probelauf auf der Kopie hat den Schaden verhindert.** Haette
+ich das Werkzeug direkt am Bestand aufgerufen — es ist schliesslich
+GENAU dafuer gebaut —, waeren 18 Zeilen verwaist. Die Regel
+"Messungen gegen echte Daten laufen auf einer Kopie" ist hier nicht
+Vorsicht gewesen, sondern der einzige Grund, warum es aufgefallen ist.
+
+(6) **Der laufende MCP-Server ist nicht der Code im Repo.** Beim
+Ausfuehren stellte sich heraus: installiert ist **v1.7.56**, zwanzig
+Releases alt. Ein Aufruf ueber den MCP haette den ALTEN, kaputten
+Rename ausgefuehrt. Das erklaert nebenbei, warum die echte Datenbank
+die `analyse_*`-Spalten aus #1007 nicht trug — nicht kaputt, nur nie
+gestartet. **Vor einer Datenaenderung ueber den MCP pruefen, welche
+Version dort laeuft**, nicht welche im Repo steht.
+
+(7) **Was nicht angefasst wird, gehoert trotzdem gezaehlt.** Notizen,
+die NUR im Anlage-Eintrag stehen (4 Stueck), bleiben liegen: dort gibt
+es keine zwei Fassungen, sondern eine an einem anderen Ort. Sie ins
+Feld zu schieben waere ein Umzug und damit eine zweite Entscheidung.
+Der Lauf nennt sie samt Begruendung — eine Luecke gehoert benannt,
+nicht gefuellt (#989).
+
+(8) **Nebenbefund: zwei weitere Gruende sind genauso gespalten.**
+`Falsches System` (50) neben `falsches_system` (6), `Falsche Branche`
+(50) neben `falsche_branche` (2) — gespeichert wiederum als
+`falsches system` und `falsche branche`, also in einer DRITTEN
+Schreibweise. Dieselbe Statistik-Spaltung wie beim gemeldeten Fall;
+als Frage an den Nutzer offen, weil es seine Daten sind.
+
+## Stand 2026-09-10 (v1.7.75 Stable) — Melden, was du brauchst
+
+**#937**, Nutzerwunsch vom 19.08.2026. **Tests: 3648 / 3716.**
+MCP-Tools 224 / 237.
+
+MERKE-Punkte:
+
+(1) **Der Satz des Nutzers war der Bauplan, nicht das Feature.** *"Der
+eigentliche Wert liegt nicht im Melden des Defekts, denn den kennt PBP
+bereits — er liegt in der Priorisierung durch Bedarf."* Daraus folgt
+die ganze Gestalt: **das Pflichtfeld ist der BEDARF, nicht die
+Diagnose.** Ein Melde-Knopf, der nur den Defekt uebertraegt, haette
+Arbeit erzeugt und nichts entschieden — von 32 Quellen laufen 10, und
+welche der toten jemand braucht, weiss PBP nicht.
+
+(2) **PBP sendet nichts, und das erledigt eine ganze Fragenklasse.**
+Prefill-URL statt API: kein Token, keine Authentifizierung, kein
+automatisches Absenden. Damit gibt es keine Berechtigungsfrage, keinen
+Schluesselspeicher und keinen Weg, versehentlich etwas zu
+veroeffentlichen. **Die sicherste Umsetzung war die, die weniger tut.**
+
+(3) **AK 4 ist per BAUWEISE geloest, nicht per Sorgfalt.** Ein
+`dict`-Abzug der Health-Zeile waere heute sauber und beim naechsten
+neuen Feld nicht mehr — genau die Bauform, aus der die PII-Vorfaelle
+dieses Projekts entstanden sind (#763, #814-#816, die fuenf vom
+02.09.). Deshalb `ERLAUBTE_FELDER` als abschliessende Liste: was dort
+nicht steht, geht nicht hinaus. Ein Test schickt eine absichtlich
+verseuchte Zeile hindurch, ein zweiter ein frei erfundenes Feld.
+**Gegen eine Regel, an die man sich erinnern muss, hilft nur eine
+Struktur, die sie erzwingt.**
+
+(4) **Meine erste Verbotsliste hat den Gegenstand der Meldung
+verboten.** Sie enthielt das nackte `name` und schlug damit auf
+`scraper_name` an — den Schluessel der Quelle, also genau die Angabe,
+die hinaus MUSS. Gefunden vom eigenen Guard-Test im ersten Lauf.
+**Ein Teilstring-Verbot trifft, was zufaellig so heisst** (dieselbe
+Klasse wie "ki" in "Kita", #970, und "us" in "Kundenservice", #996).
+Verboten sind jetzt die Namen von Menschen und Firmen, und die heissen
+anders.
+
+(5) **Die Dublettenpruefung darf den Melde-Weg nicht blockieren.** Sie
+laeuft unangemeldet gegen die GitHub-Suche und ist ratenbegrenzt.
+Faellt sie aus, fehlt der Hinweis — mehr nicht; der Dialog verlinkt
+dann die Suche. **Ein Schutz, der den Nutzer aussperrt, wenn er selbst
+ausfaellt, ist schlimmer als keiner.**
+
+(6) **`deprecated` bekommt keinen Knopf, und das ist eine inhaltliche
+Entscheidung.** Eine abgeschaltete Quelle ist eine ENTSCHEIDUNG, kein
+Defekt — #906 hat die beiden ausdruecklich getrennt (Registry gegen
+Automatik, zwei Felder). Eine Meldung darueber haette keinen
+Adressaten. Der Endpunkt antwortet mit 409 und einer Begruendung statt
+mit einem leeren Dialog.
+
+(7) **Der Text steht vor dem Oeffnen da.** Wer nicht sieht, was er
+meldet, kann nicht entscheiden, ob er es melden will — und die Meldung
+landet oeffentlich. Der Test dazu prueft NICHT die Reihenfolge im
+Quelltext: die Fusszeile eines Modals steht im JSX vor dem Rumpf und
+wird darunter gerendert (dieselbe Falle wie beim Anker in #1009).
+Geprueft wird die Sache: der Bericht ist im Dialog, und `window.open`
+haengt an einem Klick.
+
+(8) **Die Laengengrenze kuerzt den TEXT, nicht die URL.** Prefill-URLs
+werden ab etwa 2.000 Zeichen unzuverlaessig. Die URL abzuschneiden
+haette eine kaputte Adresse ergeben; gekuerzt wird deshalb der
+Diagnoseblock von hinten, und die Kernangabe — welche Quelle —
+ueberlebt jede Kuerzung.
+
+## Stand 2026-09-10 (v1.7.74 Stable) — Der Regler kennt deinen Bestand
+
+**#892** (ersetzt #802 nach PII-Loeschung). **Tests: 3630 / 3698.**
+MCP-Tools 224 / 237.
+
+MERKE-Punkte:
+
+(1) **Der teuerste Fund kam nebenbei und ist AELTER als die Arbeit.**
+`save_jobs` schreibt mit `INSERT OR REPLACE`, und REPLACE loescht die
+Zeile und legt sie neu an — jede Spalte ausserhalb der INSERT-Liste
+stand danach auf NULL. Betroffen waren `analyse_urteil` samt
+Geschwistern (#1007, seit v1.7.61), `dismiss_note` (#913) und die
+neuen Felder aus #948. **Fand der naechste Suchlauf dieselbe Stelle
+wieder, war das gelesene Urteil still weg** — und die Stelle sah aus
+wie eine, die nie beurteilt wurde. Die teuerste Auskunft im System,
+geloescht von einer Routine, die niemand verdaechtigt haette. Gefunden
+hat es ein Test, den ich fuer etwas anderes geschrieben hatte.
+
+(2) **Die Abhilfe ist eine LISTE, der Schutz ist ein Guard ueber das
+Schema.** `_BEWAHREN` zu pflegen reicht nicht — genau so ist die Luecke
+entstanden: wer eine neue Spalte anlegt, denkt nicht an ein REPLACE.
+Der Test haelt jede Spalte von `jobs` gegen die INSERT-Liste und
+schlaegt beim naechsten Mal SOFORT an, statt wenn jemandem ein
+verschwundenes Urteil auffaellt. **Eine Aufzaehlung schuetzt einmal,
+eine Strukturpruefung immer.**
+
+(3) **Eigener Fehler, und er gehoert benannt.**
+`services/score_verteilung.py` gab es seit #986 — ich habe es beim
+Anlegen des neuen Moduls UEBERSCHRIEBEN und neun Tests damit rot
+gemacht. Das ist woertlich die Lehre aus #799 (`learned_insights` neben
+`learning_insights`), und ich bin hineingelaufen, weil die Antwort des
+Werkzeugs "updated" statt "created" sagte und ich es nicht gelesen
+habe. Wiederhergestellt, das neue heisst `schwellen_verteilung.py`,
+beide Kopfzeilen grenzen sich ab, ein Test haelt fest, dass beide
+existieren. **Vor dem Anlegen pruefen, ob es das unter aehnlichem Namen
+schon gibt — und die Antwort des Schreibwerkzeugs lesen.**
+
+(4) **Eine feste Reglergrenze kann es gar nicht geben.** Der Regler
+endete bei 20; gemessen liegt das Maximum bei 110 (Median 1, p90 23).
+Der Grund liegt tiefer als die Zahl: `total_score` ist keine
+Prozentzahl, sondern eine Punktsumme, deren Obergrenze aus der LAENGE
+der MUSS-Liste folgt (#999). Die Spanne haengt also am Profil — jede
+fest verdrahtete Grenze ist fuer irgendein Profil falsch.
+
+(5) **Die Schwelle filtert beim SPEICHERN, also ist der Erst-Score die
+richtige Grundlage.** Das ist der eigentliche Gedanke des Melders, und
+er stimmt. Neu `jobs.initial_score`, danach nie wieder angefasst — waere
+er mitgewandert, waere er der aktuelle Score unter anderem Namen.
+
+(6) **Ein Backtest war nicht moeglich, und der Grund gehoert zur
+Antwort.** Den Erst-Score gab es nicht, also existiert kein
+historischer Vergleich — dieselbe Lage wie bei #1003 AK 3. Ab jetzt
+wird gemessen statt geraten. Der Altbestand traegt den aktuellen Wert,
+**als rekonstruiert gekennzeichnet**: ein rekonstruierter Wert, der
+wie ein gemessener aussieht, waere #987.
+
+(7) **Der Aggregatwert widerlegt den Einzelfall nicht — er sagt ihn
+nur nicht.** Ueber den ganzen Bestand liegt der Median MIT
+Anzeigentext (0,0) unter dem ohne (1,0), weil das MUSS-Tor fachfremde
+Anzeigen mit Text sauber auf 0 setzt. Der belegte Fall des Melders
+(0 -> 72 -> 75) bleibt trotzdem richtig. **Eine Durchschnittszahl, die
+einer Einzelbeobachtung widerspricht, widerlegt sie nicht — sie misst
+etwas anderes.** Beides gehoert in die Antwort.
+
+(8) **Zwei von drei gemeldeten Inkonsistenzen waren schon erledigt.**
+Der doppelte `befristet`-Regler und der `50km`-Alteintrag sind weg
+(#917); der doppelte `schwellenwert` wird seit #988 BENANNT und ist
+ueber `scoring_konfigurieren('loeschen')` entfernbar — dort war die
+bewusste Entscheidung, einen vom Menschen gesetzten Wert nicht still zu
+loeschen. **Ein Bericht vom Juli beschreibt den Juli.**
+
+(9) **Die Rechnung bleibt auf dem Server, der Regler liest ab.** Die
+Leiter `sichtbar_ab` liefert je Stufe die Zahl, damit der Klartext
+ohne Nachfrage dasteht. Eine Zaehlschleife im JavaScript waere eine
+zweite Fassung derselben Regel gewesen — das Muster, das dieses
+Projekt vierzehnmal gekostet hat.
+
+## Stand 2026-09-10 (v1.7.73 Stable) — Was ich mindestens nehme, und was ich sage
+
+**#931**, Nutzerwunsch vom 18.08.2026. **Tests: 3609 / 3677.**
+MCP-Tools 223 / 236.
+
+MERKE-Punkte:
+
+(1) **Ein Feld, zwei Zwecke, die einander widersprechen.** `min_gehalt`
+war gleichzeitig Filterschwelle (der NIEDRIGSTE noch akzeptable Wert)
+und Nennwert im Gespraech (ein HOEHERER Wert, weil von der genannten
+Zahl nach unten verhandelt wird). Das ist kein Komfortproblem: mit dem
+Minimum im Feld entsteht der Nennwert jedes Mal neu im Gespraech, mit
+dem Wunschwert filtert die Suche zu scharf. **Wenn eine Einstellung
+zwei Fragen beantworten muss, ist es eine Einstellung zu wenig** —
+verwandt mit #988, wo zwei Regler dieselbe Frage beantworteten.
+
+(2) **Die Trennung gehoert ins Nadeloehr, nicht zu den Aufrufern.**
+`fuer_scoring` speist Suchlauf, Neuberechnung, Fit-Analyse,
+Newsletter-Import und die manuelle Anlage — eine Zeile dort deckt alle
+ab. Die Regel bei jedem Aufrufer zu wiederholen waere die Bauform, die
+dieses Projekt vierzehnmal gekostet hat.
+
+(3) **Die Gegenprobe hat meinen wichtigsten Test entwertet, und das
+ist der eigentliche Ertrag.** Das Akzeptanzkriterium verlangt woertlich
+einen Regressionstest: gleicher Score mit und ohne Wunschwert. Den gibt
+es, er ist gruen — **und er bleibt gruen, wenn man die Trennung wieder
+ausbaut.** `calculate_score` liest die drei neuen Schluessel schlicht
+nicht, weil sie neu sind. Er belegt also, dass heute kein Rechenweg sie
+anfasst, nicht dass sie ferngehalten werden. **Ein Test, der ein
+Kriterium woertlich nachbaut, prueft nicht automatisch die Sache
+dahinter.** Der belegende Test ist der am Nadeloehr; er war in der
+Gegenprobe als einziger rot. Beides steht im Docstring, statt eine
+Zusicherung vorzutaeuschen.
+
+(4) **Zwei gemeldete Nebenbefunde nachgemessen — beide erledigt.** Der
+Widerspruch `min_stundensatz` 100 gegen 110 existiert im Bestand nicht
+mehr (`custom_kriterien` traegt nur noch Gewichtungen), und
+`max_entfernung_km` hat seit #1000 einen Setzer samt
+Widerspruchs-Meldung. Statt eines Fixes gehoeren dorthin **Guards
+gegen den Rueckfall**: die drei neuen Felder zaehlen als eigene
+Kriterien, damit ein gleichnamiger Eintrag im Sammelbecken nicht
+wirkungslos bleibt und trotzdem nach einer Einstellung aussieht.
+**Ein Bericht vom August beschreibt den August** — vor dem Fix
+nachsehen, ob es den Defekt noch gibt.
+
+(5) **Die Vorbelegung SCHREIBT nicht.** Sie steht in der Antwort. Eine
+Zahl, die niemand genannt hat, in einem Gehaltsfeld waere eine
+erfundene Angabe — dieselbe Grenze wie beim fehlenden Monat in #1006.
+Und `bewerbung_erstellen` nimmt gar keine `gehaltsvorstellung`
+entgegen; mein erster Entwurf pruefte auf einen Parameter, den es dort
+nicht gibt. Gefunden vom eigenen Test, nicht vom Nachdenken.
+
+(6) **Kein Schema-Eingriff noetig, weil die Kriterien als
+Schluessel-Wert-Tabelle liegen.** Erst nachgesehen, dann gebaut — ein
+ALTER TABLE waere hier reine Arbeit ohne Wirkung gewesen. Vorhandene
+Minimum-Werte werden ausdruecklich NICHT umgesetzt: ein Minimum, das
+stillschweigend zum Nennwert wird, waere eine erfundene Angabe in einer
+Gehaltsverhandlung — und die Filterschwelle gleichzeitig weg.
+
+## Stand 2026-09-10 (v1.7.72 Stable) — Eine Stelle, mehrere Fundstellen
+
+**#951**, Neuauflage von #59/#67 vom 15.03.2026. **Tests: 3595 / 3663.**
+MCP-Tools 223 / 236.
+
+MERKE-Punkte:
+
+(1) **Das Issue fragte nach einer Quellenliste; die Messung fand etwas
+anderes, und das war der Ertrag.** Dieselbe Frage — "ist das dieselbe
+Stelle?" — wurde an ZWEI Stellen mit VERSCHIEDENEN Regeln beantwortet,
+und die schwaechere lief im SUCHLAUF, also auf dem Weg, ueber den fast
+alles hereinkommt. `save_jobs` verglich exakt (`_dedup_key`, und
+Klammerzusaetze wurden nur bei der FIRMA entfernt, beim Titel nicht),
+`stelle_manuell_anlegen` mit URL-Abgleich und Titel-Aehnlichkeit — und
+dort entscheidet das Ergebnis bereits, ob ueberhaupt eine Zeile
+entsteht. **Vierzehnter Fall desselben Musters** (#963 zuerst), und
+zum zweiten Mal in der Richtung aus #991: der schwaechere Weg ist der
+wichtigere.
+
+(2) **Die Zahl hat die Diskussion beendet.** Ueber 2.491 Stellen
+nachgerechnet: Suchlauf-Regel 53 Paare, neue sichere Regel 116
+Zweitfunde in 89 Gruppen, davon 32 quellenuebergreifend. Die Differenz
+sind keine Grenzfaelle, sondern genau die gemeldeten Varianten —
+`(Senior) X` gegen `X`, `und` gegen `and`, Strichvarianten, und Paare
+mit IDENTISCHER URL bei abweichendem Titel.
+
+(3) **Zwei Sicherheitsstufen statt einer Wahrheit.** `SICHER` ist
+nachrechenbar (URL ohne Tracking-Parameter, oder gleiche Firma und
+gleicher normalisierter Titel) — nur dort wird die Fundstelle
+vermerkt. `VERDACHT` ist eine Aehnlichkeit und wird MARKIERT. Die
+Nutzervorgabe steht im Modul: *"zwei getrennte Eintraege sind
+aergerlich, eine faelschlich verschmolzene Stelle ist schlimmer, weil
+dabei Information verschwindet."* Genau deshalb entscheidet ueber
+`SICHER` nichts, was man nicht nachrechnen kann — dieselbe Ueberlegung
+wie bei der Anforderungs-Gruppierung in #1012.
+
+(4) **Der Vorschlag aus #59 wurde geprueft und NICHT uebernommen.**
+Dort stand ein Score-Bonus je Duplikat. Die Einordnung des Nutzers
+widerspricht mit einem guten Argument: eine breit gestreute Stelle ist
+oft eine schwer besetzbare, nicht eine bessere. **Streuung ist nicht
+Passung.** Als Test festgehalten, damit es niemand "nur schnell"
+ergaenzt.
+
+(5) **Mein eigener erster Test lag falsch, und der Alt-Entscheid hatte
+recht.** Ich erwartete, dass "(Senior) Solution Architect Cloud" und
+"Solution Architect" zusammenfinden. Bei abweichender URL verlangt
+`find_duplicate_job` eine Aehnlichkeit von 0.85 statt 0.5 — das ist die
+Lehre aus #670, wo ein einzelnes geteiltes Fachwort verschiedene
+Stellen derselben Firma unsichtbar machte. Die Schwelle ist die
+Spezifikation. **Ein Alt-Entscheid, der einem im Weg steht, ist
+zuerst zu lesen, nicht zu aendern** (v1.7.31 MERKE 2, jetzt an einer
+Schwelle statt an einem Test).
+
+(6) **Nebenbefund, und er trifft meine eigene Arbeit vom Vortag.** Der
+Duplikat-Vermerk aus #641 schrieb weiter in `jobs.research_notes` —
+die Spalte, die die Zusammenfuehrung aus #956 seit v1.7.70 LEERT — und
+`ist_protokoll` erkannte ihn nicht. **9 der 107 als Recherche
+eingestuften Altzeilen sind in Wahrheit Duplikat-Protokoll.** Waere die
+Migration so gelaufen, haetten neun Automatik-Vermerke in der
+Recherche-Liste des Menschen gestanden. **Eine Migration ist erst
+fertig, wenn alle SCHREIBER umgestellt sind — nicht nur die, die man
+beim Bauen im Blick hatte.** Gefunden nur, weil ich beim naechsten
+Issue in denselben Code gesehen habe.
+
+(7) **Drei Test-Fixtures gaben mehreren Stellen dieselbe Detail-URL.**
+Seit eine identische URL als dieselbe Anzeige gilt, fiel die zweite
+Stelle beim Speichern als Duplikat aus und erreichte den geprueften
+Mechanismus nie — in einem Fall die Blacklist. Die Fixtures waren
+unrealistisch: zwei verschiedene Anzeigen koennen sich keine
+Detail-URL teilen. **Eine Verhaltensaenderung faellt zuerst dort auf,
+wo Testdaten unmoegliche Zustaende bauen.**
+
+(8) **Die Normalisierung in BEIDE Richtungen gemessen** (#966). Eine
+zu waschende Liste zoege verschiedene Stellen zusammen, und das ist
+hier der teurere Fehler. Deshalb steht neben jedem
+Zusammenfuehr-Fall ein Trennungs-Fall: "Senior" gegen "Junior", "PLM"
+gegen "PDM", "Konstruktion" gegen "Fertigung".
+
+(9) **Der Diagnoselauf schreibt nichts, und das ist geprueft** — nicht
+behauptet: der Test vergleicht den Bestand vor und nach dem Lauf. Ein
+Lauf, der 117 Zweitfunde ungefragt zusammenlegt, waere keine Diagnose,
+sondern eine Ueberraschung.
+
+(10) **Die Erkennung laeuft je neuer Stelle gegen alle aktiven —
+nachgemessen statt angenommen.** 300 neue Stellen gegen 500 aktive:
+3,4 Sekunden, und null Falschtreffer unter 300 verschiedenen Stellen.
+Die Kandidatenliste wird einmal geladen und waechst mit; ohne das
+haette jede Stelle eine eigene Abfrage ausgeloest.
+
+## Stand 2026-09-10 (v1.7.71 Stable) — Angesehen ist nicht beurteilt
+
+**#948**, Nutzerbeobachtung vom 21.08.2026. **Tests: 3569 / 3637.**
+MCP-Tools 222 / 235.
+
+MERKE-Punkte:
+
+(1) **Die Haelfte war gebaut, und das musste erst nachgesehen
+werden.** #1007 hat mit `analyse_urteil`/`analyse_am`/
+`analyse_profil_stand` bereits dafuer gesorgt, dass ein gelesenes
+Urteil an der Stelle haengt. Wer das Issue von vorn angefangen haette,
+haette eine zweite Ablage neben die vorhandene gebaut — also #764 und
+#956 zum dritten Mal. **Vor dem Bauen messen, welche
+Akzeptanzkriterien noch offen sind**, wie bei #965 (vierter Fall nach
+#814, #994, #1011).
+
+(2) **Der dritte Zustand ist die eigentliche Antwort auf das Issue.**
+Das Issue verlangt, dass der Eintrag BEIM AUFRUF entsteht. Umgesetzt —
+aber getrennt: `gesichtet` heisst "die Fit-Analyse lief", `beurteilt`
+heisst "ein Mensch hat gelesen und entschieden". Dass ein Werkzeug
+gelaufen ist, sagt nichts ueber das zweite. Beides gleich zu zaehlen
+waere #989 an einer neuen Stelle — und der Schaden waere groesser als
+die Luecke: ein Abzeichen "geprueft", hinter dem niemand gelesen hat,
+ist schlimmer als gar keines.
+
+(3) **Die Spur darf #963 nicht durch die Hintertuer zurueckholen.**
+`fit_analyse` ist seit v1.7.24 bewusst schreibfrei, weil ein stiller
+Score-Write die Rangfolge verschob. Der Vermerk schreibt deshalb genau
+zwei Felder, die in keine Sortierung und in keine Rechnung eingehen —
+und `updated_at` bewusst NICHT, weil es an Wiedergaenger-Erkennung und
+Anzeigenalter haengt. **Eine Regel, die einmal teuer erkauft wurde,
+gilt auch fuer die naechste Erweiterung derselben Funktion.**
+
+(4) **Der Score ist das integrierende Signal, und deshalb genuegt
+einer.** Das Issue nennt drei Aenderungsgruende (Score, Beschreibung,
+Suchkriterien). Alle drei wirken UEBER den Score — drei einzelne
+Vergleiche haetten dieselbe Frage dreimal beantwortet, zwei davon
+ungenauer.
+
+(5) **Keine Toleranzschwelle, und das ist gemessen statt geschaetzt.**
+Ueber 600 Stellen mit Anzeigentext (Kopie, Original nie angefasst)
+gegen die heutigen Kriterien nachgerechnet: **381 unveraendert, 219
+abweichend** — kleinste beobachtete Abweichung 0,5 Punkte, Median
+10,5, Maximum 73,6. Es gibt kein Rauschband. Eine Schwelle waere hier
+kein Schutz vor Fehlalarmen (#929), sondern eine Grenze, die echte
+Aenderungen verschweigt. **Die Messung hat die Entscheidung
+ueberfluessig gemacht, nicht erschwert.**
+
+(6) **Der Filter ERSETZT den Schalter, statt danebenzustehen.** Es gab
+"Nur beurteilte" als Ja/Nein; die Gegenrichtung, die man beim Sichten
+braucht, war gar nicht erreichbar. Einen zweiten Schalter zu
+ergaenzen waere #988 gewesen — zwei Einstellungen fuer dieselbe Frage.
+
+(7) **Der richtige Mechanismus war schon gebaut.** Fuer "Einstieg ohne
+Scrollen, bleibt sichtbar, verdeckt nichts" braucht es kein
+mitlaufendes Element: die Fusszeile des Modals liegt ausserhalb des
+Scroll-Containers, und der Inhaltsbereich rechnet ihre Hoehe bereits
+ein. Ein eigener Sticky-Mechanismus waere eine zweite Fassung von
+etwas Vorhandenem gewesen.
+
+(8) **Zwei Nebenbefunde am REST-Weg, beide beim Bauen gefunden.**
+`/api/jobs/{hash}/fit-analyse` nahm die Suchkriterien ROH statt durch
+das Nadeloehr aus #987 — ohne Titel-/Synonym-Anreicherung, ohne die
+Begriffsart-Ableitung (#968), ohne die Anforderungs-Gruppierung
+(#1012). Dieselbe Stelle trug damit zwei Zahlen, je nachdem wer fragt.
+Das ist #1008 MERKE 4 woertlich: **ein Nadeloehr nuetzt nichts, solange
+ein Aufrufer daran vorbeigeht.** Und derselbe Endpunkt las die
+Recherche noch aus `jobs.research_notes` — der Kasten waere nach der
+#956-Zusammenfuehrung von gestern LEER gewesen, also genau das
+Symptom, wegen dem #956 aufgemacht wurde. **Eine Migration ist erst
+fertig, wenn alle LESER umgestellt sind, nicht alle Schreiber.**
+
+(9) **Der Browser-Test ist der Beleg, der Grep ist es nicht.** Sechs
+der sieben Akzeptanzkriterien betreffen die Oberflaeche. Ein Test, der
+im JSX nach einer Zeichenkette sucht, belegt nur, dass sie dasteht.
+Der neue Test klickt: Abzeichen sichtbar samt "ueberholt", beide
+Filterrichtungen wirken, der Klick landet beim Urteil, der Einstieg
+steht genau einmal. Das ist v1.7.64 MERKE 1 als Vorgehen statt als
+Lehre.
+
+(10) **Gegenprobe gemacht, weil 22 gruene Tests im ersten Lauf
+verdaechtig sind.** Vermerk entfernt und die Score-Pruefung
+abgeschaltet: 6 Tests wurden rot, nach dem Zuruecksetzen wieder gruen.
+**Ein Test, der nie rot war, ist keine Zusicherung.**
+
+(11) **Zweimal in dieselbe Heredoc-Falle gelaufen** (v1.7.24 MERKE 4):
+`\n` in einem Patch-Skript wurde zum echten Zeilenumbruch und zerriss
+ein String-Literal, `\{` in einem Regex ebenso. Beide Male hat der
+Syntaxfehler es sofort gezeigt — die Lehre steht seit einem Jahr da,
+und die Vorlage, aus der man kopiert, enthaelt sie nicht.
+
+## Stand 2026-09-10 (v1.7.70 Stable) — Ein Befund statt einer Vermutung
+
+Drei Issues, ein Muster: **eine Auskunft, die geraten war, wo sie
+belegbar gewesen waere.** **Tests: 3541 / 3607.** MCP-Tools 222 / 235.
+
+MERKE-Punkte:
+
+(1) **Der teuerste Teil von #1014 war der verworfene Status.** Der
+Nachlade-Pfad hatte `if status != 200: return ""` — damit fielen 404,
+410, 403 und 500 auf denselben leeren String zusammen, und der
+Aufrufer riet daraus *"evtl. Login-Wall oder Bot-Block"*. Ein
+eindeutiges **410 Gone** wurde so zur Vermutung. Der Status wurde
+dabei ZWEIMAL weggeworfen, auch im Retry-Helfer der Quelle; ohne den
+Durchgriff durch die ganze Kette sah ein 404 der Detail-API weiter aus
+wie ein Timeout. Das ist #989 am Netzwerk-Status: **eine fehlende
+Information sah aus wie eine negative.**
+
+(2) **Dem Bericht in einem Punkt widersprochen, und das gehoert
+gesagt.** Der Melder mass "0 Zeichen" beim HTML-Weg. An sechs echten
+Stellen nachgemessen lieferte HTML sehr wohl Text (1.756–2.701
+Zeichen) — die Zahl liess sich nicht nachstellen. Der Defekt dahinter
+schon: **zwei der sechs Anzeigen waren tatsaechlich entfernt** und
+wurden bis dahin als "Login-Wall oder Bot-Block" gefuehrt. Die
+Detail-API war in allen vier lebenden Faellen mindestens so gut wie
+HTML. **Ein Bericht kann in der Zahl danebenliegen und im Befund
+recht haben** — beides gehoert in die Antwort, sonst steht am Ende
+entweder eine Zurueckweisung oder eine Bestaetigung, die nicht stimmt.
+
+(3) **Mein eigener Test hat gefunden, dass der Fix jede Seite ZWEIMAL
+holt.** Die erste Fassung machte ein GET fuer den Status und liess
+danach den Parser ein zweites GET machen. Kein Fehler, kein
+Testversagen — nur doppelte Netzlast bei einem Bestandslauf ueber
+hunderte Stellen. Gefunden hat es ein Test, der die Aufrufe ZAEHLT
+statt das Ergebnis zu pruefen. Behoben, indem die Textextraktion aus
+dem Abruf herausgeloest wurde (`text_aus_html`).
+
+(4) **Sieben Alt-Tests des Refetch-Pfades mockten den falschen
+Punkt.** Sie patchten den Parser, nicht den Abruf — auf einem Runner
+ohne Netz waeren daraus echte HTTP-Aufrufe geworden. Das faellt nicht
+auf, solange der Parser sofort antwortet. Beim Umbau eines Pfades
+gehoert also geprueft, ob seine Tests ihn ueberhaupt vom Netz trennen.
+
+(5) **Bei #956 wich die Messung vom Vorschlag im Issue ab, und die
+Abweichung war der ganze Ertrag.** Der Vorschlag lautete, die alte
+Spalte in die BEWERBUNGSGEBUNDENE Tabelle zu ziehen. Gemessen: 143
+Stellen tragen Inhalt, **5 davon haengen an einer Bewerbung**, und
+**30 der 143 sind gar keine Recherche**, sondern Aussortier-Protokoll.
+Waere der Vorschlag uebernommen worden, waeren 138 Eintraege nicht
+migrierbar gewesen und 30 Aussortier-Vermerke in der Recherche-Liste
+gelandet. **Alles in einen Topf zu schieben waere kein Aufraeumen,
+sondern eine zweite Verwechslung** — dritter Fall nach #1004 und
+#1005, in dem der Vorschlag aus dem Issue geprueft und nicht
+uebernommen wurde.
+
+(6) **Beim Protokoll-Umzug bewusst KEIN `dismiss_job`.** Der Aufruf
+haette `is_active` auf 0 gesetzt und einen Zeitpunkt geschrieben — eine
+Stelle, die wieder aktiv ist, waere still erneut aussortiert worden.
+**Eine Migration darf den Bestand einordnen, nicht ueber ihn
+entscheiden.** Das ist die Gegenrichtung zur Nadeloehr-Regel: das
+Nadeloehr ist richtig fuer die ENTSCHEIDUNG, nicht fuer das
+Umschichten ihres Freitextes.
+
+(7) **Der Schreibkasten hing an der Stelle, der Lesekasten an der
+Bewerbung.** Nebenbefund aus #958, hier behoben: bei **44 von 99
+Bewerbungen** gibt es keine verknuepfte Stelle (#986), also war das
+Eingabefeld fuer fast die Haelfte des Bestands unsichtbar — obwohl
+gespeichert wird an der Bewerbung. Der Entwurf wurde ausserdem aus der
+ALTEN Spalte vorbefuellt; der erste Klick in ein scheinbar leeres Feld
+haette eine alte Fassung wieder mitgespeichert.
+
+(8) **#957 macht bei Stufe 1 halt, und die Messung ist der Grund.**
+23 von 97 Bewerbungen tragen zwei verschiedene Notiz-Fassungen, und
+die Abweichung geht in BEIDE Richtungen. Eine Regel "die neuere
+gewinnt" braucht einen Zeitstempel, den das Feld nicht hat; "die
+laengere gewinnt" ist eine Vermutung. **Wo eine Zusammenfuehrung in
+der Haelfte der Faelle etwas wegwirft, ist sie eine
+Nutzerentscheidung und keine Migration.** Der Report gibt deshalb
+KEINE Notiztexte aus — ein Bericht ueber Notizen, der die Notizen
+mitliefert, waere ein zweiter Ort, an dem sie stehen.
+
+(9) **Der Cherry-Pick brach, weil ein VORGAENGER-Commit fehlte.** Der
+#956-Teil-2-Commit fasst eine Testdatei an, die erst der
+#957-Commit anlegt — auf der Stable-Linie gab es sie nicht, und git
+meldete das als "deleted by us". Die Aufloesung war nicht der
+Konfliktblock, sondern die fehlende Reihenfolge. **Bei einer Serie von
+Cherry-Picks zuerst pruefen, welche Commits die gepickten BERUEHREN,
+nicht nur welche man ausgewaehlt hat.**
+
+## Stand 2026-09-10 (v1.7.69 Stable) — Die Vorgabe kommt aus deinen Begriffen
+
+**Nutzer-Korrektur an meiner eigenen Arbeit von gestern.** Die Frage
+war: *"baust du da was, das nur zu meinem Profil passt oder so, wie es
+sich gehoert fuer jeden, der PBP nutzt und andere Lebenslaeufe hat?"*
+**Tests: 3484 / 3552.** MCP-Tools 220 / 233.
+
+MERKE-Punkte:
+
+(1) **Der Einwand traf, und zwar genau die eine Stelle, die ich selbst
+als schwach benannt hatte.** Der CODE war profilfrei — kein Firmenname,
+kein "PLM", keine Zahl aus dem Bestand, Tests gegen ein PFLEGE-Profil,
+Obergrenze relativ statt absolut. **Die VOREINSTELLUNG war es nicht.**
+Ich hatte `hart` an 2.491 Anzeigen EINES Bestands kalibriert und im
+Modul sogar hingeschrieben, dass die Entscheidung deshalb dem Menschen
+gehoert. Genau das war der Fehler: **wenn ich weiss, dass eine
+Voreinstellung nur fuer ein Profil gilt, ist die Antwort nicht "der
+Nutzer entscheidet", sondern "PBP entscheidet es pro Profil".**
+
+(2) **Die Unterscheidung war laengst gebaut — nach innen gerichtet.**
+`_aus_facette` hat seit v1.7.36 ein "Tor 1", das prueft, ob ein Begriff
+ueberhaupt ein Beruf ist (`MIN_SPITZENANTEIL`, am 07.09. GEMESSEN:
+Berufe 18-39 %, Technologien 10-13 %). Es gab die Antwort nur nicht
+heraus — bei einer Technik lieferte es `[]`. Neu `begriffsart()`, und
+damit leitet sich die Betriebsart ab, ohne dass jemand etwas
+einstellt. **Vor einer neuen Regel nachsehen, ob die vorhandene die
+Frage schon beantwortet und nur nicht antwortet** (dritter Fall nach
+#814 und #994).
+
+(3) **Dieselbe Abfrage, zwei Fragen — nicht zwei Abfragen.**
+`synonyme()` und `begriffsart()` teilen sich `_daten()`. Zwei
+Netzabfragen fuer eine Antwort waeren #963 mit Netzkosten gewesen. Der
+Rohdaten-Cache musste dabei in `cache_leeren()` mit hinein, sonst
+antwortet ein Test mit den Daten des vorigen.
+
+(4) **`unbekannt` ist nicht `technik`, und das ist hier keine
+Feinheit.** Ein Netzausfall meldet fuer JEDEN Begriff `unbekannt`.
+Wuerde das als "Technik" gelten, setzte ein Aussetzer eine
+Voreinstellung — und zwar die strengere. Also drei Zustaende, Rueckfall
+auf das BISHERIGE Verhalten, und `unbekannt` ueberschreibt nie einen
+bekannten Stand. Das ist #989 zum wiederholten Mal, diesmal an einer
+Voreinstellung statt an einem Score.
+
+(5) **Ein einziger Berufsbegriff genuegt fuer `gewichtet`.** Das Tor
+oeffnet, sobald IRGENDEIN Pflichtbegriff trifft — gefaehrdet ist also
+der Begriff, der umbenannt sein kann, nicht die Mehrheit. Die
+Kostenschieflage zeigt in dieselbe Richtung: `gewichtet` kostet
+hoechstens 50 markierte, nachrangige Anzeigen je Lauf, `hart` kostet im
+Zweifel den ganzen Beruf.
+
+(6) **Gemessen an FREMDEN Profilen, nicht am eigenen Bestand.** Gegen
+das echte Register: Pflegefachkraft, Erzieherin, Elektroniker,
+Finanzbuchhalter -> `beruf` -> `gewichtet`; Python, Kubernetes, PLM,
+PDM, Materialstammdaten -> `technik` -> `hart`; gemischt mit einem
+Beruf -> `gewichtet`. **Eine Ableitung, die nur am eigenen Bestand
+geprueft ist, ist dieselbe Sorte Fehler wie die Vorgabe, die sie
+ersetzt.**
+
+(7) **Ein Guard verbietet jeden Profil-Begriff in der
+Entscheidungslogik** (plm, pdm, sap, teamcenter, pflegefachkraft,
+erzieherin, python ...), Kommentare und Doku ausgenommen. Dieselbe
+Bauform wie der Ortsnamen-Guard aus #965: sonst waechst die
+Sonderbehandlung still hinein, sobald jemand einen Fall "nur schnell"
+ergaenzt.
+
+(8) **Die alte Begruendung ist nicht geloescht, sondern umgedeutet.**
+Die Messung von gestern bleibt gueltig — sie belegt, dass das Tor bei
+einem TECHNIK-Profil mit dem Urteil des Menschen uebereinstimmt, und
+genau dafuer leitet die Regel jetzt `hart` ab. Was sie nie belegt hat,
+war eine Voreinstellung fuer alle anderen. **Eine Messung, die man als
+Begruendung fuer die falsche Reichweite benutzt hat, gehoert
+eingeordnet, nicht entfernt.**
+
+## Stand 2026-09-09 (v1.7.68 Stable) — Weit unten statt nirgends
+
+**#968**, Rest-Akzeptanzkriterium eines Issues vom 03.09. Die Ursache
+war seit v1.7.28 behoben, die Bauform nicht. **Tests: 3475 / 3543.**
+MCP-Tools 220 / 233.
+
+MERKE-Punkte:
+
+(1) **Die Messung hat BEIDE naheliegenden Entwuerfe widerlegt, und
+zwar bevor sie gebaut waren.** Mein erster Plan war ein Rueckgriff auf
+die KANN-Liste: keine Pflichttreffer, aber ein KANN-Treffer, also
+sichtbar lassen. Gemessen am echten Bestand (Kopie, 2.491 Anzeigen):
+**1.539 der 1.900 Anzeigen ohne Pflichttreffer tragen einen
+KANN-Treffer**, und 85 % des Gesamtbestands ebenfalls. Die Liste hat 83
+Eintraege und taugt nicht als Unterscheidung — der Entwurf haette
+ausgerechnet die fachfremden Anzeigen zurueckgeholt. **Eine Idee, die
+plausibel klingt, kostet eine Messung; eine Idee, die gebaut ist,
+kostet einen Release.**
+
+(2) **Der teuerste Fund war, dass das Tor RECHT hat.** Von den 1.900
+Anzeigen, die es nicht oeffnen, hatte der Mensch **1.402 selbst als
+fachfremd aussortiert** (74 %). Das Issue verlangt die Gewichtung
+ausdruecklich als VORGABE; diese Zahl sagt, dass sie diesem Nutzer rund
+1.400 abgelehnte Anzeigen zurueck in die Liste gelegt haette. Also
+beides gebaut, umschaltbar, und die Vorgabe unveraendert gelassen —
+**mit der Begruendung im Code, im Wiki und als Test.** Eine
+Voreinstellung gegen die eigene Messung zu setzen waere keine
+Umsetzung, sondern Gehorsam.
+
+(3) **Der Unterschied laesst sich benennen, und das ist die eigentliche
+Antwort auf das Issue.** Wessen Pflichtbegriffe TECHNIKEN nennen, dem
+sagt ihr Fehlen wirklich etwas. Wessen Pflichtbegriffe einen BERUF
+nennen, dem sagt es wenig — derselbe Beruf heisst anders. Der
+gemeldete Fall war der zweite, der gemessene Bestand ist der erste.
+**Zwei Nutzer, dieselbe Mechanik, entgegengesetzte richtige Antwort:
+das ist die Definition einer Einstellung.**
+
+(4) **Das blosse Weglassen des Tors haette GAR NICHTS bewirkt.** Der
+Fachscore ist zugleich das Tor und die Bezugsgroesse des
+Rahmen-Deckels aus #942: `deckel = faktor * fachscore`. Ohne
+Pflichttreffer ist der Deckel null, also faellt der komplette positive
+Rahmen weg und die Stelle landet wieder bei 0. Wer nur das `return 0`
+entfernt haette, haette einen Fix ausgeliefert, der nichts tut — und
+das faellt bei einem Score, der schon vorher 0 war, niemandem auf. Als
+eigener Test festgehalten.
+
+(5) **Mein eigener Test hat den ersten Deckel sofort widerlegt.** Ich
+hatte `MAX_OHNE_MUSS = 5.0` gesetzt. Mit genau EINEM MUSS-Begriff ist
+ein echter Treffer 2 Punkte wert, die passende Stelle kommt samt
+Rahmen-Deckel auf 3,0 — die fachfremde haette 5,0 getragen und damit
+MEHR. Das ist exakt die Umkehrung, gegen die #942 gebaut wurde, durch
+die Hintertuer wieder eingebaut, und es ist derselbe Nebenbefund wie
+v1.7.50 MERKE (5): **bei kurzer MUSS-Liste ist jeder absolute Wert
+daneben zu gross.** Jetzt relativ: hoechstens die Haelfte eines
+einzelnen Pflichttreffers.
+
+(6) **Die Rangfolge gehoert in die SORTIERUNG, nicht in den Score.**
+Eine Stelle mit Pflichttreffer darf abstuerzen — 400 km Entfernung
+ziehen sie auf 0, und das ist die Asymmetrie aus #942. Nach Punkten
+steht sie damit unter einer fremden Anzeige, die remote und nah ist.
+Das Akzeptanzkriterium "eine Stelle MIT Treffer steht weiterhin ueber
+ihr" laesst sich deshalb arithmetisch gar nicht erfuellen, ohne #942
+zurueckzudrehen. Geloest wie in #989: **Gruppe vor Zahl.** Beide
+Haelften stehen als getrennte Tests da, samt der Begruendung, warum
+die zweite nicht ueber den Score geht.
+
+(7) **Eine benannte Grenze statt einer stillen Flut.** In `gewichtet`
+behaelt ein Lauf hoechstens 50 Stellen ohne Pflichttreffer; im
+dokumentierten Lauf aus #813 waren es 312 in EINEM Durchgang. Die
+uebrigen nennt der Filtertrichter — sonst saehe ein Lauf mit 50
+behaltenen und 262 uebergangenen Stellen aus wie ein Lauf ohne jede
+Filterung.
+
+(8) **Die Gegenprobe ist die wichtigste Zahl des Releases.** Ueber alle
+2.491 Anzeigen mit den echten Kriterien nachgerechnet: in der Vorgabe
+**null Score-Aenderungen** gegenueber v1.7.67. Wer nichts umstellt,
+merkt von dieser Version nichts. Bei einer Aenderung am Scoring ist das
+keine Zugabe, sondern die Bedingung — #987 war genau der Fall, in dem
+sie gefehlt hat.
+
+(9) **Nebenbefund, kein Defekt:** die Alternativbezeichnungen aus #969
+stehen im echten Profil als LEERE Liste. Das ist richtig und nicht
+kaputt — die 37 Pflichtbegriffe dieses Profils nennen Techniken, und
+das Berufe-Register kennt zu Techniken keine Alternativbezeichnungen.
+Es heisst nur: fuer diesen Nutzer ist das Tor so streng wie vor #969,
+und genau deshalb ist die Betriebsart die richtige Antwort und nicht
+eine weitere Synonym-Quelle.
+
+## Stand 2026-09-09 (v1.7.67 Stable) — Wer gehoert dazu
+
+**#1011** (Nutzerregel) und **#1013** (Rueckmeldung eines Testers).
+**Tests: 3449 / 3517.** MCP-Tools 219 / 232.
+
+MERKE-Punkte:
+
+(1) **Zehnter Fall desselben Musters, diesmal bei den Kontakten.** Ob
+ein Kontakt entsteht, hing am ANLAGEWEG: das Einzel-Werkzeug nahm
+Kontaktdaten entgegen, die Sammeluebernahme hatte keine Felder. Von 14
+Stellen eines Arbeitstags blieben 11 ohne Ansprechpartner. Neu
+`services/kontakt_pflicht.py`; angeschlossen sind Stellen-Anlage,
+Bewerbung, Sammeluebernahme und zwei REST-Wege.
+
+(2) **Der Guard fand zwei Wege, die ich nicht auf dem Schirm hatte.**
+Mein Test verbietet `add_contact` ausserhalb des Nadeloehrs und meldete
+drei Fundstellen in `dashboard.py`: Sammel-Import, LLM-Extraktion aus
+Korrespondenz — und den bewussten Anlage-Endpunkt, der eine begruendete
+Ausnahme bekam. **Ein Guard, der beim ersten Lauf mehr findet als
+seinen Anlass, hat sich sofort bezahlt gemacht** — zweites Mal an einem
+Tag nach dem Bewerbungs-Entwurf in #1009.
+
+(3) **Wiedererkennung war Pflicht, nicht Kuer.** `add_contact` prueft
+nichts. Eine Regel "Kontakt bei JEDER Interaktion" ohne sie haette die
+Kontaktliste in Tagen unbrauchbar gemacht. Erkannt wird ueber die
+E-Mail, sonst ueber Name PLUS Firma — **nur der Name reicht bewusst
+nicht:** gleicher Name bei anderer Firma ist ein anderer Mensch, und
+zwei Historien in einer Karteikarte waeren schlimmer als eine Dublette.
+
+(4) **Zum zweiten Mal an einem Tag eine stille Null im eigenen Code.**
+Der Dienst rief `db.get_contacts()`; die Methode heisst
+`list_contacts`, und das weitgefasste `except` haette den
+AttributeError verschluckt — die Dublettenpruefung waere abgeschaltet
+gewesen, ohne dass es auffaellt. Gefunden vom Probelauf, nicht vom
+Test. **Ein `except Exception` um einen Aufruf, dessen Namen man nicht
+nachgeschlagen hat, ist eine Wette.**
+
+(5) **Ein Akzeptanzkriterium war schon erfuellt — nachgesehen statt
+gebaut.** Eine Anfrage ohne Stellenbezug liess sich mit
+`kontakt_anlegen` immer schon erfassen, ohne dass eine Firma erfunden
+werden muss. Als Test festgehalten. Das ist die Lehre aus #814 und
+#994, zum dritten Mal angewandt.
+
+(6) **Die Abgrenzung ist die eigentliche Regel.** Sichten, analysieren
+und aussortieren erzeugen weiterhin NICHTS. Der Satz des Nutzers dazu
+steht im Modul: *"Ein Ansprechpartner aus einer Anzeige, mit dem nie
+gesprochen wurde, ist eine Karteikarte. Ein Ansprechpartner, mit dem ein
+Austausch lief, ist eine Historie."*
+
+(7) **#1013 kam von einem Tester ueber Screenshots** — Erklaerung und
+Auswahl standen an zwei Orten in zwei Formen und lasen sich wie zwei
+verschiedene Dinge. Beim Umbau gilt: ein Symbol ohne Text ist ohne
+`aria-label` fuer Tastatur- und Screenreader-Bedienung NAMENLOS, und
+zwei Knoepfe in einer engen Kopfzeile sind genau der Fall, in dem
+Trefferflaechen zu klein geraten. Beides steht als Test da, nicht als
+Vorsatz.
+
+(8) **Beim Wiki-Pflegen sechs Tabellenzeilen repariert, die ich selbst
+zerschossen hatte.** Mein Skript zum Auf-Erledigt-Setzen haengte Issue-
+und Wiki-Spalte ein zweites Mal an — C58, C59, C60, G36, G38, G39
+hatten neun statt sieben Felder, die Tabelle rendert damit falsch.
+Aufgefallen erst, weil die NEUEN Zeilen eine andere Spaltenzahl hatten
+als die alten. **Ein Skript, das eine Zeile umbaut, gehoert an einer
+zweiten Zeile gegengeprueft** — nicht nur an der, die man gerade
+ansieht. Dazu ein vorbestehendes unescaptes Rohr in A26.
+
+## Stand 2026-09-09 (v1.7.66 Stable) — Eine Anforderung, ein Punkt
+
+**#1012**, beim Abschluss von #1003 beziffert und hier behoben.
+**Tests: 3432 / 3500.**
+
+MERKE-Punkte:
+
+(1) **Der gefaehrlichste Ort war der Hoechstwert.** Die MUSS-Liste wird
+an DREI Stellen ausgewertet: `calculate_score`, `fit_analyse` und
+`score_maximum`. Haette der Hoechstwert nicht mitgruppiert, waere er
+nicht mehr erreichbar gewesen — und die in #999 gepruefte Eigenschaft
+(eine Anzeige, die alles trifft, ergibt exakt 100 %) waere STILL
+gebrochen. Deshalb ein Nadeloehr statt drei Aenderungen; der
+#999-Alt-Test war dabei der eigentliche Waechter.
+
+(2) **Eine zweite Blaehungsquelle, gefunden erst beim Testschreiben.**
+Mein Test behauptete, "plm" und "teamcenter" seien verschiedene
+Faecher — er schlug fehl. Ursache: PBPs eigene `_SYNONYM_MAP` fuehrt
+`plm -> teamcenter`, der Matcher zaehlt eine PLM-Anzeige also laengst
+als Teamcenter-Treffer. **Zwei MUSS-Begriffe, die PBP selbst als
+dasselbe behandelt, sind dasselbe** — der zweite Punkt entstand ohne
+jeden zusaetzlichen Inhalt. Ein fehlgeschlagener eigener Test war hier
+mehr wert als drei gruene.
+
+(3) **Mein eigener Fehler war eine stille Null.** Der Aufbau der
+Synonym-Mengen stand als `list | set` da — ein TypeError, den ein
+weitgefasstes `except Exception` verschluckte. Die dritte Regel war
+damit ABGESCHALTET und meldete nur "False"; ohne den Probelauf waere sie
+tot ausgeliefert worden. Das `except` faengt jetzt nur den Import, und
+ein Guard zaehlt die Grundlage nach (#995 woertlich).
+
+(4) **Gruppiert wird nur, was sich BELEGEN laesst.** Enthaltensein,
+Abkuerzung/Ausschreibung, eigene Synonym-Karte. Eine
+Aehnlichkeitsrechnung oder eine statistische Daempfung (IDF, #778)
+haette geschaetzt. **Lieber eine Blaehung uebrig lassen als eine
+Anforderung schlucken** — ein falsch zusammengefasster Begriff kostet
+Punkte, die der Mensch gemeint hat.
+
+(5) **Der erste Backtest war wertlos, und das fiel nur beim Lesen der
+Zahl auf.** Ueber die AKTIVEN Stellen gerechnet gibt es genau eine.
+Erst der Lauf ueber 1.054 aussortierte Stellen ergab etwas: 37
+MUSS-Begriffe werden zu 15 Anforderungen, 265 Stellen (25,1 %) aendern
+den Score, ausnahmslos nach unten, im Mittel -21,3; von den Top-20
+bleiben 14. **Eine Messung, deren Stichprobe eins ist, ist keine
+Messung.**
+
+(6) **Die Schwelle ist eine absolute Zahl auf einer verschobenen
+Skala.** `min_score_schwelle` filtert nach dieser Aenderung schaerfer,
+ohne dass jemand sie angefasst hat. Sie stillschweigend weitergelten zu
+lassen waere eine Einstellung, die etwas anderes bedeutet als sie sagt
+(#988, #1008) — deshalb sagt PBP es und nennt den Weg.
+
+(7) **Beim Nachsehen der groessten Gruppe wurde aus einem Verdacht ein
+Beleg.** 18 von 37 Begriffen in einer Gruppe sah nach zu grob aus.
+Angesehen waren es "PLM" plus 17 Rollen- und Themenvarianten desselben
+Fachgebiets — also genau die gemeldete Blaehung. **Eine auffaellige
+Zahl ist ein Grund zum Nachsehen, nicht zum Zurueckdrehen.**
+
+## Stand 2026-09-09 (v1.7.65 Stable) — Was ist eigentlich ein Fachgebiet
+
+**#1004 und #1005**, zwei Meldungen, dieselbe Frage aus zwei Richtungen.
+**Tests: 3416 / 3484.**
+
+MERKE-Punkte:
+
+(1) **Die naheliegende Regel haette den Gruendungsfall getoetet.** Bei
+#1004 war der erste Gedanke "ein einzelnes gemeinsames Token reicht
+nicht mehr". Der Alt-Test zu #671 sagt das Gegenteil: dort ist "plm" das
+EINZIGE gemeinsame Token und traegt zu Recht. Die Loesung trennt deshalb
+**Hersteller von Produkt**, statt zu ZAEHLEN — der Produktname bleibt
+ein Fachsignal, nur der Herstellername verliert es. **Vor der Haertung
+den Gruendungsfall nachschlagen, nicht danach** (#991 MERKE 3).
+
+(2) **Am Bestand gemessen statt behauptet — auf einer KOPIE.** Der erste
+Lauf ueber die AKTIVEN Stellen war wertlos: es gibt genau eine. Erst die
+Stichprobe ueber 500 der 2.490 aussortierten Stellen, jede einmal
+behandelt als kaeme sie neu herein, ergab eine Zahl: 121 Markierungen
+vorher, 110 nachher, **11 entfallen (9,1 %), keine kommt hinzu.** Das
+Original unter AppData wurde nie angefasst (Muster aus beta.90).
+
+(3) **Der teuerste Fund in #1005 war eine Regel, die es schon gab.**
+`quote_belastbar` steht seit v1.7.30 im Dienst — **importiert und nie
+aufgerufen.** Genau deshalb konnte aus vier Rauschbegriffen eine
+Prozentzahl entstehen, die wie eine Kennzahl aussieht. Das ist DoD 8c
+woertlich, diesmal nicht bei einem Guard, sondern bei einer
+Darstellungsregel: **geschrieben ist nicht aufgerufen** — vierter Fall
+nach #906, #944 und #1008.
+
+(4) **Die Floskeln mussten auch beim LERNEN raus.** `lerne_aus_bestand`
+zieht Vokabular aus den eigenen Anzeigen; die Obergrenze `MAX_ANTEIL`
+faengt nur, was in FAST jeder Anzeige steht. "Qualifikation" liegt
+darunter und wurde deshalb als Fachbegriff gelernt. Nur die Ausgabe zu
+filtern haette den Kreislauf gelassen.
+
+(5) **Ein Gruppierungs-Schluessel ist kein Wort.** `grundform()` fasst
+Flexionsformen zusammen, ist aber bewusst KEIN Lemmatisierer:
+angezeigt wird immer die haeufigste tatsaechlich vorkommende Form. Ein
+erfundenes Wort in einer Auswertung waere dieselbe Klasse Fehler wie ein
+erfundener Zeitpunkt (#987) oder ein erfundener Monat (#1006).
+
+(6) **Vom eigenen Probelauf gefunden:** aus "prozess" wurde "prozes",
+waehrend "prozesse" auf "prozess" fiel — die beiden fanden dadurch
+gerade NICHT zusammen, obwohl das der ganze Zweck war. Ein einzelner
+Buchstabe aus einem DOPPELTEN Konsonanten ist keine Endung. Ohne die
+Probe waere die Zusammenfassung an genau den Woertern gescheitert, fuer
+die sie gebaut wurde.
+
+(7) **Beide Listen tragen ihr Aufnahmekriterium im Code**, und ein Test
+prueft, dass es dasteht. Eine kuratierte Liste ohne Kriterium waechst
+beliebig — beim naechsten Mal landet dort ein Spezialanbieter, dessen
+Name sehr wohl ein Fachgebiet benennt. Die bekannte Grenze bleibt: eine
+Liste findet nur, was in ihr steht (#742, #1006); ein fehlender Eintrag
+bedeutet hier nur das Verhalten von vorher.
+
+(8) **Sprachen bleiben bewusst drin.** `deutsch` stand in der Meldung
+als Rauschen — eine Sprachanforderung ist aber eine echte Anforderung.
+Sie mitzutilgen waere die Gegenrichtung desselben Fehlers (#966: beim
+Haerten beide Richtungen messen).
+
+## Stand 2026-09-09 (v1.7.64 Stable) — Nach der Entscheidung
+
+**#1009 und #1010**, zwei Nutzerwuensche vom selben Tag. Beide treffen
+denselben Punkt: was passiert, NACHDEM man entschieden hat.
+**Tests: 3402 / 3470.** MCP-Tools 219 / 232.
+
+MERKE-Punkte:
+
+(1) **Ein `useMemo` hinter einem fruehen `return` — und der Build war
+gruen.** `JobsPage` hat ein `if (loading) return <LoadingPanel .../>`;
+mein neuer Hook landete dahinter. Im ersten Rendern laeuft er nicht mit,
+im zweiten schon, und React verwirft die Komponente. **Der Vite-Build
+lief durch, die Browser-Konsole blieb still, und meine eigene
+Reproduktion zeigte keinen Fehler** — sichtbar wurde es allein daran,
+dass zwei Browser-Tests die Stellen-Seite nicht mehr fanden. Belegt
+wurde es erst durch die Gegenprobe: mit `git stash` gruen, ohne rot.
+**Ein Build, der durchlaeuft, ist kein Beleg dafuer, dass die Seite
+rendert** — das ist v1.7.35 MERKE (1) in neuer Gestalt. Als Guard
+festgehalten, der jeden Hook nach einem fruehen Return meldet.
+
+(2) **Der Kommentar zu #913 stimmte nicht, und das war der teuerste
+Fund.** Dort steht, `dismiss_job` sei "das Nadeloehr ALLER
+dismiss-Writes". Fuer das AENDERN stimmt das; fuer das ANLEGEN nicht:
+`save_jobs` sortiert selbst aus (Wiedergaenger #941, Duplikat #641,
+Nicht-DACH-Ort #732). Haette ich dem Kommentar geglaubt, traege
+ausgerechnet die Automatik keinen Zeitpunkt — waehrend das Protokoll sie
+ausweisen soll. **Eine Behauptung im Code ist kein Beleg**, auch wenn
+sie von der eigenen Vorgaenger-Arbeit stammt.
+
+(3) **Die Herkunft laesst sich NICHT aus dem Grund ableiten, und das
+musste erst gemessen werden.** Mein erster Entwurf las das
+`auto:`-Praefix. Der Probelauf zeigte "ich" fuer eine automatische
+Aussortierung: `normalisiere_dismiss_wert` entfernt das Praefix beim
+Schreiben — bewusst seit #913, ein Alt-Test haelt es fest. Dazu setzt
+`duplikat` sowohl der Mensch als auch die Automatik. Also eine eigene
+Spalte statt einer Heuristik. **Ich habe die Entscheidung aus #913 dabei
+NICHT zurueckgedreht** — ein Alt-Test, der eine bewusste Entscheidung
+festhaelt, ist die Spezifikation und nicht der Fehler (v1.7.31 MERKE 2).
+
+(4) **Nebenbefund: die #941-Liste sieht nur die halbe Automatik.**
+`get_auto_dismissed_jobs` sucht `dismiss_reason LIKE 'auto:%'` — den
+Praefix behaelt nur der `save_jobs`-Weg, der Ollama-Weg verliert ihn an
+der Normalisierung. Mit `dismissed_by` gibt es jetzt die verlaessliche
+Angabe; die Altliste bleibt unangetastet, weil ihr Vertrag anderswo
+haengt.
+
+(5) **Der Altbestand bekommt weder Datum noch Herkunft.** `updated_at`
+einzusetzen waere eine erfundene Angabe (#987), und ohne Beleg heisst
+die Herkunft `unbekannt` — nicht "war ich" (#989). Solche Zeilen
+erscheinen nur unter "alle" und sagen dort, warum sie sich nicht
+einordnen lassen. **Eine Luecke gehoert benannt, nicht gefuellt.**
+
+(6) **Zeitfenster brauchen zeitzonenbewusste Vergleiche.** `_now()`
+schreibt UTC-ISO mit Offset; meine erste Grenze war lokale Zeit mit
+Leerzeichen-Trenner. Zwei Formate als Zeichenketten zu vergleichen
+sortiert ueber das 'T', nicht ueber die Zeit — und es faellt nicht auf,
+weil das Ergebnis zufaellig oft stimmt. Das ist die Falle aus v1.7.21
+(`date('now')` in SQL neben `datetime.now()` in Python), eine Ebene
+hoeher. "heute" heisst dabei Mitternacht in der ORTSZEIT: wer um 01:00
+Uhr etwas wegklickt, sucht es am selben Morgen unter "heute".
+
+(7) **Der neue Guard fand eine DRITTE Fundstelle, die es schon vorher
+gab.** Der Bewerbungs-Entwurf stand als Literal am Karten-Knopf; #1009
+verlangt ausdruecklich denselben Aufruf im Dialog. Beim Herausziehen in
+`openApplicationDialog` meldete der Test eine zweite Kopie im
+Detail-Dialog — die lag seit langem da und ist jetzt mit geroutet.
+**Ein Guard, der beim ersten Lauf mehr findet als seinen Anlass, hat
+sich sofort bezahlt gemacht.**
+
+(8) **Rueckgaengig gehoert in den Toast, nicht nur ins Protokoll.** Ein
+Verklicker faellt in Sekunden auf. Das Protokoll ist der zweite Weg,
+fuer den Fall, dass der Toast schon weg ist — beides zusammen ist der
+Unterschied zwischen "kann man theoretisch zurueckholen" und "findet man
+wieder".
+
+## Stand 2026-09-09 (v1.7.62 Stable) — Die Liste sagt, was sie verbirgt
+
+**#1008**, Nutzer-Report mit Screenshot: Sidebar 8, Liste 1, F5 hilft
+nicht. Drei Befunde, acht Akzeptanzkriterien, plus ein vierter Fund beim
+Nachsehen. **Tests: 3380 / 3448.**
+
+MERKE-Punkte:
+
+(1) **Mein eigener Fix aus v1.7.50 hat den gemeldeten Schaden erst
+angerichtet.** #993 fand, dass `JobsPage` `chrome.search_criteria.
+min_score_schwelle` las — einen Schluessel, den es nicht gibt. Der
+Zugriff wurde repariert. Nicht gestellt wurde die Frage, ob dieser Wert
+den Filter ueberhaupt speisen darf: `min_score_schwelle` ist die
+Schwelle, ab der eine Stelle beim Suchlauf **gespeichert** wird ("wirkt
+waehrend der Suche, nicht in der Liste"), der Anzeige-Filter heisst
+`schwellenwert/auto_ignore`. Damit wurde aus einem seit beta.27
+schlafenden Filter ein wirksamer, und sieben von acht Stellen
+verschwanden — bei einem Nutzer, der nie einen Filter gesetzt hat.
+**Einen toten Draht anzuschliessen ist nur dann eine Reparatur, wenn
+vorher geklaert ist, was an seinem Ende haengt.** Der Alt-Test aus #993
+forderte genau den falschen Zugriff und musste mitkorrigiert werden.
+
+(2) **Das Feld ohne Leser war die Folge, nicht die Ursache.** Nach der
+Korrektur las niemand mehr `search_criteria` aus der Workspace-Antwort —
+also ist es weg. Dasselbe fuer `get_hochschulabschluss_malus`: sie las
+einen Regler, dessen Pruefung v1.7.35 (#972) entfernt hat, und ihre zwei
+Aufrufer legten das Ergebnis in `criteria` ab, wo es niemand mehr las.
+Dritter Fall nach #993 und #1000.
+
+(3) **Der tote Regler stand in JEDER frischen Datenbank.** Der Melder
+fand `hochschulabschluss/fehlt` in seinem Bestand und hielt es fuer eine
+Karteileiche. Es war eine Vorgabe. Haette ich nur den Bestand gemeldet,
+haette die neue Warnung jeden Anwender beim ersten Start getroffen —
+**ein Pruefer, der bei korrektem Zustand Alarm gibt, wird nach dem
+zweiten Mal ignoriert** (#929). Also erst die Vorgabe entfernen und die
+Altzeilen abraeumen, DANN melden. Beide Richtungen im Test.
+
+(4) **Ein Feldname, drei Bedeutungen.** `score` war in der MCP-Liste und
+im Bericht der Wert MIT den Scoring-Reglern, in `GET /api/jobs` — also
+in der Liste, die der Mensch ansieht — der rohe gespeicherte. Das
+Nadeloehr `_mit_scoring_reglern` gab es seit #944 bereits; der
+REST-Weg lief nur nicht hindurch. **Ein Nadeloehr nuetzt nichts, solange
+ein Aufrufer daran vorbeigeht** — deshalb ist der Guard ein Aufruf und
+kein Fundstellen-Abgleich.
+
+(5) **Zwei Zahlen gleichzumachen war die falsche Loesung, und das war
+die interessanteste Entscheidung.** Die Fit-Analyse haette die Regler
+mitrechnen koennen — dann waere alles eine Zahl. Aber `total_score` wird
+gegen `total_score_max` gehalten, und in diesem Hoechstwert kommen die
+Regler nicht vor: eine Stelle, die alles trifft, muss exakt 100 %
+ergeben (#999). Die Angleichung haette also eine gepruefte Eigenschaft
+gebrochen, um eine Anzeige zu gluetten. Die Zahlen werden deshalb
+**benannt statt gleichgemacht** — eine Luecke gehoert erklaert, nicht
+zugerechnet (#989).
+
+(6) **Der Gesamtwert und seine Aufteilung stammten aus verschiedenen
+Laeufen.** `save_jobs` behaelt beim erneuten Speichern den hoeheren
+alten `score` (gewolltes Verhalten seit jeher) und schrieb
+`fachscore`/`rahmenscore` bedingungslos neu. Nachgestellt: erst voller
+Anzeigentext, dann derselbe Hash mit duennem — Ergebnis `score 10.5` bei
+`fachscore 0.0`, exakt der gemeldete Widerspruch. **Zwei Werte, die
+einander erklaeren sollen, muessen zusammen geschrieben werden oder gar
+nicht.** Vom eigenen Test kam der Zusatzfall: ein Metadaten-Update ohne
+Bewertung haette die Aufteilung auf NULL gesetzt, also einen Gesamtwert
+ohne jede Herkunft hinterlassen.
+
+(7) **Der Farbklassen-Guard aus #964 hat zum dritten Mal gegriffen** —
+mein Hinweisbalken trug `bg-amber-400/20`. `amber` ist ein FLACHES
+Projekt-Token; die Abstufung loest ins Leere auf, ohne Fehler und ohne
+fehlende Regel. Und der Kommentar-Helfer war diesmal von vornherein
+eingeplant: der Guard, der `min_score_schwelle` in `JobsPage.jsx`
+verbietet, haette sonst an der Begruendung angeschlagen, warum es dort
+nicht mehr steht (#993, #998, v1.7.31 MERKE 6).
+
+(8) **Der eigene Fund im MCP wiegt am schwersten, und er kam nur zustande,
+weil du "der MCP ist eines der Kernkomponenten von PBP" gesagt hast.**
+`stellen_anzeigen` verwarf Stellen unter der Schwelle still (`continue`),
+zaehlte sie nur ins Log und antwortete *"Keine Stellen gefunden. Starte
+eine Jobsuche"* — waehrend `pbp_diagnose` dieselben Stellen als aktiv
+meldete. **PBP widersprach sich in sich selbst, und der genannte
+naechste Schritt war der falsche:** eine Suche bringt nichts, wenn die
+Treffer laengst da sind. Das ist #813 woertlich, nur an der Trefferliste
+statt am Suchlauf. Der genannte Rueckweg wird gegen die echte Signatur
+geprueft (#1000/#958), damit die Anleitung nicht ins Leere fuehrt.
+
+(9) **Der Kommentar des Melders hat meine erste Diagnose widerlegt, und
+das gehoert gesagt.** Ich hatte den Schwellenfilter (`auto_ignore`) als
+Ursache im Verdacht; der stand bei ihm auf 0, also aus. Der MCP-Befund
+bleibt ein echter Defekt — er war nur nicht die Ursache DIESES Symptoms.
+**Ein Fund, der beim Suchen nach etwas anderem entsteht, ist kein
+Beleg fuer die urspruengliche These.**
+
+## Stand 2026-09-09 (v1.7.61 Stable) — Die Empfehlung kommt nicht aus den Punkten
+
+**#1003 + #1007**, nachgetragen mit v1.7.63 (beim Release selbst blieb
+der Stand-Block aus — die Lehren gehoeren trotzdem hierher).
+Abgeschlossen mit v1.7.63, das #1007s siebtes Akzeptanzkriterium
+nachzog.
+
+MERKE-Punkte:
+
+(1) **Die Nutzer-Korrektur hat meinen eigenen Loesungsvorschlag
+verworfen, und sie hatte recht.** Das Issue fragte nach einem besseren
+MASSSTAB (gegen den bisher besten Wert, gegen die Verteilung des
+Bestands); ich hatte die Verteilung selbst vorgeschlagen. Der Satz, der
+alles umgeworfen hat: *"Ob es eine Empfehlung gibt, hat nichts mit den
+Punkten, nichts mit dem Score zu tun — das ist nur ein Indikator fuer
+die Suchbegriffe."* Ein besserer Maszstab haette denselben Fehler nur
+sauberer gemacht. **Wenn eine Zahl die falsche Frage beantwortet, hilft
+keine bessere Skala.**
+
+(2) **`services/passung.py` rechnet deshalb GAR NICHT.** Es entscheidet
+nach Sachverhalten: k.o.-Kriterium schlaegt alles, sonst gilt eine
+gelesene Detailanalyse, sonst `NICHT_BEURTEILBAR`. Die Schwellen
+`>= 0.75` / `>= 0.50` sind ersatzlos entfallen. Der Score misst, was in
+der ANZEIGE steht; der Verdict behauptete, ob ein MENSCH auf die Stelle
+passt — der Lebenslauf ging in die Zahl nie ein.
+
+(3) **`NICHT_BEURTEILBAR` ist vom Notausgang zum Normalfall geworden.**
+In #999 war die vierte Kategorie ein Behelf fuer einen fehlenden
+Hoechstwert. Jetzt sagt sie, was sie sagt: niemand hat diese Stelle
+gegen dein Profil gelesen. Das ist etwas anderes als "passt nicht" —
+genau die Verwechslung, die #989 abgeschafft hat.
+
+(4) **Die Herkunft ist Pflichtfeld, kein Zierrat.** `grundlage` mit
+`detailanalyse` / `ko_kriterium` / `keine_grundlage`: ein maschinelles
+und ein gelesenes Urteil duerfen in der Liste nicht gleich aussehen.
+
+(5) **Ein veraltetes Urteil wird gekennzeichnet, nicht verworfen.** Der
+Profil-Fingerabdruck ist bewusst grob (Kompetenzen/Stationen/Stand)
+statt ein Inhalts-Hash: ein Hinweis, der bei jeder Kleinigkeit
+"veraltet" meldet, wird ignoriert (#929). Und ein stilles Wegwerfen
+verloere die teuerste Auskunft im System.
+
+(6) **Ein Backtest war nicht moeglich, und der Grund gehoert zur
+Sache.** Das dritte Akzeptanzkriterium von #1003 verlangte zu messen,
+wie viele Stellen die Kategorie wechseln. Der Verdict wurde vorher
+**nirgends gespeichert** — er entstand bei jedem Aufruf neu. Es gibt
+also keinen historischen Stand zum Vergleich; genau deshalb war #1007
+ueberhaupt noetig. Die Antwort ist strukturell: alles ausser echten
+k.o.-Faellen ist jetzt `NICHT_BEURTEILBAR`.
+
+(7) **Offen geblieben und beim Abschluss beziffert: die
+Synonym-Blaehung.** Der zweite Befund von #1003 betrifft den Score
+selbst. Gemessen: drei Schreibweisen desselben Sachverhalts in der
+MUSS-Liste ergeben **21,0 statt 7,0** Punkte — Faktor 3 fuer eine
+Umformulierung, und das verschiebt die SORTIERUNG. Zur Abgrenzung
+ebenfalls gemessen: blosse Wiederholung blaeht NICHT (20x = 1x). Als
+**#1012** erfasst, damit er nicht mit dem geschlossenen Issue
+verschwindet.
+
+## Stand 2026-09-09 (v1.7.60 Stable) — Versandfertig statt nachformatieren
+
+**#1006**, Nutzer-Report mit belegtem Lauf. **Tests: 3338 / 3404.**
+MCP-Tools 216 / 229.
+
+MERKE-Punkte:
+
+(1) **`edu.get("degree", "")` ist KEIN Vorgabewert.** `dict.get` liefert
+ihn nur, wenn der SCHLUESSEL FEHLT. Steht die Spalte auf NULL, ist der
+Schluessel da und der Wert `None` — und der f-String schreibt `"None"`
+ins Dokument. Genau so kamen die gemeldeten vier `None` in einen
+Lebenslauf, und zwar aus BEIDEN Erzeugern. **Der Ausdruck sieht wie eine
+Zusicherung aus und ist eine Vermutung** — dieselbe Bauform wie das
+`chrome`-Feld aus #993, nur eine Ebene tiefer.
+
+(2) **Es war keine Regression, und das war der eigentliche Ertrag der
+Recherche.** Das Issue vermutete eine Verschlechterung seit Mai und
+verlangte den Commit. Am Verlauf geprueft: `add_table` kommt im Export
+der GESAMTEN Historie nicht vor (die Treffer stammen aus dem
+DOCX-IMPORT, #998), und die Fusszeile sitzt seit v0.32.0 im
+ATS-Erzeuger. Das Mai-Dokument stammt aus
+`lebenslauf_angepasst_exportieren`, das September-Dokument aus
+`lebenslauf_exportieren`. **Zwei Werkzeuge, nicht ein
+verschlechtertes.** Haette ich die Vermutung uebernommen, waere ich nach
+einem Commit gefahndet, den es nicht gibt — und haette am Ende die
+falsche Fassung "wiederhergestellt". Als Test festgehalten.
+
+(3) **Der eigene Pruefer hat den eigenen Code erwischt.** Regel 2 (keine
+Gedankenstriche) schlug am Bis-Strich in `zeitraum()` an — der ist dort
+typografisch richtig. Ein Pruefer, der bei korrektem Ergebnis Alarm
+gibt, wird nach dem zweiten Mal ignoriert (#929). Ausgenommen, beide
+Richtungen im Test. **Ein Guard, der seinen Autor am selben Tag stoppt,
+hat sich bezahlt gemacht** — zum zweiten Mal nach dem #990-Guard.
+
+(4) **Zwei Grenzen, die bewusst nicht ueberschritten werden.** Prosa
+wird nicht umgeschrieben (aus "Er verfuegt ueber" wird maschinell kein
+guter Satz — Regel 8 wird GEMELDET), und ein fehlender Monat wird nicht
+erfunden. `01/2005` zu schreiben, weil das Format MM/JJJJ verlangt,
+waere eine geratene Angabe in einem Bewerbungsdokument. **Eine Luecke
+gehoert benannt, nicht gefuellt** (#989 in der Textausgabe).
+
+(5) **Die Umlaut-Liste hatte eine Luecke, die der Pruefer fand.** Die
+*verfuegen*-Familie stand nicht in der kuratierten Liste aus #742 —
+in fast jedem Lebenslauf. Der Pruefer meldet unbekannte
+ae/oe/ue-Woerter jetzt als WEICHEN Befund: eine Positivliste kann nur
+finden, was in ihr steht, und "Poesie" oder "Duell" sind keine Umlaute.
+Die Liste ist dabei ein Dienst geworden (`services/umlaute.py`), weil
+sie einen zweiten Aufrufer bekommen hat.
+
+(6) **Geprueft wird am ERGEBNIS, nicht am Quelltext.** Das Referenz-
+Profil aus dem Bericht (NULL-Spalten, unsortierte Stationen,
+Skill-Fragmente, Jahr ohne Monat) erzeugt im Test ein echtes DOCX, und
+die Regeln laufen dagegen. Ein Erzeuger, der sie umgeht, faellt sonst
+nicht auf — DoD 8c fuer Ausgaben statt fuer Guards.
+
+## Stand 2026-09-09 (v1.7.59 Stable) — Dein Ordner, dein Layout
+
+**#973 Teil 1**, Nutzerwunsch vom 04.09. und noch einmal am 09.09.
+**Tests: 3290 / 3356.** MCP-Tools 215 / 228.
+
+MERKE-Punkte:
+
+(1) **Der Zielordner stand an DREIZEHN Stellen einzeln im Code**
+(`get_data_dir() / "export"`, in `export_tools.py`, `dashboard.py` und
+`dokumente.py`). Kein Nadeloehr — also die Bauform, aus der #963, #991
+und #992 entstanden sind, nur bevor sie auseinanderlaufen konnte. Neu
+`services/ablage.py`. **Der Guard zaehlt die Fundstellen nicht ab,
+sondern verbietet die Bauform** — eine Zaehlung haette die vierzehnte
+durchgelassen.
+
+(2) **Den Vorlagen-Ordner gab es gar nicht — und das war die
+eigentliche Ueberraschung.** Die vier DOCX-Erzeuger starten mit einem
+LEEREN `Document()`, das Layout steht als Code in `export.py`, und die
+Dokumenttypen `lebenslauf_vorlage`/`anschreiben_vorlage` sind blosse
+Etiketten ohne Leser. Einen Pfad einzufuehren, den niemand liest, waere
+#1000/#988 gewesen. **Ein Pfad ohne Leser ist keine Einstellung,
+sondern eine Behauptung** — deshalb wird die Vorlage wirklich als
+Grundlage geoeffnet (Rumpf leeren, Stile/Raender/Kopf-/Fusszeilen
+behalten), und der Test prueft die SCHRIFT IM FERTIGEN DOKUMENT, nicht
+den gespeicherten Wert.
+
+(3) **Mit Vorlage darf Calibri nicht mehr darueber geschrieben
+werden.** `generate_cv_docx` setzte `Normal` hart auf Calibri 10,
+`_setup_ats_styles` zusaetzlich Heading 1 und 3. Waere das geblieben,
+haette die Vorlage nichts bewirkt ausser Arbeit — der Regler haette
+einen Draht gehabt und trotzdem nichts getan. Die Ueberschreibung
+laeuft jetzt nur noch ohne Vorlage.
+
+(4) **Ein ungueltiger Pfad wird ABGEWIESEN, nicht gespeichert, und PBP
+legt den Ordner NICHT an.** Beides bewusst: ein Tippfehler wuerde sonst
+still zu einem neuen Ordner, und die Unterlagen laegen ab dann dort.
+Dieselbe Entscheidung wie bei den Reisewiderstands-Regeln (#965).
+
+(5) **Der verschwundene Ordner ist ein BENANNTER Sonderfall.** Externe
+Platten und Netzlaufwerke sind mal weg. Drei Dinge muessen dann
+gleichzeitig gelten: kein Absturz, die Datei geht trotzdem irgendwohin,
+und PBP sagt wohin. **Eine stille Umleitung waere schlimmer als ein
+Fehler** — man sucht die Datei sonst an einer Stelle, an der sie nicht
+liegt. Die Einstellung bleibt dabei stehen.
+
+(6) **Der Download im Dashboard nimmt dieselbe Vorlage wie der Weg
+ueber Claude.** Zwei Layouts fuer dasselbe Dokument, je nach Klick,
+waere #963/#991 im Layout gewesen. Ein Test haelt beide Wege fest.
+
+(7) **Cherry-Pick: der Konflikt wollte wieder ein Beta-Werkzeug auf die
+Stable-Linie holen** (`termine_ics_exportieren`, J4.1/#481). Genau der
+Fall aus v1.7.47 MERKE (5) — diesmal beim Aufloesen erkannt, weil der
+Konfliktblock groesser war als die eigene Aenderung.
+
+(8) **Bewusst nur Teil 1.** Index ueber den Ordner, Suche darin und
+Zuordnungsvorschlaege (AK 4-8) sind eine eigene Arbeit; #973 bleibt
+offen, E25 steht auf 🟨. Ein halb erledigtes Issue als erledigt zu
+fuehren ist die Falle aus DoD 8a.
+
+(9) **Waehrend des Releases kam #1006 herein** — versandfertige
+Dokumente statt Nachformatieren, mit belegten Inhaltsfehlern (`None`
+im Text, falsche Sortierung, ungefilterte Skill-Liste). Der
+Pre-Release-Issue-Check hat es gefangen. Geprueft und BEWUSST nicht
+zurueckgehalten: die Vorlage aus v1.7.59 loest das Layout, die
+gemeldeten Fehler sitzen im INHALT und braeuchten dieselbe Arbeit auch
+mit der schoensten Vorlage. Als Kommentar an #1006 abgegrenzt, statt
+den Eindruck zu erzeugen, es sei erledigt.
+
+## Stand 2026-09-09 (v1.7.58 Stable) — Ollama startet mit, wenn du willst
+
+**#1001**, Nutzerwunsch vom selben Tag. Den Knopf "Ollama starten" gibt
+es seit beta.60; was fehlte, war der Weg OHNE Knopfdruck.
+**Tests: 3261 / 3327.** MCP-Tools 214 / 227.
+
+MERKE-Punkte:
+
+(1) **Die Vorgabe ist AUS, und das ist die eigentliche Entscheidung.**
+Einen fremden Prozess ungefragt zu starten ist eine Nebenwirkung, die
+niemand bestellt hat. Wer nichts einstellt, merkt von dieser Version
+nichts — das ist bei einer Funktion, die etwas AUSSERHALB von PBP
+anfasst, die einzige vertretbare Voreinstellung.
+
+(2) **Eine Start-Logik, drei Aufrufer** — bewusst so gebaut, nicht
+hinterher zusammengelegt. `services/ollama_start.py` wird vom Knopf
+(`POST /api/llm/start`), vom MCP-Startweg (`server.py`) und vom
+Dashboard-Startweg (`start_dashboard`) gerufen. Zwei Fassungen von
+Binary-Suche und Detach-Flags waeren mit Sicherheit auseinandergelaufen;
+das ist das Muster aus #963/#991/#992 zum achten Mal. Der Guard zaehlt
+keine Fundstellen ab, sondern prueft, dass der Endpunkt **keine eigene
+Fassung mehr haelt**.
+
+(3) **Der PATH genuegt nicht.** Startet PBP als MCP-Server, erbt es die
+Umgebung von Claude Desktop — nicht die der Anmelde-Shell. Der alte
+Endpunkt rief `Popen(["ollama", "serve"])`; ein `which`-Fehlschlag haette
+dort "nicht installiert" gemeldet, obwohl Ollama danebensteht. Das ist
+die Verwechslung von "nicht gefunden" mit "nicht vorhanden" (#989), nur
+im Dateisystem. Jetzt erst `which`, dann die Orte, an die Ollamas eigener
+Installer schreibt.
+
+(4) **Vom eigenen Test gefunden, im eigenen neuen Code.** Die erste
+Fassung von `PUT /api/llm/autostart` kippte einen unsinnigen String still
+auf `false` und meldete Erfolg — der Nutzer haette "gespeichert" gelesen
+und einen abgeschalteten Autostart bekommen. Das ist #980 in neuer
+Gestalt (ein Fallback, der eine ANDERE Bedeutung speichert). **Ein Test,
+der Unsinn hineingibt, ist mehr wert als drei, die den Normalfall
+bestaetigen.**
+
+(5) **Ein Alt-Test unterstellte den PATH.**
+`test_llm_start_spawns_subprocess` aus beta.60 erwartete woertlich
+`["ollama", "serve"]` — und haette auf einem Runner OHNE Ollama nach
+dieser Aenderung mit 404 versagt, ohne dass jemand den Grund sieht. Die
+Annahme steht jetzt als Monkeypatch da statt als Unterstellung (die Lehre
+aus #999): geprueft wird, DASS `serve` an der gefundenen Binary gespawnt
+wird, nicht wie die Binary heisst.
+
+(6) **Der Autostart greift nur bei `user_state == "active"`** — dieselbe
+Bedingung, die der Warmup-Loop aus #638 schon kennt. Wer ihn trotzdem
+setzt, bekommt die Begruendung zurueck. Eine Einstellung, die
+stillschweigend nichts tut, waere #988.
+
+(7) **Master-Plan-Luecke beim Nachtragen gefunden.** Beim Setzen von G35
+auf ✅ fiel auf, dass **#739 und #986 gar keinen Plan-Eintrag hatten** —
+zwei Releases desselben Tages ohne Master-Plan-First. Als I13 und D44
+nachgetragen, mit dem Vermerk, dass sie nachgetragen sind. Die Regel
+sieht genau das vor: im naechsten Commit nachholen.
+
+## Stand 2026-09-09 (v1.7.57 Stable) — Erst lesen, dann schreiben
+
+**#958**, gemeldet am 25.08. Im Bewerbungs-Detail zeigte der Kasten
+"Firmen-Recherche" zuerst ein leeres, sechszeiliges Eingabefeld; die
+gespeicherten Recherchen standen darunter. **Tests: 3234 / 3300.**
+
+MERKE-Punkte:
+
+(1) **Die Reihenfolge auf dem Bildschirm ist eine Aussage darueber, was
+der Normalfall ist.** Beide Kaesten waren da — nur in der falschen
+Ordnung. Wer nachsehen wollte, sah als Erstes eine leere Flaeche und
+schloss daraus, es sei nichts gespeichert. Ein Test auf "beide
+vorhanden" haette den Fehler nicht gefunden; er prueft deshalb die
+POSITION im Quelltext.
+
+(2) **Der teurere Befund war der zweite, und er war unsichtbar.** Der
+Knopf "Mit Claude aktualisieren" kopierte `/firmen_recherche firma="..."`
+**ohne `bewerbung_id`** — und ohne die speichert das Werkzeug seit #674
+nichts. Claude recherchierte, gab die Antwort im Chat aus, und in PBP kam
+nichts an. **Ein Knopf, der etwas anderes tut als sein Label sagt, ist
+teurer als ein fehlender Knopf** — man verlaesst sich darauf und merkt
+den Verlust nicht. Das Label heisst jetzt "Prompt kopieren".
+
+(3) **Der Kopier-Knopf gehoert NICHT in das `<summary>`.** Dort haette
+jeder Klick auf ihn zusaetzlich das Aufklappen ausgeloest — eine
+Nebenwirkung, die niemand gemeint hat. Ein Test haelt das fest, weil es
+beim naechsten Umbau sofort wieder passieren wuerde.
+
+(4) **Der Guard prueft den Parameternamen gegen die echte Signatur.**
+`inspect.signature(firmen_recherche)` statt einer Liste im Test — ein
+Tippfehler im Prompt faellt sonst erst auf, wenn wieder nichts ankommt.
+Dasselbe Argument wie beim Prompt-Guard aus #1000.
+
+(5) **Nebenbefund mit Zahl: der SCHREIB-Kasten haengt weiter an
+`entry?.job`.** Der Lese-Kasten haengt inzwischen an `application` und
+erscheint immer. Zusammen mit der Messung aus #986 — **44 von 99
+Bewerbungen haben keine verknuepfte Stelle** — heisst das: fuer fast die
+Haelfte des Bestands erscheint das Eingabefeld samt Prompt-Knopf gar
+nicht. Noetig ist die Bedingung nicht (gespeichert wird an der
+Bewerbung); am Job haengt nur der Anfangswert des Entwurfs. Als
+Kommentar an #956 gehaengt, wo die Zusammenfuehrung liegt.
+
+(6) **Master-Plan-First nachgeholt.** Der Code lag auf main, bevor es
+einen Plan-Eintrag gab (G35). Das ist ein Verstoss gegen die harte Regel
+und wurde vor dem Release korrigiert — die Regel sieht genau das vor:
+im naechsten Commit nachholen.
+
+## Stand 2026-09-09 (v1.7.56 Stable) — Bei welchem Score bewirbst du dich
+
+**#986.** Der Nutzer fragte: "Wie hoch war der Score bei den Stellen, auf
+die ich mich beworben habe?" Die Zahlen existierten nur als Nebenprodukt
+der Schwellenkalibrierung. **Tests: 3225 / 3291.**
+
+MERKE-Punkte:
+
+(1) **Die Kennzahl entsteht an EINER Stelle und hat zwei Aufrufer.**
+`get_statistics` (Dashboard) und `statistiken_abrufen` (MCP) rufen
+denselben Dienst — zwei Fassungen derselben Kennzahl waeren das Muster
+aus #963/#976/#991 gewesen. Ein Test haelt beide Aufrufer fest.
+
+(2) **Score 0 zaehlt NICHT in Mittel und Median.** Er heisst "kein
+MUSS-Keyword getroffen": die Stelle wurde nicht schlecht bewertet,
+sondern gar nicht beurteilt. Ihn einzurechnen waere der stille Nulltarif
+aus #989, nur in der Statistik. Die Zahlen weichen dadurch bewusst vom
+Backtest ab (Median 34 statt 30,5) — **das ist die Umsetzung eines
+Akzeptanzkriteriums, kein Rechenfehler.**
+
+(3) **Beim Messen kam der eigentliche Befund heraus: 44 von 99
+Bewerbungen haben gar keine verknuepfte Stelle.** Sie tragen deshalb
+keinen Score und fehlen in JEDER score-basierten Auswertung, auch im
+Backtest. Die Verteilung beruht also auf gut der Haelfte des Bestands —
+und genau deshalb steht die Zahl jetzt in der Kennzahl, statt still zu
+fehlen.
+
+(4) **In die dokumentierte Hash-Falle gelaufen.**
+`applications.job_hash` traegt den oeffentlichen Hash, `jobs.hash` den
+profil-praefixierten. Mein rohes `WHERE hash=?` fand **0 von 99** —
+gemessen, nicht vermutet. CLAUDE.md warnt genau davor unter "Kritische
+DB-Helfer". **Eine Regel, die man kennt, schuetzt nicht davor, sie beim
+Schreiben zu vergessen — die Messung schon.**
+
+(5) **Der Farbklassen-Guard aus #964 hat wieder gegriffen.** Mein
+Balken trug `bg-surface`, ein Token, das es nicht gibt; Tailwind erzeugt
+dafuer keine Regel UND keinen Fehler. Zweiter Treffer dieses Guards seit
+seiner Einfuehrung.
+
+## Stand 2026-09-09 (v1.7.55 Stable) — Der Installer hielt an einem entfernten Werkzeug fest
+
+**#739**, offen seit dem 18.06.2026, beim Durchgehen der offenen
+Meldungen erledigt. **Tests: 3213 / 3279.**
+
+MERKE-Punkte:
+
+(1) **Der Deinstaller wurde umgestellt, der Installer nicht.** Genau
+dieselbe `wmic`-Schleife stand dort weiter — an zwei Stellen. Auf
+Windows 11 24H2 ist das Werkzeug entfernt: die Schleife findet nichts,
+laufende Prozesse laufen weiter, das Kopieren trifft auf gesperrte
+Dateien. **Es faellt nur beim UPDATE auf, nicht bei der
+Erstinstallation** — deshalb blieb es ein Jahr unbemerkt. Zwei Fassungen
+derselben Aufgabe, und nur eine wurde repariert: dasselbe Muster wie
+#963 und #991, hier in Batch-Dateien.
+
+(2) **Der #990-Guard hat meinen ersten Entwurf sofort abgewiesen.** Ich
+hatte `for /f` mit einem escapten Rohr gebaut, um die Zahl der
+beendeten Prozesse zu melden — genau die Falle, die am 07.09. gemessen
+wurde (`^|` kommt in der Subshell nicht als Pipe an). Die jetzige
+Fassung verzichtet auf die Zahl und nimmt die im Deinstaller erprobte
+Form. **Ein Guard, der zwei Tage nach seiner Einfuehrung den eigenen
+Autor stoppt, hat sich bezahlt gemacht.**
+
+(3) **Am laufenden System gegengeprueft.** Der PowerShell-Ausdruck
+findet die tatsaechlich laufenden PBP-Prozesse — gezaehlt, nicht
+beendet. Bei Installer-Aenderungen ist das die einzige ehrliche Probe;
+ein Test gegen den Dateiinhalt sagt nichts darueber, ob das Kommando
+laeuft.
+
+(4) **Neuer Guard: keine `.bat` ruft `wmic` mehr auf**, Kommentare
+ausgenommen — die duerfen erklaeren, warum es weg ist. Dazu die
+Forderung, dass Installer und Deinstaller dieselbe Form benutzen.
+
+## Stand 2026-09-09 (v1.7.54 Stable) — Der Trichter belegt, was er zaehlt
+
+**#813 vollstaendig abgeschlossen** — das aelteste grosse Issue der
+Quellen- und Filter-Reihe, offen seit dem 06.08.2026. **Tests:
+3211 / 3277.**
+
+MERKE-Punkte:
+
+(1) **Eine Zahl ist kein Beleg.** Der Trichter aus #940 sagt "37 unter
+der Schwelle" und laesst offen, ob die Schwelle zu hoch steht. Neu sind
+die knapp Gescheiterten als Stichprobe (mit den fehlenden Punkten) und
+die ausloesenden Ausschluss-Begriffe mit Haeufigkeit. **Ein einzelnes zu
+breites Wort ist im Trichter unsichtbar und steht in der Ausloeserliste
+oben.**
+
+(2) **Der Beleg muss VOR dem Filtern entstehen** — danach sind die
+Stellen weg, und der Beleg waere leer, ohne dass es auffiele. Ein Test
+prueft die Reihenfolge im Quelltext.
+
+(3) **"Knapp gescheitert" gilt nur mit fachlichem Anker.** Eine Stelle
+ohne MUSS-Treffer ist nicht knapp, sondern nicht gemeint (#940). Sie
+mitzuzaehlen haette die Stichprobe mit Rauschen gefuellt — dieselbe
+Ueberlegung wie bei #966 ("schwach" war die falsche Kategorie).
+
+(4) **Beim Skript-Patch faellt eine Variable in den falschen Zweig.**
+`_knapp`/`_ausloeser` entstanden nur im `else`, gelesen wurden sie
+danach immer — im Kaltstart ohne MUSS-Liste waere das ein NameError
+gewesen. Gefunden vor dem Commit, weil ich den Zweig gegengelesen habe;
+die gezielten Tests haetten ihn nicht getroffen.
+
+(5) **Rueckblick auf die Wirkung dieses Issues.** Der Satz "389
+Rohtreffer, 387 am Filter verworfen, gemeldet wurde: alle 2 waren schon
+bekannt" beschreibt ein Muster, das danach an fuenf weiteren Stellen
+auftauchte: **eine fehlende Unterscheidung wirkt wie eine negative
+Auskunft.** Daraus wurden #989, #995, #996 und #999.
+
+## Stand 2026-09-09 (v1.7.53 Stable) — Der Pruefer suchte die falsche Zeichenkette
+
+**Kein gemeldetes Issue, sondern ein Fund BEI der Arbeit an #956/#957.**
+Beide Issues nennen eine Firma aus dem echten Bewerbungsbestand — und
+`issue_text_pruefen`, das genau das verhindern soll, meldete "sauber".
+**Tests: 3201 / 3267.**
+
+MERKE-Punkte:
+
+(1) **Ein Falsch-negativ in einem Schutzwerkzeug, zum zweiten Mal.**
+Das ist woertlich die Lehre aus #929, und diesmal traf sie das
+Werkzeug, das die gepflegte Namensliste im Repo ABLOESEN sollte (#946).
+Die Umkehr "Bestand statt Liste" war richtig — sie hat nur an der
+falschen Zeichenkette gesucht: `re.escape(name)` verlangt die
+VOLLSTAENDIGE gespeicherte Fassung. Steht eine Firma als "X (Y)" in der
+DB, fand der Pruefer weder "X" noch "Y". **Und genau die kurze Form
+schreibt ein Mensch in einen Fehlerbericht.**
+
+(2) **Gefunden nur, weil ich einem Verdacht nachgegangen bin.** Der
+Pruefer sagte "sauber"; ich habe die Bewerbung trotzdem nachgeschlagen,
+weil ein Firmenname im Issue stand. **Ein Werkzeug, das Entwarnung
+gibt, beendet die Pruefung — deshalb muss man bei Schutzwerkzeugen die
+Entwarnung selbst gelegentlich pruefen**, sonst merkt man den
+Ausfall nie.
+
+(3) **Die Gegenrichtung hat den Entwurf zweimal korrigiert.** Erste
+Fassung nahm auch den KLAMMERINHALT als Suchbegriff. Gemessen am echten
+Bestand ueber alle 400 Issues steht dort weit oefter eine ANMERKUNG als
+ein zweiter Firmenname — "(Vermittler)", "(Beratung)",
+"(Personalberatung)", "(SAP PLM)", "(Bremen)". Jede davon erzeugte
+Fehlalarme ueber Dutzende Issues: vier Fehlalarm-Quellen fuer einen
+selten gebrauchten Zusatznamen. **Der Klammerinhalt bleibt draussen,
+und das ist eine gemessene Entscheidung, keine Nachlaessigkeit.**
+
+(4) **Ein Fehlalarm, den ich selbst eingebaut hatte.** Die Variante
+"<Vermittler> AG" holte einen Namen zurueck, den die Ausnahmeliste
+ausdruecklich heraushaelt. Beim Nachsehen: die Ausnahme verglich auf
+GLEICHHEIT — ein Vermittler mit angehaengter Rechtsform war also schon
+vorher nicht ausgenommen. Die Variantenbildung hat einen alten Fehler
+nur sichtbar gemacht.
+
+(5) **Der Bestand enthaelt Namen, die keine sind.** "SAP" (25 Issues),
+"Name" (24), "Google" (15) stehen als Firma bzw. Person in der DB. Sie
+schweigen jetzt nicht, sondern werden als `unsicher` gemeldet — der
+vorhandene Mechanismus aus #962 ist genau dafuer da.
+
+(6) **Der eigentliche Ertrag ist die Messung, nicht der Fix.** Mit dem
+reparierten Pruefer ueber alle 400 Issues: **39 tragen einen sicheren
+Bestandsnamen** (36 Firmen, 3 Personen). Was damit geschieht, ist eine
+Nutzerentscheidung — Issues zu loeschen verbrennt Nummern, und die
+Edit-Historie behaelt das Original.
+
+## Stand 2026-09-08 (v1.7.52 Stable) — Nicht jeder Kilometer kostet gleich viel
+
+**#965 Befund 2** (AK 6-8). Befund 1 und der Nebenbefund waren seit
+v1.7.24/v1.7.39 erledigt — vor dem Bauen gemessen, welche der neun
+Akzeptanzkriterien noch offen sind, statt das ganze Issue neu zu
+beginnen. **Tests: 3187 / 3253.**
+
+MERKE-Punkte:
+
+(1) **Der Nutzer beschreibt eine Groesse, die PBP gar nicht kannte.**
+Zwei Stellen mit derselben Kilometerzahl sind nicht gleich weit, wenn
+zwischen Wohnort und einer davon eine Barriere liegt — und der
+Unterschied ist kein Aufschlag, den man mitteln koennte, sondern eine
+STREUUNG, die den Weg unplanbar macht. Genau deshalb traegt Weg 1
+(Routing-Dienst) nicht: eine Routenberechnung liefert den Mittelwert
+und verfehlt das Eigentliche.
+
+(2) **"Sonst wird daraus ein Sonderfall fuer eine Stadt."** Der Satz
+stand im Issue und ist die wichtigste Vorgabe gewesen. Das Modul kennt
+deshalb keine Elbe, keinen Elbtunnel und kein Hamburg, sondern nur
+Himmelsrichtungen aus einem Koordinatenvergleich. **Ein Test liest den
+Quelltext und verbietet Ortsnamen** — sonst waechst die Landeskunde
+still hinein, sobald jemand einen Sonderfall "nur schnell" ergaenzt.
+
+(3) **Der Aufschlag wirkt auf den PREIS, nie auf die Messung.** Die
+ausgewiesene Entfernung bleibt unveraendert; nur die Rechengroesse
+steigt. Anders herum haette PBP wieder eine Zahl, die etwas anderes
+bedeutet als sie sagt — genau das, was v1.7.50 fuer dieselbe Zahl
+gerade behoben hat.
+
+(4) **Beim ersten Anlauf nur in EINEN Rechenweg gebaut.** Das
+Patch-Skript meldete "1x eingebaut", erwartet waren zwei — dadurch
+aufgefallen und sofort nachgezogen. Das ist das Muster aus #963, das
+dieses Projekt sieben Mal gekostet hat; hier hat allein die
+Zaehlausgabe des eigenen Skripts es gefangen. **Ein Patch, der sagt wie
+oft er gegriffen hat, ist mehr wert als einer, der nur "fertig"
+meldet.**
+
+(5) **Zwei tote Spalten wiederbelebt statt neue angelegt.**
+`jobs.lat`/`jobs.lon` gibt es seit jeher, `save_jobs` schreibt sie —
+**gesetzt hat sie nie jemand.** Dieselbe Klasse wie #993 und #1000, nur
+in der Datenbank. Sie tragen jetzt die Koordinaten aus dem Geocoding;
+ohne sie liesse sich die Richtung nur per Netzabfrage bestimmen, und ein
+Score darf nicht am Netz haengen (v1.7.36 MERKE 3).
+
+(6) **Eine ungueltige Regel wird ABGEWIESEN, nicht teilweise
+gespeichert.** Wer zwei Regeln setzt und eine davon ist falsch, bekommt
+gar nichts gespeichert und eine Begruendung. Teilweise gespeichert waere
+schlimmer: der Mensch glaubte dann an eine Regel, die nur zur Haelfte
+gilt (#988).
+
+(7) **Der Aufschlag hat eine Obergrenze.** Ohne sie waere er ein
+verstecktes k.o. — und die Entscheidung "Entfernung ist ein Preis, kein
+Ausschluss" (#910/#988) gilt weiter.
+
+## Stand 2026-09-08 (v1.7.51 Stable) — "Nichts gefunden" hat zwei Bedeutungen
+
+**#995**, der Nebenbefund aus der Quellenpflege (#813), jetzt behoben.
+**Tests: 3170 / 3236.**
+
+MERKE-Punkte:
+
+(1) **Dieselbe Zahl fuer zwei entgegengesetzte Sachverhalte.**
+`letzte_rohtreffer` war bei ZWOELF Adaptern bereits das Ergebnis ihres
+INTERNEN Keyword-Filters. Gemessen an himalayas: API 20, Adapter 0,
+Diagnose 0. Damit sah eine tote Quelle genauso aus wie eine global
+ausgerichtete ohne fachliche Passung — **und beide wurden nach fuenf
+Laeufen abgeschaltet.** Genau so verlor PBP am 01.09. eine Quelle, die
+lieferte (#813). Derselbe Fehlertyp wie #989, diesmal an der
+Quellen-Statistik.
+
+(2) **Der Melder nannte drei Adapter und schrieb "mindestens".** Mein
+erster Durchgang fand zehn, tatsaechlich sind es zwoelf — ein `grep`
+mit `head -20` hatte die letzten beiden abgeschnitten. **Gefunden hat
+sie der Test**, der die Adapter selbst abzaehlt statt einer Liste zu
+glauben. Ein Guard, der seine eigene Grundlage nachrechnet, faengt
+genau den Fehler, den man beim Schreiben der Liste macht — er hat sich
+beim ERSTEN Lauf bezahlt gemacht.
+
+(3) **`None` heisst "nicht gemeldet", nicht "null gesehen".** Ohne
+diese Unterscheidung waere der Fix wirkungslos gewesen: ein Adapter, der
+nichts meldet, haette sonst als "liefert nichts" gegolten und genau die
+Abschaltung ausgeloest, die verhindert werden sollte. Adapter ohne
+eigenen Filter melden bewusst nicht — bei ihnen war die Zahl schon
+richtig.
+
+(4) **Register statt Rueckgabe-Vertrag.** Der saubere Weg waere
+`(stellen, befund)` je Adapter — das beruehrt alle 26 und ihre
+Aufrufer. Stattdessen meldet jeder filternde Adapter im Vorbeigehen.
+Thread-lokale Ablage waere hier FALSCH gewesen: die Quellen laufen in
+einem ThreadPool, Adapter und Sammler sitzen also in verschiedenen
+Threads. Ein Lock genuegt, weil je Quelle genau ein Arbeiter laeuft.
+
+(5) **Punkt 4 des Melders bleibt offen und ist richtig.** Den
+adaptereigenen Keyword-Filter ganz aufzugeben und dem zentralen Filter
+zu ueberlassen waere der saubere Umbau — er beruehrt zwoelf Adapter samt
+ihrer REGIONSfilter, und das ist eine Verhaltensaenderung, keine
+Fehlerbehebung. B44 steht deshalb auf ✅ fuer AK 1-4 und traegt den
+Rest als benannten Rueckstand.
+
+## Stand 2026-09-08 (v1.7.50 Stable) — Zahlen, die etwas anderes bedeuten
+
+Zwei Befunde aus der Durchsicht offener Meldungen, beide vom Typ der
+ganzen Tageswelle: eine Angabe, die aussieht als bedeute sie etwas, und
+etwas anderes bedeutet. **Tests: 3146 / 3212.**
+
+MERKE-Punkte:
+
+(1) **`chrome` ist ein CLIENT-Objekt, nicht die Server-Antwort (#993).**
+`JobsPage` las `chrome?.search_criteria?.min_score_schwelle` — den
+Schluessel setzt `App.jsx` gar nicht (dort stehen loading, status,
+workspace, profiles, profile, wizardCompleted, searchStatus,
+profileOnboarding). Mein erster Fix war deshalb an der falschen Stelle:
+das Feld in die Workspace-Antwort zu legen half nichts, solange der
+Zugriff `chrome.search_criteria` und nicht `chrome.workspace.
+search_criteria` lautet. **Bei einem Paritaets-Guard zuerst klaeren,
+WELCHE zwei Dinge da eigentlich verglichen werden** — der erste Entwurf
+meldete sieben Fehlalarme, weil er die beiden Ebenen verwechselte
+(v1.7.31 MERKE 4, jetzt in einer neuen Gestalt).
+
+(2) **Zum DRITTEN Mal an einem Tag hat mein eigener Erklaerkommentar
+einen Guard ausgeloest.** Ein Test, der eine falsche Schreibweise
+verbietet, schlaegt an der Begruendung an, warum sie falsch ist — und
+eine gute Begruendung muss den verbotenen Ausdruck nun einmal nennen.
+Nach #998 und v1.7.31 MERKE (6) steht die Bereinigung jetzt als Helfer
+`ohne_kommentare()` im Test und nicht mehr als Einzelfall je Guard.
+
+(3) **Eine Groesse, die nur angezeigt wird, darf ungenau sein — eine,
+gegen die gerechnet wird, nicht (#950).** `entfernung_km` ist eine
+Luftlinie: gemeldet 271,5 km gegen rund 390 km Fahrstrecke, Faktor
+1,44 statt der in #167 angenommenen 1,3. Seit #910 wird die Zahl gegen
+das Gehalt verrechnet, ein zu niedriger Wert faellt also zugunsten
+weit entfernter Stellen aus. Neu `services/entfernung.py`; jede Ausgabe
+nennt ihre Art, ab 25 km steht eine als Schaetzung gekennzeichnete
+Fahrstrecke daneben. **Im Nahbereich bewusst keine Schaetzung** — dort
+waere sie Scheingenauigkeit.
+
+(4) **Bewusst nur AK 1 und 2.** Echtes Routing samt Fahrzeit (AK 3/4)
+braucht einen API-Schluessel; das ist eine Nutzerentscheidung und keine
+Fehlerbehebung. C55 steht deshalb auf 🟨, nicht auf ✅ — ein halb
+erledigtes Issue als erledigt zu fuehren ist die Falle aus DoD 8a.
+
+(5) **Nebenbefund, vom eigenen Test gefunden und als Test
+festgehalten:** mit genau EINEM MUSS-Begriff ist der Fachscore so klein
+(2 Punkte), dass der Entfernungsmalus ihn ueberholt und
+`calculate_score` auf 0 kappt. Eine Fernstelle sieht damit aus wie eine,
+die das MUSS-Tor nie passiert hat — zwei Sachverhalte, eine Zahl. Bei
+drei und mehr Begriffen tritt es nicht auf (gemessen). Kein Defekt im
+engeren Sinn, aber die Grenze gehoert bekannt.
+
+## Stand 2026-09-08 (v1.7.49 Stable) — Der Gap war die Skala
+
+**#999.** Eine Stelle, die ALLE MUSS-Begriffe trifft, remote ist, 3 km
+entfernt liegt und ueber Wunsch zahlt, bekam *"Score 15.0/100 —
+fachlicher Gap zu gross"*. **Tests: 3132 / 3198.**
+
+MERKE-Punkte:
+
+(1) **Der Satz des Melders ist die ganze Analyse: "Der Gap ist die
+Skala."** `total_score` ist keine Prozentzahl, sondern eine
+ungedeckelte Punktsumme, deren Obergrenze aus der LAENGE der MUSS-Liste
+folgt. Gemessen mit Volltreffer-Anzeigen: 5 Begriffe -> 15 Punkte,
+10 -> 26, 20 -> 46, 40 -> 86. Die Schwelle 75 fuer EMPFOHLEN beginnt
+damit bei rund 37 gleichzeitig getroffenen Pflichtbegriffen. **Mit
+einer realistisch gepflegten Liste war die Kategorie strukturell
+unerreichbar** — und jede Stelle bekam denselben Satz, was den Verdict
+wertlos macht.
+
+(2) **Der Hoechstwert folgt derselben Rechnung wie der Score.**
+`score_maximum(criteria)` = `fachscore_max + min(rahmen_max, Deckel x
+fachscore_max)`. Die Probe darauf ist der staerkste Test der Welle: eine
+Anzeige, die alles trifft, erreicht bei JEDER Listenlaenge exakt 100 %.
+Weicht das ab, ist die Formel falsch und nicht die Einordnung —
+deshalb steht genau das als Test da und nicht eine Liste erwarteter
+Zahlen.
+
+(3) **Den Score NICHT angefasst.** Er misst, was in der Anzeige steht;
+die Einordnung ist eine Darstellung und zieht dort die Konsequenz. Das
+ist #989 MERKE (3) woertlich — gespeicherte Zahlen still umzuschreiben
+waere derselbe Fehler wie #987, nur absichtlich.
+
+(4) **Vierte Kategorie statt geratener Absage.** Ist der Hoechstwert
+unbekannt, gibt es keine Skala und damit keine ehrliche Einordnung:
+`NICHT_BEURTEILBAR`. Das erweitert den #662-Vertrag, den CLAUDE.md
+vorschreibt — die Alternative waere gewesen, "unbekannt" als "passt
+nicht" auszugeben, also genau die Verwechslung aus #989.
+
+(5) **Drei Alt-Tests hielten die falsche Annahme fest.** Sie
+uebergaben Scores von 80/60/20 und erwarteten EMPFOHLEN/BEDINGT/
+NICHT_EMPFOHLEN — also exakt die 100er-Skala, die es nie gab. Sie
+sind nicht geloescht, sondern bekommen `total_score_max: 100`
+ausdruecklich mitgegeben. **Ein Alt-Test, der eine Annahme
+unterstellt, wird ehrlich, wenn man die Annahme hinschreibt** — dann
+prueft er weiter die Stufengrenzen und nicht mehr die Fiktion.
+
+(6) **Nebenbefund im Wiki:** Tab-Stellen behauptete "Der Gesamtscore
+wird als Prozentwert angezeigt". Die Doku trug denselben Fehler wie der
+Code — und sie war die Stelle, an der ein Leser die Annahme uebernimmt.
+
+## Stand 2026-09-08 (v1.7.48 Stable) — Zwei Regler ohne Draht
+
+**Das tausendste Issue des Projekts (#1000)**, gemeldet vom selben
+Anwender wie #990/#994/#997/#998. `jobsuche_starten` nahm
+`max_entfernung_km` und `nur_remote` entgegen und las beides nie.
+**Tests: 3120 / 3186.**
+
+MERKE-Punkte:
+
+(1) **Nicht zwei Fundstellen, sondern eine Familie.** "Maximale
+Entfernung" gibt es in VIER Schreibweisen, und nur eine hat einen
+Leser: der Tool-Parameter (tot), `criteria.max_entfernung_km` (tot,
+live auf 30 gemessen), der Ersterfassungs-Prompt (nennt zwei Parameter,
+die `suchkriterien_setzen` gar nicht hat) und die Karte
+`max_entfernung` je Stellenart (der einzige gelesene Wert). Der
+gemeldete Teil war der sichtbarste, nicht der teuerste — **der
+Onboarding-Prompt trifft jeden neuen Nutzer, und dort verdunstet der
+Entfernungswunsch bei der ersten Nennung.**
+
+(2) **Entfernt statt nachtraeglich verdrahtet — mit inhaltlicher
+Begruendung.** Als harte Filter wuerden beide Parameter zwei bewussten
+Entscheidungen widersprechen: Entfernung ist ein PREIS, kein Ausschluss
+(#910/#988), und `nur_remote` verwuerfe jede Stelle mit unbekanntem
+`remote_level`, also genau die Verwechslung von "unbekannt" mit
+"erfuellt nicht", die #989 abgeschafft hat. **Ein Parameter, dessen
+ehrliche Umsetzung eine Designentscheidung brechen wuerde, gehoert
+nicht verdrahtet, sondern weg.**
+
+(3) **Ein Werkzeug wegzunehmen ist nur dann richtig, wenn der Wunsch
+einen Weg behaelt.** `suchkriterien_setzen(max_entfernung_km=30)` ist
+neu — eine Zahl fuer alle Stellenarten, weil ein Mensch "hoechstens
+30 km" sagt und keine Karte je Stellenart. Die Karte gewinnt, wenn
+beides kommt, und PBP sagt welche es genommen hat.
+
+(4) **Der Altwert wird BENANNT, nicht still umgedeutet.** Ein
+`max_entfernung_km`, gegen das niemand rechnet, faellt jetzt in
+`suchkriterien_anzeigen` auf. Ihn im Hintergrund neu zu deuten waere
+eine Score-Aenderung, die niemand veranlasst hat — dasselbe Vorgehen
+wie bei den wirkungslosen Scoring-Reglern in #988 (v1.7.36 MERKE 6).
+
+(5) **Ein Prompt-Guard, der gegen die echte Signatur prueft.** Der Test
+liest die Parameternamen aus der Prompt-Anweisung und vergleicht sie mit
+`inspect.signature` des Tools. Eine Liste im Test haette denselben
+Fehler nur an einer zweiten Stelle festgehalten; so faellt auch ein
+kuenftig umbenannter Parameter auf. **Prompts sind Code, den niemand
+kompiliert** — und der einzige Teil des Systems, dessen Fehler direkt
+beim Nutzer landen.
+
+## Stand 2026-09-08 (v1.7.47 Stable) — Der halbe Lebenslauf
+
+**#998**, aus derselben Vierer-Welle wie #997 und **#1000**. Ein
+DOCX-Lebenslauf ergab 26 Zeichen Text — alles lag in einer Tabelle.
+**Tests: 3108 / 3174.** MCP-Tools 213 / 226.
+
+MERKE-Punkte:
+
+(1) **`doc.paragraphs` sind NUR Absaetze auf Body-Ebene.** Zelltext,
+Kopf-/Fusszeilen und Textfelder kommen dort nicht vor. Der Melder hat
+die Zeile mitgeliefert; gemessen an einer Vorlage: **13 gegen 205
+Zeichen**, die Mailadresse stand in der Kopfzeile. **Zweispaltiges
+Tabellenlayout ist bei Lebenslaeufen die Regel, nicht die Ausnahme** —
+das Format war also nicht am Rand, sondern im Zentrum des Anwendungsfalls.
+
+(2) **Der naheliegende Fix aus dem Issue haette den Text verdreifacht.**
+`row.cells` liefert eine ueber drei Spalten verbundene Zelle DREIMAL
+(gemessen, Test haelt die Annahme fest). In CV-Vorlagen sind
+Abschnittsueberschriften fast immer verbunden, und dieser Text geht ins
+Scoring. Im rohen OOXML gibt es die Zelle genau einmal — das Problem
+entsteht erst durch die Bequemlichkeitsschicht. Deshalb liest `_docx` in
+`services/office_text.py` stdlib statt python-docx; Dokumentreihenfolge
+und Textfelder kommen dabei kostenlos mit. **Vorschlaege aus Issues
+gehoeren geprueft, nicht uebernommen** (v1.7.24 MERKE 1, dritter Fall).
+
+(3) **Ein Sonderweg im `elif` haelt eine ganze Maschinerie fern.**
+`.docx` hatte seinen eigenen Zweig und erreichte die #833-Logik nie —
+es gab fuer Word also nicht einmal die ehrliche "leer"-Meldung. Der
+Melder schrieb, `format_befund` melde `{"format": "leer"}`; tatsaechlich
+meldete es GAR NICHTS. **Wenn ein Bericht die Folge etwas zu guenstig
+beschreibt, ist der wirkliche Zustand oft schlechter** — nachsehen statt
+uebernehmen. Jetzt geht DOCX durch denselben Dienst wie PPTX/XLSX/ODT.
+
+(4) **Ein besserer Leser hilft nur neuen Uploads.** Der Bestand behaelt
+den duennen Text und sieht unauffaellig aus — dasselbe galt seit #833
+fuer PPTX, ohne dass es jemandem aufgefallen waere. Es gab keinen Weg
+zurueck: `extraktion_starten` liest `extracted_text` aus der DB und
+fasst die Datei nie wieder an. Neu `dokumente_text_nachziehen`
+(Vorschau als Vorgabe, **ueberschreibt nur bei MEHR Text**,
+Handnachtrag mit Provenienz-Header bleibt unangetastet). **Eine
+Verbesserung ohne Nachziehpfad ist eine halbe Verbesserung.**
+
+(5) **Cherry-Pick: der Konflikt riss 280 Zeilen mit.** Die Aufloesung
+holte drei BETA-Werkzeuge (`newsletter_*`, `dokument_ocr_ausfuehren`)
+auf die Stable-Linie und dazu main's Namensliste im Registry-Test.
+Gefunden hat es der Registry-Guard. Die Regel aus v1.7.46 MERKE (8) hat
+gegriffen, aber erst hinterher: **bei einem Konflikt, der groesser ist
+als die eigene Aenderung, die Datei zuruecksetzen und den eigenen Block
+mit dem Edit-Werkzeug neu setzen** — Marker zu entfernen ist keine
+Aufloesung.
+
+(6) **Die Linien-Signatur unterscheidet sich, und das faellt nicht
+auf.** `_extract_document_text` gibt auf Stable ein ZWEIER-Tupel zurueck
+(kein OCR), auf main ein Dreier. Der portierte Code entpackte drei
+Werte. Kein Konflikt, kein Syntaxfehler — nur ein Laufzeitfehler beim
+ersten Aufruf. Beim Port also nicht nur den Code, sondern die
+SIGNATUREN der aufgerufenen Funktionen abgleichen.
+
+(7) **Denselben Fehler zweimal gemacht, obwohl er notiert war.** Der
+CHANGELOG-Eintrag landete wieder unter dem Vorgaenger, weil ich das
+Skript aus v1.7.46 in derselben Form wiederverwendet habe — der Anker
+muss der KOPF des bisher juengsten Eintrags sein, nicht sein
+Installblock. Eine notierte Lehre schuetzt nicht, wenn man die Vorlage
+kopiert, in der der Fehler steckt.
+
+(8) **Ein Test darf keine Bibliothek importieren, die nicht in den
+Abhaengigkeiten steht.** Mein erster Bestands-Test baute die Fixture mit
+`python-pptx` — lokal installiert, aber in keiner Dependency-Gruppe
+(#833). Auf dem CI-Runner waere er rot geworden oder, nach einem
+`importorskip`, still uebersprungen. Die Fixture entsteht jetzt mit
+`zipfile`. Das ist DoD 8c (b) in einer neuen Gestalt.
+
+## Stand 2026-09-08 (v1.7.46 Stable) — Eine Erfolgsmeldung ueber nichts
+
+**#997, gemeldet vom selben fremden Anwender wie #990/#994** — und aus
+derselben Vierer-Welle wie das **Issue #1000**. `profil_bearbeiten`
+meldete `status: "aktualisiert"` samt `geaenderte_felder` fuer eine ID,
+die es nicht gibt. **Tests: 3090 / 3156.**
+
+MERKE-Punkte:
+
+(1) **Die Auskunft war da und wurde weggeworfen.** `update_position` und
+ihre sechs Geschwister geben `cur.rowcount > 0` zurueck; die Tool-Ebene
+verwarf diesen Wert an SIEBEN Stellen. Das ist nicht dieselbe Bauform
+wie #994 (dort filterte die Schreibschicht Felder still heraus) —
+diesmal hat die untere Ebene ausdruecklich "nein" gesagt und die obere
+hat es nicht zugehoert. **Ein Rueckgabewert, den niemand liest, ist
+dasselbe wie kein Rueckgabewert.**
+
+(2) **Der REST-Weg machte es seit jeher richtig.** `dashboard.py`
+antwortet auf dieselbe Frage mit HTTP 404 ("Position nicht gefunden"),
+und `delete_skill` war der eine von acht MCP-Zweigen, der den Wert
+auswertete. Also wieder zwei Wege fuer eine Frage — und wieder ist der
+schwaechere der, den Claude nimmt. Das ist #991 in einem anderen Modul.
+**Beim Suchen nach der richtigen Fassung lohnt der Blick auf den
+anderen Weg**, statt sie neu zu erfinden: die Antwortform steht dort
+schon.
+
+(3) **`False` hiess zwei Dinge, und das durfte die Antwort nicht
+raten.** Auf DB-Ebene bedeutet `return False` sowohl "diese ID gibt es
+nicht" als auch "kein schreibbares Feld dabei" (beide Zweige enden
+gleich). Eine Absage, die sich ohne Nachsehen fuer eines entscheidet,
+schickt den Aufrufer im halben Fall in die falsche Richtung — genau der
+Fehler aus #987 MERKE (5). `_kennt_id` sieht deshalb nach.
+
+(4) **Sind BEIDE falsch, wiegt die ID schwerer** — vom eigenen Test
+gefunden, nicht gemeldet. Meine erste Fassung meldete bei falscher ID
+UND falschem Feldnamen nur den Feldnamen; wer den korrigiert haette,
+waere beim zweiten Versuch weiterhin ins Leere gelaufen. Der zweite
+Befund geht jetzt nicht verloren, steht aber hinten.
+
+(5) **Der Guard zaehlt die Fundstellen nicht ab, er ruft sie auf.** Vier
+Bereiche mal aendern/loeschen als `parametrize`, jeweils mit einer ID,
+die es nicht gibt. Sieben Zeilennummern nachzupruefen haette eine
+kuenftige achte Verzweigung uebersehen — dasselbe Argument wie bei
+#994 MERKE (4).
+
+(6) **Der vierte Bereich fehlte schon wieder.** #994 hat die
+Felduebersetzung fuer position/ausbildung/projekt gebaut und `skill`
+ausgelassen — im selben Modul, mit derselben Begruendung, die H19 MERKE
+(1) beschreibt ("wenn ein Muster fuer einen von drei Datentypen gebaut
+wird..."). Hier war es sogar noetig: ohne `_SCHREIBFELDER["skill"]`
+haette die neue Absage "nicht_gefunden" gelautet, wo in Wahrheit nur
+der Feldname deutsch war.
+
+(7) **Nebenbefund, vom eigenen Test gefunden:** `add_skill` weist
+Extraktions-Muell ab (#43/#129) und gibt eine LEERE ID zurueck — die
+Antwort lautete trotzdem "hinzugefuegt", mit `id: ""`. Derselbe stille
+Fehlschlag mit Erfolgsmeldung, nur beim Anlegen statt beim Aendern.
+
+(8) **Cherry-Pick: zwei Hunks wurden STILL verschluckt.** Beim Port auf
+die Stable-Linie meldete git EINEN Konflikt (den neuen Hilfsblock) und
+liess dabei die beiden Eintraege in `_SCHREIBFELDER`/`_FELD_ALIASE`
+kommentarlos fallen. Gefunden haben es die mitgewanderten TESTS, genau
+wie in v1.7.12 — nicht die Konfliktmeldung. **Nach dem Aufloesen die
+portierte Datei gegen die Quelle diffen** (`git diff main -- <datei>`
+muss leer sein), nicht nur die Marker zaehlen.
+
+(9) **Beim CHANGELOG die Reihenfolge pruefen.** Mein Skript hat den
+neuen Eintrag an der Stelle des Installblocks eingefuegt — er landete
+UNTER dem Vorgaenger, und der Vorgaenger verlor seinen eigenen
+Installblock. Beides vor dem Commit gefunden. Jeder Eintrag traegt
+seine EIGENE Versionsnummer im Download-Link (v1.7.31 MERKE 7); ein
+Skript, das den Block verschiebt, muss beide Seiten pruefen.
+
+## Stand 2026-09-08 (v1.7.45 Stable) — "Remote" heisst nicht "von ueberall"
+
+Der Nutzer fragte: *"Was habe ich mit US zu tun? Denke das ist ein
+Fehler, zumal wir nur deutsche bzw. Quellen fuer den deutschsprachigen
+Raum durchsuchen."* Er hatte recht. **Tests: 3069 / 3135.**
+
+MERKE-Punkte:
+
+(1) **Die Ursache war EINE Zeile, und sie stand seit jeher da.**
+`entfernungs_guete` gab fuer `remote_level == "remote"` pauschal
+`"entfaellt", "Vollstaendig remote — Entfernung ohne Belang."` zurueck.
+Also KEIN Abzug, egal wo die Stelle liegt. **"Remote" heisst nicht "von
+ueberall", sondern "ohne festen Buerositz INNERHALB eines
+Rechtsraums"** — eine US-gebundene Rolle ist von Hamburg aus nicht weit
+weg, sondern nicht bewerbbar (Arbeitserlaubnis, Arbeitsrecht,
+Kernzeit). `entfaellt` war exakt derselbe Nulltarif, den #989 beim Score
+abgeschafft hat, nur eine Ebene weiter: beim Ort.
+
+(2) **Gemessen, bevor etwas geaendert wurde.** Alle drei Remote-Boersen
+live, ohne Keyword-Filter: himalayas 20 von 20 ausserhalb DACH (0 %),
+remoteok 90 von 100, remotive 3 von 17. Geliefert wurden
+"Remote (United States)" (5x), "Remote (Romania)", "Remote (New
+Zealand)", "Remote (Argentina Belize Colombia ...)".
+
+(3) **Positivbeleg statt Verdacht.** Ausgeschlossen wird NUR, wo ein
+Nicht-DACH-Land ausdruecklich dasteht. "Bedford", "Nassau" und schlicht
+"Remote" bleiben `unbekannt` und unveraendert — es gibt deutsche Orte
+mit fremd klingenden Namen, und ein falscher Ausschluss ist teurer als
+ein zu hoher Score (#827). Wortgrenzen sind dabei Pflicht: "us" steckt
+sonst in "Kundenservice" und "Industrie" (#929-Lehre). Drei Zustaende
+statt zwei: `dach` / `ausserhalb` / `unbekannt`.
+
+(4) **In BEIDE Rechenwege eingebaut, beim ersten Anlauf.** `fit_analyse`
+hat denselben k.o. wie `calculate_score`, und ein Test vergleicht fuenf
+Ortsangaben auf beiden Wegen. Das ist das Muster, das dieses Projekt
+sieben Mal gekostet hat (#963 zuerst) — diesmal von vornherein bedacht.
+
+(5) **Eine falsche Registry-Beschreibung waehlt die Quellen falsch
+aus.** Bei `himalayas` stand "gute DACH-Abdeckung ueber
+country=DE-Filter". Der Filter wirkt nicht, gemessen 0 von 20. Diese
+Zeile ist vermutlich der Grund, warum die Quelle ueberhaupt aktiviert
+wurde. Neu `regionen_fokus` + `regionen_befund` je Quelle, sichtbar in
+`scraper_diagnose`: **eine global fokussierte Quelle ist nicht KAPUTT,
+wenn sie fuer eine DACH-Suche nichts bringt — sie ist die FALSCHE
+Quelle.** Ohne dieses Feld sah beides gleich aus.
+
+(6) **Selbstkorrektur zu v1.7.44 vom selben Tag.** Dort habe ich die
+Ortsbindung nur SICHTBAR gemacht ("Remote (United States)" statt
+"Remote") und dabei einen Adapter wiederbelebt, der fuer dieses Profil
+nachweislich 0 % Passendes liefert. Die Anzeige war besser, die Frage
+"warum fragen wir diese Quelle ueberhaupt" blieb ungestellt. **Ein
+repariertes Werkzeug ist nicht dasselbe wie ein nuetzliches.**
+
+(7) **Arbeitsweise, teuer gelernt:** ein `git checkout <datei>` zum
+Zuruecknehmen eines misslungenen Regex-Patches hat auch die
+funktionierenden, noch nicht committeten Aenderungen derselben Datei
+mitgenommen. Vor einem riskanten Skript-Patch committen — der Commit
+ist der Rueckfallpunkt, nicht die Erinnerung.
+
+## Stand 2026-09-08 (v1.7.44 Stable) — Eine abgeschaltete Quelle lebte
+
+Eine Bestandsaufnahme, kein Fehlerbericht: sieben Quellen standen seit
+dem 01.09. automatisch abgeschaltet ("5 stille Laeufe in Serie").
+**Eine davon lieferte in Wahrheit 20 Stellen.**
+**Tests: 3052 / 3118.**
+
+MERKE-Punkte:
+
+(1) **Die teuerste Bauform einer stillen Null ist die, die sich selbst
+bestaetigt.** `himalayas` antwortet mit HTTP 200 und 20 Stellen; der
+Adapter starb an der ERSTEN davon (`seniority` kommt seit einem
+Feldumbau als Liste statt als String), und weil die Zuordnungsschleife
+in einem grossen `try` lag, kam eine leere Liste zurueck. Der Fehler
+erzeugt Leere, die Leere erzeugt die Abschaltung, die Abschaltung
+verhindert, dass der Fehler je wieder auffaellt. Neu
+`job_scraper/satzweise.py`: ein kaputter Satz kostet einen Satz.
+Gezaehlt: **zehn Adapter** tragen dieselbe Bauform, zwei davon
+(`remoteok`, `remotive`) liefern produktiv.
+
+(2) **Ein Datenfeld ist kein Mechanismus.** #590-C.1 setzt beim
+Abschalten ein `reactivate_at` (24 h, dann 48/72/168) — **gelesen hat es
+kein einziger Aufrufer.** Der Backoff stand seit Monaten in CLAUDE.md
+als funktionierendes Feature; tatsaechlich lief keine abgeschaltete
+Quelle je wieder, und `letzte_probe_am` stand bei allen sieben auf
+`null`. Das ist DoD 8c fuer einen Mechanismus statt fuer einen Guard:
+**geschrieben ist nicht aufgerufen.** Die Auswahl liegt jetzt in
+`quellen_einteilen(db)` — bewusst herausgezogen, weil sie als
+Inline-Block in einer mehrhundertzeiligen Funktion von aussen nicht
+pruefbar war, und genau deshalb der fehlende Zweig nie auffiel.
+
+(3) **Ein alter Fehler, der stehen bleibt, ist eine Falschaussage.**
+`last_error` wurde bei Erfolg nie geloescht: die Bundesagentur trug mit
+91 % Erfolgsrate, Fehlerserie 0 und 5122 Treffern weiterhin
+"server_weg", remoteok und remotive "timeout", linkedin "deprecated".
+Wer die Diagnose las, sah neben JEDER laufenden Quelle einen Fehler.
+
+(4) **"Nicht pruefbar" ist nicht "nicht erreichbar".** Fuenf der sieben
+Quellen haben gar keinen Probe (`no_probe_defined`) und wurden trotzdem
+als unerreichbar gezaehlt. Dieselbe Verwechslung wie #989: eine
+fehlende Information sah aus wie eine negative.
+
+(5) **Beim Cherry-Pick auch die TEXTE pruefen, nicht nur den Code.**
+Der Konflikt in `quellen_health_check` zeigte darauf: Stables kuerzere
+Fassung war kein Rueckstand, sondern richtig — sie nennt bewusst keine
+Beta-Werkzeuge. Beim Nachsehen stand `quelle_handoff` (B25/#735, nur
+1.8) auf der Stable-Linie an SIEBEN Stellen als Ausweg fuer tote
+Quellen. Auf Stable ersetzt, **auf main bewusst NICHT** — dort gibt es
+das Werkzeug. Ein Cherry-Pick, der eine Korrektur in die falsche
+Richtung traegt, macht die Gegenseite schlechter.
+
+(6) **Nebenbefund, als #995 erfasst statt hier erledigt:** bei
+`himalayas`, `remoteok` und `remotive` ist `letzte_rohtreffer` schon
+keyword-gefiltert. Damit sehen "liefert nichts" und "liefert nichts
+Passendes" gleich aus — und beide fuehren zur Abschaltung. Das beruehrt
+den Rueckgabe-Vertrag der Adapter und gehoert nicht in eine
+Fehlerbehebung.
+
+## Stand 2026-09-07 (v1.7.43 Stable) — Im echten Browser nachgemessen
+
+Der LinkedIn-Weg aus v1.7.42 wurde unmittelbar nach dem Release im
+eingeloggten Chrome durchgespielt. **Tests: 3035 / 3101.**
+
+MERKE-Punkte:
+
+(1) **AK1 ist jetzt gemessen, nicht behauptet.** Suche "PDM", DE, letzte
+Woche: Oberflaeche 8 Karten, Voyager-API 8 Karten, `paging.total` 8,
+Schnittmenge 8 — keine Abweichung in beide Richtungen. Zwei Begriffe,
+eine Seite: 30 deduplizierte Treffer, alle mit Titel, Firma und Ort;
+drei Volltexte mit 4.682 / 1.461 / 4.118 Zeichen. Die Decoration-IDs vom
+17.08. gelten weiter (HTTP 200).
+
+(2) **Ein Rezept fuer einen fremden Browser gehoert im fremden Browser
+gemessen.** Alle vier Skripte waren gegen Fixtures gruen — und
+ausgerechnet der einzige Schritt, der die SEITE anfasst, war falsch:
+**LinkedIn sanitisiert `innerHTML`.** `JS_AUSGABE` schrieb
+`<main><article>` in den Body; danach standen 10.589 Zeichen Text da und
+`document.body.children` war LEER, samt der `<hr>`-Trenner zwischen den
+Stellen. Der Text waere angekommen und nicht mehr zerlegbar gewesen.
+Jetzt `textContent` (kein Markup, also nichts zu sanitisieren) plus
+`white-space: pre-wrap` (ohne das faltet der Browser die Umbrueche zu
+Leerzeichen) und Text-Marker statt Tags; `parse_ausgabe()` ist der
+Gegenpart, damit nicht jeder Aufrufer die Marker neu raet.
+
+(3) **Der Parser lag richtig, aus einem Grund, den ich nicht kannte.**
+Von 16 `JobPostingCard`-Objekten tragen nur 8 eine ID; die anderen 8
+sind Stub-Referenzen mit ausschliesslich `entityUrn` — LinkedIns
+normalisiertes JSON legt referenzierte Objekte zweimal ab.
+`paging.total` bestaetigt die 8. Die Regel "ohne ID faellt die Zeile
+heraus" trifft also genau die Stubs. **Bei einer fremden API auch
+pruefen, warum etwas stimmt** — sonst haelt man einen Zufall fuer eine
+Regel.
+
+## Stand 2026-09-07 (v1.7.42 Stable) — LinkedIn liefert wieder
+
+**#919.** Die Quelle stand auf aktiv, hatte aber `letzter_lauf
+23.04.2026` und Erfolgsrate 0 %; die jobspy-Variante ist deprecated nach
+24 Fehlern in Serie. HTTP von aussen blockt LinkedIn zuverlaessig,
+Requests aus dem EINGELOGGTEN Tab laufen durch. Der am 17.08.
+durchgespielte Weg (22 Begriffe, 511 Rohtreffer, 59 Volltexte, 3
+uebernommene Stellen) lag bis jetzt nur im Issue.
+**Tests: 3034 / 3100.** MCP-Tools 212 / 225.
+
+MERKE-Punkte:
+
+(1) **Der Volltext ist der ganze Wert der Quelle.** Von 59 Titeln, die
+den Vorfilter passiert hatten, blieben nach dem Lesen 3 uebrig — und der
+nach Titel BESTE Treffer des Laufs verlangte im Fliesstext ein System
+von der harten Ausschlussliste. Ein Import, der Titel und Kurztext
+nimmt, liefert also nicht ein paar Fehler ein, sondern bevorzugt die
+falschen: sie haben die besten Titel. Deshalb ist
+`MIN_BESCHREIBUNG = 500` eine Regel und keine Empfehlung.
+
+(2) **Ein zweiter Schreibweg waere der achte Fall desselben Musters
+gewesen.** Der Import geht durch `_stelle_uebernehmen` — den Rumpf von
+`stelle_manuell_anlegen`, der dafuer aus dem Tool herausgeloest wurde.
+Blacklist (#729/#790/#992), Duplikat-Stufen (#317/#567/#670), Anker
+(#766) und Scoring gelten damit unveraendert, ohne dass irgendwo steht
+"dieselbe Logik wie". Ein Test legt zweimal dieselbe Stelle an und
+erwartet eine.
+
+(3) **Der Python-Teil holt nichts.** Er baut URLs und Header, zerlegt
+Antworten und zaehlt den Trichter; geholt wird im Browser. Das ist keine
+Notloesung, sondern der Grund, warum die Quelle ueberhaupt testbar ist:
+`parse_trefferliste`/`parse_detail` laufen gegen gespeicherte Antworten,
+also faellt ein Feldumbau bei LinkedIn im Test auf statt im Feld (AK5).
+
+(4) **Die stille Null ist auch hier der teure Fall.** Auf eine veraltete
+Decoration-ID antwortet LinkedIn mit 400/426 — ohne Einordnung sieht das
+aus wie "gerade keine passenden Stellen". `fehlerklasse()` benennt es,
+und die IDs stehen als Konstanten oben im Modul, nicht verstreut im
+Code. Derselbe Gedanke wie #813 und #989.
+
+(5) **Suchbegriffe: das Portal-Profil schlaegt die MUSS-Liste.** #564
+wurde genau fuer LinkedIn gelernt (Phrase-Match ergibt 0 Treffer, drei
+Buchstaben ohne Branchenfilter treffen alles). `nicht_verwenden` aus dem
+Profil gewinnt immer — das ist gelerntes Wissen ueber die Quelle, kein
+Vorschlag.
+
+(6) **Bewusste Abweichung vom Issue-Vorschlag:** kein zweiter
+Quellen-Eintrag `linkedin_voyager`. Die Quelle `linkedin` existiert,
+`url_to_source` zeigt darauf, und ein zweiter Eintrag zerlegte die
+Lauf-Historie einer Quelle, die man gerade wieder messen will. Der
+bestehende Eintrag traegt den neuen Weg und ist nicht mehr `veraltet`.
+
+(7) **AK1 ist NICHT abgehakt.** "Ein Lauf liefert mindestens die
+Trefferzahl der LinkedIn-Oberflaeche" laesst sich nur live im
+eingeloggten Chrome pruefen. Der Mechanismus steht und ist gegen
+Fixtures gruen; die Zaehlprobe steht aus. Das gehoert gesagt, statt ein
+Kriterium als erfuellt zu fuehren, das niemand gemessen hat.
+
+## Stand 2026-09-07 (v1.7.41 Stable) — Was der Filter wegwirft
+
+**#992.** Eine fachlich passende Stelle (MUSS-Begriff zweimal im Titel)
+wurde beim Anlegen mit einem Gattungsurteil abgewiesen. Der gemeldete
+Teil war die Begruendung; der teurere Teil lag darunter.
+**Tests: 3002 / 3068.** MCP-Tools 210 / 223 (+`blacklist_wirkung`).
+
+MERKE-Punkte:
+
+(1) **Dieselbe Frage viermal im Code — und die Ausnahme kannten nur
+zwei.** "Blockt die Blacklist diese Stelle" stand in
+`is_company_blacklisted` (Substring, MIT Ausnahme), `blacklist_anwenden`
+(Substring, MIT), `_post_search_cleanup` (Substring, OHNE) und
+`get_active_jobs(exclude_blacklisted)` (GLEICHHEIT statt Substring,
+OHNE). Ohne Ausnahme waren ausgerechnet der SUCHLAUF und die
+TREFFERLISTE — die beiden, auf die es ankommt. Wer die Ausnahme aus
+C31/#790 setzte, bekam die Stelle von Hand durch, und der naechste
+Suchlauf warf sie stumm wieder weg. **Zum siebten Mal dasselbe Muster**
+(#963, #913, #976, #987, #991, #994); neu `services/blacklist_regel.py`.
+Die vierte Fassung verglich Firmen sogar auf Gleichheit, also nach einer
+ANDEREN Regel als alle anderen — beim Suchen nach Doppelungen nicht nur
+zaehlen, wie oft etwas dasteht, sondern ob es dasselbe sagt.
+
+(2) **Ein Filter, dessen Wirkung niemand sieht, laesst sich nicht
+ueberpruefen.** Es gab keine Liste der verworfenen Stellen: man wusste
+nicht, ob der Filter richtig arbeitet, und merkte nicht, wenn seine
+Begruendung veraltete. Das ist #989 in einer anderen Gestalt — dort
+wirkte fehlende Information wie Unauffaelligkeit, hier wirkt eine
+unsichtbare Blockade wie ein leerer Markt. Neu die Tabelle
+`blacklist_blocks` (Safety-Net ohne Schema-Bump, auf 500 gekappt) und
+`blacklist_wirkung()`.
+
+(3) **Das Protokoll ist Vergangenheit, das Urteil ist Gegenwart.** Der
+Befund rechnet jede protokollierte Blockade gegen die HEUTIGE Regel
+nach: wer inzwischen eine Ausnahme gesetzt hat, wird nicht weiter
+ermahnt, sondern bekommt "kaemen inzwischen durch". Ein Pruefer, der bei
+korrektem Zustand Alarm gibt, wird nach dem zweiten Mal ignoriert
+(DoD-9-Lehre) — das gilt auch, wenn der Alarm mal richtig WAR.
+
+(4) **Ein Guard, der nur beim Anlegen laeuft, sieht den Bestand nie.**
+Der Kategorienurteil-Hinweis existierte seit #828 und haette den
+gemeldeten Grund ("Zeitarbeit/Consulting") erkannt — der Eintrag war nur
+aelter als der Guard. Deshalb jetzt die Bestandspruefung in
+`blacklist_wirkung()` und in `pbp_diagnose`. Gemessen am 07.09.: 8 von
+24 Firmen-Eintraegen tragen Gattungsbegruendungen, 5 gar keine
+Begruendung — die kann auch der Mensch selbst nie mehr pruefen.
+
+(5) **Die Warnung gehoert vor die Wirkung, nicht dahinter.** Der Hinweis
+auf `ausser_wenn_titel_enthaelt` erschien erst, wenn eine Stelle bereits
+abgewiesen war. Jetzt beim ANLEGEN — samt der konkreten Kollision: PBP
+sagt, welche bekannten Stellen dieser Eintrag ab jetzt still verwirft,
+wenn ihr Titel MUSS-Begriffe traegt. Das ist der maschinell erkennbare
+Widerspruch ("das suche ich" und "das will ich nicht" ueber derselben
+Stelle).
+
+(6) **Nebenbefund, vom eigenen Test gefunden:**
+`durch_ausnahme_verschont` stand in `blacklist_anwenden` NUR im Zweig
+"kein Treffer" — sobald irgendeine andere Stelle passte, verschwand die
+Auskunft darueber, was die Ausnahme gerettet hat. Sichtbar war sie damit
+genau dann nicht, wenn es interessant wurde.
+
+## Stand 2026-09-07 (v1.7.40 Stable) — Der Weg zur Kennung
+
+**#994, gemeldet von demselben fremden Anwender wie #990.** Nach dem
+Onboarding legt Claude die Stationen aus dem Lebenslauf korrekt an —
+danach liessen sie sich im Gespraech nicht mehr verfeinern; Claude
+meldete, das Werkzeug zum Bearbeiten stehe nicht zur Verfuegung.
+**Tests: 2971 / 3037.** MCP-Tools 209 / 222 (+`positionen_anzeigen`).
+
+MERKE-Punkte:
+
+(1) **Ein halber Weg sieht von aussen aus wie ein fehlendes Werkzeug.**
+`profil_bearbeiten(bereich='position', aktion='aendern')` gab es seit
+langem, `update_position`/`update_education` liegen laenger in der
+DB-Schicht. Was fehlte, war die `element_id` — kein Lesewerkzeug gab sie
+heraus. Und der Weg dorthin war schon gebaut: H16/#741 hat ihn fuer
+PROJEKTE angelegt (`projekte_anzeigen` liefert `position_id`) und fuer
+die beiden Ebenen darueber nie nachgezogen. Ausgerechnet fuer Positionen
+ohne Projekte — also den Normalfall nach einem CV-Import — half er
+deshalb nicht. **Wenn ein Muster fuer einen von drei Datentypen gebaut
+wird, gehoert im selben Zug geprueft, warum die anderen zwei ihn nicht
+brauchen.**
+
+(2) **Der teurere Teil war der zweite, und er stand im Kommentar des
+Melders.** Die Lesewerkzeuge sprechen Deutsch (`aufgaben`, `erfolge`,
+`technologien`), die Schreibschicht nimmt die Spaltennamen — und
+`update_position` filtert alles andere STILL heraus, waehrend
+`profil_bearbeiten` `"aktualisiert"` mit `geaenderte_felder:
+['aufgaben']` meldet. Gemessen am 07.09.: Antwort erfolgreich, Bestand
+unveraendert. **Eine Erfolgsmeldung ueber eine Nicht-Aenderung beendet
+die Fehlersuche** — sie ist teurer als ein Fehler. Verwandt mit #980
+(Fallback speicherte eine andere Bedeutung), nur ohne falschen
+Datensatz. Jetzt `_felder_uebersetzen` + `_feld_rueckmeldung` in
+`tools/profil.py`: deutsche Namen werden abgebildet (position,
+ausbildung, projekt — aendern UND hinzufuegen), `geaenderte_felder`
+nennt die geschriebenen Spalten, der Rest kommt als `ignorierte_felder`
+samt `moegliche_felder` zurueck.
+
+(3) **Der Melder hat den Befund zweimal geliefert.** Erst die Ursache
+("laut Claude fehlen die Positions-IDs"), dann im Kommentar die zweite
+("sieht so aus, als uebermittelt der MCP die Ids und/oder die Feld Namen
+nicht alle korrekt"). Beides stimmte. Sein Workaround — Profil
+exportieren und das JSON in den Chat — funktionierte, weil er damit
+zufaellig die englischen Feldnamen bekam. **Wenn ein Workaround
+funktioniert, sagt er einem, was am regulaeren Weg fehlt.**
+
+(4) **Ein Guard gegen den Rueckfall, in die richtige Richtung gedreht:**
+`test_994_jeder_ausgabename_ist_ein_gueltiger_eingabename` schickt die
+Feldnamen, die `positionen_anzeigen` AUSGIBT, durch die
+Uebersetzungsschicht der SCHREIBSEITE. Ein kuenftiges neues Feld in der
+Auskunft faellt damit auf, bevor jemand vergeblich versucht, es
+zurueckzuschreiben. Das ist die Antwort auf (1) auf Testebene: nicht der
+Kommentar haelt die beiden Seiten zusammen, sondern ein Aufruf.
+
+(5) **Kein neues Werkzeug fuer den Rest.** `positionen_anzeigen` benennt
+zusaetzlich die leeren Felder je Position (`luecken`), weil ein CV
+Aufgaben, Erfolge und Technologien fast nie vollstaendig nennt und genau
+das die Arbeit ist, die der Melder machen wollte. Ein Befund, den nur
+der Mensch selbst zusammensuchen muss, ist der halbe Befund — dasselbe
+Argument wie #989 MERKE (1).
+
+## Stand 2026-09-07 (v1.7.39 Stable) — Was nichts kostet, stand oben
+
+**#989, das Architektur-Epic hinter #987/#965/#972/#988.** Wo eine
+Information fehlt, setzt ein Punktesystem einen neutralen Wert ein — und
+neutral heisst dort nicht "unbekannt", sondern "kostet nichts". Gemessen:
+vollstaendig beschriebene, passende Stelle 32 Punkte, inhaltsleerer
+Titel 101. **Tests: 2937 / 3003.**
+
+MERKE-Punkte:
+
+(1) **Der unangenehmste Satz des Issues:** *"Es gibt bereits
+entfernung_guete, score_status, grund_guete ... Alle vier stehen in
+Tool-Antworten. In der Trefferliste, die der Nutzer tatsaechlich
+ansieht, kommt davon nichts an."* Die Bausteine mussten nicht gebaut
+werden, sondern ankommen. **Ein Befund, den nur ein Werkzeug kennt, ist
+kein Befund** — das ist DoD 8c fuer Auskuenfte statt fuer Guards. Der
+Datenguete-Befund haengt deshalb an `stellen_anzeigen` UND an
+`GET /api/jobs`, also an der Liste, die den Stellen-Tab speist.
+
+(2) **`verletzt` und `ungeprueft` sehen im Score gleich aus.** Beide
+bringen keine Punkte und bedeuten das Gegenteil voneinander. Deshalb
+drei Zustaende statt zwei. Schoenstes Beispiel: ein GESCHAETZTES Gehalt
+zaehlt seit #827 gar nicht — es galt damit implizit als "erfuellt
+nicht", ist aber ungeprueft.
+
+(3) **Den Score NICHT angefasst.** Er misst, was in der Anzeige steht;
+das ist eine Messung. Die Rangfolge ist eine Darstellung, und dort zieht
+sie die Konsequenz. Ein Update, das gespeicherte Zahlen still
+umschreibt, waere derselbe Fehler wie #987 — nur diesmal absichtlich.
+
+(4) **Eine Trennung, die alles trennt, trennt nichts.** Der Vorschlag im
+Issue war, den Vollstaendigkeitsgrad in die Rangfolge einzurechnen. Ich
+habe die Gruppe an EINER Dimension festgemacht (Anzeigentext): eine
+unbekannte Entfernung ist alltaeglich, und wuerde sie die Gruppe
+entscheiden, landete fast alles in Gruppe zwei. Ungenau bewertet ist
+etwas anderes als gar nicht bewertet. Die uebrigen Dimensionen stehen
+als Marke an der Zeile, nur eben nicht gruppenbildend.
+
+(5) **Die Vorgabe ist bewusst nicht die strengste.** `streng` (unbekannte
+Entfernung zaehlt wie eine zu grosse) ist eine NUTZERENTSCHEIDUNG, wie
+das Issue sie beschreibt. Als Vorgabe waere sie ein erfundener Malus —
+derselbe Fehler wie der erfundene Bonus, nur mit anderem Vorzeichen.
+Weil `streng` im Score wirkt, geht die Einstellung durch das
+Kriterien-Nadeloehr aus #987; sonst rechnete der Suchlauf wieder anders
+als die Neuberechnung.
+
+(6) **#966 hat halbiert, wo Null richtig gewesen waere.** Ein
+Aussortier-Urteil an einer Anzeige von 23 Zeichen ist kein schwacher
+Beleg, sondern keiner: drei solche Urteile ergeben halbiert immer noch
+zwei Stimmen, und genau so entstand der gemeldete Dreifach-Wiedergaenger.
+Die Abstufung bleibt trotzdem — eine geschaetzte Gehaltszahl zeigt in
+eine Richtung, ein Anzeigen-Rumpf in gar keine. **Beim Nachschaerfen
+einer Haertung fragen, ob "schwach" ueberhaupt die richtige Kategorie
+war.**
+
+(7) **Die 50 lag siebenmal im Code.** Dieselbe Schwelle, jedes Mal neu
+getippt (jobs.py viermal, analyse.py, workspace_service.py,
+database.py). Jetzt `datenguete.MIN_BESCHREIBUNG` — und gespiegelt in
+`frontend/src/lib/datenguete.js` mit eigenem CI-Schritt, nach dem Muster
+von #765 und #974.
+
+(8) **Nebenbefund, nicht behoben:** `chrome.search_criteria` in
+`JobsPage.jsx` existiert nicht — die Zeile liest ins Leere und faellt
+auf 0 zurueck. Kein Schaden (die Schwelle wirkt serverseitig), aber ein
+totes Feld.
+
+## Stand 2026-09-07 (v1.7.38 Stable) — Zwei Wege, der schwaechere zuerst
+
+**#991 — 962 Zuordnungsvorschlaege statt 8.** `analyse_plan_erstellen`
+fuehrte eine ZWEITE, schwaechere Fassung der Frage "welches Dokument
+gehoert zu welcher Bewerbung" neben `dokumente_ohne_bewerbung` (E20/
+#797). **Tests: 2912 / 2978.**
+
+MERKE-Punkte:
+
+(1) **Fuenftes Mal dasselbe Muster — und diesmal andersherum.** Nach
+#963 (fit_analyse gegen calculate_score), #913 (dismiss_job), #976
+(aufgaben_uebersicht) und #987 (Score-Kriterien) lag hier wieder
+dieselbe Frage zweimal im Code. Neu ist die Richtung: der schwaechere
+Weg war ausgerechnet der, den die eigene Anleitung ZUERST empfiehlt.
+Wer dem Plan folgte, bekam die schlechtere Antwort; die gute fand nur,
+wer das andere Werkzeug kannte. **Beim Suchen nach Doppelungen zuerst
+den Weg ansehen, den die Doku empfiehlt.**
+
+(2) **Ein Firmenname im Fliesstext ist kein Verdachtsmoment.** Der Plan
+suchte `LOWER(extracted_text) LIKE '%firma%'`. Der Name steht in jeder
+Absage, jeder Signatur und in jedem Anschreiben, das die Firma nur
+adressiert. Weil die Schleife zusaetzlich ueber ALLE Bewerbungen lief
+und je Paar einen Eintrag erzeugte, entstand das Kreuzprodukt aus
+Bewerbungen und Textvorkommen — daher tauchten dieselben Dokumente bei
+mehreren Bewerbungen auf. Der Melder hatte das vermutet und als "nicht
+verifiziert" markiert; es stimmte.
+
+(3) **Eine Haertung darf ihren Gruendungsfall nicht mitnehmen.** Der
+naheliegende Fix — Volltext ersatzlos streichen — haette #686 getoetet:
+eine Mail mit nichtssagendem Dateinamen, deren Text die Firma nennt,
+samt Alt-Test. Der Volltext bleibt deshalb ein Signal, aber nur fuer
+Korrespondenz-Typen und nur bei GENAU EINEM Treffer, mit Konfidenz
+`niedrig`. Die drei Alt-Tests zu #686 und #743 sind danach wieder
+gruen — sie waren der Beleg, dass die Haertung nicht zu weit ging.
+
+(4) **Eine Warnung an einem von zwei Wegen ist keine Warnung.** Der
+Hinweis "Bewerbung bereits abgeschlossen" (#743) stand nur im Plan,
+obwohl beide Wege dieselben Vorschlaege machen. Jetzt am Nadeloehr —
+dasselbe Argument wie bei der Whitelist in #981.
+
+(5) **Ein Vorschlag ohne Grenze ist auch eine Datenmenge.** 962
+Eintraege kosten im MCP-Client Kontext, ohne etwas beizutragen (#635
+hatte die Payload desselben Tools schon einmal reduziert). Jetzt 15,
+mit Gesamtzahl daneben und Verweis aufs Detailwerkzeug.
+
+## Stand 2026-09-07 (v1.7.37 Stable) — Eine Klammer
+
+Der erste Fehlerbericht eines FREMDEN Anwenders (#990), und er wiegt
+schwerer als alles andere an diesem Tag: **seit v1.7.0-beta.18 brach der
+Installer ab, bevor er PBP in Claude Desktop eintrug.** Das Dashboard
+lief, die Werkzeuge fehlten, das Fenster schloss sich ohne Meldung, und
+ins Log kam nichts mehr. **Tests: 2898 / 2964.**
+
+**Die Ursache ist ein einziges Zeichen.** Eine unescapte `)` in einem
+`echo` INNERHALB eines Klammerblocks beendet den Block genau dort; der
+Zeilenrest wird zur naechsten Anweisung, `cmd` meldet einen Syntaxfehler
+und bricht ab. Am laufenden `cmd.exe` reproduziert und in beide
+Richtungen gemessen.
+
+MERKE-Punkte:
+
+(1) **Ein Klammerpaar ist in cmd nicht ausbalanciert.** `cmd` zaehlt die
+OEFFNENDE Klammer in einem `echo` nicht mit, die SCHLIESSENDE aber
+schon. Auch `echo (alles in einer Zeile).` bricht ab. Ich habe zuerst
+gegenteilig argumentiert — der Test hat es widerlegt. **Bei
+cmd-Parserfragen messen, nicht schliessen.**
+
+(2) **Der Fehler traf ausgerechnet die Sorgfaeltigen.** Getroffen wurde
+der letzte Schritt: der Eintrag in Claude Desktop. Alles davor war
+fertig, also lief das Dashboard — und der Nutzer sah einen halb
+installierten Zustand ohne jede Fehlermeldung. Neun Fundstellen in drei
+Dateien, darunter der Deinstaller (moeglicher Teilbeitrag zu #739, dort
+liegt der gemeldete Abbruch aber frueher). Jetzt
+`tests/test_v1737_batch_klammern_990.py` ueber ALLE `.bat`-Dateien.
+
+(3) **Ein Melder kann die halbe Arbeit machen — und die Luecke, die
+er offen laesst, ist der eigentliche Fund.** Der Anwender hat die
+MSIX-Ursache vollstaendig analysiert (Store-Claude liegt ACL-geschuetzt
+unter `WindowsApps`, steht nicht im PATH, und
+`%LOCALAPPDATA%\Packages\Claude_*` enthaelt nur Anwendungsdaten —
+die #361-Erkennung suchte an der richtigen Stelle nach der falschen
+Sache) und ausdruecklich geschrieben, den Abbruch nicht klaeren zu
+koennen. Genau der war die Ursache des gemeldeten Symptoms. **Den offen
+gelassenen Rest eines guten Berichts zuerst ansehen.**
+
+(4) **Zwei cmd-Fallen beim MSIX-Fix, beide gemessen.** Ein `^|` im
+Backtick-Kommando von `for /f` kommt in der Subshell NICHT als Pipe an
+— die Abfrage lieferte still eine leere Zeichenkette, also wieder
+ein Fehler, der wie ein normaler Zustand aussieht. Und das `!` in
+`shell:AppsFolder\<Paket>!Claude` haette bei `EnableDelayedExpansion`
+als Variablenklammer gegolten und waere verschwunden; PowerShell setzt
+es jetzt selbst zusammen (`[char]33`).
+
+(5) **Negativbefund, dokumentiert damit ihn niemand nachmisst:** LF-
+Zeilenenden im ZIP waren es NICHT. `git archive` wendet die
+`eol=crlf`-Regel aus `.gitattributes` an; das heruntergeladene ZIP
+traegt CRLF. Am Byte geprueft.
+
+## Stand 2026-09-07 (v1.7.36 Stable) — Die Liste stand auf dem Kopf
+
+Zwei Befunde aus EINER Jobsuche, beide von derselben Art: PBP hat nicht
+falsch gerechnet, sondern **mit den falschen Zahlen** gerechnet. Kein
+Fehler, keine Meldung, eine plausibel sortierte Liste — und oben stand,
+worueber PBP am wenigsten wusste. **Tests: 2883 / 2949.**
+
+**#987 — der gespeicherte Score war reproduzierbar falsch.** 86 von 86
+Stellen eines Laufs zu hoch, im Schnitt um 47 Punkte, im Maximum um 105.
+`fit_analyse` ergab mit denselben Kriterien 0. Zwei Ursachen, die erst
+zusammen den vollen Schaden ergeben:
+
+(1) **Die Kriterien lagen doppelt.** Der Suchlauf reicherte sie an
+(`_applied_titles`, `_muss_synonyme`), `scores_neu_berechnen` und
+`fit_analyse` nahmen sie roh. Damit war der gespeicherte Score von
+keinem anderen Werkzeug nachzurechnen. MERKE: das ist zum VIERTEN Mal
+dasselbe Muster (#963 fit_analyse/calculate_score, #913 dismiss_job,
+#976 aufgaben_uebersicht) — aber eine Ebene tiefer. **Nicht die Rechnung
+lag doppelt, sondern ihre Eingabe.** Ein Nadeloehr fuer die Logik nuetzt
+nichts, wenn jeder Aufrufer ihr etwas anderes hineinreicht. Neu
+`services/scoring_kriterien.py`.
+
+(2) **Die Anreicherung selbst war falsch, und das ist der teurere
+Befund.** Die Berufs-Facette (#969) beantwortet "wer arbeitet damit",
+nicht "wie heisst das noch" — und nur wenn der Suchbegriff SELBST ein
+Beruf ist, sind das dieselbe Frage. Live gemessen: zu "PLM" nennt sie
+IT-Berater, Ingenieur/in - Maschinenbau, Ingenieur/in - Elektrotechnik,
+Informatiker/in, Konstrukteur/in. Als MUSS-Synonyme oeffnete damit jede
+Ingenieursanzeige das Tor. MERKE: **eine Datenquelle beantwortet ihre
+eigene Frage, nicht deine.** Die Annahme "Facette = Synonymliste" stand
+nirgends geschrieben und war der ganze Mechanismus.
+
+MERKE-Punkte dieser Welle:
+
+(1) **Ein Fragment ist gefaehrlicher als ein Unwort — auch das ganze
+Wort ist ein Fragment.** `_formen` zerlegte die amtliche Bezeichnung an
+Leerzeichen: aus "Ingenieur/in - Elektrotechnik" wurden "Ingenieur",
+"Ingenieurin" UND "Elektrotechnik". Der Docstring der ersten Fassung
+warnte bereits vor Fragmenten ("Gesundheits" traefe jedes Kompositum) —
+die Warnung galt nur dem Kompositum-Vorderteil, nicht dem abgetrennten
+ganzen Wort, das ein ganzes Berufsfeld benennt. Jetzt wird nur die
+SCHREIBWEISE zerlegt (Schraegstrich-Formen), nie die Bezeichnung; die
+Fachrichtung hinter " - " faellt weg. Ausnahme mit Ansage: bei einer
+Koordination ("Gesundheits- und Krankenpfleger/in") ist das letzte Glied
+ein vollstaendiger Berufsname und darf allein stehen.
+
+(2) **Zwei Tore, gemessen statt geschaetzt.** Die Schwelle
+`MIN_SPITZENANTEIL = 0.15` steht nicht aus dem Bauch da: gemessen am
+07.09. liegen Berufe bei 18–39 % (Elektroniker 18, Pflegefachkraft 20,
+Maschinenbauingenieur 36, Erzieherin 39), Technologien und Sachen bei
+10–13 %. Die Schwelle liegt bewusst UNTER dem tiefsten gemessenen Beruf:
+eine fehlende Alternativbezeichnung ist das Verhalten von vor #969 und
+damit harmlos, eine falsche kippt die ganze Liste.
+
+(3) **Ein Score darf nicht am Netz haengen.** Die Alternativbezeichnungen
+kommen aus einer Netzabfrage. Waeren sie live geholt worden, haette
+dieselbe Stelle online einen anderen Wert als offline. Sie liegen jetzt
+in `profile_settings`; die Regel dazu lautet **wer schreibt, frischt
+auf; wer liest, nimmt den abgelegten Stand** — ein Lesewerkzeug hat
+keine Nebenwirkung (#963). Und: ein LEERES Ergebnis wird nie ueber einen
+vorhandenen Stand geschrieben, weil "nichts gefunden" und "nicht
+erreichbar" von aussen gleich aussehen.
+
+(4) **Ein Frueh-Ausstieg laesst Altwerte stehen.** `calculate_score`
+setzte die Teilscores erst am regulaeren Ende; bei jedem K.o. blieb der
+ALTE Fachscore neben dem neuen Gesamtscore stehen ("fachscore 56 gegen
+score 1"). Verwandt mit MERKE (3) aus v1.7.24 — dort kuerzte ein
+Frueh-Ausstieg die Auskunft, hier laesst er sie veralten.
+
+(5) **Ein Hinweis, der die Ursache ausschliesst, ist schlimmer als
+keiner.** `score_abweichung` sagte "meist ist der gespeicherte Wert
+aelter als die Kriterien" — ueber einer Stelle, die am SELBEN TAG
+angelegt worden war. Der Text hat den Befund aktiv wegerklaert. Jetzt
+wird der Fall benannt.
+
+**#988 — der Wunschwert wirkte nicht.** In den Suchkriterien standen
+30 km, gerechnet wurde gegen die Reglerstufe 999 km; weil die oberste
+Stufe ein Deckel war, kostete 577 km genau so viel wie 87 km. Jenseits
+von 999 km traf sogar GAR KEINE Stufe mehr — 1200 km kosteten null.
+Diesen zweiten Teil hat kein Mensch gemeldet, sondern der Test beim
+Schreiben gefunden. Der Preis waechst jetzt je Verdopplung ueber dem
+Wunschwert um einen Punkt, gedeckelt (Entfernung ist ein PREIS, kein
+Ausschluss, #910).
+
+(6) **Zwei Einstellungen fuer dieselbe Sache, von denen nur eine wirkt,
+sind eine Fehlerquelle — eine, die GAR NICHTS tut, ist schlimmer.**
+Unter `schwellenwert` stand neben dem gelesenen `auto_ignore` ein
+zweiter Regler mit dem Wert 35, ungeprueft ueber
+`scoring_konfigurieren('setzen', ...)` angelegt. Der Nutzer glaubte,
+seine Schwelle liege bei 35; sie lag bei 0. **Das ist #981 in einer
+anderen Tabelle** (dort ein Status ausserhalb der Whitelist, hier ein
+Regler ausserhalb des Vokabulars) — und beide Male entsteht kein Fehler,
+sondern eine Einstellung ohne Wirkung, der man glaubt. Neu
+`services/scoring_vokabular.py`; bestehende wirkungslose Zeilen werden
+in der Anzeige BENANNT statt geloescht.
+
+**Offen als #989 (Architektur-Epic, vom Nutzer angelegt):** das
+gemeinsame Muster hinter #987, #965 und #972 — **fehlende Information
+wirkt wie Unauffaelligkeit statt als Luecke.** Wo ein Wert fehlt, setzt
+PBP neutral ein und rechnet weiter; neutral heisst in einem Punktesystem
+aber nicht "unbekannt", sondern "kostet nichts" — und was nichts kostet,
+steigt in der Sortierung. Das ist die naechste grosse Arbeit.
+
+## Stand 2026-09-07 (v1.7.35 Stable) — Dein Dashboard
+
+Der Nutzer hat den fertig aufgeraeumten Bildschirm angesehen und die
+naechste Frage gestellt: **warum ist er fuer alle gleich?** Daraus #985.
+Dazu drei Nachzuegler, die lange genug lagen. **Tests: 2844 / 2908
+(Stable / Beta). Schema v48 / v52 unveraendert.**
+
+**#985 — das Dashboard gehoert dem Nutzer.** Bereiche an- und
+abschalten, sortieren, einklappen; Zustand in `profile_settings`, also
+am Profil und nicht im Browser. Voreinstellung "Offen" und
+"Schnellzugriff"; `offen` traegt `fest=True`. `services/
+dashboard_bereiche.py` ist der Katalog, `_zusammenfuehren` haengt neue
+Bereiche ans Ende und laesst entfernte still herausfallen — dasselbe
+Muster wie `prompt_katalog.py` (#979): **der Katalog gibt die
+Voreinstellung, der Mensch weicht ab.** Sortierung ueber Pfeile, bewusst
+kein Drag-and-drop (acht Eintraege, Handy-Bedienbarkeit).
+
+MERKE-Punkte dieser Welle:
+
+(1) **Gebaute Assets sind ein PAAR, und ein 404 darauf ist stumm.**
+Beim Port auf die Stable-Linie uebernahm die `index.html` den
+Stylesheet-Namen von main, der Assets-Ordner behielt die Datei von
+Stable. Der Verweis lief ins Leere — die Seite laedt, React rendert,
+alle Texte stehen da, der Server meldet nichts, und **gestaltet ist gar
+nichts**. Gefunden hat es allein
+`test_dashboard_mobile_layout_has_no_horizontal_overflow`, und zwar
+ueber ein Logo, das ohne CSS in seiner Naturbreite von 1024 px stand.
+Ein Browser-Test mit laufendem Server und Mobil-Viewport fuer eine
+Frage, die man am Dateinamen beantworten kann. Jetzt
+`tests/test_v1735_gebaute_assets.py` (auf BEIDEN Linien): referenzierte
+Dateien existieren, keine verwaisten Reste, genau ein Stylesheet. Die
+Cherry-Pick-Regel aus v1.7.24 MERKE (6) bleibt richtig — neu bauen
+statt auswaehlen —, sie war nur nicht abgesichert.
+
+(2) **Ein `git pull` in einer Pipe kann nicht fehlschlagen.** Der
+Wiki-Commit lief trotz `error: cannot pull with rebase` durch, weil die
+Kette `git pull --rebase 2>&1 | tail -2 && git add -A && git commit`
+lautete: der Exit-Code einer Pipe ist der des LETZTEN Glieds, also von
+`tail`. Genau die Verkettung, vor der die Wiki-Clone-Regel warnt — sie
+sah nur aus, als waere sie eingehalten. Ausgegangen ist es gut (die
+Gegenseite war unveraendert, Fast-Forward), aber der Schutz war
+wirkungslos. **Bei Sicherheitsketten das Kommando nie durch eine Pipe
+fuehren.**
+
+(3) **Ein Cherry-Pick ohne Gegenstueck gehoert uebersprungen — nach
+dem Lesen beider Seiten.** `088e476` korrigierte einen Zeilenumbruch in
+der `ocr_info`-Fassung des Office-Zweigs. Diese Fassung gibt es auf der
+1.7-Linie nicht (kein OCR, Zweier-Tupel, Grund ueber `format_befund`).
+Der Konflikt war also kein Konflikt, sondern die richtige Antwort. Das
+ist die Ausnahme zur v1.7.12-Lehre "NIE `--skip` als Fallback": `--skip`
+als GEPRUEFTE Entscheidung ist etwas anderes als `--skip` in einer
+Aufloesungsschleife.
+
+(4) **#972 — dreimal nachgebessert heisst: weg, nicht haerten.** Die
+Hochschulabschluss-Pruefung hatte drei Anlaeufe (#698 Malus, #918
+Phrasen-Muster, #955 Zielgruppen-Erkennung) und unterschied "Abschluss
+gefordert" von "Studium als Zielgruppe" weiterhin nicht zuverlaessig;
+in der Praxis wertete sie mehr passende Stellen ab als unpassende. Der
+Ablehnungsgrund `kein_hochschulabschluss` BLEIBT — er beschreibt eine
+Entscheidung des Menschen und steht in Altdaten; ihn zu entfernen
+wuerde die Statistik ruecklaufend verfaelschen. **Beim Rueckbau eines
+Mechanismus trennen: die Automatik geht, das Vokabular bleibt.**
+
+(5) **#833 — die Stille war der Befund, nicht das Format.** Alles
+ausserhalb der bekannten Zweige fiel durch den `else`-Zweig mit leerem
+Text und `status: "ok"`; ein Dokument, das nichts liefert, war von
+einem, das nichts enthaelt, nicht zu unterscheiden. Neu
+`services/office_text.py`, bewusst stdlib-only (zipfile + ElementTree)
+— `python-pptx` steht nicht in `pyproject.toml`, und eine
+Abhaengigkeit fuer eine ZIP-Datei mit XML darin ist
+unverhaeltnismaessig. `.ppt`/`.xls` bekommen eine ehrliche Absage.
+
+(6) **#975 — der gefaehrlichste Rueckfall ist der bequeme.** Meine
+erste Fassung suchte die `DEINSTALLIEREN.bat` notfalls im
+Repo-Wurzelverzeichnis. Diese Kopie entfernt
+`%LOCALAPPDATA%\BewerbungsAssistent` — aus einem Entwickler-Checkout
+haette der Knopf also die INSTALLIERTE Version des Nutzers abgeraeumt,
+waehrend die Karte etwas anderes anzeigt. Ein Test hat es gefangen. Der
+Rueckfall ist ersatzlos weg: **"nicht gefunden" melden ist besser als
+das Falsche treffen.**
+
+(7) **README-Drift auf main, zum zweiten Mal.** Der README-Kopf auf
+main stand auf v1.7.30, also fuenf Releases zurueck — dasselbe Bild
+wie am 2026-08-19, das damals das README-Gate ausgeloest hat. Das Gate
+greift: auf der Stable-Linie ist es ein Fehler, auf main nur eine
+Warnung, und Warnungen driften. **Die sichtbare Seite des Projekts ist
+main, nicht die Release-Linie.**
+
+## Stand 2026-09-07 (v1.7.31 Stable) — Eine Information, ein Ort
+
+Ein externer Design-Review vom 05./06.09. lieferte zwei Screenshots und
+drei Saetze Kritik; die Pruefung am Code ergab sieben Befunde an EINEM
+Bildschirm (Epic #978). Dazu ein Praxisfund aus derselben Durchsicht,
+der schwerer wiegt als alle sieben zusammen. **Tests: 2770 / 2836.
+Schema v48 / v52 unveraendert. MCP-Tools 206 / 219.**
+
+**#980 zuerst, weil er Daten betrifft.** Der Aufgaben-Tab rief zwei
+Routen, die es nicht gibt. `.../reschedule` liess das Verschieben einer
+Nachfassung seit v1.7.12 in HTTP 404 enden — sichtbar, aber harmlos.
+`.../obsolete` dagegen hatte einen `catch`-Fallback auf `.../complete`:
+wer "hinfaellig" anklickte, speicherte **"erledigt"**. Keine
+Fehlermeldung, falscher Datensatz, und die Zeile zaehlte seitdem in den
+Reaktionszeiten (D29) als durchgefuehrte Nachfassung. MERKE: **ein
+Fallback, der eine andere Bedeutung speichert, ist keine
+Fehlertoleranz.** Kein Rueckbau moeglich (die Datensaetze tragen kein
+Herkunftsfeld) — `pbp_diagnose` listet Verdachtsfaelle, ausdruecklich
+ohne `auto_fix` und mit der Grenze im Text.
+
+**Die Wurzel war eine fehlende Kontrolle, nicht Unachtsamkeit.** Das
+Frontend nennt API-Pfade als Zeichenketten, und nichts vergleicht sie
+mit `app.routes`. Fuer Tab-IDs (G19/#846) und Status-Werte (G20/#896)
+gibt es genau solche Guards; fuer Routen fehlte er. Jetzt
+`tests/test_frontend_api_paritaet_980.py`.
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Ein Kommentar haelt nichts zusammen — zum dritten Mal.** Die
+Aggregation der drei Aufgaben-Toepfe stand ZWEIMAL im Code (MCP-Tool und
+REST-Endpunkt), verbunden nur durch den Satz "dieselbe Logik wie das
+MCP-Tool aufgaben_uebersicht". Er stimmte bereits nicht mehr: der eine
+Weg kannte `ueberholt`/`notiz`, der andere `erledigen_mit`. Nach
+`fit_analyse` gegen `calculate_score` (#963, fuenfmal derselbe
+Kommentar) und `db.dismiss_job` (#913) ist das die dritte Runde. Neu
+`services/aufgaben_sicht.py` als Nadeloehr. **Wo zwei Wege denselben
+Wert erzeugen, gehoert ein Aufruf hin, kein Hinweis.**
+
+(2) **Ein Alt-Test kann den Fehler festhalten statt ihn zu finden.**
+`test_weekend_has_highest_priority` stand mit `follow_ups_due=3` und der
+Erwartung "weekend" im Repo — genau das Verhalten, das #977 als falsch
+meldet. Beim Aendern eines Verhaltens den roten Alt-Test LESEN, bevor
+man ihn anpasst: er kann die Spezifikation sein oder der Fehler.
+
+(3) **Ein Waechter darf nicht mehr behaupten, als er kann.** Meine erste
+Fassung des #984-Guards nutzte Wortueberschneidung mit Schwellwert und
+wies damit den AUSLOESENDEN Fall als "ergaenzt" ab: "Es gibt
+ueberfaellige Nachfassaktionen." und "Einige Bewerbungen warten auf
+deine Rueckmeldung" teilen kein einziges Wort und sind dieselbe Aussage.
+Kein lexikalischer Vergleich findet das. Die Funktion heisst jetzt
+`beschreibungWiederholtWoertlich` und der Fall wird geloest, indem das
+FELD verschwindet. Umgekehrt war die im Issue vorgeschlagene
+Teilstring-Regel fuer das Etikett zu schwach: "Nachfassen" steckt nicht
+in "Nachfassaktionen" — der Guard haette seinen eigenen Gruendungsfall
+durchgelassen. Jetzt ueber den Wortstamm.
+
+(4) **Beim Bauen eines Paritaets-Guards zuerst die Fehlalarme klaeren.**
+Meine erste Fassung meldete fuenf Treffer: einer war ein Parser-Artefakt
+(die Regex hoerte am `?` eines Ternaers im Template-String auf), vier
+waren Fehlalarme, weil ein Frontend-Literal auf einen Server-Parameter
+trifft (`/api/workflow-prompt/interview_vorbereitung` gegen
+`{workflow_name}`). Ich habe gegengeprueft, dass alle vier Routen
+wirklich existieren — sonst haette die Lockerung den Waechter blind
+gemacht statt geschaerft.
+
+(5) **Platzhalter werden im Deutschen ZUSAMMENGESETZT.** Der PII-Pruefer
+kannte "muster" als Kopfwort, nicht "Musterbetrieb" — dieselbe Lehre wie
+#962 und #970. Praefix-Regel jetzt fuer `muster`/`beispiel`/
+`platzhalter`, BEWUSST nicht fuer `test` und `demo`: es gibt reale
+Firmen, deren Name mit "Test..." beginnt, und ein Pruefer, der reale
+Namen durchwinkt, ist schlimmer als keiner (#929).
+
+(6) **Zwei eigene Kommentare haben eigene Tests rot gemacht.** Ein Test,
+der prueft, dass eine falsche Route WEG ist, schlaegt an der Erklaerung
+an, warum sie weg ist. Solche Tests auf die DEFINITION pruefen
+(`const interviewPseudoMeetings`) oder Kommentarzeilen vorher
+herausfiltern.
+
+(7) **Beim Cherry-Pick den Installationsblock pruefen.** Ich habe den
+Pflicht-Block aus dem CHANGELOG auf `main` extrahiert und auf der
+Stable-Linie eingefuegt — er trug die Versionsnummer der Beta-Linie
+(v1.7.18). Der Download-Link haette die falsche Version installiert.
+Nach dem Einfuegen `grep` auf die neue Versionsnummer.
+
+(8) **Der Farbklassen-Guard G24 hat direkt gegriffen.** Mein erster
+Entwurf des neuen Blocks trug `text-violet` — ein Token, das es nicht
+gibt; Tailwind erzeugt dafuer keine Regel UND keinen Fehler.
+
+Dazu ein Test mit Verfallsdatum gefunden und behoben:
+`test_825_vergangener_termin_ohne_teilnehmer_und_reflexion` nutzte das
+feste Datum 2026-08-05 und fiel am 04.09. aus dem 30-Tage-Fenster der
+Reflexions-Pruefung — von allein rot, ohne Codeaenderung. Dritter Fall
+dieser Art nach `test_782` und #767.
+
+**Das Epic ist abgeschlossen** — vier Releases an einem Tag:
+
+* **v1.7.32 / D43 (#981)** — der Dialog im Stellen-Tab bot `entwurf` an,
+  einen Status ausserhalb der Whitelist, und `POST /api/applications`
+  schrieb ihn ungeprueft durch. MERKE: `VALID_STATUSES` lag als LOKALE
+  Variable in `bewerbung_status_aendern` und konnte damit genau ein Tool
+  schuetzen. **Eine Whitelist an einer von mehreren Schreibstellen ist
+  keine Whitelist.** Dazu ein Guard ueber die Inline-`<option>`-Listen
+  der Seiten — G20/#896 las nur `utils.js`, und genau dort ist der Wert
+  ueberlebt.
+* **v1.7.33 / G29 (#979)** — Prompt-Katalog als einzige Quelle. Es waren
+  nicht vier Quellen, sondern fuenf: `prompts.py` trug eine zweite
+  Fassung des `bewerbung_schreiben`-TEXTES, die bereits abgewichen war.
+* **v1.7.34** — zwei Layout-Fehler, die erst der erneuerte Screenshot
+  zeigte (siehe MERKE 9 und 10).
+
+(9) **Ein gerendertes Bild ist eine eigene Pruefung.** Drei Karten im
+oberen Dashboard-Block waren 1035 px breit in einem 961 px breiten
+Container und liefen rechts aus dem Fenster. Ursache: ein `grid` ohne
+explizite Spalte gibt jedem Item `min-width: auto`, damit kann es nicht
+unter seine Mindestbreite schrumpfen — `grid-cols-1` ist
+`repeat(1, minmax(0, 1fr))` und erlaubt es. Der Fehler war AELTER als
+der neue Block (Readiness-Karte und Tagesimpuls hatten ihn auch) und im
+Browser kaum zu bemerken, weil der Ueberhang abgeschnitten wird. Kein
+Test und kein Code-Review haette ihn gefunden.
+
+(10) **Zwei Issues koennen sich gegenseitig einen Fehler bauen.** #982
+gab der Vorbereitungszeile das TERMINDATUM; #983 entschied danach, die
+Termine in denselben Block zu nehmen. Ergebnis: "Vorbereiten: X" stand
+direkt ueber "X" — genau die Doppelung, gegen die das Epic angetreten
+war. Keines der beiden Issues war fuer sich falsch. Bei Epics mit
+Sub-Issues, die dasselbe Bild bauen, gehoert das Ergebnis am Ende
+EINMAL angesehen, nicht nur je Issue abgehakt.
+
+(11) **Sieben Tests bestanden nur an einer Stelle.** Sie lasen Dateien
+ueber RELATIVE Pfade und warfen aus einem fremden Arbeitsverzeichnis
+`FileNotFoundError` (gemessen: 2 von 5 rot in einer Datei). Das ist DoD
+8c woertlich. Jetzt ueber einen `_repo()`-Helfer.
+
+## Stand 2026-09-02 (v1.7.24 Stable) — Fehler, die wie Erfolg aussehen
+
+Sieben Praxis-Befunde vom 28.08. und 02.09. Roter Faden: **keiner davon
+hat je eine Fehlermeldung erzeugt.** Eine fehlende Farbe, eine
+unbekannte Entfernung, ein falsch abgelegtes Stellenangebot — alles sah
+aus wie ein normaler Zustand. **Tests: 2563 / 2565 (Stable), 2629 /
+2631 (Beta). MCP-Tools: 206 / 219.**
+
+**#963 — die lehrreichste Ursache, weil sie meine eigene war.** Das
+MUSS-Tor (#940) und der Rahmen-Deckel (#942) sassen NUR in
+`calculate_score`, nicht in `fit_analyse`. Gemessene Divergenz bis zu
+6 Punkten auf 21; welcher Wert in der Liste stand, hing davon ab,
+welches Tool zuletzt lief. MERKE: **eine Regel in einen von zwei
+parallelen Rechenwegen einzubauen verschiebt die Divergenz nur.**
+`fit_analyse` trug den Kommentar "dieselbe Logik wie calculate_score"
+FUENFMAL (#762, #778, #827, #910, #917) — jedes Mal hatte ein Issue
+einen Zweig nachtraeglich wieder angeglichen. Ein Kommentar haelt
+nichts zusammen; jetzt tut es ein Guard-Test ueber zehn Faelle.
+Ausserdem schrieb `fit_analyse` den Score als NEBENWIRKUNG (#539) — wer
+sich eine Stelle nur genauer ansah, verschob ihre Position in der
+Liste. Ein Lesewerkzeug schreibt jetzt nur noch auf Ansage.
+
+**#964 — Tailwind meldet unbekannte Farben nicht.** Das Overlay im
+Aufgaben-Tab trug `bg-bg`; das Token gibt es nicht, also erzeugte
+Tailwind keine Regel UND keinen Fehler. Der Build war gruen, die
+Klasse stand im HTML, und sie tat nichts. Ein Guard ueber das ganze
+Frontend fand 47 weitere Stellen in neun Dateien — darunter die
+Fehlermeldungen mehrerer Seiten. MERKE: Projekt-Tokens sind FLACHE
+Farben; sobald `amber` in `extend.colors` eine Zeichenkette ist,
+verdraengt es Tailwinds Abstufungen, und `bg-amber-400` loest ebenfalls
+ins Leere auf. Am gebauten CSS gegengeprueft, nicht vermutet.
+
+**#965 — unbekannt wirkte wie nah.** Von vier aktiven Stellen trug
+genau eine keine Entfernung: die weiteste (~230 km). Weil
+`if dist is not None:` sie schlicht uebersprang, entfiel ihr Malus und
+sie stand mit dem hoechsten Score oben. MERKE: **ein stiller Bonus fuer
+schlechte Datenqualitaet ist das Gegenteil dessen, was ein Scoring
+leisten soll.** Ausloeser war ein Klammerzusatz im Ortsstring, an dem
+das Geocoding scheiterte. Dazu am Nadeloehr `save_jobs`: HTML-Entities
+werden aufgeloest — ein Titel mit `&amp;` wird von keinem Keyword mit
+Und-Zeichen gefunden, der Fehler wirkte also im Scoring.
+
+**#961 — der teuerste Ausfallmodus.** Eine Recruiter-Mail mit
+vollstaendiger Stellenbeschreibung lag als `sonstiges`, und `sonstiges`
+stand in der Korrespondenz-Whitelist von
+`dokumente_korrespondenz_abschliessen`. Sie waere sammelweise auf
+`angewendet` gesetzt worden: aus dem Analyse-Plan verschwunden, als
+erledigt gefuehrt, ohne dass je eine Stelle entsteht. MERKE: die
+Typ-Erkennung arbeitet fast nur am DATEINAMEN — der Text wird geladen,
+aber nur gegen feste Formulierungen geprueft. Jetzt zusaetzlich an der
+STRUKTUR (Rollenbezeichnung plus zwei Ausschreibungs-Merkmale);
+Formulierungen aendern sich je Absender, die Struktur nicht.
+
+**#966 — ein Urteil wog mehr als seine Grundlage.** Zwei
+Aussortierungen wegen `gehalt_zu_niedrig`, beide an Anzeigen-Rumpfen
+von rund 160 Zeichen und auf Basis GESCHAETZTER Spannen, werteten die
+vollstaendige Anzeige derselben Rolle ab. #827 hatte die Regel
+(geschaetztes Gehalt zaehlt neutral) bereits gezogen — sie wirkte nur
+nach vorn. Schwache Gruende zaehlen jetzt halb.
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Positivliste statt Sperrliste, zum zweiten Mal.** #963 Befund 2
+und #962 haben dieselbe Wurzel: im Deutschen ist JEDES Substantiv
+grossgeschrieben, also nimmt "jedes grossgeschriebene Wort" den ganzen
+Fliesstext mit. Eine Sperrliste deutscher Alltagswoerter wird nie
+fertig. Bei #962 traegt ausserdem Grossschreibung ALLEIN nicht — das
+unterscheidende Merkmal ist der Artikel davor ("die Feder im
+Mechanismus" vs. "bei Feder"). Der im Issue vorgeschlagene Fix waere
+also nur halb richtig gewesen; Vorschlaege aus Issues gehoeren
+geprueft, nicht uebernommen.
+
+(2) **Beim Haerten von Regeln beide Richtungen messen.** Bei #966 war
+meine erste Liste textabhaengiger Gruende zu breit (`zeitarbeit`,
+`befristet`) — zehn Alt-Tests wurden rot, weil der Mechanismus
+verstummte. Zeitarbeit erkennt man an Firma und Titel, nicht am
+Fliesstext. Und: ein FEHLENDES Feld ist "unbekannt", nicht "schwach" —
+sonst begeht die Haertung genau den Fehler, den #965 behebt.
+
+(3) **Ein Frueh-Ausstieg kuerzt die Auskunft.** Meine erste Fassung des
+MUSS-Tors in `fit_analyse` gab ein verkuerztes dict zurueck; zwei
+#952-Tests brachen an fehlenden Feldern. Ein Tor soll den Score nullen,
+nicht die Antwort abschneiden.
+
+(4) **Heredoc-Escaping unter Git-Bash (Windows).** Mehrfach wurden
+doppelte Backslashes in Patch-Skripten zu einem literalen Backspace
+bzw. Zeilenumbruch — einmal in einer kompilierten Regex, die daraufhin
+still NICHTS mehr matchte, und zweimal in einem f-String, der dadurch
+gar nicht mehr parste. Bei Regex- oder String-Literalen in
+Patch-Skripten `chr(92)` verwenden oder direkt mit dem Edit-Werkzeug
+arbeiten; danach `git diff` lesen statt dem Skript zu glauben.
+
+(5) **Erst pruefen, ob der Branch den Fix enthaelt.** PR #959 meldete
+rot wegen `test_782` — dem Test mit Verfallsdatum, der auf main
+laengst behoben war. Der Branch war nur veraltet, es gab keinen Fehler
+zu suchen.
+
+(6) **Cherry-Pick-Konflikte in gebauten Assets sind keine.** Beim Port
+in die 1.7-Linie kollidierten nur Hash-Dateien und ein 1.8-only-Block
+(Erweiterungen-Tab). Aufloesung: Stables Fassung nehmen, das Frontend
+NEU BAUEN, und den Guard-Test laufen lassen — der beweist, dass beim
+Aufloesen nichts verlorenging. Das ist die praktikable Fassung der
+Cherry-Pick-Lehre aus v1.7.12 (verlorene Hunks findet man ueber die
+mitgewanderten Tests).
+
+## Stand 2026-08-25 (v1.7.23 Stable) — Ehrliche Zahlen
+
+Sieben Praxis-Befunde. Roter Faden: PBP behauptete Dinge, die die Daten
+nicht hergaben. **Tests: 2489 / 2555.**
+
+**#952 — die teuerste Ursache.** Der Anzeigentext wurde in JEDEM der 26
+Adapter bei exakt 2000 Zeichen gekappt GESPEICHERT (38 Stellen, drei
+davon in Browser-JS). Die Grenze sass in der Ablage statt in der
+Ausgabe. Getroffen hat das systematisch den Anforderungsteil am Ende.
+MERKE: `fetch_description_from_detail` hatte `max_chars=2000` als
+DEFAULT — damit kappte ausgerechnet der Refetch, der duenne
+Beschreibungen heilen soll (#622/#756 liefen deshalb ins Leere), und
+`set_description_snapshot_if_empty` zementierte den halben Text als
+unveraenderlichen Snapshot.
+
+**#943/#944 — dasselbe Artefakt, zwei Befunde.** Bei rekonstruierten
+Altbewerbungen stehen Bewerbungs- und Absagedatum am selben Tag.
+Daraus folgte (a) "automatische Ablehnung" zu 81 % falsch befuellt (die
+Kategorie entstand ALLEIN aus dem Zeitabstand) und (b) ein Median
+"Zeit bis erste Reaktion" von 0,0 Tagen. MERKE: Der Ausschluss gehoert
+auf den NULL-ABSTAND, nicht pauschal auf "wenige Events" — eine echte
+Absage nach zwei Tagen hat oft nur zwei Ereignisse und ist gueltig.
+
+**#944 — die drei Ablehnungszahlen.** `get_rejection_patterns` machte
+einen LEFT JOIN auf `application_events` und zaehlte ZEILEN. Eine
+Bewerbung mit zwei 'abgelehnt'-Ereignissen zaehlte doppelt: 60 in der
+Statusverteilung, 64 im Fliesstext. MERKE bei JOIN-Zaehlungen immer
+fragen, ob die Kardinalitaet stimmt.
+
+**#924 — Regeln gehoeren ans Nadeloehr.** `pick_line` hatte die
+Sperrfrist korrekt; mehrere Pfade (Wiki-Hints, Provider, Claude)
+schreiben aber DIREKT. Die Sperre sitzt jetzt in
+`db.add_elwosa_message` — dasselbe Muster wie `dismiss_job` (#913).
+
+MERKE-Punkte zur Arbeitsweise:
+
+(1) **Gegenproben decken Ueberschiessen auf, Nachdenken nicht.** Bei
+#955 meldete die erste Fassung zwei von fuenf Studierenden-Anzeigen
+faelschlich als abschlusspflichtig — dort ist "Studium" die
+ZIELGRUPPE. Bei #941 haetten Freitext-Gruende (`zu "hands-on"`) und
+`bewerbung_erstellt` (23x!) die BESTBEWERTETE Stelle automatisch
+aussortiert; `bewerbung_erstellt` ist das GEGENTEIL eines
+Ablehnungsgrundes. Automatik nur auf einer expliziten Positivliste
+echter Eignungs-Urteile.
+
+(2) **Branch vor dem Commit pruefen.** Sieben Commits landeten auf
+einem Feature-Branch statt auf main; `git push origin main` meldete
+Erfolg und uebertrug nichts. `git branch --show-current` vor der
+Arbeit, nicht erst beim Release.
+
+(3) **Tests mit Verfallsdatum.** `test_782` nutzte ein festes
+"frisches" Datum, das 29 Tage spaeter selbst unter die 30-Tage-Schwelle
+fiel. Datumsangaben in Tests immer relativ zu heute.
+
+(4) **Fehlalarme sind teurer als sie aussehen.** Der PII-Repo-Scan war
+unbenutzbar, weil er bei jedem Testdatensatz anschlug. Platzhalter
+werden jetzt STRUKTURELL am Kopfwort erkannt: "Alt GmbH" ist ein
+Platzhalter, ein realer Firmenname mit demselben Wortanfang bleibt ein
+Treffer.
+
+## Stand 2026-08-19 (v1.7.21 Stable + beta.14) — Der Pruefer war blind
+
+**#929** — `scrub_pii.py` UND der blockierende `gh_pii_guard.py` lasen
+ihre Eingabe mit `sys.stdin.read()`, also unter Windows als **cp1252**.
+Jeder Text mit Umlauten kam verstuemmelt an und passte auf KEIN
+Erkennungsmuster mehr: ein Firmenname mit Umlaut wurde durchgewunken,
+der Pruefer meldete "sauber". MERKE: **Falsch-negativ in einem
+Schutzwerkzeug ist der teuerste Fehlertyp** — und er sass ausgerechnet
+in der mechanischen Absicherung, die eingefuehrt wurde, weil die Regel
+allein dreimal versagt hatte. Beide lesen jetzt
+`sys.stdin.buffer.read().decode("utf-8", errors="replace")`.
+
+Dazu drei Fehlalarme, die den Pruefer praktisch unbenutzbar machten
+(generische Woerter vor einer Rechtsform, CSS-Farbtripel als
+Telefonnummer, Adapter-Klassennamen) — jeder mit Test in BEIDE
+Richtungen, nach der Telefon-Lehre von 2026-08-07.
+
+Erst mit dem reparierten Pruefer war ein Repo-Scan sinnvoll: 478
+Dateien, 86 Vorkommen zweier realer Firmennamen in Quellcode, Tests und
+CHANGELOG, dazu vier reale Arbeitgeber in Tool-Docstrings — ersetzt
+durch Platzhalter aus FIKTIVE_FIRMEN. Rest-Triage als **#930** offen
+(Quellen-Adapter zulaessig, Testdaten-Platzhalter fehlen in der Liste,
+Alt-Tests mit echten Firmen). MERKE zur Platzhalter-Liste: sie
+vergleicht per TEILSTRING — ein zu kurzer Eintrag verdeckt reale
+Firmen, die den Baustein zufaellig enthalten.
+
+**Zehn Alt-Issues geloescht** (#88, #434, #471, #474, #481, #530, #540,
+#568, #658, #709). Das offene #481 (Kalender-Export) wurde vorher
+anonymisiert als **#928** neu angelegt — Inhalte erst archivieren, dann
+loeschen. GH-Sweep seither sauber (772 Artefakte).
+
+**Zeitzonen-Fund** (fiel auf, weil die Suite nach Mitternacht rot
+wurde): `scheduled_date` ist ein LOKALES Datum, SQLites `date('now')`
+liefert UTC. In Sommerzeit meldete PBP zwischen 00:00 und 02:00
+Ortszeit "keine faelligen Nachfassungen"; `get_statistics` rechnete
+schon lokal, die Schwester-Abfrage nicht. MERKE: `date('now')` in SQL
+neben `datetime.now()` in Python ist immer ein Verdachtsfall — und
+ein Test, der nur nachts rot wird, ist kein Flake, sondern ein Befund.
+
+**README-Gate**: `release_check.py` prueft jetzt die Versionszeile im
+README-Kopf gegen das neuste Stable-Tag. Die README stand fuenf
+Releases lang auf v1.7.16, obwohl DoD-3 ihre Pflege vorschreibt.
+
+## Stand 2026-08-18 (v1.7.21 Stable + v1.8.0-beta.13) — Keine Sackgassen
+
+**Schema:** v48 / v52 unveraendert. **Tests:** 2335 / 2401 gesammelt.
+Neu `services/nutzerfuehrung.py` (`kein_profil` / `leer`).
+
+**#927** — gemessen ueber ALLE 53 argumentlosen Tools auf frischer DB:
+18 Sackgassen vorher, 6 danach. Die MESSUNG ist der eigentliche Wert,
+nicht die Textarbeit: ohne den Rundumlauf haette niemand gemerkt, dass
+die Meldung "kein Profil" in **15 verschiedenen Formulierungen**
+existierte. Groesste Einzelwirkung `suchkriterien_anzeigen`: gab `{}`
+zurueck — die Grundlage JEDER Jobsuche fehlte, und nichts sagte das;
+die Suche lief danach ins Leere. Die restlichen 6 bleiben BEWUSST
+("0 Euro Kosten" erklaert sich selbst). Der Guard-Test ruft trotzdem
+JEDES argumentlose Tool auf der leeren DB auf und faengt Abstuerze.
+
+MERKE-Punkte:
+
+(1) **Skript-Patches am return-Statement sind gefaehrlich.** Ein
+`replace(return_X, "if leer: ...")`, das den Normalpfad nicht wieder
+ANHAENGT, loescht ihn: `suchprofile_auflisten` lieferte danach `None`
+— gefunden erst von der vollen Suite (`'NoneType' object is not
+subscriptable`), nicht von den gezielten Tests. Gegenprobe nach JEDEM
+Skript-Lauf: `git diff -U0 | grep "^-[^-]"`, jede entfernte Zeile
+einzeln rechtfertigen. (Dieselbe Welle: zweimal zerrissen
+Skript-Einfuegungen Import-Bloecke.)
+
+(2) **Zahlendreher im Issue-Verweis wandert in den Release.** Der
+v1.7.20-Commit UND sein CHANGELOG-Eintrag verwiesen zweimal auf #927;
+gemeint war die Quellen-Arbeit, die gar kein eigenes Issue hatte. Tag
+und Release-Notes sind eingefroren — nur die Repo-Datei liess sich
+korrigieren. Nummer vor dem Commit gegen `gh issue view N` pruefen.
+
+(3) **Negativ-Befund, dokumentiert damit ihn niemand nachmisst:** die
+7 Stellen `{"fehler": str(e)}` in tools/ sind KEIN Traceback-Leck —
+durchweg `ValueError` aus der DB-Schicht mit lesbaren deutschen Texten.
+
+## Stand 2026-08-18 (v1.7.17 Stable + v1.8.0-beta.12) — Praxis-Welle 18.08.
+
+**Schema:** v48 / v52 unveraendert (Safety-Nets: scoring_config.
+set_by_user, jobs.dismiss_note, scraper_health deaktiviert_am/-grund +
+letzte_probe_am/-status). **Tests:** 2288 / 2354 passed. Elf Issues aus
+zwei Bewerbungs-Nachmittagen (#906-#920); Hotfix-Branch vom Tag v1.7.16,
+7 Cherry-Picks, Port-Audit ueber die 65 mitgewanderten Wellen-Tests.
+Neu offen: #924 (Elwosa-Linien-Wiederholung), #919 als B36 fuer v1.8
+(LinkedIn-Voyager-Handoff), #922 (Phantom-Termine aus Mail-Zitaten)
+blieb BEWUSST liegen — Kandidat naechste Welle.
+
+MERKE-Punkte dieser Welle:
+
+(1) **C34/#917 A+B** — INSERT OR REPLACE ersetzt nur bei UNIQUE-
+Konflikt: Seed-Zeilen tragen profile_id='', der Write die aktive ID —
+kein Konflikt, also Dublette, und die Altzeile (samt ignore_flag der
+Automatik) blieb ueber MCP unerreichbar. Echtes UPSERT = DELETE beider
+Varianten + INSERT; scoring_konfigurieren hat jetzt 'loeschen';
+set_by_user macht Nutzer-Regler fuer _auto_adjust_scoring unantastbar
+(Live-Repro: Automatik kehrte die Nutzerkorrektur im selben Durchgang
+um, Zaehler 71 >= Schwelle 5).
+
+(2) **C34/#917 C** — die Entfernungs-Brackets sind OBERGRENZEN. Der
+Lern-Schluessel '50km' landete via Ziffern-Extraktion im Bracket 50 und
+bestrafte Stellen BIS 50 km — der Lerneffekt war INVERTIERT (-10 auf
+nahe, -8 auf 600 km). Lernen jetzt in Stufe '999'; Safety-Net migriert
+km-Altzeilen (tiefer gewinnt) und stellt die Nah-Brackets wieder her.
+
+(3) **C34/#917 D** — fit_analyse wendete keywords_ausschluss NIE an und
+matchte gegen die UNgestrippte Beschreibung: dieselbe Stelle hatte
+Score 0 (Liste) und 88 (Fit-Analyse) gleichzeitig. Ausloeser im Feld:
+redaktionelle Notiz mit LinkedIn-Bewerberstatistik ('20 %
+Berufseinsteiger') VOR dem ----Trenner. Beide Pfade jetzt identisch;
+scores_neu_berechnen liefert auffaellige_aenderungen mit Grund.
+
+(4) **A29/#915** — busy_timeout (30 s) war gesetzt, es kam trotzdem
+NICHTS: 4-Minuten-Stille = Blockade auf PYTHON-Ebene, dagegen hilft nur
+ein Wall-Clock-Budget im Tool-Pfad (services/tool_budget.py, 45 s,
+fester ThreadPool wegen A28-per-Thread-Connections — ein Thread je
+Aufruf wuerde Connections leaken). pbp_mcp_diagnose hing an seinem
+EINZIGEN DB-Zugriff — Anreicherungen gehoeren hinter mit_kurzbudget.
+Sperrhalter-Benennung DB-frei via services/hintergrund_status.py.
+
+(5) **C38/#913** — db.dismiss_job ist das Nadeloehr ALLER dismiss-
+Writes und damit der richtige Ort fuer den Vokabular-Schreibschutz;
+Freitext nach jobs.dismiss_note, nie ins Lern-Feld. auto:-Prefix hat
+eine KURZFORM ohne Begruendung ('auto:falsches_fachgebiet') — Regex mit
+optionalem Rest, sonst bricht der Wiedergaenger-Vertrag (#671). Die
+Ollama-Genauigkeits-Statistik zaehlt jetzt LIKE-auto UND
+profil_match_negativ (beide Formate).
+
+(6) **F39/#908** — die alte Eskalation (count-5)*0.5 war ab ~13
+Nennungen am Cap = Zweistufen-Schalter. Linear ueber (start,max) je
+Grund, 5..155. zu_junior mappte auf stellentyp/praktikum und traf
+Festanstellungen NIE (Senioritaet ist keine Stellenart).
+
+(7) **G22/#907** — maxHeight:'100%' gegen ein height:auto-Elternteil
+ist in CSS unaufloesbar (= none): der 'adaptive' Elwosa-Scroller
+scrollte seit beta.61 NIE, die Liste schob den Footer. Prozent-Hoehen
+brauchen eine geschlossene Flex-Kette (h-full/min-h-0 durchgereicht).
+
+(8) **B35/#906** — Auto-Deaktivierung ist ein sich selbst
+bestaetigender Zustand (deaktivierte Quelle laeuft nie wieder, Status
+wird nie widerlegt). Deshalb: Probe-Ergebnisse an der Quelle
+persistieren und erreichbare Deaktivierte als 'pruefen' melden.
+deprecated (Registry, bewusst) und auto_deaktiviert (Automatik) sind
+zwei verschiedene Dinge in zwei verschiedenen Feldern.
+
+(9) **Release-Mechanik** — tests.yml triggert NUR auf main/PR: fuer
+Hotfix-Branches `gh workflow run tests.yml --ref hotfix/vX.Y.Z`
+(workflow_dispatch), sonst wartet man ewig auf einen Run, der nie
+kommt. release_check.py liegt im REPO-ROOT (nicht scripts/).
+
+(10) **D37/#922 (Nachzug v1.7.18)** — der Mail-Terminextraktor lief
+ueber den KOMPLETTEN Text: eine Mail mit Antwortverlauf erzeugte je
+zitierter Sendezeit einen Termin (vier Stueck, alle 'interview', 60
+min). firma_kontext meldete daraufhin fuenf Interviews statt einem —
+die Regel 'nie aus dem Gedaechtnis, immer aus PBP' setzt voraus, dass
+PBP stimmt. Jetzt: Zitat abschneiden (strip_quoted_reply), Datum
+allein genuegt NICHT (Beleg: ICS/Link/Terminvokabular), kein pauschales
+'interview'. MERKE beim Zitat-Marker: '-----Urspruengliche Nachricht---'
+kommt in ue-UND-ü-Schreibweise vor — `urspr(?:u|ue|ü)ngliche`.
+
+(12) **B37/B38 — Quellen-Wiederbelebung (v1.7.19)**: zwei als tot
+gefuehrte Quellen liefern wieder. MERKE fuer jede kuenftige
+Quellen-Diagnose:
+  (a) Bevor ein Adapter als kaputt gilt, muss er mit KORREKTEN
+      Parametern gelaufen sein — `freelancermap` war voellig intakt und
+      scheiterte nur an einem Fallback mit Slug-FRAGMENTEN statt URLs
+      (`client.get("Software-Engineer")`). Der Fallback greift genau
+      ohne Suchkriterien, also bei frischen Profilen.
+  (b) SPA-Karriereseiten liefern JobPosting-Daten haeufig NICHT als
+      ld+json im DOM, sondern escaped im SSR-Hydration-Payload
+      (`job_scraper/hydration.py`). BeautifulSoup findet dort nichts.
+  (c) Das plattform-eigene Datenarray (hier "Offers") ist reicher als
+      der schema.org-Auszug: Detail-Slug, ECHTE Gehaltsspanne, Ort.
+  (d) Soft-Hyphens (­) MITTEN im Wort killen jedes Keyword-Match,
+      waehrend der Titel fuer das Auge normal aussieht — immer
+      `entweiche_trennzeichen` vor dem Matchen.
+  (e) Bei beiden Quellen war der Query-Parameter serverseitig TOT, die
+      Themen-/Slug-Seite dagegen lebendig. Erst pruefen, ob der
+      Suchparameter ueberhaupt wirkt — sonst holt man achtmal dieselbe
+      Liste.
+  (f) MERKE zum eigenen Fehler: der #925-Patch suchte nach dem Text
+      "Cloudflare-Bot-Block" und traf damit die FALSCHE Quelle. Bei
+      Registry-Patches den Quellen-Key als Anker nehmen, nie den
+      Begruendungstext.
+
+(11) **C35 Teil 2/#918 (Nachzug v1.7.18)** — ein Issue-Titel mit zwei
+Defekten wurde nur zur Haelfte abgearbeitet und trotzdem geschlossen.
+MERKE: bei Issues mit mehreren nummerierten Defekten die
+Akzeptanzkriterien-Liste VOR dem Schliessen einzeln abhaken. Inhaltlich:
+die Abschluss-Erkennung lief ueber den ganzen Datensatz (Bewerber-
+statistik in den Notizen = Aussage ueber ANDERE Bewerber, loeste
+ATS-Alarm aus) und kannte keine englischen Muster. Und: Phrasen-Muster
+brauchen Whitespace-Glaettung, sonst zerreisst ein Zeilenumbruch mitten
+in 'oder eine vergleichbare Ausbildung' ausgerechnet die Oeffnungsklausel.
+
+## Stand 2026-08-11 (v1.7.12 Stable + v1.8.0-beta.11) — Grosse Welle
+
+**Schema:** v48 / v52, beide unveraendert (nur idempotente Safety-Nets:
+blacklist.is_active/updated_at/grund_vorher, interview_reflections.
+meeting_id, elwosa_messages.link_url/link_label, tasks.application_id
+nullable via writable_schema). **MCP-Tools:** 202 / 215 (+9: follow_up_
+bearbeiten, todo_bearbeiten/_hinfaellig/_details, aufgaben_uebersicht,
+interview_reflexion_loeschen, interview_lehren_auswerten,
+diagnose_befund_abweisen, dokumente_ohne_bewerbung). **Tests:** 2199 /
+2265 passed. 15 Issues in einer Welle (#768, #797, #809-#816,
+#822-#828), 6 davon vom selben Vormittag.
+
+MERKE-Punkte dieser Welle:
+
+(1) **F36/#822** — der Elwosa-Kern-Bug war ein KLASSEN-MAPPING:
+can_post_class prueste `trigger_kind == "world"`, gefeuert wurde mit
+`holiday_summer`/`late_night` → fiel durch ALLE Limits und durch
+`sachlich`. Zweite Ursache: pick_line fiel auf den vollen Pool zurueck,
+sobald er verbraucht war. Bei Drossel-Logik IMMER pruefen, ob die
+Pruefung dieselben Schluessel sieht wie der Aufrufer.
+
+(2) **C32/#827** — Anzeigen-Scoring: Treffer im Firmen-Werbeabsatz
+(Portfolio-Prosa) zaehlen 0.25x (`_firmenabsatz_ende` in
+job_scraper/__init__). Abwerten statt nullen — falscher Ausschluss ist
+teurer als zu hoher Score. Geschaetzte Gehaelter zaehlen GAR NICHT mehr.
+
+(3) **A27/#768** — es gab im gesamten Code KEINEN wal_checkpoint-
+Aufruf. close() macht jetzt TRUNCATE, die Auto-Engine PASSIVE je
+Zyklus. Bei Zweitprozess-Symptomen: pbp_diagnose zeigt WAL-Groesse und
+Blockade.
+
+(4) **D35/#814/#815** — tasks.application_id NOT NULL wurde per
+writable_schema + PRAGMA schema_version geloest (das #796-Muster, NIE
+db.close()). Der Erledigt-Haken-Befund: ein funktionierender Button in
+Statussymbol-Optik gilt als nicht vorhanden — vor Neubau pruefen, ob
+etwas nur unsichtbar ist.
+
+(5) **Cherry-Pick-Lehre (Stable-Port):** NIE `--skip` als Fallback in
+Resolution-Schleifen — vier Teile wurden still uebersprungen. Verlorene
+Hunks findet man ueber die mitgewanderten TESTS (82 Wellen-Tests auf
+dem Stable-Branch deckten den verlorenen analyse.py-Hunk auf).
+
+Offen fuer die naechste Welle: #802 (Score-Schwelle aus Verteilung),
+#808 (Health inhaltlich — deckt #809-Rest-UI mit ab), #811 (ATS-Slugs),
+#813 (Filterstufen-Telemetrie), #823-Rest (Kanaele 2/3/5/7), #817
+(PII an der Quelle), #791-#795, #798, #801, #806.
+
+## Stand 2026-08-06 (v1.7.11 Stable + v1.8.0-beta.10) — Stille Ausfaelle
+
+**Schema:** v48 / v52, beide unveraendert. **MCP-Tools:** 193 / 206
+(+`termin_dubletten_bereinigen`). **Tests:** 2082 / 2147 passed.
+
+Roter Faden: Fehler, die sich als Erfolg tarnen — keiner warf je eine
+Fehlermeldung.
+
+(1) **B29/#807** — die Bundesagentur-Suche lief auf `pc/v4/jobs`; der
+Endpunkt liefert seit Sommer 2026 **404**. Die produktivste Quelle lag
+still. Suche jetzt **v6**, Details bleiben **v4** (v5/v6 dort 403 — live
+geprueft 06.08.). MERKE: v6 hat ALLE Feldnamen umbenannt
+(`stellenangebote`→`ergebnisliste`, `titel`→`stellenangebotsTitel`,
+`arbeitgeber`→`firma`, `refnr`→`referenznummer`, `beruf`→`hauptberuf`,
+Ort unter `stellenlokationen[0].adresse.ort`) — ein reiner
+Endpunkt-Tausch haette leere Stellen ergeben.
+
+(2) **F35/#799** — der `lernen`-Lauf lief SYNCHRON im Scheduler-Thread
+samt Ollama-Aufruf. Bei geteilter SQLite-Connection
+(`check_same_thread=False`) blockiert das den GESAMTEN MCP-Server.
+MERKE: langlaufende Arbeit gehoert in einen Thread mit
+`background_jobs`-Eintrag — sonst gibt es nicht mal eine Spur.
+Ausserdem KORREKTUR des eigenen Fehlers aus F28/#784: `learned_insights`
+war eine Doppelanlage neben `learning_insights` (#594). **Vor dem
+Anlegen einer Tabelle pruefen, ob es sie unter aehnlichem Namen gibt.**
+
+(3) **A25/#796** — `documents.linked_application_id` hatte in
+gewachsenen Bestaenden INTEGER-Affinitaet; Hex-IDs wie `42061e46` werden
+darin still zu `4.2061e+50`, `1e960980` zu `inf`. MERKE: `inf = inf` ist
+wahr — solche Fehlzuordnungen melden sich bei JEDER SELECT-Pruefung als
+sauber. Heilung: erst Typ auf TEXT, DANN Werte zurueckuebersetzen (sonst
+laeuft der korrigierte Wert wieder in dieselbe Falle).
+
+**MERKE (CI-Segfault, teuer erkauft):** NIE `db.close()` aufrufen,
+solange Hintergrund-Threads laufen — alle teilen sich eine Connection,
+SQLite stuerzt dann auf C-Ebene ab (Exit 139). Fuer einen Schema-Reload
+stattdessen `PRAGMA schema_version` hochzaehlen. Tests, die Threads
+starten, muessen diese vor dem Fixture-Teardown joinen.
+
+Ausserdem: D30/#804 Termin-Dubletten, C31/#790 Blacklist-Ausnahme je
+Titel. Offen als B30/#808: der Health-Check meldet falsch-gruen, weil
+HTTP 200 nichts ueber gelieferte Stellen aussagt — genau deshalb blieb
+B29 wochenlang unbemerkt.
+
+## Stand 2026-07-24 (v1.7.10 Stable + v1.8.0-beta.9) — Stabilisierungswelle
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert — die neue
+`learned_insights`-Tabelle kommt als idempotentes CREATE-IF-NOT-EXISTS-
+Safety-Net OHNE Versions-Bump (v49 bleibt fuer `components` reserviert;
+Muster fuer kuenftige linien-uebergreifende Tabellen). **MCP-Tools:**
+192 / 205 (+9: `kalibrierung_backtest`, `suchperformance_auswerten`,
+`kontakt_historie`, `vermittler_historie`, `erkenntnisse_ableiten/
+anzeigen`, `erkenntnis_bestaetigen`, `elwosa_fragen`,
+`elwosa_prompt_kopieren`). **Tests:** 2045 / 2111 passed.
+
+Acht Praxis-Issues vom 24.07., strikt getrennt: v1.7 = Fehler/
+Datenqualitaet/Kalibrierung/fehlende Auswertungen; v1.8-Reste nur als
+Label `v1.8` + Kommentar. MERKE: die urspruenglichen Issues #769/#770/
+#772/#773/#775/#776/#777 trugen PII (Recruiter-Namen, User-Klarname im
+Dateipfad, Gehaltszahlen) und wurden nach DoD-9 GELOESCHT und als
+**#778-#784** anonymisiert neu angelegt (Mapping: 772→778, 775→779,
+776→780, 777→781, 773→782, 769→783, 770→784; #774 war sauber).
+
+Kern: (1) **C29/#778** `kalibrierung_backtest` ist eine SCHATTENRECHNUNG
+(ruft nie scores_neu_berechnen — Test erzwingt das); IDF+Top-5-Deckelung
+nur als Opt-in (`suchkriterien_bearbeiten(kategorie='scoring',
+aktion='idf')`), Injektion via `criteria['_idf_faktoren']` in
+get_search_criteria; Einzelgewichte in `criteria['keyword_gewichte']`.
+(2) **D27/#779** applied_at-Nachtrag bei uebersprungenem 'beworben';
+Status `arbeitgeber_ausgefallen` (kein Rueckzug, Angebot bleibt via
+Event-Historie in offer_rate) — Status-Listen an 10+ Stellen (DB, Tools,
+dashboard.py, Frontend). (3) **D29/#781** `services/statistik_erweitert.py`
+(Zeit/Kanal/Ablehnungs-Kategorien, Quote roh+bereinigt; Vor-PBP =
+Untergrenze). (4) **C30/#782** Repost-Erkennung compute-on-read
+(`find_repost_of_application` in duplicate_detection, bewusst OHNE
+URL-Vergleich — Reposts haben neue URLs, #670-Regel wuerde sie filtern).
+(5) **F28/#784 + F29/#774** learned_insights (nichts wirkt ohne
+Nutzerbestaetigung; widersprochen = -1, nie erneut) + Elwosa-Dialog
+(auskunftsfaehig, nicht urteilsfaehig; Ausfall ehrlich statt
+Claude-Fallback).
+
+## Stand 2026-07-23 (v1.7.9 Stable + v1.8.0-beta.8) — Verfolgbarkeit
+
+**Schema:** v48 (Stable) / v52 (Beta), beide unveraendert. **MCP-Tools:**
+183 / 196 (+`stellen_urls_heilen`, +`bewerbungs_stellen_abgleichen` in
+tools/jobs.py). **Tests:** 1999 / 2064 passed, 1 skipped.
+
+Vier Befunde aus einem Praxis-Nachmittag (23.07.): von acht aktiven Stellen
+hatte KEINE einen nachvollziehbaren Weg zur Original-Ausschreibung.
+(Die Issues #763 und #766 wurden noch am selben Tag DSGVO-geloescht —
+reale Firmennamen; Inhalte stehen in Master-Plan B27/C28 + CHANGELOG.)
+
+(1) **B27/#763** — `is_search_result_url` uebersah pfadbasierte Such-URLs
+ohne Query, darunter die Form, die PBP fuer den Portal-Aufruf SELBST baut.
+MERKE: Detail-Marker gegen den **Pfad** pruefen, nicht gegen die ganze URL —
+sonst reisst `xing.com/jobs/<slug>-123456` mit. Neu `stellen_urls_heilen`
+(AK5 aus #645 war nie umgesetzt; wirkte nur auf NEUE Laeufe). **Ehrliche
+Grenze, nicht spaeter als Bug behandeln:** echte Detail-URLs sind aus dem
+Bestand NICHT rekonstruierbar — Portal-IDs werden beim INSERT nie
+persistiert.
+
+(2) **D25/#764** — `add_application` legte GAR KEINE `application_jobs`-Zeile
+an; die Junction lief seit v34 strukturell leer. `application_jobs` ist jetzt
+fuehrend, `applications.job_hash` wird synchron gehalten. Neu
+`bewerbungs_stellen_abgleichen`.
+
+(3) **D26/#765** — Frontend: `frontend/src/lib/jobLink.js` spiegelt
+`is_search_result_url`; CI-Schritt prueft DIESELBEN Faelle auf beiden Seiten
+(`jobLink.test.mjs`). Bei Aenderung an einer Seite die andere nachziehen.
+
+(4) **C28/#766** — Anker-Pflicht (`services/stellen_anker.py`): URL, Dokument
+oder Kontakt. Such-URL zaehlt NICHT, lange `description` auch nicht (eine
+Claude-Zusammenfassung liest sich wie eine Anzeige). Bewusst kein harter
+Block. `stelle_manuell_anlegen` nimmt jetzt Kontakt-Parameter (via
+`contact_links` `target_kind='job'`, kein Schema-Bump).
+
+**Linien-Unterschied:** die Such-URL-Muster liegen in der 1.7-Linie als reine
+Daten in `job_scraper/such_urls.py`, in der 1.8-Linie in
+`job_scraper/handoff.py` (B25/#735, mit dem Handoff-Feature). Der Import in
+`stellen_urls_heilen` faellt der Reihe nach durch — keine Linie schleppt das
+Feature der anderen mit.
+
+**MERKE Release-Gate:** `release_check.py` erwartet den CHANGELOG-Kopf auf der
+AKTUELLEN Version. Ein nachtraeglich oben eingefuegter Stable-Eintrag (wie der
+v1.7.8-Nachzug am 22.07.) bricht damit das Gate auf main, bis der naechste
+Release-Eintrag darueber kommt.
+
+## Stand 2026-07-16 (v1.8.0-beta.6, Prerelease) — Hotfix #760
+
+**Schema:** v52 (unveraendert). **MCP-Tools:** 194. **Prompts:** 25.
+
+Kern: **A23/#760** — Server-Freeze bei `jobsuche_starten` mit vielen
+Quellen REPRODUZIERT und behoben. Mechanismus: Such-Thread loggt massiv
+auf stderr; liest der MCP-Client stderr nicht kontinuierlich (Claude
+Desktop tut das nicht), laeuft der OS-Pipe-Puffer voll → der Log-write
+blockiert UND haelt den Logging-Handler-Lock → `logger.info("Tool
+aufgerufen")` der Middleware (Event-Loop-Thread!) haengt am Lock →
+kein Tool antwortet mehr, Heartbeat friert ein, Dashboard/DB laufen
+weiter (eigene uvicorn-Handler). Differential-Beweis via
+stdio-Repro-Client (QA-isoliert): 35 Quellen + ungelesenes stderr =
+Freeze t+40s; stderr gelesen = stabil; mit Fix + ungelesen = stabil.
+Fix: `logging_config.py` Console ueber `DropOnFullQueueHandler` +
+`QueueListener` entkoppelt (volle Queue → Console-Zeilen verworfen,
+Log-DATEI behaelt alles); Middleware schreibt Heartbeat VOR dem Log.
+Tests: `test_v18_logging_backpressure_760.py` (4). MERKE fuer
+Debug-Anleitungen: py-spy 0.4.2 kam an die venv-Python-3.13-Prozesse
+nicht ran („Failed to find python version") — Diagnose-Anleitungen
+lieber auf Differential-Läufe + Log-Datei stuetzen.
+
+## Stand 2026-07-16 (v1.8.0-beta.5, Prerelease) — Welle B: Quellen
+
+**Schema:** v52 (`scraper_runs` + `custom_sources`, additiv).
+**MCP-Tools:** 194 (+`quelle_handoff`/`quellen_langzeit_auswertung`
+(#735 B25), +`custom_quelle_hinzufuegen/anzeigen/loeschen` (#627 B16),
+alle in tools/jobs.py). **Prompts:** 25.
+
+Kern: (1) **B25/#735** — `update_scraper_health` schreibt jetzt je Lauf
+einen `scraper_runs`-Datensatz (Historie darf Health-Write nie
+blockieren); `quellen_langzeit_auswertung(tage)` rechnet Trefferquote,
+Fehlerklassen, Trend (versiegt = frueher neu>0, zweite Haelfte 0) und
+Empfehlung. `job_scraper/handoff.py`: HANDOFF_URL_TEMPLATES (langlebige
+Such-URLs, KEINE DOM-Wetten) + GENERIC_EXTRACTION_JS (Anker-Heuristik
+wie Newsletter-Ingest) + build_handoff — `quelle_handoff`-Tool,
+google_jobs_url-Muster generalisiert. (2) **B16/#627** —
+Custom-Karriereseiten als HANDOFF-Quellen (bewusst KEIN Auto-Scraping,
+B18-Lehre); Health-Ping im quellen_health_check (Status an Quelle
+vermerkt). (3) **B18/#656 Teilschritt** — `playwright-chromium` als
+I10-Komponente (art='playwright': Detection via ms-playwright-Ordner +
+importierbares Paket, Install via `python -m playwright install
+chromium`, plattformuebergreifend VOR dem win32-Gate); SPA-Selektoren
+bleiben zurueckgestellt (Master-Plan-Optimierung: Live-Inspection-
+Bedingung, JSON-API bevorzugt) — B18 im Plan 🟨. Tests:
+`test_v18_beta5_welle_b.py` (9).
+
+## Stand 2026-07-14 (v1.8.0-beta.4, Prerelease) — Newsletter-Ingest
+
+**Schema:** v51 (`newsletter_sources`, additiv). **MCP-Tools:** 189
+(+`newsletter_quelle_markieren`/`newsletter_verarbeiten` in dokumente).
+**Prompts:** 25. Damit sind ALLE J-Feature-Betas geliefert; weiter mit
+Kern-Wellen B/F/D/J8 nach User-Prio.
+
+Kern: **J5/#525** — `services/newsletter_service.py`: `erkennung()`
+(gelernte Quellen → BUILTIN_SOURCES-Portale → konservative
+Betreff-Hinweise), `extract_job_links()` KI-frei (Portal-URL-Regexes
+StepStone/LinkedIn/XING/Indeed/Arbeitsagentur/freelance.de/JobLeads,
+Anker-Titel mit `_ist_boilerplate`-Wortmengen-Filter, „Titel bei Firma"-
+Split, Tracking-Param-Dedup), `verarbeite_newsletter()` → save_jobs mit
+`source='newsletter:<label>'` + `_manual_entry` (Stellen kommen ohne
+Beschreibung → #756-unbewertet → #622-Refetch → C23-Snapshot greifen
+ineinander). Ollama NUR als Fallback bei leerer Ebene 0 (TaskKind
+EXTRACT_NEWSLETTER_JOBS, Routing [LOCAL, MANUAL]). Upload-Pfad erkennt
+Newsletter automatisch, uebernimmt und archiviert die Mail
+(Response-Feld `newsletter`); gilt damit auch fuer Thunderbird-Add-on
+und Watch-Folder (delegieren an api_upload_document). Lern-Mechanik:
+`newsletter_quelle_markieren` speichert Domain+Betreff-Prefix in
+`newsletter_sources`. Tests: `test_v18_beta4_newsletter.py` (12).
+
+## Stand 2026-07-14 (v1.8.0-beta.3, Prerelease) — Thunderbird + ics
+
+**Schema:** v50 (unveraendert). **MCP-Tools:** 187
+(+`termine_ics_exportieren` in export_tools). **Prompts:** 25.
+
+Kern: (1) **J2/#478** — Thunderbird-MailExtension
+`plugins/thunderbird-pbp/` (manifest MV2, TB 115+): Kontextmenue
+„An PBP senden" auf der Nachrichtenliste, Mehrfachauswahl = Thread
+(J2.2), `messages.getRaw(id, {data_format:'File'})` mit byte-treuem
+Binary-String-Fallback (Uint8Array.from charCodeAt — nie UTF-8-deuten),
+POST an `/api/v1/ingest/email`, Options-Seite (URL+Key+Ping),
+401/403-Fehlerbild stoppt Batch. Install: Ordner zippen → .xpi →
+„aus Datei installieren" (unsigned ok in TB). Icons via Pillow
+generiert. J2.3: Watch-Folder (beta.2) deckt die Alternative.
+(2) **J4.1/#481** — ics-Export war seit #310 da, aber NICHT
+RFC-5545-fest: Kern nach `services/ics_service.py` extrahiert
+(ics_escape: Komma/Semikolon/Backslash/Newlines; ics_fold: 75-Oktett-
+Folding UTF-8-sicher), Endpoint nutzt ihn, NEU MCP-Tool
+`termine_ics_exportieren` (Export-Ordner, `newline=''` beim Schreiben
+erhaelt CRLF). Plan-Wahrheit korrigiert: J4.1 war faelschlich ⬜.
+#481 bleibt offen (J4.2 CalDAV / J4.3 Graph opportunistisch).
+Tests: `test_v18_beta3_ics_thunderbird.py` (12, inkl. Vertragstest:
+beide pbp-plugin.json bestehen validate_manifest; Add-on nutzt die
+richtigen Endpunkte).
+
+## Stand 2026-07-14 (v1.8.0-beta.2, Prerelease) — Ingest-API v1 + Snapshot
+
+**Schema:** v50 (`plugins`-Tabelle + `jobs.description_snapshot`/
+`snapshot_at`/`snapshot_source`, additiv). **MCP-Tools:** 186
+(+`plugins_anzeigen` in `tools/komponenten.py`). **Prompts:** 25.
+
+Kern: (1) **J1/#504** — `services/plugins.py`: Manifest-Validierung
+(`pbp-plugin.json`, `ingest_api: "^1"`, Capabilities-Whitelist
+ingest:email/ingest:job), Pairing erzeugt `pbp_<hex>`-Key (DB haelt NUR
+sha256; Einmal-Anzeige in der UI), Widerruf = DELETE. REST:
+`/api/plugins` + `/api/plugins/pair` + DELETE; Ingest-API
+`/api/v1/ingest/ping|job|email` mit `X-PBP-API-Key`-Header (401/403),
+job-Ingest laeuft durch stelle_hash+calculate_score+save_jobs
+(`source='plugin:<name>'`, `_manual_entry`, #317-Dup-Check → 409,
+Blacklist → 409), email-Ingest delegiert an `api_upload_document`
+(volle Pipeline). save_jobs-URL-Guard laesst `plugin:`-Quellen ohne URL
+zu. Referenz-Plugin `plugins/watch-folder/` (stdlib-only, README =
+API-Doku). UI: „Gekoppelte Plugins" im Erweiterungen-Tab. Wiki-Seite
+**Plugins** (40. Seite — Wiki-Guard zaehlt jetzt >= 41). API-v1-Freeze
+mit Stable = Beta-Exit Punkt 2. (2) **C23/#687** —
+`description_snapshot` unveraenderlich: save_jobs fuellt bei Anlage
+(>= 50 Zeichen) und schleift Bestand durch REPLACE durch;
+`set_description_snapshot_if_empty` (atomare WHERE-Klausel) an beiden
+Refetch-Stellen; fit_analyse faellt bei weggebrochener Beschreibung auf
+den Snapshot zurueck (`beschreibung_aus_snapshot`). (3) **B24/#688** —
+Auto-Engine-Step `_run_snapshot_backfill` (DB-only, 500/Lauf, Setting
+`auto_snapshot_backfill`). Tests: `test_v18_beta2_plugins.py` (14,
+TestClient).
+
+## Stand 2026-07-14 (v1.8.0-beta.1, Prerelease) — Komponenten + Auto-OCR
+
+**Schema:** v49 (`components`-Tabelle, rein additiv). **MCP-Tools:** 185
+(+`komponenten_status`/`komponente_installieren`/`komponente_pfad_setzen`
+im neuen Modul `tools/komponenten.py` (#751 I10),
++`dokument_ocr_ausfuehren` (#750 E19)). **Prompts:** 25. Stable/`--latest`
+bleibt v1.7.7 — Betas sind GitHub-Prereleases.
+
+Kern: (1) **I10/#751** — `services/components.py`: Registry (Tesseract,
+Apache-2.0, ~55 MB, UB-Mannheim-NSIS silent nach
+`BewerbungsAssistent\\components\\`), Detection (PBP-Pfad → DB-Pfad →
+PATH → bekannte Orte), Install als Background-Job (`start_install_job`,
+REST `GET/POST/DELETE /api/components*`), manueller Pfad, deu-tessdata
+automatisch (Fallback selbsttragender TESSDATA_PREFIX-Ordner inkl.
+eng+osd). Settings-Tab **„Erweiterungen"** (SettingsPage,
+`ErweiterungenTab`); Ollama nur mit-angezeigt (D2). Deinstaller entfernt
+`components\\` mit. ZUSTIMMUNGS-PFLICHT: `komponente_installieren` ohne
+`bestaetigt=True` liefert NUR das Angebot. (2) **E19/#750-T2** —
+`services/ocr_service.py`: pypdfium2-Rendering (neue docs-Dependencies
+pypdfium2+pillow; ersetzt toten #192-pdf2image-Pfad in
+`dashboard._extract_document_text`, Rueckgabe jetzt 3-Tupel mit
+`ocr_info`), tesseract-subprocess `--psm 1` (OSD) mit Fallback,
+Provenienz-Header, Scan-Erkennung < 50 Zeichen, Seiten-Cap 15;
+Upload-Response traegt `ocr`-Feld (durchgefuehrt/erforderlich+Angebot).
+(3) **A21/#758** — PII-Altbestand bereinigt; `scripts/check_urls_645.py`
+(reale Sichtungsliste) entfernt. Tests: `test_v18_beta0_komponenten.py`
+(20, Netz+Binary gemockt); Real-Install-Verifikation ist Beta-Exit
+Punkt 3.
+
+## Stand 2026-07-14 (v1.7.7) — Scoring-Fairness & Praxis-Funde
+
+**Schema:** v48 (unveraendert). **Tests:** 1952 passed, 1 skipped.
+**MCP-Tools:** 181 (+`firma_kontext` #753, +`dokument_text_setzen` #750),
+**Prompts:** 25.
+
+Sechs Funde aus einem realen Bewerbungs-Nachmittag (13.07.): (1)
+**C25/#755** — MINUS-Keywords matchen strikt (`_strict_keyword_match`:
+Wortgrenzen + zusammenhaengende Phrase, keine Synonym-Expansion; betrifft
+`calculate_score` UND `fit_analyse`). (2) **F25/#754+#757** —
+Wiedergaenger rollen-sensitiv: Fach-Domaene traegt allein (#671-Semantik
+bleibt), ohne Fach-Signal zaehlt nur dieselbe Rollen-Familie
+(`_role_families` in `services/wiedergaenger.py`); NEU
+`firmen_historie()` als neutrale Einordnung (Gruende gelten je STELLE).
+(3) **F26/#756** — Beschreibung-zuerst: `stellen_auto_aussortieren`
+ueberspringt beschreibungslose Stellen (< 50 Zeichen) statt die LLM auf
+Titel-Basis raten zu lassen (`uebersprungen_ohne_beschreibung`);
+`stellen_anzeigen` liefert `score_status='unbewertet'` + Summenzeile;
+Frontend-Badge „Unbewertet" auch bei Score 0 (JobsPage). (4) **F27/#752**
+— Elwosa: `{monat}`-Platzhalter, Guard gegen Linien die mit falschem
+Monat BEGINNEN, `paused_until` nur bei aktiver Pause. (5) **H18/#753** —
+`firma_kontext(firmenname)` + PFLICHT-Regel (Server-Instructions,
+willkommen, CLAUDE.md-Sektion unten). (6) **E18/#750-T1** —
+`dokument_text_setzen` mit Provenienz-Pflicht (E19 Auto-OCR bleibt v1.8,
+braucht I10/#751).
+
+## Stand 2026-07-03 (v1.7.6) — Alltags-Fuehrung
+
+**Schema:** v48 (unveraendert). **Tests:** 1911 passed, 1 skipped.
+**MCP-Tools:** 179, **Prompts:** 25.
+
+Kernpunkte: (1) **G16/#706** — Interview-Vorbereitung-Button in
+Bewerbungs-Uebersicht + Timeline (Status interview/zweitgespraech):
+kopiert vorbefuellte Anleitung (Stelle+Firma) in die Zwischenablage;
+`/api/workflow-prompt/{name}` nimmt jetzt signatur-geprueft Query-Args.
+(2) **H15/#707** — Notizen-Pflege: Hint `g11_notizen_pflegen` (Profil-Tab),
+Feld-Hilfetext, Prompt-Guidance in ersterfassung (Regel 6b) + willkommen.
+(3) **F21/#689 komplett** — Lernprotokoll stummschalten je Eintrag +
+`POST /api/learning/insights/reset` (harter Reset). (4) **G18/#749** —
+Verbindungsstatus-Streifen auf dem Welcome-Screen (gruen/amber mit
+3-Schritte-Anleitung; User-Leitlinie: ab Installation alles einfach).
+(5) Plan-Hygiene: C24/#698 war seit beta.107 fertig.
+
+## Stand 2026-07-03 (v1.7.5) — Fuehrung & Pflege
+
+**Schema:** v48 (unveraendert). **Tests:** 1901 passed, 1 skipped. **MCP-Tools:** 179
+(+`profil_umlaute_reparieren`, #742), **Prompts:** 25.
+
+Kernpunkte: (1) **G11/#652** — Onboarding-Hints endlich sichtbar: REST
+`GET /api/onboarding/hints?tab=` + `DELETE .../{id}`,
+`OnboardingHintBanner.jsx` auf 4 Tabs, neuer Hint
+`g11_erste_suche_starten` (Profil ohne Suchbegriffe → naechster Schritt).
+(2) **B13.4/#748** — Prinzip Probe==Adapter: `_PROBE_EXTRA_HEADERS`
+(bundesagentur X-API-Key+UA), workable v1-Widget-API, personio
+Adapter-Firma. (3) **A20/#742** — `profil_umlaute_reparieren`
+(kuratierte ~150-Wort-Positivliste in `tools/profil.py`, Dry-Run-Default,
+Backup-Pflicht, ss→ß nie, technologies nie; ungemappte Woerter als
+Kuratierungs-Kandidaten).
+
+## Stand 2026-07-03 (v1.7.4) — Einsteiger-Welle
+
+**Schema:** v48 (unveraendert). **Tests:** 1871 passed, 1 skipped.
+**MCP-Tools:** 178, **Prompts:** 25 (+`problem_melden`).
+
+Kernpunkte: (1) **G17/#744** — Ersterfassungs-Wizard hat Phase 5
+(keyword_vorschlaege → suchkriterien_setzen → Smart-Default-Quellen
+`bundesagentur/arbeitnow/jobspy_indeed` → jobsuche_starten →
+Treffer-Vorschau); `keyword_vorschlaege` liefert bei leerem Bestand
+Profil-Vorschlaege statt Sackgasse; `jobsuche_starten` uebernimmt beim
+ersten expliziten Lauf die Quellen als aktiv; `zero_treffer_diagnose`
+erklaert 0-Treffer-Ergebnisse; Welcome-Screen: CV-Upload prominent.
+(2) **F24/#745** — TaskKinds EXTRACT_KEYWORDS/SUGGEST_JOB_TITLES,
+`jobtitel_vorschlagen()` ohne Argumente generiert via Ollama
+(`build_profil_kurztext` in llm_service, ohne PII). (3) **H17/#746** —
+Prompt `problem_melden`: erst Sofortloesung, dann PII-gescrubbter Report;
+GitHub ODER Mail an PBP-Service@Elwosa.de. Frontend: Defekt-Badges und
+Ollama-Download-Hinweis existierten schon (SourceSelectionList,
+SettingsPage) — vor Frontend-Arbeit immer erst pruefen, was da ist.
+
+## Stand 2026-07-02 (v1.7.3) — Hotfix-Session
+
+**Schema:** v48 (unveraendert, kein Bump — Safety-Net statt Migration).
+**Tests:** 1837 passed, 1 skipped.
+**MCP-Tools:** 178 (+`projekte_anzeigen`, #741), **Prompts:** 24.
+
+Kernpunkte: (1) **E17/#743** — beide Auto-Matcher gehaertet: Archiv-Status
+(abgelehnt/zurueckgezogen/abgelaufen) wird nie mehr auto-verknuepft,
+`auto_assign_document`-Schwelle 0.7→0.9, Ambiguitaets-Check + Vermittler-
+Domain-Liste (`RECRUITER_DOMAIN_KEYWORDS` in `email_service.py`),
+`achtung`-Warnung im Analyse-Plan. (2) **A19/#738** — Schema-Parity-Tests
+(`tests/test_schema_parity_738.py`, Doppel-Migrations-Trick + v31-Vergleich);
+der Test fand sofort die #737-RESTLUECKE: v1.6.x-SCHEMA_SQL hatte kein
+`is_imported`, Fresh-Install-Upgrader crashten weiter im Statistik-Tab →
+idempotentes Safety-Net in `initialize()`. Die #705-Fixture ist jetzt
+originalgetreu zum echten v1.6.10-Schema (aus Git-Historie verifiziert).
+(3) **H16/#741** — `projekte_anzeigen(position_id='')` liefert STAR-Volltext
++ Projekt-IDs, `is_confidential` maskiert; Prompts rufen es vor dem
+Formulieren auf.
+
+## ⛔ QA-Isolations-Regel (HART, seit dem DB-Vorfall 2026-06-10)
+
+Der Daten-Isolations-Env-Var heisst **`BA_DATA_DIR`** (NICHT PBP_DATA_DIR
+— ein falscher Name faellt STILL auf die echte AppData-DB zurueck!).
+Jedes QA-/Test-Skript und jede Test-Fixture MUSS nach dem DB-Oeffnen hart
+asserten, dass `db.db_path` im Temp-Verzeichnis liegt:
+
+```python
+os.environ["BA_DATA_DIR"] = tmpdir
+# ... importlib.reload(database); db = Database(); db.initialize()
+assert str(tmpdir) in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+```
+
+Hintergrund: Am 2026-06-10 traf ein QA-Lauf mit falschem Env-Var-Namen die
+echte User-DB (Profil ueberschrieben — aus Backup wiederhergestellt, alle
+Aenderungen inventarisiert und zurueckgebaut). NIEMALS MCP-Tools des
+laufenden bewerbungs-assistent-Servers fuer Tests nutzen — die treffen
+immer die echte DB. Subagenten bekommen diese Regel woertlich in den
+Auftrag geschrieben.
+
+## ⛔⛔ ZUERST LESEN: Master-Plan (Single Source of Truth)
+
+**Der Master-Plan ist das verbindliche Steuerungsdokument fuer PBP. Er
+liegt im GitHub-Wiki, NICHT im Code-Repo:**
+
+> **https://github.com/MadGapun/PBP/wiki/Master-Plan**
+
+Begleitseiten:
+- Risiken / Trade-offs / Reihenfolge: https://github.com/MadGapun/PBP/wiki/Master-Plan-Optimierung
+- 9 Sub-Plaene auf Issue-Ebene: `Plan-{Cluster}` (A–J) im selben Wiki
+
+**Pflicht vor JEDER Aenderung (Code, Schema, Tools, Doku, Issues):**
+1. Den Master-Plan oeffnen und lesen — er ist ein lebendiges Dokument und
+   aendert sich staendig. NIE aus dem Gedaechtnis arbeiten.
+2. Pruefen, ob das Vorhaben dort schon als Position gefuehrt wird
+   (Cluster A–J). Wenn ja: Status und Abhaengigkeiten beachten.
+3. Wenn nein: erst einen Plan-Eintrag (⬜ Stub) ergaenzen, dann weiter
+   nach dem Master-Plan-First-Workflow unten.
+
+**Das Wiki ist ein eigenes Git-Repo** (`PBP.wiki.git`). Edits laufen
+NICHT ueber die Contents-API des Code-Repos, sondern per lokalem Clone +
+Push (Desktop Commander). Der Master-Plan darf nur bewusst und
+nachvollziehbar geaendert werden — vor einem Wiki-Edit den aktuellen
+Stand frisch ziehen (Pull), nicht auf eine Cache-Version verlassen.
+
+**⛔ Wiki-Clone-Regeln (HART, seit dem Vorfall 2026-07-14):** Der Clone
+liegt in `D:\MAD\Documents\Entwicklung\PBP.wiki` — NIEMALS in Temp-/
+Scratchpad-Verzeichnissen (die werden zwischen Sessions teilweise
+aufgeraeumt; ein `git add -A` committet die fehlenden Dateien dann als
+LOESCHUNGEN — am 2026-07-14 wurden so 34 Wiki-Seiten gepusht-geloescht
+und per Revert wiederhergestellt). Vor JEDEM Wiki-Commit den
+Vollstaendigkeits-Guard laufen lassen:
+`test $(ls *.md | wc -l) -ge 42 && git add -A ...` (Zahl bei neuen
+Seiten nachziehen; Stand 2026-09-07: 42 Seiten, zuletzt Scoring).
+
+**Und den Tabellen-Guard laufen lassen** (seit 2026-09-10):
+`python scripts/masterplan_pruefen.py D:\MAD\Documents\Entwicklung\PBP.wiki`
+— Exit 1 heisst: nicht pushen. Grund: Plan-Zeilen werden per Skript
+umgebaut, und das ist DREIMAL schiefgegangen. v1.7.67 haengte Issue-
+und Wiki-Spalte ein zweites Mal an (sechs Zeilen mit neun statt sieben
+Feldern). v1.7.69 schrieb den Status in das Feld HINTER dem letzten
+Rohr: die Spaltenzahl stimmte, die Statuszelle blieb auf ⬜, und das ✅
+stand ausserhalb der Tabelle — der Plan meldete "nicht begonnen" fuer
+eine ausgelieferte Arbeit.
+
+**Der zweite Fall ist der lehrreiche: die Gegenprobe hat den Fehler
+BESTAETIGT.** Sie las denselben falschen Index, in den das Skript
+geschrieben hatte (`awk '{print $7}'` gegen `f[6]`), und meldete
+deshalb den Status als gesetzt. **Eine Kontrolle, die dieselbe Annahme
+benutzt wie der Schreibvorgang, prueft nichts.** Der Guard liest die
+Status-SPALTE aus der Kopfzeile und prueft zusaetzlich, dass hinter dem
+letzten Rohr nichts steht.
+
+Beim ersten Lauf fand er ausser seinem Anlass fuenf aeltere Defekte auf
+den Unterseiten (zwei fehlende Zellen, drei unescapte Rohre in
+Inline-Code — Backticks schuetzen in Markdown-Tabellen NICHT). Ausserdem: `git pull --rebase` und Commit-Kette nie
+so verketten, dass der Commit auch bei fehlgeschlagenem Pull/Edit laeuft.
+
+**Und zwar konkret: das Kommando in so einer Kette NIE durch eine Pipe
+fuehren.** Am 2026-09-07 lief ein Wiki-Commit trotz
+`error: cannot pull with rebase` durch, weil die Kette
+`git pull --rebase 2>&1 | tail -2 && git add -A && git commit` lautete —
+der Exit-Code einer Pipe ist der des LETZTEN Glieds, hier also der von
+`tail`, und der ist immer 0. Die Regel sah eingehalten aus und war
+wirkungslos. Ausgegangen ist es gut (Fast-Forward, Gegenseite
+unveraendert), aber der Schutz hat nicht geschuetzt. Richtige
+Reihenfolge ohne Pipe: **erst committen, dann `git pull --rebase`
+(unverpipt, Exit-Code lesen), dann pushen.**
+
+## ⛔ Session-Abschluss-Checkliste (Definition of Done) — Dauer-Issue #675
+
+**Am Ende JEDER Arbeitssession diese Punkte durchgehen.** Die maszgebliche,
+immer offene Version steht in **Issue #675** (nicht schliessen). Diese
+Kopie hier ist die schnell-praesente Fassung — bei Aenderungen beide
+synchron halten.
+
+**Selbst-erweiternd:** Diese Checkliste ist lebendig. Taucht eine neue
+wiederkehrende Abschluss-Pflicht auf, wird sie als Punkt aufgenommen, nicht
+nur einmal abgehakt. **Pruefung und Erweiterung macht Claude Code** (tieferes
+Repo-/Code-Verstaendnis). Die MCP-Chat-Instanz arbeitet die Liste ab und
+meldet Erweiterungs-Kandidaten, schreibt die Liste aber nicht selbst fort,
+sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
+
+1. **Master-Plan pruefen, lesen, ggf. aktualisieren** —
+   https://github.com/MadGapun/PBP/wiki/Master-Plan. Neue/geaenderte
+   Themen als Position aufnehmen (⬜) oder Status nachziehen (🟨/✅).
+2. **Wiki aktualisieren** — betroffene Seiten nachziehen (`Plan-{Cluster}`,
+   Tab-Seiten, MCP-Tools, FAQ). Clone + Push, vorher Pull.
+3. **README aktualisieren** — Repo-Root-README pruefen (Tool-Count,
+   Feature-Liste, Version) und bei Bedarf nachziehen.
+4. **Issues dokumentieren / abschliessen** — adressierte Issues mit
+   Ergebnis + Versionsbezug kommentieren und schliessen; neue Erkenntnisse
+   als neue Issues anlegen (PII-Scrub).
+5. **GitHub-MCP nutzen** — Issue-Operationen laufen ueber den GitHub-MCP.
+   Umlaut-Regel: nach `create` immer `update` mit korrekten Umlauten.
+6. **PBP-MCP-Luecken als Issue dokumentieren** — alles, was ueber den
+   PBP-MCP funktionieren MUESSTE aber nicht funktioniert (fehlende/kaputte
+   Tools, Felder die ins Leere schreiben, Tools die per tool_search nicht
+   ladbar sind, jeder Direkt-SQL-Workaround), wird als Issue erfasst. Ziel:
+   MCP-Layer bleibt langfristig die einzige Schnittstelle (Anti-DB-Bypass,
+   #514).
+7. **PII-Sweep ueber neue Artefakte** (seit 2026-07-14) — der Issue-Scrub
+   gilt sinngemaess fuer ALLES Oeffentliche: vor Commit/Wiki-Push neue
+   Tests, Docstrings, CHANGELOG-Eintraege und Plan-Seiten auf reale
+   Firmen aus der Bewerbungshistorie und Personen-Namen pruefen
+   (`grep -rni`; Namensmuster in `scripts/scrub_pii.py`). Reale Faelle
+   als „Praxis-Fall [Datum]" mit fiktiver Firma dokumentieren.
+   Hintergrund: 2026-07-14 standen reale Firmennamen in neuen
+   v1.7.7-Tests/Wiki-Stubs und der User-Vorname im Wiki-Altbestand —
+   vor dem Release bereinigt.
+8. **Checkliste selbst pruefen (Claude Code)** — ist eine neue wiederkehrende
+   Abschluss-Pflicht entstanden? Dann diese Liste (hier + #675) erweitern.
+
+8a. **Mehr-Defekt-Issues einzeln abhaken (seit 2026-08-18)** — bei Issues,
+   die mehrere nummerierte Defekte oder zwei AK-Bloecke tragen, VOR dem
+   Schliessen jeden Block einzeln gegen den Code pruefen. Hintergrund:
+   #918 ("Zwei Metadaten-Fehler...") wurde geschlossen, obwohl nur
+   Defekt 1 umgesetzt war — der Titel nannte beide, der Kommentar
+   beschrieb nur einen. Faustregel: Issue-Titel mit "und"/"zwei"/
+   "mehrere" oder AK-Listen mit Nummerierung sind Warnsignale.
+
+8b. **Tag-Setzen nur mit sauberem Working Tree (seit 2026-08-18)** —
+   `git checkout <release-branch>` VOR `git tag` kann an uncommitteten
+   Dateien scheitern ("Aborting"); die Kette laeuft dann auf dem
+   FALSCHEN Branch weiter und der Tag landet still auf dem falschen
+   Commit. Deshalb: erst `git status --short` leer machen, nach dem
+   Checkout `git branch --show-current` verifizieren, und nach dem
+   Taggen `git log --oneline -1 <tag>` gegen den erwarteten Commit
+   pruefen. Ein Tag OHNE Release laesst sich noch gefahrlos
+   korrigieren (push :refs/tags/X + tag -d + neu setzen) — mit Release
+   ist die Nummer verbrannt.
+8c. **Ein Schutz zaehlt erst, wenn er auch AUFGERUFEN wird (seit
+   2026-09-02)** — nach jeder Aenderung an einem Guard, Hook oder Test
+   pruefen, ob er in der echten Umgebung ueberhaupt laeuft. Zwei Faelle
+   am selben Tag, beide vom selben Typ:
+   (a) Der PII-Hook war korrekt und vollstaendig — er hatte nur keinen
+   Matcher fuer den MCP-Weg. Fuenf Issues mit realen Firmennamen gingen
+   an ihm vorbei, obwohl er jeden davon erkannt haette.
+   (b) Ein neuer Test las eine Datei aus `.claude/`; das Verzeichnis ist
+   gitignored und fehlt im CI-Klon. Er waere dort rot geworden — oder,
+   nach dem Skip-Fix, still uebersprungen worden.
+   Konkret also: Matcher gegen echte Werkzeugnamen testen, Tests
+   einmal aus einem FREMDEN Arbeitsverzeichnis laufen lassen (`pytest
+   <absoluter Pfad>` mit anderem `cwd`), und bei jedem Guard einen Test
+   ergaenzen, der seine REGISTRIERUNG prueft. Gruen im
+   Repo-Wurzelverzeichnis ist kein Beweis.
+
+8d. **Vor dem Anlegen pruefen, ob es das schon gibt — und die Antwort
+   des Schreibwerkzeugs LESEN (seit 2026-09-10)** — beim Anlegen von
+   `services/schwellen_verteilung.py` wurde zuerst
+   `services/score_verteilung.py` geschrieben. **Das Modul gab es
+   bereits seit #986**, es wurde vollstaendig ueberschrieben, und neun
+   Tests wurden rot. Wiederhergestellt, aber der Schaden waere ohne die
+   Testsuite unbemerkt geblieben.
+
+   Das ist woertlich die Lehre aus #799 (`learned_insights` neben
+   `learning_insights`) — sie stand in CLAUDE.md und hat nicht
+   geschuetzt. Zwei mechanische Schritte statt einer Erinnerung:
+   `ls services/ | grep <stichwort>` vor jedem neuen Modul, jeder neuen
+   Tabelle und jedem neuen Werkzeug, und die Antwort des
+   Schreibwerkzeugs lesen — sie sagt "updated" statt "created", wenn
+   etwas ueberschrieben wurde. Bei aehnlichen Namen gehoert die
+   Abgrenzung in BEIDE Modulkoepfe und in einen Test, der prueft, dass
+   beide existieren.
+
+8e. **Bei `INSERT OR REPLACE` zaehlt die Spaltenliste, nicht die
+   Absicht (seit 2026-09-10)** — `save_jobs` schreibt so, und REPLACE
+   loescht die Zeile und legt sie neu an. Jede Spalte ausserhalb der
+   INSERT-Liste war danach NULL. Betroffen waren `analyse_urteil` samt
+   Geschwistern (#1007, das gelesene Urteil), `dismiss_note` (#913)
+   und die Felder aus #948 — ein erneuter Suchlauf loeschte sie still,
+   und die Stelle sah danach aus wie eine, die nie beurteilt wurde.
+   **Wer eine neue Spalte anlegt, denkt nicht an ein REPLACE**, deshalb
+   ist die Abhilfe strukturell: `_BEWAHREN` plus ein Test, der JEDE
+   Spalte von `jobs` gegen die INSERT-Liste haelt.
+
+9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
+   der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
+   UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM
+   `gh issue create/comment/edit` und `gh release create` den Text durch
+   `python scripts/scrub_pii.py --check` schicken — AUCH Tabellen und
+   Beispiele aus der eigenen DB (genau so kamen am 23.07. acht reale
+   Firmen in zwei Issues). Das gilt fuer ALLE Instanzen, auch die
+   MCP-Chat-Seite. Am Session-Ende zusaetzlich alle seit der letzten
+   Session neuen/geaenderten Issues gegenpruefen. Wird PII auf GH
+   gefunden: Issue LOESCHEN (GraphQL `deleteIssue`), NICHT editieren —
+   die Edit-History behaelt das Original. Dokumentierte Ausnahmen:
+   Portale/Vermittler als Quellen-Feature (hays, ferchau, ...) und
+   fiktive Firmen (Halbleiterwerk Nord GmbH). Hintergrund: #763 und #766
+   enthielten am 23.07. die reale Stellen-Tabelle des Users und wurden
+   geloescht — die Nummern sind verbrannt, die Inhalte stehen im
+   Master-Plan (B27/C28) und im CHANGELOG.
+
+   **Seit 2026-08-07 MECHANISCH abgesichert — die Regel allein hat
+   dreimal versagt.** Nach ihrer Einfuehrung am 23.07. kamen am 31.07.
+   und 06.08. drei weitere Issues mit realen Firmen dazu, eines davon
+   mit Klarnamen, Mailadresse und zwei Telefonnummern eines Dritten
+   (geloescht am 07.08., anonymisiert neu als #814/#815/#816). Eine
+   Regel, an die man sich erinnern muss, ist keine Kontrolle. Jetzt:
+
+   - **PreToolUse-Hook** (`.claude/settings.json` →
+     `scripts/gh_pii_guard.py`): blockiert JEDEN `gh issue|pr|release
+     create/comment/edit` mit PII, bevor er laeuft — prueft
+     Inline-Argumente, `--body-file`-Inhalte UND Heredocs.
+     **Seit 2026-09-02 deckt er AUCH den MCP-Weg ab** (zweiter Matcher
+     in `.claude/settings.json`): jeder schreibende MCP-Aufruf mit
+     Issue-, Kommentar-, Story-, Wiki- oder Datei-Bezug laeuft durch
+     denselben Pruefer, verschachtelte Felder eingeschlossen; lesende
+     Werkzeuge werden nicht angefasst. MERKE dazu: die Beschraenkung
+     "nur der Bash-Weg" stand hier als bekannte Grenze — und ist am
+     02.09. ein zweites Mal eingetreten. Fuenf Issues vom 21./25.08.
+     trugen reale Firmennamen, obwohl alle fuenf seit dem 10.05. in der
+     Erkennungsliste stehen: der Pruefer haette sie gefunden, er wurde
+     nur nie aufgerufen. **Eine dokumentierte Luecke ist keine Warnung,
+     sondern eine Vorhersage** — sie tritt ein, und zwar genau dort, wo
+     sie notiert ist. Tests: `tests/test_gh_pii_guard_mcp.py` (17, beide
+     Richtungen; bewusst OHNE reale Namen im Repo, ausgeloest wird mit
+     einer generischen Fundstelle).
+   - **`scripts/gh_pii_sweep.py`**: prueft den IST-Zustand ueber ALLE
+     Issues, Kommentare und Releases, auch geschlossene. Seit der Hook
+     beide Wege abdeckt, ist der Sweep nicht mehr das einzige Netz fuer
+     den MCP-Weg, sondern das Netz fuer den ALTBESTAND und fuer alles,
+     was ausserhalb dieser Session entstanden ist. Gehoert weiter in die
+     Session-Abschluss-Runde — ein Guard verhindert Neues, er heilt
+     nichts Altes.
+   - **`FIKTIVE_FIRMEN`** in `scrub_pii.py`: der Pruefer schlug vorher bei
+     genau den Platzhaltern an, die diese Regel vorschreibt. Neue
+     Platzhalter dort eintragen.
+   - **`issue_text_pruefen(text=...)` (MCP, #946, seit 2026-08-19) — der
+     Pflichtschritt VOR jedem ausgehenden Text.** Er dreht die Richtung
+     um: statt einer gepflegten Namensliste im Repo sucht er die Namen
+     aus der DATENBANK (applications/jobs/contacts) im Text. Die
+     gepflegte Liste ist immer nur so gut wie ihre letzte Pflege — sie
+     hat am 18./19.08. dreimal versagt (#919, #928, #940-#945), obwohl
+     die Regel bekannt war. Mit `anonymisieren=True` kommt der fertige
+     Text zurueck; die Zuordnung steht in `anonymisierung_map` und
+     bleibt stabil, damit dieselbe Firma ueber mehrere Issues denselben
+     Platzhalter behaelt. Die Tabelle ist LOKAL und gehoert nie in
+     Export oder Telemetrie (Test sichert das ab). Quellennamen,
+     Job-Hashes und der eigene Klarname loesen bewusst nichts aus.
+
+   MERKE (warum dem Report niemand mehr glaubte): die Telefon-Erkennung
+   matchte ueber ZEILENUMBRUECHE und las die Jahresspanne `2020-2024` als
+   Rufnummer — 16 von 60 Treffern waren Fehlalarm. Ein Pruefer, der bei
+   korrektem Ergebnis Alarm gibt, wird nach dem zweiten Mal ignoriert.
+   Beim Haerten von Erkennungs-Regeln IMMER beide Richtungen testen.
+
+## Stand 2026-06-02 (beta.90) — QA-Selbsttest + Doku-Sync
+
+**Schema:** v45 (v44 `documents.lifecycle`; v45 `tasks` +
+`dismiss_reasons.is_active` + `search_criteria.keywords_minus`).
+**Tests:** 1611 passed, 1 skipped (1612 collected).
+**MCP-Tools:** 171 (historischer Stand beta.90 — aktuell 178, siehe oben),
+**Prompts:** 24.
+**Quellen:** 34 (~6 produktiv).
+
+Selbsttest dieser Session (autonomer 8h-Lauf): volle Suite gruen +
+saubere Migration v43->v45 auf einer **Kopie** der Real-DB
+(`C:\Temp\claude\qa`, Original unter AppData NIE angefasst); 10/10
+REST-Endpoints der beta.78-90-Welle via FastAPI-TestClient OK
+(`tools/qa_rest_smoke.py`). Befunde + Drift-Tabelle:
+`docs/internal/QA-Audit-beta90.md`. Das Wiki war auf beta.74 eingefroren (152
+Tools / 23 Prompts / Schema v42) und wurde Wiki-weit nachgezogen, inkl.
+neuer User-Doku fuer Lifecycle (#657/#658), Routing (#643), Tasks
+(#666), Ablehnungsgruende-Editor (#663), Minus-Keywords (#667),
+Wiedergaenger (#671), `stelle_reaktivieren` (#664).
+
+**Tool-Module (Code-Wahrheit, 11 Module = 171):** bewerbungen 30,
+analyse 27, jobs 26, dokumente 22, profil 20, kontakte 14, suche 12,
+export_tools 7, elwosa 6, tasks 4, workflows 3. `pbp_*`-Diagnose-Tools
+liegen im `analyse`-Modul.
+
+## ⛔ Master-Plan-First (HART, seit 2026-06-01)
+
+**Vor JEDEM Code-Change MUSS ein Master-Plan-Eintrag existieren** —
+mindestens als ⬜ Stub mit Issue-Verweis. Sonst keine Implementierung.
+Die Master-Plan-Adresse und die Pflicht zum Vorab-Lesen stehen oben im
+Abschnitt "ZUERST LESEN".
+
+- **Wiki:** [Master-Plan](https://github.com/MadGapun/PBP/wiki/Master-Plan)
+  (Cluster-Ebene A–J) + [Master-Plan-Optimierung](https://github.com/MadGapun/PBP/wiki/Master-Plan-Optimierung)
+  (Risiken/Trade-offs) + 9 Sub-Plaene `Plan-{Cluster}.md` mit Issue-Detail
+- **Reihenfolge:** (1) Plan-Eintrag aufnehmen → (2) Issue erstellen (mit
+  PII-Scrub) → (3) Code → (4) Tests → (5) Wiki-Eintrag → (6) Plan auf ✅
+  setzen → (7) Release
+- **Akzeptanzkriterium:** ✅ nur wenn **alle drei** zutreffen: Code im
+  Repo + Tests gruen + Wiki-Eintrag vorhanden. Sonst bleibt 🟨 oder ⬜.
+- **Ausnahmen:** keine. Auch nicht fuer "schnelle Hotfixes" — die kommen
+  als ⬜-Eintrag in den Plan, werden umgesetzt, und derselbe Commit
+  setzt sie auf ✅ und schiebt den Wiki-Stub nach.
+
+Beispiel-Workflow fuer ein neues Feature:
+
+```
+1. Master-Plan-Eintrag: "B17 — Neue Quelle XYZ scrapen (#999)"  ⬜
+2. Issue #999 anlegen (mit PII-Scrub)
+3. Code in src/bewerbungs_assistent/job_scraper/xyz.py
+4. Tests in tests/test_xyz.py — gruen
+5. Wiki-Eintrag (Jobportale ergaenzen, ggf. eigene Seite)
+6. Master-Plan: B17 auf ✅, Plan-Jobsuche.md auf Issue-Level erweitern
+7. Release-Workflow (Version-Bump, CHANGELOG, Commit, Tag, GH-Release)
+```
+
+**Bei Verstoss:** der Code-Change ist nicht abgeschlossen. Im naechsten
+Commit nachholen.
+
+## Stand 2026-05-09 (User-Test-Findings beta.41)
+
+**Schema:** v42 (zuletzt `contact_categories` aus #607 in beta.39).
+**Tests:** 1147 grün (+28 neue für #614 + #612).
+**MCP-Tools:** 138, **Prompts:** 23.
+**Quellen:** 33+.
+
+### beta.41 — #614 + #612 (User-Test-Findings vom 8. Mai)
+
+- **#614 Elwosa-Varianz** — Welt-Trigger-Pools auf 4-8 Linien ausgebaut
+  (vorher 1-3); Markup-Support `**bold**` und `[link:pause:N|label]`;
+  `pick_line()` mit Same-Day-Anti-Repeat (zwei Filter-Schichten:
+  not-7-days, dann not-today; Repeat erst wenn Pool fuer den Tag durch).
+- **#612 Settings-Verdrahtung** — `tonfall_modus` jetzt funktional in
+  `can_post_class()`: `aus`→alles blockt, `sachlich`→idle/world/tip/easter
+  blockt, `minimal`→Hard-Cap 1/Tag. Neuer Endpoint
+  `POST /api/elwosa/user-action` + `speak_settings_reflection()` Helper
+  + `SETTINGS_REFLECTION_LINES` Pool. Frontend feuert Hook auf jede
+  Settings-Aenderung (1 Reflektion pro Patch via `pickReflectionTarget`).
+
+### Stand 2026-05-07 (Sprint-Tag mit 12 Releases)
+
+**Schema:** v41 — `elwosa_messages` + `elwosa_pending_lines` (#599).
+**Tests:** 1057 grün.
+**MCP-Tools:** 133, **Prompts:** 23.
+**Quellen:** 33+ (10 neue heute aus #590).
+
+### Heute geschlossene Issues
+
+- **#594** Lern-System (5 Stufen) — beta.26-30:
+  Foundation, Aggregation, LLM-Pattern-Analyse + Korrektur-Loop,
+  Adaptive UI, Telemetrie-Sharing (opt-in, wochenweise)
+- **#595** Stellen-Detail-Bug bei is_active=0 — beta.31
+- **#596** Keyword-Analyse 3 Bugs (Eigenname, ???-Zeile, PDM) — beta.31
+- **#597** Dokumente pro Bewerbung im Bericht — beta.31
+- **#598** Quellen-Aktivität Volumen (statt nur letzte Treffer) — beta.31
+- **#588** Stellenbeschreibung sauber von Notizen trennen — beta.32
+- **#564** Portal-spezifische Such-Profile (LinkedIn-Lessons) — beta.32
+- **#590** Quellen-Strategie (gross) — beta.33-36:
+  Auto-Reactivate, 10 neue Quellen-Adapter, Profile-Detection,
+  9 Cluster, Recommendations-UI
+- **#599** Elwosa — beta.37:
+  Live-Statusanzeige der lokalen AI in der linken Sidebar mit eigener
+  Persoenlichkeit (geschlechtsfrei, britisch ironisch). 6 MCP-Tools
+  als Bridge fuer Claude, 5 Bridge-Prompts, ~140 Linien kuratiert,
+  Sprach-DNA-Validator, Settings-Section im Lokale-KI-Tab.
+
+### Aktuelle Architektur-Highlights
+
+- **`services/profile_classifier.py`** — heuristische Profil-Erkennung
+  in 9 Cluster (student/service/trade/tech_junior/tech_senior/
+  engineering_senior/freelance/executive/mixed) + Quellen-Empfehlung
+  pro Cluster
+- **`services/llm_service.py`** — TaskKind-Routing-Table (Local/Claude/Manual)
+  mit den Tasks: classify_document, extract_skills, match_job_to_skills,
+  classify_email, analyze_user_patterns, generate_cover_letter, ...
+- **`scraper_health` mit Auto-Reactivate** — Backoff 24h/48h/72h/168h
+  bei silent failures, automatische Reaktivierung bei OK-Run
+- **Activity-Tracking + LLM-Insights** — `user_activity_events` +
+  `learning_insights` Tabellen, AdaptiveHintBanner pro Page (#594)
+
+### Nicht im Sprint, aber wichtig zu wissen
+
+- **Plugin-Plattform** (#504) ist explizit User-Vorgabe fuer v1.8 —
+  Mail-Integrationen (#481/#480/#478) und Newsletter-Ingest (#525)
+  sollen als Plug-Ins kommen, nicht als Kern-Code.
+- **Quellen-Rotation (#590-C.4)** wurde aus #590 herausgehalten —
+  betrifft den job_runner-Orchestrator, eigenes Issue empfohlen.
+
+### Elwosa (#599) — shipped in beta.37
+
+Live-Statusanzeige der lokalen AI in der linken Sidebar. Eigene Persoenlichkeit
+(geschlechtsfrei, britisch ironisch, lakonisch). Kommentiert was die lokale AI
+gerade tut, gibt Tipps zu Claude-Workflows und PBP-Features.
+
+**Wichtige Files:**
+- `docs/elwosa-character.md` — Charakter-Briefing + Linien-Pool (~140 Linien)
+- `src/bewerbungs_assistent/services/elwosa_lines.py` — Linien-Pool im Code
+- `src/bewerbungs_assistent/services/elwosa.py` — Trigger-Engine + Validator
+- `src/bewerbungs_assistent/tools/elwosa.py` — 6 MCP-Tools (Bridge fuer Claude)
+
+**Pflege-Regel bei neuen Linien:**
+- Beide Files synchron halten (Doku + `elwosa_lines.py`)
+- Sprach-DNA: keine Ausrufezeichen, keine Emojis, kein `Ihre/Ihnen`
+- `Sie` als 3.-Person-Pronomen (Firma/Recruiter) ist erlaubt — siehe
+  Sektion 3 in `docs/elwosa-character.md`
+- Lakonische Untertreibung, max 280 Zeichen pro Linie
+- Tonfall-Waechter-Test (`test_all_pool_lines_pass_validator`) bei
+  jeder Aenderung gruen halten
+
+**Frequenz-Logik:**
+- **Status-Trigger UNBEGRENZT** (mail_received, auto_dismiss_ran,
+  status_change, ...) — Elwosa schweigt nicht wenn die AI arbeitet
+- Idle/Welt/Tipp werden nach Frequenz-Slider gedrosselt
+  (ruhig=2 idle/Tag, standard=4, aktiv=6)
+- Cooldown: 90s zwischen zwei beliebigen Nachrichten
+
+**MCP-Bridge:** User kommunizieren NICHT direkt mit Elwosa — Claude
+ist der Uebersetzer. 6 Tools: `elwosa_lesen`, `elwosa_schreiben` (Tonfall
+validiert!), `elwosa_pause`, `elwosa_tonfall`, `elwosa_linie_vorschlagen`,
+`elwosa_status`. Plus 5 Bridge-Prompts in `prompts.py`.
+
+## Issue-Erstellung — DSGVO-Pflicht (kritisch)
+
+**KEIN Issue darf Personen-Namen, Firmen-Namen oder Kontaktdaten enthalten.**
+Issues sind oeffentlich einsehbar, ein Verstoss ist DSGVO-relevant fuer
+den User UND die Dritten. Auch in Reproduktions-Beispielen, Bug-
+Beschreibungen, Test-Daten.
+
+**Vor jedem `gh issue create` IMMER durch den Anonymisierer laufen lassen:**
+
+```bash
+python scripts/scrub_pii.py --check < /tmp/issue_body.md
+# exit 0 → sauber, kann raus
+# exit 1 → Treffer aufgelistet, vorher anonymisieren
+```
+
+Oder programmatisch:
+
+```python
+from scripts.scrub_pii import scrub_text, find_pii
+hits = find_pii(body)
+if hits:
+    body = scrub_text(body)  # wendet Replace-Mapping an
+```
+
+**Replace-Konvention:**
+- Personen-Namen → `<USER>` (User selbst) oder `<PERSON>` (Dritte)
+- Konkrete Firmen → `<FIRMA>` (alle gleich, nicht durchnummeriert)
+- E-Mail-Adressen (echt) → `<email-anonymisiert>`
+- Telefonnummern (echt) → `<telefon>`
+- Konkrete Stellen-IDs / Hashes → bleiben erlaubt (interne IDs ohne externe Bedeutung)
+
+**Was bleibt erlaubt im Issue:**
+- GitHub-Username `MadGapun` (oeffentlicher Repo-Owner)
+- Generische Branchen ("Maschinenbau", "Tech-Senior")
+- Test-Mails wie `bewerbung@firma.de`, `test@example.com`
+- DAX/Branchenindizes ohne konkrete Firma
+
+**Das gilt sowohl fuer Code-getriebene Issue-Creation (via `gh` CLI im
+Code) als auch fuer Claude-Chat-getriebene Issue-Creation.**
+
+Background: am 2026-05-10 wurden in 3 Sweep-Passes ~155 historische
+Issue-Bodies + 9 Comments nachtraeglich anonymisiert. Das darf nicht
+nochmal passieren — siehe `scripts/scrub_pii.py` Header.
+Am 2026-07-23 passierte es doch wieder: #763/#766 trugen die reale
+Stellen-Tabelle des Users (8 Firmen) und mussten GELOESCHT werden —
+DoD-Punkt 9 ist seitdem der Pflicht-Riegel.
+
+**WICHTIG zur Edit-History:** GitHub zeigt fuer Issue-Bodies eine
+`edited`-Markierung mit Zugriff auf die Vorgaenger-Versionen — auch
+fuer non-Admins in oeffentlichen Repos. Anonymisierung der CURRENT
+Version macht die Original-PII NICHT ungeschehen. Fuer wirklich
+sensible Faelle ist Issue-LOESCHUNG (via GraphQL `deleteIssue`)
+notwendig, was aber:
+- Issue-Nummer unwiederbringlich verbrennt (#602 → wird nie wieder vergeben)
+- alle Comments mit-loescht
+- Cross-References im CHANGELOG / Code zu Dead-Links macht
+
+Bei Zweifel: Issue-Loeschung ist die einzige sichere Option.
+
+**Praeventiv:** vor JEDEM `gh issue create` (sowohl in Code als auch
+Claude-Chat) den Scrubber laufen lassen. So entsteht das Problem
+gar nicht erst.
+
+## Release-Workflow (Pflicht-Checkliste)
+
+Bevor ein neuer Release gebaut wird:
+
+1. **Versionen bumpen** an drei Stellen:
+   - `pyproject.toml`
+   - `src/bewerbungs_assistent/__init__.py`
+   - `frontend/package.json`
+2. **Schema-Migration** ALTER-only (keine Daten-Migrationen). `SCHEMA_VERSION` in
+   `database.py` hochziehen, neue Spalten in `_migrate` UND in `SCHEMA_SQL`
+   (CREATE TABLE) ergaenzen.
+3. **Tests gruen:** mindestens
+   `pytest tests/test_v16*_*.py tests/test_database.py tests/test_mcp_registry.py`.
+4. **Frontend rebuild:** `cd frontend && pnpm exec vite build`. Built-Assets unter
+   `src/bewerbungs_assistent/static/dashboard/assets/` mit committen, alte
+   Hash-Dateien `git rm`-en.
+5. **CHANGELOG.md** erweitern: neuer Eintrag GANZ OBEN (vor v1.6.4),
+   Sektionen Added/Changed/Fixed nach Keep-a-Changelog. Am ENDE des Eintrags
+   IMMER die volle Installationsanleitung (siehe Pflicht-Block unten).
+6. **Pre-Release-Pause:** vor `git commit` einmal kurz reflektieren (Risiko-
+   Tabelle pro Issue, was kann brechen, was ist nur additiv) und nochmal
+   testen. User hat das explizit eingefordert.
+7. **⛔ Pre-Release-Issue-Check (HART, seit beta.82):** UNMITTELBAR
+   bevor `gh release create` laeuft, IMMER die aktuelle Liste offener
+   Issues auf GitHub abrufen (`gh issue list --state open --json
+   number,title,createdAt,labels --limit 30`) und mit den in der Session
+   adressierten Issues abgleichen. Wenn ein neues Issue dazwischen
+   gekommen ist, das in diesen Release gehoert haette (Bug oder
+   prompt-relevant), den Release zurueckhalten und das Issue noch
+   mitnehmen. **Lieber 5 Minuten warten als einen Release nachschieben.**
+   Hintergrund: am 2026-06-02 wurde beta.81 zu frueh veroeffentlicht;
+   waehrend Tests + CHANGELOG liefen, kam #664 rein und musste in eine
+   hektische beta.82 nachgezogen werden.
+8. **⛔ Tag erst NACH gruenem CI (HART, seit beta.0-Segfault 2026-07-14):**
+   Release-Commit auf main pushen, den CI-Lauf ABWARTEN (`gh run watch`),
+   und erst bei Erfolg Tag setzen + pushen + GH-Release erstellen.
+   Hintergrund: v1.8.0-beta.0 wurde vor dem CI-Ergebnis getaggt; der
+   Linux-Runner fand einen PDFium-Segfault (exit 139), den Windows lokal
+   nicht zeigte — der Tag war gelocked, beta.1 musste nachgeschoben
+   werden. Native Dependencies (pypdfium2, playwright, ...) verhalten
+   sich plattformspezifisch; die lokale Windows-Suite reicht als
+   Tag-Freigabe nicht.
+9. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
+
+## GitHub-Release-Notes — Pflicht-Block
+
+**Jeder GitHub-Release MUSS die volle Installationsanleitung in den
+Release-Notes selbst enthalten — NICHT nur als Link aufs CHANGELOG.**
+
+Hintergrund: Viele Anwender klicken auf den Release, sehen "Source code
+(zip/tar.gz)" und wissen nicht, was sie damit anfangen sollen. Die
+Anleitung muss dort stehen, wo der User landet.
+
+Template (am Ende der Release-Notes einfuegen, Versionsnummer ersetzen):
+
+```markdown
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-X.Y.Z.zip](https://github.com/MadGapun/PBP/archive/refs/tags/vX.Y.Z.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+\`\`\`bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+\`\`\`
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+```
+
+Derselbe Block gehoert auch ans Ende des CHANGELOG-Eintrags (Pflicht ab v1.6.4).
+
+## GitHub CLI — Token-Falle
+
+`gh` nutzt sonst den `GITHUB_TOKEN` aus dem Env mit eingeschraenkten Scopes.
+Vor `gh`-Aufrufen IMMER `unset GITHUB_TOKEN` setzen, damit der Keyring-
+Token mit Repo-Scope greift:
+
+```bash
+unset GITHUB_TOKEN; gh release create vX.Y.Z --title "..." --notes-file ... --latest
+unset GITHUB_TOKEN; gh issue close 123 --comment "..."
+```
+
+## Tag-Lock-Falle (immutable releases)
+
+GitHub Releases sind tag-gelocked: ein Release zu einem existierenden Tag
+laesst sich NICHT mehr neu erstellen, nur editieren. v1.6.0/v1.6.1 wurden
+durch das verbrannt. Konsequenzen:
+
+- Vor `git tag` SICHER sein, dass alles drin ist (Frontend gebaut, Tests
+  gruen, CHANGELOG aktuell).
+- Bei kaputtem Release: NICHT taglock loesen — neue Patch-Version (vX.Y.Z+1)
+  veroeffentlichen.
+- **NIE `git push --tags`** (Fund v1.7.3-Release): das schiebt auch lokale
+  Alt-Tags mit (v1.0.0, das verbrannte v1.6.0) und scheitert an den
+  Repo-Rules. Immer gezielt pushen: `git push origin main vX.Y.Z`.
+
+## Bericht-Designprinzip (v1.6.8)
+
+**Kennzahlen, deren Datenbasis nicht zuverlaessig ist, kommen nicht in den
+Bewerbungsbericht.** Lieber eine Sektion weglassen als eine irrefuehrende
+Zahl drucken. Konkrete Faelle aus v1.6.8:
+
+- „Aktive Filter-Arbeit" suggerierte „nur 1 wuerdig" — vergass dass viele
+  Bewerbungen ueber Direct-Add aus dem Chat kommen, nicht ueber
+  `stelle_bewerten('passt')`. Raus.
+- „Geschaetzter Zeitaufwand" mit 30min/Bewerbung war Groessenordnungen
+  unter Realwert (Stunden bis Tage pro Stelle inkl. Anschreiben-Iteration,
+  Format-/Umlaut-Korrekturen, Interview-Vorbereitung). Raus.
+- „Bewerbungs-Trichter" stufte aussortiert+beworben in sich
+  widerspruechlich, weil Bewerbungen auch von ausserhalb des gesichteten
+  Pools kommen. Raus.
+
+Bevor eine neue Kennzahl in den Bericht eingebaut wird: pruefen, ob die
+Datenbasis ALLE Pfade abdeckt, die zu dem Wert beitragen. Wenn nein:
+weglassen.
+
+## Anti-DB-Bypass-Pattern (#514)
+
+Claude darf NICHT direkt in die SQLite schreiben. Alle Mutationen laufen
+ueber MCP-Tools (`stelle_bewerten`, `stellen_bulk_bewerten`, `bewerbung_*`)
+damit Lifecycle (Audit, dismiss_counts, Lerneffekt, Statistik) konsistent
+durchlaeuft.
+
+Server-Instructions in `server.py` machen das transparent. `pbp_capabilities`
+und `pbp_grenze_melden` decken Edge-Cases ab.
+
+## STRENG: Firmen-Status NIE aus dem Gedaechtnis (#753, seit v1.7.7)
+
+Sobald ein Firmenname mit einer WERTUNG faellt — "kenne ich", "war
+abgesagt", "laeuft noch", "da war ein Interview", auch beilaeufig in
+einem Fallback-Vorschlag — ZUERST `firma_kontext(firmenname)` aufrufen
+und NUR auf dessen Ergebnis antworten. Der Trigger ist der bewertete
+Firmenname, nicht erst die explizite Statusfrage. Hintergrund (13.07.):
+Claude behauptete aus dem Gedaechtnis einen falschen Firmen-Stand ("nur
+eine Bewerbung, kein Interview") — tatsaechlich lief ein kompletter
+Prozess bis ins Finale. PBP haelt die dokumentierte Wahrheit.
+
+## STRENG: keine eigenen Ablehnungsgruende erfinden (#663 Teil 2)
+
+Bei `stelle_bewerten(bewertung='passt_nicht')` und `stellen_bulk_bewerten`
+NUR die vordefinierten Whitelist-Werte nutzen. Auch nicht "intelligent"
+neu kombinieren, eindeutschen, kuerzen oder anders schreiben.
+
+**Erlaubt — und sonst NICHTS:**
+
+```
+zu_weit_entfernt          gehalt_zu_niedrig         falsches_fachgebiet
+zu_junior                 zu_senior                 unpassendes_arbeitsmodell
+firma_uninteressant       zeitarbeit                befristet
+bereits_beworben          duplikat                  kein_hochschulabschluss
+sonstiges
+```
+
+**Verboten — frei erfunden, fuehrt zu Statistik-/Lerneffekt-Schaden:**
+
+```
+abgelaufen        war_nur_anfrage      windchill_fehlt
+duplikat_bewerbung   teamcenter_fehlt      kein_passendes_projekt
+```
+
+Bei Unsicherheit: `sonstiges` waehlen oder den User fragen. `stelle_bewerten`
+normalisiert nicht-vordefinierte Gruende zwar still auf `sonstiges`, aber
+das verfaelscht die Statistik und den Lerneffekt (Outcome-Pattern in
+fit_analyse, #648).
+
+**Ausnahme:** ein User kann eigene Gruende in den PBP-Einstellungen anlegen
+(Issue #663 Teil 1, geplant). Sobald das Feature live ist, gilt die dort
+hinterlegte erweiterte Whitelist — Claude muss die aktuelle Liste aus
+`stelle_bewerten`'s `verfuegbare_gruende`-Response uebernehmen.
+
+## Fit-Analyse-Verdict scharf zitieren (#662)
+
+`fit_analyse` liefert ein strukturiertes `empfehlung`-Feld mit vier
+Kategorien: **EMPFOHLEN / BEDINGT / NICHT_EMPFOHLEN / NICHT_BEURTEILBAR**
+plus `begruendung` und `kurz`. Claude zitiert den Verdict direkt — keine
+eigenen Weichspueler wie "Trefferchance nicht hoch, aber realistisch
+vorhanden".
+
+**Der Verdict kommt NICHT aus dem Score (#1003, seit v1.7.61).** Der
+Score misst, wie gut eine Anzeige die SUCHBEGRIFFE trifft — Keywords,
+Gehalt, Entfernung, Remote-Grad. **Der Lebenslauf geht nicht ein.** Ob
+jemand auf eine Stelle passt, ist eine andere Frage, und sie entsteht
+erst aus dem Vergleich von Profil und Anzeige.
+
+Deshalb gilt jetzt:
+
+- **`NICHT_BEURTEILBAR` ist der Normalfall**, solange niemand die
+  Anzeige gegen das Profil gelesen hat. Das heisst "noch nicht
+  gelesen", NICHT "passt nicht" — die Verwechslung ist #989. Der
+  richtige naechste Schritt ist die Detailanalyse, nicht eine
+  Weichspueler-Formulierung.
+- **Hast du Anzeige und Profil wirklich gelesen, schreib dein Urteil
+  zurueck:** `stelle_analyse_speichern(job_hash, urteil, begruendung)`.
+  Es haengt danach an der Stelle, steht in der Trefferliste und
+  ueberlebt das Gespraech. Ein Urteil, das du aus dem Score ableitest,
+  waere genau der Fehler, den #1003 behebt — nur von Hand.
+- **`NICHT_EMPFOHLEN` aus einem k.o.-Kriterium** (Wiedergaenger mit
+  fachlichem Grund, ausserhalb des Rechtsraums, kein MUSS-Anker) gilt
+  weiter und schlaegt auch eine gute Analyse.
+
+**Der Score ist KEINE Prozentzahl (#999).** `total_score` ist eine
+Punktsumme, deren Obergrenze aus den Kriterien folgt — vor allem aus
+der Laenge der MUSS-Liste. Er steht in der Antwort samt
+`score_bedeutung`; **nie "X von 100" schreiben**, solange 100 nicht
+erreichbar ist, und ihn nie als Passungsaussage zitieren.
+
+- **EMPFOHLEN**: Profil passt, Bewerbung sinnvoll. Klare Ansage geben.
+- **BEDINGT**: Methodenluecke, aber ueberbrueckbar. Im Anschreiben
+  transparent adressieren (nicht versteckt!) — sonst wird das im Interview
+  ein Problem.
+- **NICHT_EMPFOHLEN**: k.o.-Kriterium oder fachlicher Gap zu gross. Klar
+  sagen, NICHT mit "vielleicht doch versuchen" weichspuelen. Wenn der User
+  trotzdem will, kann er entscheiden — aber die Empfehlung steht.
+
+Konkrete Sprache:
+- Statt "die Trefferchance ist nicht sehr hoch": **"Ohne [Skill X] wird
+  diese Stelle nicht antreten."**
+- Statt "denkbar mit Anpassung des Anschreibens": **"BEDINGT — Methoden
+  uebertragbar, aber [Fachbegriff Y] muss im Anschreiben offen erwaehnt
+  werden."**
+- Statt "lohnt sich nur bedingt": **"NICHT EMPFOHLEN — [konkretes
+  k.o.-Kriterium]. Bewerbung nur bei Kontakt im Unternehmen."**
+
+## Kritische DB-Helfer
+
+- `db.dismiss_job(hash, reason)` — nutzt `resolve_job_hash` intern, scoped Hash
+  korrekt. NICHT roh `UPDATE jobs SET is_active=0 WHERE hash=?` ausfuehren —
+  Hash ist mit `{profile_id}:` praefixed, das matcht sonst nicht.
+- `db.update_job(hash, fields)` — Whitelist-Filter im Inneren. Wenn ein neues
+  Feld nicht durchkommt, `_ALLOWED_UPDATE_FIELDS` erweitern.
+
+## Mojibake-Repair
+
+Doppelt-kodiertes UTF-8 als Latin-1 reparieren:
+`s.encode('latin-1').decode('utf-8')`. Trat in `dashboard.py` an 47 Stellen
+auf (v1.6.4-Fix).
+
+## Test-Helper fuer FastMCP 2.12+
+
+`mcp.call_tool` existiert in 2.12 nicht mehr. Stattdessen:
+
+```python
+def _call(mcp, name, args):
+    async def _run():
+        tool = await mcp.get_tool(name)
+        res = await tool.run(args)
+        if hasattr(res, "structured_content"):
+            return res.structured_content
+        return res
+    return asyncio.run(_run())
+```
+
+(In `tests/test_v164_bugfixes.py`, `tests/test_v165_drift_fixes.py`,
+`tests/test_v165_quickfixes.py` jeweils dupliziert — bei Bedarf zentralisieren.)
