@@ -6,6 +6,7 @@ auch wenn gerade kein Tool aufgerufen wird.
 """
 
 import json
+import os
 import logging
 import threading
 import time
@@ -36,6 +37,9 @@ def _write_heartbeat_file(tool_name: str, is_alive: bool = False) -> None:
             "last_tool_call": datetime.now(timezone.utc).isoformat() if not is_alive else None,
             "tool": tool_name,
             "type": "alive" if is_alive else "tool_call",
+            # #1098: wer schreibt — damit ein zweiter Prozess erkennt, dass
+            # die Datenbank noch benutzt wird (Wiederherstellen beim Start).
+            "pid": os.getpid(),
         }
         # Merge with existing data to preserve last_tool_call
         if is_alive:
