@@ -105,6 +105,96 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.141] - 2026-09-29 — Die Jobsuche bleibt nicht mehr hängen
+
+Hotfix für v1.7.140. Beim ersten Start nach dem Update übernimmt PBP den
+Wohnort als Standort und rechnet alle Entfernungen neu. Traf das auf die
+fällige Automatik-Suche, blieb die Suche dauerhaft auf „läuft (100 %)“
+stehen. Danach startete keine Suche mehr, weder über Claude noch über das
+Dashboard oder die Automatik, auch nicht nach einem Neustart. Kein
+Schema-Eingriff.
+
+**Wer auf v1.7.140 festhängt:** Nach dem Update auf v1.7.141 gilt der
+alte Lauf beim nächsten Start einer Suche als abgebrochen, die neue Suche
+läuft normal.
+
+### Fixed
+
+- **Die Entfernungs-Nachrechnung sperrt die Datenbank nicht mehr** (#1118).
+  Sie fragt erst alle Orte ab und speichert danach in einem kurzen
+  Schritt. Vorher hielt sie die Schreibsperre über alle Abfragen,
+  bei vielen Orten fast eine halbe Stunde. Sie wartet außerdem, bis eine
+  laufende Jobsuche fertig ist, und zeigt ihren Fortschritt.
+- **Ein toter Suchlauf blockiert keinen neuen Start mehr** (#1118). Ein
+  Lauf, der länger als sein Zeitlimit keine Rückmeldung gibt und nicht
+  mehr arbeitet, gilt als abgebrochen und wird mit Grund abgeschlossen.
+  Das gilt beim Start einer Suche, in der Laufanzeige des Dashboards, beim
+  Neustart und bei `jobsuche_status`. Vorher scheiterten alle diese Prüfungen
+  still an einem Zeitzonen-Vergleich.
+- **Das Geocoding eines Suchlaufs fällt nicht mehr still aus** (#1118).
+  Scheitert nur die Fortschrittsanzeige, laufen die Entfernungen weiter.
+  Ein echter Fehler steht als Warnung im Log.
+- **Der Abschluss eines Laufs versucht es bei einer kurzen Sperre erneut**
+  (#1118), statt den Lauf als „läuft“ stehen zu lassen.
+
+### Gemessen
+
+16 neue Tests. Gegenprobe: jede der sechs geänderten Dateien einzeln
+zurückgenommen, jedes Mal rot. Ein langer LinkedIn-Lauf (bis zu 20
+Minuten ohne Rückmeldung) gilt weiterhin nicht als tot.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.141.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.141.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.140] - 2026-09-28 — Datensicherung, ein Weg für Dashboard und Claude
 
 Eine große Welle aus Anwenderproblemen: Was im Dashboard passierte, lief
