@@ -236,6 +236,7 @@ def test_1120_nur_eine_google_suche_zaehlt_als_google_link():
 def test_1120_weiterverbreiter_werden_erkannt():
     assert wv.ist_weiterverbreiter("Move Collective Jobs")
     assert wv.ist_weiterverbreiter("über  move collective jobs ")
+    assert wv.ist_weiterverbreiter("LilyLifestyle Jobs")
     assert not wv.ist_weiterverbreiter("XING")
     assert not wv.ist_weiterverbreiter("")
 

@@ -35,6 +35,12 @@ WEITERVERBREITER: dict[str, str] = {
         "den USA und Deutschland spiegelt, ohne eigene Inhalte; Anzeigen von "
         "2024 noch online, kein einziger PLM/PDM-Treffer."
     ),
+    "lilylifestyle jobs": (
+        "29.09.2026 (#1120): jobs.lilylifestyle.co.uk nennt sich selbst Teil "
+        "des JobBoard.com-Netzes und zeigt darueber fremde Stellen an (Seite "
+        "'About'); dieselbe Software wie Move Collective Jobs und dasselbe "
+        "Titel-Anhaengsel '. Job in <Ort> <Portal>' im Google-Alert."
+    ),
 }
 
 
