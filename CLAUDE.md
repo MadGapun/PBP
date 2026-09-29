@@ -10,13 +10,13 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.7.140 (`--latest`, 2026-09-28), Linie 1.7; Hotfix-Branches
+- **Stable:** v1.7.141 (`--latest`, 2026-09-29), Linie 1.7; Hotfix-Branches
   `hotfix/v1.7.N` vom letzten 1.7-Tag.
 - **Beta:** `main` = 1.8.0-beta.15, Betas sind GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
 - **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 5911 Tests (main) / 5809 (Stable); 270 MCP-Werkzeuge (main) /
+- **Umfang:** 5933 Tests (main) / 5825 (Stable); 270 MCP-Werkzeuge (main) /
   257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
 - Fixes, die Stable betreffen, gehoeren in die 1.7-Linie, nicht nur in die
   Beta — die zieht kaum jemand. Schaufenster-Arbeit ist erst beim Nutzer,
