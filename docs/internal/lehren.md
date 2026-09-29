@@ -199,7 +199,7 @@ gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
 Fenster misst den Abstand statt den Aufruf, gezaehlte Fundstellen lassen
 die naechste durch. Syntaxbaum statt Regex — und eine Kontrolle, die
 dieselbe Annahme benutzt wie der Schreibvorgang, prueft nichts.
-*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie)
+*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie), #1120 (`test_951` las 14.000 Zeichen ab `def save_jobs`; ein Kommentar schob den Aufruf hinaus, jetzt bis zur naechsten Methode)
 
 **L25. Ein Schutz zaehlt erst, wenn er aufgerufen wird.** Matcher gegen
 echte Werkzeugnamen, ein Test fuer die Registrierung jedes Guards, Tests
