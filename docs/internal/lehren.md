@@ -206,7 +206,12 @@ echte Werkzeugnamen, ein Test fuer die Registrierung jedes Guards, Tests
 einmal aus fremdem Arbeitsverzeichnis mit Pfaden relativ zur Testdatei.
 Ein Pruefer, der bei korrektem Zustand Alarm gibt, wird ignoriert —
 Fehlalarme sind Defekte.
-*Belege:* DoD 8c, #929, #1017, #1078, v1.7.131/6
+Ein Netz, dessen Fehler ein `except: pass` schluckt, hat womoeglich nie
+gegriffen: die drei Stale-Netze zogen ein zeitzonenbewusstes `updated_at`
+von einem naiven `datetime.now()` ab. Was ein Update beim ersten Start
+anstoesst, trifft auf die faellige Automatik — Last beim Start gehoert in
+kurze Schreibvorgaenge.
+*Belege:* DoD 8c, #929, #1017, #1078, v1.7.131/6, #1118
 
 **L26. Alt-Tests zuerst lesen.** Ein roter Alt-Test ist die Spezifikation
 oder die alte Loesung: die Absicht bleibt, der Stellvertreter (Wortlaut,
