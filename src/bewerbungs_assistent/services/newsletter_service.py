@@ -241,29 +241,35 @@ def _ollama_fallback(db, parsed: dict) -> list[dict]:
 
 
 def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
-    """Stellen aus einer Google-Jobs-Benachrichtigung (#1068).
+    """Stellen aus einer Google-Jobs-Benachrichtigung (#1068, #1120).
 
     Ohne URL: alle Links der Mail sind Redirects ueber
-    notifications.googleapis.com, und wohin sie aufloesen, ist nicht
-    gemessen. Eine erfundene Portal-URL waere schlimmer als keine —
-    die Duplikaterkennung arbeitet ohnehin ueber Firma und Titel.
+    notifications.googleapis.com. Gemessen (#1120) loesen sie auf eine
+    Google-Suche im alten Jobs-Format auf, die oft nur die Trefferliste
+    oeffnet. Als Stellen-URL saehe diese Luecke wie ein Wert aus; der Link
+    steht deshalb nur im Vermerk. Die Duplikaterkennung arbeitet ohnehin
+    ueber Firma und Titel.
 
     `veroeffentlicht_am` ist Pflicht und nicht Kuer: die Treffer sind
     nur fuer DIESEN Alert neu. Beim ersten Versand lagen sie zwischen
     Januar und September; ohne das Datum saehen sie taufrisch aus (#949).
+    Bei einem Weiterverbreiter ist das Kartendatum das Kopierdatum und
+    bleibt deshalb unbekannt.
     """
     from ..job_scraper import calculate_score, stelle_hash
     from . import scoring_kriterien
     from .google_alert import parse_alert, suchanfrage
+    from .weiterverbreiter import vermerk as weiterverbreiter_vermerk
 
-    treffer = parse_alert(parsed.get("body_text") or "")
+    treffer = parse_alert(parsed.get("body_text") or "",
+                          html=parsed.get("body_html") or "")
     if not treffer:
         return {
             "status": "keine_stellen", "label": label,
             "hinweis": ("Google-Jobs-Mail erkannt, aber kein Treffer-Block "
-                        "gefunden. Der Textteil hat die Form '<Titel> / "
-                        "<Firma> / <Ort> / über <Portal>'. Ändert Google "
-                        "das, bitte als Issue melden."),
+                        "gefunden. Jeder Treffer hat die Form '<Titel> / "
+                        "<Firma> / <Ort> / über <Portal> / <Datum>'. Ändert "
+                        "Google das, bitte als Issue melden."),
         }
 
     criteria = scoring_kriterien.fuer_scoring(db)
@@ -289,10 +295,19 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
             job["veroeffentlicht_am"] = e["veroeffentlicht_am"]
         vermerk = [f"Über Google-Jobs-Alert gefunden, Originalquelle: "
                    f"{e['portal']}."]
+        if e.get("weiterverbreiter"):
+            vermerk.append(weiterverbreiter_vermerk(e["portal"], e["firma"]))
+            if e.get("kartendatum"):
+                vermerk.append(
+                    f"Das Datum der Karte ({e['kartendatum']}) ist das "
+                    "Kopierdatum, das Veröffentlichungsdatum ist unbekannt.")
         if anfrage:
             vermerk.append(f"Suchanfrage: \"{anfrage}\".")
         if e.get("vertragsart"):
             vermerk.append(f"Angabe der Quelle: {e['vertragsart']}.")
+        if e.get("google_link"):
+            vermerk.append("Google-Link (öffnet oft nur die Liste): "
+                           f"{e['google_link']}")
         job["research_notes"] = " ".join(vermerk)
         try:
             job["score"] = calculate_score(job, criteria)
@@ -305,18 +320,22 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
     return {
         "status": "uebernommen",
         "label": label,
-        "ebene": "google-alert-text",
+        "ebene": f"google-alert-{treffer[0]['gelesen_aus']}",
         "suchanfrage": anfrage,
         "gefunden": len(jobs),
         "neu": neu,
         "bereits_bekannt": len(jobs) - neu,
         "portale": sorted({e["portal"] for e in treffer if e.get("portal")}),
+        "weiterverbreiter": sum(1 for e in treffer if e.get("weiterverbreiter")),
         "hinweis": (
-            "Die Stellen kommen ohne URL an — in der Mail zeigt jeder Link "
-            "auf einen Google-Redirect. Sie tragen dafür das "
-            "Ursprungsportal als Vermerk, und ihr Veröffentlichungsdatum "
-            "stammt aus der Mail: ein Alert liefert auch Monate alte "
-            "Anzeigen. Direkt ansehen: stellen_anzeigen(quelle='"
+            "Die Stellen kommen ohne Stellen-URL an — in der Mail zeigt "
+            "jeder Link auf eine Google-Suche, die oft nur die Liste "
+            "öffnet; sie steht deshalb nur im Vermerk. Dazu das "
+            "Ursprungsportal, und das Veröffentlichungsdatum stammt aus "
+            "der Mail: ein Alert liefert auch Monate alte Anzeigen. Bei "
+            "Weiterverbreitern (Seiten, die fremde Anzeigen kopieren) ist "
+            "das Datum unbekannt und das Original beim Arbeitgeber zu "
+            "suchen. Direkt ansehen: stellen_anzeigen(quelle='"
             + quelle + "')."
         ),
     }
