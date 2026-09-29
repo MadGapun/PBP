@@ -290,6 +290,8 @@ def _verarbeite_google_alert(db, parsed: dict, label: str) -> dict:
             # Laufs lagen schon in PBP. Es wandert als Vermerk mit,
             # damit die Herkunft beim Sichten sichtbar ist.
             "_manual_entry": True,
+            # Kein Link ist hier Absicht, kein Scraper-Defekt (#1120).
+            "_url_bewusst_leer": True,
         }
         if e.get("veroeffentlicht_am"):
             job["veroeffentlicht_am"] = e["veroeffentlicht_am"]

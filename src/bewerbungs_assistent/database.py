@@ -5606,7 +5606,13 @@ class Database:
             # #645: Guard fuer leere URLs aus Scraper-Quellen.
             src = (job.get("source") or "").strip()
             url_val = (job.get("url") or "").strip()
+            # #1120: `_url_bewusst_leer` setzt ein Zulieferer, der die URL
+            # absichtlich weglaesst (Google-Alert: jeder Link ist eine
+            # Google-Suche). Sonst hiesse die Stelle "zeigt auf eine
+            # Suchseite", obwohl sie gar keinen Link hat, und der Import
+            # stuende als Regression in den Warnungen.
             if (not url_val and src and src not in _URL_OPTIONAL_SOURCES
+                    and not job.get("_url_bewusst_leer")
                     and not src.startswith("plugin:")):  # J1 (#504): bewusste Zulieferung
                 logger.warning(
                     "save_jobs: leere URL aus Scraper-Quelle %r (title=%r, "

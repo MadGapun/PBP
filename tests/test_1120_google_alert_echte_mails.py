@@ -320,3 +320,18 @@ def test_1120_die_echte_mail_kommt_im_bestand_an(db, mail):
     assert "Original beim Arbeitgeber suchen (engineering-partner)" in notiz
     assert "Kopierdatum" in notiz
     assert "Google-Link (öffnet oft nur die Liste): " + KARTEN_ZIEL in notiz
+    # Kein Link ist hier Absicht: die Stelle zeigt nicht "auf eine
+    # Suchseite", und der Import steht nicht als Regression da.
+    assert not stelle.get("is_search_url")
+
+
+def test_1120_scraper_ohne_url_bleibt_ein_regressions_indikator(db):
+    """Die Gegenrichtung: nur der ausdrueckliche Verzicht zaehlt."""
+    from bewerbungs_assistent.job_scraper import stelle_hash
+    job = {"hash": stelle_hash("stepstone", "x"), "title": "PLM Engineer",
+           "company": "Musterfirma", "location": "Hamburg", "url": "",
+           "source": "stepstone", "description": "", "score": 0}
+    stats = db.save_jobs([job])
+    assert stats.get("leere_url_warnungen") == {"stepstone": 1}
+    stelle = [j for j in db.get_active_jobs() if j["title"] == "PLM Engineer"][0]
+    assert stelle.get("is_search_url")

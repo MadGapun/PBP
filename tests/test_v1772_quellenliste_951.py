@@ -296,7 +296,12 @@ def test_951_der_suchlauf_geht_durch_das_nadeloehr():
     quelle = (_repo() / "src" / "bewerbungs_assistent"
               / "database.py").read_text(encoding="utf-8")
     start = quelle.index("def save_jobs")
-    block = quelle[start:start + 14000]
+    # Die ganze Methode bis zur naechsten — kein festes Fenster (L24):
+    # ein Kommentar weiter oben (#1120) schob den Aufruf ueber die
+    # fruehere 14.000-Zeichen-Grenze, und der Test meldete "baut die
+    # Erkennung wieder selbst", obwohl nichts daran geaendert war.
+    ende = quelle.index("\n    def ", start + 1)
+    block = quelle[start:ende]
     assert "stellen_dublette.finde(" in block, (
         "save_jobs baut die Erkennung wieder selbst.")
     # Der alte Weg darf nicht danebenstehen.
