@@ -7634,6 +7634,8 @@ class Database:
     #: anderes schreibt, ist fuer `get_running_background_job` und die
     #: Bereinigung beim Start unsichtbar — so lief der Lernlauf doppelt.
     BACKGROUND_JOB_STATUS = ("pending", "running", "fertig", "fehler", "abgebrochen")
+    #: #1118: Pause vor dem naechsten Versuch (Sekunden, waechst je Versuch).
+    JOB_WIEDERHOLUNG_PAUSE = 2.0
 
     def update_background_job(self, job_id: str, status: str,
                                progress: int = 0, message: str = "",
@@ -7641,16 +7643,34 @@ class Database:
         if status not in self.BACKGROUND_JOB_STATUS:
             raise ValueError(f"Unbekannter Job-Status {status!r} (#1107)")
         conn = self.connect()
-        conn.execute("""
-            UPDATE background_jobs SET status=?, progress=?, message=?,
-                result=?, updated_at=?
-            WHERE id=?
-        """, (
-            status, progress, message,
-            json.dumps(result) if result else None,
-            _now(), job_id
-        ))
-        conn.commit()
+        # #1118: haelt ein anderer Schreiber die Datei laenger als das
+        # busy_timeout, scheiterte hier der Abschluss eines Suchlaufs — und
+        # der Lauf blieb fuer immer als "laeuft" stehen. Das UPDATE ist
+        # idempotent; drei Versuche mit Pause.
+        for versuch in range(3):
+            try:
+                conn.execute("""
+                    UPDATE background_jobs SET status=?, progress=?, message=?,
+                        result=?, updated_at=?
+                    WHERE id=?
+                """, (
+                    status, progress, message,
+                    json.dumps(result) if result else None,
+                    _now(), job_id
+                ))
+                conn.commit()
+                return
+            except sqlite3.OperationalError as exc:
+                if "locked" not in str(exc).lower() or versuch == 2:
+                    raise
+                try:
+                    conn.rollback()
+                except sqlite3.Error:
+                    pass
+                logger.warning("Hintergrund-Job %s: Datenbank gesperrt, neuer Versuch (%d/3)",
+                               job_id, versuch + 2)
+                import time as _time
+                _time.sleep(self.JOB_WIEDERHOLUNG_PAUSE * (versuch + 1))
 
     def unterbrochene_jobs_abbrechen(self) -> int:
         """Beim Start: was noch als laufend markiert ist, lief beim letzten

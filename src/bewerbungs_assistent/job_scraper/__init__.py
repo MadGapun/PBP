@@ -1722,12 +1722,13 @@ def run_search(db, job_id: str, params: dict):
                 # Minuten voraus, und die Zahl war der Anlass fuer
                 # #1057.
                 est_seconds = orte_verschieden * 1  # 1 req/sec je Ort
-                db.update_background_job(
-                    job_id, "running",
-                    progress=int(90),
+                # #1118: die Anzeige darf den Zweck des Blocks nicht kippen —
+                # scheiterte dieser erste Schreibvorgang, fiel das ganze
+                # Geocoding still aus.
+                _fortschritt_sicher(
+                    db, job_id, progress=int(90),
                     message=(f"Geocoding: {orte_verschieden} verschiedene Orte "
-                             f"aus {total_geocode} Stellen (~{max(1, est_seconds // 60)} Min)...")
-                )
+                             f"aus {total_geocode} Stellen (~{max(1, est_seconds // 60)} Min)..."))
                 logger.info("Geocoding: %d verschiedene Orte aus %d Stellen "
                             "(~%d Sek bei 1 Req/Sek je Ort) (#215, #1057)",
                             orte_verschieden, total_geocode, est_seconds)
@@ -1758,16 +1759,17 @@ def run_search(db, job_id: str, params: dict):
                         pass
                 # Update progress periodically during geocoding (#215)
                 if total_geocode > 20 and i > 0 and i % 20 == 0:
-                    db.update_background_job(
-                        job_id, "running",
-                        progress=int(90 + (i / total_geocode) * 9),
+                    _fortschritt_sicher(
+                        db, job_id, progress=int(90 + (i / total_geocode) * 9),
                         message=(f"Geocoding: {i}/{total_geocode} Stellen "
-                                 f"({orte_verschieden} verschiedene Orte)...")
-                    )
+                                 f"({orte_verschieden} verschiedene Orte)..."))
             if geocoded_count:
                 logger.info("Geocoding: %d Stellen mit Entfernung berechnet", geocoded_count)
     except Exception as e:
-        logger.debug("Geocoding in Pipeline fehlgeschlagen (nicht kritisch): %s", e)
+        # #1118: Warnung statt Debug — sonst stehen hunderte Stellen ohne
+        # Entfernung da, und nichts sagt warum.
+        logger.warning("Geocoding im Suchlauf fehlgeschlagen, Stellen bleiben ohne "
+                       "Entfernung: %s", e)
 
     # v1.7.94 (#1034): der Score erst, wenn alles da ist, was er liest — Gehalt,
     # Anstellungsart und Entfernung. Vorher war der gespeicherte Wert von
@@ -2074,6 +2076,14 @@ def run_search(db, job_id: str, params: dict):
         message=" | ".join(msg_parts),
         result=result_data,
     )
+
+
+def _fortschritt_sicher(db, job_id, progress: int, message: str) -> None:
+    """Fortschritt melden, ohne dass ein Schreibfehler die Arbeit abbricht (#1118)."""
+    try:
+        db.update_background_job(job_id, "running", progress=progress, message=message)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Fortschritt des Suchlaufs nicht gespeichert: %s", exc)
 
 
 # Klartext fuer die Filterstufen (#813). Die internen Schluessel sagen

@@ -450,8 +450,13 @@ def register(mcp, db, logger):
                 return {"fehler": "Unbekannte Job-ID",
                         "hinweis": "Ohne job_id zeigt jobsuche_status() die letzte Suche."}
         else:
-            job = (db.get_running_background_job("jobsuche")
-                   or db.get_last_finished_background_job("jobsuche"))
+            job = db.get_running_background_job("jobsuche")
+            # #1118: ein toter Lauf wird beim Nachsehen abgeschlossen,
+            # statt fuer immer als "laeuft" dazustehen.
+            from ..services.hintergrund_alter import abschliessen, veraltet
+            if veraltet(job) and abschliessen(db, job):
+                job = None
+            job = job or db.get_last_finished_background_job("jobsuche")
             if job is None:
                 return leer({"status": "keine_suche"},
                             "Es lief noch keine Jobsuche.",

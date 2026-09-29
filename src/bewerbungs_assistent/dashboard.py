@@ -6452,19 +6452,11 @@ async def api_background_job(job_id: str):
     job = _db.get_background_job(job_id)
     if job is None:
         return JSONResponse({"error": "Not found"}, status_code=404)
-    # Stale-Detection: stuck jobs > 15 min → mark as error (#265)
-    if job.get("status") in ("running", "pending"):
-        updated = job.get("updated_at") or job.get("created_at")
-        if updated:
-            from datetime import datetime, timedelta
-            try:
-                if datetime.now() - datetime.fromisoformat(updated) > timedelta(minutes=15):
-                    _db.update_background_job(
-                        job_id, "fehler",
-                        message="Timeout: Job lief länger als 15 Minuten ohne Update (#265)")
-                    job["status"] = "fehler"
-            except (ValueError, TypeError):
-                pass
+    # Stale-Detection (#265). #1118: zeitzonenfest und mit der Grenze des
+    # Jobs — vorher scheiterte der Vergleich immer still am TypeError.
+    from .services.hintergrund_alter import abschliessen, veraltet
+    if veraltet(job) and abschliessen(_db, job):
+        job = _db.get_background_job(job_id) or job
     return job
 
 
@@ -6526,18 +6518,11 @@ async def api_jobsuche_running():
         return {"running": False}
     # Stale-Job-Erkennung (#155): Job > 30 Minuten ohne Update â†’ abbrechen
     updated = job.get("updated_at") or job.get("created_at")
-    if updated:
-        from datetime import datetime, timedelta
-        try:
-            last_update = datetime.fromisoformat(updated)
-            now = datetime.now()
-            if now - last_update > timedelta(minutes=15):
-                _db.update_background_job(
-                    job["id"], "fehler", message="Timeout: Job lief länger als 15 Minuten ohne Update (#265)")
-                logger.warning("Stale background job %s bereinigt (letztes Update: %s)", job["id"], updated)
-                return {"running": False}
-        except (ValueError, TypeError):
-            pass
+    # #1118: zeitzonenfest, mit der Grenze des Laufs (LinkedIn meldet sich
+    # bis zu 20 Minuten nicht), und nie, solange sein Thread noch lebt.
+    from .services.hintergrund_alter import abschliessen, veraltet
+    if veraltet(job) and abschliessen(_db, job):
+        return {"running": False}
     return {
         "running": True,
         "job_id": job.get("id"),
@@ -11808,29 +11793,25 @@ DASHBOARD_PORT = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
 def _cleanup_stale_jobs(db):
     """Startup-Bereinigung: Alte stuck Background-Jobs auf 'fehler' setzen (#155)."""
-    from datetime import datetime, timedelta
     try:
         conn = db.connect()
         rows = conn.execute(
-            "SELECT id, updated_at, created_at FROM background_jobs "
+            "SELECT id, job_type, params, status, updated_at, created_at FROM background_jobs "
             # #1107: 'laeuft' schrieb bis v1.7.139 nur der Lernlauf.
             "WHERE status IN ('running', 'pending', 'laeuft')"
         ).fetchall()
-        now = datetime.now()
+        # #1118: zeitzonenfest — vorher endete jeder Vergleich im
+        # TypeError, und ein toter Lauf ueberlebte jeden Neustart.
+        from .services.hintergrund_alter import veraltet
         cleaned = 0
         for row in rows:
-            updated = row["updated_at"] or row["created_at"]
-            if not updated:
-                continue
-            try:
-                last = datetime.fromisoformat(updated)
-                if now - last > timedelta(hours=1):
-                    db.update_background_job(
-                        row["id"], "fehler",
-                        message="Startup-Bereinigung: Job war beim Neustart noch als laufend markiert")
-                    cleaned += 1
-            except (ValueError, TypeError):
-                continue
+            job = dict(row)
+            job.setdefault("status", "running")
+            if veraltet(job, mindestens_sek=3600):
+                db.update_background_job(
+                    job["id"], "fehler",
+                    message="Startup-Bereinigung: Job war beim Neustart noch als laufend markiert")
+                cleaned += 1
         if cleaned:
             logger.info("Startup: %d veraltete Background-Jobs bereinigt", cleaned)
     except Exception as exc:
