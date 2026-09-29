@@ -28,18 +28,19 @@ from __future__ import annotations
 
 import re
 
-#: Name (kleingeschrieben) -> Beleg.
+#: Name (kleingeschrieben) -> Beleg. Der Beleg ist sichtbarer Text
+#: (echte Umlaute, #1087 G66).
 WEITERVERBREITER: dict[str, str] = {
     "move collective jobs": (
-        "29.09.2026 (#1120): britische Seite, die Anzeigen aus Grossbritannien, "
+        "29.09.2026 (#1120): britische Seite, die Anzeigen aus Großbritannien, "
         "den USA und Deutschland spiegelt, ohne eigene Inhalte; Anzeigen von "
         "2024 noch online, kein einziger PLM/PDM-Treffer."
     ),
     "lilylifestyle jobs": (
         "29.09.2026 (#1120): jobs.lilylifestyle.co.uk nennt sich selbst Teil "
-        "des JobBoard.com-Netzes und zeigt darueber fremde Stellen an (Seite "
+        "des JobBoard.com-Netzes und zeigt darüber fremde Stellen an (Seite "
         "'About'); dieselbe Software wie Move Collective Jobs und dasselbe "
-        "Titel-Anhaengsel '. Job in <Ort> <Portal>' im Google-Alert."
+        "Titel-Anhängsel '. Job in <Ort> <Portal>' im Google-Alert."
     ),
 }
 
