@@ -190,9 +190,23 @@ def entfernungen_nachziehen(db, alle: bool = False,
     orte = list(nach_ort)
     if max_orte:
         orte = orte[:max_orte]
-    gerechnet, unaufloesbar = 0, 0
+    # #1118: erst alle Orte aufloesen (eine Netzabfrage je Ort und Sekunde),
+    # DANACH in einem kurzen Schreibvorgang speichern. Vorher lief jedes
+    # UPDATE in derselben offenen Transaktion wie die Abfragen — bei 753
+    # Orten hielt das die Schreibsperre 25 Minuten, und der gleichzeitige
+    # Suchlauf starb an "database is locked".
+    ziele: dict = {}
     for i, ort in enumerate(orte):
-        ziel = geocode_location(ort)
+        ziele[ort] = geocode_location(ort)
+        if fortschritt and i % 10 == 0:
+            try:
+                fortschritt(i, len(orte))
+            except Exception as exc:  # noqa: BLE001 — Anzeige, nicht der Zweck
+                logger.warning("Fortschritt der Entfernungen nicht gespeichert: %s", exc)
+    gerechnet, unaufloesbar = 0, 0
+    am = _jetzt()
+    for ort in orte:
+        ziel = ziele[ort]
         hashes = nach_ort[ort]
         platz = ",".join("?" * len(hashes))
         if ziel:
@@ -201,12 +215,10 @@ def entfernungen_nachziehen(db, alle: bool = False,
                 f"UPDATE jobs SET distance_km=?, lat=?, lon=?, entfernung_am=?, "
                 f"fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL "
                 f"WHERE hash IN ({platz})",
-                (km, ziel[0], ziel[1], _jetzt(), *hashes))
+                (km, ziel[0], ziel[1], am, *hashes))
             gerechnet += len(hashes)
         else:
             unaufloesbar += len(hashes)
-        if fortschritt and i % 10 == 0:
-            fortschritt(i, len(orte))
     con.commit()
     offen = len(nach_ort) - len(orte)
     return {"status": "fertig", "stellen": gerechnet, "orte": len(orte),
@@ -219,16 +231,46 @@ def _punkte_neu(db) -> dict:
     return neu_bewerten(db, db.get_active_jobs(), scoring_kriterien.fuer_scoring(db))
 
 
+#: #1118: wie oft die Nachrechnung nachsieht, ob die Jobsuche fertig ist,
+#: und wie lange sie hoechstens wartet.
+WARTEN_TAKT_SEK = 10
+WARTEN_HOECHSTENS_SEK = 45 * 60
+
+
+def _warten_auf_suche(db, job_id) -> None:
+    """Nachrechnung und Suchlauf nicht gleichzeitig (#1118): beim ersten
+    Start nach einem Update trafen sie sich zwangsläufig — die Automatik
+    war fällig, und die Übernahme des Wohnorts stieß die Nachrechnung an.
+    Ein toter Suchlauf hält nicht auf."""
+    import time
+    from .hintergrund_alter import veraltet
+    ende = time.monotonic() + WARTEN_HOECHSTENS_SEK
+    while time.monotonic() < ende:
+        suche = db.get_running_background_job("jobsuche")
+        if not suche or veraltet(suche):
+            return
+        db.update_background_job(job_id, "pending", progress=0,
+                                 message="Wartet, bis die Jobsuche fertig ist …")
+        time.sleep(WARTEN_TAKT_SEK)
+
+
 def neu_rechnen_starten(db, alle: bool = True) -> str | None:
     """Im Hintergrund: Entfernungen und danach die Punkte neu (AK 4, 8).
     Rueckgabe: die Kennung des Hintergrund-Jobs."""
     job_id = db.create_background_job("entfernungen", {"alle": alle})
 
+    def _fortschritt(i, n):
+        db.update_background_job(job_id, "running", progress=5 + int(i / max(n, 1) * 80),
+                                 message=f"Entfernungen: {i} von {n} Orten aufgelöst …")
+
     def _lauf():
         try:
+            _warten_auf_suche(db, job_id)
             db.update_background_job(job_id, "running", progress=5,
                                      message="Entfernungen werden neu gerechnet …")
-            erg = entfernungen_nachziehen(db, alle=alle, max_orte=None if alle else NACHHOLEN_JE_LAUF)
+            erg = entfernungen_nachziehen(db, alle=alle,
+                                          max_orte=None if alle else NACHHOLEN_JE_LAUF,
+                                          fortschritt=_fortschritt)
             punkte = _punkte_neu(db)
             db.update_background_job(
                 job_id, "fertig", progress=100,

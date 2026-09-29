@@ -145,6 +145,17 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
             logger.debug("Erstauswahl der Quellen: %s", exc)
 
     laufend = db.get_running_background_job("jobsuche")
+    # #1118: ein Eintrag, der laenger als das Zeitlimit des Laufs keine
+    # Rueckmeldung gab und dessen Thread nicht mehr lebt, ist abgebrochen.
+    # Er blockierte sonst jeden neuen Start — Claude, Knopf und Automatik —,
+    # und kein Werkzeug schloss ihn ab.
+    from .hintergrund_alter import abschliessen, veraltet
+    for _ in range(5):
+        if not (laufend and veraltet(laufend)):
+            break
+        abschliessen(db, laufend)
+        schritte.append("toten_lauf_abgeschlossen")
+        laufend = db.get_running_background_job("jobsuche")
     if laufend:
         return {"status": "laeuft_bereits", "job_id": laufend["id"], "schritte": schritte}
 
