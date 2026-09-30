@@ -188,7 +188,11 @@ export default function TasksPage() {
     const [label, badgeCls] = HERKUNFT_BADGE[e.herkunft] || ["Aufgabe", ""];
     return (
       <div key={`${e.herkunft}-${e.id}`}
-        className="group flex items-start gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.05]">
+        className="group flex min-w-0 items-start gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 hover:bg-white/[0.05]"
+        /* #1122: ohne min-w-0 ist die Zeile so breit wie ihr laengster Titel
+           und schiebt die Knoepfe rechts aus dem Fenster (1433 px Inhalt bei
+           961 px Sichtbereich). Gemessen und einzeln gegengeprueft; die
+           Wurzel (grid-cols) und die Gruppe brauchen es nicht. */>
         {e.herkunft !== "termin" && e.status !== "erledigt" && (
           <button aria-label="Erledigt"
             onClick={() => aktion(e, "erledigt")}
@@ -214,10 +218,10 @@ export default function TasksPage() {
               und Datum sieht, faengt an zu suchen — genau das war die
               Beobachtung, die zu diesem Issue gefuehrt hat. */}
           {e.beschreibung ? (
-            <p className="mt-0.5 line-clamp-2 text-xs text-muted">{e.beschreibung}</p>
+            <p className="mt-0.5 line-clamp-2 text-xs text-muted [overflow-wrap:anywhere]">{e.beschreibung}</p>
           ) : null}
           {e.ueberholt ? (
-            <p className="mt-0.5 text-xs text-amber">{e.ueberholt_grund}</p>
+            <p className="mt-0.5 text-xs text-amber [overflow-wrap:anywhere]">{e.ueberholt_grund}</p>
           ) : null}
           <p className="mt-0.5 text-xs text-muted">
             {e.firma ? <span className="mr-2">{e.firma}</span> : null}

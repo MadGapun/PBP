@@ -1069,6 +1069,21 @@ class Database:
                 self._standardgruende_zusammenfuehren()
             except Exception as _exc:  # pragma: no cover — nie den Start stoppen
                 logger.warning("Standardgruende nicht zusammengefuehrt: %s", _exc)
+            # #1123: Erinnerungen, deren Bewerbung schon im Gespraech ist,
+            # standen bis v1.7.141 offen und unter "Ueberfaellig".
+            try:
+                from .services import nachfass_abgleich
+                _zu = nachfass_abgleich.ueberholte_schliessen(self)
+                if _zu:
+                    logger.info("Safety-Net: %d ueberholte Nachfragen "
+                                "geschlossen (#1123)", len(_zu))
+            except Exception as _exc:  # pragma: no cover — nie den Start stoppen
+                logger.warning("Ueberholte Nachfragen nicht geschlossen: %s", _exc)
+            # #1122: "&amp;" in Titeln und offene Platzhalter in Nachfass-Texten.
+            try:
+                self._text_bestand_heilen()
+            except Exception as _exc:  # pragma: no cover — nie den Start stoppen
+                logger.warning("Text im Bestand nicht bereinigt: %s", _exc)
             if _j_cols:
                 from .services.ablehnungsgruende import (
                     ist_konform, normalisiere_dismiss_wert)
@@ -6554,6 +6569,12 @@ class Database:
         ).fetchone()[0]
 
     def add_application(self, data: dict) -> str:
+        # #1122: ein Portal liefert Titel als HTML; "&amp;" gehoert nicht in
+        # den gespeicherten Titel. Dieselbe Funktion wie save_jobs (#965).
+        data = dict(data)
+        for _k in ("title", "company"):
+            if _k in data:
+                data[_k] = _entities_aufloesen(data[_k])
         conn = self.connect()
         aid = _gen_id()
         now = _now()
@@ -6684,6 +6705,22 @@ class Database:
                 conn.commit()
             except Exception:
                 pass
+        # #1123: hat der Arbeitgeber geantwortet (Eingangsbestaetigung,
+        # Interview, Angebot ...), erledigt sich die Routine-Nachfrage —
+        # nicht erst beim Lesen als "ueberholt" markiert. Terminale Status
+        # und der Abschluss eines Interviews schliessen weiter unten selbst
+        # (und legen dort bei Bedarf eine NEUE Nachfrage an).
+        schliesst_hier = (new_status not in self.TERMINAL_STATUSES
+                          and new_status != "interview_abgeschlossen")
+        if schliesst_hier:
+            try:
+                from .services import nachfass_abgleich
+                if new_status in nachfass_abgleich.KONTAKT_STATUS:
+                    result["dismissed_followups"] = len(
+                        nachfass_abgleich.kontakt_gemeldet(
+                            self, app_id, f"Status {new_status}"))
+            except Exception as _exc:  # noqa: BLE001 — nie den Statuswechsel kippen
+                logger.debug("Nachfrage bei Kontakt (#1123): %s", _exc)
         # #493: Offene Follow-ups schliessen bei terminalen Status
         if new_status in self.TERMINAL_STATUSES:
             try:
@@ -6761,7 +6798,9 @@ class Database:
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
-                values.append(data[key])
+                # #1122: dieselbe Funktion wie save_jobs (#965).
+                values.append(_entities_aufloesen(data[key])
+                              if key in ("title", "company") else data[key])
         if not fields:
             return
         fields.append("updated_at=?")
@@ -9930,6 +9969,62 @@ class Database:
             geaendert += 1
         return geaendert
 
+    #: Felder, in denen Menschen lesen und nie HTML stehen soll (#1122).
+    #: Die Stellenbeschreibung gehoert bewusst NICHT dazu.
+    _ENTITAETEN_FELDER = {
+        "applications": ("title", "company"),
+        "jobs": ("title", "company", "location"),
+        "tasks": ("titel", "beschreibung", "notiz"),
+    }
+
+    def _text_bestand_heilen(self) -> dict:
+        """Zeichenverweise und offene Platzhalter im Bestand beheben (#1122).
+
+        Idempotent und nur fuer Zeilen mit Treffer: `&amp;` in Titeln
+        (die Aufgabenzeile, der Nachfass-Text und die Bewerbung trugen es),
+        `{applied_at}` und `{ansprechpartner}` in Nachfass-Texten. Neue
+        Zeilen werden schon beim Schreiben bereinigt (`save_jobs` seit
+        #965, `add_application` seit #1122); das hier holt den Bestand nach.
+        """
+        from .services.nachfass_platzhalter import platzhalter_fuellen
+        entitaeten = _entities_aufloesen
+
+        conn = self.connect()
+        geheilt = {"zeichenverweise": 0, "platzhalter": 0}
+        for tabelle, spalten in self._ENTITAETEN_FELDER.items():
+            for spalte in spalten:
+                try:
+                    zeilen = conn.execute(
+                        f"SELECT rowid AS rid, {spalte} AS wert FROM {tabelle} "
+                        f"WHERE {spalte} LIKE '%&%;%'").fetchall()
+                except sqlite3.Error:
+                    continue
+                for z in zeilen:
+                    neu = entitaeten(z["wert"])
+                    if neu != z["wert"]:
+                        conn.execute(
+                            f"UPDATE {tabelle} SET {spalte}=? WHERE rowid=?",
+                            (neu, z["rid"]))
+                        geheilt["zeichenverweise"] += 1
+        try:
+            zeilen = conn.execute(
+                "SELECT f.id AS id, f.template AS template, a.applied_at AS applied_at, "
+                "a.ansprechpartner AS ansprechpartner FROM follow_ups f "
+                "LEFT JOIN applications a ON a.id=f.application_id "
+                "WHERE f.template LIKE '%{%}%'").fetchall()
+        except sqlite3.Error:
+            zeilen = []
+        for z in zeilen:
+            neu = platzhalter_fuellen(z["template"], {
+                "applied_at": z["applied_at"], "ansprechpartner": z["ansprechpartner"]})
+            if neu != z["template"]:
+                conn.execute("UPDATE follow_ups SET template=? WHERE id=?", (neu, z["id"]))
+                geheilt["platzhalter"] += 1
+        if any(geheilt.values()):
+            conn.commit()
+            logger.info("Safety-Net: Text im Bestand bereinigt: %s (#1122)", geheilt)
+        return geheilt
+
     def _standardgruende_zusammenfuehren(self) -> int:
         """Fuehrt gleichbedeutende Eintraege in den Standardgrund zusammen (#1115).
 
@@ -12030,6 +12125,17 @@ class Database:
             ),
         )
         conn.commit()
+        # #1123: eine zugeordnete Mail ist Kontakt — gemessen am Datum der
+        # Mail, nicht am Import: eine alte Mail beantwortet keine Nachfrage,
+        # die danach geplant wurde.
+        if data.get("application_id"):
+            try:
+                from .services import nachfass_abgleich
+                nachfass_abgleich.kontakt_gemeldet(
+                    self, data["application_id"], "E-Mail zugeordnet",
+                    wann=data.get("sent_date"))
+            except Exception as _exc:  # noqa: BLE001
+                logger.debug("Nachfrage bei Mail (#1123): %s", _exc)
         return eid
 
     def find_recent_duplicate_email(
@@ -12204,6 +12310,15 @@ class Database:
             ),
         )
         conn.commit()
+        # #1123: ein vereinbarter Termin ist Kontakt — die Routine-Nachfrage
+        # erledigt sich. Ein abgesagter Termin ist keiner.
+        if data.get("application_id") and (data.get("status") or "geplant") != "abgesagt":
+            try:
+                from .services import nachfass_abgleich
+                nachfass_abgleich.kontakt_gemeldet(
+                    self, data["application_id"], "Termin vereinbart")
+            except Exception as _exc:  # noqa: BLE001
+                logger.debug("Nachfrage bei Termin (#1123): %s", _exc)
         return mid
 
     def get_upcoming_meetings(self, days: int = 30) -> list:

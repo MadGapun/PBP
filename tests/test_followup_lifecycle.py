@@ -50,11 +50,16 @@ class TestTerminalStatusDismissesFollowups:
         assert fu["status"] == "hinfaellig"
 
     def test_non_terminal_keeps_followups(self, tmp_db):
-        app_id = _make_app(tmp_db)
+        """Ein nicht-terminaler Status OHNE Antwort des Arbeitgebers laesst
+        die Nachfrage stehen. Bis #1123 diente `interview` als Beispiel; seit
+        der Nutzerentscheidung vom 29.09.2026 erledigt sich die Nachfrage
+        mit jeder Antwort des Arbeitgebers (test_v17142_termin_folgen_1123).
+        `beworben` ist der eigene Versand und schliesst nichts."""
+        app_id = _make_app(tmp_db, status="in_vorbereitung")
         due = (datetime.now() + timedelta(days=3)).date().isoformat()
         fu_id = tmp_db.add_follow_up(app_id, due)
 
-        tmp_db.update_application_status(app_id, "interview")
+        tmp_db.update_application_status(app_id, "beworben")
 
         pending = [fu for fu in tmp_db.get_pending_follow_ups() if fu["id"] == fu_id]
         assert len(pending) == 1
