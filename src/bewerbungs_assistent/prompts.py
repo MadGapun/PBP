@@ -551,9 +551,13 @@ Harte Grenzen zuerst (sofort aussortieren, ohne Rückfrage):
 - Gehalt oder Tagessatz BELEGT unter dem Minimum -> gehalt_zu_niedrig.
   Geschätzte Werte sind kein Grund.
 Vorgeschichte (vor jedem inhaltlichen Urteil):
-- Steht eine Repost-Warnung an der Stelle? Den dokumentierten Absagegrund
-  lesen (bewerbung_details, dokument_lesen) und gegen die neue Anzeige
-  halten. Eine Neuausschreibung ist nicht automatisch eine zweite Chance.
+- Steht eine Repost-Warnung an der Stelle (repost_warnung, repost_details)?
+  Läuft die Bewerbung noch (laeuft: true) und ist es dieselbe Stelle:
+  bereits_beworben, nicht noch einmal bewerben. Bei einer abgeschlossenen
+  den dokumentierten Absagegrund lesen (bewerbung_details, dokument_lesen)
+  und gegen die neue Anzeige halten. Eine Neuausschreibung ist nicht
+  automatisch eine zweite Chance. Art "vermittler" ist eine Frage an den
+  Menschen, kein Urteil.
 - firma_kontext(firmenname): bei Vermittlern auch den Endkunden bedenken
 - Schon beworben auf dieselbe Rolle -> bereits_beworben, nicht duplikat
 Inhalt:

@@ -1781,12 +1781,12 @@ def register(mcp, db, logger):
             # einer FRUEHEREN Bewerbung? Warnung, keine Entscheidung. Nur
             # wenn nicht ohnehin als bereits_beworben markiert (gleicher Hash).
             if j["hash"] not in applied_hashes_all:
-                from ..duplicate_detection import find_repost_of_application
-                _repost = find_repost_of_application(j, _alle_bewerbungen, db=db)
+                # v1.7.143 (#1126): dieselbe Frage wie im Dashboard - ueber
+                # EINE Funktion, samt Vermittler-Bewerbungen (#1076).
+                from ..services import bewerbungs_hinweis as _bh
+                _repost = _bh.fuer_stelle(j, _alle_bewerbungen, db=db)
                 if _repost:
-                    entry["repost_warnung"] = _repost["warnung"]
-                    entry["repost_details"] = {
-                        k: v for k, v in _repost.items() if k != "warnung"}
+                    entry.update(_bh.als_felder(_repost))
 
             # v1.7.12 (#827): Empfehlungslage sichtbar in der Liste — der
             # Nutzer soll nicht fuer jede Stelle fit_analyse aufrufen
@@ -2666,8 +2666,15 @@ def register(mcp, db, logger):
         wiedergaenger_bewerbung = None
         try:
             from ..duplicate_detection import find_repost_of_application
+            # v1.7.143 (#1117): MIT der URL. Eine zeichengleiche Adresse zu
+            # einer abgelehnten Bewerbung ist derselbe Beleg, der beim
+            # Aussortieren laengst greift (`grund: url_match`) - nur wurde
+            # er hier nie gefragt, weil die Erkennung ohne URL aufgerufen
+            # wurde. Dieselbe Funktion, kein Nachbau; ein Repost mit neuer
+            # URL wird weiter ueber Firma und Titel erkannt.
             wiedergaenger_bewerbung = find_repost_of_application(
-                {"hash": job_hash, "title": titel, "company": firma},
+                {"hash": job_hash, "title": titel, "company": firma,
+                 "url": url},
                 [a for a in all_apps if not _laeuft(a.get("status"))], db=db)
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
             # Sichtbar statt debug: hier verschwand ein NameError still,
@@ -4562,13 +4569,10 @@ def register(mcp, db, logger):
         # bevor Unterlagen erstellt werden, muss klar sein, dass es diese
         # Stelle als Bewerbung schon einmal gab.
         try:
-            from ..duplicate_detection import find_repost_of_application
-            _repost = find_repost_of_application(
-                job_dict, db.get_applications(), db=db)
+            from ..services import bewerbungs_hinweis as _bh
+            _repost = _bh.fuer_stelle(job_dict, db.get_applications(), db=db)
             if _repost:
-                result["repost_warnung"] = _repost["warnung"]
-                result["repost_details"] = {
-                    k: v for k, v in _repost.items() if k != "warnung"}
+                result.update(_bh.als_felder(_repost))
         except Exception as _e:
             logger.debug("Repost-Check in fit_analyse: %s", _e)
 

@@ -2566,6 +2566,12 @@ async def api_jobs(active: bool = True,
                 antwort = _aufbereitet(all_jobs)
             except _liste.UngueltigerParameter as fehler:
                 return _ungueltig(fehler)
+            # v1.7.143 (#1126): "Schon beworben?" - nur fuer die Seite, die
+            # der Mensch sieht. `_guete_anreichern` oben laeuft ueber den
+            # ganzen Bestand; diese Pruefung vergleicht jede Stelle mit jeder
+            # Bewerbung und gehoert deshalb hinter den Seitenschnitt.
+            from .services import bewerbungs_hinweis as _bh
+            _bh.anreichern(_db, antwort["jobs"])
             # #1022: die Kopfzeile beschreibt den BESTAND — ungefiltert.
             antwort["kennzahlen_basis"] = _kennzahlen_basis(all_jobs)
             antwort["aussortiert_gesamt"] = _aussortiert_zaehlen()
@@ -7870,7 +7876,12 @@ async def api_get_job_detail(job_hash: str):
     ).fetchone()
     if not row:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
-    return _db._serialize_job_row(row)
+    job = _db._serialize_job_row(row)
+    # v1.7.143 (#1126): dieselbe Antwort auf "schon beworben?" wie in der
+    # Liste und in den Werkzeugen.
+    from .services import bewerbungs_hinweis as _bh
+    _bh.anreichern(_db, [job])
+    return job
 
 
 # === Kontakte API (v1.7.0 #563) ===
