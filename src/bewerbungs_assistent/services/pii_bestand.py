@@ -121,6 +121,18 @@ def _treffer_ist_unsicher(name: str, text: str, start: int, ende: int) -> str:
     if name in GEWOEHNLICHE_WOERTER:
         return "Der Name ist zugleich ein gebräuchliches Wort."
 
+    # v1.7.143 (#1124): ein Ortsname allein. Gemessen am echten Bestand
+    # (2.200 Prueffnamen): genau einer war eine Grossstadt, als "Firma" aus
+    # den Stellen uebernommen (ein oeffentlicher Arbeitgeber). In einem
+    # Fehlerbericht steht die Stadt als Ort - "PLM Hamburg" - und wurde als
+    # sicherer Firmentreffer mit "NICHT veroeffentlichen" gemeldet. Ein
+    # Pruefer, der bei korrektem Text Alarm gibt, wird ignoriert (L25).
+    # Eine Rechtsform dahinter ("Hamburg Holding") und ein Mehrwort-Name
+    # ("Musterwerk Hamburg") sind oben schon als Firma durchgegangen.
+    from .geocoding_service import ist_ortsname
+    if ist_ortsname(name):
+        return "Der Name ist zugleich ein Ortsname."
+
     # Kleingeschrieben: dann ist es ein Adjektiv, Adverb oder Verb —
     # deutsche Firmennamen werden grossgeschrieben.
     if text[start:ende][:1].islower():
