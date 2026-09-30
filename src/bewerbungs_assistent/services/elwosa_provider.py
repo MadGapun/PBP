@@ -201,10 +201,19 @@ def betriebslage_kandidaten(db) -> list:
         for j in db.get_active_jobs()[:100]:
             rep = find_repost_of_application(j, bewerbungen)
             if rep:
+                # v1.7.143 (#1126): eine LAUFENDE Bewerbung ist kein
+                # "schon mal" und ihre Anzeige kein Repost.
+                text = (
+                    f"Bei {j.get('company', '?')} läuft bereits eine "
+                    "Bewerbung, und diese Anzeige sieht nach derselben "
+                    "Stelle aus. Ein zweiter Anlauf wäre Wiederholung, "
+                    "kein Fortschritt."
+                    if rep.get("laeuft") else
+                    f"Die Stelle bei {j.get('company', '?')} kennst "
+                    "du — da lief schon mal eine Bewerbung. "
+                    "Repost, keine neue Chance ohne neuen Plan.")
                 kandidaten.append(Candidate(
-                    content=(f"Die Stelle bei {j.get('company', '?')} kennst "
-                             "du — da lief schon mal eine Bewerbung. "
-                             "Repost, keine neue Chance ohne neuen Plan."),
+                    content=text,
                     trigger_kind="betriebslage",
                     trigger_ref=j.get("hash", ""),
                     dedup_key=f"repost:{j.get('hash', '')}",

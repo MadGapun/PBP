@@ -65,6 +65,41 @@ function kartenFakten(job) {
  * Gerechnet wird hier nichts; die Zuordnung steht in `lib/daumen.js`
  * und ist dort mit eigenem CI-Schritt geprueft.
  */
+// v1.7.143 (#1126): "Schon beworben?" - die Antwort rechnet der Server
+// (services/bewerbungs_hinweis.py) und liefert sie mit der Stelle; hier wird
+// nur gezeigt. Ein zweiter Rechenweg im Browser waere #963. Laeuft die
+// Bewerbung noch, faellt der Hinweis auf (amber): dort geht es darum, nicht
+// ein zweites Mal zu bewerben. Der naechste Schritt steht direkt daneben.
+function SchonBeworbenHinweis({ job, navigateTo, ausfuehrlich = false }) {
+  const d = job?.repost_details;
+  if (!d) return null;
+  const laeuft = Boolean(d.laeuft);
+  return (
+    <div
+      data-schon-beworben
+      data-laeuft={laeuft ? "ja" : "nein"}
+      className={cn(
+        "flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-[13px]",
+        laeuft ? "border-amber/30 bg-amber/[0.07] text-amber" : "border-white/10 bg-white/[0.03] text-muted"
+      )}
+    >
+      <span className="font-medium" data-schon-beworben-text>{d.kurz || job.repost_warnung}</span>
+      {d.bewerbung_id_voll ? (
+        <button
+          type="button"
+          className="text-sky underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sky/50"
+          onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { applicationId: d.bewerbung_id_voll, focus: "timeline" }); }}
+        >
+          Zur Bewerbung
+        </button>
+      ) : null}
+      {ausfuehrlich && job.repost_warnung ? (
+        <p className="basis-full text-[12px] text-muted" data-schon-beworben-satz>{job.repost_warnung}</p>
+      ) : null}
+    </div>
+  );
+}
+
 function DaumenAbzeichen({ marke, art }) {
   if (!marke) return null;
   const richtung = daumenSymbol(marke);
@@ -1850,6 +1885,7 @@ export default function JobsPage() {
                       <FuerClaudeMenue job={job} pushToast={pushToast} />
                     </span>
                   </div>
+                  <SchonBeworbenHinweis job={job} navigateTo={navigateTo} />
                   {(() => {
                     const grund = kartenGrund(job, datenguetMarke(job));
                     return grund ? (
@@ -2539,6 +2575,7 @@ export default function JobsPage() {
                 {jobNeedsDescriptionAttention(detailDialog.job) ? <Badge tone="amber">{descriptionAttentionLabel(detailDialog.job)}</Badge> : null}
                 {detailDialog.job.is_pinned ? <Badge tone="amber"><Pin size={12} className="inline" /> Angepinnt</Badge> : null}
               </div>
+              <SchonBeworbenHinweis job={detailDialog.job} navigateTo={navigateTo} ausfuehrlich />
               {/* #1052: die Begruendung beider Daumen im Klartext, dazu
                   das fachlich Erreichbare als DETAIL. Kein Prozentwert —
                   es gibt weder Ober- noch Untergrenze, und die besten

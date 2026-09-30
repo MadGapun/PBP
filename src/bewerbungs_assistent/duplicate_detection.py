@@ -10,7 +10,9 @@ Haertet die Duplikat-Pruefung in stelle_manuell_anlegen gegen:
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import datetime, timedelta
+from functools import lru_cache
 from typing import Iterable, Optional
 
 # Rechtsform-Suffixe die beim Vergleich ignoriert werden
@@ -52,17 +54,46 @@ def normalize_company_name(name: Optional[str]) -> str:
     - lowercase
     - Inhalt in runden Klammern entfernen
     - Rechtsform-Suffixe abschneiden (GmbH, Ltd., ...)
-    - Umlaute auf ASCII
+    - Umlaute auf ASCII, uebrige Akzente auf den Grundbuchstaben (#1117)
     - Whitespace und Satzzeichen kollabieren
+
+    Das Ergebnis haengt nur vom Namen ab und wird zwischengespeichert: ein
+    Stellenabgleich fragt denselben Namen hundertfach (Stelle x Bewerbung).
     """
     if not name:
         return ""
+    return _firma_normalisiert(str(name))
+
+
+#: Buchstaben mit Strich oder Ligatur zerlegt Unicode nicht in Grundbuchstabe
+#: und Akzent - sie brauchen eine eigene Zeile (#1117).
+_SONDERBUCHSTABEN = str.maketrans({
+    "ø": "o", "æ": "ae", "œ": "oe", "ł": "l", "đ": "d", "ð": "d", "þ": "th",
+})
+
+
+def _akzente_falten(text: str) -> str:
+    """Akzente auf den Grundbuchstaben: "Société" -> "Societe" (#1117).
+
+    Der Konzernname traegt den Akzent, die Landesgesellschaft in der
+    Anzeige oft nicht - und "societe x" ist kein Teilstring von
+    "société x deutschland", der Abgleich verfehlte die Firma. Umlaute sind
+    vorher schon ersetzt ("ä" -> "ae"), sonst wuerde daraus ein "a".
+    """
+    zerlegt = unicodedata.normalize("NFD", text.translate(_SONDERBUCHSTABEN))
+    return "".join(z for z in zerlegt if not unicodedata.combining(z))
+
+
+@lru_cache(maxsize=8192)
+def _firma_normalisiert(name: str) -> str:
     n = name.lower().strip()
     # Klammer-Zusaetze entfernen: "Systemhaus Nord Ltd. (Endkunde: ...)" -> "systemhaus nord ltd."
     n = re.sub(r"\([^)]*\)", " ", n)
     # Umlaute
     for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
         n = n.replace(uml, repl)
+    # Uebrige Akzente und Sonderbuchstaben (#1117)
+    n = _akzente_falten(n)
     # Rechtsform-Suffixe iterativ abschneiden (von hinten)
     changed = True
     while changed:
@@ -256,72 +287,197 @@ def find_duplicate_job(
     return best
 
 
+@lru_cache(maxsize=8192)
+def _stellen_url(url: str) -> str:
+    """Die Anzeigen-URL als Vergleichsschluessel - leer, wenn sie keine
+    einzelne Anzeige benennt (#1117).
+
+    Dieselbe Bereinigung wie beim Aussortieren (`url_schluessel`: ohne
+    Tracking-Parameter, klein, ohne Endstrich). Eine Suchergebnisseite
+    benennt keine Anzeige - zwei verschiedene Stellen koennen dieselbe
+    haben -, deshalb zaehlt sie nicht als Beleg.
+    """
+    from .services.stellen_dublette import url_schluessel
+    schluessel = url_schluessel(url)
+    if not schluessel:
+        return ""
+    try:
+        from .job_scraper import is_search_result_url
+        if is_search_result_url(url):
+            return ""
+    except Exception:  # pragma: no cover - ohne Scraper bleibt der Vergleich gueltig
+        pass
+    return schluessel
+
+
+def _url_treffer(url, kandidaten) -> Optional[dict]:
+    """Eine Bewerbung auf DIESELBE Anzeige, erkannt an der URL (#1117).
+
+    Rueckgabe in der Form von `find_duplicate_job`, damit die Weiterver-
+    arbeitung nur einen Weg kennt.
+    """
+    schluessel = _stellen_url(str(url or ""))
+    if not schluessel:
+        return None
+    from .services.bewerbung_status import laeuft
+    gleiche = [a for a in kandidaten
+               if _stellen_url(str(a.get("url") or "")) == schluessel]
+    if not gleiche:
+        return None
+    # Bei mehreren zaehlt die laufende, dann die juengste: sie sagt, was jetzt gilt.
+    bester = max(gleiche, key=lambda a: (
+        laeuft(a.get("status")),
+        a.get("applied_at") or a.get("created_at") or ""))
+    return {"job": bester, "grund": "url_match", "score": 1.0}
+
+
+def bewerbungen_ohne_eigene(job: dict, applications) -> list:
+    """Die Bewerbungen, die als "schon beworben" in Frage kommen.
+
+    Ohne die Bewerbung, die an DIESER Stelle haengt (das ist "Bereits
+    beworben", keine Wiederholung) und ohne Entwuerfe (`in_vorbereitung`):
+    darauf wurde noch nicht beworben.
+    """
+    eigener = job.get("hash") or ""
+    return [
+        a for a in applications
+        if not (eigener and (a.get("job_hash") or "") == eigener)
+        and (a.get("status") or "") != "in_vorbereitung"
+    ]
+
+
+def _repost_texte(*, laeuft: bool, sicher: bool, datum: str, status: str,
+                  titel: str, grund, grund_dokumentiert: bool) -> tuple:
+    """(kurz, warnung) - der Wortlaut folgt dem Stand der Bewerbung (#1126).
+
+    Eine LAUFENDE Bewerbung ist keine "zweite Chance": dort hilft nur der
+    Satz, nicht noch einmal zu bewerben. Der Wortlaut fuer abgeschlossene
+    Bewerbungen bleibt wie seit #782/#1083 - samt Absagegrund, nur Datum
+    und Status stehen jetzt lesbar da statt als Rohwert.
+    """
+    from .services.anzeigenamen import datum_text, status_text
+    am = f" am {datum_text(datum)}" if datum else ""
+    vom = f" vom {datum_text(datum)}" if datum else ""
+    stand = status_text(status)
+    if laeuft:
+        if sicher:
+            kurz = f"Schon beworben{am} — die Bewerbung läuft noch"
+            warnung = (
+                f"Du hast dich auf diese Anzeige bereits{am} beworben "
+                f"— die Bewerbung läuft noch (Stand: {stand}). "
+                "Nicht noch einmal bewerben.")
+        else:
+            kurz = f"Schon beworben? Bewerbung{vom} — läuft noch"
+            warnung = (
+                "Das sieht nach der Stelle aus, auf die du dich"
+                f"{am} beworben hast („{titel}“) — die "
+                f"Bewerbung läuft noch (Stand: {stand}). Falls es "
+                "dieselbe Stelle ist: nicht noch einmal bewerben.")
+        return kurz, warnung
+
+    kurz = (f"Schon beworben{am} — {stand}" if sicher else
+            f"Schon beworben? Bewerbung{vom} — {stand}")
+    kopf = ("Dieselbe Anzeige (gleiche URL): " if sicher
+            else "Repost-Verdacht: ")
+    # Datum und Status lesbar (G65, #1087 D2): in der Karte steht "12.05.2026
+    # - Abgelehnt", und derselbe Kasten darf darunter nicht "2026-05-12" und
+    # "abgelehnt" sagen.
+    warnung = (
+        f"{kopf}Auf diese Stelle wurde{am} bereits "
+        f"beworben (Status: {stand}). "
+        + (f"Dokumentierter Grund: „{grund['text']}“"
+           + (f" (aus {grund.get('dateiname')})"
+              if grund.get("quelle") == "dokument" else "") + "."
+           if grund else
+           "Ablehnungsgrund dokumentiert: ja."
+           if grund_dokumentiert else
+           "Ablehnungsgrund dokumentiert: NEIN — ob die alte Hürde "
+           "noch steht, ist unbekannt.")
+        + " Keine automatische Aussortierung — ein Repost kann eine "
+        "echte zweite Chance sein."
+    )
+    return kurz, warnung
+
+
 def find_repost_of_application(job: dict, applications,
                                db=None) -> Optional[dict]:
     """Repost-Erkennung (#782/C30, v1.7.10): entspricht eine (neu gefundene)
     Stelle einer Bewerbung, die es schon gab?
 
-    Bewusst OHNE URL-Vergleich: Reposts haben praktisch immer eine neue
-    Portal-URL, und die "unterschiedliche URLs = verschiedene Stellen"-Regel
-    aus #670 wuerde genau den Repost-Fall wegfiltern. Firma + Titel-
-    Aehnlichkeit tragen hier allein.
+    Firma + Titel-Aehnlichkeit tragen bewusst OHNE URL-Vergleich: Reposts
+    haben praktisch immer eine neue Portal-URL, und die "unterschiedliche
+    URLs = verschiedene Stellen"-Regel aus #670 wuerde genau den Repost-Fall
+    wegfiltern.
 
-    Liefert eine WARNUNG, keine Entscheidung — ein Repost nach Monaten kann
+    v1.7.143 (#1117): eine IDENTISCHE URL ist der staerkste denkbare Beleg
+    fuer dieselbe Anzeige - und wurde hier nie angesehen. Sie zaehlt jetzt
+    ZUSAETZLICH, als hinreichender Treffer (`match_grund` "url_match"),
+    nie als notwendige Bedingung: ein Repost mit neuer URL wird weiter
+    ueber Firma und Titel erkannt.
+
+    Liefert eine WARNUNG, keine Entscheidung - ein Repost nach Monaten kann
     eine echte zweite Chance sein (neue Ansprechpartner, geaenderte
     Anforderungen, besserer CV). Nichts wird automatisch aussortiert.
 
     v1.7.127 (#1083): mit `db` nennt die Warnung den dokumentierten
-    Grund im Wortlaut — aus der Bewerbung oder aus der verknuepften
+    Grund im Wortlaut - aus der Bewerbung oder aus der verknuepften
     Absagemail. "Ablehnungsgrund dokumentiert: ja" allein hat im
     Praxisfall dazu gefuehrt, dass die Neuausschreibung als zweite
     Chance galt, obwohl der Grund dagegen sprach.
+
+    v1.7.143 (#1126): der Wortlaut folgt dem Stand. Bei einer LAUFENDEN
+    Bewerbung steht dort "nicht noch einmal bewerben" statt einer Frage
+    nach dem Absagegrund, den es nicht gibt (`laeuft`, `kurz`). Die
+    Antwort traegt auch die volle Bewerbungs-ID (`bewerbung_id_voll`) -
+    das Dashboard springt damit zur Bewerbung.
     """
-    own_hash = job.get("hash") or ""
-    kandidaten = [
-        a for a in applications
-        if (a.get("job_hash") or "") != own_hash
-        and (a.get("status") or "") != "in_vorbereitung"
-    ]
+    kandidaten = bewerbungen_ohne_eigene(job, applications)
     if not kandidaten:
         return None
-    hit = find_duplicate_job(
-        job.get("company") or "", job.get("title") or "", "", kandidaten)
+    hit = _url_treffer(job.get("url"), kandidaten)
+    if not hit:
+        hit = find_duplicate_job(
+            job.get("company") or "", job.get("title") or "", "", kandidaten)
     if not hit:
         return None
     app = hit["job"]
+    from .services.bewerbung_status import laeuft as _laeuft
+    laeuft = _laeuft(app.get("status"))
+    sicher = hit.get("grund") == "url_match"
+    # Der Grund wird auch bei "laufend" nachgeschlagen: steht bei einer
+    # Bewerbung im Stand "beworben" schon eine Absage im Bestand, ist das
+    # ein Befund (Stand hinkt hinterher) - er gehoert in `repost_details`,
+    # nicht unter den Tisch. Der Satz folgt trotzdem dem Stand.
     grund_dokumentiert = bool((app.get("rejection_reason") or "").strip())
     grund = None
     if db is not None:
         try:
             from .services import dokument_text
             grund = dokument_text.ablehnungsgrund(db, app.get("id") or "")
-        except Exception:  # pragma: no cover — nie eine Liste stoppen
+        except Exception:  # pragma: no cover - nie eine Liste stoppen
             grund = None
     if grund:
         grund_dokumentiert = True
     datum = (app.get("applied_at") or app.get("created_at") or "")[:10]
+    kurz, warnung = _repost_texte(
+        laeuft=laeuft, sicher=sicher, datum=datum,
+        status=app.get("status") or "", titel=app.get("title") or "",
+        grund=grund, grund_dokumentiert=grund_dokumentiert)
     return {
+        "art": "wiederholung",
         "bewerbung_id": (app.get("id") or "")[:8],
+        "bewerbung_id_voll": app.get("id") or "",
         "beworben_am": datum,
         "status": app.get("status") or "",
+        "laeuft": laeuft,
+        "sicher": sicher,
         "titel_damals": app.get("title") or "",
+        "firma_damals": app.get("company") or "",
         "ablehnungsgrund_dokumentiert": grund_dokumentiert,
         **({"ablehnungsgrund": grund} if grund else {}),
         "match_grund": hit.get("grund", ""),
-        "warnung": (
-            f"Repost-Verdacht: Auf diese Stelle wurde am {datum} bereits "
-            f"beworben (Status: {app.get('status')}). "
-            + (f"Dokumentierter Grund: „{grund['text']}“"
-               + (f" (aus {grund.get('dateiname')})"
-                  if grund.get("quelle") == "dokument" else "") + "."
-               if grund else
-               "Ablehnungsgrund dokumentiert: ja."
-               if grund_dokumentiert else
-               "Ablehnungsgrund dokumentiert: NEIN — ob die alte Hürde "
-               "noch steht, ist unbekannt.")
-            + " Keine automatische Aussortierung — ein Repost kann eine "
-            "echte zweite Chance sein."
-        ),
+        "kurz": kurz,
+        "warnung": warnung,
     }
 
 
@@ -418,9 +574,17 @@ def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
         app_firma = normalize_company_name(app.get("company"))
         if app_firma == norm:
             continue  # das ist Stufe A
-        roh = " ".join(str(app.get(k) or "") for k in ("company", "notes"))
+        # v1.7.143 (#1126): auch das Feld `endkunde` - der Endkunde steht bei
+        # einer Bewerbung ueber einen Vermittler oft NUR dort, nicht im
+        # Klammerzusatz der Firma und nicht in den Notizen.
+        roh = " ".join(str(app.get(k) or "")
+                       for k in ("company", "notes", "endkunde"))
         for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
             roh = roh.lower().replace(uml, repl)
+        # #1117: derselbe Schnitt wie in `normalize_company_name` - der Name
+        # ist gefaltet, der Text muss es auch sein, sonst findet "societe"
+        # kein "société".
+        roh = _akzente_falten(roh)
         roh = re.sub(r"[^\w\s]", " ", roh)
         if _wortgrenze(norm, re.sub(r"\s+", " ", roh)):
             return app

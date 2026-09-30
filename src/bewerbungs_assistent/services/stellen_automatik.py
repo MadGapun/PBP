@@ -489,6 +489,13 @@ def _lade(db) -> list:
         return []
 
 
+def _bewerbungen_lesen(db) -> list:
+    try:
+        return db.get_applications()
+    except Exception:  # pragma: no cover - die Automatik darf nie blockieren
+        return []
+
+
 def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
     """Wendet die Automatik auf eine frische Trefferliste an.
 
@@ -503,12 +510,23 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
     dismissed = _lade(db)
     schluessel = bereits_aussortierte_schluessel(dismissed)
     beworbene = beworbene_hashes or set()
+    bewerbungen = _bewerbungen_lesen(db)
 
     behalten: list = []
     zaehler = {"automatisch_aussortiert": 0, "ignoriert": 0}
     belege: list = []
 
     for job in jobs:
+        # v1.7.143 (#1126): `_repost_verdacht` wurde hier gelesen und
+        # nirgends gesetzt (L11) - die Automatik kannte eine Wiederholung
+        # nur bei gleichem Hash. Der Setter ist dieselbe Funktion wie im
+        # Dashboard: erkennt sie die Stelle als frueher beworben, wird sie
+        # gezeigt statt aussortiert.
+        if (bewerbungen and job.get("hash") not in beworbene
+                and not job.get("_repost_verdacht")):
+            from . import bewerbungs_hinweis
+            if bewerbungs_hinweis.ist_wiederholung(job, bewerbungen):
+                job["_repost_verdacht"] = True
         e = entscheide(
             db, job, dismissed=dismissed, bekannte_schluessel=schluessel,
             ist_repost=bool(job.get("hash") in beworbene
