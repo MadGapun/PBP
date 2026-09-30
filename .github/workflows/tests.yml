@@ -30,7 +30,11 @@ jobs:
 
   pytest:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # #1132: die Suite braucht rund 20 Minuten, der Vorlauf (Pakete, Browser)
+    # ueblicherweise eine, am 30.09.2026 elf. Mit 30 Minuten brach das Limit
+    # eine vollstaendig durchgelaufene Suite ab. Untergrenze im Test
+    # tests/test_ci_zeitlimit_1132.py.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
 
