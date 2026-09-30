@@ -15,7 +15,9 @@ Antwort, keine Antwort auf die Frage des Menschen.
 Auskunft, die Pfad-Erkennung und den Aufbau der Skripte; `starten()`
 wird nur mit gemocktem `subprocess.Popen` aufgerufen.
 """
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -152,6 +154,56 @@ def test_975_command_ruft_nur_das_skript_auf():
     assert "rm -rf" not in text, "Der Wrapper darf selbst nichts loeschen"
 
 
+def _bash_kandidaten():
+    """Alle bash-Programme, die in Frage kommen (#1128).
+
+    Unter Windows ist das erste `bash` auf dem PATH oft der WSL-Stub in
+    System32; `shutil.which` sieht nur ihn. Git-Bash liegt woanders auf
+    dem PATH oder an einem der ueblichen Orte.
+    """
+    namen = ("bash.exe", "bash") if sys.platform == "win32" else ("bash",)
+    ordner = os.environ.get("PATH", "").split(os.pathsep)
+    if sys.platform == "win32":
+        for variable in ("ProgramFiles", "ProgramW6432", "ProgramFiles(x86)",
+                         "LOCALAPPDATA"):
+            basis = os.environ.get(variable)
+            if basis:
+                for unter in ("Git/bin", "Git/usr/bin", "Programs/Git/bin"):
+                    ordner.append(str(Path(basis) / unter))
+    gefunden: list = []
+    gesehen: set = set()
+    for o in ordner:
+        for name in namen:
+            pfad = Path(o) / name if o else None
+            # normcase: unter Windows stehen "System32" und "system32"
+            # oft beide auf dem PATH und meinen dieselbe Datei.
+            if (pfad and pfad.is_file()
+                    and os.path.normcase(str(pfad)) not in gesehen):
+                gesehen.add(os.path.normcase(str(pfad)))
+                gefunden.append(str(pfad))
+    return gefunden
+
+
+def _lauffaehiges_bash(kandidaten=None):
+    """Das erste bash, das wirklich ausfuehrt - oder None (#1128).
+
+    Der WSL-Stub existiert, laeuft aber ohne installierte Distribution
+    nicht: `bash -c true` endet mit Exit 1 und einer Meldung. Ein Test,
+    der daran scheitert, meldet "diese Maschine kann kein Bash" statt
+    eines Syntaxfehlers im Skript - und vier dauerhaft rote Tests werden
+    "bekannt" genannt und ueberlesen (L25).
+    """
+    for pfad in (_bash_kandidaten() if kandidaten is None else kandidaten):
+        try:
+            erg = subprocess.run([pfad, "-c", "true"], capture_output=True,
+                                 timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if erg.returncode == 0:
+            return pfad
+    return None
+
+
 @pytest.mark.parametrize("skript", [
     "installer/deinstallieren.sh", "DEINSTALLIEREN.command",
     "installer/install.sh", "INSTALLIEREN.command",
@@ -159,20 +211,79 @@ def test_975_command_ruft_nur_das_skript_auf():
 def test_975_shell_skripte_parsen(skript):
     """`bash -n` statt Ausfuehren — ein Syntaxfehler im Deinstaller faellt
     sonst erst dem Menschen auf, der ihn braucht."""
-    import shutil as _sh
-    if not _sh.which("bash"):
-        pytest.skip("bash nicht verfuegbar")
+    bash = _lauffaehiges_bash()
+    if not bash:
+        pytest.skip("bash nicht lauffaehig (WSL ohne Distribution?)")
     # Der Inhalt kommt ueber stdin, nicht als Pfad: unter Windows ist das
     # bash auf dem PATH haeufig das aus WSL, und das sieht "D:/..." nicht.
     # Ueber stdin gibt es gar keinen Pfad zu uebersetzen.
     erg = subprocess.run(
-        ["bash", "-n"],
+        [bash, "-n"],
         input=(WURZEL / skript).read_bytes(),
         capture_output=True)
     # BYTES, nicht text=True: unter Windows kodiert der Textmodus stdin
     # als cp1252 und stolpert ueber das erste Haekchen im Skript. Genau
     # die Falle aus #929, dort im PII-Pruefer.
     assert erg.returncode == 0, erg.stderr.decode("utf-8", "replace")
+
+
+def test_1128_ein_kaputtes_skript_faellt_beim_syntaxtest_durch():
+    """Der Test hat Zaehne: mit einem lauffaehigen bash macht ein
+    absichtlicher Syntaxfehler ihn rot (AK 2) - er wird nicht
+    uebersprungen."""
+    bash = _lauffaehiges_bash()
+    if not bash:
+        pytest.skip("bash nicht lauffaehig (WSL ohne Distribution?)")
+    erg = subprocess.run([bash, "-n"], input=b"if then fi",
+                         capture_output=True)
+    assert erg.returncode != 0
+
+
+def test_1128_ein_bash_das_nicht_ausfuehrt_wird_uebersprungen_nicht_angeklagt():
+    """Stellvertreter fuer den WSL-Stub: ein Programm, das existiert, aber
+    bei `-c true` mit Fehler endet (Python kennt `true` nicht). Es gilt als
+    "nicht lauffaehig" - der Test faellt dann auf das naechste zurueck oder
+    wird uebersprungen (AK 1), statt rot zu werden."""
+    assert _lauffaehiges_bash([sys.executable]) is None
+    assert _lauffaehiges_bash([]) is None
+
+
+def test_1128_die_suche_liefert_alle_bash_auf_dem_path_in_reihenfolge(
+        tmp_path, monkeypatch):
+    """`shutil.which` sieht nur das ERSTE bash auf dem PATH - und das ist
+    unter Windows oft der Stub. Die Suche muss alle nennen."""
+    name = "bash.exe" if sys.platform == "win32" else "bash"
+    a, b = tmp_path / "a", tmp_path / "b"
+    for ordner in (a, b):
+        ordner.mkdir()
+        (ordner / name).write_bytes(b"")
+    monkeypatch.setenv("PATH", os.pathsep.join([str(a), str(b)]))
+    reihenfolge = [Path(p).parent.name for p in _bash_kandidaten()
+                   if Path(p).parent.name in ("a", "b")]
+    assert reihenfolge == ["a", "b"]
+
+
+def test_1128_pfade_die_sich_nur_in_der_schreibweise_unterscheiden_zaehlen_einmal(
+        tmp_path, monkeypatch):
+    """Unter Windows stehen "System32" und "system32" oft beide auf dem PATH
+    und meinen dieselbe Datei."""
+    if sys.platform != "win32":
+        pytest.skip("die Schreibweise von Pfaden ist nur unter Windows egal")
+    ordner = tmp_path / "Ordner"
+    ordner.mkdir()
+    (ordner / "bash.exe").write_bytes(b"")
+    monkeypatch.setenv("PATH", os.pathsep.join([str(ordner), str(ordner).upper()]))
+    gefunden = [p for p in _bash_kandidaten()
+                if Path(p).parent.name.lower() == "ordner"]
+    assert len(gefunden) == 1
+
+
+def test_1128_ein_lauffaehiges_bash_wird_dem_stub_vorgezogen():
+    """Steht der Stub zuerst, gewinnt das erste bash, das laeuft."""
+    echtes = _lauffaehiges_bash()
+    if not echtes:
+        pytest.skip("kein lauffaehiges bash auf dieser Maschine")
+    assert _lauffaehiges_bash([sys.executable, echtes]) == echtes
 
 
 def test_975_unix_deinstaller_fragt_vor_jedem_schritt():
