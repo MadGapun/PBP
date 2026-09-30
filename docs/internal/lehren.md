@@ -45,7 +45,10 @@ der Mechanismus fertig und wird nur nicht gefragt), und die Antwort des
 Schreibwerkzeugs lesen ("updated" statt "created"). Namen und Signaturen
 werden nachgeschlagen: ein `except Exception` um einen geratenen
 Methodennamen verschluckt den AttributeError und schaltet still ab.
-*Belege:* #799, #986, #994, #1065, #1011, #1012, #1025, v1.7.94/9, DoD 8d
+Gesucht wird nach dem GEDANKEN, nicht nach dem geplanten Namen:
+`unescape` und `ueberholt` fanden, was `text_bereinigen` und
+`nachfass_abgleich` schon waren.
+*Belege:* #799, #986, #994, #1065, #1011, #1012, #1025, v1.7.94/9, DoD 8d, #1122/#1123 (zweimal beinahe doppelt gebaut: `_entities_aufloesen` gab es seit #965, der Aufraeumer `_run_followup_ueberholt` seit #945; gefunden erst beim Lesen roter Alt-Tests)
 
 ## 2. Vergleiche und Schreibweisen
 
@@ -103,7 +106,11 @@ dasselbe wie ein leerer Markt.
 ohne Draht, Felder ohne Leser und Schluessel, die niemand erzeugt, sehen
 im Docstring wie eine Funktion aus. Vokabulare entstehen aus den Lesern,
 nicht aus den Schreibern, und ein Guard haelt beide gegeneinander.
-*Belege:* #993, #1000, #988, #1015, #811, #1053, #1074, #973, v1.7.116/5, #1037 (Schluessel ist nicht Schalter: eine Einstellung, die Zugang UND Nutzung bedeutet, laesst sich nicht halb abschalten)
+Eine Automatik hat auch einen Ausloeser: der Aufraeumer fuer ueberholte
+Nachfragen lief hoechstens stuendlich und nur bei offenem Dashboard — wer
+ueber Claude arbeitet, hatte ihn nie. Was sich an einem Ereignis aendert,
+haengt am Ereignis; die Automatik bleibt das Netz darunter.
+*Belege:* #993, #1000, #988, #1015, #811, #1053, #1074, #973, v1.7.116/5, #1037 (Schluessel ist nicht Schalter: eine Einstellung, die Zugang UND Nutzung bedeutet, laesst sich nicht halb abschalten), #1123 (Nachfrage blieb "ueberfaellig", weil der Aufraeumer nie lief), #1115 (Leser der Whitelist ohne Draht zur Quelle)
 
 **L12. Rueckgabewerte auswerten, Fallbacks ohne andere Bedeutung.** Eine
 Erfolgsmeldung ueber eine Nicht-Aenderung beendet die Fehlersuche und ist
@@ -192,7 +199,7 @@ belegen einander nicht; je ein isolierender Fall. Das Gegenprobe-Skript
 selbst laeuft im Hintergrund mit Log und Zeitlimit, liest alle Kanaele und
 Testlaeufer, unterscheidet Sammelfehler von "rot", und der Arbeitsstand ist
 danach bytegleich.
-*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code)
+*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos)
 
 **L24. Ein Guard prueft die Bauform, nicht eine Zeichenkette.** Ein
 gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
@@ -217,7 +224,10 @@ kurze Schreibvorgaenge.
 oder die alte Loesung: die Absicht bleibt, der Stellvertreter (Wortlaut,
 Name, dict-Gleichheit) wird angepasst. Ein `try/skip` um den Aufbau macht
 aus einer Regression eine Uebersprungzahl.
-*Belege:* v1.7.31/2, #1022, #1023, #968, #1049, #1053, #1065
+Auch der Docstring eines Alt-Tests ist Spezifikation: "Bewusst in der
+Automatik und nicht beim Lesen" (#945) hat einen Sweep im Lesepfad
+verhindert, der schon geschrieben war.
+*Belege:* v1.7.31/2, #1022, #1023, #968, #1049, #1053, #1065, #1123 (sieben Alt-Tests angepasst, Begruendung jeweils im Test)
 
 **L27. Testdaten in der Form, in der der Aufrufer sie bekommt.** Wer einen
 Fehlschlag liest, statt die Erwartung anzupassen, findet falsche Testdaten
@@ -231,7 +241,7 @@ Text).
 Release die volle Suite plus alle Node-Tests (eigene CI-Schritte). Tests
 mit festen Daten verfallen, Tests um Mitternacht UTC treffen die
 Tagesgrenze.
-*Belege:* v1.7.100/6, #1051, #1053, #1063, #1070, v1.7.134/8, #767, v1.7.105/4, v1.7.21
+*Belege:* v1.7.100/6, #1051, #1053, #1063, #1070, v1.7.134/8, #767, v1.7.105/4, v1.7.21, #1123 (ein Teillauf nach Namensschlagwort verfehlte drei rote Alt-Tests; erst die ganzen Dateien fanden sie)
 
 ## 8. Frontend und Browser-Tests
 
