@@ -1059,6 +1059,16 @@ class Database:
                     "(SELECT 1 FROM dismiss_reasons WHERE label=?)",
                     (_label, _now(), _label))
             conn.commit()
+            # #1115: das Anlegen allein spaltet. Gab es vorher einen
+            # eigenen Eintrag "falsches system", stand er nach dem Seed
+            # NEBEN dem Standardgrund, und neue Aussortierungen liefen
+            # weiter in den alten (38/41 Verwendungen am 17.08., 67/59 am
+            # 29.09.). Deshalb wird nach dem Anlegen zusammengefuehrt — bei
+            # jedem Start, idempotent, fuer jeden Standardgrund.
+            try:
+                self._standardgruende_zusammenfuehren()
+            except Exception as _exc:  # pragma: no cover — nie den Start stoppen
+                logger.warning("Standardgruende nicht zusammengefuehrt: %s", _exc)
             if _j_cols:
                 from .services.ablehnungsgruende import (
                     ist_konform, normalisiere_dismiss_wert)
@@ -9545,6 +9555,42 @@ class Database:
                          (ziel, zeile["hash"]))
             geaendert += 1
         return geaendert
+
+    def _standardgruende_zusammenfuehren(self) -> int:
+        """Fuehrt gleichbedeutende Eintraege in den Standardgrund zusammen (#1115).
+
+        "Gleichbedeutend" heisst: derselbe Vergleichsschluessel wie in
+        `gruende_schreibweise.schluessel` (Kleinschreibung, keine
+        Trennzeichen) — `falsches system` und `Falsches-System` sind
+        `falsches_system`. Feiner wird bewusst nicht verglichen (dieselbe
+        Regel wie beim Werkzeug `ablehnungsgruende_vereinheitlichen`).
+
+        Nur EIGENE Eintraege wandern in den Standardgrund, nie umgekehrt.
+        Der Umzug laeuft ueber `rename_dismiss_reason`: Stellen werden
+        umgeschrieben, die Zaehler addiert, die Dublette faellt weg.
+
+        Returns:
+            Zahl der zusammengefuehrten Eintraege.
+        """
+        from .services.ablehnungsgruende import STANDARD_GRUENDE
+        from .services.gruende_schreibweise import schluessel
+
+        conn = self.connect()
+        zeilen = conn.execute(
+            "SELECT id, label, is_custom FROM dismiss_reasons").fetchall()
+        standard = {z["label"] for z in zeilen
+                    if not z["is_custom"] and z["label"] in STANDARD_GRUENDE}
+        nach_schluessel = {schluessel(s): s for s in standard}
+        zusammen = 0
+        for z in zeilen:
+            ziel = nach_schluessel.get(schluessel(z["label"]))
+            if ziel and z["is_custom"] and z["label"] != ziel:
+                self.rename_dismiss_reason(z["id"], ziel)
+                zusammen += 1
+        if zusammen:
+            logger.info("Safety-Net: %d gleichbedeutende Ablehnungsgruende "
+                        "in Standardgruende zusammengefuehrt (#1115)", zusammen)
+        return zusammen
 
     def rename_dismiss_reason(self, reason_id: int, new_label: str) -> dict:
         """Benennt einen Ablehnungsgrund um UND zieht bestehende

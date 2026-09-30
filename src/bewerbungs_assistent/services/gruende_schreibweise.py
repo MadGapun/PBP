@@ -68,12 +68,14 @@ logger = logging.getLogger(__name__)
 # (#663 Teil 2, CLAUDE.md). Eine Gruppe, die eine davon enthaelt, wird
 # darauf vereinheitlicht — jede andere Schreibweise landet sonst still
 # auf `sonstiges`.
-WHITELIST = frozenset({
-    "zu_weit_entfernt", "gehalt_zu_niedrig", "falsches_fachgebiet",
-    "zu_junior", "zu_senior", "unpassendes_arbeitsmodell",
-    "firma_uninteressant", "zeitarbeit", "befristet", "bereits_beworben",
-    "duplikat", "kein_hochschulabschluss", "sonstiges",
-})
+#
+# #1115: aus der Quelle erzeugt, nicht abgeschrieben. Die Kopie fuehrte
+# die dreizehn Werte von vor #913 und kannte `falsches_system` und
+# `falsche_branche` nicht — fuer beide entschied dann die Haeufigkeit im
+# Bestand statt der Regel.
+from .ablehnungsgruende import STANDARD_GRUENDE  # noqa: E402
+
+WHITELIST = frozenset(STANDARD_GRUENDE)
 
 
 def schluessel(wert) -> str:

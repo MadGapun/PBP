@@ -1129,12 +1129,15 @@ neu kombinieren, eindeutschen, kuerzen oder anders schreiben.
 **Erlaubt — und sonst NICHTS:**
 
 ```
-zu_weit_entfernt          gehalt_zu_niedrig         falsches_fachgebiet
-zu_junior                 zu_senior                 unpassendes_arbeitsmodell
-firma_uninteressant       zeitarbeit                befristet
-bereits_beworben          duplikat                  kein_hochschulabschluss
-sonstiges
+zu_weit_entfernt     gehalt_zu_niedrig    falsches_fachgebiet  falsches_system
+falsche_branche      zu_junior            zu_senior            unpassendes_arbeitsmodell
+firma_uninteressant  zeitarbeit           befristet            bereits_beworben
+duplikat             kein_hochschulabschluss                   sonstiges
 ```
+
+Massgeblich ist `verfuegbare_gruende` aus der Werkzeugantwort (Quelle:
+`services/ablehnungsgruende.py`, `STANDARD_GRUENDE`, plus eigene Gruende aus
+den Einstellungen). Ein Test haelt diesen Block gegen die Quelle (#1115).
 
 **Verboten — frei erfunden, fuehrt zu Statistik-/Lerneffekt-Schaden:**
 
