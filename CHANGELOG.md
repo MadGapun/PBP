@@ -33,6 +33,145 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.143] - 2026-09-30 — „Schon beworben?“ steht jetzt an der Stelle
+
+Hotfix für v1.7.142. Bei jeder neuen Stelle fragst du dich zuerst: *Habe
+ich mich da schon beworben?* PBP wusste die Antwort seit Wochen, sagte sie
+aber nur, wenn man Claude fragte. Wer PBP im Dashboard nutzte, sah sie nie.
+Jetzt steht sie an der Stelle selbst. Dazu zwei kleine Reparaturen an
+Prüfwerkzeugen. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** Der Hinweis ändert nichts. Die Stelle bleibt in
+der Liste, nichts wird aussortiert oder angelegt.
+
+### Added
+
+- **„Schon beworben?“ in der Stellenliste und im Detail** (#1126). Ein
+  Streifen unter den Abzeichen nennt das Datum, den Stand und bietet
+  **Zur Bewerbung** an. Er ist gelb, solange die Bewerbung läuft, und
+  grau, wenn sie abgeschlossen ist (dann mit dem Absagegrund, falls er
+  dokumentiert ist). Mit Fragezeichen, wenn Firma und Titel passen, die
+  Anzeigen-Adresse aber eine andere ist; ohne, wenn die Adresse
+  übereinstimmt. Auch eine laufende Bewerbung über einen Vermittler, die
+  diese Firma als Endkunden nennt, wird gemeldet. Das Feld **Endkunde**
+  der Bewerbung zählt dabei. `stellen_anzeigen`, `fit_analyse` und
+  `firma_kontext` geben dieselbe Antwort aus derselben Funktion.
+
+### Changed
+
+- **Der Wortlaut folgt dem Stand** (#1126). Bei einer laufenden Bewerbung
+  steht dort „nicht noch einmal bewerben“. Vorher fragte PBP auch dort, ob
+  „die alte Hürde noch steht“ — nach einem Absagegrund, den es nicht gab.
+  Für abgeschlossene Bewerbungen bleibt der Text, mit lesbarem Datum und
+  Status (12.05.2026, Abgelehnt) statt Rohwerten. Elwosa spricht bei einer
+  laufenden Bewerbung nicht mehr von „schon mal“.
+- **Der Suchlauf sortiert eine Wiederholung nicht mehr automatisch aus**
+  (#1126). Die Automatik las ein Kennzeichen „Repost-Verdacht“, das nirgends
+  gesetzt wurde, und kannte eine frühere Bewerbung deshalb nur bei
+  gleichem Hash. Jetzt fragt sie dieselbe Erkennung wie das Dashboard:
+  Eine Stelle, die einer früheren Bewerbung entspricht, wird gezeigt und
+  markiert. Ein bloßer Vermittler-Verdacht hält die Automatik nicht auf.
+
+### Fixed
+
+- **Eine zeichengleiche Adresse zu einer abgelehnten Bewerbung wird beim
+  Anlegen gemeldet** (#1117). Die Anlage fragte die Erkennung ohne die
+  Adresse, obwohl sie beim Aussortieren längst als sicherer Treffer galt.
+  Jetzt zählt eine gleiche Adresse (ohne Tracking-Parameter) zusätzlich
+  als Beleg — nie als Voraussetzung: ein Repost mit neuer Adresse wird
+  weiter über Firma und Titel erkannt. Eine Suchergebnisseite gilt nie als
+  Beleg.
+- **Akzente im Firmennamen verhindern den Treffer nicht mehr** (#1117).
+  „Société Beispiel“ und „Societe Beispiel Deutschland GmbH“ sind
+  dieselbe Firma; Umlaute bleiben umschrieben („Müller“ bleibt „Mueller“).
+- **Der PII-Prüfer hält einen Ortsnamen nicht mehr für einen sicheren
+  Firmentreffer** (#1124). `issue_text_pruefen` meldete eine Großstadt, die
+  als „Firma“ in den Stellen stand, mit „NICHT veröffentlichen“, obwohl sie
+  im Text nur als Ort vorkam. Sie wird jetzt als *unsicher* gemeldet und
+  beim Anonymisieren nicht ersetzt. Eine Firma mit Ort im Namen („Beispiel
+  Hamburg GmbH“) bleibt ein sicherer Fund. (Das Issue vermutete die Quelle
+  in den Firmenrecherchen; gemessen stammt der Name aus den Stellen.)
+- **Vier Tests waren unter Windows dauerhaft rot** (#1128).
+  `test_975_shell_skripte_parsen` nahm das erste `bash` auf dem PATH, und
+  das ist dort oft der WSL-Stub ohne Distribution. Jetzt zählt das erste
+  `bash`, das wirklich läuft; ohne ein solches wird übersprungen. Ein
+  absichtlich kaputtes Skript macht den Test weiterhin rot.
+
+### Known Issues
+
+- Der Hinweis erscheint nur für Stellen, die PBP kennt. Eine Bewerbung ohne
+  Adresse und mit anderem Firmennamen (etwa nur der Vermittler, ohne
+  eingetragenen Endkunden) findet er nicht. Trage bei Bewerbungen über
+  einen Vermittler das Feld **Endkunde** ein.
+
+### Gemessen
+
+71 neue Tests (5.981 gesamt, 29 davon übersprungen). Gegenprobe: 34
+Mechanismen im Backend und 5 in der Oberfläche einzeln ausgebaut (dort
+nach jedem Ausbau neu gebaut); jeder Ausbau macht einen Test rot. Beim
+Durchsehen fielen zwei Dinge auf, die vor dem Release behoben wurden: Die
+Vermittler-Prüfung verglich den gefalteten Namen mit ungefaltetem Text und
+hätte dadurch einen bisherigen Treffer verloren, und der Satz für
+abgeschlossene Bewerbungen zeigte neben dem lesbaren Datum im Streifen
+darüber den Rohwert („2026-05-12“). Ein Alt-Test angepasst, weil er den
+Rohwert festhielt (`test_782_stellen_anzeigen_warnt`). Die Laufzeit
+wurde auf einer Kopie des echten Bestands gemessen: 103 Bewerbungen
+laden in etwa 12 Millisekunden.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.143.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.143.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.142] - 2026-09-30 — Nachfragen erledigen sich, Termine ziehen ihre Aufgaben mit
 
 Hotfix für v1.7.141. Drei Meldungen aus dem Alltag: Eine Nachfrage blieb
