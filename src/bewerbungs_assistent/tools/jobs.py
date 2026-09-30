@@ -493,6 +493,19 @@ def register(mcp, db, logger):
     from ..services.ablehnungsgruende import STANDARD_GRUENDE
     ABLEHNUNGSGRUENDE = list(STANDARD_GRUENDE)
 
+    def _mit_erlaubten_gruenden(fn):
+        """Setzt die erlaubten Gruende aus der Quelle in den Docstring (#1115).
+
+        Der Platzhalter `{ERLAUBTE_GRUENDE}` im Args-Block wird beim
+        Registrieren ersetzt. Claude liest genau diesen Text als
+        Parameterbeschreibung — eine abgeschriebene Liste war seit #913
+        um zwei Gruende zu kurz, und "nur diese, nichts anderes" hat die
+        Aufrufer daran gehindert, sie zu benutzen.
+        """
+        fn.__doc__ = (fn.__doc__ or "").replace(
+            "{ERLAUBTE_GRUENDE}", ", ".join(ABLEHNUNGSGRUENDE))
+        return fn
+
     def _detect_duplicate(job_hash: str) -> dict | None:
         """#1095: die Regel steht in services/aussortieren.duplikat_finden."""
         from ..services import aussortieren as _aus
@@ -563,6 +576,7 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     @time_tool(logger, "stelle_einordnen")
+    @_mit_erlaubten_gruenden
     def stelle_einordnen(job_hash: str, bewertung: str, grund: str = "",
                         gruende: list[str] = None) -> dict:
         """Bewertet eine gefundene Stelle.
@@ -585,12 +599,8 @@ def register(mcp, db, logger):
             job_hash: Hash der Stelle
             bewertung: 'passt' oder 'passt_nicht'
             grund: Einzelner Grund bei passt_nicht (Legacy, nutze besser gruende)
-            gruende: Liste von Gründen bei passt_nicht (Multi-Select, #108).
-                ERLAUBTE WERTE (nur diese, nichts anderes!):
-                zu_weit_entfernt, gehalt_zu_niedrig, falsches_fachgebiet,
-                zu_junior, zu_senior, unpassendes_arbeitsmodell,
-                firma_uninteressant, zeitarbeit, befristet, bereits_beworben,
-                duplikat, kein_hochschulabschluss, sonstiges
+            gruende: Gründe bei passt_nicht, NUR diese Werte:
+                {ERLAUBTE_GRUENDE}
         """
         # #695: Existenz-Guard — vorher meldete das Tool bei unbekanntem Hash
         # "aussortiert"/"als_passend_markiert" und zaehlte sogar die
