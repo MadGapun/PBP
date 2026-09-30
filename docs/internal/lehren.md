@@ -65,7 +65,7 @@ Umschrift gegen Umlaut, Label gegen gespeicherten Wert, Langform gegen
 Kurzform: verglichen wird nach Normalisierung beider Seiten. Suchmuster fuer
 Text von aussen kennen beide Schreibweisen; Werte, die Claude zurueckschickt
 (Status, Aktionen, Schluessel), bleiben in Umschrift.
-*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3
+*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3, v1.7.143/1 (Akzente: 'Société Beispiel' gegen 'Societe Beispiel Deutschland GmbH' — der Teilstring scheitert am Akzent; gefaltet wird NACH der Umschrift der Umlaute, sonst wird aus 'Müller' ein 'Muller')
 
 ## 3. Fehlende Information ist kein Befund
 
@@ -110,7 +110,7 @@ Eine Automatik hat auch einen Ausloeser: der Aufraeumer fuer ueberholte
 Nachfragen lief hoechstens stuendlich und nur bei offenem Dashboard — wer
 ueber Claude arbeitet, hatte ihn nie. Was sich an einem Ereignis aendert,
 haengt am Ereignis; die Automatik bleibt das Netz darunter.
-*Belege:* #993, #1000, #988, #1015, #811, #1053, #1074, #973, v1.7.116/5, #1037 (Schluessel ist nicht Schalter: eine Einstellung, die Zugang UND Nutzung bedeutet, laesst sich nicht halb abschalten), #1123 (Nachfrage blieb "ueberfaellig", weil der Aufraeumer nie lief), #1115 (Leser der Whitelist ohne Draht zur Quelle)
+*Belege:* #993, #1000, #988, #1015, #811, #1053, #1074, #973, v1.7.116/5, #1037 (Schluessel ist nicht Schalter: eine Einstellung, die Zugang UND Nutzung bedeutet, laesst sich nicht halb abschalten), #1123 (Nachfrage blieb "ueberfaellig", weil der Aufraeumer nie lief), #1115 (Leser der Whitelist ohne Draht zur Quelle), v1.7.143/2 (`_repost_verdacht` in der Automatik gelesen und nirgends gesetzt; das Feld `endkunde` einer Bewerbung von der Vermittler-Prüfung nie gelesen)
 
 **L12. Rueckgabewerte auswerten, Fallbacks ohne andere Bedeutung.** Eine
 Erfolgsmeldung ueber eine Nicht-Aenderung beendet die Fehlersuche und ist
@@ -124,7 +124,7 @@ Trennzeilen, Laengenvergleiche, `startswith` auf Registry-Texten und
 Praefixlisten auf Anzeigetexten brechen still, wenn sich Text oder
 Schreibweise aendert. Nach jeder Umstellung jede Lesestelle gegen die neue
 Form pruefen.
-*Belege:* #1047, v1.7.110/4, v1.7.121/6, v1.7.138/2, v1.7.139/6
+*Belege:* #1047, v1.7.110/4, v1.7.121/6, v1.7.138/2, v1.7.139/6, v1.7.143/3 (Akzent-Faltung im Firmennamen: `find_vermittler_bewerbung` verglich den gefalteten Namen mit ungefaltetem Rohtext und hätte einen Treffer verloren; aufgefallen beim Durchsehen, nicht in der Gegenprobe — der Fall steht jetzt als eigener Test)
 
 **L14. Gespeicherte Werte werden nie still umgedeutet.** Wirkungslose
 Altwerte werden benannt statt geloescht, Umbenennungen bekommen Aliase,
@@ -175,7 +175,7 @@ nachmessen, ob es den Defekt noch gibt und wie gross er ist — oft ist er
 groesser als gemeldet, manchmal schon behoben. Vorschlaege aus Issues
 werden geprueft, nicht uebernommen, und vor dem Schliessen werden die
 letzten Kommentare gelesen, nicht nur der Titel.
-*Belege:* #1023, #931, #892, #998, #1014, #1025, #962, #956, v1.7.128/1
+*Belege:* #1023, #931, #892, #998, #1014, #1025, #962, #956, v1.7.128/1, #1124 (die Quelle des Fehlalarms war `jobs.company`, nicht die Firmenrecherche — Punkt 2 des Vorschlags traf nichts), #1117 (die Annahme 'der Namensvergleich beherrscht Akzente' stützte sich auf einen URL-Treffer, der den Firmenvergleich überspringt)
 
 **L21. Regeln entstehen aus Messungen, in beide Richtungen.** Grenzen,
 Schwellen und Wortlisten werden gegen echte Titel und Texte gehalten,
@@ -199,7 +199,7 @@ belegen einander nicht; je ein isolierender Fall. Das Gegenprobe-Skript
 selbst laeuft im Hintergrund mit Log und Zeitlimit, liest alle Kanaele und
 Testlaeufer, unterscheidet Sammelfehler von "rot", und der Arbeitsstand ist
 danach bytegleich.
-*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos)
+*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos), v1.7.143/4 (34 Mechanismen im Backend, 5 in der Oberfläche mit Neubau nach jedem Ausbau; alle rot)
 
 **L24. Ein Guard prueft die Bauform, nicht eine Zeichenkette.** Ein
 gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
@@ -218,7 +218,7 @@ gegriffen: die drei Stale-Netze zogen ein zeitzonenbewusstes `updated_at`
 von einem naiven `datetime.now()` ab. Was ein Update beim ersten Start
 anstoesst, trifft auf die faellige Automatik — Last beim Start gehoert in
 kurze Schreibvorgaenge.
-*Belege:* DoD 8c, #929, #1017, #1078, v1.7.131/6, #1118
+*Belege:* DoD 8c, #929, #1017, #1078, v1.7.131/6, #1118, #1128 (vier dauerhaft rote Tests wurden 'bekannt' genannt und überlesen; der Test meldete 'diese Maschine kann kein Bash' statt eines Skriptfehlers)
 
 **L26. Alt-Tests zuerst lesen.** Ein roter Alt-Test ist die Spezifikation
 oder die alte Loesung: die Absicht bleibt, der Stellvertreter (Wortlaut,
@@ -278,7 +278,7 @@ auch verdeckte Elemente findet.
 Steuerzeichen oder Zeilenumbruechen (`\b` als Backspace, `\n` mitten im
 String) — mehr als fuenfzehnmal passiert. Patch-Skripte stehen als Datei
 (Write-Werkzeug), Stellen mit Backslash macht das Edit-Werkzeug oder
-`chr(92)`; danach `git diff -U0` lesen und nach Steuerzeichen suchen.
+`chr(92)`; danach `git diff -U0` lesen und nach Steuerzeichen suchen. Seit v1.7.143 bekannt: die Werkzeugschicht wandelt schon VOR Bash doppelte Rückwärtsstriche in einfache und Unicode-Escape-Folgen in das Zeichen um, und Befehle ab etwa 6 KB scheitern mit 'unexpected EOF' — Dateien in Teilen unter 5 KB schreiben, Zeichen direkt statt als Escape-Folge, Rückwärtsstriche vermeiden.
 *Belege:* v1.7.24/4, v1.7.82/8, v1.7.84/10, v1.7.117/11, v1.7.125/13, v1.7.135/7, v1.7.136/6
 
 **L33. Zeilenenden und BOM bestimmen die Anker.** Viele Frontend-Dateien
