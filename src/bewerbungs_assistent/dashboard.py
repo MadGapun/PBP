@@ -4736,13 +4736,17 @@ async def api_update_meeting(meeting_id: str, request: Request):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
+    # #1123: Termin UND Folgen (Vorbereitung, Nachfassung) — dieselbe
+    # Regel wie im MCP-Werkzeug meeting_bearbeiten.
+    from .services import termin_folgen
     try:
-        geaendert = _db.update_meeting(meeting_id, data, profile_id=profile_id)
+        ergebnis = termin_folgen.aendern(_db, meeting_id, data,
+                                         profile_id=profile_id)
     except ValueError as exc:  # #1102: unlesbare Zeit
         return JSONResponse({"error": str(exc)}, status_code=400)
-    if not geaendert:
+    if not ergebnis.pop("geaendert", False):
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    return {"status": "ok", **ergebnis}
 
 
 @app.delete("/api/meetings/{meeting_id}")
@@ -4751,9 +4755,11 @@ async def api_delete_meeting(meeting_id: str):
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
-    if not _db.delete_meeting(meeting_id, profile_id=profile_id):
+    from .services import termin_folgen
+    ergebnis = termin_folgen.loeschen(_db, meeting_id, profile_id=profile_id)
+    if not ergebnis.pop("geloescht", False):
         return JSONResponse({"error": "Termin nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    return {"status": "ok", **ergebnis}
 
 
 @app.post("/api/meetings")
@@ -8781,30 +8787,17 @@ def _run_followup_ueberholt(now_iso: str) -> dict:
     Bewusst in der Automatik und nicht beim Lesen — eine Liste
     abzurufen darf nichts veraendern.
     """
-    from .services.nachfass_text import ist_ueberholt
+    # #1123: dieselbe Funktion wie beim Start und bei den Ereignissen
+    # (Statuswechsel, Termin, Mail, Notiz) — eine Frage, eine Antwort.
+    from .services import nachfass_abgleich
 
-    geschlossen = []
     try:
         offene = _db.get_pending_follow_ups() or []
+        geschlossen = [
+            {"id": str(g["id"])[:8], "firma": g["firma"], "grund": g["grund"]}
+            for g in nachfass_abgleich.ueberholte_schliessen(_db)]
     except Exception:
         return {"geprueft": 0, "hinfaellig": 0}
-
-    for fu in offene:
-        try:
-            app = _db.get_application(fu.get("application_id") or "") or {}
-            if not app:
-                continue
-            weg, grund = ist_ueberholt(fu, app)
-            if not weg:
-                continue
-            _db.complete_follow_up(fu.get("id"), status="hinfaellig")
-            geschlossen.append({
-                "id": str(fu.get("id"))[:8],
-                "firma": app.get("company"),
-                "grund": grund,
-            })
-        except Exception:
-            continue
 
     if geschlossen:
         logger.info("Nachfass-Aufraeumer: %d gegenstandslose Nachfassung(en) "

@@ -1284,11 +1284,19 @@ def register(mcp, db, logger):
             return {"fehler": "Bewerbung nicht gefunden."}
 
         db.add_application_note(bewerbung_id, notiz)
-        return {
+        ergebnis = {
             "status": "gespeichert",
             "nachricht": f"Notiz zu '{app.get('title', '')}' bei {app.get('company', '')} hinzugefügt.",
             "timeline_eintraege": len(app.get("events", [])) + 1
         }
+        # #1123: eine Gesprächsnotiz IST gemeldeter Kontakt — wer heute mit
+        # dem Arbeitgeber gesprochen hat, muss morgen nicht nachfragen.
+        from ..services import nachfass_abgleich
+        erledigt = nachfass_abgleich.kontakt_gemeldet(
+            db, bewerbung_id, "Gesprächsnotiz")
+        if erledigt:
+            ergebnis["nachfassung_erledigt"] = erledigt
+        return ergebnis
 
     @mcp.tool()
     def bewerbung_details(bewerbung_id: str) -> dict:
@@ -1998,13 +2006,20 @@ def register(mcp, db, logger):
             return {"fehler": "Keine Änderungen angegeben."}
 
         profile_id = db.get_active_profile_id()
-        changed = db.update_meeting(meeting_id, updates, profile_id=profile_id)
-        if not changed:
+        # #1123: Termin UND Folgen — dieselbe Regel wie im Dashboard.
+        from ..services import termin_folgen
+        try:
+            ergebnis = termin_folgen.aendern(db, meeting_id, updates,
+                                             profile_id=profile_id)
+        except ValueError as exc:
+            return {"fehler": str(exc)}
+        if not ergebnis.pop("geaendert", False):
             return {"fehler": "Meeting nicht gefunden oder gehört nicht zum aktiven Profil."}
         return {
             "status": "aktualisiert",
             "meeting_id": meeting_id,
             "geaenderte_felder": list(updates.keys()),
+            **ergebnis,
         }
 
     @mcp.tool()
@@ -2025,10 +2040,11 @@ def register(mcp, db, logger):
                 "meeting_id": meeting_id,
                 "hinweis": "Setze bestaetigung=True um den Termin unwiderruflich zu loeschen.",
             }
-        deleted = db.delete_meeting(meeting_id, profile_id=profile_id)
-        if not deleted:
+        from ..services import termin_folgen
+        ergebnis = termin_folgen.loeschen(db, meeting_id, profile_id=profile_id)
+        if not ergebnis.pop("geloescht", False):
             return {"fehler": "Meeting nicht gefunden oder gehört nicht zum aktiven Profil."}
-        return {"status": "geloescht", "meeting_id": meeting_id}
+        return {"status": "geloescht", "meeting_id": meeting_id, **ergebnis}
 
     @mcp.tool()
     def meetings_anzeigen(bewerbung_id: str = "", tage: int = 30) -> dict:

@@ -647,7 +647,12 @@ def register(mcp, db, logger):
             ),
         }
 
-        template = templates.get(typ, templates["nachfass"])
+        # #1122: die Platzhalter aus den Bausteinen oben werden HIER gefuellt.
+        # Bis v1.7.141 stand "am {applied_at}" woertlich in der Datenbank,
+        # und wer den Text kopierte, schickte die geschweiften Klammern mit.
+        from ..services.nachfass_platzhalter import platzhalter_fuellen
+        template = platzhalter_fuellen(
+            templates.get(typ, templates["nachfass"]), app)
         fid = db.add_follow_up(bewerbung_id, scheduled, typ, template)
 
         result = {
@@ -2069,6 +2074,23 @@ def register(mcp, db, logger):
         except Exception as e:
             logger.debug("Interview-Vollstaendigkeits-Check fehlgeschlagen: "
                          "%s", e)
+
+        # --- Vorbereitung passt nicht mehr zum Termin (#1123) ---
+        # Nur Befund, kein auto_fix: Titel und Beschreibung sind Freitext,
+        # teils vom Nutzer ergaenzt.
+        try:
+            from ..services.termin_folgen import abweichende_vorbereitungen
+            for b in abweichende_vorbereitungen(db):
+                warnungen.append({
+                    "bereich": "Vorbereitung",
+                    "problem": (f"Die Aufgabe '{b['titel']}' nennt "
+                                f"{', '.join(b['genannt'])}, der Termin ist "
+                                f"aber {', '.join(b['termine'])}."),
+                    "loesung": (f"todo_bearbeiten('{b['todo_id']}', titel=...) "
+                                "— Titel und Beschreibung anpassen"),
+                })
+        except Exception as e:
+            logger.debug("Vorbereitungs-Check fehlgeschlagen: %s", e)
 
         # --- Ergebnis ---
         gesundheit = "kritisch" if probleme else "warnungen" if warnungen else "gesund"

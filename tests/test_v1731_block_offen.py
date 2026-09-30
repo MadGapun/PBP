@@ -42,10 +42,12 @@ def test_983_alle_herkuenfte_in_einer_liste(bestand):
     db, aid = bestand
     db.add_task({"application_id": aid, "titel": "Unterlagen sortieren",
                  "faellig_am": _tage(-2)})
-    db.add_follow_up(aid, _tage(-1), "nachfass", template="")
+    # Termin zuerst: ein Termin NACH einer offenen Nachfrage erledigt sie
+    # (#1123), eine danach geplante bleibt.
     db.add_meeting({"application_id": aid,
                     "meeting_date": f"{_tage(3)}T14:30:00",
                     "title": "Zweitgespraech", "meeting_type": "zweitgespraech"})
+    db.add_follow_up(aid, _tage(-1), "nachfass", template="")
     block = aufgaben_sicht.dashboard_block(db)
     herkuenfte = {e["herkunft"]
                   for gruppe in block["gruppen"].values() for e in gruppe}
@@ -59,11 +61,11 @@ def test_983_termin_traegt_uhrzeit_die_nachfassung_nicht(bestand):
     bleibt, sie steht jetzt nur an der Zeile statt am Block.
     """
     db, aid = bestand
-    db.add_follow_up(aid, _tage(1), "nachfass", template="")
     db.add_meeting({"application_id": aid,
                     "meeting_date": f"{_tage(2)}T14:30:00",
                     "title": "Zweitgespraech", "meeting_type": "zweitgespraech"})
-    alle = [e for g in aufgaben_sicht.dashboard_block(db)["gruppen"].values()
+    db.add_follow_up(aid, _tage(1), "nachfass", template="")
+    alle =[e for g in aufgaben_sicht.dashboard_block(db)["gruppen"].values()
             for e in g]
     termin = next(e for e in alle if e["herkunft"] == "termin")
     nachfass = next(e for e in alle if e["herkunft"] == "nachfass")
@@ -73,12 +75,12 @@ def test_983_termin_traegt_uhrzeit_die_nachfassung_nicht(bestand):
 
 def test_983_reihenfolge_ueberfaellig_heute_diese_woche(bestand):
     db, aid = bestand
-    db.add_follow_up(aid, _tage(-5), "nachfass", template="")
-    db.add_follow_up(aid, date.today().isoformat(), "nachfass", template="")
     db.add_meeting({"application_id": aid,
                     "meeting_date": f"{_tage(4)}T09:00:00",
                     "title": "Interview", "meeting_type": "interview"})
-    gruppen = aufgaben_sicht.dashboard_block(db)["gruppen"]
+    db.add_follow_up(aid, _tage(-5), "nachfass", template="")
+    db.add_follow_up(aid, date.today().isoformat(), "nachfass", template="")
+    gruppen =aufgaben_sicht.dashboard_block(db)["gruppen"]
     assert list(gruppen) == ["ueberfaellig", "heute", "diese_woche"]
     assert gruppen["ueberfaellig"]
     assert gruppen["heute"]

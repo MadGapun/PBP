@@ -110,6 +110,9 @@ def _todos(db, status: str) -> list[dict]:
 
 def _nachfassungen(db) -> list[dict]:
     eintraege = []
+    # Nur LESEN (#945): "eine Liste abzurufen darf nichts veraendern".
+    # Geschlossen wird ueber die Ereignisse (nachfass_abgleich) und die
+    # Dashboard-Automatik.
     try:
         offen = db.get_pending_follow_ups()
     except Exception:
