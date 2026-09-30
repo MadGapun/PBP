@@ -57,6 +57,21 @@ def pytest_runtest_teardown(item):
     yield
 
 
+@pytest.fixture(autouse=True)
+def _komponenten_ordner_nicht_echt(tmp_path_factory, monkeypatch):
+    """#1130: kein Test fasst den echten Komponenten-Ordner an.
+
+    `components_dir()` haengt an `get_data_dir().parent`. Setzt ein Test
+    BA_DATA_DIR nicht, ist das der Installationsordner des Entwicklers --
+    und seit start_install_job dort Reste loescht, koennte ein Test sie
+    treffen. Der Ordner ist ein Name unter dem Pytest-Basisverzeichnis, der
+    nicht angelegt wird; Tests, die etwas hineinschreiben, lenken selbst um.
+    """
+    from bewerbungs_assistent.services import components
+    sandbox = tmp_path_factory.getbasetemp() / "komponenten-sandbox"
+    monkeypatch.setattr(components, "components_dir", lambda: sandbox)
+
+
 @pytest.fixture
 def tmp_db(tmp_path):
     """Create a fresh temporary database."""

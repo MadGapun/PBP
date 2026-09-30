@@ -12161,6 +12161,14 @@ def start_dashboard(db_instance, port: int = None):
     global _db
     _db = db_instance
     _cleanup_stale_jobs(db_instance)
+    # #1130: Reste einer fehlgeschlagenen oder abgebrochenen Komponenten-
+    # Installation weg; nach den toten Jobs, damit ein abgestuerzter Lauf
+    # das Aufraeumen nicht blockiert.
+    try:
+        from .services import components as _komponenten
+        _komponenten.setup_reste_entfernen(db_instance)
+    except Exception as exc:
+        logger.warning("Komponenten-Aufraeumen uebersprungen: %s", exc)
     # v1.7.0-beta.94 (#677/#678): Hintergrund-Automatik (Lernen + interne
     # Jobsuche nach Intervall). Hier gestartet, weil _db gesetzt ist und es
     # die EINE Instanz mit Dashboard ist (kein Doppel-Lauf).

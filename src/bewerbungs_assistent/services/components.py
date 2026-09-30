@@ -30,6 +30,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 from typing import Callable, Optional
@@ -125,6 +126,107 @@ def components_dir() -> Path:
 def _tessdata_dir() -> Path:
     """Eigener tessdata-Ordner fuer nachgeladene Sprachen (TESSDATA_PREFIX)."""
     return components_dir() / "tessdata"
+
+
+# ---------------------------------------------------------------------------
+# Aufraeumen (#1130)
+# ---------------------------------------------------------------------------
+
+def _setup_datei(name: str) -> Path:
+    """Wohin der Installer einer Komponente heruntergeladen wird."""
+    return components_dir() / f"{name}-setup.exe"
+
+
+def _teildatei(ziel: Path) -> Path:
+    """Unter diesem Namen entsteht ein Download, bis er vollstaendig ist."""
+    return ziel.with_name(ziel.name + ".part")
+
+
+def _entfernen(pfad: Path, versuche: int = 3, pause: float = 0.3) -> bool:
+    """Loescht eine Datei. True = sie ist weg (auch: war nie da).
+
+    Wirft nie: wer aufraeumt, darf den eigentlichen Vorgang nicht mit einem
+    zweiten Fehler ueberlagern. Unter Windows haelt ein Virenscanner eine
+    frisch geschriebene .exe oft noch einen Augenblick fest -- darum ein
+    paar Versuche, bevor "nicht loeschbar" gemeldet wird.
+    """
+    for versuch in range(versuche):
+        try:
+            pfad.unlink(missing_ok=True)
+            return True
+        except OSError as exc:
+            if versuch + 1 < versuche:
+                time.sleep(pause)
+            else:
+                logger.warning("Datei nicht entfernbar (%s): %s", pfad, exc)
+    return False
+
+
+def _installation_laeuft(db) -> bool:
+    """Arbeitet gerade eine Komponenten-Installation?
+
+    Der Hintergrund-Job ist die eine Antwort -- dieselbe Frage stellt
+    start_install_job fuer den Doppelstart. Ein Job, der seit langem nichts
+    mehr gemeldet hat, gilt als tot (hintergrund_alter, #1118); sonst
+    blockierte ein abgestuerzter Lauf das Aufraeumen fuer immer. Im Zweifel
+    gilt "laeuft": lieber ein Rest mehr als eine gestoerte Installation.
+    """
+    try:
+        job = db.get_running_background_job("komponente_install")
+        if not job:
+            return False
+        from .hintergrund_alter import veraltet
+        return not veraltet(job)
+    except Exception:
+        return True
+
+
+def setup_reste_entfernen(db) -> dict:
+    """Raeumt liegengebliebene Installationsdateien weg (#1130).
+
+    Gemeint ist, was ein frueherer Lauf hinterlassen hat, der fehlschlug,
+    abgebrochen wurde oder mitten im Download endete: die Setup-Datei jeder
+    Komponente, ihre Teildatei und angefangene Sprachdaten (``*.part``).
+    Nur diese Namen, nur im PBP-Ordner -- nie eine fremde Datei, nie eine
+    fertige Installation oder fertige Sprache.
+
+    Laeuft gerade eine Installation, passiert NICHTS: die Datei, die sie
+    braucht, ist dann kein Rest. Wirft nie (Aufrufer sind die beiden
+    Startwege und start_install_job).
+    """
+    if _installation_laeuft(db):
+        return {"entfernt": 0, "bytes": 0, "uebersprungen": "installation_laeuft"}
+    kandidaten: list[Path] = []
+    try:
+        for name in COMPONENT_DEFS:
+            setup = _setup_datei(name)
+            kandidaten += [setup, _teildatei(setup)]
+        # Sprachdaten landen im tessdata-Ordner der PBP-Installation oder,
+        # wenn der nicht beschreibbar ist, im eigenen (ensure_language).
+        sprachordner = {_tessdata_dir()} | {
+            components_dir() / name / "tessdata" for name in COMPONENT_DEFS}
+        for ordner in sorted(sprachordner):
+            if ordner.is_dir():
+                kandidaten += sorted(ordner.glob("*.traineddata.part"))
+    except Exception as exc:  # noqa: BLE001 -- Aufraeumen darf nie werfen
+        logger.warning("Komponenten-Ordner nicht lesbar: %s", exc)
+    entfernt = 0
+    bytes_frei = 0
+    for pfad in kandidaten:
+        try:
+            if not pfad.is_file():
+                continue
+            groesse = pfad.stat().st_size
+        except OSError:
+            continue
+        if _entfernen(pfad):
+            entfernt += 1
+            bytes_frei += groesse
+    if entfernt:
+        logger.info(
+            "Komponenten: %d liegengebliebene Installationsdatei(en) entfernt "
+            "(%.1f MB)", entfernt, bytes_frei / (1024 * 1024))
+    return {"entfernt": entfernt, "bytes": bytes_frei}
 
 
 # ---------------------------------------------------------------------------
@@ -268,22 +370,39 @@ def get_components_overview(db) -> list[dict]:
 
 def _download(url: str, target: Path, progress: Callable[[int, str], None],
               lo: int = 0, hi: int = 80) -> None:
-    """Laedt url nach target, meldet Fortschritt zwischen lo und hi Prozent."""
+    """Laedt url nach target, meldet Fortschritt zwischen lo und hi Prozent.
+
+    Geschrieben wird unter ``<target>.part`` und erst bei vollstaendigem
+    Empfang umbenannt (#1130): ein Name ohne ``.part`` steht damit immer fuer
+    eine GANZE Datei. Bricht der Download ab -- Netz weg, Server kappt,
+    Abbruch --, bleibt nichts liegen. http.client meldet eine zu kurz
+    angekommene Antwort nicht als Fehler; darum die Laengenpruefung (sonst
+    waere eine abgeschnittene Sprachdatei ohne Pruefsumme "fertig").
+    """
     req = urllib.request.Request(url, headers={"User-Agent": "PBP-Komponenten/1.0"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        total = int(resp.headers.get("Content-Length") or 0)
-        done = 0
-        target.parent.mkdir(parents=True, exist_ok=True)
-        with open(target, "wb") as fh:
-            while True:
-                chunk = resp.read(1024 * 256)
-                if not chunk:
-                    break
-                fh.write(chunk)
-                done += len(chunk)
-                if total:
-                    pct = lo + int((hi - lo) * done / total)
-                    progress(min(pct, hi), f"Download {done // (1024*1024)} MB")
+    teil = _teildatei(target)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            total = int(resp.headers.get("Content-Length") or 0)
+            done = 0
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(teil, "wb") as fh:
+                while True:
+                    chunk = resp.read(1024 * 256)
+                    if not chunk:
+                        break
+                    fh.write(chunk)
+                    done += len(chunk)
+                    if total:
+                        pct = lo + int((hi - lo) * done / total)
+                        progress(min(pct, hi), f"Download {done // (1024*1024)} MB")
+        if total and done != total:
+            raise RuntimeError(
+                f"Download unvollständig ({done} von {total} Bytes).")
+        os.replace(teil, target)
+    except BaseException:
+        _entfernen(teil)
+        raise
 
 
 def _sha256_ok(path: Path, expected: str) -> bool:
@@ -379,15 +498,23 @@ def install_component(db, name: str,
         return {"status": "fehler", "fehler": "Keine Download-Quelle hinterlegt."}
 
     target_dir = components_dir() / name
+    setup_path = _setup_datei(name)
     db.set_component_state(name, STATUS_WIRD_INSTALLIERT, last_error="")
     try:
         progress(1, "Download startet")
-        setup_path = components_dir() / f"{name}-setup.exe"
         _download(dl["url"], setup_path, progress, lo=1, hi=80)
 
         progress(82, "Prüfe Download")
         if not _sha256_ok(setup_path, dl.get("sha256", "")):
-            raise RuntimeError("Checksum-Prüfung fehlgeschlagen — Download verworfen.")
+            # #1130: "verworfen" erst sagen, wenn die Datei wirklich weg ist.
+            # Vorher stand die Zeile im Protokoll, die Datei blieb liegen.
+            if _entfernen(setup_path):
+                raise RuntimeError(
+                    "Checksum-Prüfung fehlgeschlagen — Download verworfen.")
+            raise RuntimeError(
+                "Checksum-Prüfung fehlgeschlagen — der Download wird nicht "
+                "verwendet. Die Datei ließ sich gerade nicht löschen; PBP "
+                "entfernt sie beim nächsten Versuch oder Start.")
 
         progress(85, "Installiere (silent)")
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -420,11 +547,6 @@ def install_component(db, name: str,
             )
         version = _binary_version(str(binary))
 
-        try:
-            setup_path.unlink()
-        except Exception:
-            pass
-
         db.set_component_state(name, STATUS_INSTALLIERT,
                                install_path=str(binary), version=version,
                                last_error="")
@@ -435,6 +557,10 @@ def install_component(db, name: str,
         logger.error("Komponenten-Install '%s' fehlgeschlagen: %s", name, msg)
         db.set_component_state(name, STATUS_FEHLER, last_error=msg)
         return {"status": "fehler", "fehler": msg}
+    finally:
+        # #1130: egal wie der Lauf endet -- Erfolg, Pruefsumme, Installer-
+        # Fehler, Abbruch -- die Setup-Datei (rund 55 MB) bleibt nicht liegen.
+        _entfernen(setup_path)
 
 
 def start_install_job(db, name: str) -> dict:
@@ -451,6 +577,9 @@ def start_install_job(db, name: str) -> dict:
     if running:
         return {"status": "laeuft_bereits", "job_id": running.get("id"),
                 "hinweis": "Es läuft bereits eine Komponenten-Installation."}
+    # #1130: Reste frueherer Laeufe weg, BEVOR ein neuer Versuch beginnt.
+    # Eben wurde geprueft, dass keine Installation laeuft.
+    setup_reste_entfernen(db)
     job_id = db.create_background_job("komponente_install", {"name": name})
 
     def _run():
