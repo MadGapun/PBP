@@ -307,6 +307,16 @@ _GEO_DACH_MARKERS = {
     "geneve", "lausanne", "luzern", "lucerne", "winterthur",
 }
 
+def ist_ortsname(name) -> bool:
+    """Ist das der Name einer grossen DACH-Stadt oder eines DACH-Landes?
+
+    Aus derselben Liste wie die Standort-Erkennung (#1124): eine zweite
+    Ortsliste im PII-Pruefer waere die Bauform aus #963. Verglichen wird
+    der GANZE Name - "Hamburg" ja, "Hamburg Wasser" nein.
+    """
+    return " ".join(str(name or "").lower().split()) in _GEO_DACH_MARKERS
+
+
 # Klare Auslands-Marker (Laender).
 _GEO_NON_DACH_COUNTRIES = {
     "usa", "u.s.a", "us", "united states", "america", "uk", "u.k",
