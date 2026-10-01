@@ -993,7 +993,12 @@ Bevor ein neuer Release gebaut wird:
    nicht zeigte — der Tag war gelocked, beta.1 musste nachgeschoben
    werden. Native Dependencies (pypdfium2, playwright, ...) verhalten
    sich plattformspezifisch; die lokale Windows-Suite reicht als
-   Tag-Freigabe nicht.
+   Tag-Freigabe nicht. **„Abgebrochen“ ist weder gruen noch rot (#1132):**
+   endet ein Lauf am Zeitlimit, meldet er keinen Fehler, und die
+   Ueberwachung der Claude-App wird davon nicht wach. Vor dem Tag den
+   Ausgang des Laufs ausdruecklich lesen (`gh run view <id> --json
+   conclusion`); bei `cancelled` neu starten und abwarten, nie taggen,
+   weil die Suite „ja durchgelaufen ist“.
 9. **Erst nach OK** committen, taggen, pushen, GH-Release erstellen.
 
 ## GitHub-Release-Notes — Pflicht-Block
