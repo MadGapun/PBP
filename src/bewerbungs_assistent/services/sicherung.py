@@ -156,25 +156,52 @@ def sichern(db, anlass: str = "manuell", mit_dokumenten: bool = True,
         finally:
             dst.close()
             src.close()
-        mit_zip = False
-        if mit_dokumenten and dokumente.is_dir() and any(dokumente.rglob("*")):
-            with zipfile.ZipFile(_dokumente_zip(ziel), "w", zipfile.ZIP_DEFLATED) as z:
-                for f in dokumente.rglob("*"):
-                    if f.is_file():
-                        z.write(f, f.relative_to(dokumente).as_posix())
-            mit_zip = True
     except Exception as exc:  # noqa: BLE001
-        for rest in (ziel, _dokumente_zip(ziel)):
-            try:
-                rest.unlink()
-            except OSError:
-                pass
+        # Die Datenbankkopie ist nicht zustande gekommen: es gibt nichts zu behalten.
+        try:
+            ziel.unlink()
+        except OSError:
+            pass
         logger.warning("Sicherung fehlgeschlagen: %s", exc)
         return {"status": "fehler", "fehler": f"Sicherung fehlgeschlagen: {exc}"}
+    # v1.7.146 (#1142): die Datenbank ist das Wichtige und ist jetzt gesichert.
+    # Eine gesperrte Datei im Dokumentenordner (Virenscanner, Office) kippte
+    # bisher die ganze Sicherung samt Datenbankkopie, und nirgends stand es.
+    # Jetzt wird die einzelne Datei uebersprungen und genannt; scheitert das
+    # Packen ganz, bleibt die Datenbankkopie und die Meldung sagt es.
+    mit_zip, uebersprungen, hinweis = False, [], ""
+    if mit_dokumenten and dokumente.is_dir() and any(dokumente.rglob("*")):
+        zip_pfad = _dokumente_zip(ziel)
+        try:
+            with zipfile.ZipFile(zip_pfad, "w", zipfile.ZIP_DEFLATED) as z:
+                for f in dokumente.rglob("*"):
+                    if not f.is_file():
+                        continue
+                    try:
+                        z.write(f, f.relative_to(dokumente).as_posix())
+                    except OSError as exc:  # gesperrt oder ohne Zugriff
+                        uebersprungen.append(f.relative_to(dokumente).as_posix())
+                        logger.warning("Sicherung: %s uebersprungen (%s)", f.name, exc)
+            mit_zip = True
+            if uebersprungen:
+                beispiele = ", ".join(uebersprungen[:3]) + (" …" if len(uebersprungen) > 3 else "")
+                hinweis = (f"{len(uebersprungen)} Datei(en) im Dokumentenordner waren gesperrt "
+                           f"und fehlen in der Sicherung ({beispiele}). Schließe Programme, die "
+                           f"sie offen halten, und sichere noch einmal.")
+        except Exception as exc:  # noqa: BLE001 - die Datenbankkopie bleibt
+            try:
+                zip_pfad.unlink()
+            except OSError:
+                pass
+            mit_zip = False
+            hinweis = (f"Die Dokumente konnten nicht mitgesichert werden ({exc}). "
+                       f"Die Datenbank ist gesichert.")
+            logger.warning("Sicherung der Dokumente fehlgeschlagen: %s", exc)
     rotieren(db, jetzt=jetzt)
     logger.info("Sicherung angelegt: %s (%s)", ziel.name, anlass)
     return {"status": "gesichert", "name": ziel.name, "anlass": anlass,
-            "dokumente": mit_zip, "groesse": _groesse(ziel) + (
+            "dokumente": mit_zip, "uebersprungen": uebersprungen[:20], "hinweis": hinweis,
+            "groesse": _groesse(ziel) + (
                 _groesse(_dokumente_zip(ziel)) if mit_zip else 0)}
 
 
@@ -262,7 +289,64 @@ def taeglich_faellig(db, jetzt: datetime | None = None) -> bool:
                    for e in liste(db))
 
 
+EINSTELLUNG_DOKUMENTE_TAEGLICH = "sicherung_dokumente_taeglich"
+
+
+def dokumente_taeglich(db) -> bool:
+    """Gehört das Dokumenten-ZIP in die TÄGLICHE Sicherung? Vorgabe: ja.
+
+    v1.7.146 (#1138): Seit der Planer auch über Claude Desktop läuft, legt PBP
+    wirklich jeden Tag eine Sicherung an — bei großen Dokumentenordnern bis zu
+    zwölf Stände mit je einem ZIP. Wer das nicht will, schaltet die Dokumente
+    aus der täglichen Sicherung heraus (die Datenbank ist klein und bleibt
+    immer drin). Sicherungen, die der Mensch selbst anlegt, und die vor einem
+    Eingriff enthalten die Dokumente immer.
+    """
+    wert = db.get_setting(EINSTELLUNG_DOKUMENTE_TAEGLICH, True)
+    return wert not in (False, 0, "0", "false", "nein", "aus")
+
+
+def dokumente_taeglich_setzen(db, an: bool) -> None:
+    db.set_setting(EINSTELLUNG_DOKUMENTE_TAEGLICH, bool(an))
+
+
+def dokumente_groesse(db) -> int:
+    """Bytes im Dokumentenordner (für die Karte: was ein ZIP etwa wiegt)."""
+    return _groesse(Path(db.db_path).parent / "dokumente")
+
+
+def _mit_dokumenten(db, anlass: str) -> bool:
+    return anlass != "taeglich" or dokumente_taeglich(db)
+
+
 _LAUF = threading.Lock()
+
+#: v1.7.146 (#1142): Wartezeit in Minuten nach dem 1., 2., ... Fehlschlag in
+#: Folge, bevor die Automatik es wieder versucht. Vorher startete jeder Takt
+#: (alle 5 Minuten) einen neuen vollen Kopierversuch, solange eine Datei
+#: gesperrt oder die Platte voll war. Das Gedaechtnis lebt im Prozess: nach
+#: einem Neustart darf es einmal wieder versuchen.
+FRIST_NACH_FEHLER_MIN = (15, 30, 60, 120, 240, 480)
+_FEHL: dict = {"anzahl": 0, "zeit": None}
+
+
+def fehlschlag_merken(jetzt: datetime | None = None) -> None:
+    _FEHL["anzahl"] += 1
+    _FEHL["zeit"] = jetzt or datetime.now()
+
+
+def erfolg_merken() -> None:
+    _FEHL["anzahl"] = 0
+    _FEHL["zeit"] = None
+
+
+def gesperrt_bis(jetzt: datetime | None = None) -> datetime | None:
+    """Bis wann die Automatik nach Fehlschlaegen wartet; None = sie darf es versuchen."""
+    if not _FEHL["anzahl"] or _FEHL["zeit"] is None:
+        return None
+    frist = FRIST_NACH_FEHLER_MIN[min(_FEHL["anzahl"], len(FRIST_NACH_FEHLER_MIN)) - 1]
+    bis = _FEHL["zeit"] + timedelta(minutes=frist)
+    return bis if (jetzt or datetime.now()) < bis else None
 
 
 def im_hintergrund(db, anlass: str = "taeglich") -> dict:
@@ -280,12 +364,18 @@ def im_hintergrund(db, anlass: str = "taeglich") -> dict:
         try:
             db.update_background_job(job_id, "running", progress=10,
                                      message="Sicherung läuft")
-            erg = sichern(db, anlass=anlass)
+            erg = sichern(db, anlass=anlass, mit_dokumenten=_mit_dokumenten(db, anlass))
+            if erg["status"] == "gesichert":
+                erfolg_merken()
+            else:
+                fehlschlag_merken()
             db.update_background_job(
                 job_id, "fertig" if erg["status"] == "gesichert" else "fehler",
-                progress=100, message=erg.get("fehler") or "Sicherung angelegt",
+                progress=100,
+                message=erg.get("fehler") or erg.get("hinweis") or "Sicherung angelegt",
                 result=erg)
         except Exception as exc:  # noqa: BLE001
+            fehlschlag_merken()
             db.update_background_job(job_id, "fehler", message=str(exc))
         finally:
             _LAUF.release()
@@ -295,10 +385,52 @@ def im_hintergrund(db, anlass: str = "taeglich") -> dict:
 
 
 def taeglich(db) -> dict:
-    """Aus der Automatik: einmal am Tag."""
+    """Aus der Automatik: einmal am Tag — und nach einem Fehlschlag mit Wartezeit."""
     if not taeglich_faellig(db):
         return {"status": "schon_gesichert"}
+    bis = gesperrt_bis()
+    if bis is not None:
+        return {"status": "wartet_nach_fehler", "wieder_ab": bis.isoformat(timespec="minutes")}
     return im_hintergrund(db, "taeglich")
+
+
+def letzter_versuch(db) -> dict | None:
+    """Der jüngste Sicherungsversuch samt Ausgang (v1.7.146, #1142).
+
+    `status`: `laeuft`, `fertig` oder `fehler`; `nachricht` der Satz dazu;
+    `aktuell` ist wahr, wenn der Versuch NEUER ist als die neueste
+    vorhandene Sicherung — ein alter Fehler, der inzwischen durch eine
+    gelungene Sicherung überholt ist, soll nichts mehr melden.
+    """
+    try:
+        z = db.connect().execute(
+            "SELECT status, message, created_at, updated_at, params FROM background_jobs "
+            "WHERE job_type='sicherung' ORDER BY created_at DESC LIMIT 1").fetchone()
+    except Exception:  # noqa: BLE001
+        return None
+    if not z:
+        return None
+    status = {"fertig": "fertig", "fehler": "fehler", "abgebrochen": "fehler"}.get(z["status"], "laeuft")
+    roh = z["updated_at"] or z["created_at"] or ""
+    try:
+        zeit = datetime.fromisoformat(roh)
+        if zeit.tzinfo is not None:
+            zeit = zeit.astimezone().replace(tzinfo=None)
+    except ValueError:
+        zeit = None
+    try:
+        anlass = (json.loads(z["params"] or "{}") or {}).get("anlass", "")
+    except ValueError:
+        anlass = ""
+    neueste = letzte(db)
+    aktuell = True
+    if neueste and zeit is not None:
+        try:
+            aktuell = zeit > datetime.fromisoformat(neueste["zeit"])
+        except ValueError:
+            aktuell = True
+    return {"status": status, "nachricht": z["message"] or "", "anlass": anlass,
+            "zeit": zeit.isoformat(timespec="seconds") if zeit else "", "aktuell": aktuell}
 
 
 # ── Wiederherstellen ────────────────────────────────────────────────

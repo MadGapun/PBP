@@ -154,10 +154,12 @@ KURZ = {
     "bewerbung_details": (
         "Zeigt eine Bewerbung vollstaendig: Stelle mit Anzeigentext, "
         "Verlauf, Termine, Dokumente, Kontakte, Recherche, offene Aufgaben "
-        "und einen Link ins Dashboard. Nutzen, bevor du über eine "
-        "Bewerbung sprichst, ein Anschreiben oder eine Vorbereitung baust "
-        "oder etwas daran änderst. Liest nur. Für die Liste aller "
-        "Bewerbungen bewerbungen_anzeigen."),
+        "und einen Link ins Dashboard. Zuerst aktueller_stand lesen "
+        "(nächster Termin mit Status, letzter Eintrag, offene Aufgaben): "
+        "Notizen und ältere Einträge können überholt sein. Nutzen, bevor "
+        "du über eine Bewerbung sprichst, ein Anschreiben oder eine "
+        "Vorbereitung baust oder etwas daran änderst. Liest nur. Für die "
+        "Liste aller Bewerbungen bewerbungen_anzeigen."),
     "bewerbungen_anzeigen": (
         "Listet die Bewerbungen mit Status, Datum, Firma und Link ins "
         "Dashboard, optional nach Status gefiltert; abgeschlossene nur auf "

@@ -198,6 +198,11 @@ jobs:
         # Server (tests/test_v17145_web_adresse.py) und die Oberflaeche.
         run: node frontend/src/lib/webAdresse.test.mjs
 
+      - name: Ortszeit statt UTC in Kalender, Aufgaben und Statistik (Node)
+        # v1.7.146 (#1140): aus 14:00 und 60 Minuten wurde im Sommer das Terminende
+        # 13:00. Der Test rechnet in mehreren Zeitzonen (Node setzt TZ zur Laufzeit).
+        run: node frontend/src/lib/lokaleZeit.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

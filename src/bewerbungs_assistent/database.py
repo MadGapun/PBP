@@ -11906,6 +11906,11 @@ class Database:
         data["meeting_date"] = termin_zeit.normalisieren(data.get("meeting_date"))
         if data.get("meeting_end"):
             data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
+            # v1.7.146 (#1140): ein Ende vor dem Beginn (das Formular schrieb
+            # es bis v1.7.145 in UTC) wird aus Beginn + Dauer gerechnet.
+            data["meeting_end"], _ = termin_zeit.ende_korrigieren(
+                data["meeting_date"], data["meeting_end"],
+                data.get("duration_minutes"))
         conn = self.connect()
         mid = _gen_id()
         pid = self.get_active_profile_id()
@@ -11980,9 +11985,10 @@ class Database:
         Unlesbares bleibt stehen und wird genannt."""
         from .services import termin_zeit
         conn = self.connect()
-        geaendert, unlesbar = 0, []
+        geaendert, unlesbar, ende_korrigiert = 0, [], 0
         for r in conn.execute(
-                "SELECT id, meeting_date, meeting_end FROM application_meetings").fetchall():
+                "SELECT id, meeting_date, meeting_end, duration_minutes "
+                "FROM application_meetings").fetchall():
             satz = {}
             for feld in ("meeting_date", "meeting_end"):
                 if not r[feld]:
@@ -11994,6 +12000,17 @@ class Database:
                     continue
                 if neu != r[feld]:
                     satz[feld] = neu
+            # v1.7.146 (#1140): ein Ende vor dem Beginn (bis v1.7.145 schrieb
+            # das Formular es in UTC) wird aus Beginn + Dauer gerechnet; ohne
+            # Dauer bleibt es leer. Deterministisch und idempotent.
+            beginn = satz.get("meeting_date", r["meeting_date"])
+            ende = satz.get("meeting_end", r["meeting_end"])
+            if beginn and ende:
+                neues_ende, korrigiert = termin_zeit.ende_korrigieren(
+                    beginn, ende, r["duration_minutes"])
+                if korrigiert:
+                    satz["meeting_end"] = neues_ende
+                    ende_korrigiert += 1
             if satz:
                 setz = ", ".join(f"{k}=?" for k in satz)
                 conn.execute(f"UPDATE application_meetings SET {setz} WHERE id=?",
@@ -12002,7 +12019,10 @@ class Database:
         conn.commit()
         if unlesbar:
             logger.warning("Termine mit unlesbarer Zeit (#1102): %s", unlesbar)
-        return {"geaendert": geaendert, "unlesbar": unlesbar}
+        if ende_korrigiert:
+            logger.info("Terminende korrigiert (#1140): %d Termin(e)", ende_korrigiert)
+        return {"geaendert": geaendert, "unlesbar": unlesbar,
+                "ende_korrigiert": ende_korrigiert}
 
     def get_meetings_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Get all meetings for a specific application."""
@@ -12029,6 +12049,22 @@ class Database:
             data["meeting_date"] = termin_zeit.normalisieren(data["meeting_date"])
         if data.get("meeting_end"):
             data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
+        # v1.7.146 (#1140): Beginn, Ende und Dauer gelten als Einheit. Wer den
+        # Beginn verschiebt oder ein Ende aus UTC schickt, bekommt ein Ende
+        # nach dem Beginn (aus der Dauer gerechnet), nie eines davor.
+        if any(k in data for k in ("meeting_date", "meeting_end", "duration_minutes")):
+            alt = conn.execute(
+                "SELECT meeting_date, meeting_end, duration_minutes "
+                "FROM application_meetings WHERE id=?", (meeting_id,)).fetchone()
+            if alt:
+                beginn = data.get("meeting_date", alt["meeting_date"])
+                ende = data["meeting_end"] if "meeting_end" in data else alt["meeting_end"]
+                dauer = (data["duration_minutes"] if "duration_minutes" in data
+                         else alt["duration_minutes"])
+                if beginn and ende:
+                    neues_ende, korrigiert = termin_zeit.ende_korrigieren(beginn, ende, dauer)
+                    if korrigiert:
+                        data["meeting_end"] = neues_ende
         sets = []
         vals = []
         for k, v in data.items():

@@ -18,6 +18,29 @@ export function alterText(tage) {
   return { text, alt: tage >= 7 };
 }
 
+/**
+ * Was die Karte zum juengsten Sicherungsversuch sagt (v1.7.146, #1142).
+ * `null`, wenn nichts zu melden ist: der Versuch ist durch eine neuere
+ * Sicherung ueberholt (`aktuell` falsch), laeuft noch oder ist glatt
+ * gelungen. `art`: "fehler" oder "hinweis" (gesichert, aber nicht alles).
+ */
+export function versuchText(versuch) {
+  if (!versuch || versuch.aktuell === false) return null;
+  const nachricht = String(versuch.nachricht || "").trim();
+  if (versuch.status === "fehler") {
+    return {
+      art: "fehler",
+      text: nachricht
+        ? `Die letzte Sicherung ist fehlgeschlagen: ${nachricht}`
+        : "Die letzte Sicherung ist fehlgeschlagen.",
+    };
+  }
+  if (versuch.status === "fertig" && nachricht && nachricht !== "Sicherung angelegt") {
+    return { art: "hinweis", text: `Die letzte Sicherung ist angelegt, aber nicht vollständig: ${nachricht}` };
+  }
+  return null;
+}
+
 /** Bytes lesbar: KB bis GB, eine Nachkommastelle ab MB. */
 export function groesseText(bytes) {
   const b = Number(bytes) || 0;

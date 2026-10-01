@@ -1,5 +1,6 @@
 ﻿import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
+import { lokalesDatum } from "@/lib/lokaleZeit";
 import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
@@ -291,7 +292,7 @@ export default function ApplicationsPage() {
           application: app,
           final_salary: app.final_salary || "",
           description: "",
-          start_date: new Date().toISOString().slice(0, 10),
+          start_date: lokalesDatum(),
         });
       }
     } catch (error) {
@@ -1735,7 +1736,7 @@ export default function ApplicationsPage() {
               {timelineTasks.map((task) => {
                 const done = task.status === "erledigt";
                 const overdue = !done && task.faellig_am
-                  && task.faellig_am < new Date().toISOString().slice(0, 10);
+                  && task.faellig_am < lokalesDatum();
                 return (
                   <div key={task.id} className={`flex items-center gap-2 rounded-lg px-3 py-1.5 ${done ? "opacity-50" : overdue ? "bg-coral/10 border border-coral/30" : "bg-white/[0.03] border border-white/5"}`}>
                     {/* #814 (D35): als SCHALTFLAECHE erkennbar — der blasse

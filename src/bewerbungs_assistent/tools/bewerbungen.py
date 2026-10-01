@@ -1304,6 +1304,12 @@ def register(mcp, db, logger):
 
         Das vollständige Dossier — alles auf einen Blick für Interview-Vorbereitung.
 
+        ⛔ ZUERST `aktueller_stand` lesen (nächster Termin mit Status, letzter
+        Eintrag, offene Aufgaben), NICHT die Notizen: Notizen und ältere
+        Timeline-Einträge können überholt sein (Termin verschoben, Zusage
+        gegeben). Die Timeline steht mit dem Neuesten zuerst; `termine`
+        zeigt kommende und vergangene Termine (#1153).
+
         Args:
             bewerbung_id: ID der Bewerbung. Akzeptiert sowohl die nackte
                 Hex-ID (z.B. '42061e46') als auch die typisierte Form
@@ -1324,6 +1330,7 @@ def register(mcp, db, logger):
             return {"fehler": "Bewerbung nicht gefunden."}
 
         result = {
+            "aktueller_stand": None,  # v1.7.146 (#1153): zuerst lesen, unten gefuellt
             "bewerbung_id": app["id"][:8],  # #171: Kurz-ID
             "bewerbung_id_voll": app["id"],
             "titel": app.get("title", ""),
@@ -1334,7 +1341,6 @@ def register(mcp, db, logger):
             "bewerbungsart": app.get("bewerbungsart", ""),
             "ansprechpartner": app.get("ansprechpartner", ""),
             "kontakt_email": app.get("kontakt_email", ""),
-            "notizen": app.get("notes", ""),
             "dashboard_link": _dashboard_link("bewerbungen", app["id"]),
         }
         # v1.7.10 (#782/C30): rekonstruierte Altbewerbung kennzeichnen —
@@ -1365,18 +1371,27 @@ def register(mcp, db, logger):
             result["stellenbeschreibung"] = app["stellenbeschreibung"]
         if app.get("employment_type"):
             result["stellenart"] = app["employment_type"]
+        # v1.7.146 (#1153): Termine einmal lesen, der Stand und die Vorschlaege
+        # unten stuetzen sich auf dieselben Zeilen.
+        from ..services import bewerbung_stand as _stand
+        try:
+            _termine = _stand.termine_einteilen(db.get_meetings_for_application(app["id"]))
+            result["aktueller_stand"] = _stand.aktueller_stand(db, app, _termine)
+        except Exception as exc:
+            logger.warning("Aktueller Stand fuer Bewerbung %s fehlgeschlagen: %s",
+                           app.get("id"), exc)
+            _termine = {"kommend": [], "vergangen": []}
+            result["aktueller_stand"] = {
+                "status": app.get("status", ""),
+                "hinweis": "Der aktuelle Stand konnte nicht berechnet werden; "
+                           "Termine mit meetings_anzeigen prüfen."}
+        _naechster = _stand._erster_echter(_termine["kommend"])
+        _letzter = _stand._erster_echter(_termine["vergangen"])
+        result["termine"] = _termine
         if app.get("events"):
-            result["timeline"] = [
-                {
-                    # Ohne die ID liess sich ein Datum nicht korrigieren
-                    # (bewerbung_event_datum_setzen verweist hierher).
-                    "event_id": e.get("id"),
-                    "datum": e.get("event_date", ""),
-                    "status": e.get("status", ""),
-                    "notiz": e.get("notes", ""),
-                }
-                for e in app["events"]
-            ]
+            # Neueste zuerst; aeltere "offen"-Hinweise kennzeichnen (#1153).
+            result["timeline"] = _stand.timeline_aufbereiten(app["events"])
+            result["timeline_reihenfolge"] = "neueste zuerst"
 
         # #223: Verknuepfte Dokumente anzeigen
         conn = db.connect()
@@ -1418,7 +1433,9 @@ def register(mcp, db, logger):
             pass
 
         # #170: Kontextabhängige Aktionen basierend auf aktuellem Status
-        actions = _get_context_actions(app.get("status", ""))
+        actions = _stand.aktionen_zeitbewusst(
+            _get_context_actions(app.get("status", "")),
+            app.get("status", ""), _naechster, _letzter)
 
         # D15 (#650, beta.76): Bei staleness >=7d einen prioritaeren Nachfass-
         # Eintrag voranstellen. Liest das letzte Event und vergleicht mit jetzt.
@@ -1428,7 +1445,8 @@ def register(mcp, db, logger):
                 "offen", "in_vorbereitung", "beworben",
                 "eingangsbestaetigung", "interview", "zweitgespraech",
             )
-            if app.get("status") in AKTIVE and app.get("events"):
+            # Mit einem kommenden Termin wartet niemand auf Antwort (#1153).
+            if app.get("status") in AKTIVE and app.get("events") and not _naechster:
                 last_event = max(
                     app["events"],
                     key=lambda e: e.get("event_date", ""),
@@ -1515,6 +1533,11 @@ def register(mcp, db, logger):
                            app.get("id"), exc)
 
         result["nächste_aktionen"] = actions
+        if app.get("notes"):
+            result["notizen"] = app.get("notes", "")
+            result["notizen_hinweis"] = (
+                "Zusammengeführter Notiztext; er kann älter sein als der "
+                "aktuelle Stand oben.")
 
         return result
 

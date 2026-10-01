@@ -6990,6 +6990,13 @@ async def api_sicherungen():
             "letzte": alle[0] if alle else None,
             "alter_tage": round(alter, 2) if alter is not None else None,
             "platz_belegt": sum(e["groesse"] for e in alle),
+            # v1.7.146 (#1142): Ausgang des juengsten Versuchs - ein
+            # Fehler (gesperrte Datei, Platte voll) war nirgends zu sehen.
+            "letzter_versuch": _sicherung.letzter_versuch(_db),
+            # v1.7.146 (#1138): die taegliche Sicherung laeuft jetzt wirklich - wer
+            # Platz sparen will, nimmt die Dokumente heraus (Datenbank bleibt).
+            "dokumente_taeglich": _sicherung.dokumente_taeglich(_db),
+            "dokumente_groesse": _sicherung.dokumente_groesse(_db),
             "vorgemerkt": _sicherung.vormerkung(_db),
             "regel": (f"Behalten werden alle Sicherungen der letzten "
                       f"{_sicherung.TAGE_BEHALTEN} Tage und je eine der "
@@ -7001,6 +7008,18 @@ async def api_sicherung_anlegen():
     """Jetzt sichern — im Hintergrund, mit Eintrag in der Statusanzeige."""
     from .services import sicherung as _sicherung
     return _sicherung.im_hintergrund(_db, "manuell")
+
+
+@app.put("/api/sicherungen/einstellung")
+async def api_sicherung_einstellung(payload: dict = Body(default={})):
+    """Die Dokumente in der taeglichen Sicherung ein- oder ausschalten (#1138)."""
+    from .services import sicherung as _sicherung
+    wert = payload.get("dokumente_taeglich")
+    if not isinstance(wert, bool):
+        return JSONResponse({"error": "dokumente_taeglich (true oder false) fehlt."},
+                            status_code=400)
+    _sicherung.dokumente_taeglich_setzen(_db, wert)
+    return {"dokumente_taeglich": _sicherung.dokumente_taeglich(_db)}
 
 
 @app.post("/api/sicherungen/wiederherstellen")

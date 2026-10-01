@@ -33,6 +33,156 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.146] - 2026-10-02 — Termine, Sicherung und Bewerbungsansicht stimmen
+
+Hotfix für v1.7.145. Vier Dinge, die im Alltag falsche Auskunft gaben oder
+gar nicht liefen: Das Ende eines Termins im Dashboard war falsch, die
+tägliche Sicherung lief über Claude Desktop nie, eine einzige gesperrte
+Datei brachte die Sicherung zu Fall, ohne dass es jemand sah, und die
+Bewerbungsansicht begann mit alten Notizen und übersah einen verschobenen
+Termin. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** Ab dieser Version legt PBP über Claude Desktop
+wirklich täglich eine Sicherung an, so wie die Karte „Sicherungen“ es
+immer versprochen hat. Behalten werden die Sicherungen der letzten 7 Tage
+und je eine der 4 Wochen davor, jeweils die Datenbank und, wenn du
+Dokumente hast, ein ZIP davon. Bei vielen großen Dokumenten kann das Platz
+kosten: Die Karte zeigt, wie groß dein Dokumentenordner ist, und hat den
+Schalter **„Dokumente in die tägliche Sicherung aufnehmen“**. Ohne Haken
+enthält die tägliche Sicherung nur die Datenbank; Sicherungen, die du
+selbst anlegst, enthalten die Dokumente immer. Reicht der Platz nicht,
+sichert PBP nicht und sagt es.
+
+### Fixed
+
+- **Das Ende eines Termins stimmt** (#1140). Das Kalender-Formular rechnete
+  Beginn plus Dauer in UTC statt in deiner Ortszeit: aus „14:00, 60 Minuten“
+  wurde im Sommer das Ende 13:00. Die Kalender-Datei (ICS) war dadurch
+  ungültig, und zwei sich überschneidende Termine meldeten keine Kollision.
+  Jetzt rechnet die Oberfläche in Ortszeit, und der Server lässt kein Ende
+  vor dem Beginn mehr zu (er rechnet es aus Beginn und Dauer; ohne Dauer
+  bleibt das Ende leer statt falsch). Termine, die das alte Formular schon
+  gespeichert hat, werden beim Start einmal korrigiert. Dasselbe Muster in
+  den Aufgaben („überfällig“ zwischen 0 und 2 Uhr), in der Statistik und im
+  Datum neuer Stationen ist mit repariert.
+- **Die Hintergrund-Automatik startet auch über Claude Desktop** (#1138).
+  Tägliche Sicherung, geplante Jobsuche und Lernen liefen bisher nur im
+  eigenständigen Dashboard (Desktop-Verknüpfung), nicht in dem Weg, den die
+  meisten nutzen. Die Karte versprach „PBP sichert einmal am Tag von
+  selbst“, und es geschah nichts. Jetzt startet der Planer dort, wo das
+  Dashboard läuft, und nur dort (kein Doppellauf bei mehreren Fenstern).
+  Eine eingestellte Automatik-Jobsuche oder ein eingestelltes Lernen laufen
+  damit zum ersten Mal wirklich. Neu ist der Schalter für die Dokumente in
+  der täglichen Sicherung (Vorgabe: an).
+- **Eine gesperrte Datei kippt die Sicherung nicht mehr, und Fehler sind zu
+  sehen** (#1142). Eine einzige Datei im Dokumentenordner, die gerade von
+  einem Virenscanner oder von Office gehalten wurde, brachte die ganze
+  Sicherung samt Datenbankkopie zu Fall, und nirgends stand der Grund. Jetzt
+  bleibt die Datenbankkopie immer, gesperrte Dateien werden übersprungen und
+  genannt, und die Karte zeigt den Ausgang des letzten Versuchs (Fehler in
+  Rot, „gesichert, aber nicht vollständig“ in Gelb). Ein Abruffehler gilt
+  nicht mehr als „Noch keine Sicherung vorhanden“. Nach einem Fehlschlag
+  wartet die Automatik 15 Minuten, dann länger (bis 8 Stunden), statt alle 5
+  Minuten einen neuen Kopierversuch zu starten.
+- **`bewerbung_details` beginnt mit dem aktuellen Stand** (#1153). Die
+  Ausgabe begann mit den ältesten Notizen, die Timeline lief aufsteigend, das
+  Meeting kam nicht vor, und die Vorschläge sagten bei „Interview“ auch für
+  einen Termin in der Zukunft: „Du hattest ein Interview!“. So entstanden
+  drei falsche Aussagen über eine Bewerbung (verschobener Termin, längst
+  gegebene Zusage, angeblich stattgefundenes Gespräch). Jetzt steht zuerst
+  der Block `aktueller_stand` (nächster Termin mit Status, letzter Eintrag,
+  offene Aufgaben und Nachfassungen), dazu die Termine, die Timeline mit dem
+  Neuesten zuerst, und die Notizen am Ende mit dem Hinweis, dass sie älter
+  sein können. Verschiebt, bestätigt oder sagt man einen Termin ab (im
+  Dashboard oder über Claude), steht das jetzt als Zeile im Verlauf der
+  Bewerbung; ältere Einträge, die etwas als „offen“ schildern, bekommen
+  danach den Hinweis „möglicherweise überholt“ (der Text bleibt unverändert).
+  Die Vorschläge passen zur Zeit: liegt das Gespräch vor dir, geht es um die
+  Vorbereitung; ohne Termin steht dort „kein Termin hinterlegt“ mit dem
+  Angebot, ihn einzutragen. Mit einem kommenden Termin kommt kein „Wartest du
+  seit … Tagen auf Antwort“ mehr.
+
+### Known Issues
+
+- Ältere Hinweise im Verlauf werden nur gekennzeichnet, wenn danach über
+  diese Version eine Terminänderung eingetragen wurde; frühere
+  Verschiebungen stehen im Termin selbst (`aktueller_stand` zeigt ihn).
+
+### Gemessen
+
+68 neue Tests (6.190 gesamt): 27 für das Terminende (die Regel, Anlegen,
+Ändern, Korrektur beim Start, ICS-Datei, Kollisionen und ein Wächter, der
+UTC-Daten für Eingaben in der Oberfläche verbietet), 5 für den Start des
+Planers, 21 für die Sicherung (gesperrte Datei, Datenbankkopie bleibt,
+Wartezeit, Ausgang des letzten Versuchs, Schalter für die Dokumente) und 15
+für die Bewerbungsansicht; dazu zwei Node-Tests (Ortszeit in fünf
+Zeitzonen, Text zum Sicherungsversuch) als Schritt der automatischen
+Prüfung. Gegenprobe: 44 Mechanismen einzeln ausgebaut (11 beim Terminende,
+16 bei Planer und Sicherung, 6 beim Dokumenten-Schalter, 11 bei der
+Bewerbungsansicht); jeder Ausbau macht mindestens einen Test rot, und bei
+zwei Ausbauten blieb zunächst alles grün, deshalb sind zwei Prüfungen
+strenger geworden (der Aufruf des Planers zählt, nicht der Import; die
+Karte muss den Stand des letzten Versuchs anzeigen). Die Fehler selbst
+wurden vorher nachgestellt: 14:00 plus 60 Minuten ergab in Europe/Berlin im
+Sommer das Ende 13:00, der Prozess, den Claude Desktop startet, hatte keinen
+Planer-Thread, vier Planer-Takte nach einem Fehlschlag starteten vier
+Sicherungsversuche, und `bewerbung_details` nannte bei einem verschobenen
+und zugesagten Termin zuerst den alten Stand.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.146.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.146.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.145] - 2026-10-01 — Nur das Dashboard selbst darf PBP verändern
 
 Hotfix für v1.7.144. Eine Durchsicht von PBP auf Sicherheit und Datenschutz

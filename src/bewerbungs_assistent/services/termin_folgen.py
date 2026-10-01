@@ -34,7 +34,7 @@ import logging
 import re
 from datetime import date, timedelta
 
-from . import nachfass_abgleich
+from . import nachfass_abgleich, termin_zeit
 
 logger = logging.getLogger(__name__)
 
@@ -52,15 +52,7 @@ def _tag(wert: str) -> date | None:
         return None
 
 
-def _lesbar(wert: str) -> str:
-    """`2026-09-30T11:00:00` -> `30.09.2026 11:00` (ohne Uhrzeit: nur das Datum)."""
-    roh = str(wert or "")
-    tag = _tag(roh)
-    if not tag:
-        return roh
-    text = tag.strftime("%d.%m.%Y")
-    zeit = roh[11:16]
-    return f"{text} {zeit}" if zeit and zeit != "00:00" else text
+_lesbar = termin_zeit.lesbar  # eine Fassung (v1.7.146)
 
 
 def offene_vorbereitungen(db, app_id: str) -> list[dict]:
@@ -175,6 +167,35 @@ def abweichende_vorbereitungen(db) -> list[dict]:
     return befunde
 
 
+def _verlauf_eintragen(db, app_id: str, vorher: dict, nachher: dict,
+                       abgesagt: bool, verschoben: bool, bestaetigt: bool) -> None:
+    """Eine Zeile im Verlauf der Bewerbung je Termin-Änderung (#1153).
+
+    Bisher stand eine Verschiebung oder Zusage nur im Termin selbst; der
+    Verlauf der Bewerbung (und mit ihm jede Zusammenfassung davon) wusste
+    nichts davon, und die Notizen liefen vom Kalender auseinander. Fehler
+    hier verhindern die Termin-Änderung nie.
+    """
+    titel = nachher.get("title") or "Termin"
+    try:
+        if abgesagt:
+            db.add_application_event(
+                app_id, "termin_abgesagt",
+                f"Termin „{titel}“ am {_lesbar(vorher.get('meeting_date'))} abgesagt.")
+            return
+        if verschoben:
+            db.add_application_event(
+                app_id, "termin_verschoben",
+                f"Termin „{titel}“ verschoben: {_lesbar(vorher.get('meeting_date'))} "
+                f"→ {_lesbar(nachher.get('meeting_date'))}.")
+        if bestaetigt:
+            db.add_application_event(
+                app_id, "termin_bestaetigt",
+                f"Zusage zum Termin „{titel}“ am {_lesbar(nachher.get('meeting_date'))}: bestätigt.")
+    except Exception as exc:  # noqa: BLE001 — die Termin-Änderung selbst steht
+        logger.warning("Verlaufseintrag zum Termin (#1153) nicht geschrieben: %s", exc)
+
+
 def folgen(db, vorher: dict | None, nachher: dict | None) -> dict:
     """Die Folgen einer Termin-Änderung für Aufgaben und Nachfassungen."""
     if not vorher or not nachher:
@@ -187,6 +208,9 @@ def folgen(db, vorher: dict | None, nachher: dict | None) -> dict:
                 and (vorher.get("status") or "") != "abgesagt")
     verschoben = (str(vorher.get("meeting_date") or "")
                   != str(nachher.get("meeting_date") or ""))
+    bestaetigt_vorab = ((nachher.get("status") or "") == "bestaetigt"
+                        and (vorher.get("status") or "") != "bestaetigt")
+    _verlauf_eintragen(db, app_id, vorher, nachher, abgesagt, verschoben, bestaetigt_vorab)
     if abgesagt:
         todos = offene_vorbereitungen(db, app_id)
         if todos:
