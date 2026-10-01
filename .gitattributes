@@ -43,3 +43,8 @@ pnpm-workspace.yaml  export-ignore
 *.sh    text eol=lf
 *.md    text eol=lf
 *.json  text eol=lf
+
+# #1120: Test-Mails aus echten Mails gebaut. Die Bytes SIND der Test
+# (LF-Rahmen wie im Thunderbird-Postfach, CRLF nur im base64-Inhalt) —
+# Git darf die Zeilenenden nie umstellen.
+tests/fixtures/google_alert/*.eml -text

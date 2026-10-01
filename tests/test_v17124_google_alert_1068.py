@@ -33,7 +33,10 @@ sys.path.insert(0, str(ROOT / "src"))
 from bewerbungs_assistent.services import google_alert as ga  # noqa: E402
 
 # Nachgebaut nach der Beschreibung des Melders. Firmennamen fiktiv.
-MAIL = """Alerts für Stellen
+# #1120: die ECHTEN Mails sehen anders aus (Leerzeilen, weiche Umbrueche,
+# Symbol-Praefixe) — diese Form bleibt als "alte Form" im Test, die echte
+# steht in test_1120_google_alert_echte_mails.py.
+MAIL ="""Alerts für Stellen
 
 PLM Project Manager (m/w/d)
 Musterbetrieb Nord GmbH
@@ -231,9 +234,9 @@ def test_1068_dieselbe_stelle_zweimal_bleibt_eine(db):
 
 
 def test_1068_keine_erfundene_url(db):
-    """Alle Links der Mail sind Google-Redirects, und wohin sie
-    aufloesen, ist nicht gemessen. Eine erfundene Portal-URL waere
-    schlimmer als keine."""
+    """Alle Links der Mail sind Google-Redirects auf eine Google-Suche,
+    die oft nur die Liste oeffnet (gemessen in #1120). Eine erfundene
+    Portal-URL waere schlimmer als keine."""
     from bewerbungs_assistent.services import newsletter_service as ns
     ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
     for j in db.get_active_jobs():

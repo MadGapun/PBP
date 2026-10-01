@@ -262,7 +262,12 @@ Bodies nachtraeglich anonymisiert werden).
    PDFium-Segfault nur auf dem Linux-Runner). `tests.yml` laeuft nur auf
    main und PRs — Hotfix-Branches per `gh workflow run tests.yml --ref
    <branch>`. `release_check.py` (Repo-Root) prueft Versionen, CHANGELOG-Kopf
-   und README.
+   und README. **„Abgebrochen“ ist weder gruen noch rot (#1132):** endet ein
+   Lauf am Zeitlimit, meldet er keinen Fehler, und die Ueberwachung der
+   Claude-App wird davon nicht wach. Vor dem Tag den Ausgang des Laufs
+   ausdruecklich lesen (`gh run view <id> --json conclusion`); bei
+   `cancelled` neu starten und abwarten, nie taggen, weil die Suite „ja
+   durchgelaufen ist“.
 9. **Erst nach OK des Users** committen, taggen, pushen, Release erstellen.
    `--latest` traegt nur die 1.7-Linie; Betas sind Prereleases.
 

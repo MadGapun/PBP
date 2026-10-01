@@ -188,7 +188,7 @@ die installierte Version, nicht das Repo; die lokale `.venv` kann eine
 andere Hauptversion fahren als die CI (FastMCP 2 gegen 3), und native
 Abhaengigkeiten brechen nur auf dem Linux-Runner. Gruen lokal ist deshalb
 kein Beleg fuer die ausgelieferte Version.
-*Belege:* v1.7.76/6, v1.7.120/13, v1.7.87/9, beta.0, H34 (System-Python mit FastMCP 2.12, 27.09.2026)
+*Belege:* v1.7.76/6, v1.7.120/13, v1.7.87/9, beta.0, H34 (System-Python mit FastMCP 2.12, 27.09.2026), #1130 (30.09.2026: die Suite trotz dieser Regel mit dem System-Python gestartet; die Fehlalarme fielen nach Minuten auf und wurden gegen einen sauberen Worktree von `origin/main` gegengeprueft. Ein Abbruch mit klarer Meldung bei FastMCP < 3 in der conftest waere ein mechanischer Schutz statt einer Erinnerung)
 
 ## 7. Tests, Guards, Gegenprobe
 
@@ -199,14 +199,14 @@ belegen einander nicht; je ein isolierender Fall. Das Gegenprobe-Skript
 selbst laeuft im Hintergrund mit Log und Zeitlimit, liest alle Kanaele und
 Testlaeufer, unterscheidet Sammelfehler von "rot", und der Arbeitsstand ist
 danach bytegleich.
-*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos), v1.7.143/4 (34 Mechanismen im Backend, 5 in der Oberfläche mit Neubau nach jedem Ausbau; alle rot)
+*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1120 (Ausbau eines "wirkungslosen" Mechanismus war am Fixture gruen und an den echten Mails falsch — nach jedem Ausbau erneut an echten Daten messen), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos), v1.7.143/4 (34 Mechanismen im Backend, 5 in der Oberfläche mit Neubau nach jedem Ausbau; alle rot)
 
 **L24. Ein Guard prueft die Bauform, nicht eine Zeichenkette.** Ein
 gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
 Fenster misst den Abstand statt den Aufruf, gezaehlte Fundstellen lassen
 die naechste durch. Syntaxbaum statt Regex — und eine Kontrolle, die
 dieselbe Annahme benutzt wie der Schreibvorgang, prueft nichts.
-*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie)
+*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie), #1120 (`test_951` las 14.000 Zeichen ab `def save_jobs`; ein Kommentar schob den Aufruf hinaus, jetzt bis zur naechsten Methode)
 
 **L25. Ein Schutz zaehlt erst, wenn er aufgerufen wird.** Matcher gegen
 echte Werkzeugnamen, ein Test fuer die Registrierung jedes Guards, Tests
@@ -235,7 +235,10 @@ Fehlschlag liest, statt die Erwartung anzupassen, findet falsche Testdaten
 "nichts ist falsch" prueft, zeigt zuerst, dass er etwas sieht.
 Testdoppel bilden den echten Vertrag nach (`name=`-Argument, Host als
 Text).
-*Belege:* #1036, #1080, #811, #1046, #1070, v1.7.110/8, v1.7.132/6, v1.7.135/8, #1106 (Test-Doppel ohne `get_active_profile_id` nach dem Profilfilter)
+Ein Fixture nach einer Beschreibung ist eine Vermutung: es wird aus einer
+echten Probe gebaut (anonymisiert, Byte-Struktur erhalten), laeuft durch
+denselben Parser wie die echten Daten, und ein Test haelt seine Form fest.
+*Belege:* #1036, #1080, #811, #1046, #1070, v1.7.110/8, v1.7.132/6, v1.7.135/8, #1106 (Test-Doppel ohne `get_active_profile_id` nach dem Profilfilter), #1120 (Google-Alert-Fixture nach Beschreibung: gruen, an neun echten Mails 0 von 25 Treffern)
 
 **L28. Die Auswahl "betroffener" Tests ist eine Annahme.** Vor jedem
 Release die volle Suite plus alle Node-Tests (eigene CI-Schritte). Tests
@@ -289,20 +292,27 @@ schreiben Bytes.
 Das Write-Werkzeug schreibt unter Windows CRLF, und `grep`/`cat -A` in
 Git-Bash zeigen das `\r` nicht zuverlaessig — Anker im Patch-Skript an das
 Zeilenende der Zieldatei anpassen, Bytes pruefen.
-*Belege:* v1.7.102/6, v1.7.103/4, v1.7.109/7, v1.7.125/12, v1.7.126/12, v1.7.131/9, v1.7.140 (#1113)
+`core.autocrlf=true` stellt auch Test-Fixtures beim Auschecken auf CRLF
+um; wessen Bytes der Test sind, der braucht `-text` in `.gitattributes`
+und einen Test auf die Zeilenenden. Gezaehlt wird mit Python, nicht mit
+`grep -c $'\r$'` (zaehlte 139 CRLF in einer reinen LF-Datei).
+*Belege:* v1.7.102/6, v1.7.103/4, v1.7.109/7, v1.7.125/12, v1.7.126/12, v1.7.131/9, v1.7.140 (#1113), #1120
 
 **L34. Sicherheitsketten ohne Pipe und ohne `;`.** Der Exit-Code einer
 Pipe ist der des letzten Glieds, und `;` laeuft trotz Fehler weiter;
 Pruefungen stehen als Bedingung (`test ...`) in der Kette, nicht als
 Ausgabe. Vor riskanten Eingriffen committen — ein `git checkout -- datei`
 als Rueckweg nimmt fertige Arbeit mit.
-*Belege:* Wiki-Vorfall 2026-09-07, v1.7.92/8, v1.7.130/11, v1.7.138/6, v1.7.45/7, v1.7.86/9
+*Belege:* Wiki-Vorfall 2026-09-07, v1.7.92/8, v1.7.130/11, v1.7.138/6, v1.7.45/7, v1.7.86/9, #1120 (`pytest ... | tail || rueckfall`: ein Aufruffehler lief als "exit 0" durch, die Suite war nie gelaufen)
 
 ## 10. Release und Stable-Linie
 
 **L35. Stable zuerst, Cherry-Picks gegen `main` pruefen.** Fixes, die
 Stable betreffen, gehoeren in die 1.7-Linie; Schaufenster-Arbeit ist erst
-beim Nutzer, wenn sie dort ist. Nie `--skip` als Fallback, nach dem
+beim Nutzer, wenn sie dort ist. Umgekehrt nie "Hotfix der 1.7-Linie"
+vorschlagen, ohne im Tag nachzuschlagen, ob der Code dort existiert
+(`git cat-file -e v1.7.N:<pfad>`): Beta-Dateien wie `services/components.py`
+fehlen in Stable, der Fehler ist dann ein Beta-Fehler. Nie `--skip` als Fallback, nach dem
 Aufloesen `git diff main -- <datei>` leer, Signaturen der aufgerufenen
 Funktionen abgleichen (1.8-only-Funktionen, andere Tupel), nur geloeste
 Dateien einzeln hinzufuegen, Assets neu bauen; bei stark abweichenden
@@ -312,15 +322,18 @@ Beim Portieren: `cherry-pick --continue` verschluckt Betreffe, die mit
 Marker und darf nie automatisch als geloest gelten — so kam ein
 1.8-Modul auf die Stable-Linie. Quelltext-Tests, die Bauformen per
 Zeichenkette suchen, vor dem Umbenennen per grep finden (die CI fand zwei).
-*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113)
+*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113), #1130 (30.09.2026: als Hotfix-Kandidat vorgeschlagen, im Tag v1.7.143 gab es die Datei nicht)
 
 **L36. Ein Release aus mehreren Dateien faellt stueckweise aus.** Tag erst
 nach gruener CI, mit Baum, Branch, Commit und Versionsstring als
 `test`-Bedingung; CHANGELOG, README und Stand auf `main` danach
-gegenpruefen. Doku-Skripte fuehren erst alle Pruefungen und dann alle
+gegenpruefen. "Abgebrochen" ist weder gruen noch rot: ein Lauf am Zeitlimit
+meldet keinen Fehler und weckt keine Ueberwachung; den Ausgang ausdruecklich
+lesen (`gh run view <id> --json conclusion`), bei `cancelled` neu starten.
+Doku-Skripte fuehren erst alle Pruefungen und dann alle
 Schreibvorgaenge aus, ein Wiki-Push nimmt alle lokalen Commits mit, und
 eine Issue-Nummer wird vor dem Commit gegen `gh issue view` geprueft.
-*Belege:* beta.0, v1.7.130/11, v1.7.81/11, v1.7.124/11, v1.7.93/10, v1.7.103/3, v1.7.97/7, v1.7.21/2
+*Belege:* beta.0, v1.7.130/11, v1.7.81/11, v1.7.124/11, v1.7.93/10, v1.7.103/3, v1.7.97/7, v1.7.21/2, #1132 (30.09.2026: nach 30 Minuten abgebrochen, 28 Sekunden nach dem vollstaendigen Durchlauf)
 
 ## 11. Datenschutz
 
@@ -367,3 +380,11 @@ schreibende und eine Kurz-ID-Aufloesung. Jede neue Abfrage auf
 profilbezogene Tabellen braucht den Filter oder einen benannten Grund in
 der Ausnahmeliste des Guards (`tests/test_profilfilter_1106.py`).
 *Belege:* #1106, #1104
+
+**L43. Eine Meldung beschreibt, was geschehen ist -- nicht, was geschehen soll.**
+"Verworfen", "geloescht", "gespeichert" stehen erst NACH dem Vorgang und nur,
+wenn er gelungen ist; scheitert er, sagt die Meldung das. Aufraeumen gehoert
+in `finally`, nicht ans Ende des Erfolgswegs, und eine Datei unter ihrem
+endgueltigen Namen ist immer ganz: erst unter `.part` schreiben, die Laenge
+pruefen (urllib meldet eine zu kurz angekommene Antwort nicht), dann umbenennen.
+*Belege:* #1130 (Protokoll "Download verworfen", die 55 MB blieben liegen)
