@@ -149,11 +149,13 @@ for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
 echo.
 echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
 echo.
+set "BACKUP_FEHLER=0"
 set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): "
 if /i "!CREATE_BACKUP!"=="j" (
     set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
     echo         Erstelle Backup...
-    powershell -ExecutionPolicy Bypass -NoProfile -Command "if (Test-Path '%DATA_DIR%') { Compress-Archive -Path '%DATA_DIR%\*' -DestinationPath '!BACKUP_ZIP!' -Force; Write-Host '        [OK] Backup erstellt: !BACKUP_ZIP!'; exit 0 } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
+    powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path '%DATA_DIR%') { try { Compress-Archive -Path '%DATA_DIR%\*' -DestinationPath '!BACKUP_ZIP!' -Force; if (-not (Test-Path '!BACKUP_ZIP!')) { throw 'Die ZIP-Datei fehlt.' }; Write-Host '        [OK] Backup erstellt: !BACKUP_ZIP!'; exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
+    if errorlevel 2 set "BACKUP_FEHLER=1"
     echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
 )
 
@@ -163,6 +165,11 @@ echo.
 echo         ACHTUNG: Dein Profil, alle Stellen und Bewerbungen
 echo         werden UNWIDERRUFLICH geloescht!
 echo.
+if "!BACKUP_FEHLER!"=="1" (
+    echo         ACHTUNG: Das Backup konnte NICHT erstellt werden ^(siehe oben^).
+    echo         Mit LOESCHEN ist alles endgueltig weg. Zum Abbrechen etwas anderes eingeben.
+    echo.
+)
 set /p DELETE_DATA="  Bist du sicher? Tippe LOESCHEN zum Bestaetigen: "
 if "!DELETE_DATA!"=="LOESCHEN" (
     if exist "%DATA_DIR%" (
@@ -246,7 +253,7 @@ ping -n 3 127.0.0.1 >nul 2>&1
 exit /b 0
 
 :remove_claude_entry
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'; if (-not (Test-Path $p)) { exit 4 }; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { exit 3 }; if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers')) { exit 2 }; if (-not $cfg.mcpServers) { exit 2 }; if (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { exit 1 }; Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; $cfg | ConvertTo-Json -Depth 15 | Set-Content -Path $p -Encoding UTF8; exit 0" >> "%LOGFILE%" 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'; if (-not (Test-Path $p)) { exit 4 }; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { exit 3 }; if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers')) { exit 2 }; if (-not $cfg.mcpServers) { exit 2 }; if (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { exit 1 }; Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))); exit 0" >> "%LOGFILE%" 2>&1
 if %errorlevel% geq 5 exit /b 5
 exit /b %errorlevel%
 

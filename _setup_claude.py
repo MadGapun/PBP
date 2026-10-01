@@ -4,7 +4,7 @@ Plattformunabhaengig: Windows, macOS und Linux.
 Erkennt automatisch ob aus Repo (.venv) oder offiziellem Installationspfad
 gestartet wird und setzt die Pfade entsprechend.
 """
-import json, os, sys
+import json, os, shutil, sys, time
 
 
 def get_claude_config_paths():
@@ -129,61 +129,123 @@ def detect_mode(project_dir):
     return "official", fallback_python, src_dir_fallback, data_dir
 
 
-# Projektverzeichnis = wo dieses Script liegt
-project_dir = os.path.dirname(os.path.abspath(__file__))
-config_paths = get_claude_config_paths()
-config_path = config_paths[0]  # Primaerer Pfad
-mode, python_exe, src_dir, data_dir = detect_mode(project_dir)
+def lese_config(pfad):
+    """Liest die Claude-Konfiguration: (config, problem).
 
-print(f"[CLAUDE] Plattform: {sys.platform}")
-print(f"[CLAUDE] Modus:   {mode}")
-print(f"[CLAUDE] Projekt: {project_dir}")
-print(f"[CLAUDE] Config:  {config_paths}")
-print(f"[CLAUDE] Python:  {python_exe}")
-print(f"[CLAUDE] Source:  {src_dir}")
-print(f"[CLAUDE] Daten:   {data_dir}")
+    ``config`` ist None, wenn die Datei nicht lesbar ist. BOM-fest
+    (``utf-8-sig``): Windows PowerShell 5.1 schreibt UTF-8 mit BOM, der
+    Deinstaller tat das bis v1.7.144. Mit ``utf-8`` galt so eine Datei als
+    defekt und wurde samt allen anderen MCP-Servern ueberschrieben.
+    """
+    try:
+        with open(pfad, "r", encoding="utf-8-sig") as f:
+            config = json.load(f)
+    except Exception as e:  # noqa: BLE001 - jeder Lesefehler zaehlt gleich
+        return None, str(e)
+    if not isinstance(config, dict):
+        return None, "oberste Ebene ist kein JSON-Objekt"
+    if not isinstance(config.get("mcpServers", {}), dict):
+        return None, "mcpServers ist kein JSON-Objekt"
+    return config, ""
 
-if not os.path.exists(python_exe):
-    print(f"[CLAUDE] WARNUNG: Python nicht gefunden unter {python_exe}")
-    if mode == "official":
-        print(f"[CLAUDE] Tipp: Fuehre zuerst den Installer aus oder nutze den Dev-Modus (.venv)")
 
-# MCP Server eintragen
-mcp_entry = {
-    "command": python_exe,
-    "args": ["-m", "bewerbungs_assistent"],
-    "env": {
-        "BA_DATA_DIR": data_dir,
-    }
-}
+def sichere_kopie(pfad):
+    """Legt neben die Datei eine Kopie ab; gibt deren Pfad zurueck, sonst None."""
+    ziel = f"{pfad}.pbp-defekt-{time.strftime('%Y%m%d-%H%M%S')}"
+    try:
+        shutil.copy2(pfad, ziel)
+        return ziel
+    except OSError:
+        return None
 
-# PYTHONPATH immer setzen — stellt sicher dass bewerbungs_assistent gefunden wird
-mcp_entry["env"]["PYTHONPATH"] = src_dir
 
-# #361: Config in alle erkannten Pfade schreiben (Standard + ggf. Windows Store)
-written = 0
-for cp in config_paths:
+def eintrag_bauen(python_exe, src_dir, data_dir, alter_eintrag=None):
+    """Der PBP-Eintrag fuer ``mcpServers``.
+
+    v1.7.145: Eigene Einstellungen des bisherigen Eintrags bleiben erhalten
+    (``BA_DATA_DIR`` fuer einen verlegten Datenordner, ``BA_DASHBOARD_PORT``,
+    weitere). Vorher baute jeder Installerlauf den Eintrag neu, und wer seine
+    Daten wie im Wiki beschrieben verlegt hatte, startete nach dem Update mit
+    leerem Profil. Nur ``PYTHONPATH`` folgt immer der Installation.
+    """
+    env = {}
+    if isinstance(alter_eintrag, dict) and isinstance(alter_eintrag.get("env"), dict):
+        env.update(alter_eintrag["env"])
+    env.setdefault("BA_DATA_DIR", data_dir)
+    env["PYTHONPATH"] = src_dir
+    return {"command": python_exe, "args": ["-m", "bewerbungs_assistent"], "env": env}
+
+
+def config_schreiben(cp, python_exe, src_dir, data_dir):
+    """Traegt PBP in EINE Claude-Konfiguration ein. True = geschrieben.
+
+    Ist die vorhandene Datei nicht lesbar, wird sie NIE einfach ueberschrieben:
+    erst eine Kopie daneben, und gelingt die nicht, bleibt die Datei unberuehrt.
+    """
     config = {"mcpServers": {}}
     if os.path.exists(cp):
-        try:
-            with open(cp, "r", encoding="utf-8") as f:
-                config = json.load(f)
-            if "mcpServers" not in config:
-                config["mcpServers"] = {}
-            existing = list(config["mcpServers"].keys())
-            print(f"[CLAUDE] {cp}: Bestehende MCP-Server: {existing}")
-        except Exception as e:
-            print(f"[CLAUDE] {cp}: Config-Fehler (wird neu erstellt): {e}")
+        gelesen, problem = lese_config(cp)
+        if gelesen is None:
+            kopie = sichere_kopie(cp)
+            if kopie is None:
+                print(f"[CLAUDE] {cp}: Config nicht lesbar ({problem}) und keine Kopie moeglich - nichts geschrieben")
+                return False
+            print(f"[CLAUDE] {cp}: Config nicht lesbar ({problem}); Kopie gesichert: {kopie}")
+        else:
+            config = gelesen
+            config.setdefault("mcpServers", {})
+            print(f"[CLAUDE] {cp}: Bestehende MCP-Server: {list(config['mcpServers'].keys())}")
     else:
         print(f"[CLAUDE] {cp}: Keine bestehende Config, erstelle neue")
 
-    config["mcpServers"]["bewerbungs-assistent"] = mcp_entry
+    alter = config["mcpServers"].get("bewerbungs-assistent")
+    eintrag = eintrag_bauen(python_exe, src_dir, data_dir, alter)
+    if isinstance(alter, dict) and isinstance(alter.get("env"), dict):
+        geerbt = sorted(k for k in alter["env"] if k != "PYTHONPATH")
+        if geerbt:
+            print(f"[CLAUDE] {cp}: Eigene Einstellungen bleiben erhalten: {', '.join(geerbt)}")
+        if eintrag["env"].get("BA_DATA_DIR") != data_dir:
+            print(f"[CLAUDE] {cp}: Datenordner bleibt: {eintrag['env']['BA_DATA_DIR']}")
+    config["mcpServers"]["bewerbungs-assistent"] = eintrag
 
     os.makedirs(os.path.dirname(cp), exist_ok=True)
-    with open(cp, "w", encoding="utf-8") as f:
+    with open(cp, "w", encoding="utf-8") as f:  # ohne BOM
         json.dump(config, f, indent=2, ensure_ascii=False)
     print(f"[CLAUDE] Config geschrieben: {cp}")
-    written += 1
+    return True
 
-print(f"[CLAUDE] {written} Config-Datei(en) geschrieben ({mode}-Modus)")
-print("OK")
+
+def main():
+    # Projektverzeichnis = wo dieses Script liegt
+    project_dir = os.path.dirname(os.path.abspath(__file__))
+    config_paths = get_claude_config_paths()
+    mode, python_exe, src_dir, data_dir = detect_mode(project_dir)
+
+    print(f"[CLAUDE] Plattform: {sys.platform}")
+    print(f"[CLAUDE] Modus:   {mode}")
+    print(f"[CLAUDE] Projekt: {project_dir}")
+    print(f"[CLAUDE] Config:  {config_paths}")
+    print(f"[CLAUDE] Python:  {python_exe}")
+    print(f"[CLAUDE] Source:  {src_dir}")
+    print(f"[CLAUDE] Daten:   {data_dir}")
+
+    if not os.path.exists(python_exe):
+        print(f"[CLAUDE] WARNUNG: Python nicht gefunden unter {python_exe}")
+        if mode == "official":
+            print("[CLAUDE] Tipp: Fuehre zuerst den Installer aus oder nutze den Dev-Modus (.venv)")
+
+    # #361: Config in alle erkannten Pfade schreiben (Standard + ggf. Windows Store)
+    written = 0
+    for cp in config_paths:
+        if config_schreiben(cp, python_exe, src_dir, data_dir):
+            written += 1
+
+    print(f"[CLAUDE] {written} Config-Datei(en) geschrieben ({mode}-Modus)")
+    if written == 0:
+        print("[CLAUDE] FEHLER: Keine Konfiguration geschrieben - Claude Desktop kennt PBP noch nicht.")
+        sys.exit(1)
+    print("OK")
+
+
+if __name__ == "__main__":
+    main()

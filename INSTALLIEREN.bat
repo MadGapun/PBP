@@ -366,14 +366,19 @@ echo [DEBUG] Installiere Kernpakete... >> "%LOGFILE%"
 echo         Installiere Kernpakete...
 :: Kernpakete inkl. geopy (Umkreissuche) und python-jobspy
 :: (Indeed/LinkedIn-Booster, Core-Dep seit v1.6.0-beta.16, #500).
-"%PYTHON%" -m pip install fastmcp uvicorn fastapi python-multipart httpx geopy beautifulsoup4 lxml python-jobspy --no-warn-script-location >> "%LOGFILE%" 2>&1
+:: v1.7.145: Version und Grenzen wie in pyproject.toml. Ohne Grenze holte eine
+:: frische Installation FastMCP 4 (seit 09/2026 auf PyPI), das PBP ausschliesst
+:: (fastmcp>=3.0,<4); bei einem Update wird eine zu neue Fassung so auch
+:: zurueckgesetzt. tests/test_v17145_installer_pakete.py haelt die Listen
+:: gegen pyproject.toml.
+"%PYTHON%" -m pip install "fastmcp>=3.0,<4" "uvicorn>=0.30" "fastapi>=0.115" "python-multipart>=0.0.9" "httpx>=0.27" "geopy>=2.4" "beautifulsoup4>=4.12" "lxml>=5.0" "python-jobspy>=1.1" --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_packages
 echo         [OK] Kernpakete installiert (inkl. JobSpy + Geopy)
 echo [OK] Kernpakete installiert >> "%LOGFILE%"
 
 :: Optionale Pakete - Scraper (Playwright fuer stepstone, freelancermap, etc.)
 echo [DEBUG] Optionale Pakete Scraper... >> "%LOGFILE%"
-"%PYTHON%" -m pip install playwright --no-warn-script-location >> "%LOGFILE%" 2>&1
+"%PYTHON%" -m pip install "playwright>=1.40" --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 (
     echo         [OK] Playwright installiert
     echo [DEBUG] Installiere Playwright Browser... >> "%LOGFILE%"
@@ -386,9 +391,18 @@ if !errorlevel! neq 0 echo         [--] Job-Scraper uebersprungen
 
 :: Optionale Pakete - PDF/Word
 echo [DEBUG] Optionale Pakete PDF/Word... >> "%LOGFILE%"
-"%PYTHON%" -m pip install python-docx fpdf2 pypdf --no-warn-script-location >> "%LOGFILE%" 2>&1
+"%PYTHON%" -m pip install "python-docx>=1.1" "fpdf2>=2.7" "pypdf>=4.0" --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 echo         [OK] PDF/Word-Export installiert
 if !errorlevel! neq 0 echo         [--] PDF/Word-Export uebersprungen
+
+:: Optionale Pakete - Excel-Export und Diagramme (v1.7.145). Ohne openpyxl
+:: lieferte der Excel-Knopf im Statistik-Tab eine Fehlermeldung mit einer
+:: pip-Anweisung, die der Mensch nicht ausfuehren kann. Eigener Schritt,
+:: damit ein Fehler hier den PDF/Word-Export oben nicht beruehrt.
+echo [DEBUG] Optionale Pakete Excel/Diagramme... >> "%LOGFILE%"
+"%PYTHON%" -m pip install "openpyxl>=3.1" "matplotlib>=3.8" --no-warn-script-location >> "%LOGFILE%" 2>&1
+if !errorlevel! equ 0 echo         [OK] Excel-Export und Diagramme installiert
+if !errorlevel! neq 0 echo         [--] Excel-Export/Diagramme uebersprungen
 
 :: Optionale Pakete - E-Mail/Outlook
 echo [DEBUG] Optionale Pakete E-Mail/Outlook... >> "%LOGFILE%"
@@ -408,7 +422,7 @@ if !errorlevel! neq 0 (
     goto :email_install_done
 )
 echo [OK] setuptools + wheel installiert >> "%LOGFILE%"
-"%PYTHON%" -m pip install extract-msg icalendar --no-warn-script-location >> "%LOGFILE%" 2>&1
+"%PYTHON%" -m pip install "extract-msg>=0.48" "icalendar>=5.0" --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 (
     echo         [OK] E-Mail/Outlook-Import installiert
     echo [OK] E-Mail/Outlook-Import installiert >> "%LOGFILE%"

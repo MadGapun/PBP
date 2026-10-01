@@ -133,6 +133,13 @@ class ApiRequestLoggingMiddleware:
 
 app.add_middleware(ApiRequestLoggingMiddleware)
 
+# v1.7.145: nur das Dashboard selbst darf PBP veraendern. Eine fremde
+# Webseite im selben Browser konnte bisher per einfacher Anfrage (POST mit
+# text/plain) das Profil ueberschreiben, Ordner einlesen, die Datenbank
+# leeren und den Deinstaller starten. Zuletzt hinzugefuegt = zuerst geprueft.
+from .services.lokaler_zugriff import LokalerZugriffMiddleware  # noqa: E402
+app.add_middleware(LokalerZugriffMiddleware)
+
 
 # Static files
 STATIC_DIR = Path(__file__).parent / "static"
@@ -1924,7 +1931,9 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
     company = _esc(str(app_data.get("company", "")))
     status = _esc(str(app_data.get("status", "")))
     applied_at = app_data.get("applied_at", "")
-    url = _esc(str(app_data.get("url") or (job.get("url") if job else "") or ""))
+    from .services.web_adresse import web_adresse_oder_leer  # v1.7.145
+    url = _esc(web_adresse_oder_leer(
+        app_data.get("url") or (job.get("url") if job else "") or ""))
 
     def _stat(label, value, hint=None):
         return f"""<div class="stat"><div class="stat-label">{_esc(label)}</div><div class="stat-value">{_esc(str(value))}</div>{f'<div class="stat-hint">{_esc(hint)}</div>' if hint else ''}</div>"""
@@ -2287,7 +2296,9 @@ def _render_stelle_html(app_data: dict, job: dict | None, _esc) -> str:
     """Stellenanzeige als HTML (im ZIP)."""
     title = _esc(str(app_data.get("title", "")))
     company = _esc(str(app_data.get("company", "")))
-    url = _esc(str(app_data.get("url") or (job and job.get("url")) or ""))
+    from .services.web_adresse import web_adresse_oder_leer  # v1.7.145
+    url = _esc(web_adresse_oder_leer(
+        app_data.get("url") or (job and job.get("url")) or ""))
     location = _esc(str((job and job.get("location")) or ""))
     description = (job and job.get("description")) or app_data.get("notes") or ""
     description_html = _esc(description).replace("\n", "<br>\n")
@@ -3315,6 +3326,13 @@ async def api_snapshot_description(app_id: str, request: Request):
     url = (data.get("url") or "").strip()
     if not url:
         return JSONResponse({"error": "URL ist erforderlich"}, status_code=400)
+    # v1.7.145: urlopen versteht auch file:// und ftp://; so konnte jede
+    # lokale Datei als "Beschreibung" in die Bewerbung gelesen werden.
+    from .services.web_adresse import ist_web_adresse
+    if not ist_web_adresse(url):
+        return JSONResponse(
+            {"error": "Nur http- und https-Adressen können geladen werden."},
+            status_code=400)
 
     import urllib.request
     import re
@@ -8383,6 +8401,24 @@ async def api_application_contacts(app_id: str):
 
 # === CSV-Export (v1.7.0 #578) ===
 
+def _csv_zelle_sicher(text: str) -> str:
+    """Neutralisiert Zellen, die Excel/LibreOffice als Formel lesen wuerden.
+
+    Beginnt ein Text mit =, +, @, Tabulator oder Wagenruecklauf (oder mit -,
+    wenn es keine Zahl ist), steht ein Hochkomma davor. Negative Zahlen
+    ("-5", "-3,5") bleiben Zahlen. v1.7.145: ein Firmen- oder Titeltext aus
+    einer Anzeige oder Mail wie  =HYPERLINK(...)  wurde sonst beim Oeffnen
+    des Exports ausgefuehrt.
+    """
+    import re
+    if not text:
+        return text
+    if text[0] in ("=", "+", "@", chr(9), chr(13)) or (
+            text[0] == "-" and not re.fullmatch(r"-[0-9]+(?:[.,][0-9]+)?", text)):
+        return "'" + text
+    return text
+
+
 def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
                    filename: str) -> Response:
     """Hilfsfunktion fuer CSV-Antworten mit UTF-8-BOM und de-Locale.
@@ -8412,7 +8448,7 @@ def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
                     continue
                 except Exception:
                     pass
-            line.append(sval)
+            line.append(_csv_zelle_sicher(sval))
         writer.writerow(line)
     body = "﻿" + out.getvalue()  # UTF-8-BOM fuer Excel
     return Response(
@@ -11802,8 +11838,15 @@ async def api_export_package():
                 "  2. Dateien nach ~/.bewerbungs-assistent/ kopieren\n"
                 "  3. Dashboard starten\n")
 
-        return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip")
+        # v1.7.145: der Ordner mit der vollstaendigen Datenbankkopie wurde nie
+        # geloescht und blieb bei jedem Export im Temp-Ordner liegen. Die Datei
+        # wird nach dem Senden gebraucht, also raeumt eine Hintergrundaufgabe
+        # NACH der Antwort auf.
+        from starlette.background import BackgroundTask
+        return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip",
+                            background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True))
     except Exception as exc:
+        shutil.rmtree(tmp, ignore_errors=True)
         logger.error("Export failed: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 

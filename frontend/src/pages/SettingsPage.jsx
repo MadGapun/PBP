@@ -1,4 +1,5 @@
-﻿import { bestaetigen } from "@/lib/bestaetigung";
+﻿import { oeffneAdresse, sichereAdresse } from "@/lib/webAdresse";
+import { bestaetigen } from "@/lib/bestaetigung";
 import { Activity, Bell, ChevronDown, Database, Download, Eye, HardDrive, Monitor, Moon, Package, Palette, Pencil, RotateCcw, Sun, Trash2, Upload } from "lucide-react";
 import { startTransition, useEffect, useEffectEvent, useRef, useState } from "react";
 
@@ -1016,7 +1017,7 @@ function ScraperHealthCard({ pushToast }) {
             <Button
               variant="primary"
               onClick={() => {
-                window.open(meldung.url, "_blank", "noopener,noreferrer");
+                oeffneAdresse(meldung.url);
                 setMeldung(null);
               }}
             >
@@ -1033,7 +1034,7 @@ function ScraperHealthCard({ pushToast }) {
               <ul className="mt-1.5 grid gap-1">
                 {meldung.vorhandene.gefunden.map((e) => (
                   <li key={e.nummer}>
-                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">
+                    <a href={sichereAdresse(e.url)} target="_blank" rel="noopener noreferrer" className="text-sky hover:underline">
                       {`#${e.nummer} ${e.titel}`}
                     </a>
                   </li>

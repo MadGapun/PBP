@@ -1,3 +1,4 @@
+import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
 import { Briefcase, Calendar, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Download, Edit3, ExternalLink, FileText, Filter, List, Lock, MapPin, Palette, Plus, Send, Settings, Trash2, Video, X, XCircle } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
@@ -930,7 +931,7 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               {!isPrivate && meeting.meeting_url && (
-                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Meeting-Link öffnen">
+                                <a href={sichereAdresse(meeting.meeting_url)} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Meeting-Link öffnen">
                                   <ExternalLink size={14} />
                                 </a>
                               )}

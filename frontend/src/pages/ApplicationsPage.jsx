@@ -1,4 +1,5 @@
-﻿import { bestaetigen } from "@/lib/bestaetigung";
+﻿import { sichereAdresse } from "@/lib/webAdresse";
+import { bestaetigen } from "@/lib/bestaetigung";
 import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
@@ -1005,7 +1006,7 @@ export default function ApplicationsPage() {
                       <div className="flex items-center gap-2">
                         <h3 className="text-xl font-semibold text-ink cursor-pointer hover:text-sky transition-colors" onClick={() => openTimeline(application)}>{application.title}</h3>
                         {application.url ? (
-                          <a href={application.url} target="_blank" rel="noreferrer" className="text-muted hover:text-sky transition-colors" title="Stellenanzeige öffnen">
+                          <a href={sichereAdresse(application.url)} target="_blank" rel="noreferrer" className="text-muted hover:text-sky transition-colors" title="Stellenanzeige öffnen">
                             <ExternalLink size={14} />
                           </a>
                         ) : null}
@@ -1058,7 +1059,7 @@ export default function ApplicationsPage() {
                         </Button>
                       )}
                       {application.url && (
-                        <a href={application.url} target="_blank" rel="noopener noreferrer">
+                        <a href={sichereAdresse(application.url)} target="_blank" rel="noopener noreferrer">
                           <Button variant="secondary" type="button" onClick={(e) => e.stopPropagation()}>
                             <ExternalLink size={15} />
                             Stellenanzeige
@@ -1246,7 +1247,7 @@ export default function ApplicationsPage() {
                   const weichtAb = appUrl && jobUrl && appUrl !== jobUrl;
                   return (
                     <a
-                      href={url}
+                      href={sichereAdresse(url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={weichtAb ? "Die URL, die beim Erfassen der Bewerbung hinterlegt wurde" : undefined}
@@ -1417,7 +1418,7 @@ export default function ApplicationsPage() {
                 return (
                   <div className="mt-2">
                     <a
-                      href={link.url}
+                      href={sichereAdresse(link.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       title={weichtAb ? "Die aktuell verknüpfte Ausschreibung (z. B. nach einem Repost)" : undefined}
@@ -1839,7 +1840,7 @@ export default function ApplicationsPage() {
                           <Trash2 size={10} />
                         </button>
                         {m.meeting_url && !isPast && (
-                          <a href={m.meeting_url} target="_blank" rel="noopener noreferrer"
+                          <a href={sichereAdresse(m.meeting_url)} target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 rounded bg-teal/15 px-2 py-1 text-xs font-semibold text-teal hover:bg-teal/25">
                             <Video size={12} /> Beitreten
                           </a>

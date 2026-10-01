@@ -18,6 +18,7 @@
  * nur die Anzeige in der Sidebar).
  */
 
+import { sichereAdresse } from "@/lib/webAdresse";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Link2, Link2Off } from "lucide-react";
 
@@ -130,7 +131,7 @@ export default function Sidebar({
                 und hier, damit es nicht hinter wichtigeren Hinweisen
                 verschwindet. */}
             {brand.updateStand === "neu" && brand.updateUrl ? (
-              <a href={brand.updateUrl} target="_blank" rel="noopener noreferrer"
+              <a href={sichereAdresse(brand.updateUrl)} target="_blank" rel="noopener noreferrer"
                 className="text-xs font-medium text-sky hover:underline" data-update-stand="neu">
                 Neue Version verfügbar: v{brand.updateVersion}
               </a>

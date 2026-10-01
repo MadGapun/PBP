@@ -5156,8 +5156,10 @@ class Database:
                 linked += 1
         if linked:
             conn.commit()
-            logger.info("Auto-linked %d document(s) to application %s (company: %s)",
-                        linked, application_id, company)
+            # v1.7.145: ohne Firmennamen. Die Protokolldatei wird in Fehler-
+            # berichten oeffentlich eingefuegt; ein Arbeitgeber gehoert nicht hinein.
+            logger.info("Auto-linked %d document(s) to application %s",
+                        linked, application_id)
 
     @staticmethod
     def _normalize_umlauts(text: str) -> str:
