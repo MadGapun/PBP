@@ -33,6 +33,126 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.144] - 2026-10-01 — „Update-Stand unbekannt“ bleibt nicht mehr stehen
+
+Hotfix für v1.7.143. PBP erfährt über die Anzeige in der Seitenleiste, dass
+es eine neue Version gibt. Diese Anzeige blieb nach einem einzigen
+Netzfehler eine Stunde lang stumm („Update-Stand unbekannt“), auch wenn das
+Netz längst wieder da war und die neue Version seit Tagen auf GitHub lag.
+Jetzt fragt PBP bald noch einmal, und ein Klick auf **Jetzt prüfen** fragt
+sofort. Dazu eine Reparatur an der automatischen Prüfung auf GitHub. Kein
+Schema-Eingriff.
+
+**Wichtig zu wissen:** Es ändert sich nur, wann und wie die Anzeige
+nachfragt. An deinen Daten ändert sich nichts.
+
+### Fixed
+
+- **„Update-Stand unbekannt“ bleibt nach einem Netzfehler nicht mehr eine
+  Stunde stehen** (#1134). Zwei Ursachen, beide gemessen: Der Server merkte
+  sich auch einen *Fehlschlag* eine Stunde lang (eine zweite Abfrage nach
+  behobenem Netz bekam dieselbe Antwort, ohne dass er nochmal nachsah), und
+  die Seite fragte nur einmal beim Laden. Jetzt gilt ein Fehlschlag nur
+  zwei Minuten (bei Wiederholung länger, höchstens 15 Minuten); ein Erfolg
+  bleibt eine Stunde gemerkt.
+- **Ein lange offenes Dashboard erfährt von einer neuen Version** (#1134).
+  Die Seite fragt von selbst wieder, bald nach einem Fehlschlag, sonst
+  stündlich. Vorher erschien eine später veröffentlichte Version erst nach
+  dem Neuladen der Seite.
+- **„Jetzt prüfen“** (#1134). Steht der Stand auf „unbekannt“, bietet die
+  Seitenleiste den nächsten Schritt an, statt in einer Sackgasse zu
+  enden. Der Klick fragt sofort (nicht dichter als alle 15 Sekunden, damit
+  GitHubs Grenze von 60 Anfragen je Stunde hält). Der Hinweis nennt den
+  Grund („github: keine Verbindung“) und wann PBP erneut fragt.
+- **Ein behobenes „unbekannt“ verschwindet auch ohne Update** (#1134).
+  Vorher ersetzte nur ein gefundenes Update die Anzeige; „unbekannt“ blieb
+  stehen, auch wenn die Prüfung wieder funktionierte und alles aktuell war.
+
+### Changed
+
+- **Das Zeitlimit der automatischen Prüfung auf GitHub steht jetzt bei 45
+  statt 30 Minuten** (#1132). Am 30.09. wurde ein Lauf nach 30 Minuten
+  abgebrochen, 28 Sekunden nachdem die Tests vollständig durchgelaufen
+  waren; nur der Vorlauf war langsam. Ein Test hält das Limit bei mindestens
+  40 Minuten, und der Release-Ablauf hält fest: „abgebrochen“ ist weder
+  grün noch rot.
+
+### Known Issues
+
+- Der Fix wirkt erst, wenn du die neue Version installiert hast. Eine bereits
+  installierte ältere Version behält ihr Verhalten; wer ein „unbekannt“ sieht,
+  lädt die Seite nach einer Stunde neu oder installiert einfach drüber.
+
+### Gemessen
+
+22 neue Tests (6.003 gesamt): 19 für den Update-Hinweis, davon vier im
+Browser mit vorgespulter Uhr (die Seite fragt nach einem Fehlschlag von
+selbst wieder, ein lange offenes Dashboard erfährt von einer neuen Version,
+„Jetzt prüfen“ holt das Update nach, ein behobenes „unbekannt“ verschwindet
+auch ohne Update), dazu ein Node-Test als eigener Schritt der automatischen
+Prüfung und drei Tests für das Zeitlimit. Gegenprobe: 14 Mechanismen einzeln
+ausgebaut (9 im Server, 3 in der Oberfläche mit Neubau nach jedem Ausbau, 1
+im Node-Test, 1 in der Eintragung des Node-Tests); jeder Ausbau macht
+mindestens einen Test rot. Der Fehler selbst wurde vorher ohne Netz
+nachgestellt: Abfrage mit ausgefallenem Netz, dann Abfrage nach behobenem
+Netz. Vorher lieferte die zweite Abfrage weiter „unbekannt“, dieselbe
+gemerkte Antwort ohne einen neuen Netzaufruf, und erst nach einer Stunde
+fand sie das Update.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.144.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.144.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.143] - 2026-09-30 — „Schon beworben?“ steht jetzt an der Stelle
 
 Hotfix für v1.7.142. Bei jeder neuen Stelle fragst du dich zuerst: *Habe
