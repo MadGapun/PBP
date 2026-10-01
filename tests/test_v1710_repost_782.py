@@ -77,7 +77,8 @@ def test_782_stellen_anzeigen_warnt(setup_env):
     res = _result(_call(mcp, "stellen_anzeigen", {}))
     stelle = next(s for s in res["stellen"] if s["id"] == "repost1"[:8])
     assert "repost_warnung" in stelle, stelle
-    assert "2025-09-30" in stelle["repost_warnung"]
+    # v1.7.143 (#1126): das Datum steht lesbar da (G65), nicht als Rohwert.
+    assert "30.09.2025" in stelle["repost_warnung"]
     assert stelle["repost_details"]["ablehnungsgrund_dokumentiert"] is False
 
 

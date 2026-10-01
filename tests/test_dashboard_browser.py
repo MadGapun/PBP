@@ -1671,3 +1671,130 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
         page.get_by_text("Rahmen passt nicht", exact=True).first.wait_for(state="visible")
     finally:
         context.close()
+# ── v1.7.143 (#1126): "Schon beworben?" im Dashboard ─────────────────────
+
+def _seed_schon_beworben_workspace(db, status="beworben", datum="2026-09-07"):
+    """Eine Bewerbung und zwei Stellen derselben (erfundenen) Firma: die
+    Kopie der Anzeige (neue URL, umformulierter Titel) und eine andere
+    Rolle. Nur die Kopie darf einen Hinweis tragen."""
+    profile_id = db.save_profile(
+        {
+            "name": "Max Schonbeworben",
+            "email": "schon@example.com",
+            "phone": "040 555 0123",
+            "address": "Musterweg 1",
+            "summary": "Berater fuer Produkt- und Prozessarbeit",
+        }
+    )
+    db.set_profile_setting("active_sources", ["stepstone"])
+    db.set_profile_setting("last_search_at", datetime.now().isoformat())
+    beschreibung = (
+        "Aufgaben: Leitung des Teams, Abstimmung mit den Fachbereichen und "
+        "Steuerung externer Dienstleister. Anforderungen: Studium, "
+        "mehrjaehrige Berufserfahrung, sichere Kommunikation."
+    )
+    app_id = db.add_application(
+        {
+            "title": "Teamleitung Enterprise Applications",
+            "company": "Musterbetrieb Nord GmbH",
+            "status": status,
+            "applied_at": datum,
+            "url": "https://mb.example/original",
+        }
+    )
+    db.save_jobs(
+        [
+            {
+                "hash": "schon-kopie",
+                "title": "Teamleitung Enterprise Applications (m/w/d)",
+                "company": "Musterbetrieb Nord GmbH",
+                "location": "Hamburg",
+                "url": "https://mb.example/kopie",
+                "source": "stepstone",
+                "description": beschreibung,
+                "score": 60,
+                "employment_type": "festanstellung",
+                "profile_id": profile_id,
+            },
+            {
+                "hash": "schon-andere",
+                "title": "Sachbearbeitung Rechnungswesen",
+                "company": "Musterbetrieb Nord GmbH",
+                "location": "Hamburg",
+                "url": "https://mb.example/rw",
+                "source": "stepstone",
+                "description": beschreibung,
+                "score": 50,
+                "employment_type": "festanstellung",
+                "profile_id": profile_id,
+            },
+        ]
+    )
+    return app_id
+
+
+def test_stellen_zeigen_schon_beworben_bei_laufender_bewerbung(live_dashboard, browser):
+    """Die Kopie der Anzeige traegt den Hinweis (amber, "läuft noch"), die
+    andere Rolle derselben Firma nicht. "Zur Bewerbung" fuehrt hin."""
+    app_id = _seed_schon_beworben_workspace(live_dashboard["db"])
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen", exact=True).first.wait_for(state="visible")
+
+        kopie = page.locator("[data-stellenkarte]", has_text="Teamleitung Enterprise Applications")
+        andere = page.locator("[data-stellenkarte]", has_text="Sachbearbeitung Rechnungswesen")
+        kopie.first.wait_for(state="visible")
+        andere.first.wait_for(state="visible")
+
+        hinweis = kopie.locator("[data-schon-beworben]")
+        hinweis.wait_for(state="visible")
+        assert hinweis.get_attribute("data-laeuft") == "ja"
+        text = hinweis.locator("[data-schon-beworben-text]").inner_text()
+        assert "07.09.2026" in text and "läuft noch" in text, text
+        assert andere.locator("[data-schon-beworben]").count() == 0
+
+        # Der naechste Schritt steht daneben und fuehrt zur Bewerbung.
+        hinweis.get_by_role("button", name="Zur Bewerbung").click()
+        page.locator("h1").filter(has_text="Bewerbungen").wait_for(state="visible")
+        page.get_by_text("Neue Notiz").wait_for(state="visible")
+        page.get_by_role("heading", name="Teamleitung Enterprise Applications").first.wait_for(state="visible")
+        assert app_id  # die Bewerbung, zu der der Sprung fuehrt, existiert
+    finally:
+        context.close()
+
+
+def test_stellen_zeigen_schon_beworben_im_detail_mit_dem_ganzen_satz(live_dashboard, browser):
+    """Abgelehnte Bewerbung: neutraler Hinweis; im Detail steht der ganze
+    Satz mit dem bisherigen Wortlaut."""
+    _seed_schon_beworben_workspace(
+        live_dashboard["db"], status="abgelehnt", datum="2026-05-12")
+
+    context = browser.new_context(viewport={"width": 1440, "height": 960})
+    page = context.new_page()
+
+    try:
+        page.goto(live_dashboard["base_url"] + "#stellen", wait_until="domcontentloaded")
+        page.locator("div#root").wait_for(state="visible")
+        _dismiss_setup_overlay(page)
+        page.get_by_role("heading", name="Stellen", exact=True).first.wait_for(state="visible")
+
+        kopie = page.locator("[data-stellenkarte]", has_text="Teamleitung Enterprise Applications")
+        hinweis = kopie.locator("[data-schon-beworben]")
+        hinweis.wait_for(state="visible")
+        assert hinweis.get_attribute("data-laeuft") == "nein"
+        assert "12.05.2026" in hinweis.inner_text()
+
+        kopie.get_by_role("heading", name="Teamleitung Enterprise Applications (m/w/d)").click()
+        page.get_by_role("heading", name="Stellendetails").wait_for(state="visible")
+        satz = page.locator("[data-schon-beworben-satz]")
+        satz.wait_for(state="visible")
+        assert "Repost-Verdacht" in satz.inner_text()
+        assert "echte zweite Chance" in satz.inner_text()
+    finally:
+        context.close()

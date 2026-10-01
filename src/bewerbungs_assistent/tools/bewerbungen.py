@@ -390,7 +390,7 @@ def register(mcp, db, logger):
         # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
         # der Praxis-Fall war genau hier: aktive Stelle, auf die vor
         # 10 Monaten schon beworben wurde, ohne dass es jemand sah.
-        from ..duplicate_detection import find_repost_of_application
+        from ..services import bewerbungs_hinweis as _bh
         _apps_fuer_repost = db.get_applications()
         aktive_stellen = []
         for j in db.get_active_jobs():
@@ -400,9 +400,9 @@ def register(mcp, db, logger):
                           "score": j.get("score"),
                           "oeffnen": f"fit_analyse('{j.get('hash')}')"}
             try:
-                _rp = find_repost_of_application(j, _apps_fuer_repost, db=db)
+                _rp = _bh.fuer_stelle(j, _apps_fuer_repost, db=db)
                 if _rp:
-                    eintrag_st["repost_warnung"] = _rp["warnung"]
+                    eintrag_st.update(_bh.als_felder(_rp))
             except Exception:
                 pass
             aktive_stellen.append(eintrag_st)
