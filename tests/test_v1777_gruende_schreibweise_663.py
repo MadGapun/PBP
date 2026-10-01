@@ -257,12 +257,30 @@ def test_663_die_whitelist_form_gewinnt(db):
 
 
 def test_663_sonst_gewinnt_die_haeufigste_gespeicherte_form(db):
+    # Ein Grund, der NICHT auf der Whitelist steht. Bis #1115 diente
+    # `falsches_system` als Beispiel — es fehlte auf der (abgeschriebenen)
+    # Whitelist, und genau das war der Fehler.
+    _grund(db, "Kein Stapler")
+    _grund(db, "kein_stapler")
+    for i in range(4):
+        _stelle(db, f"c66-h{i}", "kein stapler")
+    _stelle(db, "c66-h9", "kein_stapler")
+    gruppe = gs.bericht(db)["gruppen"][0]
+    assert gruppe["ziel"] == "kein stapler"
+    assert gruppe["aus_whitelist"] is False
+
+
+def test_1115_falsches_system_ist_eine_whitelist_form(db):
+    """Die Regel "die Whitelist-Form gewinnt" gilt auch fuer die zwei
+    Gruende aus #913 — nicht die Haeufigkeit im Bestand."""
     _grund(db, "Falsches System")
     _grund(db, "falsches_system")
     for i in range(4):
-        _stelle(db, f"c66-h{i}", "falsches system")
-    _stelle(db, "c66-h9", "falsches_system")
-    assert gs.bericht(db)["gruppen"][0]["ziel"] == "falsches system"
+        _stelle(db, f"c66-w{i}", "falsches system")
+    _stelle(db, "c66-w9", "falsches_system")
+    gruppe = gs.bericht(db)["gruppen"][0]
+    assert gruppe["ziel"] == "falsches_system"
+    assert gruppe["aus_whitelist"] is True
 
 
 def test_663_das_ziel_laesst_sich_ueberschreiben(db):

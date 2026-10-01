@@ -222,8 +222,13 @@ def test_945_automatik_schliesst_ueberholte_nachfassung(tmp_db, monkeypatch):
     dash._run_followup_ueberholt("2026-08-20T10:00:00")
     assert (tmp_db.get_follow_up(fid) or {}).get("status") == "geplant"
 
-    # Sobald ein Gespraech laeuft, ist sie gegenstandslos.
-    tmp_db.update_application_status(aid, "zweitgespraech")
+    # Sobald ein Gespraech laeuft, ist sie gegenstandslos. Seit #1123
+    # schliesst der Statuswechsel sie selbst; der Aufraeumer ist das Netz
+    # fuer Wege ohne Hook (Import, direkter Aufruf) — dieser Test stellt
+    # genau so einen Weg nach: der Status kommt an den Hooks vorbei.
+    tmp_db.connect().execute(
+        "UPDATE applications SET status='zweitgespraech' WHERE id=?", (aid,))
+    tmp_db.connect().commit()
     ergebnis = dash._run_followup_ueberholt("2026-08-20T10:00:00")
     assert ergebnis["hinfaellig"] >= 1, ergebnis
     danach = tmp_db.get_follow_up(fid) or {}

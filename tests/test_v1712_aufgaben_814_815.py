@@ -148,10 +148,13 @@ def test_815_aufgaben_uebersicht_vereint_drei_toepfe(setup_env):
     _call(mcp, "todo_anlegen", {"titel": "Ueberfaellige Aufgabe",
                                 "bewerbung_id": aid,
                                 "faellig_am": gestern})
-    db.add_follow_up(aid, morgen, "nachfass", template="Kurz nachfragen.")
+    # Erst der Termin, dann die Nachfrage: ein Termin, der NACH einer
+    # offenen Nachfrage vereinbart wird, erledigt sie (#1123); eine
+    # Nachfrage, die danach geplant wird, bleibt.
     db.add_meeting({"application_id": aid,
                     "meeting_date": f"{morgen}T10:00:00",
                     "title": "Interview", "meeting_type": "interview"})
+    db.add_follow_up(aid, morgen, "nachfass", template="Kurz nachfragen.")
     res = _result(_call(mcp, "aufgaben_uebersicht", {}))
     assert res["anzahl"] >= 3
     herkuenfte = set()
