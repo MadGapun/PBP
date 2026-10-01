@@ -192,14 +192,14 @@ belegen einander nicht; je ein isolierender Fall. Das Gegenprobe-Skript
 selbst laeuft im Hintergrund mit Log und Zeitlimit, liest alle Kanaele und
 Testlaeufer, unterscheidet Sammelfehler von "rot", und der Arbeitsstand ist
 danach bytegleich.
-*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code)
+*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1120 (Ausbau eines "wirkungslosen" Mechanismus war am Fixture gruen und an den echten Mails falsch — nach jedem Ausbau erneut an echten Daten messen)
 
 **L24. Ein Guard prueft die Bauform, nicht eine Zeichenkette.** Ein
 gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
 Fenster misst den Abstand statt den Aufruf, gezaehlte Fundstellen lassen
 die naechste durch. Syntaxbaum statt Regex — und eine Kontrolle, die
 dieselbe Annahme benutzt wie der Schreibvorgang, prueft nichts.
-*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie)
+*Belege:* #973, #1016, #1036, #1048, #1050, #1055, v1.7.115/6, v1.7.130/10, v1.7.134/7, v1.7.135/9, #1106 ("no such table" zaehlte im SQL-Guard nicht, die Tabelle `meetings` gab es nie), #1120 (`test_951` las 14.000 Zeichen ab `def save_jobs`; ein Kommentar schob den Aufruf hinaus, jetzt bis zur naechsten Methode)
 
 **L25. Ein Schutz zaehlt erst, wenn er aufgerufen wird.** Matcher gegen
 echte Werkzeugnamen, ein Test fuer die Registrierung jedes Guards, Tests
@@ -225,7 +225,10 @@ Fehlschlag liest, statt die Erwartung anzupassen, findet falsche Testdaten
 "nichts ist falsch" prueft, zeigt zuerst, dass er etwas sieht.
 Testdoppel bilden den echten Vertrag nach (`name=`-Argument, Host als
 Text).
-*Belege:* #1036, #1080, #811, #1046, #1070, v1.7.110/8, v1.7.132/6, v1.7.135/8, #1106 (Test-Doppel ohne `get_active_profile_id` nach dem Profilfilter)
+Ein Fixture nach einer Beschreibung ist eine Vermutung: es wird aus einer
+echten Probe gebaut (anonymisiert, Byte-Struktur erhalten), laeuft durch
+denselben Parser wie die echten Daten, und ein Test haelt seine Form fest.
+*Belege:* #1036, #1080, #811, #1046, #1070, v1.7.110/8, v1.7.132/6, v1.7.135/8, #1106 (Test-Doppel ohne `get_active_profile_id` nach dem Profilfilter), #1120 (Google-Alert-Fixture nach Beschreibung: gruen, an neun echten Mails 0 von 25 Treffern)
 
 **L28. Die Auswahl "betroffener" Tests ist eine Annahme.** Vor jedem
 Release die volle Suite plus alle Node-Tests (eigene CI-Schritte). Tests
@@ -279,14 +282,18 @@ schreiben Bytes.
 Das Write-Werkzeug schreibt unter Windows CRLF, und `grep`/`cat -A` in
 Git-Bash zeigen das `\r` nicht zuverlaessig — Anker im Patch-Skript an das
 Zeilenende der Zieldatei anpassen, Bytes pruefen.
-*Belege:* v1.7.102/6, v1.7.103/4, v1.7.109/7, v1.7.125/12, v1.7.126/12, v1.7.131/9, v1.7.140 (#1113)
+`core.autocrlf=true` stellt auch Test-Fixtures beim Auschecken auf CRLF
+um; wessen Bytes der Test sind, der braucht `-text` in `.gitattributes`
+und einen Test auf die Zeilenenden. Gezaehlt wird mit Python, nicht mit
+`grep -c $'\r$'` (zaehlte 139 CRLF in einer reinen LF-Datei).
+*Belege:* v1.7.102/6, v1.7.103/4, v1.7.109/7, v1.7.125/12, v1.7.126/12, v1.7.131/9, v1.7.140 (#1113), #1120
 
 **L34. Sicherheitsketten ohne Pipe und ohne `;`.** Der Exit-Code einer
 Pipe ist der des letzten Glieds, und `;` laeuft trotz Fehler weiter;
 Pruefungen stehen als Bedingung (`test ...`) in der Kette, nicht als
 Ausgabe. Vor riskanten Eingriffen committen — ein `git checkout -- datei`
 als Rueckweg nimmt fertige Arbeit mit.
-*Belege:* Wiki-Vorfall 2026-09-07, v1.7.92/8, v1.7.130/11, v1.7.138/6, v1.7.45/7, v1.7.86/9
+*Belege:* Wiki-Vorfall 2026-09-07, v1.7.92/8, v1.7.130/11, v1.7.138/6, v1.7.45/7, v1.7.86/9, #1120 (`pytest ... | tail || rueckfall`: ein Aufruffehler lief als "exit 0" durch, die Suite war nie gelaufen)
 
 ## 10. Release und Stable-Linie
 
