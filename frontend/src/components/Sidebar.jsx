@@ -113,9 +113,17 @@ export default function Sidebar({
                 Installation. Die Auskunft bleibt (kein stilles "alles
                 aktuell"), aber leise, hier unter der Version. */}
             {brand.updateStand === "unbekannt" ? (
-              <span className="text-xs text-muted" data-update-stand="unbekannt"
-                title="Keine Update-Quelle hat geantwortet — ob es eine neue Version gibt, weiß PBP gerade nicht.">
+              <span className="flex flex-wrap items-center gap-x-2 text-xs text-muted" data-update-stand="unbekannt"
+                title={brand.updateGrund || "Keine Update-Quelle hat geantwortet — ob es eine neue Version gibt, weiß PBP gerade nicht."}>
                 Update-Stand unbekannt
+                {/* #1134: ein Weg weiter statt einer Sackgasse */}
+                {brand.onUpdatePruefen ? (
+                  <button type="button" onClick={brand.onUpdatePruefen}
+                    disabled={brand.updatePruefung === "prueft"} data-update-pruefen
+                    className="font-medium text-sky hover:underline disabled:opacity-60">
+                    {brand.updatePruefung === "prueft" ? "Prüfe …" : "Jetzt prüfen"}
+                  </button>
+                ) : null}
               </span>
             ) : null}
             {/* Ein bekanntes Update steht als Stufe 5 in der Hinweiszone —

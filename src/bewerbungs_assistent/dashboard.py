@@ -7471,16 +7471,23 @@ async def api_get_logs(lines: int = 100):
 
 # === Update Check (v1.4.0, #286) ===
 
-_update_cache = {"ts": 0, "data": None, "pause_s": 3600}
+_update_cache = {"ts": 0, "data": None, "pause_s": 3600, "fehlversuche": 0}
 
 @app.get("/api/update-check")
-async def api_update_check():
-    """Gibt es eine neue Version? (#286, v1.7.122 #1069)
+async def api_update_check(frisch: int = 0):
+    """Gibt es eine neue Version? (#286, v1.7.122 #1069, v1.7.144 #1134)
 
     Fragt die konfigurierten Quellen der Reihe nach. Antwortet keine,
     steht `stand: "unbekannt"` in der Antwort — bis v1.7.121 kam dann
     ein stilles "aktuell", und niemand merkte, dass die Pruefung gar
     nicht mehr stattfand.
+
+    #1134: Ein Erfolg bleibt bei der Pause der Quelle gemerkt (eine Stunde),
+    ein FEHLSCHLAG nur kurz (120 s, bei Wiederholung laenger bis 15 Minuten).
+    Vorher galt auch "unbekannt" eine Stunde, und ein Netzfehler beim Start
+    liess die Anzeige so lange stumm. `frisch=1` ("Jetzt pruefen") umgeht
+    den Speicher, aber nicht dichter als `MIN_ABSTAND_FRISCH_S`. Die Antwort
+    sagt in `wieder_fragen_nach_s`, wann die Oberflaeche erneut fragen soll.
     """
     import time
     from datetime import datetime, timezone
@@ -7489,9 +7496,12 @@ async def api_update_check():
     from .services import update_quelle as _uq
 
     now = time.time()
-    if _update_cache["data"] and now - _update_cache["ts"] < _update_cache.get(
-            "pause_s", 3600):
-        return _update_cache["data"]
+    if _update_cache["data"]:
+        pause = _update_cache.get("pause_s", 3600)
+        alter = now - _update_cache["ts"]
+        umgehen = bool(frisch) and alter >= _uq.MIN_ABSTAND_FRISCH_S
+        if alter < pause and not umgehen:
+            return _uq.mit_restzeit(_update_cache["data"], pause - alter)
 
     linie = _uq.linie_von(__version__)
     result = {
@@ -7547,11 +7557,16 @@ async def api_update_check():
         result["hinweis"] = (
             "Keine Update-Quelle hat geantwortet. Ob es eine neue Version "
             "gibt, ist damit UNBEKANNT — nicht 'alles aktuell'.")
+        # #1134: ein Fehlschlag wird nur kurz gemerkt
+        _update_cache["fehlversuche"] = _update_cache.get("fehlversuche", 0) + 1
+        pause_s = _uq.fehlschlag_pause_s(_update_cache["fehlversuche"])
+    else:
+        _update_cache["fehlversuche"] = 0
 
     _update_cache["ts"] = now
     _update_cache["pause_s"] = pause_s
     _update_cache["data"] = result
-    return result
+    return _uq.mit_restzeit(result, pause_s)
 
 
 # === Health Info (v1.4.0, #290) ===
