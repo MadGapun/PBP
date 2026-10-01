@@ -279,6 +279,14 @@ def run_server():
         ollama_start.beim_start(db)
     except Exception as exc:
         logger.warning("Ollama-Autostart uebersprungen: %s", exc)
+    # #1130: Reste einer fehlgeschlagenen oder abgebrochenen Komponenten-
+    # Installation wegraeumen. Beide Startwege (hier und start_dashboard)
+    # rufen dieselbe Funktion; laeuft gerade eine Installation, tut sie nichts.
+    try:
+        from .services import components as _komponenten
+        _komponenten.setup_reste_entfernen(db)
+    except Exception as exc:
+        logger.warning("Komponenten-Aufraeumen uebersprungen: %s", exc)
 
     # Run MCP server (blocks on stdio)
     from . import __version__

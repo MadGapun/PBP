@@ -1937,10 +1937,21 @@ def register(mcp, db, logger):
         # 2026) traf am 21.09.2026 nur noch die Suchreiter und lieferte
         # 13 "Stellen" namens KI-Modus, Bilder, News — ohne Fehler.
         from ..job_scraper.google_jobs import extraction_js as _extraction
+        from ..services.weiterverbreiter import WEITERVERBREITER
         extraction_js = _extraction()
         return {
             "url": url,
             "extraction_js": extraction_js,
+            # #1120: dieselbe Liste wie beim Alert-Import. Ein Treffer
+            # "über" eine dieser Seiten ist eine Kopie.
+            "weiterverbreiter": sorted(WEITERVERBREITER),
+            "weiterverbreiter_hinweis": (
+                "Steht `portal` in `weiterverbreiter` (Groß- und Kleinschreibung "
+                "egal), ist der Treffer eine "
+                "Kopie: das Datum ist nicht das Veröffentlichungsdatum, und "
+                "Ort oder Titel können abweichen. Das Original beim "
+                "Arbeitgeber suchen und das übernehmen."
+            ),
             "hinweis": (
                 "Öffne diese URL im Browser mit der Claude-Erweiterung und "
                 "führe `extraction_js` mit javascript_tool() aus. Pro "
