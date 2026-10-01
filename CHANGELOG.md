@@ -33,6 +33,153 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.145] - 2026-10-01 — Nur das Dashboard selbst darf PBP verändern
+
+Hotfix für v1.7.144. Eine Durchsicht von PBP auf Sicherheit und Datenschutz
+hat Lücken gefunden, die auch eine ganz normale Installation betreffen. PBP
+hört nur auf deinem eigenen Rechner, aber **andere Webseiten, die
+gleichzeitig in deinem Browser offen sind, konnten trotzdem Anfragen an das
+Dashboard schicken** und damit Daten ändern. Jetzt nimmt PBP Änderungen nur
+noch von seiner eigenen Oberfläche an. Dazu kommen Reparaturen am
+Windows-Installer und am Deinstaller, die deine Claude-Einstellungen und
+deinen Datenordner schützen. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** An deinen Daten ändert sich nichts, und das Dashboard
+arbeitet wie bisher. Wer PBP unter einem anderen Namen als `localhost` oder
+`127.0.0.1` erreicht (zum Beispiel über einen Tunnel), schaltet den Namen mit
+der Umgebungsvariable `BA_ERLAUBTE_HOSTS` frei, siehe „Changed“.
+
+### Fixed
+
+- **Fremde Webseiten können PBP nicht mehr verändern** (#1135). Das Dashboard
+  prüft bei jedem schreibenden Aufruf, woher er kommt, und lehnt fremde
+  Herkunft ab (Antwort 403 mit einem Satz, was zu tun ist). Auch ein fremder
+  Rechnername in der Anfrage wird abgewiesen. Aufrufe ohne Herkunftsangabe
+  (Skripte, Installer, Plugins über die Ingest-Schnittstelle mit eigenem
+  Schlüssel) funktionieren wie bisher.
+- **Keine Einrahmung durch fremde Seiten** (#1135). Das Dashboard lässt sich
+  nicht mehr in einen unsichtbaren Rahmen auf einer fremden Seite legen.
+- **„Beschreibung nachladen“ lädt nur noch Webadressen** (#1135). Vorher
+  nahm die Funktion auch `file://` und `ftp://` an und konnte so eine lokale
+  Datei als Beschreibung in eine Bewerbung lesen.
+- **Adressen von außen werden nur als `http` und `https` verlinkt oder
+  geöffnet** (#1135): in Stellen, Bewerbungen, Terminen und Hinweisen, im
+  gedruckten Verlauf und in der Stellen-Seite des Exports. Eine Adresse wie
+  `javascript:…` aus einem Portal oder einer Mail führte beim Klick Code im
+  Dashboard aus. Server und Oberfläche prüfen gegen dieselbe Fallliste.
+- **CSV-Exporte neutralisieren Formeln** (#1135). Ein Firmen- oder
+  Titeltext, der mit `=`, `+`, `@` oder `-` beginnt, bekommt ein Hochkomma,
+  damit Excel ihn nicht als Formel ausführt; negative Zahlen bleiben Zahlen.
+- **Der Komplett-Export räumt hinter sich auf** (#1135). Bei jedem Export
+  blieb eine vollständige Kopie der Datenbank im Temp-Ordner liegen.
+- **Die Protokolldatei nennt beim Verknüpfen von Dokumenten keine Firma
+  mehr** (#1135). Die Datei wird in Fehlerberichten eingefügt.
+- **Windows-Installer: Paketversionen festgelegt** (#1136). Er holte die
+  Pakete ohne Versionsgrenze; FastMCP 4, das PBP ausschließt, hätte eine
+  frische Installation oder ein Update unbrauchbar machen können. Excel-Export
+  und Diagramme werden jetzt mitinstalliert (vorher zeigte der Excel-Knopf
+  eine Anweisung, die ohne Technikwissen niemand ausführen kann).
+- **Deine Claude-Einstellungen bleiben beim Deinstallieren und Neuinstallieren
+  erhalten** (#1136, alle Systeme). Der Windows-Deinstaller schrieb die
+  Konfiguration mit einem unsichtbaren Zeichen am Anfang; der nächste
+  Installerlauf hielt sie für „defekt“ und ersetzte sie durch einen Eintrag
+  nur für PBP, alle anderen Claude-Anbindungen waren weg. Jetzt schreibt der
+  Deinstaller ohne das Zeichen, der Installer erkennt es, und eine wirklich
+  unlesbare Datei wird zuerst als Kopie gesichert.
+- **Ein verlegter Datenordner und ein eigener Port überleben das Update**
+  (#1136, alle Systeme). Der Installer baute den Eintrag bei jedem Lauf neu;
+  wer seine Daten verlegt hatte, startete danach mit leerem Profil.
+- **Der Deinstaller meldet „Backup erstellt“ nur noch, wenn die Datei
+  wirklich da ist** (#1136). Gelingt das Backup nicht, steht vor der Frage
+  nach dem endgültigen Löschen eine Warnung.
+
+### Changed
+
+- Zwei optionale Umgebungsvariablen für Sonderfälle: `BA_ERLAUBTE_HOSTS`
+  (weitere Rechnernamen, durch Komma getrennt) und `BA_ERLAUBTE_HERKUENFTE`
+  (weitere Herkünfte schreibender Aufrufe, zum Beispiel ein
+  Entwicklungsserver). Im Alltag brauchst du beide nicht.
+
+### Known Issues
+
+- Das Dashboard unter einem anderen Namen als `localhost`, `127.0.0.1` oder
+  `[::1]` zu öffnen, wird jetzt abgewiesen; die Antwort nennt die Abhilfe.
+- Die Reparaturen am Installer wirken erst, wenn du die neue Version
+  installierst. Eine bereits beschädigte Claude-Konfiguration stellt der neue
+  Installer nicht wieder her.
+
+### Gemessen
+
+119 neue Tests (6.122 gesamt): 47 für den Schutz des Dashboards (darunter
+zwei im Browser: eine fremde Seite auf einem anderen Port kann nichts
+ändern, die eigene Oberfläche schreibt weiter), 44 für Adressen und
+Exporte, 12 für die Claude-Konfiguration, 10 für den Deinstaller (die Tests
+führen die echten PowerShell-Zeilen aus der BAT-Datei aus), 5 für die
+Installer-Pakete und 1 für das Protokoll; dazu ein Node-Test als eigener
+Schritt der automatischen Prüfung. Gegenprobe: 29 Mechanismen einzeln
+ausgebaut; jeder Ausbau macht mindestens einen Test rot. Beim ersten
+Durchlauf blieben vier Ausbauten an der Adressregel grün, deshalb enthält
+die gemeinsame Fallliste jetzt auch Adressen mit Rechnernamen
+(`javascript://…`, `file://…`) und mit Steuerzeichen mitten in der Adresse.
+Die Lücke selbst wurde vorher nachgestellt: Eine „einfache“ Anfrage mit
+fremder Herkunft änderte das Profil (Antwort 200), ebenso ein fremder
+Rechnername in der Anfrage; nachher antwortet das Dashboard mit 403 und das
+Profil bleibt unverändert.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.145.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.145.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.144] - 2026-10-01 — „Update-Stand unbekannt“ bleibt nicht mehr stehen
 
 Hotfix für v1.7.143. PBP erfährt über die Anzeige in der Seitenleiste, dass

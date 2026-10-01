@@ -2,7 +2,7 @@
 
 PBP lauscht nur auf 127.0.0.1. Das schuetzt vor anderen Rechnern, aber nicht
 vor anderen SEITEN im eigenen Browser: Jede Webseite, die der Mensch gerade
-offen hat, kann Anfragen an ``http://localhost:8200`` schicken. Eine
+offen hat, kann Anfragen an ``http://localhost:<Port>`` schicken. Eine
 "einfache" Anfrage (POST mit ``Content-Type: text/plain``) braucht keine
 Vorab-Frage des Browsers, und FastAPI liest den Body trotzdem als JSON. So
 konnte eine fremde Seite im Hintergrund das Profil ueberschreiben, einen
@@ -62,14 +62,24 @@ SCHUTZ_KOPFZEILEN = (
     (b"x-content-type-options", b"nosniff"),
 )
 
-HINWEIS_HOST = (
-    "Dieser Name ist fuer PBP nicht freigegeben. Oeffne das Dashboard ueber "
-    "http://localhost:8200 oder http://127.0.0.1:8200. Wer es bewusst unter "
-    "einem anderen Namen betreibt, erlaubt ihn mit der Umgebungsvariable "
-    "BA_ERLAUBTE_HOSTS.")
+def hinweis_host() -> str:
+    """Satz fuer den Menschen bei einem fremden Rechnernamen.
+
+    Sichtbarer Text (echte Umlaute, #1087 G66); der Port folgt der
+    Einstellung, keine feste Adresse im Text (H31).
+    """
+    from .dashboard_link import port
+    p = port()
+    return (
+        "Dieser Name ist für PBP nicht freigegeben. Öffne das Dashboard über "
+        f"http://localhost:{p} oder http://127.0.0.1:{p}. Wer es bewusst unter "
+        "einem anderen Namen betreibt, erlaubt ihn mit der Umgebungsvariable "
+        "BA_ERLAUBTE_HOSTS.")
+
+
 HINWEIS_HERKUNFT = (
-    "Diese Anfrage kommt nicht von der PBP-Oberflaeche und wurde abgelehnt. "
-    "Aenderungen nimmt PBP nur von seiner eigenen Seite an.")
+    "Diese Anfrage kommt nicht von der PBP-Oberfläche und wurde abgelehnt. "
+    "Änderungen nimmt PBP nur von seiner eigenen Seite an.")
 
 
 def _liste_aus_umgebung(name: str) -> frozenset[str]:
@@ -78,7 +88,7 @@ def _liste_aus_umgebung(name: str) -> frozenset[str]:
 
 
 def host_ohne_port(host_kopf: str | None) -> str:
-    """'localhost:8200' -> 'localhost', '[::1]:8200' -> '[::1]'."""
+    """'localhost:<Port>' -> 'localhost', '[::1]:<Port>' -> '[::1]'."""
     h = (host_kopf or "").strip().lower()
     if h.startswith("["):
         ende = h.find("]")
@@ -115,7 +125,7 @@ def pruefen(methode: str, pfad: str, host_kopf: str | None,
             origin: str | None) -> tuple[bool, str]:
     """(erlaubt, Hinweis). Die EINE Antwort fuer Middleware und Tests."""
     if not host_erlaubt(host_kopf):
-        return False, HINWEIS_HOST
+        return False, hinweis_host()
     if (methode or "").upper() in SCHREIBENDE_METHODEN \
             and not pfad.startswith(AUSGENOMMENE_PRAEFIXE) \
             and not herkunft_erlaubt(origin, host_kopf):
