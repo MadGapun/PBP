@@ -37,6 +37,7 @@ damit bleibt er ohne Fixture pruefbar.
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 from typing import Callable, Iterable, Optional
 
@@ -61,7 +62,11 @@ ZEITFENSTER = ("alle", "heute", "7tage", "30tage")
 FILTER_VORGABE: dict = {
     "query": "",
     "source": "",
-    "min_score": 0.0,
+    # #1158: Vorgabe KEINE Untergrenze (None), nicht 0. Mit 0.0 verschwand jede Stelle mit negativem
+    # Stand - ein Entfernungs- oder Gehaltsabzug, kein Urteil ueber die Passung - ohne dass der Mensch je
+    # einen Filter gesetzt haette (gemessen: 2 von 4 aktiven Stellen). Eine Untergrenze gilt nur, wenn
+    # sie ausdruecklich gesetzt ist - auch 0 und negative Werte.
+    "min_score": None,
     "remote": "",
     "nur_mit_gehalt": False,
     "employment_type": "",
@@ -72,7 +77,9 @@ FILTER_VORGABE: dict = {
     "nur_ohne_beschreibung": False,
     "pruefstand": "",
     "zeitfenster": "alle",
-    # v1.7.117 (#1052): Vorgabe AN — eine Stelle, deren Rahmen BELEGT
+    # Vorgabe des DIENSTES (der Stellen-Tab schickt seit v1.7.150, #1158, ausdruecklich
+    # "false", wenn der Mensch den Filter nicht gesetzt hat - die Seite startet ohne
+    # Einschraenkung). v1.7.117 (#1052): Vorgabe AN — eine Stelle, deren Rahmen BELEGT
     # nicht passt, kommt fuer diesen Menschen nicht in Frage
     # (Nutzerantwort 15.09.2026). Die Lehre aus #1008 gilt trotzdem und
     # sogar staerker: der Filter steht sichtbar da und nennt seine Zahl
@@ -138,6 +145,10 @@ def filter_lesen(roh: Optional[dict]) -> dict:
         except (TypeError, ValueError):
             raise UngueltigerParameter("min_score", roh["min_score"],
                                        ["eine Zahl"]) from None
+        # "nan" liesse alles durch, "inf" verbaerge alles - beides ist keine Untergrenze (#1158).
+        if not math.isfinite(f["min_score"]):
+            raise UngueltigerParameter("min_score", roh["min_score"],
+                                       ["eine endliche Zahl"])
     if f["pruefstand"] and f["pruefstand"] not in PRUEFSTAENDE:
         raise UngueltigerParameter("pruefstand", f["pruefstand"], PRUEFSTAENDE)
     if not f["zeitfenster"]:
@@ -208,7 +219,7 @@ def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
             return False
     if f["source"] and job.get("source") != f["source"]:
         return False
-    if _zahl(job.get("score")) < f["min_score"]:
+    if f["min_score"] is not None and _zahl(job.get("score")) < f["min_score"]:
         return False
     if f["remote"] and job.get("remote_level") != f["remote"]:
         return False
@@ -247,6 +258,24 @@ def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
         if wann is None or wann < grenze:
             return False
     return True
+
+
+#: Der Wert, bei dem ein Filter nichts ausblendet (#1158). Daran erkennt `aufbereiten`, welche Filter wirken,
+#: und rechnet fuer jeden einzeln, wie viele Stellen er verbirgt.
+FILTER_NEUTRAL: dict = {
+    "query": "",
+    "source": "",
+    "min_score": None,
+    "remote": "",
+    "nur_mit_gehalt": False,
+    "employment_type": "",
+    "arbeitsumfang": "",
+    "beworbene_ausblenden": False,
+    "nur_ohne_beschreibung": False,
+    "pruefstand": "",
+    "rahmen_ausblenden": False,
+    "schwelle_ausblenden": False,
+}
 
 
 def _datum_schluessel(job: dict, feld: str, neueste_zuerst: bool) -> tuple:
@@ -350,36 +379,39 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
     sortiert = sortieren(treffer, sort, guete_umgang)
     seite = sortiert[offset:offset + limit] if limit else sortiert[offset:]
 
-    # Fuer den Hinweis "alle Treffer sind nur wegen 'Beworbene
-    # ausblenden' weg" — gezaehlt ueber den Bestand, nicht die Seite.
-    if f["beworbene_ausblenden"]:
-        ohne_diesen = dict(f, beworbene_ausblenden=False)
-        treffer_mit_beworbenen = sum(
-            1 for j in jobs if _passt(j, ohne_diesen, bew, hv, grenze))
-    else:
-        treffer_mit_beworbenen = len(treffer)
-
-    # #1052 / #1008: wie viele Stellen blendet der Rahmenfilter aus?
-    # Gezaehlt ueber die Stellen, die ALLE anderen Filter passieren —
-    # sonst zaehlte er Zeilen mit, die ohnehin nicht zu sehen waeren.
-    if f["rahmen_ausblenden"]:
-        ohne_rahmen = dict(f, rahmen_ausblenden=False)
+    # #1158 (vorher drei Einzelrechnungen fuer Beworbene, Rahmen und Schwelle - #1008, #1052, #1082):
+    # fuer JEDEN wirksamen Filter, wie viele Stellen er allein verbirgt - gezaehlt ueber die Stellen,
+    # die ALLE anderen Filter passieren, sonst zaehlte er Zeilen mit, die ohnehin nicht zu sehen waeren.
+    # Gezaehlt wird ueber die OFFENEN Stellen (ohne laufende Bewerbung); nur "Beworbene ausblenden"
+    # zaehlt die beworbenen selbst. Eine Stelle, an der zwei Filter zugleich scheitern, steht bei keinem
+    # von beiden - die Differenz zu `offen_verborgen` meldet die Seite als "durch mehrere Filter zugleich".
+    offene = [j for j in jobs if hv(j.get("hash")) not in bew]
+    offene_treffer = [j for j in treffer if hv(j.get("hash")) not in bew]
+    verborgen: dict = {}
+    for feld, neutral in FILTER_NEUTRAL.items():
+        if f[feld] == neutral:
+            continue
+        ohne_diesen = dict(f, **{feld: neutral})
+        basis, eigene = ((jobs, len(treffer)) if feld == "beworbene_ausblenden"
+                         else (offene, len(offene_treffer)))
         durchgelassen = sum(
-            1 for j in jobs if _passt(j, ohne_rahmen, bew, hv, grenze))
-        rahmen_verborgen = durchgelassen - len(treffer)
-    else:
-        rahmen_verborgen = 0
-    if f["schwelle_ausblenden"]:
-        ohne_schwelle = dict(f, schwelle_ausblenden=False)
-        schwelle_verborgen = sum(
-            1 for j in jobs if _passt(j, ohne_schwelle, bew, hv, grenze)
-        ) - len(treffer)
-    else:
-        schwelle_verborgen = 0
+            1 for j in basis if _passt(j, ohne_diesen, bew, hv, grenze))
+        verborgen[feld] = max(0, durchgelassen - eigene)
+    # Fuer den Hinweis "alle Treffer sind nur wegen 'Beworbene ausblenden' weg".
+    treffer_mit_beworbenen = len(treffer) + verborgen.get("beworbene_ausblenden", 0)
+    rahmen_verborgen = verborgen.get("rahmen_ausblenden", 0)
+    schwelle_verborgen = verborgen.get("schwelle_ausblenden", 0)
+    # #1158 Punkt 7: "offen" ist, was keine laufende Bewerbung hat. Menue und Tab zaehlen diese Zahl;
+    # Stellen mit Bewerbung gehoeren zu den Bewerbungen und stehen hier nur auf Wunsch.
+    offen = len(offene)
 
     return {
         "jobs": seite,
         "total": len(jobs),
+        "offen": offen,
+        "offen_verborgen": offen - len(offene_treffer),
+        "beworbene_anzahl": len(jobs) - offen,
+        "verborgen": verborgen,
         "treffer": len(treffer),
         "treffer_mit_beworbenen": treffer_mit_beworbenen,
         "offset": offset,

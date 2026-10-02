@@ -124,66 +124,13 @@ try:
     db.initialize()
     logger.info("Datenbank initialisiert")
 
-    # Claude Desktop Neustart anbieten (damit MCP-Server sauber geladen wird)
-    if sys.platform == "win32":
-        try:
-            result = subprocess.run(
-                ["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],
-                capture_output=True, text=True, timeout=5,
-                creationflags=0x08000000,
-            )
-            if "Claude.exe" in result.stdout:
-                print()
-                print("  !! Claude Desktop laeuft bereits.")
-                print("  Damit PBP als MCP-Server erkannt wird, muss Claude")
-                print("  neu gestartet werden.")
-                print()
-                answer = input("  Claude jetzt neu starten? [J/n]: ").strip().lower()
-                if answer in ("", "j", "ja", "y", "yes"):
-                    logger.info("Claude Desktop wird neu gestartet...")
-                    subprocess.run(
-                        ["taskkill", "/IM", "Claude.exe", "/F"],
-                        capture_output=True, timeout=5,
-                        creationflags=0x08000000,
-                    )
-                    import time
-                    time.sleep(2)
-                    for cp in [
-                        os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "Claude", "Claude.exe"),
-                        os.path.join(os.environ.get("PROGRAMFILES", ""), "Claude", "Claude.exe"),
-                    ]:
-                        if cp and os.path.isfile(cp):
-                            subprocess.Popen([cp], start_new_session=True, creationflags=0x00000008)
-                            print("  Claude Desktop wird gestartet...")
-                            time.sleep(3)
-                            break
-        except Exception as e:
-            logger.warning("Claude-Check fehlgeschlagen: %s", e)
-    elif sys.platform == "darwin":
-        try:
-            result = subprocess.run(
-                ["pgrep", "-x", "Claude"],
-                capture_output=True, text=True, timeout=5,
-            )
-            if result.returncode == 0:
-                print()
-                print("  !! Claude Desktop laeuft bereits.")
-                print("  Damit PBP als MCP-Server erkannt wird, muss Claude")
-                print("  neu gestartet werden.")
-                print()
-                answer = input("  Claude jetzt neu starten? [J/n]: ").strip().lower()
-                if answer in ("", "j", "ja", "y", "yes"):
-                    logger.info("Claude Desktop wird neu gestartet...")
-                    subprocess.run(["pkill", "-x", "Claude"], capture_output=True, timeout=5)
-                    import time
-                    time.sleep(2)
-                    claude_app = "/Applications/Claude.app"
-                    if os.path.isdir(claude_app):
-                        subprocess.Popen(["open", claude_app], start_new_session=True)
-                        print("  Claude Desktop wird gestartet...")
-                        time.sleep(3)
-        except Exception as e:
-            logger.warning("Claude-Check fehlgeschlagen: %s", e)
+    # Claude Desktop Neustart anbieten, damit PBP dort als Werkzeug geladen wird (#1149 Punkt 10).
+    # Die Frage hat die Vorgabe NEIN; die Logik steht in services/claude_neustart.py.
+    try:
+        from bewerbungs_assistent.services.claude_neustart import neustart_anbieten
+        neustart_anbieten()
+    except Exception as e:
+        logger.warning("Claude-Check fehlgeschlagen: %s", e)
 
     print()
     print(f"  Dashboard: http://localhost:{port}")

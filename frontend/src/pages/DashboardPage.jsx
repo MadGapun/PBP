@@ -21,7 +21,7 @@ import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl"
 import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { punkteText, punkteWert, scoreText } from "@/lib/score";
 import { bewerbungenProWoche, gehaltsWert, KEIN_GEHALT, topStellen, WOCHEN_ANSICHTEN } from "@/lib/kennzahlen";
-import { FILTER_STANDARD, listenParameter } from "@/pages/JobsPage";
+import { FILTER_TOP_STELLEN, listenParameter } from "@/pages/JobsPage";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -137,7 +137,7 @@ export default function DashboardPage() {
         optionalApi("/api/daily-impulse"),
         // G61 (#1087 B3): Top-Stellen nach denselben Vorgaben wie der
         // Stellen-Tab (Schwelle, Rahmen, beworbene ausgeblendet).
-        optionalApi(`/api/jobs?active=true&exclude_blacklisted=true&limit=12&${listenParameter(FILTER_STANDARD, "", "", "active")}`),
+        optionalApi(`/api/jobs?active=true&exclude_blacklisted=true&limit=12&${listenParameter(FILTER_TOP_STELLEN, "", "", "active")}`),
       ]);
 
       // If ALL calls returned null, the server is unreachable (#123)

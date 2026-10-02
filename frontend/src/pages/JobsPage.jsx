@@ -32,6 +32,15 @@ import { stellenDaten } from "@/lib/stellenDaten";
 import { SCORE_BEDEUTUNG, punkteText, scoreText, scoreWert } from "@/lib/score";
 import { volltextText } from "@/lib/jobsucheHinweis";
 import {
+  SPEICHER_SCHLUESSEL,
+  filterAusSpeicher,
+  filterFuerSpeicher,
+  mehrereFilter,
+  minScoreGesetzt,
+  minScoreParameter,
+  mitZahlen,
+} from "@/lib/stellenFilter";
+import {
   FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
   etikett as daumenEtikett, maximumText as fachMaximumText,
   symbol as daumenSymbol, titel as daumenTitel, ton as daumenTon,
@@ -262,19 +271,28 @@ function descriptionAttentionLabel(job) {
 // #963, #991 und #992 entstanden. Der Hinweis ueber der Liste, der
 // Zuruecksetzen-Knopf und der Startzustand lesen jetzt dasselbe Objekt.
 //
-// `minScore: "0"` ist die eigentliche Korrektur an #1008: der Wert kam
-// bis v1.7.61 aus `search_criteria.min_score_schwelle`. Das ist laut
-// eigener Beschreibung die Schwelle, ab der eine Stelle beim Suchlauf
-// ueberhaupt GESPEICHERT wird — nicht ein Anzeige-Filter. Seit v1.7.50
-// (#993) den toten Zugriff darauf repariert hat, wirkte sie
-// tatsaechlich, und zwar ohne dass der Nutzer sie je gesetzt haette:
-// sieben von acht Stellen waren unsichtbar. Die Anzeige-Schwelle heisst
-// `schwellenwert/auto_ignore` und wirkt serverseitig; sie hier ein
-// zweites Mal nachzubauen waere derselbe Fehler in Gruen.
+// `minScore` war die Korrektur an #1008: der Wert kam bis v1.7.61 aus
+// `search_criteria.min_score_schwelle`. Das ist laut eigener Beschreibung die
+// Schwelle, ab der eine Stelle beim Suchlauf ueberhaupt GESPEICHERT wird —
+// nicht ein Anzeige-Filter: sieben von acht Stellen waren unsichtbar.
+// Die Korrektur setzte "0" ein, und das war die naechste Fassung desselben
+// Fehlers (#1158): "0" ist eine Untergrenze, und jede Stelle mit negativem
+// Stand — ein Abzug fuer Entfernung oder Gehalt, kein Urteil ueber die
+// Passung — verschwand, ohne dass der Mensch je etwas gesetzt haette
+// (gemessen: 2 von 4 aktiven Stellen). Jetzt "" = KEINE Untergrenze; eine
+// Untergrenze gilt nur, wenn sie ausdruecklich gesetzt ist, auch 0 und
+// negative Werte. Die Anzeige-Schwelle heisst `schwellenwert/auto_ignore`
+// und wirkt serverseitig; sie hier ein zweites Mal nachzubauen waere
+// derselbe Fehler in Gruen.
+//
+// FILTER_STANDARD ist der Zustand "keine Einschraenkung": Startzustand,
+// Ziel von "Filter zurücksetzen" und Ziel des Sprungs auf eine Stelle.
+// Die einzige Ausnahme ist `hideApplied`: eine Stelle mit laufender
+// Bewerbung ist keine offene Stelle (#1158 Punkt 7).
 export const FILTER_STANDARD = {
   query: "",
   source: "",
-  minScore: "0",
+  minScore: "",
   remote: "",
   salaryOnly: false,
   sort: "score_desc",
@@ -293,18 +311,28 @@ export const FILTER_STANDARD = {
   // Vorgabe LEER — ein Filter, den niemand gesetzt hat, war der ganze
   // Befund von #1008.
   pruefstand: "",
-  // #1052: Vorgabe AN, und das ist die Ausnahme von der Lehre aus
-  // #1008. Eine Stelle, deren Rahmen BELEGT nicht passt (zu weit weg,
-  // unter dem Minimum, falsche Vertragsform), kommt fuer diesen
-  // Menschen nicht in Frage — sie in der Liste zu lassen kostet ihn
-  // bei jedem Durchsehen Zeit. Der zweite Teil jener Lehre gilt dafuer
-  // umso strenger: der Schalter steht sichtbar da, nennt seine Zahl
-  // und ist mit einem Klick aus. Ausgeblendet wird nur, was BELEGT
-  // nicht passt — Ungeprueftes bleibt stehen (#989).
-  rahmenAusblenden: true,
+  // #1052 fuehrte den Filter ein (bis v1.7.149 vorgegeben AN); seit #1158
+  // ist er beim Oeffnen AUS. Eine Stelle, die der Mensch nicht sieht,
+  // kann er weder ansehen noch beurteilen — "Filter zuruecksetzen" soll
+  // ALLE offenen Stellen zeigen. Wer den Filter will, schaltet ihn ein;
+  // der Zustand bleibt erhalten. Der Schalter steht sichtbar da, nennt
+  // seine Zahl und ist mit einem Klick an oder aus. Ausgeblendet wird
+  // nur, was BELEGT nicht passt (zu weit weg, unter dem Minimum, falsche
+  // Vertragsform) — Ungeprueftes bleibt stehen (#989).
+  rahmenAusblenden: false,
   // #1082: die Score-Schwelle aus den Einstellungen. Sie versprach
-  // "blendet in der Liste aus" und wirkte hier nie. Vorgabe AN, weil der
-  // Mensch sie eingestellt hat — mit Zahl und einem Klick aus (#1008).
+  // "blendet in der Liste aus" und wirkte hier nie. Seit #1158 AUS wie der
+  // Rahmenfilter: wer sie will, schaltet sie ein, der Zustand bleibt beim
+  // naechsten Oeffnen erhalten, und der Streifen nennt ihre Zahl.
+  schwelleAusblenden: false,
+};
+
+// Die Top-Stellen auf dem Dashboard sind eine Auswahl der BESTEN Treffer und
+// bleiben deshalb bei Rahmen- und Schwellenfilter (G61, #1087 B3) — sie
+// behaupten nicht, die Stellenliste zu sein.
+export const FILTER_TOP_STELLEN = {
+  ...FILTER_STANDARD,
+  rahmenAusblenden: true,
   schwelleAusblenden: true,
 };
 
@@ -315,7 +343,7 @@ export function aktiveFilterBestimmen(filters) {
   const aktiv = [];
   if (filters.query) aktiv.push({ schluessel: "query", text: `Suchtext "${filters.query}"` });
   if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${quelleText(filters.source)}` });
-  if (Number(filters.minScore || 0) > 0) aktiv.push({ schluessel: "minScore", text: `Punkte ab ${filters.minScore}` });
+  if (minScoreGesetzt(filters.minScore)) aktiv.push({ schluessel: "minScore", text: `Punkte ab ${Number(filters.minScore)}` });
   if (filters.remote) aktiv.push({ schluessel: "remote", text: `Remote ${filters.remote}` });
   if (filters.salaryOnly) aktiv.push({ schluessel: "salaryOnly", text: "nur mit Gehalt" });
   if (filters.employmentType) aktiv.push({ schluessel: "employmentType", text: filters.employmentType });
@@ -353,7 +381,9 @@ export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
   const p = new URLSearchParams();
   if (suchtext) p.set("query", suchtext);
   if (filters.source) p.set("source", filters.source);
-  if (Number(filters.minScore || 0) > 0) p.set("min_score", String(filters.minScore));
+  // #1158: auch 0 und negative Werte gehen an den Server; nur "leer" heisst keine Untergrenze.
+  const untergrenze = minScoreParameter(filters.minScore);
+  if (untergrenze !== null) p.set("min_score", untergrenze);
   if (filters.remote) p.set("remote", filters.remote);
   if (filters.salaryOnly) p.set("nur_mit_gehalt", "true");
   if (filters.employmentType) p.set("employment_type", filters.employmentType);
@@ -378,6 +408,12 @@ export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
 
 const LEERE_META = {
   total: 0,
+  // #1158: "offen" = ohne laufende Bewerbung. Menue, Tab und Kachel zaehlen diese Zahl.
+  offen: 0,
+  // wie viele OFFENE Stellen gerade fehlen, und welcher Filter wie viele allein verbirgt
+  offen_verborgen: 0,
+  beworbene_anzahl: 0,
+  verborgen: {},
   treffer: 0,
   treffer_mit_beworbenen: 0,
   ohne_beschreibung: 0,
@@ -391,10 +427,16 @@ const LEERE_META = {
 
 function listenMeta(antwort) {
   if (Array.isArray(antwort)) {
-    return { ...LEERE_META, total: antwort.length, treffer: antwort.length, treffer_mit_beworbenen: antwort.length };
+    return { ...LEERE_META, total: antwort.length, offen: antwort.length, treffer: antwort.length, treffer_mit_beworbenen: antwort.length };
   }
+  const gesamt = Number(antwort?.total || 0);
+  const trefferAnzahl = Number(antwort?.treffer ?? antwort?.total ?? 0);
   return {
-    total: Number(antwort?.total || 0),
+    total: gesamt,
+    offen: Number(antwort?.offen ?? gesamt),
+    offen_verborgen: Number(antwort?.offen_verborgen ?? Math.max(0, gesamt - trefferAnzahl)),
+    beworbene_anzahl: Number(antwort?.beworbene_anzahl || 0),
+    verborgen: antwort?.verborgen && typeof antwort.verborgen === "object" ? antwort.verborgen : {},
     treffer: Number(antwort?.treffer ?? antwort?.total ?? 0),
     treffer_mit_beworbenen: Number(antwort?.treffer_mit_beworbenen ?? antwort?.treffer ?? 0),
     ohne_beschreibung: Number(antwort?.ohne_beschreibung || 0),
@@ -474,7 +516,24 @@ export default function JobsPage() {
   const [followUps, setFollowUps] = useState([]);
   // v1.7.62 (#1008): siehe FILTER_STANDARD oben. Die Liste startet
   // ungefiltert; wer filtern will, sagt es.
-  const [filters, setFilters] = useState({ ...FILTER_STANDARD });
+  // #1158 Punkt 6: der Filterzustand bleibt nach Neuladen und Neustart erhalten (Suchtext und Ansicht
+  // nicht — siehe lib/stellenFilter.js). Kein Speicher im Browser: dann bleibt es beim Sitzungszustand.
+  const [filters, setFilters] = useState(() => {
+    try {
+      const gemerkt = localStorage.getItem(SPEICHER_SCHLUESSEL);
+      if (gemerkt) return filterAusSpeicher(gemerkt, FILTER_STANDARD);
+    } catch (err) {
+      // privater Modus oder gesperrter Speicher
+    }
+    return { ...FILTER_STANDARD };
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(SPEICHER_SCHLUESSEL, filterFuerSpeicher(filters));
+    } catch (err) {
+      // privater Modus oder gesperrter Speicher
+    }
+  }, [filters]);
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
@@ -564,7 +623,7 @@ export default function JobsPage() {
         }
         const aktiv = listenMeta(activeJobsResp);
         setAktivMeta(aktiv);
-        setJobsTotal(aktiv.total);
+        setJobsTotal(aktiv.offen);
         setJobsHasMore(Boolean(activeJobsResp?.has_more));
         // #1022: auch beim Nachladen mitgesetzt — die Grundlage
         // beschreibt den Bestand und aendert sich dabei nicht. Faellt
@@ -1121,19 +1180,28 @@ export default function JobsPage() {
   // `services/stellen_liste.py`.
   const filteredJobs = currentList;
   const listenTreffer = ansichtMeta.treffer;
-  const listenGesamt = ansichtMeta.total;
+  // #1158: in der Ansicht "Aktive" ist das Ganze die Zahl der OFFENEN Stellen — dieselbe Zahl wie im Menue
+  // und im Tab. Nach "Filter zurücksetzen" ist die Liste so lang wie diese Zahl.
+  const listenGesamt = filters.view === "active" ? ansichtMeta.offen : ansichtMeta.total;
 
   // v1.7.62 (#1008): wie viele Eintraege der ANSICHT die Filter gerade
   // unterdruecken. Seit #1030 zaehlt der Server ueber den Bestand — die
   // noch nicht geladenen Seiten sind keine "verborgenen" Stellen, weil
   // `treffer` sie schon enthaelt.
-  const verborgeneStellen = Math.max(0, listenGesamt - listenTreffer);
+  const verborgeneStellen = filters.view === "active"
+    ? ansichtMeta.offen_verborgen
+    : Math.max(0, listenGesamt - listenTreffer);
   // #1052: der Anteil daran, der auf den Rahmenfilter geht. Er zaehlt
   // die Stellen, die ALLE anderen Filter passieren — sonst stuenden
   // dort Zeilen, die ohnehin nicht zu sehen waeren.
   const rahmenVerborgen = ansichtMeta.rahmen_verborgen;
   const schwelleVerborgen = ansichtMeta.schwelle_verborgen;
   const aktiveFilter = aktiveFilterBestimmen(filters);
+  // #1158: JEDER wirksame Filter steht im Streifen, mit der Zahl der Stellen, die er allein verbirgt.
+  const streifenFilter = mitZahlen(aktiveFilter, ansichtMeta.verborgen);
+  const mehrereZugleich = filters.view === "active"
+    ? mehrereFilter(ansichtMeta.offen_verborgen, ansichtMeta.verborgen)
+    : 0;
   // G62: "Filter (n)" — die Suche ist kein Filter im Klappfeld.
   const filterAnzahl = aktiveFilter.filter((f) => f.schluessel !== "query").length;
   const visibleDescriptionGaps = filteredJobs.filter(jobNeedsDescriptionAttention).length;
@@ -1315,7 +1383,7 @@ export default function JobsPage() {
               // #1030: die Kachel beschreibt die AKTIVEN Stellen — also zaehlt
               // sie auch deren Filtertreffer, nicht die der gerade offenen
               // Ansicht und nicht die der geladenen Seite.
-              const durchFilterVerborgen = Math.max(0, aktivMeta.total - aktivMeta.treffer);
+              const durchFilterVerborgen = aktivMeta.offen_verborgen;
               const parts = [];
               // #1022 AK 6: bei aktivem Filter gehoert die Einschraenkung
               // in die Notiz — die Kachel selbst bleibt beim Bestand.
@@ -1549,24 +1617,29 @@ export default function JobsPage() {
             <div className="group inline-flex items-center gap-1.5">
               <div className={cn(
                 "flex items-center gap-1.5 rounded-xl border px-3 py-1.5 transition-colors",
-                Number(filters.minScore || 0) > 0
+                minScoreGesetzt(filters.minScore)
                   ? "border-teal/20 bg-teal/8"
                   : "border-white/5 bg-white/[0.03]"
               )}>
-                <span className={cn("text-[13px]", Number(filters.minScore || 0) > 0 ? "text-teal" : "text-muted")}>Punkte ≥</span>
+                <span className={cn("text-[13px]", minScoreGesetzt(filters.minScore) ? "text-teal" : "text-muted")}>Punkte ≥</span>
                 <input
                   type="number"
+                  aria-label="Mindestpunkte (leer = keine Untergrenze, auch 0 und negative Werte gelten)"
+                  placeholder="–"
                   className={cn(
-                    "w-10 rounded-md border bg-white/[0.04] text-center text-[13px] font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-                    Number(filters.minScore || 0) > 0
+                    "w-14 rounded-md border bg-white/[0.04] text-center text-[13px] font-medium outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+                    minScoreGesetzt(filters.minScore)
                       ? "border-teal/30 text-teal focus:border-teal/50"
                       : "border-white/10 text-muted focus:border-teal/40"
                   )}
                   value={filters.minScore}
                   onChange={(event) => setFilters((current) => ({ ...current, minScore: event.target.value }))}
                 />
+                {minScoreGesetzt(filters.minScore) && Number(ansichtMeta.verborgen?.min_score) > 0 ? (
+                  <span className="text-[12px] text-teal">({ansichtMeta.verborgen.min_score})</span>
+                ) : null}
               </div>
-              {Number(filters.minScore || 0) > 0 && (
+              {minScoreGesetzt(filters.minScore) && (
                 <button aria-label="Filter Mindestpunkte entfernen" type="button" onClick={() => setFilters(f => ({ ...f, minScore: FILTER_STANDARD.minScore }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
             </div>
@@ -1663,13 +1736,15 @@ export default function JobsPage() {
             >
               <EyeOff size={14} />
               Beworbene ausblenden
+              {filters.hideApplied && Number(ansichtMeta.verborgen?.beworbene_ausblenden) > 0 ? (
+                <span className="text-[12px] text-sky">({ansichtMeta.verborgen.beworbene_ausblenden})</span>
+              ) : null}
             </button>
 
-            {/* #1052: der Rahmenfilter. Vorgabe AN — und deshalb steht
-                hier die Zahl daneben, sobald er etwas ausblendet. Ein
-                Filter, den niemand gesetzt hat und der schweigt, hat
-                beim Melder sieben von acht Stellen verschwinden lassen
-                (#1008). */}
+            {/* #1052: der Rahmenfilter (seit #1158 beim Oeffnen AUS). Die
+                Zahl steht daneben, sobald er etwas ausblendet. Ein
+                Filter, der etwas verbirgt und schweigt, hat beim Melder
+                sieben von acht Stellen verschwinden lassen (#1008). */}
             <button
               type="button"
               className={cn(
@@ -1783,8 +1858,11 @@ export default function JobsPage() {
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-amber/30 bg-amber/[0.06] px-3 py-2">
               <span className="text-[13px] text-amber">
                 {verborgeneStellen} {verborgeneStellen === 1 ? "Stelle ist" : "Stellen sind"} durch Filter ausgeblendet
-                {aktiveFilter.length > 0 && (
-                  <span className="text-amber"> · {aktiveFilter.map((f) => f.text).join(" · ")}</span>
+                {streifenFilter.length > 0 && (
+                  <span className="text-amber"> · {streifenFilter.map((f) => f.text).join(" · ")}</span>
+                )}
+                {mehrereZugleich > 0 && (
+                  <span className="text-amber"> · {mehrereZugleich} durch mehrere Filter zugleich</span>
                 )}
               </span>
               <button

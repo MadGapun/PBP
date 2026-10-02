@@ -114,9 +114,15 @@ def test_1008_anzeigefilter_startet_ungefiltert():
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
     block = re.search(r"export const FILTER_STANDARD = \{[^}]*\}", quelltext)
     assert block, "FILTER_STANDARD fehlt — die Filter-Vorgabe braucht EINEN Ort."
-    assert 'minScore: "0"' in block.group(0)
+    # #1158: "0" war selbst eine Untergrenze und verbarg jede Stelle mit negativem Stand (ein Abzug fuer
+    # Entfernung oder Gehalt, kein Urteil ueber die Passung). Die Vorgabe ist jetzt LEER = keine Untergrenze.
+    assert 'minScore: ""' in block.group(0)
+    assert 'minScore: "0"' not in block.group(0)
     assert "hideApplied: true" in block.group(0), \
-        "Bestehendes Verhalten unveraendert lassen — nur der Score war der Fund."
+        "Eine Stelle mit laufender Bewerbung ist keine offene Stelle (#1158 Punkt 7)."
+    # Rahmen- und Schwellenfilter sind Wahl des Menschen, nicht Voreinstellung der Seite (#1158).
+    assert "rahmenAusblenden: false" in block.group(0)
+    assert "schwelleAusblenden: false" in block.group(0)
 
 
 def test_1008_die_speicherschwelle_ist_kein_anzeigefilter():
@@ -190,11 +196,15 @@ def test_1008_die_verborgenen_werden_gegen_das_geladene_gezaehlt():
     # keine "verborgenen". Gegen die geladene Seite gerechnet waere die
     # Zahl jetzt zu HOCH: 20 geladen, 59 Treffer, 1.174 Bestand.
     quelltext = JOBS_PAGE.read_text(encoding="utf-8")
-    zeile = next(z for z in quelltext.split("\n")
-                 if z.strip().startswith("const verborgeneStellen"))
-    assert "listenGesamt - listenTreffer" in zeile
-    assert "jobsTotal" not in zeile
-    assert "currentList.length" not in zeile
+    # #1158: in der Ansicht "Aktive" rechnet der Server die fehlenden OFFENEN Stellen (`offen_verborgen`) -
+    # Stellen mit laufender Bewerbung sind keine offenen Stellen und gelten hier nicht als "verborgen". In der
+    # Ansicht "Aussortiert" bleibt es bei Bestand minus Treffer.
+    anfang = quelltext.index("const verborgeneStellen")
+    stelle = quelltext[anfang:quelltext.index(";", anfang)]
+    assert "ansichtMeta.offen_verborgen" in stelle
+    assert "listenGesamt - listenTreffer" in stelle
+    assert "jobsTotal" not in stelle
+    assert "currentList.length" not in stelle
 
 
 def test_1008_zuruecksetzen_und_hinweis_lesen_dieselbe_vorgabe():
@@ -207,7 +217,7 @@ def test_1008_zuruecksetzen_und_hinweis_lesen_dieselbe_vorgabe():
     quelltext = ohne_kommentare(JOBS_PAGE.read_text(encoding="utf-8"))
     assert quelltext.count("...FILTER_STANDARD") >= 2, (
         "Zuruecksetzen-Knopf und Hinweis muessen dieselbe Definition lesen.")
-    assert quelltext.count('minScore: "0"') == 1, (
+    assert quelltext.count('minScore: ""') == 1, (
         "Die Vorgabe steht genau einmal da.")
 
 

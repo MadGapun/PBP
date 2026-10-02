@@ -45,6 +45,48 @@ _DE_EQUIVALENTS = {
 }
 
 
+class JobSpyAusgefallen(RuntimeError):
+    """Alle Abfragen einer Seite sind gescheitert (#1159).
+
+    python-jobspy 1.2.0 wirft bei einem ausgefallenen Board nicht mehr, es loggt nur und liefert
+    eine leere Tabelle. Ohne diese Ausnahme wäre ein gesperrtes Indeed oder LinkedIn für PBP eine
+    Quelle, die "ok, 0 Treffer" meldet - genau das falsche Grün aus #808, und die Fehlerserie, die
+    eine tote Quelle abschaltet (#668), käme nie zusammen. `ratenbegrenzt` sagt, ob die Meldungen
+    nach einer Sperre aussehen (HTTP 429/403, Captcha).
+    """
+
+    def __init__(self, meldung: str, ratenbegrenzt: bool = False):
+        super().__init__(meldung)
+        self.ratenbegrenzt = ratenbegrenzt
+
+
+#: Wie JobSpy seine Logger nennt (`jobspy.util.create_logger`).
+_JOBSPY_LOGGER = {"indeed": "JobSpy:Indeed", "linkedin": "JobSpy:LinkedIn",
+                  "glassdoor": "JobSpy:Glassdoor", "google": "JobSpy:Google"}
+
+#: Woran eine Sperre in einer JobSpy-Fehlermeldung zu erkennen ist.
+_SPERR_HINWEISE = ("429", "403", "too many", "rate limit", "captcha", "forbidden", "blocked")
+
+
+def _sieht_nach_sperre_aus(meldungen: list[str]) -> bool:
+    text = " ".join(meldungen).lower()
+    return any(h in text for h in _SPERR_HINWEISE)
+
+
+class _FehlerSammler(logging.Handler):
+    """Sammelt, was JobSpy 1.2 statt einer Ausnahme loggt (nur Stufe ERROR)."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.ERROR)
+        self.meldungen: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            self.meldungen.append(record.getMessage())
+        except Exception:  # noqa: BLE001 - ein Logger darf nie die Suche stoeren
+            pass
+
+
 def _ensure_jobspy():
     """Import jobspy lazily. None if package fehlt."""
     try:
@@ -104,8 +146,7 @@ def _map_row(row: Any, site: str) -> dict:
     remote = remote_jobspy.bestimmen(title, location, description,
                                      is_remote=remote_flag)
 
-    salary_min = row.get("min_amount") if hasattr(row, "get") else None
-    salary_max = row.get("max_amount") if hasattr(row, "get") else None
+    salary_min, salary_max = _jahresgehalt(row)
 
     return {
         "hash": stelle_hash(source_key, f"{company} {title}"),
@@ -123,9 +164,51 @@ def _map_row(row: Any, site: str) -> dict:
         # trugen `teilzeit`, waehrend 103 Titel es nennen.
         "arbeitsumfang": _normalize_umfang(job_type),
         "remote_level": remote,
-        "salary_min": _to_int_or_none(salary_min),
-        "salary_max": _to_int_or_none(salary_max),
+        "salary_min": salary_min,
+        "salary_max": salary_max,
     }
+
+
+#: So viele Zahlungszeiträume hat ein Jahr - dieselben Faktoren wie `jobspy.util.convert_to_annual`.
+_JAHRESFAKTOR = {"yearly": 1, "monthly": 12, "weekly": 52, "daily": 260, "hourly": 2080}
+
+
+def _jahresgehalt(row: Any) -> tuple[int | None, int | None]:
+    """Jahresgehalt in Euro aus einer JobSpy-Zeile - Intervall und Währung beachtet (#1159).
+
+    Bis python-jobspy 1.1.82 lieferte Indeed für deutsche Anzeigen praktisch nie ein Gehalt
+    (gemessen: 0 von 15 Zeilen), und PBP las `min_amount`/`max_amount` ungeprüft als Jahreswert.
+    Seit 1.2.0 kommen Gehälter außerhalb der USA an (gemessen: 2 von 15, `interval=yearly`,
+    `currency=EUR`) - und mit ihnen Stundenlöhne und Monatsgehälter. Ein Stundenlohn von 15 als
+    Jahresgehalt zu speichern, wäre ein stiller Fehler im Scoring und in der Marktanalyse.
+
+    Deshalb: der Betrag wird mit dem Faktor seines Intervalls auf ein Jahr gerechnet (auch wenn nur
+    EIN Betrag da ist - dann wandelt JobSpy selbst nicht um), ein unbekanntes Intervall und eine
+    andere Währung als Euro ergeben kein Gehalt. Fehlt das Intervall ganz, gilt "pro Jahr" wie bisher.
+    """
+    def _roh(name: str):
+        val = row.get(name) if hasattr(row, "get") else None
+        if val is None or (isinstance(val, float) and val != val):  # None oder NaN
+            return None
+        return val
+
+    niedrig, hoch = _roh("min_amount"), _roh("max_amount")
+    if niedrig is None and hoch is None:
+        return None, None
+    waehrung = str(_roh("currency") or "").strip().upper()
+    if waehrung and waehrung != "EUR":
+        return None, None
+    faktor = _JAHRESFAKTOR.get(str(_roh("interval") or "yearly").strip().lower())
+    if faktor is None:
+        return None, None
+
+    def _rechnen(wert):
+        try:
+            return None if wert is None else int(round(float(wert) * faktor))
+        except (TypeError, ValueError):
+            return None
+
+    return _rechnen(niedrig), _rechnen(hoch)
 
 
 def _to_int_or_none(val) -> int | None:
@@ -217,11 +300,22 @@ def _search_site(site: str, keywords: list[str], location: str,
     jobs: list[dict] = zwischenstand["jobs"] if zwischenstand is not None else []
     if zwischenstand is not None:
         zwischenstand["abfragen"] = len(keywords)
+    # #1159: wie viele Abfragen liefen, und wie viele davon scheiterten (Ausnahme ODER ein
+    # geloggter Fehler bei leerer Antwort) - sind es alle und gibt es keine Treffer, ist die Seite
+    # ausgefallen und wird nicht als "ok, 0 Treffer" gemeldet.
+    abgefragt = 0
+    gescheitert = 0
+    erste_meldung = ""
+    ratenbegrenzt = False
     for kw in keywords:
         if zwischenstand is not None and zwischenstand["stopp"].is_set():
             logger.info("JobSpy %s: angehalten nach %d von %d Begriffen",
                         site, zwischenstand["fertig"], len(keywords))
             break
+        abgefragt += 1
+        sammler = _FehlerSammler()
+        jslog = logging.getLogger(_JOBSPY_LOGGER.get(site, f"JobSpy:{site.capitalize()}"))
+        jslog.addHandler(sammler)
         try:
             kwargs = dict(
                 site_name=[site],
@@ -241,7 +335,10 @@ def _search_site(site: str, keywords: list[str], location: str,
             df = scrape(**kwargs)
         except Exception as exc:  # jobspy wirft RateLimitException u.a.
             name = type(exc).__name__
+            gescheitert += 1
+            erste_meldung = erste_meldung or f"{name}: {exc}"[:200]
             if "429" in str(exc) or "RateLimit" in name:
+                ratenbegrenzt = True
                 logger.warning("JobSpy %s rate-limited (%s) bei '%s' — ueberspringe Site",
                                site, name, kw)
                 break
@@ -249,10 +346,21 @@ def _search_site(site: str, keywords: list[str], location: str,
             if zwischenstand is not None:
                 zwischenstand["fertig"] += 1
             continue
+        finally:
+            jslog.removeHandler(sammler)
 
         if zwischenstand is not None:
             zwischenstand["fertig"] += 1
         if df is None or getattr(df, "empty", True):
+            if sammler.meldungen:
+                # JobSpy 1.2 wirft nicht mehr: die leere Antwort ist ein Fehler, wenn er etwas geloggt hat.
+                gescheitert += 1
+                erste_meldung = erste_meldung or sammler.meldungen[0][:200]
+                logger.warning("JobSpy %s: keine Antwort bei '%s' (%s)", site, kw, sammler.meldungen[0][:160])
+                if _sieht_nach_sperre_aus(sammler.meldungen):
+                    ratenbegrenzt = True
+                    logger.warning("JobSpy %s: Anfrage abgelehnt — ueberspringe Site", site)
+                    break
             consecutive_empty += 1
             if consecutive_empty >= _EARLY_STOP_THRESHOLD and not jobs:
                 logger.info("JobSpy %s: %d aufeinanderfolgende leere Antworten — "
@@ -266,6 +374,11 @@ def _search_site(site: str, keywords: list[str], location: str,
             # schlechte Suchbegriffe belegen lassen (Anschluss an #783).
             job["suchbegriff"] = kw
             jobs.append(job)
+    if not jobs and abgefragt and gescheitert >= abgefragt:
+        raise JobSpyAusgefallen(
+            f"JobSpy/{site}: {gescheitert} von {abgefragt} Abfragen sind gescheitert"
+            + (f" (Ratenbegrenzung?) — zuerst: {erste_meldung}" if ratenbegrenzt else f" — zuerst: {erste_meldung}"),
+            ratenbegrenzt=ratenbegrenzt)
     return jobs
 
 
