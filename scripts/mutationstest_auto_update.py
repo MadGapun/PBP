@@ -280,13 +280,15 @@ FT = "src/bewerbungs_assistent/tools/firmen_stamm.py"
 BEW = "src/bewerbungs_assistent/tools/bewerbungen.py"
 JOBS = "src/bewerbungs_assistent/tools/jobs.py"
 KON = "src/bewerbungs_assistent/tools/kontakte.py"
+FA = "src/bewerbungs_assistent/services/firmen_ansicht.py"
 DBF = "src/bewerbungs_assistent/database.py"
 SDU = "src/bewerbungs_assistent/services/stellen_dublette.py"
 AUS = "src/bewerbungs_assistent/services/aussortieren.py"
 HIN = "src/bewerbungs_assistent/services/bewerbungs_hinweis.py"
 AUT = "src/bewerbungs_assistent/services/stellen_automatik.py"
 ELW = "src/bewerbungs_assistent/services/elwosa_provider.py"
-T_FI = ["tests/test_v18_firmen_dubletten_1080.py", "tests/test_v18_firmen_stamm_1080.py", "tests/test_v18_firmen_kontakte_1080.py"]
+T_FI = ["tests/test_v18_firmen_dubletten_1080.py", "tests/test_v18_firmen_stamm_1080.py", "tests/test_v18_firmen_kontakte_1080.py",
+        "tests/test_v18_firmen_ansicht_1080.py"]
 
 M_FIRMEN = [
     # ── Der Kanon: nur nachschlagen, nie raten ──
@@ -373,6 +375,16 @@ M_FIRMEN = [
     ("fv01", "kontakt_verknuepfen: firma geht ins Leere statt zur Firma", KON, '        if (ziel_typ or "").strip().lower() == "firma":', "        if False:", T_FI),
     ("fv02", "kontakt_verknuepfen: ein mehrdeutiger Name wird geraten", KON, '                if erg["mehrdeutig"]:\n                    return {"fehler": "Der Name passt zu mehreren Firmen:', '                if False:\n                    return {"fehler": "Der Name passt zu mehreren Firmen:', T_FI),
     ("ft04", "Werkzeug: Zuordnung aendern ohne etwas zu aendern gilt als erfolgreich", FT, '                if not felder:\n                    return {"status": "fehler", "text": "Nichts zu ändern: nenne rolle, von, bis, aktuell oder notizen."}', "                if False:\n                    pass", T_FI),
+    # ── Die Firmen-Ansicht und ihre Endpunkte ──
+    ("fa01", "Ansicht: die Bewerbungen fehlen in der Zeitleiste", FA, '    eintraege = [_aus_bewerbung(b) for b in daten.get("bewerbungen", [])]', "    eintraege = []", T_FI),
+    ("fa02", "Ansicht: die aktiven Stellen fehlen in der Zeitleiste", FA, '    eintraege += [_aus_stelle(s) for s in daten.get("aktive_stellen", [])]', "    eintraege += []", T_FI),
+    ("fa03", "Ansicht: das Aelteste steht oben", FA, "    mit = sorted((e for e in eintraege if e[\"datum\"]), key=lambda e: e[\"datum\"], reverse=True)", "    mit = sorted((e for e in eintraege if e[\"datum\"]), key=lambda e: e[\"datum\"])", T_FI),
+    ("fa04", "Ansicht: Eintraege ohne Datum stehen oben", FA, '    return mit + [e for e in eintraege if not e["datum"]]', '    return [e for e in eintraege if not e["datum"]] + mit', T_FI),
+    ("fa05", "Ansicht: Bewerbungen stehen doppelt (Werkzeug und Rohdaten)", FA, '        if b.get("quelle") == "bewerbung" and b.get("rolle") != "in_notizen_erwaehnt":\n            continue', "        if False:\n            continue", T_FI),
+    ("fr01", "Endpunkt: Zusammenfuehren ohne Bestaetigung", DASH, '    if data.get("bestaetigt") is not True:\n        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig", "ziel"', '    if False:\n        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig", "ziel"', T_FI),
+    ("fr02", "Endpunkt: Loeschen ohne Bestaetigung", DASH, '    if not bestaetigt:\n        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig"}, status_code=400)', '    if False:\n        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig"}, status_code=400)', T_FI),
+    ("fr03", "Endpunkt: Vorschlaege gelten immer als bestaetigt", DASH, 'bestaetigt=data.get("bestaetigt") is True))', "bestaetigt=True))", T_FI),
+    ("fr04", "Endpunkt: Fehler kommen als 200 zurueck", DASH, '    code = _FIRMEN_FEHLER.get(erg.get("status"))', "    code = None", T_FI),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN}
