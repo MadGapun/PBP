@@ -29,8 +29,8 @@ def db(tmp_db, tmp_path):
     return tmp_db
 
 
-def _app(db, firma, titel="Einkaufsleiter Technik", status="abgelehnt", notizen="", endkunde=""):
-    return db.add_application({"title": titel, "company": firma, "status": status, "notes": notizen, "endkunde": endkunde})
+def _app(db, firma, titel="Einkaufsleiter Technik", status="abgelehnt", notizen="", endkunde="", url=""):
+    return db.add_application({"title": titel, "company": firma, "status": status, "notes": notizen, "endkunde": endkunde, "url": url})
 
 
 def _stelle(hash_, titel, firma, url=None, quelle="stepstone"):
@@ -49,6 +49,7 @@ def test_der_kanon_schlaegt_namen_und_schreibweisen_nach():
     assert k.gleich(_n("Alt AG"), _n("Neu GmbH")) and k.gleich(_n("alt"), _n("NEU"))
     assert not k.gleich(_n("Alt AG"), _n("Ganz Anders"))
     assert not k.gleich("", _n("Neu GmbH")) and not k.gleich(_n("Neu GmbH"), "")
+    assert not k.gleich(_n("Ganz Anders"), _n("Voellig Anders")), "zwei unbekannte Namen sind nicht deshalb dieselbe Firma"
     assert sorted(k.formen_von(_n("Alt AG"))) == sorted([_n("Neu GmbH"), _n("Alt AG"), _n("N-Gruppe")])
     assert k.formen_von(_n("Ganz Anders")) == []
 
@@ -62,6 +63,18 @@ def test_eine_bestaetigte_schreibweise_im_laengeren_namen_zaehlt_aber_nur_bei_ge
     assert not zwei.gleich(_n("Muster Energie"), _n("Muster Medizin"))
     assert zwei.firma_von(_n("Muster Energie")) == "fi_1"
     assert _n("Muster") not in zwei.formen_von(_n("Muster Energie"))
+
+
+def test_steckt_ein_name_zwei_firmen_wird_nicht_geraten():
+    k = fs.FirmenKanon({"fi_1": [_n("Beispiel Eins")], "fi_2": [_n("Beispiel Zwei")]})
+    assert k.firma_von(_n("Beispiel Eins Beispiel Zwei Gruppe")) == "", "zwei Firmen im Namen: PBP raet nicht"
+    assert k.firma_von(_n("Beispiel Eins Deutschland")) == "fi_1"
+
+
+def test_eine_kurzform_ist_in_einem_laengeren_namen_zu_kurz_um_zu_gelten():
+    k = fs.FirmenKanon({"fi_1": [_n("International Beispiel Systems"), _n("IBS")]})
+    assert k.gleich(_n("IBS"), _n("International Beispiel Systems")), "als ganzer Name gilt sie"
+    assert not k.gleich(_n("IBS Consulting"), _n("International Beispiel Systems")), "als Teil eines laengeren Namens ist sie zu kurz"
 
 
 def test_mutter_und_tochter_sind_nicht_dieselbe_firma(db):
@@ -327,3 +340,139 @@ def test_die_automatik_haelt_eine_stelle_unter_neuem_namen_nicht_fuer_unbekannt(
     assert bewerbungs_hinweis.ist_wiederholung(job, bewerbungen) is False
     fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
     assert bewerbungs_hinweis.ist_wiederholung(job, bewerbungen, kanon=dd.firmen_kanon(db)) is True
+
+
+def test_die_handanlage_findet_den_umbenannten_repost_unter_dem_frueheren_firmennamen(db, werkzeug):
+    db.save_jobs([{"hash": "alt1", "title": "Leiter Beschaffung", "company": "Alt AG", "url": "https://stepstone.example/s/alt1",
+                   "source": "stepstone", "description": BESCHREIBUNG, "score": 10}])
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik", firma="Neu GmbH",
+                   url="https://firma.example/karriere/einkauf-9", beschreibung=BESCHREIBUNG)
+    assert erg.get("repost_verdacht"), erg
+    assert erg["repost_verdacht"]["titel"] == "Leiter Beschaffung"
+
+
+def test_die_handanlage_ohne_firmen_eintraege_sucht_den_repost_nicht_unter_dem_alten_namen(db, werkzeug):
+    db.save_jobs([{"hash": "alt1", "title": "Leiter Beschaffung", "company": "Alt AG", "url": "https://stepstone.example/s/alt1",
+                   "source": "stepstone", "description": BESCHREIBUNG, "score": 10}])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik", firma="Neu GmbH",
+                   url="https://firma.example/karriere/einkauf-9", beschreibung=BESCHREIBUNG)
+    assert not erg.get("repost_verdacht"), erg
+
+
+def test_die_automatik_kennt_die_wiederholung_unter_dem_alten_namen(db):
+    from bewerbungs_assistent.services import stellen_automatik
+    _app(db, "Alt AG", status="abgelehnt")
+    job = {"hash": "auto1", "title": "Einkaufsleiter Technik", "company": "Neu GmbH", "url": "https://stepstone.example/s/auto1"}
+    assert not stellen_automatik.anwenden(db, [dict(job)])["jobs"][0].get("_repost_verdacht")
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    assert stellen_automatik.anwenden(db, [dict(job)])["jobs"][0].get("_repost_verdacht") is True
+
+
+def test_elwosa_meldet_den_repost_unter_dem_alten_namen(db):
+    from bewerbungs_assistent.services import elwosa_provider
+    _app(db, "Alt AG", status="abgelehnt")
+    db.save_jobs([_stelle("elw1", "Einkaufsleiter Technik", "Neu GmbH")])
+
+    def reposts():
+        return [c for c in elwosa_provider.betriebslage_kandidaten(db) if c.dedup_key.startswith("repost:")]
+    assert reposts() == []
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    assert len(reposts()) == 1
+
+
+@pytest.fixture
+def ingest(db):
+    """Der Ingest-Endpunkt fuer Plugins (TestClient) gegen dieselbe Wegwerf-Datenbank."""
+    import bewerbungs_assistent.dashboard as dash
+    from fastapi.testclient import TestClient
+    dash._db = db
+    client = TestClient(dash.app)
+    manifest = {"name": "Test-Zubringer", "version": "1.0.0", "ingest_api": "^1",
+                "capabilities": ["ingest:job"], "beschreibung": "Testplugin"}
+    antwort = client.post("/api/plugins/pair", json={"manifest": manifest})
+    assert antwort.status_code == 200, antwort.text
+    key = antwort.json()["api_key"]
+
+    def senden(titel, firma):
+        return client.post("/api/v1/ingest/job", json={"titel": titel, "firma": firma, "url": "https://firma.example/karriere/1",
+                                                       "beschreibung": BESCHREIBUNG}, headers={"X-PBP-API-Key": key})
+    return senden
+
+
+def test_der_plugin_ingest_blockt_bei_laufender_bewerbung_unter_dem_alten_namen(db, ingest):
+    _app(db, "Alt AG", status="beworben")
+    assert ingest("Einkaufsleiter Technik", "Neu GmbH").status_code == 200, "ohne Eintrag kennt PBP den Namenswechsel nicht"
+    # Die Stelle liegt jetzt; eine zweite Firma mit dem frueheren Namen als Schreibweise trifft die laufende Bewerbung.
+    fs.firma_anlegen(db, "Zweite Neu GmbH", aliase=["Alt AG"])
+    antwort = ingest("Einkaufsleiter Technik", "Zweite Neu GmbH")
+    assert antwort.status_code == 409 and "Bewerbung" in antwort.json()["error"], antwort.text
+
+
+def test_die_handanlage_erkennt_die_aktive_stelle_unter_dem_alten_namen(db, werkzeug):
+    db.save_jobs([_stelle("akt1", "Einkaufsleiter Technik", "Alt AG", url="https://alt.example/karriere/einkauf-3")])
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik", firma="Neu GmbH",
+                   url="https://neu.example/karriere/einkauf-7", beschreibung=BESCHREIBUNG)
+    assert erg.get("warnung") == "duplikat_aktive_stelle", erg
+
+
+def test_die_handanlage_legt_die_stelle_unter_neuem_namen_ohne_firmen_eintrag_an(db, werkzeug):
+    db.save_jobs([_stelle("akt1", "Einkaufsleiter Technik", "Alt AG", url="https://alt.example/karriere/einkauf-3")])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik", firma="Neu GmbH",
+                   url="https://neu.example/karriere/einkauf-7", beschreibung=BESCHREIBUNG)
+    assert erg.get("warnung") != "duplikat_aktive_stelle", erg
+
+
+def test_die_handanlage_meldet_eine_aehnliche_laufende_bewerbung_unter_dem_alten_namen(db, werkzeug):
+    _app(db, "Alt AG", titel="Einkaufsleiter Technik Maschinenbau", status="beworben", url="https://alt.example/karriere/1")
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik Elektronik", firma="Neu GmbH",
+                   url="https://neu.example/karriere/2", beschreibung=BESCHREIBUNG)
+    assert erg.get("laufende_bewerbung_verdacht"), erg
+    assert erg.get("warnung") != "duplikat_bewerbung", "unterschiedliche Adressen verlangen die strenge Schwelle: nur ein Hinweis"
+
+
+def test_die_handanlage_ohne_firmen_eintrag_meldet_die_aehnliche_bewerbung_unter_dem_alten_namen_nicht(db, werkzeug):
+    _app(db, "Alt AG", titel="Einkaufsleiter Technik Maschinenbau", status="beworben", url="https://alt.example/karriere/1")
+    erg = werkzeug("stelle_manuell_anlegen", titel="Einkaufsleiter Technik Elektronik", firma="Neu GmbH",
+                   url="https://neu.example/karriere/2", beschreibung=BESCHREIBUNG)
+    assert not erg.get("laufende_bewerbung_verdacht"), erg
+
+
+def test_die_handanlage_nennt_die_bewerbung_ueber_den_vermittler_auch_bei_der_kurzform(db, werkzeug):
+    _app(db, "Personal Partner GmbH", titel="Sachbearbeiter Vertrieb", status="beworben", notizen="Endkunde: IBS, Standort Hamburg")
+    fs.firma_anlegen(db, "International Beispiel Systems", aliase=["IBS"])
+    erg = werkzeug("stelle_manuell_anlegen", titel="Projektleiter Logistik", firma="International Beispiel Systems",
+                   url="https://ibs.example/karriere/2", beschreibung=BESCHREIBUNG)
+    assert erg.get("vermittler_bewerbung"), erg
+    assert erg["vermittler_bewerbung"]["firma_der_bewerbung"] == "Personal Partner GmbH"
+
+
+def test_die_handanlage_ohne_firmen_eintrag_kennt_die_kurzform_im_endkunden_feld_nicht(db, werkzeug):
+    _app(db, "Personal Partner GmbH", titel="Sachbearbeiter Vertrieb", status="beworben", notizen="Endkunde: IBS, Standort Hamburg")
+    erg = werkzeug("stelle_manuell_anlegen", titel="Projektleiter Logistik", firma="International Beispiel Systems",
+                   url="https://ibs.example/karriere/2", beschreibung=BESCHREIBUNG)
+    assert not erg.get("vermittler_bewerbung"), erg
+
+
+def test_der_hinweis_an_der_stelle_nennt_den_vermittler_auch_bei_der_kurzform(db):
+    from bewerbungs_assistent.services import bewerbungs_hinweis
+    _app(db, "Personal Partner GmbH", titel="Sachbearbeiter Vertrieb", status="beworben", notizen="Endkunde: IBS, Standort Hamburg")
+    job = {"hash": "v1", "title": "Projektleiter Logistik", "company": "International Beispiel Systems", "url": "https://ibs.example/k/2"}
+    assert bewerbungs_hinweis.fuer_stelle(job, db.get_applications(), db=db) is None
+    fs.firma_anlegen(db, "International Beispiel Systems", aliase=["IBS"])
+    hinweis = bewerbungs_hinweis.fuer_stelle(job, db.get_applications(), db=db)
+    assert hinweis is not None and hinweis["art"] == bewerbungs_hinweis.VERMITTLER
+
+
+def test_das_aussortieren_erkennt_die_aussortierte_stelle_unter_dem_alten_namen(db):
+    from bewerbungs_assistent.services import aussortieren
+    db.save_jobs([_stelle("ausA", "Einkaufsleiter Technik", "Alt AG", url="https://alt.example/karriere/1")])
+    db.dismiss_job(db.resolve_job_hash("ausA"), "zu_weit_entfernt")
+    db.save_jobs([_stelle("ausB", "Einkaufsleiter Technik", "Neu GmbH", url="https://neu.example/karriere/2")])
+    voll = db.resolve_job_hash("ausB")
+    assert aussortieren.duplikat_finden(db, voll) is None
+    fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])
+    treffer = aussortieren.duplikat_finden(db, voll)
+    assert treffer is not None and treffer["typ"] == "aussortierte_stelle", treffer

@@ -14,9 +14,10 @@ Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
     git worktree add --detach C:/Temp/pbp_mutation HEAD
     python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
 
-Vier Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
-`speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131) und
-`komponenten` (kein Installer ohne Pruefsumme; #1152) und `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947).
+Fuenf Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
+`speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131),
+`komponenten` (kein Installer ohne Pruefsumme; #1152), `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947) und
+`firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -271,12 +272,93 @@ M_MAIL = [
     ("mq20", "Freigabe zurueckzunehmen wirkt nicht", MQ, '        z["freigaben"] = rest\n        _speichern(db, z)\n    return {"status": "entfernt"', '        pass\n    return {"status": "entfernt"', T_MQ),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL}
+# ── Fuenfter Katalog: Firmen-Stammsatz und seine Wirkung auf die Erkennung (#1080) ──
+DD = "src/bewerbungs_assistent/duplicate_detection.py"
+FS = "src/bewerbungs_assistent/services/firmen_stamm.py"
+FB = "src/bewerbungs_assistent/services/firmen_bezuege.py"
+FT = "src/bewerbungs_assistent/tools/firmen_stamm.py"
+BEW = "src/bewerbungs_assistent/tools/bewerbungen.py"
+JOBS = "src/bewerbungs_assistent/tools/jobs.py"
+DBF = "src/bewerbungs_assistent/database.py"
+SDU = "src/bewerbungs_assistent/services/stellen_dublette.py"
+AUS = "src/bewerbungs_assistent/services/aussortieren.py"
+HIN = "src/bewerbungs_assistent/services/bewerbungs_hinweis.py"
+AUT = "src/bewerbungs_assistent/services/stellen_automatik.py"
+ELW = "src/bewerbungs_assistent/services/elwosa_provider.py"
+T_FI = ["tests/test_v18_firmen_dubletten_1080.py", "tests/test_v18_firmen_stamm_1080.py"]
+
+M_FIRMEN = [
+    # ── Der Kanon: nur nachschlagen, nie raten ──
+    ("fk01", "Kanon: mehrere passende Firmen im Namen - es wird eine geraten", FS, '            fid = next(iter(treffer)) if len(treffer) == 1 else ""', '            fid = next(iter(treffer)) if treffer else ""', T_FI),
+    ("fk02", "Kanon: eine Schreibweise gilt auch als Teil eines Wortes", FS, '    return f" {form} " in f" {text} "', '    return form in text', T_FI),
+    ("fk03", "Kanon: auch ein Kuerzel steckt in einem laengeren Namen", FS, "    MIN_TEILNAME = 4\n\n    def __init__(self, firmen: dict):", "    MIN_TEILNAME = 1\n\n    def __init__(self, firmen: dict):", T_FI),
+    ("fk04", "Kanon: eine Form, die zwei Firmen gehoert, ordnet eine zu", FS, "        for f in doppelt:\n            self._firma_je_form.pop(f, None)", "        for f in doppelt:\n            pass", T_FI),
+    ("fk05", "Kanon: gilt immer fuer das aktive Profil", FS, "        pid = _pid(db) if profile_id is None else profile_id", "        pid = _pid(db)", T_FI),
+    ("fk06", "Kanon: Schreibweisen werden nicht normalisiert", FS, '                firmen[a["company_id"]].append(_norm(a["alias"]))', '                firmen[a["company_id"]].append(a["alias"])', T_FI),
+    ("fk07", "Kanon: ein Lesefehler stoppt die Erkennung", FS, '        logger.debug("Firmen-Stammsatz für den Abgleich nicht lesbar (#1080): %s", exc)\n        return None', '        raise', T_FI),
+    ("fk08", "Kanon: formen_von nennt auch mehrdeutige Formen", FS, "        return [f for f in self._formen_je_firma.get(fid, ()) if f in self._firma_je_form] if fid else []", "        return list(self._formen_je_firma.get(fid, ())) if fid else []", T_FI),
+    ("fk09", "Kanon: zwei unbekannte Namen sind dieselbe Firma", FS, "        return bool(fa) and fa == self.firma_von(b)", "        return fa == self.firma_von(b)", T_FI),
+    # ── Die Erkennung nimmt den Kanon ──
+    ("fm01", "find_duplicate_job: der Kanon wird nicht gefragt", DD, "        if not firma_match and _gleiche_firma(norm_firma, cand_firma, kanon):", "        if False:", T_FI),
+    ("fm02", "_gleiche_firma: nie dieselbe Firma", DD, "    return bool(kanon is not None and a and b and kanon.gleich(a, b))", "    return False", T_FI),
+    ("fm03", "find_duplicate_job: der Treffer sagt nicht, dass er aus dem Kanon kommt", DD,
+     '                "hours_ago": round(hours_ago, 1) if hours_ago is not None else None,\n                **({"firma_via": "stammsatz"} if via_stamm else {}),', '                "hours_ago": round(hours_ago, 1) if hours_ago is not None else None,', T_FI),
+    ("fm04", "Wiederholung: der Kanon wird nicht weitergegeben", DD, '            job.get("company") or "", job.get("title") or "", "", kandidaten,\n            kanon=kanon)', '            job.get("company") or "", job.get("title") or "", "", kandidaten)', T_FI),
+    ("fm05", "Wiederholung: ohne Kanon wird nichts aus der Datenbank gebaut", DD, "    if kanon is None and db is not None:\n        kanon = firmen_kanon(db)\n    hit = _url_treffer", "    if False:\n        kanon = firmen_kanon(db)\n    hit = _url_treffer", T_FI),
+    ("fm06", "Wiederholung: die Warnung sagt nicht, warum zwei Namen zusammengehoeren", DD, "    if via_stamm:\n        # Der Leser sieht zwei verschiedene Namen", "    if False:\n        # Der Leser sieht zwei verschiedene Namen", T_FI),
+    ("fm07", "Wiederholung: das Ergebnis traegt kein firma_via", DD, '        **({"firma_via": "stammsatz"} if via_stamm else {}),\n        "kurz": kurz,', '        "kurz": kurz,', T_FI),
+    ("fm08", "Textvergleich: der Kanon wird nicht gefragt", DD, "                   or _gleiche_firma(norm, cf, kanon)):", "                   ):", T_FI),
+    ("fm09", "Textvergleich: ein bestaetigtes Kuerzel ist zu kurz", DD, "    if not norm or (len(norm) < 4 and not _gleiche_firma(norm, norm, kanon)):", "    if not norm or len(norm) < 4:", T_FI),
+    ("fm10", "Vermittler: die anderen Schreibweisen werden nicht gesucht", DD, "        namen += [f for f in kanon.formen_von(norm) if len(f) >= 3 and f not in namen]", "        pass", T_FI),
+    ("fm11", "Vermittler: die Bewerbung bei der Firma selbst gilt als Vermittler", DD, "        if app_firma == norm or _gleiche_firma(app_firma, norm, kanon):\n            continue  # das ist Stufe A", "        if app_firma == norm:\n            continue  # das ist Stufe A", T_FI),
+    ("fm12", "Vermittler: ein Kuerzel zaehlt auch als Wortteil", DD, "        if any(_wortgrenze(n, text) for n in namen):", "        if any(n in text for n in namen):", T_FI),
+    # ── Aufrufer: einmal bauen und weitergeben ──
+    ("fi01", "Import: der Kanon wird nicht weitergegeben", DBF, "                    kanon=kanon_je_profil[job_pid])", "                    kanon=None)", T_FI),
+    ("fi02", "Import: der Kanon wird je Stelle neu gelesen", DBF, "                if job_pid not in kanon_je_profil:\n                    from .duplicate_detection import firmen_kanon", "                if True:\n                    from .duplicate_detection import firmen_kanon", T_FI),
+    ("fi03", "Stellen-Dublette: der Kanon wird nicht weitergegeben", SDU, "            liste,\n            kanon=kanon,\n        )", "            liste,\n        )", T_FI),
+    ("fi04", "Stellen-Dublette: ein Treffer ueber den Kanon gilt als sicher", SDU, '    return {"stelle": treffer["job"], "sicherheit": VERDACHT,', '    return {"stelle": treffer["job"], "sicherheit": SICHER,', T_FI),
+    ("fi05", "Handanlage: laufende Bewerbung ohne Kanon", JOBS, "        app_hit = find_duplicate_job(firma, titel, url, running_apps,\n                                     kanon=kanon)", "        app_hit = find_duplicate_job(firma, titel, url, running_apps)", T_FI),
+    ("fi06", "Handanlage: aktive Stelle ohne Kanon", JOBS, "        active_hit = find_duplicate_job(firma, titel, url, active_jobs,\n                                        kanon=kanon)", "        active_hit = find_duplicate_job(firma, titel, url, active_jobs)", T_FI),
+    ("fi07", "Handanlage: Anzeigen unter anderen Namen der Firma werden nicht geholt", JOBS, "            if kanon is not None:\n                # #1080: dieselbe Firma steht auch unter ihrem frueheren", "            if False:\n                # #1080: dieselbe Firma steht auch unter ihrem frueheren", T_FI),
+    ("fi08", "Handanlage: Textvergleich ohne Kanon", JOBS, "                own_hash=job_hash, kanon=kanon)", "                own_hash=job_hash)", T_FI),
+    ("fi09", "Handanlage: Hinweis auf aehnliche Bewerbung ohne Kanon", JOBS, '                _lb = find_duplicate_job(firma, titel, "", running_apps,\n                                         kanon=kanon)', '                _lb = find_duplicate_job(firma, titel, "", running_apps)', T_FI),
+    ("fi10", "Handanlage: Vermittler-Suche ohne Kanon", JOBS, "            _vb = find_vermittler_bewerbung(firma, running_apps, kanon=kanon)", "            _vb = find_vermittler_bewerbung(firma, running_apps)", T_FI),
+    ("fi11", "Aussortieren: Bewerbungen ohne Kanon", AUS, "    treffer = find_duplicate_job(firma, titel, url, db.get_applications(),\n                                 kanon=kanon)", "    treffer = find_duplicate_job(firma, titel, url, db.get_applications())", T_FI),
+    ("fi12", "Aussortieren: aussortierte Stellen ohne Kanon", AUS, '         if (d.get("hash") or "") != eigener],\n        kanon=kanon)', '         if (d.get("hash") or "") != eigener])', T_FI),
+    ("fi13", "Trefferliste: der Kanon wird je Stelle neu gebaut", HIN, "            hinweis = fuer_stelle(job, bewerbungen, db=db, kanon=kanon)", "            hinweis = fuer_stelle(job, bewerbungen, db=db)", T_FI),
+    ("fi14", "Stellen-Hinweis: Vermittler-Suche ohne Kanon", HIN, '    bewerbung = find_vermittler_bewerbung(job.get("company") or "", laufende,\n                                          kanon=kanon)', '    bewerbung = find_vermittler_bewerbung(job.get("company") or "", laufende)', T_FI),
+    ("fi15", "Stellen-Hinweis: ohne Kanon wird keiner gebaut", HIN, "    if kanon is None and db is not None:\n        kanon = firmen_kanon(db)\n    treffer = find_repost_of_application(job, bewerbungen, db=db, kanon=kanon)", "    if False:\n        kanon = firmen_kanon(db)\n    treffer = find_repost_of_application(job, bewerbungen, db=db, kanon=kanon)", T_FI),
+    ("fi16", "Automatik: Wiederholung ohne Kanon", AUT, "            if bewerbungs_hinweis.ist_wiederholung(job, bewerbungen, kanon=kanon):", "            if bewerbungs_hinweis.ist_wiederholung(job, bewerbungen):", T_FI),
+    ("fi17", "Elwosa: Repost ohne Kanon", ELW, "            rep = find_repost_of_application(j, bewerbungen, kanon=kanon)", "            rep = find_repost_of_application(j, bewerbungen)", T_FI),
+    ("fi18", "Plugin-Ingest: laufende Bewerbung ohne Kanon", DASH, "        dup = find_duplicate_job(firma, titel, url, apps,\n                                 kanon=firmen_kanon(_db))", "        dup = find_duplicate_job(firma, titel, url, apps)", T_FI),
+    # ── Der Stammsatz selbst ──
+    ("fs01", "Ein Name darf mehreren Firmen gehoeren", FS, '        if (f == form or f.replace(" ", "") == form.replace(" ", "")) and fid != ausser_firma:', "        if False:", T_FI),
+    ("fs02", "Mutterfirma: Kreise werden nicht abgewiesen", FS, '            if _kette_enthaelt(db, mutterfirma_id, f["id"]):', "            if False:", T_FI),
+    ("fs03", "Aufloesen: mehrere passende Firmen - es wird eine geraten", FS, '    if len(treffer) == 1:\n        return {"firma": firma_laden(db, next(iter(treffer))), "mehrdeutig": [], "art": "abgleich"}', '    if len(treffer) >= 1:\n        return {"firma": firma_laden(db, next(iter(treffer))), "mehrdeutig": [], "art": "abgleich"}', T_FI),
+    ("fs04", "Vorschlaege werden ohne Bestaetigung angelegt", FS, '    if not bestaetigt:\n        return {"status": "vorschau", "anzahl": len(plan)', '    if False:\n        return {"status": "vorschau", "anzahl": len(plan)', T_FI),
+    ("fs05", "Zusammenfuehren mit sich selbst", FS, "    if str(ziel_id) == str(quelle_id):", "    if False:", T_FI),
+    ("fs06", "Loeschen laesst die Schreibweisen stehen", FS, '        conn.execute("DELETE FROM company_aliases WHERE company_id=? AND profile_id=?", (f["id"], pid))\n        conn.execute("UPDATE companies SET parent_id=NULL', '        conn.execute("UPDATE companies SET parent_id=NULL', T_FI),
+    ("fs07", "Umbenennen vergisst den alten Namen", FS, '    if alten_namen_merken and _form(f["name"]) != form:', "    if False:", T_FI),
+    ("ft01", "Werkzeug: Zusammenfuehren ohne Bestaetigung", FT, '                if bestaetigung is not True:\n                    return {"status": "bestaetigung_noetig", "ziel": ziel["name"]', '                if False:\n                    return {"status": "bestaetigung_noetig", "ziel": ziel["name"]', T_FI),
+    ("ft02", "Werkzeug: Loeschen ohne Bestaetigung", FT, '            if bestaetigung is not True:\n                return {"status": "bestaetigung_noetig", "firma": f["name"]', '            if False:\n                return {"status": "bestaetigung_noetig", "firma": f["name"]', T_FI),
+    ("ft03", "Werkzeug: Vorschlaege anwenden gilt immer als bestaetigt", FT, "bestaetigt=bestaetigung is True", "bestaetigt=True", T_FI),
+    # ── firma_kontext liest ueber den Stammsatz ──
+    ("fb01", "Bezuege: Treffer ueber Schreibweisen sagen nicht woher", FB, '        if via != "direkt":\n            eintrag["via"] = via', '        if False:\n            eintrag["via"] = via', T_FI),
+    ("fb02", "Bezuege: der Stammsatz erweitert die Suche nicht", FB, '        if r["firma"]:\n            stamm["formen"] =', '        if False:\n            stamm["formen"] =', T_FI),
+    ("fb03", "Konzern: laufende Bewerbung bei Mutter/Tochter bleibt ohne Warnung", FB, '        if o.get("via") in ("mutterfirma", "tochterfirma"):', "        if False:", T_FI),
+    ("fb04", "Konzern: Bewerbungen bei Mutter/Tochter zaehlen als dieselbe Firma", FB, '    offene = [o for o in offene if o.get("via") not in ("mutterfirma", "tochterfirma")]', "    offene = offene", T_FI),
+    ("fb05", "Kompakt: die Herkunft eines Treffers geht verloren", FB, '    if e.get("via"):\n        aus["via"] = e["via"]', '    if False:\n        aus["via"] = e["via"]', T_FI),
+    ("fb06", "firma_kontext: Treffer ueber Schreibweisen sagen nicht woher", BEW, '            if via != "direkt":\n                eintrag["via"] = via', '            if False:\n                eintrag["via"] = via', T_FI),
+    ("fb07", "firma_kontext: mehrdeutige Firmen werden verschwiegen", BEW, '        elif stamm_aufloesung["mehrdeutig"]:', "        elif False:", T_FI),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP),),
     "komponenten": (("T_KP", T_KP),),
     "mail": (("T_MQ", T_MQ),),
+    "firmen": (("T_FI", T_FI),),
 }
 
 WT = None
@@ -314,7 +396,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
