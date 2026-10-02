@@ -45,8 +45,11 @@ PYTHON=""
 for cmd in python3.13 python3.12 python3.11 python3 python; do
     if command -v $cmd &>/dev/null; then
         ver=$($cmd --version 2>&1)
-        minor=$(echo "$ver" | grep -oP '3\.(\d+)' | head -1 | cut -d. -f2 2>/dev/null || echo "$ver" | sed -n 's/.*3\.\([0-9]*\).*/\1/p')
-        if [ "$minor" -ge 11 ] 2>/dev/null; then
+        # #1149: kein `grep -P` — das grep von macOS (BSD) kennt es nicht. Und weil die Pipe
+        # mit `cut` endete, lief der Rueckfall nach `||` nie: "Python 3.11+ nicht gefunden!"
+        # trotz installiertem 3.12 oder 3.13. Jetzt nur `sed`, das auf beiden Systemen gleich liest.
+        minor=$(echo "$ver" | sed -n 's/^[^0-9]*3\.\([0-9][0-9]*\).*/\1/p' | head -1)
+        if [ -n "$minor" ] && [ "$minor" -ge 11 ] 2>/dev/null; then
             PYTHON=$cmd
             ok "$ver"
             break

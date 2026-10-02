@@ -7,7 +7,7 @@ if [ -f ".venv/bin/python" ]; then
 else
     echo ""
     echo "  PBP ist noch nicht installiert."
-    echo "  Bitte zuerst ausfuehren: bash installer/install.sh"
+    echo "  Bitte zuerst INSTALLIEREN.command doppelklicken (im selben Ordner)."
     echo ""
     read -p "  Druecke Enter zum Schliessen..."
 fi
