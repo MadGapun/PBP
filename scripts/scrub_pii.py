@@ -184,6 +184,7 @@ FIKTIVE_FIRMEN = (
     "personal partner",
     "neuer name",
     "ganz neu",
+    "nordwind holding",
     # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
     # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
     "firma gmbh",
