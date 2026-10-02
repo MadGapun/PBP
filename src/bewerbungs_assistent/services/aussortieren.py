@@ -53,10 +53,14 @@ def duplikat_finden(db, job_hash: str) -> dict | None:
     firma = job.get("company") or ""
     if not titel or not firma:
         return None
-    from ..duplicate_detection import find_duplicate_job
+    from ..duplicate_detection import find_duplicate_job, firmen_kanon
     url = job.get("url") or ""
+    # #1080: ein frueherer Name oder eine Kurzform aus den Firmen-Eintraegen
+    # ist dieselbe Firma (None = keine Eintraege, dann wie bisher).
+    kanon = firmen_kanon(db)
 
-    treffer = find_duplicate_job(firma, titel, url, db.get_applications())
+    treffer = find_duplicate_job(firma, titel, url, db.get_applications(),
+                                 kanon=kanon)
     if treffer:
         app = treffer["job"]
         return {
@@ -72,7 +76,8 @@ def duplikat_finden(db, job_hash: str) -> dict | None:
     treffer = find_duplicate_job(
         firma, titel, url,
         [d for d in db.get_dismissed_jobs()
-         if (d.get("hash") or "") != eigener])
+         if (d.get("hash") or "") != eigener],
+        kanon=kanon)
     if treffer:
         dj = treffer["job"]
         return {

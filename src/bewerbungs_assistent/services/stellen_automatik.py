@@ -511,6 +511,10 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
     schluessel = bereits_aussortierte_schluessel(dismissed)
     beworbene = beworbene_hashes or set()
     bewerbungen = _bewerbungen_lesen(db)
+    # #1080: einmal je Lauf - frueherer Name und Kurzform aus den Firmen-
+    # Eintraegen zaehlen als dieselbe Firma (None = keine Eintraege).
+    from ..duplicate_detection import firmen_kanon
+    kanon = firmen_kanon(db) if bewerbungen else None
 
     behalten: list = []
     zaehler = {"automatisch_aussortiert": 0, "ignoriert": 0}
@@ -525,7 +529,7 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
         if (bewerbungen and job.get("hash") not in beworbene
                 and not job.get("_repost_verdacht")):
             from . import bewerbungs_hinweis
-            if bewerbungs_hinweis.ist_wiederholung(job, bewerbungen):
+            if bewerbungs_hinweis.ist_wiederholung(job, bewerbungen, kanon=kanon):
                 job["_repost_verdacht"] = True
         e = entscheide(
             db, job, dismissed=dismissed, bekannte_schluessel=schluessel,

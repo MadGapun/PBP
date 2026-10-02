@@ -178,6 +178,10 @@ FIKTIVE_FIRMEN = (
     "vermittler west",
     "beispiel",
     "acme",
+    # Platzhalter der Firmen-Tests (#1080) - frei erfunden.
+    "zeta werke",
+    "neue gmbh",
+    "personal partner",
     # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
     # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
     "firma gmbh",

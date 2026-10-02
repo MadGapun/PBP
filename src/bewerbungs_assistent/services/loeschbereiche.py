@@ -82,6 +82,8 @@ BEREICHE: dict[str, tuple] = {
         "applications", "application_events", "application_jobs",
         "application_emails", "application_meetings", "application_costs",
         "follow_ups", "tasks", "contacts", "contact_links",
+        # v1.8.0 (#1080 Stufe 2): der Firmen-Stammsatz und seine Schreibweisen - Wissen ueber Firmen, nicht ueber den Lebenslauf.
+        "companies", "company_aliases",
         # v1.7.88 (#884): haengt am Kontakt, gehoert also dorthin.
         "contact_references",
         # v1.7.140 (#1110): abgelehnte Kontaktvorschlaege (nur Hashes).

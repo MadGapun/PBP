@@ -352,13 +352,39 @@ def register(mcp, db, logger):
 
         from ..services import firmen_bezuege as _fb
 
+        # #1080 Stufe 2: bestaetigte Schreibweisen (Firmen-Stammsatz) sowie Mutter- und Tochterfirma erweitern die Suche.
+        # Ein Treffer, der nur darueber gefunden wurde, sagt es (`via`); Konzern wird gefunden, nie verschmolzen.
+        stamm_aufloesung = {"firma": None, "mehrdeutig": [], "art": ""}
+        suchformen = [(query_norm, "direkt")]
+        try:
+            from ..services import firmen_stamm as _fs
+            stamm_aufloesung = _fs.aufloesen(db, firmenname)
+            if stamm_aufloesung["firma"]:
+                for _f, _via, _ in _fs.formen_der_gruppe(db, stamm_aufloesung["firma"]["id"]):
+                    if _f and all(_f != s for s, _ in suchformen):
+                        suchformen.append((_f, _via))
+        except Exception as exc:  # noqa: BLE001 — der Stammsatz ist eine Zugabe
+            logger.debug("firma_kontext: Stammsatz nicht gelesen: %s", exc)
+
+        def _via_von(company):
+            """None = kein Treffer; sonst 'direkt', 'schreibweise', 'mutterfirma' oder 'tochterfirma' (der beste Weg)."""
+            beste = None
+            for form, via in suchformen:
+                if _firma_matcht(company or "", form):
+                    rang = _fb._VIA_RANG.get(via, 1)
+                    if beste is None or rang < beste[0]:
+                        beste = (rang, via)
+            return beste[1] if beste else None
+
         bewerbungen = []
         for app in db.get_applications():
             rolle = None
+            via = None
             for feld, name in (("company", "bewerbungsziel"),
                                ("endkunde", "endkunde"),
                                ("vermittler", "vermittler")):
-                if _firma_matcht(app.get(feld) or "", query_norm):
+                via = _via_von(app.get(feld) or "")
+                if via:
                     rolle = name
                     break
             if not rolle:
@@ -371,6 +397,8 @@ def register(mcp, db, logger):
                 "status": app.get("status"),
                 "beworben_am": app.get("applied_at"),
             }
+            if via != "direkt":
+                eintrag["via"] = via
             for feld in ("vermittler", "endkunde"):
                 if (app.get(feld) or "").strip():
                     eintrag[feld] = app.get(feld)
@@ -394,11 +422,14 @@ def register(mcp, db, logger):
         _apps_fuer_repost = db.get_applications()
         aktive_stellen = []
         for j in db.get_active_jobs():
-            if not _firma_matcht(j.get("company", ""), query_norm):
+            via_st = _via_von(j.get("company", ""))
+            if not via_st:
                 continue
             eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
                           "score": j.get("score"),
                           "oeffnen": f"fit_analyse('{j.get('hash')}')"}
+            if via_st != "direkt":
+                eintrag_st["via"] = via_st
             try:
                 _rp = _bh.fuer_stelle(j, _apps_fuer_repost, db=db)
                 if _rp:
@@ -411,7 +442,7 @@ def register(mcp, db, logger):
 
         aussortiert = [
             j for j in (db.get_dismissed_jobs() or [])
-            if _firma_matcht(j.get("company", ""), query_norm)
+            if _via_von(j.get("company", ""))
         ]
         gruende: dict = {}
         for j in aussortiert:
@@ -459,9 +490,24 @@ def register(mcp, db, logger):
                 aehnliche = _fb.aehnliche_namen(db, firmenname)
             except Exception as exc:  # noqa: BLE001
                 logger.debug("firma_kontext: aehnliche Namen (#1148): %s", exc)
+        # #1080 Stufe 2: der Stammsatz, falls der Name zu genau einer Firma gehoert; sonst die Namen, zwischen denen PBP nicht raet.
+        stamm_antwort = {}
+        _sf = stamm_aufloesung["firma"]
+        if _sf:
+            stamm_antwort["stammsatz"] = {
+                "id": _sf["id"], "name": _sf["name"], "aliase": [a["alias"] for a in _sf["aliase"]],
+                "mutterfirma": (_sf["mutterfirma"] or {}).get("name", ""),
+                "tochterfirmen": [k["name"] for k in _sf["tochterfirmen"]],
+                "branche": _sf["branche"], "notizen": _sf["notizen"]}
+        elif stamm_aufloesung["mehrdeutig"]:
+            stamm_antwort["stammsatz_mehrdeutig"] = stamm_aufloesung["mehrdeutig"]
+            stamm_antwort["stammsatz_hinweis"] = (
+                "Der Name passt zu mehreren Firmen im Stammsatz: " + ", ".join(stamm_aufloesung["mehrdeutig"])
+                + ". Frag nach, welche gemeint ist; PBP rät hier nicht.")
         return {
             "firma_suchbegriff": firmenname,
             "gefunden": gefunden,
+            **stamm_antwort,
             **({"aehnliche_firmen": aehnliche,
                 "aehnliche_hinweis": (
                     "Keine Firma dieses Namens, aber diese Namen BEGINNEN so: "

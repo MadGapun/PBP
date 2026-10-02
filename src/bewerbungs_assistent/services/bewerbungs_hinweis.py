@@ -61,7 +61,7 @@ def _vermittler_hinweis(job: dict, bewerbung: dict) -> dict:
     }
 
 
-def fuer_stelle(job: dict, bewerbungen, db=None) -> Optional[dict]:
+def fuer_stelle(job: dict, bewerbungen, db=None, kanon=None) -> Optional[dict]:
     """Die Antwort auf "habe ich mich hier schon beworben?" - oder None.
 
     Args:
@@ -69,6 +69,11 @@ def fuer_stelle(job: dict, bewerbungen, db=None) -> Optional[dict]:
         bewerbungen: alle Bewerbungen, einmal geladen (`db.get_applications()`).
         db: nur fuer den dokumentierten Absagegrund im Text; ohne `db`
             bleibt der Grund aus der Bewerbung.
+        kanon: die Firmen-Eintraege als Nachschlagetabelle (#1080,
+            `firmen_kanon(db)`) - frueherer Name und Kurzform zaehlen als
+            dieselbe Firma. Wer viele Stellen nacheinander fragt, baut ihn
+            einmal (`anreichern` tut das); ohne Angabe wird er aus `db`
+            gebaut.
 
     Returns:
         Das Ergebnis von `find_repost_of_application` (Art
@@ -78,15 +83,18 @@ def fuer_stelle(job: dict, bewerbungen, db=None) -> Optional[dict]:
     """
     from ..duplicate_detection import (
         bewerbungen_ohne_eigene, find_repost_of_application,
-        find_vermittler_bewerbung)
+        find_vermittler_bewerbung, firmen_kanon)
     from .bewerbung_status import laeuft
 
-    treffer = find_repost_of_application(job, bewerbungen, db=db)
+    if kanon is None and db is not None:
+        kanon = firmen_kanon(db)
+    treffer = find_repost_of_application(job, bewerbungen, db=db, kanon=kanon)
     if treffer:
         return treffer
     laufende = [a for a in bewerbungen_ohne_eigene(job, bewerbungen)
                 if laeuft(a.get("status"))]
-    bewerbung = find_vermittler_bewerbung(job.get("company") or "", laufende)
+    bewerbung = find_vermittler_bewerbung(job.get("company") or "", laufende,
+                                          kanon=kanon)
     return _vermittler_hinweis(job, bewerbung) if bewerbung else None
 
 
@@ -119,10 +127,12 @@ def anreichern(db, jobs: list, *, bewerbungen=None) -> int:
             return 0
     if not bewerbungen:
         return 0
+    from ..duplicate_detection import firmen_kanon
+    kanon = firmen_kanon(db)  # einmal je Liste, nicht je Stelle (#1080)
     anzahl = 0
     for job in jobs:
         try:
-            hinweis = fuer_stelle(job, bewerbungen, db=db)
+            hinweis = fuer_stelle(job, bewerbungen, db=db, kanon=kanon)
         except Exception as exc:  # pragma: no cover - nie eine Liste stoppen
             logger.debug("Hinweis fuer %s nicht berechenbar (#1126): %s",
                          job.get("hash"), exc)
@@ -133,11 +143,12 @@ def anreichern(db, jobs: list, *, bewerbungen=None) -> int:
     return anzahl
 
 
-def ist_wiederholung(job: dict, bewerbungen) -> bool:
+def ist_wiederholung(job: dict, bewerbungen, kanon=None) -> bool:
     """Gab es diese Stelle schon als Bewerbung?
 
     Nur die starke Aussage (Art ``wiederholung``); der Vermittler-Verdacht
     ist eine Frage an den Menschen und haelt die Automatik nicht auf.
+    ``kanon``: siehe `fuer_stelle` (#1080).
     """
     from ..duplicate_detection import find_repost_of_application
-    return find_repost_of_application(job, bewerbungen) is not None
+    return find_repost_of_application(job, bewerbungen, kanon=kanon) is not None

@@ -46,11 +46,14 @@ Nutzerentscheidung. Dieser Dienst schreibt nichts.
 """
 from __future__ import annotations
 
+import logging
 import re
 from typing import Optional
 
 from .wiedergaenger import _COMPANY_SUFFIXES, normalize_company
 from .menue import pfad
+
+logger = logging.getLogger("bewerbungs_assistent.firmen_bezuege")
 
 #: Woerter, die an einem Firmennamen nichts unterscheiden. Die Liste aus
 #: der Wiedergaenger-Erkennung plus die deutsche "gruppe" und das deutsche
@@ -85,6 +88,11 @@ DOKUMENT_ROLLEN = {
     "stellenbeschreibung": "stellenanzeige",
     "stellenanzeige": "stellenanzeige",
 }
+
+#: Rang eines Treffers: wie er gefunden wurde (direkt oder ueber die bestaetigten Schreibweisen vor dem Konzern) und wie
+#: gut der Name passt. Kleiner ist besser.
+_VIA_RANG = {"direkt": 0, "schreibweise": 0, "mutterfirma": 1, "tochterfirma": 1}
+_ART_RANG = {"gleich": 0, "teil": 1, "abkuerzung": 2}
 
 #: Freitext wird erst ab dieser Laenge der Namensform durchsucht.
 MIN_TEXTSUCHE = 4
@@ -222,8 +230,45 @@ def bezuege(db, firmenname: str) -> dict:
     pid = _profil(db)
     treffer: list[dict] = []
 
+    # --- Firmen-Stammsatz (#1080 Stufe 2) --------------------------------
+    # Bestaetigte Schreibweisen derselben Firma sowie Mutter- und Tochterfirma erweitern die Suche; jeder Treffer, der
+    # nur ueber den Stammsatz gefunden wurde, sagt es (`via`). Ohne Stammsatz bleibt es bei Stufe 1.
+    stamm = {"firma": None, "mehrdeutig": [], "formen": []}
+    try:
+        from . import firmen_stamm
+        r = firmen_stamm.aufloesen(db, firmenname)
+        stamm["firma"], stamm["mehrdeutig"] = r["firma"], r["mehrdeutig"]
+        if r["firma"]:
+            stamm["formen"] = [(f, via) for f, via, _ in firmen_stamm.formen_der_gruppe(db, r["firma"]["id"])]
+    except Exception as exc:  # noqa: BLE001 — der Stammsatz ist eine Zugabe: ein Fehler dort kostet die Suche nie
+        logger.debug("Firmen-Stammsatz nicht gelesen: %s", exc)
+    formen: list[tuple[str, str]] = [(schluessel, "direkt")]
+    for form, via in stamm["formen"]:
+        if all(form != f for f, _ in formen):
+            formen.append((form, via))
+
+    def passt_via(name) -> tuple:
+        """(Art des Abgleichs, via) des besten Treffers ueber alle Formen — oder (None, 'direkt')."""
+        nf = namensform(name)
+        beste = None
+        for form, via in formen:
+            art = abgleich(form, nf)
+            if art:
+                rang = (_VIA_RANG.get(via, 1), _ART_RANG[art])
+                if beste is None or rang < beste[0]:
+                    beste = (rang, art, via)
+        return (beste[1], beste[2]) if beste else (None, "direkt")
+
     def passt(name) -> Optional[str]:
-        return abgleich(schluessel, namensform(name))
+        return passt_via(name)[0]
+
+    def text_passt(textform: str) -> bool:
+        return any(im_text(f, textform) for f, _ in formen)
+
+    def mit_via(eintrag: dict, via: str) -> dict:
+        if via != "direkt":
+            eintrag["via"] = via
+        return eintrag
 
     # --- Bewerbungen: Ziel, Vermittler, Endkunde, Notizen ---------------
     apps = conn.execute(
@@ -243,11 +288,11 @@ def bezuege(db, firmenname: str) -> dict:
         for feld, rolle in (("company", "bewerbungsziel"),
                             ("vermittler", "vermittler"),
                             ("endkunde", "endkunde")):
-            art = passt(a[feld])
+            art, via = passt_via(a[feld])
             if not art:
                 continue
             gefunden = True
-            eintrag = dict(basis, rolle=rolle, name=a[feld], abgleich=art)
+            eintrag = mit_via(dict(basis, rolle=rolle, name=a[feld], abgleich=art), via)
             if rolle == "endkunde" and a["vermittler"]:
                 eintrag["ueber_vermittler"] = a["vermittler"]
             if rolle == "vermittler" and a["endkunde"]:
@@ -255,7 +300,7 @@ def bezuege(db, firmenname: str) -> dict:
             treffer.append(eintrag)
             if offen and rolle in ("bewerbungsziel", "endkunde"):
                 offene.append(eintrag)
-        if not gefunden and im_text(schluessel, _textform(a["notes"])):
+        if not gefunden and text_passt(_textform(a["notes"])):
             gefunden = True
             eintrag = dict(basis, rolle="in_notizen_erwaehnt",
                            name=a["company"], abgleich="text")
@@ -279,14 +324,14 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         stationen = []
     for p in stationen:
-        art = passt(p["company"])
+        art, via = passt_via(p["company"])
         if art:
             aktuell = bool(p["is_current"]) or not (p["end_date"] or "").strip()
-            treffer.append({
+            treffer.append(mit_via({
                 "rolle": "arbeitgeber_aktuell" if aktuell else "arbeitgeber_frueher",
                 "quelle": "lebenslauf", "name": p["company"], "abgleich": art,
                 "position_id": p["id"], "titel": p["title"],
-                "von": p["start_date"], "bis": p["end_date"] or ""})
+                "von": p["start_date"], "bis": p["end_date"] or ""}, via))
     try:
         projekte = conn.execute(
             "SELECT pr.id, pr.name, pr.customer_name, pr.is_confidential, "
@@ -298,12 +343,12 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         projekte = []
     for pr in projekte:
-        art = passt(pr["customer_name"])
+        art, via = passt_via(pr["customer_name"])
         if art:
-            eintrag = {"rolle": "projektkunde", "quelle": "lebenslauf",
-                       "name": pr["customer_name"], "abgleich": art,
-                       "projekt_id": pr["id"], "position_id": pr["position_id"],
-                       "bei_arbeitgeber": pr["arbeitgeber"]}
+            eintrag = mit_via({"rolle": "projektkunde", "quelle": "lebenslauf",
+                               "name": pr["customer_name"], "abgleich": art,
+                               "projekt_id": pr["id"], "position_id": pr["position_id"],
+                               "bei_arbeitgeber": pr["arbeitgeber"]}, via)
             if pr["is_confidential"]:
                 eintrag["vertraulich"] = True
             else:
@@ -319,12 +364,12 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         kontakte = []
     for k in kontakte:
-        art = passt(k["company"])
+        art, via = passt_via(k["company"])
         if art:
-            treffer.append({"rolle": "kontakt", "quelle": "kontakte",
-                            "name": k["company"], "abgleich": art,
-                            "kontakt_id": k["id"], "person": k["full_name"],
-                            "funktion": k["position"] or ""})
+            treffer.append(mit_via({"rolle": "kontakt", "quelle": "kontakte",
+                                    "name": k["company"], "abgleich": art,
+                                    "kontakt_id": k["id"], "person": k["full_name"],
+                                    "funktion": k["position"] or ""}, via))
 
     # --- Anfragen und Korrespondenz --------------------------------------
     typen = tuple(DOKUMENT_ROLLEN)
@@ -338,8 +383,8 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         docs = []
     for d in docs:
-        im_namen = im_text(schluessel, _textform(d["filename"]))
-        if im_namen or im_text(schluessel, _textform(d["extracted_text"])):
+        im_namen = text_passt(_textform(d["filename"]))
+        if im_namen or text_passt(_textform(d["extracted_text"])):
             treffer.append({
                 "rolle": DOKUMENT_ROLLEN.get(d["doc_type"], "korrespondenz"),
                 "quelle": "dokument", "name": d["filename"],
@@ -356,7 +401,7 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         notizen = []
     for r in notizen:
-        if r["bewerbung_id"] in app_ids or im_text(schluessel, _textform(r["text"])):
+        if r["bewerbung_id"] in app_ids or text_passt(_textform(r["text"])):
             treffer.append({"rolle": "recherche", "quelle": "recherche",
                             "name": firmenname, "abgleich": "text"
                             if r["bewerbung_id"] not in app_ids else "bewerbung",
@@ -369,11 +414,11 @@ def bezuege(db, firmenname: str) -> dict:
         for b in db.get_blacklist(include_inactive=False) or []:
             if (b.get("type") or "") not in ("firma", "company"):
                 continue
-            art = passt(b.get("value"))
+            art, via = passt_via(b.get("value"))
             if art:
-                treffer.append({"rolle": "blacklist", "quelle": "blacklist",
-                                "name": b.get("value"), "abgleich": art,
-                                "grund": b.get("reason") or ""})
+                treffer.append(mit_via({"rolle": "blacklist", "quelle": "blacklist",
+                                        "name": b.get("value"), "abgleich": art,
+                                        "grund": b.get("reason") or ""}, via))
     except Exception:
         pass
 
@@ -386,7 +431,9 @@ def bezuege(db, firmenname: str) -> dict:
     return {"bezuege": treffer, "rollen": rollen,
             "schreibweisen": schreibweisen,
             "warnungen": doppelvorstellung(offene, vermutet),
-            "offene_vorstellungen": offene}
+            "offene_vorstellungen": offene,
+            "stammsatz": stamm["firma"], "stammsatz_mehrdeutig": stamm["mehrdeutig"],
+            "formen": [f for f, _ in formen]}
 
 
 #: Wo ein Bezug im Dashboard steht und mit welchem Werkzeug er sich
@@ -441,6 +488,8 @@ def kompakt(e: dict) -> dict:
     aus = {"rolle": e.get("rolle"), "name": e.get("name"), "kurz": _kurz(e)}
     if e.get("abgleich") == "abkuerzung":
         aus["abgleich"] = "abkuerzung"
+    if e.get("via"):
+        aus["via"] = e["via"]       # gefunden ueber eine bestaetigte Schreibweise oder die Mutter-/Tochterfirma
     if e.get("moeglicher_endkunde"):
         aus["moeglicher_endkunde"] = True
     aus.update({k: v for k, v in verweis(e).items() if v})
@@ -466,6 +515,16 @@ def doppelvorstellung(offene: list[dict],
             "bewerbung_bearbeiten(endkunde=...) nachtragen.")
     if not offene:
         return warnungen
+    # #1080 Stufe 2: eine laufende Bewerbung bei Mutter- oder Tochterfirma ist derselbe Konzern - gemeldet, nicht verschmolzen.
+    for o in offene:
+        if o.get("via") in ("mutterfirma", "tochterfirma"):
+            beziehung = "Mutterfirma" if o["via"] == "mutterfirma" else "Tochterfirma"
+            warnungen.append(
+                f"Laufende Bewerbung bei der {beziehung} {o.get('name')} ({o.get('titel') or 'Bewerbung'}, {o.get('bewerbung_id')}). "
+                "Das ist derselbe Konzern: vor einer weiteren Bewerbung hier klären, ob das zusammenpasst.")
+    offene = [o for o in offene if o.get("via") not in ("mutterfirma", "tochterfirma")]
+    if not offene:
+        return warnungen
     kanaele = sorted({(o.get("ueber_vermittler") or "direkt") for o in offene})
     ueber_vermittler = [o for o in offene if o["rolle"] == "endkunde"]
     if len(kanaele) >= 2:
@@ -483,16 +542,10 @@ def doppelvorstellung(offene: list[dict],
     return warnungen
 
 
-def bestandsbericht(db, max_je_liste: int = 25) -> dict:
-    """Wo die Firmennamen im Bestand auseinanderlaufen — nur lesend.
+def namen_im_bestand(db) -> list:
+    """Alle Firmennamen des Bestands mit ihrer Herkunft: [(Name, 'bewerbung'|'lebenslauf'|'kontakt'|'projekt')].
 
-    * `schreibweisen`: Namen, die nach der Namensform dieselbe Firma
-      sind, aber verschieden geschrieben stehen.
-    * `endkunde_nur_in_notizen`: Bewerbungen ueber einen Vermittler ohne
-      eingetragenen Endkunden, deren Notizen eine bekannte Firma nennen.
-      Ohne den Eintrag kann `firma_kontext` die Doppelvorstellung nicht
-      erkennen.
-    """
+    Die eine Quelle fuer den Bestandsbericht UND die Vorschlaege des Firmen-Stammsatzes (#1080 Stufe 2)."""
     conn = db.connect()
     pid = _profil(db)
     namen: list[tuple[str, str]] = []   # (Name, Herkunft)
@@ -514,6 +567,23 @@ def bestandsbericht(db, max_je_liste: int = 25) -> dict:
     sammeln("SELECT pr.customer_name FROM projects pr JOIN positions po "
             "ON po.id = pr.position_id WHERE (po.profile_id=? OR "
             "po.profile_id IS NULL OR po.profile_id='')", "projekt", ("customer_name",))
+    return namen
+
+
+def bestandsbericht(db, max_je_liste: int = 25) -> dict:
+    """Wo die Firmennamen im Bestand auseinanderlaufen — nur lesend.
+
+    * `schreibweisen`: Namen, die nach der Namensform dieselbe Firma
+      sind, aber verschieden geschrieben stehen.
+    * `endkunde_nur_in_notizen`: Bewerbungen ueber einen Vermittler ohne
+      eingetragenen Endkunden, deren Notizen eine bekannte Firma nennen.
+      Ohne den Eintrag kann `firma_kontext` die Doppelvorstellung nicht
+      erkennen.
+    """
+    conn = db.connect()
+    pid = _profil(db)
+    bedingung = "(profile_id=? OR profile_id IS NULL OR profile_id='')"
+    namen = namen_im_bestand(db)
 
     gruppen: dict = {}
     for name, herkunft in namen:

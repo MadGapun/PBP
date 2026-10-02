@@ -6766,7 +6766,9 @@ async def api_ingest_job(request: Request, payload: dict):
         # #1103: `arbeitgeber_ausgefallen` blockte bisher mit.
         apps = [a for a in _db.get_applications()
                 if _bewerbung_status.laeuft(a.get("status"))]
-        dup = find_duplicate_job(firma, titel, url, apps)
+        from .duplicate_detection import firmen_kanon
+        dup = find_duplicate_job(firma, titel, url, apps,
+                                 kanon=firmen_kanon(_db))
         if dup:
             kandidat = dup.get("job") or {}
             return JSONResponse(

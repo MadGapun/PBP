@@ -196,10 +196,12 @@ def betriebslage_kandidaten(db) -> list:
 
     # 3 — Repost einer frueher beworbenen Stelle im aktiven Bestand (#782)
     try:
-        from ..duplicate_detection import find_repost_of_application
+        from ..duplicate_detection import (
+            find_repost_of_application, firmen_kanon)
         bewerbungen = db.get_applications()
+        kanon = firmen_kanon(db)  # #1080: einmal, nicht je Stelle
         for j in db.get_active_jobs()[:100]:
-            rep = find_repost_of_application(j, bewerbungen)
+            rep = find_repost_of_application(j, bewerbungen, kanon=kanon)
             if rep:
                 # v1.7.143 (#1126): eine LAUFENDE Bewerbung ist kein
                 # "schon mal" und ihre Anzeige kein Repost.
