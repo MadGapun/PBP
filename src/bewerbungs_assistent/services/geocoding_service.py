@@ -141,6 +141,19 @@ def normalisiere_ort(ort: str) -> str:
     return ", ".join(behalten).strip(" ,;-") or text.strip(" ,;-")
 
 
+#: Ein Land am Ende des Ortstextes ("Hamburg, Germany").
+_LAND_ENDE = re.compile(r"[\s,;-]*\b(?:deutschland|germany)\b\s*$", re.IGNORECASE)
+
+
+def nur_land_entfernt(roh: str, ziel: str) -> bool:
+    """Unterscheiden sich Rohtext und bereinigter Ort NUR um ein angehaengtes Land?
+
+    Dann ist die Abfrage dieselbe wie vor #1158 (das Land haengt `geocode_location` ohnehin selbst an), und
+    eine frueher unter dem Rohtext gemerkte Antwort gilt weiter."""
+    ohne_land = _LAND_ENDE.sub("", str(roh or "").strip()).strip(" ,;-").lower()
+    return bool(ohne_land) and ohne_land == str(ziel or "").strip().lower()
+
+
 #: Angaben, die keinen Ort nennen, sondern das Arbeitsmodell oder den Raum.
 _KEIN_ORT = {"remote", "home office", "homeoffice", "deutschlandweit",
              "bundesweit", "weltweit", "europa", "global"}
@@ -193,6 +206,21 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
         with _cache_lock:
             _geo_cache[loc_key] = wert
         return wert
+
+    # Der Rohtext trug nur ein angehaengtes Land ("Hamburg, Germany"): die Abfrage ist dieselbe wie vor #1158,
+    # eine Antwort unter dem alten Schluessel gilt weiter - ohne sie muesste jeder bekannte Ort einmal neu
+    # beim Dienst angefragt werden.
+    alt_key = location.strip().lower()
+    if alt_key != loc_key and nur_land_entfernt(location, ziel):
+        with _cache_lock:
+            if alt_key in _geo_cache:
+                _geo_cache[loc_key] = _geo_cache[alt_key]
+                return _geo_cache[loc_key]
+        bekannt, wert = _aus_speicher(alt_key)
+        if bekannt:
+            with _cache_lock:
+                _geo_cache[loc_key] = wert
+            return wert
 
     # #1090: in der Test-Suite geht kein Weg ins Netz (wie
     # PBP_BERUFE_LOOKUP, #969). Behandelt wie ein Ausfall: nichts gemerkt.

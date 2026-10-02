@@ -498,3 +498,53 @@ def test_1158_die_laufkarte_zaehlt_dieselbe_stadt_in_allen_schreibweisen_einmal(
     auswahl, orte, ko = geocoding_auswahl(stellen, {})
     assert len(auswahl) == 5 and ko == 0
     assert orte == 2, "Hamburg (dreimal) und Berlin; 'Remote möglich' fragt niemand"
+
+
+# ── Ein angehängtes Land ändert die Abfrage nicht: bekannte Orte werden nicht neu gefragt ─────────────────────
+
+def test_1158_ein_land_am_ende_nutzt_den_alten_merker(ortsdienst):
+    """Die meisten Orte aus JobSpy enden auf ', Germany'. Ihre Antworten stehen unter dem alten Schlüssel."""
+    geo, dienst = ortsdienst
+    geo._geo_cache["hamburg, hamburg, germany"] = (53.5, 10.0)
+    assert geo.geocode_location("Hamburg, Hamburg, Germany") == (53.5, 10.0)
+    assert dienst.anfragen == [], "dieselbe Abfrage wie vor #1158: kein neuer Weg zum Dienst"
+    assert geo._geo_cache["hamburg, hamburg"] == (53.5, 10.0), "und ab jetzt auch unter dem neuen Schlüssel"
+
+
+def test_1158_ein_alter_merker_gilt_nicht_wenn_mehr_als_das_land_abgeschnitten_wurde(ortsdienst):
+    geo, dienst = ortsdienst
+    geo._geo_cache["hamburg (hybrid), remote möglich, deutschland"] = (50.0, 8.27)    # der alte Fehlmerker
+    assert geo.geocode_location("Hamburg (hybrid), remote möglich, Deutschland") == (53.55, 10.0)
+    assert dienst.anfragen == ["Hamburg, Deutschland"]
+
+
+def test_1158_auch_ein_dauerhafter_merker_unter_dem_alten_schluessel_gilt_weiter(ortsdienst, tmp_path, monkeypatch):
+    geo, dienst = ortsdienst
+    import bewerbungs_assistent.database as _db_mod
+    os.environ["BA_DATA_DIR"] = str(tmp_path)
+    datenbank = _db_mod.Database(db_path=tmp_path / "geo.db")
+    datenbank.initialize()
+    try:
+        geo.speicher_setzen(datenbank)
+        geo._in_speicher("hamburg, hamburg, germany", (53.5, 10.0))
+        geo._geo_cache.clear()
+        assert geo.geocode_location("Hamburg, Hamburg, Germany") == (53.5, 10.0)
+        assert dienst.anfragen == []
+    finally:
+        geo.speicher_setzen(None)
+        datenbank.close()
+        os.environ.pop("BA_DATA_DIR", None)
+
+
+@pytest.mark.parametrize("roh,ziel,erwartet", [
+    ("Hamburg, Hamburg, Germany", "Hamburg, Hamburg", True),
+    ("Hamburg, Deutschland", "Hamburg", True),
+    ("Hamburg Germany", "Hamburg", True),
+    ("Hamburg (hybrid), remote möglich, Deutschland", "Hamburg", False),
+    ("Hamburg, Germany (hybrid)", "Hamburg", False),
+    ("Germany", "", False),
+    ("", "", False),
+])
+def test_1158_nur_das_land_am_ende_zaehlt_als_land_nur_entfernt(roh, ziel, erwartet):
+    from bewerbungs_assistent.services.geocoding_service import nur_land_entfernt
+    assert nur_land_entfernt(roh, ziel) is erwartet
