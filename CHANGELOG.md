@@ -33,6 +33,82 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.147] - 2026-10-02 — Keine falsche Auskunft, nichts Gelöschtes ohne Vorschau, schnell bei vielen Stellen
+
+Hotfix für v1.7.146. Drei Dinge, bei denen PBP etwas anderes sagte oder tat, als man erwartete: Eine Stelle ohne Anzeigentext galt als „nicht empfohlen“, ein falsch geschriebener Filter hieß „noch keine Bewerbungen“, und drei Werkzeuge löschten, ohne vorher zu zeigen, was alles verloren geht. Dazu wird die Stellenliste bei einem großen Bestand wieder schnell, und lange Arbeit hält das Dashboard nicht mehr an. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** Was bisher sofort gelöscht hat, fragt jetzt zuerst. Beim ersten Aufruf zeigt PBP nur, was alles mit verschwinden würde (mit Zahlen); erst beim zweiten Aufruf mit `bestaetigung=True` wird gelöscht. Das betrifft das Umwandeln einer Bewerbung in eine Anfrage, das Löschen von Stationen, Projekten, Ausbildungen, Kompetenzen und Notiz-Abschnitten im Profil und das Zurücksetzen aller Scoring-Regler. Claude fragt dich dann einmal mehr, bevor es etwas löscht.
+
+### Fixed
+
+- **Eine Anzeige ohne Text gilt nicht mehr als „nicht empfohlen“** (#1146). `fit_analyse` urteilte „NICHT_EMPFOHLEN“, wenn die Stellenbeschreibung fehlte oder nur eine Kurznotiz war; bei einem Kurztext stand darunter sogar „ausdrücklich keine fachliche Absage“. Eine gute Stelle mit kurzem Anzeigentext wurde so abgeraten und vielleicht aussortiert. Jetzt lautet das Urteil „NICHT_BEURTEILBAR“ (noch nicht gelesen) mit dem Hinweis, den Anzeigen-Volltext nachzuladen (`datenlage_hinweis`). Das k.o. „kein einziges Pflichtbegriff belegt“ gilt nur noch auf einer Anzeige, die man auch lesen kann. Echte k.o.-Gründe (die Wiedergänger-Regel) und ein gespeichertes, wirklich gelesenes Urteil gelten unverändert.
+- **Ein Filter ohne Treffer sagt nicht mehr „noch keine“** (#1146). `bewerbungen_anzeigen(status_filter="Interview")` antwortete bei drei vorhandenen Bewerbungen: „Noch keine Bewerbungen erfasst. Erstelle eine neue“ (mit dem Risiko doppelter Einträge); „Zweitgespräch“, „eingeladen“ und „Absage“ ebenso. Jetzt gelten Groß- und Kleinschreibung, Umlaute („Zweitgespräch“) und Leerzeichen („in Vorbereitung“) als gleich. Ein Wort, das kein Status ist, wird mit der Liste der gültigen Status beantwortet; bei „Absage“, „eingeladen“, „Zusage“ nennt PBP den meist gemeinten Status als Vorschlag, wendet ihn aber nicht von selbst an. Ein gültiger Filter ohne Treffer sagt „Keine Bewerbung für diesen Filter. Du hast N insgesamt“ (bei einer Stellenart zusätzlich, welche es gibt). `stellen_anzeigen` sagt bei einem Filter ohne Treffer nicht mehr „Keine Stellen gefunden. Starte eine Jobsuche“, sondern „ohne Filter gibt es N aktive Stellen“ und nennt die Quellen im Bestand. Die Kurzbeschreibung von `bewerbung_status_aendern` schrieb „Interview“ und „Zweitgespraech“ groß; sie nennt jetzt die echten, kleingeschriebenen Wörter.
+- **Nichts wird mehr ohne Vorschau gelöscht** (#1145). Die Server-Anleitung verspricht „vor jedem Löschen die Vorschau“, aber drei Werkzeuge standen in keiner Liste der zweistufigen Werkzeuge, weil ihr Name nicht nach Löschen klingt. `bewerbung_zu_anfrage_konvertieren` löschte die Bewerbung samt Terminen, Reflexionen und Aufgaben; gesichert wurde nur ein Notiztext von höchstens 500 Zeichen, und ein Fehler beim Sichern wurde verschluckt, danach wurde trotzdem gelöscht. Jetzt zeigt der erste Aufruf, was verloren geht (Zahlen, und ob die Notiz gekürzt wird), und gelöscht wird nur, wenn die Stelle vorher sicher aussortiert ist. `profil_bearbeiten` löschte Station (mit ihren Projekten), Projekt, Ausbildung, Kompetenz und Notiz-Abschnitt ohne Vorschau; ein falscher Schlüssel beim Ändern der Notizen (zum Beispiel `notizen` statt `informal_notes`) ersetzte alle persönlichen Notizen durch einen leeren Text und meldete „aktualisiert“. Jetzt zeigt das Löschen erst die Vorschau; ein fehlender oder leerer Text beim Ändern der Notizen wird abgewiesen (leeren geht nur ausdrücklich mit `leeren: True`). `jobtitel_verwalten` löschte bei einem Aufruf ohne Aktion einen Jobtitel; die Vorgabe ist jetzt `anzeigen`. `scoring_konfigurieren('reset')` zeigt erst, wie viele Regler zurückfallen und wie viele davon von dir gesetzt sind. Ein Wächter-Test liest den Quelltext aller Werkzeuge und verlangt für jedes, das etwas löscht, einen Eintrag in den Listen; ein neues löschendes Werkzeug ohne Eintrag macht die Prüfung rot.
+- **Die Stellenliste bleibt auch bei großem Bestand schnell** (#1143). Der Beworben-Bonus im Scoring las für jede Stelle alle Bewerbungen samt Verlauf neu (fünf Abfragen je Bewerbung, für jede Stelle der Liste, auch bei `pro_seite=20`). Jetzt wird die Menge der beworbenen Stellen einmal gebildet. Gemessen auf einer Test-Datenbank mit 1.200 Stellen und 100 Bewerbungen: `stellen_anzeigen` von 5,2 s auf 0,3 s, der Stellen-Tab (`GET /api/jobs`) von 5,0 s auf 0,35 s. Der Stellen-Tab zählt die Aussortierten jetzt (`COUNT`) statt alle samt Anzeigentext zu laden (bei 2.000 Aussortierten mit je 8 KB Text 102 ms auf 11 ms), und der 2-Sekunden-Takt des Dashboards fragt `MAX(updated_at)` über einen Index (17 ms auf 3 ms je Takt bei 2.000 Aussortierten; neuer Index `idx_jobs_updated_at`, wird beim Start angelegt).
+- **Lange Arbeit hält das Dashboard nicht mehr an** (#1143). Endpunkte, die auf Netz, Platte oder die lokale KI warten, liefen auf der Ereignisschleife und hielten dabei alle anderen Anfragen an (ein Modell-Download von 8 s ließ jede andere Anfrage 7,7 s warten). Jetzt laufen im Hintergrund-Thread: Modell-Download, Standort setzen, Ordner-Import, Auto-Engine, Beschreibung nachladen, Abruf der Freelancermap-Beschreibungen, Stellenanzeige als Schnappschuss holen, Test des Adzuna-Zugangs, Dateien beim Hochladen lesen, Lern-Analyse und die Abfragen und Schalter der lokalen KI. Ein Wächter-Test liest den Quelltext des Dashboards und verbietet blockierende Aufrufe direkt in einem `async`-Endpunkt.
+
+### Known Issues
+
+- Der Download eines KI-Modells hält das Dashboard nicht mehr an, hat aber weiter keine Fortschrittsanzeige und meldet in der Oberfläche nach 10 Minuten „Download fehlgeschlagen“, obwohl Ollama weiterlädt. Der Hintergrundjob mit Fortschritt ist eigene Arbeit (#1154).
+- Bei sehr vielen aussortierten Stellen mit langen Anzeigentexten (Tausende) bleibt `stellen_anzeigen` spürbar langsamer (2.000 Aussortierte mit je 8 KB Text: 2,9 s statt 0,3 s), weil die Wiedergänger-Prüfung die aussortierten Stellen samt Text lädt (#1154).
+
+### Gemessen
+
+96 neue Tests (6.286 gesamt): 47 für die Auskunft (Urteil ohne Anzeigentext oder mit Kurztext, Statusfilter mit Groß-/Kleinschreibung und Umlauten, Filter ohne Treffer bei Bewerbungen und Stellen, die Wörter in der Werkzeugbeschreibung), 29 für das Löschen mit Vorschau (die drei Werkzeuge, der Fall „falscher Schlüssel“, Station mit Projekten, Skill mit Zeiträumen, Wächter über den Quelltext aller Werkzeuge) und 20 für das Tempo (Zähler für die Abfragen, Messtest mit Grenzwert, zwei Anfragen gleichzeitig, Wächter über den Quelltext des Dashboards). Neun ältere Tests, die den alten Zustand festhielten, sind angepasst. Gegenprobe: 66 Mechanismen einzeln ausgebaut (19 bei der Auskunft, 24 beim Löschschutz, 23 beim Tempo); jeder Ausbau macht mindestens einen Test rot. Zwei Prüfungen wurden schon vor der Gegenprobe strenger gemacht (der Zähler für die Abfrage der beworbenen Stellen; eine Vorgabe-Zeile ohne Profil beim Zurücksetzen der Regler). Die Fehler selbst wurden vorher nachgestellt: eine Anzeige ohne Text ergab „NICHT_EMPFOHLEN“; `status_filter="Interview"` antwortete bei drei vorhandenen Bewerbungen „Noch keine Bewerbungen erfasst“; ein falscher Schlüssel beim Ändern der Notizen leerte zwei Abschnitte und meldete „aktualisiert“; auf einer Test-Datenbank mit 1.200 Stellen und 100 Bewerbungen brauchte `stellen_anzeigen` 5,2 s und der Stellen-Tab 5,0 s (jetzt 0,3 s und 0,35 s); ein künstlich langsamer Modell-Download ließ jede andere Anfrage so lange warten, wie er dauerte.
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.147.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.147.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.146] - 2026-10-02 — Termine, Sicherung und Bewerbungsansicht stimmen
 
 Hotfix für v1.7.145. Vier Dinge, die im Alltag falsche Auskunft gaben oder

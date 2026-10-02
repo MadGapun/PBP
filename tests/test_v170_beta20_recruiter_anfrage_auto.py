@@ -142,7 +142,7 @@ def test_konvertieren_leert_applications_dismisst_stelle(setup_env):
         "notes": "Headhunter, Standort passt nicht.",
     })
     raw = _call(srv.mcp, "bewerbung_zu_anfrage_konvertieren", {
-        "bewerbung_id": aid, "grund": "standort",
+        "bewerbung_id": aid, "grund": "standort", "bestaetigung": True,
     })
     r = _result(raw)
     assert r["status"] == "konvertiert"

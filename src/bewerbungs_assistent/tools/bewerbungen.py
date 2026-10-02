@@ -897,16 +897,45 @@ def register(mcp, db, logger):
         Args:
             status_filter: Optional: Nur Bewerbungen mit diesem Status
                 (offen, in_vorbereitung, beworben, eingangsbestaetigung, interview,
-                 zweitgespraech, angebot, angenommen, abgelehnt, zurueckgezogen, abgelaufen)
+                 zweitgespraech, interview_abgeschlossen, angebot, angenommen,
+                 abgelehnt, zurueckgezogen, abgelaufen, arbeitgeber_ausgefallen).
+                Groß-/Kleinschreibung und Umlaute sind egal; ein Wort, das kein
+                Status ist, wird mit der Liste der gültigen beantwortet.
             archiv: True = auch abgelehnte/zurückgezogene/abgelaufene zeigen (Standard: False)
             stellenart: Optional: Filter nach Stellenart (festanstellung, freelance, etc.)
             sortierung: datum (Standard), firma, status, score
         """
-        apps = db.get_applications(status_filter if status_filter else None)
+        # v1.7.147 (#1146): Ein Filterwert, den es nicht gibt, war bisher eine
+        # leere Liste — und eine leere Liste hiess "Noch keine Bewerbungen
+        # erfasst. Erstelle eine neue". Wer viele Bewerbungen hat, hoerte
+        # "du hast noch keine" (Risiko doppelter Eintraege). Jetzt: Status
+        # normalisieren, unbekannte Werte mit den gueltigen beantworten, und
+        # bei einem Filter ohne Treffer nie "noch keine" sagen.
+        status_filter = (status_filter or "").strip()
+        status_gesucht = None
+        if status_filter:
+            status_gesucht = _bewerbung_status.status_aus_text(status_filter)
+            if status_gesucht is None:
+                antwort = {
+                    "fehler": f"Einen Status „{status_filter}“ gibt es nicht.",
+                    "gueltige_status": list(_bewerbung_status.ALLE),
+                    "hinweis": ("Ohne status_filter zeigt bewerbungen_anzeigen() "
+                                "alle laufenden Bewerbungen, mit archiv=True auch "
+                                "die abgeschlossenen."),
+                }
+                vorschlag = _bewerbung_status.vorschlag_fuer(status_filter)
+                if vorschlag:
+                    antwort["vorschlag_status"] = vorschlag
+                    antwort["hinweis"] = (
+                        f"Meinst du „{vorschlag}“? Dann bewerbungen_anzeigen("
+                        f"status_filter=\"{vorschlag}\"). Ohne status_filter "
+                        "kommen alle laufenden Bewerbungen.")
+                return antwort
+        apps = db.get_applications(status_gesucht)
 
         # #182: Archivierte Bewerbungen standardmäßig ausblenden
         ARCHIVE_STATUSES = set(_bewerbung_status.ARCHIV)
-        if not archiv and not status_filter:
+        if not archiv and not status_gesucht:
             aktive = [a for a in apps if a.get("status") not in ARCHIVE_STATUSES]
             archivierte_count = len(apps) - len(aktive)
             apps = aktive
@@ -916,6 +945,36 @@ def register(mcp, db, logger):
         # Stellenart-Filter (#182)
         if stellenart:
             apps = [a for a in apps if (a.get("employment_type") or "").lower() == stellenart.lower()]
+
+        if not apps and (status_gesucht or stellenart):
+            gesamt_liste = db.get_applications()
+            if gesamt_liste:
+                filter_woerter = []
+                if status_gesucht:
+                    filter_woerter.append(f"Status „{status_gesucht}“")
+                if stellenart:
+                    filter_woerter.append(f"Stellenart „{stellenart}“")
+                antwort = {
+                    "anzahl": 0,
+                    "gesamt": len(gesamt_liste),
+                    "nachricht": (
+                        f"Keine Bewerbung für diesen Filter ({', '.join(filter_woerter)}) — "
+                        f"du hast {len(gesamt_liste)} Bewerbung(en) insgesamt. "
+                        "Das ist ein Filter ohne Treffer, kein leerer Bestand."),
+                    "naechster_schritt": (
+                        "Ohne Filter zeigt bewerbungen_anzeigen() alle "
+                        "laufenden Bewerbungen; archiv=True auch die "
+                        "abgeschlossenen."),
+                }
+                if stellenart:
+                    antwort["stellenarten_im_bestand"] = sorted(
+                        {(a.get("employment_type") or "").lower()
+                         for a in gesamt_liste if a.get("employment_type")})
+                if archivierte_count:
+                    antwort["archiv_hinweis"] = (
+                        f"{archivierte_count} abgeschlossene Bewerbungen sind "
+                        "ausgeblendet. Zeige sie mit archiv=True.")
+                return antwort
 
         if not apps and archivierte_count:
             # D49 (#1087 G8): nur Abgeschlossenes ist nicht "nichts". Wer
@@ -2527,6 +2586,7 @@ def register(mcp, db, logger):
     def bewerbung_zu_anfrage_konvertieren(
         bewerbung_id: str,
         grund: str = "war_nur_anfrage",
+        bestaetigung: bool = False,
     ) -> dict:
         """Konvertiert einen fälschlich angelegten Bewerbungseintrag zu einer abgelehnten Recruiter-Anfrage.
 
@@ -2534,13 +2594,20 @@ def register(mcp, db, logger):
         mit Status 'zurueckgezogen' oder 'abgelehnt' eigentlich nie eine Bewerbung
         war — es war nur eine Anfrage die du sofort abgelehnt hast. Dieses Tool:
 
-        1. Löscht den applications-Eintrag (Statistik bleibt sauber)
+        1. Löscht den applications-Eintrag (Statistik bleibt sauber) — samt
+           Verlauf, Terminen, Aufgaben, Nachfassungen und Reflexionen
         2. Behält die verknüpfte Stelle, dismisst sie mit dem gegebenen Grund
-        3. Schreibt die Notizen aus der Bewerbung in research_notes der Stelle
+        3. Legt einen Notiztext (Status, Notizen, Absagegrund; höchstens 500
+           Zeichen) an der Stelle ab — NUR dieser Text bleibt von der Bewerbung
+
+        ACHTUNG: Der erste Aufruf zeigt nur die Vorschau mit den Zahlen. Erst
+        mit bestaetigung=True wird umgewandelt, und die Bewerbung wird nur
+        gelöscht, wenn die Stelle vorher sicher aussortiert werden konnte.
 
         Args:
             bewerbung_id: ID der zu konvertierenden Bewerbung
             grund: Dismiss-Reason für die Stelle (default 'war_nur_anfrage')
+            bestaetigung: Muss True sein, damit wirklich umgewandelt wird
         """
         app = db.get_application(bewerbung_id)
         if not app:
@@ -2564,35 +2631,91 @@ def register(mcp, db, logger):
         if app.get("rejection_reason"):
             notiz_archiv += f" Rejection: {app['rejection_reason']}"
 
+        # v1.7.147 (#1145): "konvertieren" klang nach Umwandeln und LOESCHTE
+        # die Bewerbung samt Terminen, Reflexionen und Aufgaben, ohne
+        # Vorschau. Gesichert wurde nur dieser Notiztext, und auch er nur
+        # bis 500 Zeichen (db.dismiss_job kuerzt). Jetzt: erst die Vorschau
+        # mit Zahlen, dieselbe Rechnung wie bei bewerbung_loeschen.
+        from ..services import abhaengige_zeilen
+        archiv_laenge = len(notiz_archiv)
         job_hash = app.get("job_hash")
-        if job_hash:
+        if not bestaetigung:
+            vorschau = db.delete_application(bewerbung_id, dry_run=True)
+            return {
+                "status": "bestaetigung_erforderlich",
+                "bewerbung": f"{app.get('title', '')} bei {app.get('company', '')}",
+                "folgen": abhaengige_zeilen.klartext(vorschau),
+                "geloescht": vorschau["geloescht"],
+                "geloest": vorschau["geloest"],
+                "stelle": (
+                    "Die verknüpfte Stelle wird aussortiert."
+                    if job_hash else
+                    "Es ist keine Stelle verknüpft: PBP legt eine neue an "
+                    "(Quelle recruiter_inbound) und sortiert sie aus."),
+                "archiv_notiz": {
+                    "zeichen": archiv_laenge,
+                    "gespeichert_bis": 500,
+                    "gekuerzt": archiv_laenge > 500,
+                },
+                "hinweis": (
+                    "Von der Bewerbung bleibt nur der Notiztext an der Stelle "
+                    "(Status, Notizen, Absagegrund). Verlauf, Termine, "
+                    "Aufgaben und Reflexionen gehen verloren. Setze "
+                    "bestaetigung=True, um wirklich umzuwandeln — oder "
+                    "bewerbung_status_aendern(..., 'zurueckgezogen'), wenn "
+                    "die Bewerbung bleiben soll."),
+            }
+
+        # Die Stelle MUSS sicher aussortiert sein, bevor etwas geloescht
+        # wird. Bis v1.7.146 schluckte `except Exception: pass` jeden
+        # Fehler, und `dismiss_job` meldet "nichts geschehen" als False —
+        # der Rueckgabewert wurde nie gelesen. Danach wurde trotzdem
+        # geloescht.
+        def _archivieren(hash_):
             try:
-                # v1.7.70 (#956): Archivtext nach `dismiss_note`, nicht
-                # in den Recherche-Notizblock.
-                db.dismiss_job(job_hash, reason=grund, notiz=notiz_archiv)
-            except Exception:
-                pass
+                return bool(db.dismiss_job(hash_, reason=grund, notiz=notiz_archiv))
+            except Exception as exc:
+                logger.warning("Archivieren der Stelle %s fehlgeschlagen: %s", hash_, exc)
+                return False
+
+        if job_hash:
+            archiviert = _archivieren(job_hash)
         else:
             # Keine Stelle verknuepft — neue inbound-Stelle aus den Bewerbungs-Daten anlegen
             from ..job_scraper import stelle_hash
             h = stelle_hash("recruiter_inbound", f"{app['company']}-{app['title']}")
-            db.save_jobs([{
-                "hash": h,
-                "title": app["title"],
-                "company": app["company"],
-                "url": app.get("url") or "",
-                "source": "recruiter_inbound",
-                "description": notiz_archiv,
-                "score": 0,
-            }])
-            db.dismiss_job(h, reason=grund, notiz=notiz_archiv)
+            try:
+                db.save_jobs([{
+                    "hash": h,
+                    "title": app["title"],
+                    "company": app["company"],
+                    "url": app.get("url") or "",
+                    "source": "recruiter_inbound",
+                    "description": notiz_archiv,
+                    "score": 0,
+                }])
+                archiviert = _archivieren(h)
+            except Exception as exc:
+                logger.warning("Anlegen der Stelle %s fehlgeschlagen: %s", h, exc)
+                archiviert = False
             job_hash = h
+        if not archiviert:
+            return {
+                "status": "abgebrochen",
+                "fehler": ("Die Stelle konnte nicht sicher aussortiert werden — "
+                           "die Bewerbung wurde NICHT gelöscht."),
+                "stelle_hash": job_hash,
+                "naechster_schritt": (
+                    "Prüfe die Stelle mit stellen_anzeigen(filter='alle') "
+                    "und versuche es erneut; die Bewerbung ist unverändert."),
+            }
 
-        # Bewerbung loeschen — FK-Cascade entfernt application_events / follow_ups
-        db.delete_application(bewerbung_id)
+        # Bewerbung loeschen — mit allem, was an ihr haengt (dieselbe
+        # Funktion wie bewerbung_loeschen)
+        befund = db.delete_application(bewerbung_id)
         # Verifikation: ist sie wirklich weg?
         check = db.get_application(bewerbung_id)
-        return {
+        antwort = {
             "status": "konvertiert" if check is None else "fehlgeschlagen",
             "bewerbung_id": bewerbung_id[:8],
             "stelle_hash": job_hash,
@@ -2602,7 +2725,11 @@ def register(mcp, db, logger):
                 f"{app.get('title')}) zu Recruiter-Anfrage konvertiert. "
                 "Statistik wird ab sofort sauber sein."
             ),
+            "archiv_notiz_gekuerzt": archiv_laenge > 500,
         }
+        if isinstance(befund, dict) and "geloescht" in befund:
+            antwort["folgen"] = abhaengige_zeilen.klartext(befund)
+        return antwort
 
 
     @mcp.tool()

@@ -27,15 +27,17 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     - BEDINGT: Methodenluecke ueberbrueckbar, aber transparent adressieren
     - NICHT_EMPFOHLEN: fachlicher Gap zu gross oder k.o.-Kriterium fehlt
 
-    Drei k.o.-Kriterien:
-    1. Stellenbeschreibung fehlt komplett -> Score ist unzuverlaessig
-    2. Hochschulabschluss gefordert, fehlt im Profil -> ATS-Risiko
-    3. MUSS-Keywords komplett verfehlt -> kein fachlicher Anker
+    k.o.-Kriterien (Stand v1.7.147, #1146):
+    1. Wiedergaenger: die Firma wurde mehrfach aus fachlichem Grund aussortiert
+    2. MUSS-Keywords komplett verfehlt -> kein fachlicher Anker (nur auf
+       einer lesbaren Anzeige)
 
-    Sonst Score-ANTEIL am erreichbaren Hoechstwert (#999):
-    - >= 75 %: EMPFOHLEN
-    - 50-74 %: BEDINGT
-    - <  50 %: NICHT_EMPFOHLEN
+    Eine FEHLENDE oder KURZE Beschreibung ist KEIN k.o.: Unbekannt ist ein
+    eigener Zustand. Das Urteil ist dann NICHT_BEURTEILBAR, mit dem
+    `datenlage_hinweis` (Volltext nachladen), nie "nicht empfohlen".
+
+    Sonst entscheidet NICHT der Score (#1003): eine gelesene, gespeicherte
+    Analyse, andernfalls NICHT_BEURTEILBAR.
 
     **Bis v1.7.48 standen hier feste Zahlen gegen `total_score`** — und
     der ist keine Prozentzahl, sondern eine ungedeckelte Punktsumme,
@@ -81,29 +83,40 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
             f"'{wiedergaenger['top_grund']}' aussortiert — sehr wahrscheinlich "
             "erneut nicht passend."
         )
+    # v1.7.147 (#1146): Eine fehlende oder kurze Beschreibung ist KEIN k.o.,
+    # sondern eine fehlende Datengrundlage: "unbekannt" ist ein eigener
+    # Zustand (NICHT_BEURTEILBAR), keine Absage. Bis v1.7.146 landeten beide
+    # Faelle in `ko_gruende` und machten aus einer Anzeige ohne Text ein
+    # "NICHT_EMPFOHLEN" — der Zweig `keine_beschreibung` in `passung.urteil`
+    # war damit unerreichbar, und die Begruendung widersprach sich selbst
+    # ("ausdruecklich keine fachliche Absage" unter einer Absage).
+    datenlage_hinweis = ""
     if not desc_ok:
-        ko_gruende.append(
-            "Stellenbeschreibung fehlt — keine fachliche Bewertung möglich. "
-            "Beschreibung nachladen vor Empfehlung."
+        datenlage_hinweis = (
+            "Stellenbeschreibung fehlt — ohne sie ist keine fachliche "
+            "Bewertung möglich. Beschreibung nachladen "
+            "(stellenbeschreibung_nachladen), dann neu bewerten."
         )
     elif fit_result.get("beschreibung_kurz"):
         # #762: Beschreibung existiert, ist aber nur eine Kurznotiz (typisch
         # nach stelle_manuell_anlegen). Dann matchen kaum MUSS-Keywords und der
-        # Score ist kuenstlich niedrig — das ist KEINE fachliche Absage, sondern
-        # fehlende Datengrundlage. Ehrlich als "nicht beurteilbar" ausweisen,
-        # statt eine passende Rolle faelschlich als Gap abzuurteilen.
-        ko_gruende.append(
+        # Score ist kuenstlich niedrig — das ist KEINE fachliche Absage.
+        datenlage_hinweis = (
             "Beschreibung ist nur ein Kurztext, keine vollständige Anzeige — "
             "der Score ist dadurch NICHT belastbar und dies ist ausdrücklich "
             "keine fachliche Absage. Anzeigen-Volltext nachladen "
             "(stellenbeschreibung_nachladen) oder einfügen, dann neu bewerten."
         )
+    beschreibung_nutzbar = not datenlage_hinweis
     # v1.7.35 (#972): der Hochschulabschluss-k.o. ist entfernt. Er
     # stuetzte sich auf ein Merkmal, dessen Profilseite nie modelliert
     # wurde — ein Staatlich gepruefter Techniker (DQR 6, wie Bachelor)
     # galt als "kein Abschluss". Der WAEHLBARE Ablehnungsgrund
     # `kein_hochschulabschluss` bleibt: das entscheidet der Mensch.
-    if not muss_hits and missing_muss:
+    # Nur auf einer Anzeige, die man lesen kann: ohne Text (oder mit einem
+    # Kurztext) findet sich kein MUSS-Begriff, und das waere derselbe Fehler
+    # ueber den Umweg (#1146).
+    if beschreibung_nutzbar and not muss_hits and missing_muss:
         ko_gruende.append(
             f"Kein einziges MUSS-Keyword im Profil belegt "
             f"({len(missing_muss)} fehlen) — kein fachlicher Anker."
@@ -127,6 +140,8 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
         profil_kompetenzen=profil_kompetenzen,
         gespeicherte_analyse=gespeicherte_analyse,
     )
+    if datenlage_hinweis:
+        befund["datenlage_hinweis"] = datenlage_hinweis
     # Der Score kommt weiter mit — als das, was er ist.
     befund["score"] = score
     if maximum:
@@ -1444,8 +1459,16 @@ def register(mcp, db, logger):
                 from ..services.scoring_service import apply_scoring_adjustments
                 auto_ignored = 0
                 scored_jobs = []
+                # v1.7.147 (#1143): einmal lesen, nicht je Stelle — vorher
+                # 11,6 s bei 1.200 Stellen und 100 Bewerbungen, auch mit
+                # pro_seite=20, weil die Schleife vor dem Blaettern lief.
+                try:
+                    beworbene = db.get_applied_job_hashes()
+                except Exception:
+                    beworbene = None   # dann liest jede Stelle selbst nach
                 for j in jobs:
-                    result = apply_scoring_adjustments(j, j.get("score", 0), db)
+                    result = apply_scoring_adjustments(
+                        j, j.get("score", 0), db, beworbene=beworbene)
                     j["score"] = result["final_score"]
                     # v1.7.127 (#1082): der Fachwert ohne Rahmen-Regler —
                     # gegen ihn vergleichen Schwelle und Fachdaumen.
@@ -1564,6 +1587,40 @@ def register(mcp, db, logger):
                         "kommen sie NICHT zurück — die Schwelle wirkt davor."),
                     "schwelle_vergleicht": _SCHWELLE_VERGLEICHT,
                 }
+            # v1.7.147 (#1146): War ein Filter gesetzt, ist "Keine Stellen
+            # gefunden. Starte eine Jobsuche" falsch und schickt den Menschen
+            # in die falsche Richtung. Es GIBT Stellen, nur keine fuer diesen
+            # Filter. Dieselbe Haltung wie bei Schwelle und Urteil darueber.
+            _filter_woerter = []
+            if quelle:
+                _filter_woerter.append(f"Quelle „{quelle}“")
+            if min_score > 0:
+                _filter_woerter.append(f"mindestens {min_score} Punkte")
+            if max_alter_tage > 0:
+                _filter_woerter.append(f"nicht älter als {max_alter_tage} Tage")
+            if seit:
+                _filter_woerter.append(f"gefunden seit {seit}")
+            if nur_nicht_beworben:
+                _filter_woerter.append("nur noch nicht beworben")
+            if nur_empfohlen:
+                _filter_woerter.append("ohne Stellen mit k.o.-Muster")
+            if _filter_woerter and filter != "aussortiert":
+                _aktive = db.get_active_jobs(exclude_blacklisted=True)
+                if _aktive:
+                    _quellen = sorted({(j.get("source") or "unbekannt") for j in _aktive})
+                    return {
+                        "anzahl": 0,
+                        "aktive_stellen_gesamt": len(_aktive),
+                        "quellen_im_bestand": _quellen,
+                        "nachricht": (
+                            f"Keine Stelle für diesen Filter ({', '.join(_filter_woerter)}) — "
+                            f"ohne Filter gibt es {len(_aktive)} aktive Stelle(n). "
+                            "Das ist ein Filter, kein leerer Bestand."),
+                        "naechster_schritt": (
+                            "Filter lockern oder weglassen: stellen_anzeigen() "
+                            "zeigt alle aktiven Stellen; bei „quelle“ gelten die "
+                            "Namen aus quellen_im_bestand."),
+                    }
             return {
                 "anzahl": 0,
                 "nachricht": "Keine Stellen gefunden. "

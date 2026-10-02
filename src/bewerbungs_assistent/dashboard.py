@@ -516,7 +516,7 @@ async def api_profile():
 
 
 @app.get("/api/standort")
-async def api_standort():
+def api_standort():
     """Von wo aus PBP Entfernungen rechnet (#1090)."""
     from .services import eigener_standort
     if not _db.get_profile():
@@ -534,10 +534,13 @@ async def api_standort_setzen(request: Request):
     ort = data.get("ort", "")
     if not isinstance(ort, str):
         return JSONResponse({"error": "ort muss Text sein"}, status_code=400)
-    erg = eigener_standort.eigenen_setzen(_db, ort)
+    # v1.7.147 (#1143): die Ortssuche wartet auf einen Online-Dienst (bis zu
+    # mehreren Sekunden); auf der Ereignisschleife stand dabei das ganze
+    # Dashboard still.
+    erg = await run_in_threadpool(eigener_standort.eigenen_setzen, _db, ort)
     if erg.get("status") == "nicht_aufgeloest":
         return JSONResponse({"error": erg["hinweis"], **erg}, status_code=422)
-    return {**erg, "befund": eigener_standort.befund(_db)}
+    return {**erg, "befund": await run_in_threadpool(eigener_standort.befund, _db)}
 
 
 @app.post("/api/profile")
@@ -1473,6 +1476,12 @@ def _import_dublette(content_hash: str, dateiname: str) -> bool:
 @app.post("/api/documents/import-folder")
 async def api_import_folder(request: Request):
     data = await request.json()
+    # v1.7.147 (#1143): 150 PDFs lesen und kopieren dauerte 5,7 s, in denen
+    # das Dashboard nicht antwortete - die Arbeit laeuft im Thread-Pool.
+    return await run_in_threadpool(_import_folder, data)
+
+
+def _import_folder(data: dict):
     folder_path = data.get("folder_path", "")
     if not folder_path:
         return JSONResponse({"error": "Kein Ordnerpfad angegeben"}, status_code=400)
@@ -2647,7 +2656,10 @@ def _aussortiert_zaehlen() -> int:
     Abruf, wenn nur geblaettert wird.
     """
     try:
-        return len(_db.get_dismissed_jobs())
+        # v1.7.147 (#1143): zaehlen statt laden. `get_dismissed_jobs` liest
+        # jede Zeile samt Anzeigentext - bei 20.000 Aussortierten 2-3 s
+        # je Aufruf des Stellen-Tabs, fuer eine einzige Zahl.
+        return _db.count_dismissed_jobs()
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Aussortierte nicht zaehlbar (#1022): %s", exc)
         return 0
@@ -3336,13 +3348,19 @@ async def api_snapshot_description(app_id: str, request: Request):
 
     import urllib.request
     import re
-    try:
+
+    def _laden() -> str:
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (compatible; PBP/1.0)",
             "Accept": "text/html,application/xhtml+xml",
         })
         with urllib.request.urlopen(req, timeout=15) as resp:
-            html = resp.read().decode("utf-8", errors="replace")
+            return resp.read().decode("utf-8", errors="replace")
+
+    try:
+        # v1.7.147 (#1143): bis zu 15 s Warten auf eine fremde Seite gehoeren
+        # nicht auf die Ereignisschleife.
+        html = await run_in_threadpool(_laden)
     except Exception as e:
         return JSONResponse(
             {"error": f"URL konnte nicht geladen werden: {str(e)}"},
@@ -5022,7 +5040,7 @@ async def api_update_job(job_hash: str, request: Request):
 
 # v1.7.0-beta.44 (#622): Beschreibung von URL nachladen (Layer B)
 @app.post("/api/jobs/{job_hash}/refetch-description")
-async def api_refetch_description(job_hash: str):
+def api_refetch_description(job_hash: str):
     """Holt die Beschreibung einer Stelle aus ihrer URL nach.
 
     Genutzt vom JobsPage-Button 'Beschreibung nachladen'. Macht EINEN
@@ -5522,7 +5540,8 @@ async def api_adzuna_speichern(request: Request):
     # 'konfiguriert' in den Settings landen.
     try:
         import httpx
-        r = httpx.get(
+        r = await run_in_threadpool(
+            httpx.get,
             "https://api.adzuna.com/v1/api/jobs/de/search/1",
             params={"app_id": app_id, "app_key": app_key,
                     "results_per_page": 1, "what": "software"},
@@ -5751,7 +5770,10 @@ async def api_upload_document(
     email_context = None
     fname = stored_filename.lower()
     try:
-        extracted, email_context = _extract_document_text(filepath)
+        # v1.7.147 (#1143): PDF lesen (und bei Scans erkennen) dauert bei
+        # grossen Dateien Sekunden.
+        extracted, email_context = await run_in_threadpool(
+            _extract_document_text, filepath)
     except ImportError as exc:
         logger.warning("Text extraction failed for %s: %s", incoming_name, exc)
         if fname.endswith(".msg"):
@@ -9923,7 +9945,7 @@ def _run_scraper_probe(now_iso: str) -> dict:
 
 
 @app.post("/api/auto-actions/run")
-async def api_run_auto_actions():
+def api_run_auto_actions():
     """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
     Doku-Classify + Pattern-Analyse + Scraper-Probe.
 
@@ -10315,7 +10337,7 @@ async def api_elwosa_heartbeat():
 
 
 @app.get("/api/elwosa/status")
-async def api_elwosa_status_endpoint():
+def api_elwosa_status_endpoint():
     """Status-Snapshot fuer das Frontend (Polling)."""
     from .services.elwosa import get_status
     try:
@@ -11070,8 +11092,10 @@ async def api_run_learning_analysis(request: Request):
     days = max(1, min(int(data.get("days", 30) or 30), 180))
     min_events = max(1, int(data.get("min_events", 50) or 50))
     from datetime import datetime
-    return _run_analyze_user_patterns(
-        datetime.now().isoformat(), days=days, min_events=min_events)
+    # v1.7.147 (#1143): die Analyse fragt die lokale KI - Minuten, nicht Millisekunden.
+    return await run_in_threadpool(
+        _run_analyze_user_patterns, datetime.now().isoformat(),
+        days=days, min_events=min_events)
 
 
 @app.get("/api/recap")
@@ -11200,7 +11224,7 @@ async def api_recap():
 # === Lokale AI Status (v1.7.0 #512, #583) ===
 
 @app.get("/api/llm/status")
-async def api_llm_status(refresh: int = 0):
+def api_llm_status(refresh: int = 0):
     """Liefert den Status der lokalen AI fuer den Sidebar-Indicator und
     den Settings-Bereich.
 
@@ -11261,7 +11285,7 @@ async def api_llm_accuracy():
 
 
 @app.post("/api/llm/warmup")
-async def api_llm_warmup():
+def api_llm_warmup():
     """v1.7.0-beta.62 (#638): Triggert manuell einen Warmup-Ping an Ollama.
 
     Nuetzlich vor Bulk-Operationen oder wenn der User merkt dass die naechste
@@ -11274,7 +11298,7 @@ async def api_llm_warmup():
 
 
 @app.post("/api/llm/start")
-async def api_llm_start():
+def api_llm_start():
     """Startet Ollama auf Knopfdruck (#637, v1.7.0-beta.60).
 
     Use Case: Lokale KI wurde via Taskmanager / Reboot gestoppt. PBP zeigt
@@ -11337,7 +11361,7 @@ async def api_expertenmodus_setzen(request: Request):
 
 
 @app.get("/api/llm/autostart")
-async def api_llm_autostart_lesen():
+def api_llm_autostart_lesen():
     """Soll Ollama mit PBP starten? (#1001)"""
     from .services import ollama_start
     return ollama_start.autostart_lesen(_db)
@@ -11368,7 +11392,7 @@ async def api_llm_autostart_setzen(request: Request):
     if not isinstance(an, bool):
         return JSONResponse(
             {"error": "an muss true oder false sein"}, status_code=400)
-    return ollama_start.autostart_setzen(_db, an)
+    return await run_in_threadpool(ollama_start.autostart_setzen, _db, an)
 
 
 @app.post("/api/llm/stop")
@@ -11383,11 +11407,11 @@ async def api_llm_stop(request: Request):
     if data.get("bestaetigt") is not True:
         return JSONResponse(
             {"error": "Beenden nur mit bestaetigt=true."}, status_code=400)
-    return ollama_start.ollama_beenden()
+    return await run_in_threadpool(ollama_start.ollama_beenden)
 
 
 @app.get("/api/llm/autostop")
-async def api_llm_autostop_lesen():
+def api_llm_autostop_lesen():
     """Soll Ollama mit PBP enden? (#1086)"""
     from .services import ollama_start
     return ollama_start.autostop_lesen(_db)
@@ -11398,7 +11422,8 @@ async def api_llm_autostop_setzen(request: Request):
     """Setzt 'aus' / 'gestartet' / 'immer'. 'immer' nur mit Bestaetigung."""
     from .services import ollama_start
     data = await request.json()
-    ergebnis = ollama_start.autostop_setzen(
+    ergebnis = await run_in_threadpool(
+        ollama_start.autostop_setzen,
         _db, str(data.get("wert") or ""), bestaetigt=data.get("bestaetigt") is True)
     if "fehler" in ergebnis:
         return JSONResponse(ergebnis, status_code=400)
@@ -11406,7 +11431,7 @@ async def api_llm_autostop_setzen(request: Request):
 
 
 @app.post("/api/llm/stop-verknuepfung")
-async def api_llm_stop_verknuepfung():
+def api_llm_stop_verknuepfung():
     """Legt die Desktop-Verknuepfung "Ollama beenden" an (#1086)."""
     from .services import ollama_start
     ergebnis = ollama_start.verknuepfung_anlegen()
@@ -11416,7 +11441,7 @@ async def api_llm_stop_verknuepfung():
 
 
 @app.post("/api/llm/test-connection")
-async def api_llm_test_connection():
+def api_llm_test_connection():
     """Diagnose-Snapshot fuer Lokale-AI-Setup (#584).
 
     Liefert auf einen Schlag:
@@ -11494,7 +11519,8 @@ async def api_llm_set_state(request: Request):
     # Cache invalidieren damit naechster /status den neuen Wert sieht
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    svc.get_status(force_refresh=True)
+    # v1.7.147 (#1143): die Statusabfrage geht ueber das Netz zu Ollama.
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return {"status": "ok", "state": state}
 
 
@@ -11508,7 +11534,7 @@ async def api_llm_set_model(request: Request):
     _db.set_profile_setting("llm_local_model", model)
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    svc.get_status(force_refresh=True)
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return {"status": "ok", "model": model}
 
 
@@ -11525,11 +11551,15 @@ async def api_llm_pull(request: Request):
         return JSONResponse({"error": "model ist Pflicht"}, status_code=400)
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    result = svc.trigger_pull(model)
+    # v1.7.147 (#1143): der Download dauert bei grossen Modellen Minuten.
+    # Auf der Ereignisschleife hielt er das ganze Dashboard an (8 s Download
+    # = 7,7 s Wartezeit fuer jede andere Anfrage). Jetzt laeuft er im
+    # Thread-Pool; eine Fortschrittsanzeige gibt es weiter nicht.
+    result = await run_in_threadpool(svc.trigger_pull, model)
     if result.get("status") == "error":
         return JSONResponse(result, status_code=502)
     # Status-Cache invalidieren — neues Modell ist jetzt da
-    svc.get_status(force_refresh=True)
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return result
 
 
@@ -11544,12 +11574,18 @@ async def api_refresh_freelancermap_descriptions(request: Request):
     extrahierte Beschreibung. Rate-limited (0.3s Sleep) damit Freelancermap
     nicht blockt.
     """
+    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    # v1.7.147 (#1143): bis zu 200 Abrufe mit Pause gehoeren nicht auf die
+    # Ereignisschleife.
+    return await run_in_threadpool(_refresh_freelancermap_descriptions, data)
+
+
+def _refresh_freelancermap_descriptions(data: dict):
     import httpx
     import re
     import time as _time
     from bs4 import BeautifulSoup
 
-    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
     cap = max(1, min(int((data or {}).get("max") or 50), 200))
 
     pid = _db.get_active_profile_id()
@@ -11809,7 +11845,7 @@ async def api_privacy_delete_all(request: Request):
 # === Export Package (v1.4.0, #289) ===
 
 @app.get("/api/export-package")
-async def api_export_package():
+def api_export_package():
     """Create a ZIP package with all user data."""
     import shutil
     import tempfile

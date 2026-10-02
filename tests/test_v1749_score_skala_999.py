@@ -202,10 +202,13 @@ def test_999_ko_zweige_unveraendert():
     assert empfehlung["kategorie"] == "NICHT_EMPFOHLEN"
     assert "kein fachlicher Anker" in empfehlung["ko_gruende"][0]
 
+    # v1.7.147 (#1146): eine fehlende Beschreibung ist KEIN k.o. mehr,
+    # sondern unbekannt - "nicht beurteilbar" statt "nicht empfohlen".
+    # Der MUSS-Zweig oben bleibt, wie er war.
     fehlt = _build_empfehlung(
         {"total_score": 3, "total_score_max": 20, "muss_hits": ["plm"],
-         "beschreibung_vorhanden": False}, {})
-    assert fehlt["kategorie"] == "NICHT_EMPFOHLEN"
+         "beschreibung_vorhanden": False}, {}, profil_kompetenzen=5)
+    assert fehlt["kategorie"] == "NICHT_BEURTEILBAR"
     assert fehlt["score_zuverlaessig"] is False
 
 

@@ -60,8 +60,16 @@ def _entfernungs_zuschlag(distance_km: float, emp_type: str,
     return min(MAX_ENTFERNUNGS_ZUSCHLAG, int(verdopplungen)), wunsch
 
 
-def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
+def apply_scoring_adjustments(job: dict, base_score: int, db,
+                              beworbene: set | None = None) -> dict:
     """Wende Scoring-Regler auf den Basis-Score an.
+
+    Args:
+        beworbene: die Menge der Stellen, auf die es eine Bewerbung gibt
+            (`db.get_applied_job_hashes()`). Wer die Regler auf viele
+            Stellen anwendet, bildet sie EINMAL und gibt sie mit (#1143);
+            ohne sie liest jeder Aufruf selbst nach — richtig fuer eine
+            einzelne Stelle, bei 1.200 Stellen aber 11,6 Sekunden.
 
     Returns dict with:
         - final_score: Der finale Score nach allen Adjustments
@@ -317,8 +325,8 @@ def apply_scoring_adjustments(job: dict, base_score: int, db) -> dict:
     job_hash = job.get("hash") or job.get("job_hash", "")
     if job_hash:
         try:
-            apps = db.get_applications()
-            applied_hashes = {a.get("job_hash") for a in apps if a.get("job_hash")}
+            applied_hashes = (beworbene if beworbene is not None
+                              else db.get_applied_job_hashes())
             if job_hash in applied_hashes:
                 bonus = 5
                 total_adj += bonus
