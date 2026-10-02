@@ -1790,7 +1790,7 @@ def register(mcp, db, logger):
             "hinweis": (
                 "Den Typ eines einzelnen Dokuments kann man derzeit nicht "
                 "von Hand aendern; Altlast-Typen ('email') und 'sonstiges' "
-                "erkennt dokument_typen_nachziehen() neu. "
+                "erkennt dokument_typen_nachziehen() neu (im Expertenmodus). "
                 "Per-Typ-Handler-Aktionen siehe 'claude_action'-Spalte."
             ),
         }

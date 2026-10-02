@@ -138,7 +138,7 @@ KNOWN_TYPES: dict[str, dict] = {
     },
     "sonstiges": {
         "beschreibung": "Nicht klassifiziertes Dokument",
-        "claude_action": "Manuell sichten; dokument_typen_nachziehen(auch_sonstiges=True) erkennt den Typ neu",
+        "claude_action": "Manuell sichten; im Expertenmodus erkennt dokument_typen_nachziehen(auch_sonstiges=True) den Typ neu",
     },
 }
 
