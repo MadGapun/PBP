@@ -15,7 +15,7 @@ import { useState } from "react";
 import { postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, TextInput } from "@/components/ui";
-import { INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, prozent } from "@/lib/autoUpdate";
+import { INSTALLER_AUFRAEUMEN, STUFEN, claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
 
@@ -32,7 +32,7 @@ const ERGEBNIS = {
 };
 
 export default function UpdatesTab() {
-  const { autoUpdate: au, refreshAutoUpdate, autoUpdateAktion, pushToast } = useApp();
+  const { autoUpdate: au, refreshAutoUpdate, autoUpdateAktion, pushToast, chrome } = useApp();
   const [busy, setBusy] = useState("");
   const [vorgaenger, setVorgaenger] = useState(null);
 
@@ -91,6 +91,9 @@ export default function UpdatesTab() {
   const fassungen = au.fassungen || [];
   const gesamt = fassungen.reduce((s, f) => s + (f.bytes || 0), 0);
   const anzahl = vorgaenger ?? au.vorgaenger_behalten;
+  const mcp = chrome?.status?.mcp_connection;
+  const claude = claudeFassung(mcp);
+  const abweichung = verbindungsAbweichung(au, mcp);
 
   return (
     <div className="grid gap-6" data-updates-tab>
@@ -100,6 +103,11 @@ export default function UpdatesTab() {
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="sky">Läuft: v{au.laufend}</Badge>
           {au.neustart_noetig ? <Badge tone="amber">Ab dem nächsten Neustart: v{au.aktuell}</Badge> : null}
+          {claude ? (
+            <span title="Die Version von PBP, mit der Claude gerade arbeitet.">
+              <Badge tone={abweichung ? "amber" : "neutral"}>Claude: v{claude}</Badge>
+            </span>
+          ) : null}
           {neu ? <Badge tone="success">Neu: v{neu.version}</Badge> : <Badge tone="neutral">Aktuell</Badge>}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
@@ -115,6 +123,13 @@ export default function UpdatesTab() {
           <p className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink">
             Version {au.aktuell} ist installiert und gilt nach dem nächsten Neustart. Beende PBP und Claude Desktop komplett
             (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte beides neu.
+          </p>
+        ) : null}
+        {abweichung ? (
+          <p className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink" data-updates-verbindung>
+            {abweichung.claudeAelter
+              ? `Claude arbeitet noch mit Version ${abweichung.claude}, PBP selbst läuft schon mit Version ${abweichung.dashboard}. Beende Claude Desktop komplett (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte es neu.`
+              : `Claude arbeitet schon mit Version ${abweichung.claude}, dieses Fenster läuft noch mit Version ${abweichung.dashboard}. Beende PBP und starte es über die Verknüpfung „PBP Bewerbungs-Portal“ neu.`}
           </p>
         ) : null}
         {neu ? (

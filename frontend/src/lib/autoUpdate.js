@@ -85,13 +85,37 @@ export function naechsteFrageMs(au) {
 const OPTIONEN = { art: "update-optionen", label: "Update-Optionen" };
 
 /**
+ * Mit welcher Fassung arbeitet Claude gerade? Nur wenn die Verbindung steht und die Fassung lesbar ist.
+ * Ältere Programmstände schreiben keine Fassung in den Herzschlag; dann weiß PBP es nicht und sagt nichts.
+ */
+export function claudeFassung(mcp) {
+  if (!mcp || mcp.status !== "connected") return "";
+  return fassungsSchluessel(mcp.version) ? mcp.version : "";
+}
+
+/**
+ * Arbeiten Claude und das Dashboard mit verschiedenen Fassungen? Dann `{ claude, dashboard, claudeAelter }`, sonst null.
+ *
+ * Das passiert nach jedem Update: das Dashboard startet neu, Claude Desktop hält seinen PBP-Server aber so lange am
+ * Leben, bis es ganz beendet wird. Bis dahin sieht Claude die neuen Werkzeuge nicht.
+ */
+export function verbindungsAbweichung(au, mcp) {
+  if (!au?.verfuegbar) return null;
+  const claude = claudeFassung(mcp);
+  const dashboard = au.laufend;
+  if (!claude || !fassungsSchluessel(dashboard) || claude === dashboard) return null;
+  return { claude, dashboard, claudeAelter: istNeuer(dashboard, claude) };
+}
+
+/**
  * Der Hinweis zum Auto-Update für die Hinweiszone — oder null.
  *
  * `dringend` hebt ihn über die Hinweise „Quellen“ und „Suche“: etwas, das gerade passiert ist (Rückfall,
  * Lauf, Fehler, Neustart nötig) oder gefragt werden muss, wartet nicht hinter einer Suchempfehlung.
  *
  * @param {object|null} au  Antwort von GET /api/auto-update
- * @param {object} [extra]  { releaseUrl } — die Seite der Veröffentlichung (aus /api/update-check)
+ * @param {object} [extra]  { releaseUrl } — die Seite der Veröffentlichung (aus /api/update-check);
+ *                          { mcp } — die Verbindung zu Claude (`mcp_connection` aus dem Status)
  */
 export function updateHinweis(au, extra = {}) {
   if (!au || !au.verfuegbar) return null;
@@ -133,6 +157,22 @@ export function updateHinweis(au, extra = {}) {
       text: "Sie gilt nach dem nächsten Neustart. Beende PBP und Claude Desktop komplett (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte beides neu.",
       aktionen: [OPTIONEN],
     };
+  }
+  const abweichung = au.stufe === "auto_still" ? null : verbindungsAbweichung(au, extra.mcp);
+  if (abweichung) {
+    return abweichung.claudeAelter
+      ? {
+        id: "update-verbindung", ton: "neutral", dringend: true,
+        titel: `Claude arbeitet noch mit Version ${abweichung.claude}`,
+        text: `PBP selbst läuft schon mit Version ${abweichung.dashboard}. Beende Claude Desktop komplett (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte es neu, damit beides zusammenpasst.`,
+        aktionen: [OPTIONEN],
+      }
+      : {
+        id: "update-verbindung", ton: "neutral", dringend: true,
+        titel: `Dieses Fenster läuft noch mit Version ${abweichung.dashboard}`,
+        text: `Claude arbeitet schon mit Version ${abweichung.claude}. Beende PBP und starte es über die Verknüpfung „PBP Bewerbungs-Portal“ neu, damit beides zusammenpasst.`,
+        aktionen: [OPTIONEN],
+      };
   }
   if (!neu) return null;
 

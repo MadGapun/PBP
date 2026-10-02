@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
   fassungsSchluessel, istNeuer, istSchonInstalliert, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel,
-  updateHinweis,
+  updateHinweis, claudeFassung, verbindungsAbweichung,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -160,5 +160,47 @@ assert.equal(istSchonInstalliert({ verfuegbar: true, aktuell: "1.8.1" }, "1.8.2"
 assert.equal(istSchonInstalliert({ verfuegbar: true, aktuell: "1.8.1" }, "1.8.0"), true);
 assert.equal(istSchonInstalliert({ verfuegbar: false, aktuell: "1.8.1" }, "1.8.1"), false);
 assert.equal(istSchonInstalliert(null, "1.8.1"), false);
+
+// ── Claude und das Dashboard mit verschiedenen Fassungen ─────────────────────────────────
+const verbunden = (version) => ({ status: "connected", version });
+assert.equal(claudeFassung(verbunden("1.8.0")), "1.8.0");
+assert.equal(claudeFassung({ status: "disconnected", version: "1.8.0" }), "", "ein toter Herzschlag zählt nicht");
+assert.equal(claudeFassung({ status: "unknown", version: "1.8.0" }), "");
+assert.equal(claudeFassung(verbunden(null)), "", "ältere Programme schreiben keine Fassung: dann weiß PBP es nicht");
+assert.equal(claudeFassung(verbunden("kaputt")), "");
+assert.equal(claudeFassung(null), "");
+
+assert.equal(verbindungsAbweichung(basis, verbunden("1.8.0")), null, "gleiche Fassung: nichts zu sagen");
+assert.equal(verbindungsAbweichung({ ...basis, verfuegbar: false }, verbunden("1.7.0")), null, "ohne Installer-Layout kein Hinweis");
+assert.equal(verbindungsAbweichung(basis, verbunden(null)), null);
+assert.deepEqual(verbindungsAbweichung({ ...basis, laufend: "1.8.1", aktuell: "1.8.1" }, verbunden("1.8.0")),
+  { claude: "1.8.0", dashboard: "1.8.1", claudeAelter: true });
+assert.deepEqual(verbindungsAbweichung(basis, verbunden("1.8.1")), { claude: "1.8.1", dashboard: "1.8.0", claudeAelter: false });
+
+const neuerAlsClaude = { ...basis, laufend: "1.8.1", aktuell: "1.8.1" };
+h = updateHinweis(neuerAlsClaude, { mcp: verbunden("1.8.0") });
+assert.equal(h.id, "update-verbindung");
+assert.equal(h.dringend, true);
+assert.match(h.titel, /Claude arbeitet noch mit Version 1\.8\.0/);
+assert.match(h.text, /Version 1\.8\.1/);
+assert.match(h.text, /Claude Desktop komplett/);
+assert.deepEqual(h.aktionen.map((a) => a.art), ["update-optionen"]);
+
+h = updateHinweis(basis, { mcp: verbunden("1.8.1") });
+assert.equal(h.id, "update-verbindung");
+assert.match(h.titel, /Dieses Fenster läuft noch mit Version 1\.8\.0/);
+assert.match(h.text, /PBP Bewerbungs-Portal/);
+
+// Rangfolge: was gerade passiert oder gefragt wird, geht vor; „Neustart nötig“ nennt beides schon
+assert.equal(updateHinweis({ ...neuerAlsClaude, neustart_noetig: true }, { mcp: verbunden("1.8.0") }).id, "update-neustart");
+assert.equal(updateHinweis({ ...neuerAlsClaude, rueckgang: { von: "1.8.2", nach: "1.8.1" } }, { mcp: verbunden("1.8.0") }).id, "update-rueckgang");
+assert.equal(updateHinweis({ ...neuerAlsClaude, job: { status: "laeuft", version: "1.8.2", anteil: 0.3 } }, { mcp: verbunden("1.8.0") }).id, "update-laeuft");
+// vor dem Hinweis „neue Version“: der Zustand jetzt zählt mehr als eine Nachricht von draußen
+assert.equal(updateHinweis({ ...neuerAlsClaude, neu }, { mcp: verbunden("1.8.0") }).id, "update-verbindung");
+// wer „automatisch, still“ gewählt hat, bekommt keine Meldung
+assert.equal(updateHinweis({ ...neuerAlsClaude, stufe: "auto_still" }, { mcp: verbunden("1.8.0") }), null);
+// ohne Angabe über Claude bleibt alles wie vorher
+assert.equal(updateHinweis(neuerAlsClaude), null);
+assert.equal(updateHinweis({ ...neuerAlsClaude, neu }).id, "update");
 
 console.log("autoUpdate: ok");

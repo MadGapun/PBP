@@ -522,6 +522,7 @@ export default function DashboardPage() {
       ? { version: updateInfo.latest_version, url: updateInfo.release_url }
       : null,
     autoUpdate,
+    mcp: chrome.status?.mcp_connection,
     ollamaAngebot: false,
     einstiegFertig,
   });

@@ -43,7 +43,7 @@ export function tageSeit(iso, jetzt = new Date()) {
 /**
  * @param {object} lage
  *   seite, verbunden (true/false/null=unbekannt), hatProfil,
- *   quellenAktiv, letzteSucheAm (ISO), updateBekannt ({version, url}),
+ *   quellenAktiv, letzteSucheAm (ISO), updateBekannt ({version, url}), mcp (Verbindung zu Claude),
  *   ollamaAngebot (bool), einstiegFertig (bool)
  * @returns {null | {id, ton, titel, text, aktion}}
  */
@@ -63,7 +63,7 @@ export function hinweisFuer(lage, jetzt = new Date()) {
     // Der Einstieg auf dem Dashboard erklärt das selbst — kein zweiter Hinweis.
     return null;
   }
-  const upd = updateHinweis(lage.autoUpdate, { releaseUrl: lage.updateBekannt?.url });
+  const upd = updateHinweis(lage.autoUpdate, { releaseUrl: lage.updateBekannt?.url, mcp: lage.mcp });
   if (upd?.dringend) return upd;
   if (!lage.quellenAktiv) {
     return {

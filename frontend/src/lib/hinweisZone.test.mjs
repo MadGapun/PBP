@@ -71,6 +71,14 @@ assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(
 // Der Rückfall geht allem vor, auch einer stillen Stufe.
 assert.equal(hinweisFuer({ ...ohneAlt, autoUpdate: au({ stufe: "auto_still", rueckgang: { von: "1.8.1", nach: "1.8.0" } }) }, jetzt).id, "update-rueckgang");
 
+// Arbeitet Claude noch mit der älteren Fassung, sagt die Zone es: vor "Quellen" und "Suche", hinter der fehlenden Verbindung.
+const claudeAlt = { status: "connected", version: "1.8.0" };
+const neuerLaeuft = au({ laufend: "1.8.1", aktuell: "1.8.1" });
+assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 0, autoUpdate: neuerLaeuft, mcp: claudeAlt }, jetzt).id, "update-verbindung");
+assert.notEqual(hinweisFuer({ ...ohneAlt, autoUpdate: neuerLaeuft, mcp: { status: "connected", version: "1.8.1" } }, jetzt)?.id, "update-verbindung", "gleiche Fassung: kein Hinweis von hier");
+assert.equal(hinweisFuer({ ...ohneAlt, verbunden: false, autoUpdate: neuerLaeuft, mcp: claudeAlt }, jetzt).id, "verbindung");
+assert.notEqual(hinweisFuer({ ...ohneAlt, autoUpdate: neuerLaeuft, mcp: { status: "disconnected", version: "1.8.0" } }, jetzt)?.id, "update-verbindung");
+
 // Gibt es das Auto-Update hier nicht (aus dem Quellcode, macOS, Linux), gilt der bisherige Hinweis.
 const alt = { ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(1), updateBekannt: { version: "1.8.1", url: "https://example.com" } };
 assert.equal(hinweisFuer({ ...alt, autoUpdate: au({ verfuegbar: false }) }, jetzt).id, "update");
