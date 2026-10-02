@@ -10,6 +10,8 @@ Rücksicht auf Groß-/Kleinschreibung, dieselben Orte wie der Installer plus die
 ehrlicher Hinweis, wenn der Start nicht gelingt. Alles Äußere wird hereingereicht; kein Test
 berührt ein echtes Claude.
 """
+import ntpath
+import posixpath
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -140,11 +142,21 @@ def test_1149_ein_ausdrueckliches_ja_beendet_und_startet_claude(antwort):
     ((r"C:\Program Files (x86)", "Claude", "Claude.exe"), "x86"),
 ])
 def test_1149_alle_orte_des_installers_werden_gefunden(teile, erwartet):
-    import os
-    pfad = os.path.join(*teile)
+    pfad = ntpath.join(*teile)
     r = Rahmen(antwort="j", dateien=[pfad])
     assert r.aufruf("win32") == "beendet_und_gestartet"
     assert r.starts == [[pfad]], erwartet
+
+
+def test_1149_windows_pfade_haben_auf_jedem_system_dieselbe_schreibweise(monkeypatch):
+    """Die Orte sind Windows-Pfade. Die CI laeuft unter Linux: dort setzte `os.path.join` sie mit "/" zusammen,
+    der Fund scheiterte, und die Frage endete in "beendet_ohne_start" (gefunden, als die GitHub-Pruefung rot wurde).
+    Das Modul sieht hier ein `os` mit POSIX-Pfaden - so wie unter Linux."""
+    monkeypatch.setattr(cn, "os", SimpleNamespace(path=posixpath))
+    erwartet = r"C:\Users\Test\AppData\Local\Programs\claude-desktop\Claude.exe"
+    umgebung = {"LOCALAPPDATA": r"C:\Users\Test\AppData\Local"}
+    assert cn.windows_pfad(umgebung, lambda p: p == erwartet) == erwartet
+    assert cn.windows_pfad(umgebung, lambda p: False) is None
 
 
 def test_1149_die_store_fassung_wird_ueber_das_paketsystem_gestartet():

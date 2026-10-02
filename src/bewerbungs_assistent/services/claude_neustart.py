@@ -19,6 +19,7 @@ damit die Tests ohne ein echtes Claude laufen.
 """
 from __future__ import annotations
 
+import ntpath
 import os
 import subprocess
 import sys
@@ -61,12 +62,16 @@ def claude_laeuft(plattform: str, run=subprocess.run) -> bool:
 
 
 def windows_pfad(umgebung, ist_datei=os.path.isfile) -> str | None:
-    """Der erste Ort, an dem eine `Claude.exe` liegt."""
+    """Der erste Ort, an dem eine `Claude.exe` liegt.
+
+    Es sind Windows-Pfade, also mit `ntpath` zusammengesetzt: auf Windows ist das dasselbe wie `os.path`,
+    auf einem anderen System (die CI laeuft unter Linux) entstuende sonst "C:\\...\\Local/Programs/...".
+    """
     for teile in WINDOWS_ORTE:
         wurzel = umgebung.get(teile[0], "")
         if not wurzel:
             continue
-        pfad = os.path.join(wurzel, *teile[1:])
+        pfad = ntpath.join(wurzel, *teile[1:])
         if ist_datei(pfad):
             return pfad
     return None
