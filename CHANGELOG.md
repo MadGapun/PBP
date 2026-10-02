@@ -33,6 +33,106 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.150] - 2026-10-02 — Der Stellen-Tab blendet nichts mehr still aus, der Modell-Download zeigt Fortschritt, Kennungen mit Vorsilbe gelten überall, JobSpy 1.2
+
+Hotfix für v1.7.149. Der Stellen-Tab zeigte zwei von vier aktiven Stellen, obwohl kein Filter eingeschaltet war (#1158) — ein eingebautes „Punkte ≥ 0“ verbarg jede Stelle mit negativem Stand, ohne dass es jemand sagte. Dazu: der Download eines KI-Modells zeigt einen Fortschritt statt nach zehn Minuten „fehlgeschlagen“ zu melden (#1154), jedes Werkzeug versteht die Kennungen mit Vorsilbe, die PBP selbst ausgibt (#1148), die Rückfrage beim Neustart von Claude Desktop hat die Vorgabe „Nein“ (#1149) und PBP verlangt `python-jobspy` ab 1.2 (#1159). Kein Schema-Eingriff.
+
+**Wichtig zu wissen:**
+
+- **Der Stellen-Tab zeigt alle offenen Stellen, solange du keinen Filter setzt.** Eine Stelle mit negativem Punktestand (ein Abzug für Entfernung oder Gehalt, kein Urteil über die Passung) fiel bisher still heraus. Beim Öffnen und bei „Filter zurücksetzen“ gilt jetzt „keine Einschränkung“; Aussortierte stehen im eigenen Tab, Stellen mit laufender Bewerbung sind keine offenen Stellen. **Das ändert, was du beim Öffnen siehst:** der Rahmenfilter („Rahmen passt nicht ausblenden“) und der Schwellenfilter („unter der Schwelle ausblenden“) sind beim Öffnen aus (bisher an). Wer sie will, schaltet sie ein; die Auswahl bleibt nach dem Neuladen erhalten.
+- **Der gelbe Streifen sagt, warum etwas fehlt.** Er nennt jeden wirksamen Filter mit der Zahl der Stellen, die er verbirgt („Punkte ab 0 (2) · beworbene ausgeblendet (1)“), und die Stellen, die mehrere Filter zugleich verbergen. Das Feld „Punkte ≥“ nimmt auch 0 und negative Werte an.
+- **Die Entfernung stimmt auch bei „(hybrid), remote möglich“ im Ort.** Ein Ort wie „Hamburg (hybrid), remote möglich“ landete beim Kartendienst bei Mainz (410 statt 20 Kilometer) und zog die beste Stelle des Tages mit einem Abzug unter null. Jetzt wird der Ortsname herausgelöst, und bereits gespeicherte Entfernungen mit solchem Zusatz rechnet PBP nach der nächsten Suche neu.
+- **Der Download eines KI-Modells zeigt einen Fortschritt** (Einstellungen › Lokale KI): Prozent, Größe und ein Satz, was gerade passiert. Er bricht nicht mehr nach zehn Minuten ab.
+- **Beim Start über die Desktop-Verknüpfung fragt PBP, ob Claude Desktop neu gestartet werden soll, mit der Vorgabe „Nein“.** Ein bloßes Enter beendete Claude bisher gewaltsam (nicht abgeschickter Text ging verloren).
+- **PBP verlangt jetzt `python-jobspy` ab 1.2.** Bestehende Installationen ziehen beim Drüberinstallieren nach. Google Jobs liefert mit 1.2 keine Stellen mehr (siehe Known Issues).
+
+### Added
+
+- **Zahl je Filter und „offene Stellen“ in der Stellenliste** (#1158). `GET /api/jobs` antwortet zusätzlich mit `offen` (Stellen ohne laufende Bewerbung), `offen_verborgen`, `beworbene_anzahl` und `verborgen` (je wirksamem Filter die Zahl der Stellen, die er allein verbirgt, gezählt über die Stellen, die alle anderen Filter passieren). Die alten Felder bleiben für andere Aufrufer.
+- **Der Filterzustand der Stellenliste bleibt erhalten** (#1158 Punkt 6). Er liegt im Speicher des Browsers (`lib/stellenFilter.js`); Suchtext und Ansicht (aktiv/aussortiert) werden bewusst nicht gemerkt, sonst verkürzt ein vergessener Suchtext die Liste beim nächsten Öffnen unbemerkt.
+- **Modell-Download als Hintergrund-Job** (#1154 Punkt 1, `services/modell_download.py`). `POST /api/llm/pull` antwortet sofort mit einer Kennung; der Job liest Ollamas Stream, rechnet Prozent und einen deutschen Satz aus, die Oberfläche fragt ihn ab (`lib/modellDownload.js`). Es gibt keine Gesamt-Zeitgrenze mehr, nur eine Stillstandsgrenze von 180 Sekunden ohne Zeile.
+- **`services/claude_neustart.py`** (#1149 Punkt 10): Prüfen, ob Claude Desktop läuft, und Neustart über dieselben Orte wie im Installer, dazu die Store-Fassung.
+- **`entfernungen_bereinigen`** (#1158 Punkt 8, `services/eigener_standort.py`): heilt nach jedem Suchlauf gespeicherte Entfernungen von Stellen mit Ortszusatz — höchstens 40 Orte je Lauf, jeder Ort je Programmstart einmal, von Hand gesetzte Werte bleiben, Ersatz erst ab einem Kilometer Abweichung, Fahrstrecken zum falschen Ort werden verworfen.
+
+### Changed
+
+- **Die Voreinstellung des Stellen-Tabs ist „keine Einschränkung“** (#1158 Punkte 1, 4, 5). Mindestpunkte sind leer statt 0, Rahmen- und Schwellenfilter aus; „Beworbene ausblenden“ bleibt an (eine Stelle mit laufender Bewerbung ist keine offene Stelle). Die Top-Stellen auf dem Dashboard behalten Rahmen- und Schwellenfilter — sie sind eine Auswahl der besten Treffer und behaupten nicht, die Stellenliste zu sein.
+- **Tab „Aktive (n)“ und die Zahl neben der Liste zählen offene Stellen** (#1158 Punkt 7), wie der Zähler im Menü es schon tat; vorher zählte der Tab die Stellen mit Bewerbung mit. Nach „Filter zurücksetzen“ nennen Menü, Tab und Liste dieselbe Zahl.
+- **Gefragt und gemerkt wird der bereinigte Ort** (#1158 Punkt 8). Bis v1.7.149 ging der Rohtext zuerst an den Kartendienst; die Bereinigung lief nur als letzter Versuch. Ein Text ohne Ort („Remote möglich“, „Homeoffice möglich“, „Deutschland“) wird nie gefragt — die Entfernung bleibt dann unbekannt statt erfunden. Ein angehängtes Land („…, Germany“) ändert die Abfrage nicht, eine früher gemerkte Antwort gilt weiter (sonst müsste jeder bekannte Ort einmal neu angefragt werden). Die Laufkarte der Suche zählt ihre „verschiedenen Orte“ mit demselben Schlüssel.
+- **Eine ungültige Untergrenze wird benannt** (#1158): „nan“ und „inf“ lassen alles durch oder verbergen alles; die Liste antwortet jetzt mit einer Fehlermeldung statt eines stillen Ergebnisses.
+- **`python-jobspy>=1.2`** in `pyproject.toml` (beide Extras) und `INSTALLIEREN.bat` (#1159).
+
+### Fixed
+
+- **Der Stellen-Tab blendete Stellen mit negativem Punktestand still aus** (#1158 Punkte 1 bis 7). Gemessen am 02.10.2026: zwei von vier aktiven Stellen, Filter alle aus. Ursachen: die Vorgabe `min_score = 0.0` in `services/stellen_liste.py`; das Feld „Punkte ≥“ schickte nur Werte über 0 ab (`Number(minScore||0) > 0`), -100 tippen bewirkte nichts; der Streifen nannte „Punkte ab 0“ nie; die Seite startete mit eingeschaltetem Rahmen- und Schwellenfilter, und „Filter zurücksetzen“ stellte genau diesen Zustand her; der Filterzustand ging beim Neuladen verloren. Geprüft mit Tests (Punktestand -100, 0 und 100 erscheinen alle nach dem Zurücksetzen; Menü = Tab = Liste) und im echten Browser gegen eine isolierte Demo.
+- **Die Entfernung eines Orts mit Zusatz war falsch** (#1158 Punkt 8, siehe oben) — und blieb es im Bestand: die Korrektur des Dienstes heilt nur neue Rechnungen, deshalb die Heilung nach dem Suchlauf.
+- **Kennungen mit Vorsilbe (`APP-…`, `JOB-…`, `SKL-…`) verstand nur ein Teil der Werkzeuge** (#1148 Punkt 9). PBP gibt sie aus (`profil_zusammenfassung`, `hash_typed`), aber `meetings_anzeigen` und `emails_anzeigen` antworteten „Bewerbung nicht gefunden“, `todos_anzeigen` und `skill_zeitraeume_anzeigen` leer, `fit_analyse(JOB-…)` wies ab. Statt 250 Werkzeuge einzeln anzufassen, entfernt die Middleware in `server.py` die Vorsilbe an einer Stelle, bevor ein Werkzeug die Argumente sieht. Eine Kennung der falschen Art (`DOC-…` für `bewerbung_id`) wird mit einer deutschen Meldung abgewiesen, die sagt, was erwartet wurde. Ein Test hält jeden Parameter mit Kennungs-Namen gegen die Tabelle (neue Parameter lösen den Test aus, bis entschieden ist, ob es eine typisierte Form gibt).
+- **Der Download eines KI-Modells hing in der Oberfläche und brach nach zehn Minuten ab** (#1154 Punkt 1). Ein einziger Aufruf wartete auf das Ende (`stream: false`, Zeitgrenze 600 s); die Oberfläche zeigte nur „Lädt…“ und meldete „Download fehlgeschlagen“, obwohl Ollama weiterlud.
+- **Ein bloßes Enter beendete Claude Desktop gewaltsam** (#1149 Punkt 10). `start_dashboard.py` fragte „Claude jetzt neu starten? [J/n]“ mit Vorgabe Ja und beendete Claude mit `taskkill /F`; die Prüfung auf den Prozessnamen unterschied Groß- und Kleinschreibung (wo `tasklist` den Namen anders schrieb, kam die Frage nie); neu gestartet wurde nur aus zwei festen Pfaden, sonst schweigend gar nicht. Jetzt: Vorgabe Nein, die Frage sagt, was verloren geht, derselbe Suchpfad wie der Installer plus Store-Fassung, und gelingt der Start nicht, steht es im Fenster.
+- **Ein ausgefallenes JobSpy-Board meldete „ok mit 0 Treffern“** (#1159). Ab 1.2.0 wirft JobSpy bei einem ausgefallenen Board keine Ausnahme mehr, sondern schreibt ins Protokoll. PBP liest die Fehlermeldungen der vier JobSpy-Protokolle während der Abfrage mit; sind alle Abfragen gescheitert und kam keine Stelle, endet die Quelle mit einem Fehler (und geht in den automatischen Rückzug), statt grün zu bleiben.
+- **JobSpy-Gehälter wurden ohne Zeitraum und Währung übernommen** (#1159). Mit 1.2.0 liefert Indeed Deutschland Beträge. PBP rechnet jetzt nach dem Zeitraum auf ein Jahr um (stündlich ×2080, täglich ×260, wöchentlich ×52, monatlich ×12) und nur in Euro; ein unbekannter Zeitraum oder eine fremde Währung ergibt „kein Gehalt“ statt einer falschen Zahl.
+- **Zwei Versionen des Stilarchivs, die innerhalb von 15,6 ms gespeichert wurden, kamen in zufälliger Reihenfolge zurück.** Die Windows-Uhr unter Python 3.12 (die der Installer einrichtet) tickt nur so oft; unter Python 3.13 fiel das nie auf. Gefunden, weil ein Lauf der Suite in einer frischen Python-3.12-Umgebung genau einen Test rot meldete. Jetzt entscheidet bei gleichem Zeitstempel die Anlage-Reihenfolge.
+
+### Known Issues
+
+- **Eine ausdrücklich gesetzte Voreinstellung der Stellenliste fehlt noch** (#1158 Punkt 5): beim Öffnen gilt der zuletzt eingestellte Zustand, nicht ein Standard, den du in den Such-Optionen festlegst.
+- **Google Jobs liefert mit JobSpy 1.2 nichts mehr** („Google returned no job data“; Google braucht jetzt JavaScript). Die Quelle `jobspy_google` meldet das als Fehler und geht in den automatischen Rückzug; ob sie in der Auswahl als „derzeit ohne Wirkung“ gekennzeichnet oder herausgenommen wird, ist offen (#1159).
+- Die Parameternamen der Werkzeuge wechseln weiter (`company`/`firma`, `document_id`/`dokument_id`, `stellen_hash`/`job_hash`) — Rest von #1148 Punkt 9. Offen aus #1148 sind außerdem: die Zählerstände in Wiki und Dokumenten (4), der Rest der „lesenden“ Werkzeuge, die beim Lesen schreiben (5), die Größe der Antworten (12) und die veralteten Weiterleitungen (13).
+- Aus #1149 sind offen: Ordnernamen mit `!` oder `'` (Punkt 8), der Deinstaller (9), veraltete Zahlen und Texte (12). Die Mac-Punkte (5 und 6) sind nur mit Attrappen nachgestellt, nicht auf einem echten Mac.
+- Die Zuordnung der KI-Schalter sperrt nur elf Werkzeuge; lesende Werkzeuge wie `dokument_lesen` oder `emails_anzeigen` liefern bei ausgeschaltetem Schalter weiter (#1147 Punkt 3; Entscheidung der Projektleitung).
+- Die Aufräum-Runde („Auto-Engine“) hat weiter keinen automatischen Auslöser (#1139; wartet auf die Entscheidung, ob täglich oder per Knopf).
+
+### Gemessen
+
+265 neue Tests, drei veraltete ersetzt (6.977 gesamt, gezählt im sauberen Klon ohne Entwicklungsumgebung; v1.7.149 hatte 6.714): 62 für die Kennungen mit Vorsilbe (#1148 Punkt 9), 41 für den Claude-Neustart (#1149 Punkt 10), 32 für den Modell-Download (#1154 Punkt 1) plus eine Node-Datei, 43 für JobSpy 1.2 (#1159), 83 für den Stellen-Tab, den Ort und die Heilung gespeicherter Entfernungen (#1158; dazu eine Node-Datei, jetzt in der CI) und 4 für die Reihenfolge im Stilarchiv. Die drei ersetzten Tests prüften den alten Download, der in einem einzigen Aufruf wartete. Fünf ältere Tests, die den fehlerhaften Zustand festhielten (Mindestpunkte „0“ als Vorgabe, Rahmenfilter als Vorgabe), wurden bewusst angepasst.
+
+Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): 15 für die Kennungen, 27 für den Claude-Neustart, 18 plus 12 (Node) für den Modell-Download, 23 für JobSpy, 69 für den Stellen-Tab (50 plus 19). Die Gegenprobe fand drei Lücken, die danach geschlossen wurden: ein Eingriff beim Lesen des gemerkten Filterzustands blieb grün (der Test prüfte nur, dass die Zeichen im Quelltext stehen), der Stand des Modell-Downloads wurde nach dem Aufruf des Endpunkts nicht aufgefrischt, und bei JobSpy zählte der Sammler eine Warnung bei leerer Antwort mit.
+
+Im echten Browser gegen eine isolierte Demo (Chromium, ohne Fenster): 18 Prüfungen — Start ohne Einschränkung mit den Ständen 100, 0, -21 und -100, „-50“ und „0“ ins Feld getippt, „Filter zurücksetzen“, Neuladen mit gemerktem Wert, keine Fehler im Browser. Die volle Suite lief zusätzlich in einer frischen Python-3.12-Umgebung mit JobSpy 1.2.0 (die Fassung, die der Installer einrichtet); dabei fiel die Reihenfolge im Stilarchiv auf (siehe Fixed).
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.150.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.150.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.150 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.149] - 2026-10-02 — Ein Startfehler hinterlässt eine Spur, das Update sichert wirklich, ein fremdes Programm auf dem Port wird erkannt, die Stellenliste bleibt schnell
 
 Hotfix für v1.7.148. Acht Dinge an Installer und Start, bei denen PBP etwas anderes meldete, als geschah (#1149): eine „Sicherung“, die unvollständig war, ein „läuft bereits“, das ein fremdes Programm meinte, ein grüner Abschluss ohne Claude Desktop, ein Startfehler ohne eine Zeile im Protokoll. Dazu die Stellenliste, die mit jeder aussortierten Stelle etwas langsamer wurde (#1154). Kein Schema-Eingriff.
