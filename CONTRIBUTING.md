@@ -56,7 +56,7 @@ hotfix/v1.7.N   → Die stabile Linie (1.7.x, "Latest" auf GitHub)
 feature/*       → Einzelne Features/Bugfixes, werden nach main gemergt
 ```
 
-- **Stabile Releases** (z.B. `v1.7.149`) entstehen auf einem Zweig `hotfix/v1.7.N`, der vom Tag
+- **Stabile Releases** (z.B. `v1.7.150`) entstehen auf einem Zweig `hotfix/v1.7.N`, der vom Tag
   der vorigen stabilen Version abzweigt, und werden dort getaggt → GitHub "Latest Release"
 - **Beta-Releases** (z.B. `v1.8.0-beta.15`) werden auf `main` getaggt → GitHub "Pre-release"
 - **Ein Fehler, der auch die stabile Version betrifft**, gehört zuerst in die 1.7-Linie

@@ -13,7 +13,7 @@ PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
-Aktuelle Version **v1.7.149** · letztes Release am 2. Oktober 2026 · 6714 automatische Tests · wöchentliche Releases
+Aktuelle Version **v1.7.150** · letztes Release am 2. Oktober 2026 · 6714 automatische Tests · wöchentliche Releases
 
 Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
 
@@ -21,7 +21,7 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
-[![Stable](https://img.shields.io/badge/Stable-v1.7.149-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.7.150-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-6714-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -196,7 +196,7 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 ### Linux
 
 ```bash
-git clone --branch v1.7.149 --depth 1 https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+git clone --branch v1.7.150 --depth 1 https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
 ```
 
 > 📖 **Detaillierte Anleitungen, Claude Desktop Config und Fehlerbehebung:** [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation)
