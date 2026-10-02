@@ -16,6 +16,7 @@ von PyPI, nichts wird gebaut oder ausgefuehrt, was nicht ohnehin dazugehoert.
 """
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -157,8 +158,9 @@ def bereitstellen(fehlende_angaben, ziel, *, python=None, runner=None, freier_pl
               "--only-binary=:all:", "--no-input", "--disable-pip-version-check", "--no-warn-script-location",
               *fehlende_angaben]
     run = runner or subprocess.run
+    umgebung = {**os.environ, "PYTHONIOENCODING": "utf-8"}     # pip nennt den Zielpfad; der Benutzername darin ist nicht immer ASCII
     try:
-        r = run(befehl, capture_output=True, text=True, timeout=PIP_TIMEOUT_S,
+        r = run(befehl, capture_output=True, encoding="utf-8", errors="replace", timeout=PIP_TIMEOUT_S, env=umgebung,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except subprocess.TimeoutExpired as exc:
         shutil.rmtree(ziel, ignore_errors=True)

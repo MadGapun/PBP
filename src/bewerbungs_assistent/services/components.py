@@ -254,7 +254,7 @@ def _binary_version(binary: str) -> str:
     """Liest die Versionszeile eines Tesseract-Binaries (leer bei Fehler)."""
     try:
         proc = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True,
+            [binary, "--version"], capture_output=True, text=True, errors="replace",
             timeout=15, **_SUBPROCESS_FLAGS,
         )
         first = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
@@ -487,7 +487,7 @@ def install_component(db, name: str,
             progress(10, "Chromium wird geladen (playwright install)")
             proc = subprocess.run(
                 [sys.executable, "-m", "playwright", "install", "chromium"],
-                capture_output=True, text=True, timeout=900,
+                capture_output=True, text=True, errors="replace", timeout=900,
                 **_SUBPROCESS_FLAGS,
             )
             if proc.returncode != 0:
@@ -561,7 +561,7 @@ def install_component(db, name: str,
             # (komponente_pfad_setzen / Settings).
             proc = subprocess.run(
                 [str(setup_path), "/S", f"/D={target_dir}"],
-                timeout=900, capture_output=True, text=True,
+                timeout=900, capture_output=True, text=True, errors="replace",
                 **_SUBPROCESS_FLAGS,
             )
             if proc.returncode != 0:
@@ -719,7 +719,7 @@ def available_languages(db) -> list[str]:
     try:
         env = _ocr_env()
         proc = subprocess.run(
-            [binary, "--list-langs"], capture_output=True, text=True,
+            [binary, "--list-langs"], capture_output=True, text=True, errors="replace",
             timeout=20, env=env, **_SUBPROCESS_FLAGS,
         )
         langs = []

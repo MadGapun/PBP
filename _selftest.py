@@ -1,6 +1,14 @@
 """Schnelltest: Kann der Bewerbungs-Assistent importiert werden?"""
 import sys, os, tempfile, shutil
 
+# Die Ausgabe nennt den Programmpfad. Enthaelt der ein Zeichen, das die Zeichentabelle des Rechners nicht kennt (Benutzername
+# mit »ł«, »ş«, griechischen oder kyrillischen Buchstaben), darf das Drucken den Test nicht zum Absturz bringen.
+for _strom in (sys.stdout, sys.stderr):
+    try:
+        _strom.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 # src-Verzeichnis hinzufuegen
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # Zusaetzliche Pakete einer Fassung (Auto-Update, #1093) liegen in `site`; sie kommen NACH dem Programm in den Pfad

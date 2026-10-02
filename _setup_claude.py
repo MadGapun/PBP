@@ -236,7 +236,18 @@ def config_schreiben(cp, python_exe, src_dir, data_dir):
     return True
 
 
+def _ausgabe_absichern():
+    """Die Ausgabe nennt Pfade, und die tragen den Benutzernamen. Geht sie in eine Datei (Installer-Protokoll), gilt die Zeichentabelle
+    des Rechners; ein Zeichen ausserhalb davon (ł, ş, griechisch) darf das Drucken nicht zum Absturz bringen (L44)."""
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main():
+    _ausgabe_absichern()
     # Projektverzeichnis = wo dieses Script liegt
     project_dir = os.path.dirname(os.path.abspath(__file__))
     config_paths = get_claude_config_paths()

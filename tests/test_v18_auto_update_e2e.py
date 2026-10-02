@@ -209,6 +209,31 @@ def test_eine_fassung_mit_importfehler_fuehrt_im_selben_prozess_zurueck_auf_die_
         assert "1.8.1" in zustand.gescheiterte_fassungen(app)
 
 
+# Benutzerordner mit Leerzeichen, Umlauten, Apostroph und Klammern sind in Deutschland Alltag (z. B. »Ölmühle O'Neill (Büro)«).
+SCHWIERIGER_PFAD = "Ölmühle O'Neill (Büro) Größe ß"
+
+
+def test_programm_und_daten_in_einem_pfad_mit_umlauten_und_leerzeichen_starten_und_fallen_zurueck(tmp_path, quellen):
+    basis = tmp_path / SCHWIERIGER_PFAD
+    (basis / "Programm Ordner").mkdir(parents=True)
+    app = programmordner(basis / "Programm Ordner", quellen, "1.8.0", "1.8.1")
+    fassung_kaputt_machen(app, "1.8.1")
+    d = Dashboard(app, basis / "Daten für Ärger", basis)
+    try:
+        gesund = d.warten()
+        assert gesund["pbp_version"] == "1.8.0", "der Rueckfall findet die vorige Fassung auch in diesem Pfad"
+        assert (app / "aktuell.txt").read_text(encoding="utf-8").strip() == "1.8.0"
+        s = status(app)
+        assert s["gescheitert"] == ["1.8.1"] and "Testdefekt" in s["rueckgang"]["grund"]
+        if sys.platform == "win32":
+            au = http_json(d.port, "/api/auto-update")
+            assert au["verfuegbar"] is True and au["laufend"] == "1.8.0"
+            from bewerbungs_assistent.services.auto_update import aufraeumen
+            assert aufraeumen.belegungen(app, "1.8.0", aufraeumen=False), "die Belegungsmarke liegt im Versionsordner"
+    finally:
+        d.beenden()
+
+
 def test_ohne_vorige_fassung_gibt_es_keinen_rueckfall_und_der_fehler_bleibt_sichtbar(tmp_path, quellen, dashboard):
     app = programmordner(tmp_path, quellen, "1.8.1")
     fassung_kaputt_machen(app, "1.8.1")
@@ -224,7 +249,8 @@ def test_ohne_vorige_fassung_gibt_es_keinen_rueckfall_und_der_fehler_bleibt_sich
 
 # ══ Der MCP-Server ueber den Startbaustein ═══════════════════════════════════════════════
 
-def test_der_mcp_server_antwortet_ueber_den_startbaustein_und_stoert_die_standardausgabe_nicht(tmp_path, quellen):
+@pytest.mark.parametrize("basisname", ["", SCHWIERIGER_PFAD], ids=["einfacher_pfad", "umlaute_und_leerzeichen"])
+def test_der_mcp_server_antwortet_ueber_den_startbaustein_und_stoert_die_standardausgabe_nicht(tmp_path, quellen, basisname):
     """Claude Desktop startet `python -m bewerbungs_assistent_boot` und spricht JSON-RPC ueber stdin/stdout. Schreibt der
     Startbaustein irgendetwas anderes auf die Standardausgabe, ist das Gespraech kaputt: jede Zeile dort muss JSON sein.
 
@@ -234,8 +260,10 @@ def test_der_mcp_server_antwortet_ueber_den_startbaustein_und_stoert_die_standar
     import queue
     import threading
 
-    app = programmordner(tmp_path, quellen, "1.8.0")
-    daten = tmp_path / "daten"
+    basis = tmp_path / basisname if basisname else tmp_path
+    basis.mkdir(exist_ok=True)
+    app = programmordner(basis, quellen, "1.8.0")
+    daten = basis / "daten"
     assert str(tmp_path) in str(daten)
     env = {k: v for k, v in os.environ.items() if k not in ("PBP_APP_DIR", "PBP_FASSUNG", "BA_DATA_DIR", "PYTHONPATH")}
     env.update(BA_DATA_DIR=str(daten), BA_DASHBOARD_PORT=str(freier_port()), PYTHONPATH=str(app / "boot"),
@@ -243,7 +271,7 @@ def test_der_mcp_server_antwortet_ueber_den_startbaustein_und_stoert_die_standar
                PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     p = subprocess.Popen([PYTHON, "-m", "bewerbungs_assistent_boot"], env=env, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE, cwd=str(tmp_path), creationflags=flags)
+                         stderr=subprocess.PIPE, cwd=str(basis), creationflags=flags)
     aus, fehlerzeilen = queue.Queue(), []
 
     def leser(strom, ablage):

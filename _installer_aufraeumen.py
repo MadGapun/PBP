@@ -167,7 +167,18 @@ def loeschen_starten(basis, fassung: str, programm, daten) -> dict:
     return p
 
 
+def _ausgabe_absichern():
+    """Die Ausgabe nennt Pfade, und die tragen den Benutzernamen. Geht sie in eine Datei (Installer-Protokoll), gilt die Zeichentabelle
+    des Rechners; ein Zeichen ausserhalb davon (ł, ş, griechisch) darf das Drucken nicht zum Absturz bringen (L44)."""
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main(argv=None) -> int:
+    _ausgabe_absichern()
     a = list(sys.argv[1:] if argv is None else argv)
     if len(a) == 2 and a[0] == "einstellung":
         print(einstellung(a[1]))

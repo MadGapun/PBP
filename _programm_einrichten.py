@@ -184,7 +184,18 @@ def einrichten(basis, app) -> dict:
     return bericht
 
 
+def _ausgabe_absichern():
+    """Die Ausgabe nennt Pfade, und die tragen den Benutzernamen. Geht sie in eine Datei (Installer-Protokoll), gilt die Zeichentabelle
+    des Rechners; ein Zeichen ausserhalb davon (ł, ş, griechisch) darf das Drucken nicht zum Absturz bringen (L44)."""
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main(argv=None) -> int:
+    _ausgabe_absichern()
     argv = list(sys.argv[1:] if argv is None else argv)
     if len(argv) != 2:
         print("Aufruf: python _programm_einrichten.py <entpackter Ordner> <Programmordner>", file=sys.stderr)

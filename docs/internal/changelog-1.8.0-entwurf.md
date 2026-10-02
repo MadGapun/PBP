@@ -62,6 +62,9 @@ Einträgen darunter.
 ### Fixed
 
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- Auto-Update und Komponenten kommen mit Benutzerordnern zurecht, deren Name Umlaute, Leerzeichen oder fremde Buchstaben (ł, ş, griechisch) enthält:
+  der Selbsttest vor dem Umschalten und die Paket-Einrichtung lesen die Ausgabe als UTF-8 statt in der Zeichentabelle des Rechners; vorher konnte
+  ein solcher Pfad den Selbsttest scheitern lassen.
 - Eine Absage an der Bewerbung beim Vermittler fehlte in der Historie des Endkunden (#1080).
 
 ### Known Issues

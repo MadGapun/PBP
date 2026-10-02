@@ -84,10 +84,14 @@ def selbsttest_starten(ordner: Path, *, python=None, runner=None) -> None:
         raise UpdateFehler("selbsttest", detail="_selftest.py fehlt im Update")
     umgebung = {k: v for k, v in os.environ.items() if k not in ("BA_DATA_DIR", "PBP_APP_DIR", "PBP_FASSUNG", "PYTHONPATH")}
     umgebung["PYTHONDONTWRITEBYTECODE"] = "1"
+    # Die Ausgabe enthaelt den Programmpfad, und der traegt den Benutzernamen. Beide Seiten sprechen deshalb UTF-8 statt der
+    # Zeichentabelle des Rechners: sonst scheitert der Selbsttest an einem »ł« im Pfad (oder die Ausgabe laesst sich nicht lesen).
+    umgebung["PYTHONIOENCODING"] = "utf-8"
     run = runner or subprocess.run
     try:
-        r = run([python or sys.executable, str(skript)], capture_output=True, text=True, timeout=SELBSTTEST_TIMEOUT_S,
-                env=umgebung, cwd=str(ordner), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        r = run([python or sys.executable, str(skript)], capture_output=True, encoding="utf-8", errors="replace",
+                timeout=SELBSTTEST_TIMEOUT_S, env=umgebung, cwd=str(ordner),
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except subprocess.TimeoutExpired as exc:
         raise UpdateFehler("selbsttest", detail="Zeitgrenze") from exc
     except Exception as exc:
