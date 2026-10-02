@@ -54,6 +54,7 @@ set "GETPIP_URL=https://bootstrap.pypa.io/get-pip.py"
 if not exist "%SRC_DIR%" goto :err_not_extracted
 if not exist "%BASEDIR%\_setup_claude.py" goto :err_setup_helper_missing
 if not exist "%BASEDIR%\_selftest.py" goto :err_setup_helper_missing
+if not exist "%BASEDIR%\_sicherung_vor_update.py" goto :err_setup_helper_missing
 if not exist "%BASEDIR%\start_dashboard.py" goto :err_setup_helper_missing
 
 :: -------------------------------------------
@@ -103,8 +104,11 @@ echo.
 :: Versions-Check: Ist die aktuelle Version schon installiert?
 :: -------------------------------------------
 echo [DEBUG] Versions-Check... >> "%LOGFILE%"
-if exist "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" (
-    for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" 2^>nul') do set "INSTALLED_VER=%%~v"
+:: v1.7.149 (#1149): gelesen wurde %DATA_DIR%\src, installiert wird aber nach %APP_DIR%\src (seit
+:: v1.5.0, #297). INSTALLED_VER blieb deshalb immer leer: "Update erkannt" und "bereits
+:: installiert" erschienen nie, und die Frage unten kannte nur "j", nicht "ja".
+if exist "%APP_DIR%\src\bewerbungs_assistent\__init__.py" (
+    for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%APP_DIR%\src\bewerbungs_assistent\__init__.py" 2^>nul') do set "INSTALLED_VER=%%~v"
     for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%SRC_DIR%\bewerbungs_assistent\__init__.py" 2^>nul') do set "NEW_VER=%%~v"
     if defined INSTALLED_VER if defined NEW_VER if "!INSTALLED_VER!"=="!NEW_VER!" (
         echo [INFO] Version !INSTALLED_VER! ist bereits installiert >> "%LOGFILE%"
@@ -112,7 +116,8 @@ if exist "%DATA_DIR%\src\bewerbungs_assistent\__init__.py" (
         echo  Version !INSTALLED_VER! ist bereits installiert.
         echo.
         set /p FORCE_INSTALL="  Trotzdem neu installieren? ^(j/n^): "
-        if /i "!FORCE_INSTALL!" neq "j" (
+        set "FORCE_INSTALL=!FORCE_INSTALL:~0,1!"
+        if /i "!FORCE_INSTALL!" neq "j" if /i "!FORCE_INSTALL!" neq "y" (
             echo.
             echo  Installation abgebrochen. Aktuelle Version laeuft bereits.
             echo.
@@ -460,22 +465,29 @@ if not exist "%DATA_DIR%\logs" mkdir "%DATA_DIR%\logs"
 
 :: #351: Ein einziges Backup BEVOR irgendetwas verschoben wird (#349)
 :: Pruefe beide moeglichen DB-Standorte, sichere den neuesten.
+:: v1.7.149 (#1149): kein `copy` mehr. Die Datenbank laeuft im WAL-Modus; eine
+:: Dateikopie verpasst, was nur im WAL steht (bei offener Verbindung gemessen:
+:: 4 KB und "no such table"), die Erfolgsmeldung stand trotzdem da, und der
+:: feste Dateiname wurde bei jedem Update ueberschrieben. _sicherung_vor_update.py
+:: nutzt die SQLite-Sicherungsfunktion, schreibt einen Namen mit Zeitstempel,
+:: liest die Sicherung zur Probe und meldet nur dann OK, wenn das stimmt.
 set "BACKUP_DIR=%DATA_DIR%\backups"
-set "BACKUP_DONE=0"
-if exist "%DATA_DIR%\pbp.db" (
-    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
-    echo [INFO] Erstelle Sicherung vor Update... >> "%LOGFILE%"
-    copy "%DATA_DIR%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
-    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
-    echo [OK] Backup erstellt >> "%LOGFILE%"
-    set "BACKUP_DONE=1"
-)
-if "!BACKUP_DONE!"=="0" if exist "%BASE_INSTALL%\pbp.db" (
-    if not exist "!BACKUP_DIR!" mkdir "!BACKUP_DIR!"
-    echo [INFO] Erstelle Sicherung vor Migration... >> "%LOGFILE%"
-    copy "%BASE_INSTALL%\pbp.db" "!BACKUP_DIR!\pbp-backup-vor-update.db" >nul 2>&1
-    echo         [OK] Backup erstellt: !BACKUP_DIR!\pbp-backup-vor-update.db
-    echo [OK] Backup erstellt >> "%LOGFILE%"
+set "BACKUP_DB="
+if exist "%DATA_DIR%\pbp.db" set "BACKUP_DB=%DATA_DIR%\pbp.db"
+if not defined BACKUP_DB if exist "%BASE_INSTALL%\pbp.db" set "BACKUP_DB=%BASE_INSTALL%\pbp.db"
+if defined BACKUP_DB (
+    echo [INFO] Erstelle Sicherung vor Update: !BACKUP_DB! >> "%LOGFILE%"
+    "%PYTHON%" "%BASEDIR%\_sicherung_vor_update.py" "!BACKUP_DB!" "!BACKUP_DIR!" >> "%LOGFILE%" 2>&1
+    if errorlevel 1 (
+        echo         [WARNUNG] Die Sicherung der Datenbank ist NICHT gelungen.
+        echo                   Die Gruende stehen im Log: !LOGFILE!
+        echo                   Kopiere die Datei !BACKUP_DB! zur Sicherheit von Hand,
+        echo                   bevor du PBP das naechste Mal startest.
+        echo [WARNUNG] Sicherung vor Update fehlgeschlagen >> "%LOGFILE%"
+    ) else (
+        echo         [OK] Sicherung der Datenbank erstellt: !BACKUP_DIR!
+        echo [OK] Sicherung erstellt >> "%LOGFILE%"
+    )
 )
 
 :: Migration v1.4.x -> v1.5.0: Daten aus flacher Struktur verschieben (#297, #341)
@@ -573,6 +585,7 @@ echo [DEBUG] Starte Claude-Konfiguration >> "%LOGFILE%"
 echo  [3/4] Verbinde mit Claude Desktop...
 echo [3/4] Claude Desktop... >> "%LOGFILE%"
 
+:claude_suche
 set "CLAUDE_FOUND=0"
 :: v1.7.0-beta.18: erweiterte Pfad-Liste (Anthropic rotiert die Install-Pfade
 :: zwischen Releases). Reihenfolge nach Haeufigkeit, frueher Treffer = Stop.
@@ -624,10 +637,16 @@ if "!CLAUDE_FOUND!"=="0" if exist "%APPDATA%\Claude\claude_desktop_config.json" 
 )
 
 if "!CLAUDE_FOUND!"=="1" goto :claude_found
+:: v1.7.149 (#1149): der Hinweis erscheint einmal. Danach wird noch einmal gesucht
+:: (wer Claude jetzt installiert hat, soll nicht "nicht gefunden" lesen); findet
+:: auch die zweite Suche nichts, geht es ohne Claude weiter.
+if defined CLAUDE_NOCHMAL goto :claude_found
 
 echo.
 echo  Claude Desktop wurde nicht gefunden.
-echo  PBP braucht Claude Desktop.
+echo  PBP laeuft auch ohne Claude: das Dashboard im Browser geht immer.
+echo  Fuer den Chat mit Claude ^(Ersterfassung, Anschreiben, Analysen^)
+echo  brauchst du Claude Desktop.
 echo.
 echo  Ich oeffne jetzt die Download-Seite.
 echo    1. Lade "Claude for Windows" herunter
@@ -638,10 +657,20 @@ echo  Druecke danach eine Taste um weiterzumachen.
 start https://claude.ai/download
 pause >nul
 echo.
+set "CLAUDE_NOCHMAL=1"
+goto :claude_suche
 
 :claude_found
+:: Bis v1.7.148 stand hier immer "[OK] Claude Desktop gefunden" - auch nach einer
+:: erfolglosen Suche - und der Abschluss wurde gruen. Jetzt nur bei einem Fund.
+if "!CLAUDE_FOUND!"=="1" goto :claude_gefunden_ok
+echo         [--] Claude Desktop nicht gefunden - PBP laeuft trotzdem
+echo [WARNUNG] Claude Desktop nicht gefunden >> "%LOGFILE%"
+goto :claude_gefunden_weiter
+:claude_gefunden_ok
 echo         [OK] Claude Desktop gefunden
 echo [OK] Claude Desktop gefunden >> "%LOGFILE%"
+:claude_gefunden_weiter
 :: Store Claude path for later opening (#24)
 :: v1.7.0-beta.18: erweiterte Pfade synchron zur Erkennung oben
 set "CLAUDE_EXE="
@@ -684,7 +713,7 @@ set "CLAUDE_OK=0"
 if !errorlevel! neq 0 goto :claude_config_failed
 echo         [OK] Claude Desktop konfiguriert
 echo [OK] Claude konfiguriert >> "%LOGFILE%"
-set "CLAUDE_OK=1"
+if "!CLAUDE_FOUND!"=="1" set "CLAUDE_OK=1"
 goto :claude_config_done
 
 :claude_config_failed
@@ -772,10 +801,15 @@ start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
 
 :: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---
 echo        Warte auf Dashboard auf http://localhost:8200 ...
+:: v1.7.149 (#1149): gefragt wird 127.0.0.1 statt localhost. Das Dashboard lauscht nur
+:: auf IPv4; mit `localhost` versucht Windows PowerShell zuerst ::1 und brauchte dafuer
+:: gemessen mehr als die Sekunde Zeitgrenze - die Pruefung schlug dann bei laufendem
+:: Dashboard 30 Mal fehl und der Abschluss wurde gelb. Und es zaehlt der Inhalt:
+:: nur ein PBP antwortet auf /api/health mit pbp_version, ein fremdes Programm nicht.
 set "DASH_OK=0"
 for /L %%i in (1,1,30) do (
     timeout /t 1 /nobreak >nul
-    powershell -NoProfile -Command "try { (Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 -Uri 'http://localhost:8200/').StatusCode } catch { 0 }" 2>nul | findstr /R "^200$" >nul
+    powershell -NoProfile -Command "try { $r = Invoke-WebRequest -UseBasicParsing -TimeoutSec 1 -Uri 'http://127.0.0.1:8200/api/health'; if ($r.StatusCode -eq 200 -and $r.Content -match 'pbp_version') { 200 } else { 0 } } catch { 0 }" 2>nul | findstr /R "^200$" >nul
     if !errorlevel! equ 0 (
         set "DASH_OK=1"
         goto :dash_ready
@@ -832,7 +866,8 @@ if not "!CLAUDE_OK!"=="1" goto :ampel_gelb_claude
 goto :ampel_gelb_dash
 
 :ampel_gelb_claude
-echo    Claude Desktop konnte nicht eingerichtet werden.
+if "!CLAUDE_FOUND!"=="1" echo    Claude Desktop konnte nicht eingerichtet werden.
+if not "!CLAUDE_FOUND!"=="1" echo    Claude Desktop wurde nicht gefunden - PBP laeuft trotzdem, das Dashboard geht auch ohne Claude.
 echo    So geht es weiter:
 echo      1. Claude Desktop installieren: https://claude.ai/download
 echo      2. Claude Desktop einmal starten und wieder komplett beenden
@@ -924,6 +959,7 @@ echo.
 echo  Eine oder mehrere dieser Dateien fehlen:
 echo    - _setup_claude.py
 echo    - _selftest.py
+echo    - _sicherung_vor_update.py
 echo    - start_dashboard.py
 echo.
 echo  Vermutlich wurde das ZIP nur teilweise entpackt
