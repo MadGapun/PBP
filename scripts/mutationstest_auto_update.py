@@ -12,7 +12,10 @@ und die Automatik haette eine bewusst zurueckgenommene Version wieder installier
 Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
 
     git worktree add --detach C:/Temp/pbp_mutation HEAD
-    python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [Kennung ...]
+    python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
+
+Zwei Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093) und
+`speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -162,6 +165,58 @@ M = [
 
 
 
+
+# ── Zweiter Katalog: Speicher & Downloads (#1131) ──
+SP = "src/bewerbungs_assistent/services/speicher.py"
+T_SP = ["tests/test_v18_speicher_1131.py"]
+
+M_SPEICHER = [
+    ("sp01", "Sicherungen: die neueste steht zur Auswahl", SP, "                  for e in alle[1:]]", "                  for e in alle]", T_SP),
+    ("sp02", "Sicherungen: die neueste laesst sich entfernen", "src/bewerbungs_assistent/services/sicherung.py",
+     "        if name == neueste:", "        if False:", T_SP),
+    ("sp03", "Sicherungen: unbekannte Namen werden nicht abgewiesen", "src/bewerbungs_assistent/services/sicherung.py",
+     "        if name not in bekannt:", "        if False:", T_SP),
+    ("sp04", "Loeschen: Wurzelpruefung entfaellt", SP, "    if echt == w or not echt.is_relative_to(w) or pfad.is_symlink():", "    if False:", T_SP),
+    ("sp05", "Loeschen: die Wurzel selbst ist loeschbar", SP, "    if echt == w or not echt.is_relative_to(w) or pfad.is_symlink():",
+     "    if not echt.is_relative_to(w) or pfad.is_symlink():", T_SP),
+    ("sp06", "Loeschen: Verknuepfungen werden verfolgt", SP, "    if echt == w or not echt.is_relative_to(w) or pfad.is_symlink():",
+     "    if echt == w or not echt.is_relative_to(w):", T_SP),
+    ("sp07", "Bereinigen laeuft trotz Hintergrundarbeit", SP, "    if laufend:\n        return f\"Gerade läuft", "    if False:\n        return f\"Gerade läuft", T_SP),
+    ("sp08", "Bestaetigung wird nicht verlangt (Vorschau loescht)", SP, "    if not bestaetigt:\n        if not kandidaten:", "    if False:\n        if not kandidaten:", T_SP),
+    ("sp09", "Bestaetigung ohne Auswahl loescht trotzdem", SP,
+     '    if a["braucht_auswahl"] and not auswahl:\n        return {**basis, "status": "fehler"', '    if False:\n        return {**basis, "status": "fehler"', T_SP),
+    ("sp10", "Downloads: jedes ZIP namens PBP-* gilt als Installationspaket", SP,
+     '            return any(n == "INSTALLIEREN.bat" or n.endswith("/INSTALLIEREN.bat") for n in zf.namelist()[:5000])', "            return True", T_SP),
+    ("sp11", "Downloads: der Name wird nicht geprueft", SP, '                if not (n.startswith("pbp-") and n.endswith(".zip")):', "                if False:", T_SP),
+    ("sp12", "Ordner oeffnen: beliebiger Ort aus der Anfrage", SP, "    if ort_id not in ORT_IDS:", "    if False:", T_SP),
+    ("sp13", "Fremdes: Playwright bekommt eine Aufraeum-Aktion", SP,
+     'und wird auch von anderen Programmen benutzt; PBP löscht ihn nie."),\n            "aktionen": [], "eintraege": []}',
+     'und wird auch von anderen Programmen benutzt; PBP löscht ihn nie."),\n            "aktionen": ["export"], "eintraege": []}', T_SP),
+    ("sp14", "Messen: Verknuepfungen werden verfolgt", SP, "                        if eintrag.is_symlink():\n                            continue",
+     "                        if False:\n                            continue", T_SP),
+    ("sp15", "Messen: keine Frist", SP, "                    if zaehler > MAX_EINTRAEGE_MESSUNG or time.monotonic() > ende:", "                    if False:", T_SP),
+    ("sp16", "Update laeuft: Versions-Aktionen nicht gesperrt", SP, '    if aktion in ("alte_fassungen", "update_arbeitsordner") and _update_laeuft():', "    if False:", T_SP),
+    ("sp17", "Komponenteninstallation laeuft: Reste nicht gesperrt", SP, "            if components._installation_laeuft(db):", "            if False:", T_SP),
+    ("sp18", "Protokolle: das offene wird mitgeloescht", SP, "        if not f.is_file() or os.path.normcase(str(f.resolve())) in offen:",
+     "        if not f.is_file():", T_SP),
+    ("sp19", "Werkzeug: der eigene Aufruf zaehlt auch fuer das Dashboard nicht", SP,
+     "    laufend = [n for n in datenordner.laufende_arbeit() if not (als_werkzeug and n == EIGENER_AUFRUF)]",
+     "    laufend = [n for n in datenordner.laufende_arbeit() if not (n == EIGENER_AUFRUF)]", T_SP),
+    ("sp20", "Versionen: die Vorschau loescht wirklich", "src/bewerbungs_assistent/services/auto_update/aufraeumen.py",
+     "        if nur_vorschau:\n            bericht[\"geloescht\"].append(v)", "        if False:\n            bericht[\"geloescht\"].append(v)", T_SP),
+    ("sp21", "Update-Reste: die Vorschau loescht wirklich", "src/bewerbungs_assistent/services/auto_update/aufraeumen.py",
+     "        if (rest or unfertig) and (nur_vorschau or ordner_loeschen(kind)):", "        if (rest or unfertig) and ordner_loeschen(kind):", T_SP),
+    ("sp22", "Ordner oeffnen: fehlender Ordner wird nicht erkannt", SP, '    if not ort.get("pfad") or not pfad.exists():', "    if False:", T_SP),
+    ("sp23", "Fremdes zaehlt zur eigenen Summe", SP, '"gesamt_bytes": sum(o["bytes"] for o in orte if o["urheber"] != "fremd"),',
+     '"gesamt_bytes": sum(o["bytes"] for o in orte),', T_SP),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER}
+GRUNDLAEUFE = {
+    "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
+    "speicher": (("T_SP", T_SP),),
+}
+
 WT = None
 
 
@@ -187,6 +242,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
@@ -204,13 +260,13 @@ def main(argv=None) -> int:
     nur = set(a.kennungen)
     ergebnisse = {}
     if not nur:
-        for name, tests in (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)):
+        for name, tests in GRUNDLAEUFE[a.katalog]:
             code, fehl, sek, rest = pytest(tests)
             print(f"GRUNDLAUF {name}: {'gruen' if code == 0 else 'ROT'} ({sek}s) {fehl}", flush=True)
             if code != 0:
                 print("Abbruch: der Grundlauf ist nicht gruen, ein roter Test sagt dann nichts.", rest)
                 return 2
-    for mid, text, datei, alt, neu, tests in M:
+    for mid, text, datei, alt, neu, tests in KATALOGE[a.katalog]:
         if nur and mid not in nur:
             continue
         pfad = WT / datei
