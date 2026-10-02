@@ -551,6 +551,9 @@ def _kontakt_aufloesen(db, kontakt_id) -> Optional[dict]:
     return dict(r) if r is not None else None
 
 
+kontakt_aufloesen = _kontakt_aufloesen      # öffentlich: das Werkzeug prüft den Kontakt vor der Firma
+
+
 def _zuordnung_zeile(z) -> dict:
     von, bis, aktuell = z["von"] or "", z["bis"] or "", bool(z["aktuell"])
     return {"id": z["id"], "firma_id": z["company_id"], "firma": z["firma"], "kontakt_id": z["contact_id"], "kontakt": z["kontakt"],

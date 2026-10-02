@@ -266,6 +266,9 @@ def register(mcp, db, logger):
         """
         if (ziel_typ or "").strip().lower() == "firma":
             from ..services import firmen_stamm as _fs
+            # Zuerst der Kontakt (nur einer des aktiven Profils, #1106), dann die Firma: die Fehlermeldung bleibt die alte.
+            if _fs.kontakt_aufloesen(db, kontakt_id) is None:
+                return {"fehler": "Kontakt nicht gefunden."}
             ziel = (ziel_id or "").strip()
             firma = _fs.firma_laden(db, ziel) if ziel.startswith("fi_") else None
             if firma is None:

@@ -214,7 +214,7 @@ export default function FirmenAnsicht({ ziel }) {
       {vorschlaege ? (
         <Card className="mb-4 rounded-2xl" data-firmen-vorschlaege>
           <SectionHeading title="Vorschläge" description="Was PBP für dieselbe Firma hält. Du entscheidest, was angelegt wird."
-            action={<Button size="sm" variant="ghost" onClick={() => setVorschlaege(null)} title="Schließt die Vorschläge."><X size={14} /></Button>} />
+            action={<Button size="sm" variant="ghost" onClick={() => setVorschlaege(null)} title="Schließt die Vorschläge." aria-label="Vorschläge schließen"><X size={14} /></Button>} />
           <div className="grid gap-1">
             {vorschlaege.vorschlaege.map((v) => (
               <label key={v.vorschlag_id} className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white/[0.04]">
@@ -572,7 +572,7 @@ function Bearbeiten({ stamm, liste, busy, ausfuehren, oeffnen, pushToast, geloes
             {stamm.aliase.map((a) => (
               <span key={a.id} className="inline-flex items-center gap-1 rounded-lg border border-sky/15 bg-sky/8 px-2.5 py-1 text-sm text-sky" title={a.art_text}>
                 {a.alias}
-                <button type="button" className="text-sky/70 hover:text-sky" aria-label={`${a.alias} entfernen`} title="Entfernt diese Schreibweise. Bewerbungen und Stellen bleiben unverändert."
+                <button type="button" className="text-sky" aria-label={`${a.alias} entfernen`} title="Entfernt diese Schreibweise. Bewerbungen und Stellen bleiben unverändert."
                   onClick={() => ausfuehren(() => deleteRequest(`/api/firmen/${stamm.id}/aliase/${a.id}`), "Entfernt.")}><X size={12} /></button>
               </span>
             ))}
