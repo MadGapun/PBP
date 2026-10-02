@@ -6813,23 +6813,109 @@ async def api_ingest_job(request: Request, payload: dict):
     }
 
 
-@app.post("/api/v1/ingest/email")
-async def api_ingest_email(request: Request, file: UploadFile = File(...)):
-    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+@app.get("/api/v1/ingest/mail-policy")
+async def api_ingest_mail_policy(request: Request):
+    """Was ein Mail-Add-on lesen darf (#947). Ist der Ordner-Scan nicht wirksam, ist die Liste leer.
 
-    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
-    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+    Jedes Add-on fragt das, bevor es einen Ordner anfasst, und sendet bei jeder Scan-Mail Anbieter, Konto und Ordner mit.
+    PBP prueft beim Entgegennehmen noch einmal (`modus=scan`): wer sich nicht an die Liste haelt, wird abgewiesen.
     """
     plugin, err = _require_plugin(request, "ingest:email")
     if err:
         return err
+    from .services import mail_quelle
+    return mail_quelle.richtlinie(_db)
+
+
+@app.post("/api/v1/ingest/email")
+async def api_ingest_email(request: Request, file: UploadFile = File(...), modus: str = Form("push"),
+                           anbieter: str = Form(""), konto: str = Form(""), ordner: str = Form("")):
+    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+
+    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
+    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+
+    `modus=push` (Vorgabe): der Mensch hat diese Mail bewusst geschickt - unveraendert, ohne Schalter.
+    `modus=scan` (#947): das Add-on hat sie von sich aus aus einem Ordner gelesen. Dann muss der Ordner-Scan an sein und
+    Anbieter, Konto und Ordner muessen GENAU mit einer Freigabe uebereinstimmen. Sonst 403 - bevor etwas gespeichert wird.
+    """
+    plugin, err = _require_plugin(request, "ingest:email")
+    if err:
+        return err
+    modus = (modus or "push").strip().lower()
+    if modus not in ("push", "scan"):
+        return JSONResponse({"error": f"Unbekannter Modus „{modus}“.", "erlaubt": ["push", "scan"]}, status_code=400)
+    freigabe_id = None
+    if modus == "scan":
+        from .services import mail_quelle
+        urteil = mail_quelle.pruefe_scan(_db, anbieter, konto, ordner)
+        if not urteil["erlaubt"]:
+            return JSONResponse({"error": urteil["text"], "code": urteil["code"], "modus": "scan",
+                                 "hinweis": "Die Richtlinie steht unter GET /api/v1/ingest/mail-policy."}, status_code=403)
+        freigabe_id = urteil["freigabe_id"]
     result = await api_upload_document(
         file=file, doc_type="sonstiges", position_id="",
         link_application_id="", create_application="",
     )
     fname = (file.filename or "mail")[:60]
     _db.record_plugin_ingest(plugin["id"], f"email: {fname}")
+    if freigabe_id:
+        from .services import mail_quelle
+        neu = ((result.get("newsletter") or {}).get("neu") or 0) if isinstance(result, dict) else 0
+        mail_quelle.lauf_verbuchen(_db, freigabe_id, mails=1, stellen=int(neu))
+        if isinstance(result, dict):
+            result["quelle"] = {"modus": "scan", "freigabe": freigabe_id}
     return result
+
+
+# === Mail-Ordner als Quelle: Zugangsschicht (#947) ===
+#
+# Die Regel sitzt in PBP (`services/mail_quelle.py`), nicht im Add-on: anbieterunabhaengig, Vorgabe AUS, harte Liste.
+
+@app.get("/api/mail-quelle")
+async def api_mail_quelle():
+    from .services import mail_quelle
+    return mail_quelle.uebersicht(_db)
+
+
+@app.post("/api/mail-quelle/scan")
+async def api_mail_quelle_scan(payload: dict):
+    """Ordner-Scan ein- oder ausschalten. Einschalten verlangt `bestaetigt: true` (der Mensch hat die Warnung gesehen)."""
+    from .services import mail_quelle
+    if payload.get("an") is True:
+        erg = mail_quelle.scan_einschalten(_db, bestaetigt=payload.get("bestaetigt") is True)
+        if erg["status"] == "bestaetigung_noetig":
+            return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    else:
+        erg = mail_quelle.scan_ausschalten(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/freigaben")
+async def api_mail_quelle_freigabe_neu(payload: dict):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_hinzufuegen(
+        _db, payload.get("anbieter", ""), payload.get("ordner", ""), payload.get("konto", ""),
+        posteingang_bestaetigt=payload.get("posteingang_bestaetigt") is True)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.delete("/api/mail-quelle/freigaben/{freigabe_id}")
+async def api_mail_quelle_freigabe_weg(freigabe_id: str):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_entfernen(_db, freigabe_id)
+    if erg["status"] == "nicht_gefunden":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=404)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/zuruecksetzen")
+async def api_mail_quelle_zuruecksetzen():
+    from .services import mail_quelle
+    erg = mail_quelle.zuruecksetzen(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
 
 
 @app.post("/api/jobsuche/start")

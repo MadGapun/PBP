@@ -9,6 +9,7 @@ import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
 import SpeicherTab from "@/components/SpeicherTab";
+import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -4039,6 +4040,9 @@ export default function SettingsPage() {
                 filterbar
               />
             </Card>
+
+            {/* v1.8 (#947): Mail-Ordner als Quelle - Vorgabe AUS, Liste der freigegebenen Ordner */}
+            <MailQuelleCard />
 
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />

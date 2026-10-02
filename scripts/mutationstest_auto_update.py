@@ -14,9 +14,9 @@ Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
     git worktree add --detach C:/Temp/pbp_mutation HEAD
     python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
 
-Drei Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
+Vier Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
 `speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131) und
-`komponenten` (kein Installer ohne Pruefsumme; #1152).
+`komponenten` (kein Installer ohne Pruefsumme; #1152) und `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -234,11 +234,49 @@ M_KOMPONENTEN = [
     ("kp06", "_sha256_ok: Gross-/Kleinschreibung zaehlt", KP, "    return h.hexdigest().lower() == expected.lower()", "    return h.hexdigest() == expected", T_KP),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN}
+# ── Vierter Katalog: Mail-Ordner als Quelle (#947) ──
+MQ = "src/bewerbungs_assistent/services/mail_quelle.py"
+DASH = "src/bewerbungs_assistent/dashboard.py"
+T_MQ = ["tests/test_v18_mail_quelle_947.py"]
+_GLEICH = '_schluessel(f["anbieter"], f["konto"], f["ordner"]) == gesucht'
+
+M_MAIL = [
+    ("mq01", "Vorgabe: der Ordner-Scan ist an", MQ, '    return {"format": FORMAT, "scan_aktiv": False,', '    return {"format": FORMAT, "scan_aktiv": True,', T_MQ),
+    ("mq02", "Scan aus: Mails kommen trotzdem herein", MQ, '    if not z["scan_aktiv"]:\n        return _nein("scan_aus"', '    if False:\n        return _nein("scan_aus"', T_MQ),
+    ("mq03", "Leere Liste: es wird trotzdem gelesen", MQ, '    if not z["freigaben"]:\n        return _nein("whitelist_leer"', '    if False:\n        return _nein("whitelist_leer"', T_MQ),
+    ("mq04", "Unterordner gelten als freigegeben", MQ, '        if ' + _GLEICH + ':',
+     '        if (_schluessel(f["anbieter"], f["konto"], f["ordner"])[0] == gesucht[0] and gesucht[2].startswith(_schluessel(f["anbieter"], f["konto"], f["ordner"])[2])):', T_MQ),
+    ("mq05", "Das Konto wird nicht verglichen", MQ, '        if ' + _GLEICH + ':',
+     '        if (_schluessel(f["anbieter"], f["konto"], f["ordner"])[0], _schluessel(f["anbieter"], f["konto"], f["ordner"])[2]) == (gesucht[0], gesucht[2]):', T_MQ),
+    ("mq06", "Der Anbieter wird nicht verglichen", MQ, '        if ' + _GLEICH + ':',
+     '        if (_schluessel(f["anbieter"], f["konto"], f["ordner"])[1], _schluessel(f["anbieter"], f["konto"], f["ordner"])[2]) == (gesucht[1], gesucht[2]):', T_MQ),
+    ("mq07", "Der Posteingang braucht keine Bestaetigung", MQ, '    if inbox and not posteingang_bestaetigt:', '    if False:', T_MQ),
+    ("mq08", "Platzhalter und Steuerzeichen erlaubt", MQ, '    if _UNERLAUBT.search(roh) or _UNERLAUBT.search(konto):', '    if False:', T_MQ),
+    ("mq09", "Einschalten ohne Bestaetigung", MQ, '    if not bestaetigt:\n        return {"status": "bestaetigung_noetig"', '    if False:\n        return {"status": "bestaetigung_noetig"', T_MQ),
+    ("mq10", "Beta-Einstellung gilt in stabil still weiter", MQ,
+     '    return bool(zustand.get("scan_aktiv") and zustand.get("aktiviert_in")\n                and _vorabversion(zustand["aktiviert_in"]) and not _vorabversion(_version()))',
+     '    return False', T_MQ),
+    ("mq11", "Unlesbare Einstellung ohne Hinweis", MQ, '        return {**_leer(), "unlesbar": True}', '        return {**_leer(), "unlesbar": False}', T_MQ),
+    ("mq12", "Die Richtlinie nennt Ordner auch bei ausgeschaltetem Scan", MQ,
+     '"ordner": f["ordner"]} for f in z["freigaben"]] if ok else []', '"ordner": f["ordner"]} for f in z["freigaben"]] if True else []', T_MQ),
+    ("mq13", "Ausschalten schaltet nicht aus", MQ, '        z.update(scan_aktiv=False)', '        z.update(scan_aktiv=True)', T_MQ),
+    ("mq14", "Dieselbe Freigabe doppelt moeglich", MQ,
+     '        if any(_schluessel(f["anbieter"], f["konto"], f["ordner"]) == _schluessel(anbieter, konto, norm) for f in z["freigaben"]):',
+     '        if False:', T_MQ),
+    ("mq15", "Eingang prueft den Scan-Modus nicht", DASH, '    if modus == "scan":\n        from .services import mail_quelle\n        urteil', '    if False:\n        from .services import mail_quelle\n        urteil', T_MQ),
+    ("mq16", "Unbekannter Modus wird hingenommen", DASH, '    if modus not in ("push", "scan"):', '    if False:', T_MQ),
+    ("mq17", "Die Zahlen je Ordner werden nicht gefuehrt", DASH, '        mail_quelle.lauf_verbuchen(_db, freigabe_id, mails=1, stellen=int(neu))', '        pass', T_MQ),
+    ("mq18", "Abschalten verschweigt die importierten Daten", MQ, '    return {"status": "aus", "importiert": {"mails": mails, "stellen": stellen}, "text": (', '    return {"status": "aus", "importiert": {"mails": 0, "stellen": 0}, "text": (', T_MQ),
+    ("mq19", "Zuruecksetzen laesst die Liste stehen", MQ, '        _speichern(db, _leer())\n    return {"status": "zurueckgesetzt"', '        pass\n    return {"status": "zurueckgesetzt"', T_MQ),
+    ("mq20", "Freigabe zurueckzunehmen wirkt nicht", MQ, '        z["freigaben"] = rest\n        _speichern(db, z)\n    return {"status": "entfernt"', '        pass\n    return {"status": "entfernt"', T_MQ),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP),),
     "komponenten": (("T_KP", T_KP),),
+    "mail": (("T_MQ", T_MQ),),
 }
 
 WT = None
@@ -276,7 +314,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
