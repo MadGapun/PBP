@@ -1629,8 +1629,12 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
     Das Dashboard liefert das GEBAUTE Bundle aus — ein Guard auf den
     Quelltext belegt hier nichts (v1.7.71 MERKE 9). Geprueft wird
     deshalb, was dasteht: die Zahl heisst Fachwert, die beiden Daumen
-    stehen nebeneinander, und der Rahmenfilter ist AN, nennt seine Zahl
-    und laesst sich mit einem Klick abschalten.
+    stehen nebeneinander, und der Rahmenfilter nennt seine Zahl, sobald er
+    etwas ausblendet, und laesst sich mit einem Klick ein- und ausschalten.
+
+    #1158 (v1.7.150): beim Oeffnen gilt KEINE Einschraenkung - der Filter ist
+    AUS und die Stelle in 400 km steht da. Bis v1.7.149 war er vorgegeben AN
+    und blendete sie aus, ohne dass jemand einen Filter gesetzt hatte.
     """
     db = live_dashboard["db"]
     _seed_rahmen_workspace(db)
@@ -1646,10 +1650,9 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
         # breiter Locator misst den Test, nicht den Code (v1.7.103 MERKE 6).
         page.get_by_role("heading", name="Stellen", exact=True).wait_for(state="visible")
 
-        # Die nahe Stelle steht da, die ferne ist ausgeblendet — Vorgabe AN.
+        # Beide Stellen stehen da: beim Oeffnen ist kein Rahmenfilter gesetzt (#1158).
         page.get_by_text("Stammdaten Nahbereich", exact=True).wait_for(state="visible")
-        assert page.get_by_text("Stammdaten Fernbereich", exact=True).count() == 0, (
-            "Der Rahmenfilter blendet die Stelle in 400 km nicht aus.")
+        page.get_by_text("Stammdaten Fernbereich", exact=True).wait_for(state="visible")
 
         # Die Zahl heisst nicht mehr Score.
         # C96 (#1087): die Zahl heisst "Punkte" und traegt, wo erreichbar, die Skala.
@@ -1657,15 +1660,21 @@ def test_stellen_tab_zeigt_beide_daumen_und_blendet_den_rahmen_aus(live_dashboar
         # Und beide Daumen stehen an der Karte.
         page.get_by_text("Rahmen passt", exact=True).first.wait_for(state="visible")
 
-        # Der Filter nennt, was er verbirgt (#1008), und geht wieder aus.
+        # Der Filter ist ein Klick: AN blendet die ferne Stelle aus und nennt die Zahl (#1008),
+        # AUS bringt sie zurueck.
         # G62 (#1087 E3): die Filter stehen hinter "Filter (n)".
         page.locator("[data-filter-knopf]").click()
         knopf = page.get_by_role("button", name=re.compile("Rahmen passt nicht ausblenden"))
         knopf.wait_for(state="visible")
-        assert "(1)" in knopf.inner_text(), knopf.inner_text()
+        assert "(" not in knopf.inner_text(), knopf.inner_text()
         knopf.click()
         # Auf den ZUSTAND warten, nicht auf eine Dauer: der Filter wirkt
         # auf dem Server (v1.7.93 MERKE 9).
+        page.get_by_text("Stammdaten Fernbereich", exact=True).wait_for(
+            state="hidden", timeout=10000)
+        page.get_by_text("Stammdaten Nahbereich", exact=True).wait_for(state="visible")
+        assert "(1)" in knopf.inner_text(), knopf.inner_text()
+        knopf.click()
         page.get_by_text("Stammdaten Fernbereich", exact=True).wait_for(
             state="visible", timeout=10000)
         page.get_by_text("Rahmen passt nicht", exact=True).first.wait_for(state="visible")

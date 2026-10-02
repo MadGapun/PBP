@@ -77,7 +77,9 @@ FILTER_VORGABE: dict = {
     "nur_ohne_beschreibung": False,
     "pruefstand": "",
     "zeitfenster": "alle",
-    # v1.7.117 (#1052): Vorgabe AN — eine Stelle, deren Rahmen BELEGT
+    # Vorgabe des DIENSTES (der Stellen-Tab schickt seit v1.7.150, #1158, ausdruecklich
+    # "false", wenn der Mensch den Filter nicht gesetzt hat - die Seite startet ohne
+    # Einschraenkung). v1.7.117 (#1052): Vorgabe AN — eine Stelle, deren Rahmen BELEGT
     # nicht passt, kommt fuer diesen Menschen nicht in Frage
     # (Nutzerantwort 15.09.2026). Die Lehre aus #1008 gilt trotzdem und
     # sogar staerker: der Filter steht sichtbar da und nennt seine Zahl

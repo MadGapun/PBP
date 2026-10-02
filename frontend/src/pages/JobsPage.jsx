@@ -311,14 +311,14 @@ export const FILTER_STANDARD = {
   // Vorgabe LEER — ein Filter, den niemand gesetzt hat, war der ganze
   // Befund von #1008.
   pruefstand: "",
-  // #1052: Vorgabe AN, und das ist die Ausnahme von der Lehre aus
-  // #1008. Eine Stelle, deren Rahmen BELEGT nicht passt (zu weit weg,
-  // unter dem Minimum, falsche Vertragsform), kommt fuer diesen
-  // Menschen nicht in Frage — sie in der Liste zu lassen kostet ihn
-  // bei jedem Durchsehen Zeit. Der zweite Teil jener Lehre gilt dafuer
-  // umso strenger: der Schalter steht sichtbar da, nennt seine Zahl
-  // und ist mit einem Klick aus. Ausgeblendet wird nur, was BELEGT
-  // nicht passt — Ungeprueftes bleibt stehen (#989).
+  // #1052 fuehrte den Filter ein (bis v1.7.149 vorgegeben AN); seit #1158
+  // ist er beim Oeffnen AUS. Eine Stelle, die der Mensch nicht sieht,
+  // kann er weder ansehen noch beurteilen — "Filter zuruecksetzen" soll
+  // ALLE offenen Stellen zeigen. Wer den Filter will, schaltet ihn ein;
+  // der Zustand bleibt erhalten. Der Schalter steht sichtbar da, nennt
+  // seine Zahl und ist mit einem Klick an oder aus. Ausgeblendet wird
+  // nur, was BELEGT nicht passt (zu weit weg, unter dem Minimum, falsche
+  // Vertragsform) — Ungeprueftes bleibt stehen (#989).
   rahmenAusblenden: false,
   // #1082: die Score-Schwelle aus den Einstellungen. Sie versprach
   // "blendet in der Liste aus" und wirkte hier nie. Seit #1158 AUS wie der
@@ -1741,11 +1741,10 @@ export default function JobsPage() {
               ) : null}
             </button>
 
-            {/* #1052: der Rahmenfilter. Vorgabe AN — und deshalb steht
-                hier die Zahl daneben, sobald er etwas ausblendet. Ein
-                Filter, den niemand gesetzt hat und der schweigt, hat
-                beim Melder sieben von acht Stellen verschwinden lassen
-                (#1008). */}
+            {/* #1052: der Rahmenfilter (seit #1158 beim Oeffnen AUS). Die
+                Zahl steht daneben, sobald er etwas ausblendet. Ein
+                Filter, der etwas verbirgt und schweigt, hat beim Melder
+                sieben von acht Stellen verschwinden lassen (#1008). */}
             <button
               type="button"
               className={cn(
