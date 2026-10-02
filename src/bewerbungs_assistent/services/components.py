@@ -782,6 +782,32 @@ def ensure_language(db, lang: str = "deu",
         return {"status": "fehler", "fehler": str(exc)[:200]}
 
 
+def _ansi_sicher(pfad: str) -> str:
+    """Pfad fuer Programme, die Pfade in der ANSI-Zeichentabelle lesen (Tesseract: TESSDATA_PREFIX und Argumente).
+
+    Der Pfad liegt im Benutzerordner. Steckt darin ein Zeichen ausserhalb der Tabelle (Benutzername mit ł, ş, ř ...), meldet das
+    Programm "Error opening data file". Dann hilft der Kurzpfad (8.3) -- wenn das Laufwerk Kurznamen fuehrt; sonst bleibt der Pfad,
+    wie er ist, und der Fehler bleibt der alte.
+    """
+    if sys.platform != "win32":
+        return pfad
+    try:
+        pfad.encode("mbcs")
+        return pfad
+    except UnicodeEncodeError:
+        pass
+    try:
+        import ctypes
+        puffer = ctypes.create_unicode_buffer(1024)
+        laenge = ctypes.windll.kernel32.GetShortPathNameW(pfad, puffer, 1024)
+        if 0 < laenge < 1024:
+            puffer.value.encode("mbcs")
+            return puffer.value
+    except Exception:  # kein Kurzname, Aufruf nicht moeglich oder der Kurzpfad ist selbst nicht lesbar
+        pass
+    return pfad
+
+
 def _ocr_env() -> dict:
     """Prozess-Env fuer Tesseract-Aufrufe.
 
@@ -792,5 +818,5 @@ def _ocr_env() -> dict:
     env = dict(os.environ)
     td = _tessdata_dir()
     if td.is_dir() and any(td.glob("*.traineddata")):
-        env["TESSDATA_PREFIX"] = str(td)
+        env["TESSDATA_PREFIX"] = _ansi_sicher(str(td))
     return env

@@ -62,9 +62,10 @@ Einträgen darunter.
 ### Fixed
 
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
-- Auto-Update und Komponenten kommen mit Benutzerordnern zurecht, deren Name Umlaute, Leerzeichen oder fremde Buchstaben (ł, ş, griechisch) enthält:
-  der Selbsttest vor dem Umschalten und die Paket-Einrichtung lesen die Ausgabe als UTF-8 statt in der Zeichentabelle des Rechners; vorher konnte
-  ein solcher Pfad den Selbsttest scheitern lassen.
+- Benutzernamen mit einem Zeichen außerhalb der Windows-Zeichentabelle (ł, ş, ř, griechisch, kyrillisch; Umlaute waren nie betroffen) ließen
+  mehrere Schritte scheitern (#1163): die Claude-Konfiguration und die Sicherung vor dem Update im Installer, den Selbsttest des Auto-Updates
+  und die Texterkennung (Tesseract liest Pfade in der ANSI-Tabelle). Behoben: die Ausgabe wird als UTF-8 gelesen und abgesichert, das
+  Seitenbild geht über die Standardeingabe, die Sprachdaten über den Kurzpfad. Mit Tests; die Praxisprobe auf einem solchen Rechner steht aus.
 - Eine Absage an der Bewerbung beim Vermittler fehlte in der Historie des Endkunden (#1080).
 
 ### Known Issues

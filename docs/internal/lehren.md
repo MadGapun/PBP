@@ -396,6 +396,8 @@ Benutzerordner (`Ölmühle O'Neill (Büro)`, `Łódź`, `Şişli`). Die Ausgabe 
 gelesen: bei umgeleiteter Ausgabe gilt die Zeichentabelle des Rechners (cp1252), ein UTF-8-Byte wie 0x81 wirft
 `UnicodeDecodeError`, ein `print` mit »ł« im Kind wirft `UnicodeEncodeError` -- und der Selbsttest scheitert an einem Pfad, nicht an
 der Fassung. Richtig: `encoding="utf-8", errors="replace"` beim Lesen UND `PYTHONIOENCODING=utf-8` fuers Kind; Skripte, die einen Pfad
-drucken, stellen ihre Ausgabe auf `backslashreplace`. Pruefen heisst: den Test mit so einem Pfad laufen lassen UND die Zeichentabelle
-erzwingen (`PYTHONIOENCODING=cp1252`) -- sonst ist er auf einem UTF-8-Rechner gruen und auf dem Zielrechner rot.
-*Belege:* #1093 (Selbsttest, pip, Komponenten), `tests/test_v18_auto_update_pfade.py`
+drucken, stellen ihre Ausgabe auf `backslashreplace`. Tesseract (Windows) liest Dateipfade und `TESSDATA_PREFIX` in der ANSI-Tabelle:
+das Bild geht ueber die Standardeingabe, die Sprachdaten ueber den Kurzpfad (8.3). Pruefen heisst: den Test mit so einem Pfad laufen
+lassen UND die Zeichentabelle erzwingen (`PYTHONIOENCODING=cp1252`) -- sonst ist er auf einem UTF-8-Rechner gruen und auf dem
+Zielrechner rot.
+*Belege:* #1163 (Installer-Helfer, Selbsttest, pip, Komponenten, Texterkennung), `tests/test_v18_auto_update_pfade.py`, `tests/test_v18_ocr_pfade.py`
