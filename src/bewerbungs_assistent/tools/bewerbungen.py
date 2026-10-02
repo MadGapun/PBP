@@ -1463,6 +1463,13 @@ def register(mcp, db, logger):
             "kontakt_email": app.get("kontakt_email", ""),
             "dashboard_link": _dashboard_link("bewerbungen", app["id"]),
         }
+        # #1080: von der Bewerbung zu jeder beteiligten Firma - Arbeitgeber, Vermittler, Endkunde - mit einem Aufruf.
+        try:
+            from ..services import firmen_bezuege as _fb_oeffnen
+            result["firma_oeffnen"] = _fb_oeffnen.oeffnen_aufrufe(
+                app.get("company"), app.get("vermittler"), app.get("endkunde"))
+        except Exception as exc:  # noqa: BLE001 — eine Zugabe
+            logger.debug("firma_oeffnen nicht berechenbar: %s", exc)
         # v1.7.10 (#782/C30): rekonstruierte Altbewerbung kennzeichnen —
         # ABGELEITET (applied_at deutlich vor created_at), kein Schema-Feld.
         # Fehlende Details (Ablehnungsgrund, Ansprechpartner) sind dann kein

@@ -279,13 +279,14 @@ FB = "src/bewerbungs_assistent/services/firmen_bezuege.py"
 FT = "src/bewerbungs_assistent/tools/firmen_stamm.py"
 BEW = "src/bewerbungs_assistent/tools/bewerbungen.py"
 JOBS = "src/bewerbungs_assistent/tools/jobs.py"
+KON = "src/bewerbungs_assistent/tools/kontakte.py"
 DBF = "src/bewerbungs_assistent/database.py"
 SDU = "src/bewerbungs_assistent/services/stellen_dublette.py"
 AUS = "src/bewerbungs_assistent/services/aussortieren.py"
 HIN = "src/bewerbungs_assistent/services/bewerbungs_hinweis.py"
 AUT = "src/bewerbungs_assistent/services/stellen_automatik.py"
 ELW = "src/bewerbungs_assistent/services/elwosa_provider.py"
-T_FI = ["tests/test_v18_firmen_dubletten_1080.py", "tests/test_v18_firmen_stamm_1080.py"]
+T_FI = ["tests/test_v18_firmen_dubletten_1080.py", "tests/test_v18_firmen_stamm_1080.py", "tests/test_v18_firmen_kontakte_1080.py"]
 
 M_FIRMEN = [
     # ── Der Kanon: nur nachschlagen, nie raten ──
@@ -350,6 +351,28 @@ M_FIRMEN = [
     ("fb05", "Kompakt: die Herkunft eines Treffers geht verloren", FB, '    if e.get("via"):\n        aus["via"] = e["via"]', '    if False:\n        aus["via"] = e["via"]', T_FI),
     ("fb06", "firma_kontext: Treffer ueber Schreibweisen sagen nicht woher", BEW, '            if via != "direkt":\n                eintrag["via"] = via', '            if False:\n                eintrag["via"] = via', T_FI),
     ("fb07", "firma_kontext: mehrdeutige Firmen werden verschwiegen", BEW, '        elif stamm_aufloesung["mehrdeutig"]:', "        elif False:", T_FI),
+    ("fb08", "Dokumente an einer gefundenen Bewerbung bleiben aus der Historie", FB, '        an_bewerbung = (d["linked_application_id"] or "") in app_ids', "        an_bewerbung = False", T_FI),
+    # ── Kontakte: Rolle und Zeitraum je Firma ──
+    ("fc01", "Zuordnung: ein Ende macht den Kontakt nicht zum fruehen", FS, "    if aktuell is None:\n        aktuell = not bis_n", "    if aktuell is None:\n        aktuell = True", T_FI),
+    ("fc02", "Zuordnung: Ende und aktuell zugleich werden hingenommen", FS, '    if bis_n and aktuell:\n        return {"status": "fehler", "text": "Ein Zeitraum mit Ende ist nicht aktuell: entweder das Ende weglassen oder aktuell=False."}', "    if False:\n        pass", T_FI),
+    ("fc03", "Zuordnung: der Beginn darf nach dem Ende liegen", FS, '        return {"status": "fehler", "text": fehler or fehler2}\n    if von_n and bis_n and _zeit_sortierbar(von_n) > _zeit_sortierbar(bis_n):', '        return {"status": "fehler", "text": fehler or fehler2}\n    if False:', T_FI),
+    ("fc04", "Zuordnung: dieselbe Zuordnung entsteht doppelt", FS, '        if gleich:\n            return {"status": "schon_da", "zuordnung_id": gleich["id"]', '        if False:\n            return {"status": "schon_da", "zuordnung_id": gleich["id"]', T_FI),
+    ("fc05", "Kontakt: eine mehrdeutige kurze Kennung wird geraten", FS, "        r = r[0] if len(r) == 1 else None          # mehrdeutig: nicht raten", "        r = r[0] if r else None", T_FI),
+    ("fc06", "Kontakt: auch Kontakte anderer Profile lassen sich zuordnen", FS, '    r = conn.execute("SELECT id, full_name, company, position FROM contacts WHERE id=? AND (profile_id=? OR profile_id IS NULL)", (roh, pid)).fetchone()', '    r = conn.execute("SELECT id, full_name, company, position FROM contacts WHERE id=? AND ?=?", (roh, pid, pid)).fetchone()', T_FI),
+    ("fc07", "Aendern: ein neues Ende macht den Kontakt nicht zum fruehen", FS, '            if bis_n and "aktuell" not in felder:\n                aktuell = False', '            if bis_n and "aktuell" not in felder:\n                pass', T_FI),
+    ("fc08", "Zusammenfuehren laesst die Zuordnungen der Quelle zurueck", FS, '            conn.execute("UPDATE company_contacts SET company_id=? WHERE company_id=? AND profile_id=?", (ziel["id"], quelle["id"], pid))\n', "", T_FI),
+    ("fc09", "Loeschen der Firma laesst die Zuordnungen stehen", FS, '        conn.execute("DELETE FROM company_contacts WHERE company_id=? AND profile_id=?", (f["id"], pid))\n', "", T_FI),
+    ("fc10", "firma_kontext: der Kontakt erscheint doppelt (Zuordnung und Textfeld)", FB, '        if k["id"] in zugeordnet:\n            continue', '        if False:\n            continue', T_FI),
+    ("fc11", "firma_kontext: der Zeitraum fehlt in der Kurzzeile", FB, '        return ", ".join(x for x in (e.get("person"), e.get("funktion"), e.get("zeitraum")) if x)', '        return ", ".join(x for x in (e.get("person"), e.get("funktion")) if x)', T_FI),
+    ("fc12", "firma_kontext: der Firmentext eines Kontakts wird zur Schreibweise", FB, '                            if t.get("abgleich") not in ("text", "bewerbung", "zuordnung")', '                            if t.get("abgleich") not in ("text", "bewerbung")', T_FI),
+    ("fo01", "Verweis: oeffnen_aufrufe nennt eine Firma mehrfach", FB, "        if roh and schluessel and schluessel not in gesehen:", "        if roh and schluessel:", T_FI),
+    ("fo02", "Verweis: Apostroph im Namen bricht den Aufruf", FB, "roh.replace(\"'\", \"\\\\'\")", "roh", T_FI),
+    ("fo03", "Bewerbung: nur der Arbeitgeber fuehrt zur Firma", BEW, '                app.get("company"), app.get("vermittler"), app.get("endkunde"))', '                app.get("company"))', T_FI),
+    ("fo04", "Stelle: kein Weg zur Firma", JOBS, '            result["firma_oeffnen"] = _fb_oeffnen.oeffnen_aufrufe(job_dict.get("company"))', "            pass", T_FI),
+    ("fo05", "Kontakt: das Textfeld Firma fuehrt nicht zur Firma", KON, '                *[z["firma"] for z in firmen], contact.get("company"))', '                *[z["firma"] for z in firmen])', T_FI),
+    ("fv01", "kontakt_verknuepfen: firma geht ins Leere statt zur Firma", KON, '        if (ziel_typ or "").strip().lower() == "firma":', "        if False:", T_FI),
+    ("fv02", "kontakt_verknuepfen: ein mehrdeutiger Name wird geraten", KON, '                if erg["mehrdeutig"]:\n                    return {"fehler": "Der Name passt zu mehreren Firmen:', '                if False:\n                    return {"fehler": "Der Name passt zu mehreren Firmen:', T_FI),
+    ("ft04", "Werkzeug: Zuordnung aendern ohne etwas zu aendern gilt als erfolgreich", FT, '                if not felder:\n                    return {"status": "fehler", "text": "Nichts zu ändern: nenne rolle, von, bis, aktuell oder notizen."}', "                if False:\n                    pass", T_FI),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN}

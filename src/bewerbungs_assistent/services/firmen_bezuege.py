@@ -363,7 +363,23 @@ def bezuege(db, firmenname: str) -> dict:
             (pid,)).fetchall()
     except Exception:
         kontakte = []
+    # #1080: bestaetigte Zuordnungen (Rolle, Zeitraum, aktuell oder frueher) gehen vor dem Textfeld "Firma" am Kontakt: ein
+    # Kontakt erscheint einmal, mit dem Zeitraum, und nicht zusaetzlich als Namenstreffer.
+    zugeordnet: set = set()
+    if stamm["firma"]:
+        try:
+            from . import firmen_stamm
+            for z in firmen_stamm.kontakte_der_firma(db, stamm["firma"]["id"]):
+                zugeordnet.add(z["kontakt_id"])
+                treffer.append({"rolle": "kontakt", "quelle": "kontakte", "name": z["kontakt_firma_text"] or z["firma"],
+                                "abgleich": "zuordnung", "kontakt_id": z["kontakt_id"], "person": z["kontakt"],
+                                "funktion": z["rolle"] or z["funktion"], "zeitraum": z["zeitraum"], "aktuell": z["aktuell"],
+                                "zuordnung_id": z["id"]})
+        except Exception as exc:  # noqa: BLE001 — eine Zugabe: ein Fehler dort kostet die Suche nie
+            logger.debug("Kontakt-Zuordnungen nicht gelesen: %s", exc)
     for k in kontakte:
+        if k["id"] in zugeordnet:
+            continue
         art, via = passt_via(k["company"])
         if art:
             treffer.append(mit_via({"rolle": "kontakt", "quelle": "kontakte",
@@ -383,12 +399,16 @@ def bezuege(db, firmenname: str) -> dict:
     except Exception:
         docs = []
     for d in docs:
-        im_namen = text_passt(_textform(d["filename"]))
-        if im_namen or text_passt(_textform(d["extracted_text"])):
+        im_text_gefunden = (text_passt(_textform(d["filename"]))
+                            or text_passt(_textform(d["extracted_text"])))
+        # #1080: eine Absage an der Bewerbung beim Vermittler nennt den Endkunden oft gar nicht beim Namen. Sie gehoert trotzdem
+        # in dessen Historie: das Dokument haengt an einer Bewerbung, in der diese Firma vorkommt.
+        an_bewerbung = (d["linked_application_id"] or "") in app_ids
+        if im_text_gefunden or an_bewerbung:
             treffer.append({
                 "rolle": DOKUMENT_ROLLEN.get(d["doc_type"], "korrespondenz"),
                 "quelle": "dokument", "name": d["filename"],
-                "abgleich": "text", "dokument_id": d["id"],
+                "abgleich": "text" if im_text_gefunden else "bewerbung", "dokument_id": d["id"],
                 "typ": d["doc_type"], "datum": _datum(d["created_at"]),
                 "bewerbung_id": (d["linked_application_id"] or "")[:8]})
 
@@ -426,7 +446,7 @@ def bezuege(db, firmenname: str) -> dict:
     for t in treffer:
         rollen[t["rolle"]] = rollen.get(t["rolle"], 0) + 1
     schreibweisen = sorted({t["name"] for t in treffer
-                            if t.get("abgleich") not in ("text", "bewerbung")
+                            if t.get("abgleich") not in ("text", "bewerbung", "zuordnung")
                             and t.get("name")})
     return {"bezuege": treffer, "rollen": rollen,
             "schreibweisen": schreibweisen,
@@ -434,6 +454,19 @@ def bezuege(db, firmenname: str) -> dict:
             "offene_vorstellungen": offene,
             "stammsatz": stamm["firma"], "stammsatz_mehrdeutig": stamm["mehrdeutig"],
             "formen": [f for f, _ in formen]}
+
+
+def oeffnen_aufrufe(*namen) -> list:
+    """`firma_kontext('Name')` fuer jeden genannten, verschiedenen Firmennamen - der MCP-Weg von einer Stelle, Bewerbung oder
+    einem Kontakt zur Firma (#1080: von jedem dieser Orte ist die Firma mit einem Aufruf erreichbar)."""
+    gesehen, aus = set(), []
+    for n in namen:
+        roh = re.sub(r"\s+", " ", str(n or "")).strip()
+        schluessel = namensform(roh)
+        if roh and schluessel and schluessel not in gesehen:
+            gesehen.add(schluessel)
+            aus.append("firma_kontext('" + roh.replace("'", "\\'") + "')")
+    return aus
 
 
 #: Wo ein Bezug im Dashboard steht und mit welchem Werkzeug er sich
@@ -470,7 +503,7 @@ def _kurz(e: dict) -> str:
         was = "vertrauliches Projekt" if e.get("vertraulich") else (e.get("projekt") or "Projekt")
         return f"{was} bei {e.get('bei_arbeitgeber') or '?'}"
     if rolle == "kontakt":
-        return ", ".join(x for x in (e.get("person"), e.get("funktion")) if x)
+        return ", ".join(x for x in (e.get("person"), e.get("funktion"), e.get("zeitraum")) if x)
     if e.get("quelle") == "dokument":
         return f"{e.get('typ')}, {e.get('datum') or 'ohne Datum'}"
     if rolle == "recherche":

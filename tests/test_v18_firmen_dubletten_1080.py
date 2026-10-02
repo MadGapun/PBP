@@ -104,6 +104,7 @@ def test_ein_kaputter_stammsatz_kostet_keine_erkennung():
         def get_active_profile_id(self):
             return "x"
     assert dd.firmen_kanon(Kaputt()) is None
+    assert fs.kanon(Kaputt()) is None, "auch der Stammsatz selbst wirft nicht"
 
 
 # ── find_duplicate_job ──────────────────────────────────────────────────────────────────────────────

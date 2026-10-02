@@ -151,6 +151,7 @@ def test_loeschen_entfernt_nur_den_stammsatz(db):
     aid = _app(db, "Alt AG")
     f = fs.firma_anlegen(db, "Neu GmbH", aliase=["Alt AG"])["firma"]
     kind = fs.firma_anlegen(db, "Kind Beispiel", mutterfirma_id=f["id"])["firma"]
+    db.connect().execute("PRAGMA foreign_keys=OFF")     # die Schreibweisen gehen nicht nur ueber die Kaskade des Schemas mit
     assert fs.firma_loeschen(db, f["id"])["status"] == "geloescht"
     assert fs.firma_laden(db, f["id"]) is None and fs.aufloesen(db, "Alt AG")["firma"] is None
     assert fs.firma_laden(db, kind["id"])["mutterfirma"] is None
@@ -272,6 +273,30 @@ def test_der_stammsatz_findet_auch_lebenslauf_kontakt_projekt_und_notizen(db):
     assert rollen.get("arbeitgeber_frueher") == 1 and rollen.get("kontakt") == 1 and rollen.get("in_notizen_erwaehnt") == 1
 
 
+def test_eine_absage_an_der_vermittlerbewerbung_steht_auch_in_der_historie_des_endkunden(db):
+    """AK: die Absage haengt an der Bewerbung beim Vermittler und nennt den Endkunden nicht beim Namen."""
+    aid = _app(db, "Vermittler Beispiel", titel="Einkauf", status="abgelehnt", endkunde="Kunde Beispiel GmbH")
+    did = db.add_document({"filename": "absage.pdf", "filepath": "x", "doc_type": "absage",
+                           "extracted_text": "Leider muessen wir Ihnen mitteilen, dass die Stelle anderweitig besetzt wurde.",
+                           "linked_application_id": aid})
+    erg = fb.bezuege(db, "Kunde Beispiel")
+    rollen = {(b["rolle"], b.get("dokument_id")) for b in erg["bezuege"]}
+    assert ("endkunde", None) in rollen, "die Bewerbung, hinter der die Firma steht"
+    assert ("korrespondenz", did) in rollen, "die Absage an dieser Bewerbung"
+    absage = next(b for b in erg["bezuege"] if b.get("dokument_id") == did)
+    assert absage["abgleich"] == "bewerbung" and absage["bewerbung_id"] == aid[:8]
+    assert next(b for b in erg["bezuege"] if b["rolle"] == "endkunde")["status"] == "abgelehnt", "der Ausgang steht am Treffer"
+    assert "Kunde Beispiel GmbH" in erg["schreibweisen"] and "absage.pdf" not in erg["schreibweisen"]
+
+
+def test_ein_dokument_an_einer_fremden_bewerbung_gehoert_nicht_zur_firma(db):
+    _app(db, "Vermittler Beispiel", titel="Einkauf", status="abgelehnt", endkunde="Kunde Beispiel GmbH")
+    fremd = _app(db, "Ganz Andere AG", titel="Vertrieb", status="abgelehnt")
+    db.add_document({"filename": "absage.pdf", "filepath": "x", "doc_type": "absage", "extracted_text": "Absage.",
+                     "linked_application_id": fremd})
+    assert not [b for b in fb.bezuege(db, "Kunde Beispiel")["bezuege"] if b.get("quelle") == "dokument"]
+
+
 def test_konzern_mutter_und_tochter_werden_gefunden_und_gewarnt_nicht_verschmolzen(db):
     mutter = fs.firma_anlegen(db, "Konzern Beispiel")["firma"]
     fs.firma_anlegen(db, "Tochter Beispiel", mutterfirma_id=mutter["id"])
@@ -286,6 +311,23 @@ def test_konzern_mutter_und_tochter_werden_gefunden_und_gewarnt_nicht_verschmolz
     assert any("Mutterfirma Konzern Beispiel" in w for w in r2["warnungen"]), r2["warnungen"]
     # sie sind getrennte Firmen: beide Treffer stehen im Bestand, kein Zusammenzaehlen als „mehrere Wege bei derselben Firma“
     assert not any("DOPPELVORSTELLUNG" in w for w in r2["warnungen"])
+
+
+def test_eine_vermittlerbewerbung_bei_der_tochter_ist_fuer_die_mutter_keine_doppelvorstellung(db):
+    mutter = fs.firma_anlegen(db, "Konzern Beispiel")["firma"]
+    fs.firma_anlegen(db, "Tochter Beispiel", mutterfirma_id=mutter["id"])
+    _app(db, "Beispiel Vermittlung", titel="Planer", status="interview", endkunde="Tochter Beispiel", vermittler="Beispiel Vermittlung")
+    warnungen = fb.bezuege(db, "Konzern Beispiel")["warnungen"]
+    assert any("Tochterfirma Tochter Beispiel" in w and "derselbe Konzern" in w for w in warnungen), warnungen
+    assert not any("Laufende Vorstellung über" in w or "DOPPELVORSTELLUNG" in w for w in warnungen), \
+        "ein Konzern ist nicht dieselbe Firma: keine zweite Warnung ueber den Vermittler"
+
+
+def test_kompakt_traegt_die_herkunft_ueber_schreibweise_oder_konzern():
+    e = {"rolle": "kontakt", "quelle": "kontakte", "name": "Alt AG", "person": "Kim", "funktion": "Einkauf", "kontakt_id": "abc12345",
+         "via": "schreibweise"}
+    assert fb.kompakt(e)["via"] == "schreibweise"
+    assert "via" not in fb.kompakt({k: v for k, v in e.items() if k != "via"})
 
 
 def test_eine_laufende_bewerbung_ueber_den_frueheren_namen_loest_die_doppelvorstellung_aus(db):

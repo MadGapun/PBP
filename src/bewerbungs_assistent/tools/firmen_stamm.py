@@ -39,7 +39,7 @@ def register(mcp, db, logger: logging.Logger):
             f = r["firma"]
         if f is None:
             return {"status": "nicht_gefunden", "text": f"Zu „{gesucht}“ gibt es keinen Stammsatz. Die Historie steht trotzdem in firma_kontext."}
-        return {"status": "ok", "firma": f, "historie": f"firma_kontext('{f['name']}')"}
+        return {"status": "ok", "firma": f, "kontakte": fs.kontakte_der_firma(db, f["id"]), "historie": f"firma_kontext('{f['name']}')"}
 
     @mcp.tool()
     def firmen_vorschlaege_anzeigen() -> dict:
@@ -55,12 +55,15 @@ def register(mcp, db, logger: logging.Logger):
     def firmen_stamm_bearbeiten(aktion: str, firma_id: str = "", name: str = "", alias: str = "", art: str = "schreibweise",
                                 alias_id: int = 0, mutterfirma_id: str = "", quelle_id: str = "", auswahl: list = None,
                                 aliase: list = None, branche: str = None, standorte: str = None, notizen: str = None,
-                                bestaetigung: bool = False) -> dict:
-        """Legt Firmen an und pflegt Schreibweisen, Mutterfirma und Notizen (#1080). Bewerbungen und Stellen bleiben unverändert.
+                                bestaetigung: bool = False, kontakt_id: str = "", zuordnung_id: str = "", rolle: str = None,
+                                von: str = None, bis: str = None, aktuell: bool = None) -> dict:
+        """Legt Firmen an und pflegt Schreibweisen, Mutterfirma, Notizen und Kontakte (#1080). Bewerbungen und Stellen bleiben unverändert.
 
         Aktionen: anlegen | vorschlaege_anwenden | alias_hinzufuegen | alias_entfernen | umbenennen | mutterfirma_setzen |
-        felder_setzen | zusammenfuehren | loeschen. `vorschlaege_anwenden`, `zusammenfuehren` und `loeschen` zeigen ohne
-        `bestaetigung=True` nur die Vorschau; erst setzen, NACHDEM der Mensch ja gesagt hat.
+        felder_setzen | zusammenfuehren | loeschen | kontakt_zuordnen | zuordnung_aendern | zuordnung_entfernen.
+        `vorschlaege_anwenden`, `zusammenfuehren` und `loeschen` zeigen ohne `bestaetigung=True` nur die Vorschau; erst setzen,
+        NACHDEM der Mensch ja gesagt hat. Ein Kontakt kann mehreren Firmen angehören (aktuell, früher): `kontakt_zuordnen`
+        ordnet ihn einer Firma zu, `zuordnung_aendern` ändert Rolle oder Zeitraum, `zuordnung_entfernen` nimmt ihn heraus.
 
         Args:
             aktion: Eine der oben genannten.
@@ -77,11 +80,17 @@ def register(mcp, db, logger: logging.Logger):
             standorte: Für anlegen und felder_setzen.
             notizen: Für anlegen und felder_setzen.
             bestaetigung: True, NACHDEM der Mensch ja gesagt hat.
+            kontakt_id: Für kontakt_zuordnen: der Kontakt (auch gekürzt oder mit CON-).
+            zuordnung_id: Für zuordnung_aendern und zuordnung_entfernen: die Kennung (cc_...) aus firmen_stamm_anzeigen.
+            rolle: Für kontakt_zuordnen und zuordnung_aendern: die Rolle dort (z. B. recruiter, kollege). Leer löscht sie.
+            von: Beginn (2021, 2021-03 oder 03.2021). Leer = unbekannt.
+            bis: Ende. Mit Ende gilt der Kontakt dort als früher; leer entfernt es.
+            aktuell: True/False; ohne Angabe ergibt es sich aus dem Ende. Notizen stehen in `notizen`.
         """
         from ..services import firmen_stamm as fs
         aktion = (aktion or "").strip().lower()
         erlaubt = ["anlegen", "vorschlaege_anwenden", "alias_hinzufuegen", "alias_entfernen", "umbenennen", "mutterfirma_setzen",
-                   "felder_setzen", "zusammenfuehren", "loeschen"]
+                   "felder_setzen", "zusammenfuehren", "loeschen", "kontakt_zuordnen", "zuordnung_aendern", "zuordnung_entfernen"]
         if aktion not in erlaubt:
             return {"status": "fehler", "text": f"Unbekannte Aktion „{aktion}“.", "erlaubt": erlaubt}
         try:
@@ -103,6 +112,17 @@ def register(mcp, db, logger: logging.Logger):
                 if not felder:
                     return {"status": "fehler", "text": "Nichts zu setzen: nenne branche, standorte oder notizen."}
                 return fs.firma_bearbeiten(db, firma_id, **felder)
+            if aktion == "kontakt_zuordnen":
+                return fs.kontakt_zuordnen(db, firma_id, kontakt_id, rolle=rolle or "", von=von or "", bis=bis or "", aktuell=aktuell,
+                                           notizen=notizen or "")
+            if aktion == "zuordnung_aendern":
+                felder = {k: v for k, v in (("rolle", rolle), ("von", von), ("bis", bis), ("aktuell", aktuell), ("notizen", notizen))
+                          if v is not None}
+                if not felder:
+                    return {"status": "fehler", "text": "Nichts zu ändern: nenne rolle, von, bis, aktuell oder notizen."}
+                return fs.zuordnung_aendern(db, zuordnung_id, **felder)
+            if aktion == "zuordnung_entfernen":
+                return fs.zuordnung_entfernen(db, zuordnung_id)
             if aktion == "zusammenfuehren":
                 ziel, quelle = fs.firma_laden(db, firma_id), fs.firma_laden(db, quelle_id)
                 if ziel is None or quelle is None:

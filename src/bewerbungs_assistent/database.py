@@ -13676,6 +13676,25 @@ CREATE TABLE IF NOT EXISTS company_aliases (
 );
 CREATE INDEX IF NOT EXISTS idx_company_aliases_company ON company_aliases(company_id);
 CREATE INDEX IF NOT EXISTS idx_company_aliases_form ON company_aliases(profile_id, alias_form);
+-- v1.8.0 (#1080): ein Kontakt kann mehreren Firmen angehoeren - mit Rolle und Zeitraum (aktuell, frueher). Das Textfeld
+-- contacts.company bleibt, wie es ist; die Zuordnung ist die bestaetigte, strukturierte Fassung.
+CREATE TABLE IF NOT EXISTS company_contacts (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    contact_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL,
+    rolle TEXT DEFAULT '',
+    von TEXT DEFAULT '',
+    bis TEXT DEFAULT '',
+    aktuell INTEGER NOT NULL DEFAULT 1,
+    notizen TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_company_contacts_company ON company_contacts(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_contacts_contact ON company_contacts(contact_id);
 
 CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);
 CREATE INDEX IF NOT EXISTS idx_contact_links_target ON contact_links(target_kind, target_id);

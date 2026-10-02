@@ -457,6 +457,7 @@ def zusammenfuehren(db, ziel_id: str, quelle_id: str) -> dict:
         conn, pid = db.connect(), _pid(db)
         try:
             conn.execute("UPDATE company_aliases SET company_id=? WHERE company_id=? AND profile_id=?", (ziel["id"], quelle["id"], pid))
+            conn.execute("UPDATE company_contacts SET company_id=? WHERE company_id=? AND profile_id=?", (ziel["id"], quelle["id"], pid))
             conn.execute("DELETE FROM companies WHERE id=? AND profile_id=?", (quelle["id"], pid))
             conn.execute("UPDATE companies SET parent_id=? WHERE parent_id=? AND profile_id=?", (ziel["id"], quelle["id"], pid))
             conn.execute("UPDATE companies SET parent_id=NULL WHERE id=? AND parent_id=?", (ziel["id"], ziel["id"]))   # Kind der Quelle war das Ziel
@@ -479,11 +480,191 @@ def firma_loeschen(db, firma_id: str) -> dict:
             return {"status": "nicht_gefunden", "text": "Diese Firma gibt es nicht (mehr)."}
         conn, pid = db.connect(), _pid(db)
         conn.execute("DELETE FROM company_aliases WHERE company_id=? AND profile_id=?", (f["id"], pid))
+        conn.execute("DELETE FROM company_contacts WHERE company_id=? AND profile_id=?", (f["id"], pid))
         conn.execute("UPDATE companies SET parent_id=NULL WHERE parent_id=? AND profile_id=?", (f["id"], pid))
         conn.execute("DELETE FROM companies WHERE id=? AND profile_id=?", (f["id"], pid))
         conn.commit()
     return {"status": "geloescht", "text": (f"Der Stammsatz „{f['name']}“ ist gelöscht ({len(f['aliase'])} Schreibweisen). "
                                             "Bewerbungen, Stellen, Kontakte und Lebenslauf sind unverändert.")}
+
+
+# ── Kontakte einer Firma: Rolle und Zeitraum ────────────────────────────────────────────────────────────
+
+_ZEIT = re.compile(r"^(?:(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?|(?:(\d{1,2})\.)?(\d{1,2})\.(\d{4}))$")
+
+
+def _zeit(wert) -> tuple:
+    """Eine Zeitangabe als 'JJJJ', 'JJJJ-MM' oder 'JJJJ-MM-TT' — `(Wert, Fehler)`. Erlaubt sind auch 'MM.JJJJ' und 'TT.MM.JJJJ'. Leer ist erlaubt."""
+    s = str(wert or "").strip()
+    if not s:
+        return "", ""
+    m = _ZEIT.match(s)
+    if not m:
+        return "", f"„{s}“ ist keine Zeitangabe. Erlaubt: 2021, 2021-03 oder 03.2021 (auch mit Tag)."
+    if m.group(1):
+        jahr, monat, tag = m.group(1), m.group(2), m.group(3)
+    else:
+        jahr, monat, tag = m.group(6), m.group(5), m.group(4)
+    try:
+        if monat and not 1 <= int(monat) <= 12:
+            raise ValueError
+        if tag:
+            datetime(int(jahr), int(monat), int(tag))
+    except ValueError:
+        return "", f"„{s}“ ist kein gültiges Datum."
+    ergebnis = jahr
+    if monat:
+        ergebnis += f"-{int(monat):02d}"
+    if tag:
+        ergebnis += f"-{int(tag):02d}"
+    return ergebnis, ""
+
+
+def _zeit_sortierbar(wert: str) -> tuple:
+    teile = [int(x) for x in (wert or "").split("-") if x.isdigit()]
+    return tuple(teile) + (0,) * (3 - len(teile))
+
+
+def zeitraum_text(von: str, bis: str, aktuell: bool) -> str:
+    """Der Zeitraum für Menschen: 'seit 2021', '2018 bis 2021', 'bis 2021', 'früher' oder 'aktuell'."""
+    if von and bis:
+        return f"{von} bis {bis}"
+    if von:
+        return f"seit {von}" if aktuell else f"ab {von}, nicht mehr dort"
+    if bis:
+        return f"bis {bis}"
+    return "aktuell" if aktuell else "früher"
+
+
+def _kontakt_aufloesen(db, kontakt_id) -> Optional[dict]:
+    """Der Kontakt des aktiven Profils zu dieser (auch gekürzten oder typisierten) Kennung — oder None."""
+    from .typed_ids import strip_prefix
+    roh = strip_prefix(str(kontakt_id or "")).strip()
+    if not roh:
+        return None
+    conn, pid = db.connect(), _pid(db)
+    r = conn.execute("SELECT id, full_name, company, position FROM contacts WHERE id=? AND (profile_id=? OR profile_id IS NULL)", (roh, pid)).fetchone()
+    if r is None and len(roh) <= 8:
+        r = conn.execute("SELECT id, full_name, company, position FROM contacts WHERE id LIKE ? AND (profile_id=? OR profile_id IS NULL) LIMIT 2",
+                         (roh + "%", pid)).fetchall()
+        r = r[0] if len(r) == 1 else None          # mehrdeutig: nicht raten
+    return dict(r) if r is not None else None
+
+
+def _zuordnung_zeile(z) -> dict:
+    von, bis, aktuell = z["von"] or "", z["bis"] or "", bool(z["aktuell"])
+    return {"id": z["id"], "firma_id": z["company_id"], "firma": z["firma"], "kontakt_id": z["contact_id"], "kontakt": z["kontakt"],
+            "kontakt_firma_text": z["kontakt_firma"] or "", "funktion": z["funktion"] or "", "rolle": z["rolle"] or "",
+            "von": von, "bis": bis, "aktuell": aktuell, "zeitraum": zeitraum_text(von, bis, aktuell), "notizen": z["notizen"] or ""}
+
+
+_ZUORDNUNG_SQL = ("SELECT cc.*, co.name AS firma, c.full_name AS kontakt, c.company AS kontakt_firma, c.position AS funktion "
+                  "FROM company_contacts cc JOIN companies co ON co.id = cc.company_id JOIN contacts c ON c.id = cc.contact_id "
+                  "WHERE cc.profile_id=? ")
+
+
+def kontakte_der_firma(db, firma_id: str) -> list:
+    """Die Kontakte, die einer Firma zugeordnet sind: aktuelle zuerst, dann nach Beginn."""
+    conn, pid = db.connect(), _pid(db)
+    zeilen = [_zuordnung_zeile(z) for z in conn.execute(_ZUORDNUNG_SQL + "AND cc.company_id=?", (pid, str(firma_id)))]
+    return sorted(zeilen, key=lambda z: (not z["aktuell"], tuple(-x for x in _zeit_sortierbar(z["von"] or z["bis"])), z["kontakt"].casefold()))
+
+
+def firmen_des_kontakts(db, kontakt_id: str) -> list:
+    """Die Firmen, denen ein Kontakt zugeordnet ist (aktuelle zuerst)."""
+    k = _kontakt_aufloesen(db, kontakt_id)
+    if k is None:
+        return []
+    conn, pid = db.connect(), _pid(db)
+    zeilen = [_zuordnung_zeile(z) for z in conn.execute(_ZUORDNUNG_SQL + "AND cc.contact_id=?", (pid, k["id"]))]
+    return sorted(zeilen, key=lambda z: (not z["aktuell"], tuple(-x for x in _zeit_sortierbar(z["von"] or z["bis"])), z["firma"].casefold()))
+
+
+def kontakt_zuordnen(db, firma_id: str, kontakt_id: str, *, rolle: str = "", von: str = "", bis: str = "", aktuell=None, notizen: str = "") -> dict:
+    """Ordnet einen Kontakt einer Firma zu — mit Rolle und Zeitraum. Dieselbe Person kann mehreren Firmen angehören (aktuell, früher).
+
+    Ohne Angabe gilt der Kontakt dort als aktuell; mit `bis` ist er es nicht mehr. Das Textfeld „Firma“ am Kontakt bleibt unverändert.
+    """
+    f = firma_laden(db, firma_id)
+    if f is None:
+        return {"status": "nicht_gefunden", "text": "Diese Firma gibt es nicht (mehr). Lege sie zuerst an (firmen_stamm_bearbeiten, aktion='anlegen')."}
+    k = _kontakt_aufloesen(db, kontakt_id)
+    if k is None:
+        return {"status": "nicht_gefunden", "text": "Diesen Kontakt gibt es nicht. Die Kennung steht in kontakte_auflisten()."}
+    von_n, fehler = _zeit(von)
+    bis_n, fehler2 = _zeit(bis)
+    if fehler or fehler2:
+        return {"status": "fehler", "text": fehler or fehler2}
+    if von_n and bis_n and _zeit_sortierbar(von_n) > _zeit_sortierbar(bis_n):
+        return {"status": "fehler", "text": f"Der Beginn ({von_n}) liegt nach dem Ende ({bis_n})."}
+    if aktuell is None:
+        aktuell = not bis_n
+    if bis_n and aktuell:
+        return {"status": "fehler", "text": "Ein Zeitraum mit Ende ist nicht aktuell: entweder das Ende weglassen oder aktuell=False."}
+    rolle = _sauber(rolle, 120)
+    with _LOCK:
+        conn, pid = db.connect(), _pid(db)
+        gleich = conn.execute("SELECT id FROM company_contacts WHERE company_id=? AND contact_id=? AND profile_id=? AND rolle=? AND von=? AND bis=?",
+                              (f["id"], k["id"], pid, rolle, von_n, bis_n)).fetchone()
+        if gleich:
+            return {"status": "schon_da", "zuordnung_id": gleich["id"], "text": f"{k['full_name']} gehört schon so zu „{f['name']}“."}
+        zid = "cc_" + uuid.uuid4().hex[:10]
+        conn.execute("INSERT INTO company_contacts (id, company_id, contact_id, profile_id, rolle, von, bis, aktuell, notizen, created_at, updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                     (zid, f["id"], k["id"], pid, rolle, von_n, bis_n, 1 if aktuell else 0, _sauber(notizen, 1000), _jetzt(), _jetzt()))
+        conn.commit()
+    zeile = next(z for z in kontakte_der_firma(db, f["id"]) if z["id"] == zid)
+    return {"status": "zugeordnet", "zuordnung": zeile,
+            "text": f"{k['full_name']} gehört jetzt zu „{f['name']}“ ({zeile['zeitraum']}). Das Textfeld Firma am Kontakt ist unverändert."}
+
+
+def zuordnung_aendern(db, zuordnung_id: str, **felder) -> dict:
+    """Ändert Rolle, Zeitraum, aktuell oder Notizen einer Zuordnung. Nur die genannten Felder."""
+    erlaubt = {"rolle", "von", "bis", "aktuell", "notizen"}
+    unbekannt = [k for k in felder if k not in erlaubt]
+    if unbekannt:
+        return {"status": "fehler", "text": f"Unbekannte Felder: {unbekannt}", "erlaubt": sorted(erlaubt)}
+    with _LOCK:
+        conn, pid = db.connect(), _pid(db)
+        z = conn.execute("SELECT * FROM company_contacts WHERE id=? AND profile_id=?", (str(zuordnung_id), pid)).fetchone()
+        if z is None:
+            return {"status": "nicht_gefunden", "text": "Diese Zuordnung gibt es nicht (mehr)."}
+        von_n, bis_n, aktuell = z["von"] or "", z["bis"] or "", bool(z["aktuell"])
+        if "von" in felder:
+            von_n, fehler = _zeit(felder["von"])
+            if fehler:
+                return {"status": "fehler", "text": fehler}
+        if "bis" in felder:
+            bis_n, fehler = _zeit(felder["bis"])
+            if fehler:
+                return {"status": "fehler", "text": fehler}
+            if bis_n and "aktuell" not in felder:
+                aktuell = False
+        if "aktuell" in felder and felder["aktuell"] is not None:
+            aktuell = bool(felder["aktuell"])
+        if bis_n and aktuell:
+            return {"status": "fehler", "text": "Ein Zeitraum mit Ende ist nicht aktuell: entweder das Ende entfernen oder aktuell=False."}
+        if von_n and bis_n and _zeit_sortierbar(von_n) > _zeit_sortierbar(bis_n):
+            return {"status": "fehler", "text": f"Der Beginn ({von_n}) liegt nach dem Ende ({bis_n})."}
+        rolle = _sauber(felder["rolle"], 120) if "rolle" in felder else (z["rolle"] or "")
+        notizen = _sauber(felder["notizen"], 1000) if "notizen" in felder else (z["notizen"] or "")
+        conn.execute("UPDATE company_contacts SET rolle=?, von=?, bis=?, aktuell=?, notizen=?, updated_at=? WHERE id=? AND profile_id=?",
+                     (rolle, von_n, bis_n, 1 if aktuell else 0, notizen, _jetzt(), z["id"], pid))
+        conn.commit()
+        zeile = next(x for x in kontakte_der_firma(db, z["company_id"]) if x["id"] == z["id"])
+    return {"status": "geaendert", "zuordnung": zeile, "text": f"Gespeichert: {zeile['kontakt']} bei „{zeile['firma']}“ ({zeile['zeitraum']})."}
+
+
+def zuordnung_entfernen(db, zuordnung_id: str) -> dict:
+    """Nimmt einen Kontakt aus der Firma. Der Kontakt selbst und sein Textfeld Firma bleiben."""
+    with _LOCK:
+        conn, pid = db.connect(), _pid(db)
+        z = conn.execute(_ZUORDNUNG_SQL + "AND cc.id=?", (pid, str(zuordnung_id))).fetchone()
+        if z is None:
+            return {"status": "nicht_gefunden", "text": "Diese Zuordnung gibt es nicht (mehr)."}
+        conn.execute("DELETE FROM company_contacts WHERE id=? AND profile_id=?", (z["id"], pid))
+        conn.commit()
+    return {"status": "entfernt", "text": f"{z['kontakt']} gehört nicht mehr zu „{z['firma']}“. Der Kontakt bleibt unverändert."}
 
 
 # ── Vorschläge aus dem Bestand ─────────────────────────────────────────────────────────────────────────

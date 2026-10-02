@@ -98,11 +98,23 @@ def register(mcp, db, logger):
         if not contact:
             return {"fehler": "Kontakt nicht gefunden."}
         links = db.get_contact_links(contact["id"])
-        return {
+        antwort = {
             "kontakt": contact,
             "verknuepfungen": links,
             "anzahl_verknuepfungen": len(links),
         }
+        # #1080: die Firmen des Kontakts - aktuelle und fruehere, mit Rolle und Zeitraum - und der Weg zu jeder.
+        try:
+            from ..services import firmen_bezuege as _fb_oeffnen
+            from ..services import firmen_stamm as _fs
+            firmen = _fs.firmen_des_kontakts(db, contact["id"])
+            antwort["firmen"] = [
+                {k: z[k] for k in ("id", "firma_id", "firma", "rolle", "zeitraum", "aktuell")} for z in firmen]
+            antwort["firma_oeffnen"] = _fb_oeffnen.oeffnen_aufrufe(
+                *[z["firma"] for z in firmen], contact.get("company"))
+        except Exception as exc:  # noqa: BLE001 — eine Zugabe
+            logger.debug("Firmen des Kontakts nicht lesbar: %s", exc)
+        return antwort
 
     @mcp.tool()
     def kontakte_auflisten(
@@ -232,18 +244,42 @@ def register(mcp, db, logger):
         ziel_id: str,
         rolle: str = "",
         notizen: str = "",
+        von: str = "",
+        bis: str = "",
     ) -> dict:
         """Verknüpft einen Kontakt mit Bewerbung/Meeting/Stelle/Firma.
+
+        Bei 'firma' wird der Kontakt der FIRMA zugeordnet (Firmen-Eintrag, #1080), mit Rolle und Zeitraum: dieselbe Person kann
+        mehreren Firmen angehören, aktuell oder früher. Die Firma muss im Firmen-Eintrag stehen (firmen_stamm_bearbeiten,
+        aktion='anlegen'); `ziel_id` ist ihre Kennung (fi_...) oder ihr Name.
 
         Args:
             kontakt_id: ID des Kontakts (mit oder ohne CON-Prefix).
             ziel_typ: 'bewerbung' | 'meeting' | 'stelle' | 'firma'.
-            ziel_id: ID des Ziels.
+            ziel_id: ID des Ziels (bei 'firma': Kennung fi_... oder Name).
             rolle: Optional die Rolle in diesem Kontext (kann sich von den
                 allgemeinen Tags unterscheiden — z.B. die gleiche Person
                 ist 'recruiter' bei Firma A und 'kollege' bei Firma B).
             notizen: Freitext.
+            von: Nur 'firma': Beginn (2021, 2021-03 oder 03.2021). Leer = unbekannt.
+            bis: Nur 'firma': Ende. Mit Ende gilt der Kontakt dort als früher.
         """
+        if (ziel_typ or "").strip().lower() == "firma":
+            from ..services import firmen_stamm as _fs
+            ziel = (ziel_id or "").strip()
+            firma = _fs.firma_laden(db, ziel) if ziel.startswith("fi_") else None
+            if firma is None:
+                erg = _fs.aufloesen(db, ziel)
+                if erg["mehrdeutig"]:
+                    return {"fehler": "Der Name passt zu mehreren Firmen: " + ", ".join(erg["mehrdeutig"]) + ". Nimm die Kennung (fi_...) aus firmen_stamm_anzeigen."}
+                firma = erg["firma"]
+            if firma is None:
+                return {"fehler": f"Zu „{ziel}“ gibt es noch keinen Firmen-Eintrag.",
+                        "naechster_schritt": "Zuerst anlegen: firmen_stamm_bearbeiten(aktion='anlegen', name=...), dann erneut verknüpfen."}
+            erg = _fs.kontakt_zuordnen(db, firma["id"], kontakt_id, rolle=rolle, von=von, bis=bis, notizen=notizen)
+            if erg["status"] in ("zugeordnet", "schon_da"):
+                return {"status": "verknuepft", **{k: v for k, v in erg.items() if k != "status"}}
+            return {"fehler": erg["text"]}
         # Mapping deutsche Begriffe → interne target_kinds
         kind_map = {
             "bewerbung": "application",

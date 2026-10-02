@@ -4636,6 +4636,12 @@ def register(mcp, db, logger):
                 result["beschreibung_unvollstaendig"] = True
                 result["beschreibung_hinweis"] = _kappung
         result["url"] = job_dict.get("url", "")
+        # #1080: von der Stelle zur Firma mit einem Aufruf (Historie ueber alle Schreibweisen und Rollen).
+        try:
+            from ..services import firmen_bezuege as _fb_oeffnen
+            result["firma_oeffnen"] = _fb_oeffnen.oeffnen_aufrufe(job_dict.get("company"))
+        except Exception as exc:  # noqa: BLE001 — eine Zugabe
+            logger.debug("firma_oeffnen nicht berechenbar: %s", exc)
         # #436: Warne wenn URL nur auf Suchergebnis-Seite zeigt
         if job_dict.get("is_search_url"):
             result["url_warnung"] = (
