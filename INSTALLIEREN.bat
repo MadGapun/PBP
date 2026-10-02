@@ -376,7 +376,7 @@ echo         Installiere Kernpakete...
 :: (fastmcp>=3.0,<4); bei einem Update wird eine zu neue Fassung so auch
 :: zurueckgesetzt. tests/test_v17145_installer_pakete.py haelt die Listen
 :: gegen pyproject.toml.
-"%PYTHON%" -m pip install "fastmcp>=3.0,<4" "uvicorn>=0.30" "fastapi>=0.115" "python-multipart>=0.0.9" "httpx>=0.27" "geopy>=2.4" "beautifulsoup4>=4.12" "lxml>=5.0" "python-jobspy>=1.1" --no-warn-script-location >> "%LOGFILE%" 2>&1
+"%PYTHON%" -m pip install "fastmcp>=3.0,<4" "uvicorn>=0.30" "fastapi>=0.115" "python-multipart>=0.0.9" "httpx>=0.27" "geopy>=2.4" "beautifulsoup4>=4.12" "lxml>=5.0" "python-jobspy>=1.2" --no-warn-script-location >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_packages
 echo         [OK] Kernpakete installiert (inkl. JobSpy + Geopy)
 echo [OK] Kernpakete installiert >> "%LOGFILE%"
