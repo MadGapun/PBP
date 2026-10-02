@@ -284,7 +284,8 @@ def test_die_notiz_nennt_die_sichtbaren_bei_aktivem_filter():
     quelle = _ohne_kommentare(_quelle())
     # G62/G66 (#1087): "Stellen" und "ausgeblendet" — ein Wort je Sache.
     assert "${aktivMeta.treffer} Stellen, ${durchFilterVerborgen} durch Filter ausgeblendet" in quelle
-    assert "const durchFilterVerborgen = Math.max(0, aktivMeta.total - aktivMeta.treffer)" in quelle
+    # #1158: die Zahl der durch Filter fehlenden OFFENEN Stellen kommt vom Server.
+    assert "const durchFilterVerborgen = aktivMeta.offen_verborgen" in quelle
 
 
 def test_das_zeitfenster_verbirgt_nichts_mehr_ungefragt():

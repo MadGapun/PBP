@@ -29,7 +29,9 @@ def test_g61_keine_zufaellige_perspektive():
 
 def test_g61_top_stellen_nach_den_regeln_des_stellen_tabs():
     seite = _lesen(FRONTEND / "pages" / "DashboardPage.jsx")
-    assert 'listenParameter(FILTER_STANDARD, "", "", "active")' in seite
+    # #1158: der Stellen-Tab startet ohne Einschränkung; die Top-Stellen sind eine Auswahl der besten
+    # Treffer und behalten Rahmen- und Schwellenfilter (FILTER_TOP_STELLEN).
+    assert 'listenParameter(FILTER_TOP_STELLEN, "", "", "active")' in seite
     assert "topStellen(data.topJobs || [])" in seite
 
 

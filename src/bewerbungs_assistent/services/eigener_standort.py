@@ -23,6 +23,9 @@ Die Regeln:
   den der Dienst nicht kennt, steht im dauerhaften Speicher und wird
   nicht jedes Mal neu gefragt; ein Ausfall des Dienstes zaehlt nicht als
   Befund (#950, #811).
+* **Entfernungen, die mit einem Zusatz im Ortstext gerechnet wurden,
+  werden geheilt** (#1158): "Hamburg (hybrid), remote moeglich" lag bis
+  v1.7.149 bei Mainz (410 statt 20 km) und blieb so gespeichert.
 """
 from __future__ import annotations
 
@@ -34,6 +37,13 @@ logger = logging.getLogger("bewerbungs_assistent.eigener_standort")
 EIGENE = "eigene"
 PROFIL = "profil"
 NACHHOLEN_JE_LAUF = 40   # verschiedene Orte je Nachhol-Lauf
+#: Ab dieser Abweichung (km) ersetzt eine neu gerechnete Entfernung die gespeicherte. Darunter ist es dieselbe
+#: Zahl in anderer Rundung - so laeuft die Heilung nie ein zweites Mal ueber dieselbe Stelle.
+BEREINIGEN_AB_KM = 1.0
+#: Orte, die in DIESEM Prozess schon einmal zur Heilung gefragt wurden. Findet der Dienst einen Ort nicht oder
+#: ist er nicht erreichbar, kommt `None` zurueck; ohne diese Merkliste wuerde jeder Suchlauf dieselben Orte
+#: erneut anfragen (mit Zeitgrenze je Anfrage), solange das Netz fehlt.
+_BEREINIGT_VERSUCHT: set = set()
 
 
 def _jetzt() -> str:
@@ -225,6 +235,75 @@ def entfernungen_nachziehen(db, alle: bool = False,
             "unaufloesbar": unaufloesbar, "orte_offen": offen}
 
 
+def entfernungen_bereinigen(db, max_orte: int | None = NACHHOLEN_JE_LAUF) -> dict:
+    """Heilt gespeicherte Entfernungen, die mit einem Zusatz im Ortstext gerechnet wurden (#1158 Punkt 8).
+
+    Bis v1.7.149 ging der Rohtext an den Ortsdienst: "Hamburg (hybrid), remote moeglich" kam mit einem Treffer
+    bei Mainz zurueck (410 statt 20 km) und blieb so gespeichert. Den Dienst zu korrigieren heilt nur NEUE
+    Rechnungen; die Stellen im Bestand haetten die falsche Zahl behalten, bis jemand den Ort von Hand aendert.
+
+    Angefasst werden nur Stellen, deren Ortstext sich beim Bereinigen aendert, die eine Entfernung tragen und
+    deren Entfernung nicht von Hand gesetzt ist (#1077). Ersetzt wird erst ab BEREINIGEN_AB_KM Abweichung.
+    Ein Text ohne Ort ("Remote moeglich") hat keine Entfernung: sie wird geleert, das ist eine Feststellung
+    ohne Netz. Findet der Dienst den bereinigten Ort NICHT (oder ist er nicht erreichbar), bleibt die
+    gespeicherte Zahl stehen - sie zu loeschen waere ein Urteil, das der Dienst nicht gefaellt hat (#950)."""
+    from .geocoding_service import (
+        calculate_distance_km, geocode_location, nur_land_entfernt, ort_fuer_abfrage, ort_schluessel)
+    start = _koordinaten(db)
+    if not start:
+        return {"status": "kein_standort", "stellen": 0, "geleert": 0, "orte": 0}
+    pid = db.get_active_profile_id()
+    con = db.connect()
+    sql = ("SELECT hash, location, distance_km FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+           "AND location IS NOT NULL AND TRIM(location) != '' AND distance_km IS NOT NULL "
+           "AND COALESCE(entfernung_quelle, '') != 'mensch'")
+    nach_ort: dict = {}
+    leeren: list = []
+    for kennung, ort, km in con.execute(sql, (pid,)).fetchall():
+        roh = ort.strip()
+        schluessel = ort_schluessel(roh)
+        if not schluessel:
+            leeren.append(kennung)         # kein Ort gemeint: keine Entfernung
+        elif schluessel == roh.lower() or nur_land_entfernt(roh, ort_fuer_abfrage(roh)):
+            continue                       # sauber, oder nur ein Land am Ende: die alte Rechnung stimmt
+        else:
+            nach_ort.setdefault(roh, []).append((kennung, float(km)))
+    orte = [o for o in nach_ort if o not in _BEREINIGT_VERSUCHT]
+    if max_orte:
+        orte = orte[:max_orte]
+    # Erst alle Orte aufloesen (eine Netzabfrage je Ort), DANACH kurz schreiben - wie in `entfernungen_nachziehen`
+    # (#1118): sonst haelt die Schreibsperre so lange, wie das Netz braucht.
+    ziele: dict = {}
+    for ort in orte:
+        _BEREINIGT_VERSUCHT.add(ort)
+        ziele[ort] = geocode_location(ort)
+    korrigiert = 0
+    am = _jetzt()
+    for ort, ziel in ziele.items():
+        if not ziel:
+            continue
+        neu = calculate_distance_km(start, ziel)
+        for kennung, alt in nach_ort[ort]:
+            if abs(neu - alt) <= BEREINIGEN_AB_KM:
+                continue
+            con.execute(
+                "UPDATE jobs SET distance_km=?, lat=?, lon=?, entfernung_am=?, "
+                "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL WHERE hash=?",
+                (neu, ziel[0], ziel[1], am, kennung))
+            korrigiert += 1
+    for i in range(0, len(leeren), 500):
+        teil = leeren[i:i + 500]
+        con.execute(
+            f"UPDATE jobs SET distance_km=NULL, lat=NULL, lon=NULL, entfernung_am=?, "
+            f"fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL "
+            f"WHERE hash IN ({','.join('?' * len(teil))})", (am, *teil))
+    con.commit()
+    if korrigiert or leeren:
+        logger.info("Entfernungen bereinigt (#1158): %d korrigiert, %d ohne Ort geleert, %d Orte gefragt",
+                    korrigiert, len(leeren), len(orte))
+    return {"status": "fertig", "stellen": korrigiert, "geleert": len(leeren), "orte": len(orte)}
+
+
 def _punkte_neu(db) -> dict:
     from . import scoring_kriterien
     from .neu_bewerten import neu_bewerten
@@ -293,6 +372,13 @@ def nachholen(db) -> dict:
     """Nach einem Suchlauf: fehlende Entfernungen nachholen (AK 5),
     begrenzt je Lauf, danach die Punkte der betroffenen Stellen neu."""
     erg = entfernungen_nachziehen(db, alle=False)
-    if erg.get("stellen"):
+    # #1158: Altbestand mit Ortszusatz - eine Heilung darf das Nachholen nie stoppen.
+    try:
+        heilung = entfernungen_bereinigen(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Entfernungen nicht bereinigt: %s", exc)
+        heilung = {}
+    if erg.get("stellen") or heilung.get("stellen") or heilung.get("geleert"):
         _punkte_neu(db)
+    erg["bereinigt"] = heilung.get("stellen", 0) + heilung.get("geleert", 0)
     return erg

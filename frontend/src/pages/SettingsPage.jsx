@@ -10,6 +10,12 @@ import LernTransparenz from "@/components/LernTransparenz";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
+import {
+  anzeigeText as downloadText,
+  istEnde as downloadEnde,
+  prozent as downloadProzent,
+  verfolgen as downloadVerfolgen,
+} from "@/lib/modellDownload";
 import { hexToRgb, rgbToHex, THEME_TOKENS } from "@/theme";
 import {
   Badge,
@@ -2007,6 +2013,29 @@ function OllamaBeendenBlock({ pushToast }) {
   );
 }
 
+// #1154: Stand des laufenden Modell-Downloads — Balken, Prozent und ein Satz.
+function ModellFortschritt({ job, modell }) {
+  const p = downloadProzent(job);
+  return (
+    <div className="glass-card p-3 mb-4 border-sky/20" role="status" aria-live="polite" data-testid="modell-fortschritt">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-ink">{modell} wird geladen</p>
+        <span className="text-xs text-muted">{p} %</span>
+      </div>
+      <div
+        className="my-2 h-2 overflow-hidden rounded bg-white/10"
+        role="progressbar"
+        aria-valuenow={p}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <div className="h-full bg-sky transition-all" style={{ width: `${p}%` }} />
+      </div>
+      <p className="text-xs text-muted">{downloadText(job, modell)}</p>
+    </div>
+  );
+}
+
 function LocalAITab({ pushToast }) {
   const [status, setStatus] = useState(null);
   const [recommended, setRecommended] = useState([]);
@@ -2014,6 +2043,11 @@ function LocalAITab({ pushToast }) {
   const [katalogStand, setKatalogStand] = useState("");
   const [pulling, setPulling] = useState(false);
   const [pullModel, setPullModel] = useState(null);
+  // #1154: der Stand des laufenden Downloads; eine Abfrageschleife je Seite.
+  const [pullJob, setPullJob] = useState(null);
+  const pullLaeuft = useRef(false);
+  const seiteDa = useRef(true);
+  useEffect(() => () => { seiteDa.current = false; }, []);
 
   const reloadStatus = useEffectEvent(async (force = false) => {
     try {
@@ -2034,6 +2068,12 @@ function LocalAITab({ pushToast }) {
     reloadStatus(true);
     api("/api/llm/recommended-models")
       .then((d) => { setRecommended(d?.models || []); setKatalogStand(d?.stand_text || ""); })
+      .catch(() => {});
+    // #1154: lief beim Laden der Seite schon ein Download, zeigt sie dessen Stand weiter an.
+    api("/api/llm/pull")
+      .then((d) => {
+        if (d?.job && !downloadEnde(d.job)) downloadFolgen(d.job.job_id, d.job.model, d.job);
+      })
       .catch(() => {});
   }, []);
 
@@ -2061,25 +2101,53 @@ function LocalAITab({ pushToast }) {
     }
   }
 
-  async function pullModelTrigger(modelId) {
+  // #1154: verfolgt einen laufenden Download bis zum Ende und zeigt dabei Prozent und Satz.
+  async function downloadFolgen(jobId, modell, start = null) {
+    if (pullLaeuft.current) return;
+    pullLaeuft.current = true;
     setPulling(true);
-    setPullModel(modelId);
+    setPullModel(modell);
+    setPullJob(start);
     try {
-      pushToast(`Lade ${modelId}... das kann einige Minuten dauern.`, "amber", { duration: 10000 });
-      const result = await postJson("/api/llm/pull", { model: modelId });
-      if (result?.status === "error") {
-        pushToast(`Download fehlgeschlagen: ${result.error}`, "danger");
-      } else {
-        pushToast(`${modelId} ist installiert.`, "success");
-        await selectModel(modelId);
+      const job = await downloadVerfolgen((id) => api(`/api/llm/pull/${id}`), jobId, {
+        beiStand: (j) => { if (seiteDa.current) setPullJob(j); },
+        abgebrochen: () => !seiteDa.current,
+      });
+      if (!job) return;
+      if (job.status === "fertig") {
+        pushToast(`${modell} ist installiert.`, "success");
+        await selectModel(modell);
         await setState("active");
+      } else {
+        pushToast(downloadText(job, modell), "danger", { duration: 12000 });
       }
     } catch (err) {
       pushToast(`Download fehlgeschlagen: ${err.message}`, "danger");
     } finally {
+      pullLaeuft.current = false;
+      if (seiteDa.current) {
+        setPulling(false);
+        setPullModel(null);
+        setPullJob(null);
+        await reloadStatus();
+      }
+    }
+  }
+
+  async function pullModelTrigger(modelId) {
+    try {
+      // Der Aufruf startet den Download im Hintergrund und antwortet sofort (#1154).
+      const start = await postJson("/api/llm/pull", { model: modelId });
+      if (!start?.job_id) throw new Error(start?.error || "Der Download ließ sich nicht starten.");
+      if (start.status === "laeuft_schon" && !start.gleiches_modell) {
+        pushToast(`Es läuft schon ein Download (${start.model}). Warte, bis er fertig ist.`, "amber", { duration: 8000 });
+      }
+      await downloadFolgen(start.job_id, start.model || modelId);
+    } catch (err) {
+      pushToast(`Download fehlgeschlagen: ${err.message}`, "danger");
       setPulling(false);
       setPullModel(null);
-      await reloadStatus();
+      setPullJob(null);
     }
   }
 
@@ -2221,6 +2289,7 @@ function LocalAITab({ pushToast }) {
           <h2 className="text-base font-semibold text-ink">Lokale KI — Modell auswählen</h2>
           <p className="text-xs text-muted">Ollama erkannt. Jetzt ein Modell laden.</p>
         </div>
+        {pullModel ? <ModellFortschritt job={pullJob} modell={pullModel} /> : null}
         <div className="space-y-2">
           {recommended.map((m) => (
             <div key={m.id} className="glass-card p-3 flex items-center justify-between gap-3">
@@ -2299,6 +2368,7 @@ function LocalAITab({ pushToast }) {
 
       {/* v1.7.0-beta.25 (#591/#592): Modell-Detail-Liste mit Groesse +
           „Weitere installieren"-Block immer sichtbar */}
+      {pullModel ? <ModellFortschritt job={pullJob} modell={pullModel} /> : null}
       <ModelDetailList
         status={status}
         recommended={recommended}
