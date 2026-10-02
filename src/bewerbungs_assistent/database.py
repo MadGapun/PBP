@@ -1263,6 +1263,16 @@ class Database:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_jobs_pinned ON jobs(is_pinned DESC, score DESC)"
         )
+        # v1.7.147 (#1143): der 2-Sekunden-Takt des Dashboards fragt
+        # MAX(updated_at) ueber alle Stellen; ohne Index durchsucht SQLite
+        # jedes Mal die ganze Tabelle (bei 20.000 Stellen etwa 350 ms).
+        # Idempotent, kein Schema-Bump.
+        try:
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_updated_at ON jobs(updated_at)"
+            )
+        except Exception as exc:  # pragma: no cover - nie den Start verhindern
+            logger.warning("Index idx_jobs_updated_at nicht angelegt: %s", exc)
         conn.commit()
         # Safety net: if profiles exist but none is active, auto-activate the newest
         active_check = conn.execute("SELECT id FROM profile WHERE is_active=1 LIMIT 1").fetchone()
@@ -5278,8 +5288,10 @@ class Database:
                 linked += 1
         if linked:
             conn.commit()
-            logger.info("Auto-linked %d document(s) to application %s (company: %s)",
-                        linked, application_id, company)
+            # v1.7.145: ohne Firmennamen. Die Protokolldatei wird in Fehler-
+            # berichten oeffentlich eingefuegt; ein Arbeitgeber gehoert nicht hinein.
+            logger.info("Auto-linked %d document(s) to application %s",
+                        linked, application_id)
 
     @staticmethod
     def _normalize_umlauts(text: str) -> str:
@@ -6192,6 +6204,21 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    def count_dismissed_jobs(self) -> int:
+        """Wie viele Stellen sind aussortiert — gezaehlt, nicht geladen (#1143).
+
+        Der Stellen-Tab nannte die Zahl bisher mit `len(get_dismissed_jobs())`,
+        einem `SELECT *` samt aller Anzeigentexte: bei 20.000 Aussortierten
+        zwei bis drei Sekunden je Aufruf, fuer eine Zahl. Dieselbe Menge
+        wie `get_dismissed_jobs`.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        return conn.execute(
+            "SELECT COUNT(*) FROM jobs WHERE is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL)", (pid,)
+        ).fetchone()[0]
+
     def get_auto_dismissed_jobs(self, limit: int = 20) -> list:
         """Die zuletzt AUTOMATISCH aussortierten Stellen (#941).
 
@@ -6562,6 +6589,28 @@ class Database:
             pattern = f"%{search}%"
             params.extend([pattern, pattern, pattern])
         return conn.execute(query, params).fetchone()[0]
+
+    def get_applied_job_hashes(self) -> set:
+        """Die Stellen, auf die es eine Bewerbung gibt — ein SELECT (#1143).
+
+        Der Beworben-Bonus im Scoring fragte das bisher mit
+        `get_applications()` ab, und das liest je Bewerbung Verlauf,
+        letzte Notiz, Dokumentzahl und Stelle nach: fuenf Abfragen pro
+        Bewerbung, und das fuer JEDE Stelle der Liste. 1.200 Stellen und
+        100 Bewerbungen kosteten so 11,6 Sekunden je Aufruf.
+
+        Dieselbe Menge wie vorher: Bewerbungen des aktiven Profils (oder
+        ohne Profil), jeder Status, mit dem oeffentlichen Hash der Stelle.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        return {
+            self._public_job_hash(r["job_hash"], r["profile_id"])
+            for r in conn.execute(
+                "SELECT job_hash, profile_id FROM applications "
+                "WHERE job_hash IS NOT NULL AND job_hash != '' "
+                "AND (profile_id=? OR profile_id IS NULL)", (pid,)).fetchall()
+        }
 
     def count_archived_applications(self) -> int:
         """Count archived (abgelehnt/zurückgezogen/abgelaufen) applications."""
@@ -11536,9 +11585,16 @@ class Database:
             from .services.scoring_service import apply_scoring_adjustments
         except Exception:
             return jobs
+        # v1.7.147 (#1143): die beworbenen Stellen EINMAL lesen, nicht je
+        # Stelle (11,6 s bei 1.200 Stellen und 100 Bewerbungen).
+        try:
+            beworbene = self.get_applied_job_hashes()
+        except Exception:
+            beworbene = None
         for j in jobs:
             try:
-                ergebnis = apply_scoring_adjustments(j, j.get("score", 0), self)
+                ergebnis = apply_scoring_adjustments(
+                    j, j.get("score", 0), self, beworbene=beworbene)
                 j["score"] = ergebnis.get("final_score", j.get("score", 0))
                 # v1.7.127 (#1082): der Wert, gegen den die Schwelle und
                 # der Fachdaumen vergleichen — ohne Entfernung, Remote
@@ -12284,6 +12340,11 @@ class Database:
         data["meeting_date"] = termin_zeit.normalisieren(data.get("meeting_date"))
         if data.get("meeting_end"):
             data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
+            # v1.7.146 (#1140): ein Ende vor dem Beginn (das Formular schrieb
+            # es bis v1.7.145 in UTC) wird aus Beginn + Dauer gerechnet.
+            data["meeting_end"], _ = termin_zeit.ende_korrigieren(
+                data["meeting_date"], data["meeting_end"],
+                data.get("duration_minutes"))
         conn = self.connect()
         mid = _gen_id()
         pid = self.get_active_profile_id()
@@ -12358,9 +12419,10 @@ class Database:
         Unlesbares bleibt stehen und wird genannt."""
         from .services import termin_zeit
         conn = self.connect()
-        geaendert, unlesbar = 0, []
+        geaendert, unlesbar, ende_korrigiert = 0, [], 0
         for r in conn.execute(
-                "SELECT id, meeting_date, meeting_end FROM application_meetings").fetchall():
+                "SELECT id, meeting_date, meeting_end, duration_minutes "
+                "FROM application_meetings").fetchall():
             satz = {}
             for feld in ("meeting_date", "meeting_end"):
                 if not r[feld]:
@@ -12372,6 +12434,17 @@ class Database:
                     continue
                 if neu != r[feld]:
                     satz[feld] = neu
+            # v1.7.146 (#1140): ein Ende vor dem Beginn (bis v1.7.145 schrieb
+            # das Formular es in UTC) wird aus Beginn + Dauer gerechnet; ohne
+            # Dauer bleibt es leer. Deterministisch und idempotent.
+            beginn = satz.get("meeting_date", r["meeting_date"])
+            ende = satz.get("meeting_end", r["meeting_end"])
+            if beginn and ende:
+                neues_ende, korrigiert = termin_zeit.ende_korrigieren(
+                    beginn, ende, r["duration_minutes"])
+                if korrigiert:
+                    satz["meeting_end"] = neues_ende
+                    ende_korrigiert += 1
             if satz:
                 setz = ", ".join(f"{k}=?" for k in satz)
                 conn.execute(f"UPDATE application_meetings SET {setz} WHERE id=?",
@@ -12380,7 +12453,10 @@ class Database:
         conn.commit()
         if unlesbar:
             logger.warning("Termine mit unlesbarer Zeit (#1102): %s", unlesbar)
-        return {"geaendert": geaendert, "unlesbar": unlesbar}
+        if ende_korrigiert:
+            logger.info("Terminende korrigiert (#1140): %d Termin(e)", ende_korrigiert)
+        return {"geaendert": geaendert, "unlesbar": unlesbar,
+                "ende_korrigiert": ende_korrigiert}
 
     def get_meetings_for_application(self, application_id: str, profile_id: str = None) -> list:
         """Get all meetings for a specific application."""
@@ -12407,6 +12483,22 @@ class Database:
             data["meeting_date"] = termin_zeit.normalisieren(data["meeting_date"])
         if data.get("meeting_end"):
             data["meeting_end"] = termin_zeit.normalisieren(data["meeting_end"])
+        # v1.7.146 (#1140): Beginn, Ende und Dauer gelten als Einheit. Wer den
+        # Beginn verschiebt oder ein Ende aus UTC schickt, bekommt ein Ende
+        # nach dem Beginn (aus der Dauer gerechnet), nie eines davor.
+        if any(k in data for k in ("meeting_date", "meeting_end", "duration_minutes")):
+            alt = conn.execute(
+                "SELECT meeting_date, meeting_end, duration_minutes "
+                "FROM application_meetings WHERE id=?", (meeting_id,)).fetchone()
+            if alt:
+                beginn = data.get("meeting_date", alt["meeting_date"])
+                ende = data["meeting_end"] if "meeting_end" in data else alt["meeting_end"]
+                dauer = (data["duration_minutes"] if "duration_minutes" in data
+                         else alt["duration_minutes"])
+                if beginn and ende:
+                    neues_ende, korrigiert = termin_zeit.ende_korrigieren(beginn, ende, dauer)
+                    if korrigiert:
+                        data["meeting_end"] = neues_ende
         sets = []
         vals = []
         for k, v in data.items():

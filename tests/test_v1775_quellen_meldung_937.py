@@ -241,7 +241,12 @@ def test_937_der_text_steht_vor_dem_oeffnen_da():
     dialog = seite[seite.index("open={Boolean(meldung)}"):]
     dialog = dialog[:dialog.index("</Modal>")]
     assert "meldung?.bericht" in dialog, "Der Bericht steht nicht im Dialog."
-    oeffnen = dialog.index("window.open")
+    # v1.7.145: das Oeffnen geht ueber `oeffneAdresse` (nur http/https),
+    # vorher stand hier das rohe `window.open`. Beide gelten als "Oeffnen".
+    stellen = [i for i in (dialog.find("window.open"),
+                           dialog.find("oeffneAdresse(")) if i >= 0]
+    assert stellen, "Der Dialog oeffnet das Formular nicht."
+    oeffnen = min(stellen)
     davor = dialog[:oeffnen]
     assert "onClick" in davor[-200:], (
         "window.open haengt nicht an einem Klick — dann oeffnet sich das "

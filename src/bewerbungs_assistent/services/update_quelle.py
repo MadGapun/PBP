@@ -51,6 +51,18 @@ STANDARD_QUELLEN = [
 #: Wie lange eine Antwort gilt, wenn die Quelle nichts anderes sagt.
 STANDARD_PAUSE_S = 3600
 
+#: Wie lange ein FEHLSCHLAG gilt (#1134). Ein Erfolg bleibt bei der Pause der
+#: Quelle (eine Stunde). Ein Fehlschlag darf nicht ebenso lange stehen
+#: bleiben: ein einziger Netzfehler beim Start (Netz noch nicht bereit,
+#: Zeitueberschreitung) nahm der Anzeige sonst eine Stunde lang jede
+#: Auskunft, und "unbekannt" blieb stehen, obwohl das Netz laengst da war.
+FEHLSCHLAG_PAUSE_S = 120
+FEHLSCHLAG_PAUSE_MAX_S = 900
+
+#: Ein Klick auf "Jetzt pruefen" umgeht den Speicher, aber nicht dichter als
+#: so: GitHub erlaubt ohne Anmeldung 60 Anfragen je Stunde und Adresse.
+MIN_ABSTAND_FRISCH_S = 15
+
 
 def linie_von(version: str) -> str:
     """'1.7.122' -> '1.7'. Die Linie, auf der eine Installation sitzt."""
@@ -109,6 +121,26 @@ def auswerten(art: str, daten: dict, aktuell: str, linie: str) -> dict | None:
         return None
     return {"version": version, "url": url, "name": name,
             "pause_s": max(60, pause)}
+
+
+def fehlschlag_pause_s(fehlversuche: int) -> int:
+    """Wie lange der n-te Fehlschlag in Folge gemerkt wird.
+
+    120, 240, 480 Sekunden, danach hoechstens 900: ein kurzer Netzfehler ist
+    bald behoben, ein dauerhafter Ausfall wird nicht im Zwei-Minuten-Takt
+    bedraengt.
+    """
+    n = max(1, int(fehlversuche or 1))
+    return min(FEHLSCHLAG_PAUSE_MAX_S, FEHLSCHLAG_PAUSE_S * 2 ** min(n - 1, 10))
+
+
+def mit_restzeit(ergebnis: dict, rest_s: float) -> dict:
+    """Kopie der Antwort mit `wieder_fragen_nach_s`: wann die Oberflaeche
+    erneut fragen soll (mindestens 5 Sekunden). Der gemerkte Eintrag selbst
+    bleibt unveraendert."""
+    antwort = dict(ergebnis)
+    antwort["wieder_fragen_nach_s"] = max(5, int(rest_s))
+    return antwort
 
 
 def ist_neuer(kandidat: str, aktuell: str) -> bool:

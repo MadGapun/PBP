@@ -145,9 +145,14 @@ def test_762_kurztext_ist_keine_fachliche_absage(setup_env):
            "employment_type": "festanstellung"}
     fit = fit_analyse(job, crit)
     assert fit.get("beschreibung_kurz") is True
-    emp = _build_empfehlung(fit, job)
+    emp = _build_empfehlung(fit, job, profil_kompetenzen=12)
     assert emp.get("score_zuverlaessig") is False
-    grund = " ".join(emp.get("ko_gruende") or [])
+    # v1.7.147 (#1146): "keine fachliche Absage" gilt jetzt auch fuer das
+    # Urteil selbst - NICHT_BEURTEILBAR statt NICHT_EMPFOHLEN, und der Satz
+    # steht im datenlage_hinweis statt unter einem k.o.-Grund.
+    assert emp["kategorie"] == "NICHT_BEURTEILBAR", emp
+    assert "ko_gruende" not in emp, emp
+    grund = emp.get("datenlage_hinweis") or ""
     assert "Kurztext" in grund and "keine fachliche Absage" in grund, grund
 
 

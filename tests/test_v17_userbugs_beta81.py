@@ -248,8 +248,15 @@ def test_empfehlung_ohne_profil_ist_nicht_beurteilbar():
     assert v["warum"] == "kein_profil"
 
 
-def test_empfehlung_ko_bei_fehlender_beschreibung():
-    """Fehlende Beschreibung ueberschreibt selbst hohen Score."""
+def test_empfehlung_fehlende_beschreibung_ist_keine_absage():
+    """Fehlende Beschreibung ueberschreibt selbst hohen Score — als "nicht
+    beurteilbar", nicht als Absage.
+
+    Bis v1.7.146 stand hier NICHT_EMPFOHLEN mit einem k.o.-Grund (#1146):
+    eine Anzeige ohne Text galt als abgeraten. Unbekannt ist ein eigener
+    Zustand (#989). Einzelheiten und die Gegenprobe:
+    tests/test_v17147_auskunft_1146.py.
+    """
     from bewerbungs_assistent.tools.jobs import _build_empfehlung
     fit_result = {
         "total_score": 85,
@@ -258,9 +265,11 @@ def test_empfehlung_ko_bei_fehlender_beschreibung():
         "risks": [],
         "beschreibung_vorhanden": False,
     }
-    verdict = _build_empfehlung(fit_result, {})
-    assert verdict["kategorie"] == "NICHT_EMPFOHLEN"
-    assert any("Beschreibung" in g for g in verdict["ko_gruende"])
+    verdict = _build_empfehlung(fit_result, {}, profil_kompetenzen=12)
+    assert verdict["kategorie"] == "NICHT_BEURTEILBAR"
+    assert verdict["warum"] == "keine_beschreibung"
+    assert "ko_gruende" not in verdict
+    assert "Beschreibung" in verdict["datenlage_hinweis"]
 
 
 def test_972_hochschulabschluss_ist_kein_ko_kriterium_mehr():

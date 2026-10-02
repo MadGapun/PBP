@@ -13,6 +13,7 @@
  * - Bei Sidebar collapsed: nur Avatar mit Pulse + Hover-Overlay
  * - Bei AI off: einzige Status-Nachricht, dann still
  */
+import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
@@ -556,7 +557,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                       {m.link_label || "Ansehen"}
                     </button>
                   ) : (
-                    <a href={m.link_url} target="_blank" rel="noopener noreferrer"
+                    <a href={sichereAdresse(m.link_url)} target="_blank" rel="noopener noreferrer"
                       className="mt-0.5 inline-block text-xs text-teal underline decoration-dotted hover:text-teal">
                       {m.link_label || "Mehr dazu"}
                     </a>

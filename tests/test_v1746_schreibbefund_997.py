@@ -154,10 +154,15 @@ def test_997_loeschen_wirkt_und_meldet_es(bearbeiten, db, bereich):
     """Gegenprobe zur Iteration oben: mit der richtigen ID kommt
     "geloescht", und der Datensatz ist wirklich weg."""
     ids = _bestand(db)
-    antwort = bearbeiten(bereich=bereich, aktion="loeschen",
-                         element_id=ids[bereich])
-    assert antwort["status"] == "geloescht", bereich
     from bewerbungs_assistent.tools.profil import _kennt_id
+    # v1.7.147 (#1145): ohne Bestaetigung kommt nur die Vorschau
+    vorschau = bearbeiten(bereich=bereich, aktion="loeschen",
+                          element_id=ids[bereich])
+    assert vorschau["status"] == "bestaetigung_erforderlich", bereich
+    assert _kennt_id(db, bereich, ids[bereich])
+    antwort = bearbeiten(bereich=bereich, aktion="loeschen",
+                         element_id=ids[bereich], bestaetigung=True)
+    assert antwort["status"] == "geloescht", bereich
     assert not _kennt_id(db, bereich, ids[bereich])
 
 
@@ -167,9 +172,9 @@ def test_997_zweimal_loeschen_meldet_beim_zweiten_mal_nichts_mehr(
     Unterschied sehen. Vorher waren beide Antworten identisch."""
     ids = _bestand(db)
     erst = bearbeiten(bereich="position", aktion="loeschen",
-                      element_id=ids["position"])
+                      element_id=ids["position"], bestaetigung=True)
     zweit = bearbeiten(bereich="position", aktion="loeschen",
-                       element_id=ids["position"])
+                       element_id=ids["position"], bestaetigung=True)
     assert erst["status"] == "geloescht"
     assert zweit["status"] == "nicht_gefunden"
 

@@ -133,6 +133,13 @@ class ApiRequestLoggingMiddleware:
 
 app.add_middleware(ApiRequestLoggingMiddleware)
 
+# v1.7.145: nur das Dashboard selbst darf PBP veraendern. Eine fremde
+# Webseite im selben Browser konnte bisher per einfacher Anfrage (POST mit
+# text/plain) das Profil ueberschreiben, Ordner einlesen, die Datenbank
+# leeren und den Deinstaller starten. Zuletzt hinzugefuegt = zuerst geprueft.
+from .services.lokaler_zugriff import LokalerZugriffMiddleware  # noqa: E402
+app.add_middleware(LokalerZugriffMiddleware)
+
 
 # Static files
 STATIC_DIR = Path(__file__).parent / "static"
@@ -509,7 +516,7 @@ async def api_profile():
 
 
 @app.get("/api/standort")
-async def api_standort():
+def api_standort():
     """Von wo aus PBP Entfernungen rechnet (#1090)."""
     from .services import eigener_standort
     if not _db.get_profile():
@@ -527,10 +534,13 @@ async def api_standort_setzen(request: Request):
     ort = data.get("ort", "")
     if not isinstance(ort, str):
         return JSONResponse({"error": "ort muss Text sein"}, status_code=400)
-    erg = eigener_standort.eigenen_setzen(_db, ort)
+    # v1.7.147 (#1143): die Ortssuche wartet auf einen Online-Dienst (bis zu
+    # mehreren Sekunden); auf der Ereignisschleife stand dabei das ganze
+    # Dashboard still.
+    erg = await run_in_threadpool(eigener_standort.eigenen_setzen, _db, ort)
     if erg.get("status") == "nicht_aufgeloest":
         return JSONResponse({"error": erg["hinweis"], **erg}, status_code=422)
-    return {**erg, "befund": eigener_standort.befund(_db)}
+    return {**erg, "befund": await run_in_threadpool(eigener_standort.befund, _db)}
 
 
 @app.post("/api/profile")
@@ -1463,6 +1473,12 @@ def _import_dublette(content_hash: str, dateiname: str) -> bool:
 @app.post("/api/documents/import-folder")
 async def api_import_folder(request: Request):
     data = await request.json()
+    # v1.7.147 (#1143): 150 PDFs lesen und kopieren dauerte 5,7 s, in denen
+    # das Dashboard nicht antwortete - die Arbeit laeuft im Thread-Pool.
+    return await run_in_threadpool(_import_folder, data)
+
+
+def _import_folder(data: dict):
     folder_path = data.get("folder_path", "")
     if not folder_path:
         return JSONResponse({"error": "Kein Ordnerpfad angegeben"}, status_code=400)
@@ -1927,7 +1943,9 @@ def _render_application_print_html(app_id, app_row, profile_id, _esc):
     company = _esc(str(app_data.get("company", "")))
     status = _esc(str(app_data.get("status", "")))
     applied_at = app_data.get("applied_at", "")
-    url = _esc(str(app_data.get("url") or (job.get("url") if job else "") or ""))
+    from .services.web_adresse import web_adresse_oder_leer  # v1.7.145
+    url = _esc(web_adresse_oder_leer(
+        app_data.get("url") or (job.get("url") if job else "") or ""))
 
     def _stat(label, value, hint=None):
         return f"""<div class="stat"><div class="stat-label">{_esc(label)}</div><div class="stat-value">{_esc(str(value))}</div>{f'<div class="stat-hint">{_esc(hint)}</div>' if hint else ''}</div>"""
@@ -2290,7 +2308,9 @@ def _render_stelle_html(app_data: dict, job: dict | None, _esc) -> str:
     """Stellenanzeige als HTML (im ZIP)."""
     title = _esc(str(app_data.get("title", "")))
     company = _esc(str(app_data.get("company", "")))
-    url = _esc(str(app_data.get("url") or (job and job.get("url")) or ""))
+    from .services.web_adresse import web_adresse_oder_leer  # v1.7.145
+    url = _esc(web_adresse_oder_leer(
+        app_data.get("url") or (job and job.get("url")) or ""))
     location = _esc(str((job and job.get("location")) or ""))
     description = (job and job.get("description")) or app_data.get("notes") or ""
     description_html = _esc(description).replace("\n", "<br>\n")
@@ -2639,7 +2659,10 @@ def _aussortiert_zaehlen() -> int:
     Abruf, wenn nur geblaettert wird.
     """
     try:
-        return len(_db.get_dismissed_jobs())
+        # v1.7.147 (#1143): zaehlen statt laden. `get_dismissed_jobs` liest
+        # jede Zeile samt Anzeigentext - bei 20.000 Aussortierten 2-3 s
+        # je Aufruf des Stellen-Tabs, fuer eine einzige Zahl.
+        return _db.count_dismissed_jobs()
     except Exception as exc:  # pragma: no cover — nie eine Liste stoppen
         logger.debug("Aussortierte nicht zaehlbar (#1022): %s", exc)
         return 0
@@ -3318,16 +3341,29 @@ async def api_snapshot_description(app_id: str, request: Request):
     url = (data.get("url") or "").strip()
     if not url:
         return JSONResponse({"error": "URL ist erforderlich"}, status_code=400)
+    # v1.7.145: urlopen versteht auch file:// und ftp://; so konnte jede
+    # lokale Datei als "Beschreibung" in die Bewerbung gelesen werden.
+    from .services.web_adresse import ist_web_adresse
+    if not ist_web_adresse(url):
+        return JSONResponse(
+            {"error": "Nur http- und https-Adressen können geladen werden."},
+            status_code=400)
 
     import urllib.request
     import re
-    try:
+
+    def _laden() -> str:
         req = urllib.request.Request(url, headers={
             "User-Agent": "Mozilla/5.0 (compatible; PBP/1.0)",
             "Accept": "text/html,application/xhtml+xml",
         })
         with urllib.request.urlopen(req, timeout=15) as resp:
-            html = resp.read().decode("utf-8", errors="replace")
+            return resp.read().decode("utf-8", errors="replace")
+
+    try:
+        # v1.7.147 (#1143): bis zu 15 s Warten auf eine fremde Seite gehoeren
+        # nicht auf die Ereignisschleife.
+        html = await run_in_threadpool(_laden)
     except Exception as e:
         return JSONResponse(
             {"error": f"URL konnte nicht geladen werden: {str(e)}"},
@@ -5008,7 +5044,7 @@ async def api_update_job(job_hash: str, request: Request):
 
 # v1.7.0-beta.44 (#622): Beschreibung von URL nachladen (Layer B)
 @app.post("/api/jobs/{job_hash}/refetch-description")
-async def api_refetch_description(job_hash: str):
+def api_refetch_description(job_hash: str):
     """Holt die Beschreibung einer Stelle aus ihrer URL nach.
 
     Genutzt vom JobsPage-Button 'Beschreibung nachladen'. Macht EINEN
@@ -5508,7 +5544,8 @@ async def api_adzuna_speichern(request: Request):
     # 'konfiguriert' in den Settings landen.
     try:
         import httpx
-        r = httpx.get(
+        r = await run_in_threadpool(
+            httpx.get,
             "https://api.adzuna.com/v1/api/jobs/de/search/1",
             params={"app_id": app_id, "app_key": app_key,
                     "results_per_page": 1, "what": "software"},
@@ -5738,7 +5775,10 @@ async def api_upload_document(
     ocr_info = None
     fname = stored_filename.lower()
     try:
-        extracted, email_context, ocr_info = _extract_document_text(filepath)
+        # v1.7.147 (#1143): PDF lesen (und bei Scans erkennen) dauert bei
+        # grossen Dateien Sekunden.
+        extracted, email_context, ocr_info = await run_in_threadpool(
+            _extract_document_text, filepath)
     except ImportError as exc:
         logger.warning("Text extraction failed for %s: %s", incoming_name, exc)
         if fname.endswith(".msg"):
@@ -7265,6 +7305,13 @@ async def api_sicherungen():
             "letzte": alle[0] if alle else None,
             "alter_tage": round(alter, 2) if alter is not None else None,
             "platz_belegt": sum(e["groesse"] for e in alle),
+            # v1.7.146 (#1142): Ausgang des juengsten Versuchs - ein
+            # Fehler (gesperrte Datei, Platte voll) war nirgends zu sehen.
+            "letzter_versuch": _sicherung.letzter_versuch(_db),
+            # v1.7.146 (#1138): die taegliche Sicherung laeuft jetzt wirklich - wer
+            # Platz sparen will, nimmt die Dokumente heraus (Datenbank bleibt).
+            "dokumente_taeglich": _sicherung.dokumente_taeglich(_db),
+            "dokumente_groesse": _sicherung.dokumente_groesse(_db),
             "vorgemerkt": _sicherung.vormerkung(_db),
             "regel": (f"Behalten werden alle Sicherungen der letzten "
                       f"{_sicherung.TAGE_BEHALTEN} Tage und je eine der "
@@ -7276,6 +7323,18 @@ async def api_sicherung_anlegen():
     """Jetzt sichern — im Hintergrund, mit Eintrag in der Statusanzeige."""
     from .services import sicherung as _sicherung
     return _sicherung.im_hintergrund(_db, "manuell")
+
+
+@app.put("/api/sicherungen/einstellung")
+async def api_sicherung_einstellung(payload: dict = Body(default={})):
+    """Die Dokumente in der taeglichen Sicherung ein- oder ausschalten (#1138)."""
+    from .services import sicherung as _sicherung
+    wert = payload.get("dokumente_taeglich")
+    if not isinstance(wert, bool):
+        return JSONResponse({"error": "dokumente_taeglich (true oder false) fehlt."},
+                            status_code=400)
+    _sicherung.dokumente_taeglich_setzen(_db, wert)
+    return {"dokumente_taeglich": _sicherung.dokumente_taeglich(_db)}
 
 
 @app.post("/api/sicherungen/wiederherstellen")
@@ -7764,16 +7823,23 @@ async def api_get_logs(lines: int = 100):
 
 # === Update Check (v1.4.0, #286) ===
 
-_update_cache = {"ts": 0, "data": None, "pause_s": 3600}
+_update_cache = {"ts": 0, "data": None, "pause_s": 3600, "fehlversuche": 0}
 
 @app.get("/api/update-check")
-async def api_update_check():
-    """Gibt es eine neue Version? (#286, v1.7.122 #1069)
+async def api_update_check(frisch: int = 0):
+    """Gibt es eine neue Version? (#286, v1.7.122 #1069, v1.7.144 #1134)
 
     Fragt die konfigurierten Quellen der Reihe nach. Antwortet keine,
     steht `stand: "unbekannt"` in der Antwort — bis v1.7.121 kam dann
     ein stilles "aktuell", und niemand merkte, dass die Pruefung gar
     nicht mehr stattfand.
+
+    #1134: Ein Erfolg bleibt bei der Pause der Quelle gemerkt (eine Stunde),
+    ein FEHLSCHLAG nur kurz (120 s, bei Wiederholung laenger bis 15 Minuten).
+    Vorher galt auch "unbekannt" eine Stunde, und ein Netzfehler beim Start
+    liess die Anzeige so lange stumm. `frisch=1` ("Jetzt pruefen") umgeht
+    den Speicher, aber nicht dichter als `MIN_ABSTAND_FRISCH_S`. Die Antwort
+    sagt in `wieder_fragen_nach_s`, wann die Oberflaeche erneut fragen soll.
     """
     import time
     from datetime import datetime, timezone
@@ -7782,9 +7848,12 @@ async def api_update_check():
     from .services import update_quelle as _uq
 
     now = time.time()
-    if _update_cache["data"] and now - _update_cache["ts"] < _update_cache.get(
-            "pause_s", 3600):
-        return _update_cache["data"]
+    if _update_cache["data"]:
+        pause = _update_cache.get("pause_s", 3600)
+        alter = now - _update_cache["ts"]
+        umgehen = bool(frisch) and alter >= _uq.MIN_ABSTAND_FRISCH_S
+        if alter < pause and not umgehen:
+            return _uq.mit_restzeit(_update_cache["data"], pause - alter)
 
     linie = _uq.linie_von(__version__)
     result = {
@@ -7840,11 +7909,16 @@ async def api_update_check():
         result["hinweis"] = (
             "Keine Update-Quelle hat geantwortet. Ob es eine neue Version "
             "gibt, ist damit UNBEKANNT — nicht 'alles aktuell'.")
+        # #1134: ein Fehlschlag wird nur kurz gemerkt
+        _update_cache["fehlversuche"] = _update_cache.get("fehlversuche", 0) + 1
+        pause_s = _uq.fehlschlag_pause_s(_update_cache["fehlversuche"])
+    else:
+        _update_cache["fehlversuche"] = 0
 
     _update_cache["ts"] = now
     _update_cache["pause_s"] = pause_s
     _update_cache["data"] = result
-    return result
+    return _uq.mit_restzeit(result, pause_s)
 
 
 # === Health Info (v1.4.0, #290) ===
@@ -8661,6 +8735,24 @@ async def api_application_contacts(app_id: str):
 
 # === CSV-Export (v1.7.0 #578) ===
 
+def _csv_zelle_sicher(text: str) -> str:
+    """Neutralisiert Zellen, die Excel/LibreOffice als Formel lesen wuerden.
+
+    Beginnt ein Text mit =, +, @, Tabulator oder Wagenruecklauf (oder mit -,
+    wenn es keine Zahl ist), steht ein Hochkomma davor. Negative Zahlen
+    ("-5", "-3,5") bleiben Zahlen. v1.7.145: ein Firmen- oder Titeltext aus
+    einer Anzeige oder Mail wie  =HYPERLINK(...)  wurde sonst beim Oeffnen
+    des Exports ausgefuehrt.
+    """
+    import re
+    if not text:
+        return text
+    if text[0] in ("=", "+", "@", chr(9), chr(13)) or (
+            text[0] == "-" and not re.fullmatch(r"-[0-9]+(?:[.,][0-9]+)?", text)):
+        return "'" + text
+    return text
+
+
 def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
                    filename: str) -> Response:
     """Hilfsfunktion fuer CSV-Antworten mit UTF-8-BOM und de-Locale.
@@ -8690,7 +8782,7 @@ def _csv_response(rows: list[dict], columns: list[tuple[str, str]],
                     continue
                 except Exception:
                     pass
-            line.append(sval)
+            line.append(_csv_zelle_sicher(sval))
         writer.writerow(line)
     body = "﻿" + out.getvalue()  # UTF-8-BOM fuer Excel
     return Response(
@@ -10146,7 +10238,7 @@ def _run_scraper_probe(now_iso: str) -> dict:
 
 
 @app.post("/api/auto-actions/run")
-async def api_run_auto_actions():
+def api_run_auto_actions():
     """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
     Doku-Classify + Pattern-Analyse + Scraper-Probe.
 
@@ -10580,7 +10672,7 @@ async def api_elwosa_heartbeat():
 
 
 @app.get("/api/elwosa/status")
-async def api_elwosa_status_endpoint():
+def api_elwosa_status_endpoint():
     """Status-Snapshot fuer das Frontend (Polling)."""
     from .services.elwosa import get_status
     try:
@@ -11335,8 +11427,10 @@ async def api_run_learning_analysis(request: Request):
     days = max(1, min(int(data.get("days", 30) or 30), 180))
     min_events = max(1, int(data.get("min_events", 50) or 50))
     from datetime import datetime
-    return _run_analyze_user_patterns(
-        datetime.now().isoformat(), days=days, min_events=min_events)
+    # v1.7.147 (#1143): die Analyse fragt die lokale KI - Minuten, nicht Millisekunden.
+    return await run_in_threadpool(
+        _run_analyze_user_patterns, datetime.now().isoformat(),
+        days=days, min_events=min_events)
 
 
 @app.get("/api/recap")
@@ -11465,7 +11559,7 @@ async def api_recap():
 # === Lokale AI Status (v1.7.0 #512, #583) ===
 
 @app.get("/api/llm/status")
-async def api_llm_status(refresh: int = 0):
+def api_llm_status(refresh: int = 0):
     """Liefert den Status der lokalen AI fuer den Sidebar-Indicator und
     den Settings-Bereich.
 
@@ -11526,7 +11620,7 @@ async def api_llm_accuracy():
 
 
 @app.post("/api/llm/warmup")
-async def api_llm_warmup():
+def api_llm_warmup():
     """v1.7.0-beta.62 (#638): Triggert manuell einen Warmup-Ping an Ollama.
 
     Nuetzlich vor Bulk-Operationen oder wenn der User merkt dass die naechste
@@ -11539,7 +11633,7 @@ async def api_llm_warmup():
 
 
 @app.post("/api/llm/start")
-async def api_llm_start():
+def api_llm_start():
     """Startet Ollama auf Knopfdruck (#637, v1.7.0-beta.60).
 
     Use Case: Lokale KI wurde via Taskmanager / Reboot gestoppt. PBP zeigt
@@ -11602,7 +11696,7 @@ async def api_expertenmodus_setzen(request: Request):
 
 
 @app.get("/api/llm/autostart")
-async def api_llm_autostart_lesen():
+def api_llm_autostart_lesen():
     """Soll Ollama mit PBP starten? (#1001)"""
     from .services import ollama_start
     return ollama_start.autostart_lesen(_db)
@@ -11633,7 +11727,7 @@ async def api_llm_autostart_setzen(request: Request):
     if not isinstance(an, bool):
         return JSONResponse(
             {"error": "an muss true oder false sein"}, status_code=400)
-    return ollama_start.autostart_setzen(_db, an)
+    return await run_in_threadpool(ollama_start.autostart_setzen, _db, an)
 
 
 @app.post("/api/llm/stop")
@@ -11648,11 +11742,11 @@ async def api_llm_stop(request: Request):
     if data.get("bestaetigt") is not True:
         return JSONResponse(
             {"error": "Beenden nur mit bestaetigt=true."}, status_code=400)
-    return ollama_start.ollama_beenden()
+    return await run_in_threadpool(ollama_start.ollama_beenden)
 
 
 @app.get("/api/llm/autostop")
-async def api_llm_autostop_lesen():
+def api_llm_autostop_lesen():
     """Soll Ollama mit PBP enden? (#1086)"""
     from .services import ollama_start
     return ollama_start.autostop_lesen(_db)
@@ -11663,7 +11757,8 @@ async def api_llm_autostop_setzen(request: Request):
     """Setzt 'aus' / 'gestartet' / 'immer'. 'immer' nur mit Bestaetigung."""
     from .services import ollama_start
     data = await request.json()
-    ergebnis = ollama_start.autostop_setzen(
+    ergebnis = await run_in_threadpool(
+        ollama_start.autostop_setzen,
         _db, str(data.get("wert") or ""), bestaetigt=data.get("bestaetigt") is True)
     if "fehler" in ergebnis:
         return JSONResponse(ergebnis, status_code=400)
@@ -11671,7 +11766,7 @@ async def api_llm_autostop_setzen(request: Request):
 
 
 @app.post("/api/llm/stop-verknuepfung")
-async def api_llm_stop_verknuepfung():
+def api_llm_stop_verknuepfung():
     """Legt die Desktop-Verknuepfung "Ollama beenden" an (#1086)."""
     from .services import ollama_start
     ergebnis = ollama_start.verknuepfung_anlegen()
@@ -11681,7 +11776,7 @@ async def api_llm_stop_verknuepfung():
 
 
 @app.post("/api/llm/test-connection")
-async def api_llm_test_connection():
+def api_llm_test_connection():
     """Diagnose-Snapshot fuer Lokale-AI-Setup (#584).
 
     Liefert auf einen Schlag:
@@ -11759,7 +11854,8 @@ async def api_llm_set_state(request: Request):
     # Cache invalidieren damit naechster /status den neuen Wert sieht
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    svc.get_status(force_refresh=True)
+    # v1.7.147 (#1143): die Statusabfrage geht ueber das Netz zu Ollama.
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return {"status": "ok", "state": state}
 
 
@@ -11773,7 +11869,7 @@ async def api_llm_set_model(request: Request):
     _db.set_profile_setting("llm_local_model", model)
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    svc.get_status(force_refresh=True)
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return {"status": "ok", "model": model}
 
 
@@ -11790,11 +11886,15 @@ async def api_llm_pull(request: Request):
         return JSONResponse({"error": "model ist Pflicht"}, status_code=400)
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    result = svc.trigger_pull(model)
+    # v1.7.147 (#1143): der Download dauert bei grossen Modellen Minuten.
+    # Auf der Ereignisschleife hielt er das ganze Dashboard an (8 s Download
+    # = 7,7 s Wartezeit fuer jede andere Anfrage). Jetzt laeuft er im
+    # Thread-Pool; eine Fortschrittsanzeige gibt es weiter nicht.
+    result = await run_in_threadpool(svc.trigger_pull, model)
     if result.get("status") == "error":
         return JSONResponse(result, status_code=502)
     # Status-Cache invalidieren — neues Modell ist jetzt da
-    svc.get_status(force_refresh=True)
+    await run_in_threadpool(svc.get_status, force_refresh=True)
     return result
 
 
@@ -11809,12 +11909,18 @@ async def api_refresh_freelancermap_descriptions(request: Request):
     extrahierte Beschreibung. Rate-limited (0.3s Sleep) damit Freelancermap
     nicht blockt.
     """
+    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
+    # v1.7.147 (#1143): bis zu 200 Abrufe mit Pause gehoeren nicht auf die
+    # Ereignisschleife.
+    return await run_in_threadpool(_refresh_freelancermap_descriptions, data)
+
+
+def _refresh_freelancermap_descriptions(data: dict):
     import httpx
     import re
     import time as _time
     from bs4 import BeautifulSoup
 
-    data = await request.json() if request.headers.get("content-length", "0") != "0" else {}
     cap = max(1, min(int((data or {}).get("max") or 50), 200))
 
     pid = _db.get_active_profile_id()
@@ -12074,7 +12180,7 @@ async def api_privacy_delete_all(request: Request):
 # === Export Package (v1.4.0, #289) ===
 
 @app.get("/api/export-package")
-async def api_export_package():
+def api_export_package():
     """Create a ZIP package with all user data."""
     import shutil
     import tempfile
@@ -12122,8 +12228,15 @@ async def api_export_package():
                 "  2. Dateien nach ~/.bewerbungs-assistent/ kopieren\n"
                 "  3. Dashboard starten\n")
 
-        return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip")
+        # v1.7.145: der Ordner mit der vollstaendigen Datenbankkopie wurde nie
+        # geloescht und blieb bei jedem Export im Temp-Ordner liegen. Die Datei
+        # wird nach dem Senden gebraucht, also raeumt eine Hintergrundaufgabe
+        # NACH der Antwort auf.
+        from starlette.background import BackgroundTask
+        return FileResponse(str(zip_path), filename=zip_name, media_type="application/zip",
+                            background=BackgroundTask(shutil.rmtree, tmp, ignore_errors=True))
     except Exception as exc:
+        shutil.rmtree(tmp, ignore_errors=True)
         logger.error("Export failed: %s", exc)
         return JSONResponse({"error": str(exc)}, status_code=500)
 
