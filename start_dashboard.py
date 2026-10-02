@@ -1,6 +1,14 @@
 """PBP Dashboard Launcher - startet das Web-Dashboard auf Port 8200."""
 import os, shutil, subprocess, sys
 
+# Die Ausgabe nennt Pfade, und die tragen den Benutzernamen: ein Zeichen ausserhalb der Zeichentabelle (ł, ş) darf das Drucken
+# bei umgeleiteter Ausgabe nicht zum Absturz bringen (L44).
+for _strom in (sys.stdout, sys.stderr):
+    try:
+        _strom.reconfigure(errors="backslashreplace")
+    except Exception:
+        pass
+
 # Finde src-Verzeichnis relativ zu diesem Script
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SRC_DIR = os.path.join(SCRIPT_DIR, "src")
