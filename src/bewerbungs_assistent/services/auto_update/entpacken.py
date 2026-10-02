@@ -172,6 +172,8 @@ def _entpacken_pruefend(archiv: Path, ziel: Path) -> dict:
                     if not stueck:
                         break
                     bytes_ += len(stueck)
+                    # Guertel und Hosentraeger: `zipfile` liefert heute nie mehr als angekuendigt (und prueft die CRC),
+                    # ein Mutationstest kann diese Zeile deshalb nicht erreichen. Sie gilt einer kuenftigen Bibliothek.
                     if bytes_ > info.file_size or bytes_ > MAX_EINZEL_BYTES:
                         raise _unsicher("mehr Daten als angekündigt", info.filename)
                     aus.write(stueck)
