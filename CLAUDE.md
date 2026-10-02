@@ -15,6 +15,12 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
 - **Beta:** `main` = 1.8.0-beta.15, Betas sind GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
+- **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 wird das **Auto-Update-Release**
+  (#1093 mit #1131, #1152, #947, #1080 und allem, was die 1.8.0-Betas schon
+  geliefert haben); die **ELWOSA-Linie heisst 2.0** (Label `v2.0`, Meilenstein
+  `v2.0.0`, 25 Issues, vieles noch Konzept). Wo aeltere Texte „v1.8“ fuer
+  ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
+  Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v48 (Stable) / v52 (Beta).
 - **Umfang:** 6086 Tests (main) / 5981 (Stable); 270 MCP-Werkzeuge (main) /
   257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
