@@ -90,6 +90,25 @@ _ORT_ZUSATZ = {
 }
 
 
+#: Einzelne Wörter, die nie einen Ort bezeichnen (#1158 Punkt 8). Ein Teil des Ortsstrings, der NUR aus solchen
+#: Wörtern besteht, fällt weg: "remote möglich", "Homeoffice möglich", "teilweise hybrid". Vorher blieb "remote
+#: möglich" stehen (nur "remote" allein stand in der Liste), Nominatim las "Hamburg, remote möglich" als einen
+#: Ort bei Mainz - 410 km statt 20 -, und die beste Stelle des Tages rutschte durch den Entfernungsabzug auf
+#: einen negativen Stand.
+_ORT_ZUSATZ_WOERTER = {
+    "hybrid", "remote", "homeoffice", "home", "office", "teilremote", "mobil", "mobiles", "arbeiten", "arbeit",
+    "möglich", "moeglich", "optional", "wahlweise", "flexibel", "teilweise", "teils", "zeitweise", "oder", "und",
+    "vor", "ort", "vollzeit", "teilzeit", "befristet", "unbefristet", "festanstellung", "umgebung", "raum",
+    "ortsunabhängig", "ortsunabhaengig", "bundesweit", "deutschlandweit", "deutschland", "germany",
+}
+
+
+def _ist_nur_zusatz(text: str) -> bool:
+    """Besteht der Text nur aus Zusätzen wie "remote möglich" - also aus gar keinem Ort?"""
+    woerter = [w for w in re.split(r"[\s,/\-]+", str(text or "").lower()) if w]
+    return bool(woerter) and all(w in _ORT_ZUSATZ_WOERTER for w in woerter)
+
+
 def geocoding_aktiv() -> bool:
     """False, wenn kein Weg ins Netz gehen darf (Test-Suite, #1090)."""
     import os as _os
@@ -117,8 +136,40 @@ def normalisiere_ort(ort: str) -> str:
     text = re.split(r"\s+[|/·•]\s+|\s+-\s+", text)[0]
     teile = [t.strip(" ,;-") for t in text.split(",")]
     behalten = [t for t in teile
-                if t and t.lower() not in _ORT_ZUSATZ]
+                if t and t.lower() not in _ORT_ZUSATZ
+                and not all(w in _ORT_ZUSATZ_WOERTER for w in re.split(r"[\s/\-]+", t.lower()) if w)]
     return ", ".join(behalten).strip(" ,;-") or text.strip(" ,;-")
+
+
+#: Angaben, die keinen Ort nennen, sondern das Arbeitsmodell oder den Raum.
+_KEIN_ORT = {"remote", "home office", "homeoffice", "deutschlandweit",
+             "bundesweit", "weltweit", "europa", "global"}
+
+
+def ort_fuer_abfrage(location: str) -> str:
+    """Der Ort, der an den Dienst geht - leer, wenn der Text keinen Ort nennt (#1158 Punkt 8).
+
+    Bis v1.7.149 ging der Rohstring zuerst an Nominatim; die Bereinigung lief nur als letzter Versuch, wenn
+    nichts zurueckkam. "Hamburg (hybrid), remote moeglich, Deutschland" kam aber nicht leer zurueck, sondern
+    mit einem Treffer bei Mainz (410 km statt 20) - und der wurde unter dem Rohschluessel dauerhaft gemerkt.
+    Ein Text, der nur aus Zusaetzen besteht ("Remote moeglich"), ist kein Ort: keine Anfrage, keine Entfernung.
+    """
+    if not location:
+        return ""
+    roh = location.strip().lower()
+    if roh in _KEIN_ORT or roh.startswith("remote") or _ist_nur_zusatz(location):
+        return ""
+    ziel = normalisiere_ort(location) or location.strip()
+    return "" if ziel.lower() in _KEIN_ORT else ziel
+
+
+def ort_schluessel(location: str) -> str:
+    """Unter diesem Schluessel wird ein Ort gefragt und gemerkt; leer = es wird nichts gefragt.
+
+    Die Laufkarte der Suche zaehlt ihre "verschiedenen Orte" mit genau diesem Schluessel - eine eigene
+    Rechnung waere eine Zahl, die nicht zu den Abfragen passt.
+    """
+    return ort_fuer_abfrage(location).lower()
 
 
 def geocode_location(location: str) -> Optional[tuple[float, float]]:
@@ -127,17 +178,11 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
     Returns None if geocoding fails or location is empty/remote.
     Results are cached in memory.
     """
-    if not location:
+    # #1158 Punkt 8: gefragt wird der BEREINIGTE Ort, und er ist auch der Schluessel des Speichers.
+    ziel = ort_fuer_abfrage(location)
+    if not ziel:
         return None
-
-    # Normalize
-    loc_key = location.strip().lower()
-
-    # Skip remote/home-office locations
-    remote_keywords = {"remote", "home office", "homeoffice", "deutschlandweit",
-                       "bundesweit", "weltweit", "europa", "global"}
-    if loc_key in remote_keywords or loc_key.startswith("remote"):
-        return None
+    loc_key = ziel.lower()
 
     # Check cache
     with _cache_lock:
@@ -168,26 +213,16 @@ def geocode_location(location: str) -> Optional[tuple[float, float]]:
         _rate_limit()
 
         # Try with country bias for better results
-        search = f"{location}, Deutschland"
+        search = f"{ziel}, Deutschland"
         result = geolocator.geocode(search, exactly_one=True)
 
         if result is None:
             # Retry without country
             _rate_limit()
-            result = geolocator.geocode(location, exactly_one=True)
+            result = geolocator.geocode(ziel, exactly_one=True)
 
-        if result is None:
-            # #965: letzter Versuch mit bereinigtem Ort. Quellen haengen
-            # Arbeitsmodell und Zusaetze an den Ortsstring; genau daran
-            # scheiterte die Aufloesung stumm.
-            sauber = normalisiere_ort(location)
-            if sauber and sauber.lower() != location.strip().lower():
-                _rate_limit()
-                result = geolocator.geocode(f"{sauber}, Deutschland",
-                                            exactly_one=True)
-                if result is not None:
-                    logger.info("Geocoding erst nach Bereinigung erfolgreich: "
-                                "'%s' -> '%s'", location, sauber)
+        # Kein Rueckgriff auf den Rohstring mehr (#1158): was der bereinigte Ort nicht findet, findet der
+        # Rohstring nur falsch. Eine unbekannte Entfernung ist besser als eine erfundene.
 
         if result:
             coords = (result.latitude, result.longitude)

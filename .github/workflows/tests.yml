@@ -220,6 +220,12 @@ jobs:
         # Minuten "fehlgeschlagen", obwohl Ollama weiterlud.
         run: node frontend/src/lib/modellDownload.test.mjs
 
+      - name: Filter der Stellenliste (Node)
+        # v1.7.150 (#1158): eine Untergrenze gilt auch bei 0 und negativen
+        # Werten, der Filterzustand wird gemerkt, und der Streifen nennt
+        # jeden wirksamen Filter mit der Zahl der Stellen, die er verbirgt.
+        run: node frontend/src/lib/stellenFilter.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

@@ -1032,8 +1032,8 @@ def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
 
     **Die zweite Zahl ist die ehrliche.** Gefragt wird der Dienst je
     ORT — `geocode_location` schluesselt seinen Zwischenspeicher auf
-    `location.strip().lower()`, jeder weitere Treffer desselben Orts
-    kostet nichts. Die Laufkarte zaehlte STELLEN und meldete damit
+    den bereinigten Ort (`ort_schluessel`, #1158), jeder weitere Treffer
+    desselben Orts kostet nichts. Die Laufkarte zaehlte STELLEN und meldete damit
     "3540/4536 Standorte" fuer einen Bestand von 2692 Stellen. Auf einer
     Bestandskopie gemessen: 2458 Stellen mit Ort tragen 501
     verschiedene Ortsstrings, der haeufigste 918-mal.
@@ -1050,10 +1050,12 @@ def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
             continue
         if job.get("location") and not job.get("distance_km"):
             auswahl.append(job)
-    # Dieselbe Normalisierung wie der Zwischenspeicher des Dienstes —
-    # eine eigene waere eine Zahl, die nicht zu den Abfragen passt, also
-    # derselbe Fehler noch einmal.
-    orte = len({str(j.get("location") or "").strip().lower() for j in auswahl})
+    # Derselbe Schluessel wie der Zwischenspeicher des Dienstes — eine
+    # eigene Rechnung waere eine Zahl, die nicht zu den Abfragen passt,
+    # also derselbe Fehler noch einmal. Ein Text ohne Ort ("Remote
+    # moeglich") wird nie gefragt und zaehlt nicht mit (#1158).
+    from ..services.geocoding_service import ort_schluessel
+    orte = len({ort_schluessel(str(j.get("location") or "")) for j in auswahl} - {""})
     return auswahl, orte, ko
 
 

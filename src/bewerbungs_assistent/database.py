@@ -5062,7 +5062,9 @@ class Database:
         params: list = [pid or "", kind]
         if only_with_outcome:
             query += " AND outcome IS NOT NULL AND outcome != ''"
-        query += " ORDER BY created_at DESC LIMIT ?"
+        # rowid als Tie-Breaker: tragen zwei Versionen denselben Zeitstempel (die Windows-Uhr unter Python 3.12
+        # tickt nur alle ~15,6 ms), gilt die spaeter angelegte als neuere.
+        query += " ORDER BY created_at DESC, rowid DESC LIMIT ?"
         params.append(int(limit))
         return [dict(r) for r in conn.execute(query, params).fetchall()]
 
