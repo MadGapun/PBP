@@ -109,7 +109,18 @@ def _loeschen(pfad: Path) -> None:
 
 
 
+def _ausgabe_absichern():
+    """Die Ausgabe nennt Pfade, und die tragen den Benutzernamen. Geht sie in eine Datei (Installer-Protokoll), gilt die Zeichentabelle
+    des Rechners; ein Zeichen ausserhalb davon (ł, ş, griechisch) darf das Drucken nicht zum Absturz bringen (L44)."""
+    for strom in (sys.stdout, sys.stderr):
+        try:
+            strom.reconfigure(errors="backslashreplace")
+        except Exception:
+            pass
+
+
 def main(argv: list) -> int:
+    _ausgabe_absichern()
     if len(argv) != 3:
         print("FEHLER Aufruf: _sicherung_vor_update.py <pbp.db> <Sicherungsordner>")
         return 64
