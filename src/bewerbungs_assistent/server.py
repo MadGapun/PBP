@@ -187,6 +187,54 @@ _werkzeug_katalog.sichtbarkeit_anwenden(mcp, _werkzeug_katalog.beim_start_sichtb
 # Server runner
 # ============================================================
 
+def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
+    """Startet das Dashboard als Thread dieses Prozesses — und mit ihm den Planer.
+
+    v1.7.146 (#1138): Der Planer (tägliche Sicherung, geplante Suche, Lernen)
+    wurde bisher nur in `dashboard.start_dashboard` gestartet, also nur im
+    eigenständigen Dashboard. Der Weg, den Claude Desktop nimmt (dieser hier),
+    startete ihn nie: die Karte versprach "PBP sichert einmal am Tag von
+    selbst", und es geschah nichts. Wer das Dashboard hostet, hostet auch den
+    Planer — an EINER Stelle, damit kein Weg ihn wieder vergisst.
+
+    Gibt den uvicorn-Server zurück (zum sauberen Beenden) oder None, wenn der
+    Port belegt ist: dort läuft eine andere Instanz, die das Dashboard und
+    damit den Planer hat (kein Doppellauf).
+    """
+    from .dashboard import app as dashboard_app
+    import uvicorn
+    from . import dashboard as _dashboard_module
+    _dashboard_module._db = datenbank  # Set shared database reference
+
+    dash_port = port or int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
+
+    # Port-Konflikt pruefen (#293)
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if s.connect_ex(("127.0.0.1", dash_port)) == 0:
+            logger.warning(
+                "Port %d ist bereits belegt — vermutlich laeuft eine andere PBP-Instanz. "
+                "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
+                dash_port,
+            )
+            return None
+
+    config = uvicorn.Config(
+        dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
+    )
+    dashboard_server = uvicorn.Server(config)
+    dashboard_thread = threading.Thread(target=dashboard_server.run, daemon=True)
+    dashboard_thread.start()
+    logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
+
+    try:
+        from .services.automatik_scheduler import start_automatik_scheduler
+        start_automatik_scheduler(datenbank)
+    except Exception as exc:  # der Planer darf den Serverstart nie verhindern
+        logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
+    return dashboard_server
+
+
 def run_server():
     """Start the MCP server with optional web dashboard."""
     import atexit
@@ -196,32 +244,7 @@ def run_server():
 
     # Start web dashboard in background thread (with managed uvicorn.Server for clean shutdown)
     try:
-        from .dashboard import app as dashboard_app
-        import uvicorn
-        from . import dashboard as _dashboard_module
-        _dashboard_module._db = db  # Set shared database reference
-
-        dash_port = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
-
-        # Port-Konflikt pruefen (#293)
-        import socket
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(("127.0.0.1", dash_port)) == 0:
-                logger.warning(
-                    "Port %d ist bereits belegt — vermutlich laeuft eine andere PBP-Instanz. "
-                    "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
-                    dash_port,
-                )
-                _dashboard_server = None
-            else:
-                config = uvicorn.Config(
-                    dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
-                )
-                _dashboard_server = uvicorn.Server(config)
-
-                dashboard_thread = threading.Thread(target=_dashboard_server.run, daemon=True)
-                dashboard_thread.start()
-                logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
+        _dashboard_server = dashboard_im_hintergrund_starten(db)
     except Exception as e:
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
 

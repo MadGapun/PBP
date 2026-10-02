@@ -105,6 +105,499 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.147] - 2026-10-02 — Keine falsche Auskunft, nichts Gelöschtes ohne Vorschau, schnell bei vielen Stellen
+
+Hotfix für v1.7.146. Drei Dinge, bei denen PBP etwas anderes sagte oder tat, als man erwartete: Eine Stelle ohne Anzeigentext galt als „nicht empfohlen“, ein falsch geschriebener Filter hieß „noch keine Bewerbungen“, und drei Werkzeuge löschten, ohne vorher zu zeigen, was alles verloren geht. Dazu wird die Stellenliste bei einem großen Bestand wieder schnell, und lange Arbeit hält das Dashboard nicht mehr an. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** Was bisher sofort gelöscht hat, fragt jetzt zuerst. Beim ersten Aufruf zeigt PBP nur, was alles mit verschwinden würde (mit Zahlen); erst beim zweiten Aufruf mit `bestaetigung=True` wird gelöscht. Das betrifft das Umwandeln einer Bewerbung in eine Anfrage, das Löschen von Stationen, Projekten, Ausbildungen, Kompetenzen und Notiz-Abschnitten im Profil und das Zurücksetzen aller Scoring-Regler. Claude fragt dich dann einmal mehr, bevor es etwas löscht.
+
+### Fixed
+
+- **Eine Anzeige ohne Text gilt nicht mehr als „nicht empfohlen“** (#1146). `fit_analyse` urteilte „NICHT_EMPFOHLEN“, wenn die Stellenbeschreibung fehlte oder nur eine Kurznotiz war; bei einem Kurztext stand darunter sogar „ausdrücklich keine fachliche Absage“. Eine gute Stelle mit kurzem Anzeigentext wurde so abgeraten und vielleicht aussortiert. Jetzt lautet das Urteil „NICHT_BEURTEILBAR“ (noch nicht gelesen) mit dem Hinweis, den Anzeigen-Volltext nachzuladen (`datenlage_hinweis`). Das k.o. „kein einziges Pflichtbegriff belegt“ gilt nur noch auf einer Anzeige, die man auch lesen kann. Echte k.o.-Gründe (die Wiedergänger-Regel) und ein gespeichertes, wirklich gelesenes Urteil gelten unverändert.
+- **Ein Filter ohne Treffer sagt nicht mehr „noch keine“** (#1146). `bewerbungen_anzeigen(status_filter="Interview")` antwortete bei drei vorhandenen Bewerbungen: „Noch keine Bewerbungen erfasst. Erstelle eine neue“ (mit dem Risiko doppelter Einträge); „Zweitgespräch“, „eingeladen“ und „Absage“ ebenso. Jetzt gelten Groß- und Kleinschreibung, Umlaute („Zweitgespräch“) und Leerzeichen („in Vorbereitung“) als gleich. Ein Wort, das kein Status ist, wird mit der Liste der gültigen Status beantwortet; bei „Absage“, „eingeladen“, „Zusage“ nennt PBP den meist gemeinten Status als Vorschlag, wendet ihn aber nicht von selbst an. Ein gültiger Filter ohne Treffer sagt „Keine Bewerbung für diesen Filter. Du hast N insgesamt“ (bei einer Stellenart zusätzlich, welche es gibt). `stellen_anzeigen` sagt bei einem Filter ohne Treffer nicht mehr „Keine Stellen gefunden. Starte eine Jobsuche“, sondern „ohne Filter gibt es N aktive Stellen“ und nennt die Quellen im Bestand. Die Kurzbeschreibung von `bewerbung_status_aendern` schrieb „Interview“ und „Zweitgespraech“ groß; sie nennt jetzt die echten, kleingeschriebenen Wörter.
+- **Nichts wird mehr ohne Vorschau gelöscht** (#1145). Die Server-Anleitung verspricht „vor jedem Löschen die Vorschau“, aber drei Werkzeuge standen in keiner Liste der zweistufigen Werkzeuge, weil ihr Name nicht nach Löschen klingt. `bewerbung_zu_anfrage_konvertieren` löschte die Bewerbung samt Terminen, Reflexionen und Aufgaben; gesichert wurde nur ein Notiztext von höchstens 500 Zeichen, und ein Fehler beim Sichern wurde verschluckt, danach wurde trotzdem gelöscht. Jetzt zeigt der erste Aufruf, was verloren geht (Zahlen, und ob die Notiz gekürzt wird), und gelöscht wird nur, wenn die Stelle vorher sicher aussortiert ist. `profil_bearbeiten` löschte Station (mit ihren Projekten), Projekt, Ausbildung, Kompetenz und Notiz-Abschnitt ohne Vorschau; ein falscher Schlüssel beim Ändern der Notizen (zum Beispiel `notizen` statt `informal_notes`) ersetzte alle persönlichen Notizen durch einen leeren Text und meldete „aktualisiert“. Jetzt zeigt das Löschen erst die Vorschau; ein fehlender oder leerer Text beim Ändern der Notizen wird abgewiesen (leeren geht nur ausdrücklich mit `leeren: True`). `jobtitel_verwalten` löschte bei einem Aufruf ohne Aktion einen Jobtitel; die Vorgabe ist jetzt `anzeigen`. `scoring_konfigurieren('reset')` zeigt erst, wie viele Regler zurückfallen und wie viele davon von dir gesetzt sind. Ein Wächter-Test liest den Quelltext aller Werkzeuge und verlangt für jedes, das etwas löscht, einen Eintrag in den Listen; ein neues löschendes Werkzeug ohne Eintrag macht die Prüfung rot.
+- **Die Stellenliste bleibt auch bei großem Bestand schnell** (#1143). Der Beworben-Bonus im Scoring las für jede Stelle alle Bewerbungen samt Verlauf neu (fünf Abfragen je Bewerbung, für jede Stelle der Liste, auch bei `pro_seite=20`). Jetzt wird die Menge der beworbenen Stellen einmal gebildet. Gemessen auf einer Test-Datenbank mit 1.200 Stellen und 100 Bewerbungen: `stellen_anzeigen` von 5,2 s auf 0,3 s, der Stellen-Tab (`GET /api/jobs`) von 5,0 s auf 0,35 s. Der Stellen-Tab zählt die Aussortierten jetzt (`COUNT`) statt alle samt Anzeigentext zu laden (bei 2.000 Aussortierten mit je 8 KB Text 102 ms auf 11 ms), und der 2-Sekunden-Takt des Dashboards fragt `MAX(updated_at)` über einen Index (17 ms auf 3 ms je Takt bei 2.000 Aussortierten; neuer Index `idx_jobs_updated_at`, wird beim Start angelegt).
+- **Lange Arbeit hält das Dashboard nicht mehr an** (#1143). Endpunkte, die auf Netz, Platte oder die lokale KI warten, liefen auf der Ereignisschleife und hielten dabei alle anderen Anfragen an (ein Modell-Download von 8 s ließ jede andere Anfrage 7,7 s warten). Jetzt laufen im Hintergrund-Thread: Modell-Download, Standort setzen, Ordner-Import, Auto-Engine, Beschreibung nachladen, Abruf der Freelancermap-Beschreibungen, Stellenanzeige als Schnappschuss holen, Test des Adzuna-Zugangs, Dateien beim Hochladen lesen, Lern-Analyse und die Abfragen und Schalter der lokalen KI. Ein Wächter-Test liest den Quelltext des Dashboards und verbietet blockierende Aufrufe direkt in einem `async`-Endpunkt.
+
+### Known Issues
+
+- Der Download eines KI-Modells hält das Dashboard nicht mehr an, hat aber weiter keine Fortschrittsanzeige und meldet in der Oberfläche nach 10 Minuten „Download fehlgeschlagen“, obwohl Ollama weiterlädt. Der Hintergrundjob mit Fortschritt ist eigene Arbeit (#1154).
+- Bei sehr vielen aussortierten Stellen mit langen Anzeigentexten (Tausende) bleibt `stellen_anzeigen` spürbar langsamer (2.000 Aussortierte mit je 8 KB Text: 2,9 s statt 0,3 s), weil die Wiedergänger-Prüfung die aussortierten Stellen samt Text lädt (#1154).
+
+### Gemessen
+
+96 neue Tests (6.286 gesamt): 47 für die Auskunft (Urteil ohne Anzeigentext oder mit Kurztext, Statusfilter mit Groß-/Kleinschreibung und Umlauten, Filter ohne Treffer bei Bewerbungen und Stellen, die Wörter in der Werkzeugbeschreibung), 29 für das Löschen mit Vorschau (die drei Werkzeuge, der Fall „falscher Schlüssel“, Station mit Projekten, Skill mit Zeiträumen, Wächter über den Quelltext aller Werkzeuge) und 20 für das Tempo (Zähler für die Abfragen, Messtest mit Grenzwert, zwei Anfragen gleichzeitig, Wächter über den Quelltext des Dashboards). Neun ältere Tests, die den alten Zustand festhielten, sind angepasst. Gegenprobe: 66 Mechanismen einzeln ausgebaut (19 bei der Auskunft, 24 beim Löschschutz, 23 beim Tempo); jeder Ausbau macht mindestens einen Test rot. Zwei Prüfungen wurden schon vor der Gegenprobe strenger gemacht (der Zähler für die Abfrage der beworbenen Stellen; eine Vorgabe-Zeile ohne Profil beim Zurücksetzen der Regler). Die Fehler selbst wurden vorher nachgestellt: eine Anzeige ohne Text ergab „NICHT_EMPFOHLEN“; `status_filter="Interview"` antwortete bei drei vorhandenen Bewerbungen „Noch keine Bewerbungen erfasst“; ein falscher Schlüssel beim Ändern der Notizen leerte zwei Abschnitte und meldete „aktualisiert“; auf einer Test-Datenbank mit 1.200 Stellen und 100 Bewerbungen brauchte `stellen_anzeigen` 5,2 s und der Stellen-Tab 5,0 s (jetzt 0,3 s und 0,35 s); ein künstlich langsamer Modell-Download ließ jede andere Anfrage so lange warten, wie er dauerte.
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.147.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.147.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+## [1.7.146] - 2026-10-02 — Termine, Sicherung und Bewerbungsansicht stimmen
+
+Hotfix für v1.7.145. Vier Dinge, die im Alltag falsche Auskunft gaben oder
+gar nicht liefen: Das Ende eines Termins im Dashboard war falsch, die
+tägliche Sicherung lief über Claude Desktop nie, eine einzige gesperrte
+Datei brachte die Sicherung zu Fall, ohne dass es jemand sah, und die
+Bewerbungsansicht begann mit alten Notizen und übersah einen verschobenen
+Termin. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** Ab dieser Version legt PBP über Claude Desktop
+wirklich täglich eine Sicherung an, so wie die Karte „Sicherungen“ es
+immer versprochen hat. Behalten werden die Sicherungen der letzten 7 Tage
+und je eine der 4 Wochen davor, jeweils die Datenbank und, wenn du
+Dokumente hast, ein ZIP davon. Bei vielen großen Dokumenten kann das Platz
+kosten: Die Karte zeigt, wie groß dein Dokumentenordner ist, und hat den
+Schalter **„Dokumente in die tägliche Sicherung aufnehmen“**. Ohne Haken
+enthält die tägliche Sicherung nur die Datenbank; Sicherungen, die du
+selbst anlegst, enthalten die Dokumente immer. Reicht der Platz nicht,
+sichert PBP nicht und sagt es.
+
+### Fixed
+
+- **Das Ende eines Termins stimmt** (#1140). Das Kalender-Formular rechnete
+  Beginn plus Dauer in UTC statt in deiner Ortszeit: aus „14:00, 60 Minuten“
+  wurde im Sommer das Ende 13:00. Die Kalender-Datei (ICS) war dadurch
+  ungültig, und zwei sich überschneidende Termine meldeten keine Kollision.
+  Jetzt rechnet die Oberfläche in Ortszeit, und der Server lässt kein Ende
+  vor dem Beginn mehr zu (er rechnet es aus Beginn und Dauer; ohne Dauer
+  bleibt das Ende leer statt falsch). Termine, die das alte Formular schon
+  gespeichert hat, werden beim Start einmal korrigiert. Dasselbe Muster in
+  den Aufgaben („überfällig“ zwischen 0 und 2 Uhr), in der Statistik und im
+  Datum neuer Stationen ist mit repariert.
+- **Die Hintergrund-Automatik startet auch über Claude Desktop** (#1138).
+  Tägliche Sicherung, geplante Jobsuche und Lernen liefen bisher nur im
+  eigenständigen Dashboard (Desktop-Verknüpfung), nicht in dem Weg, den die
+  meisten nutzen. Die Karte versprach „PBP sichert einmal am Tag von
+  selbst“, und es geschah nichts. Jetzt startet der Planer dort, wo das
+  Dashboard läuft, und nur dort (kein Doppellauf bei mehreren Fenstern).
+  Eine eingestellte Automatik-Jobsuche oder ein eingestelltes Lernen laufen
+  damit zum ersten Mal wirklich. Neu ist der Schalter für die Dokumente in
+  der täglichen Sicherung (Vorgabe: an).
+- **Eine gesperrte Datei kippt die Sicherung nicht mehr, und Fehler sind zu
+  sehen** (#1142). Eine einzige Datei im Dokumentenordner, die gerade von
+  einem Virenscanner oder von Office gehalten wurde, brachte die ganze
+  Sicherung samt Datenbankkopie zu Fall, und nirgends stand der Grund. Jetzt
+  bleibt die Datenbankkopie immer, gesperrte Dateien werden übersprungen und
+  genannt, und die Karte zeigt den Ausgang des letzten Versuchs (Fehler in
+  Rot, „gesichert, aber nicht vollständig“ in Gelb). Ein Abruffehler gilt
+  nicht mehr als „Noch keine Sicherung vorhanden“. Nach einem Fehlschlag
+  wartet die Automatik 15 Minuten, dann länger (bis 8 Stunden), statt alle 5
+  Minuten einen neuen Kopierversuch zu starten.
+- **`bewerbung_details` beginnt mit dem aktuellen Stand** (#1153). Die
+  Ausgabe begann mit den ältesten Notizen, die Timeline lief aufsteigend, das
+  Meeting kam nicht vor, und die Vorschläge sagten bei „Interview“ auch für
+  einen Termin in der Zukunft: „Du hattest ein Interview!“. So entstanden
+  drei falsche Aussagen über eine Bewerbung (verschobener Termin, längst
+  gegebene Zusage, angeblich stattgefundenes Gespräch). Jetzt steht zuerst
+  der Block `aktueller_stand` (nächster Termin mit Status, letzter Eintrag,
+  offene Aufgaben und Nachfassungen), dazu die Termine, die Timeline mit dem
+  Neuesten zuerst, und die Notizen am Ende mit dem Hinweis, dass sie älter
+  sein können. Verschiebt, bestätigt oder sagt man einen Termin ab (im
+  Dashboard oder über Claude), steht das jetzt als Zeile im Verlauf der
+  Bewerbung; ältere Einträge, die etwas als „offen“ schildern, bekommen
+  danach den Hinweis „möglicherweise überholt“ (der Text bleibt unverändert).
+  Die Vorschläge passen zur Zeit: liegt das Gespräch vor dir, geht es um die
+  Vorbereitung; ohne Termin steht dort „kein Termin hinterlegt“ mit dem
+  Angebot, ihn einzutragen. Mit einem kommenden Termin kommt kein „Wartest du
+  seit … Tagen auf Antwort“ mehr.
+
+### Known Issues
+
+- Ältere Hinweise im Verlauf werden nur gekennzeichnet, wenn danach über
+  diese Version eine Terminänderung eingetragen wurde; frühere
+  Verschiebungen stehen im Termin selbst (`aktueller_stand` zeigt ihn).
+
+### Gemessen
+
+68 neue Tests (6.190 gesamt): 27 für das Terminende (die Regel, Anlegen,
+Ändern, Korrektur beim Start, ICS-Datei, Kollisionen und ein Wächter, der
+UTC-Daten für Eingaben in der Oberfläche verbietet), 5 für den Start des
+Planers, 21 für die Sicherung (gesperrte Datei, Datenbankkopie bleibt,
+Wartezeit, Ausgang des letzten Versuchs, Schalter für die Dokumente) und 15
+für die Bewerbungsansicht; dazu zwei Node-Tests (Ortszeit in fünf
+Zeitzonen, Text zum Sicherungsversuch) als Schritt der automatischen
+Prüfung. Gegenprobe: 44 Mechanismen einzeln ausgebaut (11 beim Terminende,
+16 bei Planer und Sicherung, 6 beim Dokumenten-Schalter, 11 bei der
+Bewerbungsansicht); jeder Ausbau macht mindestens einen Test rot, und bei
+zwei Ausbauten blieb zunächst alles grün, deshalb sind zwei Prüfungen
+strenger geworden (der Aufruf des Planers zählt, nicht der Import; die
+Karte muss den Stand des letzten Versuchs anzeigen). Die Fehler selbst
+wurden vorher nachgestellt: 14:00 plus 60 Minuten ergab in Europe/Berlin im
+Sommer das Ende 13:00, der Prozess, den Claude Desktop startet, hatte keinen
+Planer-Thread, vier Planer-Takte nach einem Fehlschlag starteten vier
+Sicherungsversuche, und `bewerbung_details` nannte bei einem verschobenen
+und zugesagten Termin zuerst den alten Stand.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.146.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.146.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+## [1.7.145] - 2026-10-01 — Nur das Dashboard selbst darf PBP verändern
+
+Hotfix für v1.7.144. Eine Durchsicht von PBP auf Sicherheit und Datenschutz
+hat Lücken gefunden, die auch eine ganz normale Installation betreffen. PBP
+hört nur auf deinem eigenen Rechner, aber **andere Webseiten, die
+gleichzeitig in deinem Browser offen sind, konnten trotzdem Anfragen an das
+Dashboard schicken** und damit Daten ändern. Jetzt nimmt PBP Änderungen nur
+noch von seiner eigenen Oberfläche an. Dazu kommen Reparaturen am
+Windows-Installer und am Deinstaller, die deine Claude-Einstellungen und
+deinen Datenordner schützen. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:** An deinen Daten ändert sich nichts, und das Dashboard
+arbeitet wie bisher. Wer PBP unter einem anderen Namen als `localhost` oder
+`127.0.0.1` erreicht (zum Beispiel über einen Tunnel), schaltet den Namen mit
+der Umgebungsvariable `BA_ERLAUBTE_HOSTS` frei, siehe „Changed“.
+
+### Fixed
+
+- **Fremde Webseiten können PBP nicht mehr verändern** (#1135). Das Dashboard
+  prüft bei jedem schreibenden Aufruf, woher er kommt, und lehnt fremde
+  Herkunft ab (Antwort 403 mit einem Satz, was zu tun ist). Auch ein fremder
+  Rechnername in der Anfrage wird abgewiesen. Aufrufe ohne Herkunftsangabe
+  (Skripte, Installer, Plugins über die Ingest-Schnittstelle mit eigenem
+  Schlüssel) funktionieren wie bisher.
+- **Keine Einrahmung durch fremde Seiten** (#1135). Das Dashboard lässt sich
+  nicht mehr in einen unsichtbaren Rahmen auf einer fremden Seite legen.
+- **„Beschreibung nachladen“ lädt nur noch Webadressen** (#1135). Vorher
+  nahm die Funktion auch `file://` und `ftp://` an und konnte so eine lokale
+  Datei als Beschreibung in eine Bewerbung lesen.
+- **Adressen von außen werden nur als `http` und `https` verlinkt oder
+  geöffnet** (#1135): in Stellen, Bewerbungen, Terminen und Hinweisen, im
+  gedruckten Verlauf und in der Stellen-Seite des Exports. Eine Adresse wie
+  `javascript:…` aus einem Portal oder einer Mail führte beim Klick Code im
+  Dashboard aus. Server und Oberfläche prüfen gegen dieselbe Fallliste.
+- **CSV-Exporte neutralisieren Formeln** (#1135). Ein Firmen- oder
+  Titeltext, der mit `=`, `+`, `@` oder `-` beginnt, bekommt ein Hochkomma,
+  damit Excel ihn nicht als Formel ausführt; negative Zahlen bleiben Zahlen.
+- **Der Komplett-Export räumt hinter sich auf** (#1135). Bei jedem Export
+  blieb eine vollständige Kopie der Datenbank im Temp-Ordner liegen.
+- **Die Protokolldatei nennt beim Verknüpfen von Dokumenten keine Firma
+  mehr** (#1135). Die Datei wird in Fehlerberichten eingefügt.
+- **Windows-Installer: Paketversionen festgelegt** (#1136). Er holte die
+  Pakete ohne Versionsgrenze; FastMCP 4, das PBP ausschließt, hätte eine
+  frische Installation oder ein Update unbrauchbar machen können. Excel-Export
+  und Diagramme werden jetzt mitinstalliert (vorher zeigte der Excel-Knopf
+  eine Anweisung, die ohne Technikwissen niemand ausführen kann).
+- **Deine Claude-Einstellungen bleiben beim Deinstallieren und Neuinstallieren
+  erhalten** (#1136, alle Systeme). Der Windows-Deinstaller schrieb die
+  Konfiguration mit einem unsichtbaren Zeichen am Anfang; der nächste
+  Installerlauf hielt sie für „defekt“ und ersetzte sie durch einen Eintrag
+  nur für PBP, alle anderen Claude-Anbindungen waren weg. Jetzt schreibt der
+  Deinstaller ohne das Zeichen, der Installer erkennt es, und eine wirklich
+  unlesbare Datei wird zuerst als Kopie gesichert.
+- **Ein verlegter Datenordner und ein eigener Port überleben das Update**
+  (#1136, alle Systeme). Der Installer baute den Eintrag bei jedem Lauf neu;
+  wer seine Daten verlegt hatte, startete danach mit leerem Profil.
+- **Der Deinstaller meldet „Backup erstellt“ nur noch, wenn die Datei
+  wirklich da ist** (#1136). Gelingt das Backup nicht, steht vor der Frage
+  nach dem endgültigen Löschen eine Warnung.
+
+### Changed
+
+- Zwei optionale Umgebungsvariablen für Sonderfälle: `BA_ERLAUBTE_HOSTS`
+  (weitere Rechnernamen, durch Komma getrennt) und `BA_ERLAUBTE_HERKUENFTE`
+  (weitere Herkünfte schreibender Aufrufe, zum Beispiel ein
+  Entwicklungsserver). Im Alltag brauchst du beide nicht.
+
+### Known Issues
+
+- Das Dashboard unter einem anderen Namen als `localhost`, `127.0.0.1` oder
+  `[::1]` zu öffnen, wird jetzt abgewiesen; die Antwort nennt die Abhilfe.
+- Die Reparaturen am Installer wirken erst, wenn du die neue Version
+  installierst. Eine bereits beschädigte Claude-Konfiguration stellt der neue
+  Installer nicht wieder her.
+
+### Gemessen
+
+119 neue Tests (6.122 gesamt): 47 für den Schutz des Dashboards (darunter
+zwei im Browser: eine fremde Seite auf einem anderen Port kann nichts
+ändern, die eigene Oberfläche schreibt weiter), 44 für Adressen und
+Exporte, 12 für die Claude-Konfiguration, 10 für den Deinstaller (die Tests
+führen die echten PowerShell-Zeilen aus der BAT-Datei aus), 5 für die
+Installer-Pakete und 1 für das Protokoll; dazu ein Node-Test als eigener
+Schritt der automatischen Prüfung. Gegenprobe: 29 Mechanismen einzeln
+ausgebaut; jeder Ausbau macht mindestens einen Test rot. Beim ersten
+Durchlauf blieben vier Ausbauten an der Adressregel grün, deshalb enthält
+die gemeinsame Fallliste jetzt auch Adressen mit Rechnernamen
+(`javascript://…`, `file://…`) und mit Steuerzeichen mitten in der Adresse.
+Die Lücke selbst wurde vorher nachgestellt: Eine „einfache“ Anfrage mit
+fremder Herkunft änderte das Profil (Antwort 200), ebenso ein fremder
+Rechnername in der Anfrage; nachher antwortet das Dashboard mit 403 und das
+Profil bleibt unverändert.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.145.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.145.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
+## [1.7.144] - 2026-10-01 — „Update-Stand unbekannt“ bleibt nicht mehr stehen
+
+Hotfix für v1.7.143. PBP erfährt über die Anzeige in der Seitenleiste, dass
+es eine neue Version gibt. Diese Anzeige blieb nach einem einzigen
+Netzfehler eine Stunde lang stumm („Update-Stand unbekannt“), auch wenn das
+Netz längst wieder da war und die neue Version seit Tagen auf GitHub lag.
+Jetzt fragt PBP bald noch einmal, und ein Klick auf **Jetzt prüfen** fragt
+sofort. Dazu eine Reparatur an der automatischen Prüfung auf GitHub. Kein
+Schema-Eingriff.
+
+**Wichtig zu wissen:** Es ändert sich nur, wann und wie die Anzeige
+nachfragt. An deinen Daten ändert sich nichts.
+
+### Fixed
+
+- **„Update-Stand unbekannt“ bleibt nach einem Netzfehler nicht mehr eine
+  Stunde stehen** (#1134). Zwei Ursachen, beide gemessen: Der Server merkte
+  sich auch einen *Fehlschlag* eine Stunde lang (eine zweite Abfrage nach
+  behobenem Netz bekam dieselbe Antwort, ohne dass er nochmal nachsah), und
+  die Seite fragte nur einmal beim Laden. Jetzt gilt ein Fehlschlag nur
+  zwei Minuten (bei Wiederholung länger, höchstens 15 Minuten); ein Erfolg
+  bleibt eine Stunde gemerkt.
+- **Ein lange offenes Dashboard erfährt von einer neuen Version** (#1134).
+  Die Seite fragt von selbst wieder, bald nach einem Fehlschlag, sonst
+  stündlich. Vorher erschien eine später veröffentlichte Version erst nach
+  dem Neuladen der Seite.
+- **„Jetzt prüfen“** (#1134). Steht der Stand auf „unbekannt“, bietet die
+  Seitenleiste den nächsten Schritt an, statt in einer Sackgasse zu
+  enden. Der Klick fragt sofort (nicht dichter als alle 15 Sekunden, damit
+  GitHubs Grenze von 60 Anfragen je Stunde hält). Der Hinweis nennt den
+  Grund („github: keine Verbindung“) und wann PBP erneut fragt.
+- **Ein behobenes „unbekannt“ verschwindet auch ohne Update** (#1134).
+  Vorher ersetzte nur ein gefundenes Update die Anzeige; „unbekannt“ blieb
+  stehen, auch wenn die Prüfung wieder funktionierte und alles aktuell war.
+
+### Changed
+
+- **Das Zeitlimit der automatischen Prüfung auf GitHub steht jetzt bei 45
+  statt 30 Minuten** (#1132). Am 30.09. wurde ein Lauf nach 30 Minuten
+  abgebrochen, 28 Sekunden nachdem die Tests vollständig durchgelaufen
+  waren; nur der Vorlauf war langsam. Ein Test hält das Limit bei mindestens
+  40 Minuten, und der Release-Ablauf hält fest: „abgebrochen“ ist weder
+  grün noch rot.
+
+### Known Issues
+
+- Der Fix wirkt erst, wenn du die neue Version installiert hast. Eine bereits
+  installierte ältere Version behält ihr Verhalten; wer ein „unbekannt“ sieht,
+  lädt die Seite nach einer Stunde neu oder installiert einfach drüber.
+
+### Gemessen
+
+22 neue Tests (6.003 gesamt): 19 für den Update-Hinweis, davon vier im
+Browser mit vorgespulter Uhr (die Seite fragt nach einem Fehlschlag von
+selbst wieder, ein lange offenes Dashboard erfährt von einer neuen Version,
+„Jetzt prüfen“ holt das Update nach, ein behobenes „unbekannt“ verschwindet
+auch ohne Update), dazu ein Node-Test als eigener Schritt der automatischen
+Prüfung und drei Tests für das Zeitlimit. Gegenprobe: 14 Mechanismen einzeln
+ausgebaut (9 im Server, 3 in der Oberfläche mit Neubau nach jedem Ausbau, 1
+im Node-Test, 1 in der Eintragung des Node-Tests); jeder Ausbau macht
+mindestens einen Test rot. Der Fehler selbst wurde vorher ohne Netz
+nachgestellt: Abfrage mit ausgefallenem Netz, dann Abfrage nach behobenem
+Netz. Vorher lieferte die zweite Abfrage weiter „unbekannt“, dieselbe
+gemerkte Antwort ohne einen neuen Netzaufruf, und erst nach einer Stunde
+fand sie das Update.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.144.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.144.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+
+
+
+
+
+
+
+
+
+
+
+---
+
 ## [1.7.143] - 2026-09-30 — „Schon beworben?“ steht jetzt an der Stelle
 
 Hotfix für v1.7.142. Bei jeder neuen Stelle fragst du dich zuerst: *Habe

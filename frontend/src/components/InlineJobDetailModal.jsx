@@ -10,6 +10,7 @@
  * dismiss_reason='bewerbung_erstellt' gesetzt. Die normale Stellen-Liste
  * filtert nach is_active=1, dadurch war die Detail-Ansicht leer.
  */
+import { oeffneAdresse } from "@/lib/webAdresse";
 import { useEffect, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 
@@ -137,7 +138,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.open(job.url, "_blank", "noopener")}
+                onClick={() => oeffneAdresse(job.url, "_blank", "noopener")}
               >
                 <ExternalLink size={14} />
                 {jobLinkInfo(job).art === "suche" ? "Suchergebnis-Seite" : "Original-URL"}

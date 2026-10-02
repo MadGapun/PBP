@@ -63,6 +63,7 @@ import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
+import { naechsteFrageMs, unbekanntTitel } from "@/lib/updateStand";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
@@ -800,15 +801,38 @@ export default function App() {
     }
   });
 
+  // Update-Check (#286, #1069). #1134: vorher fragte die Oberflaeche genau
+  // einmal beim Laden der Seite, und der Server merkte sich auch einen
+  // Fehlschlag eine Stunde lang. Jetzt sagt der Server, wann erneut gefragt
+  // werden darf (nach einem Fehlschlag bald, nach einem Erfolg in einer
+  // Stunde), und "Jetzt pruefen" fragt sofort noch einmal.
+  const [updatePruefung, setUpdatePruefung] = useState("ruhig");
+  const [updateFrageNr, setUpdateFrageNr] = useState(0);
+  useEffect(() => {
+    let abgebrochen = false;
+    let timer = null;
+    async function frage(frisch) {
+      if (frisch) setUpdatePruefung("prueft");
+      const data = await optionalApi(
+        frisch ? "/api/update-check?frisch=1" : "/api/update-check");
+      if (abgebrochen) return;
+      setUpdatePruefung("ruhig");
+      // #1069: auch "keine Quelle hat geantwortet" wird angezeigt (kein
+      // stilles "aktuell"); #1134: jede Antwort ersetzt die vorige, damit
+      // ein spaeter gefundenes Update oder ein behobenes "unbekannt"
+      // ankommt.
+      if (data) setUpdateInfo(data);
+      timer = setTimeout(() => frage(false), naechsteFrageMs(data));
+    }
+    frage(updateFrageNr > 0);
+    return () => {
+      abgebrochen = true;
+      clearTimeout(timer);
+    };
+  }, [updateFrageNr]);
+
   useEffect(() => {
     refreshChrome();
-    // Update-Check (#286)
-    optionalApi("/api/update-check").then((data) => {
-      // #1069: auch der Fall "keine Quelle hat geantwortet" wird
-      // angezeigt. Bis v1.7.121 fiel er still unter den Tisch und sah
-      // damit aus wie "alles aktuell".
-      if (data?.update_available || data?.stand === "unbekannt") setUpdateInfo(data);
-    });
     // v1.7.0-beta.26 (#594 Stufe 1): Activity-Tracking initialisieren
     optionalApi("/api/status").then((s) => {
       const ver = s?.pbp_version || "unknown";
@@ -1323,6 +1347,9 @@ export default function App() {
             updateStand: updateInfo?.update_available ? "neu" : updateInfo?.stand || "",
             updateVersion: updateInfo?.latest_version || "",
             updateUrl: updateInfo?.release_url || "",
+            updateGrund: updateInfo?.stand === "unbekannt" ? unbekanntTitel(updateInfo) : "",
+            updatePruefung,
+            onUpdatePruefen: () => setUpdateFrageNr((n) => n + 1),
             onLlmClick: () => setLlmHelpOpen(true),
           }}
           collapsed={sidebarCollapsed}

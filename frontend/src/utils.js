@@ -1,4 +1,5 @@
-﻿export const PAGE_IDS = [
+﻿import { lokalesDatum } from "./lib/lokaleZeit.js";
+export const PAGE_IDS = [
   "dashboard",
   "profil",
   "suche",     // G69 (#1087): Suche & Bewertung
@@ -274,7 +275,8 @@ export function resolveLegacyAction(actionTarget = "") {
 
 export function dueState(isoDate) {
   if (!isoDate) return false;
-  return isoDate <= new Date().toISOString().slice(0, 10);
+  // v1.7.146 (#1140): das lokale Datum, nicht das UTC-Datum.
+  return isoDate <= lokalesDatum();
 }
 
 export function textExcerpt(value, max = 180) {

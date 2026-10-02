@@ -181,7 +181,12 @@ def test_notizen_loeschen_sektion(tmp_db):
        daten={"sektion": "ALLGEMEIN", "text": "behalten"})
     fn(bereich="notizen", aktion="anhang",
        daten={"sektion": "ZIELE", "text": "weg damit"})
-    res = fn(bereich="notizen", aktion="loeschen", daten={"sektion": "ZIELE"})
+    # v1.7.147 (#1145): erst die Vorschau, dann die Bestaetigung
+    vorschau = fn(bereich="notizen", aktion="loeschen", daten={"sektion": "ZIELE"})
+    assert vorschau.get("status") == "bestaetigung_erforderlich", vorschau
+    assert "ZIELE" in fn(bereich="notizen", aktion="lesen")["sektionen"]
+    res = fn(bereich="notizen", aktion="loeschen", daten={"sektion": "ZIELE"},
+             bestaetigung=True)
     assert res.get("status") == "geloescht", res
     gelesen = fn(bereich="notizen", aktion="lesen")
     assert "ZIELE" not in gelesen["sektionen"]

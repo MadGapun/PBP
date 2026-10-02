@@ -5,6 +5,7 @@
  * `lib/hinweisZone.js` (Reihenfolge mit Node-Test). Diese Komponente
  * zeichnet ihn nur und führt die Aktion aus.
  */
+import { oeffneAdresse } from "@/lib/webAdresse";
 import { AlertCircle, Info } from "lucide-react";
 
 import { Button, Card } from "@/components/ui";
@@ -18,7 +19,7 @@ export default function HinweisZone({ hinweis }) {
     const a = hinweis.aktion || {};
     if (a.art === "jobsuche") return startJobsuche();
     if (a.art === "navigieren") return navigateTo(a.ziel, a.tab ? { tab: a.tab } : undefined);
-    if (a.art === "link" && a.url) return window.open(a.url, "_blank", "noopener,noreferrer");
+    if (a.art === "link" && a.url) return oeffneAdresse(a.url);
     if (a.art === "anleitung") return refreshChrome();
     return undefined;
   }

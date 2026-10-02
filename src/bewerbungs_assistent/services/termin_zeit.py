@@ -20,7 +20,7 @@ Die Regeln:
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 
 FORMEN = "2026-04-18T14:00, 2026-04-18 14:00, 18.04.2026 14:00 oder 2026-04-18 (ganztägig)"
 
@@ -80,3 +80,49 @@ def normalisieren_oder_lassen(wert) -> tuple[str, bool]:
 def jetzt_lokal() -> str:
     """Der Vergleichswert fuer "kommend": Ortszeit in derselben Form."""
     return _format(datetime.now().replace(microsecond=0))
+
+
+def lesbar(wert) -> str:
+    """`2026-09-30T11:00:00` -> `30.09.2026 11:00`; ohne Uhrzeit (oder bei 00:00)
+    nur das Datum. Unlesbares bleibt stehen. Eine Fassung fuer Antworten und
+    Verlaufszeilen (vorher in `termin_folgen`)."""
+    roh = str(wert or "")
+    try:
+        tag = datetime.strptime(roh[:10], "%Y-%m-%d")
+    except ValueError:
+        return roh
+    text = tag.strftime("%d.%m.%Y")
+    zeit = roh[11:16]
+    return f"{text} {zeit}" if zeit and zeit != "00:00" else text
+
+
+def ende_korrigieren(beginn, ende, dauer_min=None) -> tuple:
+    """(gueltiges Ende oder None, geaendert) — v1.7.146, #1140.
+
+    Ein Ende zaehlt nur, wenn es NACH dem Beginn liegt. Bis v1.7.145
+    schrieb das Kalender-Formular das Ende in UTC statt in Ortszeit: aus
+    "14:00, 60 Minuten" wurde im Sommer das Ende 13:00, im Winter 14:00.
+    Die ICS-Datei war damit ungueltig, und die Kollisionspruefung sah keine
+    Ueberschneidung. Ein solches Ende wird aus Beginn + Dauer gerechnet; fehlt
+    die Dauer, bleibt es leer (unbekannt) statt falsch.
+
+    Unberuehrt bleiben: ein fehlendes Ende, ein ganztaegiger Termin und alles,
+    was sich nicht lesen laesst (das meldet `normalisieren`, nicht diese
+    Funktion). Erwartet die gespeicherte Form (Ortszeit ohne Zone).
+    """
+    if not ende or ist_ganztaegig(beginn):
+        return ende, False
+    try:
+        b = datetime.fromisoformat(str(beginn).strip())
+        e = datetime.fromisoformat(str(ende).strip())
+    except ValueError:
+        return ende, False
+    if e > b:
+        return ende, False
+    try:
+        dauer = int(dauer_min) if dauer_min not in (None, "") else 0
+    except (TypeError, ValueError):
+        dauer = 0
+    if dauer > 0:
+        return _format(b + timedelta(minutes=dauer)), True
+    return None, True

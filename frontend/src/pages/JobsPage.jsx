@@ -1,4 +1,5 @@
-﻿import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
+﻿import { sichereAdresse } from "@/lib/webAdresse";
+import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import { api, optionalApi, postJson, putJson } from "@/api";
@@ -1979,7 +1980,7 @@ export default function JobsPage() {
                     </>
                   )}
                   {job.url ? (
-                    <LinkButton href={job.url} target="_blank" rel="noreferrer">
+                    <LinkButton href={sichereAdresse(job.url)} target="_blank" rel="noreferrer">
                       <ExternalLink size={15} />
                       Anzeige
                     </LinkButton>
@@ -2615,7 +2616,7 @@ export default function JobsPage() {
                 }
                 return (
                   <div>
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
+                    <a href={sichereAdresse(link.url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-sm text-sky hover:underline">
                       <ExternalLink size={14} /> {link.label}
                     </a>
                     {link.hinweis ? (
@@ -2662,7 +2663,7 @@ export default function JobsPage() {
                     </Button>
                     {detailDialog.job.url ? (
                       <a
-                        href={detailDialog.job.url}
+                        href={sichereAdresse(detailDialog.job.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 rounded-lg border border-amber/30 px-3 py-1.5 text-xs text-amber hover:bg-amber/10"

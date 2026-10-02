@@ -1142,6 +1142,7 @@ def register(mcp, db, logger):
         wert: float = 0,
         ignorieren: bool = False,
         begruendung: str = "",
+        bestaetigung: bool = False,
     ) -> dict:
         """Konfiguriert das Scoring-Regler-System (#169).
 
@@ -1187,6 +1188,9 @@ def register(mcp, db, logger):
             ignorieren: True = Stellen mit diesem Wert komplett ignorieren
             begruendung: Warum der Regler so steht (optional). Wird mit dem
                 Regler und im Verlauf gespeichert (#1053).
+            bestaetigung: Gilt nur für 'reset' (#1145): ohne True kommt nur
+                die Vorschau, wie viele Regler zurückfallen; erst mit True
+                wird zurückgesetzt.
 
         Weitere Aktion seit v1.7.113 (#1053): 'verlauf' — die letzten
         Änderungen (optional je dimension), mit Vorgängerwert, Zeitpunkt
@@ -1373,6 +1377,32 @@ def register(mcp, db, logger):
             }
 
         elif aktion == "reset":
+            # v1.7.147 (#1145): wie jede Aktion, die viel auf einmal
+            # aendert, erst die Vorschau. Die Werte stehen danach im
+            # Verlauf — aber wer das Zuruecksetzen ausloest, soll vorher
+            # wissen, wie viele Regler er trifft und welche er selbst
+            # gesetzt hat.
+            if not bestaetigung:
+                # Dieselbe Menge, die reset_scoring_config loescht: die
+                # Zeilen DIESES Profils. Die Vorgaben (profile_id='') bleiben.
+                pid = db.get_active_profile_id() or ""
+                regler = [c for c in (db.get_scoring_config() or [])
+                          if (c.get("profile_id") or "") == pid]
+                selbst = [c for c in regler if c.get("set_by_user")]
+                return {
+                    "status": "bestaetigung_erforderlich",
+                    "regler": len(regler),
+                    "davon_von_dir_gesetzt": len(selbst),
+                    "beispiele": [f"{c['dimension']}/{c['sub_key']} = {c['value']}"
+                                  for c in (selbst or regler)[:8]],
+                    "folgen": (f"Setzt {len(regler)} Regler auf den Standard "
+                               f"zurück, davon {len(selbst)} von dir gesetzte."),
+                    "hinweis": ("Die alten Werte bleiben im Verlauf "
+                                "(scoring_konfigurieren('verlauf')). Setze "
+                                "bestaetigung=True, um wirklich zurückzusetzen; "
+                                "einen einzelnen Regler nimmt aktion='loeschen' "
+                                "zurück."),
+                }
             # v1.7.113 (#1053): ueber die Datenbank, damit jede entfernte
             # Zeile mit ihrem Wert im Verlauf steht.
             n = db.reset_scoring_config(begruendung)

@@ -41,3 +41,38 @@ ABGESCHLOSSEN = ARCHIV + ("angenommen",)
 def laeuft(status) -> bool:
     """Laeuft der Vorgang noch?"""
     return (status or "") not in ABGESCHLOSSEN
+
+
+_UMSCHRIFT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
+
+#: Woerter, die Menschen sagen, wenn sie einen Status meinen. Sie werden NIE
+#: als Filter angewandt (raten waere falsch: "abgesagt" kann Absage oder
+#: Rueckzug heissen), aber als Vorschlag genannt.
+UMGANGSSPRACHE = {
+    "absage": "abgelehnt",
+    "eingeladen": "interview",
+    "einladung": "interview",
+    "vorstellungsgespraech": "interview",
+    "zusage": "angebot",
+    "ruecknahme": "zurueckgezogen",
+}
+
+
+def status_aus_text(text) -> str | None:
+    """Der Status, den ein Text meint — oder None, wenn es ihn nicht gibt (#1146).
+
+    Gross-/Kleinschreibung, Umlaute statt Umschrift ("Zweitgespräch",
+    "zurückgezogen") und Leerzeichen oder Bindestrich statt Unterstrich
+    ("in Vorbereitung") sind gleichgueltig. Weiter wird NICHT geraten: Ein
+    Filter, der nichts trifft, ist keine leere Liste, sondern ein Fehler,
+    den der Aufrufer mit den gueltigen Werten beantwortet.
+    """
+    roh = (text or "").strip().lower().translate(_UMSCHRIFT)
+    roh = "_".join(roh.replace("-", " ").replace("_", " ").split())
+    return roh if roh in ALLE else None
+
+
+def vorschlag_fuer(text) -> str | None:
+    """Der Status, den ein umgangssprachliches Wort meist meint, sonst None."""
+    roh = (text or "").strip().lower().translate(_UMSCHRIFT)
+    return UMGANGSSPRACHE.get(roh)

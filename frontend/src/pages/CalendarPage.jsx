@@ -1,4 +1,6 @@
+import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
+import { lokaleDatumZeit, terminEnde } from "@/lib/lokaleZeit";
 import { Briefcase, Calendar, CalendarClock, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Clock, Download, Edit3, ExternalLink, FileText, Filter, List, Lock, MapPin, Palette, Plus, Send, Settings, Trash2, Video, X, XCircle } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 
@@ -143,7 +145,7 @@ function isInRange(dateStr, range) {
 
 // Empty meeting form
 function emptyMeeting(dateStr) {
-  const date = dateStr || new Date().toISOString().slice(0, 16);
+  const date = dateStr || lokaleDatumZeit();
   return {
     title: "", meeting_date: date,
     meeting_type: "sonstiges", location: "", notes: "",
@@ -403,9 +405,9 @@ export default function CalendarPage() {
       category_id: editMeeting.category_id || null,
     };
     if (payload.duration_minutes && payload.meeting_date) {
-      const start = new Date(payload.meeting_date);
-      const end = new Date(start.getTime() + payload.duration_minutes * 60 * 1000);
-      payload.meeting_end = end.toISOString().slice(0, 16);
+      // v1.7.146 (#1140): Ortszeit statt UTC - sonst lag das Ende vor dem Beginn.
+      const ende = terminEnde(payload.meeting_date, payload.duration_minutes);
+      if (ende) payload.meeting_end = ende;
     }
     try {
       if (isNew) {
@@ -930,7 +932,7 @@ export default function CalendarPage() {
                             </div>
                             <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
                               {!isPrivate && meeting.meeting_url && (
-                                <a href={meeting.meeting_url} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Meeting-Link öffnen">
+                                <a href={sichereAdresse(meeting.meeting_url)} target="_blank" rel="noreferrer" className="rounded-lg p-1.5 text-muted hover:text-sky transition-colors" title="Meeting-Link öffnen">
                                   <ExternalLink size={14} />
                                 </a>
                               )}

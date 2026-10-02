@@ -63,6 +63,19 @@ ZWEISTUFIG: dict[str, str] = {
     "skills_bereinigen": "anwenden",
     "blacklist_anwenden": "dry_run",
     "ablehnungsgruende_vereinheitlichen": "dry_run",
+    # v1.7.147 (#1145): drei Werkzeuge loeschten, ohne dass ihr Name es
+    # sagte — und standen deshalb in keiner Liste. Das Namensmuster
+    # unten sieht nur, was nach Loeschen KLINGT; der Quellcode-Guard in
+    # tests/test_v17147_loeschschutz_1145.py sieht, was loescht.
+    "bewerbung_zu_anfrage_konvertieren": "bestaetigung",
+    "bewerbungs_stellen_abgleichen": "dry_run",
+    # Werkzeuge mit mehreren Aktionen stehen hier, wenn EINE ihrer
+    # Aktionen loescht; die Vorschau gilt dann nur fuer diese Aktionen
+    # (profil_bearbeiten: loeschen von Station, Projekt, Ausbildung,
+    # Skill und Notiz-Sektion; scoring_konfigurieren: reset). Die
+    # uebrigen Aktionen wirken sofort.
+    "profil_bearbeiten": "bestaetigung",
+    "scoring_konfigurieren": "bestaetigung",
 }
 
 KLEIN_SOFORT: dict[str, str] = {
@@ -75,6 +88,11 @@ KLEIN_SOFORT: dict[str, str] = {
     "kontakt_kategorie_loeschen": "nur unbenutzte Kategorien; benutzte weist das Werkzeug ab",
     "custom_quelle_loeschen": "eine einzelne eigene Quelle, jederzeit neu anlegbar",
     "dokument_entverknuepfen": "nur die Verknüpfung, das Dokument bleibt",
+    # v1.7.147 (#1145): bis hierher stand `loeschen` als Vorgabe von
+    # `jobtitel_verwalten` — ein Aufruf ohne Aktion loeschte einen Titel.
+    "jobtitel_verwalten": "ein einzelner Jobtitel, mit jobtitel_speichern neu anlegbar (Vorgabe ist 'anzeigen')",
+    "ats_firmen_verwalten": "ein einzelner Eintrag der eigenen ATS-Liste, mit aktion='hinzufuegen' neu aufzunehmen",
+    "blacklist_verwalten": "ein einzelner Blacklist-Eintrag; 'deaktivieren' behält Grund und Ausnahmen und lässt sich zurücknehmen, die Antwort nennt das",
 }
 
 UMKEHRBAR: dict[str, str] = {

@@ -284,7 +284,8 @@ def test_leerer_erinnerungstext_abgewiesen(db):
 
 #: Wer ausserhalb des Dienstes schreiben darf — mit Grund.
 ERLAUBT = {
-    ("dashboard.py", "api_import_folder"):
+    # seit v1.7.147 (#1143) in der Hilfsfunktion, die im Thread-Pool laeuft
+    ("dashboard.py", "_import_folder"):
         "Import alter Bewerbungen aus Ordnern: keine Erinnerung, keine Stelle",
     ("dashboard.py", "api_upload_document"):
         "rekonstruiert eine Bewerbung aus einem hochgeladenen Dokument",

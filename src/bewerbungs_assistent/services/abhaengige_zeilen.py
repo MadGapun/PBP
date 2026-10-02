@@ -77,6 +77,13 @@ NAMEN = {
     "document_versions": "Dokumentversionen",
     "application_emails": "Mails",
     "contact_references": "Referenzen",
+    # v1.7.147 (#1145): Profil-Elemente, fuer die Vorschau in
+    # profil_bearbeiten (loeschen).
+    "positions": "Station",
+    "projects": "Projekte",
+    "education": "Ausbildung",
+    "skills": "Kompetenz",
+    "skill_periods": "Zeiträume der Kompetenz",
 }
 
 

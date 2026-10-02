@@ -207,7 +207,7 @@ def test_loeschen_und_zuruecksetzen_hinterlassen_eine_spur(umgebung):
     assert letzter["begruendung"] == "doch nicht"
 
     db.set_scoring_config("remote", "remote", 7)
-    _call(mcp, "scoring_konfigurieren", {"aktion": "reset"})
+    _call(mcp, "scoring_konfigurieren", {"aktion": "reset", "bestaetigung": True})
     assert _zeile(db, "remote", "remote") is None
     assert any(e["wert_vorher"] == 7 and e["wert_neu"] is None
                for e in db.get_scoring_verlauf("remote"))

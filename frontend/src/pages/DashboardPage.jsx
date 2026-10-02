@@ -1,4 +1,5 @@
-﻿import {
+﻿import { sichereAdresse } from "@/lib/webAdresse";
+import {
   ArrowRight,
   Calendar,
   ClipboardList,
@@ -850,7 +851,7 @@ export default function DashboardPage() {
                     <>
                       {" "}
                       <a
-                        href={hint.url}
+                        href={sichereAdresse(hint.url)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-medium underline underline-offset-2 hover:opacity-80"

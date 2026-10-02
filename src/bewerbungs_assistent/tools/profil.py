@@ -253,6 +253,64 @@ def _kennt_id(db, bereich, element_id) -> bool:
     return False
 
 
+_LOESCH_TABELLE = {"position": "positions", "projekt": "projects",
+                   "ausbildung": "education", "skill": "skills"}
+
+
+def _element_bezeichnung(db, bereich, element_id) -> str:
+    """Wie der Mensch das Element nennt — fuer die Vorschau (#1145)."""
+    profil = db.get_profile() or {}
+    ziel = str(element_id or "")
+    if bereich == "position":
+        for p in profil.get("positions", []):
+            if p.get("id") == ziel:
+                return f"{p.get('title') or 'Station'} bei {p.get('company') or '?'}"
+    elif bereich == "projekt":
+        for p in profil.get("positions", []):
+            for pr in (p.get("projects") or []):
+                if pr.get("id") == ziel:
+                    return pr.get("name") or "Projekt"
+    elif bereich == "ausbildung":
+        for e in profil.get("education", []):
+            if e.get("id") == ziel:
+                return f"{e.get('degree') or 'Ausbildung'}, {e.get('institution') or '?'}"
+    elif bereich == "skill":
+        for s in profil.get("skills", []):
+            if s.get("id") == ziel:
+                return s.get("name") or "Kompetenz"
+    return ziel
+
+
+def _loesch_vorschau(db, bereich, element_id):
+    """Was das Loeschen eines Profil-Elements mitnimmt (#1145).
+
+    Eine gelöschte Station nimmt ihre Projekte mit (ON DELETE CASCADE),
+    eine Kompetenz ihre Zeiträume — und bis v1.7.146 geschah das ohne
+    Vorschau, obwohl die Server-Anleitung „vor jedem Löschen die Vorschau“
+    verspricht. Dieselbe Rechnung wie bei `bewerbung_loeschen`.
+
+    Returns:
+        Die Vorschau, oder None, wenn es das Element nicht gibt (dann
+        antwortet der normale Weg mit „nicht gefunden“).
+    """
+    if not _kennt_id(db, bereich, element_id):
+        return None
+    from ..services import abhaengige_zeilen as _az
+    zaehler = _az.mit_bezuegen_loeschen(
+        db, _LOESCH_TABELLE[bereich], str(element_id), dry_run=True)
+    return {
+        "status": "bestaetigung_erforderlich",
+        "bereich": bereich,
+        "id": element_id,
+        "element": _element_bezeichnung(db, bereich, element_id),
+        "folgen": _az.klartext(zaehler),
+        "geloescht": zaehler["geloescht"],
+        "geloest": zaehler["geloest"],
+        "hinweis": ("Das lässt sich nicht rückgängig machen. Setze "
+                    "bestaetigung=True, um es wirklich zu löschen."),
+    }
+
+
 def _nicht_gefunden(bereich, element_id, ignoriert=None):
     """Die Absage bei unbekannter ID — an einer Stelle formuliert."""
     antwort = {
@@ -1021,7 +1079,8 @@ def register(mcp, db, logger):
         bereich: str,
         aktion: str,
         element_id: str = "",
-        daten: dict | list | None = None
+        daten: dict | list | None = None,
+        bestaetigung: bool = False,
     ) -> dict:
         """Bearbeitet Profildaten: Persönliches, Berufserfahrung, Skills, Ausbildung, Projekte.
 
@@ -1034,7 +1093,8 @@ def register(mcp, db, logger):
         - notizen: anhang (daten: {"sektion": "SEKTION", "text": "..."}) — hängt Text an eine Sektion an;
           lesen (gibt alle Sektionen strukturiert zurück); ersetzen (daten: {"sektion","text"} — ersetzt
           den Inhalt einer Sektion); löschen (daten: {"sektion"} — entfernt eine ganze Sektion); ändern
-          (daten.informal_notes — kompletter Roh-Ersatz)
+          (daten.informal_notes — kompletter Roh-Ersatz; ein leerer oder fehlender Text wird abgewiesen,
+          ausdrücklich leeren geht nur mit daten={"informal_notes": "", "leeren": True})
         - position: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - projekt: hinzufügen (daten.position_id nötig), ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
         - ausbildung: hinzufügen, ändern (element_id + daten), löschen (element_id), hinzufügen_bulk
@@ -1060,6 +1120,9 @@ def register(mcp, db, logger):
             aktion: ändern, löschen, hinzufügen, hinzufügen_bulk, anhang (bei notizen)
             element_id: ID des Elements (bei ändern/löschen)
             daten: Dict mit Änderungen, oder Liste von Dicts bei hinzufügen_bulk
+            bestaetigung: Gilt nur für löschen (Station, Projekt, Ausbildung,
+                Skill, Notiz-Sektion). Ohne True kommt nur die Vorschau, was
+                alles mitgelöscht wird; erst mit True wird gelöscht.
         """
         if daten is None:
             daten = {}
@@ -1267,6 +1330,39 @@ def register(mcp, db, logger):
                 profile = db.get_profile()
                 if not profile:
                     return kein_profil("dein Profil bearbeiten")
+                # v1.7.147 (#1145): bis v1.7.146 las dieser Zweig
+                # `daten.get("informal_notes", daten.get("text", ""))`. Fehlte
+                # der Schluessel (zum Beispiel weil der Aufrufer ihn "notizen"
+                # nannte), ersetzte der leere Text ALLE persoenlichen Notizen
+                # — und die Antwort lautete "aktualisiert". Die Notizen fliessen
+                # in jedes Anschreiben. Jetzt: ein fehlender Schluessel ist ein
+                # Fehler, ein leerer Text braucht ausdruecklich "leeren".
+                daten_d = daten if isinstance(daten, dict) else {}
+                neu_text = daten_d.get("informal_notes", daten_d.get("text"))
+                bisher = (profile.get("informal_notes") or "")
+                if neu_text is None:
+                    return {
+                        "fehler": ("Kein Text zum Ersetzen angegeben — die "
+                                   "Notizen wurden NICHT verändert."),
+                        "erwartet": ("daten={'informal_notes': '<der ganze neue "
+                                     "Text>'} (oder 'text')"),
+                        "uebergeben": sorted(str(k) for k in daten_d.keys()),
+                        "hinweis": ("Einen Eintrag anhängen: aktion='anhang' mit "
+                                    "{'sektion', 'text'}; eine Sektion ersetzen: "
+                                    "aktion='ersetzen'."),
+                    }
+                if not str(neu_text).strip() and bisher.strip() and not daten_d.get("leeren"):
+                    from ..services import notiz_routing as _nr
+                    return {
+                        "fehler": ("Der neue Text ist leer — das würde alle Notizen "
+                                   f"löschen ({len(_nr.sektionen(bisher))} Sektion(en), "
+                                   f"{len(bisher)} Zeichen). Die Notizen wurden NICHT "
+                                   "verändert."),
+                        "hinweis": ("Wenn sie wirklich weg sollen: "
+                                    "daten={'informal_notes': '', 'leeren': True}. "
+                                    "Eine einzelne Sektion löscht aktion='loeschen' "
+                                    "mit {'sektion'}."),
+                    }
                 update = {
                     "name": profile.get("name"), "email": profile.get("email"),
                     "phone": profile.get("phone"), "address": profile.get("address"),
@@ -1274,7 +1370,7 @@ def register(mcp, db, logger):
                     "country": profile.get("country"), "birthday": profile.get("birthday"),
                     "nationality": profile.get("nationality"),
                     "summary": profile.get("summary"),
-                    "informal_notes": daten.get("informal_notes", daten.get("text", "")),
+                    "informal_notes": neu_text,
                     "preferences": profile.get("preferences", {}),
                 }
                 db.save_profile(update)
@@ -1312,6 +1408,21 @@ def register(mcp, db, logger):
                     if idx is None:
                         return {"status": "nicht_gefunden", "bereich": "notizen",
                                 "sektion": ziel}
+                    if not bestaetigung:
+                        # v1.7.147 (#1145): erst zeigen, was verloren geht —
+                        # die Notizen stehen nirgends sonst.
+                        zeilen = [z.strip() for z in sektionen[idx][1] if z.strip()]
+                        return {
+                            "status": "bestaetigung_erforderlich",
+                            "bereich": "notizen", "sektion": ziel,
+                            "folgen": (f"Entfernt die Sektion {ziel} mit "
+                                       f"{len(zeilen)} Eintrag/Einträgen."),
+                            "inhalt": zeilen[:10],
+                            "weitere_eintraege": max(0, len(zeilen) - 10),
+                            "hinweis": ("Das lässt sich nicht rückgängig machen. "
+                                        "Setze bestaetigung=True, um die Sektion "
+                                        "zu löschen."),
+                        }
                     sektionen.pop(idx)
                 else:  # ersetzen
                     from datetime import datetime as _dt
@@ -1342,6 +1453,10 @@ def register(mcp, db, logger):
 
         elif bereich == "position":
             if aktion == "loeschen" and element_id:
+                if not bestaetigung:
+                    vorschau = _loesch_vorschau(db, "position", element_id)
+                    if vorschau:
+                        return vorschau
                 ok = db.delete_position(element_id)
                 return _schreibbefund(db, "position", element_id, ok, {
                     "status": "geloescht", "bereich": "position",
@@ -1372,6 +1487,10 @@ def register(mcp, db, logger):
 
         elif bereich == "projekt":
             if aktion == "loeschen" and element_id:
+                if not bestaetigung:
+                    vorschau = _loesch_vorschau(db, "projekt", element_id)
+                    if vorschau:
+                        return vorschau
                 ok = db.delete_project(element_id)
                 return _schreibbefund(db, "projekt", element_id, ok, {
                     "status": "geloescht", "bereich": "projekt",
@@ -1402,6 +1521,10 @@ def register(mcp, db, logger):
 
         elif bereich == "ausbildung":
             if aktion == "loeschen" and element_id:
+                if not bestaetigung:
+                    vorschau = _loesch_vorschau(db, "ausbildung", element_id)
+                    if vorschau:
+                        return vorschau
                 ok = db.delete_education(element_id)
                 return _schreibbefund(db, "ausbildung", element_id, ok, {
                     "status": "geloescht", "bereich": "ausbildung",
@@ -1435,6 +1558,10 @@ def register(mcp, db, logger):
                 # Dieser Zweig war der einzige, der den Rueckgabewert schon
                 # ausgewertet hat — jetzt tut er es ueber dasselbe
                 # Nadeloehr wie die sechs anderen (#997).
+                if not bestaetigung:
+                    vorschau = _loesch_vorschau(db, "skill", element_id)
+                    if vorschau:
+                        return vorschau
                 ok = db.delete_skill(element_id)
                 return _schreibbefund(db, "skill", element_id, ok, {
                     "status": "geloescht", "bereich": "skill",
@@ -2295,15 +2422,17 @@ def register(mcp, db, logger):
     _veraltet(mcp, "jobtitel_vorschlagen", jobtitel_speichern, "jobtitel_speichern")
 
     @mcp.tool()
-    def jobtitel_verwalten(titel_id: str = "", aktion: str = "loeschen", neuer_titel: str = "") -> dict:
+    def jobtitel_verwalten(titel_id: str = "", aktion: str = "anzeigen", neuer_titel: str = "") -> dict:
         """Verwaltet die gespeicherten Jobtitel (anzeigen, ändern, löschen, deaktivieren).
 
-        Mit `aktion='anzeigen'` kommen alle Titel samt ID. Statt der ID
-        genügt auch der Titeltext, genau wie er gespeichert ist.
+        Mit `aktion='anzeigen'` (die Vorgabe) kommen alle Titel samt ID. Statt
+        der ID genügt auch der Titeltext, genau wie er gespeichert ist.
+        Bis v1.7.146 war die Vorgabe `loeschen`: ein Aufruf ohne Aktion
+        löschte einen Titel (#1145).
 
         Args:
             titel_id: ID des Jobtitels oder der Titeltext
-            aktion: 'anzeigen', 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
+            aktion: 'anzeigen' (Vorgabe), 'loeschen', 'aendern', 'deaktivieren', 'aktivieren'
             neuer_titel: Neuer Titeltext (nur bei aktion='aendern')
         """
         pid = db.get_active_profile_id()

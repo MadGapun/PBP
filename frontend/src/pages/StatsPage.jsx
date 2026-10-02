@@ -1,4 +1,5 @@
 import { Activity, BarChart3, Calendar, Clock, Download, PenLine, TrendingUp } from "lucide-react";
+import { lokalesDatum } from "@/lib/lokaleZeit";
 import { useEffect, useEffectEvent, useState } from "react";
 import {
   Area,
@@ -71,14 +72,14 @@ const TOOLTIP_STYLE = {
 function resolveTimeRangeDates(range) {
   if (!range) return { from: "", to: "" };
   const now = new Date();
-  const to = now.toISOString().slice(0, 10);
+  const to = lokalesDatum(now);
   const start = new Date(now);
   if (range === "30d") start.setDate(start.getDate() - 30);
   else if (range === "90d") start.setDate(start.getDate() - 90);
   else if (range === "6m") start.setMonth(start.getMonth() - 6);
   else if (range === "12m") start.setMonth(start.getMonth() - 12);
   else return { from: "", to: "" };
-  return { from: start.toISOString().slice(0, 10), to };
+  return { from: lokalesDatum(start), to };
 }
 
 function buildExportUrl(format, timeRange, customFrom, customTo) {
@@ -119,7 +120,7 @@ function ActivityHeatmap({ data, days }) {
   start.setDate(start.getDate() - startDow);
   const cur = new Date(start);
   while (cur <= today) {
-    const iso = cur.toISOString().slice(0, 10);
+    const iso = lokalesDatum(cur);
     const inRange = (today - cur) / 86400000 <= days;
     cells.push({ date: iso, entry: inRange ? dataByDate.get(iso) : null, inRange });
     cur.setDate(cur.getDate() + 1);
