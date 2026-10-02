@@ -290,6 +290,39 @@ Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt
 - MERKE: Windows-Anonym-Pipes fassen nur 4 KB. Ein Test, der den Server mit `subprocess.PIPE` startet, MUSS stderr
   mitlesen (Thread), sonst haengt er an den ~6 KB, die eine frische Datenbank protokolliert.
 
+## Die weiteren Bausteine von 1.8 (#1131, #1152, #947, #1080)
+
+**Speicher & Downloads (#1131, `services/speicher.py`):** EINE Liste der Orte (`ORT_IDS`) und Aufräum-Aktionen (`AKTIONEN`); Pfade
+kommen nie aus einer Anfrage, nur aus dieser Liste. `_loeschen(pfad, wurzel)` löscht nur UNTER der Wurzel, nie die Wurzel, nie einen
+Symlink (drei Versuche, dann „Fehler“). Fremdes (Playwright, Ollama) wird gezeigt und nie angeboten. Zwei Schritte (Vorschau, dann
+`bestaetigt`), nie bei laufender Hintergrundarbeit. Werkzeuge `speicher_anzeigen`, `speicher_bereinigen` (`ZWEISTUFIG`).
+
+**Komponenten-Prüfsumme (#1152, `services/components.py`):** kein Installer ohne SHA-256 (64 Hexzeichen, `_pruefsumme_gueltig`); die Ablehnung
+kommt VOR dem Download; ein Registry-Test hält jede Komponente gegen leere Summen. Die Tesseract-Summe stammt aus dem Manifest des
+Paketverwalters (nicht selbst geladen). Offen: die Sprachdaten (tessdata) laufen noch ohne Summe.
+
+**Mail-Ordner (#947, `services/mail_quelle.py`):** Vorgabe AUS, genaue Liste freigegebener Ordner (kein Platzhalter, keine Vererbung, leer =
+nichts, Posteingang nur nach Warnung). Die Regel sitzt in PBP, nicht im Add-on: `POST /api/v1/ingest/email` prüft bei `modus=scan` gegen die
+Liste, BEVOR etwas gespeichert wird; `GET /api/v1/ingest/mail-policy` sagt dem Add-on, was erlaubt ist. PBP öffnet nie selbst ein Postfach (Test).
+Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Quelle gilt in stabil erst nach neuer Bestätigung.
+
+**Firmen-Eintrag (#1080, Stufe 2, Bauform A):** `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung, Löschbereich
+„bewerbungen“). Bewerbungen, Stellen, Kontakte und Lebenslauf behalten ihren Firmennamen als TEXT; aufgelöst wird beim LESEN
+(`services/firmen_stamm.py`). Regeln, die sich nicht aufweichen lassen:
+- **PBP rät nicht:** passt ein Name zu mehreren Firmen, kommt `mehrdeutig`, nie eine Wahl. Angelegt wird nur nach Bestätigung (Vorschläge,
+  Zusammenführen, Löschen: `bestaetigung`).
+- **Konzern wird gefunden, nie verschmolzen** (`via: mutterfirma/tochterfirma`, eigene Warnung, kein „dieselbe Firma“).
+- **Der Kanon (`firmen_kanon(db)`) fügt Treffer hinzu und nimmt nie einen weg** (Recall vor Präzision, #951). Einmal je Lauf bauen und
+  weitergeben (Import je Profil, Trefferliste, Automatik), nie je Stelle. Beim Import ist ein Treffer allein über den Kanon nie SICHER,
+  nur VERDACHT (kein Verschmelzen).
+- **Eine Quelle für Chat und Dashboard:** `firma_kontext_daten` (tools/bewerbungen.py) speist das Werkzeug UND `services/firmen_ansicht.py`.
+  Wer die Antwort ändert, ändert beide Wege.
+- Gegenprobe `scripts/mutationstest_auto_update.py --katalog firmen` (86 Eingriffe, alle erkannt); die anderen Kataloge: `speicher` (24),
+  `komponenten` (6), `mail` (20).
+- MERKE (UI): `pushToast` ändert sich mit jeder Meldung. Ladefunktionen in React-Effekten dürfen nicht daran hängen, sonst lädt jede Meldung
+  neu (nach dem Löschen fragte die Ansicht noch einmal nach der gelöschten Firma → 404).
+- Bildschirmfoto: `python docs/screenshots/generate_screenshots.py --nur-firmen` (fasst die anderen Bilder nicht an; Musterdaten, eigene Temp-DB).
+
 ## Release-Workflow (Pflicht)
 
 1. **Version** an drei Stellen: `pyproject.toml`,
