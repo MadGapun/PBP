@@ -60,6 +60,29 @@ def get_app_dir():
         return os.path.join(os.path.expanduser("~"), ".bewerbungs-assistent")
 
 
+def _suchpfad_im_programmordner(app_dir):
+    """Wohin zeigt PYTHONPATH im installierten Aufbau?
+
+    Seit v1.8 (Auto-Update, #1093) liegt der Code in `versions/<fassung>`, und `boot/` enthaelt den
+    Startbaustein, der die aktuelle Fassung waehlt. Alter Aufbau (bis 1.7.x): `src/`.
+    """
+    boot_dir = os.path.join(app_dir, "boot")
+    if os.path.isfile(os.path.join(boot_dir, "bewerbungs_assistent_boot", "__init__.py")):
+        return boot_dir
+    return os.path.join(app_dir, "src")
+
+
+def startmodul_fuer(such_pfad):
+    """`bewerbungs_assistent_boot`, wenn `such_pfad` der `boot`-Ordner eines Programmordners ist, sonst `bewerbungs_assistent`.
+
+    Der Dev-Modus (`<Projekt>/src`) enthaelt beide Pakete, nimmt aber immer das Programm selbst.
+    """
+    p = os.path.normpath(such_pfad)
+    if os.path.basename(p) == "boot" and os.path.isdir(os.path.join(os.path.dirname(p), "versions")):
+        return "bewerbungs_assistent_boot"
+    return "bewerbungs_assistent"
+
+
 def detect_mode(project_dir):
     """Erkennt den Installations-Modus und findet den richtigen Python-Pfad.
 
@@ -91,8 +114,7 @@ def detect_mode(project_dir):
             os.path.join(app_dir, "python", "python.exe"),
         ]:
             if os.path.exists(appdata_python):
-                src_dir_appdata = os.path.join(app_dir, "src")
-                return "official", appdata_python, src_dir_appdata, data_dir
+                return "official", appdata_python, _suchpfad_im_programmordner(app_dir), data_dir
     else:
         official_python = os.path.join(app_dir, "venv", "bin", "python")
         if os.path.exists(official_python):
@@ -125,8 +147,7 @@ def detect_mode(project_dir):
         fallback_python = os.path.join(app_dir, "python", "python.exe")
     else:
         fallback_python = os.path.join(app_dir, "venv", "bin", "python")
-    src_dir_fallback = os.path.join(app_dir, "src")
-    return "official", fallback_python, src_dir_fallback, data_dir
+    return "official", fallback_python, _suchpfad_im_programmordner(app_dir), data_dir
 
 
 def lese_config(pfad):
@@ -173,7 +194,7 @@ def eintrag_bauen(python_exe, src_dir, data_dir, alter_eintrag=None):
         env.update(alter_eintrag["env"])
     env.setdefault("BA_DATA_DIR", data_dir)
     env["PYTHONPATH"] = src_dir
-    return {"command": python_exe, "args": ["-m", "bewerbungs_assistent"], "env": env}
+    return {"command": python_exe, "args": ["-m", startmodul_fuer(src_dir)], "env": env}
 
 
 def config_schreiben(cp, python_exe, src_dir, data_dir):
