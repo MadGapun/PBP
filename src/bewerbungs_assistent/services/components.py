@@ -181,6 +181,36 @@ def _installation_laeuft(db) -> bool:
         return True
 
 
+def setup_reste_finden() -> list:
+    """Was ein fehlgeschlagener oder abgebrochener Lauf liegen gelassen hat: [(Pfad, Bytes)].
+
+    Die eine Liste, nach der `setup_reste_entfernen` aufraeumt UND die Uebersicht
+    "Speicher & Downloads" (#1131) zeigt, was dort aufgeraeumt wuerde. Liest nur.
+    """
+    kandidaten: list[Path] = []
+    try:
+        for name in COMPONENT_DEFS:
+            setup = _setup_datei(name)
+            kandidaten += [setup, _teildatei(setup)]
+        # Sprachdaten landen im tessdata-Ordner der PBP-Installation oder,
+        # wenn der nicht beschreibbar ist, im eigenen (ensure_language).
+        sprachordner = {_tessdata_dir()} | {
+            components_dir() / name / "tessdata" for name in COMPONENT_DEFS}
+        for ordner in sorted(sprachordner):
+            if ordner.is_dir():
+                kandidaten += sorted(ordner.glob("*.traineddata.part"))
+    except Exception as exc:  # noqa: BLE001 -- Aufraeumen darf nie werfen
+        logger.warning("Komponenten-Ordner nicht lesbar: %s", exc)
+    gefunden = []
+    for pfad in kandidaten:
+        try:
+            if pfad.is_file():
+                gefunden.append((pfad, pfad.stat().st_size))
+        except OSError:
+            continue
+    return gefunden
+
+
 def setup_reste_entfernen(db) -> dict:
     """Raeumt liegengebliebene Installationsdateien weg (#1130).
 
@@ -196,29 +226,9 @@ def setup_reste_entfernen(db) -> dict:
     """
     if _installation_laeuft(db):
         return {"entfernt": 0, "bytes": 0, "uebersprungen": "installation_laeuft"}
-    kandidaten: list[Path] = []
-    try:
-        for name in COMPONENT_DEFS:
-            setup = _setup_datei(name)
-            kandidaten += [setup, _teildatei(setup)]
-        # Sprachdaten landen im tessdata-Ordner der PBP-Installation oder,
-        # wenn der nicht beschreibbar ist, im eigenen (ensure_language).
-        sprachordner = {_tessdata_dir()} | {
-            components_dir() / name / "tessdata" for name in COMPONENT_DEFS}
-        for ordner in sorted(sprachordner):
-            if ordner.is_dir():
-                kandidaten += sorted(ordner.glob("*.traineddata.part"))
-    except Exception as exc:  # noqa: BLE001 -- Aufraeumen darf nie werfen
-        logger.warning("Komponenten-Ordner nicht lesbar: %s", exc)
     entfernt = 0
     bytes_frei = 0
-    for pfad in kandidaten:
-        try:
-            if not pfad.is_file():
-                continue
-            groesse = pfad.stat().st_size
-        except OSError:
-            continue
+    for pfad, groesse in setup_reste_finden():
         if _entfernen(pfad):
             entfernt += 1
             bytes_frei += groesse
@@ -249,8 +259,8 @@ def _binary_version(binary: str) -> str:
     return ""
 
 
-def _playwright_chromium_dir() -> Optional[str]:
-    """Ordner der installierten Chromium-Distribution (ms-playwright)."""
+def playwright_basis() -> Path:
+    """Der Ordner, in dem Playwright seine Browser ablegt (ms-playwright) -- auch fuer "Speicher & Downloads"."""
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
     elif sys.platform == "darwin":
@@ -260,6 +270,12 @@ def _playwright_chromium_dir() -> Optional[str]:
     env_base = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if env_base and env_base != "0":
         base = Path(env_base)
+    return base
+
+
+def _playwright_chromium_dir() -> Optional[str]:
+    """Ordner der installierten Chromium-Distribution (ms-playwright)."""
+    base = playwright_basis()
     try:
         for entry in sorted(base.glob("chromium*")):
             if entry.is_dir():

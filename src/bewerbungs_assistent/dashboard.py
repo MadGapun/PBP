@@ -8065,6 +8065,46 @@ async def api_auto_update_rueckgang_gesehen():
     return lauf.uebersicht(_db)
 
 
+# === Speicher & Downloads (#1131, I19) ===
+#
+# Wohin PBP schreibt und lädt, wie viel dort liegt, wer es angelegt hat — und Bereinigen in zwei Schritten.
+# Dieselbe Auskunft wie `speicher_anzeigen` im Chat (`services/speicher.py`); die Oberfläche führt keine zweite Liste.
+
+@app.get("/api/speicher")
+async def api_speicher():
+    """Die Orte mit Größe und Urheber. Das Nachmessen kann einige Sekunden dauern (große Ordner), darum im Thread."""
+    from .services import speicher
+    return await run_in_threadpool(speicher.uebersicht, _db)
+
+
+@app.post("/api/speicher/bereinigen")
+async def api_speicher_bereinigen(request: Request):
+    """Zwei Schritte: ohne `bestaetigt: true` nur Auswahl oder Vorschau, mit `bestaetigt: true` wird gelöscht.
+
+    409, solange Hintergrundarbeit läuft (genannt wird, was läuft); 400 bei unbekannter Aktion oder fehlender Auswahl.
+    """
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.bereinigen, _db, str(data.get("aktion") or ""), data.get("auswahl"),
+                                  bestaetigt=data.get("bestaetigt") is True)
+    if erg["status"] == "abgelehnt":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=409)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
+
+@app.post("/api/speicher/ordner-oeffnen")
+async def api_speicher_ordner_oeffnen(request: Request):
+    """Öffnet den Ordner eines Ortes im Dateimanager. Der Pfad kommt aus der festen Liste, nie aus der Anfrage."""
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.ordner_oeffnen, str(data.get("ort") or ""), _db)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
+
 @app.get("/api/health")
 async def api_health():
     """System health information for diagnostics."""

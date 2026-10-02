@@ -214,8 +214,10 @@ def arbeit_leeren(app, *, eigene_sperre: bool = False) -> int:
     return frei
 
 
-def reste_entfernen(app) -> list:
-    """Angefangene Installationen (`*.neu`, `*.tmp-*`, unfertige Ordner ueber 2 Stunden) wegraeumen."""
+def reste_entfernen(app, *, nur_vorschau: bool = False) -> list:
+    """Angefangene Installationen (`*.neu`, `*.tmp-*`, unfertige Ordner ueber 2 Stunden) wegraeumen.
+
+    `nur_vorschau=True` loescht nichts und nennt, was geloescht WUERDE ("Speicher & Downloads", #1131)."""
     p = layout.pfade(app)
     entfernt = []
     if not p.versionen.is_dir():
@@ -228,15 +230,17 @@ def reste_entfernen(app) -> list:
         rest = name.endswith(".neu") or ".tmp-" in name
         unfertig = (_fassung.gueltig(name) and not (kind / layout.FERTIG).exists()
                     and jetzt - kind.stat().st_mtime > UNFERTIG_MAX_ALTER_S)
-        if (rest or unfertig) and ordner_loeschen(kind):
+        if (rest or unfertig) and (nur_vorschau or ordner_loeschen(kind)):
             entfernt.append(name)
     return entfernt
 
 
-def fassungen_aufraeumen(app, behalten: int, *, geschuetzt=()) -> dict:
+def fassungen_aufraeumen(app, behalten: int, *, geschuetzt=(), nur_vorschau: bool = False) -> dict:
     """Loescht alte Fassungen: behalten werden die aktuelle und `behalten` Vorgaenger.
 
     Ergebnis: {'geloescht': [...], 'behalten': [...], 'uebersprungen': {fassung: grund}, 'frei_bytes': n}.
+    `nur_vorschau=True` loescht nichts und nennt in 'geloescht' und 'frei_bytes', was die Regel loeschen WUERDE
+    ("Speicher & Downloads", #1131: erst zeigen, dann bestaetigen lassen -- nach derselben Regel).
     """
     p = layout.pfade(app)
     status = layout.lese_status(app)
@@ -270,7 +274,10 @@ def fassungen_aufraeumen(app, behalten: int, *, geschuetzt=()) -> dict:
             bericht["behalten"].append(v)
             continue
         groesse_vorher = groesse(p.fassung(v))
-        if ordner_loeschen(p.fassung(v)):
+        if nur_vorschau:
+            bericht["geloescht"].append(v)
+            bericht["frei_bytes"] += groesse_vorher
+        elif ordner_loeschen(p.fassung(v)):
             bericht["geloescht"].append(v)
             bericht["frei_bytes"] += groesse_vorher
         else:

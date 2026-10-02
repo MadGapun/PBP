@@ -45,6 +45,7 @@ ZWEISTUFIG: dict[str, str] = {
     "interview_reflexion_loeschen": "bestaetigung",
     "ablehnungsgrund_loeschen": "bestaetigung",
     "daten_bereiche_leeren": "bestaetigung",
+    "speicher_bereinigen": "bestaetigung",
     "recherche_notizen_zusammenfuehren": "dry_run",
     "bewerbung_notizen_zusammenfuehren": "dry_run",
     "phantom_termine_bereinigen": "dry_run",

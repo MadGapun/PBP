@@ -13,6 +13,8 @@ export const SETTINGS_REITER = [
   // v1.8 (#1093): Auto-Update. Bewusst unter "Erweitert": "Grundlagen sind wenige" (G70); wer ein Update bekommt,
   // wird vom Hinweis direkt hierher gefuehrt.
   { id: "updates", label: "Updates", gruppe: "erweitert" },
+  // v1.8 (#1131): wohin PBP schreibt und laedt, und Bereinigen in zwei Schritten.
+  { id: "speicher", label: "Speicher & Downloads", gruppe: "erweitert" },
   { id: "quellen_details", label: "Quellen im Detail", gruppe: "erweitert" },
   { id: "ai", label: "Lokale KI", gruppe: "erweitert" },
   { id: "automatik", label: "Automatik", gruppe: "erweitert" },

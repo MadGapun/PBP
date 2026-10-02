@@ -231,6 +231,11 @@ jobs:
         # Fehler, Rueckfall, Neustart) und die Vergleichsregeln der Fassungen.
         run: node frontend/src/lib/autoUpdate.test.mjs
 
+      - name: Speicher und Downloads - Groessen und Schritte (Node)
+        # v1.8 (#1131): Groessen mit "oder mehr", die Schritte des Bereinigens
+        # (Auswahl, Vorschau, Ergebnis) und die Summe einer Auswahl.
+        run: node frontend/src/lib/speicher.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

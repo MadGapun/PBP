@@ -172,6 +172,9 @@ EXPECTED_TOOL_NAMES = {
     "update_einstellungen_setzen",
     "update_jetzt_installieren",
     "update_zurueckschalten",
+    # v1.8.0 (#1131): Speicher & Downloads
+    "speicher_anzeigen",
+    "speicher_bereinigen",
     "plugins_anzeigen",
     "ablehnungsgruende_anzeigen",
     "ablehnungsgrund_anlegen",
@@ -429,7 +432,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 274  # #1093: +update_status, +update_einstellungen_setzen, +update_jetzt_installieren, +update_zurueckschalten; #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
+        assert len(tools) == 276  # #1131: +speicher_anzeigen, +speicher_bereinigen; #1093: +update_status, +update_einstellungen_setzen, +update_jetzt_installieren, +update_zurueckschalten; #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
         assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:

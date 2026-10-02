@@ -22,6 +22,7 @@ EINSTELLUNGEN_REITER = {
     "ordner": "Ordner",
     "claude": "Claude (Cloud)",
     "updates": "Updates",
+    "speicher": "Speicher & Downloads",
     "quellen_details": "Quellen im Detail",
     "lokale_ki": "Lokale KI",
     "automatik": "Automatik",

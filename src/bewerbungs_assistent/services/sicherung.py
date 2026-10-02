@@ -227,6 +227,39 @@ def liste(db) -> list[dict]:
     return eintraege
 
 
+def entfernen(db, namen) -> dict:
+    """Entfernt die genannten Sicherungen samt Dokumente-ZIP (Einstellungen › Speicher & Downloads, #1131).
+
+    Nur Namen, die `liste` kennt: sie folgen dem Namensmuster und liegen im Sicherungsordner. Die NEUESTE Sicherung
+    bleibt immer. Rueckgabe: {'geloescht': [...], 'bytes': n, 'abgelehnt': {name: grund}}.
+    """
+    alle = liste(db)  # neueste zuerst
+    bekannt = {e["name"]: e for e in alle}
+    neueste = alle[0]["name"] if alle else None
+    basis = ordner(db)
+    erg = {"geloescht": [], "bytes": 0, "abgelehnt": {}}
+    for name in dict.fromkeys(str(n) for n in (namen or [])):
+        if name not in bekannt:
+            erg["abgelehnt"][name] = "unbekannte Sicherung"
+            continue
+        if name == neueste:
+            erg["abgelehnt"][name] = "die neueste Sicherung bleibt immer"
+            continue
+        f = basis / name
+        frei = 0
+        try:
+            for p in (f, _dokumente_zip(f)):
+                if p.exists():
+                    frei += _groesse(p)
+                    p.unlink()
+            erg["geloescht"].append(name)
+            erg["bytes"] += frei
+        except OSError as exc:
+            logger.warning("Sicherung nicht entfernt (%s): %s", name, exc)
+            erg["abgelehnt"][name] = "ließ sich nicht löschen (in Benutzung?)"
+    return erg
+
+
 def rotieren(db, jetzt: datetime | None = None) -> list[str]:
     """Loescht, was die Regel nicht behaelt. Rueckgabe: geloeschte Namen."""
     jetzt = jetzt or datetime.now()

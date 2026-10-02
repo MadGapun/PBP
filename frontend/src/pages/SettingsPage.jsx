@@ -8,6 +8,7 @@ import { useApp } from "@/app-context";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
+import SpeicherTab from "@/components/SpeicherTab";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -4052,6 +4053,11 @@ export default function SettingsPage() {
         {/* ── v1.8 (#1093): Updates (Auto-Update) ── */}
         {settingsTab === "updates" && (
           <UpdatesTab />
+        )}
+
+        {/* ── v1.8 (#1131): Speicher & Downloads ── */}
+        {settingsTab === "speicher" && (
+          <SpeicherTab />
         )}
 
         {settingsTab === "ai" && (
