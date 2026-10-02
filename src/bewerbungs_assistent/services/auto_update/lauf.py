@@ -19,6 +19,7 @@ einmal automatisch versucht; was am Netz liegt, wird nach einer Stunde wieder ve
 from __future__ import annotations
 
 import logging
+import os
 import re
 import threading
 import time
@@ -352,7 +353,15 @@ def zeitgeber_starten(db, *, warte=None, intervall: float = PRUEF_INTERVALL_S, v
     return t
 
 
-def beim_start(db, *, bestaetigung_nach: float = BESTAETIGUNG_NACH_S) -> dict:
+def _bestaetigung_nach() -> float:
+    """Die Wartezeit bis zur Startbestaetigung; `PBP_BESTAETIGUNG_NACH_S` kuerzt sie fuer Proben (nie laenger als die Vorgabe)."""
+    try:
+        return min(float(os.environ.get("PBP_BESTAETIGUNG_NACH_S", BESTAETIGUNG_NACH_S)), BESTAETIGUNG_NACH_S)
+    except ValueError:
+        return BESTAETIGUNG_NACH_S
+
+
+def beim_start(db, *, bestaetigung_nach=None) -> dict:
     """Von Server und Dashboard beim Start gerufen: Reste wegraeumen, „bereit“ melden, Zeitgeber starten.
 
     Zwei Schritte, zwei Fragen an den Startbaustein:
@@ -366,6 +375,8 @@ def beim_start(db, *, bestaetigung_nach: float = BESTAETIGUNG_NACH_S) -> dict:
     ok, _ = layout.verfuegbarkeit()
     if not ok:
         return ergebnis
+    if bestaetigung_nach is None:
+        bestaetigung_nach = _bestaetigung_nach()
     app = layout.programmordner()
     try:
         aufraeumen.reste_entfernen(app)
@@ -393,6 +404,15 @@ def beim_start(db, *, bestaetigung_nach: float = BESTAETIGUNG_NACH_S) -> dict:
 
 # ── Was die Oberflaeche und die Werkzeuge sehen ─────────────────────────────────────────
 
+def _fassungen_im_detail(app, installiert, laufend, aktuell) -> list:
+    """Je installierte Fassung: Groesse und Rolle — fuer die Liste in den Einstellungen (und #1131)."""
+    vorherige = layout.lese_status(app).get("vorherige")
+    pfade = layout.pfade(app)
+    return [{"version": v, "bytes": aufraeumen.groesse(pfade.fassung(v)), "laeuft": v == laufend,
+             "aktuell": v == aktuell, "vorherige": v == vorherige,
+             "belegt": bool(aufraeumen.belegungen(app, v, aufraeumen=False))} for v in installiert]
+
+
 def uebersicht(db) -> dict:
     """Alles, was die Anzeige braucht — eine Antwort fuer Dashboard und Werkzeug."""
     ok, grund = layout.verfuegbarkeit()
@@ -412,6 +432,7 @@ def uebersicht(db) -> dict:
     aktuell = layout.aktuelle_fassung(app)
     antwort["aktuell"] = aktuell
     antwort["installiert"] = layout.installierte_fassungen(app)
+    antwort["fassungen"] = _fassungen_im_detail(app, antwort["installiert"], laufend, aktuell)
     antwort["neustart_noetig"] = bool(aktuell and laufend and aktuell != laufend)
     antwort["rueckgang"] = zustand.rueckgang_offen(app)
     p = antwort["pruefung"]

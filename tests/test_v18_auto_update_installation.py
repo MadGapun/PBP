@@ -290,6 +290,19 @@ def test_ein_fehlgeschlagener_selbsttest_verhindert_die_installation(app, releas
     unveraendert(app, vorher)
 
 
+def test_das_protokoll_auf_der_fehlerausgabe_stoert_ein_ok_nicht(app, release):
+    """Der echte Selbsttest schreibt das Datenbankprotokoll auf die Fehlerausgabe, nach seinem 'OK' auf der Standardausgabe.
+    Die erste echte Probe (Browser-Demo) hielt deshalb einen gelungenen Selbsttest fuer gescheitert."""
+    lauf_ = Lauf(0, "[TEST] Python: 3.12\n[TEST] Alle Tests bestanden\nOK\n",
+                 "2026-10-02 19:21:48 [bewerbungs_assistent.database] INFO: Database initialized at C:\\Temp\\x\\pbp.db\n")
+    assert installiere(app, oeffner=FakeOeffner(release.antworten()), selbsttest_runner=Aufzeichner(lauf_)).ok
+
+
+def test_ein_ok_nur_auf_der_fehlerausgabe_zaehlt_nicht(app, release):
+    lauf_ = Lauf(0, "[TEST] irgendwas\n", "OK\n")
+    assert installiere(app, oeffner=FakeOeffner(release.antworten()), selbsttest_runner=Aufzeichner(lauf_)).code == "selbsttest"
+
+
 @pytest.mark.parametrize("lauf", [Lauf(0, "alles gut aber ohne Schlusswort\n"), Lauf(0, ""), Lauf(0, "OK\nundnoch\n")])
 def test_der_selbsttest_gilt_nur_bei_ok_in_der_letzten_zeile(app, release, lauf):
     e = installiere(app, oeffner=FakeOeffner(release.antworten()), selbsttest_runner=Aufzeichner(lauf))

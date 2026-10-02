@@ -55,7 +55,7 @@ import DashboardBereich from "@/components/DashboardBereich";
 import DashboardAnpassen from "@/components/DashboardAnpassen";
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo, autoUpdate, updateSchonInstalliert } = useApp();
   // G60 (#1087 B1): hoechstens EIN Hinweis. Ist die Hinweiszone leer,
   // kommen die weiteren Hinweise der Reihe nach — immer nur einer.
   const [nebenStufe, setNebenStufe] = useState(0);
@@ -518,9 +518,10 @@ export default function DashboardPage() {
     hatProfil: Boolean(chrome.status?.has_profile),
     quellenAktiv: activeSourceCount,
     letzteSucheAm: lastSearchAt,
-    updateBekannt: updateInfo?.update_available
+    updateBekannt: updateInfo?.update_available && !updateSchonInstalliert
       ? { version: updateInfo.latest_version, url: updateInfo.release_url }
       : null,
+    autoUpdate,
     ollamaAngebot: false,
     einstiegFertig,
   });

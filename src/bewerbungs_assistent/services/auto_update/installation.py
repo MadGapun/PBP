@@ -92,9 +92,12 @@ def selbsttest_starten(ordner: Path, *, python=None, runner=None) -> None:
         raise UpdateFehler("selbsttest", detail="Zeitgrenze") from exc
     except Exception as exc:
         raise UpdateFehler("selbsttest", detail=f"{type(exc).__name__}: {exc}") from exc
-    ausgabe = ((getattr(r, "stdout", "") or "") + (getattr(r, "stderr", "") or "")).strip()
-    letzte = ausgabe.splitlines()[-1].strip() if ausgabe else ""
+    # Gezaehlt wird die letzte Zeile der STANDARDAUSGABE: das Protokoll der Datenbank geht auf die Fehlerausgabe und
+    # steht sonst nach dem "OK" (so scheiterte die erste echte Probe an einem erfolgreichen Selbsttest).
+    stdout = (getattr(r, "stdout", "") or "").strip()
+    letzte = stdout.splitlines()[-1].strip() if stdout else ""
     if getattr(r, "returncode", 1) != 0 or letzte != "OK":
+        ausgabe = (stdout + "\n" + (getattr(r, "stderr", "") or "")).strip()
         raise UpdateFehler("selbsttest", detail=ausgabe[-400:])
 
 

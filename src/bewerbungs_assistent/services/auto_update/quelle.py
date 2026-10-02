@@ -137,7 +137,7 @@ def laden(url: str, ziel: Path, *, max_bytes: int, oeffner=None, fortschritt=Non
             except (TypeError, ValueError):
                 laenge = None
             if laenge is not None and laenge > max_bytes:
-                raise UpdateFehler("zu_gross", detail=f"{laenge} Byte angekuendigt, erlaubt {max_bytes}")
+                raise UpdateFehler("zu_gross", detail=f"{laenge} Byte angekündigt, erlaubt {max_bytes}")
             with open(teil, "wb") as f:
                 while True:
                     if abbruch is not None and abbruch():

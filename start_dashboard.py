@@ -53,6 +53,11 @@ def _find_chrome() -> str | None:
 
 def _open_in_chrome(url: str) -> None:
     """Open URL in Chrome if available, otherwise fall back to system default."""
+    # Proben und Tests (Auto-Update, #1093) starten das Dashboard als echten Prozess, ohne dass sich ein Fenster
+    # des Rechners oeffnet. Fuer Menschen aendert sich nichts: die Variable ist nie gesetzt.
+    if os.environ.get("PBP_KEIN_BROWSER"):
+        logger.info("PBP_KEIN_BROWSER gesetzt - der Browser wird nicht geoeffnet")
+        return
     chrome = _find_chrome()
     if chrome:
         logger.info("Oeffne Dashboard in Chrome: %s", chrome)
@@ -150,6 +155,10 @@ except Exception as e:
     print(f"  FEHLER: {e}")
     print(f"  Details in: {log_path}")
     print()
+    if os.environ.get("PBP_FASSUNG"):
+        # Gestartet ueber den Startbaustein (Auto-Update, #1093): der entscheidet, ob die vorige Fassung einspringt
+        # (ein verschluckter Importfehler haette das verhindert). Offen haelt das Fenster `Dashboard starten.bat`.
+        raise
     if sys.platform == "win32":
         input("  Druecke Enter zum Schliessen...")
     sys.exit(1)

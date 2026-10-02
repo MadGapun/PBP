@@ -19,8 +19,16 @@
  *      kein Banner, sondern steht in den Einstellungen)
  *   6. Ollama-Angebot (erst nach abgeschlossenem Einstieg)
  *
+ * Auto-Update (#1093): was gerade passiert oder gefragt werden muss (Rückfall
+ * auf die vorige Version, ein Lauf, ein Fehler, "Neustart nötig", die
+ * Rückfrage nach der Stufe) steht gleich hinter der Verbindung und vor
+ * "Quellen" und "Suche" — es wartet nicht hinter einer Suchempfehlung. Die
+ * Regeln dafür stehen in lib/autoUpdate.js (`updateHinweis`).
+ *
  * Framework-frei, damit der Node-Test die Reihenfolge prüfen kann.
  */
+
+import { updateHinweis } from "./autoUpdate.js";
 
 export const SUCHE_DRINGEND_NACH_TAGEN = 7;
 
@@ -55,6 +63,8 @@ export function hinweisFuer(lage, jetzt = new Date()) {
     // Der Einstieg auf dem Dashboard erklärt das selbst — kein zweiter Hinweis.
     return null;
   }
+  const upd = updateHinweis(lage.autoUpdate, { releaseUrl: lage.updateBekannt?.url });
+  if (upd?.dringend) return upd;
   if (!lage.quellenAktiv) {
     return {
       id: "quellen",
@@ -77,7 +87,9 @@ export function hinweisFuer(lage, jetzt = new Date()) {
       aktion: { art: "jobsuche", label: "Jobsuche starten" },
     };
   }
-  if (lage.updateBekannt?.version) {
+  if (upd) return upd;
+  // Ohne Installer-Layout (aus dem Quellcode gestartet, macOS, Linux) gilt der bisherige Hinweis.
+  if (!lage.autoUpdate?.verfuegbar && lage.updateBekannt?.version) {
     return {
       id: "update",
       ton: "neutral",

@@ -60,7 +60,7 @@ def _pfad_pruefen(name: str) -> PurePosixPath:
             raise _unsicher("Pfadteil nicht erlaubt", name)
         stamm = teil.split(".")[0].upper()
         if stamm in GERAETENAMEN:
-            raise _unsicher("Geraetename im Pfad", name)
+            raise _unsicher("Gerätename im Pfad", name)
     p = PurePosixPath(ohne_slash)
     if p.is_absolute():
         raise _unsicher("absoluter Pfad", name)
@@ -91,7 +91,7 @@ def entpacken(archiv, ziel) -> dict:
         if isinstance(exc, OSError) and getattr(exc, "errno", None) == errno.ENOSPC:
             raise UpdateFehler("platz", detail=str(exc)) from exc
         if isinstance(exc, (zipfile.BadZipFile, zlib.error, EOFError)):
-            raise _unsicher("Archiv beschaedigt", f"{type(exc).__name__}: {exc}") from exc
+            raise _unsicher("Archiv beschädigt", f"{type(exc).__name__}: {exc}") from exc
         raise UpdateFehler("unerwartet", detail=f"{type(exc).__name__}: {exc}") from exc
 
 
@@ -117,7 +117,7 @@ def _entpacken_pruefend(archiv: Path, ziel: Path) -> dict:
         if not eintraege:
             raise _unsicher("leeres Archiv")
         if len(eintraege) > MAX_DATEIEN:
-            raise _unsicher("zu viele Eintraege", str(len(eintraege)))
+            raise _unsicher("zu viele Einträge", str(len(eintraege)))
 
         # 1. ALLES pruefen, bevor irgendetwas geschrieben wird
         gesehen = set()
@@ -140,7 +140,7 @@ def _entpacken_pruefend(archiv: Path, ziel: Path) -> dict:
                 elif wurzel != ERLAUBTER_WURZELORDNER:
                     raise _unsicher("Ordner an der Wurzel nicht vorgesehen", info.filename)
                 if pfad.suffix.lower() in VERBOTENE_ENDUNGEN:
-                    raise _unsicher("ausfuehrbare Datei", info.filename)
+                    raise _unsicher("ausführbare Datei", info.filename)
                 if info.file_size > MAX_EINZEL_BYTES:
                     raise _unsicher("Datei zu gross", info.filename)
                 if info.file_size > 1024 * 1024 and info.compress_size and info.file_size / info.compress_size > MAX_VERHAELTNIS:
@@ -173,7 +173,7 @@ def _entpacken_pruefend(archiv: Path, ziel: Path) -> dict:
                         break
                     bytes_ += len(stueck)
                     if bytes_ > info.file_size or bytes_ > MAX_EINZEL_BYTES:
-                        raise _unsicher("mehr Daten als angekuendigt", info.filename)
+                        raise _unsicher("mehr Daten als angekündigt", info.filename)
                     aus.write(stueck)
             geschrieben += bytes_
         return {"dateien": len(namen), "bytes": geschrieben}

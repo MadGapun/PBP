@@ -10,6 +10,8 @@ export const SETTINGS_REITER = [
   { id: "ordner", label: "Ordner", gruppe: "grundlagen" },
   // H25 (#1087 G5): was an Anthropic geht.
   { id: "claude", label: "Claude (Cloud)", gruppe: "grundlagen" },
+  // v1.8 (#1093): Auto-Update.
+  { id: "updates", label: "Updates", gruppe: "grundlagen" },
   { id: "quellen_details", label: "Quellen im Detail", gruppe: "erweitert" },
   { id: "ai", label: "Lokale KI", gruppe: "erweitert" },
   { id: "automatik", label: "Automatik", gruppe: "erweitert" },

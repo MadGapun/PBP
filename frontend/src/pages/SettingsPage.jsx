@@ -7,6 +7,7 @@ import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
+import UpdatesTab from "@/components/UpdatesTab";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -4046,6 +4047,11 @@ export default function SettingsPage() {
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
         {settingsTab === "claude" && (
           <KIFeaturesCard pushToast={pushToast} />
+        )}
+
+        {/* ── v1.8 (#1093): Updates (Auto-Update) ── */}
+        {settingsTab === "updates" && (
+          <UpdatesTab />
         )}
 
         {settingsTab === "ai" && (

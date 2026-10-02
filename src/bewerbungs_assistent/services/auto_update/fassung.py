@@ -62,5 +62,5 @@ def aus_tag(tag):
 
 def tag_aus(fassung: str) -> str:
     if not gueltig(fassung):
-        raise ValueError(f"Keine gueltige Fassung: {fassung!r}")
+        raise ValueError(f"Keine gültige Fassung: {fassung!r}")
     return "v" + fassung

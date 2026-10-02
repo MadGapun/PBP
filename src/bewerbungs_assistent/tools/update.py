@@ -19,7 +19,7 @@ def register(mcp, db, logger: logging.Logger):
 
         Liefert: welche Version läuft, ob eine neuere bereitliegt, welche Stufe eingestellt ist (aus,
         hinweis, auto_meldung, auto_still), ob ein Neustart nötig ist (installiert, gilt aber erst nach
-        dem Neustart von PBP UND Claude Desktop), die letzten Installationen und eine eventuelle
+        dem Neustart von PBP UND Claude Desktop), die letzten Installationen und eine mögliche
         Zurücknahme. Liest nur, verändert nichts.
 
         Nächste Schritte:
