@@ -541,7 +541,7 @@ def doppelvorstellung(offene: list[dict],
     warnungen = []
     for v in vermutet or []:
         warnungen.append(
-            f"Pruefen: eine laufende Bewerbung über {v.get('ueber_vermittler')} "
+            f"Prüfen: eine laufende Bewerbung über {v.get('ueber_vermittler')} "
             f"({v.get('titel') or 'Bewerbung'}, {v.get('bewerbung_id')}) nennt "
             "diese Firma in den Notizen, trägt aber keinen Endkunden. Ist sie "
             "der Endkunde, bist du dort schon vorgestellt — dann mit "

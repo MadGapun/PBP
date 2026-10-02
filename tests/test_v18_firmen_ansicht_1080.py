@@ -88,6 +88,23 @@ def test_die_rollen_sind_fuer_menschen_beschrieben(db):
     assert nach_status["abgelehnt"]["via_text"] == "unter anderer Schreibweise"
 
 
+def test_bewerbungen_kommen_nur_aus_dem_werkzeug_nie_doppelt_aus_den_rohdaten():
+    for rolle in ("bewerbungsziel", "vermittler", "endkunde"):
+        assert fa._aus_bezug({"quelle": "bewerbung", "rolle": rolle, "name": "X", "titel": "Y"}) is None, rolle
+
+
+def test_eine_nur_in_den_notizen_genannte_firma_steht_als_erwaehnung_in_der_ansicht(db):
+    aid = db.add_application({"title": "Beschaffer", "company": "Vermittler Beispiel", "status": "beworben",
+                              "notes": "Der Kunde ist die Beispielhaus Handel GmbH in Hamburg.", "applied_at": "2026-09-01"})
+    db.update_application(aid, {"vermittler": "Vermittler Beispiel"})
+    fs.firma_anlegen(db, "Beispielhaus Handel GmbH")
+    erg = fa.ansicht(db, name="Beispielhaus Handel GmbH")
+    erwaehnt = [e for e in erg["zeitleiste"] if e["art"] == "erwaehnt"]
+    assert len(erwaehnt) == 1 and erwaehnt[0]["ziel"] == {"seite": "bewerbungen", "bewerbung_id": aid}
+    assert "Vermittler Beispiel" in erwaehnt[0]["text"] and erg["zaehlung"]["erwaehnt"] == 1
+    assert any("Prüfen" in w for w in erg["warnungen"]), "ohne eingetragenen Endkunden nur ein Prüfhinweis, keine Behauptung"
+
+
 def test_eine_firma_ohne_eintrag_hat_trotzdem_eine_ansicht(db):
     db.add_application({"title": "Einkauf", "company": "Ohne Eintrag GmbH", "status": "beworben", "applied_at": "2026-01-05"})
     erg = fa.ansicht(db, name="Ohne Eintrag")

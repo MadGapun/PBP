@@ -163,9 +163,7 @@ def ansicht(db, *, name: str = "", firma_id: str = "") -> dict:
     eintraege = [_aus_bewerbung(b) for b in daten.get("bewerbungen", [])]
     eintraege += [_aus_stelle(s) for s in daten.get("aktive_stellen", [])]
     for b in daten.get("_roh_bezuege", []):
-        if b.get("quelle") == "bewerbung" and b.get("rolle") != "in_notizen_erwaehnt":
-            continue                                   # Bewerbungen kommen aus dem Werkzeug (mit Terminen)
-        e = _aus_bezug(b)
+        e = _aus_bezug(b)          # Bewerbungen (Ziel, Vermittler, Endkunde) kennt `_aus_bezug` nicht: sie kommen aus dem Werkzeug, mit Terminen
         if e:
             eintraege.append(e)
     zeitleiste = _sortiert([e for e in eintraege if e])
