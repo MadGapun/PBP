@@ -177,6 +177,22 @@ class HeartbeatMiddleware(Middleware):
         logger.info("Tool aufgerufen: %s", tool_name)
         write_heartbeat(tool_name)
 
+        # #1148 Punkt 9: typisierte Kennungen ("APP-42061e46", "JOB-…") nimmt jedes Werkzeug an.
+        # PBP gibt sie aus, aber nur einzelne Werkzeuge verstanden sie wieder; das Praefix faellt
+        # deshalb hier weg, bevor ein Werkzeug die Argumente sieht.
+        from .services.typed_ids import FalscheKennung, normalisiere_argumente
+        try:
+            neue_argumente = normalisiere_argumente(getattr(context.message, "arguments", None))
+        except FalscheKennung as exc:
+            raise ToolError(json.dumps({
+                "error": "falsche_kennung",
+                "tool": tool_name,
+                "message": str(exc),
+            }, ensure_ascii=False))
+        if neue_argumente is not None and hasattr(context.message, "model_copy"):
+            context = context.copy(
+                message=context.message.model_copy(update={"arguments": neue_argumente}))
+
         timeout = self.LONG_TIMEOUT if tool_name in self.LONG_RUNNING_TOOLS else self.DEFAULT_TIMEOUT
 
         # #1148: lief derselbe Aufruf eben in die Zeitüberschreitung und rechnet
