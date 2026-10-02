@@ -699,13 +699,29 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
      sie notiert ist. Tests: `tests/test_gh_pii_guard_mcp.py` (17, beide
      Richtungen; bewusst OHNE reale Namen im Repo, ausgeloest wird mit
      einer generischen Fundstelle).
+     **Seit v1.7.148 (#1137) liest der Hook die Kommandozeile
+     STRUKTURIERT** (Unterbefehl und Schalter statt eines festen
+     Wortlauts): auch `gh -R <Repo> issue …`, `issue close --comment`,
+     `pr review/merge --body`, `gist create`, `api -F/--raw-field`.
+     Ein Text aus Variable, Pipe oder Unterbefehl, der sich nicht lesen
+     laesst, wird BLOCKIERT statt ignoriert; feste Variablen und `cd` im
+     selben Kommando setzt er selbst ein (`S=/pfad && gh … --body-file
+     "$S/x.md"` geht). Tests: `tests/test_v17148_gh_waechter_1137.py`,
+     aus fremdem Arbeitsverzeichnis und in beide Richtungen. MERKE: ein
+     Schutz, der bei der haeufigsten Schreibweise stillschweigend nichts
+     prueft, ist keiner.
    - **`scripts/gh_pii_sweep.py`**: prueft den IST-Zustand ueber ALLE
      Issues, Kommentare und Releases, auch geschlossene. Seit der Hook
      beide Wege abdeckt, ist der Sweep nicht mehr das einzige Netz fuer
      den MCP-Weg, sondern das Netz fuer den ALTBESTAND und fuer alles,
      was ausserhalb dieser Session entstanden ist. Gehoert weiter in die
      Session-Abschluss-Runde — ein Guard verhindert Neues, er heilt
-     nichts Altes.
+     nichts Altes. **Seit v1.7.148 liest er ALLE Veroeffentlichungen**
+     (`gh api --paginate`; vorher `--limit 200` bei 430) und bricht an
+     einer Abfragegrenze mit Exit 3 ab, statt „sauber“ zu melden — der
+     erste Lauf ueber den ganzen Bestand fand 19 Artefakte (Portalnamen
+     als Quellen-Feature, ein Automaten-Absender, sechs echte alte
+     Release-Notizen, die auf die Entscheidung in #1151 warten).
    - **`FIKTIVE_FIRMEN`** in `scrub_pii.py`: der Pruefer schlug vorher bei
      genau den Platzhaltern an, die diese Regel vorschreibt. Neue
      Platzhalter dort eintragen.
@@ -1039,10 +1055,12 @@ Template (am Ende der Release-Notes einfuegen, Versionsnummer ersetzen):
 ### Linux
 
 \`\`\`bash
-git clone https://github.com/MadGapun/PBP.git
+git clone --branch vX.Y.Z --depth 1 https://github.com/MadGapun/PBP.git
 cd PBP
 bash installer/install.sh
 \`\`\`
+
+`vX.Y.Z` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist die Beta, nicht die stabile Version (#1150).
 
 ### Update von einer aelteren Version
 

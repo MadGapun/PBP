@@ -242,6 +242,16 @@ class Database:
                 self._conns.append(conn)
         return conn
 
+    def offene_transaktion(self) -> bool:
+        """Haelt die Connection DIESES Threads gerade eine Transaktion offen?
+
+        Legt keine Connection an. Die Werkzeug-Huelle (#1144) fragt das vor
+        dem Aufruf, damit sie nur zuruecknimmt, was der Aufruf selbst offen
+        liess — nicht die Transaktion eines Aufrufers.
+        """
+        conn = getattr(self._local, "conn", None)
+        return bool(conn is not None and conn.in_transaction)
+
     def rollback_if_stale(self, context: str = "") -> bool:
         """#708: Sicherheitsnetz gegen geleakte Transaktionen.
 
@@ -254,6 +264,14 @@ class Database:
         A28 (#900): wirkt nur auf die Connection des AUFRUFENDEN Threads —
         vorher rollte die geteilte Connection auch fremde, noch laufende
         Writes anderer Threads zurueck.
+
+        #1144: das heisst, der Aufruf muss im Thread des Werkzeugs
+        stattfinden. Die Middleware ruft ihn im Event-Loop-Thread; ein
+        synchrones Werkzeug laeuft aber in einem Worker-Thread mit eigener
+        Connection, und seine offene Transaktion blieb liegen (ein anderer
+        Schreiber scheiterte mit "database is locked", und der naechste
+        Commit dieses Workers schrieb die halbe Arbeit fest). Darum ruft
+        `tools/__init__._mit_aufraeumen` ihn jetzt im Worker selbst.
         """
         conn = getattr(self._local, "conn", None)
         if conn is not None and conn.in_transaction:
@@ -1335,6 +1353,13 @@ class Database:
             _rj.bestand_nachziehen(self)
         except Exception as e:
             logger.debug("Remote-Nachzug uebersprungen (#1072): %s", e)
+        # v1.7.148 (#1147): die LinkedIn-Vorgabe trug die Suchbegriffe des
+        # Entwicklers. Eine UNVERAENDERTE Zeile dieser Art wird auf den
+        # neutralen Start gesetzt; eine bearbeitete bleibt. Idempotent.
+        try:
+            self._linkedin_vorgabe_bereinigen(conn)
+        except Exception as e:
+            logger.debug("LinkedIn-Vorgabe nicht bereinigt (#1147): %s", e)
         logger.info("Database initialized at %s", self.db_path)
 
     def _repair_document_paths(self) -> int:
@@ -3720,6 +3745,24 @@ class Database:
         Den GRUND einer Abweisung liefert `add_skill_mit_befund` (#1073).
         """
         return self.add_skill_mit_befund(data, quelle=quelle)[0]
+
+    def find_skill(self, name: str, profile_id: str = None) -> Optional[dict]:
+        """Der Skill gleichen Namens im Profil — oder None (#1148).
+
+        Gleiche Normalisierung wie `add_skill_mit_befund` (Aufzaehlungszeichen
+        vorn weg, Gross-/Kleinschreibung egal). Die Werkzeuge fragen vorher,
+        damit ein erneutes Hinzufuegen nicht "gespeichert" meldet, obwohl der
+        Skill unveraendert blieb.
+        """
+        import re
+        sauber = re.sub(r'^[\-\*\+•]\s+', '', (name or "").strip()).strip()
+        if not sauber:
+            return None
+        pid = profile_id or self.get_active_profile_id()
+        row = self.connect().execute(
+            "SELECT * FROM skills WHERE profile_id=? AND LOWER(name)=LOWER(?)",
+            (pid, sauber)).fetchone()
+        return dict(row) if row else None
 
     def add_skill_mit_befund(self, data: dict,
                              quelle: str = "extraktion") -> tuple:
@@ -8857,22 +8900,65 @@ class Database:
         conn.commit()
         return True
 
+    #: Ab so vielen BELEGTEN Gehaltsangaben traegt eine Kennzahl eine Aussage (#1147).
+    GEHALT_MIN_BELEGT = 3
+
     def get_salary_statistics(self) -> dict:
-        """Get aggregated salary statistics across all jobs with salary data."""
+        """Gehaltskennzahlen ueber die Stellen mit BELEGTEM Gehalt.
+
+        #1147: Schaetzwerte (`salary_estimated = 1`) zaehlen nicht. Der
+        Scraper fuellt die Spalte mit `estimate_salary`, und ohne Titeltreffer
+        kommt immer dieselbe Standardspanne heraus (50.000 bis 70.000 EUR im
+        Jahr, 700 bis 1.100 EUR am Tag) — fuer jeden Beruf. Gemessen: zwei
+        echte Angaben (38.000 bis 44.000) plus 18 geschaetzte ergaben "Anzahl
+        20, Median 50.000", und nichts kennzeichnete die Schaetzwerte. Scoring
+        und fit_analyse neutralisieren Schaetzungen laengst; hier fehlte es.
+        Wie viele nicht gezaehlt wurden, steht in der Antwort.
+        """
         conn = self.connect()
         pid = self.get_active_profile_id()
         rows = conn.execute("""
-            SELECT salary_min, salary_max, salary_type, employment_type, source, location
+            SELECT salary_min, salary_max, salary_type, employment_type, source, location,
+                   COALESCE(salary_estimated, 0) AS geschaetzt
             FROM jobs
             WHERE salary_min IS NOT NULL AND is_active=1
               AND (? IS NULL OR profile_id=? OR profile_id IS NULL)
         """, (pid, pid)).fetchall()
         if not rows:
-            return {"anzahl": 0, "nachricht": "Keine Gehaltsdaten vorhanden"}
-        data = [dict(r) for r in rows]
+            return {"anzahl": 0, "geschaetzt_nicht_gezaehlt": 0,
+                    "nachricht": "Keine Gehaltsdaten vorhanden"}
+        alle = [dict(r) for r in rows]
+        data = [d for d in alle if not d["geschaetzt"]]
+        geschaetzt = len(alle) - len(data)
+        if not data:
+            return {
+                "anzahl": 0,
+                "geschaetzt_nicht_gezaehlt": geschaetzt,
+                "nachricht": (
+                    f"Keine belegten Gehaltsangaben vorhanden. {geschaetzt} "
+                    f"{'Stelle trägt' if geschaetzt == 1 else 'Stellen tragen'} nur "
+                    "einen geschätzten Wert (feste Standardspanne je Titel, kein "
+                    "Beleg) — das sind keine Marktdaten."),
+            }
+        for d in data:  # eine Angabe ohne Obergrenze zaehlt als Punktwert
+            if d["salary_max"] is None:
+                d["salary_max"] = d["salary_min"]
         annual = [d for d in data if d["salary_type"] == "jaehrlich"]
         daily = [d for d in data if d["salary_type"] == "taeglich"]
-        result = {"anzahl": len(data)}
+        result = {"anzahl": len(data), "geschaetzt_nicht_gezaehlt": geschaetzt,
+                  "aussagekraft": "ok" if len(data) >= self.GEHALT_MIN_BELEGT else "gering"}
+        hinweise = []
+        if geschaetzt:
+            hinweise.append(
+                f"{geschaetzt} {'Stelle' if geschaetzt == 1 else 'Stellen'} mit "
+                "geschätztem Gehalt (feste Standardspanne, kein Beleg) "
+                f"{'zählt' if geschaetzt == 1 else 'zählen'} nicht mit.")
+        if result["aussagekraft"] == "gering":
+            hinweise.append(
+                f"Nur {len(data)} belegte {'Angabe' if len(data) == 1 else 'Angaben'}: "
+                "das ist keine Marktzahl.")
+        if hinweise:
+            result["hinweis"] = " ".join(hinweise)
         if annual:
             mins = [d["salary_min"] for d in annual]
             maxs = [d["salary_max"] for d in annual]
@@ -10379,10 +10465,14 @@ class Database:
 
     # === v1.7.0-beta.32 (#564): Portal-spezifische Such-Profile ===
 
-    # LinkedIn-Default-Profil mit den gesammelten Lessons aus #564.
-    # Wird beim ersten Lesen automatisch angelegt — User kann es danach
-    # frei aendern.
-    _LINKEDIN_DEFAULT = {
+    # #1147: So sah die LinkedIn-Vorgabe bis v1.7.147 aus — mit den
+    # Suchbegriffen des Entwicklers (PDM, PLM) und dem Branchenfilter
+    # Maschinenbau. Sie wurde beim ersten Lesen fuer JEDEN angelegt; eine
+    # Pflegekraft bekam damit 'PLM' in ihre LinkedIn-Suche. Die Vorlage
+    # bleibt nur noch, um eine UNVERAENDERTE Zeile dieser Art zu erkennen
+    # und zu bereinigen (`_linkedin_vorgabe_bereinigen`). Nichts liest sie
+    # als Vorgabe.
+    _LINKEDIN_VORGABE_ALT = {
         "primaere_suchen": [
             {
                 "keywords": "PDM",
@@ -10436,6 +10526,67 @@ class Database:
         ),
     }
 
+    # #1147: Womit ein LinkedIn-Suchprofil beginnt — OHNE Fachbegriffe. Die
+    # allgemeinen Erfahrungen aus #564 bleiben als Notiz (sie gelten fuer
+    # jedes Fachgebiet), die Suchbegriffe kommen aus den Suchkriterien oder
+    # vom Menschen selbst.
+    _LINKEDIN_START = {
+        "primaere_suchen": [],
+        "sekundaere_suchen": [],
+        "nicht_verwenden": [],
+        "notizen": (
+            "LinkedIn-Volltextsuche scannt über die Beschreibung statt nur "
+            "den Titel. Kurze Abkürzungen (etwa drei Buchstaben) treffen "
+            "viel Unbeteiligtes; ein ausgeschriebener Titel schlägt sie. "
+            "Ein Branchen-Filter ist wichtiger als ein Phrase-Match, und "
+            "eine sehr seltene Berufsbezeichnung in Anführungszeichen "
+            "liefert oft gar nichts."
+        ),
+    }
+
+    def _linkedin_vorgabe_bereinigen(self, conn) -> int:
+        """Setzt eine UNVERAENDERTE alte LinkedIn-Vorgabe auf den neutralen Start.
+
+        Eine Zeile gilt als unveraendert, wenn ihr Inhalt der alten Vorgabe
+        gleicht UND sie nie gespeichert wurde (`updated_at == created_at`).
+        Wer sie angefasst hat — auch nur einen Begriff —, behaelt sie so, wie
+        sie ist. Gibt zurueck, wie viele Zeilen bereinigt wurden.
+        """
+        alt = self._LINKEDIN_VORGABE_ALT
+        geraeumt = 0
+        for row in conn.execute(
+                "SELECT id, primaere_suchen_json, sekundaere_suchen_json, "
+                "nicht_verwenden_json, notizen, created_at, updated_at "
+                "FROM portal_search_profiles WHERE portal='linkedin'").fetchall():
+            if (row["updated_at"] or "") != (row["created_at"] or ""):
+                continue
+            try:
+                heute = {
+                    "primaere_suchen": json.loads(row["primaere_suchen_json"] or "[]"),
+                    "sekundaere_suchen": json.loads(row["sekundaere_suchen_json"] or "[]"),
+                    "nicht_verwenden": json.loads(row["nicht_verwenden_json"] or "[]"),
+                    "notizen": row["notizen"] or "",
+                }
+            except Exception:  # noqa: BLE001
+                continue
+            if heute != {k: alt[k] for k in heute}:
+                continue
+            start = self._LINKEDIN_START
+            conn.execute(
+                "UPDATE portal_search_profiles SET primaere_suchen_json=?, "
+                "sekundaere_suchen_json=?, nicht_verwenden_json=?, notizen=? WHERE id=?",
+                (json.dumps(start["primaere_suchen"], ensure_ascii=False),
+                 json.dumps(start["sekundaere_suchen"], ensure_ascii=False),
+                 json.dumps(start["nicht_verwenden"], ensure_ascii=False),
+                 start["notizen"], row["id"]))
+            geraeumt += 1
+        if geraeumt:
+            conn.commit()
+            logger.info(
+                "Safety-Net #1147: %d unveraenderte LinkedIn-Vorgabe(n) mit "
+                "fremden Suchbegriffen auf den neutralen Start gesetzt", geraeumt)
+        return geraeumt
+
     def find_portal_search_profile(self, portal: str) -> dict | None:
         """Das Suchprofil eines Portals — oder None, OHNE eines anzulegen (#1049).
 
@@ -10473,9 +10624,10 @@ class Database:
     def get_portal_search_profile(self, portal: str) -> dict:
         """Liefert das Such-Profil fuer ein Portal (LinkedIn/StepStone/XING).
 
-        Wenn noch keins existiert: legt ein leeres Profil an. Fuer
-        LinkedIn werden zusaetzlich die Default-Lessons aus #564 vorbefuellt
-        (PDM/PLM Berater/PLM mit Branchen-Filter; PLM Architect raus).
+        Wenn noch keins existiert: legt ein Profil ohne Suchbegriffe an. Fuer
+        LinkedIn steht darin die allgemeine Erfahrung aus #564 als Notiz;
+        Fachbegriffe stehen NICHT darin (#1147) — die kommen aus den
+        Suchkriterien oder vom Menschen selbst.
         """
         portal = (portal or "").strip().lower()
         if not portal:
@@ -10491,7 +10643,7 @@ class Database:
             # Default-Profil anlegen
             now = _now()
             if portal == "linkedin":
-                payload = self._LINKEDIN_DEFAULT
+                payload = self._LINKEDIN_START
             else:
                 payload = {
                     "primaere_suchen": [],

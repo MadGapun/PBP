@@ -33,6 +33,8 @@ pnpm run dev                # → http://localhost:5173
 
 Nutze das [Bug-Template](https://github.com/MadGapun/PBP/issues/new?template=bug_report.yml). Je mehr Details (Version, Betriebssystem, Schritte zum Reproduzieren), desto schneller können wir helfen.
 
+**Issues sind öffentlich.** Schreibe keine Namen von Firmen, bei denen du dich beworben hast, keine Namen von Personen, keine E-Mail-Adressen oder Telefonnummern hinein — auch nicht in Log-Auszügen und Screenshots. Ersetze sie durch Platzhalter (`<FIRMA>`, `<PERSON>`). Ein Issue, das so etwas enthält, lässt sich nur durch Löschen bereinigen.
+
 ### Features vorschlagen
 
 Nutze das [Feature-Template](https://github.com/MadGapun/PBP/issues/new?template=feature_request.yml). Beschreibe das Problem, das du lösen möchtest — nicht nur die gewünschte Lösung.
@@ -40,22 +42,26 @@ Nutze das [Feature-Template](https://github.com/MadGapun/PBP/issues/new?template
 ### Code beitragen
 
 1. **Fork** das Repository
-2. Erstelle einen **Feature-Branch** von `develop`: `git checkout develop && git checkout -b feature/mein-feature`
+2. Erstelle einen **Branch** von `main`: `git checkout main && git checkout -b feature/mein-feature`
+   (betrifft der Fehler auch die stabile Version, siehe unten)
 3. Entwickle und teste lokal
 4. Stelle sicher, dass alle Tests grün sind: `python -m pytest tests/ -q`
-5. Erstelle einen **Pull Request** gegen `develop` (nicht gegen `main`!)
+5. Erstelle einen **Pull Request** gegen `main`
 
 ### Branch-Strategie
 
 ```
-main       → Nur stabile, produktionsreife Releases (= "Latest" auf GitHub)
-develop    → Laufende Entwicklung, Beta-Versionen (= Pre-release auf GitHub)
-feature/*  → Einzelne Features/Bugfixes, werden in develop gemergt
+main            → Laufende Entwicklung = die Beta-Linie (1.8.0-beta.N, "Pre-release" auf GitHub)
+hotfix/v1.7.N   → Die stabile Linie (1.7.x, "Latest" auf GitHub)
+feature/*       → Einzelne Features/Bugfixes, werden nach main gemergt
 ```
 
-- **Stabile Releases** (z.B. `v1.4.3`) werden auf `main` getaggt → GitHub "Latest Release"
-- **Beta-Releases** (z.B. `v1.5.0-beta.1`) werden auf `develop` getaggt → GitHub "Pre-release"
-- Wenn eine Beta stabil genug ist, wird `develop` in `main` gemergt und als stabiler Release veröffentlicht
+- **Stabile Releases** (z.B. `v1.7.148`) entstehen auf einem Zweig `hotfix/v1.7.N`, der vom Tag
+  der vorigen stabilen Version abzweigt, und werden dort getaggt → GitHub "Latest Release"
+- **Beta-Releases** (z.B. `v1.8.0-beta.15`) werden auf `main` getaggt → GitHub "Pre-release"
+- **Ein Fehler, der auch die stabile Version betrifft**, gehört zuerst in die 1.7-Linie
+  (`hotfix/…`) und danach per Rückführung nach `main` — nicht nur in die Beta, die kaum jemand
+  nutzt. Gib im Pull Request an, ob der Fehler die stabile Version betrifft.
 
 ### Tipp für die Zusammenarbeit mit Claude/Codex
 
@@ -89,9 +95,9 @@ refactor: Kurze Beschreibung # Refactoring ohne Funktionsänderung
 
 ```
 src/bewerbungs_assistent/
-├── tools/          ← MCP-Tools (72 Tools in 8 Modulen)
+├── tools/          ← MCP-Tools, nach Themen in Modulen
 ├── services/       ← Service-Layer
-├── job_scraper/    ← 18 Jobportal-Scraper
+├── job_scraper/    ← Jobportal-Scraper
 ├── database.py     ← SQLite Schema
 ├── dashboard.py    ← FastAPI + REST-API
 └── server.py       ← MCP-Server (Composition Root)

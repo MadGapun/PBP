@@ -13,6 +13,7 @@ Alle 47 MCP-Tools sind in 8 Domain-Module aufgeteilt:
 
 import functools
 import os
+import threading
 import time
 from collections import deque
 from threading import Lock
@@ -239,6 +240,78 @@ def _mit_ki_sperre(fn, name: str, db):
     return gesperrt
 
 
+# Wie tief steckt dieser Thread gerade in Werkzeugaufrufen? Nur der aeusserste
+# Aufruf raeumt auf: ein Werkzeug darf ein anderes als Funktion aufrufen, und
+# dessen Ende ist nicht das Ende der Arbeit.
+_AUFRUF = threading.local()
+
+# Wie viele Aufrufe je Werkzeug laufen gerade (aeusserste Ebene)? Die
+# Middleware fragt das nach einer Zeitueberschreitung (#1148): der Arbeits-
+# Thread laesst sich nicht abbrechen und rechnet weiter, und eine sofortige
+# Wiederholung startete dieselbe Rechnung ein zweites Mal.
+_LAUFENDE = {}
+_LAUFENDE_LOCK = threading.Lock()
+
+
+def laufende_aufrufe(name: str) -> int:
+    """Wie viele Aufrufe dieses Werkzeugs laufen gerade?"""
+    with _LAUFENDE_LOCK:
+        return _LAUFENDE.get(name, 0)
+
+
+def _laufend_zaehlen(name: str, delta: int) -> None:
+    with _LAUFENDE_LOCK:
+        stand = _LAUFENDE.get(name, 0) + delta
+        if stand > 0:
+            _LAUFENDE[name] = stand
+        else:
+            _LAUFENDE.pop(name, None)
+
+
+def _mit_aufraeumen(fn, name: str, db):
+    """Nimmt eine Transaktion zurueck, die ein Werkzeug offen liess (#1144).
+
+    Das Sicherheitsnetz aus #708 sass in der Middleware, also im
+    Event-Loop-Thread — und seit A28 (#900) hat jeder Thread seine eigene
+    Connection. Ein synchrones Werkzeug laeuft in einem Worker-Thread; dort
+    bleibt eine nicht abgeschlossene Transaktion liegen, wenn es vor dem
+    Commit abbricht. Gemessen: ein anderer Schreiber scheitert dann mit
+    "database is locked", und der naechste Commit desselben Workers
+    schreibt die halbe Arbeit eines ganz anderen Aufrufs fest.
+
+    Darum im Worker, direkt nach dem aeussersten Aufruf. Zurueckgenommen wird
+    nur, was dieser Aufruf selbst offen liess: war beim Eintritt schon eine
+    Transaktion offen, gehoert sie dem Aufrufer. Asynchrone Werkzeuge laufen
+    im Event-Loop-Thread; fuer sie genuegt die Middleware.
+    """
+    import functools
+    import inspect
+
+    if inspect.iscoroutinefunction(fn):
+        return fn
+
+    @functools.wraps(fn)
+    def aufgeraeumt(*args, **kwargs):
+        tiefe = getattr(_AUFRUF, "tiefe", 0)
+        war_offen = db.offene_transaktion() if tiefe == 0 else True
+        _AUFRUF.tiefe = tiefe + 1
+        if tiefe == 0:
+            _laufend_zaehlen(name, +1)
+        try:
+            return fn(*args, **kwargs)
+        finally:
+            _AUFRUF.tiefe = tiefe
+            if tiefe == 0:
+                _laufend_zaehlen(name, -1)
+            if not war_offen:
+                try:
+                    db.rollback_if_stale(context=f"Tool '{name}'")
+                except Exception:  # noqa: BLE001 — das Netz darf nie selbst fallen
+                    pass
+
+    return aufgeraeumt
+
+
 class _AnnotierendesMCP:
     """Reicht alles an den echten Server durch und setzt beim Registrieren
     die MCP-Annotations aus `services/werkzeug_schutz` (H27, #1087 G7).
@@ -276,6 +349,9 @@ class _AnnotierendesMCP:
             from ..services import ki_zuordnung as _ki
             if self._db is not None and (name in _ki.ZUORDNUNG or name == "workflow_starten"):
                 fn = _mit_ki_sperre(fn, name, self._db)
+            # #1144: das Rollback-Netz gehoert in den Worker-Thread des Werkzeugs.
+            if self._db is not None:
+                fn = _mit_aufraeumen(fn, name, self._db)
             if isinstance(name_or_fn, str):
                 return self._mcp.tool(name_or_fn, **kwargs)(fn)
             return self._mcp.tool(**kwargs)(fn)
@@ -294,6 +370,9 @@ def mit_katalog(mcp, db):
 
 def register_all(mcp, db, logger):
     """Registriert alle Tools beim MCP-Server."""
+    # #1144: der Budget-Pool raeumt die Connection seiner Worker selbst auf.
+    from ..services import tool_budget as _tb
+    _tb.aufraeumen_fuer(db)
     mcp = _AnnotierendesMCP(mcp, db)
     profil.register(mcp, db, logger)
     dokumente.register(mcp, db, logger)

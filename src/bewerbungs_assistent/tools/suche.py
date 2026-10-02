@@ -357,6 +357,39 @@ def register(mcp, db, logger):
                     out.append(str(w).strip())
             return out
 
+        # #1148 Punkt 7: eine LEERE Liste aendert nichts (so bleibt eine Liste
+        # nicht versehentlich leer, wenn ein Client "nicht angegeben" als []
+        # schickt) — aber die Antwort sagte "gespeichert", als waere etwas
+        # geschehen. Jetzt wird es benannt.
+        _leer_ignoriert = [
+            name for name, wert in (
+                ("keywords_muss", keywords_muss), ("keywords_plus", keywords_plus),
+                ("keywords_minus", keywords_minus),
+                ("keywords_ausschluss", keywords_ausschluss),
+                ("regionen", regionen))
+            if wert is not None and not wert]
+        _etwas_gesetzt = any([
+            keywords_muss, keywords_plus, keywords_minus, keywords_ausschluss,
+            regionen, standort, custom_kriterien,
+            stellentypen is not None, max_entfernung is not None,
+            max_entfernung_km is not None, reisewiderstand is not None,
+            min_gehalt is not None, min_tagessatz is not None,
+            min_stundensatz is not None, wunsch_gehalt is not None,
+            wunsch_tagessatz is not None, wunsch_stundensatz is not None,
+            min_score_schwelle is not None])
+        if not _etwas_gesetzt:
+            return {
+                "status": "nichts_geaendert",
+                "ignoriert": _leer_ignoriert,
+                "hinweis": (
+                    "Es wurde nichts übergeben, das etwas ändert"
+                    + (" — eine leere Liste ändert nichts"
+                       f" ({', '.join(_leer_ignoriert)})" if _leer_ignoriert else "")
+                    + ". Einzelne Begriffe entfernen: suchkriterien_bearbeiten("
+                    "kategorie='keywords_muss', aktion='entfernen', werte=[...])."),
+                "kriterien": db.get_search_criteria(),
+            }
+
         if keywords_muss:
             db.set_search_criteria("keywords_muss", _dedup(keywords_muss))
         if keywords_plus:
@@ -508,6 +541,11 @@ def register(mcp, db, logger):
                 geo_info = f"Geocoding fehlgeschlagen: {e}"
 
         result = {"status": "gespeichert", "kriterien": db.get_search_criteria()}
+        if _leer_ignoriert:
+            result["ignoriert"] = _leer_ignoriert
+            result["hinweis_leer"] = (
+                f"{', '.join(_leer_ignoriert)}: eine leere Liste ändert nichts — "
+                "diese Liste blieb, wie sie war.")
         if geo_info:
             result["geocoding"] = geo_info
         if entfernung_hinweis:
@@ -1381,7 +1419,26 @@ def register(mcp, db, logger):
         """
         if not portal:
             return {"fehler": "portal-Parameter ist Pflicht"}
-        return db.get_portal_search_profile(portal)
+        # #1148: Lesen legt nichts an. Gibt es noch kein eigenes Profil, steht
+        # hier der neutrale Start (ohne Fachbegriffe) — gespeichert wird erst
+        # beim Aendern (suchprofil_aktualisieren).
+        profil = db.find_portal_search_profile(portal)
+        if profil is not None:
+            return profil
+        start = (db._LINKEDIN_START if portal.strip().lower() == "linkedin"
+                 else {"primaere_suchen": [], "sekundaere_suchen": [],
+                       "nicht_verwenden": [], "notizen": ""})
+        return {
+            "portal": portal.strip().lower(),
+            "primaere_suchen": list(start["primaere_suchen"]),
+            "sekundaere_suchen": list(start["sekundaere_suchen"]),
+            "nicht_verwenden": list(start["nicht_verwenden"]),
+            "notizen": start["notizen"],
+            "gespeichert": False,
+            "hinweis": ("Für dieses Portal gibt es noch kein eigenes Suchprofil — "
+                        "das hier ist nur der Start. Eigene Begriffe: "
+                        "suchprofil_aktualisieren(portal, primaere_suchen=[...])."),
+        }
 
     @mcp.tool()
     def suchprofil_aktualisieren(
@@ -1399,12 +1456,13 @@ def register(mcp, db, logger):
         Args:
             portal: 'linkedin' | 'xing' | 'stepstone' | ...
             primaere_suchen: Liste von Suchen, die zuerst probiert werden.
-                Format: [{"keywords": "PDM", "filter": {"branche": [...]},
+                Format: [{"keywords": "Pflegefachkraft",
+                          "filter": {"branche": [...]},
                           "notiz": "treffsicher"}]
             sekundaere_suchen: Liste von Such-Fallbacks (z.B. generischere
                 Begriffe, die ohne Filter Müll liefern).
             nicht_verwenden: Liste von ausgeschlossenen Suchen.
-                Format: [{"wert": "PLM Architect", "grund": "0 Treffer"}]
+                Format: [{"wert": "Fachkraft Pflege 2. Klasse", "grund": "0 Treffer"}]
             notizen: Freitext mit Lessons.
         """
         if not portal:

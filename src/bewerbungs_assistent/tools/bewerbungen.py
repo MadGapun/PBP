@@ -450,9 +450,24 @@ def register(mcp, db, logger):
 
         gefunden = bool(bewerbungen or aktive_stellen or aussortiert
                         or andere or erwaehnt)
+        # #1148: Bei einer erfolglosen Suche Namen nennen, die so BEGINNEN —
+        # "Personal" fand "Personalservice ..." nicht. Nur Kandidaten zum
+        # Nachfragen, nie Treffer: sie loesen keine Aussage und keine Warnung aus.
+        aehnliche = []
+        if not gefunden:
+            try:
+                aehnliche = _fb.aehnliche_namen(db, firmenname)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("firma_kontext: aehnliche Namen (#1148): %s", exc)
         return {
             "firma_suchbegriff": firmenname,
             "gefunden": gefunden,
+            **({"aehnliche_firmen": aehnliche,
+                "aehnliche_hinweis": (
+                    "Keine Firma dieses Namens, aber diese Namen BEGINNEN so: "
+                    + ", ".join(aehnliche) + ". Frag nach, ob eine davon gemeint ist — "
+                    "und rufe firma_kontext erst mit dem vollen Namen auf, bevor du "
+                    "etwas über einen Status sagst.")} if aehnliche else {}),
             "warnungen": weitere["warnungen"],
             "rollen": weitere["rollen"],
             "weitere_bezuege": weitere_bezuege,
@@ -2117,11 +2132,35 @@ def register(mcp, db, logger):
         """
         profile_id = db.get_active_profile_id()
         if not bestaetigung:
-            return {
+            # #1148: die Vorschau nennt den Termin, statt nur seine ID zu wiederholen.
+            from ..services import abhaengige_zeilen as _az
+            from ..services import termin_folgen as _tf
+            termin = _tf._termin(db, meeting_id)
+            if not termin:
+                return {"fehler": "Meeting nicht gefunden oder gehört nicht zum aktiven Profil."}
+            vorschau = {
                 "status": "bestaetigung_erforderlich",
                 "meeting_id": meeting_id,
+                "termin": {
+                    "titel": termin.get("title"),
+                    "datum": termin.get("meeting_date"),
+                    "art": termin.get("meeting_type"),
+                    "ort": termin.get("location"),
+                },
                 "hinweis": "Setze bestaetigung=True um den Termin unwiderruflich zu loeschen.",
             }
+            try:
+                app = db.get_application(termin.get("application_id") or "")
+                if app:
+                    vorschau["bewerbung"] = f"{app.get('title', '')} bei {app.get('company', '')}"
+                zaehler = _az.mit_bezuegen_loeschen(
+                    db, "application_meetings", meeting_id, dry_run=True)
+                vorschau["folgen"] = _az.klartext(zaehler)
+                vorschau["geloescht"] = zaehler["geloescht"]
+                vorschau["geloest"] = zaehler["geloest"]
+            except Exception as exc:  # noqa: BLE001 — die Vorschau darf nie scheitern
+                logger.debug("Termin-Vorschau (#1148): %s", exc)
+            return vorschau
         from ..services import termin_folgen
         ergebnis = termin_folgen.loeschen(db, meeting_id, profile_id=profile_id)
         if not ergebnis.pop("geloescht", False):
@@ -2450,13 +2489,29 @@ def register(mcp, db, logger):
             return {"fehler": "Betrag muss >= 0 sein."}
         from ..services.typed_ids import strip_prefix
         from datetime import datetime as _dt
+        _app_id = strip_prefix(bewerbung_id) if bewerbung_id else None
+        # #1148: eine erfundene Bewerbungs-ID legte eine verwaiste Zeile an.
+        if _app_id and not db.get_application(_app_id):
+            return {"fehler": ("Bewerbung nicht gefunden — die Kosten wurden nicht "
+                               "gespeichert. Prüfe die ID mit bewerbungen_anzeigen().")}
+        # #1148: dieselbe Zahlung, eben erst erfasst, ist eine Wiederholung.
+        from ..services import doppelanlage as _da
+        _datum = datum or _dt.now().date().isoformat()
+        _schon = _da.kosten_wiederholung(
+            db, _app_id, kategorie, betrag_eur, beschreibung, _datum)
+        if _schon:
+            antwort = _da.antwort(
+                "kosten", _schon, "Diese Zahlung (gleiche Angaben, eben erst erfasst)",
+                "Ist es eine zweite, gleich hohe Zahlung, ändere die Beschreibung.")
+            antwort["kosten_id"] = _schon
+            return antwort
         try:
             cid = db.add_application_cost({
-                "application_id": strip_prefix(bewerbung_id) if bewerbung_id else None,
+                "application_id": _app_id,
                 "kind": kategorie,
                 "amount": betrag_eur,
                 "description": beschreibung or None,
-                "incurred_at": datum or _dt.now().date().isoformat(),
+                "incurred_at": _datum,
             })
         except ValueError as e:
             return {"fehler": str(e)}

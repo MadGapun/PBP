@@ -451,6 +451,8 @@ def _ist_fiktiv(label: str) -> bool:
 # Newsletter und Portal-Benachrichtigungen, #643/#657). Bewusst ueber den
 # LOKALTEIL und nicht ueber die Domain: `noreply@firma.de` ist harmlos,
 # `vorname.name@firma.de` auf derselben Domain waere es nicht.
+_KEIN_MENSCH_TEILE = ("noreply", "no-reply", "donotreply", "do-not-reply")
+
 _SYSTEM_LOKALTEILE = (
     "noreply", "no-reply", "donotreply", "do-not-reply",
     "mailrobot", "notifications-noreply", "messaging-digest-noreply",
@@ -478,7 +480,14 @@ def _is_safe_email(addr: str) -> bool:
         return True
     if any(domain == d or domain.endswith("." + d) for d in _AUTOMAT_DOMAINS):
         return True
-    return lokal.lower() in _SYSTEM_LOKALTEILE
+    klein = lokal.lower()
+    if klein in _SYSTEM_LOKALTEILE:
+        return True
+    # #1137: `noreply-accounts@`, `notify-noreply@`, `payments-noreply@` sind
+    # Automaten-Absender wie `noreply@` — nur mit einem Zusatz im Lokalteil.
+    # Der Sweep meldete sie in einem Kommentar als EMAIL-Fund. Ein Mensch
+    # heisst nicht "noreply": der Bestandteil genuegt.
+    return any(k in klein for k in _KEIN_MENSCH_TEILE)
 
 
 # === Quellen-Keys: dokumentierte DoD-9-Ausnahme ==================

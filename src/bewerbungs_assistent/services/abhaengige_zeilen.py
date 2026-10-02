@@ -84,6 +84,8 @@ NAMEN = {
     "education": "Ausbildung",
     "skills": "Kompetenz",
     "skill_periods": "Zeiträume der Kompetenz",
+    # v1.7.148 (#1148): Vorschau fuer kontakt_loeschen.
+    "contacts": "Kontakt",
 }
 
 

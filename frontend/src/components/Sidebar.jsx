@@ -33,6 +33,9 @@ const CONN_CONFIG = {
   connected:    { color: "text-teal",  dot: "bg-teal",     label: "Claude Desktop: verbunden",      Icon: Link2 },
   unknown:      { color: "text-amber", dot: "bg-amber",    label: "Claude Desktop: wird geprüft",   Icon: Link2 },
   disconnected: { color: "text-coral", dot: "bg-coral",    label: "Claude Desktop: nicht verbunden", Icon: Link2Off },
+  // #1144: die Seite bekommt keine Antwort mehr von PBP — vorher blieb hier
+  // das zuletzt gemeldete "verbunden" stehen.
+  server_weg:   { color: "text-coral", dot: "bg-coral",    label: "PBP antwortet nicht",             Icon: Link2Off },
 };
 const CONN_OHNE_PROFIL = { color: "text-muted", dot: "bg-muted/50" };
 
@@ -46,6 +49,8 @@ const LLM_CONFIG = {
   off:           { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: aus (optional)" },
   paused:        { color: "text-amber",  dot: "bg-amber/80", label: "Lokale KI: pausiert" },
   active:        { color: "text-teal",      dot: "bg-teal",     label: "Lokale KI: aktiv" },
+  // #1144: solange PBP nicht antwortet, weiß die Seite auch hierzu nichts.
+  unbekannt:     { color: "text-muted",     dot: "bg-muted/50", label: "Lokale KI: Stand unbekannt" },
 };
 
 export default function Sidebar({
@@ -144,6 +149,7 @@ export default function Sidebar({
                 <button
                   type="button"
                   onClick={brand.onConnectionClick}
+                  data-verbindung={brand.connectionStatus}
                   className={cn(
                     "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors w-fit",
                     "hover:bg-white/[0.06]",

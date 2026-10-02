@@ -311,6 +311,69 @@ def _loesch_vorschau(db, bereich, element_id):
     }
 
 
+def _skill_schon_da(db, daten):
+    """Gibt es den Skill schon? Dann die Antwort "bereits_vorhanden" (#1148).
+
+    `add_skill_mit_befund` liefert bei vorhandenem Namen die alte ID zurueck und
+    aendert nichts; das Werkzeug meldete trotzdem "gespeichert" (gemessen: Python
+    Level 9, erneutes Hinzufuegen mit Level 1 -> gleiche ID, Level bleibt 9).
+    """
+    vorhanden = db.find_skill((daten or {}).get("name", ""))
+    if not vorhanden:
+        return None
+    return {
+        "status": "bereits_vorhanden", "bereich": "skill",
+        "id": vorhanden["id"], "skill_id": vorhanden["id"],
+        "vorhanden": {"name": vorhanden.get("name"),
+                      "kategorie": vorhanden.get("category"),
+                      "level": vorhanden.get("level"),
+                      "jahre_erfahrung": vorhanden.get("years_experience"),
+                      "zuletzt_genutzt": vorhanden.get("last_used_year")},
+        "hinweis": (f"Den Skill '{vorhanden.get('name')}' gibt es schon — es wurde "
+                    "NICHTS geändert. Ändern: profil_bearbeiten(bereich='skill', "
+                    f"aktion='aendern', element_id='{vorhanden['id']}', "
+                    "daten={'level': ..., 'last_used_year': ...})."),
+    }
+
+
+_AENDERN_HINWEIS = {
+    "position": ("Ändern: profil_bearbeiten(bereich='position', aktion='aendern', "
+                 "element_id=<id>, daten={...})."),
+    "projekt": ("Ändern: profil_bearbeiten(bereich='projekt', aktion='aendern', "
+                "element_id=<id>, daten={...})."),
+    "ausbildung": ("Ändern: profil_bearbeiten(bereich='ausbildung', aktion='aendern', "
+                   "element_id=<id>, daten={...})."),
+}
+
+
+def _doppelt(db, bereich, felder):
+    """Gibt es diese Sache schon? Dann die Antwort "bereits_vorhanden", sonst None (#1148).
+
+    Eine Wiederholung desselben Aufrufs (nach einer Zeitüberschreitung, nach einer
+    unklaren Antwort) hätte sie sonst verdoppelt.
+    """
+    from ..services import doppelanlage as _da
+    felder = felder or {}
+    if bereich == "position":
+        vorhanden = _da.position(db, felder.get("company"), felder.get("title"),
+                                 felder.get("start_date"))
+        was = f"Die Position '{felder.get('title') or '?'}' bei {felder.get('company') or '?'}"
+    elif bereich == "ausbildung":
+        vorhanden = _da.ausbildung(db, felder.get("institution"), felder.get("degree"),
+                                   felder.get("field_of_study"), felder.get("start_date"))
+        was = f"Die Ausbildung bei {felder.get('institution') or '?'}"
+    elif bereich == "projekt":
+        vorhanden = _da.projekt(db, felder.get("position_id"), felder.get("name"))
+        was = f"Das Projekt '{felder.get('name') or '?'}' in dieser Position"
+    else:
+        return None
+    if not vorhanden:
+        return None
+    antwort = _da.antwort(bereich, vorhanden, was, _AENDERN_HINWEIS.get(bereich, ""))
+    antwort[f"{bereich}_id"] = vorhanden
+    return antwort
+
+
 def _nicht_gefunden(bereich, element_id, ignoriert=None):
     """Die Absage bei unbekannter ID — an einer Stelle formuliert."""
     antwort = {
@@ -622,7 +685,12 @@ def register(mcp, db, logger):
         }
         for cat, items in by_cat.items():
             label = cat_labels.get(cat, cat)
-            skill_strs = [f"{s['name']} (Lv.{s.get('level', '?')})" for s in items]
+            # #1148: die Skill-ID steht in eckigen Klammern — ohne sie ist
+            # profil_bearbeiten(bereich='skill', ...) nicht aufrufbar (der
+            # Wegweiser sagte "profil_zusammenfassung() nennt die Skill-IDs",
+            # und sie standen nicht darin).
+            skill_strs = [f"{s['name']} (Lv.{s.get('level', '?')}) [{s.get('id', '?')}]"
+                          for s in items]
             lines.append(f"  {label}: {', '.join(skill_strs)}")
 
         # Documents
@@ -658,6 +726,10 @@ def register(mcp, db, logger):
             # tatsaechlich aufruft — nicht nur in den Docstring des Schreibers.
             "positionen_ids": [p.get("id") for p in positions],
             "ausbildung_ids": [e.get("id") for e in education],
+            # #1148: Skill-IDs zum Aendern/Loeschen (profil_bearbeiten, skill_zeitraum_*)
+            "skills_liste": [{"id": s.get("id"), "name": s.get("name"),
+                              "level": s.get("level"),
+                              "kategorie": s.get("category")} for s in skills],
             "bearbeiten_hinweis": (
                 "Berufserfahrung und Ausbildung sind aenderbar: "
                 "profil_bearbeiten(bereich='position', aktion='aendern', "
@@ -1477,13 +1549,28 @@ def register(mcp, db, logger):
                                               list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("position", daten)
+                _schon = _doppelt(db, "position", felder)  # #1148
+                if _schon:
+                    return _schon
                 pid = db.add_position(felder)
                 return _feld_rueckmeldung("position", {
                     "status": "hinzugefuegt", "bereich": "position",
                     "id": pid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
-                ids = [db.add_position(d) for d in daten]
-                return {"status": "hinzugefuegt", "bereich": "position", "anzahl": len(ids), "ids": ids}
+                ids, schon = [], []
+                for d in daten:
+                    vorhanden = _doppelt(db, "position", d)  # #1148
+                    if vorhanden:
+                        schon.append(vorhanden["id"])
+                    else:
+                        ids.append(db.add_position(d))
+                antwort = {"status": "hinzugefuegt" if ids or not schon else "bereits_vorhanden",
+                           "bereich": "position", "anzahl": len(ids), "ids": ids}
+                if schon:
+                    antwort["schon_vorhanden"] = schon
+                    antwort["hinweis"] = (f"{len(schon)} von {len(daten)} Positionen gab es "
+                                          "schon — sie wurden nicht noch einmal angelegt.")
+                return antwort
 
         elif bereich == "projekt":
             if aktion == "loeschen" and element_id:
@@ -1510,14 +1597,27 @@ def register(mcp, db, logger):
                                           "geaenderte_felder":
                                               list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen" and daten.get("position_id"):
+                _schon = _doppelt(db, "projekt", daten)  # #1148
+                if _schon:
+                    return _schon
                 pid = db.add_project(daten["position_id"], daten)
                 return {"status": "hinzugefuegt", "bereich": "projekt", "id": pid}
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
-                ids = []
+                ids, schon = [], []
                 for d in daten:
                     if d.get("position_id"):
-                        ids.append(db.add_project(d["position_id"], d))
-                return {"status": "hinzugefuegt", "bereich": "projekt", "anzahl": len(ids), "ids": ids}
+                        vorhanden = _doppelt(db, "projekt", d)  # #1148
+                        if vorhanden:
+                            schon.append(vorhanden["id"])
+                        else:
+                            ids.append(db.add_project(d["position_id"], d))
+                antwort = {"status": "hinzugefuegt" if ids or not schon else "bereits_vorhanden",
+                           "bereich": "projekt", "anzahl": len(ids), "ids": ids}
+                if schon:
+                    antwort["schon_vorhanden"] = schon
+                    antwort["hinweis"] = (f"{len(schon)} Projekte gab es schon — sie wurden "
+                                          "nicht noch einmal angelegt.")
+                return antwort
 
         elif bereich == "ausbildung":
             if aktion == "loeschen" and element_id:
@@ -1545,13 +1645,28 @@ def register(mcp, db, logger):
                                               list(felder.keys())}, ignoriert))
             elif aktion == "hinzufuegen":
                 felder, ignoriert = _felder_uebersetzen("ausbildung", daten)
+                _schon = _doppelt(db, "ausbildung", felder)  # #1148
+                if _schon:
+                    return _schon
                 eid = db.add_education(felder)
                 return _feld_rueckmeldung("ausbildung", {
                     "status": "hinzugefuegt", "bereich": "ausbildung",
                     "id": eid}, ignoriert)
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
-                ids = [db.add_education(d) for d in daten]
-                return {"status": "hinzugefuegt", "bereich": "ausbildung", "anzahl": len(ids), "ids": ids}
+                ids, schon = [], []
+                for d in daten:
+                    vorhanden = _doppelt(db, "ausbildung", d)  # #1148
+                    if vorhanden:
+                        schon.append(vorhanden["id"])
+                    else:
+                        ids.append(db.add_education(d))
+                antwort = {"status": "hinzugefuegt" if ids or not schon else "bereits_vorhanden",
+                           "bereich": "ausbildung", "anzahl": len(ids), "ids": ids}
+                if schon:
+                    antwort["schon_vorhanden"] = schon
+                    antwort["hinweis"] = (f"{len(schon)} Ausbildungen gab es schon — sie wurden "
+                                          "nicht noch einmal angelegt.")
+                return antwort
 
         elif bereich == "skill":
             if aktion == "loeschen" and element_id:
@@ -1586,6 +1701,9 @@ def register(mcp, db, logger):
                 # Regeln — und bei Abweisung der TATSAECHLICHE Grund. Der
                 # alte Hinweis nannte "zu kurz, reine Ziffern oder
                 # Satzzeichen" auch fuer `C++`, wo keines davon zutraf.
+                _schon = _skill_schon_da(db, felder)  # #1148
+                if _schon:
+                    return _schon
                 sid, grund = db.add_skill_mit_befund(felder, quelle="eingabe")
                 if not sid:
                     return _skill_nicht_angelegt(
@@ -1596,9 +1714,14 @@ def register(mcp, db, logger):
             elif aktion == "hinzufuegen_bulk" and isinstance(daten, list):
                 # #1073: angelegt und verworfen getrennt zaehlen. Vorher
                 # stand `anzahl: len(ids)` da, leere IDs eingeschlossen.
-                ids, verworfen = [], []
+                ids, verworfen, schon = [], [], []
                 for d in daten:
                     felder_d, _ = _felder_uebersetzen("skill", d or {})
+                    _da_schon = _skill_schon_da(db, felder_d)  # #1148
+                    if _da_schon:
+                        schon.append({"name": felder_d.get("name", ""),
+                                      "id": _da_schon["id"]})
+                        continue
                     sid, grund = db.add_skill_mit_befund(
                         felder_d, quelle="eingabe")
                     if sid:
@@ -1606,8 +1729,14 @@ def register(mcp, db, logger):
                     else:
                         verworfen.append({"name": (d or {}).get("name", ""),
                                           "grund": grund})
-                antwort = {"status": "hinzugefuegt" if ids else "nicht_angelegt",
+                antwort = {"status": ("hinzugefuegt" if ids else
+                                      "bereits_vorhanden" if schon and not verworfen
+                                      else "nicht_angelegt"),
                            "bereich": "skill", "anzahl": len(ids), "ids": ids}
+                if schon:
+                    antwort["schon_vorhanden"] = schon
+                    antwort["hinweis_vorhanden"] = (
+                        f"{len(schon)} Skills gab es schon — sie blieben unverändert.")
                 if verworfen:
                     antwort["verworfen"] = verworfen
                     antwort["hinweis"] = (
@@ -1821,6 +1950,11 @@ def register(mcp, db, logger):
             achievements: Erfolge und Ergebnisse
             technologies: Verwendete Technologien und Tools
         """
+        # #1148: dieselbe Position nicht zweimal anlegen
+        _schon = _doppelt(db, "position", {"company": company, "title": title,
+                                           "start_date": start_date})
+        if _schon:
+            return _schon
         pid = db.add_position({
             "company": company, "title": title, "location": location,
             "start_date": start_date, "end_date": end_date,
@@ -1872,6 +2006,10 @@ def register(mcp, db, logger):
             start_date: Projektbeginn (YYYY-MM oder YYYY-MM-DD)
             end_date: Projektende (YYYY-MM oder YYYY-MM-DD)
         """
+        # #1148: dasselbe Projekt nicht zweimal in dieselbe Position
+        _schon = _doppelt(db, "projekt", {"position_id": position_id, "name": name})
+        if _schon:
+            return _schon
         pid = db.add_project(position_id, {
             "name": name, "description": description, "role": role,
             "situation": situation, "task": task, "action": action,
@@ -1915,6 +2053,12 @@ def register(mcp, db, logger):
             grade: Note / Bewertung
             description: Zusätzliche Details
         """
+        # #1148: dieselbe Ausbildung nicht zweimal anlegen
+        _schon = _doppelt(db, "ausbildung", {
+            "institution": institution, "degree": degree,
+            "field_of_study": field_of_study, "start_date": start_date})
+        if _schon:
+            return _schon
         eid = db.add_education({
             "institution": institution, "degree": degree,
             "field_of_study": field_of_study,
@@ -1950,6 +2094,10 @@ def register(mcp, db, logger):
             years_experience: Jahre Erfahrung (gesamt, auch historisch)
             last_used_year: Jahr der letzten aktiven Nutzung (z.B. 2024). 0 = aktuell/unbekannt.
         """
+        # #1148: ein vorhandener Skill bleibt, wie er ist — und das wird gesagt.
+        _schon = _skill_schon_da(db, {"name": name})
+        if _schon:
+            return _schon
         sid, grund = db.add_skill_mit_befund({
             "name": name, "category": category,
             "level": level, "years_experience": years_experience,

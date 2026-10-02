@@ -95,6 +95,21 @@ AUSNAHMEN: dict[str, set[str]] = {
     "Release v1.6.0-beta.16": {"FIRMA: ferchau"},
     "Release v1.6.0-beta.14": {"FIRMA: hays"},
     "Release v1.6.0-beta.12": {"FIRMA: Hays"},
+    # 02.10.2026 (#1137): der Sweep sieht seit v1.7.148 ALLE Veroeffentlichungen
+    # und Issues (vorher 200 von 430). Was er dabei neu fand, ist Teils derselbe
+    # Fall: Portalnamen als Quellen-Feature (Produktfunktion, kein
+    # Bewerbungsverhaeltnis). Per issue_text_pruefen gegengeprueft: keiner
+    # dieser Namen steht im eigenen Bestand.
+    "#1087 Body": {"FIRMA: hays"},
+    "#1075 Body": {"FIRMA: hays"},
+    "#1074 Body": {"FIRMA: hays"},
+    "#1064 Body": {"FIRMA: hays"},
+    "Release v1.5.0-beta.4": {"FIRMA: hays"},
+    "Release v0.33.3": {"FIRMA: ferchau"},
+    "Release v0.19.0": {"FIRMA: ferchau", "FIRMA: hays"},
+    "Release v0.14.0": {"FIRMA: hays"},
+    "Release v0.0.0": {"FIRMA: hays"},
+    "Release v1.0.0": {"FIRMA: hays"},  # die USER-Treffer darunter bleiben gemeldet
 }
 
 
@@ -133,6 +148,13 @@ BEWUSST_GELASSEN: dict[str, dict[str, int]] = {
     "#953 Body": {"FIRMA": 1},
     "#956 Body": {"FIRMA": 1},
     "#957 Body": {"FIRMA": 2},
+    # 02.10.2026 (#1137): zwei Fundstellen aus dem ersten Lauf ueber den GANZEN
+    # Bestand, einzeln angesehen. #1026: eine erkennbar erfundene Rufnummer in
+    # einem Testtext. #930: ein Firmenname als Beispiel in einer Erklaerung zur
+    # Erkennung von Testdaten; per issue_text_pruefen gegengeprueft, steht
+    # nicht im eigenen Bestand.
+    "#1026 Body": {"PHONE": 1},
+    "#930 Kommentar 1": {"CORP": 1},
 }
 
 
@@ -186,23 +208,46 @@ def _gh(args: list[str]) -> str:
     return res.stdout
 
 
+#: Obergrenze der Listenabfrage. Der Sweep prueft ALLES; eine Grenze, die ihn
+#: unbemerkt abschneidet, macht "keine neue PII" wertlos (#1137: er sah nur
+#: 200 von 427 Veroeffentlichungen). Stoesst er trotzdem an, bricht er ab und
+#: sagt es, statt "sauber" zu melden.
+LIMIT = 5000
+
+
+class GrenzeErreicht(RuntimeError):
+    """Die Abfrage lieferte genau so viele Treffer wie ihre Grenze."""
+
+
+def _pruefe_grenze(anzahl: int, limit: int, was: str) -> None:
+    if anzahl >= limit:
+        raise GrenzeErreicht(
+            f"{was}: genau {anzahl} Treffer = die Abfragegrenze. Der Bestand ist "
+            "vermutlich groesser; das Ergebnis waere unvollstaendig. LIMIT in "
+            "scripts/gh_pii_sweep.py erhoehen.")
+
+
 def issues_laden(nur_offen: bool) -> list[dict]:
     state = "open" if nur_offen else "all"
-    roh = _gh(["issue", "list", "--state", state, "--limit", "1000",
+    roh = _gh(["issue", "list", "--state", state, "--limit", str(LIMIT),
                "--json", "number,title,body,comments,createdAt"])
-    return json.loads(roh)
+    daten = json.loads(roh)
+    _pruefe_grenze(len(daten), LIMIT, "Issues")
+    return daten
 
 
 def releases_laden() -> list[dict]:
-    roh = _gh(["release", "list", "--limit", "200", "--json", "tagName"])
+    """ALLE Veroeffentlichungen samt Text — seitenweise, in einem Durchgang.
+
+    Vorher: `gh release list --limit 200` und je Eintrag ein `gh release view`.
+    Das sah bei 427 Veroeffentlichungen nur die neuesten 200 und brauchte fuer
+    jede einen eigenen Aufruf."""
+    roh = _gh(["api", "--paginate", "repos/{owner}/{repo}/releases?per_page=100",
+               "--jq", ".[] | {tagName: .tag_name, body: .body}"])
     out = []
-    for r in json.loads(roh):
-        try:
-            d = json.loads(_gh(["release", "view", r["tagName"],
-                                "--json", "tagName,body"]))
-            out.append(d)
-        except RuntimeError:
-            continue
+    for zeile in roh.splitlines():
+        if zeile.strip():
+            out.append(json.loads(zeile))
     return out
 
 
@@ -220,7 +265,14 @@ def main(argv: list[str] | None = None) -> int:
     abgehakt: list[str] = []
     geprueft = 0
 
-    for iss in issues_laden(args.nur_offen):
+    try:
+        issues = issues_laden(args.nur_offen)
+        releases = releases_laden() if args.mit_releases else []
+    except GrenzeErreicht as exc:
+        print(f"ABBRUCH: {exc}")
+        return 3
+
+    for iss in issues:
         if args.seit and iss.get("createdAt", "") < args.seit:
             continue
         geprueft += 1
@@ -241,7 +293,7 @@ def main(argv: list[str] | None = None) -> int:
                 funde.append((stelle, treffer))
 
     if args.mit_releases:
-        for rel in releases_laden():
+        for rel in releases:
             geprueft += 1
             stelle = f"Release {rel['tagName']}"
             treffer = _gefiltert(stelle, find_pii(rel.get("body", "") or ""))

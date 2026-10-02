@@ -15,6 +15,7 @@ import {
 import { startTransition, useEffect, useState } from "react";
 import { useApp } from "@/app-context";
 import { KONTAKTROLLEN } from "@/lib/anzeige";
+import { nurErfolgeMerken } from "@/lib/nurErfolge";
 import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
 
@@ -28,30 +29,29 @@ const ROLE_LABELS = Object.fromEntries(ROLE_OPTIONS.map((o) => [o.value, o.label
 
 // v1.7.0-beta.39 (#608): Categories-Cache als Modul-State (1x pro Session
 // nachgeladen, refreshen bei Aenderungen via window-Event).
-let _categoriesCache = null;
+// #1144: gemerkt wird nur ein ERFOLG. Ein Fehlschlag galt vorher als "es gibt
+// keine Kategorien" — fuer die ganze Sitzung, jede Rolle erschien als
+// nackter Schluesselname.
+const _kategorien = nurErfolgeMerken(
+  async () => (await api("/api/contacts/categories"))?.categories || [],
+  []
+);
 const CATEGORIES_EVENT = "pbp-contact-categories-changed";
 
-async function loadCategories() {
-  if (_categoriesCache !== null) return _categoriesCache;
-  try {
-    const r = await api("/api/contacts/categories");
-    _categoriesCache = r?.categories || [];
-  } catch {
-    _categoriesCache = [];
-  }
-  return _categoriesCache;
+function loadCategories() {
+  return _kategorien.holen();
 }
 
 function invalidateCategoriesCache() {
-  _categoriesCache = null;
+  _kategorien.verwerfen();
   window.dispatchEvent(new CustomEvent(CATEGORIES_EVENT));
 }
 
 function useCategories() {
-  const [cats, setCats] = useState(_categoriesCache || []);
+  const [cats, setCats] = useState(_kategorien.stand());
   useEffect(() => {
     let cancelled = false;
-    if (_categoriesCache === null) {
+    if (!_kategorien.gemerkt()) {
       loadCategories().then((c) => { if (!cancelled) setCats(c); });
     }
     const handler = () => {

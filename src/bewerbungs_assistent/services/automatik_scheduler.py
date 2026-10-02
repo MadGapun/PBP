@@ -177,6 +177,12 @@ def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
     status = erg["status"]
     if status in ("keine_quellen", "nur_manuelle_quellen"):
         return {"status": "keine_internen_quellen"}
+    if status == "kein_netz":
+        # v1.7.148 (#1141): offline ist kein Lauf. Nicht als gelaufen
+        # vermerken (der Tick unten tut das nur bei "gestartet"), damit der
+        # naechste Takt es erneut versucht — und die Quellen bleiben, wie sie sind.
+        log.info("Automatik: kein Netz, die Jobsuche wartet auf den naechsten Takt")
+        return {"status": status}
     if status != "gestartet":
         return {"status": status}
     return {"status": "gestartet", "job_id": erg["job_id"], "quellen": erg["quellen"]}
