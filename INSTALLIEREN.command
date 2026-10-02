@@ -51,8 +51,8 @@ for cmd in python3.13 python3.12 python3.11 python3 python; do
         ver=$($cmd --version 2>&1)
         # #1149: der Ausdruck war `s/.*3\.\([0-9]*\).*/\1/p`. Das `.*` greift so weit wie moeglich und
         # nimmt damit das LETZTE "3." im Text: bei "Python 3.13.5" die "3.5" statt der "3.13" —
-        # jede Python-3.13-Fassung galt als zu alt (minor=5), obwohl das die aktuelle Fassung von
-        # python.org ist. Jetzt am Anfang verankert: Zahl nach dem ersten "3.".
+        # jede Python-3.13-Fassung galt als zu alt (minor=5), obwohl 3.13 neuer ist als die
+        # verlangte 3.11. Jetzt am Anfang verankert: Zahl nach dem ersten "3.".
         minor=$(echo "$ver" | sed -n 's/^[^0-9]*3\.\([0-9][0-9]*\).*/\1/p' | head -1)
         if [ -n "$minor" ] && [ "$minor" -ge 11 ] 2>/dev/null; then
             PYTHON=$cmd

@@ -7,8 +7,8 @@ A) `installer/install.sh` las die Version mit `grep -oP`. Das grep von macOS (BS
    gefunden!“ trotz installiertem 3.12 oder 3.13.
 B) `INSTALLIEREN.command` (beim Nachstellen gefunden) las sie mit `s/.*3\\.\\([0-9]*\\).*/\\1/p`.
    Das `.*` greift so weit wie möglich und nimmt das LETZTE „3.“ im Text: bei „Python 3.13.5“
-   die „3.5“ statt der „3.13“. Jede Fassung 3.13.x galt als zu alt (Nebenversion 5), obwohl das
-   die aktuelle Fassung von python.org ist.
+   die „3.5“ statt der „3.13“. Jede Fassung 3.13.x galt als zu alt (Nebenversion 5), obwohl 3.13
+   neuer ist als die verlangte 3.11.
 
 Die Tests ziehen den Schritt „Python prüfen“ aus der Datei und führen ihn unter `set -e` aus, mit
 einem falschen Interpreter als Shell-Funktion (nie über den Pfad: ein echter darf nicht erreichbar
