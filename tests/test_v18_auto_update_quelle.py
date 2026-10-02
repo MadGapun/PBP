@@ -226,3 +226,20 @@ def test_json_holen_liest_die_antwort_und_meldet_unlesbares_ehrlich():
     with pytest.raises(UpdateFehler) as e:
         quelle.json_holen(oeffner=FakeOeffner({quelle.API_FREIGABEN: b"x" * (quelle.MAX_JSON_BYTES + 10)}))
     assert _code(e) == "zu_gross"
+
+
+# ══ Gegenprobe (Mutationstest): Luecken, die ein absichtlich eingebauter Fehler aufgedeckt hat ═══════
+
+@pytest.mark.parametrize("kaputt", [
+    "1.8.0\n", " 1.8.0", "1.8.0 ", "1.8.0\r", "1.8.0.1", "1.8", "v1.8.0", "1.8.0-nightly.1", "1.8.0-beta", "١.٨.٠",
+    "1.8.0\x00", "../1.8.0", "1.8.0/../x", "", None, 180,
+])
+def test_nur_eine_ganz_und_gar_gueltige_fassung_gilt(kaputt):
+    """Eine Fassungsnummer wird zum Ordnernamen und zum Teil einer Download-Adresse. `gueltig` und `schluessel` muessen
+    sie selbst streng pruefen und duerfen sich nicht auf eine spaetere Schicht verlassen."""
+    from bewerbungs_assistent.services.auto_update import fassung
+    assert fassung.schluessel(kaputt) is None
+    assert fassung.gueltig(kaputt) is False
+    assert fassung.ist_stabil(kaputt) is False
+    assert fassung.linie(kaputt) is None
+    assert fassung.aus_tag(f"v{kaputt}" if isinstance(kaputt, str) else kaputt) is None

@@ -431,3 +431,68 @@ def test_der_builder_baut_reproduzierbar(tmp_path):
     for n in za.namelist():
         if n != "manifest.json":                    # das Manifest traegt den Bauzeitpunkt
             assert za.read(n) == zb.read(n)
+
+
+# ══ Gegenprobe (Mutationstest): Luecken, die ein absichtlich eingebauter Fehler aufgedeckt hat ═══════
+
+@pytest.mark.parametrize("name", [
+    "/src/x.py",              # absolut
+    "src\\x.py",              # Rueckwaertsschraeg: unter Windows ein Pfadtrenner
+    "src/x.py:strom",         # NTFS-Datenstrom
+    "C:x.py",                 # Laufwerk
+    "src/a\x00b.py",          # NUL
+    "",                       # leer
+])
+def test_jedes_einzelne_pfadmuster_wird_von_der_ersten_schicht_abgewiesen(name):
+    """Die Pfadpruefung hat mehrere Schichten; jedes Muster muss schon an der ersten scheitern, nicht erst zufaellig an
+    einer spaeteren (so ueberlebte ein Mutant, der die erste Zeile unwirksam machte)."""
+    from bewerbungs_assistent.services.auto_update import entpacken
+    from bewerbungs_assistent.services.auto_update.fehler import UpdateFehler
+    with pytest.raises(UpdateFehler) as fehler:
+        entpacken._pfad_pruefen(name)
+    assert fehler.value.code == "archiv_unsicher"
+    assert "Pfad nicht erlaubt" in fehler.value.detail
+
+
+def test_eine_einzeldatei_ueber_der_grenze_wird_schon_beim_pruefen_abgelehnt(tmp_path, monkeypatch):
+    """Nicht erst beim Schreiben (`mehr Daten als angekuendigt`), sondern vorher, an der angekuendigten Groesse."""
+    import os
+    from bewerbungs_assistent.services.auto_update import entpacken
+    from bewerbungs_assistent.services.auto_update.fehler import UpdateFehler
+    monkeypatch.setattr(entpacken, "MAX_EINZEL_BYTES", 1000)
+    archiv = tmp_path / "gross.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        zf.writestr("manifest.json", "{}")
+        zf.writestr("src/gross.bin", os.urandom(5000))       # unkomprimierbar: das Verhaeltnis loest nichts aus
+    with pytest.raises(UpdateFehler) as fehler:
+        entpacken.entpacken(archiv, tmp_path / "ziel")
+    assert "Datei zu gross" in fehler.value.detail, fehler.value.detail
+    assert not (tmp_path / "ziel").exists(), "nach der Ablehnung bleibt nichts zurueck"
+
+
+def test_die_zweite_schicht_faengt_einen_fehler_der_ersten(tmp_path, monkeypatch):
+    """Selbst wenn die Pfadpruefung einmal einen Pfad durchliesse, schreibt `entpacken` nie ausserhalb des Ziels."""
+    from pathlib import PurePosixPath
+    from bewerbungs_assistent.services.auto_update import entpacken
+    from bewerbungs_assistent.services.auto_update.fehler import UpdateFehler
+    echt = entpacken._pfad_pruefen
+    monkeypatch.setattr(entpacken, "_pfad_pruefen",
+                        lambda n: PurePosixPath("src/../../ausserhalb.py") if n == "src/ok.py" else echt(n))
+    archiv = tmp_path / "boese.zip"
+    with zipfile.ZipFile(archiv, "w") as zf:
+        zf.writestr("manifest.json", "{}")
+        zf.writestr("src/ok.py", "print('x')\n")
+    ziel = tmp_path / "ziel"
+    with pytest.raises(UpdateFehler) as fehler:
+        entpacken.entpacken(archiv, ziel)
+    assert fehler.value.code == "archiv_unsicher" and "ausserhalb" in fehler.value.detail
+    assert not (tmp_path / "ausserhalb.py").exists() and not (ziel.parent / "ausserhalb.py").exists()
+
+
+def test_eine_signatur_falscher_laenge_wird_mit_dem_grund_abgewiesen():
+    import base64
+    from bewerbungs_assistent.services.auto_update import pruefung
+    from bewerbungs_assistent.services.auto_update.fehler import UpdateFehler
+    with pytest.raises(UpdateFehler) as fehler:
+        pruefung.signatur_lesen(base64.b64encode(b"x" * 63).decode("ascii"))
+    assert fehler.value.code == "signatur" and "63 statt 64 Byte" in fehler.value.detail

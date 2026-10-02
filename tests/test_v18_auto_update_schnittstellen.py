@@ -407,3 +407,20 @@ def test_die_erlaubten_werkzeuge_im_schema_schutz_gibt_es_wirklich(tmp_path):
     finally:
         os.environ.pop("BA_DATA_DIR", None)
     assert schema_schutz.ERLAUBTE_WERKZEUGE <= namen, sorted(schema_schutz.ERLAUBTE_WERKZEUGE - namen)
+
+
+@pytest.mark.parametrize("methode", ["POST", "PUT", "PATCH", "DELETE"])
+def test_jede_schreibende_methode_wird_bei_zu_neuer_datenbank_abgewiesen(client_db, methode):
+    """Gegenprobe: abgewiesen wurde nur POST; PUT, PATCH und DELETE kamen durch."""
+    c, db = client_db
+    assert c.request(methode, "/api/profile", json={"name": "Neu"}).status_code != 503, "ohne zu neue Datenbank wird nichts abgewiesen"
+    _schema_hochsetzen(db)
+    r = c.request(methode, "/api/profile", json={"name": "Neu"})
+    assert r.status_code == 503 and r.json()["error"] == "datenbank_zu_neu"
+
+
+@pytest.mark.parametrize("methode", ["GET", "HEAD", "OPTIONS"])
+def test_lesende_methoden_bleiben_bei_zu_neuer_datenbank_erlaubt(client_db, methode):
+    c, db = client_db
+    _schema_hochsetzen(db)
+    assert c.request(methode, "/api/profile").status_code != 503

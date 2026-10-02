@@ -447,3 +447,34 @@ def test_vor_bereit_melden_ist_dieselbe_ausnahme_ein_versionsfehler(tmp_path):
     assert r.returncode == 0, r.stderr
     assert (app / "lief_1.8.0.txt").exists()
     assert status(app)["rueckgang"]["von"] == "1.8.1"
+
+
+# ══ Gegenprobe (Mutationstest): Luecken, die ein absichtlich eingebauter Fehler aufgedeckt hat ═══════
+
+def test_ist_auch_die_rueckfallfassung_kaputt_bleibt_der_fehler_sichtbar_und_es_gibt_keinen_zweiten_rueckfall(tmp_path):
+    """Ein Rueckfall je Start. Sonst wuerde eine Kette kaputter Fassungen still durchprobiert, und niemand saehe,
+    dass mehr als eine Fassung defekt ist."""
+    app = layout(tmp_path, fassungen=("1.8.0",), aktuell="1.8.0")
+    fassung_anlegen(app, "1.8.1", init="raise ImportError('Rueckfall kaputt')\n")
+    fassung_anlegen(app, "1.8.2", init="raise ImportError('Neue kaputt')\n")
+    (app / "aktuell.txt").write_text("1.8.2\n", encoding="utf-8")
+    (app / "update_status.json").write_text(json.dumps({"vorherige": "1.8.1"}), encoding="utf-8")
+    r = starten(app)
+    assert r.returncode != 0
+    assert "Rueckfall kaputt" in r.stderr
+    assert not (app / "lief_1.8.0.txt").exists(), "kein zweiter, stiller Rueckfall auf die uebernaechste Fassung"
+    assert not (app / "lief_1.8.1.txt").exists() and not (app / "lief_1.8.2.txt").exists()
+
+
+def test_eine_vorherige_fassung_die_es_nicht_mehr_gibt_ist_kein_rueckfallziel(tmp_path):
+    """Die Statusdatei merkt sich `vorherige`; der Ordner kann inzwischen aufgeraeumt sein. Dann gilt die neueste
+    aeltere Fassung, die wirklich da ist."""
+    app = layout(tmp_path, fassungen=("1.8.0", "1.8.1"), aktuell="1.8.1")
+    (app / "update_status.json").write_text(json.dumps({"vorherige": "1.7.9"}), encoding="utf-8")
+    boot.waehle_fassung(app)
+    alt_machen(app)
+    boot.waehle_fassung(app)
+    alt_machen(app)
+    ziel, _ = boot.waehle_fassung(app)
+    assert ziel == "1.8.0"
+    assert (app / "aktuell.txt").read_text(encoding="utf-8").strip() == "1.8.0"

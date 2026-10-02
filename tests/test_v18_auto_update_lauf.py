@@ -446,3 +446,16 @@ def test_die_uebersicht_nennt_den_verlauf_neueste_zuerst(umgebung, tmp_db):
         zustand.verlauf_anhaengen(tmp_db, version=f"1.8.{i}", ergebnis="installiert")
     v = lauf.uebersicht(tmp_db)["verlauf"]
     assert len(v) == 10 and v[0]["version"] == "1.8.11"
+
+
+def test_eine_zurueckgenommene_fassung_wird_nie_von_selbst_wieder_installiert(umgebung, tmp_db):
+    """Wer auf eine fruehere Version zurueckgeschaltet hat, will bei ihr bleiben. Die Automatik schaltet nicht wieder um
+    (Gegenprobe: die Pruefung in `automatik_schritt` war durch keinen Test geschuetzt)."""
+    tmp_db.set_setting(lauf.K_ABGELEHNT, ["1.8.1"])
+    aufrufe = []
+    r = schritt(tmp_db, aufrufe, stufe="auto_still")
+    assert r["status"] == "zurueckgenommen" and r["installiert"] is False and aufrufe == []
+    # eine NOCH neuere Fassung ist wieder ein Angebot
+    lauf._PRUEFUNG.update(zeit=0.0, ergebnis=None)
+    r2 = schritt(tmp_db, aufrufe, stufe="auto_still", eintraege=[eintrag("v1.8.2"), eintrag("v1.8.1")])
+    assert r2["installiert"] is True and [a[0] for a in aufrufe] == ["1.8.2"]

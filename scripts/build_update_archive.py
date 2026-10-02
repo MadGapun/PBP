@@ -248,7 +248,13 @@ def bauen(*, ref=None, ordner=None, ausgabe: Path, schluessel_datei=None, vorabv
         raise BauFehler("Im Code stehen vertraute Schluessel, aber es wurde keine Schluesseldatei angegeben "
                         f"(--schluessel-datei oder {SCHLUESSEL_ENV}). Ohne Signatur wuerde PBP das Update ablehnen.")
 
-    _selbst_pruefen(archiv, name, summen_bytes, signatur_pfad if signiert else None, version, ohne_signatur=ohne_signatur)
+    try:
+        _selbst_pruefen(archiv, name, summen_bytes, signatur_pfad if signiert else None, version, ohne_signatur=ohne_signatur)
+    except BaseException:
+        # Ein Archiv, das PBP selbst ablehnen wuerde, darf nirgends liegen bleiben: es kaeme sonst an die Release.
+        for datei in (archiv, ausgabe / quelle.SUMMEN_NAME, signatur_pfad):
+            datei.unlink(missing_ok=True)
+        raise
     return {"version": version, "archiv": str(archiv), "sha256": summe, "signiert": signiert,
             "dateien": len(dateien) + 1, "groesse": archiv.stat().st_size}
 
@@ -264,13 +270,15 @@ def _selbst_pruefen(archiv: Path, name: str, summen_bytes: bytes, sig_pfad, vers
     with tempfile.TemporaryDirectory() as tmp:
         ziel = Path(tmp) / "entpackt"
         entpacken.entpacken(archiv, ziel)
-        m = manifest_modul.lesen(ziel / "manifest.json", erwartete_version=version)
+        if fassung.ist_stabil(version):
+            # Eine Vorabversion (nur zum Erproben) liest das Auto-Update nie: ihr Manifest wuerde zu Recht abgewiesen.
+            m = manifest_modul.lesen(ziel / "manifest.json", erwartete_version=version)
+            if m.version != version:
+                raise BauFehler("Manifest und Fassung widersprechen sich")
         if not (ziel / "src" / "bewerbungs_assistent" / "__init__.py").is_file():
             raise BauFehler("Im Archiv fehlt src/bewerbungs_assistent/__init__.py")
         if not (ziel / "_selftest.py").is_file() or not (ziel / "start_dashboard.py").is_file():
             raise BauFehler("Im Archiv fehlen _selftest.py oder start_dashboard.py")
-        if m.version != version:
-            raise BauFehler("Manifest und Fassung widersprechen sich")
 
 
 def main(argv=None) -> int:

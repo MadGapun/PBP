@@ -105,3 +105,32 @@ def test_das_unterprogramm_steht_ausserhalb_jedes_klammerblocks():
     for zeile in u.splitlines():
         assert not zeile.rstrip().endswith("("), zeile
         assert not zeile.strip().startswith(")"), zeile
+
+
+# ══ DEINSTALLIEREN.bat mit dem neuen Aufbau ══════════════════════════════════════════════
+
+DEINST = (WURZEL / "DEINSTALLIEREN.bat").read_text(encoding="utf-8").replace("\r\n", "\n")
+
+
+def test_der_deinstaller_entfernt_den_ganzen_programmordner_samt_versionen():
+    """Nutzerwunsch (02.10.2026): die Versionen liegen im Programmordner, damit das Deinstallieren sie mitnimmt."""
+    assert 'set "APP_DIR=%BASE_INSTALL%\\app"' in DEINST
+    assert 'call :remove_path "%APP_DIR%"' in DEINST
+    assert "versions" not in DEINST.replace("versions_", ""), "kein Sonderweg fuer einzelne Versionen: der Ordner geht als Ganzes"
+
+
+def test_der_deinstaller_beendet_auch_server_und_dashboard_ueber_den_startbaustein():
+    """Ein laufender Prozess haelt Dateien im Programmordner fest; erkannt wird er an der Kommandozeile."""
+    treffer = re.search(r"CommandLine -match '([^']+)'", DEINST)
+    assert treffer, "die Erkennung der PBP-Prozesse fehlt"
+    muster = re.compile(treffer.group(1))
+    app = r"C:\Users\x\AppData\Local\BewerbungsAssistent\app"
+    for zeile in (
+        rf'"{app}\python\python.exe" -m bewerbungs_assistent_boot',                  # Claude Desktop startet den Server so
+        rf'"{app}\python\python.exe" "{app}\start_dashboard.py"',                    # die Desktop-Verknuepfung
+        rf'"{app}\python\python.exe" "{app}\versions\1.8.1\start_dashboard.py"',
+        rf'"{app}\python\python.exe" "{app}\update\entpackt\_selftest.py"',          # der Selbsttest eines laufenden Updates
+        rf'"{app}\python\python.exe" -m bewerbungs_assistent',                       # der alte Aufbau
+    ):
+        assert muster.search(zeile), zeile
+    assert not muster.search(r'"C:\Python313\python.exe" -m http.server'), "fremde Python-Prozesse bleiben"

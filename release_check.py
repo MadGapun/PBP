@@ -359,6 +359,44 @@ def check_modell_katalog():
         ok(f"Modell-Katalog aktuell ({modell_katalog.stand_text()})")
 
 
+# ── 7. Update-Archiv (#1093) ──────────────────────────────────
+
+def check_update_archiv(version):
+    """Das Archiv fuer das Auto-Update laesst sich aus dem Arbeitsbaum bauen und besteht die Anwender-Pruefungen.
+
+    Faengt, was sonst erst nach dem Tag auffiele: eine .dll oder .exe im Paket, ein Manifest, das nicht zur
+    Version passt, ein Archiv ueber der Groessengrenze. Gebaut wird in ein Wegwerf-Verzeichnis; signiert wird
+    erst beim Release selbst (der geheime Schluessel gehoert nicht hierher).
+    """
+    print("\n[7] Update-Archiv (Auto-Update)")
+    for pfad in (str(PROJECT_DIR / "src"), str(PROJECT_DIR / "scripts")):
+        if pfad not in sys.path:
+            sys.path.insert(0, pfad)
+    try:
+        import build_update_archive as bau
+        from bewerbungs_assistent.services.auto_update import fassung, schluessel
+    except Exception as e:
+        error(f"Archiv-Bauer nicht ladbar: {e}")
+        return
+    import tempfile
+    try:
+        with tempfile.TemporaryDirectory(prefix="pbp_archiv_") as tmp:
+            erg = bau.bauen(ordner=PROJECT_DIR, ausgabe=Path(tmp), vorabversion=not fassung.ist_stabil(version),
+                            ohne_signatur=True)
+        ok(f"Update-Archiv baubar: {erg['dateien']} Dateien, {erg['groesse'] // 1024} KB")
+    except Exception as e:
+        error(f"Update-Archiv nicht baubar: {e}")
+        return
+    if not fassung.ist_stabil(version):
+        warn(f"{version} ist eine Vorabversion: das Auto-Update installiert sie nie (Archiv nur zur Probe gebaut).")
+    elif schluessel.signatur_erforderlich():
+        warn("Beim Release signieren: scripts/build_update_archive.py --ref vX.Y.Z --schluessel-datei <geheimer Schluessel>; "
+             "angehaengt werden pbp-update-<fassung>.zip, SHA256SUMS und SHA256SUMS.sig.")
+    else:
+        warn("Keine vertrauten Schluessel in services/auto_update/schluessel.py: das Update wird nur per Pruefsumme "
+             "geprueft, nicht signiert. Beim Release pbp-update-<fassung>.zip und SHA256SUMS anhaengen.")
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -374,6 +412,7 @@ if __name__ == "__main__":
     check_changelog_content(version)
     check_first_run_smoke()
     check_modell_katalog()
+    check_update_archiv(version)
 
     print("\n" + "=" * 50)
     if ERRORS:
