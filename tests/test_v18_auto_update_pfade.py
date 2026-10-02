@@ -6,7 +6,8 @@ die einen Unterprozess startet und dessen Ausgabe liest, muss damit zurechtkomme
 Rechner eingestellt hat.
 
 Die Prozess-Ende-zu-Ende-Faelle (Start, Rueckfall, MCP-Server in einem Pfad mit Umlauten) stehen in `test_v18_auto_update_e2e.py`;
-hier stehen die Stellen, die Ausgabe von Unterprozessen LESEN.
+hier stehen die Stellen, die Ausgabe von Unterprozessen LESEN. Der Selbsttest als Datei, `_setup_claude.py` und `_sicherung_vor_update.py`
+gibt es auch in der 1.7-Linie: `test_v17150_installer_pfade_1163.py`.
 """
 import json
 import os
@@ -70,25 +71,6 @@ def test_ein_selbsttest_der_fehlschlaegt_bleibt_ein_fehlschlag_auch_mit_fremden_
     assert "FEHLER" in str(e.value.detail)
 
 
-def test_der_echte_selbsttest_besteht_in_einem_pfad_mit_fremden_zeichen_auch_bei_enger_zeichentabelle(tmp_path):
-    """Die Datei, die ein Release wirklich mitbringt. `PYTHONIOENCODING=cp1252` erzwingt die enge Tabelle (so wie ein deutscher
-    Windows-Rechner sie fuer umgeleitete Ausgabe hat): ohne die Absicherung in `_selftest.py` bricht schon der erste `print` ab."""
-    ziel = tmp_path / FREMDER_NAME / "fassung"
-    ziel.mkdir(parents=True)
-    shutil.copytree(WURZEL / "src", ziel / "src", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    shutil.copy2(WURZEL / "_selftest.py", ziel / "_selftest.py")
-    daten = tmp_path / "daten"
-    env = {k: v for k, v in os.environ.items() if k not in ("PBP_APP_DIR", "PBP_FASSUNG", "BA_DATA_DIR", "PYTHONPATH", "PYTHONUTF8")}
-    env.update(PYTHONIOENCODING="cp1252", BA_DATA_DIR=str(daten), PBP_GEOCODING="0", PBP_BERUFE_LOOKUP="0",
-               PBP_NETZ_PRUEFUNG="0", PYTHONDONTWRITEBYTECODE="1")
-    r = subprocess.run([sys.executable, str(ziel / "_selftest.py")], capture_output=True, env=env, cwd=str(ziel), timeout=240,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    aus = r.stdout.decode("cp1252", "replace")
-    assert r.returncode == 0, aus[-800:] + "\n" + r.stderr.decode("cp1252", "replace")[-1500:]
-    assert aus.strip().splitlines()[-1] == "OK"
-    assert "Pfad:" in aus and "\\u0141" in aus and "\\u017a" in aus, "der Pfad steht in der Ausgabe, das »Ł« als Ersatzschreibung"
-
-
 # ══ pip fuer neue Pakete ══════════════════════════════════════════════════════════════════
 
 class _Aufzeichner:
@@ -111,11 +93,11 @@ def test_pip_wird_mit_utf8_gestartet_und_gelesen(tmp_path):
 
 # ══ Die Helfer des Installers ═════════════════════════════════════════════════════════════
 #
-# INSTALLIEREN.bat ruft sie mit `>> "%LOGFILE%" 2>&1` auf: die Ausgabe geht in eine DATEI, und dort gilt die Zeichentabelle des
-# Rechners. Ein Benutzername mit »ł« oder »ş« im Pfad liess `_setup_claude.py` (Claude-Konfiguration) und `_sicherung_vor_update.py`
-# (Sicherung vor dem Update) abstuerzen -- ohne dass irgendetwas an PBP selbst falsch gewesen waere.
+# Die Helfer, die es erst in der 1.8-Linie gibt. Gleiche Ursache wie bei `_setup_claude.py` und `_sicherung_vor_update.py`: die Ausgabe
+# geht in die Protokolldatei des Installers, und dort gilt die Zeichentabelle des Rechners. Diese beiden und der Selbsttest stehen in
+# `test_v17150_installer_pfade_1163.py` (dieselbe Datei in der 1.7- und der 1.8-Linie).
 
-HELFER = ("_setup_claude.py", "_sicherung_vor_update.py", "_programm_einrichten.py", "_installer_aufraeumen.py")
+HELFER = ("_programm_einrichten.py", "_installer_aufraeumen.py")
 
 
 @pytest.fixture
@@ -150,38 +132,8 @@ def _kein_absturz(r):
     assert "UnicodeEncodeError" not in fehler, fehler[-800:]
 
 
-def test_die_claude_konfiguration_wird_auch_bei_fremden_zeichen_im_pfad_geschrieben(installer):
-    r = installer.lauf("_setup_claude.py")
-    _kein_absturz(r)
-    assert r.returncode == 0, _ausgabe(r)[-600:] + r.stderr.decode("cp1252", "replace")[-600:]
-    konfigurationen = list(installer.basis.rglob("claude_desktop_config.json"))
-    assert konfigurationen, "die Konfiguration steht unter dem Benutzerordner des Tests (nicht in der echten)"
-    assert all(str(installer.basis) in str(k) for k in konfigurationen)
-    assert _ausgabe(r).strip().splitlines()[-1] == "OK"
-
-
-def test_die_sicherung_vor_dem_update_klappt_auch_bei_fremden_zeichen_im_pfad(installer):
-    """Die Sicherung ist der Schritt, der ein Update abbricht, wenn er nicht gelingt: schon die Erfolgsmeldung mit dem Zielpfad musste halten."""
-    import sqlite3
-
-    db = installer.basis / "Daten" / "pbp.db"
-    db.parent.mkdir()
-    with sqlite3.connect(db) as con:
-        con.execute("CREATE TABLE settings (key TEXT, value TEXT)")
-        con.execute("INSERT INTO settings VALUES ('a', 'b')")
-    sicherungen = installer.basis / "Daten" / "backups"
-    r = installer.lauf("_sicherung_vor_update.py", str(db), str(sicherungen))
-    _kein_absturz(r)
-    assert r.returncode == 0, _ausgabe(r)[-600:]
-    assert _ausgabe(r).startswith("OK ") and list(sicherungen.glob("*"))
-
-
 def test_fehlermeldungen_der_helfer_mit_fremden_zeichen_im_pfad_bleiben_lesbar(installer):
     """Der Abbruchgrund steht auf der Ausgabe -- er ist der einzige Hinweis, den jemand in der Protokolldatei findet."""
-    r = installer.lauf("_sicherung_vor_update.py", str(installer.basis / "fehlt.db"), str(installer.basis / "Sicherungen"))
-    _kein_absturz(r)
-    assert r.returncode == 2 and "FEHLER" in _ausgabe(r)
-
     r = installer.lauf("_programm_einrichten.py", str(installer.basis / "gibt es nicht"), str(installer.basis / "Programm"))
     _kein_absturz(r)
     assert r.returncode == 1 and "[FEHLER]" in _ausgabe(r)
