@@ -79,6 +79,25 @@ try:
     # Prüfe ob der Port bereits belegt ist (z.B. durch Claude Desktop)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         if sock.connect_ex(("127.0.0.1", port)) == 0:
+            from bewerbungs_assistent.services.dashboard_halter import ist_pbp
+            if not ist_pbp(port):
+                # #1149: ein belegter Port ist noch kein laufendes PBP.
+                logger.warning("Port %d wird von einem anderen Programm benutzt (kein PBP)", port)
+                print()
+                print("  ====================================================")
+                print(f"  Port {port} wird von einem ANDEREN Programm benutzt.")
+                print("  Es antwortet nicht wie PBP, deshalb kann PBP dort")
+                print("  nicht starten.")
+                print()
+                print("  So geht es weiter:")
+                print("  1. Beende das Programm, das den Port belegt, oder starte")
+                print("     den Rechner neu und oeffne PBP dann zuerst.")
+                print(f"  2. Wer wissen will, welches Programm es ist:  netstat -ano | findstr :{port}")
+                print("  ====================================================")
+                print()
+                if sys.stdin is not None and sys.stdin.isatty():
+                    input("  Druecke Enter zum Schliessen...")
+                sys.exit(1)
             print()
             print("  ====================================================")
             print(f"  PBP laeuft bereits auf http://localhost:{port}")

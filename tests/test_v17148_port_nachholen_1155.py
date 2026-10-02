@@ -75,12 +75,50 @@ def planer_aufrufe(monkeypatch):
     return aufrufe
 
 
-def _belegter_port():
-    """Ein Port, auf dem etwas lauscht (wie das andere PBP-Fenster)."""
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    s.listen(5)
-    return s, s.getsockname()[1]
+class _Belegt:
+    """Etwas, das einen Port belegt: ein anderes PBP-Fenster oder ein fremdes Programm.
+
+    v1.7.149 (#1149): der Prozess unterscheidet beides am Gesundheitstest
+    `/api/health`. Ein PBP antwortet dort mit `pbp_version`, ein fremder
+    Webserver nicht. Bis v1.7.148 stand hier ein blosser lauschender Socket
+    "wie das andere PBP-Fenster" - der gilt jetzt als fremdes Programm.
+    """
+
+    def __init__(self, art):
+        import json
+        import threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+        class H(BaseHTTPRequestHandler):
+            def do_GET(self):
+                if art == "pbp" and self.path == "/api/health":
+                    roh, status = json.dumps({"pbp_version": "1.7.149"}).encode(), 200
+                else:
+                    roh, status = b"nicht da", 404
+                self.send_response(status)
+                self.send_header("Content-Length", str(len(roh)))
+                self.end_headers()
+                self.wfile.write(roh)
+
+            def log_message(self, *args):
+                pass
+
+        self._s = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.port = self._s.server_address[1]
+        threading.Thread(target=self._s.serve_forever, daemon=True).start()
+
+    def close(self):
+        self._s.shutdown()
+        self._s.server_close()
+
+
+def _belegter_port(art="pbp"):
+    """Ein Port, auf dem etwas lauscht; `art`: "pbp" (anderes Fenster) oder "fremd"."""
+    belegt = _Belegt(art)
+    return belegt, belegt.port
+
+
+ARTEN = [("pbp", "ANDERER"), ("fremd", "FREMDES")]
 
 
 def _warte(bedingung, sekunden=20.0):
@@ -95,13 +133,14 @@ def _warte(bedingung, sekunden=20.0):
     return bedingung()
 
 
-def test_1155_wird_der_port_frei_uebernimmt_der_prozess_dashboard_und_planer(server, planer_aufrufe):
+@pytest.mark.parametrize("art,halter", ARTEN)
+def test_1155_wird_der_port_frei_uebernimmt_der_prozess_dashboard_und_planer(server, planer_aufrufe, art, halter):
     srv, Falsch = server
     from bewerbungs_assistent.services import dashboard_halter as dh
-    belegt, port = _belegter_port()
+    belegt, port = _belegter_port(art)
     try:
         assert srv.dashboard_im_hintergrund_starten(srv.db, port=port) is None
-        assert dh.lesen()["halter"] == dh.ANDERER
+        assert dh.lesen()["halter"] == getattr(dh, halter)
         nachholer = srv.dashboard_nachholen_starten(srv.db, port=port, intervall_s=0.05)
         time.sleep(0.3)
         assert planer_aufrufe == [], "solange der Port belegt ist, startet nichts"
@@ -116,10 +155,11 @@ def test_1155_wird_der_port_frei_uebernimmt_der_prozess_dashboard_und_planer(ser
     assert dh.server() is not None
 
 
-def test_1155_solange_der_port_belegt_bleibt_startet_nichts(server, planer_aufrufe):
+@pytest.mark.parametrize("art,halter", ARTEN)
+def test_1155_solange_der_port_belegt_bleibt_startet_nichts(server, planer_aufrufe, art, halter):
     srv, Falsch = server
     from bewerbungs_assistent.services import dashboard_halter as dh
-    belegt, port = _belegter_port()
+    belegt, port = _belegter_port(art)
     try:
         srv.dashboard_im_hintergrund_starten(srv.db, port=port)
         nachholer = srv.dashboard_nachholen_starten(srv.db, port=port, intervall_s=0.03)
@@ -127,7 +167,7 @@ def test_1155_solange_der_port_belegt_bleibt_startet_nichts(server, planer_aufru
         assert nachholer.is_alive()
         assert planer_aufrufe == []
         assert Falsch.gestartet == []
-        assert dh.lesen()["halter"] == dh.ANDERER
+        assert dh.lesen()["halter"] == getattr(dh, halter)
         assert dh.lesen()["nachhol_versuche"] >= 3, "der Nachholer hat nicht geprueft"
     finally:
         nachholer.stoppen()

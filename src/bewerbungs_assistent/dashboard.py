@@ -439,7 +439,11 @@ async def api_public_hints():
         hints = data if isinstance(data, list) else data.get("hints", [])
         result["hints"] = [
             h for h in hints
-            if (not h.get("min_version") or h["min_version"] <= __version__)
+            # #1149: min_version wurde als TEXT verglichen ("1.7.9" <= "1.7.143" ist
+            # falsch). Als Zahlentripel; die Beta-Kennung bleibt aussen vor, damit
+            # "1.7.0-beta.5" einen Hinweis ab "1.7.0" sieht (wie bisher).
+            if (not h.get("min_version")
+                or _version_tuple(h["min_version"])[:3] <= _version_tuple(__version__)[:3])
             # #711: Release-Hints (mit `version`-Feld) sind UPDATE-Hinweise —
             # nur zeigen, wenn die angekuendigte Version NEUER ist als die
             # installierte. Sonst sieht ein beta.102-User "Neu in beta.101".
