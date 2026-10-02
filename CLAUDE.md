@@ -263,6 +263,33 @@ loescht alle Kommentare und macht Verweise in CHANGELOG und Code tot. Im
 Zweifel loeschen; besser: vor JEDEM Anlegen pruefen (Mai 2026 mussten ~155
 Bodies nachtraeglich anonymisiert werden).
 
+## Auto-Update (#1093, ab v1.8.0)
+
+Aufbau unter Windows: `%LOCALAPPDATA%\BewerbungsAssistent\app\` mit `python\`, `boot\`, `versions\<fassung>\`
+(`src\`, `start_dashboard.py`, `_selftest.py`, `manifest.json`, Marke `.fertig`, optional `site\`),
+`aktuell.txt`, `update_status.json`, `update\` (Arbeitsordner) und `update.sperre`. Claude Desktop startet
+`python -m bewerbungs_assistent_boot`, die Desktop-Verknuepfung `app\start_dashboard.py` (unveraenderlicher
+Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt `sys.path`, `PBP_APP_DIR` und
+`PBP_FASSUNG`, markiert die Belegung (`.in_benutzung\<pid>.json`) und fuehrt per `runpy` aus.
+
+- **Der Vertrag des Startbausteins ist eingefroren** (`FORMAT = 1`). Er aendert sich nie von selbst: jede Aenderung
+  an `src/bewerbungs_assistent_boot/` braucht ein neues `FORMAT`, das Manifest-Feld `boot_format` und den Installer.
+- **Rueckfall:** harter Fehler vor `bereit_melden()` -> im selben Prozess auf die vorige Fassung (ein Rueckfall je
+  Start); weicher Fehler -> zwei unbestaetigte Starts (je aelter als 90 s) -> Rueckfall beim naechsten Start.
+  `SystemExit` loest nie aus.
+- **Sicherheit:** feste GitHub-Quelle im Code (`services/auto_update/quelle.py`), nur stabile Fassungen der eigenen
+  Linie, `SHA256SUMS` Pflicht, Signatur (Ed25519, reines Python) Pflicht, sobald `schluessel.py` Schluessel enthaelt;
+  eigenes sicheres Entpacken, Manifest-Pruefung, Selbsttest der neuen Fassung VOR dem Umschalten, `aktuell.txt` zuletzt.
+- **Stufen** (`auto_update_stufe`): aus (Vorgabe) | hinweis | auto_meldung | auto_still. Die Automatik laeuft nie
+  neben anderer Hintergrundarbeit; Claude-Werkzeuge verlangen `bestaetigt=True`.
+- **Schema-Schutz** (`services/schema_schutz.py`): ist die Datenbank neuer als das Programm, weist der alte Prozess
+  MCP-Werkzeuge (ausser einer Liste) und schreibende REST-Aufrufe ab (503).
+- **Gegenprobe:** `scripts/mutationstest_auto_update.py` (in einem EIGENEN Arbeitsbaum) macht je eine Schutzpruefung
+  wirkungslos; die Tests muessen rot werden. Nach jeder Aenderung an den geprueften Dateien laufen lassen. Stand
+  02.10.2026: 91 von 92 erkannt, 1 begruendet gleichwertig. Gruen im Repository ist kein Beweis, dass ein Schutz greift.
+- MERKE: Windows-Anonym-Pipes fassen nur 4 KB. Ein Test, der den Server mit `subprocess.PIPE` startet, MUSS stderr
+  mitlesen (Thread), sonst haengt er an den ~6 KB, die eine frische Datenbank protokolliert.
+
 ## Release-Workflow (Pflicht)
 
 1. **Version** an drei Stellen: `pyproject.toml`,
@@ -279,6 +306,11 @@ Bodies nachtraeglich anonymisiert werden).
    Hash-Dateien `git rm`.
 5. **CHANGELOG.md:** neuer Eintrag GANZ OBEN (Added/Changed/Fixed), am Ende
    IMMER der Pflicht-Block unten — mit der Versionsnummer DIESES Releases.
+5a. **Update-Archiv (nur stabile Releases, ab 1.8.0):** nach dem Tag
+   `python scripts/build_update_archive.py --ref vX.Y.Z --ausgabe dist [--schluessel-datei <geheimer Schluessel>]`,
+   dann `pbp-update-X.Y.Z.zip`, `SHA256SUMS` (und `SHA256SUMS.sig`, sobald Schluessel im Code stehen) an die
+   GH-Release haengen (`gh release upload`). Fehlen die Dateien, meldet PBP „Update noch nicht bereit“ — kein Schaden,
+   aber kein Auto-Update. `release_check.py` Schritt 7 baut das Archiv vorab aus dem Arbeitsbaum.
 6. **Pre-Release-Pause:** vor dem Commit Risiko je Issue (was kann brechen,
    was ist additiv) und nochmal testen (vom User eingefordert).
 7. **⛔ Pre-Release-Issue-Check:** UNMITTELBAR vor `gh release create` die
