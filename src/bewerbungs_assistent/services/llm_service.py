@@ -505,27 +505,17 @@ class LLMService:
         except Exception:
             return []
 
-    def trigger_pull(self, model_name: str) -> dict:
-        """Loest einen Modell-Download in Ollama aus (asynchron via Stream).
+    def start_pull_job(self, model_name: str) -> dict:
+        """Startet den Modell-Download im Hintergrund und antwortet sofort (#1154 Punkt 1).
 
-        Aktuell: synchroner Call, wartet bis Download fertig oder Fehler.
-        Fuer beta.2 reicht das. Fortschritts-Streaming kommt spaeter.
+        Bis v1.7.149 wartete dieser Aufruf auf das Ende des Downloads (Zeitgrenze 600 s); die
+        Oberflaeche zeigte keinen Stand und meldete nach zehn Minuten "fehlgeschlagen", obwohl
+        Ollama weiterlud. Jetzt gibt es einen Job mit Fortschritt (`services/modell_download`).
         """
-        import json
-        import urllib.request
-        body = json.dumps({"name": model_name, "stream": False}).encode("utf-8")
-        req = urllib.request.Request(
-            f"{self._status.ollama_endpoint}/api/pull",
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=600.0) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                return {"status": data.get("status", "ok"), "model": model_name}
-        except Exception as exc:
-            return {"status": "error", "model": model_name, "error": str(exc)[:200]}
+        from . import modell_download
+        return modell_download.starten(
+            self.db, self._status.ollama_endpoint, model_name,
+            nach_erfolg=lambda: self.get_status(force_refresh=True))
 
 
 # ── Prompt-Builders & Response-Parsers ────────────────────────────

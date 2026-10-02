@@ -86,15 +86,15 @@ def neustart_anbieten(plattform: str | None = None, *, frage=input, ausgabe=prin
         return "laeuft_nicht"
 
     ausgabe()
-    ausgabe("  Claude Desktop laeuft bereits.")
-    ausgabe("  Damit Claude PBP als Werkzeug laedt, muss es einmal neu gestartet werden.")
+    ausgabe("  Claude Desktop läuft bereits.")
+    ausgabe("  Damit Claude PBP als Werkzeug lädt, muss es einmal neu gestartet werden.")
     ausgabe("  ACHTUNG: Dabei geht Text verloren, den du in Claude noch nicht abgeschickt hast,")
     ausgabe("  und eine laufende Antwort wird abgebrochen.")
     ausgabe()
     antwort = frage("  Claude jetzt neu starten? [j/N]: ").strip().lower()
     if antwort not in JA:
-        ausgabe("  Gut, Claude bleibt offen. Das Dashboard laeuft trotzdem.")
-        ausgabe("  Zum Verbinden spaeter Claude selbst beenden und wieder oeffnen.")
+        ausgabe("  Gut, Claude bleibt offen. Das Dashboard läuft trotzdem.")
+        ausgabe("  Zum Verbinden später Claude selbst beenden und wieder öffnen.")
         return "abgelehnt"
 
     if plattform == "win32":
@@ -125,6 +125,6 @@ def neustart_anbieten(plattform: str | None = None, *, frage=input, ausgabe=prin
             pause(3)
             return "beendet_und_gestartet"
 
-    ausgabe("  Claude Desktop wurde beendet, liess sich aber nicht automatisch starten.")
-    ausgabe("  Bitte oeffne es jetzt selbst wieder (Startmenue beziehungsweise Programme).")
+    ausgabe("  Claude Desktop wurde beendet, ließ sich aber nicht automatisch starten.")
+    ausgabe("  Bitte öffne es jetzt selbst wieder (Startmenü beziehungsweise Programme).")
     return "beendet_ohne_start"

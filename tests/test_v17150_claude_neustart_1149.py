@@ -199,8 +199,12 @@ def test_1149_der_starter_hat_die_alte_logik_nicht_mehr():
 
 
 def test_1149_die_ausgaben_bleiben_fuer_die_konsole_lesbar():
-    """Die Konsole der Verknüpfung zeigt nicht jede Codeseite: wie im ganzen Starter nur ASCII."""
-    r = Rahmen(antwort="j")
-    r.aufruf("win32")
-    for zeile in r.ausgaben:
-        assert zeile.isascii(), zeile
+    """Die Konsole der Verknüpfung kennt die Windows-Codeseiten 1252 und 850: jede Zeile muss darin stehen
+    können (Umlaute sind erlaubt, andere Sonderzeichen wie Gedankenstriche nicht)."""
+    for antwort in ("j", "n"):
+        for plattform in ("win32", "darwin"):
+            r = Rahmen(antwort=antwort)
+            r.aufruf(plattform)
+            for zeile in r.ausgaben:
+                for codeseite in ("cp1252", "cp850"):
+                    zeile.encode(codeseite)

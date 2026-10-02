@@ -298,9 +298,9 @@ def test_modell_download_haelt_das_dashboard_nicht_an(dash_app, monkeypatch):
     from bewerbungs_assistent.services import llm_service
 
     class Falsch:
-        def trigger_pull(self, modell):
+        def start_pull_job(self, modell):
             _schlafen()
-            return {"status": "ok", "model": modell}
+            return {"job_id": "x", "status": "gestartet", "model": modell}
 
         def get_status(self, force_refresh=False):
             return {}
@@ -308,7 +308,7 @@ def test_modell_download_haelt_das_dashboard_nicht_an(dash_app, monkeypatch):
 
     async def langsam(c):
         r = await c.post("/api/llm/pull", json={"model": "beispiel:1b"})
-        assert r.status_code == 200, r.text
+        assert r.status_code == 202, r.text
     _pruefen(dash, langsam)
 
 
@@ -382,7 +382,7 @@ def test_ordner_import_haelt_das_dashboard_nicht_an(dash_app, monkeypatch, tmp_p
 BLOCKIEREND = re.compile(
     r"^(httpx\.(Client|get|post|put|delete)|urllib\.request\.urlopen|time\.sleep|_time\.sleep"
     r"|subprocess\.\w+|shutil\.(copy2|copytree|rmtree|make_archive)"
-    r"|svc\.(trigger_pull|warmup|run|get_status)|ollama_start\.\w+|_extract_document_text"
+    r"|svc\.(start_pull_job|warmup|run|get_status)|ollama_start\.\w+|_extract_document_text"
     r"|eigener_standort\.(eigenen_setzen|befund)|_run_auto_actions_inner"
     r"|_run_analyze_user_patterns|_import_folder|_refresh_freelancermap_descriptions|_laden)$")
 
@@ -432,7 +432,7 @@ def test_der_guard_sieht_etwas():
         "        c.get('u')\n"
         "@app.post('/y')\n"
         "async def y():\n"
-        "    return await run_in_threadpool(svc.trigger_pull, 'm')\n"
+        "    return await run_in_threadpool(svc.start_pull_job, 'm')\n"
         "@app.post('/z')\n"
         "def z():\n"
         "    time.sleep(1)\n"
