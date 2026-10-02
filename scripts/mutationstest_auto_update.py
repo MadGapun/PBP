@@ -40,6 +40,10 @@ AEQUIVALENT = {
     "en14": "`zipfile` liefert nie mehr Daten als im Kopf angekuendigt und prueft die CRC; die Zeile gilt einer kuenftigen Bibliothek",
 }
 
+#: Diese Mutationen lassen sich nur mit Symlink-Recht pruefen (Linux, macOS, Windows im Entwicklermodus). Ohne das Recht
+#: laufen die zugehoerigen Tests ueber eine Junction, und die Mutation bleibt unbemerkt, ohne dass etwas fehlt.
+BRAUCHT_SYMLINKS = {"sp06", "sp14"}
+
 # (Kennung, Beschreibung, Datei, alt, neu, Tests)
 T_PR = ["tests/test_v18_auto_update_pruefen_entpacken.py"]
 T_Q = ["tests/test_v18_auto_update_quelle.py"]
@@ -237,6 +241,16 @@ def zuruecksetzen():
     subprocess.run(["git", "checkout", "--", "."], cwd=str(WT), capture_output=True, text=True)
 
 
+def _symlinks_moeglich() -> bool:
+    import tempfile
+    with tempfile.TemporaryDirectory() as t:
+        try:
+            os.symlink(Path(t), Path(t) / "l", target_is_directory=True)
+            return True
+        except (OSError, NotImplementedError):
+            return False
+
+
 def main(argv=None) -> int:
     global WT
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -290,10 +304,12 @@ def main(argv=None) -> int:
         ergebnisse[mid] = {"text": text, "urteil": urteil, "erster_roter_test": fehl[0][:200] if fehl else "", "sek": sek}
         print(f"{mid} [{urteil}] {text}  -> {fehl[0][7:120] if fehl else rest[:120]}  ({sek}s)", flush=True)
         ziel_json.write_text(json.dumps(ergebnisse, ensure_ascii=False, indent=1), encoding="utf-8")
-    offen = [k for k, v in ergebnisse.items() if v["urteil"] != "ERKANNT" and k not in AEQUIVALENT]
+    kein_symlink = set() if _symlinks_moeglich() else BRAUCHT_SYMLINKS
+    offen = [k for k, v in ergebnisse.items() if v["urteil"] != "ERKANNT" and k not in AEQUIVALENT and k not in kein_symlink]
     gleichwertig = [k for k, v in ergebnisse.items() if v["urteil"] != "ERKANNT" and k in AEQUIVALENT]
-    print(f"\nFERTIG: {len(ergebnisse)} Mutationen, {len(ergebnisse) - len(offen) - len(gleichwertig)} erkannt, "
-          f"gleichwertig begruendet: {gleichwertig}, OFFEN: {offen}", flush=True)
+    nicht_pruefbar = [k for k, v in ergebnisse.items() if v["urteil"] != "ERKANNT" and k in kein_symlink and k not in AEQUIVALENT]
+    print(f"\nFERTIG: {len(ergebnisse)} Mutationen, {len(ergebnisse) - len(offen) - len(gleichwertig) - len(nicht_pruefbar)} erkannt, "
+          f"gleichwertig begruendet: {gleichwertig}, hier nicht pruefbar (kein Symlink-Recht): {nicht_pruefbar}, OFFEN: {offen}", flush=True)
     return 1 if offen else 0
 
 

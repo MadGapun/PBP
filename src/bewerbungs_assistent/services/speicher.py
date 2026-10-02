@@ -97,8 +97,8 @@ def messen(pfad, frist_s: float = FRIST_JE_ORT_S) -> tuple:
                     if zaehler > MAX_EINTRAEGE_MESSUNG or time.monotonic() > ende:
                         return gesamt, False
                     try:
-                        if eintrag.is_symlink():
-                            continue
+                        if eintrag.is_symlink() or getattr(eintrag, "is_junction", lambda: False)():
+                            continue          # Verknuepfungen (auch Junctions unter Windows) zaehlen nicht doppelt
                         if eintrag.is_dir(follow_symlinks=False):
                             if tiefe < MAX_TIEFE:
                                 stapel.append((eintrag.path, tiefe + 1))

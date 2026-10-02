@@ -153,16 +153,43 @@ def test_die_messung_bricht_nach_der_frist_ab_und_sagt_mindestens(tmp_path):
     assert speicher.messen(tmp_path / "gibt-es-nicht") == (0, True)
 
 
-def test_die_messung_folgt_keiner_verknuepfung(tmp_path):
-    _schreibe(tmp_path / "echt" / "a.bin", 100)
-    ziel = tmp_path / "verweis"
+def _verknuepfung(link: Path, ziel: Path) -> str:
+    """Ein symbolischer Link, sonst (Windows) eine Junction; ohne beides wird der Test uebersprungen."""
     try:
-        os.symlink(tmp_path / "echt", ziel, target_is_directory=True)
+        os.symlink(ziel, link, target_is_directory=ziel.is_dir())
+        return "symlink"
     except (OSError, NotImplementedError):
+        if sys.platform == "win32" and ziel.is_dir():
+            import subprocess
+            r = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(ziel)], capture_output=True)
+            if r.returncode == 0:
+                return "junction"
         pytest.skip("Verknüpfungen sind hier nicht erlaubt")
+
+
+def test_die_messung_folgt_keiner_verknuepfung_auch_keiner_junction(tmp_path):
+    _schreibe(tmp_path / "echt" / "a.bin", 100)
     (tmp_path / "ordner").mkdir()
-    os.symlink(tmp_path / "echt", tmp_path / "ordner" / "link", target_is_directory=True)
+    _verknuepfung(tmp_path / "ordner" / "link", tmp_path / "echt")
     assert speicher.messen(tmp_path / "ordner")[0] == 0
+
+
+def test_geloescht_wird_nie_ueber_eine_verknuepfung_hinaus(tmp_path):
+    """Ein Link im Ordner, der nach draußen zeigt, darf weder das Ziel noch (als Link) sich selbst verlieren."""
+    wurzel = tmp_path / "wurzel"
+    wurzel.mkdir()
+    draussen = tmp_path / "draussen"
+    _schreibe(draussen / "wichtig.txt", 10)
+    _verknuepfung(wurzel / "ordner_link", draussen)
+    assert speicher._loeschen(wurzel / "ordner_link", wurzel) == (False, 0)
+    assert (draussen / "wichtig.txt").exists()
+    datei = _schreibe(tmp_path / "fremd.txt", 10)
+    try:
+        os.symlink(datei, wurzel / "datei_link")
+    except (OSError, NotImplementedError):
+        return
+    assert speicher._loeschen(wurzel / "datei_link", wurzel) == (False, 0)
+    assert datei.exists() and (wurzel / "datei_link").is_symlink()
 
 
 # ── Bereinigen: zwei Schritte ──────────────────────────────────────────────────────────────
@@ -406,7 +433,8 @@ def test_ordner_oeffnen_nimmt_nur_orte_aus_der_festen_liste(umgebung, monkeypatc
     assert speicher.ordner_oeffnen("daten", u.db)["status"] == "ok"
     assert geoeffnet == [str(u.daten)]
     for boese in ("../etc", "C:/Windows", str(u.daten), ""):
-        assert speicher.ordner_oeffnen(boese, u.db)["status"] == "fehler", boese
+        antwort = speicher.ordner_oeffnen(boese, u.db)
+        assert antwort["status"] == "fehler" and "Unbekannter Ort" in antwort["text"], boese
     assert len(geoeffnet) == 1
     import shutil
     shutil.rmtree(u.pw)
