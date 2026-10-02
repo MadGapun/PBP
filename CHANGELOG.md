@@ -33,6 +33,82 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.149] - 2026-10-02 — Ein Startfehler hinterlässt eine Spur, das Update sichert wirklich, ein fremdes Programm auf dem Port wird erkannt, die Stellenliste bleibt schnell
+
+Hotfix für v1.7.148. Sieben Dinge an Installer und Start, bei denen PBP etwas anderes meldete, als geschah (#1149): eine „Sicherung“, die unvollständig war, ein „läuft bereits“, das ein fremdes Programm meinte, ein grüner Abschluss ohne Claude Desktop, ein Startfehler ohne eine Zeile im Protokoll. Dazu die Stellenliste, die mit jeder aussortierten Stelle etwas langsamer wurde (#1154). Kein Schema-Eingriff.
+
+**Wichtig zu wissen:**
+
+- **Das Update sichert jetzt wirklich.** Vor dem Überinstallieren schreibt der Installer eine Sicherung mit der Sicherungsfunktion von SQLite (sie liest einen stimmigen Stand, auch wenn Claude oder PBP noch laufen), mit Datum und Uhrzeit im Namen (`pbp-backup-<Datum>_<Uhrzeit>-vor_update.db` im Ordner `backups`). Die letzten fünf bleiben liegen. Gelingt die Sicherung nicht, steht eine Warnung im Fenster, statt „OK“.
+- **Ohne Claude Desktop endet die Installation nicht mehr grün.** Der Hinweis „PBP braucht Claude Desktop“ widersprach der README: das Dashboard im Browser geht immer. Jetzt erklärt der Installer, was ohne Claude fehlt (der Chat: Ersterfassung, Anschreiben, Analysen), sucht nach dem Download-Hinweis noch einmal und endet gelb, wenn Claude fehlt — mit dem Satz, dass PBP trotzdem läuft.
+- **Ein fremdes Programm auf Port 8200 gilt nicht mehr als „PBP läuft bereits“.** PBP erkennt sein eigenes Dashboard an der Antwort auf `/api/health`. Alles andere auf dem Port heißt jetzt „Port wird von einem anderen Programm benutzt“, mit dem nächsten Schritt.
+
+### Fixed
+
+- **Scheitert der Start an der Datenbank, steht der Grund im Protokoll** (#1149 Punkt 1). Auf dem Weg über Claude Desktop (`python -m bewerbungs_assistent`) endete ein Fehler beim Öffnen der Datenbank mit einem Traceback nur auf stderr; `pbp.log` blieb leer, der Dashboard-Port wurde nie gebunden, und der Installer verweist für Fehler auf genau diese Datei (nachgestellt mit gesperrtem Sicherungsordner). Jetzt steht eine Meldung in Klartext im Protokoll und auf stderr: Grund, Datenordner, häufige Ursachen (kein Schreibrecht oder Platz, gesperrte oder beschädigte Datei) und der Hinweis auf den Ordner `backups`. Der Start scheitert weiter, aber nicht mehr stumm.
+- **Die „Sicherung vor dem Update“ des Installers ist eine echte Sicherung** (#1149 Punkt 2). `INSTALLIEREN.bat` kopierte `pbp.db` mit `copy` und ließ `pbp.db-wal` liegen, wo bei laufendem Programm die jüngsten Schreibvorgänge stehen (gemessen: bei offener Verbindung und 50 Schreibvorgängen hatte die Kopie 4 KB und „no such table“, die SQLite-Sicherung alle 50 Zeilen). Die Erfolgsmeldung stand unbedingt da, und der feste Dateiname wurde bei jedem Update überschrieben — nach dem zweiten Update war der Stand vor dem ersten weg. Neu: `_sicherung_vor_update.py` (nur Standardbibliothek; der Installer ruft es mit dem mitgelieferten Python auf), Name mit Zeitstempel, Leseprobe der fertigen Sicherung, ehrliche Meldung. Die Datei gehört zum Paket; fehlt sie, nennt der Installer sie in der Fehlermeldung zu fehlenden Hilfsdateien.
+- **Ohne Claude Desktop meldet der Installer nicht mehr „gefunden“ und „fertig“** (#1149 Punkt 3). `_setup_claude.py` legt die Konfiguration auch ohne Claude an und endet mit Erfolg; der Installer schrieb deshalb immer „Claude Desktop gefunden“ und setzte den Abschluss auf Grün, der gelbe Zweig war nie erreichbar. Jetzt zählt nur ein echter Fund, und der Abschluss nennt den echten Grund („Claude Desktop wurde nicht gefunden — PBP läuft trotzdem“ statt „konnte nicht eingerichtet werden“).
+- **Ein belegter Port 8200 wird richtig benannt** (#1149 Punkt 4). Hielt ein fremdes Programm den Port, schrieb `start_dashboard.py` „PBP laeuft bereits … Das Dashboard ist schon erreichbar!“ und öffnete den Browser; der Claude-Prozess schrieb nur eine Zeile ins Protokoll und `pbp_diagnose` behauptete, ein anderes PBP-Fenster halte den Port; der Gesundheitstest des Installers prüfte allein auf „Antwort 200“. Jetzt: `start_dashboard.py` sagt, dass ein anderes Programm den Port hält, was zu tun ist (Programm beenden oder Rechner neu starten und PBP zuerst öffnen) und wie man es findet (`netstat -ano | findstr :8200`), und endet mit Fehler statt zu behaupten, alles laufe; `pbp_diagnose` nennt das fremde Programm (und der Claude-Prozess prüft weiter alle fünf Minuten, ob der Port frei wird); der Gesundheitstest des Installers fragt `/api/health` und verlangt `pbp_version` in der Antwort.
+- **Der Gesundheitstest am Ende der Installation kann bei laufendem Dashboard scheitern** (#1149 Punkt 4, beim Nachstellen gefunden). Er fragte `localhost`; das Dashboard lauscht nur auf IPv4, und Windows PowerShell versucht für `localhost` zuerst `::1` — gemessen mehr als die eine Sekunde Zeitgrenze. Wo das so ist, gab es dreißig Fehlversuche und einen gelben Abschluss, obwohl alles lief. Jetzt wird `127.0.0.1` gefragt.
+- **Die Versionsprüfung des Windows-Installers funktioniert wieder** (#1149 Punkt 7). Sie las `data\src`, installiert wird aber nach `app\src` (seit v1.5.0): die installierte Version blieb leer, „Update erkannt“ und „bereits installiert“ erschienen nie. Die Frage „Trotzdem neu installieren? (j/n)“ kannte nur „j“, nicht „ja“ oder „y“; jetzt zählt der erste Buchstabe.
+- **Die Mindestversion eines Hinweises wird als Zahl verglichen** (#1149 Punkt 11). Der Filter für `hints.json` verglich `min_version` als Text; `"1.7.9" <= "1.7.149"` ist als Text falsch, ein Hinweis ab 1.7.9 wäre ab 1.7.10 verschwunden. Heute folgenlos, weil alle Hinweise `1.7.0` tragen — aber die nächste Hinweiszeile mit einer anderen Grenze hätte es getroffen.
+- **Ein fehlgeschlagener Frontend-Bau beendet den Installer unter macOS und Linux nicht mehr** (#1149 Punkt 6). `INSTALLIEREN.command` und `installer/install.sh` laufen mit `set -e`; ein `pnpm`, das mit Fehler endete (kein Netz, alte Node-Version), beendete den Installer ohne ein Wort — Datenordner und Claude-Eintrag kamen nie. Das fertig gebaute Dashboard liegt dem Paket bei, der Bau ist eine Zugabe. Jetzt meldet der Installer den Fehlschlag in Gelb („kein Problem: das fertig gebaute Dashboard liegt bei“) und macht weiter. Nachgestellt mit einem falschen `pnpm`; auf echter Hardware noch nicht gelaufen.
+- **Die Stellenliste bleibt mit vielen aussortierten Stellen schnell** (#1154 Punkt 2). `stellen_anzeigen` prüft jede Stelle gegen alle Aussortierten (Wiedergänger-Regel). Gemessen mit 1.200 aktiven Stellen und 2.000 Aussortierten zu je 8 KB Text: **2,88 Sekunden vorher, 0,35 Sekunden jetzt** (ohne Aussortierte 0,32). Die Vermutung im Issue — das Lesen der Anzeigentexte — war falsch: der Profiler zeigte 0,1 Sekunden dafür. Die Zeit ging in `normalize_company`: für jede Stelle der Liste wurde die Firma jeder aussortierten Stelle neu normalisiert, 2,4 Millionen Aufrufe. Jetzt merkt sich jede Zeile ihre normalisierte Firma, ein Index nach Firma ersetzt den Durchlauf über alle, und die Aussortierten werden ohne die langen Texte gelesen (nur deren Länge, die der Vergleich braucht). Das Ergebnis ist dasselbe; ein Test hält Reihenfolge und Treffer gegen das alte Verfahren.
+
+### Known Issues
+
+- Aus #1149 sind offen: Python-Erkennung und Python 3.13 unter macOS (Punkt 5, braucht eine Nachprüfung auf echter Hardware), Ordnernamen mit `!` oder `'` (8), der Deinstaller (9), die Rückfrage in `start_dashboard.py` (10), veraltete Zahlen und Texte (12). Beim Update unter macOS und Linux wird ein laufender alter Dashboard-Prozess weiter nicht beendet (Rest von Punkt 6). Die Punkte 5, 8, 9, 10, 12 stehen weiter im Issue.
+- Der Download eines KI-Modells hat weiter keine Fortschrittsanzeige und bricht in der Oberfläche nach zehn Minuten ab, obwohl Ollama weiterlädt (#1154 Punkt 1).
+- Die Zuordnung der KI-Schalter sperrt nur elf Werkzeuge; lesende Werkzeuge wie `dokument_lesen` oder `emails_anzeigen` liefern bei ausgeschaltetem Schalter weiter (#1147 Punkt 3). Ob der Text ehrlicher werden oder die Zuordnung wachsen soll, ist eine Entscheidung der Projektleitung.
+- Die Aufräum-Runde („Auto-Engine“) hat weiter keinen automatischen Auslöser (#1139; wartet auf die Entscheidung, ob täglich oder per Knopf).
+
+### Gemessen
+
+112 neue Tests (6.657 gesamt, gezählt im sauberen Klon ohne Entwicklungsumgebung): 5 für den Startfehler (#1149 Punkt 1), 21 für die Sicherung vor dem Update (Punkt 2), 36 für die Claude-Erkennung, die Versionsprüfung und die Hinweise (Punkte 3, 7, 11; der Installer wird dabei aus der Datei gelesen und in `cmd.exe` ausgeführt, nicht nachgebaut), 19 für den fremden Port (Punkt 4), 12 für den Unix-Installer (Punkt 6, mit falschem `pnpm`), 17 für die Stellenliste (#1154, mit einem Messtest: 1.200 Stellen und 2.000 Aussortierte unter einer Sekunde) und 2 mehr beim Übernehmen des Ports (#1155, jetzt auch nach einem fremden Programm). Jeder Test wurde in der Gegenprobe geprüft: das Verfahren wird entfernt, der Test muss rot werden (Ergebnis: alle rot; vier Lücken in den ersten Testfassungen und ein toter Programmzweig wurden dabei gefunden und beseitigt). Volle Suite: alle grün.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.149.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.149.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.149 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.148] - 2026-10-02 — Ohne Netz geht nichts kaputt, nur belegte Gehälter zählen, nichts wird doppelt angelegt
 
 Hotfix für v1.7.147. Sechzehn Dinge, bei denen PBP etwas anderes meldete oder tat, als man erwartete: Ohne Netz hieß die Jobsuche „alles ok“ und pausierte danach die Quellen; die Marktanalyse rechnete erfundene Schätzgehälter mit; wer einen Aufruf wiederholte, hatte alles doppelt; die Seitenleiste zeigte „verbunden“, obwohl PBP gar nicht mehr lief. Dazu stimmt die Dokumentation im Repo wieder mit dem Programm überein, und der Schutz vor Namen in öffentlichen Texten kennt mehr Schreibweisen. Kein Schema-Eingriff.

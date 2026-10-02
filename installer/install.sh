@@ -124,12 +124,21 @@ else
 fi
 
 if [ "$PNPM_OK" = true ] && [ -d "$FRONTEND_DIR" ]; then
+    # #1149: unter `set -e` beendete ein fehlgeschlagenes pnpm den Installer ohne ein
+    # Wort (stderr geht nach /dev/null): Datenordner und Claude-Eintrag kamen nie. Das
+    # fertig gebaute Dashboard liegt dem ZIP und dem Tag bei; der Bau ist eine Zugabe.
     info "Installiere Frontend-Abhaengigkeiten..."
-    pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null
-    ok "Frontend-Abhaengigkeiten installiert"
-    info "Baue Frontend..."
-    pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null
-    ok "Frontend erfolgreich gebaut"
+    if pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null; then
+        ok "Frontend-Abhaengigkeiten installiert"
+        info "Baue Frontend..."
+        if pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null; then
+            ok "Frontend erfolgreich gebaut"
+        else
+            warn "Frontend-Bau fehlgeschlagen — kein Problem: das fertig gebaute Dashboard liegt bei, PBP laeuft damit"
+        fi
+    else
+        warn "Frontend-Abhaengigkeiten liessen sich nicht installieren — kein Problem: das fertig gebaute Dashboard liegt bei, PBP laeuft damit"
+    fi
 fi
 
 # ── 5. Test ──────────────────────────────────────────────────────────

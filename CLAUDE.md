@@ -657,6 +657,29 @@ sondern reicht sie an Claude Code weiter. Liste und Issue #675 synchron halten.
    ist die Abhilfe strukturell: `_BEWAHREN` plus ein Test, der JEDE
    Spalte von `jobs` gegen die INSERT-Liste haelt.
 
+8f. **Erst messen, dann reparieren (seit 2026-10-02)** — in #1154 stand
+   als Ursache der langsamen Stellenliste "das Lesen der Anzeigentexte
+   (`SELECT *`)". Ein `cProfile`-Lauf ueber den echten Aufruf zeigte:
+   das Lesen kostet 0,1 s; die Last waren 2,4 Millionen Aufrufe von
+   `normalize_company` in `find_wiedergaenger_pattern`. Wer die Vermutung
+   "behoben" haette, haette gruene Tests und eine ebenso langsame Seite
+   gehabt. Vor jeder Tempo-Arbeit also EIN Profil des Aufrufs, und zum
+   Fix gehoert ein Messtest mit Grenzwert auf grosser Testdatenbank
+   (isolierte `BA_DATA_DIR`, nie die echte DB) — Zahlen vorher und nachher
+   in CHANGELOG und Issue.
+
+8g. **Eine Erfolgsmeldung braucht eine Probe (seit 2026-10-02)** — in der
+   Durchsicht #1149 trugen vier Meldungen ein Ergebnis, das niemand
+   geprueft hatte: "Sicherung erstellt" (eine `copy`-Kopie ohne WAL: 4 KB
+   statt 50 Zeilen), "PBP laeuft bereits" (der Port war nur BELEGT, von
+   einem fremden Programm), "[OK] Claude Desktop gefunden" (der Rueckgabewert
+   des Einrichtungs-Skripts, nicht die Suche) und der gruene Abschluss
+   darauf. Regel: eine Meldung wie "erstellt", "laeuft", "gefunden" steht
+   erst nach einer Probe des INHALTS — die Sicherung wird gelesen,
+   `/api/health` muss `pbp_version` liefern, die Suche muss etwas finden.
+   Und: ein Skript, das ohne Fehler endet, hat nicht bewiesen, dass es
+   etwas getan hat.
+
 9. **Firmennamen-Sweep ueber GitHub** (seit 2026-07-23) — reale Firmen aus
    der Bewerbungshistorie duerfen NIRGENDS auf GitHub stehen: Issues (Body
    UND Kommentare), Release-Notes, Wiki, Commit-Messages. Vor JEDEM

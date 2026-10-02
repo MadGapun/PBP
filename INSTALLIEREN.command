@@ -125,9 +125,14 @@ elif command -v npm &>/dev/null; then
 fi
 
 if [ "$PNPM_OK" = true ] && [ -d "$FRONTEND_DIR" ]; then
-    pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null
-    pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null
-    ok "Dashboard gebaut"
+    # #1149: unter `set -e` beendete ein fehlgeschlagenes pnpm den Installer ohne ein
+    # Wort (stderr geht nach /dev/null): Datenordner und Claude-Eintrag kamen nie. Das
+    # fertig gebaute Dashboard liegt dem ZIP bei; der Bau ist eine Zugabe.
+    if pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null && pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null; then
+        ok "Dashboard gebaut"
+    else
+        warn "Dashboard-Bau fehlgeschlagen — kein Problem: das fertig gebaute Dashboard liegt bei, PBP laeuft damit"
+    fi
 elif command -v node &>/dev/null; then
     warn "pnpm nicht verfuegbar — ueberspringe Frontend-Build"
 else

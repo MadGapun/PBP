@@ -236,6 +236,62 @@ def _role_families(title: Optional[str]) -> set:
     return families
 
 
+def _firma_norm(j: dict) -> str:
+    """`normalize_company` einer aussortierten Stelle — einmal je Zeile gemerkt (#1154).
+
+    `find_wiedergaenger_pattern` laeuft fuer JEDE Stelle der Liste ueber ALLE
+    Aussortierten und verglich dabei die normalisierte Firma. Bei 1.200 aktiven
+    und 2.000 aussortierten Stellen sind das 2,4 Millionen Normalisierungen
+    (je drei Ersetzungen mit regulaerem Ausdruck): gemessen 2,6 s von 3,2 s einer
+    Stellenliste. Nicht das Lesen der Anzeigentexte war die Last, sondern dieses
+    Wiederholen. Der gemerkte Wert liegt in der Zeile (`_firma_norm`); die Zeilen
+    gehoeren der Liste, die der Aufrufer einmal geladen hat.
+    """
+    n = j.get("_firma_norm")
+    if n is None:
+        n = normalize_company(j.get("company"))
+        j["_firma_norm"] = n
+    return n
+
+
+class AussortiertePool(list):
+    """Die einmal geladenen Aussortierten, mit einem Index nach normalisierter Firma (#1154).
+
+    Eine Liste mit allem, was sie als Liste kann (Reihenfolge, Laenge, Iteration).
+    Zusaetzlich `der_firma(norm)`: nur die Zeilen dieser Firma, in der Reihenfolge der
+    Liste. Die Pruefung fragt fuer jede Stelle der Trefferliste nach EINER Firma;
+    ohne Index lief sie dafuer ueber alle Aussortierten (1.200 x 2.000 Vergleiche).
+    """
+
+    def __init__(self, zeilen=()):
+        super().__init__(zeilen)
+        self._nach_firma = None
+
+    def der_firma(self, norm: str) -> list:
+        if self._nach_firma is None:
+            index: dict = {}
+            for j in self:
+                index.setdefault(_firma_norm(j), []).append(j)
+            self._nach_firma = index
+        return self._nach_firma.get(norm, [])
+
+
+def aussortierte_laden(db) -> AussortiertePool:
+    """Die Aussortierten fuer die Wiedergaenger-Pruefung — ohne die langen Texte (#1154).
+
+    Die Pruefung liest Firma, Titel, Gruende, die Gehaltsangabe und die LAENGE der
+    Beschreibung. Wo die Datenbank das schlanke Lesen kennt, wird es benutzt;
+    sonst (Testdoubles, aeltere Datenbank-Klassen) das volle Lesen mit demselben
+    Ergebnis, nur langsamer.
+    """
+    schlank = getattr(db, "get_dismissed_jobs_schlank", None)
+    if callable(schlank):
+        zeilen = schlank()
+        if isinstance(zeilen, list):
+            return AussortiertePool(zeilen)
+    return AussortiertePool(db.get_dismissed_jobs())
+
+
 def _reasons_of(job: dict) -> list[str]:
     """Liefert die dismiss_reasons eines Jobs als saubere Liste."""
     reasons = job.get("dismiss_reasons") or []
@@ -324,19 +380,27 @@ def grund_guete(job: dict) -> tuple[str, str]:
     # wo sie fehlt, wurde der Datensatz nur teilgeladen. Aus fehlendem
     # Wissen ein Urteil abzuleiten waere derselbe Fehler, den #965 im
     # Entfernungs-Scoring behebt.
+    # #1154: gebraucht wird nur die LAENGE. Das schlanke Lesen
+    # (`get_dismissed_jobs_schlank`) liefert sie als `description_laenge`,
+    # ohne die Anzeigentexte von der Platte zu holen.
     roh = job.get("description")
     if roh is not None:
-        text = str(roh).strip()
+        laenge = len(str(roh).strip())
+    elif job.get("description_laenge") is not None:
+        laenge = int(job["description_laenge"])
+    else:
+        laenge = None
+    if laenge is not None:
         if gruende & _TEXTABHAENGIGE_GRUENDE:
-            if len(text) < MINDESTLAENGE_TRAGFAEHIG:
+            if laenge < MINDESTLAENGE_TRAGFAEHIG:
                 # v1.7.39 (#989): kein Beleg, kein halber — gar keiner.
                 return "ohne_grundlage", (
-                    f"die Anzeige hatte nur {len(text)} Zeichen — daraus "
+                    f"die Anzeige hatte nur {laenge} Zeichen — daraus "
                     "lässt sich über Fachgebiet, System oder Seniorität "
                     "nichts entnehmen; das Urteil zählt nicht mit")
-            if len(text) < MINDESTLAENGE_BELASTBAR:
+            if laenge < MINDESTLAENGE_BELASTBAR:
                 maengel.append(
-                    f"die Anzeige hatte nur {len(text)} Zeichen — zu wenig, "
+                    f"die Anzeige hatte nur {laenge} Zeichen — zu wenig, "
                     "um Fachgebiet, System oder Seniorität zu beurteilen")
 
     if gruende & _GEHALTS_GRUENDE and job.get("salary_estimated"):
@@ -388,16 +452,18 @@ def find_wiedergaenger_pattern(
 
     if dismissed is None:
         try:
-            dismissed = db.get_dismissed_jobs()
+            dismissed = aussortierte_laden(db)
         except Exception:
             return None
 
     matches: list[tuple[dict, set]] = []
     roles_matched: set = set()
-    for j in dismissed:
+    # #1154: ein Pool kennt die Zeilen dieser Firma; eine einfache Liste wird ganz durchsucht.
+    kandidaten = dismissed.der_firma(norm_company) if isinstance(dismissed, AussortiertePool) else dismissed
+    for j in kandidaten:
         if target_hash and j.get("hash") == target_hash:
             continue
-        if normalize_company(j.get("company")) != norm_company:
+        if _firma_norm(j) != norm_company:
             continue
         if not _reasons_of(j):
             continue
@@ -541,7 +607,7 @@ def firmen_historie(
     if not norm_company:
         return None
     try:
-        dismissed = db.get_dismissed_jobs()
+        dismissed = aussortierte_laden(db)
     except Exception:
         return None
 
@@ -550,7 +616,7 @@ def firmen_historie(
     for j in dismissed:
         if target_hash and j.get("hash") == target_hash:
             continue
-        if normalize_company(j.get("company")) != norm_company:
+        if _firma_norm(j) != norm_company:
             continue
         reasons = sorted(set(_reasons_of(j)))  # #966: je Stelle einmal
         if not reasons:

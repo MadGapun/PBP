@@ -1554,8 +1554,10 @@ def register(mcp, db, logger):
             # Stelle. Der Bestand wird EINMAL geladen (Preload), sonst
             # wuerde jede Stelle der Liste den vollen Scan wiederholen.
             try:
-                from ..services.wiedergaenger import find_wiedergaenger_pattern
-                _dismissed_pool = db.get_dismissed_jobs()
+                from ..services.wiedergaenger import (
+                    aussortierte_laden, find_wiedergaenger_pattern)
+                # #1154: ohne Anzeigentexte; die Pruefung braucht nur deren Laenge.
+                _dismissed_pool = aussortierte_laden(db)
                 for j in jobs:
                     muster = find_wiedergaenger_pattern(
                         db, j.get("company", ""), j.get("title", ""),
