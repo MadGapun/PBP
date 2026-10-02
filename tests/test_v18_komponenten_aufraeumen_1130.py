@@ -10,6 +10,7 @@ etwas anlegt (QA-Isolation).
 """
 from __future__ import annotations
 
+import hashlib
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -48,7 +49,8 @@ def umgebung(tmp_db, tmp_path, monkeypatch):
     # Das Loeschen wiederholt sich kurz (Virenscanner); im Test ohne Warten.
     monkeypatch.setattr(components, "time", SimpleNamespace(sleep=lambda s: None))
     download = dict(components.COMPONENT_DEFS["tesseract"]["windows_download"])
-    download["sha256"] = ""
+    # #1152: ohne Pruefsumme laedt PBP nichts. Das Testdoppel liefert GROESSE mal "x" und kennt die passende Summe.
+    download["sha256"] = hashlib.sha256(b"x" * GROESSE).hexdigest()
     monkeypatch.setitem(components.COMPONENT_DEFS["tesseract"],
                         "windows_download", download)
     return SimpleNamespace(db=tmp_db, ordner=ordner, c=components,

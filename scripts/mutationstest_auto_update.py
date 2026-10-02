@@ -14,8 +14,9 @@ Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
     git worktree add --detach C:/Temp/pbp_mutation HEAD
     python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
 
-Zwei Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093) und
-`speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131).
+Drei Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
+`speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131) und
+`komponenten` (kein Installer ohne Pruefsumme; #1152).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -219,10 +220,25 @@ M_SPEICHER = [
      '"gesamt_bytes": sum(o["bytes"] for o in orte),', T_SP),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER}
+# ── Dritter Katalog: Pruefsumme der Komponenten (#1152) ──
+KP = "src/bewerbungs_assistent/services/components.py"
+T_KP = ["tests/test_v18_komponenten_pruefsumme_1152.py", "tests/test_v18_komponenten_aufraeumen_1130.py"]
+
+M_KOMPONENTEN = [
+    ("kp01", "_sha256_ok: ohne Sollwert gilt die Pruefung als bestanden", KP, "        return False\n    import hashlib", "        return True\n    import hashlib", T_KP),
+    ("kp02", "install_component: ohne Summe wird trotzdem geladen", KP, '    if not _pruefsumme_gueltig(dl.get("sha256", "")):', "    if False:", T_KP),
+    ("kp03", "_pruefsumme_gueltig: jeder nichtleere Text genuegt", KP,
+     '    return isinstance(wert, str) and re.fullmatch(r"[0-9a-fA-F]{64}", wert) is not None', "    return isinstance(wert, str) and len(wert) > 0", T_KP),
+    ("kp04", "install_component: die Summe des Downloads wird nicht verglichen", KP, '        if not _sha256_ok(setup_path, dl.get("sha256", "")):', "        if False:", T_KP),
+    ("kp05", "Registry: Tesseract ohne Pruefsumme", KP, '"sha256": "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9",', '"sha256": "",', T_KP),
+    ("kp06", "_sha256_ok: Gross-/Kleinschreibung zaehlt", KP, "    return h.hexdigest().lower() == expected.lower()", "    return h.hexdigest() == expected", T_KP),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP),),
+    "komponenten": (("T_KP", T_KP),),
 }
 
 WT = None
@@ -260,7 +276,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

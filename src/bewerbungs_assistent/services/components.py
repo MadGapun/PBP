@@ -48,10 +48,12 @@ _SUBPROCESS_FLAGS = {"creationflags": 0x08000000} if sys.platform == "win32" els
 # ---------------------------------------------------------------------------
 # Komponenten-Registry
 # ---------------------------------------------------------------------------
-# sha256 leer = Pruefung wird uebersprungen (mit Warnung im Log). Die
-# Checksum der UB-Mannheim-Releases aendert sich pro Version; sie wird beim
-# Versions-Bump hier nachgezogen. Der Beta-Exit (Kriterium 3) verifiziert
-# den kompletten Install-Pfad auf einer frischen Maschine.
+# Jede Komponente mit Download-Adresse braucht eine SHA-256-Pruefsumme (#1152):
+# ohne sie wird NICHTS geladen und nichts gestartet (`_pruefsumme_gueltig`).
+# Die Summe aendert sich mit jeder Version und wird beim Versions-Bump
+# nachgezogen; ein Test haelt, dass keine Komponente ohne sie in der Registry
+# steht. Der Beta-Exit (Kriterium 3) verifiziert den kompletten Install-Pfad
+# auf einer frischen Maschine.
 COMPONENT_DEFS: dict[str, dict] = {
     "tesseract": {
         "label": "Tesseract OCR",
@@ -69,7 +71,12 @@ COMPONENT_DEFS: dict[str, dict] = {
                 "https://github.com/UB-Mannheim/tesseract/releases/download/"
                 "v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
             ),
-            "sha256": "",
+            # SHA-256 des Installers, entnommen dem winget-Manifest
+            # UB-Mannheim.TesseractOCR 5.4.0.20240606 (microsoft/winget-pkgs):
+            # Microsoft laedt dieselbe Adresse und vergleicht. Nicht selbst
+            # heruntergeladen; die Probe auf frischem Windows (Beta-Exit 3)
+            # bestaetigt sie.
+            "sha256": "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9",
             "installer_art": "nsis",  # silent: /S /D=<zielordner>
         },
         # Bekannte Orte fuer extern installierte Instanzen (zusaetzlich
@@ -421,13 +428,19 @@ def _download(url: str, target: Path, progress: Callable[[int, str], None],
         raise
 
 
+def _pruefsumme_gueltig(wert) -> bool:
+    """Eine SHA-256-Summe: genau 64 Hexzeichen. Alles andere (leer, zu kurz, kein Hex) gilt als „keine“."""
+    return isinstance(wert, str) and re.fullmatch(r"[0-9a-fA-F]{64}", wert) is not None
+
+
 def _sha256_ok(path: Path, expected: str) -> bool:
-    if not expected:
-        logger.warning(
-            "Komponenten-Download ohne Checksum-Pruefung (keine sha256 in "
-            "der Registry hinterlegt): %s", path.name,
+    if not _pruefsumme_gueltig(expected):
+        # #1152: ohne Sollwert gibt es nichts zu pruefen, und was sich nicht pruefen laesst, gilt nicht.
+        logger.error(
+            "Komponenten-Download ohne gueltige Pruefsumme in der Registry "
+            "wird nicht verwendet: %s", path.name,
         )
-        return True
+        return False
     import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -512,6 +525,13 @@ def install_component(db, name: str,
     dl = definition.get("windows_download") or {}
     if not dl.get("url"):
         return {"status": "fehler", "fehler": "Keine Download-Quelle hinterlegt."}
+    if not _pruefsumme_gueltig(dl.get("sha256", "")):
+        # #1152: nicht erst laden und dann ablehnen -- 50 MB umsonst, und die Datei laege auf der Platte.
+        logger.error("Komponente %s: keine gueltige Pruefsumme in der Registry, Installation abgelehnt", name)
+        return {"status": "fehler", "fehler": (
+            "Für diese Komponente ist keine Prüfsumme hinterlegt. PBP lädt und startet nichts, "
+            "das es nicht prüfen kann. Du kannst sie selbst installieren und den Pfad in den "
+            "Einstellungen setzen.")}
 
     target_dir = components_dir() / name
     setup_path = _setup_datei(name)
