@@ -429,5 +429,6 @@ def test_der_vertrag_des_startbausteins_ist_eingefroren():
     assert (boot.MAX_UNBESTAETIGT, boot.NACHSICHT_S) == (2, 90)
     assert boot.PAKET == "bewerbungs_assistent"
     for name in ("app_dir", "lese_status", "schreibe_status", "lese_aktuell", "fassung_gueltig", "gueltige_fassungen",
-                 "waehle_fassung", "start_bestaetigen", "schreibe_atomar", "sortschluessel", "starte"):
+                 "waehle_fassung", "start_bestaetigen", "schreibe_atomar", "sortschluessel", "starte", "bereit_melden",
+                 "ist_bereit"):
         assert callable(getattr(boot, name)), name

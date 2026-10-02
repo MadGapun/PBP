@@ -417,3 +417,33 @@ def test_der_startbaustein_nutzt_nur_die_standardbibliothek():
 def test_der_startbaustein_hat_einen_eigenen_main_der_starte_aufruft():
     quelle = (SRC / "bewerbungs_assistent_boot" / "__main__.py").read_text(encoding="utf-8")
     assert "starte(" in quelle and '"dashboard"' in quelle
+
+
+def test_nach_bereit_melden_ist_eine_ausnahme_kein_versionsfehler_mehr(tmp_path):
+    """Eine abrupt getrennte Verbindung zu Claude Desktop wirft kurz nach dem Start eine Ausnahme: das ist der laufende
+    Betrieb, nicht die neue Fassung. Ohne diese Unterscheidung schaltete ein Fenster, das man schnell schliesst, zurueck."""
+    main = textwrap.dedent("""
+        from bewerbungs_assistent_boot import bereit_melden
+        bereit_melden()
+        raise RuntimeError("Verbindung abrupt getrennt")
+    """)
+    app = layout(tmp_path, fassungen=("1.8.0",))
+    fassung_anlegen(app, "1.8.1", main=main)
+    (app / "aktuell.txt").write_text("1.8.1\n", encoding="utf-8")
+    (app / "update_status.json").write_text(json.dumps({"vorherige": "1.8.0"}), encoding="utf-8")
+    r = starten(app)
+    assert r.returncode != 0 and "Verbindung abrupt getrennt" in r.stderr
+    assert (app / "aktuell.txt").read_text(encoding="utf-8").strip() == "1.8.1"
+    assert "rueckgang" not in status(app) and not (app / "lief_1.8.0.txt").exists()
+
+
+def test_vor_bereit_melden_ist_dieselbe_ausnahme_ein_versionsfehler(tmp_path):
+    main = 'raise RuntimeError("Fehler im Startcode")\n'
+    app = layout(tmp_path, fassungen=("1.8.0",))
+    fassung_anlegen(app, "1.8.1", main=main)
+    (app / "aktuell.txt").write_text("1.8.1\n", encoding="utf-8")
+    (app / "update_status.json").write_text(json.dumps({"vorherige": "1.8.0"}), encoding="utf-8")
+    r = starten(app)
+    assert r.returncode == 0, r.stderr
+    assert (app / "lief_1.8.0.txt").exists()
+    assert status(app)["rueckgang"]["von"] == "1.8.1"

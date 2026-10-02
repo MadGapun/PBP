@@ -193,3 +193,20 @@ class FakeDb:
 
     def set_setting(self, key, value):
         self.werte[key] = value
+
+
+# ── Die Liste der Veroeffentlichungen (GitHub-API-Antwort) ────────────────────────────────
+
+def eintrag(tag, *, body="Neue Hinweise im Dashboard.", prerelease=False, draft=False, dateien=True, signatur=False):
+    v = tag[1:]
+    assets = []
+    if dateien:
+        assets = [{"name": f"pbp-update-{v}.zip", "size": 2_500_000}, {"name": "SHA256SUMS", "size": 100}]
+        if signatur:
+            assets.append({"name": "SHA256SUMS.sig", "size": 90})
+    return {"tag_name": tag, "name": f"PBP {v}", "draft": draft, "prerelease": prerelease, "body": body,
+            "published_at": "2026-10-02T10:00:00Z", "assets": assets}
+
+
+def liste(*eintraege):
+    return FakeOeffner({quelle.API_FREIGABEN: json.dumps(list(eintraege)).encode()})

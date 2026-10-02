@@ -28,6 +28,11 @@ _PERIODIC_INTERVAL = 30  # Sekunden
 _periodic_thread: threading.Thread | None = None
 
 
+def _meine_version() -> str:
+    from . import __version__
+    return __version__
+
+
 def _write_heartbeat_file(tool_name: str, is_alive: bool = False) -> None:
     """Schreibt Heartbeat-Datei."""
     try:
@@ -40,6 +45,9 @@ def _write_heartbeat_file(tool_name: str, is_alive: bool = False) -> None:
             # #1098: wer schreibt — damit ein zweiter Prozess erkennt, dass
             # die Datenbank noch benutzt wird (Wiederherstellen beim Start).
             "pid": os.getpid(),
+            # #1093: welche Fassung dieser Prozess ist. Nach einem Auto-Update koennen MCP-Server und
+            # Dashboard in verschiedenen Fassungen laufen; das Dashboard soll das sagen koennen.
+            "version": _meine_version(),
         }
         # Merge with existing data to preserve last_tool_call
         if is_alive:
@@ -159,20 +167,20 @@ def get_connection_status() -> dict:
     hb = read_heartbeat()
     if hb is None:
         return {"status": "disconnected", "last_tool_call": None, "last_tool": None,
-                "seconds_since_heartbeat": None}
+                "seconds_since_heartbeat": None, "version": None}
 
     # Nutze last_heartbeat (periodisch) statt last_tool_call
     heartbeat_ts = hb.get("last_heartbeat") or hb.get("last_tool_call")
     if not heartbeat_ts:
         return {"status": "disconnected", "last_tool_call": None, "last_tool": None,
-                "seconds_since_heartbeat": None}
+                "seconds_since_heartbeat": None, "version": hb.get("version")}
 
     try:
         last_dt = datetime.fromisoformat(heartbeat_ts)
         age_seconds = (datetime.now(timezone.utc) - last_dt).total_seconds()
     except (ValueError, TypeError):
         return {"status": "unknown", "last_tool_call": hb.get("last_tool_call"),
-                "last_tool": hb.get("tool"), "seconds_since_heartbeat": None}
+                "last_tool": hb.get("tool"), "seconds_since_heartbeat": None, "version": hb.get("version")}
 
     # Engere Schwellen dank periodischem Heartbeat (alle 30s)
     if age_seconds < 90:       # 3x Heartbeat-Intervall
@@ -187,4 +195,5 @@ def get_connection_status() -> dict:
         "last_tool_call": hb.get("last_tool_call"),
         "last_tool": hb.get("tool"),
         "seconds_since_heartbeat": round(age_seconds),
+        "version": hb.get("version"),
     }

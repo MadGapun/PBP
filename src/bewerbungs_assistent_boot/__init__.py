@@ -27,8 +27,10 @@ haelt beide Seiten gegeneinander.
 Rueckfall (Akzeptanzkriterium 5): startet eine neue Fassung nicht, laeuft wieder
 die vorige und PBP sagt das.
 
-* **Harter Fehler** — die Fassung wirft vor der Startbestaetigung eine Ausnahme
-  (Importfehler, Syntaxfehler, Migrationsfehler): sofort zurueck, im selben Prozess.
+* **Harter Fehler** — die Fassung wirft eine Ausnahme, BEVOR sie `bereit_melden()` gerufen hat
+  (Importfehler, Syntaxfehler, Migrationsfehler, ein Fehler in ihrem Startcode): sofort zurueck, im
+  selben Prozess. Danach ist jede Ausnahme eine des laufenden Betriebs (zum Beispiel eine abrupt
+  getrennte Verbindung zu Claude Desktop) und kein Grund, die Fassung zu verwerfen.
 * **Stiller Fehler** — der Prozess starb, ohne je zu bestaetigen: nach
   `MAX_UNBESTAETIGT` solchen Starts hintereinander zurueck. Ein Start, der erst
   Sekunden alt ist, zaehlt nicht (zwei Prozesse starten gleichzeitig: Claude
@@ -64,6 +66,8 @@ MAX_UNBESTAETIGT = 2
 NACHSICHT_S = 90
 
 # ASCII und fullmatch: `\d` laesst auch arabisch-indische Ziffern zu und `$` ein Zeilenende am Schluss.
+_BEREIT = False
+
 _FASSUNG = re.compile(r"([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,4})(?:-(alpha|beta|rc)\.([0-9]{1,3}))?", re.ASCII)
 _RANG = {None: 9, "rc": 3, "beta": 2, "alpha": 1}
 
@@ -247,6 +251,16 @@ def waehle_fassung(app):
     return aktuell, hinweis
 
 
+def bereit_melden() -> None:
+    """Die Fassung meldet: mein Startcode ist durch, ab jetzt laufe ich. Spaetere Ausnahmen sind kein Versionsfehler."""
+    global _BEREIT
+    _BEREIT = True
+
+
+def ist_bereit() -> bool:
+    return _BEREIT
+
+
 def start_bestaetigen(app, fassung: str) -> bool:
     """Die Fassung meldet: Datenbank und Dashboard sind bereit. Gibt True, wenn eingetragen."""
     status = lese_status(app)
@@ -322,7 +336,7 @@ def _lauf(app, fassung: str, ziel: str, rueckfall_erlaubt: bool) -> None:
         status = lese_status(app)
         start = status.get("start") if isinstance(status.get("start"), dict) else {}
         bestaetigt = start.get("version") == fassung and start.get("bestaetigt")
-        if bestaetigt or not rueckfall_erlaubt:
+        if bestaetigt or _BEREIT or not rueckfall_erlaubt:
             raise
         beschreibung = f"{type(exc).__name__}: {exc}"[:300]
         start.update({"version": fassung, "fehler": beschreibung})

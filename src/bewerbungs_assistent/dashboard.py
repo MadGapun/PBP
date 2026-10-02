@@ -133,6 +133,11 @@ class ApiRequestLoggingMiddleware:
 
 app.add_middleware(ApiRequestLoggingMiddleware)
 
+# #1093: ist die Datenbank NEUER als dieses Programm (ein Update hat sie umgestellt, dieser Prozess laeuft noch in
+# der alten Fassung), schreibt dieser Prozess nichts mehr. Vor dem lokalen Zugriff eingehaengt = danach geprueft.
+from .services.schema_schutz import SchemaSchutzMiddleware  # noqa: E402
+app.add_middleware(SchemaSchutzMiddleware, db_getter=lambda: _db)
+
 # v1.7.145: nur das Dashboard selbst darf PBP veraendern. Eine fremde
 # Webseite im selben Browser konnte bisher per einfacher Anfrage (POST mit
 # text/plain) das Profil ueberschreiben, Ordner einlesen, die Datenbank
@@ -7962,6 +7967,104 @@ async def api_update_check(frisch: int = 0):
 
 # === Health Info (v1.4.0, #290) ===
 
+# === Auto-Update (#1093) ===
+#
+# Die Quelle der Installation steht fest im Code (services/auto_update/quelle.py) und ist KEINE Einstellung:
+# diese Aufrufe koennen Stufe, Zahl der Vorgaenger und das Aufraeumen des Installers aendern, nie die Herkunft.
+
+_AUTO_UPDATE_ANTWORTEN = {
+    "automatisch": ("auto_meldung", "ja"),
+    "klick": ("hinweis", "ja"),
+    "nein": ("aus", "nein"),
+}
+
+
+@app.get("/api/auto-update")
+async def api_auto_update():
+    """Alles zum Auto-Update in einer Antwort: Stufe, Stand, neue Version, laufender Lauf, Verlauf."""
+    from .services.auto_update import lauf
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/einstellungen")
+async def api_auto_update_einstellungen(payload: dict = Body(default={})):
+    """Stufe, Zahl der behaltenen Vorgaenger und Aufraeumen des Installers setzen."""
+    from .services.auto_update import lauf, zustand
+    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen")):
+        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten oder installer_aufraeumen."},
+                            status_code=400)
+    try:
+        if "stufe" in payload:
+            zustand.stufe_setzen(_db, payload["stufe"])
+            # Wer die Stufe selbst waehlt, hat die Rueckfrage beantwortet.
+            zustand.antwort_merken(_db, "nein" if payload["stufe"] == "aus" else "ja")
+        if "vorgaenger_behalten" in payload:
+            zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
+        if "installer_aufraeumen" in payload:
+            zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/antwort")
+async def api_auto_update_antwort(payload: dict = Body(default={})):
+    """Die Rueckfrage zum neuen Update beantworten: automatisch, klick, nein oder spaeter."""
+    from .services.auto_update import lauf, zustand
+    antwort = payload.get("antwort")
+    bei = payload.get("bei_version")
+    if antwort == "spaeter":
+        zustand.antwort_merken(_db, "spaeter", bei)
+    elif antwort in _AUTO_UPDATE_ANTWORTEN:
+        stufe, gemerkt = _AUTO_UPDATE_ANTWORTEN[antwort]
+        zustand.stufe_setzen(_db, stufe)
+        zustand.antwort_merken(_db, gemerkt, bei)
+    else:
+        return JSONResponse({"error": "antwort muss automatisch, klick, nein oder spaeter sein."}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/pruefen")
+async def api_auto_update_pruefen():
+    """„Jetzt prüfen“: fragt die feste Quelle (nicht dichter als alle 15 Sekunden)."""
+    import asyncio
+    from .services.auto_update import lauf
+    await asyncio.to_thread(lauf.pruefen, _db, frisch=True)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/installieren")
+async def api_auto_update_installieren(payload: dict = Body(default={})):
+    """Die neue Version jetzt installieren (Ein-Klick-Update). Laeuft im Hintergrund; Stand: GET /api/auto-update."""
+    from .services.auto_update import lauf
+    version = payload.get("version")
+    if not version:
+        letzte = lauf.letzte_pruefung(_db) or {}
+        version = letzte.get("version") if letzte.get("status") == "neu" else None
+    if not version:
+        return JSONResponse({"error": "Es gibt keine neue Version, die installiert werden könnte."}, status_code=400)
+    r = lauf.starte_installation(_db, version, ausloeser="klick")
+    code = {"gestartet": 200, "abgelehnt": 400}.get(r["status"], 409)
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/zurueck")
+async def api_auto_update_zurueck(payload: dict = Body(default={})):
+    """Beim naechsten Start eine aeltere, noch installierte Fassung nutzen."""
+    from .services.auto_update import lauf
+    r = lauf.zurueckschalten(_db, str(payload.get("version") or ""))
+    code = 200 if r["status"] in ("ok", "nichts_zu_tun") else 409
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/rueckgang-gesehen")
+async def api_auto_update_rueckgang_gesehen():
+    """Die Meldung „Version X ließ sich nicht starten“ als gesehen vermerken."""
+    from .services.auto_update import lauf, zustand
+    zustand.rueckgang_gesehen()
+    return lauf.uebersicht(_db)
+
+
 @app.get("/api/health")
 async def api_health():
     """System health information for diagnostics."""
@@ -8007,7 +8110,15 @@ async def api_health():
         "server_time": _berlin_now.strftime("%H:%M"),
         "server_time_iso": _berlin_now.isoformat(),
         "timezone": "Europe/Berlin",
+        # #1093: laufen Dashboard und MCP-Server in verschiedenen Fassungen, und ist die Datenbank neuer als dieses Programm?
+        "fassung_laufend": os.environ.get("PBP_FASSUNG") or __version__,
+        "datenbank_zu_neu": _schema_zu_neu(),
     }
+
+
+def _schema_zu_neu():
+    from .services import schema_schutz
+    return schema_schutz.zu_neu(_db)
 
 
 # === Datenschutz-Selbstauskunft (v1.7.0 #581) ===
@@ -12336,6 +12447,12 @@ def start_dashboard(db_instance, port: int = None):
         start_automatik_scheduler(db_instance)
     except Exception as exc:
         logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
+    # #1093: Auto-Update — Reste weg, Start melden, Zeitgeber. Ohne Installer-Layout tut es nichts.
+    try:
+        from .services.auto_update import lauf as _auto_update
+        _auto_update.beim_start(db_instance)
+    except Exception as exc:
+        logger.warning("Auto-Update-Start uebersprungen: %s", exc)
     # #1001: Ollama auf Wunsch mitstarten — derselbe Aufruf wie im
     # MCP-Startweg (server.py). Vorgabe AUS.
     try:
