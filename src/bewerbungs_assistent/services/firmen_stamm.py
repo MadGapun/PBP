@@ -805,7 +805,7 @@ def vorschlaege_anwenden(db, auswahl, *, bestaetigt: bool = False) -> dict:
     plan = [alle[a] for a in gewaehlt]
     if not bestaetigt:
         return {"status": "vorschau", "anzahl": len(plan), "vorschlaege": plan,
-                "text": (f"{len(plan)} Firmen würden angelegt oder ergänzt. Bewerbungen, Stellen und Kontakte bleiben unverändert. "
+                "text": (f"{len(plan)} {'Eintrag würde' if len(plan) == 1 else 'Einträge würden'} angelegt oder ergänzt. Bewerbungen, Stellen und Kontakte bleiben unverändert. "
                          "Bestätige, um sie anzulegen.")}
     angelegt, ergaenzt, probleme = [], [], []
     for v in plan:
@@ -824,5 +824,6 @@ def vorschlaege_anwenden(db, auswahl, *, bestaetigt: bool = False) -> dict:
             elif r["status"] != "schon_da":
                 probleme.append(f"{v['name']}: {r['text']}")
     return {"status": "angewendet" if not probleme else "teilweise", "angelegt": angelegt, "ergaenzt": ergaenzt, "probleme": probleme,
-            "text": f"{len(angelegt)} Firmen angelegt, {len(ergaenzt)} Schreibweisen ergänzt."
-                    + (f" {len(probleme)} Hinweise." if probleme else "")}
+            "text": (f"{len(angelegt)} {'Firma' if len(angelegt) == 1 else 'Firmen'} angelegt, "
+                     f"{len(ergaenzt)} {'Schreibweise' if len(ergaenzt) == 1 else 'Schreibweisen'} ergänzt.")
+                    + (f" {len(probleme)} {'Hinweis' if len(probleme) == 1 else 'Hinweise'}." if probleme else "")}

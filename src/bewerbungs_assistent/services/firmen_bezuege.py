@@ -374,7 +374,7 @@ def bezuege(db, firmenname: str) -> dict:
                 treffer.append({"rolle": "kontakt", "quelle": "kontakte", "name": z["kontakt_firma_text"] or z["firma"],
                                 "abgleich": "zuordnung", "kontakt_id": z["kontakt_id"], "person": z["kontakt"],
                                 "funktion": z["rolle"] or z["funktion"], "zeitraum": z["zeitraum"], "aktuell": z["aktuell"],
-                                "zuordnung_id": z["id"]})
+                                "zuordnung_id": z["id"], "rolle_dort": z["rolle"], "von": z["von"], "bis": z["bis"]})
         except Exception as exc:  # noqa: BLE001 — eine Zugabe: ein Fehler dort kostet die Suche nie
             logger.debug("Kontakt-Zuordnungen nicht gelesen: %s", exc)
     for k in kontakte:

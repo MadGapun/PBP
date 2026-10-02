@@ -9195,6 +9195,145 @@ async def api_reference_delete(ref_id: str):
     return {"status": "ok", "rueckweg": {"art": "referenz", "zeile": zeile} if zeile else None}
 
 
+# ── Firmen-Ansicht (#1080, Stufe 2) ─────────────────────────────────────────────────────────────────────
+# Dieselben Dienste wie die MCP-Werkzeuge firmen_stamm_anzeigen / firmen_vorschlaege_anzeigen / firmen_stamm_bearbeiten: was der
+# Mensch hier klickt, kann Claude ebenso. Loeschen, Zusammenfuehren und das Anlegen von Vorschlaegen verlangen `bestaetigt: true`;
+# die Rueckfrage stellt das Dashboard dem Menschen, bevor es das sendet.
+
+_FIRMEN_FEHLER = {"fehler": 400, "nicht_gefunden": 404, "schon_da": 409, "gehoert_anderer_firma": 409}
+
+
+def _firmen_antwort(erg: dict):
+    """Ein Dienst-Ergebnis als HTTP-Antwort: Fehlerstatus als 4xx mit `error`, sonst das Ergebnis selbst."""
+    code = _FIRMEN_FEHLER.get(erg.get("status"))
+    if code:
+        return JSONResponse({"error": erg.get("text") or "Das hat nicht geklappt.", **erg}, status_code=code)
+    return erg
+
+
+@app.get("/api/firmen")
+async def api_firmen_liste(suche: str = ""):
+    from .services import firmen_stamm
+    liste = firmen_stamm.firmen_liste(_db, suche)
+    return {"firmen": liste, "anzahl": len(liste),
+            "offene_vorschlaege": firmen_stamm.vorschlaege(_db, maximal=1)["anzahl"]}
+
+
+@app.get("/api/firmen/ansicht")
+async def api_firmen_ansicht(name: str = "", id: str = ""):
+    from .services import firmen_ansicht
+    return _firmen_antwort(firmen_ansicht.ansicht(_db, name=name, firma_id=id))
+
+
+@app.get("/api/firmen/vorschlaege")
+async def api_firmen_vorschlaege():
+    from .services import firmen_stamm
+    return firmen_stamm.vorschlaege(_db)
+
+
+@app.post("/api/firmen/vorschlaege/anwenden")
+async def api_firmen_vorschlaege_anwenden(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.vorschlaege_anwenden(_db, data.get("auswahl"), bestaetigt=data.get("bestaetigt") is True))
+
+
+@app.post("/api/firmen")
+async def api_firma_anlegen(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.firma_anlegen(
+        _db, data.get("name"), mutterfirma_id=data.get("mutterfirma_id") or "", branche=data.get("branche") or "",
+        standorte=data.get("standorte") or "", notizen=data.get("notizen") or "", aliase=data.get("aliase") or []))
+
+
+@app.patch("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_aendern(zuordnung_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    felder = {k: data[k] for k in ("rolle", "von", "bis", "aktuell", "notizen") if k in data}
+    if not felder:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zuordnung_aendern(_db, zuordnung_id, **felder))
+
+
+@app.delete("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_entfernen(zuordnung_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.zuordnung_entfernen(_db, zuordnung_id))
+
+
+@app.patch("/api/firmen/{firma_id}")
+async def api_firma_aendern(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ergebnis: dict = {}
+    if "name" in data:
+        ergebnis = firmen_stamm.umbenennen(_db, firma_id, data.get("name"))
+        if ergebnis.get("status") != "umbenannt":
+            return _firmen_antwort(ergebnis)
+    if "mutterfirma_id" in data:
+        ergebnis = firmen_stamm.mutterfirma_setzen(_db, firma_id, data.get("mutterfirma_id") or "")
+        if ergebnis.get("status") != "gesetzt":
+            return _firmen_antwort(ergebnis)
+    felder = {k: data[k] for k in ("branche", "standorte", "notizen") if k in data}
+    if felder:
+        ergebnis = firmen_stamm.firma_bearbeiten(_db, firma_id, **felder)
+    if not ergebnis:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(ergebnis)
+
+
+@app.post("/api/firmen/{firma_id}/aliase")
+async def api_firma_alias_hinzufuegen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.alias_hinzufuegen(_db, firma_id, data.get("alias"), data.get("art") or "schreibweise"))
+
+
+@app.delete("/api/firmen/{firma_id}/aliase/{alias_id}")
+async def api_firma_alias_entfernen(firma_id: str, alias_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.alias_entfernen(_db, firma_id, alias_id))
+
+
+@app.post("/api/firmen/{firma_id}/zusammenfuehren")
+async def api_firma_zusammenfuehren(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ziel, quelle = firmen_stamm.firma_laden(_db, firma_id), firmen_stamm.firma_laden(_db, data.get("quelle_id") or "")
+    if ziel is None or quelle is None:
+        return JSONResponse({"error": "Eine der beiden Firmen gibt es nicht (mehr)."}, status_code=404)
+    if data.get("bestaetigt") is not True:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig", "ziel": ziel["name"], "quelle": quelle["name"]}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zusammenfuehren(_db, firma_id, data.get("quelle_id")))
+
+
+@app.delete("/api/firmen/{firma_id}")
+async def api_firma_loeschen(firma_id: str, bestaetigt: bool = False):
+    from .services import firmen_stamm
+    if firmen_stamm.firma_laden(_db, firma_id) is None:
+        return JSONResponse({"error": "Diese Firma gibt es nicht (mehr)."}, status_code=404)
+    if not bestaetigt:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig"}, status_code=400)
+    return _firmen_antwort(firmen_stamm.firma_loeschen(_db, firma_id))
+
+
+@app.post("/api/firmen/{firma_id}/kontakte")
+async def api_firma_kontakt_zuordnen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.kontakt_zuordnen(
+        _db, firma_id, data.get("kontakt_id") or "", rolle=data.get("rolle") or "", von=data.get("von") or "",
+        bis=data.get("bis") or "", aktuell=data.get("aktuell"), notizen=data.get("notizen") or ""))
+
+
+@app.get("/api/contacts/{contact_id}/firmen")
+async def api_kontakt_firmen(contact_id: str):
+    from .services import firmen_stamm
+    return {"firmen": firmen_stamm.firmen_des_kontakts(_db, contact_id)}
+
+
 @app.get("/api/contacts/export.csv")
 async def api_contacts_csv():
     """Kontakte als CSV exportieren (#578)."""

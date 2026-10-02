@@ -309,6 +309,218 @@ def _firma_matcht(company: str, query_norm: str) -> bool:
     return abgleich(query_norm, namensform(company)) is not None
 
 
+def _firma_link(name: str) -> str:
+    """Der Link ins Dashboard auf die Firmen-Ansicht (#1080)."""
+    from ..services.dashboard_link import firma_link
+    return firma_link(name)
+
+
+def firma_kontext_daten(db, firmenname: str, logger, roh: bool = False) -> dict:
+    """Der dokumentierte Stand zu einer Firma (#753, H18, #1080) - die eine Quelle fuer das Werkzeug `firma_kontext` und die
+    Firmen-Ansicht im Dashboard. `roh=True` haengt die vollen Bezuege an (`_roh_bezuege`); das Werkzeug fragt sie nie."""
+    query_norm = _firma_normalisieren(firmenname)
+    if not query_norm:
+        return {"fehler": "firmenname ist Pflicht."}
+
+    from ..services import firmen_bezuege as _fb
+
+    # #1080 Stufe 2: bestaetigte Schreibweisen (Firmen-Stammsatz) sowie Mutter- und Tochterfirma erweitern die Suche.
+    # Ein Treffer, der nur darueber gefunden wurde, sagt es (`via`); Konzern wird gefunden, nie verschmolzen.
+    stamm_aufloesung = {"firma": None, "mehrdeutig": [], "art": ""}
+    suchformen = [(query_norm, "direkt")]
+    try:
+        from ..services import firmen_stamm as _fs
+        stamm_aufloesung = _fs.aufloesen(db, firmenname)
+        if stamm_aufloesung["firma"]:
+            for _f, _via, _ in _fs.formen_der_gruppe(db, stamm_aufloesung["firma"]["id"]):
+                if _f and all(_f != s for s, _ in suchformen):
+                    suchformen.append((_f, _via))
+    except Exception as exc:  # noqa: BLE001 — der Stammsatz ist eine Zugabe
+        logger.debug("firma_kontext: Stammsatz nicht gelesen: %s", exc)
+
+    def _via_von(company):
+        """None = kein Treffer; sonst 'direkt', 'schreibweise', 'mutterfirma' oder 'tochterfirma' (der beste Weg)."""
+        beste = None
+        for form, via in suchformen:
+            if _firma_matcht(company or "", form):
+                rang = _fb._VIA_RANG.get(via, 1)
+                if beste is None or rang < beste[0]:
+                    beste = (rang, via)
+        return beste[1] if beste else None
+
+    bewerbungen = []
+    for app in db.get_applications():
+        rolle = None
+        via = None
+        for feld, name in (("company", "bewerbungsziel"),
+                           ("endkunde", "endkunde"),
+                           ("vermittler", "vermittler")):
+            via = _via_von(app.get(feld) or "")
+            if via:
+                rolle = name
+                break
+        if not rolle:
+            continue
+        eintrag = {
+            "bewerbung_id": (app.get("id") or "")[:8],
+            "bewerbung_id_voll": app.get("id") or "",
+            "titel": app.get("title"),
+            "firma": app.get("company"),
+            "rolle": rolle,
+            "status": app.get("status"),
+            "beworben_am": app.get("applied_at"),
+        }
+        if via != "direkt":
+            eintrag["via"] = via
+        for feld in ("vermittler", "endkunde"):
+            if (app.get(feld) or "").strip():
+                eintrag[feld] = app.get(feld)
+        # Nutzerwort 25.09.2026: nicht alles hinschreiben — die
+        # Timeline steht in der Bewerbung, hier steht der Weg dorthin.
+        try:
+            meetings = db.get_meetings_for_application(app.get("id"))
+            if meetings:
+                eintrag["termine"] = len(meetings)
+        except Exception:
+            pass
+        eintrag["bereich"] = "Bewerbungen › Timeline"
+        eintrag["oeffnen"] = f"bewerbung_details('{app.get('id')}')"
+        eintrag["dashboard_link"] = _dashboard_link("bewerbungen", app.get("id") or "")
+        bewerbungen.append(eintrag)
+
+    # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
+    # der Praxis-Fall war genau hier: aktive Stelle, auf die vor
+    # 10 Monaten schon beworben wurde, ohne dass es jemand sah.
+    from ..services import bewerbungs_hinweis as _bh
+    _apps_fuer_repost = db.get_applications()
+    aktive_stellen = []
+    for j in db.get_active_jobs():
+        via_st = _via_von(j.get("company", ""))
+        if not via_st:
+            continue
+        eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
+                      "score": j.get("score"),
+                      "gefunden_am": (j.get("found_at") or "")[:10],
+                      "oeffnen": f"fit_analyse('{j.get('hash')}')"}
+        if via_st != "direkt":
+            eintrag_st["via"] = via_st
+        try:
+            _rp = _bh.fuer_stelle(j, _apps_fuer_repost, db=db)
+            if _rp:
+                eintrag_st.update(_bh.als_felder(_rp))
+        except Exception:
+            pass
+        aktive_stellen.append(eintrag_st)
+        if len(aktive_stellen) >= 15:
+            break
+
+    aussortiert = [
+        j for j in (db.get_dismissed_jobs() or [])
+        if _via_von(j.get("company", ""))
+    ]
+    gruende: dict = {}
+    for j in aussortiert:
+        grund = j.get("dismiss_reason") or "unbekannt"
+        gruende[grund] = gruende.get(grund, 0) + 1
+    # Auch eine aussortierte Stelle sagt etwas ueber die Firma —
+    # welche Rollen sie ausschreibt und warum sie nicht passte.
+    aussortiert_beispiele = [
+        {"titel": j.get("title"), "grund": j.get("dismiss_reason"),
+         "oeffnen": f"fit_analyse('{j.get('hash')}')"}
+        for j in aussortiert[:8]
+    ]
+
+    # #1080: alle weiteren Quellen. Bewerbungen stehen oben schon mit
+    # Termin, hier kommen nur die Rollen dazu, die dort nicht stehen.
+    try:
+        weitere = _fb.bezuege(db, firmenname)
+    except Exception as exc:  # eine Quelle darf den Lookup nie kosten
+        logger.warning("firma_kontext: Bezuege nicht ermittelbar: %s", exc)
+        weitere = {"bezuege": [], "rollen": {}, "schreibweisen": [],
+                   "warnungen": []}
+    andere = [b for b in weitere["bezuege"] if b["quelle"] != "bewerbung"]
+    erwaehnt = [b for b in weitere["bezuege"]
+                if b["rolle"] == "in_notizen_erwaehnt"]
+    je_rolle: dict = {}
+    for b in andere:
+        je_rolle.setdefault(b["rolle"], []).append(b)
+    weitere_bezuege = {r: [_fb.kompakt(b) for b in liste[:_fb.MAX_JE_ROLLE]]
+                       for r, liste in je_rolle.items()}
+    schreibweisen = sorted(
+        (set(weitere["schreibweisen"])
+         | {b.get("firma") for b in bewerbungen
+            if b["rolle"] == "bewerbungsziel"}
+         | {j.get("company") for j in aussortiert})
+        - {None, ""})
+
+    gefunden = bool(bewerbungen or aktive_stellen or aussortiert
+                    or andere or erwaehnt)
+    # #1148: Bei einer erfolglosen Suche Namen nennen, die so BEGINNEN —
+    # "Personal" fand "Personalservice ..." nicht. Nur Kandidaten zum
+    # Nachfragen, nie Treffer: sie loesen keine Aussage und keine Warnung aus.
+    aehnliche = []
+    if not gefunden:
+        try:
+            aehnliche = _fb.aehnliche_namen(db, firmenname)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("firma_kontext: aehnliche Namen (#1148): %s", exc)
+    # #1080 Stufe 2: der Stammsatz, falls der Name zu genau einer Firma gehoert; sonst die Namen, zwischen denen PBP nicht raet.
+    stamm_antwort = {}
+    _sf = stamm_aufloesung["firma"]
+    if _sf:
+        stamm_antwort["stammsatz"] = {
+            "id": _sf["id"], "name": _sf["name"], "aliase": [a["alias"] for a in _sf["aliase"]],
+            "mutterfirma": (_sf["mutterfirma"] or {}).get("name", ""),
+            "tochterfirmen": [k["name"] for k in _sf["tochterfirmen"]],
+            "branche": _sf["branche"], "notizen": _sf["notizen"]}
+    elif stamm_aufloesung["mehrdeutig"]:
+        stamm_antwort["stammsatz_mehrdeutig"] = stamm_aufloesung["mehrdeutig"]
+        stamm_antwort["stammsatz_hinweis"] = (
+            "Der Name passt zu mehreren Firmen im Stammsatz: " + ", ".join(stamm_aufloesung["mehrdeutig"])
+            + ". Frag nach, welche gemeint ist; PBP rät hier nicht.")
+    ergebnis = {
+        "firma_suchbegriff": firmenname,
+        "gefunden": gefunden,
+        "dashboard_link": _firma_link(_sf["id"] if _sf else firmenname),
+        **stamm_antwort,
+        **({"aehnliche_firmen": aehnliche,
+            "aehnliche_hinweis": (
+                "Keine Firma dieses Namens, aber diese Namen BEGINNEN so: "
+                + ", ".join(aehnliche) + ". Frag nach, ob eine davon gemeint ist — "
+                "und rufe firma_kontext erst mit dem vollen Namen auf, bevor du "
+                "etwas über einen Status sagst.")} if aehnliche else {}),
+        "warnungen": weitere["warnungen"],
+        "rollen": weitere["rollen"],
+        "weitere_bezuege": weitere_bezuege,
+        "in_notizen_erwaehnt": [_fb.kompakt(b) for b in erwaehnt[:_fb.MAX_JE_ROLLE]],
+        "schreibweisen": schreibweisen,
+        "bewerbungen": bewerbungen,
+        "aktive_stellen": aktive_stellen,
+        "aussortiert_anzahl": len(aussortiert),
+        "aussortiert_gruende": gruende,
+        "aussortiert_beispiele": aussortiert_beispiele,
+        "hinweis": (
+            "WICHTIG (#757): Aussortier-Gruende gelten je STELLE, nicht "
+            "für die Firma insgesamt — dieselbe Firma kann passende und "
+            "unpassende Rollen ausschreiben. Jeder Treffer nennt seine "
+            "ROLLE (#1080): ein früherer Arbeitgeber oder Projektkunde "
+            "ist kein Bewerbungsstand. `abgleich: abkürzung` ist der "
+            "schwächste Namensabgleich — dort vor einer Aussage "
+            "nachfragen, ob dieselbe Firma gemeint ist."
+        ) if gefunden else (
+            "Kein dokumentierter Kontakt mit dieser Firma in PBP — weder "
+            "Bewerbungen, Stellen, Lebenslauf, Kontakte, Anfragen noch "
+            "Recherchen. Wenn du (Claude) etwas anderes "
+            "'weisst', stammt es NICHT aus PBP und gehört nicht in eine "
+            "Status-Aussage. Auch alternative Schreibweisen prüfen."
+        ),
+    }
+    if roh:
+        # Fuer das Dashboard (Firmen-Ansicht): die vollen Bezuege samt Datum, nicht nur die Verweise. Nie Teil der MCP-Antwort.
+        ergebnis["_roh_bezuege"] = weitere["bezuege"]
+    return ergebnis
+
+
 def register(mcp, db, logger):
     """Registriert Bewerbungs-Tools."""
     from . import time_tool
@@ -346,200 +558,7 @@ def register(mcp, db, logger):
                 findet 'Acme Solutions GmbH'; Rechtsform, Umlaute und
                 Abkürzungen werden abgeglichen).
         """
-        query_norm = _firma_normalisieren(firmenname)
-        if not query_norm:
-            return {"fehler": "firmenname ist Pflicht."}
-
-        from ..services import firmen_bezuege as _fb
-
-        # #1080 Stufe 2: bestaetigte Schreibweisen (Firmen-Stammsatz) sowie Mutter- und Tochterfirma erweitern die Suche.
-        # Ein Treffer, der nur darueber gefunden wurde, sagt es (`via`); Konzern wird gefunden, nie verschmolzen.
-        stamm_aufloesung = {"firma": None, "mehrdeutig": [], "art": ""}
-        suchformen = [(query_norm, "direkt")]
-        try:
-            from ..services import firmen_stamm as _fs
-            stamm_aufloesung = _fs.aufloesen(db, firmenname)
-            if stamm_aufloesung["firma"]:
-                for _f, _via, _ in _fs.formen_der_gruppe(db, stamm_aufloesung["firma"]["id"]):
-                    if _f and all(_f != s for s, _ in suchformen):
-                        suchformen.append((_f, _via))
-        except Exception as exc:  # noqa: BLE001 — der Stammsatz ist eine Zugabe
-            logger.debug("firma_kontext: Stammsatz nicht gelesen: %s", exc)
-
-        def _via_von(company):
-            """None = kein Treffer; sonst 'direkt', 'schreibweise', 'mutterfirma' oder 'tochterfirma' (der beste Weg)."""
-            beste = None
-            for form, via in suchformen:
-                if _firma_matcht(company or "", form):
-                    rang = _fb._VIA_RANG.get(via, 1)
-                    if beste is None or rang < beste[0]:
-                        beste = (rang, via)
-            return beste[1] if beste else None
-
-        bewerbungen = []
-        for app in db.get_applications():
-            rolle = None
-            via = None
-            for feld, name in (("company", "bewerbungsziel"),
-                               ("endkunde", "endkunde"),
-                               ("vermittler", "vermittler")):
-                via = _via_von(app.get(feld) or "")
-                if via:
-                    rolle = name
-                    break
-            if not rolle:
-                continue
-            eintrag = {
-                "bewerbung_id": (app.get("id") or "")[:8],
-                "titel": app.get("title"),
-                "firma": app.get("company"),
-                "rolle": rolle,
-                "status": app.get("status"),
-                "beworben_am": app.get("applied_at"),
-            }
-            if via != "direkt":
-                eintrag["via"] = via
-            for feld in ("vermittler", "endkunde"):
-                if (app.get(feld) or "").strip():
-                    eintrag[feld] = app.get(feld)
-            # Nutzerwort 25.09.2026: nicht alles hinschreiben — die
-            # Timeline steht in der Bewerbung, hier steht der Weg dorthin.
-            try:
-                meetings = db.get_meetings_for_application(app.get("id"))
-                if meetings:
-                    eintrag["termine"] = len(meetings)
-            except Exception:
-                pass
-            eintrag["bereich"] = "Bewerbungen › Timeline"
-            eintrag["oeffnen"] = f"bewerbung_details('{app.get('id')}')"
-            eintrag["dashboard_link"] = _dashboard_link("bewerbungen", app.get("id") or "")
-            bewerbungen.append(eintrag)
-
-        # v1.7.10 (#782/C30): Repost-Verdacht direkt am aktiven Treffer —
-        # der Praxis-Fall war genau hier: aktive Stelle, auf die vor
-        # 10 Monaten schon beworben wurde, ohne dass es jemand sah.
-        from ..services import bewerbungs_hinweis as _bh
-        _apps_fuer_repost = db.get_applications()
-        aktive_stellen = []
-        for j in db.get_active_jobs():
-            via_st = _via_von(j.get("company", ""))
-            if not via_st:
-                continue
-            eintrag_st = {"hash": j.get("hash"), "titel": j.get("title"),
-                          "score": j.get("score"),
-                          "oeffnen": f"fit_analyse('{j.get('hash')}')"}
-            if via_st != "direkt":
-                eintrag_st["via"] = via_st
-            try:
-                _rp = _bh.fuer_stelle(j, _apps_fuer_repost, db=db)
-                if _rp:
-                    eintrag_st.update(_bh.als_felder(_rp))
-            except Exception:
-                pass
-            aktive_stellen.append(eintrag_st)
-            if len(aktive_stellen) >= 15:
-                break
-
-        aussortiert = [
-            j for j in (db.get_dismissed_jobs() or [])
-            if _via_von(j.get("company", ""))
-        ]
-        gruende: dict = {}
-        for j in aussortiert:
-            grund = j.get("dismiss_reason") or "unbekannt"
-            gruende[grund] = gruende.get(grund, 0) + 1
-        # Auch eine aussortierte Stelle sagt etwas ueber die Firma —
-        # welche Rollen sie ausschreibt und warum sie nicht passte.
-        aussortiert_beispiele = [
-            {"titel": j.get("title"), "grund": j.get("dismiss_reason"),
-             "oeffnen": f"fit_analyse('{j.get('hash')}')"}
-            for j in aussortiert[:8]
-        ]
-
-        # #1080: alle weiteren Quellen. Bewerbungen stehen oben schon mit
-        # Termin, hier kommen nur die Rollen dazu, die dort nicht stehen.
-        try:
-            weitere = _fb.bezuege(db, firmenname)
-        except Exception as exc:  # eine Quelle darf den Lookup nie kosten
-            logger.warning("firma_kontext: Bezuege nicht ermittelbar: %s", exc)
-            weitere = {"bezuege": [], "rollen": {}, "schreibweisen": [],
-                       "warnungen": []}
-        andere = [b for b in weitere["bezuege"] if b["quelle"] != "bewerbung"]
-        erwaehnt = [b for b in weitere["bezuege"]
-                    if b["rolle"] == "in_notizen_erwaehnt"]
-        je_rolle: dict = {}
-        for b in andere:
-            je_rolle.setdefault(b["rolle"], []).append(b)
-        weitere_bezuege = {r: [_fb.kompakt(b) for b in liste[:_fb.MAX_JE_ROLLE]]
-                           for r, liste in je_rolle.items()}
-        schreibweisen = sorted(
-            (set(weitere["schreibweisen"])
-             | {b.get("firma") for b in bewerbungen
-                if b["rolle"] == "bewerbungsziel"}
-             | {j.get("company") for j in aussortiert})
-            - {None, ""})
-
-        gefunden = bool(bewerbungen or aktive_stellen or aussortiert
-                        or andere or erwaehnt)
-        # #1148: Bei einer erfolglosen Suche Namen nennen, die so BEGINNEN —
-        # "Personal" fand "Personalservice ..." nicht. Nur Kandidaten zum
-        # Nachfragen, nie Treffer: sie loesen keine Aussage und keine Warnung aus.
-        aehnliche = []
-        if not gefunden:
-            try:
-                aehnliche = _fb.aehnliche_namen(db, firmenname)
-            except Exception as exc:  # noqa: BLE001
-                logger.debug("firma_kontext: aehnliche Namen (#1148): %s", exc)
-        # #1080 Stufe 2: der Stammsatz, falls der Name zu genau einer Firma gehoert; sonst die Namen, zwischen denen PBP nicht raet.
-        stamm_antwort = {}
-        _sf = stamm_aufloesung["firma"]
-        if _sf:
-            stamm_antwort["stammsatz"] = {
-                "id": _sf["id"], "name": _sf["name"], "aliase": [a["alias"] for a in _sf["aliase"]],
-                "mutterfirma": (_sf["mutterfirma"] or {}).get("name", ""),
-                "tochterfirmen": [k["name"] for k in _sf["tochterfirmen"]],
-                "branche": _sf["branche"], "notizen": _sf["notizen"]}
-        elif stamm_aufloesung["mehrdeutig"]:
-            stamm_antwort["stammsatz_mehrdeutig"] = stamm_aufloesung["mehrdeutig"]
-            stamm_antwort["stammsatz_hinweis"] = (
-                "Der Name passt zu mehreren Firmen im Stammsatz: " + ", ".join(stamm_aufloesung["mehrdeutig"])
-                + ". Frag nach, welche gemeint ist; PBP rät hier nicht.")
-        return {
-            "firma_suchbegriff": firmenname,
-            "gefunden": gefunden,
-            **stamm_antwort,
-            **({"aehnliche_firmen": aehnliche,
-                "aehnliche_hinweis": (
-                    "Keine Firma dieses Namens, aber diese Namen BEGINNEN so: "
-                    + ", ".join(aehnliche) + ". Frag nach, ob eine davon gemeint ist — "
-                    "und rufe firma_kontext erst mit dem vollen Namen auf, bevor du "
-                    "etwas über einen Status sagst.")} if aehnliche else {}),
-            "warnungen": weitere["warnungen"],
-            "rollen": weitere["rollen"],
-            "weitere_bezuege": weitere_bezuege,
-            "in_notizen_erwaehnt": [_fb.kompakt(b) for b in erwaehnt[:_fb.MAX_JE_ROLLE]],
-            "schreibweisen": schreibweisen,
-            "bewerbungen": bewerbungen,
-            "aktive_stellen": aktive_stellen,
-            "aussortiert_anzahl": len(aussortiert),
-            "aussortiert_gruende": gruende,
-            "aussortiert_beispiele": aussortiert_beispiele,
-            "hinweis": (
-                "WICHTIG (#757): Aussortier-Gruende gelten je STELLE, nicht "
-                "für die Firma insgesamt — dieselbe Firma kann passende und "
-                "unpassende Rollen ausschreiben. Jeder Treffer nennt seine "
-                "ROLLE (#1080): ein früherer Arbeitgeber oder Projektkunde "
-                "ist kein Bewerbungsstand. `abgleich: abkürzung` ist der "
-                "schwächste Namensabgleich — dort vor einer Aussage "
-                "nachfragen, ob dieselbe Firma gemeint ist."
-            ) if gefunden else (
-                "Kein dokumentierter Kontakt mit dieser Firma in PBP — weder "
-                "Bewerbungen, Stellen, Lebenslauf, Kontakte, Anfragen noch "
-                "Recherchen. Wenn du (Claude) etwas anderes "
-                "'weisst', stammt es NICHT aus PBP und gehört nicht in eine "
-                "Status-Aussage. Auch alternative Schreibweisen prüfen."
-            ),
-        }
+        return firma_kontext_daten(db, firmenname, logger)
 
     @mcp.tool()
     def firmen_bestand_pruefen() -> dict:

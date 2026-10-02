@@ -1,4 +1,5 @@
 ﻿import { lokalesDatum } from "./lib/lokaleZeit.js";
+import { ansichtAusKennung } from "./lib/firmen.js";
 export const PAGE_IDS = [
   "dashboard",
   "profil",
@@ -58,6 +59,8 @@ export function sprungAusHash(ziel) {
   if (!ziel?.kennung) return null;
   if (ziel.page === "bewerbungen") return { applicationId: ziel.kennung };
   if (ziel.page === "stellen") return { jobHash: ziel.kennung };
+  // #1080: `#kontakte/fi_…` (Firmen-Eintrag) und `#kontakte/firma:Name` führen in die Firmen-Ansicht
+  if (ziel.page === "kontakte") return ansichtAusKennung(ziel.kennung);
   return null;
 }
 

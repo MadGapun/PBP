@@ -182,6 +182,8 @@ FIKTIVE_FIRMEN = (
     "zeta werke",
     "neue gmbh",
     "personal partner",
+    "neuer name",
+    "ganz neu",
     # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
     # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
     "firma gmbh",

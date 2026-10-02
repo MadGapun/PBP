@@ -1391,6 +1391,7 @@ export default function App() {
     sidebarSubNavigation = {
       items: [
         { id: "contacts-view-kontakte", label: "Kontakte" },
+        { id: "contacts-view-firmen", label: "Firmen" },
         { id: "contacts-view-referenzen", label: "Referenzen" },
       ],
       onSelect: (id) => document.dispatchEvent(new CustomEvent("contacts-nav", {

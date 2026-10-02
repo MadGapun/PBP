@@ -41,3 +41,16 @@ def dashboard_link(reiter: str = "dashboard", kennung: str = "") -> str:
         kennung = str(kennung).split(":", 1)[-1]
         ziel += "/" + quote(kennung, safe="")
     return basis() + ziel
+
+
+def firma_link(name_oder_id: str) -> str:
+    """Link auf die Firmen-Ansicht (Kontakte > Firmen, #1080): mit der Kennung eines Firmen-Eintrags (fi_...) oder einem Namen.
+
+    Ein Name steht hinter `firma:`; die Kennung traegt das Dashboard sonst als Profil-Praefix (`<profil>:<hash>`) ab, deshalb
+    wird dieser Link nicht ueber `dashboard_link` gebaut.
+    """
+    wert = str(name_oder_id or "").strip()
+    if not wert:
+        return basis() + "/#kontakte"
+    ziel = wert if wert.startswith("fi_") else "firma:" + wert
+    return basis() + "/#kontakte/" + quote(ziel, safe="")
