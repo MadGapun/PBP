@@ -128,8 +128,8 @@ def pruefe(db) -> dict:
             "grund": "Es gibt noch kein Profil.",
             "naechster_schritt": (
                 "Starte die Ersterfassung — am schnellsten geht es mit dem "
-                "Lebenslauf: dokument_hochladen() und danach "
-                "dokument_profil_extrahieren()."),
+                "Lebenslauf: im Dashboard unter Dokumente hochladen und "
+                "danach dokument_profil_extrahieren()."),
         }
 
     abgeleitet = ableiten(profil)
@@ -156,7 +156,7 @@ def pruefe(db) -> dict:
         "grund": ("Das Profil enthält weder Stationen noch Fähigkeiten, "
                   "aus denen sich Suchbegriffe ableiten liessen."),
         "naechster_schritt": (
-            "Lade deinen Lebenslauf hoch (dokument_hochladen, dann "
+            "Lade deinen Lebenslauf im Dashboard unter Dokumente hoch (dann "
             "dokument_profil_extrahieren) oder setze Suchbegriffe direkt "
             "mit suchkriterien_setzen(keywords_plus=['<dein Beruf>'])."),
     }

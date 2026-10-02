@@ -36,10 +36,12 @@ Du brauchst **kein Git, kein Python, kein Vorwissen** — nur einen ZIP-Download
 #### Linux
 
 ```bash
-git clone https://github.com/MadGapun/PBP.git
+git clone --branch vX.Y.Z --depth 1 https://github.com/MadGapun/PBP.git
 cd PBP
 bash installer/install.sh
 ```
+
+`vX.Y.Z` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist die Beta, nicht die stabile Version (#1150).
 
 #### Update von einer aelteren Version
 

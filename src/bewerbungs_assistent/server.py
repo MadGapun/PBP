@@ -120,8 +120,24 @@ class HeartbeatMiddleware(Middleware):
     DEFAULT_TIMEOUT = 60  # Sekunden
     LONG_TIMEOUT = 300    # 5 Minuten für Scraper-Tools
 
+    #: Aufrufe, die in die Zeitüberschreitung liefen: (Werkzeug, Argumente) ->
+    #: Zeitpunkt. Der Arbeits-Thread eines synchronen Werkzeugs lässt sich nicht
+    #: abbrechen und rechnet weiter (#1148); eine sofortige Wiederholung mit
+    #: denselben Argumenten startete dieselbe Rechnung ein zweites Mal.
+    _abgelaufen: dict = {}
+
+    @staticmethod
+    def _schluessel(context, tool_name):
+        try:
+            args = json.dumps(getattr(context.message, "arguments", None) or {},
+                              sort_keys=True, default=str, ensure_ascii=False)
+        except Exception:  # noqa: BLE001
+            args = ""
+        return (tool_name, args)
+
     async def on_call_tool(self, context, call_next):
         import asyncio
+        from fastmcp.exceptions import ToolError
         tool_name = context.message.name if context.message else "unknown"
         # Heartbeat VOR dem Log-Aufruf: friert Logging je ein (#760),
         # dokumentiert der Heartbeat den Call trotzdem noch.
@@ -130,25 +146,47 @@ class HeartbeatMiddleware(Middleware):
 
         timeout = self.LONG_TIMEOUT if tool_name in self.LONG_RUNNING_TOOLS else self.DEFAULT_TIMEOUT
 
+        # #1148: lief derselbe Aufruf eben in die Zeitüberschreitung und rechnet
+        # noch, nicht ein zweites Mal starten.
+        schluessel = self._schluessel(context, tool_name)
+        if schluessel in self._abgelaufen:
+            from .tools import laufende_aufrufe
+            if laufende_aufrufe(tool_name) > 0:
+                raise ToolError(json.dumps({
+                    "error": "laeuft_noch",
+                    "tool": tool_name,
+                    "message": (
+                        f"'{tool_name}' rechnet mit diesen Angaben noch, nachdem die "
+                        "Zeit überschritten war. Warte einen Moment und frage dann noch "
+                        "einmal — eine Wiederholung jetzt würde dieselbe Rechnung ein "
+                        "zweites Mal starten."),
+                }, ensure_ascii=False))
+            self._abgelaufen.pop(schluessel, None)
+
         try:
             result = await asyncio.wait_for(call_next(context), timeout=timeout)
             return result
         except asyncio.TimeoutError:
             logger.error("Tool %s Timeout nach %ds", tool_name, timeout)
-            # Strukturierter Fehler statt Silence (#303)
-            from fastmcp.tools.tool import ToolResult
-            from mcp.types import TextContent
-            error_msg = json.dumps({
+            self._abgelaufen[schluessel] = True
+            if len(self._abgelaufen) > 50:  # Altlasten nicht anhaeufen
+                self._abgelaufen.pop(next(iter(self._abgelaufen)), None)
+            # Strukturierter Fehler statt Silence (#303). #1148: als Fehler
+            # MELDEN statt als Ergebnis ohne strukturierten Inhalt zu bauen —
+            # jedes Werkzeug deklariert ein Ausgabeschema, und die Pruefung
+            # ersetzte die deutsche Meldung durch "Output validation error:
+            # outputSchema defined but no structured output returned".
+            raise ToolError(json.dumps({
                 "error": "timeout",
                 "tool": tool_name,
                 "timeout_seconds": timeout,
                 "message": (
                     f"Tool '{tool_name}' hat nach {timeout} Sekunden nicht geantwortet. "
                     f"Mögliche Ursache: DB-Lock oder externer Service nicht erreichbar. "
-                    f"Bitte versuche es erneut."
+                    f"Die Rechnung kann im Hintergrund noch laufen — warte einen "
+                    f"Moment, bevor du es erneut versuchst."
                 ),
-            }, ensure_ascii=False)
-            return ToolResult(content=[TextContent(type="text", text=error_msg)])
+            }, ensure_ascii=False))
         except Exception as e:
             logger.error("Tool %s Fehler: %s", tool_name, e, exc_info=True)
             raise
@@ -157,6 +195,10 @@ class HeartbeatMiddleware(Middleware):
             # leakt ein Fehlerpfad eine Transaktion), bliebe der Write-Lock
             # sonst dauerhaft offen — jeder weitere Write (auch der des
             # Dashboard-Threads) scheitert dann bis zum Neustart.
+            # #1144: das wirkt nur auf die Connection DIESES Threads, also
+            # des Event-Loops (asynchrone Werkzeuge). Synchrone Werkzeuge
+            # laufen in Worker-Threads mit eigener Connection; dort raeumt
+            # `tools/__init__._mit_aufraeumen` im Worker selbst auf.
             try:
                 db.rollback_if_stale(context=f"Tool '{tool_name}'")
             except Exception:
@@ -199,11 +241,13 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
 
     Gibt den uvicorn-Server zurück (zum sauberen Beenden) oder None, wenn der
     Port belegt ist: dort läuft eine andere Instanz, die das Dashboard und
-    damit den Planer hat (kein Doppellauf).
+    damit den Planer hat (kein Doppellauf). Wird sie geschlossen, übernimmt
+    dieser Prozess später (`dashboard_nachholen_starten`, #1155).
     """
     from .dashboard import app as dashboard_app
     import uvicorn
     from . import dashboard as _dashboard_module
+    from .services import dashboard_halter
     _dashboard_module._db = datenbank  # Set shared database reference
 
     dash_port = port or int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
@@ -217,6 +261,7 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
                 "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
                 dash_port,
             )
+            dashboard_halter.setzen(dashboard_halter.ANDERER, port=dash_port)
             return None
 
     config = uvicorn.Config(
@@ -226,6 +271,7 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
     dashboard_thread = threading.Thread(target=dashboard_server.run, daemon=True)
     dashboard_thread.start()
     logger.info("Web Dashboard gestartet auf http://localhost:%d", dash_port)
+    dashboard_halter.setzen(dashboard_halter.EIGENER, port=dash_port, server=dashboard_server)
 
     try:
         from .services.automatik_scheduler import start_automatik_scheduler
@@ -235,10 +281,73 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
     return dashboard_server
 
 
+#: Wie oft ein Prozess, der den Dashboard-Port nicht bekam, nachsieht, ob er
+#: inzwischen frei ist (#1155). Selten genug, um nicht aufzufallen; oft genug,
+#: dass niemand lange ohne Sicherung dasteht.
+DASHBOARD_NACHHOLEN_S = 300
+
+
+def dashboard_nachholen_starten(datenbank, port: int | None = None,
+                                intervall_s: float | None = None):
+    """Übernimmt Dashboard und Planer, sobald der Port frei wird (#1155).
+
+    Bis v1.7.147 prüfte der Prozess den Port nur beim Start. Lief dort das
+    eigenständige Dashboard (Desktop-Verknüpfung) und wurde später
+    geschlossen, gab es bis zum Neustart von Claude Desktop weder Dashboard
+    noch tägliche Sicherung noch geplante Suche — und die Karte
+    "Sicherungen" versprach weiter "PBP sichert einmal am Tag von selbst".
+
+    Ein Daemon-Thread sieht alle `intervall_s` Sekunden nach; ist der Port
+    frei, startet er denselben Weg wie beim Start (Dashboard UND Planer, an
+    einer Stelle) und endet. Solange der Port belegt bleibt, passiert nichts.
+    Gibt den Thread zurück; `thread.stoppen()` beendet ihn (für Tests).
+    """
+    import socket
+    from .services import dashboard_halter
+
+    dash_port = port or int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
+    pause = DASHBOARD_NACHHOLEN_S if intervall_s is None else intervall_s
+    stopp = threading.Event()
+    dashboard_halter.pruefintervall_merken(pause)
+
+    def _port_belegt() -> bool:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.settimeout(2)
+                return s.connect_ex(("127.0.0.1", dash_port)) == 0
+        except OSError:
+            return True  # im Zweifel nicht anfassen
+
+    def _schleife():
+        while not stopp.wait(pause):
+            if dashboard_halter.lesen()["halter"] == dashboard_halter.EIGENER:
+                return
+            dashboard_halter.versuch_zaehlen()
+            if _port_belegt():
+                continue
+            logger.info(
+                "Port %d ist frei geworden — Dashboard und Planer starten jetzt "
+                "in diesem Prozess (#1155).", dash_port)
+            try:
+                if dashboard_im_hintergrund_starten(datenbank, dash_port) is not None:
+                    return
+            except Exception as exc:  # noqa: BLE001 — beim naechsten Mal wieder
+                logger.warning("Dashboard-Nachstart fehlgeschlagen: %s", exc)
+
+    thread = threading.Thread(target=_schleife, daemon=True, name="dashboard-nachholen")
+    thread.stoppen = stopp.set
+    thread.start()
+    logger.info("Dashboard-Port %d ist belegt — dieser Prozess sieht alle %d s nach, "
+                "ob er das Dashboard übernehmen kann.", dash_port, int(pause))
+    return thread
+
+
 def run_server():
     """Start the MCP server with optional web dashboard."""
     import atexit
     import signal
+
+    from .services import dashboard_halter
 
     _dashboard_server = None
 
@@ -247,13 +356,24 @@ def run_server():
         _dashboard_server = dashboard_im_hintergrund_starten(db)
     except Exception as e:
         logger.warning("Dashboard konnte nicht gestartet werden: %s", e)
+        dashboard_halter.setzen(dashboard_halter.KEINER, fehler=str(e))
+
+    # #1155: hat dieser Prozess das Dashboard nicht bekommen (Port belegt),
+    # sieht er spaeter nach, ob er es uebernehmen kann.
+    if _dashboard_server is None:
+        try:
+            dashboard_nachholen_starten(db)
+        except Exception as e:
+            logger.warning("Dashboard-Nachholen nicht gestartet: %s", e)
 
     # Clean shutdown handler — stops dashboard + closes DB
     def _cleanup():
         logger.info("Bewerbungs-Assistent wird beendet...")
-        if _dashboard_server:
+        # Auch ein SPAETER uebernommenes Dashboard (#1155) muss gestoppt werden.
+        _laufend = dashboard_halter.server() or _dashboard_server
+        if _laufend:
             try:
-                _dashboard_server.should_exit = True
+                _laufend.should_exit = True
                 logger.info("Dashboard-Server gestoppt")
             except Exception as ex:
                 logger.warning("Dashboard-Stop Fehler: %s", ex)

@@ -61,6 +61,15 @@ def register(mcp, db, logger):
                 return {"fehler": "Bewerbung nicht gefunden. Prüfe ID mit bewerbungen_anzeigen()."}
         if not (titel or "").strip():
             return {"fehler": "titel ist Pflicht."}
+        # #1148: dieselbe offene Aufgabe nicht zweimal anlegen
+        from ..services import doppelanlage as _da
+        _schon = _da.todo(db, bewerbung_id, titel.strip(), faellig_am)
+        if _schon:
+            antwort = _da.antwort(
+                "todo", _schon, f"Die offene Aufgabe '{titel.strip()}'",
+                "Abhaken: todo_erledigen(todo_id=...).")
+            antwort["task_id"] = _schon
+            return antwort
         try:
             tid = db.add_task({
                 "application_id": bewerbung_id or None,

@@ -53,6 +53,18 @@ def _abgewiesen(db) -> set:
         return set()
 
 
+def befund_stand(db, befund_id: str) -> str:
+    """Was ist mit dieser Befund-ID? 'offen' | 'abgewiesen' | 'unbekannt' (#1148).
+
+    Vorher meldete das Abweisen "abgewiesen" fuer jede erfundene ID.
+    """
+    if befund_id in _abgewiesen(db):
+        return "abgewiesen"
+    if any(b.get("id") == befund_id for b in pruefe_interview_vollstaendigkeit(db)):
+        return "offen"
+    return "unbekannt"
+
+
 def befund_abweisen(db, befund_id: str) -> bool:
     """Merkt einen Befund dauerhaft als abgewiesen."""
     ids = _abgewiesen(db)

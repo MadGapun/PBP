@@ -78,6 +78,40 @@ def _auftrag_endet() -> None:
             _LEERLAUF.set()
 
 
+# Das Sicherheitsnetz gegen offene Transaktionen (#1144) gilt auch hier: ein
+# Pool-Worker hat seine eigene Connection, und eine Transaktion, die ein
+# Auftrag offen laesst, bliebe im Worker liegen — der naechste Commit desselben
+# Workers schriebe die halbe Arbeit eines ganz anderen Auftrags fest. Die
+# Huelle um das Werkzeug (`tools._mit_aufraeumen`) sitzt im Thread des
+# MCP-Aufrufs und erreicht diese Connection nicht. `tools.register_all` setzt
+# die Datenbank; ohne sie bleibt alles beim Alten.
+_DB = None
+
+
+def aufraeumen_fuer(db) -> None:
+    """Merkt die Datenbank, deren Connection der Pool aufraeumt."""
+    global _DB
+    _DB = db
+
+
+def _offen_vorher() -> bool:
+    """Hat die Connection DIESES Workers schon eine Transaktion offen?
+    (Dann gehoert sie dem Aufrufer.) Ohne Datenbank: nichts anfassen."""
+    try:
+        return True if _DB is None else bool(_DB.offene_transaktion())
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _aufraeumen(war_offen: bool, was: str) -> None:
+    if _DB is None or war_offen:
+        return
+    try:
+        _DB.rollback_if_stale(context=f"Budget-Pool: {was}")
+    except Exception:  # noqa: BLE001 — das Netz darf nie selbst fallen
+        pass
+
+
 def warte_auf_leerlauf(timeout: float = 5.0) -> bool:
     """Wartet, bis kein Budget-Auftrag mehr laeuft (True = leer).
 
@@ -132,9 +166,11 @@ def mit_budget(tool_name: str, lese_tool: str = "dem passenden "
             budget = _budget_sek()
 
             def _lauf():
+                war_offen = _offen_vorher()
                 try:
                     return fn(*args, **kwargs)
                 finally:
+                    _aufraeumen(war_offen, tool_name)
                     _auftrag_endet()
 
             _auftrag_beginnt()
@@ -159,9 +195,11 @@ def mit_kurzbudget(fn, budget: float, fallback):
     und die Diagnose bleibt antwortfaehig.
     """
     def _lauf():
+        war_offen = _offen_vorher()
         try:
             return fn()
         finally:
+            _aufraeumen(war_offen, "Kurzbudget")
             _auftrag_endet()
 
     _auftrag_beginnt()

@@ -121,7 +121,15 @@ LESEND_MUSTER = re.compile(
     r"|_vorschau|_status|_kontext)$|^pbp_capabilities$|^profil_status$")
 
 # Namen, die lesend aussehen, aber schreiben.
-NICHT_LESEND: set[str] = set()
+#
+# #1148: `ollama_kontext` endet auf `_kontext` und trug deshalb readOnlyHint —
+# mit `aktion='setzen'` schreibt es aber den Kontext der lokalen KI. Ein
+# Werkzeug, das EINEN Aufruf lang schreiben kann, ist nicht lesend.
+# (Bewusst NICHT hier: `profil_status`, `stellen_anzeigen`,
+# `kontakt_kategorien_auflisten` — sie schreiben nur einmalig Vorgaben oder
+# einen Zwischenspeicher; ohne readOnlyHint fragte Claude Desktop bei dem am
+# haeufigsten gerufenen Werkzeug jedes Mal um Erlaubnis.)
+NICHT_LESEND: set[str] = {"ollama_kontext"}
 
 # Namen, die nach Loeschen klingen, aber nur lesen.
 NICHT_DESTRUKTIV: set[str] = {"aussortier_protokoll"}

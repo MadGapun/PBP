@@ -385,16 +385,28 @@ def _version_tuple(v: str) -> tuple:
     return tuple(base + [0 if is_beta else 1] + rest)
 
 
+#: Wie lange die Hinweise gelten (#1144): ein Erfolg eine Stunde, ein
+#: Fehlschlag nur so lange, dass ein Schwall von Seitenaufrufen nicht jedes
+#: Mal auf den Abruf wartet.
+_HINWEISE_ERFOLG_S = 3600
+_HINWEISE_FEHLSCHLAG_S = 15
+
+
 @app.get("/api/public/hints")
 async def api_public_hints():
     """Holt dezente Hinweise/Updates aus einer öffentlichen GitHub-Quelle (#233).
 
-    Kein Login nötig. Ergebnis wird 1h gecacht.
+    Kein Login nötig. Ein Erfolg wird 1h gemerkt. #1144: ein Fehlschlag
+    NICHT — vorher galt ein Netzfehler eine Stunde lang als "keine
+    Hinweise" (das Netz war beim Start nur noch nicht bereit); jetzt wird
+    nur kurz gewartet, damit eine Folge von Seitenaufrufen nicht jedes Mal
+    auf die Zeitgrenze des Abrufs wartet.
     """
     import time
     cache = getattr(api_public_hints, "_cache", None)
     now = time.time()
-    if cache and now - cache["ts"] < 3600:
+    if cache and now - cache["ts"] < (
+            _HINWEISE_ERFOLG_S if cache.get("ok", True) else _HINWEISE_FEHLSCHLAG_S):
         return cache["data"]
 
     from . import __version__
@@ -406,8 +418,9 @@ async def api_public_hints():
     )
     result = {"hints": [], "version": __version__}
     if hints_url.lower() == "off":
-        api_public_hints._cache = {"ts": now, "data": result}
+        api_public_hints._cache = {"ts": now, "data": result, "ok": True}
         return result
+    erfolg = True
     try:
         if hints_url.startswith(("file://", "./", "/")) or os.path.isabs(hints_url):
             local_path = hints_url[len("file://"):] if hints_url.startswith("file://") else hints_url
@@ -418,7 +431,11 @@ async def api_public_hints():
             import httpx
             async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(hints_url)
-                data = resp.json() if resp.status_code == 200 else {}
+                if resp.status_code != 200:
+                    # #1144: eine Fehlerantwort (Sperre, Ausfall) ist keine
+                    # Auskunft "es gibt keine Hinweise".
+                    raise RuntimeError(f"HTTP {resp.status_code}")
+                data = resp.json()
         hints = data if isinstance(data, list) else data.get("hints", [])
         result["hints"] = [
             h for h in hints
@@ -429,9 +446,10 @@ async def api_public_hints():
             and (not h.get("version") or _version_tuple(h["version"]) > _version_tuple(__version__))
         ]
     except Exception as exc:
+        erfolg = False
         logger.debug("hints fetch failed: %s", exc)
 
-    api_public_hints._cache = {"ts": now, "data": result}
+    api_public_hints._cache = {"ts": now, "data": result, "ok": erfolg}
     return result
 
 
@@ -6836,6 +6854,10 @@ async def api_jobsuche_start(payload: dict = Body(default={})):
     if status == "laeuft_bereits":
         return {"status": status, "job_id": erg["job_id"],
                 "nachricht": "Eine Jobsuche läuft bereits."}
+    if status == "kein_netz":
+        # v1.7.148 (#1141): die Oberflaeche zeigt `nachricht` als Meldung
+        return JSONResponse({"status": status, "nachricht": erg["nachricht"]},
+                            status_code=503)
 
     # v1.7.0-beta.40 (#609): Elwosa kommentiert den Suchstart
     _elwosa_speak_safe("llm_task_running", ctx={"count": len(erg["quellen"])})
@@ -11435,25 +11457,19 @@ async def api_run_learning_analysis(request: Request):
 
 @app.get("/api/recap")
 async def api_recap():
-    """Liefert eine Zusammenfassung dessen, was seit dem letzten Login passiert ist.
+    """Liefert eine Zusammenfassung dessen, was seit dem letzten Besuch passiert ist.
 
-    'Letzter Login' wird als profile_setting `last_login_at` gespeichert
-    und beim ersten /api/recap-Aufruf einer Session aktualisiert. Bei
-    leerer DB oder erstem Aufruf werden die letzten 72h als Fenster genutzt.
+    Gemessen wird gegen den Beginn des laufenden Besuchs (`services/besuch.py`,
+    #1144) — derselbe Zeitpunkt wie bei den "Neu"-Marken im Block "Offen".
+    Vorher schrieb dieser Aufruf den letzten Zugriff bei JEDEM Aufruf fort:
+    nach einer Pause zeigte der erste Aufruf die Rueckschau, ein Neuladen
+    eine Minute spaeter eine leere. Beim ersten Zugriff ueberhaupt gelten die
+    letzten 72h als Fenster.
     """
     from datetime import datetime, timedelta, timezone
+    from .services.besuch import neu_seit as _neu_seit_besuch
 
-    last_login_iso = _db.get_profile_setting("last_login_at", None)
-    fallback_window_hours = 72
-    if last_login_iso:
-        try:
-            since = datetime.fromisoformat(str(last_login_iso).replace("Z", "+00:00"))
-            if since.tzinfo is None:
-                since = since.replace(tzinfo=timezone.utc)
-        except Exception:
-            since = datetime.now(timezone.utc) - timedelta(hours=fallback_window_hours)
-    else:
-        since = datetime.now(timezone.utc) - timedelta(hours=fallback_window_hours)
+    since = _neu_seit_besuch(_db)
 
     pid = _db.get_active_profile_id()
     conn = _db.connect()
@@ -11532,9 +11548,6 @@ async def api_recap():
         "WHERE meeting_date >= ? AND meeting_date <= ? "
         "AND (profile_id=? OR profile_id IS NULL)",
         (_jetzt_lokal.isoformat(), (_jetzt_lokal + timedelta(days=7)).isoformat(), pid))
-
-    # last_login_at aktualisieren — beim naechsten Aufruf gilt das Fenster ab jetzt
-    _db.set_profile_setting("last_login_at", datetime.now(timezone.utc).isoformat())
 
     has_anything = any([
         new_jobs, new_apps, status_changes, new_emails,

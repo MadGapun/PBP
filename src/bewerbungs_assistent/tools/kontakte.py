@@ -45,6 +45,18 @@ def register(mcp, db, logger):
         """
         if not name or not name.strip():
             return {"fehler": "name ist Pflicht."}
+        # #1148: denselben Kontakt nicht zweimal anlegen. Zwei Menschen gleichen
+        # Namens bei verschiedenen Firmen (oder mit verschiedener E-Mail) sind
+        # zwei Kontakte.
+        from ..services import doppelanlage as _da
+        _schon = _da.kontakt(db, name.strip(), email, firma)
+        if _schon:
+            antwort = _da.antwort(
+                "kontakt", _schon, f"Den Kontakt '{name.strip()}'",
+                "Ergänzen: kontakt_bearbeiten(kontakt_id=...). Ist es eine ANDERE "
+                "Person, gib Firma oder E-Mail an.")
+            antwort["kontakt_id"] = f"CON-{_schon[:8]}"
+            return antwort
         try:
             cid = db.add_contact({
                 "full_name": name.strip(),
@@ -172,9 +184,12 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def kontakt_loeschen(kontakt_id: str, bestaetigung: bool = False) -> dict:
-        """Löscht einen Kontakt. bestaetigung=True ist Pflicht."""
-        if not bestaetigung:
-            return {"fehler": "Bitte mit bestaetigung=True bestaetigen."}
+        """Löscht einen Kontakt. Ohne bestaetigung=True kommt nur die Vorschau.
+
+        Die Vorschau nennt, WEN es trifft und was an ihm hängt (Verknüpfungen
+        zu Bewerbungen, Terminen und Stellen); bis v1.7.147 stand dort nur
+        eine Fehlermeldung ohne Inhalt (#1148).
+        """
         from ..services.typed_ids import strip_prefix
         raw = strip_prefix(kontakt_id)
         if len(raw) <= 8:
@@ -186,6 +201,27 @@ def register(mcp, db, logger):
             if not row:
                 return {"fehler": "Kontakt nicht gefunden."}
             raw = row["id"]
+        kontakt = db.get_contact(raw)
+        if not kontakt:
+            return {"fehler": "Kontakt nicht gefunden."}
+        if not bestaetigung:
+            from ..services import abhaengige_zeilen as _az
+            zaehler = _az.mit_bezuegen_loeschen(db, "contacts", raw, dry_run=True)
+            return {
+                "status": "bestaetigung_erforderlich",
+                "kontakt_id": raw,
+                "kontakt": {
+                    "name": kontakt.get("full_name"),
+                    "firma": kontakt.get("company"),
+                    "position": kontakt.get("position"),
+                    "email": kontakt.get("email"),
+                },
+                "folgen": _az.klartext(zaehler),
+                "geloescht": zaehler["geloescht"],
+                "geloest": zaehler["geloest"],
+                "hinweis": ("Das lässt sich nicht rückgängig machen. Setze "
+                            "bestaetigung=True, um den Kontakt wirklich zu löschen."),
+            }
         ok = db.delete_contact(raw)
         return {"status": "geloescht" if ok else "nicht_gefunden"}
 

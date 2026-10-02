@@ -23,7 +23,13 @@ body:
           → In Explorer eingeben oder: `notepad %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log`
         - **macOS/Linux:** `~/.bewerbungs-assistent/logs/pbp.log`
 
-        **Schritt 3 — Formular ausfüllen** (Pflichtfelder sind mit * markiert)
+        **Schritt 3 — Namen schwärzen (wichtig):**
+        Dieses Issue ist **öffentlich**. Bevor du Log-Zeilen, Fehlermeldungen oder Screenshots
+        einfügst: Ersetze Namen von Firmen, bei denen du dich beworben hast, Namen von Personen,
+        E-Mail-Adressen und Telefonnummern durch Platzhalter (`<FIRMA>`, `<PERSON>`).
+        Ein Issue mit echten Namen lässt sich nur durch **Löschen** bereinigen.
+
+        **Schritt 4 — Formular ausfüllen** (Pflichtfelder sind mit * markiert)
 
   - type: dropdown
     id: component
@@ -144,6 +150,7 @@ body:
       description: |
         Kopiere hier Fehlermeldungen aus dem Browser (F12 → Konsole) oder aus der Claude-Konversation.
         Screenshots kannst du direkt hier einfügen (Drag & Drop oder Einfügen).
+        **Vorher Namen schwärzen** (Firmen, Personen, E-Mail, Telefon) — das Issue ist öffentlich.
       render: shell
     validations:
       required: false
@@ -151,8 +158,12 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Log-Auszug (pbp.log) — sehr hilfreich!
+      label: Log-Auszug (pbp.log) — hilfreich, aber erst nach dem Schwärzen
       description: |
+        **Das Issue ist öffentlich.** Ersetze in den Zeilen Namen von Firmen und Personen sowie
+        E-Mail-Adressen und Telefonnummern durch Platzhalter (`<FIRMA>`, `<PERSON>`), bevor du sie einfügst.
+        Im Zweifel lass die Zeile weg — der Fehlertext allein reicht oft.
+
         Öffne die Log-Datei und kopiere die letzten 20–30 Zeilen rund um den Fehlerzeitpunkt:
         • Windows: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
         • macOS/Linux: ~/.bewerbungs-assistent/logs/pbp.log
