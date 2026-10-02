@@ -271,7 +271,7 @@ export default function UpdatesTab() {
                   </div>
                   {e.grund && e.ergebnis !== "installiert" ? <p className="mt-1 text-xs text-muted">{e.grund}</p> : null}
                   {e.sha256 ? (
-                    <p className="mt-1 break-all font-mono text-[11px] text-muted">
+                    <p className="mt-1 break-all font-mono text-xs text-muted">
                       sha256 {e.sha256}{e.signiert ? ` · signiert (${e.schluessel})` : ""}
                     </p>
                   ) : null}
