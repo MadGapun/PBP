@@ -22,6 +22,8 @@ from datetime import datetime, timezone
 
 EIGENER = "eigener_prozess"
 ANDERER = "anderer_prozess"
+#: Der Port ist belegt, aber nicht von einem PBP (#1149): ein anderes Programm.
+FREMDES = "fremdes_programm"
 KEINER = "keiner"
 
 _lock = threading.Lock()
@@ -50,6 +52,28 @@ def setzen(halter: str, port: int | None = None, server=None, fehler: str = "") 
             "entschieden": True,
             "seit": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         })
+
+
+def ist_pbp(port: int, timeout: float = 2.0, host: str = "127.0.0.1") -> bool:
+    """Antwortet auf diesem Port ein PBP? (#1149)
+
+    Ein belegter Port heisst noch nicht, dass dort ein PBP laeuft: bis v1.7.148
+    schrieb `start_dashboard.py` "PBP laeuft bereits ... Das Dashboard ist schon
+    erreichbar!" und oeffnete den Browser, auch wenn ein fremdes Programm den
+    Port hielt (gemessen mit einem Programm auf einem Testport); der MCP-Prozess
+    logte nur eine Warnung. Erkannt wird PBP an `/api/health` (seit v1.4.0): eine
+    JSON-Antwort mit `pbp_version`. Nur die Standardbibliothek, kurze Zeitgrenze.
+    """
+    import json
+    import urllib.request
+    try:
+        # urlopen wirft bei 4xx/5xx (HTTPError) und folgt Weiterleitungen: was hier
+        # ankommt, ist eine erfolgreiche Antwort.
+        with urllib.request.urlopen(f"http://{host}:{int(port)}/api/health", timeout=timeout) as antwort:
+            daten = json.loads(antwort.read(65536).decode("utf-8", errors="replace"))
+    except Exception:  # noqa: BLE001 — jeder Fehler heisst "kein PBP"
+        return False
+    return isinstance(daten, dict) and "pbp_version" in daten
 
 
 def pruefintervall_merken(sekunden: float | None) -> None:
@@ -97,6 +121,16 @@ def beschreiben() -> dict | None:
                 "meldung": (f"Port {port} gehört einem anderen PBP-Fenster: dort laufen "
                             f"das Dashboard und der Planer (tägliche Sicherung, geplante "
                             f"Suche).{wann}")}
+    if z["halter"] == FREMDES:
+        intervall = z.get("pruefintervall_s")
+        minuten = max(1, round(intervall / 60)) if intervall else None
+        wann = (f" Dieser Prozess prüft alle {minuten} {'Minute' if minuten == 1 else 'Minuten'}, "
+                f"ob der Port frei wird, und übernimmt dann." if minuten else "")
+        return {"art": "warnung",
+                "meldung": (f"Port {port} wird von einem anderen Programm benutzt (kein PBP). "
+                            f"Deshalb laufen Dashboard und Planer (tägliche Sicherung, geplante "
+                            f"Suche) nicht. Beende das Programm, das den Port belegt, oder starte "
+                            f"den Rechner neu und öffne PBP zuerst.{wann}")}
     return {"art": "warnung",
             "meldung": ("Das Dashboard läuft in keinem Prozess"
                         + (f": {z['fehler']}" if z.get("fehler") else "")

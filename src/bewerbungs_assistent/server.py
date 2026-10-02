@@ -22,9 +22,44 @@ from .logging_config import setup_logging
 setup_logging(console=True)
 logger = logging.getLogger("bewerbungs_assistent")
 
+def _start_ohne_datenbank_melden(exc: BaseException) -> None:
+    """Der Start scheitert beim Öffnen der Datenbank: Spur im Log und eine Zeile für Menschen (#1149).
+
+    Auf dem Weg über Claude Desktop (`python -m bewerbungs_assistent`) blieb ein
+    solcher Fehler ohne Spur: Traceback nur auf stderr, `pbp.log` leer, der
+    Dashboard-Port nie gebunden — und der Installer verweist für Fehler auf
+    `pbp.log`. Gemessen mit gesperrtem Sicherungsordner.
+    """
+    try:
+        ordner = str(get_data_dir())
+    except Exception:  # noqa: BLE001 — selbst der Ordner kann das Problem sein
+        ordner = "(Datenordner nicht ermittelbar)"
+    grund = str(exc).strip() or exc.__class__.__name__
+    text = (
+        f"PBP konnte die Datenbank nicht öffnen und startet deshalb nicht. Grund: {grund} "
+        f"Datenordner: {ordner}. Häufige Ursachen: kein Schreibrecht oder kein freier Platz "
+        "im Datenordner (auch im Unterordner 'backups'), die Datei ist von einem anderen "
+        "Programm gesperrt oder beschädigt. Behebe die Ursache und starte PBP neu; "
+        "Sicherungen der Datenbank liegen im Unterordner 'backups'."
+    )
+    try:
+        logger.critical(text, exc_info=exc)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        sys.stderr.write(text + "\n")
+        sys.stderr.flush()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 # Initialize database
 db = Database()
-db.initialize()
+try:
+    db.initialize()
+except Exception as _start_fehler:
+    _start_ohne_datenbank_melden(_start_fehler)
+    raise
 
 # #303: Zombie-Background-Jobs bereinigen (von vorherigem Absturz).
 # #1107: als Methode, damit sie pruefbar ist; sie kennt auch das alte
@@ -256,12 +291,21 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
     import socket
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         if s.connect_ex(("127.0.0.1", dash_port)) == 0:
-            logger.warning(
-                "Port %d ist bereits belegt — vermutlich laeuft eine andere PBP-Instanz. "
-                "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
-                dash_port,
-            )
-            dashboard_halter.setzen(dashboard_halter.ANDERER, port=dash_port)
+            # #1149: nicht jeder belegte Port gehoert einem PBP.
+            if dashboard_halter.ist_pbp(dash_port):
+                logger.warning(
+                    "Port %d ist bereits belegt — dort laeuft eine andere PBP-Instanz. "
+                    "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
+                    dash_port,
+                )
+                dashboard_halter.setzen(dashboard_halter.ANDERER, port=dash_port)
+            else:
+                logger.warning(
+                    "Port %d wird von einem anderen Programm benutzt (kein PBP). "
+                    "Dashboard und Planer starten hier nicht; der MCP-Server laeuft trotzdem.",
+                    dash_port,
+                )
+                dashboard_halter.setzen(dashboard_halter.FREMDES, port=dash_port)
             return None
 
     config = uvicorn.Config(

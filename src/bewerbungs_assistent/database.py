@@ -6247,6 +6247,39 @@ class Database:
             (pid,)
         ).fetchall()]
 
+    #: Spalten, die bei langen Anzeigen gross werden (SQLite legt sie auf
+    #: Ueberlaufseiten ab) und die die Wiedergaenger-Pruefung nicht braucht (#1154).
+    _SCHWERE_JOBSPALTEN = ("description", "research_notes", "description_snapshot",
+                           "analyse_begruendung")
+
+    def get_dismissed_jobs_schlank(self) -> list:
+        """Die Aussortierten OHNE die langen Texte (#1154).
+
+        Dieselbe Menge und Reihenfolge wie `get_dismissed_jobs`, aber ohne
+        Beschreibung, Recherche-Notizen, Schnappschuss und Analyse-Begruendung.
+        Statt der Beschreibung steht `description_laenge` in der Zeile: die
+        Wiedergaenger-Pruefung braucht von ihr nur die Laenge, ob ein Urteil
+        auf einem Anzeigen-Rumpf beruhte. Gemessen mit 1.200 aktiven Stellen,
+        100 Bewerbungen und 2.000 Aussortierten zu je 8 KB Text: `SELECT *`
+        liest die Ueberlaufseiten jeder Stelle (2,9 s je `stellen_anzeigen`),
+        das schlanke Lesen nicht.
+
+        Die Laenge zaehlt wie `len(text.strip())` in Python: SQLite entfernt
+        mit TRIM nur Leerzeichen, deshalb stehen Tabulator und Zeilenumbruch
+        ausdruecklich dabei.
+        """
+        conn = self.connect()
+        pid = self.get_active_profile_id()
+        spalten = [r["name"] for r in conn.execute("PRAGMA table_info(jobs)")]
+        leicht = ", ".join(f'"{c}"' for c in spalten if c not in self._SCHWERE_JOBSPALTEN)
+        laenge = ("LENGTH(TRIM(description, ' ' || char(9) || char(10) || char(13))) "
+                  "AS description_laenge") if "description" in spalten else "NULL AS description_laenge"
+        return [self._serialize_job_row(r) for r in conn.execute(
+            f"SELECT {leicht}, {laenge} FROM jobs WHERE is_active=0 "
+            "AND (profile_id=? OR profile_id IS NULL) ORDER BY updated_at DESC",
+            (pid,)
+        ).fetchall()]
+
     def count_dismissed_jobs(self) -> int:
         """Wie viele Stellen sind aussortiert — gezaehlt, nicht geladen (#1143).
 

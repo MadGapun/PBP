@@ -49,7 +49,11 @@ PYTHON=""
 for cmd in python3.13 python3.12 python3.11 python3 python; do
     if command -v $cmd &>/dev/null; then
         ver=$($cmd --version 2>&1)
-        minor=$(echo "$ver" | sed -n 's/.*3\.\([0-9]*\).*/\1/p')
+        # #1149: der Ausdruck war `s/.*3\.\([0-9]*\).*/\1/p`. Das `.*` greift so weit wie moeglich und
+        # nimmt damit das LETZTE "3." im Text: bei "Python 3.13.5" die "3.5" statt der "3.13" —
+        # jede Python-3.13-Fassung galt als zu alt (minor=5), obwohl 3.13 neuer ist als die
+        # verlangte 3.11. Jetzt am Anfang verankert: Zahl nach dem ersten "3.".
+        minor=$(echo "$ver" | sed -n 's/^[^0-9]*3\.\([0-9][0-9]*\).*/\1/p' | head -1)
         if [ -n "$minor" ] && [ "$minor" -ge 11 ] 2>/dev/null; then
             PYTHON=$cmd
             ok "$ver"
@@ -125,9 +129,14 @@ elif command -v npm &>/dev/null; then
 fi
 
 if [ "$PNPM_OK" = true ] && [ -d "$FRONTEND_DIR" ]; then
-    pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null
-    pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null
-    ok "Dashboard gebaut"
+    # #1149: unter `set -e` beendete ein fehlgeschlagenes pnpm den Installer ohne ein
+    # Wort (stderr geht nach /dev/null): Datenordner und Claude-Eintrag kamen nie. Das
+    # fertig gebaute Dashboard liegt dem ZIP bei; der Bau ist eine Zugabe.
+    if pnpm --dir "$FRONTEND_DIR" install --quiet 2>/dev/null && pnpm --dir "$FRONTEND_DIR" run build 2>/dev/null; then
+        ok "Dashboard gebaut"
+    else
+        warn "Dashboard-Bau fehlgeschlagen — kein Problem: das fertig gebaute Dashboard liegt bei, PBP laeuft damit"
+    fi
 elif command -v node &>/dev/null; then
     warn "pnpm nicht verfuegbar — ueberspringe Frontend-Build"
 else

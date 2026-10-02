@@ -183,6 +183,22 @@ Kandidaten, schreibt sie aber nicht selbst fort.
    Urteile (#1007, #913, #948). Neue Spalten von `jobs` gehoeren in
    `_BEWAHREN`; ein Test haelt jede Spalte gegen die INSERT-Liste.
 
+8f. **Erst messen, dann reparieren (seit 2026-10-02):** in #1154 stand
+   als Ursache der langsamen Stellenliste "das Lesen der Anzeigentexte".
+   Ein `cProfile`-Lauf zeigte: das Lesen kostet 0,1 s; die Last waren
+   2,4 Millionen Aufrufe von `normalize_company`. Vor jeder Tempo-Arbeit
+   EIN Profil des Aufrufs; zum Fix gehoert ein Messtest mit Grenzwert auf
+   grosser Testdatenbank (isolierte `BA_DATA_DIR`), Zahlen vorher/nachher
+   in CHANGELOG und Issue.
+8g. **Eine Erfolgsmeldung braucht eine Probe (seit 2026-10-02):** "Sicherung
+   erstellt" (eine `copy`-Kopie ohne WAL), "PBP laeuft bereits" (der Port
+   war nur BELEGT), "[OK] Claude gefunden" (der Rueckgabewert des
+   Einrichtungs-Skripts) trugen ein ungeprueftes Ergebnis (#1149). Eine
+   Meldung wie "erstellt", "laeuft", "gefunden" steht erst nach einer Probe
+   des INHALTS: die Sicherung wird gelesen, `/api/health` muss `pbp_version`
+   liefern. Ein Skript, das ohne Fehler endet, hat nicht bewiesen, dass es
+   etwas getan hat.
+
 9. **Firmennamen-Sweep ueber GitHub:** reale Firmen aus der
    Bewerbungshistorie stehen NIRGENDS auf GitHub — Issues samt Kommentaren,
    Release-Notes, Wiki, Commit-Messages; das gilt fuer alle Instanzen,
