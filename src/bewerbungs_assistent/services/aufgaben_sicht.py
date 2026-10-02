@@ -335,51 +335,22 @@ def uebersicht(db, *, status: str = "offen", bis_datum: str = "",
 # Karte. Dieselbe Auskunft passt als Marke an die Zeile, die es betrifft
 # — und steht damit dort, wo man ohnehin hinschaut.
 
-# Ab wann gilt ein Besuch als neu? Kuerzer, und die Marken verschwinden
-# beim ersten Neuladen; laenger, und sie stehen tagelang.
-BESUCH_PAUSE_STUNDEN = 4
-
-BESUCH_EINSTELLUNG = "last_login_at"
+# Ab wann gilt ein Besuch als neu, und gegen welchen Zeitpunkt wird gemessen?
+# Das steht in `services/besuch.py` (#1144) — die Marken hier und die
+# Rueckschau `/api/recap` lesen denselben Wert. Die Namen bleiben hier
+# erreichbar, weil Tests und andere Module sie von hier holen.
+from .besuch import BESUCH_EINSTELLUNG, BESUCH_PAUSE_STUNDEN  # noqa: E402,F401
 
 
 def _neu_seit(db) -> str:
-    """Der Zeitpunkt, gegen den "neu" gemessen wird.
+    """Der Zeitpunkt, gegen den "neu" gemessen wird (ISO-Text).
 
-    Der Wert wird beim Lesen fortgeschrieben — aber nur, wenn seit dem
-    letzten Mal genug Zeit vergangen ist. Sonst waeren die Marken nach
-    dem ersten Neuladen weg, und die Auskunft "seit deinem letzten
-    Besuch" haette sich selbst geloescht.
-
-    Ja, das ist ein Schreibvorgang in einem Lesepfad. Er steht hier
-    bewusst und eng begrenzt: `/api/recap` macht seit jeher dasselbe,
-    und ein zweiter Weg, den jemand extra aufrufen muesste, waere ein
-    Weg, den niemand aufruft.
+    Bleibt beim Neuladen derselbe, solange der Besuch dauert (#1144): vorher
+    rueckte er schon beim ersten Lesen vor, und die Marken waren nach einer
+    Pause von mehr als vier Stunden genau einmal zu sehen.
     """
-    from datetime import datetime, timedelta, timezone
-
-    jetzt = datetime.now(timezone.utc)
-    try:
-        roh = db.get_profile_setting(BESUCH_EINSTELLUNG, None)
-    except Exception:
-        roh = None
-
-    vorher = None
-    if roh:
-        try:
-            vorher = datetime.fromisoformat(str(roh).replace("Z", "+00:00"))
-            if vorher.tzinfo is None:
-                vorher = vorher.replace(tzinfo=timezone.utc)
-        except Exception:
-            vorher = None
-    if vorher is None:
-        vorher = jetzt - timedelta(hours=72)
-
-    if jetzt - vorher > timedelta(hours=BESUCH_PAUSE_STUNDEN):
-        try:
-            db.set_profile_setting(BESUCH_EINSTELLUNG, jetzt.isoformat())
-        except Exception:
-            pass
-    return vorher.isoformat()
+    from .besuch import neu_seit
+    return neu_seit(db).isoformat()
 
 
 def _markiere_neu(gruppen: dict, seit: str) -> int:

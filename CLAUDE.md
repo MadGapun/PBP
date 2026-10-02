@@ -198,9 +198,18 @@ Kandidaten, schreibt sie aber nicht selbst fort.
      (`.claude/settings.json`) fuer den Bash-Weg (Argumente,
      `--body-file`, Heredocs) UND schreibende MCP-Aufrufe;
      Tests `tests/test_gh_pii_guard_mcp.py`. Eine Regel, an die man sich
-     erinnern muss, ist keine Kontrolle.
+     erinnern muss, ist keine Kontrolle. Seit v1.7.148 (#1137) liest der
+     Hook die Kommandozeile STRUKTURIERT (Unterbefehl und Schalter statt
+     eines festen Wortlauts: auch `gh -R <Repo> issue ...`, `issue close
+     --comment`, `pr review/merge --body`, `gist create`, `api -F`) und
+     BLOCKIERT einen Text, den er nicht pruefen kann (Variable, Pipe,
+     Unterbefehl, `$(cat ...)`); feste Variablen und `cd` im selben Kommando
+     setzt er selbst ein. Titel und Dateipfade deshalb als feste Texte
+     angeben. Tests: `tests/test_v17148_gh_waechter_1137.py`.
    - Am Session-Ende neue und geaenderte Issues gegenpruefen;
-     `scripts/gh_pii_sweep.py` ist das Netz fuer den Altbestand.
+     `scripts/gh_pii_sweep.py` ist das Netz fuer den Altbestand und liest
+     seit v1.7.148 ALLE Veroeffentlichungen (Abbruch mit Exit 3 an einer
+     Abfragegrenze statt „sauber“).
    - PII auf GitHub: Issue LOESCHEN (GraphQL `deleteIssue`), nicht
      editieren — die Edit-History behaelt das Original.
    - Ausnahmen: Portale und Vermittler als Quellen-Schluessel, fiktive
@@ -306,10 +315,13 @@ Notes einfuegen, `X.Y.Z` ersetzen):
 ### Linux
 
 \`\`\`bash
-git clone https://github.com/MadGapun/PBP.git
+git clone --branch vX.Y.Z --depth 1 https://github.com/MadGapun/PBP.git
 cd PBP
 bash installer/install.sh
 \`\`\`
+
+`vX.Y.Z` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+das ist die Beta, nicht die stabile Version (#1150).
 
 ### Update von einer aelteren Version
 

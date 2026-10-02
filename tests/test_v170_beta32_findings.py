@@ -167,18 +167,19 @@ def test_get_application_falls_back_to_job_description(setup_env):
 # ============= #564 Portal-Such-Profile ===============
 
 def test_portal_search_profile_default_linkedin(setup_env):
-    """Beim ersten Lesen wird das LinkedIn-Profil mit den #564-Lessons
-    initialisiert."""
+    """Beim ersten Lesen wird das LinkedIn-Profil mit den allgemeinen
+    #564-Erfahrungen als Notiz angelegt.
+
+    v1.7.148 (#1147): OHNE Fachbegriffe. Bis dahin stand hier "PDM", "PLM
+    Berater" usw. — die Suchbegriffe des Entwicklers, fuer jeden Menschen
+    angelegt, gleich welchen Berufs."""
     db = setup_env
     p = db.get_portal_search_profile("linkedin")
     assert p["portal"] == "linkedin"
-    primaer_keywords = [s["keywords"] for s in p["primaere_suchen"]]
-    assert "PDM" in primaer_keywords
-    assert "PLM Berater" in primaer_keywords
-    assert "Product Lifecycle Management" in primaer_keywords
-    nicht_werte = [n["wert"] for n in p["nicht_verwenden"]]
-    assert "PLM Architect" in nicht_werte
-    assert "PRO.FILE" in nicht_werte
+    assert p["primaere_suchen"] == []
+    assert p["sekundaere_suchen"] == []
+    assert p["nicht_verwenden"] == []
+    assert "LinkedIn" in p["notizen"]
 
 
 def test_portal_search_profile_default_other_portal_empty(setup_env):
@@ -208,7 +209,8 @@ def test_mcp_tool_suchprofil_lesen(setup_env):
     register(mcp, db, logging.getLogger("test"))
     out = _call(mcp, "suchprofil_lesen", {"portal": "linkedin"})
     assert out["portal"] == "linkedin"
-    assert any(s["keywords"] == "PDM" for s in out["primaere_suchen"])
+    # #1147: keine Fachbegriffe aus der Vorgabe
+    assert out["primaere_suchen"] == []
 
 
 def test_mcp_tool_suchprofil_aktualisieren(setup_env):

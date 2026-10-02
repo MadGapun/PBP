@@ -105,6 +105,89 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.148] - 2026-10-02 — Ohne Netz geht nichts kaputt, nur belegte Gehälter zählen, nichts wird doppelt angelegt
+
+Hotfix für v1.7.147. Sechzehn Dinge, bei denen PBP etwas anderes meldete oder tat, als man erwartete: Ohne Netz hieß die Jobsuche „alles ok“ und pausierte danach die Quellen; die Marktanalyse rechnete erfundene Schätzgehälter mit; wer einen Aufruf wiederholte, hatte alles doppelt; die Seitenleiste zeigte „verbunden“, obwohl PBP gar nicht mehr lief. Dazu stimmt die Dokumentation im Repo wieder mit dem Programm überein, und der Schutz vor Namen in öffentlichen Texten kennt mehr Schreibweisen. Kein Schema-Eingriff.
+
+**Wichtig zu wissen:**
+
+- **Die Marktanalyse nennt jetzt kleinere Zahlen.** Geschätzte Gehälter (eine feste Standardspanne, die der Suchlauf einträgt, wenn eine Anzeige keine Angabe hat) zählen nicht mehr mit. Wer bisher „Anzahl 20“ sah, sieht vielleicht „Anzahl 2“ — und den Hinweis, dass zwei Angaben keine Marktzahl sind.
+- **Doppeltes wird nicht mehr angelegt.** Eine Position, Ausbildung, ein Projekt, eine offene Aufgabe oder ein Kontakt mit denselben Angaben antwortet jetzt „bereits vorhanden“ und nennt die vorhandene Kennung, statt einen zweiten Eintrag zu machen. Das gilt auch für die Sammelform (`hinzufuegen_bulk`) von `profil_bearbeiten`.
+- **Das LinkedIn-Suchprofil startet leer.** Wer es nie angefasst hat, behielt bisher die Suchbegriffe des Entwicklers (Produktdatenmanagement, Maschinenbau). Beim Start setzt PBP eine unveränderte Zeile dieser Art auf einen neutralen Anfang zurück; eine Zeile, die du gespeichert hast, bleibt, wie sie ist.
+
+### Fixed
+
+- **Ohne Netz meldet die Jobsuche nicht mehr „alle Quellen ok“** (#1141). Ohne Netz lieferte jede Quelle „ok, null Treffer“, und nach fünf solchen Läufen waren alle Quellen pausiert — ein kurzer WLAN-Ausfall kostete die Quellenauswahl. Jetzt fragt PBP vor dem Start mehrere Server an (jede HTTP-Antwort zählt als erreichbar, ein Ergebnis gilt 20 Sekunden) und antwortet im Fehlerfall „kein Netz“ — bei Claude, im Dashboard (Statuscode 503) und in der Automatik (die es beim nächsten Takt wieder versucht). Kommt während eines Laufs nichts zurück und das Netz ist weg, endet der Lauf als Fehler „kein Netz“, und keine Quelle wird als gescheitert gebucht. Eine pausierte Quelle bekommt nicht mehr bei jedem Lauf einen Fehler gebucht; ihre Statuszeile sagt „pausiert (wird später erneut geprüft)“ statt „deprecated“.
+- **„Claude Desktop: verbunden“ bleibt nicht mehr grün, wenn PBP beendet wurde** (#1144). Die Seitenleiste fragte alle 30 Sekunden nach dem Stand und tat bei „keine Antwort“ nichts; „nicht erreichbar“ kam erst beim Neuladen. Jetzt zählt die Seite aufeinanderfolgende Fehlschläge: nach dem ersten fragt sie bald noch einmal (ein Ruhezustand ist kein Ausfall), nach dem zweiten steht dort „PBP antwortet nicht“, die Zeile für die lokale KI sagt „Stand unbekannt“, und ein Klick erklärt, was zu tun ist. Antwortet PBP wieder, nimmt die Anzeige es sofort zurück und lädt die Seite nach.
+- **Die „Neu“-Marker im Block „Offen“ verschwinden nicht mehr beim Neuladen** (#1144). Der Zeitpunkt „seit deinem letzten Besuch“ rückte schon beim ersten Lesen vor: letzter Besuch vor 15 Stunden, Aufgabe vor 10 Stunden angelegt — der erste Aufruf zeigte die Marke, ein Neuladen eine Minute später nicht mehr. Jetzt sind Besuchszeit (jeder Zugriff) und Basis (Beginn des Besuchs) getrennt, und die Rückschau auf dem Dashboard misst gegen dieselbe Basis. Ein neuer Besuch beginnt nach einer Pause von mehr als vier Stunden.
+- **Ein Netzfehler gilt nicht mehr eine Stunde als „keine Hinweise“** (#1144). Die Hinweise von GitHub und die Kontakt-Kategorien merkten sich auch einen Fehlschlag als „leer“ (die Hinweise eine Stunde, die Kategorien die ganze Sitzung — jede Rolle erschien als nackter Schlüsselname). Jetzt wird nur ein Erfolg gemerkt.
+- **Eine offene Transaktion bleibt nicht liegen** (#1144). Das Sicherheitsnetz gegen halbfertige Schreibvorgänge lief im falschen Thread und erreichte die Verbindung des Werkzeugs nicht: ein anderer Schreiber scheiterte mit „database is locked“, und der nächste Commit desselben Arbeiters schrieb die halbe Arbeit eines ganz anderen Aufrufs fest. Jetzt räumt jedes Werkzeug im eigenen Thread auf — nur, was es selbst offen ließ.
+- **Die Marktanalyse zählt nur belegte Gehälter** (#1147). `gehalt_marktanalyse` und `firmen_recherche` mischten die Schätzwerte des Suchlaufs unter echte Angaben (gemessen: zwei echte Angaben und 18 geschätzte ergaben „Anzahl 20, Median 50.000“). Jetzt zählen nur belegte Angaben; die Antwort nennt, wie viele Schätzwerte nicht mitgezählt wurden, und sagt bei weniger als drei belegten Angaben „keine Marktzahl“. Eine Firma nur mit Schätzwerten hat keine Gehaltsspanne.
+- **Das LinkedIn-Suchprofil startet ohne fremde Suchbegriffe** (#1147). Es wurde beim ersten Lesen für jeden mit den Begriffen des Entwicklers angelegt (gemessen: eine Pflegekraft bekam „PLM“ und den Branchenfilter Maschinenbau). Jetzt beginnt es leer, mit den allgemeinen Erfahrungen zu LinkedIn als Notiz; `linkedin_lauf_plan` meldet ohne eigene Begriffe „keine Suchbegriffe“. `suchprofil_lesen` legt nichts mehr an.
+- **Dashboard und Planer werden übernommen, sobald der Port frei wird** (#1155). War Port 8200 beim Start belegt (das eigenständige Dashboard über die Desktop-Verknüpfung), blieb der Claude-Prozess bis zum Neustart ohne Dashboard, tägliche Sicherung und geplante Suche. Jetzt sieht er alle fünf Minuten nach und übernimmt beides, sobald der andere Prozess weg ist. `pbp_diagnose` nennt, wer das Dashboard hält.
+- **Die Zeitüberschreitung kommt auf Deutsch, und eine Wiederholung startet die Rechnung nicht noch einmal** (#1148). Nach 60 Sekunden antwortete PBP mit „Output validation error: outputSchema defined but no structured output returned“; der Arbeits-Thread rechnete weiter, und ein Wiederholen startete eine zweite Rechnung. Jetzt steht die deutsche Meldung da (mit dem Hinweis, dass die Rechnung noch laufen kann), und derselbe Aufruf wird nicht doppelt gestartet, solange die erste Rechnung läuft.
+- **Skills lassen sich ändern, und „bereits vorhanden“ wird ehrlich gesagt** (#1148). Die Profilzusammenfassung nannte die Skill-IDs nicht, obwohl der Wegweiser sie versprach; jetzt stehen sie in eckigen Klammern dabei. Ein erneutes Hinzufügen eines vorhandenen Skills (Python Level 9, neu mit Level 1) antwortete „gespeichert“ und änderte nichts; jetzt kommt „bereits vorhanden“ mit den vorhandenen Werten und dem Weg zum Ändern.
+- **Wiederholte Anlage verdoppelt nichts mehr** (#1148). `position_hinzufuegen`, `ausbildung_hinzufuegen`, `projekt_hinzufuegen`, `todo_anlegen`, `kontakt_anlegen` und `kosten_erfassen` legten bei jedem Aufruf neu an. Jetzt antworten sie „bereits vorhanden“, wenn es dieselbe Sache schon gibt (Position: Firma, Titel, Beginn; Aufgabe: nur offene; Kontakt: zwei Menschen gleichen Namens bei verschiedenen Firmen oder mit verschiedener E-Mail bleiben zwei; Kosten: dieselbe Zahlung innerhalb von zehn Minuten). `kosten_erfassen` mit erfundener Bewerbungs-ID legt keine verwaiste Zeile mehr an.
+- **Kleinere Auskünfte stimmen** (#1148). `stellen_anzeigen(pro_seite=0)` antwortete mit „integer division or modulo by zero“; Werte unter 1 geben jetzt eine brauchbare Seite, die Korrektur steht in der Antwort. `stellen_qualitaet_pruefen` zählte nicht erreichbare Adressen als „ok“ (ohne Netz: „geprüft 5, ok 1“); jetzt eigene Kategorie `url_nicht_erreichbar`. Ein Text verwies auf `dokument_hochladen()`, das es nicht gibt. `suchkriterien_setzen` mit leerer Liste änderte nichts und meldete „gespeichert“. `diagnose_befund_abweisen` meldete „abgewiesen“ für jede erfundene Kennung. `ollama_kontext` trug „nur lesend“, obwohl `aktion='setzen'` schreibt.
+- **Firmensuche: „und“ gleich „&“, und bei Misserfolg Namensvorschläge** (#1148). `firma_kontext` fand „Müller und Söhne“ nicht, wenn die Firma mit „&“ gespeichert war. Und wer „Personal“ tippte und „Personalservice …“ meinte, bekam „Kein dokumentierter Kontakt“. Jetzt nennt PBP bei erfolgloser Suche Namen, die so beginnen — als Kandidaten zum Nachfragen, nie als Treffer, die eine Aussage oder Warnung auslösen.
+- **Löschvorschauen nennen, was gelöscht wird** (#1148). `kontakt_loeschen` zeigte ohne Bestätigung nur eine Fehlermeldung; `meeting_loeschen` wiederholte nur die Kennung. Jetzt stehen Name, Firma beziehungsweise Titel, Datum, Bewerbung und die Folgen (Verknüpfungen) in der Vorschau.
+- **Die Dokumente im Repo stimmen mit dem Programm überein** (#1150). `SECURITY.md` sagte „Keine Cloud, kein Account, kein externer Server“ und „PBP selbst sendet keine Daten an externe Server“ und nannte nur „1.0.x“ als unterstützt; jetzt steht dort derselbe Satz wie in README und FAQ, samt aller Anfragen, die PBP selbst stellt. `CONTRIBUTING.md` schickte auf den Zweig `develop`, den es nicht gibt. Die Fehlervorlage verlangte Log-Auszüge ohne Datenschutz-Hinweis — jetzt steht dort, dass das Issue öffentlich ist und wie man Namen schwärzt. Die Linux-Anleitung klonte `main` und installierte damit die Beta; sie klont jetzt die stabile Version (`--branch v1.7.148`).
+- **Der Namens-Wächter kennt mehr Schreibweisen** (#1137). Der Hook vor `gh`-Aufrufen suchte einen festen Wortlaut und ließ unter anderem `gh -R <Repo> issue create`, `gh issue close --comment`, `gh pr review/merge --body`, `gh gist create`, `gh api -F` und `--raw-field` durch; ein Text aus einer Variable oder Datei wurde gar nicht gelesen. Jetzt liest er die Kommandozeile strukturiert, setzt feste Variablen und `cd` selbst ein und blockiert einen Text, den er nicht prüfen kann. Der Wochen-Sweep sah nur 200 der 430 Veröffentlichungen; er liest jetzt alle und bricht an einer Abfragegrenze ab, statt „sauber“ zu melden. Automaten-Adressen wie `notify-noreply@…` gelten nicht mehr als Kontaktdaten.
+
+### Known Issues
+
+- Die Zuordnung der KI-Schalter sperrt nur elf Werkzeuge; lesende Werkzeuge wie `dokument_lesen` oder `emails_anzeigen` liefern bei ausgeschaltetem Schalter weiter (#1147 Punkt 3). Ob der Text ehrlicher werden oder die Zuordnung wachsen soll, ist eine Entscheidung der Projektleitung.
+- Von den Sammelpunkten in #1148 sind offen: die Zählerstände in Wiki und Dokumenten (4; die Zählung in `pbp_capabilities` stimmt jetzt), die Werkzeuge, die beim Lesen etwas anlegen (5; behoben sind `ollama_kontext` und `suchprofil_lesen`, offen bleiben `kontakt_kategorien_auflisten` mit den Standardkategorien, `profil_status` und der Zwischenspeicher von `stellen_anzeigen`), die uneinheitlichen typisierten Kennungen (9), die Antwortgrößen (12) und die veralteten Weiterleitungen (13).
+- Die Aufräum-Runde („Auto-Engine“) hat weiter keinen automatischen Auslöser (#1139; wartet auf die Entscheidung, ob täglich oder per Knopf).
+- Der Download eines KI-Modells hat weiter keine Fortschrittsanzeige, und bei sehr vielen aussortierten Stellen mit langen Anzeigentexten bleibt `stellen_anzeigen` langsamer (#1154).
+
+### Gemessen
+
+262 neue Tests (6.548 gesamt): 18 für die Netzprüfung vor der Jobsuche (#1141), 31 für Besuchszeit, Zwischenspeicher, offene Transaktion und Verbindungsanzeige (#1144), 22 für Gehälter und das LinkedIn-Profil (#1147), 12 für das Übernehmen von Dashboard und Planer (#1155), 61 für die Sammelpunkte (#1148: Wiederholung, Skills, Seiten, doppelte Anlage, Firmensuche, Löschvorschauen, Werkzeugzahl), 15 für die Dokumente im Repo (#1150) und 103 für den Namens-Wächter (#1137). Dazu zwei Node-Dateien für die Verbindungsanzeige und den Zwischenspeicher; sie laufen jetzt auch in der CI. Zwei ältere Tests, die den alten Zustand festhielten (die Vorgabe des LinkedIn-Profils), sind angepasst. Gegenprobe: 125 Mechanismen einzeln ausgebaut (12 bei der Netzprüfung, 32 bei #1144, 20 bei #1147 und #1155, 43 bei den Sammelpunkten, 18 beim Wächter); jeder Ausbau macht mindestens einen Test rot. Drei Prüfungen wurden dafür erst strenger gemacht: das Mitführen des Verzeichnisses beim Wächter (`cd` war ungetestet), die Zuordnung der Datenbank beim Aufräumen im Arbeits-Thread, und die Unterscheidung „ganzes Wort“ gegen „Wortanfang“ bei den Namensvorschlägen. Die Fehler selbst wurden vorher nachgestellt: ohne Netz meldete jede Quelle „ok, null Treffer“, und nach fünf Läufen waren alle pausiert; mit einem Besuch vor 15 Stunden und einer Aufgabe von vor 10 Stunden zeigte der erste Aufruf die Marke „Neu“, ein Neuladen eine Minute später nicht mehr; zwei belegte und 18 geschätzte Gehälter ergaben „Anzahl 20, Median 50.000“; eine Pflegekraft bekam im LinkedIn-Profil „PLM“ und den Branchenfilter Maschinenbau; `pbp_capabilities` nannte „109 Tools“ bei 257 registrierten; `stellen_anzeigen(pro_seite=0)` antwortete mit „integer division or modulo by zero“; der Wochen-Sweep las 200 von 430 Veröffentlichungen und meldete „sauber“.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.148.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.148.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.148 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.147] - 2026-10-02 — Keine falsche Auskunft, nichts Gelöschtes ohne Vorschau, schnell bei vielen Stellen
 
 Hotfix für v1.7.146. Drei Dinge, bei denen PBP etwas anderes sagte oder tat, als man erwartete: Eine Stelle ohne Anzeigentext galt als „nicht empfohlen“, ein falsch geschriebener Filter hieß „noch keine Bewerbungen“, und drei Werkzeuge löschten, ohne vorher zu zeigen, was alles verloren geht. Dazu wird die Stellenliste bei einem großen Bestand wieder schnell, und lange Arbeit hält das Dashboard nicht mehr an. Kein Schema-Eingriff.

@@ -21,6 +21,12 @@ os.environ.setdefault("PBP_BERUFE_LOOKUP", "0")
 # Testdoppel fuer `geocode_location`.
 os.environ.setdefault("PBP_GEOCODING", "0")
 
+# v1.7.148 (#1141): die Netzpruefung vor einer Jobsuche fragt echte Server.
+# In der Suite gilt das Netz als da; die Tests der Pruefung selbst
+# (test_v17148_netz_1141.py) nehmen die Variable heraus und reichen ein
+# Testdoppel herein.
+os.environ.setdefault("PBP_NETZ_PRUEFUNG", "0")
+
 # H21 (#1087 G1): Wartungs- und Entwicklerwerkzeuge sind ohne Expertenmodus
 # ausgeblendet. Die Suite ruft sie direkt ueber `server.mcp` auf; den
 # Aus-Zustand prueft test_g1087_welle5_claude_seite.py ohne diese Variable.

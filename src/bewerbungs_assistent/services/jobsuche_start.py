@@ -101,8 +101,8 @@ def _lauf(db, job_id: str, params: dict) -> None:
 def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = None,
             herkunft: str = "claude") -> dict:
     """Startet den internen Suchlauf. Liefert immer ein dict mit `status`:
-    keine_quellen, keine_suchbegriffe, nur_manuelle_quellen, laeuft_bereits
-    oder gestartet — und `schritte`, was gelaufen ist."""
+    keine_quellen, keine_suchbegriffe, nur_manuelle_quellen, laeuft_bereits,
+    kein_netz (#1141) oder gestartet — und `schritte`, was gelaufen ist."""
     if herkunft not in HERKUNFT:
         raise ValueError(f"Unbekannte Herkunft {herkunft!r}")
     from ..tools.jobs import _MANUAL_SOURCES
@@ -158,6 +158,16 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
         laufend = db.get_running_background_job("jobsuche")
     if laufend:
         return {"status": "laeuft_bereits", "job_id": laufend["id"], "schritte": schritte}
+
+    # v1.7.148 (#1141): ohne Netz meldeten alle Quellen „ok“ mit null
+    # Treffern, und nach fuenf solchen Laeufen waren sie pausiert. Wer
+    # offline ist, bekommt es JETZT gesagt — und an den Quellen aendert
+    # sich nichts. Die Automatik versucht es beim naechsten Takt erneut.
+    from . import netz_pruefung
+    schritte.append("netz_pruefung")
+    if not netz_pruefung.erreichbar():
+        return {"status": "kein_netz", "nachricht": netz_pruefung.MELDUNG_START,
+                "schritte": schritte}
 
     ohne_quelle = _stellentyp_ohne_quelle(db, auto)
     schritte.append("stellentyp_pruefung")

@@ -1277,8 +1277,16 @@ def run_search(db, job_id: str, params: dict):
                     "scraper_diagnose() zum Reaktivieren."
                 ),
             }
-        else:
+        elif q in _deprecated_sources:
             source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "deprecated"}
+        elif q in _deactivated:
+            # v1.7.148 (#1141): hier stand „deprecated“ fuer JEDE uebersprungene
+            # Quelle - auch fuer eine, die nur pausiert ist. Wer das las, hielt
+            # eine gesunde Quelle fuer abgekuendigt.
+            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0,
+                                "detail": "pausiert (wird spaeter erneut geprueft)"}
+        else:
+            source_status[q] = {"status": "skipped", "count": 0, "time_s": 0, "detail": "unbekannte Quelle"}
 
     # Phase 1: Run httpx-based scrapers in parallel (#234)
     if httpx_quellen:
@@ -1577,6 +1585,33 @@ def run_search(db, job_id: str, params: dict):
 
     if duplicates_merged:
         logger.info("Cross-Source Duplikate entfernt: %d", duplicates_merged)
+
+    # v1.7.148 (#1141): Ohne Netz gaben ALLE Adapter bei einem Verbindungs-
+    # fehler eine leere Liste zurueck (24 von 24 getestet) — der Lauf sah aus
+    # wie „8 von 8 Quellen ok, keine neuen Stellen“, zaehlte als stiller
+    # Lauf, und nach fuenf solchen Laeufen waren alle Quellen pausiert. Hat
+    # keine gelaufene Quelle auch nur einen Rohtreffer geliefert, wird das
+    # Netz geprueft - gleich, ob die Quellen „ok“ oder mit einem Fehler
+    # meldeten: wer offline ist, bekommt auch von den Adaptern, die den
+    # Fehler nicht schlucken, nur Verbindungsfehler gebucht. Antwortet nichts,
+    # ist das KEIN Ergebnis der Suche: der Lauf endet als Fehler mit dem
+    # wahren Grund, die Quellen werden nicht gezaehlt, und die Zeit der
+    # letzten Suche bleibt, wie sie war.
+    _gelaufen = [q for q, s in source_status.items() if s.get("status") != "skipped"]
+    if (not all_jobs and _gelaufen
+            and all((_rohtreffer.stand(q) or 0) == 0 for q in _gelaufen)):
+        from ..services import netz_pruefung
+        if not netz_pruefung.erreichbar():
+            logger.warning(
+                "Jobsuche ohne Verbindung: %d Quellen ohne einen Rohtreffer und "
+                "kein Ziel erreichbar (#1141) - Lauf wird nicht gezaehlt",
+                len(_gelaufen))
+            db.update_background_job(
+                job_id, "fehler", progress=100,
+                message=netz_pruefung.MELDUNG_LAUF,
+                result={"kein_netz": True, "quellen": sorted(_gelaufen)},
+            )
+            return
 
     # Score, extract/estimate salary, and save
     #
@@ -1918,6 +1953,11 @@ def run_search(db, job_id: str, params: dict):
 
     # #432: Persist scraper health after each search
     for quelle, status_info in source_status.items():
+        # v1.7.148 (#1141): eine uebersprungene Quelle ist nicht gelaufen. Sie
+        # bekam bisher einen Fehler gebucht (jeder Lauf einen mehr) — und
+        # damit eine Fehlerserie, die sie nie erzeugt hat.
+        if status_info.get("status") == "skipped":
+            continue
         try:
             db.update_scraper_health(
                 quelle, status_info["status"],

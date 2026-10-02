@@ -13,6 +13,26 @@ from ..services import werkzeug_katalog as _werkzeug_katalog
 from ..services.dashboard_link import dashboard_link as _dashboard_link
 
 
+def _werkzeugzahlen(mcp) -> tuple:
+    """(alle registrierten, im Alltagsmodus sichtbare) Werkzeuge — zur Laufzeit gezaehlt (#1148)."""
+    import asyncio
+
+    async def _zaehlen():
+        lokal = getattr(mcp, "local_provider", None)
+        alle = len(await lokal.list_tools()) if lokal is not None else None
+        sichtbar = len(await mcp.list_tools())
+        return alle, sichtbar
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(_zaehlen())
+    # In diesem Thread laeuft schon eine Schleife: in einem eigenen Thread zaehlen.
+    import concurrent.futures
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+        return pool.submit(lambda: asyncio.run(_zaehlen())).result(timeout=15)
+
+
 def register(mcp, db, logger):
     """Register all 9 analysis/KI-feature tools."""
     from . import ki_gate, get_recent_tool_calls, get_slow_tool_calls
@@ -146,10 +166,13 @@ def register(mcp, db, logger):
 
     @mcp.tool()
     def gehalt_marktanalyse() -> dict:
-        """Analysiert Gehaltsdaten aller gesammelten Stellenangebote.
+        """Analysiert die BELEGTEN Gehaltsangaben der gesammelten Stellenangebote.
 
         Zeigt Durchschnitt, Median, Spanne — getrennt nach Festanstellung
         und Freelance. Vergleicht mit deinen Gehaltsvorstellungen.
+        Geschätzte Werte (feste Standardspanne ohne Beleg) zählen nicht mit;
+        die Antwort nennt, wie viele es waren, und sagt, wenn zu wenige
+        belegte Angaben da sind, um von einer Marktzahl zu sprechen.
         """
         stats = db.get_salary_statistics()
         # #1055: aus den Suchkriterien, nicht aus den Praeferenzen.
@@ -164,7 +187,8 @@ def register(mcp, db, logger):
                 "quelle": "Suchkriterien (Suche & Bewertung)",
             }
         stats["tipp"] = (
-            "Gehaltsdaten werden automatisch bei der Jobsuche extrahiert oder geschätzt. "
+            "Belegte Gehaltsangaben stammen aus der Anzeige selbst; geschätzte Werte "
+            "(eine feste Standardspanne je Titel) zählen hier nicht mit. "
             "Nutze gehalt_extrahieren(job_hash) um einzelne Stellen gezielt zu analysieren."
         )
         return stats
@@ -195,7 +219,12 @@ def register(mcp, db, logger):
         quellen = list(set(j.get("source", "unbekannt") for j in jobs))
         remote_levels = [j.get("remote_level", "unbekannt") for j in jobs]
         scores = [j.get("score", 0) for j in jobs]
-        gehalt_jobs = [j for j in jobs if j.get("salary_min")]
+        # #1147: eine geschaetzte Spanne ist keine Auskunft ueber diese Firma
+        # (die feste Standardspanne gilt fuer jede Stelle ohne Titeltreffer).
+        gehalt_jobs = [j for j in jobs
+                       if j.get("salary_min") and not j.get("salary_estimated")]
+        gehalt_geschaetzt = sum(
+            1 for j in jobs if j.get("salary_min") and j.get("salary_estimated"))
 
         result = {
             "status": "ok",
@@ -216,8 +245,14 @@ def register(mcp, db, logger):
         if gehalt_jobs:
             result["gehaltsspanne"] = {
                 "min": min(j["salary_min"] for j in gehalt_jobs),
-                "max": max(j["salary_max"] for j in gehalt_jobs),
+                "max": max((j.get("salary_max") or j["salary_min"]) for j in gehalt_jobs),
             }
+        if gehalt_geschaetzt:
+            result["gehalt_geschaetzt_stellen"] = gehalt_geschaetzt
+            result["gehalt_hinweis"] = (
+                f"{gehalt_geschaetzt} {'Stelle' if gehalt_geschaetzt == 1 else 'Stellen'} "
+                "mit geschätztem Gehalt (feste Standardspanne, kein Beleg) "
+                f"{'ist' if gehalt_geschaetzt == 1 else 'sind'} nicht mitgezählt.")
         # #674: optionale Ein-Schritt-Persistenz
         if bewerbung_id or job_hash:
             teile = [f"Firmen-Recherche {firma}: {result['stellen_gesamt']} Stellen "
@@ -2084,6 +2119,26 @@ def register(mcp, db, logger):
         except Exception as e:
             logger.debug("WAL-Check fehlgeschlagen: %s", e)
 
+        # --- Wer haelt das Dashboard und den Planer? (#1155) ---
+        # Zwei PBP-Prozesse teilen sich Port 8200 nicht. Der zweite startet
+        # weder Dashboard noch Planer — und uebernimmt, sobald der Port frei
+        # wird. Die Auskunft steht hier, weil sonst niemand erfaehrt, warum
+        # "die tägliche Sicherung" nicht laeuft.
+        try:
+            from ..services import dashboard_halter as _dh
+            halter = _dh.beschreiben()
+            if halter:
+                if halter["art"] == "warnung":
+                    warnungen.append({
+                        "bereich": "Dashboard", "problem": halter["meldung"],
+                        "loesung": "Claude Desktop vollständig beenden und neu starten; "
+                                   "prüfe, ob ein anderes Programm Port 8200 belegt.",
+                    })
+                else:
+                    info.append({"bereich": "Dashboard", "meldung": halter["meldung"]})
+        except Exception as e:
+            logger.debug("Dashboard-Halter-Check fehlgeschlagen: %s", e)
+
         # --- Vollstaendigkeit von Interview-Verfahren (#825, D32) ---
         # KEIN auto_fix: alle Befunde erfordern Wissen, das nur der Mensch
         # hat — wer im Gespraech war, laesst sich nicht ableiten. Jeder
@@ -2328,7 +2383,16 @@ def register(mcp, db, logger):
         Mal ignoriert und entwertet auch die berechtigten. Die IDs stehen
         in pbp_diagnose() unter interview_vollstaendigkeit.
         """
-        from ..services.interview_vollstaendigkeit import befund_abweisen
+        from ..services.interview_vollstaendigkeit import (
+            befund_abweisen, befund_stand)
+        # #1148: eine ID, die es nicht gibt, wurde "abgewiesen" gemeldet.
+        if befund_stand(db, befund_id) == "unbekannt":
+            return {
+                "fehler": f"Einen Befund mit der ID '{befund_id}' gibt es nicht (mehr).",
+                "befund_id": befund_id,
+                "hinweis": ("Die IDs stehen bei den Warnungen aus pbp_diagnose() "
+                            "(Bereich Interview-Vollständigkeit, Feld befund_id)."),
+            }
         ok = befund_abweisen(db, befund_id)
         return {
             "status": "abgewiesen" if ok else "war_bereits_abgewiesen",
@@ -2965,26 +3029,30 @@ def register(mcp, db, logger):
         )
         # Echte Tool-Anzahl aus der MCP-Registrierung herausziehen. Bei
         # Ausfall (FastMCP API-Wechsel) defensiv weglassen statt zu crashen.
+        # #1148: FastMCP 3 hat keinen `_tool_manager` mehr; die alte Abfrage
+        # lieferte None, und der Text nannte die kuratierte Zahl als
+        # Gesamtzahl ("109 Tools" bei 257 registrierten). Jetzt wird zur
+        # Laufzeit gezaehlt: alle registrierten und die im Alltagsmodus
+        # sichtbaren.
         tools_gesamt: int | None = None
+        tools_sichtbar: int | None = None
         try:
-            registered = getattr(mcp, "_tool_manager", None)
-            if registered is not None and hasattr(registered, "_tools"):
-                tools_gesamt = len(registered._tools)
-            else:
-                # Fallback: FastMCP 2.x list_tools (sync wrapper)
-                fn = getattr(mcp, "list_tools_sync", None)
-                if callable(fn):
-                    tools_gesamt = len(fn())
+            tools_gesamt, tools_sichtbar = _werkzeugzahlen(mcp)
         except Exception:
-            tools_gesamt = None
+            tools_gesamt = tools_sichtbar = None
 
         if not kategorie:
-            count_text = (
-                f"PBP-MCP bietet {tools_gesamt or '~171'} Tools "
-                f"(davon {tools_kuratiert} kuratierte in 11 Kategorien)."
-            ) if tools_gesamt and tools_gesamt != tools_kuratiert else (
-                f"PBP-MCP bietet {tools_kuratiert} Tools in 11 Kategorien."
-            )
+            if tools_gesamt:
+                count_text = (
+                    f"PBP-MCP hat {tools_gesamt} Werkzeuge"
+                    + (f" ({tools_sichtbar} davon im Alltagsmodus sichtbar)"
+                       if tools_sichtbar and tools_sichtbar != tools_gesamt else "")
+                    + f"; {tools_kuratiert} davon stehen hier, nach Aufgaben "
+                    "geordnet in 11 Kategorien.")
+            else:
+                count_text = (
+                    f"PBP-MCP bietet {tools_kuratiert} kuratierte Werkzeuge in "
+                    "11 Kategorien (die Gesamtzahl ließ sich nicht ermitteln).")
             return {
                 "ueberblick": (
                     f"{count_text} Ruf dieses Tool mit "
@@ -2994,6 +3062,7 @@ def register(mcp, db, logger):
                 ),
                 # #647: getrennte Counts fuer Discoverability
                 "tools_gesamt": tools_gesamt,
+                "tools_sichtbar": tools_sichtbar,
                 "tools_kuratiert": tools_kuratiert,
                 "tools_hinweis": (
                     f"{tools_kuratiert} kuratierte Haupt-Tools sind in den "

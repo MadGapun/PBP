@@ -53,8 +53,11 @@ from .wiedergaenger import _COMPANY_SUFFIXES, normalize_company
 from .menue import pfad
 
 #: Woerter, die an einem Firmennamen nichts unterscheiden. Die Liste aus
-#: der Wiedergaenger-Erkennung plus die deutsche "gruppe".
-_FUELLWOERTER = set(_COMPANY_SUFFIXES) | {"gruppe"}
+#: der Wiedergaenger-Erkennung plus die deutsche "gruppe" und das deutsche
+#: "und" (#1148: "Mueller & Soehne" und "Mueller und Soehne" sind dieselbe
+#: Firma; das "&" verschwindet als Satzzeichen, das "und" blieb stehen —
+#: das englische "and" stand schon in der Liste).
+_FUELLWOERTER = set(_COMPANY_SUFFIXES) | {"gruppe", "und"}
 
 _UMSCHRIFT = str.maketrans({"ä": "ae", "ö": "oe", "ü": "ue", "ß": "ss"})
 
@@ -122,6 +125,65 @@ def abgleich(a: str, b: str) -> Optional[str]:
             and "".join(w[0] for w in lw) == kurz):
         return "abkuerzung"
     return None
+
+
+#: Ab so vielen Buchstaben darf eine Suche als Wortanfang gelten (#1148).
+MIN_WORTANFANG = 4
+
+
+def _wortanfang(kurz_woerter: list, lang_woerter: list) -> bool:
+    """Steht die kurze Wortfolge am Anfang aufeinanderfolgender langer Woerter?
+
+    Alle Woerter der kurzen Folge ausser dem letzten muessen GANZ passen, das
+    letzte darf ein Wortanfang sein: "personal" -> "personalservice",
+    "mueller soe" -> "mueller soehne".
+    """
+    n = len(kurz_woerter)
+    if not n or len(kurz_woerter[-1]) < MIN_WORTANFANG:
+        return False
+    for i in range(len(lang_woerter) - n + 1):
+        if (all(lang_woerter[i + j] == kurz_woerter[j] for j in range(n - 1))
+                and lang_woerter[i + n - 1].startswith(kurz_woerter[-1])):
+            return True
+    return False
+
+
+def aehnliche_namen(db, firmenname: str, limit: int = 8) -> list:
+    """Namen aus dem Bestand, die mit der Suche BEGINNEN, aber nicht ganz passen (#1148).
+
+    `abgleich` vergleicht ganze Woerter — das ist richtig fuer Aussagen und
+    Warnungen (ein Wortanfang waere dort ein Fehlalarm: "Personal" ist nicht
+    jede Firma, deren Name so beginnt). Fuer die ERFOLGLOSE Suche ist es zu
+    streng: wer "Personal" tippt und "Personalservice Beispiel" meint,
+    bekam "Kein dokumentierter Kontakt". Diese Namen sind deshalb nur
+    Kandidaten zum Nachfragen, nie Treffer.
+    """
+    schluessel = namensform(firmenname)
+    if not schluessel:
+        return []
+    kurz = schluessel.split()
+    pid = _profil(db)
+    conn = db.connect()
+    kandidaten = set()
+    for tabelle, spalte in (("applications", "company"), ("applications", "vermittler"),
+                            ("applications", "endkunde"), ("jobs", "company"),
+                            ("contacts", "company"), ("positions", "company")):
+        try:
+            for r in conn.execute(
+                    f"SELECT DISTINCT {spalte} AS n FROM {tabelle} "
+                    "WHERE (profile_id=? OR profile_id IS NULL OR profile_id='') "
+                    f"AND {spalte} IS NOT NULL AND TRIM({spalte}) <> ''", (pid,)):
+                kandidaten.add(str(r["n"]).strip())
+        except Exception:  # noqa: BLE001 — eine Tabelle darf die Suche nie kosten
+            continue
+    treffer = []
+    for name in sorted(kandidaten):
+        form = namensform(name)
+        if not form or abgleich(schluessel, form) is not None:
+            continue  # ein echter Treffer steht schon in der Antwort
+        if _wortanfang(kurz, form.split()):
+            treffer.append(name)
+    return treffer[:max(1, int(limit))]
 
 
 def im_text(schluessel: str, textform: str) -> bool:

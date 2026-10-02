@@ -412,6 +412,16 @@ def register(mcp, db, logger):
                 "nachricht": "Eine Jobsuche läuft bereits. "
                             f"Prüfe den Fortschritt mit jobsuche_status('{erg['job_id']}')."
             }
+        if status == "kein_netz":
+            # v1.7.148 (#1141): offline ist kein Grund, an den Suchbegriffen zu drehen.
+            return {
+                "status": "kein_netz",
+                "nachricht": erg["nachricht"],
+                "naechster_schritt": (
+                    "Verbindung prüfen (WLAN, VPN, Proxy), dann "
+                    "jobsuche_starten() erneut. An Quellen und Suchbegriffen "
+                    "ist nichts zu ändern."),
+            }
         job_id = erg["job_id"]
         result = {
             "job_id": job_id,
@@ -1375,6 +1385,30 @@ def register(mcp, db, logger):
                 diesem Tag oder später gefunden hat (#1112, z. B. für
                 einen Abgleich nur der neuen Stellen). Leer = alle.
         """
+        # #1148: Seitenwerte unter 1 (oder keine Zahl) gaben eine rohe
+        # Python-Meldung zurueck ("integer division or modulo by zero" bei
+        # pro_seite=0). Jetzt eine brauchbare Seite — und die Korrektur steht
+        # in der Antwort.
+        _eingabe_korrigiert = []
+        try:
+            seite = int(seite)
+        except (TypeError, ValueError):
+            seite = 0
+        if seite < 1:
+            _eingabe_korrigiert.append(f"seite={seite} ist keine Seite — es gilt seite=1")
+            seite = 1
+        try:
+            pro_seite = int(pro_seite)
+        except (TypeError, ValueError):
+            pro_seite = 0
+        if pro_seite < 1:
+            _eingabe_korrigiert.append(
+                f"pro_seite={pro_seite} ist keine Anzahl — es gilt pro_seite=20")
+            pro_seite = 20
+        elif pro_seite > 50:
+            _eingabe_korrigiert.append(f"pro_seite={pro_seite} ist zu gross — es gilt pro_seite=50")
+            pro_seite = 50
+
         # #1112: das Funddatum als Filter. Verglichen wird der Tag, weil
         # found_at je nach Quelle mit oder ohne Zeitzone gespeichert ist.
         seit = (gefunden_seit or "").strip()
@@ -1880,6 +1914,8 @@ def register(mcp, db, logger):
             "quellen_uebersicht": source_counts,
             "stellen": formatted,
         }
+        if _eingabe_korrigiert:
+            result["eingabe_korrigiert"] = _eingabe_korrigiert
         if ohne_urteil_verborgen:
             result["ohne_urteil_verborgen"] = ohne_urteil_verborgen
             result["urteils_hinweis"] = (
@@ -3852,6 +3888,9 @@ def register(mcp, db, logger):
                               Aussortier-Grund)
             url_timeout     — kein Response (KEIN Aussortier-Grund, kann
                               transient sein)
+            url_nicht_erreichbar — die Adresse ließ sich nicht erreichen
+                              (kein Netz, Namensfehler; KEIN Aussortier-
+                              Grund) — zählt NICHT als ok (#1148)
             beschreibung_fehlt — URL ok, aber description leer/zu kurz
             search_url      — URL ist nur Such-URL (is_search_url=1)
 
@@ -3941,6 +3980,11 @@ def register(mcp, db, logger):
                         kategorie.append("url_blocked")
                     elif health.status == HealthStatus.HTTP_ERROR:
                         kategorie.append("url_http_error")
+                    elif health.status == HealthStatus.UNKNOWN:
+                        # #1148: eine Adresse, die sich nicht erreichen liess
+                        # (kein Netz, Namensfehler), fiel durch alle Zweige
+                        # und zaehlte als "ok" — ohne Netz: "geprueft 5, ok 1".
+                        kategorie.append("url_nicht_erreichbar")
                     detail["health"] = health.to_dict()
 
                 if not desc or len(desc) < 50:

@@ -64,6 +64,7 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
 import { naechsteFrageMs, unbekanntTitel } from "@/lib/updateStand";
+import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
@@ -499,6 +500,9 @@ export default function App() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState("hilfe");
   const [mcpHelpOpen, setMcpHelpOpen] = useState(false);
+  // #1144: antwortet der PBP-Server ueberhaupt noch? Vorher blieb die Zeile
+  // "Claude Desktop: verbunden" gruen stehen, wenn PBP beendet wurde.
+  const [serverErreichbar, setServerErreichbar] = useState(true);
   // v1.7.0 (#583): Lokale-AI-Status + Erklaerungs-Modal
   const [llmStatus, setLlmStatus] = useState({ ui_state: "not_installed" });
   const [llmHelpOpen, setLlmHelpOpen] = useState(false);
@@ -882,24 +886,54 @@ export default function App() {
   // #359: Periodically poll connection status independently of DB changes.
   // Without this, the Lebensanzeige only updates when the live-update token
   // changes (i.e. on DB writes), leaving it stale at "disconnected".
+  // #1144: bleibt die Antwort aus, zaehlt das. Nach dem ersten Fehlschlag wird
+  // bald noch einmal gefragt, nach dem zweiten steht in der Seitenleiste
+  // "PBP antwortet nicht" statt eines gruenen "verbunden", und die erste
+  // Antwort nimmt es zurueck — samt Nachladen der Seite, denn waehrend des
+  // Ausfalls blieben alle Abfragen leer.
   useEffect(() => {
     let cancelled = false;
-    const pollConnection = async () => {
+    let timer = null;
+    let stand = VERBINDUNG_ANFANG;
+    const abfragen = async () => {
       if (cancelled) return;
+      let status = null;
+      let antwortKam = false;
       try {
-        const status = await optionalApi("/api/status");
-        if (status?.mcp_connection && !cancelled) {
-          startTransition(() => {
-            setChrome((prev) => {
-              if (prev.status?.mcp_connection?.status === status.mcp_connection.status) return prev;
-              return { ...prev, status: { ...prev.status, mcp_connection: status.mcp_connection } };
-            });
-          });
+        status = await optionalApi("/api/status");
+        antwortKam = status !== null;
+      } catch {
+        // Eine Fehlerantwort (z.B. HTTP 500) ist eine Antwort: der Server lebt.
+        antwortKam = true;
+      }
+      if (cancelled) return;
+      const vorher = stand;
+      stand = naechsterStand(stand, antwortKam);
+      if (stand.erreichbar !== vorher.erreichbar) {
+        startTransition(() => setServerErreichbar(stand.erreichbar));
+        if (stand.erreichbar) {
+          liveRefreshPendingRef.current = true;  // der naechste Takt laedt nach
+          pushToast("PBP antwortet wieder.", "success");
+        } else {
+          pushToast(
+            "PBP antwortet nicht mehr. Läuft das PBP-Fenster noch? Wenn nicht, starte PBP neu.",
+            "amber",
+            { duration: 10000 }
+          );
         }
-      } catch {}
+      }
+      if (status?.mcp_connection) {
+        startTransition(() => {
+          setChrome((prev) => {
+            if (prev.status?.mcp_connection?.status === status.mcp_connection.status) return prev;
+            return { ...prev, status: { ...prev.status, mcp_connection: status.mcp_connection } };
+          });
+        });
+      }
+      timer = window.setTimeout(abfragen, naechsteAbfrageMs(stand));
     };
-    const id = window.setInterval(pollConnection, 30000);
-    return () => { cancelled = true; window.clearInterval(id); };
+    timer = window.setTimeout(abfragen, naechsteAbfrageMs(stand));
+    return () => { cancelled = true; window.clearTimeout(timer); };
   }, []);
 
   // v1.7.0 (#583): Lokale-AI-Status pollen — alle 60s ein Check.
@@ -1332,9 +1366,11 @@ export default function App() {
             // Echte Server-Version (beta.24 / User-Feedback): vorher hardcoded
             version: chrome.status?.version || null,
             // 3-stufige MCP-Connection-Logik wie das alte rechte Sidebar-Badge
-            connectionStatus: chrome.status?.mcp_connection?.status || "unknown",
+            // #1144: antwortet PBP nicht mehr, steht dort nicht der zuletzt
+            // gemeldete Stand ("verbunden"), sondern "server_weg".
+            connectionStatus: anzeigeStand(serverErreichbar, chrome.status?.mcp_connection?.status),
             onConnectionClick: () => {
-              const st = chrome.status?.mcp_connection?.status;
+              const st = anzeigeStand(serverErreichbar, chrome.status?.mcp_connection?.status);
               if (st === "connected") {
                 window.open("claude://", "_self");
               } else {
@@ -1342,7 +1378,7 @@ export default function App() {
               }
             },
             // v1.7.0 (#583): Lokale-AI-Status-Indicator (unter MCP)
-            llmState: llmStatus?.ui_state || "not_installed",
+            llmState: kiAnzeige(serverErreichbar, llmStatus?.ui_state),
             hasProfile: Boolean(chrome.status?.has_profile),
             updateStand: updateInfo?.update_available ? "neu" : updateInfo?.stand || "",
             updateVersion: updateInfo?.latest_version || "",
@@ -2010,9 +2046,35 @@ export default function App() {
           <Modal open={mcpHelpOpen} title="MCP-Verbindung" onClose={() => setMcpHelpOpen(false)}>
             {(() => {
               const conn = chrome.status?.mcp_connection;
-              const st = conn?.status || "disconnected";
+              const st = serverErreichbar ? (conn?.status || "disconnected") : "server_weg";
               return (
-                <div className="space-y-4 text-sm">
+                <div className="space-y-4 text-sm" data-mcp-hilfe={st}>
+                  {/* #1144: die Seite bekommt keine Antwort mehr von PBP */}
+                  {st === "server_weg" && (
+                    <>
+                      <div className="glass-card p-3 border-coral/20 border">
+                        <h3 className="font-medium text-coral mb-1">PBP antwortet nicht</h3>
+                        <p className="text-muted">
+                          Diese Seite bekommt keine Antwort mehr von PBP. Meist wurde das
+                          PBP-Fenster geschlossen, oder der Rechner war im Ruhezustand.
+                          Sobald PBP wieder antwortet, merkt die Seite das von selbst.
+                        </p>
+                      </div>
+                      <div className="glass-card p-3">
+                        <h3 className="font-medium text-ink mb-2">Was du tun kannst</h3>
+                        <ol className="space-y-2 text-muted list-decimal list-inside">
+                          <li>
+                            <strong className="text-ink">Läuft das PBP-Fenster noch?</strong>
+                            <span className="block ml-5 mt-0.5">Wenn nicht, starte PBP neu (Verknüpfung „PBP Bewerbungs-Portal“ auf dem Desktop).</span>
+                          </li>
+                          <li>
+                            <strong className="text-ink">Hilft das nicht: Claude Desktop neu starten</strong>
+                            <span className="block ml-5 mt-0.5">Beende Claude Desktop vollständig (auch unten rechts in der Taskleiste) und starte es neu.</span>
+                          </li>
+                        </ol>
+                      </div>
+                    </>
+                  )}
                   {st === "unknown" && (
                     <>
                       <div className="glass-card p-3 border-amber/20 border">
