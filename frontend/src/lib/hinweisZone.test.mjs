@@ -38,6 +38,18 @@ assert.equal(hinweisFuer({ ...basis, letzteSucheAm: vorTagen(SUCHE_DRINGEND_NACH
 // 5. Ollama erst nach dem Einstieg.
 assert.equal(hinweisFuer({ ...basis, letzteSucheAm: vorTagen(1), ollamaAngebot: true, einstiegFertig: false }, jetzt), null);
 
+// 5b. #1168: eine höhere Linie nach dem bekannten Update, vor Ollama — nur genannt, mit dem Weg dorthin.
+const neueLinie = { version: "1.8.0", linie: "1.8", url: "https://example.com/v1.8.0",
+  titel: "Version 1.8 ist erschienen", text: "Der Wechsel geht einmal von Hand." };
+const ruhig = { ...basis, letzteSucheAm: vorTagen(1) };
+const b = hinweisFuer({ ...ruhig, neueLinie, ollamaAngebot: true, einstiegFertig: true }, jetzt);
+assert.equal(b.id, "neue_linie");
+assert.equal(b.titel, "Version 1.8 ist erschienen");
+assert.deepEqual(b.aktion, { art: "link", url: "https://example.com/v1.8.0", label: "So wechselst du" });
+assert.equal(hinweisFuer({ ...ruhig, neueLinie, updateBekannt: { version: "1.7.153", url: "u" } }, jetzt).id, "update",
+  "erst das Update der eigenen Linie, dann der Wechsel");
+assert.equal(hinweisFuer({ ...ruhig, neueLinie: null }, jetzt), null);
+
 // 6. Hilfsfunktion.
 assert.equal(tageSeit(vorTagen(3), jetzt), 3);
 assert.equal(tageSeit("kaputt", jetzt), null);

@@ -45,6 +45,46 @@ export function grundText(daten) {
   return `Keine Update-Quelle hat geantwortet (${teile.join(", ")}).`;
 }
 
+/** Die Seite mit allen Veröffentlichungen — falls die Quelle keine Adresse nennt. */
+export const VEROEFFENTLICHUNGEN_URL = "https://github.com/MadGapun/PBP/releases/latest";
+
+/** Ist Linie `a` ("1.7") kleiner als Linie `b` ("1.8")? Numerisch, also "1.10" > "1.9". */
+function linieKleiner(a, b) {
+  const pa = String(a || "").split(".").map(Number);
+  const pb = String(b || "").split(".").map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    const x = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const y = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (x !== y) return x < y;
+  }
+  return false;
+}
+
+/**
+ * #1168: Eine höhere Linie ist erschienen (zum Beispiel 1.8 für eine 1.7-Installation).
+ *
+ * Sie wird nie als Update angeboten — der Wechsel der Linie geht einmal von Hand —, aber genannt,
+ * samt Weg dorthin. Ohne diesen Hinweis zeigte eine 1.7-Installation nach dem Erscheinen von 1.8
+ * nur „aktuell“, und niemand erfuhr davon.
+ *
+ * @returns {null | {version, linie, url, titel, text}}
+ */
+export function neueLinieHinweis(daten) {
+  const n = daten?.neue_linie;
+  if (!n?.version || !n?.linie) return null;
+  if (daten?.linie && !linieKleiner(daten.linie, n.linie)) return null;
+  const autoUpdate = daten?.linie && linieKleiner(daten.linie, "1.8")
+    ? " Ab dieser Version kann PBP Updates auf Wunsch selbst installieren."
+    : "";
+  return {
+    version: n.version,
+    linie: n.linie,
+    url: n.url || VEROEFFENTLICHUNGEN_URL,
+    titel: `Version ${n.linie} ist erschienen`,
+    text: `Der Wechsel geht einmal von Hand: das ZIP der neuen Version laden und den Installer starten, wie bei jedem Update. Deine Daten bleiben erhalten.${autoUpdate}`,
+  };
+}
+
 /** Tooltip für "Update-Stand unbekannt": Grund und wann PBP erneut fragt. */
 export function unbekanntTitel(daten) {
   const s = Number(daten?.wieder_fragen_nach_s);

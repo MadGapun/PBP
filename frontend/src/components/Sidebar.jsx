@@ -157,6 +157,14 @@ export default function Sidebar({
                 </a>
               )
             ) : null}
+            {/* #1168: eine höhere Linie wird genannt, nie angeboten — der Wechsel geht einmal von Hand. */}
+            {brand.neueLinie?.url ? (
+              <a href={sichereAdresse(brand.neueLinie.url)} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-medium text-sky hover:underline" data-update-stand="neue-linie"
+                title={brand.neueLinie.text}>
+                {brand.neueLinie.titel}
+              </a>
+            ) : null}
             {brand.connectionStatus ? (() => {
               const basis = CONN_CONFIG[brand.connectionStatus] || CONN_CONFIG.disconnected;
               const cfg = brand.connectionStatus === "disconnected" && !brand.hasProfile

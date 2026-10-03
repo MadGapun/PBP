@@ -63,7 +63,7 @@ import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
-import { naechsteFrageMs, unbekanntTitel } from "@/lib/updateStand";
+import { naechsteFrageMs, neueLinieHinweis, unbekanntTitel } from "@/lib/updateStand";
 import {
   istSchonInstalliert,
   naechsteFrageMs as autoUpdateFrageMs,
@@ -1451,6 +1451,7 @@ export default function App() {
             updateStand: seitenleisteUpdate.stand,
             updateVersion: seitenleisteUpdate.version,
             updateUrl: seitenleisteUpdate.url,
+            neueLinie: neueLinieHinweis(updateInfo),
             updateGrund: updateInfo?.stand === "unbekannt" ? unbekanntTitel(updateInfo) : "",
             updatePruefung,
             onUpdatePruefen: () => {

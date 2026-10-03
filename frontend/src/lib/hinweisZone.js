@@ -17,6 +17,8 @@
  *   4. Suche empfohlen (neutral; dringlich erst nach 7 Tagen)
  *   5. Update bekannt (nur ein BEKANNTES Update; "Stand unbekannt" ist
  *      kein Banner, sondern steht in den Einstellungen)
+ *   5b. Eine höhere Linie ist erschienen (#1168; nur genannt, nie angeboten —
+ *      der Wechsel geht einmal von Hand)
  *   6. Ollama-Angebot (erst nach abgeschlossenem Einstieg)
  *
  * Auto-Update (#1093): was gerade passiert oder gefragt werden muss (Rückfall
@@ -44,6 +46,7 @@ export function tageSeit(iso, jetzt = new Date()) {
  * @param {object} lage
  *   seite, verbunden (true/false/null=unbekannt), hatProfil,
  *   quellenAktiv, letzteSucheAm (ISO), updateBekannt ({version, url}), mcp (Verbindung zu Claude),
+ *   neueLinie ({version, linie, url, titel, text} aus neueLinieHinweis),
  *   ollamaAngebot (bool), einstiegFertig (bool)
  * @returns {null | {id, ton, titel, text, aktion}}
  */
@@ -96,6 +99,15 @@ export function hinweisFuer(lage, jetzt = new Date()) {
       titel: `Neue Version verfügbar: v${lage.updateBekannt.version}`,
       text: "Einfach drüberinstallieren — deine Daten bleiben erhalten.",
       aktion: lage.updateBekannt.url ? { art: "link", url: lage.updateBekannt.url, label: "Update-Anleitung" } : null,
+    };
+  }
+  if (lage.neueLinie?.version) {
+    return {
+      id: "neue_linie",
+      ton: "neutral",
+      titel: lage.neueLinie.titel,
+      text: lage.neueLinie.text,
+      aktion: lage.neueLinie.url ? { art: "link", url: lage.neueLinie.url, label: "So wechselst du" } : null,
     };
   }
   if (lage.ollamaAngebot && lage.einstiegFertig) {
