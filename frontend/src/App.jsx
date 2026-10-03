@@ -63,7 +63,7 @@ import TasksPage from "@/pages/TasksPage";
 import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
-import { naechsteFrageMs, unbekanntTitel } from "@/lib/updateStand";
+import { naechsteFrageMs, neueLinieHinweis, unbekanntTitel } from "@/lib/updateStand";
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
@@ -1383,6 +1383,7 @@ export default function App() {
             updateStand: updateInfo?.update_available ? "neu" : updateInfo?.stand || "",
             updateVersion: updateInfo?.latest_version || "",
             updateUrl: updateInfo?.release_url || "",
+            neueLinie: neueLinieHinweis(updateInfo),
             updateGrund: updateInfo?.stand === "unbekannt" ? unbekanntTitel(updateInfo) : "",
             updatePruefung,
             onUpdatePruefen: () => setUpdateFrageNr((n) => n + 1),
