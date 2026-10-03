@@ -91,7 +91,8 @@ def test_1069_leere_antwort_ergibt_nichts():
 def test_1069_elwosa_zuerst_github_als_rueckfall():
     """AK 1: die Reihenfolge aus dem Issue."""
     namen = [q["name"] for q in uq.quellen(None)]
-    assert namen == ["elwosa", "github"]
+    # #1144 Punkt 2: als dritte Quelle die Liste der Veroeffentlichungen (fuer Beta-Installationen)
+    assert namen == ["elwosa", "github", "github-liste"]
 
 
 def test_1069_die_quellen_sind_konfigurierbar():
@@ -113,7 +114,7 @@ def test_1069_unsinnige_konfiguration_faellt_auf_die_vorgabe():
         def get_setting(self, key, default=None):
             return ["kaputt", {"name": "ohne_url"}]
 
-    assert [q["name"] for q in uq.quellen(_DB())] == ["elwosa", "github"]
+    assert [q["name"] for q in uq.quellen(_DB())] == ["elwosa", "github", "github-liste"]
 
 
 # ══ Der Endpunkt ════════════════════════════════════════════════════
@@ -194,7 +195,7 @@ def test_1069_keine_quelle_antwortet_heisst_unbekannt(client, monkeypatch):
     assert res["update_available"] is False
     assert "UNBEKANNT" in res["hinweis"]
     assert res["geprueft_am"]
-    assert len(res["quellen_versucht"]) == 2
+    assert len(res["quellen_versucht"]) == 3
 
 
 def test_1069_die_linie_geht_an_die_quelle(client, monkeypatch):

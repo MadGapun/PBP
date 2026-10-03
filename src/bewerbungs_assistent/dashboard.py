@@ -7605,10 +7605,10 @@ async def api_update_check(frisch: int = 0):
         try:
             import httpx
             url = quelle["url"]
-            if quelle["art"] != "github" and linie:
+            if quelle["art"] not in _uq.GITHUB_ARTEN and linie:
                 url += ("&" if "?" in url else "?") + f"linie={linie}"
             kopf = ({"Accept": "application/vnd.github.v3+json"}
-                    if quelle["art"] == "github" else {})
+                    if quelle["art"] in _uq.GITHUB_ARTEN else {})
             async with httpx.AsyncClient(timeout=5) as client:
                 resp = await client.get(url, headers=kopf)
             versuch["status"] = resp.status_code
@@ -7639,12 +7639,25 @@ async def api_update_check(frisch: int = 0):
         break
 
     if result["stand"] == "unbekannt":
-        result["hinweis"] = (
-            "Keine Update-Quelle hat geantwortet. Ob es eine neue Version "
-            "gibt, ist damit UNBEKANNT — nicht 'alles aktuell'.")
-        # #1134: ein Fehlschlag wird nur kurz gemerkt
-        _update_cache["fehlversuche"] = _update_cache.get("fehlversuche", 0) + 1
-        pause_s = _uq.fehlschlag_pause_s(_update_cache["fehlversuche"])
+        # #1144 Punkt 2: hat eine Quelle ANTWORTEN koennen (200) und nur nichts aus der eigenen Linie
+        # genannt, war das kein Netzfehler - der Grund steht ehrlich da und die Frist ist die normale.
+        geantwortet = any(v.get("status") == 200 and v.get("ergebnis") == "nichts_passendes"
+                          for v in result["quellen_versucht"])
+        if geantwortet:
+            result["grund"] = "keine_version_der_linie"
+            result["hinweis"] = (
+                f"Die Update-Quelle hat geantwortet, nennt aber keine veröffentlichte Version der "
+                f"Linie {linie}. Ob es eine neue Version gibt, ist damit UNBEKANNT — nicht "
+                f"'alles aktuell'.")
+            _update_cache["fehlversuche"] = 0
+        else:
+            result["grund"] = "keine_antwort"
+            result["hinweis"] = (
+                "Keine Update-Quelle hat geantwortet. Ob es eine neue Version "
+                "gibt, ist damit UNBEKANNT — nicht 'alles aktuell'.")
+            # #1134: ein Fehlschlag wird nur kurz gemerkt
+            _update_cache["fehlversuche"] = _update_cache.get("fehlversuche", 0) + 1
+            pause_s = _uq.fehlschlag_pause_s(_update_cache["fehlversuche"])
     else:
         _update_cache["fehlversuche"] = 0
 
