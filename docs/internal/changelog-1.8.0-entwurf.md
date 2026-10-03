@@ -70,7 +70,7 @@ Einträgen darunter.
 
 ### Known Issues
 
-- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Ohne Signaturschlüssel im Programm prüft PBP die Prüfsumme, aber keine Signatur.
 - Auto-Update nur unter Windows.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
