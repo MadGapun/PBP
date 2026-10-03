@@ -95,6 +95,15 @@ def test_sichern_ueberschreibt_nie_einen_anderen_schluessel(ablage):
     assert not (sicherung / us.NOTFALL_NAME).exists(), "bei einem Konflikt wird gar nichts geschrieben"
 
 
+def test_ein_konflikt_beim_zweiten_schluessel_laesst_auch_den_ersten_ungeschrieben(ablage):
+    """Erst pruefen, dann schreiben: kein halber Stand, bei dem nur der Hauptschluessel gesichert ist."""
+    ordner, sicherung = ablage
+    sicherung.mkdir(parents=True)
+    (sicherung / us.NOTFALL_NAME).write_text(_schluesselpaar(55)[0].hex(), encoding="utf-8")
+    assert us.sichern() == 1
+    assert not (sicherung / us.HAUPT_NAME).exists()
+
+
 def test_sichern_verweigert_ein_ziel_in_einem_git_arbeitsverzeichnis(ablage, tmp_path):
     repo = tmp_path / "repo"
     (repo / ".git").mkdir(parents=True)
