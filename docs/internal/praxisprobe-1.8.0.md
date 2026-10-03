@@ -18,7 +18,7 @@ Maschine) prüfen; die automatischen Tests stellen alles mit Attrappen nach.
 | 1 | ZIP von 1.8.0 laden, entpacken, `INSTALLIEREN.bat` doppelklicken | Das Fenster endet grün, ohne gelbe Zeilen außer „Claude Desktop … neu starten“; eine Verknüpfung „PBP Bewerbungs-Portal“ liegt auf dem Desktop |
 | 2 | Claude Desktop komplett beenden und neu starten, tippen: „Starte die Ersterfassung“ | Claude kennt PBP und meldet sich mit dem nächsten Schritt |
 | 3 | Verknüpfung doppelklicken | Das Dashboard öffnet sich; die Version 1.8.0 steht unter Einstellungen › Erweitert › Updates |
-| 4 | Einstellungen › Erweitert › **Updates** | Stufe „Nur Hinweis“; die Seite nennt ehrlich, dass keine Signaturschlüssel im Programm stehen, falls das noch so ist |
+| 4 | Einstellungen › Erweitert › **Updates** | Stufe „Nur Hinweis“; unter den Stufen steht, dass jede Datei auf ihre Prüfsumme **und auf die Signatur des Entwicklers** geprüft wird |
 | 5 | Einstellungen › Erweitert › **Speicher & Downloads** | Sieben Orte mit Größen; „Aufräumen“ zeigt erst eine Vorschau und fragt dann |
 | 6 | Einstellungen › Erweitert › Quellen im Detail › **Mail-Ordner** | Schalter steht auf „aus“ |
 | 7 | **Kontakte › Firmen** | Die Ansicht öffnet sich; eine Firma aus einer Bewerbung lässt sich über die Suche öffnen |

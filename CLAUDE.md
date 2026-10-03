@@ -288,7 +288,7 @@ Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt
   MCP-Werkzeuge (ausser einer Liste) und schreibende REST-Aufrufe ab (503).
 - **Gegenprobe:** `scripts/mutationstest_auto_update.py` (in einem EIGENEN Arbeitsbaum) macht je eine Schutzpruefung
   wirkungslos; die Tests muessen rot werden. Nach jeder Aenderung an den geprueften Dateien laufen lassen. Stand
-  02.10.2026: 91 von 92 erkannt, 1 begruendet gleichwertig. Gruen im Repository ist kein Beweis, dass ein Schutz greift.
+  03.10.2026: 92 von 93 erkannt, 1 begruendet gleichwertig. Gruen im Repository ist kein Beweis, dass ein Schutz greift.
 - MERKE: Windows-Anonym-Pipes fassen nur 4 KB. Ein Test, der den Server mit `subprocess.PIPE` startet, MUSS stderr
   mitlesen (Thread), sonst haengt er an den ~6 KB, die eine frische Datenbank protokolliert.
 - MERKE: Der Pfad traegt den Benutzernamen (Umlaute, Leerzeichen, `ł`, `ş`). Unterprozess-Ausgabe nie mit `text=True` allein lesen, siehe L44.

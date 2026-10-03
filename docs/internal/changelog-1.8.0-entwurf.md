@@ -17,8 +17,8 @@ Einträgen darunter.
 
 - **Updates (Einstellungen › Erweitert › Updates).** Vier Stufen: *Nur Hinweis* (Vorgabe), *Mit einem Klick*, *Automatisch, mit Meldung*,
   *Automatisch, still*. Neue Versionen landen in einem eigenen Ordner neben der laufenden; startet die neue nicht, fällt PBP **von selbst auf die
-  vorige zurück** und sagt es. Geladen wird nur von der festen GitHub-Adresse, nur stabile Versionen der eigenen Linie, mit Prüfsumme (und Signatur,
-  sobald Schlüssel im Programm stehen). Die Automatik startet nie neben anderer Arbeit.
+  vorige zurück** und sagt es. Geladen wird nur von der festen GitHub-Adresse, nur stabile Versionen der eigenen Linie, mit Prüfsumme **und Signatur**
+  (Ed25519; ohne gültige Signatur wird nichts installiert). Die Automatik startet nie neben anderer Arbeit.
 - **Einmalig von Hand:** Die erste Version mit dieser Funktion ist 1.8.0 selbst. Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
   `INSTALLIEREN.bat`); ab dann kann PBP den Rest selbst. **Das automatische Aktualisieren gibt es zurzeit nur unter Windows.**
 - **Speicher & Downloads (Einstellungen › Erweitert).** Wohin PBP schreibt und lädt, wie viel dort liegt, und Aufräumen in zwei Schritten — nie
@@ -48,7 +48,7 @@ Einträgen darunter.
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 228 absichtlich eingebaute Fehler (Auto-Update 92, Speicher 24,
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 229 absichtlich eingebaute Fehler (Auto-Update 93, Speicher 24,
   Komponenten 6, Mail 20, Firmen 86); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
 
 ### Changed
@@ -71,7 +71,7 @@ Einträgen darunter.
 ### Known Issues
 
 - Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
-- Ohne Signaturschlüssel im Programm prüft PBP die Prüfsumme, aber keine Signatur.
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Auto-Update nur unter Windows.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
