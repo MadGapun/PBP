@@ -31,6 +31,16 @@ Quelle die Liste (`releases?per_page=30`) und nimmt daraus die neueste
 Version der eigenen Linie; Vorabversionen zaehlen nur fuer eine
 Installation, die selbst eine Vorabversion ist.
 
+Und eine fuenfte (#1168): **eine hoehere Linie wird gemeldet, nie angeboten.**
+Der Linienfilter hat eine Kehrseite: Sobald 1.8.0 erscheint, zeigt jede
+1.7-Installation "aktuell", und niemand erfaehrt in PBP, dass es 1.8 gibt
+(und damit das Auto-Update). Deshalb merkt sich die Pruefung zusaetzlich die
+neueste STABILE Version einer hoeheren Linie (`neue_linie`). Sie wird nie als
+Update angeboten - der Wechsel der Linie geht einmal von Hand -, aber die
+Oberflaeche nennt sie mit dem Weg dorthin. Vorabversionen und Entwuerfe zaehlen
+dafuer nie. Erkannt wird sie an `releases/latest` (oder der Liste), deshalb
+traegt `--latest` immer die neueste stabile Linie.
+
 **Gemessen am 21.09.2026:** der ELWOSA-Endpunkt antwortet mit HTTP 404 —
 die Domain gibt es, die Route noch nicht. Er steht trotzdem an erster
 Stelle, weil er fuer den Umzug gedacht ist; bis dahin ist der Rueckfall
@@ -191,6 +201,47 @@ def auswerten(art: str, daten, aktuell: str, linie: str) -> dict | None:
         return None
     return {"version": version, "url": url, "name": name,
             "pause_s": max(60, pause)}
+
+
+def _linie_hoeher(version: str, aktuell: str) -> bool:
+    """Liegt `version` auf einer hoeheren Linie als `aktuell`? ('1.8.0' gegen '1.7.151': ja; '1.10' gegen '1.9': ja)."""
+    neu = _version_oder_none(linie_von(version))
+    alt = _version_oder_none(linie_von(aktuell))
+    return neu is not None and alt is not None and neu > alt
+
+
+def neue_linie(art: str, daten, aktuell: str) -> dict | None:
+    """Die neueste STABILE Version einer hoeheren Linie in der Antwort EINER Quelle (#1168), sonst None.
+
+    Ohne Netz, damit testbar. Entwuerfe und Vorabversionen zaehlen nie: eine 1.8-Beta ist fuer eine
+    1.7-Installation keine Nachricht wert. Rueckgabe: {"version", "linie", "url", "name"}.
+    """
+    kandidaten = []
+    if art == "github_liste":
+        if not isinstance(daten, list):
+            return None
+        for eintrag in daten:
+            if isinstance(eintrag, dict) and not eintrag.get("draft") and not eintrag.get("prerelease"):
+                kandidaten.append((eintrag.get("tag_name"), eintrag.get("html_url"), eintrag.get("name")))
+    elif isinstance(daten, dict):
+        if art == "github":
+            if not daten.get("draft") and not daten.get("prerelease"):
+                kandidaten.append((daten.get("tag_name"), daten.get("html_url"), daten.get("name")))
+        else:
+            kandidaten.append((daten.get("version"), daten.get("download_url") or daten.get("url"),
+                               daten.get("notiz") or daten.get("name")))
+    beste = None
+    for tag, url, name in kandidaten:
+        version = str(tag or "").lstrip("v")
+        parsed = _version_oder_none(version)
+        if parsed is None or parsed.is_prerelease or not _linie_hoeher(version, aktuell):
+            continue
+        if beste is None or parsed > beste[0]:
+            beste = (parsed, version, url, name)
+    if beste is None:
+        return None
+    _, version, url, name = beste
+    return {"version": version, "linie": linie_von(version), "url": url or "", "name": name or ""}
 
 
 def fehlschlag_pause_s(fehlversuche: int) -> int:
