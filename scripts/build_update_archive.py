@@ -12,8 +12,9 @@ Aufruf (vom Release-Commit aus; ohne --ref wird der Arbeitsbaum genommen):
     python scripts/build_update_archive.py --ref v1.8.1 --ausgabe dist
     python scripts/build_update_archive.py --ref v1.8.1 --ausgabe dist --schluessel-datei C:/pfad/update-schluessel.hex
 
-Der geheime Schluessel kommt aus `--schluessel-datei` oder der Umgebungsvariable
-`PBP_UPDATE_SCHLUESSEL_DATEI` (Erzeugen: `scripts/update_schluessel.py erzeugen`). Steht in
+Der geheime Schluessel kommt aus `--schluessel-datei`, der Umgebungsvariable `PBP_UPDATE_SCHLUESSEL_DATEI` oder
+- ohne beides - vom festen Ort `~/PBP-Signatur/pbp-update-haupt.hex` (siehe `scripts/update_schluessel.py`); auf dem
+Release-Rechner wird also ohne weitere Angabe signiert (Erzeugen: `scripts/update_schluessel.py erzeugen`). Steht in
 `services/auto_update/schluessel.py` ein oeffentlicher Schluessel, MUSS signiert werden, und die
 Signatur wird gegen genau diese Schluessel gegengeprueft: ein falscher Schluessel faellt hier auf,
 nicht erst bei den Anwendern.
@@ -188,6 +189,16 @@ def zip_schreiben(ziel: Path, dateien: dict, manifest: dict) -> None:
             zf.writestr(info, eintraege[pfad])
 
 
+def standard_schluessel():
+    """Der Hauptschluessel am festen Ort (`~/PBP-Signatur`), sonst None."""
+    try:
+        import update_schluessel
+    except Exception:  # pragma: no cover - das Skript liegt neben diesem
+        return None
+    datei = update_schluessel.hauptschluessel()
+    return str(datei) if datei else None
+
+
 def geheimen_schluessel_lesen(pfad) -> bytes:
     text = Path(pfad).read_text(encoding="utf-8").strip()
     try:
@@ -228,6 +239,14 @@ def bauen(*, ref=None, ordner=None, ausgabe: Path, schluessel_datei=None, vorabv
     manifest = manifest_bauen(dateien, version, braucht_installer=braucht_installer, changelog=auszug)
     dateien.pop("pyproject.toml", None)
 
+    # Zuerst der Schluessel: fehlt er, obwohl eine Signatur noetig ist, entsteht gar keine Datei. Vorher lagen ZIP und
+    # SHA256SUMS danach im Ausgabeordner - ein unsigniertes Archiv, das versehentlich an eine Veroeffentlichung kommen konnte.
+    schluessel_datei = schluessel_datei or os.environ.get(SCHLUESSEL_ENV) or standard_schluessel()
+    if not schluessel_datei and schluessel.signatur_erforderlich() and not ohne_signatur:
+        raise BauFehler("Im Code stehen vertraute Schluessel, aber es wurde keine Schluesseldatei gefunden "
+                        f"(--schluessel-datei, {SCHLUESSEL_ENV} oder ~/PBP-Signatur). Ohne Signatur wuerde PBP das Update ablehnen.")
+    geheim = geheimen_schluessel_lesen(schluessel_datei) if schluessel_datei else None
+
     name = quelle.ARCHIV_NAME.format(version=version)
     archiv = ausgabe / name
     zip_schreiben(archiv, dateien, manifest)
@@ -237,30 +256,26 @@ def bauen(*, ref=None, ordner=None, ausgabe: Path, schluessel_datei=None, vorabv
 
     signatur_pfad = ausgabe / quelle.SIGNATUR_NAME
     signatur_pfad.unlink(missing_ok=True)
-    schluessel_datei = schluessel_datei or os.environ.get(SCHLUESSEL_ENV)
     signiert = False
-    if schluessel_datei:
-        geheim = geheimen_schluessel_lesen(schluessel_datei)
+    if geheim is not None:
         sig = ed25519.signieren(geheim, summen_bytes)
         signatur_pfad.write_text(base64.b64encode(sig).decode("ascii") + "\n", encoding="ascii")
         signiert = True
-    elif schluessel.signatur_erforderlich() and not ohne_signatur:
-        raise BauFehler("Im Code stehen vertraute Schluessel, aber es wurde keine Schluesseldatei angegeben "
-                        f"(--schluessel-datei oder {SCHLUESSEL_ENV}). Ohne Signatur wuerde PBP das Update ablehnen.")
 
     try:
-        _selbst_pruefen(archiv, name, summen_bytes, signatur_pfad if signiert else None, version, ohne_signatur=ohne_signatur)
+        signiert_von = _selbst_pruefen(archiv, name, summen_bytes, signatur_pfad if signiert else None, version,
+                                       ohne_signatur=ohne_signatur)
     except BaseException:
         # Ein Archiv, das PBP selbst ablehnen wuerde, darf nirgends liegen bleiben: es kaeme sonst an die Release.
         for datei in (archiv, ausgabe / quelle.SUMMEN_NAME, signatur_pfad):
             datei.unlink(missing_ok=True)
         raise
     return {"version": version, "archiv": str(archiv), "sha256": summe, "signiert": signiert,
-            "dateien": len(dateien) + 1, "groesse": archiv.stat().st_size}
+            "schluessel": signiert_von, "dateien": len(dateien) + 1, "groesse": archiv.stat().st_size}
 
 
-def _selbst_pruefen(archiv: Path, name: str, summen_bytes: bytes, sig_pfad, version: str, *, ohne_signatur: bool) -> None:
-    """Das Archiv durch genau die Pruefungen schicken, die PBP beim Installieren benutzt."""
+def _selbst_pruefen(archiv: Path, name: str, summen_bytes: bytes, sig_pfad, version: str, *, ohne_signatur: bool) -> str:
+    """Das Archiv durch genau die Pruefungen schicken, die PBP beim Installieren benutzt. Gibt den Schluesselnamen zurueck."""
     sig_text = sig_pfad.read_text(encoding="ascii") if sig_pfad else None
     if schluessel.signatur_erforderlich() and not ohne_signatur:
         von = pruefung.signatur_pruefen(summen_bytes, sig_text)
@@ -279,6 +294,7 @@ def _selbst_pruefen(archiv: Path, name: str, summen_bytes: bytes, sig_pfad, vers
             raise BauFehler("Im Archiv fehlt src/bewerbungs_assistent/__init__.py")
         if not (ziel / "_selftest.py").is_file() or not (ziel / "start_dashboard.py").is_file():
             raise BauFehler("Im Archiv fehlen _selftest.py oder start_dashboard.py")
+    return von
 
 
 def main(argv=None) -> int:

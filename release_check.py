@@ -365,8 +365,13 @@ def check_update_archiv(version):
     """Das Archiv fuer das Auto-Update laesst sich aus dem Arbeitsbaum bauen und besteht die Anwender-Pruefungen.
 
     Faengt, was sonst erst nach dem Tag auffiele: eine .dll oder .exe im Paket, ein Manifest, das nicht zur
-    Version passt, ein Archiv ueber der Groessengrenze. Gebaut wird in ein Wegwerf-Verzeichnis; signiert wird
-    erst beim Release selbst (der geheime Schluessel gehoert nicht hierher).
+    Version passt, ein Archiv ueber der Groessengrenze. Gebaut wird in ein Wegwerf-Verzeichnis.
+
+    Signieren geschieht automatisch (03.10.2026): auf dem Release-Rechner liegt der Hauptschluessel am festen Ort
+    (`~/PBP-Signatur`, `scripts/update_schluessel.py`). Steht dort einer, baut das Tor das Probe-Archiv SIGNIERT und
+    prueft die Signatur gegen die eingetragenen Schluessel - ein falscher oder fehlender Schluessel faellt hier auf,
+    vor dem Tag, nicht bei den Anwendern. Fehlt er bei einer stabilen Version, ist das ein Fehler. Fehlt die
+    Sicherung der Schluessel, ist es eine Warnung. In der CI liegt kein Schluessel: dort wird nur ungesigniert geprobt.
     """
     print("\n[7] Update-Archiv (Auto-Update)")
     for pfad in (str(PROJECT_DIR / "src"), str(PROJECT_DIR / "scripts")):
@@ -374,27 +379,45 @@ def check_update_archiv(version):
             sys.path.insert(0, pfad)
     try:
         import build_update_archive as bau
+        import update_schluessel as us
         from bewerbungs_assistent.services.auto_update import fassung, schluessel
     except Exception as e:
         error(f"Archiv-Bauer nicht ladbar: {e}")
         return
+    im_ci = bool(os.environ.get("GITHUB_ACTIONS") or os.environ.get("CI"))
+    erforderlich = schluessel.signatur_erforderlich()
+    stand = us.stand()
+    haupt = stand["hauptschluessel"]
+    signieren = bool(erforderlich and haupt and not im_ci)
     import tempfile
     try:
         with tempfile.TemporaryDirectory(prefix="pbp_archiv_") as tmp:
             erg = bau.bauen(ordner=PROJECT_DIR, ausgabe=Path(tmp), vorabversion=not fassung.ist_stabil(version),
-                            ohne_signatur=True)
-        ok(f"Update-Archiv baubar: {erg['dateien']} Dateien, {erg['groesse'] // 1024} KB")
+                            ohne_signatur=not signieren, schluessel_datei=haupt if signieren else None)
+        zusatz = f", signiert und gegen die eingetragenen Schluessel geprueft ({erg.get('schluessel')})" if signieren else ""
+        ok(f"Update-Archiv baubar: {erg['dateien']} Dateien, {erg['groesse'] // 1024} KB{zusatz}")
     except Exception as e:
         error(f"Update-Archiv nicht baubar: {e}")
         return
     if not fassung.ist_stabil(version):
         warn(f"{version} ist eine Vorabversion: das Auto-Update installiert sie nie (Archiv nur zur Probe gebaut).")
-    elif schluessel.signatur_erforderlich():
-        warn("Beim Release signieren: scripts/build_update_archive.py --ref vX.Y.Z --schluessel-datei <geheimer Schluessel>; "
-             "angehaengt werden pbp-update-<fassung>.zip, SHA256SUMS und SHA256SUMS.sig.")
-    else:
+    if not erforderlich:
         warn("Keine vertrauten Schluessel in services/auto_update/schluessel.py: das Update wird nur per Pruefsumme "
              "geprueft, nicht signiert. Beim Release pbp-update-<fassung>.zip und SHA256SUMS anhaengen.")
+        return
+    if im_ci:
+        ok("Signatur: in der CI wird nicht signiert (der geheime Schluessel liegt nur auf dem Release-Rechner).")
+        return
+    if not haupt:
+        meldung = (f"Signaturschluessel nicht gefunden ({stand['ordner']}). Ohne ihn laesst sich kein Update "
+                   "veroeffentlichen, das PBP annimmt. Aus der Sicherung zurueckholen (siehe LIESMICH.txt dort), "
+                   "dann: python scripts/update_schluessel.py stand")
+        (error if fassung.ist_stabil(version) else warn)(meldung)
+    if stand["sicherung_vollstaendig"]:
+        ok(f"Sicherung der Signaturschluessel vollstaendig: {stand['sicherung']}")
+    else:
+        warn(f"Die Signaturschluessel haben keine vollstaendige Sicherung ({stand['sicherung'] or 'kein OneDrive-Ordner'}). "
+             "Sichern: python scripts/update_schluessel.py sichern")
 
 
 # ── Main ──────────────────────────────────────────────────────

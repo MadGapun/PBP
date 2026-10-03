@@ -55,6 +55,7 @@ T_L = ["tests/test_v18_auto_update_lauf.py", "tests/test_v18_auto_update_aufraeu
 T_S = ["tests/test_v18_auto_update_schnittstellen.py"]
 T_E = ["tests/test_v18_auto_update_ed25519.py"]
 T_SA = ["tests/test_v18_auto_update_schluessel_ausgeliefert.py"]
+T_SAB = ["tests/test_v18_auto_update_schluessel_ablage.py"]
 
 # (id, Beschreibung, Datei, alt, neu, Tests)
 M = [
@@ -70,6 +71,14 @@ M = [
     ("pr09", "Signatur wird im Ablauf uebersprungen", AU + "installation.py", "    signiert_von = pruefung.signatur_pruefen(summen_bytes, signatur_text, schluessel=schluessel)", '    signiert_von = ""', T_I),
     ("pr10", "Signaturdatei wird im Ablauf nicht geladen", AU + "installation.py", "    if _schl.signatur_erforderlich(schluessel):", "    if False:", T_I),
     ("pr11", "Ausgelieferte Schluessel: die Liste der vertrauten Schluessel ist leer", AU + "schluessel.py", "VERTRAUTE_SCHLUESSEL: dict = {\n", "VERTRAUTE_SCHLUESSEL: dict = {}\n_UNBENUTZT: dict = {\n", T_SA),
+    ("sa01", "Archivbauer: der Schluessel am festen Ort wird nicht gesucht", "scripts/build_update_archive.py", "or os.environ.get(SCHLUESSEL_ENV) or standard_schluessel()", "or os.environ.get(SCHLUESSEL_ENV)", T_SAB),
+    ("sa02", "Archivbauer: ohne Schluessel entsteht trotzdem ein Archiv", "scripts/build_update_archive.py", "    if not schluessel_datei and schluessel.signatur_erforderlich() and not ohne_signatur:", "    if False:", T_SAB),
+    ("sa03", "Release-Tor: das Probe-Archiv wird nie signiert", "release_check.py", "    signieren = bool(erforderlich and haupt and not im_ci)", "    signieren = False", T_SAB),
+    ("sa04", "Release-Tor: ein fehlender Schluessel ist nur eine Warnung", "release_check.py", "        (error if fassung.ist_stabil(version) else warn)(meldung)", "        warn(meldung)", T_SAB),
+    ("sa05", "Release-Tor: die fehlende Sicherung wird nicht angemahnt", "release_check.py", "    if stand[\"sicherung_vollstaendig\"]:", "    if True:", T_SAB),
+    ("sa06", "Sichern ueberschreibt einen anderen Schluessel", "scripts/update_schluessel.py", "        if kopie.exists() and kopie.read_bytes().strip() != quelle.read_bytes().strip():", "        if False:", T_SAB),
+    ("sa07", "Sichern in ein Git-Arbeitsverzeichnis", "scripts/update_schluessel.py", "    if _im_git_arbeitsbaum(ziel):", "    if False:", T_SAB),
+    ("sa08", "Tests sehen den echten Schluesselordner", "tests/conftest.py", "    monkeypatch.setenv(\"PBP_SIGNATUR_ORDNER\", str(basis / \"kein-signatur-ordner\"))", "    pass", T_SAB),
     ("ed01", "Signatur: s >= Q wird nicht abgewiesen", AU + "ed25519.py", "        if s >= _Q:", "        if False:", T_E),
     # ── feste Quelle ──
     ("qu01", "Adresse: gar keine Pruefung", AU + "quelle.py", '    if teile.scheme != "https" or host not in erlaubte_hosts or teile.username or teile.password or port not in (None, 443):', "    if False:", T_Q + T_I),

@@ -64,7 +64,7 @@ def pytest_runtest_teardown(item):
 
 
 @pytest.fixture(autouse=True)
-def _update_ohne_vertraute_schluessel(monkeypatch):
+def _update_ohne_vertraute_schluessel(monkeypatch, tmp_path_factory):
     """#1093: seit dem 03.10.2026 stehen die echten oeffentlichen Update-Schluessel im Code, und damit verlangt jedes Update eine
     Signatur. Die Tests bauen ihre Archive und Antworten ohne -- ohne diese Fixture bekaeme keiner eine `.sig`.
 
@@ -74,6 +74,13 @@ def _update_ohne_vertraute_schluessel(monkeypatch):
     """
     from bewerbungs_assistent.services.auto_update import schluessel
     monkeypatch.setattr(schluessel, "VERTRAUTE_SCHLUESSEL", {})
+    # Seit dem Signieren ohne Angabe (03.10.2026) sucht der Archivbauer den Hauptschluessel am festen Ort und sichert
+    # `update_schluessel.py sichern` nach OneDrive. Kein Test sieht den echten Ort oder die echte Sicherung: beide zeigen
+    # auf Namen unter dem Pytest-Basisverzeichnis, die nicht angelegt werden. Tests, die sie brauchen, lenken selbst um.
+    basis = tmp_path_factory.getbasetemp()
+    monkeypatch.setenv("PBP_SIGNATUR_ORDNER", str(basis / "kein-signatur-ordner"))
+    monkeypatch.setenv("PBP_SIGNATUR_SICHERUNG", str(basis / "keine-signatur-sicherung"))
+    monkeypatch.delenv("PBP_UPDATE_SCHLUESSEL_DATEI", raising=False)
 
 
 @pytest.fixture(autouse=True)

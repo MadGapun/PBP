@@ -280,7 +280,7 @@ Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt
   Start); weicher Fehler -> zwei unbestaetigte Starts (je aelter als 90 s) -> Rueckfall beim naechsten Start.
   `SystemExit` loest nie aus.
 - **Sicherheit:** feste GitHub-Quelle im Code (`services/auto_update/quelle.py`), nur stabile Fassungen der eigenen
-  Linie, `SHA256SUMS` Pflicht, Signatur (Ed25519, reines Python) Pflicht, sobald `schluessel.py` Schluessel enthaelt;
+  Linie, `SHA256SUMS` Pflicht, Signatur (Ed25519, reines Python) Pflicht (Schluessel `haupt` und `notfall` seit 03.10.2026);
   eigenes sicheres Entpacken, Manifest-Pruefung, Selbsttest der neuen Fassung VOR dem Umschalten, `aktuell.txt` zuletzt.
 - **Stufen** (`auto_update_stufe`): aus (Vorgabe) | hinweis | auto_meldung | auto_still. Die Automatik laeuft nie
   neben anderer Hintergrundarbeit; Claude-Werkzeuge verlangen `bestaetigt=True`.
@@ -343,10 +343,10 @@ Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Que
 5. **CHANGELOG.md:** neuer Eintrag GANZ OBEN (Added/Changed/Fixed), am Ende
    IMMER der Pflicht-Block unten — mit der Versionsnummer DIESES Releases.
 5a. **Update-Archiv (nur stabile Releases, ab 1.8.0):** nach dem Tag
-   `python scripts/build_update_archive.py --ref vX.Y.Z --ausgabe dist [--schluessel-datei <geheimer Schluessel>]`,
-   dann `pbp-update-X.Y.Z.zip`, `SHA256SUMS` (und `SHA256SUMS.sig`, sobald Schluessel im Code stehen) an die
-   GH-Release haengen (`gh release upload`). Fehlen die Dateien, meldet PBP „Update noch nicht bereit“ — kein Schaden,
-   aber kein Auto-Update. `release_check.py` Schritt 7 baut das Archiv vorab aus dem Arbeitsbaum.
+   `python scripts/build_update_archive.py --ref vX.Y.Z --ausgabe dist` (signiert automatisch mit dem Schluessel aus
+   `~/PBP-Signatur`), dann `pbp-update-X.Y.Z.zip`, `SHA256SUMS` und `SHA256SUMS.sig` an die GH-Release haengen
+   (`gh release upload`). Fehlen die Dateien, meldet PBP „Update noch nicht bereit“. `release_check.py` Schritt 7 baut das
+   Archiv vorab signiert und mahnt eine fehlende Sicherung an (`scripts/update_schluessel.py stand` / `sichern`).
 6. **Pre-Release-Pause:** vor dem Commit Risiko je Issue (was kann brechen,
    was ist additiv) und nochmal testen (vom User eingefordert).
 7. **⛔ Pre-Release-Issue-Check:** UNMITTELBAR vor `gh release create` die
@@ -368,7 +368,8 @@ Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Que
    `cancelled` neu starten und abwarten, nie taggen, weil die Suite „ja
    durchgelaufen ist“.
 9. **Erst nach OK des Users** committen, taggen, pushen, Release erstellen.
-   `--latest` traegt nur die 1.7-Linie; Betas sind Prereleases.
+   `--latest` traegt die neueste stabile Linie (bis 1.8.0 die 1.7, danach 1.8; spaetere 1.7-Hotfixes ohne `--latest`):
+   daran erkennt eine aeltere Linie, dass es eine neue gibt (#1168). Betas sind Prereleases.
 
 ## GitHub-Release-Notes — Pflicht-Block
 
