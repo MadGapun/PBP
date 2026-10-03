@@ -27,6 +27,12 @@ export function naechsteFrageMs(daten) {
 
 /** Kurzer Grund aus `quellen_versucht`, fürs Tooltip. */
 export function grundText(daten) {
+  // #1144 Punkt 2: GitHub hat geantwortet, nennt aber keine Version der eigenen Linie (Beta-Installation).
+  // Das ist kein Netzfehler und darf nicht so klingen.
+  if (daten?.grund === "keine_version_der_linie") {
+    const linie = daten.linie ? ` ${daten.linie}` : "";
+    return `Die Update-Quelle hat geantwortet, nennt aber keine veröffentlichte Version der Linie${linie}.`;
+  }
   const versuche = Array.isArray(daten?.quellen_versucht) ? daten.quellen_versucht : [];
   if (!versuche.length) return "Keine Update-Quelle hat geantwortet.";
   const teile = versuche.map((v) => {

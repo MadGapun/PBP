@@ -210,7 +210,8 @@ def test_1134_die_antwort_traegt_weiterhin_alle_bisherigen_felder(umgebung):
                  "quellen_versucht", "hinweis"):
         assert feld in res, feld
     assert "UNBEKANNT" in res["hinweis"]
-    assert len(res["quellen_versucht"]) == 2
+    # drei Quellen seit #1144 Punkt 2: elwosa, github (latest) und die Liste der Veroeffentlichungen
+    assert len(res["quellen_versucht"]) == 3
 
 
 # ══ Die Oberflaeche: Bauform und Registrierung ═════════════════════

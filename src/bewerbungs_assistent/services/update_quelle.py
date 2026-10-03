@@ -20,6 +20,17 @@ Drei Aenderungen:
 * **Antwortet keine Quelle, sagt PBP das.** `stand: unbekannt` statt
   eines stillen "aktuell".
 
+Und eine vierte (#1144 Punkt 2): **die Liste der Veroeffentlichungen.**
+`releases/latest` nennt immer nur die neueste STABILE Version. Fuer eine
+Beta-Installation (Linie 1.8) war das die 1.7-Linie, der Linienfilter
+verwarf sie, und die Anzeige stand dauerhaft auf "unbekannt" mit dem
+falschen Grund "keine Quelle hat geantwortet" - obwohl GitHub mit 200
+antwortete. Ab dem Tag, an dem 1.8 zur neuesten stabilen Version wird,
+haette es jede 1.7-Installation getroffen. Deshalb fragt PBP als dritte
+Quelle die Liste (`releases?per_page=30`) und nimmt daraus die neueste
+Version der eigenen Linie; Vorabversionen zaehlen nur fuer eine
+Installation, die selbst eine Vorabversion ist.
+
 **Gemessen am 21.09.2026:** der ELWOSA-Endpunkt antwortet mit HTTP 404 —
 die Domain gibt es, die Route noch nicht. Er steht trotzdem an erster
 Stelle, weil er fuer den Umzug gedacht ist; bis dahin ist der Rueckfall
@@ -46,7 +57,16 @@ STANDARD_QUELLEN = [
         "url": "https://api.github.com/repos/MadGapun/PBP/releases/latest",
         "art": "github",
     },
+    # #1144 Punkt 2: die Liste, falls `latest` nichts aus der eigenen Linie nennt.
+    {
+        "name": "github-liste",
+        "url": "https://api.github.com/repos/MadGapun/PBP/releases?per_page=30",
+        "art": "github_liste",
+    },
 ]
+
+#: Quellen, die die GitHub-API sprechen (Kopfzeile, kein `linie`-Parameter).
+GITHUB_ARTEN = ("github", "github_liste")
 
 #: Wie lange eine Antwort gilt, wenn die Quelle nichts anderes sagt.
 STANDARD_PAUSE_S = 3600
@@ -94,12 +114,62 @@ def _passt_zur_linie(version: str, linie: str) -> bool:
     return not linie or linie_von(version) == linie
 
 
-def auswerten(art: str, daten: dict, aktuell: str, linie: str) -> dict | None:
+def _ist_vorabversion(version: str) -> bool:
+    try:
+        from packaging.version import Version
+        return Version(version).is_prerelease
+    except Exception:
+        return False
+
+
+def _version_oder_none(text: str):
+    try:
+        from packaging.version import Version
+        return Version(text)
+    except Exception:
+        return None
+
+
+def auswerten_liste(daten, aktuell: str, linie: str) -> dict | None:
+    """Aus der Liste der Veroeffentlichungen die neueste Version der Linie nehmen (#1144 Punkt 2).
+
+    Entwuerfe zaehlen nie. Vorabversionen (Beta) zaehlen nur, wenn die
+    Installation selbst eine ist: wer auf der stabilen Linie sitzt, bekommt
+    keine Beta angeboten, wer eine Beta nutzt, bekommt die naechste Beta und
+    die fertige Version.
+    """
+    if not isinstance(daten, list):
+        return None
+    mit_vorab = _ist_vorabversion(aktuell)
+    beste = None
+    for eintrag in daten:
+        if not isinstance(eintrag, dict) or eintrag.get("draft"):
+            continue
+        version = str(eintrag.get("tag_name") or "").lstrip("v")
+        if not version or not _passt_zur_linie(version, linie):
+            continue
+        parsed = _version_oder_none(version)
+        if parsed is None:
+            continue
+        if (eintrag.get("prerelease") or parsed.is_prerelease) and not mit_vorab:
+            continue
+        if beste is None or parsed > beste[0]:
+            beste = (parsed, version, eintrag)
+    if beste is None:
+        return None
+    _, version, eintrag = beste
+    return {"version": version, "url": eintrag.get("html_url") or "",
+            "name": eintrag.get("name") or "", "pause_s": STANDARD_PAUSE_S}
+
+
+def auswerten(art: str, daten, aktuell: str, linie: str) -> dict | None:
     """Die Antwort EINER Quelle deuten — ohne Netz, damit testbar.
 
     Rueckgabe: {"version", "url", "name", "pause_s"} oder None, wenn die
     Antwort nichts Brauchbares enthaelt.
     """
+    if art == "github_liste":
+        return auswerten_liste(daten, aktuell, linie)
     if not isinstance(daten, dict):
         return None
     if art == "github":
