@@ -64,6 +64,19 @@ def pytest_runtest_teardown(item):
 
 
 @pytest.fixture(autouse=True)
+def _update_ohne_vertraute_schluessel(monkeypatch):
+    """#1093: seit dem 03.10.2026 stehen die echten oeffentlichen Update-Schluessel im Code, und damit verlangt jedes Update eine
+    Signatur. Die Tests bauen ihre Archive und Antworten ohne -- ohne diese Fixture bekaeme keiner eine `.sig`.
+
+    Wer die Signaturpruefung testet, setzt eigene Schluessel (`monkeypatch.setattr(schluessel, "VERTRAUTE_SCHLUESSEL", ...)`) und signiert
+    mit dem passenden geheimen. Dass die ausgelieferten Schluessel eingetragen und gueltig sind, prueft
+    `test_v18_auto_update_schluessel_ausgeliefert.py` am Quelltext, nicht am Modul.
+    """
+    from bewerbungs_assistent.services.auto_update import schluessel
+    monkeypatch.setattr(schluessel, "VERTRAUTE_SCHLUESSEL", {})
+
+
+@pytest.fixture(autouse=True)
 def _komponenten_ordner_nicht_echt(tmp_path_factory, monkeypatch):
     """#1130: kein Test fasst den echten Komponenten-Ordner an.
 

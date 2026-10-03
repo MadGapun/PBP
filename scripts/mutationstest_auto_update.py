@@ -54,6 +54,7 @@ T_B = ["tests/test_v18_auto_update_boot.py"]
 T_L = ["tests/test_v18_auto_update_lauf.py", "tests/test_v18_auto_update_aufraeumen_zustand.py"]
 T_S = ["tests/test_v18_auto_update_schnittstellen.py"]
 T_E = ["tests/test_v18_auto_update_ed25519.py"]
+T_SA = ["tests/test_v18_auto_update_schluessel_ausgeliefert.py"]
 
 # (id, Beschreibung, Datei, alt, neu, Tests)
 M = [
@@ -68,6 +69,7 @@ M = [
     ("pr08", "Pruefsumme wird im Ablauf uebersprungen", AU + "installation.py", "    pr = pruefung.archiv_pruefen(archiv, archiv_name, summen_bytes, signiert_von=signiert_von)", '    pr = pruefung.Pruefergebnis(sha256="", signiert=False, schluessel="")', T_I),
     ("pr09", "Signatur wird im Ablauf uebersprungen", AU + "installation.py", "    signiert_von = pruefung.signatur_pruefen(summen_bytes, signatur_text, schluessel=schluessel)", '    signiert_von = ""', T_I),
     ("pr10", "Signaturdatei wird im Ablauf nicht geladen", AU + "installation.py", "    if _schl.signatur_erforderlich(schluessel):", "    if False:", T_I),
+    ("pr11", "Ausgelieferte Schluessel: die Liste der vertrauten Schluessel ist leer", AU + "schluessel.py", "VERTRAUTE_SCHLUESSEL: dict = {\n", "VERTRAUTE_SCHLUESSEL: dict = {}\n_UNBENUTZT: dict = {\n", T_SA),
     ("ed01", "Signatur: s >= Q wird nicht abgewiesen", AU + "ed25519.py", "        if s >= _Q:", "        if False:", T_E),
     # ── feste Quelle ──
     ("qu01", "Adresse: gar keine Pruefung", AU + "quelle.py", '    if teile.scheme != "https" or host not in erlaubte_hosts or teile.username or teile.password or port not in (None, 443):', "    if False:", T_Q + T_I),
