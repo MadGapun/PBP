@@ -33,6 +33,80 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.152] - 2026-10-03 — PBP sagt Bescheid, wenn Version 1.8 erscheint
+
+Hotfix für v1.7.151. Die Update-Prüfung schaut nur nach Versionen der eigenen Linie, damit eine 1.7-Installation nie von selbst auf 1.8 wechselt. Das hatte eine Kehrseite: Sobald 1.8.0 erscheint, hätte jede 1.7-Installation nur „aktuell“ gezeigt, und in PBP hätte niemand erfahren, dass es 1.8 gibt (#1168). Jetzt nennt PBP eine neue Linie, sobald sie als fertige Version erschienen ist, mit dem Weg dorthin. Kein Schema-Eingriff, keine Änderung an deinen Daten.
+
+**Wichtig zu wissen:**
+
+- **Erscheint Version 1.8, steht es unter der Versionsnummer in der Seitenleiste: „Version 1.8 ist erschienen“** (der Link führt zur Veröffentlichung mit der Installationsanleitung), und auf dem Dashboard erscheint ein ruhiger Hinweis „So wechselst du“. Der Wechsel geht **einmal von Hand**: das ZIP der neuen Version laden und den Installer starten, wie bei jedem Update. Deine Daten bleiben erhalten. Ab 1.8 kann PBP Updates dann auf Wunsch selbst installieren.
+- **Nichts wird automatisch installiert.** Für deine eigene Linie bleibt die Anzeige, wie sie ist („aktuell“ oder „Neue Version verfügbar“).
+- Eine Vorabversion (Beta) einer neuen Linie löst den Hinweis nie aus.
+
+### Added
+
+- **`neue_linie` in `/api/update-check`** (#1168, `services/update_quelle.neue_linie`): die neueste **stabile** Version einer **höheren** Linie aus jeder Antwort, die eine Quelle gibt (GitHub `releases/latest`, die Liste der Veröffentlichungen, elwosa.de). Entwürfe und Vorabversionen zählen nie; Linien werden als Zahlen verglichen (1.10 nach 1.9). Antworten mehrere Quellen, gilt die neueste Version.
+- **Hinweis in Seitenleiste und Hinweiszone** (`lib/updateStand.neueLinieHinweis`, `lib/hinweisZone.js` Stufe 5b): „Version 1.8 ist erschienen“ mit Link und dem Weg dorthin; in der Hinweiszone nach einem Update der eigenen Linie und vor dem Ollama-Angebot.
+
+### Fixed
+
+- **Eine 1.7-Installation erfuhr nie, dass es Version 1.8 gibt** (#1168). Der Linienfilter (`update_quelle._passt_zur_linie`) verwarf jede Antwort einer anderen Linie, für das Angebot zu Recht, für die Auskunft zu Unrecht.
+
+### Known Issues
+
+- Unverändert gegenüber v1.7.151: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+
+### Gemessen
+
+24 neue Tests (7.029 gesamt, gezählt im sauberen Klon ohne Entwicklungsumgebung; v1.7.151 hatte 7.005), alle in `tests/test_v17152_neue_linie_1168.py`: die reine Funktion (höhere, eigene und niedrigere Linie, Vorabversionen, Entwürfe, Zahlenvergleich, elwosa.de, unbrauchbare Antworten) und der Endpunkt mit nachgestellten Quellen (vor und nach dem Erscheinen von 1.8, gescheiterte Liste, mehrere Quellen, kein Netz). Dazu zwei erweiterte Node-Dateien (`updateStand.test.mjs`, `hinweisZone.test.mjs`).
+
+Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): 15 Eingriffe, alle erkannt, darunter „die eigene Linie gilt als höhere“, „Linien als Text verglichen“, „eine spätere Quelle mit älterer Version überschreibt“ und „die neue Linie verdrängt das Update der eigenen Linie“.
+
+Im echten Browser gegen eine isolierte Demo mit nachgestellten GitHub-Antworten (Chromium, ohne Fenster): die Seitenleiste zeigt „Neue Version verfügbar: v1.7.152“ und darunter „Version 1.8 ist erschienen“ mit dem richtigen Ziel und dem Weg im Tooltip, keine Fehler im Browser.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.152.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.152.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.152 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.151] - 2026-10-03 — Die Update-Anzeige bleibt richtig, wenn Version 1.8 erscheint
 
 Hotfix für v1.7.150. Sobald Version 1.8.0 als neueste stabile Version erscheint, hätte jede 1.7-Installation dauerhaft „Update-Stand unbekannt“ gezeigt, mit dem falschen Grund „Keine Update-Quelle hat geantwortet“, obwohl GitHub mit 200 antwortet (#1144 Punkt 2). Jetzt fragt PBP zusätzlich die Liste der Veröffentlichungen und nimmt daraus die neueste Version der **eigenen Linie**. Kein Schema-Eingriff, keine Änderung an deinen Daten.
