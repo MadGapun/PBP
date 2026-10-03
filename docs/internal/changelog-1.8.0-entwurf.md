@@ -48,7 +48,7 @@ Einträgen darunter.
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 229 absichtlich eingebaute Fehler (Auto-Update 93, Speicher 24,
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 237 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
   Komponenten 6, Mail 20, Firmen 86); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
 
 ### Changed
