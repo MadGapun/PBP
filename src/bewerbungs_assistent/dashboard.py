@@ -7893,6 +7893,7 @@ async def api_update_check(frisch: int = 0):
         "quellen_versucht": [],
     }
     pause_s = _uq.STANDARD_PAUSE_S
+    neue_linie = None   # #1168: die neueste stabile Version einer hoeheren Linie, aus jeder Antwort
     for quelle in _uq.quellen(_db):
         versuch = {"name": quelle.get("name") or quelle["art"]}
         try:
@@ -7908,8 +7909,11 @@ async def api_update_check(frisch: int = 0):
             if resp.status_code != 200:
                 result["quellen_versucht"].append(versuch)
                 continue
-            befund = _uq.auswerten(quelle["art"], resp.json(),
-                                   __version__, linie)
+            daten = resp.json()
+            befund = _uq.auswerten(quelle["art"], daten, __version__, linie)
+            gefunden = _uq.neue_linie(quelle["art"], daten, __version__)
+            if gefunden and (neue_linie is None or _uq.ist_neuer(gefunden["version"], neue_linie["version"])):
+                neue_linie = gefunden
         except Exception as exc:
             versuch["fehler"] = str(exc)[:120]
             result["quellen_versucht"].append(versuch)
@@ -7930,6 +7934,9 @@ async def api_update_check(frisch: int = 0):
             result["release_url"] = befund["url"]
             result["release_name"] = befund["name"]
         break
+
+    # #1168: eine hoehere Linie wird gemeldet, nie angeboten (der Wechsel geht einmal von Hand)
+    result["neue_linie"] = neue_linie
 
     if result["stand"] == "unbekannt":
         # #1144 Punkt 2: hat eine Quelle ANTWORTEN koennen (200) und nur nichts aus der eigenen Linie

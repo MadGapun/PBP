@@ -6,7 +6,9 @@ import {
   FRAGE_OHNE_ANTWORT_MS,
   grundText,
   naechsteFrageMs,
+  neueLinieHinweis,
   unbekanntTitel,
+  VEROEFFENTLICHUNGEN_URL,
 } from "./updateStand.js";
 
 // Der Server bestimmt, wann erneut gefragt wird: nach einem Fehlschlag bald,
@@ -76,5 +78,25 @@ assert.equal(
   grundText({ ...ohneLinie, grund: "keine_antwort" }),
   "Keine Update-Quelle hat geantwortet (elwosa: Antwort 404, github: keine passende Version).",
 );
+
+// #1168: eine höhere Linie wird genannt — mit dem Weg dorthin, nie als Update.
+const mit18 = { linie: "1.7", neue_linie: { version: "1.8.0", linie: "1.8", url: "https://example.com/v1.8.0" } };
+const h = neueLinieHinweis(mit18);
+assert.equal(h.titel, "Version 1.8 ist erschienen");
+assert.equal(h.url, "https://example.com/v1.8.0");
+assert.ok(h.text.includes("einmal von Hand"), h.text);
+assert.ok(h.text.includes("Daten bleiben"), h.text);
+assert.ok(h.text.includes("selbst installieren"), "eine 1.7-Installation erfährt, warum sich der Wechsel lohnt");
+// Ohne Adresse: die Seite mit den Veröffentlichungen, nie ein toter Link.
+assert.equal(neueLinieHinweis({ linie: "1.7", neue_linie: { version: "1.8.0", linie: "1.8" } }).url, VEROEFFENTLICHUNGEN_URL);
+// Eine Installation, die selbst schon Updates installieren kann, bekommt den Satz dazu nicht.
+assert.ok(!neueLinieHinweis({ linie: "1.8", neue_linie: { version: "2.0.0", linie: "2.0" } }).text.includes("selbst installieren"));
+// Nichts gemeldet, nichts Brauchbares oder keine höhere Linie: kein Hinweis.
+assert.equal(neueLinieHinweis({ linie: "1.7" }), null);
+assert.equal(neueLinieHinweis(null), null);
+assert.equal(neueLinieHinweis({ linie: "1.7", neue_linie: { version: "1.8.0" } }), null);
+assert.equal(neueLinieHinweis({ linie: "1.8", neue_linie: { version: "1.8.0", linie: "1.8" } }), null);
+assert.equal(neueLinieHinweis({ linie: "1.10", neue_linie: { version: "1.9.0", linie: "1.9" } }), null, "1.10 ist höher als 1.9");
+assert.equal(neueLinieHinweis({ linie: "1.9", neue_linie: { version: "1.10.0", linie: "1.10" } }).titel, "Version 1.10 ist erschienen");
 
 console.log("updateStand: ok");
