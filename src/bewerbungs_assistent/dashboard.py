@@ -11905,10 +11905,13 @@ async def api_llm_set_model(request: Request):
 
 @app.post("/api/llm/pull")
 async def api_llm_pull(request: Request):
-    """Triggert einen Modell-Download in Ollama.
+    """Startet einen Modell-Download in Ollama im Hintergrund (#1154 Punkt 1).
 
-    Aktuell synchron — kann bei grossen Modellen mehrere Minuten dauern.
-    Frontend sollte einen Loading-State zeigen.
+    Antwortet sofort (202) mit der Kennung des Jobs; den Stand liefert
+    `GET /api/llm/pull/{job_id}`. Bis v1.7.149 wartete dieser Aufruf auf das Ende
+    des Downloads, die Oberflaeche zeigte keinen Fortschritt und meldete nach
+    zehn Minuten "fehlgeschlagen", obwohl Ollama weiterlud. Laeuft schon ein
+    Download, wird kein zweiter gestartet: die Antwort nennt den laufenden.
     """
     data = await request.json()
     model = (data.get("model") or "").strip()
@@ -11916,16 +11919,25 @@ async def api_llm_pull(request: Request):
         return JSONResponse({"error": "model ist Pflicht"}, status_code=400)
     from .services.llm_service import get_llm_service
     svc = get_llm_service(_db)
-    # v1.7.147 (#1143): der Download dauert bei grossen Modellen Minuten.
-    # Auf der Ereignisschleife hielt er das ganze Dashboard an (8 s Download
-    # = 7,7 s Wartezeit fuer jede andere Anfrage). Jetzt laeuft er im
-    # Thread-Pool; eine Fortschrittsanzeige gibt es weiter nicht.
-    result = await run_in_threadpool(svc.trigger_pull, model)
-    if result.get("status") == "error":
-        return JSONResponse(result, status_code=502)
-    # Status-Cache invalidieren — neues Modell ist jetzt da
-    await run_in_threadpool(svc.get_status, force_refresh=True)
-    return result
+    return JSONResponse(await run_in_threadpool(svc.start_pull_job, model), status_code=202)
+
+
+@app.get("/api/llm/pull")
+async def api_llm_pull_aktuell():
+    """Der laufende Modell-Download, falls es einen gibt (die Seite fragt beim Laden danach)."""
+    from .services import modell_download
+    laufend = await run_in_threadpool(_db.get_running_background_job, modell_download.JOB_TYP)
+    return {"job": modell_download.job_beschreiben(laufend)}
+
+
+@app.get("/api/llm/pull/{job_id}")
+async def api_llm_pull_stand(job_id: str):
+    """Stand eines Modell-Downloads: Status, Prozent, Satz fuer den Menschen, Fehler."""
+    from .services import modell_download
+    job = await run_in_threadpool(_db.get_background_job, job_id)
+    if not job or job.get("job_type") != modell_download.JOB_TYP:
+        return JSONResponse({"error": "Download nicht gefunden"}, status_code=404)
+    return modell_download.job_beschreiben(job)
 
 
 @app.post("/api/jobs/refresh-freelancermap-descriptions")

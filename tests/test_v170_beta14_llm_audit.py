@@ -110,16 +110,20 @@ def test_llm_model_endpoint_persists(setup_env):
     assert db.get_profile_setting("llm_local_model", "") == "llama3.2:3b"
 
 
-def test_llm_pull_endpoint_returns_502_on_ollama_error(setup_env):
-    """`/api/llm/pull` liefert 502 wenn Ollama nicht antwortet."""
+def test_llm_pull_endpoint_meldet_ollama_fehler_im_job(setup_env):
+    """`/api/llm/pull` antwortet sofort (202); ist Ollama nicht da, steht der Fehler im Job (#1154)."""
     db, _ = setup_env
     from fastapi.testclient import TestClient
     from bewerbungs_assistent.dashboard import app
+    from bewerbungs_assistent.services import modell_download
     client = TestClient(app)
     with patch("urllib.request.urlopen", side_effect=ConnectionRefusedError("ollama down")):
         r = client.post("/api/llm/pull", json={"model": "llama3.2:3b"})
-    assert r.status_code == 502
-    assert r.json()["status"] == "error"
+        assert r.status_code == 202
+        modell_download.warten(30)
+    job = client.get(f"/api/llm/pull/{r.json()['job_id']}").json()
+    assert job["status"] == "fehler"
+    assert "nicht erreichbar" in job["error"]
 
 
 def test_llm_pull_endpoint_validates_model(setup_env):
@@ -307,27 +311,6 @@ def test_run_paused_state_blocks_local_even_with_ollama(setup_env):
     assert backend == Backend.CLAUDE  # Fallback auch im paused-State
 
 
-# ============= trigger_pull (echter Pfad) ===============
-
-def test_trigger_pull_success(setup_env):
-    """Erfolgreicher Modell-Download liefert status=success."""
-    db, _ = setup_env
-    from bewerbungs_assistent.services.llm_service import LLMService
-    svc = LLMService(db)
-    fake_resp = _mock_urlopen_response({"status": "success"})
-    with patch("urllib.request.urlopen", return_value=fake_resp):
-        result = svc.trigger_pull("llama3.2:3b")
-    assert result["status"] == "success"
-    assert result["model"] == "llama3.2:3b"
-
-
-def test_trigger_pull_returns_error_on_failure(setup_env):
-    """Bei Netzwerk-Fehler liefert trigger_pull error-Status (kein crash)."""
-    db, _ = setup_env
-    from bewerbungs_assistent.services.llm_service import LLMService
-    svc = LLMService(db)
-    with patch("urllib.request.urlopen",
-               side_effect=ConnectionRefusedError("ollama not running")):
-        result = svc.trigger_pull("llama3.2:3b")
-    assert result["status"] == "error"
-    assert "ollama" in result["error"].lower() or "refused" in result["error"].lower()
+# ============= Modell-Download (echter Pfad) ===============
+# Der synchrone `trigger_pull` ist seit v1.7.150 (#1154 Punkt 1) ein Hintergrund-Job; seine Tests
+# stehen in tests/test_v17150_modell_download_1154.py.
