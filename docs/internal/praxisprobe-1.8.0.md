@@ -1,6 +1,6 @@
 # Praxisprobe 1.8.0 — Anleitung für den Test auf einem frischen Windows 11
 
-Beta-Exit-Kriterien 3 und 7 (Master-Plan). Ziel: zeigen, dass auf einem Rechner, auf dem PBP noch nie war, **die Installation, das Auto-Update
+Beta-Exit-Kriterien 3 (Zusatzprogramme und Deinstallation) und 7 (Auto-Update) im Master-Plan. Ziel: zeigen, dass auf einem Rechner, auf dem PBP noch nie war, **die Installation, das Auto-Update
 und der Rückfall** so funktionieren, wie es im Wiki steht. Das kann nur ein Mensch an einem echten Rechner (oder in einer frischen virtuellen
 Maschine) prüfen; die automatischen Tests stellen alles mit Attrappen nach.
 
@@ -22,6 +22,15 @@ Maschine) prüfen; die automatischen Tests stellen alles mit Attrappen nach.
 | 5 | Einstellungen › Erweitert › **Speicher & Downloads** | Sieben Orte mit Größen; „Aufräumen“ zeigt erst eine Vorschau und fragt dann |
 | 6 | Einstellungen › Erweitert › Quellen im Detail › **Mail-Ordner** | Schalter steht auf „aus“ |
 | 7 | **Kontakte › Firmen** | Die Ansicht öffnet sich; eine Firma aus einer Bewerbung lässt sich über die Suche öffnen |
+
+## Zusatzprogramme und Deinstallation (Beta-Exit 3)
+
+| # | Schritt | Erwartet |
+|---|---|---|
+| 7a | Einstellungen › Erweitert › **Erweiterungen**: bei der Texterkennung auf *Herunterladen & installieren* klicken | Vorher steht Größe (rund 55 MB) und Lizenz da; geladen wird erst nach dem Klick; danach steht die Komponente als installiert da (ohne Administratorrechte) |
+| 7b | Ein **gescanntes** PDF (nur Bild, kein Text) bei Dokumente hochladen | PBP erkennt den Text und vermerkt im Text, dass er per Texterkennung entstand |
+| 7c | Einstellungen › Erweitert › **Speicher & Downloads** | Die Komponente steht unter „Zusatzprogramme von PBP“ mit ihrer Größe |
+| 7d | PBP deinstallieren (Windows-Einstellungen › Apps, oder `DEINSTALLIEREN.bat`) | Der Ordner `%LOCALAPPDATA%\BewerbungsAssistent\components` ist danach weg; gefragt wird, ob auch alle Bewerbungsdaten gelöscht werden sollen |
 
 ## Auto-Update (der eigentliche Beweis)
 
