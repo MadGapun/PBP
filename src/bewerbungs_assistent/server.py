@@ -179,6 +179,14 @@ class HeartbeatMiddleware(Middleware):
         write_heartbeat(tool_name)
         logger.info("Tool aufgerufen: %s", tool_name)
 
+        # #1093: ist die Datenbank neuer als dieses Programm (ein Auto-Update hat sie umgestellt, dieser Prozess
+        # laeuft noch in der alten Fassung), schreibt dieser Prozess nichts mehr.
+        from .services import schema_schutz
+        abgewiesen = schema_schutz.werkzeug_abweisen(db, tool_name)
+        if abgewiesen is not None:
+            from fastmcp.exceptions import ToolError as _ToolError
+            raise _ToolError(abgewiesen)
+
         # #1148 Punkt 9: typisierte Kennungen ("APP-42061e46", "JOB-…") nimmt jedes Werkzeug an.
         # PBP gibt sie aus, aber nur einzelne Werkzeuge verstanden sie wieder; das Praefix faellt
         # deshalb hier weg, bevor ein Werkzeug die Argumente sieht.
@@ -490,6 +498,13 @@ def run_server():
         _komponenten.setup_reste_entfernen(db)
     except Exception as exc:
         logger.warning("Komponenten-Aufraeumen uebersprungen: %s", exc)
+
+    # #1093: Auto-Update — Reste weg, Start melden, Zeitgeber. Ohne Installer-Layout tut es nichts.
+    try:
+        from .services.auto_update import lauf as _auto_update
+        _auto_update.beim_start(db)
+    except Exception as exc:
+        logger.warning("Auto-Update-Start uebersprungen: %s", exc)
 
     # Run MCP server (blocks on stdio)
     from . import __version__

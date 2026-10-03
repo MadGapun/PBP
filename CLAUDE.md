@@ -10,7 +10,7 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.7.143 (`--latest`, 2026-09-30), Linie 1.7; Hotfix-Branches
+- **Stable:** v1.7.152 (`--latest`, 2026-10-03), Linie 1.7; Hotfix-Branches
   `hotfix/v1.7.N` vom letzten 1.7-Tag.
 - **Beta:** `main` = 1.8.0-beta.15, Betas sind GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
@@ -22,8 +22,10 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 6086 Tests (main) / 5981 (Stable); 270 MCP-Werkzeuge (main) /
-  257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
+- **Umfang:** 8061 Tests (main mit dem 1.8-PR) / 7029 (Stable); 281 MCP-Werkzeuge
+  (main mit dem 1.8-PR) / 257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
+- **1.8-PR:** `feature/v18-firmen-1080` bringt alle fuenf Bausteine in EINEM Pull Request. Das Release 1.8.0
+  braucht die Praxisprobe (`docs/internal/praxisprobe-1.8.0.md`) und das Wort des Nutzers.
 - Fixes, die Stable betreffen, gehoeren in die 1.7-Linie, nicht nur in die
   Beta — die zieht kaum jemand. Schaufenster-Arbeit ist erst beim Nutzer,
   wenn sie auf Stable ist.
@@ -263,6 +265,67 @@ loescht alle Kommentare und macht Verweise in CHANGELOG und Code tot. Im
 Zweifel loeschen; besser: vor JEDEM Anlegen pruefen (Mai 2026 mussten ~155
 Bodies nachtraeglich anonymisiert werden).
 
+## Auto-Update (#1093, ab v1.8.0)
+
+Aufbau unter Windows: `%LOCALAPPDATA%\BewerbungsAssistent\app\` mit `python\`, `boot\`, `versions\<fassung>\`
+(`src\`, `start_dashboard.py`, `_selftest.py`, `manifest.json`, Marke `.fertig`, optional `site\`),
+`aktuell.txt`, `update_status.json`, `update\` (Arbeitsordner) und `update.sperre`. Claude Desktop startet
+`python -m bewerbungs_assistent_boot`, die Desktop-Verknuepfung `app\start_dashboard.py` (unveraenderlicher
+Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt `sys.path`, `PBP_APP_DIR` und
+`PBP_FASSUNG`, markiert die Belegung (`.in_benutzung\<pid>.json`) und fuehrt per `runpy` aus.
+
+- **Der Vertrag des Startbausteins ist eingefroren** (`FORMAT = 1`). Er aendert sich nie von selbst: jede Aenderung
+  an `src/bewerbungs_assistent_boot/` braucht ein neues `FORMAT`, das Manifest-Feld `boot_format` und den Installer.
+- **Rueckfall:** harter Fehler vor `bereit_melden()` -> im selben Prozess auf die vorige Fassung (ein Rueckfall je
+  Start); weicher Fehler -> zwei unbestaetigte Starts (je aelter als 90 s) -> Rueckfall beim naechsten Start.
+  `SystemExit` loest nie aus.
+- **Sicherheit:** feste GitHub-Quelle im Code (`services/auto_update/quelle.py`), nur stabile Fassungen der eigenen
+  Linie, `SHA256SUMS` Pflicht, Signatur (Ed25519, reines Python) Pflicht (Schluessel `haupt` und `notfall` seit 03.10.2026);
+  eigenes sicheres Entpacken, Manifest-Pruefung, Selbsttest der neuen Fassung VOR dem Umschalten, `aktuell.txt` zuletzt.
+- **Stufen** (`auto_update_stufe`): aus (Vorgabe) | hinweis | auto_meldung | auto_still. Die Automatik laeuft nie
+  neben anderer Hintergrundarbeit; Claude-Werkzeuge verlangen `bestaetigt=True`.
+- **Schema-Schutz** (`services/schema_schutz.py`): ist die Datenbank neuer als das Programm, weist der alte Prozess
+  MCP-Werkzeuge (ausser einer Liste) und schreibende REST-Aufrufe ab (503).
+- **Gegenprobe:** `scripts/mutationstest_auto_update.py` (in einem EIGENEN Arbeitsbaum) macht je eine Schutzpruefung
+  wirkungslos; die Tests muessen rot werden. Nach jeder Aenderung an den geprueften Dateien laufen lassen. Stand
+  03.10.2026: 100 von 101 erkannt, 1 begruendet gleichwertig. Gruen im Repository ist kein Beweis, dass ein Schutz greift.
+- MERKE: Windows-Anonym-Pipes fassen nur 4 KB. Ein Test, der den Server mit `subprocess.PIPE` startet, MUSS stderr
+  mitlesen (Thread), sonst haengt er an den ~6 KB, die eine frische Datenbank protokolliert.
+- MERKE: Der Pfad traegt den Benutzernamen (Umlaute, Leerzeichen, `ł`, `ş`). Unterprozess-Ausgabe nie mit `text=True` allein lesen, siehe L44.
+
+## Die weiteren Bausteine von 1.8 (#1131, #1152, #947, #1080)
+
+**Speicher & Downloads (#1131, `services/speicher.py`):** EINE Liste der Orte (`ORT_IDS`) und Aufräum-Aktionen (`AKTIONEN`); Pfade
+kommen nie aus einer Anfrage, nur aus dieser Liste. `_loeschen(pfad, wurzel)` löscht nur UNTER der Wurzel, nie die Wurzel, nie einen
+Symlink (drei Versuche, dann „Fehler“). Fremdes (Playwright, Ollama) wird gezeigt und nie angeboten. Zwei Schritte (Vorschau, dann
+`bestaetigt`), nie bei laufender Hintergrundarbeit. Werkzeuge `speicher_anzeigen`, `speicher_bereinigen` (`ZWEISTUFIG`).
+
+**Komponenten-Prüfsumme (#1152, `services/components.py`):** kein Installer ohne SHA-256 (64 Hexzeichen, `_pruefsumme_gueltig`); die Ablehnung
+kommt VOR dem Download; ein Registry-Test hält jede Komponente gegen leere Summen. Die Tesseract-Summe stammt aus dem Manifest des
+Paketverwalters (nicht selbst geladen). Offen: die Sprachdaten (tessdata) laufen noch ohne Summe.
+
+**Mail-Ordner (#947, `services/mail_quelle.py`):** Vorgabe AUS, genaue Liste freigegebener Ordner (kein Platzhalter, keine Vererbung, leer =
+nichts, Posteingang nur nach Warnung). Die Regel sitzt in PBP, nicht im Add-on: `POST /api/v1/ingest/email` prüft bei `modus=scan` gegen die
+Liste, BEVOR etwas gespeichert wird; `GET /api/v1/ingest/mail-policy` sagt dem Add-on, was erlaubt ist. PBP öffnet nie selbst ein Postfach (Test).
+Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Quelle gilt in stabil erst nach neuer Bestätigung.
+
+**Firmen-Eintrag (#1080, Stufe 2, Bauform A):** `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung, Löschbereich
+„bewerbungen“). Bewerbungen, Stellen, Kontakte und Lebenslauf behalten ihren Firmennamen als TEXT; aufgelöst wird beim LESEN
+(`services/firmen_stamm.py`). Regeln, die sich nicht aufweichen lassen:
+- **PBP rät nicht:** passt ein Name zu mehreren Firmen, kommt `mehrdeutig`, nie eine Wahl. Angelegt wird nur nach Bestätigung (Vorschläge,
+  Zusammenführen, Löschen: `bestaetigung`).
+- **Konzern wird gefunden, nie verschmolzen** (`via: mutterfirma/tochterfirma`, eigene Warnung, kein „dieselbe Firma“).
+- **Der Kanon (`firmen_kanon(db)`) fügt Treffer hinzu und nimmt nie einen weg** (Recall vor Präzision, #951). Einmal je Lauf bauen und
+  weitergeben (Import je Profil, Trefferliste, Automatik), nie je Stelle. Beim Import ist ein Treffer allein über den Kanon nie SICHER,
+  nur VERDACHT (kein Verschmelzen).
+- **Eine Quelle für Chat und Dashboard:** `firma_kontext_daten` (tools/bewerbungen.py) speist das Werkzeug UND `services/firmen_ansicht.py`.
+  Wer die Antwort ändert, ändert beide Wege.
+- Gegenprobe `scripts/mutationstest_auto_update.py --katalog firmen` (86 Eingriffe, alle erkannt); die anderen Kataloge: `speicher` (24),
+  `komponenten` (6), `mail` (20).
+- MERKE (UI): `pushToast` ändert sich mit jeder Meldung. Ladefunktionen in React-Effekten dürfen nicht daran hängen, sonst lädt jede Meldung
+  neu (nach dem Löschen fragte die Ansicht noch einmal nach der gelöschten Firma → 404).
+- Bildschirmfoto: `python docs/screenshots/generate_screenshots.py --nur-firmen` (fasst die anderen Bilder nicht an; Musterdaten, eigene Temp-DB).
+
 ## Release-Workflow (Pflicht)
 
 1. **Version** an drei Stellen: `pyproject.toml`,
@@ -279,6 +342,11 @@ Bodies nachtraeglich anonymisiert werden).
    Hash-Dateien `git rm`.
 5. **CHANGELOG.md:** neuer Eintrag GANZ OBEN (Added/Changed/Fixed), am Ende
    IMMER der Pflicht-Block unten — mit der Versionsnummer DIESES Releases.
+5a. **Update-Archiv (nur stabile Releases, ab 1.8.0):** nach dem Tag
+   `python scripts/build_update_archive.py --ref vX.Y.Z --ausgabe dist` (signiert automatisch mit dem Schluessel aus
+   `~/PBP-Signatur`), dann `pbp-update-X.Y.Z.zip`, `SHA256SUMS` und `SHA256SUMS.sig` an die GH-Release haengen
+   (`gh release upload`). Fehlen die Dateien, meldet PBP „Update noch nicht bereit“. `release_check.py` Schritt 7 baut das
+   Archiv vorab signiert und mahnt eine fehlende Sicherung an (`scripts/update_schluessel.py stand` / `sichern`).
 6. **Pre-Release-Pause:** vor dem Commit Risiko je Issue (was kann brechen,
    was ist additiv) und nochmal testen (vom User eingefordert).
 7. **⛔ Pre-Release-Issue-Check:** UNMITTELBAR vor `gh release create` die
@@ -300,7 +368,8 @@ Bodies nachtraeglich anonymisiert werden).
    `cancelled` neu starten und abwarten, nie taggen, weil die Suite „ja
    durchgelaufen ist“.
 9. **Erst nach OK des Users** committen, taggen, pushen, Release erstellen.
-   `--latest` traegt nur die 1.7-Linie; Betas sind Prereleases.
+   `--latest` traegt die neueste stabile Linie (bis 1.8.0 die 1.7, danach 1.8; spaetere 1.7-Hotfixes ohne `--latest`):
+   daran erkennt eine aeltere Linie, dass es eine neue gibt (#1168). Betas sind Prereleases.
 
 ## GitHub-Release-Notes — Pflicht-Block
 

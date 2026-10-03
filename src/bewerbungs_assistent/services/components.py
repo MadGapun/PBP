@@ -48,10 +48,12 @@ _SUBPROCESS_FLAGS = {"creationflags": 0x08000000} if sys.platform == "win32" els
 # ---------------------------------------------------------------------------
 # Komponenten-Registry
 # ---------------------------------------------------------------------------
-# sha256 leer = Pruefung wird uebersprungen (mit Warnung im Log). Die
-# Checksum der UB-Mannheim-Releases aendert sich pro Version; sie wird beim
-# Versions-Bump hier nachgezogen. Der Beta-Exit (Kriterium 3) verifiziert
-# den kompletten Install-Pfad auf einer frischen Maschine.
+# Jede Komponente mit Download-Adresse braucht eine SHA-256-Pruefsumme (#1152):
+# ohne sie wird NICHTS geladen und nichts gestartet (`_pruefsumme_gueltig`).
+# Die Summe aendert sich mit jeder Version und wird beim Versions-Bump
+# nachgezogen; ein Test haelt, dass keine Komponente ohne sie in der Registry
+# steht. Der Beta-Exit (Kriterium 3) verifiziert den kompletten Install-Pfad
+# auf einer frischen Maschine.
 COMPONENT_DEFS: dict[str, dict] = {
     "tesseract": {
         "label": "Tesseract OCR",
@@ -69,7 +71,12 @@ COMPONENT_DEFS: dict[str, dict] = {
                 "https://github.com/UB-Mannheim/tesseract/releases/download/"
                 "v5.4.0.20240606/tesseract-ocr-w64-setup-5.4.0.20240606.exe"
             ),
-            "sha256": "",
+            # SHA-256 des Installers, entnommen dem winget-Manifest
+            # UB-Mannheim.TesseractOCR 5.4.0.20240606 (microsoft/winget-pkgs):
+            # Microsoft laedt dieselbe Adresse und vergleicht. Nicht selbst
+            # heruntergeladen; die Probe auf frischem Windows (Beta-Exit 3)
+            # bestaetigt sie.
+            "sha256": "c885fff6998e0608ba4bb8ab51436e1c6775c2bafc2559a19b423e18678b60c9",
             "installer_art": "nsis",  # silent: /S /D=<zielordner>
         },
         # Bekannte Orte fuer extern installierte Instanzen (zusaetzlich
@@ -181,6 +188,36 @@ def _installation_laeuft(db) -> bool:
         return True
 
 
+def setup_reste_finden() -> list:
+    """Was ein fehlgeschlagener oder abgebrochener Lauf liegen gelassen hat: [(Pfad, Bytes)].
+
+    Die eine Liste, nach der `setup_reste_entfernen` aufraeumt UND die Uebersicht
+    "Speicher & Downloads" (#1131) zeigt, was dort aufgeraeumt wuerde. Liest nur.
+    """
+    kandidaten: list[Path] = []
+    try:
+        for name in COMPONENT_DEFS:
+            setup = _setup_datei(name)
+            kandidaten += [setup, _teildatei(setup)]
+        # Sprachdaten landen im tessdata-Ordner der PBP-Installation oder,
+        # wenn der nicht beschreibbar ist, im eigenen (ensure_language).
+        sprachordner = {_tessdata_dir()} | {
+            components_dir() / name / "tessdata" for name in COMPONENT_DEFS}
+        for ordner in sorted(sprachordner):
+            if ordner.is_dir():
+                kandidaten += sorted(ordner.glob("*.traineddata.part"))
+    except Exception as exc:  # noqa: BLE001 -- Aufraeumen darf nie werfen
+        logger.warning("Komponenten-Ordner nicht lesbar: %s", exc)
+    gefunden = []
+    for pfad in kandidaten:
+        try:
+            if pfad.is_file():
+                gefunden.append((pfad, pfad.stat().st_size))
+        except OSError:
+            continue
+    return gefunden
+
+
 def setup_reste_entfernen(db) -> dict:
     """Raeumt liegengebliebene Installationsdateien weg (#1130).
 
@@ -196,29 +233,9 @@ def setup_reste_entfernen(db) -> dict:
     """
     if _installation_laeuft(db):
         return {"entfernt": 0, "bytes": 0, "uebersprungen": "installation_laeuft"}
-    kandidaten: list[Path] = []
-    try:
-        for name in COMPONENT_DEFS:
-            setup = _setup_datei(name)
-            kandidaten += [setup, _teildatei(setup)]
-        # Sprachdaten landen im tessdata-Ordner der PBP-Installation oder,
-        # wenn der nicht beschreibbar ist, im eigenen (ensure_language).
-        sprachordner = {_tessdata_dir()} | {
-            components_dir() / name / "tessdata" for name in COMPONENT_DEFS}
-        for ordner in sorted(sprachordner):
-            if ordner.is_dir():
-                kandidaten += sorted(ordner.glob("*.traineddata.part"))
-    except Exception as exc:  # noqa: BLE001 -- Aufraeumen darf nie werfen
-        logger.warning("Komponenten-Ordner nicht lesbar: %s", exc)
     entfernt = 0
     bytes_frei = 0
-    for pfad in kandidaten:
-        try:
-            if not pfad.is_file():
-                continue
-            groesse = pfad.stat().st_size
-        except OSError:
-            continue
+    for pfad, groesse in setup_reste_finden():
         if _entfernen(pfad):
             entfernt += 1
             bytes_frei += groesse
@@ -237,7 +254,7 @@ def _binary_version(binary: str) -> str:
     """Liest die Versionszeile eines Tesseract-Binaries (leer bei Fehler)."""
     try:
         proc = subprocess.run(
-            [binary, "--version"], capture_output=True, text=True,
+            [binary, "--version"], capture_output=True, text=True, errors="replace",
             timeout=15, **_SUBPROCESS_FLAGS,
         )
         first = ((proc.stdout or "") + (proc.stderr or "")).strip().splitlines()
@@ -249,8 +266,8 @@ def _binary_version(binary: str) -> str:
     return ""
 
 
-def _playwright_chromium_dir() -> Optional[str]:
-    """Ordner der installierten Chromium-Distribution (ms-playwright)."""
+def playwright_basis() -> Path:
+    """Der Ordner, in dem Playwright seine Browser ablegt (ms-playwright) -- auch fuer "Speicher & Downloads"."""
     if sys.platform == "win32":
         base = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
     elif sys.platform == "darwin":
@@ -260,6 +277,12 @@ def _playwright_chromium_dir() -> Optional[str]:
     env_base = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
     if env_base and env_base != "0":
         base = Path(env_base)
+    return base
+
+
+def _playwright_chromium_dir() -> Optional[str]:
+    """Ordner der installierten Chromium-Distribution (ms-playwright)."""
+    base = playwright_basis()
     try:
         for entry in sorted(base.glob("chromium*")):
             if entry.is_dir():
@@ -405,13 +428,19 @@ def _download(url: str, target: Path, progress: Callable[[int, str], None],
         raise
 
 
+def _pruefsumme_gueltig(wert) -> bool:
+    """Eine SHA-256-Summe: genau 64 Hexzeichen. Alles andere (leer, zu kurz, kein Hex) gilt als „keine“."""
+    return isinstance(wert, str) and re.fullmatch(r"[0-9a-fA-F]{64}", wert) is not None
+
+
 def _sha256_ok(path: Path, expected: str) -> bool:
-    if not expected:
-        logger.warning(
-            "Komponenten-Download ohne Checksum-Pruefung (keine sha256 in "
-            "der Registry hinterlegt): %s", path.name,
+    if not _pruefsumme_gueltig(expected):
+        # #1152: ohne Sollwert gibt es nichts zu pruefen, und was sich nicht pruefen laesst, gilt nicht.
+        logger.error(
+            "Komponenten-Download ohne gueltige Pruefsumme in der Registry "
+            "wird nicht verwendet: %s", path.name,
         )
-        return True
+        return False
     import hashlib
     h = hashlib.sha256()
     with open(path, "rb") as fh:
@@ -458,7 +487,7 @@ def install_component(db, name: str,
             progress(10, "Chromium wird geladen (playwright install)")
             proc = subprocess.run(
                 [sys.executable, "-m", "playwright", "install", "chromium"],
-                capture_output=True, text=True, timeout=900,
+                capture_output=True, text=True, errors="replace", timeout=900,
                 **_SUBPROCESS_FLAGS,
             )
             if proc.returncode != 0:
@@ -496,6 +525,13 @@ def install_component(db, name: str,
     dl = definition.get("windows_download") or {}
     if not dl.get("url"):
         return {"status": "fehler", "fehler": "Keine Download-Quelle hinterlegt."}
+    if not _pruefsumme_gueltig(dl.get("sha256", "")):
+        # #1152: nicht erst laden und dann ablehnen -- 50 MB umsonst, und die Datei laege auf der Platte.
+        logger.error("Komponente %s: keine gueltige Pruefsumme in der Registry, Installation abgelehnt", name)
+        return {"status": "fehler", "fehler": (
+            "Für diese Komponente ist keine Prüfsumme hinterlegt. PBP lädt und startet nichts, "
+            "das es nicht prüfen kann. Du kannst sie selbst installieren und den Pfad in den "
+            "Einstellungen setzen.")}
 
     target_dir = components_dir() / name
     setup_path = _setup_datei(name)
@@ -525,7 +561,7 @@ def install_component(db, name: str,
             # (komponente_pfad_setzen / Settings).
             proc = subprocess.run(
                 [str(setup_path), "/S", f"/D={target_dir}"],
-                timeout=900, capture_output=True, text=True,
+                timeout=900, capture_output=True, text=True, errors="replace",
                 **_SUBPROCESS_FLAGS,
             )
             if proc.returncode != 0:
@@ -683,7 +719,7 @@ def available_languages(db) -> list[str]:
     try:
         env = _ocr_env()
         proc = subprocess.run(
-            [binary, "--list-langs"], capture_output=True, text=True,
+            [binary, "--list-langs"], capture_output=True, text=True, errors="replace",
             timeout=20, env=env, **_SUBPROCESS_FLAGS,
         )
         langs = []
@@ -746,6 +782,32 @@ def ensure_language(db, lang: str = "deu",
         return {"status": "fehler", "fehler": str(exc)[:200]}
 
 
+def _ansi_sicher(pfad: str) -> str:
+    """Pfad fuer Programme, die Pfade in der ANSI-Zeichentabelle lesen (Tesseract: TESSDATA_PREFIX und Argumente).
+
+    Der Pfad liegt im Benutzerordner. Steckt darin ein Zeichen ausserhalb der Tabelle (Benutzername mit ł, ş, ř ...), meldet das
+    Programm "Error opening data file". Dann hilft der Kurzpfad (8.3) -- wenn das Laufwerk Kurznamen fuehrt; sonst bleibt der Pfad,
+    wie er ist, und der Fehler bleibt der alte.
+    """
+    if sys.platform != "win32":
+        return pfad
+    try:
+        pfad.encode("mbcs")
+        return pfad
+    except UnicodeEncodeError:
+        pass
+    try:
+        import ctypes
+        puffer = ctypes.create_unicode_buffer(1024)
+        laenge = ctypes.windll.kernel32.GetShortPathNameW(pfad, puffer, 1024)
+        if 0 < laenge < 1024:
+            puffer.value.encode("mbcs")
+            return puffer.value
+    except Exception:  # kein Kurzname, Aufruf nicht moeglich oder der Kurzpfad ist selbst nicht lesbar
+        pass
+    return pfad
+
+
 def _ocr_env() -> dict:
     """Prozess-Env fuer Tesseract-Aufrufe.
 
@@ -756,5 +818,5 @@ def _ocr_env() -> dict:
     env = dict(os.environ)
     td = _tessdata_dir()
     if td.is_dir() and any(td.glob("*.traineddata")):
-        env["TESSDATA_PREFIX"] = str(td)
+        env["TESSDATA_PREFIX"] = _ansi_sicher(str(td))
     return env

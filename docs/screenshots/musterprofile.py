@@ -1189,6 +1189,23 @@ def seed_anna(db):
     return pid
 
 
+def seed_firmen(db):
+    """Firmen-Eintraege fuer das aktive Profil (Bob), v1.8 (#1080): Windrose mit Kurzform und Mutterfirma, dazu der Vermittler.
+
+    Bewerbungen, Stellen und Kontakte behalten ihren Firmennamen als Text; die Eintraege fassen nur Schreibweisen zusammen.
+    """
+    assert_isolated(db)
+    from bewerbungs_assistent.services import firmen_stamm as fs
+    mutter = fs.firma_anlegen(db, "Nordwind Holding GmbH", branche="Beteiligungen")["firma"]
+    fs.firma_anlegen(db, "Windrose Energietechnik GmbH", aliase=["Windrose"], mutterfirma_id=mutter["id"],
+                     branche="Energietechnik", standorte="Braunschweig",
+                     notizen="Interview-Runden mit Betriebsrat und HR; Gehaltsband in der Anzeige genannt.")
+    vermittler = fs.firma_anlegen(db, "Vermittler Nord GmbH", branche="Personalvermittlung")["firma"]
+    petra = next((c for c in db.list_contacts() if c["full_name"] == "Petra Hellwig"), None)
+    if petra:
+        fs.kontakt_zuordnen(db, vermittler["id"], petra["id"], rolle="Recruiterin", von="2025")
+
+
 def seed_all(db):
     """Beide Musterprofile anlegen; Bob bleibt das aktive Profil."""
     assert_isolated(db)

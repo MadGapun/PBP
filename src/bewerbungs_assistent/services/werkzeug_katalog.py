@@ -84,6 +84,9 @@ EINSTELLUNG = frozenset({
     "sicherungen_anzeigen", "stellen_entfernen_nach_quelle",
     "suchkriterien_bearbeiten", "suchkriterien_setzen", "telemetrie_setzen",
     "telemetrie_status", "umgang_mit_unbekannt_setzen",
+    "update_status", "update_einstellungen_setzen", "update_jetzt_installieren", "update_zurueckschalten",
+    "speicher_anzeigen", "speicher_bereinigen",
+    "mail_quelle_anzeigen", "mail_quelle_einstellen",
 })
 
 # Kuratierte Beschreibungen fuer den Kernweg: Zweck, wann, wann nicht.

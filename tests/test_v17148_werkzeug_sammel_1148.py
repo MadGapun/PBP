@@ -389,6 +389,8 @@ _KEIN_WERKZEUG = {
     "skill_periods": "Tabelle",
     "firmen_historie": "Funktion in services/wiedergaenger.py",
     "ollama_starten": "Funktion in services/ollama_start.py",
+    "update_job": "Methode der Datenbank (database.py), im Text von scores_neu_berechnen genannt",
+    "firmen_kanon": "Funktion in duplicate_detection.py (#1080), kein Werkzeug",
 }
 
 

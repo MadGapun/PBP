@@ -34,6 +34,14 @@ Zugriff auf die PBP-Datenbank.
   PBP haengt sie an dieselbe Bewerbung (Matching + Duplikat-Erkennung).
 - Ergebnis kommt als Benachrichtigung („3 uebergeben, 1 schon vorhanden").
 
+## Ordner-Scan (noch nicht im Add-on)
+
+Dieses Add-on schickt nur, was du markierst („An PBP senden“, Push). Dafuer braucht es keinen Schalter.
+Dass ein Add-on kuenftig Ordner von sich aus liest, regelt PBP in den Einstellungen unter *Quellen im Detail → Mail-Ordner*:
+Der Ordner-Scan ist standardmaessig **aus**, und gelesen werden duerfen nur Ordner, die du dort ausdruecklich freigibst
+(#947). Ein Add-on, das Ordner liest, fragt zuerst `GET /api/v1/ingest/mail-policy` und sendet bei jeder Mail
+`modus=scan` samt Anbieter, Konto und Ordner mit; PBP weist alles ab, was nicht auf der Liste steht.
+
 ## Fehlerbilder
 
 | Meldung | Ursache / Loesung |

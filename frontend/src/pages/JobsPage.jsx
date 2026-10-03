@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRe
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import FirmaLink from "@/components/FirmaLink";
 import {
   Badge,
   Button,
@@ -2611,7 +2612,7 @@ export default function JobsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h3>
-                  <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
+                  <p className="text-sm text-muted"><FirmaLink name={detailDialog.job.company}>{firmaText(detailDialog.job)}</FirmaLink>{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
                   {entfernungText(detailDialog.job) ? (
                     <p className="text-xs text-muted">{entfernungText(detailDialog.job)}</p>
                   ) : null}

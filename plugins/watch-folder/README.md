@@ -52,7 +52,8 @@ Antworten bei Problemen: `401` (Key fehlt/unbekannt/widerrufen),
 | Endpoint | Zweck |
 |---|---|
 | `GET /api/v1/ingest/ping` | Setup-Check: Key gueltig? Liefert Plugin-Name, Capabilities, PBP-Version. |
-| `POST /api/v1/ingest/email` | `multipart/form-data`, Feld `file` (.eml/.msg). Volle Upload-Pipeline: Duplikat-Erkennung, Bewerbungs-Matching, Termine. |
+| `POST /api/v1/ingest/email` | `multipart/form-data`, Feld `file` (.eml/.msg). Volle Upload-Pipeline: Duplikat-Erkennung, Bewerbungs-Matching, Termine. Optionale Felder `modus` (`push` ist die Vorgabe: der Mensch hat die Mail bewusst geschickt; `scan`: das Add-on hat sie selbst aus einem Ordner gelesen), `anbieter` (`thunderbird`, `outlook`, `sonstige`), `konto`, `ordner`. Bei `modus=scan` prueft PBP, ob der Ordner-Scan an ist und Anbieter, Konto und Ordner genau zu einer Freigabe passen; sonst `403` mit `code` (`scan_aus`, `whitelist_leer`, `ordner_nicht_freigegeben`, `ordner_fehlt`, `neu_bestaetigen`, `einstellung_unlesbar`) und nichts wird gespeichert. |
+| `GET /api/v1/ingest/mail-policy` | Was ein Mail-Add-on lesen darf (Capability `ingest:email`): `{ordner_scan, freigaben: [{id, anbieter, konto, ordner}], hinweis}`. Ist der Ordner-Scan aus, ist `freigaben` LEER: dann liest ein Add-on keinen Ordner. Jedes Add-on fragt das, bevor es einen Ordner anfasst, und sendet bei jeder Scan-Mail Anbieter, Konto und Ordner genau so mit, wie sie hier stehen (kein Platzhalter, keine Unterordner). |
 | `POST /api/v1/ingest/job` | JSON: `{titel, firma, url?, ort?, beschreibung?, remote?, stellenart?}`. Laeuft durch Scoring + Duplikat-Erkennung; Quelle wird `plugin:<name>`. `409` bei Blacklist-Firma oder laufender Bewerbung mit sehr aehnlichem Titel. |
 
 Beispiel `ingest/job`:

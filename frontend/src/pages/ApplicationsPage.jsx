@@ -7,6 +7,7 @@ import { Archive } from "lucide-react";
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import FirmaLink from "@/components/FirmaLink";
 import {
   Badge,
   Button,
@@ -1012,7 +1013,13 @@ export default function ApplicationsPage() {
                           </a>
                         ) : null}
                       </div>
-                      <p className="text-sm text-muted">{application.company}{application.ansprechpartner ? ` — ${application.ansprechpartner}` : ""}</p>
+                      <p className="text-sm text-muted">
+                        <FirmaLink name={application.company} />
+                        {application.ansprechpartner ? ` — ${application.ansprechpartner}` : ""}
+                        {application.vermittler && application.vermittler.trim().toLowerCase() !== String(application.company || "").trim().toLowerCase()
+                          ? <> · über <FirmaLink name={application.vermittler} /></> : null}
+                        {application.endkunde ? <> · Endkunde <FirmaLink name={application.endkunde} /></> : null}
+                      </p>
                       {application.notes ? <p className="text-sm text-muted">{textExcerpt(application.notes, 150)}</p> : null}
                       {application.last_note ? <p className="text-xs text-muted truncate">Letzte Notiz: {textExcerpt(application.last_note, 100)}</p> : null}
                     </div>
@@ -1389,7 +1396,7 @@ export default function ApplicationsPage() {
             <Card className="glass-card-soft rounded-xl shadow-none">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Stellendetails</p>
               <h3 className="mt-2 text-base font-semibold text-ink">{timelineDialog.entry.job.title}</h3>
-              <p className="text-sm text-muted">{timelineDialog.entry.job.company}{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
+              <p className="text-sm text-muted"><FirmaLink name={timelineDialog.entry.job.company} />{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge tone="sky">{timelineDialog.entry.job.source || "Quelle"}</Badge>
                 <Badge tone="amber">{punkteText(timelineDialog.entry.job)}</Badge>

@@ -133,6 +133,11 @@ class ApiRequestLoggingMiddleware:
 
 app.add_middleware(ApiRequestLoggingMiddleware)
 
+# #1093: ist die Datenbank NEUER als dieses Programm (ein Update hat sie umgestellt, dieser Prozess laeuft noch in
+# der alten Fassung), schreibt dieser Prozess nichts mehr. Vor dem lokalen Zugriff eingehaengt = danach geprueft.
+from .services.schema_schutz import SchemaSchutzMiddleware  # noqa: E402
+app.add_middleware(SchemaSchutzMiddleware, db_getter=lambda: _db)
+
 # v1.7.145: nur das Dashboard selbst darf PBP veraendern. Eine fremde
 # Webseite im selben Browser konnte bisher per einfacher Anfrage (POST mit
 # text/plain) das Profil ueberschreiben, Ordner einlesen, die Datenbank
@@ -6761,7 +6766,9 @@ async def api_ingest_job(request: Request, payload: dict):
         # #1103: `arbeitgeber_ausgefallen` blockte bisher mit.
         apps = [a for a in _db.get_applications()
                 if _bewerbung_status.laeuft(a.get("status"))]
-        dup = find_duplicate_job(firma, titel, url, apps)
+        from .duplicate_detection import firmen_kanon
+        dup = find_duplicate_job(firma, titel, url, apps,
+                                 kanon=firmen_kanon(_db))
         if dup:
             kandidat = dup.get("job") or {}
             return JSONResponse(
@@ -6808,23 +6815,109 @@ async def api_ingest_job(request: Request, payload: dict):
     }
 
 
-@app.post("/api/v1/ingest/email")
-async def api_ingest_email(request: Request, file: UploadFile = File(...)):
-    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+@app.get("/api/v1/ingest/mail-policy")
+async def api_ingest_mail_policy(request: Request):
+    """Was ein Mail-Add-on lesen darf (#947). Ist der Ordner-Scan nicht wirksam, ist die Liste leer.
 
-    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
-    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+    Jedes Add-on fragt das, bevor es einen Ordner anfasst, und sendet bei jeder Scan-Mail Anbieter, Konto und Ordner mit.
+    PBP prueft beim Entgegennehmen noch einmal (`modus=scan`): wer sich nicht an die Liste haelt, wird abgewiesen.
     """
     plugin, err = _require_plugin(request, "ingest:email")
     if err:
         return err
+    from .services import mail_quelle
+    return mail_quelle.richtlinie(_db)
+
+
+@app.post("/api/v1/ingest/email")
+async def api_ingest_email(request: Request, file: UploadFile = File(...), modus: str = Form("push"),
+                           anbieter: str = Form(""), konto: str = Form(""), ordner: str = Form("")):
+    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+
+    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
+    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+
+    `modus=push` (Vorgabe): der Mensch hat diese Mail bewusst geschickt - unveraendert, ohne Schalter.
+    `modus=scan` (#947): das Add-on hat sie von sich aus aus einem Ordner gelesen. Dann muss der Ordner-Scan an sein und
+    Anbieter, Konto und Ordner muessen GENAU mit einer Freigabe uebereinstimmen. Sonst 403 - bevor etwas gespeichert wird.
+    """
+    plugin, err = _require_plugin(request, "ingest:email")
+    if err:
+        return err
+    modus = (modus or "push").strip().lower()
+    if modus not in ("push", "scan"):
+        return JSONResponse({"error": f"Unbekannter Modus „{modus}“.", "erlaubt": ["push", "scan"]}, status_code=400)
+    freigabe_id = None
+    if modus == "scan":
+        from .services import mail_quelle
+        urteil = mail_quelle.pruefe_scan(_db, anbieter, konto, ordner)
+        if not urteil["erlaubt"]:
+            return JSONResponse({"error": urteil["text"], "code": urteil["code"], "modus": "scan",
+                                 "hinweis": "Die Richtlinie steht unter GET /api/v1/ingest/mail-policy."}, status_code=403)
+        freigabe_id = urteil["freigabe_id"]
     result = await api_upload_document(
         file=file, doc_type="sonstiges", position_id="",
         link_application_id="", create_application="",
     )
     fname = (file.filename or "mail")[:60]
     _db.record_plugin_ingest(plugin["id"], f"email: {fname}")
+    if freigabe_id:
+        from .services import mail_quelle
+        neu = ((result.get("newsletter") or {}).get("neu") or 0) if isinstance(result, dict) else 0
+        mail_quelle.lauf_verbuchen(_db, freigabe_id, mails=1, stellen=int(neu))
+        if isinstance(result, dict):
+            result["quelle"] = {"modus": "scan", "freigabe": freigabe_id}
     return result
+
+
+# === Mail-Ordner als Quelle: Zugangsschicht (#947) ===
+#
+# Die Regel sitzt in PBP (`services/mail_quelle.py`), nicht im Add-on: anbieterunabhaengig, Vorgabe AUS, harte Liste.
+
+@app.get("/api/mail-quelle")
+async def api_mail_quelle():
+    from .services import mail_quelle
+    return mail_quelle.uebersicht(_db)
+
+
+@app.post("/api/mail-quelle/scan")
+async def api_mail_quelle_scan(payload: dict):
+    """Ordner-Scan ein- oder ausschalten. Einschalten verlangt `bestaetigt: true` (der Mensch hat die Warnung gesehen)."""
+    from .services import mail_quelle
+    if payload.get("an") is True:
+        erg = mail_quelle.scan_einschalten(_db, bestaetigt=payload.get("bestaetigt") is True)
+        if erg["status"] == "bestaetigung_noetig":
+            return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    else:
+        erg = mail_quelle.scan_ausschalten(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/freigaben")
+async def api_mail_quelle_freigabe_neu(payload: dict):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_hinzufuegen(
+        _db, payload.get("anbieter", ""), payload.get("ordner", ""), payload.get("konto", ""),
+        posteingang_bestaetigt=payload.get("posteingang_bestaetigt") is True)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.delete("/api/mail-quelle/freigaben/{freigabe_id}")
+async def api_mail_quelle_freigabe_weg(freigabe_id: str):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_entfernen(_db, freigabe_id)
+    if erg["status"] == "nicht_gefunden":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=404)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/zuruecksetzen")
+async def api_mail_quelle_zuruecksetzen():
+    from .services import mail_quelle
+    erg = mail_quelle.zuruecksetzen(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
 
 
 @app.post("/api/jobsuche/start")
@@ -7969,6 +8062,144 @@ async def api_update_check(frisch: int = 0):
 
 # === Health Info (v1.4.0, #290) ===
 
+# === Auto-Update (#1093) ===
+#
+# Die Quelle der Installation steht fest im Code (services/auto_update/quelle.py) und ist KEINE Einstellung:
+# diese Aufrufe koennen Stufe, Zahl der Vorgaenger und das Aufraeumen des Installers aendern, nie die Herkunft.
+
+_AUTO_UPDATE_ANTWORTEN = {
+    "automatisch": ("auto_meldung", "ja"),
+    "klick": ("hinweis", "ja"),
+    "nein": ("aus", "nein"),
+}
+
+
+@app.get("/api/auto-update")
+async def api_auto_update():
+    """Alles zum Auto-Update in einer Antwort: Stufe, Stand, neue Version, laufender Lauf, Verlauf."""
+    from .services.auto_update import lauf
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/einstellungen")
+async def api_auto_update_einstellungen(payload: dict = Body(default={})):
+    """Stufe, Zahl der behaltenen Vorgaenger und Aufraeumen des Installers setzen."""
+    from .services.auto_update import lauf, zustand
+    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen")):
+        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten oder installer_aufraeumen."},
+                            status_code=400)
+    try:
+        if "stufe" in payload:
+            zustand.stufe_setzen(_db, payload["stufe"])
+            # Wer die Stufe selbst waehlt, hat die Rueckfrage beantwortet.
+            zustand.antwort_merken(_db, "nein" if payload["stufe"] == "aus" else "ja")
+        if "vorgaenger_behalten" in payload:
+            zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
+        if "installer_aufraeumen" in payload:
+            zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/antwort")
+async def api_auto_update_antwort(payload: dict = Body(default={})):
+    """Die Rueckfrage zum neuen Update beantworten: automatisch, klick, nein oder spaeter."""
+    from .services.auto_update import lauf, zustand
+    antwort = payload.get("antwort")
+    bei = payload.get("bei_version")
+    if antwort == "spaeter":
+        zustand.antwort_merken(_db, "spaeter", bei)
+    elif antwort in _AUTO_UPDATE_ANTWORTEN:
+        stufe, gemerkt = _AUTO_UPDATE_ANTWORTEN[antwort]
+        zustand.stufe_setzen(_db, stufe)
+        zustand.antwort_merken(_db, gemerkt, bei)
+    else:
+        return JSONResponse({"error": "antwort muss automatisch, klick, nein oder spaeter sein."}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/pruefen")
+async def api_auto_update_pruefen():
+    """„Jetzt prüfen“: fragt die feste Quelle (nicht dichter als alle 15 Sekunden)."""
+    import asyncio
+    from .services.auto_update import lauf
+    await asyncio.to_thread(lauf.pruefen, _db, frisch=True)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/installieren")
+async def api_auto_update_installieren(payload: dict = Body(default={})):
+    """Die neue Version jetzt installieren (Ein-Klick-Update). Laeuft im Hintergrund; Stand: GET /api/auto-update."""
+    from .services.auto_update import lauf
+    version = payload.get("version")
+    if not version:
+        letzte = lauf.letzte_pruefung(_db) or {}
+        version = letzte.get("version") if letzte.get("status") == "neu" else None
+    if not version:
+        return JSONResponse({"error": "Es gibt keine neue Version, die installiert werden könnte."}, status_code=400)
+    r = lauf.starte_installation(_db, version, ausloeser="klick")
+    code = {"gestartet": 200, "abgelehnt": 400}.get(r["status"], 409)
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/zurueck")
+async def api_auto_update_zurueck(payload: dict = Body(default={})):
+    """Beim naechsten Start eine aeltere, noch installierte Fassung nutzen."""
+    from .services.auto_update import lauf
+    r = lauf.zurueckschalten(_db, str(payload.get("version") or ""))
+    code = 200 if r["status"] in ("ok", "nichts_zu_tun") else 409
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/rueckgang-gesehen")
+async def api_auto_update_rueckgang_gesehen():
+    """Die Meldung „Version X ließ sich nicht starten“ als gesehen vermerken."""
+    from .services.auto_update import lauf, zustand
+    zustand.rueckgang_gesehen()
+    return lauf.uebersicht(_db)
+
+
+# === Speicher & Downloads (#1131, I19) ===
+#
+# Wohin PBP schreibt und lädt, wie viel dort liegt, wer es angelegt hat — und Bereinigen in zwei Schritten.
+# Dieselbe Auskunft wie `speicher_anzeigen` im Chat (`services/speicher.py`); die Oberfläche führt keine zweite Liste.
+
+@app.get("/api/speicher")
+async def api_speicher():
+    """Die Orte mit Größe und Urheber. Das Nachmessen kann einige Sekunden dauern (große Ordner), darum im Thread."""
+    from .services import speicher
+    return await run_in_threadpool(speicher.uebersicht, _db)
+
+
+@app.post("/api/speicher/bereinigen")
+async def api_speicher_bereinigen(request: Request):
+    """Zwei Schritte: ohne `bestaetigt: true` nur Auswahl oder Vorschau, mit `bestaetigt: true` wird gelöscht.
+
+    409, solange Hintergrundarbeit läuft (genannt wird, was läuft); 400 bei unbekannter Aktion oder fehlender Auswahl.
+    """
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.bereinigen, _db, str(data.get("aktion") or ""), data.get("auswahl"),
+                                  bestaetigt=data.get("bestaetigt") is True)
+    if erg["status"] == "abgelehnt":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=409)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
+
+@app.post("/api/speicher/ordner-oeffnen")
+async def api_speicher_ordner_oeffnen(request: Request):
+    """Öffnet den Ordner eines Ortes im Dateimanager. Der Pfad kommt aus der festen Liste, nie aus der Anfrage."""
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.ordner_oeffnen, str(data.get("ort") or ""), _db)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
+
 @app.get("/api/health")
 async def api_health():
     """System health information for diagnostics."""
@@ -8014,7 +8245,15 @@ async def api_health():
         "server_time": _berlin_now.strftime("%H:%M"),
         "server_time_iso": _berlin_now.isoformat(),
         "timezone": "Europe/Berlin",
+        # #1093: laufen Dashboard und MCP-Server in verschiedenen Fassungen, und ist die Datenbank neuer als dieses Programm?
+        "fassung_laufend": os.environ.get("PBP_FASSUNG") or __version__,
+        "datenbank_zu_neu": _schema_zu_neu(),
     }
+
+
+def _schema_zu_neu():
+    from .services import schema_schutz
+    return schema_schutz.zu_neu(_db)
 
 
 # === Datenschutz-Selbstauskunft (v1.7.0 #581) ===
@@ -8961,6 +9200,145 @@ async def api_reference_delete(ref_id: str):
         return JSONResponse({"error": "Referenz nicht gefunden"},
                             status_code=404)
     return {"status": "ok", "rueckweg": {"art": "referenz", "zeile": zeile} if zeile else None}
+
+
+# ── Firmen-Ansicht (#1080, Stufe 2) ─────────────────────────────────────────────────────────────────────
+# Dieselben Dienste wie die MCP-Werkzeuge firmen_stamm_anzeigen / firmen_vorschlaege_anzeigen / firmen_stamm_bearbeiten: was der
+# Mensch hier klickt, kann Claude ebenso. Loeschen, Zusammenfuehren und das Anlegen von Vorschlaegen verlangen `bestaetigt: true`;
+# die Rueckfrage stellt das Dashboard dem Menschen, bevor es das sendet.
+
+_FIRMEN_FEHLER = {"fehler": 400, "nicht_gefunden": 404, "schon_da": 409, "gehoert_anderer_firma": 409}
+
+
+def _firmen_antwort(erg: dict):
+    """Ein Dienst-Ergebnis als HTTP-Antwort: Fehlerstatus als 4xx mit `error`, sonst das Ergebnis selbst."""
+    code = _FIRMEN_FEHLER.get(erg.get("status"))
+    if code:
+        return JSONResponse({"error": erg.get("text") or "Das hat nicht geklappt.", **erg}, status_code=code)
+    return erg
+
+
+@app.get("/api/firmen")
+async def api_firmen_liste(suche: str = ""):
+    from .services import firmen_stamm
+    liste = firmen_stamm.firmen_liste(_db, suche)
+    return {"firmen": liste, "anzahl": len(liste),
+            "offene_vorschlaege": firmen_stamm.vorschlaege(_db, maximal=1)["anzahl"]}
+
+
+@app.get("/api/firmen/ansicht")
+async def api_firmen_ansicht(name: str = "", id: str = ""):
+    from .services import firmen_ansicht
+    return _firmen_antwort(firmen_ansicht.ansicht(_db, name=name, firma_id=id))
+
+
+@app.get("/api/firmen/vorschlaege")
+async def api_firmen_vorschlaege():
+    from .services import firmen_stamm
+    return firmen_stamm.vorschlaege(_db)
+
+
+@app.post("/api/firmen/vorschlaege/anwenden")
+async def api_firmen_vorschlaege_anwenden(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.vorschlaege_anwenden(_db, data.get("auswahl"), bestaetigt=data.get("bestaetigt") is True))
+
+
+@app.post("/api/firmen")
+async def api_firma_anlegen(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.firma_anlegen(
+        _db, data.get("name"), mutterfirma_id=data.get("mutterfirma_id") or "", branche=data.get("branche") or "",
+        standorte=data.get("standorte") or "", notizen=data.get("notizen") or "", aliase=data.get("aliase") or []))
+
+
+@app.patch("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_aendern(zuordnung_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    felder = {k: data[k] for k in ("rolle", "von", "bis", "aktuell", "notizen") if k in data}
+    if not felder:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zuordnung_aendern(_db, zuordnung_id, **felder))
+
+
+@app.delete("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_entfernen(zuordnung_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.zuordnung_entfernen(_db, zuordnung_id))
+
+
+@app.patch("/api/firmen/{firma_id}")
+async def api_firma_aendern(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ergebnis: dict = {}
+    if "name" in data:
+        ergebnis = firmen_stamm.umbenennen(_db, firma_id, data.get("name"))
+        if ergebnis.get("status") != "umbenannt":
+            return _firmen_antwort(ergebnis)
+    if "mutterfirma_id" in data:
+        ergebnis = firmen_stamm.mutterfirma_setzen(_db, firma_id, data.get("mutterfirma_id") or "")
+        if ergebnis.get("status") != "gesetzt":
+            return _firmen_antwort(ergebnis)
+    felder = {k: data[k] for k in ("branche", "standorte", "notizen") if k in data}
+    if felder:
+        ergebnis = firmen_stamm.firma_bearbeiten(_db, firma_id, **felder)
+    if not ergebnis:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(ergebnis)
+
+
+@app.post("/api/firmen/{firma_id}/aliase")
+async def api_firma_alias_hinzufuegen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.alias_hinzufuegen(_db, firma_id, data.get("alias"), data.get("art") or "schreibweise"))
+
+
+@app.delete("/api/firmen/{firma_id}/aliase/{alias_id}")
+async def api_firma_alias_entfernen(firma_id: str, alias_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.alias_entfernen(_db, firma_id, alias_id))
+
+
+@app.post("/api/firmen/{firma_id}/zusammenfuehren")
+async def api_firma_zusammenfuehren(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ziel, quelle = firmen_stamm.firma_laden(_db, firma_id), firmen_stamm.firma_laden(_db, data.get("quelle_id") or "")
+    if ziel is None or quelle is None:
+        return JSONResponse({"error": "Eine der beiden Firmen gibt es nicht (mehr)."}, status_code=404)
+    if data.get("bestaetigt") is not True:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig", "ziel": ziel["name"], "quelle": quelle["name"]}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zusammenfuehren(_db, firma_id, data.get("quelle_id")))
+
+
+@app.delete("/api/firmen/{firma_id}")
+async def api_firma_loeschen(firma_id: str, bestaetigt: bool = False):
+    from .services import firmen_stamm
+    if firmen_stamm.firma_laden(_db, firma_id) is None:
+        return JSONResponse({"error": "Diese Firma gibt es nicht (mehr)."}, status_code=404)
+    if not bestaetigt:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig"}, status_code=400)
+    return _firmen_antwort(firmen_stamm.firma_loeschen(_db, firma_id))
+
+
+@app.post("/api/firmen/{firma_id}/kontakte")
+async def api_firma_kontakt_zuordnen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.kontakt_zuordnen(
+        _db, firma_id, data.get("kontakt_id") or "", rolle=data.get("rolle") or "", von=data.get("von") or "",
+        bis=data.get("bis") or "", aktuell=data.get("aktuell"), notizen=data.get("notizen") or ""))
+
+
+@app.get("/api/contacts/{contact_id}/firmen")
+async def api_kontakt_firmen(contact_id: str):
+    from .services import firmen_stamm
+    return {"firmen": firmen_stamm.firmen_des_kontakts(_db, contact_id)}
 
 
 @app.get("/api/contacts/export.csv")
@@ -12343,6 +12721,12 @@ def start_dashboard(db_instance, port: int = None):
         start_automatik_scheduler(db_instance)
     except Exception as exc:
         logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
+    # #1093: Auto-Update — Reste weg, Start melden, Zeitgeber. Ohne Installer-Layout tut es nichts.
+    try:
+        from .services.auto_update import lauf as _auto_update
+        _auto_update.beim_start(db_instance)
+    except Exception as exc:
+        logger.warning("Auto-Update-Start uebersprungen: %s", exc)
     # #1001: Ollama auf Wunsch mitstarten — derselbe Aufruf wie im
     # MCP-Startweg (server.py). Vorgabe AUS.
     try:

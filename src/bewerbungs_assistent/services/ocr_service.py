@@ -16,10 +16,10 @@ User-Leitlinie: nie Auto-Install) statt still zu scheitern.
 """
 from __future__ import annotations
 
+import io
 import logging
 import subprocess
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -94,6 +94,13 @@ def ocr_angebot(db) -> dict:
     return angebot
 
 
+def _text(wert) -> str:
+    """Ausgabe eines Unterprozesses als Text (Bytes; Testdoppel liefern schon Text)."""
+    if isinstance(wert, bytes):
+        return wert.decode("utf-8", "replace")
+    return wert or ""
+
+
 def _pick_langs(db) -> tuple[str, str]:
     """Waehlt die Sprachkette; liefert (langs, hinweis)."""
     langs = available_languages(db)
@@ -163,47 +170,47 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
         seiten = min(seiten_gesamt, max(1, int(max_seiten)))
         parts: list[str] = []
         env = _ocr_env()
-        with tempfile.TemporaryDirectory(prefix="pbp_ocr_") as tmp:
-            for i in range(seiten):
-                progress(int(100 * i / seiten),
-                         f"OCR Seite {i + 1}/{seiten}")
-                # PDFium-Natives DETERMINISTISCH freigeben (bitmap vor page,
-                # page vor document) — haengen page/bitmap-Handles bis zum
-                # GC nach pdf.close(), segfaultet PDFium unter Linux
-                # (CI-Fund 2026-07-14, exit 139).
-                img_path = Path(tmp) / f"seite_{i + 1}.png"
-                page = pdf[i]
+        for i in range(seiten):
+            progress(int(100 * i / seiten),
+                     f"OCR Seite {i + 1}/{seiten}")
+            # PDFium-Natives DETERMINISTISCH freigeben (bitmap vor page,
+            # page vor document) — haengen page/bitmap-Handles bis zum
+            # GC nach pdf.close(), segfaultet PDFium unter Linux
+            # (CI-Fund 2026-07-14, exit 139).
+            page = pdf[i]
+            try:
+                bitmap = page.render(scale=_RENDER_DPI / 72)
                 try:
-                    bitmap = page.render(scale=_RENDER_DPI / 72)
-                    try:
-                        bitmap.to_pil().save(str(img_path), format="PNG")
-                    finally:
-                        closer = getattr(bitmap, "close", None)
-                        if closer:
-                            closer()
+                    puffer = io.BytesIO()
+                    bitmap.to_pil().save(puffer, format="PNG")
+                    png = puffer.getvalue()
                 finally:
-                    page.close()
+                    closer = getattr(bitmap, "close", None)
+                    if closer:
+                        closer()
+            finally:
+                page.close()
+            # Das Bild geht ueber die Standardeingabe, nicht ueber eine Datei: Tesseract liest Dateipfade in der
+            # ANSI-Zeichentabelle, und der Temp-Ordner traegt den Benutzernamen (ł, ş im Namen: "cannot read input file").
+            proc = subprocess.run(
+                [binary, "stdin", "stdout", "-l", langs, "--psm", "1"],
+                input=png, capture_output=True, timeout=120, env=env,
+                **_SUBPROCESS_FLAGS,
+            )
+            if proc.returncode != 0:
+                stderr = _text(proc.stderr)[:200]
+                # --psm 1 braucht osd.traineddata; Fallback ohne OSD
                 proc = subprocess.run(
-                    [binary, str(img_path), "stdout", "-l", langs, "--psm", "1"],
-                    capture_output=True, text=True, encoding="utf-8",
-                    errors="replace", timeout=120, env=env,
+                    [binary, "stdin", "stdout", "-l", langs],
+                    input=png, capture_output=True, timeout=120, env=env,
                     **_SUBPROCESS_FLAGS,
                 )
                 if proc.returncode != 0:
-                    stderr = (proc.stderr or "")[:200]
-                    # --psm 1 braucht osd.traineddata; Fallback ohne OSD
-                    proc = subprocess.run(
-                        [binary, str(img_path), "stdout", "-l", langs],
-                        capture_output=True, text=True, encoding="utf-8",
-                        errors="replace", timeout=120, env=env,
-                        **_SUBPROCESS_FLAGS,
+                    raise RuntimeError(
+                        f"Tesseract-Fehler Seite {i + 1}: "
+                        f"{(_text(proc.stderr) or stderr)[:200]}"
                     )
-                    if proc.returncode != 0:
-                        raise RuntimeError(
-                            f"Tesseract-Fehler Seite {i + 1}: "
-                            f"{(proc.stderr or stderr or '')[:200]}"
-                        )
-                parts.append((proc.stdout or "").strip())
+            parts.append(_text(proc.stdout).strip())
     except Exception as exc:
         return {"status": "fehler", "fehler": str(exc)[:250]}
     finally:

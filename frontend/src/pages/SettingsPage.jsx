@@ -7,6 +7,9 @@ import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
+import UpdatesTab from "@/components/UpdatesTab";
+import SpeicherTab from "@/components/SpeicherTab";
+import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -4038,6 +4041,9 @@ export default function SettingsPage() {
               />
             </Card>
 
+            {/* v1.8 (#947): Mail-Ordner als Quelle - Vorgabe AUS, Liste der freigegebenen Ordner */}
+            <MailQuelleCard />
+
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />
           </>
@@ -4046,6 +4052,16 @@ export default function SettingsPage() {
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
         {settingsTab === "claude" && (
           <KIFeaturesCard pushToast={pushToast} />
+        )}
+
+        {/* ── v1.8 (#1093): Updates (Auto-Update) ── */}
+        {settingsTab === "updates" && (
+          <UpdatesTab />
+        )}
+
+        {/* ── v1.8 (#1131): Speicher & Downloads ── */}
+        {settingsTab === "speicher" && (
+          <SpeicherTab />
         )}
 
         {settingsTab === "ai" && (

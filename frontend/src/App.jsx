@@ -64,6 +64,12 @@ import DocumentsPage from "@/pages/DocumentsPage";
 import StatsPage from "@/pages/StatsPage";
 import { dialogRegistrieren } from "@/lib/bestaetigung";
 import { naechsteFrageMs, neueLinieHinweis, unbekanntTitel } from "@/lib/updateStand";
+import {
+  istSchonInstalliert,
+  naechsteFrageMs as autoUpdateFrageMs,
+  seitenleisteFuehrtZuEinstellungen,
+  seitenleisteText,
+} from "@/lib/autoUpdate";
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
@@ -835,6 +841,62 @@ export default function App() {
     };
   }, [updateFrageNr]);
 
+  // Auto-Update (#1093): Stand, laufender Lauf, Rueckfall. Fragt langsam, solange nichts passiert, und
+  // fast sofort, solange ein Lauf in Arbeit ist (Fortschrittsbalken).
+  const [autoUpdate, setAutoUpdate] = useState(null);
+  const [autoUpdateNr, setAutoUpdateNr] = useState(0);
+  useEffect(() => {
+    let abgebrochen = false;
+    let timer = null;
+    async function lade() {
+      const data = await optionalApi("/api/auto-update");
+      if (abgebrochen) return;
+      if (data) setAutoUpdate(data);
+      timer = setTimeout(lade, autoUpdateFrageMs(data));
+    }
+    lade();
+    return () => {
+      abgebrochen = true;
+      clearTimeout(timer);
+    };
+  }, [autoUpdateNr]);
+
+  // Ein Klick im Hinweis oder in den Einstellungen: antworten, installieren, Meldung als gesehen vermerken.
+  async function autoUpdateAktion(a) {
+    try {
+      if (a.art === "update-antwort") {
+        await postJson("/api/auto-update/antwort", { antwort: a.antwort, bei_version: a.version });
+        const gemerkt = {
+          automatisch: "Gemerkt: PBP installiert Updates künftig selbst.",
+          klick: "Gemerkt: Updates installierst du künftig mit einem Klick.",
+          nein: "Gemerkt: PBP sagt nur Bescheid.",
+          spaeter: "Gut, PBP fragt beim nächsten Update noch einmal.",
+        }[a.antwort];
+        if (gemerkt) pushToast(gemerkt, "success");
+      } else if (a.art === "update-installieren") {
+        await postJson("/api/auto-update/installieren", { version: a.version });
+      } else if (a.art === "update-gesehen") {
+        await postJson("/api/auto-update/rueckgang-gesehen", {});
+      }
+    } catch (error) {
+      pushToast(`Das hat nicht geklappt: ${error.message}`, "danger");
+    }
+    setAutoUpdateNr((n) => n + 1);
+  }
+  // Eine Version, die schon installiert ist und nur auf den Neustart wartet, ist kein "Update verfuegbar" mehr.
+  const updateSchonInstalliert = Boolean(updateInfo?.update_available) && istSchonInstalliert(autoUpdate, updateInfo?.latest_version);
+  // Die Seitenleiste zeigt, was die FESTE Quelle des Auto-Updates weiss, sobald sie geantwortet hat: sagt die
+  // allgemeine Pruefung "Stand unbekannt" (kein Netz fuer ihre Quellen), die feste aber "neu" oder "aktuell",
+  // gilt die Auskunft, die da ist.
+  const auPruefung = autoUpdate?.verfuegbar ? autoUpdate.pruefung : null;
+  const auNeu = autoUpdate?.verfuegbar && autoUpdate.neu?.status === "neu" ? autoUpdate.neu.version : "";
+  const seitenleisteUpdate = auNeu
+    ? { stand: "neu", version: auNeu, url: updateInfo?.release_url || "https://github.com/MadGapun/PBP/releases/latest" }
+    : updateInfo?.update_available && !updateSchonInstalliert
+      ? { stand: "neu", version: updateInfo.latest_version || "", url: updateInfo.release_url || "" }
+      : { stand: (updateInfo?.stand === "unbekannt" && (auPruefung?.status === "aktuell" || auPruefung?.status === "unvollstaendig"))
+          ? "geprueft" : updateInfo?.stand || "", version: updateInfo?.latest_version || "", url: updateInfo?.release_url || "" };
+
   useEffect(() => {
     refreshChrome();
     // v1.7.0-beta.26 (#594 Stufe 1): Activity-Tracking initialisieren
@@ -1234,6 +1296,11 @@ export default function App() {
     // G60 (#1087): die Hinweiszone liest das Update von hier.
     updateInfo,
     dismissUpdate: () => setUpdateInfo(null),
+    // Auto-Update (#1093)
+    autoUpdate,
+    refreshAutoUpdate: () => setAutoUpdateNr((n) => n + 1),
+    autoUpdateAktion,
+    updateSchonInstalliert,
     themeMode,
     themeCustom,
     setThemeMode,
@@ -1324,6 +1391,7 @@ export default function App() {
     sidebarSubNavigation = {
       items: [
         { id: "contacts-view-kontakte", label: "Kontakte" },
+        { id: "contacts-view-firmen", label: "Firmen" },
         { id: "contacts-view-referenzen", label: "Referenzen" },
       ],
       onSelect: (id) => document.dispatchEvent(new CustomEvent("contacts-nav", {
@@ -1380,13 +1448,22 @@ export default function App() {
             // v1.7.0 (#583): Lokale-AI-Status-Indicator (unter MCP)
             llmState: kiAnzeige(serverErreichbar, llmStatus?.ui_state),
             hasProfile: Boolean(chrome.status?.has_profile),
-            updateStand: updateInfo?.update_available ? "neu" : updateInfo?.stand || "",
-            updateVersion: updateInfo?.latest_version || "",
-            updateUrl: updateInfo?.release_url || "",
+            updateStand: seitenleisteUpdate.stand,
+            updateVersion: seitenleisteUpdate.version,
+            updateUrl: seitenleisteUpdate.url,
             neueLinie: neueLinieHinweis(updateInfo),
             updateGrund: updateInfo?.stand === "unbekannt" ? unbekanntTitel(updateInfo) : "",
             updatePruefung,
-            onUpdatePruefen: () => setUpdateFrageNr((n) => n + 1),
+            onUpdatePruefen: () => {
+              setUpdateFrageNr((n) => n + 1);
+              if (autoUpdate?.verfuegbar) {
+                postJson("/api/auto-update/pruefen", {}).then(() => setAutoUpdateNr((n) => n + 1)).catch(() => {});
+              }
+            },
+            // Auto-Update (#1093): laeuft und installiert fallen nach einem Update bis zum Neustart auseinander.
+            autoUpdateText: seitenleisteText(autoUpdate),
+            updateZuEinstellungen: seitenleisteFuehrtZuEinstellungen(autoUpdate),
+            onUpdateOptionen: () => navigateTo("einstellungen", { tab: "updates" }),
             onLlmClick: () => setLlmHelpOpen(true),
           }}
           collapsed={sidebarCollapsed}

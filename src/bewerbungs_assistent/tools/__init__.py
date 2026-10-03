@@ -18,7 +18,7 @@ import time
 from collections import deque
 from threading import Lock
 
-from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks, komponenten
+from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks, komponenten, update, speicher, mail_quelle, firmen_stamm
 
 
 # === Tool-Timing Telemetrie (#636, beta.60) ============================
@@ -386,3 +386,7 @@ def register_all(mcp, db, logger):
     elwosa.register(mcp, db, logger)    # v1.7.0-beta.37 #599
     tasks.register(mcp, db, logger)     # v1.7.0-beta.85 #666 D19
     komponenten.register(mcp, db, logger)  # v1.8.0-beta.0 #751 I10
+    update.register(mcp, db, logger)       # v1.8.0 #1093 Auto-Update
+    speicher.register(mcp, db, logger)     # v1.8.0 #1131 Speicher & Downloads
+    mail_quelle.register(mcp, db, logger)  # v1.8.0 #947 Mail-Ordner als Quelle (Zugangsschicht)
+    firmen_stamm.register(mcp, db, logger)  # v1.8.0 #1080 Firmen-Stammsatz (Stufe 2)

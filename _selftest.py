@@ -11,6 +11,10 @@ for _strom in (sys.stdout, sys.stderr):
 
 # src-Verzeichnis hinzufuegen
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# Zusaetzliche Pakete einer Fassung (Auto-Update, #1093) liegen in `site`; sie kommen NACH dem Programm in den Pfad
+SITE_DIR = os.path.join(SCRIPT_DIR, "site")
+if os.path.isdir(SITE_DIR):
+    sys.path.insert(0, SITE_DIR)
 sys.path.insert(0, os.path.join(SCRIPT_DIR, "src"))
 
 # Temporaeres Datenverzeichnis
