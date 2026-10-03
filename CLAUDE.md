@@ -10,7 +10,7 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.7.143 (`--latest`, 2026-09-30), Linie 1.7; Hotfix-Branches
+- **Stable:** v1.7.150 (`--latest`, 2026-10-03), Linie 1.7; Hotfix-Branches
   `hotfix/v1.7.N` vom letzten 1.7-Tag.
 - **Beta:** `main` = 1.8.0-beta.15, Betas sind GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
@@ -22,8 +22,10 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 6086 Tests (main) / 5981 (Stable); 270 MCP-Werkzeuge (main) /
-  257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
+- **Umfang:** 8014 Tests (main mit dem 1.8-PR) / 6982 (Stable); 281 MCP-Werkzeuge
+  (main mit dem 1.8-PR) / 257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
+- **1.8-PR:** `feature/v18-firmen-1080` bringt alle fuenf Bausteine in EINEM Pull Request. Das Release 1.8.0
+  braucht die Praxisprobe (`docs/internal/praxisprobe-1.8.0.md`) und das Wort des Nutzers.
 - Fixes, die Stable betreffen, gehoeren in die 1.7-Linie, nicht nur in die
   Beta — die zieht kaum jemand. Schaufenster-Arbeit ist erst beim Nutzer,
   wenn sie auf Stable ist.
