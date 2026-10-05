@@ -42,11 +42,13 @@ Vor dem Installieren: Die Datenbank wird beim ersten Start angehoben, vorher ent
 <!-- /anwender -->
 
 > **Prerelease.** Der Kandidat für 1.8.0: alles, was die 1.8 bringen soll, ist drin, dazu die Korrekturen der Hotfixes bis v1.7.153. Zum Ausprobieren
-> gedacht, auch mit den eigenen Daten — zwei Dinge vorher:
+> gedacht, auch mit den eigenen Daten — drei Dinge vorher:
 >
 > - **Die Datenbank wird beim ersten Start auf das Schema v52 angehoben** (die Stable-Linie 1.7 hat v48). Der Installer legt vorher eine Sicherung an
 > (`%LOCALAPPDATA%\BewerbungsAssistent\data\backups\`). Der Weg zurück zu 1.7.x führt nur über diese Sicherung.
 > - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.153 installieren.
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Diese Beta sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.153 geliefert haben; die Einzelheiten stehen in den
@@ -151,8 +153,9 @@ Einträgen darunter.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 - Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
   des Wikis.
-- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das automatische Aktualisieren
-  selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
 
 *Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8189 Tests.*
 
