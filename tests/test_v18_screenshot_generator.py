@@ -101,6 +101,62 @@ def _aenderung(db) -> None:
                    "description": "Aufgaben: Disposition und Bestellabwicklung. " * 3, "score": 1}])
 
 
+def _zone(page):
+    """Die Kennung des Hinweises, den die Seite gerade zeigt (None: keiner, oder der Knoten wurde von außen aus dem Baum genommen)."""
+    el = page.locator("[data-hinweiszone]")
+    return el.first.get_attribute("data-hinweiszone") if el.count() else None
+
+
+class _Verkehr:
+    """Merkt sich, wann die Seite zuletzt Daten bekommen hat und ob der Takt der Live-Aktualisierung schon lief.
+
+    Der Hinweis „Claude Desktop ist nicht verbunden“ erscheint nach 0,3 Sekunden, noch bevor die Seite fertig geladen hat. Wer jetzt
+    schon in den Baum greift, erwischt sie mitten im Aufbau: der Wechsel kam dann in rund jedem zehnten Lauf nie an (die Seite hielt
+    ihren Stand, die Änderung ging am noch nicht gesetzten Ausgangswert des Takts vorbei), und es gab keinen Absturz zu sehen."""
+
+    def __init__(self, page):
+        self.letzte = time.monotonic()
+        self.takt = 0
+        page.on("response", self._antwort)
+
+    def _antwort(self, r):
+        if "/api/" not in r.url:
+            return
+        if "live-update-token" in r.url:
+            self.takt += 1
+        else:
+            self.letzte = time.monotonic()
+
+    def abwarten(self, page, stille=1.5, hoechstens=30):
+        """Ruhig heißt: der Takt lief mindestens zweimal (der Ausgangswert steht), und seit `stille` Sekunden kam nichts Neues."""
+        ende = time.monotonic() + hoechstens
+        while time.monotonic() < ende:
+            if self.takt >= 2 and time.monotonic() - self.letzte >= stille:
+                return
+            page.wait_for_timeout(200)             # lässt Playwright die Antworten einsammeln (time.sleep täte das nicht)
+        raise AssertionError("die Seite wurde nicht ruhig: sie lädt weiter")
+
+
+def _bis(ziel, db, sekunden=60):
+    """Ruft `ziel()` auf, bis es etwas anderes als None liefert, und bewegt dabei alle drei Sekunden den Bestand.
+
+    Die Seite fragt nur nach, wenn sich der Bestand bewegt hat (Token der Live-Aktualisierung). Kam die EINE Änderung zu früh, noch vor
+    dem Herzschlag, sah das Dashboard den Wechsel nie (Seitenleiste und Dashboard fragen unabhängig voneinander): der Test war in
+    jedem dritten Lauf rot. Jetzt kommt alle drei Sekunden eine neue Änderung, bis das Ziel erreicht ist.
+    """
+    ende = time.monotonic() + sekunden
+    naechste = 0.0
+    while time.monotonic() < ende:
+        ergebnis = ziel()
+        if ergebnis is not None:
+            return ergebnis
+        if time.monotonic() >= naechste:
+            _aenderung(db)
+            naechste = time.monotonic() + 3
+        time.sleep(0.25)
+    return None
+
+
 def _ablauf(browser, url, db, aufraeumen) -> str:
     """Hinweis steht da → aufräumen → die Verbindung kommt. Rückgabe: 'abgestuerzt' oder 'ok'."""
     from bewerbungs_assistent import heartbeat
@@ -112,22 +168,29 @@ def _ablauf(browser, url, db, aufraeumen) -> str:
         # entweder die Fehlerkarte oder ein ungefangener Fehler von React („removeChild“)
         return bool(page.get_by_text(ABSTURZ).count()) or any("removeChild" in f for f in fehler)
 
+    def _ziel():
+        if _abgestuerzt():
+            return "abgestuerzt"
+        # „ok“ heißt: die Seitenleiste zeigt „verbunden“ UND das Dashboard hat den Hinweis „verbindung“ übernommen (weg oder ein anderer).
+        # Beim Aufräumen von außen (alte Anweisung) ist der Knoten schon aus dem Baum; dann gilt allein der Absturz.
+        if page.get_by_text("Claude Desktop: verbunden").count() and vorher == "verbindung" and _zone(page) != "verbindung":
+            time.sleep(2)                           # dem Wechsel Zeit lassen, einen Knoten zu entfernen, den es nicht mehr gibt
+            return "abgestuerzt" if _abgestuerzt() else "ok"
+        return None
+
+    verkehr = _Verkehr(page)
     try:
         page.goto(url + "/#dashboard")
         page.wait_for_selector("text=Claude Desktop ist nicht verbunden", timeout=60000)
+        verkehr.abwarten(page)
         aufraeumen(page)
-        # Jetzt „verbindet“ sich Claude: frischer Herzschlag, dazu eine Änderung, die die Seite zum Nachfragen bringt
+        vorher = "verbindung" if _zone(page) == "verbindung" else None
+        # Jetzt „verbindet“ sich Claude: frischer Herzschlag, dazu Änderungen, die die Seite zum Nachfragen bringen
         heartbeat._write_heartbeat_file("pp7", is_alive=False)
-        _aenderung(db)
-        ende = time.monotonic() + 60
-        while time.monotonic() < ende:
-            if _abgestuerzt():
-                return "abgestuerzt"
-            if page.get_by_text("Claude Desktop: verbunden").count():
-                time.sleep(2)                       # dem Wechsel Zeit lassen, den Knoten zu entfernen
-                return "abgestuerzt" if _abgestuerzt() else "ok"
-            time.sleep(0.5)
-        raise AssertionError(f"die Seite hat den Verbindungswechsel nicht übernommen; Fehler: {fehler[:2]}")
+        ergebnis = _bis(_ziel, db)
+        if ergebnis is None:
+            raise AssertionError(f"die Seite hat den Verbindungswechsel nicht übernommen; Fehler: {fehler[:2]}")
+        return ergebnis
     finally:
         page.close()
 
@@ -149,17 +212,16 @@ def test_pp7_der_generator_speichert_kein_bild_einer_abgestuerzten_seite(server,
     page = browser.new_page(viewport={"width": 1280, "height": 900})
     fehler = []
     page.on("pageerror", lambda e: fehler.append(str(e)))
+    verkehr = _Verkehr(page)
     try:
         page.goto(url + "/#dashboard")
         page.wait_for_selector("text=Claude Desktop ist nicht verbunden", timeout=60000)
+        verkehr.abwarten(page)
         # Absturz absichtlich herbeiführen: den React-Knoten selbst entfernen und den Zustand wechseln lassen
         page.evaluate(ALTE_ANWEISUNG)
         heartbeat._write_heartbeat_file("pp7", is_alive=False)
-        _aenderung(db)
-        ende = time.monotonic() + 60
-        while time.monotonic() < ende and not (page.get_by_text(ABSTURZ).count() or any("removeChild" in f for f in fehler)):
-            time.sleep(0.5)
-        assert page.get_by_text(ABSTURZ).count() or any("removeChild" in f for f in fehler), "der Absturz ließ sich nicht herbeiführen"
+        abgestuerzt = _bis(lambda: True if (page.get_by_text(ABSTURZ).count() or any("removeChild" in f for f in fehler)) else None, db)
+        assert abgestuerzt, "der Absturz ließ sich nicht herbeiführen"
         time.sleep(1)                       # die Seite setzt sich (Karte oder leerer Baum), bevor der Generator hinsieht
         # Jede Aufnahme des Generators läuft über _dismiss_toasts — dort sitzt die Prüfung
         with pytest.raises(RuntimeError, match="abgestuerzt"):
