@@ -6320,6 +6320,12 @@ async def api_sources():
             "bestaetigt": False})
     active = active or []
     rows = build_source_rows(SOURCE_REGISTRY, active)
+    # #1170 U3: eine Quelle, die einen Zugangsschluessel braucht, sagt es. Vorher stand sie nach dem Anhaken auf
+    # "Aktiv" und lieferte nichts, ohne dass es jemand merkte (das Muster aus #989).
+    for row in rows:
+        felder = (SOURCE_REGISTRY.get(row["key"]) or {}).get("api_key_settings") or []
+        row["schluessel_noetig"] = bool(felder)
+        row["schluessel_fehlt"] = bool(felder) and not all((_db.get_setting(f, "") or "") for f in felder)
     health_by_name = {h["scraper_name"]: h for h in _db.get_scraper_health()}
     for row in rows:
         h = health_by_name.get(row["key"])

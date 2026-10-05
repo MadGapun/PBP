@@ -13,6 +13,7 @@ import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
+import { schluesselHinweis } from "@/lib/quellenBadges";
 import {
   anzeigeText as downloadText,
   istEnde as downloadEnde,
@@ -3659,6 +3660,14 @@ export default function SettingsPage() {
       startTransition(() => setSources(previousSources));
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
       return;
+    }
+    // #1170 U3: ohne Schlüssel liefert die Quelle nichts — sagen, wo er hingehört, mit einem Sprung dorthin.
+    const hinweis = checked ? schluesselHinweis(source) : null;
+    if (hinweis) {
+      pushToast(hinweis.text, "amber", {
+        duration: 14000,
+        action: { label: hinweis.aktion, onClick: () => setSettingsTab("erweiterungen") },
+      });
     }
     // #1075: wer eine Quelle abwaehlt, will ihre Treffer meist auch nicht
     // mehr im Bestand haben — genau hier entsteht der Wunsch. Gefragt wird

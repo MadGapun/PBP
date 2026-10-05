@@ -7,6 +7,7 @@ import { api, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import MitClaude from "@/components/MitClaude";
 import SourceSelectionList from "@/components/SourceSelectionList";
+import { schluesselHinweis } from "@/lib/quellenBadges";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles, GLOBAL_FILE_DRAG_STATE_EVENT, GLOBAL_FILE_DROP_EVENT } from "@/file-drop";
 import { Badge, Button, Card, CheckboxInput, useDialogFokus } from "@/components/ui";
@@ -661,7 +662,11 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     } catch (error) {
       startTransition(() => setSources(previous));
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
+      return;
     }
+    // #1170 U3: ohne Schlüssel liefert die Quelle nichts — hier im Einstieg nur der Hinweis, der Sprung folgt später.
+    const hinweis = checked ? schluesselHinweis(source) : null;
+    if (hinweis) pushToast(hinweis.text, "amber", { duration: 14000 });
   }
 
   // G59/G72 (#1087): auch hier kein roher Schraegstrich-Befehl mehr.
