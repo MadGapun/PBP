@@ -73,11 +73,31 @@ def _dismiss_toasts(page):
                 time.sleep(0.3)
         except Exception:
             pass
+    # NIE entfernen, nur verbergen: `[role="status"]` trifft auch Hinweise der Seite (React-Knoten, zum Beispiel
+    # "Claude Desktop ist nicht verbunden"). Ein entfernter Knoten laesst React beim naechsten Zustandswechsel mit
+    # "Failed to execute 'removeChild' on 'Node'" abstuerzen - das Titelbild des Wikis zeigte seit v1.7.137 die
+    # Fehlerkarte "Dieser Bereich ist abgestuerzt" (Praxisprobe 1.8, 05.10.2026). Verborgen wird nur die Toast-Ebene.
     page.evaluate("""
-        document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"], [role="status"]')
-            .forEach(el => el.remove());
+        document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"].fixed, [role="status"].fixed')
+            .forEach(el => { el.style.display = 'none'; });
     """)
     time.sleep(0.3)
+    _pruefe_kein_absturz(page)
+
+
+ABSTURZ_TEXT = "Dieser Bereich ist abgestürzt"
+
+
+def _pruefe_kein_absturz(page):
+    """Ein Bild der Fehlerkarte (oder einer leeren Seite) ist kein Bild der Oberflaeche - dann lieber gar keins.
+
+    Stuerzt React oberhalb der Fehlergrenze ab, bleibt keine Karte stehen, sondern ein leerer Baum: auch den erkennt die
+    Pruefung (jede Seite der Anwendung traegt die Seitenleiste mit "Einstellungen")."""
+    if page.get_by_text(ABSTURZ_TEXT).count():
+        meldung = page.locator("pre").first.inner_text() if page.locator("pre").count() else ""
+        raise RuntimeError(f"Die Seite ist abgestuerzt, es wird kein Screenshot gespeichert: {meldung[:200]}")
+    if "Einstellungen" not in page.inner_text("body"):
+        raise RuntimeError("Die Seite ist leer oder abgestuerzt (keine Seitenleiste), es wird kein Screenshot gespeichert")
 
 
 def _screenshot(page, url, output_path, desc):
