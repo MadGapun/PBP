@@ -366,3 +366,122 @@ def test_pp11_ein_schreibfehler_wird_als_fehler_gemeldet_nicht_als_kein_eintrag(
         assert std.read_bytes() == original
     finally:
         os.chmod(std, stat.S_IWRITE | stat.S_IREAD)
+
+
+# ── PP17: nur der Eintrag verschwindet, der Rest der Datei bleibt, wie er ist ───────────────────
+
+EINTRAG = r'''"bewerbungs-assistent": {
+      "command": "C:\\Users\\x\\python.exe",
+      "args": ["-m", "bewerbungs_assistent"],
+      "env": {"BA_DATA_DIR": "C:\\Users\\x\\data"}
+    }'''
+ANDERER = r'''"filesystem": {
+      "command": "npx",
+      "args": ["-y", "server"]
+    }'''
+ZWEITER = r'''"zweiter": {
+      "command": "node"
+    }'''
+# Klammern, Anführungszeichen und Rückstriche IN Texten dürfen das Zählen der Klammern nicht stören
+KNIFFLIG = r'''"bewerbungs-assistent": {
+      "command": "x",
+      "args": ["--note", "ende } und { auf \" zu \\ und }"],
+      "env": {"A": "}", "B": "\\"}
+    }'''
+# Was ein Neuschreiben über ConvertTo-Json verändert: Umlaute als Escape werden zu Zeichen, leere Listen und verschachtelte Werte
+# bekommen anderen Leerraum; Zahlen wie 2.50 und die große Zahl müssen dabei genauso bleiben, wie sie dastehen
+REST = r'''"preferences": {
+    "theme": "dark",
+    "zahl": 12345678901234567890,
+    "komma": 2.50,
+    "text": "Gr\u00fc\u00dfe \u00e4 \"zitiert\" }{",
+    "leer": [],
+    "tief": {"a": {"b": [1, null, true]}}
+  }'''
+
+
+def _fall(eintraege: list, nachher: list) -> tuple:
+    kopf, fuss = '{\n  "mcpServers": {\n    ', '\n  },\n  ' + REST + '\n}\n'
+    return (kopf + ',\n    '.join(eintraege) + fuss, kopf + ',\n    '.join(nachher) + fuss)
+
+
+FAELLE_PP17 = {
+    "letzter": _fall([ANDERER, EINTRAG], [ANDERER]),
+    "erster": _fall([EINTRAG, ANDERER], [ANDERER]),
+    "mittlerer": _fall([ANDERER, EINTRAG, ZWEITER], [ANDERER, ZWEITER]),
+    "kniffliger-text": _fall([ANDERER, KNIFFLIG, ZWEITER], [ANDERER, ZWEITER]),
+    "einziger": ('{\n  "mcpServers": {\n    ' + EINTRAG + '\n  },\n  "n": 1\n}\n', '{\n  "mcpServers": {},\n  "n": 1\n}\n'),
+    "kompakt": ('{"mcpServers":{"a":{"command":"x"},"bewerbungs-assistent":{"command":"y","args":["z"]}},"n":1}',
+                '{"mcpServers":{"a":{"command":"x"}},"n":1}'),
+    # derselbe Schlüssel steht VOR mcpServers in einem anderen Zusammenhang: gesucht wird erst hinter dem Wort mcpServers
+    "gleichnamiger-schluessel-davor": (
+        '{\n  "preferences": {\n    "notiz": {"bewerbungs-assistent": {"k": 1}}\n  },\n  "mcpServers": {\n'
+        '    "filesystem": {"command": "npx"},\n    "bewerbungs-assistent": {"command": "x"}\n  }\n}\n',
+        '{\n  "preferences": {\n    "notiz": {"bewerbungs-assistent": {"k": 1}}\n  },\n  "mcpServers": {\n'
+        '    "filesystem": {"command": "npx"}\n  }\n}\n'),
+}
+
+
+@nur_windows
+@pytest.mark.parametrize("name", sorted(FAELLE_PP17))
+def test_pp17_nur_der_eintrag_verschwindet_der_rest_bleibt_byte_fuer_byte(tmp_path, name):
+    vorher, nachher = FAELLE_PP17[name]
+    std = _config(tmp_path / "AppData" / "Roaming" / "Claude", roh=vorher.encode("utf-8"))
+    r = _lauf(tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert std.read_bytes().decode("utf-8") == nachher
+    assert "(nur der Eintrag entfernt)" in r.stdout, r.stdout
+    assert Path(str(std) + ".pbp-backup").read_bytes() == vorher.encode("utf-8"), "die Sicherung ist die Datei von vorher"
+
+
+@nur_windows
+@pytest.mark.parametrize("name", ["letzter", "erster", "einziger"])
+def test_pp17_windows_zeilenenden_bleiben_erhalten(tmp_path, name):
+    vorher, nachher = (t.replace("\n", "\r\n") for t in FAELLE_PP17[name])
+    std = _config(tmp_path / "AppData" / "Roaming" / "Claude", roh=vorher.encode("utf-8"))
+    assert _lauf(tmp_path).returncode == 0
+    assert std.read_bytes().decode("utf-8") == nachher
+
+
+@nur_windows
+def test_pp17_der_alte_weg_haette_die_datei_umgeschrieben(tmp_path):
+    """Belegt, was die Reparatur verhindert: über ConvertTo-Json setzt Windows PowerShell zwei Leerzeichen hinter jeden Doppelpunkt, rückt
+    tief ein und lässt die Datei um ein Vielfaches wachsen (in der Praxisprobe von rund 2 auf rund 15 KB). Hält den Test oben ehrlich —
+    wäre das nicht so, bewiese „der Rest bleibt Byte für Byte“ nichts."""
+    vorher, _ = FAELLE_PP17["letzter"]
+    r = subprocess.run([POWERSHELL, "-NoProfile", "-Command",
+                        "$o = ConvertFrom-Json -InputObject ([Console]::In.ReadToEnd()); ConvertTo-Json -InputObject $o -Depth 15"],
+                       input=vorher, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stderr
+    assert '":  ' in r.stdout, "zwei Leerzeichen hinter dem Doppelpunkt"
+    assert len(r.stdout) > 2 * len(vorher)
+    assert vorher not in r.stdout
+
+
+@nur_windows
+def test_pp17_findet_das_wort_nur_als_eintrag_und_faellt_sonst_auf_den_alten_weg_zurueck(tmp_path):
+    """Steht ein gleichnamiger Schlüssel tiefer in einem anderen Server VOR dem echten Eintrag, würde das Streichen im Text die falsche
+    Stelle treffen. Die Prüfung (Ergebnis gegen die erwartete Fassung) bemerkt das; dann gilt der bisherige Weg, und der echte Eintrag
+    verschwindet trotzdem."""
+    vorher = ('{\n  "mcpServers": {\n    "filesystem": {\n      "command": "npx",\n'
+              '      "env": {"bewerbungs-assistent": {"k": 1}}\n    },\n'
+              '    "bewerbungs-assistent": {"command": "x"}\n  }\n}\n')
+    std = _config(tmp_path / "AppData" / "Roaming" / "Claude", roh=vorher.encode("utf-8"))
+    r = _lauf(tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "(neu geschrieben)" in r.stdout, r.stdout
+    daten = json.loads(std.read_bytes().decode("utf-8"))
+    assert sorted(daten["mcpServers"]) == ["filesystem"], "der echte Eintrag ist weg"
+    assert daten["mcpServers"]["filesystem"]["env"] == {"bewerbungs-assistent": {"k": 1}}, "der gleichnamige Schlüssel tiefer drin bleibt"
+    assert Path(str(std) + ".pbp-backup").read_bytes() == vorher.encode("utf-8")
+
+
+@nur_windows
+def test_pp17_ein_schluessel_mit_escape_schreibweise_faellt_auf_den_alten_weg_zurueck(tmp_path):
+    """Der Schlüssel ist für JSON derselbe, steht im Text aber anders (`\\u002d` für den Bindestrich): der Text-Weg findet ihn nicht."""
+    vorher = '{\n  "mcpServers": {\n    "bewerbungs\\u002dassistent": {"command": "x"},\n    "filesystem": {"command": "npx"}\n  }\n}\n'
+    std = _config(tmp_path / "AppData" / "Roaming" / "Claude", roh=vorher.encode("utf-8"))
+    r = _lauf(tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "(neu geschrieben)" in r.stdout, r.stdout
+    assert sorted(json.loads(std.read_bytes().decode("utf-8"))["mcpServers"]) == ["filesystem"]
