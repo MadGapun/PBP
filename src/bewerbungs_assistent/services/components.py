@@ -62,7 +62,7 @@ COMPONENT_DEFS: dict[str, dict] = {
             "alte Arbeitszeugnisse ohne Text-Ebene werden damit lesbar und "
             "fliessen in Profil-Extraktion und Dokumente-Analyse ein."
         ),
-        "freigeschaltete_funktion": "Auto-OCR beim Dokument-Import (E19)",
+        "freigeschaltete_funktion": "Texterkennung beim Hochladen von Dokumenten (Auto-OCR)",
         "lizenz": "Apache-2.0",
         "groesse_mb": 55,
         "binary_name": "tesseract.exe" if sys.platform == "win32" else "tesseract",
@@ -102,7 +102,7 @@ COMPONENT_DEFS: dict[str, dict] = {
             "normalerweise mitgeliefert — hier sichtbar und reparierbar."
         ),
         "freigeschaltete_funktion": (
-            "Browser-gestützte Quellen-Adapter + linkedin_browser_search (B18)"
+            "Quellen, die einen richtigen Browser brauchen (z. B. die LinkedIn-Suche)"
         ),
         "lizenz": "Apache-2.0 (Playwright) / BSD (Chromium)",
         "groesse_mb": 130,

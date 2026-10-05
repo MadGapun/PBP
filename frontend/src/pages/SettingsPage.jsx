@@ -1705,7 +1705,7 @@ function LernprotokollSection() {
           ))}
           <div className="flex items-center justify-between pt-1">
             <p className="text-xs text-muted">
-              Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594).
+              Basis: deine Aussortier-Entscheidungen + Nutzungsmuster.
             </p>
             <button type="button" onClick={alleZuruecksetzen}
               className={`text-xs ${confirmReset ? "text-coral font-semibold" : "text-muted hover:text-coral"}`}
@@ -5008,6 +5008,7 @@ function UninstallSection({ pushToast }) {
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState(null);
   const [befehl, setBefehl] = useState("");
+  const [befehlHinweis, setBefehlHinweis] = useState("");
 
   useEffect(() => {
     let aktiv = true;
@@ -5029,6 +5030,8 @@ function UninstallSection({ pushToast }) {
         // Kein Terminal gefunden — ein Weg, den der Mensch selbst gehen
         // kann, ist immer noch besser als eine Fehlermeldung.
         setBefehl(result.befehl || "");
+        // Der Hinweis kommt vom Server und sagt, WARUM der Weg nicht ging (kein Terminal, Fenster liess sich nicht oeffnen).
+        setBefehlHinweis(result.hinweis || "Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:");
         pushToast(result.hinweis || "Bitte den Befehl unten ausführen.", "amber");
       } else {
         pushToast(
@@ -5075,7 +5078,7 @@ function UninstallSection({ pushToast }) {
           </div>
           <p className="text-sm text-muted">
             Gib <strong className="text-ink">DEINSTALLIEREN</strong> ein, um die
-            Komplett-Deinstallation zu starten. Es oeffnet sich ein neues Fenster
+            Komplett-Deinstallation zu starten. Es öffnet sich ein neues Fenster
             mit den Deinstaller-Fragen.
             {doppelklick ? (
               <> Alternativ: <strong className="text-ink">{doppelklick}</strong> im
@@ -5104,9 +5107,7 @@ function UninstallSection({ pushToast }) {
 
         {befehl ? (
           <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3">
-            <p className="text-[12px] text-amber">
-              Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:
-            </p>
+            <p className="text-[12px] text-amber">{befehlHinweis}</p>
             <code className="mt-1.5 block break-all rounded-lg bg-black/20 px-2 py-1.5 text-[12px] text-ink">
               {befehl}
             </code>
