@@ -79,6 +79,13 @@ Einträgen darunter.
     gefunden“ — die Flags des Prozessstarts schließen sich aus. Behoben, mit einem Test, der das Betriebssystem wirklich fragt.
   - Der Deinstaller räumt jetzt auch die Konfiguration von Claude aus dem Microsoft Store auf (der Eintrag blieb stehen, Claude meldete danach
     bei jedem Start einen Server ohne Programm) und schließt das Dashboard-Fenster.
+  - Der Deinstaller ließ unter Windows rund 830 MB liegen, die der Installer außerhalb von PBP geladen hat: den Browser für Quellen (Playwright, `%LOCALAPPDATA%\ms-playwright`,
+    rund 700 MB) und den Zwischenspeicher von pip (rund 125 MB) — ohne es zu erwähnen (macOS und Linux fragen). Er fragt jetzt zum Schluss, mit Ort und Größe;
+    die Vorgabe ist **Behalten**, und nur ein einzelnes „j“ löscht. Der Browser-Ordner geht ganz, von pip nur der Unterordner `Cache` (die Einstellungsdatei
+    eines anderen Programms bleibt). Dieselben Ordner nutzen andere Programme mit, deshalb im Zweifel behalten.
+  - Die Fehlermarke `[!!]` erschien in Installer und Deinstaller als `[]`: unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!`. Betroffen waren zehn
+    Meldungen („… konnte nicht entfernt werden“, „Datei in Benutzung?“ u. a.); wer einen Fehler hatte, sah nur leere Klammern vor dem Text. Maskiert; ein Test
+    verbietet die ungeschützte Schreibweise.
   - Der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner `%LOCALAPPDATA%\BewerbungsAssistent\app` liegen (Schritt [5/7] meldete „konnte nicht
     entfernt werden“): das neue Fenster hatte diesen Ordner als Arbeitsordner, und ein Prozess hält seinen Arbeitsordner fest. Gefunden bei der
     Gegenprobe der Reparaturen auf demselben Rechner; das Fenster öffnet jetzt im Temp-Ordner, und die Datei verlässt den Ordner, bevor sie sich verschiebt.
@@ -107,7 +114,6 @@ Einträgen darunter.
 - Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Auto-Update nur unter Windows.
-- Der Deinstaller lässt unter Windows die heruntergeladenen Browser-Dateien (Playwright, rund 700 MB) und den pip-Zwischenspeicher liegen; wie er damit umgehen soll, ist offen (#1170).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
 *Schema v52 (unverändert), 281 MCP-Werkzeuge, NNNN Tests.*

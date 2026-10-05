@@ -77,8 +77,8 @@ auf den Ausgangszustand zurückgesetzt (Konfiguration von Claude per Prüfsumme 
 | 7d Deinstallation | **PP9** (Knopf öffnet nichts), **PP11** (Store-Konfiguration blieb), **PP12** (Fenster blieb), **PP10** (rund 830 MB Playwright und pip-Cache blieben liegen) |
 | Auto-Update 8–11, Rückfall | nicht geprüft (braucht eine zweite veröffentlichte Version) |
 
-Beim Nachsehen aufgefallen: **PP7** (das Titelbild des Wikis zeigte eine Fehlerkarte) und **PP8** (Plan-Kennungen in Karten). Alle bis auf PP2, PP4
-und PP10 sind im Zweig repariert, mit Tests und Gegenprobe; Einzelheiten und Ursachen stehen in den Lehren L46 bis L50 (`lehren.md`).
+Beim Nachsehen aufgefallen: **PP7** (das Titelbild des Wikis zeigte eine Fehlerkarte) und **PP8** (Plan-Kennungen in Karten). Alle bis auf PP2 und PP4
+sind im Zweig repariert (PP10 erst später, siehe „Nach dem dritten Durchlauf“), mit Tests und Gegenprobe; Einzelheiten und Ursachen stehen in den Lehren L46 bis L50 (`lehren.md`).
 
 ## Gegenprobe der Reparaturen (05.10.2026, Hotfix 1.7.153)
 
@@ -104,7 +104,7 @@ Beim zweiten Durchlauf aufgefallen (kleine Dinge) und danach im 1.8-Zweig behobe
 - Die Konfigurationsdatei von Claude wird vom Deinstaller in der Formatierung von Windows PowerShell neu geschrieben (mehr Leerraum, Inhalt
   gleich) und behält `"mcpServers": {}`.
 - Behoben: PP14 (Console ruhig), PP15 (Browser erst bei Antwort, nur ein Tab), PP16 (Kopie räumt sich selbst weg), PP17 (nur der Eintrag verschwindet).
-- Unverändert offen: PP2, PP4 (Wiki), PP10 (rund 830 MB Browser und pip-Zwischenspeicher bleiben liegen).
+- Unverändert offen: PP2, PP4 (Wiki), PP10 (rund 830 MB Browser und pip-Zwischenspeicher bleiben liegen) — PP10 ist inzwischen behoben, siehe unten.
 
 Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir
 geöffneten Browser-Tabs sind weg; die Konfiguration von Claude hat keinen PBP-Eintrag mehr (die Einstellungen, die Claude selbst inzwischen
@@ -125,3 +125,21 @@ Derselbe Rechner, noch einmal vollständig (Installer bis Deinstaller-Knopf bis 
 
 Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir geöffneten
 Tabs sind weg; die Konfiguration von Claude ist Byte für Byte (Prüfsumme) die Datei von vor dem Durchlauf.
+
+## Nach dem dritten Durchlauf (05.10.2026, 1.8-Zweig)
+
+Zwei Punkte sind seitdem im Zweig repariert, jeweils mit Tests gegen den echten Text der Dateien und mit Gegenprobe:
+
+| Punkt | Stand |
+|---|---|
+| **PP10** rund 830 MB Playwright und pip-Zwischenspeicher | Der Windows-Deinstaller fragt jetzt zum Schluss (nach der Frage zu den Bewerbungsdaten, vor dem Stammordner): Ort und Größe beider Ordner, Vorgabe **Behalten**, nur ein einzelnes „j“ löscht. Playwright: der ganze Ordner `ms-playwright`; pip: nur `Cache`, der Ordner `pip` nur, wenn er danach leer ist. Gibt es keinen der beiden Ordner, wird nicht gefragt. Die Karte in den Einstellungen (Gefahrenzone) nennt es mit. Lehre L55 |
+| **PP19** Fehlermarke `[!!]` als `[]` | Beim Bau von PP10 gefunden: unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!`. Zehn alte Meldungen in `INSTALLIEREN.bat` und `DEINSTALLIEREN.bat` zeigten nur leere Klammern. Maskiert (`[^^!^^!]`), mit einem Test über beide Dateien und einem Lauf des echten Unterprogramms mit gesperrter Datei. Lehre L54 |
+
+Geprüft wurde bisher **nur lokal**: das echte Unterprogramm läuft in einer Hülle, `LOCALAPPDATA` und das Protokoll zeigen in einen Temp-Ordner (Fälle: beide
+Ordner, nur einer, keiner, Antworten leer / n / ja / x / nein / jj / j / J, fremde Datei in `pip`, gesperrte Datei, Pfad mit Leerzeichen, Hochkomma und Klammer).
+Gegenprobe: 13 gezielte Zerstörungen (Aufruf weg oder zu früh, Vorgabe „j“, pip ganz gelöscht, Marke roh in beiden Dateien, jede Antwort löscht, Größe fehlt,
+Löschen fehlt, Frage ohne Ordner, Karte und Einleitung ohne Hinweis) — jede wurde von mindestens einem Test erkannt.
+
+**Noch nicht auf dem Werkstatt-PC gesehen:** ein Durchlauf des Deinstallers auf einem Rechner, auf dem Playwright wirklich heruntergeladen wurde (die ersten Läufe
+hatten die Ordner, aber ohne diese Frage). Braucht das Wort des Nutzers; bei diesem Lauf bleibt die Remote-Verbindung offen, und die Energieeinstellungen
+werden aufgerufen, damit der Nutzer den Ruhezustand selbst abstellt (das System wird nicht verändert).

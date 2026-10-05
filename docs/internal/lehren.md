@@ -489,3 +489,20 @@ beim dritten vollständigen Durchlauf auf dem frischen Rechner auf, als der Inst
 jetzt die ECHTE Zeile aus (Kopie des Basis-Python als Laufzeit, ein Skript, das „nie“ meldet). Regel: Jede Zeile mit `for /f` oder `cmd /c` und mehreren
 Anführungszeichen gehört mit dem echten Text und einem Stand-in ausgeführt, nicht nur gelesen.
 *Belege:* Praxisprobe 1.8, dritter Durchlauf (05.10.2026), #1170 PP18, `tests/test_v18_praxisprobe_start.py`
+
+**L54. Unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!` — eine Fehlermarke `[!!]` sagt dann nichts.** Beim Bau der Frage nach den 830 MB (PP10)
+zeigte der Test für die gesperrte Datei „[]“ statt „[!!]“. Dieselbe Schreibweise steckte in zehn alten Meldungen des Installers und des Deinstallers
+(„… konnte nicht entfernt werden“, „Datei in Benutzung?“): wer einen Fehler hatte, sah leere eckige Klammern vor dem Text. Kein Test hatte diese Meldungen je
+ausgeführt; sie prüften Dateien und Rückgabewerte, und die Texte erschienen nur im Fehlerfall. Maskiert wird mit `^^!^^!` (wie bei „Willkommen^^!“ im Installer).
+Zwei Tests sichern es: einer liest beide Dateien und verbietet die ungeschützte Schreibweise außerhalb von Kommentaren, einer führt das echte Unterprogramm mit
+einer gesperrten Datei aus und erwartet die Marke im Wortlaut. Regel: Eine Meldung, die nur im Fehlerfall erscheint, gehört einmal im Fehlerfall ausgeführt und
+im Wortlaut gelesen — ein Test, der nur „kein Absturz“ prüft, übersieht, dass die Meldung leer ist.
+*Belege:* PP10-Bau (05.10.2026), #1170 PP19, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L55. Wer außerhalb seines Ordners etwas ablegt, nennt es beim Entfernen — und nimmt nur das Seine mit.** Der Installer lädt den Browser für Quellen (Playwright) und füllt
+den Zwischenspeicher von pip, zusammen rund 830 MB außerhalb von `%LOCALAPPDATA%\BewerbungsAssistent`. Der Windows-Deinstaller erwähnte beides nie, macOS und Linux fragten.
+Jetzt fragt er zum Schluss, mit Ort und Größe, und die Vorgabe ist BEHALTEN: beide Ordner gehören nicht PBP allein (jedes Programm mit Playwright nutzt denselben Browser-Ordner,
+jedes Python-Werkzeug den pip-Zwischenspeicher), und ein Deinstaller, der Fremdes mitnimmt, ist schlimmer als einer, der zu wenig entfernt. Von pip geht nur `Cache`, der Ordner
+selbst nur, wenn er danach leer ist — liegt dort die `pip.ini` eines anderen Programms, bleibt sie. In einem Klammerblock steht der Pfad als `!VAR!`, nicht als `%VAR%`:
+ein `)` im Benutzernamen (`Max (privat)`) beendet sonst den Block. Der Test führt das echte Unterprogramm in einem Temp-Ordner aus (`LOCALAPPDATA` umgebogen, QA-Isolation).
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP10, `tests/test_v18_praxisprobe_deinstaller.py`
