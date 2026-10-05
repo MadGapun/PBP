@@ -457,3 +457,14 @@ Fehlerkarte „Dieser Bereich ist abgestuerzt“. Der Generator hatte mit `el.re
 Klick der Praxisprobe auf einen Anleitungslink. Ein Generator verbirgt statt zu entfernen, prueft vor jeder Aufnahme auf die Fehlerkarte
 und auf eine leere Seite, und ein Test haelt die Bilder im Repo gegen die Fehlerkarte (Pixelfarbe des Fehlerblocks).
 *Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP7, `tests/test_v18_screenshot_generator.py`
+
+**L51. Ein Prozess hält seinen Arbeitsordner fest — und ein Test, der die Datei nur liest, merkt es nicht.** Nach den Reparaturen der ersten Probe lief
+eine Gegenprobe auf demselben Rechner. Der Deinstaller, jetzt über den Knopf im Dashboard geöffnet, meldete in Schritt [5/7], der App-Ordner „konnte
+nicht entfernt werden“, und ein leerer Ordner blieb liegen. Das neue Fenster hatte den Ordner der `.bat` als Arbeitsordner (`start /D`), und diese
+`cmd.exe` wartet auf die nach `%TEMP%` verschobene Kopie — ein Prozess hält den Ordner fest, in dem er steht. Der Doppelklick auf die Datei im
+App-Ordner hat denselben Arbeitsordner. Kein Test hatte das gesehen: die Strukturtests lasen die Datei, die Verhaltenstests führten nur ihre
+PowerShell-Zeilen aus. Der neue Test führt den ECHTEN Anfang der Datei aus (Arbeitsordner = App-Ordner) und hängt einen Platzhalter an, der den Ordner
+löscht; ohne die Korrektur kommt „GESPERRT“, mit ihr „WEG“. Regel: Eine Datei, die sich selbst verschiebt oder ihren eigenen Ordner löscht, gehört
+mit Start AUS diesem Ordner getestet — und eine Reparatur an Installer oder Deinstaller ist erst fertig, wenn sie auf einem sauberen Rechner einmal
+vollständig durchlief (Installation bis Deinstallation), nicht wenn die Einzelschritte grün sind.
+*Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP13, `tests/test_v18_praxisprobe_deinstaller.py`

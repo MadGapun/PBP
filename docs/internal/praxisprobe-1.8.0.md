@@ -79,3 +79,32 @@ auf den Ausgangszustand zurückgesetzt (Konfiguration von Claude per Prüfsumme 
 
 Beim Nachsehen aufgefallen: **PP7** (das Titelbild des Wikis zeigte eine Fehlerkarte) und **PP8** (Plan-Kennungen in Karten). Alle bis auf PP2, PP4
 und PP10 sind im Zweig repariert, mit Tests und Gegenprobe; Einzelheiten und Ursachen stehen in den Lehren L46 bis L50 (`lehren.md`).
+
+## Gegenprobe der Reparaturen (05.10.2026, Hotfix 1.7.153)
+
+Derselbe Rechner, zweimal vollständig: Installer, Dashboard, Frage zum Neustart von Claude, Knopf „Deinstaller starten“, Deinstallation,
+Aufräumen. Stand: Zweig `hotfix/v1.7.153` (Stable-Linie, dieselben Commits wie im 1.8-Zweig).
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| PP3 Installer startet Claude aus dem Store | in Ordnung („[OK] Claude Desktop wurde gestartet“) |
+| PP1 Dashboard läuft, solange die Frage offen ist | in Ordnung; mit „n“ beantwortet: „Claude bleibt offen. Das Dashboard läuft trotzdem.“ |
+| PP9 Knopf öffnet das Fenster | in Ordnung (Fenster mit den sieben Schritten) |
+| PP11 Konfiguration aus dem Store | in Ordnung: Eintrag entfernt, Sicherung `.pbp-backup` angelegt |
+| PP12 Dashboard-Fenster | in Ordnung: nach der Deinstallation läuft kein PBP-Prozess und kein `cmd`-Fenster mehr |
+| **PP13** App-Ordner nach dem Start über den Knopf | **Fund im ersten Durchlauf:** „[!!] App-Verzeichnis … konnte nicht entfernt werden“, ein leerer Ordner blieb liegen. Ursache und Reparatur in den Lehren (L51); im zweiten Durchlauf „[OK] App-Verzeichnis … entfernt“, kein Ordner übrig |
+
+Beim zweiten Durchlauf aufgefallen, **nicht** repariert (kleine Dinge, eigene Entscheidung):
+
+- Die Frage „Claude jetzt neu starten?“ läuft im Hintergrund; Protokollzeilen des Servers können sich in dieselbe Zeile schieben.
+- Der Installer öffnet das Dashboard in Chrome (sobald das Fenster steht) und danach im Standardbrowser; Chrome kann dabei ein paar Sekunden vor
+  dem Server fertig sein und „Verbindung verweigert“ zeigen, bis man neu lädt.
+- Die verschobene Kopie des Deinstallers (`%TEMP%` + `PBP-Deinstaller-<Zahl>.bat`) bleibt liegen: die Ursprungsdatei ist zu dem Zeitpunkt gelöscht,
+  und `cmd` bricht dann vor dem `del` still ab (rund 15 KB je Deinstallation).
+- Die Konfigurationsdatei von Claude wird vom Deinstaller in der Formatierung von Windows PowerShell neu geschrieben (mehr Leerraum, Inhalt
+  gleich) und behält `"mcpServers": {}`.
+- Unverändert offen: PP2, PP4 (Wiki), PP10 (rund 830 MB Browser und pip-Zwischenspeicher bleiben liegen).
+
+Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir
+geöffneten Browser-Tabs sind weg; die Konfiguration von Claude hat keinen PBP-Eintrag mehr (die Einstellungen, die Claude selbst inzwischen
+dazugeschrieben hat, blieben unberührt, der leere Eintrag `mcpServers` wurde entfernt).
