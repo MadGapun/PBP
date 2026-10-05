@@ -506,3 +506,28 @@ jedes Python-Werkzeug den pip-Zwischenspeicher), und ein Deinstaller, der Fremde
 selbst nur, wenn er danach leer ist — liegt dort die `pip.ini` eines anderen Programms, bleibt sie. In einem Klammerblock steht der Pfad als `!VAR!`, nicht als `%VAR%`:
 ein `)` im Benutzernamen (`Max (privat)`) beendet sonst den Block. Der Test führt das echte Unterprogramm in einem Temp-Ordner aus (`LOCALAPPDATA` umgebogen, QA-Isolation).
 *Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP10, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L56. Ein Prüfwerkzeug, das nicht in der CI läuft, veraltet still — und seine Meldung „Muster nicht gefunden“ ist kein Fehler.** Der Lauf aller fünf
+Mutationskataloge vor Beta 16 (237 absichtlich eingebaute Fehler) fand zwei Einträge des Firmen-Katalogs, deren Suchmuster nicht mehr passten: die Einrückung
+in `firma_kontext` hatte sich geändert. Beide Mutationen prüften seither nichts, und der Entwurf des CHANGELOG sagte trotzdem „alle erkannt“. Das Skript
+druckt dann `MUSTER 0x gefunden (Eintrag nachziehen)` und zählt den Eintrag erst am Ende als offen. Nachgezogen; beide Fehler werden von den Tests erkannt.
+Dazu ein Test (`tests/test_v18_mutationskatalog_muster.py`, läuft in der CI): jedes Muster kommt in seiner Datei genau einmal vor, die Kennungen sind eindeutig,
+die Testdateien gibt es — gegen den alten Katalog schlägt er an und nennt fb06 und fb07. Regel: Wer eine Prüfung nur von Hand laufen lässt, braucht einen billigen Test
+für ihre VORAUSSETZUNGEN, sonst merkt es niemand, wenn sie nichts mehr prüft (DoD 8c).
+*Belege:* Beta 16 (06.10.2026), `scripts/mutationstest_auto_update.py`, `tests/test_v18_mutationskatalog_muster.py`
+
+**L57. „Übersprungen“ in der Übersicht eines Pull Requests kann „abgebrochen“ heißen — und abgebrochen ist weder grün noch rot.** Drei Köpfe in Folge zeigten
+`passing 1, skipped 1`; ich meldete „GitHub-Prüfung grün“. In Wahrheit war der Syntax-Job bestanden und der `pytest`-Job nie gelaufen: GitHub fand keinen
+Rechner („The job was not acquired by Runner of type hosted even after multiple attempts“, `steps: []`). Der Lauf endete als `failure`, ohne dass ein Test lief.
+Regel (steht in CLAUDE.md seit #1132, ich habe sie nicht angewandt): vor „CI grün“ und vor jedem Tag den Lauf lesen — `gh run view <id> --json jobs` — und prüfen,
+dass der Test-Job Schritte hat und mit `success` endet; sonst `gh run rerun <id>` und abwarten.
+*Belege:* Läufe 37362918664, 37363604915, 37372302207 (abgebrochen), 37376045112 (grün), 05.10.2026
+
+**L58. Ein Browser-Test, der „manchmal“ rot ist, hat die Seite meist mitten im Aufbau erwischt — erst warten, bis sie ruhig ist, dann handeln.** Die vier Tests
+`test_pp7_*` (ein Knoten wird von außen entfernt, dann wechselt die Verbindung) schlugen lokal in jedem dritten Lauf und in der GitHub-Prüfung zweimal von vier an,
+mit zwei verschiedenen Meldungen. Gefunden mit einem `MutationObserver` und 60 Beobachtungsläufen: der Hinweis, den der Test sucht, erscheint nach 0,3 Sekunden,
+noch bevor die Seite ihren Takt der Live-Aktualisierung gestartet hat; die EINE Änderung, die der Test auslöste, ging am noch nicht gesetzten Ausgangswert vorbei, die Seite
+übernahm den Wechsel nie, und es gab keinen Absturz zu sehen. Behebung: warten, bis der Takt zweimal lief und 1,5 Sekunden nichts Neues kam; die Änderung alle
+drei Sekunden wiederholen, bis das Ziel erreicht ist. 25 Läufe grün (vorher rund ein Drittel rot). Regel: vor dem Eingriff den Zustand der Seite abwarten, nicht die
+Zeit; und ein Test, der zufällig rot ist, wird nicht wiederholt, bis er grün ist, sondern an einem Beobachtungslauf aufgeklärt.
+*Belege:* Beta 16 (06.10.2026), `tests/test_v18_screenshot_generator.py`, GitHub-Läufe 37379191395 und 37379576626

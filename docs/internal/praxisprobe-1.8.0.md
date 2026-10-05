@@ -143,3 +143,23 @@ Löschen fehlt, Frage ohne Ordner, Karte und Einleitung ohne Hinweis) — jede w
 **Noch nicht auf dem Werkstatt-PC gesehen:** ein Durchlauf des Deinstallers auf einem Rechner, auf dem Playwright wirklich heruntergeladen wurde (die ersten Läufe
 hatten die Ordner, aber ohne diese Frage). Braucht das Wort des Nutzers; bei diesem Lauf bleibt die Remote-Verbindung offen, und die Energieeinstellungen
 werden aufgerufen, damit der Nutzer den Ruhezustand selbst abstellt (das System wird nicht verändert).
+
+## Beta 16 (Nacht auf den 06.10.2026): was vor der Veröffentlichung geprüft wurde
+
+Tag `v1.8.0-beta.16` auf `20423f7a`, auf dem 1.8-Zweig (nicht auf `main`). Alles auf diesem Entwicklungsrechner, ohne zweiten Rechner. Das ZIP von GitHub enthält 564 Dateien, Inhalt gleich dem Tag; die `.bat`-Dateien haben CRLF.
+
+| Prüfung | Ergebnis |
+|---|---|
+| Volle Testsuite unter Windows | drei volle Läufe: 8156, 8157 und 8159 bestanden, 29 übersprungen; im letzten schlug ein Browser-Test zufällig an (PP7, Lehre L58), behoben |
+| Browser-Tests des Screenshot-Generators (PP7) | waren in jedem dritten Lauf rot (auch zweimal in der GitHub-Prüfung); jetzt 25 von 25 Läufen grün, Gegenprobe erkannt |
+| GitHub-Lauf (Linux, Python 3.11 und 3.13, alle Node-Tests, Release-Tor) | zwei unabhängige Läufe auf dem Tag-Commit grün; davor ein Lauf „abgebrochen“ (kein Rechner frei; nicht grün, Lehre L57) und zwei rot durch den zufälligen PP7-Test (Lehre L58) |
+| Alle 37 Node-Tests der CI, `ui_texte_pruefen`, `release_check`, `smoke_test` (23/23), `qa_rest_smoke` (10/10) | grün |
+| Mutationskataloge (237 absichtlich eingebaute Fehler) | 234 erkannt, 1 gleichwertig begründet, 2 brauchen Symlink-Recht; 2 Muster waren veraltet und sind nachgezogen (Lehre L56) |
+| Kopie der echten Daten (Tagessicherung der App, nie die laufende Datenbank) | Migration in Ordnung (Schema war schon v52, 3 neue Firmen-Tabellen, keine Zeile verloren); 11 Seiten und 16 Einstellungsreiter ohne Absturz; 128 lesende Endpunkte und 1233 Detailaufrufe ohne 5xx; 121 Firmen-Ansichten; Schreibwege (Notiz, Aussortieren, Zurückholen) in Ordnung |
+| Migration v48 → v52 an einer von Stable 1.7.153 angelegten, befüllten Datenbank | Schema 48 → 52, `integrity_check` ok, keine Zeile verloren, die Sicherung vor der Migration entsteht und ist selbst eine gültige v48-Datenbank; das Zurückspielen und Öffnen mit dem Stable-Code funktioniert |
+| Installer-Schritte als Dateien gegen echte Dateien dieses Rechners | `python312._pth` wird richtig umgestellt (`../src` → `../boot`, idempotent); `_setup_claude.py` ändert an einer Kopie der echten Claude-Konfiguration nur den PBP-Eintrag (fremde Server und Einstellungen bleiben, `BA_DATA_DIR` bleibt, Startbaustein statt Programm); die Sicherung vor dem Update einer Kopie der echten Datenbank ist gültig |
+| ZIP aus dem Tag (`git archive`) | vollständig (alle vom Installer verlangten Dateien), `.bat` mit CRLF, das Dashboard startet aus dem entpackten Archiv und meldet die Version |
+
+**Nicht gemacht:** das Drüberinstallieren von 1.7.x auf einem zweiten Windows-Rechner (der Werkstatt-PC ließ sich nachts nicht wecken: 80 Magic Packets in 14 Minuten und weitere Wellen ohne Antwort; Wecken per Netzwerk wirkt dort offenbar nicht). Die Beta nennt das in den Known Issues.
+
+Hinweis zur eigenen Installation auf dem Entwicklungsrechner: installiert ist 1.7.148 (flacher Aufbau), die Claude-Konfiguration zeigt auf dessen Python, die Datenbank steht bereits auf v52.
