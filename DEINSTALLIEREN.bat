@@ -19,6 +19,11 @@ goto :pbp_main
 set "PBP_RELOC_BAT=%TEMP%\PBP-Deinstaller-%RANDOM%%RANDOM%.bat"
 copy /Y "%~f0" "%PBP_RELOC_BAT%" >nul
 set PBP_DEINST_RELOCATED=1
+:: Gegenprobe 05.10.2026 (PP13): Wer den Deinstaller per Doppelklick oder ueber den Knopf im Dashboard startet, hat den
+:: App-Ordner als Arbeitsordner. Diese cmd.exe wartet unten auf die verschobene Kopie und haelt damit genau den Ordner
+:: fest, den Schritt [5/7] loeschen will (Meldung "konnte nicht entfernt werden", ein leerer Ordner bleibt liegen).
+:: Also zuerst aus dem Ordner heraus.
+cd /d "%TEMP%" 2>nul || cd /d "%SystemRoot%"
 cmd /c ""%PBP_RELOC_BAT%""
 del /Q "%PBP_RELOC_BAT%" >nul 2>&1
 exit /b 0
