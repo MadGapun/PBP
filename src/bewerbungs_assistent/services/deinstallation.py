@@ -48,7 +48,7 @@ ENTFERNT = {
         "Desktop-Verknuepfung",
         "MCP-Eintrag in Claude Desktop",
         "Nachinstallierte Komponenten (z. B. Tesseract)",
-        "Browser-Dateien fuer Quellen (Playwright) und pip-Zwischenspeicher (nur auf Nachfrage)",
+        "Browser-Dateien für Quellen (Playwright) und pip-Zwischenspeicher (nur auf Nachfrage)",
     ],
     "Darwin": [
         "MCP-Eintrag in Claude Desktop",
