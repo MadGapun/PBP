@@ -7,6 +7,10 @@ PP11 Der Deinstaller las nur `%APPDATA%\\Claude\\claude_desktop_config.json`. De
      Store-Pakete (`Packages\\Claude_*\\LocalCache\\Roaming\\Claude`) — und genau die liest die Store-Fassung. Nach „PBP komplett
      deinstallieren“ blieb der Eintrag stehen; Claude meldete danach bei jedem Start einen Server ohne Programm.
 PP12 Das Konsolenfenster des Dashboards (`cmd /K "Dashboard starten.bat"`) blieb nach der Deinstallation stehen.
+PP13 (Gegenprobe desselben Tages) Gestartet über den Knopf im Dashboard, meldete der Deinstaller in Schritt [5/7], der App-Ordner
+     „konnte nicht entfernt werden“, und ein leerer Ordner blieb liegen. Ursache: das neue Fenster hatte den App-Ordner als
+     Arbeitsordner (`start /D <Ordner der .bat>`), und die cmd.exe wartet auf die nach %TEMP% verschobene Kopie — ein Prozess hält
+     seinen Arbeitsordner fest. Gilt genauso für den Doppelklick auf die .bat im App-Ordner.
 
 Die Verhaltenstests führen die echten PowerShell-Zeilen aus der BAT-Datei aus (Windows PowerShell 5.1); APPDATA und LOCALAPPDATA
 zeigen dabei auf einen Temp-Ordner. QA-Isolation: nie gegen die echte Claude-Konfiguration dieses Rechners.
@@ -17,6 +21,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -105,6 +110,66 @@ def test_pp9_die_oberflaeche_zeigt_den_hinweis_des_servers():
     jsx = (ROOT / "frontend" / "src" / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
     assert "setBefehlHinweis(result.hinweis" in jsx
     assert "{befehlHinweis}" in jsx
+
+
+# ── PP13: ein Prozess hält seinen Arbeitsordner fest ───────────────────────────────────────────────
+
+def test_pp13_das_neue_fenster_startet_nicht_im_ordner_der_bat(monkeypatch, tmp_path):
+    """`start /D <Ordner>` macht den Ordner zum Arbeitsordner der neuen cmd.exe. Die wartet auf die verschobene Kopie des
+    Deinstallers und hält den App-Ordner damit fest, den Schritt [5/7] löschen will."""
+    gesehen = {}
+
+    def _popen(cmd, **kw):
+        gesehen["cmd"] = cmd
+        return object()
+
+    _starten_mit_aufzeichnung(monkeypatch, tmp_path, _popen)       # die .bat liegt in tmp_path
+    cmd = gesehen["cmd"]
+    assert "/D" in cmd, "ohne /D erbt das Fenster den Arbeitsordner des Dashboards"
+    ordner = Path(cmd[cmd.index("/D") + 1])
+    assert ordner != tmp_path, "nie der Ordner der .bat"
+    assert ordner == Path(tempfile.gettempdir())
+
+
+def test_pp13_die_bat_verlaesst_ihren_ordner_bevor_sie_sich_verschiebt():
+    """Der Doppelklick im App-Ordner hat denselben Arbeitsordner; deshalb reicht der Start-Parameter allein nicht."""
+    zeilen = [z.strip() for z in _bat().splitlines()]
+    block = zeilen[zeilen.index(":pbp_relocate"):zeilen.index(":pbp_main")]
+    wechsel = next(i for i, z in enumerate(block) if z.lower().startswith("cd /d") and "%temp%" in z.lower())
+    umzug = next(i for i, z in enumerate(block) if z.lower().startswith("cmd /c"))
+    assert wechsel < umzug, "erst den Ordner wechseln, dann auf die verschobene Kopie warten"
+
+
+def _umzugskopf() -> str:
+    """Der Anfang der echten Datei bis vor `:pbp_main`: die Selbst-Verschiebung nach %TEMP%."""
+    text = _bat()
+    return text[:text.index("\n:pbp_main")]
+
+
+@nur_windows
+def test_pp13_nach_dem_umzug_laesst_sich_der_app_ordner_loeschen(tmp_path):
+    """Der Fehler wörtlich, mit dem ECHTEN Anfang der Datei: Start wie im Praxisfall (Arbeitsordner = App-Ordner), dahinter ein
+    Platzhalter, der tut, was Schritt [5/7] tut. Der echte Deinstaller läuft hier nie — alles liegt im Temp-Ordner des Tests."""
+    lokal = tmp_path / "AppData" / "Local"
+    app = lokal / "BewerbungsAssistent" / "app"
+    app.mkdir(parents=True)
+    temp = tmp_path / "Temp"
+    temp.mkdir()
+    marke = tmp_path / "ergebnis.txt"
+    rumpf = [":pbp_main",
+             f'rmdir /s /q "{app}" >nul 2>&1',
+             f'if exist "{app}" (echo GESPERRT> "{marke}") else (echo WEG> "{marke}")',
+             "exit /b 0"]
+    skript = app / "DEINSTALLIEREN.bat"
+    skript.write_bytes(("\r\n".join(_umzugskopf().splitlines() + [""] + rumpf) + "\r\n").encode("utf-8"))
+    env = dict(os.environ, LOCALAPPDATA=str(lokal), TEMP=str(temp), TMP=str(temp))
+    env.pop("PBP_DEINST_RELOCATED", None)
+    # QA-Isolation: nichts davon zeigt auf die echte Installation dieses Rechners
+    assert str(tmp_path) in env["LOCALAPPDATA"] and str(tmp_path) in env["TEMP"]
+    subprocess.run(["cmd.exe", "/c", str(skript)], cwd=str(app), env=env, capture_output=True, timeout=60)
+    assert marke.exists(), "der Platzhalter lief gar nicht — der Umzug hat nicht stattgefunden"
+    assert marke.read_text().strip() == "WEG", "die wartende cmd.exe hält den App-Ordner als Arbeitsordner fest"
+    assert not app.exists()
 
 
 # ── PP11: die Store-Konfiguration ──────────────────────────────────────────────────────────────
