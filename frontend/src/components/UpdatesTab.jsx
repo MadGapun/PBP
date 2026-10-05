@@ -15,7 +15,7 @@ import { useState } from "react";
 import { postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, TextInput } from "@/components/ui";
-import { INSTALLER_AUFRAEUMEN, STUFEN, claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung } from "@/lib/autoUpdate";
+import { INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, zeigeAktuell } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
 
@@ -108,7 +108,7 @@ export default function UpdatesTab() {
               <Badge tone={abweichung ? "amber" : "neutral"}>Claude: v{claude}</Badge>
             </span>
           ) : null}
-          {neu ? <Badge tone="success">Neu: v{neu.version}</Badge> : <Badge tone="neutral">Aktuell</Badge>}
+          {neu ? <Badge tone="success">Neu: v{neu.version}</Badge> : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
             <RefreshCw size={14} className="mr-1 inline" /> {busy === "/api/auto-update/pruefen" ? "Prüfe …" : "Jetzt prüfen"}
@@ -120,10 +120,12 @@ export default function UpdatesTab() {
           </p>
         ) : null}
         {au.neustart_noetig ? (
-          <p className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink">
-            Version {au.aktuell} ist installiert und gilt nach dem nächsten Neustart. Beende PBP und Claude Desktop komplett
-            (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte beides neu.
-          </p>
+          <div className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink" data-updates-neustart>
+            <p>Version {au.aktuell} ist installiert und gilt nach dem nächsten Neustart:</p>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-5">
+              {NEUSTART_SCHRITTE.map((schritt) => <li key={schritt}>{schritt}</li>)}
+            </ol>
+          </div>
         ) : null}
         {abweichung ? (
           <p className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink" data-updates-verbindung>

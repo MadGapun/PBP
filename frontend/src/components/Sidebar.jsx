@@ -117,7 +117,7 @@ export default function Sidebar({
             {/* Auto-Update (#1093): eine neue Version ist installiert, laeuft aber erst nach dem Neustart. */}
             {brand.autoUpdateText ? (
               <span className="text-xs text-amber" data-update-neustart
-                title="Beende PBP und Claude Desktop komplett und starte beides neu, dann läuft die neue Version.">
+                title="Die neue Version ist installiert. Sie gilt, sobald du das PBP-Fenster schließt, Claude Desktop ganz beendest und beides neu startest.">
                 {brand.autoUpdateText}
               </span>
             ) : null}

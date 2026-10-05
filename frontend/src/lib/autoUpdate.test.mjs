@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
-  fassungsSchluessel, istNeuer, istSchonInstalliert, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel,
+  NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
 } from "./autoUpdate.js";
 
@@ -121,7 +121,9 @@ assert.equal(updateHinweis({ ...basis, neu, job: { status: "fehler", version: "1
 // Neustart nötig — außer in der stillen Stufe.
 h = updateHinweis({ ...basis, aktuell: "1.8.1", neustart_noetig: true, stufe: "auto_meldung" });
 assert.equal(h.id, "update-neustart");
-assert.match(h.text, /PBP und Claude Desktop/);
+assert.match(h.text, /Claude Desktop ganz/);
+assert.match(h.text, /schwarze Fenster/, "sagt, was „PBP beenden“ konkret heißt");
+assert.match(h.text, /1\. .*2\. .*3\. /, "drei Schritte, nummeriert");
 assert.equal(h.dringend, true);
 assert.equal(updateHinweis({ ...basis, aktuell: "1.8.1", neustart_noetig: true, stufe: "auto_still" }), null);
 
@@ -134,7 +136,7 @@ assert.match(h.text, /läuft wieder mit Version 1\.8\.0/);
 assert.deepEqual(h.aktionen.map((a) => a.art), ["update-gesehen", "update-optionen"]);
 
 // ── Seitenleiste ──────────────────────────────────────────────────────────────────────
-assert.equal(seitenleisteText({ verfuegbar: true, neustart_noetig: true, laufend: "1.8.0", aktuell: "1.8.1" }), "läuft v1.8.0 · installiert v1.8.1");
+assert.equal(seitenleisteText({ verfuegbar: true, neustart_noetig: true, laufend: "1.8.0", aktuell: "1.8.1" }), "Neustart nötig für v1.8.1");
 assert.equal(seitenleisteText({ verfuegbar: true, neustart_noetig: false }), "");
 assert.equal(seitenleisteText({ verfuegbar: false, neustart_noetig: true }), "");
 assert.equal(seitenleisteText(null), "");
@@ -202,5 +204,14 @@ assert.equal(updateHinweis({ ...neuerAlsClaude, stufe: "auto_still" }, { mcp: ve
 // ohne Angabe über Claude bleibt alles wie vorher
 assert.equal(updateHinweis(neuerAlsClaude), null);
 assert.equal(updateHinweis({ ...neuerAlsClaude, neu }).id, "update");
+
+// ── #1170 U4: Neustart und „Aktuell“ ──────────────────────────────────────────────────
+assert.equal(NEUSTART_SCHRITTE.length, 3);
+assert.ok(neustartText().startsWith("1. ") && neustartText().includes(" 3. "));
+// „Aktuell“ nur, wenn weder eine neuere Version noch ein Neustart aussteht.
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false }), true);
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: true }), false, "nach der Installation nicht „Aktuell“ neben „Ab dem nächsten Neustart“");
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false }), false);
+assert.equal(zeigeAktuell(null), false);
 
 console.log("autoUpdate: ok");

@@ -154,7 +154,7 @@ export function updateHinweis(au, extra = {}) {
     return {
       id: "update-neustart", ton: "neutral", dringend: true,
       titel: `Version ${au.aktuell} ist installiert`,
-      text: "Sie gilt nach dem nächsten Neustart. Beende PBP und Claude Desktop komplett (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte beides neu.",
+      text: `Sie gilt nach dem nächsten Neustart. ${neustartText()}`,
       aktionen: [OPTIONEN],
     };
   }
@@ -234,10 +234,33 @@ export function updateHinweis(au, extra = {}) {
   };
 }
 
-/** Die Zeile unter der Version in der Seitenleiste, wenn läuft und installiert auseinanderfallen. */
+/**
+ * Wie der Neustart geht — an EINER Stelle, damit Hinweis, Einstellung und Seitenleiste dasselbe sagen (#1170 U4).
+ *
+ * Vorher stand überall „Beende PBP und Claude Desktop“. Was „PBP beenden“ heißt, wusste niemand: PBP läuft als
+ * schwarzes Fenster „PBP Bewerbungs-Portal“ (Dashboard starten.bat), Claude Desktop hält seinen PBP-Server so
+ * lange am Leben, bis es ganz beendet wird. Beides muss neu starten, damit die neue Version gilt.
+ */
+export const NEUSTART_SCHRITTE = [
+  "Schließe das schwarze Fenster „PBP Bewerbungs-Portal“, falls es offen ist. Das ist das Dashboard.",
+  "Beende Claude Desktop ganz: Rechtsklick auf das Claude-Symbol unten rechts in der Taskleiste → „Beenden“. Das Fenster zu schließen reicht nicht.",
+  "Starte Claude Desktop und danach „PBP Bewerbungs-Portal“ vom Desktop neu.",
+];
+
+/** Die Schritte als ein Satz-Text, für Hinweise ohne Liste. */
+export function neustartText() {
+  return NEUSTART_SCHRITTE.map((s, i) => `${i + 1}. ${s}`).join(" ");
+}
+
+/** „Aktuell“ steht nur da, wenn nichts mehr aussteht: weder eine neuere Version noch ein Neustart (#1170 U4). */
+export function zeigeAktuell(au) {
+  return Boolean(au) && !au.neu && !au.neustart_noetig;
+}
+
+/** Die Zeile unter der Version in der Seitenleiste, solange eine installierte Version auf den Neustart wartet. */
 export function seitenleisteText(au) {
   if (!au?.verfuegbar || !au.neustart_noetig) return "";
-  return `läuft v${au.laufend} · installiert v${au.aktuell}`;
+  return `Neustart nötig für v${au.aktuell}`;
 }
 
 /** Soll die Seitenleiste auf die Update-Einstellungen führen statt auf eine fremde Seite? */
