@@ -5,6 +5,7 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
@@ -3293,7 +3294,7 @@ function ErweiterungenTab({ pushToast }) {
                         {k.quelle === "pbp" ? "Installiert" : "Extern gefunden"}
                         {k.version ? ` · v${k.version}` : ""}
                       </Badge>
-                    ) : läuft ? (
+                    ) : laeuft ? (
                       <Badge tone="amber">Installation läuft</Badge>
                     ) : (
                       <Badge tone="neutral">Nicht installiert</Badge>
@@ -4010,6 +4011,11 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Praxisprobe 1.8 (#1170): ein Anzeigefehler in EINEM Reiter darf die anderen nicht mitreissen.
+            Die Grenze in App.jsx gilt je Seite; ohne diese hier blieb nach einem Absturz jeder Reiter der
+            Einstellungen kaputt (die Seitenleiste tat nichts mehr), bis man neu lud. key = Reiter: ein
+            Wechsel setzt die Grenze zurueck. Die Grenze zeichnet nichts eigenes, das Layout bleibt gleich. */}
+        <ErrorBoundary key={settingsTab}>
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
@@ -4717,6 +4723,7 @@ export default function SettingsPage() {
             <UninstallSection pushToast={pushToast} />
           </div>
         )}
+        </ErrorBoundary>
       </div>
     </div>
   );

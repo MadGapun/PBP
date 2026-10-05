@@ -113,12 +113,26 @@ def _sieht_aus_wie_text(s: str) -> bool:
     return True
 
 
+def _ist_jsx_code(t: str) -> bool:
+    """Zwischen zwei Tags steht manchmal Code, kein Text: bei einer Verzweigung im JSX
+    ist `) : laeuft ? (` zwischen `</Badge>` und `<Badge>` der Rest der Bedingung.
+    Das Wort war dort ein NAME. Der Pruefer hielt es fuer Text und verlangte den
+    Umlaut — die Umstellung machte aus `laeuft` an dieser einen Stelle `läuft`, der
+    Reiter „Erweiterungen“ stürzte bei jeder frischen Installation ab (Praxisprobe
+    1.8, 05.10.2026). Ein Text beginnt nicht mit einer schliessenden Klammer und
+    endet nicht mit einer oeffnenden."""
+    s = t.strip()
+    return s.startswith(")") or s.endswith("(")
+
+
 def texte(pfad: Path):
     """(zeile, text) je sichtbarem Textstueck."""
     roh = pfad.read_text(encoding="utf-8-sig")
     code = _ohne_kommentare(roh)
     for m in _TEXTKNOTEN.finditer(code):
         t = m.group(1)
+        if _ist_jsx_code(t):
+            continue
         if _sieht_aus_wie_text(t) and not any(z in t for z in ("&&", "=>", "?.", "===")):
             yield code[:m.start()].count("\n") + 1, t
     for m in _LITERAL.finditer(code):
