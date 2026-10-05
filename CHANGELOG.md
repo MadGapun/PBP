@@ -86,7 +86,7 @@ Einträgen darunter.
   Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
-- Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
+- Wiki (Entwurf, erscheint mit 1.8.0): Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
 - Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 237 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
   Komponenten 6, Mail 20, Firmen 86); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
 
@@ -149,6 +149,8 @@ Einträgen darunter.
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Auto-Update nur unter Windows.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
 - Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das automatische Aktualisieren
   selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
 
