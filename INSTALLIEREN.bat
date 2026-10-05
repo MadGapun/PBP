@@ -78,7 +78,7 @@ echo    Version: %PBP_VERSION%
 echo.
 echo  ====================================================
 echo.
-echo  Willkommen! Dieses Setup richtet ALLES automatisch ein.
+echo  Willkommen^^! Dieses Setup richtet ALLES automatisch ein.
 echo  Du musst NICHTS selber installieren oder konfigurieren.
 echo  Einfach warten - alles passiert von alleine.
 echo.
@@ -115,7 +115,7 @@ if exist "%APP_DIR%\src\bewerbungs_assistent\__init__.py" (
         echo.
         echo  Version !INSTALLED_VER! ist bereits installiert.
         echo.
-        set /p FORCE_INSTALL="  Trotzdem neu installieren? ^(j/n^): "
+        set /p FORCE_INSTALL="  Trotzdem neu installieren? (j/n): "
         set "FORCE_INSTALL=!FORCE_INSTALL:~0,1!"
         if /i "!FORCE_INSTALL!" neq "j" if /i "!FORCE_INSTALL!" neq "y" (
             echo.

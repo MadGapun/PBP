@@ -118,3 +118,12 @@ def test_pp3_die_ausgabe_der_bat_dateien_ist_reines_ascii():
                 continue
             fremd = [c for c in zeile if ord(c) > 127]
             assert not fremd, f"{name}:{nr} enthält {fremd!r}: {zeile.strip()[:80]}"
+
+
+def test_pp3_zwei_kleinigkeiten_der_ausgabe():
+    """Unter EnableDelayedExpansion verschluckt ein einzelnes `!` den Satzanfang („Willkommen Dieses Setup …“), und in einer
+    Zeichenkette in Anführungszeichen sind `^(` und `^)` keine Fluchtzeichen, sondern erscheinen so auf dem Bildschirm."""
+    text = (ROOT / "INSTALLIEREN.bat").read_text(encoding="utf-8")
+    assert "Willkommen^^! Dieses Setup" in text
+    zeile = next(z for z in text.splitlines() if z.strip().startswith('set /p FORCE_INSTALL="'))
+    assert "^(" not in zeile and "(j/n)" in zeile
