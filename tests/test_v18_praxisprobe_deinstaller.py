@@ -663,3 +663,15 @@ def test_pp19_remove_path_zeigt_die_fehlermarke_wirklich_an(tmp_path):
     with open(ziel / "x.bin", "rb"):
         r = subprocess.run(["cmd.exe", "/c", str(bat)], capture_output=True, creationflags=0x08000000, timeout=60)
     assert "[!!] Testordner konnte nicht entfernt werden" in (r.stdout + r.stderr).decode("cp850", errors="replace")
+
+
+def test_pp19_die_maske_gilt_nur_unter_verzoegerter_expansion():
+    """`^^!^^!` ist nur richtig, solange `EnableDelayedExpansion` gilt; ohne sie stünde `^!^!` auf dem Bildschirm. Darum: das `setlocal`
+    steht vor jeder Marke, und danach kommt kein `endlocal` oder `DisableDelayedExpansion` mehr."""
+    for name in ("INSTALLIEREN.bat", "DEINSTALLIEREN.bat"):
+        zeilen = (ROOT / name).read_text(encoding="utf-8").splitlines()
+        an = next(i for i, z in enumerate(zeilen) if z.strip().lower() == "setlocal enabledelayedexpansion")
+        assert not any(z.strip().lower().startswith(("endlocal", "setlocal disabledelayedexpansion")) for z in zeilen[an:]), name
+        marken = [nr for nr, z in enumerate(zeilen) if "[^^!^^!]" in z and not z.strip().lower().startswith(("::", "rem "))]
+        assert marken, f"{name}: keine maskierte Marke gefunden"
+        assert all(nr > an for nr in marken), f"{name}: Marke vor dem setlocal in Zeile {an + 1}"
