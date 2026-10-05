@@ -154,7 +154,7 @@ Einträgen darunter.
 - Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das automatische Aktualisieren
   selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
 
-*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8186 Tests.*
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8189 Tests.*
 
 ---
 

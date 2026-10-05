@@ -362,8 +362,8 @@ M_FIRMEN = [
     ("fb03", "Konzern: laufende Bewerbung bei Mutter/Tochter bleibt ohne Warnung", FB, '        if o.get("via") in ("mutterfirma", "tochterfirma"):', "        if False:", T_FI),
     ("fb04", "Konzern: Bewerbungen bei Mutter/Tochter zaehlen als dieselbe Firma", FB, '    offene = [o for o in offene if o.get("via") not in ("mutterfirma", "tochterfirma")]', "    offene = offene", T_FI),
     ("fb05", "Kompakt: die Herkunft eines Treffers geht verloren", FB, '    if e.get("via"):\n        aus["via"] = e["via"]', '    if False:\n        aus["via"] = e["via"]', T_FI),
-    ("fb06", "firma_kontext: Treffer ueber Schreibweisen sagen nicht woher", BEW, '            if via != "direkt":\n                eintrag["via"] = via', '            if False:\n                eintrag["via"] = via', T_FI),
-    ("fb07", "firma_kontext: mehrdeutige Firmen werden verschwiegen", BEW, '        elif stamm_aufloesung["mehrdeutig"]:', "        elif False:", T_FI),
+    ("fb06", "firma_kontext: Treffer ueber Schreibweisen sagen nicht woher", BEW, '        if via != "direkt":\n            eintrag["via"] = via', '        if False:\n            eintrag["via"] = via', T_FI),
+    ("fb07", "firma_kontext: mehrdeutige Firmen werden verschwiegen", BEW, '    elif stamm_aufloesung["mehrdeutig"]:', "    elif False:", T_FI),
     ("fb08", "Dokumente an einer gefundenen Bewerbung bleiben aus der Historie", FB, '        an_bewerbung = (d["linked_application_id"] or "") in app_ids', "        an_bewerbung = False", T_FI),
     # ── Kontakte: Rolle und Zeitraum je Firma ──
     ("fc01", "Zuordnung: ein Ende macht den Kontakt nicht zum fruehen", FS, "    if aktuell is None:\n        aktuell = not bis_n", "    if aktuell is None:\n        aktuell = True", T_FI),
