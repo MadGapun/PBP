@@ -172,22 +172,34 @@ def starten() -> dict:
         }
 
     if _system() == "Windows":
-        # Detached: eigenes Fenster, eigener Prozess-Baum, damit der
-        # Deinstaller den Dashboard-Prozess gefahrlos beenden kann
-        # (Schritt [1/7] :stop_pbp_processes in der .bat).
+        # Abgeloest: eigener Prozess-Baum, damit der Deinstaller den
+        # Dashboard-Prozess gefahrlos beenden kann (Schritt [1/7]
+        # :stop_pbp_processes in der .bat). Das Fenster oeffnet `start`.
+        #
+        # DETACHED_PROCESS und CREATE_NEW_CONSOLE schliessen sich AUS:
+        # CreateProcess antwortet mit ERROR_INVALID_PARAMETER, in Python
+        # "OSError: [WinError 87]". Beides in der Maske liess den Knopf
+        # "Deinstaller starten" unter Windows nie funktionieren - der Fehler
+        # wurde gefangen, und die Oberflaeche zeigte "Kein Terminal
+        # gefunden" (Praxisprobe 1.8, 05.10.2026). Die Tests mockten Popen.
         DETACHED_PROCESS = 0x00000008
-        CREATE_NEW_CONSOLE = 0x00000010
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         try:
             subprocess.Popen(
                 ["cmd.exe", "/c", "start", "", "/D", str(pfad.parent),
                  "cmd.exe", "/c", str(pfad)],
-                creationflags=(DETACHED_PROCESS | CREATE_NEW_CONSOLE
-                               | CREATE_NEW_PROCESS_GROUP),
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
             )
         except Exception as exc:
-            return {**auskunft(), "status": "befehl", "fehler": str(exc)}
+            return {
+                **auskunft(),
+                "status": "befehl",
+                "fehler": str(exc),
+                "hinweis": ("Der Deinstaller ließ sich nicht von hier öffnen. "
+                            "Doppelklick auf DEINSTALLIEREN.bat im PBP-Ordner "
+                            "oder diesen Befehl ausführen:"),
+            }
         return {
             **auskunft(),
             "status": "gestartet",

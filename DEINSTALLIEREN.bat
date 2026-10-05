@@ -224,12 +224,17 @@ echo.
 echo  ====================================================
 echo.
 
-if "!CLAUDE_RESULT!"=="3" (
+set "CLAUDE_MANUELL=0"
+if "!CLAUDE_RESULT!"=="3" set "CLAUDE_MANUELL=1"
+if "!CLAUDE_RESULT!"=="5" set "CLAUDE_MANUELL=1"
+if "!CLAUDE_MANUELL!"=="1" (
     echo  WICHTIG:
     echo    Die Claude-Konfigurationsdatei konnte nicht automatisch
     echo    bearbeitet werden. Entferne den MCP-Server-Eintrag
     echo    "bewerbungs-assistent" manuell in:
     echo    %APPDATA%\Claude\claude_desktop_config.json
+    echo    ^(bei Claude aus dem Microsoft Store: %LOCALAPPDATA%\Packages\Claude_...
+    echo    \LocalCache\Roaming\Claude\claude_desktop_config.json^)
     echo.
 )
 
@@ -258,14 +263,20 @@ exit /b 0
 :: (deprecated Feature-on-Demand) — frueher haengte der Prozess-Stopp daran.
 :: Robuster Stopp via PowerShell/CIM: beendet nur python-Prozesse, deren
 :: Kommandozeile eindeutig zu PBP gehoert. Ausgabe geht ins Log (Diagnose).
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|_selftest') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: Praxisprobe 1.8 (05.10.2026): auch das Konsolenfenster des Dashboards (cmd /K "Dashboard starten.bat") wird
+:: geschlossen - es blieb sonst nach der Deinstallation leer stehen. Die Deinstaller-Fassung traegt einen anderen Namen.
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { (($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|_selftest')) -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\.bat') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
 :: Kurze Pause, damit gesperrte Datei-Handles (pbp.db / WAL) freigegeben werden,
 :: bevor die Runtime-Dateien geloescht werden — sonst schlaegt rmdir still fehl.
 ping -n 3 127.0.0.1 >nul 2>&1
 exit /b 0
 
+:: Praxisprobe 1.8 (05.10.2026): _setup_claude.py schreibt den Eintrag in ALLE Konfigurationsdateien (Standardpfad und
+:: Store-Pakete). Der Deinstaller las nur den Standardpfad - bei der Store-Fassung blieb der Eintrag stehen, und Claude
+:: meldete danach bei jedem Start einen Server, dessen Programm es nicht mehr gab. Rueckgabe: 0 entfernt, 1 kein Eintrag,
+:: 2 keine mcpServers, 3 nicht lesbar, 4 keine Datei, 5 Schreibfehler; bei mehreren Dateien gilt der schlimmste Fall.
 :remove_claude_entry
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'; if (-not (Test-Path $p)) { exit 4 }; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { exit 3 }; if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers')) { exit 2 }; if (-not $cfg.mcpServers) { exit 2 }; if (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { exit 1 }; Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))); exit 0" >> "%LOGFILE%" 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$pfade = @(Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'); if ($env:LOCALAPPDATA) { foreach ($muster in 'Claude_*', 'AnthropicPBC.Claude*') { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter $muster -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json' } } }; $ergebnisse = @(); foreach ($p in $pfade) { $r = 4; if (Test-Path $p) { $cfg = $null; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json; $r = 0 } catch { $r = 3 }; if ($r -eq 0) { if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers') -or -not $cfg.mcpServers) { $r = 2 } elseif (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { $r = 1 } else { try { Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))); $r = 0 } catch { $r = 5 } } } }; Write-Host ('[INFO] Claude-Config ' + $p + ' -> ' + $r); $ergebnisse += $r }; foreach ($c in 5, 3, 0, 1, 2) { if ($ergebnisse -contains $c) { exit $c } }; exit 4" >> "%LOGFILE%" 2>&1
 if %errorlevel% geq 5 exit /b 5
 exit /b %errorlevel%
 
