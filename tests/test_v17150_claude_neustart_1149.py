@@ -205,7 +205,9 @@ def test_1149_macos_ohne_app_im_programmordner_sagt_das_fenster_es():
 
 def test_1149_der_starter_hat_die_alte_logik_nicht_mehr():
     quelle = (ROOT / "start_dashboard.py").read_text(encoding="utf-8")
-    assert "neustart_anbieten" in quelle
+    # Seit der Praxisprobe 1.8 (05.10.2026) ruft der Starter die Frage im Hintergrund (neustart_im_hintergrund ->
+    # neustart_anbieten); das Verhalten steht in test_v18_praxisprobe_start.py.
+    assert "neustart_im_hintergrund" in quelle
     assert "taskkill" not in quelle and "[J/n]" not in quelle
     assert '"Claude.exe" in result.stdout' not in quelle
 
