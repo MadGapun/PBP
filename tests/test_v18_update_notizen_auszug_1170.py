@@ -59,6 +59,9 @@ def test_1170_ein_zu_langer_satz_wird_an_einer_satzfuge_gekuerzt():
     assert len(gekuerzt) <= lauf.MAX_AUSZUG_ZEICHEN and gekuerzt.endswith("…")
     assert satz.startswith(gekuerzt[:-1].rstrip()), "nur ein Anfang des Satzes, nichts Neues"
     assert gekuerzt[-2] not in ", ;:", "keine hängende Satzfuge vor den Punkten"
+    # ... und der Schnitt liegt an einer Satzfuge des Originals (Komma, Semikolon, Doppelpunkt, Gedankenstrich, Klammer)
+    rest = satz[len(gekuerzt) - 1:]
+    assert rest[0] in ",;:" or rest[:2] in (" —", " –", " ("), f"mitten im Gedanken abgebrochen: …{rest[:20]!r}"
 
 
 def test_1170_ohne_satzfuge_wird_am_wort_gekuerzt_nie_mittendrin():
