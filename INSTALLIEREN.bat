@@ -1145,7 +1145,10 @@ exit /b 1
 :: Installer erkennt (siehe dort). Gefragt wird ausserhalb jedes Klammerblocks (#990).
 :: Der Helfer laeuft mit der Python-Laufzeit im PROGRAMMORDNER: die im Installationsordner waere beim Loeschen gesperrt.
 set "AUFRAEUMEN=fragen"
-for /f "usebackq delims=" %%E in (`"%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" einstellung "%DATA_DIR%"`) do set "AUFRAEUMEN=%%E"
+:: Gegenprobe 05.10.2026 (PP18): Der Befehl in den Rueckwaertsstrichen laeuft ueber `cmd /c`. Beginnt er mit einem Anfuehrungszeichen und
+:: hat mehr als zwei, schneidet cmd das erste und das letzte ab: "Die Syntax fuer den Dateinamen ... ist falsch" erschien am Ende JEDER
+:: gelungenen Installation, und die Einstellung (nie/immer) wurde nie gelesen. Ein zusaetzliches Paar um den ganzen Befehl behebt das.
+for /f "usebackq delims=" %%E in (`""%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" einstellung "%DATA_DIR%""`) do set "AUFRAEUMEN=%%E"
 echo [INFO] Installer aufraeumen: !AUFRAEUMEN! >> "%LOGFILE%"
 if "!AUFRAEUMEN!"=="nie" goto :eof
 "%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" plan "%BASEDIR%" "%PBP_VERSION%" "%APP_DIR%" "%DATA_DIR%" >> "%LOGFILE%" 2>&1

@@ -91,6 +91,9 @@ Einträgen darunter.
       schoben sich Protokollzeilen in die Frage „Claude jetzt neu starten?“ und füllten den ersten Start mit Dutzenden Zeilen.
     - Der Browser öffnet sich erst, wenn das Dashboard antwortet (auf einem frischen Rechner zeigte Chrome „Verbindung verweigert“), und nur einmal:
       der Installer unterdrückt das Öffnen im von ihm gestarteten Fenster und öffnet selbst, nach seiner Prüfung.
+    - Am Ende jeder gelungenen Installation stand „Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, und die
+      Einstellung zum Aufräumen des Installationsordners (nie, fragen, immer) wurde nie gelesen. `cmd` schneidet bei einem Befehl in `for /f` mit mehr als
+      zwei Anführungszeichen das erste und das letzte ab; ein zusätzliches Paar um den ganzen Befehl behebt das.
   - Das Dashboard startete nicht, solange die Frage „Claude jetzt neu starten?“ unbeantwortet blieb; der Installer wartete umsonst und öffnete
     „Verbindung verweigert“. Die Frage kommt jetzt erst, wenn das Dashboard läuft.
   - Der Installer startet Claude aus dem Store am Ende (statt „nicht gefunden“); die Ausgabe enthält keine Sonderzeichen mehr, die die

@@ -479,3 +479,13 @@ die wartende `cmd.exe` vor dem `del` in der nächsten Zeile still ab; die Kopie 
 steht in DERSELBEN Zeile. Beide Fälle hat kein Test gesehen, der die Datei nur las; sie fielen auf einem echten Rechner auf und wurden mit Tests
 gesichert, die den echten Text der Datei ausführen (Platzhalter für den Rest, alles im Temp-Ordner).
 *Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP16/PP17, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L53. `for /f` führt den Befehl über `cmd /c` aus — und `cmd /c` schneidet Anführungszeichen ab.** Am Ende jeder gelungenen Installation im 1.8-Zweig stand
+„Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, und die Einstellung zum Aufräumen (nie, fragen, immer) kam nie an.
+Die Zeile `for /f "usebackq" %%E in (`"python.exe" "skript.py" arg "ordner"`)` beginnt mit einem Anführungszeichen und hat mehr als zwei: `cmd` entfernt das
+erste und das letzte, übrig bleibt ein Befehl mit unpassenden Zeichen. Pfade ohne Leerzeichen helfen nicht; die Regel zählt Anführungszeichen, nicht Leerzeichen.
+Ein zusätzliches Paar um den ganzen Befehl (`` `""python.exe" "skript.py" arg "ordner""` ``) behebt es. Kein Test hatte die Zeile je ausgeführt; sie fiel
+beim dritten vollständigen Durchlauf auf dem frischen Rechner auf, als der Installer-Abschluss zum ersten Mal bis zum Ende angesehen wurde. Der Test führt
+jetzt die ECHTE Zeile aus (Kopie des Basis-Python als Laufzeit, ein Skript, das „nie“ meldet). Regel: Jede Zeile mit `for /f` oder `cmd /c` und mehreren
+Anführungszeichen gehört mit dem echten Text und einem Stand-in ausgeführt, nicht nur gelesen.
+*Belege:* Praxisprobe 1.8, dritter Durchlauf (05.10.2026), #1170 PP18, `tests/test_v18_praxisprobe_start.py`

@@ -109,3 +109,19 @@ Beim zweiten Durchlauf aufgefallen (kleine Dinge) und danach im 1.8-Zweig behobe
 Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir
 geöffneten Browser-Tabs sind weg; die Konfiguration von Claude hat keinen PBP-Eintrag mehr (die Einstellungen, die Claude selbst inzwischen
 dazugeschrieben hat, blieben unberührt, der leere Eintrag `mcpServers` wurde entfernt).
+
+## Dritter Durchlauf (05.10.2026, 1.8-Zweig, Kopf `eba13474`)
+
+Derselbe Rechner, noch einmal vollständig (Installer bis Deinstaller-Knopf bis Aufräumen), diesmal mit dem Stand der Reparaturen PP14 bis PP17.
+
+| Prüfpunkt | Ergebnis |
+|---|---|
+| PP15 Browser | in Ordnung: genau EIN neuer Tab (Standardbrowser), zu dem Zeitpunkt, an dem das Dashboard antwortet, mit geladener Seite; kein Chrome-Prozess entstand |
+| PP14 Dashboard-Fenster | in Ordnung: Banner, Frage „Claude jetzt neu starten?“ in einer eigenen Zeile, keine Protokollzeilen; nach „n“ die Meldung „Claude bleibt offen“ |
+| PP16 Kopie in `%TEMP%` | in Ordnung: nach der Deinstallation 0 Dateien `PBP-Deinstaller-*` |
+| PP17 Konfiguration von Claude | in Ordnung: 3810 → 3393 Byte, die Sicherung ist die Datei von vorher, im Zeilenvergleich fehlen nur die Zeilen des Eintrags (und `"mcpServers": {` wurde zu `"mcpServers": {}`) |
+| PP13 App-Ordner | weiter in Ordnung: kein Ordner `BewerbungsAssistent` übrig |
+| **PP18** (neu) | **Fund:** am Ende der Installation erschien „Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, danach die Frage zum Aufräumen des Installationsordners. Ursache und Reparatur in der Lehre L53 |
+
+Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir geöffneten
+Tabs sind weg; die Konfiguration von Claude ist Byte für Byte (Prüfsumme) die Datei von vor dem Durchlauf.

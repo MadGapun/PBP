@@ -12,12 +12,16 @@ PP14 (Gegenprobe) Die Frage läuft im Hintergrund, und Protokollzeilen des Serve
 PP15 (Gegenprobe) `start_dashboard.py` öffnete Chrome, BEVOR der Server lauschte: auf einem frischen Rechner „Verbindung verweigert“
      bis zum Neuladen. Dazu öffnete der Installer danach den Standardbrowser noch einmal. Jetzt öffnet das Dashboard erst, wenn es
      antwortet, und der Installer unterdrückt das Öffnen im von ihm gestarteten Fenster (er öffnet selbst, nach seiner Prüfung).
+PP18 (zweite Gegenprobe) Am Ende JEDER gelungenen Installation stand „Die Syntax für den Dateinamen, Verzeichnisnamen oder die
+     Datenträgerbezeichnung ist falsch.“, und die Einstellung zum Aufräumen (nie/immer) wurde nie gelesen: `for /f "usebackq"` führt den
+     Befehl über `cmd /c` aus, und `cmd` schneidet bei mehr als zwei Anführungszeichen das erste und das letzte ab.
 """
 import http.server
 import json
 import logging
 import os
 import socket
+import shutil
 import subprocess
 import sys
 import threading
@@ -336,3 +340,41 @@ def test_pp15_der_installer_unterdrueckt_den_browser_des_dashboards_und_oeffnet_
     loeschen = next(i for i, s in enumerate(z) if s.strip() == 'set "PBP_KEIN_BROWSER="')
     assert setzen < start < loeschen, "gesetzt, dann gestartet, dann wieder gelöscht"
     assert 'start "" "http://localhost:8200/"' in "\n".join(z[loeschen:]), "geöffnet wird weiter vom Installer, nach seiner Prüfung"
+
+
+# ── PP18: die Abfrage zum Aufräumen am Ende der Installation ───────────────────────────────────
+
+def _aufraeumen_zeile() -> str:
+    text = (ROOT / "INSTALLIEREN.bat").read_text(encoding="utf-8")
+    return next(z for z in text.splitlines()
+                if z.startswith("for /f") and "_installer_aufraeumen.py" in z and "einstellung" in z)
+
+
+def test_pp18_der_ganze_befehl_steht_in_einem_zusaetzlichen_anfuehrungszeichenpaar():
+    """`cmd /c` schneidet bei einem Befehl, der mit einem Anführungszeichen beginnt und mehr als zwei hat, das erste und das letzte ab."""
+    zeile = _aufraeumen_zeile()
+    befehl = zeile[zeile.index("(`") + 2:zeile.index("`)")]
+    assert befehl.startswith('""') and befehl.endswith('""'), befehl
+
+
+@pytest.mark.skipif(os.name != "nt", reason="braucht cmd.exe")
+def test_pp18_die_abfrage_laeuft_und_ihre_antwort_kommt_an(tmp_path):
+    """Die ECHTE Zeile aus dem Installer mit einer Kopie des Basis-Python als Laufzeit und einem Skript, das „nie“ meldet. Alles im
+    Temp-Ordner. Vorher blieb das Ergebnis „fragen“, und cmd schrieb die Syntax-Meldung auf den Bildschirm."""
+    basis_python = Path(sys.base_exec_prefix) / "python.exe"
+    if not basis_python.is_file():
+        pytest.skip("kein eigenständiges Basis-Python gefunden")
+    app, install, daten = tmp_path / "app", tmp_path / "install", tmp_path / "data"
+    (app / "python").mkdir(parents=True)
+    install.mkdir()
+    shutil.copy2(basis_python, app / "python" / "python.exe")
+    (install / "_installer_aufraeumen.py").write_text("print('nie')\n", encoding="utf-8")
+    bat = tmp_path / "probe.bat"
+    bat.write_bytes(("@echo off\r\nsetlocal EnableDelayedExpansion\r\n"
+                     f'set "APP_DIR={app}"\r\nset "BASEDIR={install}"\r\nset "DATA_DIR={daten}"\r\n'
+                     'set "AUFRAEUMEN=fragen"\r\n' + _aufraeumen_zeile() + "\r\necho ERGEBNIS=!AUFRAEUMEN!\r\n").encode("cp850"))
+    env = dict(os.environ, PATH=str(Path(sys.base_exec_prefix)) + os.pathsep + os.environ.get("PATH", ""))
+    r = subprocess.run(["cmd.exe", "/c", str(bat)], capture_output=True, env=env, timeout=60, creationflags=0x08000000)
+    ausgabe = (r.stdout + r.stderr).decode("cp850", errors="replace")
+    assert "Syntax" not in ausgabe, ausgabe
+    assert "ERGEBNIS=nie" in ausgabe, ausgabe
