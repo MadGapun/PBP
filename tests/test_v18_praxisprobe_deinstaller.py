@@ -15,6 +15,10 @@ PP16 (Gegenprobe) Die nach %TEMP% verschobene Kopie des Deinstallers (rund 15 KB
      gelöscht, und die wartende cmd.exe bricht vor dem `del` in der NÄCHSTEN Zeile still ab, weil sie die Datei nicht mehr lesen kann.
 PP17 (Gegenprobe) Die Konfiguration von Claude wurde in der Formatierung von Windows PowerShell neu geschrieben (rund siebenmal so
      groß, Inhalt gleich) und behielt `"mcpServers": {}`. Jetzt wird nur der Eintrag aus dem Text genommen; der Rest bleibt Byte für Byte.
+PP10 (erster Durchlauf) Der Windows-Deinstaller ließ rund 830 MB liegen, die der Installer außerhalb von PBP geladen hat: den Browser für
+     Quellen (Playwright, `%LOCALAPPDATA%\\ms-playwright`) und den Zwischenspeicher von pip, ohne es zu erwähnen (macOS und Linux fragen).
+     Jetzt fragt er zum Schluss, Vorgabe BEHALTEN, mit Ort und Größe.
+PP19 (dritter Durchlauf) Die Fehlermarke `[!!]` erschien als `[]`: unter `EnableDelayedExpansion` verschluckt cmd das Paar `!!`.
 
 Die Verhaltenstests führen die echten PowerShell-Zeilen aus der BAT-Datei aus (Windows PowerShell 5.1); APPDATA und LOCALAPPDATA
 zeigen dabei auf einen Temp-Ordner. QA-Isolation: nie gegen die echte Claude-Konfiguration dieses Rechners.
@@ -485,3 +489,177 @@ def test_pp17_ein_schluessel_mit_escape_schreibweise_faellt_auf_den_alten_weg_zu
     assert r.returncode == 0, r.stdout + r.stderr
     assert "(neu geschrieben)" in r.stdout, r.stdout
     assert sorted(json.loads(std.read_bytes().decode("utf-8"))["mcpServers"]) == ["filesystem"]
+
+
+# ── PP10: der Deinstaller fragt nach den Zusatzdateien ─────────────────────────────────────────
+
+MB = 1024 * 1024
+
+
+def _zusatz_programm() -> str:
+    text = _bat().replace("\r\n", "\n")
+    return text[text.index(":: --- zusatzdateien Anfang"):text.index(":: --- zusatzdateien Ende")]
+
+
+def _zusatz_lauf(tmp_path, antwort, lokal):
+    """Das ECHTE Unterprogramm aus der Datei in einer Hülle: LOCALAPPDATA und das Protokoll zeigen in den Temp-Ordner des Tests,
+    die Antwort kommt über die Standardeingabe. Rückgabe: (Ausgabe, Protokolltext)."""
+    assert str(tmp_path) in str(lokal), "QA-Isolation: nie der echte LOCALAPPDATA"
+    log = tmp_path / "protokoll.txt"
+    kopf = ["@echo off", "setlocal EnableDelayedExpansion", f'set "LOCALAPPDATA={lokal}"', f'set "LOGFILE={log}"',
+            "call :zusatzdateien", "echo ENDE_ERREICHT", "exit /b 0", ""]
+    bat = tmp_path / "zusatz.bat"
+    bat.write_bytes(("\r\n".join(kopf) + _zusatz_programm().replace("\n", "\r\n")).encode("cp850", errors="replace"))
+    r = subprocess.run(["cmd.exe", "/c", str(bat)], input=(antwort + "\r\n").encode("cp850"), capture_output=True,
+                       creationflags=0x08000000, timeout=120)
+    return (r.stdout + r.stderr).decode("cp850", errors="replace"), (log.read_text(encoding="cp850", errors="replace") if log.exists() else "")
+
+
+def _datei(pfad: Path, groesse: int):
+    pfad.parent.mkdir(parents=True, exist_ok=True)
+    pfad.write_bytes(b"\0" * groesse)
+
+
+def _beides_anlegen(lokal: Path):
+    _datei(lokal / "ms-playwright" / "chromium-1243" / "chrome.bin", 3 * MB)
+    _datei(lokal / "ms-playwright" / "ffmpeg-1011" / "ffmpeg.bin", 0)
+    _datei(lokal / "pip" / "Cache" / "http" / "a.bin", 1 * MB)
+
+
+def test_pp10_die_frage_steht_zum_schluss_und_die_vorgabe_ist_behalten():
+    text = _bat().replace("\r\n", "\n")
+    assert text.index("[7/7] Optional: Alle Bewerbungsdaten loeschen") < text.index("call :zusatzdateien") < text.index('rmdir "%BASE_INSTALL%"')
+    assert 'set "ZD_ANTWORT=n"' in _zusatz_programm(), "ein leeres Enter behält"
+    assert "Auf Nachfrage: Browser-Dateien" in text.split("Hinweis:")[0], "die Liste am Anfang nennt es"
+
+
+@nur_windows
+def test_pp10_ohne_die_ordner_wird_nicht_gefragt(tmp_path):
+    ausgabe, log = _zusatz_lauf(tmp_path, "j", tmp_path / "Local")
+    assert "ENDE_ERREICHT" in ausgabe and "loeschen?" not in ausgabe.lower()
+    assert "Keine Zusatzdateien" in log
+
+
+@nur_windows
+def test_pp10_die_frage_nennt_orte_und_groessen_und_n_behaelt_alles(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    ausgabe, log = _zusatz_lauf(tmp_path, "n", lokal)
+    assert "ms-playwright" in ausgabe and "(3 MB)" in ausgabe, ausgabe
+    assert "pip-Zwischenspeicher" in ausgabe and "(1 MB)" in ausgabe, ausgabe
+    assert "Im Zweifel behalten" in ausgabe and "bleiben erhalten" in ausgabe and "ENDE_ERREICHT" in ausgabe
+    assert (lokal / "ms-playwright" / "chromium-1243" / "chrome.bin").exists() and (lokal / "pip" / "Cache").exists()
+    assert "beibehalten" in log
+
+
+@nur_windows
+def test_pp10_ein_leeres_enter_behaelt(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    ausgabe, _ = _zusatz_lauf(tmp_path, "", lokal)
+    assert "bleiben erhalten" in ausgabe
+    assert (lokal / "ms-playwright").exists() and (lokal / "pip" / "Cache").exists()
+
+
+@nur_windows
+@pytest.mark.parametrize("antwort", ["ja", "x", "nein", "jj", "n"])
+def test_pp10_nur_ein_einzelnes_j_loescht_alles_andere_behaelt(tmp_path, antwort):
+    """Wie bei den Fragen davor zählt nur `j`. Im Zweifel bleiben die Dateien: Löschen lässt sich nicht zurücknehmen."""
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    ausgabe, _ = _zusatz_lauf(tmp_path, antwort, lokal)
+    assert "bleiben erhalten" in ausgabe, ausgabe
+    assert (lokal / "ms-playwright").exists() and (lokal / "pip" / "Cache").exists()
+
+
+@nur_windows
+def test_pp10_ein_grosses_j_zaehlt_auch(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    _zusatz_lauf(tmp_path, "J", lokal)
+    assert not (lokal / "ms-playwright").exists()
+
+
+@nur_windows
+def test_pp10_j_loescht_beides_und_sagt_es(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    ausgabe, log = _zusatz_lauf(tmp_path, "j", lokal)
+    assert "[OK] Browser-Dateien entfernt" in ausgabe and "[OK] pip-Zwischenspeicher entfernt" in ausgabe, ausgabe
+    assert not (lokal / "ms-playwright").exists(), "der ganze Playwright-Ordner (wie unter macOS und Linux)"
+    assert not (lokal / "pip").exists(), "Cache weg, danach war der Ordner pip leer und geht mit"
+    assert "Playwright-Ordner entfernt" in log and "ENDE_ERREICHT" in ausgabe
+
+
+@nur_windows
+def test_pp10_ein_pip_ordner_mit_fremdem_inhalt_bleibt_bis_auf_den_cache(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    (lokal / "pip" / "pip.ini").write_text("[global]\ntimeout = 30\n", encoding="utf-8")
+    _zusatz_lauf(tmp_path, "j", lokal)
+    assert not (lokal / "pip" / "Cache").exists()
+    assert (lokal / "pip" / "pip.ini").is_file(), "die Einstellungsdatei eines anderen Programms gehört nicht zum Zwischenspeicher"
+
+
+@nur_windows
+def test_pp10_ist_nur_ein_ordner_da_steht_auch_nur_er_in_der_frage(tmp_path):
+    lokal = tmp_path / "Local"
+    _datei(lokal / "pip" / "Cache" / "x.bin", 2 * MB)
+    ausgabe, _ = _zusatz_lauf(tmp_path, "n", lokal)
+    assert "pip-Zwischenspeicher" in ausgabe and "(2 MB)" in ausgabe
+    assert "Playwright" not in ausgabe.split("Zum Schluss")[1], ausgabe
+
+
+@nur_windows
+def test_pp10_eine_gesperrte_datei_wird_gemeldet_und_der_lauf_geht_weiter(tmp_path):
+    lokal = tmp_path / "Local"
+    _beides_anlegen(lokal)
+    gesperrt = lokal / "ms-playwright" / "chromium-1243" / "chrome.bin"
+    with open(gesperrt, "rb"):                       # Python öffnet ohne Löschfreigabe: rmdir scheitert an dieser Datei
+        ausgabe, log = _zusatz_lauf(tmp_path, "j", lokal)
+    assert "[!!] Browser-Dateien konnten nicht ganz entfernt werden" in ausgabe, ausgabe
+    assert "ENDE_ERREICHT" in ausgabe and "nicht ganz entfernt" in log
+    assert not (lokal / "pip").exists(), "der zweite Teil läuft trotzdem"
+
+
+@nur_windows
+def test_pp10_leerzeichen_und_hochkomma_im_pfad_zerlegen_nichts(tmp_path):
+    lokal = tmp_path / "O'Brien Test (privat)" / "Local"
+    _beides_anlegen(lokal)
+    ausgabe, _ = _zusatz_lauf(tmp_path, "j", lokal)
+    assert "[OK] Browser-Dateien entfernt" in ausgabe and "[OK] pip-Zwischenspeicher entfernt" in ausgabe, ausgabe
+    assert not (lokal / "ms-playwright").exists() and not (lokal / "pip").exists()
+
+
+def test_pp10_die_karte_im_dashboard_nennt_es_unter_windows():
+    from bewerbungs_assistent.services import deinstallation
+    zeilen = " ".join(deinstallation.ENTFERNT["Windows"])
+    assert "Playwright" in zeilen and "Nachfrage" in zeilen
+
+
+# ── PP19: die Fehlermarke [!!] ─────────────────────────────────────────────────────────────────
+
+def test_pp19_in_keiner_bat_steht_die_fehlermarke_unmaskiert():
+    """Unter `EnableDelayedExpansion` verschluckt cmd das Paar `!!`: aus `[!!]` wird `[]`. Maskiert (`[^^!^^!]`) erscheint es."""
+    for name in ("INSTALLIEREN.bat", "DEINSTALLIEREN.bat"):
+        for nr, zeile in enumerate((ROOT / name).read_text(encoding="utf-8").splitlines(), 1):
+            if zeile.strip().lower().startswith(("::", "rem ")):
+                continue
+            assert "[!!]" not in zeile, f"{name}:{nr}: {zeile.strip()[:90]}"
+
+
+@nur_windows
+def test_pp19_remove_path_zeigt_die_fehlermarke_wirklich_an(tmp_path):
+    """Das ECHTE Unterprogramm mit einer gesperrten Datei: vorher stand „[] … konnte nicht entfernt werden“."""
+    text = _bat().replace("\r\n", "\n")
+    sub = text[text.index(":remove_path\n"):text.index("exit /b 0", text.index("echo         [OK] %TARGET_LABEL% entfernt")) + len("exit /b 0")]
+    ziel = tmp_path / "ordner"
+    ziel.mkdir()
+    (ziel / "x.bin").write_bytes(b"1234")
+    kopf = ["@echo off", "setlocal EnableDelayedExpansion", f'set "LOGFILE={tmp_path / "log.txt"}"', f'call :remove_path "{ziel}" "Testordner"',
+            "exit /b 0", ""]
+    bat = tmp_path / "rp.bat"
+    bat.write_bytes(("\r\n".join(kopf) + sub.replace("\n", "\r\n") + "\r\n").encode("cp850", errors="replace"))
+    with open(ziel / "x.bin", "rb"):
+        r = subprocess.run(["cmd.exe", "/c", str(bat)], capture_output=True, creationflags=0x08000000, timeout=60)
+    assert "[!!] Testordner konnte nicht entfernt werden" in (r.stdout + r.stderr).decode("cp850", errors="replace")

@@ -451,7 +451,7 @@ if !errorlevel! equ 0 (
     echo [OK] E-Mail/Outlook-Import installiert >> "%LOGFILE%"
 ) else (
     echo [WARN] extract-msg/icalendar Installation fehlgeschlagen >> "%LOGFILE%"
-    echo         [!!] Outlook-Mail-Import teilweise nicht verfuegbar
+    echo         [^^!^^!] Outlook-Mail-Import teilweise nicht verfuegbar
     echo.
     echo             Das Paket 'extract-msg' konnte nicht installiert werden.
     echo             .msg-Dateien ^(Outlook-Mails^) werden NICHT unterstuetzt.
@@ -737,7 +737,7 @@ if "!CLAUDE_FOUND!"=="1" set "CLAUDE_OK=1"
 goto :claude_config_done
 
 :claude_config_failed
-echo         [!!] Claude-Konfiguration fehlgeschlagen
+echo         [^^!^^!] Claude-Konfiguration fehlgeschlagen
 echo [FEHLER] _setup_claude.py >> "%LOGFILE%"
 
 :claude_config_done
@@ -776,7 +776,7 @@ if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 echo [DEBUG] Starte Schnelltest >> "%LOGFILE%"
 "%PYTHON%" "%BASEDIR%\_selftest.py" >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 echo         [OK] Funktionstest bestanden
-if !errorlevel! neq 0 echo         [!!] Funktionstest nicht bestanden
+if !errorlevel! neq 0 echo         [^^!^^!] Funktionstest nicht bestanden
 
 echo [OK] Installation abgeschlossen >> "%LOGFILE%"
 echo.
@@ -847,7 +847,7 @@ if "!DASH_OK!"=="1" (
     start "" "http://localhost:8200/"
     echo        [OK] Browser-Tab oeffnet sich.
 ) else (
-    echo        [!!] Dashboard antwortet nicht nach 30 Sekunden.
+    echo        [^^!^^!] Dashboard antwortet nicht nach 30 Sekunden.
     echo  [3/3] Browser oeffnen trotzdem ^(falls alte Instanz laeuft^)...
     start "" "http://localhost:8200/"
     echo             Falls leer: Pruefe das PBP-Dashboard-Fenster auf Fehler.

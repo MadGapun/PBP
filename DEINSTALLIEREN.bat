@@ -69,6 +69,7 @@ echo    - MCP-Eintrag "bewerbungs-assistent" in Claude Desktop
 echo    - PBP-Runtime aus %APP_DIR%
 echo    - Windows Apps ^& Features Eintrag
 echo    - Desktop-Verknuepfung "PBP Bewerbungs-Portal"
+echo    - Auf Nachfrage: Browser-Dateien ^(Playwright^) und pip-Zwischenspeicher
 echo.
 echo  Hinweis:
 echo    Deine Bewerbungsdaten bleiben standardmaessig erhalten.
@@ -96,9 +97,9 @@ set "CLAUDE_RESULT=!errorlevel!"
 if "!CLAUDE_RESULT!"=="0" echo         [OK] MCP-Eintrag entfernt
 if "!CLAUDE_RESULT!"=="1" echo         [--] MCP-Eintrag war nicht vorhanden
 if "!CLAUDE_RESULT!"=="2" echo         [--] Keine mcpServers in Claude-Config gefunden
-if "!CLAUDE_RESULT!"=="3" echo         [!!] Claude-Config konnte nicht gelesen werden (ungueltiges JSON)
+if "!CLAUDE_RESULT!"=="3" echo         [^^!^^!] Claude-Config konnte nicht gelesen werden (ungueltiges JSON)
 if "!CLAUDE_RESULT!"=="4" echo         [--] Claude-Config nicht gefunden
-if "!CLAUDE_RESULT!"=="5" echo         [!!] Fehler beim Entfernen des MCP-Eintrags
+if "!CLAUDE_RESULT!"=="5" echo         [^^!^^!] Fehler beim Entfernen des MCP-Eintrags
 
 echo.
 echo  [3/7] Entferne Desktop-Verknuepfung...
@@ -124,7 +125,7 @@ if !errorlevel! equ 0 (
 :: Verifikation: pruefen ob der Key wirklich weg ist (#343)
 reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" >nul 2>&1
 if !errorlevel! equ 0 (
-    echo         [!!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
+    echo         [^^!^^!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
     reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
     echo [WARN] Registry retry >> "%LOGFILE%"
 )
@@ -142,7 +143,7 @@ call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\pyth
 if exist "%BASEDIR%\install_log.txt" (
     del /q "%BASEDIR%\install_log.txt" >nul 2>&1
     if exist "%BASEDIR%\install_log.txt" (
-        echo         [!!] install_log.txt konnte nicht entfernt werden
+        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
         set /a REMOVE_ERRORS+=1
     ) else (
         echo         [OK] install_log.txt entfernt
@@ -182,7 +183,7 @@ if "!DELETE_DATA!"=="LOESCHEN" (
     if exist "%DATA_DIR%" (
         rmdir /s /q "%DATA_DIR%" >nul 2>&1
         if exist "%DATA_DIR%" (
-            echo         [!!] Datenordner konnte nicht komplett entfernt werden
+            echo         [^^!^^!] Datenordner konnte nicht komplett entfernt werden
             echo [WARN] Datenordner konnte nicht komplett entfernt werden >> "%LOGFILE%"
             set "DATA_RESULT=failed"
         ) else (
@@ -211,6 +212,9 @@ if exist "%BASE_INSTALL%\components" (
         echo [OK] Komponenten-Ordner entfernt >> "%LOGFILE%"
     )
 )
+
+:: PP10 (Praxisprobe 1.8): zum Schluss die Frage nach den Zusatzdateien (Playwright-Browser, pip-Zwischenspeicher).
+call :zusatzdateien
 
 :: #620: Stamm-Ordner BASE_INSTALL entfernen wenn leer
 :: rmdir ohne /s loescht NUR leere Verzeichnisse — sicher.
@@ -308,7 +312,7 @@ if exist "%TARGET%" (
     rmdir /s /q "%TARGET%" >nul 2>&1
 )
 if exist "%TARGET%" (
-    echo         [!!] %TARGET_LABEL% konnte nicht entfernt werden
+    echo         [^^!^^!] %TARGET_LABEL% konnte nicht entfernt werden
     echo [WARN] Entfernen fehlgeschlagen: %TARGET% >> "%LOGFILE%"
     set /a REMOVE_ERRORS+=1
 ) else (
@@ -316,3 +320,69 @@ if exist "%TARGET%" (
     echo [OK] Entfernt: %TARGET% >> "%LOGFILE%"
 )
 exit /b 0
+
+:: --- zusatzdateien Anfang
+:zusatzdateien
+:: PP10 (Praxisprobe 1.8, 05.10.2026): Der Installer laedt ausserhalb von PBP rund 830 MB: den Browser fuer Quellen, die nur im Browser
+:: liefern (Playwright, %LOCALAPPDATA%\ms-playwright, rund 700 MB), und den Zwischenspeicher von pip (%LOCALAPPDATA%\pip, rund 125 MB).
+:: Der Deinstaller liess beides liegen, ohne es zu erwaehnen (macOS und Linux fragen). Jetzt wird gefragt, Vorgabe BEHALTEN: andere
+:: Programme koennen dieselben Ordner nutzen, und ein Deinstaller, der Fremdes mitnimmt, ist schlimmer als einer, der zu wenig entfernt.
+:: Playwright: der ganze Ordner (wie unter macOS und Linux). pip: nur der Unterordner Cache, der Ordner pip nur, wenn er danach leer ist.
+set "ZD_PW=%LOCALAPPDATA%\ms-playwright"
+set "ZD_PIP=%LOCALAPPDATA%\pip"
+set "ZD_PW_MB="
+set "ZD_PIP_MB="
+if exist "!ZD_PW!\" call :ordnergroesse "!ZD_PW!" ZD_PW_MB
+if exist "!ZD_PIP!\" call :ordnergroesse "!ZD_PIP!" ZD_PIP_MB
+if not exist "!ZD_PW!\" if not exist "!ZD_PIP!\" (
+    echo [INFO] Keine Zusatzdateien ^(Playwright, pip^) gefunden >> "%LOGFILE%"
+    exit /b 0
+)
+if not defined ZD_PW_MB set "ZD_PW_MB=?"
+if not defined ZD_PIP_MB set "ZD_PIP_MB=?"
+echo.
+echo  Zum Schluss: Dateien, die der Installer ausserhalb von PBP geladen hat
+echo.
+if exist "!ZD_PW!\" echo    - Browser fuer Quellen ^(Playwright^): !ZD_PW!  ^(!ZD_PW_MB! MB^)
+if exist "!ZD_PIP!\" echo    - pip-Zwischenspeicher: !ZD_PIP!  ^(!ZD_PIP_MB! MB^)
+echo.
+echo    Andere Programme auf diesem Rechner koennen diese Ordner ebenfalls
+echo    nutzen ^(sie laden die Dateien bei Bedarf neu^). Im Zweifel behalten.
+echo.
+set "ZD_ANTWORT=n"
+set /p ZD_ANTWORT="  Diese Dateien loeschen? (j/n): "
+if /i not "!ZD_ANTWORT!"=="j" (
+    echo         [OK] Die Dateien bleiben erhalten
+    echo [INFO] Zusatzdateien wurden beibehalten >> "%LOGFILE%"
+    exit /b 0
+)
+if exist "!ZD_PW!\" (
+    rmdir /s /q "!ZD_PW!" >nul 2>&1
+    if exist "!ZD_PW!\" (
+        echo         [^^!^^!] Browser-Dateien konnten nicht ganz entfernt werden ^(Datei in Benutzung?^)
+        echo [WARN] Playwright-Ordner nicht ganz entfernt: !ZD_PW! >> "%LOGFILE%"
+    ) else (
+        echo         [OK] Browser-Dateien entfernt
+        echo [OK] Playwright-Ordner entfernt: !ZD_PW! >> "%LOGFILE%"
+    )
+)
+if exist "!ZD_PIP!\" (
+    if exist "!ZD_PIP!\Cache\" rmdir /s /q "!ZD_PIP!\Cache" >nul 2>&1
+    rmdir "!ZD_PIP!" >nul 2>&1
+    if exist "!ZD_PIP!\Cache\" (
+        echo         [^^!^^!] pip-Zwischenspeicher konnte nicht ganz entfernt werden
+        echo [WARN] pip-Zwischenspeicher nicht ganz entfernt: !ZD_PIP! >> "%LOGFILE%"
+    ) else (
+        echo         [OK] pip-Zwischenspeicher entfernt
+        echo [OK] pip-Zwischenspeicher entfernt: !ZD_PIP! >> "%LOGFILE%"
+    )
+)
+exit /b 0
+
+:ordnergroesse
+:: %1 = Ordner, %2 = Name der Variablen fuer die Groesse in MB. Der Pfad geht ueber die Umgebung an PowerShell, damit Leerzeichen und
+:: Hochkommas im Benutzernamen nichts zerlegen. Bleibt die Variable leer, schreibt der Aufrufer ein Fragezeichen.
+set "ZD_PFAD=%~1"
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "[int]((Get-ChildItem -LiteralPath $env:ZD_PFAD -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB)"`) do set "%~2=%%S"
+exit /b 0
+:: --- zusatzdateien Ende
