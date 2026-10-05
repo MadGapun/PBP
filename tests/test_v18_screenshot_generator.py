@@ -177,8 +177,9 @@ def test_pp7_kein_bild_im_repo_zeigt_die_fehlerkarte():
     ziel = (194, 196, 199)
     gefunden = {}
     for png in sorted((ROOT / "docs" / "screenshots").glob("*.png")):
-        daten = Image.open(png).convert("RGB").getdata()
-        gefunden[png.name] = sum(1 for p in daten if abs(p[0] - ziel[0]) + abs(p[1] - ziel[1]) + abs(p[2] - ziel[2]) <= 6)
+        bild = Image.open(png).convert("RGB")
+        farben = bild.getcolors(maxcolors=bild.width * bild.height) or []      # (Anzahl, Farbe); getdata() ist veraltet (Pillow 14)
+        gefunden[png.name] = sum(n for n, p in farben if abs(p[0] - ziel[0]) + abs(p[1] - ziel[1]) + abs(p[2] - ziel[2]) <= 6)
     assert gefunden, "keine Screenshots gefunden"
     schlecht = {n: z for n, z in gefunden.items() if z > 5000}
     assert not schlecht, f"zeigt die Fehlerkarte: {schlecht}"
