@@ -82,6 +82,15 @@ Einträgen darunter.
   - Der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner `%LOCALAPPDATA%\BewerbungsAssistent\app` liegen (Schritt [5/7] meldete „konnte nicht
     entfernt werden“): das neue Fenster hatte diesen Ordner als Arbeitsordner, und ein Prozess hält seinen Arbeitsordner fest. Gefunden bei der
     Gegenprobe der Reparaturen auf demselben Rechner; das Fenster öffnet jetzt im Temp-Ordner, und die Datei verlässt den Ordner, bevor sie sich verschiebt.
+  - Weitere Funde derselben Gegenprobe, behoben:
+    - Die verschobene Kopie des Deinstallers (`PBP-Deinstaller-<Zahl>.bat`, rund 15 KB) blieb in `%TEMP%` liegen; sie räumt sich jetzt selbst weg.
+    - Der Deinstaller schrieb die Konfiguration von Claude in der Formatierung von Windows PowerShell neu (rund siebenmal so groß) und ließ
+      `"mcpServers": {}` stehen. Jetzt nimmt er nur den PBP-Eintrag aus dem Text, der Rest bleibt Byte für Byte; das Ergebnis wird geprüft,
+      und wo der Text-Weg nicht passt, gilt der bisherige.
+    - Das Dashboard-Fenster zeigt nur noch Warnungen und Fehler (die Log-Datei bekommt weiter alles; `BA_CONSOLE_LEVEL=INFO` zeigt alles). Vorher
+      schoben sich Protokollzeilen in die Frage „Claude jetzt neu starten?“ und füllten den ersten Start mit Dutzenden Zeilen.
+    - Der Browser öffnet sich erst, wenn das Dashboard antwortet (auf einem frischen Rechner zeigte Chrome „Verbindung verweigert“), und nur einmal:
+      der Installer unterdrückt das Öffnen im von ihm gestarteten Fenster und öffnet selbst, nach seiner Prüfung.
   - Das Dashboard startete nicht, solange die Frage „Claude jetzt neu starten?“ unbeantwortet blieb; der Installer wartete umsonst und öffnete
     „Verbindung verweigert“. Die Frage kommt jetzt erst, wenn das Dashboard läuft.
   - Der Installer startet Claude aus dem Store am Ende (statt „nicht gefunden“); die Ausgabe enthält keine Sonderzeichen mehr, die die

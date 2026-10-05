@@ -94,7 +94,7 @@ Aufräumen. Stand: Zweig `hotfix/v1.7.153` (Stable-Linie, dieselben Commits wie 
 | PP12 Dashboard-Fenster | in Ordnung: nach der Deinstallation läuft kein PBP-Prozess und kein `cmd`-Fenster mehr |
 | **PP13** App-Ordner nach dem Start über den Knopf | **Fund im ersten Durchlauf:** „[!!] App-Verzeichnis … konnte nicht entfernt werden“, ein leerer Ordner blieb liegen. Ursache und Reparatur in den Lehren (L51); im zweiten Durchlauf „[OK] App-Verzeichnis … entfernt“, kein Ordner übrig |
 
-Beim zweiten Durchlauf aufgefallen, **nicht** repariert (kleine Dinge, eigene Entscheidung):
+Beim zweiten Durchlauf aufgefallen (kleine Dinge) und danach im 1.8-Zweig behoben, jeweils mit Tests und Gegenprobe (PP14 bis PP17):
 
 - Die Frage „Claude jetzt neu starten?“ läuft im Hintergrund; Protokollzeilen des Servers können sich in dieselbe Zeile schieben.
 - Der Installer öffnet das Dashboard in Chrome (sobald das Fenster steht) und danach im Standardbrowser; Chrome kann dabei ein paar Sekunden vor
@@ -103,6 +103,7 @@ Beim zweiten Durchlauf aufgefallen, **nicht** repariert (kleine Dinge, eigene En
   und `cmd` bricht dann vor dem `del` still ab (rund 15 KB je Deinstallation).
 - Die Konfigurationsdatei von Claude wird vom Deinstaller in der Formatierung von Windows PowerShell neu geschrieben (mehr Leerraum, Inhalt
   gleich) und behält `"mcpServers": {}`.
+- Behoben: PP14 (Console ruhig), PP15 (Browser erst bei Antwort, nur ein Tab), PP16 (Kopie räumt sich selbst weg), PP17 (nur der Eintrag verschwindet).
 - Unverändert offen: PP2, PP4 (Wiki), PP10 (rund 830 MB Browser und pip-Zwischenspeicher bleiben liegen).
 
 Danach war der Rechner wieder wie vorher: Ordner, Registry, Verknüpfung, Browser-Dateien, Zwischenspeicher, Downloads, Temp-Reste und die von mir

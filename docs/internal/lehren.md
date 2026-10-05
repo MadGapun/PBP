@@ -468,3 +468,14 @@ löscht; ohne die Korrektur kommt „GESPERRT“, mit ihr „WEG“. Regel: Eine
 mit Start AUS diesem Ordner getestet — und eine Reparatur an Installer oder Deinstaller ist erst fertig, wenn sie auf einem sauberen Rechner einmal
 vollständig durchlief (Installation bis Deinstallation), nicht wenn die Einzelschritte grün sind.
 *Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP13, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L52. Wer in fremde Dateien schreibt, ändert nur seine Zeile, prüft das Ergebnis und hat einen Rückfall — und was nach dem Löschen der eigenen
+Datei kommt, läuft nie.** Zwei Funde der Gegenprobe: (a) Der Deinstaller las die Konfiguration von Claude, entfernte den Eintrag und schrieb die
+GANZE Datei neu — in der Formatierung von Windows PowerShell (siebenmal so groß, anderer Leerraum, `"mcpServers": {}` als Rest). Inhaltlich gleich,
+aber es ist nicht seine Datei. Jetzt wird nur der Eintrag aus dem Text genommen; ein Zähler für Klammern kennt Zeichenketten, das Komma geht mit, und
+das Ergebnis wird gegen die erwartete Fassung geprüft (beide geparst und verglichen). Stimmt es nicht, gilt der alte Weg — so kann die neue Fassung
+nichts schlechter machen als die alte. (b) `cmd` liest eine Batch-Datei Zeile für Zeile von der Platte. Löscht Schritt [5/7] die Ursprungsdatei, bricht
+die wartende `cmd.exe` vor dem `del` in der nächsten Zeile still ab; die Kopie in `%TEMP%` blieb liegen. Was nach dem Löschen der eigenen Datei noch laufen soll,
+steht in DERSELBEN Zeile. Beide Fälle hat kein Test gesehen, der die Datei nur las; sie fielen auf einem echten Rechner auf und wurden mit Tests
+gesichert, die den echten Text der Datei ausführen (Platzhalter für den Rest, alles im Temp-Ordner).
+*Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP16/PP17, `tests/test_v18_praxisprobe_deinstaller.py`
