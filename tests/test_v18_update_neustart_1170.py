@@ -21,7 +21,7 @@ def _lesen(*teile):
 def test_1170_die_updates_seite_benutzt_die_gemeinsamen_regeln():
     seite = _lesen("components", "UpdatesTab.jsx")
     assert "zeigeAktuell(au)" in seite, "„Aktuell“ darf nur erscheinen, wenn kein Neustart aussteht"
-    assert "NEUSTART_SCHRITTE" in seite and "data-updates-neustart" in seite
+    assert "NEUSTART_SCHRITTE.map(" in seite and "data-updates-neustart" in seite, "die Schritte müssen auch ausgegeben werden, nicht nur eingeführt"
     assert "Beende PBP und Claude Desktop komplett" not in seite, "die unklare Anleitung steht nur noch an einer Stelle: im Modul"
 
 
