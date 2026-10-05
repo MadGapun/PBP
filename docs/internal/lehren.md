@@ -427,3 +427,33 @@ auf getroffenen CODE geprueft (der Pruefer ueberspringt jetzt Code zwischen Tags
 Reiter im Browser gegen eine FRISCHE Datenbank ohne installierte Komponenten; jeder Reiter hat seine eigene Grenze. Und: ein
 Gruen auf dem eigenen Rechner prueft nur die eigenen Zustaende.
 *Belege:* Praxisprobe 1.8 (05.10.2026), #1170, `tests/test_v18_einstellungen_reiter_stuerzen_nicht_ab.py`
+
+**L47. Ein gemocktes `Popen` prueft keine Flags.** Der Deinstaller-Knopf setzte `DETACHED_PROCESS` und `CREATE_NEW_CONSOLE` zugleich;
+Windows lehnt das ab (`OSError: [WinError 87]`). Der Fehler wurde gefangen, die Oberflaeche sagte „Kein Terminal gefunden“ — fuenf
+Releases lang, weil jeder Test `subprocess.Popen` ersetzte und damit nur den eigenen Aufruf bestaetigte. Bei Betriebssystem-Aufrufen
+gehoert ein Test dazu, der das Betriebssystem WIRKLICH fragt: dieselben Flags, aber ein harmloser Befehl (`cmd /c exit 0`, ohne neues
+Fenster), und die Gegenprobe, dass die alte Maske abgelehnt wird. Und: ein gefangener Fehler braucht einen Text, der sagt, was
+passiert ist — nicht den Text eines anderen Falls.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP9, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L48. Was der Installer schreibt, raeumt der Deinstaller weg — aus derselben Liste.** `_setup_claude.py` schreibt den MCP-Eintrag in
+den Standardpfad UND in die Store-Pakete; `DEINSTALLIEREN.bat` las nur den Standardpfad und meldete „[OK] MCP-Eintrag entfernt“.
+Claude (Store) behielt den Eintrag und meldete danach bei jedem Start einen Server ohne Programm. Dasselbe Muster: ~830 MB
+Playwright-Browser und pip-Cache blieben liegen, das Dashboard-Fenster blieb stehen. Ein Erfolgssatz sagt nur, was der Schritt
+selbst angefasst hat. Pruefen heisst: den Installer laufen lassen, dann den Deinstaller, dann nachsehen, was uebrig ist
+(Dateien, Registry, Konfigurationen, Fenster, Caches) — und die Orte in beiden Richtungen aus einer Quelle ableiten.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP10-PP12, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L49. Eine Frage in einem Konsolenfenster darf den Start nie aufhalten.** „Claude jetzt neu starten? [j/N]“ stand VOR dem Start des
+Servers. Das Fenster liegt hinter anderen, niemand antwortet, es laeuft kein Server, der Installer wartet 60 Sekunden und oeffnet
+„Verbindung verweigert“ — bei jedem, der Claude Desktop beim Installieren offen hat, also im Normalfall. Fragen kommen NACH dem
+Start (Hintergrund-Thread, Vorgabe NEIN, ohne Konsole gar nicht) oder in die Oberflaeche, die ohnehin fuehrt. Jede interaktive
+Eingabe in einem Startpfad ist ein moeglicher Stillstand: dort pruefen, was passiert, wenn niemand antwortet.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP1, `tests/test_v18_praxisprobe_start.py`
+
+**L50. Ein Bild in der Doku ist Code: es muss geprueft werden, bevor es gespeichert wird.** Das Titelbild des Wikis zeigte seit v1.7.137 die
+Fehlerkarte „Dieser Bereich ist abgestuerzt“. Der Generator hatte mit `el.remove()` Knoten geloescht, die React verwaltet (alles mit
+`[role=status]`, darunter einen Hinweis), und speicherte das Bild, ohne hinzusehen. Gefunden hat es niemand in neun Wochen — erst ein
+Klick der Praxisprobe auf einen Anleitungslink. Ein Generator verbirgt statt zu entfernen, prueft vor jeder Aufnahme auf die Fehlerkarte
+und auf eine leere Seite, und ein Test haelt die Bilder im Repo gegen die Fehlerkarte (Pixelfarbe des Fehlerblocks).
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP7, `tests/test_v18_screenshot_generator.py`

@@ -72,12 +72,27 @@ Einträgen darunter.
   und die Texterkennung (Tesseract liest Pfade in der ANSI-Tabelle). Behoben: die Ausgabe wird als UTF-8 gelesen und abgesichert, das
   Seitenbild geht über die Standardeingabe, die Sprachdaten über den Kurzpfad. Mit Tests; die Praxisprobe auf einem solchen Rechner steht aus.
 - Eine Absage an der Bewerbung beim Vermittler fehlte in der Historie des Endkunden (#1080).
+- **Aus der Praxisprobe auf einem frischen Windows 11 (05.10.2026):**
+  - Der Reiter „Erweiterungen“ stürzte auf jedem Rechner ab, auf dem die Texterkennung noch fehlt (ein Variablenname war beim
+    Umlaut-Austausch an einer Stelle geändert worden). Ein Absturz in einem Reiter der Einstellungen lässt die anderen Reiter jetzt in Ruhe.
+  - Der Knopf „Deinstaller starten“ (Einstellungen › Gefahrenzone) öffnete unter Windows nie ein Fenster, sondern meldete „Kein Terminal
+    gefunden“ — die Flags des Prozessstarts schließen sich aus. Behoben, mit einem Test, der das Betriebssystem wirklich fragt.
+  - Der Deinstaller räumt jetzt auch die Konfiguration von Claude aus dem Microsoft Store auf (der Eintrag blieb stehen, Claude meldete danach
+    bei jedem Start einen Server ohne Programm) und schließt das Dashboard-Fenster.
+  - Das Dashboard startete nicht, solange die Frage „Claude jetzt neu starten?“ unbeantwortet blieb; der Installer wartete umsonst und öffnete
+    „Verbindung verweigert“. Die Frage kommt jetzt erst, wenn das Dashboard läuft.
+  - Der Installer startet Claude aus dem Store am Ende (statt „nicht gefunden“); die Ausgabe enthält keine Sonderzeichen mehr, die die
+    Konsole verstümmelt.
+  - Auf den Karten der Erweiterungen und Quellen standen Kennungen aus der Planung („…(E19)“); entfernt.
+  - Das Titelbild des Wikis zeigte seit v1.7.137 eine Fehlerkarte („Dieser Bereich ist abgestürzt“); der Screenshot-Generator prüft jetzt
+    jede Aufnahme.
 
 ### Known Issues
 
 - Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Auto-Update nur unter Windows.
+- Der Deinstaller lässt unter Windows die heruntergeladenen Browser-Dateien (Playwright, rund 700 MB) und den pip-Zwischenspeicher liegen; wie er damit umgehen soll, ist offen (#1170).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
 *Schema v52 (unverändert), 281 MCP-Werkzeuge, NNNN Tests.*

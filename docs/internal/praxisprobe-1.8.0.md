@@ -56,3 +56,26 @@ noch einmal an. Genau diesen Ablauf prüfen auch die automatischen Tests (`tests
 
 Alles, was von der Spalte „Erwartet“ abweicht — mit Bildschirmfoto und dem Satz, an welchem Schritt es war. Am einfachsten Claude sagen: „Problem melden“.
 Die Protokolle liegen unter `%LOCALAPPDATA%\BewerbungsAssistent\data\logs\` (und das Installer-Protokoll im entpackten Ordner).
+
+## Protokoll der ersten Probe (05.10.2026)
+
+Rechner: Windows 11 Pro, Claude Desktop aus dem Microsoft Store (lief ohne Fenster), Benutzername ohne Sonderzeichen. Stand: Zweig
+`feature/v18-firmen-1080` (beta.15), danach ein zweiter Durchlauf mit den Reparaturen. Bedient per Remote-Desktop; danach wurde der Rechner
+auf den Ausgangszustand zurückgesetzt (Konfiguration von Claude per Prüfsumme gegen die Sicherung verglichen).
+
+| Schritt | Ergebnis |
+|---|---|
+| 1 Installation | Gelungen (rund 4 Minuten). Funde: **PP2** (Hinweis „Claude über das Tray-Symbol beenden“ ließ sich nicht befolgen, Claude lief ohne Fenster und ohne Symbol), **PP3** („Claude Desktop nicht gefunden“ am Ende, obwohl installiert), **PP4** (Windows-Sicherheitswarnung „Herausgeber nicht verifiziert“ steht nicht in der Anleitung) |
+| 2 Dashboard starten | **PP1**: solange „Claude jetzt neu starten?“ unbeantwortet blieb, lief kein Server; der Installer öffnete nach 60 s „Verbindung verweigert“ |
+| 3–5 Updates, Speicher & Downloads | in Ordnung |
+| 6 Mail-Ordner | in Ordnung (Schalter „aus“, Liste leer) |
+| 7 Kontakte › Firmen | in Ordnung (leerer Zustand erklärt, was ein Firmen-Eintrag ist) |
+| Hilfe (U1) | in Ordnung (Updates, Speicher, Mail-Ordner, Erweiterungen, Datensicherung) |
+| 7a Erweiterungen | **PP6**: Absturz „läuft is not defined“; nach der Reparatur: „Nicht installiert“ mit Knopf. Das Herunterladen der Texterkennung (55 MB) wurde **nicht** ausgeführt |
+| 7b, 7c | nicht geprüft (setzen 7a voraus) |
+| Drüberinstallieren (Update derselben Version) | in Ordnung: Daten blieben erhalten, vorher entstand eine Sicherung der Datenbank |
+| 7d Deinstallation | **PP9** (Knopf öffnet nichts), **PP11** (Store-Konfiguration blieb), **PP12** (Fenster blieb), **PP10** (rund 830 MB Playwright und pip-Cache blieben liegen) |
+| Auto-Update 8–11, Rückfall | nicht geprüft (braucht eine zweite veröffentlichte Version) |
+
+Beim Nachsehen aufgefallen: **PP7** (das Titelbild des Wikis zeigte eine Fehlerkarte) und **PP8** (Plan-Kennungen in Karten). Alle bis auf PP2, PP4
+und PP10 sind im Zweig repariert, mit Tests und Gegenprobe; Einzelheiten und Ursachen stehen in den Lehren L46 bis L50 (`lehren.md`).
