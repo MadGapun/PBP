@@ -8,6 +8,11 @@
 
 ## [1.8.0] - TT.MM.2026 — Updates, die sich selbst installieren
 
+<!-- anwender -->
+PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
+Neu sind außerdem die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
+<!-- /anwender -->
+
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
 sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.150 geliefert haben; die Einzelheiten stehen in den

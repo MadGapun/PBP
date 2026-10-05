@@ -67,25 +67,97 @@ def _jetzt() -> datetime:
 
 # ── Nachsehen ───────────────────────────────────────────────────────────────────────────
 
+# #1170 U2: Der Auszug entscheidet mit, ob jemand neu startet. Mit den echten Release-Notizen (v1.7.151, v1.7.152) kam
+# vorher: ein Absatz, bei 240 Zeichen MITTEN IM WORT abgeschnitten, die nackte Zeile „Wichtig zu wissen:“ und noch ein
+# abgeschnittener Absatz. Jetzt: bevorzugt ein eigener Anwender-Block, sonst ganze Saetze.
+MAX_AUSZUG_ZEICHEN = 240
+
+#: Ein kurzer Block fuer Menschen am Anfang jeder Release-Notiz (und jedes CHANGELOG-Eintrags). HTML-Kommentare sind auf
+#: GitHub unsichtbar, die Notiz sieht also fuer Leser aus wie immer.
+_ANWENDER_BLOCK = re.compile(r"<!--\s*anwender\s*-->(.*?)<!--\s*/anwender\s*-->", re.S | re.I)
+_INSTALLATIONSBLOCK = re.compile(r"\n\s*---\s*\n|\n##\s*📦")
+_SATZ_ENDE = re.compile(r"(?<=[.!?…])\s+(?=[A-ZÄÖÜ„\"(\[])")
+#: Kuerzel, nach denen ein Punkt keinen Satz beendet.
+_KUERZEL = {"z", "b", "d", "h", "u", "a", "o", "ca", "nr", "bzw", "vgl", "usw", "ggf", "etc", "abs", "mio", "mrd", "inkl", "evtl",
+            "zb", "max", "min", "ggü", "sog", "str", "tel", "ev"}
+
+
+def _saetze(text: str) -> list:
+    """Ganze Saetze; „z. B.“, „Nr.“ und aehnliche Kuerzel beenden keinen."""
+    teile = _SATZ_ENDE.split(text.strip())
+    saetze = []
+    for teil in teile:
+        if saetze:
+            letztes = re.findall(r"[\wÄÖÜäöüß]+", saetze[-1])[-1:] or [""]
+            if saetze[-1].endswith(".") and (letztes[0].lower() in _KUERZEL or (len(letztes[0]) == 1 and letztes[0].isalpha())):
+                saetze[-1] = f"{saetze[-1]} {teil}"
+                continue
+        saetze.append(teil)
+    return saetze
+
+
+def _kuerzen(text: str, maximal: int = MAX_AUSZUG_ZEICHEN) -> str:
+    """Hoechstens `maximal` Zeichen, an Satzgrenzen; reicht schon der erste Satz nicht, am Wort mit „…“."""
+    text = text.strip()
+    if len(text) <= maximal:
+        return text
+    ergebnis = ""
+    for satz in _saetze(text):
+        kandidat = f"{ergebnis} {satz}".strip()
+        if len(kandidat) > maximal:
+            break
+        ergebnis = kandidat
+    if ergebnis:
+        return ergebnis
+    # Schon der erste Satz ist zu lang: lieber an einer Satzfuge (Komma, Doppelpunkt, Gedankenstrich, Klammer) als mitten
+    # im Gedanken abbrechen, und nie mitten im Wort.
+    vorn = text[: maximal - 1]
+    fugen = [m.start() for m in re.finditer(r"[,;:](?=\s)|\s[—–](?=\s)|\s\(", vorn) if m.start() >= 60]
+    if fugen:
+        schnitt = vorn[: fugen[-1]]
+    else:
+        schnitt = vorn.rsplit(" ", 1)[0]
+    return f"{schnitt.rstrip(' ,;:–—-')}…"
+
+
+def _zeile_bereinigen(zeile: str) -> str:
+    zeile = re.sub(r"^\s*(?:[-*+]|\d+[.)])\s+", "", zeile.strip())
+    zeile = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", zeile)
+    zeile = re.sub(r"[*_`]", "", zeile).strip()
+    # „Hotfix für v1.7.151.“ ist eine Einleitung fuer Entwickler, kein Grund zum Neustart
+    return re.sub(r"^Hotfix für v?\d[\d.]*\d\.\s*", "", zeile).strip()
+
+
+def _zeilen_fuer_menschen(text: str) -> list:
+    """Die Zeilen eines Textes, die ein Mensch lesen soll: ohne Ueberschriften, Tabellen, Code, Zitate und Einleitungen."""
+    zeilen = []
+    im_code = False
+    for roh in text.splitlines():
+        zeile = roh.strip()
+        if zeile.startswith("```"):
+            im_code = not im_code
+            continue
+        if im_code or not zeile or zeile.startswith(("#", "|", ">", "<!--", "---")):
+            continue
+        sauber = _zeile_bereinigen(zeile)
+        # Eine Zeile, die auf einen Doppelpunkt endet, kuendigt etwas an („Wichtig zu wissen:“) und sagt selbst nichts
+        if len(sauber) < 12 or sauber.endswith(":"):
+            continue
+        zeilen.append(sauber)
+    return zeilen
+
+
 def auszug_aus_notizen(text: str, maximal: int = 3) -> list:
-    """Zwei, drei Saetze aus den Release-Notizen fuer den Hinweis („neu starten“ braucht einen Grund)."""
+    """Zwei, drei Saetze aus den Release-Notizen fuer den Hinweis („neu starten“ braucht einen Grund).
+
+    Bevorzugt der Block zwischen `<!-- anwender -->` und `<!-- /anwender -->`; ohne ihn die ersten Zeilen vor dem
+    Installationsblock. Jeder Eintrag besteht aus ganzen Saetzen und hat hoechstens `MAX_AUSZUG_ZEICHEN` Zeichen.
+    """
     if not text:
         return []
-    kopf = re.split(r"\n\s*---\s*\n|\n##\s*📦", text, maxsplit=1)[0]
-    saetze = []
-    for zeile in kopf.splitlines():
-        zeile = zeile.strip()
-        if not zeile or zeile.startswith(("#", "|", "```", ">")):
-            continue
-        zeile = re.sub(r"^[-*]\s+", "", zeile)
-        zeile = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", zeile)
-        zeile = re.sub(r"[*_`]", "", zeile).strip()
-        if len(zeile) < 12:
-            continue
-        saetze.append(zeile[:240])
-        if len(saetze) >= maximal:
-            break
-    return saetze
+    block = _ANWENDER_BLOCK.search(text)
+    quelle_text = block.group(1) if block else _INSTALLATIONSBLOCK.split(text, maxsplit=1)[0]
+    return [_kuerzen(zeile) for zeile in _zeilen_fuer_menschen(quelle_text)[:maximal]]
 
 
 def _bezugsfassung(app, laufende: str) -> str:

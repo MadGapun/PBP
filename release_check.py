@@ -258,6 +258,15 @@ def check_changelog_content(version):
         lines = [l for l in block.splitlines() if l.strip() and not l.startswith("#")]
         ok(f"CHANGELOG-Eintrag fuer {version} vorhanden ({len(lines)} Zeilen)")
 
+    # #1170 U2: Die Karte "Was ist neu" im Update-Dialog (und der Hinweis auf dem Dashboard) liest einen kurzen Block fuer
+    # Menschen am Anfang des Eintrags. Ohne ihn faellt sie auf die ersten Saetze zurueck - lesbar, aber nicht gezielt.
+    anwender = re.search(r"<!--\s*anwender\s*-->(.*?)<!--\s*/anwender\s*-->", block, re.S | re.I)
+    if anwender and anwender.group(1).strip():
+        ok(f"CHANGELOG-Eintrag fuer {version} hat einen Anwender-Block (erscheint im Update-Dialog)")
+    else:
+        warn(f"CHANGELOG-Eintrag fuer {version} hat keinen Anwender-Block (<!-- anwender --> ... <!-- /anwender -->): "
+             "die Karte 'Was ist neu' im Update-Dialog faellt dann auf die ersten Saetze zurueck")
+
     # v1.7.118: der CHANGELOG wird MASCHINELL gelesen. Elwosa meldet nach
     # einem Update die Punkte unter Added/Changed/Fixed der neuesten
     # Version (#823) — und dafuer muessen es `- `-Punkte sein, keine

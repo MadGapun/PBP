@@ -340,7 +340,7 @@ Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Que
 4. **Frontend:** `cd frontend && pnpm exec vite build`; gebaute Assets unter
    `src/bewerbungs_assistent/static/dashboard/assets/` committen, alte
    Hash-Dateien `git rm`.
-5. **CHANGELOG.md:** neuer Eintrag GANZ OBEN (Added/Changed/Fixed), am Ende
+5. **CHANGELOG.md:** neuer Eintrag GANZ OBEN (Anwender-Block, Added/Changed/Fixed), am Ende
    IMMER der Pflicht-Block unten — mit der Versionsnummer DIESES Releases.
 5a. **Update-Archiv (nur stabile Releases, ab 1.8.0):** nach dem Tag
    `python scripts/build_update_archive.py --ref vX.Y.Z --ausgabe dist` (signiert automatisch mit dem Schluessel aus

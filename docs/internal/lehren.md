@@ -401,3 +401,14 @@ das Bild geht ueber die Standardeingabe, die Sprachdaten ueber den Kurzpfad (8.3
 lassen UND die Zeichentabelle erzwingen (`PYTHONIOENCODING=cp1252`) -- sonst ist er auf einem UTF-8-Rechner gruen und auf dem
 Zielrechner rot.
 *Belege:* #1163 (Installer-Helfer, Selbsttest, pip, Komponenten, Texterkennung), `tests/test_v18_auto_update_pfade.py`, `tests/test_v18_ocr_pfade.py`
+
+## 14. Auskunft an den Menschen: was beim Update zu lesen steht
+
+**L45. Eine Release-Notiz hat zwei Leser: den Menschen, der entscheidet, und den Entwickler, der nachschlaegt.** Der Update-Dialog
+zeigt drei Zeilen, und an ihnen haengt die Entscheidung, ob jemand neu startet. Wer sie aus den ersten Zeilen einer Entwickler-Notiz
+schneidet, bekommt abgeschnittene Absaetze und Zwischenueberschriften (gemessen an den echten Notizen von v1.7.151 und v1.7.152:
+ein Satz bricht mitten im Wort ab, eine Zeile lautet nur »Wichtig zu wissen:«). Deshalb steht am Anfang jedes CHANGELOG-Eintrags ein
+kurzer Block zwischen `<!-- anwender -->` und `<!-- /anwender -->` (auf GitHub unsichtbar), und `release_check.py` mahnt ihn an.
+Der Auszug nimmt ihn bevorzugt, sonst ganze Saetze; er kuerzt an Satzfugen, nie mitten im Wort. Und: Texte, die ein Mensch liest,
+prueft man mit dem echten Material, nicht mit einem erfundenen Beispiel.
+*Belege:* #1170 (U2), `tests/test_v18_update_notizen_auszug_1170.py`, `tests/fixtures/release_notizen/`
