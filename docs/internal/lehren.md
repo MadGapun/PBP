@@ -412,3 +412,18 @@ kurzer Block zwischen `<!-- anwender -->` und `<!-- /anwender -->` (auf GitHub u
 Der Auszug nimmt ihn bevorzugt, sonst ganze Saetze; er kuerzt an Satzfugen, nie mitten im Wort. Und: Texte, die ein Mensch liest,
 prueft man mit dem echten Material, nicht mit einem erfundenen Beispiel.
 *Belege:* #1170 (U2), `tests/test_v18_update_notizen_auszug_1170.py`, `tests/fixtures/release_notizen/`
+
+## 15. Gruen auf dem eigenen Rechner: was nur eine frische Installation zeigt
+
+**L46. Ein Pruefer, der zum Ersetzen auffordert, kann Code zerstoeren -- und ein Test, der nur den Quelltext liest, sieht es nicht.**
+Der Text-Pruefer (G66) verlangt echte Umlaute in sichtbaren Texten. Er las aber auch Code zwischen zwei JSX-Tags als Text:
+in `</Badge> ) : laeuft ? ( <Badge>` stand das Wort fuer ihn in einem Textknoten. Die Umstellung machte daraus an dieser einen
+Stelle `läuft`; die Variable hiess an drei anderen weiter `laeuft`. Das baut ohne Meldung (ein unbekannter Name ist zur Bauzeit
+kein Fehler) und faellt nur auf, wenn der Zweig laeuft -- hier: eine Komponente ist NICHT installiert, also auf jeder frischen
+Installation. Auf dem Entwicklungsrechner ist alles installiert, jede Demo ging am Zweig vorbei; gefunden hat es erst die
+Praxisprobe auf einem frischen Rechner. Dazu kam: die Absturz-Grenze galt je Seite, ein Fehler legte alle Reiter der
+Einstellungen lahm, und die Seitenleiste tat nichts mehr. Folgen: Funde, die ein Werkzeug von selbst umschreibt, werden danach
+auf getroffenen CODE geprueft (der Pruefer ueberspringt jetzt Code zwischen Tags); der Absturz-Test oeffnet jede Seite und jeden
+Reiter im Browser gegen eine FRISCHE Datenbank ohne installierte Komponenten; jeder Reiter hat seine eigene Grenze. Und: ein
+Gruen auf dem eigenen Rechner prueft nur die eigenen Zustaende.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170, `tests/test_v18_einstellungen_reiter_stuerzen_nicht_ab.py`
