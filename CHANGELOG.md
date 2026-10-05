@@ -33,6 +33,78 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.153] - 2026-10-05 — Der Deinstaller-Knopf öffnet sich, das Dashboard startet mit offenem Claude
+
+Hotfix für v1.7.152. Eine Praxisprobe auf einem frischen Windows 11 mit Claude aus dem Microsoft Store (Installation, Start, Deinstallation) hat fünf Fehler gezeigt, die auch diese Linie betreffen. Es gibt keine neue Funktion; die Reparaturen sind dieselben, die in Version 1.8 stecken.
+
+**Wichtig zu wissen:**
+
+- **Das Dashboard startet auch dann, wenn Claude Desktop läuft.** Die Frage „Claude jetzt neu starten?“ im Fenster der Verknüpfung stand bisher VOR dem Start. Solange niemand antwortete (das Fenster liegt hinter anderen), lief kein Dashboard, und der Installer öffnete nach einer Minute „Verbindung verweigert“. Jetzt kommt die Frage erst, nachdem das Dashboard läuft; die Vorgabe bleibt „Nein“.
+- **Der Knopf „Deinstaller starten“ (Einstellungen › Gefahrenzone) öffnet das Fenster mit den Fragen.** Unter Windows öffnete er kein Fenster, sondern zeigte „Kein Terminal gefunden“: Windows lehnt die Prozess-Einstellungen ab, mit denen das Fenster gestartet wurde (gemessen unter Windows 11; die Kombination stand seit v1.7.0-beta.43 im Code). Wer das erlebt hat, konnte `DEINSTALLIEREN.bat` doppelklicken; das geht weiter.
+- **Der Deinstaller räumt auch die Konfiguration von Claude aus dem Microsoft Store auf** und schließt das Dashboard-Fenster. Bisher blieb der Eintrag dort stehen, und Claude meldete danach bei jedem Start einen Server ohne Programm. Wer das erlebt hat, streicht den Eintrag `bewerbungs-assistent` von Hand in `%LOCALAPPDATA%\Packages\Claude_…\LocalCache\Roaming\Claude\claude_desktop_config.json`.
+- **Der Installer startet Claude aus dem Store am Ende**, statt „Claude Desktop nicht gefunden“ zu melden.
+
+### Fixed
+
+- **Die Frage zum Neustart von Claude hielt den Start des Servers an** (#1170, PP1). `start_dashboard.py` stellt sie jetzt in einem Hintergrund-Thread (`services/claude_neustart.neustart_im_hintergrund`; Vorgabe Nein; ohne Konsole wird gar nicht gefragt).
+- **`services/deinstallation.starten`: `DETACHED_PROCESS` und `CREATE_NEW_CONSOLE` zugleich** (#1170, PP9). Windows lehnt die Kombination ab (`OSError: [WinError 87]`); der Fehler wurde gefangen und als „Kein Terminal gefunden“ gezeigt. Jetzt `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` (das Fenster öffnet `start`). Scheitert der Start trotzdem, nennt der Hinweis den Grund und den Doppelklick auf `DEINSTALLIEREN.bat`; die Karte in den Einstellungen zeigt den Hinweis des Servers.
+- **`DEINSTALLIEREN.bat` kannte nur den Standardpfad der Claude-Konfiguration** (#1170, PP11). `_setup_claude.py` schreibt den Eintrag auch in `Packages\Claude_*\LocalCache\Roaming\Claude`, und genau dort liest die Store-Fassung. Jetzt dieselben Orte (auch `AnthropicPBC.Claude*`); ein Schreibfehler zählt als Fehler (Code 5), nicht mehr als „MCP-Eintrag war nicht vorhanden“.
+- **`DEINSTALLIEREN.bat` schließt das Konsolenfenster des Dashboards** (`cmd /K "Dashboard starten.bat"`), es blieb sonst leer stehen (#1170, PP12).
+- **`INSTALLIEREN.bat`** (#1170, PP3): Die Paket-Abfrage nach der Store-Fassung läuft auch dann, wenn Claude schon am Konfigurationsordner erkannt wurde; das Ende der Installation startet Claude. Dazu drei Kleinigkeiten der Ausgabe: ein Gedankenstrich, der als „ÖÇö“ ankam, das fehlende Ausrufezeichen in „Willkommen! …“ und die sichtbaren Fluchtzeichen in „Trotzdem neu installieren? (j/n)“.
+- Die Zeit-Tests (`test_v17148_zeit_zwischenspeicher_1144`) warten unter Windows je Schritt länger; sie scheiterten dort bei Last, ohne dass am Code etwas lag.
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; wie der Deinstaller künftig damit umgeht, ist noch offen.
+- Unverändert gegenüber v1.7.152: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+
+### Gemessen
+
+23 neue Tests (7.052 gesamt, gezählt im Klon des Zweigs; v1.7.152 hatte 7.029): 15 in `tests/test_v18_praxisprobe_deinstaller.py` (die echten PowerShell-Zeilen des Deinstallers gegen Temp-Ordner mit Standard- und Store-Konfiguration, ein Schreibfehler, der Prozessfilter gegen fremde und eigene `cmd`-Prozesse, der Prozessstart mit den echten Flags gegen das Betriebssystem) und 8 in `tests/test_v18_praxisprobe_start.py` (die Frage blockiert den Start nicht, ohne Konsole wird nicht gefragt, die Installer-Ausgabe ist reines ASCII). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): 17 Eingriffe, alle erkannt, darunter „beide Flags wieder zugleich“, „nur das erste Paketmuster“, „der Schreibfehler gilt als kein Eintrag“, „jedes `cmd.exe` wird beendet“, „die Frage läuft im selben Thread“.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.153.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.153.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.153 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.152] - 2026-10-03 — PBP sagt Bescheid, wenn Version 1.8 erscheint
 
 Hotfix für v1.7.151. Die Update-Prüfung schaut nur nach Versionen der eigenen Linie, damit eine 1.7-Installation nie von selbst auf 1.8 wechselt. Das hatte eine Kehrseite: Sobald 1.8.0 erscheint, hätte jede 1.7-Installation nur „aktuell“ gezeigt, und in PBP hätte niemand erfahren, dass es 1.8 gibt (#1168). Jetzt nennt PBP eine neue Linie, sobald sie als fertige Version erschienen ist, mit dem Weg dorthin. Kein Schema-Eingriff, keine Änderung an deinen Daten.
