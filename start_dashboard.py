@@ -22,7 +22,10 @@ os.environ.setdefault(
 
 # Zentrales Logging aktivieren (schreibt in %BA_DATA_DIR%/logs/pbp.log)
 from bewerbungs_assistent.logging_config import setup_logging, get_log_path
-setup_logging(console=True)
+# Im Fenster stehen nur Warnungen und Fehler; die Log-Datei bekommt weiter alles (PP14: Protokollzeilen schoben sich in die Frage
+# "Claude jetzt neu starten?", und der erste Start zeigte Dutzende Zeilen "Safety-Net ... nachgezogen"). Wer alles sehen will:
+# BA_CONSOLE_LEVEL=INFO setzen.
+setup_logging(console=True, console_level=os.environ.get("BA_CONSOLE_LEVEL", "WARNING"))
 
 import logging
 logger = logging.getLogger("bewerbungs_assistent")
@@ -62,7 +65,8 @@ def _find_chrome() -> str | None:
 def _open_in_chrome(url: str) -> None:
     """Open URL in Chrome if available, otherwise fall back to system default."""
     # Proben und Tests (Auto-Update, #1093) starten das Dashboard als echten Prozess, ohne dass sich ein Fenster
-    # des Rechners oeffnet. Fuer Menschen aendert sich nichts: die Variable ist nie gesetzt.
+    # des Rechners oeffnet; ebenso der Installer, der den Browser selbst oeffnet, sobald das Dashboard antwortet
+    # (sonst entstuende ein zweiter Tab, PP15). Fuer Menschen, die das Dashboard selbst starten, ist die Variable nie gesetzt.
     if os.environ.get("PBP_KEIN_BROWSER"):
         logger.info("PBP_KEIN_BROWSER gesetzt - der Browser wird nicht geoeffnet")
         return
@@ -145,7 +149,10 @@ try:
     print(f"  Beenden:   Dieses Fenster schliessen oder {quit_hint}")
     print()
 
-    _open_in_chrome(f"http://localhost:{port}")
+    # Der Browser oeffnet sich erst, wenn der Server antwortet (PP15): vorher stand der Aufruf HIER, und auf einem frischen Rechner
+    # zeigte Chrome "Verbindung verweigert", weil der erste Start laenger dauert. Die Logik steht in services/browser_oeffnen.py.
+    from bewerbungs_assistent.services.browser_oeffnen import oeffnen_sobald_bereit
+    oeffnen_sobald_bereit(f"http://localhost:{port}", port, _open_in_chrome)
 
     # Claude Desktop Neustart anbieten, damit PBP dort als Werkzeug geladen wird (#1149 Punkt 10).
     # Die Frage hat die Vorgabe NEIN und wird im HINTERGRUND gestellt, erst wenn der Server laeuft: sie stand vorher VOR

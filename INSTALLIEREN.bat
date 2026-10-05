@@ -817,7 +817,12 @@ echo.
 :: --- Dashboard im Hintergrund starten ---
 echo  [2/3] PBP-Dashboard wird gestartet...
 echo [INFO] Starte Dashboard >> "%LOGFILE%"
+:: Gegenprobe 05.10.2026 (PP15): Das Dashboard oeffnete den Browser selbst, noch bevor es antwortete (Chrome zeigte "Verbindung
+:: verweigert"), und unten oeffnet der Installer den Browser ein zweites Mal. Jetzt macht das nur der Installer, nachdem die
+:: Pruefung unten bestanden ist. Die Variable gilt nur fuer das hier gestartete Fenster und wird danach geloescht.
+set "PBP_KEIN_BROWSER=1"
 start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
+set "PBP_KEIN_BROWSER="
 
 :: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---
 echo        Warte auf Dashboard auf http://localhost:8200 ...
