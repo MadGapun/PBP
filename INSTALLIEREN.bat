@@ -342,7 +342,7 @@ if !errorlevel! neq 0 (
     call :fix_pip
     "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
     if !errorlevel! neq 0 (
-        echo [WARN] pip immer noch defekt — loesche Python und lade neu herunter >> "%LOGFILE%"
+        echo [WARN] pip immer noch defekt - loesche Python und lade neu herunter >> "%LOGFILE%"
         echo         Kopierte Python-Installation defekt, lade neu herunter...
         rmdir /s /q "%PYTHON_DIR%" 2>nul
         goto :download_python
@@ -644,7 +644,7 @@ if "!CLAUDE_FOUND!"=="0" (
 :: Konfig-Verzeichnis-Fallback: wenn %APPDATA%\Claude\claude_desktop_config.json
 :: existiert, ist Claude offensichtlich schon mal installiert/genutzt worden
 if "!CLAUDE_FOUND!"=="0" if exist "%APPDATA%\Claude\claude_desktop_config.json" (
-    echo [INFO] Claude-Konfig vorhanden trotz fehlender exe — Erkennung als 'gefunden' >> "%LOGFILE%"
+    echo [INFO] Claude-Konfig vorhanden trotz fehlender exe - Erkennung als 'gefunden' >> "%LOGFILE%"
     set "CLAUDE_FOUND=1"
 )
 
@@ -693,6 +693,14 @@ if exist "%LOCALAPPDATA%\anthropic-claude\Claude.exe" set "CLAUDE_EXE=%LOCALAPPD
 if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles%\Claude\Claude.exe"
 if exist "%ProgramFiles(x86)%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles(x86)%\Claude\Claude.exe"
 if exist "%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe" set "CLAUDE_EXE=%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe"
+
+:: Praxisprobe 1.8 (05.10.2026): Die Store-Fassung wird oben oft schon am Konfigurationsordner erkannt (#361). Dann
+:: wird die Paket-Abfrage uebersprungen, CLAUDE_APPX bleibt leer - und der Abschluss meldete "Claude Desktop nicht
+:: gefunden", obwohl es installiert war. Ohne Programmdatei fragt deshalb immer das Paketsystem.
+if not defined CLAUDE_EXE if not defined CLAUDE_APPX (
+    for /f "usebackq delims=" %%F in (`powershell -NoProfile -Command "$p = Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue; if ($p) { $p[0].PackageFamilyName }"`) do set "CLAUDE_APPX=%%F"
+    if defined CLAUDE_APPX echo [INFO] Claude als Store-/MSIX-Paket erkannt ^(Start am Ende^): !CLAUDE_APPX! >> "%LOGFILE%"
+)
 
 set "CLAUDE_DIR=%APPDATA%\Claude"
 if not exist "%CLAUDE_DIR%" mkdir "%CLAUDE_DIR%"
@@ -801,7 +809,7 @@ if defined CLAUDE_EXE (
     timeout /t 2 /nobreak >nul
     echo        [OK] Claude Desktop wurde gestartet.
 ) else (
-    echo  [1/3] Claude Desktop nicht gefunden — bitte manuell starten:
+    echo  [1/3] Claude Desktop nicht gefunden - bitte manuell starten:
     echo        https://claude.ai/download
 )
 echo.

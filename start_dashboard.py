@@ -137,14 +137,6 @@ try:
     db.initialize()
     logger.info("Datenbank initialisiert")
 
-    # Claude Desktop Neustart anbieten, damit PBP dort als Werkzeug geladen wird (#1149 Punkt 10).
-    # Die Frage hat die Vorgabe NEIN; die Logik steht in services/claude_neustart.py.
-    try:
-        from bewerbungs_assistent.services.claude_neustart import neustart_anbieten
-        neustart_anbieten()
-    except Exception as e:
-        logger.warning("Claude-Check fehlgeschlagen: %s", e)
-
     print()
     print(f"  Dashboard: http://localhost:{port}")
     print(f"  Daten:     {data_dir}")
@@ -154,6 +146,16 @@ try:
     print()
 
     _open_in_chrome(f"http://localhost:{port}")
+
+    # Claude Desktop Neustart anbieten, damit PBP dort als Werkzeug geladen wird (#1149 Punkt 10).
+    # Die Frage hat die Vorgabe NEIN und wird im HINTERGRUND gestellt, erst wenn der Server laeuft: sie stand vorher VOR
+    # dem Start, und solange niemand antwortete, lief kein Server (Praxisprobe 1.8, 05.10.2026).
+    # Die Logik steht in services/claude_neustart.py.
+    try:
+        from bewerbungs_assistent.services.claude_neustart import neustart_im_hintergrund
+        neustart_im_hintergrund()
+    except Exception as e:
+        logger.warning("Claude-Check fehlgeschlagen: %s", e)
 
     start_dashboard(db, port=port)
 

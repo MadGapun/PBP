@@ -19,11 +19,15 @@ damit die Tests ohne ein echtes Claude laufen.
 """
 from __future__ import annotations
 
+import logging
 import ntpath
 import os
 import subprocess
 import sys
+import threading
 import time
+
+logger = logging.getLogger(__name__)
 
 _OHNE_FENSTER = 0x08000000      # CREATE_NO_WINDOW
 _ABGELOEST = 0x00000008         # DETACHED_PROCESS
@@ -133,3 +137,32 @@ def neustart_anbieten(plattform: str | None = None, *, frage=input, ausgabe=prin
     ausgabe("  Claude Desktop wurde beendet, ließ sich aber nicht automatisch starten.")
     ausgabe("  Bitte öffne es jetzt selbst wieder (Startmenü beziehungsweise Programme).")
     return "beendet_ohne_start"
+
+
+def neustart_im_hintergrund(*, warte: float = 4.0, ist_konsole=None, **kwargs) -> threading.Thread | None:
+    """Stellt die Frage aus `neustart_anbieten` in einem eigenen Thread — der Server startet, ohne auf die Antwort zu warten.
+
+    Vorher stand `input()` VOR dem Start des Servers. Das Fenster liegt hinter anderen, niemand antwortet, der Server läuft
+    nicht, der Installer wartet 60 Sekunden und öffnet eine Seite „Verbindung verweigert“ (Praxisprobe 1.8, 05.10.2026,
+    frischer Windows-11-Rechner mit laufendem Claude Desktop — der Normalfall). Jetzt kommt die Frage erst, wenn das
+    Dashboard läuft; die Vorgabe bleibt NEIN, und die Oberfläche führt ohnehin durch die Schritte.
+
+    Ohne Konsole (kein Fenster, in dem man antworten könnte) wird gar nicht erst gefragt. Rückgabe: der Thread oder None.
+    """
+    if ist_konsole is None:
+        def ist_konsole() -> bool:
+            return sys.stdin is not None and sys.stdin.isatty()
+    if not ist_konsole():
+        return None
+    pause = kwargs.get("pause", time.sleep)
+
+    def _lauf() -> None:
+        try:
+            pause(warte)
+            neustart_anbieten(**kwargs)
+        except Exception as exc:  # noqa: BLE001 — eine verpasste Frage darf den Server nie stören
+            logger.warning("Claude-Check fehlgeschlagen: %s", exc)
+
+    faden = threading.Thread(target=_lauf, name="claude-neustart-frage", daemon=True)
+    faden.start()
+    return faden
