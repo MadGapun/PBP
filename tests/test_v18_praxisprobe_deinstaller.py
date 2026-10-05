@@ -11,6 +11,10 @@ PP13 (Gegenprobe desselben Tages) Gestartet über den Knopf im Dashboard, meldet
      „konnte nicht entfernt werden“, und ein leerer Ordner blieb liegen. Ursache: das neue Fenster hatte den App-Ordner als
      Arbeitsordner (`start /D <Ordner der .bat>`), und die cmd.exe wartet auf die nach %TEMP% verschobene Kopie — ein Prozess hält
      seinen Arbeitsordner fest. Gilt genauso für den Doppelklick auf die .bat im App-Ordner.
+PP16 (Gegenprobe) Die nach %TEMP% verschobene Kopie des Deinstallers (rund 15 KB) blieb liegen: Schritt [5/7] hat die Ursprungsdatei
+     gelöscht, und die wartende cmd.exe bricht vor dem `del` in der NÄCHSTEN Zeile still ab, weil sie die Datei nicht mehr lesen kann.
+PP17 (Gegenprobe) Die Konfiguration von Claude wurde in der Formatierung von Windows PowerShell neu geschrieben (rund siebenmal so
+     groß, Inhalt gleich) und behielt `"mcpServers": {}`. Jetzt wird nur der Eintrag aus dem Text genommen; der Rest bleibt Byte für Byte.
 
 Die Verhaltenstests führen die echten PowerShell-Zeilen aus der BAT-Datei aus (Windows PowerShell 5.1); APPDATA und LOCALAPPDATA
 zeigen dabei auf einen Temp-Ordner. QA-Isolation: nie gegen die echte Claude-Konfiguration dieses Rechners.
@@ -170,6 +174,44 @@ def test_pp13_nach_dem_umzug_laesst_sich_der_app_ordner_loeschen(tmp_path):
     assert marke.exists(), "der Platzhalter lief gar nicht — der Umzug hat nicht stattgefunden"
     assert marke.read_text().strip() == "WEG", "die wartende cmd.exe hält den App-Ordner als Arbeitsordner fest"
     assert not app.exists()
+
+
+# ── PP16: die verschobene Kopie räumt sich selbst weg ──────────────────────────────────────────
+
+def test_pp16_aufruf_aufraeumen_und_beenden_stehen_in_einer_zeile():
+    """Eine Zeile wird vor dem Aufruf ganz gelesen; was in der NÄCHSTEN Zeile steht, liest cmd erst danach von der Platte."""
+    zeilen = [z.strip() for z in _bat().splitlines()]
+    block = zeilen[zeilen.index(":pbp_relocate"):zeilen.index(":pbp_main")]
+    aufruf = next(z for z in block if z.lower().startswith("cmd /c"))
+    assert "del /q" in aufruf.lower() and "pbp_reloc_bat" in aufruf.lower(), aufruf
+    assert aufruf.lower().rstrip().endswith("exit /b 0"), aufruf
+    assert not any(z.lower().startswith("del ") for z in block), "ein eigenes `del` in der nächsten Zeile läuft nie"
+
+
+@nur_windows
+def test_pp16_nach_der_deinstallation_liegt_keine_kopie_mehr_in_temp(tmp_path):
+    """Mit dem ECHTEN Anfang der Datei: der Platzhalter löscht, wie Schritt [5/7], die Ursprungsdatei. Ohne die Reparatur bleibt die
+    Kopie im Temp-Ordner liegen. Alles liegt im Temp-Ordner des Tests."""
+    lokal = tmp_path / "AppData" / "Local"
+    app = lokal / "BewerbungsAssistent" / "app"
+    app.mkdir(parents=True)
+    temp = tmp_path / "Temp"
+    temp.mkdir()
+    marke = tmp_path / "gelaufen.txt"
+    skript = app / "DEINSTALLIEREN.bat"
+    # `%PBP_BASEDIR%` zeigt in der verschobenen Kopie auf den Temp-Ordner (die Kopf-Zeilen setzen es neu), deshalb der volle Pfad
+    rumpf = [":pbp_main",
+             f'del /Q "{skript}"',
+             f'echo ok> "{marke}"',
+             "exit /b 0"]
+    skript.write_bytes(("\r\n".join(_umzugskopf().splitlines() + [""] + rumpf) + "\r\n").encode("utf-8"))
+    env = dict(os.environ, LOCALAPPDATA=str(lokal), TEMP=str(temp), TMP=str(temp))
+    env.pop("PBP_DEINST_RELOCATED", None)
+    assert str(tmp_path) in env["LOCALAPPDATA"] and str(tmp_path) in env["TEMP"]
+    subprocess.run(["cmd.exe", "/c", str(skript)], cwd=str(app), env=env, capture_output=True, timeout=60)
+    assert marke.exists(), "der Platzhalter lief nicht — der Umzug hat nicht stattgefunden"
+    assert not skript.exists(), "ohne gelöschte Ursprungsdatei beweist der Test nichts"
+    assert list(temp.glob("PBP-Deinstaller-*.bat")) == [], "die verschobene Kopie blieb liegen"
 
 
 # ── PP11: die Store-Konfiguration ──────────────────────────────────────────────────────────────

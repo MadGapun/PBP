@@ -24,9 +24,11 @@ set PBP_DEINST_RELOCATED=1
 :: fest, den Schritt [5/7] loeschen will (Meldung "konnte nicht entfernt werden", ein leerer Ordner bleibt liegen).
 :: Also zuerst aus dem Ordner heraus.
 cd /d "%TEMP%" 2>nul || cd /d "%SystemRoot%"
-cmd /c ""%PBP_RELOC_BAT%""
-del /Q "%PBP_RELOC_BAT%" >nul 2>&1
-exit /b 0
+:: Gegenprobe 05.10.2026 (PP16): Aufraeumen und Beenden stehen in DERSELBEN Zeile wie der Aufruf. Beendet die verschobene
+:: Kopie, hat Schritt [5/7] die Ursprungsdatei laengst geloescht; cmd liest die naechste Zeile dann von der Platte, findet
+:: nichts und bricht still ab - das `del` darunter lief nie, und die Kopie (rund 15 KB) blieb in %TEMP% liegen.
+:: Eine Zeile wird vor dem Aufruf vollstaendig gelesen, die Teile dahinter laufen also auch ohne die Datei.
+cmd /c ""%PBP_RELOC_BAT%"" & del /Q "%PBP_RELOC_BAT%" >nul 2>&1 & exit /b 0
 
 :pbp_main
 setlocal EnableDelayedExpansion
