@@ -69,7 +69,7 @@ export const HILFE = {
       { titel: "Suchbegriffe", text: "MUSS-Begriffe muss eine Stelle treffen, PLUS-Begriffe bringen zusätzliche Punkte, MINUS-Begriffe ziehen welche ab, und AUSSCHLUSS-Begriffe blenden eine Stelle ganz aus." },
       { titel: "Punkte", text: "Die Punkte sagen, wie gut eine Anzeige deine Suchbegriffe trifft. Sie sind keine Prozentzahl und kein Urteil darüber, ob die Stelle zu dir passt — das entsteht erst, wenn jemand Anzeige und Profil gelesen hat." },
       { titel: "Entfernung", text: "Trag je Anstellungsform eine Grenze in Kilometern ein. Ein leeres Feld nimmt die grau angezeigte Vorgabe, 0 heißt „nur am Wohnort oder remote“. Innerhalb der Grenze gilt: je näher, desto besser. Gerechnet wird mit der Luftlinie — so, wie die Jobbörsen sie angeben." },
-      { titel: "Fahrstrecke und Fahrzeit", text: "Mit einem kostenlosen Routing-Schlüssel (Einstellungen › Quellen im Detail) und dem Haken „Echte Fahrstrecke und Fahrzeit verwenden“ rechnet PBP mit der Fahrstrecke. Sie gilt fürs Auto, nicht für Bus und Bahn — wer so pendelt, lässt den Haken aus." },
+      { titel: "Fahrstrecke und Fahrzeit", text: "Mit einem kostenlosen Routing-Schlüssel (Einstellungen › Erweitert › Quellen im Detail) und dem Haken „Echte Fahrstrecke und Fahrzeit verwenden“ rechnet PBP mit der Fahrstrecke. Sie gilt fürs Auto, nicht für Bus und Bahn — wer so pendelt, lässt den Haken aus." },
       { titel: "Feinabstimmung", text: "Die Regler für Entfernung, Remote-Anteil und Gehalt ändern die Reihenfolge der Liste. Du brauchst sie nicht, um anzufangen." },
     ],
     prompts: ["jobsuche_workflow"],
@@ -78,7 +78,7 @@ export const HILFE = {
     abschnitte: [
       { titel: "Dokumente hochladen", text: "Zieh PDF-, DOCX-, TXT- oder Mail-Dateien in das Fenster oder nutze den Upload-Knopf. PBP erkennt den Typ und liest den Text." },
       { titel: "Zuordnen", text: "Ein Dokument gehört meist zu einer Bewerbung. Claude schlägt die Zuordnung vor; du bestätigst sie." },
-      { titel: "Gescannte PDFs", text: "Eine PDF ohne Textebene liefert keinen Text. PBP sagt das beim Hochladen; den Text kannst du über Claude nachtragen." },
+      { titel: "Gescannte PDFs", text: "Eine PDF ohne Textebene liefert keinen Text. Mit der Texterkennung (Einstellungen › Erweitert › Erweiterungen, einmalig etwa 55 MB, nur mit deinem Ja) liest PBP sie beim Hochladen selbst. Ohne sie sagt PBP das beim Hochladen; den Text kannst du über Claude nachtragen." },
     ],
     prompts: ["dokumente_verarbeiten", "profil_sync"],
   },
@@ -103,6 +103,7 @@ export const HILFE = {
     abschnitte: [
       { titel: "Kontakte", text: "Menschen, mit denen du gesprochen hast: Recruiter, Ansprechpartner, Referenzen. Ein Kontakt entsteht, sobald ein Austausch stattfindet." },
       { titel: "Referenzen", text: "Markiere einen Kontakt als Referenz und gib eine Referenzliste aus. Mail und Telefon stehen nur darin, wenn du es ausdrücklich wählst." },
+      { titel: "Firmen", text: "Im Reiter Firmen steht alles, was PBP zu einer Firma weiß, als eine Zeitleiste: Bewerbungen, Stellen, Kontakte, Dokumente, Recherche. Ein Firmen-Eintrag fasst Schreibweisen zusammen („Muster AG“ heißt heute „Beispiel GmbH“). PBP macht nur Vorschläge; angelegt wird nichts ohne dein Ja, und deine Bewerbungen behalten ihren Firmennamen." },
     ],
     prompts: ["netzwerk_strategie"],
   },
@@ -131,6 +132,10 @@ export const HILFE = {
     abschnitte: [
       { titel: "Grundlagen", text: "Quellen, Erscheinungsbild, Datenschutz und Ordner — damit kommst du aus. Alles Weitere steht unter „Erweitert“." },
       { titel: "Quellen", text: "PBP empfiehlt Quellen passend zu deinem Profil. Manche Börsen gehen nur über den Browser mit Claude; die Karte sagt, welche." },
+      { titel: "Updates", text: "Unter Erweitert › Updates wählst du, wie neue Versionen auf den Rechner kommen: nur Hinweis (die Vorgabe), mit einem Klick oder automatisch. Ohne deine Wahl installiert PBP nichts. Geladen wird nur von der offiziellen GitHub-Seite des Projekts, jede Datei wird auf Prüfsumme und Signatur geprüft, und startet die neue Version nicht, springt PBP von selbst auf die vorige zurück. Die neue Version gilt nach einem Neustart von PBP und Claude Desktop. Das Ein-Klick-Update gibt es zurzeit nur unter Windows." },
+      { titel: "Speicher & Downloads", text: "Zeigt, wohin PBP schreibt und lädt und wie viel dort liegt. Aufräumen zeigt erst eine Vorschau und fragt dann; gelöscht wird nie ohne dein Ja. Was anderen Programmen gehört (der Browser der Jobsuche, KI-Modelle), zeigt PBP nur und löscht es nie." },
+      { titel: "Mail-Ordner", text: "Unter Erweitert › Quellen im Detail. Der Ordner-Scan ist standardmäßig aus. PBP öffnet nie selbst ein Postfach; es nimmt nur Mails an, die ein gekoppeltes Add-on schickt, und prüft sie vorher gegen deine Liste freigegebener Ordner." },
+      { titel: "Erweiterungen", text: "Zusatzprogramme wie die Texterkennung für gescannte PDFs. Nichts wird ohne dein Ja heruntergeladen; Größe und Lizenz stehen immer dabei." },
       { titel: "Datensicherung", text: "PBP sichert einmal am Tag von selbst, vor dem Leeren eines Bereichs und vor dem Zusammenführen zweier Stellen — samt deiner Dokumente. Unter Datenschutz › Daten & Sicherung legst du selbst eine an oder holst einen früheren Stand zurück; er wird beim nächsten Start eingespielt." },
     ],
     prompts: ["tipps_und_tricks"],
@@ -148,7 +153,11 @@ export const FAQ = [
   { q: "Kostet PBP etwas?", a: "Nein. PBP ist kostenlos und quelloffen (MIT-Lizenz). Für Claude brauchst du ein Konto bei Anthropic." },
   { q: "Wie hole ich einen früheren Stand zurück?", a: "Einstellungen › Datenschutz › Daten & Sicherung: die Liste der Sicherungen öffnen und „Diesen Stand wiederherstellen“ wählen. Dein jetziger Stand wird vorher selbst gesichert. Danach PBP und Claude Desktop ganz beenden und neu starten — beim Start wird der Stand eingespielt." },
   { q: "Was lernt PBP über mich?", a: "Einstellungen › Lokale KI › „Was PBP über dich lernt“ zeigt, welche Daten einfließen (aussortierte Stellen, Bewerbungen und ihr Verlauf, mit lokaler KI auch die Nutzung der letzten 30 Tage) und welche nicht (Dokumente, Mails, Profil, Kontakte). Jeder Lernlauf steht dort mit Ergebnis — und wenn nichts herauskam, mit dem Grund. „Lerndaten exportieren“ lädt alles zum Nachlesen herunter. Ausschalten kannst du das Lernen unter Datenschutz." },
-  { q: "Wie aktualisiere ich PBP?", a: "Neue Version herunterladen und den Installer erneut starten. Deine Daten bleiben erhalten; vorher legt PBP eine Sicherung an." },
+  { q: "Wie aktualisiere ich PBP?", a: "Einstellungen › Erweitert › Updates: PBP sagt Bescheid, wenn es eine neue Version gibt, und installiert sie auf Wunsch mit einem Klick (zurzeit nur unter Windows). Danach PBP und Claude Desktop neu starten. Sonst, unter macOS und Linux oder beim Wechsel auf eine neue Hauptversion: neue Version herunterladen und den Installer erneut starten. Deine Daten bleiben erhalten; vorher legt PBP eine Sicherung an." },
+  { q: "Was räumt PBP auf, und was löscht es nie?", a: "Einstellungen › Erweitert › Speicher & Downloads zeigt, wohin PBP schreibt und wie viel dort liegt. Aufräumen zeigt erst eine Vorschau und fragt dann. Was anderen Programmen gehört (der Browser der Jobsuche, KI-Modelle), zeigt PBP nur und löscht es nie." },
+  { q: "Was ist ein Firmen-Eintrag?", a: "Unter Kontakte › Firmen führt PBP alles zu einer Firma in einer Zeitleiste zusammen. Verschiedene Schreibweisen derselben Firma lassen sich zu einem Eintrag fassen. PBP schlägt das nur vor und legt nichts ohne dein Ja an." },
+  { q: "Liest PBP meine Mails?", a: "Nein, nicht von selbst: PBP öffnet nie ein Postfach. Mails kommen nur an, wenn du sie im Mail-Programm an PBP schickst. Der Ordner-Scan unter Erweitert › Quellen im Detail › Mail-Ordner ist standardmäßig aus und gilt nur für Ordner, die du ausdrücklich freigibst." },
+  { q: "Wofür ist die Texterkennung?", a: "Gescannte PDFs, zum Beispiel alte Zeugnisse, haben keinen Text, den PBP lesen kann. Die Texterkennung liest sie. Sie ist ein Zusatzprogramm (etwa 55 MB) unter Einstellungen › Erweitert › Erweiterungen und wird nur mit deinem Ja heruntergeladen." },
 ];
 
 export const PROBLEME = [
@@ -158,5 +167,7 @@ export const PROBLEME = [
   { q: "Eine Börse blockiert", a: "Manche Börsen erkennen automatische Abrufe. Diese Quellen laufen über den Browser mit Claude: „Jobsuche mit Claude“ nennt sie und erklärt den Weg." },
   { q: "Die Fahrzeit ist viel zu kurz", a: "Fahrstrecke und Fahrzeit gelten fürs Auto. Wer mit Bus und Bahn pendelt, nimmt unter Suche & Bewertung › Max. Entfernung pro Stellentyp den Haken „Echte Fahrstrecke und Fahrzeit verwenden“ ab; dann rechnet PBP mit der Luftlinie." },
   { q: "Stellen ohne Anzeigentext", a: "Manche Börsen liefern in der Trefferliste keinen Text. PBP lädt ihn nach der Suche im Hintergrund nach, die Zahl steht im Hinweis zur Jobsuche; der Rest folgt mit der Automatik." },
-  { q: "Ein Dokument liefert keinen Text", a: "Gescannte PDFs haben oft keine Textebene. PBP sagt das beim Hochladen; den Text kannst du über Claude nachtragen." },
+  { q: "Ein Dokument liefert keinen Text", a: "Gescannte PDFs haben oft keine Textebene. PBP sagt das beim Hochladen. Mit der Texterkennung (Einstellungen › Erweitert › Erweiterungen) liest PBP sie selbst; sonst kannst du den Text über Claude nachtragen." },
+  { q: "Nach einem Update läuft die alte Version", a: "1. Schließe das schwarze Fenster „PBP Bewerbungs-Portal“, beende Claude Desktop ganz (Rechtsklick auf das Symbol unten rechts in der Taskleiste → „Beenden“) und starte beides neu.\n2. Steht danach noch die alte Version in der Seitenleiste, hat sich die neue nicht starten lassen: PBP ist von selbst auf die vorige zurückgesprungen und sagt es auf dem Dashboard. Du verlierst nichts.\n3. Einstellungen › Erweitert › Updates › Verlauf zeigt, was geschehen ist." },
+  { q: "PBP bietet kein Update an", a: "PBP bietet nur fertige Versionen der eigenen Linie an, zum Beispiel 1.8.x für 1.8. Eine neue Hauptversion wird in der Seitenleiste genannt; die installierst du einmal von Hand (ZIP laden, Installer starten). Mit „Jetzt prüfen“ unter Einstellungen › Erweitert › Updates fragst du sofort nach." },
 ];
