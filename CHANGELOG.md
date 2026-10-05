@@ -45,10 +45,10 @@ Vor dem Installieren: Die Datenbank wird beim ersten Start angehoben, vorher ent
 > gedacht, auch mit den eigenen Daten — drei Dinge vorher:
 >
 > - **Die Datenbank wird beim ersten Start auf das Schema v52 angehoben** (die Stable-Linie 1.7 hat v48). Der Installer legt vorher eine Sicherung an
-> (`%LOCALAPPDATA%\BewerbungsAssistent\data\backups\`). Der Weg zurück zu 1.7.x führt nur über diese Sicherung.
+> (`%LOCALAPPDATA%\BewerbungsAssistent\data\backups\`).
 > - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
 > - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
-> dann das ZIP von v1.7.153 installieren.
+> dann das ZIP von v1.7.153 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Diese Beta sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.153 geliefert haben; die Einzelheiten stehen in den
