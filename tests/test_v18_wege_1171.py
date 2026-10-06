@@ -220,6 +220,39 @@ def test_firma_oeffnet_stelle_und_person_selbst(browser, server):
         page.close()
 
 
+# ── Adresse: der Link aus Claude ────────────────────────────────────────────────────────
+
+def test_link_aus_claude_oeffnet_die_stelle(browser, server):
+    """`#stellen/<Kennung>` fuehrt „direkt zur Stelle“ (so beschreibt es die Anleitung an Claude) — wie `#bewerbungen/<id>` die
+    Timeline oeffnet. Vorher blaetterte er nur in der Liste und markierte die Zeile."""
+    page = _seite(browser, server["url"], "stellen/wg1")
+    try:
+        assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
+        assert "Sachbearbeitung Einkauf" in page.locator("[role=dialog]").inner_text()
+    finally:
+        page.close()
+
+
+def test_link_aus_claude_oeffnet_auch_eine_stelle_hinter_der_ersten_seite(browser, server):
+    """Die Liste laedt 20 Stellen auf einmal. Eine Stelle dahinter steht nicht in der geladenen Liste — der Sprung holt sie
+    einzeln, statt still ins Leere zu laufen."""
+    server["db"].save_jobs(
+        [{"hash": f"wgfuell{n:02d}", "title": f"Fuellstelle {n:02d}", "company": "Fuell GmbH", "url": f"https://example.com/f{n}",
+          "source": "manuell", "description": TEXT, "score": 60 - n} for n in range(26)]
+        + [{"hash": "wgende", "title": "Letzte Stelle im Bestand", "company": "Ende GmbH", "url": "https://example.com/ende",
+            "source": "manuell", "description": TEXT, "score": 1}])
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    abgefragt = []
+    page.on("request", lambda r: abgefragt.append(r.url))
+    try:
+        page.goto(f"{server['url']}/#stellen/wgende", wait_until="load", timeout=30000)
+        assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
+        assert "Letzte Stelle im Bestand" in page.locator("[role=dialog]").inner_text()
+        assert any(u.endswith("/api/jobs/wgende") for u in abgefragt), "die Stelle kam nicht ueber die Einzelabfrage"
+    finally:
+        page.close()
+
+
 def test_nach_bewerbung_speichern_liegt_die_neue_bewerbung_offen_da(browser, server):
     page = _seite(browser, server["url"], "stellen")
     try:

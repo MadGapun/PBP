@@ -58,7 +58,9 @@ export function parseHashZiel(hash = window.location.hash) {
 export function sprungAusHash(ziel) {
   if (!ziel?.kennung) return null;
   if (ziel.page === "bewerbungen") return { applicationId: ziel.kennung };
-  if (ziel.page === "stellen") return { jobHash: ziel.kennung };
+  // #1171 (G85): wie `#bewerbungen/<id>` die Timeline oeffnet, oeffnet `#stellen/<hash>` die Stelle selbst — der Link aus
+  // Claude fuehrt „direkt zur Stelle“, nicht nur in die Liste.
+  if (ziel.page === "stellen") return { jobHash: ziel.kennung, oeffnen: true };
   // #1080: `#kontakte/fi_…` (Firmen-Eintrag) und `#kontakte/firma:Name` führen in die Firmen-Ansicht
   if (ziel.page === "kontakte") return ansichtAusKennung(ziel.kennung);
   return null;
