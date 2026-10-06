@@ -437,6 +437,24 @@ def test_stellenliste_bleibt_nach_dem_ersten_zeichnen_stehen(browser, server):
         page.close()
 
 
+def test_suche_von_claude_steht_nach_wenigen_sekunden_auf_der_seite(browser, server):
+    """Der Gegenpart zur Ruhe im Leerlauf: Startet Claude eine Jobsuche, aendert sich die Datenbank so, dass das Dashboard kein
+    Nachladen ausloest — die Seite muss selbst nachfragen. Mit der Endlosschleife sah sie die Suche sofort (durch Zufall, weil sie
+    staendig fragte); mit einer Frage nur alle 30 Sekunden waere es bis zu eine halbe Minute spaeter (gemessen: 26 s). Jetzt fragt
+    sie alle fuenf Sekunden. Zeit ist hier die Messgroesse, die Grenze ist grosszuegig."""
+    db = server["db"]
+    page = _seite(browser, server["url"], "stellen")
+    try:
+        page.locator("[data-stellenkarte]").first.wait_for(timeout=15000)
+        jid = db.create_background_job("jobsuche", {})
+        db.update_background_job(jid, "running", 40, "Quelle Test | 3 neue Treffer")
+        page.wait_for_function("() => document.body.innerText.includes('Jobsuche läuft')", timeout=12000)
+        db.update_background_job(jid, "fertig", 100, "fertig")
+        page.wait_for_function("() => !document.body.innerText.includes('Jobsuche läuft')", timeout=12000)
+    finally:
+        page.close()
+
+
 def test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste():
     """`useEffectEvent` liefert bei jedem Zeichnen eine NEUE Funktion. Steht sie in der Abhaengigkeitsliste eines Effekts, startet
     der Effekt bei jedem Zeichnen neu — und setzt der Effekt dabei Zustand, entsteht eine Endlosschleife (die Stellen-Seite fragte

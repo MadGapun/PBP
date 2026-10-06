@@ -436,7 +436,7 @@ M_WEGE = [
     ('wg29', 'Stellen: der Abruf „laeuft eine Suche?“ startet nach jeder Antwort neu (Effekt-Ereignis in der Liste)', 'frontend/src/pages/JobsPage.jsx', '  }, [reloadKey]);\n\n  useEffect(() => {\n    if (intent?.page !== "stellen") return;', '  }, [reloadKey, syncRunningSearch]);\n\n  useEffect(() => {\n    if (intent?.page !== "stellen") return;', T_WG),
     ('wg30', 'Stellen: jedes Nachladen ersetzt Liste und Dialog durch die Ladeanzeige', 'frontend/src/pages/JobsPage.jsx', 'if (loading && !einmalGeladen) return <LoadingPanel label="Stellen werden geladen..." />;', 'if (loading) return <LoadingPanel label="Stellen werden geladen..." />;', T_WG),
     ('wg31', 'Stellen: der offene Dialog zeigt weiter den Stand vom Oeffnen', 'frontend/src/pages/JobsPage.jsx', '    if (!frisch || frisch === detailDialog.job) return;\n', '    return;\n', T_WG),
-    ('wg32', 'Bewerbungen: die offene Timeline wird nach dem Nachladen nicht aufgefrischt', 'frontend/src/pages/ApplicationsPage.jsx', '    loadPage();\n    offeneTimelineAuffrischen();\n', '    loadPage();\n', T_WG),
+    ('wg32', 'Bewerbungen: die offene Timeline wird nach dem Nachladen nicht aufgefrischt', 'frontend/src/pages/ApplicationsPage.jsx', '    loadPage();\n    offeneTimelineAuffrischen();\n', '    loadPage();\n', T_WG),    ('wg33', 'Stellen: eine von Claude gestartete Suche erscheint erst nach bis zu 30 Sekunden', 'frontend/src/pages/JobsPage.jsx', 'const SUCHE_ABFRAGE_MS = 5000;', 'const SUCHE_ABFRAGE_MS = 30000;', T_WG),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE}

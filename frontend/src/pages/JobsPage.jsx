@@ -241,6 +241,8 @@ const EMPTY_DISMISS_DIALOG = {
   customReason: "",
 };
 const JOB_HIGHLIGHT_DURATION_MS = 1800;
+// Wie oft die Seite fragt, ob eine Suche laeuft (auch im Ruhezustand; siehe den Abfrage-Effekt).
+const SUCHE_ABFRAGE_MS = 5000;
 
 function blacklistValueForType(job, type) {
   if (!job) return "";
@@ -758,7 +760,10 @@ export default function JobsPage() {
       if (cancelled) return;
       await syncRunningSearch();
       if (cancelled) return;
-      const delay = wasSearchRunningRef.current ? 5000 : 30000;
+      // Auch im Ruhezustand alle 5 Sekunden (frueher 30): eine Suche, die Claude von aussen startet, aendert die Datenbank so,
+      // dass das Dashboard es nicht merkt (kein Nachladen) — sichtbar wurde sie nur, weil die Endlosschleife staendig fragte.
+      // Ohne sie waere es bis zu 30 Sekunden spaeter. Eine Anfrage alle 5 Sekunden ist nichts.
+      const delay = SUCHE_ABFRAGE_MS;
       timer = window.setTimeout(tick, delay);
     };
 
