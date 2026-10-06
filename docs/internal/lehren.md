@@ -559,3 +559,10 @@ stimmten Klick für Klick, aber das Ergebnis des Dritten — das Urteil, das Cla
 Anfang. Ein Weg-Test, der nur klickt, sieht das nicht. Regel: bei jedem Weg, an dem Claude mitschreibt, im Test das Schreiben nachstellen (über den einen Schreibort der
 Datenbank) und prüfen, was der Mensch sieht: kommt es an, bleibt die Leseposition, flackert nichts?
 *Belege:* #1171, `test_urteil_von_claude_kommt_im_offenen_dialog_an`, `test_notiz_von_claude_kommt_in_der_offenen_timeline_an`
+
+**L63. Wer eine Endlosschleife entfernt, prüft, was sie nebenbei erledigt hat.** Die Reparatur der Stellen-Seite war eine Zeile und senkte die Last von 66 % auf 0,2 %.
+Die Gegenprobe der Reparatur selbst — „sieht die Seite eine Suche, die Claude von außen startet, noch?“ — zeigte: vorher nach 0,1 Sekunden (durch Zufall: die Schleife
+fragte ständig), nachher nach 26 Sekunden (die Seite fragte nur alle 30 Sekunden nach, so war es gedacht, hatte aber nie gewirkt). Hätte ich nur „Last gesunken, Tests grün“
+geprüft, wäre ein Hotfix mit einer neuen, stillen Verschlechterung hinausgegangen. Regel: nach dem Abschalten eines Dauerläufers fragen, welche Beobachtung ihn bisher
+unbemerkt als Taktgeber hatte, und genau diesen Weg messen — vorher und nachher, mit demselben Skript.
+*Belege:* #1171, `test_suche_von_claude_steht_nach_wenigen_sekunden_auf_der_seite`, Gegenprobe wg33
