@@ -123,6 +123,21 @@ def _dialog_titel(page, erwartet, frist=10000):
     return page.evaluate("""() => { const d = [...document.querySelectorAll('[role=dialog]')]; return d[d.length - 1].querySelector('h2,h3').innerText; }""")
 
 
+def _dialog_zeigt(page, text, frist=15000):
+    """Wartet auf den Zustand: der oberste Dialog traegt den Text. Ein Dialog zeigt oft zuerst „Lade …“ (die Stelle holt sich ihre
+    Daten selbst) — wer den Titel hat, hat noch nicht den Inhalt (Lehre L58)."""
+    page.wait_for_function(
+        """t => { const d = [...document.querySelectorAll('[role=dialog]')]; return d.length > 0 && d[d.length - 1].innerText.includes(t); }""",
+        arg=text, timeout=frist)
+    return page.locator("[role=dialog]").last.inner_text()
+
+
+def _dialog_feld(page, erwartet, frist=15000):
+    """Wartet, bis das erste Eingabefeld des Dialogs den erwarteten Wert traegt."""
+    page.wait_for_function(
+        """v => { const i = document.querySelector('[role=dialog] input'); return !!i && i.value === v; }""", arg=erwartet, timeout=frist)
+
+
 def _ruhig(page):
     """Wartet, bis der Dialoginhalt aufgehoert hat zu scrollen (fuenf Bilder lang dieselbe Position) — Zustand, nicht Zeit."""
     page.evaluate("""() => new Promise((fertig) => { const k = document.querySelector('[data-modal-koerper]'); let letzte = -1, gleich = 0;
@@ -154,7 +169,7 @@ def test_dashboard_top_stelle_oeffnet_die_stelle(browser, server):
     try:
         page.locator("[data-top-stelle]").first.click(timeout=15000)
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
-        assert "Sachbearbeitung Einkauf" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Sachbearbeitung Einkauf")
     finally:
         page.close()
 
@@ -166,7 +181,7 @@ def test_bewerbungskarte_fuehrt_zur_stelle(browser, server):
     try:
         page.locator("[data-karte-zur-stelle]").first.click(timeout=15000)
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
-        assert "Disponent Lager" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Disponent Lager")
     finally:
         page.close()
 
@@ -189,7 +204,7 @@ def test_person_in_der_bewerbung_fuehrt_zur_karte_und_die_karte_zurueck(browser,
         _dialog_titel(page, "Timeline")
         page.locator("[data-person-sprung]").first.click(timeout=15000)
         assert _dialog_titel(page, "Kontakt") == "Kontakt bearbeiten"
-        assert page.locator("[role=dialog] input").first.input_value() == "Kim Beispiel"
+        _dialog_feld(page, "Kim Beispiel")
         verknuepfung = page.locator("[data-kontakt-verknuepfungen] button[data-verknuepfung-sprung='application']").first
         text = verknuepfung.inner_text()
         assert text.startswith("Bewerbung:") and "Disponent Lager" in text and "Beispiel AG" in text, text
@@ -208,14 +223,14 @@ def test_firma_oeffnet_stelle_und_person_selbst(browser, server):
     try:
         page.get_by_role("button", name="Kontakt öffnen").first.click(timeout=15000)
         assert _dialog_titel(page, "Kontakt") == "Kontakt bearbeiten"
-        assert page.locator("[role=dialog] input").first.input_value() == "Kim Beispiel"
+        _dialog_feld(page, "Kim Beispiel")
     finally:
         page.close()
     page = _seite(browser, url, firma)
     try:
         page.get_by_role("button", name="Stelle öffnen").first.click(timeout=15000)
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
-        assert "Disponent Lager" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Disponent Lager")
     finally:
         page.close()
 
@@ -228,7 +243,7 @@ def test_link_aus_claude_oeffnet_die_stelle(browser, server):
     page = _seite(browser, server["url"], "stellen/wg1")
     try:
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
-        assert "Sachbearbeitung Einkauf" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Sachbearbeitung Einkauf")
     finally:
         page.close()
 
@@ -247,7 +262,7 @@ def test_link_aus_claude_oeffnet_auch_eine_stelle_hinter_der_ersten_seite(browse
     try:
         page.goto(f"{server['url']}/#stellen/wgende", wait_until="load", timeout=30000)
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
-        assert "Letzte Stelle im Bestand" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Letzte Stelle im Bestand")
         assert any(u.endswith("/api/jobs/wgende") for u in abgefragt), "die Stelle kam nicht ueber die Einzelabfrage"
     finally:
         page.close()
@@ -266,7 +281,7 @@ def test_nach_bewerbung_speichern_liegt_die_neue_bewerbung_offen_da(browser, ser
         weiter = page.locator("[data-weiter-unterlagen]")
         assert weiter.count() == 2, "Lebenslauf und Anschreiben sind der naechste Schritt, solange die Bewerbung vorbereitet wird"
         assert all(_im_fenster(page, w) for w in weiter.all()), "die Knoepfe liegen nicht ohne Scrollen im Fenster"
-        assert page.locator("[role=dialog]").inner_text().count("In Vorbereitung") >= 1
+        assert _dialog_zeigt(page, "In Vorbereitung").count("In Vorbereitung") >= 1
     finally:
         page.close()
 
@@ -343,7 +358,7 @@ def test_urteil_von_claude_kommt_im_offenen_dialog_an(browser, server):
     page = _seite(browser, server["url"], "stellen/wglang")
     try:
         _dialog_titel(page, "Stellendetails")
-        assert "Lange Anzeige Einkauf" in page.locator("[role=dialog]").inner_text()
+        _dialog_zeigt(page, "Lange Anzeige Einkauf")
         koerper = page.locator("[data-modal-koerper]")
         koerper.evaluate("k => { k.scrollTop = 200; }")
         vorher = koerper.evaluate("k => k.scrollTop")
