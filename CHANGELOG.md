@@ -33,6 +33,109 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.17] - 2026-10-06 — Ein Klick zum Nächsten (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Die Wege durch PBP sind kürzer — von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung ist es je ein Klick. Die Timeline hat oben eine Sprungleiste.
+Was Claude schreibt (ein Urteil zu einer Stelle, eine Notiz), erscheint im offenen Fenster, und die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.16 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.16 auf beta.17:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.154 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt den Wunsch „jeder Schritt höchstens einen Klick vom nächsten“ (#1171) in seinem ersten Teil um: die Verbindungen, die fehlten, und eine Sprungleiste in der Timeline. Dazu kommt eine Reparatur, die auch die Stable-Version betrifft (Hotfix v1.7.154): die Seite „Stellen“ belegte im Leerlauf den Browser zu zwei Dritteln.
+
+**Wichtig zu wissen:**
+
+- **Jeder Schritt von der Stelle über die Bewerbung bis zur Person ist einen Klick entfernt.** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung (früher: nur die Aufgabenliste). Nach „Bewerbung speichern“ liegt die neue Bewerbung offen da, mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß. In der Timeline führt der Name der Person zu ihrer Karte; dort steht oben „Bewerbung: Titel bei Firma“, ein Klick führt zurück. Auf der Bewerbungskarte steht „Zur Stelle“, in der Aufgabenzeile „Zur Bewerbung“; die Top-Stelle im Dashboard und „Stelle öffnen“ / „Kontakt öffnen“ in der Firma öffnen das Objekt selbst, nicht nur die Liste. Der Link aus Claude (`#stellen/…`) öffnet die Stelle.
+- **Sprungleiste in der Timeline.** Oben steht „Springe zu: Status · Stelle · Dokumente · Personen · Aufgaben · Termine · Verlauf“. Sie bleibt beim Scrollen stehen und legt den Abschnitt direkt darunter, statt 800 bis 1.700 Pixel zu scrollen.
+- **Was Claude schreibt, kommt im offenen Fenster an.** Speichert Claude ein Urteil zu einer Stelle oder eine Notiz zu einer Bewerbung, während du sie offen hast, erscheint das nach ein bis drei Sekunden. Die Leseposition bleibt, nichts flackert. Vorher musste man das Fenster schließen und neu öffnen.
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe.** Sie fragte pausenlos, ob gerade eine Suche läuft (gemessen 270 bis 470 Anfragen pro Sekunde, Hauptthread zu 66 % beschäftigt, auch in 1.7.153). Jetzt sind es 0,8 Anfragen pro Sekunde und 0,3 %. Eine Suche, die Claude von außen startet, erscheint nach spätestens etwa fünf Sekunden.
+- **Noch nicht drin** (wartet auf Antworten am Issue #1171): die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand (die Zurück-Taste der Maus), die kompakten Listenköpfe.
+
+### Added
+
+- **Jeder Schritt von der Stelle über die Bewerbung bis zur Person ist einen Klick entfernt** (#1171). Dazu `frontend/src/lib/wege.js` als ein Ort für alle Sprünge (statt 36 verstreuter Aufrufe), `GET /api/contacts/{id}` (neu, steht hinter `export.csv`, damit die festen Pfade nicht verschluckt werden), Verknüpfungen eines Kontakts mit lesbarem Ziel („Bewerbung: Titel bei Firma“ statt „application“) und `GET /api/jobs/{hash}` mit denselben Feldern wie die Liste (Punkte, Daumen, Datenqualität).
+- **Sprungleiste im Dialog „Timeline“** (#1171): Status · Stelle · Dokumente · Personen · Aufgaben · Termine · Verlauf; markiert den aktuellen Abschnitt, bleibt beim Scrollen stehen.
+- **Der Link aus Claude `#stellen/<Kennung>` öffnet die Stelle** (#1171), wie `#bewerbungen/<id>` die Timeline öffnet; liegt die Stelle nicht auf der geladenen Seite der Liste, wird sie einzeln geholt.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechs Kataloge, 270 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24, Komponenten 6, Mail 20, Firmen 86, Wege 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft); der Test ist gehärtet.
+
+### Fixed
+
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf wieder in Ruhe** (#1171). Eine Funktion aus `useEffectEvent` stand in der Abhängigkeitsliste des Abfrage-Effekts; sie ist bei jedem Zeichnen neu, und jede Antwort setzt `searchJob` neu, sodass der Effekt nach jeder Antwort von vorn lief. Seit März 2026 (v0.23.0) im Code. Behoben: der Effekt hängt nur noch von `reloadKey` ab, die Seite fragt alle 5 Sekunden. Zwei Wächter-Tests halten es fern: einer sieht jede der elf Seiten im Leerlauf an, einer lässt keine neuen Effekt-Ereignisse in Abhängigkeitslisten zu.
+- **Was Claude schreibt, kam im offenen Fenster nicht an** (#1171): das Urteil zu einer Stelle und eine Notiz in der Timeline erschienen erst nach Schließen und Öffnen, und die Seite sprang dabei an den Anfang. Der offene Dialog wird nach dem Nachladen aufgefrischt (nicht, solange du bearbeitest).
+- **Die Ladeanzeige ersetzte bei jedem Nachladen die ganze Seite** (#1171): der Start lädt jede Seite zweimal, und jede Änderung durch Claude löst ein Nachladen aus; Liste und offener Dialog flackerten. In „Stellen“ und „Bewerbungen“ erscheint sie jetzt nur noch beim ersten Laden. Der Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der daran scheiterte, ist wieder stabil.
+
+### Known Issues
+
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+37 neue Tests (8.226 gesamt, gezählt im Klon des Zweigs; beta.16 hatte 8.189): 25 in `tests/test_v18_wege_1171.py` (16 davon im Browser gegen das gebaute Bundle: jeder Weg der Tabelle oben, die Sprungleiste, ein Urteil und eine Notiz von Claude im offenen Fenster, eine von außen gestartete Suche, Ruhe im Leerlauf) und 12 in `tests/test_v18_leerlauf_alle_seiten_1171.py` (jede der elf Seiten im Leerlauf, dazu die Liste der Seiten gegen `PAGE_IDS`). Voller Lauf auf Windows (vier Teile): 8.197 bestanden, 29 übersprungen (27 Zeitzonen-Tests, die es nur unter Linux und macOS gibt, und 2 plattformgebundene), 0 Fehler. GitHub-Lauf (Linux) auf dem Stand vor dem Versionssprung: 8.140 bestanden, 86 übersprungen, 0 Fehler; ein früherer Lauf war rot an einem Wartefehler in einem meiner neuen Tests (er las den Dialog, bevor die Stelle geladen war), behoben. Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): Katalog „Wege“, 33 von 33 erkannt, auf dem Endstand vollständig gelaufen. 20 Wegeprüfungen am Demo-Dashboard (jeder Weg mit Klickzahl): 20 von 20. Messungen mit demselben Skript, Demo-Daten, fünf Sekunden nach dem Laden: Seite „Stellen“ im Leerlauf 66 % und 270 bis 470 Anfragen pro Sekunde (v1.7.153) gegen 0,3 % und 0,8; eine von Claude gestartete Suche steht nach 1,3 Sekunden auf der Seite (Obergrenze 5).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8226 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.17.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.17.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.17 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.16] - 2026-10-05 — Updates, die sich selbst installieren (Vorabversion)
 
 <!-- anwender -->

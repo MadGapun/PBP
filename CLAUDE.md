@@ -10,9 +10,9 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.7.153 (`--latest`, 2026-10-05), Linie 1.7; Hotfix-Branches
+- **Stable:** v1.7.154 (`--latest`, 2026-10-06), Linie 1.7; Hotfix-Branches
   `hotfix/v1.7.N` vom letzten 1.7-Tag.
-- **Beta:** 1.8.0-beta.16 (1.8-PR; `main` = beta.15), GitHub-Prereleases. Plugins
+- **Beta:** 1.8.0-beta.17 (1.8-PR; `main` = beta.15), GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
 - **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 wird das **Auto-Update-Release**
