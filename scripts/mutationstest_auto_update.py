@@ -14,10 +14,11 @@ Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
     git worktree add --detach C:/Temp/pbp_mutation HEAD
     python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
 
-Fuenf Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
+Sechs Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
 `speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131),
 `komponenten` (kein Installer ohne Pruefsumme; #1152), `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947) und
-`firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080).
+`firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080) und
+`wege` (Wege durch PBP: jeder Sprung, jede Verknuepfung, die Sprungleiste; #1171 — baut das Bundle bei Frontend-Eintraegen neu).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -398,13 +399,54 @@ M_FIRMEN = [
     ("fr04", "Endpunkt: Fehler kommen als 200 zurueck", DASH, '    code = _FIRMEN_FEHLER.get(erg.get("status"))', "    code = None", T_FI),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN}
+T_WG = ["tests/test_v18_wege_1171.py"]
+T_WGF = T_WG + ["tests/test_v18_firmen_ansicht_1080.py"]
+
+# Wege durch PBP (#1171, G85): jeder Weg einzeln unterbrochen. Die Frontend-Eintraege (frontend/...) bauen das Bundle vor dem Test neu,
+# denn die Browser-Tests pruefen das gebaute Bundle. Der Arbeitsbaum braucht dafuer `frontend/node_modules` (Junction oder Link).
+M_WEGE = [
+    ('wg01', 'Dashboard: die Nachfass-Zeile fuehrt wieder nur auf die Aufgaben-Seite', 'frontend/src/components/OffenBlock.jsx', '    const ziel = offenZeileZiel(eintrag);\n    if (ziel) return navigateTo?.(ziel.seite, ziel.intent || undefined);\n', '    return navigateTo?.("aufgaben");\n', T_WG),
+    ('wg02', 'wege.js: eine Zeile mit Bewerbung kennt ihre Bewerbung nicht', 'frontend/src/lib/wege.js', '  const bew = zuBewerbung(eintrag.bewerbung_id);\n  return bew || { seite: "aufgaben", intent: null };\n', '  return { seite: "aufgaben", intent: null };\n', T_WG),
+    ('wg03', 'wege.js: eine Stelle wird angescrollt, nicht geoeffnet', 'frontend/src/lib/wege.js', 'intent: { focus: "job", jobHash: h, oeffnen: true }', 'intent: { focus: "job", jobHash: h }', T_WG),
+    ('wg04', 'Nach dem Speichern bleibt die neue Bewerbung unter der Liste', 'frontend/src/pages/JobsPage.jsx', '      if (neu) navigateTo(neu.seite, neu.intent);\n      else navigateTo("bewerbungen");\n', '      navigateTo("bewerbungen");\n', T_WG),
+    ('wg05', 'Stellen-Seite liest die Absicht `oeffnen` nicht', 'frontend/src/pages/JobsPage.jsx', '      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));\n', '', T_WG),
+    ('wg06', 'Stellen-Seite oeffnet die gemerkte Stelle nie', 'frontend/src/pages/JobsPage.jsx', '    if (loading || !pendingOpenJobHash) return undefined;\n    const hash = pendingOpenJobHash;', '    return undefined;\n    const hash = pendingOpenJobHash;', T_WG),
+    ('wg07', 'Stelle ausserhalb der geladenen Seite: die Einzelantwort wird verworfen', 'frontend/src/pages/JobsPage.jsx', '.then((einzeln) => { if (einzeln) openDetailDialog(einzeln); })', '.then(() => {})', T_WG),
+    ('wg08', 'Kontakte-Seite liest die Absicht `kontaktId` nicht', 'frontend/src/pages/ContactsPage.jsx', '      if (intent.kontaktId) {\n', '      if (false) {\n', T_WG),
+    ('wg09', 'Kontakt-Dialog: die Verknuepfung ist wieder nur Text', 'frontend/src/pages/ContactsPage.jsx', '{z.ziel ? (', '{false ? (', T_WG),
+    ('wg10', 'Bewerbung: der Name der Person fuehrt nirgends hin', 'frontend/src/pages/ApplicationsPage.jsx', 'onClick={() => { const z = zuKontakt(c.id); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => {}}', T_WG),
+    ('wg11', 'Bewerbungskarte: „Zur Stelle“ tut nichts', 'frontend/src/pages/ApplicationsPage.jsx', '<Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle', '<Button variant="secondary" onClick={() => {}} data-karte-zur-stelle', T_WG),
+    ('wg12', 'Timeline: kein naechster Schritt fuer die Unterlagen', 'frontend/src/pages/ApplicationsPage.jsx', '{timelineDialog.entry?.application?.status === "in_vorbereitung" && !timelineDialog.entry?.application?.cv_path && (', '{false && (', T_WG),
+    ('wg13', 'Aufgabe: „Zur Bewerbung“ tut nichts', 'frontend/src/pages/TasksPage.jsx', 'onClick={(ev) => { ev.stopPropagation(); springeZurBewerbung(e); }}', 'onClick={(ev) => { ev.stopPropagation(); }}', T_WG),
+    ('wg14', 'Dashboard: die Top-Stelle scrollt nur noch', 'frontend/src/pages/DashboardPage.jsx', 'onClick={() => { const z = zuStelle(job.hash); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}', T_WG),
+    ('wg15', 'Sprungleiste: steht 20 px unter dem Rand, darueber scrollt Inhalt vorbei', 'frontend/src/components/Sprungleiste.jsx', 'sticky -top-5 z-20', 'sticky top-0 z-20', T_WG),
+    ('wg16', 'Sprungleiste: der letzte Abschnitt wird am Ende nicht als aktuell markiert', 'frontend/src/components/Sprungleiste.jsx', '      if (alle.length && koerper.scrollTop + koerper.clientHeight >= koerper.scrollHeight - 2) {', '      if (false) {', T_WG),
+    ('wg17', 'Sprungleiste: der Abschnitt landet hinter der Leiste', 'frontend/src/components/Sprungleiste.jsx', 'koerper.scrollTop - leiste - 8;', 'koerper.scrollTop - 8;', T_WG),
+    ('wg18', 'Dialog: der scrollende Inhalt traegt keine Kennung mehr', 'frontend/src/components/ui.jsx', '<div data-modal-koerper className="soft-scrollbar', '<div className="soft-scrollbar', T_WG),
+    ('wg19', 'Timeline: der Abschnitt Personen ist nicht mehr anspringbar', 'frontend/src/pages/ApplicationsPage.jsx', '<Card data-abschnitt="personen" className=', '<Card className=', T_WG),
+    ('wg20', 'Kontakt: die Verknuepfung nennt ihr Ziel nicht', 'src/bewerbungs_assistent/database.py', 'link.update(ziel_titel=row["title"] or "", ziel_firma=row["company"] or "", ziel_status=row["status"] or "", ziel_gefunden=True)', 'link.update(ziel_gefunden=True)', T_WG),
+    ('wg21', 'Route: eine Kennung verschluckt die festen Pfade (export.csv)', 'src/bewerbungs_assistent/dashboard.py', '@app.get("/api/contacts/export.csv")', '@app.get("/api/contacts/export-csv")', T_WG),
+    ('wg22', 'Firma: der Kontakt-Eintrag traegt keine Kennung der Person', 'src/bewerbungs_assistent/services/firmen_ansicht.py', ', "kontakt_id": b.get("kontakt_id") or ""},', '},', T_WGF),
+    ('wg23', 'firmen.js: ein Kontakt-Sprung kennt die Person nicht', 'frontend/src/lib/firmen.js', '      const z = zuKontakt(ziel.kontakt_id);', '      const z = null;', T_WG),
+    ('wg24', 'wege.js: die Verknuepfung nennt ihren Titel nicht', 'frontend/src/lib/wege.js', '  if (titel) text += `: ${titel}`;\n', '', T_WG),
+    ('wg25', 'wege.js: die Abschnitte der Sprungleiste stehen in falscher Reihenfolge', 'frontend/src/lib/wege.js', '  { kennung: "dokumente", label: "Dokumente" },\n  { kennung: "personen", label: "Personen" },\n', '  { kennung: "personen", label: "Personen" },\n  { kennung: "dokumente", label: "Dokumente" },\n', T_WG),
+    ('wg26', 'Einzelne Stelle: ohne Anreicherung (roher Wert, keine Daumen)', 'src/bewerbungs_assistent/dashboard.py', '        _db._mit_scoring_reglern([job], sortieren=False)\n        _guete_anreichern([job])\n', '        pass\n', T_WG),
+    ('wg27', 'Bewerbungen: jedes Nachladen ersetzt die Seite samt Dialog durch die Ladeanzeige', 'frontend/src/pages/ApplicationsPage.jsx', 'if (loading && applications.length === 0 && !timelineDialog.open) return', 'if (loading) return', T_WG),
+    ('wg28', 'Link aus Claude: `#stellen/<Kennung>` blaettert nur in der Liste', 'frontend/src/utils.js', 'return { jobHash: ziel.kennung, oeffnen: true };', 'return { jobHash: ziel.kennung };', T_WG),
+    ('wg29', 'Stellen: der Abruf „laeuft eine Suche?“ startet nach jeder Antwort neu (Effekt-Ereignis in der Liste)', 'frontend/src/pages/JobsPage.jsx', '  }, [reloadKey]);\n\n  useEffect(() => {\n    if (intent?.page !== "stellen") return;', '  }, [reloadKey, syncRunningSearch]);\n\n  useEffect(() => {\n    if (intent?.page !== "stellen") return;', T_WG),
+    ('wg30', 'Stellen: jedes Nachladen ersetzt Liste und Dialog durch die Ladeanzeige', 'frontend/src/pages/JobsPage.jsx', 'if (loading && !einmalGeladen) return <LoadingPanel label="Stellen werden geladen..." />;', 'if (loading) return <LoadingPanel label="Stellen werden geladen..." />;', T_WG),
+    ('wg31', 'Stellen: der offene Dialog zeigt weiter den Stand vom Oeffnen', 'frontend/src/pages/JobsPage.jsx', '    if (!frisch || frisch === detailDialog.job) return;\n', '    return;\n', T_WG),
+    ('wg32', 'Bewerbungen: die offene Timeline wird nach dem Nachladen nicht aufgefrischt', 'frontend/src/pages/ApplicationsPage.jsx', '    loadPage();\n    offeneTimelineAuffrischen();\n', '    loadPage();\n', T_WG),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP),),
     "komponenten": (("T_KP", T_KP),),
     "mail": (("T_MQ", T_MQ),),
     "firmen": (("T_FI", T_FI),),
+    "wege": (("T_WG", T_WG),),
 }
 
 WT = None
@@ -425,6 +467,19 @@ def pytest(tests):
 
 def zuruecksetzen():
     subprocess.run(["git", "checkout", "--", "."], cwd=str(WT), capture_output=True, text=True)
+    # ein neu gebautes Bundle liegt als unversionierte Datei daneben: weg damit, das eingecheckte steht dann wieder
+    subprocess.run(["git", "clean", "-fdq", "--", "src/bewerbungs_assistent/static/dashboard"], cwd=str(WT), capture_output=True, text=True)
+
+
+def bundle_bauen() -> bool:
+    """Baut das Frontend im Arbeitsbaum neu (Eintraege unter frontend/ — die Browser-Tests lesen das GEBAUTE Bundle)."""
+    import shutil
+    pnpm = shutil.which("pnpm") or shutil.which("pnpm.cmd")
+    if not pnpm:
+        return False
+    r = subprocess.run([pnpm, "exec", "vite", "build"], cwd=str(WT / "frontend"), capture_output=True, text=True, timeout=900,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return r.returncode == 0
 
 
 def _symlinks_moeglich() -> bool:
@@ -442,7 +497,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
@@ -483,7 +538,10 @@ def main(argv=None) -> int:
             mutiert = mutiert.replace("\n", "\r\n")
         pfad.write_bytes((b"\xef\xbb\xbf" if original.startswith(b"\xef\xbb\xbf") else b"") + mutiert.encode("utf-8"))
         try:
-            code, fehl, sek, rest = pytest(tests)
+            if datei.startswith("frontend/") and not bundle_bauen():
+                code, fehl, sek, rest = 2, [], 0, "Bundle liess sich nicht bauen (pnpm oder frontend/node_modules fehlt)"
+            else:
+                code, fehl, sek, rest = pytest(tests)
         finally:
             zuruecksetzen()
         urteil = "ERKANNT" if code == 1 else ("UEBERLEBT" if code == 0 else "FEHLERHAFT")
