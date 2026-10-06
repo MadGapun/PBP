@@ -11,6 +11,7 @@
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
 Neu sind außerdem die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
+Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig.
 <!-- /anwender -->
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
@@ -33,6 +34,13 @@ Einträgen darunter.
   schickt weiter nur, was du markierst.
 - **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, als eine Zeitleiste; ein Firmen-Eintrag fasst Schreibweisen zusammen
   („Alt AG“ heißt heute „Neu GmbH“) und kennt die Mutterfirma. Bewerbungen, Stellen und Kontakte behalten ihren Firmennamen als Text.
+- **Ein Klick zum Nächsten (#1171).** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung; nach „Bewerbung speichern“ liegt die neue
+  Bewerbung offen da (mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß); in der Timeline führt der Name der Person zu ihrer Karte,
+  und die Karte nennt oben „Bewerbung: Titel bei Firma“ und führt zurück; „Zur Stelle“ auf der Bewerbungskarte, „Zur Bewerbung“ in der
+  Aufgabenzeile, die Top-Stelle im Dashboard öffnet die Stelle. Die Timeline hat oben eine Sprungleiste (Status · Stelle · Dokumente · Personen ·
+  Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst.
+- **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil, eine Notiz, eine
+  Nachfassung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
 
 ### Added
 
@@ -67,6 +75,16 @@ Einträgen darunter.
 ### Fixed
 
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- **Die Seite „Stellen“ lief im Leerlauf auf Hochtouren** (#1171): sie fragte pausenlos, ob gerade eine Suche läuft — gemessen 270 bis 470 Anfragen
+  pro Sekunde und ein zu zwei Dritteln beschäftigter Hauptthread des Browsers, während niemand etwas tat (alle anderen Seiten: 0,0 %). Ursache war
+  eine Funktion in der Abhängigkeitsliste des Abfrage-Effekts (`useEffectEvent` ist bei jedem Zeichnen eine neue Funktion; jede Antwort setzt den
+  Zustand neu, der Effekt startete sich nach jeder Antwort selbst neu). Die Zeile steht seit März 2026 (v0.23.0) im Code, auch in der Stable-Version
+  v1.7.153. Nachher: 0,2 % und 0,6 Anfragen pro Sekunde. Ein Wächter-Test (`test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`) lässt keine neuen
+  Fälle zu; acht ältere Stellen (App, Ablegen von Dokumenten, Einrichtungsassistent) sind als Bestand benannt, bei ihnen wurde nichts Auffälliges gemessen.
+- Jede Seite lud beim Start zweimal und blendete dabei kurz die schon gezeichnete Liste aus (ein offenes Fenster ging mit, die Leseposition sprang an
+  den Anfang). In „Stellen“ und „Bewerbungen“ erscheint die Ladeanzeige nur noch beim ersten Laden; „Kalender“, „Profil“, „Statistik“ und
+  „Einstellungen“ folgen. Der Welle-4-Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der an diesem Flackern scheiterte, ist wieder stabil.
+- Was Claude schreibt, kam im offenen Fenster nicht an: das Urteil zu einer Stelle und eine Notiz in der Timeline erschienen erst nach Schließen und Öffnen.
 - Benutzernamen mit einem Zeichen außerhalb der Windows-Zeichentabelle (ł, ş, ř, griechisch, kyrillisch; Umlaute waren nie betroffen) ließen
   mehrere Schritte scheitern (#1163): die Claude-Konfiguration und die Sicherung vor dem Update im Installer, den Selbsttest des Auto-Updates
   und die Texterkennung (Tesseract liest Pfade in der ANSI-Tabelle). Behoben: die Ausgabe wird als UTF-8 gelesen und abgesichert, das

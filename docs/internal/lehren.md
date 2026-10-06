@@ -545,3 +545,17 @@ Arbeitsordner und hält ihn fest, der Deinstaller konnte seinen Ordner nicht lö
 Eine Suche nach `start "` und `Start-Process` ohne Arbeitsordner in allen Installern am Tag des ersten Fundes hätte ihn gefunden. Regel: zu jedem Fund einen Satz
 „welche anderen Stellen machen dasselbe?“ und die Suche dazu, noch im selben Zug (DoD 8c: ein Schutz zählt erst, wenn er überall greift).
 *Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51
+
+**L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
+sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln
+auslastete — seit März 2026 in jeder Fassung, auch in der Stable-Version. Keine Meldung, kein Absturz; man bemerkt nur einen lauteren Rechner. Ursache: eine Funktion
+aus `useEffectEvent` stand in einer Abhängigkeitsliste (sie ist bei jedem Zeichnen neu, der Effekt startete nach jeder Antwort neu). Regel: zu jeder Seite die Messung
+„zwei Sekunden Ruhe nach dem Laden, dann fünf Sekunden zählen (Anfragen, Rechenzeit)“; ein gesunder Leerlauf liegt bei 0,0 %. Das Muster ist durchsuchbar; ein
+Wächter-Test (mit benanntem Bestand) hält neue Fälle fern.
+*Belege:* #1171, `test_stellen_seite_fragt_im_leerlauf_nicht_hunderte_male`, `test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`
+
+**L62. Ein Weg endet nicht beim Klick, sondern dort, wo das Ergebnis ankommt.** Die Wege A → B (Stelle ansehen, bewerten lassen, bewerben; bei einer Bewerbung nachfassen)
+stimmten Klick für Klick, aber das Ergebnis des Dritten — das Urteil, das Claude gerade speichert — erschien im offenen Fenster nie, und die Seite sprang dabei an den
+Anfang. Ein Weg-Test, der nur klickt, sieht das nicht. Regel: bei jedem Weg, an dem Claude mitschreibt, im Test das Schreiben nachstellen (über den einen Schreibort der
+Datenbank) und prüfen, was der Mensch sieht: kommt es an, bleibt die Leseposition, flackert nichts?
+*Belege:* #1171, `test_urteil_von_claude_kommt_im_offenen_dialog_an`, `test_notiz_von_claude_kommt_in_der_offenen_timeline_an`
