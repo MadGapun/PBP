@@ -61,8 +61,10 @@ Einträgen darunter.
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 237 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
-  Komponenten 6, Mail 20, Firmen 86); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechs Kataloge, 269 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
+  Komponenten 6, Mail 20, Firmen 86, Wege 32); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+  Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
+  Scrollen); der Test wurde gehärtet, danach wird er erkannt.
 
 ### Changed
 
@@ -79,8 +81,8 @@ Einträgen darunter.
   pro Sekunde und ein zu zwei Dritteln beschäftigter Hauptthread des Browsers, während niemand etwas tat (alle anderen Seiten: 0,0 %). Ursache war
   eine Funktion in der Abhängigkeitsliste des Abfrage-Effekts (`useEffectEvent` ist bei jedem Zeichnen eine neue Funktion; jede Antwort setzt den
   Zustand neu, der Effekt startete sich nach jeder Antwort selbst neu). Die Zeile steht seit März 2026 (v0.23.0) im Code, auch in der Stable-Version
-  v1.7.153. Nachher: 0,2 % und 0,6 Anfragen pro Sekunde. Ein Wächter-Test (`test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`) lässt keine neuen
-  Fälle zu; acht ältere Stellen (App, Ablegen von Dokumenten, Einrichtungsassistent) sind als Bestand benannt, bei ihnen wurde nichts Auffälliges gemessen.
+  v1.7.153. Nachher: 0,2 % und 0,6 Anfragen pro Sekunde. Zwei Wächter-Tests halten es fern: einer sieht jede der elf Seiten im Leerlauf an (gesund sind 1 bis 2 Anfragen in drei Sekunden), einer lässt keine neuen
+  Effekt-Ereignisse in Abhängigkeitslisten zu (`test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`); acht ältere Stellen (App, Ablegen von Dokumenten, Einrichtungsassistent) sind als Bestand benannt, bei ihnen wurde nichts Auffälliges gemessen.
 - Jede Seite lud beim Start zweimal und blendete dabei kurz die schon gezeichnete Liste aus (ein offenes Fenster ging mit, die Leseposition sprang an
   den Anfang). In „Stellen“ und „Bewerbungen“ erscheint die Ladeanzeige nur noch beim ersten Laden; „Kalender“, „Profil“, „Statistik“ und
   „Einstellungen“ folgen. Der Welle-4-Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der an diesem Flackern scheiterte, ist wieder stabil.
