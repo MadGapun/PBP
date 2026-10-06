@@ -315,6 +315,9 @@ def test_sprungleiste_legt_den_abschnitt_unter_die_stehende_leiste(browser, serv
         ziel = page.locator("[data-abschnitt='verlauf']").bounding_box()
         koerper = page.locator("[data-modal-koerper]").bounding_box()
         assert koerper["y"] <= ziel["y"] < koerper["y"] + koerper["height"], (ziel, koerper)
+        # Der Klick setzt die Marke sofort; ob sie NACH dem Scrollen stehen bleibt, entscheidet die Regel fuer das Ende des Inhalts
+        # (der Gegenprobe-Fehler wg16 ueberlebte, solange hier nur die Marke direkt nach dem Klick geprueft wurde).
+        assert page.locator("[data-sprung-abschnitt='verlauf']").get_attribute("aria-current") == "true", "die Marke ging nach dem Scrollen verloren"
         assert page.locator("[data-sprung-abschnitt='personen']").get_attribute("aria-current") is None
     finally:
         page.close()
