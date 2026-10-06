@@ -486,6 +486,10 @@ export function pruefstandTitel(job) {
 export default function JobsPage() {
   const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo, startJobsuche } = useApp();
   const [loading, setLoading] = useState(true);
+  // #1171 (G85): die Ladeanzeige ersetzt die Seite nur beim ERSTEN Laden. Jedes Nachladen (der Start laedt zweimal, jede
+  // Aenderung durch Claude loest eines aus) liess sonst die Liste samt offenem Dialog verschwinden und die Leseposition
+  // verfallen.
+  const [einmalGeladen, setEinmalGeladen] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
   // #1010: Zeitfenster fuer das Aussortier-Protokoll. Ueber 2.000
@@ -660,6 +664,7 @@ export default function JobsPage() {
           if (guete?.umgang) setGuetUmgang(guete.umgang);
         }
         setLoading(false);
+        setEinmalGeladen(true);
         setLoadingMore(false);
       });
     } catch (error) {
@@ -667,7 +672,7 @@ export default function JobsPage() {
       if (!silent) {
         pushToast(`Stellen konnten nicht geladen werden: ${error.message}`, "danger");
       }
-      startTransition(() => { setLoading(false); setLoadingMore(false); });
+      startTransition(() => { setLoading(false); setEinmalGeladen(true); setLoadingMore(false); });
     }
   });
 
@@ -766,7 +771,10 @@ export default function JobsPage() {
         window.clearTimeout(timer);
       }
     };
-  }, [reloadKey, syncRunningSearch]);
+    // Ein Effekt-Ereignis (useEffectEvent) steht NIE in der Abhaengigkeitsliste: es ist bei jedem Zeichnen eine neue
+    // Funktion, und jede Antwort setzt `searchJob` neu — der Effekt startete sich dann nach jeder Antwort selbst neu und
+    // fragte hunderte Male pro Sekunde (gemessen: Hauptthread 66 % beschaeftigt in einer Seite, in der niemand etwas tut).
+  }, [reloadKey]);
 
   useEffect(() => {
     if (intent?.page !== "stellen") return;
@@ -843,6 +851,18 @@ export default function JobsPage() {
       .catch(() => pushToast("Die Stelle konnte nicht geöffnet werden.", "danger"));
     return undefined;
   }, [loading, pendingOpenJobHash, jobs, dismissedJobs]);
+
+  // #1171 (G85): schreibt Claude waehrend der Dialog offen ist (ein Urteil, eine Notiz), zeigt der Dialog danach die frische
+  // Stelle statt des Stands vom Oeffnen. Wer gerade bearbeitet, behaelt seine Eingaben: ihm wird nichts untergeschoben.
+  useEffect(() => {
+    const hash = detailDialog.job?.hash;
+    if (!detailDialog.open || detailDialog.editing || !hash) return;
+    const frisch = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === String(hash));
+    if (!frisch || frisch === detailDialog.job) return;
+    setDetailDialog((aktuell) => (
+      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash) ? { ...aktuell, job: frisch } : aktuell
+    ));
+  }, [jobs, dismissedJobs]);
 
   async function showFitAnalysis(job) {
     try {
@@ -1134,7 +1154,7 @@ export default function JobsPage() {
   // Score — die Reihenfolge nach Zeitpunkt hielt nur bei gleichem Score.
   const ohneZeitpunkt = ausgeblendetMeta.ohne_zeitpunkt;
 
-  if (loading) return <LoadingPanel label="Stellen werden geladen..." />;
+  if (loading && !einmalGeladen) return <LoadingPanel label="Stellen werden geladen..." />;
 
   // v1.7.93 (#1030 AK 6): die Auswahllisten kommen vom Server und
   // beschreiben die ganze Ansicht. Vorher entstanden sie aus den geladenen

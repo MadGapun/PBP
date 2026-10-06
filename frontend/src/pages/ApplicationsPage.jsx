@@ -195,9 +195,21 @@ export default function ApplicationsPage() {
     }
   });
 
+  // #1171 (G85): welche Bewerbung gerade in der Timeline offen ist ("" = keine). Das Auffrischen nach einem Nachladen
+  // (Claude hat geschrieben) liest das nach seiner Antwort, nicht aus dem Stand beim Start.
+  const timelineAppRef = useRef("");
+  useEffect(() => {
+    timelineAppRef.current = timelineDialog.open ? (timelineDialog.entry?.application?.id || "") : "";
+  }, [timelineDialog]);
+  const offeneTimelineAuffrischen = useEffectEvent(() => {
+    const appId = timelineDialog.open ? timelineDialog.entry?.application?.id : "";
+    if (appId) timelineAuffrischen(appId);
+  });
+
   useEffect(() => {
     setLoading(true);
     loadPage();
+    offeneTimelineAuffrischen();
   }, [reloadKey, includeArchivedDataset]);
 
   // #665 (D18): Follow-up direkt aus der "Offene Aktionen"-Liste abhaken,
@@ -396,16 +408,39 @@ export default function ApplicationsPage() {
     }
   }
 
+  // Alles, was die Timeline zeigt, in einem Aufruf (oeffnen und auffrischen holen dasselbe).
+  function holeTimelineDaten(appId) {
+    return Promise.all([
+      api(`/api/application/${appId}/timeline`),
+      api("/api/documents"),
+      api(`/api/applications/${appId}/meetings`).catch(() => ({ meetings: [] })),
+      api(`/api/applications/${appId}/emails`).catch(() => ({ emails: [] })),
+      api(`/api/applications/${appId}/tasks`).catch(() => []),  // #666 D19
+      api(`/api/applications/${appId}/reflexionen`).catch(() => ({ reflexionen: [] })),  // #824 D31
+    ]);
+  }
+
+  // #1171 (G85): schreibt Claude, waehrend die Timeline offen ist (Notiz, Nachfassung, Termin, Mail), muss das dort
+  // ankommen — ohne Schliessen und Oeffnen. Angefasst werden nur die angezeigten Daten, nie die Eingaben des Menschen
+  // (Notiz-Entwurf, Aufgabe, Reflexion) und nicht die Leseposition.
+  async function timelineAuffrischen(appId) {
+    try {
+      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(appId);
+      // Wurde die Timeline inzwischen geschlossen oder zeigt sie eine andere Bewerbung, wird nichts ueberschrieben.
+      if (timelineAppRef.current !== appId) return;
+      setTimelineDialog((aktuell) => ({ ...aktuell, entry: timeline }));
+      setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
+      setDocuments(docs?.documents || []);
+      setTimelineMeetings(meetings?.meetings || []);
+      setTimelineEmails(emails?.emails || []);
+      setTimelineTasks(Array.isArray(tasks) ? tasks : []);
+      setTimelineReflexionen(reflexionen?.reflexionen || []);
+    } catch { /* bleibt beim alten Stand */ }
+  }
+
   async function openTimeline(application) {
     try {
-      const [timeline, docs, meetings, emails, tasks, reflexionen] = await Promise.all([
-        api(`/api/application/${application.id}/timeline`),
-        api("/api/documents"),
-        api(`/api/applications/${application.id}/meetings`).catch(() => ({ meetings: [] })),
-        api(`/api/applications/${application.id}/emails`).catch(() => ({ emails: [] })),
-        api(`/api/applications/${application.id}/tasks`).catch(() => []),  // #666 D19
-        api(`/api/applications/${application.id}/reflexionen`).catch(() => ({ reflexionen: [] })),  // #824 D31
-      ]);
+      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(application.id);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);

@@ -325,6 +325,123 @@ def test_timeline_oeffnet_sich_einmal_und_bleibt(browser, server):
         page.close()
 
 
+# ── Claude schreibt, waehrend etwas offen ist ──────────────────────────────────────────
+
+def _dialoge_beobachten(page):
+    """Haelt bei jeder Aenderung des Dokuments fest, wie viele Dialoge offen sind (Zustand, nicht Zeit)."""
+    page.evaluate("""() => { window.__dialoge = []; const z = () => window.__dialoge.push(document.querySelectorAll('[role=dialog]').length);
+        new MutationObserver(z).observe(document.body, {childList: true, subtree: true}); z(); }""")
+
+
+def test_urteil_von_claude_kommt_im_offenen_dialog_an(browser, server):
+    """Der Weg „eine Stelle ansehen, bewerten lassen, danach bewerben“: Claude speichert das Urteil, waehrend der Mensch die
+    Stelle liest. Es muss im offenen Dialog erscheinen — ohne Schliessen und Oeffnen —, die Leseposition bleibt, und der Dialog
+    flackert nicht. (Vorher blieb der Dialog bei dem Stand vom Oeffnen; die Seite sprang an den Anfang.)"""
+    server["db"].save_jobs([{"hash": "wglang", "title": "Lange Anzeige Einkauf", "company": "Langtext GmbH", "url": "https://example.com/wglang",
+                             "source": "manuell", "description": TEXT * 5, "remote_level": "hybrid", "location": "Hamburg", "score": 7}])
+    voll = server["db"].connect().execute("SELECT hash FROM jobs WHERE hash LIKE '%wglang'").fetchone()["hash"]
+    page = _seite(browser, server["url"], "stellen/wglang")
+    try:
+        _dialog_titel(page, "Stellendetails")
+        assert "Lange Anzeige Einkauf" in page.locator("[role=dialog]").inner_text()
+        koerper = page.locator("[data-modal-koerper]")
+        koerper.evaluate("k => { k.scrollTop = 200; }")
+        vorher = koerper.evaluate("k => k.scrollTop")
+        assert vorher > 100, "der Dialog ist zu kurz, um die Leseposition zu pruefen"
+        assert "Neu bewerten" not in page.locator("[role=dialog]").inner_text()
+        _dialoge_beobachten(page)
+        assert server["db"].set_job_analysis(voll, "EMPFOHLEN", "Passt: Einkauf mit SAP MM steht im Profil.", "detailanalyse")
+        page.wait_for_function("() => document.querySelector('[role=dialog]').innerText.includes('Neu bewerten')", timeout=20000)
+        assert koerper.evaluate("k => k.scrollTop") == vorher, "die Leseposition ging verloren"
+        assert 0 not in page.evaluate("window.__dialoge"), "der Dialog verschwand zwischendurch"
+    finally:
+        page.close()
+
+
+def test_notiz_von_claude_kommt_in_der_offenen_timeline_an(browser, server):
+    """Der Weg „bei einer Bewerbung nachfassen“: schreibt Claude eine Notiz, waehrend die Timeline offen ist, steht sie dort
+    ohne Schliessen und Oeffnen, die Leseposition bleibt, der Dialog flackert nicht."""
+    page = _seite(browser, server["url"], f"bewerbungen/{server['app']}")
+    try:
+        _dialog_titel(page, "Timeline")
+        koerper = page.locator("[data-modal-koerper]")
+        koerper.evaluate("k => { k.scrollTop = 300; }")
+        vorher = koerper.evaluate("k => k.scrollTop")
+        assert vorher > 100, "der Dialog ist zu kurz, um die Leseposition zu pruefen"
+        neu = "Claude hat bei der Personalabteilung nachgefasst"
+        assert neu not in page.locator("[role=dialog]").inner_text()
+        _dialoge_beobachten(page)
+        server["db"].add_application_note(server["app"], neu)
+        page.wait_for_function("t => document.querySelector('[role=dialog]').innerText.includes(t)", arg=neu, timeout=20000)
+        assert koerper.evaluate("k => k.scrollTop") == vorher, "die Leseposition ging verloren"
+        assert 0 not in page.evaluate("window.__dialoge"), "der Dialog verschwand zwischendurch"
+    finally:
+        page.close()
+
+
+# ── Ruhe im Leerlauf ────────────────────────────────────────────────────────────────────
+
+def test_stellen_seite_fragt_im_leerlauf_nicht_hunderte_male(browser, server):
+    """Ein Effekt-Ereignis in der Abhaengigkeitsliste startete den Abruf „laeuft eine Suche?“ nach jeder Antwort neu: gemessen
+    rund 270 bis 465 Anfragen pro Sekunde und ein zu zwei Dritteln beschaeftigter Hauptthread — in einer Seite, in der niemand
+    etwas tat (in jeder Fassung seit v0.23.0). Gesund sind einzelne Anfragen alle paar Sekunden."""
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    anfragen = []
+    page.on("request", lambda r: anfragen.append(r.url) if "/api/" in r.url else None)
+    try:
+        page.goto(f"{server['url']}/#stellen", wait_until="load", timeout=30000)
+        page.locator("[data-stellenkarte]").first.wait_for(timeout=15000)
+        page.wait_for_timeout(1500)  # der Start laedt zweimal; danach muss Ruhe sein
+        davor = len(anfragen)
+        page.wait_for_timeout(3000)
+        im_leerlauf = anfragen[davor:]
+        assert len(im_leerlauf) < 30, f"{len(im_leerlauf)} Anfragen in 3 s im Leerlauf, zum Beispiel {sorted(set(im_leerlauf))[:3]}"
+    finally:
+        page.close()
+
+
+def test_stellenliste_bleibt_nach_dem_ersten_zeichnen_stehen(browser, server):
+    """Der Start laedt jede Seite zweimal (erst die Seite, dann nach den Kopfdaten noch einmal). Die Ladeanzeige ersetzte dabei
+    die schon gezeichnete Liste kurz — ein Flackern, und ein offener Dialog ging mit. Jetzt bleibt die Liste stehen."""
+    page = browser.new_page(viewport={"width": 1440, "height": 900})
+    page.add_init_script("""window.__karten = [];
+        (() => { const z = () => window.__karten.push(document.querySelectorAll('[data-stellenkarte]').length);
+          const start = () => { new MutationObserver(z).observe(document.documentElement, {childList: true, subtree: true}); z(); };
+          if (document.documentElement) start(); else document.addEventListener('DOMContentLoaded', start); })();""")
+    try:
+        page.goto(f"{server['url']}/#stellen", wait_until="load", timeout=30000)
+        page.locator("[data-stellenkarte]").first.wait_for(timeout=15000)
+        page.wait_for_timeout(2500)  # die zweite Ladung kommt Sekundenbruchteile nach der ersten
+        karten = page.evaluate("window.__karten")
+        erste = next(i for i, n in enumerate(karten) if n > 0)
+        assert 0 not in karten[erste:], f"die Liste verschwand nach dem ersten Zeichnen wieder: {karten}"
+    finally:
+        page.close()
+
+
+def test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste():
+    """`useEffectEvent` liefert bei jedem Zeichnen eine NEUE Funktion. Steht sie in der Abhaengigkeitsliste eines Effekts, startet
+    der Effekt bei jedem Zeichnen neu — und setzt der Effekt dabei Zustand, entsteht eine Endlosschleife (die Stellen-Seite fragte
+    so hunderte Male pro Sekunde). Der Bestand unten ist gemessen unauffaellig und bewusst nicht angefasst; NEUE Faelle schlagen an,
+    und wer einen behebt, streicht ihn hier."""
+    bestand = {
+        ("App.jsx", "syncHash"), ("App.jsx", "syncLiveUpdates"),
+        ("components/GlobalDocumentDropZone.jsx", "setDragState"), ("components/GlobalDocumentDropZone.jsx", "hideOverlay"),
+        ("components/GlobalDocumentDropZone.jsx", "processFiles"),
+        ("components/ProfileOnboarding.jsx", "pollConversationState"), ("components/ProfileOnboarding.jsx", "syncProfileDuringConversation"),
+        ("components/ProfileOnboarding.jsx", "syncJobsDuringWorkflow"),
+    }
+    gefunden = set()
+    for datei in list(FRONTEND.rglob("*.jsx")) + list(FRONTEND.rglob("*.js")):
+        text = datei.read_text(encoding="utf-8-sig")
+        for name in re.findall(r"const\s+(\w+)\s*=\s*useEffectEvent\(", text):
+            for liste in re.findall(r"\},\s*\[([^\]]*)\]\s*\)", text):
+                if re.search(rf"\b{name}\b", liste):
+                    gefunden.add((str(datei.relative_to(FRONTEND)).replace("\\", "/"), name))
+    assert gefunden - bestand == set(), f"neue Effekt-Ereignisse in Abhaengigkeitslisten: {sorted(gefunden - bestand)}"
+    assert bestand - gefunden == set(), f"behoben? Dann hier streichen: {sorted(bestand - gefunden)}"
+
+
 # ── Server: Verknuepfungen mit lesbarem Ziel, einzelner Kontakt, Routenreihenfolge ─────────
 
 def test_kontakt_verknuepfungen_nennen_das_ziel(server):
