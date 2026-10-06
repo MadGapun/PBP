@@ -39,8 +39,8 @@ Einträgen darunter.
   und die Karte nennt oben „Bewerbung: Titel bei Firma“ und führt zurück; „Zur Stelle“ auf der Bewerbungskarte, „Zur Bewerbung“ in der
   Aufgabenzeile, die Top-Stelle im Dashboard öffnet die Stelle. Die Timeline hat oben eine Sprungleiste (Status · Stelle · Dokumente · Personen ·
   Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst.
-- **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil, eine Notiz, eine
-  Nachfassung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
+- **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil zur Stelle, eine Notiz, ein Termin, eine
+  Mail zur Bewerbung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
 
 ### Added
 
