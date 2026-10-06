@@ -247,6 +247,11 @@ jobs:
         # traegt zurueck in die Ansicht.
         run: node frontend/src/lib/firmen.test.mjs
 
+      - name: Wege durch PBP - Spruenge, Verknuepfungen, Sprungleiste (Node)
+        # v1.8 (#1171, G85): wohin ein Klick auf Stelle, Bewerbung, Firma, Person oder Termin fuehrt (ein Ort statt 36
+        # Aufrufe), der Satz zu einer Verknuepfung des Kontakts und die Abschnitte der Sprungleiste.
+        run: node frontend/src/lib/wege.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

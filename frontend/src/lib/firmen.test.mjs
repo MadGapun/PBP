@@ -34,8 +34,11 @@ assert.deepEqual(filterZeitleiste(null, "bewerbung"), []);
 // ── Sprünge ───────────────────────────────────────────────────────────────────────────
 assert.deepEqual(sprung({ seite: "bewerbungen", bewerbung_id: "ab12cd34" }), { seite: "bewerbungen", intent: { applicationId: "ab12cd34", focus: "timeline" } });
 assert.deepEqual(sprung({ seite: "bewerbungen" }), { seite: "bewerbungen", intent: null });
-assert.deepEqual(sprung({ seite: "stellen", job_hash: "h1" }), { seite: "stellen", intent: { focus: "job", jobHash: "h1" } });
+assert.deepEqual(sprung({ seite: "stellen", job_hash: "h1" }), { seite: "stellen", intent: { focus: "job", jobHash: "h1", oeffnen: true } }, "die Stelle wird geöffnet (#1171)");
+assert.deepEqual(sprung({ seite: "stellen" }), { seite: "stellen", intent: null });
 assert.deepEqual(sprung({ seite: "kontakte", suche: "Kim" }), { seite: "kontakte", intent: { ansicht: "kontakte", suche: "Kim" } });
+assert.deepEqual(sprung({ seite: "kontakte", suche: "Kim", kontakt_id: "c1" }), { seite: "kontakte", intent: { ansicht: "kontakte", kontaktId: "c1" } }, "mit Kennung öffnet es die Person (#1171)");
+assert.deepEqual(sprung({ seite: "dokumente", dokument_id: "d1" }), { seite: "dokumente", intent: { dokumentId: "d1" } });
 assert.deepEqual(sprung({ seite: "profil" }), { seite: "profil", intent: null });
 assert.equal(sprung({ seite: "irgendwo" }), null, "eine unbekannte Seite führt nirgends hin");
 assert.equal(sprung(null), null);

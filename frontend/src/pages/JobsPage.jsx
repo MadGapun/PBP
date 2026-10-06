@@ -52,6 +52,7 @@ import MitClaude from "@/components/MitClaude";
 import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
+import { zuBewerbung } from "@/lib/wege";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -544,6 +545,8 @@ export default function JobsPage() {
   const [blacklistDialog, setBlacklistDialog] = useState(EMPTY_BLACKLIST_DIALOG);
   const [searchJob, setSearchJob] = useState({ running: false, progress: 0, message: "" });
   const [pendingFocusJobHash, setPendingFocusJobHash] = useState("");
+  // #1171 (G85): ein Sprung mit `oeffnen` zeigt die Stelle nicht nur in der Liste, sondern oeffnet ihre Details.
+  const [pendingOpenJobHash, setPendingOpenJobHash] = useState("");
   const [highlightedJobHash, setHighlightedJobHash] = useState("");
   const [editingScoreHash, setEditingScoreHash] = useState("");
   const [editingScoreValue, setEditingScoreValue] = useState("");
@@ -780,6 +783,7 @@ export default function JobsPage() {
         sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
+      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));
     }
     if (intent.missingDescriptionOnly) {
       setFilters((current) => ({
@@ -820,6 +824,25 @@ export default function JobsPage() {
     filters.pruefstand,
     filters.sort,
   ]);
+
+  // #1171 (G85): die Details der angesprungenen Stelle oeffnen. Die Stelle liegt meist in der geladenen Liste (dann
+  // mit allen Daumen und Punkten); steht sie nicht auf der geladenen Seite, kommt sie einzeln vom Server.
+  useEffect(() => {
+    if (loading || !pendingOpenJobHash) return undefined;
+    const hash = pendingOpenJobHash;
+    const gefunden = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === hash);
+    setPendingOpenJobHash("");
+    if (gefunden) {
+      openDetailDialog(gefunden);
+      return undefined;
+    }
+    // Kein Abbruch ueber die Aufraeum-Funktion: `setPendingOpenJobHash("")` oben loest den Effekt erneut aus und
+    // liesse die Antwort sonst verwerfen, bevor sie da ist.
+    api(`/api/jobs/${encodeURIComponent(hash)}`)
+      .then((einzeln) => { if (einzeln) openDetailDialog(einzeln); })
+      .catch(() => pushToast("Die Stelle konnte nicht geöffnet werden.", "danger"));
+    return undefined;
+  }, [loading, pendingOpenJobHash, jobs, dismissedJobs]);
 
   async function showFitAnalysis(job) {
     try {
@@ -903,7 +926,11 @@ export default function JobsPage() {
       } else {
         pushToast(angelegtMeldung(erg), "success");
       }
-      navigateTo("bewerbungen");
+      // #1171 (G85): die neue Bewerbung gleich offen — mit ihr als naechstem Schritt, statt oben auf der Liste
+      // zu landen, wo man sie erst suchen muss.
+      const neu = zuBewerbung(erg?.id);
+      if (neu) navigateTo(neu.seite, neu.intent);
+      else navigateTo("bewerbungen");
     } catch (error) {
       // #1094: eine vermutete Dublette wird genannt, nicht still angelegt
       const hinweis = dublettenHinweis(error);

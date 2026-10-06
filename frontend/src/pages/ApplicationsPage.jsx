@@ -1,7 +1,7 @@
 ﻿import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
 import { lokalesDatum } from "@/lib/lokaleZeit";
-import { Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
+import { Briefcase, Calendar, CalendarClock, Check, Download, ExternalLink, FileText, GraduationCap, Link2, Mail, MessageSquareReply, Pencil, PenLine, Plus, Search, Send, Trash2, Upload, Video, Workflow, X } from "lucide-react";
 import { startTransition, useDeferredValue, useEffect, useEffectEvent, useRef, useState } from "react";
 import { Archive } from "lucide-react";
 
@@ -46,6 +46,8 @@ import { KONTAKTROLLEN, bewerbungsartText, kontaktrolleText, klartext, quelleTex
 import { VORSCHAU_ZEILEN, alleAufgabenText } from "@/lib/arbeitsliste";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
+import { SPRUNG_WORT, zuKontakt } from "@/lib/wege";
+import Sprungleiste from "@/components/Sprungleiste";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, brauchtBewerbungsdatum, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 
@@ -137,6 +139,7 @@ export default function ApplicationsPage() {
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
   const [jobDetailHash, setJobDetailHash] = useState(null);
+  const timelineInhaltRef = useRef(null);
   const [acceptanceDialog, setAcceptanceDialog] = useState({ open: false, application: null, final_salary: "", description: "", start_date: "" });
   const [newNoteText, setNewNoteText] = useState("");
   const [editingNoteId, setEditingNoteId] = useState(null);
@@ -595,7 +598,10 @@ export default function ApplicationsPage() {
     }
   }
 
-  if (loading) return <LoadingPanel label="Bewerbungen werden geladen..." />;
+  // #1171 (G85): nur beim ERSTEN Laden die Ladeanzeige. Jedes weitere Laden (ein Hintergrundlauf, ein Schreibzugriff von
+  // Claude) ersetzte die ganze Seite samt offenem Dialog durch die Anzeige: ein Sprung in die Timeline oeffnete sie,
+  // schloss sie nach rund 70 ms wieder und oeffnete sie nach 25 bis 800 ms erneut (gemessen, schon in Beta 16).
+  if (loading && applications.length === 0 && !timelineDialog.open) return <LoadingPanel label="Bewerbungen werden geladen..." />;
 
   // #484/#485: Application-IDs fuer Special-Filter
   const dueFollowUpAppIds = new Set(
@@ -1035,6 +1041,15 @@ export default function ApplicationsPage() {
                         <Workflow size={15} />
                         Timeline
                       </Button>
+                      {/* #1171 (G85): die Stelle zur Bewerbung — „wie war sie beschrieben?“ ist ein Klick entfernt,
+                          ohne erst die Timeline zu oeffnen und darin zu suchen. */}
+                      {application.job_hash ? (
+                        <Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle
+                          title="Die Stelle ansehen, auf die sich diese Bewerbung bezieht">
+                          <Briefcase size={15} />
+                          {SPRUNG_WORT.stelle}
+                        </Button>
+                      ) : null}
                       {/* D43 (#981): Unterlagen, solange die Bewerbung noch
                           vorbereitet wird. Der Knopf verschwindet, sobald der
                           jeweilige Dokumentpfad haengt oder beworben wurde —
@@ -1144,6 +1159,20 @@ export default function ApplicationsPage() {
           return (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap gap-2">
+                {/* #1171 (G85): wer die Bewerbung gerade angelegt hat, braucht als Naechstes die Unterlagen — hier, im
+                    Dialog, in dem er nach dem Speichern landet; vorher stand der Weg nur auf der Karte in der Liste. */}
+                {timelineDialog.entry?.application?.status === "in_vorbereitung" && !timelineDialog.entry?.application?.cv_path && (
+                  <Button size="sm" data-weiter-unterlagen onClick={() => unterlagenKopieren(timelineDialog.entry?.application, "lebenslauf")}
+                    title="Vorbefüllte Anleitung für den angepassten Lebenslauf zu dieser Stelle kopieren und in Claude Desktop einfügen">
+                    <MitClaude size={14}>Lebenslauf</MitClaude>
+                  </Button>
+                )}
+                {timelineDialog.entry?.application?.status === "in_vorbereitung" && !timelineDialog.entry?.application?.cover_letter_path && (
+                  <Button size="sm" data-weiter-unterlagen onClick={() => unterlagenKopieren(timelineDialog.entry?.application, "anschreiben")}
+                    title="Vorbefüllte Anleitung für das Anschreiben zu dieser Stelle kopieren und in Claude Desktop einfügen">
+                    <MitClaude size={14}>Anschreiben</MitClaude>
+                  </Button>
+                )}
                 {["interview", "zweitgespraech"].includes(timelineDialog.entry?.application?.status) && (
                   <Button
                     size="sm"
@@ -1185,12 +1214,14 @@ export default function ApplicationsPage() {
           );
         })()}
       >
-        <div className="grid gap-5">
+        <div className="grid gap-5" ref={timelineInhaltRef}>
+          {/* #1171 (G85): die Abschnitte dieses langen Dialogs, ein Klick entfernt — die Leiste bleibt beim Scrollen stehen. */}
+          <Sprungleiste wurzelRef={timelineInhaltRef} etikett="Abschnitte dieser Bewerbung" />
           {/* Application details & contact (#134 editable) */}
           {timelineDialog.entry?.application && (() => {
             const app = timelineDialog.entry.application;
             return (
-            <Card className="glass-card-soft rounded-xl shadow-none">
+            <Card data-abschnitt="status" className="glass-card-soft rounded-xl shadow-none">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -1393,7 +1424,7 @@ export default function ApplicationsPage() {
 
           {/* Job details with full description */}
           {timelineDialog.entry?.job ? (
-            <Card className="glass-card-soft rounded-xl shadow-none">
+            <Card data-abschnitt="stelle" className="glass-card-soft rounded-xl shadow-none">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Stellendetails</p>
               <h3 className="mt-2 text-base font-semibold text-ink">{timelineDialog.entry.job.title}</h3>
               <p className="text-sm text-muted"><FirmaLink name={timelineDialog.entry.job.company} />{timelineDialog.entry.job.location ? ` — ${timelineDialog.entry.job.location}` : ""}</p>
@@ -1614,7 +1645,7 @@ export default function ApplicationsPage() {
           ) : null}
 
           {/* Linked documents + Upload zone (#176) */}
-          <Card className="glass-card-soft rounded-xl shadow-none">
+          <Card data-abschnitt="dokumente" className="glass-card-soft rounded-xl shadow-none">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Dokumente</p>
             {(timelineDialog.entry?.documents || []).length > 0 && (
               <div className="mt-2 grid gap-1.5">
@@ -1731,7 +1762,7 @@ export default function ApplicationsPage() {
           />
 
           {/* Todos/Tasks for this application (#666 D19) */}
-          <Card className="glass-card-soft rounded-xl shadow-none">
+          <Card data-abschnitt="aufgaben" className="glass-card-soft rounded-xl shadow-none">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
               <Check size={12} className="mr-1 inline" />
               Aufgaben ({timelineTasks.filter((t) => t.status === "offen").length} offen)
@@ -1805,7 +1836,7 @@ export default function ApplicationsPage() {
 
           {/* Meetings for this application (#136) */}
           {timelineMeetings.length > 0 && (
-            <Card className="glass-card-soft rounded-xl shadow-none">
+            <Card data-abschnitt="termine" className="glass-card-soft rounded-xl shadow-none">
               <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">
                 <Calendar size={12} className="mr-1 inline" />
                 Termine ({timelineMeetings.length})
@@ -2140,7 +2171,9 @@ export default function ApplicationsPage() {
 
           {/* Timeline events */}
           {(timelineDialog.entry?.events || []).length ? (
-            timelineDialog.entry.events.filter(e => !e.parent_event_id).map((event) => (
+            <div data-abschnitt="verlauf" className="grid gap-5">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted">Verlauf</p>
+            {timelineDialog.entry.events.filter(e => !e.parent_event_id).map((event) => (
               <Card key={`${event.id}-${event.event_date}`} className="glass-card-soft rounded-xl shadow-none">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
@@ -2245,7 +2278,8 @@ export default function ApplicationsPage() {
                   </Card>
                 ))}
               </Card>
-            ))
+            ))}
+            </div>
           ) : (
             <EmptyState title="Keine Timeline-Einträge" description="Für diese Bewerbung liegt noch keine Historie vor." />
           )}
@@ -2802,6 +2836,7 @@ function ApplicationAufwandSection({ applicationId, pushToast }) {
 // Empty State erklaert was es ist. Add-Button oeffnet Inline-Suche oder
 // Direkt-Anlage-Dialog.
 function ApplicationContactsSection({ applicationId, pushToast }) {
+  const { navigateTo } = useApp();
   const [contacts, setContacts] = useState([]);
   const [allContacts, setAllContacts] = useState([]);
   const [adding, setAdding] = useState(false);
@@ -2906,7 +2941,7 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
     : allContacts;
 
   return (
-    <Card className="glass-card-soft rounded-xl shadow-none">
+    <Card data-abschnitt="personen" className="glass-card-soft rounded-xl shadow-none">
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted mb-2">
         Beteiligte Personen
       </p>
@@ -2931,7 +2966,12 @@ function ApplicationContactsSection({ applicationId, pushToast }) {
           {contacts.map((c) => (
             <li key={c.link_id} className="flex items-center justify-between gap-2 text-[12px]">
               <div className="flex-1 min-w-0">
-                <span className="text-ink font-medium">{c.full_name}</span>
+                {/* #1171 (G85): der Name fuehrt zur Person (Karte mit allen Verknuepfungen), er war reiner Text. */}
+                <button type="button" data-person-sprung={c.id} title={SPRUNG_WORT.kontakt}
+                  className="text-ink font-medium underline-offset-2 hover:text-sky hover:underline"
+                  onClick={() => { const z = zuKontakt(c.id); if (z) navigateTo(z.seite, z.intent); }}>
+                  {c.full_name}
+                </button>
                 {c.link_role && (
                   <span className="ml-1.5 inline-flex items-center rounded-full bg-sky/15 text-sky px-1.5 py-0.5 text-xs">
                     {kontaktrolleText(c.link_role)}

@@ -112,7 +112,7 @@ def _aus_bezug(b: dict) -> Optional[dict]:
     if rolle == "kontakt":
         text = ", ".join(x for x in (b.get("funktion"), b.get("zeitraum")) if x)
         return _eintrag("kontakt", rolle, b.get("person"), datum=b.get("von"), text=text, gefunden_als=als, via=via, aktuell=b.get("aktuell"),
-                        ziel={"seite": "kontakte", "suche": b.get("person") or ""},
+                        ziel={"seite": "kontakte", "suche": b.get("person") or "", "kontakt_id": b.get("kontakt_id") or ""},
                         ref={"kontakt_id": b.get("kontakt_id"), "zuordnung_id": b.get("zuordnung_id") or "",
                              "rolle": b.get("rolle_dort") or "", "von": b.get("von") or "", "bis": b.get("bis") or ""})
     if quelle == "dokument":

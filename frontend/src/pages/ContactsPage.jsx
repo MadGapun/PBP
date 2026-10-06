@@ -19,6 +19,7 @@ import { nurErfolgeMerken } from "@/lib/nurErfolge";
 import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
 import FirmenAnsicht from "@/components/FirmenAnsicht";
+import { verknuepfungZeile } from "@/lib/wege";
 
 // v1.7.0-beta.10 (#563): Kontaktdatenbank-Frontend.
 // Designprinzip: End-User wird gut gefuehrt — Empty States erklaeren, was
@@ -253,6 +254,39 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
       onClose={onClose}
     >
       <div className="space-y-3">
+        {/* #1171 (G85): wozu diese Person gehoert, steht OBEN und ist ein Klick entfernt — vorher ganz unten im
+            Formular, als rohes „application“ und ohne Sprung zur Bewerbung. */}
+        {isEdit && linkedItems.length > 0 && (
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3" data-kontakt-verknuepfungen>
+            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
+              Verknüpft mit ({linkedItems.length})
+            </p>
+            <ul className="space-y-1 text-sm">
+              {linkedItems.slice(0, 8).map((l) => {
+                const z = verknuepfungZeile(l);
+                return (
+                  <li key={l.id} className="flex flex-wrap items-center gap-2">
+                    {z.ziel ? (
+                      <button
+                        type="button"
+                        data-verknuepfung-sprung={z.art}
+                        className="text-left text-sky underline-offset-2 hover:underline"
+                        title={z.sprungWort || "Öffnen"}
+                        onClick={() => { onClose(); navigateTo(z.ziel.seite, z.ziel.intent); }}
+                      >
+                        {z.text}
+                      </button>
+                    ) : (
+                      <span className="text-muted">{z.text}{z.vorhanden ? "" : " (gibt es nicht mehr)"}</span>
+                    )}
+                    {z.rolle ? <RoleChip role={z.rolle} /> : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {linkedItems.length > 8 ? <p className="mt-1 text-xs text-muted">… und {linkedItems.length - 8} weitere</p> : null}
+          </div>
+        )}
         <Field label="Name" required>
           <TextInput
             value={form.full_name}
@@ -403,23 +437,6 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             placeholder="Wie habt ihr euch kennengelernt, was ist wichtig zu wissen..."
           />
         </Field>
-
-        {isEdit && linkedItems.length > 0 && (
-          <div className="border-t border-white/5 pt-3">
-            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
-              Verknuepfungen ({linkedItems.length})
-            </p>
-            <ul className="space-y-1 text-[12px] text-muted">
-              {linkedItems.slice(0, 8).map((l) => (
-                <li key={l.id}>
-                  <span className="text-muted">{l.target_kind}</span>
-                  {" · "}
-                  {l.role && <RoleChip role={l.role} />}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {isEdit && (
           <div className="border-t border-white/5 pt-3" data-testid="referenz-block">
@@ -783,6 +800,12 @@ export default function ContactsPage() {
     } else if (intent.ansicht === "kontakte") {
       setAnsicht("kontakte");
       if (typeof intent.suche === "string") setSearch(intent.suche);
+      // #1171 (G85): „Zum Kontakt“ oeffnet die Person selbst, nicht nur die Liste.
+      if (intent.kontaktId) {
+        api(`/api/contacts/${encodeURIComponent(intent.kontaktId)}`)
+          .then((kontakt) => { if (kontakt?.id) { setDialogContact(kontakt); setDialogOpen(true); } })
+          .catch(() => pushToast("Die Person konnte nicht geöffnet werden.", "danger"));
+      }
     }
     clearIntent?.();
   }, [intent]);

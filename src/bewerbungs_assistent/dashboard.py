@@ -8535,6 +8535,14 @@ async def api_get_job_detail(job_hash: str):
     if not row:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
     job = _db._serialize_job_row(row)
+    # #1171 (G85): dieselben Felder wie in der Liste — Punkte mit Reglern, Daumen, Datenguete. Die Stelle sieht aus
+    # JEDEM Weg gleich aus; vorher kam sie von hier ohne Daumen und mit dem rohen Wert (Sprung aus einer Firma,
+    # Timeline, Nachladen der Beschreibung), waehrend die Liste sie angereichert zeigte (#1087 C1: ein Wert je Stelle).
+    try:
+        _db._mit_scoring_reglern([job], sortieren=False)
+        _guete_anreichern([job])
+    except Exception as exc:  # pragma: no cover — die Details duerfen nie an der Anreicherung scheitern
+        logger.debug("Anreicherung der Stelle uebersprungen (#1171): %s", exc)
     # v1.7.143 (#1126): dieselbe Antwort auf "schon beworben?" wie in der
     # Liste und in den Werkzeugen.
     from .services import bewerbungs_hinweis as _bh
@@ -8984,8 +8992,8 @@ async def api_delete_contact(contact_id: str):
 
 @app.get("/api/contacts/{contact_id}/links")
 async def api_contact_links(contact_id: str):
-    """Alle Verknuepfungen eines Kontakts (#563)."""
-    return {"links": _db.get_contact_links(contact_id)}
+    """Alle Verknuepfungen eines Kontakts (#563), mit lesbarem Ziel (#1171): Titel, Firma, Status."""
+    return {"links": _db.get_contact_links_mit_ziel(contact_id)}
 
 
 @app.post("/api/contacts/{contact_id}/links")
@@ -9368,6 +9376,17 @@ async def api_contacts_csv():
         if isinstance(c.get("tags"), list):
             c["tags"] = "; ".join(c["tags"])
     return _csv_response(contacts, columns, "kontakte.csv")
+
+
+# #1171 (G85): EINE Person per Kennung — fuer den Sprung "Zum Kontakt" aus einer Bewerbung, einer Firma oder einem
+# anderen Kontakt-Link. Steht bewusst NACH `/api/contacts/export.csv` (und den anderen festen Pfaden unter
+# /api/contacts/): FastAPI nimmt sonst "export.csv" als Kennung (derselbe Grund wie bei /api/meetings/export.csv).
+@app.get("/api/contacts/{contact_id}")
+async def api_get_contact(contact_id: str):
+    kontakt = _db.get_contact(contact_id)
+    if not kontakt:
+        return JSONResponse({"error": "Kontakt nicht gefunden"}, status_code=404)
+    return kontakt
 
 
 # Hinweis: /api/meetings/export.csv steht weiter oben in dieser Datei,

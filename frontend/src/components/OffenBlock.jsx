@@ -29,6 +29,7 @@ import { AlarmClock, BellRing, Calendar, Check, ClipboardList, Sparkles } from "
 import { Button, Card } from "@/components/ui";
 import { NICHTS_OFFEN } from "@/lib/dashboardRegeln";
 import { ALLE_AUFGABEN, alleAufgabenText, vorschau } from "@/lib/arbeitsliste";
+import { offenZeileZiel } from "@/lib/wege";
 
 const HERKUNFT = {
   todo: { label: "Aufgabe", icon: ClipboardList, ton: "text-teal" },
@@ -93,12 +94,14 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
     }
   }
 
+  // #1171 (G85): eine Zeile fuehrt dorthin, wo man weiterarbeitet — eine Nachfassung oeffnet ihre
+  // Bewerbung (Timeline mit Ansprechpartner, Stelle und Unterlagen), nicht nur die Aufgabenliste.
   function oeffnen(eintrag) {
-    if (eintrag.herkunft === "termin") return navigateTo?.("kalender");
     if (eintrag.herkunft === "vorbereitung" && eintrag.prompt) {
       return onPrompt?.(eintrag.prompt, eintrag);
     }
-    return navigateTo?.("aufgaben");
+    const ziel = offenZeileZiel(eintrag);
+    if (ziel) return navigateTo?.(ziel.seite, ziel.intent || undefined);
   }
 
   if (!block) return null;
@@ -179,6 +182,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
                       <button
                         type="button"
                         onClick={() => oeffnen(e)}
+                        data-offen-zeile={e.herkunft}
                         className="min-w-0 flex-1 truncate text-left hover:text-sky"
                       >
                         {/* #985: "Was hat sich getan" als Marke an der

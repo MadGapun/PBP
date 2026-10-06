@@ -71,7 +71,8 @@ def test_jeder_eintrag_fuehrt_dorthin_wo_er_steht(db):
         nach_art.setdefault(e["art"], []).append(e)
     assert {e["ziel"]["bewerbung_id"] for e in nach_art["bewerbung"]} == {ids["a1"], ids["a2"]}
     assert nach_art["stelle"][0]["ziel"]["seite"] == "stellen" and nach_art["stelle"][0]["ziel"]["job_hash"]
-    assert nach_art["kontakt"][0]["ziel"] == {"seite": "kontakte", "suche": "Kim Beispiel"}
+    # #1171 (G85): der Eintrag fuehrt zur PERSON (kontakt_id), nicht nur auf eine Suche nach ihrem Namen
+    assert nach_art["kontakt"][0]["ziel"] == {"seite": "kontakte", "suche": "Kim Beispiel", "kontakt_id": ids["kontakt"]}
     assert nach_art["kontakt"][0]["ref"]["kontakt_id"] == ids["kontakt"] and nach_art["kontakt"][0]["ref"]["zuordnung_id"].startswith("cc_")
     assert nach_art["lebenslauf"][0]["ziel"]["seite"] == "profil"
     assert nach_art["korrespondenz"][0]["ziel"]["seite"] == "dokumente" and nach_art["korrespondenz"][0]["titel"] == "Absage"

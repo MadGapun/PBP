@@ -5066,6 +5066,44 @@ class Database:
             (contact_id,)
         ).fetchall()]
 
+    def get_contact_links_mit_ziel(self, contact_id: str) -> list[dict]:
+        """Verknuepfungen eines Kontakts MIT lesbarem Ziel (#1171, G85).
+
+        Die Zeile aus `contact_links` kennt nur Art und Kennung des Ziels. Fuer einen Satz wie „Bewerbung: Titel bei
+        Firma“ und einen Sprung dorthin braucht die Oberflaeche Titel, Firma und — bei Terminen — die Bewerbung dazu.
+        `ziel_gefunden` ist False, wenn es das Ziel nicht mehr gibt; die Zeile bleibt dann Text. Ein Fehler bei EINEM Ziel
+        macht die anderen nicht unbrauchbar.
+        """
+        conn = self.connect()
+        ergebnis = []
+        for link in self.get_contact_links(contact_id):
+            link["ziel_titel"] = ""
+            link["ziel_firma"] = ""
+            link["ziel_status"] = ""
+            link["ziel_bewerbung_id"] = ""
+            link["ziel_gefunden"] = False
+            kind, ziel_id = link.get("target_kind"), link.get("target_id") or ""
+            try:
+                if kind == "application":
+                    row = conn.execute("SELECT title, company, status FROM applications WHERE id=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_firma=row["company"] or "", ziel_status=row["status"] or "", ziel_gefunden=True)
+                elif kind == "job":
+                    row = conn.execute("SELECT title, company FROM jobs WHERE hash=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_firma=row["company"] or "", ziel_gefunden=True)
+                elif kind == "meeting":
+                    row = conn.execute("SELECT title, application_id FROM application_meetings WHERE id=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_bewerbung_id=row["application_id"] or "", ziel_gefunden=True)
+                elif kind == "company":
+                    # Bei Firmen steht in target_id der Name oder die Kennung eines Firmen-Eintrags — beides ist ein Ziel.
+                    link.update(ziel_titel=ziel_id, ziel_gefunden=bool(ziel_id))
+            except Exception:  # noqa: BLE001 - eine kaputte Verknuepfung darf die Liste nicht kippen
+                pass
+            ergebnis.append(link)
+        return ergebnis
+
     def get_contacts_for_target(self, target_kind: str, target_id: str) -> list[dict]:
         """Alle Kontakte zu einem Ziel (Bewerbung/Meeting/Job/Firma)."""
         conn = self.connect()

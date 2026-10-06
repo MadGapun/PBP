@@ -16,6 +16,7 @@ import { Check, ClipboardCopy, Clock3, Plus, RotateCcw, Trash2, X } from "lucide
 import { api, deleteRequest, postJson } from "@/api";
 import { AppContext } from "@/app-context";
 import { datumText, klartext } from "@/lib/anzeige";
+import { SPRUNG_WORT } from "@/lib/wege";
 
 const GRUPPEN = [
   ["ueberfaellig", "Überfällig", "text-coral"],
@@ -225,6 +226,14 @@ export default function TasksPage() {
           ) : null}
           <p className="mt-0.5 text-xs text-muted">
             {e.firma ? <span className="mr-2">{e.firma}</span> : null}
+            {/* #1171 (G85): ein Klick zur Bewerbung — vorher erst die Zeile, dann im Dialog „Zur Bewerbung“ (zwei Klicks). */}
+            {e.bewerbung_id ? (
+              <button type="button" data-aufgabe-zur-bewerbung={e.bewerbung_id}
+                className="mr-2 text-sky underline-offset-2 hover:underline"
+                onClick={(ev) => { ev.stopPropagation(); springeZurBewerbung(e); }}>
+                {SPRUNG_WORT.bewerbung}
+              </button>
+            ) : null}
             {e.faellig_am ? (
               <span className={e.ueberfaellig_seit_tagen ? "font-semibold text-coral" : ""}>
                 {e.ueberfaellig_seit_tagen

@@ -1,6 +1,8 @@
 // Firmen-Ansicht (#1080, v1.8): die Regeln, die nichts zeichnen. Die Ansicht liest GET /api/firmen/ansicht — dieselbe Antwort
 // wie `firma_kontext` im Chat, nur für Menschen ausgelegt (services/firmen_ansicht.py).
 
+import { zuBewerbung, zuDokument, zuKontakt, zuStelle } from "./wege.js";
+
 /** Reihenfolge der Filter über der Zeitleiste. */
 export const ART_REIHENFOLGE = ["bewerbung", "stelle", "kontakt", "lebenslauf", "korrespondenz", "recherche", "blacklist", "erwaehnt"];
 
@@ -59,15 +61,26 @@ export function zaehlungsZeile(zaehlung, aussortiert) {
  */
 export function sprung(ziel) {
   if (!ziel || !ziel.seite) return null;
+  // #1171 (G85): ein Eintrag oeffnet SEIN Objekt (Stelle, Person, Dokument), nicht nur die Seite dazu.
+  // Was ein Sprung meint, steht in lib/wege.js; hier nur die Zuordnung der Felder des Servers.
   switch (ziel.seite) {
-    case "bewerbungen":
-      return { seite: "bewerbungen", intent: ziel.bewerbung_id ? { applicationId: ziel.bewerbung_id, focus: "timeline" } : null };
-    case "stellen":
-      return { seite: "stellen", intent: ziel.job_hash ? { focus: "job", jobHash: ziel.job_hash } : null };
-    case "kontakte":
-      return { seite: "kontakte", intent: { ansicht: "kontakte", suche: ziel.suche || "" } };
+    case "bewerbungen": {
+      const z = zuBewerbung(ziel.bewerbung_id);
+      return { seite: "bewerbungen", intent: z ? z.intent : null };
+    }
+    case "stellen": {
+      const z = zuStelle(ziel.job_hash);
+      return { seite: "stellen", intent: z ? z.intent : null };
+    }
+    case "kontakte": {
+      const z = zuKontakt(ziel.kontakt_id);
+      return { seite: "kontakte", intent: z ? z.intent : { ansicht: "kontakte", suche: ziel.suche || "" } };
+    }
+    case "dokumente": {
+      const z = zuDokument(ziel.dokument_id);
+      return { seite: "dokumente", intent: z ? z.intent : null };
+    }
     case "profil":
-    case "dokumente":
     case "suche":
       return { seite: ziel.seite, intent: null };
     default:
