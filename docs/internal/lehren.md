@@ -531,3 +531,17 @@ noch bevor die Seite ihren Takt der Live-Aktualisierung gestartet hat; die EINE 
 drei Sekunden wiederholen, bis das Ziel erreicht ist. 25 Läufe grün (vorher rund ein Drittel rot). Regel: vor dem Eingriff den Zustand der Seite abwarten, nicht die
 Zeit; und ein Test, der zufällig rot ist, wird nicht wiederholt, bis er grün ist, sondern an einem Beobachtungslauf aufgeklärt.
 *Belege:* Beta 16 (06.10.2026), `tests/test_v18_screenshot_generator.py`, GitHub-Läufe 37379191395 und 37379576626
+
+**L59. Eine leere Vergleichsspalte ist ein Befund, kein Gutbefund.** Beim Zurücksetzen des Werkstatt-PCs druckte das Probe-Skript für die Claude-Konfiguration im
+Paketordner `(Basis )` mit leeren Werten, weil der Zugriff auf das zweite Feld der aus JSON gelesenen Liste unter PowerShell 5.1 ins Leere ging; für die erste Konfiguration
+stand dort „False“ und „-“. Es wäre leicht gewesen, „die Prüfsumme sieht ähnlich aus“ zu denken. Stattdessen wurden die Dateien direkt verglichen (Prüfsumme gegen die
+gesicherte Kopie, Inhalt ohne das leere `mcpServers`); dabei fiel auch auf, dass der Installer die Datei neu einrückt (14.762 → 3.393 Bytes). Regel: sieht ein
+Vergleich auf einer Seite „leer“ aus, ist es kein Vergleich; die Gegenprobe nimmt die Rohdaten (Bytes, Prüfsumme), nicht die gleiche Auswertung noch einmal (vgl. L52).
+*Belege:* Werkstatt-PC, 06.10.2026, `docs/internal/praxisprobe-1.8.0.md`
+
+**L60. Ein gefundener Fehler gehört zu einer Klasse — danach ALLE Stellen der Klasse suchen, nicht nur die eine.** PP13 (05.10.) war: ein Fenster erbt den
+Arbeitsordner und hält ihn fest, der Deinstaller konnte seinen Ordner nicht löschen; behoben wurde der Deinstaller. Derselbe Fehler steckt in `INSTALLIEREN.bat`
+(`start … /MIN` für das Dashboard-Fenster) und wurde erst bei der dritten Probe auf einem zweiten Rechner sichtbar (PP20: ein leerer Ordner bleibt stehen).
+Eine Suche nach `start "` und `Start-Process` ohne Arbeitsordner in allen Installern am Tag des ersten Fundes hätte ihn gefunden. Regel: zu jedem Fund einen Satz
+„welche anderen Stellen machen dasselbe?“ und die Suche dazu, noch im selben Zug (DoD 8c: ein Schutz zählt erst, wenn er überall greift).
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51

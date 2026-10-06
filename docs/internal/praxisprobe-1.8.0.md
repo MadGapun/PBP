@@ -163,3 +163,31 @@ Tag `v1.8.0-beta.16` auf `20423f7a`, auf dem 1.8-Zweig (nicht auf `main`). Alles
 **Nicht gemacht:** das Drüberinstallieren von 1.7.x auf einem zweiten Windows-Rechner (der Werkstatt-PC ließ sich nachts nicht wecken: 80 Magic Packets in 14 Minuten und weitere Wellen ohne Antwort; Wecken per Netzwerk wirkt dort offenbar nicht). Die Beta nennt das in den Known Issues.
 
 Hinweis zur eigenen Installation auf dem Entwicklungsrechner: installiert ist 1.7.148 (flacher Aufbau), die Claude-Konfiguration zeigt auf dessen Python, die Datenbank steht bereits auf v52.
+
+## Beta 16 auf dem Werkstatt-PC (06.10.2026, Vormittag): Drüberinstallieren, Deinstaller, zurückgesetzt
+
+Der Nachtrag zu „Nicht gemacht“ oben. Der Nutzer hatte den Rechner eingeschaltet und den Energiesparplan verlängert; die Verbindung lief über Remotedesktop, ein
+kleines Probe-Skript (nur lesend, plus Daten über die REST-Schnittstelle) hielt Ausgangszustand, Zwischenstände und Endzustand fest. Alle Daten sind erfunden
+(Profil „Erika Beispiel“, 6 Bewerbungen, 7 Kontakte, 2 Aufgaben).
+
+| Schritt | Ergebnis |
+|---|---|
+| Ausgangszustand (08:58) | kein PBP, kein `ms-playwright`, kein `pip`-Ordner, keine Verknüpfung, kein Registry-Eintrag; Claude Desktop als Store-Fassung (Konfiguration im Paketordner, 14.762 Bytes), der klassische Konfigurationsordner `%APPDATA%\Claude` fehlte; im PATH nur der Python-Platzhalter des Stores |
+| Stable 1.7.153 per ZIP und `INSTALLIEREN.bat` | Installationsprotokoll 626 Zeilen, 0 Warnungen oder Fehler; Schema 48 (48 Tabellen, `integrity_check` ok), eine tägliche Sicherung (580 KB); alle 18 abgefragten REST-Endpunkte 200; Claude-Eintrag an beiden Orten (`-m bewerbungs_assistent`, `PYTHONPATH=…\app\src`) |
+| Beta 16 per ZIP und `INSTALLIEREN.bat` darüber | Version `1.8.0-beta.16`; **Daten gleich** (Abdruck über Bewerbungen, Kontakte und Aufgaben unverändert); Schema 52 (56 Tabellen), `integrity_check` ok; drei Sicherungen (täglich, vor dem Update, vor der Migration), die neueste ist eine gültige Schema-48-Datenbank; Aufbau `versions\1.8.0-beta.16` + `boot` + `aktuell.txt`, `python312._pth` zeigt auf `../boot`, das alte `src` ist weg; beide Claude-Konfigurationen zeigen auf den Startbaustein `bewerbungs_assistent_boot` (`PYTHONPATH=…\app\boot`), fremde Server und Einstellungen unverändert; alle 18 REST-Endpunkte 200; Installationsprotokoll 275 Zeilen, 0 Warnungen oder Fehler; ein Browser-Tab je Installation |
+| Start des Servers so, wie Claude ihn startet | der Eintrag aus der Konfiguration startet den Server, `initialize` und `tools/list` werden beantwortet |
+| Deinstaller über den Knopf im Dashboard (Gefahrenzone, `DEINSTALLIEREN` getippt) | alle sieben Schritte in Ordnung; die neue Frage **PP10** erschien mit Ort und Größe (Playwright 706 MB, pip 125 MB); auf „j“ wurden beide entfernt, die Bewerbungsdaten erst nach der Eingabe von `LOESCHEN`; Prüfung danach: PBP-Ordner, Verknüpfung, Registry, Prozesse, Port 8200 wie am Anfang |
+| Zurückgesetzt | Konfiguration im Paketordner **byte-gleich** mit der Kopie von vorher (Prüfsumme `8EAE599F762A`); Reste unten entfernt; Probe-Ordner samt ZIPs gelöscht; die drei PBP-Tabs in Edge und das Chrome-Fenster mit zwei Tabs geschlossen (Edge hatte weitere eigene Tabs des Nutzers, sie blieben); die Remote-Verbindung ist offen, die Seite `ms-settings:powersleep` ist geöffnet, am System selbst wurde nichts verändert |
+
+**Neue Funde (PP20 bis PP23), keiner ändert das Ergebnis, alle bleiben für eine spätere Beta:**
+
+| Nr | Fund | Ursache und Vorschlag |
+|---|---|---|
+| PP20 | Nach dem Aufräumen am Ende der Installation bleibt ein leerer Ordner (der entpackte Installer), solange das Dashboard-Fenster offen ist | `INSTALLIEREN.bat` startet `Dashboard starten.bat` mit `start … /MIN`; das Fenster erbt den Arbeitsordner des Installers und hält ihn fest (dieselbe Klasse wie PP13, Lehre L51, dort nur im Deinstaller gefunden). Vorschlag: `start "PBP-Dashboard" /MIN /D "%APP_DIR%" …` |
+| PP21 | Nach jeder Neuinstallation bleibt ein Fenster „[FEHLER] Dashboard ist mit Fehlercode -1 beendet“ mit „Pause“ stehen | Der Installer beendet das alte Python; das Fenster, das es gestartet hat (`cmd /K`), meldet den Abbruch und wartet. Vorschlag: der Beenden-Schritt schließt auch die `cmd.exe`-Fenster, die `Dashboard starten.bat` ausführen |
+| PP22 | Nach der Deinstallation liegen im klassischen Konfigurationsordner `%APPDATA%\Claude` zwei Dateien (`claude_desktop_config.json` mit leerem `mcpServers`, dazu `….pbp-backup`), und im Paketordner eine zweite `….pbp-backup` | Der Installer trägt PBP an **allen** möglichen Orten ein und legt den klassischen Ordner an, auch wenn nur die Store-Fassung von Claude da ist (`get_claude_config_paths`, #361); die Kopie vor dem Ändern ist Absicht (v1.7.145, Test vorhanden). Harmlos; offen ist nur, ob der Deinstaller eine von ihm selbst angelegte, leere Datei wieder entfernen soll. Dazu: der Installer schreibt die Konfiguration mit `json.dump(indent=2)` neu — gleicher Inhalt, andere Formatierung (14.762 → 3.393 Bytes, die Datei von Claude war mit 12.407 Leerzeichen eingerückt); der Deinstaller lässt den Rest dann so, wie er ihn vorfindet |
+| PP23 | Temp-Reste: je Selbsttest ein Ordner `tmp…` mit `pbp.db` und `pbp.log` (0,6 MB, dreimal bei zwei Installationen), ein Ordner `tmp…\pip.zip` (1,7 MB), `pbp_installer_aufraeumen.py`, `deinstall_log.txt` (die letzte ist beabsichtigt und wird genannt) | Der Selbsttest räumt seinen Datenordner nicht auf; die Kopie des Aufräum-Skripts bleibt liegen. Vorschlag: `tempfile.TemporaryDirectory` beziehungsweise Aufräumen im `finally` |
+
+Dazu `%LOCALAPPDATA%\fastmcp\version_cache.json`: legt die Bibliothek FastMCP beim ersten Start des Servers an (61 Bytes); gehört nicht zu PBP, andere Server nutzen den Ordner mit, bleibt bei der Deinstallation (im Zweifel behalten, wie bei Playwright und pip).
+
+Eigener Fehler beim Prüfen: die Vergleichsspalte „Basis“ blieb für die Konfiguration im Paketordner leer (das Probe-Skript las die Basiswerte aus der JSON-Datei mit einem Feldzugriff, der bei PowerShell 5.1 ins Leere ging) — ich habe das nicht als „gleich“ gelesen, sondern die Dateien direkt verglichen (Prüfsumme gegen die Kopie, Inhalt ohne das leere `mcpServers`). Lehre L59.
