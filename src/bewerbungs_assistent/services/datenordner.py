@@ -166,7 +166,7 @@ def ausserhalb(db) -> list:
         from . import ablage
         # #1173: gelesen wird mit DERSELBEN Funktion, mit der gespeichert wird (`ablage.ordner_lesen`, je Profil). Vorher stand
         # hier `db.get_setting(<Schluessel>)` — der Schluessel ohne Profil, unter dem nie etwas liegt: die Liste war immer leer,
-        # die Karte „Deine eigenen Ordner“ und der Hinweis beim Loeschen („bleibt liegen“) nannten den Ordner des Nutzers nie.
+        # die Karte „Deine eigenen Ordner“ und die Zeile „Bleibt: Ablageordner …“ in der Gefahrenzone nannten den Ordner des Nutzers nie.
         for art, was in (("ausgabe", "Ablageordner"), ("vorlagen", "Vorlagenordner")):
             ordner = ablage.ordner_lesen(db, art) if db else None
             if ordner:

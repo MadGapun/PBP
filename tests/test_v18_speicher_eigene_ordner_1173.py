@@ -5,7 +5,7 @@ anpassen wollen — vor allem der eigene Ordner, wo ich meine Lebenslaeufe und B
 
 Zwei Dinge standen dem im Weg:
 
-1. **Ein Lesefehler.** Die Karte „Deine eigenen Ordner“ und der Hinweis beim Loeschen („bleibt liegen“) lasen die Ordner mit
+1. **Ein Lesefehler.** Die Karte „Deine eigenen Ordner“ und die Zeile „Bleibt: Ablageordner …“ in der Gefahrenzone lasen die Ordner mit
    `db.get_setting(<Schluessel>)` — dem Schluessel OHNE Profil. Gespeichert wird aber je Profil (`ablage.ordner_setzen`), unter
    `<Profil>:<Schluessel>`. Die Liste war darum immer leer, die Karte nannte den Ordner des Nutzers nie. Zwei Wege zum selben Wert,
    nur einer davon mit Test — der Lehre aus #799 und #1007 entsprechend lesen jetzt beide ueber `ablage.ordner_lesen`.
