@@ -401,6 +401,7 @@ M_FIRMEN = [
 
 T_WG = ["tests/test_v18_wege_1171.py"]
 T_WGF = T_WG + ["tests/test_v18_firmen_ansicht_1080.py"]
+T_WGO = ["tests/test_v18_offen_nur_ueberfaelliges_rot_1174.py"]
 
 # Wege durch PBP (#1171, G85): jeder Weg einzeln unterbrochen. Die Frontend-Eintraege (frontend/...) bauen das Bundle vor dem Test neu,
 # denn die Browser-Tests pruefen das gebaute Bundle. Der Arbeitsbaum braucht dafuer `frontend/node_modules` (Junction oder Link).
@@ -437,6 +438,11 @@ M_WEGE = [
     ('wg30', 'Stellen: jedes Nachladen ersetzt Liste und Dialog durch die Ladeanzeige', 'frontend/src/pages/JobsPage.jsx', 'if (loading && !einmalGeladen) return <LoadingPanel label="Stellen werden geladen..." />;', 'if (loading) return <LoadingPanel label="Stellen werden geladen..." />;', T_WG),
     ('wg31', 'Stellen: der offene Dialog zeigt weiter den Stand vom Oeffnen', 'frontend/src/pages/JobsPage.jsx', '    if (!frisch || frisch === detailDialog.job) return;\n', '    return;\n', T_WG),
     ('wg32', 'Bewerbungen: die offene Timeline wird nach dem Nachladen nicht aufgefrischt', 'frontend/src/pages/ApplicationsPage.jsx', '    loadPage();\n    offeneTimelineAuffrischen();\n', '    loadPage();\n', T_WG),    ('wg33', 'Stellen: eine von Claude gestartete Suche erscheint erst nach bis zu 30 Sekunden', 'frontend/src/pages/JobsPage.jsx', 'const SUCHE_ABFRAGE_MS = 5000;', 'const SUCHE_ABFRAGE_MS = 30000;', T_WG),
+    ('wg34', 'Offen: die ganze Karte wird rot, sobald etwas ueberfaellig ist', 'frontend/src/components/OffenBlock.jsx', '<Card className="rounded-2xl" data-offen-karte>', '<Card className={block.ueberfaellig_anzahl > 0 ? "rounded-2xl border border-coral/40 bg-coral/[0.06]" : "rounded-2xl"} data-offen-karte>', T_WGO),
+    ('wg35', 'Offen: das Wecker-Symbol wird rot, sobald etwas ueberfaellig ist', 'frontend/src/components/OffenBlock.jsx', '<AlarmClock size={16} className="text-muted" data-offen-symbol />', '<AlarmClock size={16} className={block.ueberfaellig_anzahl > 0 ? "text-coral" : "text-muted"} data-offen-symbol />', T_WGO),
+    ('wg36', 'Offen: das Datum der ueberfaelligen Zeilen ist nicht mehr rot', 'frontend/src/components/OffenBlock.jsx', '${key === "ueberfaellig" ? "text-coral" : "text-muted"}', 'text-muted', T_WGO),
+    ('wg37', 'Offen: auch die Daten der anderen Zeilen sind rot', 'frontend/src/components/OffenBlock.jsx', '${key === "ueberfaellig" ? "text-coral" : "text-muted"}', 'text-coral', T_WGO),
+    ('wg38', 'Offen: die Ueberschrift Ueberfaellig ist nicht mehr rot', 'frontend/src/components/OffenBlock.jsx', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-coral" }', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-muted" }', T_WGO),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE}
