@@ -33,6 +33,78 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.155] - 2026-10-07 — Ein Klick auf einen Treffer der Suche öffnet das Objekt
+
+Hotfix für v1.7.154. Die Suche oben im Dashboard zeigt beim Tippen eine Liste mit Treffern (Bewerbungen, Stellen, Dokumente, E-Mails, Termine, Skills) — ein Klick darauf tat nichts. Jetzt öffnet er das Objekt. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
+
+**Wichtig zu wissen:**
+
+- **Ein Klick auf einen Treffer der Suche öffnet das Objekt.** Eine Bewerbung öffnet ihre Timeline, eine Stelle ihre Details (auch eine aussortierte), ein Dokument steht aufgeklappt auf der Dokumente-Seite (sein Name im Suchfeld der Seite, das × daneben zeigt wieder alle), eine E-Mail öffnet ihr Fenster (auch wenn sie zu keiner Bewerbung gehört), ein Termin mit Bewerbung deren Timeline, ein Termin ohne Bewerbung den Kalender mit dem geöffneten Termin, ein Skill das Profil mit der Skills-Liste auf seinen Namen gefiltert (ab sieben Skills, wo das Filterfeld steht). Das gilt auch, wenn du schon auf der Zielseite bist.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ auf der Seite „Bewerbungen“ öffnet sich jetzt im Kalender.** Bisher führte der Klick nur auf die Kalender-Seite, ohne den Termin zu zeigen.
+
+### Fixed
+
+- **Ein Klick auf einen Treffer der Suche oben im Dashboard tat nichts** (#1177; seit v1.7.0). Die Suche lieferte die Zieladresse im Format `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung auf ein einzelnes Objekt entgegen; die Stellen-Treffer trugen den gespeicherten Hash mit Profil-Präfix. Jetzt gibt es eine Adressform für Treffer und Links (`services/dashboard_link.hash_ziel`), die Zuordnung Treffer → Ziel steht an einer Stelle (`lib/suche.js`), und jede Seite liest ihren Sprung.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ der Seite „Bewerbungen“ führte nur in den Kalender** (#1177), ohne den Termin zu öffnen.
+
+### Changed
+
+- In der Trefferliste der Suche steht bei einem Termin ohne Bewerbung jetzt „ohne Bewerbung“ statt eines Fragezeichens (#1177).
+- `GET /api/documents` kennt den Parameter `doc_id` und liefert dann genau ein Dokument (#1177).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.154: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+21 neue Tests (7.079 gesamt, gezählt im Klon des Zweigs; v1.7.154 hatte 7.058) in `tests/test_v17155_suche_treffer_1177.py`: jede Trefferart wird mit echtem Klick im gebauten Dashboard angeklickt, und das Objekt muss danach offen sein (auf der Fassung 1.7.154 schlagen 20 von 21 an), dazu ein Wächter, der zu jedem Schlüssel, den `lib/suche.js` erzeugt, einen Leser auf einer Seite verlangt. Der Node-Test `frontend/src/lib/suche.test.mjs` (in der CI) prüft die Zuordnung und die Adressen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.155.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.155.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.155 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.154] - 2026-10-06 — Die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe
 
 Hotfix für v1.7.153. Beim Prüfen der Wege durch PBP (#1171) zeigte eine Messung, dass die Seite „Stellen“ im Leerlauf den Browser zu zwei Dritteln auslastete, obwohl niemand etwas tat. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
