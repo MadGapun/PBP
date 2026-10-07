@@ -143,6 +143,7 @@ def test_die_adressen_zeigen_auf_das_richtige_objekt(umgebung):
     ohne = next(m for m in t["meeting"] if m["id"] == u["ohne_app"])
     assert mit["application_id"] == u["app"] and mit["url"] == f"#bewerbungen/{u['app']}"
     assert ohne["application_id"] == "" and ohne["url"] == f"#kalender/{u['ohne_app']}"
+    assert ohne["subtitle"].startswith("ohne Bewerbung"), "kein Fragezeichen: die Liste sagt, dass der Termin ohne Bewerbung ist"
     assert {m["id"] for m in t["email"]} == {u["mail_mit"], u["mail_ohne"]}, "beide Mails, mit und ohne Bewerbung"
     assert all(m["url"] == "" for m in t["email"])
 

@@ -9550,7 +9550,8 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id": m["id"],
                 "id_typed": f"APT-{m['id'][:8]}",
                 "title": m["title"] or "(ohne Titel)",
-                "subtitle": f"{m['company'] or '?'} · {(m['meeting_date'] or '')[:10]}",
+                # „ohne Bewerbung“ statt eines Fragezeichens: so sagt schon die Trefferliste, dass der Termin im Kalender aufgeht (#1177)
+                "subtitle": f"{m['company'] or 'ohne Bewerbung'} · {(m['meeting_date'] or '')[:10]}",
                 # Wie im Kalender selbst: ein Termin mit Bewerbung fuehrt in deren Timeline (Abschnitt Termine), einer ohne
                 # Bewerbung oeffnet sich im Kalender (#1177).
                 "application_id": m["app_id"] or "",
