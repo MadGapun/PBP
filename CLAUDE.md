@@ -299,6 +299,8 @@ Starter). Der Startbaustein (nur Standardbibliothek) waehlt `aktuell.txt`, setzt
 kommen nie aus einer Anfrage, nur aus dieser Liste. `_loeschen(pfad, wurzel)` löscht nur UNTER der Wurzel, nie die Wurzel, nie einen
 Symlink (drei Versuche, dann „Fehler“). Fremdes (Playwright, Ollama) wird gezeigt und nie angeboten. Zwei Schritte (Vorschau, dann
 `bestaetigt`), nie bei laufender Hintergrundarbeit. Werkzeuge `speicher_anzeigen`, `speicher_bereinigen` (`ZWEISTUFIG`).
+Die Karte „Deine eigenen Ordner“ (`eigene`, #1173) trägt die Eingabefelder (`AblageOrdnerCard`, eingebettet); die beiden Ordner werden NUR über
+`services/ablage.py` gelesen und gesetzt (`ordner_lesen`/`ordner_setzen`, je Profil; „-“ oder leer setzt zurück) — nie `get_setting` mit dem Schlüssel.
 
 **Komponenten-Prüfsumme (#1152, `services/components.py`):** kein Installer ohne SHA-256 (64 Hexzeichen, `_pruefsumme_gueltig`); die Ablehnung
 kommt VOR dem Download; ein Registry-Test hält jede Komponente gegen leere Summen. Die Tesseract-Summe stammt aus dem Manifest des
