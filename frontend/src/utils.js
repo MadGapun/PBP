@@ -58,6 +58,11 @@ export function sprungAusHash(ziel) {
   if (!ziel?.kennung) return null;
   if (ziel.page === "bewerbungen") return { applicationId: ziel.kennung };
   if (ziel.page === "stellen") return { jobHash: ziel.kennung };
+  // #1177: Dokument, Termin und Profil-Abschnitt hatten keinen Sprung mit Kennung — ein Link aus Claude
+  // (`#dokumente/<id>`) endete auf dem Dashboard. Die Namen der Absichten sind die aus `lib/suche.js`.
+  if (ziel.page === "dokumente") return { dokumentId: ziel.kennung };
+  if (ziel.page === "kalender") return { terminId: ziel.kennung };
+  if (ziel.page === "profil") return { abschnitt: ziel.kennung };
   return null;
 }
 

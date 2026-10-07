@@ -30,14 +30,24 @@ def basis() -> str:
     return f"http://localhost:{port()}"
 
 
-def dashboard_link(reiter: str = "dashboard", kennung: str = "") -> str:
-    """Link auf einen Reiter, optional mit Kennung (Bewerbung, Stelle)."""
+def hash_ziel(reiter: str, kennung: str = "") -> str:
+    """Der Hash-Teil eines Links (`#bewerbungen/<id>`, `#stellen/<hash>`) — OHNE Rechner und Port.
+
+    Das ist die EINE Form, die das Dashboard liest (`parseHashZiel` in `frontend/src/utils.js`). Sie gilt fuer Links, die
+    Claude nennt (`dashboard_link`), und fuer die Treffer der Suche im Dashboard (#1177): die Suche lieferte bis v1.7.154 die
+    Form `#bewerbungen?id=<id>`, die nie jemand las — ein Klick auf einen Treffer tat nichts.
+    """
     if reiter not in REITER:
         raise ValueError(f"Unbekannter Reiter: {reiter}")
-    ziel = f"/#{reiter}"
+    ziel = f"#{reiter}"
     if kennung:
         # Eine gespeicherte Stellenkennung traegt das Profil als Praefix
         # (`<profil>:<hash>`); das Dashboard kennt die oeffentliche Form.
         kennung = str(kennung).split(":", 1)[-1]
         ziel += "/" + quote(kennung, safe="")
-    return basis() + ziel
+    return ziel
+
+
+def dashboard_link(reiter: str = "dashboard", kennung: str = "") -> str:
+    """Link auf einen Reiter, optional mit Kennung (Bewerbung, Stelle)."""
+    return basis() + "/" + hash_ziel(reiter, kennung)

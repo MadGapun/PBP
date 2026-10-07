@@ -55,6 +55,7 @@ from .services.search_service import (
     summarize_active_sources,
 )
 from .services import ablage
+from .services.dashboard_link import hash_ziel as _hash_ziel  # #1177: EINE Adressform fuer Links und Suchtreffer
 from .services import dateiablage as _dateiablage
 from .services import bewerbung_status as _bewerbung_status  # #1103
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
@@ -3476,8 +3477,13 @@ async def api_documents(
     order: str = "desc",
     page: int = 1,
     per_page: int = 25,
+    doc_id: str = "",
 ):
-    """List documents with search, filter, sort, pagination and application cross-reference (#360, #366)."""
+    """List documents with search, filter, sort, pagination and application cross-reference (#360, #366).
+
+    `doc_id` (#1177): genau dieses eine Dokument — damit ein Link `#dokumente/<id>` und ein Treffer der Suche das Dokument
+    finden, ohne dass die Seite seinen Namen kennt (die Liste ist nach Seiten geteilt).
+    """
     pid = _db.get_active_profile_id()
     conn = _db.connect()
 
@@ -3494,6 +3500,11 @@ async def api_documents(
         base += " AND (d.filename LIKE ? OR d.extracted_text LIKE ?)"
         like = f"%{q}%"
         params.extend([like, like])
+
+    # Genau ein Dokument (#1177)
+    if doc_id:
+        base += " AND d.id = ?"
+        params.append(doc_id)
 
     # Filter by document type
     if doc_type:
@@ -8735,7 +8746,7 @@ async def api_global_search(q: str = "", limit: int = 8):
             "id_typed": f"APP-{a['id'][:8]}",
             "title": a["title"] or "(ohne Titel)",
             "subtitle": f"{a['company'] or ''} · {a['status'] or 'offen'}",
-            "url": f"#bewerbungen?id={a['id']}",
+            "url": _hash_ziel("bewerbungen", a["id"]),
         } for a in apps]
         groups.append({"label": "Bewerbungen", "kind": "application", "items": items})
         total += len(items)
@@ -8748,13 +8759,15 @@ async def api_global_search(q: str = "", limit: int = 8):
         (pattern, pattern, pattern, pid, limit)
     ).fetchall()
     if jobs:
+        # #1177: die OEFFENTLICHE Kennung (ohne Profil-Praefix) — dieselbe, die die Stellenliste und jeder Link traegt; mit dem
+        # gespeicherten Hash fand die Stellen-Seite die Karte nicht.
         items = [{
             "kind": "job",
-            "id": j["hash"],
+            "id": _db._public_job_hash(j["hash"]),
             "id_typed": f"JOB-{(j['hash'] or '').split(':')[-1][:8]}",
             "title": j["title"] or "(ohne Titel)",
             "subtitle": f"{j['company'] or ''} · {j['source'] or ''} · Score {j['score'] or 0}{' (aussortiert)' if not j['is_active'] else ''}",
-            "url": f"#stellen?hash={j['hash']}",
+            "url": _hash_ziel("stellen", _db._public_job_hash(j["hash"])),
         } for j in jobs]
         groups.append({"label": "Stellen", "kind": "job", "items": items})
         total += len(items)
@@ -8772,7 +8785,7 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "title": s.get("name"),
                 "subtitle": f"Level {s.get('level') or '?'}/5"
                            + (f" seit {s.get('start_year')}" if s.get('start_year') else ""),
-                "url": "#profil?tab=skills",
+                "url": _hash_ziel("profil", "skills"),
             } for s in matched_skills]
             groups.append({"label": "Skills", "kind": "skill", "items": items})
             total += len(items)
@@ -8792,7 +8805,7 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id_typed": f"DOC-{d['id'][:8]}",
                 "title": d["filename"],
                 "subtitle": f"Typ: {d['doc_type'] or 'sonstiges'}",
-                "url": f"#dokumente?id={d['id']}",
+                "url": _hash_ziel("dokumente", d["id"]),
             } for d in docs]
             groups.append({"label": "Dokumente", "kind": "document", "items": items})
             total += len(items)
@@ -8816,8 +8829,9 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id_typed": f"EML-{e['id'][:8]}",
                 "title": e["subject"] or "(ohne Betreff)",
                 "subtitle": f"Von: {e['sender'] or '?'}",
-                "url": (f"#bewerbungen?id={e['application_id']}"
-                       if e['application_id'] else "#bewerbungen"),
+                # Eine Mail hat ihr eigenes Fenster (Dokumente-Seite, `EmailDetailModal`), aber keine Adresse im Hash: sie oeffnet
+                # sich ueber `kind` + `id` (lib/wege.js `zuMail`), gleich ob sie zu einer Bewerbung gehoert (#1177).
+                "url": "",
             } for e in emails]
             groups.append({"label": "E-Mails", "kind": "email", "items": items})
             total += len(items)
@@ -8840,9 +8854,12 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id": m["id"],
                 "id_typed": f"APT-{m['id'][:8]}",
                 "title": m["title"] or "(ohne Titel)",
-                "subtitle": f"{m['company'] or '?'} · {(m['meeting_date'] or '')[:10]}",
-                "url": (f"#bewerbungen?id={m['app_id']}"
-                       if m['app_id'] else "#kalender"),
+                # „ohne Bewerbung“ statt eines Fragezeichens: so sagt schon die Trefferliste, dass der Termin im Kalender aufgeht (#1177)
+                "subtitle": f"{m['company'] or 'ohne Bewerbung'} · {(m['meeting_date'] or '')[:10]}",
+                # Wie im Kalender selbst: ein Termin mit Bewerbung fuehrt in deren Timeline (Abschnitt Termine), einer ohne
+                # Bewerbung oeffnet sich im Kalender (#1177).
+                "application_id": m["app_id"] or "",
+                "url": (_hash_ziel("bewerbungen", m["app_id"]) if m["app_id"] else _hash_ziel("kalender", m["id"])),
             } for m in meetings]
             groups.append({"label": "Termine", "kind": "meeting", "items": items})
             total += len(items)

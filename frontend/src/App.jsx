@@ -66,6 +66,7 @@ import { dialogRegistrieren } from "@/lib/bestaetigung";
 import { naechsteFrageMs, neueLinieHinweis, unbekanntTitel } from "@/lib/updateStand";
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
+import { zuSuchtreffer } from "@/lib/suche";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
 
@@ -150,7 +151,7 @@ function normalizeProfiles(profiles) {
 }
 
 // v1.7.0 (#571): Globale Suche im Header — DB-weit ueber alle Entitaeten.
-function GlobalSearch({ navigateTo }) {
+function GlobalSearch({ navigateTo, pushToast }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState(null);
   const [open, setOpen] = useState(false);
@@ -194,14 +195,20 @@ function GlobalSearch({ navigateTo }) {
     return () => debounceRef.current && clearTimeout(debounceRef.current);
   }, [query]);
 
+  // #1177: ein Klick auf einen Treffer OEFFNET das Objekt. Vorher setzte er nur `window.location.hash` auf eine Adresse im
+  // Format `#bewerbungen?id=…`, die das Dashboard nicht liest — es blieb auf dem Dashboard (oder fiel dorthin zurueck), und
+  // der Mensch sah nichts. Jetzt geht der Klick ueber `navigateTo` mit Sprungziel (`lib/suche.js`).
   function handleResultClick(item) {
     setOpen(false);
     setMobilOffen(false);
     setQuery("");
     setResults(null);
-    if (item.url) {
-      window.location.hash = item.url.replace(/^#/, "");
+    const ziel = zuSuchtreffer(item);
+    if (ziel.meldung) {
+      pushToast?.(ziel.meldung, "amber");
+      return;
     }
+    navigateTo(ziel.seite, ziel.intent);
   }
 
   return (
@@ -1476,7 +1483,7 @@ export default function App() {
             </div>
 
             {/* v1.7.0 (#571): Globale Suche */}
-            <GlobalSearch navigateTo={navigateTo} />
+            <GlobalSearch navigateTo={navigateTo} pushToast={pushToast} />
 
             {/* #630 (Stufe 1): Aktualisieren-Button + letzter Sync. Aenderungen
                 via Claude erscheinen nach dem Neuladen. */}

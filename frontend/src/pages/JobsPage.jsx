@@ -545,6 +545,7 @@ export default function JobsPage() {
   const [blacklistDialog, setBlacklistDialog] = useState(EMPTY_BLACKLIST_DIALOG);
   const [searchJob, setSearchJob] = useState({ running: false, progress: 0, message: "" });
   const [pendingFocusJobHash, setPendingFocusJobHash] = useState("");
+  const [pendingOpenJobHash, setPendingOpenJobHash] = useState("");   // #1177: Stelle, deren Details aufgehen sollen
   const [highlightedJobHash, setHighlightedJobHash] = useState("");
   const [editingScoreHash, setEditingScoreHash] = useState("");
   const [editingScoreValue, setEditingScoreValue] = useState("");
@@ -787,6 +788,7 @@ export default function JobsPage() {
         sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
+      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));
     }
     if (intent.missingDescriptionOnly) {
       setFilters((current) => ({
@@ -827,6 +829,25 @@ export default function JobsPage() {
     filters.pruefstand,
     filters.sort,
   ]);
+
+  // #1177: die Details der angesprungenen Stelle oeffnen (Treffer der Suche). Die Stelle liegt meist in der geladenen Liste;
+  // steht sie nicht auf der geladenen Seite oder ist sie aussortiert, kommt sie einzeln vom Server.
+  useEffect(() => {
+    if (loading || !pendingOpenJobHash) return undefined;
+    const hash = pendingOpenJobHash;
+    const gefunden = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === hash);
+    setPendingOpenJobHash("");
+    if (gefunden) {
+      openDetailDialog(gefunden);
+      return undefined;
+    }
+    // Kein Abbruch ueber die Aufraeum-Funktion: `setPendingOpenJobHash("")` oben loest den Effekt erneut aus und
+    // liesse die Antwort sonst verwerfen, bevor sie da ist.
+    api(`/api/jobs/${encodeURIComponent(hash)}`)
+      .then((einzeln) => { if (einzeln) openDetailDialog(einzeln); })
+      .catch(() => pushToast("Die Stelle konnte nicht geöffnet werden.", "danger"));
+    return undefined;
+  }, [loading, pendingOpenJobHash, jobs, dismissedJobs]);
 
   async function showFitAnalysis(job) {
     try {

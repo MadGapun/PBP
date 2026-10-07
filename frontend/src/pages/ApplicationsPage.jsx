@@ -896,7 +896,7 @@ export default function ApplicationsPage() {
                   <div
                     key={`m-${meeting.id}`}
                     title={`${meeting.title || "Termin"} — ${meeting.app_company || ""}`}
-                    onClick={() => meeting.application_id ? openTimeline({ id: meeting.application_id }) : navigateTo("kalender")}
+                    onClick={() => meeting.application_id ? openTimeline({ id: meeting.application_id }) : navigateTo("kalender", { terminId: meeting.id })}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0 bg-teal/8 border border-teal/15 hover:bg-teal/15"
                   >
                     <Calendar size={14} className="shrink-0 text-teal" />

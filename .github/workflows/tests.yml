@@ -226,6 +226,11 @@ jobs:
         # jeden wirksamen Filter mit der Zahl der Stellen, die er verbirgt.
         run: node frontend/src/lib/stellenFilter.test.mjs
 
+      - name: Treffer der Suche oeffnen das Objekt (Node)
+        # v1.7.155 (#1177): ein Klick auf einen Treffer der Suche tat nichts —
+        # die Adressen waren in einem Format, das das Dashboard nicht liest.
+        run: node frontend/src/lib/suche.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).
