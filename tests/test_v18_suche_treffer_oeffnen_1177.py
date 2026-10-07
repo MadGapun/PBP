@@ -56,6 +56,9 @@ def umgebung(tmp_path_factory):
     db.save_jobs([{"hash": "zf1", "title": f"Sachbearbeitung {WORT}", "company": "Musterbetrieb GmbH",
                    "url": "https://example.com/zf1", "source": "manuell", "description": TEXT, "remote_level": "hybrid",
                    "location": "Hamburg", "score": 8}])
+    db.save_jobs([{"hash": "zf2", "title": f"Disponent {WORT} aussortiert", "company": "Beispiel AG", "url": "https://example.com/zf2",
+                   "source": "manuell", "description": TEXT, "remote_level": "onsite", "location": "Hannover", "score": 4}])
+    db.dismiss_job("zf2", "sonstiges")           # wie in der Trefferliste des Nutzers: „(aussortiert)“
     app = db.add_application({"title": f"Konstrukteur {WORT}", "company": "Beispiel AG", "status": "beworben",
                               "applied_at": _tag(-10)})
     ohne_app = db.add_meeting({"title": f"Termin {WORT} privat", "meeting_date": f"{_tag(9)}T14:00"})
@@ -108,7 +111,7 @@ def _treffer(umgebung) -> dict:
 def test_jede_trefferart_ist_da(umgebung):
     t = _treffer(umgebung)
     assert set(t) == {"application", "job", "skill", "document", "email", "meeting"}, sorted(t)
-    assert len(t["email"]) == 2 and len(t["meeting"]) == 2
+    assert len(t["email"]) == 2 and len(t["meeting"]) == 2 and len(t["job"]) == 2
 
 
 def test_die_adressen_haben_die_form_die_das_dashboard_liest(umgebung):
@@ -131,8 +134,9 @@ def test_die_adressen_zeigen_auf_das_richtige_objekt(umgebung):
     t = _treffer(u)
     assert t["application"][0]["url"] == f"#bewerbungen/{u['app']}"
     # die Stelle traegt die OEFFENTLICHE Kennung — die der Stellenliste, ohne Profil-Praefix
-    stelle = t["job"][0]
-    assert stelle["id"] == "zf1" and ":" not in stelle["id"] and stelle["url"] == "#stellen/zf1"
+    stelle = next(j for j in t["job"] if j["id"] == "zf1")
+    assert ":" not in stelle["id"] and stelle["url"] == "#stellen/zf1"
+    assert all(":" not in j["id"] for j in t["job"]), "auch die aussortierte Stelle traegt die oeffentliche Kennung"
     assert t["document"][0]["url"] == f"#dokumente/{u['dokument']}"
     assert t["skill"][0]["url"] == "#profil/skills"
     mit = next(m for m in t["meeting"] if m["id"] == u["mit_app"])
@@ -265,6 +269,18 @@ def test_stelle_oeffnet_ihre_details(browser, umgebung):
         _klick_auf_treffer(page, f"Sachbearbeitung {WORT}")
         assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
         _dialog_zeigt(page, f"Sachbearbeitung {WORT}")
+    finally:
+        page.close()
+
+
+def test_aussortierte_stelle_oeffnet_ebenfalls_ihre_details(browser, umgebung):
+    """Die Trefferliste des Nutzers war voll von Stellen „(aussortiert)“ — sie stehen nicht in der aktiven Liste und muessen
+    sich trotzdem oeffnen."""
+    page = _seite(browser, umgebung["url"], "dashboard")
+    try:
+        _klick_auf_treffer(page, f"Disponent {WORT} aussortiert")
+        assert _dialog_titel(page, "Stellendetails") == "Stellendetails"
+        _dialog_zeigt(page, f"Disponent {WORT} aussortiert")
     finally:
         page.close()
 
