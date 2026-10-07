@@ -119,7 +119,9 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
     );
   }
 
-  const dringend = block.ueberfaellig_anzahl > 0;
+  // #1174: die KARTE bleibt ruhig. Rot ist nur, was ueberfaellig ist: die Gruppenueberschrift und das Datum ihrer Zeilen. Vorher
+  // faerbte „irgendetwas ueberfaellig“ Rahmen, Hintergrund und Symbol des ganzen Blocks (seit v1.7.31, als die Listen
+  // zusammengelegt wurden) — der Block las sich immer wie eine Warnung, auch wenn die meisten Zeilen gar nichts Eiliges waren.
   // G64 (#1087 D1): eine Vorschau, keine zweite Arbeitsliste. Die
   // massgebliche Liste ist der Aufgaben-Tab; hier stehen hoechstens fuenf
   // Zeilen, der Rest wird am Knopf gezaehlt (auch "später").
@@ -127,10 +129,10 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
   const weitere = kurz.weitere + (block.spaeter_anzahl || 0);
 
   return (
-    <Card className={dringend ? "rounded-2xl border border-coral/40 bg-coral/[0.06]" : "rounded-2xl"}>
+    <Card className="rounded-2xl" data-offen-karte>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <AlarmClock size={16} className={dringend ? "text-coral" : "text-muted"} />
+          <AlarmClock size={16} className="text-muted" data-offen-symbol />
           <h2 className="text-sm font-semibold text-ink">Offen</h2>
           {block.neu_anzahl > 0 ? (
             <span className="rounded-full bg-teal/15 px-2 py-px text-xs font-bold text-teal">
@@ -154,7 +156,7 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
           if (!zeilen.length) return null;
           return (
             <div key={key}>
-              <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${ton}`}>
+              <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${ton}`} data-offen-gruppe={key}>
                 {label}
               </p>
               <ul className="mt-1.5 min-w-0 space-y-1">
@@ -196,7 +198,9 @@ export default function OffenBlock({ navigateTo, refreshChrome, onPrompt, onAnza
                         <span className="font-medium">{e.titel}</span>
                         {e.firma ? <span className="text-muted"> — {e.firma}</span> : null}
                       </button>
-                      <span className="shrink-0 text-xs text-muted">{datumsLabel(e)}</span>
+                      <span className={`shrink-0 text-xs ${key === "ueberfaellig" ? "text-coral" : "text-muted"}`} data-offen-datum={key}>
+                        {datumsLabel(e)}
+                      </span>
                       <span className="shrink-0 text-xs uppercase tracking-[0.1em] text-muted">
                         {meta.label}
                       </span>
