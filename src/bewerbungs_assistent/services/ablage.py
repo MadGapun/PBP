@@ -37,6 +37,12 @@ und #988. Deshalb wird die Vorlage tatsaechlich als Grundlage geoeffnet
     Datenordner — und sagt das im selben Atemzug. Weder ein Absturz noch
     eine stille Umleitung: der Mensch sucht seine Datei sonst an einer
     Stelle, an der sie nicht liegt.
+
+**Lesen und Setzen NUR hier (#1173).** Die beiden Ordner stehen je Profil
+in den Einstellungen; `ordner_lesen` und `ordner_setzen` sind der einzige
+Weg dorthin. Wer den Schluessel selbst mit `db.get_setting` liest, liest
+den ohne Profil — und findet nie etwas (so war die Liste der eigenen
+Ordner seit v1.7.59 leer). „-“ oder leer setzt zurueck, in jedem Aufrufer.
 """
 from __future__ import annotations
 
