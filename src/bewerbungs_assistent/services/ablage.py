@@ -132,9 +132,9 @@ def ordner_lesen(db, art: str) -> Path | None:
 def ordner_setzen(db, art: str, pfad: str) -> dict:
     """Setzt einen der beiden Ordner — oder weist ihn begruendet ab.
 
-    „-“ (wie „leer“) stellt das bisherige Verhalten wieder her. Die Regel steht HIER und nicht in jedem Aufrufer: das MCP-Werkzeug
-    kannte sie, die Oberflaeche schickt sie ebenfalls — nur der REST-Weg dazwischen nicht, und „zuruecksetzen“ endete im Dashboard
-    seit v1.7.59 mit „HTTP 400“ (#1173).
+    „-“ (wie „leer“) stellt das bisherige Verhalten wieder her. Die Regel steht HIER und nicht in jedem Aufrufer: bis v1.7.154 kannte
+    sie nur das MCP-Werkzeug; im Dashboard las der REST-Weg „-“ als relativen Pfad und wies ihn ab, „Zuruecksetzen“ endete seit
+    v1.7.59 mit „HTTP 400“ (#1173).
     """
     if str(pfad or "").strip() == "-":
         pfad = ""
