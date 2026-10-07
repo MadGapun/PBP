@@ -309,6 +309,11 @@ nichts, Posteingang nur nach Warnung). Die Regel sitzt in PBP, nicht im Add-on: 
 Liste, BEVOR etwas gespeichert wird; `GET /api/v1/ingest/mail-policy` sagt dem Add-on, was erlaubt ist. PBP öffnet nie selbst ein Postfach (Test).
 Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Quelle gilt in stabil erst nach neuer Bestätigung.
 
+**Wege und Suche (#1171, #1177):** Was ein Klick auf ein Objekt meint, steht an EINER Stelle: `frontend/src/lib/wege.js` (`zuBewerbung`, `zuStelle`, `zuDokument`, `zuMail`,
+`zuTermin`, `zuSuchtreffer` …). Die Seiten LESEN die Absicht (`intent.<schluessel>`); `test_jede_absicht_hat_einen_leser_auf_einer_seite` verlangt zu jedem erzeugten
+Schlüssel einen Leser (Ausnahmen stehen dort mit Grund). Adressen, die der Server ausgibt (Treffer der Suche, Links für Claude), baut `services/dashboard_link.hash_ziel`
+(`#seite/kennung`) — nie von Hand `#seite?x=`. Mutationskatalog „suche“ (su01–su22).
+
 **Firmen-Eintrag (#1080, Stufe 2, Bauform A):** `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung, Löschbereich
 „bewerbungen“). Bewerbungen, Stellen, Kontakte und Lebenslauf behalten ihren Firmennamen als TEXT; aufgelöst wird beim LESEN
 (`services/firmen_stamm.py`). Regeln, die sich nicht aufweichen lassen:

@@ -22,9 +22,19 @@ import { formatDate } from "@/utils";
 import EmailDetailModal from "@/components/EmailDetailModal";
 import EmailUploadButton from "@/components/EmailUploadButton";
 
-export default function EmailListe({ pushToast, applications = [], anzahl = 8 }) {
+export default function EmailListe({ pushToast, applications = [], anzahl = 8, oeffnen = "", beiGeoeffnet }) {
   const [emails, setEmails] = useState([]);
   const [detail, setDetail] = useState(null);
+
+  // #1177 (G88): ein Treffer „E-Mail“ der Suche oeffnet das Fenster dieser Mail (auch wenn sie nicht unter den ersten acht der
+  // Liste steht, auch wenn sie zu keiner Bewerbung gehoert). `oeffnen` ist die Kennung; danach meldet `beiGeoeffnet` zurueck.
+  useEffect(() => {
+    if (!oeffnen) return;
+    api(`/api/emails/${encodeURIComponent(oeffnen)}`)
+      .then((mail) => setDetail(mail))
+      .catch((fehler) => pushToast?.(fehler?.status === 404 ? "Diese E-Mail gibt es nicht mehr." : "Die E-Mail konnte nicht geöffnet werden.", "amber"))
+      .finally(() => beiGeoeffnet?.());
+  }, [oeffnen]);
 
   const laden = useCallback(() => {
     api("/api/emails")

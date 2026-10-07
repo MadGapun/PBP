@@ -60,6 +60,40 @@ export function zuAufgabe({ id = "", bewerbung_id = "" } = {}) {
   return { seite: "aufgaben", intent: a ? { aufgabeId: a } : null };
 }
 
+/** Eine Mail öffnen: ihr Fenster auf der Dokumente-Seite (Absender, Text, „Bewerbung zuordnen“) — gleich, ob sie zu einer Bewerbung gehört. */
+export function zuMail(mailId) {
+  const id = kennung(mailId);
+  return id ? { seite: "dokumente", intent: { mailId: id } } : null;
+}
+
+/** Ein Abschnitt der Profil-Seite (Skills …); `suche` ist der Name, den die Liste dort zeigen soll (nur wo sie filtern kann). */
+export function zuProfil(abschnitt, suche = "") {
+  const intent = { abschnitt: kennung(abschnitt) };
+  if (kennung(suche)) intent.suche = kennung(suche);
+  return { seite: "profil", intent };
+}
+
+/**
+ * Was ein Klick auf einen Treffer der Suche oben im Dashboard meint (#1177, G88): das Objekt öffnen. Gebaut aus denselben
+ * Wegen wie jeder andere Klick im Dashboard — kein eigener Zuschnitt für die Suche (bis v1.7.154 tat der Klick nichts).
+ * Ein Treffer ohne Ziel (eine Art, die es nicht gibt, oder ohne Kennung) liefert eine `meldung`: der Mensch erfährt, dass
+ * nichts aufgeht, statt vor einer Stille zu stehen.
+ */
+export function zuSuchtreffer(treffer) {
+  const art = String(treffer?.kind || "");
+  let ziel = null;
+  if (art === "application") ziel = zuBewerbung(treffer.id);
+  else if (art === "job") ziel = zuStelle(treffer.id);
+  else if (art === "document") ziel = zuDokument(treffer.id);
+  else if (art === "meeting") {
+    ziel = zuTermin({ id: treffer.id, application_id: treffer.application_id });
+    // ein Termin mit Bewerbung öffnet deren Timeline — am Abschnitt „Termine“, nicht oben
+    if (ziel?.seite === "bewerbungen") ziel = { ...ziel, intent: { ...ziel.intent, abschnitt: "termine" } };
+  } else if (art === "email") ziel = zuMail(treffer.id);
+  else if (art === "skill") ziel = zuProfil("skills", treffer.title);
+  return ziel || { meldung: "Zu diesem Treffer gibt es keine Ansicht, die sich öffnen ließe." };
+}
+
 /**
  * Wohin eine Zeile des Blocks „Offen“ im Dashboard führt: eine Nachfassung, ein Termin oder eine Aufgabe, die eine
  * Bewerbung kennt, öffnet DIESE Bewerbung (bis v1.8.0-beta.16 führte jede Zeile nur auf die Aufgaben-Seite).
