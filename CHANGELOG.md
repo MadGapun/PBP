@@ -33,6 +33,113 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.18] - 2026-10-07 — Die Suche öffnet, was sie findet (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Ein Klick auf einen Treffer der Suche oben öffnet jetzt das Objekt — die Bewerbung, die Stelle, das Dokument, die Mail, den Termin oder den Skill.
+Den Ordner für deine Lebensläufe und Anschreiben änderst du dort, wo du siehst, wie viel darin liegt (Einstellungen › Erweitert › Speicher & Downloads), und im Dashboard-Block „Offen“ ist nur noch rot, was überfällig ist.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.17 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.17 auf beta.18:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.155 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt drei Wünsche um, die beim Ausprobieren von beta.17 kamen: die Suche, die beim Klick nichts tat (#1177), der eigene Ordner für Lebensläufe und Anschreiben, der sich nur an versteckter Stelle ändern ließ (#1173), und der Block „Offen“, der wegen einer einzigen überfälligen Zeile ganz rot war (#1174). Der Fehler in der Suche steckte auch in der stabilen Version und ist dort als Hotfix v1.7.155 erschienen; die Ordner-Felder und das rote „Offen“ sind bisher nur in dieser Linie behoben.
+
+**Wichtig zu wissen:**
+
+- **Ein Klick auf einen Treffer der Suche öffnet das Objekt.** Eine Bewerbung öffnet ihre Timeline, eine Stelle ihre Details (auch eine aussortierte), ein Dokument steht aufgeklappt auf der Dokumente-Seite (sein Name im Suchfeld der Seite, das × daneben zeigt wieder alle), eine E-Mail öffnet ihr Fenster (auch wenn sie zu keiner Bewerbung gehört), ein Termin mit Bewerbung deren Timeline direkt am Abschnitt „Termine“, ein Termin ohne Bewerbung den Kalender mit dem geöffneten Termin, ein Skill das Profil mit der Skills-Liste auf seinen Namen gefiltert (ab sieben Skills, wo das Filterfeld steht). Das gilt auch, wenn du schon auf der Zielseite bist, und derselbe Sprung funktioniert für Adressen wie `#dokumente/<id>` und `#kalender/<id>`.
+- **Den Ordner für Lebensläufe, Anschreiben und Vorlagen änderst du auf der Seite „Speicher & Downloads“.** Die Karte „Deine eigenen Ordner“ steht immer da und trägt die Eingabefelder; danach misst die Seite neu, wie viel dort liegt. „Zurücksetzen“ (das Feld leeren) geht jetzt, und bei einem ungültigen Pfad steht der Grund da statt „HTTP 400“. Die anderen Orte sind durch die Installation bedingt und bleiben ohne Eingabe.
+- **Im Block „Offen“ ist nur noch rot, was überfällig ist.** Die Karte bleibt ruhig; rot sind die Überschrift „Überfällig“ und das Datum der überfälligen Zeilen. „Heute“ und „Diese Woche“ sind unverändert.
+- **Noch nicht drin:** Kontakte, Firmen und Aufgaben findet die Suche noch nicht (Frage am Issue #1177); die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand und die kompakten Listenköpfe warten auf Antworten am Issue #1171.
+
+### Added
+
+- **Ein Weg für Treffer und Links** (#1177): `services/dashboard_link.hash_ziel` baut die eine Adressform `#seite/kennung` (für die Links, die Claude nennt, und für die Treffer der Suche); `lib/wege.js` kennt `zuMail`, `zuProfil` und `zuSuchtreffer`; `sprungAusHash` liest zusätzlich `#dokumente/<id>`, `#kalender/<id>` und `#profil/skills`; `GET /api/documents?doc_id=` liefert genau ein Dokument; die Sprungleiste der Timeline springt beim Öffnen in einen genannten Abschnitt.
+- **Die Karte „Deine eigenen Ordner“ trägt die Eingabefelder** (#1173) für Ausgabe- und Vorlagen-Ordner: dieselbe Komponente und dieselbe Prüfung wie unter Einstellungen › Ordner, und die Seite „Speicher & Downloads“ misst nach dem Speichern neu.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sieben Kataloge, 311 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37, Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Neu ist der Katalog „Suche“ (Adressen, Zuordnung, Lesestellen der Seiten).
+
+### Changed
+
+- **Dashboard › Offen: rot ist nur, was überfällig ist** (#1174). Bisher färbte eine einzige überfällige Zeile die ganze Karte rot (Rahmen, Hintergrund, Wecker-Symbol) — seit der Zusammenlegung der Listen in v1.7.31, auch in der stabilen Version.
+- In der Trefferliste der Suche steht bei einem Termin ohne Bewerbung jetzt „ohne Bewerbung“ statt eines Fragezeichens (#1177).
+
+### Fixed
+
+- **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154; in der stabilen Version behoben mit v1.7.155). Die Suche lieferte die Zieladresse im Format `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen; die Stellen-Treffer trugen den gespeicherten Hash mit Profil-Präfix. Dasselbe traf „Zum Dokument“ in der Firmen-Zeitleiste und einen Termin ohne Bewerbung im Block „Offen“ (die Absichten `dokumentId` und `terminId` hatten keinen Leser). Jetzt gehen Treffer und Links aus Claude denselben Weg, jede Seite liest ihren Sprung, und ein Test verlangt zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite.
+- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, alle seit v1.7.59** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der Hinweis in der Gefahrenzone („Bleibt: Ablageordner …“) nannten den Ordner des Nutzers nie: gespeichert wird je Profil, gelesen wurde ohne Profil, die Liste war immer leer — ein Test blieb dabei grün, weil er die Einstellung auf dem anderen Weg schrieb. (2) „Zurücksetzen“ (das Feld leeren) endete im Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`). (3) Bei einem ungültigen Pfad stand am Feld ebenfalls nur „HTTP 400“ statt der Begründung („Diesen Ordner gibt es nicht …“); die Antwort nennt den Grund jetzt als `error`, und die Oberfläche liest ihn.
+
+### Known Issues
+
+- Kontakte, Firmen und Aufgaben findet die Suche oben noch nicht (Frage am Issue #1177).
+- Die drei Fehler an den Ordner-Feldern (#1173) und das rote „Offen“ (#1174) stecken auch in der stabilen Version v1.7.155; behoben sind sie bisher nur in dieser Linie.
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus beta.17 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+41 neue Tests (8.267 gesamt, gezählt im Klon des Zweigs; beta.17 hatte 8.226): 21 in `tests/test_v18_suche_treffer_oeffnen_1177.py` (14 davon im Browser gegen das gebaute Bundle: jede Trefferart mit echtem Klick, auch auf der Zielseite, mit aktivem Filter und für eine aussortierte Stelle; dazu die Adressen im Server und ein Wächter, der zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite verlangt), 17 in `tests/test_v18_speicher_eigene_ordner_1173.py` (6 davon im Browser: Eingabefelder, Ändern, Zurücksetzen, ungültiger Pfad, Vorlagen-Ordner, verschwundener Ordner) und 3 in `tests/test_v18_offen_nur_ueberfaelliges_rot_1174.py` (die Farben als berechnete Werte im Browser, nicht als Klassennamen). Dazu ein erweiterter Node-Test für die Zuordnung Treffer → Ziel (`wege.test.mjs`). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot), gelaufen auf den Ständen der drei Zweige vor der Zusammenführung: Katalog „Suche“ 23 von 23 erkannt, die 13 neuen Fehler im Katalog „Speicher“ 13 von 13, die 5 neuen im Katalog „Wege“ 5 von 5; ein Wächter-Test hält fest, dass jedes Muster der Kataloge im Quelltext genau einmal vorkommt (auf dem Endstand grün). Auf dem Endstand, Windows: 511 gezielte Tests (die drei neuen Dateien, die Wege-, Leerlauf-, Ordner-, Dashboard- und Wächter-Tests) bestanden, 0 Fehler, dazu die Node-Tests der betroffenen Bibliotheken. Der volle Lauf auf Windows (rund 35 Minuten) wurde für diese Beta nicht wiederholt. GitHub-Lauf (Linux) auf dem zusammengeführten Stand vor dem Versionssprung: 8.181 bestanden, 86 übersprungen (plattformgebundene Tests), 0 Fehler; Release-Tor 0 Fehler, zwei Warnungen (die Vorabversion wird nie automatisch installiert; der Test-Zähler im README, der mit diesem Eintrag nachgezogen ist).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8267 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.18.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.18 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.17] - 2026-10-06 — Ein Klick zum Nächsten (Vorabversion)
 
 <!-- anwender -->
