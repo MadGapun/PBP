@@ -275,15 +275,6 @@ bleibt er ohne den Fix gruen; `elementFromPoint` statt Rollen-Suche, die
 auch verdeckte Elemente findet.
 *Belege:* #1027, #1050, #1039, v1.7.103/6, v1.7.83/8, v1.7.93/9, v1.7.136/4, v1.7.137/4, #1113
 
-**L65. Eine Adresse oder Absicht, die jemand erzeugt, braucht einen Leser — und einen Test, der den Klick wirklich macht.** Die Suche oben im Dashboard lieferte
-seit v1.7.0 Adressen, die das Dashboard seit H31 nicht mehr las: ein Klick auf einen Treffer tat nichts, keine Meldung, kein Fehler. Dieselbe Klasse steckte in den Wegen
-aus Beta 17 — `wege.js` erzeugte `dokumentId` und `terminId`, und keine Seite las sie („Zum Dokument“ endete auf der Dokumente-Seite, ohne etwas zu zeigen). Gefunden hat
-es ein Mensch beim Benutzen, kein Test. Regel: (1) die Adresse, die ein Server ausgibt, geht durch dieselbe Funktion wie jeder andere Link (`dashboard_link.hash_ziel`);
-(2) zu jedem Schlüssel, den ein Weg erzeugt, gibt es eine Stelle, die ihn liest — ein Quelltext-Test hält das fest, Ausnahmen stehen mit Grund darin; (3) je Trefferart
-ein Test, der klickt und prüft, dass das OBJEKT offen ist (nicht, dass die Seite wechselt). Beim Bauen zuerst schauen, was es für das Objekt schon gibt: die Mail hat ein
-eigenes Fenster (`EmailDetailModal`), das ich zunächst nicht gesehen hatte — der Bildschirmfoto-Blick auf die Zielseite hat es gezeigt.
-*Belege:* #1177, `test_jede_absicht_hat_einen_leser_auf_einer_seite`, `test_mail_oeffnet_ihr_fenster_auch_mit_bewerbung`, Gegenprobe su01–su22
-
 ## 9. Shell, Dateien, Git
 
 **L32. Heredoc-Falle.** Backslashes in Heredocs werden unter Git-Bash zu
@@ -553,7 +544,11 @@ Arbeitsordner und hält ihn fest, der Deinstaller konnte seinen Ordner nicht lö
 (`start … /MIN` für das Dashboard-Fenster) und wurde erst bei der dritten Probe auf einem zweiten Rechner sichtbar (PP20: ein leerer Ordner bleibt stehen).
 Eine Suche nach `start "` und `Start-Process` ohne Arbeitsordner in allen Installern am Tag des ersten Fundes hätte ihn gefunden. Regel: zu jedem Fund einen Satz
 „welche anderen Stellen machen dasselbe?“ und die Suche dazu, noch im selben Zug (DoD 8c: ein Schutz zählt erst, wenn er überall greift).
-*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51
+Zweites Beispiel, #1177: Ein Klick auf einen Treffer der Suche oben tat seit v1.7.0 nichts — der Server lieferte Adressen (`#bewerbungen?id=…`), die das Dashboard seit H31 nicht mehr
+las, und kein Test klickte je einen Treffer. Dieselbe Klasse („etwas erzeugt ein Sprungziel, niemand liest es“) steckte in den Wegen aus Beta 17: `wege.js` erzeugte `dokumentId` und
+`terminId`, keine Seite las sie. Die Suche nach der Klasse ergab den Test `test_jede_absicht_hat_einen_leser_auf_einer_seite` (zu jedem Schlüssel, den ein Weg erzeugt, eine Lesestelle;
+Ausnahmen mit Grund) und `dashboard_link.hash_ziel` als EINE Adressform für Links und Treffer; je Trefferart klickt ein Browser-Test und prüft, dass das OBJEKT offen ist.
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177
 
 **L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
 sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln

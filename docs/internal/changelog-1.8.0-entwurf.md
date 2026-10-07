@@ -61,7 +61,7 @@ Einträgen darunter.
 - **Ein Weg für Treffer und Links** (#1177): `services/dashboard_link.hash_ziel` baut die eine Adressform `#seite/kennung` (für die Links, die Claude nennt, und für die
   Treffer der Suche); `lib/wege.js` kennt `zuMail`, `zuProfil` und `zuSuchtreffer`; `sprungAusHash` liest zusätzlich `#dokumente/<id>`, `#kalender/<id>`
   und `#profil/skills`; `GET /api/documents?doc_id=` liefert genau ein Dokument; die Sprungleiste springt beim Öffnen in einen genannten Abschnitt.
-  Gegenprobe: neuer Katalog „suche“ (22 absichtlich eingebaute Fehler: Adressen, Zuordnung, Lesestellen der Seiten).
+  Gegenprobe: neuer Katalog „suche“ (23 absichtlich eingebaute Fehler: Adressen, Zuordnung, Lesestellen der Seiten).
 - **Firmen-Eintrag, Stufe 2** (#1080): Tabellen `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung); die
   Duplikat- und Repost-Erkennung kennt die Einträge (`firmen_kanon`); Kontakte gehören mehreren Firmen mit Rolle und Zeitraum; Dokumente an einer
   Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,

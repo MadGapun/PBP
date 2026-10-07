@@ -449,6 +449,8 @@ M_SUCHE = [
      '  if (ziel.page === "dokumente") return { dokumentId: ziel.kennung };\n', '', T_SU),
     ("su22", "Link: #kalender/<Kennung> fuehrt nirgends hin", "frontend/src/utils.js",
      '  if (ziel.page === "kalender") return { terminId: ziel.kennung };\n', '', T_SU),
+    ("su23", "Bewerbungen: ein Termin ohne Bewerbung fuehrt nur in den Kalender, ohne sich zu oeffnen", "frontend/src/pages/ApplicationsPage.jsx",
+     'navigateTo("kalender", { terminId: meeting.id })', 'navigateTo("kalender")', T_SU),
 ]
 
 T_WG = ["tests/test_v18_wege_1171.py"]

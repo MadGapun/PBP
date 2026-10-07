@@ -345,6 +345,19 @@ def test_termin_ohne_bewerbung_oeffnet_sich_im_kalender(browser, umgebung):
         page.close()
 
 
+def test_termin_ohne_bewerbung_in_der_liste_der_bewerbungen_oeffnet_sich_im_kalender(browser, umgebung):
+    """Dieselbe Klasse wie die Suche: der Klick fuehrte in den Kalender, ohne den Termin zu oeffnen."""
+    page = _seite(browser, umgebung["url"], "bewerbungen")
+    try:
+        page.locator("#offene-aktionen").get_by_text(f"Termin {WORT} privat").click(timeout=15000)
+        assert _dialog_titel(page, "Termin bearbeiten") == "Termin bearbeiten"
+        page.wait_for_function(
+            """v => { const i = document.querySelector('[role=dialog] input'); return !!i && i.value === v; }""",
+            arg=f"Termin {WORT} privat", timeout=15000)
+    finally:
+        page.close()
+
+
 def test_skill_fuehrt_zu_den_skills_im_profil(browser, umgebung):
     page = _seite(browser, umgebung["url"], "dashboard")
     try:
