@@ -486,6 +486,144 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.155] - 2026-10-07 — Ein Klick auf einen Treffer der Suche öffnet das Objekt
+
+Hotfix für v1.7.154. Die Suche oben im Dashboard zeigt beim Tippen eine Liste mit Treffern (Bewerbungen, Stellen, Dokumente, E-Mails, Termine, Skills) — ein Klick darauf tat nichts. Jetzt öffnet er das Objekt. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
+
+**Wichtig zu wissen:**
+
+- **Ein Klick auf einen Treffer der Suche öffnet das Objekt.** Eine Bewerbung öffnet ihre Timeline, eine Stelle ihre Details (auch eine aussortierte), ein Dokument steht aufgeklappt auf der Dokumente-Seite (sein Name im Suchfeld der Seite, das × daneben zeigt wieder alle), eine E-Mail öffnet ihr Fenster (auch wenn sie zu keiner Bewerbung gehört), ein Termin mit Bewerbung deren Timeline, ein Termin ohne Bewerbung den Kalender mit dem geöffneten Termin, ein Skill das Profil mit der Skills-Liste auf seinen Namen gefiltert (ab sieben Skills, wo das Filterfeld steht). Das gilt auch, wenn du schon auf der Zielseite bist.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ auf der Seite „Bewerbungen“ öffnet sich jetzt im Kalender.** Bisher führte der Klick nur auf die Kalender-Seite, ohne den Termin zu zeigen.
+
+### Fixed
+
+- **Ein Klick auf einen Treffer der Suche oben im Dashboard tat nichts** (#1177; seit v1.7.0). Die Suche lieferte die Zieladresse im Format `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung auf ein einzelnes Objekt entgegen; die Stellen-Treffer trugen den gespeicherten Hash mit Profil-Präfix. Jetzt gibt es eine Adressform für Treffer und Links (`services/dashboard_link.hash_ziel`), die Zuordnung Treffer → Ziel steht an einer Stelle (`lib/suche.js`), und jede Seite liest ihren Sprung.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ der Seite „Bewerbungen“ führte nur in den Kalender** (#1177), ohne den Termin zu öffnen.
+
+### Changed
+
+- In der Trefferliste der Suche steht bei einem Termin ohne Bewerbung jetzt „ohne Bewerbung“ statt eines Fragezeichens (#1177).
+- `GET /api/documents` kennt den Parameter `doc_id` und liefert dann genau ein Dokument (#1177).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.154: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+21 neue Tests (7.079 gesamt, gezählt im Klon des Zweigs; v1.7.154 hatte 7.058) in `tests/test_v17155_suche_treffer_1177.py`: jede Trefferart wird mit echtem Klick im gebauten Dashboard angeklickt, und das Objekt muss danach offen sein (auf der Fassung 1.7.154 schlagen 20 von 21 an), dazu ein Wächter, der zu jedem Schlüssel, den `lib/suche.js` erzeugt, einen Leser auf einer Seite verlangt. Der Node-Test `frontend/src/lib/suche.test.mjs` (in der CI) prüft die Zuordnung und die Adressen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.155.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.155.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.155 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.154] - 2026-10-06 — Die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe
+
+Hotfix für v1.7.153. Beim Prüfen der Wege durch PBP (#1171) zeigte eine Messung, dass die Seite „Stellen“ im Leerlauf den Browser zu zwei Dritteln auslastete, obwohl niemand etwas tat. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
+
+**Wichtig zu wissen:**
+
+- **Die Seite „Stellen“ ist wieder still, wenn du nichts tust.** Sie fragte pausenlos, ob gerade eine Suche läuft — gemessen 270 bis 470 Anfragen pro Sekunde, und der Hauptthread des Browsers war zu 66 % beschäftigt (alle anderen Seiten: 0,0 %). Man sah keinen Fehler; der Rechner wurde nur lauter und der Akku leerer. Jetzt sind es 0,8 Anfragen pro Sekunde und 0,3 % (gemessen mit denselben Demo-Daten, fünf Sekunden nach dem Laden). Wer die Seite offen hatte, merkte es am Lüfter und am Akku; deine Daten waren nicht betroffen.
+- **Eine Suche, die Claude von außen startet, erscheint auf der Seite nach spätestens etwa fünf Sekunden.** Die Seite fragt dafür alle fünf Sekunden nach (im Ruhezustand bisher alle 30). Mit nur 30 Sekunden hätte es nach der Reparatur bis zu 26 Sekunden gedauert, bis die Anzeige „Jobsuche läuft“ erscheint; die Endlosschleife hatte das durch Zufall verdeckt.
+
+### Fixed
+
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf wieder in Ruhe** (#1171). Sie fragte pausenlos, ob gerade eine Suche läuft: 270 bis 470 Anfragen pro Sekunde, der Hauptthread des Browsers zu 66 % beschäftigt, obwohl niemand etwas tat. Die Ursache war eine Funktion aus `useEffectEvent` (`syncRunningSearch`) in der Abhängigkeitsliste des Abfrage-Effekts: sie ist bei jedem Zeichnen eine neue Funktion, und jede Antwort setzt `searchJob` neu, sodass der Effekt nach jeder Antwort von vorn lief, ohne Pause. Die Zeile steht seit März 2026 (v0.23.0) im Code. Behoben: der Effekt hängt nur noch von `reloadKey` ab, und die Seite fragt alle 5 Sekunden (`SUCHE_ABFRAGE_MS`).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.153: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache oben (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+3 neue Tests (7.058 gesamt, gezählt im Klon des Zweigs; v1.7.153 hatte 7.055) in `tests/test_v17154_stellen_leerlauf_1171.py`: die Seite „Stellen“ schickt im Leerlauf weniger als 30 Anfragen in drei Sekunden (der Fehler machte rund 800 bis 1.400), kein Effekt-Ereignis steht in einer Abhängigkeitsliste (Wächter; der Bestand von acht Fällen ist benannt), und eine Suche, die Claude von außen startet, steht nach höchstens 12 Sekunden auf der Seite und verschwindet nach ihrem Ende wieder (gemessen 1 bis 5). Die ersten beiden werden auf dem Stand von v1.7.153 rot und mit der Reparatur grün; der dritte schützt die Reparatur selbst (er war vor der Reparatur grün, weil die Schleife die Suche zufällig sofort sah). Gemessen an v1.7.153 und an v1.7.154 mit demselben Skript: Leerlauf der Seite „Stellen“ 66 % und 270 bis 470 Anfragen pro Sekunde gegen 0,3 % und 0,8.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.154.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.154.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.154 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.153] - 2026-10-05 — Der Deinstaller-Knopf öffnet sich, das Dashboard startet mit offenem Claude
 
 Hotfix für v1.7.152. Eine Praxisprobe auf einem frischen Windows 11 mit Claude aus dem Microsoft Store (Installation, Start, Deinstallation) hat fünf Fehler gezeigt, die auch diese Linie betreffen. Die Gegenprobe der Reparaturen auf demselben Rechner fand einen sechsten: der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner liegen. Es gibt keine neue Funktion; die Reparaturen sind dieselben, die in Version 1.8 stecken.
