@@ -17,10 +17,11 @@ function koerperVon(element) {
   return element?.closest?.("[data-modal-koerper]") || null;
 }
 
-export default function Sprungleiste({ wurzelRef, etikett = "Abschnitte" }) {
+export default function Sprungleiste({ wurzelRef, etikett = "Abschnitte", anfang = null }) {
   const leisteRef = useRef(null);
   const [vorhanden, setVorhanden] = useState([]);
   const [aktiv, setAktiv] = useState("");
+  const anfangErledigtRef = useRef(0);
 
   // Welche Abschnitte gibt es gerade? Sie kommen und gehen (Termine erst, wenn es welche gibt). Bewusst `useEffect`:
   // der Bezug (`wurzelRef`) haengt am Elternknoten und ist in einem `useLayoutEffect` des Kindes noch leer.
@@ -67,7 +68,17 @@ export default function Sprungleiste({ wurzelRef, etikett = "Abschnitte" }) {
     };
   }, [wurzelRef, vorhanden]);
 
-  function springe(kennung) {
+  // #1177 (G88): wer einen Treffer der Suche oeffnet, soll im Abschnitt landen, nicht oben — `anfang` ist
+  // `{ kennung, nr }`; `nr` ist je Oeffnen neu, damit derselbe Abschnitt beim naechsten Oeffnen wieder gilt. Gesprungen wird,
+  // sobald der Abschnitt im Dialog steht (die Termine kommen mit den Daten).
+  useEffect(() => {
+    if (!anfang?.kennung || anfangErledigtRef.current === anfang.nr) return;
+    if (!vorhanden.includes(anfang.kennung)) return;
+    anfangErledigtRef.current = anfang.nr;
+    springe(anfang.kennung, true);
+  }, [anfang, vorhanden]);
+
+  function springe(kennung, sofort = false) {
     const wurzel = wurzelRef?.current;
     const ziel = wurzel?.querySelector(`[data-abschnitt="${kennung}"]`);
     const koerper = koerperVon(wurzel);
@@ -75,7 +86,7 @@ export default function Sprungleiste({ wurzelRef, etikett = "Abschnitte" }) {
     const leiste = leisteRef.current?.offsetHeight || 40;
     const oben = ziel.getBoundingClientRect().top - koerper.getBoundingClientRect().top + koerper.scrollTop - leiste - 8;
     const ruhig = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    koerper.scrollTo({ top: Math.max(0, oben), behavior: ruhig ? "auto" : "smooth" });
+    koerper.scrollTo({ top: Math.max(0, oben), behavior: ruhig || sofort ? "auto" : "smooth" });
     setAktiv(kennung);
   }
 

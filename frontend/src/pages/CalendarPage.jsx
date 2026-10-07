@@ -266,7 +266,7 @@ function MonthGrid({ year, month, meetingsByDate, onDayClick, onMeetingClick, co
 }
 
 export default function CalendarPage() {
-  const { reloadKey, pushToast, navigateTo, copyPrompt } = useApp();
+  const { reloadKey, pushToast, navigateTo, copyPrompt, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
   const [meetings, setMeetings] = useState([]);
   const [collisions, setCollisions] = useState([]);
@@ -292,6 +292,28 @@ export default function CalendarPage() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [categoryManager, setCategoryManager] = useState(false);
   const [newCategory, setNewCategory] = useState({ name: "", color: "#3b82f6", show_in_stats: true });
+
+  // #1177 (G88): ein Sprung mit Kennung (Treffer der Suche, „Zum Termin“, Link `#kalender/<id>`) oeffnet GENAU diesen Termin.
+  // Termine mit Bewerbung gehen — wie im Kalender selbst — in deren Timeline (`zuTermin`); hierher kommen die ohne Bewerbung.
+  // Der Kalender zeigt dabei den Monat des Termins, damit der Hintergrund zum Fenster passt.
+  useEffect(() => {
+    if (intent?.page !== "kalender" || !intent.terminId) return;
+    const id = String(intent.terminId);
+    clearIntent();
+    api(`/api/meetings/${encodeURIComponent(id)}`)
+      .then((termin) => {
+        if (!termin?.id) {
+          pushToast("Diesen Termin gibt es nicht mehr.", "amber");
+          return;
+        }
+        const tag = new Date(termin.meeting_date);
+        if (!Number.isNaN(tag.getTime())) setViewRef(tag);
+        setEditMeeting({ ...termin, _isNew: false });
+      })
+      .catch((fehler) => (fehler?.status === 404
+        ? pushToast("Diesen Termin gibt es nicht mehr.", "amber")
+        : pushToast("Der Termin konnte nicht geöffnet werden.", "danger")));
+  }, [intent]);
 
   // Listen for sidebar navigation events
   useEffect(() => {

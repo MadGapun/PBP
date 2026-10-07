@@ -599,6 +599,10 @@ export default function ProfilePage({ bereich = "profil" }) {
     return () => window.clearTimeout(handle);
   }, [criteriaDraft, loading, pushToast, refreshChrome]);
 
+  // #1177 (G88): ein Sprung auf einen Abschnitt (Treffer „Skill“ der Suche, Link `#profil/skills`) wartet, bis die Seite
+  // geladen ist — vorher gibt es die Karte noch nicht, und ein sofortiges Scrollen liefe ins Leere.
+  const [abschnittZiel, setAbschnittZiel] = useState(null);
+
   useEffect(() => {
     if (intent?.page !== "profil") return;
     if (intent.composer === "position") setPositionDialog({ open: true, draft: EMPTY_POSITION });
@@ -607,8 +611,19 @@ export default function ProfilePage({ bereich = "profil" }) {
     if (intent.composer === "document") {
       document.getElementById("profil-dokumente")?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
+    if (intent.abschnitt) setAbschnittZiel({ abschnitt: String(intent.abschnitt), suche: String(intent.suche || "") });
     clearIntent();
   }, [intent]);
+
+  useEffect(() => {
+    if (loading || !abschnittZiel) return;
+    const { abschnitt, suche } = abschnittZiel;
+    setAbschnittZiel(null);
+    // Der Name filtert die Skill-Liste nur dort, wo das Filterfeld steht (ab sieben Skills) — sonst gaebe es keinen Weg zurueck.
+    if (abschnitt === "skills" && suche && (profile?.skills?.length || 0) > 6) setSkillFilter(suche);
+    const karte = document.getElementById(`profil-${abschnitt}`);
+    if (karte) window.requestAnimationFrame(() => karte.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }, [loading, abschnittZiel, profile]);
 
   async function saveItem(type, dialog, { keepOpen = false } = {}) {
     const draftValue = dialog.draft;

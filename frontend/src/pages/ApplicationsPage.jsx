@@ -137,6 +137,8 @@ export default function ApplicationsPage() {
   const [sortMode, setSortMode] = useState("neueste"); // neueste | status | firma
   const [createDialog, setCreateDialog] = useState({ open: false, draft: EMPTY_APPLICATION });
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
+  // #1177 (G88): in welchem Abschnitt der Timeline der Dialog aufgeht (Treffer „Termin“ der Suche); `nr` ist je Oeffnen neu
+  const [timelineAbschnitt, setTimelineAbschnitt] = useState({ kennung: "", nr: 0 });
   // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
   const [jobDetailHash, setJobDetailHash] = useState(null);
   const timelineInhaltRef = useRef(null);
@@ -247,7 +249,7 @@ export default function ApplicationsPage() {
       // G57 (#1087 D6): Kalender, Dokumente und Elwosa senden jetzt
       // ebenfalls `applicationId`; `highlight` bleibt als Alias, damit ein
       // vergessener Aufrufer nicht wieder oben in der Liste landet.
-      openTimeline({ id: intent.applicationId || intent.highlight });
+      openTimeline({ id: intent.applicationId || intent.highlight }, { abschnitt: intent.abschnitt });
       clearIntent();
     }
   }, [intent, clearIntent]);
@@ -438,9 +440,10 @@ export default function ApplicationsPage() {
     } catch { /* bleibt beim alten Stand */ }
   }
 
-  async function openTimeline(application) {
+  async function openTimeline(application, optionen = {}) {
     try {
       const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(application.id);
+      setTimelineAbschnitt({ kennung: optionen.abschnitt || "", nr: Date.now() });
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
@@ -938,7 +941,7 @@ export default function ApplicationsPage() {
                   <div
                     key={`m-${meeting.id}`}
                     title={`${meeting.title || "Termin"} — ${meeting.app_company || ""}`}
-                    onClick={() => meeting.application_id ? openTimeline({ id: meeting.application_id }) : navigateTo("kalender")}
+                    onClick={() => meeting.application_id ? openTimeline({ id: meeting.application_id }) : navigateTo("kalender", { terminId: meeting.id })}
                     className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm cursor-pointer transition-colors min-w-0 bg-teal/8 border border-teal/15 hover:bg-teal/15"
                   >
                     <Calendar size={14} className="shrink-0 text-teal" />
@@ -1251,7 +1254,7 @@ export default function ApplicationsPage() {
       >
         <div className="grid gap-5" ref={timelineInhaltRef}>
           {/* #1171 (G85): die Abschnitte dieses langen Dialogs, ein Klick entfernt — die Leiste bleibt beim Scrollen stehen. */}
-          <Sprungleiste wurzelRef={timelineInhaltRef} etikett="Abschnitte dieser Bewerbung" />
+          <Sprungleiste wurzelRef={timelineInhaltRef} etikett="Abschnitte dieser Bewerbung" anfang={timelineAbschnitt} />
           {/* Application details & contact (#134 editable) */}
           {timelineDialog.entry?.application && (() => {
             const app = timelineDialog.entry.application;

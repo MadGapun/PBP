@@ -14,11 +14,12 @@ Aufruf (NICHT im Arbeitsordner, sondern in einem eigenen, sauberen Arbeitsbaum):
     git worktree add --detach C:/Temp/pbp_mutation HEAD
     python scripts/mutationstest_auto_update.py --arbeitsbaum C:/Temp/pbp_mutation [--katalog speicher] [Kennung ...]
 
-Sechs Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
+Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startbaustein, Schema-Schutz, Stufen; #1093),
 `speicher` (Loeschen nur unter der Wurzel, zwei Schritte, nie bei laufender Arbeit, Fremdes nur zeigen; #1131),
 `komponenten` (kein Installer ohne Pruefsumme; #1152), `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947) und
 `firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080) und
-`wege` (Wege durch PBP: jeder Sprung, jede Verknuepfung, die Sprungleiste; #1171 — baut das Bundle bei Frontend-Eintraegen neu).
+`wege` (Wege durch PBP: jeder Sprung, jede Verknuepfung, die Sprungleiste; #1171 — baut das Bundle bei Frontend-Eintraegen neu) und
+`suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -430,6 +431,59 @@ M_FIRMEN = [
     ("fr04", "Endpunkt: Fehler kommen als 200 zurueck", DASH, '    code = _FIRMEN_FEHLER.get(erg.get("status"))', "    code = None", T_FI),
 ]
 
+# ── Suche: ein Klick auf einen Treffer oeffnet das Objekt (#1177, G88) ──
+DASH_S = "src/bewerbungs_assistent/dashboard.py"
+T_SU = ["tests/test_v18_suche_treffer_oeffnen_1177.py"]
+
+M_SUCHE = [
+    ("su01", "Suche: Bewerbungs-Treffer tragen wieder die fruehere Adresse (?id=)", DASH_S,
+     '            "url": _hash_ziel("bewerbungen", a["id"]),\n', '            "url": f"#bewerbungen?id={a[\'id\']}",\n', T_SU),
+    ("su02", "Suche: Stellen-Treffer tragen den gespeicherten Hash mit Profil-Praefix", DASH_S,
+     '            "id": _db._public_job_hash(j["hash"]),\n', '            "id": j["hash"],\n', T_SU),
+    ("su03", "Suche: ein Termin ohne Bewerbung zeigt auf den Kalender ohne Kennung", DASH_S,
+     '_hash_ziel("kalender", m["id"])', '_hash_ziel("kalender")', T_SU),
+    ("su04", "Suche: ein Termin traegt seine Bewerbung nicht mit", DASH_S,
+     '                "application_id": m["app_id"] or "",\n', '                "application_id": "",\n', T_SU),
+    ("su05", "Dokumente: die Liste kennt die Kennung (doc_id) nicht", DASH_S,
+     '    if doc_id:\n        base += " AND d.id = ?"', '    if False:\n        base += " AND d.id = ?"', T_SU),
+    ("su06", "Link: hash_ziel behaelt das Profil-Praefix der Stelle", "src/bewerbungs_assistent/services/dashboard_link.py",
+     '        kennung = str(kennung).split(":", 1)[-1]\n', '        kennung = str(kennung)\n', T_SU),
+    ("su07", "Klick: der Treffer setzt nur noch den Hash, ohne Sprungziel", "frontend/src/App.jsx",
+     '    navigateTo(ziel.seite, ziel.intent);\n  }', '    window.location.hash = ziel.seite;\n  }', T_SU),
+    ("su08", "wege.js: ein Stellen-Treffer blaettert nur, statt die Stelle zu oeffnen", "frontend/src/lib/wege.js",
+     '  else if (art === "job") ziel = zuStelle(treffer.id);', '  else if (art === "job") ziel = { seite: "stellen", intent: { jobHash: treffer.id } };', T_SU),
+    ("su09", "wege.js: ein Termin mit Bewerbung landet oben in der Timeline", "frontend/src/lib/wege.js",
+     '    if (ziel?.seite === "bewerbungen") ziel = {', '    if (false) ziel = {', T_SU),
+    ("su10", "wege.js: ein Mail-Treffer fuehrt nirgends hin", "frontend/src/lib/wege.js",
+     '  } else if (art === "email") ziel = zuMail(treffer.id);', '  } else if (art === "email") ziel = null;', T_SU),
+    ("su11", "wege.js: ein Skill-Treffer kennt den Namen nicht", "frontend/src/lib/wege.js",
+     'ziel = zuProfil("skills", treffer.title);', 'ziel = zuProfil("skills");', T_SU),
+    ("su12", "Dokumente-Seite: die Kennung des Sprungs wird nicht gelesen", "frontend/src/pages/DocumentsPage.jsx",
+     '    if (!intent.dokumentId) return;\n', '    return;\n', T_SU),
+    ("su13", "Dokumente-Seite: das Dokument wird nicht aufgeklappt", "frontend/src/pages/DocumentsPage.jsx",
+     '        setExpandedDoc(doc.id);\n        setDokumentZiel(doc.id);', '        setDokumentZiel(doc.id);', T_SU),
+    ("su14", "Dokumente-Seite: ein aktiver Typ-Filter verbirgt das Dokument weiter", "frontend/src/pages/DocumentsPage.jsx",
+     '        setDocType("");\n        setAppFilter("");', '        setAppFilter("");', T_SU),
+    ("su15", "Dokumente-Seite: die Mail-Kennung des Sprungs wird nicht weitergegeben", "frontend/src/pages/DocumentsPage.jsx",
+     '      setMailZiel(String(intent.mailId));\n', '      setMailZiel("");\n', T_SU),
+    ("su16", "Mail-Liste: das Fenster der Mail geht nicht auf", "frontend/src/components/EmailListe.jsx",
+     '      .then((mail) => setDetail(mail))', '      .then((mail) => mail)', T_SU),
+    ("su17", "Kalender-Seite: die Termin-Kennung des Sprungs wird nicht gelesen", "frontend/src/pages/CalendarPage.jsx",
+     '    if (intent?.page !== "kalender" || !intent.terminId) return;\n', '    return;\n', T_SU),
+    ("su18", "Profil-Seite: der Abschnitt des Sprungs wird nicht gemerkt", "frontend/src/pages/ProfilePage.jsx",
+     '    if (intent.abschnitt) setAbschnittZiel(', '    if (false) setAbschnittZiel(', T_SU),
+    ("su19", "Profil-Seite: der Name filtert die Skill-Liste nicht", "frontend/src/pages/ProfilePage.jsx",
+     '(profile?.skills?.length || 0) > 6) setSkillFilter(suche);', '(profile?.skills?.length || 0) > 6) { /* nichts */ }', T_SU),
+    ("su20", "Timeline: der Sprung in den Abschnitt beim Oeffnen fehlt", "frontend/src/components/Sprungleiste.jsx",
+     '    springe(anfang.kennung, true);\n', '', T_SU),
+    ("su21", "Link: #dokumente/<Kennung> fuehrt nirgends hin", "frontend/src/utils.js",
+     '  if (ziel.page === "dokumente") return { dokumentId: ziel.kennung };\n', '', T_SU),
+    ("su22", "Link: #kalender/<Kennung> fuehrt nirgends hin", "frontend/src/utils.js",
+     '  if (ziel.page === "kalender") return { terminId: ziel.kennung };\n', '', T_SU),
+    ("su23", "Bewerbungen: ein Termin ohne Bewerbung fuehrt nur in den Kalender, ohne sich zu oeffnen", "frontend/src/pages/ApplicationsPage.jsx",
+     'navigateTo("kalender", { terminId: meeting.id })', 'navigateTo("kalender")', T_SU),
+]
+
 T_WG = ["tests/test_v18_wege_1171.py"]
 T_WGF = T_WG + ["tests/test_v18_firmen_ansicht_1080.py"]
 T_WGO = ["tests/test_v18_offen_nur_ueberfaelliges_rot_1174.py"]
@@ -476,7 +530,7 @@ M_WEGE = [
     ('wg38', 'Offen: die Ueberschrift Ueberfaellig ist nicht mehr rot', 'frontend/src/components/OffenBlock.jsx', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-coral" }', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-muted" }', T_WGO),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE}
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -484,6 +538,7 @@ GRUNDLAEUFE = {
     "mail": (("T_MQ", T_MQ),),
     "firmen": (("T_FI", T_FI),),
     "wege": (("T_WG", T_WG),),
+    "suche": (("T_SU", T_SU),),
 }
 
 WT = None
@@ -534,7 +589,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

@@ -544,7 +544,11 @@ Arbeitsordner und hält ihn fest, der Deinstaller konnte seinen Ordner nicht lö
 (`start … /MIN` für das Dashboard-Fenster) und wurde erst bei der dritten Probe auf einem zweiten Rechner sichtbar (PP20: ein leerer Ordner bleibt stehen).
 Eine Suche nach `start "` und `Start-Process` ohne Arbeitsordner in allen Installern am Tag des ersten Fundes hätte ihn gefunden. Regel: zu jedem Fund einen Satz
 „welche anderen Stellen machen dasselbe?“ und die Suche dazu, noch im selben Zug (DoD 8c: ein Schutz zählt erst, wenn er überall greift).
-*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51
+Zweites Beispiel, #1177: Ein Klick auf einen Treffer der Suche oben tat seit v1.7.0 nichts — der Server lieferte Adressen (`#bewerbungen?id=…`), die das Dashboard seit H31 nicht mehr
+las, und kein Test klickte je einen Treffer. Dieselbe Klasse („etwas erzeugt ein Sprungziel, niemand liest es“) steckte in den Wegen aus Beta 17: `wege.js` erzeugte `dokumentId` und
+`terminId`, keine Seite las sie. Die Suche nach der Klasse ergab den Test `test_jede_absicht_hat_einen_leser_auf_einer_seite` (zu jedem Schlüssel, den ein Weg erzeugt, eine Lesestelle;
+Ausnahmen mit Grund) und `dashboard_link.hash_ziel` als EINE Adressform für Links und Treffer; je Trefferart klickt ein Browser-Test und prüft, dass das OBJEKT offen ist.
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177
 
 **L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
 sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln

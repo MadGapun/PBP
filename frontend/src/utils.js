@@ -61,6 +61,11 @@ export function sprungAusHash(ziel) {
   // #1171 (G85): wie `#bewerbungen/<id>` die Timeline oeffnet, oeffnet `#stellen/<hash>` die Stelle selbst — der Link aus
   // Claude fuehrt „direkt zur Stelle“, nicht nur in die Liste.
   if (ziel.page === "stellen") return { jobHash: ziel.kennung, oeffnen: true };
+  // #1177 (G88): Dokument, Termin und Profil-Abschnitt hatten keinen Sprung mit Kennung — ein Link aus Claude
+  // (`#dokumente/<id>`) endete auf dem Dashboard. Die Namen der Absichten sind die aus `lib/wege.js` (`zuDokument`, `zuTermin`).
+  if (ziel.page === "dokumente") return { dokumentId: ziel.kennung };
+  if (ziel.page === "kalender") return { terminId: ziel.kennung };
+  if (ziel.page === "profil") return { abschnitt: ziel.kennung };
   // #1080: `#kontakte/fi_…` (Firmen-Eintrag) und `#kontakte/firma:Name` führen in die Firmen-Ansicht
   if (ziel.page === "kontakte") return ansichtAusKennung(ziel.kennung);
   return null;

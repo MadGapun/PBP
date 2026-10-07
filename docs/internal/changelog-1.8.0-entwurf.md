@@ -43,6 +43,9 @@ Einträgen darunter.
   Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst.
 - **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil zur Stelle, eine Notiz, ein Termin, eine
   Mail zur Bewerbung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
+- **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
+  (aufgeklappt, mit seinem Namen im Suchfeld der Seite), die Mail (ihr Fenster, auch ohne Bewerbung), den Termin (in der Timeline der Bewerbung, am Abschnitt
+  „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil, die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
 
 ### Added
 
@@ -59,6 +62,10 @@ Einträgen darunter.
 - **Mail-Zugangsschicht** (#947): Schalter, genaue Liste freigegebener Ordner, Prüfung im Mail-Eingang für jedes Add-on
   (`GET /api/v1/ingest/mail-policy`, `modus=scan` bei `POST /api/v1/ingest/email`), Zahlen je Ordner; Werkzeuge `mail_quelle_anzeigen` und
   `mail_quelle_einstellen`. Die Ingest-API v1 bleibt kompatibel: die Erweiterung ist rein additiv.
+- **Ein Weg für Treffer und Links** (#1177): `services/dashboard_link.hash_ziel` baut die eine Adressform `#seite/kennung` (für die Links, die Claude nennt, und für die
+  Treffer der Suche); `lib/wege.js` kennt `zuMail`, `zuProfil` und `zuSuchtreffer`; `sprungAusHash` liest zusätzlich `#dokumente/<id>`, `#kalender/<id>`
+  und `#profil/skills`; `GET /api/documents?doc_id=` liefert genau ein Dokument; die Sprungleiste springt beim Öffnen in einen genannten Abschnitt.
+  Gegenprobe: neuer Katalog „suche“ (23 absichtlich eingebaute Fehler: Adressen, Zuordnung, Lesestellen der Seiten).
 - **Firmen-Eintrag, Stufe 2** (#1080): Tabellen `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung); die
   Duplikat- und Repost-Erkennung kennt die Einträge (`firmen_kanon`); Kontakte gehören mehreren Firmen mit Rolle und Zeitraum; Dokumente an einer
   Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,
@@ -84,6 +91,12 @@ Einträgen darunter.
 ### Fixed
 
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154). Die Suche lieferte die Zieladresse im Format
+  `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte
+  außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen —
+  dasselbe traf „Zum Dokument“ in der Firmen-Zeitleiste und einen Termin ohne Bewerbung im Block „Offen“ (die Absichten `dokumentId` und `terminId` hatten
+  keinen Leser). Jetzt gehen Treffer und Links aus Claude denselben Weg, jede Seite liest ihren Sprung, die Stellen-Treffer tragen die öffentliche Kennung, und ein
+  Test verlangt zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite.
 - **Die Seite „Stellen“ lief im Leerlauf auf Hochtouren** (#1171): sie fragte pausenlos, ob gerade eine Suche läuft — gemessen 270 bis 470 Anfragen
   pro Sekunde und ein zu zwei Dritteln beschäftigter Hauptthread des Browsers, während niemand etwas tat (alle anderen Seiten: 0,0 %). Ursache war
   eine Funktion in der Abhängigkeitsliste des Abfrage-Effekts (`useEffectEvent` ist bei jedem Zeichnen eine neue Funktion; jede Antwort setzt den

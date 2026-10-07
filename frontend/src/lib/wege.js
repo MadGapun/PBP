@@ -6,6 +6,11 @@
 // Alles Reine, nichts Gezeichnetes: die Seiten rufen `zuBewerbung(id)` usw. und reichen das Ergebnis an
 // `navigateTo(ziel.seite, ziel.intent)` der App. `null` heißt: ohne Kennung kein Sprung (der Aufrufer zeigt dann
 // keinen Knopf, statt einen toten zu zeichnen).
+//
+// Jeder Schlüssel einer Absicht (`dokumentId`, `terminId`, `mailId`, `abschnitt` …) braucht einen LESER auf einer Seite
+// (`intent.<schluessel>`); `test_jede_absicht_hat_einen_leser_auf_einer_seite` prüft das (#1177: zwei Absichten hatten keinen).
+// Die Treffer der Suche oben gehen denselben Weg (`zuSuchtreffer`); Adressen für Links baut der Server mit
+// `services/dashboard_link.hash_ziel` (`#seite/kennung`).
 
 function kennung(wert) {
   const s = String(wert ?? "").trim();
@@ -58,6 +63,40 @@ export function zuAufgabe({ id = "", bewerbung_id = "" } = {}) {
   if (bew) return bew;
   const a = kennung(id);
   return { seite: "aufgaben", intent: a ? { aufgabeId: a } : null };
+}
+
+/** Eine Mail öffnen: ihr Fenster auf der Dokumente-Seite (Absender, Text, „Bewerbung zuordnen“) — gleich, ob sie zu einer Bewerbung gehört. */
+export function zuMail(mailId) {
+  const id = kennung(mailId);
+  return id ? { seite: "dokumente", intent: { mailId: id } } : null;
+}
+
+/** Ein Abschnitt der Profil-Seite (Skills …); `suche` ist der Name, den die Liste dort zeigen soll (nur wo sie filtern kann). */
+export function zuProfil(abschnitt, suche = "") {
+  const intent = { abschnitt: kennung(abschnitt) };
+  if (kennung(suche)) intent.suche = kennung(suche);
+  return { seite: "profil", intent };
+}
+
+/**
+ * Was ein Klick auf einen Treffer der Suche oben im Dashboard meint (#1177, G88): das Objekt öffnen. Gebaut aus denselben
+ * Wegen wie jeder andere Klick im Dashboard — kein eigener Zuschnitt für die Suche (bis v1.7.154 tat der Klick nichts).
+ * Ein Treffer ohne Ziel (eine Art, die es nicht gibt, oder ohne Kennung) liefert eine `meldung`: der Mensch erfährt, dass
+ * nichts aufgeht, statt vor einer Stille zu stehen.
+ */
+export function zuSuchtreffer(treffer) {
+  const art = String(treffer?.kind || "");
+  let ziel = null;
+  if (art === "application") ziel = zuBewerbung(treffer.id);
+  else if (art === "job") ziel = zuStelle(treffer.id);
+  else if (art === "document") ziel = zuDokument(treffer.id);
+  else if (art === "meeting") {
+    ziel = zuTermin({ id: treffer.id, application_id: treffer.application_id });
+    // ein Termin mit Bewerbung öffnet deren Timeline — am Abschnitt „Termine“, nicht oben
+    if (ziel?.seite === "bewerbungen") ziel = { ...ziel, intent: { ...ziel.intent, abschnitt: "termine" } };
+  } else if (art === "email") ziel = zuMail(treffer.id);
+  else if (art === "skill") ziel = zuProfil("skills", treffer.title);
+  return ziel || { meldung: "Zu diesem Treffer gibt es keine Ansicht, die sich öffnen ließe." };
 }
 
 /**
