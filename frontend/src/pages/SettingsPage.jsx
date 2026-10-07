@@ -1767,7 +1767,10 @@ function OllamaAccuracyCard() {
 // #973: Wohin PBP schreibt und woher es die Vorlage nimmt.
 // Ein ungueltiger Pfad wird vom Server ABGEWIESEN und nicht gespeichert —
 // die Karte zeigt die Begruendung, statt Erfolg zu melden (#988).
-function AblageOrdnerCard({ pushToast }) {
+//
+// #1173: dieselbe Komponente steht an ZWEI Orten — als eigene Karte unter Einstellungen › Ordner und (`eingebettet`) in der Karte
+// „Deine eigenen Ordner“ unter Speicher & Downloads. `onGespeichert` sagt der Speicher-Seite, dass sie neu messen soll.
+function AblageOrdnerCard({ pushToast, onGespeichert, eingebettet = false }) {
   const [stand, setStand] = useState(null);
   const [ausgabe, setAusgabe] = useState("");
   const [vorlagen, setVorlagen] = useState("");
@@ -1793,7 +1796,9 @@ function AblageOrdnerCard({ pushToast }) {
     setSpeichert(art);
     setFehler((f) => ({ ...f, [art]: null }));
     try {
-      const d = await putJson("/api/settings/ablage", { art, pfad: pfad.trim() || "-" });
+      // Leer heisst „zuruecksetzen“ und wird auch leer geschickt: ein Platzhalter wie „-“ wurde vom Server als relativer Pfad gelesen und
+      // abgewiesen, das Zuruecksetzen endete seit v1.7.59 mit „HTTP 400“ (#1173).
+      const d = await putJson("/api/settings/ablage", { art, pfad: pfad.trim() });
       setStand(d);
       pushToast(
         art === "ausgabe"
@@ -1805,10 +1810,11 @@ function AblageOrdnerCard({ pushToast }) {
               : "Vorlagen-Ordner zurückgesetzt — PBP nutzt das eingebaute Layout."),
         "success",
       );
+      onGespeichert?.();
     } catch (err) {
-      // Der Server liefert die Begruendung im Body; sie gehoert an das
-      // Feld, nicht in einen Toast, der wieder verschwindet.
-      const text = String(err?.message || err);
+      // Der Server liefert die Begruendung im Body (`hinweis`); sie gehoert an das Feld, nicht in einen Toast, der wieder verschwindet.
+      // `err.message` allein war oft nur „HTTP 400“ — der Mensch erfuhr nie, WARUM sein Pfad nicht gespeichert wurde (#1173).
+      const text = String(err?.payload?.hinweis || err?.message || err);
       setFehler((f) => ({ ...f, [art]: text }));
       pushToast("Der Pfad wurde nicht gespeichert — siehe Begründung am Feld.", "amber");
     } finally {
@@ -1816,13 +1822,8 @@ function AblageOrdnerCard({ pushToast }) {
     }
   }
 
-  return (
-    <Card className="rounded-2xl">
-      <SectionHeading
-        title="Ordner für Dokumente und Vorlagen"
-        description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
-      />
-
+  const felder = (
+    <>
       <Field label="Ausgabe-Ordner (leer = Datenordner von PBP)">
         <div className="flex flex-wrap items-center gap-2">
           <TextInput
@@ -1842,12 +1843,16 @@ function AblageOrdnerCard({ pushToast }) {
         werden direkt dort abgelegt. Kein Umkopieren mehr.
       </p>
       {fehler.ausgabe && <p className="mt-2 text-[13px] text-coral">{fehler.ausgabe}</p>}
-      {stand.ausgabe_befund === "ausweich" && (
+      {/* Eingebettet sagt die Karte darueber schon, wohin die Dateien gehen (Pfad oder Hinweis). Dasselbe darunter nochmal zu lesen
+          verwirrt nur: bei verschwundenem Ordner stand der Satz zweimal da. Der Pfad bleibt nur dort, wo der Hinweis ihn nicht nennt. */}
+      {stand.ausgabe_befund === "ausweich" && !eingebettet && (
         <p className="mt-2 text-[13px] text-amber">{stand.hinweis_ausgabe}</p>
       )}
-      <p className="mt-2 text-[12px] text-muted">
-        Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
-      </p>
+      {(!eingebettet || stand.ausgabe_befund === "ausweich") && (
+        <p className="mt-2 text-[12px] text-muted">
+          Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
+        </p>
+      )}
 
       <div className="mt-5 border-t border-white/5 pt-4">
         <Field label="Vorlagen-Ordner (leer = eingebautes Layout)">
@@ -1875,6 +1880,20 @@ function AblageOrdnerCard({ pushToast }) {
         {fehler.vorlagen && <p className="mt-2 text-[13px] text-coral">{fehler.vorlagen}</p>}
         <p className="mt-2 text-[12px] text-muted">{stand.hinweis_vorlagen}</p>
       </div>
+    </>
+  );
+
+  // Eingebettet (Speicher & Downloads) steht die Ueberschrift schon in der Karte darueber.
+  if (eingebettet) {
+    return <div className="mt-4 border-t border-white/5 pt-4" data-ablage-eingebettet>{felder}</div>;
+  }
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Ordner für Dokumente und Vorlagen"
+        description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
+      />
+      {felder}
     </Card>
   );
 }
@@ -4076,7 +4095,9 @@ export default function SettingsPage() {
 
         {/* ── v1.8 (#1131): Speicher & Downloads ── */}
         {settingsTab === "speicher" && (
-          <SpeicherTab />
+          // #1173: die Ordner des Menschen (Ausgabe, Vorlagen) lassen sich dort aendern, wo sie angezeigt werden — dieselbe Karte
+          // wie unter „Ordner“; nach dem Speichern misst die Seite neu.
+          <SpeicherTab ordnerEditor={(neuMessen) => <AblageOrdnerCard pushToast={pushToast} eingebettet onGespeichert={neuMessen} />} />
         )}
 
         {settingsTab === "ai" && (

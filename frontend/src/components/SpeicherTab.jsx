@@ -20,7 +20,10 @@ import {
   URHEBER_TON, auswahlSumme, bereinigbar, darfLoeschen, loeschSatz, ortGroesse, schrittAus, zusammenfassung,
 } from "@/lib/speicher";
 
-export default function SpeicherTab() {
+// `ordnerEditor(neuMessen)` (optional) liefert die Eingabefelder fuer Ausgabe- und Vorlagen-Ordner (#1173). Die Karte „Deine
+// eigenen Ordner“ traegt sie; nach dem Speichern ruft der Editor `neuMessen`, damit Pfad und Groesse stimmen. Die Seite bleibt
+// sonst Anzeige: alle anderen Orte sind durch die Installation bedingt und lassen sich hier nicht umstellen.
+export default function SpeicherTab({ ordnerEditor }) {
   const { pushToast } = useApp();
   const [daten, setDaten] = useState(null);
   const [fehler, setFehler] = useState("");
@@ -177,6 +180,8 @@ export default function SpeicherTab() {
                 ) : null}
               </div>
             ) : null}
+
+            {ort.id === "eigene" && ordnerEditor ? <div data-speicher-ordner-editor>{ordnerEditor(laden)}</div> : null}
 
             {ids.length ? (
               <div className="mt-4 flex flex-wrap gap-2" data-speicher-aktionen>

@@ -349,8 +349,10 @@ def test_g70_bericht_ist_ein_eigener_bereich():
     seite = _lesen(FRONTEND / "pages" / "SettingsPage.jsx")
     bericht = seite.index('<h2 className="text-base font-semibold text-ink">Bewerbungsbericht</h2>')
     assert seite.rfind('settingsTab === "', 0, bericht) == seite.rfind('settingsTab === "bericht"', 0, bericht)
-    ordner = seite.index("<AblageOrdnerCard")
-    assert seite.rfind('settingsTab === "', 0, ordner) == seite.rfind('settingsTab === "ordner"', 0, ordner)
+    # #1173: die Karte steht an ZWEI Orten (eigener Reiter und eingebettet bei Speicher & Downloads); der Reiter „Ordner“ muss sie tragen.
+    ordner_reiter = seite.index('settingsTab === "ordner"')
+    ordner = seite.index("<AblageOrdnerCard", ordner_reiter)
+    assert seite.rfind('settingsTab === "', 0, ordner) == ordner_reiter
 
 
 def test_g70_automatik_in_klartext():

@@ -3092,7 +3092,9 @@ async def api_ablage_setzen(request: Request):
         return JSONResponse({"error": "pfad fehlt"}, status_code=400)
     ergebnis = ablage.ordner_setzen(_db, art, str(pfad))
     if not ergebnis.get("gespeichert"):
-        return JSONResponse(ergebnis, status_code=400)
+        # #1173: die Begruendung steht als `hinweis` im Body, die Oberflaeche liest aber `error`/`message` — sie zeigte nur „HTTP 400“,
+        # und der Mensch erfuhr nie, WARUM sein Pfad nicht gespeichert wurde. `error` traegt jetzt dieselbe Begruendung.
+        return JSONResponse({**ergebnis, "error": ergebnis.get("hinweis") or "Der Pfad wurde nicht gespeichert."}, status_code=400)
     return ergebnis
 
 

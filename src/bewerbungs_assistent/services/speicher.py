@@ -245,13 +245,25 @@ def _ort_downloads(db, frist_s) -> dict:
 
 
 def _ort_eigene(db, frist_s) -> dict:
-    from . import datenordner
+    """Die Ordner, die der Mensch selbst gewählt hat (#1173): wohin PBP Lebensläufe, Anschreiben und Berichte legt (Ausgabe-Ordner)
+    und woher es sein Layout nimmt (Vorlagen-Ordner). Die Karte steht IMMER da: wer nichts gewählt hat, liest, wohin die Dateien
+    gerade gehen, und kann es auf der Seite ändern (die Eingabefelder kommen aus der Oberfläche, die Prüfung aus `ablage`)."""
+    from . import ablage, datenordner
     ort = {"id": "eigene", "name": "Deine eigenen Ordner", "urheber": "du", "pfad": "",
-           "was": "Ablage- und Vorlagenordner, die du in den Einstellungen gewählt hast. PBP legt dort Lebensläufe und Anschreiben ab.",
+           "was": ("Hier legt PBP deine erzeugten Lebensläufe, Anschreiben und Berichte ab (der Ausgabe-Ordner) und holt sich dein Layout "
+                   "(der Vorlagen-Ordner). Beide kannst du hier ändern. Was in diesen Ordnern liegt, löscht PBP nie."),
            "aktionen": [], "summe_aus_eintraegen": True, "eintraege": []}
     try:
         for e in datenordner.ausserhalb(db):
             ort["eintraege"].append(_eintrag(e["was"], "Von dir gewählt", Path(e["pfad"]), frist_s))
+        befund = ablage.ausgabe_befund(db) if db else None
+        if befund and befund["befund"] == "eigener_ordner":
+            ort["pfad"] = befund["ordner"]               # „Ordner öffnen“ öffnet den Ordner, in dem die Unterlagen landen
+        elif befund and befund["befund"] == "ausweich":
+            ort["hinweis"] = befund["hinweis"]           # der Ordner ist gerade weg (externe Platte?): PBP sagt es
+        elif befund:
+            # „für erzeugte Dateien“: auch wer nur einen Vorlagen-Ordner gewählt hat, soll hier nichts Falsches lesen
+            ort["hinweis"] = (f"Für erzeugte Dateien ist noch kein eigener Ordner gewählt: sie liegen im Datenordner von PBP ({befund['ordner']}).")
     except Exception as exc:  # noqa: BLE001
         logger.debug("Eigene Ordner nicht lesbar: %s", exc)
     return ort
