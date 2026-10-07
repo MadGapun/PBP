@@ -6,6 +6,11 @@
 // Alles Reine, nichts Gezeichnetes: die Seiten rufen `zuBewerbung(id)` usw. und reichen das Ergebnis an
 // `navigateTo(ziel.seite, ziel.intent)` der App. `null` heißt: ohne Kennung kein Sprung (der Aufrufer zeigt dann
 // keinen Knopf, statt einen toten zu zeichnen).
+//
+// Jeder Schlüssel einer Absicht (`dokumentId`, `terminId`, `mailId`, `abschnitt` …) braucht einen LESER auf einer Seite
+// (`intent.<schluessel>`); `test_jede_absicht_hat_einen_leser_auf_einer_seite` prüft das (#1177: zwei Absichten hatten keinen).
+// Die Treffer der Suche oben gehen denselben Weg (`zuSuchtreffer`); Adressen für Links baut der Server mit
+// `services/dashboard_link.hash_ziel` (`#seite/kennung`).
 
 function kennung(wert) {
   const s = String(wert ?? "").trim();
