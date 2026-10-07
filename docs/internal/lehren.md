@@ -23,7 +23,7 @@ der stand bei `fit_analyse` fuenfmal und stimmte nie lange. Eine Regel in
 nur einen von zwei Wegen einzubauen verschiebt die Abweichung; und beim
 Suchen nach Doppelungen zuerst den Weg ansehen, der schreibt oder den die
 Doku empfiehlt — der schwaechere ist oft genau dieser.
-*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`)
+*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64)
 
 **L2. Das Nadeloehr gilt auch fuer die Eingabe.** Kriterien, die roh statt
 durch `fuer_scoring` gereicht oder hinter dem Nadeloehr ueberschrieben
@@ -566,3 +566,11 @@ fragte ständig), nachher nach 26 Sekunden (die Seite fragte nur alle 30 Sekunde
 geprüft, wäre ein Hotfix mit einer neuen, stillen Verschlechterung hinausgegangen. Regel: nach dem Abschalten eines Dauerläufers fragen, welche Beobachtung ihn bisher
 unbemerkt als Taktgeber hatte, und genau diesen Weg messen — vorher und nachher, mit demselben Skript.
 *Belege:* #1171, `test_suche_von_claude_steht_nach_wenigen_sekunden_auf_der_seite`, Gegenprobe wg33
+
+**L64. Ein Test richtet seinen Zustand über denselben Weg ein wie der Betrieb — sonst prüft er einen Zustand, den es nie gibt.** Die Liste „eigene Ordner außerhalb des
+Datenordners“ war seit v1.7.59 im Betrieb immer leer: gespeichert wird je Profil, gelesen wurde der Schlüssel ohne Profil. Der Test dazu blieb grün, weil er den Schlüssel selbst
+ohne Profil schrieb — auf dem Weg, den das Produkt nie benutzt. Aufgefallen ist es erst, als eine Oberfläche den Ordner wirklich über den Schreibweg setzte. Dasselbe Bild beim
+„Zurücksetzen“: den Platzhalter „-“ kannte nur das Werkzeug für Claude; der Weg über das Dashboard schickte ihn und bekam 400, am Feld stand nur „HTTP 400“. Regel: den Zustand
+im Test über die öffentliche Schreibfunktion herstellen (hier `ablage.ordner_setzen`), nie über die Tabelle; und bei jedem Wert, der „leer“, „zurücksetzen“ oder „Standard“ kennt,
+den Weg des Menschen (Oberfläche) mit dem Weg von Claude (Werkzeug) vergleichen (vgl. L1).
+*Belege:* #1173, `test_gefahrenzone_nennt_eigene_ablageordner`, `test_rest_leer_und_minus_setzen_den_ordner_zurueck`, Gegenprobe sp25 und sp30

@@ -221,7 +221,9 @@ def test_gefahrenzone_nennt_eigene_ablageordner(umgebung, tmp_path):
     from bewerbungs_assistent.services import ablage
     eigen = tmp_path / "meine_bewerbungen"
     eigen.mkdir()
-    umgebung["db"].set_setting(ablage.AUSGABE_SCHLUESSEL, str(eigen))
+    # Der Ordner kommt ueber DENSELBEN Weg in die Einstellungen wie im Betrieb (je Profil). Frueher schrieb dieser Test den
+    # Schluessel ohne Profil und blieb gruen, waehrend die Liste im Betrieb immer leer war (#1173).
+    assert ablage.ordner_setzen(umgebung["db"], "ausgabe", str(eigen))["gespeichert"]
     v = umgebung["client"].get("/api/danger/bereiche").json()
     assert any(o["pfad"] == str(eigen) for o in v["dsgvo"]["ausserhalb"])
     # ... und die Löschung fasst ihn nicht an.

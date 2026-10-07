@@ -187,6 +187,13 @@ M = [
 # ── Zweiter Katalog: Speicher & Downloads (#1131) ──
 SP = "src/bewerbungs_assistent/services/speicher.py"
 T_SP = ["tests/test_v18_speicher_1131.py"]
+# #1173 (eigene Ordner auf der Speicher-Seite)
+DO = "src/bewerbungs_assistent/services/datenordner.py"
+AB = "src/bewerbungs_assistent/services/ablage.py"
+DA = "src/bewerbungs_assistent/dashboard.py"
+SPS = "frontend/src/pages/SettingsPage.jsx"
+T_EO = ["tests/test_v18_speicher_eigene_ordner_1173.py"]
+T_DO = ["tests/test_1097_datenordner.py"]
 
 M_SPEICHER = [
     ("sp01", "Sicherungen: die neueste steht zur Auswahl", SP, "                  for e in alle[1:]]", "                  for e in alle]", T_SP),
@@ -231,6 +238,30 @@ M_SPEICHER = [
     ("sp22", "Ordner oeffnen: fehlender Ordner wird nicht erkannt", SP, '    if not ort.get("pfad") or not pfad.exists():', "    if False:", T_SP),
     ("sp23", "Fremdes zaehlt zur eigenen Summe", SP, '"gesamt_bytes": sum(o["bytes"] for o in orte if o["urheber"] != "fremd"),',
      '"gesamt_bytes": sum(o["bytes"] for o in orte),', T_SP),
+    # ── #1173: der eigene Ordner (Lebenslaeufe, Anschreiben, Berichte) laesst sich auf der Speicher-Seite aendern ──
+    ("sp25", "Eigene Ordner: gelesen wird ohne Profil (die Liste bleibt leer)", DO,
+     "ablage.ordner_lesen(db, art) if db else None", '(db.get_setting(ablage._schluessel(art), "") or None) if db else None', T_EO + T_DO),
+    ("sp26", "Eigene Ordner: die Karte nennt den Ausgabe-Ordner nicht (kein Pfad, kein Oeffnen)", SP,
+     '            ort["pfad"] = befund["ordner"]', '            ort["pfad"] = ""', T_EO),
+    ("sp27", "Eigene Ordner: ohne Wahl fehlt der Hinweis auf den Datenordner", SP, "        elif befund:\n", "        elif False:\n", T_EO),
+    ("sp28", "Eigene Ordner: ein verschwundener Ordner wird nicht benannt", SP,
+     '        elif befund and befund["befund"] == "ausweich":', "        elif False:", T_EO),
+    ("sp29", "Eigene Ordner: Vorlagen-Ordner fehlt in der Liste", DO,
+     '(("ausgabe", "Ablageordner"), ("vorlagen", "Vorlagenordner"))', '(("ausgabe", "Ablageordner"),)', T_EO + T_DO),
+    ("sp30", "Zuruecksetzen: „-“ wird als Pfad geprueft und abgewiesen", AB, '    if str(pfad or "").strip() == "-":', "    if False:", T_EO),
+    ("sp31", "REST: der Grund der Abweisung kommt nicht als `error` (am Feld steht „HTTP 400“)", DA,
+     '        return JSONResponse({**ergebnis, "error": ergebnis.get("hinweis") or "Der Pfad wurde nicht gespeichert."}, status_code=400)',
+     "        return JSONResponse(ergebnis, status_code=400)", T_EO),
+    ("sp32", "Oberflaeche: der Grund des Servers wird nicht gelesen", SPS,
+     "const text = String(err?.payload?.hinweis || err?.message || err);", "const text = String(err?.message || err);", T_EO),
+    ("sp33", "Oberflaeche: leer wird als Platzhalter „-“ geschickt", SPS, "{ art, pfad: pfad.trim() }", '{ art, pfad: pfad.trim() || "-" }', T_EO),
+    ("sp34", "Oberflaeche: nach dem Speichern misst die Speicher-Seite nicht neu", SPS, "      onGespeichert?.();\n", "", T_EO),
+    ("sp35", "Speicher-Seite: der Editor steht an jeder Karte", "frontend/src/components/SpeicherTab.jsx",
+     '{ort.id === "eigene" && ordnerEditor ?', "{ordnerEditor ?", T_EO),
+    ("sp36", "Eingebettet: die Zeile mit dem Ort steht doppelt", SPS,
+     '{(!eingebettet || stand.ausgabe_befund === "ausweich") && (', "{true && (", T_EO),
+    ("sp37", "Eingebettet: der Hinweis zum verschwundenen Ordner steht doppelt", SPS,
+     '{stand.ausgabe_befund === "ausweich" && !eingebettet && (', '{stand.ausgabe_befund === "ausweich" && (', T_EO),
 ]
 
 # ── Dritter Katalog: Pruefsumme der Komponenten (#1152) ──
@@ -448,7 +479,7 @@ M_WEGE = [
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
-    "speicher": (("T_SP", T_SP),),
+    "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
     "komponenten": (("T_KP", T_KP),),
     "mail": (("T_MQ", T_MQ),),
     "firmen": (("T_FI", T_FI),),

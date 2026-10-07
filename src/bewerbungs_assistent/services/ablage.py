@@ -37,6 +37,12 @@ und #988. Deshalb wird die Vorlage tatsaechlich als Grundlage geoeffnet
     Datenordner — und sagt das im selben Atemzug. Weder ein Absturz noch
     eine stille Umleitung: der Mensch sucht seine Datei sonst an einer
     Stelle, an der sie nicht liegt.
+
+**Lesen und Setzen NUR hier (#1173).** Die beiden Ordner stehen je Profil
+in den Einstellungen; `ordner_lesen` und `ordner_setzen` sind der einzige
+Weg dorthin. Wer den Schluessel selbst mit `db.get_setting` liest, liest
+den ohne Profil — und findet nie etwas (so war die Liste der eigenen
+Ordner seit v1.7.59 leer). „-“ oder leer setzt zurueck, in jedem Aufrufer.
 """
 from __future__ import annotations
 
@@ -130,7 +136,14 @@ def ordner_lesen(db, art: str) -> Path | None:
 
 
 def ordner_setzen(db, art: str, pfad: str) -> dict:
-    """Setzt einen der beiden Ordner — oder weist ihn begruendet ab."""
+    """Setzt einen der beiden Ordner — oder weist ihn begruendet ab.
+
+    „-“ (wie „leer“) stellt das bisherige Verhalten wieder her. Die Regel steht HIER und nicht in jedem Aufrufer: bis v1.7.154 kannte
+    sie nur das MCP-Werkzeug; im Dashboard las der REST-Weg „-“ als relativen Pfad und wies ihn ab, „Zuruecksetzen“ endete seit
+    v1.7.59 mit „HTTP 400“ (#1173).
+    """
+    if str(pfad or "").strip() == "-":
+        pfad = ""
     befund = pfad_pruefen(pfad, art)
     if not befund["gueltig"]:
         befund["gespeichert"] = False

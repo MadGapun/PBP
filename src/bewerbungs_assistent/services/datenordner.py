@@ -164,11 +164,13 @@ def ausserhalb(db) -> list:
     orte = []
     try:
         from . import ablage
-        for art, schluessel in (("Ablageordner", ablage.AUSGABE_SCHLUESSEL),
-                                ("Vorlagenordner", ablage.VORLAGEN_SCHLUESSEL)):
-            wert = (db.get_setting(schluessel, "") or "").strip() if db else ""
-            if wert:
-                orte.append({"was": art, "pfad": wert})
+        # #1173: gelesen wird mit DERSELBEN Funktion, mit der gespeichert wird (`ablage.ordner_lesen`, je Profil). Vorher stand
+        # hier `db.get_setting(<Schluessel>)` — der Schluessel ohne Profil, unter dem nie etwas liegt: die Liste war immer leer,
+        # die Karte „Deine eigenen Ordner“ und die Zeile „Bleibt: Ablageordner …“ in der Gefahrenzone nannten den Ordner des Nutzers nie.
+        for art, was in (("ausgabe", "Ablageordner"), ("vorlagen", "Vorlagenordner")):
+            ordner = ablage.ordner_lesen(db, art) if db else None
+            if ordner:
+                orte.append({"was": was, "pfad": str(ordner)})
     except Exception as exc:  # pragma: no cover
         logger.debug("Ablageordner nicht lesbar: %s", exc)
     return orte

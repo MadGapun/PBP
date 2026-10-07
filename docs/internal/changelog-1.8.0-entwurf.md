@@ -10,7 +10,7 @@
 
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
-Neu sind außerdem die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
+Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
 Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig.
 <!-- /anwender -->
 
@@ -28,7 +28,9 @@ Einträgen darunter.
 - **Einmalig von Hand:** Die erste Version mit dieser Funktion ist 1.8.0 selbst. Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
   `INSTALLIEREN.bat`); ab dann kann PBP den Rest selbst. **Das automatische Aktualisieren gibt es zurzeit nur unter Windows.**
 - **Speicher & Downloads (Einstellungen › Erweitert).** Wohin PBP schreibt und lädt, wie viel dort liegt, und Aufräumen in zwei Schritten — nie
-  ohne dein Ja, nie bei laufender Arbeit. Was anderen Programmen gehört (Browser der Jobsuche, KI-Modelle), wird nur gezeigt.
+  ohne dein Ja, nie bei laufender Arbeit. Was anderen Programmen gehört (Browser der Jobsuche, KI-Modelle), wird nur gezeigt. Die Karte „Deine
+  eigenen Ordner“ trägt die Eingabefelder für den Ordner, in den PBP deine Lebensläufe, Anschreiben und Berichte legt, und für den Ordner mit
+  deinen Vorlagen — du änderst sie dort, wo du siehst, wie viel darin liegt (#1173). Die anderen Orte sind durch die Installation bedingt und bleiben ohne Eingabe.
 - **Mail-Ordner (Einstellungen › Erweitert › Quellen im Detail).** Der Ordner-Scan ist **standardmäßig aus**; gelesen werden nur Ordner, die du
   ausdrücklich freigibst. PBP öffnet nie selbst ein Postfach. Ein Add-on, das Ordner von sich aus liest, gibt es noch nicht — das Thunderbird-Add-on
   schickt weiter nur, was du markierst.
@@ -50,7 +52,9 @@ Einträgen darunter.
   das Programm, schreibt der alte Prozess nicht weiter), der Hinweis, wenn Claude und Dashboard mit verschiedenen Fassungen laufen, der
   Installer-Umbau (Versionsordner, Selbstaufräumen, Deinstaller), `scripts/build_update_archive.py` und ein Schritt im Release-Tor. Werkzeuge
   `update_status`, `update_einstellungen_setzen`, `update_jetzt_installieren`, `update_zurueckschalten`.
-- **Speicher & Downloads** (#1131): sieben Orte, sieben Aufräum-Aktionen, Werkzeuge `speicher_anzeigen` und `speicher_bereinigen`.
+- **Speicher & Downloads** (#1131): sieben Orte, sieben Aufräum-Aktionen, Werkzeuge `speicher_anzeigen` und `speicher_bereinigen`. Die Karte
+  „Deine eigenen Ordner“ steht immer da und enthält die Eingabefelder für Ausgabe- und Vorlagen-Ordner (#1173; dieselbe Komponente und dieselbe
+  Prüfung wie unter Einstellungen › Ordner, die Seite misst nach dem Speichern neu).
 - **Prüfsumme der Komponenten** (#1152): kein Installer ohne SHA-256; die Ablehnung kommt vor dem Download.
 - **Mail-Zugangsschicht** (#947): Schalter, genaue Liste freigegebener Ordner, Prüfung im Mail-Eingang für jedes Add-on
   (`GET /api/v1/ingest/mail-policy`, `modus=scan` bei `POST /api/v1/ingest/email`), Zahlen je Ordner; Werkzeuge `mail_quelle_anzeigen` und
@@ -61,8 +65,8 @@ Einträgen darunter.
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechs Kataloge, 270 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
-  Komponenten 6, Mail 20, Firmen 86, Wege 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechs Kataloge, 288 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt.
 
@@ -131,6 +135,12 @@ Einträgen darunter.
   - Auf den Karten der Erweiterungen und Quellen standen Kennungen aus der Planung („…(E19)“); entfernt.
   - Das Titelbild des Wikis zeigte seit v1.7.137 eine Fehlerkarte („Dieser Bereich ist abgestürzt“); der Screenshot-Generator prüft jetzt
     jede Aufnahme.
+- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, alle seit v1.7.59** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der
+  Hinweis in der Gefahrenzone („Bleibt: Ablageordner …“) nannten den Ordner des Nutzers nie: gespeichert wird je Profil, gelesen wurde ohne Profil, die Liste war
+  immer leer — ein Test blieb dabei grün, weil er die Einstellung auf dem anderen Weg schrieb. (2) „Zurücksetzen“ (das Feld leeren) endete im
+  Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`).
+  (3) Bei einem ungültigen Pfad stand am Feld ebenfalls nur „HTTP 400“ statt der Begründung („Diesen Ordner gibt es nicht …“); die Antwort nennt den
+  Grund jetzt als `error`, und die Oberfläche liest ihn. Eingebettet steht der Satz zum verschwundenen Ordner nur noch einmal da.
 
 ### Known Issues
 
