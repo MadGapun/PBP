@@ -1,4 +1,4 @@
-import { bestaetigen } from "@/lib/bestaetigung";
+﻿import { bestaetigen } from "@/lib/bestaetigung";
 import {
   Ban,
   BriefcaseBusiness,
