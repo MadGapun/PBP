@@ -277,8 +277,9 @@ def test_dokument_steht_aufgeklappt_im_bild_auch_von_der_zweiten_seite(browser, 
         karte = page.locator(f"#dokument-{u['dokument']}")
         karte.wait_for(timeout=15000)
         assert "Erstellt:" in karte.inner_text(), "das Dokument ist nicht aufgeklappt"
-        assert page.evaluate("id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }",
-                             f"dokument-{u['dokument']}"), "die Karte liegt nicht im Bild"
+        # das Scrollen ist weich: gewartet wird auf den Zustand (Karte im Bild), nicht auf eine Zeit
+        page.wait_for_function("id => { const r = document.getElementById(id).getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; }",
+                               arg=f"dokument-{u['dokument']}", timeout=15000)
         assert page.locator("input[placeholder*='Dateiname']").input_value() == f"{WORT}-Lebenslauf.docx", "das Suchfeld der Seite ist der Weg zurueck"
     finally:
         page.close()
