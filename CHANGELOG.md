@@ -486,6 +486,78 @@ Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erst
 
 ---
 
+## [1.7.156] - 2026-10-08 — Kein Fehlertext mehr im Fenster, wenn Claude Desktop beim Start nicht läuft
+
+Hotfix für v1.7.155. Wer PBP über die Verknüpfung „PBP Bewerbungs-Portal“ startet, während Claude Desktop nicht läuft, sah auf einem deutschen Windows im schwarzen Fenster einen Python-Fehlertext (`UnicodeDecodeError … byte 0x81`). Das Dashboard lief trotzdem, aber der Text sah nach einem Absturz aus. Jetzt steht dort nichts mehr. Es gibt keine neue Funktion.
+
+**Wichtig zu wissen:**
+
+- **Der Fehlertext war harmlos, stand aber bei jedem Start ohne laufendes Claude Desktop im Fenster.** PBP fragt beim Start, ob Claude Desktop läuft, damit es PBP als Werkzeug laden kann. Läuft es nicht, antwortet Windows auf Deutsch „… Kriterien ausgeführt.“; das „ü“ schreibt die Konsole in ihrer eigenen Kodierung, PBP las es in der falschen. Die Antwort der Prüfung („läuft nicht“) stimmte dabei nur zufällig. Läuft Claude Desktop, trat der Fehler nie auf.
+- **Dieselbe Ursache an drei weiteren Stellen:** der Desktop-Pfad, die Verknüpfung „Ollama beenden“ und der Start von Claude aus dem Microsoft Store lasen PowerShell-Ausgaben ebenso. Mit einem Windows-Benutzernamen, der ein „ü“ enthält (zum Beispiel „Müller“), hätte dort dieselbe Meldung gestanden, und bei einem umgeleiteten Desktop (zum Beispiel über OneDrive) wäre die Verknüpfung „Ollama beenden“ nicht angelegt worden.
+
+### Fixed
+
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150 in `claude_neustart.py`, davor in `start_dashboard.py`). `claude_laeuft` las die Ausgabe von `tasklist` im Textmodus (cp1252); die Konsole schreibt das „ü“ als OEM-Byte `0x81` (cp850), das dort nicht definiert ist. Der Lese-Thread von `subprocess` brach ab, `stdout` war danach leer. Jetzt liest die Prüfung Bytes und sucht den Namen `Claude.exe` darin.
+- **Die PowerShell-Aufrufe lesen in der Kodierung der Konsole** (#1182): Desktop-Pfad und Verknüpfung „Ollama beenden“ in `services/ollama_start.py`, Store-Start von Claude in `services/claude_neustart.py`; unlesbare Zeichen werden zu Ersatzzeichen statt zum Abbruch.
+
+### Changed
+
+- Neu `services/konsole.py` (`konsole_kodierung`, `text_lesen`): ein Ort dafür, wie die Ausgabe von Konsolenprogrammen gelesen wird (#1182).
+- Ein Wächter-Test verlangt bei jedem `text=True` im Quelltext eine Kodierung (`encoding=` oder `errors=`); `systemctl`, `antiword` und der alte Installer mit Fenster (`installer/setup_gui.py`) lesen jetzt mit `errors="replace"` (#1182).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.155: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+14 neue Tests (7.093 gesamt, gezählt im Klon des Zweigs; v1.7.155 hatte 7.079) in `tests/test_v17156_konsole_ausgabe_1182.py`: ein Kindprozess schreibt genau die Bytes, die Windows schreibt (das „ü“ als `0x81`), und der Aufrufer wählt die Optionen wie im Betrieb. Vorher bricht der Lese-Thread ab (unter Windows) oder der Aufruf wirft (sonst), nachher nicht; dazu die Fälle „Claude läuft“, Text statt Bytes, Store-Start, Desktop-Pfad mit „ü“ und der Wächter samt Selbsttest. Auf der Fassung 1.7.155 schlagen die fünf Fälle an, die den Fehler betreffen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.156.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.156.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.156 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.155] - 2026-10-07 — Ein Klick auf einen Treffer der Suche öffnet das Objekt
 
 Hotfix für v1.7.154. Die Suche oben im Dashboard zeigt beim Tippen eine Liste mit Treffern (Bewerbungen, Stellen, Dokumente, E-Mails, Termine, Skills) — ein Klick darauf tat nichts. Jetzt öffnet er das Objekt. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
