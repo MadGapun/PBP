@@ -530,7 +530,39 @@ M_WEGE = [
     ('wg38', 'Offen: die Ueberschrift Ueberfaellig ist nicht mehr rot', 'frontend/src/components/OffenBlock.jsx', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-coral" }', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-muted" }', T_WGO),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE}
+# ── Konsolenausgaben nie mit der falschen Kodierung lesen (#1182, I26) ──
+T_KO = ["tests/test_v18_konsole_ausgabe_1182.py"]
+CN = "src/bewerbungs_assistent/services/claude_neustart.py"
+KO = "src/bewerbungs_assistent/services/konsole.py"
+OS_ = "src/bewerbungs_assistent/services/ollama_start.py"
+
+M_KONSOLE = [
+    ("ko01", "Claude-Pruefung: tasklist wird wieder im Textmodus gelesen", CN,
+     '        r = run(["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],\n                capture_output=True, timeout=5, creationflags=_OHNE_FENSTER)\n',
+     '        r = run(["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],\n                capture_output=True, text=True, timeout=5, creationflags=_OHNE_FENSTER)\n', T_KO),
+    ("ko02", "Claude-Pruefung: der Prozessname zaehlt wieder mit Gross- und Kleinschreibung", CN,
+     '        return "claude.exe" in text_lesen(r.stdout).lower()\n', '        return "Claude.exe" in text_lesen(r.stdout)\n', T_KO),
+    ("ko03", "Store-Start: die Ausgabe von PowerShell wird nicht mehr in Text verwandelt", CN,
+     '            if "ok" in text_lesen(r.stdout):', '            if "ok" in (r.stdout or ""):', T_KO),
+    ("ko04", "Helfer: nichts (None) wird nicht mehr zu leerem Text", KO,
+     '    if roh is None:\n        return ""\n', '    if roh is None:\n        return None\n', T_KO),
+    ("ko05", "Helfer: unlesbare Zeichen brechen das Lesen wieder ab", KO,
+     '        return bytes(roh).decode(kodierung or konsole_kodierung(), errors="replace")', '        return bytes(roh).decode(kodierung or konsole_kodierung())', T_KO),
+    ("ko06", "Helfer: unter Windows gilt die Kodierung des Systems statt der der Konsole", KO,
+     '    return "oem" if sys.platform == "win32" else "utf-8"', '    return "cp1252" if sys.platform == "win32" else "utf-8"', T_KO),
+    ("ko07", "Desktop-Pfad: PowerShell wird wieder im Textmodus ohne Kodierung gelesen", OS_,
+     'capture_output=True, encoding=konsole_kodierung(), errors="replace", timeout=20,', 'capture_output=True, text=True, timeout=20,', T_KO),
+    ("ko08", "Verknuepfung Ollama beenden: PowerShell wird wieder im Textmodus ohne Kodierung gelesen", OS_,
+     'capture_output=True, encoding=konsole_kodierung(), errors="replace", timeout=30,', 'capture_output=True, text=True, timeout=30,', T_KO),
+    ("ko09", "systemctl-Abfrage: wieder Textmodus ohne Kodierung", OS_,
+     'capture_output=True, encoding="utf-8", errors="replace", timeout=5)', 'capture_output=True, text=True, timeout=5)', T_KO),
+    ("ko10", ".doc-Auslesen (antiword): wieder Textmodus ohne Kodierung", "src/bewerbungs_assistent/dashboard.py",
+     'capture_output=True, encoding="utf-8", errors="replace", timeout=30', 'capture_output=True, text=True, timeout=30', T_KO),
+    ("ko11", "Alter Installer mit Fenster: der venv-Aufruf liest wieder ohne Ersatzzeichen", "installer/setup_gui.py",
+     'capture_output=True, text=True, errors="replace", timeout=120', 'capture_output=True, text=True, timeout=120', T_KO),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "konsole": M_KONSOLE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -539,6 +571,7 @@ GRUNDLAEUFE = {
     "firmen": (("T_FI", T_FI),),
     "wege": (("T_WG", T_WG),),
     "suche": (("T_SU", T_SU),),
+    "konsole": (("T_KO", T_KO),),
 }
 
 WT = None
@@ -589,7 +622,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "konsole"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

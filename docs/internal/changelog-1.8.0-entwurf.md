@@ -154,6 +154,12 @@ Einträgen darunter.
   Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`).
   (3) Bei einem ungültigen Pfad stand am Feld ebenfalls nur „HTTP 400“ statt der Begründung („Diesen Ordner gibt es nicht …“); die Antwort nennt den
   Grund jetzt als `error`, und die Oberfläche liest ihn. Eingebettet steht der Satz zum verschwundenen Ordner nur noch einmal da.
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150, auch in der stabilen Version). Die Prüfung „läuft Claude
+  Desktop?“ las die Ausgabe von `tasklist` als Text mit der Standardkodierung (cp1252). Läuft Claude nicht, antwortet Windows deutsch „… Kriterien ausgeführt.“; das „ü“
+  schreibt die Konsole als Byte `0x81` (cp850), das in cp1252 nicht definiert ist — der Lese-Thread brach ab, ein `UnicodeDecodeError` stand im Fenster, und die Prüfung stimmte
+  nur zufällig. Jetzt liest sie Bytes und sucht nach dem Namen (`services/konsole.py`); die PowerShell-Aufrufe (Desktop-Pfad, Verknüpfung „Ollama beenden“, Store-Start von
+  Claude) lesen in der Kodierung der Konsole, mit Ersatzzeichen statt Abbruch (ein Desktop-Pfad mit „ü“ brach sonst ebenso ab). Ein Wächter-Test verlangt bei jedem `text=True`
+  im Quelltext eine Kodierung. Gegenprobe: Katalog „konsole“, 11 absichtlich eingebaute Fehler.
 
 ### Known Issues
 
