@@ -4,6 +4,7 @@ import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRe
 
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import FirmaLink from "@/components/FirmaLink";
 import {
   Badge,
   Button,
@@ -51,6 +52,7 @@ import MitClaude from "@/components/MitClaude";
 import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
+import { zuBewerbung } from "@/lib/wege";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -239,6 +241,8 @@ const EMPTY_DISMISS_DIALOG = {
   customReason: "",
 };
 const JOB_HIGHLIGHT_DURATION_MS = 1800;
+// Wie oft die Seite fragt, ob eine Suche laeuft (auch im Ruhezustand; siehe den Abfrage-Effekt).
+const SUCHE_ABFRAGE_MS = 5000;
 
 function blacklistValueForType(job, type) {
   if (!job) return "";
@@ -484,6 +488,10 @@ export function pruefstandTitel(job) {
 export default function JobsPage() {
   const { chrome, intent, clearIntent, reloadKey, refreshChrome, pushToast, copyPrompt, navigateTo, startJobsuche } = useApp();
   const [loading, setLoading] = useState(true);
+  // #1171 (G85): die Ladeanzeige ersetzt die Seite nur beim ERSTEN Laden. Jedes Nachladen (der Start laedt zweimal, jede
+  // Aenderung durch Claude loest eines aus) liess sonst die Liste samt offenem Dialog verschwinden und die Leseposition
+  // verfallen.
+  const [einmalGeladen, setEinmalGeladen] = useState(false);
   const [jobs, setJobs] = useState([]);
   const [dismissedJobs, setDismissedJobs] = useState([]);
   // #1010: Zeitfenster fuer das Aussortier-Protokoll. Ueber 2.000
@@ -543,6 +551,8 @@ export default function JobsPage() {
   const [blacklistDialog, setBlacklistDialog] = useState(EMPTY_BLACKLIST_DIALOG);
   const [searchJob, setSearchJob] = useState({ running: false, progress: 0, message: "" });
   const [pendingFocusJobHash, setPendingFocusJobHash] = useState("");
+  // #1171 (G85): ein Sprung mit `oeffnen` zeigt die Stelle nicht nur in der Liste, sondern oeffnet ihre Details.
+  const [pendingOpenJobHash, setPendingOpenJobHash] = useState("");
   const [highlightedJobHash, setHighlightedJobHash] = useState("");
   const [editingScoreHash, setEditingScoreHash] = useState("");
   const [editingScoreValue, setEditingScoreValue] = useState("");
@@ -656,6 +666,7 @@ export default function JobsPage() {
           if (guete?.umgang) setGuetUmgang(guete.umgang);
         }
         setLoading(false);
+        setEinmalGeladen(true);
         setLoadingMore(false);
       });
     } catch (error) {
@@ -663,7 +674,7 @@ export default function JobsPage() {
       if (!silent) {
         pushToast(`Stellen konnten nicht geladen werden: ${error.message}`, "danger");
       }
-      startTransition(() => { setLoading(false); setLoadingMore(false); });
+      startTransition(() => { setLoading(false); setEinmalGeladen(true); setLoadingMore(false); });
     }
   });
 
@@ -749,7 +760,10 @@ export default function JobsPage() {
       if (cancelled) return;
       await syncRunningSearch();
       if (cancelled) return;
-      const delay = wasSearchRunningRef.current ? 5000 : 30000;
+      // Auch im Ruhezustand alle 5 Sekunden (frueher 30): eine Suche, die Claude von aussen startet, aendert die Datenbank so,
+      // dass das Dashboard es nicht merkt (kein Nachladen) — sichtbar wurde sie nur, weil die Endlosschleife staendig fragte.
+      // Ohne sie waere es bis zu 30 Sekunden spaeter. Eine Anfrage alle 5 Sekunden ist nichts.
+      const delay = SUCHE_ABFRAGE_MS;
       timer = window.setTimeout(tick, delay);
     };
 
@@ -762,7 +776,10 @@ export default function JobsPage() {
         window.clearTimeout(timer);
       }
     };
-  }, [reloadKey, syncRunningSearch]);
+    // Ein Effekt-Ereignis (useEffectEvent) steht NIE in der Abhaengigkeitsliste: es ist bei jedem Zeichnen eine neue
+    // Funktion, und jede Antwort setzt `searchJob` neu — der Effekt startete sich dann nach jeder Antwort selbst neu und
+    // fragte hunderte Male pro Sekunde (gemessen: Hauptthread 66 % beschaeftigt in einer Seite, in der niemand etwas tut).
+  }, [reloadKey]);
 
   useEffect(() => {
     if (intent?.page !== "stellen") return;
@@ -779,6 +796,7 @@ export default function JobsPage() {
         sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
+      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));
     }
     if (intent.missingDescriptionOnly) {
       setFilters((current) => ({
@@ -819,6 +837,37 @@ export default function JobsPage() {
     filters.pruefstand,
     filters.sort,
   ]);
+
+  // #1171 (G85): die Details der angesprungenen Stelle oeffnen. Die Stelle liegt meist in der geladenen Liste (dann
+  // mit allen Daumen und Punkten); steht sie nicht auf der geladenen Seite, kommt sie einzeln vom Server.
+  useEffect(() => {
+    if (loading || !pendingOpenJobHash) return undefined;
+    const hash = pendingOpenJobHash;
+    const gefunden = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === hash);
+    setPendingOpenJobHash("");
+    if (gefunden) {
+      openDetailDialog(gefunden);
+      return undefined;
+    }
+    // Kein Abbruch ueber die Aufraeum-Funktion: `setPendingOpenJobHash("")` oben loest den Effekt erneut aus und
+    // liesse die Antwort sonst verwerfen, bevor sie da ist.
+    api(`/api/jobs/${encodeURIComponent(hash)}`)
+      .then((einzeln) => { if (einzeln) openDetailDialog(einzeln); })
+      .catch(() => pushToast("Die Stelle konnte nicht geöffnet werden.", "danger"));
+    return undefined;
+  }, [loading, pendingOpenJobHash, jobs, dismissedJobs]);
+
+  // #1171 (G85): schreibt Claude waehrend der Dialog offen ist (ein Urteil, eine Notiz), zeigt der Dialog danach die frische
+  // Stelle statt des Stands vom Oeffnen. Wer gerade bearbeitet, behaelt seine Eingaben: ihm wird nichts untergeschoben.
+  useEffect(() => {
+    const hash = detailDialog.job?.hash;
+    if (!detailDialog.open || detailDialog.editing || !hash) return;
+    const frisch = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === String(hash));
+    if (!frisch || frisch === detailDialog.job) return;
+    setDetailDialog((aktuell) => (
+      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash) ? { ...aktuell, job: frisch } : aktuell
+    ));
+  }, [jobs, dismissedJobs]);
 
   async function showFitAnalysis(job) {
     try {
@@ -902,7 +951,11 @@ export default function JobsPage() {
       } else {
         pushToast(angelegtMeldung(erg), "success");
       }
-      navigateTo("bewerbungen");
+      // #1171 (G85): die neue Bewerbung gleich offen — mit ihr als naechstem Schritt, statt oben auf der Liste
+      // zu landen, wo man sie erst suchen muss.
+      const neu = zuBewerbung(erg?.id);
+      if (neu) navigateTo(neu.seite, neu.intent);
+      else navigateTo("bewerbungen");
     } catch (error) {
       // #1094: eine vermutete Dublette wird genannt, nicht still angelegt
       const hinweis = dublettenHinweis(error);
@@ -1106,7 +1159,7 @@ export default function JobsPage() {
   // Score — die Reihenfolge nach Zeitpunkt hielt nur bei gleichem Score.
   const ohneZeitpunkt = ausgeblendetMeta.ohne_zeitpunkt;
 
-  if (loading) return <LoadingPanel label="Stellen werden geladen..." />;
+  if (loading && !einmalGeladen) return <LoadingPanel label="Stellen werden geladen..." />;
 
   // v1.7.93 (#1030 AK 6): die Auswahllisten kommen vom Server und
   // beschreiben die ganze Ansicht. Vorher entstanden sie aus den geladenen
@@ -2611,7 +2664,7 @@ export default function JobsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-xl font-semibold text-ink">{detailDialog.job.title}</h3>
-                  <p className="text-sm text-muted">{firmaText(detailDialog.job)}{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
+                  <p className="text-sm text-muted"><FirmaLink name={detailDialog.job.company}>{firmaText(detailDialog.job)}</FirmaLink>{detailDialog.job.location ? ` - ${detailDialog.job.location}` : ""}</p>
                   {entfernungText(detailDialog.job) ? (
                     <p className="text-xs text-muted">{entfernungText(detailDialog.job)}</p>
                   ) : null}

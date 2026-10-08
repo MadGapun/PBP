@@ -33,6 +33,499 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.19] - 2026-10-08 — Neue Versionen werden überall gleich gemeldet, und beim Start steht kein Fehlertext mehr (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Erscheint eine neuere Beta, sagen es die Seitenleiste, die Seite Einstellungen › Updates und das Dashboard jetzt gleich — mit dem Weg dorthin (ZIP laden, Installer starten). Elwosa nennt die neue Version ebenfalls, einmal je Version, mit einem Link zu den Veröffentlichungsnotizen.
+Und startest du PBP, während Claude Desktop nicht läuft, steht im schwarzen Fenster kein Python-Fehlertext mehr.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.18 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.18 auf beta.19:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.156 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt zwei Funde und einen Wunsch aus dem Ausprobieren von beta.17 um: die Seitenleiste, die eine neue Beta meldete, während die Update-Seite „Aktuell“ sagte und keinen Knopf hatte (#1179), den Wunsch, dass Elwosa die neue Version nennt (#1180), und den Python-Fehler im Fenster beim Start ohne laufendes Claude Desktop (#1182). Der Fehler im Fenster steckte auch in der stabilen Version und ist dort als Hotfix v1.7.156 erschienen; die Meldung der Vorabversion betrifft nur diese Linie.
+
+**Wichtig zu wissen:**
+
+- **Eine neuere Vorabversion wird überall gleich gemeldet.** Die Seitenleiste sagt „Neue Vorabversion verfügbar“; die Seite Einstellungen › Updates zeigt statt „Aktuell“ „Neue Vorabversion“ mit einer Karte: warum PBP sie nicht von selbst installiert (auch nicht mit „Mit einem Klick“), drei Schritte und die Knöpfe „ZIP herunterladen“ und „Veröffentlichung ansehen“; das Dashboard zeigt denselben Hinweis. „Jetzt prüfen“ fragt beide Auskünfte, die allgemeine Prüfung und die des automatischen Aktualisierens.
+- **Elwosa nennt eine neue Version.** Sobald die allgemeine Prüfung eine findet, einmal je Version, mit dem Titel der Veröffentlichung und einem Link „Zu den Notizen“; eine Vorabversion als solche. Elwosa schweigt, wenn die Version schon installiert ist, und erscheint nur, wenn die lokale KI aktiv ist. Wie bei allen Meldungen von Elwosa gelten die Einstellungen zu Tonfall und Pause.
+- **Beim Start ohne laufendes Claude Desktop steht kein Fehlertext mehr im Fenster.** Die Prüfung „läuft Claude Desktop?“ las die deutsche Antwort von Windows mit der falschen Kodierung. Dieselbe Ursache steckte an drei weiteren Stellen (Desktop-Pfad, Verknüpfung „Ollama beenden“, Start von Claude aus dem Microsoft Store); ein Wächter-Test verlangt jetzt bei jedem Aufruf, der Text liest, eine Kodierung.
+- **Noch nicht drin:** ein Schalter für Tester, der eine Vorabversion auf Wunsch mit einem Klick installiert (Frage am Issue #1179); Kontakte, Firmen und Aufgaben in der Suche (Frage am Issue #1177); die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand und die kompakten Listenköpfe (Fragen am Issue #1171).
+
+### Added
+
+- **Vorabversionen in der Oberfläche** (#1179): `lib/autoUpdate.js` kennt `istVorabversion`, `vorabNeu` (eine neuere Vorabversion aus der allgemeinen Prüfung, wenn die feste Quelle des automatischen Aktualisierens keine kennt und sie nicht schon von Hand installiert ist) und `vorabHinweis`; die Update-Seite zeigt „Neue Vorabversion“ mit einer Karte (Erklärung, drei Schritte, „ZIP herunterladen“, „Veröffentlichung ansehen“), das Dashboard denselben Hinweis in der Hinweiszone — auch auf Installationen mit automatischem Aktualisieren, wo dort bisher gar nichts stand —, die Seitenleiste „Neue Vorabversion verfügbar“. Die FAQ nennt den Weg.
+- **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): einmal je Version (gemerkt im Profil-Setting `elwosa_update_version`), mit dem Titel der Veröffentlichung und einem Link auf die Notizen; die Prüfung merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
+- **`services/konsole.py`** (#1182): `konsole_kodierung()` (die Kodierung der Konsole: OEM unter Windows, sonst UTF-8) und `text_lesen()` (Bytes in Text, ohne Abbruch bei unlesbaren Zeichen) — ein Ort dafür, wie die Ausgabe von Konsolenprogrammen gelesen wird.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): neun Kataloge, 350 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37, Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Neu sind die Kataloge „Vorab“ (Meldung der Vorabversion, Elwosa-Kanal) und „Konsole“ (Kodierung der Ausgaben).
+
+### Changed
+
+- „Jetzt prüfen“ auf der Update-Seite fragt die allgemeine Prüfung und die des automatischen Aktualisierens (#1179).
+- `systemctl`, `antiword` und der alte Installer mit Fenster (`installer/setup_gui.py`) lesen mit `errors="replace"`; die PowerShell-Aufrufe lesen in der Kodierung der Konsole (#1182).
+
+### Fixed
+
+- **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des automatischen Aktualisierens (`/api/auto-update`) kennt nie eine Vorabversion. Die Seitenleiste folgte der ersten, die Update-Seite der zweiten, und die Hinweiszone des Dashboards zeigte auf Installationen mit automatischem Aktualisieren gar nichts. Jetzt sagen alle drei dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion weiterhin nie von selbst.
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150, auch in der stabilen Version; dort behoben mit v1.7.156). Die Prüfung „läuft Claude Desktop?“ las die Ausgabe von `tasklist` als Text mit der Standardkodierung (cp1252). Läuft Claude nicht, antwortet Windows deutsch „… Kriterien ausgeführt.“; das „ü“ schreibt die Konsole als Byte `0x81` (cp850), das in cp1252 nicht definiert ist — der Lese-Thread von `subprocess` brach ab, ein `UnicodeDecodeError` stand im Fenster, und die Prüfung stimmte nur zufällig. Jetzt liest sie Bytes und sucht nach dem Namen; die PowerShell-Aufrufe (Desktop-Pfad, Verknüpfung „Ollama beenden“, Store-Start von Claude) lesen in der Kodierung der Konsole, mit Ersatzzeichen statt Abbruch (ein Desktop-Pfad mit „ü“ im Benutzernamen brach sonst ebenso ab).
+
+### Known Issues
+
+- Eine Vorabversion lässt sich nicht mit einem Klick installieren; PBP zeigt den Weg (ZIP laden, Installer starten). Ob es dafür einen Schalter für Tester geben soll, steht als Frage am Issue #1179.
+- Kontakte, Firmen und Aufgaben findet die Suche oben noch nicht (Frage am Issue #1177).
+- Google-Jobs-Treffer: Remote und Ort aus Google, aussortierte Dubletten beim Anlegen und Alert-Mails als Stellenquelle sind eingeordnet (#1184), aber nicht Teil dieser Beta.
+- Die drei Fehler an den Ordner-Feldern (#1173) und das rote „Offen“ (#1174) stecken auch in der stabilen Version v1.7.156; behoben sind sie bisher nur in dieser Linie.
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus beta.17 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+51 neue Tests (8.318 gesamt, gezählt im Klon des Zweigs; beta.18 hatte 8.267): 11 in `tests/test_v18_update_vorabversion_1179.py` (im Browser gegen das gebaute Bundle, mit Attrappen für die Antworten des Servers: Seitenleiste und Update-Seite sagen bei einer neueren Beta dasselbe, die beiden Knöpfe, der Hinweis im Dashboard und seine Rangfolge gegenüber Dringenderem, „Aktuell“ ohne neuere Version, eine von Hand installierte Vorabversion, „Jetzt prüfen“; 6 davon schlagen auf beta.18 an), 26 in `tests/test_v18_elwosa_update_1180.py` (der Kanal „Update“: kein Befund, nichts Neues, eine neue Version mit Titel und Link, eine Vorabversion, eine unbrauchbare Version, ein Titel gegen die Sprach-DNA, ein zu langer Titel, einmal je Version, eine schon installierte Version, die Reihenfolge der Kanäle, Aus und Pause, der Eintrag im Chat) und 14 in `tests/test_v18_konsole_ausgabe_1182.py` (ein Kindprozess schreibt genau die Bytes, die Windows schreibt, das „ü“ als `0x81`, und der Aufrufer wählt die Optionen wie im Betrieb: vorher bricht der Lese-Thread ab, nachher nicht; dazu der Wächter, der bei jedem `text=True` im Quelltext eine Kodierung verlangt, samt Selbsttest). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot), gelaufen auf den Ständen der beiden Zweige vor der Zusammenführung: Katalog „Vorab“ 28 von 28 erkannt, Katalog „Konsole“ 11 von 11; ein Wächter-Test hält fest, dass jedes Muster aller Kataloge im Quelltext genau einmal vorkommt (auf dem Endstand grün). Auf dem Endstand, Windows: 1.055 gezielte Tests bestanden, 1 übersprungen, 0 Fehler (die drei neuen Dateien, die Tests des automatischen Aktualisierens, der Update-Hinweise, von Elwosa, der Sicherung vor dem Update, des Claude-Neustarts, von Ollama, der Seitenleiste und der Wächter); das neu gebaute Dashboard ist Byte für Byte das eingecheckte. Der volle Lauf auf Windows (rund 35 Minuten) wurde für diese Beta nicht wiederholt. GitHub-Lauf (Linux) auf den Ständen der beiden Zweige vor der Zusammenführung: 8.218 bestanden, 86 übersprungen (Update-Hinweis und Elwosa-Kanal) und 8.193 bestanden, 88 übersprungen (Kodierung der Konsole), je 0 Fehler (die Übersprungenen sind plattformgebunden).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8318 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.19.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.19.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.19 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-beta.19` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-beta.18] - 2026-10-07 — Die Suche öffnet, was sie findet (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Ein Klick auf einen Treffer der Suche oben öffnet jetzt das Objekt — die Bewerbung, die Stelle, das Dokument, die Mail, den Termin oder den Skill.
+Den Ordner für deine Lebensläufe und Anschreiben änderst du dort, wo du siehst, wie viel darin liegt (Einstellungen › Erweitert › Speicher & Downloads), und im Dashboard-Block „Offen“ ist nur noch rot, was überfällig ist.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.17 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.17 auf beta.18:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.155 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt drei Wünsche um, die beim Ausprobieren von beta.17 kamen: die Suche, die beim Klick nichts tat (#1177), der eigene Ordner für Lebensläufe und Anschreiben, der sich nur an versteckter Stelle ändern ließ (#1173), und der Block „Offen“, der wegen einer einzigen überfälligen Zeile ganz rot war (#1174). Der Fehler in der Suche steckte auch in der stabilen Version und ist dort als Hotfix v1.7.155 erschienen; die Ordner-Felder und das rote „Offen“ sind bisher nur in dieser Linie behoben.
+
+**Wichtig zu wissen:**
+
+- **Ein Klick auf einen Treffer der Suche öffnet das Objekt.** Eine Bewerbung öffnet ihre Timeline, eine Stelle ihre Details (auch eine aussortierte), ein Dokument steht aufgeklappt auf der Dokumente-Seite (sein Name im Suchfeld der Seite, das × daneben zeigt wieder alle), eine E-Mail öffnet ihr Fenster (auch wenn sie zu keiner Bewerbung gehört), ein Termin mit Bewerbung deren Timeline direkt am Abschnitt „Termine“, ein Termin ohne Bewerbung den Kalender mit dem geöffneten Termin, ein Skill das Profil mit der Skills-Liste auf seinen Namen gefiltert (ab sieben Skills, wo das Filterfeld steht). Das gilt auch, wenn du schon auf der Zielseite bist, und derselbe Sprung funktioniert für Adressen wie `#dokumente/<id>` und `#kalender/<id>`.
+- **Den Ordner für Lebensläufe, Anschreiben und Vorlagen änderst du auf der Seite „Speicher & Downloads“.** Die Karte „Deine eigenen Ordner“ steht immer da und trägt die Eingabefelder; danach misst die Seite neu, wie viel dort liegt. „Zurücksetzen“ (das Feld leeren) geht jetzt, und bei einem ungültigen Pfad steht der Grund da statt „HTTP 400“. Die anderen Orte sind durch die Installation bedingt und bleiben ohne Eingabe.
+- **Im Block „Offen“ ist nur noch rot, was überfällig ist.** Die Karte bleibt ruhig; rot sind die Überschrift „Überfällig“ und das Datum der überfälligen Zeilen. „Heute“ und „Diese Woche“ sind unverändert.
+- **Noch nicht drin:** Kontakte, Firmen und Aufgaben findet die Suche noch nicht (Frage am Issue #1177); die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand und die kompakten Listenköpfe warten auf Antworten am Issue #1171.
+
+### Added
+
+- **Ein Weg für Treffer und Links** (#1177): `services/dashboard_link.hash_ziel` baut die eine Adressform `#seite/kennung` (für die Links, die Claude nennt, und für die Treffer der Suche); `lib/wege.js` kennt `zuMail`, `zuProfil` und `zuSuchtreffer`; `sprungAusHash` liest zusätzlich `#dokumente/<id>`, `#kalender/<id>` und `#profil/skills`; `GET /api/documents?doc_id=` liefert genau ein Dokument; die Sprungleiste der Timeline springt beim Öffnen in einen genannten Abschnitt.
+- **Die Karte „Deine eigenen Ordner“ trägt die Eingabefelder** (#1173) für Ausgabe- und Vorlagen-Ordner: dieselbe Komponente und dieselbe Prüfung wie unter Einstellungen › Ordner, und die Seite „Speicher & Downloads“ misst nach dem Speichern neu.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sieben Kataloge, 311 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37, Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Neu ist der Katalog „Suche“ (Adressen, Zuordnung, Lesestellen der Seiten).
+
+### Changed
+
+- **Dashboard › Offen: rot ist nur, was überfällig ist** (#1174). Bisher färbte eine einzige überfällige Zeile die ganze Karte rot (Rahmen, Hintergrund, Wecker-Symbol) — seit der Zusammenlegung der Listen in v1.7.31, auch in der stabilen Version.
+- In der Trefferliste der Suche steht bei einem Termin ohne Bewerbung jetzt „ohne Bewerbung“ statt eines Fragezeichens (#1177).
+
+### Fixed
+
+- **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154; in der stabilen Version behoben mit v1.7.155). Die Suche lieferte die Zieladresse im Format `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen; die Stellen-Treffer trugen den gespeicherten Hash mit Profil-Präfix. Dasselbe traf „Zum Dokument“ in der Firmen-Zeitleiste und einen Termin ohne Bewerbung im Block „Offen“ (die Absichten `dokumentId` und `terminId` hatten keinen Leser). Jetzt gehen Treffer und Links aus Claude denselben Weg, jede Seite liest ihren Sprung, und ein Test verlangt zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite.
+- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, alle seit v1.7.59** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der Hinweis in der Gefahrenzone („Bleibt: Ablageordner …“) nannten den Ordner des Nutzers nie: gespeichert wird je Profil, gelesen wurde ohne Profil, die Liste war immer leer — ein Test blieb dabei grün, weil er die Einstellung auf dem anderen Weg schrieb. (2) „Zurücksetzen“ (das Feld leeren) endete im Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`). (3) Bei einem ungültigen Pfad stand am Feld ebenfalls nur „HTTP 400“ statt der Begründung („Diesen Ordner gibt es nicht …“); die Antwort nennt den Grund jetzt als `error`, und die Oberfläche liest ihn.
+
+### Known Issues
+
+- Kontakte, Firmen und Aufgaben findet die Suche oben noch nicht (Frage am Issue #1177).
+- Die drei Fehler an den Ordner-Feldern (#1173) und das rote „Offen“ (#1174) stecken auch in der stabilen Version v1.7.155; behoben sind sie bisher nur in dieser Linie.
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus beta.17 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+41 neue Tests (8.267 gesamt, gezählt im Klon des Zweigs; beta.17 hatte 8.226): 21 in `tests/test_v18_suche_treffer_oeffnen_1177.py` (14 davon im Browser gegen das gebaute Bundle: jede Trefferart mit echtem Klick, auch auf der Zielseite, mit aktivem Filter und für eine aussortierte Stelle; dazu die Adressen im Server und ein Wächter, der zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite verlangt), 17 in `tests/test_v18_speicher_eigene_ordner_1173.py` (6 davon im Browser: Eingabefelder, Ändern, Zurücksetzen, ungültiger Pfad, Vorlagen-Ordner, verschwundener Ordner) und 3 in `tests/test_v18_offen_nur_ueberfaelliges_rot_1174.py` (die Farben als berechnete Werte im Browser, nicht als Klassennamen). Dazu ein erweiterter Node-Test für die Zuordnung Treffer → Ziel (`wege.test.mjs`). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot), gelaufen auf den Ständen der drei Zweige vor der Zusammenführung: Katalog „Suche“ 23 von 23 erkannt, die 13 neuen Fehler im Katalog „Speicher“ 13 von 13, die 5 neuen im Katalog „Wege“ 5 von 5; ein Wächter-Test hält fest, dass jedes Muster der Kataloge im Quelltext genau einmal vorkommt (auf dem Endstand grün). Auf dem Endstand, Windows: 511 gezielte Tests (die drei neuen Dateien, die Wege-, Leerlauf-, Ordner-, Dashboard- und Wächter-Tests) bestanden, 0 Fehler, dazu die Node-Tests der betroffenen Bibliotheken. Der volle Lauf auf Windows (rund 35 Minuten) wurde für diese Beta nicht wiederholt. GitHub-Lauf (Linux) auf dem zusammengeführten Stand vor dem Versionssprung: 8.181 bestanden, 86 übersprungen (plattformgebundene Tests), 0 Fehler; Release-Tor 0 Fehler, zwei Warnungen (die Vorabversion wird nie automatisch installiert; der Test-Zähler im README, der mit diesem Eintrag nachgezogen ist).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8267 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.18.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.18 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-beta.17] - 2026-10-06 — Ein Klick zum Nächsten (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Die Wege durch PBP sind kürzer — von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung ist es je ein Klick. Die Timeline hat oben eine Sprungleiste.
+Was Claude schreibt (ein Urteil zu einer Stelle, eine Notiz), erscheint im offenen Fenster, und die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.16 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.16 auf beta.17:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.154 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt den Wunsch „jeder Schritt höchstens einen Klick vom nächsten“ (#1171) in seinem ersten Teil um: die Verbindungen, die fehlten, und eine Sprungleiste in der Timeline. Dazu kommt eine Reparatur, die auch die Stable-Version betrifft (Hotfix v1.7.154): die Seite „Stellen“ belegte im Leerlauf den Browser zu zwei Dritteln.
+
+**Wichtig zu wissen:**
+
+- **Jeder Schritt von der Stelle über die Bewerbung bis zur Person ist einen Klick entfernt.** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung (früher: nur die Aufgabenliste). Nach „Bewerbung speichern“ liegt die neue Bewerbung offen da, mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß. In der Timeline führt der Name der Person zu ihrer Karte; dort steht oben „Bewerbung: Titel bei Firma“, ein Klick führt zurück. Auf der Bewerbungskarte steht „Zur Stelle“, in der Aufgabenzeile „Zur Bewerbung“; die Top-Stelle im Dashboard und „Stelle öffnen“ / „Kontakt öffnen“ in der Firma öffnen das Objekt selbst, nicht nur die Liste. Der Link aus Claude (`#stellen/…`) öffnet die Stelle.
+- **Sprungleiste in der Timeline.** Oben steht „Springe zu: Status · Stelle · Dokumente · Personen · Aufgaben · Termine · Verlauf“. Sie bleibt beim Scrollen stehen und legt den Abschnitt direkt darunter, statt 800 bis 1.700 Pixel zu scrollen.
+- **Was Claude schreibt, kommt im offenen Fenster an.** Speichert Claude ein Urteil zu einer Stelle oder eine Notiz zu einer Bewerbung, während du sie offen hast, erscheint das nach ein bis drei Sekunden. Die Leseposition bleibt, nichts flackert. Vorher musste man das Fenster schließen und neu öffnen.
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe.** Sie fragte pausenlos, ob gerade eine Suche läuft (gemessen 270 bis 470 Anfragen pro Sekunde, Hauptthread zu 66 % beschäftigt, auch in 1.7.153). Jetzt sind es 0,8 Anfragen pro Sekunde und 0,3 %. Eine Suche, die Claude von außen startet, erscheint nach spätestens etwa fünf Sekunden.
+- **Noch nicht drin** (wartet auf Antworten am Issue #1171): die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand (die Zurück-Taste der Maus), die kompakten Listenköpfe.
+
+### Added
+
+- **Jeder Schritt von der Stelle über die Bewerbung bis zur Person ist einen Klick entfernt** (#1171). Dazu `frontend/src/lib/wege.js` als ein Ort für alle Sprünge (statt 36 verstreuter Aufrufe), `GET /api/contacts/{id}` (neu, steht hinter `export.csv`, damit die festen Pfade nicht verschluckt werden), Verknüpfungen eines Kontakts mit lesbarem Ziel („Bewerbung: Titel bei Firma“ statt „application“) und `GET /api/jobs/{hash}` mit denselben Feldern wie die Liste (Punkte, Daumen, Datenqualität).
+- **Sprungleiste im Dialog „Timeline“** (#1171): Status · Stelle · Dokumente · Personen · Aufgaben · Termine · Verlauf; markiert den aktuellen Abschnitt, bleibt beim Scrollen stehen.
+- **Der Link aus Claude `#stellen/<Kennung>` öffnet die Stelle** (#1171), wie `#bewerbungen/<id>` die Timeline öffnet; liegt die Stelle nicht auf der geladenen Seite der Liste, wird sie einzeln geholt.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechs Kataloge, 270 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24, Komponenten 6, Mail 20, Firmen 86, Wege 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft); der Test ist gehärtet.
+
+### Fixed
+
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf wieder in Ruhe** (#1171). Eine Funktion aus `useEffectEvent` stand in der Abhängigkeitsliste des Abfrage-Effekts; sie ist bei jedem Zeichnen neu, und jede Antwort setzt `searchJob` neu, sodass der Effekt nach jeder Antwort von vorn lief. Seit März 2026 (v0.23.0) im Code. Behoben: der Effekt hängt nur noch von `reloadKey` ab, die Seite fragt alle 5 Sekunden. Zwei Wächter-Tests halten es fern: einer sieht jede der elf Seiten im Leerlauf an, einer lässt keine neuen Effekt-Ereignisse in Abhängigkeitslisten zu.
+- **Was Claude schreibt, kam im offenen Fenster nicht an** (#1171): das Urteil zu einer Stelle und eine Notiz in der Timeline erschienen erst nach Schließen und Öffnen, und die Seite sprang dabei an den Anfang. Der offene Dialog wird nach dem Nachladen aufgefrischt (nicht, solange du bearbeitest).
+- **Die Ladeanzeige ersetzte bei jedem Nachladen die ganze Seite** (#1171): der Start lädt jede Seite zweimal, und jede Änderung durch Claude löst ein Nachladen aus; Liste und offener Dialog flackerten. In „Stellen“ und „Bewerbungen“ erscheint sie jetzt nur noch beim ersten Laden. Der Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der daran scheiterte, ist wieder stabil.
+
+### Known Issues
+
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+37 neue Tests (8.226 gesamt, gezählt im Klon des Zweigs; beta.16 hatte 8.189): 25 in `tests/test_v18_wege_1171.py` (16 davon im Browser gegen das gebaute Bundle: jeder Weg der Tabelle oben, die Sprungleiste, ein Urteil und eine Notiz von Claude im offenen Fenster, eine von außen gestartete Suche, Ruhe im Leerlauf) und 12 in `tests/test_v18_leerlauf_alle_seiten_1171.py` (jede der elf Seiten im Leerlauf, dazu die Liste der Seiten gegen `PAGE_IDS`). Voller Lauf auf Windows (vier Teile): 8.197 bestanden, 29 übersprungen (27 Zeitzonen-Tests, die es nur unter Linux und macOS gibt, und 2 plattformgebundene), 0 Fehler. GitHub-Lauf (Linux) auf dem Stand vor dem Versionssprung: 8.140 bestanden, 86 übersprungen, 0 Fehler; ein früherer Lauf war rot an einem Wartefehler in einem meiner neuen Tests (er las den Dialog, bevor die Stelle geladen war), behoben. Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): Katalog „Wege“, 33 von 33 erkannt, auf dem Endstand vollständig gelaufen. 20 Wegeprüfungen am Demo-Dashboard (jeder Weg mit Klickzahl): 20 von 20. Messungen mit demselben Skript, Demo-Daten, fünf Sekunden nach dem Laden: Seite „Stellen“ im Leerlauf 66 % und 270 bis 470 Anfragen pro Sekunde (v1.7.153) gegen 0,3 % und 0,8; eine von Claude gestartete Suche steht nach 1,3 Sekunden auf der Seite (Obergrenze 5).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8226 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.17.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.17.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.17 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-beta.16] - 2026-10-05 — Updates, die sich selbst installieren (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
+Neu sind außerdem die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
+Vor dem Installieren: Die Datenbank wird beim ersten Start angehoben, vorher entsteht eine Sicherung.
+<!-- /anwender -->
+
+> **Prerelease.** Der Kandidat für 1.8.0: alles, was die 1.8 bringen soll, ist drin, dazu die Korrekturen der Hotfixes bis v1.7.153. Zum Ausprobieren
+> gedacht, auch mit den eigenen Daten — drei Dinge vorher:
+>
+> - **Die Datenbank wird beim ersten Start auf das Schema v52 angehoben** (die Stable-Linie 1.7 hat v48). Der Installer legt vorher eine Sicherung an
+> (`%LOCALAPPDATA%\BewerbungsAssistent\data\backups\`).
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.153 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
+„Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Diese Beta sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.153 geliefert haben; die Einzelheiten stehen in den
+Einträgen darunter.
+
+**Wichtig zu wissen:**
+
+- **Updates (Einstellungen › Erweitert › Updates).** Vier Stufen: *Nur Hinweis* (Vorgabe), *Mit einem Klick*, *Automatisch, mit Meldung*,
+  *Automatisch, still*. Neue Versionen landen in einem eigenen Ordner neben der laufenden; startet die neue nicht, fällt PBP **von selbst auf die
+  vorige zurück** und sagt es. Geladen wird nur von der festen GitHub-Adresse, nur stabile Versionen der eigenen Linie, mit Prüfsumme **und Signatur**
+  (Ed25519; ohne gültige Signatur wird nichts installiert). Die Automatik startet nie neben anderer Arbeit.
+- **Einmalig von Hand:** Die erste Version mit dieser Funktion ist 1.8.0 selbst (diese Beta enthält sie schon, installiert aber selbst nie eine Vorabversion). Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
+  `INSTALLIEREN.bat`); ab dann kann PBP den Rest selbst. **Das automatische Aktualisieren gibt es zurzeit nur unter Windows.**
+- **Speicher & Downloads (Einstellungen › Erweitert).** Wohin PBP schreibt und lädt, wie viel dort liegt, und Aufräumen in zwei Schritten — nie
+  ohne dein Ja, nie bei laufender Arbeit. Was anderen Programmen gehört (Browser der Jobsuche, KI-Modelle), wird nur gezeigt.
+- **Mail-Ordner (Einstellungen › Erweitert › Quellen im Detail).** Der Ordner-Scan ist **standardmäßig aus**; gelesen werden nur Ordner, die du
+  ausdrücklich freigibst. PBP öffnet nie selbst ein Postfach. Ein Add-on, das Ordner von sich aus liest, gibt es noch nicht — das Thunderbird-Add-on
+  schickt weiter nur, was du markierst.
+- **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, als eine Zeitleiste; ein Firmen-Eintrag fasst Schreibweisen zusammen
+  („Alt AG“ heißt heute „Neu GmbH“) und kennt die Mutterfirma. Bewerbungen, Stellen und Kontakte behalten ihren Firmennamen als Text.
+
+### Added
+
+- **Auto-Update** (#1093): `services/auto_update/` (feste Quelle, Prüfsumme, Ed25519-Signatur in reinem Python, sicheres Entpacken, Manifest,
+  Selbsttest vor dem Umschalten, Stufen, Verlauf), der **Startbaustein** `bewerbungs_assistent_boot` (eingefroren, nur Standardbibliothek,
+  Rückfall im selben Prozess und nach zwei unbestätigten Starts), der **Schema-Schutz** (`services/schema_schutz.py`: ist die Datenbank neuer als
+  das Programm, schreibt der alte Prozess nicht weiter), der Hinweis, wenn Claude und Dashboard mit verschiedenen Fassungen laufen, der
+  Installer-Umbau (Versionsordner, Selbstaufräumen, Deinstaller), `scripts/build_update_archive.py` und ein Schritt im Release-Tor. Werkzeuge
+  `update_status`, `update_einstellungen_setzen`, `update_jetzt_installieren`, `update_zurueckschalten`.
+- **Speicher & Downloads** (#1131): sieben Orte, sieben Aufräum-Aktionen, Werkzeuge `speicher_anzeigen` und `speicher_bereinigen`.
+- **Prüfsumme der Komponenten** (#1152): kein Installer ohne SHA-256; die Ablehnung kommt vor dem Download.
+- **Mail-Zugangsschicht** (#947): Schalter, genaue Liste freigegebener Ordner, Prüfung im Mail-Eingang für jedes Add-on
+  (`GET /api/v1/ingest/mail-policy`, `modus=scan` bei `POST /api/v1/ingest/email`), Zahlen je Ordner; Werkzeuge `mail_quelle_anzeigen` und
+  `mail_quelle_einstellen`. Die Ingest-API v1 bleibt kompatibel: die Erweiterung ist rein additiv.
+- **Firmen-Eintrag, Stufe 2** (#1080): Tabellen `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung); die
+  Duplikat- und Repost-Erkennung kennt die Einträge (`firmen_kanon`); Kontakte gehören mehreren Firmen mit Rolle und Zeitraum; Dokumente an einer
+  Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,
+  Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
+  `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
+- Wiki (Entwurf, erscheint mit 1.8.0): Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünf Kataloge, 237 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 24,
+  Komponenten 6, Mail 20, Firmen 86); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+
+### Changed
+
+- `kontakt_verknuepfen(ziel_typ='firma')` ordnet jetzt wirklich einer Firma zu (bisher ein Eintrag ins Leere ohne Leser) und nimmt `von` und `bis`.
+- `firma_kontext` liest über die Firmen-Einträge (Schreibweisen, Mutter- und Tochterfirma, jeder Treffer nennt `via`) und liefert die Daten über
+  dieselbe Funktion wie die Dashboard-Ansicht.
+- Die Warnung bei einer nur in den Notizen genannten Firma beginnt mit „Prüfen:“ (statt „Pruefen:“).
+- Ein zweiter Klick auf „Firmen“ (Reiter oder Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+
+### Fixed
+
+- Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- Benutzernamen mit einem Zeichen außerhalb der Windows-Zeichentabelle (ł, ş, ř, griechisch, kyrillisch; Umlaute waren nie betroffen) ließen
+  mehrere Schritte scheitern (#1163): die Claude-Konfiguration und die Sicherung vor dem Update im Installer, den Selbsttest des Auto-Updates
+  und die Texterkennung (Tesseract liest Pfade in der ANSI-Tabelle). Behoben: die Ausgabe wird als UTF-8 gelesen und abgesichert, das
+  Seitenbild geht über die Standardeingabe, die Sprachdaten über den Kurzpfad. Mit Tests; die Praxisprobe auf einem solchen Rechner steht aus.
+- Eine Absage an der Bewerbung beim Vermittler fehlte in der Historie des Endkunden (#1080).
+- **Aus der Praxisprobe auf einem frischen Windows 11 (05.10.2026):**
+  - Der Reiter „Erweiterungen“ stürzte auf jedem Rechner ab, auf dem die Texterkennung noch fehlt (ein Variablenname war beim
+    Umlaut-Austausch an einer Stelle geändert worden). Ein Absturz in einem Reiter der Einstellungen lässt die anderen Reiter jetzt in Ruhe.
+  - Der Knopf „Deinstaller starten“ (Einstellungen › Gefahrenzone) öffnete unter Windows nie ein Fenster, sondern meldete „Kein Terminal
+    gefunden“ — die Flags des Prozessstarts schließen sich aus. Behoben, mit einem Test, der das Betriebssystem wirklich fragt.
+  - Der Deinstaller räumt jetzt auch die Konfiguration von Claude aus dem Microsoft Store auf (der Eintrag blieb stehen, Claude meldete danach
+    bei jedem Start einen Server ohne Programm) und schließt das Dashboard-Fenster.
+  - Der Deinstaller ließ unter Windows rund 830 MB liegen, die der Installer außerhalb von PBP geladen hat: den Browser für Quellen (Playwright, `%LOCALAPPDATA%\ms-playwright`,
+    rund 700 MB) und den Zwischenspeicher von pip (rund 125 MB) — ohne es zu erwähnen (macOS und Linux fragen). Er fragt jetzt zum Schluss, mit Ort und Größe;
+    die Vorgabe ist **Behalten**, und nur ein einzelnes „j“ löscht. Der Browser-Ordner geht ganz, von pip nur der Unterordner `Cache` (die Einstellungsdatei
+    eines anderen Programms bleibt). Dieselben Ordner nutzen andere Programme mit, deshalb im Zweifel behalten.
+  - Die Fehlermarke `[!!]` erschien in Installer und Deinstaller als `[]`: unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!`. Betroffen waren zehn
+    Meldungen („… konnte nicht entfernt werden“, „Datei in Benutzung?“ u. a.); wer einen Fehler hatte, sah nur leere Klammern vor dem Text. Maskiert; ein Test
+    verbietet die ungeschützte Schreibweise.
+  - Der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner `%LOCALAPPDATA%\BewerbungsAssistent\app` liegen (Schritt [5/7] meldete „konnte nicht
+    entfernt werden“): das neue Fenster hatte diesen Ordner als Arbeitsordner, und ein Prozess hält seinen Arbeitsordner fest. Gefunden bei der
+    Gegenprobe der Reparaturen auf demselben Rechner; das Fenster öffnet jetzt im Temp-Ordner, und die Datei verlässt den Ordner, bevor sie sich verschiebt.
+  - Weitere Funde derselben Gegenprobe, behoben:
+    - Die verschobene Kopie des Deinstallers (`PBP-Deinstaller-<Zahl>.bat`, rund 15 KB) blieb in `%TEMP%` liegen; sie räumt sich jetzt selbst weg.
+    - Der Deinstaller schrieb die Konfiguration von Claude in der Formatierung von Windows PowerShell neu (rund siebenmal so groß) und ließ
+      `"mcpServers": {}` stehen. Jetzt nimmt er nur den PBP-Eintrag aus dem Text, der Rest bleibt Byte für Byte; das Ergebnis wird geprüft,
+      und wo der Text-Weg nicht passt, gilt der bisherige.
+    - Das Dashboard-Fenster zeigt nur noch Warnungen und Fehler (die Log-Datei bekommt weiter alles; `BA_CONSOLE_LEVEL=INFO` zeigt alles). Vorher
+      schoben sich Protokollzeilen in die Frage „Claude jetzt neu starten?“ und füllten den ersten Start mit Dutzenden Zeilen.
+    - Der Browser öffnet sich erst, wenn das Dashboard antwortet (auf einem frischen Rechner zeigte Chrome „Verbindung verweigert“), und nur einmal:
+      der Installer unterdrückt das Öffnen im von ihm gestarteten Fenster und öffnet selbst, nach seiner Prüfung.
+    - Am Ende jeder gelungenen Installation stand „Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, und die
+      Einstellung zum Aufräumen des Installationsordners (nie, fragen, immer) wurde nie gelesen. `cmd` schneidet bei einem Befehl in `for /f` mit mehr als
+      zwei Anführungszeichen das erste und das letzte ab; ein zusätzliches Paar um den ganzen Befehl behebt das.
+  - Das Dashboard startete nicht, solange die Frage „Claude jetzt neu starten?“ unbeantwortet blieb; der Installer wartete umsonst und öffnete
+    „Verbindung verweigert“. Die Frage kommt jetzt erst, wenn das Dashboard läuft.
+  - Der Installer startet Claude aus dem Store am Ende (statt „nicht gefunden“); die Ausgabe enthält keine Sonderzeichen mehr, die die
+    Konsole verstümmelt.
+  - Auf den Karten der Erweiterungen und Quellen standen Kennungen aus der Planung („…(E19)“); entfernt.
+  - Das Titelbild des Wikis zeigte seit v1.7.137 eine Fehlerkarte („Dieser Bereich ist abgestürzt“); der Screenshot-Generator prüft jetzt
+    jede Aufnahme.
+
+### Known Issues
+
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8189 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.16.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.16.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.16 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.15] - 2026-08-25 — Ehrliche Zahlen (Beta-Linie)
 
 > **Prerelease.** Sammelt die Stable-Arbeit der Releases v1.7.22 und
@@ -98,6 +591,289 @@ bash installer/install.sh
 - macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
 
 Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.156] - 2026-10-08 — Kein Fehlertext mehr im Fenster, wenn Claude Desktop beim Start nicht läuft
+
+Hotfix für v1.7.155. Wer PBP über die Verknüpfung „PBP Bewerbungs-Portal“ startet, während Claude Desktop nicht läuft, sah auf einem deutschen Windows im schwarzen Fenster einen Python-Fehlertext (`UnicodeDecodeError … byte 0x81`). Das Dashboard lief trotzdem, aber der Text sah nach einem Absturz aus. Jetzt steht dort nichts mehr. Es gibt keine neue Funktion.
+
+**Wichtig zu wissen:**
+
+- **Der Fehlertext war harmlos, stand aber bei jedem Start ohne laufendes Claude Desktop im Fenster.** PBP fragt beim Start, ob Claude Desktop läuft, damit es PBP als Werkzeug laden kann. Läuft es nicht, antwortet Windows auf Deutsch „… Kriterien ausgeführt.“; das „ü“ schreibt die Konsole in ihrer eigenen Kodierung, PBP las es in der falschen. Die Antwort der Prüfung („läuft nicht“) stimmte dabei nur zufällig. Läuft Claude Desktop, trat der Fehler nie auf.
+- **Dieselbe Ursache an drei weiteren Stellen:** der Desktop-Pfad, die Verknüpfung „Ollama beenden“ und der Start von Claude aus dem Microsoft Store lasen PowerShell-Ausgaben ebenso. Mit einem Windows-Benutzernamen, der ein „ü“ enthält (zum Beispiel „Müller“), hätte dort dieselbe Meldung gestanden, und bei einem umgeleiteten Desktop (zum Beispiel über OneDrive) wäre die Verknüpfung „Ollama beenden“ nicht angelegt worden.
+
+### Fixed
+
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150 in `claude_neustart.py`, davor in `start_dashboard.py`). `claude_laeuft` las die Ausgabe von `tasklist` im Textmodus (cp1252); die Konsole schreibt das „ü“ als OEM-Byte `0x81` (cp850), das dort nicht definiert ist. Der Lese-Thread von `subprocess` brach ab, `stdout` war danach leer. Jetzt liest die Prüfung Bytes und sucht den Namen `Claude.exe` darin.
+- **Die PowerShell-Aufrufe lesen in der Kodierung der Konsole** (#1182): Desktop-Pfad und Verknüpfung „Ollama beenden“ in `services/ollama_start.py`, Store-Start von Claude in `services/claude_neustart.py`; unlesbare Zeichen werden zu Ersatzzeichen statt zum Abbruch.
+
+### Changed
+
+- Neu `services/konsole.py` (`konsole_kodierung`, `text_lesen`): ein Ort dafür, wie die Ausgabe von Konsolenprogrammen gelesen wird (#1182).
+- Ein Wächter-Test verlangt bei jedem `text=True` im Quelltext eine Kodierung (`encoding=` oder `errors=`); `systemctl`, `antiword` und der alte Installer mit Fenster (`installer/setup_gui.py`) lesen jetzt mit `errors="replace"` (#1182).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.155: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+14 neue Tests (7.093 gesamt, gezählt im Klon des Zweigs; v1.7.155 hatte 7.079) in `tests/test_v17156_konsole_ausgabe_1182.py`: ein Kindprozess schreibt genau die Bytes, die Windows schreibt (das „ü“ als `0x81`), und der Aufrufer wählt die Optionen wie im Betrieb. Vorher bricht der Lese-Thread ab (unter Windows) oder der Aufruf wirft (sonst), nachher nicht; dazu die Fälle „Claude läuft“, Text statt Bytes, Store-Start, Desktop-Pfad mit „ü“ und der Wächter samt Selbsttest. Auf der Fassung 1.7.155 schlagen die fünf Fälle an, die den Fehler betreffen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.156.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.156.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.156 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.155] - 2026-10-07 — Ein Klick auf einen Treffer der Suche öffnet das Objekt
+
+Hotfix für v1.7.154. Die Suche oben im Dashboard zeigt beim Tippen eine Liste mit Treffern (Bewerbungen, Stellen, Dokumente, E-Mails, Termine, Skills) — ein Klick darauf tat nichts. Jetzt öffnet er das Objekt. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
+
+**Wichtig zu wissen:**
+
+- **Ein Klick auf einen Treffer der Suche öffnet das Objekt.** Eine Bewerbung öffnet ihre Timeline, eine Stelle ihre Details (auch eine aussortierte), ein Dokument steht aufgeklappt auf der Dokumente-Seite (sein Name im Suchfeld der Seite, das × daneben zeigt wieder alle), eine E-Mail öffnet ihr Fenster (auch wenn sie zu keiner Bewerbung gehört), ein Termin mit Bewerbung deren Timeline, ein Termin ohne Bewerbung den Kalender mit dem geöffneten Termin, ein Skill das Profil mit der Skills-Liste auf seinen Namen gefiltert (ab sieben Skills, wo das Filterfeld steht). Das gilt auch, wenn du schon auf der Zielseite bist.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ auf der Seite „Bewerbungen“ öffnet sich jetzt im Kalender.** Bisher führte der Klick nur auf die Kalender-Seite, ohne den Termin zu zeigen.
+
+### Fixed
+
+- **Ein Klick auf einen Treffer der Suche oben im Dashboard tat nichts** (#1177; seit v1.7.0). Die Suche lieferte die Zieladresse im Format `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung auf ein einzelnes Objekt entgegen; die Stellen-Treffer trugen den gespeicherten Hash mit Profil-Präfix. Jetzt gibt es eine Adressform für Treffer und Links (`services/dashboard_link.hash_ziel`), die Zuordnung Treffer → Ziel steht an einer Stelle (`lib/suche.js`), und jede Seite liest ihren Sprung.
+- **Ein Termin ohne Bewerbung in „Offene Aktionen“ der Seite „Bewerbungen“ führte nur in den Kalender** (#1177), ohne den Termin zu öffnen.
+
+### Changed
+
+- In der Trefferliste der Suche steht bei einem Termin ohne Bewerbung jetzt „ohne Bewerbung“ statt eines Fragezeichens (#1177).
+- `GET /api/documents` kennt den Parameter `doc_id` und liefert dann genau ein Dokument (#1177).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.154: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+21 neue Tests (7.079 gesamt, gezählt im Klon des Zweigs; v1.7.154 hatte 7.058) in `tests/test_v17155_suche_treffer_1177.py`: jede Trefferart wird mit echtem Klick im gebauten Dashboard angeklickt, und das Objekt muss danach offen sein (auf der Fassung 1.7.154 schlagen 20 von 21 an), dazu ein Wächter, der zu jedem Schlüssel, den `lib/suche.js` erzeugt, einen Leser auf einer Seite verlangt. Der Node-Test `frontend/src/lib/suche.test.mjs` (in der CI) prüft die Zuordnung und die Adressen.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.155.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.155.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.155 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.154] - 2026-10-06 — Die Seite „Stellen“ lässt den Rechner im Leerlauf in Ruhe
+
+Hotfix für v1.7.153. Beim Prüfen der Wege durch PBP (#1171) zeigte eine Messung, dass die Seite „Stellen“ im Leerlauf den Browser zu zwei Dritteln auslastete, obwohl niemand etwas tat. Es gibt keine neue Funktion; die Reparatur ist dieselbe, die in Version 1.8 steckt.
+
+**Wichtig zu wissen:**
+
+- **Die Seite „Stellen“ ist wieder still, wenn du nichts tust.** Sie fragte pausenlos, ob gerade eine Suche läuft — gemessen 270 bis 470 Anfragen pro Sekunde, und der Hauptthread des Browsers war zu 66 % beschäftigt (alle anderen Seiten: 0,0 %). Man sah keinen Fehler; der Rechner wurde nur lauter und der Akku leerer. Jetzt sind es 0,8 Anfragen pro Sekunde und 0,3 % (gemessen mit denselben Demo-Daten, fünf Sekunden nach dem Laden). Wer die Seite offen hatte, merkte es am Lüfter und am Akku; deine Daten waren nicht betroffen.
+- **Eine Suche, die Claude von außen startet, erscheint auf der Seite nach spätestens etwa fünf Sekunden.** Die Seite fragt dafür alle fünf Sekunden nach (im Ruhezustand bisher alle 30). Mit nur 30 Sekunden hätte es nach der Reparatur bis zu 26 Sekunden gedauert, bis die Anzeige „Jobsuche läuft“ erscheint; die Endlosschleife hatte das durch Zufall verdeckt.
+
+### Fixed
+
+- **Die Seite „Stellen“ lässt den Rechner im Leerlauf wieder in Ruhe** (#1171). Sie fragte pausenlos, ob gerade eine Suche läuft: 270 bis 470 Anfragen pro Sekunde, der Hauptthread des Browsers zu 66 % beschäftigt, obwohl niemand etwas tat. Die Ursache war eine Funktion aus `useEffectEvent` (`syncRunningSearch`) in der Abhängigkeitsliste des Abfrage-Effekts: sie ist bei jedem Zeichnen eine neue Funktion, und jede Antwort setzt `searchJob` neu, sodass der Effekt nach jeder Antwort von vorn lief, ohne Pause. Die Zeile steht seit März 2026 (v0.23.0) im Code. Behoben: der Effekt hängt nur noch von `reloadKey` ab, und die Seite fragt alle 5 Sekunden (`SUCHE_ABFRAGE_MS`).
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.153: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache oben (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+3 neue Tests (7.058 gesamt, gezählt im Klon des Zweigs; v1.7.153 hatte 7.055) in `tests/test_v17154_stellen_leerlauf_1171.py`: die Seite „Stellen“ schickt im Leerlauf weniger als 30 Anfragen in drei Sekunden (der Fehler machte rund 800 bis 1.400), kein Effekt-Ereignis steht in einer Abhängigkeitsliste (Wächter; der Bestand von acht Fällen ist benannt), und eine Suche, die Claude von außen startet, steht nach höchstens 12 Sekunden auf der Seite und verschwindet nach ihrem Ende wieder (gemessen 1 bis 5). Die ersten beiden werden auf dem Stand von v1.7.153 rot und mit der Reparatur grün; der dritte schützt die Reparatur selbst (er war vor der Reparatur grün, weil die Schleife die Suche zufällig sofort sah). Gemessen an v1.7.153 und an v1.7.154 mit demselben Skript: Leerlauf der Seite „Stellen“ 66 % und 270 bis 470 Anfragen pro Sekunde gegen 0,3 % und 0,8.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.154.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.154.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.154 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.7.153] - 2026-10-05 — Der Deinstaller-Knopf öffnet sich, das Dashboard startet mit offenem Claude
+
+Hotfix für v1.7.152. Eine Praxisprobe auf einem frischen Windows 11 mit Claude aus dem Microsoft Store (Installation, Start, Deinstallation) hat fünf Fehler gezeigt, die auch diese Linie betreffen. Die Gegenprobe der Reparaturen auf demselben Rechner fand einen sechsten: der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner liegen. Es gibt keine neue Funktion; die Reparaturen sind dieselben, die in Version 1.8 stecken.
+
+**Wichtig zu wissen:**
+
+- **Das Dashboard startet auch dann, wenn Claude Desktop läuft.** Die Frage „Claude jetzt neu starten?“ im Fenster der Verknüpfung stand bisher VOR dem Start. Solange niemand antwortete (das Fenster liegt hinter anderen), lief kein Dashboard, und der Installer öffnete nach einer Minute „Verbindung verweigert“. Jetzt kommt die Frage erst, nachdem das Dashboard läuft; die Vorgabe bleibt „Nein“.
+- **Der Knopf „Deinstaller starten“ (Einstellungen › Gefahrenzone) öffnet das Fenster mit den Fragen.** Unter Windows öffnete er kein Fenster, sondern zeigte „Kein Terminal gefunden“: Windows lehnt die Prozess-Einstellungen ab, mit denen das Fenster gestartet wurde (gemessen unter Windows 11; die Kombination stand seit v1.7.0-beta.43 im Code). Wer das erlebt hat, konnte `DEINSTALLIEREN.bat` doppelklicken; das geht weiter.
+- **Der Deinstaller räumt auch die Konfiguration von Claude aus dem Microsoft Store auf** und schließt das Dashboard-Fenster. Bisher blieb der Eintrag dort stehen, und Claude meldete danach bei jedem Start einen Server ohne Programm. Wer das erlebt hat, streicht den Eintrag `bewerbungs-assistent` von Hand in `%LOCALAPPDATA%\Packages\Claude_…\LocalCache\Roaming\Claude\claude_desktop_config.json`.
+- **Der Installer startet Claude aus dem Store am Ende**, statt „Claude Desktop nicht gefunden“ zu melden.
+
+### Fixed
+
+- **Die Frage zum Neustart von Claude hielt den Start des Servers an** (#1170, PP1). `start_dashboard.py` stellt sie jetzt in einem Hintergrund-Thread (`services/claude_neustart.neustart_im_hintergrund`; Vorgabe Nein; ohne Konsole wird gar nicht gefragt).
+- **`services/deinstallation.starten`: `DETACHED_PROCESS` und `CREATE_NEW_CONSOLE` zugleich** (#1170, PP9). Windows lehnt die Kombination ab (`OSError: [WinError 87]`); der Fehler wurde gefangen und als „Kein Terminal gefunden“ gezeigt. Jetzt `DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP` (das Fenster öffnet `start`). Scheitert der Start trotzdem, nennt der Hinweis den Grund und den Doppelklick auf `DEINSTALLIEREN.bat`; die Karte in den Einstellungen zeigt den Hinweis des Servers.
+- **`DEINSTALLIEREN.bat` kannte nur den Standardpfad der Claude-Konfiguration** (#1170, PP11). `_setup_claude.py` schreibt den Eintrag auch in `Packages\Claude_*\LocalCache\Roaming\Claude`, und genau dort liest die Store-Fassung. Jetzt dieselben Orte (auch `AnthropicPBC.Claude*`); ein Schreibfehler zählt als Fehler (Code 5), nicht mehr als „MCP-Eintrag war nicht vorhanden“.
+- **`DEINSTALLIEREN.bat` schließt das Konsolenfenster des Dashboards** (`cmd /K "Dashboard starten.bat"`), es blieb sonst leer stehen (#1170, PP12).
+- **Der Deinstaller lässt keinen leeren App-Ordner mehr liegen** (#1170, PP13; gefunden bei der Gegenprobe auf einem frischen Windows 11). Gestartet über den Knopf im Dashboard meldete Schritt [5/7] „App-Verzeichnis … konnte nicht entfernt werden“, und `%LOCALAPPDATA%\BewerbungsAssistent\app` blieb leer zurück. Ursache: das neue Fenster hatte den App-Ordner als Arbeitsordner (`start /D <Ordner der Datei>`), und seine `cmd.exe` wartet auf die nach `%TEMP%` verschobene Kopie des Deinstallers; ein Prozess hält seinen Arbeitsordner fest. Der Doppelklick auf `DEINSTALLIEREN.bat` im App-Ordner hat denselben Arbeitsordner. Jetzt öffnet `services/deinstallation.starten` das Fenster im Temp-Ordner, und die Datei verlässt den Ordner (`cd /d "%TEMP%"`), bevor sie sich verschiebt. Wer den leeren Ordner schon hat, löscht ihn von Hand.
+- **`INSTALLIEREN.bat`** (#1170, PP3): Die Paket-Abfrage nach der Store-Fassung läuft auch dann, wenn Claude schon am Konfigurationsordner erkannt wurde; das Ende der Installation startet Claude. Dazu drei Kleinigkeiten der Ausgabe: ein Gedankenstrich, der als „ÖÇö“ ankam, das fehlende Ausrufezeichen in „Willkommen! …“ und die sichtbaren Fluchtzeichen in „Trotzdem neu installieren? (j/n)“.
+- Die Zeit-Tests (`test_v17148_zeit_zwischenspeicher_1144`) warten unter Windows je Schritt länger; sie scheiterten dort bei Last, ohne dass am Code etwas lag.
+
+### Known Issues
+
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; wie der Deinstaller künftig damit umgeht, ist noch offen.
+- Unverändert gegenüber v1.7.152: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+
+### Gemessen
+
+26 neue Tests (7.055 gesamt, gezählt im Klon des Zweigs; v1.7.152 hatte 7.029): 18 in `tests/test_v18_praxisprobe_deinstaller.py` (die echten PowerShell-Zeilen des Deinstallers gegen Temp-Ordner mit Standard- und Store-Konfiguration, ein Schreibfehler, der Prozessfilter gegen fremde und eigene `cmd`-Prozesse, der Prozessstart mit den echten Flags gegen das Betriebssystem, und ein Lauf mit dem echten Anfang der Datei, bei dem der Arbeitsordner den App-Ordner festhält) und 8 in `tests/test_v18_praxisprobe_start.py` (die Frage blockiert den Start nicht, ohne Konsole wird nicht gefragt, die Installer-Ausgabe ist reines ASCII). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot): 19 Eingriffe, alle erkannt, darunter „der Arbeitsordner ist wieder der Ordner der Datei“, „die Datei bleibt vor dem Umzug im Ordner“, „beide Flags wieder zugleich“, „nur das erste Paketmuster“, „der Schreibfehler gilt als kein Eintrag“, „jedes `cmd.exe` wird beendet“, „die Frage läuft im selben Thread“.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.153.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.153.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.153 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
 
 ### Detaillierte Anleitung & Troubleshooting
 

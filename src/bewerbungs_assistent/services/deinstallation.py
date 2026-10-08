@@ -26,6 +26,7 @@ import os
 import platform
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -47,6 +48,7 @@ ENTFERNT = {
         "Desktop-Verknuepfung",
         "MCP-Eintrag in Claude Desktop",
         "Nachinstallierte Komponenten (z. B. Tesseract)",
+        "Browser-Dateien für Quellen (Playwright) und pip-Zwischenspeicher (nur auf Nachfrage)",
     ],
     "Darwin": [
         "MCP-Eintrag in Claude Desktop",
@@ -172,22 +174,41 @@ def starten() -> dict:
         }
 
     if _system() == "Windows":
-        # Detached: eigenes Fenster, eigener Prozess-Baum, damit der
-        # Deinstaller den Dashboard-Prozess gefahrlos beenden kann
-        # (Schritt [1/7] :stop_pbp_processes in der .bat).
+        # Abgeloest: eigener Prozess-Baum, damit der Deinstaller den
+        # Dashboard-Prozess gefahrlos beenden kann (Schritt [1/7]
+        # :stop_pbp_processes in der .bat). Das Fenster oeffnet `start`.
+        #
+        # DETACHED_PROCESS und CREATE_NEW_CONSOLE schliessen sich AUS:
+        # CreateProcess antwortet mit ERROR_INVALID_PARAMETER, in Python
+        # "OSError: [WinError 87]". Beides in der Maske liess den Knopf
+        # "Deinstaller starten" unter Windows nie funktionieren - der Fehler
+        # wurde gefangen, und die Oberflaeche zeigte "Kein Terminal
+        # gefunden" (Praxisprobe 1.8, 05.10.2026). Die Tests mockten Popen.
+        #
+        # Arbeitsordner des neuen Fensters: der Temp-Ordner, NICHT der Ordner
+        # der .bat. Als Arbeitsordner haelt ein Prozess seinen Ordner fest;
+        # der Deinstaller wartet in dieser cmd.exe auf seine verschobene Kopie,
+        # und Schritt [5/7] konnte den App-Ordner danach nicht mehr loeschen
+        # (Gegenprobe 05.10.2026, PP13). Die .bat selbst verlaesst den Ordner
+        # zusaetzlich, bevor sie sich verschiebt.
         DETACHED_PROCESS = 0x00000008
-        CREATE_NEW_CONSOLE = 0x00000010
         CREATE_NEW_PROCESS_GROUP = 0x00000200
         try:
             subprocess.Popen(
-                ["cmd.exe", "/c", "start", "", "/D", str(pfad.parent),
+                ["cmd.exe", "/c", "start", "", "/D", tempfile.gettempdir(),
                  "cmd.exe", "/c", str(pfad)],
-                creationflags=(DETACHED_PROCESS | CREATE_NEW_CONSOLE
-                               | CREATE_NEW_PROCESS_GROUP),
+                creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
                 close_fds=True,
             )
         except Exception as exc:
-            return {**auskunft(), "status": "befehl", "fehler": str(exc)}
+            return {
+                **auskunft(),
+                "status": "befehl",
+                "fehler": str(exc),
+                "hinweis": ("Der Deinstaller ließ sich nicht von hier öffnen. "
+                            "Doppelklick auf DEINSTALLIEREN.bat im PBP-Ordner "
+                            "oder diesen Befehl ausführen:"),
+            }
         return {
             **auskunft(),
             "status": "gestartet",

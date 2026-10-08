@@ -19,6 +19,7 @@
  */
 
 import { sichereAdresse } from "@/lib/webAdresse";
+import { istVorabversion } from "@/lib/autoUpdate";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Link2, Link2Off } from "lucide-react";
 
@@ -114,6 +115,13 @@ export default function Sidebar({
                 v{brand.version}
               </span>
             ) : null}
+            {/* Auto-Update (#1093): eine neue Version ist installiert, laeuft aber erst nach dem Neustart. */}
+            {brand.autoUpdateText ? (
+              <span className="text-xs text-amber" data-update-neustart
+                title="Die neue Version ist installiert. Sie gilt, sobald du das PBP-Fenster schließt, Claude Desktop ganz beendest und beides neu startest.">
+                {brand.autoUpdateText}
+              </span>
+            ) : null}
             {/* G60 (#1087 A5) + #1069: "Stand unbekannt" war ein gelbes
                 Banner ueber jedem Tab — das erste Bild nach der
                 Installation. Die Auskunft bleibt (kein stilles "alles
@@ -136,10 +144,19 @@ export default function Sidebar({
                 und hier, damit es nicht hinter wichtigeren Hinweisen
                 verschwindet. */}
             {brand.updateStand === "neu" && brand.updateUrl ? (
-              <a href={sichereAdresse(brand.updateUrl)} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-medium text-sky hover:underline" data-update-stand="neu">
-                Neue Version verfügbar: v{brand.updateVersion}
-              </a>
+              brand.updateZuEinstellungen && brand.onUpdateOptionen ? (
+                /* Auto-Update (#1093, Anforderung 11): der Hinweis fuehrt direkt zur Einstellung. */
+                <button type="button" onClick={brand.onUpdateOptionen} data-update-stand="neu"
+                  title="Zeigt die Update-Optionen: Hinweis, Ein-Klick-Update oder automatisch."
+                  className="text-left text-xs font-medium text-sky hover:underline">
+                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}
+                </button>
+              ) : (
+                <a href={sichereAdresse(brand.updateUrl)} target="_blank" rel="noopener noreferrer"
+                  className="text-xs font-medium text-sky hover:underline" data-update-stand="neu">
+                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}
+                </a>
+              )
             ) : null}
             {/* #1168: eine höhere Linie wird genannt, nie angeboten — der Wechsel geht einmal von Hand. */}
             {brand.neueLinie?.url ? (

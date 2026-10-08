@@ -63,7 +63,7 @@ class SafeRotatingFileHandler(RotatingFileHandler):
             raise
 
 
-def setup_logging(level=None, console=True):
+def setup_logging(level=None, console=True, console_level=None):
     """Richte zentrales Logging ein.
 
     Args:
@@ -71,6 +71,11 @@ def setup_logging(level=None, console=True):
         console: Auch auf stderr ausgeben (default: True, aber
                  bei MCP-Server auf False setzen da stdout/stderr
                  für das MCP-Protokoll reserviert sind)
+        console_level: Stufe NUR für die Console (default: wie `level`). Das Dashboard-Fenster
+                 nimmt "WARNING": die Log-Datei bekommt weiter alles, im Fenster stehen nur
+                 Warnungen und Fehler. Vorher schoben sich Protokollzeilen in die Frage
+                 "Claude jetzt neu starten?" und zeigten bei jedem ersten Start Dutzende
+                 Zeilen "Safety-Net ... nachgezogen" (Praxisprobe 1.8, PP14).
 
     Returns:
         Der konfigurierte Root-Logger für bewerbungs_assistent
@@ -131,12 +136,18 @@ def setup_logging(level=None, console=True):
     # damit ein blockierender stderr-write nie App-Threads einfriert (#760).
     if console:
         global _queue_listener
+        # Stufe der Console: ausdruecklich uebergeben, sonst aus BA_CONSOLE_LEVEL, sonst wie die Datei.
+        # Unbekannte Namen fallen auf die Stufe der Datei zurueck (nie stiller als gewollt).
+        console_str = console_level or os.environ.get("BA_CONSOLE_LEVEL")
+        console_stufe = getattr(logging, str(console_str).upper(), None) if console_str else None
+        if not isinstance(console_stufe, int):
+            console_stufe = log_level
         sh = logging.StreamHandler(sys.stderr)
         sh.setFormatter(fmt)
-        sh.setLevel(log_level)
+        sh.setLevel(console_stufe)
         log_queue = queue.Queue(maxsize=1000)
         qh = DropOnFullQueueHandler(log_queue)
-        qh.setLevel(log_level)
+        qh.setLevel(console_stufe)
         logger.addHandler(qh)
         _queue_listener = QueueListener(log_queue, sh, respect_handler_level=True)
         _queue_listener.start()

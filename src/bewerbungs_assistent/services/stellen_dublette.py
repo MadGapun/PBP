@@ -160,12 +160,19 @@ def _sicher_gleich(a: dict, b: dict) -> str:
     return ""
 
 
-def finde(stelle: dict, kandidaten) -> dict | None:
+def finde(stelle: dict, kandidaten, kanon=None) -> dict | None:
     """Die eine Antwort auf "ist das dieselbe Stelle?".
 
     Args:
         stelle: die neu hereinkommende Stelle (title/company/url).
         kandidaten: bereits bekannte Stellen.
+        kanon: die Firmen-Eintraege als Nachschlagetabelle
+            (`firmen_kanon(db)`, #1080). Er macht aus einem frueheren
+            Namen oder einer Kurzform dieselbe Firma - aber nur fuer den
+            VERDACHT: ein Treffer allein ueber die Firmen-Eintraege ist
+            nie "sicher". Ein Geschaeftsbereich kann dieselbe Rolle
+            getrennt ausschreiben, und eine falsch verschmolzene Stelle
+            ist schlimmer als ein Hinweis zu viel (#951).
 
     Returns:
         ``{"stelle": <kandidat>, "sicherheit": SICHER|VERDACHT,
@@ -193,6 +200,7 @@ def finde(stelle: dict, kandidaten) -> dict | None:
             stelle.get("title") or stelle.get("titel") or "",
             stelle.get("url") or "",
             liste,
+            kanon=kanon,
         )
     except Exception as exc:  # pragma: no cover — nie einen Lauf stoppen
         logger.debug("Aehnlichkeitspruefung fehlgeschlagen: %s", exc)

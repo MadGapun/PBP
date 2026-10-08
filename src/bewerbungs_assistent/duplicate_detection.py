@@ -130,6 +130,34 @@ def ohne_portal_vorspann(title: Optional[str]) -> str:
     return _PORTAL_VORSPANN.sub("", title or "", count=1)
 
 
+def firmen_kanon(db, profile_id: Optional[str] = None):
+    """Die bestaetigten Schreibweisen aus den Firmen-Eintraegen als Nachschlagetabelle (#1080) - oder None.
+
+    Die Namensregeln unten kennen nur, was im Namen steht. Ein frueherer Name
+    ("Alt AG" heisst heute "Neu GmbH") oder eine Kurzform steht in keinem
+    Namen; das weiss nur der Mensch und hat es in den Firmen-Eintraegen
+    bestaetigt. Mit dem Kanon (`kanon=`) zaehlen zwei Namen auch dann als
+    dieselbe Firma, wenn dort DIESELBE Firma steht.
+
+    Der Kanon fuegt Treffer hinzu und nimmt nie einen weg (Recall vor
+    Praezision, #951); Mutter- und Tochterfirma sind nicht dieselbe Firma.
+    None heisst: kein Firmen-Eintrag, keine Datenbank oder nicht lesbar - dann
+    wird abgeglichen wie bisher. Einmal je Lauf bauen, nicht je Stelle.
+    """
+    if db is None:
+        return None
+    try:
+        from .services.firmen_stamm import kanon
+        return kanon(db, profile_id)
+    except Exception:  # pragma: no cover - ein Fehler hier kostet nie eine Erkennung
+        return None
+
+
+def _gleiche_firma(a: str, b: str, kanon) -> bool:
+    """Dieselbe Firma laut Firmen-Eintraegen? (`a`, `b` sind schon normalisiert.)"""
+    return bool(kanon is not None and a and b and kanon.gleich(a, b))
+
+
 def _title_tokens(title: Optional[str]) -> set[str]:
     """Titel in vergleichbare Tokens zerlegen (ohne Stopwords, ohne Gender-Suffixe)."""
     if not title:
@@ -198,6 +226,7 @@ def find_duplicate_job(
     *,
     now: Optional[datetime] = None,
     time_window_hours: int = 72,
+    kanon=None,
 ) -> Optional[dict]:
     """Sucht den staerksten Duplikat-Kandidaten unter ``candidates``.
 
@@ -207,6 +236,11 @@ def find_duplicate_job(
     1. URL exakt gleich (normalisiert)     -> sicher
     2. Normalisierte Firma gleich + (Titel-Sim >= 0.4 ODER Domain-Keyword-Overlap)
     3. Normalisierte Firma gleich + Zeitnaehe < 72h    (Vorsicht-Warnung)
+
+    #1080: mit ``kanon`` (`firmen_kanon(db)`) zaehlen auch zwei Namen als
+    dieselbe Firma, die in den Firmen-Eintraegen zusammengehoeren (frueherer
+    Name, Kurzform). Ein solcher Treffer traegt ``firma_via: "stammsatz"``;
+    die Titel-Regeln bleiben unveraendert.
     """
     if not firma or not titel:
         return None
@@ -239,6 +273,9 @@ def find_duplicate_job(
             or (len(norm_firma) >= 4 and len(cand_firma) >= 4
                 and (norm_firma in cand_firma or cand_firma in norm_firma))
         )
+        via_stamm = False
+        if not firma_match and _gleiche_firma(norm_firma, cand_firma, kanon):
+            firma_match = via_stamm = True
         if not firma_match:
             continue
 
@@ -281,6 +318,7 @@ def find_duplicate_job(
                 "score": round(final_score, 2),
                 "shared_tokens": sorted(common),
                 "hours_ago": round(hours_ago, 1) if hours_ago is not None else None,
+                **({"firma_via": "stammsatz"} if via_stamm else {}),
             }
             best_score = final_score
 
@@ -400,7 +438,7 @@ def _repost_texte(*, laeuft: bool, sicher: bool, datum: str, status: str,
 
 
 def find_repost_of_application(job: dict, applications,
-                               db=None) -> Optional[dict]:
+                               db=None, kanon=None) -> Optional[dict]:
     """Repost-Erkennung (#782/C30, v1.7.10): entspricht eine (neu gefundene)
     Stelle einer Bewerbung, die es schon gab?
 
@@ -430,14 +468,22 @@ def find_repost_of_application(job: dict, applications,
     nach dem Absagegrund, den es nicht gibt (`laeuft`, `kurz`). Die
     Antwort traegt auch die volle Bewerbungs-ID (`bewerbung_id_voll`) -
     das Dashboard springt damit zur Bewerbung.
+
+    #1080: ``kanon`` (`firmen_kanon(db)`) macht aus einem frueheren Namen
+    oder einer Kurzform dieselbe Firma; ohne ``kanon`` wird er aus ``db``
+    gebaut. Wer viele Stellen nacheinander fragt, baut ihn einmal und
+    gibt ihn mit. Das Ergebnis traegt dann ``firma_via: "stammsatz"``.
     """
     kandidaten = bewerbungen_ohne_eigene(job, applications)
     if not kandidaten:
         return None
+    if kanon is None and db is not None:
+        kanon = firmen_kanon(db)
     hit = _url_treffer(job.get("url"), kandidaten)
     if not hit:
         hit = find_duplicate_job(
-            job.get("company") or "", job.get("title") or "", "", kandidaten)
+            job.get("company") or "", job.get("title") or "", "", kandidaten,
+            kanon=kanon)
     if not hit:
         return None
     app = hit["job"]
@@ -463,6 +509,12 @@ def find_repost_of_application(job: dict, applications,
         laeuft=laeuft, sicher=sicher, datum=datum,
         status=app.get("status") or "", titel=app.get("title") or "",
         grund=grund, grund_dokumentiert=grund_dokumentiert)
+    via_stamm = hit.get("firma_via") == "stammsatz"
+    if via_stamm:
+        # Der Leser sieht zwei verschiedene Namen und fragt sich, warum die
+        # Stelle trotzdem als bekannt gilt - der Satz sagt es.
+        warnung += (f" Laut deinen Firmen-Einträgen sind „{app.get('company') or ''}“ "
+                    f"und „{job.get('company') or ''}“ dieselbe Firma.")
     return {
         "art": "wiederholung",
         "bewerbung_id": (app.get("id") or "")[:8],
@@ -476,6 +528,7 @@ def find_repost_of_application(job: dict, applications,
         "ablehnungsgrund_dokumentiert": grund_dokumentiert,
         **({"ablehnungsgrund": grund} if grund else {}),
         "match_grund": hit.get("grund", ""),
+        **({"firma_via": "stammsatz"} if via_stamm else {}),
         "kurz": kurz,
         "warnung": warnung,
     }
@@ -512,7 +565,7 @@ def _shingles(text: Optional[str], n: int = 4) -> set:
 
 def find_inhalt_repost(firma: str, titel: str, beschreibung: str,
                        candidates: Iterable[dict],
-                       own_hash: str = "") -> Optional[dict]:
+                       own_hash: str = "", kanon=None) -> Optional[dict]:
     """Dieselbe Vakanz derselben Firma unter anderem Titel (#1076).
 
     Firmen-Textbausteine ("Wir sind ...", Benefits) stehen in vielen
@@ -520,9 +573,14 @@ def find_inhalt_repost(firma: str, titel: str, beschreibung: str,
     bis zu 100 % Ueberdeckung zwischen "Teamleiter Automatisierung" und
     "PLM Solution Architekt". Verglichen wird deshalb nur, was KEINE dritte
     Anzeige derselben Firma ebenfalls enthaelt.
+
+    #1080: mit ``kanon`` gehoert auch eine Anzeige unter einem frueheren
+    Namen oder einer Kurzform der Firma zu den Kandidaten. Die Kandidaten
+    muss der Aufrufer dafuer auch unter diesen Namen holen
+    (`kanon.formen_von`).
     """
     norm = normalize_company_name(firma)
-    if not norm or len(norm) < 4:
+    if not norm or (len(norm) < 4 and not _gleiche_firma(norm, norm, kanon)):
         return None
     neu = _shingles(beschreibung)
     if len(neu) < REPOST_MIN_SHINGLES:
@@ -532,7 +590,8 @@ def find_inhalt_repost(firma: str, titel: str, beschreibung: str,
         if own_hash and (c.get("hash") or "").endswith(own_hash):
             continue
         cf = normalize_company_name(c.get("company"))
-        if cf and (cf == norm or (len(cf) >= 4 and (cf in norm or norm in cf))):
+        if cf and (cf == norm or (len(cf) >= 4 and (cf in norm or norm in cf))
+                   or _gleiche_firma(norm, cf, kanon)):
             gleiche_firma.append((c, _shingles(c.get("description"))))
     best = None
     for i, (cand, sc) in enumerate(gleiche_firma):
@@ -558,7 +617,8 @@ def _wortgrenze(name: str, text: str) -> bool:
                           text))
 
 
-def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
+def find_vermittler_bewerbung(firma: str, applications,
+                              kanon=None) -> Optional[dict]:
     """Laufende Bewerbung ueber einen Vermittler beim selben Endkunden (#1076).
 
     Die Firma der Bewerbung ist der Vermittler; der Endkunde steht im
@@ -566,13 +626,22 @@ def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
     Notizen. Gesucht wird der Name der NEUEN Firma dort — mit
     Wortgrenzen, weil ein kurzer Name sonst in jedem laengeren Wort steckt
     (#970).
+
+    #1080: mit ``kanon`` wird auch nach den bestaetigten anderen
+    Schreibweisen der Firma gesucht ("IBM" im Klammerzusatz, die Stelle
+    kommt unter dem langen Namen). Eine bestaetigte Schreibweise darf drei
+    Zeichen kurz sein: der Mensch hat sie als diese Firma festgehalten, und
+    die Wortgrenze schuetzt vor Zufallstreffern.
     """
     norm = normalize_company_name(firma)
-    if not norm or len(norm) < 4:
+    namen = [norm] if norm and len(norm) >= 4 else []
+    if kanon is not None and norm:
+        namen += [f for f in kanon.formen_von(norm) if len(f) >= 3 and f not in namen]
+    if not namen:
         return None
     for app in applications:
         app_firma = normalize_company_name(app.get("company"))
-        if app_firma == norm:
+        if app_firma == norm or _gleiche_firma(app_firma, norm, kanon):
             continue  # das ist Stufe A
         # v1.7.143 (#1126): auch das Feld `endkunde` - der Endkunde steht bei
         # einer Bewerbung ueber einen Vermittler oft NUR dort, nicht im
@@ -586,6 +655,7 @@ def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
         # kein "société".
         roh = _akzente_falten(roh)
         roh = re.sub(r"[^\w\s]", " ", roh)
-        if _wortgrenze(norm, re.sub(r"\s+", " ", roh)):
+        text = re.sub(r"\s+", " ", roh)
+        if any(_wortgrenze(n, text) for n in namen):
             return app
     return None

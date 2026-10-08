@@ -594,10 +594,8 @@ def register(mcp, db, logger):
                           "(oder leer bleiben zum Anzeigen).",
                 "aktueller_stand": ablage.uebersicht(db),
             }
-        wert = (pfad or "").strip()
-        if wert == "-":
-            wert = ""
-        return ablage.ordner_setzen(db, wahl, wert)
+        # „-“ heisst „zurücksetzen“ — die Regel steht in ablage.ordner_setzen, damit der Weg über das Dashboard dieselbe hat (#1173)
+        return ablage.ordner_setzen(db, wahl, (pfad or "").strip())
 
     @mcp.tool()
     def dokument_regeln_pruefen(pfad: str = "") -> dict:

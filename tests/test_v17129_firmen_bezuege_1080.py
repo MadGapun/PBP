@@ -213,9 +213,9 @@ def test_endkunde_nur_in_notizen_wird_zur_pruefung(db):
     antwort = _werkzeuge(db)["firma_kontext"]("Beispielwerk Maschinen")
     assert antwort["in_notizen_erwaehnt"]
     assert antwort["in_notizen_erwaehnt"][0]["moeglicher_endkunde"]
-    assert any(w.startswith("Pruefen") for w in antwort["warnungen"])
+    assert any(w.startswith("Prüfen") for w in antwort["warnungen"])
     # nicht als Vorstellung gezaehlt — nur benannt
-    assert not any("Doppelvorstellung" in w and not w.startswith("Pruefen")
+    assert not any("Doppelvorstellung" in w and not w.startswith("Prüfen")
                    for w in antwort["warnungen"])
 
 

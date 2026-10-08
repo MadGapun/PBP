@@ -1788,9 +1788,10 @@ def register(mcp, db, logger):
             "typen": types_info,
             "anzahl_typen": len(types_info),
             "hinweis": (
-                "Nutze update_document_type(doc_id, typ) um Doku-Typ "
-                "manuell zu setzen. Per-Typ-Handler-Aktionen siehe "
-                "'claude_action'-Spalte."
+                "Den Typ eines einzelnen Dokuments kann man derzeit nicht "
+                "von Hand aendern; Altlast-Typen ('email') und 'sonstiges' "
+                "erkennt dokument_typen_nachziehen() neu (im Expertenmodus). "
+                "Per-Typ-Handler-Aktionen siehe 'claude_action'-Spalte."
             ),
         }
         if mit_verteilung:

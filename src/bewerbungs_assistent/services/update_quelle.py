@@ -270,3 +270,20 @@ def ist_neuer(kandidat: str, aktuell: str) -> bool:
         return Version(kandidat) > Version(aktuell)
     except Exception:
         return bool(kandidat) and kandidat != aktuell
+
+
+# #1180: andere Kanaele (Elwosa) sollen wissen, was die allgemeine Pruefung zuletzt gefunden hat, ohne selbst das Netz zu fragen.
+_LETZTER_BEFUND: dict | None = None
+_BEFUND_FELDER = ("current_version", "latest_version", "update_available", "release_url", "release_name", "stand", "geprueft_am")
+
+
+def befund_merken(ergebnis: dict) -> None:
+    """Merkt sich die Antwort der allgemeinen Pruefung (nur die Felder, die andere Kanaele brauchen)."""
+    global _LETZTER_BEFUND
+    if isinstance(ergebnis, dict):
+        _LETZTER_BEFUND = {k: ergebnis.get(k) for k in _BEFUND_FELDER}
+
+
+def letzter_befund() -> dict | None:
+    """Der zuletzt gemerkte Befund (eine Kopie) oder None, solange noch nicht gefragt wurde."""
+    return dict(_LETZTER_BEFUND) if _LETZTER_BEFUND else None

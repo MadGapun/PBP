@@ -226,6 +226,32 @@ jobs:
         # jeden wirksamen Filter mit der Zahl der Stellen, die er verbirgt.
         run: node frontend/src/lib/stellenFilter.test.mjs
 
+      - name: Auto-Update - Stufen und Hinweise (Node)
+        # v1.8 (#1093): vier Stufen, die Rueckfrage, was gerade passiert (Lauf,
+        # Fehler, Rueckfall, Neustart) und die Vergleichsregeln der Fassungen.
+        run: node frontend/src/lib/autoUpdate.test.mjs
+
+      - name: Speicher und Downloads - Groessen und Schritte (Node)
+        # v1.8 (#1131): Groessen mit "oder mehr", die Schritte des Bereinigens
+        # (Auswahl, Vorschau, Ergebnis) und die Summe einer Auswahl.
+        run: node frontend/src/lib/speicher.test.mjs
+
+      - name: Mail-Ordner - Zeile, Zahlen und Freigabe-Schritte (Node)
+        # v1.8 (#947): der Schalter sagt ehrlich, ob gerade etwas gelesen wird;
+        # eine Beta-Einstellung gilt in stabil als aus.
+        run: node frontend/src/lib/mailQuelle.test.mjs
+
+      - name: Firmen-Ansicht - Datum, Filter, Spruenge und Hash (Node)
+        # v1.8 (#1080): Datum fuer Menschen, Filter der Historie, wohin ein
+        # Eintrag fuehrt, und der Hash (#kontakte/fi_..., #kontakte/firma:Name)
+        # traegt zurueck in die Ansicht.
+        run: node frontend/src/lib/firmen.test.mjs
+
+      - name: Wege durch PBP - Spruenge, Verknuepfungen, Sprungleiste (Node)
+        # v1.8 (#1171, G85): wohin ein Klick auf Stelle, Bewerbung, Firma, Person oder Termin fuehrt (ein Ort statt 36
+        # Aufrufe), der Satz zu einer Verknuepfung des Kontakts und die Abschnitte der Sprungleiste.
+        run: node frontend/src/lib/wege.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

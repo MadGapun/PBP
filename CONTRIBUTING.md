@@ -58,7 +58,8 @@ feature/*       → Einzelne Features/Bugfixes, werden nach main gemergt
 
 - **Stabile Releases** (z.B. `v1.7.148`) entstehen auf einem Zweig `hotfix/v1.7.N`, der vom Tag
   der vorigen stabilen Version abzweigt, und werden dort getaggt → GitHub "Latest Release"
-- **Beta-Releases** (z.B. `v1.8.0-beta.15`) werden auf `main` getaggt → GitHub "Pre-release"
+- **Beta-Releases** (z.B. `v1.8.0-beta.15`) werden auf `main` getaggt → GitHub "Pre-release". Solange ein großer Pull Request
+  noch nicht gemergt ist, wird auf dessen Zweig getaggt (so `v1.8.0-beta.16` auf `feature/v18-firmen-1080`).
 - **Ein Fehler, der auch die stabile Version betrifft**, gehört zuerst in die 1.7-Linie
   (`hotfix/…`) und danach per Rückführung nach `main` — nicht nur in die Beta, die kaum jemand
   nutzt. Gib im Pull Request an, ob der Fehler die stabile Version betrifft.

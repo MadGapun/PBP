@@ -50,7 +50,7 @@ function extractionBadge(status) {
 }
 
 export default function DocumentsPage() {
-  const { reloadKey, pushToast, navigateTo, copyPrompt } = useApp();
+  const { reloadKey, pushToast, navigateTo, copyPrompt, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({ documents: [], total: 0, page: 1, pages: 1, doc_types: [], applications: [], unlinked_count: 0, unanalyzed_count: 0 });
   const [query, setQuery] = useState("");
@@ -99,6 +99,50 @@ export default function DocumentsPage() {
     setLoading(true);
     loadData();
   }, [reloadKey, page, sort, order, activeQuery, docType, appFilter, unlinkedFilter, extractionFilter]);
+
+  // #1177 (G88): ein Sprung mit Kennung (Treffer der Suche, „Zum Dokument“ aus der Firmen-Zeitleiste, Link `#dokumente/<id>`)
+  // zeigt GENAU dieses Dokument aufgeklappt. Die Seite kennt nur Seiten zu 25 — deshalb holt der Server das Dokument per Kennung,
+  // und die Liste zeigt danach seinen Namen (alle anderen Filter weg, sonst verbaergen sie es). Das Suchfeld ist der Weg zurueck.
+  const [dokumentZiel, setDokumentZiel] = useState("");
+  const [mailZiel, setMailZiel] = useState("");       // eine Mail, deren Fenster aufgehen soll (Treffer „E-Mail“ der Suche)
+  useEffect(() => {
+    if (intent?.page !== "dokumente") return;
+    if (intent.mailId) {
+      setMailZiel(String(intent.mailId));
+      clearIntent();
+      return;
+    }
+    if (!intent.dokumentId) return;
+    const id = String(intent.dokumentId);
+    clearIntent();
+    api(`/api/documents?doc_id=${encodeURIComponent(id)}&per_page=1`)
+      .then((antwort) => {
+        const doc = antwort?.documents?.[0];
+        if (!doc) {
+          pushToast("Dieses Dokument gibt es nicht mehr.", "amber");
+          return;
+        }
+        setDocType("");
+        setAppFilter("");
+        setUnlinkedFilter(false);
+        setExtractionFilter("");
+        setQuery(doc.filename);
+        setActiveQuery(doc.filename);
+        setPage(1);
+        setExpandedDoc(doc.id);
+        setDokumentZiel(doc.id);
+      })
+      .catch(() => pushToast("Das Dokument konnte nicht geöffnet werden.", "danger"));
+  }, [intent]);
+
+  // … und scrollt es ins Bild, sobald die Liste mit dem Namen geladen ist
+  useEffect(() => {
+    if (loading || !dokumentZiel) return;
+    const karte = document.getElementById(`dokument-${dokumentZiel}`);
+    if (!karte) return;
+    setDokumentZiel("");
+    karte.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [loading, dokumentZiel, data]);
 
   // #496: Load analysis templates once for the template dropdown
   useEffect(() => {
@@ -460,6 +504,7 @@ export default function DocumentsPage() {
               return (
                 <Card
                   key={doc.id}
+                  id={`dokument-${doc.id}`}
                   className={cn("rounded-xl cursor-pointer transition-colors", isExpanded ? "ring-1 ring-sky/20" : "hover:bg-white/[0.02]")}
                   onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
                 >
@@ -744,7 +789,7 @@ export default function DocumentsPage() {
           07.09.2026 — "E-Mails gehoert eher in den Bereich Docs". Eine
           importierte Mail IST ein Dokument; hier sucht man danach. */}
       <div className="mt-5">
-        <EmailListe pushToast={pushToast} applications={data.applications || []} />
+        <EmailListe pushToast={pushToast} applications={data.applications || []} oeffnen={mailZiel} beiGeoeffnet={() => setMailZiel("")} />
       </div>
     </div>
   );

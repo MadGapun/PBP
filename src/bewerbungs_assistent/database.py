@@ -5066,6 +5066,44 @@ class Database:
             (contact_id,)
         ).fetchall()]
 
+    def get_contact_links_mit_ziel(self, contact_id: str) -> list[dict]:
+        """Verknuepfungen eines Kontakts MIT lesbarem Ziel (#1171, G85).
+
+        Die Zeile aus `contact_links` kennt nur Art und Kennung des Ziels. Fuer einen Satz wie „Bewerbung: Titel bei
+        Firma“ und einen Sprung dorthin braucht die Oberflaeche Titel, Firma und — bei Terminen — die Bewerbung dazu.
+        `ziel_gefunden` ist False, wenn es das Ziel nicht mehr gibt; die Zeile bleibt dann Text. Ein Fehler bei EINEM Ziel
+        macht die anderen nicht unbrauchbar.
+        """
+        conn = self.connect()
+        ergebnis = []
+        for link in self.get_contact_links(contact_id):
+            link["ziel_titel"] = ""
+            link["ziel_firma"] = ""
+            link["ziel_status"] = ""
+            link["ziel_bewerbung_id"] = ""
+            link["ziel_gefunden"] = False
+            kind, ziel_id = link.get("target_kind"), link.get("target_id") or ""
+            try:
+                if kind == "application":
+                    row = conn.execute("SELECT title, company, status FROM applications WHERE id=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_firma=row["company"] or "", ziel_status=row["status"] or "", ziel_gefunden=True)
+                elif kind == "job":
+                    row = conn.execute("SELECT title, company FROM jobs WHERE hash=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_firma=row["company"] or "", ziel_gefunden=True)
+                elif kind == "meeting":
+                    row = conn.execute("SELECT title, application_id FROM application_meetings WHERE id=? LIMIT 1", (ziel_id,)).fetchone()
+                    if row:
+                        link.update(ziel_titel=row["title"] or "", ziel_bewerbung_id=row["application_id"] or "", ziel_gefunden=True)
+                elif kind == "company":
+                    # Bei Firmen steht in target_id der Name oder die Kennung eines Firmen-Eintrags — beides ist ein Ziel.
+                    link.update(ziel_titel=ziel_id, ziel_gefunden=bool(ziel_id))
+            except Exception:  # noqa: BLE001 - eine kaputte Verknuepfung darf die Liste nicht kippen
+                pass
+            ergebnis.append(link)
+        return ergebnis
+
     def get_contacts_for_target(self, target_kind: str, target_id: str) -> list[dict]:
         """Alle Kontakte zu einem Ziel (Bewerbung/Meeting/Job/Firma)."""
         conn = self.connect()
@@ -5679,6 +5717,9 @@ class Database:
         # eines Laufs erkannt werden — das leistete vorher `dedup_index`.
         # Je Profil getrennt, weil die Suche profilgebunden ist.
         kandidaten_je_profil: dict[str, list] = {}
+        # #1080: die bestaetigten Schreibweisen aus den Firmen-Eintraegen,
+        # je Profil EINMAL gelesen (None = keine, dann wie bisher).
+        kanon_je_profil: dict = {}
         # #645: Quellen, bei denen leere URL strukturell OK ist.
         # Alle anderen (XING, Stepstone, LinkedIn, Indeed, Bundesagentur,
         # Hays, Greenhouse, ...) MUESSEN eine URL liefern — sonst Regression.
@@ -5865,8 +5906,12 @@ class Database:
                     kandidaten_je_profil[job_pid].extend(
                         stellen_grabstein.fundstellen_kandidaten(conn, job_pid))
                 kandidaten = kandidaten_je_profil[job_pid]
+                if job_pid not in kanon_je_profil:
+                    from .duplicate_detection import firmen_kanon
+                    kanon_je_profil[job_pid] = firmen_kanon(self, job_pid)
                 treffer = stellen_dublette.finde(job, [
-                    k for k in kandidaten if k["hash"] != stored_hash])
+                    k for k in kandidaten if k["hash"] != stored_hash],
+                    kanon=kanon_je_profil[job_pid])
                 original_hash = None
                 if treffer and treffer["sicherheit"] == stellen_dublette.SICHER:
                     original_hash = treffer["stelle"]["hash"]
@@ -13640,6 +13685,55 @@ CREATE TABLE IF NOT EXISTS contact_links (
     created_at TEXT NOT NULL,
     FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
 );
+-- v1.8.0 (#1080 Stufe 2): Firmen-Stammsatz. Bewerbungen, Stellen, Kontakte und Lebenslauf behalten ihren Firmennamen als
+-- Text; der Stammsatz fasst bestaetigte Schreibweisen zusammen und kennt die Mutterfirma. Er wird beim Lesen aufgeloest.
+CREATE TABLE IF NOT EXISTS companies (
+    id TEXT PRIMARY KEY,
+    profile_id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    name_form TEXT NOT NULL,
+    parent_id TEXT,
+    branche TEXT DEFAULT '',
+    standorte TEXT DEFAULT '',
+    notizen TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_companies_profile ON companies(profile_id);
+CREATE INDEX IF NOT EXISTS idx_companies_form ON companies(profile_id, name_form);
+CREATE INDEX IF NOT EXISTS idx_companies_parent ON companies(parent_id);
+CREATE TABLE IF NOT EXISTS company_aliases (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL,
+    alias TEXT NOT NULL,
+    alias_form TEXT NOT NULL,
+    art TEXT DEFAULT 'schreibweise',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_company_aliases_company ON company_aliases(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_aliases_form ON company_aliases(profile_id, alias_form);
+-- v1.8.0 (#1080): ein Kontakt kann mehreren Firmen angehoeren - mit Rolle und Zeitraum (aktuell, frueher). Das Textfeld
+-- contacts.company bleibt, wie es ist; die Zuordnung ist die bestaetigte, strukturierte Fassung.
+CREATE TABLE IF NOT EXISTS company_contacts (
+    id TEXT PRIMARY KEY,
+    company_id TEXT NOT NULL,
+    contact_id TEXT NOT NULL,
+    profile_id TEXT NOT NULL,
+    rolle TEXT DEFAULT '',
+    von TEXT DEFAULT '',
+    bis TEXT DEFAULT '',
+    aktuell INTEGER NOT NULL DEFAULT 1,
+    notizen TEXT DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_company_contacts_company ON company_contacts(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_contacts_contact ON company_contacts(contact_id);
+
 CREATE INDEX IF NOT EXISTS idx_contact_links_contact ON contact_links(contact_id);
 CREATE INDEX IF NOT EXISTS idx_contact_links_target ON contact_links(target_kind, target_id);
 

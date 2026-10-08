@@ -19,9 +19,16 @@ goto :pbp_main
 set "PBP_RELOC_BAT=%TEMP%\PBP-Deinstaller-%RANDOM%%RANDOM%.bat"
 copy /Y "%~f0" "%PBP_RELOC_BAT%" >nul
 set PBP_DEINST_RELOCATED=1
-cmd /c ""%PBP_RELOC_BAT%""
-del /Q "%PBP_RELOC_BAT%" >nul 2>&1
-exit /b 0
+:: Gegenprobe 05.10.2026 (PP13): Wer den Deinstaller per Doppelklick oder ueber den Knopf im Dashboard startet, hat den
+:: App-Ordner als Arbeitsordner. Diese cmd.exe wartet unten auf die verschobene Kopie und haelt damit genau den Ordner
+:: fest, den Schritt [5/7] loeschen will (Meldung "konnte nicht entfernt werden", ein leerer Ordner bleibt liegen).
+:: Also zuerst aus dem Ordner heraus.
+cd /d "%TEMP%" 2>nul || cd /d "%SystemRoot%"
+:: Gegenprobe 05.10.2026 (PP16): Aufraeumen und Beenden stehen in DERSELBEN Zeile wie der Aufruf. Beendet die verschobene
+:: Kopie, hat Schritt [5/7] die Ursprungsdatei laengst geloescht; cmd liest die naechste Zeile dann von der Platte, findet
+:: nichts und bricht still ab - das `del` darunter lief nie, und die Kopie (rund 15 KB) blieb in %TEMP% liegen.
+:: Eine Zeile wird vor dem Aufruf vollstaendig gelesen, die Teile dahinter laufen also auch ohne die Datei.
+cmd /c ""%PBP_RELOC_BAT%"" & del /Q "%PBP_RELOC_BAT%" >nul 2>&1 & exit /b 0
 
 :pbp_main
 setlocal EnableDelayedExpansion
@@ -62,6 +69,7 @@ echo    - MCP-Eintrag "bewerbungs-assistent" in Claude Desktop
 echo    - PBP-Runtime aus %APP_DIR%
 echo    - Windows Apps ^& Features Eintrag
 echo    - Desktop-Verknuepfung "PBP Bewerbungs-Portal"
+echo    - Auf Nachfrage: Browser-Dateien ^(Playwright^) und pip-Zwischenspeicher
 echo.
 echo  Hinweis:
 echo    Deine Bewerbungsdaten bleiben standardmaessig erhalten.
@@ -89,9 +97,9 @@ set "CLAUDE_RESULT=!errorlevel!"
 if "!CLAUDE_RESULT!"=="0" echo         [OK] MCP-Eintrag entfernt
 if "!CLAUDE_RESULT!"=="1" echo         [--] MCP-Eintrag war nicht vorhanden
 if "!CLAUDE_RESULT!"=="2" echo         [--] Keine mcpServers in Claude-Config gefunden
-if "!CLAUDE_RESULT!"=="3" echo         [!!] Claude-Config konnte nicht gelesen werden (ungueltiges JSON)
+if "!CLAUDE_RESULT!"=="3" echo         [^^!^^!] Claude-Config konnte nicht gelesen werden (ungueltiges JSON)
 if "!CLAUDE_RESULT!"=="4" echo         [--] Claude-Config nicht gefunden
-if "!CLAUDE_RESULT!"=="5" echo         [!!] Fehler beim Entfernen des MCP-Eintrags
+if "!CLAUDE_RESULT!"=="5" echo         [^^!^^!] Fehler beim Entfernen des MCP-Eintrags
 
 echo.
 echo  [3/7] Entferne Desktop-Verknuepfung...
@@ -117,7 +125,7 @@ if !errorlevel! equ 0 (
 :: Verifikation: pruefen ob der Key wirklich weg ist (#343)
 reg query "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" >nul 2>&1
 if !errorlevel! equ 0 (
-    echo         [!!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
+    echo         [^^!^^!] Registry-Eintrag konnte nicht entfernt werden - versuche erneut...
     reg delete "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP" /f >nul 2>&1
     echo [WARN] Registry retry >> "%LOGFILE%"
 )
@@ -135,7 +143,7 @@ call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\pyth
 if exist "%BASEDIR%\install_log.txt" (
     del /q "%BASEDIR%\install_log.txt" >nul 2>&1
     if exist "%BASEDIR%\install_log.txt" (
-        echo         [!!] install_log.txt konnte nicht entfernt werden
+        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
         set /a REMOVE_ERRORS+=1
     ) else (
         echo         [OK] install_log.txt entfernt
@@ -175,7 +183,7 @@ if "!DELETE_DATA!"=="LOESCHEN" (
     if exist "%DATA_DIR%" (
         rmdir /s /q "%DATA_DIR%" >nul 2>&1
         if exist "%DATA_DIR%" (
-            echo         [!!] Datenordner konnte nicht komplett entfernt werden
+            echo         [^^!^^!] Datenordner konnte nicht komplett entfernt werden
             echo [WARN] Datenordner konnte nicht komplett entfernt werden >> "%LOGFILE%"
             set "DATA_RESULT=failed"
         ) else (
@@ -205,6 +213,9 @@ if exist "%BASE_INSTALL%\components" (
     )
 )
 
+:: PP10 (Praxisprobe 1.8): zum Schluss die Frage nach den Zusatzdateien (Playwright-Browser, pip-Zwischenspeicher).
+call :zusatzdateien
+
 :: #620: Stamm-Ordner BASE_INSTALL entfernen wenn leer
 :: rmdir ohne /s loescht NUR leere Verzeichnisse — sicher.
 :: Wenn der User die Daten behalten hat, bleibt %DATA_DIR% drin und
@@ -224,12 +235,17 @@ echo.
 echo  ====================================================
 echo.
 
-if "!CLAUDE_RESULT!"=="3" (
+set "CLAUDE_MANUELL=0"
+if "!CLAUDE_RESULT!"=="3" set "CLAUDE_MANUELL=1"
+if "!CLAUDE_RESULT!"=="5" set "CLAUDE_MANUELL=1"
+if "!CLAUDE_MANUELL!"=="1" (
     echo  WICHTIG:
     echo    Die Claude-Konfigurationsdatei konnte nicht automatisch
     echo    bearbeitet werden. Entferne den MCP-Server-Eintrag
     echo    "bewerbungs-assistent" manuell in:
     echo    %APPDATA%\Claude\claude_desktop_config.json
+    echo    ^(bei Claude aus dem Microsoft Store: %LOCALAPPDATA%\Packages\Claude_...
+    echo    \LocalCache\Roaming\Claude\claude_desktop_config.json^)
     echo.
 )
 
@@ -258,14 +274,20 @@ exit /b 0
 :: (deprecated Feature-on-Demand) — frueher haengte der Prozess-Stopp daran.
 :: Robuster Stopp via PowerShell/CIM: beendet nur python-Prozesse, deren
 :: Kommandozeile eindeutig zu PBP gehoert. Ausgabe geht ins Log (Diagnose).
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|_selftest') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: Praxisprobe 1.8 (05.10.2026): auch das Konsolenfenster des Dashboards (cmd /K "Dashboard starten.bat") wird
+:: geschlossen - es blieb sonst nach der Deinstallation leer stehen. Die Deinstaller-Fassung traegt einen anderen Namen.
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { (($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|_selftest')) -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\.bat') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
 :: Kurze Pause, damit gesperrte Datei-Handles (pbp.db / WAL) freigegeben werden,
 :: bevor die Runtime-Dateien geloescht werden — sonst schlaegt rmdir still fehl.
 ping -n 3 127.0.0.1 >nul 2>&1
 exit /b 0
 
+:: Praxisprobe 1.8 (05.10.2026): _setup_claude.py schreibt den Eintrag in ALLE Konfigurationsdateien (Standardpfad und
+:: Store-Pakete). Der Deinstaller las nur den Standardpfad - bei der Store-Fassung blieb der Eintrag stehen, und Claude
+:: meldete danach bei jedem Start einen Server, dessen Programm es nicht mehr gab. Rueckgabe: 0 entfernt, 1 kein Eintrag,
+:: 2 keine mcpServers, 3 nicht lesbar, 4 keine Datei, 5 Schreibfehler; bei mehreren Dateien gilt der schlimmste Fall.
 :remove_claude_entry
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$p = Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'; if (-not (Test-Path $p)) { exit 4 }; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json } catch { exit 3 }; if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers')) { exit 2 }; if (-not $cfg.mcpServers) { exit 2 }; if (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { exit 1 }; Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))); exit 0" >> "%LOGFILE%" 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$pfade = @(Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'); if ($env:LOCALAPPDATA) { foreach ($muster in 'Claude_*', 'AnthropicPBC.Claude*') { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter $muster -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json' } } }; $ergebnisse = @(); foreach ($p in $pfade) { $r = 4; $wie = ''; if (Test-Path $p) { $cfg = $null; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json; $r = 0 } catch { $r = 3 }; if ($r -eq 0) { if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers') -or -not $cfg.mcpServers) { $r = 2 } elseif (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { $r = 1 } else { try { Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $q = [char]34; $bs = [char]92; $roh = [IO.File]::ReadAllText($p); $neu = $null; $a = [regex]::Match($roh, $q + 'mcpServers' + $q + '\s*:\s*\{'); if ($a.Success) { $re = New-Object System.Text.RegularExpressions.Regex($q + 'bewerbungs-assistent' + $q + '\s*:\s*\{'); $m = $re.Match($roh, $a.Index); if ($m.Success) { $t = 0; $s = $false; $e = -1; for ($i = $m.Index + $m.Length - 1; $i -lt $roh.Length; $i++) { $z = $roh[$i]; if ($s) { if ($z -eq $bs) { $i++ } elseif ($z -eq $q) { $s = $false } } elseif ($z -eq $q) { $s = $true } elseif ($z -eq '{') { $t++ } elseif ($z -eq '}') { $t--; if ($t -eq 0) { $e = $i; break } } }; if ($e -ge 0) { $von = $m.Index; $bis = $e + 1; $k = $bis; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; if ($k -lt $roh.Length -and $roh[$k] -eq ',') { $k++; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; $bis = $k } else { $j = $von - 1; while ($j -ge 0 -and [char]::IsWhiteSpace($roh[$j])) { $j-- }; if ($j -ge 0 -and $roh[$j] -eq ',') { $von = $j } }; $neu = [regex]::Replace($roh.Remove($von, $bis - $von), '(' + $q + 'mcpServers' + $q + '\s*:\s*)\{\s*\}', '${1}{}') } } }; $gut = $false; if ($neu) { try { $k1 = ConvertFrom-Json -InputObject $neu; $k2 = ConvertFrom-Json -InputObject $roh; $null = $k2.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); $gut = ((ConvertTo-Json -InputObject $k1 -Depth 15 -Compress) -eq (ConvertTo-Json -InputObject $k2 -Depth 15 -Compress)) } catch { $gut = $false } }; $wie = ' (nur der Eintrag entfernt)'; if ($gut) { [IO.File]::WriteAllText($p, $neu, (New-Object System.Text.UTF8Encoding($false))) } else { $wie = ' (neu geschrieben)'; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))) }; $r = 0 } catch { $r = 5 } } } }; Write-Host ('[INFO] Claude-Config ' + $p + ' -> ' + $r + $wie); $ergebnisse += $r }; foreach ($c in 5, 3, 0, 1, 2) { if ($ergebnisse -contains $c) { exit $c } }; exit 4" >> "%LOGFILE%" 2>&1
 if %errorlevel% geq 5 exit /b 5
 exit /b %errorlevel%
 
@@ -290,7 +312,7 @@ if exist "%TARGET%" (
     rmdir /s /q "%TARGET%" >nul 2>&1
 )
 if exist "%TARGET%" (
-    echo         [!!] %TARGET_LABEL% konnte nicht entfernt werden
+    echo         [^^!^^!] %TARGET_LABEL% konnte nicht entfernt werden
     echo [WARN] Entfernen fehlgeschlagen: %TARGET% >> "%LOGFILE%"
     set /a REMOVE_ERRORS+=1
 ) else (
@@ -298,3 +320,69 @@ if exist "%TARGET%" (
     echo [OK] Entfernt: %TARGET% >> "%LOGFILE%"
 )
 exit /b 0
+
+:: --- zusatzdateien Anfang
+:zusatzdateien
+:: PP10 (Praxisprobe 1.8, 05.10.2026): Der Installer laedt ausserhalb von PBP rund 830 MB: den Browser fuer Quellen, die nur im Browser
+:: liefern (Playwright, %LOCALAPPDATA%\ms-playwright, rund 700 MB), und den Zwischenspeicher von pip (%LOCALAPPDATA%\pip, rund 125 MB).
+:: Der Deinstaller liess beides liegen, ohne es zu erwaehnen (macOS und Linux fragen). Jetzt wird gefragt, Vorgabe BEHALTEN: andere
+:: Programme koennen dieselben Ordner nutzen, und ein Deinstaller, der Fremdes mitnimmt, ist schlimmer als einer, der zu wenig entfernt.
+:: Playwright: der ganze Ordner (wie unter macOS und Linux). pip: nur der Unterordner Cache, der Ordner pip nur, wenn er danach leer ist.
+set "ZD_PW=%LOCALAPPDATA%\ms-playwright"
+set "ZD_PIP=%LOCALAPPDATA%\pip"
+set "ZD_PW_MB="
+set "ZD_PIP_MB="
+if exist "!ZD_PW!\" call :ordnergroesse "!ZD_PW!" ZD_PW_MB
+if exist "!ZD_PIP!\" call :ordnergroesse "!ZD_PIP!" ZD_PIP_MB
+if not exist "!ZD_PW!\" if not exist "!ZD_PIP!\" (
+    echo [INFO] Keine Zusatzdateien ^(Playwright, pip^) gefunden >> "%LOGFILE%"
+    exit /b 0
+)
+if not defined ZD_PW_MB set "ZD_PW_MB=?"
+if not defined ZD_PIP_MB set "ZD_PIP_MB=?"
+echo.
+echo  Zum Schluss: Dateien, die der Installer ausserhalb von PBP geladen hat
+echo.
+if exist "!ZD_PW!\" echo    - Browser fuer Quellen ^(Playwright^): !ZD_PW!  ^(!ZD_PW_MB! MB^)
+if exist "!ZD_PIP!\" echo    - pip-Zwischenspeicher: !ZD_PIP!  ^(!ZD_PIP_MB! MB^)
+echo.
+echo    Andere Programme auf diesem Rechner koennen diese Ordner ebenfalls
+echo    nutzen ^(sie laden die Dateien bei Bedarf neu^). Im Zweifel behalten.
+echo.
+set "ZD_ANTWORT=n"
+set /p ZD_ANTWORT="  Diese Dateien loeschen? (j/n): "
+if /i not "!ZD_ANTWORT!"=="j" (
+    echo         [OK] Die Dateien bleiben erhalten
+    echo [INFO] Zusatzdateien wurden beibehalten >> "%LOGFILE%"
+    exit /b 0
+)
+if exist "!ZD_PW!\" (
+    rmdir /s /q "!ZD_PW!" >nul 2>&1
+    if exist "!ZD_PW!\" (
+        echo         [^^!^^!] Browser-Dateien konnten nicht ganz entfernt werden ^(Datei in Benutzung?^)
+        echo [WARN] Playwright-Ordner nicht ganz entfernt: !ZD_PW! >> "%LOGFILE%"
+    ) else (
+        echo         [OK] Browser-Dateien entfernt
+        echo [OK] Playwright-Ordner entfernt: !ZD_PW! >> "%LOGFILE%"
+    )
+)
+if exist "!ZD_PIP!\" (
+    if exist "!ZD_PIP!\Cache\" rmdir /s /q "!ZD_PIP!\Cache" >nul 2>&1
+    rmdir "!ZD_PIP!" >nul 2>&1
+    if exist "!ZD_PIP!\Cache\" (
+        echo         [^^!^^!] pip-Zwischenspeicher konnte nicht ganz entfernt werden
+        echo [WARN] pip-Zwischenspeicher nicht ganz entfernt: !ZD_PIP! >> "%LOGFILE%"
+    ) else (
+        echo         [OK] pip-Zwischenspeicher entfernt
+        echo [OK] pip-Zwischenspeicher entfernt: !ZD_PIP! >> "%LOGFILE%"
+    )
+)
+exit /b 0
+
+:ordnergroesse
+:: %1 = Ordner, %2 = Name der Variablen fuer die Groesse in MB. Der Pfad geht ueber die Umgebung an PowerShell, damit Leerzeichen und
+:: Hochkommas im Benutzernamen nichts zerlegen. Bleibt die Variable leer, schreibt der Aufrufer ein Fragezeichen.
+set "ZD_PFAD=%~1"
+for /f "usebackq delims=" %%S in (`powershell -NoProfile -Command "[int]((Get-ChildItem -LiteralPath $env:ZD_PFAD -Recurse -Force -File -ErrorAction SilentlyContinue | Measure-Object Length -Sum).Sum / 1MB)"`) do set "%~2=%%S"
+exit /b 0
+:: --- zusatzdateien Ende

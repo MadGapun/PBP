@@ -55,6 +55,7 @@ from .services.search_service import (
     summarize_active_sources,
 )
 from .services import ablage
+from .services.dashboard_link import hash_ziel as _hash_ziel  # #1177: EINE Adressform fuer Links und Suchtreffer
 from .services import dateiablage as _dateiablage
 from .services import bewerbung_status as _bewerbung_status  # #1103
 from .services.workspace_service import build_workspace_summary, summarize_follow_ups
@@ -132,6 +133,11 @@ class ApiRequestLoggingMiddleware:
 
 
 app.add_middleware(ApiRequestLoggingMiddleware)
+
+# #1093: ist die Datenbank NEUER als dieses Programm (ein Update hat sie umgestellt, dieser Prozess laeuft noch in
+# der alten Fassung), schreibt dieser Prozess nichts mehr. Vor dem lokalen Zugriff eingehaengt = danach geprueft.
+from .services.schema_schutz import SchemaSchutzMiddleware  # noqa: E402
+app.add_middleware(SchemaSchutzMiddleware, db_getter=lambda: _db)
 
 # v1.7.145: nur das Dashboard selbst darf PBP veraendern. Eine fremde
 # Webseite im selben Browser konnte bisher per einfacher Anfrage (POST mit
@@ -1010,7 +1016,7 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None, dict | Non
         try:
             result = subprocess.run(
                 ["antiword", str(filepath)],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, encoding="utf-8", errors="replace", timeout=30
             )
             if result.returncode == 0:
                 extracted = result.stdout
@@ -3087,7 +3093,9 @@ async def api_ablage_setzen(request: Request):
         return JSONResponse({"error": "pfad fehlt"}, status_code=400)
     ergebnis = ablage.ordner_setzen(_db, art, str(pfad))
     if not ergebnis.get("gespeichert"):
-        return JSONResponse(ergebnis, status_code=400)
+        # #1173: die Begruendung steht als `hinweis` im Body, die Oberflaeche liest aber `error`/`message` — sie zeigte nur „HTTP 400“,
+        # und der Mensch erfuhr nie, WARUM sein Pfad nicht gespeichert wurde. `error` traegt jetzt dieselbe Begruendung.
+        return JSONResponse({**ergebnis, "error": ergebnis.get("hinweis") or "Der Pfad wurde nicht gespeichert."}, status_code=400)
     return ergebnis
 
 
@@ -3479,8 +3487,13 @@ async def api_documents(
     order: str = "desc",
     page: int = 1,
     per_page: int = 25,
+    doc_id: str = "",
 ):
-    """List documents with search, filter, sort, pagination and application cross-reference (#360, #366)."""
+    """List documents with search, filter, sort, pagination and application cross-reference (#360, #366).
+
+    `doc_id` (#1177): genau dieses eine Dokument — damit ein Link `#dokumente/<id>` und ein Treffer der Suche das Dokument
+    finden, ohne dass die Seite seinen Namen kennt (die Liste ist nach Seiten geteilt).
+    """
     pid = _db.get_active_profile_id()
     conn = _db.connect()
 
@@ -3497,6 +3510,11 @@ async def api_documents(
         base += " AND (d.filename LIKE ? OR d.extracted_text LIKE ?)"
         like = f"%{q}%"
         params.extend([like, like])
+
+    # Genau ein Dokument (#1177)
+    if doc_id:
+        base += " AND d.id = ?"
+        params.append(doc_id)
 
     # Filter by document type
     if doc_type:
@@ -6315,6 +6333,12 @@ async def api_sources():
             "bestaetigt": False})
     active = active or []
     rows = build_source_rows(SOURCE_REGISTRY, active)
+    # #1170 U3: eine Quelle, die einen Zugangsschluessel braucht, sagt es. Vorher stand sie nach dem Anhaken auf
+    # "Aktiv" und lieferte nichts, ohne dass es jemand merkte (das Muster aus #989).
+    for row in rows:
+        felder = (SOURCE_REGISTRY.get(row["key"]) or {}).get("api_key_settings") or []
+        row["schluessel_noetig"] = bool(felder)
+        row["schluessel_fehlt"] = bool(felder) and not all((_db.get_setting(f, "") or "") for f in felder)
     health_by_name = {h["scraper_name"]: h for h in _db.get_scraper_health()}
     for row in rows:
         h = health_by_name.get(row["key"])
@@ -6761,7 +6785,9 @@ async def api_ingest_job(request: Request, payload: dict):
         # #1103: `arbeitgeber_ausgefallen` blockte bisher mit.
         apps = [a for a in _db.get_applications()
                 if _bewerbung_status.laeuft(a.get("status"))]
-        dup = find_duplicate_job(firma, titel, url, apps)
+        from .duplicate_detection import firmen_kanon
+        dup = find_duplicate_job(firma, titel, url, apps,
+                                 kanon=firmen_kanon(_db))
         if dup:
             kandidat = dup.get("job") or {}
             return JSONResponse(
@@ -6808,23 +6834,109 @@ async def api_ingest_job(request: Request, payload: dict):
     }
 
 
-@app.post("/api/v1/ingest/email")
-async def api_ingest_email(request: Request, file: UploadFile = File(...)):
-    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+@app.get("/api/v1/ingest/mail-policy")
+async def api_ingest_mail_policy(request: Request):
+    """Was ein Mail-Add-on lesen darf (#947). Ist der Ordner-Scan nicht wirksam, ist die Liste leer.
 
-    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
-    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+    Jedes Add-on fragt das, bevor es einen Ordner anfasst, und sendet bei jeder Scan-Mail Anbieter, Konto und Ordner mit.
+    PBP prueft beim Entgegennehmen noch einmal (`modus=scan`): wer sich nicht an die Liste haelt, wird abgewiesen.
     """
     plugin, err = _require_plugin(request, "ingest:email")
     if err:
         return err
+    from .services import mail_quelle
+    return mail_quelle.richtlinie(_db)
+
+
+@app.post("/api/v1/ingest/email")
+async def api_ingest_email(request: Request, file: UploadFile = File(...), modus: str = Form("push"),
+                           anbieter: str = Form(""), konto: str = Form(""), ordner: str = Form("")):
+    """Nimmt eine E-Mail (.eml/.msg) von einem gekoppelten Plugin entgegen.
+
+    Laeuft durch die volle Upload-Pipeline: Duplikat-Erkennung (#570),
+    E-Mail-Intelligenz (Matching, Termine, Timeline), Auto-OCR-Angebote.
+
+    `modus=push` (Vorgabe): der Mensch hat diese Mail bewusst geschickt - unveraendert, ohne Schalter.
+    `modus=scan` (#947): das Add-on hat sie von sich aus aus einem Ordner gelesen. Dann muss der Ordner-Scan an sein und
+    Anbieter, Konto und Ordner muessen GENAU mit einer Freigabe uebereinstimmen. Sonst 403 - bevor etwas gespeichert wird.
+    """
+    plugin, err = _require_plugin(request, "ingest:email")
+    if err:
+        return err
+    modus = (modus or "push").strip().lower()
+    if modus not in ("push", "scan"):
+        return JSONResponse({"error": f"Unbekannter Modus „{modus}“.", "erlaubt": ["push", "scan"]}, status_code=400)
+    freigabe_id = None
+    if modus == "scan":
+        from .services import mail_quelle
+        urteil = mail_quelle.pruefe_scan(_db, anbieter, konto, ordner)
+        if not urteil["erlaubt"]:
+            return JSONResponse({"error": urteil["text"], "code": urteil["code"], "modus": "scan",
+                                 "hinweis": "Die Richtlinie steht unter GET /api/v1/ingest/mail-policy."}, status_code=403)
+        freigabe_id = urteil["freigabe_id"]
     result = await api_upload_document(
         file=file, doc_type="sonstiges", position_id="",
         link_application_id="", create_application="",
     )
     fname = (file.filename or "mail")[:60]
     _db.record_plugin_ingest(plugin["id"], f"email: {fname}")
+    if freigabe_id:
+        from .services import mail_quelle
+        neu = ((result.get("newsletter") or {}).get("neu") or 0) if isinstance(result, dict) else 0
+        mail_quelle.lauf_verbuchen(_db, freigabe_id, mails=1, stellen=int(neu))
+        if isinstance(result, dict):
+            result["quelle"] = {"modus": "scan", "freigabe": freigabe_id}
     return result
+
+
+# === Mail-Ordner als Quelle: Zugangsschicht (#947) ===
+#
+# Die Regel sitzt in PBP (`services/mail_quelle.py`), nicht im Add-on: anbieterunabhaengig, Vorgabe AUS, harte Liste.
+
+@app.get("/api/mail-quelle")
+async def api_mail_quelle():
+    from .services import mail_quelle
+    return mail_quelle.uebersicht(_db)
+
+
+@app.post("/api/mail-quelle/scan")
+async def api_mail_quelle_scan(payload: dict):
+    """Ordner-Scan ein- oder ausschalten. Einschalten verlangt `bestaetigt: true` (der Mensch hat die Warnung gesehen)."""
+    from .services import mail_quelle
+    if payload.get("an") is True:
+        erg = mail_quelle.scan_einschalten(_db, bestaetigt=payload.get("bestaetigt") is True)
+        if erg["status"] == "bestaetigung_noetig":
+            return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    else:
+        erg = mail_quelle.scan_ausschalten(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/freigaben")
+async def api_mail_quelle_freigabe_neu(payload: dict):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_hinzufuegen(
+        _db, payload.get("anbieter", ""), payload.get("ordner", ""), payload.get("konto", ""),
+        posteingang_bestaetigt=payload.get("posteingang_bestaetigt") is True)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.delete("/api/mail-quelle/freigaben/{freigabe_id}")
+async def api_mail_quelle_freigabe_weg(freigabe_id: str):
+    from .services import mail_quelle
+    erg = mail_quelle.freigabe_entfernen(_db, freigabe_id)
+    if erg["status"] == "nicht_gefunden":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=404)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
+
+
+@app.post("/api/mail-quelle/zuruecksetzen")
+async def api_mail_quelle_zuruecksetzen():
+    from .services import mail_quelle
+    erg = mail_quelle.zuruecksetzen(_db)
+    return {**erg, "stand": mail_quelle.uebersicht(_db)}
 
 
 @app.post("/api/jobsuche/start")
@@ -7961,6 +8073,7 @@ async def api_update_check(frisch: int = 0):
     else:
         _update_cache["fehlversuche"] = 0
 
+    _uq.befund_merken(result)   # #1180: Elwosa nennt eine neue Version, ohne selbst zu fragen
     _update_cache["ts"] = now
     _update_cache["pause_s"] = pause_s
     _update_cache["data"] = result
@@ -7968,6 +8081,144 @@ async def api_update_check(frisch: int = 0):
 
 
 # === Health Info (v1.4.0, #290) ===
+
+# === Auto-Update (#1093) ===
+#
+# Die Quelle der Installation steht fest im Code (services/auto_update/quelle.py) und ist KEINE Einstellung:
+# diese Aufrufe koennen Stufe, Zahl der Vorgaenger und das Aufraeumen des Installers aendern, nie die Herkunft.
+
+_AUTO_UPDATE_ANTWORTEN = {
+    "automatisch": ("auto_meldung", "ja"),
+    "klick": ("hinweis", "ja"),
+    "nein": ("aus", "nein"),
+}
+
+
+@app.get("/api/auto-update")
+async def api_auto_update():
+    """Alles zum Auto-Update in einer Antwort: Stufe, Stand, neue Version, laufender Lauf, Verlauf."""
+    from .services.auto_update import lauf
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/einstellungen")
+async def api_auto_update_einstellungen(payload: dict = Body(default={})):
+    """Stufe, Zahl der behaltenen Vorgaenger und Aufraeumen des Installers setzen."""
+    from .services.auto_update import lauf, zustand
+    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen")):
+        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten oder installer_aufraeumen."},
+                            status_code=400)
+    try:
+        if "stufe" in payload:
+            zustand.stufe_setzen(_db, payload["stufe"])
+            # Wer die Stufe selbst waehlt, hat die Rueckfrage beantwortet.
+            zustand.antwort_merken(_db, "nein" if payload["stufe"] == "aus" else "ja")
+        if "vorgaenger_behalten" in payload:
+            zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
+        if "installer_aufraeumen" in payload:
+            zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/antwort")
+async def api_auto_update_antwort(payload: dict = Body(default={})):
+    """Die Rueckfrage zum neuen Update beantworten: automatisch, klick, nein oder spaeter."""
+    from .services.auto_update import lauf, zustand
+    antwort = payload.get("antwort")
+    bei = payload.get("bei_version")
+    if antwort == "spaeter":
+        zustand.antwort_merken(_db, "spaeter", bei)
+    elif antwort in _AUTO_UPDATE_ANTWORTEN:
+        stufe, gemerkt = _AUTO_UPDATE_ANTWORTEN[antwort]
+        zustand.stufe_setzen(_db, stufe)
+        zustand.antwort_merken(_db, gemerkt, bei)
+    else:
+        return JSONResponse({"error": "antwort muss automatisch, klick, nein oder spaeter sein."}, status_code=400)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/pruefen")
+async def api_auto_update_pruefen():
+    """„Jetzt prüfen“: fragt die feste Quelle (nicht dichter als alle 15 Sekunden)."""
+    import asyncio
+    from .services.auto_update import lauf
+    await asyncio.to_thread(lauf.pruefen, _db, frisch=True)
+    return lauf.uebersicht(_db)
+
+
+@app.post("/api/auto-update/installieren")
+async def api_auto_update_installieren(payload: dict = Body(default={})):
+    """Die neue Version jetzt installieren (Ein-Klick-Update). Laeuft im Hintergrund; Stand: GET /api/auto-update."""
+    from .services.auto_update import lauf
+    version = payload.get("version")
+    if not version:
+        letzte = lauf.letzte_pruefung(_db) or {}
+        version = letzte.get("version") if letzte.get("status") == "neu" else None
+    if not version:
+        return JSONResponse({"error": "Es gibt keine neue Version, die installiert werden könnte."}, status_code=400)
+    r = lauf.starte_installation(_db, version, ausloeser="klick")
+    code = {"gestartet": 200, "abgelehnt": 400}.get(r["status"], 409)
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/zurueck")
+async def api_auto_update_zurueck(payload: dict = Body(default={})):
+    """Beim naechsten Start eine aeltere, noch installierte Fassung nutzen."""
+    from .services.auto_update import lauf
+    r = lauf.zurueckschalten(_db, str(payload.get("version") or ""))
+    code = 200 if r["status"] in ("ok", "nichts_zu_tun") else 409
+    return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
+
+
+@app.post("/api/auto-update/rueckgang-gesehen")
+async def api_auto_update_rueckgang_gesehen():
+    """Die Meldung „Version X ließ sich nicht starten“ als gesehen vermerken."""
+    from .services.auto_update import lauf, zustand
+    zustand.rueckgang_gesehen()
+    return lauf.uebersicht(_db)
+
+
+# === Speicher & Downloads (#1131, I19) ===
+#
+# Wohin PBP schreibt und lädt, wie viel dort liegt, wer es angelegt hat — und Bereinigen in zwei Schritten.
+# Dieselbe Auskunft wie `speicher_anzeigen` im Chat (`services/speicher.py`); die Oberfläche führt keine zweite Liste.
+
+@app.get("/api/speicher")
+async def api_speicher():
+    """Die Orte mit Größe und Urheber. Das Nachmessen kann einige Sekunden dauern (große Ordner), darum im Thread."""
+    from .services import speicher
+    return await run_in_threadpool(speicher.uebersicht, _db)
+
+
+@app.post("/api/speicher/bereinigen")
+async def api_speicher_bereinigen(request: Request):
+    """Zwei Schritte: ohne `bestaetigt: true` nur Auswahl oder Vorschau, mit `bestaetigt: true` wird gelöscht.
+
+    409, solange Hintergrundarbeit läuft (genannt wird, was läuft); 400 bei unbekannter Aktion oder fehlender Auswahl.
+    """
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.bereinigen, _db, str(data.get("aktion") or ""), data.get("auswahl"),
+                                  bestaetigt=data.get("bestaetigt") is True)
+    if erg["status"] == "abgelehnt":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=409)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
+
+@app.post("/api/speicher/ordner-oeffnen")
+async def api_speicher_ordner_oeffnen(request: Request):
+    """Öffnet den Ordner eines Ortes im Dateimanager. Der Pfad kommt aus der festen Liste, nie aus der Anfrage."""
+    from .services import speicher
+    data = await request.json()
+    erg = await run_in_threadpool(speicher.ordner_oeffnen, str(data.get("ort") or ""), _db)
+    if erg["status"] == "fehler":
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return erg
+
 
 @app.get("/api/health")
 async def api_health():
@@ -8014,7 +8265,15 @@ async def api_health():
         "server_time": _berlin_now.strftime("%H:%M"),
         "server_time_iso": _berlin_now.isoformat(),
         "timezone": "Europe/Berlin",
+        # #1093: laufen Dashboard und MCP-Server in verschiedenen Fassungen, und ist die Datenbank neuer als dieses Programm?
+        "fassung_laufend": os.environ.get("PBP_FASSUNG") or __version__,
+        "datenbank_zu_neu": _schema_zu_neu(),
     }
+
+
+def _schema_zu_neu():
+    from .services import schema_schutz
+    return schema_schutz.zu_neu(_db)
 
 
 # === Datenschutz-Selbstauskunft (v1.7.0 #581) ===
@@ -8290,6 +8549,14 @@ async def api_get_job_detail(job_hash: str):
     if not row:
         return JSONResponse({"error": "Stelle nicht gefunden"}, status_code=404)
     job = _db._serialize_job_row(row)
+    # #1171 (G85): dieselben Felder wie in der Liste — Punkte mit Reglern, Daumen, Datenguete. Die Stelle sieht aus
+    # JEDEM Weg gleich aus; vorher kam sie von hier ohne Daumen und mit dem rohen Wert (Sprung aus einer Firma,
+    # Timeline, Nachladen der Beschreibung), waehrend die Liste sie angereichert zeigte (#1087 C1: ein Wert je Stelle).
+    try:
+        _db._mit_scoring_reglern([job], sortieren=False)
+        _guete_anreichern([job])
+    except Exception as exc:  # pragma: no cover — die Details duerfen nie an der Anreicherung scheitern
+        logger.debug("Anreicherung der Stelle uebersprungen (#1171): %s", exc)
     # v1.7.143 (#1126): dieselbe Antwort auf "schon beworben?" wie in der
     # Liste und in den Werkzeugen.
     from .services import bewerbungs_hinweis as _bh
@@ -8739,8 +9006,8 @@ async def api_delete_contact(contact_id: str):
 
 @app.get("/api/contacts/{contact_id}/links")
 async def api_contact_links(contact_id: str):
-    """Alle Verknuepfungen eines Kontakts (#563)."""
-    return {"links": _db.get_contact_links(contact_id)}
+    """Alle Verknuepfungen eines Kontakts (#563), mit lesbarem Ziel (#1171): Titel, Firma, Status."""
+    return {"links": _db.get_contact_links_mit_ziel(contact_id)}
 
 
 @app.post("/api/contacts/{contact_id}/links")
@@ -8963,6 +9230,145 @@ async def api_reference_delete(ref_id: str):
     return {"status": "ok", "rueckweg": {"art": "referenz", "zeile": zeile} if zeile else None}
 
 
+# ── Firmen-Ansicht (#1080, Stufe 2) ─────────────────────────────────────────────────────────────────────
+# Dieselben Dienste wie die MCP-Werkzeuge firmen_stamm_anzeigen / firmen_vorschlaege_anzeigen / firmen_stamm_bearbeiten: was der
+# Mensch hier klickt, kann Claude ebenso. Loeschen, Zusammenfuehren und das Anlegen von Vorschlaegen verlangen `bestaetigt: true`;
+# die Rueckfrage stellt das Dashboard dem Menschen, bevor es das sendet.
+
+_FIRMEN_FEHLER = {"fehler": 400, "nicht_gefunden": 404, "schon_da": 409, "gehoert_anderer_firma": 409}
+
+
+def _firmen_antwort(erg: dict):
+    """Ein Dienst-Ergebnis als HTTP-Antwort: Fehlerstatus als 4xx mit `error`, sonst das Ergebnis selbst."""
+    code = _FIRMEN_FEHLER.get(erg.get("status"))
+    if code:
+        return JSONResponse({"error": erg.get("text") or "Das hat nicht geklappt.", **erg}, status_code=code)
+    return erg
+
+
+@app.get("/api/firmen")
+async def api_firmen_liste(suche: str = ""):
+    from .services import firmen_stamm
+    liste = firmen_stamm.firmen_liste(_db, suche)
+    return {"firmen": liste, "anzahl": len(liste),
+            "offene_vorschlaege": firmen_stamm.vorschlaege(_db, maximal=1)["anzahl"]}
+
+
+@app.get("/api/firmen/ansicht")
+async def api_firmen_ansicht(name: str = "", id: str = ""):
+    from .services import firmen_ansicht
+    return _firmen_antwort(firmen_ansicht.ansicht(_db, name=name, firma_id=id))
+
+
+@app.get("/api/firmen/vorschlaege")
+async def api_firmen_vorschlaege():
+    from .services import firmen_stamm
+    return firmen_stamm.vorschlaege(_db)
+
+
+@app.post("/api/firmen/vorschlaege/anwenden")
+async def api_firmen_vorschlaege_anwenden(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.vorschlaege_anwenden(_db, data.get("auswahl"), bestaetigt=data.get("bestaetigt") is True))
+
+
+@app.post("/api/firmen")
+async def api_firma_anlegen(request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.firma_anlegen(
+        _db, data.get("name"), mutterfirma_id=data.get("mutterfirma_id") or "", branche=data.get("branche") or "",
+        standorte=data.get("standorte") or "", notizen=data.get("notizen") or "", aliase=data.get("aliase") or []))
+
+
+@app.patch("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_aendern(zuordnung_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    felder = {k: data[k] for k in ("rolle", "von", "bis", "aktuell", "notizen") if k in data}
+    if not felder:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zuordnung_aendern(_db, zuordnung_id, **felder))
+
+
+@app.delete("/api/firmen/zuordnungen/{zuordnung_id}")
+async def api_firma_zuordnung_entfernen(zuordnung_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.zuordnung_entfernen(_db, zuordnung_id))
+
+
+@app.patch("/api/firmen/{firma_id}")
+async def api_firma_aendern(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ergebnis: dict = {}
+    if "name" in data:
+        ergebnis = firmen_stamm.umbenennen(_db, firma_id, data.get("name"))
+        if ergebnis.get("status") != "umbenannt":
+            return _firmen_antwort(ergebnis)
+    if "mutterfirma_id" in data:
+        ergebnis = firmen_stamm.mutterfirma_setzen(_db, firma_id, data.get("mutterfirma_id") or "")
+        if ergebnis.get("status") != "gesetzt":
+            return _firmen_antwort(ergebnis)
+    felder = {k: data[k] for k in ("branche", "standorte", "notizen") if k in data}
+    if felder:
+        ergebnis = firmen_stamm.firma_bearbeiten(_db, firma_id, **felder)
+    if not ergebnis:
+        return JSONResponse({"error": "Nichts zu ändern."}, status_code=400)
+    return _firmen_antwort(ergebnis)
+
+
+@app.post("/api/firmen/{firma_id}/aliase")
+async def api_firma_alias_hinzufuegen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.alias_hinzufuegen(_db, firma_id, data.get("alias"), data.get("art") or "schreibweise"))
+
+
+@app.delete("/api/firmen/{firma_id}/aliase/{alias_id}")
+async def api_firma_alias_entfernen(firma_id: str, alias_id: str):
+    from .services import firmen_stamm
+    return _firmen_antwort(firmen_stamm.alias_entfernen(_db, firma_id, alias_id))
+
+
+@app.post("/api/firmen/{firma_id}/zusammenfuehren")
+async def api_firma_zusammenfuehren(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    ziel, quelle = firmen_stamm.firma_laden(_db, firma_id), firmen_stamm.firma_laden(_db, data.get("quelle_id") or "")
+    if ziel is None or quelle is None:
+        return JSONResponse({"error": "Eine der beiden Firmen gibt es nicht (mehr)."}, status_code=404)
+    if data.get("bestaetigt") is not True:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig", "ziel": ziel["name"], "quelle": quelle["name"]}, status_code=400)
+    return _firmen_antwort(firmen_stamm.zusammenfuehren(_db, firma_id, data.get("quelle_id")))
+
+
+@app.delete("/api/firmen/{firma_id}")
+async def api_firma_loeschen(firma_id: str, bestaetigt: bool = False):
+    from .services import firmen_stamm
+    if firmen_stamm.firma_laden(_db, firma_id) is None:
+        return JSONResponse({"error": "Diese Firma gibt es nicht (mehr)."}, status_code=404)
+    if not bestaetigt:
+        return JSONResponse({"error": "Bestätigung fehlt.", "status": "bestaetigung_noetig"}, status_code=400)
+    return _firmen_antwort(firmen_stamm.firma_loeschen(_db, firma_id))
+
+
+@app.post("/api/firmen/{firma_id}/kontakte")
+async def api_firma_kontakt_zuordnen(firma_id: str, request: Request):
+    from .services import firmen_stamm
+    data = await request.json()
+    return _firmen_antwort(firmen_stamm.kontakt_zuordnen(
+        _db, firma_id, data.get("kontakt_id") or "", rolle=data.get("rolle") or "", von=data.get("von") or "",
+        bis=data.get("bis") or "", aktuell=data.get("aktuell"), notizen=data.get("notizen") or ""))
+
+
+@app.get("/api/contacts/{contact_id}/firmen")
+async def api_kontakt_firmen(contact_id: str):
+    from .services import firmen_stamm
+    return {"firmen": firmen_stamm.firmen_des_kontakts(_db, contact_id)}
+
+
 @app.get("/api/contacts/export.csv")
 async def api_contacts_csv():
     """Kontakte als CSV exportieren (#578)."""
@@ -8984,6 +9390,17 @@ async def api_contacts_csv():
         if isinstance(c.get("tags"), list):
             c["tags"] = "; ".join(c["tags"])
     return _csv_response(contacts, columns, "kontakte.csv")
+
+
+# #1171 (G85): EINE Person per Kennung — fuer den Sprung "Zum Kontakt" aus einer Bewerbung, einer Firma oder einem
+# anderen Kontakt-Link. Steht bewusst NACH `/api/contacts/export.csv` (und den anderen festen Pfaden unter
+# /api/contacts/): FastAPI nimmt sonst "export.csv" als Kennung (derselbe Grund wie bei /api/meetings/export.csv).
+@app.get("/api/contacts/{contact_id}")
+async def api_get_contact(contact_id: str):
+    kontakt = _db.get_contact(contact_id)
+    if not kontakt:
+        return JSONResponse({"error": "Kontakt nicht gefunden"}, status_code=404)
+    return kontakt
 
 
 # Hinweis: /api/meetings/export.csv steht weiter oben in dieser Datei,
@@ -9028,7 +9445,7 @@ async def api_global_search(q: str = "", limit: int = 8):
             "id_typed": f"APP-{a['id'][:8]}",
             "title": a["title"] or "(ohne Titel)",
             "subtitle": f"{a['company'] or ''} · {a['status'] or 'offen'}",
-            "url": f"#bewerbungen?id={a['id']}",
+            "url": _hash_ziel("bewerbungen", a["id"]),
         } for a in apps]
         groups.append({"label": "Bewerbungen", "kind": "application", "items": items})
         total += len(items)
@@ -9041,13 +9458,15 @@ async def api_global_search(q: str = "", limit: int = 8):
         (pattern, pattern, pattern, pid, limit)
     ).fetchall()
     if jobs:
+        # #1177: die OEFFENTLICHE Kennung (ohne Profil-Praefix) — dieselbe, die die Stellenliste und jeder Link traegt; mit dem
+        # gespeicherten Hash fand die Stellen-Seite die Karte nicht.
         items = [{
             "kind": "job",
-            "id": j["hash"],
+            "id": _db._public_job_hash(j["hash"]),
             "id_typed": f"JOB-{(j['hash'] or '').split(':')[-1][:8]}",
             "title": j["title"] or "(ohne Titel)",
             "subtitle": f"{j['company'] or ''} · {j['source'] or ''} · Score {j['score'] or 0}{' (aussortiert)' if not j['is_active'] else ''}",
-            "url": f"#stellen?hash={j['hash']}",
+            "url": _hash_ziel("stellen", _db._public_job_hash(j["hash"])),
         } for j in jobs]
         groups.append({"label": "Stellen", "kind": "job", "items": items})
         total += len(items)
@@ -9065,7 +9484,7 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "title": s.get("name"),
                 "subtitle": f"Level {s.get('level') or '?'}/5"
                            + (f" seit {s.get('start_year')}" if s.get('start_year') else ""),
-                "url": "#profil?tab=skills",
+                "url": _hash_ziel("profil", "skills"),
             } for s in matched_skills]
             groups.append({"label": "Skills", "kind": "skill", "items": items})
             total += len(items)
@@ -9085,7 +9504,7 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id_typed": f"DOC-{d['id'][:8]}",
                 "title": d["filename"],
                 "subtitle": f"Typ: {d['doc_type'] or 'sonstiges'}",
-                "url": f"#dokumente?id={d['id']}",
+                "url": _hash_ziel("dokumente", d["id"]),
             } for d in docs]
             groups.append({"label": "Dokumente", "kind": "document", "items": items})
             total += len(items)
@@ -9109,8 +9528,9 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id_typed": f"EML-{e['id'][:8]}",
                 "title": e["subject"] or "(ohne Betreff)",
                 "subtitle": f"Von: {e['sender'] or '?'}",
-                "url": (f"#bewerbungen?id={e['application_id']}"
-                       if e['application_id'] else "#bewerbungen"),
+                # Eine Mail hat ihr eigenes Fenster (Dokumente-Seite, `EmailDetailModal`), aber keine Adresse im Hash: sie oeffnet
+                # sich ueber `kind` + `id` (lib/wege.js `zuMail`), gleich ob sie zu einer Bewerbung gehoert (#1177).
+                "url": "",
             } for e in emails]
             groups.append({"label": "E-Mails", "kind": "email", "items": items})
             total += len(items)
@@ -9133,9 +9553,12 @@ async def api_global_search(q: str = "", limit: int = 8):
                 "id": m["id"],
                 "id_typed": f"APT-{m['id'][:8]}",
                 "title": m["title"] or "(ohne Titel)",
-                "subtitle": f"{m['company'] or '?'} · {(m['meeting_date'] or '')[:10]}",
-                "url": (f"#bewerbungen?id={m['app_id']}"
-                       if m['app_id'] else "#kalender"),
+                # „ohne Bewerbung“ statt eines Fragezeichens: so sagt schon die Trefferliste, dass der Termin im Kalender aufgeht (#1177)
+                "subtitle": f"{m['company'] or 'ohne Bewerbung'} · {(m['meeting_date'] or '')[:10]}",
+                # Wie im Kalender selbst: ein Termin mit Bewerbung fuehrt in deren Timeline (Abschnitt Termine), einer ohne
+                # Bewerbung oeffnet sich im Kalender (#1177).
+                "application_id": m["app_id"] or "",
+                "url": (_hash_ziel("bewerbungen", m["app_id"]) if m["app_id"] else _hash_ziel("kalender", m["id"])),
             } for m in meetings]
             groups.append({"label": "Termine", "kind": "meeting", "items": items})
             total += len(items)
@@ -12343,6 +12766,12 @@ def start_dashboard(db_instance, port: int = None):
         start_automatik_scheduler(db_instance)
     except Exception as exc:
         logger.warning("Automatik-Scheduler konnte nicht starten: %s", exc)
+    # #1093: Auto-Update — Reste weg, Start melden, Zeitgeber. Ohne Installer-Layout tut es nichts.
+    try:
+        from .services.auto_update import lauf as _auto_update
+        _auto_update.beim_start(db_instance)
+    except Exception as exc:
+        logger.warning("Auto-Update-Start uebersprungen: %s", exc)
     # #1001: Ollama auf Wunsch mitstarten — derselbe Aufruf wie im
     # MCP-Startweg (server.py). Vorgabe AUS.
     try:

@@ -785,6 +785,13 @@ def post_candidate(db, cand) -> Optional[int]:
             changelog_gemeldet(db, cand.trigger_ref)
         except Exception:
             pass
+    # #1180: eine neue Version wird einmal gesagt, nicht jede Woche wieder (die Inhalts-Sperre haelt nur sieben Tage)
+    if msg_id and cand.trigger_kind == "update_neu":
+        try:
+            from .elwosa_provider import update_gemeldet
+            update_gemeldet(db, cand.trigger_ref)
+        except Exception:
+            pass
     return msg_id
 
 

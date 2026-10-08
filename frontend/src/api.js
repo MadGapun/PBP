@@ -103,6 +103,10 @@ export async function putJson(path, body) {
   return api(path, { method: "PUT", body: JSON.stringify(body) });
 }
 
+export async function patchJson(path, body) {
+  return api(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+
 export async function deleteRequest(path, body) {
   const options = { method: "DELETE" };
   if (body !== undefined) options.body = JSON.stringify(body);

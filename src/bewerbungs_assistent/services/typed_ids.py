@@ -220,6 +220,10 @@ OHNE_TYPISIERUNG = frozenset({
     "erkenntnis_id", "geo_id", "job_id",
     # nur 1.8-Linie: `custom_quelle_loeschen(quelle_id)` — die Kennung einer Custom-Quelle ist frei vergeben
     "quelle_id",
+    # nur 1.8-Linie: `mail_quelle_einstellen(freigabe_id)` (#947) — die Kennung einer Ordner-Freigabe (`mo_…`) ist rein intern
+    "freigabe_id",
+    # nur 1.8-Linie: Firmen-Stammsatz (#1080) - Kennungen sind intern (`fi_...`), Schreibweisen zaehlen als Zahl
+    "firma_id", "alias_id", "mutterfirma_id", "zuordnung_id",
 })
 
 

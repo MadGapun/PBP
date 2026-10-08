@@ -22,6 +22,8 @@ import { gegliederterAuszug } from "@/lib/textAuszug";
 import { punkteText } from "@/lib/score";
 import { grundText, quelleText } from "@/lib/anzeige";
 
+import FirmaLink from "@/components/FirmaLink";
+
 export default function InlineJobDetailModal({ jobHash, onClose }) {
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
@@ -57,7 +59,7 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           <div>
             <h3 className="text-xl font-semibold text-ink">{job.title}</h3>
             <p className="text-sm text-muted">
-              {job.company || "Unbekannt"}
+              <FirmaLink name={job.company} vorher={onClose}>{job.company || "Unbekannt"}</FirmaLink>
               {job.location ? ` — ${job.location}` : ""}
             </p>
           </div>

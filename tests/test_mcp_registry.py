@@ -167,6 +167,21 @@ EXPECTED_TOOL_NAMES = {
     "komponenten_status",
     "komponente_installieren",
     "komponente_pfad_setzen",
+    # v1.8.0 (#1093): Auto-Update
+    "update_status",
+    "update_einstellungen_setzen",
+    "update_jetzt_installieren",
+    "update_zurueckschalten",
+    # v1.8.0 (#1131): Speicher & Downloads
+    "speicher_anzeigen",
+    "speicher_bereinigen",
+    # v1.8.0 (#947): Mail-Ordner als Quelle
+    "mail_quelle_anzeigen",
+    "mail_quelle_einstellen",
+    # v1.8.0 (#1080 Stufe 2): Firmen-Stammsatz
+    "firmen_stamm_anzeigen",
+    "firmen_vorschlaege_anzeigen",
+    "firmen_stamm_bearbeiten",
     "plugins_anzeigen",
     "ablehnungsgruende_anzeigen",
     "ablehnungsgrund_anlegen",
@@ -424,7 +439,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 270  # #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
+        assert len(tools) == 281  # #1080: +firmen_stamm_anzeigen, +firmen_vorschlaege_anzeigen, +firmen_stamm_bearbeiten; #947: +mail_quelle_anzeigen, +mail_quelle_einstellen; #1131: +speicher_anzeigen, +speicher_bereinigen; #1093: +update_status, +update_einstellungen_setzen, +update_jetzt_installieren, +update_zurueckschalten; #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
         assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:

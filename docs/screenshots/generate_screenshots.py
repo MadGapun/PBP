@@ -73,11 +73,31 @@ def _dismiss_toasts(page):
                 time.sleep(0.3)
         except Exception:
             pass
+    # NIE entfernen, nur verbergen: `[role="status"]` trifft auch Hinweise der Seite (React-Knoten, zum Beispiel
+    # "Claude Desktop ist nicht verbunden"). Ein entfernter Knoten laesst React beim naechsten Zustandswechsel mit
+    # "Failed to execute 'removeChild' on 'Node'" abstuerzen - das Titelbild des Wikis zeigte seit v1.7.137 die
+    # Fehlerkarte "Dieser Bereich ist abgestuerzt" (Praxisprobe 1.8, 05.10.2026). Verborgen wird nur die Toast-Ebene.
     page.evaluate("""
-        document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"], [role="status"]')
-            .forEach(el => el.remove());
+        document.querySelectorAll('[class*="toast"], [class*="Toast"], [role="alert"].fixed, [role="status"].fixed')
+            .forEach(el => { el.style.display = 'none'; });
     """)
     time.sleep(0.3)
+    _pruefe_kein_absturz(page)
+
+
+ABSTURZ_TEXT = "Dieser Bereich ist abgestürzt"
+
+
+def _pruefe_kein_absturz(page):
+    """Ein Bild der Fehlerkarte (oder einer leeren Seite) ist kein Bild der Oberflaeche - dann lieber gar keins.
+
+    Stuerzt React oberhalb der Fehlergrenze ab, bleibt keine Karte stehen, sondern ein leerer Baum: auch den erkennt die
+    Pruefung (jede Seite der Anwendung traegt die Seitenleiste mit "Einstellungen")."""
+    if page.get_by_text(ABSTURZ_TEXT).count():
+        meldung = page.locator("pre").first.inner_text() if page.locator("pre").count() else ""
+        raise RuntimeError(f"Die Seite ist abgestuerzt, es wird kein Screenshot gespeichert: {meldung[:200]}")
+    if "Einstellungen" not in page.inner_text("body"):
+        raise RuntimeError("Die Seite ist leer oder abgestuerzt (keine Seitenleiste), es wird kein Screenshot gespeichert")
 
 
 def _screenshot(page, url, output_path, desc):
@@ -207,6 +227,24 @@ def _take_screenshots(port: int, output_dir: Path):
         browser.close()
 
 
+def _take_firmen_screenshot(port: int, output_dir: Path):
+    """Die Firmen-Ansicht (v1.8, #1080) von Windrose Energietechnik — NEUE Datei, Deep Link ueber den Namen."""
+    from playwright.sync_api import sync_playwright
+
+    base = f"http://127.0.0.1:{port}"
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = _new_page(browser)
+        page.goto(f"{base}#kontakte/firma%3AWindrose%20Energietechnik%20GmbH")
+        page.wait_for_selector("[data-firmen-detail]", timeout=30000)
+        page.wait_for_load_state("networkidle")
+        time.sleep(2)
+        _dismiss_toasts(page)
+        page.screenshot(path=str(output_dir / "04d_firmen.png"), full_page=False)
+        print("  Screenshot: 04d_firmen.png (Firmen-Ansicht)")
+        browser.close()
+
+
 def _take_onboarding_screenshots(port: int, output_dir: Path, db_path: str):
     """Nimmt Screenshots fuer die Onboarding-Zustaende."""
     from playwright.sync_api import sync_playwright
@@ -243,6 +281,7 @@ def _take_onboarding_screenshots(port: int, output_dir: Path, db_path: str):
         db.initialize()
         db.delete_profile(minimal_pid)      # Platzhalter-Anna raus
         musterprofile.seed_all(db)          # Anna komplett + Bob komplett (aktiv)
+        musterprofile.seed_firmen(db)       # v1.8 (#1080): Firmen-Eintraege fuer Bob
         db.close()
         time.sleep(0.5)
 
@@ -286,6 +325,7 @@ def _export_web_copy(path: Path, web_dir: Path = WEB_DIR, width: int = WEB_WIDTH
 
 
 def main():
+    nur_firmen = "--nur-firmen" in sys.argv     # nur die neue Firmen-Ansicht aufnehmen, nichts anderes anfassen
     print("PBP Screenshot-Generator (Musterprofile Bob & Anna)")
     print("=" * 52)
 
@@ -326,6 +366,22 @@ def main():
     threading.Thread(target=_verbunden_halten, daemon=True).start()
     time.sleep(1)
 
+    if nur_firmen:
+        print("3. Musterprofile und Firmen-Eintraege anlegen (--nur-firmen)...")
+        db = Database(db_path=db_path)
+        db.initialize()
+        assert tmp_dir in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+        musterprofile.seed_all(db)
+        musterprofile.seed_firmen(db)
+        db.close()
+        time.sleep(0.5)
+        _take_firmen_screenshot(PORT, SCREENSHOT_DIR)
+        ziel = SCREENSHOT_DIR / "04d_firmen.png"
+        vorher, nachher = _optimize_png(ziel)
+        _export_web_copy(ziel)
+        print(f"  {ziel.name}: {vorher:.0f} KB -> {nachher:.0f} KB; Web-Kopie in {WEB_DIR}")
+        return
+
     # Onboarding-Screenshots (leer -> unvollstaendig -> vollstaendig)
     print("3. Erstelle Onboarding-Screenshots (3 Zustaende)...")
     _take_onboarding_screenshots(PORT, SCREENSHOT_DIR, db_path)
@@ -333,6 +389,7 @@ def main():
     # Vollstaendige Tab-Screenshots (aktives Profil: Bob)
     print("4. Erstelle Tab-Screenshots...")
     _take_screenshots(PORT, SCREENSHOT_DIR)
+    _take_firmen_screenshot(PORT, SCREENSHOT_DIR)
 
     # Groessen-Optimierung + webtaugliche Kopien
     print(f"5. Optimiere PNGs (< {MAX_KB} KB) und lege Web-Kopien ab...")

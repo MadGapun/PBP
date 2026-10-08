@@ -27,6 +27,28 @@ export const WEG_BROWSER_TITEL =
   + "Browser — Chrome, Brave, Edge oder Vivaldi. Das kostet mehr Token als "
   + "eine automatische Quelle.";
 
+/** Wo der Zugangsschlüssel einer Quelle eingetragen wird. */
+export const SCHLUESSEL_ORT = "Einstellungen › Erweitert › Erweiterungen";
+
+/** Braucht die Quelle einen Zugangsschlüssel, den es noch nicht gibt? (#1170 U3) */
+export function schluesselFehlt(quelle) {
+  return Boolean(quelle?.schluessel_noetig && quelle?.schluessel_fehlt);
+}
+
+/**
+ * Was der Mensch beim Anhaken einer Quelle ohne Schlüssel hört — oder null.
+ *
+ * Vorher wurde die Quelle „Aktiv“, ohne dass irgendwo stand, dass sie ohne Schlüssel nichts liefert und wo er
+ * einzutragen ist. Das sieht nach Erfolg aus und ist keiner.
+ */
+export function schluesselHinweis(quelle) {
+  if (!schluesselFehlt(quelle)) return null;
+  return {
+    text: `${quelle.name} braucht einen kostenlosen Zugangsschlüssel und findet ohne ihn nichts. Du trägst ihn unter ${SCHLUESSEL_ORT} ein.`,
+    aktion: "Schlüssel eintragen",
+  };
+}
+
 export function istBrowserQuelle(quelle) {
   return String(quelle?.zugriffsart || "").startsWith("browser");
 }
@@ -56,9 +78,17 @@ export function quellenBadges(quelle, loginStatus = null) {
 
   if (q.defekt) {
     liste.push({ text: "Defekt", tone: "danger", art: "status", symbol: "ban" });
+  } else if (q.active && schluesselFehlt(q)) {
+    // #1170 U3: „Aktiv“ allein wäre gelogen — die Quelle läuft, liefert aber nichts.
+    liste.push({ text: "Aktiv, aber ohne Schlüssel", tone: "amber", art: "status",
+                 titel: `Die Quelle liefert nichts, bis der kostenlose Zugangsschlüssel unter ${SCHLUESSEL_ORT} steht.` });
   } else {
     liste.push({ text: q.active ? "Aktiv" : "Inaktiv",
                  tone: q.active ? "success" : "neutral", art: "status" });
+  }
+  if (!q.defekt && schluesselFehlt(q)) {
+    liste.push({ text: "Schlüssel nötig", tone: "amber", art: "eigenschaft",
+                 titel: `Braucht einen kostenlosen Zugangsschlüssel. Eintragen unter ${SCHLUESSEL_ORT}.` });
   }
 
   if (!q.defekt && browser) {

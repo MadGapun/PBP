@@ -27,4 +27,27 @@ assert.ok(!/0\s*[–-]\s*100/.test(alles));
 assert.ok(!alles.includes("/ersterfassung"));
 // 5. Keine Namen aus einem einzelnen Profil (PLM, Hamburg) in der Hilfe.
 assert.ok(!/\bPLM\b|Hamburg/.test(alles));
+// 6. #1170 U1: die Hilfe kennt 1.8. Jede neue Funktion steht in der Hilfe ihrer Seite.
+const text = (id) => JSON.stringify(HILFE[id].abschnitte);
+for (const wort of ["Updates", "Speicher & Downloads", "Mail-Ordner", "Erweiterungen"]) {
+  assert.ok(HILFE.einstellungen.abschnitte.some((a) => a.titel === wort), `Einstellungen: kein Abschnitt „${wort}“`);
+}
+assert.ok(HILFE.kontakte.abschnitte.some((a) => a.titel === "Firmen"), "Kontakte: kein Abschnitt „Firmen“");
+assert.ok(text("dokumente").includes("Texterkennung"), "Dokumente: die Texterkennung fehlt");
+// Die FAQ „Wie aktualisiere ich PBP?“ nennt das Ein-Klick-Update, nicht mehr nur den Installer.
+const aktualisieren = FAQ.find((f) => f.q === "Wie aktualisiere ich PBP?");
+assert.ok(aktualisieren.a.includes("Einstellungen › Erweitert › Updates"), "FAQ Aktualisieren ohne den neuen Weg");
+assert.ok(aktualisieren.a.includes("Installer"), "der Weg von Hand bleibt genannt (macOS, Linux, neue Hauptversion)");
+for (const q of ["Was räumt PBP auf, und was löscht es nie?", "Was ist ein Firmen-Eintrag?", "Liest PBP meine Mails?", "Wofür ist die Texterkennung?"]) {
+  assert.ok(FAQ.some((f) => f.q === q), `FAQ: „${q}“ fehlt`);
+}
+for (const q of ["Nach einem Update läuft die alte Version", "PBP bietet kein Update an"]) {
+  assert.ok(PROBLEME.some((p) => p.q === q), `Probleme: „${q}“ fehlt`);
+}
+// Der Neustart wird in der Hilfe so beschrieben wie in der Oberfläche (lib/autoUpdate.js: NEUSTART_SCHRITTE).
+assert.ok(PROBLEME.find((p) => p.q === "Nach einem Update läuft die alte Version").a.includes("schwarze Fenster"));
+// Kein Weg zeigt auf eine Stelle, die es so nicht mehr gibt: „Quellen im Detail“ liegt unter „Erweitert“.
+assert.ok(!/Einstellungen › Quellen im Detail/.test(alles), "veralteter Pfad Einstellungen › Quellen im Detail");
+// Keine Wörter ohne Umlaute (Teil von U13), sonst liest sich die Hilfe wie ein Fremdtext.
+assert.ok(!/\b(fuer|ueber|koennen|moeglich|Schluessel|einfuegen|Datensaetze)\b/i.test(alles), "ae/oe/ue-Schreibweise in der Hilfe");
 console.log("hilfe ok");

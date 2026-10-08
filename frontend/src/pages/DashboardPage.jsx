@@ -48,15 +48,17 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import HinweisZone from "@/components/HinweisZone";
 import { STARTSATZ } from "@/lib/startsatz";
 import { hinweisFuer } from "@/lib/hinweisZone";
+import { vorabNeu } from "@/lib/autoUpdate";
 import { neueLinieHinweis } from "@/lib/updateStand";
 import OffenBlock from "@/components/OffenBlock";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
 import EmailUploadButton from "@/components/EmailUploadButton";
 import DashboardBereich from "@/components/DashboardBereich";
 import DashboardAnpassen from "@/components/DashboardAnpassen";
+import { zuStelle } from "@/lib/wege";
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo, autoUpdate, updateSchonInstalliert } = useApp();
   // G60 (#1087 B1): hoechstens EIN Hinweis. Ist die Hinweiszone leer,
   // kommen die weiteren Hinweise der Reihe nach — immer nur einer.
   const [nebenStufe, setNebenStufe] = useState(0);
@@ -519,9 +521,12 @@ export default function DashboardPage() {
     hatProfil: Boolean(chrome.status?.has_profile),
     quellenAktiv: activeSourceCount,
     letzteSucheAm: lastSearchAt,
-    updateBekannt: updateInfo?.update_available
+    updateBekannt: updateInfo?.update_available && !updateSchonInstalliert
       ? { version: updateInfo.latest_version, url: updateInfo.release_url }
       : null,
+    autoUpdate,
+    vorab: vorabNeu(autoUpdate, updateInfo),
+    mcp: chrome.status?.mcp_connection,
     neueLinie: neueLinieHinweis(updateInfo),
     ollamaAngebot: false,
     einstiegFertig,
@@ -773,7 +778,8 @@ export default function DashboardPage() {
                       key={job.hash}
                       type="button"
                       className="group flex min-w-0 w-full cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:-translate-y-[1px] hover:border-sky/35 hover:bg-white/[0.06] hover:shadow-[0_8px_20px_rgba(14,165,233,0.12)] hover:text-ink"
-                      onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}
+                      data-top-stelle={job.hash}
+                      onClick={() => { const z = zuStelle(job.hash); if (z) navigateTo(z.seite, z.intent); }}
                     >
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[13px] font-medium text-ink">{job.title}</p>

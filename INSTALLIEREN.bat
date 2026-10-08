@@ -56,6 +56,10 @@ if not exist "%BASEDIR%\_setup_claude.py" goto :err_setup_helper_missing
 if not exist "%BASEDIR%\_selftest.py" goto :err_setup_helper_missing
 if not exist "%BASEDIR%\_sicherung_vor_update.py" goto :err_setup_helper_missing
 if not exist "%BASEDIR%\start_dashboard.py" goto :err_setup_helper_missing
+:: v1.8.0 (#1093): Versionsordner und Aufraeumen
+if not exist "%BASEDIR%\_programm_einrichten.py" goto :err_setup_helper_missing
+if not exist "%BASEDIR%\_installer_aufraeumen.py" goto :err_setup_helper_missing
+if not exist "%BASEDIR%\installer\boot\start_dashboard_launcher.py" goto :err_setup_helper_missing
 
 :: -------------------------------------------
 :: Logging initialisieren
@@ -78,7 +82,7 @@ echo    Version: %PBP_VERSION%
 echo.
 echo  ====================================================
 echo.
-echo  Willkommen! Dieses Setup richtet ALLES automatisch ein.
+echo  Willkommen^^! Dieses Setup richtet ALLES automatisch ein.
 echo  Du musst NICHTS selber installieren oder konfigurieren.
 echo  Einfach warten - alles passiert von alleine.
 echo.
@@ -107,15 +111,21 @@ echo [DEBUG] Versions-Check... >> "%LOGFILE%"
 :: v1.7.149 (#1149): gelesen wurde %DATA_DIR%\src, installiert wird aber nach %APP_DIR%\src (seit
 :: v1.5.0, #297). INSTALLED_VER blieb deshalb immer leer: "Update erkannt" und "bereits
 :: installiert" erschienen nie, und die Frage unten kannte nur "j", nicht "ja".
-if exist "%APP_DIR%\src\bewerbungs_assistent\__init__.py" (
+:: v1.8.0 (#1093): seit dem Aufbau mit Versionsordnern steht die installierte Fassung in aktuell.txt;
+:: nur ein Aufbau aus der 1.7er-Linie hat sie noch in src\.
+set "INSTALLED_VER="
+if exist "%APP_DIR%\aktuell.txt" set /p INSTALLED_VER=<"%APP_DIR%\aktuell.txt"
+if not defined INSTALLED_VER if exist "%APP_DIR%\src\bewerbungs_assistent\__init__.py" (
     for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%APP_DIR%\src\bewerbungs_assistent\__init__.py" 2^>nul') do set "INSTALLED_VER=%%~v"
+)
+if defined INSTALLED_VER (
     for /f "tokens=3 delims= " %%v in ('findstr /C:"__version__" "%SRC_DIR%\bewerbungs_assistent\__init__.py" 2^>nul') do set "NEW_VER=%%~v"
     if defined INSTALLED_VER if defined NEW_VER if "!INSTALLED_VER!"=="!NEW_VER!" (
         echo [INFO] Version !INSTALLED_VER! ist bereits installiert >> "%LOGFILE%"
         echo.
         echo  Version !INSTALLED_VER! ist bereits installiert.
         echo.
-        set /p FORCE_INSTALL="  Trotzdem neu installieren? ^(j/n^): "
+        set /p FORCE_INSTALL="  Trotzdem neu installieren? (j/n): "
         set "FORCE_INSTALL=!FORCE_INSTALL:~0,1!"
         if /i "!FORCE_INSTALL!" neq "j" if /i "!FORCE_INSTALL!" neq "y" (
             echo.
@@ -332,7 +342,7 @@ if !errorlevel! neq 0 (
     call :fix_pip
     "%PYTHON%" -m pip --version >> "%LOGFILE%" 2>&1
     if !errorlevel! neq 0 (
-        echo [WARN] pip immer noch defekt — loesche Python und lade neu herunter >> "%LOGFILE%"
+        echo [WARN] pip immer noch defekt - loesche Python und lade neu herunter >> "%LOGFILE%"
         echo         Kopierte Python-Installation defekt, lade neu herunter...
         rmdir /s /q "%PYTHON_DIR%" 2>nul
         goto :download_python
@@ -441,7 +451,7 @@ if !errorlevel! equ 0 (
     echo [OK] E-Mail/Outlook-Import installiert >> "%LOGFILE%"
 ) else (
     echo [WARN] extract-msg/icalendar Installation fehlgeschlagen >> "%LOGFILE%"
-    echo         [!!] Outlook-Mail-Import teilweise nicht verfuegbar
+    echo         [^^!^^!] Outlook-Mail-Import teilweise nicht verfuegbar
     echo.
     echo             Das Paket 'extract-msg' konnte nicht installiert werden.
     echo             .msg-Dateien ^(Outlook-Mails^) werden NICHT unterstuetzt.
@@ -557,10 +567,12 @@ echo [OK] python kopiert >> "%LOGFILE%"
 :: src/ Ordner kopieren (#297: nach app/)
 echo [DEBUG] Kopiere src-Ordner... >> "%LOGFILE%"
 if not exist "%SRC_DIR%" goto :err_not_extracted
-if exist "%APP_DIR%\src" rmdir /s /q "%APP_DIR%\src" 2>nul
-xcopy "%SRC_DIR%" "%APP_DIR%\src\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
+:: v1.8.0 (#1093): das Programm kommt in einen eigenen Versionsordner (app\versions\<Fassung>), daneben der
+:: Startbaustein (app\boot), und aktuell.txt wird ZULETZT umgestellt. Die alte Fassung bleibt als Rueckweg
+:: liegen. Der Helfer ist Python, damit sich seine Zusagen testen lassen.
+"%PYTHON%" "%BASEDIR%\_programm_einrichten.py" "%BASEDIR%" "%APP_DIR%" >> "%LOGFILE%" 2>&1
 if !errorlevel! neq 0 goto :err_copy_runtime
-echo [OK] src kopiert >> "%LOGFILE%"
+echo [OK] Versionsordner eingerichtet >> "%LOGFILE%"
 
 :: Startdateien nach APP_DIR kopieren (Dashboard starten.bat + start_dashboard.py)
 echo [DEBUG] Kopiere Startdateien... >> "%LOGFILE%"
@@ -568,8 +580,8 @@ if exist "%BASEDIR%\Dashboard starten.bat" copy /Y "%BASEDIR%\Dashboard starten.
 :: PBP-Icon (#502) an stabilen Ort kopieren — die Desktop-.lnk zeigt
 :: spaeter darauf, statt das generische Batch-Symbol zu zeigen.
 if exist "%BASEDIR%\assets\pbp.ico" copy /Y "%BASEDIR%\assets\pbp.ico" "%APP_DIR%\pbp.ico" >> "%LOGFILE%" 2>&1
-if exist "%BASEDIR%\start_dashboard.py" copy /Y "%BASEDIR%\start_dashboard.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
-if exist "%BASEDIR%\_selftest.py" copy /Y "%BASEDIR%\_selftest.py" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
+:: start_dashboard.py und _selftest.py liegen jetzt in der Fassung (der Helfer oben legt sie dort ab); im Programmordner
+:: steht der unveraenderliche Starter. Ein Kopieren der echten Datei hierher wuerde ihn ueberschreiben.
 if exist "%BASEDIR%\DEINSTALLIEREN.bat" copy /Y "%BASEDIR%\DEINSTALLIEREN.bat" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
 if exist "%BASEDIR%\favicon.ico" copy /Y "%BASEDIR%\favicon.ico" "%APP_DIR%\" >> "%LOGFILE%" 2>&1
 echo [OK] Startdateien kopiert >> "%LOGFILE%"
@@ -632,7 +644,7 @@ if "!CLAUDE_FOUND!"=="0" (
 :: Konfig-Verzeichnis-Fallback: wenn %APPDATA%\Claude\claude_desktop_config.json
 :: existiert, ist Claude offensichtlich schon mal installiert/genutzt worden
 if "!CLAUDE_FOUND!"=="0" if exist "%APPDATA%\Claude\claude_desktop_config.json" (
-    echo [INFO] Claude-Konfig vorhanden trotz fehlender exe — Erkennung als 'gefunden' >> "%LOGFILE%"
+    echo [INFO] Claude-Konfig vorhanden trotz fehlender exe - Erkennung als 'gefunden' >> "%LOGFILE%"
     set "CLAUDE_FOUND=1"
 )
 
@@ -682,6 +694,14 @@ if exist "%ProgramFiles%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles%\Claud
 if exist "%ProgramFiles(x86)%\Claude\Claude.exe" set "CLAUDE_EXE=%ProgramFiles(x86)%\Claude\Claude.exe"
 if exist "%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe" set "CLAUDE_EXE=%USERPROFILE%\AppData\Local\Programs\Claude\Claude.exe"
 
+:: Praxisprobe 1.8 (05.10.2026): Die Store-Fassung wird oben oft schon am Konfigurationsordner erkannt (#361). Dann
+:: wird die Paket-Abfrage uebersprungen, CLAUDE_APPX bleibt leer - und der Abschluss meldete "Claude Desktop nicht
+:: gefunden", obwohl es installiert war. Ohne Programmdatei fragt deshalb immer das Paketsystem.
+if not defined CLAUDE_EXE if not defined CLAUDE_APPX (
+    for /f "usebackq delims=" %%F in (`powershell -NoProfile -Command "$p = Get-AppxPackage -Name '*Claude*' -ErrorAction SilentlyContinue; if ($p) { $p[0].PackageFamilyName }"`) do set "CLAUDE_APPX=%%F"
+    if defined CLAUDE_APPX echo [INFO] Claude als Store-/MSIX-Paket erkannt ^(Start am Ende^): !CLAUDE_APPX! >> "%LOGFILE%"
+)
+
 set "CLAUDE_DIR=%APPDATA%\Claude"
 if not exist "%CLAUDE_DIR%" mkdir "%CLAUDE_DIR%"
 
@@ -717,7 +737,7 @@ if "!CLAUDE_FOUND!"=="1" set "CLAUDE_OK=1"
 goto :claude_config_done
 
 :claude_config_failed
-echo         [!!] Claude-Konfiguration fehlgeschlagen
+echo         [^^!^^!] Claude-Konfiguration fehlgeschlagen
 echo [FEHLER] _setup_claude.py >> "%LOGFILE%"
 
 :claude_config_done
@@ -756,7 +776,7 @@ if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 echo [DEBUG] Starte Schnelltest >> "%LOGFILE%"
 "%PYTHON%" "%BASEDIR%\_selftest.py" >> "%LOGFILE%" 2>&1
 if !errorlevel! equ 0 echo         [OK] Funktionstest bestanden
-if !errorlevel! neq 0 echo         [!!] Funktionstest nicht bestanden
+if !errorlevel! neq 0 echo         [^^!^^!] Funktionstest nicht bestanden
 
 echo [OK] Installation abgeschlossen >> "%LOGFILE%"
 echo.
@@ -789,7 +809,7 @@ if defined CLAUDE_EXE (
     timeout /t 2 /nobreak >nul
     echo        [OK] Claude Desktop wurde gestartet.
 ) else (
-    echo  [1/3] Claude Desktop nicht gefunden — bitte manuell starten:
+    echo  [1/3] Claude Desktop nicht gefunden - bitte manuell starten:
     echo        https://claude.ai/download
 )
 echo.
@@ -797,7 +817,12 @@ echo.
 :: --- Dashboard im Hintergrund starten ---
 echo  [2/3] PBP-Dashboard wird gestartet...
 echo [INFO] Starte Dashboard >> "%LOGFILE%"
+:: Gegenprobe 05.10.2026 (PP15): Das Dashboard oeffnete den Browser selbst, noch bevor es antwortete (Chrome zeigte "Verbindung
+:: verweigert"), und unten oeffnet der Installer den Browser ein zweites Mal. Jetzt macht das nur der Installer, nachdem die
+:: Pruefung unten bestanden ist. Die Variable gilt nur fuer das hier gestartete Fenster und wird danach geloescht.
+set "PBP_KEIN_BROWSER=1"
 start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
+set "PBP_KEIN_BROWSER="
 
 :: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---
 echo        Warte auf Dashboard auf http://localhost:8200 ...
@@ -822,7 +847,7 @@ if "!DASH_OK!"=="1" (
     start "" "http://localhost:8200/"
     echo        [OK] Browser-Tab oeffnet sich.
 ) else (
-    echo        [!!] Dashboard antwortet nicht nach 30 Sekunden.
+    echo        [^^!^^!] Dashboard antwortet nicht nach 30 Sekunden.
     echo  [3/3] Browser oeffnen trotzdem ^(falls alte Instanz laeuft^)...
     start "" "http://localhost:8200/"
     echo             Falls leer: Pruefe das PBP-Dashboard-Fenster auf Fehler.
@@ -915,6 +940,7 @@ echo    - Browser-Direktlink: http://localhost:8200/
 echo.
 echo  ##############################################################
 echo.
+if "!AMPEL!"=="GRUEN" call :installer_aufraeumen_anbieten
 echo  Druecke eine beliebige Taste um dieses Fenster zu schliessen.
 pause >nul
 exit /b 0
@@ -960,6 +986,9 @@ echo  Eine oder mehrere dieser Dateien fehlen:
 echo    - _setup_claude.py
 echo    - _selftest.py
 echo    - _sicherung_vor_update.py
+echo    - _programm_einrichten.py
+echo    - _installer_aufraeumen.py
+echo    - installer\boot\start_dashboard_launcher.py
 echo    - start_dashboard.py
 echo.
 echo  Vermutlich wurde das ZIP nur teilweise entpackt
@@ -1109,6 +1138,37 @@ exit /b 1
 :: -------------------------------------------
 :: Support-Info (wird bei jedem Fehler angezeigt)
 :: -------------------------------------------
+:installer_aufraeumen_anbieten
+:: v1.8.0 (#1093, Anforderung 14): Installationsordner und ZIP werden nach einer GELUNGENEN Installation nicht mehr
+:: gebraucht. Die Einstellung installer_aufraeumen (fragen, immer, nie) steht in PBP unter Einstellungen; ohne
+:: Datenbank gilt fragen. Geloescht wird nie ungefragt, und nur, was _installer_aufraeumen.py als entpackten
+:: Installer erkennt (siehe dort). Gefragt wird ausserhalb jedes Klammerblocks (#990).
+:: Der Helfer laeuft mit der Python-Laufzeit im PROGRAMMORDNER: die im Installationsordner waere beim Loeschen gesperrt.
+set "AUFRAEUMEN=fragen"
+:: Gegenprobe 05.10.2026 (PP18): Der Befehl in den Rueckwaertsstrichen laeuft ueber `cmd /c`. Beginnt er mit einem Anfuehrungszeichen und
+:: hat mehr als zwei, schneidet cmd das erste und das letzte ab: "Die Syntax fuer den Dateinamen ... ist falsch" erschien am Ende JEDER
+:: gelungenen Installation, und die Einstellung (nie/immer) wurde nie gelesen. Ein zusaetzliches Paar um den ganzen Befehl behebt das.
+for /f "usebackq delims=" %%E in (`""%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" einstellung "%DATA_DIR%""`) do set "AUFRAEUMEN=%%E"
+echo [INFO] Installer aufraeumen: !AUFRAEUMEN! >> "%LOGFILE%"
+if "!AUFRAEUMEN!"=="nie" goto :eof
+"%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" plan "%BASEDIR%" "%PBP_VERSION%" "%APP_DIR%" "%DATA_DIR%" >> "%LOGFILE%" 2>&1
+if errorlevel 1 goto :eof
+if "!AUFRAEUMEN!"=="immer" goto :aufraeumen_ausfuehren
+echo.
+echo  Der Installationsordner und die ZIP-Datei werden nicht mehr gebraucht.
+echo  Soll ich sie loeschen, sobald du dieses Fenster schliesst?
+echo    Ordner: %BASEDIR%
+echo  PBP und deine Daten bleiben dabei unberuehrt.
+set "ANTWORT=n"
+set /p ANTWORT="  Loeschen? (j/n): "
+set "ANTWORT=!ANTWORT:~0,1!"
+if /i not "!ANTWORT!"=="j" if /i not "!ANTWORT!"=="y" goto :eof
+:aufraeumen_ausfuehren
+"%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" loeschen "%BASEDIR%" "%PBP_VERSION%" "%APP_DIR%" "%DATA_DIR%" >> "%LOGFILE%" 2>&1
+echo  Der Ordner wird geloescht, sobald du dieses Fenster schliesst.
+echo [INFO] Installer-Aufraeumen gestartet >> "%LOGFILE%"
+goto :eof
+
 :show_support_info
 echo.
 echo  ----------------------------------------------------

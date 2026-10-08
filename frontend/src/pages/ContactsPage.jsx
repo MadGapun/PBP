@@ -12,12 +12,14 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useApp } from "@/app-context";
 import { KONTAKTROLLEN } from "@/lib/anzeige";
 import { nurErfolgeMerken } from "@/lib/nurErfolge";
 import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
+import FirmenAnsicht from "@/components/FirmenAnsicht";
+import { verknuepfungZeile } from "@/lib/wege";
 
 // v1.7.0-beta.10 (#563): Kontaktdatenbank-Frontend.
 // Designprinzip: End-User wird gut gefuehrt — Empty States erklaeren, was
@@ -126,7 +128,7 @@ function ContactCard({ contact, onClick }) {
 }
 
 function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
-  const { copyPrompt, geloeschtMitRueckweg } = useApp();
+  const { copyPrompt, geloeschtMitRueckweg, navigateTo } = useApp();
   const isEdit = Boolean(contact?.id);
   const [form, setForm] = useState(() => ({
     full_name: contact?.full_name || "",
@@ -140,6 +142,16 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
   }));
   const [linkedItems, setLinkedItems] = useState([]);
   const [saving, setSaving] = useState(false);
+  // #1080: die Firmen dieses Kontakts (aktuelle und frühere, mit Rolle und Zeitraum) — Einträge aus „Firmen“
+  const [firmen, setFirmen] = useState([]);
+  useEffect(() => {
+    if (!contact?.id) return;
+    api(`/api/contacts/${contact.id}/firmen`).then((d) => setFirmen(d?.firmen || [])).catch(() => setFirmen([]));
+  }, [contact?.id]);
+  function firmaOeffnen(ziel) {
+    onClose();
+    navigateTo("kontakte", { ansicht: "firmen", ...ziel });
+  }
   // v1.7.88 (#884): Referenzen dieses Kontakts
   const [refs, setRefs] = useState([]);
   const [arten, setArten] = useState([]);
@@ -242,6 +254,39 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
       onClose={onClose}
     >
       <div className="space-y-3">
+        {/* #1171 (G85): wozu diese Person gehoert, steht OBEN und ist ein Klick entfernt — vorher ganz unten im
+            Formular, als rohes „application“ und ohne Sprung zur Bewerbung. */}
+        {isEdit && linkedItems.length > 0 && (
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3" data-kontakt-verknuepfungen>
+            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
+              Verknüpft mit ({linkedItems.length})
+            </p>
+            <ul className="space-y-1 text-sm">
+              {linkedItems.slice(0, 8).map((l) => {
+                const z = verknuepfungZeile(l);
+                return (
+                  <li key={l.id} className="flex flex-wrap items-center gap-2">
+                    {z.ziel ? (
+                      <button
+                        type="button"
+                        data-verknuepfung-sprung={z.art}
+                        className="text-left text-sky underline-offset-2 hover:underline"
+                        title={z.sprungWort || "Öffnen"}
+                        onClick={() => { onClose(); navigateTo(z.ziel.seite, z.ziel.intent); }}
+                      >
+                        {z.text}
+                      </button>
+                    ) : (
+                      <span className="text-muted">{z.text}{z.vorhanden ? "" : " (gibt es nicht mehr)"}</span>
+                    )}
+                    {z.rolle ? <RoleChip role={z.rolle} /> : null}
+                  </li>
+                );
+              })}
+            </ul>
+            {linkedItems.length > 8 ? <p className="mt-1 text-xs text-muted">… und {linkedItems.length - 8} weitere</p> : null}
+          </div>
+        )}
         <Field label="Name" required>
           <TextInput
             value={form.full_name}
@@ -282,6 +327,36 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             />
           </Field>
         </div>
+
+        {isEdit && (form.company || firmen.length > 0) && (
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] p-3" data-kontakt-firmen>
+            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">Firmen</p>
+            <ul className="space-y-1 text-sm">
+              {firmen.map((f) => (
+                <li key={f.id} className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="text-sky underline-offset-2 hover:underline" onClick={() => firmaOeffnen({ firmaId: f.firma_id })}
+                    title={`Öffnet alles, was PBP zu ${f.firma} weiß.`}>
+                    {f.firma}
+                  </button>
+                  <span className="text-xs text-muted">{[f.rolle, f.zeitraum].filter(Boolean).join(" · ")}</span>
+                  {!f.aktuell ? <span className="text-xs text-muted">(früher)</span> : null}
+                </li>
+              ))}
+              {form.company ? (
+                <li className="flex flex-wrap items-center gap-2">
+                  <button type="button" className="text-sky underline-offset-2 hover:underline" onClick={() => firmaOeffnen({ firmaName: form.company })}
+                    title={`Öffnet alles, was PBP zu ${form.company} weiß — auch ohne Firmen-Eintrag.`}>
+                    {form.company}
+                  </button>
+                  <span className="text-xs text-muted">Text im Feld „Firma“</span>
+                </li>
+              ) : null}
+            </ul>
+            <p className="mt-2 text-xs text-muted">
+              Einen Kontakt mehreren Firmen mit Zeitraum zuordnen: unter „Firmen“ die Firma öffnen, dort „Bearbeiten“.
+            </p>
+          </div>
+        )}
         <Field label="LinkedIn">
           <div className="flex items-stretch gap-2">
             <TextInput
@@ -362,23 +437,6 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
             placeholder="Wie habt ihr euch kennengelernt, was ist wichtig zu wissen..."
           />
         </Field>
-
-        {isEdit && linkedItems.length > 0 && (
-          <div className="border-t border-white/5 pt-3">
-            <p className="text-xs font-semibold text-muted mb-2 uppercase tracking-[0.1em]">
-              Verknuepfungen ({linkedItems.length})
-            </p>
-            <ul className="space-y-1 text-[12px] text-muted">
-              {linkedItems.slice(0, 8).map((l) => (
-                <li key={l.id}>
-                  <span className="text-muted">{l.target_kind}</span>
-                  {" · "}
-                  {l.role && <RoleChip role={l.role} />}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         {isEdit && (
           <div className="border-t border-white/5 pt-3" data-testid="referenz-block">
@@ -707,7 +765,7 @@ function CategoryManagementSection({ pushToast }) {
 
 
 export default function ContactsPage() {
-  const { reloadKey, pushToast } = useApp();
+  const { reloadKey, pushToast, intent, clearIntent } = useApp();
   const [loading, setLoading] = useState(true);
   const [contacts, setContacts] = useState([]);
   const [search, setSearch] = useState("");
@@ -720,13 +778,37 @@ export default function ContactsPage() {
   // dem fruehen Return weiter unten — dahinter verwirft React die
   // Komponente beim zweiten Rendern (#1009).
   const [ansicht, setAnsicht] = useState("kontakte");
+  // #1080: welche Firma die Firmen-Ansicht öffnen soll (von Stelle, Bewerbung, Kontakt oder einem Link aus dem Chat)
+  const [firmenZiel, setFirmenZiel] = useState(null);
+  const ansichtJetzt = useRef("kontakte");
+  ansichtJetzt.current = ansicht;
   useEffect(() => {
     const handler = (e) => {
-      if (e?.detail?.ansicht) setAnsicht(e.detail.ansicht);
+      if (!e?.detail?.ansicht) return;
+      // Ein zweiter Klick auf "Firmen" (auch in der Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+      if (e.detail.ansicht === "firmen" && ansichtJetzt.current === "firmen") setFirmenZiel({ zurueck: true, nonce: Date.now() });
+      setAnsicht(e.detail.ansicht);
     };
     document.addEventListener("contacts-nav", handler);
     return () => document.removeEventListener("contacts-nav", handler);
   }, []);
+  useEffect(() => {
+    if (intent?.page !== "kontakte") return;
+    if (intent.ansicht === "firmen") {
+      setAnsicht("firmen");
+      setFirmenZiel({ firmaId: intent.firmaId || "", firmaName: intent.firmaName || "", nonce: intent.nonce });
+    } else if (intent.ansicht === "kontakte") {
+      setAnsicht("kontakte");
+      if (typeof intent.suche === "string") setSearch(intent.suche);
+      // #1171 (G85): „Zum Kontakt“ oeffnet die Person selbst, nicht nur die Liste.
+      if (intent.kontaktId) {
+        api(`/api/contacts/${encodeURIComponent(intent.kontaktId)}`)
+          .then((kontakt) => { if (kontakt?.id) { setDialogContact(kontakt); setDialogOpen(true); } })
+          .catch(() => pushToast("Die Person konnte nicht geöffnet werden.", "danger"));
+      }
+    }
+    clearIntent?.();
+  }, [intent]);
 
   async function reload() {
     setLoading(true);
@@ -784,13 +866,17 @@ export default function ContactsPage() {
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1" role="tablist" aria-label="Kontakte-Ansicht">
-        {[["kontakte", "Kontakte"], ["referenzen", "Referenzen"]].map(([id, label]) => (
+        {[["kontakte", "Kontakte"], ["firmen", "Firmen"], ["referenzen", "Referenzen"]].map(([id, label]) => (
           <button
             key={id}
             type="button"
             role="tab"
             aria-selected={ansicht === id}
-            onClick={() => setAnsicht(id)}
+            onClick={() => {
+              // Ein zweiter Klick auf "Firmen" führt aus einer geöffneten Firma zurück in die Liste.
+              if (id === "firmen" && ansicht === "firmen") setFirmenZiel({ zurueck: true, nonce: Date.now() });
+              setAnsicht(id);
+            }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
               ansicht === id ? "bg-sky/15 text-sky" : "text-muted hover:text-muted hover:bg-white/5"
             }`}
@@ -800,7 +886,9 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      {ansicht === "referenzen" ? (
+      {ansicht === "firmen" ? (
+        <FirmenAnsicht ziel={firmenZiel} />
+      ) : ansicht === "referenzen" ? (
         <ReferencesSection pushToast={pushToast} reloadKey={reloadKey} />
       ) : (<>
       {/* v1.7.0-beta.39 (#606): Pending-Banner */}

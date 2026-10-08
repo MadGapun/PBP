@@ -553,7 +553,7 @@ SOURCE_REGISTRY = {
     # ── Manuelle Quellen (Claude-in-Chrome, nicht automatisiert) ──
     "linkedin": {
         "name": "LinkedIn",
-        "beschreibung": "LinkedIn-Jobsuche über die interne Voyager-API im eingeloggten Browser (#919).",
+        "beschreibung": "LinkedIn-Jobsuche über die interne Voyager-API im eingeloggten Browser.",
         "methode_zusatz": "Voyager-API",
         "login_erforderlich": True,
         "zugriffsart": "browser_login",
@@ -569,7 +569,7 @@ SOURCE_REGISTRY = {
         "beta": True,
         "geschwindigkeit": "manuell",
         "doppelt_mit": "jobspy_linkedin",
-        "hinweis": "linkedin_lauf_plan() liefert Suchbegriffe und Browser-Skripte, linkedin_treffer_uebernehmen() schreibt die Ernte nach PBP. Ohne Login: Status 'wartet_auf_login' — die Quelle wird NICHT deaktiviert (#906).",
+        "hinweis": "linkedin_lauf_plan() liefert Suchbegriffe und Browser-Skripte, linkedin_treffer_uebernehmen() schreibt die Ernte nach PBP. Ohne Login: Status 'wartet_auf_login' — die Quelle wird NICHT deaktiviert.",
         "manueller_fallback": "linkedin_lauf_plan() — der erprobte Weg über die Voyager-API",
     },
     "xing": {
@@ -582,13 +582,13 @@ SOURCE_REGISTRY = {
         "veraltet": True,
         "beta": True,
         "geschwindigkeit": "manuell",
-        "hinweis": "Automatische Suche deaktiviert (#107/#159). Treffer über die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() übernehmen.",
+        "hinweis": "Automatische Suche deaktiviert. Treffer über die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() übernehmen.",
     },
     "google_jobs": {
         "name": "Google Jobs (im Browser)",
         "beschreibung": "Grösster Aggregator für DE-Stellen — aggregiert StepStone, Jobware, "
                          "Stellenanzeigen.de und Firmenwebseiten. Läuft manuell über den "
-                         "eingeloggten Browser (keine Bot-Detection). #501",
+                         "eingeloggten Browser (keine Bot-Detection).",
         # v1.6.5 (#541): kein klassischer Login-Flow noetig — aktivieren reicht.
         # Vorher loeste der Login-Button einen Backend-Fehler aus, weil
         # api_start_source_login keinen google_jobs-Branch hatte.

@@ -23,7 +23,7 @@ der stand bei `fit_analyse` fuenfmal und stimmte nie lange. Eine Regel in
 nur einen von zwei Wegen einzubauen verschiebt die Abweichung; und beim
 Suchen nach Doppelungen zuerst den Weg ansehen, der schreibt oder den die
 Doku empfiehlt — der schwaechere ist oft genau dieser.
-*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`)
+*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64)
 
 **L2. Das Nadeloehr gilt auch fuer die Eingabe.** Kriterien, die roh statt
 durch `fuer_scoring` gereicht oder hinter dem Nadeloehr ueberschrieben
@@ -388,3 +388,206 @@ in `finally`, nicht ans Ende des Erfolgswegs, und eine Datei unter ihrem
 endgueltigen Namen ist immer ganz: erst unter `.part` schreiben, die Laenge
 pruefen (urllib meldet eine zu kurz angekommene Antwort nicht), dann umbenennen.
 *Belege:* #1130 (Protokoll "Download verworfen", die 55 MB blieben liegen)
+
+## 13. Windows-Alltag: Pfade und Zeichentabellen
+
+**L44. Der Pfad traegt den Benutzernamen -- und der ist nicht immer ASCII.** Programm- und Datenordner liegen unter dem
+Benutzerordner (`Ölmühle O'Neill (Büro)`, `Łódź`, `Şişli`). Die Ausgabe eines Unterprozesses wird nie mit `text=True` allein
+gelesen: bei umgeleiteter Ausgabe gilt die Zeichentabelle des Rechners (cp1252), ein UTF-8-Byte wie 0x81 wirft
+`UnicodeDecodeError`, ein `print` mit »ł« im Kind wirft `UnicodeEncodeError` -- und der Selbsttest scheitert an einem Pfad, nicht an
+der Fassung. Richtig: `encoding="utf-8", errors="replace"` beim Lesen UND `PYTHONIOENCODING=utf-8` fuers Kind; Skripte, die einen Pfad
+drucken, stellen ihre Ausgabe auf `backslashreplace`. Tesseract (Windows) liest Dateipfade und `TESSDATA_PREFIX` in der ANSI-Tabelle:
+das Bild geht ueber die Standardeingabe, die Sprachdaten ueber den Kurzpfad (8.3). Pruefen heisst: den Test mit so einem Pfad laufen
+lassen UND die Zeichentabelle erzwingen (`PYTHONIOENCODING=cp1252`) -- sonst ist er auf einem UTF-8-Rechner gruen und auf dem
+Zielrechner rot.
+**Nachtrag (#1182, 08.10.2026): die Regel stand hier und wurde trotzdem wieder gebrochen.** `claude_laeuft` las `tasklist` mit `text=True`, und im Fenster stand ein
+`UnicodeDecodeError` -- nur wenn Claude Desktop NICHT lief (die deutsche Meldung „... ausgeführt.“ trägt ein ü), sonst nie; die Prüfung stimmte dabei nur zufällig. Zwei
+Ergänzungen: (1) Programme von Windows (`tasklist`, `taskkill`, `powershell`) schreiben in der Kodierung der KONSOLE (OEM, cp850: ü = 0x81), nicht in UTF-8; dort
+`encoding=konsole_kodierung()` oder Bytes lesen und nach ASCII suchen (`services/konsole.py`); `utf-8` gilt nur fürs eigene Kind. (2) Eine Regel, die nur in dieser Datei steht,
+hält nicht: ein Wächter-Test (`test_1182_waechter_kein_textmodus_mit_der_standardkodierung`) sucht jedes `text=True` ohne Kodierung im Quelltext.
+*Belege:* #1163 (Installer-Helfer, Selbsttest, pip, Komponenten, Texterkennung), `tests/test_v18_auto_update_pfade.py`, `tests/test_v18_ocr_pfade.py`;
+#1182 (`claude_laeuft`, PowerShell-Pfade), `tests/test_v18_konsole_ausgabe_1182.py`, Gegenprobe ko01 bis ko11
+
+## 14. Auskunft an den Menschen: was beim Update zu lesen steht
+
+**L45. Eine Release-Notiz hat zwei Leser: den Menschen, der entscheidet, und den Entwickler, der nachschlaegt.** Der Update-Dialog
+zeigt drei Zeilen, und an ihnen haengt die Entscheidung, ob jemand neu startet. Wer sie aus den ersten Zeilen einer Entwickler-Notiz
+schneidet, bekommt abgeschnittene Absaetze und Zwischenueberschriften (gemessen an den echten Notizen von v1.7.151 und v1.7.152:
+ein Satz bricht mitten im Wort ab, eine Zeile lautet nur »Wichtig zu wissen:«). Deshalb steht am Anfang jedes CHANGELOG-Eintrags ein
+kurzer Block zwischen `<!-- anwender -->` und `<!-- /anwender -->` (auf GitHub unsichtbar), und `release_check.py` mahnt ihn an.
+Der Auszug nimmt ihn bevorzugt, sonst ganze Saetze; er kuerzt an Satzfugen, nie mitten im Wort. Und: Texte, die ein Mensch liest,
+prueft man mit dem echten Material, nicht mit einem erfundenen Beispiel.
+*Belege:* #1170 (U2), `tests/test_v18_update_notizen_auszug_1170.py`, `tests/fixtures/release_notizen/`
+
+## 15. Gruen auf dem eigenen Rechner: was nur eine frische Installation zeigt
+
+**L46. Ein Pruefer, der zum Ersetzen auffordert, kann Code zerstoeren -- und ein Test, der nur den Quelltext liest, sieht es nicht.**
+Der Text-Pruefer (G66) verlangt echte Umlaute in sichtbaren Texten. Er las aber auch Code zwischen zwei JSX-Tags als Text:
+in `</Badge> ) : laeuft ? ( <Badge>` stand das Wort fuer ihn in einem Textknoten. Die Umstellung machte daraus an dieser einen
+Stelle `läuft`; die Variable hiess an drei anderen weiter `laeuft`. Das baut ohne Meldung (ein unbekannter Name ist zur Bauzeit
+kein Fehler) und faellt nur auf, wenn der Zweig laeuft -- hier: eine Komponente ist NICHT installiert, also auf jeder frischen
+Installation. Auf dem Entwicklungsrechner ist alles installiert, jede Demo ging am Zweig vorbei; gefunden hat es erst die
+Praxisprobe auf einem frischen Rechner. Dazu kam: die Absturz-Grenze galt je Seite, ein Fehler legte alle Reiter der
+Einstellungen lahm, und die Seitenleiste tat nichts mehr. Folgen: Funde, die ein Werkzeug von selbst umschreibt, werden danach
+auf getroffenen CODE geprueft (der Pruefer ueberspringt jetzt Code zwischen Tags); der Absturz-Test oeffnet jede Seite und jeden
+Reiter im Browser gegen eine FRISCHE Datenbank ohne installierte Komponenten; jeder Reiter hat seine eigene Grenze. Und: ein
+Gruen auf dem eigenen Rechner prueft nur die eigenen Zustaende.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170, `tests/test_v18_einstellungen_reiter_stuerzen_nicht_ab.py`
+
+**L47. Ein gemocktes `Popen` prueft keine Flags.** Der Deinstaller-Knopf setzte `DETACHED_PROCESS` und `CREATE_NEW_CONSOLE` zugleich;
+Windows lehnt das ab (`OSError: [WinError 87]`). Der Fehler wurde gefangen, die Oberflaeche sagte „Kein Terminal gefunden“ — fuenf
+Releases lang, weil jeder Test `subprocess.Popen` ersetzte und damit nur den eigenen Aufruf bestaetigte. Bei Betriebssystem-Aufrufen
+gehoert ein Test dazu, der das Betriebssystem WIRKLICH fragt: dieselben Flags, aber ein harmloser Befehl (`cmd /c exit 0`, ohne neues
+Fenster), und die Gegenprobe, dass die alte Maske abgelehnt wird. Und: ein gefangener Fehler braucht einen Text, der sagt, was
+passiert ist — nicht den Text eines anderen Falls.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP9, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L48. Was der Installer schreibt, raeumt der Deinstaller weg — aus derselben Liste.** `_setup_claude.py` schreibt den MCP-Eintrag in
+den Standardpfad UND in die Store-Pakete; `DEINSTALLIEREN.bat` las nur den Standardpfad und meldete „[OK] MCP-Eintrag entfernt“.
+Claude (Store) behielt den Eintrag und meldete danach bei jedem Start einen Server ohne Programm. Dasselbe Muster: ~830 MB
+Playwright-Browser und pip-Cache blieben liegen, das Dashboard-Fenster blieb stehen. Ein Erfolgssatz sagt nur, was der Schritt
+selbst angefasst hat. Pruefen heisst: den Installer laufen lassen, dann den Deinstaller, dann nachsehen, was uebrig ist
+(Dateien, Registry, Konfigurationen, Fenster, Caches) — und die Orte in beiden Richtungen aus einer Quelle ableiten.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP10-PP12, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L49. Eine Frage in einem Konsolenfenster darf den Start nie aufhalten.** „Claude jetzt neu starten? [j/N]“ stand VOR dem Start des
+Servers. Das Fenster liegt hinter anderen, niemand antwortet, es laeuft kein Server, der Installer wartet 60 Sekunden und oeffnet
+„Verbindung verweigert“ — bei jedem, der Claude Desktop beim Installieren offen hat, also im Normalfall. Fragen kommen NACH dem
+Start (Hintergrund-Thread, Vorgabe NEIN, ohne Konsole gar nicht) oder in die Oberflaeche, die ohnehin fuehrt. Jede interaktive
+Eingabe in einem Startpfad ist ein moeglicher Stillstand: dort pruefen, was passiert, wenn niemand antwortet.
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP1, `tests/test_v18_praxisprobe_start.py`
+
+**L50. Ein Bild in der Doku ist Code: es muss geprueft werden, bevor es gespeichert wird.** Das Titelbild des Wikis zeigte seit v1.7.137 die
+Fehlerkarte „Dieser Bereich ist abgestuerzt“. Der Generator hatte mit `el.remove()` Knoten geloescht, die React verwaltet (alles mit
+`[role=status]`, darunter einen Hinweis), und speicherte das Bild, ohne hinzusehen. Gefunden hat es niemand in neun Wochen — erst ein
+Klick der Praxisprobe auf einen Anleitungslink. Ein Generator verbirgt statt zu entfernen, prueft vor jeder Aufnahme auf die Fehlerkarte
+und auf eine leere Seite, und ein Test haelt die Bilder im Repo gegen die Fehlerkarte (Pixelfarbe des Fehlerblocks).
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP7, `tests/test_v18_screenshot_generator.py`
+
+**L51. Ein Prozess hält seinen Arbeitsordner fest — und ein Test, der die Datei nur liest, merkt es nicht.** Nach den Reparaturen der ersten Probe lief
+eine Gegenprobe auf demselben Rechner. Der Deinstaller, jetzt über den Knopf im Dashboard geöffnet, meldete in Schritt [5/7], der App-Ordner „konnte
+nicht entfernt werden“, und ein leerer Ordner blieb liegen. Das neue Fenster hatte den Ordner der `.bat` als Arbeitsordner (`start /D`), und diese
+`cmd.exe` wartet auf die nach `%TEMP%` verschobene Kopie — ein Prozess hält den Ordner fest, in dem er steht. Der Doppelklick auf die Datei im
+App-Ordner hat denselben Arbeitsordner. Kein Test hatte das gesehen: die Strukturtests lasen die Datei, die Verhaltenstests führten nur ihre
+PowerShell-Zeilen aus. Der neue Test führt den ECHTEN Anfang der Datei aus (Arbeitsordner = App-Ordner) und hängt einen Platzhalter an, der den Ordner
+löscht; ohne die Korrektur kommt „GESPERRT“, mit ihr „WEG“. Regel: Eine Datei, die sich selbst verschiebt oder ihren eigenen Ordner löscht, gehört
+mit Start AUS diesem Ordner getestet — und eine Reparatur an Installer oder Deinstaller ist erst fertig, wenn sie auf einem sauberen Rechner einmal
+vollständig durchlief (Installation bis Deinstallation), nicht wenn die Einzelschritte grün sind.
+*Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP13, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L52. Wer in fremde Dateien schreibt, ändert nur seine Zeile, prüft das Ergebnis und hat einen Rückfall — und was nach dem Löschen der eigenen
+Datei kommt, läuft nie.** Zwei Funde der Gegenprobe: (a) Der Deinstaller las die Konfiguration von Claude, entfernte den Eintrag und schrieb die
+GANZE Datei neu — in der Formatierung von Windows PowerShell (siebenmal so groß, anderer Leerraum, `"mcpServers": {}` als Rest). Inhaltlich gleich,
+aber es ist nicht seine Datei. Jetzt wird nur der Eintrag aus dem Text genommen; ein Zähler für Klammern kennt Zeichenketten, das Komma geht mit, und
+das Ergebnis wird gegen die erwartete Fassung geprüft (beide geparst und verglichen). Stimmt es nicht, gilt der alte Weg — so kann die neue Fassung
+nichts schlechter machen als die alte. (b) `cmd` liest eine Batch-Datei Zeile für Zeile von der Platte. Löscht Schritt [5/7] die Ursprungsdatei, bricht
+die wartende `cmd.exe` vor dem `del` in der nächsten Zeile still ab; die Kopie in `%TEMP%` blieb liegen. Was nach dem Löschen der eigenen Datei noch laufen soll,
+steht in DERSELBEN Zeile. Beide Fälle hat kein Test gesehen, der die Datei nur las; sie fielen auf einem echten Rechner auf und wurden mit Tests
+gesichert, die den echten Text der Datei ausführen (Platzhalter für den Rest, alles im Temp-Ordner).
+*Belege:* Gegenprobe Hotfix 1.7.153 (05.10.2026), #1170 PP16/PP17, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L53. `for /f` führt den Befehl über `cmd /c` aus — und `cmd /c` schneidet Anführungszeichen ab.** Am Ende jeder gelungenen Installation im 1.8-Zweig stand
+„Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, und die Einstellung zum Aufräumen (nie, fragen, immer) kam nie an.
+Die Zeile `for /f "usebackq" %%E in (`"python.exe" "skript.py" arg "ordner"`)` beginnt mit einem Anführungszeichen und hat mehr als zwei: `cmd` entfernt das
+erste und das letzte, übrig bleibt ein Befehl mit unpassenden Zeichen. Pfade ohne Leerzeichen helfen nicht; die Regel zählt Anführungszeichen, nicht Leerzeichen.
+Ein zusätzliches Paar um den ganzen Befehl (`` `""python.exe" "skript.py" arg "ordner""` ``) behebt es. Kein Test hatte die Zeile je ausgeführt; sie fiel
+beim dritten vollständigen Durchlauf auf dem frischen Rechner auf, als der Installer-Abschluss zum ersten Mal bis zum Ende angesehen wurde. Der Test führt
+jetzt die ECHTE Zeile aus (Kopie des Basis-Python als Laufzeit, ein Skript, das „nie“ meldet). Regel: Jede Zeile mit `for /f` oder `cmd /c` und mehreren
+Anführungszeichen gehört mit dem echten Text und einem Stand-in ausgeführt, nicht nur gelesen.
+*Belege:* Praxisprobe 1.8, dritter Durchlauf (05.10.2026), #1170 PP18, `tests/test_v18_praxisprobe_start.py`
+
+**L54. Unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!` — eine Fehlermarke `[!!]` sagt dann nichts.** Beim Bau der Frage nach den 830 MB (PP10)
+zeigte der Test für die gesperrte Datei „[]“ statt „[!!]“. Dieselbe Schreibweise steckte in zehn alten Meldungen des Installers und des Deinstallers
+(„… konnte nicht entfernt werden“, „Datei in Benutzung?“): wer einen Fehler hatte, sah leere eckige Klammern vor dem Text. Kein Test hatte diese Meldungen je
+ausgeführt; sie prüften Dateien und Rückgabewerte, und die Texte erschienen nur im Fehlerfall. Maskiert wird mit `^^!^^!` (wie bei „Willkommen^^!“ im Installer).
+Zwei Tests sichern es: einer liest beide Dateien und verbietet die ungeschützte Schreibweise außerhalb von Kommentaren, einer führt das echte Unterprogramm mit
+einer gesperrten Datei aus und erwartet die Marke im Wortlaut. Regel: Eine Meldung, die nur im Fehlerfall erscheint, gehört einmal im Fehlerfall ausgeführt und
+im Wortlaut gelesen — ein Test, der nur „kein Absturz“ prüft, übersieht, dass die Meldung leer ist.
+*Belege:* PP10-Bau (05.10.2026), #1170 PP19, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L55. Wer außerhalb seines Ordners etwas ablegt, nennt es beim Entfernen — und nimmt nur das Seine mit.** Der Installer lädt den Browser für Quellen (Playwright) und füllt
+den Zwischenspeicher von pip, zusammen rund 830 MB außerhalb von `%LOCALAPPDATA%\BewerbungsAssistent`. Der Windows-Deinstaller erwähnte beides nie, macOS und Linux fragten.
+Jetzt fragt er zum Schluss, mit Ort und Größe, und die Vorgabe ist BEHALTEN: beide Ordner gehören nicht PBP allein (jedes Programm mit Playwright nutzt denselben Browser-Ordner,
+jedes Python-Werkzeug den pip-Zwischenspeicher), und ein Deinstaller, der Fremdes mitnimmt, ist schlimmer als einer, der zu wenig entfernt. Von pip geht nur `Cache`, der Ordner
+selbst nur, wenn er danach leer ist — liegt dort die `pip.ini` eines anderen Programms, bleibt sie. In einem Klammerblock steht der Pfad als `!VAR!`, nicht als `%VAR%`:
+ein `)` im Benutzernamen (`Max (privat)`) beendet sonst den Block. Der Test führt das echte Unterprogramm in einem Temp-Ordner aus (`LOCALAPPDATA` umgebogen, QA-Isolation).
+*Belege:* Praxisprobe 1.8 (05.10.2026), #1170 PP10, `tests/test_v18_praxisprobe_deinstaller.py`
+
+**L56. Ein Prüfwerkzeug, das nicht in der CI läuft, veraltet still — und seine Meldung „Muster nicht gefunden“ ist kein Fehler.** Der Lauf aller fünf
+Mutationskataloge vor Beta 16 (237 absichtlich eingebaute Fehler) fand zwei Einträge des Firmen-Katalogs, deren Suchmuster nicht mehr passten: die Einrückung
+in `firma_kontext` hatte sich geändert. Beide Mutationen prüften seither nichts, und der Entwurf des CHANGELOG sagte trotzdem „alle erkannt“. Das Skript
+druckt dann `MUSTER 0x gefunden (Eintrag nachziehen)` und zählt den Eintrag erst am Ende als offen. Nachgezogen; beide Fehler werden von den Tests erkannt.
+Dazu ein Test (`tests/test_v18_mutationskatalog_muster.py`, läuft in der CI): jedes Muster kommt in seiner Datei genau einmal vor, die Kennungen sind eindeutig,
+die Testdateien gibt es — gegen den alten Katalog schlägt er an und nennt fb06 und fb07. Regel: Wer eine Prüfung nur von Hand laufen lässt, braucht einen billigen Test
+für ihre VORAUSSETZUNGEN, sonst merkt es niemand, wenn sie nichts mehr prüft (DoD 8c).
+*Belege:* Beta 16 (06.10.2026), `scripts/mutationstest_auto_update.py`, `tests/test_v18_mutationskatalog_muster.py`
+
+**L57. „Übersprungen“ in der Übersicht eines Pull Requests kann „abgebrochen“ heißen — und abgebrochen ist weder grün noch rot.** Drei Köpfe in Folge zeigten
+`passing 1, skipped 1`; ich meldete „GitHub-Prüfung grün“. In Wahrheit war der Syntax-Job bestanden und der `pytest`-Job nie gelaufen: GitHub fand keinen
+Rechner („The job was not acquired by Runner of type hosted even after multiple attempts“, `steps: []`). Der Lauf endete als `failure`, ohne dass ein Test lief.
+Regel (steht in CLAUDE.md seit #1132, ich habe sie nicht angewandt): vor „CI grün“ und vor jedem Tag den Lauf lesen — `gh run view <id> --json jobs` — und prüfen,
+dass der Test-Job Schritte hat und mit `success` endet; sonst `gh run rerun <id>` und abwarten.
+*Belege:* Läufe 37362918664, 37363604915, 37372302207 (abgebrochen), 37376045112 (grün), 05.10.2026
+
+**L58. Ein Browser-Test, der „manchmal“ rot ist, hat die Seite meist mitten im Aufbau erwischt — erst warten, bis sie ruhig ist, dann handeln.** Die vier Tests
+`test_pp7_*` (ein Knoten wird von außen entfernt, dann wechselt die Verbindung) schlugen lokal in jedem dritten Lauf und in der GitHub-Prüfung zweimal von vier an,
+mit zwei verschiedenen Meldungen. Gefunden mit einem `MutationObserver` und 60 Beobachtungsläufen: der Hinweis, den der Test sucht, erscheint nach 0,3 Sekunden,
+noch bevor die Seite ihren Takt der Live-Aktualisierung gestartet hat; die EINE Änderung, die der Test auslöste, ging am noch nicht gesetzten Ausgangswert vorbei, die Seite
+übernahm den Wechsel nie, und es gab keinen Absturz zu sehen. Behebung: warten, bis der Takt zweimal lief und 1,5 Sekunden nichts Neues kam; die Änderung alle
+drei Sekunden wiederholen, bis das Ziel erreicht ist. 25 Läufe grün (vorher rund ein Drittel rot). Regel: vor dem Eingriff den Zustand der Seite abwarten, nicht die
+Zeit; und ein Test, der zufällig rot ist, wird nicht wiederholt, bis er grün ist, sondern an einem Beobachtungslauf aufgeklärt.
+*Belege:* Beta 16 (06.10.2026), `tests/test_v18_screenshot_generator.py`, GitHub-Läufe 37379191395 und 37379576626
+
+**L59. Eine leere Vergleichsspalte ist ein Befund, kein Gutbefund.** Beim Zurücksetzen des Werkstatt-PCs druckte das Probe-Skript für die Claude-Konfiguration im
+Paketordner `(Basis )` mit leeren Werten, weil der Zugriff auf das zweite Feld der aus JSON gelesenen Liste unter PowerShell 5.1 ins Leere ging; für die erste Konfiguration
+stand dort „False“ und „-“. Es wäre leicht gewesen, „die Prüfsumme sieht ähnlich aus“ zu denken. Stattdessen wurden die Dateien direkt verglichen (Prüfsumme gegen die
+gesicherte Kopie, Inhalt ohne das leere `mcpServers`); dabei fiel auch auf, dass der Installer die Datei neu einrückt (14.762 → 3.393 Bytes). Regel: sieht ein
+Vergleich auf einer Seite „leer“ aus, ist es kein Vergleich; die Gegenprobe nimmt die Rohdaten (Bytes, Prüfsumme), nicht die gleiche Auswertung noch einmal (vgl. L52).
+*Belege:* Werkstatt-PC, 06.10.2026, `docs/internal/praxisprobe-1.8.0.md`
+
+**L60. Ein gefundener Fehler gehört zu einer Klasse — danach ALLE Stellen der Klasse suchen, nicht nur die eine.** PP13 (05.10.) war: ein Fenster erbt den
+Arbeitsordner und hält ihn fest, der Deinstaller konnte seinen Ordner nicht löschen; behoben wurde der Deinstaller. Derselbe Fehler steckt in `INSTALLIEREN.bat`
+(`start … /MIN` für das Dashboard-Fenster) und wurde erst bei der dritten Probe auf einem zweiten Rechner sichtbar (PP20: ein leerer Ordner bleibt stehen).
+Eine Suche nach `start "` und `Start-Process` ohne Arbeitsordner in allen Installern am Tag des ersten Fundes hätte ihn gefunden. Regel: zu jedem Fund einen Satz
+„welche anderen Stellen machen dasselbe?“ und die Suche dazu, noch im selben Zug (DoD 8c: ein Schutz zählt erst, wenn er überall greift).
+Zweites Beispiel, #1177: Ein Klick auf einen Treffer der Suche oben tat seit v1.7.0 nichts — der Server lieferte Adressen (`#bewerbungen?id=…`), die das Dashboard seit H31 nicht mehr
+las, und kein Test klickte je einen Treffer. Dieselbe Klasse („etwas erzeugt ein Sprungziel, niemand liest es“) steckte in den Wegen aus Beta 17: `wege.js` erzeugte `dokumentId` und
+`terminId`, keine Seite las sie. Die Suche nach der Klasse ergab den Test `test_jede_absicht_hat_einen_leser_auf_einer_seite` (zu jedem Schlüssel, den ein Weg erzeugt, eine Lesestelle;
+Ausnahmen mit Grund) und `dashboard_link.hash_ziel` als EINE Adressform für Links und Treffer; je Trefferart klickt ein Browser-Test und prüft, dass das OBJEKT offen ist.
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177
+
+**L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
+sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln
+auslastete — seit März 2026 in jeder Fassung, auch in der Stable-Version. Keine Meldung, kein Absturz; man bemerkt nur einen lauteren Rechner. Ursache: eine Funktion
+aus `useEffectEvent` stand in einer Abhängigkeitsliste (sie ist bei jedem Zeichnen neu, der Effekt startete nach jeder Antwort neu). Regel: zu jeder Seite die Messung
+„zwei Sekunden Ruhe nach dem Laden, dann fünf Sekunden zählen (Anfragen, Rechenzeit)“; ein gesunder Leerlauf liegt bei 0,0 %. Das Muster ist durchsuchbar; ein
+Wächter-Test (mit benanntem Bestand) hält neue Fälle fern.
+*Belege:* #1171, `test_stellen_seite_fragt_im_leerlauf_nicht_hunderte_male`, `test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`
+
+**L62. Ein Weg endet nicht beim Klick, sondern dort, wo das Ergebnis ankommt.** Die Wege A → B (Stelle ansehen, bewerten lassen, bewerben; bei einer Bewerbung nachfassen)
+stimmten Klick für Klick, aber das Ergebnis des Dritten — das Urteil, das Claude gerade speichert — erschien im offenen Fenster nie, und die Seite sprang dabei an den
+Anfang. Ein Weg-Test, der nur klickt, sieht das nicht. Regel: bei jedem Weg, an dem Claude mitschreibt, im Test das Schreiben nachstellen (über den einen Schreibort der
+Datenbank) und prüfen, was der Mensch sieht: kommt es an, bleibt die Leseposition, flackert nichts?
+*Belege:* #1171, `test_urteil_von_claude_kommt_im_offenen_dialog_an`, `test_notiz_von_claude_kommt_in_der_offenen_timeline_an`
+
+**L63. Wer eine Endlosschleife entfernt, prüft, was sie nebenbei erledigt hat.** Die Reparatur der Stellen-Seite war eine Zeile und senkte die Last von 66 % auf 0,2 %.
+Die Gegenprobe der Reparatur selbst — „sieht die Seite eine Suche, die Claude von außen startet, noch?“ — zeigte: vorher nach 0,1 Sekunden (durch Zufall: die Schleife
+fragte ständig), nachher nach 26 Sekunden (die Seite fragte nur alle 30 Sekunden nach, so war es gedacht, hatte aber nie gewirkt). Hätte ich nur „Last gesunken, Tests grün“
+geprüft, wäre ein Hotfix mit einer neuen, stillen Verschlechterung hinausgegangen. Regel: nach dem Abschalten eines Dauerläufers fragen, welche Beobachtung ihn bisher
+unbemerkt als Taktgeber hatte, und genau diesen Weg messen — vorher und nachher, mit demselben Skript.
+*Belege:* #1171, `test_suche_von_claude_steht_nach_wenigen_sekunden_auf_der_seite`, Gegenprobe wg33
+
+**L64. Ein Test richtet seinen Zustand über denselben Weg ein wie der Betrieb — sonst prüft er einen Zustand, den es nie gibt.** Die Liste „eigene Ordner außerhalb des
+Datenordners“ war seit v1.7.59 im Betrieb immer leer: gespeichert wird je Profil, gelesen wurde der Schlüssel ohne Profil. Der Test dazu blieb grün, weil er den Schlüssel selbst
+ohne Profil schrieb — auf dem Weg, den das Produkt nie benutzt. Aufgefallen ist es erst, als eine Oberfläche den Ordner wirklich über den Schreibweg setzte. Dasselbe Bild beim
+„Zurücksetzen“: den Platzhalter „-“ kannte nur das Werkzeug für Claude; der Weg über das Dashboard schickte ihn und bekam 400, am Feld stand nur „HTTP 400“. Regel: den Zustand
+im Test über die öffentliche Schreibfunktion herstellen (hier `ablage.ordner_setzen`), nie über die Tabelle; und bei jedem Wert, der „leer“, „zurücksetzen“ oder „Standard“ kennt,
+den Weg des Menschen (Oberfläche) mit dem Weg von Claude (Werkzeug) vergleichen (vgl. L1).
+*Belege:* #1173, `test_gefahrenzone_nennt_eigene_ablageordner`, `test_rest_leer_und_minus_setzen_den_ordner_zurueck`, Gegenprobe sp25 und sp30
+
+**L65. Zwei Auskünfte zur selben Frage müssen dieselbe Seite sehen — oder jede Meldung muss zu einem Ort führen, an dem man tun kann, was sie verspricht.** Die Seitenleiste sagte
+„Neue Version verfügbar: v1.8.0-beta.18“, die Update-Seite „Aktuell“, und es gab keinen Knopf. Beide stimmten für sich: die allgemeine Prüfung nennt einer Beta-Installation auch
+neuere Betas, die feste Quelle des Auto-Updates nie. Zusammen führte die Meldung in eine Sackgasse; aufgefallen ist es erst, als der Nutzer ihr folgte und „Mit einem Klick“
+gewählt hatte. Regel: wo zwei Quellen dieselbe Frage beantworten („gibt es etwas Neues?“), steht an EINER Stelle, was gilt, wenn sie sich widersprechen; und jede Meldung
+wird im Test bis zum Ziel angeklickt (vgl. L62), mit den Antworten beider Quellen als Attrappen — einmal übereinstimmend, einmal widersprüchlich.
+*Belege:* #1179, `test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe`, Gegenprobe vo01 und vo09

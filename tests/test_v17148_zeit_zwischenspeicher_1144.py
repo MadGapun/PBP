@@ -679,12 +679,17 @@ def _zeile(page):
 def _vorspulen(page, ms, bis, versuche=14):
     """Die Uhr der Seite vorstellen, bis `bis()` wahr ist. Die Antwort auf eine
     Abfrage kommt in Echtzeit; die naechste Frist ist erst danach geplant — darum
-    in Schritten."""
+    in Schritten.
+
+    Je Schritt 1,5 s echte Zeit: Unter Windows meldet eine Verbindung zu einem geschlossenen Anschluss nicht sofort
+    "abgelehnt", sondern erst nach einem Wiederholungsversuch (rund eine Sekunde). Mit 350 ms reichten die 14 Schritte
+    am 05.10.2026 nur noch beim ersten Test der Datei; die folgenden scheiterten, obwohl nichts am Code geaendert war
+    (gleiches Bild am Stand davor)."""
     for _ in range(versuche):
         if bis():
             return True
         page.clock.fast_forward(ms)
-        page.wait_for_timeout(350)
+        page.wait_for_timeout(1500)
     return bis()
 
 

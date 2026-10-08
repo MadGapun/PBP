@@ -1,6 +1,6 @@
 // node frontend/src/lib/quellenBadges.test.mjs
 import assert from "node:assert/strict";
-import { WEG_BROWSER, quellenBadges } from "./quellenBadges.js";
+import { SCHLUESSEL_ORT, WEG_BROWSER, quellenBadges, schluesselFehlt, schluesselHinweis } from "./quellenBadges.js";
 
 const texte = (q, login) => quellenBadges(q, login).map((b) => b.text);
 
@@ -61,5 +61,31 @@ assert.ok(!texte({ ...stepstone, active: false }).includes("Wartet auf dich"));
 // 8. Eine defekte Quelle sagt nur das.
 assert.deepEqual(texte({ defekt: true, zugriffsart: "browser_login", geschwindigkeit: "langsam", login_erforderlich: true }),
   ["Defekt"]);
+
+// ── #1170 U3: eine Quelle, die einen Zugangsschlüssel braucht, sagt es ──────────────────
+const adzuna = { key: "adzuna", name: "Adzuna", active: true, zugriffsart: "api", geschwindigkeit: "schnell", schluessel_noetig: true, schluessel_fehlt: true };
+// Aktiv OHNE Schlüssel ist nicht „Aktiv“: die Quelle läuft, liefert aber nichts.
+assert.ok(texte(adzuna).includes("Aktiv, aber ohne Schlüssel"), texte(adzuna).join(" | "));
+assert.ok(!texte(adzuna).includes("Aktiv"), "kein glattes „Aktiv“ neben dem Hinweis");
+assert.ok(texte(adzuna).includes("Schlüssel nötig"));
+assert.equal(quellenBadges(adzuna).find((b) => b.text === "Aktiv, aber ohne Schlüssel").tone, "amber");
+// Inaktiv: erst „Inaktiv“, aber der Hinweis steht schon vor dem Anhaken da.
+assert.deepEqual(texte({ ...adzuna, active: false }).slice(0, 2), ["Inaktiv", "Schlüssel nötig"]);
+// Mit Schlüssel ist es eine ganz normale Quelle.
+const mitSchluessel = { ...adzuna, schluessel_fehlt: false };
+assert.ok(texte(mitSchluessel).includes("Aktiv") && !texte(mitSchluessel).includes("Schlüssel nötig"));
+// Quellen ohne Schlüssel-Pflicht sehen aus wie vorher.
+assert.ok(!texte({ active: true, zugriffsart: "api", geschwindigkeit: "schnell" }).some((x) => /Schlüssel/.test(x)));
+// Eine defekte Quelle sagt nur das.
+assert.deepEqual(texte({ ...adzuna, defekt: true }), ["Defekt"]);
+// Die Meldung beim Anhaken: Name, Folge und Ort — und kein Hinweis, wenn nichts fehlt.
+assert.equal(schluesselFehlt(adzuna), true);
+assert.equal(schluesselFehlt(mitSchluessel), false);
+assert.equal(schluesselFehlt(null), false);
+const h = schluesselHinweis(adzuna);
+assert.ok(h.text.startsWith("Adzuna braucht einen kostenlosen Zugangsschlüssel"), h.text);
+assert.ok(h.text.includes("findet ohne ihn nichts") && h.text.includes(SCHLUESSEL_ORT));
+assert.equal(h.aktion, "Schlüssel eintragen");
+assert.equal(schluesselHinweis(mitSchluessel), null);
 
 console.log("quellenBadges: ok");

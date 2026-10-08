@@ -54,4 +54,65 @@ assert.equal(hinweisFuer({ ...ruhig, neueLinie: null }, jetzt), null);
 assert.equal(tageSeit(vorTagen(3), jetzt), 3);
 assert.equal(tageSeit("kaputt", jetzt), null);
 
+// 7. Auto-Update (#1093): was gerade passiert oder gefragt werden muss, steht vor "Quellen" und "Suche".
+const au = (aend) => ({ verfuegbar: true, stufe: "aus", laufend: "1.8.0", aktuell: "1.8.0", neustart_noetig: false,
+  neu: null, job: null, rueckgang: null, blockiert: null, ...aend });
+const neuU = { version: "1.8.1", status: "neu", auszug: ["Etwas wurde besser."], frage_faellig: false };
+const ohneAlt = { ...alles, verbunden: true, updateBekannt: null, ollamaAngebot: false };
+
+// Rückfrage, Rückfall, Lauf, Fehler, Neustart: dringend — vor Quellen (0 aktiv) und vor einer nie gelaufenen Suche.
+for (const [name, a, erwartet] of [
+  ["frage", au({ neu: { ...neuU, frage_faellig: true } }), "update-frage"],
+  ["rueckfall", au({ rueckgang: { von: "1.8.1", nach: "1.8.0" } }), "update-rueckgang"],
+  ["lauf", au({ neu: neuU, job: { status: "laeuft", version: "1.8.1", anteil: 0.2, text: "x" } }), "update-laeuft"],
+  ["fehler", au({ neu: neuU, job: { status: "fehler", version: "1.8.1", text: "x" } }), "update-fehler"],
+  ["neustart", au({ aktuell: "1.8.1", neustart_noetig: true }), "update-neustart"],
+]) {
+  assert.equal(hinweisFuer({ ...ohneAlt, autoUpdate: a }, jetzt).id, erwartet, name);
+}
+// ...aber nicht vor der fehlenden Verbindung zu Claude: die ist die Voraussetzung für alles andere.
+assert.equal(hinweisFuer({ ...ohneAlt, verbunden: false, autoUpdate: au({ neu: { ...neuU, frage_faellig: true } }) }, jetzt).id, "verbindung");
+// ...und ohne Profil gibt es keinen Hinweis (der Einstieg erklärt es selbst).
+assert.equal(hinweisFuer({ ...ohneAlt, hatProfil: false, autoUpdate: au({ rueckgang: { von: "a", nach: "b" } }) }, jetzt), null);
+
+// Ein bloß BEKANNTES Update bleibt an Stufe 5: Quellen und Suche gehen vor.
+const bekannt = au({ neu: neuU });
+assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 0, autoUpdate: bekannt }, jetzt).id, "quellen");
+assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 3, autoUpdate: bekannt }, jetzt).id, "suche");
+assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(1), autoUpdate: bekannt }, jetzt).id, "update");
+// Der Rückfall geht allem vor, auch einer stillen Stufe.
+assert.equal(hinweisFuer({ ...ohneAlt, autoUpdate: au({ stufe: "auto_still", rueckgang: { von: "1.8.1", nach: "1.8.0" } }) }, jetzt).id, "update-rueckgang");
+
+// Arbeitet Claude noch mit der älteren Fassung, sagt die Zone es: vor "Quellen" und "Suche", hinter der fehlenden Verbindung.
+const claudeAlt = { status: "connected", version: "1.8.0" };
+const neuerLaeuft = au({ laufend: "1.8.1", aktuell: "1.8.1" });
+assert.equal(hinweisFuer({ ...ohneAlt, quellenAktiv: 0, autoUpdate: neuerLaeuft, mcp: claudeAlt }, jetzt).id, "update-verbindung");
+assert.notEqual(hinweisFuer({ ...ohneAlt, autoUpdate: neuerLaeuft, mcp: { status: "connected", version: "1.8.1" } }, jetzt)?.id, "update-verbindung", "gleiche Fassung: kein Hinweis von hier");
+assert.equal(hinweisFuer({ ...ohneAlt, verbunden: false, autoUpdate: neuerLaeuft, mcp: claudeAlt }, jetzt).id, "verbindung");
+assert.notEqual(hinweisFuer({ ...ohneAlt, autoUpdate: neuerLaeuft, mcp: { status: "disconnected", version: "1.8.0" } }, jetzt)?.id, "update-verbindung");
+
+// Gibt es das Auto-Update hier nicht (aus dem Quellcode, macOS, Linux), gilt der bisherige Hinweis.
+const alt = { ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(1), updateBekannt: { version: "1.8.1", url: "https://example.com" } };
+assert.equal(hinweisFuer({ ...alt, autoUpdate: au({ verfuegbar: false }) }, jetzt).id, "update");
+assert.equal(hinweisFuer({ ...alt, autoUpdate: au({ verfuegbar: false }) }, jetzt).aktion.art, "link");
+assert.equal(hinweisFuer({ ...alt, autoUpdate: null }, jetzt).id, "update");
+// Ist es da, ersetzt der neue Hinweis den alten (kein Doppel).
+assert.equal(hinweisFuer({ ...alt, autoUpdate: au({ neu: neuU }) }, jetzt).aktionen[0].art, "link");
+
+// 8. #1179: eine neuere VORABVERSION — an Stufe 5 (Quellen und Suche gehen vor), mit und ohne verfügbares Auto-Update.
+const vorabV = { version: "1.8.0-beta.18", url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip" };
+const betaU = au({ stufe: "hinweis", laufend: "1.8.0-beta.17", aktuell: "1.8.0-beta.17" });
+const ruhigB = { ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(1) };
+assert.equal(hinweisFuer({ ...ruhigB, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "update-vorab");
+assert.equal(hinweisFuer({ ...ruhigB, quellenAktiv: 0, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "quellen");
+assert.equal(hinweisFuer({ ...ruhigB, letzteSucheAm: vorTagen(9), autoUpdate: betaU, vorab: vorabV }, jetzt).id, "suche");
+assert.equal(hinweisFuer({ ...ruhigB, verbunden: false, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "verbindung");
+assert.equal(hinweisFuer({ ...ruhigB, autoUpdate: betaU }, jetzt), null, "ohne Vorabversion kein Hinweis");
+// ohne verfügbares Auto-Update (macOS, Linux, Quellcode): derselbe Hinweis statt „Einfach drüberinstallieren“
+const ohneAuB = { ...ruhigB, autoUpdate: { verfuegbar: false }, updateBekannt: { version: "1.8.0-beta.18", url: vorabV.url } };
+assert.equal(hinweisFuer({ ...ohneAuB, vorab: vorabV }, jetzt).id, "update-vorab");
+assert.equal(hinweisFuer({ ...ohneAuB, vorab: vorabV }, jetzt).aktionen.length, 2);
+assert.equal(hinweisFuer(ohneAuB, jetzt).id, "update", "ohne Vorabversion bleibt der bisherige Hinweis");
+
 console.log("hinweisZone: ok");

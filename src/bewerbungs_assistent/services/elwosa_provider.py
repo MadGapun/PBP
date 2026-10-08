@@ -130,6 +130,99 @@ def changelog_gemeldet(db, version: str):
     db.set_profile_setting("elwosa_changelog_anzahl", n + 1)
 
 
+# ---------------------------------------------------------------- Kanal 7
+
+#: So lang darf der Titel einer Veroeffentlichung in der Linie werden (die Linie hat 280 Zeichen im Ganzen).
+UPDATE_TITEL_MAX = 120
+_FASSUNG = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,4}(?:-(?:alpha|beta|rc)\.\d{1,3})?$")
+
+
+def _titel_der_veroeffentlichung(name: str) -> str:
+    """'v1.8.0-beta.18 — Die Suche öffnet, was sie findet (Vorabversion)' -> 'Die Suche öffnet, was sie findet'.
+
+    Der Titel einer Veroeffentlichung sagt, was sie verbessert (so steht er auch im CHANGELOG). Traegt der Name nur die
+    Versionsnummer, gibt es keinen Titel.
+    """
+    t = (name or "").strip()
+    for trenner in (" — ", " – ", " - "):
+        if trenner in t:
+            t = t.split(trenner, 1)[1].strip()
+            break
+    else:
+        return ""
+    t = re.sub(r"\s*\((?:Vorabversion|Beta-Linie)\)\s*$", "", t).strip().rstrip(".")
+    return t[:UPDATE_TITEL_MAX].strip()
+
+
+def _fassung_schon_da(version: str) -> bool:
+    """Liegt diese Fassung schon im Programmordner (von Hand oder per Update) und wartet nur auf den Neustart?"""
+    try:
+        from .auto_update import fassung, layout
+        ok, _grund = layout.verfuegbarkeit()
+        app = layout.programmordner()
+        if not ok or app is None:
+            return False
+        aktuell = layout.aktuelle_fassung(app)
+        return bool(aktuell) and not fassung.ist_neuer(version, aktuell)
+    except Exception:
+        return False
+
+
+def update_kandidaten(db) -> list:
+    """Kanal 7 (#1180): eine neue Version ist DA, aber noch nicht installiert.
+
+    Der Changelog-Kanal (Kanal 1) meldet NACH einem Update, was neu ist. Dass eine neue Version erschienen ist, stand nur in
+    der Seitenleiste und in der Hinweiszone. Hier sagt es auch Elwosa: einmal je Version, mit dem Titel der Veroeffentlichung
+    (er sagt, was sie verbessert) und einem Link auf die Veroeffentlichungsnotizen. Eine Vorabversion nennt sie als solche.
+
+    Quelle ist die letzte Antwort der allgemeinen Pruefung (`update_quelle.letzter_befund`), die das Dashboard ohnehin
+    abfragt. Elwosa nimmt keine Eingaben an, darum steht am Ende ein Link und keine Frage.
+    """
+    from . import update_quelle
+    befund = update_quelle.letzter_befund()
+    if not befund or not befund.get("update_available"):
+        return []
+    version = str(befund.get("latest_version") or "").strip()
+    if not _FASSUNG.fullmatch(version):
+        return []
+    if (db.get_profile_setting("elwosa_update_version", "") or "") == version:
+        return []                         # diese Version ist schon gesagt
+    if _fassung_schon_da(version):
+        return []                         # von Hand installiert, wartet nur auf den Neustart
+    if "-" in version:
+        kern = f"Vorabversion {version} ist erschienen"
+        schluss = "Sie kommt nie von selbst; wer sie will, holt sie."
+    else:
+        kern = f"Version {version} ist erschienen"
+        schluss = "Der Rest steht in den Notizen."
+    titel = _titel_der_veroeffentlichung(befund.get("release_name") or "")
+    from .elwosa import TonfallError, validate_tonfall
+    content = ""
+    for text in ([f"{kern}: {titel}. {schluss}"] if titel else []) + [f"{kern}. {schluss}"]:
+        try:
+            validate_tonfall(text)
+        except TonfallError:
+            continue                      # ein Titel gegen die Sprach-DNA: dann ohne Titel, nicht stumm
+        content = text
+        break
+    if not content:
+        return []
+    return [Candidate(
+        content=content,
+        trigger_kind="update_neu",
+        trigger_ref=version,
+        dedup_key=f"update:{version}",
+        link_url=befund.get("release_url") or f"https://github.com/MadGapun/PBP/releases/tag/v{version}",
+        link_label="Zu den Notizen",
+        prioritaet=0,
+    )]
+
+
+def update_gemeldet(db, version: str) -> None:
+    """Nach erfolgreichem Post vermerken: diese Version ist gesagt."""
+    db.set_profile_setting("elwosa_update_version", version)
+
+
 # ---------------------------------------------------------------- Kanal 6
 
 def betriebslage_kandidaten(db) -> list:
@@ -196,10 +289,12 @@ def betriebslage_kandidaten(db) -> list:
 
     # 3 — Repost einer frueher beworbenen Stelle im aktiven Bestand (#782)
     try:
-        from ..duplicate_detection import find_repost_of_application
+        from ..duplicate_detection import (
+            find_repost_of_application, firmen_kanon)
         bewerbungen = db.get_applications()
+        kanon = firmen_kanon(db)  # #1080: einmal, nicht je Stelle
         for j in db.get_active_jobs()[:100]:
-            rep = find_repost_of_application(j, bewerbungen)
+            rep = find_repost_of_application(j, bewerbungen, kanon=kanon)
             if rep:
                 # v1.7.143 (#1126): eine LAUFENDE Bewerbung ist kein
                 # "schon mal" und ihre Anzeige kein Repost.
@@ -230,7 +325,7 @@ def betriebslage_kandidaten(db) -> list:
 def alle_kandidaten(db) -> list:
     """Alle Provider abfragen, Ereignis-Kandidaten zuerst."""
     out: list = []
-    for provider in (betriebslage_kandidaten, changelog_kandidaten):
+    for provider in (betriebslage_kandidaten, update_kandidaten, changelog_kandidaten):
         try:
             out.extend(provider(db))
         except Exception:

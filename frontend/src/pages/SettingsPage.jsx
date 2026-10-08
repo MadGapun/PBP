@@ -5,11 +5,16 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
+import UpdatesTab from "@/components/UpdatesTab";
+import SpeicherTab from "@/components/SpeicherTab";
+import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
+import { schluesselHinweis } from "@/lib/quellenBadges";
 import {
   anzeigeText as downloadText,
   istEnde as downloadEnde,
@@ -1700,7 +1705,7 @@ function LernprotokollSection() {
           ))}
           <div className="flex items-center justify-between pt-1">
             <p className="text-xs text-muted">
-              Basis: deine Aussortier-Entscheidungen + Nutzungsmuster (#594).
+              Basis: deine Aussortier-Entscheidungen + Nutzungsmuster.
             </p>
             <button type="button" onClick={alleZuruecksetzen}
               className={`text-xs ${confirmReset ? "text-coral font-semibold" : "text-muted hover:text-coral"}`}
@@ -1762,7 +1767,10 @@ function OllamaAccuracyCard() {
 // #973: Wohin PBP schreibt und woher es die Vorlage nimmt.
 // Ein ungueltiger Pfad wird vom Server ABGEWIESEN und nicht gespeichert —
 // die Karte zeigt die Begruendung, statt Erfolg zu melden (#988).
-function AblageOrdnerCard({ pushToast }) {
+//
+// #1173: dieselbe Komponente steht an ZWEI Orten — als eigene Karte unter Einstellungen › Ordner und (`eingebettet`) in der Karte
+// „Deine eigenen Ordner“ unter Speicher & Downloads. `onGespeichert` sagt der Speicher-Seite, dass sie neu messen soll.
+function AblageOrdnerCard({ pushToast, onGespeichert, eingebettet = false }) {
   const [stand, setStand] = useState(null);
   const [ausgabe, setAusgabe] = useState("");
   const [vorlagen, setVorlagen] = useState("");
@@ -1788,7 +1796,9 @@ function AblageOrdnerCard({ pushToast }) {
     setSpeichert(art);
     setFehler((f) => ({ ...f, [art]: null }));
     try {
-      const d = await putJson("/api/settings/ablage", { art, pfad: pfad.trim() || "-" });
+      // Leer heisst „zuruecksetzen“ und wird auch leer geschickt: ein Platzhalter wie „-“ wurde vom Server als relativer Pfad gelesen und
+      // abgewiesen, das Zuruecksetzen endete seit v1.7.59 mit „HTTP 400“ (#1173).
+      const d = await putJson("/api/settings/ablage", { art, pfad: pfad.trim() });
       setStand(d);
       pushToast(
         art === "ausgabe"
@@ -1800,10 +1810,11 @@ function AblageOrdnerCard({ pushToast }) {
               : "Vorlagen-Ordner zurückgesetzt — PBP nutzt das eingebaute Layout."),
         "success",
       );
+      onGespeichert?.();
     } catch (err) {
-      // Der Server liefert die Begruendung im Body; sie gehoert an das
-      // Feld, nicht in einen Toast, der wieder verschwindet.
-      const text = String(err?.message || err);
+      // Der Server liefert die Begruendung im Body (`hinweis`); sie gehoert an das Feld, nicht in einen Toast, der wieder verschwindet.
+      // `err.message` allein war oft nur „HTTP 400“ — der Mensch erfuhr nie, WARUM sein Pfad nicht gespeichert wurde (#1173).
+      const text = String(err?.payload?.hinweis || err?.message || err);
       setFehler((f) => ({ ...f, [art]: text }));
       pushToast("Der Pfad wurde nicht gespeichert — siehe Begründung am Feld.", "amber");
     } finally {
@@ -1811,13 +1822,8 @@ function AblageOrdnerCard({ pushToast }) {
     }
   }
 
-  return (
-    <Card className="rounded-2xl">
-      <SectionHeading
-        title="Ordner für Dokumente und Vorlagen"
-        description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
-      />
-
+  const felder = (
+    <>
       <Field label="Ausgabe-Ordner (leer = Datenordner von PBP)">
         <div className="flex flex-wrap items-center gap-2">
           <TextInput
@@ -1837,12 +1843,16 @@ function AblageOrdnerCard({ pushToast }) {
         werden direkt dort abgelegt. Kein Umkopieren mehr.
       </p>
       {fehler.ausgabe && <p className="mt-2 text-[13px] text-coral">{fehler.ausgabe}</p>}
-      {stand.ausgabe_befund === "ausweich" && (
+      {/* Eingebettet sagt die Karte darueber schon, wohin die Dateien gehen (Pfad oder Hinweis). Dasselbe darunter nochmal zu lesen
+          verwirrt nur: bei verschwundenem Ordner stand der Satz zweimal da. Der Pfad bleibt nur dort, wo der Hinweis ihn nicht nennt. */}
+      {stand.ausgabe_befund === "ausweich" && !eingebettet && (
         <p className="mt-2 text-[13px] text-amber">{stand.hinweis_ausgabe}</p>
       )}
-      <p className="mt-2 text-[12px] text-muted">
-        Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
-      </p>
+      {(!eingebettet || stand.ausgabe_befund === "ausweich") && (
+        <p className="mt-2 text-[12px] text-muted">
+          Aktuell: <span className="font-mono">{stand.ausgabe_ordner}</span>
+        </p>
+      )}
 
       <div className="mt-5 border-t border-white/5 pt-4">
         <Field label="Vorlagen-Ordner (leer = eingebautes Layout)">
@@ -1870,6 +1880,20 @@ function AblageOrdnerCard({ pushToast }) {
         {fehler.vorlagen && <p className="mt-2 text-[13px] text-coral">{fehler.vorlagen}</p>}
         <p className="mt-2 text-[12px] text-muted">{stand.hinweis_vorlagen}</p>
       </div>
+    </>
+  );
+
+  // Eingebettet (Speicher & Downloads) steht die Ueberschrift schon in der Karte darueber.
+  if (eingebettet) {
+    return <div className="mt-4 border-t border-white/5 pt-4" data-ablage-eingebettet>{felder}</div>;
+  }
+  return (
+    <Card className="rounded-2xl">
+      <SectionHeading
+        title="Ordner für Dokumente und Vorlagen"
+        description="Wohin PBP erzeugte Dateien legt — und woher es dein Layout nimmt."
+      />
+      {felder}
     </Card>
   );
 }
@@ -3289,7 +3313,7 @@ function ErweiterungenTab({ pushToast }) {
                         {k.quelle === "pbp" ? "Installiert" : "Extern gefunden"}
                         {k.version ? ` · v${k.version}` : ""}
                       </Badge>
-                    ) : läuft ? (
+                    ) : laeuft ? (
                       <Badge tone="amber">Installation läuft</Badge>
                     ) : (
                       <Badge tone="neutral">Nicht installiert</Badge>
@@ -3657,6 +3681,14 @@ export default function SettingsPage() {
       pushToast(`Quelle konnte nicht aktualisiert werden: ${error.message}`, "danger");
       return;
     }
+    // #1170 U3: ohne Schlüssel liefert die Quelle nichts — sagen, wo er hingehört, mit einem Sprung dorthin.
+    const hinweis = checked ? schluesselHinweis(source) : null;
+    if (hinweis) {
+      pushToast(hinweis.text, "amber", {
+        duration: 14000,
+        action: { label: hinweis.aktion, onClick: () => setSettingsTab("erweiterungen") },
+      });
+    }
     // #1075: wer eine Quelle abwaehlt, will ihre Treffer meist auch nicht
     // mehr im Bestand haben — genau hier entsteht der Wunsch. Gefragt wird
     // nur, wenn es etwas zu entfernen gibt.
@@ -3998,6 +4030,11 @@ export default function SettingsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* Praxisprobe 1.8 (#1170): ein Anzeigefehler in EINEM Reiter darf die anderen nicht mitreissen.
+            Die Grenze in App.jsx gilt je Seite; ohne diese hier blieb nach einem Absturz jeder Reiter der
+            Einstellungen kaputt (die Seitenleiste tat nichts mehr), bis man neu lud. key = Reiter: ein
+            Wechsel setzt die Grenze zurueck. Die Grenze zeichnet nichts eigenes, das Layout bleibt gleich. */}
+        <ErrorBoundary key={settingsTab}>
         {/* ── Quellen Tab ── */}
         {settingsTab === "quellen" && (
           <>
@@ -4038,6 +4075,9 @@ export default function SettingsPage() {
               />
             </Card>
 
+            {/* v1.8 (#947): Mail-Ordner als Quelle - Vorgabe AUS, Liste der freigegebenen Ordner */}
+            <MailQuelleCard />
+
             {/* v1.7.0-beta.33 (#590-C): Health-Score-Tab */}
             <ScraperHealthCard pushToast={pushToast} />
           </>
@@ -4046,6 +4086,18 @@ export default function SettingsPage() {
         {/* ── v1.7.0 (#583): Lokale KI Tab ── */}
         {settingsTab === "claude" && (
           <KIFeaturesCard pushToast={pushToast} />
+        )}
+
+        {/* ── v1.8 (#1093): Updates (Auto-Update) ── */}
+        {settingsTab === "updates" && (
+          <UpdatesTab />
+        )}
+
+        {/* ── v1.8 (#1131): Speicher & Downloads ── */}
+        {settingsTab === "speicher" && (
+          // #1173: die Ordner des Menschen (Ausgabe, Vorlagen) lassen sich dort aendern, wo sie angezeigt werden — dieselbe Karte
+          // wie unter „Ordner“; nach dem Speichern misst die Seite neu.
+          <SpeicherTab ordnerEditor={(neuMessen) => <AblageOrdnerCard pushToast={pushToast} eingebettet onGespeichert={neuMessen} />} />
         )}
 
         {settingsTab === "ai" && (
@@ -4692,6 +4744,7 @@ export default function SettingsPage() {
             <UninstallSection pushToast={pushToast} />
           </div>
         )}
+        </ErrorBoundary>
       </div>
     </div>
   );
@@ -4976,6 +5029,7 @@ function UninstallSection({ pushToast }) {
   const [busy, setBusy] = useState(false);
   const [info, setInfo] = useState(null);
   const [befehl, setBefehl] = useState("");
+  const [befehlHinweis, setBefehlHinweis] = useState("");
 
   useEffect(() => {
     let aktiv = true;
@@ -4997,6 +5051,8 @@ function UninstallSection({ pushToast }) {
         // Kein Terminal gefunden — ein Weg, den der Mensch selbst gehen
         // kann, ist immer noch besser als eine Fehlermeldung.
         setBefehl(result.befehl || "");
+        // Der Hinweis kommt vom Server und sagt, WARUM der Weg nicht ging (kein Terminal, Fenster liess sich nicht oeffnen).
+        setBefehlHinweis(result.hinweis || "Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:");
         pushToast(result.hinweis || "Bitte den Befehl unten ausführen.", "amber");
       } else {
         pushToast(
@@ -5043,7 +5099,7 @@ function UninstallSection({ pushToast }) {
           </div>
           <p className="text-sm text-muted">
             Gib <strong className="text-ink">DEINSTALLIEREN</strong> ein, um die
-            Komplett-Deinstallation zu starten. Es oeffnet sich ein neues Fenster
+            Komplett-Deinstallation zu starten. Es öffnet sich ein neues Fenster
             mit den Deinstaller-Fragen.
             {doppelklick ? (
               <> Alternativ: <strong className="text-ink">{doppelklick}</strong> im
@@ -5072,9 +5128,7 @@ function UninstallSection({ pushToast }) {
 
         {befehl ? (
           <div className="rounded-xl border border-amber/30 bg-amber/[0.05] p-3">
-            <p className="text-[12px] text-amber">
-              Kein Terminal gefunden. Diesen Befehl in einem Terminal ausführen:
-            </p>
+            <p className="text-[12px] text-amber">{befehlHinweis}</p>
             <code className="mt-1.5 block break-all rounded-lg bg-black/20 px-2 py-1.5 text-[12px] text-ink">
               {befehl}
             </code>

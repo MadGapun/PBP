@@ -17,12 +17,21 @@
  *   4. Suche empfohlen (neutral; dringlich erst nach 7 Tagen)
  *   5. Update bekannt (nur ein BEKANNTES Update; "Stand unbekannt" ist
  *      kein Banner, sondern steht in den Einstellungen)
+ *   5a. Eine neuere VORABVERSION (#1179; genannt mit dem Weg dorthin, nie von selbst installiert)
  *   5b. Eine höhere Linie ist erschienen (#1168; nur genannt, nie angeboten —
  *      der Wechsel geht einmal von Hand)
  *   6. Ollama-Angebot (erst nach abgeschlossenem Einstieg)
  *
+ * Auto-Update (#1093): was gerade passiert oder gefragt werden muss (Rückfall
+ * auf die vorige Version, ein Lauf, ein Fehler, "Neustart nötig", die
+ * Rückfrage nach der Stufe) steht gleich hinter der Verbindung und vor
+ * "Quellen" und "Suche" — es wartet nicht hinter einer Suchempfehlung. Die
+ * Regeln dafür stehen in lib/autoUpdate.js (`updateHinweis`).
+ *
  * Framework-frei, damit der Node-Test die Reihenfolge prüfen kann.
  */
+
+import { updateHinweis, vorabHinweis } from "./autoUpdate.js";
 
 export const SUCHE_DRINGEND_NACH_TAGEN = 7;
 
@@ -37,7 +46,8 @@ export function tageSeit(iso, jetzt = new Date()) {
 /**
  * @param {object} lage
  *   seite, verbunden (true/false/null=unbekannt), hatProfil,
- *   quellenAktiv, letzteSucheAm (ISO), updateBekannt ({version, url}),
+ *   quellenAktiv, letzteSucheAm (ISO), updateBekannt ({version, url}), mcp (Verbindung zu Claude),
+ *   vorab ({version, url, zip} aus `vorabNeu`: eine neuere Vorabversion, #1179),
  *   neueLinie ({version, linie, url, titel, text} aus neueLinieHinweis),
  *   ollamaAngebot (bool), einstiegFertig (bool)
  * @returns {null | {id, ton, titel, text, aktion}}
@@ -58,6 +68,8 @@ export function hinweisFuer(lage, jetzt = new Date()) {
     // Der Einstieg auf dem Dashboard erklärt das selbst — kein zweiter Hinweis.
     return null;
   }
+  const upd = updateHinweis(lage.autoUpdate, { releaseUrl: lage.updateBekannt?.url, mcp: lage.mcp, vorab: lage.vorab });
+  if (upd?.dringend) return upd;
   if (!lage.quellenAktiv) {
     return {
       id: "quellen",
@@ -80,7 +92,11 @@ export function hinweisFuer(lage, jetzt = new Date()) {
       aktion: { art: "jobsuche", label: "Jobsuche starten" },
     };
   }
-  if (lage.updateBekannt?.version) {
+  if (upd) return upd;
+  // Ohne Installer-Layout (aus dem Quellcode gestartet, macOS, Linux) gilt der bisherige Hinweis.
+  if (!lage.autoUpdate?.verfuegbar && lage.updateBekannt?.version) {
+    // Eine Vorabversion sagt, dass sie nie von selbst kommt, und zeigt beide Wege (#1179).
+    if (lage.vorab) return vorabHinweis(lage.vorab);
     return {
       id: "update",
       ton: "neutral",

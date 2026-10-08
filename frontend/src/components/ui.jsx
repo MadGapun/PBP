@@ -697,7 +697,7 @@ export function Modal({ open, title, description, onClose, children, footer, siz
             </span>
           </div>
         ) : null}
-        <div className="soft-scrollbar max-h-[calc(90vh-10rem)] overflow-y-auto px-6 py-5">{children}</div>
+        <div data-modal-koerper className="soft-scrollbar max-h-[calc(90vh-10rem)] overflow-y-auto px-6 py-5">{children}</div>
         {footer ? <div className="border-t border-white/6 px-6 py-4">{footer}</div> : null}
       </div>
     </div>,

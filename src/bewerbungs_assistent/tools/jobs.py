@@ -2661,7 +2661,12 @@ def register(mcp, db, logger):
         # Stufe A: laufende Bewerbung mit Titel-Match → blocken
         # Stufe B: identische AKTIVE Stelle → idempotent vorhandenen Hash zurueck
         # Stufe C: aussortierte/abgelehnte Eintraege blocken NICHT mehr
-        from ..duplicate_detection import find_duplicate_job
+        from ..duplicate_detection import find_duplicate_job, firmen_kanon
+
+        # #1080: die bestaetigten Schreibweisen aus den Firmen-Eintraegen
+        # (frueherer Name, Kurzform) - einmal gelesen, in allen Stufen
+        # unten gebraucht. None = keine Eintraege, dann wie bisher.
+        kanon = firmen_kanon(db)
 
         # v1.6.9 (#567): nur LAUFENDE Bewerbungen blocken — abgeschlossene
         # (abgelehnt/abgelaufen/zurueckgezogen/angenommen) sind kein Hindernis
@@ -2677,7 +2682,8 @@ def register(mcp, db, logger):
         uebersteuerter_verdacht = None
 
         # Stufe A — laufende Bewerbung mit Titel-Match?
-        app_hit = find_duplicate_job(firma, titel, url, running_apps)
+        app_hit = find_duplicate_job(firma, titel, url, running_apps,
+                                     kanon=kanon)
         if app_hit and force:
             uebersteuerter_verdacht = {
                 "stufe": "laufende_bewerbung",
@@ -2705,6 +2711,9 @@ def register(mcp, db, logger):
                     f"Match-Grund: {app_hit['grund']}"
                     + (f", gemeinsame Tokens: {app_hit.get('shared_tokens')}"
                        if app_hit.get("shared_tokens") else "")
+                    + (f". Laut den Firmen-Einträgen sind '{app.get('company')}' "
+                       f"und '{firma}' dieselbe Firma"
+                       if app_hit.get("firma_via") else "")
                     + ". Die Stelle wurde NICHT angelegt. "
                     "Falls es sich tatsächlich um eine andere Stelle handelt, "
                     "ergänze den Titel eindeutig (z.B. Projekt- oder Team-Name) "
@@ -2720,7 +2729,8 @@ def register(mcp, db, logger):
         # vorhandenen Hash zurueckgeben statt blocken. Aussortierte Stellen
         # blocken NICHT, weil sie schon mal aktiv abgelehnt wurden.
         active_jobs = db.get_active_jobs(exclude_applied=False)
-        active_hit = find_duplicate_job(firma, titel, url, active_jobs)
+        active_hit = find_duplicate_job(firma, titel, url, active_jobs,
+                                        kanon=kanon)
         if (active_hit and force
                 and active_hit["job"].get("hash") != job_hash):
             uebersteuerter_verdacht = uebersteuerter_verdacht or {
@@ -2781,7 +2791,8 @@ def register(mcp, db, logger):
             wiedergaenger_bewerbung = find_repost_of_application(
                 {"hash": job_hash, "title": titel, "company": firma,
                  "url": url},
-                [a for a in all_apps if not _laeuft(a.get("status"))], db=db)
+                [a for a in all_apps if not _laeuft(a.get("status"))], db=db,
+                kanon=kanon)
         except Exception as exc:  # pragma: no cover — nie die Anlage kippen
             # Sichtbar statt debug: hier verschwand ein NameError still,
             # und mit ihm der Hinweis auf eine abgelehnte Bewerbung.
@@ -2797,15 +2808,31 @@ def register(mcp, db, logger):
         laufende_bewerbung_verdacht = None
         try:
             from ..duplicate_detection import (
-                find_inhalt_repost, find_vermittler_bewerbung)
+                find_inhalt_repost, find_vermittler_bewerbung,
+                normalize_company_name)
             # Kandidaten ueber das erste Wort des Namens holen: `LIKE
             # %firma%` faende "Muster AG" nicht unter "Muster AG & Co. KG".
             # Den genauen Vergleich macht die Normalisierung.
             _kern = next((w for w in re.split(r"[\s,(]+", firma or "")
                           if len(w) >= 4), firma)
+            _kandidaten = list(db.get_company_jobs(_kern))
+            if kanon is not None:
+                # #1080: dieselbe Firma steht auch unter ihrem frueheren
+                # Namen oder ihrer Kurzform im Bestand - die Suche ueber
+                # den Namen allein fand sie nicht.
+                _bekannt = {c.get("hash") for c in _kandidaten}
+                for _form in kanon.formen_von(normalize_company_name(firma)):
+                    _wort = next((w for w in _form.split() if len(w) >= 4),
+                                 _form)
+                    if len(_wort) < 3:
+                        continue
+                    for _c in db.get_company_jobs(_wort):
+                        if _c.get("hash") not in _bekannt:
+                            _bekannt.add(_c.get("hash"))
+                            _kandidaten.append(_c)
             _treffer = find_inhalt_repost(
-                firma, titel, beschreibung, db.get_company_jobs(_kern),
-                own_hash=job_hash)
+                firma, titel, beschreibung, _kandidaten,
+                own_hash=job_hash, kanon=kanon)
             if _treffer:
                 _alt = _treffer["job"]
                 repost_verdacht = {
@@ -2826,7 +2853,8 @@ def register(mcp, db, logger):
             # Dieselbe Frage, dieselbe Regel: hier als Hinweis, denn
             # Stufe A blockt, und das soll sie nur bei der strengen Regel.
             if not uebersteuerter_verdacht:
-                _lb = find_duplicate_job(firma, titel, "", running_apps)
+                _lb = find_duplicate_job(firma, titel, "", running_apps,
+                                         kanon=kanon)
                 if _lb:
                     _app = _lb["job"]
                     laufende_bewerbung_verdacht = {
@@ -2841,7 +2869,7 @@ def register(mcp, db, logger):
                             "Gleiche Vakanz, neu ausgeschrieben? Dann "
                             "stelle_mergen() statt einer zweiten Stelle."),
                     }
-            _vb = find_vermittler_bewerbung(firma, running_apps)
+            _vb = find_vermittler_bewerbung(firma, running_apps, kanon=kanon)
             if _vb:
                 vermittler_bewerbung = {
                     "bewerbung_id": (_vb.get("id") or "")[:8],
@@ -4608,6 +4636,12 @@ def register(mcp, db, logger):
                 result["beschreibung_unvollstaendig"] = True
                 result["beschreibung_hinweis"] = _kappung
         result["url"] = job_dict.get("url", "")
+        # #1080: von der Stelle zur Firma mit einem Aufruf (Historie ueber alle Schreibweisen und Rollen).
+        try:
+            from ..services import firmen_bezuege as _fb_oeffnen
+            result["firma_oeffnen"] = _fb_oeffnen.oeffnen_aufrufe(job_dict.get("company"))
+        except Exception as exc:  # noqa: BLE001 — eine Zugabe
+            logger.debug("firma_oeffnen nicht berechenbar: %s", exc)
         # #436: Warne wenn URL nur auf Suchergebnis-Seite zeigt
         if job_dict.get("is_search_url"):
             result["url_warnung"] = (

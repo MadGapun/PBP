@@ -100,8 +100,12 @@ def _config(tmp_path, daten=ANDERE, mit_bom=True, roh=None):
 
 
 def _entfernen(ordner):
+    """Der Deinstaller sucht auch unter LOCALAPPDATA/Packages (Store-Fassung) - die muss auf den Temp-Ordner zeigen, sonst
+    liefe der Test gegen die ECHTE Claude-Konfiguration dieses Rechners (QA-Isolation)."""
     z = _zeile_nach(":remove_claude_entry", "powershell")
-    return _lauf(_befehl(z), {"APPDATA": str(ordner)})
+    lokal = ordner.parent / "Local"
+    assert str(ordner.parent).lower() != os.environ.get("LOCALAPPDATA", "").lower()
+    return _lauf(_befehl(z), {"APPDATA": str(ordner), "LOCALAPPDATA": str(lokal)})
 
 
 @nur_windows
