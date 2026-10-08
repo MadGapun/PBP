@@ -554,7 +554,11 @@ Zweites Beispiel, #1177: Ein Klick auf einen Treffer der Suche oben tat seit v1.
 las, und kein Test klickte je einen Treffer. Dieselbe Klasse („etwas erzeugt ein Sprungziel, niemand liest es“) steckte in den Wegen aus Beta 17: `wege.js` erzeugte `dokumentId` und
 `terminId`, keine Seite las sie. Die Suche nach der Klasse ergab den Test `test_jede_absicht_hat_einen_leser_auf_einer_seite` (zu jedem Schlüssel, den ein Weg erzeugt, eine Lesestelle;
 Ausnahmen mit Grund) und `dashboard_link.hash_ziel` als EINE Adressform für Links und Treffer; je Trefferart klickt ein Browser-Test und prüft, dass das OBJEKT offen ist.
-*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177
+Drittes Beispiel, #1184: Die Regel „der Text entscheidet, nicht die Angabe der Quelle“ (B63/#1072, JobSpy: `is_remote` ungeprüft) wurde für den JobSpy-Weg gebaut. Der Weg über den
+Browserlauf (`stelle_manuell_anlegen`, `remote` vom Aufrufer) trug dieselbe Klasse und fiel erst auf, als Googles „Homeoffice“ eine rund 570 km entfernte Stelle nach oben sortierte.
+Die Frage „welcher Weg schreibt `remote_level` aus einer fremden Angabe?“ ergab `services/google_angaben` als EINE Entscheidung, ob eine Angabe schon belegt ist. Dieselbe Klasse bei der
+Dublettenprüfung beim Anlegen: sie sah nur Aktives, aber nie Aussortiertes (`find_aussortierte_dublette`).
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177; #1184
 
 **L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
 sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln

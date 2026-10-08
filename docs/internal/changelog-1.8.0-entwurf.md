@@ -83,10 +83,11 @@ Einträgen darunter.
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): neun Kataloge, 350 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): zehn Kataloge, 383 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
-  Scrollen); der Test wurde gehärtet, danach wird er erkannt.
+  Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
+  nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
 
 ### Changed
 
@@ -175,6 +176,14 @@ Einträgen darunter.
   nur zufällig. Jetzt liest sie Bytes und sucht nach dem Namen (`services/konsole.py`); die PowerShell-Aufrufe (Desktop-Pfad, Verknüpfung „Ollama beenden“, Store-Start von
   Claude) lesen in der Kodierung der Konsole, mit Ersatzzeichen statt Abbruch (ein Desktop-Pfad mit „ü“ brach sonst ebenso ab). Ein Wächter-Test verlangt bei jedem `text=True`
   im Quelltext eine Kodierung. Gegenprobe: Katalog „konsole“, 11 absichtlich eingebaute Fehler.
+- **Stellen aus Google Jobs behaupteten ein Arbeitsmodell und einen Ort, die nur auf Googles Karte standen** (#1184; seit `stelle_manuell_anlegen`, auch in der stabilen Version). Ein Treffer mit
+  „Beliebiger Ort, Homeoffice“ wurde als `remote` angelegt: die Entfernung fiel weg, der Rahmenscore stieg, und die Stelle — in Wahrheit rund 570 km entfernt und nur mit „mobilem Arbeiten“ —
+  wäre nach oben sortiert worden. Jetzt gelten Remote und Ort einer Google-Stelle erst, wenn das Original vorliegt (Detail-URL des Arbeitgebers und Anzeigentext, `services/google_angaben`):
+  davor entscheidet der Text über das Arbeitsmodell (sonst `unbekannt`, dieselbe Regel wie bei JobSpy, B63), und die Entfernung wird nicht aus Googles Ort gerechnet. Wird das Original mit
+  `stelle_bearbeiten` nachgetragen, holt PBP beides nach. Gegenprobe: Katalog „google“, 33 absichtlich eingebaute Fehler.
+- **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
+  Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
+  (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
 
 ### Known Issues
 
