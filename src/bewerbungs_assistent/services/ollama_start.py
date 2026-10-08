@@ -44,6 +44,8 @@ import subprocess
 import sys
 import threading
 
+from .konsole import konsole_kodierung
+
 logger = logging.getLogger(__name__)
 
 # Der Schluessel in `profile_settings`. Bewusst in derselben Familie wie
@@ -358,7 +360,7 @@ def _systemdienst_aktiv() -> bool:
         return False
     try:
         r = subprocess.run(["systemctl", "is-active", "ollama"],
-                           capture_output=True, text=True, timeout=5)
+                           capture_output=True, encoding="utf-8", errors="replace", timeout=5)
         return r.stdout.strip() == "active"
     except Exception:
         return False
@@ -497,9 +499,9 @@ def _desktop_ordner():
             r = subprocess.run(
                 ["powershell", "-NoProfile", "-Command",
                  "[Environment]::GetFolderPath('Desktop')"],
-                capture_output=True, text=True, timeout=20,
+                capture_output=True, encoding=konsole_kodierung(), errors="replace", timeout=20,
                 creationflags=_WIN_OHNE_FENSTER)
-            pfad = r.stdout.strip()
+            pfad = (r.stdout or "").strip()
             if pfad:
                 return Path(pfad)
         except Exception:
@@ -538,7 +540,7 @@ def verknuepfung_anlegen(desktop=None) -> dict:
                   "$s.Save()")
         try:
             r = subprocess.run(["powershell", "-NoProfile", "-Command", befehl],
-                               capture_output=True, text=True, timeout=30,
+                               capture_output=True, encoding=konsole_kodierung(), errors="replace", timeout=30,
                                env=umgebung, creationflags=_WIN_OHNE_FENSTER)
         except Exception as exc:
             return {"status": "fehler", "fehler": str(exc)}

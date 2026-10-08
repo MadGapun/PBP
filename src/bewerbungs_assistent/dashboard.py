@@ -983,7 +983,7 @@ def _extract_document_text(filepath: Path) -> tuple[str, dict | None]:
         try:
             result = subprocess.run(
                 ["antiword", str(filepath)],
-                capture_output=True, text=True, timeout=30
+                capture_output=True, encoding="utf-8", errors="replace", timeout=30
             )
             if result.returncode == 0:
                 extracted = result.stdout
