@@ -27,6 +27,8 @@ import sys
 import threading
 import time
 
+from .konsole import text_lesen
+
 logger = logging.getLogger(__name__)
 
 _OHNE_FENSTER = 0x08000000      # CREATE_NO_WINDOW
@@ -56,11 +58,13 @@ JA = ("j", "ja", "y", "yes")
 def claude_laeuft(plattform: str, run=subprocess.run) -> bool:
     """Läuft Claude Desktop gerade? (Windows und macOS; sonst nein.)"""
     if plattform == "win32":
+        # Bytes lesen und nach dem ASCII-Namen suchen (#1182): im Textmodus brach der Lese-Thread bei der deutschen Meldung
+        # „… Kriterien ausgeführt.“ ab (OEM-Byte 0x81 gegen cp1252) und druckte einen Traceback ins Dashboard-Fenster.
         r = run(["tasklist", "/FI", "IMAGENAME eq Claude.exe", "/NH"],
-                capture_output=True, text=True, timeout=5, creationflags=_OHNE_FENSTER)
-        return "claude.exe" in (r.stdout or "").lower()
+                capture_output=True, timeout=5, creationflags=_OHNE_FENSTER)
+        return "claude.exe" in text_lesen(r.stdout).lower()
     if plattform == "darwin":
-        r = run(["pgrep", "-x", "Claude"], capture_output=True, text=True, timeout=5)
+        r = run(["pgrep", "-x", "Claude"], capture_output=True, timeout=5)
         return r.returncode == 0
     return False
 
@@ -117,8 +121,8 @@ def neustart_anbieten(plattform: str | None = None, *, frage=input, ausgabe=prin
             return "beendet_und_gestartet"
         try:
             r = run(["powershell", "-NoProfile", "-Command", STORE_START],
-                    capture_output=True, text=True, timeout=30, creationflags=_OHNE_FENSTER)
-            if "ok" in (r.stdout or ""):
+                    capture_output=True, timeout=30, creationflags=_OHNE_FENSTER)
+            if "ok" in text_lesen(r.stdout):
                 ausgabe("  Claude Desktop wird gestartet...")
                 pause(3)
                 return "beendet_und_gestartet"

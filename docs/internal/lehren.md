@@ -400,7 +400,13 @@ drucken, stellen ihre Ausgabe auf `backslashreplace`. Tesseract (Windows) liest 
 das Bild geht ueber die Standardeingabe, die Sprachdaten ueber den Kurzpfad (8.3). Pruefen heisst: den Test mit so einem Pfad laufen
 lassen UND die Zeichentabelle erzwingen (`PYTHONIOENCODING=cp1252`) -- sonst ist er auf einem UTF-8-Rechner gruen und auf dem
 Zielrechner rot.
-*Belege:* #1163 (Installer-Helfer, Selbsttest, pip, Komponenten, Texterkennung), `tests/test_v18_auto_update_pfade.py`, `tests/test_v18_ocr_pfade.py`
+**Nachtrag (#1182, 08.10.2026): die Regel stand hier und wurde trotzdem wieder gebrochen.** `claude_laeuft` las `tasklist` mit `text=True`, und im Fenster stand ein
+`UnicodeDecodeError` -- nur wenn Claude Desktop NICHT lief (die deutsche Meldung „... ausgeführt.“ trägt ein ü), sonst nie; die Prüfung stimmte dabei nur zufällig. Zwei
+Ergänzungen: (1) Programme von Windows (`tasklist`, `taskkill`, `powershell`) schreiben in der Kodierung der KONSOLE (OEM, cp850: ü = 0x81), nicht in UTF-8; dort
+`encoding=konsole_kodierung()` oder Bytes lesen und nach ASCII suchen (`services/konsole.py`); `utf-8` gilt nur fürs eigene Kind. (2) Eine Regel, die nur in dieser Datei steht,
+hält nicht: ein Wächter-Test (`test_1182_waechter_kein_textmodus_mit_der_standardkodierung`) sucht jedes `text=True` ohne Kodierung im Quelltext.
+*Belege:* #1163 (Installer-Helfer, Selbsttest, pip, Komponenten, Texterkennung), `tests/test_v18_auto_update_pfade.py`, `tests/test_v18_ocr_pfade.py`;
+#1182 (`claude_laeuft`, PowerShell-Pfade), `tests/test_v18_konsole_ausgabe_1182.py`, Gegenprobe ko01 bis ko11
 
 ## 14. Auskunft an den Menschen: was beim Update zu lesen steht
 

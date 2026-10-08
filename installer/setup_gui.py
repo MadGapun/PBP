@@ -357,7 +357,7 @@ class InstallerApp:
                 self._log("Erstelle virtuelle Umgebung...", "info")
                 r = subprocess.run(
                     [python_cmd, "-m", "venv", venv_dir],
-                    capture_output=True, text=True, timeout=120
+                    capture_output=True, text=True, errors="replace", timeout=120
                 )
                 if r.returncode != 0 or not os.path.exists(venv_python):
                     self._show_error(
@@ -414,6 +414,7 @@ class InstallerApp:
                         cmd,
                         capture_output=True,
                         text=True,
+                        errors="replace",
                         timeout=600,
                     )
                     if proc.returncode == 0:
@@ -455,7 +456,7 @@ class InstallerApp:
             try:
                 r = subprocess.run(
                     cmd.split() + ["-c", "import sys; print(sys.version_info[:2])"],
-                    capture_output=True, text=True, timeout=10
+                    capture_output=True, text=True, errors="replace", timeout=10
                 )
                 if r.returncode == 0:
                     version = eval(r.stdout.strip())
@@ -489,7 +490,7 @@ class InstallerApp:
         """Run pip command and log result."""
         try:
             full_cmd = [venv_python, "-m", "pip"] + args + ["-q"]
-            r = subprocess.run(full_cmd, capture_output=True, text=True, timeout=300)
+            r = subprocess.run(full_cmd, capture_output=True, text=True, errors="replace", timeout=300)
             if r.returncode == 0:
                 self._log(f"✓ {success_msg}", "ok")
                 return True
@@ -565,7 +566,7 @@ class InstallerApp:
                 "print('OK')"
             )
             r = subprocess.run([venv_python, "-c", test_code],
-                               capture_output=True, text=True, timeout=30)
+                               capture_output=True, text=True, errors="replace", timeout=30)
             return r.returncode == 0 and "OK" in r.stdout
         except Exception:
             return False
