@@ -578,3 +578,10 @@ ohne Profil schrieb — auf dem Weg, den das Produkt nie benutzt. Aufgefallen is
 im Test über die öffentliche Schreibfunktion herstellen (hier `ablage.ordner_setzen`), nie über die Tabelle; und bei jedem Wert, der „leer“, „zurücksetzen“ oder „Standard“ kennt,
 den Weg des Menschen (Oberfläche) mit dem Weg von Claude (Werkzeug) vergleichen (vgl. L1).
 *Belege:* #1173, `test_gefahrenzone_nennt_eigene_ablageordner`, `test_rest_leer_und_minus_setzen_den_ordner_zurueck`, Gegenprobe sp25 und sp30
+
+**L65. Zwei Auskünfte zur selben Frage müssen dieselbe Seite sehen — oder jede Meldung muss zu einem Ort führen, an dem man tun kann, was sie verspricht.** Die Seitenleiste sagte
+„Neue Version verfügbar: v1.8.0-beta.18“, die Update-Seite „Aktuell“, und es gab keinen Knopf. Beide stimmten für sich: die allgemeine Prüfung nennt einer Beta-Installation auch
+neuere Betas, die feste Quelle des Auto-Updates nie. Zusammen führte die Meldung in eine Sackgasse; aufgefallen ist es erst, als der Nutzer ihr folgte und „Mit einem Klick“
+gewählt hatte. Regel: wo zwei Quellen dieselbe Frage beantworten („gibt es etwas Neues?“), steht an EINER Stelle, was gilt, wenn sie sich widersprechen; und jede Meldung
+wird im Test bis zum Ziel angeklickt (vgl. L62), mit den Antworten beider Quellen als Attrappen — einmal übereinstimmend, einmal widersprüchlich.
+*Belege:* #1179, `test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe`, Gegenprobe vo01 und vo09

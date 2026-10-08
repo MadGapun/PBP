@@ -46,6 +46,10 @@ Einträgen darunter.
 - **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
   (aufgeklappt, mit seinem Namen im Suchfeld der Seite), die Mail (ihr Fenster, auch ohne Bewerbung), den Termin (in der Timeline der Bewerbung, am Abschnitt
   „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil, die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
+- **Eine neuere Vorabversion wird überall gleich gemeldet (#1179).** Wer eine Beta nutzt und eine neuere erscheint, sieht in der Seitenleiste „Neue Vorabversion
+  verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nie von selbst, auch nicht mit „Mit einem
+  Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
+  einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180).
 
 ### Added
 
@@ -71,9 +75,16 @@ Einträgen darunter.
   Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,
   Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
   `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
+- **Vorabversionen in der Oberfläche** (#1179): `lib/autoUpdate.js` kennt `istVorabversion`, `vorabNeu` (eine neuere Vorabversion aus der allgemeinen Prüfung, wenn die
+  feste Quelle des Auto-Updates keine kennt und sie nicht schon von Hand installiert ist) und `vorabHinweis`; die Update-Seite zeigt statt „Aktuell“ „Neue Vorabversion“
+  mit einer Karte (Erklärung, drei Schritte, „ZIP herunterladen“, „Veröffentlichung ansehen“), das Dashboard denselben Hinweis in der Hinweiszone (auch ohne verfügbares
+  Auto-Update), die Seitenleiste „Neue Vorabversion verfügbar“; „Jetzt prüfen“ fragt beide Auskünfte.
+- **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
+  dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
+  merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): sieben Kataloge, 311 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): acht Kataloge, 339 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt.
 
@@ -91,6 +102,10 @@ Einträgen darunter.
 ### Fixed
 
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
+  Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des Auto-Updates (`/api/auto-update`) kennt nie eine Vorabversion. Die
+  Seitenleiste folgte der ersten, die Update-Seite der zweiten, und die Hinweiszone des Dashboards zeigte bei verfügbarem Auto-Update gar nichts. Jetzt sagen alle drei
+  dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion weiterhin nie von selbst.
 - **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154). Die Suche lieferte die Zieladresse im Format
   `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte
   außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen —

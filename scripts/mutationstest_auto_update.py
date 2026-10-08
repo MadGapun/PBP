@@ -530,7 +530,87 @@ M_WEGE = [
     ('wg38', 'Offen: die Ueberschrift Ueberfaellig ist nicht mehr rot', 'frontend/src/components/OffenBlock.jsx', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-coral" }', '{ key: "ueberfaellig", label: "Überfällig", ton: "text-muted" }', T_WGO),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE}
+# ── Update-Hinweis fuer Vorabversionen (#1179, G89) und Elwosa nennt eine neue Version (#1180, F49) ──
+T_VO = ["tests/test_v18_update_vorabversion_1179.py"]
+T_EW = ["tests/test_v18_elwosa_update_1180.py"]
+AUL = "frontend/src/lib/autoUpdate.js"
+UT = "frontend/src/components/UpdatesTab.jsx"
+SBL = "frontend/src/components/Sidebar.jsx"
+HZ = "frontend/src/lib/hinweisZone.js"
+EWP = "src/bewerbungs_assistent/services/elwosa_provider.py"
+EWE = "src/bewerbungs_assistent/services/elwosa.py"
+
+M_VORAB = [
+    ("vo01", "Update-Seite: statt der Vorabversion steht wieder „Aktuell“", UT,
+     '            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>\n              : zeigeAktuell(au)',
+     '            : zeigeAktuell(au)', T_VO),
+    ("vo02", "Update-Seite: die Karte mit Erklaerung und Weg fehlt", UT,
+     '        {vorab ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>',
+     '        {false ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>', T_VO),
+    ("vo03", "Update-Seite: „Jetzt pruefen“ fragt die allgemeine Pruefung nicht mit", UT,
+     '      if (pfad === "/api/auto-update/pruefen") refreshUpdateInfo?.();\n', '', T_VO),
+    ("vo04", "Update-Seite: „ZIP herunterladen“ oeffnet die Veroeffentlichung statt des ZIP", UT,
+     '<Button size="sm" onClick={() => oeffneAdresse(vorab.zip)}', '<Button size="sm" onClick={() => oeffneAdresse(vorab.url)}', T_VO),
+    ("vo05", "Regel: eine von Hand installierte Vorabversion gilt weiter als neu", AUL,
+     '  if (istSchonInstalliert(au, version)) return null;\n', '', T_VO),
+    ("vo06", "Regel: eine fertige neue Version verdraengt die Vorabversion nicht mehr", AUL,
+     '  if (au?.neu) return null;\n', '', T_VO),
+    ("vo07", "Regel: die Adresse des ZIP zeigt auf einen Zweig statt auf den Tag", AUL,
+     'const ARCHIV_ADRESSE = "https://github.com/MadGapun/PBP/archive/refs/tags/";',
+     'const ARCHIV_ADRESSE = "https://github.com/MadGapun/PBP/archive/refs/heads/";', T_VO),
+    ("vo08", "Regel: auch eine fertige Version gilt als Vorabversion", AUL,
+     '  return Boolean(k) && k[3] !== 9;\n', '  return Boolean(k);\n', T_VO),
+    ("vo09", "Seitenleiste: der Knopf nennt eine Vorabversion „Neue Version“", SBL,
+     '                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}\n                </button>',
+     '                  Neue Version verfügbar: v{brand.updateVersion}\n                </button>', T_VO),
+    ("vo10", "Seitenleiste: der Link nennt eine Vorabversion „Neue Version“", SBL,
+     '                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}\n                </a>',
+     '                  Neue Version verfügbar: v{brand.updateVersion}\n                </a>', T_VO),
+    ("vo11", "Dashboard: die Vorabversion kommt nicht in die Hinweiszone", "frontend/src/pages/DashboardPage.jsx",
+     '    vorab: vorabNeu(autoUpdate, updateInfo),\n', '', T_VO),
+    ("vo12", "Hinweiszone: updateHinweis bekommt die Vorabversion nicht", HZ,
+     'mcp: lage.mcp, vorab: lage.vorab });', 'mcp: lage.mcp });', T_VO),
+    ("vo13", "Hinweiszone: ohne Auto-Update gilt wieder der alte Hinweis fuer die Vorabversion", HZ,
+     '    if (lage.vorab) return vorabHinweis(lage.vorab);\n', '', T_VO),
+    ("vo14", "Regel: updateHinweis kennt keine Vorabversion", AUL,
+     '  if (!neu) return extra.vorab ? vorabHinweis(extra.vorab) : null;\n', '  if (!neu) return null;\n', T_VO),
+    ("vo15", "Kontext: die Update-Seite kann die allgemeine Pruefung nicht anstossen", "frontend/src/App.jsx",
+     '    refreshUpdateInfo: () => setUpdateFrageNr((n) => n + 1),\n', '', T_VO),
+    ("vo16", "Hilfe: die FAQ nennt Vorabversionen nicht", "frontend/src/lib/hilfe.js",
+     'Eine neuere Vorabversion (Beta) nennt PBP', 'Eine neuere Fassung nennt PBP', T_VO),
+    ("ew01", "Elwosa: eine unbrauchbare Version wird trotzdem gesagt", EWP,
+     '    if not _FASSUNG.fullmatch(version):\n        return []\n', '    if False:\n        return []\n', T_EW),
+    ("ew02", "Elwosa: dieselbe Version wird immer wieder gesagt", EWP,
+     '    if (db.get_profile_setting("elwosa_update_version", "") or "") == version:\n        return []                         # diese Version ist schon gesagt\n',
+     '', T_EW),
+    ("ew03", "Elwosa: eine von Hand installierte Version wird noch gesagt", EWP,
+     '    if _fassung_schon_da(version):\n        return []                         # von Hand installiert, wartet nur auf den Neustart\n',
+     '', T_EW),
+    ("ew04", "Elwosa: nach dem Posten wird die Version nicht vermerkt", EWE,
+     '    if msg_id and cand.trigger_kind == "update_neu":', '    if False and cand.trigger_kind == "update_neu":', T_EW),
+    ("ew05", "Elwosa: ein Titel gegen die Sprach-DNA laesst die Linie stumm statt ohne Titel", EWP,
+     '        except TonfallError:\n            continue                      # ein Titel gegen die Sprach-DNA: dann ohne Titel, nicht stumm\n',
+     '        except TonfallError:\n            pass\n', T_EW),
+    ("ew06", "Elwosa: eine Vorabversion wird nicht als solche genannt", EWP,
+     '    if "-" in version:\n', '    if False:\n', T_EW),
+    ("ew07", "Elwosa: der Kanal steht vor der Betriebslage", EWP,
+     '    for provider in (betriebslage_kandidaten, update_kandidaten, changelog_kandidaten):',
+     '    for provider in (update_kandidaten, betriebslage_kandidaten, changelog_kandidaten):', T_EW),
+    ("ew08", "Elwosa: die Linie traegt keinen Link", EWP,
+     '        link_url=befund.get("release_url") or f"https://github.com/MadGapun/PBP/releases/tag/v{version}",\n', '        link_url="",\n', T_EW),
+    ("ew09", "Elwosa: die Pruefung merkt ihren Befund nicht", "src/bewerbungs_assistent/dashboard.py",
+     '    _uq.befund_merken(result)   # #1180: Elwosa nennt eine neue Version, ohne selbst zu fragen\n', '', T_EW),
+    ("ew10", "Elwosa: der Kanal fehlt in der Liste der Kanaele", EWP,
+     '    for provider in (betriebslage_kandidaten, update_kandidaten, changelog_kandidaten):',
+     '    for provider in (betriebslage_kandidaten, changelog_kandidaten):', T_EW),
+    ("ew11", "Elwosa: „schon installiert“ vergleicht verkehrt herum", EWP,
+     '        return bool(aktuell) and not fassung.ist_neuer(version, aktuell)\n',
+     '        return bool(aktuell) and fassung.ist_neuer(version, aktuell)\n', T_EW),
+    ("ew12", "Elwosa: ein langer Titel wird nicht gekuerzt", EWP,
+     '    return t[:UPDATE_TITEL_MAX].strip()\n', '    return t.strip()\n', T_EW),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -539,6 +619,7 @@ GRUNDLAEUFE = {
     "firmen": (("T_FI", T_FI),),
     "wege": (("T_WG", T_WG),),
     "suche": (("T_SU", T_SU),),
+    "vorab": (("T_VO", T_VO), ("T_EW", T_EW)),
 }
 
 WT = None
@@ -589,7 +670,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
