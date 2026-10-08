@@ -8073,6 +8073,7 @@ async def api_update_check(frisch: int = 0):
     else:
         _update_cache["fehlversuche"] = 0
 
+    _uq.befund_merken(result)   # #1180: Elwosa nennt eine neue Version, ohne selbst zu fragen
     _update_cache["ts"] = now
     _update_cache["pause_s"] = pause_s
     _update_cache["data"] = result
