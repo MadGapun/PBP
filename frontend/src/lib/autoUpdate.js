@@ -115,7 +115,8 @@ export function verbindungsAbweichung(au, mcp) {
  *
  * @param {object|null} au  Antwort von GET /api/auto-update
  * @param {object} [extra]  { releaseUrl } — die Seite der Veröffentlichung (aus /api/update-check);
- *                          { mcp } — die Verbindung zu Claude (`mcp_connection` aus dem Status)
+ *                          { mcp } — die Verbindung zu Claude (`mcp_connection` aus dem Status);
+ *                          { vorab } — eine neuere Vorabversion (`vorabNeu`), die PBP nennt, aber nie installiert (#1179)
  */
 export function updateHinweis(au, extra = {}) {
   if (!au || !au.verfuegbar) return null;
@@ -174,7 +175,8 @@ export function updateHinweis(au, extra = {}) {
         aktionen: [OPTIONEN],
       };
   }
-  if (!neu) return null;
+  // Keine fertige neue Version: eine neuere VORABVERSION wird genannt, mit dem Weg dorthin (#1179).
+  if (!neu) return extra.vorab ? vorabHinweis(extra.vorab) : null;
 
   if (neu.status === "unvollstaendig") {
     return {
@@ -295,4 +297,67 @@ export function istNeuer(a, b) {
  */
 export function istSchonInstalliert(au, version) {
   return Boolean(au?.verfuegbar && au.aktuell && version && !istNeuer(version, au.aktuell));
+}
+
+// ── Vorabversionen (#1179) ─────────────────────────────────────────────────────────────
+//
+// Zwei Auskünfte zur selben Frage: Die allgemeine Prüfung (GET /api/update-check) nennt einer Beta-Installation auch
+// neuere Betas; die feste Quelle des Auto-Updates (GET /api/auto-update) kennt nie eine Vorabversion — sie werden nie
+// automatisch installiert, und an einer Beta hängt kein Update-Paket. Ohne diese Regeln sagte die Seitenleiste „Neue
+// Version verfügbar“ und die Update-Seite „Aktuell“, ohne einen Knopf (Nutzerfrage 08.10.2026).
+
+const ARCHIV_ADRESSE = "https://github.com/MadGapun/PBP/archive/refs/tags/";
+const RELEASE_ADRESSE = "https://github.com/MadGapun/PBP/releases/tag/";
+
+/** Warum PBP eine Vorabversion nicht von selbst installiert — überall dieser Satz. */
+export const VORAB_ERKLAERUNG = "PBP installiert Vorabversionen nie von selbst, auch nicht mit der Stufe „Mit einem Klick“: "
+  + "Sie sind zum Ausprobieren und können noch Fehler haben.";
+
+/** Der Weg zu einer Vorabversion, in der Reihenfolge der Handgriffe. */
+export const VORAB_SCHRITTE = [
+  "Klicke „ZIP herunterladen“ und entpacke die Datei (Windows: Rechtsklick → „Alle extrahieren“).",
+  "Starte im entpackten Ordner den Installer (Windows: Doppelklick auf INSTALLIEREN.bat, Mac: INSTALLIEREN.command). Einfach drüberinstallieren: Deine Daten bleiben erhalten, und vorher legt der Installer eine Sicherung an.",
+  "Starte danach PBP und Claude Desktop neu, wie nach jedem Update.",
+];
+
+/** Ist das eine Vorabversion (Alpha, Beta, RC)? Eine ungültige Fassung: nein. */
+export function istVorabversion(fassung) {
+  const k = fassungsSchluessel(fassung);
+  return Boolean(k) && k[3] !== 9;
+}
+
+/**
+ * Eine neuere VORABVERSION, die PBP nennt, aber nie von selbst installiert — oder null.
+ *
+ * @param {object|null} au    Antwort von GET /api/auto-update
+ * @param {object|null} info  Antwort von GET /api/update-check
+ * @returns {{version: string, url: string, zip: string}|null}
+ */
+export function vorabNeu(au, info) {
+  if (!info?.update_available) return null;
+  const version = typeof info.latest_version === "string" ? info.latest_version : "";
+  if (!istVorabversion(version)) return null;
+  // Eine fertige neue Version geht vor und hat ihren eigenen Weg (Hinweis „Jetzt installieren“).
+  if (au?.neu) return null;
+  // Schon von Hand installiert und nur noch nicht neu gestartet: kein „Update verfügbar“ mehr.
+  if (istSchonInstalliert(au, version)) return null;
+  return {
+    version,
+    url: info.release_url || `${RELEASE_ADRESSE}v${version}`,
+    zip: `${ARCHIV_ADRESSE}v${version}.zip`,
+  };
+}
+
+/** Der Hinweis für die Hinweiszone des Dashboards: kurz, mit beiden Wegen (ZIP laden, Veröffentlichung lesen). */
+export function vorabHinweis(vorab) {
+  return {
+    id: "update-vorab", ton: "neutral", dringend: false,
+    titel: `Neue Vorabversion verfügbar: v${vorab.version}`,
+    text: "PBP installiert Vorabversionen nie von selbst. Zum Ausprobieren: ZIP laden und den Installer darin starten "
+      + "(Windows: INSTALLIEREN.bat) — einfach drüberinstallieren, deine Daten bleiben erhalten.",
+    aktionen: [
+      { art: "link", url: vorab.zip, label: "ZIP herunterladen" },
+      { art: "link", url: vorab.url, label: "Veröffentlichung ansehen" },
+    ],
+  };
 }

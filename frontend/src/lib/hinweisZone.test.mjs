@@ -99,4 +99,20 @@ assert.equal(hinweisFuer({ ...alt, autoUpdate: null }, jetzt).id, "update");
 // Ist es da, ersetzt der neue Hinweis den alten (kein Doppel).
 assert.equal(hinweisFuer({ ...alt, autoUpdate: au({ neu: neuU }) }, jetzt).aktionen[0].art, "link");
 
+// 8. #1179: eine neuere VORABVERSION — an Stufe 5 (Quellen und Suche gehen vor), mit und ohne verfügbares Auto-Update.
+const vorabV = { version: "1.8.0-beta.18", url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip" };
+const betaU = au({ stufe: "hinweis", laufend: "1.8.0-beta.17", aktuell: "1.8.0-beta.17" });
+const ruhigB = { ...ohneAlt, quellenAktiv: 3, letzteSucheAm: vorTagen(1) };
+assert.equal(hinweisFuer({ ...ruhigB, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "update-vorab");
+assert.equal(hinweisFuer({ ...ruhigB, quellenAktiv: 0, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "quellen");
+assert.equal(hinweisFuer({ ...ruhigB, letzteSucheAm: vorTagen(9), autoUpdate: betaU, vorab: vorabV }, jetzt).id, "suche");
+assert.equal(hinweisFuer({ ...ruhigB, verbunden: false, autoUpdate: betaU, vorab: vorabV }, jetzt).id, "verbindung");
+assert.equal(hinweisFuer({ ...ruhigB, autoUpdate: betaU }, jetzt), null, "ohne Vorabversion kein Hinweis");
+// ohne verfügbares Auto-Update (macOS, Linux, Quellcode): derselbe Hinweis statt „Einfach drüberinstallieren“
+const ohneAuB = { ...ruhigB, autoUpdate: { verfuegbar: false }, updateBekannt: { version: "1.8.0-beta.18", url: vorabV.url } };
+assert.equal(hinweisFuer({ ...ohneAuB, vorab: vorabV }, jetzt).id, "update-vorab");
+assert.equal(hinweisFuer({ ...ohneAuB, vorab: vorabV }, jetzt).aktionen.length, 2);
+assert.equal(hinweisFuer(ohneAuB, jetzt).id, "update", "ohne Vorabversion bleibt der bisherige Hinweis");
+
 console.log("hinweisZone: ok");

@@ -48,6 +48,7 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import HinweisZone from "@/components/HinweisZone";
 import { STARTSATZ } from "@/lib/startsatz";
 import { hinweisFuer } from "@/lib/hinweisZone";
+import { vorabNeu } from "@/lib/autoUpdate";
 import { neueLinieHinweis } from "@/lib/updateStand";
 import OffenBlock from "@/components/OffenBlock";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
@@ -524,6 +525,7 @@ export default function DashboardPage() {
       ? { version: updateInfo.latest_version, url: updateInfo.release_url }
       : null,
     autoUpdate,
+    vorab: vorabNeu(autoUpdate, updateInfo),
     mcp: chrome.status?.mcp_connection,
     neueLinie: neueLinieHinweis(updateInfo),
     ollamaAngebot: false,

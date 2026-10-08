@@ -15,7 +15,10 @@ import { useState } from "react";
 import { postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, TextInput } from "@/components/ui";
-import { INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, zeigeAktuell } from "@/lib/autoUpdate";
+import {
+  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_ERKLAERUNG, VORAB_SCHRITTE,
+  claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabNeu, zeigeAktuell,
+} from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
 
@@ -32,7 +35,7 @@ const ERGEBNIS = {
 };
 
 export default function UpdatesTab() {
-  const { autoUpdate: au, refreshAutoUpdate, autoUpdateAktion, pushToast, chrome } = useApp();
+  const { autoUpdate: au, refreshAutoUpdate, refreshUpdateInfo, updateInfo, autoUpdateAktion, pushToast, chrome } = useApp();
   const [busy, setBusy] = useState("");
   const [vorgaenger, setVorgaenger] = useState(null);
 
@@ -44,6 +47,9 @@ export default function UpdatesTab() {
       await postJson(pfad, daten);
       if (erfolg) pushToast(erfolg, "success");
       await refreshAutoUpdate();
+      // #1179: „Jetzt prüfen“ fragt BEIDE Auskünfte (die feste Quelle des Auto-Updates und die allgemeine Prüfung), sonst
+      // widersprechen sie sich bis zur nächsten Abfrage.
+      if (pfad === "/api/auto-update/pruefen") refreshUpdateInfo?.();
     } catch (error) {
       pushToast(`Das hat nicht geklappt: ${error.message}`, "danger");
     } finally {
@@ -85,6 +91,8 @@ export default function UpdatesTab() {
   }
 
   const neu = au.neu;
+  // #1179: eine neuere Vorabversion nennt die allgemeine Prüfung, die feste Quelle des Auto-Updates kennt sie nie.
+  const vorab = vorabNeu(au, updateInfo);
   const lauf = laeuft(au);
   const dauerhaft = au.blockiert?.dauerhaft ? au.blockiert : null;
   const pruefung = au.pruefung;
@@ -108,7 +116,9 @@ export default function UpdatesTab() {
               <Badge tone={abweichung ? "amber" : "neutral"}>Claude: v{claude}</Badge>
             </span>
           ) : null}
-          {neu ? <Badge tone="success">Neu: v{neu.version}</Badge> : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
+          {neu ? <Badge tone="success">Neu: v{neu.version}</Badge>
+            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>
+              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
             <RefreshCw size={14} className="mr-1 inline" /> {busy === "/api/auto-update/pruefen" ? "Prüfe …" : "Jetzt prüfen"}
@@ -133,6 +143,23 @@ export default function UpdatesTab() {
               ? `Claude arbeitet noch mit Version ${abweichung.claude}, PBP selbst läuft schon mit Version ${abweichung.dashboard}. Beende Claude Desktop komplett (Rechtsklick auf das Symbol in der Taskleiste → „Beenden“) und starte es neu.`
               : `Claude arbeitet schon mit Version ${abweichung.claude}, dieses Fenster läuft noch mit Version ${abweichung.dashboard}. Beende PBP und starte es über die Verknüpfung „PBP Bewerbungs-Portal“ neu.`}
           </p>
+        ) : null}
+        {vorab ? (
+          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>
+            <p className="font-semibold text-ink">Vorabversion {vorab.version}</p>
+            <p className="mt-1 text-sm text-ink">{VORAB_ERKLAERUNG}</p>
+            <p className="mt-2 text-sm text-muted">So kommst du an sie:</p>
+            <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-muted">
+              {VORAB_SCHRITTE.map((schritt) => <li key={schritt}>{schritt}</li>)}
+            </ol>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={() => oeffneAdresse(vorab.zip)}
+                title="Öffnet den Download des ZIP von den offiziellen GitHub-Veröffentlichungen.">
+                <Download size={14} className="mr-1 inline" /> ZIP herunterladen
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => oeffneAdresse(vorab.url)}>Veröffentlichung ansehen</Button>
+            </div>
+          </div>
         ) : null}
         {neu ? (
           <div className="mt-4 rounded-xl border border-line/40 bg-shell/40 p-4" data-updates-neu>

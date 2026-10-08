@@ -1306,6 +1306,8 @@ export default function App() {
     // Auto-Update (#1093)
     autoUpdate,
     refreshAutoUpdate: () => setAutoUpdateNr((n) => n + 1),
+    // #1179: „Jetzt prüfen“ auf der Update-Seite fragt auch die allgemeine Prüfung (sofort, nicht erst nach der Pause).
+    refreshUpdateInfo: () => setUpdateFrageNr((n) => n + 1),
     autoUpdateAktion,
     updateSchonInstalliert,
     themeMode,

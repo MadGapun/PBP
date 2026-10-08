@@ -19,6 +19,7 @@
  */
 
 import { sichereAdresse } from "@/lib/webAdresse";
+import { istVorabversion } from "@/lib/autoUpdate";
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Link2, Link2Off } from "lucide-react";
 
@@ -148,12 +149,12 @@ export default function Sidebar({
                 <button type="button" onClick={brand.onUpdateOptionen} data-update-stand="neu"
                   title="Zeigt die Update-Optionen: Hinweis, Ein-Klick-Update oder automatisch."
                   className="text-left text-xs font-medium text-sky hover:underline">
-                  Neue Version verfügbar: v{brand.updateVersion}
+                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}
                 </button>
               ) : (
                 <a href={sichereAdresse(brand.updateUrl)} target="_blank" rel="noopener noreferrer"
                   className="text-xs font-medium text-sky hover:underline" data-update-stand="neu">
-                  Neue Version verfügbar: v{brand.updateVersion}
+                  {istVorabversion(brand.updateVersion) ? "Neue Vorabversion verfügbar" : "Neue Version verfügbar"}: v{brand.updateVersion}
                 </a>
               )
             ) : null}

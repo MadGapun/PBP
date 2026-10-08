@@ -5,6 +5,7 @@ import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
   NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
+  VORAB_ERKLAERUNG, VORAB_SCHRITTE, istVorabversion, vorabHinweis, vorabNeu,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -213,5 +214,63 @@ assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false 
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: true }), false, "nach der Installation nicht „Aktuell“ neben „Ab dem nächsten Neustart“");
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false }), false);
 assert.equal(zeigeAktuell(null), false);
+
+// ── #1179: eine neuere VORABVERSION wird genannt, aber nie von selbst installiert ──────────────────────────────────
+// Befund (08.10.2026, Beta 17): die Seitenleiste sagte „Neue Version verfügbar: v1.8.0-beta.18“, die Update-Seite „Aktuell“,
+// und es gab keinen Knopf. Zwei Auskünfte zur selben Frage: die allgemeine Prüfung nennt einer Beta-Installation auch Betas,
+// die feste Quelle des Auto-Updates nie.
+assert.equal(istVorabversion("1.8.0-beta.18"), true);
+assert.equal(istVorabversion("1.8.0-rc.1"), true);
+assert.equal(istVorabversion("1.8.0-alpha.2"), true);
+assert.equal(istVorabversion("1.8.0"), false, "eine fertige Version ist keine Vorabversion");
+assert.equal(istVorabversion("keine fassung"), false);
+assert.equal(istVorabversion(null), false);
+
+const betaAu = { verfuegbar: true, stufe: "hinweis", laufend: "1.8.0-beta.17", aktuell: "1.8.0-beta.17", neustart_noetig: false,
+  neu: null, job: null, rueckgang: null, blockiert: null };
+const betaInfo = { update_available: true, latest_version: "1.8.0-beta.18",
+  release_url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18" };
+const v = vorabNeu(betaAu, betaInfo);
+assert.deepEqual(v, { version: "1.8.0-beta.18", url: betaInfo.release_url,
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip" });
+assert.equal(vorabNeu(betaAu, { ...betaInfo, release_url: "" }).url, "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
+  "ohne Adresse in der Antwort: die Seite des Tags");
+
+// nichts Neues oder nichts Verwertbares: nichts
+assert.equal(vorabNeu(betaAu, { ...betaInfo, update_available: false }), null);
+assert.equal(vorabNeu(betaAu, null), null);
+assert.equal(vorabNeu(betaAu, { update_available: true }), null);
+assert.equal(vorabNeu(betaAu, { update_available: true, latest_version: "keine fassung" }), null);
+assert.equal(vorabNeu(betaAu, { update_available: true, latest_version: "1.8.0-beta.18/../x" }), null, "kein fremder Text im Link");
+// eine fertige neue Version ist keine Vorabversion: sie hat ihren eigenen Weg („Jetzt installieren“)
+assert.equal(vorabNeu(betaAu, { ...betaInfo, latest_version: "1.8.0" }), null);
+assert.equal(vorabNeu({ ...betaAu, neu: { version: "1.8.0", status: "neu" } }, betaInfo), null, "die fertige Version geht vor");
+// von Hand installiert, nur der Neustart steht aus: kein „neu“ mehr
+assert.equal(vorabNeu({ ...betaAu, aktuell: "1.8.0-beta.18", neustart_noetig: true }, betaInfo), null);
+// ohne Auto-Update (macOS, Linux, aus dem Quellcode) gilt dieselbe Auskunft; es gibt dort keinen „installiert“-Vergleich
+assert.equal(vorabNeu(null, betaInfo).version, "1.8.0-beta.18");
+assert.equal(vorabNeu({ verfuegbar: false }, betaInfo).version, "1.8.0-beta.18");
+
+// der Hinweis: sagt, dass PBP sie nie von selbst installiert, und zeigt beide Wege
+let vh = updateHinweis(betaAu, { vorab: v });
+assert.equal(vh.id, "update-vorab");
+assert.equal(vh.dringend, false, "kein Vordrängeln vor Quellen und Suche");
+assert.match(vh.titel, /^Neue Vorabversion verfügbar: v1\.8\.0-beta\.18$/);
+assert.match(vh.text, /nie von selbst/);
+assert.deepEqual(vh.aktionen.map((a) => [a.art, a.label]), [["link", "ZIP herunterladen"], ["link", "Veröffentlichung ansehen"]]);
+assert.deepEqual(vh.aktionen.map((a) => a.url), [v.zip, v.url]);
+assert.deepEqual(vorabHinweis(v), vh, "derselbe Hinweis auch ohne verfügbares Auto-Update");
+assert.equal(updateHinweis(betaAu, {}), null, "ohne Vorabversion bleibt es still");
+assert.equal(updateHinweis(betaAu), null);
+// Rangfolge: was gerade passiert, geht vor; eine fertige neue Version hat ihren eigenen Hinweis
+assert.equal(updateHinweis({ ...betaAu, rueckgang: { von: "1.8.0-beta.18", nach: "1.8.0-beta.17" } }, { vorab: v }).id, "update-rueckgang");
+assert.equal(updateHinweis({ ...betaAu, job: { status: "laeuft", version: "1.8.0", anteil: 0.3 } }, { vorab: v }).id, "update-laeuft");
+assert.equal(updateHinweis({ ...betaAu, neustart_noetig: true }, { vorab: v }).id, "update-neustart");
+assert.equal(updateHinweis({ ...betaAu, neu }, { vorab: v }).id, "update", "die fertige Version geht vor");
+// die Erklärung und der Weg stehen an EINER Stelle (Update-Seite und Hilfe nehmen sie von hier)
+assert.match(VORAB_ERKLAERUNG, /nie von selbst/);
+assert.match(VORAB_ERKLAERUNG, /Mit einem Klick/, "die Stufe, die der Nutzer gewählt hatte, wird genannt");
+assert.equal(VORAB_SCHRITTE.length, 3);
+assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
 
 console.log("autoUpdate: ok");
