@@ -33,6 +33,118 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-beta.19] - 2026-10-08 — Neue Versionen werden überall gleich gemeldet, und beim Start steht kein Fehlertext mehr (Vorabversion)
+
+<!-- anwender -->
+Vorabversion zum Ausprobieren: Erscheint eine neuere Beta, sagen es die Seitenleiste, die Seite Einstellungen › Updates und das Dashboard jetzt gleich — mit dem Weg dorthin (ZIP laden, Installer starten). Elwosa nennt die neue Version ebenfalls, einmal je Version, mit einem Link zu den Veröffentlichungsnotizen.
+Und startest du PBP, während Claude Desktop nicht läuft, steht im schwarzen Fenster kein Python-Fehlertext mehr.
+<!-- /anwender -->
+
+> **Prerelease.** Gegenüber beta.18 ist nur das hier neu (die Datenbank bleibt auf dem Schema v52):
+>
+> - **Von beta.18 auf beta.19:** einfach drüberinstallieren (ZIP laden, `INSTALLIEREN.bat`); vorher legt der Installer wie immer eine Sicherung an.
+> - **Das automatische Aktualisieren installiert nie eine Vorabversion.** Neue Betas holst du wie diese: ZIP laden, `INSTALLIEREN.bat`.
+> - **Zurück zu 1.7.x:** erst `DEINSTALLIEREN.bat` (deine Bewerbungsdaten bleiben, solange du bei der Frage danach nicht „LOESCHEN“ tippst),
+> dann das ZIP von v1.7.156 installieren. Soll auch die Datenbank zurück auf v48, beendest du PBP und kopierst die Sicherung aus `data\backups\` als `pbp.db` in den Datenordner; was seit der Sicherung eingetragen wurde, fehlt dann.
+
+Diese Beta setzt zwei Funde und einen Wunsch aus dem Ausprobieren von beta.17 um: die Seitenleiste, die eine neue Beta meldete, während die Update-Seite „Aktuell“ sagte und keinen Knopf hatte (#1179), den Wunsch, dass Elwosa die neue Version nennt (#1180), und den Python-Fehler im Fenster beim Start ohne laufendes Claude Desktop (#1182). Der Fehler im Fenster steckte auch in der stabilen Version und ist dort als Hotfix v1.7.156 erschienen; die Meldung der Vorabversion betrifft nur diese Linie.
+
+**Wichtig zu wissen:**
+
+- **Eine neuere Vorabversion wird überall gleich gemeldet.** Die Seitenleiste sagt „Neue Vorabversion verfügbar“; die Seite Einstellungen › Updates zeigt statt „Aktuell“ „Neue Vorabversion“ mit einer Karte: warum PBP sie nicht von selbst installiert (auch nicht mit „Mit einem Klick“), drei Schritte und die Knöpfe „ZIP herunterladen“ und „Veröffentlichung ansehen“; das Dashboard zeigt denselben Hinweis. „Jetzt prüfen“ fragt beide Auskünfte, die allgemeine Prüfung und die des automatischen Aktualisierens.
+- **Elwosa nennt eine neue Version.** Sobald die allgemeine Prüfung eine findet, einmal je Version, mit dem Titel der Veröffentlichung und einem Link „Zu den Notizen“; eine Vorabversion als solche. Elwosa schweigt, wenn die Version schon installiert ist, und erscheint nur, wenn die lokale KI aktiv ist. Wie bei allen Meldungen von Elwosa gelten die Einstellungen zu Tonfall und Pause.
+- **Beim Start ohne laufendes Claude Desktop steht kein Fehlertext mehr im Fenster.** Die Prüfung „läuft Claude Desktop?“ las die deutsche Antwort von Windows mit der falschen Kodierung. Dieselbe Ursache steckte an drei weiteren Stellen (Desktop-Pfad, Verknüpfung „Ollama beenden“, Start von Claude aus dem Microsoft Store); ein Wächter-Test verlangt jetzt bei jedem Aufruf, der Text liest, eine Kodierung.
+- **Noch nicht drin:** ein Schalter für Tester, der eine Vorabversion auf Wunsch mit einem Klick installiert (Frage am Issue #1179); Kontakte, Firmen und Aufgaben in der Suche (Frage am Issue #1177); die feste Weg-Leiste in jedem Dialog, der Rückweg mit Zustand und die kompakten Listenköpfe (Fragen am Issue #1171).
+
+### Added
+
+- **Vorabversionen in der Oberfläche** (#1179): `lib/autoUpdate.js` kennt `istVorabversion`, `vorabNeu` (eine neuere Vorabversion aus der allgemeinen Prüfung, wenn die feste Quelle des automatischen Aktualisierens keine kennt und sie nicht schon von Hand installiert ist) und `vorabHinweis`; die Update-Seite zeigt „Neue Vorabversion“ mit einer Karte (Erklärung, drei Schritte, „ZIP herunterladen“, „Veröffentlichung ansehen“), das Dashboard denselben Hinweis in der Hinweiszone — auch auf Installationen mit automatischem Aktualisieren, wo dort bisher gar nichts stand —, die Seitenleiste „Neue Vorabversion verfügbar“. Die FAQ nennt den Weg.
+- **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): einmal je Version (gemerkt im Profil-Setting `elwosa_update_version`), mit dem Titel der Veröffentlichung und einem Link auf die Notizen; die Prüfung merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
+- **`services/konsole.py`** (#1182): `konsole_kodierung()` (die Kodierung der Konsole: OEM unter Windows, sonst UTF-8) und `text_lesen()` (Bytes in Text, ohne Abbruch bei unlesbaren Zeichen) — ein Ort dafür, wie die Ausgabe von Konsolenprogrammen gelesen wird.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): neun Kataloge, 350 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37, Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen. Neu sind die Kataloge „Vorab“ (Meldung der Vorabversion, Elwosa-Kanal) und „Konsole“ (Kodierung der Ausgaben).
+
+### Changed
+
+- „Jetzt prüfen“ auf der Update-Seite fragt die allgemeine Prüfung und die des automatischen Aktualisierens (#1179).
+- `systemctl`, `antiword` und der alte Installer mit Fenster (`installer/setup_gui.py`) lesen mit `errors="replace"`; die PowerShell-Aufrufe lesen in der Kodierung der Konsole (#1182).
+
+### Fixed
+
+- **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des automatischen Aktualisierens (`/api/auto-update`) kennt nie eine Vorabversion. Die Seitenleiste folgte der ersten, die Update-Seite der zweiten, und die Hinweiszone des Dashboards zeigte auf Installationen mit automatischem Aktualisieren gar nichts. Jetzt sagen alle drei dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion weiterhin nie von selbst.
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150, auch in der stabilen Version; dort behoben mit v1.7.156). Die Prüfung „läuft Claude Desktop?“ las die Ausgabe von `tasklist` als Text mit der Standardkodierung (cp1252). Läuft Claude nicht, antwortet Windows deutsch „… Kriterien ausgeführt.“; das „ü“ schreibt die Konsole als Byte `0x81` (cp850), das in cp1252 nicht definiert ist — der Lese-Thread von `subprocess` brach ab, ein `UnicodeDecodeError` stand im Fenster, und die Prüfung stimmte nur zufällig. Jetzt liest sie Bytes und sucht nach dem Namen; die PowerShell-Aufrufe (Desktop-Pfad, Verknüpfung „Ollama beenden“, Store-Start von Claude) lesen in der Kodierung der Konsole, mit Ersatzzeichen statt Abbruch (ein Desktop-Pfad mit „ü“ im Benutzernamen brach sonst ebenso ab).
+
+### Known Issues
+
+- Eine Vorabversion lässt sich nicht mit einem Klick installieren; PBP zeigt den Weg (ZIP laden, Installer starten). Ob es dafür einen Schalter für Tester geben soll, steht als Frage am Issue #1179.
+- Kontakte, Firmen und Aufgaben findet die Suche oben noch nicht (Frage am Issue #1177).
+- Google-Jobs-Treffer: Remote und Ort aus Google, aussortierte Dubletten beim Anlegen und Alert-Mails als Stellenquelle sind eingeordnet (#1184), aber nicht Teil dieser Beta.
+- Die drei Fehler an den Ordner-Feldern (#1173) und das rote „Offen“ (#1174) stecken auch in der stabilen Version v1.7.156; behoben sind sie bisher nur in dieser Linie.
+- Die Seiten „Kalender“, „Profil“, „Statistik“ und „Einstellungen“ ersetzen sich beim Nachladen noch durch die Ladeanzeige (offene Fenster dort flackern kurz).
+- Anklickbare Namen (Person, Firma) sind erst beim Darüberfahren unterstrichen; ob sie dauerhaft unterstrichen sein sollen, ist als Frage an #1171 gestellt.
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus beta.17 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3); bei ihnen wurde nichts Auffälliges gemessen, sie sind im Wächter-Test als Bestand benannt.
+- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Wiki-Seiten zu den neuen Funktionen erscheinen erst mit 1.8.0. Bis dahin führt der Knopf „Anleitung“ bei den Mail-Ordnern auf die Startseite
+  des Wikis.
+- Noch nicht in der Praxis gesehen: das Herunterladen der Texterkennung (55 MB) auf einem frischen Rechner, das Drüberinstallieren über eine
+  1.7-Fassung auf einem zweiten Rechner (die Schritte sind in Tests und an Kopien echter Daten geprüft; die Datenbank wird vorher gesichert),
+  das automatische Aktualisieren selbst und der Rückfall auf die vorige Fassung (beides braucht eine zweite veröffentlichte Version).
+
+### Gemessen
+
+51 neue Tests (8.318 gesamt, gezählt im Klon des Zweigs; beta.18 hatte 8.267): 11 in `tests/test_v18_update_vorabversion_1179.py` (im Browser gegen das gebaute Bundle, mit Attrappen für die Antworten des Servers: Seitenleiste und Update-Seite sagen bei einer neueren Beta dasselbe, die beiden Knöpfe, der Hinweis im Dashboard und seine Rangfolge gegenüber Dringenderem, „Aktuell“ ohne neuere Version, eine von Hand installierte Vorabversion, „Jetzt prüfen“; 6 davon schlagen auf beta.18 an), 26 in `tests/test_v18_elwosa_update_1180.py` (der Kanal „Update“: kein Befund, nichts Neues, eine neue Version mit Titel und Link, eine Vorabversion, eine unbrauchbare Version, ein Titel gegen die Sprach-DNA, ein zu langer Titel, einmal je Version, eine schon installierte Version, die Reihenfolge der Kanäle, Aus und Pause, der Eintrag im Chat) und 14 in `tests/test_v18_konsole_ausgabe_1182.py` (ein Kindprozess schreibt genau die Bytes, die Windows schreibt, das „ü“ als `0x81`, und der Aufrufer wählt die Optionen wie im Betrieb: vorher bricht der Lese-Thread ab, nachher nicht; dazu der Wächter, der bei jedem `text=True` im Quelltext eine Kodierung verlangt, samt Selbsttest). Gegenprobe (jeder Eingriff einzeln, jeder macht mindestens einen Test rot), gelaufen auf den Ständen der beiden Zweige vor der Zusammenführung: Katalog „Vorab“ 28 von 28 erkannt, Katalog „Konsole“ 11 von 11; ein Wächter-Test hält fest, dass jedes Muster aller Kataloge im Quelltext genau einmal vorkommt (auf dem Endstand grün). Auf dem Endstand, Windows: 1.055 gezielte Tests bestanden, 1 übersprungen, 0 Fehler (die drei neuen Dateien, die Tests des automatischen Aktualisierens, der Update-Hinweise, von Elwosa, der Sicherung vor dem Update, des Claude-Neustarts, von Ollama, der Seitenleiste und der Wächter); das neu gebaute Dashboard ist Byte für Byte das eingecheckte. Der volle Lauf auf Windows (rund 35 Minuten) wurde für diese Beta nicht wiederholt. GitHub-Lauf (Linux) auf den Ständen der beiden Zweige vor der Zusammenführung: 8.218 bestanden, 86 übersprungen (Update-Hinweis und Elwosa-Kanal) und 8.193 bestanden, 88 übersprungen (Kodierung der Konsole), je 0 Fehler (die Übersprungenen sind plattformgebunden).
+
+*Schema v52 (gegenüber der Stable-Linie v48 angehoben), 281 MCP-Werkzeuge, 8318 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-beta.19.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.19.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-beta.19 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-beta.19` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-beta.18] - 2026-10-07 — Die Suche öffnet, was sie findet (Vorabversion)
 
 <!-- anwender -->
