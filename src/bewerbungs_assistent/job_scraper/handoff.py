@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from urllib.parse import quote_plus
 
+from ..services.browser_handoff import REGEL_IM_ZWEIFEL
+
 # Langlebige Such-URL-Muster (Query-Parameter, keine DOM-Wetten).
 HANDOFF_URL_TEMPLATES: dict[str, str] = {
     "gulp": "https://www.gulp.de/gulp2/g/projekte?query={keyword}",
@@ -87,8 +89,9 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
             "1. URL in Chrome mit Claude-in-Chrome öffnen (eingeloggte "
             "Session umgeht Bot-Blocker). 2. Treffer mit javascript_tool() "
             "und `extraction_js` strukturiert aus dem DOM ziehen. "
-            "3. Passende Stellen mit stelle_manuell_anlegen(titel, firma, "
+            "3. Alle Treffer, die fachlich passen oder nahezu passen, mit "
+            "stelle_manuell_anlegen(titel, firma, "
             f"url, quelle='{quelle_label}') uebernehmen — Score und "
-            "Duplikat-Erkennung laufen automatisch."
+            "Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL
         ),
     }

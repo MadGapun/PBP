@@ -317,12 +317,15 @@ Aufloesen `git diff main -- <datei>` leer, Signaturen der aufgerufenen
 Funktionen abgleichen (1.8-only-Funktionen, andere Tupel), nur geloeste
 Dateien einzeln hinzufuegen, Assets neu bauen; bei stark abweichenden
 Dateien Stable-Fassung plus deterministischer Umschreiber.
+Umgibt `try/except` die neue Pruefung, schluckt es auch einen fehlenden Namen (`kanon` gab es nur in 1.8: der NameError wurde zur
+Warnung im Log, die Pruefung lief nie) — die mitgewanderten Tests muessen die WIRKUNG verlangen (der Hinweis steht im Ergebnis),
+nicht nur das Ausbleiben eines Fehlers.
 Beim Portieren: `cherry-pick --continue` verschluckt Betreffe, die mit
 `#` beginnen (`-c core.commentChar=;`); ein Modify/Delete-Konflikt hat keine
 Marker und darf nie automatisch als geloest gelten — so kam ein
 1.8-Modul auf die Stable-Linie. Quelltext-Tests, die Bauformen per
 Zeichenkette suchen, vor dem Umbenennen per grep finden (die CI fand zwei).
-*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113), #1130 (30.09.2026: als Hotfix-Kandidat vorgeschlagen, im Tag v1.7.143 gab es die Datei nicht)
+*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113), #1130 (30.09.2026: als Hotfix-Kandidat vorgeschlagen, im Tag v1.7.143 gab es die Datei nicht), #1184/#1187 (v1.7.157: `kanon` nur in 1.8, stiller NameError; fiel nur durch den mitgewanderten Test auf)
 
 **L36. Ein Release aus mehreren Dateien faellt stueckweise aus.** Tag erst
 nach gruener CI, mit Baum, Branch, Commit und Versionsstring als
@@ -595,3 +598,14 @@ neuere Betas, die feste Quelle des Auto-Updates nie. Zusammen führte die Meldun
 gewählt hatte. Regel: wo zwei Quellen dieselbe Frage beantworten („gibt es etwas Neues?“), steht an EINER Stelle, was gilt, wenn sie sich widersprechen; und jede Meldung
 wird im Test bis zum Ziel angeklickt (vgl. L62), mit den Antworten beider Quellen als Attrappen — einmal übereinstimmend, einmal widersprüchlich.
 *Belege:* #1179, `test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe`, Gegenprobe vo01 und vo09
+
+**L66. Ein Auftrag an Claude ist Code — er braucht eine Quelle, einen Wächter und eine Antwort auf den Zweifelsfall.** Ein Lauf über sechs Browser-Quellen mit rund 1.300 Rohtreffern
+legte keine einzige Stelle in PBP an. Fünf Anleitungen (der Auftrag je Quelle, der Handoff einer Quelle, der Workflow-Prompt der Jobsuche, `google_jobs_url`, der LinkedIn-Plan) sagten
+Claude, „passende“ Stellen zu übernehmen und Verworfenes im Chat zu melden; der Katalogtext von `stelle_manuell_anlegen` sagte „nicht für Treffer aus einer Jobbörse“. Jede Anleitung war für
+sich vernünftig, zusammen machten sie Claude zum Türsteher: die Auswahl fand im Chat statt, der Mensch sah nur den Bericht. Dazu kehrte die Vorschau (`dry_run=True`, die Vorgabe) vor
+jeder Prüfung zurück und zeigte „alle angelegt“. Regel: (1) Verlangt ein Auftrag eine Auswahl („passende“, „relevante“, „wichtige“), steht im selben Satz, was im Zweifel geschieht — sonst
+entscheidet Claude, und zwar für den Menschen. (2) Diese Antwort steht als EINE Konstante im Code (`REGEL_IM_ZWEIFEL`), jede Anleitung setzt sie ein, ein Test verlangt sie in jeder, und ein
+Wächter über den ganzen Quelltext verbietet die alte Formulierung auch dort, wo noch niemand hinsieht (vgl. L1). (3) Eine Vorschau stellt dieselben Fragen wie die Anlage und schreibt nichts;
+der Test legt sie neben den echten Lauf und vergleicht die Zählungen — und prüft zusätzlich die erwarteten Gründe, denn zwei blinde Seiten wären auch gleich.
+*Belege:* #1187, `test_1187_jede_anleitung_setzt_die_regel_ein`, `test_1187_kein_text_im_code_sagt_claude_passende_treffer_zu_uebernehmen`,
+`test_1187_vorschau_und_lauf_zaehlen_gleich_und_die_vorschau_schreibt_nichts`, Gegenprobe bw01 bis bw30

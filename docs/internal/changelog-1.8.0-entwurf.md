@@ -83,8 +83,8 @@ Einträgen darunter.
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): zehn Kataloge, 383 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): elf Kataloge, 413 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
@@ -184,11 +184,24 @@ Einträgen darunter.
 - **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
   Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
   (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+- **Ein Lauf über die Browser-Quellen legte keine einzige Stelle in PBP an** (#1187; seit der Browser-Suche, auch in der stabilen Version). Ein Lauf über sechs Quellen mit rund 1.300 Rohtreffern
+  endete mit 0 angelegten Stellen: Fünf Anleitungen (Auftrag je Quelle, Handoff einer Quelle, Workflow-Prompt der Jobsuche, `google_jobs_url`, LinkedIn-Plan) sagten Claude, „passende“ Stellen zu
+  übernehmen und Verworfenes im Chat zu melden — die Auswahl traf Claude, der Mensch sah nur den Bericht, und der Katalogtext von `stelle_manuell_anlegen` sagte dazu „nicht für Treffer aus einer
+  Jobbörse“. Jetzt steht in jeder Anleitung dieselbe Regel (eine Fassung, `services/browser_handoff.REGEL_IM_ZWEIFEL`): im Zweifel eintragen; eine Stelle zu viel ist besser als eine zu wenig, ob sie
+  taugt, entscheidet der Mensch in PBP. Urteil und Zweifelsgrund gehen an die Stelle (`stelle_urteil_speichern`), dazu ob die Anzeige noch offen ist; schon Aussortiertes, das nach dem Lesen fachlich
+  passt, holt `stelle_reaktivieren` zurück; aussortiert wird nur Offensichtliches, mit Grund. Der Bericht im Chat ersetzt die Einträge nicht. Ein Test verlangt die Regel in jeder Anleitung, ein zweiter
+  verbietet die alte Formulierung im ganzen Quelltext.
+- **Die Vorschau der Sammelübernahme prüfte nichts** (#1187; `linkedin_treffer_uebernehmen`, Vorgabe `dry_run=True`). Sie kehrte vor jeder Prüfung zurück und meldete „alle angelegt“, wo der echte Lauf
+  Dubletten, laufende Bewerbungen oder die Blacklist abgewiesen hätte. Jetzt stellt sie dieselben Fragen wie die Anlage (Blacklist, gleiche Kennung, laufende Bewerbung, aktive und aussortierte Stellen,
+  Hinweise), schreibt aber nichts — auch kein Protokoll der Blacklist und keinen Kontakt — und zählt dieselbe Stelle, die zweimal im Aufruf steht, nur einmal. `aussortierte_dublette` erscheint jetzt auch
+  im Eintrag der Sammelübernahme und in der Zeile des Trichters („schon aussortiert“). Der Hinweis zur aussortierten Dublette lässt den Zweifel zu: gilt der Grund weiter, wird die neue Stelle mit demselben
+  Grund eingeordnet; passt sie fachlich, bleibt sie aktiv. Gegenprobe: Katalog „browser“, 30 absichtlich eingebaute Fehler.
 
 ### Known Issues
 
 - Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Läufe über die Browser-Quellen werden noch nirgends verbucht, und nur LinkedIn hat ein Werkzeug, das mehrere Treffer auf einmal übernimmt (#1187, nächste Stufen).
 - Auto-Update nur unter Windows.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 

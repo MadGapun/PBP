@@ -272,6 +272,7 @@ def trichter_text(trichter: dict) -> str:
         ("repost_verdacht", "Repost-Verdacht"),
         ("vermittler_bewerbung", "Vermittler-Bewerbung"),
         ("laufende_bewerbung_verdacht", "laufende Bewerbung"),
+        ("aussortierte_dublette", "schon aussortiert"),
         ("wiedergaenger_bewerbung", "schon beworben"),
     ) if t.get(k)]
     if hinweise:
