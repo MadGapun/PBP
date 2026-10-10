@@ -3365,8 +3365,10 @@ def register(mcp, db, logger):
         Args:
             treffer: die geernteten Stellen.
             dry_run: True (Vorgabe) zeigt nur, was passieren würde - mit
-                denselben Prüfungen wie der echte Lauf (Duplikate, laufende
-                Bewerbungen, Blacklist), aber ohne etwas zu schreiben (#1187).
+                denselben Prüfungen wie der echte Lauf (Duplikate gegen den
+                Bestand, laufende Bewerbungen, Blacklist), aber ohne etwas
+                zu schreiben (#1187). Zwei ähnliche, nicht gleiche Stellen
+                im selben Aufruf erkennt erst der echte Lauf.
             login_fehlt: True meldet den Lauf als 'wartet_auf_login' —
                 kein Befund über den Markt, keine Auto-Deaktivierung.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
