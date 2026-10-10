@@ -33,6 +33,86 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.157] - 2026-10-10 — Die Browser-Suche legt Stellen in PBP an, und Angaben aus Google gelten erst mit dem Original
+
+Hotfix für v1.7.156. Zwei Befunde aus dem Alltag mit der Browser-Suche (Claude in Chrome): Ein Lauf über sechs Jobbörsen mit rund 1.300 gefundenen Stellen legte keine einzige davon in PBP an, und eine Stelle aus Google Jobs wurde mit einem Arbeitsmodell und einem Ort eingetragen, die nur auf Googles Karte standen. Es gibt keine neue Funktion; geändert sind die Anweisungen, die Claude für einen Browserlauf bekommt, die Prüfungen beim Anlegen und die Vorschau der LinkedIn-Übernahme.
+
+**Wichtig zu wissen:**
+
+- **Im Zweifel trägt Claude jetzt ein.** Bisher sollte Claude „passende“ Stellen übernehmen und den Rest im Chat melden — die Auswahl traf Claude, und du sahst nur den Bericht. Jetzt gilt in jeder Anleitung dieselbe Regel: Eine Stelle zu viel in PBP ist besser als eine zu wenig, und ob sie taugt, entscheidest du in PBP, nicht Claude im Chat. Claude legt jede Stelle an, die fachlich passt oder nahezu interessant sein könnte, schreibt sein Urteil und den Zweifelsgrund an die Stelle und vermerkt, ob die Anzeige noch offen ist. Aussortiert wird nur, was offensichtlich nicht passt oder geschlossen ist, und mit Grund.
+- **Eine früher aussortierte Stelle kommt zurück, wenn sie fachlich passt.** Hat PBP eine Stelle zum Beispiel wegen der Entfernung aussortiert und sie passt nach dem Lesen fachlich, holt Claude sie zurück, statt sie nur im Chat zu erwähnen.
+- **Stellen aus Google Jobs bekommen ihr Arbeitsmodell und ihre Entfernung erst mit dem Original.** Googles Karte nannte zum Beispiel „Beliebiger Ort, Homeoffice“; die Anzeige beim Arbeitgeber lag rund 570 km entfernt und erlaubte nur mobiles Arbeiten. Solange die Adresse beim Arbeitgeber und der Anzeigentext fehlen, entscheidet der Text über das Arbeitsmodell (sonst bleibt es „unbekannt“), und die Entfernung wird nicht aus Googles Ort gerechnet. Trägst du das Original nach, holt PBP beides nach.
+- **PBP meldet jetzt, wenn eine neue Stelle schon einmal aussortiert wurde** — auch unter dem Namen des Konzernunternehmens. Sie wird weiter angelegt (gemeldet, nicht blockiert), mit dem damaligen Grund.
+
+### Fixed
+
+- **Ein Lauf über die Browser-Quellen legte keine Stelle in PBP an** (#1187). Die Anleitungen ließen Claude auswählen: der Auftrag je Quelle und der Workflow-Prompt der Jobsuche sagten, „passende“ Stellen zu übernehmen (der Auftrag je Quelle meldete den Rest nur im Chat), der LinkedIn-Plan ließ schon vorab nach Titeln aussieben, und `google_jobs_url` nannte keine Regel für Grenzfälle. Dazu sagte der Katalogtext von `stelle_manuell_anlegen` „nicht für Treffer aus einer Jobbörse“. Jetzt steht in jeder Anleitung dieselbe Regel (eine Fassung, `services/browser_handoff.REGEL_IM_ZWEIFEL`): im Zweifel eintragen; Urteil und Zweifelsgrund an die Stelle (`stelle_urteil_speichern`), dazu ob die Anzeige noch offen ist; schon Aussortiertes, das nach dem Lesen fachlich passt, holt `stelle_reaktivieren` zurück; aussortiert wird nur Offensichtliches. Der Bericht im Chat ersetzt die Einträge nicht.
+- **Die Vorschau von `linkedin_treffer_uebernehmen` prüfte nichts** (#1187). Mit der Vorgabe `dry_run=True` kehrte sie vor jeder Prüfung zurück und meldete „alle angelegt“, wo der echte Lauf Dubletten, laufende Bewerbungen oder die Blacklist abgewiesen hätte. Jetzt stellt sie dieselben Fragen wie die Anlage und schreibt nichts (auch kein Blacklist-Protokoll und keinen Kontakt); dieselbe Stelle, die zweimal im Aufruf steht, zählt einmal.
+- **Stellen aus Google Jobs behaupteten ein Arbeitsmodell und einen Ort, die nur auf Googles Karte standen** (#1184; seit `stelle_manuell_anlegen`). Ein Treffer mit „Beliebiger Ort, Homeoffice“ wurde als `remote` angelegt: die Entfernung fiel weg, der Rahmenscore stieg, und die Stelle wäre nach oben sortiert worden. Jetzt gelten Remote und Ort einer Google-Stelle erst, wenn das Original vorliegt (Detail-URL des Arbeitgebers und Anzeigentext, `services/google_angaben`); wird es mit `stelle_bearbeiten` nachgetragen, holt PBP beides nach.
+- **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+
+### Changed
+
+- Neu `services/google_angaben.py` (eine Entscheidung, ob eine Angabe aus Google schon belegt ist), `find_aussortierte_dublette` in `duplicate_detection.py` und `Database.set_job_remote_level` (#1184).
+- Der Hinweis zur aussortierten Dublette lässt den Zweifel zu: gilt der Grund weiter, wird die neue Stelle mit demselben Grund eingeordnet; passt sie fachlich, bleibt sie aktiv (#1187).
+- `aussortierte_dublette` erscheint auch im Eintrag der LinkedIn-Sammelübernahme und in der Zeile des Trichters („schon aussortiert“) (#1187).
+- Ein Test verlangt die Regel für Browserläufe in jeder Anleitung, ein zweiter verbietet die alte Formulierung („passende Stellen übernehmen“) im ganzen Quelltext (#1187).
+
+### Known Issues
+
+- **Noch offen aus #1184:** eine Sperre oder ein Warnhinweis, solange nur Googles Kopfdaten vorliegen, die Alert-Mails von Google und das Finden des Originals zu einer Google-Stelle (Fragen stehen am Issue).
+- **Noch offen aus #1187:** Läufe über die Browser-Quellen werden noch nicht verbucht, nur LinkedIn hat ein Werkzeug, das mehrere Treffer auf einmal übernimmt, und die Grenzfälle haben im Dashboard noch keinen eigenen Platz.
+- **Der Deinstaller lässt unter Windows Reste liegen** (#1170, PP10): die vom Installer geladenen Browser-Dateien (Playwright, rund 700 MB, `%LOCALAPPDATA%\ms-playwright`) und den pip-Zwischenspeicher (rund 125 MB, `%LOCALAPPDATA%\pip`). Beides lässt sich von Hand löschen; in Version 1.8 fragt der Deinstaller danach.
+- Unverändert gegenüber v1.7.156: ein ausdrücklich gesetzter Standard für die Filter der Stellenliste fehlt (#1158 Punkt 5), Google Jobs liefert mit JobSpy 1.2 nichts mehr (#1159), und die offenen Punkte aus #1148 und #1149 (siehe dort).
+- Acht ältere Stellen im Code haben dasselbe Muster wie die Ursache der Leerlauf-Last aus v1.7.154 (`App.jsx` ×2, die Ablage für Dokumente ×3, der Einrichtungsassistent ×3). Bei ihnen wurde nichts Auffälliges gemessen; sie sind im Wächter-Test als Bestand benannt und bleiben in dieser Linie unverändert.
+
+### Gemessen
+
+82 neue Tests (7.175 gesamt, gezählt im Klon des Zweigs; v1.7.156 hatte 7.093) in `tests/test_v17157_google_angaben_1184.py` und `tests/test_v17157_browser_im_zweifel_1187.py`: die Regel steht in jeder Anleitung und nennt nur vorhandene Werkzeuge, die Vorschau und der echte Lauf zählen in acht Szenarien gleich (neu, Blacklist, gleiche Kennung, laufende Bewerbung, doppelt im Aufruf, ohne Volltext, aussortierte Dublette, Mischung) und die Vorschau ändert in keiner Tabelle eine Zeile; dazu Remote und Entfernung einer Google-Stelle mit und ohne Original und die Erkennung aussortierter Dubletten (gleiche Firma, anderer Firmenname am gleichen Ort, andere Stelle, Suchadresse). Eine Gegenprobe mit absichtlich eingebauten Fehlern (33 für Google, 30 für die Browser-Anleitungen) lief auf der Fassung der 1.8-Linie: bei den Browser-Anleitungen erkannten die Tests alle 30 im ersten Lauf, bei Google überlebte im ersten Lauf ein Fehler (das Neurechnen der Punkte wurde nur zusammen mit der Entfernung geprüft); der Test wurde geschärft, danach erkannten sie alle 33.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.157.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.157.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.157 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.156] - 2026-10-08 — Kein Fehlertext mehr im Fenster, wenn Claude Desktop beim Start nicht läuft
 
 Hotfix für v1.7.155. Wer PBP über die Verknüpfung „PBP Bewerbungs-Portal“ startet, während Claude Desktop nicht läuft, sah auf einem deutschen Windows im schwarzen Fenster einen Python-Fehlertext (`UnicodeDecodeError … byte 0x81`). Das Dashboard lief trotzdem, aber der Text sah nach einem Absturz aus. Jetzt steht dort nichts mehr. Es gibt keine neue Funktion.
