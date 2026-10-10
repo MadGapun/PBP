@@ -287,6 +287,87 @@ def find_duplicate_job(
     return best
 
 
+#: (#1184) Ab dieser Titel-Aehnlichkeit gilt eine aussortierte Stelle auch OHNE gleichen Firmennamen als Verdacht,
+#: wenn Ort und Fachbegriffe passen. Streng, weil hier die Firma als Beleg fehlt.
+_TITEL_ORT_SCHWELLE = 0.8
+#: Mindestens so viele gemeinsame Titelbegriffe: "Projektleiter" allein ist kein Beleg.
+_TITEL_ORT_MIN_GEMEINSAM = 2
+
+#: Angaben, die kein Ort sind (#1184).
+_KEIN_ORT_TEXT = frozenset({
+    "remote", "homeoffice", "home office", "hybrid", "deutschland", "germany", "bundesweit", "deutschlandweit",
+    "beliebiger ort", "europa", "europe", "emea", "dach", "eu",
+})
+
+
+def ort_schluessel(ort: Optional[str]) -> str:
+    """Die Stadt aus einer Ortsangabe, klein und ohne Zusaetze - oder "", wenn dort kein Ort steht (#1184).
+
+    "Koeln, Nordrhein-Westfalen" und "50667 Köln (Innenstadt)" werden beide zu "koeln"; "Remote" oder
+    "Beliebiger Ort, Homeoffice" zu "". Nur die ERSTE Angabe zaehlt.
+    """
+    t = str(ort or "").lower().strip()
+    if not t:
+        return ""
+    t = re.sub(r"\([^)]*\)", " ", t)
+    for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        t = t.replace(uml, repl)
+    t = _akzente_falten(t)
+    t = re.split(r"[,;/|]|\s[-–—]\s", t)[0]
+    t = re.sub(r"[^a-z\s-]", " ", t)
+    t = re.sub(r"\s+", " ", t).strip(" -")
+    return "" if (len(t) < 3 or t in _KEIN_ORT_TEXT) else t
+
+
+def find_aussortierte_dublette(
+    firma: str,
+    titel: str,
+    ort: str,
+    url: str,
+    aussortierte: Iterable[dict],
+    *,
+    own_hash: str = "",
+) -> Optional[dict]:
+    """Eine AUSSORTIERTE Stelle, die dieselbe Vakanz sein kann - als Hinweis beim Anlegen, nie als Sperre (#1184).
+
+    Die Pruefung beim Anlegen (Stufe A und B in `stelle_manuell_anlegen`) vergleicht nur laufende Bewerbungen und
+    AKTIVE Stellen, und der Textvergleich (`find_inhalt_repost`) braucht einen Anzeigentext. Eine aussortierte Stelle
+    mit gleicher Firma und gleichem Titel blieb deshalb unsichtbar; erst `stelle_einordnen` schaute in die
+    Aussortierten. Zwei Wege:
+
+    1. gleiche Firma (dieselben Regeln wie `find_duplicate_job`) und aehnlicher Titel;
+    2. anderer Firmenname (Muttermarke gegen Konzernunternehmen, wie Google sie fuehrt): nahezu gleicher Titel UND
+       derselbe Ort. Ohne Ort gibt es hier keinen Treffer.
+
+    Rueckgabe wie `find_duplicate_job` (`job`, `grund`, `score`, ...), mit `grund = "titel_plus_ort"` fuer Weg 2.
+    """
+    if not titel:
+        return None
+    kandidaten = [c for c in aussortierte
+                  if not (own_hash and str(c.get("hash") or "").endswith(own_hash))]
+    if not kandidaten:
+        return None
+    # Eine Suchadresse benennt keine Anzeige: zwei verschiedene Treffer einer Suche haetten dieselbe.
+    vergleichs_url = str(url) if url and _stellen_url(str(url)) else ""
+    treffer = find_duplicate_job(firma, titel, vergleichs_url, kandidaten)
+    if treffer:
+        return treffer
+    mein_ort = ort_schluessel(ort)
+    if not mein_ort:
+        return None
+    bester: Optional[dict] = None
+    for cand in kandidaten:
+        if ort_schluessel(cand.get("location")) != mein_ort:
+            continue
+        sim, common = _title_similarity(titel, cand.get("title") or cand.get("titel") or "")
+        if sim < _TITEL_ORT_SCHWELLE or len(common) < _TITEL_ORT_MIN_GEMEINSAM:
+            continue
+        if bester is None or sim > bester["score"]:
+            bester = {"job": cand, "grund": "titel_plus_ort", "score": round(sim, 2),
+                      "shared_tokens": sorted(common)}
+    return bester
+
+
 @lru_cache(maxsize=8192)
 def _stellen_url(url: str) -> str:
     """Die Anzeigen-URL als Vergleichsschluessel - leer, wenn sie keine

@@ -2015,7 +2015,8 @@ def register(mcp, db, logger):
         2. URL im Browser mit der Claude-Erweiterung öffnen
         3. Mit dem mitgelieferten `extraction_js` strukturierte Job-Daten
            via `javascript_tool()` aus dem DOM ziehen (statt Rohtext-Parsing)
-        4. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
+        4. Alle Treffer, die fachlich passen oder nahezu passen, mit
+           `stelle_manuell_anlegen()` uebernehmen (Regel: im Hinweis)
 
         Args:
             keyword: Suchbegriff (z.B. 'PLM Projektleiter').
@@ -2032,6 +2033,7 @@ def register(mcp, db, logger):
         # 2026) traf am 21.09.2026 nur noch die Suchreiter und lieferte
         # 13 "Stellen" namens KI-Modus, Bilder, News — ohne Fehler.
         from ..job_scraper.google_jobs import extraction_js as _extraction
+        from ..services.browser_handoff import REGEL_IM_ZWEIFEL
         extraction_js = _extraction()
         return {
             "url": url,
@@ -2045,7 +2047,10 @@ def register(mcp, db, logger):
                 "Meldet das Skript ein `fehler`-Feld, NICHT die Liste "
                 "uebernehmen: dann hat sich die Seitenstruktur geaendert, "
                 "und das gehört als Issue gemeldet. Google lädt weitere "
-                "Karten erst beim Scrollen nach."
+                "Karten erst beim Scrollen nach. Remote und Ort der Karte "
+                "gelten nicht (#1184): `stelle_manuell_anlegen` lässt das "
+                "Arbeitsmodell auf `unbekannt`, bis das Original (Detail-URL "
+                "des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL
             ),
         }
 
@@ -2476,17 +2481,28 @@ def register(mcp, db, logger):
         Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
         Anker (#766), berechnet den Score und legt an.
 
+        GOOGLE JOBS (#1184): Bei Treffern aus Google (quelle='google_jobs') gelten `remote` und
+        `ort` erst, wenn das ORIGINAL vorliegt (Detail-URL des Arbeitgebers UND Anzeigentext). Bis
+        dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet, nicht Googles Karte)
+        und die Entfernung wird nicht aus Googles Ort gerechnet; `google_vorbehalt` im Ergebnis
+        nennt den nächsten Schritt. Das Original mit stelle_bearbeiten(url=..., beschreibung=...,
+        ort=...) nachtragen.
+
         Args:
             titel: Stellentitel (Pflicht).
             firma: Firmenname (Pflicht).
             url: Link zur ORIGINAL-Ausschreibung (Detailseite, keine
                 Suchergebnis-URL — #645/#763).
-            ort: Arbeitsort.
+            ort: Arbeitsort. Googles Ort zählt ohne Original nicht für
+                die Entfernung (#1184).
             beschreibung: Anzeigentext. Je vollständiger, desto
                 belastbarer der Score; unter 50 Zeichen gilt die Stelle
                 als unbewertet (#756/#989).
-            quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite', ...).
-            remote: 'remote' | 'hybrid' | 'vor_ort' | 'unbekannt'.
+            quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite',
+                'google_jobs', ...).
+            remote: 'remote' | 'hybrid' | 'vor_ort' | 'unbekannt'. Bei
+                Google-Treffern ohne Original (Detail-URL und Text) gilt
+                er nicht: dann entscheidet der Text (#1184).
             stellenart: 'festanstellung' | 'freelance' | 'praktikum' |
                 'werkstudent'.
             force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
@@ -2514,6 +2530,7 @@ def register(mcp, db, logger):
         kontakt_name: str = "",
         kontakt_email: str = "",
         kontakt_telefon: str = "",
+        trocken: bool = False,
     ) -> dict:
         """Der EINE Schreibweg fuer eine von aussen gefundene Stelle (#160).
 
@@ -2539,6 +2556,12 @@ def register(mcp, db, logger):
         uebernehmen UND den Kontakt festhalten. Ohne Anker wird die Stelle zwar
         angelegt, aber im Result steht eine `anker_warnung` — die gehoert
         ungefiltert an den Nutzer weitergegeben.
+
+        GOOGLE JOBS (#1184): `remote` und `ort` einer Stelle aus Google (quelle google_jobs / jobspy_google)
+        gelten nicht, solange Detail-URL des Originals UND Anzeigentext fehlen (`services/google_angaben`):
+        das Arbeitsmodell kommt dann aus dem Text oder ist 'unbekannt', die Entfernung wird nicht gerechnet.
+        AUSSORTIERTES (#1184): eine aussortierte Stelle gleicher Firma und gleichen Titels - oder gleichen
+        Titels am gleichen Ort - steht als `aussortierte_dublette` im Ergebnis; die Stelle wird trotzdem angelegt.
 
         WICHTIG: Vor dem Anlegen wird automatisch geprueft ob bereits eine
         Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei klarem
@@ -2573,6 +2596,11 @@ def register(mcp, db, logger):
                 und mit der Stelle verknuepft (Anker #766).
             kontakt_email: E-Mail des Ansprechpartners.
             kontakt_telefon: Telefonnummer des Ansprechpartners.
+            trocken: True = nur pruefen (#1187). Dieselben Pruefungen wie die
+                Anlage (Blacklist, Duplikate, Wiedergaenger, Aussortiertes,
+                Google-Vorbehalt), aber nichts wird geschrieben: kein Speichern,
+                kein Kontakt, kein Protokoll. Antwort `wuerde_angelegt` oder
+                dieselbe Abweisung wie bei der Anlage.
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
@@ -2589,13 +2617,14 @@ def register(mcp, db, logger):
             # #992: auch die Abweisung von Hand gehoert ins Protokoll —
             # sonst zaehlt nur, was der Suchlauf verwirft, und genau die
             # Stellen, die der Mensch selbst gefunden hat, fehlen.
-            db.record_blacklist_block(
-                {"title": titel, "company": firma, "url": url,
-                 "source": quelle},
-                {"typ": "firma", "wert": _bl_hit.get("value"),
-                 "eintrag_id": _bl_hit.get("id"),
-                 "grund": _bl_hit.get("reason") or ""},
-                kontext="manuell_abgewiesen")
+            if not trocken:     # #1187: die Vorschau schreibt auch kein Protokoll
+                db.record_blacklist_block(
+                    {"title": titel, "company": firma, "url": url,
+                     "source": quelle},
+                    {"typ": "firma", "wert": _bl_hit.get("value"),
+                     "eintrag_id": _bl_hit.get("id"),
+                     "grund": _bl_hit.get("reason") or ""},
+                    kontext="manuell_abgewiesen")
             return {
                 "fehler": (
                     f"Firma '{firma}' steht auf der Blacklist ({grund}). "
@@ -2848,7 +2877,91 @@ def register(mcp, db, logger):
             logger.debug("Repost-/Vermittler-Pruefung (#1076): %s", exc)
 
         # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
-        # darf durchgehen.
+        # darf durchgehen - aber nicht unbemerkt (#1184, gleich darunter).
+
+        # #1184 (c): eine AUSSORTIERTE Stelle gleicher Firma und gleichen Titels - oder gleichen Titels am gleichen
+        # Ort unter anderem Firmennamen (Muttermarke gegen Konzernunternehmen) - wird gemeldet, nicht geblockt.
+        # Stufe A und B sehen nur Bewerbungen und aktive Stellen, der Textvergleich (D) braucht einen Anzeigentext;
+        # bei Kopfdaten aus Google fehlt er. Erst `stelle_einordnen` schaute in die Aussortierten.
+        aussortierte_dublette = None
+        try:
+            from ..duplicate_detection import find_aussortierte_dublette
+            from ..services.wiedergaenger import aussortierte_laden, _reasons_of
+            _aus = find_aussortierte_dublette(
+                firma, titel, ort, url, aussortierte_laden(db), own_hash=job_hash)
+            if _aus:
+                _alt = _aus["job"]
+                _gruende = _reasons_of(_alt)
+                aussortierte_dublette = {
+                    "id": _kurz(_alt.get("hash") or ""),
+                    "titel": _alt.get("title") or "",
+                    "firma": _alt.get("company") or "",
+                    "ort": _alt.get("location") or "",
+                    "grund": _aus["grund"],
+                    "aussortiert_wegen": _gruende,
+                    "aussortiert_am": str(_alt.get("dismissed_at") or "")[:10] or None,
+                    "hinweis": (
+                        f"Sieht aus wie eine Stelle, die schon aussortiert wurde: '{_alt.get('title')}' bei "
+                        f"{_alt.get('company')}"
+                        + (f" (aussortiert wegen: {', '.join(_gruende)})" if _gruende else "")
+                        + (". Die Firma heißt anders, Titel und Ort passen: Muttermarke oder Konzernunternehmen?"
+                           if _aus["grund"] == "titel_plus_ort" else ".")
+                        + " Ist es dieselbe Stelle und gilt der Grund weiter, ordne diese hier mit demselben Grund ein "
+                        "(stelle_einordnen). Passt sie nach dem Lesen fachlich trotz des Grundes (etwa bei der Entfernung), "
+                        "lass sie aktiv und schreibe den Zweifelsgrund an die Stelle (stelle_urteil_speichern): ob sie taugt, "
+                        "entscheidet der Mensch. Eine andere Stelle: einfach weitermachen."),
+                }
+        except Exception as exc:  # pragma: no cover - nie die Anlage kippen
+            logger.warning("Pruefung auf aussortierte Dubletten (#1184) fehlgeschlagen: %s", exc)
+
+        # #1184 (b): Angaben aus Google gelten nicht, solange das Original fehlt. Remote kommt aus dem Text (dieselbe
+        # Regel wie bei JobSpy, B63), sonst 'unbekannt'; die Entfernung wird nicht aus Googles Ort gerechnet. Vorher
+        # hiess "Beliebiger Ort, Homeoffice" aus Googles Karte `remote`: die Entfernung fiel weg, der Rahmenscore stieg.
+        from ..services import google_angaben as _gangaben
+        google_vorbehalt = None
+        if _gangaben.unter_vorbehalt(quelle, url, beschreibung):
+            _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
+            google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)
+            remote = _remote_text
+
+        def _befunde_anfuegen(ergebnis: dict) -> None:
+            """Die Befunde der Pruefungen ins Ergebnis - fuer die Anlage und die Vorschau (#1187) dieselben."""
+            # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
+            # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer -
+            # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
+            if wiedergaenger_bewerbung:
+                ergebnis["warnung"] = "wiedergaenger_bewerbung"
+                ergebnis["bewerbung_vorher"] = wiedergaenger_bewerbung
+            # #1076: eigene Felder, damit keine Warnung eine andere verdeckt.
+            if repost_verdacht:
+                ergebnis["repost_verdacht"] = repost_verdacht
+                ergebnis.setdefault("warnung", "repost_verdacht")
+            if vermittler_bewerbung:
+                ergebnis["vermittler_bewerbung"] = vermittler_bewerbung
+                ergebnis.setdefault("warnung", "vermittler_bewerbung")
+            if laufende_bewerbung_verdacht:
+                ergebnis["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
+                ergebnis.setdefault("warnung", "laufende_bewerbung_verdacht")
+            if aussortierte_dublette:
+                ergebnis["aussortierte_dublette"] = aussortierte_dublette
+                ergebnis.setdefault("warnung", "aussortierte_dublette")
+            if google_vorbehalt:
+                ergebnis["google_vorbehalt"] = google_vorbehalt
+                ergebnis.setdefault("warnung", "google_nur_kopfdaten")
+
+        if trocken:
+            # #1187: die Vorschau fragt dasselbe wie die Anlage und schreibt nichts. Bis hierher wurden nur
+            # gelesen: Blacklist, gleiche Kennung, Bewerbungen, Aktive, Aussortierte - alles, was ein echter
+            # Lauf abweisen wuerde, ist schon zurueckgekehrt.
+            vorschau = {
+                "status": "wuerde_angelegt", "trocken": True,
+                "id": _kurz(job_hash), "hash": job_hash,
+                "nachricht": f"Vorschau: Stelle '{titel}' bei {firma} würde angelegt.",
+            }
+            if uebersteuerter_verdacht:
+                vorschau["duplikat_uebersteuert"] = uebersteuerter_verdacht
+            _befunde_anfuegen(vorschau)
+            return vorschau
 
         # v1.7.112 (#1051): dasselbe Nadeloehr wie Suchlauf, Neuberechnung
         # und `fit_analyse`. Mit den rohen Kriterien fehlte die abgeleitete
@@ -2892,7 +3005,8 @@ def register(mcp, db, logger):
             job["salary_estimated"] = 1
 
         # Geocoding (#167): Entfernung berechnen wenn Standort bekannt
-        if ort:
+        # (#1184: nicht aus dem Ort einer Google-Karte, solange das Original fehlt)
+        if ort and not google_vorbehalt:
             try:
                 from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
                 user_coords = get_user_coordinates(db)
@@ -2952,22 +3066,7 @@ def register(mcp, db, logger):
             result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
         except Exception:  # pragma: no cover
             pass
-        # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
-        # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer —
-        # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
-        if wiedergaenger_bewerbung:
-            result["warnung"] = "wiedergaenger_bewerbung"
-            result["bewerbung_vorher"] = wiedergaenger_bewerbung
-        # #1076: eigene Felder, damit keine Warnung eine andere verdeckt.
-        if repost_verdacht:
-            result["repost_verdacht"] = repost_verdacht
-            result.setdefault("warnung", "repost_verdacht")
-        if vermittler_bewerbung:
-            result["vermittler_bewerbung"] = vermittler_bewerbung
-            result.setdefault("warnung", "vermittler_bewerbung")
-        if laufende_bewerbung_verdacht:
-            result["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
-            result.setdefault("warnung", "laufende_bewerbung_verdacht")
+        _befunde_anfuegen(result)
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -3074,12 +3173,12 @@ def register(mcp, db, logger):
         Claude führt ihn in einem Tab auf linkedin.com aus, und
         `linkedin_treffer_uebernehmen` schreibt das Ergebnis nach PBP.
 
-        **Der Volltext ist Pflicht, nicht Kür.** Von 59 Titeln, die den
-        Vorfilter passiert hatten, blieben nach dem Lesen der Volltexte 3
-        übrig — der beste Titel-Treffer des Laufs verlangte im Fliesstext
-        ein System von der harten Ausschlussliste. Wer nur Titel und
-        Kurzbeschreibung übernimmt, liefert genau die falschen Stellen
-        mit hohem Score ein.
+        **Der Volltext gehört zum Urteil.** Titel und Kurzbeschreibung
+        sagen zu wenig: im Lauf vom 17.08.2026 verlangte der beste
+        Titel-Treffer im Fliesstext ein System von der harten
+        Ausschlussliste. Gelesen wird, um das Urteil an die Stelle zu
+        schreiben, nicht um auszusortieren (#1187): im Zweifel eintragen;
+        die Regel steht im Ergebnis unter `regel`.
 
         Args:
             max_begriffe: wie viele Suchbegriffe der Lauf umfasst. Jeder
@@ -3090,6 +3189,7 @@ def register(mcp, db, logger):
             seiten: Ergebnisseiten je Begriff (25 Treffer je Seite).
         """
         from ..job_scraper import linkedin_voyager as lv
+        from ..services.browser_handoff import REGEL_IM_ZWEIFEL
 
         try:
             portal = db.get_portal_search_profile("linkedin") or {}
@@ -3127,18 +3227,23 @@ def register(mcp, db, logger):
                 "4_ausgabe": lv.JS_AUSGABE,
             },
             "js_volltexte_konfig": cfg,
+            "regel": REGEL_IM_ZWEIFEL,
             "ablauf": [
                 "Tab auf die LinkedIn-Jobsuche öffnen (eingeloggt).",
                 "Skript 1 ausführen — es läuft als async IIFE weiter, "
                 "auch wenn der Aufruf sofort zurückkommt.",
                 "Skript 2 wiederholt aufrufen, bis 'fertig' true ist.",
                 "Titel sichten und die Job-IDs wählen, deren Volltext "
-                "geholt werden soll (der Vorfilter).",
+                "geholt werden soll. Der Vorfilter spart nur Requests und "
+                "urteilt nicht: im Zweifel holen.",
                 "Skript 3 mit diesen IDs starten, danach wieder Skript 2.",
                 "Skript 4 rendert das Ergebnis in die Seite; mit "
                 "get_page_text abholen — javascript_tool kappt bei rund "
                 "1000 Zeichen.",
-                "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen.",
+                "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen: erst "
+                "als Vorschau (dry_run=True, dieselben Prüfungen wie der "
+                "echte Lauf), dann mit dry_run=False; danach die Urteile "
+                "an die Stellen schreiben (siehe `regel`).",
             ],
             "stolpersteine": [
                 "Navigation löscht window.__pbp_ln — der ganze Lauf muss "
@@ -3220,7 +3325,9 @@ def register(mcp, db, logger):
 
         Args:
             treffer: die geernteten Stellen.
-            dry_run: True (Vorgabe) zeigt nur, was passieren würde.
+            dry_run: True (Vorgabe) zeigt nur, was passieren würde - mit
+                denselben Prüfungen wie der echte Lauf (Duplikate, laufende
+                Bewerbungen, Blacklist), aber ohne etwas zu schreiben (#1187).
             login_fehlt: True meldet den Lauf als 'wartet_auf_login' —
                 kein Befund über den Markt, keine Auto-Deaktivierung.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
@@ -3229,7 +3336,8 @@ def register(mcp, db, logger):
                 wurden (#1076) — auch die, die danach nicht übergeben
                 wurden.
             nach_lesen_verworfen: wie viele davon nach dem Lesen
-                verworfen wurden.
+                verworfen wurden. Im Zweifel nichts verwerfen: Zweifelsfälle
+                gehören hinein (Regel: `linkedin_lauf_plan`, Feld `regel`).
         """
         from ..job_scraper import linkedin_voyager as lv
 
@@ -3261,6 +3369,7 @@ def register(mcp, db, logger):
             trichter["nach_lesen_verworfen"] = int(nach_lesen_verworfen or 0)
 
         angelegt, uebersprungen = [], []
+        vorschau_hashes = set()     # #1187: was die Vorschau in diesem Aufruf schon "angelegt" hat
 
         def _skip(eintrag, grund, detail=""):
             trichter["uebersprungen"] += 1
@@ -3292,13 +3401,6 @@ def register(mcp, db, logger):
                 continue
             trichter["volltexte"] += 1
 
-            if dry_run:
-                trichter["angelegt"] += 1
-                angelegt.append({"job_id": job_id, "titel": titel,
-                                 "firma": firma,
-                                 "beschreibung_zeichen": len(beschreibung)})
-                continue
-
             # v1.7.67 (#1011) AK 3: die Sammeluebernahme nimmt jetzt
             # Kontaktdaten entgegen. Sie hatte keine — und deshalb
             # entstand bei 11 von 14 Stellen eines Arbeitstags kein
@@ -3313,18 +3415,29 @@ def register(mcp, db, logger):
                 stellenart=str(e.get("anstellungsart") or "festanstellung"),
                 kontakt_name=str(e.get("kontakt_name") or "").strip(),
                 kontakt_email=str(e.get("kontakt_email") or "").strip(),
-                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip())
+                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip(),
+                trocken=dry_run)   # #1187: die Vorschau prueft wie der echte Lauf
+            if res.get("status") == "wuerde_angelegt":
+                # Der echte Lauf legt die erste an und weist die zweite mit derselben Kennung ab. Die Vorschau
+                # schreibt nichts und muss das nachziehen, sonst zaehlt sie hoeher als der Lauf.
+                if res["hash"] in vorschau_hashes:
+                    _skip(e, "duplikat_aktiv",
+                          "doppelt in dieser Übergabe (gleiche Firma, gleicher Titel)")
+                    continue
+                vorschau_hashes.add(res["hash"])
             # v1.7.126 (#1076): angelegt ist, was angelegt wurde — auch
             # mit Warnung. Bis hierher zaehlte jede Antwort mit `warnung`
             # als uebersprungen, seit #1065 also auch eine angelegte Stelle
             # zu einer frueheren Bewerbung: sie stand im Bestand und im
             # Trichter als verworfen.
-            if res.get("status") == "angelegt" or (
+            if res.get("status") in ("angelegt", "wuerde_angelegt") or (
                     res.get("hash") and not res.get("warnung")):
                 trichter["angelegt"] += 1
                 _eintrag = {"job_id": job_id, "titel": titel,
                             "firma": firma, "hash": res["hash"],
                             "score": res.get("score")}
+                if dry_run:
+                    _eintrag["beschreibung_zeichen"] = len(beschreibung)
                 if res.get("kontakt"):
                     _eintrag["kontakt"] = res["kontakt"]
                     trichter["kontakte"] = trichter.get("kontakte", 0) + 1
@@ -3333,6 +3446,7 @@ def register(mcp, db, logger):
                         ("vermittler_bewerbung", "vermittler_bewerbung"),
                         ("laufende_bewerbung_verdacht",
                          "laufende_bewerbung_verdacht"),
+                        ("aussortierte_dublette", "aussortierte_dublette"),
                         ("wiedergaenger_bewerbung", "bewerbung_vorher")):
                     if res.get(_feld):
                         _eintrag[_schl] = res[_feld]
@@ -4782,6 +4896,8 @@ def register(mcp, db, logger):
         }
         if erg.get("score_neu_berechnet"):
             result["score_neu_berechnet"] = erg["score_neu_berechnet"]
+        if erg.get("google_vorbehalt_aufgehoben"):
+            result["google_vorbehalt_aufgehoben"] = erg["google_vorbehalt_aufgehoben"]
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",

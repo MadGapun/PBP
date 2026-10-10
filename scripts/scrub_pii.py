@@ -178,6 +178,10 @@ FIKTIVE_FIRMEN = (
     "vermittler west",
     "beispiel",
     "acme",
+    # Platzhalter der Tests zu #1184 und #1187 - frei erfunden.
+    "nordwerk konzern",
+    "nordwerk ag",
+    "hansa marke",
     # Der generische Platzhalter selbst ("Firma GmbH" als Beispieltext in
     # Doku/Kommentaren) — exakte Phrase, kein realer Firmenname.
     "firma gmbh",

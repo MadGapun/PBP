@@ -120,8 +120,8 @@ def test_gepflegte_begriffe_landen_im_prompt(umgebung):
 def test_der_prompt_verlangt_volltext_und_rueckmeldung(umgebung):
     db, _ = umgebung
     text = bh.prompt(bh.browser_quellen(db, auswahl=sorted(BROWSER_LOGIN)))
-    assert "VOLLTEXT" in text and "Titel allein reicht nicht" in text
-    assert "Rohtreffer, übernommen, und verworfen mit Grund" in text
+    assert "VOLLTEXT" in text and "Der Titel allein sagt zu wenig" in text
+    assert "Rohtreffer, in PBP angelegt, schon bekannt, aussortiert mit Grund" in text
     assert "linkedin_lauf_plan()" in text
     assert "Optional" in text and "Heise Jobs" in text
 
