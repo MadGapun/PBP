@@ -642,7 +642,95 @@ M_KONSOLE = [
      'capture_output=True, text=True, errors="replace", timeout=120', 'capture_output=True, text=True, timeout=120', T_KO),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE}
+# ── Angaben aus Google Jobs und Aussortiertes beim Anlegen (#1184, B76) ──
+T_GA = ["tests/test_v18_google_angaben_1184.py"]
+GA = "src/bewerbungs_assistent/services/google_angaben.py"
+SAE = "src/bewerbungs_assistent/services/stelle_aendern.py"
+
+M_GOOGLE = [
+    ("gj01", "Google-Karten: die Quelle google_jobs steht nicht mehr unter Vorbehalt", GA,
+     'GOOGLE_QUELLEN = ("google_jobs", "jobspy_google")', 'GOOGLE_QUELLEN = ("jobspy_google",)', T_GA),
+    ("gj02", "Google-Adresse: jeder Host mit „google.“ im Namen gilt als Google", GA,
+     r'_GOOGLE_HOST = re.compile(r"(?:^|\.)google\.[a-z.]{2,}$")', r'_GOOGLE_HOST = re.compile(r"google\.[a-z.]{2,}")', T_GA),
+    ("gj03", "Original gelesen: eine Google-Adresse, die keine Suche ist, gilt als Original", GA,
+     '    if ist_google_adresse(u) or is_search_result_url(u):\n        return False\n',
+     '    if is_search_result_url(u):\n        return False\n', T_GA),
+    ("gj04", "Original gelesen: der Anzeigentext ist keine Bedingung mehr", GA,
+     '    return len(str(beschreibung or "").strip()) >= MIN_BESCHREIBUNG\n', '    return True\n', T_GA),
+    ("gj05", "Original gelesen: ein Text ohne http-Adresse gilt als Adresse", GA,
+     '    if not u.lower().startswith(("http://", "https://")):\n        return False\n',
+     '    if not u:\n        return False\n', T_GA),
+    ("gj06", "Vorbehalt: gilt fuer jede Quelle, nicht nur fuer Google", GA,
+     '    return ist_google_quelle(quelle) and not original_gelesen(url, beschreibung)\n',
+     '    return not original_gelesen(url, beschreibung)\n', T_GA),
+    ("gj07", "Remote aus dem Text: der Text entscheidet nichts mehr, es bleibt unbekannt", GA,
+     '    return remote_jobspy.bestimmen(str(titel or ""), "", str(beschreibung or ""))\n', '    return "unbekannt"\n', T_GA),
+    ("gj08", "Hinweis: auch ein unbekanntes Arbeitsmodell wird dem Anzeigentext zugeschrieben", GA,
+     '"bestimmt_aus": "Anzeigentext" if gespeichert_remote != "unbekannt" else "nichts (der Text sagt dazu nichts)",',
+     '"bestimmt_aus": "Anzeigentext",', T_GA),
+    ("gj09", "Hinweis: die Entfernung gilt als gerechnet, obwohl sie es nicht ist", GA,
+     '"entfernung": "nicht gerechnet"}', '"entfernung": "gerechnet"}', T_GA),
+    ("gj10", "Anlegen: der Vorbehalt wird nie angewendet", JOBS,
+     '        if _gangaben.unter_vorbehalt(quelle, url, beschreibung):\n', '        if False:\n', T_GA),
+    ("gj11", "Anlegen: der Aufrufer-Wert fuer remote bleibt trotz Vorbehalt stehen", JOBS,
+     '            google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)\n            remote = _remote_text\n',
+     '            google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)\n', T_GA),
+    ("gj12", "Anlegen: die Entfernung wird auch aus Googles Ort gerechnet", JOBS,
+     '        if ort and not google_vorbehalt:\n', '        if ort:\n', T_GA),
+    ("gj13", "Anlegen: die Warnung google_nur_kopfdaten fehlt", JOBS,
+     '            result.setdefault("warnung", "google_nur_kopfdaten")\n', '            pass\n', T_GA),
+    ("gj14", "Anlegen: der Block google_vorbehalt fehlt im Ergebnis", JOBS,
+     '            result["google_vorbehalt"] = google_vorbehalt\n', '            pass\n', T_GA),
+    ("gj15", "Anlegen: die Aussortierten werden gar nicht angesehen", JOBS,
+     'firma, titel, ort, url, aussortierte_laden(db), kanon=kanon, own_hash=job_hash)',
+     'firma, titel, ort, url, [], kanon=kanon, own_hash=job_hash)', T_GA),
+    ("gj16", "Anlegen: aussortierte_dublette fehlt im Ergebnis", JOBS,
+     '            result["aussortierte_dublette"] = aussortierte_dublette\n', '            pass\n', T_GA),
+    ("gj17", "Hinweis auf Aussortiertes: die Aussortier-Gruende fehlen", JOBS,
+     '                    "aussortiert_wegen": _gruende,\n', '                    "aussortiert_wegen": [],\n', T_GA),
+    ("gj18", "Hinweis auf Aussortiertes: das Datum der Aussortierung fehlt", JOBS,
+     '                    "aussortiert_am": str(_alt.get("dismissed_at") or "")[:10] or None,\n',
+     '                    "aussortiert_am": None,\n', T_GA),
+    ("gj19", "Datenbank: set_job_remote_level nimmt jeden Wert", DBF,
+     '        if remote_level not in ("remote", "hybrid", "vor_ort", "unbekannt"):\n            return False\n',
+     '        if not remote_level:\n            return False\n', T_GA),
+    ("gj20", "Aussortiertes: ein gemeinsames Titelwort genuegt", DD,
+     '_TITEL_ORT_MIN_GEMEINSAM = 2', '_TITEL_ORT_MIN_GEMEINSAM = 1', T_GA),
+    ("gj21", "Aussortiertes: die Schwelle fuer die Titel-Aehnlichkeit entfaellt", DD,
+     '_TITEL_ORT_SCHWELLE = 0.8', '_TITEL_ORT_SCHWELLE = 0.0', T_GA),
+    ("gj22", "Aussortiertes: der Ort muss nicht passen", DD,
+     '        if ort_schluessel(cand.get("location")) != mein_ort:\n            continue\n', '        pass\n', T_GA),
+    ("gj23", "Aussortiertes: ohne Ort wird trotzdem verglichen (leer gleich leer)", DD,
+     '    mein_ort = ort_schluessel(ort)\n    if not mein_ort:\n        return None\n', '    mein_ort = ort_schluessel(ort)\n', T_GA),
+    ("gj24", "Ort-Schluessel: nach dem Komma folgt kein Abschneiden mehr", DD,
+     r'    t = re.split(r"[,;/|]|\s[-–—]\s", t)[0]', '    t = t', T_GA),
+    ("gj25", "Ort-Schluessel: „Remote“ gilt als Ort", DD,
+     '    "remote", "homeoffice", "home office", "hybrid", "deutschland", "germany", "bundesweit", "deutschlandweit",\n',
+     '    "homeoffice", "home office", "hybrid", "deutschland", "germany", "bundesweit", "deutschlandweit",\n', T_GA),
+    ("gj26", "Aussortiertes: auch eine Suchadresse zaehlt als gleiche Anzeige", DD,
+     '    vergleichs_url = str(url) if url and _stellen_url(str(url)) else ""\n', '    vergleichs_url = str(url) if url else ""\n', T_GA),
+    ("gj27", "Aussortiertes: gleiche Firma und gleicher Titel werden nicht mehr gesucht", DD,
+     '    treffer = find_duplicate_job(firma, titel, vergleichs_url, kandidaten, kanon=kanon)\n', '    treffer = None\n', T_GA),
+    ("gj28", "Nachholen: auch eine Stelle ohne Vorbehalt wird neu bestimmt", SAE,
+     '    if not google_angaben.unter_vorbehalt(vorher.get("source"), vorher.get("url"), vorher.get("description")):\n        return None\n',
+     '    if not google_angaben.unter_vorbehalt(vorher.get("source"), vorher.get("url"), vorher.get("description")):\n        pass\n', T_GA),
+    ("gj29", "Nachholen: schon die URL allein hebt den Vorbehalt auf", SAE,
+     '    if google_angaben.unter_vorbehalt(jetzt.get("source"), jetzt.get("url"), jetzt.get("description")):\n        return None\n',
+     '    if google_angaben.unter_vorbehalt(jetzt.get("source"), jetzt.get("url"), jetzt.get("description")):\n        pass\n', T_GA),
+    ("gj30", "Nachholen: das Arbeitsmodell wird bestimmt, aber nicht gespeichert", SAE,
+     '    if stufe != "unbekannt" and stufe != bisher and db.set_job_remote_level(job_hash, stufe):\n',
+     '    if stufe != "unbekannt" and stufe != bisher and True:\n', T_GA),
+    ("gj31", "Nachholen: eine vorhandene Entfernung wird ueberschrieben", SAE,
+     '    if jetzt.get("distance_km") is None and str(jetzt.get("location") or "").strip():\n',
+     '    if str(jetzt.get("location") or "").strip():\n', T_GA),
+    ("gj32", "Nachholen: wird gar nicht aufgerufen", SAE,
+     '    nachgeholt = _vorbehalt_aufheben(db, resolved, job) if updates else None\n', '    nachgeholt = None\n', T_GA),
+    ("gj33", "Nachholen: der Score wird bei neuem Arbeitsmodell nicht neu gerechnet", SAE,
+     '    if "description" in updates or "title" in updates or entfernung_geaendert or nachgeholt:\n',
+     '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -653,6 +741,7 @@ GRUNDLAEUFE = {
     "suche": (("T_SU", T_SU),),
     "vorab": (("T_VO", T_VO), ("T_EW", T_EW)),
     "konsole": (("T_KO", T_KO),),
+    "google": (("T_GA", T_GA),),
 }
 
 WT = None
@@ -703,7 +792,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

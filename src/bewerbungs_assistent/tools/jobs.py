@@ -2056,7 +2056,10 @@ def register(mcp, db, logger):
                 "Meldet das Skript ein `fehler`-Feld, NICHT die Liste "
                 "uebernehmen: dann hat sich die Seitenstruktur geaendert, "
                 "und das gehört als Issue gemeldet. Google lädt weitere "
-                "Karten erst beim Scrollen nach."
+                "Karten erst beim Scrollen nach. Remote und Ort der Karte "
+                "gelten nicht (#1184): `stelle_manuell_anlegen` lässt das "
+                "Arbeitsmodell auf `unbekannt`, bis das Original (Detail-URL "
+                "des Arbeitgebers und Anzeigentext) vorliegt."
             ),
         }
 
@@ -2487,17 +2490,28 @@ def register(mcp, db, logger):
         Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
         Anker (#766), berechnet den Score und legt an.
 
+        GOOGLE JOBS (#1184): Bei Treffern aus Google (quelle='google_jobs') gelten `remote` und
+        `ort` erst, wenn das ORIGINAL vorliegt (Detail-URL des Arbeitgebers UND Anzeigentext). Bis
+        dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet, nicht Googles Karte)
+        und die Entfernung wird nicht aus Googles Ort gerechnet; `google_vorbehalt` im Ergebnis
+        nennt den nächsten Schritt. Das Original mit stelle_bearbeiten(url=..., beschreibung=...,
+        ort=...) nachtragen.
+
         Args:
             titel: Stellentitel (Pflicht).
             firma: Firmenname (Pflicht).
             url: Link zur ORIGINAL-Ausschreibung (Detailseite, keine
                 Suchergebnis-URL — #645/#763).
-            ort: Arbeitsort.
+            ort: Arbeitsort. Googles Ort zählt ohne Original nicht für
+                die Entfernung (#1184).
             beschreibung: Anzeigentext. Je vollständiger, desto
                 belastbarer der Score; unter 50 Zeichen gilt die Stelle
                 als unbewertet (#756/#989).
-            quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite', ...).
-            remote: 'remote' | 'hybrid' | 'vor_ort' | 'unbekannt'.
+            quelle: Herkunft ('linkedin', 'xing', 'firmenwebsite',
+                'google_jobs', ...).
+            remote: 'remote' | 'hybrid' | 'vor_ort' | 'unbekannt'. Bei
+                Google-Treffern ohne Original (Detail-URL und Text) gilt
+                er nicht: dann entscheidet der Text (#1184).
             stellenart: 'festanstellung' | 'freelance' | 'praktikum' |
                 'werkstudent'.
             force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
@@ -2550,6 +2564,12 @@ def register(mcp, db, logger):
         uebernehmen UND den Kontakt festhalten. Ohne Anker wird die Stelle zwar
         angelegt, aber im Result steht eine `anker_warnung` — die gehoert
         ungefiltert an den Nutzer weitergegeben.
+
+        GOOGLE JOBS (#1184): `remote` und `ort` einer Stelle aus Google (quelle google_jobs / jobspy_google)
+        gelten nicht, solange Detail-URL des Originals UND Anzeigentext fehlen (`services/google_angaben`):
+        das Arbeitsmodell kommt dann aus dem Text oder ist 'unbekannt', die Entfernung wird nicht gerechnet.
+        AUSSORTIERTES (#1184): eine aussortierte Stelle gleicher Firma und gleichen Titels - oder gleichen
+        Titels am gleichen Ort - steht als `aussortierte_dublette` im Ergebnis; die Stelle wird trotzdem angelegt.
 
         WICHTIG: Vor dem Anlegen wird automatisch geprueft ob bereits eine
         Bewerbung mit aehnlicher Firma+Titel existiert (#317). Bei klarem
@@ -2887,7 +2907,50 @@ def register(mcp, db, logger):
             logger.debug("Repost-/Vermittler-Pruefung (#1076): %s", exc)
 
         # Stufe C: alles andere (auch aussortierte Stellen bei gleicher Firma)
-        # darf durchgehen.
+        # darf durchgehen - aber nicht unbemerkt (#1184, gleich darunter).
+
+        # #1184 (c): eine AUSSORTIERTE Stelle gleicher Firma und gleichen Titels - oder gleichen Titels am gleichen
+        # Ort unter anderem Firmennamen (Muttermarke gegen Konzernunternehmen) - wird gemeldet, nicht geblockt.
+        # Stufe A und B sehen nur Bewerbungen und aktive Stellen, der Textvergleich (D) braucht einen Anzeigentext;
+        # bei Kopfdaten aus Google fehlt er. Erst `stelle_einordnen` schaute in die Aussortierten.
+        aussortierte_dublette = None
+        try:
+            from ..duplicate_detection import find_aussortierte_dublette
+            from ..services.wiedergaenger import aussortierte_laden, _reasons_of
+            _aus = find_aussortierte_dublette(
+                firma, titel, ort, url, aussortierte_laden(db), kanon=kanon, own_hash=job_hash)
+            if _aus:
+                _alt = _aus["job"]
+                _gruende = _reasons_of(_alt)
+                aussortierte_dublette = {
+                    "id": _kurz(_alt.get("hash") or ""),
+                    "titel": _alt.get("title") or "",
+                    "firma": _alt.get("company") or "",
+                    "ort": _alt.get("location") or "",
+                    "grund": _aus["grund"],
+                    "aussortiert_wegen": _gruende,
+                    "aussortiert_am": str(_alt.get("dismissed_at") or "")[:10] or None,
+                    "hinweis": (
+                        f"Sieht aus wie eine Stelle, die schon aussortiert wurde: '{_alt.get('title')}' bei "
+                        f"{_alt.get('company')}"
+                        + (f" (aussortiert wegen: {', '.join(_gruende)})" if _gruende else "")
+                        + (". Die Firma heißt anders, Titel und Ort passen: Muttermarke oder Konzernunternehmen?"
+                           if _aus["grund"] == "titel_plus_ort" else ".")
+                        + " Ist es dieselbe Stelle, ordne diese hier mit demselben Grund ein "
+                        "(stelle_einordnen), statt sie neu zu bewerten. Eine andere Stelle: einfach weitermachen."),
+                }
+        except Exception as exc:  # pragma: no cover - nie die Anlage kippen
+            logger.warning("Pruefung auf aussortierte Dubletten (#1184) fehlgeschlagen: %s", exc)
+
+        # #1184 (b): Angaben aus Google gelten nicht, solange das Original fehlt. Remote kommt aus dem Text (dieselbe
+        # Regel wie bei JobSpy, B63), sonst 'unbekannt'; die Entfernung wird nicht aus Googles Ort gerechnet. Vorher
+        # hiess "Beliebiger Ort, Homeoffice" aus Googles Karte `remote`: die Entfernung fiel weg, der Rahmenscore stieg.
+        from ..services import google_angaben as _gangaben
+        google_vorbehalt = None
+        if _gangaben.unter_vorbehalt(quelle, url, beschreibung):
+            _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
+            google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)
+            remote = _remote_text
 
         # v1.7.112 (#1051): dasselbe Nadeloehr wie Suchlauf, Neuberechnung
         # und `fit_analyse`. Mit den rohen Kriterien fehlte die abgeleitete
@@ -2931,7 +2994,8 @@ def register(mcp, db, logger):
             job["salary_estimated"] = 1
 
         # Geocoding (#167): Entfernung berechnen wenn Standort bekannt
-        if ort:
+        # (#1184: nicht aus dem Ort einer Google-Karte, solange das Original fehlt)
+        if ort and not google_vorbehalt:
             try:
                 from ..services.geocoding_service import get_user_coordinates, geocode_and_calculate_distance
                 user_coords = get_user_coordinates(db)
@@ -3007,6 +3071,12 @@ def register(mcp, db, logger):
         if laufende_bewerbung_verdacht:
             result["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
             result.setdefault("warnung", "laufende_bewerbung_verdacht")
+        if aussortierte_dublette:
+            result["aussortierte_dublette"] = aussortierte_dublette
+            result.setdefault("warnung", "aussortierte_dublette")
+        if google_vorbehalt:
+            result["google_vorbehalt"] = google_vorbehalt
+            result.setdefault("warnung", "google_nur_kopfdaten")
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -4847,6 +4917,8 @@ def register(mcp, db, logger):
         }
         if erg.get("score_neu_berechnet"):
             result["score_neu_berechnet"] = erg["score_neu_berechnet"]
+        if erg.get("google_vorbehalt_aufgehoben"):
+            result["google_vorbehalt_aufgehoben"] = erg["google_vorbehalt_aufgehoben"]
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",

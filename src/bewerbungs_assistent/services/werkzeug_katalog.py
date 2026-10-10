@@ -213,10 +213,12 @@ KURZ = {
     "stelle_manuell_anlegen": (
         "Legt eine Stelle von Hand an (Titel, Firma, Anzeigentext, URL, "
         "Kontakt), etwa aus einer Mail, einem Anruf oder einem Link. Prüft "
-        "Dubletten, Blacklist und frühere Bewerbungen bei derselben Firma. "
-        "Ohne URL, Dokument oder Kontakt ist die Stelle später kaum "
-        "wiederzufinden — dann nachfragen. Nicht für Treffer aus einer "
-        "Jobbörse; die legt die Suche selbst an."),
+        "Dubletten (auch Aussortiertes, dann als Hinweis), Blacklist und "
+        "frühere Bewerbungen. Ohne URL, Dokument oder Kontakt ist die "
+        "Stelle später kaum wiederzufinden — dann nachfragen. Aus Google "
+        "Jobs gelten Remote und Ort erst mit dem Original (Detail-URL des "
+        "Arbeitgebers und Text), davor bleibt das Arbeitsmodell unbekannt. "
+        "Nicht für Treffer aus einer Jobbörse; die legt die Suche selbst an."),
     "profil_erstellen": (
         "Legt das Profil an oder ergänzt es (Name, Kontakt, Kurzprofil, "
         "Praeferenzen). Teil der Ersterfassung. Die Antwort nennt Dokumente, "

@@ -39,6 +39,32 @@ def _neue_entfernung(db, job_hash: str) -> float | None:
     return km
 
 
+def _vorbehalt_aufheben(db, job_hash: str, vorher: dict) -> dict | None:
+    """Das Original einer Google-Stelle liegt jetzt vor (#1184): Arbeitsmodell und Entfernung nachholen.
+
+    Vorher standen beide unter Googles Vorbehalt (`google_angaben`): `unbekannt` und keine Entfernung. Jetzt
+    entscheidet der Text, und der Ort zaehlt. Es wird nur nachgeholt, was fehlt: ein Wert, den der Text nicht
+    bestimmt, bleibt wie er ist, und eine von Hand gesetzte Entfernung bleibt.
+    """
+    from . import google_angaben, remote_jobspy
+    if not google_angaben.unter_vorbehalt(vorher.get("source"), vorher.get("url"), vorher.get("description")):
+        return None
+    jetzt = db.get_job(job_hash) or {}
+    if google_angaben.unter_vorbehalt(jetzt.get("source"), jetzt.get("url"), jetzt.get("description")):
+        return None
+    ergebnis: dict = {}
+    stufe = remote_jobspy.bestimmen(jetzt.get("title"), jetzt.get("location"), jetzt.get("description"))
+    bisher = jetzt.get("remote_level") or "unbekannt"
+    if stufe != "unbekannt" and stufe != bisher and db.set_job_remote_level(job_hash, stufe):
+        ergebnis["remote"] = {"vorher": bisher, "jetzt": stufe}
+    if jetzt.get("distance_km") is None and str(jetzt.get("location") or "").strip():
+        km = _neue_entfernung(db, job_hash)
+        ergebnis["entfernung_km"] = km
+    ergebnis["hinweis"] = ("Das Original liegt vor: Arbeitsmodell und Entfernung gelten jetzt nach Text und Ort der "
+                           "Anzeige, nicht mehr nach Googles Karte.")
+    return ergebnis
+
+
 def _luftlinie(km) -> str:
     """Nie die blosse Zahl — sie wird als Wegstrecke gelesen (#950)."""
     from .entfernung import beschriftung
@@ -102,7 +128,13 @@ def aendern(db, job_hash: str, felder: dict, entfernung_km=None,
                 f"Den neuen Ort kennt PBP noch nicht — die Entfernung steht jetzt "
                 f"auf unbekannt{vorher}. Wenn du sie weißt: entfernung_km setzen.")
 
-    if "description" in updates or "title" in updates or entfernung_geaendert:
+    # #1184: das Original einer Google-Stelle ist jetzt da - Arbeitsmodell und Entfernung nachholen.
+    nachgeholt = _vorbehalt_aufheben(db, resolved, job) if updates else None
+    if nachgeholt:
+        ergebnis["google_vorbehalt_aufgehoben"] = nachgeholt
+        entfernung_geaendert = entfernung_geaendert or "entfernung_km" in nachgeholt
+
+    if "description" in updates or "title" in updates or entfernung_geaendert or nachgeholt:
         try:
             from ..job_scraper import calculate_score
             from . import scoring_kriterien

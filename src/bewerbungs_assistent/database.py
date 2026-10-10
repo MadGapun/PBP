@@ -9901,6 +9901,24 @@ class Database:
         conn.commit()
         return cur.rowcount > 0
 
+    def set_job_remote_level(self, job_hash: str, remote_level: str) -> bool:
+        """Setzt den Remote-Grad einer Stelle (#1184).
+
+        Gebraucht, wenn das Original einer Google-Stelle nachgetragen wird: bis dahin steht `unbekannt` da,
+        dann entscheidet der Text (`google_angaben`). Nur die vier bekannten Stufen; alles andere wird
+        abgewiesen, damit kein Tippfehler den Rahmen verfaelscht.
+        """
+        if remote_level not in ("remote", "hybrid", "vor_ort", "unbekannt"):
+            return False
+        conn = self.connect()
+        stored = self.resolve_job_hash(job_hash)
+        if not stored:
+            return False
+        cur = conn.execute("UPDATE jobs SET remote_level=?, updated_at=? WHERE hash=?",
+                           (remote_level, _now(), stored))
+        conn.commit()
+        return cur.rowcount > 0
+
     def get_company_jobs(self, company: str) -> list:
         """Get all jobs from a specific company."""
         conn = self.connect()

@@ -19,6 +19,9 @@ Anzeigentext; Hybrid-Signale gehen dabei vor dem blossen Wort "remote".
 `is_remote=True` ist nur noch ein Hinweis fuer den Fall, dass der Text
 gar nichts sagt — und dann `hybrid`, nicht `remote`. `False` heisst
 `unbekannt`.
+
+Dieselbe Regel gilt fuer Treffer aus Google Jobs, die Claude im Browser uebernimmt
+(`stelle_manuell_anlegen`, #1184): siehe `google_angaben`.
 """
 from __future__ import annotations
 
