@@ -19,7 +19,9 @@ Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startba
 `komponenten` (kein Installer ohne Pruefsumme; #1152), `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947) und
 `firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080) und
 `wege` (Wege durch PBP: jeder Sprung, jede Verknuepfung, die Sprungleiste; #1171 — baut das Bundle bei Frontend-Eintraegen neu) und
-`suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177).
+`suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177) und
+`browser` (Browser-Suchlauf: die Regel "im Zweifel eintragen" steht in jeder Anleitung, die Vorschau prueft wie die Anlage
+und schreibt nichts; #1187).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -678,14 +680,14 @@ M_GOOGLE = [
     ("gj12", "Anlegen: die Entfernung wird auch aus Googles Ort gerechnet", JOBS,
      '        if ort and not google_vorbehalt:\n', '        if ort:\n', T_GA),
     ("gj13", "Anlegen: die Warnung google_nur_kopfdaten fehlt", JOBS,
-     '            result.setdefault("warnung", "google_nur_kopfdaten")\n', '            pass\n', T_GA),
+     '                ergebnis.setdefault("warnung", "google_nur_kopfdaten")\n', '                pass\n', T_GA),
     ("gj14", "Anlegen: der Block google_vorbehalt fehlt im Ergebnis", JOBS,
-     '            result["google_vorbehalt"] = google_vorbehalt\n', '            pass\n', T_GA),
+     '                ergebnis["google_vorbehalt"] = google_vorbehalt\n', '                pass\n', T_GA),
     ("gj15", "Anlegen: die Aussortierten werden gar nicht angesehen", JOBS,
      'firma, titel, ort, url, aussortierte_laden(db), kanon=kanon, own_hash=job_hash)',
      'firma, titel, ort, url, [], kanon=kanon, own_hash=job_hash)', T_GA),
     ("gj16", "Anlegen: aussortierte_dublette fehlt im Ergebnis", JOBS,
-     '            result["aussortierte_dublette"] = aussortierte_dublette\n', '            pass\n', T_GA),
+     '                ergebnis["aussortierte_dublette"] = aussortierte_dublette\n', '                pass\n', T_GA),
     ("gj17", "Hinweis auf Aussortiertes: die Aussortier-Gruende fehlen", JOBS,
      '                    "aussortiert_wegen": _gruende,\n', '                    "aussortiert_wegen": [],\n', T_GA),
     ("gj18", "Hinweis auf Aussortiertes: das Datum der Aussortierung fehlt", JOBS,
@@ -730,7 +732,80 @@ M_GOOGLE = [
      '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE}
+# ── Browser-Suchlauf: im Zweifel eintragen, Vorschau prueft wie die Anlage (#1187, B77) ──
+T_BR = ["tests/test_v18_browser_im_zweifel_1187.py"]
+BH = "src/bewerbungs_assistent/services/browser_handoff.py"
+HO = "src/bewerbungs_assistent/job_scraper/handoff.py"
+PRM = "src/bewerbungs_assistent/prompts.py"
+LVO = "src/bewerbungs_assistent/job_scraper/linkedin_voyager.py"
+WK = "src/bewerbungs_assistent/services/werkzeug_katalog.py"
+
+M_BROWSER = [
+    ("bw01", "Regel: eine Stelle zu viel ist nicht mehr besser als eine zu wenig", BH,
+     'ist besser als eine zu wenig; ob sie taugt', 'ist schlechter als eine zu wenig; ob sie taugt', T_BR),
+    ("bw02", "Regel: ob eine Stelle taugt, entscheidet nicht mehr der Mensch in PBP", BH,
+     '"nicht du im Chat. Lege jede Stelle an,', '"und du im Chat. Lege jede Stelle an,', T_BR),
+    ("bw03", "Regel: das Urteil geht nicht mehr an die Stelle, sondern in den Chat", BH,
+     '"Stelle (stelle_urteil_speichern); in die Begründung', '"Stelle (im Chat); in die Begründung', T_BR),
+    ("bw04", "Regel: der Vermerk, ob die Anzeige noch offen ist, faellt weg", BH,
+     'Anzeige offen: ja, nein oder unklar', 'Anzeige offen', T_BR),
+    ("bw05", "Regel: Aussortiertes wird nicht mehr zurueckgeholt, nur erwaehnt", BH,
+     'hole sie mit stelle_reaktivieren zurück, statt sie nur im ', 'erwähne sie nur im Chat, statt sie nur im ', T_BR),
+    ("bw06", "Regel: aussortiert wird, was dem Bearbeiter nicht gefaellt", BH,
+     'Sortiere nur aus (stelle_einordnen), was offensichtlich fachfremd oder geschlossen ist, und nenne ',
+     'Sortiere aus (stelle_einordnen), was dir nicht gefällt, und nenne ', T_BR),
+    ("bw07", "Regel: der Bericht im Chat ersetzt die Eintraege wieder", BH,
+     'den Grund. Der Bericht im Chat ersetzt die Einträge in PBP nicht.")', 'den Grund.")', T_BR),
+    ("bw08", "Auftrag je Quelle: statt der Regel steht wieder 'passende Stellen'", BH,
+     'f"- {REGEL_IM_ZWEIFEL}",', '"- Übernimm passende Stellen mit stelle_manuell_anlegen().",', T_BR),
+    ("bw09", "Auftrag je Quelle: der Bericht nennt wieder 'verworfen' statt aussortiert und bekannt", BH,
+     'bekannt, aussortiert mit Grund. Der Bericht ersetzt die Einträge nicht.",', 'bekannt, verworfen mit Grund.",', T_BR),
+    ("bw10", "Auftrag je Quelle: der Volltext ist wieder nur eine Empfehlung", BH,
+     'Der Titel allein sagt zu wenig über Systeme und ', 'Der Titel allein reicht meist, auch bei Systemen und ', T_BR),
+    ("bw11", "Handoff einer einzelnen Quelle: ohne die Regel", HO,
+     '"Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL', '"Duplikat-Erkennung laufen automatisch."', T_BR),
+    ("bw12", "Handoff einer einzelnen Quelle: wieder 'passende Stellen'", HO,
+     '"3. Alle Treffer, die fachlich passen oder nahezu passen, mit "', '"3. Passende Stellen mit "', T_BR),
+    ("bw13", "Workflow-Prompt der Jobsuche: ohne die Regel", PRM,
+     'stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}', 'stelle_manuell_anlegen() erfassen.', T_BR),
+    ("bw14", "Workflow-Prompt der Jobsuche: wieder 'passende Treffer'", PRM,
+     'suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit', 'suchprofil_lesen(), passende Treffer mit', T_BR),
+    ("bw15", "Google-Jobs-Hinweis: ohne die Regel", JOBS,
+     '"des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL', '"des Arbeitgebers und Anzeigentext) vorliegt."', T_BR),
+    ("bw16", "LinkedIn-Plan: das Feld regel ist leer", JOBS,
+     '"regel": REGEL_IM_ZWEIFEL,', '"regel": "",', T_BR),
+    ("bw17", "LinkedIn-Plan: der Vorfilter urteilt wieder mit", JOBS,
+     '"urteilt nicht: im Zweifel holen.",', '"urteilt: was nicht passt, fällt weg.",', T_BR),
+    ("bw18", "LinkedIn-Plan: die Vorschau (dry_run=True) kommt im Ablauf nicht mehr vor", JOBS,
+     '"als Vorschau (dry_run=True, dieselben Prüfungen wie der "', '"als Vorschau (dieselben Prüfungen wie der "', T_BR),
+    ("bw19", "Katalogtext von stelle_manuell_anlegen: wieder 'nicht fuer Treffer aus einer Jobboerse'", WK,
+     '"Auch für Treffer aus dem Browserlauf: im Zweifel eintragen. Was "', '"Nicht für Treffer aus einer Jobbörse; die legt die Suche selbst an. Was "', T_BR),
+    ("bw20", "Hinweis zur aussortierten Dublette: das Urteil geht in den Chat", JOBS,
+     'an die Stelle (stelle_urteil_speichern): ob sie taugt, "', 'an die Stelle (im Chat): ob sie taugt, "', T_BR),
+    ("bw21", "Vorschau: die Blacklist-Abweisung wird auch in der Vorschau protokolliert", JOBS,
+     '            if not trocken:     # #1187: die Vorschau schreibt auch kein Protokoll\n', '            if True:\n', T_BR),
+    ("bw22", "Vorschau: die Anlage laeuft trotz Vorschau weiter (sie schreibt)", JOBS,
+     '        if trocken:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', '        if False:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', T_BR),
+    ("bw23", "Vorschau: die Sammeluebernahme ruft nie trocken auf", JOBS,
+     '                trocken=dry_run)   # #1187: die Vorschau prueft wie der echte Lauf\n', '                trocken=False)\n', T_BR),
+    ("bw24", "Vorschau: 'wuerde_angelegt' zaehlt nicht als angelegt", JOBS,
+     'if res.get("status") in ("angelegt", "wuerde_angelegt") or (', 'if res.get("status") == "angelegt" or (', T_BR),
+    ("bw25", "Vorschau: dieselbe Stelle zweimal im Aufruf zaehlt zweimal", JOBS,
+     '                if res["hash"] in vorschau_hashes:\n', '                if False:\n', T_BR),
+    ("bw26", "Vorschau: die Laenge des Volltexts fehlt", JOBS,
+     '                    _eintrag["beschreibung_zeichen"] = len(beschreibung)\n', '                    pass\n', T_BR),
+    ("bw27", "Vorschau: die Hinweise der Pruefungen fehlen", JOBS,
+     '            _befunde_anfuegen(vorschau)\n', '            pass\n', T_BR),
+    ("bw28", "Vorschau: der Hash der Stelle fehlt", JOBS,
+     '                "id": _kurz(job_hash), "hash": job_hash,\n                "nachricht": f"Vorschau:',
+     '                "id": _kurz(job_hash), "hash": "",\n                "nachricht": f"Vorschau:', T_BR),
+    ("bw29", "Sammeluebernahme: die aussortierte Dublette erscheint nicht im Eintrag", JOBS,
+     '                        ("aussortierte_dublette", "aussortierte_dublette"),\n', '', T_BR),
+    ("bw30", "Trichter-Zeile: 'schon aussortiert' fehlt", LVO,
+     '        ("aussortierte_dublette", "schon aussortiert"),\n', '', T_BR),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -742,6 +817,7 @@ GRUNDLAEUFE = {
     "vorab": (("T_VO", T_VO), ("T_EW", T_EW)),
     "konsole": (("T_KO", T_KO),),
     "google": (("T_GA", T_GA),),
+    "browser": (("T_BR", T_BR),),
 }
 
 WT = None
@@ -792,7 +868,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

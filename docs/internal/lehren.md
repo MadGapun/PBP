@@ -595,3 +595,14 @@ neuere Betas, die feste Quelle des Auto-Updates nie. Zusammen führte die Meldun
 gewählt hatte. Regel: wo zwei Quellen dieselbe Frage beantworten („gibt es etwas Neues?“), steht an EINER Stelle, was gilt, wenn sie sich widersprechen; und jede Meldung
 wird im Test bis zum Ziel angeklickt (vgl. L62), mit den Antworten beider Quellen als Attrappen — einmal übereinstimmend, einmal widersprüchlich.
 *Belege:* #1179, `test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe`, Gegenprobe vo01 und vo09
+
+**L66. Ein Auftrag an Claude ist Code — er braucht eine Quelle, einen Wächter und eine Antwort auf den Zweifelsfall.** Ein Lauf über sechs Browser-Quellen mit rund 1.300 Rohtreffern
+legte keine einzige Stelle in PBP an. Fünf Anleitungen (der Auftrag je Quelle, der Handoff einer Quelle, der Workflow-Prompt der Jobsuche, `google_jobs_url`, der LinkedIn-Plan) sagten
+Claude, „passende“ Stellen zu übernehmen und Verworfenes im Chat zu melden; der Katalogtext von `stelle_manuell_anlegen` sagte „nicht für Treffer aus einer Jobbörse“. Jede Anleitung war für
+sich vernünftig, zusammen machten sie Claude zum Türsteher: die Auswahl fand im Chat statt, der Mensch sah nur den Bericht. Dazu kehrte die Vorschau (`dry_run=True`, die Vorgabe) vor
+jeder Prüfung zurück und zeigte „alle angelegt“. Regel: (1) Verlangt ein Auftrag eine Auswahl („passende“, „relevante“, „wichtige“), steht im selben Satz, was im Zweifel geschieht — sonst
+entscheidet Claude, und zwar für den Menschen. (2) Diese Antwort steht als EINE Konstante im Code (`REGEL_IM_ZWEIFEL`), jede Anleitung setzt sie ein, ein Test verlangt sie in jeder, und ein
+Wächter über den ganzen Quelltext verbietet die alte Formulierung auch dort, wo noch niemand hinsieht (vgl. L1). (3) Eine Vorschau stellt dieselben Fragen wie die Anlage und schreibt nichts;
+der Test legt sie neben den echten Lauf und vergleicht die Zählungen — und prüft zusätzlich die erwarteten Gründe, denn zwei blinde Seiten wären auch gleich.
+*Belege:* #1187, `test_1187_jede_anleitung_setzt_die_regel_ein`, `test_1187_kein_text_im_code_sagt_claude_passende_treffer_zu_uebernehmen`,
+`test_1187_vorschau_und_lauf_zaehlen_gleich_und_die_vorschau_schreibt_nichts`, Gegenprobe bw01 bis bw30
