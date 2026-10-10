@@ -317,12 +317,15 @@ Aufloesen `git diff main -- <datei>` leer, Signaturen der aufgerufenen
 Funktionen abgleichen (1.8-only-Funktionen, andere Tupel), nur geloeste
 Dateien einzeln hinzufuegen, Assets neu bauen; bei stark abweichenden
 Dateien Stable-Fassung plus deterministischer Umschreiber.
+Umgibt `try/except` die neue Pruefung, schluckt es auch einen fehlenden Namen (`kanon` gab es nur in 1.8: der NameError wurde zur
+Warnung im Log, die Pruefung lief nie) — die mitgewanderten Tests muessen die WIRKUNG verlangen (der Hinweis steht im Ergebnis),
+nicht nur das Ausbleiben eines Fehlers.
 Beim Portieren: `cherry-pick --continue` verschluckt Betreffe, die mit
 `#` beginnen (`-c core.commentChar=;`); ein Modify/Delete-Konflikt hat keine
 Marker und darf nie automatisch als geloest gelten — so kam ein
 1.8-Modul auf die Stable-Linie. Quelltext-Tests, die Bauformen per
 Zeichenkette suchen, vor dem Umbenennen per grep finden (die CI fand zwei).
-*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113), #1130 (30.09.2026: als Hotfix-Kandidat vorgeschlagen, im Tag v1.7.143 gab es die Datei nicht)
+*Belege:* v1.7.8, v1.7.16, v1.7.12/5, #997, #998, #1016, v1.7.136/8, v1.7.138/5, v1.7.139/8, v1.7.140 (#1102, #1113), #1130 (30.09.2026: als Hotfix-Kandidat vorgeschlagen, im Tag v1.7.143 gab es die Datei nicht), #1184/#1187 (v1.7.157: `kanon` nur in 1.8, stiller NameError; fiel nur durch den mitgewanderten Test auf)
 
 **L36. Ein Release aus mehreren Dateien faellt stueckweise aus.** Tag erst
 nach gruener CI, mit Baum, Branch, Commit und Versionsstring als
