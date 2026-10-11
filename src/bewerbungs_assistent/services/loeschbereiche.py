@@ -138,9 +138,10 @@ BESCHREIBUNG = {
     "bewerbungen": ("Bewerbungen samt Verlauf, Terminen, Aufgaben und "
                     "Kontakten. Enthält Namen und Mailadressen "
                     "Dritter."),
-    "stellen": ("Der Stellen-Bestand samt Fundstellen. **Mit den "
+    # Testlauf 11.10.2026: die Oberflaeche zeigt Klartext, die Sternchen standen dort woertlich da.
+    "stellen": ("Der Stellen-Bestand samt Fundstellen. Mit den "
                 "aussortierten Stellen verschwinden auch die "
-                "Lernsignale** — Ablehnungsgründe, "
+                "Lernsignale — Ablehnungsgründe, "
                 "Wiedergänger-Muster, Kalibrierung."),
     "dokumente": ("Hochgeladene Dokumente samt Versionen und "
                   "Extraktionsverlauf. Die Dateien auf der Platte "

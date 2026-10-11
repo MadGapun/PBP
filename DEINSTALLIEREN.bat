@@ -69,6 +69,7 @@ echo    - MCP-Eintrag "bewerbungs-assistent" in Claude Desktop
 echo    - PBP-Runtime aus %APP_DIR%
 echo    - Windows Apps ^& Features Eintrag
 echo    - Desktop-Verknuepfung "PBP Bewerbungs-Portal"
+echo    - Nachinstallierte Komponenten ^(z. B. die Texterkennung^)
 echo    - Auf Nachfrage: Browser-Dateien ^(Playwright^) und pip-Zwischenspeicher
 echo.
 echo  Hinweis:
@@ -153,6 +154,14 @@ if exist "%BASEDIR%\install_log.txt" (
 for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
     if exist "%%~fF" del /q "%%~fF" >nul 2>&1
 )
+
+:: PP26 (Testlauf 11.10.2026): hat PBP die Texterkennung ohne Administratorrechte "nur fuer mich" eingerichtet, liegt sie
+:: ausserhalb von components\ - der Vermerk dort sagt es. Dann geht sie mit ihrem eigenen Deinstallationsprogramm.
+call :texterkennung_entfernen
+set "TESS_RESULT=!errorlevel!"
+if "!TESS_RESULT!"=="0" echo         [OK] Texterkennung ^(Tesseract^) entfernt
+if "!TESS_RESULT!"=="1" echo         [^^!^^!] Die Texterkennung konnte nicht vollstaendig entfernt werden
+if "!TESS_RESULT!"=="1" set /a REMOVE_ERRORS+=1
 
 echo.
 echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
@@ -320,6 +329,18 @@ if exist "%TARGET%" (
     echo [OK] Entfernt: %TARGET% >> "%LOGFILE%"
 )
 exit /b 0
+
+:: --- texterkennung Anfang
+:texterkennung_entfernen
+:: PP26 (Testlauf 11.10.2026): ohne Administratorrechte legt das Setup der Texterkennung sie "nur fuer mich" unter
+:: %LOCALAPPDATA%\Programs\Tesseract-OCR ab und ignoriert das Ziel. PBP merkt sich das in components\tesseract\pbp-installation.json;
+:: nur dann, und nur an diesem einen Ort, wird entfernt. Das Deinstallationsprogramm des Setups macht die Arbeit (Programmdateien,
+:: Startmenue); es kopiert sich nach TEMP und kehrt sofort zurueck, darum wird gewartet, bis das Programm weg ist. Der Rest
+:: (nachgeladene Sprachdaten) geht mit dem Ordner. Rueckgabe: 0 entfernt, 1 nicht vollstaendig, 9 nichts zu tun.
+if not exist "%BASE_INSTALL%\components\tesseract\pbp-installation.json" exit /b 9
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$d = Join-Path $env:LOCALAPPDATA 'Programs\Tesseract-OCR'; if (-not (Test-Path -LiteralPath $d)) { Write-Host '[INFO] Texterkennung: Ordner nicht vorhanden'; exit 0 }; $u = Join-Path $d 'tesseract-uninstall.exe'; $env:__COMPAT_LAYER = 'RunAsInvoker'; if (Test-Path -LiteralPath $u) { try { Start-Process -FilePath $u -ArgumentList '/S' -WindowStyle Hidden } catch { Write-Host ('[INFO] Deinstallationsprogramm nicht gestartet: ' + $_.Exception.Message) }; for ($i = 0; $i -lt 60 -and (Test-Path -LiteralPath (Join-Path $d 'tesseract.exe')); $i++) { Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 2 }; Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue; if (Test-Path -LiteralPath $d) { Write-Host ('[WARN] Texterkennung nicht vollstaendig entfernt: ' + $d); exit 1 } else { Write-Host ('[OK] Texterkennung entfernt: ' + $d); exit 0 }" >> "%LOGFILE%" 2>&1
+exit /b %errorlevel%
+:: --- texterkennung Ende
 
 :: --- zusatzdateien Anfang
 :zusatzdateien

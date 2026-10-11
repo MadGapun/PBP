@@ -980,6 +980,7 @@ M_SKILL = [
 
 # ── Installer-Reste: leerer Ordner, altes Dashboard-Fenster, Temp-Dateien (#1170 PP20, PP21, PP23) ──
 T_IN = ["tests/test_v18_installer_reste_1170.py"]
+T_IPP = ["tests/test_v18_installer_reste_pp24_pp25.py"]
 
 M_INSTALLER = [
     ("in01", "Der Installer beendet das alte Dashboard-Fenster nicht mit", "INSTALLIEREN.bat",
@@ -994,6 +995,27 @@ M_INSTALLER = [
      '        if Path(__file__).name == "pbp_installer_aufraeumen.py":\n', "        if False:\n", T_IN),
     ("in06", "Der Aufraeum-Helfer des Selbsttests erbt den Arbeitsordner und haelt den entpackten Ordner fest", "_selftest.py",
      "close_fds=True, cwd=tempfile.gettempdir(),\n", "close_fds=True,\n", T_IN),
+    # PP24 (Testlauf 11.10.2026): der Helfer starb am ersten PermissionError beim gehaltenen Ordner
+    ("in07", "Der Durchgang laesst den Fehler eines gehaltenen Ordners durchschlagen", "_installer_aufraeumen.py",
+     "        try:\n            shutil.rmtree(ordner, onerror=_freigeben)\n        except OSError:\n            pass\n",
+     "        shutil.rmtree(ordner, onerror=_freigeben)\n", T_IPP),
+    ("in08", "Die Rueckruffunktion faengt den zweiten Fehlschlag nicht", "_installer_aufraeumen.py",
+     "    try:\n        os.chmod(pfad, stat.S_IWRITE)\n        fn(pfad)\n    except OSError:\n        pass\n",
+     "    os.chmod(pfad, stat.S_IWRITE)\n    fn(pfad)\n", T_IPP),
+    # PP25: get-pip.py liess pip.zip im gemeinsamen Temp-Ordner liegen
+    ("in09", "get-pip arbeitet wieder im gemeinsamen Temp-Ordner", "INSTALLIEREN.bat",
+     'set "TEMP=!PIP_TMP!"\nset "TMP=!PIP_TMP!"\n', "", T_IPP),
+    ("in10", "Der eigene Temp-Ordner von get-pip wird nach dem Lauf nicht geloescht", "INSTALLIEREN.bat",
+     'set "TMP=!PIP_TMP_VORHER!"\nrmdir /s /q "!PIP_TMP!" >nul 2>&1\nexit /b !PIP_RC!\n',
+     'set "TMP=!PIP_TMP_VORHER!"\nexit /b !PIP_RC!\n', T_IPP),
+    ("in11", "TEMP und TMP bleiben nach get-pip umgebogen", "INSTALLIEREN.bat",
+     'set "TEMP=!PIP_TEMP_VORHER!"\nset "TMP=!PIP_TMP_VORHER!"\n', "", T_IPP),
+    ("in12", "Der Exitcode von get-pip geht verloren", "INSTALLIEREN.bat",
+     "exit /b !PIP_RC!\n", "exit /b 0\n", T_IPP),
+    ("in13", ":fix_pip ruft get-pip wieder direkt auf", "INSTALLIEREN.bat",
+     'curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"\ncall :pip_beschaffen\ngoto :eof\n',
+     'curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"\n"%PYTHON%" "!GETPIP_PATH!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1\ngoto :eof\n',
+     T_IPP),
 ]
 
 # ── Erste Schritte: was ein Mensch ohne Profil sieht und anklickt (#1170 U5-U9, U13, U14, U18; G83) ──
@@ -1063,7 +1085,51 @@ M_ERSTE = [
      '  if (loading) return <LoadingPanel label="Profil wird geladen..." />;\n', T_ES),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE}
+# ── Texterkennung ohne Administratorrechte (PP26, Testlauf 11.10.2026; Beta-Exit 3) ──
+T_TE = ["tests/test_v18_texterkennung_ohne_admin_pp26.py"]
+COMP_TE = "src/bewerbungs_assistent/services/components.py"
+
+M_TESSERACT = [
+    ("te01", "Das Setup startet wieder ohne die Umgebung RunAsInvoker", COMP_TE,
+     "                    env=_setup_umgebung(), **_SUBPROCESS_FLAGS,\n", "                    **_SUBPROCESS_FLAGS,\n", T_TE),
+    ("te02", "RunAsInvoker wird nie gesetzt", COMP_TE,
+     '        if "RunAsInvoker" not in schichten:\n            schichten.append("RunAsInvoker")\n', "        pass\n", T_TE),
+    ("te03", "WinError 740 wird als roher Text durchgereicht", COMP_TE,
+     '                if getattr(exc, "winerror", None) == 740:\n', "                if False:\n", T_TE),
+    ("te04", "Der Ort 'nur fuer mich' wird nach dem Setup nicht gesucht", COMP_TE,
+     "            gefunden = find_component_binary(db, name)\n            if gefunden and Path(gefunden).is_file():\n                binary = Path(gefunden)\n",
+     "            pass\n", T_TE),
+    ("te05", "Der Marker einer Installation ausserhalb wird nicht geschrieben", COMP_TE,
+     "        if not _liegt_in(binary, target_dir):\n            _eigene_installation_merken(target_dir, binary, version, definition)\n",
+     "        pass\n", T_TE),
+    ("te06", "Entfernen ignoriert den Marker", COMP_TE,
+     "    marker = eigene_installation(name)\n    if marker is not None:\n", "    marker = None\n    if marker is not None:\n", T_TE),
+    ("te07", "Entfernen nimmt jeden Pfad, den der Marker nennt", COMP_TE,
+     "    if erlaubt is None or not str(verzeichnis) or not _liegt_in(verzeichnis, erlaubt) or not _liegt_in(erlaubt, verzeichnis):\n",
+     "    if False:\n", T_TE),
+    ("te08", "Das Deinstallationsprogramm wird ohne die Umgebung RunAsInvoker gestartet", COMP_TE,
+     '                    [str(deinstaller), "/S"], env=_setup_umgebung(), timeout=180, capture_output=True,\n',
+     '                    [str(deinstaller), "/S"], timeout=180, capture_output=True,\n', T_TE),
+    ("te09", "Entfernen laesst den Ordner mit den Resten stehen", COMP_TE,
+     "        shutil.rmtree(verzeichnis, ignore_errors=True)\n", "        pass\n", T_TE),
+    ("te10", "Eine vorhandene Installation 'nur fuer mich' wird nicht erkannt", COMP_TE,
+     '        pfade.append(str(ordner / definition["binary_name"]))\n', "        pass\n", T_TE),
+    ("te11", "Der Sprachhinweis nennt wieder Werkzeugnamen", "src/bewerbungs_assistent/services/ocr_service.py",
+     '            "Das deutsche Sprachpaket fehlt, die Erkennung lief nur auf Englisch. Für deutsche Dokumente: "\n',
+     '            "deu-Sprachpaket fehlt — Erkennung lief nur mit \'eng\'. Für deutsche Dokumente: ensure_language(\'deu\'). "\n', T_TE),
+    ("te12", "Die Speicheruebersicht nennt den echten Ort der Texterkennung nicht", "src/bewerbungs_assistent/services/speicher.py",
+     '            if marker:\n                ziel = Path(str(marker["verzeichnis"]))\n', '            if False:\n                ziel = Path(str(marker["verzeichnis"]))\n', T_TE),
+    ("te13", "Deinstaller: ohne Marker wird trotzdem entfernt", "DEINSTALLIEREN.bat",
+     'if not exist "%BASE_INSTALL%\\components\\tesseract\\pbp-installation.json" exit /b 9\n', "", T_TE),
+    ("te14", "Deinstaller: wartet nicht, bis das Programm weg ist", "DEINSTALLIEREN.bat",
+     "for ($i = 0; $i -lt 60 -and (Test-Path -LiteralPath (Join-Path $d 'tesseract.exe')); $i++) { Start-Sleep -Seconds 1 }; ", "", T_TE),
+    ("te15", "Deinstaller: die Texterkennung wird in Schritt 5 nicht aufgerufen", "DEINSTALLIEREN.bat",
+     'call :texterkennung_entfernen\nset "TESS_RESULT=!errorlevel!"\n', 'set "TESS_RESULT=9"\n', T_TE),
+    ("te16", "Deinstaller: jedes Verzeichnis statt nur dem einen Ort", "DEINSTALLIEREN.bat",
+     "$d = Join-Path $env:LOCALAPPDATA 'Programs\\Tesseract-OCR'; ", "$d = $env:LOCALAPPDATA; ", T_TE),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -1078,8 +1144,9 @@ GRUNDLAEUFE = {
     "browser": (("T_BR", T_BR),),
     "jobtic": (("T_JT", T_JT), ("T_JTP", T_JTP)),
     "skillstand": (("T_SK", T_SK),),
-    "installer": (("T_IN", T_IN),),
+    "installer": (("T_IN", T_IN), ("T_IPP", T_IPP)),
     "erste": (("T_ES", T_ES),),
+    "texterkennung": (("T_TE", T_TE),),
 }
 
 WT = None
@@ -1130,7 +1197,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste", "texterkennung"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

@@ -286,7 +286,10 @@ echo [DEBUG] Pruefe get-pip.py... >> "%LOGFILE%"
 if not exist "%GETPIP_PATH%" goto :err_getpip
 
 echo [DEBUG] Fuehre get-pip.py aus... >> "%LOGFILE%"
-"%PYTHON%" "%GETPIP_PATH%" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+:: PP25 (Testlauf 11.10.2026): get-pip.py entpackt sich nach TEMP\tmpXXXX\pip.zip und kann das unter Windows nicht selbst
+:: loeschen (die Datei ist noch geladen) - 1,7 MB blieben nach jeder Installation liegen. Ein eigener, kurzlebiger
+:: Temp-Ordner nimmt den Rest auf und wird danach geloescht.
+call :pip_beschaffen
 if !errorlevel! neq 0 goto :err_pip
 
 echo         [OK] Python + pip bereit
@@ -1192,8 +1195,24 @@ goto :eof
 echo         pip wird nachinstalliert...
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"
 if not exist "!GETPIP_PATH!" curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"
-"%PYTHON%" "!GETPIP_PATH!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+call :pip_beschaffen
 goto :eof
+
+:pip_beschaffen
+:: Fuehrt get-pip.py mit einem eigenen Temp-Ordner aus und raeumt ihn danach weg (PP25). Rueckgabe: der Exitcode von get-pip.
+set "PIP_TMP=%PYTHON_DIR%\pip-tmp"
+rmdir /s /q "!PIP_TMP!" >nul 2>&1
+mkdir "!PIP_TMP!" >nul 2>&1
+set "PIP_TEMP_VORHER=%TEMP%"
+set "PIP_TMP_VORHER=%TMP%"
+set "TEMP=!PIP_TMP!"
+set "TMP=!PIP_TMP!"
+"%PYTHON%" "%GETPIP_PATH%" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+set "PIP_RC=!errorlevel!"
+set "TEMP=!PIP_TEMP_VORHER!"
+set "TMP=!PIP_TMP_VORHER!"
+rmdir /s /q "!PIP_TMP!" >nul 2>&1
+exit /b !PIP_RC!
 
 :start_claude_appx
 :: #990: Store-Apps starten ueber den AppsFolder, nicht ueber einen Pfad.

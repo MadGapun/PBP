@@ -122,19 +122,32 @@ def plan(basis, fassung: str, programm, daten) -> dict:
 
 
 def _freigeben(fn, pfad, _info):
-    os.chmod(pfad, stat.S_IWRITE)
-    fn(pfad)
+    """Schreibschutz aufheben und noch einmal. Scheitert auch das, bleibt der Rest fuer den naechsten Durchgang.
+
+    PP24 (Testlauf 11.10.2026): hier stand kein Fangnetz. Haelt ein Fenster (Explorer, Konsole) den Ordner selbst, wirft
+    das zweite `os.rmdir` `PermissionError` (WinError 32) -- aus dieser Rueckruffunktion heraus, durch `rmtree` und
+    `lauf` bis in den Prozess hinein. Der Helfer starb im ersten Versuch; ein leerer Ordner und seine Kopie im
+    Temp-Ordner blieben liegen, obwohl er 200 Versuche im Abstand von 3 s vorsieht.
+    """
+    try:
+        os.chmod(pfad, stat.S_IWRITE)
+        fn(pfad)
+    except OSError:
+        pass
 
 
 def _loeschen_versuchen(ordner, zips) -> bool:
-    """Ein Durchgang; True, wenn alles weg ist."""
+    """Ein Durchgang; True, wenn alles weg ist. Wirft nie: ein gehaltener Ordner ist ein Grund zu warten, kein Fehler."""
     for z in zips:
         try:
             Path(z).unlink(missing_ok=True)
         except OSError:
             pass
     if ordner and Path(ordner).exists():
-        shutil.rmtree(ordner, onerror=_freigeben)
+        try:
+            shutil.rmtree(ordner, onerror=_freigeben)
+        except OSError:
+            pass
     return not (ordner and Path(ordner).exists()) and not any(Path(z).exists() for z in zips)
 
 
