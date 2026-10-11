@@ -1527,7 +1527,7 @@ function KIFeaturesCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Was Claude bearbeiten darf"
-        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter und sagt das. Änderungen wirken sofort."
+        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, führt PBP diese Funktion nicht aus und sagt das. Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist; wer gar nichts weitergeben will, trennt PBP dort. Änderungen wirken sofort."
       />
 
       <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">

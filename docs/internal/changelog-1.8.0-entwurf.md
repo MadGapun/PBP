@@ -104,6 +104,8 @@ Einträgen darunter.
   fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
 - **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
   Wand aus Nullen.
+- **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
+  etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
 
 ### Fixed
 

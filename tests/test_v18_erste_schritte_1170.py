@@ -345,3 +345,14 @@ def test_u18_ein_roher_fehlertext_der_erkennung_steht_nicht_im_dashboard():
     quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
     assert "Erkennungs-Fehler: {status.error}" not in quelle
     assert "Ollama ließ sich gerade nicht erkennen." in quelle
+
+
+# ══ #1147 Punkt 3: der Satz zu den KI-Schaltern sagt, was sie tun ══════════════════════════════════════════════
+
+def test_1147_die_ki_schalter_versprechen_nicht_mehr_als_sie_tun():
+    """Die Schalter sperren die Funktionen, mit denen Claude etwas AUSLÖST (elf Werkzeuge). Lesende Werkzeuge liefern weiter, solange
+    PBP in Claude Desktop eingetragen ist. Der Satz „… gibt PBP für diesen Bereich nichts an Claude weiter“ war deshalb falsch."""
+    quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    assert "gibt PBP für diesen Bereich nichts an Claude weiter" not in quelle
+    assert "führt PBP diese Funktion nicht aus und sagt das" in quelle
+    assert "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist" in quelle
