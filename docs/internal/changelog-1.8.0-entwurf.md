@@ -103,8 +103,9 @@ Einträgen darunter.
   (8) Der Knopf „Beschreibung nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
   (sonst „ruht seit 0“); `jobtic.com:443` und `nutzer@jobtic.com` gehören zur Quelle.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): zwölf Kataloge, 448 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 35); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünfzehn Kataloge, 504 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 49, Skill-Stand 11, Installer 6,
+  Erste Schritte 25); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
