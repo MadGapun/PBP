@@ -154,7 +154,17 @@ def test_erneutes_hinzufuegen_nennt_den_aktuellen_stand_statt_der_spitze(umgebun
     ({}, None, None, False),
     (None, None, None, False),
     ({"level": True}, None, None, False),
+    # 0 heisst „nicht gesetzt“ (Beschreibung von skill_hinzufuegen: „0 = aktuell/unbekannt“), nie „seit dem Jahr 0“ oder „Niveau 0“
+    ({"level": 4, "end_year": 0}, 4, 4, False),
+    ({"level": 4, "level_current": 0}, 4, 4, False),
+    ({"level": 4, "end_year": "0", "level_current": "0"}, 4, 4, False),
 ])
 def test_skill_stand_liest_auch_unsaubere_werte(skill, aktuell, spitze, ruht):
     r = skill_stand(skill)
     assert (r["level_aktuell"], r["level_spitze"], r["ruht"]) == (aktuell, spitze, ruht)
+
+
+def test_null_ist_kein_jahr_weder_im_ende_noch_im_letzten_einsatz():
+    r = skill_stand({"level": 4, "end_year": 0, "last_used_year": 0, "start_year": 0})
+    assert r["bis"] is None and r["zuletzt_genutzt"] is None and r["seit"] is None
+    assert "ruht" not in r["stand"] and "0" not in r["stand"].replace("Lv.", ""), r["stand"]
