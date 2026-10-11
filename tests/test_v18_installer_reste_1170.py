@@ -110,3 +110,34 @@ def test_pp23_der_selbsttest_hinterlaesst_kein_datenverzeichnis(tmp_path):
         time.sleep(1)
         reste = list(temp.iterdir())
     assert not reste, f"Reste im Temp-Ordner: {[p.name for p in reste]}"
+
+
+def test_pp23_der_helfer_des_selbsttests_bekommt_einen_eigenen_arbeitsordner():
+    """Der Aufräum-Helfer erbt sonst den Arbeitsordner des Selbsttests — und das ist der entpackte Ordner der neuen Version (die
+    Installation startet den Selbsttest dort und benennt den Ordner gleich danach um). Auf jedem System prüfbar: der Aufruf nennt
+    `cwd`."""
+    import ast
+    baum = ast.parse((ROOT / "_selftest.py").read_text(encoding="utf-8"))
+    aufrufe = [n for n in ast.walk(baum)
+               if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == "Popen"]
+    assert aufrufe, "der Helfer wird nicht mehr über Popen gestartet — Test anpassen"
+    for a in aufrufe:
+        assert any(k.arg == "cwd" for k in a.keywords), "Popen des Helfers ohne cwd: er hält den entpackten Ordner fest"
+
+
+@nur_windows
+def test_pp23_der_entpackte_ordner_laesst_sich_nach_dem_selbsttest_sofort_umbenennen(tmp_path):
+    """Gemessen am Kandidaten: ohne eigenen Arbeitsordner des Helfers scheiterte der erste `os.replace` immer mit WinError 32
+    und gelang erst nach einer Sekunde Wiederholung; die Installation gibt nach fünf Versuchen auf."""
+    entpackt = tmp_path / "entpackt"
+    entpackt.mkdir()
+    temp = tmp_path / "temp"
+    temp.mkdir()
+    env = {**os.environ, "TMP": str(temp), "TEMP": str(temp), "PYTHONPATH": str(ROOT / "src")}
+    env.pop("BA_DATA_DIR", None)
+    r = subprocess.run([sys.executable, str(ROOT / "_selftest.py")], capture_output=True, text=True, timeout=180, env=env,
+                       cwd=str(entpackt))
+    assert r.returncode == 0, (r.stdout[-800:], r.stderr[-800:])
+    ziel = tmp_path / "neu"
+    os.replace(entpackt, ziel)  # sofort, ohne Wiederholung — genau wie die Installation es zuerst versucht
+    assert ziel.is_dir()
