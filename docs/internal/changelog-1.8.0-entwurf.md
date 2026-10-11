@@ -106,6 +106,9 @@ Einträgen darunter.
   Wand aus Nullen.
 - **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
   etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
+- **Die Texte zur Automatik versprechen nichts mehr, was nur auf Knopfdruck läuft** (#1139). Die Aufräum-Runde (Erinnerungen nachlegen, Bewerbungen ohne Antwort abschließen, fehlende Anzeigentexte nachladen) hat keinen
+  automatischen Auslöser; sie läuft über „Jetzt prüfen“ unter Einstellungen › Automatik. Die Karte dort, die Hilfe und der Hinweis nach der Jobsuche sagen das jetzt („… holt „Jetzt prüfen“ nach“ statt „folgen mit der
+  Automatik“). Ob die Runde künftig von selbst läuft (täglich, das Abschließen abschaltbar), ist als Frage an #1139 gestellt.
 
 ### Fixed
 

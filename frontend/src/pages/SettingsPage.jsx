@@ -1381,7 +1381,7 @@ function AutoActionsTab({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Bewerbungen im Blick behalten"
-        description="PBP legt Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam."
+        description="Beim Prüfen legt PBP Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam. Das geschieht, wenn du unten „Jetzt prüfen“ drückst; die erste Erinnerung zu einer Bewerbung legt PBP schon beim Absenden an."
       />
 
       <div className="space-y-5">
@@ -1423,9 +1423,10 @@ function AutoActionsTab({ pushToast }) {
         <div className="glass-card p-4 space-y-3">
           <h3 className="font-medium text-ink text-sm">Nachfass-Erinnerungen</h3>
           <p className="text-[12px] text-muted">
-            Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP eine
-            an — so viele Tage nach dem letzten Schritt. Hakst du sie ab, kommt
-            die nächste, solange die Bewerbung läuft.
+            Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP beim
+            Prüfen eine an — so viele Tage nach dem letzten Schritt. Hakst du
+            eine ab, kommt die nächste beim nächsten Prüfen, solange die
+            Bewerbung läuft.
           </p>
           <Field label="Erinnerung nach (Tage seit dem letzten Schritt)">
             <input
