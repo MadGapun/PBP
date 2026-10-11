@@ -730,7 +730,65 @@ M_GOOGLE = [
      '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE}
+# ── Erste Schritte: was ein Mensch ohne Profil sieht und anklickt (#1170 U5-U9, U13, U14, U18; G83) ──
+T_ES = ["tests/test_v18_erste_schritte_1170.py"]
+FE = "frontend/src/"
+LB = "src/bewerbungs_assistent/services/loeschbereiche.py"
+
+M_ERSTE = [
+    ("es01", "Stellen ohne Profil: die Seite zeigt wieder Kennzahlen, Filter und Quellenkarte", FE + "pages/JobsPage.jsx",
+     '  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — keine Kennzahlen aus Nullen, keine Filter, keine Quellenkarte.\n  if (!chrome.status?.has_profile) {',
+     '  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — keine Kennzahlen aus Nullen, keine Filter, keine Quellenkarte.\n  if (false) {', T_ES),
+    ("es02", "Bewerbungen ohne Profil: die Seite zeigt wieder Kennzahlen, Filter und Knöpfe ohne Wirkung", FE + "pages/ApplicationsPage.jsx",
+     '  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — nicht zweimal "Zuerst dein Profil" zwischen Kennzahlen, Filtern und\n'
+     '  // Knöpfen („CV als DOCX“, „Bewerbung anlegen“), die ohne Profil nichts tun können.\n  if (!chrome.status?.has_profile) {',
+     '  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — nicht zweimal "Zuerst dein Profil" zwischen Kennzahlen, Filtern und\n'
+     '  // Knöpfen („CV als DOCX“, „Bewerbung anlegen“), die ohne Profil nichts tun können.\n  if (false) {', T_ES),
+    ("es03", "Suche & Bewertung ohne Profil heißt wieder „Profil“", FE + "pages/ProfilePage.jsx",
+     'title={zeigeSuche ? "Suche & Bewertung" : "Profil"}', 'title="Profil"', T_ES),
+    ("es04", "Der Knopf der Karte öffnet nichts", FE + "components/ZuerstProfil.jsx",
+     '            <Button onClick={openCreateProfileModal}>\n', '            <Button onClick={() => {}}>\n', T_ES),
+    ("es05", "Der erste Dialog heißt immer „Neues Profil anlegen“", FE + "App.jsx",
+     'title={chrome.status?.has_profile ? "Neues Profil anlegen" : "Dein Profil anlegen"}', 'title="Neues Profil anlegen"', T_ES),
+    ("es06", "Der erste Dialog fragt wieder nach einem „Profilname“", FE + "App.jsx",
+     '<Field label={chrome.status?.has_profile ? "Profilname" : "Dein Name"}>', '<Field label="Profilname">', T_ES),
+    ("es07", "Dashboard: der Knopf führt wieder auf die Profilseite", FE + "pages/DashboardPage.jsx",
+     '                    <Button onClick={openCreateProfileModal}>\n                      <Upload size={15} />',
+     '                    <Button onClick={() => navigateTo("profil", { composer: "document" })}>\n                      <Upload size={15} />', T_ES),
+    ("es08", "Aufgaben: die leere Seite erklärt wieder nichts", FE + "pages/TasksPage.jsx",
+     'Aufgaben entstehen aus deinen Bewerbungen (etwa die Nachfassung', 'Entweder ist alles erledigt (etwa die Nachfassung', T_ES),
+    ("es09", "Aufgaben: „Neue Aufgabe“ ist wieder blass", FE + "pages/TasksPage.jsx",
+     '<Button size="sm" onClick={() => setNeuOffen((v) => !v)}>', '<Button size="sm" className="bg-teal/20" onClick={() => setNeuOffen((v) => !v)}>', T_ES),
+    ("es10", "Statistiken: ohne Daten kommt wieder die Wand aus Nullen", FE + "pages/StatsPage.jsx",
+     '{!hasData && !(Number(totals.jobs_ever) > 0 || Number(appStats.total) > 0) ? (', '{!hasData && !extended ? (', T_ES),
+    ("es11", "Statistiken: die Beschriftung ist wieder zu weit gesetzt", FE + "pages/StatsPage.jsx",
+     'className="break-words text-xs uppercase tracking-[0.06em] text-muted">{label}</p>',
+     'className="text-xs uppercase tracking-[0.12em] text-muted">{label}</p>', T_ES),
+    ("es12", "Statistiken: drei Kacheln nebeneinander schon ab xl", FE + "pages/StatsPage.jsx",
+     'className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3"', 'className="grid gap-6 xl:grid-cols-3"', T_ES),
+    ("es13", "Gefahrenzone: mitgelieferte Vorgaben werden nie erkannt", LB,
+     '    if not eintrag or eintrag[0] not in _spalten(db, tabelle):\n        return None\n', '    return None\n', T_ES),
+    ("es14", "Leeren: das Ergebnis zählt die Vorgaben wieder mit", LB,
+     '                if cur.rowcount - vorgaben_n:\n                    geloescht[t] = cur.rowcount - vorgaben_n\n',
+     '                if cur.rowcount:\n                    geloescht[t] = cur.rowcount\n', T_ES),
+    ("es15", "Gefahrenzone: die Regler zählen wieder als Daten", LB,
+     '"scoring_config": ("set_by_user", "COALESCE(set_by_user, 0) = 0"),', '"scoring_config": ("set_by_user", "1 = 0"),', T_ES),
+    ("es16", "Prüfer: Text neben einem Ausdruck wird nicht gelesen", "scripts/ui_texte_pruefen.py",
+     '    for m in _TEXTKNOTEN_AUSDRUCK.finditer(code):\n', '    for m in []:\n', T_ES),
+    ("es17", "Prüfer: Zeichenketten werden wieder über die ganze Datei gepaart", "scripts/ui_texte_pruefen.py",
+     '    for nr, zeile in enumerate(code.split("\\n"), 1):\n        for m in _LITERAL_ZEILE.finditer(zeile):',
+     '    for nr, zeile in enumerate([], 1):\n        for m in _LITERAL_ZEILE.finditer(zeile):', T_ES),
+    ("es18", "Gefahrenzone: der Hinweis auf mitgelieferte Vorgaben fehlt", FE + "pages/SettingsPage.jsx",
+     'ohne {info.vorgaben} mitgelieferte Vorgaben', 'ohne {info.vorgaben} Eintraege', T_ES),
+    ("es19", "Gefahrenzone: „Datensaetze“ ohne Umlaut", FE + "pages/SettingsPage.jsx",
+     '{info.zeilen_gesamt ?? 0} Datensätze', '{info.zeilen_gesamt ?? 0} Datensaetze', T_ES),
+    ("es20", "Kontakte: die Knöpfe der Kontaktliste stehen auch im Reiter Firmen", FE + "pages/ContactsPage.jsx",
+     '        {ansicht === "kontakte" ? (\n        <div className="flex items-center gap-2">', '        {true ? (\n        <div className="flex items-center gap-2">', T_ES),
+    ("es21", "Speicher: Aufräumen ist auch dort klickbar, wo nichts liegt", FE + "components/SpeicherTab.jsx",
+     'Boolean(daten.laufende_arbeit?.length) || nichtsDa}', 'Boolean(daten.laufende_arbeit?.length)}', T_ES),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "erste": M_ERSTE}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -742,6 +800,7 @@ GRUNDLAEUFE = {
     "vorab": (("T_VO", T_VO), ("T_EW", T_EW)),
     "konsole": (("T_KO", T_KO),),
     "google": (("T_GA", T_GA),),
+    "erste": (("T_ES", T_ES),),
 }
 
 WT = None
@@ -792,7 +851,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "erste"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

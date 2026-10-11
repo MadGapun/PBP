@@ -330,7 +330,7 @@ def test_die_oberflaeche_kennzeichnet_geteilte_bereiche():
     fuer die Kennzeichnung, der Browser-Test fuer das Rendern."""
     quelle = _ohne_kommentare(SETTINGS_PAGE.read_text(encoding="utf-8"))
     assert "geteilt_unangetastet" in quelle
-    assert "Gilt fuer alle Profile" in quelle
+    assert "Gilt für alle Profile" in quelle
 
 
 # --------------------------------------------------- #1024: die Aufteilung

@@ -99,6 +99,11 @@ Einträgen darunter.
   dieselbe Funktion wie die Dashboard-Ansicht.
 - Die Warnung bei einer nur in den Notizen genannten Firma beginnt mit „Prüfen:“ (statt „Pruefen:“).
 - Ein zweiter Klick auf „Firmen“ (Reiter oder Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+- **Der erste Start ohne Profil ist ein Weg statt vier Karten** (#1170 U5 bis U7). Ohne Profil zeigen „Stellen“, „Bewerbungen“ und „Suche & Bewertung“ jetzt eine einzige Karte mit einem Knopf, „Lebenslauf hochladen“ — statt
+  Kennzahlen aus Nullen, Filtern, einer Quellenkarte und Knöpfen, die ohne Profil nichts tun können. Derselbe Knopf steht auf dem Dashboard und öffnet denselben Dialog; er heißt für das erste Profil „Dein Profil anlegen“ und
+  fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
+- **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
+  Wand aus Nullen.
 
 ### Fixed
 
@@ -184,6 +189,13 @@ Einträgen darunter.
 - **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
   Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
   (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+- **Die Gefahrenzone zählte mitgelieferte Vorgaben als deine Daten** (#1170 U9). Eine frische Installation zeigte „Bewerbungen: 7 Datensätze — Enthält Namen und Mailadressen Dritter“; die sieben waren die mitgelieferten
+  Kontaktkategorien (ebenso „Einstellungen: 35“: Regler und Ablehnungsgründe). Gezählt wird jetzt, was du angelegt oder verstellt hast; die Vorgaben stehen als „ohne N mitgelieferte Vorgaben“ daneben und gehen beim Leeren mit.
+- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und rund 30 weitere Stellen (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
+  Ausdruck (`{n} Datensaetze`) nie und verlor hinter einem verirrten Anführungszeichen alle Zeichenketten der Datei; beides ist behoben, er findet jetzt 0 Stellen.
+- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14), bei Fenstern unter 1536 px Breite.
+- **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
+  keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
 
 ### Known Issues
 

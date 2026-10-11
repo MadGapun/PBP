@@ -26,6 +26,7 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import MitClaude from "@/components/MitClaude";
 import StandortKarte from "@/components/StandortKarte";
 import FahrstreckeHaken from "@/components/FahrstreckeHaken";
+import ZuerstProfil from "@/components/ZuerstProfil";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
 import {
@@ -1071,12 +1072,16 @@ export default function ProfilePage({ bereich = "profil" }) {
   if (!chrome.status?.has_profile || !profile) {
     return (
       <div id="page-profil" className="page active">
-        <PageHeader title="Profil" description="Lege dein erstes Profil an oder importiere vorhandene Daten." eyebrow="Profil" />
-        <EmptyState
-          title="Noch kein aktives Profil"
-          description="Ohne Profil bleiben Matching, Exporte und automatische Auswertungen leer."
-          action={<Button onClick={openCreateProfileModal}>Profil anlegen</Button>}
+        {/* U5 (#1170): „Suche & Bewertung“ teilt sich diese Seite mit dem Profil — Überschrift und Text müssen zu der Seite passen,
+            die man gewählt hat (vorher stand dort „Profil“ und „Lege dein erstes Profil an“). */}
+        <PageHeader
+          title={zeigeSuche ? "Suche & Bewertung" : "Profil"}
+          description={zeigeSuche
+            ? "Suchbegriffe, Schwellen und Blacklist stellst du ein, sobald dein Profil steht."
+            : "Dein Lebenslauf ist die Grundlage für alles andere."}
+          eyebrow={zeigeSuche ? "Suche" : "Profil"}
         />
+        <ZuerstProfil bereich={zeigeSuche ? "Suchbegriffe und Schwellen" : ""} />
       </div>
     );
   }
@@ -1390,7 +1395,7 @@ export default function ProfilePage({ bereich = "profil" }) {
               </Field>
               <Field label="Informelle Notizen">
                 {/* H15 (#707): Fuehrung — erklaeren wozu die Notizen gut sind */}
-                <p className="text-xs text-muted mb-1" title="Diese Notizen fliessen in Anschreiben-Tonalität, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergänzt sie im Gespräch automatisch.">
+                <p className="text-xs text-muted mb-1" title="Diese Notizen fließen in Anschreiben-Tonalität, Stellen-Bewertung und Interview-Vorbereitung ein. Claude ergänzt sie im Gespräch automatisch.">
                   Persönliches, das Claude kennen soll: Präferenzen, No-Gos, Lebensumstände (z.B. „max. 2 Bürotage", „kein Reisejob"). Einfach im Chat erwähnen — Claude trägt es hier ein.
                 </p>
                 <TextArea rows={3} value={draft.informal_notes || ""} onChange={(event) => setDraft((current) => ({ ...current, informal_notes: event.target.value }))} />
@@ -1410,7 +1415,7 @@ export default function ProfilePage({ bereich = "profil" }) {
           {keywordSuggestions?.status === "ok" && (keywordSuggestions.vorschlaege_plus?.length > 0 || keywordSuggestions.vorschlaege_ausschluss?.length > 0) && (
             <div className="mb-4 rounded-xl border border-sky/20 bg-sky/[0.04] p-3">
               <p className="text-xs font-semibold text-sky mb-1">
-                Vorschlaege aus deinen {keywordSuggestions.aktive_stellen} aktiven Stellen
+                Vorschläge aus deinen {keywordSuggestions.aktive_stellen} aktiven Stellen
               </p>
               {keywordSuggestions.datenquelle ? (
                 <p className="text-xs text-muted mb-2 italic">

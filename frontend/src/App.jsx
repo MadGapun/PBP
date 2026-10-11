@@ -334,7 +334,7 @@ function PromptsTab({ pushToast, copyPrompt }) {
     <div className="space-y-4">
       <p className="text-sm text-muted">
         {prompts.length} Prompts für deine Bewerbung. Klick auf „Kopieren"
-        kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfuegen und absenden.
+        kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfügen und absenden.
       </p>
       <input
         type="text"
@@ -1825,10 +1825,14 @@ export default function App() {
           </div>
         </footer>
 
+        {/* U7 (#1170): der erste Dialog hieß „Neues Profil anlegen — Lege ein weiteres Profil … an“ und fragte nach einem
+            „Profilname (z. B. IT Consulting)“. Wer noch keins hat, legt sein ERSTES an und gibt seinen Namen ein. */}
         <Modal
           open={createProfileOpen}
-          title="Neues Profil anlegen"
-          description="Lege ein weiteres Profil für einen anderen Karrierepfad oder Zielmarkt an."
+          title={chrome.status?.has_profile ? "Neues Profil anlegen" : "Dein Profil anlegen"}
+          description={chrome.status?.has_profile
+            ? "Lege ein weiteres Profil für einen anderen Karrierepfad oder Zielmarkt an."
+            : "Trag deinen Namen ein. Im nächsten Schritt lädst du deinen Lebenslauf hoch — daraus entsteht dein Profil."}
           onClose={() => setCreateProfileOpen(false)}
           footer={
             <div className="flex justify-end gap-3">
@@ -1836,20 +1840,20 @@ export default function App() {
                 Abbrechen
               </Button>
               <Button type="submit" form="create-profile-form">
-                Profil anlegen
+                {chrome.status?.has_profile ? "Profil anlegen" : "Weiter zum Lebenslauf"}
               </Button>
             </div>
           }
         >
           <form id="create-profile-form" className="grid gap-4" onSubmit={handleCreateProfile}>
-            <Field label="Profilname">
+            <Field label={chrome.status?.has_profile ? "Profilname" : "Dein Name"}>
               <TextInput
                 autoFocus
                 value={createProfileForm.name}
                 onChange={(event) =>
                   setCreateProfileForm((current) => ({ ...current, name: event.target.value }))
                 }
-                placeholder="z. B. IT Consulting"
+                placeholder={chrome.status?.has_profile ? "z. B. IT Consulting" : "Vor- und Nachname"}
                 required
               />
             </Field>
@@ -2070,7 +2074,7 @@ export default function App() {
                 <p>
                   {llmStatus.ui_state === "not_installed"
                     ? "Eine lokale KI auf deinem Rechner übernimmt Routine-Aufgaben für PBP — z.B. Dokumente klassifizieren, Skills extrahieren, Stellen vorsortieren."
-                    : `Modell: ${llmStatus.selected_model || "noch nicht gewaehlt"}`}
+                    : `Modell: ${llmStatus.selected_model || "noch nicht gewählt"}`}
                 </p>
               </div>
 

@@ -1,0 +1,347 @@
+"""Bedienungsprüfung 1.8 (#1170, G83): die Welle „Erste Schritte“ — was ein Mensch ohne Profil sieht und anklickt.
+
+Der Rundgang vom 04.10.2026 (leere Installation) fand U5 bis U9 und U13, U14, U18:
+
+* U5  „Suche & Bewertung“ trug ohne Profil die Überschrift „Profil“ und den Text der Profilseite.
+* U6  „Zuerst dein Profil“ war eine Karte ohne Knopf, auf Stellen und Bewerbungen umgeben von Kennzahlen aus Nullen, Filtern, einer
+      Quellenkarte und Knöpfen, die ohne Profil nichts tun können.
+* U7  „Profil anlegen“ öffnete „Neues Profil anlegen — Lege ein weiteres Profil … an“ (auch beim allerersten) und fragte nach einem
+      „Profilname (z. B. IT Consulting)“.
+* U8  Aufgaben und Statistiken erklärten sich nicht.
+* U9  Die Gefahrenzone zählte mitgelieferte Vorgaben als Daten („Bewerbungen: 7 Datensätze … Enthält Namen und Mailadressen Dritter“).
+* U13 Sichtbare Texte in Umschrift (fuer, einfuegen, Datensaetze …) — und der Prüfer sah Text neben einem Ausdruck nie an.
+* U14 „AUSSORTIERT“ lief in der Statistik in die Nachbarkachel.
+
+Geprüft wird im Browser gegen das gebaute Bundle (`cd frontend && pnpm exec vite build`, wenn sich das Frontend ändert); alle Namen sind
+Platzhalter, GitHub wird nie erreicht.
+"""
+from __future__ import annotations
+
+import importlib.util
+import os
+import socket
+import threading
+import time
+import urllib.request
+from pathlib import Path
+
+import pytest
+import uvicorn
+
+REPO = Path(__file__).resolve().parents[1]
+FRONTEND = REPO / "frontend" / "src"
+
+
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+@pytest.fixture(scope="module")
+def umgebung(tmp_path_factory):
+    tmp = tmp_path_factory.mktemp("erste1170")
+    os.environ["BA_DATA_DIR"] = str(tmp)
+    from bewerbungs_assistent.database import Database
+    import bewerbungs_assistent.dashboard as dash
+
+    db = Database(db_path=tmp / "test.db")
+    db.initialize()
+    assert str(tmp) in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+    dash._db = db
+    port = _free_port()
+    srv = uvicorn.Server(uvicorn.Config(dash.app, host="127.0.0.1", port=port, log_level="warning"))
+    srv.install_signal_handlers = lambda: None
+    t = threading.Thread(target=srv.run, daemon=True)
+    t.start()
+    for _ in range(100):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/api/status", timeout=1)
+            break
+        except Exception:
+            time.sleep(0.1)
+    yield {"url": f"http://127.0.0.1:{port}", "db": db}
+    srv.should_exit = True
+    t.join(timeout=10)
+    dash._db = None
+    db.close()
+    os.environ.pop("BA_DATA_DIR", None)
+
+
+pytest.importorskip("playwright.sync_api")
+from playwright.sync_api import Error as PlaywrightError  # noqa: E402
+from playwright.sync_api import sync_playwright  # noqa: E402
+
+
+@pytest.fixture(scope="module")
+def browser():
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(headless=True)
+            yield b
+            b.close()
+    except PlaywrightError as exc:
+        pytest.skip(f"Chromium nicht verfügbar: {exc}")
+
+
+def _seite(browser, url, route, breite=1400):
+    page = browser.new_context(viewport={"width": breite, "height": 950}).new_page()
+    page.goto(f"{url}/#{route}")
+    page.wait_for_load_state("networkidle")
+    return page
+
+
+def _ohne_profil(umgebung):
+    db = umgebung["db"]
+    assert not db.get_profile(), "dieser Block läuft vor dem ersten Profil"
+
+
+# ══ U5, U6: ohne Profil EINE Karte mit EINEM Knopf ════════════════════════════════════════════════════════════
+
+@pytest.mark.parametrize("route,bereich", [("stellen", "Stellen"), ("bewerbungen", "Bewerbungen")])
+def test_u6_ohne_profil_ist_die_karte_der_ganze_inhalt(browser, umgebung, route, bereich):
+    _ohne_profil(umgebung)
+    page = _seite(browser, umgebung["url"], route)
+    try:
+        page.locator(f'[data-zuerst-profil="{bereich}"]').wait_for(timeout=10000)
+        text = page.inner_text("main") if page.locator("main").count() else page.inner_text("body")
+        assert text.count("Zuerst dein Profil") == 1, text[:600]
+        # kein Kennzahlen-Gerüst aus Nullen, keine Filter, keine Quellenkarte, keine Knöpfe ohne Wirkung
+        for weg in ("AKTIVE STELLEN", "Aktive Bewerbungen", "GEHALTSDURCHSCHNITT", "0 EUR", "Browser-Quellen mit Claude",
+                    "CV als DOCX", "Bewerbung anlegen", "Filter", "Auf Kurs"):
+            assert weg not in text, f"{weg!r} steht ohne Profil auf der Seite {route}"
+        # und der eine Knopf ist da
+        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+    finally:
+        page.context.close()
+
+
+def test_u5_die_suchseite_ohne_profil_heisst_nicht_profil(browser, umgebung):
+    _ohne_profil(umgebung)
+    page = _seite(browser, umgebung["url"], "suche")
+    try:
+        page.locator('[data-zuerst-profil]').wait_for(timeout=10000)
+        text = page.inner_text("body")
+        assert "Suche & Bewertung" in text
+        assert "Suchbegriffe, Schwellen und Blacklist stellst du ein, sobald dein Profil steht." in text
+        assert "Lege dein erstes Profil an" not in text
+        assert "Noch kein aktives Profil" not in text
+        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+    finally:
+        page.context.close()
+
+
+def test_u5_die_profilseite_ohne_profil_nennt_denselben_schritt(browser, umgebung):
+    _ohne_profil(umgebung)
+    page = _seite(browser, umgebung["url"], "profil")
+    try:
+        page.locator('[data-zuerst-profil]').wait_for(timeout=10000)
+        text = page.inner_text("body")
+        assert "Zuerst dein Profil" in text
+        assert "Dein Lebenslauf ist die Grundlage für alles andere." in text
+        assert "Noch kein aktives Profil" not in text
+        assert page.get_by_role("button", name="Lebenslauf hochladen").count() == 1
+    finally:
+        page.context.close()
+
+
+# ══ U7: ein Weg, und der erste Dialog sagt, was er ist ═════════════════════════════════════════════════════════
+
+@pytest.mark.parametrize("route", ["stellen", "bewerbungen", "suche", "profil", "dashboard"])
+def test_u7_lebenslauf_hochladen_oeffnet_denselben_ersten_dialog(browser, umgebung, route):
+    _ohne_profil(umgebung)
+    page = _seite(browser, umgebung["url"], route)
+    try:
+        page.get_by_role("button", name="Lebenslauf hochladen").first.click()
+        dialog = page.locator("[role=dialog]").first
+        dialog.wait_for(timeout=10000)
+        text = dialog.inner_text()
+        assert "Dein Profil anlegen" in text
+        assert "Dein Name" in text
+        assert "weiteres Profil" not in text and "Karrierepfad" not in text and "IT Consulting" not in text
+        assert page.get_by_role("button", name="Weiter zum Lebenslauf").count() == 1
+        # die Adresse bleibt: es ging kein Umweg über die Profilseite
+        assert page.url.rstrip("/").endswith(f"#{route}"), page.url
+    finally:
+        page.context.close()
+
+
+def test_u7_mit_vorhandenem_profil_bleibt_der_dialog_der_fuer_ein_weiteres(browser, umgebung):
+    umgebung["db"].create_profile("Erika Probe", "erika@example.com")
+    page = _seite(browser, umgebung["url"], "dashboard")
+    try:
+        # der Dialog wird über die Oberfläche geöffnet, nicht über eine Route: hier genügt der Quelltext der Verzweigung
+        quelle = (FRONTEND / "App.jsx").read_text(encoding="utf-8-sig")
+        assert 'chrome.status?.has_profile ? "Neues Profil anlegen" : "Dein Profil anlegen"' in quelle
+        assert 'chrome.status?.has_profile ? "Profilname" : "Dein Name"' in quelle
+    finally:
+        page.context.close()
+
+
+# ══ U8, U14: leere Seiten erklären sich ════════════════════════════════════════════════════════════════════════
+
+def test_u8_aufgaben_ohne_eintrag_sagen_woher_aufgaben_kommen(browser, umgebung):
+    page = _seite(browser, umgebung["url"], "aufgaben")
+    try:
+        leer = page.locator("[data-aufgaben-leer]")
+        leer.wait_for(timeout=10000)
+        assert "Aufgaben entstehen aus deinen Bewerbungen" in leer.inner_text()
+        assert "Neue Aufgabe" in leer.inner_text()
+        # der Knopf sieht nicht mehr deaktiviert aus (kein blasses „bg-teal/20“)
+        klasse = page.get_by_role("button", name="Neue Aufgabe").first.get_attribute("class") or ""
+        assert "bg-teal/20" not in klasse, klasse
+    finally:
+        page.context.close()
+
+
+def test_u8_statistiken_ohne_daten_erklaeren_sich_statt_nullen_zu_zeigen(browser, umgebung):
+    page = _seite(browser, umgebung["url"], "statistiken")
+    try:
+        page.get_by_text("Noch keine Zahlen").wait_for(timeout=10000)
+        text = page.inner_text("body")
+        assert "Die Statistik füllt sich, sobald PBP Stellen gefunden hat und du Bewerbungen angelegt hast" in text
+        # keine Wand aus Nullen: weder die Kacheln „Heute“ und „Gesamt“ noch die Quoten
+        klein = text.lower()
+        assert "aussortiert" not in klein and "antwortzeit" not in klein and "outcome-quoten" not in klein, text[:500]
+    finally:
+        page.context.close()
+
+
+def test_u14_die_beschriftung_der_kacheln_laeuft_nicht_in_die_nachbarkachel():
+    quelle = (FRONTEND / "pages" / "StatsPage.jsx").read_text(encoding="utf-8-sig")
+    assert 'className="break-words text-xs uppercase tracking-[0.06em] text-muted">{label}</p>' in quelle
+    assert 'className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3"' in quelle
+
+
+# ══ U9: mitgelieferte Vorgaben sind keine Daten des Menschen ═══════════════════════════════════════════════════
+
+@pytest.fixture
+def frische_db(tmp_path):
+    """Eine eigene, frisch angelegte Datenbank (nicht die des Browser-Teils: dort schreiben die Seiten Vermerke)."""
+    from bewerbungs_assistent.database import Database
+    db = Database(db_path=tmp_path / "frisch.db")
+    db.initialize()
+    assert str(tmp_path) in str(db.db_path), f"DB nicht isoliert: {db.db_path}"
+    yield db
+    db.close()
+
+
+def test_u9_eine_frische_installation_zaehlt_ihre_vorgaben_nicht_als_daten(frische_db):
+    from bewerbungs_assistent.services import loeschbereiche as lb
+    db = frische_db
+    db.list_contact_categories()          # die mitgelieferten Kategorien entstehen beim ersten Ansehen der Kontakte
+    v = lb.vorschau(db)
+    bew = v["bereiche"]["bewerbungen"]
+    assert bew["zeilen_gesamt"] == 0, bew
+    assert bew["vorgaben"] >= 1, "die mitgelieferten Kontaktkategorien stehen als Vorgaben da"
+    assert "contact_categories" not in bew["je_tabelle"]
+    assert v["bereiche"]["einstellungen"]["zeilen_gesamt"] == 0, v["bereiche"]["einstellungen"]
+    assert v["bereiche"]["einstellungen"]["vorgaben"] >= 1
+
+
+def test_u9_eigene_eintraege_zaehlen_und_gehen_mit_den_vorgaben(frische_db):
+    from bewerbungs_assistent.services import loeschbereiche as lb
+    db = frische_db
+    db.list_contact_categories()
+    con = db.connect()
+    con.execute("INSERT INTO contact_categories (name, slug, color, sort_order, is_system, created_at, updated_at) "
+                "VALUES ('Eigene Gruppe', 'eigene-gruppe', '#123456', 99, 0, '2026-10-11', '2026-10-11')")
+    con.commit()
+    v = lb.vorschau(db, ["bewerbungen"])
+    assert v["bereiche"]["bewerbungen"]["zeilen_gesamt"] == 1
+    assert v["bereiche"]["bewerbungen"]["je_tabelle"].get("contact_categories") == 1
+    erg = lb.leeren(db, ["bewerbungen"], dry_run=False, dateien_loeschen=False)
+    assert erg["status"] == "geloescht"
+    # Ergebnis und Vorschau zählen gleich ...
+    assert erg["zeilen_gesamt"] == v["bereiche"]["bewerbungen"]["zeilen_gesamt"]
+    # ... und die Vorgaben sind trotzdem weg (geleert wird alles, nur die Zahl nennt, was der Mensch angelegt hat)
+    assert db.connect().execute("SELECT COUNT(*) FROM contact_categories").fetchone()[0] == 0
+    assert erg["vorgaben"] >= 1
+
+
+def test_u9_die_oberflaeche_nennt_die_vorgaben_und_schreibt_datensaetze_mit_umlaut():
+    quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    assert "Datensätze" in quelle and "Datensaetze" not in quelle
+    assert "mitgelieferte Vorgaben" in quelle
+
+
+# ══ U13: der Prüfer sieht Text neben einem Ausdruck ════════════════════════════════════════════════════════════
+
+def _pruefer():
+    spec = importlib.util.spec_from_file_location("ui_texte_pruefen_u13", REPO / "scripts" / "ui_texte_pruefen.py")
+    modul = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(modul)
+    return modul
+
+
+def test_u13_text_hinter_einem_ausdruck_wird_geprueft(tmp_path):
+    ui = _pruefer()
+    datei = tmp_path / "Probe.jsx"
+    datei.write_text(
+        "export default function P({ n, liste }) {\n"
+        "  return (\n"
+        "    <div>\n"
+        "      <Badge>\n"
+        "        {n} Datensaetze\n"
+        "      </Badge>\n"
+        "      <span>\n"
+        "        Gilt fuer alle Profile: {liste.join(', ')}\n"
+        "      </span>\n"
+        "    </div>\n"
+        "  );\n"
+        "}\n", encoding="utf-8")
+    gefunden = " ".join(t for _z, t in ui.texte(datei))
+    assert "Datensaetze" in gefunden and "Gilt fuer alle Profile" in gefunden
+    assert any("Datensaetze" in w for w in ui.umlaut_funde(gefunden))
+
+
+def test_u13_ein_verirrtes_anfuehrungszeichen_verschiebt_die_paarung_nicht(tmp_path):
+    """„Kopieren" mit geradem Schlusszeichen im JSX-Text verschob die Paarung bis zum Dateiende (ElwosaSidebarChat)."""
+    ui = _pruefer()
+    datei = tmp_path / "Probe.jsx"
+    datei.write_text(
+        'export default function P() {\n'
+        '  return <p>Klick auf „Kopieren" und dann einfuegen</p>;\n'
+        '}\n'
+        'const A = "Elwosa fuer zehn Minuten pausieren";\n', encoding="utf-8")
+    texte = [t for _z, t in ui.texte(datei)]
+    assert any("Elwosa fuer zehn Minuten" in t for t in texte), texte
+
+
+def test_u13_die_oberflaeche_hat_keine_umschrift_mehr():
+    ui = _pruefer()
+    funde = ui.pruefen()
+    assert funde == [], "\n".join(funde)
+
+
+# ══ U18: Kleinigkeiten ═════════════════════════════════════════════════════════════════════════════════════════════
+
+def test_u18_die_kopfzeile_der_kontakte_nennt_im_reiter_firmen_die_firmen(browser, umgebung):
+    umgebung["db"].create_profile("Erika Probe", "erika@example.com") if not umgebung["db"].get_profile() else None
+    page = _seite(browser, umgebung["url"], "kontakte")
+    try:
+        page.get_by_role("tab", name="Firmen").click()
+        page.locator("h2", has_text="Firmen").first.wait_for(timeout=10000)
+        assert page.get_by_role("button", name="Neuer Kontakt").count() == 0
+        assert page.get_by_role("button", name="Importieren").count() == 0
+        page.get_by_role("tab", name="Kontakte").click()
+        page.get_by_role("button", name="Neuer Kontakt").wait_for(timeout=10000)
+    finally:
+        page.context.close()
+
+
+def test_u18_aufraeumen_ist_dort_nicht_klickbar_wo_nichts_liegt():
+    quelle = (FRONTEND / "components" / "SpeicherTab.jsx").read_text(encoding="utf-8-sig")
+    assert "const nichtsDa = Boolean(ort.nichts_vorhanden) || Number(ort.bytes) === 0;" in quelle
+    assert "|| nichtsDa}" in quelle
+
+
+def test_u18_die_firmenkarte_zeigt_keinen_platzhaltersatz():
+    quelle = (FRONTEND / "components" / "FirmenAnsicht.jsx").read_text(encoding="utf-8-sig")
+    assert "Noch keine Schreibweisen eingetragen." not in quelle
+
+
+def test_u18_ein_roher_fehlertext_der_erkennung_steht_nicht_im_dashboard():
+    quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    assert "Erkennungs-Fehler: {status.error}" not in quelle
+    assert "Ollama ließ sich gerade nicht erkennen." in quelle

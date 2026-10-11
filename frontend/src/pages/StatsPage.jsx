@@ -228,7 +228,8 @@ function StatBox({ label, value, sub, tone = "neutral" }) {
   };
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${toneClasses[tone] || toneClasses.neutral}`}>
-      <p className="text-xs uppercase tracking-[0.12em] text-muted">{label}</p>
+      {/* U14 (#1170): „AUSSORTIERT“ lief in „Heute“ und „Diese Woche“ in die Nachbarkachel — enge Laufweite, Umbruch erlaubt. */}
+      <p className="break-words text-xs uppercase tracking-[0.06em] text-muted">{label}</p>
       <p className={`mt-1 text-lg font-semibold ${valueClasses[tone] || "text-ink"}`}>{value}</p>
       {sub && <p className="text-xs text-muted">{sub}</p>}
     </div>
@@ -473,16 +474,17 @@ export default function StatsPage() {
         </span>
       </div>
 
-      {!hasData && !extended ? (
+      {/* U8 (#1170): ohne Stellen und ohne Bewerbungen war das hier eine Wand aus Nullen („0 EUR“, „k.A.“) ohne ein erklärendes Wort. */}
+      {!hasData && !(Number(totals.jobs_ever) > 0 || Number(appStats.total) > 0) ? (
         <EmptyState
-          title="Noch keine Daten"
-          description="Sobald Bewerbungen und Stellen vorhanden sind, erscheinen hier Auswertungen."
+          title="Noch keine Zahlen"
+          description="Die Statistik füllt sich, sobald PBP Stellen gefunden hat und du Bewerbungen angelegt hast. Dann siehst du, wie viele Treffer zu Bewerbungen wurden, wie lange Antworten dauern und was bei dir funktioniert."
         />
       ) : (
         <div className="grid gap-6">
           {/* Row 0: Activity overview — Today + Week + Totals */}
           {extended && (
-            <div className="grid gap-6 xl:grid-cols-3">
+            <div className="grid gap-6 lg:grid-cols-2 2xl:grid-cols-3">
               <Card className="rounded-2xl">
                 <div className="flex items-center gap-2 mb-3">
                   <Calendar size={14} className="text-sky" />
@@ -603,7 +605,7 @@ export default function StatsPage() {
                   <p className="mt-4 text-xs text-muted">
                     <strong>{v.unter_schwelle.anzahl}</strong> Bewerbung(en) lagen
                     unter deiner Schwelle von {v.schwelle} — du hast dich also
-                    gegen die Einschaetzung entschieden.
+                    gegen die Einschätzung entschieden.
                   </p>
                 )}
                 {v.score_null?.anzahl > 0 && (

@@ -135,6 +135,8 @@ export default function SpeicherTab({ ordnerEditor }) {
 
       {daten.orte.map((ort) => {
         const ids = bereinigbar(ort, aktionen);
+        // U18 (#1170): wo nichts liegt, ist „Aufräumen“ nicht klickbar — die Antwort „Hier gibt es nichts zu bereinigen“ kam erst nach dem Klick.
+        const nichtsDa = Boolean(ort.nichts_vorhanden) || Number(ort.bytes) === 0;
         const geoeffnet = Boolean(offen[ort.id]);
         const hier = dialog && dialog.ort === ort.id ? dialog : null;
         return (
@@ -186,8 +188,9 @@ export default function SpeicherTab({ ordnerEditor }) {
             {ids.length ? (
               <div className="mt-4 flex flex-wrap gap-2" data-speicher-aktionen>
                 {ids.map((id) => (
-                  <Button key={id} size="sm" variant="secondary" disabled={busy !== "" || Boolean(daten.laufende_arbeit?.length)}
-                    data-speicher-aktion={id} title={aktionen[id].erklaerung} onClick={() => starten(ort, id)}>
+                  <Button key={id} size="sm" variant="secondary" disabled={busy !== "" || Boolean(daten.laufende_arbeit?.length) || nichtsDa}
+                    data-speicher-aktion={id} title={nichtsDa ? "Hier liegt nichts, das sich aufräumen ließe." : aktionen[id].erklaerung}
+                    onClick={() => starten(ort, id)}>
                     <Trash2 size={14} className="mr-1 inline" /> {aktionen[id].titel}
                   </Button>
                 ))}

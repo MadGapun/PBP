@@ -204,6 +204,20 @@ _BEWAHREN_ZEILEN = {
     "settings": "key != 'schema_version'",
 }
 
+#: Zeilen, die mit dem Programm kommen und nicht vom Menschen stammen (#1170 U9). Die Vorschau zaehlt sie NICHT mit: eine frische
+#: Installation zeigte "Bewerbungen: 7 Datensaetze - Enthaelt Namen und Mailadressen Dritter"; die sieben waren die mitgelieferten
+#: Kontaktkategorien. Geleert wird weiterhin alles, was in der Tabelle steht - nur die ZAHL nennt, was der Mensch angelegt hat.
+#: Schluessel ist die Tabelle; Wert (Spalte, die es geben muss, WHERE-Bedingung, die die Vorgaben trifft).
+_VORGABEN = {
+    "contact_categories": ("is_system", "COALESCE(is_system, 0) = 1"),
+    "meeting_categories": ("is_system", "COALESCE(is_system, 0) = 1"),
+    "dismiss_reasons": ("is_custom", "COALESCE(is_custom, 0) = 0"),
+    # Die Regler stehen mit ihren Werkseinstellungen in der Tabelle; was der Mensch verstellt hat, traegt `set_by_user`.
+    "scoring_config": ("set_by_user", "COALESCE(set_by_user, 0) = 0"),
+    # Vermerke, die das Programm selbst schreibt (Zwischenspeicher, "schon nachgezogen"): keine Einstellung des Menschen.
+    "settings": ("key", "(key LIKE '%_cache' OR key LIKE '%_nachgezogen' OR key LIKE '%_uebernommen' OR key LIKE '%_migriert')"),
+}
+
 #: Bezuege, die im Schema nicht als Fremdschluessel stehen.
 #: (Tabelle -> (Elterntabelle, eigene Spalte, Spalte der Eltern))
 _ZUSATZ_BEZUG = {
@@ -376,6 +390,15 @@ _AUFTEILUNG = {
 }
 
 
+def _vorgaben_klausel(db, tabelle: str, klausel: str, nur_vorgaben: bool) -> str | None:
+    """Die Zaehlklausel mit oder ohne die mitgelieferten Zeilen (#1170 U9); None, wenn die Tabelle keine Vorgaben kennt."""
+    eintrag = _VORGABEN.get(tabelle)
+    if not eintrag or eintrag[0] not in _spalten(db, tabelle):
+        return None
+    bedingung = eintrag[1] if nur_vorgaben else f"NOT ({eintrag[1]})"
+    return f"{klausel} AND {bedingung}" if klausel.strip() else f" WHERE {bedingung}"
+
+
 def _aufteilung(db, bereich: str, profil_id: str | None) -> dict:
     """Die feine Aufteilung eines Bereichs, oder ein leeres dict.
 
@@ -428,6 +451,7 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
             continue
         zeilen, geteilt = {}, []
         summe = 0
+        vorgaben = 0
         for t in BEREICHE[bereich]:
             if t not in set(tabellen(db)):
                 continue
@@ -437,9 +461,13 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
                 continue
             try:
                 klausel = _mit_bewahren(t, _bedingung(db, t, profil_id))
-                n = con.execute(
-                    f"SELECT COUNT(*) FROM {t}{klausel}",
-                    {"pid": profil_id} if profil_id else {}).fetchone()[0]
+                parameter = {"pid": profil_id} if profil_id else {}
+                ohne = _vorgaben_klausel(db, t, klausel, nur_vorgaben=False)
+                n = con.execute(f"SELECT COUNT(*) FROM {t}{ohne if ohne is not None else klausel}",
+                                parameter).fetchone()[0]
+                if ohne is not None:
+                    nur = _vorgaben_klausel(db, t, klausel, nur_vorgaben=True)
+                    vorgaben += con.execute(f"SELECT COUNT(*) FROM {t}{nur}", parameter).fetchone()[0]
             except Exception as exc:  # pragma: no cover
                 logger.debug("Zaehlen von %s fehlgeschlagen: %s", t, exc)
                 continue
@@ -448,6 +476,8 @@ def vorschau(db, bereiche=None, profil_id: str | None = None) -> dict:
             summe += n
         ergebnis[bereich] = {
             "zeilen_gesamt": summe,
+            # #1170 U9: mitgelieferte Vorgaben stehen nicht in der Summe; sie werden beim Leeren trotzdem entfernt.
+            "vorgaben": vorgaben,
             "je_tabelle": dict(sorted(zeilen.items(), key=lambda p: -p[1])),
             "beschreibung": BESCHREIBUNG.get(bereich, ""),
             "geteilt_unangetastet": sorted(geteilt),
@@ -641,21 +671,30 @@ def leeren(db, bereiche=None, profil_id: str | None = None,
                 logger.warning("Datei %s nicht loeschbar: %s", pfad, exc)
     con = db.connect()
     geloescht: dict = {}
+    vorgaben_weg = 0
     for t in _reihenfolge(db, betroffen):
         klausel = _mit_bewahren(t, _bedingung(db, t, profil_id))
         if klausel.strip() == "WHERE 0":
             continue
         try:
-            cur = con.execute(f"DELETE FROM {t}{klausel}",
-                              {"pid": profil_id} if profil_id else {})
+            parameter = {"pid": profil_id} if profil_id else {}
+            # #1170 U9: dieselbe Zaehlweise wie die Vorschau — mitgelieferte Vorgaben gehen mit, stehen aber nicht in der Summe.
+            nur = _vorgaben_klausel(db, t, klausel, nur_vorgaben=True)
+            vorgaben_n = (con.execute(f"SELECT COUNT(*) FROM {t}{nur}", parameter).fetchone()[0]
+                          if nur is not None else 0)
+            cur = con.execute(f"DELETE FROM {t}{klausel}", parameter)
             if cur.rowcount:
-                geloescht[t] = cur.rowcount
+                vorgaben_n = min(vorgaben_n, cur.rowcount)
+                vorgaben_weg += vorgaben_n
+                if cur.rowcount - vorgaben_n:
+                    geloescht[t] = cur.rowcount - vorgaben_n
         except Exception as exc:  # pragma: no cover
             logger.warning("Loeschen aus %s fehlgeschlagen: %s", t, exc)
     con.commit()
     return {"status": "geloescht", "bereiche": gewaehlt,
             "profil_id": profil_id, "je_tabelle": geloescht,
             "zeilen_gesamt": sum(geloescht.values()),
+            "vorgaben": vorgaben_weg,
             "dateien_geloescht": dateien_weg,
             "dateien_nicht_loeschbar": dateien_fehler,
             "dateien_bleiben_liegen": dateien_bleiben,

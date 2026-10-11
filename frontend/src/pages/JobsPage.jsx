@@ -1347,6 +1347,16 @@ export default function JobsPage() {
     };
   })();
 
+  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — keine Kennzahlen aus Nullen, keine Filter, keine Quellenkarte.
+  if (!chrome.status?.has_profile) {
+    return (
+      <div id="page-stellen" className="page active">
+        <h1 className="sr-only">Stellen</h1>
+        <ZuerstProfil bereich="Stellen" />
+      </div>
+    );
+  }
+
   return (
     <div id="page-stellen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
