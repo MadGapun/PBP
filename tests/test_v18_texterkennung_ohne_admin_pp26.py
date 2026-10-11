@@ -436,3 +436,15 @@ def test_die_gefahrenzone_zeigt_keine_markdown_zeichen_als_text():
     for bereich, text in loeschbereiche.BESCHREIBUNG.items():
         assert "**" not in text and "__" not in text, f"{bereich}: {text}"
     assert "Lernsignale" in loeschbereiche.BESCHREIBUNG["stellen"], "der Hinweis selbst bleibt"
+
+
+@nur_windows
+def test_die_bat_meldet_eine_gesperrte_datei_und_der_lauf_geht_weiter(tmp_path):
+    """Laeuft die Texterkennung noch, bleibt eine Datei gesperrt: der Deinstaller sagt es (Rueckgabe 1) und bricht nicht ab."""
+    lokal, basis, ziel = _marker_und_programm(tmp_path, mit_deinstaller=False)
+    gesperrt = ziel / "tessdata" / "deu.traineddata"
+    with open(gesperrt, "rb"):          # Python oeffnet ohne Loeschfreigabe: Remove-Item scheitert an dieser Datei
+        ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
+    assert ergebnis == "1", (ausgabe, protokoll)
+    assert "nicht vollstaendig entfernt" in protokoll
+    assert gesperrt.exists(), "nichts wird erzwungen"

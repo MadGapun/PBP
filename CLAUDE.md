@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 8580 Tests (main) / 7093 (Stable); 281 MCP-Werkzeuge
+- **Umfang:** 8581 Tests (main) / 7093 (Stable); 281 MCP-Werkzeuge
   (main) / 257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
 - **1.8.0:** Die fuenf Bausteine (PR #1166) sind seit dem 08.10.2026 in `main`; neue Arbeit geht als PR gegen `main`. Das Release 1.8.0
   braucht den Testlauf (`docs/internal/testlauf-1.8.0.md`) und das Wort des Nutzers.
