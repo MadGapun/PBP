@@ -52,7 +52,7 @@ GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Admini
   und erhöht keine). Das Setup installiert dann „nur für mich“ nach `%LOCALAPPDATA%\Programs\Tesseract-OCR` und ignoriert das Ziel; PBP sucht dort, merkt sich den
   Ort (`components\tesseract\pbp-installation.json`), lädt das deutsche Sprachpaket dorthin, zeigt den Ort mit Größe unter „Speicher & Downloads“ und entfernt
   alles wieder mit dem eigenen Deinstallationsprogramm des Setups — in der Oberfläche („Entfernen“) und im Deinstaller (Schritt 5), und nur an diesem einen Ort.
-  Eine Tesseract-Installation, die du selbst angelegt hast, wird erkannt und nie angefasst. Die Hinweise zum fehlenden Sprachpaket nennen keine Werkzeugnamen mehr.
+  Eine Tesseract-Installation, die du selbst angelegt hast — auch eine, die du später am selben Ort neu angelegt hast (PBP erkennt sie an Größe und Anlegezeit der Programmdatei) —, wird erkannt und nie angefasst. Die Hinweise zum fehlenden Sprachpaket nennen keine Werkzeugnamen mehr.
 - **Der Installer ließ einen leeren Ordner und die Kopie seines Aufräum-Helfers liegen** (PP24; seit 1.8.0-beta.16, nur Windows). Der Helfer löscht den entpackten Installer-Ordner, sobald das Installer-Fenster zu ist; solange es offen ist, hält es den Ordner fest. Der erste
   Versuch scheiterte darum immer — und `shutil.rmtree` warf den Fehler aus seiner Rückruffunktion bis in den Prozess, statt es 200-mal im Abstand von 3 s zu
   versuchen. Jetzt fängt der Helfer das auf und versucht es weiter. Auf dem Entwicklungsrechner (Windows 11, Build 26200) fiel es nicht auf: dort löscht Windows
@@ -67,7 +67,7 @@ GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Admini
   Claude als Store-Fassung behält `"mcpServers": {}` (PP27, PP28; schon als PP22 dokumentiert). Harmlos — Claude liest beides wie vorher —, die Sicherungskopie ist
   Absicht. Auf Wunsch lässt sich das ändern.
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8584 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8596 Tests.*
 
 ---
 

@@ -8,15 +8,18 @@ Mit `__COMPAT_LAYER=RunAsInvoker` lief das Setup durch, installierte aber "nur f
 nicht ab, und das deutsche Sprachpaket kam nicht mit.
 
 Hier steht, was jetzt gilt -- ohne echtes Setup, ohne Netz; der Beleg mit dem echten Setup ist der Testlauf auf dem
-Werkstatt-PC (Block D).
+Werkstatt-PC (Block D). Die Tests laufen auch unter Linux (CI): die Windows-Pfade werden dort ueber `PureWindowsPath`
+zerlegt, die Fixture setzt nur `sys.platform`.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -26,6 +29,17 @@ WURZEL = Path(__file__).resolve().parents[1]
 BAT = WURZEL / "DEINSTALLIEREN.bat"
 GROESSE = 2 * 1024 * 1024
 nur_windows = pytest.mark.skipif(os.name != "nt", reason="braucht Windows (cmd.exe, PowerShell)")
+
+
+class FakeMCP:
+    def __init__(self):
+        self.tools = {}
+
+    def tool(self, name=None, **_kwargs):
+        def decorator(fn):
+            self.tools[name or fn.__name__] = fn
+            return fn
+        return decorator
 
 
 @pytest.fixture
@@ -93,6 +107,21 @@ def _dateien(ordner: Path) -> list[str]:
     return sorted(p.relative_to(ordner).as_posix() for p in ordner.rglob("*") if p.is_file())
 
 
+def _marker_schreiben(umgebung, verzeichnis: Path, *, programm=True, abweichung=None) -> Path:
+    """Ein Vermerk, wie PBP ihn nach einer Einrichtung hinterlaesst (mit Fingerabdruck der Programmdatei)."""
+    c = umgebung.c
+    verzeichnis.mkdir(parents=True, exist_ok=True)
+    exe = verzeichnis / umgebung.binary_name
+    marker = {"verzeichnis": str(verzeichnis), "binary": str(exe)}
+    if programm:
+        exe.write_bytes(b"MZ" + b"x" * 300)
+        marker.update(c._fingerabdruck(exe))
+    marker.update(abweichung or {})
+    (umgebung.ordner / "tesseract").mkdir(parents=True, exist_ok=True)
+    (umgebung.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text(json.dumps(marker), encoding="utf-8")
+    return exe
+
+
 # ══ Start ohne Erhoehung ═════════════════════════════════════════════════════════════════════════════════════════
 
 def test_das_setup_startet_ohne_erhoehung(umgebung, monkeypatch):
@@ -158,6 +187,7 @@ def test_ohne_administratorrechte_wird_der_ort_nur_fuer_mich_gefunden_und_gemerk
     assert marker and marker["verzeichnis"] == str(umgebung.benutzer)
     assert marker["deinstaller"] == str(umgebung.benutzer / umgebung.uninstaller)
     assert marker["binary"] == str(echt) and marker["version"] == "5.4.0"
+    assert marker["binary_groesse"] == echt.stat().st_size and isinstance(marker["binary_erstellt"], int), "der Fingerabdruck"
     status = c.get_component_status(umgebung.db, "tesseract")
     assert status["verfuegbar"] is True and status["quelle"] == "pbp", "gilt als von PBP installiert -- 'Entfernen' ist da"
 
@@ -198,6 +228,8 @@ def test_eine_vorhandene_installation_nur_fuer_mich_wird_als_extern_erkannt(umge
 def test_der_bekannte_ort_haengt_an_localappdata_und_gilt_nur_unter_windows(umgebung, monkeypatch):
     c = umgebung.c
     assert c._benutzer_ordner_win(umgebung.definition) == umgebung.benutzer
+    # Der Eintrag ist mit Backslash geschrieben; unter anderen Pfadregeln (CI) sind es zwei Ordner, nicht ein Name mit Backslash.
+    assert c._benutzer_ordner_win(umgebung.definition).parts[-2:] == ("Programs", "Tesseract-OCR")
     monkeypatch.setattr(c.sys, "platform", "linux")
     assert c._benutzer_ordner_win(umgebung.definition) is None
     monkeypatch.setattr(c.sys, "platform", "win32")
@@ -236,6 +268,26 @@ def test_entfernen_nutzt_das_eigene_deinstallationsprogramm_ohne_erhoehung(umgeb
     assert umgebung.db.get_component_state("tesseract")["status"] == "nicht_installiert"
 
 
+def test_das_entfernen_wartet_bis_das_programm_wirklich_weg_ist(umgebung, monkeypatch):
+    """Das Deinstallationsprogramm des Setups kehrt sofort zurueck und raeumt erst danach: ohne die Wartezeit liefe der Rest mitten hinein."""
+    c = umgebung.c
+    _installiert(umgebung, monkeypatch)
+    exe = umgebung.benutzer / umgebung.binary_name
+    geschlafen = []
+
+    def schlafen(sekunden):
+        geschlafen.append(sekunden)
+        if len(geschlafen) == 3:        # nach dem dritten Warten ist das Deinstallationsprogramm fertig
+            exe.unlink()
+
+    monkeypatch.setattr(c, "time", SimpleNamespace(sleep=schlafen, monotonic=lambda: 0.0))
+    monkeypatch.setattr(c.subprocess, "run", lambda *a, **kw: SimpleNamespace(returncode=0, stdout="", stderr=""))
+    ergebnis = c.uninstall_component(umgebung.db, "tesseract")
+    assert ergebnis["status"] == "entfernt", ergebnis
+    assert len(geschlafen) >= 3, "es wurde gewartet, bis die Datei weg war"
+    assert not umgebung.benutzer.exists()
+
+
 def test_ohne_deinstallationsprogramm_geht_der_von_pbp_angelegte_ordner_trotzdem(umgebung, monkeypatch):
     c = umgebung.c
     _installiert(umgebung, monkeypatch)
@@ -245,15 +297,47 @@ def test_ohne_deinstallationsprogramm_geht_der_von_pbp_angelegte_ordner_trotzdem
     assert not umgebung.benutzer.exists()
 
 
+@pytest.mark.parametrize("wie", ["groesse", "anlegezeit"])
+def test_eine_spaeter_neu_angelegte_installation_am_selben_ort_wird_nicht_entfernt(umgebung, monkeypatch, wie):
+    """Wer Tesseract nach PBP selbst am Standardort einrichtet, hat dieselben Dateinamen -- und diese Installation gehoert ihm."""
+    c = umgebung.c
+    _installiert(umgebung, monkeypatch)
+    exe = umgebung.benutzer / umgebung.binary_name
+    if wie == "groesse":
+        exe.unlink()
+        exe.write_bytes(b"neu angelegt" * 500)
+    else:
+        datei = umgebung.ordner / "tesseract" / c.EIGENE_INSTALLATION
+        marker = json.loads(datei.read_text(encoding="utf-8"))
+        marker["binary_erstellt"] += 1000          # die Datei dort ist nicht die, die PBP angelegt hat
+        datei.write_text(json.dumps(marker), encoding="utf-8")
+    monkeypatch.setattr(c.subprocess, "run", lambda *a, **kw: pytest.fail("nichts starten, nichts loeschen"))
+    ergebnis = c.uninstall_component(umgebung.db, "tesseract")
+    assert ergebnis["status"] == "entfernt" and ergebnis["pbp_installation_geloescht"] is False, ergebnis
+    assert "nicht mehr von PBP" in ergebnis["hinweis"]
+    assert exe.is_file() and (umgebung.benutzer / "tessdata" / "deu.traineddata").is_file(), "alles bleibt"
+    assert not (umgebung.ordner / "tesseract").exists(), "nur der Vermerk geht"
+    assert umgebung.db.get_component_state("tesseract")["status"] == "nicht_installiert"
+
+
+def test_eine_neu_angelegte_installation_steht_nicht_mehr_als_pbps_in_der_uebersicht(umgebung, monkeypatch):
+    c = umgebung.c
+    _installiert(umgebung, monkeypatch)
+    exe = umgebung.benutzer / umgebung.binary_name
+    exe.unlink()
+    exe.write_bytes(b"neu angelegt" * 500)
+    from bewerbungs_assistent.services import speicher
+    assert c.eigene_installation("tesseract") is None
+    assert c.eigene_installation("tesseract", pruefen=False) is not None
+    assert not [e for e in speicher._ort_komponenten(umgebung.db, 5.0)["eintraege"] if "Programmordner" in e["name"]]
+
+
 def test_ein_marker_der_auf_einen_fremden_ort_zeigt_wird_verweigert(umgebung, monkeypatch, tmp_path):
     """Der Marker allein nennt keinen Pfad, der geloescht wird: nur der eine Ort, an dem das Setup ohne Rechte installiert."""
     c = umgebung.c
     fremd = tmp_path / "Eigene Dateien"
-    fremd.mkdir()
+    _marker_schreiben(umgebung, fremd)            # Fingerabdruck stimmt -- der Ort ist trotzdem der falsche
     (fremd / "wichtig.txt").write_text("nicht loeschen")
-    (umgebung.ordner / "tesseract").mkdir(parents=True)
-    (umgebung.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text(
-        json.dumps({"verzeichnis": str(fremd), "binary": str(fremd / "tesseract.exe")}), encoding="utf-8")
     umgebung.db.set_component_state("tesseract", "installiert", install_path=str(fremd / "tesseract.exe"))
     monkeypatch.setattr(c.subprocess, "run", lambda *a, **kw: pytest.fail("nichts starten"))
     ergebnis = c.uninstall_component(umgebung.db, "tesseract")
@@ -267,11 +351,9 @@ def test_auch_ein_uebergeordneter_ordner_wird_nie_angefasst(umgebung, monkeypatc
     """LOCALAPPDATA selbst oder Programs sind keine Tesseract-Installation."""
     c = umgebung.c
     ziel = umgebung.lokal if wo == "wurzel" else umgebung.lokal / "Programs"
-    ziel.mkdir(parents=True, exist_ok=True)
+    _marker_schreiben(umgebung, ziel)
     (ziel / "anderes.txt").write_text("x")
-    (umgebung.ordner / "tesseract").mkdir(parents=True)
-    (umgebung.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text(
-        json.dumps({"verzeichnis": str(ziel)}), encoding="utf-8")
+    monkeypatch.setattr(c.subprocess, "run", lambda *a, **kw: pytest.fail("nichts starten"))
     ergebnis = c.uninstall_component(umgebung.db, "tesseract")
     assert ergebnis["status"] == "fehler"
     assert (ziel / "anderes.txt").is_file()
@@ -282,6 +364,14 @@ def test_ein_kaputter_marker_wird_nicht_als_installation_gelesen(umgebung):
     (umgebung.ordner / "tesseract").mkdir(parents=True)
     (umgebung.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text("{kein json", encoding="utf-8")
     assert c.eigene_installation("tesseract") is None
+
+
+def test_ein_marker_ohne_fingerabdruck_gilt_nicht(umgebung):
+    """Im Zweifel nichts loeschen: ein Vermerk, der die Datei nicht beschreibt, belegt nichts."""
+    c = umgebung.c
+    _marker_schreiben(umgebung, umgebung.benutzer, programm=True, abweichung={"binary_groesse": None, "binary_erstellt": None})
+    assert c.eigene_installation("tesseract") is None
+    assert c.eigene_installation("tesseract", pruefen=False) is not None
 
 
 def test_liegt_in_vergleicht_ohne_grosskleinschreibung_wie_unter_windows(umgebung):
@@ -295,7 +385,6 @@ def test_liegt_in_vergleicht_ohne_grosskleinschreibung_wie_unter_windows(umgebun
 # ══ Uebersicht Speicher & Downloads ══════════════════════════════════════════════════════════════════════════════
 
 def test_die_speicheruebersicht_nennt_den_echten_ort_mit_groesse(umgebung, monkeypatch):
-    c = umgebung.c
     _installiert(umgebung, monkeypatch)
     (umgebung.benutzer / "tessdata" / "deu.traineddata").write_bytes(b"x" * 5000)
     from bewerbungs_assistent.services import speicher
@@ -303,6 +392,9 @@ def test_die_speicheruebersicht_nennt_den_echten_ort_mit_groesse(umgebung, monke
     eintrag = [e for e in ort["eintraege"] if "Programmordner" in e["name"]]
     assert eintrag, ort
     assert eintrag[0]["pfad"] == str(umgebung.benutzer) and eintrag[0]["bytes"] >= 5000
+    # und er zaehlt zur Summe des Ortes (vorher zeigte die Karte nur die paar Bytes des Vermerks)
+    fertig = speicher._ort_fertig(ort, 5.0)
+    assert fertig["bytes"] >= 5000 and fertig["vorhanden"] is True
 
 
 # ══ Hinweise in Alltagssprache ═══════════════════════════════════════════════════════════════════════════════════
@@ -334,6 +426,18 @@ def test_die_oberflaeche_verspricht_nichts_was_nicht_stimmt():
     assert "kein Admin nötig" in quelle
 
 
+def test_das_angebot_fuer_claude_nennt_den_echten_ort(umgebung):
+    """Auf dieses Angebot hin gibt der Mensch seine Zustimmung: es nannte noch den PBP-Ordner, obwohl das Setup woanders ablegt."""
+    from bewerbungs_assistent.tools import komponenten
+    mcp = FakeMCP()
+    komponenten.register(mcp, umgebung.db, logging.getLogger("test"))
+    erg = mcp.tools["komponente_installieren"](name="tesseract")
+    assert erg["status"] == "zustimmung_erforderlich", erg
+    ziel = erg["angebot"]["ziel"]
+    assert str(umgebung.benutzer) in ziel and "components" not in ziel, ziel
+    assert "Administrator" in ziel
+
+
 # ══ Deinstaller (Windows) ════════════════════════════════════════════════════════════════════════════════════════
 
 def _bat() -> str:
@@ -359,14 +463,19 @@ def test_die_bat_fasst_nur_den_einen_ort_an_und_nur_mit_dem_marker():
     assert "Remove-Item -LiteralPath $d" in u and "-Recurse" in u
     # Das Deinstallationsprogramm des Setups kehrt sofort zurueck (es kopiert sich nach TEMP): es wird gewartet, bis das
     # Programm wirklich weg ist -- erst dann raeumt der Rest auf. Ohne die Schleife liefe `Remove-Item` mitten hinein.
-    assert "Test-Path -LiteralPath (Join-Path $d 'tesseract.exe')" in u and "Start-Sleep -Seconds 1" in u
+    assert "Test-Path -LiteralPath $b" in u and "Start-Sleep -Seconds 1" in u and "PBP_WARTEZEIT_S" in u
+    # Entfernt wird nur dieselbe Datei, die PBP eingerichtet hat (Groesse und Anlegezeit aus dem Vermerk)
+    assert "binary_groesse" in u and "binary_erstellt" in u and "CreationTimeUtc" in u and "exit 8" in u
 
 
-def _lauf_texterkennung(tmp_path: Path, lokal: Path, basis: Path):
+def _lauf_texterkennung(tmp_path: Path, lokal: Path, basis: Path, wartezeit=None):
     assert str(tmp_path) in str(lokal) and str(tmp_path) in str(basis), "QA-Isolation: nie der echte LOCALAPPDATA"
     log = tmp_path / "protokoll.txt"
     kopf = ["@echo off", "setlocal EnableDelayedExpansion", f'set "LOCALAPPDATA={lokal}"', f'set "BASE_INSTALL={basis}"',
-            f'set "LOGFILE={log}"', "call :texterkennung_entfernen", "echo ERGEBNIS=!errorlevel!", "exit /b 0", ""]
+            f'set "LOGFILE={log}"']
+    if wartezeit is not None:
+        kopf.append(f'set "PBP_WARTEZEIT_S={wartezeit}"')
+    kopf += ["call :texterkennung_entfernen", "echo ERGEBNIS=!errorlevel!", "exit /b 0", ""]
     bat = tmp_path / "tess.bat"
     bat.write_bytes(("\r\n".join(kopf) + _unterprogramm().replace("\n", "\r\n")).encode("cp850", errors="replace"))
     r = subprocess.run(["cmd.exe", "/c", str(bat)], capture_output=True, creationflags=0x08000000, timeout=180)
@@ -376,25 +485,34 @@ def _lauf_texterkennung(tmp_path: Path, lokal: Path, basis: Path):
     return ergebnis, ausgabe, protokoll
 
 
-def _marker_und_programm(tmp_path: Path, mit_marker=True, mit_deinstaller=True, name="Local"):
+def _marker_und_programm(tmp_path: Path, *, mit_marker=True, mit_deinstaller=True, mit_exe=True, passt=True, name="Local"):
+    """Die Lage nach einer Einrichtung durch PBP: Programmordner mit Sprachdaten, Vermerk mit Fingerabdruck der tesseract.exe."""
+    from bewerbungs_assistent.services import components
     lokal = tmp_path / name
     basis = lokal / "BewerbungsAssistent"
     ziel = lokal / "Programs" / "Tesseract-OCR"
     (ziel / "tessdata").mkdir(parents=True)
     (ziel / "tessdata" / "deu.traineddata").write_bytes(b"x" * 100)
+    exe = ziel / "tesseract.exe"
+    if mit_exe:
+        exe.write_bytes(b"MZ" + b"x" * 300)
     if mit_deinstaller:
         # eine beliebige, harmlose Programmdatei unter dem Namen des Deinstallationsprogramms
         shutil.copy2(Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "whoami.exe", ziel / "tesseract-uninstall.exe")
     if mit_marker:
+        marker = {"verzeichnis": str(ziel), "binary": str(exe)}
+        if mit_exe:
+            marker.update(components._fingerabdruck(exe))
+            if not passt:
+                marker["binary_erstellt"] += 1000
         (basis / "components" / "tesseract").mkdir(parents=True)
-        (basis / "components" / "tesseract" / "pbp-installation.json").write_text(
-            json.dumps({"verzeichnis": str(ziel)}), encoding="utf-8")
-    return lokal, basis, ziel
+        (basis / "components" / "tesseract" / "pbp-installation.json").write_text(json.dumps(marker), encoding="utf-8")
+    return lokal, basis, ziel, exe
 
 
 @nur_windows
 def test_die_bat_entfernt_die_von_pbp_eingerichtete_texterkennung(tmp_path):
-    lokal, basis, ziel = _marker_und_programm(tmp_path)
+    lokal, basis, ziel, _ = _marker_und_programm(tmp_path, mit_deinstaller=False)
     ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
     assert ergebnis == "0", (ausgabe, protokoll)
     assert not ziel.exists(), "auch die nachgeladenen Sprachdaten gehen mit"
@@ -402,17 +520,56 @@ def test_die_bat_entfernt_die_von_pbp_eingerichtete_texterkennung(tmp_path):
 
 
 @nur_windows
+def test_die_bat_startet_das_deinstallationsprogramm_und_gibt_nach_der_frist_auf_zu_warten(tmp_path):
+    """Das Deinstallationsprogramm (hier eine harmlose Datei) loescht nichts: nach der Frist raeumt die bat den Ordner selbst."""
+    lokal, basis, ziel, _ = _marker_und_programm(tmp_path)
+    ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis, wartezeit=3)
+    assert ergebnis == "0", (ausgabe, protokoll)
+    assert not ziel.exists()
+
+
+@nur_windows
+def test_die_bat_wartet_bis_das_programm_weg_ist_und_raeumt_erst_danach_auf(tmp_path):
+    """Die Programmdatei bleibt vier Sekunden gesperrt (das Deinstallationsprogramm ist noch dabei). Ohne die Wartezeit scheiterte das Loeschen."""
+    lokal, basis, ziel, exe = _marker_und_programm(tmp_path)
+    halter = open(exe, "rb")                       # Python oeffnet ohne Loeschfreigabe
+    timer = threading.Timer(4.0, halter.close)
+    timer.start()
+    try:
+        ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis, wartezeit=7)
+    finally:
+        timer.cancel()
+        halter.close()
+    assert ergebnis == "0", (ausgabe, protokoll)
+    assert not ziel.exists()
+
+
+@nur_windows
 def test_die_bat_fasst_ohne_marker_nichts_an(tmp_path):
     """Eine Tesseract-Installation, die der Mensch selbst angelegt hat, gehoert ihm: kein Marker, keine Hand dran."""
-    lokal, basis, ziel = _marker_und_programm(tmp_path, mit_marker=False)
+    lokal, basis, ziel, exe = _marker_und_programm(tmp_path, mit_marker=False)
     ergebnis, ausgabe, _ = _lauf_texterkennung(tmp_path, lokal, basis)
     assert ergebnis == "9", ausgabe
-    assert (ziel / "tessdata" / "deu.traineddata").is_file()
+    assert (ziel / "tessdata" / "deu.traineddata").is_file() and exe.is_file()
+
+
+@nur_windows
+@pytest.mark.parametrize("fall", ["neu_angelegt", "programm_fehlt"])
+def test_die_bat_fasst_eine_nicht_mehr_von_pbp_stammende_installation_nicht_an(tmp_path, fall):
+    """Vermerk da, aber das Programm am Ort ist nicht (mehr) das von PBP: neu angelegt oder schon entfernt. Es bleibt, wie es ist."""
+    if fall == "neu_angelegt":
+        lokal, basis, ziel, exe = _marker_und_programm(tmp_path, passt=False)
+    else:
+        lokal, basis, ziel, exe = _marker_und_programm(tmp_path, mit_exe=False)
+    ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
+    assert ergebnis == "8", (ausgabe, protokoll)
+    assert (ziel / "tessdata" / "deu.traineddata").is_file(), "nichts wird angefasst"
+    assert "stammt nicht mehr von PBP" in protokoll
 
 
 @nur_windows
 def test_die_bat_kommt_auch_ohne_deinstallationsprogramm_und_ohne_ordner_zurecht(tmp_path):
-    lokal, basis, ziel = _marker_und_programm(tmp_path, mit_deinstaller=False)
+    lokal, basis, ziel, _ = _marker_und_programm(tmp_path, mit_deinstaller=False)
     ergebnis, ausgabe, _ = _lauf_texterkennung(tmp_path, lokal, basis)
     assert ergebnis == "0" and not ziel.exists(), ausgabe
     # ein zweites Mal: Marker da, Ordner schon weg
@@ -422,10 +579,22 @@ def test_die_bat_kommt_auch_ohne_deinstallationsprogramm_und_ohne_ordner_zurecht
 
 
 @nur_windows
-def test_die_bat_vertraegt_leerzeichen_und_klammern_im_pfad(tmp_path):
-    lokal, basis, ziel = _marker_und_programm(tmp_path, name="O'Brien Test (privat)")
+def test_die_bat_vertraegt_leerzeichen_apostroph_und_klammern_im_pfad(tmp_path):
+    lokal, basis, ziel, _ = _marker_und_programm(tmp_path, mit_deinstaller=False, name="O'Brien Test (privat)")
     ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
     assert ergebnis == "0" and not ziel.exists(), (ausgabe, protokoll)
+
+
+@nur_windows
+def test_die_bat_meldet_eine_gesperrte_datei_und_der_lauf_geht_weiter(tmp_path):
+    """Laeuft die Texterkennung noch, bleibt eine Datei gesperrt: der Deinstaller sagt es (Rueckgabe 1) und bricht nicht ab."""
+    lokal, basis, ziel, _ = _marker_und_programm(tmp_path, mit_deinstaller=False)
+    gesperrt = ziel / "tessdata" / "deu.traineddata"
+    with open(gesperrt, "rb"):          # Python oeffnet ohne Loeschfreigabe: Remove-Item scheitert an dieser Datei
+        ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
+    assert ergebnis == "1", (ausgabe, protokoll)
+    assert "nicht vollstaendig entfernt" in protokoll
+    assert gesperrt.exists(), "nichts wird erzwungen"
 
 
 # ══ Kleinigkeiten aus demselben Lauf ═════════════════════════════════════════════════════════════════════════════
@@ -436,18 +605,6 @@ def test_die_gefahrenzone_zeigt_keine_markdown_zeichen_als_text():
     for bereich, text in loeschbereiche.BESCHREIBUNG.items():
         assert "**" not in text and "__" not in text, f"{bereich}: {text}"
     assert "Lernsignale" in loeschbereiche.BESCHREIBUNG["stellen"], "der Hinweis selbst bleibt"
-
-
-@nur_windows
-def test_die_bat_meldet_eine_gesperrte_datei_und_der_lauf_geht_weiter(tmp_path):
-    """Laeuft die Texterkennung noch, bleibt eine Datei gesperrt: der Deinstaller sagt es (Rueckgabe 1) und bricht nicht ab."""
-    lokal, basis, ziel = _marker_und_programm(tmp_path, mit_deinstaller=False)
-    gesperrt = ziel / "tessdata" / "deu.traineddata"
-    with open(gesperrt, "rb"):          # Python oeffnet ohne Loeschfreigabe: Remove-Item scheitert an dieser Datei
-        ergebnis, ausgabe, protokoll = _lauf_texterkennung(tmp_path, lokal, basis)
-    assert ergebnis == "1", (ausgabe, protokoll)
-    assert "nicht vollstaendig entfernt" in protokoll
-    assert gesperrt.exists(), "nichts wird erzwungen"
 
 
 # ══ Der Weg aus der Oberflaeche (REST) ═══════════════════════════════════════════════════════════════════════════
@@ -467,10 +624,7 @@ def rest(umgebung, monkeypatch):
 
 def test_rest_entfernen_meldet_den_fehler_in_alltagssprache_mit_400(rest, monkeypatch):
     client, u = rest
-    c = u.c
-    (u.ordner / "tesseract").mkdir(parents=True)
-    (u.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text(
-        json.dumps({"verzeichnis": str(u.lokal / "Fremd")}), encoding="utf-8")
+    _marker_schreiben(u, u.lokal / "Fremd")
     antwort = client.delete("/api/components/tesseract")
     assert antwort.status_code == 400
     assert "unerwarteten Ort" in antwort.json()["error"], "die Oberflaeche zeigt genau diesen Text"

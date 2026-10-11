@@ -162,6 +162,7 @@ set "TESS_RESULT=!errorlevel!"
 if "!TESS_RESULT!"=="0" echo         [OK] Texterkennung ^(Tesseract^) entfernt
 if "!TESS_RESULT!"=="1" echo         [^^!^^!] Die Texterkennung konnte nicht vollstaendig entfernt werden
 if "!TESS_RESULT!"=="1" set /a REMOVE_ERRORS+=1
+if "!TESS_RESULT!"=="8" echo         [--] Die Texterkennung am bekannten Ort stammt nicht von PBP und bleibt
 
 echo.
 echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
@@ -336,9 +337,11 @@ exit /b 0
 :: %LOCALAPPDATA%\Programs\Tesseract-OCR ab und ignoriert das Ziel. PBP merkt sich das in components\tesseract\pbp-installation.json;
 :: nur dann, und nur an diesem einen Ort, wird entfernt. Das Deinstallationsprogramm des Setups macht die Arbeit (Programmdateien,
 :: Startmenue); es kopiert sich nach TEMP und kehrt sofort zurueck, darum wird gewartet, bis das Programm weg ist. Der Rest
-:: (nachgeladene Sprachdaten) geht mit dem Ordner. Rueckgabe: 0 entfernt, 1 nicht vollstaendig, 9 nichts zu tun.
+:: (nachgeladene Sprachdaten) geht mit dem Ordner. Entfernt wird nur, wenn tesseract.exe noch dieselbe Datei ist wie bei der
+:: Einrichtung (Groesse und Anlegezeit stehen im Vermerk): wer sie spaeter selbst neu angelegt hat, dem gehoert sie.
+:: Rueckgabe: 0 entfernt, 1 nicht vollstaendig, 8 gehoert nicht mehr PBP oder ist schon weg, 9 kein Vermerk.
 if not exist "%BASE_INSTALL%\components\tesseract\pbp-installation.json" exit /b 9
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$d = Join-Path $env:LOCALAPPDATA 'Programs\Tesseract-OCR'; if (-not (Test-Path -LiteralPath $d)) { Write-Host '[INFO] Texterkennung: Ordner nicht vorhanden'; exit 0 }; $u = Join-Path $d 'tesseract-uninstall.exe'; $env:__COMPAT_LAYER = 'RunAsInvoker'; if (Test-Path -LiteralPath $u) { try { Start-Process -FilePath $u -ArgumentList '/S' -WindowStyle Hidden } catch { Write-Host ('[INFO] Deinstallationsprogramm nicht gestartet: ' + $_.Exception.Message) }; for ($i = 0; $i -lt 60 -and (Test-Path -LiteralPath (Join-Path $d 'tesseract.exe')); $i++) { Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 2 }; Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue; if (Test-Path -LiteralPath $d) { Write-Host ('[WARN] Texterkennung nicht vollstaendig entfernt: ' + $d); exit 1 } else { Write-Host ('[OK] Texterkennung entfernt: ' + $d); exit 0 }" >> "%LOGFILE%" 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$d = Join-Path $env:LOCALAPPDATA 'Programs\Tesseract-OCR'; if (-not (Test-Path -LiteralPath $d)) { Write-Host '[INFO] Texterkennung: Ordner nicht vorhanden'; exit 0 }; $b = Join-Path $d 'tesseract.exe'; $gleich = $false; try { $m = Get-Content -Raw -LiteralPath (Join-Path $env:BASE_INSTALL 'components\tesseract\pbp-installation.json') | ConvertFrom-Json; $f = Get-Item -LiteralPath $b -ErrorAction Stop; $gleich = ($f.Length -eq [int64]$m.binary_groesse) -and (([DateTimeOffset]$f.CreationTimeUtc).ToUnixTimeSeconds() -eq [int64]$m.binary_erstellt) } catch { $gleich = $false }; if (-not $gleich) { Write-Host '[INFO] Texterkennung: stammt nicht mehr von PBP oder ist schon entfernt, bleibt'; exit 8 }; $u = Join-Path $d 'tesseract-uninstall.exe'; $env:__COMPAT_LAYER = 'RunAsInvoker'; if (Test-Path -LiteralPath $u) { try { Start-Process -FilePath $u -ArgumentList '/S' -WindowStyle Hidden } catch { Write-Host ('[INFO] Deinstallationsprogramm nicht gestartet: ' + $_.Exception.Message) }; $max = 60; if ($env:PBP_WARTEZEIT_S -match '^[0-9]+$') { $max = [int]$env:PBP_WARTEZEIT_S }; for ($i = 0; $i -lt $max -and (Test-Path -LiteralPath $b); $i++) { Start-Sleep -Seconds 1 }; Start-Sleep -Seconds 2 }; Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue; if (Test-Path -LiteralPath $d) { Write-Host ('[WARN] Texterkennung nicht vollstaendig entfernt: ' + $d); exit 1 } else { Write-Host ('[OK] Texterkennung entfernt: ' + $d); exit 0 }" >> "%LOGFILE%" 2>&1
 exit /b %errorlevel%
 :: --- texterkennung Ende
 

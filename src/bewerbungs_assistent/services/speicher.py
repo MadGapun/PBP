@@ -209,7 +209,9 @@ def _ort_komponenten(db, frist_s) -> dict:
     basis = components.components_dir()
     ort = {"id": "komponenten", "name": "Zusatzprogramme von PBP", "urheber": "komponente", "pfad": str(basis),
            "was": "Texterkennung (Tesseract) und andere Komponenten, die PBP auf Wunsch einrichtet.",
-           "aktionen": ["komponenten_reste"], "eintraege": []}
+           "aktionen": ["komponenten_reste"], "eintraege": [],
+           # PP26: die Texterkennung "nur fuer mich" liegt ausserhalb des Ordners; ihr Eintrag zaehlt zur Summe dieses Ortes
+           "summe_aus_eintraegen": True}
     try:
         for kind in sorted(basis.iterdir()):
             ort["eintraege"].append(_eintrag(kind.name, "Ordner einer Komponente" if kind.is_dir() else "Datei im Komponenten-Ordner",

@@ -82,6 +82,29 @@ def test_pp24_die_rueckruffunktion_wirft_nie(tmp_path):
     ia._freigeben(immer_gehalten, str(tmp_path / "gibt-es-nicht"), None)   # auch chmod darf scheitern
 
 
+def test_pp24_die_rueckruffunktion_nimmt_einem_ordner_nie_das_lesen(tmp_path, monkeypatch):
+    """Unter POSIX hiesse `chmod(S_IWRITE)` bei einem Ordner 0o200: nicht mehr lesbar, der naechste Durchgang scheitert am Oeffnen.
+    (Fund des unabhaengigen Pruefers: die Tests liefen unter Linux als Nicht-root rot.)"""
+    import stat as _stat
+    gesetzt = []
+    monkeypatch.setattr(ia.os, "chmod", lambda p, mode: gesetzt.append((str(p), mode)))
+    ordner = tmp_path / "ordner"
+    ordner.mkdir()
+    datei = tmp_path / "datei.txt"
+    datei.write_text("x")
+    ia._freigeben(lambda p: None, str(ordner), None)
+    ia._freigeben(lambda p: None, str(datei), None)
+    (pfad_ordner, modus_ordner), (pfad_datei, modus_datei) = gesetzt
+    assert modus_ordner & _stat.S_IRUSR and modus_ordner & _stat.S_IWUSR and modus_ordner & _stat.S_IXUSR
+    assert modus_datei & _stat.S_IWRITE and modus_datei & _stat.S_IREAD
+
+
+def test_pp24_auch_ein_aufruf_ohne_argumente_der_rueckruffunktion_beendet_nichts(tmp_path):
+    """`shutil.rmtree` ruft die Rueckruffunktion auch mit `os.open` auf (zweiter Durchgang, Ordner nicht lesbar): `fn(pfad)` ist dann
+    ein TypeError, kein OSError."""
+    ia._freigeben(os.open, str(tmp_path), None)
+
+
 def test_pp24_ein_durchgang_wirft_nie(tmp_path, monkeypatch):
     basis = _ordner(tmp_path / "PBP-1.8.0")
 

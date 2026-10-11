@@ -34,7 +34,7 @@ import sys
 import time
 import urllib.request
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Optional
 
 logger = logging.getLogger("bewerbungs_assistent")
@@ -176,7 +176,9 @@ def _benutzer_ordner_win(definition: dict) -> Optional[Path]:
     basis = os.environ.get("LOCALAPPDATA")
     if not rel or not basis or sys.platform != "win32":
         return None
-    return Path(basis) / rel
+    # Der Eintrag ist mit Backslash geschrieben (wie er unter Windows heisst); unter anderen Pfadregeln (Tests auf Linux)
+    # waere er sonst EIN Name mit Backslash darin.
+    return Path(basis).joinpath(*PureWindowsPath(rel).parts)
 
 
 def _bekannte_pfade_win(definition: dict) -> list:
@@ -198,6 +200,17 @@ def _liegt_in(pfad: Path, ordner: Path) -> bool:
         return False
 
 
+def _fingerabdruck(datei: Path) -> dict:
+    """Groesse und Anlegezeit (ganze Sekunden): woran PBP seine eigene Datei von einer spaeter neu angelegten unterscheidet.
+
+    Wer Tesseract nach PBPs Entfernen (oder neben PBP) selbst am Standardort einrichtet, hat dieselben Dateinamen, aber eine
+    andere Anlegezeit -- und diese Installation gehoert ihm.
+    """
+    st = datei.stat()
+    erstellt = getattr(st, "st_birthtime", None) or st.st_ctime
+    return {"binary_groesse": int(st.st_size), "binary_erstellt": int(erstellt)}
+
+
 def _eigene_installation_merken(target_dir: Path, binary: Path, version: str, definition: dict) -> None:
     """Haelt fest, dass PBP dieses Programm selbst eingerichtet hat, obwohl es ausserhalb des Komponenten-Ordners liegt."""
     deinstaller = binary.parent / (definition.get("deinstaller_name") or "")
@@ -207,23 +220,42 @@ def _eigene_installation_merken(target_dir: Path, binary: Path, version: str, de
         "deinstaller": str(deinstaller) if definition.get("deinstaller_name") and deinstaller.is_file() else "",
         "version": version,
         "angelegt": datetime.now().isoformat(timespec="seconds"),
+        **_fingerabdruck(binary),
     }
     target_dir.mkdir(parents=True, exist_ok=True)
     (target_dir / EIGENE_INSTALLATION).write_text(
         json.dumps(marker, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def eigene_installation(name: str) -> Optional[dict]:
+def _marker_gehoert_noch_pbp(marker: dict) -> bool:
+    """Ist das Programm am genannten Ort noch das, das PBP eingerichtet hat (gleiche Groesse, gleiche Anlegezeit)?"""
+    try:
+        datei = Path(str(marker.get("binary") or ""))
+        if not str(datei) or not datei.is_file():
+            return False
+        jetzt = _fingerabdruck(datei)
+        return all(marker.get(k) == jetzt[k] for k in ("binary_groesse", "binary_erstellt"))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def eigene_installation(name: str, *, pruefen: bool = True) -> Optional[dict]:
     """Der Marker einer von PBP eingerichteten Komponente ausserhalb des Komponenten-Ordners -- oder None.
 
-    Auch fuer die Uebersicht "Speicher & Downloads": sie zeigt damit den Ort, an dem die Groesse wirklich liegt.
+    Mit `pruefen` (Vorgabe) nur, solange das Programm dort noch dasselbe ist; eine spaeter von Hand neu angelegte Installation
+    am selben Ort gilt nicht als PBPs. Auch fuer die Uebersicht "Speicher & Downloads": sie zeigt damit den Ort, an dem die
+    Groesse wirklich liegt.
     """
     try:
         datei = components_dir() / name / EIGENE_INSTALLATION
         if not datei.is_file():
             return None
         daten = json.loads(datei.read_text(encoding="utf-8"))
-        return daten if isinstance(daten, dict) and daten.get("verzeichnis") else None
+        if not (isinstance(daten, dict) and daten.get("verzeichnis")):
+            return None
+        if pruefen and not _marker_gehoert_noch_pbp(daten):
+            return None
+        return daten
     except (OSError, ValueError):
         return None
 
@@ -839,6 +871,7 @@ def uninstall_component(db, name: str) -> dict:
     # PP26: hat PBP die Komponente "nur fuer mich" ausserhalb des eigenen Ordners eingerichtet, geht sie mit
     # ihrem eigenen Deinstallationsprogramm -- und erst dann der Marker samt Ordner.
     marker = eigene_installation(name)
+    nicht_mehr_pbp = marker is None and eigene_installation(name, pruefen=False) is not None
     if marker is not None:
         weg, hinweis = _eigene_installation_entfernen(definition, marker)
         if not weg:
@@ -847,20 +880,25 @@ def uninstall_component(db, name: str) -> dict:
     if target_dir.exists():
         try:
             shutil.rmtree(target_dir)
-            removed = True
+            if not nicht_mehr_pbp:      # sonst lag dort nur der Vermerk, keine Installation
+                removed = True
         except Exception as exc:
             return {"status": "fehler",
                     "fehler": f"Ordner nicht entfernbar: {str(exc)[:150]}"}
     db.set_component_state(name, STATUS_NICHT_INSTALLIERT,
                            install_path="", version="", last_error="")
     extern = find_component_binary(db, name)
+    hinweise = []
+    if nicht_mehr_pbp:
+        hinweise.append(
+            "Die Installation am bekannten Ort stammt nicht mehr von PBP (sie wurde neu angelegt oder ist schon "
+            "entfernt) und bleibt unangetastet.")
+    if extern:
+        hinweise.append(f"Extern installierte Instanz bleibt unangetastet ({extern}).")
     return {
         "status": "entfernt",
         "pbp_installation_geloescht": removed,
-        "hinweis": (
-            f"Extern installierte Instanz bleibt unangetastet ({extern})."
-            if extern else ""
-        ),
+        "hinweis": " ".join(hinweise),
         "war_registriert": bool(state),
     }
 

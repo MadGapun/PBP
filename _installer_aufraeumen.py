@@ -130,9 +130,11 @@ def _freigeben(fn, pfad, _info):
     Temp-Ordner blieben liegen, obwohl er 200 Versuche im Abstand von 3 s vorsieht.
     """
     try:
-        os.chmod(pfad, stat.S_IWRITE)
+        # Unter Windows nimmt chmod nur den Schreibschutz weg. Unter POSIX hiesse S_IWRITE bei einem Ordner "nur schreiben":
+        # er wuerde unlesbar, und der naechste Durchgang scheiterte schon am Oeffnen (`fn` waere dann `os.open`, ohne Flags).
+        os.chmod(pfad, stat.S_IRWXU if os.path.isdir(pfad) else stat.S_IREAD | stat.S_IWRITE)
         fn(pfad)
-    except OSError:
+    except Exception:  # noqa: BLE001 -- ein Fehlschlag hier ist ein Grund zu warten, kein Grund zu sterben
         pass
 
 
