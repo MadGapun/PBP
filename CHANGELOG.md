@@ -53,11 +53,10 @@ GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Admini
   Ort (`components\tesseract\pbp-installation.json`), lädt das deutsche Sprachpaket dorthin, zeigt den Ort mit Größe unter „Speicher & Downloads“ und entfernt
   alles wieder mit dem eigenen Deinstallationsprogramm des Setups — in der Oberfläche („Entfernen“) und im Deinstaller (Schritt 5), und nur an diesem einen Ort.
   Eine Tesseract-Installation, die du selbst angelegt hast, wird erkannt und nie angefasst. Die Hinweise zum fehlenden Sprachpaket nennen keine Werkzeugnamen mehr.
-- **Der Installer ließ einen leeren Ordner und die Kopie seines Aufräum-Helfers liegen** (PP24; seit 1.8.0-beta.16, nur Windows mit der mitgelieferten
-  Python-Laufzeit). Der Helfer löscht den entpackten Installer-Ordner, sobald das Installer-Fenster zu ist; solange es offen ist, hält es den Ordner fest. Der erste
+- **Der Installer ließ einen leeren Ordner und die Kopie seines Aufräum-Helfers liegen** (PP24; seit 1.8.0-beta.16, nur Windows). Der Helfer löscht den entpackten Installer-Ordner, sobald das Installer-Fenster zu ist; solange es offen ist, hält es den Ordner fest. Der erste
   Versuch scheiterte darum immer — und `shutil.rmtree` warf den Fehler aus seiner Rückruffunktion bis in den Prozess, statt es 200-mal im Abstand von 3 s zu
-  versuchen. Jetzt fängt der Helfer das auf und versucht es weiter. Auf einem Rechner mit Python 3.13 fiel es nicht auf (dort löscht Windows den gehaltenen
-  Ordner trotzdem); die vorhandenen Tests ersetzten genau die Stelle, an der es krachte.
+  versuchen. Jetzt fängt der Helfer das auf und versucht es weiter. Auf dem Entwicklungsrechner (Windows 11, Build 26200) fiel es nicht auf: dort löscht Windows
+  einen gehaltenen Ordner trotzdem; die vorhandenen Tests ersetzten genau die Stelle, an der es krachte.
 - **Nach jeder Installation blieb `%TEMP%\tmpXXXX\pip.zip` (1,7 MB) liegen** (PP25; auch in 1.7.x). `get-pip.py` arbeitet jetzt in einem eigenen Ordner, der danach
   gelöscht wird.
 - **Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.**
