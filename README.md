@@ -13,7 +13,7 @@ PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
-Aktuelle Version **v1.7.157** · letztes Release am 12. Oktober 2026 · 8596 automatische Tests · wöchentliche Releases
+Aktuelle Version **v1.8.0** · letztes Release am 12. Oktober 2026 · 8596 automatische Tests · wöchentliche Releases
 
 Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
 
@@ -21,7 +21,7 @@ Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schre
 
 > **🌍 Note for international users:** PBP currently supports the **German-speaking job market (DACH region)** only. All tools, workflows, job portals, and UI are in German — see the [English overview](README.en.md). Interested in support for your country? [Open an issue!](https://github.com/MadGapun/PBP/issues)
 
-[![Stable](https://img.shields.io/badge/Stable-v1.7.157-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
+[![Stable](https://img.shields.io/badge/Stable-v1.8.0-brightgreen.svg)](https://github.com/MadGapun/PBP/releases/latest)
 [![Tests](https://img.shields.io/badge/Tests-8596-brightgreen.svg)](https://github.com/MadGapun/PBP/actions)
 [![MCP](https://img.shields.io/badge/MCP-Claude_Desktop-orange.svg)](https://modelcontextprotocol.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -121,6 +121,7 @@ PBP ist kein Tool, das alles für dich erledigt und du drückst nur auf "Absende
 - **Bewerbungsstatus verfolgen** — Pipeline mit Timeline, Notizen, Follow-ups und Statistiken
 - **Aufgaben-Übersicht** — Nachfassen, Termine und Todos nach Fälligkeit an einem Ort
 - **Scoring-Regler** — Konfiguriere, was dir wichtig ist. PBP sortiert automatisch
+- **Updates, die sich selbst installieren** — wenn du es willst: PBP lädt neue Versionen nur von der festen GitHub-Adresse, mit Prüfsumme und Signatur, schaltet erst um, wenn die neue Version startet, und fällt sonst von selbst zurück (Windows). Ohne deine Wahl installiert PBP nichts
 
 > 📖 **Alle Features im Detail:** [Wiki → Dashboard](https://github.com/MadGapun/PBP/wiki/Dashboard) · [Workflows](https://github.com/MadGapun/PBP/wiki/Workflows) · [MCP-Tools](https://github.com/MadGapun/PBP/wiki/MCP-Tools) · [Jobportale](https://github.com/MadGapun/PBP/wiki/Jobportale)
 
@@ -196,7 +197,7 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 ### Linux
 
 ```bash
-git clone --branch v1.7.157 --depth 1 https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
+git clone --branch v1.8.0 --depth 1 https://github.com/MadGapun/PBP.git && cd PBP && bash installer/install.sh
 ```
 
 > 📖 **Detaillierte Anleitungen, Claude Desktop Config und Fehlerbehebung:** [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation)
@@ -238,7 +239,8 @@ Ollama bleiben installiert — die deinstallierst du separat.
 | **Bedienung** | Im Gespräch mit Claude Desktop, dazu ein Dashboard im Browser |
 | **Dashboard** | Dashboard, Profil, Suche & Bewertung, Stellen, Bewerbungen, Kontakte, Dokumente, Aufgaben, Kalender, Statistiken, Einstellungen |
 | **Jobbörsen** | Empfehlung nach deinem Berufsfeld; Quellen, die gerade nicht liefern, sind markiert |
-| **Speicher** | Eine Datei auf deinem Rechner (SQLite) |
+| **Speicher** | Eine Datei auf deinem Rechner (SQLite); *Einstellungen › Speicher & Downloads* zeigt, was wo liegt |
+| **Updates** | Auf Wunsch von selbst, mit Prüfsumme und Signatur; Vorgabe: nur ein Hinweis (Windows) |
 | **Kosten** | Kostenlos (MIT-Lizenz); für viel tägliche Arbeit mit Claude lohnt ein Claude-Abo |
 
 ### Typed IDs (v1.7.0, #505)
