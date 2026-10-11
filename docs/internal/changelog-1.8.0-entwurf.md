@@ -11,12 +11,12 @@
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
 Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
-Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig.
+Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
 <!-- /anwender -->
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
-sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.150 geliefert haben; die Einzelheiten stehen in den
+sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.19) und die Hotfixes bis v1.7.156 geliefert haben; die Einzelheiten stehen in den
 Einträgen darunter.
 
 **Wichtig zu wissen:**
