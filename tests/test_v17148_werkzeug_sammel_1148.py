@@ -191,7 +191,10 @@ def test_1148_die_profilzusammenfassung_nennt_die_skill_ids(umgebung):
     ids = [s["id"] for s in erg["skills_liste"]]
     assert sid in ids
     eintrag = next(s for s in erg["skills_liste"] if s["id"] == sid)
-    assert eintrag["name"] == "Python" and eintrag["level"] == 9
+    # #1190: kein mehrdeutiges `level` mehr, sondern aktueller Stand und Spitze
+    assert eintrag["name"] == "Python"
+    assert eintrag["level_aktuell"] == 9 and eintrag["level_spitze"] == 9
+    assert "level" not in eintrag
 
 
 def test_1148_die_genannte_skill_id_fuehrt_zum_aendern(umgebung):
@@ -215,7 +218,7 @@ def test_1148_ein_vorhandener_skill_wird_nicht_als_gespeichert_gemeldet(umgebung
                                            "last_used_year": 2008})
     assert erg["status"] == "bereits_vorhanden"
     assert erg["skill_id"] == sid
-    assert erg["vorhanden"]["level"] == 9
+    assert erg["vorhanden"]["level_aktuell"] == 9 and erg["vorhanden"]["level_spitze"] == 9
     assert "NICHTS geändert" in erg["hinweis"]
     assert sid in erg["hinweis"], "der Weg zum Aendern nennt die ID"
     assert db.find_skill("Python")["level"] == 9

@@ -35,7 +35,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 
 ## [1.7.157] - 2026-10-10 — Die Browser-Suche legt Stellen in PBP an, und Angaben aus Google gelten erst mit dem Original
 
-Hotfix für v1.7.156. Zwei Befunde aus dem Alltag mit der Browser-Suche (Claude in Chrome): Ein Lauf über sechs Jobbörsen mit rund 1.300 gefundenen Stellen legte keine einzige davon in PBP an, und eine Stelle aus Google Jobs wurde mit einem Arbeitsmodell und einem Ort eingetragen, die nur auf Googles Karte standen. Es gibt keine neue Funktion; geändert sind die Anweisungen, die Claude für einen Browserlauf bekommt, die Prüfungen beim Anlegen und die Vorschau der LinkedIn-Übernahme.
+Hotfix für v1.7.156. Drei Befunde aus dem Alltag: Ein Lauf über sechs Jobbörsen mit rund 1.300 gefundenen Stellen (Browser-Suche mit Claude in Chrome) legte keine einzige davon in PBP an, eine Stelle aus Google Jobs wurde mit einem Arbeitsmodell und einem Ort eingetragen, die nur auf Googles Karte standen, und die Profil-Zusammenfassung nannte bei jedem Skill nur die Spitze und nicht den Stand von heute. Es gibt keine neue Funktion; geändert sind die Anweisungen, die Claude für einen Browserlauf bekommt, die Prüfungen beim Anlegen, die Vorschau der LinkedIn-Übernahme und die Auskunft über die Skills.
 
 **Wichtig zu wissen:**
 
@@ -43,6 +43,7 @@ Hotfix für v1.7.156. Zwei Befunde aus dem Alltag mit der Browser-Suche (Claude 
 - **Eine früher aussortierte Stelle kommt zurück, wenn sie fachlich passt.** Hat PBP eine Stelle zum Beispiel wegen der Entfernung aussortiert und sie passt nach dem Lesen fachlich, holt Claude sie zurück, statt sie nur im Chat zu erwähnen.
 - **Stellen aus Google Jobs bekommen ihr Arbeitsmodell und ihre Entfernung erst mit dem Original.** Googles Karte nannte zum Beispiel „Beliebiger Ort, Homeoffice“; die Anzeige beim Arbeitgeber lag rund 570 km entfernt und erlaubte nur mobiles Arbeiten. Solange die Adresse beim Arbeitgeber und der Anzeigentext fehlen, entscheidet der Text über das Arbeitsmodell (sonst bleibt es „unbekannt“), und die Entfernung wird nicht aus Googles Ort gerechnet. Trägst du das Original nach, holt PBP beides nach.
 - **PBP meldet jetzt, wenn eine neue Stelle schon einmal aussortiert wurde** — auch unter dem Namen des Konzernunternehmens. Sie wird weiter angelegt (gemeldet, nicht blockiert), mit dem damaligen Grund.
+- **Bei jedem Skill steht jetzt der Stand von heute.** Claude las aus der Profil-Zusammenfassung nur die höchste Stufe, die ein Skill je hatte; ein Skill, den du seit Jahrzehnten nicht mehr einsetzt, konnte so als „Experte“ auf einer fremden Plattform landen. Jetzt stehen aktueller Stand, Spitze, Ende des Zeitraums und letzter Einsatz dabei; ist ein Skill beendet und kein heutiges Niveau eingetragen, fragt Claude nach.
 
 ### Fixed
 
@@ -50,6 +51,8 @@ Hotfix für v1.7.156. Zwei Befunde aus dem Alltag mit der Browser-Suche (Claude 
 - **Die Vorschau von `linkedin_treffer_uebernehmen` prüfte nichts** (#1187). Mit der Vorgabe `dry_run=True` kehrte sie vor jeder Prüfung zurück und meldete „alle angelegt“, wo der echte Lauf Dubletten, laufende Bewerbungen oder die Blacklist abgewiesen hätte. Jetzt stellt sie dieselben Fragen wie die Anlage und schreibt nichts (auch kein Blacklist-Protokoll und keinen Kontakt); dieselbe Stelle, die zweimal im Aufruf steht, zählt einmal.
 - **Stellen aus Google Jobs behaupteten ein Arbeitsmodell und einen Ort, die nur auf Googles Karte standen** (#1184; seit `stelle_manuell_anlegen`). Ein Treffer mit „Beliebiger Ort, Homeoffice“ wurde als `remote` angelegt: die Entfernung fiel weg, der Rahmenscore stieg, und die Stelle wäre nach oben sortiert worden. Jetzt gelten Remote und Ort einer Google-Stelle erst, wenn das Original vorliegt (Detail-URL des Arbeitgebers und Anzeigentext, `services/google_angaben`); wird es mit `stelle_bearbeiten` nachgetragen, holt PBP beides nach.
 - **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+
+- **Bei jedem Skill nannte Claude nur die Spitze, nicht den Stand von heute** (#1190; seit v1.6.0). `profil_zusammenfassung` gab in `skills_liste` nur `level` aus, die höchste Stufe, die ein Skill je hatte. Die Oberfläche zeigt den aktuellen Stand und bei ruhenden Skills „ruht (Spitze x/5)“; `level_current`, `end_year` und `last_used_year` lagen in der Datenbank, fehlten aber im Werkzeug. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; das mehrdeutige Feld `level` entfällt, der Text der Zusammenfassung und die Antwort „bereits vorhanden“ sagen dasselbe (`services/profile_service.skill_stand`).
 
 ### Changed
 
