@@ -299,6 +299,24 @@ def test_eine_genannte_firma_bleibt_ein_dublettenhinweis(env):
     assert b["status"] != "angelegt", "gleiche Firma, gleicher Titel: ein Hinweis, wie bisher"
 
 
+def test_die_dublettenerkennung_liest_einen_platzhalter_nicht_als_firma():
+    """Direkt an der Erkennung (unabhängig vom Schlüssel der Anlage): ohne genannte Firma entscheidet nur die Adresse."""
+    from bewerbungs_assistent.duplicate_detection import find_duplicate_job
+    vorhanden = [{"company": "Nicht angegeben", "title": "SAP Berater (m/w/d) Remote",
+                  "url": "https://jobtic.com/project/aaaaa00001"}]
+    andere_adresse = find_duplicate_job("Nicht angegeben", "SAP Berater (m/w/d) Remote",
+                                        "https://jobtic.com/project/bbbbb00002", vorhanden)
+    assert andere_adresse is None, andere_adresse
+    gleiche_adresse = find_duplicate_job("Nicht angegeben", "SAP Berater (m/w/d) Remote",
+                                         "https://jobtic.com/project/aaaaa00001", vorhanden)
+    assert gleiche_adresse and gleiche_adresse["grund"] == "url_match"
+    # auch der Platzhalter auf der Seite der vorhandenen Stelle zaehlt nicht als Firma
+    echte = [{"company": "Beispielwerk GmbH", "title": "SAP Berater (m/w/d) Remote", "url": "https://karriere.example.com/1"}]
+    assert find_duplicate_job("Nicht angegeben", "SAP Berater (m/w/d) Remote", "https://karriere.example.com/2", echte) is None
+    # Gegenprobe: eine genannte Firma bleibt eine
+    assert find_duplicate_job("Beispielwerk GmbH", "SAP Berater (m/w/d) Remote", "https://karriere.example.com/2", echte)
+
+
 def test_benennt_arbeitgeber_kennt_die_platzhalter():
     from bewerbungs_assistent.duplicate_detection import benennt_arbeitgeber
     for platzhalter in ("Nicht angegeben", "nicht angegeben", "Unbekannt", "", None, "  "):

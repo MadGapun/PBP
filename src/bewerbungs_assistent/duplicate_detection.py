@@ -233,6 +233,15 @@ def benennt_arbeitgeber(name: Optional[str]) -> bool:
         return True
 
 
+def _firma_schluessel(name: Optional[str]) -> str:
+    """Der Vergleichsname einer Firma - leer bei einem Platzhalter ("Nicht angegeben"), damit er nie "dieselbe Firma" ergibt.
+
+    Eine Stelle, die ihren Arbeitgeber nicht nennt, wird nur ueber die Adresse als Dublette erkannt (Regel 1 in
+    `find_duplicate_job`): beide Seiten des Vergleichs gehen durch diese eine Funktion.
+    """
+    return normalize_company_name(name) if benennt_arbeitgeber(name) else ""
+
+
 def find_duplicate_job(
     firma: str,
     titel: str,
@@ -261,7 +270,7 @@ def find_duplicate_job(
         return None
 
     # Ein Platzhalter vergleicht nur ueber die Adresse (Regel 1), nie ueber "dieselbe Firma".
-    norm_firma = normalize_company_name(firma) if benennt_arbeitgeber(firma) else ""
+    norm_firma = _firma_schluessel(firma)
     url_norm = (url or "").strip().lower().rstrip("/") if url else ""
     # v1.6.9 (#565, #567): tz-aware now — vorher war das naive und crashte
     # gegen aware found_at-Werte aus der DB.
@@ -272,8 +281,7 @@ def find_duplicate_job(
     best_score = 0.0
 
     for cand in candidates:
-        _cand_name = cand.get("company") or cand.get("firma")
-        cand_firma = normalize_company_name(_cand_name) if benennt_arbeitgeber(_cand_name) else ""
+        cand_firma = _firma_schluessel(cand.get("company") or cand.get("firma"))
         cand_title = cand.get("title") or cand.get("titel") or ""
         cand_url = (cand.get("url") or "").strip().lower().rstrip("/")
 
