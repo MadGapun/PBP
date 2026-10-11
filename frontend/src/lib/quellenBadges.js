@@ -113,7 +113,9 @@ export function quellenBadges(quelle, loginStatus = null) {
   if (q.defekt) {
     // Eine defekte Quelle sagt nur das — ein Konto-Hinweis daneben laedt
     // dazu ein, es trotzdem zu versuchen.
-  } else if (q.login_erforderlich) {
+  } else if (q.login_erforderlich || q.konto_noetig) {
+    // #1189: `konto_noetig` - ein Konto ist noetig, die Sitzung liegt aber im eigenen Browser (jobtic);
+    // der Login-Knopf des alten Weges (LinkedIn, XING) gehoert dort nicht hin.
     liste.push({ text: "Konto nötig", tone: "amber", art: "eigenschaft",
                  titel: q.login_hinweis || "" });
   } else if (q.zugriffsart === "browser_login") {

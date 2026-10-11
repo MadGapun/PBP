@@ -73,8 +73,10 @@ WEG = "weg"
 GEBLOCKT = "geblockt"
 LEBT_UNLESBAR = "lebt_unlesbar"
 FEHLER = "fehler"
+# #1189: die Quelle verbietet den automatischen Abruf (jobtic) - PBP fragt die Seite gar nicht erst.
+NICHT_AUTOMATISCH = "nicht_automatisch"
 
-BEFUNDE = (GELESEN, WEG, GEBLOCKT, LEBT_UNLESBAR, FEHLER)
+BEFUNDE = (GELESEN, WEG, GEBLOCKT, LEBT_UNLESBAR, FEHLER, NICHT_AUTOMATISCH)
 
 # Was der Mensch zu jedem Befund lesen soll. Bewusst je ein Satz, der
 # den NAECHSTEN Schritt nennt — eine Meldung ohne Ausweg ist eine
@@ -90,6 +92,9 @@ KLARTEXT = {
                     "ein Bot-Block oder eine Seite, die ihren Inhalt erst "
                     "per JavaScript nachlädt."),
     FEHLER: "Die Seite war nicht erreichbar.",
+    NICHT_AUTOMATISCH: ("Diese Quelle ruft PBP nicht selbst ab: ihre Nutzungsbedingungen untersagen automatisiertes "
+                        "Auslesen. Öffne die Anzeige in deinem Browser und füge den Text ein (stelle_bearbeiten), "
+                        "oder lass Claude die Seite in deinem Browser lesen."),
 }
 
 # Wer 404/410 sagt, sagt es. Dieselbe Liste wie in `url_health` — nicht
@@ -187,6 +192,13 @@ def beschreibung_holen(url: str, client, *, timeout: float = 15,
     waeren derselbe Fehler in vier Gestalten — genau das schreibt der
     Melder in sein Issue.
     """
+    # #1189: eine Quelle mit Auflage (jobtic) wird von PBP nie selbst abgerufen - weder hier noch im
+    # Auto-Nachzug, denn beide laufen durch diese Funktion.
+    from .quellen_auflagen import kein_automatischer_abruf
+    if kein_automatischer_abruf(url=url):
+        return Befund(status=NICHT_AUTOMATISCH, quelle="auflage",
+                      hinweise=["Die Nutzungsbedingungen der Quelle untersagen automatisiertes Auslesen."])
+
     if ist_bundesagentur(url):
         befund = _ueber_detail_api(url, client)
         if befund.status != LEBT_UNLESBAR:

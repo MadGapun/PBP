@@ -584,6 +584,42 @@ SOURCE_REGISTRY = {
         "geschwindigkeit": "manuell",
         "hinweis": "Automatische Suche deaktiviert. Treffer über die Claude-Erweiterung suchen und mit stelle_manuell_anlegen() übernehmen.",
     },
+    "jobtic": {
+        "name": "jobtic",
+        "beschreibung": "Marktplatz für IT-Projekte und Freelancer (jobtic GmbH): Projekte mit Ort, Remote-Anteil, "
+                         "Auslastung und Skills. Läuft manuell über den eigenen, angemeldeten Browser.",
+        # #1189 (B78): wie XING und StepStone eine Browser-Quelle - die Sitzung liegt im eigenen Chrome, PBP kennt
+        # keine Zugangsdaten. `login_erforderlich` bleibt False: der Login-Knopf des Dashboards kennt nur den alten
+        # Weg fuer LinkedIn und XING. `konto_noetig` laesst die Karte trotzdem "Konto nötig" sagen.
+        # Gemessen am 11.10.2026: die Liste und die Beschreibungen sieht auch ein Gast; angemeldet kommt der
+        # Ansprechpartner dazu, also das Bewerben. Die AGB (§ 5.2, § 5.3) untersagen automatisiertes Auslesen und die
+        # Aufnahme von Kontaktdaten in fremde Datenbanken - siehe `auflagen`, die `services/quellen_auflagen` liest.
+        "login_erforderlich": False,
+        "konto_noetig": True,
+        "zugriffsart": "browser_login",
+        "konto_url": "https://jobtic.com/register",
+        "login_hinweis": "Du brauchst ein eigenes jobtic-Konto und musst im Browser angemeldet sein — ohne Anmeldung "
+                         "siehst du die Projekte, aber keine Ansprechpartner. Die Nutzungsbedingungen von jobtic "
+                         "untersagen automatisiertes Auslesen: starte die Quelle nur von Hand und mit Maß.",
+        "geschwindigkeit": "manuell",
+        "beta": True,
+        "handoff_verfuegbar": True,
+        "hinweis": "Läuft nicht automatisch. quelle_handoff('jobtic', Begriff) liefert Such-URL und Auflagen, "
+                   "Treffer kommen mit stelle_manuell_anlegen() nach PBP.",
+        "manueller_fallback": "quelle_handoff('jobtic', Begriff) — öffnet die Projektsuche im eigenen Browser",
+        "auflagen": {
+            "kein_automatischer_abruf": True,
+            "keine_kontaktdaten": True,
+            "stellenart": "freelance",
+            "max_seiten_je_begriff": 2,
+            "hinweis": "Auflagen von jobtic (Nutzungsbedingungen § 5.2 und § 5.3): nur auf ausdrücklichen Wunsch des "
+                       "Nutzers starten, je Suchbegriff höchstens zwei Ergebnisseiten lesen, Detailseiten nur bei "
+                       "fachlichem Treffer öffnen, mit Pausen dazwischen. Nie übernehmen: Ansprechpartner, "
+                       "Kontaktdaten und Freelancer-Profile. Als Firma nicht den Namen der einstellenden Person "
+                       "eintragen; ist der Auftraggeber nicht genannt, steht dort „Nicht angegeben“. Den Text der "
+                       "Projektseite als Beschreibung mitgeben: PBP ruft die Seite nicht selbst ab.",
+        },
+    },
     "google_jobs": {
         "name": "Google Jobs (im Browser)",
         "beschreibung": "Grösster Aggregator für DE-Stellen — aggregiert StepStone, Jobware, "

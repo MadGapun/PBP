@@ -21,6 +21,7 @@ KURZ: dict[str, str] = {
     "heise_jobs": "Stellen in IT und Systemadministration.",
     "gulp": "Projekte für Freiberufler in IT und Technik.",
     "solcom": "IT- und Technikprojekte eines Personaldienstleisters.",
+    "jobtic": "Projekte für Freiberufler in der IT; läuft nur mit eigenem, im Browser angemeldetem Konto.",
     "stellenanzeigen_de": "Eine große deutsche Jobbörse für alle Branchen.",
     "adzuna": "Sammelt Stellen aus vielen Börsen; braucht einen kostenlosen eigenen Zugangsschlüssel.",
     "jobware": "Stellen für Fachkräfte und Führungskräfte.",

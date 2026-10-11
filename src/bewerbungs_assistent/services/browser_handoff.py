@@ -41,6 +41,7 @@ WERKZEUG_JE_PORTAL = {
     "linkedin": "linkedin_lauf_plan()",
     "google_jobs": "google_jobs_url()",
     "stepstone": "google_jobs_url()",
+    "jobtic": "quelle_handoff('jobtic', <Suchbegriff>)",
 }
 
 #: Der Anfang der Regel - daran erkennt ein Test, dass eine Anleitung sie enthaelt.
@@ -131,6 +132,8 @@ def browser_quellen(db, auswahl=None, registry=None,
             "suchbegriffe": begriffe,
             "suchprofil_vorhanden": bool(begriffe),
             "werkzeug": WERKZEUG_JE_PORTAL.get(key, ""),
+            # #1189: Auflagen der Quelle (jobtic) - der Auftrag nennt sie unter der Quelle.
+            "auflagen": str((info.get("auflagen") or {}).get("hinweis") or ""),
         })
     return eintraege
 
@@ -159,6 +162,8 @@ def prompt(eintraege: list[dict]) -> str:
 
     for nummer, e in enumerate(haupt, 1):
         zeilen.append(_zeile(nummer, e))
+        if e.get("auflagen"):
+            zeilen.append(f"   {e['auflagen']}")
     if extra:
         if haupt:
             zeilen.append("")

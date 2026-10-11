@@ -41,6 +41,7 @@ class HealthStatus(str, Enum):
     BLOCKED = "blocked"
     UNKNOWN = "unknown"
     LEER = "leer"  # URL leer/fehlt
+    NICHT_GEPRUEFT = "nicht_geprueft"  # #1189: die Quelle verbietet den automatischen Abruf
 
 
 @dataclass
@@ -155,6 +156,13 @@ def check_job_url_health(
         return HealthResult(status=HealthStatus.LEER)
 
     url = url.strip()
+
+    # #1189: eine Quelle mit Auflage (jobtic) ruft PBP nicht selbst ab - auch nicht, um zu pruefen, ob es
+    # die Anzeige noch gibt. Das ist keine Aussage ueber die Stelle (kein EXPIRED, kein Aussortieren).
+    from .quellen_auflagen import kein_automatischer_abruf
+    if kein_automatischer_abruf(url=url):
+        return HealthResult(status=HealthStatus.NICHT_GEPRUEFT,
+                            note="Die Quelle erlaubt keinen automatischen Abruf (Nutzungsbedingungen).")
 
     try:
         import httpx

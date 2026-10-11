@@ -13,8 +13,10 @@ Such-URLs unten sind langlebig, das Extraktions-JS ist DOM-agnostisch
 """
 from __future__ import annotations
 
+from pathlib import Path
 from urllib.parse import quote_plus
 
+from ..services import quellen_auflagen
 from ..services.browser_handoff import REGEL_IM_ZWEIFEL
 
 # Langlebige Such-URL-Muster (Query-Parameter, keine DOM-Wetten).
@@ -27,6 +29,14 @@ HANDOFF_URL_TEMPLATES: dict[str, str] = {
     "xing": "https://www.xing.com/jobs/search?keywords={keyword}&location={ort}",
     "jobspy_indeed": "https://de.indeed.com/jobs?q={keyword}&l={ort}",
     "indeed": "https://de.indeed.com/jobs?q={keyword}&l={ort}",
+    # #1189: Projektsuche von jobtic, serverseitig geliefert; `q` filtert (live gemessen 10.10.2026).
+    "jobtic": "https://jobtic.com/search?type=projects&q={keyword}",
+}
+
+# Quellen mit eigenem Auswerte-Skript. Es liest, was die Seite selbst als Liste mitliefert - eine
+# Datei im Paket, die ein Test (und die CI) gegen eine nachgebaute Seite ausfuehrt, nicht eine Kopie.
+_EXTRAKTION_JE_QUELLE: dict[str, str] = {
+    "jobtic": "jobtic_extraction.js",
 }
 
 # DOM-agnostische Extraktion: sammelt Links, deren Text wie ein
@@ -56,6 +66,14 @@ GENERIC_EXTRACTION_JS = r"""
 """.strip()
 
 
+def extraktions_js(quelle: str) -> str:
+    """Das Auswerte-Skript der Quelle, sonst das generische."""
+    datei = _EXTRAKTION_JE_QUELLE.get((quelle or "").lower())
+    if not datei:
+        return GENERIC_EXTRACTION_JS
+    return (Path(__file__).parent / datei).read_text(encoding="utf-8").strip()
+
+
 def build_handoff(quelle: str, keyword: str, ort: str = "",
                   custom_url: str = "") -> dict:
     """Baut das Handoff-Paket fuer eine Quelle (oder Custom-URL)."""
@@ -80,18 +98,27 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
             ort=quote_plus((ort or "").strip()),
         ).rstrip("?&")
         quelle_label = quelle
-    return {
+    # #1189: Auflagen der Quelle (jobtic). Dann ist es auch keine "Session, die Bot-Blocker umgeht": es ist
+    # der eigene, angemeldete Browser, von Hand gestartet.
+    auflagen = "" if custom_url else quellen_auflagen.hinweis_fuer_claude(quelle_label)
+    schritt_1 = ("1. URL im eigenen, angemeldeten Chrome mit Claude-in-Chrome öffnen. " if auflagen
+                 else "1. URL in Chrome mit Claude-in-Chrome öffnen (eingeloggte "
+                      "Session umgeht Bot-Blocker). ")
+    anleitung = (
+        schritt_1
+        + "2. Treffer mit javascript_tool() und `extraction_js` strukturiert aus dem DOM ziehen. "
+        "3. Alle Treffer, die fachlich passen oder nahezu passen, mit "
+        "stelle_manuell_anlegen(titel, firma, "
+        f"url, quelle='{quelle_label}') uebernehmen — Score und "
+        "Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL
+    )
+    ergebnis = {
         "status": "handoff",
         "quelle": quelle_label,
         "url": url,
-        "extraction_js": GENERIC_EXTRACTION_JS,
-        "anleitung": (
-            "1. URL in Chrome mit Claude-in-Chrome öffnen (eingeloggte "
-            "Session umgeht Bot-Blocker). 2. Treffer mit javascript_tool() "
-            "und `extraction_js` strukturiert aus dem DOM ziehen. "
-            "3. Alle Treffer, die fachlich passen oder nahezu passen, mit "
-            "stelle_manuell_anlegen(titel, firma, "
-            f"url, quelle='{quelle_label}') uebernehmen — Score und "
-            "Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL
-        ),
+        "extraction_js": extraktions_js(quelle_label),
+        "anleitung": anleitung + (" " + auflagen if auflagen else ""),
     }
+    if auflagen:
+        ergebnis["auflagen"] = auflagen
+    return ergebnis

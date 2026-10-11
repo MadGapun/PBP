@@ -288,6 +288,7 @@ _MANUAL_SOURCES = {
     "stepstone": "StepStone (Bot-Detection, #315) — nutze google_jobs_url oder Claude-in-Chrome",
     "indeed": "Indeed (häufig Timeout) — nutze jobspy_indeed",
     "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension öffnen",
+    "jobtic": "jobtic (nur im eigenen, angemeldeten Browser, Nutzungsbedingungen beachten) — quelle_handoff('jobtic', Begriff)",
 }
 
 # G17 (#744, v1.7.4): Bewaehrter Starter-Satz fuer den allerersten Suchlauf —
@@ -2963,6 +2964,21 @@ def register(mcp, db, logger):
             google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)
             remote = _remote_text
 
+        # #1189: Auflagen der Quelle (jobtic). Die Stellenart ist Vorgabe der Quelle, und Ansprechpartner aus dem
+        # Lauf werden nicht uebernommen: die Nutzungsbedingungen erlauben Kontaktdaten nur zur Anbahnung eines
+        # konkreten Projekts. Wer sich bewirbt, traegt den Kontakt selbst ein.
+        from ..services import quellen_auflagen as _auflagen
+        _aufl = _auflagen.auflagen(quelle, url)
+        kontakt_verworfen = None
+        if _aufl.get("stellenart") and stellenart == "festanstellung":
+            stellenart = _aufl["stellenart"]
+        if _aufl.get("keine_kontaktdaten") and (kontakt_name or kontakt_email or kontakt_telefon):
+            kontakt_name = kontakt_email = kontakt_telefon = ""
+            kontakt_verworfen = (
+                f"Ansprechpartner aus der Quelle '{quelle}' werden nicht übernommen: die Nutzungsbedingungen "
+                "erlauben Kontaktdaten nur zur Anbahnung eines konkreten Projekts. Wer sich bewirbt, trägt den "
+                "Kontakt selbst ein (kontakt_anlegen).")
+
         def _befunde_anfuegen(ergebnis: dict) -> None:
             """Die Befunde der Pruefungen ins Ergebnis - fuer die Anlage und die Vorschau (#1187) dieselben."""
             # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
@@ -2987,6 +3003,9 @@ def register(mcp, db, logger):
             if google_vorbehalt:
                 ergebnis["google_vorbehalt"] = google_vorbehalt
                 ergebnis.setdefault("warnung", "google_nur_kopfdaten")
+            if kontakt_verworfen:
+                # Ein Hinweis, keine Warnung: die Stelle ist angelegt, nur der Kontakt fehlt absichtlich.
+                ergebnis["kontakt_nicht_uebernommen"] = kontakt_verworfen
 
         if trocken:
             # #1187: die Vorschau fragt dasselbe wie die Anlage und schreibt nichts. Bis hierher wurden nur
@@ -4037,6 +4056,10 @@ def register(mcp, db, logger):
             url_nicht_erreichbar — die Adresse ließ sich nicht erreichen
                               (kein Netz, Namensfehler; KEIN Aussortier-
                               Grund) — zählt NICHT als ok (#1148)
+            url_nicht_geprueft — die Quelle verbietet den automatischen
+                              Abruf (jobtic, #1189); PBP fragt die Adresse
+                              nicht ab, die Aussage gilt weder als ok noch
+                              als Fehler
             beschreibung_fehlt — URL ok, aber description leer/zu kurz
             search_url      — URL ist nur Such-URL (is_search_url=1)
 
@@ -4126,6 +4149,9 @@ def register(mcp, db, logger):
                         kategorie.append("url_blocked")
                     elif health.status == HealthStatus.HTTP_ERROR:
                         kategorie.append("url_http_error")
+                    elif health.status == HealthStatus.NICHT_GEPRUEFT:
+                        # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab.
+                        kategorie.append("url_nicht_geprueft")
                     elif health.status == HealthStatus.UNKNOWN:
                         # #1148: eine Adresse, die sich nicht erreichen liess
                         # (kein Netz, Namensfehler), fiel durch alle Zweige
@@ -5348,7 +5374,10 @@ def register(mcp, db, logger):
 
         Args:
             quelle: Quellen-Name (z.B. 'gulp', 'kimeta', 'heise_jobs',
-                'stepstone', 'linkedin', 'xing', 'indeed').
+                'stepstone', 'linkedin', 'xing', 'indeed', 'jobtic'). Bei
+                'jobtic' kommen die Auflagen der Quelle mit (eigenes
+                angemeldetes Konto, Handstart, wenige Seiten, keine
+                Kontaktdaten).
             keyword: Suchbegriff.
             ort: Optionaler Ort.
         """

@@ -607,5 +607,8 @@ jeder Prüfung zurück und zeigte „alle angelegt“. Regel: (1) Verlangt ein A
 entscheidet Claude, und zwar für den Menschen. (2) Diese Antwort steht als EINE Konstante im Code (`REGEL_IM_ZWEIFEL`), jede Anleitung setzt sie ein, ein Test verlangt sie in jeder, und ein
 Wächter über den ganzen Quelltext verbietet die alte Formulierung auch dort, wo noch niemand hinsieht (vgl. L1). (3) Eine Vorschau stellt dieselben Fragen wie die Anlage und schreibt nichts;
 der Test legt sie neben den echten Lauf und vergleicht die Zählungen — und prüft zusätzlich die erwarteten Gründe, denn zwei blinde Seiten wären auch gleich.
-*Belege:* #1187, `test_1187_jede_anleitung_setzt_die_regel_ein`, `test_1187_kein_text_im_code_sagt_claude_passende_treffer_zu_uebernehmen`,
+(4) Eine Auflage einer Quelle (jobtic, #1189: kein automatisches Auslesen, keine Kontaktdaten) gehört nicht nur in den Auftrag an Claude, sondern dorthin, wo PBP SELBST
+handelt — Nachladen, Auto-Nachladen, Aging-Check, Qualitätsprüfung, Anlage. Dort fragt eine Funktion (`quellen_auflagen`), und ein Test stellt einen Client hin, der bei
+jedem Abruf scheitert. Auch die Auswahl mit LIMIT gehört dazu: sonst füllen die gesperrten Stellen das LIMIT und verdrängen bei jedem Lauf dieselben anderen.
+*Belege:* #1187, #1189 (`test_nachladen_ruft_eine_jobtic_adresse_nie_ab`, `test_die_auto_engine_waehlt_jobtic_stellen_gar_nicht_erst_aus`), `test_1187_jede_anleitung_setzt_die_regel_ein`, `test_1187_kein_text_im_code_sagt_claude_passende_treffer_zu_uebernehmen`,
 `test_1187_vorschau_und_lauf_zaehlen_gleich_und_die_vorschau_schreibt_nichts`, Gegenprobe bw01 bis bw30

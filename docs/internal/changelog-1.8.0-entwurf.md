@@ -82,9 +82,18 @@ Einträgen darunter.
 - **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
+- **jobtic als Browser-Quelle mit eigenem Konto** (#1189): Marktplatz für IT-Freelance-Projekte, eingebunden wie XING und StepStone — mit dem Hinweis, dass ein
+  eigenes, im Browser angemeldetes jobtic-Konto nötig ist (Abzeichen „Konto nötig“, ohne den Login-Knopf des alten Weges; neues Kennzeichen `konto_noetig`). Die
+  Nutzungsbedingungen von jobtic untersagen automatisiertes Auslesen (§ 5.2) und die Aufnahme von Kontaktdaten in fremde Datenbanken (§ 5.3); darum steht die Quelle
+  unter **Auflagen** (`services/quellen_auflagen`, Daten im Quellenverzeichnis): PBP ruft diese Seiten nie selbst ab (Anzeigentext nachladen, Auto-Nachladen,
+  Aging-Check, Qualitätsprüfung; die Auto-Engine wählt sie nicht einmal aus), übernimmt keine Ansprechpartner aus dem Lauf (`kontakt_nicht_uebernommen` im
+  Ergebnis) und setzt die Stellenart Freelance; der Auftrag an Claude nennt die Auflagen (Handstart, höchstens zwei Ergebnisseiten je Begriff, Detailseiten nur bei
+  fachlichem Treffer, Pausen). `quelle_handoff('jobtic', Begriff)` liefert die Such-URL und ein eigenes Auswerte-Skript (`job_scraper/jobtic_extraction.js`), das nur
+  die Liste der Seite liest und keine Kontaktdaten weitergibt. jobtic wird nie von selbst empfohlen; der Aktivierungsdialog sagt jetzt „ob eine taugt, entscheidest
+  du in PBP“ statt „Passende Treffer legt Claude für dich als Stelle an“. Gegenprobe: Katalog „jobtic“, 35 absichtlich eingebaute Fehler.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): elf Kataloge, 413 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): zwölf Kataloge, 448 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 35); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
