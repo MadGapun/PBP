@@ -117,7 +117,18 @@ Einträgen darunter.
   Ergebnis) und setzt die Stellenart Freelance; der Auftrag an Claude nennt die Auflagen (Handstart, höchstens zwei Ergebnisseiten je Begriff, Detailseiten nur bei
   fachlichem Treffer, Pausen). `quelle_handoff('jobtic', Begriff)` liefert die Such-URL und ein eigenes Auswerte-Skript (`job_scraper/jobtic_extraction.js`), das nur
   die Liste der Seite liest und keine Kontaktdaten weitergibt. jobtic wird nie von selbst empfohlen; der Aktivierungsdialog sagt jetzt „ob eine taugt, entscheidest
-  du in PBP“ statt „Passende Treffer legt Claude für dich als Stelle an“. Gegenprobe: Katalog „jobtic“, 35 absichtlich eingebaute Fehler.
+  du in PBP“ statt „Passende Treffer legt Claude für dich als Stelle an“. Gegenprobe: Katalog „jobtic“, 49 absichtlich eingebaute Fehler.
+- **Gegengelesen vor dem Kandidaten** (ein zweiter, unabhängiger Prüfer, neun Funde, alle am Code belegt und behoben): (1) Die Auflage „keine Kontaktdaten“
+  gilt auch für den **Text** — Mailadressen und Rufnummern werden aus der Beschreibung gestrichen (`quellen_auflagen.kontaktdaten_entfernen`, nur erkennbare
+  Schreibweisen: Tagessätze, Zeiträume und Projektnummern bleiben; Namen nennt nur die Anleitung), das Ergebnis sagt es. (2) Eine **eigene Quelle**
+  (`custom_quelle_hinzufuegen`) auf einer jobtic-Adresse gilt wie jobtic: kein Abruf im Gesundheitslauf, Handoff mit den Auflagen und dem Skript der Quelle.
+  (3) **Nur auf Wunsch** ist strukturiert lesbar (`nur_auf_wunsch`): der Auftrag des Suchlaufs („arbeite diese Quellen selbst ab“) nimmt die Quelle aus.
+  (4) Der Aufräum-Helfer des Selbsttests erbte den Arbeitsordner und hielt den entpackten Ordner fest: das Umbenennen beim Update scheiterte im ersten Versuch
+  immer, bei einem langsamen Rechner dauerhaft. (5) Ein **Platzhalter** („Nicht angegeben“) gilt nicht als Firma: zwei Projekte gleichen Titels von
+  nicht genannten Auftraggebern bleiben zwei, ähnliche Titel sind kein „Duplikat“. (6) Beim Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen
+  mit Profil: der Anfangszustand der Seiten war „kein Profil“ statt „unbekannt“. (7) Der Bestandsnachzug füllte `max_stellen` mit Stellen, die er nie abrufen darf.
+  (8) Der Knopf „Beschreibung nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
+  (sonst „ruht seit 0“); `jobtic.com:443` und `nutzer@jobtic.com` gehören zur Quelle.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
 - Gegenprobe (`scripts/mutationstest_auto_update.py`): zwölf Kataloge, 448 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
   Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 35); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.

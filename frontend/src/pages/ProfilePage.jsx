@@ -1067,7 +1067,8 @@ export default function ProfilePage({ bereich = "profil" }) {
     }
   }
 
-  if (loading) return <LoadingPanel label="Profil wird geladen..." />;
+  // `chrome.loading`: solange der Status unterwegs ist, ist „kein Profil“ nur der Anfangswert (Befund des Prüfers, 11.10.2026).
+  if (loading || chrome.loading) return <LoadingPanel label="Profil wird geladen..." />;
 
   if (!chrome.status?.has_profile || !profile) {
     return (

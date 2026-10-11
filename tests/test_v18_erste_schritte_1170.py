@@ -179,6 +179,41 @@ def test_u7_mit_vorhandenem_profil_bleibt_der_dialog_der_fuer_ein_weiteres(brows
         page.context.close()
 
 
+# Der Anfangszustand des Dashboards ist „kein Profil“ (`status: { has_profile: false }`), nicht „unbekannt“. Der unabhängige Prüfer
+# des Kandidaten hat es mit einem Profil und einem um 1,5 s verzögerten /api/status gemessen: Stellen, Bewerbungen, Suche und Profil
+# zeigten vollflächig „Zuerst dein Profil … Lebenslauf hochladen“ — bei jedem Start, auch bei einem Menschen mit Profil.
+VERZOEGERN = r"""
+(() => {
+  const echt = window.fetch.bind(window);
+  window.fetch = (eingabe, optionen) => {
+    const url = typeof eingabe === "string" ? eingabe : ((eingabe && eingabe.url) || "");
+    const antwort = echt(eingabe, optionen);
+    if (!/\/api\/status(\?|$)/.test(url)) return antwort;
+    return antwort.then((r) => new Promise((fertig) => setTimeout(() => fertig(r), 1800)));
+  };
+})();
+"""
+
+
+@pytest.mark.parametrize("route,wurzel", [
+    ("stellen", "#page-stellen"), ("bewerbungen", "#page-bewerbungen"), ("suche", "#page-profil"), ("profil", "#page-profil"),
+])
+def test_u6_waehrend_der_status_laedt_steht_keine_behauptung_ueber_das_profil(browser, umgebung, route, wurzel):
+    assert umgebung["db"].get_profile(), "dieser Block läuft nach dem ersten Profil"
+    ctx = browser.new_context(viewport={"width": 1400, "height": 950})
+    page = ctx.new_page()
+    page.add_init_script(VERZOEGERN)
+    try:
+        page.goto(f"{umgebung['url']}/#{route}")
+        page.wait_for_timeout(700)  # der Status ist noch unterwegs
+        assert page.locator("[data-zuerst-profil]").count() == 0, "während des Ladens steht keine Aussage über das Profil da"
+        assert "Zuerst dein Profil" not in page.inner_text("body")
+        page.locator(wurzel).wait_for(timeout=15000)  # danach kommt die richtige Seite
+        assert page.locator("[data-zuerst-profil]").count() == 0
+    finally:
+        ctx.close()
+
+
 # ══ U8, U14: leere Seiten erklären sich ════════════════════════════════════════════════════════════════════════
 
 def test_u8_aufgaben_ohne_eintrag_sagen_woher_aufgaben_kommen(browser, umgebung):

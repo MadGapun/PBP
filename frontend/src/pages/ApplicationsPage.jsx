@@ -783,6 +783,11 @@ export default function ApplicationsPage() {
     };
   })();
 
+  // Solange der Status noch unterwegs ist, weiss die Seite nicht, ob es ein Profil gibt, und sagt dazu nichts: der
+  // Anfangszustand des Dashboards ist „kein Profil“, nicht „unbekannt“ (Befund des Prüfers, 11.10.2026: bei jedem
+  // Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen mit Profil).
+  if (chrome.loading) return <LoadingPanel label="Bewerbungen werden geladen..." />;
+
   // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — nicht zweimal "Zuerst dein Profil" zwischen Kennzahlen, Filtern und
   // Knöpfen („CV als DOCX“, „Bewerbung anlegen“), die ohne Profil nichts tun können.
   if (!chrome.status?.has_profile) {

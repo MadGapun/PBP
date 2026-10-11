@@ -816,6 +816,12 @@ TN_JT = "src/bewerbungs_assistent/services/text_nachzug.py"
 UTS_JT = "src/bewerbungs_assistent/services/url_to_source.py"
 SS_JT = "src/bewerbungs_assistent/services/search_service.py"
 JS_JT = "src/bewerbungs_assistent/job_scraper/jobtic_extraction.js"
+T_JTP = ["tests/test_v18_jobtic_pruefung_1189.py"]
+TOOLS_JT = "src/bewerbungs_assistent/tools/jobs.py"
+HANDOFF_JT = "src/bewerbungs_assistent/job_scraper/handoff.py"
+JSTART_JT = "src/bewerbungs_assistent/services/jobsuche_start.py"
+DD_JT = "src/bewerbungs_assistent/duplicate_detection.py"
+DASH_JT = "src/bewerbungs_assistent/dashboard.py"
 
 M_JOBTIC = [
     ("jt01", "Verzeichnis: die Quelle traegt kein Kennzeichen 'Konto noetig' mehr", REG_JT,
@@ -904,6 +910,39 @@ M_JOBTIC = [
      r"    if (!/\/project\/[a-z0-9]+/i.test(link) || !titel) continue;" + "\n", "    if (!titel) continue;\n", T_JT),
     ("jt35", "Skript: eine leere Liste meldet keinen Fehler", JS_JT,
      "  if (!jobs.length) {\n", "  if (false) {\n", T_JT),
+    # --- Funde des unabhaengigen Pruefers am Kandidaten (11.10.2026) ---
+    ("jt36", "Anlage: Mailadressen und Rufnummern bleiben im Text", TOOLS_JT,
+     "            beschreibung, _gestrichen = _auflagen.kontaktdaten_entfernen(beschreibung)\n",
+     "            _gestrichen = 0\n", T_JTP),
+    ("jt37", "Bearbeiten: Mailadressen und Rufnummern bleiben im Text", TOOLS_JT,
+     "                beschreibung, kontakt_aus_text = _auflagen_sb.kontaktdaten_entfernen(beschreibung)\n",
+     "                kontakt_aus_text = 0\n", T_JTP),
+    ("jt38", "Handoff: eine eigene Quelle auf einer jobtic-Adresse gilt nicht wie jobtic", HANDOFF_JT,
+     '        if erkannt != "manuell":\n            wirksam = erkannt\n', '        if False:\n            wirksam = erkannt\n', T_JTP),
+    ("jt39", "Gesundheitslauf: die eigene jobtic-Quelle wird angefragt", TOOLS_JT,
+     '                    if _kein_abruf(url=c["url"]):\n', "                    if False:\n", T_JTP),
+    ("jt40", "Suchstart: nur_auf_wunsch wird nicht genannt", JSTART_JT,
+     "    auf_wunsch = [q for q in manuelle if _nur_auf_wunsch(q)]\n", "    auf_wunsch = []\n", T_JTP),
+    ("jt41", "Dublettenerkennung: ein Platzhalter gilt als dieselbe Firma", DD_JT,
+     '    norm_firma = normalize_company_name(firma) if benennt_arbeitgeber(firma) else ""\n',
+     "    norm_firma = normalize_company_name(firma)\n", T_JTP),
+    ("jt42", "Stellen-Schluessel: ohne Adresse, wenn die Firma ein Platzhalter ist", TOOLS_JT,
+     "        if url and not _benennt(firma):\n", "        if False:\n", T_JTP),
+    ("jt43", "Bestandsnachzug: Stellen ohne erlaubten Abruf kommen in die Auswahl", TOOLS_JT,
+     "        fehlend = [j for j in aktive_abrufbar if _fehlt(j)]\n", "        fehlend = [j for j in aktive if _fehlt(j)]\n", T_JTP),
+    ("jt44", "Dashboard-Knopf: das Abrufverbot zaehlt als Fehlversuch", DASH_JT,
+     "    if befund.status == nachladen.NICHT_AUTOMATISCH:\n", "    if False:\n", T_JTP),
+    ("jt45", "Zuordnung: Port und Zugangsdaten gehoeren nicht zum Host", UTS_JT,
+     '        host = (parsed.hostname or "").lower().rstrip(".")\n', '        host = (parsed.netloc or "").lower()\n', T_JTP),
+    ("jt46", "Hilfe: Mailadressen werden nicht erkannt", AUF_JT,
+     "    bereinigt = _MAILADRESSE.sub(_ersetzen, text)\n", "    bereinigt = text\n", T_JTP),
+    ("jt47", "Hilfe: Rufnummern werden nicht erkannt", AUF_JT,
+     "    bereinigt = _RUFNUMMER.sub(_ersetzen, bereinigt)\n", "", T_JTP),
+    ("jt48", "Hilfe: jede Zahlenfolge mit Trennzeichen gilt als Rufnummer", AUF_JT,
+     r'    r"|(?<![\w.])0\d{2,5}[\s/-]+\d[\d\s/-]{3,}\d(?![\w])"' + "\n",
+     r'    r"|(?<![\w.])\d{2,5}[\s/-]+\d[\d\s/-]{3,}\d(?![\w])"' + "\n", T_JTP),
+    ("jt49", "Hilfe: ein Platzhalter benennt einen Arbeitgeber", "src/bewerbungs_assistent/duplicate_detection.py",
+     "        return bool(normalize_company(str(name)))\n", "        return True\n", T_JTP),
 ]
 
 # ── Skill-Stand in der Profil-Zusammenfassung (#1190, H39) ──
@@ -935,6 +974,8 @@ M_SKILL = [
      '                      **skill_stand(vorhanden)},\n', '                      "level": vorhanden.get("level")},\n', T_SK),
     ("sk10", "Zahlen: ein Wahrheitswert gilt als Stufe", PS,
      '    if isinstance(wert, bool):\n        return None\n', '', T_SK),
+    ("sk11", "Zahlen: eine Null gilt als Jahr oder Stufe", PS,
+     '    return zahl if zahl is not None and zahl > 0 else None\n', '    return zahl\n', T_SK),
 ]
 
 # ── Installer-Reste: leerer Ordner, altes Dashboard-Fenster, Temp-Dateien (#1170 PP20, PP21, PP23) ──
@@ -951,6 +992,8 @@ M_INSTALLER = [
      "    if os.path.isdir(d):\n", "    if False:\n", T_IN),
     ("in05", "Die Kopie des Aufraeum-Helfers bleibt liegen", "_installer_aufraeumen.py",
      '        if Path(__file__).name == "pbp_installer_aufraeumen.py":\n', "        if False:\n", T_IN),
+    ("in06", "Der Aufraeum-Helfer des Selbsttests erbt den Arbeitsordner und haelt den entpackten Ordner fest", "_selftest.py",
+     "close_fds=True, cwd=tempfile.gettempdir(),\n", "close_fds=True,\n", T_IN),
 ]
 
 # ── Erste Schritte: was ein Mensch ohne Profil sieht und anklickt (#1170 U5-U9, U13, U14, U18; G83) ──
@@ -1009,6 +1052,15 @@ M_ERSTE = [
      '        {ansicht === "kontakte" ? (\n        <div className="flex items-center gap-2">', '        {true ? (\n        <div className="flex items-center gap-2">', T_ES),
     ("es21", "Speicher: Aufräumen ist auch dort klickbar, wo nichts liegt", FE + "components/SpeicherTab.jsx",
      'Boolean(daten.laufende_arbeit?.length) || nichtsDa}', 'Boolean(daten.laufende_arbeit?.length)}', T_ES),
+    ("es22", "Prüfer: jedes Textstück steht doppelt da (die Suchläufe überlappen)", "scripts/ui_texte_pruefen.py",
+     "        if eintrag not in gesehen:\n", "        if True:\n", T_ES),
+    ("es23", "Stellen: während der Status lädt, steht „Zuerst dein Profil“ da", FE + "pages/JobsPage.jsx",
+     '  if (chrome.loading) return <LoadingPanel label="Stellen werden geladen..." />;\n', '', T_ES),
+    ("es24", "Bewerbungen: während der Status lädt, steht „Zuerst dein Profil“ da", FE + "pages/ApplicationsPage.jsx",
+     '  if (chrome.loading) return <LoadingPanel label="Bewerbungen werden geladen..." />;\n', '', T_ES),
+    ("es25", "Profil und Suche: während der Status lädt, steht „Zuerst dein Profil“ da", FE + "pages/ProfilePage.jsx",
+     '  if (loading || chrome.loading) return <LoadingPanel label="Profil wird geladen..." />;\n',
+     '  if (loading) return <LoadingPanel label="Profil wird geladen..." />;\n', T_ES),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE}
@@ -1024,7 +1076,7 @@ GRUNDLAEUFE = {
     "konsole": (("T_KO", T_KO),),
     "google": (("T_GA", T_GA),),
     "browser": (("T_BR", T_BR),),
-    "jobtic": (("T_JT", T_JT),),
+    "jobtic": (("T_JT", T_JT), ("T_JTP", T_JTP)),
     "skillstand": (("T_SK", T_SK),),
     "installer": (("T_IN", T_IN),),
     "erste": (("T_ES", T_ES),),

@@ -52,6 +52,8 @@ Auf der leeren Installation, mit Bildschirmfotos:
 - Aufgaben und Statistiken erklären sich (U8); Gefahrenzone zählt 0 Datensätze und nennt die mitgelieferten Vorgaben (U9),
 - Hilfe-Fenster (Updates, Speicher & Downloads, Mail-Ordner, Firmen, Erweiterungen),
 - Kontakte › Firmen, Speicher & Downloads, Mail-Ordner (Schalter „aus“, Liste leer).
+- Beim ersten Öffnen und nach jedem Neuladen (Strg+F5) steht auf Stellen, Bewerbungen und Suche kurz „… werden geladen“, nie „Zuerst dein Profil“, wenn ein
+  Profil da ist (Fund des zweiten Prüfers, 11.10.2026; der Browser-Test verzögert dafür die Statusabfrage um 1,8 Sekunden).
 
 ### D — Texterkennung (10 Minuten; lädt rund 55 MB und die Sprachdaten)
 Einstellungen › Erweitert › Erweiterungen › Texterkennung: Größe und Lizenz stehen vor dem Klick da; „Herunterladen & installieren“; Prüfsumme wird
