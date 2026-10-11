@@ -112,7 +112,9 @@ def detect_source_from_url(url: str) -> str:
         url = "https://" + url
     try:
         parsed = urlparse(url)
-        host = (parsed.netloc or "").lower()
+        # `hostname` statt `netloc`: ohne Port, Zugangsdaten und - mit `rstrip` - ohne den Schlusspunkt einer voll
+        # qualifizierten Adresse. `jobtic.com:443` und `nutzer@jobtic.com` gehoeren zur selben Quelle (#1189).
+        host = (parsed.hostname or "").lower().rstrip(".")
         if host.startswith("www."):
             host = host[4:]
     except Exception:

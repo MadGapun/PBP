@@ -5122,6 +5122,10 @@ def api_refetch_description(job_hash: str):
             {"error": f"HTTP-Fehler: {exc}", "url": url},
             status_code=502,
         )
+    if befund.status == nachladen.NICHT_AUTOMATISCH:
+        # #1189: die Seite wurde nie abgefragt - kein Fehlversuch, kein Backoff. Der Mensch traegt den Text selbst ein.
+        return JSONResponse(
+            {"error": befund.klartext(), "url": url, **befund.als_dict()}, status_code=409)
     if befund.status == nachladen.FEHLER:
         # Ein Transportfehler ist kein Befund ueber die Anzeige, sondern
         # ueber diesen Moment — und er behaelt seinen eigenen Code (502),

@@ -768,6 +768,8 @@ Das kann je nach Anzahl der Quellen 5-10 Minuten dauern.
    suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit
    stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}
    Ohne Claude-in-Chrome: die Jobbörsen nennen und den Weg erklären.
+   AUSNAHME: Steht eine Quelle zusätzlich im Feld `nur_auf_wunsch` (jobtic), arbeitest du sie NICHT von selbst ab —
+   frage den Menschen, ob du dort suchen sollst, und halte dich dann an die Auflagen aus quelle_handoff().
 
 ═══════════════════════════════════════════════════
 SCHRITT 4: ERGEBNISSE SICHTEN

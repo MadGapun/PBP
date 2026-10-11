@@ -610,6 +610,7 @@ SOURCE_REGISTRY = {
         "auflagen": {
             "kein_automatischer_abruf": True,
             "keine_kontaktdaten": True,
+            "nur_auf_wunsch": True,
             "stellenart": "freelance",
             "max_seiten_je_begriff": 2,
             "hinweis": "Auflagen von jobtic (Nutzungsbedingungen § 5.2 und § 5.3): nur auf ausdrücklichen Wunsch des "
@@ -617,7 +618,9 @@ SOURCE_REGISTRY = {
                        "fachlichem Treffer öffnen, mit Pausen dazwischen. Nie übernehmen: Ansprechpartner, "
                        "Kontaktdaten und Freelancer-Profile. Als Firma nicht den Namen der einstellenden Person "
                        "eintragen; ist der Auftraggeber nicht genannt, steht dort „Nicht angegeben“. Den Text der "
-                       "Projektseite als Beschreibung mitgeben: PBP ruft die Seite nicht selbst ab.",
+                       "Projektbeschreibung als Beschreibung mitgeben, OHNE den Abschnitt mit Ansprechpartner, "
+                       "Mailadresse und Telefon: PBP ruft die Seite nicht selbst ab und streicht Mailadressen und "
+                       "Rufnummern aus dem Text.",
         },
     },
     "google_jobs": {
