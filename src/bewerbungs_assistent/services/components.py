@@ -256,6 +256,9 @@ def _eigene_installation_entfernen(definition: dict, marker: dict) -> tuple[bool
                 if not binary.exists():
                     break
                 time.sleep(1)
+            else:
+                logger.warning("Komponente: %s ist nach einer Minute noch da", binary)
+            time.sleep(2)  # das Deinstallationsprogramm raeumt danach noch Startmenue und Eintraege weg
         shutil.rmtree(verzeichnis, ignore_errors=True)
     if verzeichnis.exists():
         return False, (

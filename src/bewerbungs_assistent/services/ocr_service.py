@@ -111,9 +111,10 @@ def _pick_langs(db) -> tuple[str, str]:
     if "eng" in langs:
         # PP26 (Testlauf 11.10.2026): der Hinweis nannte Werkzeugnamen; wer ihn las, konnte nichts damit anfangen.
         return "eng", (
-            "Das deutsche Sprachpaket fehlt, die Erkennung lief nur auf Englisch. Für deutsche Dokumente: "
-            "Einstellungen › Erweiterungen › Texterkennung von PBP einrichten lassen (das deutsche Sprachpaket "
-            "kommt dann mit), oder die Datei deu.traineddata in den Ordner tessdata der eigenen Installation legen."
+            "Das deutsche Sprachpaket fehlt, die Erkennung lief nur auf Englisch. Für deutsche Dokumente: die Datei "
+            "deu.traineddata in den Ordner tessdata der eigenen Tesseract-Installation legen — oder unter "
+            "Einstellungen › Erweiterungen den eingetragenen Pfad entfernen und die Texterkennung von PBP einrichten "
+            "lassen (das deutsche Sprachpaket kommt dann mit)."
         )
     return "", ""
 
