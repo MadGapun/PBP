@@ -63,8 +63,11 @@ finally:
                     "    import os\n"
                     "    if not os.path.isdir(sys.argv[1]): break\n"
                     "    time.sleep(1)\n")
+            # Der Helfer erbt sonst den Arbeitsordner des Selbsttests, und das ist der entpackte Ordner der neuen Version: die
+            # Installation benennt ihn gleich danach um, und Windows verweigert das, solange ein Prozess dort seinen
+            # Arbeitsordner hat (WinError 32). Gemessen: der erste Versuch scheiterte immer.
             subprocess.Popen([sys.executable, "-c", code, d], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                             stderr=subprocess.DEVNULL, close_fds=True,
+                             stderr=subprocess.DEVNULL, close_fds=True, cwd=tempfile.gettempdir(),
                              creationflags=(0x00000008 | 0x08000000) if sys.platform == "win32" else 0,
                              start_new_session=(sys.platform != "win32"))
         except Exception:
