@@ -102,6 +102,8 @@ cd PBP
 bash installer/install.sh
 ```
 
+`v1.7.157` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist die Beta, nicht die stabile Version (#1150).
+
 ### Update von einer aelteren Version
 
 **Einfach drüberinstallieren** — deine Daten bleiben erhalten:
