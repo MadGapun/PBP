@@ -28,7 +28,7 @@ Begriffe waeren schlimmer als keine.
 #1187 (09.10.2026): Ein Lauf ueber sechs Browser-Quellen mit rund 1.300 Rohtreffern legte keine einzige Stelle an. Der
 Auftrag unten und drei weitere Anleitungen sagten Claude, "passende" Stellen zu uebernehmen und Verworfenes im Chat zu
 melden - die Auswahl traf Claude, der Mensch sah nur den Bericht. `REGEL_IM_ZWEIFEL` ist die EINE Fassung der Gegenregel;
-jede Anleitung setzt sie ein, ein Test verlangt sie dort (Lehre L66).
+jede Anleitung setzt sie ein, ein Test verlangt sie dort.
 """
 from __future__ import annotations
 
@@ -47,7 +47,7 @@ WERKZEUG_JE_PORTAL = {
 MARKE_IM_ZWEIFEL = "Trage im Zweifel ein."
 
 #: Die Regel fuer jeden Browserlauf (#1187): EINE Fassung, die alle Anleitungen einsetzen. Der Mensch entscheidet in PBP,
-#: was taugt - nicht Claude im Chat. Die Werkzeugnamen prueft `test_v18_browser_im_zweifel_1187`.
+#: was taugt - nicht Claude im Chat. Die Werkzeugnamen prueft `test_v17157_browser_im_zweifel_1187`.
 REGEL_IM_ZWEIFEL = (
     MARKE_IM_ZWEIFEL + " Eine Stelle zu viel in PBP ist besser als eine zu wenig; ob sie taugt, entscheidet der Mensch in PBP, "
     "nicht du im Chat. Lege jede Stelle an, die fachlich passt, möglich ist oder nahezu interessant sein könnte, auch wenn "

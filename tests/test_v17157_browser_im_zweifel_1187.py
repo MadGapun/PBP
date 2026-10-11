@@ -5,7 +5,7 @@ Stelle in PBP an. Die Anleitungen sagten Claude, "passende" Stellen zu uebernehm
 die Auswahl traf Claude, der Mensch sah nur den Bericht. Dazu kehrte die Vorschau von `linkedin_treffer_uebernehmen`
 (Vorgabe `dry_run=True`) vor jeder Pruefung zurueck und zeigte "alle angelegt", wo der echte Lauf abgewiesen haette.
 
-Teil A prueft, dass JEDE Anleitung dieselbe Regel traegt (`REGEL_IM_ZWEIFEL`, eine Fassung, Lehre L66). Teil B prueft,
+Teil A prueft, dass JEDE Anleitung dieselbe Regel traegt (`REGEL_IM_ZWEIFEL`, eine Fassung). Teil B prueft,
 dass die Vorschau dieselben Pruefungen macht wie die Anlage und dabei nichts schreibt.
 
 Stable-Fassung (1.7.157): ohne `quelle_handoff` / `build_handoff` - dieser Weg gehoert zur 1.8-Linie.
@@ -96,7 +96,7 @@ ANLEITUNGEN = ["browser_handoff.prompt", "jobsuche_workflow", "google_jobs_url",
 
 
 def test_1187_die_regel_hat_eine_marke_und_steht_nur_einmal_im_code():
-    """Eine Entscheidung an einer Stelle (L1, L66): die Fassung steht in `browser_handoff`, alle anderen setzen sie ein."""
+    """Eine Entscheidung an einer Stelle: die Fassung steht in `browser_handoff`, alle anderen setzen sie ein."""
     assert bh.REGEL_IM_ZWEIFEL.startswith(bh.MARKE_IM_ZWEIFEL)
     satz = "Eine Stelle zu viel in PBP ist besser als eine zu wenig"
     fundorte = [str(p.relative_to(SRC)) for p in SRC.rglob("*.py") if satz in p.read_text(encoding="utf-8")]
