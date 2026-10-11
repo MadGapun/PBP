@@ -33,7 +33,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.7.157] - 2026-10-10 — Die Browser-Suche legt Stellen in PBP an, und Angaben aus Google gelten erst mit dem Original
+## [1.7.157] - 2026-10-12 — Die Browser-Suche legt Stellen in PBP an, und Angaben aus Google gelten erst mit dem Original
 
 Hotfix für v1.7.156. Drei Befunde aus dem Alltag: Ein Lauf über sechs Jobbörsen mit rund 1.300 gefundenen Stellen (Browser-Suche mit Claude in Chrome) legte keine einzige davon in PBP an, eine Stelle aus Google Jobs wurde mit einem Arbeitsmodell und einem Ort eingetragen, die nur auf Googles Karte standen, und die Profil-Zusammenfassung nannte bei jedem Skill nur die Spitze und nicht den Stand von heute. Es gibt keine neue Funktion; geändert sind die Anweisungen, die Claude für einen Browserlauf bekommt, die Prüfungen beim Anlegen, die Vorschau der LinkedIn-Übernahme und die Auskunft über die Skills.
 
