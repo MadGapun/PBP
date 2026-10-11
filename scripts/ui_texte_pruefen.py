@@ -132,7 +132,16 @@ def _ist_jsx_code(t: str) -> bool:
 
 
 def texte(pfad: Path):
-    """(zeile, text) je sichtbarem Textstueck."""
+    """(zeile, text) je sichtbarem Textstueck, jedes Stueck einmal. Die Suchlaeufe ueberlappen (ein Textknoten `>Text<` passt auf
+    zwei Muster, ein einzeiliges Literal auf `_LITERAL` und `_LITERAL_ZEILE`); ohne Zusammenfuehren stuende ein Fund doppelt da."""
+    gesehen = set()
+    for eintrag in _texte_roh(pfad):
+        if eintrag not in gesehen:
+            gesehen.add(eintrag)
+            yield eintrag
+
+
+def _texte_roh(pfad: Path):
     roh = pfad.read_text(encoding="utf-8-sig")
     code = _ohne_kommentare(roh)
     for m in _TEXTKNOTEN.finditer(code):

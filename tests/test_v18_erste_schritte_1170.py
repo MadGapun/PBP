@@ -312,6 +312,21 @@ def test_u13_ein_verirrtes_zeichen_verschiebt_die_paarung_nicht(tmp_path):
     assert any("einfuegen" in t for t in texte), texte
 
 
+def test_u13_jedes_textstueck_steht_nur_einmal_da(tmp_path):
+    """Die Suchlaeufe ueberlappen: ein Textknoten `>Text<` passt auf zwei Muster, ein einzeiliges Literal auf zwei. Ohne
+    Zusammenfuehren stand jeder Fund doppelt da (CI-Lauf von PR 1193: die Probe des Absturz-Tests lieferte sechs statt drei)."""
+    ui = _pruefer()
+    datei = tmp_path / "Probe.jsx"
+    datei.write_text(
+        "export default function P({ n }) {\n"
+        "  return <p>Das ist eine Uebung fuer Staerken</p>;\n"
+        "}\n"
+        'const B = "Danach in Claude einfuegen";\n', encoding="utf-8")
+    texte = [t for _z, t in ui.texte(datei)]
+    assert texte.count("Das ist eine Uebung fuer Staerken") == 1, texte
+    assert texte.count("Danach in Claude einfuegen") == 1, texte
+
+
 def test_u13_die_oberflaeche_hat_keine_umschrift_mehr():
     ui = _pruefer()
     funde = ui.pruefen()
