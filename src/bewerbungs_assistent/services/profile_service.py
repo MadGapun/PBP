@@ -36,13 +36,16 @@ def get_profile_preferences(profile: dict | None) -> dict:
 
 
 def _jahr_oder_stufe(wert):
-    """Ganze Zahl oder None (leer, Text, nicht lesbar)."""
+    """Ganze Zahl oder None (leer, Text, nicht lesbar, 0). Eine Stufe liegt bei 1 bis 5, ein Jahr ueber 1900 (das Dashboard
+    begrenzt beides so); 0 schickt ein Aufrufer fuer „nicht gesetzt“ („0 = aktuell/unbekannt“ steht in der Beschreibung von
+    `skill_hinzufuegen`) und ist weder ein Ende noch ein Niveau."""
     if isinstance(wert, bool):
         return None
     try:
-        return int(wert) if wert not in (None, "") else None
+        zahl = int(wert) if wert not in (None, "") else None
     except (TypeError, ValueError):
         return None
+    return zahl if zahl is not None and zahl > 0 else None
 
 
 def skill_stand(skill: dict | None) -> dict:
