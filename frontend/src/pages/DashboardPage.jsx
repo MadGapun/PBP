@@ -58,7 +58,7 @@ import DashboardAnpassen from "@/components/DashboardAnpassen";
 import { zuStelle } from "@/lib/wege";
 
 export default function DashboardPage() {
-  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo, autoUpdate, updateSchonInstalliert } = useApp();
+  const { chrome, reloadKey, refreshChrome, navigateTo, copyPrompt, openHelp, pushToast, startJobsuche, updateInfo, autoUpdate, updateSchonInstalliert, openCreateProfileModal } = useApp();
   // G60 (#1087 B1): hoechstens EIN Hinweis. Ist die Hinweiszone leer,
   // kommen die weiteren Hinweise der Reihe nach — immer nur einer.
   const [nebenStufe, setNebenStufe] = useState(0);
@@ -436,7 +436,7 @@ export default function DashboardPage() {
                         </li>
                         <li>Claude Desktop neu starten und einen Moment warten.</li>
                         <li>
-                          Diese Anzeige wird von selbst gruen — oder{" "}
+                          Diese Anzeige wird von selbst grün — oder{" "}
                           <button type="button" className="underline hover:text-ink"
                             onClick={() => refreshChrome()}>
                             jetzt prüfen
@@ -456,7 +456,10 @@ export default function DashboardPage() {
                 <ol data-einstieg className="grid gap-3">
                   <li className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-semibold text-ink">1.</span>
-                    <Button onClick={() => navigateTo("profil", { composer: "document" })}>
+                    {/* U7 (#1170): dieselbe Handlung wie auf Stellen, Bewerbungen und Suche — erst der Name, dann der Lebenslauf.
+                        Vorher führte der Knopf auf die Profilseite („Noch kein aktives Profil“), und von dort ein zweiter Knopf
+                        in einen Dialog für ein „weiteres“ Profil. */}
+                    <Button onClick={openCreateProfileModal}>
                       <Upload size={15} />
                       Lebenslauf hochladen
                     </Button>

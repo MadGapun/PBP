@@ -608,7 +608,7 @@ function PendingContactsBanner({ pushToast, onChange }) {
       </div>
       {pending.length > 10 && (
         <p className="text-xs text-muted mt-2">
-          +{pending.length - 10} weitere — genehmige diese erst, dann kommen die naechsten.
+          +{pending.length - 10} weitere — genehmige diese erst, dann kommen die nächsten.
         </p>
       )}
     </Card>
@@ -849,11 +849,17 @@ export default function ContactsPage() {
 
       <div className="mb-6 flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-base font-semibold text-ink">Kontakte</h2>
-          <p className="text-xs text-muted mt-0.5">
-            Personen mit Rollen und Historie über Bewerbungen, Stellen und Termine
-          </p>
+          {/* U18 (#1170): die Kopfzeile beschrieb auch im Reiter „Firmen“ und „Referenzen“ nur „Kontakte“ und trug deren Knöpfe. */}
+          <h2 className="text-base font-semibold text-ink">
+            {ansicht === "firmen" ? "Firmen" : ansicht === "referenzen" ? "Referenzen" : "Kontakte"}
+          </h2>
+          {ansicht === "kontakte" ? (
+            <p className="text-xs text-muted mt-0.5">
+              Personen mit Rollen und Historie über Bewerbungen, Stellen und Termine
+            </p>
+          ) : null}
         </div>
+        {ansicht === "kontakte" ? (
         <div className="flex items-center gap-2">
           {/* v1.7.0-beta.19: Kontakt-Import aus Bewerbungen + Mails */}
           <Button size="sm" variant="secondary" onClick={() => setImportDialogOpen(true)}>
@@ -863,6 +869,7 @@ export default function ContactsPage() {
             <Plus size={14} className="mr-1" /> Neuer Kontakt
           </Button>
         </div>
+        ) : null}
       </div>
 
       <div className="mb-5 flex flex-wrap gap-1" role="tablist" aria-label="Kontakte-Ansicht">
@@ -1252,7 +1259,7 @@ function ImportDiscoverDialog({ onClose, onImported, pushToast }) {
       <div className="space-y-4">
         <p className="text-[12px] text-muted">
           Aus deinen Bewerbungen und E-Mail-Dokumenten konnten {apps.length + mails.length} potenzielle Kontakte gefunden werden.
-          Waehle aus, welche du als Kontakt anlegen moechtest. Bestehende Kontakte sind ausgefiltert.
+          Wähle aus, welche du als Kontakt anlegen möchtest. Bestehende Kontakte sind ausgefiltert.
         </p>
 
         {apps.length > 0 && (

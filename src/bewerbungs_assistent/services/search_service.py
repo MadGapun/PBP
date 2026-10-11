@@ -182,6 +182,9 @@ def build_source_rows(source_registry: dict, active_keys) -> list:
             "zugriffsart": _zugriffsart(key, info),
             "konto_url": info.get("konto_url"),
             "login_hinweis": info.get("login_hinweis"),
+            # #1189: ein Konto ist noetig, die Sitzung liegt aber im eigenen Browser - das Dashboard
+            # zeigt "Konto nötig", ohne den Login-Knopf des alten Weges anzubieten.
+            "konto_noetig": bool(info.get("konto_noetig", False)),
             "deprecated": info.get("deprecated", False),
             "deprecated_grund": info.get("deprecated_grund"),
         }

@@ -5122,6 +5122,10 @@ def api_refetch_description(job_hash: str):
             {"error": f"HTTP-Fehler: {exc}", "url": url},
             status_code=502,
         )
+    if befund.status == nachladen.NICHT_AUTOMATISCH:
+        # #1189: die Seite wurde nie abgefragt - kein Fehlversuch, kein Backoff. Der Mensch traegt den Text selbst ein.
+        return JSONResponse(
+            {"error": befund.klartext(), "url": url, **befund.als_dict()}, status_code=409)
     if befund.status == nachladen.FEHLER:
         # Ein Transportfehler ist kein Befund ueber die Anzeige, sondern
         # ueber diesen Moment — und er behaelt seinen eigenen Code (502),
@@ -6654,7 +6658,8 @@ async def api_component_set_path(name: str, payload: dict):
 async def api_component_uninstall(name: str):
     """Entfernt eine VON PBP installierte Komponente (extern bleibt heil)."""
     from .services import components as comp
-    result = comp.uninstall_component(_db, name)
+    # PP26: das Entfernen wartet auf das Deinstallationsprogramm des Setups (bis zu einer Minute) -- nicht im Ereignis-Thread
+    result = await run_in_threadpool(comp.uninstall_component, _db, name)
     if result.get("status") == "fehler":
         return JSONResponse({"error": result.get("fehler", "unbekannt")},
                             status_code=400)
@@ -9764,6 +9769,10 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     from .services.datenguete import MIN_BESCHREIBUNG
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - nicht einmal als Kandidat (sonst fuellen
+    # sie das LIMIT und verdraengen bei jedem Lauf dieselben anderen Stellen).
+    from .services.quellen_auflagen import sql_ohne_abruf
+    _ohne, _ohne_params = sql_ohne_abruf("url")
     rows = conn.execute(
         "SELECT hash FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
@@ -9772,8 +9781,9 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
         # "Beschreibung" der Anriss der Suchergebnis-Seite.
         "AND COALESCE(is_search_url, 0) = 0 "
         "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
-        "LIMIT ?",
-        (pid, MIN_BESCHREIBUNG, max_jobs * 3)  # Overshoot — Backoff ueberspringt
+        + _ohne +
+        " LIMIT ?",
+        (pid, MIN_BESCHREIBUNG, *_ohne_params, max_jobs * 3)  # Overshoot — Backoff ueberspringt
     ).fetchall()
     erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
     successes, failures = erg["geholt"], erg["fehlgeschlagen"]
@@ -9817,13 +9827,18 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
     from datetime import datetime, timezone, timedelta
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - sie kommen gar nicht erst in die Auswahl
+    # (im SQL, denn nach dem LIMIT wuerden sie jedes Mal dieselben anderen Stellen verdraengen).
+    from .services.quellen_auflagen import sql_ohne_abruf
+    _ohne, _ohne_params = sql_ohne_abruf("url")
     rows = conn.execute(
         "SELECT hash, url, title FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
         "AND url IS NOT NULL AND url != '' "
         "AND COALESCE(is_search_url, 0) = 0 "
-        "LIMIT ?",
-        (pid, max_jobs * 3),  # Overshoot fuer Backoff-Skip
+        + _ohne +
+        " LIMIT ?",
+        (pid, *_ohne_params, max_jobs * 3),  # Overshoot fuer Backoff-Skip
     ).fetchall()
 
     now_dt = datetime.now(timezone.utc)

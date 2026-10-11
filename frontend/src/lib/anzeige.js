@@ -94,6 +94,7 @@ export const QUELLE_TEXT = {
   linkedin: "LinkedIn",
   xing: "XING",
   google_jobs: "Google Jobs (im Browser)",
+  jobtic: "jobtic",
   manuell: "Von Hand",
   manual: "Von Hand",
   import: "Import",

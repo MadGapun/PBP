@@ -113,6 +113,11 @@ jobs:
         # verankert und meldet Navigation als Fehler.
         run: node frontend/src/lib/googleJobsExtraction.test.mjs
 
+      - name: jobtic-Auswertung im Browser (Node)
+        # #1189: das Skript liest nur die Liste, die die Seite selbst mitliefert, und gibt keine Kontaktdaten
+        # weiter. Die CI fuehrt die ausgelieferte Datei gegen eine nachgebaute Seite aus.
+        run: node frontend/src/lib/jobticExtraction.test.mjs
+
       - name: Gegliederter Anzeigentext in der Detailansicht (Node)
         # #1047: textExcerpt fasste jeden Leerraum zusammen, die Detailansicht
         # verlor Absaetze und Listen. Sie geht jetzt durch lib/textAuszug.js.

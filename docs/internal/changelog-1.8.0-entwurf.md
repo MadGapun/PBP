@@ -11,12 +11,12 @@
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
 Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
-Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig.
+Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
 <!-- /anwender -->
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
-sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.15) und die Hotfixes bis v1.7.150 geliefert haben; die Einzelheiten stehen in den
+sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.19) und die Hotfixes bis v1.7.156 geliefert haben; die Einzelheiten stehen in den
 Einträgen darunter.
 
 **Wichtig zu wissen:**
@@ -82,12 +82,35 @@ Einträgen darunter.
 - **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
+- **jobtic als Browser-Quelle mit eigenem Konto** (#1189): Marktplatz für IT-Freelance-Projekte, eingebunden wie XING und StepStone — mit dem Hinweis, dass ein
+  eigenes, im Browser angemeldetes jobtic-Konto nötig ist (Abzeichen „Konto nötig“, ohne den Login-Knopf des alten Weges; neues Kennzeichen `konto_noetig`). Die
+  Nutzungsbedingungen von jobtic untersagen automatisiertes Auslesen (§ 5.2) und die Aufnahme von Kontaktdaten in fremde Datenbanken (§ 5.3); darum steht die Quelle
+  unter **Auflagen** (`services/quellen_auflagen`, Daten im Quellenverzeichnis): PBP ruft diese Seiten nie selbst ab (Anzeigentext nachladen, Auto-Nachladen,
+  Aging-Check, Qualitätsprüfung; die Auto-Engine wählt sie nicht einmal aus), übernimmt keine Ansprechpartner aus dem Lauf (`kontakt_nicht_uebernommen` im
+  Ergebnis) und setzt die Stellenart Freelance; der Auftrag an Claude nennt die Auflagen (Handstart, höchstens zwei Ergebnisseiten je Begriff, Detailseiten nur bei
+  fachlichem Treffer, Pausen). `quelle_handoff('jobtic', Begriff)` liefert die Such-URL und ein eigenes Auswerte-Skript (`job_scraper/jobtic_extraction.js`), das nur
+  die Liste der Seite liest und keine Kontaktdaten weitergibt. jobtic wird nie von selbst empfohlen; der Aktivierungsdialog sagt jetzt „ob eine taugt, entscheidest
+  du in PBP“ statt „Passende Treffer legt Claude für dich als Stelle an“. Gegenprobe: Katalog „jobtic“, 49 absichtlich eingebaute Fehler.
+- **Gegengelesen vor dem Kandidaten** (ein zweiter, unabhängiger Prüfer, neun Funde, alle am Code belegt und behoben): (1) Die Auflage „keine Kontaktdaten“
+  gilt auch für den **Text** — Mailadressen und Rufnummern werden aus der Beschreibung gestrichen (`quellen_auflagen.kontaktdaten_entfernen`, nur erkennbare
+  Schreibweisen: Tagessätze, Zeiträume und Projektnummern bleiben; Namen nennt nur die Anleitung), das Ergebnis sagt es. (2) Eine **eigene Quelle**
+  (`custom_quelle_hinzufuegen`) auf einer jobtic-Adresse gilt wie jobtic: kein Abruf im Gesundheitslauf, Handoff mit den Auflagen und dem Skript der Quelle.
+  (3) **Nur auf Wunsch** ist strukturiert lesbar (`nur_auf_wunsch`): der Auftrag des Suchlaufs („arbeite diese Quellen selbst ab“) nimmt die Quelle aus.
+  (4) Der Aufräum-Helfer des Selbsttests erbte den Arbeitsordner und hielt den entpackten Ordner fest: das Umbenennen beim Update scheiterte im ersten Versuch
+  immer, bei einem langsamen Rechner dauerhaft. (5) Ein **Platzhalter** („Nicht angegeben“) gilt nicht als Firma: zwei Projekte gleichen Titels von
+  nicht genannten Auftraggebern bleiben zwei, ähnliche Titel sind kein „Duplikat“. (6) Beim Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen
+  mit Profil: der Anfangszustand der Seiten war „kein Profil“ statt „unbekannt“. (7) Der Bestandsnachzug füllte `max_stellen` mit Stellen, die er nie abrufen darf.
+  (8) Der Knopf „Beschreibung nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
+  (sonst „ruht seit 0“); `jobtic.com:443` und `nutzer@jobtic.com` gehören zur Quelle.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
-- Gegenprobe (`scripts/mutationstest_auto_update.py`): zehn Kataloge, 383 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
-  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): fünfzehn Kataloge, 504 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 49, Skill-Stand 11, Installer 6,
+  Erste Schritte 25); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
+- **Die Ingest-API v1 ist mit 1.8.0 eingefroren** (Beta-Exit Punkt 2). `GET /api/v1/ingest/ping`, `POST /api/v1/ingest/job`, `GET /api/v1/ingest/mail-policy` und `POST /api/v1/ingest/email` bleiben, wie sie sind;
+  ein Vertragstest (`test_v18_ingest_api_v1_vertrag.py`) prüft Pfade, Methoden, Pflichtfelder und Antwortfelder als Obermenge. Neues kommt nur additiv oder als `/api/v2/` daneben.
 
 ### Changed
 
@@ -99,9 +122,22 @@ Einträgen darunter.
   dieselbe Funktion wie die Dashboard-Ansicht.
 - Die Warnung bei einer nur in den Notizen genannten Firma beginnt mit „Prüfen:“ (statt „Pruefen:“).
 - Ein zweiter Klick auf „Firmen“ (Reiter oder Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+- **Der erste Start ohne Profil ist ein Weg statt vier Karten** (#1170 U5 bis U7). Ohne Profil zeigen „Stellen“, „Bewerbungen“ und „Suche & Bewertung“ jetzt eine einzige Karte mit einem Knopf, „Lebenslauf hochladen“ — statt
+  Kennzahlen aus Nullen, Filtern, einer Quellenkarte und Knöpfen, die ohne Profil nichts tun können. Derselbe Knopf steht auf dem Dashboard und öffnet denselben Dialog; er heißt für das erste Profil „Dein Profil anlegen“ und
+  fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
+- **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
+  Wand aus Nullen.
+- **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
+  etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
+- **Die Texte zur Automatik versprechen nichts mehr, was nur auf Knopfdruck läuft** (#1139). Die Aufräum-Runde (Erinnerungen nachlegen, Bewerbungen ohne Antwort abschließen, fehlende Anzeigentexte nachladen) hat keinen
+  automatischen Auslöser; sie läuft über „Jetzt prüfen“ unter Einstellungen › Automatik. Die Karte dort, die Hilfe und der Hinweis nach der Jobsuche sagen das jetzt („… holt „Jetzt prüfen“ nach“ statt „folgen mit der
+  Automatik“). Ob die Runde künftig von selbst läuft (täglich, das Abschließen abschaltbar), ist als Frage an #1139 gestellt.
 
 ### Fixed
 
+- **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26, Testlauf 11.10.2026; seit beta.0). Das Setup verlangte Rechte und ließ sich aus einem Programm ohne Erhöhung nicht starten (`WinError 740`); der Knopf versprach „kein Admin nötig“. Jetzt startet PBP es ohne Abfrage, sucht den Ort, an dem es „nur für mich“ installiert (`%LOCALAPPDATA%\Programs\Tesseract-OCR`), merkt ihn, lädt das deutsche Sprachpaket dorthin und entfernt alles wieder mit dem eigenen Deinstallationsprogramm des Setups (Oberfläche und Deinstaller, nur an diesem einen Ort).
+- **Der Installer ließ einen leeren Ordner, die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) im Temp-Ordner liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
+- Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
 - **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
   Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des Auto-Updates (`/api/auto-update`) kennt nie eine Vorabversion. Die
@@ -184,11 +220,36 @@ Einträgen darunter.
 - **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
   Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
   (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+- **Ein Lauf über die Browser-Quellen legte keine einzige Stelle in PBP an** (#1187; seit der Browser-Suche, auch in der stabilen Version). Ein Lauf über sechs Quellen mit rund 1.300 Rohtreffern
+  endete mit 0 angelegten Stellen: Fünf Anleitungen (Auftrag je Quelle, Handoff einer Quelle, Workflow-Prompt der Jobsuche, `google_jobs_url`, LinkedIn-Plan) sagten Claude, „passende“ Stellen zu
+  übernehmen und Verworfenes im Chat zu melden — die Auswahl traf Claude, der Mensch sah nur den Bericht, und der Katalogtext von `stelle_manuell_anlegen` sagte dazu „nicht für Treffer aus einer
+  Jobbörse“. Jetzt steht in jeder Anleitung dieselbe Regel (eine Fassung, `services/browser_handoff.REGEL_IM_ZWEIFEL`): im Zweifel eintragen; eine Stelle zu viel ist besser als eine zu wenig, ob sie
+  taugt, entscheidet der Mensch in PBP. Urteil und Zweifelsgrund gehen an die Stelle (`stelle_urteil_speichern`), dazu ob die Anzeige noch offen ist; schon Aussortiertes, das nach dem Lesen fachlich
+  passt, holt `stelle_reaktivieren` zurück; aussortiert wird nur Offensichtliches, mit Grund. Der Bericht im Chat ersetzt die Einträge nicht. Ein Test verlangt die Regel in jeder Anleitung, ein zweiter
+  verbietet die alte Formulierung im ganzen Quelltext.
+- **Die Vorschau der Sammelübernahme prüfte nichts** (#1187; `linkedin_treffer_uebernehmen`, Vorgabe `dry_run=True`). Sie kehrte vor jeder Prüfung zurück und meldete „alle angelegt“, wo der echte Lauf
+  Dubletten, laufende Bewerbungen oder die Blacklist abgewiesen hätte. Jetzt stellt sie dieselben Fragen wie die Anlage (Blacklist, gleiche Kennung, laufende Bewerbung, aktive und aussortierte Stellen,
+  Hinweise), schreibt aber nichts — auch kein Protokoll der Blacklist und keinen Kontakt — und zählt dieselbe Stelle, die zweimal im Aufruf steht, nur einmal. `aussortierte_dublette` erscheint jetzt auch
+  im Eintrag der Sammelübernahme und in der Zeile des Trichters („schon aussortiert“). Der Hinweis zur aussortierten Dublette lässt den Zweifel zu: gilt der Grund weiter, wird die neue Stelle mit demselben
+  Grund eingeordnet; passt sie fachlich, bleibt sie aktiv. Gegenprobe: Katalog „browser“, 30 absichtlich eingebaute Fehler.
+- **Bei jedem Skill nannte Claude nur die Spitze, nicht den Stand von heute** (#1190; seit v1.6.0, auch in der stabilen Version). `profil_zusammenfassung` gab in `skills_liste` nur `level`
+  aus — die höchste Stufe, die ein Skill je hatte. Die Oberfläche zeigt den aktuellen Stand und bei ruhenden Skills „ruht (Spitze x/5)“. Ein Skill, den jemand seit Jahrzehnten nicht mehr einsetzt,
+  ging so als Experte an eine fremde Plattform. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; ist ein Skill beendet und kein
+  heutiges Niveau eingetragen, steht `level_aktuell` auf leer, und Claude soll nachfragen, statt die Spitze zu nehmen. Das mehrdeutige Feld `level` entfällt; der Text der Zusammenfassung und die
+  Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 10 absichtlich eingebaute Fehler.
+- **Die Gefahrenzone zählte mitgelieferte Vorgaben als deine Daten** (#1170 U9). Eine frische Installation zeigte „Bewerbungen: 7 Datensätze — Enthält Namen und Mailadressen Dritter“; die sieben waren die mitgelieferten
+  Kontaktkategorien (ebenso „Einstellungen: 35“: Regler und Ablehnungsgründe). Gezählt wird jetzt, was du angelegt oder verstellt hast; die Vorgaben stehen als „ohne N mitgelieferte Vorgaben“ daneben und gehen beim Leeren mit.
+- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und rund 30 weitere Stellen (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
+  Ausdruck (`{n} Datensaetze`) nie und verlor hinter einem verirrten Anführungszeichen alle Zeichenketten der Datei; beides ist behoben, er findet jetzt 0 Stellen.
+- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14), bei Fenstern unter 1536 px Breite.
+- **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
+  keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
 
 ### Known Issues
 
 - Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Läufe über die Browser-Quellen werden noch nirgends verbucht, und nur LinkedIn hat ein Werkzeug, das mehrere Treffer auf einmal übernimmt (#1187, nächste Stufen).
 - Auto-Update nur unter Windows.
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 

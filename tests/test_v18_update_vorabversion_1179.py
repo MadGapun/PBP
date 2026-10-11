@@ -249,9 +249,14 @@ def test_dringenderes_steht_vor_der_vorabversion(browser, umgebung):
     """Ohne aktive Quellen steht der Hinweis zu den Quellen vorn — die Vorabversion drängt sich nicht vor."""
     ctx, page = _seite(browser, umgebung, _au(), _info(NEUERE_BETA), ruhiges_dashboard=False)
     try:
-        page.locator("[data-hinweiszone]").first.wait_for(timeout=15000)
-        assert page.locator('[data-hinweiszone="update-vorab"]').count() == 0
-        assert page.locator("[data-hinweiszone]").count() == 1
+        # Direkt nach `wait_for` war die Zone in manchen Laeufen kurz weg und kam eine Sekunde spaeter zurueck
+        # (gemessen: [] direkt danach, danach eine Zone) - ein Rennen im Test, nicht in der Seite. Darum wird mit
+        # `expect` gewartet, das bis zum Zeitlimit wiederholt, statt einmal zu zaehlen. Welche Zone vorn steht,
+        # haengt davon ab, ob ein frueherer Test des Moduls Quellen aktiviert hat (`quellen` oder `suche`) -
+        # entscheidend ist nur, dass es EINE ist und nicht die Vorabversion.
+        from playwright.sync_api import expect
+        expect(page.locator("[data-hinweiszone]")).to_have_count(1, timeout=15000)
+        expect(page.locator('[data-hinweiszone="update-vorab"]')).to_have_count(0)
     finally:
         ctx.close()
 

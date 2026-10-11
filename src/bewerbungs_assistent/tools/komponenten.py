@@ -88,6 +88,9 @@ def register(mcp, db, logger: logging.Logger):
                 "hinweis": "Nichts zu tun — PBP nutzt diese Installation bereits.",
             }
         if not bestaetigt:
+            ort = comp._benutzer_ordner_win(comp.COMPONENT_DEFS.get(name, {}))
+            ziel = (f"nur für dich, ohne Administratorrechte ({ort})" if ort
+                    else "nur für dich, ohne Administratorrechte (im Benutzerprofil, nicht im PBP-Ordner)")
             angebot = {
                 "status": "zustimmung_erforderlich",
                 "angebot": {
@@ -97,7 +100,8 @@ def register(mcp, db, logger: logging.Logger):
                     "freigeschaltete_funktion": status.get("freigeschaltete_funktion"),
                     "download_groesse_mb": status.get("groesse_mb"),
                     "lizenz": status.get("lizenz"),
-                    "ziel": "AppData/BewerbungsAssistent/components/ (kein Admin nötig)",
+                    # PP26: ohne Administratorrechte installiert das Setup "nur fuer den Benutzer" (nicht in den PBP-Ordner)
+                    "ziel": ziel,
                 },
                 "naechster_schritt": (
                     "Dem User dieses Angebot zeigen und fragen. Bei Ja: "

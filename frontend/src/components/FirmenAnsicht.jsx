@@ -264,7 +264,7 @@ export default function FirmenAnsicht({ ziel }) {
               <span className="mt-1 block text-xs text-muted">
                 {[f.aliase?.length ? `auch: ${f.aliase.slice(0, 3).join(", ")}${f.aliase.length > 3 ? " …" : ""}` : "",
                   f.mutterfirma ? `Mutterfirma: ${f.mutterfirma}` : "", f.tochterfirmen ? `${f.tochterfirmen} Tochterfirma${f.tochterfirmen === 1 ? "" : "en"}` : "",
-                  f.branche].filter(Boolean).join(" · ") || "Noch keine Schreibweisen eingetragen."}
+                  f.branche].filter(Boolean).join(" · ")}
               </span>
             </button>
           ))}

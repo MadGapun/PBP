@@ -122,19 +122,34 @@ def plan(basis, fassung: str, programm, daten) -> dict:
 
 
 def _freigeben(fn, pfad, _info):
-    os.chmod(pfad, stat.S_IWRITE)
-    fn(pfad)
+    """Schreibschutz aufheben und noch einmal. Scheitert auch das, bleibt der Rest fuer den naechsten Durchgang.
+
+    PP24 (Testlauf 11.10.2026): hier stand kein Fangnetz. Haelt ein Fenster (Explorer, Konsole) den Ordner selbst, wirft
+    das zweite `os.rmdir` `PermissionError` (WinError 32) -- aus dieser Rueckruffunktion heraus, durch `rmtree` und
+    `lauf` bis in den Prozess hinein. Der Helfer starb im ersten Versuch; ein leerer Ordner und seine Kopie im
+    Temp-Ordner blieben liegen, obwohl er 200 Versuche im Abstand von 3 s vorsieht.
+    """
+    try:
+        # Unter Windows nimmt chmod nur den Schreibschutz weg. Unter POSIX hiesse S_IWRITE bei einem Ordner "nur schreiben":
+        # er wuerde unlesbar, und der naechste Durchgang scheiterte schon am Oeffnen (`fn` waere dann `os.open`, ohne Flags).
+        os.chmod(pfad, stat.S_IRWXU if os.path.isdir(pfad) else stat.S_IREAD | stat.S_IWRITE)
+        fn(pfad)
+    except Exception:  # noqa: BLE001 -- ein Fehlschlag hier ist ein Grund zu warten, kein Grund zu sterben
+        pass
 
 
 def _loeschen_versuchen(ordner, zips) -> bool:
-    """Ein Durchgang; True, wenn alles weg ist."""
+    """Ein Durchgang; True, wenn alles weg ist. Wirft nie: ein gehaltener Ordner ist ein Grund zu warten, kein Fehler."""
     for z in zips:
         try:
             Path(z).unlink(missing_ok=True)
         except OSError:
             pass
     if ordner and Path(ordner).exists():
-        shutil.rmtree(ordner, onerror=_freigeben)
+        try:
+            shutil.rmtree(ordner, onerror=_freigeben)
+        except OSError:
+            pass
     return not (ordner and Path(ordner).exists()) and not any(Path(z).exists() for z in zips)
 
 
@@ -189,7 +204,15 @@ def main(argv=None) -> int:
         return 0 if p["ordner"] else 1
     if len(a) == 2 and a[0] == "lauf":
         nutz = json.loads(a[1])
-        return 0 if lauf(nutz["ordner"], nutz["zips"]) else 1
+        ergebnis = 0 if lauf(nutz["ordner"], nutz["zips"]) else 1
+        # PP23 (#1170): die Kopie dieser Datei im Temp-Ordner blieb liegen. Python liest die Quelle beim Start vollstaendig und haelt sie
+        # nicht offen — eine laufende .py-Datei laesst sich auch unter Windows loeschen.
+        if Path(__file__).name == "pbp_installer_aufraeumen.py":
+            try:
+                Path(__file__).unlink()
+            except OSError:
+                pass
+        return ergebnis
     print("Aufruf: siehe Kopf dieser Datei.", file=sys.stderr)
     return 2
 

@@ -24,6 +24,7 @@ der ``components``-Tabelle (Schema v49, database.py).
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -32,7 +33,8 @@ import subprocess
 import sys
 import time
 import urllib.request
-from pathlib import Path
+from datetime import datetime
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Optional
 
 logger = logging.getLogger("bewerbungs_assistent")
@@ -85,6 +87,11 @@ COMPONENT_DEFS: dict[str, dict] = {
             r"C:\Program Files\Tesseract-OCR\tesseract.exe",
             r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
         ],
+        # PP26 (Testlauf 11.10.2026): ohne Administratorrechte installiert das Setup "nur fuer mich" -- nach
+        # %LOCALAPPDATA%\Programs\Tesseract-OCR, und das Ziel /D= wird dabei ignoriert (am Werkstatt-PC gemessen).
+        # Dort sucht PBP, und dort entfernt es auch wieder (eigenes Deinstallationsprogramm des Setups).
+        "benutzer_ordner_win": r"Programs\Tesseract-OCR",
+        "deinstaller_name": "tesseract-uninstall.exe",
         "hinweis_macos": "brew install tesseract tesseract-lang",
         "hinweis_linux": "sudo apt install tesseract-ocr tesseract-ocr-deu",
     },
@@ -133,6 +140,163 @@ def components_dir() -> Path:
 def _tessdata_dir() -> Path:
     """Eigener tessdata-Ordner fuer nachgeladene Sprachen (TESSDATA_PREFIX)."""
     return components_dir() / "tessdata"
+
+
+# ---------------------------------------------------------------------------
+# Installation ohne Administratorrechte (PP26, Testlauf 11.10.2026)
+# ---------------------------------------------------------------------------
+# Das Setup von Tesseract verlangt in seinem Manifest Administratorrechte. Aus einem Programm ohne Erhoehung laesst es
+# sich darum gar nicht starten (WinError 740) -- obwohl die Oberflaeche "kein Admin noetig" verspricht. Mit
+# `__COMPAT_LAYER=RunAsInvoker` startet es mit den Rechten des Aufrufers; es erkennt das und installiert "nur fuer mich"
+# nach %LOCALAPPDATA%\Programs\Tesseract-OCR und ignoriert dabei das gewuenschte Ziel. Also: ohne Abfrage starten, den
+# tatsaechlichen Ort suchen, merken (Marker im Komponenten-Ordner) und beim Entfernen das eigene Deinstallationsprogramm
+# des Setups benutzen -- nie etwas loeschen, das PBP nicht selbst angelegt hat.
+
+# Der Marker liegt im Ordner der Komponente und sagt: dieses Programm hat PBP selbst eingerichtet, es liegt ausserhalb.
+EIGENE_INSTALLATION = "pbp-installation.json"
+
+
+def _setup_umgebung() -> dict:
+    """Prozess-Umgebung fuer ein Setup-Programm: ohne Erhoehung (und damit ohne Abfrage) starten.
+
+    Das hebt keine Rechte an -- es verzichtet nur darauf, welche zu verlangen. Unter anderen Systemen unveraendert.
+    """
+    env = dict(os.environ)
+    if sys.platform == "win32":
+        schichten = [t for t in (env.get("__COMPAT_LAYER") or "").split() if t]
+        if "RunAsInvoker" not in schichten:
+            schichten.append("RunAsInvoker")
+        env["__COMPAT_LAYER"] = " ".join(schichten)
+    return env
+
+
+def _benutzer_ordner_win(definition: dict) -> Optional[Path]:
+    """Der Ort, an dem das Setup ohne Administratorrechte installiert (None, wo es ihn nicht gibt)."""
+    rel = definition.get("benutzer_ordner_win")
+    basis = os.environ.get("LOCALAPPDATA")
+    if not rel or not basis or sys.platform != "win32":
+        return None
+    # Der Eintrag ist mit Backslash geschrieben (wie er unter Windows heisst); unter anderen Pfadregeln (Tests auf Linux)
+    # waere er sonst EIN Name mit Backslash darin.
+    return Path(basis).joinpath(*PureWindowsPath(rel).parts)
+
+
+def _bekannte_pfade_win(definition: dict) -> list:
+    """Orte, an denen ein extern installiertes Binary unter Windows liegen kann (fest hinterlegt + 'nur fuer mich')."""
+    pfade = list(definition.get("bekannte_pfade_win", []))
+    ordner = _benutzer_ordner_win(definition)
+    if ordner is not None and definition.get("binary_name"):
+        pfade.append(str(ordner / definition["binary_name"]))
+    return pfade
+
+
+def _liegt_in(pfad: Path, ordner: Path) -> bool:
+    """Liegt `pfad` in `ordner` (oder ist er es)? Ohne Dateizugriff, Gross-/Kleinschreibung wie unter Windows egal."""
+    try:
+        a = os.path.normcase(os.path.abspath(str(pfad)))
+        b = os.path.normcase(os.path.abspath(str(ordner)))
+        return a == b or a.startswith(b.rstrip("\\/") + os.sep)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _fingerabdruck(datei: Path) -> dict:
+    """Groesse und Anlegezeit (ganze Sekunden): woran PBP seine eigene Datei von einer spaeter neu angelegten unterscheidet.
+
+    Wer Tesseract nach PBPs Entfernen (oder neben PBP) selbst am Standardort einrichtet, hat dieselben Dateinamen, aber eine
+    andere Anlegezeit -- und diese Installation gehoert ihm.
+    """
+    st = datei.stat()
+    erstellt = getattr(st, "st_birthtime", None) or st.st_ctime
+    return {"binary_groesse": int(st.st_size), "binary_erstellt": int(erstellt)}
+
+
+def _eigene_installation_merken(target_dir: Path, binary: Path, version: str, definition: dict) -> None:
+    """Haelt fest, dass PBP dieses Programm selbst eingerichtet hat, obwohl es ausserhalb des Komponenten-Ordners liegt."""
+    deinstaller = binary.parent / (definition.get("deinstaller_name") or "")
+    marker = {
+        "binary": str(binary),
+        "verzeichnis": str(binary.parent),
+        "deinstaller": str(deinstaller) if definition.get("deinstaller_name") and deinstaller.is_file() else "",
+        "version": version,
+        "angelegt": datetime.now().isoformat(timespec="seconds"),
+        **_fingerabdruck(binary),
+    }
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / EIGENE_INSTALLATION).write_text(
+        json.dumps(marker, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _marker_gehoert_noch_pbp(marker: dict) -> bool:
+    """Ist das Programm am genannten Ort noch das, das PBP eingerichtet hat (gleiche Groesse, gleiche Anlegezeit)?"""
+    try:
+        datei = Path(str(marker.get("binary") or ""))
+        if not str(datei) or not datei.is_file():
+            return False
+        jetzt = _fingerabdruck(datei)
+        return all(marker.get(k) == jetzt[k] for k in ("binary_groesse", "binary_erstellt"))
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def eigene_installation(name: str, *, pruefen: bool = True) -> Optional[dict]:
+    """Der Marker einer von PBP eingerichteten Komponente ausserhalb des Komponenten-Ordners -- oder None.
+
+    Mit `pruefen` (Vorgabe) nur, solange das Programm dort noch dasselbe ist; eine spaeter von Hand neu angelegte Installation
+    am selben Ort gilt nicht als PBPs. Auch fuer die Uebersicht "Speicher & Downloads": sie zeigt damit den Ort, an dem die
+    Groesse wirklich liegt.
+    """
+    try:
+        datei = components_dir() / name / EIGENE_INSTALLATION
+        if not datei.is_file():
+            return None
+        daten = json.loads(datei.read_text(encoding="utf-8"))
+        if not (isinstance(daten, dict) and daten.get("verzeichnis")):
+            return None
+        if pruefen and not _marker_gehoert_noch_pbp(daten):
+            return None
+        return daten
+    except (OSError, ValueError):
+        return None
+
+
+def _eigene_installation_entfernen(definition: dict, marker: dict) -> tuple[bool, str]:
+    """Entfernt eine von PBP eingerichtete Installation ausserhalb des Komponenten-Ordners. Gibt (weg, Hinweis) zurueck.
+
+    Angefasst wird nur der eine Ort, an dem das Setup ohne Administratorrechte installiert -- nie ein Pfad, den der Marker
+    allein nennt. Das Deinstallationsprogramm des Setups macht die Arbeit (Programmdateien, Startmenue, Eintraege); danach
+    verschwindet, was PBP selbst hineingelegt hat (nachgeladene Sprachdaten).
+    """
+    erlaubt = _benutzer_ordner_win(definition)
+    verzeichnis = Path(str(marker.get("verzeichnis") or ""))
+    if erlaubt is None or not str(verzeichnis) or not _liegt_in(verzeichnis, erlaubt) or not _liegt_in(erlaubt, verzeichnis):
+        return False, (
+            f"Die Installation liegt an einem unerwarteten Ort ({verzeichnis}); PBP fasst sie nicht an. "
+            "Bitte über die Windows-Einstellungen oder von Hand entfernen.")
+    if verzeichnis.exists():
+        deinstaller = verzeichnis / (definition.get("deinstaller_name") or "")
+        binary = verzeichnis / definition["binary_name"]
+        if definition.get("deinstaller_name") and deinstaller.is_file():
+            try:
+                subprocess.run(
+                    [str(deinstaller), "/S"], env=_setup_umgebung(), timeout=180, capture_output=True,
+                    text=True, errors="replace", **_SUBPROCESS_FLAGS)
+            except Exception as exc:  # noqa: BLE001 -- der Rest wird unten trotzdem versucht
+                logger.warning("Deinstallationsprogramm der Komponente nicht gelaufen: %s", exc)
+            # Es kopiert sich in den Temp-Ordner und kehrt sofort zurueck: warten, bis das Programm weg ist.
+            for _ in range(60):
+                if not binary.exists():
+                    break
+                time.sleep(1)
+            else:
+                logger.warning("Komponente: %s ist nach einer Minute noch da", binary)
+            time.sleep(2)  # das Deinstallationsprogramm raeumt danach noch Startmenue und Eintraege weg
+        shutil.rmtree(verzeichnis, ignore_errors=True)
+    if verzeichnis.exists():
+        return False, (
+            f"Der Ordner {verzeichnis} ließ sich nicht entfernen (vielleicht läuft die Texterkennung noch). "
+            "Bitte PBP beenden und erneut versuchen.")
+    return True, ""
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +486,7 @@ def find_component_binary(db, name: str) -> Optional[str]:
     if which:
         return which
     if sys.platform == "win32":
-        for p in definition.get("bekannte_pfade_win", []):
+        for p in _bekannte_pfade_win(definition):
             if Path(p).is_file():
                 return p
     return None
@@ -559,11 +723,21 @@ def install_component(db, name: str,
             # vertraegt keine Anfuehrungszeichen. Pfade mit Leerzeichen
             # koennen scheitern — dann greift der manuelle Weg
             # (komponente_pfad_setzen / Settings).
-            proc = subprocess.run(
-                [str(setup_path), "/S", f"/D={target_dir}"],
-                timeout=900, capture_output=True, text=True, errors="replace",
-                **_SUBPROCESS_FLAGS,
-            )
+            # PP26: ohne Erhoehung starten (siehe _setup_umgebung) -- das Setup verlangt sonst Administratorrechte,
+            # die PBP nicht hat und nicht verlangt.
+            try:
+                proc = subprocess.run(
+                    [str(setup_path), "/S", f"/D={target_dir}"],
+                    timeout=900, capture_output=True, text=True, errors="replace",
+                    env=_setup_umgebung(), **_SUBPROCESS_FLAGS,
+                )
+            except OSError as exc:
+                if getattr(exc, "winerror", None) == 740:
+                    raise RuntimeError(
+                        "Das Setup wollte Administratorrechte, und die gibt es hier nicht. Du kannst die "
+                        "Texterkennung selbst installieren und den Pfad zur tesseract.exe hier eintragen."
+                    ) from exc
+                raise
             if proc.returncode != 0:
                 raise RuntimeError(
                     f"Installer-Exit-Code {proc.returncode}: "
@@ -575,6 +749,12 @@ def install_component(db, name: str,
         progress(95, "Verifiziere")
         binary = target_dir / definition["binary_name"]
         if not binary.is_file():
+            # PP26: ohne Administratorrechte legt das Setup das Programm "nur fuer mich" ab und ignoriert das Ziel.
+            # Gefunden wird es dort, wo `find_component_binary` ohnehin sucht -- vor dem Start war nichts da.
+            gefunden = find_component_binary(db, name)
+            if gefunden and Path(gefunden).is_file():
+                binary = Path(gefunden)
+        if not binary.is_file():
             raise RuntimeError(
                 f"Binary nach Installation nicht gefunden: {binary}. "
                 "Möglicherweise enthält der Zielpfad Leerzeichen (NSIS-/D-"
@@ -582,6 +762,8 @@ def install_component(db, name: str,
                 "Einstellungen setzen."
             )
         version = _binary_version(str(binary))
+        if not _liegt_in(binary, target_dir):
+            _eigene_installation_merken(target_dir, binary, version, definition)
 
         db.set_component_state(name, STATUS_INSTALLIERT,
                                install_path=str(binary), version=version,
@@ -686,23 +868,37 @@ def uninstall_component(db, name: str) -> dict:
     state = db.get_component_state(name)
     removed = False
     target_dir = components_dir() / name
+    # PP26: hat PBP die Komponente "nur fuer mich" ausserhalb des eigenen Ordners eingerichtet, geht sie mit
+    # ihrem eigenen Deinstallationsprogramm -- und erst dann der Marker samt Ordner.
+    marker = eigene_installation(name)
+    nicht_mehr_pbp = marker is None and eigene_installation(name, pruefen=False) is not None
+    if marker is not None:
+        weg, hinweis = _eigene_installation_entfernen(definition, marker)
+        if not weg:
+            return {"status": "fehler", "fehler": hinweis}
+        removed = True
     if target_dir.exists():
         try:
             shutil.rmtree(target_dir)
-            removed = True
+            if not nicht_mehr_pbp:      # sonst lag dort nur der Vermerk, keine Installation
+                removed = True
         except Exception as exc:
             return {"status": "fehler",
                     "fehler": f"Ordner nicht entfernbar: {str(exc)[:150]}"}
     db.set_component_state(name, STATUS_NICHT_INSTALLIERT,
                            install_path="", version="", last_error="")
     extern = find_component_binary(db, name)
+    hinweise = []
+    if nicht_mehr_pbp:
+        hinweise.append(
+            "Die Installation am bekannten Ort stammt nicht mehr von PBP (sie wurde neu angelegt oder ist schon "
+            "entfernt) und bleibt unangetastet.")
+    if extern:
+        hinweise.append(f"Extern installierte Instanz bleibt unangetastet ({extern}).")
     return {
         "status": "entfernt",
         "pbp_installation_geloescht": removed,
-        "hinweis": (
-            f"Extern installierte Instanz bleibt unangetastet ({extern})."
-            if extern else ""
-        ),
+        "hinweis": " ".join(hinweise),
         "war_registriert": bool(state),
     }
 

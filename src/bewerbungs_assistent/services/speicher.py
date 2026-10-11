@@ -209,13 +209,28 @@ def _ort_komponenten(db, frist_s) -> dict:
     basis = components.components_dir()
     ort = {"id": "komponenten", "name": "Zusatzprogramme von PBP", "urheber": "komponente", "pfad": str(basis),
            "was": "Texterkennung (Tesseract) und andere Komponenten, die PBP auf Wunsch einrichtet.",
-           "aktionen": ["komponenten_reste"], "eintraege": []}
+           "aktionen": ["komponenten_reste"], "eintraege": [],
+           # PP26: die Texterkennung "nur fuer mich" liegt ausserhalb des Ordners; ihr Eintrag zaehlt zur Summe dieses Ortes
+           "summe_aus_eintraegen": True}
     try:
         for kind in sorted(basis.iterdir()):
             ort["eintraege"].append(_eintrag(kind.name, "Ordner einer Komponente" if kind.is_dir() else "Datei im Komponenten-Ordner",
                                              kind, frist_s))
     except OSError:
         pass
+    # PP26: ohne Administratorrechte legt das Setup die Texterkennung "nur für mich" ausserhalb dieses Ordners ab. Die Groesse
+    # steht dort -- der Ordner hier enthaelt dann nur den Vermerk. Ein eigener Eintrag nennt den echten Ort.
+    try:
+        for name in components.COMPONENT_DEFS:
+            marker = components.eigene_installation(name)
+            if marker:
+                ziel = Path(str(marker["verzeichnis"]))
+                if ziel.is_dir():
+                    ort["eintraege"].append(_eintrag(
+                        f"{name} (Programmordner)", "Hier liegt das Programm selbst; es wird mit der Komponente entfernt.",
+                        ziel, frist_s))
+    except Exception as exc:  # noqa: BLE001 — eine unlesbare Aufstellung darf die Übersicht nicht kippen
+        logger.debug("Komponenten-Programmordner nicht aufgeschlüsselt: %s", exc)
     return ort
 
 

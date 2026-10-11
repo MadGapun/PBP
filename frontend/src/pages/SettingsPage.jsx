@@ -354,7 +354,7 @@ function LearningPrivacyCard({ pushToast }) {
         <div className="glass-card p-3 text-[12px] text-muted">
           <p><strong className="text-ink">{stats.total_events}</strong> Events insgesamt erfasst</p>
           {stats.oldest_event_at && (
-            <p>Aeltester Eintrag: {new Date(stats.oldest_event_at).toLocaleDateString("de-DE")}</p>
+            <p>Ältester Eintrag: {new Date(stats.oldest_event_at).toLocaleDateString("de-DE")}</p>
           )}
           {stats.by_type?.length > 0 && (
             <details className="mt-2">
@@ -1381,7 +1381,7 @@ function AutoActionsTab({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Bewerbungen im Blick behalten"
-        description="PBP legt Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam."
+        description="Beim Prüfen legt PBP Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam. Das geschieht, wenn du unten „Jetzt prüfen“ drückst; die erste Erinnerung zu einer Bewerbung legt PBP schon beim Absenden an."
       />
 
       <div className="space-y-5">
@@ -1423,9 +1423,10 @@ function AutoActionsTab({ pushToast }) {
         <div className="glass-card p-4 space-y-3">
           <h3 className="font-medium text-ink text-sm">Nachfass-Erinnerungen</h3>
           <p className="text-[12px] text-muted">
-            Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP eine
-            an — so viele Tage nach dem letzten Schritt. Hakst du sie ab, kommt
-            die nächste, solange die Bewerbung läuft.
+            Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP beim
+            Prüfen eine an — so viele Tage nach dem letzten Schritt. Hakst du
+            eine ab, kommt die nächste beim nächsten Prüfen, solange die
+            Bewerbung läuft.
           </p>
           <Field label="Erinnerung nach (Tage seit dem letzten Schritt)">
             <input
@@ -1527,7 +1528,7 @@ function KIFeaturesCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Was Claude bearbeiten darf"
-        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter und sagt das. Änderungen wirken sofort."
+        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, führt PBP diese Funktion nicht aus und sagt das. Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist; wer gar nichts weitergeben will, trennt PBP dort. Änderungen wirken sofort."
       />
 
       <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">
@@ -2297,8 +2298,9 @@ function LocalAITab({ pushToast }) {
         </button>
 
         {status.error && (
-          <p className="mt-3 text-xs text-coral font-mono">
-            Erkennungs-Fehler: {status.error}
+          <p className="mt-3 text-xs text-coral" title={String(status.error)}>
+            {/* U18 (#1170): der rohe Fehlertext („<urlopen error timed out>“) sagte niemandem etwas. */}
+            Ollama ließ sich gerade nicht erkennen. Prüfe, ob es läuft, und klicke dann „Status neu prüfen“.
           </p>
         )}
       </Card>
@@ -2338,8 +2340,8 @@ function LocalAITab({ pushToast }) {
           ))}
         </div>
         <p className="mt-3 text-xs text-muted">
-          Empfehlung: die Standard-Groesse — gutes Deutsch, vernuenftiger Speicher-Bedarf.
-          Du kannst spaeter jederzeit das Modell wechseln.
+          Empfehlung: die Standard-Größe — gutes Deutsch, vernünftiger Speicher-Bedarf.
+          Du kannst später jederzeit das Modell wechseln.
           {katalogStand ? ` Modell-Empfehlungen, ${katalogStand}.` : ""}
         </p>
       </Card>
@@ -2801,7 +2803,7 @@ function ModelDetailList({ status, recommended, katalogStand, onSelect, onPull, 
       {moreToInstall.length > 0 && (
         <details className="glass-card p-2">
           <summary className="text-[12px] cursor-pointer text-sky">
-            + Weiteres Modell installieren ({moreToInstall.length} Vorschlaege{katalogStand ? `, ${katalogStand}` : ""})
+            + Weiteres Modell installieren ({moreToInstall.length} Vorschläge{katalogStand ? `, ${katalogStand}` : ""})
           </summary>
           <div className="space-y-1.5 mt-2">
             {moreToInstall.map((m) => (
@@ -3041,7 +3043,7 @@ function RoutingCard({ pushToast }) {
           </p>
         ) : (
           <p className="text-sm text-muted">
-            Noch nicht eingerichtet. Den Schluessel gibt es nach der Registrierung auf{" "}
+            Noch nicht eingerichtet. Den Schlüssel gibt es nach der Registrierung auf{" "}
             <a href={status?.registrierungs_url || "https://openrouteservice.org/dev/#/signup"}
               target="_blank" rel="noopener noreferrer"
               className="text-sky underline decoration-dotted">openrouteservice.org</a>.
@@ -4296,7 +4298,7 @@ export default function SettingsPage() {
                 <p>
                   Grund{" "}
                   <span className="font-semibold text-ink">"{deleteReasonDialog.reason.label}"</span>{" "}
-                  wirklich loeschen?
+                  wirklich löschen?
                 </p>
                 {Number(deleteReasonDialog.reason.usage_count || 0) > 0 ? (
                   <Field
@@ -4670,7 +4672,7 @@ export default function SettingsPage() {
 
             <Card className="rounded-2xl border border-amber/20 bg-amber/5">
               <p className="text-xs text-muted">
-                Moechtest du Daten loeschen? Alle Optionen findest du im Tab{" "}
+                Möchtest du Daten löschen? Alle Optionen findest du im Tab{" "}
                 <button type="button" className="text-sky underline" onClick={() => setSettingsTab("gefahrenzone")}>Gefahrenzone</button>.
               </p>
             </Card>
@@ -4943,8 +4945,15 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium capitalize text-ink">{bereich}</span>
                       <Badge tone={info.zeilen_gesamt ? "coral" : "neutral"}>
-                        {info.zeilen_gesamt ?? 0} Datensaetze
+                        {info.zeilen_gesamt ?? 0} Datensätze
                       </Badge>
+                      {/* U9 (#1170): was PBP selbst mitbringt (Kategorien, Ablehnungsgründe, Regler), zählt nicht als deine Daten. */}
+                      {info.vorgaben > 0 ? (
+                        <span className="text-xs text-muted"
+                          title="Mitgelieferte Einträge zählen nicht als deine Daten. Beim Leeren gehen sie mit.">
+                          ohne {info.vorgaben} mitgelieferte Vorgaben
+                        </span>
+                      ) : null}
                       {info.aufteilung && Object.entries(info.aufteilung).map(([k, n]) => (
                         <Badge key={k} tone="neutral">{n} {k}</Badge>
                       ))}
@@ -4955,7 +4964,7 @@ function LoeschBereichSection({ pushToast, refreshChrome }) {
                     <span className="mt-1 block text-xs text-muted">{info.beschreibung}</span>
                     {geteilt.length > 0 && (
                       <span className="mt-1 block text-xs text-amber">
-                        Gilt fuer alle Profile und bleibt beim Leeren eines einzelnen
+                        Gilt für alle Profile und bleibt beim Leeren eines einzelnen
                         Profils unangetastet: {geteilt.join(", ")}
                       </span>
                     )}

@@ -286,7 +286,10 @@ echo [DEBUG] Pruefe get-pip.py... >> "%LOGFILE%"
 if not exist "%GETPIP_PATH%" goto :err_getpip
 
 echo [DEBUG] Fuehre get-pip.py aus... >> "%LOGFILE%"
-"%PYTHON%" "%GETPIP_PATH%" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+:: PP25 (Testlauf 11.10.2026): get-pip.py entpackt sich nach TEMP\tmpXXXX\pip.zip und kann das unter Windows nicht selbst
+:: loeschen (die Datei ist noch geladen) - 1,7 MB blieben nach jeder Installation liegen. Ein eigener, kurzlebiger
+:: Temp-Ordner nimmt den Rest auf und wird danach geloescht.
+call :pip_beschaffen
 if !errorlevel! neq 0 goto :err_pip
 
 echo         [OK] Python + pip bereit
@@ -544,7 +547,10 @@ echo [INFO] Kopiere python + src nach %APP_DIR% >> "%LOGFILE%"
 :: kommt in der Subshell nicht als solches an (#990) — hier wird
 :: deshalb genau die Form benutzt, die im Deinstaller erprobt ist.
 echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ( ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|uvicorn|fastmcp') -or ($_.ExecutablePath -match 'BewerbungsAssistent') ) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: PP21 (#1170, Gegenprobe 06.10.2026): Nach jeder Neuinstallation blieb ein Fenster "[FEHLER] Dashboard ist mit Fehlercode -1
+:: beendet" mit "Pause" stehen: der Installer beendete das alte Python, und das Fenster, das es gestartet hatte
+:: (`Dashboard starten.bat`), meldete den Abbruch und wartete. Dieses Fenster geht jetzt mit: es gehoert zu dem, was ersetzt wird.
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ( ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ( ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|uvicorn|fastmcp') -or ($_.ExecutablePath -match 'BewerbungsAssistent') ) ) -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\.bat') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
 :: Kurze Pause, damit gesperrte Datei-Handles freigegeben werden.
 ping -n 3 127.0.0.1 >nul 2>&1
 echo [OK] Prozess-Stopp durchlaufen >> "%LOGFILE%"
@@ -821,7 +827,9 @@ echo [INFO] Starte Dashboard >> "%LOGFILE%"
 :: verweigert"), und unten oeffnet der Installer den Browser ein zweites Mal. Jetzt macht das nur der Installer, nachdem die
 :: Pruefung unten bestanden ist. Die Variable gilt nur fuer das hier gestartete Fenster und wird danach geloescht.
 set "PBP_KEIN_BROWSER=1"
-start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
+:: PP20 (#1170): ohne /D erbt das Fenster den Arbeitsordner des Installers (den entpackten Ordner) und haelt ihn fest; das
+:: Selbstaufraeumen am Ende laesst dann einen leeren Ordner liegen, solange das Fenster offen ist (dieselbe Klasse wie PP13).
+start "PBP-Dashboard" /MIN /D "%APP_DIR%" "%APP_DIR%\Dashboard starten.bat"
 set "PBP_KEIN_BROWSER="
 
 :: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---
@@ -1187,8 +1195,24 @@ goto :eof
 echo         pip wird nachinstalliert...
 set "GETPIP_PATH=%PYTHON_DIR%\get-pip.py"
 if not exist "!GETPIP_PATH!" curl.exe -sL -o "!GETPIP_PATH!" "%GETPIP_URL%" 2>> "%LOGFILE%"
-"%PYTHON%" "!GETPIP_PATH!" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+call :pip_beschaffen
 goto :eof
+
+:pip_beschaffen
+:: Fuehrt get-pip.py mit einem eigenen Temp-Ordner aus und raeumt ihn danach weg (PP25). Rueckgabe: der Exitcode von get-pip.
+set "PIP_TMP=%PYTHON_DIR%\pip-tmp"
+rmdir /s /q "!PIP_TMP!" >nul 2>&1
+mkdir "!PIP_TMP!" >nul 2>&1
+set "PIP_TEMP_VORHER=%TEMP%"
+set "PIP_TMP_VORHER=%TMP%"
+set "TEMP=!PIP_TMP!"
+set "TMP=!PIP_TMP!"
+"%PYTHON%" "%GETPIP_PATH%" --no-warn-script-location -q >> "%LOGFILE%" 2>&1
+set "PIP_RC=!errorlevel!"
+set "TEMP=!PIP_TEMP_VORHER!"
+set "TMP=!PIP_TMP_VORHER!"
+rmdir /s /q "!PIP_TMP!" >nul 2>&1
+exit /b !PIP_RC!
 
 :start_claude_appx
 :: #990: Store-Apps starten ueber den AppsFolder, nicht ueber einen Pfad.

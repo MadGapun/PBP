@@ -50,6 +50,7 @@ _HOST_PATTERNS: list[tuple[str, str]] = [
     ("freelancermap.com", "freelancermap"),
     ("gulp.de", "gulp"),
     ("solcom.de", "solcom"),
+    ("jobtic.com", "jobtic"),
     # Tech & Engineering
     ("ingenieur.de", "ingenieur_de"),
     ("vdi-nachrichten.com", "ingenieur_de"),
@@ -84,6 +85,11 @@ _HOST_PATTERNS: list[tuple[str, str]] = [
 ]
 
 
+def hosts_von(quelle: str) -> list[str]:
+    """Die Host-Muster, die zu dieser Quelle gehoeren (#1189) - leer, wenn die Adresse nicht zuzuordnen ist."""
+    return [muster for muster, key in _HOST_PATTERNS if key == quelle and "/" not in muster]
+
+
 def detect_source_from_url(url: str) -> str:
     """Liefert den Source-Key fuer eine Job-URL, oder 'manuell' wenn
     die Domain nicht erkannt wird.
@@ -106,7 +112,9 @@ def detect_source_from_url(url: str) -> str:
         url = "https://" + url
     try:
         parsed = urlparse(url)
-        host = (parsed.netloc or "").lower()
+        # `hostname` statt `netloc`: ohne Port, Zugangsdaten und - mit `rstrip` - ohne den Schlusspunkt einer voll
+        # qualifizierten Adresse. `jobtic.com:443` und `nutzer@jobtic.com` gehoeren zur selben Quelle (#1189).
+        host = (parsed.hostname or "").lower().rstrip(".")
         if host.startswith("www."):
             host = host[4:]
     except Exception:

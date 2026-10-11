@@ -320,7 +320,7 @@ export default function SourceSelectionList({
                       ];
                       if (source.login_hinweis) zeilen.push(source.login_hinweis);
                       if (source.konto_url) zeilen.push(`Konto anlegen: ${source.konto_url}`);
-                      zeilen.push("Passende Treffer legt Claude für dich als Stelle an.");
+                      zeilen.push("Claude legt die Treffer als Stellen für dich an; ob eine taugt, entscheidest du in PBP.");
                       if (!(await bestaetigen({ text: `${zeilen.join("\n\n")}\n\nVerstanden — Quelle aktivieren?` }))) {
                         event.target.checked = false;
                         return;

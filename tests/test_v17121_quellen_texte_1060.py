@@ -24,8 +24,9 @@ BROWSER = {k for k, v in SOURCE_REGISTRY.items() if v.get("zugriffsart") == "bro
 
 def test_die_browser_quellen_sind_dieselben_wie_vorher():
     """Die Umstellung aendert Texte, nicht die Einteilung."""
-    # v1.7.122 (#1066): Monster ist entfernt.
-    assert BROWSER == {"stepstone", "indeed", "linkedin", "xing", "google_jobs"}
+    # v1.7.122 (#1066): Monster ist entfernt. #1189: jobtic kommt als Browser-Quelle dazu - die Einteilung gilt
+    # fuer sie wie fuer die anderen, der Test hat sie nur nie gekannt.
+    assert BROWSER == {"stepstone", "indeed", "linkedin", "xing", "google_jobs", "jobtic"}
     for name in SOURCE_REGISTRY:
         erwartet = "browser_login" if name in BROWSER else "api"
         assert zugriffsart_von(name) == erwartet, name

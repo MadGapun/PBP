@@ -308,7 +308,7 @@ export default function DocumentsPage() {
             <Sparkles size={18} className="text-violet-400 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-[240px]">
               <div className="text-sm font-medium text-ink">
-                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} koennen verarbeitet werden
+                {data.unanalyzed_count} Dokument{data.unanalyzed_count !== 1 ? "e" : ""} können verarbeitet werden
               </div>
               <div className="text-xs text-muted mt-1 leading-snug">
                 Claude klassifiziert jedes hochgeladene Dokument und macht das Passende:

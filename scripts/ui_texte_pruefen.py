@@ -92,7 +92,13 @@ UI_DATEIEN = sorted(
 _KOMMENTAR_BLOCK = re.compile(r"/\*.*?\*/", re.S)
 _KOMMENTAR_ZEILE = re.compile(r"(^|[^:\"'`\\])//[^\n]*")
 _LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`')
+# Dieselbe Suche je ZEILE (#1170 U13): ein einzelnes gerades Anfuehrungszeichen im JSX-Text (`„Kopieren"`) verschob die Paarung
+# bis zum Dateiende, und alle Zeichenketten danach blieben ungelesen (ElwosaSidebarChat.jsx: „fuer“, „einfuegen“, „oeffnen“).
+_LITERAL_ZEILE = re.compile(r'"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\\n]|\\.)*)`')
 _TEXTKNOTEN = re.compile(r">([^<>{}]+)<")
+# Text NEBEN einem Ausdruck: `{n} Datensaetze`, `Gilt fuer alle Profile: {liste}`. Bis v1.8.0-beta.19 stand er ausserhalb der
+# Pruefung, weil `[^<>{}]+` an der Klammer endet und ein Textknoten mit Ausdruck nie von `>` bis `<` reicht (#1170 U13).
+_TEXTKNOTEN_AUSDRUCK = re.compile(r"[>}]([^<>{}]+)[<{]")
 _WORT = re.compile(r"[A-Za-zÄÖÜäöüß][A-Za-zÄÖÜäöüß-]*")
 
 
@@ -126,7 +132,16 @@ def _ist_jsx_code(t: str) -> bool:
 
 
 def texte(pfad: Path):
-    """(zeile, text) je sichtbarem Textstueck."""
+    """(zeile, text) je sichtbarem Textstueck, jedes Stueck einmal. Die Suchlaeufe ueberlappen (ein Textknoten `>Text<` passt auf
+    zwei Muster, ein einzeiliges Literal auf `_LITERAL` und `_LITERAL_ZEILE`); ohne Zusammenfuehren stuende ein Fund doppelt da."""
+    gesehen = set()
+    for eintrag in _texte_roh(pfad):
+        if eintrag not in gesehen:
+            gesehen.add(eintrag)
+            yield eintrag
+
+
+def _texte_roh(pfad: Path):
     roh = pfad.read_text(encoding="utf-8-sig")
     code = _ohne_kommentare(roh)
     for m in _TEXTKNOTEN.finditer(code):
@@ -135,10 +150,23 @@ def texte(pfad: Path):
             continue
         if _sieht_aus_wie_text(t) and not any(z in t for z in ("&&", "=>", "?.", "===")):
             yield code[:m.start()].count("\n") + 1, t
+    for m in _TEXTKNOTEN_AUSDRUCK.finditer(code):
+        t = m.group(1)
+        # Nach einer schliessenden Klammer steht oft Code (`} else if (x) {`): was Zeichen des Codes traegt, ist kein Text.
+        # Ein Objektschluessel (`},\n  todo: {`) beginnt hinter einem Komma; ein Satz tut das nicht.
+        if any(z in t for z in ";=()[]") or _ist_jsx_code(t) or t.lstrip().startswith(","):
+            continue
+        if _sieht_aus_wie_text(t) and not any(z in t for z in ("&&", "=>", "?.", "===")):
+            yield code[:m.start(1)].count("\n") + 1, t
     for m in _LITERAL.finditer(code):
         t = m.group(1) if m.group(1) is not None else m.group(2)
         if t and _sieht_aus_wie_text(t):
             yield code[:m.start()].count("\n") + 1, t
+    for nr, zeile in enumerate(code.split("\n"), 1):
+        for m in _LITERAL_ZEILE.finditer(zeile):
+            t = m.group(1) if m.group(1) is not None else m.group(2)
+            if t and _sieht_aus_wie_text(t):
+                yield nr, t
 
 
 def katalog_texte():

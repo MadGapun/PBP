@@ -86,7 +86,7 @@ export default function JobsucheStatusBadge({ onNavigateToJobs }) {
       >
         <Loader2 className="h-3 w-3 animate-spin" />
         <span>
-          Jobsuche {state.progress > 0 ? `${state.progress}%` : "laeuft…"}
+          Jobsuche {state.progress > 0 ? `${state.progress}%` : "läuft…"}
         </span>
       </div>
     );

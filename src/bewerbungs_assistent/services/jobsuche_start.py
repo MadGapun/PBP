@@ -125,10 +125,14 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
     manuelle = [q for q in quellen if q in _MANUAL_SOURCES]
     auto = [q for q in quellen if q not in _MANUAL_SOURCES]
     manuelle_info = {q: _MANUAL_SOURCES[q] for q in manuelle}
+    # #1189: Quellen mit der Auflage "nur auf Wunsch" (jobtic) arbeitet Claude nie von selbst ab. Sie stehen weiter in
+    # `manuelle_quellen` (die Oberflaeche zeigt sie), zusaetzlich aber in `nur_auf_wunsch` - und die Anleitung nimmt sie aus.
+    from .quellen_auflagen import nur_auf_wunsch as _nur_auf_wunsch
+    auf_wunsch = [q for q in manuelle if _nur_auf_wunsch(q)]
     schritte.append("browser_quellen")
     if not auto:
         return {"status": "nur_manuelle_quellen", "manuelle_quellen": manuelle_info,
-                "schritte": schritte}
+                "nur_auf_wunsch": auf_wunsch, "schritte": schritte}
 
     uebernommen = False
     if SCHRITTE[herkunft]["erstauswahl"]:
@@ -205,5 +209,6 @@ def starten(db, quellen: list[str] | None = None, keywords: list[str] | None = N
                      name=f"pbp-watchdog-{job_id[:8]}").start()
 
     return {"status": "gestartet", "job_id": job_id, "quellen": auto,
-            "manuelle_quellen": manuelle_info, "quellen_uebernommen": uebernommen,
+            "manuelle_quellen": manuelle_info, "nur_auf_wunsch": auf_wunsch,
+            "quellen_uebernommen": uebernommen,
             "stellentyp_ohne_quelle": ohne_quelle, "schritte": schritte}

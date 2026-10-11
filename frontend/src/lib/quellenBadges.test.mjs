@@ -44,6 +44,13 @@ assert.ok(texte({ active: false, veraltet: true, geschwindigkeit: "manuell" }).i
 assert.ok(texte(linkedin).includes("Konto nötig"));
 assert.ok(texte(stepstone).includes("Konto empfohlen"));
 assert.ok(!texte(stepstone).includes("Konto nötig"));
+// #1189: jobtic braucht ein Konto, die Sitzung liegt im eigenen Browser - "Konto nötig", ohne Login-Knopf.
+const jobtic = { active: true, zugriffsart: "browser_login", geschwindigkeit: "manuell", login_erforderlich: false,
+                 konto_noetig: true, beta: true, login_hinweis: "Du brauchst ein eigenes jobtic-Konto." };
+assert.ok(texte(jobtic).includes("Konto nötig"));
+assert.ok(!texte(jobtic).includes("Konto empfohlen"));
+assert.equal(quellenBadges(jobtic).find((b) => b.text === "Konto nötig").titel, "Du brauchst ein eigenes jobtic-Konto.");
+assert.ok(texte(jobtic).includes(WEG_BROWSER));
 
 // 6. Der Login-Status ist ein Zustand, steht zuletzt und sagt es.
 const mitLogin = quellenBadges(xing, "fertig");

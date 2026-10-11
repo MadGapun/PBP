@@ -109,10 +109,12 @@ def _pick_langs(db) -> tuple[str, str]:
     if "deu" in langs:
         return "deu", ""
     if "eng" in langs:
+        # PP26 (Testlauf 11.10.2026): der Hinweis nannte Werkzeugnamen; wer ihn las, konnte nichts damit anfangen.
         return "eng", (
-            "deu-Sprachpaket fehlt — Erkennung lief nur mit 'eng'. Für "
-            "deutsche Dokumente: komponente_installieren lädt 'deu' nach, "
-            "oder ensure_language('deu')."
+            "Das deutsche Sprachpaket fehlt, die Erkennung lief nur auf Englisch. Für deutsche Dokumente: die Datei "
+            "deu.traineddata in den Ordner tessdata der eigenen Tesseract-Installation legen — oder unter "
+            "Einstellungen › Erweiterungen den eingetragenen Pfad entfernen und die Texterkennung von PBP einrichten "
+            "lassen (das deutsche Sprachpaket kommt dann mit)."
         )
     return "", ""
 
@@ -141,9 +143,9 @@ def ocr_pdf(db, filepath: str | Path, max_seiten: int = MAX_SEITEN_DEFAULT,
         return {
             "status": "fehler",
             "fehler": (
-                "Tesseract gefunden, aber keine Sprachdaten (tessdata) — "
-                "Installation unvollständig. ensure_language('deu') lädt "
-                "die Sprachpakete nach."
+                "Tesseract gefunden, aber ohne Sprachdaten (tessdata) — die "
+                "Installation ist unvollständig. Einstellungen › Erweiterungen › "
+                "Texterkennung: PBP kann sie neu einrichten."
             ),
         }
 

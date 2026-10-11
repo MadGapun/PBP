@@ -288,6 +288,8 @@ _MANUAL_SOURCES = {
     "stepstone": "StepStone (Bot-Detection, #315) — nutze google_jobs_url oder Claude-in-Chrome",
     "indeed": "Indeed (häufig Timeout) — nutze jobspy_indeed",
     "google_jobs": "Google Jobs (#501) — google_jobs_url aufrufen und in Chrome-Extension öffnen",
+    "jobtic": "jobtic — NICHT von selbst abarbeiten: nur auf ausdrücklichen Wunsch, im eigenen, angemeldeten Browser und "
+              "von Hand gestartet (Nutzungsbedingungen beachten) — quelle_handoff('jobtic', Begriff)",
 }
 
 # G17 (#744, v1.7.4): Bewaehrter Starter-Satz fuer den allerersten Suchlauf —
@@ -399,10 +401,14 @@ def register(mcp, db, logger):
             return {
                 "status": "nur_manuelle_quellen",
                 "manuelle_quellen": erg["manuelle_quellen"],
+                "nur_auf_wunsch": erg.get("nur_auf_wunsch") or [],
                 "nachricht": (
                     "Alle ausgewählten Quellen laufen nur über Claude-in-Chrome "
                     "oder sind deprecated — es gibt nichts zu automatisieren. "
                     "Siehe manuelle_quellen für den jeweiligen Ersatzweg."
+                    + (" Quellen mit der Auflage „nur auf Wunsch“ (" + ", ".join(erg["nur_auf_wunsch"])
+                       + ") nicht von selbst starten, sondern den Menschen fragen."
+                       if erg.get("nur_auf_wunsch") else "")
                 ),
             }
         if status == "laeuft_bereits":
@@ -443,6 +449,12 @@ def register(mcp, db, logger):
                 "Claude-in-Chrome oder die jeweiligen Ersatzwerkzeuge nutzen — "
                 "sie sind im Hintergrund-Job NICHT enthalten."
             )
+            if erg.get("nur_auf_wunsch"):
+                # #1189: Quellen mit der Auflage "nur auf Wunsch" arbeitet niemand von selbst ab
+                result["nur_auf_wunsch"] = erg["nur_auf_wunsch"]
+                result["hinweis"] += (
+                    " AUSGENOMMEN, nicht von selbst abarbeiten: " + ", ".join(erg["nur_auf_wunsch"])
+                    + " — nur auf ausdrücklichen Wunsch des Menschen und von Hand gestartet.")
         # v1.7.17 (#906 Befund 2): totes Suchkriterium benennen.
         for befund in erg["stellentyp_ohne_quelle"]:
             result.setdefault("stellentyp_ohne_quelle", []).append({
@@ -2015,7 +2027,8 @@ def register(mcp, db, logger):
         2. URL im Browser mit der Claude-Erweiterung öffnen
         3. Mit dem mitgelieferten `extraction_js` strukturierte Job-Daten
            via `javascript_tool()` aus dem DOM ziehen (statt Rohtext-Parsing)
-        4. Gefundene Stellen mit `stelle_manuell_anlegen()` uebernehmen
+        4. Alle Treffer, die fachlich passen oder nahezu passen, mit
+           `stelle_manuell_anlegen()` uebernehmen (Regel: im Hinweis)
 
         Args:
             keyword: Suchbegriff (z.B. 'PLM Projektleiter').
@@ -2032,6 +2045,7 @@ def register(mcp, db, logger):
         # 2026) traf am 21.09.2026 nur noch die Suchreiter und lieferte
         # 13 "Stellen" namens KI-Modus, Bilder, News — ohne Fehler.
         from ..job_scraper.google_jobs import extraction_js as _extraction
+        from ..services.browser_handoff import REGEL_IM_ZWEIFEL
         from ..services.weiterverbreiter import WEITERVERBREITER
         extraction_js = _extraction()
         return {
@@ -2059,7 +2073,7 @@ def register(mcp, db, logger):
                 "Karten erst beim Scrollen nach. Remote und Ort der Karte "
                 "gelten nicht (#1184): `stelle_manuell_anlegen` lässt das "
                 "Arbeitsmodell auf `unbekannt`, bis das Original (Detail-URL "
-                "des Arbeitgebers und Anzeigentext) vorliegt."
+                "des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL
             ),
         }
 
@@ -2539,6 +2553,7 @@ def register(mcp, db, logger):
         kontakt_name: str = "",
         kontakt_email: str = "",
         kontakt_telefon: str = "",
+        trocken: bool = False,
     ) -> dict:
         """Der EINE Schreibweg fuer eine von aussen gefundene Stelle (#160).
 
@@ -2604,6 +2619,11 @@ def register(mcp, db, logger):
                 und mit der Stelle verknuepft (Anker #766).
             kontakt_email: E-Mail des Ansprechpartners.
             kontakt_telefon: Telefonnummer des Ansprechpartners.
+            trocken: True = nur pruefen (#1187). Dieselben Pruefungen wie die
+                Anlage (Blacklist, Duplikate, Wiedergaenger, Aussortiertes,
+                Google-Vorbehalt), aber nichts wird geschrieben: kein Speichern,
+                kein Kontakt, kein Protokoll. Antwort `wuerde_angelegt` oder
+                dieselbe Abweisung wie bei der Anlage.
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
@@ -2620,13 +2640,14 @@ def register(mcp, db, logger):
             # #992: auch die Abweisung von Hand gehoert ins Protokoll —
             # sonst zaehlt nur, was der Suchlauf verwirft, und genau die
             # Stellen, die der Mensch selbst gefunden hat, fehlen.
-            db.record_blacklist_block(
-                {"title": titel, "company": firma, "url": url,
-                 "source": quelle},
-                {"typ": "firma", "wert": _bl_hit.get("value"),
-                 "eintrag_id": _bl_hit.get("id"),
-                 "grund": _bl_hit.get("reason") or ""},
-                kontext="manuell_abgewiesen")
+            if not trocken:     # #1187: die Vorschau schreibt auch kein Protokoll
+                db.record_blacklist_block(
+                    {"title": titel, "company": firma, "url": url,
+                     "source": quelle},
+                    {"typ": "firma", "wert": _bl_hit.get("value"),
+                     "eintrag_id": _bl_hit.get("id"),
+                     "grund": _bl_hit.get("reason") or ""},
+                    kontext="manuell_abgewiesen")
             return {
                 "fehler": (
                     f"Firma '{firma}' steht auf der Blacklist ({grund}). "
@@ -2655,7 +2676,16 @@ def register(mcp, db, logger):
             if detected != "manuell":
                 quelle = detected
 
-        job_hash = stelle_hash(quelle, f"{firma} {titel}")
+        # Ein Platzhalter ("Nicht angegeben") benennt keinen Arbeitgeber (#1028): zwei Projekte gleichen Titels von
+        # verschiedenen, nicht genannten Auftraggebern waeren sonst DIESELBE Stelle - jobtic nennt den Auftraggeber oft
+        # nicht. Die Adresse trennt sie; dieselbe Adresse bleibt dieselbe Stelle (Idempotenz).
+        from ..duplicate_detection import benennt_arbeitgeber as _benennt
+        _kennung = f"{firma} {titel}"
+        if url and not _benennt(firma):
+            from urllib.parse import urlparse as _urlparse
+            _teile = _urlparse(url if "://" in url else "https://" + url)
+            _kennung += f" {(_teile.hostname or '').lower()}{(_teile.path or '').lower().rstrip('/')}"
+        job_hash = stelle_hash(quelle, _kennung)
 
         # Check for duplicates (#219: nur echte DB-Treffer, nicht scope-Prefix)
         existing_job = db.get_job(job_hash)
@@ -2936,8 +2966,10 @@ def register(mcp, db, logger):
                         + (f" (aussortiert wegen: {', '.join(_gruende)})" if _gruende else "")
                         + (". Die Firma heißt anders, Titel und Ort passen: Muttermarke oder Konzernunternehmen?"
                            if _aus["grund"] == "titel_plus_ort" else ".")
-                        + " Ist es dieselbe Stelle, ordne diese hier mit demselben Grund ein "
-                        "(stelle_einordnen), statt sie neu zu bewerten. Eine andere Stelle: einfach weitermachen."),
+                        + " Ist es dieselbe Stelle und gilt der Grund weiter, ordne diese hier mit demselben Grund ein "
+                        "(stelle_einordnen). Passt sie nach dem Lesen fachlich trotz des Grundes (etwa bei der Entfernung), "
+                        "lass sie aktiv und schreibe den Zweifelsgrund an die Stelle (stelle_urteil_speichern): ob sie taugt, "
+                        "entscheidet der Mensch. Eine andere Stelle: einfach weitermachen."),
                 }
         except Exception as exc:  # pragma: no cover - nie die Anlage kippen
             logger.warning("Pruefung auf aussortierte Dubletten (#1184) fehlgeschlagen: %s", exc)
@@ -2951,6 +2983,71 @@ def register(mcp, db, logger):
             _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
             google_vorbehalt = _gangaben.hinweis(remote, _remote_text, ort)
             remote = _remote_text
+
+        # #1189: Auflagen der Quelle (jobtic). Die Stellenart ist Vorgabe der Quelle, und Ansprechpartner aus dem
+        # Lauf werden nicht uebernommen: die Nutzungsbedingungen erlauben Kontaktdaten nur zur Anbahnung eines
+        # konkreten Projekts. Wer sich bewirbt, traegt den Kontakt selbst ein.
+        from ..services import quellen_auflagen as _auflagen
+        _aufl = _auflagen.auflagen(quelle, url)
+        kontakt_verworfen = None
+        if _aufl.get("stellenart") and stellenart == "festanstellung":
+            stellenart = _aufl["stellenart"]
+        if _aufl.get("keine_kontaktdaten") and (kontakt_name or kontakt_email or kontakt_telefon):
+            kontakt_name = kontakt_email = kontakt_telefon = ""
+            kontakt_verworfen = (
+                f"Ansprechpartner aus der Quelle '{quelle}' werden nicht übernommen: die Nutzungsbedingungen "
+                "erlauben Kontaktdaten nur zur Anbahnung eines konkreten Projekts. Wer sich bewirbt, trägt den "
+                "Kontakt selbst ein (kontakt_anlegen).")
+        # Dieselbe Auflage gilt fuer den Text: ein Projekttext aus der angemeldeten Seite traegt den Ansprechpartner oft
+        # im Fliesstext (Befund des unabhaengigen Pruefers, 11.10.2026). Mailadressen und Rufnummern werden gestrichen.
+        if _aufl.get("keine_kontaktdaten") and beschreibung:
+            beschreibung, _gestrichen = _auflagen.kontaktdaten_entfernen(beschreibung)
+            if _gestrichen:
+                _satz = (f"Im Text standen {_gestrichen} Mailadresse(n) oder Rufnummer(n); sie wurden entfernt, denn bei "
+                         "dieser Quelle werden keine Kontaktdaten übernommen.")
+                kontakt_verworfen = f"{kontakt_verworfen} {_satz}" if kontakt_verworfen else _satz
+
+        def _befunde_anfuegen(ergebnis: dict) -> None:
+            """Die Befunde der Pruefungen ins Ergebnis - fuer die Anlage und die Vorschau (#1187) dieselben."""
+            # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
+            # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer -
+            # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
+            if wiedergaenger_bewerbung:
+                ergebnis["warnung"] = "wiedergaenger_bewerbung"
+                ergebnis["bewerbung_vorher"] = wiedergaenger_bewerbung
+            # #1076: eigene Felder, damit keine Warnung eine andere verdeckt.
+            if repost_verdacht:
+                ergebnis["repost_verdacht"] = repost_verdacht
+                ergebnis.setdefault("warnung", "repost_verdacht")
+            if vermittler_bewerbung:
+                ergebnis["vermittler_bewerbung"] = vermittler_bewerbung
+                ergebnis.setdefault("warnung", "vermittler_bewerbung")
+            if laufende_bewerbung_verdacht:
+                ergebnis["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
+                ergebnis.setdefault("warnung", "laufende_bewerbung_verdacht")
+            if aussortierte_dublette:
+                ergebnis["aussortierte_dublette"] = aussortierte_dublette
+                ergebnis.setdefault("warnung", "aussortierte_dublette")
+            if google_vorbehalt:
+                ergebnis["google_vorbehalt"] = google_vorbehalt
+                ergebnis.setdefault("warnung", "google_nur_kopfdaten")
+            if kontakt_verworfen:
+                # Ein Hinweis, keine Warnung: die Stelle ist angelegt, nur der Kontakt fehlt absichtlich.
+                ergebnis["kontakt_nicht_uebernommen"] = kontakt_verworfen
+
+        if trocken:
+            # #1187: die Vorschau fragt dasselbe wie die Anlage und schreibt nichts. Bis hierher wurden nur
+            # gelesen: Blacklist, gleiche Kennung, Bewerbungen, Aktive, Aussortierte - alles, was ein echter
+            # Lauf abweisen wuerde, ist schon zurueckgekehrt.
+            vorschau = {
+                "status": "wuerde_angelegt", "trocken": True,
+                "id": _kurz(job_hash), "hash": job_hash,
+                "nachricht": f"Vorschau: Stelle '{titel}' bei {firma} würde angelegt.",
+            }
+            if uebersteuerter_verdacht:
+                vorschau["duplikat_uebersteuert"] = uebersteuerter_verdacht
+            _befunde_anfuegen(vorschau)
+            return vorschau
 
         # v1.7.112 (#1051): dasselbe Nadeloehr wie Suchlauf, Neuberechnung
         # und `fit_analyse`. Mit den rohen Kriterien fehlte die abgeleitete
@@ -3055,28 +3152,7 @@ def register(mcp, db, logger):
             result["herkunft_kurz"] = _wahrheit.kurz(result["herkunft"])
         except Exception:  # pragma: no cover
             pass
-        # #1065: angelegt, aber benannt. Eine erneut ausgeschriebene, schon
-        # abgesagte Stelle ist ein anderer Fall als ein frischer Treffer —
-        # und wer es nicht beim Anlegen erfaehrt, erfaehrt es gar nicht.
-        if wiedergaenger_bewerbung:
-            result["warnung"] = "wiedergaenger_bewerbung"
-            result["bewerbung_vorher"] = wiedergaenger_bewerbung
-        # #1076: eigene Felder, damit keine Warnung eine andere verdeckt.
-        if repost_verdacht:
-            result["repost_verdacht"] = repost_verdacht
-            result.setdefault("warnung", "repost_verdacht")
-        if vermittler_bewerbung:
-            result["vermittler_bewerbung"] = vermittler_bewerbung
-            result.setdefault("warnung", "vermittler_bewerbung")
-        if laufende_bewerbung_verdacht:
-            result["laufende_bewerbung_verdacht"] = laufende_bewerbung_verdacht
-            result.setdefault("warnung", "laufende_bewerbung_verdacht")
-        if aussortierte_dublette:
-            result["aussortierte_dublette"] = aussortierte_dublette
-            result.setdefault("warnung", "aussortierte_dublette")
-        if google_vorbehalt:
-            result["google_vorbehalt"] = google_vorbehalt
-            result.setdefault("warnung", "google_nur_kopfdaten")
+        _befunde_anfuegen(result)
         # #733: Wenn die Quelle 'manuell' geblieben ist (keine erkannte URL),
         # den Aufrufer aktiv erinnern, die echte Herkunft zu setzen — sonst
         # verfaelschen KI-gesteuerte Chrome-Adds die Quellenstatistik
@@ -3183,12 +3259,12 @@ def register(mcp, db, logger):
         Claude führt ihn in einem Tab auf linkedin.com aus, und
         `linkedin_treffer_uebernehmen` schreibt das Ergebnis nach PBP.
 
-        **Der Volltext ist Pflicht, nicht Kür.** Von 59 Titeln, die den
-        Vorfilter passiert hatten, blieben nach dem Lesen der Volltexte 3
-        übrig — der beste Titel-Treffer des Laufs verlangte im Fliesstext
-        ein System von der harten Ausschlussliste. Wer nur Titel und
-        Kurzbeschreibung übernimmt, liefert genau die falschen Stellen
-        mit hohem Score ein.
+        **Der Volltext gehört zum Urteil.** Titel und Kurzbeschreibung
+        sagen zu wenig: im Lauf vom 17.08.2026 verlangte der beste
+        Titel-Treffer im Fliesstext ein System von der harten
+        Ausschlussliste. Gelesen wird, um das Urteil an die Stelle zu
+        schreiben, nicht um auszusortieren (#1187): im Zweifel eintragen;
+        die Regel steht im Ergebnis unter `regel`.
 
         Args:
             max_begriffe: wie viele Suchbegriffe der Lauf umfasst. Jeder
@@ -3199,6 +3275,7 @@ def register(mcp, db, logger):
             seiten: Ergebnisseiten je Begriff (25 Treffer je Seite).
         """
         from ..job_scraper import linkedin_voyager as lv
+        from ..services.browser_handoff import REGEL_IM_ZWEIFEL
 
         try:
             portal = db.get_portal_search_profile("linkedin") or {}
@@ -3236,18 +3313,23 @@ def register(mcp, db, logger):
                 "4_ausgabe": lv.JS_AUSGABE,
             },
             "js_volltexte_konfig": cfg,
+            "regel": REGEL_IM_ZWEIFEL,
             "ablauf": [
                 "Tab auf die LinkedIn-Jobsuche öffnen (eingeloggt).",
                 "Skript 1 ausführen — es läuft als async IIFE weiter, "
                 "auch wenn der Aufruf sofort zurückkommt.",
                 "Skript 2 wiederholt aufrufen, bis 'fertig' true ist.",
                 "Titel sichten und die Job-IDs wählen, deren Volltext "
-                "geholt werden soll (der Vorfilter).",
+                "geholt werden soll. Der Vorfilter spart nur Requests und "
+                "urteilt nicht: im Zweifel holen.",
                 "Skript 3 mit diesen IDs starten, danach wieder Skript 2.",
                 "Skript 4 rendert das Ergebnis in die Seite; mit "
                 "get_page_text abholen — javascript_tool kappt bei rund "
                 "1000 Zeichen.",
-                "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen.",
+                "linkedin_treffer_uebernehmen(treffer=[...]) aufrufen: erst "
+                "als Vorschau (dry_run=True, dieselben Prüfungen wie der "
+                "echte Lauf), dann mit dry_run=False; danach die Urteile "
+                "an die Stellen schreiben (siehe `regel`).",
             ],
             "stolpersteine": [
                 "Navigation löscht window.__pbp_ln — der ganze Lauf muss "
@@ -3329,7 +3411,11 @@ def register(mcp, db, logger):
 
         Args:
             treffer: die geernteten Stellen.
-            dry_run: True (Vorgabe) zeigt nur, was passieren würde.
+            dry_run: True (Vorgabe) zeigt nur, was passieren würde - mit
+                denselben Prüfungen wie der echte Lauf (Duplikate gegen den
+                Bestand, laufende Bewerbungen, Blacklist), aber ohne etwas
+                zu schreiben (#1187). Zwei ähnliche, nicht gleiche Stellen
+                im selben Aufruf erkennt erst der echte Lauf.
             login_fehlt: True meldet den Lauf als 'wartet_auf_login' —
                 kein Befund über den Markt, keine Auto-Deaktivierung.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist
@@ -3338,7 +3424,8 @@ def register(mcp, db, logger):
                 wurden (#1076) — auch die, die danach nicht übergeben
                 wurden.
             nach_lesen_verworfen: wie viele davon nach dem Lesen
-                verworfen wurden.
+                verworfen wurden. Im Zweifel nichts verwerfen: Zweifelsfälle
+                gehören hinein (Regel: `linkedin_lauf_plan`, Feld `regel`).
         """
         from ..job_scraper import linkedin_voyager as lv
 
@@ -3370,6 +3457,7 @@ def register(mcp, db, logger):
             trichter["nach_lesen_verworfen"] = int(nach_lesen_verworfen or 0)
 
         angelegt, uebersprungen = [], []
+        vorschau_hashes = set()     # #1187: was die Vorschau in diesem Aufruf schon "angelegt" hat
 
         def _skip(eintrag, grund, detail=""):
             trichter["uebersprungen"] += 1
@@ -3401,13 +3489,6 @@ def register(mcp, db, logger):
                 continue
             trichter["volltexte"] += 1
 
-            if dry_run:
-                trichter["angelegt"] += 1
-                angelegt.append({"job_id": job_id, "titel": titel,
-                                 "firma": firma,
-                                 "beschreibung_zeichen": len(beschreibung)})
-                continue
-
             # v1.7.67 (#1011) AK 3: die Sammeluebernahme nimmt jetzt
             # Kontaktdaten entgegen. Sie hatte keine — und deshalb
             # entstand bei 11 von 14 Stellen eines Arbeitstags kein
@@ -3422,18 +3503,29 @@ def register(mcp, db, logger):
                 stellenart=str(e.get("anstellungsart") or "festanstellung"),
                 kontakt_name=str(e.get("kontakt_name") or "").strip(),
                 kontakt_email=str(e.get("kontakt_email") or "").strip(),
-                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip())
+                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip(),
+                trocken=dry_run)   # #1187: die Vorschau prueft wie der echte Lauf
+            if res.get("status") == "wuerde_angelegt":
+                # Der echte Lauf legt die erste an und weist die zweite mit derselben Kennung ab. Die Vorschau
+                # schreibt nichts und muss das nachziehen, sonst zaehlt sie hoeher als der Lauf.
+                if res["hash"] in vorschau_hashes:
+                    _skip(e, "duplikat_aktiv",
+                          "doppelt in dieser Übergabe (gleiche Firma, gleicher Titel)")
+                    continue
+                vorschau_hashes.add(res["hash"])
             # v1.7.126 (#1076): angelegt ist, was angelegt wurde — auch
             # mit Warnung. Bis hierher zaehlte jede Antwort mit `warnung`
             # als uebersprungen, seit #1065 also auch eine angelegte Stelle
             # zu einer frueheren Bewerbung: sie stand im Bestand und im
             # Trichter als verworfen.
-            if res.get("status") == "angelegt" or (
+            if res.get("status") in ("angelegt", "wuerde_angelegt") or (
                     res.get("hash") and not res.get("warnung")):
                 trichter["angelegt"] += 1
                 _eintrag = {"job_id": job_id, "titel": titel,
                             "firma": firma, "hash": res["hash"],
                             "score": res.get("score")}
+                if dry_run:
+                    _eintrag["beschreibung_zeichen"] = len(beschreibung)
                 if res.get("kontakt"):
                     _eintrag["kontakt"] = res["kontakt"]
                     trichter["kontakte"] = trichter.get("kontakte", 0) + 1
@@ -3442,6 +3534,7 @@ def register(mcp, db, logger):
                         ("vermittler_bewerbung", "vermittler_bewerbung"),
                         ("laufende_bewerbung_verdacht",
                          "laufende_bewerbung_verdacht"),
+                        ("aussortierte_dublette", "aussortierte_dublette"),
                         ("wiedergaenger_bewerbung", "bewerbung_vorher")):
                     if res.get(_feld):
                         _eintrag[_schl] = res[_feld]
@@ -3741,28 +3834,38 @@ def register(mcp, db, logger):
             return len((job.get("description") or "").strip()) < MIN_BESCHREIBUNG
 
         aktive = db.get_active_jobs() or []
-        fehlend = [j for j in aktive if _fehlt(j)]
+        # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab. Sie gehoeren nicht in die Auswahl: mit
+        # `max_stellen` fuellten sie sonst die ersten Plaetze, und alle anderen kamen nie dran.
+        from ..services import quellen_auflagen as _auflagen_nb
+        nicht_abrufbar = [j for j in aktive
+                          if _auflagen_nb.kein_automatischer_abruf(j.get("source") or "", j.get("url") or "")]
+        if nicht_abrufbar:
+            _ausgenommen = {id(j) for j in nicht_abrufbar}
+            aktive_abrufbar = [j for j in aktive if id(j) not in _ausgenommen]
+        else:
+            aktive_abrufbar = aktive
+        fehlend = [j for j in aktive_abrufbar if _fehlt(j)]
         # `ist_gekappt` und `_fehlt` schliessen einander aus (2000 gegen
         # unter 50), eine Dublettenpruefung waere also Zierrat — der
         # Test haelt das fest, damit es beim naechsten Schwellenwert
         # auffaellt.
         # #1048: mit Quelle — `hays` kappte bei 500 Zeichen, und diese
         # Stellen fielen durch beide Raster.
-        gekappt = [j for j in aktive
+        gekappt = [j for j in aktive_abrufbar
                    if ist_gekappt(j.get("description"), j.get("source"))]
         # #1047: der dritte Schaden — Text da, aber ohne jede Gliederung.
         # Gekappte Texte zaehlen nicht doppelt, und Quellen, deren Text
         # schon an der Quelle ungegliedert ist, gewinnen durch Nachladen
         # nichts.
         from ..job_scraper.html_text import QUELLEN_OHNE_GLIEDERUNG, ist_flach
-        flach = [j for j in aktive
+        flach = [j for j in aktive_abrufbar
                  if ist_flach(j.get("description"))
                  and not ist_gekappt(j.get("description"), j.get("source"))
                  and (j.get("source") or "").strip().lower()
                  not in QUELLEN_OHNE_GLIEDERUNG]
         # v1.7.128 (#1040 Punkt 5): Firma oder Ort fehlen. Nur mit URL —
         # ohne Detailseite gibt es nichts nachzuziehen.
-        ohne_kopf = [j for j in aktive
+        ohne_kopf = [j for j in aktive_abrufbar
                      if nachladen.fehlender_kopf(j)
                      and (j.get("url") or "").strip()
                      and not j.get("is_search_url")]
@@ -3770,7 +3873,7 @@ def register(mcp, db, logger):
         # Kasten zur Ansprechperson traegt. Die Auswahl liest den Text —
         # geschnitten wird er hier nicht, sondern neu geladen.
         from ..job_scraper.linkedin_seite import nur_gehaltskasten, traegt_ansprechkasten
-        li_kasten = [j for j in aktive
+        li_kasten = [j for j in aktive_abrufbar
                      if "linkedin" in (j.get("source") or "").lower()
                      and (j.get("url") or "").strip()
                      and (nur_gehaltskasten(j.get("description"))
@@ -3783,6 +3886,9 @@ def register(mcp, db, logger):
         zaehlung = {"ohne_text": len(fehlend), "gekappt": len(gekappt),
                     "flach": len(flach), "ohne_firma_ort": len(ohne_kopf),
                     "linkedin_kasten": len(li_kasten)}
+        if nicht_abrufbar:
+            # nicht heilbar, aber nicht verschwiegen: diese Stellen traegt der Mensch von Hand nach
+            zaehlung["nicht_automatisch"] = len(nicht_abrufbar)
         if not auswahl:
             return {
                 "status": "nichts_zu_tun",
@@ -3991,6 +4097,10 @@ def register(mcp, db, logger):
             url_nicht_erreichbar — die Adresse ließ sich nicht erreichen
                               (kein Netz, Namensfehler; KEIN Aussortier-
                               Grund) — zählt NICHT als ok (#1148)
+            url_nicht_geprueft — die Quelle verbietet den automatischen
+                              Abruf (jobtic, #1189); PBP fragt die Adresse
+                              nicht ab, die Aussage gilt weder als ok noch
+                              als Fehler
             beschreibung_fehlt — URL ok, aber description leer/zu kurz
             search_url      — URL ist nur Such-URL (is_search_url=1)
 
@@ -4080,6 +4190,9 @@ def register(mcp, db, logger):
                         kategorie.append("url_blocked")
                     elif health.status == HealthStatus.HTTP_ERROR:
                         kategorie.append("url_http_error")
+                    elif health.status == HealthStatus.NICHT_GEPRUEFT:
+                        # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab.
+                        kategorie.append("url_nicht_geprueft")
                     elif health.status == HealthStatus.UNKNOWN:
                         # #1148: eine Adresse, die sich nicht erreichen liess
                         # (kein Netz, Namensfehler), fiel durch alle Zweige
@@ -4892,6 +5005,14 @@ def register(mcp, db, logger):
         # Ab hier den vollen aufgeloesten Hash verwenden
         job_hash = resolved
 
+        # #1189: Quellen mit der Auflage "keine Kontaktdaten" (jobtic): auch der Text traegt keine Mailadressen und
+        # Rufnummern. Der Mensch tippt im Dashboard, was er will; dieser Weg ist der von Claude.
+        kontakt_aus_text = 0
+        if beschreibung:
+            from ..services import quellen_auflagen as _auflagen_sb
+            if _auflagen_sb.keine_kontaktdaten(job.get("source") or "", url or job.get("url") or ""):
+                beschreibung, kontakt_aus_text = _auflagen_sb.kontaktdaten_entfernen(beschreibung)
+
         # #1095: Aenderung und Neuberechnung (#535, #987) stehen im Dienst
         # services/stelle_aendern — derselbe Weg wie der Bearbeiten-Dialog
         # im Dashboard. Ein neuer Ort rechnet die Entfernung neu.
@@ -4915,6 +5036,11 @@ def register(mcp, db, logger):
                 f"bei {updates.get('company') or job.get('company', '')} aktualisiert."
             ),
         }
+        if kontakt_aus_text:
+            result["kontakt_nicht_uebernommen"] = (
+                f"Im Text standen {kontakt_aus_text} Mailadresse(n) oder Rufnummer(n); sie wurden entfernt, denn bei "
+                "dieser Quelle werden keine Kontaktdaten übernommen. Wer sich bewirbt, trägt den Kontakt selbst ein "
+                "(kontakt_anlegen).")
         if erg.get("score_neu_berechnet"):
             result["score_neu_berechnet"] = erg["score_neu_berechnet"]
         if erg.get("google_vorbehalt_aufgehoben"):
@@ -5302,7 +5428,10 @@ def register(mcp, db, logger):
 
         Args:
             quelle: Quellen-Name (z.B. 'gulp', 'kimeta', 'heise_jobs',
-                'stepstone', 'linkedin', 'xing', 'indeed').
+                'stepstone', 'linkedin', 'xing', 'indeed', 'jobtic'). Bei
+                'jobtic' kommen die Auflagen der Quelle mit (eigenes
+                angemeldetes Konto, Handstart, wenige Seiten, keine
+                Kontaktdaten).
             keyword: Suchbegriff.
             ort: Optionaler Ort.
         """
@@ -5416,7 +5545,7 @@ def register(mcp, db, logger):
                for c in db.get_custom_sources()):
             return {"fehler": "Diese URL ist bereits als Custom-Quelle angelegt."}
         sid = db.add_custom_source(name, url)
-        return {
+        antwort = {
             "status": "angelegt",
             "quelle_id": sid,
             "name": name,
@@ -5427,6 +5556,15 @@ def register(mcp, db, logger):
                 "quellen_health_check mitgeprüft."
             ),
         }
+        # #1189: gehoert die Adresse zu einer Quelle mit Auflagen (jobtic), gelten sie auch hier.
+        from ..services import quellen_auflagen as _auflagen_cq
+        _auflage = _auflagen_cq.hinweis_fuer_claude(url=url)
+        if _auflage:
+            antwort["auflagen"] = _auflage
+            antwort["hinweis"] = (
+                "Diese Adresse gehört zu einer Quelle mit Auflagen: PBP ruft sie nie selbst ab, auch nicht im "
+                "quellen_health_check. custom_quellen_anzeigen() liefert den Browser-Handoff samt Auflagen.")
+        return antwort
 
     @mcp.tool()
     def custom_quellen_anzeigen() -> dict:
@@ -5625,6 +5763,14 @@ def register(mcp, db, logger):
                         nicht_geprueft.append(f"custom:{c['name']}")
                         continue
                     eintrag = {"quelle": f"custom:{c['name']}", "url": c["url"]}
+                    # #1189: eine eigene Quelle auf der Adresse einer Quelle mit Auflage wird nie angefragt.
+                    from ..services.quellen_auflagen import kein_automatischer_abruf as _kein_abruf
+                    if _kein_abruf(url=c["url"]):
+                        eintrag["reachable"] = None
+                        eintrag["hinweis"] = "Auflage der Quelle: PBP ruft diese Seite nicht selbst ab."
+                        db.update_custom_source_status(c["id"], "nicht geprüft (Auflage der Quelle)")
+                        custom_results.append(eintrag)
+                        continue
                     try:
                         with httpx.Client(timeout=10, follow_redirects=True) as cl:
                             resp = cl.get(c["url"], headers={

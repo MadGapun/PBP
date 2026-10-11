@@ -35,6 +35,66 @@ def get_profile_preferences(profile: dict | None) -> dict:
     return {}
 
 
+def _jahr_oder_stufe(wert):
+    """Ganze Zahl oder None (leer, Text, nicht lesbar, 0). Eine Stufe liegt bei 1 bis 5, ein Jahr ueber 1900 (das Dashboard
+    begrenzt beides so); 0 schickt ein Aufrufer fuer „nicht gesetzt“ („0 = aktuell/unbekannt“ steht in der Beschreibung von
+    `skill_hinzufuegen`) und ist weder ein Ende noch ein Niveau."""
+    if isinstance(wert, bool):
+        return None
+    try:
+        zahl = int(wert) if wert not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
+    return zahl if zahl is not None and zahl > 0 else None
+
+
+def skill_stand(skill: dict | None) -> dict:
+    """Der Stand eines Skills: heutiges Koennen getrennt von der Spitze (#1190).
+
+    `level` in der Tabelle ist die SPITZE eines Berufslebens. Was ein Mensch heute
+    kann, steht in `level_current`; ein gesetztes `end_year` heisst: seit diesem
+    Jahr nicht mehr eingesetzt. Die Oberflaeche zeigt den aktuellen Stand und bei
+    ruhenden Skills „ruht (Spitze x/5)“. Wer ueber das Koennen eines Menschen
+    spricht, nimmt `level_aktuell` — die Spitze allein macht aus einem Wissen von
+    2003 einen Experten von heute.
+
+    `level_aktuell` ist None, wenn der Skill ruht und kein heutiges Niveau
+    eingetragen ist: dann steht nichts fest, und es ist nachzufragen.
+    """
+    s = skill or {}
+    spitze = _jahr_oder_stufe(s.get("level"))
+    aktuell = _jahr_oder_stufe(s.get("level_current"))
+    start = _jahr_oder_stufe(s.get("start_year"))
+    ende = _jahr_oder_stufe(s.get("end_year"))
+    zuletzt = _jahr_oder_stufe(s.get("last_used_year"))
+    aktuell_eingetragen = aktuell is not None
+    if aktuell is None and ende is None:
+        aktuell = spitze          # laeuft noch, nie abgesenkt: die Spitze IST der Stand
+    ruht = ende is not None or (aktuell is not None and spitze is not None and aktuell < spitze)
+
+    teile = []
+    if aktuell is not None and spitze is not None and aktuell != spitze:
+        teile.append(f"aktuell Lv.{aktuell}")
+        teile.append(f"Spitze Lv.{spitze}")
+    elif aktuell is not None:
+        teile.append(f"Lv.{aktuell}")
+    elif spitze is not None:
+        teile.append(f"Spitze Lv.{spitze}")
+    if ende is not None:
+        teile.append(f"ruht seit {ende}")
+        if not aktuell_eingetragen:
+            teile.append("heutiges Niveau nicht eingetragen")
+    return {
+        "level_aktuell": aktuell,
+        "level_spitze": spitze,
+        "ruht": bool(ruht),
+        "seit": start,
+        "bis": ende,
+        "zuletzt_genutzt": zuletzt,
+        "stand": ", ".join(teile),
+    }
+
+
 def summarize_profile(profile: dict | None) -> dict:
     """Erzeugt eine kleine gemeinsame Profil-Zusammenfassung."""
     if not profile:
