@@ -33,6 +33,90 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-rc.2] - 11.10.2026 — Texterkennung ohne Administratorrechte, saubere Installation (Release-Kandidat)
+
+<!-- anwender -->
+Die Texterkennung für eingescannte Zeugnisse lässt sich jetzt auch ohne Administratorrechte einrichten — so, wie es der Knopf „Herunterladen & installieren“ immer versprochen hat.
+Der Installer räumt hinter sich auf: kein leerer Ordner und keine Reste im Temp-Ordner mehr. Gefunden hat das alles der Testlauf auf einem frischen Windows 11.
+<!-- /anwender -->
+
+Zweiter Release-Kandidat für 1.8.0. Gegenüber `1.8.0-rc.1` ändert sich nur, was der Testlauf auf dem Werkstatt-PC (11.10.2026, Windows 11, Claude Desktop als
+Store-Fassung, ohne Administratorrechte) gefunden hat. Ergebnis des Laufs: Beta-Exit-Punkte 4 (Migration von 1.7.156), 5 (Erstkontakt) und 7 (Auto-Update gegen echtes
+GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Administratorrechte) nicht — das ist PP26 unten.
+
+### Fixed
+
+- **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26; seit beta.0, Beta-Exit 3). Das Setup von Tesseract verlangt Administratorrechte
+  in seinem Manifest; aus einem Programm ohne Erhöhung lässt es sich gar nicht starten (`WinError 740`), obwohl der Knopf „kein Admin nötig“ versprach, und die
+  Oberfläche zeigte den rohen Systemtext. Jetzt startet PBP das Setup ohne Abfrage (`__COMPAT_LAYER=RunAsInvoker`; es verzichtet darauf, Rechte zu verlangen,
+  und erhöht keine). Das Setup installiert dann „nur für mich“ nach `%LOCALAPPDATA%\Programs\Tesseract-OCR` und ignoriert das Ziel; PBP sucht dort, merkt sich den
+  Ort (`components\tesseract\pbp-installation.json`), lädt das deutsche Sprachpaket dorthin, zeigt den Ort mit Größe unter „Speicher & Downloads“ und entfernt
+  alles wieder mit dem eigenen Deinstallationsprogramm des Setups — in der Oberfläche („Entfernen“) und im Deinstaller (Schritt 5), und nur an diesem einen Ort.
+  Eine Tesseract-Installation, die du selbst angelegt hast, wird erkannt und nie angefasst. Die Hinweise zum fehlenden Sprachpaket nennen keine Werkzeugnamen mehr.
+- **Der Installer ließ einen leeren Ordner und die Kopie seines Aufräum-Helfers liegen** (PP24; seit 1.8.0-beta.16, nur Windows mit der mitgelieferten
+  Python-Laufzeit). Der Helfer löscht den entpackten Installer-Ordner, sobald das Installer-Fenster zu ist; solange es offen ist, hält es den Ordner fest. Der erste
+  Versuch scheiterte darum immer — und `shutil.rmtree` warf den Fehler aus seiner Rückruffunktion bis in den Prozess, statt es 200-mal im Abstand von 3 s zu
+  versuchen. Jetzt fängt der Helfer das auf und versucht es weiter. Auf einem Rechner mit Python 3.13 fiel es nicht auf (dort löscht Windows den gehaltenen
+  Ordner trotzdem); die vorhandenen Tests ersetzten genau die Stelle, an der es krachte.
+- **Nach jeder Installation blieb `%TEMP%\tmpXXXX\pip.zip` (1,7 MB) liegen** (PP25; auch in 1.7.x). `get-pip.py` arbeitet jetzt in einem eigenen Ordner, der danach
+  gelöscht wird.
+- **Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.**
+
+### Bekannt, bewusst nicht geändert
+
+- Nach der Deinstallation bleibt im klassischen Konfigurationsordner `%APPDATA%\Claude` eine Datei mit leerem `mcpServers` samt `….pbp-backup`, und die Datei von
+  Claude als Store-Fassung behält `"mcpServers": {}` (PP27, PP28; schon als PP22 dokumentiert). Harmlos — Claude liest beides wie vorher —, die Sicherungskopie ist
+  Absicht. Auf Wunsch lässt sich das ändern.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8580 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.2.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.2.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.2 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.2` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-rc.1] - 11.10.2026 — Updates, die sich selbst installieren (Release-Kandidat)
 
 <!-- anwender -->

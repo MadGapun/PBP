@@ -357,6 +357,9 @@ def test_die_bat_fasst_nur_den_einen_ort_an_und_nur_mit_dem_marker():
     assert 'if not exist "%BASE_INSTALL%\\components\\tesseract\\pbp-installation.json" exit /b 9' in u
     assert "Programs\\Tesseract-OCR" in u and "RunAsInvoker" in u
     assert "Remove-Item -LiteralPath $d" in u and "-Recurse" in u
+    # Das Deinstallationsprogramm des Setups kehrt sofort zurueck (es kopiert sich nach TEMP): es wird gewartet, bis das
+    # Programm wirklich weg ist -- erst dann raeumt der Rest auf. Ohne die Schleife liefe `Remove-Item` mitten hinein.
+    assert "Test-Path -LiteralPath (Join-Path $d 'tesseract.exe')" in u and "Start-Sleep -Seconds 1" in u
 
 
 def _lauf_texterkennung(tmp_path: Path, lokal: Path, basis: Path):

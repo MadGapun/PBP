@@ -112,3 +112,9 @@ Der Schlüssel zum Signieren verlässt diesen Rechner nie; signiert wird hier, h
 
 Je Block ein Satz („in Ordnung“ oder Abweichung mit Bildschirmfoto) im Issue #1170 und im PR des Kandidaten; Funde werden wie PP1 bis PP23 nummeriert
 (PP24 ff.). Ein Befund, der ein Ergebnis ändert, hält die Veröffentlichung an.
+
+## Stand nach dem Lauf (11.10.2026)
+
+Gelaufen. Ergebnis je Block und die Funde PP24 bis PP28 stehen in `praxisprobe-1.8.0.md` (Abschnitt „Testlauf des Release-Kandidaten“), im Issue #1170 und im
+PR des Kandidaten. Beta-Exit-Punkte 4, 5 und 7 sind belegt, Punkt 3 war offen (PP26) und ist in `1.8.0-rc.2` behoben; der Beleg mit dem echten Setup ist ein
+zweiter, kurzer Lauf (Blöcke B, D, G, H; rund eine Stunde; vorher ankündigen).

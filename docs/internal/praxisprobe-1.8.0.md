@@ -191,3 +191,43 @@ kleines Probe-Skript (nur lesend, plus Daten über die REST-Schnittstelle) hielt
 Dazu `%LOCALAPPDATA%\fastmcp\version_cache.json`: legt die Bibliothek FastMCP beim ersten Start des Servers an (61 Bytes); gehört nicht zu PBP, andere Server nutzen den Ordner mit, bleibt bei der Deinstallation (im Zweifel behalten, wie bei Playwright und pip).
 
 Eigener Fehler beim Prüfen: die Vergleichsspalte „Basis“ blieb für die Konfiguration im Paketordner leer (das Probe-Skript las die Basiswerte aus der JSON-Datei mit einem Feldzugriff, der bei PowerShell 5.1 ins Leere ging) — ich habe das nicht als „gleich“ gelesen, sondern die Dateien direkt verglichen (Prüfsumme gegen die Kopie, Inhalt ohne das leere `mcpServers`). Lehre L59.
+
+## Testlauf des Release-Kandidaten `1.8.0-rc.1` auf dem Werkstatt-PC (11.10.2026, abends)
+
+Plan I27 (`testlauf-1.8.0.md`), Kandidat `6a3a3933`. Windows 11, Claude Desktop als Store-Fassung, Benutzerkonto **ohne** erhöhte Rechte (eine UAC-Abfrage des
+Texterkennungs-Setups wurde abgelehnt), Remotedesktop-Sitzung, Probe-Skript `testlauf/pbp_probe.ps1`. Alle Daten erfunden („Erika Beispiel“). Danach
+zurückgesetzt: Konfiguration von Claude byte-gleich mit Block A, alle Hilfsdateien, ZIPs, Temp-Reste und Fenster weg; die selbst installierte Tesseract-Kopie über ihr
+eigenes Deinstallationsprogramm entfernt; Remotedesktop-Verbindung und die Energie-Seite offen.
+
+| Block | Ergebnis |
+|---|---|
+| A Ausgangszustand | in Ordnung: kein PBP, nichts unter `%LOCALAPPDATA%\BewerbungsAssistent`, kein `ms-playwright`, kein `pip`-Ordner, Port 8200 frei |
+| B Frische Installation | in Ordnung bis auf **PP24** und **PP25**; Version `1.8.0-rc.1`, Schema 52, `integrity_check` ok, Konfiguration auf den Startbaustein (`boot`), fremde Server unverändert, `initialize` und `tools/list` werden beantwortet |
+| C Erstkontakt | in Ordnung: ein Weg („Lebenslauf hochladen“), eine Karte mit einem Knopf je Seite, „Dein Profil anlegen“, Aufgaben, Statistiken und Gefahrenzone erklären sich; keine Sackgasse |
+| D Texterkennung | **nicht bestanden (PP26)**; mit von Hand eingetragenem Pfad liest PBP das Scan-PDF (1 Seite, 807 Zeichen, Typ „Zeugnis“, 1,8 s), nur mit `eng` |
+| E Auto-Update | in Ordnung (E1 bis E4): echtes GitHub über das Probe-Repository, Prüfsumme und Signatur, Einspielen, Neustart mit unveränderten Daten; absichtlich defekte Fassung → Rückfall; falsche Prüfsumme und fremde Signatur abgelehnt, nichts bleibt liegen |
+| F Stable 1.7.156 → Kandidat | in Ordnung: Abdruck gleich (Profil, 6 Bewerbungen, 7 Kontakte, 2 Aufgaben), Schema 48 → 52, zwei Sicherungen „vor_update“ (580 KB, 676 KB; die neueste geprüft: Schema 48, `integrity_check` ok), `versions\1.8.0-rc.1`, Konfiguration auf den Startbaustein, kein altes `src`, 18 von 18 Schnittstellen 200, 258 Werkzeuge über den Konfigurationseintrag, Protokoll 274 Zeilen ohne Warnung |
+| G Deinstallation | in Ordnung, zweimal (Vorgabe „Behalten“; dann mit Daten): PP10 mit echtem Playwright (706 MB + 126 MB, ein „j“ löscht), Desktop-Backup, Daten erst nach `LOESCHEN`, kein Restfenster, keine Kopie des Deinstallers im Temp-Ordner; Reste PP27, PP28 |
+| H Zurücksetzen | in Ordnung |
+
+**Beta-Exit:** Punkte 4, 5 und 7 belegt; **Punkt 3 offen (PP26)**. Die Veröffentlichung bleibt bis zum zweiten Lauf (B, D, G, H) angehalten.
+
+### Neue Funde (PP24 bis PP28)
+
+| Nr | Fund | Ursache | Stand |
+|---|---|---|---|
+| **PP26** | Die Texterkennung lässt sich ohne Administratorrechte nicht installieren; die Oberfläche zeigt `WinError 740` | Das Setup (NSIS) verlangt in seinem Manifest Administratorrechte; `subprocess.run` kann es ohne Erhöhung nicht starten. Mit `__COMPAT_LAYER=RunAsInvoker` läuft es, installiert aber „nur für mich“ nach `%LOCALAPPDATA%\Programs\Tesseract-OCR` und **ignoriert** `/D=` (am Werkstatt-PC gemessen). PBP suchte nur im eigenen Ordner und in Program Files, der Deinstaller räumte das nicht ab, und `deu` kam für einen von Hand eingetragenen Pfad nicht dazu | **behoben in rc.2** (`services/components.py`: `_setup_umgebung`, `_benutzer_ordner_win`, Marker `pbp-installation.json`, `_eigene_installation_entfernen`; Deinstaller `:texterkennung_entfernen`); 27 Tests, Katalog `texterkennung` (te01 bis te16). Beleg mit dem echten Setup: zweiter Lauf |
+| **PP24** | Leerer Ordner `PBP-…` und Kopie `pbp_installer_aufraeumen.py` bleiben | Das Installer-Fenster selbst hält den Ordner (Arbeitsordner), also scheitert der **erste** Versuch des Aufräum-Helfers immer; `shutil.rmtree` wirft den Fehler beim Ordner aus der Rückruffunktion in den Prozess, statt die vorgesehenen 200 Versuche zu machen. Mit Python 3.13 (Entwicklungsrechner) löscht Windows den gehaltenen Ordner trotzdem; die mitgelieferte Laufzeit ist 3.12. Die Tests ersetzten `_loeschen_versuchen` ganz | **behoben in rc.2** (`_installer_aufraeumen.py`: Fangnetz in `_freigeben` und im Durchgang); 5 Tests, Katalog in07, in08 |
+| PP25 | `%TEMP%\tmpXXXX\pip.zip` (1,7 MB) bleibt liegen (auch in 1.7.156) | `get-pip.py` kann die geladene Datei unter Windows nicht selbst löschen | **behoben in rc.2** (`INSTALLIEREN.bat`: `:pip_beschaffen` mit eigenem Temp-Ordner); 3 Tests, Katalog in09 bis in13 |
+| PP27 | `%APPDATA%\Claude\` (vom Installer angelegt) bleibt mit leerer Konfiguration und `….pbp-backup` | = PP22; die Kopie vor dem Ändern ist Absicht (v1.7.145) | bewusst nicht geändert (harmlos) |
+| PP28 | Die Store-Konfiguration behält `"mcpServers": {}`; nicht byte-gleich mit vorher | Der Deinstaller entfernt nur den Eintrag und erhält den Rest des Textes | bewusst nicht geändert (harmlos; fremde Server und Einstellungen unverändert) |
+
+Außerdem: die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text (behoben); die Liste im Deinstaller-Fenster nannte die Komponenten nicht (jetzt ja); das
+Backup-ZIP des Deinstallers enthält `pbp.db` mit 4 KB und `pbp.db-wal` mit 3,6 MB, weil der Deinstaller PBP beendet statt schließt — richtig, solange die Dateien
+zusammenbleiben (im ZIP liegen außerdem die selbsttragenden Sicherungen unter `backups\`).
+
+**Geprüft, ohne Befund:** Tabellen und Spalten einer von 1.7.156 angelegten Datenbank nach der Migration gleich einer frischen 1.8-Datenbank
+(`parity`-Vergleich, 55 Tabellen); 258 Werkzeuge antworten über den Eintrag aus der Konfiguration.
+
+**Lehre:** Ein Pfad „ohne Administratorrechte“ lässt sich nur auf einem Rechner belegen, auf dem der Test wirklich keine bekommt, und ein Aufräum-Helfer nur dort, wo
+der Ordner tatsächlich gehalten wird. Der Entwicklungsrechner war für beides blind; ein zweiter, unabhängiger Leser vor dem Lauf hat beides nicht gefunden.

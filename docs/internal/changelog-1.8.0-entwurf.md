@@ -135,6 +135,9 @@ Einträgen darunter.
 
 ### Fixed
 
+- **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26, Testlauf 11.10.2026; seit beta.0). Das Setup verlangte Rechte und ließ sich aus einem Programm ohne Erhöhung nicht starten (`WinError 740`); der Knopf versprach „kein Admin nötig“. Jetzt startet PBP es ohne Abfrage, sucht den Ort, an dem es „nur für mich“ installiert (`%LOCALAPPDATA%\Programs\Tesseract-OCR`), merkt ihn, lädt das deutsche Sprachpaket dorthin und entfernt alles wieder mit dem eigenen Deinstallationsprogramm des Setups (Oberfläche und Deinstaller, nur an diesem einen Ort).
+- **Der Installer ließ einen leeren Ordner, die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) im Temp-Ordner liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
+- Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
 - **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
   Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des Auto-Updates (`/api/auto-update`) kennt nie eine Vorabversion. Die
