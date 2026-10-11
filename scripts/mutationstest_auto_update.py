@@ -937,7 +937,23 @@ M_SKILL = [
      '    if isinstance(wert, bool):\n        return None\n', '', T_SK),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL}
+# ── Installer-Reste: leerer Ordner, altes Dashboard-Fenster, Temp-Dateien (#1170 PP20, PP21, PP23) ──
+T_IN = ["tests/test_v18_installer_reste_1170.py"]
+
+M_INSTALLER = [
+    ("in01", "Der Installer beendet das alte Dashboard-Fenster nicht mit", "INSTALLIEREN.bat",
+     " -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\\.bat') }", " }", T_IN),
+    ("in02", "Der Prozessfilter trifft jedes cmd-Fenster", "INSTALLIEREN.bat",
+     "$_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\\.bat'", "$_.Name -eq 'cmd.exe'", T_IN),
+    ("in03", "Das Dashboard-Fenster erbt wieder den Arbeitsordner des Installers", "INSTALLIEREN.bat",
+     'start "PBP-Dashboard" /MIN /D "%APP_DIR%" "%APP_DIR%\\Dashboard starten.bat"', 'start "PBP-Dashboard" /MIN "%APP_DIR%\\Dashboard starten.bat"', T_IN),
+    ("in04", "Der Selbsttest laesst sein Datenverzeichnis liegen", "_selftest.py",
+     "    if os.path.isdir(d):\n", "    if False:\n", T_IN),
+    ("in05", "Die Kopie des Aufraeum-Helfers bleibt liegen", "_installer_aufraeumen.py",
+     '        if Path(__file__).name == "pbp_installer_aufraeumen.py":\n', "        if False:\n", T_IN),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -952,6 +968,7 @@ GRUNDLAEUFE = {
     "browser": (("T_BR", T_BR),),
     "jobtic": (("T_JT", T_JT),),
     "skillstand": (("T_SK", T_SK),),
+    "installer": (("T_IN", T_IN),),
 }
 
 WT = None
@@ -1002,7 +1019,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

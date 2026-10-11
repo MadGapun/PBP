@@ -544,7 +544,10 @@ echo [INFO] Kopiere python + src nach %APP_DIR% >> "%LOGFILE%"
 :: kommt in der Subshell nicht als solches an (#990) — hier wird
 :: deshalb genau die Form benutzt, die im Deinstaller erprobt ist.
 echo [DEBUG] Pruefe laufende PBP-Prozesse... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ( ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|uvicorn|fastmcp') -or ($_.ExecutablePath -match 'BewerbungsAssistent') ) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
+:: PP21 (#1170, Gegenprobe 06.10.2026): Nach jeder Neuinstallation blieb ein Fenster "[FEHLER] Dashboard ist mit Fehlercode -1
+:: beendet" mit "Pause" stehen: der Installer beendete das alte Python, und das Fenster, das es gestartet hatte
+:: (`Dashboard starten.bat`), meldete den Abbruch und wartete. Dieses Fenster geht jetzt mit: es gehoert zu dem, was ersetzt wird.
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object { ( ($_.Name -eq 'python.exe' -or $_.Name -eq 'pythonw.exe') -and ( ($_.CommandLine -match 'bewerbungs_assistent|start_dashboard|uvicorn|fastmcp') -or ($_.ExecutablePath -match 'BewerbungsAssistent') ) ) -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -match 'Dashboard starten\.bat') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >> "%LOGFILE%" 2>&1
 :: Kurze Pause, damit gesperrte Datei-Handles freigegeben werden.
 ping -n 3 127.0.0.1 >nul 2>&1
 echo [OK] Prozess-Stopp durchlaufen >> "%LOGFILE%"
@@ -821,7 +824,9 @@ echo [INFO] Starte Dashboard >> "%LOGFILE%"
 :: verweigert"), und unten oeffnet der Installer den Browser ein zweites Mal. Jetzt macht das nur der Installer, nachdem die
 :: Pruefung unten bestanden ist. Die Variable gilt nur fuer das hier gestartete Fenster und wird danach geloescht.
 set "PBP_KEIN_BROWSER=1"
-start "PBP-Dashboard" /MIN "%APP_DIR%\Dashboard starten.bat"
+:: PP20 (#1170): ohne /D erbt das Fenster den Arbeitsordner des Installers (den entpackten Ordner) und haelt ihn fest; das
+:: Selbstaufraeumen am Ende laesst dann einen leeren Ordner liegen, solange das Fenster offen ist (dieselbe Klasse wie PP13).
+start "PBP-Dashboard" /MIN /D "%APP_DIR%" "%APP_DIR%\Dashboard starten.bat"
 set "PBP_KEIN_BROWSER="
 
 :: --- Health-Check: warten bis Port 8200 antwortet (max 30 Sek) ---

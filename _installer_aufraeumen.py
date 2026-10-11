@@ -189,7 +189,15 @@ def main(argv=None) -> int:
         return 0 if p["ordner"] else 1
     if len(a) == 2 and a[0] == "lauf":
         nutz = json.loads(a[1])
-        return 0 if lauf(nutz["ordner"], nutz["zips"]) else 1
+        ergebnis = 0 if lauf(nutz["ordner"], nutz["zips"]) else 1
+        # PP23 (#1170): die Kopie dieser Datei im Temp-Ordner blieb liegen. Python liest die Quelle beim Start vollstaendig und haelt sie
+        # nicht offen — eine laufende .py-Datei laesst sich auch unter Windows loeschen.
+        if Path(__file__).name == "pbp_installer_aufraeumen.py":
+            try:
+                Path(__file__).unlink()
+            except OSError:
+                pass
+        return ergebnis
     print("Aufruf: siehe Kopf dieser Datei.", file=sys.stderr)
     return 2
 
