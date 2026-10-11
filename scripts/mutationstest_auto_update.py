@@ -1127,6 +1127,9 @@ M_TESSERACT = [
      'call :texterkennung_entfernen\nset "TESS_RESULT=!errorlevel!"\n', 'set "TESS_RESULT=9"\n', T_TE),
     ("te16", "Deinstaller: jedes Verzeichnis statt nur dem einen Ort", "DEINSTALLIEREN.bat",
      "$d = Join-Path $env:LOCALAPPDATA 'Programs\\Tesseract-OCR'; ", "$d = $env:LOCALAPPDATA; ", T_TE),
+    ("te17", "Entfernen: das Warten auf das Deinstallationsprogramm blockiert den Ereignis-Thread des Dashboards",
+     "src/bewerbungs_assistent/dashboard.py",
+     "    result = await run_in_threadpool(comp.uninstall_component, _db, name)\n", "    result = comp.uninstall_component(_db, name)\n", T_TE),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT}

@@ -68,7 +68,7 @@ GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Admini
   Claude als Store-Fassung behält `"mcpServers": {}` (PP27, PP28; schon als PP22 dokumentiert). Harmlos — Claude liest beides wie vorher —, die Sicherungskopie ist
   Absicht. Auf Wunsch lässt sich das ändern.
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8581 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8584 Tests.*
 
 ---
 

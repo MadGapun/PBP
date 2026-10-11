@@ -6658,7 +6658,8 @@ async def api_component_set_path(name: str, payload: dict):
 async def api_component_uninstall(name: str):
     """Entfernt eine VON PBP installierte Komponente (extern bleibt heil)."""
     from .services import components as comp
-    result = comp.uninstall_component(_db, name)
+    # PP26: das Entfernen wartet auf das Deinstallationsprogramm des Setups (bis zu einer Minute) -- nicht im Ereignis-Thread
+    result = await run_in_threadpool(comp.uninstall_component, _db, name)
     if result.get("status") == "fehler":
         return JSONResponse({"error": result.get("fehler", "unbekannt")},
                             status_code=400)

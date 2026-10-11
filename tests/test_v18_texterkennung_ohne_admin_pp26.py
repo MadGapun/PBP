@@ -448,3 +448,57 @@ def test_die_bat_meldet_eine_gesperrte_datei_und_der_lauf_geht_weiter(tmp_path):
     assert ergebnis == "1", (ausgabe, protokoll)
     assert "nicht vollstaendig entfernt" in protokoll
     assert gesperrt.exists(), "nichts wird erzwungen"
+
+
+# ══ Der Weg aus der Oberflaeche (REST) ═══════════════════════════════════════════════════════════════════════════
+
+@pytest.fixture
+def rest(umgebung, monkeypatch):
+    """FastAPI-TestClient mit der Test-Datenbank; die Umgebung der Komponenten wie oben (Windows-Zweig, Temp-Ordner)."""
+    import bewerbungs_assistent.dashboard as dash
+    from fastapi.testclient import TestClient
+    vorher = dash._db
+    dash._db = umgebung.db
+    try:
+        yield TestClient(dash.app), umgebung
+    finally:
+        dash._db = vorher
+
+
+def test_rest_entfernen_meldet_den_fehler_in_alltagssprache_mit_400(rest, monkeypatch):
+    client, u = rest
+    c = u.c
+    (u.ordner / "tesseract").mkdir(parents=True)
+    (u.ordner / "tesseract" / c.EIGENE_INSTALLATION).write_text(
+        json.dumps({"verzeichnis": str(u.lokal / "Fremd")}), encoding="utf-8")
+    antwort = client.delete("/api/components/tesseract")
+    assert antwort.status_code == 400
+    assert "unerwarteten Ort" in antwort.json()["error"], "die Oberflaeche zeigt genau diesen Text"
+
+
+def test_rest_entfernen_ohne_adminrechte_installierter_texterkennung_klappt(rest, monkeypatch):
+    client, u = rest
+    c = u.c
+    monkeypatch.setattr(c.subprocess, "run", _setup_legt_ab(u, u.benutzer))
+    assert c.install_component(u.db, "tesseract")["status"] == "installiert"
+
+    def deinstaller(argv, **kw):
+        (u.benutzer / u.binary_name).unlink()
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(c.subprocess, "run", deinstaller)
+    antwort = client.delete("/api/components/tesseract")
+    assert antwort.status_code == 200, antwort.text
+    assert antwort.json()["pbp_installation_geloescht"] is True
+    assert not u.benutzer.exists()
+    liste = client.get("/api/components").json()["komponenten"]
+    tess = next(k for k in liste if k["name"] == "tesseract")
+    assert tess["verfuegbar"] is False and tess["status"] == "nicht_installiert"
+
+
+def test_das_entfernen_blockiert_den_ereignis_thread_nicht():
+    """Das Deinstallationsprogramm des Setups kehrt sofort zurueck, danach wird bis zu einer Minute gewartet: nicht in `async def`."""
+    import inspect
+    import bewerbungs_assistent.dashboard as dash
+    quelle = inspect.getsource(dash.api_component_uninstall)
+    assert "run_in_threadpool(comp.uninstall_component" in quelle
