@@ -121,7 +121,8 @@ def test_u5_die_suchseite_ohne_profil_heisst_nicht_profil(browser, umgebung):
     page = _seite(browser, umgebung["url"], "suche")
     try:
         page.locator('[data-zuerst-profil]').wait_for(timeout=10000)
-        text = page.inner_text("body")
+        # NUR die Seite: „Suche & Bewertung“ steht auch in der Seitenleiste und täuschte den Test (Gegenprobe es03)
+        text = page.locator("#page-profil").inner_text()
         assert "Suche & Bewertung" in text
         assert "Suchbegriffe, Schwellen und Blacklist stellst du ein, sobald dein Profil steht." in text
         assert "Lege dein erstes Profil an" not in text
@@ -136,7 +137,7 @@ def test_u5_die_profilseite_ohne_profil_nennt_denselben_schritt(browser, umgebun
     page = _seite(browser, umgebung["url"], "profil")
     try:
         page.locator('[data-zuerst-profil]').wait_for(timeout=10000)
-        text = page.inner_text("body")
+        text = page.locator("#page-profil").inner_text()
         assert "Zuerst dein Profil" in text
         assert "Dein Lebenslauf ist die Grundlage für alles andere." in text
         assert "Noch kein aktives Profil" not in text
@@ -295,17 +296,20 @@ def test_u13_text_hinter_einem_ausdruck_wird_geprueft(tmp_path):
     assert any("Datensaetze" in w for w in ui.umlaut_funde(gefunden))
 
 
-def test_u13_ein_verirrtes_anfuehrungszeichen_verschiebt_die_paarung_nicht(tmp_path):
-    """„Kopieren" mit geradem Schlusszeichen im JSX-Text verschob die Paarung bis zum Dateiende (ElwosaSidebarChat)."""
+def test_u13_ein_verirrtes_zeichen_verschiebt_die_paarung_nicht(tmp_path):
+    """Ein einzelnes Gravis-Zeichen im JSX-Text paarte sich mit dem Anfang des nächsten Template-Literals und verschob die Paarung
+    bis zum Dateiende: alle Zeichenketten danach blieben ungelesen (ElwosaSidebarChat.jsx: „fuer“, „einfuegen“, „oeffnen“)."""
     ui = _pruefer()
     datei = tmp_path / "Probe.jsx"
     datei.write_text(
-        'export default function P() {\n'
-        '  return <p>Klick auf „Kopieren" und dann einfuegen</p>;\n'
-        '}\n'
-        'const A = "Elwosa fuer zehn Minuten pausieren";\n', encoding="utf-8")
+        "export default function P({ n }) {\n"
+        "  return <p>Das Zeichen ` steht hier einzeln</p>;\n"
+        "}\n"
+        "const A = `Elwosa fuer ${n} Minuten pausieren`;\n"
+        'const B = "Danach in Claude einfuegen";\n', encoding="utf-8")
     texte = [t for _z, t in ui.texte(datei)]
-    assert any("Elwosa fuer zehn Minuten" in t for t in texte), texte
+    assert any("Elwosa fuer" in t for t in texte), texte
+    assert any("einfuegen" in t for t in texte), texte
 
 
 def test_u13_die_oberflaeche_hat_keine_umschrift_mehr():
