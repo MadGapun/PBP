@@ -88,6 +88,8 @@ Einträgen darunter.
   Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
   Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
+- **Die Ingest-API v1 ist mit 1.8.0 eingefroren** (Beta-Exit Punkt 2). `GET /api/v1/ingest/ping`, `POST /api/v1/ingest/job`, `GET /api/v1/ingest/mail-policy` und `POST /api/v1/ingest/email` bleiben, wie sie sind;
+  ein Vertragstest (`test_v18_ingest_api_v1_vertrag.py`) prüft Pfade, Methoden, Pflichtfelder und Antwortfelder als Obermenge. Neues kommt nur additiv oder als `/api/v2/` daneben.
 
 ### Changed
 
