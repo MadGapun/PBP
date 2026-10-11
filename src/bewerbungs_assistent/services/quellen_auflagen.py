@@ -12,6 +12,7 @@ haben:
 
 * `kein_automatischer_abruf` - PBP ruft die Adresse nie selbst ab.
 * `keine_kontaktdaten`       - Ansprechpartner aus dem Lauf werden nicht uebernommen; der Mensch traegt sie selbst ein.
+* `nur_auf_wunsch`           - PBP und Claude starten die Quelle nie von selbst, nur auf ausdruecklichen Wunsch.
 * `stellenart`               - Vorgabe fuer die Stellenart, wenn keine andere genannt ist.
 * `hinweis`                  - der Auftrag an Claude (Handstart, Seitenzahl, Pausen, was nie uebernommen wird).
 
@@ -20,6 +21,8 @@ Abgrenzung: `url_to_source` ordnet eine Adresse einer Quelle zu, `quellen_texte`
 Quelle oder diese Adresse?"
 """
 from __future__ import annotations
+
+import re
 
 
 def _registry() -> dict:
@@ -55,6 +58,43 @@ def kein_automatischer_abruf(quelle: str = "", url: str = "") -> bool:
 def keine_kontaktdaten(quelle: str = "", url: str = "") -> bool:
     """Werden Ansprechpartner aus einem Lauf bei dieser Quelle nicht uebernommen?"""
     return bool(auflagen(quelle, url).get("keine_kontaktdaten"))
+
+
+def nur_auf_wunsch(quelle: str = "", url: str = "") -> bool:
+    """Wird diese Quelle nie von selbst gestartet, sondern nur auf ausdruecklichen Wunsch des Menschen?"""
+    return bool(auflagen(quelle, url).get("nur_auf_wunsch"))
+
+
+_MAILADRESSE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+# Rufnummern nur in Schreibweisen, die als Nummer erkennbar sind - nie eine blosse Zahlenfolge: Tagessaetze (700-900),
+# Zeitraeume (2025-2026, 01.11.-31.12.) und Projektnummern sind keine Telefonnummern.
+_RUFNUMMER = re.compile(
+    r"(?i)\b(?:tel(?:efon)?|fon|mobil|handy|phone|fax|durchwahl)\b\.?\s*[:\-]?\s*(?:\+|\(|\d)[\d\s()/.+-]{5,}\d"
+    r"|(?<![\w+])\+\d{1,3}[\s()-]*\d[\d\s()/.-]{6,}\d"
+    r"|(?<![\w.])0\d{2,5}[\s/-]+\d[\d\s/-]{3,}\d(?![\w])"
+)
+ENTFERNT = "[Kontaktangabe entfernt]"
+
+
+def kontaktdaten_entfernen(text: str) -> tuple[str, int]:
+    """Mailadressen und Rufnummern aus einem Text nehmen - (bereinigter Text, Anzahl).
+
+    `keine_kontaktdaten` gilt nicht nur fuer die Kontaktfelder: ein Projekttext, den Claude aus der angemeldeten Seite
+    mitbringt, traegt den Ansprechpartner oft im Fliesstext. Namen lassen sich nicht sicher erkennen; fuer sie bleibt die
+    Anleitung (`hinweis`) zustaendig.
+    """
+    if not text:
+        return text or "", 0
+    anzahl = 0
+
+    def _ersetzen(_treffer):
+        nonlocal anzahl
+        anzahl += 1
+        return ENTFERNT
+
+    bereinigt = _MAILADRESSE.sub(_ersetzen, text)
+    bereinigt = _RUFNUMMER.sub(_ersetzen, bereinigt)
+    return bereinigt, anzahl
 
 
 def sql_ohne_abruf(spalte: str = "url") -> tuple[str, list]:

@@ -218,6 +218,21 @@ def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
         return None
 
 
+def benennt_arbeitgeber(name: Optional[str]) -> bool:
+    """False bei Platzhaltern wie "Nicht angegeben" oder "Unbekannt": sie benennen KEINEN Arbeitgeber (#1028).
+
+    Zwei Stellen mit demselben Platzhalter sind nicht "derselbe Arbeitgeber" - bei Projektboersen, die den Auftraggeber
+    nicht nennen (jobtic), waere sonst jedes zweite Projekt ein "Duplikat" des ersten.
+    """
+    if not name or not str(name).strip():
+        return False
+    try:
+        from .services.wiedergaenger import normalize_company
+        return bool(normalize_company(str(name)))
+    except Exception:  # pragma: no cover - ein Fehler hier kostet nie eine Anlage
+        return True
+
+
 def find_duplicate_job(
     firma: str,
     titel: str,
@@ -245,7 +260,8 @@ def find_duplicate_job(
     if not firma or not titel:
         return None
 
-    norm_firma = normalize_company_name(firma)
+    # Ein Platzhalter vergleicht nur ueber die Adresse (Regel 1), nie ueber "dieselbe Firma".
+    norm_firma = normalize_company_name(firma) if benennt_arbeitgeber(firma) else ""
     url_norm = (url or "").strip().lower().rstrip("/") if url else ""
     # v1.6.9 (#565, #567): tz-aware now — vorher war das naive und crashte
     # gegen aware found_at-Werte aus der DB.
@@ -256,7 +272,8 @@ def find_duplicate_job(
     best_score = 0.0
 
     for cand in candidates:
-        cand_firma = normalize_company_name(cand.get("company") or cand.get("firma"))
+        _cand_name = cand.get("company") or cand.get("firma")
+        cand_firma = normalize_company_name(_cand_name) if benennt_arbeitgeber(_cand_name) else ""
         cand_title = cand.get("title") or cand.get("titel") or ""
         cand_url = (cand.get("url") or "").strip().lower().rstrip("/")
 

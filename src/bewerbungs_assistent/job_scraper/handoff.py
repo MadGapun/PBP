@@ -78,9 +78,16 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
                   custom_url: str = "") -> dict:
     """Baut das Handoff-Paket fuer eine Quelle (oder Custom-URL)."""
     kw = (keyword or "").strip()
+    wirksam = (quelle or "").lower()  # die Quelle, deren Auflagen und Auswerte-Skript gelten
     if custom_url:
         url = custom_url
         quelle_label = quelle or "custom"
+        # Eine eigene Quelle auf der Adresse einer bekannten gilt wie diese: sonst waere "custom_quelle_hinzufuegen" der
+        # Umweg um die Auflagen einer Quelle (#1189, Befund des unabhaengigen Pruefers).
+        from ..services.url_to_source import detect_source_from_url
+        erkannt = detect_source_from_url(custom_url)
+        if erkannt != "manuell":
+            wirksam = erkannt
     else:
         template = HANDOFF_URL_TEMPLATES.get((quelle or "").lower())
         if not template:
@@ -100,7 +107,7 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
         quelle_label = quelle
     # #1189: Auflagen der Quelle (jobtic). Dann ist es auch keine "Session, die Bot-Blocker umgeht": es ist
     # der eigene, angemeldete Browser, von Hand gestartet.
-    auflagen = "" if custom_url else quellen_auflagen.hinweis_fuer_claude(quelle_label)
+    auflagen = quellen_auflagen.hinweis_fuer_claude(wirksam, url)
     schritt_1 = ("1. URL im eigenen, angemeldeten Chrome mit Claude-in-Chrome öffnen. " if auflagen
                  else "1. URL in Chrome mit Claude-in-Chrome öffnen (eingeloggte "
                       "Session umgeht Bot-Blocker). ")
@@ -116,7 +123,7 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
         "status": "handoff",
         "quelle": quelle_label,
         "url": url,
-        "extraction_js": extraktions_js(quelle_label),
+        "extraction_js": extraktions_js(wirksam if custom_url else quelle_label),
         "anleitung": anleitung + (" " + auflagen if auflagen else ""),
     }
     if auflagen:
