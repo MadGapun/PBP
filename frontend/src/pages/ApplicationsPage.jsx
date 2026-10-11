@@ -783,6 +783,17 @@ export default function ApplicationsPage() {
     };
   })();
 
+  // U6 (#1170): ohne Profil EINE Karte mit EINEM Knopf — nicht zweimal "Zuerst dein Profil" zwischen Kennzahlen, Filtern und
+  // Knöpfen („CV als DOCX“, „Bewerbung anlegen“), die ohne Profil nichts tun können.
+  if (!chrome.status?.has_profile) {
+    return (
+      <div id="page-bewerbungen" className="page active">
+        <h1 className="sr-only">Bewerbungen</h1>
+        <ZuerstProfil bereich="Bewerbungen" />
+      </div>
+    );
+  }
+
   return (
     <div id="page-bewerbungen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}

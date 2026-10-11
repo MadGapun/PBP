@@ -22,14 +22,14 @@ export function volltextText(ohne, gesamt) {
   return `${ohne}${von} ohne Volltext — PBP lädt ihn nach, die Bewertung folgt`;
 }
 
-/** #1038: "12 Anzeigentexte nachgeladen, 3 folgen mit der Automatik". */
+/** #1038: "12 Anzeigentexte nachgeladen, 3 weitere holt „Jetzt prüfen“ nach" (#1139: die Automatik läuft nur auf Knopfdruck). */
 export function nachgeladenText(nachgeladen) {
   if (!nachgeladen) return "";
   const geholt = Number(nachgeladen.geholt) || 0;
   const offen = Number(nachgeladen.offen) || 0;
   const teile = [];
   if (geholt) teile.push(`${geholt} ${geholt === 1 ? "Anzeigentext" : "Anzeigentexte"} nachgeladen`);
-  if (offen) teile.push(`${offen} folgen mit der Automatik`);
+  if (offen) teile.push(`${offen} weitere holt „Jetzt prüfen“ nach`);
   return teile.join(", ");
 }
 

@@ -97,9 +97,9 @@ function renderWithMarkup(text, { onCopy, onPause, onNavigate }) {
           }}
           className="text-teal hover:text-teal underline decoration-dotted decoration-teal/40 underline-offset-2 cursor-pointer"
           title={tok.linkType === "pause"
-            ? `Elwosa fuer ${tok.linkId} Minuten pausieren`
+            ? `Elwosa für ${tok.linkId} Minuten pausieren`
             : tok.linkType === "prompt"
-              ? "Kopiert den fertigen Prompt — danach in Claude einfuegen"
+              ? "Kopiert den fertigen Prompt — danach in Claude einfügen"
               : `${tok.linkType}: ${tok.linkId}`}
         >
           {tok.label}
@@ -348,7 +348,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   async function pauseElwosa(minuten) {
     try {
       await postJson("/api/elwosa/pause", { minuten });
-      onToast?.(`Elwosa pausiert fuer ${minuten} Minuten`, "success");
+      onToast?.(`Elwosa pausiert für ${minuten} Minuten`, "success");
       setShowMenu(false);
     } catch {}
   }
@@ -361,7 +361,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
         messages.map((m) => deleteRequest(`/api/elwosa/messages/${m.id}`))
       );
       setMessages([]);
-      onToast?.("Verlauf geloescht", "success");
+      onToast?.("Verlauf gelöscht", "success");
       setShowMenu(false);
     } catch {}
   }
@@ -454,28 +454,28 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
         <div className="flex items-center gap-1">
           {/* v1.7.0-beta.38 (#601): Zahnrad statt mood-Anzeige.
               Klick fuehrt zu Einstellungen -> Lokale KI -> Elwosa. */}
-          <button aria-label="Elwosa-Einstellungen oeffnen"
+          <button aria-label="Elwosa-Einstellungen öffnen"
             type="button"
             onClick={() => onNavigateToSettings?.("ai")}
             className="text-muted hover:text-ink"
-            title="Elwosa-Einstellungen oeffnen"
+            title="Elwosa-Einstellungen öffnen"
           >
             <Settings size={12} />
           </button>
-          <button aria-label="Fuer 30 Minuten ausblenden"
+          <button aria-label="Für 30 Minuten ausblenden"
             type="button"
             onClick={hideForSession}
             className="text-muted hover:text-ink"
-            title="Fuer 30 Minuten ausblenden"
+            title="Für 30 Minuten ausblenden"
           >
             <EyeOff size={12} />
           </button>
           <div className="relative">
-            <button aria-label="Menue"
+            <button aria-label="Menü"
               type="button"
               onClick={() => setShowMenu(!showMenu)}
               className="text-muted hover:text-ink"
-              title="Menue"
+              title="Menü"
             >
               <MoreHorizontal size={12} />
             </button>

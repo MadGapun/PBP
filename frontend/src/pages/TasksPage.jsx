@@ -11,7 +11,7 @@
  * gruppiert nach Faelligkeit, bedienbar aus der Zeile.
  */
 import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
-import { useDialogFokus } from "@/components/ui";
+import { Button, useDialogFokus } from "@/components/ui";
 import { Check, ClipboardCopy, Clock3, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { api, deleteRequest, postJson } from "@/api";
 import { AppContext } from "@/app-context";
@@ -327,11 +327,10 @@ ${e.claude_prompt}`
             <option value="erledigt">Erledigte</option>
             <option value="alle">Alle</option>
           </select>
-          <button
-            onClick={() => setNeuOffen((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-lg bg-teal/20 px-3 py-1.5 text-sm font-semibold text-teal hover:bg-teal/30">
+          {/* U8 (#1170): der Knopf war ein blasses Teal auf Teal und sah deaktiviert aus — er ist der einzige Weg, hier selbst etwas anzulegen. */}
+          <Button size="sm" onClick={() => setNeuOffen((v) => !v)}>
             <Plus size={14} /> Neue Aufgabe
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -389,8 +388,11 @@ ${e.claude_prompt}`
       })}
 
       {daten && daten.anzahl === 0 && (
-        <p className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-6 text-center text-sm text-muted">
-          Nichts offen. Entweder ist wirklich alles erledigt — oder es fehlt der Plan für den nächsten Schritt.
+        <p data-aufgaben-leer className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-6 text-center text-sm text-muted">
+          {/* U8 (#1170): ein Neuling erfuhr hier nicht, woher Aufgaben kommen. */}
+          {statusFilter === "offen"
+            ? "Nichts offen. Aufgaben entstehen aus deinen Bewerbungen (etwa die Nachfassung eine Woche nach dem Absenden) und aus Terminen; eigene legst du oben mit „Neue Aufgabe“ an. Was fällig wird, steht hier und im Dashboard unter „Offen“."
+            : "Keine Einträge in dieser Ansicht."}
         </p>
       )}
 

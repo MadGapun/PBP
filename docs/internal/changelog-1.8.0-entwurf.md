@@ -110,6 +110,16 @@ Einträgen darunter.
   dieselbe Funktion wie die Dashboard-Ansicht.
 - Die Warnung bei einer nur in den Notizen genannten Firma beginnt mit „Prüfen:“ (statt „Pruefen:“).
 - Ein zweiter Klick auf „Firmen“ (Reiter oder Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+- **Der erste Start ohne Profil ist ein Weg statt vier Karten** (#1170 U5 bis U7). Ohne Profil zeigen „Stellen“, „Bewerbungen“ und „Suche & Bewertung“ jetzt eine einzige Karte mit einem Knopf, „Lebenslauf hochladen“ — statt
+  Kennzahlen aus Nullen, Filtern, einer Quellenkarte und Knöpfen, die ohne Profil nichts tun können. Derselbe Knopf steht auf dem Dashboard und öffnet denselben Dialog; er heißt für das erste Profil „Dein Profil anlegen“ und
+  fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
+- **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
+  Wand aus Nullen.
+- **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
+  etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
+- **Die Texte zur Automatik versprechen nichts mehr, was nur auf Knopfdruck läuft** (#1139). Die Aufräum-Runde (Erinnerungen nachlegen, Bewerbungen ohne Antwort abschließen, fehlende Anzeigentexte nachladen) hat keinen
+  automatischen Auslöser; sie läuft über „Jetzt prüfen“ unter Einstellungen › Automatik. Die Karte dort, die Hilfe und der Hinweis nach der Jobsuche sagen das jetzt („… holt „Jetzt prüfen“ nach“ statt „folgen mit der
+  Automatik“). Ob die Runde künftig von selbst läuft (täglich, das Abschließen abschaltbar), ist als Frage an #1139 gestellt.
 
 ### Fixed
 
@@ -212,6 +222,13 @@ Einträgen darunter.
   ging so als Experte an eine fremde Plattform. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; ist ein Skill beendet und kein
   heutiges Niveau eingetragen, steht `level_aktuell` auf leer, und Claude soll nachfragen, statt die Spitze zu nehmen. Das mehrdeutige Feld `level` entfällt; der Text der Zusammenfassung und die
   Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 10 absichtlich eingebaute Fehler.
+- **Die Gefahrenzone zählte mitgelieferte Vorgaben als deine Daten** (#1170 U9). Eine frische Installation zeigte „Bewerbungen: 7 Datensätze — Enthält Namen und Mailadressen Dritter“; die sieben waren die mitgelieferten
+  Kontaktkategorien (ebenso „Einstellungen: 35“: Regler und Ablehnungsgründe). Gezählt wird jetzt, was du angelegt oder verstellt hast; die Vorgaben stehen als „ohne N mitgelieferte Vorgaben“ daneben und gehen beim Leeren mit.
+- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und rund 30 weitere Stellen (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
+  Ausdruck (`{n} Datensaetze`) nie und verlor hinter einem verirrten Anführungszeichen alle Zeichenketten der Datei; beides ist behoben, er findet jetzt 0 Stellen.
+- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14), bei Fenstern unter 1536 px Breite.
+- **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
+  keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
 
 ### Known Issues
 
