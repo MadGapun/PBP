@@ -906,7 +906,38 @@ M_JOBTIC = [
      "  if (!jobs.length) {\n", "  if (false) {\n", T_JT),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC}
+# ── Skill-Stand in der Profil-Zusammenfassung (#1190, H39) ──
+T_SK = ["tests/test_v18_skill_stand_1190.py"]
+PS = "src/bewerbungs_assistent/services/profile_service.py"
+TP = "src/bewerbungs_assistent/tools/profil.py"
+
+M_SKILL = [
+    ("sk01", "Das heutige Niveau (level_current) wird nicht gelesen", PS,
+     '    aktuell = _jahr_oder_stufe(s.get("level_current"))\n', '    aktuell = None\n', T_SK),
+    ("sk02", "Ruht ohne eingetragenes Niveau: die Spitze gilt als Stand von heute", PS,
+     '    if aktuell is None and ende is None:\n        aktuell = spitze', '    if aktuell is None:\n        aktuell = spitze', T_SK),
+    ("sk03", "ruht: ein gesetztes Ende zaehlt nicht", PS,
+     '    ruht = ende is not None or (aktuell is not None and spitze is not None and aktuell < spitze)\n',
+     '    ruht = aktuell is not None and spitze is not None and aktuell < spitze\n', T_SK),
+    ("sk04", "ruht: ein abgesenktes Niveau ohne Ende gilt nicht als ruhend", PS,
+     '    ruht = ende is not None or (aktuell is not None and spitze is not None and aktuell < spitze)\n',
+     '    ruht = ende is not None\n', T_SK),
+    ("sk05", "Zeitraum: das Ende fehlt in der Antwort", PS, '        "bis": ende,\n', '        "bis": None,\n', T_SK),
+    ("sk06", "Stand-Text: nennt nur die Spitze, nicht den aktuellen Stand", PS,
+     '        teile.append(f"aktuell Lv.{aktuell}")\n        teile.append(f"Spitze Lv.{spitze}")\n',
+     '        teile.append(f"Lv.{spitze}")\n', T_SK),
+    ("sk07", "Liste: das mehrdeutige Feld level steht wieder darin", TP,
+     '"kategorie": s.get("category"), **skill_stand(s)}', '"kategorie": s.get("category"), "level": s.get("level"), **skill_stand(s)}', T_SK),
+    ("sk08", "Text der Zusammenfassung: wieder nur die Spitze", TP,
+     "f\"{s['name']} ({skill_stand(s)['stand'] or 'Lv.?'}) [{s.get('id', '?')}]\"",
+     "f\"{s['name']} (Lv.{s.get('level', '?')}) [{s.get('id', '?')}]\"", T_SK),
+    ("sk09", "bereits vorhanden: nennt wieder nur die Spitze als level", TP,
+     '                      **skill_stand(vorhanden)},\n', '                      "level": vorhanden.get("level")},\n', T_SK),
+    ("sk10", "Zahlen: ein Wahrheitswert gilt als Stufe", PS,
+     '    if isinstance(wert, bool):\n        return None\n', '', T_SK),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -920,6 +951,7 @@ GRUNDLAEUFE = {
     "google": (("T_GA", T_GA),),
     "browser": (("T_BR", T_BR),),
     "jobtic": (("T_JT", T_JT),),
+    "skillstand": (("T_SK", T_SK),),
 }
 
 WT = None
@@ -970,7 +1002,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

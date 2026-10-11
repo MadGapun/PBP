@@ -15,6 +15,7 @@ from ..services.profile_service import (
     get_profile_completeness_labels,
     get_profile_preferences,
     get_profile_status_payload,
+    skill_stand,
 )
 
 
@@ -326,9 +327,8 @@ def _skill_schon_da(db, daten):
         "id": vorhanden["id"], "skill_id": vorhanden["id"],
         "vorhanden": {"name": vorhanden.get("name"),
                       "kategorie": vorhanden.get("category"),
-                      "level": vorhanden.get("level"),
                       "jahre_erfahrung": vorhanden.get("years_experience"),
-                      "zuletzt_genutzt": vorhanden.get("last_used_year")},
+                      **skill_stand(vorhanden)},
         "hinweis": (f"Den Skill '{vorhanden.get('name')}' gibt es schon — es wurde "
                     "NICHTS geändert. Ändern: profil_bearbeiten(bereich='skill', "
                     f"aktion='aendern', element_id='{vorhanden['id']}', "
@@ -689,7 +689,9 @@ def register(mcp, db, logger):
             # profil_bearbeiten(bereich='skill', ...) nicht aufrufbar (der
             # Wegweiser sagte "profil_zusammenfassung() nennt die Skill-IDs",
             # und sie standen nicht darin).
-            skill_strs = [f"{s['name']} (Lv.{s.get('level', '?')}) [{s.get('id', '?')}]"
+            # #1190: nicht die Spitze als heutiges Koennen ausgeben — aktueller
+            # Stand, Spitze und Ruhen stehen in der Klammer.
+            skill_strs = [f"{s['name']} ({skill_stand(s)['stand'] or 'Lv.?'}) [{s.get('id', '?')}]"
                           for s in items]
             lines.append(f"  {label}: {', '.join(skill_strs)}")
 
@@ -727,9 +729,12 @@ def register(mcp, db, logger):
             "positionen_ids": [p.get("id") for p in positions],
             "ausbildung_ids": [e.get("id") for e in education],
             # #1148: Skill-IDs zum Aendern/Loeschen (profil_bearbeiten, skill_zeitraum_*)
+            # #1190: kein mehrdeutiges `level` mehr — die Spitze eines Berufslebens
+            # wurde als heutiges Koennen gelesen. `level_aktuell` ist der Stand,
+            # `ruht`/`bis` sagen, ob und seit wann der Skill nicht mehr im Einsatz ist.
             "skills_liste": [{"id": s.get("id"), "name": s.get("name"),
-                              "level": s.get("level"),
-                              "kategorie": s.get("category")} for s in skills],
+                              "kategorie": s.get("category"), **skill_stand(s)}
+                             for s in skills],
             "bearbeiten_hinweis": (
                 "Berufserfahrung und Ausbildung sind aenderbar: "
                 "profil_bearbeiten(bereich='position', aktion='aendern', "
