@@ -50,6 +50,7 @@ _HOST_PATTERNS: list[tuple[str, str]] = [
     ("freelancermap.com", "freelancermap"),
     ("gulp.de", "gulp"),
     ("solcom.de", "solcom"),
+    ("jobtic.com", "jobtic"),
     # Tech & Engineering
     ("ingenieur.de", "ingenieur_de"),
     ("vdi-nachrichten.com", "ingenieur_de"),
@@ -82,6 +83,11 @@ _HOST_PATTERNS: list[tuple[str, str]] = [
     # Google
     ("google.com/search", "google_jobs"),  # nur fuer /search?q=...&ibp=htl;jobs
 ]
+
+
+def hosts_von(quelle: str) -> list[str]:
+    """Die Host-Muster, die zu dieser Quelle gehoeren (#1189) - leer, wenn die Adresse nicht zuzuordnen ist."""
+    return [muster for muster, key in _HOST_PATTERNS if key == quelle and "/" not in muster]
 
 
 def detect_source_from_url(url: str) -> str:

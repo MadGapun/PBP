@@ -70,6 +70,7 @@ def _kandidaten(db, hashes) -> list[dict]:
     Die Profilbindung macht `resolve_job_hash`: eine Kennung eines anderen
     Profils wird dort zu einer, die es nicht gibt."""
     from .datenguete import MIN_BESCHREIBUNG
+    from .quellen_auflagen import kein_automatischer_abruf
     conn = db.connect()
     zeilen = []
     for h in hashes:
@@ -81,6 +82,9 @@ def _kandidaten(db, hashes) -> list[dict]:
             "AND url IS NOT NULL AND url != '' "
             "AND COALESCE(is_search_url, 0) = 0", (echt,)).fetchone()
         if z and len((z["description"] or "").strip()) < MIN_BESCHREIBUNG:
+            # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - kein Kandidat, kein Fehlversuch.
+            if kein_automatischer_abruf(url=z["url"]):
+                continue
             zeilen.append(dict(z))
     return zeilen
 

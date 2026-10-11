@@ -19,7 +19,10 @@ Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startba
 `komponenten` (kein Installer ohne Pruefsumme; #1152), `mail` (Mail-Ordner: Vorgabe aus, genaue Liste; #947) und
 `firmen` (Firmen-Stammsatz: nie raten, nie verschmelzen, der Kanon fuegt nur hinzu; #1080) und
 `wege` (Wege durch PBP: jeder Sprung, jede Verknuepfung, die Sprungleiste; #1171 — baut das Bundle bei Frontend-Eintraegen neu) und
-`suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177).
+`suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177) und
+`browser` (Browser-Suchlauf: die Regel "im Zweifel eintragen" steht in jeder Anleitung, die Vorschau prueft wie die Anlage
+und schreibt nichts; #1187) und
+`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -678,14 +681,14 @@ M_GOOGLE = [
     ("gj12", "Anlegen: die Entfernung wird auch aus Googles Ort gerechnet", JOBS,
      '        if ort and not google_vorbehalt:\n', '        if ort:\n', T_GA),
     ("gj13", "Anlegen: die Warnung google_nur_kopfdaten fehlt", JOBS,
-     '            result.setdefault("warnung", "google_nur_kopfdaten")\n', '            pass\n', T_GA),
+     '                ergebnis.setdefault("warnung", "google_nur_kopfdaten")\n', '                pass\n', T_GA),
     ("gj14", "Anlegen: der Block google_vorbehalt fehlt im Ergebnis", JOBS,
-     '            result["google_vorbehalt"] = google_vorbehalt\n', '            pass\n', T_GA),
+     '                ergebnis["google_vorbehalt"] = google_vorbehalt\n', '                pass\n', T_GA),
     ("gj15", "Anlegen: die Aussortierten werden gar nicht angesehen", JOBS,
      'firma, titel, ort, url, aussortierte_laden(db), kanon=kanon, own_hash=job_hash)',
      'firma, titel, ort, url, [], kanon=kanon, own_hash=job_hash)', T_GA),
     ("gj16", "Anlegen: aussortierte_dublette fehlt im Ergebnis", JOBS,
-     '            result["aussortierte_dublette"] = aussortierte_dublette\n', '            pass\n', T_GA),
+     '                ergebnis["aussortierte_dublette"] = aussortierte_dublette\n', '                pass\n', T_GA),
     ("gj17", "Hinweis auf Aussortiertes: die Aussortier-Gruende fehlen", JOBS,
      '                    "aussortiert_wegen": _gruende,\n', '                    "aussortiert_wegen": [],\n', T_GA),
     ("gj18", "Hinweis auf Aussortiertes: das Datum der Aussortierung fehlt", JOBS,
@@ -730,7 +733,180 @@ M_GOOGLE = [
      '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE}
+# ── Browser-Suchlauf: im Zweifel eintragen, Vorschau prueft wie die Anlage (#1187, B77) ──
+T_BR = ["tests/test_v18_browser_im_zweifel_1187.py"]
+BH = "src/bewerbungs_assistent/services/browser_handoff.py"
+HO = "src/bewerbungs_assistent/job_scraper/handoff.py"
+PRM = "src/bewerbungs_assistent/prompts.py"
+LVO = "src/bewerbungs_assistent/job_scraper/linkedin_voyager.py"
+WK = "src/bewerbungs_assistent/services/werkzeug_katalog.py"
+
+M_BROWSER = [
+    ("bw01", "Regel: eine Stelle zu viel ist nicht mehr besser als eine zu wenig", BH,
+     'ist besser als eine zu wenig; ob sie taugt', 'ist schlechter als eine zu wenig; ob sie taugt', T_BR),
+    ("bw02", "Regel: ob eine Stelle taugt, entscheidet nicht mehr der Mensch in PBP", BH,
+     '"nicht du im Chat. Lege jede Stelle an,', '"und du im Chat. Lege jede Stelle an,', T_BR),
+    ("bw03", "Regel: das Urteil geht nicht mehr an die Stelle, sondern in den Chat", BH,
+     '"Stelle (stelle_urteil_speichern); in die Begründung', '"Stelle (im Chat); in die Begründung', T_BR),
+    ("bw04", "Regel: der Vermerk, ob die Anzeige noch offen ist, faellt weg", BH,
+     'Anzeige offen: ja, nein oder unklar', 'Anzeige offen', T_BR),
+    ("bw05", "Regel: Aussortiertes wird nicht mehr zurueckgeholt, nur erwaehnt", BH,
+     'hole sie mit stelle_reaktivieren zurück, statt sie nur im ', 'erwähne sie nur im Chat, statt sie nur im ', T_BR),
+    ("bw06", "Regel: aussortiert wird, was dem Bearbeiter nicht gefaellt", BH,
+     'Sortiere nur aus (stelle_einordnen), was offensichtlich fachfremd oder geschlossen ist, und nenne ',
+     'Sortiere aus (stelle_einordnen), was dir nicht gefällt, und nenne ', T_BR),
+    ("bw07", "Regel: der Bericht im Chat ersetzt die Eintraege wieder", BH,
+     'den Grund. Der Bericht im Chat ersetzt die Einträge in PBP nicht.")', 'den Grund.")', T_BR),
+    ("bw08", "Auftrag je Quelle: statt der Regel steht wieder 'passende Stellen'", BH,
+     'f"- {REGEL_IM_ZWEIFEL}",', '"- Übernimm passende Stellen mit stelle_manuell_anlegen().",', T_BR),
+    ("bw09", "Auftrag je Quelle: der Bericht nennt wieder 'verworfen' statt aussortiert und bekannt", BH,
+     'bekannt, aussortiert mit Grund. Der Bericht ersetzt die Einträge nicht.",', 'bekannt, verworfen mit Grund.",', T_BR),
+    ("bw10", "Auftrag je Quelle: der Volltext ist wieder nur eine Empfehlung", BH,
+     'Der Titel allein sagt zu wenig über Systeme und ', 'Der Titel allein reicht meist, auch bei Systemen und ', T_BR),
+    ("bw11", "Handoff einer einzelnen Quelle: ohne die Regel", HO,
+     '"Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL', '"Duplikat-Erkennung laufen automatisch."', T_BR),
+    ("bw12", "Handoff einer einzelnen Quelle: wieder 'passende Stellen'", HO,
+     '"3. Alle Treffer, die fachlich passen oder nahezu passen, mit "', '"3. Passende Stellen mit "', T_BR),
+    ("bw13", "Workflow-Prompt der Jobsuche: ohne die Regel", PRM,
+     'stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}', 'stelle_manuell_anlegen() erfassen.', T_BR),
+    ("bw14", "Workflow-Prompt der Jobsuche: wieder 'passende Treffer'", PRM,
+     'suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit', 'suchprofil_lesen(), passende Treffer mit', T_BR),
+    ("bw15", "Google-Jobs-Hinweis: ohne die Regel", JOBS,
+     '"des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL', '"des Arbeitgebers und Anzeigentext) vorliegt."', T_BR),
+    ("bw16", "LinkedIn-Plan: das Feld regel ist leer", JOBS,
+     '"regel": REGEL_IM_ZWEIFEL,', '"regel": "",', T_BR),
+    ("bw17", "LinkedIn-Plan: der Vorfilter urteilt wieder mit", JOBS,
+     '"urteilt nicht: im Zweifel holen.",', '"urteilt: was nicht passt, fällt weg.",', T_BR),
+    ("bw18", "LinkedIn-Plan: die Vorschau (dry_run=True) kommt im Ablauf nicht mehr vor", JOBS,
+     '"als Vorschau (dry_run=True, dieselben Prüfungen wie der "', '"als Vorschau (dieselben Prüfungen wie der "', T_BR),
+    ("bw19", "Katalogtext von stelle_manuell_anlegen: wieder 'nicht fuer Treffer aus einer Jobboerse'", WK,
+     '"Auch für Treffer aus dem Browserlauf: im Zweifel eintragen. Was "', '"Nicht für Treffer aus einer Jobbörse; die legt die Suche selbst an. Was "', T_BR),
+    ("bw20", "Hinweis zur aussortierten Dublette: das Urteil geht in den Chat", JOBS,
+     'an die Stelle (stelle_urteil_speichern): ob sie taugt, "', 'an die Stelle (im Chat): ob sie taugt, "', T_BR),
+    ("bw21", "Vorschau: die Blacklist-Abweisung wird auch in der Vorschau protokolliert", JOBS,
+     '            if not trocken:     # #1187: die Vorschau schreibt auch kein Protokoll\n', '            if True:\n', T_BR),
+    ("bw22", "Vorschau: die Anlage laeuft trotz Vorschau weiter (sie schreibt)", JOBS,
+     '        if trocken:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', '        if False:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', T_BR),
+    ("bw23", "Vorschau: die Sammeluebernahme ruft nie trocken auf", JOBS,
+     '                trocken=dry_run)   # #1187: die Vorschau prueft wie der echte Lauf\n', '                trocken=False)\n', T_BR),
+    ("bw24", "Vorschau: 'wuerde_angelegt' zaehlt nicht als angelegt", JOBS,
+     'if res.get("status") in ("angelegt", "wuerde_angelegt") or (', 'if res.get("status") == "angelegt" or (', T_BR),
+    ("bw25", "Vorschau: dieselbe Stelle zweimal im Aufruf zaehlt zweimal", JOBS,
+     '                if res["hash"] in vorschau_hashes:\n', '                if False:\n', T_BR),
+    ("bw26", "Vorschau: die Laenge des Volltexts fehlt", JOBS,
+     '                    _eintrag["beschreibung_zeichen"] = len(beschreibung)\n', '                    pass\n', T_BR),
+    ("bw27", "Vorschau: die Hinweise der Pruefungen fehlen", JOBS,
+     '            _befunde_anfuegen(vorschau)\n', '            pass\n', T_BR),
+    ("bw28", "Vorschau: der Hash der Stelle fehlt", JOBS,
+     '                "id": _kurz(job_hash), "hash": job_hash,\n                "nachricht": f"Vorschau:',
+     '                "id": _kurz(job_hash), "hash": "",\n                "nachricht": f"Vorschau:', T_BR),
+    ("bw29", "Sammeluebernahme: die aussortierte Dublette erscheint nicht im Eintrag", JOBS,
+     '                        ("aussortierte_dublette", "aussortierte_dublette"),\n', '', T_BR),
+    ("bw30", "Trichter-Zeile: 'schon aussortiert' fehlt", LVO,
+     '        ("aussortierte_dublette", "schon aussortiert"),\n', '', T_BR),
+]
+
+# ── jobtic: Quelle mit Auflagen - PBP ruft nichts selbst ab, keine Kontaktdaten, "Konto nötig" (#1189, B78) ──
+T_JT = ["tests/test_v18_jobtic_1189.py"]
+REG_JT = "src/bewerbungs_assistent/job_scraper/__init__.py"
+AUF_JT = "src/bewerbungs_assistent/services/quellen_auflagen.py"
+NACH_JT = "src/bewerbungs_assistent/services/nachladen.py"
+UH_JT = "src/bewerbungs_assistent/services/url_health.py"
+TN_JT = "src/bewerbungs_assistent/services/text_nachzug.py"
+UTS_JT = "src/bewerbungs_assistent/services/url_to_source.py"
+SS_JT = "src/bewerbungs_assistent/services/search_service.py"
+JS_JT = "src/bewerbungs_assistent/job_scraper/jobtic_extraction.js"
+
+M_JOBTIC = [
+    ("jt01", "Verzeichnis: die Quelle traegt kein Kennzeichen 'Konto noetig' mehr", REG_JT,
+     '        "konto_noetig": True,\n', '        "konto_noetig": False,\n', T_JT),
+    ("jt02", "Verzeichnis: jobtic verlangt den Login-Knopf des alten Weges", REG_JT,
+     '        "login_erforderlich": False,\n        "konto_noetig": True,\n',
+     '        "login_erforderlich": True,\n        "konto_noetig": True,\n', T_JT),
+    ("jt03", "Verzeichnis: der automatische Abruf ist erlaubt", REG_JT,
+     '            "kein_automatischer_abruf": True,\n', '            "kein_automatischer_abruf": False,\n', T_JT),
+    ("jt04", "Verzeichnis: Kontaktdaten aus dem Lauf werden uebernommen", REG_JT,
+     '            "keine_kontaktdaten": True,\n', '            "keine_kontaktdaten": False,\n', T_JT),
+    ("jt05", "Verzeichnis: die Stellenart ist keine Vorgabe mehr (Freelance)", REG_JT,
+     '            "stellenart": "freelance",\n', '            "stellenart": "festanstellung",\n', T_JT),
+    ("jt06", "Verzeichnis: die Adresse zum Konto zeigt auf die Startseite", REG_JT,
+     '        "konto_url": "https://jobtic.com/register",\n', '        "konto_url": "https://jobtic.com/",\n', T_JT),
+    ("jt07", "Verzeichnis: jobtic gilt als automatische Quelle", REG_JT,
+     '        "konto_noetig": True,\n        "zugriffsart": "browser_login",\n',
+     '        "konto_noetig": True,\n        "zugriffsart": "api",\n', T_JT),
+    ("jt08", "Auflagen: die Adresse entscheidet nicht mit", AUF_JT,
+     '    if url:\n        from .url_to_source import detect_source_from_url\n',
+     '    if False:\n        from .url_to_source import detect_source_from_url\n', T_JT),
+    ("jt09", "Auflagen: die genannte Quelle zaehlt nicht", AUF_JT,
+     '    schluessel = [str(quelle or "").strip().lower()]\n', '    schluessel = []\n', T_JT),
+    ("jt10", "Auflagen: die SQL-Bedingung kennt keinen Host", AUF_JT,
+     '            muster.extend(hosts_von(key))\n', '            pass\n', T_JT),
+    ("jt11", "Auflagen: keine Quelle hat je eine", AUF_JT,
+     '        if isinstance(gefunden, dict) and gefunden:\n            return gefunden\n',
+     '        if False:\n            return gefunden\n', T_JT),
+    ("jt12", "Nachladen: die Sperre greift nicht, PBP ruft die Seite ab", NACH_JT,
+     '    if kein_automatischer_abruf(url=url):\n        return Befund(status=NICHT_AUTOMATISCH, quelle="auflage",\n',
+     '    if False:\n        return Befund(status=NICHT_AUTOMATISCH, quelle="auflage",\n', T_JT),
+    ("jt13", "Nachladen: der Befund 'nicht automatisch' fehlt in der Bilanz", NACH_JT,
+     'BEFUNDE = (GELESEN, WEG, GEBLOCKT, LEBT_UNLESBAR, FEHLER, NICHT_AUTOMATISCH)\n',
+     'BEFUNDE = (GELESEN, WEG, GEBLOCKT, LEBT_UNLESBAR, FEHLER)\n', T_JT),
+    ("jt14", "URL-Check: die Sperre greift nicht, PBP ruft die Seite ab", UH_JT,
+     '    if kein_automatischer_abruf(url=url):\n        return HealthResult(status=HealthStatus.NICHT_GEPRUEFT,\n',
+     '    if False:\n        return HealthResult(status=HealthStatus.NICHT_GEPRUEFT,\n', T_JT),
+    ("jt15", "URL-Check: 'nicht geprueft' gilt als abgelaufen und sortiert die Stelle aus", UH_JT,
+     '        return HealthResult(status=HealthStatus.NICHT_GEPRUEFT,\n',
+     '        return HealthResult(status=HealthStatus.EXPIRED,\n', T_JT),
+    ("jt16", "Bestands-Nachzug: eine jobtic-Stelle bleibt Kandidat und zaehlt Fehlversuche", TN_JT,
+     '            if kein_automatischer_abruf(url=z["url"]):\n                continue\n',
+     '            if False:\n                continue\n', T_JT),
+    ("jt17", "Auto-Nachladen: die Auswahl kennt die Auflage nicht", DASH,
+     '    _ohne, _ohne_params = sql_ohne_abruf("url")\n    rows = conn.execute(\n        "SELECT hash FROM jobs "\n',
+     '    _ohne, _ohne_params = "", []\n    rows = conn.execute(\n        "SELECT hash FROM jobs "\n', T_JT),
+    ("jt18", "Aging-Check: die Auswahl kennt die Auflage nicht", DASH,
+     '    _ohne, _ohne_params = sql_ohne_abruf("url")\n    rows = conn.execute(\n        "SELECT hash, url, title FROM jobs "\n',
+     '    _ohne, _ohne_params = "", []\n    rows = conn.execute(\n        "SELECT hash, url, title FROM jobs "\n', T_JT),
+    ("jt19", "Anlage: Ansprechpartner aus jobtic werden uebernommen", JOBS,
+     '        if _aufl.get("keine_kontaktdaten") and (kontakt_name or kontakt_email or kontakt_telefon):\n',
+     '        if False and (kontakt_name or kontakt_email or kontakt_telefon):\n', T_JT),
+    ("jt20", "Anlage: die Stellenart ist keine Vorgabe der Quelle", JOBS,
+     '        if _aufl.get("stellenart") and stellenart == "festanstellung":\n', '        if False:\n', T_JT),
+    ("jt21", "Anlage: das Ergebnis verschweigt, dass der Kontakt fehlt", JOBS,
+     '                ergebnis["kontakt_nicht_uebernommen"] = kontakt_verworfen\n', '                pass\n', T_JT),
+    ("jt22", "Anlage: die Adresse zaehlt bei der Auflage nicht (falsch gesetzte Quelle)", JOBS,
+     '        _aufl = _auflagen.auflagen(quelle, url)\n', '        _aufl = _auflagen.auflagen(quelle, "")\n', T_JT),
+    ("jt23", "Qualitaetspruefung: eine nicht gepruefte Adresse zaehlt als in Ordnung", JOBS,
+     '                        kategorie.append("url_nicht_geprueft")\n', '                        pass\n', T_JT),
+    ("jt24", "Handoff: die Such-URL filtert nicht nach dem Begriff", HO,
+     '    "jobtic": "https://jobtic.com/search?type=projects&q={keyword}",\n',
+     '    "jobtic": "https://jobtic.com/search?type=projects",\n', T_JT),
+    ("jt25", "Handoff: jobtic bekommt das generische statt des eigenen Skripts", HO,
+     '    "jobtic": "jobtic_extraction.js",\n', '    "jobtic": "",\n', T_JT),
+    ("jt26", "Handoff: die Auflagen fehlen in der Anleitung", HO,
+     '        "anleitung": anleitung + (" " + auflagen if auflagen else ""),\n', '        "anleitung": anleitung,\n', T_JT),
+    ("jt27", "Handoff: die Anleitung spricht wieder vom 'Umgehen von Bot-Blockern'", HO,
+     '    schritt_1 = ("1. URL im eigenen, angemeldeten Chrome mit Claude-in-Chrome öffnen. " if auflagen\n',
+     '    schritt_1 = ("1. URL im eigenen, angemeldeten Chrome mit Claude-in-Chrome öffnen. " if False\n', T_JT),
+    ("jt28", "Auftrag je Quelle: die Auflagen werden nicht in den Eintrag gelesen", BH,
+     '            "auflagen": str((info.get("auflagen") or {}).get("hinweis") or ""),\n', '            "auflagen": "",\n', T_JT),
+    ("jt29", "Auftrag je Quelle: die Auflagen stehen nicht im Text", BH,
+     '        if e.get("auflagen"):\n            zeilen.append(f"   {e[\'auflagen\']}")\n',
+     '        if False:\n            zeilen.append(f"   {e[\'auflagen\']}")\n', T_JT),
+    ("jt30", "Adresse: jobtic.com wird keiner Quelle zugeordnet", UTS_JT,
+     '    ("jobtic.com", "jobtic"),\n', '', T_JT),
+    ("jt31", "Dashboard-Zeile: das Kennzeichen 'Konto noetig' kommt nicht an", SS_JT,
+     '            "konto_noetig": bool(info.get("konto_noetig", False)),\n', '            "konto_noetig": False,\n', T_JT),
+    ("jt32", "Skript: E-Mail-Adressen im Kartentext bleiben stehen", JS_JT,
+     r"    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, '[Adresse entfernt]')" + "\n", '', T_JT),
+    ("jt33", "Skript: der Kartentext wird ohne die Kontaktbereinigung uebernommen", JS_JT,
+     "    if (href) karten[href.split('?')[0]] = ohneKontakt(text(karte)).slice(0, 600);\n",
+     "    if (href) karten[href.split('?')[0]] = text(karte).slice(0, 600);\n", T_JT),
+    ("jt34", "Skript: auch Profile und Navigation gelten als Projekte", JS_JT,
+     r"    if (!/\/project\/[a-z0-9]+/i.test(link) || !titel) continue;" + "\n", "    if (!titel) continue;\n", T_JT),
+    ("jt35", "Skript: eine leere Liste meldet keinen Fehler", JS_JT,
+     "  if (!jobs.length) {\n", "  if (false) {\n", T_JT),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -742,6 +918,8 @@ GRUNDLAEUFE = {
     "vorab": (("T_VO", T_VO), ("T_EW", T_EW)),
     "konsole": (("T_KO", T_KO),),
     "google": (("T_GA", T_GA),),
+    "browser": (("T_BR", T_BR),),
+    "jobtic": (("T_JT", T_JT),),
 }
 
 WT = None
@@ -792,7 +970,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

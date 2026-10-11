@@ -9764,6 +9764,10 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     from .services.datenguete import MIN_BESCHREIBUNG
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - nicht einmal als Kandidat (sonst fuellen
+    # sie das LIMIT und verdraengen bei jedem Lauf dieselben anderen Stellen).
+    from .services.quellen_auflagen import sql_ohne_abruf
+    _ohne, _ohne_params = sql_ohne_abruf("url")
     rows = conn.execute(
         "SELECT hash FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
@@ -9772,8 +9776,9 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
         # "Beschreibung" der Anriss der Suchergebnis-Seite.
         "AND COALESCE(is_search_url, 0) = 0 "
         "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
-        "LIMIT ?",
-        (pid, MIN_BESCHREIBUNG, max_jobs * 3)  # Overshoot — Backoff ueberspringt
+        + _ohne +
+        " LIMIT ?",
+        (pid, MIN_BESCHREIBUNG, *_ohne_params, max_jobs * 3)  # Overshoot — Backoff ueberspringt
     ).fetchall()
     erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
     successes, failures = erg["geholt"], erg["fehlgeschlagen"]
@@ -9817,13 +9822,18 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
     from datetime import datetime, timezone, timedelta
     pid = _db.get_active_profile_id()
     conn = _db.connect()
+    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - sie kommen gar nicht erst in die Auswahl
+    # (im SQL, denn nach dem LIMIT wuerden sie jedes Mal dieselben anderen Stellen verdraengen).
+    from .services.quellen_auflagen import sql_ohne_abruf
+    _ohne, _ohne_params = sql_ohne_abruf("url")
     rows = conn.execute(
         "SELECT hash, url, title FROM jobs "
         "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
         "AND url IS NOT NULL AND url != '' "
         "AND COALESCE(is_search_url, 0) = 0 "
-        "LIMIT ?",
-        (pid, max_jobs * 3),  # Overshoot fuer Backoff-Skip
+        + _ohne +
+        " LIMIT ?",
+        (pid, *_ohne_params, max_jobs * 3),  # Overshoot fuer Backoff-Skip
     ).fetchall()
 
     now_dt = datetime.now(timezone.utc)

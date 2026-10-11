@@ -3,6 +3,7 @@
 import json
 
 from .services.profile_service import get_profile_completeness_labels
+from .services.browser_handoff import REGEL_IM_ZWEIFEL
 from .services.punkte import SCORE_BEDEUTUNG
 from .services.dashboard_link import dashboard_link
 from .services.ton import TON
@@ -764,7 +765,8 @@ Das kann je nach Anzahl der Quellen 5-10 Minuten dauern.
 → Liefert jobsuche_starten ein Feld `manuelle_quellen` (Jobbörsen, die nur im
    Browser gehen): ARBEITE DIESE QUELLEN SELBST AB — ohne Nachfrage —, sofern
    Claude-in-Chrome verbunden ist, während die Hintergrund-Suche laeuft: Suchbegriffe je Jobbörse aus
-   suchprofil_lesen(), passende Treffer mit stelle_manuell_anlegen() erfassen.
+   suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit
+   stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}
    Ohne Claude-in-Chrome: die Jobbörsen nennen und den Weg erklären.
 
 ═══════════════════════════════════════════════════
