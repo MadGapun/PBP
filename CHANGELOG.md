@@ -52,7 +52,7 @@ Einträgen darunter.
   *Automatisch, still*. Neue Versionen landen in einem eigenen Ordner neben der laufenden; startet die neue nicht, fällt PBP **von selbst auf die
   vorige zurück** und sagt es. Geladen wird nur von der festen GitHub-Adresse, nur stabile Versionen der eigenen Linie, mit Prüfsumme **und Signatur**
   (Ed25519; ohne gültige Signatur wird nichts installiert). Die Automatik startet nie neben anderer Arbeit.
-- **Einmalig von Hand:** Die erste Version mit dieser Funktion ist 1.8.0 selbst. Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
+- **Einmalig von Hand:** Die erste stabile Version mit dieser Funktion ist 1.8.0 selbst. Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
   `INSTALLIEREN.bat`); ab dann kann PBP den Rest selbst. **Das automatische Aktualisieren gibt es zurzeit nur unter Windows.**
 - **Speicher & Downloads (Einstellungen › Erweitert).** Wohin PBP schreibt und lädt, wie viel dort liegt, und Aufräumen in zwei Schritten — nie
   ohne dein Ja, nie bei laufender Arbeit. Was anderen Programmen gehört (Browser der Jobsuche, KI-Modelle), wird nur gezeigt. Die Karte „Deine
@@ -63,7 +63,7 @@ Einträgen darunter.
   schickt weiter nur, was du markierst.
 - **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, als eine Zeitleiste; ein Firmen-Eintrag fasst Schreibweisen zusammen
   („Alt AG“ heißt heute „Neu GmbH“) und kennt die Mutterfirma. Bewerbungen, Stellen und Kontakte behalten ihren Firmennamen als Text.
-- **Ein Klick zum Nächsten (#1171).** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung; nach „Bewerbung speichern“ liegt die neue
+- **Ein Klick zum Nächsten (#1171).** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung; nach „Bewerbung speichern“ in der Stellen-Ansicht liegt die neue
   Bewerbung offen da (mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß); in der Timeline führt der Name der Person zu ihrer Karte,
   und die Karte nennt oben „Bewerbung: Titel bei Firma“ und führt zurück; „Zur Stelle“ auf der Bewerbungskarte, „Zur Bewerbung“ in der
   Aufgabenzeile, die Top-Stelle im Dashboard öffnet die Stelle. Die Timeline hat oben eine Sprungleiste (Status · Stelle · Dokumente · Personen ·
@@ -72,7 +72,7 @@ Einträgen darunter.
   Mail zur Bewerbung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
 - **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
   (aufgeklappt, mit seinem Namen im Suchfeld der Seite), die Mail (ihr Fenster, auch ohne Bewerbung), den Termin (in der Timeline der Bewerbung, am Abschnitt
-  „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil, die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
+  „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil; ab sieben Skills ist die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
 - **Eine neuere Vorabversion wird überall gleich gemeldet (#1179).** Wer eine Beta nutzt und eine neuere erscheint, sieht in der Seitenleiste „Neue Vorabversion
   verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nie von selbst, auch nicht mit „Mit einem
   Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
@@ -129,7 +129,7 @@ Einträgen darunter.
   immer, bei einem langsamen Rechner dauerhaft. (5) Ein **Platzhalter** („Nicht angegeben“) gilt nicht als Firma: zwei Projekte gleichen Titels von
   nicht genannten Auftraggebern bleiben zwei, ähnliche Titel sind kein „Duplikat“. (6) Beim Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen
   mit Profil: der Anfangszustand der Seiten war „kein Profil“ statt „unbekannt“. (7) Der Bestandsnachzug füllte `max_stellen` mit Stellen, die er nie abrufen darf.
-  (8) Der Knopf „Beschreibung nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
+  (8) Der Knopf „Beschreibung jetzt nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
   (sonst „ruht seit 0“); `jobtic.com:443` und `nutzer@jobtic.com` gehören zur Quelle.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
 - Gegenprobe (`scripts/mutationstest_auto_update.py`): sechzehn Kataloge, 534 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
@@ -165,7 +165,7 @@ Einträgen darunter.
 ### Fixed
 
 - **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26, Testlauf 11.10.2026; seit beta.0). Das Setup verlangte Rechte und ließ sich aus einem Programm ohne Erhöhung nicht starten (`WinError 740`); der Knopf versprach „kein Admin nötig“. Jetzt startet PBP es ohne Abfrage, sucht den Ort, an dem es „nur für mich“ installiert (`%LOCALAPPDATA%\Programs\Tesseract-OCR`), merkt ihn, lädt das deutsche Sprachpaket dorthin und entfernt alles wieder mit dem eigenen Deinstallationsprogramm des Setups (Oberfläche und Deinstaller, nur an diesem einen Ort).
-- **Der Installer ließ einen leeren Ordner, die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) im Temp-Ordner liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
+- **Der Installer ließ den entpackten Ordner leer stehen und im Temp-Ordner die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
 - Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.
 - Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
 - **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
@@ -185,8 +185,8 @@ Einträgen darunter.
   v1.7.153. Nachher: 0,2 % und 0,6 Anfragen pro Sekunde. Zwei Wächter-Tests halten es fern: einer sieht jede der elf Seiten im Leerlauf an (gesund sind 1 bis 2 Anfragen in drei Sekunden), einer lässt keine neuen
   Effekt-Ereignisse in Abhängigkeitslisten zu (`test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`); acht ältere Stellen (App, Ablegen von Dokumenten, Einrichtungsassistent) sind als Bestand benannt, bei ihnen wurde nichts Auffälliges gemessen.
 - Jede Seite lud beim Start zweimal und blendete dabei kurz die schon gezeichnete Liste aus (ein offenes Fenster ging mit, die Leseposition sprang an
-  den Anfang). In „Stellen“ und „Bewerbungen“ erscheint die Ladeanzeige nur noch beim ersten Laden; „Kalender“, „Profil“, „Statistik“ und
-  „Einstellungen“ folgen. Der Welle-4-Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der an diesem Flackern scheiterte, ist wieder stabil.
+  den Anfang). In „Stellen“ und „Bewerbungen“ erscheint die Ladeanzeige nur noch beim ersten Laden; „Kalender“ zeigt sie ohnehin nur einmal; „Profil“, „Statistik“ und
+  „Einstellungen“ zeigen sie weiterhin bei jedem Laden. Der Welle-4-Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der an diesem Flackern scheiterte, ist wieder stabil.
 - Was Claude schreibt, kam im offenen Fenster nicht an: das Urteil zu einer Stelle und eine Notiz in der Timeline erschienen erst nach Schließen und Öffnen.
 - Benutzernamen mit einem Zeichen außerhalb der Windows-Zeichentabelle (ł, ş, ř, griechisch, kyrillisch; Umlaute waren nie betroffen) ließen
   mehrere Schritte scheitern (#1163): die Claude-Konfiguration und die Sicherung vor dem Update im Installer, den Selbsttest des Auto-Updates
@@ -205,15 +205,14 @@ Einträgen darunter.
     die Vorgabe ist **Behalten**, und nur ein einzelnes „j“ löscht. Der Browser-Ordner geht ganz, von pip nur der Unterordner `Cache` (die Einstellungsdatei
     eines anderen Programms bleibt). Dieselben Ordner nutzen andere Programme mit, deshalb im Zweifel behalten.
   - Die Fehlermarke `[!!]` erschien in Installer und Deinstaller als `[]`: unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!`. Betroffen waren zehn
-    Meldungen („… konnte nicht entfernt werden“, „Datei in Benutzung?“ u. a.); wer einen Fehler hatte, sah nur leere Klammern vor dem Text. Maskiert; ein Test
+    Meldungen („… konnte nicht entfernt werden“ u. a.); wer einen Fehler hatte, sah nur leere Klammern vor dem Text. Maskiert; ein Test
     verbietet die ungeschützte Schreibweise.
   - Der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner `%LOCALAPPDATA%\BewerbungsAssistent\app` liegen (Schritt [5/7] meldete „konnte nicht
     entfernt werden“): das neue Fenster hatte diesen Ordner als Arbeitsordner, und ein Prozess hält seinen Arbeitsordner fest. Gefunden bei der
     Gegenprobe der Reparaturen auf demselben Rechner; das Fenster öffnet jetzt im Temp-Ordner, und die Datei verlässt den Ordner, bevor sie sich verschiebt.
   - Weitere Funde derselben Gegenprobe, behoben:
     - Die verschobene Kopie des Deinstallers (`PBP-Deinstaller-<Zahl>.bat`, rund 15 KB) blieb in `%TEMP%` liegen; sie räumt sich jetzt selbst weg.
-    - Der Deinstaller schrieb die Konfiguration von Claude in der Formatierung von Windows PowerShell neu (rund siebenmal so groß) und ließ
-      `"mcpServers": {}` stehen. Jetzt nimmt er nur den PBP-Eintrag aus dem Text, der Rest bleibt Byte für Byte; das Ergebnis wird geprüft,
+    - Der Deinstaller schrieb die Konfiguration von Claude in der Formatierung von Windows PowerShell neu (rund siebenmal so groß). Jetzt nimmt er nur den PBP-Eintrag aus dem Text (ein leeres `"mcpServers": {}` bleibt stehen, siehe Known Issues), der Rest bleibt Byte für Byte; das Ergebnis wird geprüft,
       und wo der Text-Weg nicht passt, gilt der bisherige.
     - Das Dashboard-Fenster zeigt nur noch Warnungen und Fehler (die Log-Datei bekommt weiter alles; `BA_CONSOLE_LEVEL=INFO` zeigt alles). Vorher
       schoben sich Protokollzeilen in die Frage „Claude jetzt neu starten?“ und füllten den ersten Start mit Dutzenden Zeilen.
@@ -229,7 +228,7 @@ Einträgen darunter.
   - Auf den Karten der Erweiterungen und Quellen standen Kennungen aus der Planung („…(E19)“); entfernt.
   - Das Titelbild des Wikis zeigte seit v1.7.137 eine Fehlerkarte („Dieser Bereich ist abgestürzt“); der Screenshot-Generator prüft jetzt
     jede Aufnahme.
-- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, alle seit v1.7.59** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der
+- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, zwei seit v1.7.59, einer seit v1.7.140 und in der Karte seit Beta 16** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der
   Hinweis in der Gefahrenzone („Bleibt: Ablageordner …“) nannten den Ordner des Nutzers nie: gespeichert wird je Profil, gelesen wurde ohne Profil, die Liste war
   immer leer — ein Test blieb dabei grün, weil er die Einstellung auf dem anderen Weg schrieb. (2) „Zurücksetzen“ (das Feld leeren) endete im
   Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`).
@@ -250,8 +249,8 @@ Einträgen darunter.
   Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
   (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
 - **Ein Lauf über die Browser-Quellen legte keine einzige Stelle in PBP an** (#1187; seit der Browser-Suche, auch in der stabilen Version). Ein Lauf über sechs Quellen mit rund 1.300 Rohtreffern
-  endete mit 0 angelegten Stellen: Fünf Anleitungen (Auftrag je Quelle, Handoff einer Quelle, Workflow-Prompt der Jobsuche, `google_jobs_url`, LinkedIn-Plan) sagten Claude, „passende“ Stellen zu
-  übernehmen und Verworfenes im Chat zu melden — die Auswahl traf Claude, der Mensch sah nur den Bericht, und der Katalogtext von `stelle_manuell_anlegen` sagte dazu „nicht für Treffer aus einer
+  endete mit 0 angelegten Stellen: Die Anleitungen ließen Claude auswählen: der Auftrag je Quelle, der Handoff einer Quelle und der Workflow-Prompt der Jobsuche sagten, „passende“ Stellen zu
+  übernehmen und Verworfenes im Chat zu melden, der LinkedIn-Plan ließ schon vorab nach Titeln aussieben, und `google_jobs_url` nannte keine Regel für Grenzfälle — die Auswahl traf Claude, der Mensch sah nur den Bericht, und der Katalogtext von `stelle_manuell_anlegen` sagte dazu „nicht für Treffer aus einer
   Jobbörse“. Jetzt steht in jeder Anleitung dieselbe Regel (eine Fassung, `services/browser_handoff.REGEL_IM_ZWEIFEL`): im Zweifel eintragen; eine Stelle zu viel ist besser als eine zu wenig, ob sie
   taugt, entscheidet der Mensch in PBP. Urteil und Zweifelsgrund gehen an die Stelle (`stelle_urteil_speichern`), dazu ob die Anzeige noch offen ist; schon Aussortiertes, das nach dem Lesen fachlich
   passt, holt `stelle_reaktivieren` zurück; aussortiert wird nur Offensichtliches, mit Grund. Der Bericht im Chat ersetzt die Einträge nicht. Ein Test verlangt die Regel in jeder Anleitung, ein zweiter
@@ -265,12 +264,12 @@ Einträgen darunter.
   aus — die höchste Stufe, die ein Skill je hatte. Die Oberfläche zeigt den aktuellen Stand und bei ruhenden Skills „ruht (Spitze x/5)“. Ein Skill, den jemand seit Jahrzehnten nicht mehr einsetzt,
   ging so als Experte an eine fremde Plattform. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; ist ein Skill beendet und kein
   heutiges Niveau eingetragen, steht `level_aktuell` auf leer, und Claude soll nachfragen, statt die Spitze zu nehmen. Das mehrdeutige Feld `level` entfällt; der Text der Zusammenfassung und die
-  Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 10 absichtlich eingebaute Fehler.
+  Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 11 absichtlich eingebaute Fehler.
 - **Die Gefahrenzone zählte mitgelieferte Vorgaben als deine Daten** (#1170 U9). Eine frische Installation zeigte „Bewerbungen: 7 Datensätze — Enthält Namen und Mailadressen Dritter“; die sieben waren die mitgelieferten
   Kontaktkategorien (ebenso „Einstellungen: 35“: Regler und Ablehnungsgründe). Gezählt wird jetzt, was du angelegt oder verstellt hast; die Vorgaben stehen als „ohne N mitgelieferte Vorgaben“ daneben und gehen beim Leeren mit.
-- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und rund 30 weitere Stellen (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
+- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und weitere Stellen, zusammen rund 30 (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
   Ausdruck (`{n} Datensaetze`) nie und verlor hinter einem verirrten Anführungszeichen alle Zeichenketten der Datei; beides ist behoben, er findet jetzt 0 Stellen.
-- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14), bei Fenstern unter 1536 px Breite.
+- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14).
 - **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
   keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
 
