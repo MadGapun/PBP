@@ -118,3 +118,19 @@ Je Block ein Satz („in Ordnung“ oder Abweichung mit Bildschirmfoto) im Issue
 Gelaufen. Ergebnis je Block und die Funde PP24 bis PP28 stehen in `praxisprobe-1.8.0.md` (Abschnitt „Testlauf des Release-Kandidaten“), im Issue #1170 und im
 PR des Kandidaten. Beta-Exit-Punkte 4, 5 und 7 sind belegt, Punkt 3 war offen (PP26) und ist in `1.8.0-rc.2` behoben; der Beleg mit dem echten Setup ist ein
 zweiter, kurzer Lauf (Blöcke B, D, G, H; rund eine Stunde; vorher ankündigen).
+
+## Zweiter Lauf (nach `1.8.0-rc.2`): nur das, was sich geändert hat
+
+Blöcke B, D, G, H; rund eine Stunde; der Werkstatt-PC steht nach dem ersten Lauf im Ausgangszustand (Claude-Konfiguration byte-gleich). Das Probe-Skript wird neu
+geladen (`iwr https://raw.githubusercontent.com/MadGapun/PBP/release/v1.8.0-rc/docs/internal/testlauf/pbp_probe.ps1`). Was jeweils zu sehen sein muss:
+
+- **B (PP24, PP25):** Installer endet grün; das Fenster wird mit einer Taste geschlossen; **innerhalb von zehn Minuten** ist der entpackte Ordner samt ZIP weg
+  (der Helfer versucht es alle drei Sekunden und gibt erst nach zehn Minuten auf), danach liegen weder `pbp_installer_aufraeumen.py` noch ein `tmp…\pip.zip` im
+  Temp-Ordner (`check` zeigt beides).
+- **D (PP26):** *Einstellungen › Erweitert › Erweiterungen › Texterkennung › Herunterladen & installieren* **ohne** eine Abfrage nach Administratorrechten;
+  Fortschritt, dann „Installiert · v5.4.0“. `komp` zeigt den Vermerk (`pbp-installation.json`), den Ordner `%LOCALAPPDATA%\Programs\Tesseract-OCR` mit
+  `tesseract.exe`, `tesseract-uninstall.exe` und im `tessdata` **`deu.traineddata`**. *Speicher & Downloads* nennt den Programmordner mit Größe. Das Scan-PDF
+  hochladen: `ocr` zeigt `sprachen: deu+eng`, keinen Sprachhinweis. Danach *Entfernen*: Ordner und Startmenü-Eintrag weg, Karte wieder „Nicht installiert“.
+- **G (PP26):** Texterkennung noch einmal installieren, dann der Deinstaller (Knopf in der Gefahrenzone): Schritt 5 meldet „[OK] Texterkennung (Tesseract)
+  entfernt“, danach ist `%LOCALAPPDATA%\Programs\Tesseract-OCR` samt Startmenü-Eintrag weg (`check`), `components\` ebenfalls.
+- **H:** wie zuvor; `orig_config2.json` zurückkopieren, `%APPDATA%\Claude` entfernen, wenn es erst durch den Lauf entstand.

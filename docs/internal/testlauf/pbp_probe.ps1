@@ -365,12 +365,16 @@ function Phase-check {
   $i = 0
   foreach ($c in (ConfigPfade)) {
     $i++
-    $b = @($B.configs)[$i - 1]
+    # Nicht `$b`: PowerShell unterscheidet `$b` und `$B` nicht, die Zuweisung ueberschriebe die Basis (Testlauf 11.10.2026: "Basis" blieb ab der zweiten Datei leer).
+    $bk = @($B.configs)[$i - 1]
     $ex = Test-Path -LiteralPath $c
     $eintrag = $false
     if ($ex) { try { $eintrag = [bool]((Get-Content -LiteralPath $c -Raw -Encoding UTF8 | ConvertFrom-Json).mcpServers.'bewerbungs-assistent') } catch { } }
-    [void]$L.Add('config' + $i + ': vorhanden=' + $ex + ' (Basis ' + $b.vorhanden + ') sha=' + (Sha $c) + ' (Basis ' + $b.sha + ') fremd=' + $(if ($ex) { Fremd $c } else { '-' }) + ' (Basis ' + $b.fremd + ') PBP-Eintrag=' + $eintrag)
+    [void]$L.Add('config' + $i + ': vorhanden=' + $ex + ' (Basis ' + $bk.vorhanden + ') sha=' + (Sha $c) + ' (Basis ' + $bk.sha + ') fremd=' + $(if ($ex) { Fremd $c } else { '-' }) + ' (Basis ' + $bk.fremd + ') PBP-Eintrag=' + $eintrag)
   }
+  # PP26: die Texterkennung "nur fuer mich" liegt ausserhalb von PBP; nach dem Deinstaller darf davon nichts bleiben
+  [void]$L.Add('Tesseract-OCR (nur fuer mich) vorhanden=' + (Test-Path -LiteralPath (Join-Path $LA 'Programs\Tesseract-OCR')) + ' | Startmenue=' + (Test-Path -LiteralPath (Join-Path $RA 'Microsoft\Windows\Start Menu\Programs\Tesseract-OCR')))
+  [void]$L.Add('Temp: tmp*\pip.zip=' + @(Get-ChildItem -LiteralPath $env:TEMP -Directory -Filter 'tmp*' -ErrorAction SilentlyContinue | Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'pip.zip') }).Count + ' | pbp_installer_aufraeumen.py=' + (Test-Path -LiteralPath (Join-Path $env:TEMP 'pbp_installer_aufraeumen.py')) + ' | deinstall_log.txt=' + (Test-Path -LiteralPath (Join-Path $env:TEMP 'deinstall_log.txt')))
   $L | Set-Content -LiteralPath (Join-Path $W 'check.txt') -Encoding UTF8
   $L | ForEach-Object { Say $_ }
 }
@@ -379,9 +383,20 @@ function Phase-check {
 function Phase-komp {
   $r = Api 'GET' '/api/components' $null
   foreach ($k in @($r.komponenten)) {
-    Say ('komponente: ' + $k.name + ' | status=' + $k.status + ' | version=' + $k.version + ' | pfad=' + (Kurz ([string]$k.pfad) 80))
+    Say ('komponente: ' + $k.name + ' | status=' + $k.status + ' | quelle=' + $k.quelle + ' | version=' + $k.version + ' | pfad=' + (Kurz ([string]$k.binary) 90))
   }
   Say ('ollama: verfuegbar=' + $r.ollama.verfuegbar)
+  # PP26: ohne Administratorrechte installiert das Setup "nur fuer mich" ausserhalb von PBP; der Vermerk im Komponenten-Ordner sagt es
+  $marker = Join-Path $BASE 'components\tesseract\pbp-installation.json'
+  Say ('vermerk: ' + $(if (Test-Path -LiteralPath $marker) { Kurz ((Get-Content -LiteralPath $marker -Raw) -replace '\s+', ' ') 260 } else { 'keiner' }))
+  $pu = Join-Path $LA 'Programs\Tesseract-OCR'
+  if (Test-Path -LiteralPath $pu) {
+    Say ('programmordner: ' + $pu + ' | ' + (Mb $pu) + ' MB | tesseract.exe=' + (Test-Path -LiteralPath (Join-Path $pu 'tesseract.exe')) + ' | deinstaller=' + (Test-Path -LiteralPath (Join-Path $pu 'tesseract-uninstall.exe')))
+    $td = Join-Path $pu 'tessdata'
+    if (Test-Path -LiteralPath $td) { Say ('tessdata: ' + ((Get-ChildItem -LiteralPath $td -Filter '*.traineddata' | ForEach-Object { $_.Name + ' ' + [int]($_.Length / 1KB) + 'KB' }) -join '; ')) }
+  } else { Say ('programmordner: ' + $pu + ' | nicht da') }
+  $sm = Join-Path $RA 'Microsoft\Windows\Start Menu\Programs\Tesseract-OCR'
+  Say ('startmenue: ' + $(if (Test-Path -LiteralPath $sm) { 'vorhanden' } else { 'nicht da' }))
 }
 
 function Phase-ocr {
