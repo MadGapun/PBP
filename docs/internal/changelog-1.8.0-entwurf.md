@@ -184,6 +184,11 @@ Einträgen darunter.
 - **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
   Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
   (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+- **Bei jedem Skill nannte Claude nur die Spitze, nicht den Stand von heute** (#1190; seit v1.6.0, auch in der stabilen Version). `profil_zusammenfassung` gab in `skills_liste` nur `level`
+  aus — die höchste Stufe, die ein Skill je hatte. Die Oberfläche zeigt den aktuellen Stand und bei ruhenden Skills „ruht (Spitze x/5)“. Ein Skill, den jemand seit Jahrzehnten nicht mehr einsetzt,
+  ging so als Experte an eine fremde Plattform. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; ist ein Skill beendet und kein
+  heutiges Niveau eingetragen, steht `level_aktuell` auf leer, und Claude soll nachfragen, statt die Spitze zu nehmen. Das mehrdeutige Feld `level` entfällt; der Text der Zusammenfassung und die
+  Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 10 absichtlich eingebaute Fehler.
 
 ### Known Issues
 
