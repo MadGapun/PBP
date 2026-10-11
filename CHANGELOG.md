@@ -66,6 +66,8 @@ GitHub, Rückfall, abgelehnte Pakete) belegt; Punkt 3 (Texterkennung ohne Admini
 - Nach der Deinstallation bleibt im klassischen Konfigurationsordner `%APPDATA%\Claude` eine Datei mit leerem `mcpServers` samt `….pbp-backup`, und die Datei von
   Claude als Store-Fassung behält `"mcpServers": {}` (PP27, PP28; schon als PP22 dokumentiert). Harmlos — Claude liest beides wie vorher —, die Sicherungskopie ist
   Absicht. Auf Wunsch lässt sich das ändern.
+- Nach dem Entfernen der Texterkennung bleibt im Temp-Ordner die Selbstkopie des Deinstallationsprogramms von Tesseract liegen (`~nsu.tmp\Un_A.exe`, 151 KB; PP29).
+  Sie stammt aus dem Programm von Tesseract, nicht aus PBP, und ist harmlos.
 
 *Schema v52 (unverändert), 281 MCP-Werkzeuge, 8596 Tests.*
 

@@ -116,8 +116,12 @@ Je Block ein Satz („in Ordnung“ oder Abweichung mit Bildschirmfoto) im Issue
 ## Stand nach dem Lauf (11.10.2026)
 
 Gelaufen. Ergebnis je Block und die Funde PP24 bis PP28 stehen in `praxisprobe-1.8.0.md` (Abschnitt „Testlauf des Release-Kandidaten“), im Issue #1170 und im
-PR des Kandidaten. Beta-Exit-Punkte 4, 5 und 7 sind belegt, Punkt 3 war offen (PP26) und ist in `1.8.0-rc.2` behoben; der Beleg mit dem echten Setup ist ein
-zweiter, kurzer Lauf (Blöcke B, D, G, H; rund eine Stunde; vorher ankündigen).
+PR des Kandidaten. Beta-Exit-Punkte 4, 5 und 7 sind belegt, Punkt 3 war offen (PP26) und ist in `1.8.0-rc.2` behoben; der Beleg mit dem echten Setup kam im
+zweiten, kurzen Lauf (Blöcke B, D, G, H; rund eine Stunde; vorher angekündigt).
+
+**Zweiter Lauf (11.10.2026, spät abends):** gelaufen, alle vier Blöcke in Ordnung (Ergebnis in `praxisprobe-1.8.0.md`, Abschnitt „Zweiter Lauf des Kandidaten
+`1.8.0-rc.2`“). PP24, PP25 und PP26 sind mit dem echten Setup belegt, ohne dass irgendwo eine Abfrage nach Administratorrechten kam; neu ist nur PP29 (kosmetisch,
+nicht geändert). Beta-Exit-Punkte 3, 4, 5 und 7 sind belegt; offen ist das Wort des Nutzers (Punkt 6).
 
 ## Zweiter Lauf (nach `1.8.0-rc.2`): nur das, was sich geändert hat
 
