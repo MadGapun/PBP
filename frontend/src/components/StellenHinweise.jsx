@@ -11,6 +11,7 @@ import { ChevronDown, ExternalLink, Lightbulb } from "lucide-react";
 import { api, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card } from "@/components/ui";
+import { sichereAdresse } from "@/lib/webAdresse";
 
 export default function StellenHinweise({ anlass = 0 }) {
   const { pushToast } = useApp();
@@ -86,7 +87,7 @@ export default function StellenHinweise({ anlass = 0 }) {
                     {h.suche?.[0]?.url && (
                       <a
                         className="inline-flex items-center gap-1 text-xs text-sky underline"
-                        href={h.suche[0].url}
+                        href={sichereAdresse(h.suche[0].url)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

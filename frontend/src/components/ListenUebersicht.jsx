@@ -32,7 +32,7 @@ function schreiben(id, offen) {
   }
 }
 
-export default function ListenUebersicht({ id, zusammenfassung, badge = null, titel = "", aktion = null, children, className }) {
+export default function ListenUebersicht({ id, zusammenfassung, badge = null, titel = "", status = "", aktion = null, children, className }) {
   const [offen, setOffen] = useState(() => lesen(id));
 
   return (
@@ -51,6 +51,7 @@ export default function ListenUebersicht({ id, zusammenfassung, badge = null, ti
         </button>
         {badge}
         {titel ? <span className="min-w-0 flex-1 text-[13px] text-muted" data-listen-uebersicht-titel>{titel}</span> : <span className="flex-1" />}
+        {status ? <span className="text-[12px] text-muted" data-listen-uebersicht-status>{status}</span> : null}
         {aktion}
       </div>
       {offen ? <div className="mt-4 grid gap-4" data-listen-uebersicht-inhalt>{children}</div> : null}

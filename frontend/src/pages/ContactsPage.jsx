@@ -100,6 +100,7 @@ function ContactCard({ contact, onClick }) {
   return (
     <button
       type="button"
+      data-kontaktkarte={contact.id}
       onClick={onClick}
       className="glass-card text-left rounded-xl px-4 py-3 hover:bg-white/[0.04] transition-colors w-full"
     >
@@ -827,7 +828,7 @@ export default function ContactsPage() {
     if (intent?.page !== "kontakte") return;
     if (intent.ansicht === "firmen") {
       setAnsicht("firmen");
-      setFirmenZiel({ firmaId: intent.firmaId || "", firmaName: intent.firmaName || "", nonce: intent.nonce });
+      setFirmenZiel({ firmaId: intent.firmaId || "", firmaName: intent.firmaName || "", nonce: intent.nonce, von: intent.von || null });
     } else if (intent.ansicht === "kontakte") {
       setAnsicht("kontakte");
       if (typeof intent.suche === "string") setSearch(intent.suche);

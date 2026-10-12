@@ -49,6 +49,7 @@ import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import { SPRUNG_WORT, zuKontakt } from "@/lib/wege";
 import Sprungleiste from "@/components/Sprungleiste";
 import WegLeiste from "@/components/WegLeiste";
+import ListenUebersicht from "@/components/ListenUebersicht";
 import { bewerbungLeiste } from "@/lib/wegleiste";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, brauchtBewerbungsdatum, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
@@ -837,6 +838,23 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* #1171 Baustein 5 (Listen zuerst): Kennzahlen und Hinweis sind EINE Zeile, die aufklappt - die Liste beginnt im
+            ersten Bildschirm; der eine Hinweis mit seinem Knopf bleibt in der Zeile. */}
+        <ListenUebersicht
+          id="bewerbungen"
+          zusammenfassung={[
+            `${activeApplicationsCount} ${activeApplicationsCount === 1 ? "aktive Bewerbung" : "aktive Bewerbungen"}`,
+            dueFollowUps.length ? `${dueFollowUps.length} ${dueFollowUps.length === 1 ? "Nachfassung" : "Nachfassungen"} fällig` : null,
+            interviewApplicationsCount ? `${interviewApplicationsCount} ${interviewApplicationsCount === 1 ? "Interview" : "Interviews"}` : null,
+          ].filter(Boolean).join(" · ")}
+          badge={<Badge tone={nextStep.tone}>{nextStep.badge}</Badge>}
+          titel={nextStep.title}
+          aktion={nextStep.actionLabel ? (
+            <Button size="sm" variant="secondary" onClick={nextStep.action}>
+              {nextStep.actionLabel}
+            </Button>
+          ) : null}
+        >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label={filters.showArchived || ARCHIVE_STATUSES.includes(filters.status) ? "Sichtbare Bewerbungen" : "Aktive Bewerbungen"}
@@ -853,28 +871,16 @@ export default function ApplicationsPage() {
           <MetricCard label="Interviews" value={interviewApplicationsCount} note="Aktive Interview-Phase" tone="amber" />
         </div>
 
-        <Card className="rounded-2xl">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={nextStep.tone}>{nextStep.badge}</Badge>
-                {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
-                  <span className="text-xs text-muted">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 text-base font-semibold text-ink">{nextStep.title}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-muted">{nextStep.description}</p>
-            </div>
-            {nextStep.actionLabel ? (
-              <Button size="sm" variant="secondary" onClick={nextStep.action}>
-                {nextStep.actionLabel}
-              </Button>
-            ) : null}
-          </div>
-        </Card>
+        <div className="min-w-0" data-bewerbungen-hinweis>
+          <h2 className="text-base font-semibold text-ink">{nextStep.title}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">{nextStep.description}</p>
+          {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
+            <p className="mt-1 text-xs text-muted">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</p>
+          ) : null}
+        </div>
+        </ListenUebersicht>
 
-        <Card className="rounded-2xl">
-          <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
+        <Card className="rounded-2xl !py-3">
           {/* #484/#485: Aktiver Dashboard-Filter (Follow-up / Zombie) sichtbar + resetbar */}
           {specialFilter && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-sky/25 bg-sky/10 px-3 py-2 text-xs text-sky">
@@ -894,7 +900,10 @@ export default function ApplicationsPage() {
               </button>
             </div>
           )}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          {/* #1171 Baustein 5: Ueberschrift, Archiv-Schalter und Zaehler stehen in EINER Zeile (vorher Titel mit Satz darunter,
+              dann die Zeile - 60 Pixel, bevor das erste Feld beginnt). */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2 className="mr-1 text-sm font-semibold text-ink">Filter</h2>
             <Button
               size="sm"
               variant={filters.showArchived ? "secondary" : "ghost"}
@@ -1046,7 +1055,7 @@ export default function ApplicationsPage() {
             <div className="grid gap-4">
               {sortedApplications.length ? (
                 sortedApplications.map((application) => (
-                  <Card key={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
+                  <Card key={application.id} data-bewerbungskarte={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>

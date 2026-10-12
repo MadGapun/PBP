@@ -394,6 +394,7 @@ _KEIN_WERKZEUG = {
     "ollama_starten": "Funktion in services/ollama_start.py",
     "update_job": "Methode der Datenbank (database.py), im Text von scores_neu_berechnen genannt",
     "firmen_kanon": "Funktion in duplicate_detection.py (#1080), kein Werkzeug",
+    "stellen_hinweise": "Tabelle (#1184 d), im CREATE INDEX von services/stellen_hinweise.py",
 }
 
 

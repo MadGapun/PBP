@@ -221,10 +221,12 @@ def test_elwosa_settings_section_has_power_user_block():
 def test_macos_installer_has_browser_open():
     p = PROJECT_ROOT / "INSTALLIEREN.command"
     content = p.read_text(encoding="utf-8")
-    # macOS auto-open via 'open ' command
-    assert 'open "http://localhost:8200/"' in content
-    # Health-Check-Loop
-    assert "DASH_OK=1" in content
+    # macOS auto-open via 'open ' command; seit #1149 mit dem Port aus BA_DASHBOARD_PORT (Vorgabe 8200)
+    assert 'open "http://localhost:${DASH_PORT}/"' in content
+    assert 'DASH_PORT="${BA_DASHBOARD_PORT:-8200}"' in content
+    # Health-Check-Loop; seit #1149 fragt er den Port, WELCHE Fassung antwortet (DASH_STAND/DASH_URTEIL), statt nur "da"
+    assert "for i in $(seq 1 30)" in content
+    assert "DASH_STAND" in content and "DASH_URTEIL" in content
 
 
 def test_linux_installer_has_browser_open():

@@ -291,9 +291,7 @@ export default function DocumentsPage() {
     <div id="page-dokumente" className="page active">
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Dokumente</h1>
-      <p className="text-xs text-muted mb-2">{data.total} Dokumente</p>
-      <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
-      </div>
+      <p className="text-xs text-muted mb-3">{data.total} Dokumente</p>
 
       {/* Upload area */}
       <Card className="mb-4 rounded-xl">

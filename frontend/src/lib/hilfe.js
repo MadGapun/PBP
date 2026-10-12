@@ -87,6 +87,7 @@ export const HILFE = {
       { titel: "Stellen finden", text: "Wähle die Quellen in den Einstellungen und starte die Suche mit „Jobsuche mit Claude“ oder mit „Interne Jobsuche starten“. Jede Stelle bekommt Punkte." },
       { titel: "Punkte und Urteil", text: "Die Punkte zeigen, wie gut die Anzeige deine Suchbegriffe trifft. Ob die Stelle zu dir passt, sagt erst die Detailbewertung: sie liest Anzeige und Profil und bleibt an der Stelle stehen." },
       { titel: "Aussortieren", text: "„Passt nicht“ nimmt eine Stelle mit Grund aus der Liste. Das Aussortier-Protokoll zeigt, was weg ist, und holt es zurück. Eine Firma, die du nie sehen willst, kommt auf die Blacklist." },
+      { titel: "Der Kopf der Liste", text: "Die erste Zeile nennt die Zahlen und den einen Hinweis, der jetzt dran ist, mit seinem Knopf. Ein Klick auf die Zeile klappt die Kennzahlen und die Erklärung auf; PBP merkt sich, wie du es zuletzt gelassen hast. So beginnt die Liste ohne Scrollen." },
       { titel: "Die ganze Liste prüfen", text: "„Liste abgleichen mit Claude“ über der Liste kopiert eine Anleitung: Claude liest jede Stelle gegen dein Profil, sortiert aus, was deine Grenzen verletzt, und schreibt zu jeder Stelle ein Urteil mit Begründung. An deinen Suchkriterien ändert Claude dabei nichts." },
     ],
     prompts: ["jobsuche_workflow", "stellen_abgleich", "auto_bewerbung"],
@@ -94,6 +95,7 @@ export const HILFE = {
   bewerbungen: {
     abschnitte: [
       { titel: "Bewerbungen verfolgen", text: "Jede Bewerbung hat einen Status, eine Timeline und Notizen. Ein Statuswechsel lässt sich im Hinweis unten sofort zurücknehmen." },
+      { titel: "Die Weg-Leiste", text: "Oben in der Timeline, der Stelle, der Person und der Firma steht dieselbe feste Leiste: links der Rückweg („Zurück zu …“, dorthin, woher du kamst), in der Mitte die anderen Ansichten desselben Falls, rechts der nächste Schritt. Die Zurück-Taste der Maus (Alt + ←) schließt den obersten Dialog, statt die Seite zu verlassen." },
       { titel: "Nachfassen", text: "Plane eine Erinnerung, wann du nachfragst. Sie erscheint auf dem Dashboard und im Aufgaben-Tab." },
       { titel: "Unterlagen", text: "Lebenslauf und Anschreiben zu einer Stelle entstehen mit Claude und landen im Ausgabe-Ordner." },
     ],

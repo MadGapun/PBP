@@ -95,7 +95,9 @@ def test_ohne_browser_quelle_steht_keine_karte_da_und_die_erste_stelle_ist_weite
     try:
         assert KARTE not in page.locator("#page-stellen").inner_text()
         y = page.locator("[data-stellenkarte]").first.bounding_box()["y"]
-        assert y < 800, f"die erste Stelle beginnt bei y = {y:.0f} (vorher 908)"
+        # #1171 Baustein 5: die Kennzahlen sind eine Zeile (Vorgabe zu), die Suchstand-Zeile steht in ihr: vorher 908,
+        # nach U16 etwa 730, jetzt etwa 400 - die erste Stelle samt Knoepfen liegt im ersten Bildschirm.
+        assert y < 520, f"die erste Stelle beginnt bei y = {y:.0f} (vorher 908)"
     finally:
         ctx.close()
 
@@ -111,7 +113,12 @@ def test_mit_gewaehlter_browser_quelle_steht_die_karte_da(browser, umgebung):
 
 
 def _zeilen(page):
-    """Die y-Werte der vier Kennzahlen, gerundet - gleiche Zahl = gleiche Zeile."""
+    """Die y-Werte der vier Kennzahlen, gerundet - gleiche Zahl = gleiche Zeile. Seit #1171 Baustein 5 liegen sie hinter
+    dem Schalter des Listenkopfs (Vorgabe zu): erst aufklappen, wie ein Mensch es taete."""
+    kopf = page.locator('[data-listen-uebersicht="stellen"]')
+    if kopf.get_attribute("data-offen") != "ja":
+        kopf.locator("[data-listen-uebersicht-schalter]").click()
+    page.locator("[data-stellen-kennzahlen] > div").first.wait_for(timeout=5000)
     boxen = [b.bounding_box() for b in page.locator("[data-stellen-kennzahlen] > div").all()]
     return [round(b["y"]) for b in boxen]
 

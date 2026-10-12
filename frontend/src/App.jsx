@@ -1717,6 +1717,10 @@ export default function App() {
               )}
             </div>
           </div>
+          {/* #1171 Baustein 3: Seitenansichten mit eigener Weg-Leiste (Firma) legen sie hierher. Der Kopf ist fest; im Inhalt
+              haette `sticky` nie gegriffen, weil der Inhalt waagerecht scrollt (overflow-x-auto) und damit der naechste
+              scrollende Vorfahr ist. Leer nimmt der Platz nichts weg. */}
+          <div id="weg-leiste-slot" className="px-5 empty:hidden sm:px-8" />
         </header>
 
         {/* G60 (#1087 B1): Update-Hinweise stehen in der Hinweiszone des

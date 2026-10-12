@@ -1,4 +1,4 @@
-﻿import { sichereAdresse } from "@/lib/webAdresse";
+﻿import { oeffneAdresse, sichereAdresse } from "@/lib/webAdresse";
 import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
@@ -58,6 +58,7 @@ import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 import { zuBewerbung } from "@/lib/wege";
 import WegLeiste from "@/components/WegLeiste";
+import ListenUebersicht from "@/components/ListenUebersicht";
 import { stelleLeiste } from "@/lib/wegleiste";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
@@ -1443,6 +1444,13 @@ export default function JobsPage() {
     );
   }
 
+  // #1171 Baustein 5: der Suchstand steht in der Zeile des Listenkopfs, nicht in einer eigenen Zeile davor.
+  const suchStatusText = searchJob.running
+    ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`
+    : chrome.searchStatus?.last_search
+      ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
+      : "Noch nie gesucht";
+
   return (
     <div id="page-stellen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
@@ -1450,16 +1458,6 @@ export default function JobsPage() {
       {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
       <OnboardingHintBanner tab="stellen" />
       <AdaptiveHintBanner page="stellen" />
-      <div className="mb-6 flex items-baseline gap-2">
-        <span className="text-xs text-muted">
-          {searchJob.running
-    ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`
-            : chrome.searchStatus?.last_search
-            ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
-            : "Noch nie gesucht"}
-        </span>
-      </div>
-
       {/* Progress bar during job search (#210, #400) */}
       {searchJob.running && (
         <div className="mb-4 rounded-lg border border-sky/20 bg-sky/5 p-4">
@@ -1496,8 +1494,21 @@ export default function JobsPage() {
       <StellenHinweise anlass={reloadKey} />
 
       <div className="grid gap-6">
-        {/* #1170 U16: vier Kennzahlen in EINER Zeile ab 1024 px (vorher erst ab 1280 px), zwei darunter - der Vorspann
-            vor der ersten Stelle war rund 900 px hoch. */}
+        {/* #1171 Baustein 5 (Listen zuerst): Kennzahlen und Hinweis sind EINE Zeile, die aufklappt - die Liste beginnt im
+            ersten Bildschirm. Der eine Hinweis mit seinem Knopf bleibt in der Zeile sichtbar. */}
+        <ListenUebersicht
+          id="stellen"
+          zusammenfassung={`${jobsTotal} ${jobsTotal === 1 ? "aktive Stelle" : "aktive Stellen"}${scoredActiveJobs.length > 0 ? ` · Ø ${averageScore} Punkte` : ""}`}
+          badge={<Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>}
+          titel={jobsGuidance.title}
+          status={suchStatusText}
+          aktion={jobsGuidance.actionLabel ? (
+            <Button size="sm" variant="secondary" onClick={jobsGuidance.action}>
+              {jobsGuidance.actionLabel}
+            </Button>
+          ) : null}
+        >
+        {/* #1170 U16: vier Kennzahlen in EINER Zeile ab 1024 px (vorher erst ab 1280 px), zwei darunter. */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stellen-kennzahlen>
           <MetricCard
             // v1.7.62 (#1008 Befund 1): die Zahl war die LAENGE DER
@@ -1573,27 +1584,16 @@ export default function JobsPage() {
           />
         </div>
 
-        <Card className="rounded-2xl">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>
-                {visibleDescriptionGaps > 0 ? (
-                  <span className="text-xs text-muted">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 text-base font-semibold text-ink">{jobsGuidance.title}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-muted">{jobsGuidance.description}</p>
-            </div>
-            {jobsGuidance.actionLabel ? (
-              <Button size="sm" variant="secondary" onClick={jobsGuidance.action}>
-                {jobsGuidance.actionLabel}
-              </Button>
-            ) : null}
-          </div>
-        </Card>
+        <div className="min-w-0" data-stellen-hinweis>
+          <h2 className="text-base font-semibold text-ink">{jobsGuidance.title}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">{jobsGuidance.description}</p>
+          {visibleDescriptionGaps > 0 ? (
+            <p className="mt-1 text-xs text-muted">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</p>
+          ) : null}
+        </div>
+        </ListenUebersicht>
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl !py-3">
           {/* Row 1: Search bar + counter */}
           <div className="flex items-center gap-3">
             <div className="relative min-w-0 flex-1">
@@ -1672,7 +1672,7 @@ export default function JobsPage() {
           </div>
 
           {/* Row 2: Filter chips row */}
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
             {/* View toggle */}
             <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/5 bg-white/[0.03]">
               {/* #1022 AK 3+4: beide Tabs nennen ihre Menge, damit VOR
@@ -1721,6 +1721,10 @@ export default function JobsPage() {
                 {aktiveFilter.filter((f) => f.schluessel !== "query").map((f) => f.text).join(" · ")}
               </span>
             ) : null}
+            {/* #1171 Baustein 5: stand als eigene Zeile ueber der Liste (34 px, bevor die erste Stelle beginnt). */}
+            <span className="ml-auto text-[12px] text-muted" data-stellen-zuletzt>
+              Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
+            </span>
           </div>
 
           {filterOffen ? (
@@ -2000,11 +2004,6 @@ export default function JobsPage() {
         </Card>
 
         <div className="grid gap-4">
-          <div className="flex justify-end">
-            <p className="text-[12px] text-muted">
-              Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
-            </p>
-          </div>
           {/* v1.7.62 (#1008 Befund 1, AK 2 und 3): zeigt die Liste
               weniger als der Zaehler, gehoert der Grund UEBER die Liste
               — nicht in eine Kennzahl-Notiz daneben. Der Melder hat die
@@ -2783,7 +2782,7 @@ export default function JobsPage() {
               zurueckLabel: "Stellen",
               firma: job.company,
               bewerbungId,
-              beurteilt: Boolean(String(job.analyse_urteil || "").trim()),
+              beurteilt: job?.pruefstand?.art === "beurteilt",       // der Server entscheidet (#948), die Oberflaeche leitet nichts ab
               hatAnzeige: Boolean(job.url),
             });
             const schliessen = () => setDetailDialog({ open: false, job: null, editing: false });
@@ -2797,7 +2796,7 @@ export default function JobsPage() {
                 schliessen();
                 navigateTo(ziel.seite, { ...ziel.intent, von: selbst });
               },
-              anzeige_oeffnen: () => window.open(sichereAdresse(job.url), "_blank", "noopener,noreferrer"),
+              anzeige_oeffnen: () => oeffneAdresse(job.url, "_blank", "noopener,noreferrer"),
             };
             return (
               <WegLeiste

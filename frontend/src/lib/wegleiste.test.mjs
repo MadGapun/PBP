@@ -2,7 +2,7 @@
 // Die feste Weg-Leiste (#1171, G85, Baustein 3): was von einer Ansicht aus als Nächstes geht.
 import assert from "node:assert/strict";
 import {
-  bewerbungLeiste, bewerbungSchritt, klicksZu, kontaktLeiste, kontaktSchritt, stelleLeiste, stelleSchritt, WEG_WORT,
+  bewerbungLeiste, bewerbungSchritt, firmaLeiste, klicksZu, kontaktLeiste, kontaktSchritt, stelleLeiste, stelleSchritt, WEG_WORT,
 } from "./wegleiste.js";
 
 const ids = (liste) => liste.map((f) => f.id);
@@ -97,5 +97,33 @@ const k = kontaktLeiste({
 assert.deepEqual(ids(k.faelle), ["bewerbungen", "stellen", "firma"]);
 assert.equal(k.haupt.label, "Nachfassen bei Erika Beispiel");
 assert.equal(k.zurueck.label, "Zurück zu Kontakte");
+
+// ── Die Leiste einer Firma: die Einträge der Historie, je ein Klick; kein erfundener Hauptknopf ───────
+const fi = firmaLeiste({
+  zeitleiste: [
+    { art: "bewerbung", titel: "Leiter Fertigung", ziel: { seite: "bewerbungen", bewerbung_id: "app1" } },
+    { art: "bewerbung", titel: "Leiter Fertigung (als Vermittler)", ziel: { seite: "bewerbungen", bewerbung_id: "app1" } },
+    { art: "bewerbung", titel: "Anlagenplaner", ziel: { seite: "bewerbungen", bewerbung_id: "app2" } },
+    { art: "stelle", titel: "Planer (m/w/d)", ziel: { seite: "stellen", job_hash: "h1" } },
+    { art: "kontakt", titel: "Erika Beispiel", ziel: { seite: "kontakte", kontakt_id: "c1" } },
+    { art: "lebenslauf", titel: "Station im Lebenslauf", ziel: { seite: "profil" } },
+    { art: "korrespondenz", titel: "Absage.pdf", ziel: { seite: "dokumente", dokument_id: "d1" } },
+    { art: "recherche", titel: "Notiz", ziel: {} },
+  ],
+});
+assert.equal(fi.art, "firma");
+assert.equal(fi.zurueck.label, "Zurück zu Firmen");
+assert.deepEqual(ids(fi.faelle), ["bewerbungen", "stellen", "kontakte", "dokumente"], "Lebenslauf und Recherche sind keine Fälle");
+assert.equal(fi.faelle[0].anzahl, 2, "dieselbe Bewerbung zählt einmal");
+assert.deepEqual(fi.faelle[1].eintraege[0].ziel, { seite: "stellen", intent: { focus: "job", jobHash: "h1", oeffnen: true } });
+assert.deepEqual(fi.faelle[0].eintraege[0].ziel, { seite: "bewerbungen", intent: { applicationId: "app1", focus: "timeline" } });
+assert.equal(fi.haupt, null);
+assert.deepEqual(fi.weitere, []);
+assert.equal(klicksZu(fi, "stellen"), 1);
+assert.equal(klicksZu(fi, "bewerbungen"), 2);
+assert.deepEqual(firmaLeiste({ zeitleiste: [] }).faelle, []);
+assert.deepEqual(firmaLeiste().faelle, []);
+// ein Eintrag ohne Sprungziel ist kein Fall
+assert.deepEqual(firmaLeiste({ zeitleiste: [{ art: "bewerbung", titel: "Ohne Ziel", ziel: {} }] }).faelle, []);
 
 console.log("wegleiste.test.mjs: ok");

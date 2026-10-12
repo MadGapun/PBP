@@ -910,6 +910,9 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
     _seed_vielstellen_workspace(live_dashboard["db"])
 
     context = browser.new_context(viewport={"width": 1440, "height": 960})
+    # #1171 Baustein 5: die Kennzahlen stehen seit dem Listenkopf hinter einem Schalter (Vorgabe zu). Dieser Test misst die
+    # Kacheln selbst und klappt sie deshalb vorher auf - wie ein Mensch es taete.
+    context.add_init_script("try { window.localStorage.setItem('pbp-listenkopf-stellen', 'auf'); } catch (e) {}")
     page = context.new_page()
 
     try:
@@ -928,11 +931,14 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
         # **Ein Test, dessen Messung zu breit ist, meldet einen Fehler
         # im Code, wo einer im Test steckt.**
         def kennzahlen():
-            return page.evaluate(
+            kacheln = page.evaluate(
                 "() => Array.from(document.querySelectorAll("
                 "'.glass-card-soft')).map(d => (d.textContent || '')"
                 ".trim()).filter(t => /Aktive Stellen|Gehaltsdurchschnitt"
                 "|Gehaltsbandbreite|Durchschnittsscore/.test(t))")
+            # und die Zeile des Listenkopfs, die dieselben Zahlen in einem Satz nennt
+            zeile = page.locator("[data-listen-uebersicht-zeile]").first.inner_text()
+            return kacheln + [zeile]
 
         # Auf die Karten WARTEN: der Text "Aktive Stellen" steht frueher
         # im DOM als die Kennzahl-Karten. In der vollen Suite fiel die

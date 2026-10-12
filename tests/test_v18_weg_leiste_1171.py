@@ -289,3 +289,91 @@ def test_mit_zwei_dialogen_schliesst_die_zurueck_taste_nur_den_obersten(browser,
         assert _warte(lambda: page.locator("[role=dialog]").count() == 0)
     finally:
         ctx.close()
+
+
+# ══ Die Firma: dieselbe Leiste, in der Seitenansicht ═══════════════════════════════════════════════════════
+
+LANGE_FIRMA = "Langwerk AG"
+
+
+def _firma(browser, umgebung, name=FIRMA, faelle=2):
+    from urllib.parse import quote
+    ctx = browser.new_context(viewport=KLEIN)
+    page = ctx.new_page()
+    page.goto(f"{umgebung['url']}/#kontakte/{quote('firma:' + name, safe='')}", wait_until="load", timeout=30000)
+    page.locator("[data-weg-leiste='firma']").wait_for(timeout=20000)
+    # die Faelle kommen mit der Historie der Firma
+    assert _warte(lambda: page.locator("[data-weg-leiste='firma'] [data-weg-fall]").count() >= faelle), "die Fälle der Firma fehlen"
+    return ctx, page
+
+
+def test_die_firma_traegt_dieselbe_leiste_mit_ihren_faellen(browser, umgebung):
+    ctx, page = _firma(browser, umgebung)
+    try:
+        leiste = page.locator("[data-weg-leiste='firma']")
+        assert "Zurück zu Firmen" in leiste.locator("[data-weg-zurueck]").inner_text()
+        faelle = [x.get_attribute("data-weg-fall") for x in leiste.locator("[data-weg-fall]").all()]
+        assert {"bewerbungen", "stellen", "kontakte"} <= set(faelle), faelle
+        assert "2" in leiste.locator("[data-weg-fall='kontakte']").inner_text(), "die Zahl der Personen steht dabei"
+        # die Firma erfindet keinen Hauptknopf: ihre Pflege steht im Kopf der Ansicht
+        assert leiste.locator("[data-weg-haupt]").count() == 0
+    finally:
+        ctx.close()
+
+
+def test_ein_klick_von_der_firma_zur_bewerbung_und_zurueck(browser, umgebung):
+    ctx, page = _firma(browser, umgebung)
+    try:
+        page.locator("[data-weg-leiste='firma'] [data-weg-fall='bewerbungen'] > button").click()   # EIN Klick
+        page.locator("[data-weg-leiste='bewerbung']").wait_for(timeout=15000)
+        zurueck = page.locator("[data-weg-leiste='bewerbung'] [data-weg-zurueck]")
+        assert f"Zurück zu Firma: {FIRMA}" in zurueck.inner_text(), zurueck.inner_text()
+        zurueck.click()                                                                           # EIN Klick
+        page.locator("[data-weg-leiste='firma']").wait_for(timeout=15000)
+        assert _warte(lambda: page.locator("[role=dialog]").count() == 0)
+        assert FIRMA in page.locator("[data-firma-name]").inner_text()
+    finally:
+        ctx.close()
+
+
+def test_von_der_stelle_zur_firma_und_zurueck(browser, umgebung):
+    ctx = browser.new_context(viewport=KLEIN)
+    page = ctx.new_page()
+    try:
+        page.goto(f"{umgebung['url']}/#stellen/wl001", wait_until="load", timeout=30000)
+        leiste = page.locator("[data-weg-leiste='stelle']")
+        leiste.wait_for(timeout=20000)
+        assert _warte(lambda: leiste.locator("[data-weg-fall='firma']").count() == 1)
+        leiste.locator("[data-weg-fall='firma'] > button").click()                                # EIN Klick
+        page.locator("[data-weg-leiste='firma']").wait_for(timeout=15000)
+        zurueck = page.locator("[data-weg-leiste='firma'] [data-weg-zurueck]")
+        assert f"Zurück zu Stelle: {TITEL}" in zurueck.inner_text(), zurueck.inner_text()
+        zurueck.click()                                                                           # EIN Klick
+        page.locator("[data-weg-leiste='stelle']").wait_for(timeout=15000)
+    finally:
+        ctx.close()
+
+
+def test_die_leiste_der_firma_bleibt_beim_scrollen_der_historie_stehen(browser, umgebung):
+    db = umgebung["db"]
+    if not umgebung.get("lange_firma"):
+        for i in range(16):
+            db.add_application({"title": f"Konstruktionsleiter {i}", "company": LANGE_FIRMA, "status": "beworben"})
+        umgebung["lange_firma"] = True
+    ctx, page = _firma(browser, umgebung, LANGE_FIRMA, faelle=1)
+    try:
+        page.locator("[data-firma-zeitleiste] li").nth(10).wait_for(timeout=15000)
+        # die Seite selbst scrollt (html: overflow-y scroll); `instant`, weil die Seite sonst weich scrollt und der Wert noch 0 ist
+        scrollte = page.evaluate("""() => {
+            window.scrollTo({ top: 99999, behavior: "instant" });
+            return document.scrollingElement.scrollTop;
+        }""")
+        assert scrollte > 200, "die Historie ist lang genug, um zu scrollen"
+        page.wait_for_timeout(300)
+        box = page.locator("[data-weg-leiste='firma']").bounding_box()
+        assert box["y"] >= 0 and box["y"] + box["height"] <= KLEIN["height"], f"die Leiste steht nicht im Fenster: {box}"
+        # und der Rueckweg ist dabei klickbar: ein Klick fuehrt in die Liste aller Firmen
+        page.locator("[data-weg-leiste='firma'] [data-weg-zurueck]").click()
+        page.locator("[data-firmen-liste]").wait_for(timeout=10000)
+    finally:
+        ctx.close()

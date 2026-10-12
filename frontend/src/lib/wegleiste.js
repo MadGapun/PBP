@@ -13,6 +13,7 @@
 // components/WegLeiste.jsx; was ein Eintrag TUT, hängt die Seite an (`aktion` ist eine Kennung, kein Aufruf). Die Wörter
 // sind überall dieselben („Zur Stelle“, „Zur Bewerbung“, „Zur Firma“, „Zum Kontakt“; Frage 8 aus #1171).
 
+import { sprung } from "./firmen.js";
 import { zuBewerbung, zuDokument, zuFirma, zuKontakt, zuStelle, zuTermin } from "./wege.js";
 
 /** Die Wörter für die Ziele, einmal. */
@@ -175,6 +176,36 @@ export function kontaktLeiste({
     text(firma) ? fall("firma", "Firma", [{ label: text(firma), ziel: ziel(zuFirma({ firmaName: firma })) }]) : null,
   ];
   return leiste({ art: "kontakt", zurueckLabel, faelle, schritt: kontaktSchritt({ name, laufendeBewerbung }) });
+}
+
+/**
+ * Die Leiste einer FIRMA (Firmen-Ansicht): was PBP zu ihr weiß — Bewerbungen, Stellen, Kontakte, Dokumente — je ein Klick.
+ * Die Einträge stammen aus der Historie der Ansicht (`zeitleiste`), jeder mit dem Sprungziel, das der Server mitliefert;
+ * dieselbe Sache zweimal (eine Bewerbung als Vermittler UND als Endkunde) zählt einmal. Die Firma hat keinen Hauptknopf:
+ * ihre Pflege („Bearbeiten“, „Als Firma anlegen“) steht im Kopf der Ansicht, und die Leiste erfindet keinen Schritt.
+ */
+export function firmaLeiste({ zurueckLabel = "Firmen", zeitleiste = [] } = {}) {
+  const gruppe = (art, id, label) => {
+    const gesehen = new Set();
+    const eintraege = [];
+    for (const e of zeitleiste || []) {
+      if (!e || e.art !== art) continue;
+      const s = sprung(e.ziel);
+      if (!s || !s.intent) continue;
+      const schluessel = `${s.seite}|${JSON.stringify(s.intent)}`;
+      if (gesehen.has(schluessel)) continue;
+      gesehen.add(schluessel);
+      eintraege.push({ label: text(e.titel) || label, ziel: ziel(s) });
+    }
+    return fall(id, label, eintraege);
+  };
+  const faelle = [
+    gruppe("bewerbung", "bewerbungen", "Bewerbungen"),
+    gruppe("stelle", "stellen", "Stellen"),
+    gruppe("kontakt", "kontakte", "Kontakte"),
+    gruppe("korrespondenz", "dokumente", "Dokumente"),
+  ];
+  return leiste({ art: "firma", zurueckLabel, faelle, schritt: { haupt: null, weitere: [] } });
 }
 
 /**
