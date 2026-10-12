@@ -148,10 +148,11 @@ Remotedesktop-Verbindung ist offen, du fasst ihn nicht an. Was anders ist:
 - **Stable ist jetzt 1.7.157** (Block F: das ZIP des Tags `v1.7.157`; Schema 48 → 52, Abdruck gleich).
 - **Alle Funde PP20 bis PP26 in einem Durchgang** (B, D, G, H): kein leerer Ordner, keine alten Fenster, keine Temp-Reste, Texterkennung ohne Abfrage nach
   Administratorrechten, Deinstaller mit Schritt „[OK] Texterkennung (Tesseract) entfernt“.
-- **E2 bis E4 brauchen neue Probe-Veröffentlichungen** über 1.8.0 im Probe-Repository (`probe_archiv_bauen.py`, mit dem echten Schlüssel signiert): zuerst
-  `v1.8.3` (gut) für E2 und E3, danach `v1.8.4` (falsche Prüfsumme) und `v1.8.5` (fremde Signatur) für E4; die älteren bleiben liegen.
+- **E2 bis E4 brauchen neue Probe-Veröffentlichungen** über 1.8.0 im Probe-Repository (mit dem echten Schlüssel signiert, der den Rechner nie verlässt):
+  zuerst `v1.8.3` (gut, `probe_archiv_bauen.py 1.8.3 <Ordner>`) für E2 und E3, danach `v1.8.4` (falsche Prüfsumme) und `v1.8.5` (fremde Signatur) für E4
+  (`probe_e4_bauen.py <Archiv> 1.8.4 1.8.5 <Ordner>`, liest beide Pakete mit den Prüfungen des Programms gegen); die älteren bleiben liegen.
 - **F2 (neu): „Neue Linie“ auf einer 1.7-Installation.** Auf der installierten Stable 1.7.157 wird die Einstellung `update_quellen` auf das Probe-Repository
-  gestellt (dort liegt eine stabile 1.8-Veröffentlichung). Erwartet: Einstellungen › Updates und die Seitenleiste nennen die Version 1.8.x samt Weg dorthin
+  gestellt (`pbp_probe.ps1 linie MadGapun/PBP-update-probe`; dort liegt eine stabile 1.8-Veröffentlichung). Erwartet: Einstellungen › Updates und die Seitenleiste nennen die Version 1.8.x samt Weg dorthin
   (ZIP, `INSTALLIEREN.bat`); angeboten oder installiert wird sie nie (Linie 1.7 → 1.8 geht einmal von Hand). So wird die Meldung, die am Tag der
   Veröffentlichung jede 1.7-Installation trifft, gegen echte GitHub-Antworten gesehen, bevor sie wirklich gilt.
 - **Ergebnis** wie zuvor: je Block ein Satz im PR des Kandidaten und im Issue #1170; Funde werden ab PP30 nummeriert. Ein Befund, der ein Ergebnis ändert,
