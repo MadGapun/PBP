@@ -92,6 +92,10 @@ Einträgen darunter.
   „Deine eigenen Ordner“ steht immer da und enthält die Eingabefelder für Ausgabe- und Vorlagen-Ordner (#1173; dieselbe Komponente und dieselbe
   Prüfung wie unter Einstellungen › Ordner, die Seite misst nach dem Speichern neu).
 - **Prüfsumme der Komponenten** (#1152): kein Installer ohne SHA-256; die Ablehnung kommt vor dem Download.
+- **Sprachdaten der Texterkennung aus fester Fassung und mit Prüfsumme** (#1165): `deu`, `eng` und `osd` kommen nicht mehr vom wandernden Zweig `main`, sondern aus dem
+  Commit hinter dem Tag 4.1.0 von `tessdata_fast`; jede Sprache trägt eine SHA-256 in der Registry (aus genau dieser Fassung gebildet und gegen die Git-Blob-Hashes
+  der GitHub-API gegengeprüft). Ohne Summe wird nicht geladen; eine falsche Summe verwirft die Datei und sagt es; scheitert eine von mehreren Dateien, bleibt auch von
+  den anderen nichts liegen. Fehlt nur Deutsch, steht das in der Meldung der Installation.
 - **Mail-Zugangsschicht** (#947): Schalter, genaue Liste freigegebener Ordner, Prüfung im Mail-Eingang für jedes Add-on
   (`GET /api/v1/ingest/mail-policy`, `modus=scan` bei `POST /api/v1/ingest/email`), Zahlen je Ordner; Werkzeuge `mail_quelle_anzeigen` und
   `mail_quelle_einstellen`. Die Ingest-API v1 bleibt kompatibel: die Erweiterung ist rein additiv.
