@@ -38,7 +38,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
 Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
-Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
+Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick, und in Stelle, Bewerbung, Person und Firma steht oben eine feste Leiste mit dem Rückweg und dem nächsten Schritt. Die Listen beginnen mit ihrer ersten Zeile statt mit Kennzahlen. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
 <!-- /anwender -->
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
@@ -67,7 +67,8 @@ Einträgen darunter.
   Bewerbung offen da (mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß); in der Timeline führt der Name der Person zu ihrer Karte,
   und die Karte nennt oben „Bewerbung: Titel bei Firma“ und führt zurück; „Zur Stelle“ auf der Bewerbungskarte, „Zur Bewerbung“ in der
   Aufgabenzeile, die Top-Stelle im Dashboard öffnet die Stelle. Die Timeline hat oben eine Sprungleiste (Status · Stelle · Dokumente · Personen ·
-  Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst.
+  Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst. Dazu kommen die feste
+  Weg-Leiste in Stelle, Bewerbung, Person und Firma, der Rückweg mit der Zurück-Taste und Listen, die mit ihrer ersten Zeile beginnen (siehe unten, #1171 Baustein 3 bis 5).
 - **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil zur Stelle, eine Notiz, ein Termin, eine
   Mail zur Bewerbung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
 - **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
