@@ -402,7 +402,8 @@ def test_1149_9a_auch_ohne_umzugsmarke_wird_der_temp_ordner_selbst_nie_ausgeraeu
     """Wer den Deinstaller von Hand nach %TEMP% kopiert, hat die Marke nicht - der Ordner selbst zaehlt."""
     temp = tmp_path / "Temp"
     _fuelle(temp)
-    code, aus = _basedir_lauf(tmp_path, temp, temp, relocated=False)
+    # TMP zeigt woandershin: nur der Vergleich mit %TEMP% darf hier schuetzen (Gegenprobe i223).
+    code, aus = _basedir_lauf(tmp_path, temp, temp, relocated=False, tmp_var=tmp_path / "Anderswo")
     assert (temp / "python" / "python.exe").exists() and (temp / "install_log.txt").exists(), aus
 
 
