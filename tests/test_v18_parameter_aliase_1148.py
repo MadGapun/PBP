@@ -40,6 +40,12 @@ def test_ein_bekannter_name_bleibt_wie_er_ist():
     assert uebersetzen({"firma": "A", "titel": "B"}, {"firma", "titel"}) is None
 
 
+def test_kennt_das_werkzeug_beide_namen_bleibt_jeder_wie_er_ist():
+    """Heute traegt kein Werkzeug zwei Namen einer Gruppe (Waechter unten); kaeme eines dazu, gaelte jeder Name fuer sich."""
+    assert uebersetzen({"company": "A"}, {"company", "firma"}) is None
+    assert uebersetzen({"firma": "A"}, {"company", "firma"}) is None
+
+
 def test_das_uebergebene_dict_bleibt_unveraendert():
     ein = {"document_id": "abc"}
     aus = uebersetzen(ein, {"dokument_id"})
