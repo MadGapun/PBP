@@ -62,6 +62,28 @@ def test_der_typ_wird_gesetzt_und_nur_er(db):
     assert doc["filename"] == "schreiben.pdf"
 
 
+def test_der_dienst_gibt_das_profil_an_beide_datenbankaufrufe_weiter(db):
+    """Jede Schicht fuer sich: sowohl das Lesen als auch das Schreiben tragen das Profil (eine faengt die andere sonst ab)."""
+    aufrufe = []
+
+    class Spion:
+        def __init__(self, echt):
+            self.echt = echt
+
+        def get_document(self, *a, **kw):
+            aufrufe.append(("lesen", kw.get("profile_id")))
+            return self.echt.get_document(*a, **kw)
+
+        def update_document_type(self, *a, **kw):
+            aufrufe.append(("schreiben", kw.get("profile_id")))
+            return self.echt.update_document_type(*a, **kw)
+
+    did = _dok(db)
+    pid = db.get_active_profile_id()
+    assert dh.typ_setzen(Spion(db), did, "absage", profile_id=pid)["status"] == "geaendert"
+    assert aufrufe == [("lesen", pid), ("schreiben", pid)]
+
+
 def test_derselbe_typ_aendert_nichts(db):
     did = _dok(db, typ="absage")
     erg = dh.typ_setzen(db, did, "absage")

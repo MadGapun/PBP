@@ -119,7 +119,8 @@ def test_der_typ_laesst_sich_in_der_ansicht_aendern_und_die_verknuepfung_bleibt(
         doc = db.get_document(did)
         assert doc["doc_type"] == "absage"
         assert doc["linked_application_id"] == bew, "die Verknuepfung bleibt"
-        page.get_by_text("Typ geändert: Absage").first.wait_for(timeout=10000)
+        # exakt (Gross-/Kleinschreibung zaehlt): der Name kommt vom Server, nicht der rohe Schluessel „absage“
+        page.get_by_text("Typ geändert: Absage", exact=True).first.wait_for(timeout=10000)
         karte = page.locator("[id^=dokument-]").filter(has_text="antwort-1162.pdf").first
         karte.locator("[data-doc-typ] button[role=combobox]").wait_for(timeout=10000)
         assert karte.locator("[data-doc-typ] button[role=combobox]").inner_text().strip() == "Absage"
