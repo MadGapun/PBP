@@ -315,10 +315,32 @@ Einträgen darunter.
 - **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14).
 - **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
   keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
+- **Ein Ordnername mit Ausrufezeichen, Apostroph oder Klammer brach den Installer** (#1149 Punkt 8; seit v1.4). Das Ausrufezeichen verschwand unter der
+  verzögerten Expansion aus jedem Pfad (der Installer suchte `src` in einem Ordner, den es nicht gibt: „ZIP nicht entpackt“), ein Apostroph machte aus
+  `Expand-Archive` einen Syntaxfehler („als Administrator ausführen“), und eine Klammer wie in `PBP-1.8.0 (1)` — so legt der Browser eine zweite Kopie
+  an — beendete einen Block und ließ den Ordner liegen. Jetzt lehnt der Installer ein Ausrufezeichen am Anfang mit dem Weg („nach `C:\PBP`
+  verschieben“) ab, PowerShell bekommt Pfade über die Umgebung statt eingebettet, und in Blöcken stehen Pfade nur noch als `!VAR!`. Ein Wächter-Test
+  hält beides in allen drei Batch-Dateien fern.
+- **Das Desktop-Backup des Deinstallers scheiterte bei einem Apostroph im Benutzernamen — ohne Warnung** (#1149 Punkt 8). Der Befehl wurde zum Syntaxfehler mit
+  Exit 1, und Exit 1 heißt dort „kein Datenordner“: kein Backup, keine Warnung, und danach durfte man endgültig löschen. Die Pfade kommen jetzt über die
+  Umgebung; nur Exit 2 und höher gilt als Fehlschlag, und das Protokoll sagt nicht mehr „erstellt“, wenn nichts entstand.
+- **Der Deinstaller räumte beim Aufruf über „Apps & Features“ den Temp-Ordner aus** (#1149 Punkt 9a). Er kopiert sich dann nach `%TEMP%` und läuft von dort; „der Ordner
+  neben dem Skript“ war damit `%TEMP%` selbst, und `python\`, `install_log.txt` und `python-*-embed-amd64.zip` dort wurden gelöscht. Aufgeräumt wird nur noch, wenn das
+  Skript im entpackten PBP-Ordner liegt (nicht umgezogen und nicht in `%TEMP%`/`%TMP%`).
+- **macOS und Linux: beim Update blieb das Dashboard der alten Fassung auf dem Port** (#1149 Punkt 6 und 4). Der neue Start meldete „läuft bereits“, und der Health-Check
+  bestätigte die alte Fassung; ein fremdes Programm, das HTTP 200 liefert, galt ebenfalls als „läuft“. Beide Installer beenden vor dem Start ein laufendes `start_dashboard.py`
+  (erst höflich, nach fünf Sekunden hart — nie den Prozess, den Claude Desktop startet, nie ein fremdes Programm), fragen `/api/health` und vergleichen die Fassung: antwortet eine
+  andere, steht das da, samt dem Weg („Claude Desktop komplett beenden und neu starten“).
+- **macOS und Linux: eine kaputte Claude-Konfiguration wurde als „MCP-Eintrag war nicht vorhanden“ gemeldet** (#1149 Punkt 9d). Der Deinstaller unterscheidet jetzt „entfernt“,
+  „kein Eintrag“, „nicht lesbar“ und „nicht schreibbar“, legt vor dem Schreiben eine Sicherungskopie (`.pbp-backup`, wie unter Windows) an und schreibt über eine Zwischendatei.
+- **Zahlen und Texte** (#1149 Punkt 12): `server.json` stand auf 1.7.0 und `uv.lock` auf 1.5.7 (ohne `python-jobspy` und `pypdfium2`; entfernt — eine veraltete Sperrdatei ist
+  schlimmer als keine); das Release-Tor `release_check.py` prüft jetzt auch `frontend/package.json`, `server.json` und eine vorhandene `uv.lock` (`--fix` zieht die JSON-Dateien
+  nach); `installer/install.ps1` ist ein ehrlicher Hinweis auf `INSTALLIEREN.bat` statt eines zweiten, veralteten Installers; `docs/LIESMICH.txt` verspricht unter macOS nicht
+  mehr „du brauchst nichts zu installieren“ (Python 3.11 ist nötig); README und LIESMICH nennen die Windows-Warnung („Herausgeber nicht verifiziert“, „Weitere Informationen →
+  Trotzdem ausführen“); `err_pip` und `err_packages` sagen, was als Nächstes zu tun ist (Internet prüfen, `INSTALLIEREN.bat` nochmal starten; die Daten bleiben erhalten).
 
 ### Known Issues
 
-- Die Sprachdaten der Texterkennung (tessdata) werden weiterhin ohne Prüfsumme nachgeladen (#1165).
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Läufe über die Browser-Quellen werden noch nirgends verbucht, und nur LinkedIn hat ein Werkzeug, das mehrere Treffer auf einmal übernimmt (#1187, nächste Stufen).
 - Auto-Update nur unter Windows.
