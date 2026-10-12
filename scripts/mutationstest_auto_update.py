@@ -1743,6 +1743,7 @@ GRUNDLAEUFE["kischalter"] = (("T_KS", T_KS), ("T_KSB", T_KSB))
 
 # ── Google Jobs: Sperre ohne Original, Hinweise statt Stellen, vorbereitete Suche (#1184 a, d, e) ──
 T_GO = ["tests/test_v18_google_original_1184.py"]
+T_GOA = T_GO + ["tests/test_1120_google_alert_echte_mails.py", "tests/test_v17124_google_alert_1068.py"]
 T_GOB = ["tests/test_v18_google_original_1184_browser.py"]
 GAN = "src/bewerbungs_assistent/services/google_angaben.py"
 JOBS_PY = "src/bewerbungs_assistent/tools/jobs.py"
@@ -1805,9 +1806,9 @@ M_GOOGLEORIGINAL = [
      "    erg = stellen_hinweise.merken(db, treffer, suchanfrage=anfrage)\n"
      "    from ..job_scraper import stelle_hash\n"
      "    db.save_jobs([{\"hash\": stelle_hash(\"n\", e[\"titel\"]), \"title\": e[\"titel\"], \"company\": e[\"firma\"], \"location\": e[\"ort\"],\n"
-     "                   \"url\": \"\", \"source\": \"newsletter:x\", \"description\": \"\", \"score\": 0, \"_manual_entry\": True} for e in treffer])\n", T_GO),
+     "                   \"url\": \"\", \"source\": \"newsletter:x\", \"description\": \"\", \"score\": 0, \"_manual_entry\": True} for e in treffer])\n", T_GOA),
     ("go31", "Die Alert-Mail meldet weiter 'uebernommen'", NLS,
-     '        "status": "hinweise_notiert",\n        "label": label,\n', '        "status": "uebernommen",\n        "label": label,\n', T_GO),
+     '        "status": "hinweise_notiert",\n        "label": label,\n', '        "status": "uebernommen",\n        "label": label,\n', T_GOA),
     ("go40", "Die Mail wird nach den Hinweisen nicht archiviert (Upload)", "src/bewerbungs_assistent/dashboard.py",
      'newsletter_result.get("status") in ("uebernommen", "hinweise_notiert")', 'newsletter_result.get("status") == "uebernommen"', T_GO),
     ("go41", "Verwerfen eines unbekannten Hinweises meldet Erfolg", "src/bewerbungs_assistent/dashboard.py",
@@ -1825,6 +1826,132 @@ M_GOOGLEORIGINAL = [
 ]
 KATALOGE["googleoriginal"] = M_GOOGLEORIGINAL
 GRUNDLAEUFE["googleoriginal"] = (("T_GO", T_GO), ("T_GOB", T_GOB))
+
+# ── Browser-Ernte: ein Sammelweg fuer alle Quellen, Lauf verbuchen, "Stellen zu pruefen" (#1187 Stufe 2/3) ──
+T_BU = ["tests/test_v18_browser_uebernahme_1187.py"]
+T_BUB = ["tests/test_v18_browser_uebernahme_1187_browser.py"]
+BU_SZP = "src/bewerbungs_assistent/services/stellen_zu_pruefen.py"
+BU_BUE = "src/bewerbungs_assistent/services/browser_uebernahme.py"
+BU_DB = "src/bewerbungs_assistent/database.py"
+BU_APR = "src/bewerbungs_assistent/services/aussortier_protokoll.py"
+BU_AUS = "src/bewerbungs_assistent/services/aussortieren.py"
+BU_DASH = "src/bewerbungs_assistent/dashboard.py"
+BU_JP = "frontend/src/pages/JobsPage.jsx"
+BU_SZPJ = "frontend/src/components/StellenZuPruefen.jsx"
+BU_DP = "frontend/src/pages/DashboardPage.jsx"
+BU_WEGE = "frontend/src/lib/wege.js"
+
+M_BROWSERUEBERNAHME = [
+    ("bu01", "Die Vorschau verbucht den Lauf", JOBS_PY,
+     '        if not dry_run:\n            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n',
+     '        if True:\n            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n', T_BU),
+    ("bu02", "Ein Lauf ohne Anlage wird nicht verbucht", JOBS_PY,
+     '            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n',
+     '            (db.record_browser_run if trichter["angelegt"] else (lambda *a, **k: None))(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n', T_BU),
+    ("bu03", "Eine leere Uebergabe wird nicht verbucht", JOBS_PY,
+     '                db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=0,\n',
+     '                (lambda *a, **k: None)(quelle_n, rohtreffer=trichter["rohtreffer"], neu=0,\n', T_BU),
+    ("bu04", "Ein Urteil wird auch ohne gelesenen Volltext gespeichert", JOBS_PY,
+     '                    elif len(beschreibung) < MIN_BESCHREIBUNG and urteil != "NICHT_BEURTEILBAR":\n',
+     '                    elif False:\n', T_BU),
+    ("bu05", "Ein Urteil ausserhalb der Kategorien wird nicht abgewiesen", JOBS_PY,
+     '                    if urteil not in _bu.URTEILE:\n', '                    if False:\n', T_BU),
+    ("bu06", "Nach dem Lesen aussortiert mit der Herkunft ich", JOBS_PY,
+     'collect_hints=False, herkunft="claude")', 'collect_hints=False, herkunft="ich")', T_BU),
+    ("bu07", "Die Vorschau sortiert aus", JOBS_PY,
+     '                if grund_roh and not dry_run:\n', '                if grund_roh:\n', T_BU),
+    ("bu08", "Die Vorschau speichert das Urteil", JOBS_PY,
+     '                if urteil and not dry_run:\n', '                if urteil:\n', T_BU),
+    ("bu09", "Ein erfundener Grund wird nicht normalisiert", JOBS_PY,
+     '                    gruende = _normalize_reason_list(grund_roh)\n', '                    gruende = [grund_roh]\n', T_BU),
+    ("bu10", "Google ohne Original nennt die Suche nicht", JOBS_PY,
+     '                if _gangaben.ist_google_quelle(quelle_n):\n', '                if False:\n', T_BU),
+    ("bu11", "Eine Anlage ohne Volltext wird nicht gezaehlt", JOBS_PY,
+     '                    trichter["ohne_volltext"] += 1\n', '                    pass\n', T_BU),
+    ("bu12", "Die Anker-Warnung der Anlage geht verloren", JOBS_PY,
+     '                    eintrag["anker_warnung"] = res["anker_warnung"]\n', '                    pass\n', T_BU),
+    ("bu13", "Ein fehlender Login verbucht einen Lauf", JOBS_PY,
+     '        if login_fehlt:\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n',
+     '        if login_fehlt:\n            db.record_browser_run(quelle_n, rohtreffer=0)\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n', T_BU),
+    ("bu14", "Die Quelle wird nicht auf Kleinschreibung gebracht", JOBS_PY,
+     '        quelle_n = str(quelle or "").strip().lower()\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'',
+     '        quelle_n = str(quelle or "").strip()\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'', T_BU),
+    ("bu15", "Die Vorgabe ist der echte Lauf statt der Vorschau", JOBS_PY,
+     '                                    dry_run: bool = True,\n                                    rohtreffer: int = 0,\n',
+     '                                    dry_run: bool = False,\n                                    rohtreffer: int = 0,\n', T_BU),
+    ("bu20", "Ein Lauf ohne Rohtreffer gilt als ok", BU_DB,
+     '"ok" if int(rohtreffer or 0) > 0 else "silent"', '"ok"', T_BU),
+    ("bu21", "Die angelegten Stellen des Laufs werden nicht mitgeschrieben", BU_DB,
+     '                 int(neu or 0), 0.0, "", ("Browserlauf: "', '                 0, 0.0, "", ("Browserlauf: "', T_BU),
+    ("bu23", "Die Datenbank kennt die Herkunft claude nicht", BU_DB,
+     '        wer = herkunft if herkunft in ("automatik", "claude") else "ich"\n',
+     '        wer = herkunft if herkunft in ("automatik",) else "ich"\n', T_BU),
+    ("bu24", "Das Protokoll liest die Herkunft claude als unbekannt", BU_APR,
+     '    if gespeichert in ("ich", "automatik", "claude"):\n', '    if gespeichert in ("ich", "automatik"):\n', T_BU),
+    ("bu25", "Das Protokoll laesst sich nicht nach claude filtern", BU_APR,
+     'HERKUENFTE = ("ich", "automatik", "claude", "unbekannt")\n', 'HERKUENFTE = ("ich", "automatik", "unbekannt")\n', T_BU),
+    ("bu26", "Das Aussortieren reicht die Herkunft nicht weiter", BU_AUS,
+     '    db.dismiss_job(job_hash, reason_str, herkunft=herkunft)\n', '    db.dismiss_job(job_hash, reason_str)\n', T_BU),
+    ("bu30", "Stellen mit laufender Bewerbung warten mit", BU_SZP,
+     '        if db._public_job_hash(z["hash"], z["profile_id"]) in beworbene:\n            continue\n',
+     '        if False:\n            continue\n', T_BU),
+    ("bu31", "Beworbene werden mit der Speicher-Kennung verglichen statt mit der oeffentlichen", BU_SZP,
+     '        if db._public_job_hash(z["hash"], z["profile_id"]) in beworbene:\n',
+     '        if z["hash"] in beworbene:\n', T_BU),
+    ("bu32", "Stellen einer Firma auf der Blacklist warten mit", BU_SZP,
+     '        if sperren and blacklist_regel.treffer(sperren, z["company"] or "", z["title"] or ""):\n', '        if False:\n', T_BU),
+    ("bu33", "Beurteilte Stellen zaehlen als ungeprueft", BU_SZP,
+     '        if (z["analyse_urteil"] or "").strip() or (z["gesichtet_am"] or "").strip():\n',
+     '        if (z["gesichtet_am"] or "").strip():\n', T_BU),
+    ("bu34", "Angesehene Stellen zaehlen als ungeprueft", BU_SZP,
+     '        if (z["analyse_urteil"] or "").strip() or (z["gesichtet_am"] or "").strip():\n',
+     '        if (z["analyse_urteil"] or "").strip():\n', T_BU),
+    ("bu35", "Auch Altes zaehlt als neu", BU_SZP,
+     '        if str(z["found_at"] or "")[:10] >= tag_grenze:\n', '        if True:\n', T_BU),
+    ("bu36", "Jede aussortierte Stelle zaehlt als von Claude aussortiert", BU_SZP,
+     "        \"WHERE is_active=0 AND dismissed_by='claude' AND (profile_id=? OR profile_id IS NULL) \"\n",
+     "        \"WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) \"\n", T_BU),
+    ("bu37", "Die Liste der Karte ist unbegrenzt", BU_SZP,
+     '    for z in zeilen[:MAX_LISTE]:\n', '    for z in zeilen:\n', T_BU),
+    ("bu38", "Ein anderes Profil sieht die wartenden Stellen", BU_SZP,
+     '            "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)", (pid,)):\n',
+     '            "WHERE is_active=1 AND (? IS NOT NULL OR profile_id IS NULL)", (pid,)):\n', T_BU),
+    ("bu39", "Die Karte nennt den Grund nicht", BU_SZP,
+     '            "grund": gruende[0] if gruende else "",\n', '            "grund": "",\n', T_BU),
+    ("bu40", "Ein Anzeigentext allein ist kein Anker", BU_BUE,
+     '    return u.startswith(("http://", "https://")) or len(str(beschreibung or "").strip()) >= min_beschreibung\n',
+     '    return u.startswith(("http://", "https://"))\n', T_BU),
+    ("bu41", "Eine Adresse allein ist kein Anker", BU_BUE,
+     '    return u.startswith(("http://", "https://")) or len(str(beschreibung or "").strip()) >= min_beschreibung\n',
+     '    return len(str(beschreibung or "").strip()) >= min_beschreibung\n', T_BU),
+    ("bu50", "Die Schnittstelle nennt nichts", BU_DASH,
+     '    return stellen_zu_pruefen.uebersicht(_db)\n',
+     '    return {"ungeprueft": 0, "neu": 0, "tage": 14, "von_claude_aussortiert": 0, "aussortiert": []}\n', T_BU + T_BUB),
+    ("bf01", "Der Sprung setzt den Pruefstand nicht", BU_JP,
+     '        pruefstand: intent.pruefstand || "",\n', '        pruefstand: "",\n', T_BUB),
+    ("bf02", "Der Sprung in Ausgeblendet bleibt in der aktiven Ansicht", BU_JP,
+     '        view: intent.view === "dismissed" ? "dismissed" : "active",\n', '        view: "active",\n', T_BUB),
+    ("bf03", "Die Herkunft claude hat kein Etikett", BU_JP,
+     '  claude: "von Claude gelesen und aussortiert",\n', '', T_BU + T_BUB),
+    ("bf04", "Zurueckholen speichert nichts", BU_SZPJ,
+     '      await postJson("/api/jobs/restore", { hash });\n', '      await Promise.resolve();\n', T_BUB),
+    ("bf05", "Die Karte verschwindet, wenn nichts Neues wartet", BU_SZPJ,
+     '  if (!neu && !claude) return null;\n', '  if (!neu) return null;\n', T_BUB),
+    ("bf06", "Die Liste der aussortierten Stellen ist aufgeklappt", BU_SZPJ,
+     '  const [offen, setOffen] = useState(false);\n', '  const [offen, setOffen] = useState(true);\n', T_BUB),
+    ("bf07", "Der Grund steht roh da", BU_SZPJ,
+     '{stelle.grund ? <span className="text-muted"> — {grundText(stelle.grund)}</span> : null}',
+     '{stelle.grund ? <span className="text-muted"> — {stelle.grund}</span> : null}', T_BUB),
+    ("bf08", "Der Weg zu den ungeprueften Stellen setzt keinen Filter", BU_WEGE,
+     '  return { seite: "stellen", intent: { pruefstand: "ungeprueft" } };\n',
+     '  return { seite: "stellen", intent: { pruefstand: "" } };\n', T_BUB),
+    ("bf09", "Die Karte steht nicht auf dem Dashboard", BU_DP,
+     '        <StellenZuPruefen navigateTo={navigateTo} anlass={reloadKey} />\n', '', T_BUB),
+    ("bf10", "Die Karte zaehlt nach dem Zurueckholen nicht neu", BU_SZPJ,
+     '      setDaten(await laden());\n', '      await laden();\n', T_BUB),
+]
+KATALOGE["browseruebernahme"] = M_BROWSERUEBERNAHME
+GRUNDLAEUFE["browseruebernahme"] = (("T_BU", T_BU), ("T_BUB", T_BUB))
 
 WT = None
 

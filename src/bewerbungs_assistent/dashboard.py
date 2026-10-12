@@ -11253,6 +11253,15 @@ def api_elwosa_status_endpoint():
     return get_status(_db, ai_state=ai_state)
 
 
+# === #1187 (Stufe 3): was nach einem Browserlauf auf das Urteil des Menschen wartet ===
+
+@app.get("/api/stellen/zu-pruefen")
+async def api_stellen_zu_pruefen():
+    """Zaehlung fuer die Dashboard-Karte: ungeprueft (gesamt und neu) und von Claude nach dem Lesen aussortiert."""
+    from .services import stellen_zu_pruefen
+    return stellen_zu_pruefen.uebersicht(_db)
+
+
 # === #1184 (d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind ===
 
 @app.get("/api/stellen-hinweise")

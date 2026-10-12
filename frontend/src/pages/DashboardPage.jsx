@@ -51,6 +51,7 @@ import { hinweisFuer } from "@/lib/hinweisZone";
 import { vorabNeu } from "@/lib/autoUpdate";
 import { neueLinieHinweis } from "@/lib/updateStand";
 import OffenBlock from "@/components/OffenBlock";
+import StellenZuPruefen from "@/components/StellenZuPruefen";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
 import EmailUploadButton from "@/components/EmailUploadButton";
 import DashboardBereich from "@/components/DashboardBereich";
@@ -576,6 +577,7 @@ export default function DashboardPage() {
           onPrompt={(prompt) => copyPrompt?.(prompt)}
           onAnzahl={setOffenAnzahl}
         />
+        <StellenZuPruefen navigateTo={navigateTo} anlass={reloadKey} />
       </>
     ),
     naechster_schritt: (

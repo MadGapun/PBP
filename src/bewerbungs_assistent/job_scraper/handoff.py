@@ -115,9 +115,10 @@ def build_handoff(quelle: str, keyword: str, ort: str = "",
         schritt_1
         + "2. Treffer mit javascript_tool() und `extraction_js` strukturiert aus dem DOM ziehen. "
         "3. Alle Treffer, die fachlich passen oder nahezu passen, mit "
-        "stelle_manuell_anlegen(titel, firma, "
-        f"url, quelle='{quelle_label}') uebernehmen — Score und "
-        "Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL
+        f"browser_treffer_uebernehmen(quelle='{quelle_label}', treffer=[{{titel, firma, url, beschreibung}}, ...], "
+        "rohtreffer=<Zahl>, dry_run=False) in einem Zug uebernehmen (einzelne Stellen: "
+        f"stelle_manuell_anlegen(titel, firma, url, quelle='{quelle_label}')) — Score und "
+        "Duplikat-Erkennung laufen automatisch, und der Lauf wird verbucht. " + REGEL_IM_ZWEIFEL
     )
     ergebnis = {
         "status": "handoff",

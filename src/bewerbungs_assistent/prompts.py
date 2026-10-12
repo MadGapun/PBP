@@ -766,7 +766,7 @@ Das kann je nach Anzahl der Quellen 5-10 Minuten dauern.
    Browser gehen): ARBEITE DIESE QUELLEN SELBST AB — ohne Nachfrage —, sofern
    Claude-in-Chrome verbunden ist, während die Hintergrund-Suche laeuft: Suchbegriffe je Jobbörse aus
    suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit
-   stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}
+   browser_treffer_uebernehmen() erfassen (einzelne Stellen: stelle_manuell_anlegen()). {REGEL_IM_ZWEIFEL}
    Ohne Claude-in-Chrome: die Jobbörsen nennen und den Weg erklären.
    AUSNAHME: Steht eine Quelle zusätzlich im Feld `nur_auf_wunsch` (jobtic), arbeitest du sie NICHT von selbst ab —
    frage den Menschen, ob du dort suchen sollst, und halte dich dann an die Auflagen aus quelle_handoff().

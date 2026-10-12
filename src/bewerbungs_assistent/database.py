@@ -6522,7 +6522,9 @@ class Database:
         # Weg, der eine Stelle aussortiert, laeuft hier durch; ihn in den
         # Aufrufern zu setzen waere die achte Fassung derselben Sache.
         jetzt = _now()
-        wer = "automatik" if herkunft == "automatik" else "ich"
+        # #1187: "claude" = von Claude nach dem Lesen im Browserlauf aussortiert - eine eigene Herkunft, damit der Mensch
+        # sie im Ausgeblendet-Tab findet und zurueckholen kann (sie ist weder sein Urteil noch das der Automatik).
+        wer = herkunft if herkunft in ("automatik", "claude") else "ich"
         if freitexte:
             cur = conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
@@ -8118,6 +8120,31 @@ class Database:
     # ------------------------------------------------------------------
     # Quellen-Lauf-Historie + Custom-Quellen (B25/#735 + B16/#627, beta.5)
     # ------------------------------------------------------------------
+
+    def record_browser_run(self, name: str, *, rohtreffer: int = 0, neu: int = 0, gelesen: int = 0,
+                           detail: str = "") -> bool:
+        """Verbucht einen Lauf ueber den Browser im Append-Log `scraper_runs` (#1187 Stufe 2).
+
+        Ein Browserlauf hinterliess nirgends eine Spur - auch nicht, wenn er 1.300 Rohtreffer sah und keine Stelle anlegte.
+        Hier entsteht die Zeile, mit der `quellen_langzeit_auswertung` und der Trichter ihn kennen. `scraper_health` wird
+        BEWUSST nicht angefasst: ein Browserlauf ist kein Scraper-Lauf, und "0 neu" darf keine Quelle als stumm zaehlen
+        und abschalten. Rueckgabe: ob die Zeile geschrieben wurde (die Historie darf nie einen Aufrufer kippen).
+        """
+        name = str(name or "").strip().lower()
+        if not name:
+            return False
+        try:
+            conn = self.connect()
+            conn.execute(
+                "INSERT INTO scraper_runs (id, scraper_name, run_at, state, count, new_count, time_s, error_class, detail) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (_gen_id(), name, _now(), "ok" if int(rohtreffer or 0) > 0 else "silent", int(rohtreffer or 0),
+                 int(neu or 0), 0.0, "", ("Browserlauf: " + str(detail or ""))[:200]))
+            conn.commit()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Browserlauf nicht verbucht (%s): %s", name, exc)
+            return False
 
     def get_scraper_runs(self, scraper_name: str = None,
                          seit_iso: str = None, limit: int = 2000) -> list:

@@ -379,6 +379,8 @@ export function aktiveFilterBestimmen(filters) {
 export const HERKUNFT_ETIKETT = {
   ich: "von mir",
   automatik: "Automatik",
+  // #1187: nach dem Lesen im Browserlauf von Claude aussortiert - zurueckholbar wie jede andere.
+  claude: "von Claude gelesen und aussortiert",
   unbekannt: "Herkunft unbekannt",
 };
 
@@ -857,6 +859,17 @@ export default function JobsPage() {
         ...current,
         view: "active",
         missingDescriptionOnly: true,
+      }));
+    }
+    if (intent.pruefstand || intent.view) {
+      // #1187 (Stufe 3): "Stellen zu pruefen" auf dem Dashboard springt mit dem Filter in die Liste; "von Claude
+      // aussortiert" in die Ansicht Ausgeblendet. Beides raeumt ueber dieselbe Definition ab wie ein Sprung auf eine Stelle.
+      setFilters((current) => ({
+        ...current,
+        ...FILTER_STANDARD,
+        view: intent.view === "dismissed" ? "dismissed" : "active",
+        pruefstand: intent.pruefstand || "",
+        sort: current.sort,
       }));
     }
     clearIntent();
@@ -2202,7 +2215,7 @@ export default function JobsPage() {
                       <span className="inline-flex items-center gap-2 text-[12px] text-muted">
                         <span className={cn(
                           "rounded-md px-1.5 py-0.5",
-                          job.herkunft === "automatik"
+                          job.herkunft === "automatik" || job.herkunft === "claude"
                             ? "bg-amber/10 text-amber"
                             : job.herkunft === "ich"
                               ? "bg-white/[0.06] text-muted"

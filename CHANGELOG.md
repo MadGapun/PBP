@@ -174,7 +174,7 @@ Einträgen darunter.
   Browser-Liste nennt die defekte Schwester nicht noch einmal. Wer ausschließlich diese Quelle nutzte, findet Google weiter über den Browser.
 - **Die drei alten Werkzeugnamen entfallen** (#1148 Punkt 13): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt
   `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`) galten seit v1.7.135 „einen Release lang“. Die Parameter sind dieselben; wer eigene
-  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP drei Werkzeuge weniger; mit den zwei neuen (#1162, #1184) sind es 280 Werkzeuge.
+  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP drei Werkzeuge weniger; mit den drei neuen (#1162, #1184, #1187) sind es 281 Werkzeuge.
 - **Zwei Schreibweisen desselben Parameters werden verstanden** (#1148 Punkt 9, Rest): `firma`/`company`, `titel`/`title`, `dokument_id`/`document_id`,
   `job_hash`/`stellen_hash` und `bewerbung_id`/`application_id` stehen in den Signaturen nebeneinander. Die Middleware übersetzt einen Namen, den das Werkzeug nicht kennt,
   in den bekannten derselben Gruppe (`services/parameter_aliase`) — nie einen, den es selbst kennt, nie bei Mehrdeutigkeit, vor der Normalisierung der Kennungen.
@@ -212,6 +212,18 @@ Einträgen darunter.
   mit verschiedenen Orten (Mail: Hamburg, Anzeige: Köln). Daraus stand bisher eine bewertete Stelle ohne Text mitten in der Liste. Jetzt entsteht ein Hinweis: eingeklappt über der Liste der
   Stellen (Stellen › „Hinweise aus Google-Benachrichtigungen“, mit „Original suchen“ und „Verwerfen“) und für Claude über das neue Werkzeug `stellen_hinweise_verwalten`. Derselbe Treffer in
   mehreren Mails ist ein Hinweis, die Orte stehen nebeneinander; was schon eine Stelle ist, steht gleich als „angelegt“ da; legst du die Stelle später mit dem Original an, ist der Hinweis erledigt.
+- **Ein gemeinsamer Weg übernimmt die Ernte jeder Browser-Quelle** (#1187 Stufe 2). Bisher hatte nur LinkedIn ein Werkzeug, das mehrere Treffer auf einmal übernimmt; für StepStone, XING,
+  Indeed, Google Jobs, Heise und eigene Quellen blieb `stelle_manuell_anlegen`, Stelle für Stelle. Neu `browser_treffer_uebernehmen(quelle, treffer, dry_run=True, rohtreffer, volltexte_gelesen,
+  login_fehlt)`: derselbe Anlageweg wie `stelle_manuell_anlegen` (Blacklist, Dubletten auch gegen Bewerbungen und Aussortiertes, Anker, Auflagen der Quelle, Scoring), die Vorschau ist die
+  Vorgabe und schreibt nichts. Eine Karte ohne Volltext wird angelegt (`ohne_volltext`; `stellenbeschreibung_nachladen` ergänzt sie), ein Google-Treffer ohne Original nennt die Suche danach.
+  Ein Urteil wird nur mit gelesenem Volltext gespeichert. `aussortieren_grund` sortiert nach dem Lesen aus — mit einem Grund aus der Liste der Ablehnungsgründe und der Herkunft „von Claude“:
+  zu finden unter Stellen › Ausgeblendet, mit einem Klick zurückzuholen, und der nächste Lauf legt sie nicht noch einmal an. Alle Anleitungen an Claude nennen das Werkzeug.
+- **Jeder Browserlauf steht in der Auswertung der Quellen** (#1187 Stufe 2). Ein Lauf ohne eine einzige Anlage hinterließ nirgends eine Spur: weder im Trichter noch in der
+  Langzeit-Auswertung. Jetzt schreibt jeder echte Lauf — auch `linkedin_treffer_uebernehmen` — eine Zeile in `scraper_runs` (Rohtreffer, angelegt, Trichtertext), auch bei null Anlagen. Den
+  Gesundheitszustand der Quelle fasst er nicht an: „0 neu“ aus dem Browser schaltet keine Quelle ab, und ein fehlender Login ist ein eigener Befund (`wartet_auf_login`), kein Lauf.
+- **Das Dashboard sagt, was nach einem Lauf wartet** (#1187 Stufe 3). Die Karte „Stellen zu prüfen“ nennt, wie viele Stellen auf dein Urteil warten (mit Sprung in die Liste, Filter
+  „Prüfstand: nur ungeprüfte“), und wie viele Claude nach dem Lesen aussortiert hat — mit Titel, Firma, Grund und „Zurückholen“ je Zeile, ohne die Karte zu verlassen. Die Zahl folgt derselben
+  Regel wie die Liste (ohne laufende Bewerbungen, ohne Blacklist), ein Test hält beide gegeneinander. Neu `GET /api/stellen/zu-pruefen`; ohne wartende Stellen gibt es die Karte nicht.
   Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
 - **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
   war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine
@@ -364,12 +376,11 @@ Einträgen darunter.
 ### Known Issues
 
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
-- Läufe über die Browser-Quellen werden noch nirgends verbucht, und nur LinkedIn hat ein Werkzeug, das mehrere Treffer auf einmal übernimmt (#1187, nächste Stufen).
 - Auto-Update nur unter Windows.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
-*Schema v52 (unverändert), 280 MCP-Werkzeuge, 8596 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8596 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 

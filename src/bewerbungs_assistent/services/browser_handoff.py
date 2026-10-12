@@ -181,8 +181,10 @@ def prompt(eintraege: list[dict]) -> str:
         "Urteil schreibst. Der Titel allein sagt zu wenig über Systeme und "
         "Anforderungen.",
         f"- {REGEL_IM_ZWEIFEL}",
-        "- Übernimm mit stelle_manuell_anlegen(), einen LinkedIn-Sammellauf "
-        "mit linkedin_treffer_uebernehmen(). PBP prüft dabei Blacklist, "
+        "- Übernimm die Ernte einer Quelle in einem Zug mit "
+        "browser_treffer_uebernehmen(quelle=..., treffer=[...], rohtreffer=..., dry_run=False) — es verbucht "
+        "den Lauf, auch ohne Anlage —, einzelne Stellen mit stelle_manuell_anlegen(), einen "
+        "LinkedIn-Sammellauf mit linkedin_treffer_uebernehmen(). PBP prüft dabei Blacklist, "
         "Duplikate und Anker.",
         "- Melde mir am Ende je Quelle: Rohtreffer, in PBP angelegt, schon "
         "bekannt, aussortiert mit Grund. Der Bericht ersetzt die Einträge nicht.",

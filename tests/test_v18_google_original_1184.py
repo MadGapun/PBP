@@ -93,6 +93,9 @@ def test_mit_adresse_oder_text_allein_wird_angelegt_unter_vorbehalt(umgebung, ur
 @pytest.mark.parametrize("url", [
     "https://www.google.com/search?q=plm+administrator&ibp=htl;jobs",
     "https://www.stepstone.de/jobs/plm-administrator/in-hamburg",
+    # Google-Adressen, die KEINE Suchseite sind (Karte, Jobs-Unterseite): sie fuehren zu Google, nicht zum Arbeitgeber
+    "https://www.google.de/maps/place/Musterstadt",
+    "https://jobs.google.com/jobs/12345",
 ])
 def test_eine_google_oder_suchadresse_ist_kein_anker(umgebung, url):
     mcp, db = umgebung

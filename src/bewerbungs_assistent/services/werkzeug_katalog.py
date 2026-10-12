@@ -216,10 +216,20 @@ KURZ = {
         "Dubletten (auch Aussortiertes, dann als Hinweis), Blacklist und "
         "frühere Bewerbungen. Ohne URL, Dokument oder Kontakt ist die "
         "Stelle später kaum wiederzufinden — dann nachfragen. Aus Google "
-        "Jobs gelten Remote und Ort erst mit dem Original (Detail-URL des "
-        "Arbeitgebers und Text), davor bleibt das Arbeitsmodell unbekannt. "
-        "Auch für Treffer aus dem Browserlauf: im Zweifel eintragen. Was "
-        "PBPs eigene Suche schon angelegt hat, nicht doppelt."),
+        "Jobs gelten Remote und Ort erst mit dem Original (Detail-URL und "
+        "Text), davor bleibt das Arbeitsmodell unbekannt. Treffer aus dem "
+        "Browserlauf: im Zweifel eintragen, viele auf einmal mit "
+        "browser_treffer_uebernehmen. Was PBPs eigene Suche schon angelegt "
+        "hat, nicht doppelt."),
+    "browser_treffer_uebernehmen": (
+        "Übernimmt die Ernte eines Browserlaufs (StepStone, XING, Indeed, "
+        "Google Jobs, Heise, eigene Quellen) in einem Zug nach PBP, mit "
+        "denselben Prüfungen wie stelle_manuell_anlegen: Blacklist, "
+        "Dubletten, Anker. Im Zweifel eintragen: eine Karte ohne Volltext "
+        "ist trotzdem eine Stelle. Erst mit dry_run=True die Vorschau, "
+        "dann dry_run=False: legt an und verbucht den Lauf, auch wenn "
+        "nichts angelegt wird. rohtreffer immer mitgeben. Danach wartet "
+        "die Ernte im Dashboard unter Stellen zu prüfen."),
     "profil_erstellen": (
         "Legt das Profil an oder ergänzt es (Name, Kontakt, Kurzprofil, "
         "Praeferenzen). Teil der Ersterfassung. Die Antwort nennt Dokumente, "

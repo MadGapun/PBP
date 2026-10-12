@@ -575,6 +575,8 @@ def test_jede_seite_mit_sprungzielen_versteht_die_neuen_absichten():
         "kontaktId": "pages/ContactsPage.jsx",
         "applicationId": "pages/ApplicationsPage.jsx",
         "firmaName": "pages/ContactsPage.jsx",
+        "pruefstand": "pages/JobsPage.jsx",     # #1187: Karte "Stellen zu pruefen"
+        "view": "pages/JobsPage.jsx",
     }
     for absicht, seite in absichten.items():
         assert re.search(rf"intent\??\.{absicht}\b", _quelle(seite)), f"{seite} liest `{absicht}` nicht"
