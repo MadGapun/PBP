@@ -2066,6 +2066,11 @@ def register(mcp, db, logger):
                 "gelten nicht (#1184): `stelle_manuell_anlegen` lässt das "
                 "Arbeitsmodell auf `unbekannt`, bis das Original (Detail-URL "
                 "des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL
+                + " Ausnahme (#1184): Einen Treffer aus Google OHNE Detail-URL des "
+                "Arbeitgebers UND ohne Anzeigentext legt PBP nicht an (`google_original_fehlt`). "
+                "Dann das Original beim Arbeitgeber suchen — die Antwort nennt die vorbereitete "
+                "Suche — und mit URL und Text anlegen. Treffer aus Google-Benachrichtigungen "
+                "per Mail sind Hinweise (stellen_hinweise_verwalten), keine Stellen."
             ),
         }
 
@@ -2475,6 +2480,62 @@ def register(mcp, db, logger):
     # Deshalb steht der Rumpf jetzt in `_stelle_uebernehmen`; das Tool
     # ist die Huelle darum.
     @mcp.tool()
+    def stellen_hinweise_verwalten(
+        aktion: str = "anzeigen",
+        hinweis_id: str = "",
+        status: str = "offen",
+        limit: int = 30,
+    ) -> dict:
+        """Hinweise aus Google-Benachrichtigungen: Treffer, die noch KEINE Stelle sind (#1184).
+
+        Eine Benachrichtigungs-Mail von Google Jobs nennt nur Titel, Firma, Ort und Portal; jeder Link führt auf
+        eine Google-Suche, und derselbe Treffer kommt mit verschiedenen Orten. Daraus legt PBP keine Stelle an,
+        sondern einen Hinweis. Wer sich für einen interessiert, sucht das ORIGINAL beim Arbeitgeber und legt die
+        Stelle mit stelle_manuell_anlegen an (URL und Anzeigentext mitgeben): der Hinweis ist dann erledigt.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'suche' (die vorbereitete Suche nach dem Original zu EINEM Hinweis),
+                'verwerfen' oder 'zurueckholen'.
+            hinweis_id: die Kennung aus 'anzeigen' (für suche, verwerfen, zurueckholen).
+            status: für 'anzeigen': 'offen' (Vorgabe), 'angelegt', 'verworfen' oder 'alle'.
+            limit: höchstens so viele Hinweise (Vorgabe 30).
+        """
+        from ..services import stellen_hinweise as _hinweise
+        from ..services import google_angaben as _gangaben
+        aktion = (aktion or "anzeigen").strip().lower()
+        if aktion == "anzeigen":
+            eintraege = _hinweise.liste(db, status=(status or "offen").strip().lower(), limit=limit)
+            return {
+                "status": "ok",
+                "anzahl": len(eintraege),
+                "zaehlung": _hinweise.zaehlen(db),
+                "hinweise": [
+                    {"id": e["id"], "titel": e["titel"], "firma": e["firma"], "ort": e["ort"], "portal": e["portal"],
+                     "veroeffentlicht_am": e["veroeffentlicht_am"] or None, "anzahl_mails": e["anzahl_mails"],
+                     "weiterverbreiter": e["weiterverbreiter"], "status": e["status"], "job_hash": e["job_hash"] or None}
+                    for e in eintraege],
+                "naechster_schritt": (
+                    "Für einen Hinweis, der interessiert: stellen_hinweise_verwalten('suche', hinweis_id=<id>) nennt die "
+                    "vorbereitete Suche nach dem Original; mit URL und Text dann stelle_manuell_anlegen. "
+                    "Uninteressante: aktion='verwerfen'."),
+            }
+        if aktion in ("suche", "verwerfen", "zurueckholen"):
+            if not hinweis_id:
+                return {"fehler": "hinweis_id fehlt (die Kennung steht in der Liste von aktion='anzeigen')."}
+            if aktion == "suche":
+                z = next((e for e in _hinweise.liste(db, status="alle", limit=500) if e["id"] == hinweis_id), None)
+                if not z:
+                    return {"fehler": "Hinweis nicht gefunden."}
+                return {"status": "ok", "hinweis": {"id": z["id"], "titel": z["titel"], "firma": z["firma"], "ort": z["ort"]},
+                        "original_suchen": _gangaben.original_suchen(z["titel"], z["firma"], z["ort"].split(";")[0])}
+            ok = (_hinweise.verwerfen(db, hinweis_id) if aktion == "verwerfen"
+                  else _hinweise.wiederherstellen(db, hinweis_id))
+            if not ok:
+                return {"fehler": "Hinweis nicht gefunden, oder er hatte schon diesen Stand."}
+            return {"status": "ok", "aktion": aktion, "hinweis_id": hinweis_id}
+        return {"fehler": f"Unbekannte Aktion '{aktion}'. Erlaubt: anzeigen, suche, verwerfen, zurueckholen."}
+
+    @mcp.tool()
     def stelle_manuell_anlegen(
         titel: str,
         firma: str,
@@ -2496,12 +2557,15 @@ def register(mcp, db, logger):
         Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
         Anker (#766), berechnet den Score und legt an.
 
-        GOOGLE JOBS (#1184): Bei Treffern aus Google (quelle='google_jobs') gelten `remote` und
-        `ort` erst, wenn das ORIGINAL vorliegt (Detail-URL des Arbeitgebers UND Anzeigentext). Bis
-        dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet, nicht Googles Karte)
-        und die Entfernung wird nicht aus Googles Ort gerechnet; `google_vorbehalt` im Ergebnis
-        nennt den nächsten Schritt. Das Original mit stelle_bearbeiten(url=..., beschreibung=...,
-        ort=...) nachtragen.
+        GOOGLE JOBS (#1184): Ein Treffer aus Google (quelle='google_jobs') ohne Detail-URL des
+        Arbeitgebers UND ohne Anzeigentext wird NICHT angelegt: es ist nur eine Karte, und ohne Original
+        lässt sich nichts nachladen, prüfen oder bewerben. Die Antwort (`google_original_fehlt`) nennt die
+        Suche (`original_suchen`): das Original beim Arbeitgeber finden und mit URL und Text anlegen.
+        `force=True` legt trotzdem an. Mit URL ODER Text wird angelegt, aber `remote` und `ort` gelten
+        erst mit dem ORIGINAL: bis dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet,
+        nicht Googles Karte), die Entfernung wird nicht aus Googles Ort gerechnet, und
+        `google_vorbehalt` im Ergebnis nennt den nächsten Schritt (stelle_bearbeiten(url=...,
+        beschreibung=..., ort=...)).
 
         Args:
             titel: Stellentitel (Pflicht).
@@ -2520,7 +2584,8 @@ def register(mcp, db, logger):
                 er nicht: dann entscheidet der Text (#1184).
             stellenart: 'festanstellung' | 'freelance' | 'praktikum' |
                 'werkstudent'.
-            force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
+            force: True = erkanntes Duplikat/Blacklist ignorieren (#670) und einen
+                Google-Treffer ohne Original trotzdem anlegen (#1184).
             kontakt_name: Ansprechpartner — wird als Kontakt angelegt und
                 mit der Stelle verknüpft (Anker #766).
             kontakt_email: E-Mail des Ansprechpartners.
@@ -2970,6 +3035,23 @@ def register(mcp, db, logger):
         # Regel wie bei JobSpy, B63), sonst 'unbekannt'; die Entfernung wird nicht aus Googles Ort gerechnet. Vorher
         # hiess "Beliebiger Ort, Homeoffice" aus Googles Karte `remote`: die Entfernung fiel weg, der Rahmenscore stieg.
         from ..services import google_angaben as _gangaben
+        # #1184 (a): ein Treffer aus Google, zu dem es WEDER eine Detail-URL des Originals NOCH einen Anzeigentext gibt, ist
+        # eine Behauptung ohne Beleg: vier von fuenf Stellen eines Browserlaufs trugen nur Kopfdaten ("Volltext nicht
+        # abrufbar") und keinen Anker. Er wird nicht angelegt; Claude bekommt den Auftrag, das Original zu suchen. force
+        # bleibt der Ausweg. Die Vorschau (trocken) sagt dasselbe wie die Anlage.
+        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:
+            return {
+                "status": "nicht_angelegt",
+                "warnung": "google_original_fehlt",
+                "nachricht": (
+                    f"Stelle '{titel}' bei {firma} NICHT angelegt: sie stammt aus einer Google-Jobs-Karte, und es gibt weder "
+                    "eine Detail-URL des Arbeitgebers noch einen Anzeigentext. Die Karte allein ist eine Behauptung - Ort, "
+                    "Arbeitsmodell und Firmenname weichen oft vom Original ab."),
+                "original_suchen": _gangaben.original_suchen(titel, firma, ort),
+                "trotzdem_anlegen": (
+                    "force=True legt die Stelle nur mit Googles Kopfdaten an (Remote und Ort gelten dann nicht, und es "
+                    "gibt keinen Anker). Besser: das Original finden und mit URL und Text anlegen."),
+            }
         google_vorbehalt = None
         if _gangaben.unter_vorbehalt(quelle, url, beschreibung):
             _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
@@ -3107,6 +3189,12 @@ def register(mcp, db, logger):
 
         job["score"] = calculate_score(job, criteria)
         db.save_jobs([job])
+        # #1184 (d): liegt zu dieser Firma und diesem Titel ein Hinweis aus einer Benachrichtigung, ist er erledigt.
+        try:
+            from ..services import stellen_hinweise as _hinweise
+            _hinweise.als_angelegt(db, firma, titel, job_hash)
+        except Exception:  # pragma: no cover - nie die Anlage kippen
+            pass
 
         # #766: Kontakt als Anker. Wird VOR der Anker-Pruefung angelegt, damit
         # eine Stelle mit Recruiter-Kontakt (Vermittler ohne bekannten

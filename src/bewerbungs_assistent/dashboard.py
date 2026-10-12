@@ -6019,7 +6019,7 @@ async def api_upload_document(
                 newsletter_result = newsletter_service.verarbeite_newsletter(
                     _db, parsed_nl, quelle["label"])
                 newsletter_result["erkannt_ueber"] = quelle["erkannt_ueber"]
-                if newsletter_result.get("status") == "uebernommen":
+                if newsletter_result.get("status") in ("uebernommen", "hinweise_notiert"):
                     try:
                         _db.update_document_lifecycle(did, "archiviert")
                         newsletter_result["dokument"] = "archiviert"
@@ -11251,6 +11251,35 @@ def api_elwosa_status_endpoint():
     except Exception:
         ai_state = "active"
     return get_status(_db, ai_state=ai_state)
+
+
+# === #1184 (d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind ===
+
+@app.get("/api/stellen-hinweise")
+async def api_stellen_hinweise(status: str = "offen", limit: int = 100):
+    """Die Hinweise des aktiven Profils samt Zaehlung; je Hinweis die vorbereitete Suche nach dem Original."""
+    from .services import stellen_hinweise, google_angaben
+    eintraege = stellen_hinweise.liste(_db, status=(status or "offen").strip().lower(), limit=limit)
+    for e in eintraege:
+        such = google_angaben.original_suchen(e["titel"], e["firma"], (e.get("ort") or "").split(";")[0])
+        e["suche"] = such["suchen"]
+    return {"zaehlung": stellen_hinweise.zaehlen(_db), "hinweise": eintraege}
+
+
+@app.post("/api/stellen-hinweise/{hinweis_id}/verwerfen")
+async def api_stellen_hinweis_verwerfen(hinweis_id: str):
+    from .services import stellen_hinweise
+    if not stellen_hinweise.verwerfen(_db, hinweis_id):
+        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht mehr offen."}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.post("/api/stellen-hinweise/{hinweis_id}/zurueckholen")
+async def api_stellen_hinweis_zurueckholen(hinweis_id: str):
+    from .services import stellen_hinweise
+    if not stellen_hinweise.wiederherstellen(_db, hinweis_id):
+        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht verworfen."}, status_code=404)
+    return {"status": "ok"}
 
 
 @app.get("/api/auto-actions/status")

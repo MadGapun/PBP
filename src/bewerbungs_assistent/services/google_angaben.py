@@ -15,6 +15,11 @@ und Ort einer Google-Stelle nicht.
   behauptet; eine Zahl daraus waere eine Genauigkeit, die es nicht gibt.
 * Kommt das Original nach (`stelle_bearbeiten` mit URL und Text), holt `stelle_aendern` beides nach.
 
+Seit 1.8.0 (a): Ein Treffer aus Google, zu dem WEDER eine Detail-URL des Originals NOCH ein Anzeigentext vorliegt
+(`ohne_beleg`), wird von `stelle_manuell_anlegen` nicht mehr angelegt - Claude bekommt stattdessen den Auftrag, das
+Original zu suchen, samt vorbereiteten Suchen (`original_suchen`, e). `force=True` bleibt als Ausweg. Mit einer URL
+oder einem Text allein wird weiter angelegt, unter dem Vorbehalt oben.
+
 Abgrenzung: `google_alert` liest die Benachrichtigungs-Mails, `weiterverbreiter` kennt Seiten, die nur kopieren,
 `remote_jobspy` bestimmt den Remote-Grad fuer JobSpy-Treffer aus dem Text. Dieses Modul entscheidet nur, OB eine Stelle
 noch unter Googles Vorbehalt steht. Das wird aus den gespeicherten Spalten abgeleitet (Quelle, URL, Text), nicht
@@ -66,6 +71,56 @@ def original_gelesen(url, beschreibung) -> bool:
     if ist_google_adresse(u) or is_search_result_url(u):
         return False
     return len(str(beschreibung or "").strip()) >= MIN_BESCHREIBUNG
+
+
+def ohne_beleg(quelle, url, beschreibung) -> bool:
+    """Google-Treffer, zu dem WEDER eine Detail-URL ausserhalb von Google NOCH ein Anzeigentext vorliegt (#1184 a).
+
+    Eine Karte allein ist eine Behauptung: ohne Adresse laesst sich nichts nachladen, ohne Text nichts pruefen, und der
+    Mensch kann sich nicht bewerben. Hat die Stelle EINES von beidem, wird sie angelegt (unter Vorbehalt): Adresse oder
+    Text sind ein Anker, aus dem sich das Original machen laesst.
+    """
+    if not ist_google_quelle(quelle):
+        return False
+    from ..job_scraper import is_search_result_url
+    from .datenguete import MIN_BESCHREIBUNG
+    u = str(url or "").strip()
+    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u)
+                   and not is_search_result_url(u))
+    hat_text = len(str(beschreibung or "").strip()) >= MIN_BESCHREIBUNG
+    return not hat_adresse and not hat_text
+
+
+def original_suchen(titel, firma, ort="") -> dict:
+    """Die Suche nach dem Original, vorbereitet (#1184 e). PBP sucht nicht selbst im Netz; es bereitet die Suche vor
+    und sagt Claude, was zu pruefen und was danach zu tun ist."""
+    from urllib.parse import quote_plus
+    from ..job_scraper.handoff import HANDOFF_URL_TEMPLATES
+    t = str(titel or "").strip()
+    f = str(firma or "").strip()
+    o = str(ort or "").strip()
+    frage = " ".join(x for x in (f'"{f}"' if f else "", f'"{t}"' if t else "", "Karriere") if x)
+    suchen = [{"wo": "Karriereseite des Arbeitgebers (Websuche)", "url": "https://www.google.com/search?q=" + quote_plus(frage)}]
+    stichwort = " ".join(x for x in (t, f) if x)
+    for schluessel, name in (("stepstone", "StepStone"), ("xing", "XING"), ("linkedin", "LinkedIn"), ("indeed", "Indeed")):
+        vorlage = HANDOFF_URL_TEMPLATES.get(schluessel)
+        if not vorlage or not stichwort:
+            continue
+        suchen.append({"wo": name, "url": vorlage.format(
+            keyword=quote_plus(stichwort), keyword_pfad=quote_plus(stichwort.replace(" ", "-")),
+            ort=quote_plus(o)).rstrip("?&")})
+    return {
+        "auftrag": (f"Suche die Originalanzeige zu '{t}' bei {f or 'dem Arbeitgeber'}: zuerst die Karriereseite des Arbeitgebers, "
+                    "danach die Portale. Eine Kopie auf einer Sammelseite (Learn4Good, JobTeaser und andere) ist kein Original."),
+        "suchen": suchen,
+        "pruefen": [
+            "Stimmen Titel und Firma? Die Karte nennt oft die Muttermarke, die Anzeige das Konzernunternehmen.",
+            "Der Arbeitsort steht in der Originalanzeige; Googles Ort kann abweichen (derselbe Treffer kommt mit verschiedenen Orten).",
+            "Das Arbeitsmodell (remote, hybrid, vor Ort) steht im Text der Anzeige, nicht in der Karte.",
+        ],
+        "danach": ("stelle_manuell_anlegen(titel, firma, url=<Detail-URL des Originals>, beschreibung=<ganzer Anzeigentext>, "
+                   "ort=<Arbeitsort laut Original>, quelle='google_jobs')"),
+    }
 
 
 def unter_vorbehalt(quelle, url, beschreibung) -> bool:

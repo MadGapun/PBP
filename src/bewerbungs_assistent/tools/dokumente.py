@@ -2096,13 +2096,13 @@ def register(mcp, db, logger):
         quelle = newsletter_service.erkennung(parsed, db)
         label = (quelle or {}).get("label") or "Newsletter"
         result = newsletter_service.verarbeite_newsletter(db, parsed, label)
-        if result.get("status") == "uebernommen":
+        if result.get("status") in ("uebernommen", "hinweise_notiert"):
             try:
                 db.update_document_lifecycle(dokument_id, "archiviert")
                 result["dokument"] = "archiviert"
             except Exception:
                 pass
-        if not quelle and result.get("status") == "uebernommen":
+        if not quelle and result.get("status") in ("uebernommen", "hinweise_notiert"):
             result["hinweis_quelle"] = (
                 "Quelle war nicht als Newsletter registriert — mit "
                 f"newsletter_quelle_markieren('{dokument_id}') lernt PBP "

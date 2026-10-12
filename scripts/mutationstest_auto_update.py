@@ -1706,6 +1706,126 @@ M_AUFRAEUMRUNDE = [
 KATALOGE["aufraeumrunde"] = M_AUFRAEUMRUNDE
 GRUNDLAEUFE["aufraeumrunde"] = (("T_AR", T_AR), ("T_ARB", T_ARB))
 
+# ── KI-Schalter: auch die lesenden Werkzeuge fuer Dokument- und Mailtexte (#1147 Punkt 3, Variante B) ──
+T_KS = ["tests/test_v18_ki_schalter_lesen_1147.py"]
+T_KSB = T_KS + ["tests/test_v18_erste_schritte_1170.py"]
+KIZ = "src/bewerbungs_assistent/services/ki_zuordnung.py"
+
+M_KISCHALTER = [
+    ("kl01", "dokument_lesen faellt aus der Zuordnung (Volltext geht trotz Schalter weiter)", KIZ,
+     '    "dokument_lesen": ("dokumentenanalyse", (\n', '    "dokument_lesen_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl02", "emails_anzeigen faellt aus der Zuordnung (Mailtext geht trotz Schalter weiter)", KIZ,
+     '    "emails_anzeigen": ("dokumentenanalyse", (\n', '    "emails_anzeigen_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl03", "dokumente_zur_analyse faellt aus der Zuordnung", KIZ,
+     '    "dokumente_zur_analyse": ("dokumentenanalyse", (\n', '    "dokumente_zur_analyse_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl04", "dokument_lesen haengt am falschen Schalter", KIZ,
+     '    "dokument_lesen": ("dokumentenanalyse", (\n', '    "dokument_lesen": ("stellenanalyse", (\n', T_KS),
+    ("kl05", "emails_anzeigen haengt am falschen Schalter", KIZ,
+     '    "emails_anzeigen": ("dokumentenanalyse", (\n', '    "emails_anzeigen": ("coaching", (\n', T_KS),
+    ("kl06", "dokument_lesen nennt keine Alternative", KIZ,
+     "        f\"Das Dokument bleibt im Dashboard lesbar ({pfad('dokumente')}). Soll Claude es lesen, \"\n"
+     "        f\"schalte \\\"Dokumentenanalyse\\\" unter {pfad('claude')} ein.\")),\n",
+     "        None)),\n", T_KS),
+    ("kl07", "Das Profil wird mitgesperrt (die Grenze verschiebt sich unbemerkt)", KIZ,
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n',
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n    "profil_zusammenfassung": ("dokumentenanalyse", None),\n', T_KS),
+    ("kl08", "Die Bewerbungsdetails werden mitgesperrt", KIZ,
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n',
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n    "bewerbung_details": ("dokumentenanalyse", None),\n', T_KS),
+    ("kl10", "Der Satz in den Einstellungen sagt nicht, dass Dokumente und Mails gesperrt sind", "frontend/src/pages/SettingsPage.jsx",
+     "Bei „Dokumentenanalyse“ liest Claude dann auch keine Dokumente und Mails mehr. ", "", T_KSB),
+    ("kl11", "Der Satz verspricht wieder, Claude lese weiter alles", "frontend/src/pages/SettingsPage.jsx",
+     "Dein Profil, deine Bewerbungen und die Stellen kann Claude weiterhin lesen, sonst arbeitet fast nichts mehr; wer gar nichts weitergeben will, trennt PBP in Claude Desktop.",
+     "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist; wer gar nichts weitergeben will, trennt PBP dort.", T_KSB),
+]
+KATALOGE["kischalter"] = M_KISCHALTER
+GRUNDLAEUFE["kischalter"] = (("T_KS", T_KS), ("T_KSB", T_KSB))
+
+# ── Google Jobs: Sperre ohne Original, Hinweise statt Stellen, vorbereitete Suche (#1184 a, d, e) ──
+T_GO = ["tests/test_v18_google_original_1184.py"]
+T_GOB = ["tests/test_v18_google_original_1184_browser.py"]
+GAN = "src/bewerbungs_assistent/services/google_angaben.py"
+JOBS_PY = "src/bewerbungs_assistent/tools/jobs.py"
+SHW = "src/bewerbungs_assistent/services/stellen_hinweise.py"
+NLS = "src/bewerbungs_assistent/services/newsletter_service.py"
+LBR = "src/bewerbungs_assistent/services/loeschbereiche.py"
+
+M_GOOGLEORIGINAL = [
+    ("go01", "Ein Google-Treffer ohne Beleg gilt nie als ohne Beleg", GAN,
+     "    return not hat_adresse and not hat_text\n", "    return False\n", T_GO),
+    ("go02", "Adresse ODER Text fehlt genuegt fuer die Sperre (statt: beides)", GAN,
+     "    return not hat_adresse and not hat_text\n", "    return not hat_adresse or not hat_text\n", T_GO),
+    ("go03", "Eine Suchadresse gilt als Anker", GAN,
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u)\n                   and not is_search_result_url(u))\n',
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u))\n', T_GO),
+    ("go04", "Eine Google-Adresse gilt als Anker", GAN,
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u)\n                   and not is_search_result_url(u))\n',
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not is_search_result_url(u))\n', T_GO),
+    ("go05", "Die Suche nennt Firma und Titel nicht als feste Wendung", GAN,
+     "    frage = \" \".join(x for x in (f'\"{f}\"' if f else \"\", f'\"{t}\"' if t else \"\", \"Karriere\") if x)\n",
+     "    frage = \" \".join(x for x in (f if f else \"\", t if t else \"\", \"Karriere\") if x)\n", T_GO),
+    ("go06", "Der Ort fehlt in den Portal-Suchen", GAN,
+     '            ort=quote_plus(o)).rstrip("?&")})\n', '            ort="").rstrip("?&")})\n', T_GO),
+    ("go07", "Die Websuche ist nicht kodiert", GAN,
+     '"https://www.google.com/search?q=" + quote_plus(frage)', '"https://www.google.com/search?q=" + frage', T_GO),
+    ("go10", "Die Sperre greift nie", JOBS_PY,
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:\n", "        if False:\n", T_GO),
+    ("go11", "force hebt die Sperre nicht auf", JOBS_PY,
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:\n",
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung):\n", T_GO),
+    ("go12", "Die Abweisung nennt die Suche nach dem Original nicht", JOBS_PY,
+     '                "original_suchen": _gangaben.original_suchen(titel, firma, ort),\n', "", T_GO),
+    ("go13", "Die Abweisung meldet 'angelegt'", JOBS_PY,
+     '                "status": "nicht_angelegt",\n', '                "status": "angelegt",\n', T_GO),
+    ("go14", "Ein angelegtes Original erledigt den Hinweis nicht", JOBS_PY,
+     "            _hinweise.als_angelegt(db, firma, titel, job_hash)\n", "            pass\n", T_GO),
+    ("go15", "Das Werkzeug verwirft nichts", JOBS_PY,
+     '            ok = (_hinweise.verwerfen(db, hinweis_id) if aktion == "verwerfen"\n                  else _hinweise.wiederherstellen(db, hinweis_id))\n',
+     "            ok = True\n", T_GO),
+    ("go16", "Die Anleitung an Claude nennt die Ausnahme nicht", JOBS_PY,
+     'Ausnahme (#1184): Einen Treffer aus Google OHNE Detail-URL des "', 'Hinweis: Einen Treffer aus Google OHNE Detail-URL des "', T_GO),
+    ("go20", "Derselbe Treffer wird vervielfacht", SHW,
+     '        if zeile:\n            conn.execute(\n                "UPDATE stellen_hinweise SET ort=?', '        if False:\n            conn.execute(\n                "UPDATE stellen_hinweise SET ort=?', T_GO),
+    ("go21", "Die Orte werden ueberschrieben statt nebeneinandergestellt", SHW,
+     '                (_orte(zeile["ort"], e.get("ort")), jetzt, hid))', '                (str(e.get("ort") or ""), jetzt, hid))', T_GO),
+    ("go22", "Was schon eine Stelle ist, steht als offen da", SHW,
+     '             "angelegt" if stelle else "offen", stelle, 1, jetzt, jetzt))', '             "offen", stelle, 1, jetzt, jetzt))', T_GO),
+    ("go23", "Die Zahl der Mails zaehlt nicht mit", SHW,
+     "COALESCE(anzahl_mails,1)+1", "COALESCE(anzahl_mails,1)", T_GO),
+    ("go24", "Ein anderes Profil sieht die Hinweise", SHW,
+     '    sql = "SELECT * FROM stellen_hinweise WHERE (profile_id=? OR profile_id IS NULL)"\n',
+     '    sql = "SELECT * FROM stellen_hinweise WHERE (? IS NOT NULL OR profile_id IS NULL)"\n', T_GO),
+    ("go25", "Auch Erledigtes laesst sich verwerfen", SHW,
+     "UPDATE stellen_hinweise SET status='verworfen', aktualisiert_am=? WHERE id=? AND status='offen'",
+     "UPDATE stellen_hinweise SET status='verworfen', aktualisiert_am=? WHERE id=?", T_GO),
+    ("go26", "Gross-/Kleinschreibung macht einen zweiten Hinweis", SHW,
+     '    return re.sub(r"\\s+", " ", str(text or "").strip().lower())\n', '    return re.sub(r"\\s+", " ", str(text or "").strip())\n', T_GO),
+    ("go30", "Aus einer Alert-Mail entsteht wieder eine Stelle", NLS,
+     "    erg = stellen_hinweise.merken(db, treffer, suchanfrage=anfrage)\n",
+     "    erg = stellen_hinweise.merken(db, treffer, suchanfrage=anfrage)\n"
+     "    from ..job_scraper import stelle_hash\n"
+     "    db.save_jobs([{\"hash\": stelle_hash(\"n\", e[\"titel\"]), \"title\": e[\"titel\"], \"company\": e[\"firma\"], \"location\": e[\"ort\"],\n"
+     "                   \"url\": \"\", \"source\": \"newsletter:x\", \"description\": \"\", \"score\": 0, \"_manual_entry\": True} for e in treffer])\n", T_GO),
+    ("go31", "Die Alert-Mail meldet weiter 'uebernommen'", NLS,
+     '        "status": "hinweise_notiert",\n        "label": label,\n', '        "status": "uebernommen",\n        "label": label,\n', T_GO),
+    ("go40", "Die Mail wird nach den Hinweisen nicht archiviert (Upload)", "src/bewerbungs_assistent/dashboard.py",
+     'newsletter_result.get("status") in ("uebernommen", "hinweise_notiert")', 'newsletter_result.get("status") == "uebernommen"', T_GO),
+    ("go41", "Verwerfen eines unbekannten Hinweises meldet Erfolg", "src/bewerbungs_assistent/dashboard.py",
+     '        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht mehr offen."}, status_code=404)\n', "        return {\"status\": \"ok\"}\n", T_GO),
+    ("go50", "Die Hinweise gehoeren keinem Loeschbereich", LBR,
+     '        "stellen_hinweise",\n    ),\n', "    ),\n", T_GO),
+    ("go60", "Die Hinweise sind nicht eingeklappt", "frontend/src/components/StellenHinweise.jsx",
+     "  const [offen, setOffen] = useState(false);\n", "  const [offen, setOffen] = useState(true);\n", T_GOB),
+    ("go61", "Verwerfen speichert nichts", "frontend/src/components/StellenHinweise.jsx",
+     "await postJson(`/api/stellen-hinweise/${h.id}/verwerfen`, {});", "await Promise.resolve();", T_GOB),
+    ("go62", "Die Suche nach dem Original fehlt", "frontend/src/components/StellenHinweise.jsx",
+     "{h.suche?.[0]?.url && (", "{false && (", T_GOB),
+    ("go63", "Der Block steht nicht auf der Stellen-Seite", "frontend/src/pages/JobsPage.jsx",
+     "      <StellenHinweise anlass={reloadKey} />\n", "", T_GOB),
+]
+KATALOGE["googleoriginal"] = M_GOOGLEORIGINAL
+GRUNDLAEUFE["googleoriginal"] = (("T_GO", T_GO), ("T_GOB", T_GOB))
+
 WT = None
 
 

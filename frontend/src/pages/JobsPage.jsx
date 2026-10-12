@@ -26,6 +26,7 @@ import { jobLinkInfo } from "@/lib/jobLink";
 import { kurzmarke as datenguetMarke } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
+import StellenHinweise from "@/components/StellenHinweise";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
@@ -1463,6 +1464,9 @@ export default function JobsPage() {
       {/* #1049 (G50): was der interne Lauf ueberspringt, und der Weg zu
           Claude. `anlass` laedt neu, sobald eine Suche startet oder endet. */}
       <BrowserHandoffKarte anlass={searchJob.running ? 1 : 0} />
+
+      {/* #1184 (d): Treffer aus Google-Benachrichtigungen sind noch keine Stellen - eingeklappt, mit der Suche nach dem Original. */}
+      <StellenHinweise anlass={reloadKey} />
 
       <div className="grid gap-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
