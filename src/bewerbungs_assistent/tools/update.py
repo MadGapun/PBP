@@ -10,6 +10,11 @@ from __future__ import annotations
 import logging
 
 
+def _fassung_ist_stabil(version: str) -> bool:
+    from ..services.auto_update import fassung
+    return fassung.ist_stabil(version)
+
+
 def register(mcp, db, logger: logging.Logger):
     """Registriert die Update-Tools."""
 
@@ -33,7 +38,8 @@ def register(mcp, db, logger: logging.Logger):
 
     @mcp.tool()
     def update_einstellungen_setzen(stufe: str = "", vorgaenger_behalten: int = 0,
-                                    installer_aufraeumen: str = "", bestaetigt: bool = False) -> dict:
+                                    installer_aufraeumen: str = "", vorabversionen: str = "",
+                                    bestaetigt: bool = False) -> dict:
         """Stellt das Auto-Update ein (Auto-Update, #1093). Ohne Angabe passiert nichts.
 
         Args:
@@ -41,8 +47,11 @@ def register(mcp, db, logger: logging.Logger):
                 auto_meldung = PBP installiert selbst und meldet es · auto_still = wie zuvor, ohne Meldung.
             vorgaenger_behalten: wie viele frühere Versionen zum Zurückschalten liegen bleiben (1 bis 10, Vorgabe 3).
             installer_aufraeumen: fragen, immer oder nie — ob der Installer seinen entpackten Ordner und das ZIP löscht.
-            bestaetigt: Pflicht für auto_meldung und auto_still. Erst setzen, NACHDEM der Mensch ausdrücklich
-                gesagt hat, dass PBP Updates ohne Rückfrage installieren soll.
+            vorabversionen: ja oder nein — der Tester-Schalter (Vorgabe nein). Mit ja nennt PBP Vorabversionen (Beta)
+                der eigenen Linie und lässt sie auf Klick installieren; von selbst installiert PBP sie nie.
+            bestaetigt: Pflicht für auto_meldung, auto_still und vorabversionen=ja. Erst setzen, NACHDEM der Mensch
+                ausdrücklich gesagt hat, dass PBP Updates ohne Rückfrage installieren soll bzw. dass er Vorabversionen
+                zum Ausprobieren sehen will.
         """
         from ..services.auto_update import lauf, zustand
         geaendert = []
@@ -62,6 +71,18 @@ def register(mcp, db, logger: logging.Logger):
             if installer_aufraeumen:
                 zustand.installer_aufraeumen_setzen(db, installer_aufraeumen)
                 geaendert.append("installer_aufraeumen")
+            if vorabversionen:
+                wunsch = vorabversionen.strip().lower()
+                if wunsch not in ("ja", "nein"):
+                    return {"fehler": "vorabversionen: erwartet ja oder nein."}
+                if wunsch == "ja" and not bestaetigt:
+                    return {"status": "bestaetigung_noetig",
+                            "text": ("Mit dieser Einstellung nennt PBP Vorabversionen zum Ausprobieren und installiert "
+                                     "sie auf Klick; von selbst nie. Frage den Menschen, ob er das will, und rufe das "
+                                     "Werkzeug dann mit bestaetigt=True auf."),
+                            "vorabversionen": zustand.vorabversionen(db)}
+                zustand.vorabversionen_setzen(db, wunsch == "ja")
+                geaendert.append("vorabversionen")
         except ValueError as exc:
             return {"fehler": str(exc)}
         if not geaendert:
@@ -88,10 +109,19 @@ def register(mcp, db, logger: logging.Logger):
         if not version:
             letzte = lauf.pruefen(db, frisch=True)
             version = letzte.get("version") if letzte.get("status") == "neu" else ""
+            if not version and isinstance(letzte.get("vorab"), dict):
+                # #1179: eine Vorabversion wird nie „nebenbei“ gewaehlt; der Mensch muss sie ausdruecklich wollen
+                return {"status": "nur_vorabversion",
+                        "text": (f"Es gibt keine fertige neue Version, aber die Vorabversion {letzte['vorab']['version']} "
+                                 "zum Ausprobieren. Frage den Menschen ausdrücklich, ob er sie installieren will, und "
+                                 "rufe das Werkzeug dann mit dieser version und bestaetigt=True auf."),
+                        "vorab": letzte["vorab"], **lauf.uebersicht(db)}
         if not version:
             return {"status": "keine_neue_version", "text": "Es gibt keine neue Version, die installiert werden könnte.",
                     **lauf.uebersicht(db)}
-        return {**lauf.starte_installation(db, version, ausloeser="mcp"), "version": version}
+        # Eine Vorabversion nur, wenn der Mensch sie mit ihrer Nummer genannt hat; den Schalter prueft der Lauf.
+        zusatz = {} if _fassung_ist_stabil(version) else {"vorab_erlaubt": True}
+        return {**lauf.starte_installation(db, version, ausloeser="mcp", **zusatz), "version": version}
 
     @mcp.tool()
     def update_zurueckschalten(version: str) -> dict:

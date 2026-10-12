@@ -61,8 +61,11 @@ def _textliste(wert, name: str) -> tuple:
     return tuple(wert)
 
 
-def lesen(daten, *, erwartete_version: str) -> Manifest:
-    """Aus Bytes, Text oder einem Pfad ein geprueftes Manifest machen."""
+def lesen(daten, *, erwartete_version: str, vorab_erlaubt: bool = False) -> Manifest:
+    """Aus Bytes, Text oder einem Pfad ein geprueftes Manifest machen.
+
+    Eine Vorabversion nur mit `vorab_erlaubt` (Tester-Schalter, #1179); die Fassung muss dann streng gueltig sein.
+    """
     try:
         if isinstance(daten, (str, Path)) and not (isinstance(daten, str) and daten.lstrip().startswith("{")):
             daten = Path(daten).read_bytes()
@@ -77,7 +80,7 @@ def lesen(daten, *, erwartete_version: str) -> Manifest:
         raise UpdateFehler("braucht_installer", "Dieses Update hat ein neueres Format als diese Installation versteht. "
                            "Es braucht den Installer.", detail=f"format {roh.get('format')!r}")
     version = roh.get("version")
-    if not _fassung.ist_stabil(version):
+    if not (_fassung.ist_stabil(version) or (vorab_erlaubt and _fassung.gueltig(version))):
         raise UpdateFehler("manifest", detail=f"version {version!r} ist keine stabile Fassung")
     if version != erwartete_version:
         raise UpdateFehler("manifest", detail=f"enthaelt {version}, erwartet {erwartete_version}")
