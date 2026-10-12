@@ -172,6 +172,20 @@ Einträgen darunter.
   02. und 12.10.2026: null Treffer). Die Quelle `jobspy_google` steht jetzt unter „Defekte Quellen“ mit Grund und Weg, fällt aus der gespeicherten Auswahl, wird beim Speichern
   abgelehnt und in keinem Lauf mehr eingeplant. Die Browser-Quelle „Google Jobs (im Browser)“ behauptet nicht mehr, die automatische decke dasselbe Portal ab, und die
   Browser-Liste nennt die defekte Schwester nicht noch einmal. Wer ausschließlich diese Quelle nutzte, findet Google weiter über den Browser.
+- **Die drei alten Werkzeugnamen entfallen** (#1148 Punkt 13): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt
+  `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`) galten seit v1.7.135 „einen Release lang“. Die Parameter sind dieselben; wer eigene
+  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP 279 statt 281 Werkzeuge.
+- **Zwei Schreibweisen desselben Parameters werden verstanden** (#1148 Punkt 9, Rest): `firma`/`company`, `titel`/`title`, `dokument_id`/`document_id`,
+  `job_hash`/`stellen_hash` und `bewerbung_id`/`application_id` stehen in den Signaturen nebeneinander. Die Middleware übersetzt einen Namen, den das Werkzeug nicht kennt,
+  in den bekannten derselben Gruppe (`services/parameter_aliase`) — nie einen, den es selbst kennt, nie bei Mehrdeutigkeit, vor der Normalisierung der Kennungen.
+- **Die Zahl der Werkzeuge wird gezählt, nicht erinnert** (#1148 Punkt 4): `scripts/werkzeug_inventar.py` zählt zur Laufzeit, prüft die Wiki-Seite „MCP-Tools“
+  gegen das Inventar (`--wiki`) und ergänzt die fehlenden Werkzeuge in einem erzeugten Abschnitt (`--wiki-ergaenzen`). Docstrings und Dokumente tragen keine Zahlen mehr
+  (47, 66, 70, 177 … stimmten nirgends); README, CLAUDE.md und der neueste CHANGELOG-Eintrag werden von einem Test gegen die Laufzeitzahl gehalten.
+- **Wer „nur lesend“ heißt, schreibt nichts — oder steht mit Grund auf einer Liste** (#1148 Punkt 5, Rest): ein Test ruft jedes so markierte Werkzeug auf einer Datenbank
+  mit Profil auf und vergleicht die Datenbank davor und danach. Drei benannte Ausnahmen (der einmalige Datenschutz-Hinweis, die Standard-Kategorien der Kontakte, das
+  abgeleitete Neigungsprofil), jede mit Begründung; ein neuer Schreibzugriff fällt auf.
+- **Die sichtbare Werkzeugliste hat ein Budget** (#1148 Punkt 12): rund 200 KB (etwa 50.000 Token) liest Claude zu Beginn jedes Gesprächs; ein Test hält die Liste
+  und das größte einzelne Werkzeug gegen eine Grenze, statt dass ein neues Werkzeug mit zwei Seiten Parameterbeschreibung unbemerkt hinzukommt.
 - **Dashboard › Offen: rot ist nur, was überfällig ist** (#1174). Bisher färbte eine einzige überfällige Zeile die ganze Karte rot (Rahmen,
   Hintergrund, Wecker-Symbol) — seit der Zusammenlegung der Listen in v1.7.31, auch in der Stable-Version. Jetzt bleibt die Karte ruhig; rot
   sind die Überschrift „Überfällig“ und das Datum der überfälligen Zeilen. „Heute“ und „Diese Woche“ sind unverändert.
