@@ -1487,6 +1487,127 @@ M_WERKZEUGSAMMEL = [
 KATALOGE["werkzeugsammel"] = M_WERKZEUGSAMMEL
 GRUNDLAEUFE["werkzeugsammel"] = (("T_WS", T_WS),)
 
+# ── Installer Teil 2, Rest (#1149): Ordnername, Deinstaller im TEMP, Mac/Linux, Zahlen und Texte ──
+# Bewusst NICHT im Katalog: die Zeile mit PBP_DESKTOP (ohne sie schriebe der Test auf den ECHTEN Desktop), und die Unix-Faelle,
+# deren Tests nur unter Linux laufen (SIGTERM-Semantik, echtes pgrep) - die prueft die CI auf ubuntu.
+T_I2 = ["tests/test_v18_installer_rest_1149.py"]
+T_I2B = T_I2 + ["tests/test_v17145_deinstaller.py"]
+IB = "INSTALLIEREN.bat"
+DB = "DEINSTALLIEREN.bat"
+ISH = "installer/install.sh"
+ICM = "INSTALLIEREN.command"
+DSH = "installer/deinstallieren.sh"
+PS_PTH = "-Command \"(Get-Content -LiteralPath $env:PTH_FILE) -replace"
+
+M_INSTALLER2 = [
+    ("i201", "Das Ausrufezeichen im Ordnernamen wird nicht mehr geprueft", IB,
+     'if "%PBP_START_ORT:!=%"=="%PBP_START_ORT%" goto :ort_ohne_ausrufezeichen\n', "goto :ort_ohne_ausrufezeichen\n", T_I2),
+    ("i202", "Die Pruefung laeuft unter verzoegerter Expansion (das Zeichen ist dann schon weg)", IB,
+     'setlocal DisableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', 'setlocal EnableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', T_I2),
+    ("i203", "Nach der Pruefung bleibt die verzoegerte Expansion aus", IB,
+     ":ort_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n", ":ort_ohne_ausrufezeichen\nendlocal\nsetlocal DisableDelayedExpansion\n", T_I2),
+    ("i204", "Expand-Archive nimmt den Pfad wieder eingebettet (Apostroph bricht ihn)", IB,
+     'Expand-Archive -LiteralPath $env:PY_ZIP_PATH -DestinationPath $env:PYTHON_DIR -Force"',
+     "Expand-Archive -Path '%PY_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force\"", T_I2),
+    ("i205", "_pth (frisches Python): Pfad wieder eingebettet", IB,
+     ':: import site entkommentieren\npowershell -ExecutionPolicy Bypass -NoProfile ' + PS_PTH,
+     ":: import site entkommentieren\npowershell -ExecutionPolicy Bypass -NoProfile -Command \"(Get-Content '!PTH_FILE!') -replace", T_I2),
+    ("i206", "_pth (vorhandenes Python): Pfad wieder eingebettet", IB,
+     'echo import site>> "!PTH_FILE!"\npowershell -ExecutionPolicy Bypass -NoProfile ' + PS_PTH,
+     "echo import site>> \"!PTH_FILE!\"\npowershell -ExecutionPolicy Bypass -NoProfile -Command \"(Get-Content '!PTH_FILE!') -replace", T_I2),
+    ("i207", "Python-Download: Zielpfad wieder eingebettet", IB,
+     '-OutFile $env:PY_ZIP_PATH"', "-OutFile '%PY_ZIP_PATH%'\"", T_I2),
+    ("i208", "get-pip-Download: Zielpfad wieder eingebettet", IB,
+     '-OutFile $env:GETPIP_PATH"', "-OutFile '%GETPIP_PATH%'\"", T_I2),
+    ("i209", "Unblock-File (frisches Python): Ordner wieder eingebettet", IB,
+     'echo [DEBUG] Unblock-File... >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR',
+     'echo [DEBUG] Unblock-File... >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path \'%BASEDIR%\'', T_I2),
+    ("i210", "Unblock-File (vorhandenes Python): Ordner wieder eingebettet", IB,
+     'echo [DEBUG] Python existiert bereits >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR',
+     'echo [DEBUG] Python existiert bereits >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path \'%BASEDIR%\'', T_I2),
+    ("i211", "Verknuepfung: Ziel wieder eingebettet", IB,
+     "$s.TargetPath=(Join-Path $env:APP_DIR 'Dashboard starten.bat')", "$s.TargetPath='%APP_DIR%\\Dashboard starten.bat'", T_I2),
+    ("i212", "err_pip: kein naechster Schritt", IB,
+     "echo  ein Virenscanner den Download unterbrochen hat.\necho.\necho  SO GEHT ES WEITER:\necho    1. Internetverbindung pruefen ^(oeffne google.de^)\n"
+     "echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,\necho       deine Daten bleiben erhalten\n",
+     "echo  ein Virenscanner den Download unterbrochen hat.\n", T_I2),
+    ("i213", "err_packages: kein naechster Schritt", IB,
+     "echo  eine Firewall oder ein Virenscanner den Download blockiert.\necho.\necho  SO GEHT ES WEITER:\necho    1. Internetverbindung pruefen ^(oeffne google.de^)\n"
+     "echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,\necho       deine Daten bleiben erhalten\n",
+     "echo  eine Firewall oder ein Virenscanner den Download blockiert.\n", T_I2),
+    ("i214", "Block: das Protokoll steht wieder als %LOGFILE% im Klammerblock", IB,
+     "    echo             Details im Log: !LOGFILE!\n", "    echo             Details im Log: %LOGFILE%\n", T_I2),
+    ("i215", "Block: der alte Python-Ordner steht wieder als %APP_DIR% im Klammerblock", IB,
+     "gefunden: !APP_DIR!\\python >>", "gefunden: %APP_DIR%\\python >>", T_I2),
+    ("i216", "Startskript: der Python-Pfad steht wieder als %PYTHON% im Klammerblock", "Dashboard starten.bat",
+     "    echo    !PYTHON!\n", "    echo    %PYTHON%\n", T_I2),
+    ("i220", "remove_path: Beschriftung wieder als %TARGET_LABEL% im Block (Klammer im Ordnernamen)", DB,
+     "    echo         [OK] !TARGET_LABEL! entfernt\n", "    echo         [OK] %TARGET_LABEL% entfernt\n", T_I2),
+    ("i221", "remove_path: 'nicht gefunden' wieder mit %TARGET_LABEL%", DB,
+     "    echo         [--] !TARGET_LABEL! nicht gefunden\n", "    echo         [--] %TARGET_LABEL% nicht gefunden\n", T_I2),
+    ("i222", "Deinstaller: die Umzugsmarke schuetzt den Ordner neben dem Skript nicht", DB,
+     'if "%PBP_DEINST_RELOCATED%"=="1" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i223", "Deinstaller: ein Skript in %TEMP% raeumt %TEMP% aus", DB,
+     'if /i "%BASEDIR%"=="%TEMP%" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i224", "Deinstaller: ein Skript in %TMP% raeumt %TMP% aus", DB,
+     'if /i "%BASEDIR%"=="%TMP%" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i225", "Deinstaller: trotz Schutz wird aufgeraeumt", DB,
+     'bleiben unberuehrt >> "%LOGFILE%"\n    exit /b 0\n', 'bleiben unberuehrt >> "%LOGFILE%"\n', T_I2),
+    ("i226", "Deinstaller: Schritt [5/7] ruft die Aufraeumzeilen gar nicht auf", DB,
+     "call :ordner_neben_dem_skript\n", "rem\n", T_I2),
+    ("i227", "Backup: Exit 2 ist kein Fehlschlag mehr", DB,
+     '    if !BACKUP_RC! geq 2 set "BACKUP_FEHLER=1"\n', '    if !BACKUP_RC! geq 3 set "BACKUP_FEHLER=1"\n', T_I2),
+    ("i228", "Backup: Zielpfad wieder eingebettet", DB,
+     "-DestinationPath $env:BACKUP_ZIP -Force;", "-DestinationPath '!BACKUP_ZIP!' -Force;", T_I2B),
+    ("i229", "Backup: das Protokoll sagt immer 'erstellt'", DB,
+     '    if "!BACKUP_RC!"=="0" echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n',
+     '    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n', T_I2),
+    ("i240", "Mac/Linux (install.sh): die Prozesssuche trifft jede Datei mit diesem Namen", ISH,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+    ("i241", "Mac (.command): die Prozesssuche weicht von install.sh ab", ICM,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+    ("i242", "Mac/Linux: eine andere Fassung auf dem Port gilt als 'ok'", ISH,
+     '    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+    ("i243", "Mac (.command): eine andere Fassung auf dem Port gilt als 'ok'", ICM,
+     '    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+    ("i244", "Mac/Linux: jedes HTTP 200 gilt als PBP", ISH,
+     "        | grep -o '\"pbp_version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -n 1 \\\n", "        | head -n 1 \\\n", T_I2),
+    ("i245", "Mac/Linux: das alte Dashboard wird vor dem Start nicht beendet", ISH,
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\nalte_dashboards_beenden\n",
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\n", T_I2),
+    ("i246", "Mac (.command): das alte Dashboard wird vor dem Start nicht beendet", ICM,
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\nalte_dashboards_beenden\n",
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\n", T_I2),
+    ("i250", "deinstallieren.sh: eine kaputte JSON-Datei heisst wieder 'kein Eintrag'", DSH,
+     'except (OSError, ValueError):\n    print("unreadable")', 'except (OSError, ValueError):\n    print("not_found")', T_I2),
+    ("i251", "deinstallieren.sh: keine Sicherungskopie vor dem Schreiben", DSH,
+     '    shutil.copy2(pfad, pfad + ".pbp-backup")\n', "", T_I2),
+    ("i252", "deinstallieren.sh: 'entfernt' gemeldet, geschrieben wird nichts", DSH,
+     "    os.replace(neu, pfad)\n", "    pass\n", T_I2),
+    ("i253", "deinstallieren.sh: 'nicht lesbar' wird als 'nicht vorhanden' gemeldet", DSH,
+     '            warn "Claude-Konfiguration nicht lesbar (kein gueltiges JSON): $CLAUDE_CONFIG"\n',
+     '            info "MCP-Eintrag war nicht vorhanden"\n', T_I2),
+    ("i260", "Release-Tor: server.json steht ausserhalb", "release_check.py",
+     '    for rel in ("frontend/package.json", "server.json"):\n', '    for rel in ("frontend/package.json",):\n', T_I2),
+    ("i261", "Release-Tor: package.json-Version wird nicht gelesen", "release_check.py",
+     '        weitere[rel] = daten.get("version") or "(fehlt)"\n', "        weitere[rel] = init_version\n", T_I2),
+    ("i262", "Release-Tor: eine vorhandene uv.lock steht ausserhalb", "release_check.py",
+     "    if lockdatei.is_file():\n", "    if False:\n", T_I2),
+    ("i263", "Release-Tor: --fix merkt sich die korrigierte Datei nicht", "release_check.py",
+     "                korrigiert.add(datei_rel)\n", "", T_I2),
+    ("i270", "server.json steht wieder auf 1.7.0", "server.json",
+     '  "version": "1.8.0",\n  "websiteUrl"', '  "version": "1.7.0",\n  "websiteUrl"', T_I2),
+    ("i271", "install.ps1 endet wieder mit Erfolg", "installer/install.ps1",
+     'Write-Host ""\nexit 1\n', 'Write-Host ""\nexit 0\n', T_I2),
+    ("i272", "LIESMICH verspricht wieder, nichts selber installieren zu muessen", "docs/LIESMICH.txt",
+     "  -> Windows: Du brauchst vorab nichts zu installieren.\n", "  -> Du brauchst NICHTS selber installieren.\n", T_I2),
+    ("i273", "README nennt die Windows-Warnung nicht mehr", "README.md",
+     "> **„Ausführen“** klicken, bei Letzterem **„Weitere Informationen“ → „Trotzdem ausführen“**. PBP ist nicht mit einem bezahlten\n",
+     "> **„Ausführen“** klicken. PBP ist nicht mit einem bezahlten\n", T_I2),
+]
+KATALOGE["installer2"] = M_INSTALLER2
+GRUNDLAEUFE["installer2"] = (("T_I2", T_I2),)
+
 WT = None
 
 

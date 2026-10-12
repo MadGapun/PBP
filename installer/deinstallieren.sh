@@ -70,25 +70,60 @@ fi
 echo ""
 echo -e "${YELLOW}[1/3] Entferne Claude Desktop MCP-Eintrag...${NC}"
 
-if [ -f "$CLAUDE_CONFIG" ]; then
-    if python3 -c "
-import json, sys
-path = sys.argv[1]
-with open(path, 'r') as f:
-    config = json.load(f)
-servers = config.get('mcpServers', {})
-if 'bewerbungs-assistent' in servers:
-    del servers['bewerbungs-assistent']
-    with open(path, 'w') as f:
+# v1.8.0 (#1149 Punkt 9d): vier Ausgaenge statt zwei. Bis v1.7.148 hiess "Datei nicht lesbar" dasselbe wie "kein Eintrag":
+# bei kaputtem JSON stand "MCP-Eintrag war nicht vorhanden", und der Eintrag blieb stehen. Vor dem Schreiben entsteht
+# eine Sicherungskopie (.pbp-backup, wie unter Windows), geschrieben wird ueber eine Zwischendatei.
+PY_ENTFERNEN='
+import json, os, shutil, sys
+pfad = sys.argv[1]
+try:
+    with open(pfad, "r", encoding="utf-8-sig") as f:
+        config = json.load(f)
+except (OSError, ValueError):
+    print("unreadable")
+    sys.exit(0)
+if not isinstance(config, dict):
+    print("unreadable")
+    sys.exit(0)
+servers = config.get("mcpServers")
+if not isinstance(servers, dict) or "bewerbungs-assistent" not in servers:
+    print("not_found")
+    sys.exit(0)
+try:
+    shutil.copy2(pfad, pfad + ".pbp-backup")
+    del servers["bewerbungs-assistent"]
+    neu = pfad + ".pbp-neu"
+    with open(neu, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-    print('removed')
-else:
-    print('not_found')
-" "$CLAUDE_CONFIG" 2>/dev/null | grep -q "removed"; then
-        ok "MCP-Eintrag entfernt"
-    else
-        info "MCP-Eintrag war nicht vorhanden"
-    fi
+    os.replace(neu, pfad)
+    print("removed")
+except OSError:
+    print("write_error")
+'
+
+if [ -f "$CLAUDE_CONFIG" ]; then
+    ERGEBNIS="$(python3 -c "$PY_ENTFERNEN" "$CLAUDE_CONFIG" 2>/dev/null)" || ERGEBNIS=""
+    case "$ERGEBNIS" in
+        removed)
+            ok "MCP-Eintrag entfernt"
+            ;;
+        not_found)
+            info "MCP-Eintrag war nicht vorhanden"
+            ;;
+        unreadable)
+            warn "Claude-Konfiguration nicht lesbar (kein gueltiges JSON): $CLAUDE_CONFIG"
+            echo "  Der Eintrag \"bewerbungs-assistent\" konnte deshalb NICHT entfernt werden."
+            echo "  Entferne ihn in dieser Datei von Hand."
+            ;;
+        write_error)
+            warn "Die Claude-Konfiguration konnte nicht geschrieben werden: $CLAUDE_CONFIG"
+            echo "  Der Eintrag \"bewerbungs-assistent\" ist noch da. Entferne ihn in dieser Datei von Hand."
+            ;;
+        *)
+            warn "Die Claude-Konfiguration konnte nicht geprueft werden (python3 nicht gefunden?)"
+            echo "  Entferne den Eintrag \"bewerbungs-assistent\" in $CLAUDE_CONFIG von Hand."
+            ;;
+    esac
 else
     info "Claude-Config nicht gefunden: $CLAUDE_CONFIG"
 fi

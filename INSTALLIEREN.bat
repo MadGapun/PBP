@@ -1,4 +1,29 @@
 @echo off
+:: v1.8.0 (#1149 Punkt 8): Ein Ausrufezeichen im Ordnernamen (z.B. "Bewerbung!") verschwindet unter der verzoegerten
+:: Expansion aus jedem Pfad, der aus %~dp0 gebildet wird: der Installer suchte src\ in einem Ordner, den es nicht gibt,
+:: und meldete "ZIP nicht entpackt". Geprueft wird deshalb, BEVOR die verzoegerte Expansion eingeschaltet wird;
+:: danach koennte man das Zeichen nicht mehr sehen.
+setlocal DisableDelayedExpansion
+set "PBP_START_ORT=%~dp0"
+if "%PBP_START_ORT:!=%"=="%PBP_START_ORT%" goto :ort_ohne_ausrufezeichen
+echo.
+echo  ****************************************************
+echo  *  FEHLER: Der Ordnername enthaelt ein Ausrufe-    *
+echo  *          zeichen                                 *
+echo  ****************************************************
+echo.
+echo  Windows kann PBP aus diesem Ordner nicht einrichten:
+echo    %PBP_START_ORT%
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Verschiebe den entpackten Ordner an einen Ort ohne
+echo       Ausrufezeichen im Namen, z.B. nach C:\PBP
+echo    2. Starte INSTALLIEREN.bat dort noch einmal
+echo.
+pause
+exit /b 1
+:ort_ohne_ausrufezeichen
+endlocal
 setlocal EnableDelayedExpansion
 title PBP - Persoenliches Bewerbungs-Portal - Setup
 color 0F
@@ -154,7 +179,7 @@ if exist "%PYTHON%" goto :python_ready
 
 :: #350: Fruehere Installation in APP_DIR vorhanden? (dort wird Python seit v1.5.0 installiert)
 if exist "%APP_DIR%\python\python.exe" (
-    echo [INFO] Python aus frueherer Installation gefunden: %APP_DIR%\python >> "%LOGFILE%"
+    echo [INFO] Python aus frueherer Installation gefunden: !APP_DIR!\python >> "%LOGFILE%"
     echo         Python aus frueherer Installation gefunden.
     if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
     xcopy "%APP_DIR%\python" "%PYTHON_DIR%\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
@@ -164,7 +189,7 @@ if exist "%APP_DIR%\python\python.exe" (
 
 :: Fallback: Fruehere Installation in DATA_DIR vorhanden? (aeltere Versionen)
 if exist "%DATA_DIR%\python\python.exe" (
-    echo [INFO] Python aus frueherer Installation gefunden: %DATA_DIR%\python >> "%LOGFILE%"
+    echo [INFO] Python aus frueherer Installation gefunden: !DATA_DIR!\python >> "%LOGFILE%"
     echo         Python aus frueherer Installation gefunden.
     if not exist "%PYTHON_DIR%" mkdir "%PYTHON_DIR%"
     xcopy "%DATA_DIR%\python" "%PYTHON_DIR%\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
@@ -217,7 +242,7 @@ goto :download_done
 
 :download_ps
 echo [DEBUG] Starte PowerShell Download... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%PY_URL%' -OutFile '%PY_ZIP_PATH%'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%PY_URL%' -OutFile $env:PY_ZIP_PATH" 2>> "%LOGFILE%"
 echo [DEBUG] PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :download_done
@@ -233,7 +258,7 @@ echo [INFO] Entpacke %PY_ZIP_PATH% nach %PYTHON_DIR% >> "%LOGFILE%"
 
 :: PowerShell Expand-Archive (zuverlaessiger als tar fuer ZIP)
 echo [DEBUG] Rufe PowerShell Expand-Archive auf... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Expand-Archive -Path '%PY_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Expand-Archive -LiteralPath $env:PY_ZIP_PATH -DestinationPath $env:PYTHON_DIR -Force" 2>> "%LOGFILE%"
 echo [DEBUG] Expand-Archive beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :: Pruefen ob python.exe existiert
@@ -256,7 +281,7 @@ if not defined PTH_FILE goto :pth_done
 
 echo [DEBUG] PTH: !PTH_FILE! >> "%LOGFILE%"
 :: import site entkommentieren
-powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content '!PTH_FILE!') -replace '^#import site','import site' | Set-Content '!PTH_FILE!'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content -LiteralPath $env:PTH_FILE) -replace '^#import site','import site' | Set-Content -LiteralPath $env:PTH_FILE" 2>> "%LOGFILE%"
 :: ../src Pfad hinzufuegen
 findstr /C:"../src" "!PTH_FILE!" >nul 2>&1
 if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
@@ -278,7 +303,7 @@ echo [DEBUG] get-pip curl beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 goto :getpip_done
 
 :getpip_ps
-powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile '%GETPIP_PATH%'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.ServicePointManager]::SecurityProtocol -bor 3072; Invoke-WebRequest -Uri '%GETPIP_URL%' -OutFile $env:GETPIP_PATH" 2>> "%LOGFILE%"
 echo [DEBUG] get-pip PowerShell beendet, errorlevel=!errorlevel! >> "%LOGFILE%"
 
 :getpip_done
@@ -297,7 +322,7 @@ echo [OK] pip installiert >> "%LOGFILE%"
 
 :: Sicherheitsblockade entfernen
 echo [DEBUG] Unblock-File... >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path '%BASEDIR%' -Recurse -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR -Recurse -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1
 
 :: Python Schnelltest
 echo [DEBUG] Python Schnelltest... >> "%LOGFILE%"
@@ -315,7 +340,7 @@ goto :install_packages
 :: Python existiert schon
 :: -------------------------------------------
 echo [DEBUG] Python existiert bereits >> "%LOGFILE%"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path '%BASEDIR%' -Recurse -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR -Recurse -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1
 
 echo         Teste Python...
 "%PYTHON%" -c "print('OK')" >nul 2>&1
@@ -332,7 +357,7 @@ if not defined PTH_FILE goto :pth_ready_done
 :: import site muss entkommentiert sein, sonst findet Python pip/site-packages nicht (#386)
 findstr /C:"import site" "!PTH_FILE!" >nul 2>&1
 if !errorlevel! neq 0 echo import site>> "!PTH_FILE!"
-powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content '!PTH_FILE!') -replace '^#import site','import site' | Set-Content '!PTH_FILE!'" 2>> "%LOGFILE%"
+powershell -ExecutionPolicy Bypass -NoProfile -Command "(Get-Content -LiteralPath $env:PTH_FILE) -replace '^#import site','import site' | Set-Content -LiteralPath $env:PTH_FILE" 2>> "%LOGFILE%"
 findstr /C:"../src" "!PTH_FILE!" >nul 2>&1
 if !errorlevel! neq 0 echo ../src>> "!PTH_FILE!"
 echo [OK] _pth konfiguriert >> "%LOGFILE%"
@@ -464,7 +489,7 @@ if !errorlevel! equ 0 (
     echo               Datei ^> Speichern unter ^> "Nur Text" ^(.eml^) oder PDF
     echo             Die gespeicherte Datei kann dann in PBP hochgeladen werden.
     echo.
-    echo             Details im Log: %LOGFILE%
+    echo             Details im Log: !LOGFILE!
 )
 :email_install_done
 
@@ -774,7 +799,7 @@ echo [4/4] Startdateien + Test... >> "%LOGFILE%"
 :: Desktop-Verknuepfung (zeigt auf APP_DIR - stabil auch nach ZIP-Loeschung, #297)
 :: #502: IconLocation auf installiertes pbp.ico setzen, damit die
 :: Verknuepfung das PBP-Logo statt dem Standard-Batch-Symbol zeigt.
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $s=$ws.CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'PBP Bewerbungs-Portal.lnk')); $s.TargetPath='%APP_DIR%\Dashboard starten.bat'; $s.WorkingDirectory='%APP_DIR%'; $s.Description='PBP Dashboard'; if (Test-Path '%APP_DIR%\pbp.ico') { $s.IconLocation='%APP_DIR%\pbp.ico,0' }; $s.Save()" >nul 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$ws=New-Object -ComObject WScript.Shell; $d=$env:PBP_DESKTOP; if (-not $d) { $d=[Environment]::GetFolderPath('Desktop') }; $s=$ws.CreateShortcut((Join-Path $d 'PBP Bewerbungs-Portal.lnk')); $s.TargetPath=(Join-Path $env:APP_DIR 'Dashboard starten.bat'); $s.WorkingDirectory=$env:APP_DIR; $s.Description='PBP Dashboard'; $ico=(Join-Path $env:APP_DIR 'pbp.ico'); if (Test-Path -LiteralPath $ico) { $s.IconLocation=($ico + ',0') }; $s.Save()" >nul 2>&1
 if !errorlevel! equ 0 echo         [OK] Desktop-Verknuepfung erstellt
 if !errorlevel! neq 0 echo         [--] Desktop-Verknuepfung nicht erstellt
 
@@ -859,7 +884,7 @@ if "!DASH_OK!"=="1" (
     echo  [3/3] Browser oeffnen trotzdem ^(falls alte Instanz laeuft^)...
     start "" "http://localhost:8200/"
     echo             Falls leer: Pruefe das PBP-Dashboard-Fenster auf Fehler.
-    echo             Log: %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+    echo             Log: !LOCALAPPDATA!\BewerbungsAssistent\data\logs\pbp.log
 )
 echo.
 
@@ -1064,6 +1089,14 @@ exit /b 1
 echo [FEHLER] pip install fehlgeschlagen >> "%LOGFILE%"
 echo.
 echo  FEHLER: Paketmanager konnte nicht installiert werden!
+echo.
+echo  Meistens liegt es an der Internetverbindung oder daran, dass
+echo  ein Virenscanner den Download unterbrochen hat.
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Internetverbindung pruefen ^(oeffne google.de^)
+echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,
+echo       deine Daten bleiben erhalten
 echo  (Log: %LOGFILE%)
 echo.
 call :show_support_info
@@ -1098,6 +1131,14 @@ exit /b 1
 echo [FEHLER] Paketinstallation fehlgeschlagen >> "%LOGFILE%"
 echo.
 echo  FEHLER: Pakete konnten nicht installiert werden.
+echo.
+echo  Meistens liegt es an der Internetverbindung oder daran, dass
+echo  eine Firewall oder ein Virenscanner den Download blockiert.
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Internetverbindung pruefen ^(oeffne google.de^)
+echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,
+echo       deine Daten bleiben erhalten
 echo  (Log: %LOGFILE%)
 echo.
 call :show_support_info

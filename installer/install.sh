@@ -233,28 +233,86 @@ fi
 # `http://localhost:8200` selbst eintippen — das wurde uebersehen.
 echo -e "  ${YELLOW}PBP-Dashboard wird gestartet...${NC}"
 
-# Im Hintergrund starten
+# --- dashboard-funktionen Anfang
+# v1.8.0 (#1149 Punkt 6): Beim Update laeuft haeufig noch das Dashboard der ALTEN Fassung und haelt den Port. Der neue Start
+# meldete dann "laeuft bereits", und der Health-Check bestaetigte die alte Fassung: der Installer sagte "laeuft", der Mensch
+# sah weiter das Alte. Beendet wird nur, was sich als start_dashboard.py von PBP ausweist - nie der MCP-Prozess von
+# Claude Desktop und nie ein fremdes Programm auf dem Port. Der Health-Check fragt /api/health und vergleicht die Fassung;
+# ein fremdes Programm, das HTTP 200 liefert, gilt nicht mehr als "laeuft".
+DASH_PORT="${BA_DASHBOARD_PORT:-8200}"
+DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\.py'
+NEUE_FASSUNG="$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROJECT_DIR/src/bewerbungs_assistent/__init__.py" 2>/dev/null | head -n 1)"
+
+dashboard_pids() {
+    command -v pgrep >/dev/null 2>&1 || return 0
+    pgrep -f -i "$DASH_MUSTER" 2>/dev/null | grep -v -x "$$" || true
+}
+
+# Die Fassung, die auf dem Port als PBP antwortet - leer, wenn dort nichts oder ein anderes Programm antwortet.
+dashboard_stand() {
+    curl -sf --max-time 2 "http://127.0.0.1:${DASH_PORT}/api/health" 2>/dev/null \
+        | grep -o '"pbp_version"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 \
+        | sed 's/.*:[[:space:]]*"\(.*\)"$/\1/' || true
+}
+
+alte_dashboards_beenden() {
+    local pids n=0
+    pids="$(dashboard_pids)"
+    if [ -z "$pids" ]; then
+        return 0
+    fi
+    info "Ein laufendes PBP-Dashboard wird beendet, damit die neue Fassung startet"
+    kill $pids 2>/dev/null || true
+    while [ "$n" -lt 5 ]; do
+        sleep 1
+        pids="$(dashboard_pids)"
+        if [ -z "$pids" ]; then
+            return 0
+        fi
+        n=$((n + 1))
+    done
+    kill -9 $pids 2>/dev/null || true
+    sleep 1
+    return 0
+}
+
+# ok = die installierte Fassung antwortet, alt = eine andere Fassung antwortet, keins = kein PBP antwortet.
+dashboard_urteil() {
+    local stand="$1"
+    if [ -z "$stand" ]; then
+        echo keins
+    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then
+        echo alt
+    else
+        echo ok
+    fi
+}
+# --- dashboard-funktionen Ende
+
+# Zuerst das alte Dashboard (Update), dann im Hintergrund starten
+alte_dashboards_beenden
 nohup "$VENV_DIR/bin/python" "$PROJECT_DIR/start_dashboard.py" \
       > /dev/null 2>&1 &
 DASH_PID=$!
 echo -e "    [OK] Dashboard-Prozess gestartet (PID $DASH_PID)."
 
-# Health-Check bis Port 8200 antwortet, max 30 Sekunden
+# Health-Check bis der Port als PBP antwortet, max 30 Sekunden
 echo -n "    Warte auf Dashboard "
-DASH_OK=0
+DASH_STAND=""
 for i in $(seq 1 30); do
-    if curl -sf --max-time 1 http://localhost:8200/ -o /dev/null 2>/dev/null; then
-        DASH_OK=1
+    DASH_STAND="$(dashboard_stand)"
+    if [ -n "$DASH_STAND" ]; then
         break
     fi
     echo -n "."
     sleep 1
 done
 echo ""
+DASH_URTEIL="$(dashboard_urteil "$DASH_STAND")"
 
 # Browser-Oeffnen je Plattform
 open_browser() {
-    local url="http://localhost:8200/"
+    local url="http://localhost:${DASH_PORT}/"
     if [ "$PLATFORM" = "macos" ]; then
         open "$url" 2>/dev/null || true
     elif command -v xdg-open >/dev/null 2>&1; then
@@ -264,8 +322,13 @@ open_browser() {
     fi
 }
 
-if [ "$DASH_OK" = "1" ]; then
-    echo -e "    [OK] Dashboard laeuft auf http://localhost:8200"
+if [ "$DASH_URTEIL" = "ok" ]; then
+    echo -e "    [OK] Dashboard laeuft auf http://localhost:${DASH_PORT}"
+    open_browser
+elif [ "$DASH_URTEIL" = "alt" ]; then
+    echo -e "    [!!] Auf dem Port laeuft noch PBP $DASH_STAND - installiert wurde $NEUE_FASSUNG."
+    echo -e "         Meist ist das der Prozess, den Claude Desktop gestartet hat: Claude Desktop komplett beenden"
+    echo -e "         und neu starten, dann zeigt das Dashboard die neue Fassung."
     open_browser
 else
     echo -e "    [!!] Dashboard antwortet nicht nach 30 Sekunden."

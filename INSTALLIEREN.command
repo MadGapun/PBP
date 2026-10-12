@@ -194,7 +194,64 @@ fi
 # v1.7.0-beta.38 (#600): Auto-Start Dashboard + Browser oeffnen
 echo -e "  ${BOLD}PBP-Dashboard wird gestartet...${NC}"
 
-# Dashboard im Hintergrund starten
+# --- dashboard-funktionen Anfang
+# v1.8.0 (#1149 Punkt 6): Beim Update laeuft haeufig noch das Dashboard der ALTEN Fassung und haelt den Port. Der neue Start
+# meldete dann "laeuft bereits", und der Health-Check bestaetigte die alte Fassung: der Installer sagte "laeuft", der Mensch
+# sah weiter das Alte. Beendet wird nur, was sich als start_dashboard.py von PBP ausweist - nie der MCP-Prozess von
+# Claude Desktop und nie ein fremdes Programm auf dem Port. Der Health-Check fragt /api/health und vergleicht die Fassung;
+# ein fremdes Programm, das HTTP 200 liefert, gilt nicht mehr als "laeuft".
+DASH_PORT="${BA_DASHBOARD_PORT:-8200}"
+DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\.py'
+NEUE_FASSUNG="$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROJECT_DIR/src/bewerbungs_assistent/__init__.py" 2>/dev/null | head -n 1)"
+
+dashboard_pids() {
+    command -v pgrep >/dev/null 2>&1 || return 0
+    pgrep -f -i "$DASH_MUSTER" 2>/dev/null | grep -v -x "$$" || true
+}
+
+# Die Fassung, die auf dem Port als PBP antwortet - leer, wenn dort nichts oder ein anderes Programm antwortet.
+dashboard_stand() {
+    curl -sf --max-time 2 "http://127.0.0.1:${DASH_PORT}/api/health" 2>/dev/null \
+        | grep -o '"pbp_version"[[:space:]]*:[[:space:]]*"[^"]*"' | head -n 1 \
+        | sed 's/.*:[[:space:]]*"\(.*\)"$/\1/' || true
+}
+
+alte_dashboards_beenden() {
+    local pids n=0
+    pids="$(dashboard_pids)"
+    if [ -z "$pids" ]; then
+        return 0
+    fi
+    info "Ein laufendes PBP-Dashboard wird beendet, damit die neue Fassung startet"
+    kill $pids 2>/dev/null || true
+    while [ "$n" -lt 5 ]; do
+        sleep 1
+        pids="$(dashboard_pids)"
+        if [ -z "$pids" ]; then
+            return 0
+        fi
+        n=$((n + 1))
+    done
+    kill -9 $pids 2>/dev/null || true
+    sleep 1
+    return 0
+}
+
+# ok = die installierte Fassung antwortet, alt = eine andere Fassung antwortet, keins = kein PBP antwortet.
+dashboard_urteil() {
+    local stand="$1"
+    if [ -z "$stand" ]; then
+        echo keins
+    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then
+        echo alt
+    else
+        echo ok
+    fi
+}
+# --- dashboard-funktionen Ende
+
+# Zuerst das alte Dashboard (Update), dann im Hintergrund starten
+alte_dashboards_beenden
 DASH_LAUNCHER="$PROJECT_DIR/Dashboard starten.command"
 if [ -f "$DASH_LAUNCHER" ]; then
     chmod +x "$DASH_LAUNCHER" 2>/dev/null
@@ -204,26 +261,32 @@ else
     echo -e "    [!!] Dashboard-Launcher nicht gefunden: $DASH_LAUNCHER"
 fi
 
-# Health-Check bis Port 8200 antwortet, max 30 Sekunden
-echo -n "    Warte auf Dashboard auf http://localhost:8200 "
-DASH_OK=0
+# Health-Check bis der Port als PBP antwortet, max 30 Sekunden
+echo -n "    Warte auf Dashboard auf http://localhost:${DASH_PORT} "
+DASH_STAND=""
 for i in $(seq 1 30); do
-    if curl -sf --max-time 1 http://localhost:8200/ -o /dev/null 2>/dev/null; then
-        DASH_OK=1
+    DASH_STAND="$(dashboard_stand)"
+    if [ -n "$DASH_STAND" ]; then
         break
     fi
     echo -n "."
     sleep 1
 done
 echo ""
+DASH_URTEIL="$(dashboard_urteil "$DASH_STAND")"
 
-if [ "$DASH_OK" = "1" ]; then
+if [ "$DASH_URTEIL" = "ok" ]; then
     echo -e "    [OK] Dashboard laeuft. Oeffne Browser..."
-    open "http://localhost:8200/"
+    open "http://localhost:${DASH_PORT}/"
+elif [ "$DASH_URTEIL" = "alt" ]; then
+    echo -e "    [!!] Auf dem Port laeuft noch PBP $DASH_STAND - installiert wurde $NEUE_FASSUNG."
+    echo -e "         Meist ist das der Prozess, den Claude Desktop gestartet hat: Claude Desktop komplett beenden"
+    echo -e "         und neu starten, dann zeigt das Dashboard die neue Fassung."
+    open "http://localhost:${DASH_PORT}/" 2>/dev/null || true
 else
     echo -e "    [!!] Dashboard antwortet nicht nach 30 Sekunden."
     echo -e "         Oeffne Browser trotzdem — falls eine alte Instanz laeuft."
-    open "http://localhost:8200/" 2>/dev/null || true
+    open "http://localhost:${DASH_PORT}/" 2>/dev/null || true
 fi
 
 echo ""

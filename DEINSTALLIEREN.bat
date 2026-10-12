@@ -139,21 +139,8 @@ call :remove_path "%APP_DIR%" "App-Verzeichnis %APP_DIR%"
 :: Legacy v1.4.x Pfade
 call :remove_path "%LEGACY_RUNTIME%" "Legacy Runtime in %BASE_INSTALL%\python"
 call :remove_path "%LEGACY_SRC%" "Legacy Source in %BASE_INSTALL%\src"
-call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\python"
-
-if exist "%BASEDIR%\install_log.txt" (
-    del /q "%BASEDIR%\install_log.txt" >nul 2>&1
-    if exist "%BASEDIR%\install_log.txt" (
-        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
-        set /a REMOVE_ERRORS+=1
-    ) else (
-        echo         [OK] install_log.txt entfernt
-    )
-)
-
-for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
-    if exist "%%~fF" del /q "%%~fF" >nul 2>&1
-)
+:: v1.8.0 (#1149 Punkt 9a): Python-Ordner, Installationsprotokoll und heruntergeladene Python-ZIPs neben dem Skript.
+call :ordner_neben_dem_skript
 
 :: PP26 (Testlauf 11.10.2026): hat PBP die Texterkennung ohne Administratorrechte "nur fuer mich" eingerichtet, liegt sie
 :: ausserhalb von components\ - der Vermerk dort sagt es. Dann geht sie mit ihrem eigenen Deinstallationsprogramm.
@@ -172,9 +159,15 @@ set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): 
 if /i "!CREATE_BACKUP!"=="j" (
     set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
     echo         Erstelle Backup...
-    powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path '%DATA_DIR%') { try { Compress-Archive -Path '%DATA_DIR%\*' -DestinationPath '!BACKUP_ZIP!' -Force; if (-not (Test-Path '!BACKUP_ZIP!')) { throw 'Die ZIP-Datei fehlt.' }; Write-Host '        [OK] Backup erstellt: !BACKUP_ZIP!'; exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
-    if errorlevel 2 set "BACKUP_FEHLER=1"
-    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
+:: v1.8.0 (#1149 Punkt 8): die Pfade kommen ueber Umgebungsvariablen (DATA_DIR, BACKUP_ZIP), nicht eingebettet. Ein Apostroph
+:: im Benutzernamen (O'Brien) machte aus dem Befehl einen Syntaxfehler mit Exit 1 - und Exit 1 heisst hier "kein Datenordner":
+:: es gab kein Backup, keine Warnung, und danach durfte der Mensch endgueltig loeschen.
+    powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:DATA_DIR) { try { Compress-Archive -Path (Join-Path $env:DATA_DIR '*') -DestinationPath $env:BACKUP_ZIP -Force; if (-not (Test-Path -LiteralPath $env:BACKUP_ZIP)) { throw 'Die ZIP-Datei fehlt.' }; Write-Host ('        [OK] Backup erstellt: ' + $env:BACKUP_ZIP); exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
+    set "BACKUP_RC=!errorlevel!"
+    if !BACKUP_RC! geq 2 set "BACKUP_FEHLER=1"
+    if "!BACKUP_RC!"=="0" echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
+    if "!BACKUP_RC!"=="1" echo [INFO] Desktop-Backup uebersprungen ^(kein Datenordner^) >> "%LOGFILE%"
+    if "!BACKUP_FEHLER!"=="1" echo [WARN] Desktop-Backup NICHT erstellt >> "%LOGFILE%"
 )
 
 echo.
@@ -232,9 +225,9 @@ call :zusatzdateien
 :: damit auch %BASE_INSTALL% — kein Datenverlust.
 rmdir "%BASE_INSTALL%" 2>nul
 if exist "%BASE_INSTALL%" (
-    echo [INFO] %BASE_INSTALL% nicht entfernt ^(enthaelt noch Daten^) >> "%LOGFILE%"
+    echo [INFO] !BASE_INSTALL! nicht entfernt ^(enthaelt noch Daten^) >> "%LOGFILE%"
 ) else (
-    echo [OK] %BASE_INSTALL% Stamm-Ordner entfernt >> "%LOGFILE%"
+    echo [OK] !BASE_INSTALL! Stamm-Ordner entfernt >> "%LOGFILE%"
 )
 
 echo.
@@ -253,22 +246,22 @@ if "!CLAUDE_MANUELL!"=="1" (
     echo    Die Claude-Konfigurationsdatei konnte nicht automatisch
     echo    bearbeitet werden. Entferne den MCP-Server-Eintrag
     echo    "bewerbungs-assistent" manuell in:
-    echo    %APPDATA%\Claude\claude_desktop_config.json
-    echo    ^(bei Claude aus dem Microsoft Store: %LOCALAPPDATA%\Packages\Claude_...
+    echo    !APPDATA!\Claude\claude_desktop_config.json
+    echo    ^(bei Claude aus dem Microsoft Store: !LOCALAPPDATA!\Packages\Claude_...
     echo    \LocalCache\Roaming\Claude\claude_desktop_config.json^)
     echo.
 )
 
 if "!DATA_RESULT!"=="kept" (
     echo  Deine Daten sind weiterhin vorhanden unter:
-    echo    %DATA_DIR%
+    echo    !DATA_DIR!
     echo.
 )
 
 if exist "%BASE_INSTALL%" (
     echo  Hinweis: Falls Reste verbleiben ^(z.B. weil Dateien noch gesperrt
     echo  waren^), kannst du diesen Ordner gefahrlos manuell loeschen:
-    echo    %BASE_INSTALL%
+    echo    !BASE_INSTALL!
     echo.
 )
 
@@ -306,11 +299,13 @@ powershell -ExecutionPolicy Bypass -NoProfile -Command "$s = Join-Path ([Environ
 exit /b %errorlevel%
 
 :remove_path
+:: v1.8.0 (#1149 Punkt 8): in den Bloecken !VAR! statt %VAR% - die Beschriftung nennt den Ordner, und ein Ordner wie
+:: "PBP-1.8.0 (1)" (so legt der Browser eine zweite Kopie an) trug seine Klammer in den Block und beendete ihn dort.
 set "TARGET=%~1"
 set "TARGET_LABEL=%~2"
 if not exist "%TARGET%" (
-    echo         [--] %TARGET_LABEL% nicht gefunden
-    echo [INFO] Nicht gefunden: %TARGET% >> "%LOGFILE%"
+    echo         [--] !TARGET_LABEL! nicht gefunden
+    echo [INFO] Nicht gefunden: !TARGET! >> "%LOGFILE%"
     exit /b 0
 )
 
@@ -322,14 +317,46 @@ if exist "%TARGET%" (
     rmdir /s /q "%TARGET%" >nul 2>&1
 )
 if exist "%TARGET%" (
-    echo         [^^!^^!] %TARGET_LABEL% konnte nicht entfernt werden
-    echo [WARN] Entfernen fehlgeschlagen: %TARGET% >> "%LOGFILE%"
+    echo         [^^!^^!] !TARGET_LABEL! konnte nicht entfernt werden
+    echo [WARN] Entfernen fehlgeschlagen: !TARGET! >> "%LOGFILE%"
     set /a REMOVE_ERRORS+=1
 ) else (
-    echo         [OK] %TARGET_LABEL% entfernt
-    echo [OK] Entfernt: %TARGET% >> "%LOGFILE%"
+    echo         [OK] !TARGET_LABEL! entfernt
+    echo [OK] Entfernt: !TARGET! >> "%LOGFILE%"
 )
 exit /b 0
+
+:: --- basedir Anfang
+:ordner_neben_dem_skript
+:: #1149 (Punkt 9a): Beim Aufruf ueber "Apps & Features" kopiert sich der Deinstaller nach %TEMP% (siehe oben) und laeuft
+:: von dort. %~dp0 ist dann %TEMP% selbst: der Python-Ordner, das Installationsprotokoll und die heruntergeladenen
+:: Python-ZIPs "neben dem Skript" waeren die, die in %TEMP% liegen - und das sind nicht PBPs. Nur ein Skript, das im
+:: entpackten PBP-Ordner liegt, hat dort etwas zu entfernen.
+set "BASEDIR_FREMD="
+if "%PBP_DEINST_RELOCATED%"=="1" set "BASEDIR_FREMD=1"
+if /i "%BASEDIR%"=="%TEMP%" set "BASEDIR_FREMD=1"
+if /i "%BASEDIR%"=="%TMP%" set "BASEDIR_FREMD=1"
+if defined BASEDIR_FREMD (
+    echo [INFO] Deinstaller laeuft aus dem Temp-Ordner: Ordner neben dem Skript bleiben unberuehrt >> "%LOGFILE%"
+    exit /b 0
+)
+call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\python"
+
+if exist "%BASEDIR%\install_log.txt" (
+    del /q "%BASEDIR%\install_log.txt" >nul 2>&1
+    if exist "%BASEDIR%\install_log.txt" (
+        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
+        set /a REMOVE_ERRORS+=1
+    ) else (
+        echo         [OK] install_log.txt entfernt
+    )
+)
+
+for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
+    if exist "%%~fF" del /q "%%~fF" >nul 2>&1
+)
+exit /b 0
+:: --- basedir Ende
 
 :: --- texterkennung Anfang
 :texterkennung_entfernen

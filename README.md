@@ -183,6 +183,9 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 2. **Entpacke** das ZIP in einen Ordner (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
 3. **Doppelklicke `INSTALLIEREN.bat`** — fertig!
 
+> Falls Windows warnt („Der Herausgeber konnte nicht verifiziert werden“ oder „Der Computer wurde durch Windows geschützt“): bei Ersterem
+> **„Ausführen“** klicken, bei Letzterem **„Weitere Informationen“ → „Trotzdem ausführen“**. PBP ist nicht mit einem bezahlten
+> Zertifikat signiert; der Quelltext liegt offen hier auf GitHub. Der Ordner, in den du entpackst, darf kein Ausrufezeichen im Namen haben.
 > **Voraussetzungen:** Windows 10/11 (64-Bit), Internetverbindung, [Claude Desktop](https://claude.ai/download)
 
 ### macOS
