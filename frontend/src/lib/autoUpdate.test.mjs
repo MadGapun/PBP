@@ -6,6 +6,7 @@ import {
   NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
   VORAB_ERKLAERUNG, VORAB_SCHRITTE, istVorabversion, vorabHinweis, vorabNeu,
+  VORAB_EINSCHALTEN_FRAGE, VORAB_SCHALTER_TEXT, vorabInstallierenFrage, vorabKlick, vorabKlickHinweis,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -272,5 +273,63 @@ assert.match(VORAB_ERKLAERUNG, /nie von selbst/);
 assert.match(VORAB_ERKLAERUNG, /Mit einem Klick/, "die Stufe, die der Nutzer gewählt hatte, wird genannt");
 assert.equal(VORAB_SCHRITTE.length, 3);
 assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
+
+// ── #1179: der Schalter für Tester — eine Vorabversion mit Update-Paket lässt sich mit EINEM Klick installieren ──────
+// Vorgabe aus. Eingeschaltet nennt die feste Quelle eine Vorabversion (au.vorab); von selbst installiert PBP sie nie.
+const klickAu = { ...betaAu, laufend: "1.8.0", aktuell: "1.8.0", vorabversionen: true,
+  vorab: { version: "1.8.1-beta.1", bereit: true, groesse: 2_500_000, auszug: ["Etwas wurde besser."],
+    url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.1-beta.1",
+    zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.1-beta.1.zip" } };
+assert.equal(vorabKlick(klickAu).version, "1.8.1-beta.1");
+// ohne Schalter, ohne Paket, ohne Vorabversion, nicht verfügbar, schon installiert: kein Klick-Weg
+assert.equal(vorabKlick({ ...klickAu, vorabversionen: false }), null, "Schalter aus: nichts");
+assert.equal(vorabKlick({ ...klickAu, vorab: { ...klickAu.vorab, bereit: false } }), null, "ohne Update-Paket: nur das ZIP");
+assert.equal(vorabKlick({ ...klickAu, vorab: null }), null);
+assert.equal(vorabKlick({ ...klickAu, verfuegbar: false }), null);
+assert.equal(vorabKlick({ ...klickAu, aktuell: "1.8.1-beta.1", neustart_noetig: true }), null, "schon installiert");
+assert.equal(vorabKlick({ ...klickAu, vorab: { ...klickAu.vorab, version: "1.8.1" } }), null, "eine fertige Version ist keine Vorabversion");
+assert.equal(vorabKlick(null), null);
+
+// der Hinweis auf dem Dashboard trägt den Knopf, der installiert, und sagt, warum es keine Automatik gibt
+const kh = updateHinweis(klickAu, {});
+assert.equal(kh.id, "update-vorab-klick");
+assert.equal(kh.dringend, false, "kein Vordrängeln");
+assert.match(kh.titel, /^Neue Vorabversion verfügbar: v1\.8\.1-beta\.1$/);
+assert.match(kh.text, /Zum Ausprobieren/);
+assert.deepEqual(kh.aktionen[0], { art: "update-installieren", label: "Vorabversion installieren", version: "1.8.1-beta.1", vorab: true });
+assert.deepEqual(vorabKlickHinweis(klickAu.vorab), kh);
+// die Aktion trägt `vorab: true` — nur dann fragt die Oberfläche nach und schickt `vorabversion` mit
+assert.ok(kh.aktionen.every((a) => a.art !== "update-installieren" || a.vorab === true));
+// ohne Schalter bleibt es beim bisherigen Hinweis (ZIP und Veröffentlichung), nie ein Installieren-Knopf
+const ohneSchalter = updateHinweis({ ...klickAu, vorabversionen: false }, { vorab: v });
+assert.equal(ohneSchalter.id, "update-vorab");
+assert.ok(ohneSchalter.aktionen.every((a) => a.art !== "update-installieren"));
+// eine fertige neue Version geht vor; die Automatik-Stufen ändern am Klick-Weg nichts (er ist nie automatisch)
+assert.equal(updateHinweis({ ...klickAu, neu }, {}).id, "update");
+assert.equal(updateHinweis({ ...klickAu, stufe: "auto_still" }, {}).id, "update-vorab-klick");
+
+// vorabNeu (die ZIP-Karte): bei bereitem Paket deckt der Klick-Weg die Version ab, sonst bleibt das ZIP
+assert.equal(vorabNeu(klickAu, { update_available: true, latest_version: "1.8.1-beta.1" }), null);
+const ohnePaket = { ...klickAu, vorab: { ...klickAu.vorab, bereit: false } };
+assert.equal(vorabNeu(ohnePaket, { update_available: true, latest_version: "1.8.1-beta.1" }).version, "1.8.1-beta.1");
+assert.equal(vorabNeu(ohnePaket, null).version, "1.8.1-beta.1", "auch wenn die allgemeine Prüfung nichts sagt");
+// und die Hinweiszone nennt dann das ZIP, mit dem Weg
+assert.equal(updateHinweis(ohnePaket, { vorab: vorabNeu(ohnePaket, null) }).id, "update-vorab");
+
+// ein misslungener Lauf einer Vorabversion bietet „Erneut versuchen“ — wieder mit `vorab: true`
+const fehlAu = { ...klickAu, job: { status: "fehler", version: "1.8.1-beta.1", text: "Prüfsumme stimmt nicht." } };
+const fh = updateHinweis(fehlAu, {});
+assert.equal(fh.id, "update-fehler");
+assert.deepEqual(fh.aktionen[0], { art: "update-installieren", label: "Erneut versuchen", version: "1.8.1-beta.1", vorab: true });
+// bei einer fertigen Version trägt der Wiederholungsweg `vorab` nie
+const fertigFehl = updateHinweis({ ...betaAu, neu, job: { status: "fehler", version: neu.version, text: "x" } }, {});
+assert.equal(fertigFehl.aktionen[0].vorab, undefined);
+
+// die Texte: Vorgabe, Zusage und Rückweg stehen da
+assert.match(VORAB_SCHALTER_TEXT, /nie, auch nicht in den automatischen Stufen/);
+assert.match(VORAB_SCHALTER_TEXT, /Zurückschalten/);
+assert.match(VORAB_EINSCHALTEN_FRAGE, /von selbst installiert es sie nie/);
+assert.match(vorabInstallierenFrage("1.8.1-beta.1"), /Vorabversion zum Ausprobieren.*Prüfsumme und Signatur.*Zurückschalten/s);
+assert.ok(vorabInstallierenFrage("1.8.1-beta.1").includes("1.8.1-beta.1"));
 
 console.log("autoUpdate: ok");
