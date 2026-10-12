@@ -127,6 +127,12 @@ Einträgen darunter.
   Analysestand bleiben. Neu: das Werkzeug `dokument_typ_setzen`, `GET /api/document-types` (Typen mit deutschen Namen) und „Typ ändern“ in der aufgeklappten
   Dokumentenkarte; `PUT /api/document/{id}/doc-type` prüft jetzt gegen die erlaubten Typen. Danach stimmt auch die Historie der Firma (#1080): aus „sonstiges“ wird
   „absage“, und das Dokument steht dort. Gegenprobe: Katalog „dokumenttyp“, 15 absichtlich eingebaute Fehler.
+- **Voreinstellung der Filter in der Stellenliste** (#1158 Punkt 5): im Filterfeld der Liste merkt „Als Voreinstellung speichern“ die Filter und die Sortierung, die jetzt
+  gelten. Die Voreinstellung gilt bei jedem **Öffnen von PBP** (Neuladen, Neustart), nicht beim Wechsel zwischen den Seiten; ohne sie bleibt es beim gemerkten Zustand des
+  Browsers. „Filter zurücksetzen“ zeigt weiter **alle** offenen Stellen und bleibt von ihr unberührt (die verbindliche Anforderung aus dem Issue); daneben „Zur
+  Voreinstellung“ und „Voreinstellung aufheben“. Sie liegt je Profil auf dem Server (`GET/PUT/DELETE /api/stellen-filter-standard`, Schlüssel und Typen streng geprüft;
+  Suchtext und Ansicht gehören nie dazu) und gilt damit in jedem Browser. Die erste Liste wird erst nach ihr geholt. Gegenprobe: Katalog „filtervoreinstellung“,
+  15 absichtlich eingebaute Fehler.
 - **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
