@@ -174,7 +174,7 @@ Einträgen darunter.
   Browser-Liste nennt die defekte Schwester nicht noch einmal. Wer ausschließlich diese Quelle nutzte, findet Google weiter über den Browser.
 - **Die drei alten Werkzeugnamen entfallen** (#1148 Punkt 13): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt
   `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`) galten seit v1.7.135 „einen Release lang“. Die Parameter sind dieselben; wer eigene
-  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP 279 statt 281 Werkzeuge.
+  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP drei Werkzeuge weniger; mit den zwei neuen (#1162, #1184) sind es 280 Werkzeuge.
 - **Zwei Schreibweisen desselben Parameters werden verstanden** (#1148 Punkt 9, Rest): `firma`/`company`, `titel`/`title`, `dokument_id`/`document_id`,
   `job_hash`/`stellen_hash` und `bewerbung_id`/`application_id` stehen in den Signaturen nebeneinander. Die Middleware übersetzt einen Namen, den das Werkzeug nicht kennt,
   in den bekannten derselben Gruppe (`services/parameter_aliase`) — nie einen, den es selbst kennt, nie bei Mehrdeutigkeit, vor der Normalisierung der Kennungen.
@@ -199,8 +199,20 @@ Einträgen darunter.
   fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
 - **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
   Wand aus Nullen.
-- **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
-  etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
+- **Der Schalter „Dokumentenanalyse“ sperrt auch, was Dokument- und Mailtexte liefert** (#1147 Punkt 3). Die Karte versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an
+  Claude weiter“; gesperrt waren aber nur die Werkzeuge, mit denen Claude etwas auslöst (elf). `dokument_lesen` (voller Text), `emails_anzeigen` (Mailtext, Absender) und
+  `dokumente_zur_analyse` lieferten weiter — wer die Dokumentenanalyse aus Datenschutzgründen abschaltete, glaubte, seine Dokumente gingen nicht an Claude. Jetzt sind sie gesperrt und nennen den
+  Weg (Dashboard, oder den Schalter einschalten). Bewusst frei bleiben Profil, Bewerbungen und Stellen — ohne sie arbeitet fast nichts mehr; der Satz in den Einstellungen sagt das, und
+  wer gar nichts weitergeben will, trennt PBP in Claude Desktop. Je Werkzeug ein Test, in beide Richtungen.
+- **Ein Google-Treffer ohne Original wird nicht mehr angelegt** (#1184 a). Eine Karte aus Google Jobs ist eine Behauptung: vier von fünf Stellen eines Browserlaufs trugen nur Kopfdaten
+  („Volltext nicht abrufbar“) und keinen Anker. Ohne Detail-URL des Arbeitgebers UND ohne Anzeigentext legt `stelle_manuell_anlegen` die Stelle nicht an (`google_original_fehlt`), sondern gibt
+  Claude den Auftrag, das Original zu suchen — mit vorbereiteten Suchen (Karriereseite des Arbeitgebers, StepStone, XING, LinkedIn, Indeed; #1184 e), einer Prüfliste (Muttermarke gegen
+  Konzernunternehmen, Ort und Arbeitsmodell aus dem Original) und dem Folgeaufruf. `force=True` bleibt der Ausweg; mit URL oder Text allein wird weiter angelegt, unter Vorbehalt.
+- **Google-Benachrichtigungen liefern Hinweise, keine Stellen mehr** (#1184 d). Die Mail nennt nur Titel, Firma, Ort und Portal, jeder Link führt auf eine Google-Suche, und derselbe Treffer kommt
+  mit verschiedenen Orten (Mail: Hamburg, Anzeige: Köln). Daraus stand bisher eine bewertete Stelle ohne Text mitten in der Liste. Jetzt entsteht ein Hinweis: eingeklappt über der Liste der
+  Stellen (Stellen › „Hinweise aus Google-Benachrichtigungen“, mit „Original suchen“ und „Verwerfen“) und für Claude über das neue Werkzeug `stellen_hinweise_verwalten`. Derselbe Treffer in
+  mehreren Mails ist ein Hinweis, die Orte stehen nebeneinander; was schon eine Stelle ist, steht gleich als „angelegt“ da; legst du die Stelle später mit dem Original an, ist der Hinweis erledigt.
+  Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
 - **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
   war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine
   Nachfass-Ketten, keine ablaufenden Bewerbungen und keine nachgeladenen Anzeigentexte. Jetzt stößt der Planer die Runde einmal am Tag an (Vorgabe „Täglich“, 90 Sekunden nach dem
@@ -357,7 +369,7 @@ Einträgen darunter.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
-*Schema v52 (unverändert), 279 MCP-Werkzeuge, 8596 Tests.*
+*Schema v52 (unverändert), 280 MCP-Werkzeuge, 8596 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
