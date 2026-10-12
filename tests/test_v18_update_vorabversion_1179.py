@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from browser_hilfen import einstellungen_reiter  # noqa: E402
 import uvicorn
 
 REPO = Path(__file__).resolve().parents[1]
@@ -174,9 +175,9 @@ def _seite(browser, umgebung, au, info, *, hash_="dashboard", ruhiges_dashboard=
 
 
 def _zu_den_updates(page):
-    """Wie ein Mensch ohne die Meldung der Seitenleiste: Einstellungen, dann „Updates“ im Untermenü."""
+    """Wie ein Mensch ohne die Meldung der Seitenleiste: Einstellungen, dann „Updates“ im Reiter „Erweitert“."""
     page.locator("button[data-page=einstellungen]").click()
-    page.locator("nav").get_by_role("button", name="Updates", exact=True).click()
+    einstellungen_reiter(page, "Updates")
     page.locator("[data-updates-tab]").wait_for(timeout=15000)
     return page.locator("[data-updates-tab]")
 

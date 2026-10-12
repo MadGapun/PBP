@@ -1953,6 +1953,78 @@ M_BROWSERUEBERNAHME = [
 KATALOGE["browseruebernahme"] = M_BROWSERUEBERNAHME
 GRUNDLAEUFE["browseruebernahme"] = (("T_BU", T_BU), ("T_BUB", T_BUB))
 
+# ── Bedienungspruefung 1.8: schmale Fenster, Vorspann, eine Navigation, Kopierknoepfe, Erklaertexte, Texterkennung (#1170 U10-U17) ──
+T_B15 = ["tests/test_v18_seitenleiste_schmal_1170.py"]
+T_B16 = ["tests/test_v18_stellen_vorspann_1170.py"]
+T_B17 = ["tests/test_v18_navigation_zahlen_1170.py"]
+T_B10 = ["tests/test_v18_bedienung_1170_u10_u12.py"]
+B_SL = "frontend/src/lib/seitenleiste.js"
+B_APP = "frontend/src/App.jsx"
+B_BH = "frontend/src/components/BrowserHandoffKarte.jsx"
+B_JP = "frontend/src/pages/JobsPage.jsx"
+B_SP = "frontend/src/pages/SettingsPage.jsx"
+B_WS = "src/bewerbungs_assistent/services/workspace_service.py"
+B_SB = "frontend/src/components/Sidebar.jsx"
+B_DP = "frontend/src/pages/DashboardPage.jsx"
+B_PO = "frontend/src/components/ProfileOnboarding.jsx"
+B_UT = "frontend/src/components/UpdatesTab.jsx"
+B_ET = "frontend/src/components/ErklaerText.jsx"
+B_EL = "frontend/src/lib/erklaertexte.js"
+B_UH = "frontend/src/lib/uploadHinweis.js"
+B_DOC = "frontend/src/pages/DocumentsPage.jsx"
+
+M_BEDIENUNG = [
+    ("bd01", "U15: schmal gilt nie", B_SL,
+     "export const SCHMAL_BIS_PX = 900;\n", "export const SCHMAL_BIS_PX = 1;\n", T_B15),
+    ("bd03", "U15: im schmalen Fenster ist die Leiste ohne Wahl ausgeklappt", B_SL,
+     "  if (schmal) return wahlSchmal === null || wahlSchmal === undefined ? true : Boolean(wahlSchmal);\n",
+     "  if (schmal) return wahlSchmal === null || wahlSchmal === undefined ? false : Boolean(wahlSchmal);\n", T_B15),
+    ("bd04", "U15: die Wahl im schmalen Fenster landet beim breiten Schluessel", B_APP,
+     "    if (fensterSchmal) {\n      setWahlSchmal(next);\n", "    if (false) {\n      setWahlSchmal(next);\n", T_B15),
+    ("bd05", "U15: die Leiste hoert nicht auf die Fensterbreite", B_APP,
+     "    const aendern = () => setFensterSchmal(istSchmal(window.innerWidth));\n", "    const aendern = () => {};\n", T_B15),
+    ("bd10", "U16: die Browser-Karte steht auch nur mit den optionalen Quellen", B_BH,
+     "  if (!daten?.prompt || !uebersprungen.length) return null;\n",
+     "  if (!daten?.prompt || (!uebersprungen.length && !optional.length)) return null;\n", T_B16),
+    ("bd11", "U16: die Kennzahlen stehen erst ab 1280 px in einer Zeile", B_JP,
+     '<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stellen-kennzahlen>',
+     '<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" data-stellen-kennzahlen>', T_B16),
+    ("bd20", "U17: die Seitenleiste fuehrt die Unterpunkte der Einstellungen wieder", B_APP,
+     '    sidebarSubNavigation = null;\n  } else if (page === "kontakte") {\n',
+     '    sidebarSubNavigation = { items: SETTINGS_REITER.map((r) => ({ id: r.id, label: r.label })), onSelect: () => {} };\n  } else if (page === "kontakte") {\n', T_B17),
+    ("bd21", "U17: der Pfad oben nennt den Reiter nicht", B_SP,
+     '    setSubPath?.(SETTINGS_REITER.find((r) => r.id === settingsTab)?.label || "");\n',
+     '    setSubPath?.("");\n', T_B17),
+    ("bd22", "U17: die Zahl der Stellen hat kein Wort", B_WS,
+     '        kurz["stellen"] = "aktiv"\n', '        kurz["stellen"] = ""\n', T_B17),
+    ("bd23", "U17: die Seitenleiste zeigt das Wort nicht", B_SB,
+     "                          {badgeWords[tab.id] ? (\n", "                          {false ? (\n", T_B17),
+    ("bd24", "U17: eine Zahl ohne Bedeutung bekommt trotzdem ein Wort", B_WS,
+     '    if faellig:\n        kurz["bewerbungen"] = "fällig"\n', '    if True:\n        kurz["bewerbungen"] = "fällig"\n', T_B17),
+    ("bd30", "U10: Gespraech starten kopiert wieder die lange Anleitung", B_DP,
+     "                      onClick={() => copyPrompt(STARTSATZ, {\n", '                      onClick={() => copyPrompt("/ersterfassung", {\n', T_B10),
+    ("bd31", "U10: im Onboarding-Panel kopiert der Knopf die lange Anleitung", B_PO,
+     "        <Button variant=\"secondary\" onClick={copyStartsatz}>\n", "        <Button variant=\"secondary\" onClick={copyConversationCommand}>\n", T_B10),
+    ("bd32", "U10: die Updates-Seite hat keinen Mit-Claude-Knopf", B_UT,
+     "              <MitClaude>Updates erklären</MitClaude>\n", "              Updates erklären\n", T_B10),
+    ("bd40", "U11: ein Erklaertext steht immer aufgeklappt", B_ET,
+     "  const offen = aufgeklappt(alle, einzeln);\n", "  const offen = true;\n", T_B10),
+    ("bd41", "U11: der Schalter laesst die Einzelwahlen stehen", B_EL,
+     "      weg.forEach((k) => s.removeItem(k));\n", "", T_B10),
+    ("bd42", "U11: ohne gemerkte Wahl ist alles eingeklappt", B_EL,
+     '  return text !== "0";\n', '  return text === "1";\n', T_B10),
+    ("bd43", "U11: die Wahl je Erklaertext wird nicht gemerkt", B_ET,
+     "          schreibeEinzeln(id, !offen);\n", "", T_B10),
+    ("bd50", "U12: ein Scan ohne Komponente bekommt keinen Hinweis", B_UH,
+     '  if (ocr.ocr === "erforderlich") {\n', "  if (false) {\n", T_B10),
+    ("bd51", "U12: die Dokumente-Seite zeigt den Hinweis nicht", B_DOC,
+     "      for (const hinweis of ocrHinweise(antworten)) {\n", "      for (const hinweis of []) {\n", T_B10),
+    ("bd52", "U12: der Knopf fuehrt auf den falschen Reiter", B_DOC,
+     'navigateTo("einstellungen", { tab: "erweiterungen" })', 'navigateTo("einstellungen", { tab: "updates" })', T_B10),
+]
+KATALOGE["bedienung1170"] = M_BEDIENUNG
+GRUNDLAEUFE["bedienung1170"] = (("T_B15", T_B15), ("T_B16", T_B16), ("T_B17", T_B17), ("T_B10", T_B10))
+
 WT = None
 
 

@@ -15,6 +15,8 @@ import { useState } from "react";
 import { postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, TextInput } from "@/components/ui";
+import ErklaerText from "@/components/ErklaerText";
+import MitClaude from "@/components/MitClaude";
 import {
   INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_EINSCHALTEN_FRAGE, VORAB_ERKLAERUNG, VORAB_SCHALTER_TEXT, VORAB_SCHRITTE,
   claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabKlick, vorabNeu, zeigeAktuell,
@@ -35,7 +37,7 @@ const ERGEBNIS = {
 };
 
 export default function UpdatesTab() {
-  const { autoUpdate: au, refreshAutoUpdate, refreshUpdateInfo, updateInfo, autoUpdateAktion, pushToast, chrome } = useApp();
+  const { autoUpdate: au, refreshAutoUpdate, refreshUpdateInfo, updateInfo, autoUpdateAktion, pushToast, chrome, copyPrompt } = useApp();
   const [busy, setBusy] = useState("");
   const [vorgaenger, setVorgaenger] = useState(null);
 
@@ -116,7 +118,20 @@ export default function UpdatesTab() {
     <div className="grid gap-6" data-updates-tab>
       {/* ── Stand ── */}
       <Card className="rounded-2xl">
-        <SectionHeading title="Updates" description="Welche Version läuft, und ob es eine neuere gibt." />
+        <SectionHeading
+          title="Updates"
+          description="Welche Version läuft, und ob es eine neuere gibt."
+          action={(
+            <Button
+              size="sm"
+              variant="ghost"
+              data-mit-claude-seite
+              onClick={() => copyPrompt("Erkläre mir, wie die Updates von PBP funktionieren und welche Einstellung für mich passt. Schau dir dazu update_status an und ändere nichts ohne meine Zustimmung.")}
+            >
+              <MitClaude>Updates erklären</MitClaude>
+            </Button>
+          )}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="sky">Läuft: v{au.laufend}</Badge>
           {au.neustart_noetig ? <Badge tone="amber">Ab dem nächsten Neustart: v{au.aktuell}</Badge> : null}
@@ -265,15 +280,18 @@ export default function UpdatesTab() {
             );
           })}
         </div>
-        <p className="mt-3 flex items-start gap-2 text-xs text-muted">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-          <span>
-            PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert nie eine Vorabversion
-            von selbst (nur mit dem Schalter für Tester und deinem Klick) und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
-            {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
-            Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
-          </span>
-        </p>
+        {/* #1170 U11: einklappbar; der Zustand wird gemerkt */}
+        <ErklaerText id="updates-sicherheit" titel="Wie sicher ist ein Update?" className="mt-3">
+          <p className="flex items-start gap-2">
+            <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
+            <span>
+              PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert nie eine Vorabversion
+              von selbst (nur mit dem Schalter für Tester und deinem Klick) und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
+              {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
+              Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
+            </span>
+          </p>
+        </ErklaerText>
       </Card>
 
       {/* ── Für Tester: Vorabversionen (#1179) ── */}

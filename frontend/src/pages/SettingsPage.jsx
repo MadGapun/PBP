@@ -6,6 +6,9 @@ import { startTransition, useEffect, useEffectEvent, useRef, useState } from "re
 import { api, apiUrl, deleteRequest, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ErklaerText from "@/components/ErklaerText";
+import ErklaertexteSchalter from "@/components/ErklaertexteSchalter";
+import MitClaude from "@/components/MitClaude";
 import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
@@ -3113,8 +3116,15 @@ function RoutingCard({ pushToast }) {
     <Card className="rounded-2xl" data-testid="routing-card">
       <SectionHeading
         title="Fahrstrecke und Fahrzeit (nur Auto)"
-        description="Hier liegt nur der Schlüssel. Ob PBP ihn benutzt, entscheidest du mit dem Haken unter Suche & Bewertung › Max. Entfernung pro Stellentyp. Die Berechnung gilt fürs Auto (nicht für Bus und Bahn); ohne Haken bleibt es bei der Luftlinie."
+        description="Hier liegt nur der Schlüssel."
       />
+      {/* #1170 U11: einklappbar; der Zustand wird gemerkt */}
+      <ErklaerText id="fahrstrecke" titel="Wann rechnet PBP mit der Fahrstrecke?" className="mb-3">
+        <p>
+          Ob PBP den Schlüssel benutzt, entscheidest du mit dem Haken unter Suche &amp; Bewertung › Max. Entfernung pro Stellentyp.
+          Die Berechnung gilt fürs Auto (nicht für Bus und Bahn); ohne Haken bleibt es bei der Luftlinie.
+        </p>
+      </ErklaerText>
       <div className="grid gap-3">
         {status?.konfiguriert ? (
           <p className="text-sm text-teal" data-testid="routing-stand">
@@ -3590,7 +3600,7 @@ function ErweiterungenTab({ pushToast }) {
 }
 
 export default function SettingsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent, setSubPath } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent, setSubPath, copyPrompt } = useApp();
   const [loading, setLoading] = useState(true);
   const [sources, setSources] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -4154,7 +4164,20 @@ export default function SettingsPage() {
                 unter der Quellen-Gesundheit, sondern oben. */}
             <RoutingCard pushToast={pushToast} />
             <Card className="rounded-2xl">
-              <SectionHeading title="Alle Quellen" description="Welche Jobbörsen PBP durchsucht." />
+              <SectionHeading
+                title="Alle Quellen"
+                description="Welche Jobbörsen PBP durchsucht."
+                action={(
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    data-mit-claude-seite
+                    onClick={() => copyPrompt("Erkläre mir, welche meiner Jobbörsen gerade liefern und welche nicht. Nutze quellen_health_check und sag mir, was ich ändern sollte — ändere nichts ohne meine Zustimmung.")}
+                  >
+                    <MitClaude>Quellen erklären</MitClaude>
+                  </Button>
+                )}
+              />
               <SourceSelectionList
                 sources={sources}
                 loginJobs={loginJobs}
@@ -4615,6 +4638,8 @@ export default function SettingsPage() {
         {settingsTab === "erscheinungsbild" && (
           <>
             <ThemeEditor />
+            {/* #1170 U11: die langen Erklaertexte der Seiten lassen sich einklappen; hier der Schalter fuer alle */}
+            <ErklaertexteSchalter />
             <Card className="rounded-2xl">
               <SectionHeading title="Dashboard" description="Was auf dem Dashboard erscheint." />
               <label className="flex cursor-pointer items-center gap-3 text-sm text-muted">

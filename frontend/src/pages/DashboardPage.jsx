@@ -50,6 +50,7 @@ import { STARTSATZ } from "@/lib/startsatz";
 import { hinweisFuer } from "@/lib/hinweisZone";
 import { vorabNeu } from "@/lib/autoUpdate";
 import { neueLinieHinweis } from "@/lib/updateStand";
+import ErklaerText from "@/components/ErklaerText";
 import OffenBlock from "@/components/OffenBlock";
 import StellenZuPruefen from "@/components/StellenZuPruefen";
 import SchnellzugriffKarten from "@/components/SchnellzugriffKarten";
@@ -397,15 +398,20 @@ export default function DashboardPage() {
                   PBP hilft dir Schritt für Schritt durch den Bewerbungsprozess — vom
                   Lebenslauf bis zum Vorstellungsgespräch.
                 </p>
-                {/* G59 (#1087 A4): das Zwei-Fenster-Modell stand nirgends. */}
-                <div data-erklaerkasten className="rounded-xl border border-sky/20 bg-sky/[0.05] p-4 text-sm">
-                  <p className="font-semibold text-ink">So arbeiten Dashboard und Claude zusammen</p>
-                  <ul className="mt-2 grid gap-1.5 text-muted">
+                {/* G59 (#1087 A4): das Zwei-Fenster-Modell stand nirgends. #1170 U11: einklappbar, der Zustand wird gemerkt. */}
+                <ErklaerText
+                  id="dashboard-zusammenarbeit"
+                  titel="So arbeiten Dashboard und Claude zusammen"
+                  data-erklaerkasten
+                  className="border-sky/20 bg-sky/[0.05] p-4 text-sm"
+                  titelKlasse="font-semibold text-ink"
+                >
+                  <ul className="grid gap-1.5 text-muted">
                     <li><strong className="text-ink">Dashboard</strong> (dieses Fenster): Übersicht und Verwaltung — Stellen, Bewerbungen, Termine, Dokumente.</li>
                     <li><strong className="text-ink">Claude Desktop</strong>: das Gespräch und die Texte — Profil erfassen, Anschreiben, Vorbereitung.</li>
                     <li><strong className="text-ink">Die Verbindung</strong>: Knöpfe mit „… mit Claude“ legen einen Text in die Zwischenablage. In Claude mit Strg+V einfügen und abschicken — auf den genauen Wortlaut kommt es nicht an.</li>
                   </ul>
-                </div>
+                </ErklaerText>
                 {/* G18 (#749): Erster-Start-Verbindungscheck — der frisch
                     installierte User sieht SOFORT, ob Claude Desktop mit PBP
                     verbunden ist (haeufigster Support-Stolperstein), statt
@@ -468,12 +474,27 @@ export default function DashboardPage() {
                   </li>
                   <li className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-semibold text-ink">2.</span>
-                    <Button variant="secondary" onClick={() => copyPrompt("/ersterfassung")}>
+                    {/* #1170 U10 (c): kopiert wird der Satz, den die Hilfe nennt (vorher ein langer Text mit Werkzeugnamen,
+                        ohne Vorschau); die ausfuehrliche Anleitung nur auf Wunsch. */}
+                    <Button
+                      variant="secondary"
+                      onClick={() => copyPrompt(STARTSATZ, {
+                        erfolg: `„${STARTSATZ}“ kopiert — jetzt in Claude Desktop einfügen (Strg+V) und abschicken.`,
+                      })}
+                    >
                       Gespräch mit Claude starten
                       <ArrowRight size={15} />
                     </Button>
                     <span className="text-xs text-muted">
-                      Claude ergänzt, was im Lebenslauf fehlt. Oder in Claude tippen: „{STARTSATZ}“.
+                      Kopiert den Satz „{STARTSATZ}“ — Claude ergänzt, was im Lebenslauf fehlt.{" "}
+                      <button
+                        type="button"
+                        className="underline hover:text-ink"
+                        data-ausfuehrliche-anleitung
+                        onClick={() => copyPrompt("/ersterfassung")}
+                      >
+                        Ausführliche Anleitung kopieren (mit Claude)
+                      </button>
                     </span>
                   </li>
                 </ol>

@@ -11,6 +11,7 @@ import time
 import urllib.request
 
 import pytest
+from browser_hilfen import einstellungen_reiter  # noqa: E402
 import uvicorn
 
 pytest.importorskip("playwright.sync_api")
@@ -95,7 +96,7 @@ def test_h21_expertenmodus_im_reiter_system(browser, server):
     page = browser.new_page(viewport={"width": 1400, "height": 1000})
     try:
         page.goto(f"{url}/#einstellungen", wait_until="networkidle", timeout=30000)
-        page.get_by_role("button", name="System", exact=True).first.click()
+        einstellungen_reiter(page, "System")
         karte = page.locator("[data-expertenmodus]")
         karte.wait_for(timeout=15000)
         assert "Ausgeschaltet" in karte.inner_text()

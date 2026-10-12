@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, deleteRequest, patchJson, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, EmptyState, Field, LoadingPanel, SectionHeading, TextArea, TextInput } from "@/components/ui";
+import MitClaude from "@/components/MitClaude";
 import { bestaetigen } from "@/lib/bestaetigung";
 import {
   datumText, fehlerText, filterKnoepfe, filterZeitleiste, hashFuerFirma, kannAnlegen, mutterOptionen, schreibweisen,
@@ -37,7 +38,7 @@ const ALIAS_ARTEN = [
 const SELECT_KLASSE = "w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink";
 
 export default function FirmenAnsicht({ ziel }) {
-  const { pushToast, reloadKey, navigateTo } = useApp();
+  const { pushToast, reloadKey, navigateTo, copyPrompt } = useApp();
   const [liste, setListe] = useState(null);
   const [auswahl, setAuswahl] = useState(null);          // { id } | { name } | null
   const [ansicht, setAnsicht] = useState(null);
@@ -196,6 +197,16 @@ export default function FirmenAnsicht({ ziel }) {
         <Button size="sm" variant="secondary" disabled={!suche.trim()} onClick={() => oeffnen({ name: suche.trim() })}
           title="Zeigt alles, was PBP zu diesem Namen weiß — auch wenn es noch keinen Firmen-Eintrag gibt.">
           Öffnen
+        </Button>
+        {/* #1170 U10 (d): ein Prompt je neuer Seite */}
+        <Button
+          size="sm"
+          variant="ghost"
+          data-mit-claude-seite
+          title="Kopiert eine Anleitung: Claude zeigt, welche Namen in deinem Bestand vermutlich dieselbe Firma sind. Geändert wird nichts ohne dich."
+          onClick={() => copyPrompt("Zeig mir mit firmen_vorschlaege_anzeigen, welche Firmennamen in meinem Bestand vermutlich dieselbe Firma sind, und erkläre mir, was ich damit tun kann. Ändere nichts ohne meine Bestätigung.")}
+        >
+          <MitClaude>Firmen erklären</MitClaude>
         </Button>
       </div>
 

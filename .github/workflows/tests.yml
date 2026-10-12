@@ -261,6 +261,15 @@ jobs:
         # v1.8 (#1170 U15): unter 900 px ohne eigene Wahl eingeklappt, die Wahl je Breitenklasse gemerkt.
         run: node frontend/src/lib/seitenleiste.test.mjs
 
+      - name: Erklaertexte - einklappbar, Wahl gemerkt (Node)
+        # v1.8 (#1170 U11): Schalter "Erklaertexte zeigen" (Vorgabe an) und die Wahl je Erklaertext; ohne Browserspeicher bleibt
+        # es bei aufgeklappt.
+        run: node frontend/src/lib/erklaertexte.test.mjs
+
+      - name: Upload-Hinweis - Scan ohne Text, Weg zur Texterkennung (Node)
+        # v1.8 (#1170 U12): was nach dem Hochladen eines Dokuments zu sagen ist (Feld `ocr` der Antwort).
+        run: node frontend/src/lib/uploadHinweis.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

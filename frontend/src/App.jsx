@@ -337,8 +337,8 @@ function PromptsTab({ pushToast, copyPrompt }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted">
-        {prompts.length} Prompts für deine Bewerbung. Klick auf „Kopieren"
-        kopiert den Prompt in die Zwischenablage — dann in Claude Desktop einfügen und absenden.
+        {prompts.length} Prompts — fertige Anleitungen für Claude. Der Knopf „Mit Claude“
+        kopiert die Anleitung in die Zwischenablage — dann in Claude Desktop einfügen und absenden.
       </p>
       <input
         type="text"

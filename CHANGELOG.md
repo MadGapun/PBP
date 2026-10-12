@@ -234,6 +234,18 @@ Einträgen darunter.
   in der Seitenleiste, die bis zum unteren Rand reichten und den Elwosa-Chat aus dem Bild schoben. Jetzt führen die Reiter der Seite (Grundlagen vorn, Erweitert dahinter, der gewählte
   markiert); der Pfad oben nennt den Reiter. Die vier orangen Zahlen meinten Verschiedenes und erklärten sich nur per Hover: sie tragen jetzt ihr Wort (Profil „8 Lücken“, Stellen „143 aktiv“,
   Bewerbungen „2 fällig“, Einstellungen „1 Hinweis“); der Hover-Titel nennt weiter, was genau gemeint ist.
+- **Die Kopierknöpfe sagen, was sie tun** (#1170 U10). Die Hilfe nannte den Knopf „Kopieren“, er heißt „Mit Claude“; die Meldung hieß „Anleitung kopiert“, die Hilfe-Seite „Prompts“. Jetzt steht
+  überall derselbe Name, und die Prompts-Seite sagt, dass Prompt und Anleitung dasselbe sind. „Gespräch mit Claude starten“ kopierte einen langen Text mit Werkzeugnamen und ohne Vorschau, obwohl die
+  Hilfe den Satz „Starte die Ersterfassung“ nennt: jetzt kopiert der Knopf diesen Satz (und sagt es), die ausführliche Anleitung bleibt auf Wunsch („Ausführliche Anleitung kopieren“).
+  Updates, Speicher & Downloads, Firmen und die Quellenliste haben je einen „… erklären mit Claude“-Knopf; er legt einen Auftrag in die Zwischenablage, der nichts ändert, ohne dich zu fragen.
+- **Lange Erklärtexte lassen sich einklappen** (#1170 U11). Einzelne Hinweise ließen sich schließen, die langen Erklärabsätze der Seiten nicht — wer PBP kennt, las sie bei jedem Besuch wieder.
+  Die Willkommenskarte „So arbeiten Dashboard und Claude zusammen“, der Sicherheitsabsatz bei den Updates, der Absatz zur Fahrstrecke und die Einleitung von Speicher & Downloads tragen jetzt eine
+  Überschrift als Schalter; die Wahl wird je Text gemerkt. Unter Einstellungen › Erscheinungsbild klappt der Schalter „Erklärtexte aufgeklappt zeigen“ (Vorgabe an, wie bisher) alle ein oder aus und
+  setzt die Einzelwahlen zurück. Ohne Browserspeicher bleibt alles aufgeklappt.
+- **Ein Scan ohne Text nennt den Weg zur Texterkennung** (#1170 U12). Der Server meldete beim Hochladen längst, dass ein PDF nur ein Bild ist und die Texterkennung fehlt (`ocr: erforderlich`); die
+  Dokumente-Seite las das Feld nie, und wer sein erstes eingescanntes Zeugnis hochlud, bekam ein Dokument ohne Text und keinen Hinweis. Jetzt steht der Satz da, mit dem Knopf „Texterkennung
+  einrichten“ (Einstellungen › Erweiterungen); ein Fehlschlag der Texterkennung wird ehrlich genannt. Der zweite Teil von U12 — beim ersten Start fragen, wie Updates installiert werden sollen —
+  ist **bewusst nicht** gebaut: das Wort des Nutzers vom 02.10.2026 ist, dass PBP nur zusammen mit der Meldung über eine neue Version fragt, nie beim bloßen Start.
   Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
 - **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
   war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine

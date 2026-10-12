@@ -265,7 +265,7 @@ export default function Sidebar({
                             {badge}
                           </span>
                           {badgeWords[tab.id] ? (
-                            <span className="text-[11px] leading-none text-amber" title={badgeTitles[tab.id] || undefined}>
+                            <span className="text-xs leading-none text-amber" title={badgeTitles[tab.id] || undefined}>
                               {badgeWords[tab.id]}
                             </span>
                           ) : null}

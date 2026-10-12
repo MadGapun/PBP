@@ -6,6 +6,7 @@ import { useApp } from "@/app-context";
 import EmailListe from "@/components/EmailListe";
 import MitClaude, { ClaudeSymbol } from "@/components/MitClaude";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
+import { ocrHinweise } from "@/lib/uploadHinweis";
 import { extractDroppedFiles } from "@/file-drop";
 import {
   Badge,
@@ -254,17 +255,28 @@ export default function DocumentsPage() {
     if (!files?.length) return;
     setUploading(true);
     let count = 0;
+    const antworten = [];
     try {
       for (const file of files) {
         const sig = await createFileSignature(file);
         if (uploadedSignaturesRef.current.has(sig)) continue;
         uploadedSignaturesRef.current.add(sig);
-        await uploadDocumentFile(file, uploadType);
+        const antwort = await uploadDocumentFile(file, uploadType);
+        antworten.push({ antwort, name: file.name });
         count++;
       }
       if (count > 0) {
         pushToast(`${count} Dokument${count > 1 ? "e" : ""} hochgeladen`, "success");
         loadData();
+      }
+      // #1170 U12: ein Scan ohne Text bekam bisher keinen Hinweis, dass es dafuer einen Weg gibt (Texterkennung).
+      for (const hinweis of ocrHinweise(antworten)) {
+        pushToast(hinweis.text, "amber", {
+          duration: 14000,
+          action: hinweis.aktion === "texterkennung"
+            ? { label: "Texterkennung einrichten", onClick: () => navigateTo("einstellungen", { tab: "erweiterungen" }) }
+            : undefined,
+        });
       }
     } catch (error) {
       pushToast(`Upload-Fehler: ${error.message}`, "danger");
@@ -700,7 +712,7 @@ export default function DocumentsPage() {
                                 ))}
                               </SelectInput>
                             </label>
-                            <p className="mt-1 text-[11px] text-muted">
+                            <p className="mt-1 text-xs text-muted">
                               Falsch eingeordnet? Die Verknüpfung mit Bewerbungen bleibt, nur die Einordnung wechselt.
                             </p>
                           </div>
