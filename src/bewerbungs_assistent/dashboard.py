@@ -799,16 +799,27 @@ async def api_delete_document(doc_id: str):
     return antwort
 
 
+@app.get("/api/document-types")
+async def api_document_types():
+    """Die Typen, auf die ein Dokument von Hand gestellt werden darf, mit Namen (#1162)."""
+    from .services import document_handlers
+    return {"typen": document_handlers.typen_fuer_auswahl()}
+
+
 @app.put("/api/document/{doc_id}/doc-type")
 async def api_update_document_type(doc_id: str, request: Request):
+    """Den Typ EINES Dokuments aendern (#1162). Derselbe Dienst wie das Werkzeug `dokument_typ_setzen`."""
+    from .services import document_handlers
     data = await request.json()
-    new_type = data.get("doc_type", "sonstiges")
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    if not _db.update_document_type(doc_id, new_type, profile_id=profile_id):
+    erg = document_handlers.typ_setzen(_db, doc_id, data.get("doc_type", ""), profile_id=profile_id)
+    if erg["status"] == "nicht_gefunden":
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    if erg["status"] == "unbekannter_typ":
+        return JSONResponse({"error": erg["fehler"], "erlaubte_typen": erg["erlaubte_typen"]}, status_code=400)
+    return {"status": "ok", "ergebnis": erg["status"], "doc_type": erg["typ_neu"], "typ_name": erg["typ_name"]}
 
 
 @app.put("/api/document/{doc_id}/link")

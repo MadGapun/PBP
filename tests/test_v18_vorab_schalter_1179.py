@@ -166,6 +166,16 @@ def test_auch_mit_erlaubnis_nur_streng_gueltige_nummern(version):
         quelle.asset_url(version, "SHA256SUMS", vorab_erlaubt=True)
 
 
+def test_die_vorbedingungen_lehnen_eine_vorabversion_ohne_erlaubnis_selbst_ab(app):
+    """Jede Schicht fuer sich: auch wenn eine spaetere sie noch einmal abfaengt, steht die Sperre hier."""
+    with pytest.raises(UpdateFehler) as e:
+        installation._vorbedingungen(BETA, app, "1.8.0")
+    assert e.value.code == "quelle_nicht_erlaubt"
+    assert installation._vorbedingungen(BETA, app, "1.8.0", vorab_erlaubt=True) == "1.8.0"
+    with pytest.raises(UpdateFehler):
+        installation._vorbedingungen("1.8.1-gamma.1", app, "1.8.0", vorab_erlaubt=True)
+
+
 def test_ein_unerlaubter_dateiname_bleibt_auch_fuer_eine_vorabversion_unerlaubt():
     with pytest.raises(UpdateFehler):
         quelle.asset_url(BETA, "boese.exe", vorab_erlaubt=True)
@@ -237,6 +247,17 @@ def test_das_umschalten_gilt_sofort_ohne_die_frist_abzuwarten(db_aus, umgebung):
     assert erg["vorab"]["version"] == BETA
     zustand.vorabversionen_setzen(db_aus, False)
     assert "vorab" not in lauf.pruefen(db_aus, oeffner=o, laufende="1.8.0")
+
+
+def test_die_pruefung_liest_die_liste_nur_mit_dem_schalter_als_ganzes(db_aus, umgebung, monkeypatch):
+    """Die Sperre „keine Vorabversionen ohne Schalter“ steht schon beim Lesen der Liste, nicht erst danach."""
+    gesehen = []
+    echt = quelle.freigaben_lesen
+    monkeypatch.setattr(quelle, "freigaben_lesen", lambda daten, **kw: gesehen.append(kw) or echt(daten, **kw))
+    lauf.pruefen(db_aus, oeffner=liste(eintrag("v1.8.1")), laufende="1.8.0", frisch=True)
+    zustand.vorabversionen_setzen(db_aus, True)
+    lauf.pruefen(db_aus, oeffner=liste(eintrag("v1.8.1")), laufende="1.8.0", frisch=True)
+    assert [k.get("mit_vorab") for k in gesehen] == [False, True]
 
 
 def test_die_uebersicht_zeigt_vorab_nur_bei_eingeschaltetem_schalter(db_an, umgebung):

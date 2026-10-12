@@ -202,8 +202,6 @@ def freigaben_lesen(daten, *, mit_vorab: bool = False) -> list:
         if not isinstance(eintrag, dict) or eintrag.get("draft"):
             continue
         markiert = bool(eintrag.get("prerelease"))
-        if markiert and not mit_vorab:
-            continue
         tag = eintrag.get("tag_name")
         version = _fassung.aus_tag(tag)
         if version is None:

@@ -1251,8 +1251,9 @@ M_VORABSCHALTER = [
     ("vs03", "Setzen nimmt jeden Wert, nicht nur ein echtes ja/nein", AUZ,
      '    if not isinstance(wert, bool):\n        raise ValueError("Vorabversionen: erwartet ja oder nein.")\n', "", T_VS),
     # Quelle und Manifest
-    ("vs04", "Die Liste nimmt die als Vorabversion markierten Eintraege auch ohne Schalter", AUQ,
-     "        if markiert and not mit_vorab:\n", "        if False:\n", T_VS),
+    ("vs04", "Eine von GitHub als Vorabversion markierte Nummer ohne Beta-Zusatz gilt als fertige Version", AUQ,
+     "        vorab = markiert or not _fassung.ist_stabil(version)\n",
+     "        vorab = not _fassung.ist_stabil(version)\n", T_VS),
     ("vs05", "Die Liste nimmt Beta-Nummern auch ohne Schalter", AUQ,
      "        if vorab and not mit_vorab:\n", "        if False:\n", T_VS),
     ("vs06", "asset_url erlaubt jede gueltige Nummer ohne die Erlaubnis des Aufrufs", AUQ,
@@ -1366,6 +1367,52 @@ M_VORABSCHALTER = [
 ]
 KATALOGE["vorabschalter"] = M_VORABSCHALTER
 GRUNDLAEUFE["vorabschalter"] = (("T_VS", T_VS), ("T_VSB", T_VSB))
+
+# ── Der Typ eines einzelnen Dokuments von Hand (#1162, E32) ──
+T_DT = ["tests/test_v18_dokument_typ_1162.py"]
+T_DTB = ["tests/test_v18_dokument_typ_1162_browser.py"]
+DH_PY = "src/bewerbungs_assistent/services/document_handlers.py"
+DOK_TOOL = "src/bewerbungs_assistent/tools/dokumente.py"
+DOCP = "frontend/src/pages/DocumentsPage.jsx"
+
+M_DOKUMENTTYP = [
+    ("dt01", "Der Dienst prueft den Typ nicht gegen die erlaubten", DH_PY,
+     "    if typ not in erlaubte_typen():\n", "    if False:\n", T_DT),
+    ("dt02", "Der Dienst sucht das Dokument ohne das Profil", DH_PY,
+     "    doc = db.get_document(dokument_id, profile_id=profile_id)\n", "    doc = db.get_document(dokument_id)\n", T_DT),
+    ("dt03", "Der Dienst schreibt ohne das Profil", DH_PY,
+     "    if not db.update_document_type(dokument_id, typ, profile_id=profile_id):\n",
+     "    if not db.update_document_type(dokument_id, typ):\n", T_DT),
+    ("dt04", "Derselbe Typ gilt als Aenderung", DH_PY,
+     "    if alt == typ:\n", "    if False:\n", T_DT),
+    ("dt05", "Die erlaubten Typen kennen die Vorlagen nicht", DH_PY,
+     "    return list(KNOWN_TYPES) + [t for t in VORLAGEN_TYPEN if t not in KNOWN_TYPES]\n",
+     "    return list(KNOWN_TYPES)\n", T_DT),
+    ("dt06", "Ein bekannter Typ hat keinen deutschen Namen", DH_PY,
+     '    "absage": "Absage",\n', "", T_DT),
+    ("dt07", "Der Endpunkt nimmt einen unbekannten Typ an", DASH,
+     '    if erg["status"] == "unbekannter_typ":\n', "    if False:\n", T_DT),
+    ("dt08", "Das Werkzeug gibt bei einem Fehler zusaetzlich einen Status zurueck", DOK_TOOL,
+     '        if erg["status"] in ("nicht_gefunden", "unbekannter_typ"):\n', "        if False:\n", T_DT),
+    ("dt09", "Die Typen-Uebersicht verneint die Aenderung von Hand wieder", DOK_TOOL,
+     '"Den Typ eines einzelnen Dokuments stellt dokument_typ_setzen() "', '"Den Typ eines einzelnen Dokuments kann man derzeit nicht "', T_DT),
+    ("df01", "Die Ansicht schickt die Aenderung nicht", DOCP,
+     "      await putJson(`/api/document/${doc.id}/doc-type`, { doc_type: neuerTyp });\n", "", T_DTB),
+    ("df02", "Die Ansicht schickt den alten Typ statt des neuen", DOCP,
+     "{ doc_type: neuerTyp }", "{ doc_type: doc.doc_type }", T_DTB),
+    ("df03", "Die Ansicht sagt nach dem Aendern nicht, was geworden ist", DOCP,
+     "      pushToast(`Typ geändert: ${typName(neuerTyp)}`, \"success\");\n", "", T_DTB),
+    ("df04", "Die Namen kommen nicht vom Server", DOCP,
+     "    return typen.find((t) => t.typ === typ)?.name || docTypeLabel(typ);\n", "    return docTypeLabel(typ);\n", T_DTB),
+    ("df05", "Ein Typ ausserhalb der Liste verschwindet aus der Auswahl", DOCP,
+     "                                {typen.length === 0 || !typen.some((t) => t.typ === doc.doc_type) ? (\n",
+     "                                {false ? (\n", T_DTB),
+    ("df06", "Die Ansicht laedt die Typen nicht", DOCP,
+     '    api("/api/document-types")\n      .then((r) => setTypen(r.typen || []))\n',
+     '    Promise.resolve({ typen: [] })\n      .then((r) => setTypen(r.typen || []))\n', T_DTB),
+]
+KATALOGE["dokumenttyp"] = M_DOKUMENTTYP
+GRUNDLAEUFE["dokumenttyp"] = (("T_DT", T_DT), ("T_DTB", T_DTB))
 
 WT = None
 

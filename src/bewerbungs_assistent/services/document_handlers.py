@@ -433,6 +433,94 @@ def handle_doc(doc: dict) -> dict:
     }
 
 
+#: Deutsche Namen fuer Menschen (Auswahl im Dashboard, Antworten der Werkzeuge) — EINMAL hier gepflegt (#1162).
+TYP_NAMEN: dict[str, str] = {
+    "lebenslauf": "Lebenslauf",
+    "anschreiben": "Anschreiben",
+    "zeugnis": "Zeugnis",
+    "arbeitszeugnis": "Arbeitszeugnis",
+    "ausbildungszeugnis": "Ausbildungszeugnis",
+    "zertifikat": "Zertifikat",
+    "foto": "Foto",
+    "stellenbeschreibung": "Stellenbeschreibung",
+    "projektliste": "Projektliste",
+    "portfolio": "Portfolio",
+    "referenz": "Referenz",
+    "vorlage": "Vorlage",
+    "vorbereitung": "Interview-Vorbereitung",
+    "interview_transkript": "Interview-Mitschrift",
+    "interview_einladung": "Einladung zum Gespräch",
+    "interview_bestaetigung": "Terminbestätigung",
+    "projekt_update": "Zwischenstand vom Recruiter",
+    "gespraechs_feedback": "Rückmeldung nach dem Gespräch",
+    "vermittler_korrespondenz": "Korrespondenz mit Vermittler",
+    "eingangsbestaetigung": "Eingangsbestätigung",
+    "absage": "Absage",
+    "angebot": "Angebot",
+    "recruiter_anfrage": "Anfrage eines Recruiters",
+    "stellenanzeige": "Stellenanzeige",
+    "bewerbungsantwort": "Antwort auf eine Bewerbung",
+    "sonstiges": "Sonstiges",
+}
+
+#: Typen, die im Bestand vorkommen (eine Vorlage-Kennzeichnung macht aus einem Lebenslauf oder Anschreiben eine Vorlage),
+#: ohne einen eigenen Handler zu haben. Sie sind waehlbar wie die bekannten.
+VORLAGEN_TYPEN: dict[str, str] = {
+    "lebenslauf_vorlage": "Lebenslauf-Vorlage",
+    "anschreiben_vorlage": "Anschreiben-Vorlage",
+}
+
+
+def typ_name(typ: str | None) -> str:
+    """Der Name fuer Menschen; ein unbekannter Typ bleibt, wie er ist."""
+    if not typ:
+        return "Dokument"
+    return TYP_NAMEN.get(typ) or VORLAGEN_TYPEN.get(typ) or typ
+
+
+def erlaubte_typen() -> list[str]:
+    """Die Typen, auf die ein Dokument von Hand gestellt werden darf (die Reihenfolge der Registry)."""
+    return list(KNOWN_TYPES) + [t for t in VORLAGEN_TYPEN if t not in KNOWN_TYPES]
+
+
+def typen_fuer_auswahl() -> list[dict]:
+    """Die Auswahl im Dashboard: Typ, Name und eine Zeile, was er ist."""
+    zeilen = []
+    for typ in erlaubte_typen():
+        info = KNOWN_TYPES.get(typ) or {}
+        zeilen.append({"typ": typ, "name": typ_name(typ), "beschreibung": info.get("beschreibung", "")})
+    return zeilen
+
+
+def typ_setzen(db, dokument_id: str, typ: str, profile_id=None) -> dict:
+    """Stellt den Typ EINES Dokuments von Hand um (#1162) — der eine Dienst fuer Dashboard und Werkzeug.
+
+    Nur die Einordnung wechselt: die Verknuepfung mit einer Bewerbung, der Text und der Analysestand bleiben. Geprueft
+    wird gegen `erlaubte_typen()`; ein Tippfehler legt keinen neuen Typ an. Antwort: `status` ist `geaendert`,
+    `unveraendert`, `unbekannter_typ` oder `nicht_gefunden`.
+    """
+    typ = (typ or "").strip()
+    if typ not in erlaubte_typen():
+        return {"status": "unbekannter_typ", "fehler": f"Der Typ '{typ}' ist PBP nicht bekannt.",
+                "erlaubte_typen": erlaubte_typen()}
+    doc = db.get_document(dokument_id, profile_id=profile_id)
+    if not doc:
+        return {"status": "nicht_gefunden", "fehler": "Dokument nicht gefunden."}
+    alt = doc.get("doc_type") or ""
+    basis = {"dokument_id": doc.get("id") or dokument_id, "dateiname": doc.get("filename") or "",
+             "typ_alt": alt, "typ_neu": typ, "typ_name": typ_name(typ)}
+    if alt == typ:
+        return {"status": "unveraendert", **basis, "hinweis": "Das Dokument hatte diesen Typ schon."}
+    if not db.update_document_type(dokument_id, typ, profile_id=profile_id):
+        return {"status": "nicht_gefunden", "fehler": "Dokument nicht gefunden."}
+    return {
+        "status": "geaendert", **basis,
+        "verknuepft_mit_bewerbung": bool(doc.get("linked_application_id")),
+        "hinweis": ("Nur die Einordnung hat gewechselt: die Verknüpfung mit der Bewerbung, der Text und der "
+                    "Analysestand bleiben. Eine neue Analyse liest das Dokument mit den Regeln des neuen Typs."),
+    }
+
+
 def list_known_types() -> list[dict]:
     """Listet alle bekannten Doku-Typen + Beschreibung + Action.
 
@@ -441,6 +529,7 @@ def list_known_types() -> list[dict]:
     return [
         {
             "typ": typ,
+            "name": typ_name(typ),
             "beschreibung": info["beschreibung"],
             "claude_action": info["claude_action"],
             "hat_extraktor": typ in EXTRACTORS,
