@@ -327,7 +327,8 @@ def test_g70_grundlagen_sind_wenige():
     assert "const tabs = SETTINGS_REITER;" in seite
     assert "data-erweitert-schalter" in seite
     app = _lesen(FRONTEND / "App.jsx")
-    assert "items: SETTINGS_REITER.map" in app
+    # #1170 U17: eine Navigation - die Seitenleiste fuehrt die Unterpunkte nicht mehr
+    assert "items: SETTINGS_REITER.map" not in app
 
 
 def test_g70_menuepfade_nennen_jeden_reiter():

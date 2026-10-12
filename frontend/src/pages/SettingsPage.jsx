@@ -3590,7 +3590,7 @@ function ErweiterungenTab({ pushToast }) {
 }
 
 export default function SettingsPage() {
-  const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent } = useApp();
+  const { chrome, reloadKey, refreshChrome, pushToast, intent, clearIntent, setSubPath } = useApp();
   const [loading, setLoading] = useState(true);
   const [sources, setSources] = useState([]);
   const [logs, setLogs] = useState([]);
@@ -3632,7 +3632,8 @@ export default function SettingsPage() {
     }
   }, [intent]);
 
-  // beta.32: Sidebar-Sub-Nav fuer Einstellungen schickt CustomEvent
+  // Ein Sprung von aussen (Elwosa, Hinweise, Links) waehlt den Reiter ueber dieses Ereignis. Die Seitenleiste fuehrt seit
+  // #1170 U17 keine Unterpunkte der Einstellungen mehr.
   useEffect(() => {
     const handler = (e) => {
       const tab = e.detail?.tab;
@@ -3641,6 +3642,11 @@ export default function SettingsPage() {
     document.addEventListener("settings-nav", handler);
     return () => document.removeEventListener("settings-nav", handler);
   }, []);
+
+  // #1170 U17: der Pfad oben (Breadcrumb) nennt den gewaehlten Reiter.
+  useEffect(() => {
+    setSubPath?.(SETTINGS_REITER.find((r) => r.id === settingsTab)?.label || "");
+  }, [settingsTab]);
 
   const loadPage = useEffectEvent(async () => {
     try {

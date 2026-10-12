@@ -39,12 +39,14 @@ def _reiter_ids():
     return re.findall(r'id:\s*"([a-z_]+)"', text)
 
 
-def _settings_subnav_ids():
-    # G70 (#1087): Seitenleiste und Reiter lesen dieselbe Liste
-    # (lib/einstellungenReiter.js) — geprueft wird, DASS beide sie lesen.
-    text = (FRONTEND / "App.jsx").read_text(encoding="utf-8")
-    assert "items: SETTINGS_REITER.map" in text, "Einstellungen-Subnavigation liest die Liste nicht"
-    assert "id: `settings-${r.id}`" in text
+def _settings_reiterleiste_ids():
+    # #1170 U17: die Einstellungen haben EINE Navigation - die Reiter der Seite (G70: Grundlagen und Erweitert, beide aus
+    # lib/einstellungenReiter.js). Dieselben 16 Namen noch einmal in der Seitenleiste verdraengten den Elwosa-Chat.
+    seite = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8")
+    assert 'tabs.filter((r) => r.gruppe === "grundlagen")' in seite
+    assert 'tabs.filter((r) => r.gruppe === "erweitert")' in seite
+    app = (FRONTEND / "App.jsx").read_text(encoding="utf-8")
+    assert "items: SETTINGS_REITER.map" not in app, "die Seitenleiste fuehrt wieder eine zweite Navigation (#1170 U17)"
     return _reiter_ids()
 
 
@@ -66,16 +68,12 @@ def test_status_optionen_sind_backend_gueltig():
     )
 
 
-def test_settings_subnav_deckt_alle_tabs_ab():
-    """Jeder Tab der Einstellungen ist ueber die Sidebar erreichbar."""
-    subnav = _settings_subnav_ids()
+def test_settings_reiterleiste_deckt_alle_tabs_ab():
+    """Jeder Tab der Einstellungen ist ueber die Reiterleiste der Seite erreichbar - und jeder Reiter hat Inhalt."""
+    leiste = _settings_reiterleiste_ids()
     tabs = _settings_page_tab_ids()
     assert len(tabs) >= 8, f"Tab-Liste unerwartet klein: {tabs}"
-    fehlend = [t for t in tabs if t not in subnav]
-    assert not fehlend, (
-        f"Einstellungen-Tabs ohne Sidebar-Eintrag: {fehlend} — "
-        f"in App.jsx (sidebarSubNavigation) nachtragen"
-    )
-    # Gegenrichtung: kein Sidebar-Eintrag auf einen Tab, den es nicht gibt
-    geister = [s for s in subnav if s not in tabs]
-    assert not geister, f"Sidebar-Eintraege ohne Tab: {geister}"
+    assert set(leiste) == set(tabs)
+    seite = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8")
+    inhalte = set(re.findall(r'settingsTab === "([a-z_]+)"', seite))
+    assert set(tabs) == inhalte, f"Reiter ohne Inhalt oder Inhalt ohne Reiter: {set(tabs) ^ inhalte}"

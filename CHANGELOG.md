@@ -224,6 +224,16 @@ Einträgen darunter.
 - **Das Dashboard sagt, was nach einem Lauf wartet** (#1187 Stufe 3). Die Karte „Stellen zu prüfen“ nennt, wie viele Stellen auf dein Urteil warten (mit Sprung in die Liste, Filter
   „Prüfstand: nur ungeprüfte“), und wie viele Claude nach dem Lesen aussortiert hat — mit Titel, Firma, Grund und „Zurückholen“ je Zeile, ohne die Karte zu verlassen. Die Zahl folgt derselben
   Regel wie die Liste (ohne laufende Bewerbungen, ohne Blacklist), ein Test hält beide gegeneinander. Neu `GET /api/stellen/zu-pruefen`; ohne wartende Stellen gibt es die Karte nicht.
+- **Die Seitenleiste klappt in schmalen Fenstern von selbst ein** (#1170 U15). Das Dashboard neben Claude Desktop (halbe Bildschirmbreite, rund 680 px) behielt die 240 px breite Leiste;
+  der Inhalt bekam etwa 380 px, bei 420 px blieb ein Streifen. Unter 900 px ist die Leiste jetzt ohne eigene Wahl eingeklappt (60 px, beim Daraufzeigen schwebt sie auf). Deine Wahl wird je
+  Fensterbreite gemerkt: im breiten Fenster einklappen verkleinert das schmale nicht, und eine früher gemerkte Wahl gilt im breiten Fenster weiter.
+- **Der Vorspann der Stellen-Seite ist kürzer** (#1170 U16). Bis zur ersten Stelle lagen rund 900 px. Die Karte „Diese Quellen laufen nur über den Browser“ steht nur noch, wenn du
+  Browser-Quellen gewählt hast (die „optionalen“, als defekt geführten Quellen allein waren für jede Installation da und kosteten rund 180 px; sie stehen weiter unter Einstellungen › Quellen
+  im Detail), und die vier Kennzahlen stehen ab 1024 px in einer Zeile (vorher ab 1280 px). Gemessen mit sechs Stellen: erste Stelle bei y = 730 statt 908.
+- **Die Einstellungen haben eine Navigation, und die Zahlen in der Seitenleiste nennen ihr Wort** (#1170 U17). Dieselben 16 Namen standen zweimal da — als Reiter der Seite und als Unterpunkte
+  in der Seitenleiste, die bis zum unteren Rand reichten und den Elwosa-Chat aus dem Bild schoben. Jetzt führen die Reiter der Seite (Grundlagen vorn, Erweitert dahinter, der gewählte
+  markiert); der Pfad oben nennt den Reiter. Die vier orangen Zahlen meinten Verschiedenes und erklärten sich nur per Hover: sie tragen jetzt ihr Wort (Profil „8 Lücken“, Stellen „143 aktiv“,
+  Bewerbungen „2 fällig“, Einstellungen „1 Hinweis“); der Hover-Titel nennt weiter, was genau gemeint ist.
   Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
 - **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
   war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine

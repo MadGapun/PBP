@@ -257,6 +257,10 @@ jobs:
         # Aufrufe), der Satz zu einer Verknuepfung des Kontakts und die Abschnitte der Sprungleiste.
         run: node frontend/src/lib/wege.test.mjs
 
+      - name: Seitenleiste - schmale Fenster (Node)
+        # v1.8 (#1170 U15): unter 900 px ohne eigene Wahl eingeklappt, die Wahl je Breitenklasse gemerkt.
+        run: node frontend/src/lib/seitenleiste.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

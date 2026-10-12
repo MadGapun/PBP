@@ -1482,7 +1482,9 @@ export default function JobsPage() {
       <StellenHinweise anlass={reloadKey} />
 
       <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* #1170 U16: vier Kennzahlen in EINER Zeile ab 1024 px (vorher erst ab 1280 px), zwei darunter - der Vorspann
+            vor der ersten Stelle war rund 900 px hoch. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stellen-kennzahlen>
           <MetricCard
             // v1.7.62 (#1008 Befund 1): die Zahl war die LAENGE DER
             // ANGEZEIGTEN Liste. Die Ueberschrift versprach die Zahl der

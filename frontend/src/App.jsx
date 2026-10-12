@@ -74,6 +74,9 @@ import {
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
 import { zuSuchtreffer } from "@/lib/wege";
+import {
+  eingeklappt as seitenleisteEingeklappt, istSchmal, SCHLUESSEL_BREIT, SCHLUESSEL_SCHMAL, wahlAusText,
+} from "@/lib/seitenleiste";
 import { fehlerText, workflowPfad, zerlegePrompt } from "@/lib/promptAufloesung";
 import { initActivityTracking, track } from "@/activity-tracking";
 
@@ -562,11 +565,23 @@ export default function App() {
   }
   // beta.35: aktiver Sub-Pfad fuer Top-Bar-Breadcrumb
   const [currentSubPath, setCurrentSubPath] = useState("");
-  // #508: Sidebar-Collapsed-State (persistiert)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    try { return localStorage.getItem("pbp-sidebar-collapsed") === "1"; }
-    catch { return false; }
+  // #508: Sidebar-Collapsed-State (persistiert). #1170 U15: in schmalen Fenstern (neben Claude Desktop) ohne eigene
+  // Wahl eingeklappt; die Wahl wird je Breitenklasse gemerkt (lib/seitenleiste.js).
+  const [fensterSchmal, setFensterSchmal] = useState(() => {
+    try { return istSchmal(window.innerWidth); } catch { return false; }
   });
+  const [wahlBreit, setWahlBreit] = useState(() => {
+    try { return wahlAusText(localStorage.getItem(SCHLUESSEL_BREIT)) === true; } catch { return false; }
+  });
+  const [wahlSchmal, setWahlSchmal] = useState(() => {
+    try { return wahlAusText(localStorage.getItem(SCHLUESSEL_SCHMAL)); } catch { return null; }
+  });
+  const sidebarCollapsed = seitenleisteEingeklappt(fensterSchmal, wahlBreit, wahlSchmal);
+  useEffect(() => {
+    const aendern = () => setFensterSchmal(istSchmal(window.innerWidth));
+    window.addEventListener("resize", aendern);
+    return () => window.removeEventListener("resize", aendern);
+  }, []);
   const recentToastsRef = useRef(new Map());
   const liveUpdateTokenRef = useRef("");
   const liveUpdateSeenRef = useRef(false);
@@ -1043,13 +1058,16 @@ export default function App() {
     try { track.pageView(nextPage); } catch {}
   }
 
-  // #508: Sidebar-Collapse persistieren
+  // #508: Sidebar-Collapse persistieren - je Breitenklasse (#1170 U15)
   function toggleSidebar() {
-    setSidebarCollapsed((prev) => {
-      const next = !prev;
-      try { localStorage.setItem("pbp-sidebar-collapsed", next ? "1" : "0"); } catch {}
-      return next;
-    });
+    const next = !sidebarCollapsed;
+    if (fensterSchmal) {
+      setWahlSchmal(next);
+      try { localStorage.setItem(SCHLUESSEL_SCHMAL, next ? "1" : "0"); } catch {}
+    } else {
+      setWahlBreit(next);
+      try { localStorage.setItem(SCHLUESSEL_BREIT, next ? "1" : "0"); } catch {}
+    }
   }
 
   // #508: Aktueller Seitentitel fuer die Top-Bar
@@ -1295,6 +1313,9 @@ export default function App() {
     page,
     intent,
     clearIntent: () => setIntent(null),
+    // #1170 U17: eine Seite nennt den Teil, in dem der Mensch gerade ist (Pfad oben). Ein Ereignis ginge verloren, wenn die
+    // Seite beim ersten Zeichnen meldet: Kind-Effekte laufen vor denen der App.
+    setSubPath: setCurrentSubPath,
     chrome,
     reloadKey,
     refreshChrome,
@@ -1392,19 +1413,10 @@ export default function App() {
       },
     };
   } else if (page === "einstellungen") {
-    // G70 (#1087 F1): dieselbe Liste wie die Reiter der Seite, getrennt in
-    // Grundlagen und Erweitert.
-    sidebarSubNavigation = {
-      items: SETTINGS_REITER.map((r) => ({
-        id: `settings-${r.id}`,
-        label: r.gruppe === "erweitert" ? `  ${r.label}` : r.label,
-      })),
-      onSelect: (id) => {
-        const tab = id.replace("settings-", "");
-        document.dispatchEvent(new CustomEvent("settings-nav", { detail: { tab } }));
-        setCurrentSubPath(SETTINGS_REITER.find((r) => r.id === tab)?.label || "");
-      },
-    };
+    // #1170 U17: EINE Navigation. Die Reiter der Seite fuehren (Grundlagen vorn, Erweitert dahinter, der gewaehlte ist
+    // markiert). Dieselben 16 Namen noch einmal hier schoben den Elwosa-Chat aus dem Bild, schnitten am unteren Rand ab
+    // und zeigten nicht, wo man ist. Der Pfad oben nennt den Reiter (die Seite meldet ihn ueber `setSubPath`).
+    sidebarSubNavigation = null;
   } else if (page === "kontakte") {
     // v1.7.88 (#884): Untermenue "Referenzen" unter Kontakte
     sidebarSubNavigation = {
@@ -1447,6 +1459,7 @@ export default function App() {
           onSelectPage={navigateTo}
           subNavigation={sidebarSubNavigation}
           badges={sidebarBadges}
+          badgeWords={chrome.workspace?.navigation?.kurz || {}}
           badgeTitles={chrome.workspace?.navigation?.titel || {}}
           meta={sidebarMeta}
           brand={{
