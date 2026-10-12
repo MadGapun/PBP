@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v52.
-- **Umfang:** 8596 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
+- **Umfang:** 9093 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
   Expertenmodus; 26 Prompts.
 - **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
   Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
@@ -34,7 +34,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
 - `docs/internal/claude-md-archiv.md` — diese Datei bis v1.7.139 woertlich,
   mit allen Stand-Bloecken und MERKE-Punkten; per grep nach Issue-Nummer
   oder `v1.7.NN` suchen.
-- `docs/internal/lehren.md` — 42 verdichtete Lehren nach Themen, mit Belegen.
+- `docs/internal/lehren.md` — 71 verdichtete Lehren nach Themen, mit Belegen.
 - `CHANGELOG.md` und die GitHub-Releases — was sich wann geaendert hat.
 - Master-Plan im Wiki (unten) und Dauer-Issue #675 (DoD).
 
