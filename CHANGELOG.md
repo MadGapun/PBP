@@ -201,12 +201,22 @@ Einträgen darunter.
   Wand aus Nullen.
 - **Der Satz zu den KI-Schaltern sagt, was sie tun** (#1147 Punkt 3). Er versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an Claude weiter“; tatsächlich sperren die Schalter die Funktionen, mit denen Claude
   etwas auslöst. Lesende Werkzeuge liefern weiter, solange PBP in Claude Desktop eingetragen ist. Jetzt steht das so da, samt dem Weg für alle, die gar nichts weitergeben wollen.
-- **Die Texte zur Automatik versprechen nichts mehr, was nur auf Knopfdruck läuft** (#1139). Die Aufräum-Runde (Erinnerungen nachlegen, Bewerbungen ohne Antwort abschließen, fehlende Anzeigentexte nachladen) hat keinen
-  automatischen Auslöser; sie läuft über „Jetzt prüfen“ unter Einstellungen › Automatik. Die Karte dort, die Hilfe und der Hinweis nach der Jobsuche sagen das jetzt („… holt „Jetzt prüfen“ nach“ statt „folgen mit der
-  Automatik“). Ob die Runde künftig von selbst läuft (täglich, das Abschließen abschaltbar), ist als Frage an #1139 gestellt.
+- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
+  war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine
+  Nachfass-Ketten, keine ablaufenden Bewerbungen und keine nachgeladenen Anzeigentexte. Jetzt stößt der Planer die Runde einmal am Tag an (Vorgabe „Täglich“, 90 Sekunden nach dem
+  Start fällig; Einstellungen › Automatik, dort auch „Aus“ und längere Abstände), im Hintergrund und mit eigener Spur unter den Hintergrundläufen. Knopf und Planer teilen eine Sperre;
+  der letzte Lauf nennt, ob er von selbst oder per Knopf kam. In Claude: `automatik_status` und `automatik_setzen` (neu `aufraeumen_intervall_tage`, `bewerbungen_abschliessen`).
+- **Das Abschließen von Bewerbungen ist ein eigener Schalter, Vorgabe aus** (#1139): „Beim täglichen Lauf von selbst abschließen“. Es ändert den Stand einer Bewerbung — das geschieht
+  nicht über Nacht, nur weil jemand ein Update installiert hat. Der Knopf „Jetzt prüfen“ schließt weiter immer ab. Die übrigen Schritte (Erinnerungen nachlegen, Anzeigentexte nachladen,
+  Anzeigen prüfen, Mails und Dokumente einordnen) laufen von selbst, jeder mit seinen eigenen Schranken (lokale KI an, Lernen erlaubt, Quellen ohne Abruf-Erlaubnis ausgenommen).
 
 ### Fixed
 
+- **Das Nachladen der Anzeigentexte und die Prüfung der Adressen kamen nie über die ersten Stellen hinaus** (#1139; seit v1.7.0). Beides nahm ohne Reihenfolge die ersten 24 bzw. 30
+  Kandidaten nach Zeilennummer; standen die im Backoff, wurden die übrigen nie versucht (gemessen: 30 Stellen ohne Text, 24 im Backoff, 0 versucht, 6 nie). Jetzt gilt eine feste
+  Reihenfolge — nie versuchte zuerst, dann die am längsten wartende. Der Fehlzähler verfällt nach 14 Tagen (ein Zähler aus der Zeit vor 1.8.0 ohne Zeitstempel sofort: wer seit Monaten im
+  Backoff steht, bekommt eine frische Runde), und ein Netzfehler oder „zu viele Anfragen“ zählt nicht gegen die Stelle — drei in Folge beenden die Runde, statt ohne Netz jede Stelle bis
+  zum Zeitlimit zu versuchen. Der automatische Lauf holt bis zu 16 Texte und prüft bis zu 25 Adressen je Lauf (der Knopf 8 und 10), mit Pause dazwischen.
 - **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26, Testlauf 11.10.2026; seit beta.0). Das Setup verlangte Rechte und ließ sich aus einem Programm ohne Erhöhung nicht starten (`WinError 740`); der Knopf versprach „kein Admin nötig“. Jetzt startet PBP es ohne Abfrage, sucht den Ort, an dem es „nur für mich“ installiert (`%LOCALAPPDATA%\Programs\Tesseract-OCR`), merkt ihn, lädt das deutsche Sprachpaket dorthin und entfernt alles wieder mit dem eigenen Deinstallationsprogramm des Setups (Oberfläche und Deinstaller, nur an diesem einen Ort).
 - **Der Installer ließ den entpackten Ordner leer stehen und im Temp-Ordner die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
 - Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.
