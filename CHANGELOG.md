@@ -122,6 +122,11 @@ Einträgen darunter.
   `update_einstellungen_setzen(vorabversionen=ja|nein, bestaetigt)` und `update_jetzt_installieren` (ohne Nummer wählt es nie eine Vorabversion von selbst:
   `nur_vorabversion`). Die allgemeine Prüfung (Seitenleiste) folgt dem Schalter. Oberfläche: Schalter mit Rückfrage beim Einschalten, Karte „Vorabversion installieren“
   mit Rückfrage vor der Installation, Hinweis auf dem Dashboard; ohne Update-Paket bleibt es beim ZIP-Weg. Gegenprobe: Katalog „vorabschalter“, 43 absichtlich eingebaute Fehler.
+- **Der Typ eines einzelnen Dokuments lässt sich von Hand ändern** (#1162): `services/document_handlers.typ_setzen` ist der eine Dienst für beide Wege. Erlaubt sind die
+  bekannten Typen und die beiden Vorlagen-Typen; ein Tippfehler legt keinen neuen Typ an. Nur die Einordnung wechselt, die Verknüpfung mit der Bewerbung, der Text und der
+  Analysestand bleiben. Neu: das Werkzeug `dokument_typ_setzen`, `GET /api/document-types` (Typen mit deutschen Namen) und „Typ ändern“ in der aufgeklappten
+  Dokumentenkarte; `PUT /api/document/{id}/doc-type` prüft jetzt gegen die erlaubten Typen. Danach stimmt auch die Historie der Firma (#1080): aus „sonstiges“ wird
+  „absage“, und das Dokument steht dort. Gegenprobe: Katalog „dokumenttyp“, 15 absichtlich eingebaute Fehler.
 - **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
