@@ -618,3 +618,30 @@ jedem Abruf scheitert. Auch die Auswahl mit LIMIT gehört dazu: sonst füllen di
 
 **L68. Ein Test, der Windows nur nachstellt, läuft unter Linux anders — Pfade und Rechte nie mit POSIX-Annahmen bauen.** Zwei Fehler der Reparatur färbten die Linux-Prüfung rot (10 Tests), obwohl die Suite unter Windows grün war: (1) `Path(basis) / r"Programs\Tesseract-OCR"` ist unter POSIX EIN Name mit Backslash; (2) `os.chmod(ordner, S_IWRITE)` macht einen Ordner unter POSIX unlesbar (nur schreiben), der nächste Durchgang scheiterte schon am Öffnen. Regel: Windows-Teilpfade mit `PureWindowsPath(…).parts` zerlegen, Ordner mit `S_IRWXU` freigeben; ein unabhängiger Leser sagte beides aus dem Quelltext voraus, bevor die CI es zeigte — der Lauf vor dem Push lohnt sich.
 *Belege:* `_benutzer_ordner_win`, `_freigeben`, die CI-Läufe vom 11.10.2026 (Köpfe 5c3f8016 bis 3f878131)
+
+## 16. Bedienung messen: Wege, Listen und Prüfläufe
+
+**L69. Ein Teil-Lauf ist kein Lauf — vor jedem Commit auf dem Release-Zweig die ganze Suite, in Teilen parallel.** Am 12.10.2026 liefen
+fünf Wächter und 17 Muster des Mutationskatalogs seit mehreren Commits rot (Adress-Wächter, #948-Wächter, SQL-Spalten, Werkzeugnamen,
+Typ-Kennungen, ein veralteter Installer-Test): jeder Commit hatte nur die Tests seiner eigenen Änderung gesehen, und die CI lief für den
+Zweig noch nicht. Die ganze Suite (9.093 Tests) lief danach in sechs parallelen `pytest`-Prozessen (je eigene Datenbank und Ports) in
+neun Minuten, die Browser-Tests (628) in vier — nicht mehr „zu lang zum Mitlaufen“. Dazu: ein Wächter, der Muster in Quelltext sucht,
+gehört selbst in die Suite (hier `test_v18_mutationskatalog_muster.py`) und versteht Knotenkennungen (`datei::funktion`), sonst veraltet
+er still.
+*Belege:* #1171, #1170, `test_v18_mutationskatalog_muster.py`, Commit ac57ecdf
+
+**L70. `position: sticky` greift nicht hinter einem Vorfahren mit `overflow-x: auto` — und ein Test, der nur den Quelltext liest, sieht
+`sticky` und wird grün.** Die feste Leiste der Firmen-Ansicht stand im Quelltext richtig da und blieb beim Scrollen nicht stehen: der
+Inhalt der App scrollt waagerecht (`overflow-x-auto`, damit nichts verschwindet), und damit ist dieser Vorfahr der nächste scrollende,
+auch wenn er senkrecht nie scrollt. Gefunden hat es der Browser-Test, der WIRKLICH scrollt und die Lage der Leiste misst; behoben wurde
+es, indem die Leiste in den festen Kopf der App gezeichnet wird (Portal). Beim Testen des Scrollens: `scroll-behavior: smooth` macht
+`scrollTop` direkt nach `scrollTo` zu 0 — `behavior: "instant"` nehmen.
+*Belege:* #1171, `test_die_leiste_der_firma_bleibt_beim_scrollen_der_historie_stehen`, Gegenprobe fl04/fl08
+
+**L71. „Ohne Scrollen“ ist eine Zahl — ein Wächter misst die Unterkante der ersten Zeile bei den zwei Fenstergrößen, mit Luft.** Die
+Listen begannen nach 600 bis 900 Pixeln; das hatte jeder gesehen und niemand gemessen. `test_v18_listen_zuerst_1171.py` setzt die
+Fenster auf 1366 × 768 und 1920 × 1080 und verlangt, dass die erste Zeile samt Hauptknopf unter der Falz endet — nicht „bei y = 404“, denn
+die Schriftbreite der Linux-CI verschiebt um Zeilen. Eine Messung, die nur bei genau einer Schrift grün ist, wird nach dem zweiten
+roten Lauf ausgeschaltet; die Mutanten, die nur wenige Pixel verschieben (Innenabstand der Filterkarte), bleiben deshalb bewusst
+unerkannt und stehen nicht im Katalog.
+*Belege:* #1171, `docs/internal/wegetabelle-1171.md`, Gegenprobe lk01 bis lk11
