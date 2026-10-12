@@ -147,6 +147,10 @@ Einträgen darunter.
 
 ### Changed
 
+- **Google Jobs über JobSpy ist als defekt gekennzeichnet** (#1159). Mit python-jobspy 1.2.0 liefert Google keine Stellen mehr („Google returned no job data“; gemessen am
+  02. und 12.10.2026: null Treffer). Die Quelle `jobspy_google` steht jetzt unter „Defekte Quellen“ mit Grund und Weg, fällt aus der gespeicherten Auswahl, wird beim Speichern
+  abgelehnt und in keinem Lauf mehr eingeplant. Die Browser-Quelle „Google Jobs (im Browser)“ behauptet nicht mehr, die automatische decke dasselbe Portal ab, und die
+  Browser-Liste nennt die defekte Schwester nicht noch einmal. Wer ausschließlich diese Quelle nutzte, findet Google weiter über den Browser.
 - **Dashboard › Offen: rot ist nur, was überfällig ist** (#1174). Bisher färbte eine einzige überfällige Zeile die ganze Karte rot (Rahmen,
   Hintergrund, Wecker-Symbol) — seit der Zusammenlegung der Listen in v1.7.31, auch in der Stable-Version. Jetzt bleibt die Karte ruhig; rot
   sind die Überschrift „Überfällig“ und das Datum der überfälligen Zeilen. „Heute“ und „Diese Woche“ sind unverändert.
