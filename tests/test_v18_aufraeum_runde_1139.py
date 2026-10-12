@@ -466,6 +466,11 @@ def test_der_status_nennt_intervall_naechsten_lauf_schalter_und_ausloeser(client
     client.post("/api/auto-actions/run")
     j = client.get("/api/auto-actions/status").json()
     assert j["last_run_at"] and j["last_run_by"] == "knopf"
+    # der Status spiegelt den Schalter in beide Richtungen (nicht nur die Vorgabe)
+    aufraeum_runde.expire_automatisch_setzen(db, True)
+    assert client.get("/api/auto-actions/status").json()["expire_automatisch"] is True
+    db.set_automatik_settings(aufraeumen_intervall_tage=7)
+    assert client.get("/api/auto-actions/status").json()["intervall_tage"] == 7
 
 
 def test_der_schalter_laesst_sich_setzen_und_nimmt_nur_wahr_oder_falsch(client, db):
