@@ -76,7 +76,9 @@ Einträgen darunter.
 - **Eine neuere Vorabversion wird überall gleich gemeldet (#1179).** Wer eine Beta nutzt und eine neuere erscheint, sieht in der Seitenleiste „Neue Vorabversion
   verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nie von selbst, auch nicht mit „Mit einem
   Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
-  einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180).
+  einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180). **Für Tester gibt es einen Schalter** (Einstellungen › Updates › „Für Tester:
+  Vorabversionen“, Vorgabe **aus**): Eingeschaltet nennt PBP neuere Vorabversionen der eigenen Linie, und ein Klick installiert sie, sobald ihre Veröffentlichung ein
+  Update-Paket trägt. **Von selbst installiert PBP eine Vorabversion auch dann nie**: nicht in den automatischen Stufen, nicht ohne deinen Klick und deine Rückfrage.
 
 - **Texterkennung ohne Administratorrechte (Einstellungen › Erweitert › Erweiterungen).** „Herunterladen & installieren“ fragt nicht nach Administratorrechten: das Programm kommt nur für dich nach `%LOCALAPPDATA%\Programs\Tesseract-OCR`, das deutsche Sprachpaket dazu, und lässt sich dort wieder entfernen — auch durch den Deinstaller. Ein eingescanntes PDF wird beim Hochladen gelesen (`deu+eng`).
 
@@ -112,6 +114,14 @@ Einträgen darunter.
   feste Quelle des Auto-Updates keine kennt und sie nicht schon von Hand installiert ist) und `vorabHinweis`; die Update-Seite zeigt statt „Aktuell“ „Neue Vorabversion“
   mit einer Karte (Erklärung, drei Schritte, „ZIP herunterladen“, „Veröffentlichung ansehen“), das Dashboard denselben Hinweis in der Hinweiszone (auch ohne verfügbares
   Auto-Update), die Seitenleiste „Neue Vorabversion verfügbar“; „Jetzt prüfen“ fragt beide Auskünfte.
+- **Tester-Schalter für Vorabversionen** (#1179): `zustand.vorabversionen` (Vorgabe aus, im Zweifel aus, nur ein echtes ja/nein). Mit dem Schalter nennt `lauf.pruefen` eine
+  neuere Vorabversion der eigenen Linie als `vorab` **neben** der fertigen, nie an ihrer Stelle (`status` und `version` gehören der fertigen Fassung, nur sie kennen die
+  automatischen Stufen). Installiert wird sie nur mit **allem zugleich**: Zusage im Aufruf (`vorab_erlaubt`, Dashboard `vorabversion: true`, Werkzeug mit genannter Nummer), eingeschalteter
+  Schalter, ein Mensch als Auslöser (nie „automatisch“) und streng gültige Nummer; Adresse, Manifest, Vorbedingungen und Start tragen je ihre eigene Sperre. Prüfsumme und
+  Signatur bleiben Pflicht, ein Linienwechsel und der Weg zurück bleiben ausgeschlossen. Dashboard: `POST /api/auto-update/einstellungen {vorabversionen}`; Werkzeuge:
+  `update_einstellungen_setzen(vorabversionen=ja|nein, bestaetigt)` und `update_jetzt_installieren` (ohne Nummer wählt es nie eine Vorabversion von selbst:
+  `nur_vorabversion`). Die allgemeine Prüfung (Seitenleiste) folgt dem Schalter. Oberfläche: Schalter mit Rückfrage beim Einschalten, Karte „Vorabversion installieren“
+  mit Rückfrage vor der Installation, Hinweis auf dem Dashboard; ohne Update-Paket bleibt es beim ZIP-Weg. Gegenprobe: Katalog „vorabschalter“, 43 absichtlich eingebaute Fehler.
 - **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
   dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
   merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
