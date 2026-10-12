@@ -133,7 +133,7 @@ def test_1065_anlage_und_aussortieren_sind_sich_einig(db):
                   url="https://example.com/neu-ausgeschrieben",
                   beschreibung="Ein ausfuehrlicher Anzeigentext. " * 12,
                   quelle="xing")
-    bewerten = _werkzeug(db, "stelle_bewerten")
+    bewerten = _werkzeug(db, "stelle_einordnen")
     urteil = bewerten(job_hash=res["hash"], bewertung="passt_nicht",
                       gruende=["bereits_beworben", "duplikat"])
     erkannt = urteil.get("duplikat_erkannt")
@@ -155,7 +155,7 @@ def test_1065_beide_wege_schweigen_bei_einer_anderen_stelle(db):
                   firma="Musterbetrieb Nord GmbH",
                   url="https://example.com/andere", quelle="xing",
                   beschreibung="Ein ausfuehrlicher Anzeigentext. " * 12)
-    bewerten = _werkzeug(db, "stelle_bewerten")
+    bewerten = _werkzeug(db, "stelle_einordnen")
     urteil = bewerten(job_hash=res["hash"], bewertung="passt_nicht",
                       gruende=["duplikat"])
     assert "warnung" not in res

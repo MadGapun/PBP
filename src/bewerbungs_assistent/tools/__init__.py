@@ -1,14 +1,10 @@
 """Tool-Module für den Bewerbungs-Assistent MCP Server.
 
-Alle 47 MCP-Tools sind in 8 Domain-Module aufgeteilt:
-- profil: Profil-Verwaltung (14 Tools)
-- dokumente: Dokument-Analyse und Import/Export (8 Tools)
-- jobs: Jobsuche und Stellenverwaltung (5 Tools)
-- bewerbungen: Bewerbungs-Management (4 Tools)
-- suche: Suchkriterien und Blacklist (2 Tools)
-- export_tools: PDF/DOCX-Export (2 Tools)
-- analyse: Erweiterte KI-Features (9 Tools)
-- workflows: Workflow-Starter (3 Tools) — Prompts als Tools für claude.ai
+Die Werkzeuge sind nach Fachgebiet auf Module aufgeteilt (profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse,
+workflows, kontakte, elwosa, tasks, komponenten, update, speicher, mail_quelle, firmen_stamm); `register_all` meldet jedes bei
+FastMCP an. WIE VIELE es sind, steht absichtlich nicht hier: die Zahl wird zur Laufzeit gezaehlt
+(`python scripts/werkzeug_inventar.py`, `pbp_capabilities`) und in `tests/test_v18_werkzeug_zahlen_1148.py` gegen die Dokumente
+gehalten. Eine Zahl in einem Docstring war schon bei ihrer Niederschrift eine Momentaufnahme (47, dann 261).
 """
 
 import functools

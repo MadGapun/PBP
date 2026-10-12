@@ -195,7 +195,7 @@ def test_1011_sichten_und_bewerten_erzeugen_keinen_kontakt(db):
     werkzeuge["stellen_anzeigen"]()
     voll = next(j["hash"] for j in db.get_active_jobs())
     werkzeuge["fit_analyse"](job_hash=voll.split(":")[-1])
-    werkzeuge["stelle_bewerten"](job_hash=voll.split(":")[-1],
+    werkzeuge["stelle_einordnen"](job_hash=voll.split(":")[-1],
                                  bewertung="passt_nicht",
                                  grund="falsches_fachgebiet")
     assert db.list_contacts() == [], \

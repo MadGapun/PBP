@@ -346,7 +346,7 @@ def generate_application_report(report_data: dict, profile: Optional[dict],
     # entfernt. Begruendung (User-Feedback nach Real-Lauf):
     # - „Aktive Filter-Arbeit" suggeriert „nur 1 Stelle wuerdig befunden",
     #   weil viele Bewerbungen ueber Direct-Add (manuell, ueber Chat)
-    #   angelegt werden — nicht ueber stelle_bewerten('passt'). Die Zahl
+    #   angelegt werden — nicht ueber stelle_einordnen('passt'). Die Zahl
     #   ist ohne Kontext irrefuehrend.
     # - „Geschaetzter Zeitaufwand" lag mit 63h fuer realen Aufwand um
     #   Groessenordnungen daneben (echter Aufwand: Stunden bis Tage pro

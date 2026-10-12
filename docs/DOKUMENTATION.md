@@ -220,7 +220,7 @@ Das Dashboard hat **7 Bereiche** und läuft auf `http://localhost:8200`:
 | **Jobsuche (3)** | |
 | `jobsuche_starten()` | Jobsuche auf konfigurierten Quellen (9 Portale) |
 | `jobsuche_status()` | Fortschritt der Suche pruefen |
-| `stelle_bewerten()` | Stelle bewerten/aussortieren |
+| `stelle_einordnen()` | Stelle einordnen (behalten/aussortieren) |
 | **Stellen & Bewerbungen (3)** | |
 | `stellen_anzeigen()` | Gefundene Stellen anzeigen (Filter, Score, Quelle) |
 | `fit_analyse()` | Detaillierte Passungsanalyse einer Stelle |
@@ -290,7 +290,7 @@ Das Dashboard hat **7 Bereiche** und läuft auf `http://localhost:8200`:
 │         ↓ (MCP Protocol / stdio)                          │
 ├──────────────────────────────────────────────────────────┤
 │  server.py (Composition Root, ~140 Zeilen)                │
-│    ├── tools/ (8 Module, 70 Tools)                        │
+│    ├── tools/ (nach Fachgebiet in Module geteilt)         │
 │    ├── prompts.py (16 Prompts)                            │
 │    ├── resources.py (6 Resources)                         │
 │    └── services/ (gemeinsamer Service-Layer)              │

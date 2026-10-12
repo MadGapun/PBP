@@ -151,9 +151,7 @@ EXPECTED_TOOL_NAMES = {
     "kosten_loeschen",
     "meeting_aufwand_setzen",
     "jobsuche_status",
-    "stelle_bewerten",
     "stelle_analyse_loeschen",
-    "stelle_analyse_speichern",
     "stelle_reaktivieren",
     "stelle_wiedergaenger_pruefen",
     "umgang_mit_unbekannt_setzen",
@@ -228,7 +226,6 @@ EXPECTED_TOOL_NAMES = {
     "dokumente_batch_analysieren",
     "dokumente_bulk_markieren",
     "bewerbungs_dokumente_erkennen",
-    "jobtitel_vorschlagen",
     "jobtitel_verwalten",
     "lebenslauf_bewerten",
     "bewerbung_loeschen",
@@ -441,7 +438,7 @@ def test_mcp_registry_counts(tmp_path):
     mcp, db = _build_test_server(tmp_path)
     try:
         tools, prompts, resources = _collect_names(mcp)
-        assert len(tools) == 282  # #1162: +dokument_typ_setzen; #1080: +firmen_stamm_anzeigen, +firmen_vorschlaege_anzeigen, +firmen_stamm_bearbeiten; #947: +mail_quelle_anzeigen, +mail_quelle_einstellen; #1131: +speicher_anzeigen, +speicher_bereinigen; #1093: +update_status, +update_einstellungen_setzen, +update_jetzt_installieren, +update_zurueckschalten; #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
+        assert len(tools) == 279  # #1148 Punkt 13: -stelle_bewerten, -stelle_analyse_speichern, -jobtitel_vorschlagen; #1162: +dokument_typ_setzen; #1080: +firmen_stamm_anzeigen, +firmen_vorschlaege_anzeigen, +firmen_stamm_bearbeiten; #947: +mail_quelle_anzeigen, +mail_quelle_einstellen; #1131: +speicher_anzeigen, +speicher_bereinigen; #1093: +update_status, +update_einstellungen_setzen, +update_jetzt_installieren, +update_zurueckschalten; #792: +lernprotokoll_anzeigen, +lerndaten_exportieren; #1087 H21: +expertenmodus_setzen; H29: +3 neue Namen, alte bleiben; #1099: +dokument_dateien_uebersicht; #1098: +sicherung_anlegen, +sicherungen_anzeigen
         assert len(prompts) == 26  # v1.7.4 (#746): + problem_melden; #1112: + stellen_abgleich
         assert len(resources) == 6
     finally:

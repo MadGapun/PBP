@@ -713,10 +713,6 @@ def register(mcp, db, logger):
             return {"status": "als_passend_markiert"}
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
-    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
-    from . import veralteter_name as _veraltet
-    _veraltet(mcp, "stelle_bewerten", stelle_einordnen, "stelle_einordnen")
-
     @mcp.tool()
     def stelle_urteil_speichern(job_hash: str, urteil: str,
                                  begruendung: str = "",
@@ -787,10 +783,6 @@ def register(mcp, db, logger):
         except Exception as exc:  # pragma: no cover — nie das Urteil kippen
             logger.debug("Laengenhinweis (#1064) fehlgeschlagen: %s", exc)
         return antwort
-
-    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
-    from . import veralteter_name as _veraltet
-    _veraltet(mcp, "stelle_analyse_speichern", stelle_urteil_speichern, "stelle_urteil_speichern")
 
     @mcp.tool()
     def stelle_analyse_loeschen(job_hash: str) -> dict:

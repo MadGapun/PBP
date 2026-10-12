@@ -16,7 +16,7 @@ Claude Desktop (Windows / Linux)
     ▼
 server.py (FastMCP, ~140 Zeilen)
     │
-    ├── tools/              66 MCP-Tools in 8 Modulen
+    ├── tools/              die MCP-Werkzeuge, nach Fachgebiet in Module geteilt
     ├── prompts.py          14 MCP-Prompts
     ├── resources.py        6 MCP-Resources
     ├── services/           4 Services (Profil, Suche, Workspace, E-Mail)
@@ -36,7 +36,7 @@ und Resources und startet optional das Dashboard in einem Hintergrund-Thread.
 
 ### tools/
 
-Die 66 Tools sind fachlich in 8 Module getrennt:
+Die Tools sind fachlich in Module getrennt (die Zahl steht in `python scripts/werkzeug_inventar.py`):
 
 - `profil.py` — Profilverwaltung, Multi-Profil, Erfassungsfortschritt
 - `dokumente.py` — Dokument-Analyse, Extraktion, Profil-Im/Export

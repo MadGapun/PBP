@@ -1459,6 +1459,34 @@ M_FILTERVOREINSTELLUNG = [
 KATALOGE["filtervoreinstellung"] = M_FILTERVOREINSTELLUNG
 GRUNDLAEUFE["filtervoreinstellung"] = (("T_FV", T_FV),)
 
+# ── MCP-Werkzeuge: Sammelposten, Rest (#1148, H38): Parameter-Aliase, Inventar, Zaehlerstaende ──
+T_WS = ["tests/test_v18_parameter_aliase_1148.py", "tests/test_v18_werkzeug_zahlen_1148.py"]
+PARAL = "src/bewerbungs_assistent/services/parameter_aliase.py"
+INVSK = "scripts/werkzeug_inventar.py"
+SERVER_PY = "src/bewerbungs_assistent/server.py"
+
+M_WERKZEUGSAMMEL = [
+    ("pa01", "Die Uebersetzung ueberschreibt einen Namen, den das Werkzeug selbst kennt", PARAL,
+     "        if name in bekannte or name not in _ANDERE:\n", "        if name not in _ANDERE:\n", T_WS),
+    ("pa02", "Die Uebersetzung ueberschreibt einen schon uebergebenen Zielnamen", PARAL,
+     "        kandidaten = [a for a in _ANDERE[name] if a in bekannte and a not in arguments]\n",
+     "        kandidaten = [a for a in _ANDERE[name] if a in bekannte]\n", T_WS),
+    ("pa03", "Die Tabelle kennt firma/company nicht", PARAL,
+     '    ("firma", "company"),\n', "", T_WS),
+    ("pa04", "Die Middleware wendet die Uebersetzung nicht an", SERVER_PY,
+     '                context = context.copy(message=context.message.model_copy(update={"arguments": _aliase}))\n',
+     "                pass\n", T_WS),
+    ("iv01", "Das Ergaenzen zaehlt auch, was nur im erzeugten Abschnitt steht", INVSK,
+     "    aussen = text if a < 0 or e < 0 else text[:a] + text[e + len(MARKE_ENDE):]\n", "    aussen = text\n", T_WS),
+    ("iv02", "Die Wiki-Pruefung uebersieht eine falsche Zahl", INVSK,
+     '    falsch = sorted(z for z in zahlen if z != inv["gesamt"])\n', "    falsch = []\n", T_WS),
+    ("iv03", "Die Wiki-Pruefung uebersieht fehlende Werkzeuge", INVSK,
+     '    fehlt = sorted(n for n in inv["namen"] if n not in genannt)\n    if fehlt:\n        befunde.append(',
+     '    fehlt = []\n    if fehlt:\n        befunde.append(', T_WS),
+]
+KATALOGE["werkzeugsammel"] = M_WERKZEUGSAMMEL
+GRUNDLAEUFE["werkzeugsammel"] = (("T_WS", T_WS),)
+
 WT = None
 
 

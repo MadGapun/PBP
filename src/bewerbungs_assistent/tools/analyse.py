@@ -1,4 +1,4 @@
-"""Erweiterte KI-Features — 11 Tools (#169: Scoring-Regler)."""
+"""Erweiterte KI-Features, Diagnose und Telemetrie (#169: Scoring-Regler)."""
 
 import json
 import re

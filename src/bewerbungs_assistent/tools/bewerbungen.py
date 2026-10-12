@@ -1,4 +1,4 @@
-"""Bewerbungs-Management — 16 Tools (#170: geführter Workflow, #443: Write-Back-Gaps)."""
+"""Bewerbungs-Management (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
 from ..services.nutzerfuehrung import kein_profil, leer
 

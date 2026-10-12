@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v52.
-- **Umfang:** 8596 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
+- **Umfang:** 8596 Tests; 279 MCP-Werkzeuge, Wartungswerkzeuge nur im
   Expertenmodus; 26 Prompts.
 - **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
   Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
@@ -469,7 +469,7 @@ sind regelmaessig falsch.
 ## STRENG: keine eigenen Ablehnungsgruende (#663)
 
 Beim Aussortieren (`stelle_einordnen(job_hash, 'passt_nicht', grund)`,
-alter Name `stelle_bewerten`; `stellen_bulk_bewerten`) NUR Werte aus der
+bis 1.7 `stelle_bewerten`; `stellen_bulk_bewerten`) NUR Werte aus der
 Liste nutzen — nicht kombinieren, eindeutschen, kuerzen oder umschreiben.
 Massgeblich ist `verfuegbare_gruende` aus der Werkzeugantwort: die
 Standardliste aus `services/ablehnungsgruende.py` (`STANDARD_GRUENDE`) plus

@@ -326,13 +326,10 @@ def parameter_texte(doc: str) -> dict[str, str]:
     return ergebnis
 
 
-# H29 (#1087 G11): alte Namen, die einen Release lang weiter erreichbar
-# sind. Ein Alias traegt den Tag seines neuen Namens.
-ALIASE = {
-    "stelle_bewerten": "stelle_einordnen",
-    "stelle_analyse_speichern": "stelle_urteil_speichern",
-    "jobtitel_vorschlagen": "jobtitel_speichern",
-}
+# H29 (#1087 G11): alte Namen, die einen Release lang weiter erreichbar sind (`tools.veralteter_name`). Ein Alias traegt den Tag
+# seines neuen Namens. Leer seit 1.8.0 (#1148 Punkt 13): `stelle_bewerten`, `stelle_analyse_speichern` und `jobtitel_vorschlagen`
+# galten seit v1.7.135 "einen Release lang" und sind entfallen; ein kuenftiger Rename traegt sich hier wieder ein.
+ALIASE: dict = {}
 
 
 def tag(name: str) -> str:

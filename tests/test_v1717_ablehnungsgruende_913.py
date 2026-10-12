@@ -190,7 +190,7 @@ def test_913_neue_gruende_sind_regulaer(setup_env):
             raw = raw[0] if raw else {}
         return raw
 
-    res = _call("stelle_bewerten", {
+    res = _call("stelle_einordnen", {
         "job_hash": h, "bewertung": "passt_nicht",
         "gruende": ["falsches_system"]})
     job = db.get_job(h)
