@@ -155,5 +155,12 @@ Remotedesktop-Verbindung ist offen, du fasst ihn nicht an. Was anders ist:
   gestellt (`pbp_probe.ps1 linie MadGapun/PBP-update-probe`; dort liegt eine stabile 1.8-Veröffentlichung). Erwartet: Einstellungen › Updates und die Seitenleiste nennen die Version 1.8.x samt Weg dorthin
   (ZIP, `INSTALLIEREN.bat`); angeboten oder installiert wird sie nie (Linie 1.7 → 1.8 geht einmal von Hand). So wird die Meldung, die am Tag der
   Veröffentlichung jede 1.7-Installation trifft, gegen echte GitHub-Antworten gesehen, bevor sie wirklich gilt.
+- **Block I (neu): Wege und Listen** (#1170, #1171; rund 15 Minuten, nur Klicken und Ansehen, auf dem echten Bildschirm). Erwartet ist überall: **ein Klick je
+  Schritt, nichts scrollen, um zu klicken.** (1) Stellen und Bewerbungen: der Kopf ist eine Zeile, die erste Zeile samt Knöpfen steht im Bild; ein Klick auf die Zeile
+  klappt die Kennzahlen auf, nach dem Neuladen bleibt es so. (2) Eine Stelle öffnen › „Bewerbung anlegen“ › speichern: die neue Bewerbung liegt offen da; in der
+  Leiste „Zur Stelle“ (ein Klick), dort „‹ Zurück zu Bewerbung: …“ (ein Klick). (3) In der Timeline „Firma“: die Firmen-Ansicht mit der Leiste im festen Kopf —
+  die Historie scrollen, die Leiste bleibt; „‹ Zurück zu Bewerbung: …“. (4) Alt + ← (oder die Zurück-Taste der Maus) schließt den obersten Dialog, die Seite bleibt.
+  (5) Das Dashboard-Fenster auf halbe Bildschirmbreite ziehen (neben Claude Desktop): die Seitenleiste ist eingeklappt, nichts ist abgeschnitten. (6) Einstellungen:
+  die Reiter sind die einzige Navigation; die Zahlen in der Seitenleiste tragen ein Wort. Die Tabelle aller Wege: `docs/internal/wegetabelle-1171.md`.
 - **Ergebnis** wie zuvor: je Block ein Satz im PR des Kandidaten und im Issue #1170; Funde werden ab PP30 nummeriert. Ein Befund, der ein Ergebnis ändert,
   hält die Veröffentlichung an.
