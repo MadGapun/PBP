@@ -48,6 +48,8 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import { SPRUNG_WORT, zuKontakt } from "@/lib/wege";
 import Sprungleiste from "@/components/Sprungleiste";
+import WegLeiste from "@/components/WegLeiste";
+import { bewerbungLeiste } from "@/lib/wegleiste";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, brauchtBewerbungsdatum, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 
@@ -139,6 +141,9 @@ export default function ApplicationsPage() {
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   // #1177 (G88): in welchem Abschnitt der Timeline der Dialog aufgeht (Treffer „Termin“ der Suche); `nr` ist je Oeffnen neu
   const [timelineAbschnitt, setTimelineAbschnitt] = useState({ kennung: "", nr: 0 });
+  // #1171 Baustein 3/4: woher der Mensch kam (fuer den Rueckweg) und wer an der Bewerbung haengt (fuer die Weg-Leiste)
+  const [timelineVon, setTimelineVon] = useState(null);
+  const [timelineKontakte, setTimelineKontakte] = useState([]);
   // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
   const [jobDetailHash, setJobDetailHash] = useState(null);
   const timelineInhaltRef = useRef(null);
@@ -249,7 +254,7 @@ export default function ApplicationsPage() {
       // G57 (#1087 D6): Kalender, Dokumente und Elwosa senden jetzt
       // ebenfalls `applicationId`; `highlight` bleibt als Alias, damit ein
       // vergessener Aufrufer nicht wieder oben in der Liste landet.
-      openTimeline({ id: intent.applicationId || intent.highlight }, { abschnitt: intent.abschnitt });
+      openTimeline({ id: intent.applicationId || intent.highlight }, { abschnitt: intent.abschnitt, von: intent.von });
       clearIntent();
     }
   }, [intent, clearIntent]);
@@ -419,6 +424,7 @@ export default function ApplicationsPage() {
       api(`/api/applications/${appId}/emails`).catch(() => ({ emails: [] })),
       api(`/api/applications/${appId}/tasks`).catch(() => []),  // #666 D19
       api(`/api/applications/${appId}/reflexionen`).catch(() => ({ reflexionen: [] })),  // #824 D31
+      api(`/api/applications/${appId}/contacts`).catch(() => ({ contacts: [] })),  // #1171: Weg-Leiste
     ]);
   }
 
@@ -427,7 +433,7 @@ export default function ApplicationsPage() {
   // (Notiz-Entwurf, Aufgabe, Reflexion) und nicht die Leseposition.
   async function timelineAuffrischen(appId) {
     try {
-      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(appId);
+      const [timeline, docs, meetings, emails, tasks, reflexionen, kontakte] = await holeTimelineDaten(appId);
       // Wurde die Timeline inzwischen geschlossen oder zeigt sie eine andere Bewerbung, wird nichts ueberschrieben.
       if (timelineAppRef.current !== appId) return;
       setTimelineDialog((aktuell) => ({ ...aktuell, entry: timeline }));
@@ -437,13 +443,16 @@ export default function ApplicationsPage() {
       setTimelineEmails(emails?.emails || []);
       setTimelineTasks(Array.isArray(tasks) ? tasks : []);
       setTimelineReflexionen(reflexionen?.reflexionen || []);
+      setTimelineKontakte(kontakte?.contacts || []);
     } catch { /* bleibt beim alten Stand */ }
   }
 
   async function openTimeline(application, optionen = {}) {
     try {
-      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(application.id);
+      const [timeline, docs, meetings, emails, tasks, reflexionen, kontakte] = await holeTimelineDaten(application.id);
       setTimelineAbschnitt({ kennung: optionen.abschnitt || "", nr: Date.now() });
+      setTimelineVon(optionen.von || null);
+      setTimelineKontakte(kontakte?.contacts || []);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
@@ -1200,6 +1209,44 @@ export default function ApplicationsPage() {
         title={`Timeline - ${timelineDialog.entry?.application?.title || ""}`}
         onClose={() => setTimelineDialog({ open: false, entry: null })}
         size="xl"
+        weg={timelineDialog.open && timelineDialog.entry?.application ? (() => {
+          // #1171 Baustein 3: die feste Weg-Leiste - Rueckweg, die anderen Ansichten dieses Falls, der naechste Schritt.
+          const app = timelineDialog.entry.application;
+          const id8 = String(app.id || "").slice(0, 8);
+          const leiste = bewerbungLeiste({
+            zurueckLabel: "Bewerbungen",
+            jobHash: app.job_hash,
+            firma: app.company,
+            kontakte: timelineKontakte,
+            dokumente: timelineDialog.entry.documents || [],
+            termine: timelineMeetings.length ? timelineMeetings : (timelineDialog.entry.meetings || []),
+            bewerbungId: app.id,
+            status: app.status,
+            hatLebenslauf: Boolean(app.cv_path),
+            hatAnschreiben: Boolean(app.cover_letter_path),
+            nachfassenFaellig: dueFollowUps.some((f) => f.application_id === app.id),
+          });
+          const schliessen = () => setTimelineDialog({ open: false, entry: null });
+          const aktionen = {
+            lebenslauf: () => unterlagenKopieren(app, "lebenslauf"),
+            anschreiben: () => unterlagenKopieren(app, "anschreiben"),
+            beworben_eintragen: () => updateStatus(app.id, "beworben", { reloadTimeline: true }),
+            gespraech_vorbereiten: () => interviewVorbereitungKopieren(app),
+            nachfassen: () => copyPrompt(`Schreibe mir eine kurze, freundliche Nachfass-Mail zu meiner Bewerbung „${app.title}“ bei ${app.company}. Lies vorher die Bewerbung mit bewerbung_details (ID ${id8}): den letzten Stand, den Ansprechpartner und wann ich mich beworben habe.`),
+            angebot_pruefen: () => copyPrompt(`Prüfe mit mir das Angebot zu meiner Bewerbung „${app.title}“ bei ${app.company}. Lies vorher die Bewerbung mit bewerbung_details (ID ${id8}) und vergleiche es mit meinen Gehaltsvorstellungen und Suchkriterien — ich entscheide.`),
+            aus_absage_lernen: () => copyPrompt(`Hilf mir, aus der Absage zu meiner Bewerbung „${app.title}“ bei ${app.company} zu lernen. Lies die Bewerbung mit bewerbung_details (ID ${id8}) und sag mir ehrlich, was ich beim nächsten Mal anders machen könnte.`),
+          };
+          return (
+            <WegLeiste
+              leiste={leiste}
+              selbst={{ seite: "bewerbungen", intent: { applicationId: app.id, focus: "timeline" }, label: `Bewerbung: ${app.title}` }}
+              von={timelineVon}
+              onVerlassen={schliessen}
+              onZurueck={schliessen}
+              onAktion={(aktion) => aktionen[aktion]?.()}
+            />
+          );
+        })() : null}
         footer={(() => {
           const appId = timelineDialog.entry?.application?.id;
           // beta.31 / #474: ZIP-Export mit Optionen

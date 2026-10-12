@@ -257,6 +257,11 @@ jobs:
         # Aufrufe), der Satz zu einer Verknuepfung des Kontakts und die Abschnitte der Sprungleiste.
         run: node frontend/src/lib/wege.test.mjs
 
+      - name: Weg-Leiste - der naechste Schritt je Zustand (Node)
+        # v1.8 (#1171, G85, Baustein 3): aus dem Zustand eines Falls (Stelle, Bewerbung, Kontakt) die Eintraege der festen
+        # Leiste: Faelle mit Anzahl, Hauptknopf je Status, Klicks bis zu einem Fall.
+        run: node frontend/src/lib/wegleiste.test.mjs
+
       - name: Seitenleiste - schmale Fenster (Node)
         # v1.8 (#1170 U15): unter 900 px ohne eigene Wahl eingeklappt, die Wahl je Breitenklasse gemerkt.
         run: node frontend/src/lib/seitenleiste.test.mjs

@@ -23,6 +23,8 @@ import { punkteText } from "@/lib/score";
 import { grundText, quelleText } from "@/lib/anzeige";
 
 import FirmaLink from "@/components/FirmaLink";
+import WegLeiste from "@/components/WegLeiste";
+import { stelleLeiste } from "@/lib/wegleiste";
 
 export default function InlineJobDetailModal({ jobHash, onClose }) {
   const [job, setJob] = useState(null);
@@ -47,7 +49,29 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
   if (!jobHash) return null;
 
   return (
-    <Modal open={true} title="Stellendetails" onClose={onClose}>
+    <Modal
+      open={true}
+      title="Stellendetails"
+      onClose={onClose}
+      weg={job ? (
+        // #1171 Baustein 3: dieselbe Leiste wie im Dialog der Stellen-Seite (diese Fassung kann nur lesen und oeffnen)
+        <WegLeiste
+          leiste={stelleLeiste({
+            zurueckLabel: "der Bewerbung",
+            firma: job.company,
+            beurteilt: true,
+            hatAnzeige: Boolean(job.url),
+          })}
+          selbst={{ seite: "stellen", intent: { focus: "job", jobHash, oeffnen: true }, label: `Stelle: ${job.title}` }}
+          onVerlassen={onClose}
+          onZurueck={onClose}
+          onAktion={(aktion) => {
+            if (aktion === "anzeige_oeffnen" && job.url) oeffneAdresse(job.url, "_blank", "noopener");
+            if (aktion === "bewerbung_anlegen") onClose();
+          }}
+        />
+      ) : null}
+    >
       {loading && <p className="text-sm text-muted">Lade...</p>}
       {error && (
         <div className="rounded-lg border border-coral/20 bg-coral/[0.05] p-3 text-sm text-coral">

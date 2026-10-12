@@ -57,6 +57,8 @@ import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 import { zuBewerbung } from "@/lib/wege";
+import WegLeiste from "@/components/WegLeiste";
+import { stelleLeiste } from "@/lib/wegleiste";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -576,6 +578,10 @@ export default function JobsPage() {
     return () => { abgebrochen = true; };
   }, []);
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
+  // #1171 Baustein 3: zu welcher Stelle gehoert welche (laufende) Bewerbung - fuer "Zur Bewerbung"
+  const [bewerbungZuStelle, setBewerbungZuStelle] = useState(() => new Map());
+  // #1171 Baustein 4: woher kam der Mensch, als der Dialog aufging (nur ueber einen Sprung, nie ueber die Liste)
+  const detailVonRef = useRef(null);
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
   const [refetchBusy, setRefetchBusy] = useState(false);
@@ -630,7 +636,9 @@ export default function JobsPage() {
   const nachladenLaeuftRef = useRef(false);
 
   const openDetailDialog = useCallback((job) => {
-    setDetailDialog({ open: true, job, editing: false });
+    const von = detailVonRef.current;
+    detailVonRef.current = null;
+    setDetailDialog({ open: true, job, editing: false, von });
   }, []);
 
   const loadPage = useEffectEvent(async (options = {}) => {
@@ -694,6 +702,9 @@ export default function JobsPage() {
           if (appsResponse) {
             const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
             setAppliedJobHashes(appHashes);
+            setBewerbungZuStelle(new Map((appsResponse?.applications || [])
+              .filter((a) => a.job_hash && a.id && !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(a.status))
+              .map((a) => [a.job_hash, a.id])));
           }
           if (reasons) setDismissReasons(reasons);
           if (guete?.umgang) setGuetUmgang(guete.umgang);
@@ -852,7 +863,10 @@ export default function JobsPage() {
         sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
-      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));
+      if (intent.oeffnen) {
+        detailVonRef.current = intent.von || null;
+        setPendingOpenJobHash(String(intent.jobHash));
+      }
     }
     if (intent.missingDescriptionOnly) {
       setFilters((current) => ({
@@ -2104,7 +2118,13 @@ export default function JobsPage() {
                     {appliedJobHashes.has(job.hash) ? (
                       <button
                         className="cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { focus: "job", jobHash: job.hash }); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // #1171: die Bewerbung selbst oeffnen (die Seite las `focus: job` nie)
+                          const ziel = zuBewerbung(bewerbungZuStelle.get(job.hash));
+                          if (ziel) navigateTo(ziel.seite, ziel.intent);
+                          else navigateTo("bewerbungen", { focus: "job", jobHash: job.hash });
+                        }}
                         title="Zur Bewerbung wechseln"
                       >
                         <Badge tone="success">Bereits beworben</Badge>
@@ -2755,6 +2775,41 @@ export default function JobsPage() {
           title={detailDialog.editing ? "Stelle bearbeiten" : "Stellendetails"}
           onClose={() => setDetailDialog({ open: false, job: null, editing: false })}
           size="xl"
+          weg={detailDialog.editing ? null : (() => {
+            // #1171 Baustein 3: die feste Weg-Leiste der Stelle
+            const job = detailDialog.job;
+            const bewerbungId = bewerbungZuStelle.get(job.hash) || "";
+            const leiste = stelleLeiste({
+              zurueckLabel: "Stellen",
+              firma: job.company,
+              bewerbungId,
+              beurteilt: Boolean(String(job.analyse_urteil || "").trim()),
+              hatAnzeige: Boolean(job.url),
+            });
+            const schliessen = () => setDetailDialog({ open: false, job: null, editing: false });
+            const selbst = { seite: "stellen", intent: { focus: "job", jobHash: job.hash, oeffnen: true }, label: `Stelle: ${job.title}` };
+            const aktionen = {
+              bewerten: () => copyPrompt(detailbewertungPrompt(job)),
+              bewerbung_anlegen: () => { schliessen(); openApplicationDialog(job); },
+              zur_bewerbung: () => {
+                const ziel = zuBewerbung(bewerbungId);
+                if (!ziel) return;
+                schliessen();
+                navigateTo(ziel.seite, { ...ziel.intent, von: selbst });
+              },
+              anzeige_oeffnen: () => window.open(sichereAdresse(job.url), "_blank", "noopener,noreferrer"),
+            };
+            return (
+              <WegLeiste
+                leiste={leiste}
+                selbst={selbst}
+                von={detailDialog.von}
+                onVerlassen={schliessen}
+                onZurueck={schliessen}
+                onAktion={(aktion) => aktionen[aktion]?.()}
+              />
+            );
+          })()}
         >
           {detailDialog.editing ? (
             <div className="space-y-4">

@@ -20,6 +20,8 @@ import { api, apiUrl, postJson, putJson, deleteRequest } from "@/api";
 import { Button, Card, Field, Modal, TextInput, LoadingPanel } from "@/components/ui";
 import FirmenAnsicht from "@/components/FirmenAnsicht";
 import { verknuepfungZeile } from "@/lib/wege";
+import WegLeiste from "@/components/WegLeiste";
+import { kontaktLeiste } from "@/lib/wegleiste";
 
 // v1.7.0-beta.10 (#563): Kontaktdatenbank-Frontend.
 // Designprinzip: End-User wird gut gefuehrt — Empty States erklaeren, was
@@ -127,7 +129,7 @@ function ContactCard({ contact, onClick }) {
   );
 }
 
-function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
+function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast, von = null }) {
   const { copyPrompt, geloeschtMitRueckweg, navigateTo } = useApp();
   const isEdit = Boolean(contact?.id);
   const [form, setForm] = useState(() => ({
@@ -252,6 +254,34 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast }) {
       open
       title={isEdit ? "Kontakt bearbeiten" : "Neuer Kontakt"}
       onClose={onClose}
+      weg={isEdit ? (() => {
+        // #1171 Baustein 3: dieselbe Weg-Leiste wie bei Stelle und Bewerbung
+        const zeilen = linkedItems.map((l) => ({ l, z: verknuepfungZeile(l) })).filter((x) => x.z.ziel);
+        const bewerbungen = zeilen.filter((x) => x.l.target_kind === "application").map((x) => ({ id: x.l.target_id, label: x.z.text }));
+        const stellen = zeilen.filter((x) => x.l.target_kind === "job").map((x) => ({ id: x.l.target_id, label: x.z.text }));
+        const leiste = kontaktLeiste({
+          zurueckLabel: "Kontakte",
+          name: form.full_name,
+          firma: form.company,
+          bewerbungen,
+          stellen,
+          laufendeBewerbung: bewerbungen.length > 0,
+        });
+        return (
+          <WegLeiste
+            leiste={leiste}
+            selbst={{ seite: "kontakte", intent: { ansicht: "kontakte", kontaktId: contact.id }, label: `Kontakt: ${form.full_name || contact.full_name}` }}
+            von={von}
+            onVerlassen={onClose}
+            onZurueck={onClose}
+            onAktion={(aktion) => {
+              if (aktion === "nachfassen_bei") {
+                copyPrompt(`Ich will bei ${form.full_name} nachfassen. Lies mit kontakt_historie, was PBP zu dieser Person weiß (Bewerbungen, Termine, bisherige Nachfassungen), und schreib mir einen kurzen, freundlichen Textvorschlag.`);
+              }
+            }}
+          />
+        );
+      })() : null}
     >
       <div className="space-y-3">
         {/* #1171 (G85): wozu diese Person gehoert, steht OBEN und ist ein Klick entfernt — vorher ganz unten im
@@ -771,6 +801,7 @@ export default function ContactsPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
   const [dialogContact, setDialogContact] = useState(null);
+  const [dialogVon, setDialogVon] = useState(null);   // #1171 Baustein 4: woher kam der Mensch
   const [dialogOpen, setDialogOpen] = useState(false);
   // v1.7.0-beta.19: Kontakt-Import aus Bewerbungen + Mails
   const [importDialogOpen, setImportDialogOpen] = useState(false);
@@ -803,7 +834,7 @@ export default function ContactsPage() {
       // #1171 (G85): „Zum Kontakt“ oeffnet die Person selbst, nicht nur die Liste.
       if (intent.kontaktId) {
         api(`/api/contacts/${encodeURIComponent(intent.kontaktId)}`)
-          .then((kontakt) => { if (kontakt?.id) { setDialogContact(kontakt); setDialogOpen(true); } })
+          .then((kontakt) => { if (kontakt?.id) { setDialogVon(intent.von || null); setDialogContact(kontakt); setDialogOpen(true); } })
           .catch(() => pushToast("Die Person konnte nicht geöffnet werden.", "danger"));
       }
     }
@@ -835,6 +866,7 @@ export default function ContactsPage() {
   }
 
   function handleEdit(c) {
+    setDialogVon(null);
     setDialogContact(c);
     setDialogOpen(true);
   }
@@ -987,6 +1019,7 @@ export default function ContactsPage() {
           onSaved={reload}
           onDeleted={reload}
           pushToast={pushToast}
+          von={dialogVon}
         />
       )}
 

@@ -613,16 +613,70 @@ export function useDialogFokus(ref, aktiv, beiEscape) {
   }, [aktiv]);
 }
 
+// ── Zurueck-Taste (#1171, G85, Baustein 4) ─────────────────────────────────────────────────────────────
+// Ein Dialog legt beim Oeffnen einen Eintrag in den Verlauf (gleiche Adresse). Die Zurueck-Taste der Maus (Alt+←)
+// nimmt ihn wieder weg und schliesst damit den obersten Dialog, statt die Seite zu verlassen. Schliesst der Mensch den
+// Dialog selbst, nimmt der Dialog seinen Eintrag zurueck - sonst braeuchte die Zurueck-Taste einen toten Schritt.
+// Der Verlauf ist ein Stapel wie die Dialoge: es schliesst immer der oberste.
+const dialogStapel = [];
+let dialogZaehler = 0;
+let popstateAngemeldet = false;
+
+function nachPopstate() {
+  const aktuell = window.history.state?.pbpDialog ?? null;
+  while (dialogStapel.length) {
+    const oben = dialogStapel[dialogStapel.length - 1];
+    if (oben.id === aktuell) break;       // sein Eintrag liegt noch im Verlauf: er bleibt offen
+    dialogStapel.pop();
+    oben.zurueck();
+  }
+}
+
+export function useZurueckSchliesst(open, zurueckRef) {
+  useEffect(() => {
+    if (!open || typeof window === "undefined") return undefined;
+    if (!popstateAngemeldet) {
+      window.addEventListener("popstate", nachPopstate);
+      popstateAngemeldet = true;
+    }
+    dialogZaehler += 1;
+    const id = dialogZaehler;
+    const eintrag = { id, zurueck: () => zurueckRef.current?.(eintrag) };
+    try {
+      window.history.pushState({ pbpDialog: id }, "", window.location.href);
+    } catch {
+      // ohne Verlauf (eingebettet, gesperrt) bleibt es bei Escape und dem Kreuz
+    }
+    dialogStapel.push(eintrag);
+    return () => {
+      const i = dialogStapel.indexOf(eintrag);
+      if (i >= 0) dialogStapel.splice(i, 1);
+      // Zeitversetzt: ein Dialog, der gleich wieder aufgeht (oder eine Navigation, die den Verlauf schon weitergeschoben hat),
+      // darf nicht den Eintrag eines anderen wegnehmen. Liegt unser Eintrag noch oben, nehmen wir ihn zurueck.
+      window.setTimeout(() => {
+        try {
+          if (window.history.state?.pbpDialog === id) window.history.back();
+        } catch {
+          // nichts zu tun
+        }
+      }, 0);
+    };
+  }, [open]);
+}
+
 // G67 (#1087 H5): Schliessen-Kreuz im Kopf, und wer im Dialog etwas
 // eingegeben hat, wird vor dem Verwerfen gefragt — ein Klick daneben oder
 // Escape verwarf bis v1.7.135 ein halb ausgefuelltes Formular. Die
 // Schaltflaechen des Aufrufers (Speichern, Abbrechen) schliessen ohne
 // Rueckfrage; sie sind eine Entscheidung. `schutz={false}` fuer Dialoge
 // ohne Formular (Suchfeld, Bestaetigung).
-export function Modal({ open, title, description, onClose, children, footer, size = "lg", schutz = true }) {
+// `weg` (#1171, Baustein 3): die feste Weg-Leiste. Sie liegt UEBER dem scrollenden Inhalt und bleibt deshalb beim Scrollen
+// sichtbar.
+export function Modal({ open, title, description, onClose, children, footer, weg = null, size = "lg", schutz = true }) {
   const [geaendert, setGeaendert] = useState(false);
   const [verwerfenFrage, setVerwerfenFrage] = useState(false);
   const dialogRef = useRef(null);
+  const zurueckRef = useRef(null);
   const titelId = useId();
   const beschreibungId = useId();
   useEffect(() => {
@@ -641,6 +695,23 @@ export function Modal({ open, title, description, onClose, children, footer, siz
   }
 
   useDialogFokus(dialogRef, open, schliessenVersuchen);
+
+  // Die Zurueck-Taste: wie Escape - mit der Rueckfrage, wenn etwas eingegeben wurde. Der Eintrag ist da schon aus dem
+  // Verlauf genommen; fuer die Rueckfrage legen wir ihn wieder hin.
+  zurueckRef.current = (eintrag) => {
+    if (schutz && geaendert) {
+      try {
+        window.history.pushState({ pbpDialog: eintrag.id }, "", window.location.href);
+      } catch {
+        // ohne Verlauf bleibt nur die Rueckfrage
+      }
+      dialogStapel.push(eintrag);
+      setVerwerfenFrage(true);
+      return;
+    }
+    onClose();
+  };
+  useZurueckSchliesst(open, zurueckRef);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -668,11 +739,11 @@ export function Modal({ open, title, description, onClose, children, footer, siz
         aria-labelledby={titelId}
         aria-describedby={description ? beschreibungId : undefined}
         tabIndex={-1}
-        className={cn("glass-card-strong max-h-[90vh] w-full overflow-hidden rounded-3xl animate-rise outline-none", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}
+        className={cn("glass-card-strong flex max-h-[90vh] w-full flex-col overflow-hidden rounded-3xl animate-rise outline-none", size === "xl" ? "max-w-5xl" : size === "lg" ? "max-w-4xl" : "max-w-2xl")}
         onInputCapture={() => setGeaendert(true)}
         onChangeCapture={() => setGeaendert(true)}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-white/6 px-6 py-5">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-white/6 px-6 py-5">
           <div className="min-w-0">
             <h2 id={titelId} className="text-xl font-semibold text-ink">{title}</h2>
             {description ? <p id={beschreibungId} className="mt-1.5 text-[13px] text-muted">{description}</p> : null}
@@ -688,8 +759,9 @@ export function Modal({ open, title, description, onClose, children, footer, siz
             <X size={18} />
           </button>
         </div>
+        {weg}
         {verwerfenFrage ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber/20 bg-amber/10 px-6 py-3 text-sm text-ink" data-verwerfen-frage>
+          <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-amber/20 bg-amber/10 px-6 py-3 text-sm text-ink" data-verwerfen-frage>
             <span>Deine Eingaben sind noch nicht gespeichert. Verwerfen?</span>
             <span className="flex gap-2">
               <Button size="sm" variant="secondary" onClick={() => setVerwerfenFrage(false)}>Weiter bearbeiten</Button>
@@ -697,8 +769,8 @@ export function Modal({ open, title, description, onClose, children, footer, siz
             </span>
           </div>
         ) : null}
-        <div data-modal-koerper className="soft-scrollbar max-h-[calc(90vh-10rem)] overflow-y-auto px-6 py-5">{children}</div>
-        {footer ? <div className="border-t border-white/6 px-6 py-4">{footer}</div> : null}
+        <div data-modal-koerper className="soft-scrollbar min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {footer ? <div className="shrink-0 border-t border-white/6 px-6 py-4">{footer}</div> : null}
       </div>
     </div>,
     document.body

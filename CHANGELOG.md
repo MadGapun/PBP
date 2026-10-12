@@ -242,6 +242,14 @@ Einträgen darunter.
   Die Willkommenskarte „So arbeiten Dashboard und Claude zusammen“, der Sicherheitsabsatz bei den Updates, der Absatz zur Fahrstrecke und die Einleitung von Speicher & Downloads tragen jetzt eine
   Überschrift als Schalter; die Wahl wird je Text gemerkt. Unter Einstellungen › Erscheinungsbild klappt der Schalter „Erklärtexte aufgeklappt zeigen“ (Vorgabe an, wie bisher) alle ein oder aus und
   setzt die Einzelwahlen zurück. Ohne Browserspeicher bleibt alles aufgeklappt.
+- **Jede Ansicht eines Falls trägt eine feste Weg-Leiste** (#1171, Baustein 3). Stelle, Bewerbung und Kontakt zeigen oben, unter dem Titel, eine Leiste, die beim Scrollen stehen bleibt:
+  links der Rückweg („‹ Zurück zu …“), in der Mitte die anderen Ansichten desselben Falls — nur was es gibt, mit Anzahl; ein Klick öffnet das Objekt, bei mehreren zeigt eine kurze Auswahl die Einträge —,
+  rechts der nächste Schritt, der zum Zustand passt (Stelle: bewerten, Bewerbung anlegen, zur Bewerbung; Bewerbung je Status: Lebenslauf und Anschreiben, Nachfassen, Gespräch vorbereiten,
+  Angebot prüfen, aus der Absage lernen; Kontakt: Nachfassen bei der Person) mit den anderen Wegen dahinter. Die Wörter sind überall dieselben („Zur Stelle“, „Zur Bewerbung“, „Zur Firma“,
+  „Zum Kontakt“). Die Rechnung steht an einer Stelle (`lib/wegleiste.js`, mit Knoten-Test und Wächter-Test im Browser). Zwei Folgen: der Dialog ist jetzt eine Spalte aus Kopf, Leiste, scrollendem Inhalt und Fuß —
+  die Fußzeile der Timeline wurde bei kleinen Fenstern angeschnitten —, und der Hinweis „Bereits beworben“ an einer Stelle öffnet die Bewerbung (er führte nur auf die Seite).
+- **Der Rückweg führt dorthin zurück, woher du kamst** (#1171, Baustein 4). Wer aus der Bewerbung zur Stelle springt, sieht dort „‹ Zurück zu Bewerbung: …“ und landet mit einem Klick wieder in
+  der Timeline. Die Zurück-Taste der Maus (Alt+←) schließt den obersten Dialog, statt die Seite zu verlassen; wer einen Dialog selbst schließt, hinterlässt keinen toten Schritt im Verlauf.
 - **Ein Scan ohne Text nennt den Weg zur Texterkennung** (#1170 U12). Der Server meldete beim Hochladen längst, dass ein PDF nur ein Bild ist und die Texterkennung fehlt (`ocr: erforderlich`); die
   Dokumente-Seite las das Feld nie, und wer sein erstes eingescanntes Zeugnis hochlud, bekam ein Dokument ohne Text und keinen Hinweis. Jetzt steht der Satz da, mit dem Knopf „Texterkennung
   einrichten“ (Einstellungen › Erweiterungen); ein Fehlschlag der Texterkennung wird ehrlich genannt. Der zweite Teil von U12 — beim ersten Start fragen, wie Updates installiert werden sollen —
