@@ -404,12 +404,16 @@ def test_u18_ein_roher_fehlertext_der_erkennung_steht_nicht_im_dashboard():
 # ══ #1147 Punkt 3: der Satz zu den KI-Schaltern sagt, was sie tun ══════════════════════════════════════════════
 
 def test_1147_die_ki_schalter_versprechen_nicht_mehr_als_sie_tun():
-    """Die Schalter sperren die Funktionen, mit denen Claude etwas AUSLÖST (elf Werkzeuge). Lesende Werkzeuge liefern weiter, solange
-    PBP in Claude Desktop eingetragen ist. Der Satz „… gibt PBP für diesen Bereich nichts an Claude weiter“ war deshalb falsch."""
-    quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    """Die Schalter sperren die Funktionen, mit denen Claude etwas AUSLÖST, und (ab 1.8.0, Variante B) die Werkzeuge, die Dokument- und
+    Mailtexte liefern. Profil, Bewerbungen und Stellen bleiben lesbar, solange PBP in Claude Desktop eingetragen ist. Der Satz „… gibt PBP
+    für diesen Bereich nichts an Claude weiter“ war falsch; „Claude kann Daten dennoch lesen“ (Fassung A) ist es seit B auch."""
+    quelle = " ".join((FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig").split())
     assert "gibt PBP für diesen Bereich nichts an Claude weiter" not in quelle
+    assert "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist" not in quelle
     assert "führt PBP diese Funktion nicht aus und sagt das" in quelle
-    assert "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist" in quelle
+    assert "Bei „Dokumentenanalyse“ liest Claude dann auch keine Dokumente und Mails mehr" in quelle
+    assert "Dein Profil, deine Bewerbungen und die Stellen kann Claude weiterhin lesen" in quelle
+    assert "wer gar nichts weitergeben will, trennt PBP in Claude Desktop" in quelle
 
 
 # ══ #1139: die Oberfläche verspricht keine Automatik, die nur auf Knopfdruck läuft ═══════════════════════════════

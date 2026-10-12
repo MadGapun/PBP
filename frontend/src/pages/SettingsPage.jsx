@@ -1550,7 +1550,7 @@ const KI_FEATURE_DEFS = [
   { id: "jobsuche", label: "Jobsuche via Claude",
     desc: "Erlaubt Claude, jobsuche_starten() aufzurufen. Dashboard-Button bleibt unabhängig nutzbar." },
   { id: "dokumentenanalyse", label: "Dokumentenanalyse",
-    desc: "Profil-Daten aus hochgeladenen Lebensläufen, Zeugnissen und Anschreiben extrahieren." },
+    desc: "Profil-Daten aus hochgeladenen Lebensläufen, Zeugnissen und Anschreiben extrahieren. Aus: Claude liest auch keine Dokumente und Mails mehr." },
   { id: "stellenanalyse", label: "Stellenanalyse / Fit-Bewertung",
     desc: "Fit-Analyse, Skill-Gap-Analyse und Verfeinerung der Punkte für einzelne Stellen." },
   { id: "bewerbungserstellung", label: "Bewerbungs-Erstellung",
@@ -1609,7 +1609,7 @@ function KIFeaturesCard({ pushToast }) {
     <Card className="rounded-2xl">
       <SectionHeading
         title="Was Claude bearbeiten darf"
-        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, führt PBP diese Funktion nicht aus und sagt das. Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist; wer gar nichts weitergeben will, trennt PBP dort. Änderungen wirken sofort."
+        description="Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic. Ist ein Schalter aus, führt PBP diese Funktion nicht aus und sagt das. Bei „Dokumentenanalyse“ liest Claude dann auch keine Dokumente und Mails mehr. Dein Profil, deine Bewerbungen und die Stellen kann Claude weiterhin lesen, sonst arbeitet fast nichts mehr; wer gar nichts weitergeben will, trennt PBP in Claude Desktop. Änderungen wirken sofort."
       />
 
       <label className="flex items-start gap-3 cursor-pointer p-3 glass-card border-sky/15 mb-4">
