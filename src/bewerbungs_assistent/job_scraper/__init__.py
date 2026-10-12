@@ -516,8 +516,14 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         "beta": True,
-        "warnung": "Google blockiert automatisierte Jobsuche oft — wenn 0 Treffer, "
-                    "über die Quelle \"Google Jobs (im Browser)\" manuell suchen.",
+        # #1159: python-jobspy 1.2.0 (02.10.2026) liest Google nicht mehr; die Abfrage endet mit "Google returned no
+        # job data" (gemessen 02.10. und 12.10.2026, jeweils null Zeilen). Als defekt gefuehrt, damit sie aus der
+        # gespeicherten Auswahl faellt, in keinem Lauf mehr eingeplant wird und der Mensch den Grund und den Weg
+        # ueber den Browser sieht, statt eine Quelle zu haben, die nichts liefert.
+        "defekt": True,
+        "ersatz_quelle": "google_jobs",
+        "defekt_grund": "Gemessen am 02.10.2026 und erneut am 12.10.2026 mit python-jobspy 1.2.0: Google liefert die Stellen erst im Browser nach (JavaScript); die Abfrage endet mit „Google returned no job data“, null Treffer. Im Browser funktioniert die Suche: die Quelle „Google Jobs (im Browser)“ über die Claude-Erweiterung.",
+        "manueller_fallback": "https://www.google.com/search?udm=8&q=Jobs im Browser oder über die Quelle „Google Jobs (im Browser)“",
     },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
@@ -637,7 +643,8 @@ SOURCE_REGISTRY = {
         "login_hinweis": "Eingeloggtes Google-Konto im Browser nötig — die Standortableitung der Jobsuche (udm=8) hängt daran.",
         "manueller_fallback": True,
         "geschwindigkeit": "manuell",
-        "doppelt_mit": "jobspy_google",
+        # #1159: kein "doppelt_mit" mehr -- die automatische Schwester jobspy_google liefert nichts (defekt); der Satz
+        # "deckt dasselbe Portal automatisch ab" waere falsch und liesse den Menschen glauben, der Browser sei ueberfluessig.
         "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — im Browser öffnen "
                     "und Treffer mit stelle_manuell_anlegen() übernehmen. Kein Login-Click "
                     "im Dashboard nötig.",

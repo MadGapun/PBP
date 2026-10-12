@@ -1201,6 +1201,31 @@ M_SPRACHDATEN = [
 KATALOGE["sprachdaten"] = M_SPRACHDATEN
 GRUNDLAEUFE["sprachdaten"] = (("T_SD", T_SD),)
 
+# ── Google Jobs ueber JobSpy ist defekt, die Browser-Schwester bleibt (#1159, B75) ──
+T_JG = ["tests/test_v18_jobspy_google_defekt_1159.py"]
+REG_JG = "src/bewerbungs_assistent/job_scraper/__init__.py"
+HO_JG = "src/bewerbungs_assistent/services/browser_handoff.py"
+
+M_JOBSPY_GOOGLE = [
+    ("jg01", "jobspy_google gilt wieder als funktionierend", REG_JG,
+     '        "defekt": True,\n        "ersatz_quelle": "google_jobs",\n', '        "ersatz_quelle": "google_jobs",\n', T_JG),
+    ("jg02", "Die defekte Quelle nennt keine Browser-Schwester", REG_JG,
+     '        "ersatz_quelle": "google_jobs",\n', "", T_JG),
+    ("jg03", "Die Browser-Liste nennt die defekte Schwester trotz Ersatzquelle noch einmal", HO_JG,
+     ' and _nur_im_browser(info) and not info.get("ersatz_quelle"):\n', ' and _nur_im_browser(info):\n', T_JG),
+    ("jg04", "Die Browser-Schwester behauptet wieder, die automatische deckte Google ab", REG_JG,
+     '        # #1159: kein "doppelt_mit" mehr -- die automatische Schwester jobspy_google liefert nichts (defekt); der Satz\n',
+     '        "doppelt_mit": "jobspy_google",\n', T_JG),
+    ("jg05", "Der Grund nennt den Weg ueber den Browser nicht mehr", REG_JG,
+     "Im Browser funktioniert die Suche: die Quelle „Google Jobs (im Browser)“ über die Claude-Erweiterung.",
+     "Bitte später erneut versuchen.", T_JG),
+    ("jg06", "Der Ersatzweg der Karte ist kein Link mehr", REG_JG,
+     '"manueller_fallback": "https://www.google.com/search?udm=8&q=Jobs im Browser oder',
+     '"manueller_fallback": "im Browser oder', T_JG),
+]
+KATALOGE["jobspy_google"] = M_JOBSPY_GOOGLE
+GRUNDLAEUFE["jobspy_google"] = (("T_JG", T_JG),)
+
 WT = None
 
 

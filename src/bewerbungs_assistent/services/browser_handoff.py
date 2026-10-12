@@ -117,7 +117,9 @@ def browser_quellen(db, auswahl=None, registry=None,
                 continue
             art = UEBERSPRUNGEN
             weg = ersatzwege.get(key) or info.get("login_hinweis") or ""
-        elif info.get("defekt") and _nur_im_browser(info):
+        elif info.get("defekt") and _nur_im_browser(info) and not info.get("ersatz_quelle"):
+            # #1159: hat die defekte Quelle eine eigene Browser-Schwester (ersatz_quelle), steht DIE in der Liste, wenn
+            # der Mensch sie gewaehlt hat; die defekte noch einmal zu nennen waere dieselbe Quelle zweimal.
             art = DEFEKT_NUR_BROWSER
             weg = info.get("manueller_fallback") or info.get("defekt_grund") or ""
         else:
