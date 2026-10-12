@@ -331,7 +331,7 @@ def test_warmup_haelt_das_dashboard_nicht_an(dash_app, monkeypatch):
 def test_auto_engine_haelt_das_dashboard_nicht_an(dash_app, monkeypatch):
     dash, _db = dash_app
     monkeypatch.setattr(dash, "_run_auto_actions_inner",
-                        lambda now: (_schlafen(), {"status": "ok"})[1])
+                        lambda now, ausloeser="knopf": (_schlafen(), {"status": "ok"})[1])
 
     async def langsam(c):
         r = await c.post("/api/auto-actions/run")

@@ -1608,6 +1608,104 @@ M_INSTALLER2 = [
 KATALOGE["installer2"] = M_INSTALLER2
 GRUNDLAEUFE["installer2"] = (("T_I2", T_I2),)
 
+# ── Die Aufraeum-Runde laeuft einmal am Tag von selbst (#1139, Variante A) ──
+T_AR = ["tests/test_v18_aufraeum_runde_1139.py"]
+T_ARB = ["tests/test_v18_aufraeum_runde_1139_browser.py", "tests/test_v18_erste_schritte_1170.py"]
+ARQ = "src/bewerbungs_assistent/services/aufraeum_runde.py"
+ASCH = "src/bewerbungs_assistent/services/automatik_scheduler.py"
+TNZ = "src/bewerbungs_assistent/services/text_nachzug.py"
+DSH_PY = "src/bewerbungs_assistent/dashboard.py"
+DBP = "src/bewerbungs_assistent/database.py"
+ANA = "src/bewerbungs_assistent/tools/analyse.py"
+SET_JSX = "frontend/src/pages/SettingsPage.jsx"
+
+M_AUFRAEUMRUNDE = [
+    ("ar01", "Der automatische Lauf schliesst immer ab (der Schalter gilt nicht)", ARQ,
+     '    if ausloeser == "automatik":\n        return expire_automatisch(db)\n    return True\n', "    return True\n", T_AR),
+    ("ar02", "Der Knopf schliesst nur mit Schalter ab", ARQ,
+     '    if ausloeser == "automatik":\n        return expire_automatisch(db)\n    return True\n', "    return expire_automatisch(db)\n", T_AR),
+    ("ar03", "Das Abschliessen von selbst ist vorgabemaessig an", ARQ,
+     "        return db.get_setting(EXPIRE_SCHALTER, False) in _WAHR\n", "        return db.get_setting(EXPIRE_SCHALTER, True) in _WAHR\n", T_AR),
+    ("ar04", "Das Intervall der Runde ist vorgabemaessig aus", DBP,
+     '_iv("automatik_aufraeumen_intervall_tage", 1)', '_iv("automatik_aufraeumen_intervall_tage", 0)', T_AR),
+    ("ar05", "Ein ausdruecklich gesetztes Aus (0) gilt als nicht gesetzt", DBP,
+     '            if raw is None or raw == "":\n                return vorgabe\n', "            if not raw:\n                return vorgabe\n", T_AR),
+    ("ar06", "Der Lauf der Runde laesst sich nicht vermerken", DBP,
+     'if kind not in ("jobsuche", "lernen", "aufraeumen"):', 'if kind not in ("jobsuche", "lernen"):', T_AR),
+    ("ar10", "Der Takt startet die Runde nie", ASCH,
+     '    if _is_due(s["aufraeumen_intervall_tage"], s["aufraeumen_last_at"], now):\n', "    if False:\n", T_AR),
+    ("ar11", "'laeuft bereits' gilt als gelaufen", ASCH,
+     '        if res.get("status") == "gestartet":\n            db.mark_automatik_run("aufraeumen")\n',
+     '        if True:\n            db.mark_automatik_run("aufraeumen")\n', T_AR),
+    ("ar12", "Eine zweite Runde startet, waehrend eine laeuft", ASCH,
+     '    if db.get_running_background_job("aufraeumen"):\n        return {"status": "laeuft_bereits"}\n', "", T_AR),
+    ("ar13", "Ein Fehler der Runde bleibt still (Job 'fertig')", ASCH,
+     '                db.update_background_job(job_id, "fehler", message=f"Aufräum-Runde abgebrochen: {exc}")\n',
+     '                db.update_background_job(job_id, "fertig", message="ok")\n', T_AR),
+    ("ar14", "Der Planer sagt der Runde nicht, wer sie ausloest", ASCH,
+     "            ergebnis = run_auto_actions(ausloeser)\n", "            ergebnis = run_auto_actions()\n", T_AR),
+    ("ar20", "Knopf und Planer teilen keine Sperre", DSH_PY,
+     '    if not _auto_actions_sperre.acquire(blocking=False):\n        return {"status": "laeuft_bereits"}\n    try:\n        now = datetime.now().isoformat()\n',
+     '    _auto_actions_sperre.acquire(blocking=False)\n    try:\n        now = datetime.now().isoformat()\n', T_AR),
+    ("ar21", "Die Sperre wird nach der Runde nicht freigegeben", DSH_PY,
+     "    finally:\n        _auto_actions_sperre.release()\n", "    finally:\n        pass\n", T_AR),
+    ("ar22", "Der automatische Lauf holt nicht mehr Anzeigentexte als der Knopf", DSH_PY,
+     "max_jobs=16 if gross else 8", "max_jobs=8", T_AR),
+    ("ar23", "Der automatische Lauf prueft nicht mehr Adressen als der Knopf", DSH_PY,
+     "max_jobs=25 if gross else 10", "max_jobs=10", T_AR),
+    ("ar24", "Der letzte Lauf nennt den Ausloeser nicht", DSH_PY,
+     "    _db.set_setting(aufraeum_runde.LETZTER_AUSLOESER, ausloeser)\n", "", T_AR),
+    ("ar25", "Der Planer sieht einen Lauf per Knopf nicht", DSH_PY,
+     '        _db.mark_automatik_run("aufraeumen", now)\n', "        pass\n", T_AR),
+    ("ar26", "Die URL-Pruefung bleibt bei den ersten Stellen nach Zeilennummer", DSH_PY,
+     '" ORDER BY (k.value IS NOT NULL), k.value, j.hash LIMIT ?"', '" ORDER BY j.hash LIMIT ?"', T_AR),
+    ("ar27", "Eine URL-Pruefung ohne Ergebnis wird nicht vermerkt (die Stelle bleibt vorn)", DSH_PY,
+     '                    _db.set_setting(f"url_aging_lastcheck:{h}", now_dt.isoformat())\n', "                    pass\n", T_AR),
+    ("ar28", "Der Status nennt den Schalter nicht wahrheitsgemaess", DSH_PY,
+     '        "expire_automatisch": aufraeum_runde.expire_automatisch(_db),\n', '        "expire_automatisch": False,\n', T_AR),
+    ("ar29", "Der Schalter nimmt jeden Wert an", DSH_PY,
+     '        if not isinstance(data["expire_automatisch"], bool):\n            return JSONResponse({"error": "expire_automatisch muss wahr oder falsch sein"}, status_code=400)\n', "", T_AR),
+    ("ar40", "Das Nachladen waehlt Stellen im Backoff wieder mit aus", TNZ,
+     '        if _gilt(_zaehler(_roh(z["fehler"])), _roh(z["zuletzt"]), jetzt) >= MAX_FEHLVERSUCHE:\n            im_backoff += 1\n            continue\n',
+     '        if False:\n            im_backoff += 1\n            continue\n', T_AR),
+    ("ar41", "Das Nachladen waehlt ohne feste Reihenfolge", TNZ,
+     '" ORDER BY (l.value IS NOT NULL), l.value, j.hash",', '" ORDER BY j.hash",', T_AR),
+    ("ar42", "Der Fehlzaehler verfaellt nie", TNZ,
+     "    if zeit is None or jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n",
+     "    if zeit is None:\n        return 0\n    return zaehler\n", T_AR),
+    ("ar43", "Ein Zaehler ohne Zeitstempel (Altbestand) gilt unbegrenzt", TNZ,
+     "    if zeit is None or jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n",
+     "    if zeit is not None and jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n", T_AR),
+    ("ar44", "Ein Netzfehler zaehlt gegen die Stelle", TNZ,
+     "            if status == nachladen.FEHLER or http == 429:\n", "            if False:\n", T_AR),
+    ("ar45", "'Zu viele Anfragen' zaehlt gegen die Stelle", TNZ,
+     "            if status == nachladen.FEHLER or http == 429:\n", "            if status == nachladen.FEHLER:\n", T_AR),
+    ("ar46", "Mehrere Netzfehler hintereinander beenden die Schleife nicht", TNZ,
+     '                if in_folge >= MAX_NETZFEHLER_IN_FOLGE:\n                    abgebrochen = "netz"\n                    break\n',
+     '                if False:\n                    abgebrochen = "netz"\n                    break\n', T_AR),
+    ("ar47", "Ein Erfolg unterbricht die Folge der Netzfehler nicht", TNZ,
+     "                geholt += 1\n                in_folge = 0\n                continue\n", "                geholt += 1\n                continue\n", T_AR),
+    ("ar48", "Ein Versuch wird nicht vermerkt", TNZ,
+     '            versuch_vermerken(db, z["hash"])\n            if text and', "            if text and", T_AR),
+    ("ar49", "Nach dem Verfall zaehlt der alte Stand weiter hoch", TNZ,
+     '        db.set_setting(f"refetch_fail:{job_hash}", str(_fehlversuche(db, job_hash) + 1))\n',
+     '        db.set_setting(f"refetch_fail:{job_hash}", str(_zaehler(db.get_setting(f"refetch_fail:{job_hash}", "0")) + 1))\n', T_AR),
+    ("ar50", "Das Werkzeug setzt den Schalter nicht", ANA,
+     "            aufraeum_runde.expire_automatisch_setzen(db, bewerbungen_abschliessen)\n", "            pass\n", T_AR),
+    ("ar51", "Das Werkzeug gibt das Intervall nicht weiter", ANA,
+     "                    aufraeumen_intervall_tage=aufraeumen_intervall_tage,\n", "", T_AR),
+    ("ar60", "Die Karte verspricht keinen taeglichen Lauf mehr", SET_JSX,
+     "PBP prüft das auf Wunsch einmal am Tag von selbst", "PBP prüft das auf Knopfdruck", T_ARB),
+    ("ar61", "Der Schalter speichert nichts", SET_JSX,
+     'await putJson("/api/auto-actions/settings", { expire_automatisch: wert });', "await Promise.resolve(wert);", T_ARB),
+    ("ar62", "Das Intervall speichert nichts", SET_JSX,
+     'await putJson("/api/automatik/settings", { aufraeumen_intervall_tage: Number(value) });', "await Promise.resolve(value);", T_ARB),
+    ("ar63", "Der letzte Lauf nennt den Ausloeser nicht", SET_JSX,
+     'const von = { automatik: " (von selbst)", knopf: " (per Knopf)", claude: " (durch Claude)" }[status.last_run_by] || "";', 'const von = "";', T_ARB),
+]
+KATALOGE["aufraeumrunde"] = M_AUFRAEUMRUNDE
+GRUNDLAEUFE["aufraeumrunde"] = (("T_AR", T_AR), ("T_ARB", T_ARB))
+
 WT = None
 
 

@@ -9820,28 +9820,14 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     fremden Server. Postet eine Elwosa-Linie, wenn etwas passiert ist.
     """
     from .services import text_nachzug
-    from .services.datenguete import MIN_BESCHREIBUNG
-    pid = _db.get_active_profile_id()
-    conn = _db.connect()
-    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - nicht einmal als Kandidat (sonst fuellen
-    # sie das LIMIT und verdraengen bei jedem Lauf dieselben anderen Stellen).
-    from .services.quellen_auflagen import sql_ohne_abruf
-    _ohne, _ohne_params = sql_ohne_abruf("url")
-    rows = conn.execute(
-        "SELECT hash FROM jobs "
-        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
-        "AND url IS NOT NULL AND url != '' "
-        # #645: Such-URL-Stellen ausschliessen — sonst landet als
-        # "Beschreibung" der Anriss der Suchergebnis-Seite.
-        "AND COALESCE(is_search_url, 0) = 0 "
-        "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
-        + _ohne +
-        " LIMIT ?",
-        (pid, MIN_BESCHREIBUNG, *_ohne_params, max_jobs * 3)  # Overshoot — Backoff ueberspringt
-    ).fetchall()
-    erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
+    # #1139: feste Reihenfolge - nie versuchte zuerst, dann die am laengsten nicht versuchte; Stellen im Backoff fehlen.
+    # Vorher die ersten 24 nach Zeilennummer: standen die im Backoff, wurden die uebrigen nie versucht. Auch die Auswahl
+    # (#645 Such-URLs, #1189 Quellen mit Auflage) steht dort, an EINER Stelle.
+    wahl = text_nachzug.auswahl_befund(_db, limit=max_jobs * 2)
+    hashes = wahl["hashes"]
+    erg = text_nachzug.holen(_db, hashes, max_jobs=max_jobs, pause=0.5)
     successes, failures = erg["geholt"], erg["fehlgeschlagen"]
-    processed, skipped_backoff = erg["versucht"], erg["backoff"]
+    processed, skipped_backoff = erg["versucht"], erg["backoff"] + wahl["im_backoff"]
 
     if successes > 0 or failures > 0:
         _elwosa_speak_safe("auto_refetch_descriptions", ctx={
@@ -9851,11 +9837,13 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
 
     return {
         "ran_at": now_iso,
-        "found_candidates": len(rows),
+        "found_candidates": wahl["kandidaten"],
         "processed": processed,
         "successes": successes,
         "failures": failures,
         "skipped_backoff": skipped_backoff,
+        "netzfehler": erg.get("netzfehler", 0),
+        "abgebrochen": erg.get("abgebrochen", ""),
     }
 
 
@@ -9885,13 +9873,16 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
     # (im SQL, denn nach dem LIMIT wuerden sie jedes Mal dieselben anderen Stellen verdraengen).
     from .services.quellen_auflagen import sql_ohne_abruf
     _ohne, _ohne_params = sql_ohne_abruf("url")
+    # #1139: feste Reihenfolge - nie geprueft zuerst, dann die am laengsten nicht geprueft; vorher die ersten 30 nach
+    # Zeilennummer, also bei jedem Lauf dieselben (die uebrigen kamen nie dran).
     rows = conn.execute(
-        "SELECT hash, url, title FROM jobs "
-        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
-        "AND url IS NOT NULL AND url != '' "
-        "AND COALESCE(is_search_url, 0) = 0 "
+        "SELECT j.hash AS hash, j.url AS url, j.title AS title FROM jobs j "
+        "LEFT JOIN settings k ON k.key = 'url_aging_lastcheck:' || j.hash "
+        "WHERE j.is_active=1 AND (j.profile_id=? OR j.profile_id IS NULL) "
+        "AND j.url IS NOT NULL AND j.url != '' "
+        "AND COALESCE(j.is_search_url, 0) = 0 "
         + _ohne +
-        " LIMIT ?",
+        " ORDER BY (k.value IS NOT NULL), k.value, j.hash LIMIT ?",
         (pid, *_ohne_params, max_jobs * 3),  # Overshoot fuer Backoff-Skip
     ).fetchall()
 
@@ -9929,6 +9920,12 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
                     except (ValueError, TypeError):
                         pass
                 checked += 1
+                # Jede Pruefung steht fest, auch die ohne Ergebnis (Zeitueberschreitung, gesperrt): sonst bliebe sie
+                # bei jedem Lauf vorn in der Reihe und verdraengte die uebrigen.
+                try:
+                    _db.set_setting(f"url_aging_lastcheck:{h}", now_dt.isoformat())
+                except Exception:
+                    pass
                 try:
                     health = check_job_url_health(
                         row["url"], row["title"], client=client,
@@ -10775,27 +10772,44 @@ def _run_scraper_probe(now_iso: str) -> dict:
     }
 
 
-@app.post("/api/auto-actions/run")
-def api_run_auto_actions():
-    """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
-    Doku-Classify + Pattern-Analyse + Scraper-Probe.
+# #1139: Knopf und Planer teilen EINE Sperre - zwei Runden gleichzeitig wuerden dieselben Stellen doppelt abrufen.
+_auto_actions_sperre = threading.Lock()
 
-    Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
-    oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
-    Idempotent: mehrfacher Aufruf am selben Tag erzeugt keine Duplikate.
+
+def run_auto_actions(ausloeser: str = "knopf") -> dict:
+    """Die Aufraeum-Runde, ein Weg fuer den Knopf (synchron) und den Planer (im Hintergrund-Thread).
+
+    `ausloeser`: "knopf" (Einstellungen), "automatik" (Planer, einmal am Tag) oder "claude". Nur der automatische
+    Lauf fragt den Schalter "von selbst abschliessen"; wer den Knopf drueckt, will es. Laeuft schon eine Runde,
+    kommt `{"status": "laeuft_bereits"}` zurueck.
     """
     from datetime import datetime
-    now = datetime.now().isoformat()
-    # #708: Engine-Steps schreiben viel — ein abgebrochener Step darf keine
-    # offene Transaktion (= dauerhaften Write-Lock fuer den MCP-Server-
-    # Writer) hinterlassen. Netz am Ende des Zyklus, siehe finally.
+    if not _auto_actions_sperre.acquire(blocking=False):
+        return {"status": "laeuft_bereits"}
     try:
-        return _run_auto_actions_inner(now)
-    finally:
+        now = datetime.now().isoformat()
+        # #708: Engine-Steps schreiben viel — ein abgebrochener Step darf keine
+        # offene Transaktion (= dauerhaften Write-Lock fuer den MCP-Server-
+        # Writer) hinterlassen. Netz am Ende des Zyklus, siehe finally.
         try:
-            _db.rollback_if_stale(context="Auto-Engine-Zyklus")
-        except Exception:
-            pass
+            return _run_auto_actions_inner(now, ausloeser=ausloeser)
+        finally:
+            try:
+                _db.rollback_if_stale(context="Auto-Engine-Zyklus")
+            except Exception:
+                pass
+    finally:
+        _auto_actions_sperre.release()
+
+
+@app.post("/api/auto-actions/run")
+def api_run_auto_actions():
+    """Der Knopf "Jetzt pruefen": die Aufraeum-Runde, sofort und synchron.
+
+    Seit 1.8.0 laeuft dieselbe Runde auch einmal am Tag von selbst (`automatik_scheduler`, #1139). Idempotent:
+    mehrfacher Aufruf am selben Tag erzeugt keine Duplikate.
+    """
+    return run_auto_actions("knopf")
 
 
 def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
@@ -10839,7 +10853,7 @@ def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
         return {"status": "fehler", "fehler": str(exc)[:150]}
 
 
-def _run_auto_actions_inner(now: str) -> dict:
+def _run_auto_actions_inner(now: str, ausloeser: str = "knopf") -> dict:
     # v1.7.17 (#915): jeder Step meldet sich im DB-freien
     # Hintergrund-Register an. Laeuft ein schreibendes Tool in sein
     # Wall-Clock-Budget, kann das Timeout-Ergebnis benennen, welcher
@@ -10852,7 +10866,15 @@ def _run_auto_actions_inner(now: str) -> dict:
         with laufender_task(f"auto_engine:{name}"):
             return fn(now)
 
-    expire_result = _step("expire", _run_auto_expire)
+    from .services import aufraeum_runde
+    # #1139: Das Abschliessen aendert den Status einer Bewerbung. Der automatische Lauf tut es nur mit dem Schalter
+    # (Vorgabe aus); der Knopf immer.
+    if aufraeum_runde.schliesst_ab(_db, ausloeser):
+        expire_result = _step("expire", _run_auto_expire)
+    else:
+        expire_result = {"expired_count": 0, "expired": [], "uebersprungen": "schalter_aus"}
+    # Der automatische Lauf darf mehr holen als der Knopf (er laeuft im Hintergrund, einmal am Tag).
+    gross = ausloeser == "automatik"
     # v1.7.23 (#945): ZUERST aufraeumen, dann nachlegen. Andersherum
     # wuerde der Reconciler eine Nachfassung anlegen, die der
     # Aufraeumer im selben Lauf wieder schliesst.
@@ -10873,11 +10895,12 @@ def _run_auto_actions_inner(now: str) -> dict:
     contacts_result = _step("extract_contacts", _run_extract_contacts)
     # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
     refetch_result = _step("auto_refetch_descriptions",
-                           _run_auto_refetch_descriptions)
+                           lambda n: _run_auto_refetch_descriptions(n, max_jobs=16 if gross else 8))
     # v1.8.0-beta.2 (#688 B24): Snapshot-Backfill fuer den Bestand
     snapshot_result = _step("snapshot_backfill", _run_snapshot_backfill)
     # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
-    url_aging_result = _step("url_aging_check", _run_url_aging_check)
+    url_aging_result = _step("url_aging_check",
+                             lambda n: _run_url_aging_check(n, max_jobs=25 if gross else 10))
     # v1.7.0-beta.76 (#650 D15): Nachfass-Trigger bei staleness
     stale_apps_result = _step("stale_applications",
                               _run_check_stale_applications)
@@ -10895,9 +10918,16 @@ def _run_auto_actions_inner(now: str) -> dict:
                 _db.wal_groesse_bytes())
     except Exception:
         wal_result = {"fehler": "checkpoint fehlgeschlagen"}
-    _db.set_setting("auto_actions_last_run_at", now)
+    _db.set_setting(aufraeum_runde.LETZTER_LAUF, now)
+    _db.set_setting(aufraeum_runde.LETZTER_AUSLOESER, ausloeser)
+    # Der Planer rechnet das naechste Mal ab dem letzten Lauf - gleich, wer ihn ausgeloest hat.
+    try:
+        _db.mark_automatik_run("aufraeumen", now)
+    except Exception:  # noqa: BLE001
+        pass
     return {
         "ran_at": now,
+        "ausloeser": ausloeser,
         "expire": expire_result,
         "followup_ueberholt": fu_ueberholt,
         "followup_reconciler": fu_result,
@@ -11225,10 +11255,20 @@ def api_elwosa_status_endpoint():
 
 @app.get("/api/auto-actions/status")
 async def api_auto_actions_status():
-    """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck."""
-    last = _db.get_setting("auto_actions_last_run_at", "") or ""
+    """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck (#1139: auch wer ihn ausgeloest hat)."""
+    from .services import aufraeum_runde
+    from .services.automatik_scheduler import compute_status
+    letzter = aufraeum_runde.letzter_lauf(_db)
+    last = letzter["am"]
+    plan = compute_status(_db)["aufraeumen"]
+    laeuft = bool(_db.get_running_background_job("aufraeumen"))
     return {
         "last_run_at": last,
+        "last_run_by": letzter["von"],
+        "intervall_tage": plan["intervall_tage"],
+        "naechster_lauf": plan["naechster_lauf"],
+        "laeuft": laeuft,
+        "expire_automatisch": aufraeum_runde.expire_automatisch(_db),
         "settings": {
             "expire_default_days": _db.get_setting_zahl("expire_default_days", 60),
             "expire_eingangsbestaetigung_days":
@@ -11241,9 +11281,14 @@ async def api_auto_actions_status():
 
 @app.put("/api/auto-actions/settings")
 async def api_set_auto_actions_settings(request: Request):
-    """Setzt die Schwellwerte fuer Auto-Expire + Auto-Followup."""
+    """Setzt die Schwellwerte fuer Auto-Expire + Auto-Followup und den Schalter "von selbst abschliessen" (#1139)."""
     data = await request.json()
     out = {}
+    if "expire_automatisch" in data:
+        from .services import aufraeum_runde
+        if not isinstance(data["expire_automatisch"], bool):
+            return JSONResponse({"error": "expire_automatisch muss wahr oder falsch sein"}, status_code=400)
+        out["expire_automatisch"] = aufraeum_runde.expire_automatisch_setzen(_db, data["expire_automatisch"])
     for key, lo, hi in (
         ("expire_default_days", 7, 365),
         ("expire_eingangsbestaetigung_days", 7, 180),
@@ -11863,6 +11908,7 @@ async def api_set_automatik_settings(request: Request):
         _db.set_automatik_settings(
             jobsuche_intervall_tage=data.get("jobsuche_intervall_tage"),
             lernen_intervall_tage=data.get("lernen_intervall_tage"),
+            aufraeumen_intervall_tage=data.get("aufraeumen_intervall_tage"),
         )
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)

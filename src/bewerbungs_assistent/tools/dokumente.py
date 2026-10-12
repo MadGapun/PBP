@@ -2226,7 +2226,7 @@ def register(mcp, db, logger):
             dokument_id: ID des Dokuments
             typ: einer der Typen aus `dokument_typen_anzeigen` (z. B. absage, anschreiben, zeugnis, sonstiges)
 
-        Liefert: {status: geaendert|unveraendert, dokument_id, typ_alt, typ_neu, typ_name, hinweis} — oder {fehler,
+        Liefert: {status: 'geaendert' oder 'unveraendert', dokument_id, typ_alt, typ_neu, typ_name, hinweis} — oder {fehler,
         erlaubte_typen} bei einem unbekannten Typ.
         """
         from ..services import document_handlers

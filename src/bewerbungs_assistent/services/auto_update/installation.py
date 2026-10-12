@@ -179,7 +179,7 @@ def installiere(version: str, *, app=None, db=None, oeffner=None, fortschritt=No
             raise UpdateFehler("nicht_verfuegbar")
         if vorab_erlaubt and ausloeser == "automatisch":
             raise UpdateFehler("quelle_nicht_erlaubt", "Eine Vorabversion installiert PBP nie von selbst.",
-                               detail=f"{version!r} mit Ausloeser automatisch")
+                               detail=f"{version!r} mit Auslöser automatisch")
         aktuell = _vorbedingungen(version, app, laufend, vorab_erlaubt)
         pfade = layout.pfade(app)
         with aufraeumen.sperre(app):

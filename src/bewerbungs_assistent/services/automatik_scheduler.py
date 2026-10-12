@@ -1,11 +1,14 @@
 """v1.7.0-beta.94 (#677/#678): Hintergrund-Scheduler fuer die Automatik.
 
-Zwei periodische Tasks, Intervall pro Profil konfigurierbar (0 = aus):
+Drei periodische Tasks, Intervall pro Profil konfigurierbar (0 = aus):
 - **lernen**: laesst Ollama die Aktivitaet/Dokumente analysieren
   (`_run_analyze_user_patterns`, #594) — der „Sofort-Lauf" automatisiert.
 - **jobsuche**: startet die **interne** Jobsuche (nur Scraper-Quellen, die
   Claude-in-Chrome-/Login-Wall-Quellen aus `_MANUAL_SOURCES` bleiben aussen
   vor — die laufen weiter manuell ueber die Chrome-Extension).
+- **aufraeumen** (ab 1.8.0, #1139): die Aufraeum-Runde ("Bewerbungen im Blick
+  behalten") — Vorgabe einmal am Tag und 90 Sekunden nach dem Start. Was sie
+  tut und was bewusst nicht, steht in `services/aufraeum_runde`.
 
 Architektur: ein Daemon-Thread, der alle paar Minuten tickt. Gestartet aus
 `start_dashboard` (dort ist `dashboard._db` gesetzt und es ist die EINE
@@ -76,6 +79,11 @@ def compute_status(db) -> dict:
             "intervall_tage": s["lernen_intervall_tage"],
             "letzter_lauf": s["lernen_last_at"] or None,
             "naechster_lauf": _next(s["lernen_intervall_tage"], s["lernen_last_at"]),
+        },
+        "aufraeumen": {
+            "intervall_tage": s["aufraeumen_intervall_tage"],
+            "letzter_lauf": s["aufraeumen_last_at"] or None,
+            "naechster_lauf": _next(s["aufraeumen_intervall_tage"], s["aufraeumen_last_at"]),
         },
         "hinweis": (
             "Läuft nur solange Claude Desktop / der MCP-Server offen ist."
@@ -188,6 +196,43 @@ def run_jobsuche_now(db, log: logging.Logger = logger) -> dict:
     return {"status": "gestartet", "job_id": erg["job_id"], "quellen": erg["quellen"]}
 
 
+def run_aufraeumen_now(db, log: logging.Logger = logger, ausloeser: str = "automatik") -> dict:
+    """Startet die Aufraeum-Runde im HINTERGRUND (#1139).
+
+    Wie der Lernlauf (#799): eigener Thread, Eintrag in `background_jobs` mit Status, Dauer und Ergebnis. Die Runde
+    ruft Netz und lokale KI; im Scheduler-Thread selbst haengte sie bei geteilter SQLite-Connection den ganzen
+    MCP-Server auf. Eine zweite Runde startet nicht, solange eine laeuft (Knopf und Planer teilen die Sperre).
+    """
+    if db.get_running_background_job("aufraeumen"):
+        return {"status": "laeuft_bereits"}
+    job_id = db.create_background_job("aufraeumen", {"quelle": ausloeser})
+
+    def _run():
+        try:
+            db.update_background_job(job_id, "running", progress=5, message="Bewerbungen und Stellen werden geprüft")
+            from ..dashboard import run_auto_actions
+            ergebnis = run_auto_actions(ausloeser)
+            if ergebnis.get("status") == "laeuft_bereits":
+                db.update_background_job(job_id, "fertig", progress=100,
+                                         message="Eine andere Runde lief schon, diese wurde nicht gestartet",
+                                         result=ergebnis)
+                return
+            e = (ergebnis.get("expire") or {}).get("expired_count", 0)
+            f = (ergebnis.get("followup_reconciler") or {}).get("created_count", 0)
+            db.update_background_job(job_id, "fertig", progress=100,
+                                     message=f"Geprüft: {e} abgelaufen, {f} neue Nachfassungen",
+                                     result=ergebnis)
+        except Exception as exc:  # noqa: BLE001 - der Thread darf nie still sterben
+            log.warning("Aufraeum-Runde fehlgeschlagen: %s", exc)
+            try:
+                db.update_background_job(job_id, "fehler", message=f"Aufräum-Runde abgebrochen: {exc}")
+            except Exception:  # pragma: no cover
+                pass
+
+    threading.Thread(target=_run, daemon=True, name="automatik-aufraeumen").start()
+    return {"status": "gestartet", "job_id": job_id}
+
+
 def _tick(db) -> None:
     # #1098: einmal am Tag eine Sicherung — unabhaengig von den Schaltern
     # der Automatik; sie laeuft im Hintergrund und blockiert den Tick nicht.
@@ -205,6 +250,12 @@ def _tick(db) -> None:
         # zaehlt mit, sonst versuchte es jeder Tick erneut.
         if res.get("status") in ("gestartet", "lernen_aus"):
             db.mark_automatik_run("lernen")
+    if _is_due(s["aufraeumen_intervall_tage"], s["aufraeumen_last_at"], now):
+        logger.info("Automatik: Aufraeum-Runde faellig -> starte")
+        res = run_aufraeumen_now(db)
+        # Nur ein gestarteter Lauf gilt als gelaufen: bei "laeuft_bereits" versucht es der naechste Takt erneut.
+        if res.get("status") == "gestartet":
+            db.mark_automatik_run("aufraeumen")
     if _is_due(s["jobsuche_intervall_tage"], s["jobsuche_last_at"], now):
         logger.info("Automatik: interne Jobsuche faellig -> starte")
         res = run_jobsuche_now(db)

@@ -10900,25 +10900,30 @@ class Database:
     def get_automatik_settings(self) -> dict:
         """Intervalle (in Tagen) + letzter Lauf fuer die Hintergrund-Automatik.
 
-        Zwei Tasks: `jobsuche` (interne Scraper) und `lernen`
-        (Ollama-Pattern-Analyse). 0 = aus. Pro Profil gespeichert.
+        Drei Tasks: `jobsuche` (interne Scraper), `lernen` (Ollama-Pattern-Analyse) und `aufraeumen` (die
+        Aufraeum-Runde, #1139; Vorgabe taeglich). 0 = aus. Pro Profil gespeichert.
         """
-        def _iv(key):
-            raw = self.get_profile_setting(key, 0)
+        def _iv(key, vorgabe=0):
+            raw = self.get_profile_setting(key, None)
+            if raw is None or raw == "":
+                return vorgabe
             try:
-                v = int(raw) if raw is not None else 0
+                v = int(raw)
             except (TypeError, ValueError):
-                v = 0
-            return v if v in self._AUTOMATIK_INTERVALS else 0
+                return vorgabe
+            return v if v in self._AUTOMATIK_INTERVALS else vorgabe
         return {
             "jobsuche_intervall_tage": _iv("automatik_jobsuche_intervall_tage"),
             "jobsuche_last_at": self.get_profile_setting("automatik_jobsuche_last_at", "") or "",
             "lernen_intervall_tage": _iv("automatik_lernen_intervall_tage"),
             "lernen_last_at": self.get_profile_setting("automatik_lernen_last_at", "") or "",
+            "aufraeumen_intervall_tage": _iv("automatik_aufraeumen_intervall_tage", 1),
+            "aufraeumen_last_at": self.get_profile_setting("automatik_aufraeumen_last_at", "") or "",
         }
 
     def set_automatik_settings(self, *, jobsuche_intervall_tage: Optional[int] = None,
-                               lernen_intervall_tage: Optional[int] = None) -> dict:
+                               lernen_intervall_tage: Optional[int] = None,
+                               aufraeumen_intervall_tage: Optional[int] = None) -> dict:
         if jobsuche_intervall_tage is not None:
             iv = int(jobsuche_intervall_tage)
             if iv not in self._AUTOMATIK_INTERVALS:
@@ -10931,12 +10936,18 @@ class Database:
                 raise ValueError(
                     f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
             self.set_profile_setting("automatik_lernen_intervall_tage", iv)
+        if aufraeumen_intervall_tage is not None:
+            iv = int(aufraeumen_intervall_tage)
+            if iv not in self._AUTOMATIK_INTERVALS:
+                raise ValueError(
+                    f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
+            self.set_profile_setting("automatik_aufraeumen_intervall_tage", iv)
         return self.get_automatik_settings()
 
     def mark_automatik_run(self, kind: str, when_iso: Optional[str] = None) -> str:
-        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche' oder 'lernen'."""
-        if kind not in ("jobsuche", "lernen"):
-            raise ValueError("kind muss 'jobsuche' oder 'lernen' sein")
+        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche', 'lernen' oder 'aufraeumen'."""
+        if kind not in ("jobsuche", "lernen", "aufraeumen"):
+            raise ValueError("kind muss 'jobsuche', 'lernen' oder 'aufraeumen' sein")
         ts = when_iso or _now()
         self.set_profile_setting(f"automatik_{kind}_last_at", ts)
         return ts

@@ -1350,10 +1350,46 @@ function AutoActionsTab({ pushToast }) {
     }
   }
 
+  // #1139: die Runde läuft einmal am Tag von selbst; hier stellt man das Intervall und den Schalter „von selbst abschließen“.
+  async function saveIntervall(value) {
+    setSaving(true);
+    try {
+      await putJson("/api/automatik/settings", { aufraeumen_intervall_tage: Number(value) });
+      await reload();
+      pushToast("Gespeichert", "success");
+    } catch (err) {
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setAbschliessen(wert) {
+    setSaving(true);
+    try {
+      await putJson("/api/auto-actions/settings", { expire_automatisch: wert });
+      await reload();
+      pushToast(
+        wert ? "PBP schließt Bewerbungen ohne Antwort ab jetzt beim täglichen Lauf von selbst ab."
+             : "PBP schließt Bewerbungen nur noch ab, wenn du „Jetzt prüfen“ drückst.",
+        "success"
+      );
+    } catch (err) {
+      pushToast(`Speichern fehlgeschlagen: ${err.message}`, "danger");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function runNow() {
     setRunning(true);
     try {
       const r = await postJson("/api/auto-actions/run", {});
+      if (r.status === "laeuft_bereits") {
+        pushToast("Eine Prüfung läuft gerade schon — sie ist gleich fertig.", "sky");
+        await reload();
+        return;
+      }
       setLastResult(r);
       await reload();
       const e = r.expire?.expired_count || 0;
@@ -1376,15 +1412,43 @@ function AutoActionsTab({ pushToast }) {
   }
 
   const s = status.settings;
+  const zeit = (iso) => {
+    if (!iso) return "noch nie";
+    if (iso === "faellig") return "fällig";
+    try {
+      return new Date(iso).toLocaleString("de-DE");
+    } catch {
+      return iso;
+    }
+  };
+  const von = { automatik: " (von selbst)", knopf: " (per Knopf)", claude: " (durch Claude)" }[status.last_run_by] || "";
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="rounded-2xl" data-testid="aufraeum-runde-karte">
       <SectionHeading
         title="Bewerbungen im Blick behalten"
-        description="Beim Prüfen legt PBP Erinnerungen zum Nachfassen an und schließt Bewerbungen ab, auf die lange nichts kam. Das geschieht, wenn du unten „Jetzt prüfen“ drückst; die erste Erinnerung zu einer Bewerbung legt PBP schon beim Absenden an."
+        description="PBP prüft das auf Wunsch einmal am Tag von selbst, solange Claude Desktop oder das Dashboard läuft: Es legt Erinnerungen zum Nachfassen an, holt fehlende Anzeigentexte nach und prüft, ob Anzeigen noch bestehen. Bewerbungen ohne Antwort auf „abgelaufen“ zu setzen tut es von selbst nur, wenn du das unten einschaltest. Mit „Jetzt prüfen“ geht alles sofort, auch das Abschließen. Die erste Erinnerung zu einer Bewerbung legt PBP schon beim Absenden an."
       />
 
       <div className="space-y-5">
+        <div className="glass-card p-4 space-y-3">
+          <h3 className="font-medium text-ink text-sm">Von selbst prüfen</h3>
+          <div className="flex items-center justify-between gap-3">
+            <SelectInput
+              value={String(status.intervall_tage ?? 1)}
+              onChange={(e) => saveIntervall(e.target.value)}
+              disabled={saving}
+            >
+              {AUTOMATIK_INTERVALS.map((o) => (
+                <option key={o.v} value={o.v}>{o.l}</option>
+              ))}
+            </SelectInput>
+            <span className="text-xs text-muted" data-testid="aufraeum-naechster-lauf">
+              {status.intervall_tage ? `Nächster Lauf: ${zeit(status.naechster_lauf)}` : "Läuft nur, wenn du „Jetzt prüfen“ drückst."}
+            </span>
+          </div>
+          {status.laeuft && <p className="text-xs text-muted">Eine Prüfung läuft gerade.</p>}
+        </div>
         <div className="glass-card p-4 space-y-3">
           <h3 className="font-medium text-ink text-sm">Ohne Antwort abschließen</h3>
           <p className="text-[12px] text-muted">
@@ -1392,6 +1456,23 @@ function AutoActionsTab({ pushToast }) {
             „abgelaufen“. Sie ist dann nicht weg — meldet sich die Firma doch
             noch, holst du sie mit einem Klick zurück.
           </p>
+          <label className="flex items-start gap-3 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="mt-1"
+              data-testid="expire-automatisch"
+              checked={Boolean(status.expire_automatisch)}
+              disabled={saving}
+              onChange={(e) => setAbschliessen(e.target.checked)}
+            />
+            <span>
+              <strong>Beim täglichen Lauf von selbst abschließen</strong>
+              <span className="mt-1 block text-xs text-muted">
+                Aus: PBP schließt nur ab, wenn du unten „Jetzt prüfen“ drückst. Das Abschließen ändert den Stand
+                einer Bewerbung, deshalb ist es erst einmal aus.
+              </span>
+            </span>
+          </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Nach „beworben“ (Tage)">
               <input
@@ -1425,8 +1506,8 @@ function AutoActionsTab({ pushToast }) {
           <p className="text-[12px] text-muted">
             Hat eine laufende Bewerbung keine offene Erinnerung, legt PBP beim
             Prüfen eine an — so viele Tage nach dem letzten Schritt. Hakst du
-            eine ab, kommt die nächste beim nächsten Prüfen, solange die
-            Bewerbung läuft.
+            eine ab, kommt die nächste beim nächsten Prüfen (täglich von selbst oder per
+            „Jetzt prüfen“), solange die Bewerbung läuft.
           </p>
           <Field label="Erinnerung nach (Tage seit dem letzten Schritt)">
             <input
@@ -1444,8 +1525,8 @@ function AutoActionsTab({ pushToast }) {
 
         <div className="glass-card p-4 space-y-3">
           <h3 className="font-medium text-ink text-sm">Jetzt prüfen</h3>
-          <p className="text-[12px] text-muted">
-            Letzter Lauf: <strong>{status.last_run_at || "noch nie"}</strong>
+          <p className="text-[12px] text-muted" data-testid="aufraeum-letzter-lauf">
+            Letzter Lauf: <strong>{zeit(status.last_run_at)}</strong>{von}
           </p>
           <Button size="sm" onClick={runNow} disabled={running}>
             {running ? "Läuft …" : "Jetzt prüfen"}

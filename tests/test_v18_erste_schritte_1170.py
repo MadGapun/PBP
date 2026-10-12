@@ -414,16 +414,20 @@ def test_1147_die_ki_schalter_versprechen_nicht_mehr_als_sie_tun():
 
 # ══ #1139: die Oberfläche verspricht keine Automatik, die nur auf Knopfdruck läuft ═══════════════════════════════
 
-def test_1139_die_automatik_texte_nennen_den_knopf():
-    """Die Aufräum-Runde (Bewerbungen ablaufen lassen, Erinnerungen nachlegen, Texte nachladen) hat keinen automatischen Auslöser:
-    sie läuft nur über „Jetzt prüfen“. Die Texte versprachen „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“."""
+def test_1139_die_automatik_texte_sagen_was_wirklich_geschieht():
+    """Bis v1.7.157 hatte die Aufräum-Runde keinen automatischen Auslöser, und die Texte sagten ehrlich „nur über Jetzt prüfen“.
+    Ab 1.8.0 läuft sie einmal am Tag von selbst (Variante A, #1139); das Abschließen ist ein eigener Schalter, Vorgabe aus.
+    Die Texte nennen beides: den täglichen Lauf, den Schalter und den Knopf."""
     einstellungen = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
-    assert "Das geschieht, wenn du unten „Jetzt prüfen“ drückst" in einstellungen
-    assert "Hakst du sie ab, kommt\n            die nächste, solange die Bewerbung läuft" not in einstellungen.replace("\r\n", "\n")
-    assert "kommt die nächste beim nächsten Prüfen" in " ".join(einstellungen.split())
+    ein = " ".join(einstellungen.split())
+    assert "einmal am Tag von selbst" in ein
+    assert "Das geschieht, wenn du unten „Jetzt prüfen“ drückst" not in ein, "die ehrliche Fassung von v1.7.157 ist überholt"
+    assert "tut es von selbst nur, wenn du das unten einschaltest" in ein
+    assert "Beim täglichen Lauf von selbst abschließen" in ein and "Aus: PBP schließt nur ab, wenn du unten „Jetzt prüfen“ drückst" in ein
+    assert "kommt die nächste beim nächsten Prüfen (täglich von selbst oder per „Jetzt prüfen“)" in ein
     hilfe = (FRONTEND / "lib" / "hilfe.js").read_text(encoding="utf-8-sig")
     assert "der Rest folgt mit der Automatik" not in hilfe
-    assert "holt „Jetzt prüfen“ unter Einstellungen › Automatik nach" in hilfe
+    assert "holt die tägliche Prüfung nach" in hilfe
     hinweis = (FRONTEND / "lib" / "jobsucheHinweis.js").read_text(encoding="utf-8-sig")
     assert "folgen mit der Automatik`" not in hinweis
-    assert "weitere holt „Jetzt prüfen“ nach" in hinweis
+    assert "weitere holt die nächste Prüfung nach" in hinweis
