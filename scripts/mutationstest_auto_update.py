@@ -1169,6 +1169,38 @@ GRUNDLAEUFE = {
     "texterkennung": (("T_TE", T_TE),),
 }
 
+# ── Sprachdaten der Texterkennung: feste Fassung und Pruefsumme (#1165, I24) ──
+# Ab hier ergaenzt jeder Katalog KATALOGE und GRUNDLAEUFE selbst (die Auswahl im Aufruf folgt KATALOGE).
+T_SD = ["tests/test_v18_sprachdaten_pruefsumme_1165.py"]
+
+M_SPRACHDATEN = [
+    ("sd01", "Die Sprachdaten kommen wieder vom wandernden Zweig main", COMP_TE,
+     '    "https://github.com/tesseract-ocr/tessdata_fast/raw/" + _TESSDATA_FAST_COMMIT + "/{lang}.traineddata"\n',
+     '    "https://github.com/tesseract-ocr/tessdata_fast/raw/main/{lang}.traineddata"\n', T_SD),
+    ("sd02", "_download prueft die angekommene Datei nicht", COMP_TE,
+     "        if sha256 is not None and not _sha256_ok(teil, sha256):\n", "        if False:\n", T_SD),
+    ("sd03", "ensure_language lehnt eine Sprache ohne Summe nicht vor dem Laden ab", COMP_TE,
+     '    if not _pruefsumme_gueltig(TESSDATA_SPRACHEN.get(lang, "")):\n', "    if False:\n", T_SD),
+    ("sd04", "Die Sprachdatei wird ohne Summe geladen", COMP_TE,
+     ", lo, hi, sha256=TESSDATA_SPRACHEN[lang])\n", ", lo, hi)\n", T_SD),
+    ("sd05", "Scheitert eine von mehreren Dateien, bleiben die abgelegten liegen", COMP_TE,
+     "        for datei in abgelegt:\n            _entfernen(datei)\n", "        pass\n", T_SD),
+    ("sd06", "Abgelegte Dateien werden nicht vermerkt (das Zurueckrollen findet nichts)", COMP_TE,
+     "            abgelegt.append(target)\n", "", T_SD),
+    ("sd07", "Fuer osd steht keine Summe in der Registry", COMP_TE,
+     '    "osd": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",\n', '    "osd": "",\n', T_SD),
+    ("sd08", "Der Installationsjob verschweigt das fehlende deutsche Sprachpaket", COMP_TE,
+     '                    if lang.get("status") == "fehler":\n', "                    if False:\n", T_SD),
+    ("sd09", "Die Meldung nennt die verworfene Datei nicht", COMP_TE,
+     'f"Die Prüfsumme von {target.name} stimmt nicht — die Datei wurde verworfen und nicht benutzt. "',
+     '"Die Prüfsumme stimmt nicht — die Datei wurde verworfen und nicht benutzt. "', T_SD),
+    ("sd10", "Wird eng verlangt, wird es zweimal geladen", COMP_TE,
+     '            if base != lang and not (_tessdata_dir() / f"{base}.traineddata").is_file()\n',
+     '            if not (_tessdata_dir() / f"{base}.traineddata").is_file()\n', T_SD),
+]
+KATALOGE["sprachdaten"] = M_SPRACHDATEN
+GRUNDLAEUFE["sprachdaten"] = (("T_SD", T_SD),)
+
 WT = None
 
 
@@ -1217,7 +1249,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste", "texterkennung"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=tuple(KATALOGE), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
