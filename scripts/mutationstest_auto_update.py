@@ -1414,6 +1414,51 @@ M_DOKUMENTTYP = [
 KATALOGE["dokumenttyp"] = M_DOKUMENTTYP
 GRUNDLAEUFE["dokumenttyp"] = (("T_DT", T_DT), ("T_DTB", T_DTB))
 
+# ── Voreinstellung der Filter in der Stellenliste (#1158 Punkt 5, G82) ──
+T_FV = ["tests/test_v18_stellen_filter_standard_1158.py"]
+SFS_PY = "src/bewerbungs_assistent/services/stellen_filter_standard.py"
+JOBSP = "frontend/src/pages/JobsPage.jsx"
+SFJS = "frontend/src/lib/stellenFilter.js"
+
+M_FILTERVOREINSTELLUNG = [
+    ("fv01", "Die Voreinstellung nimmt einen unbekannten Filter an", SFS_PY,
+     '        if schluessel not in SCHLUESSEL:\n            raise ValueError(f"Unbekannter Filter: {schluessel!r}.")\n', "", T_FV),
+    ("fv02", "Die Voreinstellung prueft die Typen nicht", SFS_PY,
+     "        if not isinstance(wert, erwartet) or (erwartet is str and isinstance(wert, bool)):\n", "        if False:\n", T_FV),
+    ("fv03", "Mindestpunkte duerfen jeder Text sein", SFS_PY,
+     '            if schluessel == "minScore" and wert.strip() and not _ZAHL.fullmatch(wert.strip()):\n', "            if False:\n", T_FV),
+    ("fv04", "Ein kaputter gespeicherter Eintrag wirft statt „keine Voreinstellung“ zu sein", SFS_PY,
+     "    except ValueError:\n        return None\n", "    except ValueError:\n        raise\n", T_FV),
+    ("fv05", "Der Endpunkt antwortet auf eine ungueltige Voreinstellung mit 200", DASH,
+     '        return JSONResponse({"error": str(exc)}, status_code=400)\n    return {"standard": gesetzt}\n',
+     '        return JSONResponse({"error": str(exc)}, status_code=200)\n    return {"standard": gesetzt}\n', T_FV),
+    ("fv06", "Aufheben loescht nichts auf dem Server", DASH,
+     "    stellen_filter_standard.loeschen(_db)\n    return {\"standard\": None}\n", "    return {\"standard\": None}\n", T_FV),
+    ("ff01", "Die Voreinstellung gilt bei jedem Betreten der Seite, nicht nur beim Oeffnen", JOBSP,
+     "        if (gefunden && !voreinstellungSchonAngewendet) {\n", "        if (gefunden) {\n", T_FV),
+    ("ff02", "Die erste Liste wird geholt, bevor die Voreinstellung da ist", JOBSP,
+     "    if (!voreinstellungBereit) return;\n    setLoading(true);\n", "    setLoading(true);\n", T_FV),
+    ("ff03", "„Filter zuruecksetzen“ stellt die Voreinstellung her statt die Einschraenkung aufzuheben", JOBSP,
+     "                  ...FILTER_STANDARD,\n                  sort: current.sort,\n                  view: current.view,\n",
+     "                  ...filterAusVoreinstellung(voreinstellung || {}, FILTER_STANDARD, current),\n                  sort: current.sort,\n                  view: current.view,\n", T_FV),
+    ("ff04", "„Aufheben“ ruft den Server nicht", JOBSP,
+     '      await deleteRequest("/api/stellen-filter-standard");\n', "", T_FV),
+    ("ff05", "„Als Voreinstellung speichern“ ruft den Server nicht", JOBSP,
+     '      const antwort = await putJson("/api/stellen-filter-standard", { standard: filterFuerVoreinstellung(filters) });\n',
+     "      const antwort = { standard: filterFuerVoreinstellung(filters) };\n", T_FV),
+    ("ff06", "Der Weg zurueck zur Voreinstellung fehlt", JOBSP,
+     "              {voreinstellung && !voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (\n", "              {false ? (\n", T_FV),
+    ("ff07", "Die Karte sagt nicht, was beim Oeffnen gilt", JOBSP,
+     '                  : "Ohne Voreinstellung gilt beim Öffnen, wie du die Liste verlassen hast."}\n', '                  : ""}\n', T_FV),
+    ("ff08", "Die Voreinstellung nimmt den Suchtext mit", SFJS,
+     'const NICHT_GEMERKT = ["query", "view"];\n', 'const NICHT_GEMERKT = ["view"];\n', T_FV),
+    ("ff09", "Die Voreinstellung traegt den Suchtext des Moments in die Liste", SFJS,
+     "  return { ...gelesen, query: aktuell.query ?? standard.query, view: aktuell.view ?? standard.view };\n",
+     "  return { ...gelesen, query: standard.query, view: standard.view };\n", T_FV),
+]
+KATALOGE["filtervoreinstellung"] = M_FILTERVOREINSTELLUNG
+GRUNDLAEUFE["filtervoreinstellung"] = (("T_FV", T_FV),)
+
 WT = None
 
 

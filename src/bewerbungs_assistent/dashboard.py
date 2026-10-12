@@ -2528,6 +2528,32 @@ def _render_html_to_pdf(html: str) -> bytes | None:
         return None
 
 
+@app.get("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_lesen():
+    """Die ausdruecklich gesetzte Voreinstellung der Filter der Stellenliste, oder `null` (#1158 Punkt 5)."""
+    from .services import stellen_filter_standard
+    return {"standard": stellen_filter_standard.lesen(_db)}
+
+
+@app.put("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_setzen(payload: dict = Body(default={})):
+    """Die Filter, die jetzt gelten, als Voreinstellung festhalten: sie gelten bei jedem Oeffnen von PBP."""
+    from .services import stellen_filter_standard
+    try:
+        gesetzt = stellen_filter_standard.setzen(_db, payload.get("standard"))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"standard": gesetzt}
+
+
+@app.delete("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_loeschen():
+    """Die Voreinstellung aufheben: danach gilt beim Oeffnen wieder der gemerkte Zustand des Browsers."""
+    from .services import stellen_filter_standard
+    stellen_filter_standard.loeschen(_db)
+    return {"standard": None}
+
+
 @app.get("/api/jobs")
 async def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,

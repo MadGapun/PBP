@@ -2,7 +2,7 @@
 import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
-import { api, optionalApi, postJson, putJson } from "@/api";
+import { api, deleteRequest, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import FirmaLink from "@/components/FirmaLink";
 import {
@@ -35,11 +35,14 @@ import { volltextText } from "@/lib/jobsucheHinweis";
 import {
   SPEICHER_SCHLUESSEL,
   filterAusSpeicher,
+  filterAusVoreinstellung,
   filterFuerSpeicher,
+  filterFuerVoreinstellung,
   mehrereFilter,
   minScoreGesetzt,
   minScoreParameter,
   mitZahlen,
+  voreinstellungGilt,
 } from "@/lib/stellenFilter";
 import {
   FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
@@ -293,6 +296,10 @@ function descriptionAttentionLabel(job) {
 // Ziel von "Filter zurücksetzen" und Ziel des Sprungs auf eine Stelle.
 // Die einzige Ausnahme ist `hideApplied`: eine Stelle mit laufender
 // Bewerbung ist keine offene Stelle (#1158 Punkt 7).
+// #1158 Punkt 5: gilt die Voreinstellung schon fuer dieses Oeffnen von PBP? Ein Modulwert statt eines Zustands: er ueberlebt das
+// Verlassen und Wiederbetreten der Seite, nicht aber ein Neuladen.
+let voreinstellungSchonAngewendet = false;
+
 export const FILTER_STANDARD = {
   query: "",
   source: "",
@@ -542,6 +549,29 @@ export default function JobsPage() {
       // privater Modus oder gesperrter Speicher
     }
   }, [filters]);
+  // #1158 Punkt 5: eine ausdruecklich gesetzte Voreinstellung gilt bei jedem Oeffnen von PBP (Neuladen, Neustart), nicht beim
+  // Wechsel zwischen den Seiten; ohne sie gilt der gemerkte Zustand. Sie liegt auf dem Server (gilt in jedem Browser). Die
+  // erste Liste wird erst geholt, wenn sie da ist: sonst erschiene kurz die falsche und spraenge dann um.
+  const [voreinstellung, setVoreinstellung] = useState(null);
+  const [voreinstellungBereit, setVoreinstellungBereit] = useState(voreinstellungSchonAngewendet);
+  useEffect(() => {
+    let abgebrochen = false;
+    api("/api/stellen-filter-standard")
+      .then((antwort) => {
+        if (abgebrochen) return;
+        const gefunden = antwort?.standard && typeof antwort.standard === "object" ? antwort.standard : null;
+        setVoreinstellung(gefunden);
+        if (gefunden && !voreinstellungSchonAngewendet) {
+          setFilters((aktuell) => filterAusVoreinstellung(gefunden, FILTER_STANDARD, aktuell));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        voreinstellungSchonAngewendet = true;
+        if (!abgebrochen) setVoreinstellungBereit(true);
+      });
+    return () => { abgebrochen = true; };
+  }, []);
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
@@ -678,6 +708,27 @@ export default function JobsPage() {
     }
   });
 
+  // #1158 Punkt 5: die Voreinstellung festhalten, wieder anwenden, aufheben.
+  async function voreinstellungSpeichern() {
+    try {
+      const antwort = await putJson("/api/stellen-filter-standard", { standard: filterFuerVoreinstellung(filters) });
+      setVoreinstellung(antwort?.standard || null);
+      pushToast("Gemerkt: Beim Öffnen von PBP gelten diese Filter.", "success");
+    } catch (error) {
+      pushToast(`Die Voreinstellung ließ sich nicht speichern: ${error.message}`, "danger");
+    }
+  }
+
+  async function voreinstellungAufheben() {
+    try {
+      await deleteRequest("/api/stellen-filter-standard");
+      setVoreinstellung(null);
+      pushToast("Die Voreinstellung ist aufgehoben. Beim Öffnen gilt wieder, wie du die Liste verlassen hast.", "success");
+    } catch (error) {
+      pushToast(`Die Voreinstellung ließ sich nicht aufheben: ${error.message}`, "danger");
+    }
+  }
+
   const syncRunningSearch = useEffectEvent(async () => {
     try {
       const status = await optionalApi("/api/jobsuche/running");
@@ -718,9 +769,11 @@ export default function JobsPage() {
   });
 
   useEffect(() => {
+    if (!voreinstellungBereit) return;
     setLoading(true);
+    listenSchluesselRef.current = listenSchluessel;
     loadPage();
-  }, [reloadKey]);
+  }, [reloadKey, voreinstellungBereit]);
 
   // v1.7.93 (#1030): Filter, Sortierung, Ansicht und Zeitfenster wirken
   // auf dem Server — jede Aenderung laedt ab der ersten Seite neu. Der
@@ -728,7 +781,7 @@ export default function JobsPage() {
   const listenSchluessel = JSON.stringify([{ ...filters, query: "" }, suchtext, dismissWindow]);
   const listenSchluesselRef = useRef(listenSchluessel);
   useEffect(() => {
-    if (listenSchluesselRef.current === listenSchluessel) return;
+    if (!voreinstellungBereit || listenSchluesselRef.current === listenSchluessel) return;
     listenSchluesselRef.current = listenSchluessel;
     loadPage({ silent: true });
   }, [listenSchluessel]);
@@ -1868,6 +1921,44 @@ export default function JobsPage() {
               {filters.missingDescriptionOnly && (
                 <button aria-label="Filter fehlende Beschreibung entfernen" type="button" onClick={() => setFilters((current) => ({ ...current, missingDescriptionOnly: false }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
               )}
+            </div>
+
+            {/* #1158 Punkt 5: eine ausdruecklich gesetzte Voreinstellung. „Filter zuruecksetzen“ bleibt davon unberuehrt und zeigt
+                ALLE offenen Stellen. */}
+            <div className="ml-auto flex flex-wrap items-center gap-2" data-filter-voreinstellung>
+              <span className="text-[12px] text-muted">
+                {voreinstellung
+                  ? "Beim Öffnen von PBP gilt deine Voreinstellung."
+                  : "Ohne Voreinstellung gilt beim Öffnen, wie du die Liste verlassen hast."}
+              </span>
+              {voreinstellung && !voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  onClick={() => setFilters((aktuell) => filterAusVoreinstellung(voreinstellung, FILTER_STANDARD, aktuell))}
+                >
+                  Zur Voreinstellung
+                </button>
+              ) : null}
+              {!voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  title="Merkt die Filter und die Sortierung, die jetzt gelten, als Voreinstellung. Sie gelten bei jedem Öffnen von PBP."
+                  onClick={voreinstellungSpeichern}
+                >
+                  Als Voreinstellung speichern
+                </button>
+              ) : null}
+              {voreinstellung ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  onClick={voreinstellungAufheben}
+                >
+                  Voreinstellung aufheben
+                </button>
+              ) : null}
             </div>
 
 
