@@ -61,6 +61,7 @@ T_S = ["tests/test_v18_auto_update_schnittstellen.py"]
 T_E = ["tests/test_v18_auto_update_ed25519.py"]
 T_SA = ["tests/test_v18_auto_update_schluessel_ausgeliefert.py"]
 T_SAB = ["tests/test_v18_auto_update_schluessel_ablage.py"]
+T_V = ["tests/test_v18_vorab_auto_update_1199.py"]  # #1199: Vorab-Auto-Update (opt-in)
 
 # (id, Beschreibung, Datei, alt, neu, Tests)
 M = [
@@ -92,15 +93,16 @@ M = [
     ("qu04", "Adresse: Zugangsdaten in der Adresse erlaubt", AU + "quelle.py", "teile.username or teile.password or ", "", T_Q),
     ("qu05", "Adresse: Fremdport erlaubt", AU + "quelle.py", " or port not in (None, 443)", "", T_Q),
     ("qu06", "Weiterleitung wird nicht geprueft", AU + "quelle.py", "        _url_pruefen(newurl, erlaubte_hosts=WEITERLEITUNG_HOSTS)", "        pass", T_Q + T_I),
-    ("qu07", "asset_url: Vorabversion erlaubt", AU + "quelle.py", "    if not _fassung.ist_stabil(version):", "    if False:", T_Q),
+    ("qu07", "asset_url: ungueltige Fassung erlaubt", AU + "quelle.py", "    if not _fassung.gueltig(version):", "    if False:", T_Q + T_V),
     ("qu08", "asset_url: beliebiger Dateiname erlaubt", AU + "quelle.py", "    if name not in erlaubt:", "    if False:", T_Q),
     ("qu09", "json_holen: andere Adresse erlaubt", AU + "quelle.py", "    if url != API_FREIGABEN:", "    if False:", T_Q),
-    ("qu10", "Freigaben: Vorabversionen (Flag) zugelassen", AU + "quelle.py", ' or eintrag.get("prerelease"):', ":", T_Q + T_L),
-    ("qu11", "Freigaben: Entwuerfe zugelassen", AU + "quelle.py", 'eintrag.get("draft") or ', "", T_Q + T_L),
-    ("qu12", "Freigaben: Beta-Tag ohne Flag zugelassen", AU + "quelle.py", "        if version is None or not _fassung.ist_stabil(version):", "        if version is None:", T_Q),
-    ("qu13", "neueste_fuer_linie: andere Linie erlaubt", AU + "quelle.py", "                  if _fassung.linie(f.version) == linie and _fassung.ist_neuer(f.version, laufende_fassung)]", "                  if _fassung.ist_neuer(f.version, laufende_fassung)]", T_Q + T_L),
-    ("qu14", "neueste_fuer_linie: aeltere Fassung erlaubt", AU + "quelle.py", "                  if _fassung.linie(f.version) == linie and _fassung.ist_neuer(f.version, laufende_fassung)]", "                  if _fassung.linie(f.version) == linie]", T_Q + T_L),
+    ("qu10", "Freigaben: Vorabversionen (Flag) ohne Schalter zugelassen", AU + "quelle.py", '        if eintrag.get("prerelease") and not vorab:', "        if False:", T_Q + T_L + T_V),
+    ("qu11", "Freigaben: Entwuerfe zugelassen", AU + "quelle.py", ' or eintrag.get("draft")', "", T_Q + T_L + T_V),
+    ("qu12", "Freigaben: Beta-Tag ohne Flag zugelassen", AU + "quelle.py", "        if not vorab and not _fassung.ist_stabil(version):", "        if False:", T_Q + T_V),
+    ("qu13", "neueste_fuer_linie: andere Linie erlaubt", AU + "quelle.py", "                  if _fassung.linie(f.version) == linie", "                  if True", T_Q + T_L + T_V),
+    ("qu14", "neueste_fuer_linie: aeltere Fassung erlaubt", AU + "quelle.py", "                  and _fassung.ist_neuer(f.version, laufende_fassung)\n", "", T_Q + T_L + T_V),
     ("qu15", "neueste_fuer_linie: nimmt die aelteste statt der neuesten", AU + "quelle.py", "    return max(kandidaten, key=lambda f: _fassung.schluessel(f.version))", "    return min(kandidaten, key=lambda f: _fassung.schluessel(f.version))", T_Q + T_L),
+    ("qu21", "kandidat_erlaubt: stabile Installation auf eine Vorab gezogen", AU + "quelle.py", "    return bool(vorab) and not _fassung.ist_stabil(laufende_fassung)", "    return True", T_Q + T_V),
     ("qu16", "laden: angekuendigte Groesse nicht begrenzt", AU + "quelle.py", "            if laenge is not None and laenge > max_bytes:", "            if False:", T_Q),
     ("qu17", "laden: empfangene Groesse nicht begrenzt", AU + "quelle.py", "                    if geladen > max_bytes:", "                    if False:", T_Q),
     ("qu18", "laden: unvollstaendiger Empfang wird hingenommen", AU + "quelle.py", "        if laenge is not None and geladen != laenge:", "        if False:", T_Q),

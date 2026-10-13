@@ -26,11 +26,18 @@ def test_asset_url_baut_die_adresse_aus_festen_teilen():
     assert quelle.asset_url("1.8.1", "SHA256SUMS.sig").endswith("/v1.8.1/SHA256SUMS.sig")
 
 
-@pytest.mark.parametrize("version", ["1.8.1-beta.2", "1.8", "../1.8.1", "1.8.1/../../x", "1.8.1 ", "v1.8.1", "", None, "١.٨.١"])
-def test_asset_url_verweigert_alles_was_keine_stabile_fassung_ist(version):
+@pytest.mark.parametrize("version", ["1.8", "../1.8.1", "1.8.1/../../x", "1.8.1 ", "v1.8.1", "", None, "١.٨.١"])
+def test_asset_url_verweigert_ungueltige_fassungen(version):
+    # #1199: asset_url laesst jede GUELTIGE Fassung zu (auch Vorab wie 1.8.1-beta.2 — siehe eigener
+    # Fall unten); die Entscheidung stabil vs. Vorab faellt in neueste_fuer_linie/kandidat_erlaubt.
+    # Hier bleibt nur die Form der Nummer streng (ASCII-Fullmatch, kein Pfad-Trick).
     with pytest.raises(UpdateFehler) as e:
         quelle.asset_url(version, "SHA256SUMS")
     assert _code(e) == "quelle_nicht_erlaubt"
+
+
+def test_asset_url_laesst_eine_gueltige_vorab_zu():
+    assert quelle.asset_url("1.8.1-beta.2", "SHA256SUMS").endswith("/v1.8.1-beta.2/SHA256SUMS")
 
 
 @pytest.mark.parametrize("name", ["install.exe", "pbp-update-1.8.2.zip", "../SHA256SUMS", "SHA256SUMS ", "", "pbp-update-1.8.1.zip/../x"])

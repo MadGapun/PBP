@@ -284,6 +284,21 @@ export default function UpdatesTab() {
         </p>
       </Card>
 
+      {/* ── Vorabversionen automatisch (#1199) ── */}
+      {/-(alpha|beta|rc)\./.test(au.laufend || "") ? (
+        <Card className="rounded-2xl">
+          <SectionHeading title="Vorabversionen automatisch"
+            description="Du nutzt gerade eine Vorabversion. PBP kann die jeweils nächste Vorabversion derselben Linie automatisch holen — gut zum Testen, bevor die stabile Version kommt. Signatur und Selbsttest laufen wie bei jedem Update. Eine stabile Installation wird nie auf eine Vorabversion gezogen." />
+          <label className="mt-1 flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" checked={!!au.vorab} disabled={busy !== ""}
+              onChange={(e) => senden("/api/auto-update/einstellungen", { vorab: e.target.checked ? 1 : 0 },
+                e.target.checked ? "Vorabversionen werden einbezogen." : "Nur stabile Versionen.")}
+              data-updates-vorab />
+            Die nächste Vorabversion automatisch einbeziehen
+          </label>
+        </Card>
+      ) : null}
+
       {/* ── Verlauf ── */}
       <Card className="rounded-2xl">
         <SectionHeading title="Verlauf" description="Jede Installation mit Version, Ergebnis und Prüfsumme." />
