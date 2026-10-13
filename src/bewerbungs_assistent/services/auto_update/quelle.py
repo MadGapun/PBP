@@ -76,7 +76,7 @@ def asset_url(version: str, name: str) -> str:
     `neueste_fuer_linie`/`kandidat_erlaubt` schon entschieden; hier zaehlt nur die Form der Nummer.
     """
     if not _fassung.gueltig(version):
-        raise UpdateFehler("quelle_nicht_erlaubt", detail=f"keine gueltige Fassung: {version!r}")
+        raise UpdateFehler("quelle_nicht_erlaubt", detail=f"keine gültige Fassung: {version!r}")
     erlaubt = {ARCHIV_NAME.format(version=version), SUMMEN_NAME, SIGNATUR_NAME}
     if name not in erlaubt:
         raise UpdateFehler("quelle_nicht_erlaubt", detail=f"Dateiname nicht vorgesehen: {name!r}")

@@ -33,6 +33,74 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-rc.3] - 13.10.2026 — Eine Vorabversion kann die nächste Vorabversion selbst holen (Release-Kandidat)
+
+<!-- anwender -->
+Wer eine Vorabversion (Beta oder RC) nutzt, kann PBP jetzt erlauben, die jeweils nächste Vorabversion derselben Reihe von selbst zu holen — ideal zum Testen, ohne jedes Mal von Hand herunterzuladen. Der Schalter sitzt in den Einstellungen unter „Updates“ und ist aus, bis du ihn einschaltest. Für die stabile Version ändert sich nichts.
+<!-- /anwender -->
+
+Dritter Release-Kandidat für 1.8.0. Gegenüber `1.8.0-rc.2` kommt ein einziges, bewusst eng gefasstes Feature dazu (#1199) — und erstmals an einer Vorabversion das echte, signierte Update-Archiv, damit das Auto-Update einer Vorabversion lückenlos durchläuft (laden, Prüfsumme, Signatur, entpacken, Selbsttest, umschalten).
+
+### Added
+
+- **Auto-Update auch für Vorabversionen, opt-in (#1199).** Neuer Schalter `auto_update_vorab` (Vorgabe: aus). Nur wenn er an ist UND die laufende Version selbst eine Vorab ist, bezieht die Automatik auch Vorabversionen **derselben Linie** (z. B. rc.3 → rc.4). Der Schalter erscheint in der Update-Seite nur auf einer Vorab-Installation; er lässt sich auch im Chat setzen (`update_einstellungen_setzen(vorab=1)`), und `update_status` zeigt ihn.
+
+### Sicherheit (unverändert)
+
+- Signatur (Ed25519), Prüfsumme (SHA-256), Manifest und Selbsttest der neuen Fassung vor dem Umschalten bleiben Pflicht — für Vorab wie für stabil.
+- Kein Linienwechsel (1.8 → 1.9/2.0 bleibt bewusste Handarbeit).
+- Eine **stabile** Installation wird nie auf eine Vorabversion gezogen, auch nicht mit eingeschaltetem Schalter.
+- Der Mutationstest belegt jede dieser Schranken (`qu07`, `qu10`–`qu14`, neu `qu21`): 8 von 8 Eingriffen erkannt.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8609 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.3.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.3.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.3 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.3` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-rc.2] - 11.10.2026 — Texterkennung ohne Administratorrechte, saubere Installation (Release-Kandidat)
 
 <!-- anwender -->

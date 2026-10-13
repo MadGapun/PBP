@@ -293,7 +293,7 @@ export default function UpdatesTab() {
             <input type="checkbox" checked={!!au.vorab} disabled={busy !== ""}
               onChange={(e) => senden("/api/auto-update/einstellungen", { vorab: e.target.checked ? 1 : 0 },
                 e.target.checked ? "Vorabversionen werden einbezogen." : "Nur stabile Versionen.")}
-              data-updates-vorab />
+              data-updates-vorab-schalter />
             Die nächste Vorabversion automatisch einbeziehen
           </label>
         </Card>

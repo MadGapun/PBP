@@ -12,7 +12,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
 - **Stable:** v1.7.157 (`--latest`, 2026-10-12), Linie 1.7; Hotfix-Branches
   `hotfix/v1.7.N` vom letzten 1.7-Tag.
-- **Beta:** 1.8.0-rc.2 (Kandidat), GitHub-Prereleases. Plugins
+- **Beta:** 1.8.0-rc.3 (Kandidat), GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
 - **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 wird das **Auto-Update-Release**
@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 8596 Tests (main) / 7196 (Stable); 281 MCP-Werkzeuge
+- **Umfang:** 8609 Tests (main) / 7196 (Stable); 281 MCP-Werkzeuge
   (main) / 257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
 - **1.8.0:** Die fuenf Bausteine (PR #1166) sind seit dem 08.10.2026 in `main`; neue Arbeit geht als PR gegen `main`. Das Release 1.8.0
   braucht den Testlauf (`docs/internal/testlauf-1.8.0.md`) und das Wort des Nutzers.
