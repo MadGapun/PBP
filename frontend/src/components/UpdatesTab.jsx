@@ -18,8 +18,8 @@ import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, 
 import ErklaerText from "@/components/ErklaerText";
 import MitClaude from "@/components/MitClaude";
 import {
-  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_EINSCHALTEN_FRAGE, VORAB_ERKLAERUNG, VORAB_SCHALTER_TEXT, VORAB_SCHRITTE,
-  claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabKlick, vorabNeu, zeigeAktuell,
+  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_ERKLAERUNG, VORAB_SCHRITTE,
+  claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
@@ -64,13 +64,6 @@ export default function UpdatesTab() {
     await senden("/api/auto-update/einstellungen", { stufe: id }, `Gemerkt: ${STUFEN.find((s) => s.id === id)?.kurz}.`);
   }
 
-  async function vorabSchalten(an) {
-    if (an === Boolean(au.vorabversionen)) return;
-    if (an && !(await bestaetigen({ titel: "Vorabversionen anzeigen?", text: VORAB_EINSCHALTEN_FRAGE, ja: "Einschalten", gefahr: false }))) return;
-    await senden("/api/auto-update/einstellungen", { vorabversionen: an },
-      an ? "Gemerkt: PBP nennt Vorabversionen und lässt sie auf Klick installieren." : "Gemerkt: keine Vorabversionen mehr.");
-  }
-
   async function vorgaengerSpeichern() {
     const n = Number(vorgaenger ?? au.vorgaenger_behalten);
     await senden("/api/auto-update/einstellungen", { vorgaenger_behalten: n }, "Gemerkt. Überzählige Versionen räumt PBP beim nächsten Start auf.");
@@ -102,8 +95,6 @@ export default function UpdatesTab() {
   const neu = au.neu;
   // #1179: eine neuere Vorabversion nennt die allgemeine Prüfung, die feste Quelle des Auto-Updates kennt sie nie.
   const vorab = vorabNeu(au, updateInfo);
-  // #1179 (Tester-Schalter): eine Vorabversion mit Update-Paket, die ein Klick installiert.
-  const klick = vorabKlick(au);
   const lauf = laeuft(au);
   const dauerhaft = au.blockiert?.dauerhaft ? au.blockiert : null;
   const pruefung = au.pruefung;
@@ -141,9 +132,8 @@ export default function UpdatesTab() {
             </span>
           ) : null}
           {neu ? <Badge tone="success">Neu: v{neu.version}</Badge>
-            : klick ? <Badge tone="amber">Neue Vorabversion: v{klick.version}</Badge>
-              : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>
-                : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
+            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>
+              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
             <RefreshCw size={14} className="mr-1 inline" /> {busy === "/api/auto-update/pruefen" ? "Prüfe …" : "Jetzt prüfen"}
@@ -219,40 +209,6 @@ export default function UpdatesTab() {
             </div>
           </div>
         ) : null}
-        {klick ? (
-          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab-klick>
-            <p className="font-semibold text-ink">
-              Vorabversion {klick.version}{klick.groesse ? ` · ${groesseText(klick.groesse)}` : ""}
-            </p>
-            {Array.isArray(klick.auszug) && klick.auszug.length ? (
-              <ul className="mt-2 list-disc pl-5 text-sm text-muted">
-                {klick.auszug.map((z) => <li key={z}>{z}</li>)}
-              </ul>
-            ) : null}
-            <p className="mt-2 text-sm text-ink">
-              Zum Ausprobieren, sie kann noch Fehler haben. Du hast Vorabversionen eingeschaltet: ein Klick installiert sie.
-              Die bisherige Version bleibt zum Zurückschalten liegen, und die neue gilt nach dem nächsten Neustart.
-            </p>
-            {lauf && au.job?.version === klick.version ? (
-              <div className="mt-3" data-updates-lauf>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
-                  <div className="h-full rounded-full bg-sky transition-all" style={{ width: `${prozent(au.job)}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-muted">{au.job.text}</p>
-              </div>
-            ) : null}
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {!lauf ? (
-                <Button size="sm" disabled={busy !== ""}
-                  onClick={() => autoUpdateAktion({ art: "update-installieren", version: klick.version, vorab: true })}
-                  title="Lädt die Vorabversion von den offiziellen GitHub-Veröffentlichungen, prüft sie und legt sie neben die bisherige. Nichts wird beendet.">
-                  <Download size={14} className="mr-1 inline" /> Vorabversion installieren
-                </Button>
-              ) : null}
-              <Button size="sm" variant="ghost" onClick={() => oeffneAdresse(klick.url)}>Veröffentlichung ansehen</Button>
-            </div>
-          </div>
-        ) : null}
         {au.rueckgang ? (
           <p className="mt-3 rounded-xl border border-amber/30 bg-amber/10 p-3 text-sm text-ink" data-updates-rueckgang>
             Version {au.rueckgang.von} ließ sich nicht starten. PBP läuft wieder mit Version {au.rueckgang.nach}.{" "}
@@ -286,28 +242,12 @@ export default function UpdatesTab() {
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
             <span>
               PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert nie eine Vorabversion
-              von selbst (nur mit dem Schalter für Tester und deinem Klick) und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
+              von selbst und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
               {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
               Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
             </span>
           </p>
         </ErklaerText>
-      </Card>
-
-      {/* ── Für Tester: Vorabversionen (#1179) ── */}
-      <Card className="rounded-2xl" data-updates-vorabschalter>
-        <SectionHeading title="Für Tester: Vorabversionen" description="Neue Funktionen ausprobieren, bevor sie fertig sind." />
-        <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${
-          au.vorabversionen ? "border-amber/40 bg-amber/10" : "border-line/40 bg-shell/40 hover:border-sky/30"}`}>
-          <input type="checkbox" checked={Boolean(au.vorabversionen)} disabled={busy !== ""}
-            onChange={(e) => vorabSchalten(e.target.checked)} className="mt-1" data-vorab-schalter />
-          <span className="min-w-0">
-            <span className="block text-sm font-semibold text-ink">
-              Vorabversionen anbieten{au.vorabversionen ? "" : " (Vorgabe: aus)"}
-            </span>
-            <span className="block text-[13px] text-muted">{VORAB_SCHALTER_TEXT}</span>
-          </span>
-        </label>
       </Card>
 
       {/* ── Platz ── */}

@@ -143,14 +143,12 @@ export function updateHinweis(au, extra = {}) {
       aktionen: [],
     };
   }
-  const vorabLauf = Boolean(au.vorabversionen && au.vorab && job?.version === au.vorab.version);
-  if (job?.status === "fehler" && ((neu && neu.version === job.version) || vorabLauf)) {
+  if (job?.status === "fehler" && neu && neu.version === job.version) {
     return {
       id: "update-fehler", ton: "amber", dringend: true,
       titel: `Das Update auf Version ${job.version} hat nicht geklappt`,
       text: `${job.text || "Beim Update ist etwas schiefgegangen."} Die bisherige Version läuft unverändert weiter.`,
-      aktionen: [{ art: "update-installieren", label: "Erneut versuchen", version: job.version, ...(vorabLauf ? { vorab: true } : {}) },
-        anleitung, OPTIONEN],
+      aktionen: [{ art: "update-installieren", label: "Erneut versuchen", version: job.version }, anleitung, OPTIONEN],
     };
   }
   if (au.neustart_noetig && au.stufe !== "auto_still") {
@@ -178,11 +176,7 @@ export function updateHinweis(au, extra = {}) {
       };
   }
   // Keine fertige neue Version: eine neuere VORABVERSION wird genannt, mit dem Weg dorthin (#1179).
-  if (!neu) {
-    const klick = vorabKlick(au);
-    if (klick) return vorabKlickHinweis(klick);
-    return extra.vorab ? vorabHinweis(extra.vorab) : null;
-  }
+  if (!neu) return extra.vorab ? vorabHinweis(extra.vorab) : null;
 
   if (neu.status === "unvollstaendig") {
     return {
@@ -340,73 +334,17 @@ export function istVorabversion(fassung) {
  * @returns {{version: string, url: string, zip: string}|null}
  */
 export function vorabNeu(au, info) {
-  // Eine fertige neue Version geht vor und hat ihren eigenen Weg (Hinweis „Jetzt installieren“).
-  if (au?.neu) return null;
-  // Mit dem Tester-Schalter kennt auch die feste Quelle eine Vorabversion (au.vorab). Ist ihr Update-Paket da, deckt der
-  // Ein-Klick-Weg (vorabKlick) sie ab; ist es nicht da, bleibt der Weg über das ZIP.
-  const k = au?.verfuegbar && au.vorabversionen ? au.vorab : null;
-  if (k && istVorabversion(k.version) && !istSchonInstalliert(au, k.version)) {
-    if (k.bereit) return null;
-    return { version: k.version, url: k.url || `${RELEASE_ADRESSE}v${k.version}`, zip: k.zip || `${ARCHIV_ADRESSE}v${k.version}.zip` };
-  }
   if (!info?.update_available) return null;
   const version = typeof info.latest_version === "string" ? info.latest_version : "";
   if (!istVorabversion(version)) return null;
+  // Eine fertige neue Version geht vor und hat ihren eigenen Weg (Hinweis „Jetzt installieren“).
+  if (au?.neu) return null;
   // Schon von Hand installiert und nur noch nicht neu gestartet: kein „Update verfügbar“ mehr.
   if (istSchonInstalliert(au, version)) return null;
-  // Der Ein-Klick-Weg dieser Version hat Vorrang (die Karte dazu steht auf der Update-Seite).
-  if (vorabKlick(au)?.version === version) return null;
   return {
     version,
     url: info.release_url || `${RELEASE_ADRESSE}v${version}`,
     zip: `${ARCHIV_ADRESSE}v${version}.zip`,
-  };
-}
-
-// ── Der Schalter für Tester (#1179) ────────────────────────────────────────────────────
-//
-// Vorgabe aus. Eingeschaltet nennt PBP neuere Vorabversionen der eigenen Linie und lässt sie sich mit EINEM Klick
-// installieren, wenn ihre Veröffentlichung ein Update-Paket trägt. Von selbst installiert PBP sie auch dann nie.
-
-/** Der Satz zum Schalter — überall derselbe. */
-export const VORAB_SCHALTER_TEXT = "Eine Vorabversion ist zum Ausprobieren und kann noch Fehler haben. Mit diesem Schalter nennt PBP "
-  + "neuere Vorabversionen der eigenen Linie und lässt sie sich mit einem Klick installieren. Von selbst installiert PBP sie "
-  + "nie, auch nicht in den automatischen Stufen. Die bisherige Version bleibt zum Zurückschalten liegen.";
-
-/** Die Rückfrage vor dem Einschalten. */
-export const VORAB_EINSCHALTEN_FRAGE = "Vorabversionen zum Ausprobieren anzeigen? PBP nennt dann neuere Vorabversionen und lässt "
-  + "sie sich mit einem Klick installieren; von selbst installiert es sie nie. Du kannst den Schalter jederzeit wieder ausschalten.";
-
-/** Die Rückfrage vor der Installation einer Vorabversion. */
-export function vorabInstallierenFrage(version) {
-  return `Version ${version} ist eine Vorabversion zum Ausprobieren und kann noch Fehler haben. PBP lädt sie von den offiziellen `
-    + "GitHub-Veröffentlichungen, prüft Prüfsumme und Signatur und legt sie neben die bisherige; die bleibt zum Zurückschalten "
-    + "liegen. Die neue Version gilt nach dem nächsten Neustart. Jetzt installieren?";
-}
-
-/**
- * Eine Vorabversion, die sich mit EINEM Klick installieren lässt (Schalter an, Update-Paket da, noch nicht installiert)
- * — oder null. Ob eine fertige Version vorgeht, entscheidet der Aufrufer.
- */
-export function vorabKlick(au) {
-  if (!au?.verfuegbar || !au.vorabversionen || !au.vorab || !au.vorab.bereit) return null;
-  if (!istVorabversion(au.vorab.version)) return null;
-  if (istSchonInstalliert(au, au.vorab.version)) return null;
-  return au.vorab;
-}
-
-/** Der Hinweis für die Hinweiszone: eine Vorabversion mit dem Knopf, der sie installiert. */
-export function vorabKlickHinweis(vorab) {
-  const auszug = Array.isArray(vorab.auszug) && vorab.auszug.length ? `${vorab.auszug[0]} ` : "";
-  return {
-    id: "update-vorab-klick", ton: "neutral", dringend: false,
-    titel: `Neue Vorabversion verfügbar: v${vorab.version}`,
-    text: `${auszug}Zum Ausprobieren, sie kann noch Fehler haben. Du hast Vorabversionen eingeschaltet: ein Klick installiert sie, `
-      + "die bisherige Version bleibt zum Zurückschalten liegen.",
-    aktionen: [
-      { art: "update-installieren", label: "Vorabversion installieren", version: vorab.version, vorab: true },
-      OPTIONEN,
-    ],
   };
 }
 

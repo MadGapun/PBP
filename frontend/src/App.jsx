@@ -69,7 +69,6 @@ import {
   naechsteFrageMs as autoUpdateFrageMs,
   seitenleisteFuehrtZuEinstellungen,
   seitenleisteText,
-  vorabInstallierenFrage,
 } from "@/lib/autoUpdate";
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
@@ -897,16 +896,7 @@ export default function App() {
         }[a.antwort];
         if (gemerkt) pushToast(gemerkt, "success");
       } else if (a.art === "update-installieren") {
-        if (a.vorab) {
-          // #1179: eine Vorabversion nie ohne ausdrückliche Rückfrage; der Server verlangt dazu den Schalter und `vorabversion`.
-          const ja = await bestaetigen({
-            titel: "Vorabversion installieren?", text: vorabInstallierenFrage(a.version), ja: "Installieren", gefahr: false,
-          });
-          if (!ja) return;
-          await postJson("/api/auto-update/installieren", { version: a.version, vorabversion: true });
-        } else {
-          await postJson("/api/auto-update/installieren", { version: a.version });
-        }
+        await postJson("/api/auto-update/installieren", { version: a.version });
       } else if (a.art === "update-gesehen") {
         await postJson("/api/auto-update/rueckgang-gesehen", {});
       }
