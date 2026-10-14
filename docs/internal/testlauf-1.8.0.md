@@ -176,3 +176,7 @@ Remotedesktop-Verbindung ist offen, du fasst ihn nicht an. Was anders ist:
   die Reiter sind die einzige Navigation; die Zahlen in der Seitenleiste tragen ein Wort. Die Tabelle aller Wege: `docs/internal/wegetabelle-1171.md`.
 - **Ergebnis** wie zuvor: je Block ein Satz im PR des Kandidaten und im Issue #1170; Funde werden ab PP30 nummeriert. Ein Befund, der ein Ergebnis ändert,
   hält die Veröffentlichung an.
+
+**Dritter Lauf (14.10.2026):** gelaufen, alle Blöcke A bis I und E5 in Ordnung; Ergebnis je Block und die Funde PP30 bis PP36 stehen in `praxisprobe-1.8.0.md`
+(Abschnitt „Dritter Lauf des Kandidaten `1.8.0`“), im PR des Kandidaten und im Issue #1170. Alle Funde sind im Kandidaten behoben (#1224 bis #1229, Probe-Skript).
+Der Rechner steht wieder auf der Ausgangsprüfung; die Store-Konfiguration von Claude weicht nur in Schlüsseln ab, die Claude Desktop selbst geändert hat.

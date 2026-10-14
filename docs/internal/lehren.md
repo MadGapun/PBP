@@ -676,3 +676,45 @@ Funktionstest, grüner Schluss trotz stehengebliebenem Eintrag, …), Frontend: 
 was ich mir ausgedacht habe; ein Fremder fragt „und wenn der Ordner ein Leerzeichen hat?“. Regel: den Prüfer mit den Dateien beauftragen,
 nicht mit meiner Zusammenfassung; jeden Fund am Code belegen, als Issue führen und mit einem Test beheben, der VOR der Korrektur rot war.
 *Belege:* #1201 bis #1220, Katalog `pruefung1214`
+
+**L76. Ein Schalter, der die Frage ändert, stellt die Frage neu — und ein gemerktes Ergebnis trägt den Stand der Einstellung, mit der es
+geholt wurde.** „Vorabversionen automatisch“ (#1199) änderte, WAS gefragt wird (mit oder ohne Vorabversionen), aber das Ergebnis der letzten
+Prüfung wusste nichts davon: nach dem Einschalten las die Karte „Schalter an, nichts gefunden“ als „andere Linie“ und sagte etwas Falsches,
+bis jemand „Jetzt prüfen“ klickte. Regel: jede Einstellung, die in die Frage eingeht, steht im gemerkten Ergebnis (Speicher UND Platte), der
+Zwischenspeicher gilt nur bei gleichem Stand, das Umschalten holt die Antwort in derselben Anfrage, und eine Anzeige sagt „noch nicht
+geprüft“ statt eines Grundes, den sie nicht belegen kann.
+*Belege:* #1226, `test_v18_vorab_schalter_1226.py`, Gegenprobe vs01 bis vs10
+
+**L77. Eine Probe auf den eigenen Rechner kann unter Windows je Adresse den vollen Zeitablauf kosten — gemessen wurde es am echten PC, nicht
+am Entwicklungsrechner.** `localhost` heißt `::1` und `127.0.0.1`; verwirft die Firewall das SYN an einen geschlossenen Port, wartet jede
+Adresse die ganze Frist (2 × 2,0 s), und in einem `async def`-Handler steht der Server dabei. Der Entwicklungsrechner hat ein laufendes Ollama
+und sah nichts. Regel: erst eine kurze TCP-Probe je Adresse (0,5 s), dann die Abfrage an die Adresse, die angenommen hat; Netzaufrufe nie
+in einem `async def`-Handler; und eine Suite, die „Dienst da“ nur über ein untergeschobenes `urlopen` simuliert, einmal mit GESCHLOSSENEM
+Port laufen lassen (`no_ollama_plugin`), weil sie sonst auf dem Entwicklungsrechner durchläuft und auf der CI nicht.
+*Belege:* #1227, `test_v18_ollama_probe_1227.py`, Gegenprobe ol01 bis ol06
+
+**L78. Was der Installer außerhalb des Programmordners anlegt, muss der Updater mitführen — und ein Test, der die Registry berührt, vergleicht
+den Ort, bevor er schreibt.** `DisplayVersion` in „Apps & Features“ schrieb nur `INSTALLIEREN.bat`; nach einem Auto-Update stand dort für immer
+die Fassung der Erstinstallation (gemessen: laufend 1.9.0-rc.2, Registry 1.9.0-rc.1). Der Abgleich beim Start ändert nur einen vorhandenen
+Eintrag, nur diesen Wert, nur wenn `InstallLocation` auf den laufenden Programmordner zeigt (über den echten Pfad: Junction, 8.3-Name) — sonst
+schriebe die Suite auf einem Rechner mit echter Installation in deren Registry.
+*Belege:* #1228, `test_v18_windows_liste_1228.py`, Gegenprobe rg01 bis rg08
+
+**L79. Ein Knopf, der nach seinem Rückweg heißt, wird auch nach vorn benutzt — Wortlaut, Verlauf und Rückfrage je Richtung.** „Beim nächsten
+Start nutzen“ gilt für jede installierte Fassung; im Verlauf stand für einen Schritt nach vorn „Zurückgeschaltet · zurück von A auf B“. Regel: wo
+eine Funktion zwei Richtungen hat, trägt der Verlaufseintrag die Richtung, die Rückfrage nennt sie, und die ausdrückliche Wahl hebt eine frühere
+Zurücknahme dieses Ziels auf (wie die ausdrückliche Installation).
+*Belege:* #1229, `test_v18_umschalten_richtung_1229.py`, Gegenprobe um01 bis um06
+
+**L80. Das Probe-Paket trägt den Stand VOR dem Fix — für den Rückbau auf dem Zielrechner die korrigierte Fassung des Kandidaten laden.** Die
+Archive rc.1/rc.2 der Probe-Veröffentlichung enthielten den Deinstaller ohne die Korrektur von #1224; der Abbruch nach der Backup-Frage war auf
+dem PC der bekannte Fehler der alten Fassung, nicht ein neuer. Regel: Werkzeuge für den Rückbau (Deinstaller, Skripte) nie aus einem Paket nehmen,
+das vor der Korrektur gebaut wurde; die Datei des Kandidaten laden (rohe Datei, Zeilenenden für `cmd` auf CRLF bringen) und aus `%TEMP%` starten.
+*Belege:* #1224, PP30
+
+**L81. Beim Rückbau nicht Claudes eigene Einstellungen überschreiben — die Kopie vom Anfang gilt nur, wenn die Anwendung nicht lief.** Die Store-
+Konfiguration von Claude Desktop hatte sich während des Laufs selbst geändert (Ordnerfreigaben, Zwischenspeicher-Schalter, `epitaxyPrefs`); ein
+Zurückkopieren der Sicherung vom Anfang hätte diese Schlüssel zurückgesetzt. Regel: vor dem Zurückkopieren die Schlüssel vergleichen (nur alt,
+nur neu, anders); entfernt wird nur, was PBP hinterlassen hat (leerer `mcpServers`, die neue klassische Datei), und der Bericht nennt, dass die
+Prüfsumme deshalb nicht gleich ist.
+*Belege:* Block H des dritten Laufs, `praxisprobe-1.8.0.md`
