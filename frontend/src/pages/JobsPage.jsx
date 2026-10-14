@@ -29,7 +29,7 @@ import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
 import StellenHinweise from "@/components/StellenHinweise";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
-import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
+import { buildAnnualSalaryMetrics, gehaltsKacheln, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
 import { SCORE_BEDEUTUNG, punkteText, scoreText, scoreWert } from "@/lib/score";
 import { volltextText } from "@/lib/jobsucheHinweis";
@@ -1269,30 +1269,10 @@ export default function JobsPage() {
   const jobsWithSalary = Number(salaryMetrics.jobsWithSalary || 0);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
   const salaryCount = Number(salaryMetrics.annualBasisCount || 0);
-  const salaryMin = Number(salaryMetrics.averageMin);
-  const salaryMax = Number(salaryMetrics.averageMax);
-  const hasSalaryMin = Number.isFinite(salaryMin);
-  const hasSalaryMax = Number.isFinite(salaryMax);
-  const salaryAverage = hasSalaryMin && hasSalaryMax
-    ? Math.round((salaryMin + salaryMax) / 2)
-    : hasSalaryMin
-      ? Math.round(salaryMin)
-      : hasSalaryMax
-        ? Math.round(salaryMax)
-        : null;
-  const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
-  // beta.32 / User-Feedback: echte Bandbreite, nicht Durchschnitt der Spannen
-  const bandMin = Number(salaryMetrics.bandMin);
-  const bandMax = Number(salaryMetrics.bandMax);
-  const hasBandMin = Number.isFinite(bandMin);
-  const hasBandMax = Number.isFinite(bandMax);
-  const salaryBandText = hasBandMin && hasBandMax
-    ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
-    : hasBandMin
-      ? formatCurrency(bandMin)
-      : hasBandMax
-        ? formatCurrency(bandMax)
-        : "Keine Angabe";
+  // #1200 B1: dieselbe Rechnung wie im Dashboard — Number(null) ist 0, und
+  // ohne Gehaltsangabe stand hier "0 EUR" bzw. "0 – 0 EUR". Bandbreite =
+  // echte Spanne, nicht Durchschnitt der Spannen (beta.32).
+  const gehaltsKachel = gehaltsKacheln(salaryMetrics, "Keine Angabe");
   const latestJobUpdate = (currentList.length ? currentList : jobs).reduce(
     (latest, job) => {
       const raw = job.updated_at || job.found_at || "";
@@ -1564,13 +1544,13 @@ export default function JobsPage() {
           />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
+            value={gehaltsKachel.durchschnittText}
             note={grundlagenText(salaryMetrics)}
             tone="success"
           />
           <MetricCard
             label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryBandText}
+            value={gehaltsKachel.bandText}
             note={salaryCount > 0
               ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}`
               : "Echte Min/Max-Spanne über alle Stellen"}
