@@ -45,6 +45,7 @@ def register(mcp, db, logger: logging.Logger):
             vorab: 1 = die Automatik darf auch Vorabversionen (Beta/RC) DERSELBEN Linie ziehen — aber nur, wenn
                 die laufende Version selbst eine Vorab ist (eine stabile Installation wird nie auf eine Vorab gezogen);
                 0 = nur stabile Versionen (Vorgabe); -1 = unverändert (#1199). Signatur und Selbsttest bleiben Pflicht.
+                Ein geänderter Schalter fragt die Quelle gleich neu; das Ergebnis steht danach in `update_status`.
             bestaetigt: Pflicht für auto_meldung und auto_still. Erst setzen, NACHDEM der Mensch ausdrücklich
                 gesagt hat, dass PBP Updates ohne Rückfrage installieren soll.
         """
@@ -67,7 +68,7 @@ def register(mcp, db, logger: logging.Logger):
                 zustand.installer_aufraeumen_setzen(db, installer_aufraeumen)
                 geaendert.append("installer_aufraeumen")
             if vorab in (0, 1):
-                zustand.vorab_setzen(db, bool(vorab))
+                lauf.vorab_einstellen(db, bool(vorab))      # #1226: stellt die Frage neu (prueft gleich)
                 geaendert.append("vorab")
         except ValueError as exc:
             return {"fehler": str(exc)}

@@ -399,6 +399,7 @@ def test_1221_bei_eingeschaltetem_schalter_sagt_die_karte_dass_die_linie_nie_von
     """Der Schalter ist an, die genannte Vorabversion gehört zu einer anderen Linie: „einschalten“ wäre falsch."""
     au = _au()
     au["vorab"] = 1
+    au["pruefung"]["vorab"] = True           # #1226: die Prüfung wurde MIT dem Schalter geholt und fand nichts in der Linie
     ctx, page = _seite(browser, umgebung, au, _info("1.9.0-beta.1"))
     try:
         page.locator('[data-update-stand="neu"]').click()
@@ -407,6 +408,70 @@ def test_1221_bei_eingeschaltetem_schalter_sagt_die_karte_dass_die_linie_nie_von
         text = karte.inner_text()
         assert "Versionslinie" in text and "einschaltest" not in text, text
         assert "INSTALLIEREN.bat" in text
+    finally:
+        ctx.close()
+
+
+def test_1226_nach_dem_einschalten_ohne_neue_pruefung_nennt_die_karte_nicht_die_linie(browser, umgebung):
+    """Block E5 (dritter Lauf): Schalter eingeschaltet, die letzte Prüfung kennt ihn noch nicht. „Versionslinie“ wäre falsch:
+    ein Klick auf „Jetzt prüfen“ zeigte danach „Jetzt installieren“."""
+    au = _au()
+    au["vorab"] = 1
+    au["pruefung"]["vorab"] = False           # geholt, als der Schalter noch aus war
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        text = karte.inner_text()
+        assert "Versionslinie" not in text, text
+        assert "Jetzt prüfen" in text and "nächsten Prüfung" in text, text
+        assert "INSTALLIEREN.bat" in text, "der Weg von Hand bleibt"
+    finally:
+        ctx.close()
+
+
+def test_1226_umschalten_in_der_oberflaeche_zeigt_danach_jetzt_installieren(browser, umgebung):
+    """Der Weg des Menschen aus Block E5: Schalter an -> die Antwort der Einstellung bringt die neue Prüfung, und die Karte
+    zeigt „Jetzt installieren“ statt eines Satzes zur Linie."""
+    import json
+    au = _au()
+    au["pruefung"]["vorab"] = False
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        def einstellungen(route):
+            if json.loads(route.request.post_data or "{}").get("vorab"):
+                au["vorab"] = 1
+                au["pruefung"] = {"status": "neu", "version": NEUERE_BETA, "titel": "Probe", "vorab": True,
+                                  "zeit": "2026-10-14T12:36:00+00:00", "text": "", "groesse": 2_600_000,
+                                  "auszug": ["Etwas ist besser."]}
+                au["neu"] = {**au["pruefung"], "frage_faellig": False, "zurueckgenommen": False}
+            route.fulfill(json=au)
+
+        page.route("**/api/auto-update/einstellungen", einstellungen)
+        tab = _zu_den_updates(page)
+        schalter = tab.locator("[data-updates-vorab-schalter]")
+        schalter.scroll_into_view_if_needed()
+        schalter.click()          # kein check(): der Haken folgt erst der Antwort (gesteuertes Feld)
+        neu = tab.locator("[data-updates-neu]")
+        neu.wait_for(timeout=15000)
+        assert "Jetzt installieren" in neu.inner_text()
+        assert tab.locator("[data-updates-vorab]").count() == 0, "die Karte „Vorabversion kommt nur von Hand“ ist weg"
+    finally:
+        ctx.close()
+
+
+def test_1226_ohne_antwort_der_quelle_ist_die_linie_nicht_belegt(browser, umgebung):
+    au = _au()
+    au["vorab"] = 1
+    au["pruefung"] = {"status": "keine_antwort", "vorab": True, "zeit": "2026-10-14T12:36:00+00:00",
+                      "text": "Die Verbindung zu GitHub hat nicht geklappt."}
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        assert "Versionslinie" not in karte.inner_text()
     finally:
         ctx.close()
 

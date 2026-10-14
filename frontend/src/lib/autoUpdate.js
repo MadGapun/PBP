@@ -330,10 +330,18 @@ export const VORAB_ERKLAERUNG_SCHALTER = "PBP installiert eine Vorabversion nur,
 export const VORAB_ERKLAERUNG_ANDERE_LINIE = "PBP wechselt die Versionslinie nie von selbst, auch nicht mit „Vorabversionen "
   + "automatisch“. Diese Vorabversion kommt nur von Hand und ist zum Ausprobieren gedacht.";
 
+/**
+ * #1226: Der Schalter ist an, aber die letzte Prüfung wurde mit dem anderen Stand geholt (oder bekam keine Antwort). Dann
+ * ist „andere Linie“ nicht belegt: dieselbe Vorabversion kommt nach der nächsten Prüfung vielleicht von selbst.
+ */
+export const VORAB_ERKLAERUNG_PRUEFEN = "Ob diese Vorabversion zu den automatischen Updates gehört, steht erst nach der "
+  + "nächsten Prüfung fest — klicke auf „Jetzt prüfen“.";
+
 /** Der Satz zur Lage: stabile Installation, Vorab-Installation ohne Schalter, Vorab-Installation mit Schalter. */
 export function vorabErklaerung(vorab) {
   if (!vorab?.mitSchalter) return VORAB_ERKLAERUNG;
-  return vorab.schalterAn ? VORAB_ERKLAERUNG_ANDERE_LINIE : VORAB_ERKLAERUNG_SCHALTER;
+  if (!vorab.schalterAn) return VORAB_ERKLAERUNG_SCHALTER;
+  return vorab.pruefungVeraltet ? VORAB_ERKLAERUNG_PRUEFEN : VORAB_ERKLAERUNG_ANDERE_LINIE;
 }
 
 /** Der Weg zu einer Vorabversion, in der Reihenfolge der Handgriffe. */
@@ -364,20 +372,28 @@ export function vorabNeu(au, info) {
   if (au?.neu) return null;
   // Schon von Hand installiert und nur noch nicht neu gestartet: kein „Update verfügbar“ mehr.
   if (istSchonInstalliert(au, version)) return null;
+  const schalterAn = Boolean(au?.vorab);
   return {
     version,
     url: info.release_url || `${RELEASE_ADRESSE}v${version}`,
     zip: `${ARCHIV_ADRESSE}v${version}.zip`,
     // #1221: nur eine Vorab-Installation hat den Schalter (#1199); `schalterAn` = er ist schon eingeschaltet
     mitSchalter: istVorabversion(au?.laufend),
-    schalterAn: Boolean(au?.vorab),
+    schalterAn,
+    // #1226: „andere Linie“ gilt nur, wenn die letzte Prüfung mit eingeschaltetem Schalter eine Antwort bekam und nichts
+    // fand; sonst (anderer Stand, keine Antwort, ältere Daten ohne den Vermerk) ist sie nicht belegt
+    pruefungVeraltet: schalterAn && !(au?.pruefung?.status === "aktuell" && au.pruefung.vorab === true),
   };
 }
 
 /** Der erste Satz des Hinweises (#1221): was gilt, je nach Lage (stabil, Vorab ohne Schalter, Vorab mit Schalter). */
 function vorabHinweisEinleitung(vorab) {
   if (!vorab?.mitSchalter) return "PBP installiert Vorabversionen nie von selbst.";
-  if (vorab.schalterAn) return "PBP wechselt die Versionslinie nie von selbst.";
+  if (vorab.schalterAn) {
+    return vorab.pruefungVeraltet
+      ? "Ob sie automatisch kommt, steht erst nach der nächsten Prüfung fest (Einstellungen › Erweitert › Updates › „Jetzt prüfen“)."
+      : "PBP wechselt die Versionslinie nie von selbst.";
+  }
   return "Unter Einstellungen › Erweitert › Updates kannst du Vorabversionen automatisch einbeziehen.";
 }
 

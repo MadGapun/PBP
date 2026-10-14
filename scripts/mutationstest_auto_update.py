@@ -1979,6 +1979,9 @@ T_PF = ["tests/test_v18_pruefung_frontend_1210_1215.py"]
 T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
 T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Kommentaren eines Klammerblocks
 T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe statt 2 x 2 s Zeitablauf
+T_VS = ["tests/test_v18_vorab_schalter_1226.py"]  # #1226: der Schalter aendert die Frage, die Antwort wird neu geholt
+AUJS = "frontend/src/lib/autoUpdate.js"
+TOOL_UPDATE = "src/bewerbungs_assistent/tools/update.py"
 LLM_PY = "src/bewerbungs_assistent/services/llm_service.py"
 T_PW = ["tests/test_v18_installer_rest_1149.py", "tests/test_v18_auto_update_installer_bat.py",
         "tests/test_v18_auto_update_installer_aufraeumen.py"]
@@ -2148,10 +2151,37 @@ M_PRUEFUNG = [
     ("ol06", "Erweiterungen: der Handler ist wieder ein async-Handler und haelt den Server an", DASH,
      "@app.get(\"/api/components\")\ndef api_components_overview():\n",
      "@app.get(\"/api/components\")\nasync def api_components_overview():\n", T_OL),
+    # ── #1226: der Schalter „Vorabversionen automatisch“ aendert die Frage (Block E5, dritter Lauf) ──
+    ("vs01", "Pruefung: der Zwischenspeicher gilt auch bei anderem Stand des Schalters", AU + "lauf.py",
+     "        if gemerkt.get(\"laufende\") == laufende and bool(gemerkt.get(\"vorab\")) == vorab:\n",
+     "        if gemerkt.get(\"laufende\") == laufende:\n", T_VS),
+    ("vs02", "Pruefung: das Ergebnis merkt den Stand des Schalters nicht", AU + "lauf.py",
+     "\"laufende\": laufende, \"vorab\": bool(vorab)}\n", "\"laufende\": laufende}\n", T_VS),
+    ("vs03", "Umschalten: es wird nie neu geprueft", AU + "lauf.py",
+     "    geaendert = vorher != bool(an)\n    if geaendert:\n", "    geaendert = vorher != bool(an)\n    if False:\n", T_VS),
+    ("vs04", "Umschalten: es wird auch bei gleichem Stand neu geprueft", AU + "lauf.py",
+     "    geaendert = vorher != bool(an)\n    if geaendert:\n", "    geaendert = vorher != bool(an)\n    if True:\n", T_VS),
+    ("vs05", "Endpunkt: die Einstellung setzt den Schalter ohne neue Pruefung", DASH,
+     "        await asyncio.to_thread(lauf.vorab_einstellen, _db, bool(payload[\"vorab\"]))\n",
+     "        zustand.vorab_setzen(_db, bool(payload[\"vorab\"]))\n", T_VS),
+    ("vs06", "Werkzeug: die Einstellung setzt den Schalter ohne neue Pruefung", TOOL_UPDATE,
+     "                lauf.vorab_einstellen(db, bool(vorab))      # #1226: stellt die Frage neu (prueft gleich)\n",
+     "                zustand.vorab_setzen(db, bool(vorab))\n", T_VS),
+    ("vs07", "Uebersicht: eine Vorabversion bleibt nach dem Ausschalten als neu stehen", AU + "lauf.py",
+     "    if p and p.get(\"version\") and not _fassung.ist_stabil(p[\"version\"]) and bool(p.get(\"vorab\")) and not antwort[\"vorab\"]:\n"
+     "        p = None\n", "    if False:\n        p = None\n", T_VS),
+    ("vs08", "Karte: nach dem Einschalten steht wieder immer der Satz zur Versionslinie", AUJS,
+     "  return vorab.pruefungVeraltet ? VORAB_ERKLAERUNG_PRUEFEN : VORAB_ERKLAERUNG_ANDERE_LINIE;\n",
+     "  return VORAB_ERKLAERUNG_ANDERE_LINIE;\n", T_VS + T_VO),
+    ("vs09", "Hinweiszone: nach dem Einschalten steht wieder der Satz zur Versionslinie", AUJS,
+     "    return vorab.pruefungVeraltet\n      ? \"Ob sie automatisch kommt", "    return false\n      ? \"Ob sie automatisch kommt", T_VO),
+    ("vs10", "Oberflaeche: die Pruefung gilt auch ohne den Vermerk des Schalters als belegt", AUJS,
+     "    pruefungVeraltet: schalterAn && !(au?.pruefung?.status === \"aktuell\" && au.pruefung.vorab === true),\n",
+     "    pruefungVeraltet: false,\n", T_VO),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL))
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS))
 
 WT = None
 

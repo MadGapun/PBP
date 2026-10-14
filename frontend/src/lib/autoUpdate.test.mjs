@@ -5,7 +5,8 @@ import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
   NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, standUnbekannt, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
-  VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE, istVorabversion, vorabErklaerung,
+  VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_PRUEFEN, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE,
+  istVorabversion, vorabErklaerung,
   vorabHinweis, vorabNeu,
 } from "./autoUpdate.js";
 
@@ -240,7 +241,8 @@ const betaInfo = { update_available: true, latest_version: "1.8.0-beta.18",
   release_url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18" };
 const v = vorabNeu(betaAu, betaInfo);
 assert.deepEqual(v, { version: "1.8.0-beta.18", url: betaInfo.release_url,
-  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip", mitSchalter: true, schalterAn: false });
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip", mitSchalter: true, schalterAn: false,
+  pruefungVeraltet: false });
 assert.equal(vorabNeu(betaAu, { ...betaInfo, release_url: "" }).url, "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
   "ohne Adresse in der Antwort: die Seite des Tags");
 
@@ -298,6 +300,25 @@ assert.equal(vorabNeu({ ...betaAu, laufend: "1.7.157", aktuell: "1.7.157" }, bet
 // der Hinweis der anderen Lagen
 assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true }).text, /Versionslinie nie von selbst/);
 assert.match(vorabHinweis({ ...v, mitSchalter: false, schalterAn: false }).text, /nie von selbst/);
+// #1226: Schalter an, aber die letzte Prüfung kennt ihn nicht (anderer Stand, ohne Vermerk, ohne Antwort): kein „andere Linie“
+const mitSchalterAn = { ...betaAu, vorab: 1 };
+assert.equal(vorabNeu(mitSchalterAn, betaInfo).pruefungVeraltet, true, "keine Prüfung mit dem Schalter");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell", vorab: false } }, betaInfo).pruefungVeraltet, true,
+  "die Prüfung wurde ohne den Schalter geholt");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell" } }, betaInfo).pruefungVeraltet, true,
+  "ältere Daten ohne den Vermerk");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "keine_antwort", vorab: true } }, betaInfo).pruefungVeraltet, true,
+  "ohne Antwort ist nichts belegt");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell", vorab: true } }, betaInfo).pruefungVeraltet, false,
+  "belegt: mit dem Schalter geprüft, nichts gefunden");
+assert.equal(vorabNeu({ ...betaAu, pruefung: { status: "aktuell", vorab: false } }, betaInfo).pruefungVeraltet, false,
+  "Schalter aus: nichts ist veraltet");
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true, pruefungVeraltet: true }), VORAB_ERKLAERUNG_PRUEFEN);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true, pruefungVeraltet: false }), VORAB_ERKLAERUNG_ANDERE_LINIE);
+assert.match(VORAB_ERKLAERUNG_PRUEFEN, /Jetzt prüfen/);
+assert.doesNotMatch(VORAB_ERKLAERUNG_PRUEFEN, /Versionslinie/, "der Satz zur Linie steht nur, wenn er belegt ist");
+assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungVeraltet: true }).text, /nächsten Prüfung/);
+assert.doesNotMatch(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungVeraltet: true }).text, /Versionslinie/);
 assert.equal(VORAB_SCHRITTE.length, 3);
 assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
 

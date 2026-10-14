@@ -8169,10 +8169,12 @@ async def api_auto_update_einstellungen(payload: dict = Body(default={})):
             zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
         if "installer_aufraeumen" in payload:
             zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
-        if "vorab" in payload:
-            zustand.vorab_setzen(_db, bool(payload["vorab"]))
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    if "vorab" in payload:
+        # #1226: der Schalter aendert die Frage; die Antwort wird gleich neu geholt (Netz: nicht im Ereignis-Thread)
+        import asyncio
+        await asyncio.to_thread(lauf.vorab_einstellen, _db, bool(payload["vorab"]))
     return lauf.uebersicht(_db)
 
 
