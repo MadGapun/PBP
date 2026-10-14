@@ -476,6 +476,24 @@ Einträgen darunter.
   Kommentarzeilen mit Klammern im Block der Backup-Frage (#1149) ließen `cmd` den Stapel beim Lesen abbrechen: das Fenster schloss sich, und die
   Fragen nach den Bewerbungsdaten und nach den rund 830 MB Zusatzdateien kamen nicht mehr. Die Kommentare stehen jetzt außerhalb des Blocks;
   ein Wächter prüft alle `.bat`-Dateien auf Klammern in Kommentaren innerhalb von Blöcken, und ein Test führt den Abschnitt mit echtem `cmd` aus.
+- **Die Update-Seite zeigte „Aktuell“, obwohl die Prüfung keine Antwort bekam** (#1225; Fund des dritten Laufs, nur im Kandidaten). Das Etikett hing nur an
+  „keine neue Version“ und „kein Neustart“; darunter stand „Die Verbindung zu GitHub hat nicht geklappt“, die Seitenleiste sagte „Update-Stand unbekannt“.
+  Jetzt steht „Aktuell“ nur mit einer Antwort der Quelle, sonst „Stand unbekannt“.
+- **„Vorabversionen automatisch“: nach dem Einschalten nannte die Karte einen falschen Grund** (#1226; Fund des dritten Laufs, nur im Kandidaten). Das gemerkte
+  Prüfergebnis kannte den Stand des Schalters nicht, und die Karte sagte „PBP wechselt die Versionslinie nie von selbst“, obwohl dieselbe Vorabversion nach
+  „Jetzt prüfen“ mit „Jetzt installieren“ kam. Jetzt trägt das Ergebnis den Stand des Schalters, das Umschalten prüft sofort neu (Dashboard und Werkzeug), eine
+  mit Schalter gefundene Vorabversion steht nach dem Ausschalten nicht mehr als „neu“ da, und solange die letzte Prüfung den Schalter nicht kannte, sagt die
+  Karte „steht erst nach der nächsten Prüfung fest — klicke auf „Jetzt prüfen““ statt eines Satzes, den sie nicht belegen kann.
+- **Ohne Ollama kostete die Abfrage der lokalen KI unter Windows vier Sekunden** (#1227; Fund des dritten Laufs, betrifft auch ältere Versionen). Die Seite
+  „Erweiterungen“ lud rund 6 Sekunden: die Firewall des Rechners beantwortete Verbindungen zu einem geschlossenen Port der Schleife nicht, und die Abfrage
+  wartete je Adresse (`::1` und `127.0.0.1`) volle 2 Sekunden — im Handler, der den ganzen Server anhielt. Jetzt fragt eine kurze Verbindungsprobe (je
+  höchstens 0,5 s), die Abfrage geht an die Adresse, die annimmt, und der Handler läuft im Threadpool. Ein laufendes Ollama wird wie bisher erkannt (IPv4 und IPv6).
+- **Windows „Apps & Features“ zeigte nach einem Auto-Update die alte Fassung** (#1228; Fund des dritten Laufs, nur im Kandidaten). `DisplayVersion` schrieb nur
+  der Installer. Jetzt gleicht PBP den Eintrag beim Start mit der laufenden Fassung ab — nur einen vorhandenen Eintrag, nur diesen Wert, nur wenn er auf den
+  laufenden Programmordner zeigt.
+- **„Beim nächsten Start nutzen“ für eine neuere installierte Fassung hieß „Zurückgeschaltet“** (#1229; Fund des dritten Laufs, nur im Kandidaten). Verlauf und
+  Rückfrage kannten nur den Rückweg. Jetzt steht beim Schritt nach vorn „Umgeschaltet“, die Rückfrage nennt die Richtung, und die ausdrückliche Wahl hebt die
+  Zurücknahme dieser Fassung auf.
 
 ### Known Issues
 
