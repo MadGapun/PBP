@@ -729,11 +729,12 @@ def find_vermittler_bewerbung(firma: str, applications,
                               kanon=None) -> Optional[dict]:
     """Laufende Bewerbung ueber einen Vermittler beim selben Endkunden (#1076).
 
-    Die Firma der Bewerbung ist der Vermittler; der Endkunde steht im
-    Klammerzusatz der Firma ("Vermittler X (Endkunde: Y)") oder in den
-    Notizen. Gesucht wird der Name der NEUEN Firma dort — mit
-    Wortgrenzen, weil ein kurzer Name sonst in jedem laengeren Wort steckt
-    (#970).
+    Ein eingetragenes `endkunde`-Feld ist massgeblich (#1198). Nur wenn es leer ist,
+    werden Firmenangaben und Notizen als unsichere Hinweise durchsucht; ein
+    Freitexttreffer belegt nicht, dass die genannte Firma Endkunde ist. Der
+    Endkunde steht sonst im Klammerzusatz der Firma ("Vermittler X (Endkunde: Y)")
+    oder in den Notizen. Wortgrenzen verhindern, dass ein kurzer Name in jedem
+    laengeren Wort steckt (#970).
 
     #1080: mit ``kanon`` wird auch nach den bestaetigten anderen
     Schreibweisen der Firma gesucht ("IBM" im Klammerzusatz, die Stelle
@@ -751,11 +752,11 @@ def find_vermittler_bewerbung(firma: str, applications,
         app_firma = normalize_company_name(app.get("company"))
         if app_firma == norm or _gleiche_firma(app_firma, norm, kanon):
             continue  # das ist Stufe A
-        # v1.7.143 (#1126): auch das Feld `endkunde` - der Endkunde steht bei
-        # einer Bewerbung ueber einen Vermittler oft NUR dort, nicht im
-        # Klammerzusatz der Firma und nicht in den Notizen.
-        roh = " ".join(str(app.get(k) or "")
-                       for k in ("company", "notes", "endkunde"))
+        # A populated field is explicit user data. Do not let an older note
+        # override it with a different possible end customer.
+        endkunde = str(app.get("endkunde") or "").strip()
+        roh = endkunde or " ".join(str(app.get(k) or "")
+                                   for k in ("company", "notes"))
         for uml, repl in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
             roh = roh.lower().replace(uml, repl)
         # #1117: derselbe Schnitt wie in `normalize_company_name` - der Name

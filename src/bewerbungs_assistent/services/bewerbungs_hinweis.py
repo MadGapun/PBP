@@ -32,14 +32,22 @@ WIEDERHOLUNG = "wiederholung"
 VERMITTLER = "vermittler"
 
 
+def vermittler_name(bewerbung: dict) -> str:
+    """Return the explicitly recorded agency, falling back for older records."""
+    name = str(bewerbung.get("vermittler") or "").strip()
+    return name or str(bewerbung.get("company") or "").strip()
+
+
 def _vermittler_hinweis(job: dict, bewerbung: dict) -> dict:
     from .anzeigenamen import datum_text, status_text
     firma = job.get("company") or ""
-    vermittler = bewerbung.get("company") or ""
+    firma_damals = bewerbung.get("company") or ""
+    vermittler = vermittler_name(bewerbung)
     titel = bewerbung.get("title") or ""
     datum = (bewerbung.get("applied_at") or bewerbung.get("created_at")
              or "")[:10]
     am = f" am {datum_text(datum)}" if datum else ""
+    einordnung = vermittler_einordnung(firma, bewerbung)
     return {
         "art": VERMITTLER,
         "bewerbung_id": (bewerbung.get("id") or "")[:8],
@@ -49,16 +57,24 @@ def _vermittler_hinweis(job: dict, bewerbung: dict) -> dict:
         "laeuft": True,
         "sicher": False,
         "titel_damals": titel,
-        "firma_damals": vermittler,
+        "firma_damals": firma_damals,
         "match_grund": "vermittler_endkunde",
         "kurz": f"Schon beworben? Läuft über {vermittler}",
         "warnung": (
-            f"Über {vermittler} läuft{am} eine Bewerbung („{titel}“), die "
-            f"{firma} als Endkunden nennt (Stand: "
-            f"{status_text(bewerbung.get('status'))}). Prüfen, ob es "
+            f"Über {vermittler} läuft{am} eine Bewerbung („{titel}“, Stand: "
+            f"{status_text(bewerbung.get('status'))}). {einordnung} Prüfen, ob es "
             "dieselbe Stelle ist — sonst landet eine zweite Bewerbung am "
             "Vermittler vorbei beim selben Arbeitgeber."),
     }
+
+
+def vermittler_einordnung(firma: str, bewerbung: dict) -> str:
+    """Describe whether a Vermittler match comes from a field or free text."""
+    if str(bewerbung.get("endkunde") or "").strip():
+        return f"{firma} ist als Endkunde in der Bewerbung eingetragen."
+    return (
+        f"{firma} wird in den Notizen oder Firmenangaben erwähnt; "
+        "ob es der Endkunde ist, bleibt offen.")
 
 
 def fuer_stelle(job: dict, bewerbungen, db=None, kanon=None) -> Optional[dict]:

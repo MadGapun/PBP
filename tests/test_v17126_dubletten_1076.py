@@ -185,6 +185,25 @@ def test_1076_vermittler_bewerbung_beim_endkunden(env):
     assert res["status"] == "angelegt"
     assert res["vermittler_bewerbung"]["firma_der_bewerbung"] == \
         "Personalvermittlung Alpha"
+    assert "Notizen" in res["vermittler_bewerbung"]["hinweis"]
+    assert "als Endkunden" not in res["vermittler_bewerbung"]["hinweis"]
+
+
+def test_1198_neue_stelle_nennt_eingetragenen_vermittler(env):
+    db, mcp = env
+    aid = db.add_application({
+        "title": "Projektberater", "company": "Firma G",
+        "endkunde": "", "status": "beworben",
+        "notes": "Starke Partnerschaft mit Firma F"})
+    _call(mcp, "bewerbung_bearbeiten", {
+        "bewerbung_id": aid, "vermittler": "Firma H"})
+    res = _call(mcp, "stelle_manuell_anlegen", {
+        "titel": "Leiter Werkzeugbau", "firma": "Firma F",
+        "url": "https://example.com/neu1198", "beschreibung": AUFGABEN})
+    hinweis = res["vermittler_bewerbung"]["hinweis"]
+    assert "Firma H" in hinweis
+    assert "Notizen" in hinweis
+    assert "als Endkunden" not in hinweis
 
 
 def test_1076_endkunde_im_klammerzusatz_der_firma(env):

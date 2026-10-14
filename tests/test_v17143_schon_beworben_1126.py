@@ -246,6 +246,37 @@ def test_1126_vermittler_mit_endkunde_im_feld_wird_gefunden():
     assert find_vermittler_bewerbung("Beispielwerk AG", [bew]) is not None
 
 
+def test_1198_eingetragener_andere_endkunde_hat_vorrang_vor_notizen():
+    bew = _vermittler_bewerbung(
+        endkunde="Firma G", notes="Starke Partnerschaft mit Firma F")
+    assert find_vermittler_bewerbung("Firma F", [bew]) is None
+    assert find_vermittler_bewerbung("Firma G", [bew]) is bew
+
+
+def test_1198_notiztreffer_wird_als_unsicherer_hinweis_formuliert():
+    bew = _vermittler_bewerbung(
+        endkunde="", notes="Starke Partnerschaft mit Firma F")
+    hinweis = bewerbungs_hinweis.fuer_stelle(
+        {"hash": "j1", "title": "Andere Rolle", "company": "Firma F"},
+        [bew])
+    assert hinweis["sicher"] is False
+    assert "Firma F" in hinweis["warnung"]
+    assert "Notiz" in hinweis["warnung"]
+    assert "nennt Firma F als Endkunden" not in hinweis["warnung"]
+
+
+def test_1198_eingetragener_vermittler_wird_im_hinweis_verwendet():
+    bew = _vermittler_bewerbung(
+        company="Firma G", vermittler="Firma H", endkunde="",
+        notes="Starke Partnerschaft mit Firma F")
+    hinweis = bewerbungs_hinweis.fuer_stelle(
+        {"hash": "j1", "title": "Andere Rolle", "company": "Firma F"},
+        [bew])
+    assert "Über Firma H" in hinweis["warnung"]
+    assert hinweis["firma_damals"] == "Firma G"
+    assert "ob es der Endkunde ist, bleibt offen" in hinweis["warnung"]
+
+
 def test_1126_vermittler_mit_akzent_im_text_wird_gefunden():
     """Der Name wird gefaltet - der Rohtext auch, sonst fehlt "société"."""
     bew = _vermittler_bewerbung(
