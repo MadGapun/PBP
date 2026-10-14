@@ -283,11 +283,14 @@ def abgelehnt(db) -> list:
 
 
 def zurueckschalten(db, ziel: str, *, app=None) -> dict:
-    """Beim naechsten Start soll eine aeltere, noch installierte Fassung laufen (Rueckweg auf Wunsch).
+    """Beim naechsten Start soll eine andere, noch installierte Fassung laufen (Rueckweg auf Wunsch).
 
     Nichts wird beendet, nichts geloescht. Die Fassungen, die NEUER sind als `ziel`, merkt sich PBP als
     zurueckgenommen: weder der Zeitgeber noch ein spaeterer Lauf schaltet von selbst wieder auf sie.
     Wer sie doch will, installiert sie ausdruecklich (Knopf oder Werkzeug).
+
+    Auch ein Schritt NACH VORN ist moeglich (die Oberflaeche bietet jede installierte Fassung an): der Verlauf nennt ihn
+    „umgeschaltet“ statt „zurueckgeschaltet“ (#1229), und das Ziel gilt nicht mehr als zurueckgenommen.
     """
     if app is None:
         ok, grund = layout.verfuegbarkeit()
@@ -300,14 +303,21 @@ def zurueckschalten(db, ziel: str, *, app=None) -> dict:
     if ziel == aktuell:
         return {"status": "nichts_zu_tun", "text": f"Beim nächsten Start läuft ohnehin Version {ziel}."}
     neuere = [v for v in layout.installierte_fassungen(app) if _fassung.ist_neuer(v, ziel)]
+    nach_vorn = bool(aktuell) and _fassung.ist_neuer(ziel, aktuell)
     layout.schreibe_atomar(layout.pfade(app).aktuell, ziel + "\n")
     status = layout.lese_status(app)
     status.pop("vorherige", None)
     status.pop("rueckgang", None)
     layout.schreibe_status(app, status)
-    db.set_setting(K_ABGELEHNT, sorted(set(abgelehnt(db)) | set(neuere), key=_fassung.schluessel))
-    zustand.verlauf_anhaengen(db, version=ziel, ergebnis="zurueckgeschaltet", ausloeser="klick",
-                              grund=f"Auf Wunsch zurück von {aktuell} auf {ziel}.")
+    # die ausdrueckliche Wahl hebt die Zuruecknahme des Ziels auf (wie die ausdrueckliche Installation, `starte_installation`)
+    gemerkt = (set(abgelehnt(db)) | set(neuere)) - {ziel}
+    db.set_setting(K_ABGELEHNT, sorted(gemerkt, key=_fassung.schluessel))
+    if nach_vorn:
+        zustand.verlauf_anhaengen(db, version=ziel, ergebnis="umgeschaltet", ausloeser="klick",
+                                  grund=f"Auf Wunsch von {aktuell} auf {ziel} umgeschaltet.")
+    else:
+        zustand.verlauf_anhaengen(db, version=ziel, ergebnis="zurueckgeschaltet", ausloeser="klick",
+                                  grund=f"Auf Wunsch zurück von {aktuell} auf {ziel}.")
     return {"status": "ok", "nach": ziel,
             "text": f"Beim nächsten Start läuft Version {ziel}. Starte PBP und Claude Desktop neu."}
 

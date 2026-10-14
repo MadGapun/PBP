@@ -7,7 +7,7 @@ import {
   updateHinweis, claudeFassung, verbindungsAbweichung,
   VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_PRUEFEN, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE,
   istVorabversion, vorabErklaerung,
-  vorabHinweis, vorabNeu,
+  vorabHinweis, vorabNeu, umschaltText,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -321,5 +321,14 @@ assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungV
 assert.doesNotMatch(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungVeraltet: true }).text, /Versionslinie/);
 assert.equal(VORAB_SCHRITTE.length, 3);
 assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
+
+// #1229: der Rückweg und ein Schritt nach vorn sagen Verschiedenes
+assert.match(umschaltText("1.8.0", "1.8.1"), /läuft wieder Version 1\.8\.0/);
+assert.match(umschaltText("1.8.0", "1.8.1"), /neueren Versionen bleiben gespeichert/);
+assert.match(umschaltText("1.8.1", "1.8.0"), /läuft Version 1\.8\.1/);
+assert.doesNotMatch(umschaltText("1.8.1", "1.8.0"), /wieder|neueren Versionen/, "nach vorn: kein Rückweg-Satz");
+assert.match(umschaltText("1.8.1", "1.8.0"), /PBP und Claude Desktop neu starten/);
+assert.match(umschaltText("1.9.0-rc.2", "1.9.0-rc.1"), /läuft Version 1\.9\.0-rc\.2/, "auch Vorabversionen");
+assert.match(umschaltText("1.8.0", null), /läuft wieder Version/, "ohne Vergleichswert gilt der Rückweg-Satz");
 
 console.log("autoUpdate: ok");

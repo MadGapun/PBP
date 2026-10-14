@@ -301,6 +301,19 @@ export function istNeuer(a, b) {
 }
 
 /**
+ * Der Bestätigungstext für „Beim nächsten Start nutzen“ (#1229). Die Oberfläche bietet jede installierte Fassung an: der
+ * Rückweg und ein Schritt nach vorn sagen Verschiedenes („wieder“ und „die neueren Versionen bleiben gespeichert“ stimmen
+ * nur zurück). `aktuell` ist die Fassung, die beim nächsten Start laufen würde.
+ */
+export function umschaltText(version, aktuell) {
+  if (istNeuer(version, aktuell)) {
+    return `Beim nächsten Start läuft Version ${version}. Du musst danach PBP und Claude Desktop neu starten. Fortfahren?`;
+  }
+  return `Beim nächsten Start läuft wieder Version ${version}. Die neueren Versionen bleiben gespeichert, PBP schaltet aber `
+    + "nicht von selbst wieder um. Du musst danach PBP und Claude Desktop neu starten. Fortfahren?";
+}
+
+/**
  * Ist diese Version schon installiert (und wartet nur auf den Neustart)? Dann ist sie kein „Update verfügbar“
  * mehr, auch wenn das laufende Programm noch die ältere ist.
  */

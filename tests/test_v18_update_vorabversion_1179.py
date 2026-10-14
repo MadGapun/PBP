@@ -461,6 +461,35 @@ def test_1226_umschalten_in_der_oberflaeche_zeigt_danach_jetzt_installieren(brow
         ctx.close()
 
 
+def test_1229_die_frage_zum_umschalten_nennt_die_richtung(browser, umgebung):
+    """Block E5: „Beim nächsten Start nutzen“ bei einer NEUEREN installierten Fassung ist kein Rückweg."""
+    au = _au()
+    au["installiert"] = ["1.8.0-beta.16", BETA, NEUERE_BETA]
+    au["fassungen"] = [
+        {"version": "1.8.0-beta.16", "bytes": 1_500_000, "laeuft": False, "aktuell": False, "vorherige": False},
+        {"version": BETA, "bytes": 1_500_000, "laeuft": True, "aktuell": True, "vorherige": False},
+        {"version": NEUERE_BETA, "bytes": 1_500_000, "laeuft": False, "aktuell": False, "vorherige": False},
+    ]
+    ctx, page = _seite(browser, umgebung, au, _info())
+    try:
+        tab = _zu_den_updates(page)
+        knoepfe = tab.get_by_role("button", name="Beim nächsten Start nutzen")
+        assert knoepfe.count() == 2, "für die laufende Fassung gibt es keinen Knopf"
+        knoepfe.nth(1).click()               # die neuere (Reihenfolge der Liste)
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=15000)
+        text = dialog.inner_text()
+        assert f"läuft Version {NEUERE_BETA}" in text and "wieder" not in text and "neueren Versionen" not in text, text
+        page.get_by_role("button", name="Abbrechen").click()
+        knoepfe.nth(0).click()               # die ältere: der Rückweg
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=15000)
+        text = dialog.inner_text()
+        assert "läuft wieder Version 1.8.0-beta.16" in text and "neueren Versionen" in text, text
+    finally:
+        ctx.close()
+
+
 def test_1226_ohne_antwort_der_quelle_ist_die_linie_nicht_belegt(browser, umgebung):
     au = _au()
     au["vorab"] = 1

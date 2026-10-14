@@ -1981,6 +1981,8 @@ T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Komment
 T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe statt 2 x 2 s Zeitablauf
 T_VS = ["tests/test_v18_vorab_schalter_1226.py"]  # #1226: der Schalter aendert die Frage, die Antwort wird neu geholt
 T_RG = ["tests/test_v18_windows_liste_1228.py"]  # #1228: DisplayVersion nennt die laufende Fassung
+T_UM = ["tests/test_v18_umschalten_richtung_1229.py"]  # #1229: Umschalten nach vorn heisst nicht „zurueckgeschaltet“
+UPD_JSX = "frontend/src/components/UpdatesTab.jsx"
 WL_PY = "src/bewerbungs_assistent/services/auto_update/windows_liste.py"
 AUJS = "frontend/src/lib/autoUpdate.js"
 TOOL_UPDATE = "src/bewerbungs_assistent/tools/update.py"
@@ -2202,10 +2204,26 @@ M_PRUEFUNG = [
     ("rg07", "Start: ein Fehler des Abgleichs bricht den Start ab", AU + "lauf.py",
      "    except Exception:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n",
      "    except ZeroDivisionError:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n", T_RG),
+    # ── #1229: „Beim naechsten Start nutzen“ kennt zwei Richtungen (Block E5, dritter Lauf) ──
+    ("um01", "Verlauf: ein Schritt nach vorn heisst wieder „zurueckgeschaltet“", AU + "lauf.py",
+     "    if nach_vorn:\n        zustand.verlauf_anhaengen(db, version=ziel, ergebnis=\"umgeschaltet\"",
+     "    if False:\n        zustand.verlauf_anhaengen(db, version=ziel, ergebnis=\"umgeschaltet\"", T_UM),
+    ("um02", "Verlauf: auch der Rueckweg heisst „umgeschaltet“", AU + "lauf.py",
+     "    nach_vorn = bool(aktuell) and _fassung.ist_neuer(ziel, aktuell)\n", "    nach_vorn = True\n", T_UM),
+    ("um03", "Umschalten: das gewaehlte Ziel bleibt zurueckgenommen", AU + "lauf.py",
+     "    gemerkt = (set(abgelehnt(db)) | set(neuere)) - {ziel}\n", "    gemerkt = (set(abgelehnt(db)) | set(neuere))\n", T_UM),
+    ("um04", "Frage: der Schritt nach vorn bekommt den Satz des Rueckwegs", AUJS,
+     "  if (istNeuer(version, aktuell)) {\n    return `Beim nächsten Start läuft Version",
+     "  if (false) {\n    return `Beim nächsten Start läuft Version", T_UM + T_VO),
+    ("um05", "Anzeige: die Marke „Umgeschaltet“ fehlt (der Verlauf zeigt den rohen Wert)", UPD_JSX,
+     "  umgeschaltet: { label: \"Umgeschaltet\", tone: \"amber\" },\n", "", T_UM + T_VO),
+    ("um06", "Oberflaeche: die Frage nimmt wieder immer den Satz des Rueckwegs", UPD_JSX,
+     "    const ok = await bestaetigen({ text: umschaltText(v, au.aktuell) });\n",
+     "    const ok = await bestaetigen({ text: umschaltText(v, null) });\n", T_UM + T_VO),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG))
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG), ("T_UM", T_UM))
 
 WT = None
 

@@ -19,7 +19,7 @@ import ErklaerText from "@/components/ErklaerText";
 import MitClaude from "@/components/MitClaude";
 import {
   INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_SCHRITTE, vorabErklaerung,
-  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, verbindungsAbweichung, vorabNeu, zeigeAktuell,
+  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, umschaltText, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
@@ -34,6 +34,7 @@ const ERGEBNIS = {
   installiert: { label: "Installiert", tone: "success" },
   fehler: { label: "Nicht geklappt", tone: "danger" },
   zurueckgeschaltet: { label: "Zurückgeschaltet", tone: "amber" },
+  umgeschaltet: { label: "Umgeschaltet", tone: "amber" },
 };
 
 export default function UpdatesTab() {
@@ -71,9 +72,7 @@ export default function UpdatesTab() {
   }
 
   async function zurueckschalten(v) {
-    const ok = await bestaetigen({
-      text: `Beim nächsten Start läuft wieder Version ${v}. Die neueren Versionen bleiben gespeichert, PBP schaltet aber nicht von selbst wieder um. Du musst danach PBP und Claude Desktop neu starten. Fortfahren?`,
-    });
+    const ok = await bestaetigen({ text: umschaltText(v, au.aktuell) });
     if (!ok) return;
     await senden("/api/auto-update/zurueck", { version: v }, `Beim nächsten Start läuft Version ${v}.`);
   }

@@ -103,13 +103,14 @@ def register(mcp, db, logger: logging.Logger):
 
     @mcp.tool()
     def update_zurueckschalten(version: str) -> dict:
-        """Lässt PBP beim nächsten Start auf eine ältere, noch installierte Version zurückgehen (Auto-Update, #1093).
+        """Lässt PBP beim nächsten Start auf eine andere, noch installierte Version laufen (Auto-Update, #1093).
 
-        Nichts wird beendet oder gelöscht. Die neueren Versionen schaltet PBP nicht von selbst wieder ein.
-        Welche Versionen da sind, zeigt `update_status` unter `installiert`.
+        Meist der Rückweg auf eine ältere; ebenso möglich ist der Schritt auf eine neuere, schon installierte Version.
+        Nichts wird beendet oder gelöscht. Die Versionen, die neuer sind als die gewählte, schaltet PBP nicht von
+        selbst wieder ein. Welche Versionen da sind, zeigt `update_status` unter `installiert`.
 
         Args:
-            version: die ältere Version, z. B. 1.8.0.
+            version: die gewünschte, installierte Version, z. B. 1.8.0.
         """
         from ..services.auto_update import lauf
         return lauf.zurueckschalten(db, version)
