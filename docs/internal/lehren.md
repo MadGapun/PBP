@@ -65,7 +65,7 @@ Umschrift gegen Umlaut, Label gegen gespeicherten Wert, Langform gegen
 Kurzform: verglichen wird nach Normalisierung beider Seiten. Suchmuster fuer
 Text von aussen kennen beide Schreibweisen; Werte, die Claude zurueckschickt
 (Status, Aktionen, Schluessel), bleiben in Umschrift.
-*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3, v1.7.143/1 (Akzente: 'Société Beispiel' gegen 'Societe Beispiel Deutschland GmbH' — der Teilstring scheitert am Akzent; gefaltet wird NACH der Umschrift der Umlaute, sonst wird aus 'Müller' ein 'Muller')
+*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3, v1.7.143/1 (Akzente: 'Société Beispiel' gegen 'Societe Beispiel Deutschland GmbH' — der Teilstring scheitert am Akzent; gefaltet wird NACH der Umschrift der Umlaute, sonst wird aus 'Müller' ein 'Muller'), #1231 (der PII-Prüfer: die Platzhalterliste führt 'vermittler sued', ein Beitrag schrieb 'Süd' und bekam einen Firmentreffer; jetzt laufen Text UND Liste durch dieselbe Umschrift)
 
 ## 3. Fehlende Information ist kein Befund
 
@@ -718,3 +718,6 @@ Zurückkopieren der Sicherung vom Anfang hätte diese Schlüssel zurückgesetzt.
 nur neu, anders); entfernt wird nur, was PBP hinterlassen hat (leerer `mcpServers`, die neue klassische Datei), und der Bericht nennt, dass die
 Prüfsumme deshalb nicht gleich ist.
 *Belege:* Block H des dritten Laufs, `praxisprobe-1.8.0.md`
+
+**L82. Ein Fremdbeitrag läuft nicht über die CI des Beitragenden: den Zweig lokal holen, ganz lesen, an den Abnahmepunkten des Issues messen.** Ein Pull-Request aus einem Fork darf eigenen Code in den Lauf bringen (Tests, Workflow-Dateien); wer den Lauf freigibt, gibt diesen Code frei. Vorgehen (PR #1230 zu #1198): (1) den Kopf in einen eigenen Arbeitsbaum holen, nie in den Arbeitsordner; (2) den ganzen Diff lesen, auch Tests und alles außerhalb von `src/`; (3) die volle Suite dort laufen lassen, mit isolierter Datenbank; (4) eigene Abnahmetests nach den Punkten des Issues schreiben, unabhängig von denen des Beitrags, und sie auf der ALTEN Fassung laufen lassen: sie müssen rot sein (hier 3 von 6), sonst messen sie den Fehler nicht; (5) übernehmen mit `cherry-pick -x`, damit der Autor im Verlauf bleibt, Kommentare und Texte in die Sprache des Codes bringen, in beide Linien. Freigegeben, zusammengeführt oder kommentiert wird erst auf das Wort des Nutzers.
+*Belege:* #1198, PR #1230, `test_v17158_vermittler_endkunde_1198.py` (Stable), `test_v18_vermittler_endkunde_1198.py` (1.8), Gegenprobe vm01 bis vm06

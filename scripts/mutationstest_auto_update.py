@@ -2251,6 +2251,32 @@ KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
                                 ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG), ("T_UM", T_UM), ("T_VM", T_VM))
 
+# ── #1231: der PII-Pruefer kennt einen Platzhalter in jeder Schreibweise ──
+T_PU = ["tests/test_v18_pii_umlaut_1231.py", "tests/test_scrub_pii_erkennung.py"]
+SCRUB_PY = "scripts/scrub_pii.py"
+M_PII = [
+    ("pu01", "PII-Pruefer: der Text wird nicht mehr in Umschrift gebracht (Süd im Text gegen sued in der Liste)", SCRUB_PY,
+     "    klein = _umschrift(label)\n    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    klein = label.lower()\n    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu02", "PII-Pruefer: die Liste wird nicht mehr in Umschrift gebracht (Eintrag mit Umlaut gegen Text in Umschrift)", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return any(f in klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu03", "PII-Pruefer: das ß bleibt unbehandelt (Weisswerk gegen Weißwerk)", SCRUB_PY,
+     '(("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"))',
+     '(("ä", "ae"), ("ö", "oe"), ("ü", "ue"))', T_PU),
+    ("pu04", "PII-Pruefer: ein zerlegtes Trema (u plus Punkte) wird nicht zusammengesetzt", SCRUB_PY,
+     '    klein = unicodedata.normalize("NFC", text).lower()\n',
+     '    klein = text.lower()\n', T_PU),
+    ("pu05", "PII-Pruefer: nur noch die ganze Angabe gilt als Platzhalter, nicht mehr ein Teil davon", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return any(_umschrift(f) == klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu06", "PII-Pruefer: jede Firma gilt als Platzhalter", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return True\n", T_PU),
+]
+KATALOGE["pii1231"] = M_PII
+GRUNDLAEUFE["pii1231"] = (("T_PU", T_PU),)
+
 WT = None
 
 

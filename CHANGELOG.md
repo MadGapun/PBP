@@ -499,6 +499,10 @@ Einträgen darunter.
   Jetzt ist ein eingetragenes Feld „Endkunde“ maßgeblich (nennt es eine andere Firma, gibt es keine Warnung), ein Treffer nur im Freitext steht als offene
   Vermutung da („ob es der Endkunde ist, bleibt offen“), und der Hinweis nennt den eingetragenen Vermittler. Das gilt für Stellenliste, Analyse, Firmen-Kontext
   und die Anlage von Hand.
+- **PII-Prüfer: ein Platzhalter mit Umlaut galt als echte Firma** (#1231; nur das Prüfwerkzeug im Repository, keine Wirkung auf die
+  Anwendung). `scripts/scrub_pii.py` verglich eine Firmenangabe mit `FIKTIVE_FIRMEN` nur in der Schreibweise der Liste: ein Beitrag, der
+  denselben Platzhalter mit „ü“ schrieb, bekam einen Firmentreffer. Jetzt gelten beide Schreibweisen (Text und Liste werden in Umschrift
+  verglichen); eine ähnliche echte Firma bleibt ein Treffer.
 
 ### Known Issues
 
@@ -507,7 +511,7 @@ Einträgen darunter.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9291 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9328 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
