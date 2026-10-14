@@ -35,7 +35,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 
 ## [1.7.158] - 2026-10-14 — Ein Firmenname in der Notiz macht keinen Endkunden mehr
 
-Hotfix für v1.7.157. Die Warnung „Schon beworben? Läuft über einen Vermittler“ nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand — und blieb stehen, auch nachdem der Endkunde richtig nachgetragen war (#1198). Ein Beitrag aus der Gemeinschaft (PR #1230) hat das behoben; dieser Hotfix übernimmt ihn nach eigener Prüfung.
+Hotfix für v1.7.157. Die Warnung „Schon beworben? Läuft über …“ (mit dem Namen des Vermittlers) nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand — und blieb stehen, auch nachdem der Endkunde richtig nachgetragen war (#1198). Ein Beitrag aus der Gemeinschaft (PR #1230) hat das behoben; dieser Hotfix übernimmt ihn nach eigener Prüfung.
 
 **Wichtig zu wissen:**
 
