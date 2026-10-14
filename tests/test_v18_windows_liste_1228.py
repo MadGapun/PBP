@@ -7,6 +7,7 @@ sich nicht aufweichen lassen: nur ein vorhandener Eintrag, nur `DisplayVersion`,
 from __future__ import annotations
 
 import os
+import subprocess
 
 import pytest
 from _au_hilfen import FakeDb, programmordner
@@ -98,6 +99,32 @@ def test_der_ort_wird_ohne_beachtung_von_gross_klein_und_abschluss_verglichen():
     reg = FakeWinreg(_eintrag("1.9.0-rc.1", ort=APP.upper() + "\\"))
     if os.name == "nt":
         assert windows_liste.abgleichen("1.9.0-rc.2", APP, plattform="win32", winreg=reg) == "gesetzt"
+
+
+def _verknuepfung(ziel, link) -> bool:
+    """Ein Symlink, sonst unter Windows eine Junction (braucht kein Recht). False, wenn beides nicht geht."""
+    try:
+        os.symlink(ziel, link, target_is_directory=True)
+        return True
+    except (OSError, NotImplementedError):
+        pass
+    if os.name == "nt":
+        r = subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(ziel)], capture_output=True)
+        return r.returncode == 0
+    return False
+
+
+def test_ein_verknuepfter_ordner_gilt_als_derselbe_ort(tmp_path):
+    """Der Startbaustein nennt den aufgeloesten Pfad, der Installer die Zeichenfolge aus der Umgebung."""
+    echt = tmp_path / "echt"
+    echt.mkdir()
+    link = tmp_path / "link"
+    if not _verknuepfung(echt, link):
+        pytest.skip("keine Verknuepfung moeglich")
+    reg = FakeWinreg(_eintrag("1.9.0-rc.1", ort=str(link)))
+    assert windows_liste.abgleichen("1.9.0-rc.2", echt, plattform="win32", winreg=reg) == "gesetzt"
+    reg = FakeWinreg(_eintrag("1.9.0-rc.1", ort=str(echt)))
+    assert windows_liste.abgleichen("1.9.0-rc.2", link, plattform="win32", winreg=reg) == "gesetzt"
 
 
 def test_ein_schreibfehler_ist_still():

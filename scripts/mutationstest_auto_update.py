@@ -2204,6 +2204,9 @@ M_PRUEFUNG = [
     ("rg07", "Start: ein Fehler des Abgleichs bricht den Start ab", AU + "lauf.py",
      "    except Exception:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n",
      "    except ZeroDivisionError:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n", T_RG),
+    ("rg08", "Windows-Liste: der Ort wird wieder als Zeichenfolge verglichen (Junction und 8.3-Name gelten als fremd)", WL_PY,
+     "    return os.path.normcase(os.path.realpath(str(pfad)))\n",
+     "    return os.path.normcase(os.path.normpath(str(pfad)))\n", T_RG),
     # ── #1229: „Beim naechsten Start nutzen“ kennt zwei Richtungen (Block E5, dritter Lauf) ──
     ("um01", "Verlauf: ein Schritt nach vorn heisst wieder „zurueckgeschaltet“", AU + "lauf.py",
      "    if nach_vorn:\n        zustand.verlauf_anhaengen(db, version=ziel, ergebnis=\"umgeschaltet\"",

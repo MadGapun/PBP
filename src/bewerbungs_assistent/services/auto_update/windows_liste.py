@@ -25,9 +25,16 @@ logger = logging.getLogger("bewerbungs_assistent.auto_update")
 SCHLUESSEL = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP"
 
 
+def _kanon(pfad) -> str:
+    """Der echte Pfad: Verknuepfungen (Junction, Symlink), 8.3-Namen und Schreibweise werden aufgeloest. Der Startbaustein leitet
+    den Programmordner aus `Path(__file__).resolve()` ab, der Installer schreibt `%LOCALAPPDATA%\\...` -- beides nennt denselben
+    Ordner, aber nicht immer dieselbe Zeichenfolge."""
+    return os.path.normcase(os.path.realpath(str(pfad)))
+
+
 def _gleicher_ort(a, b) -> bool:
     try:
-        return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+        return _kanon(a) == _kanon(b)
     except Exception:  # noqa: BLE001
         return False
 
