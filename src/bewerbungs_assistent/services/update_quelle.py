@@ -140,18 +140,17 @@ def _version_oder_none(text: str):
         return None
 
 
-def auswerten_liste(daten, aktuell: str, linie: str, *, mit_vorab: bool = False) -> dict | None:
+def auswerten_liste(daten, aktuell: str, linie: str) -> dict | None:
     """Aus der Liste der Veroeffentlichungen die neueste Version der Linie nehmen (#1144 Punkt 2).
 
     Entwuerfe zaehlen nie. Vorabversionen (Beta) zaehlen nur, wenn die
     Installation selbst eine ist: wer auf der stabilen Linie sitzt, bekommt
     keine Beta angeboten, wer eine Beta nutzt, bekommt die naechste Beta und
-    die fertige Version. Ausnahme: der Mensch hat den Tester-Schalter
-    eingeschaltet (`mit_vorab`, #1179).
+    die fertige Version.
     """
     if not isinstance(daten, list):
         return None
-    mit_vorab = bool(mit_vorab) or _ist_vorabversion(aktuell)
+    mit_vorab = _ist_vorabversion(aktuell)
     beste = None
     for eintrag in daten:
         if not isinstance(eintrag, dict) or eintrag.get("draft"):
@@ -173,14 +172,14 @@ def auswerten_liste(daten, aktuell: str, linie: str, *, mit_vorab: bool = False)
             "name": eintrag.get("name") or "", "pause_s": STANDARD_PAUSE_S}
 
 
-def auswerten(art: str, daten, aktuell: str, linie: str, *, mit_vorab: bool = False) -> dict | None:
+def auswerten(art: str, daten, aktuell: str, linie: str) -> dict | None:
     """Die Antwort EINER Quelle deuten — ohne Netz, damit testbar.
 
     Rueckgabe: {"version", "url", "name", "pause_s"} oder None, wenn die
     Antwort nichts Brauchbares enthaelt.
     """
     if art == "github_liste":
-        return auswerten_liste(daten, aktuell, linie, mit_vorab=mit_vorab)
+        return auswerten_liste(daten, aktuell, linie)
     if not isinstance(daten, dict):
         return None
     if art == "github":

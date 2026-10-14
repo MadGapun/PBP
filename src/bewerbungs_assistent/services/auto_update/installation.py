@@ -124,12 +124,9 @@ def _platz_pruefen(app: Path, archiv_groesse: int) -> None:
         raise UpdateFehler("platz", detail=f"{frei // (1024 * 1024)} MB frei, gebraucht {bedarf // (1024 * 1024)} MB")
 
 
-def _vorbedingungen(version: str, app: Path, laufend: str, vorab_erlaubt: bool = False) -> str:
-    """Gibt die aktuelle Fassung zurueck, wirft sonst. Nie Linienwechsel, nie zurueck, nie Gescheitertes.
-
-    Eine Vorabversion nur mit `vorab_erlaubt` (Tester-Schalter und Klick des Menschen, #1179).
-    """
-    if not (_fassung.ist_stabil(version) or (vorab_erlaubt and _fassung.gueltig(version))):
+def _vorbedingungen(version: str, app: Path, laufend: str) -> str:
+    """Gibt die aktuelle Fassung zurueck, wirft sonst. Nie Linienwechsel, nie zurueck, nie Gescheitertes."""
+    if not _fassung.ist_stabil(version):
         raise UpdateFehler("quelle_nicht_erlaubt", "Vorabversionen werden nie automatisch installiert.",
                            detail=f"{version!r}")
     if _fassung.linie(version) != _fassung.linie(laufend):
@@ -163,12 +160,8 @@ def umschalten(app: Path, version: str, vorherige) -> None:
 
 def installiere(version: str, *, app=None, db=None, oeffner=None, fortschritt=None, abbruch=None,
                 laufende_fassung=None, schluessel=None, python=None, pip_runner=None, selbsttest_runner=None,
-                version_von=None, ausloeser: str = "automatisch", freigabe=None, vorab_erlaubt: bool = False) -> Ergebnis:
-    """Installiert `version` in einen neuen Fassungsordner und schaltet `aktuell.txt` um. Wirft nie: Fehler stehen im Ergebnis.
-
-    `vorab_erlaubt` (Tester-Schalter, #1179) erlaubt eine Vorabversion der eigenen Linie, aber nie mit dem Ausloeser
-    „automatisch“: eine Vorabversion installiert PBP nie von selbst.
-    """
+                version_von=None, ausloeser: str = "automatisch", freigabe=None) -> Ergebnis:
+    """Installiert `version` in einen neuen Fassungsordner und schaltet `aktuell.txt` um. Wirft nie: Fehler stehen im Ergebnis."""
     app = Path(app) if app is not None else layout.programmordner()
     ergebnis = Ergebnis(ok=False, version=version)
     try:
@@ -177,15 +170,12 @@ def installiere(version: str, *, app=None, db=None, oeffner=None, fortschritt=No
         laufend = laufende_fassung or layout.laufende_fassung()
         if not laufend:
             raise UpdateFehler("nicht_verfuegbar")
-        if vorab_erlaubt and ausloeser == "automatisch":
-            raise UpdateFehler("quelle_nicht_erlaubt", "Eine Vorabversion installiert PBP nie von selbst.",
-                               detail=f"{version!r} mit Auslöser automatisch")
-        aktuell = _vorbedingungen(version, app, laufend, vorab_erlaubt)
+        aktuell = _vorbedingungen(version, app, laufend)
         pfade = layout.pfade(app)
         with aufraeumen.sperre(app):
             try:
                 _lauf(version, app, pfade, aktuell, laufend, ergebnis, db, oeffner, fortschritt, abbruch, schluessel,
-                      python, pip_runner, selbsttest_runner, version_von, freigabe, vorab_erlaubt)
+                      python, pip_runner, selbsttest_runner, version_von, freigabe)
             finally:
                 aufraeumen.arbeit_leeren(app, eigene_sperre=True)
         ergebnis.ok = True
@@ -220,7 +210,7 @@ def _verlauf(db, e: Ergebnis, ausloeser: str) -> None:
 
 
 def _lauf(version, app, pfade, aktuell, laufend, ergebnis, db, oeffner, fortschritt, abbruch, schluessel, python,
-          pip_runner, selbsttest_runner, version_von, freigabe, vorab_erlaubt=False) -> None:
+          pip_runner, selbsttest_runner, version_von, freigabe) -> None:
     ziel = pfade.fassung(version)
     if (ziel / layout.FERTIG).is_file():
         # Schon installiert, nur nicht umgeschaltet (Strom weg zwischen Schritt 9 und 10): jetzt umschalten.
@@ -239,14 +229,14 @@ def _lauf(version, app, pfade, aktuell, laufend, ergebnis, db, oeffner, fortschr
     # 3. Pruefsummenliste und Signatur
     _melden(fortschritt, "pruefen", 0.02, "Prüfsummen holen …")
     summen_pfad = pfade.arbeit / quelle.SUMMEN_NAME
-    quelle.laden(quelle.asset_url(version, quelle.SUMMEN_NAME, vorab_erlaubt=vorab_erlaubt), summen_pfad,
-                 max_bytes=quelle.MAX_SUMMEN_BYTES, oeffner=oeffner, abbruch=abbruch)
+    quelle.laden(quelle.asset_url(version, quelle.SUMMEN_NAME), summen_pfad, max_bytes=quelle.MAX_SUMMEN_BYTES,
+                 oeffner=oeffner, abbruch=abbruch)
     summen_bytes = summen_pfad.read_bytes()
     signatur_text = None
     if _schl.signatur_erforderlich(schluessel):
         sig_pfad = pfade.arbeit / quelle.SIGNATUR_NAME
-        quelle.laden(quelle.asset_url(version, quelle.SIGNATUR_NAME, vorab_erlaubt=vorab_erlaubt), sig_pfad,
-                     max_bytes=quelle.MAX_SIGNATUR_BYTES, oeffner=oeffner, abbruch=abbruch)
+        quelle.laden(quelle.asset_url(version, quelle.SIGNATUR_NAME), sig_pfad, max_bytes=quelle.MAX_SIGNATUR_BYTES,
+                     oeffner=oeffner, abbruch=abbruch)
         signatur_text = sig_pfad.read_text(encoding="ascii", errors="replace")
     signiert_von = pruefung.signatur_pruefen(summen_bytes, signatur_text, schluessel=schluessel)
     ergebnis.signiert, ergebnis.schluessel = bool(signiert_von), signiert_von
@@ -260,8 +250,8 @@ def _lauf(version, app, pfade, aktuell, laufend, ergebnis, db, oeffner, fortschr
         _melden(fortschritt, "laden", 0.05 + 0.65 * anteil, f"Lade {archiv_name} … {bytes_ // (1024 * 1024)} MB")
 
     _melden(fortschritt, "laden", 0.05, f"Lade {archiv_name} …")
-    quelle.laden(quelle.asset_url(version, archiv_name, vorab_erlaubt=vorab_erlaubt), archiv,
-                 max_bytes=quelle.MAX_ARCHIV_BYTES, oeffner=oeffner, fortschritt=_geladen, abbruch=abbruch)
+    quelle.laden(quelle.asset_url(version, archiv_name), archiv, max_bytes=quelle.MAX_ARCHIV_BYTES, oeffner=oeffner,
+                 fortschritt=_geladen, abbruch=abbruch)
     pr = pruefung.archiv_pruefen(archiv, archiv_name, summen_bytes, signiert_von=signiert_von)
     ergebnis.sha256 = pr.sha256
     _pruefen_abbruch(abbruch)
@@ -274,7 +264,7 @@ def _lauf(version, app, pfade, aktuell, laufend, ergebnis, db, oeffner, fortschr
     _pruefen_abbruch(abbruch)
 
     # 6. Manifest
-    m = _manifest.lesen(entpackt / "manifest.json", erwartete_version=version, vorab_erlaubt=vorab_erlaubt)
+    m = _manifest.lesen(entpackt / "manifest.json", erwartete_version=version)
     _manifest.fuer_diesen_rechner_pruefen(m, laufende_fassung=laufend)
 
     # 7. Pakete

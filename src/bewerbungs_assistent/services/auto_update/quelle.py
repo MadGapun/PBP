@@ -68,13 +68,9 @@ def _url_pruefen(url: str, *, erlaubte_hosts) -> str:
     return url
 
 
-def asset_url(version: str, name: str, *, vorab_erlaubt: bool = False) -> str:
-    """Die Adresse einer Datei im Release `v<version>` — aus festen Teilen gebaut.
-
-    Eine Vorabversion nur mit `vorab_erlaubt` (der Tester-Schalter, #1179) UND strenger Fassungspruefung: die Nummer
-    wird Teil der Adresse, darum gilt hier dasselbe Muster wie im Startbaustein.
-    """
-    if not (_fassung.ist_stabil(version) or (vorab_erlaubt and _fassung.gueltig(version))):
+def asset_url(version: str, name: str) -> str:
+    """Die Adresse einer Datei im Release `v<version>` — aus festen Teilen gebaut."""
+    if not _fassung.ist_stabil(version):
         raise UpdateFehler("quelle_nicht_erlaubt", detail=f"keine stabile Fassung: {version!r}")
     erlaubt = {ARCHIV_NAME.format(version=version), SUMMEN_NAME, SIGNATUR_NAME}
     if name not in erlaubt:
@@ -183,31 +179,22 @@ class Freigabe:
     notizen: str
     veroeffentlicht: str
     dateien: dict  # Dateiname -> Groesse in Byte
-    vorab: bool = False  # Beta/RC oder von GitHub als Vorabversion gefuehrt (nur mit `mit_vorab` in der Liste)
 
     def hat(self, name: str) -> bool:
         return name in self.dateien
 
 
-def freigaben_lesen(daten, *, mit_vorab: bool = False) -> list:
-    """Aus der JSON-Liste die brauchbaren Freigaben: keine Entwuerfe, nur gueltige Tags.
-
-    Vorabversionen (und alles, was GitHub als Vorabversion fuehrt) nur mit `mit_vorab` — dem Tester-Schalter (#1179);
-    sie tragen dann `vorab=True`, damit niemand sie fuer eine fertige Version haelt.
-    """
+def freigaben_lesen(daten) -> list:
+    """Aus der JSON-Liste die brauchbaren Freigaben: keine Entwuerfe, keine Vorabversionen, nur gueltige Tags."""
     ergebnis = []
     if not isinstance(daten, list):
         return ergebnis
     for eintrag in daten:
-        if not isinstance(eintrag, dict) or eintrag.get("draft"):
+        if not isinstance(eintrag, dict) or eintrag.get("draft") or eintrag.get("prerelease"):
             continue
-        markiert = bool(eintrag.get("prerelease"))
         tag = eintrag.get("tag_name")
         version = _fassung.aus_tag(tag)
-        if version is None:
-            continue
-        vorab = markiert or not _fassung.ist_stabil(version)
-        if vorab and not mit_vorab:
+        if version is None or not _fassung.ist_stabil(version):
             continue
         dateien = {}
         for a in eintrag.get("assets") or []:
@@ -217,7 +204,7 @@ def freigaben_lesen(daten, *, mit_vorab: bool = False) -> list:
         ergebnis.append(Freigabe(
             version=version, tag=tag, titel=str(eintrag.get("name") or tag)[:200],
             notizen=str(eintrag.get("body") or "")[:20000],
-            veroeffentlicht=str(eintrag.get("published_at") or "")[:40], dateien=dateien, vorab=vorab))
+            veroeffentlicht=str(eintrag.get("published_at") or "")[:40], dateien=dateien))
     return ergebnis
 
 

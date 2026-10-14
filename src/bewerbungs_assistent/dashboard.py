@@ -8005,16 +8005,6 @@ async def api_get_logs(lines: int = 100):
 
 _update_cache = {"ts": 0, "data": None, "pause_s": 3600, "fehlversuche": 0}
 
-
-def _vorabversionen_an() -> bool:
-    """Der Tester-Schalter fuer Vorabversionen (#1179); im Zweifel aus."""
-    try:
-        from .services.auto_update import zustand as _au_zustand
-        return _au_zustand.vorabversionen(_db)
-    except Exception:  # noqa: BLE001 -- die Pruefung darf daran nie scheitern
-        return False
-
-
 @app.get("/api/update-check")
 async def api_update_check(frisch: int = 0):
     """Gibt es eine neue Version? (#286, v1.7.122 #1069, v1.7.144 #1134)
@@ -8057,7 +8047,6 @@ async def api_update_check(frisch: int = 0):
         "quellen_versucht": [],
     }
     pause_s = _uq.STANDARD_PAUSE_S
-    mit_vorab = _vorabversionen_an()   # #1179: Tester-Schalter
     neue_linie = None   # #1168: die neueste stabile Version einer hoeheren Linie, aus jeder Antwort
     for quelle in _uq.quellen(_db):
         versuch = {"name": quelle.get("name") or quelle["art"]}
@@ -8075,7 +8064,7 @@ async def api_update_check(frisch: int = 0):
                 result["quellen_versucht"].append(versuch)
                 continue
             daten = resp.json()
-            befund = _uq.auswerten(quelle["art"], daten, __version__, linie, mit_vorab=mit_vorab)
+            befund = _uq.auswerten(quelle["art"], daten, __version__, linie)
             gefunden = _uq.neue_linie(quelle["art"], daten, __version__)
             if gefunden and (neue_linie is None or _uq.ist_neuer(gefunden["version"], neue_linie["version"])):
                 neue_linie = gefunden
@@ -8158,9 +8147,9 @@ async def api_auto_update():
 async def api_auto_update_einstellungen(payload: dict = Body(default={})):
     """Stufe, Zahl der behaltenen Vorgaenger und Aufraeumen des Installers setzen."""
     from .services.auto_update import lauf, zustand
-    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen", "vorabversionen")):
-        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten, installer_aufraeumen "
-                                      "oder vorabversionen."}, status_code=400)
+    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen")):
+        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten oder installer_aufraeumen."},
+                            status_code=400)
     try:
         if "stufe" in payload:
             zustand.stufe_setzen(_db, payload["stufe"])
@@ -8170,10 +8159,6 @@ async def api_auto_update_einstellungen(payload: dict = Body(default={})):
             zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
         if "installer_aufraeumen" in payload:
             zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
-        if "vorabversionen" in payload:
-            # #1179: nur ein echtes ja/nein; danach gilt die gemerkte Antwort der allgemeinen Pruefung nicht mehr
-            zustand.vorabversionen_setzen(_db, payload["vorabversionen"])
-            _update_cache["data"] = None
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     return lauf.uebersicht(_db)
@@ -8215,9 +8200,7 @@ async def api_auto_update_installieren(payload: dict = Body(default={})):
         version = letzte.get("version") if letzte.get("status") == "neu" else None
     if not version:
         return JSONResponse({"error": "Es gibt keine neue Version, die installiert werden könnte."}, status_code=400)
-    # #1179: eine Vorabversion nur, wenn der Aufruf es AUSDRUECKLICH sagt (und der Schalter an ist, das prueft der Lauf)
-    zusatz = {"vorab_erlaubt": True} if payload.get("vorabversion") is True else {}
-    r = lauf.starte_installation(_db, version, ausloeser="klick", **zusatz)
+    r = lauf.starte_installation(_db, version, ausloeser="klick")
     code = {"gestartet": 200, "abgelehnt": 400}.get(r["status"], 409)
     return JSONResponse({**r, "uebersicht": lauf.uebersicht(_db)}, status_code=code)
 

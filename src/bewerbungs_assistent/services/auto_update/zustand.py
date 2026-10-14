@@ -43,7 +43,6 @@ K_VORGAENGER = "auto_update_vorgaenger_behalten"
 K_INSTALLER = "installer_aufraeumen"
 K_GEFRAGT = "auto_update_gefragt"
 K_VERLAUF = "auto_update_verlauf"
-K_VORAB = "auto_update_vorabversionen"
 
 
 def _jetzt() -> str:
@@ -89,29 +88,6 @@ def installer_aufraeumen_setzen(db, wert: str) -> str:
     if wert not in INSTALLER_AUFRAEUMEN:
         raise ValueError(f"Unbekannte Auswahl: {wert!r}. Erlaubt: {', '.join(INSTALLER_AUFRAEUMEN)}")
     db.set_setting(K_INSTALLER, wert)
-    return wert
-
-
-# ── Tester-Schalter: Vorabversionen (#1179) ────────────────────────────────────────────
-
-def vorabversionen(db) -> bool:
-    """Hat der Mensch Vorabversionen (Beta) ausdruecklich erlaubt?  Vorgabe und jeder Zweifel: **aus**.
-
-    Nur ein echtes `True` zaehlt; fehlt der Wert, ist er kaputt oder steht „ja“ als Text da, ist es aus. Auch
-    eingeschaltet installiert PBP eine Vorabversion NIE von selbst: nicht in den automatischen Stufen, nicht ohne
-    den Klick (oder den bestaetigten Auftrag) des Menschen. Der Schalter macht sie nur sichtbar und per Klick
-    installierbar, und auch dann nur aus der eigenen Linie, mit Pruefsumme und Signatur wie jede Version.
-    """
-    try:
-        return db.get_setting(K_VORAB, False) is True
-    except Exception:  # noqa: BLE001 -- im Zweifel aus
-        return False
-
-
-def vorabversionen_setzen(db, wert) -> bool:
-    if not isinstance(wert, bool):
-        raise ValueError("Vorabversionen: erwartet ja oder nein.")
-    db.set_setting(K_VORAB, wert)
     return wert
 
 

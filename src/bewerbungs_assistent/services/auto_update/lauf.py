@@ -168,46 +168,30 @@ def _bezugsfassung(app, laufende: str) -> str:
     return laufende
 
 
-def _vorab_eintrag(f) -> dict:
-    """Eine Vorabversion fuer die Anzeige: was der Mensch zum Entscheiden braucht (#1179)."""
-    return {"version": f.version, "titel": f.titel, "veroeffentlicht": f.veroeffentlicht,
-            "auszug": auszug_aus_notizen(f.notizen),
-            "groesse": f.dateien.get(quelle.ARCHIV_NAME.format(version=f.version), 0),
-            "bereit": quelle.vollstaendig(f, _schl.signatur_erforderlich()),
-            "url": f"https://github.com/{quelle.REPO}/releases/tag/{f.tag}",
-            "zip": f"https://github.com/{quelle.REPO}/archive/refs/tags/{f.tag}.zip"}
-
-
 def pruefen(db=None, *, oeffner=None, laufende=None, app=None, frisch: bool = False) -> dict:
     """Fragt die FESTE Quelle nach der neuesten stabilen Fassung der eigenen Linie.
 
     Antwort: `status` ist `neu`, `aktuell`, `unvollstaendig` (Freigabe da, Update-Dateien noch nicht),
     `keine_antwort` oder `nicht_verfuegbar`. Eine Antwort wird kurz behalten; „frisch“ umgeht das, aber
     nicht dichter als `MIN_ABSTAND_FRISCH_S` (GitHub erlaubt ohne Anmeldung 60 Anfragen je Stunde).
-
-    Mit dem Tester-Schalter (`zustand.vorabversionen`, #1179) kommt `vorab` dazu: eine neuere Vorabversion der
-    eigenen Linie, NEBEN der fertigen und nie an ihrer Stelle. `status` und `version` gehoeren immer der fertigen
-    Fassung; nur sie kennen die automatischen Stufen.
     """
     laufende = laufende or layout.laufende_fassung()
     app = app if app is not None else layout.programmordner()
     if not laufende:
         return {"status": "nicht_verfuegbar", "text": layout.verfuegbarkeit()[1] or "Keine laufende Fassung bekannt."}
     jetzt = time.monotonic()
-    mit_vorab = db is not None and zustand.vorabversionen(db)
     alter = jetzt - _PRUEFUNG["zeit"]
     if _PRUEFUNG["ergebnis"] is not None and (alter < MIN_ABSTAND_FRISCH_S or (not frisch and alter < _PRUEFUNG["gilt_s"])):
-        # gemerkt gilt nur fuer denselben Stand des Schalters: sonst zeigte ein Umschalten bis zur naechsten Abfrage das Alte
-        if _PRUEFUNG["ergebnis"].get("laufende") == laufende and bool(_PRUEFUNG["ergebnis"].get("mit_vorab")) == mit_vorab:
+        if _PRUEFUNG["ergebnis"].get("laufende") == laufende:
             return _PRUEFUNG["ergebnis"]
     try:
         daten = quelle.json_holen(oeffner=oeffner, version_pbp=laufende)
     except UpdateFehler as fehler:
         erg = {"status": "keine_antwort", "text": fehler.text, "code": fehler.code}
-        return _pruefung_merken(db, erg, laufende, jetzt, behalten=False, mit_vorab=mit_vorab)
-    freigaben = quelle.freigaben_lesen(daten, mit_vorab=mit_vorab)
+        return _pruefung_merken(db, erg, laufende, jetzt, behalten=False)
+    freigaben = quelle.freigaben_lesen(daten)
     bezug = _bezugsfassung(app, laufende)
-    neu = quelle.neueste_fuer_linie([f for f in freigaben if not f.vorab], bezug)
+    neu = quelle.neueste_fuer_linie(freigaben, bezug)
     if neu is None:
         erg = {"status": "aktuell", "text": "Du hast die neueste Version."}
     elif not quelle.vollstaendig(neu, _schl.signatur_erforderlich()):
@@ -219,15 +203,11 @@ def pruefen(db=None, *, oeffner=None, laufende=None, app=None, frisch: bool = Fa
                "auszug": auszug_aus_notizen(neu.notizen),
                "groesse": neu.dateien.get(quelle.ARCHIV_NAME.format(version=neu.version), 0),
                "text": f"Version {neu.version} ist verfügbar."}
-    if mit_vorab:
-        kandidat = quelle.neueste_fuer_linie([f for f in freigaben if f.vorab], bezug)
-        if kandidat is not None and (neu is None or _fassung.ist_neuer(kandidat.version, neu.version)):
-            erg["vorab"] = _vorab_eintrag(kandidat)
-    return _pruefung_merken(db, erg, laufende, jetzt, behalten=True, mit_vorab=mit_vorab)
+    return _pruefung_merken(db, erg, laufende, jetzt, behalten=True)
 
 
-def _pruefung_merken(db, erg: dict, laufende: str, monoton: float, *, behalten: bool, mit_vorab: bool = False) -> dict:
-    erg = {**erg, "zeit": _jetzt().isoformat(timespec="seconds"), "laufende": laufende, "mit_vorab": bool(mit_vorab)}
+def _pruefung_merken(db, erg: dict, laufende: str, monoton: float, *, behalten: bool) -> dict:
+    erg = {**erg, "zeit": _jetzt().isoformat(timespec="seconds"), "laufende": laufende}
     _PRUEFUNG.update(zeit=monoton, gilt_s=ERFOLG_GILT_S if behalten else FEHLSCHLAG_GILT_S, ergebnis=erg)
     if db is not None:
         try:
@@ -327,26 +307,16 @@ def job_stand() -> dict:
 
 
 def starte_installation(db, version: str, *, ausloeser: str = "klick", oeffner=None, installieren=None, freigabe=None,
-                        synchron: bool = False, vorab_erlaubt: bool = False, **kw) -> dict:
+                        synchron: bool = False, **kw) -> dict:
     """Startet die Installation im Hintergrund (eigener Thread, Eintrag in `background_jobs`).
 
     `installieren` ist austauschbar (Tests). Gibt sofort zurueck: {status: gestartet|laeuft_bereits|nicht_verfuegbar, job_id}.
-
-    Eine Vorabversion (Tester-Schalter, #1179) braucht ALLES davon: `vorab_erlaubt` (der ausdrueckliche Wunsch dieses
-    einen Aufrufs), den eingeschalteten Schalter in den Einstellungen, einen Ausloeser, der ein Mensch ist (nie
-    „automatisch“), und eine streng gueltige Fassungsnummer. Jede dieser Bedingungen allein reicht nicht.
     """
     ok, grund = layout.verfuegbarkeit()
     if not ok and installieren is None and kw.get("app") is None:
         return {"status": "nicht_verfuegbar", "text": grund}
-    vorab = False
     if not _fassung.ist_stabil(version):
-        if not vorab_erlaubt or ausloeser == "automatisch" or not _fassung.gueltig(version):
-            return {"status": "abgelehnt", "text": "Vorabversionen werden nie automatisch installiert."}
-        if not zustand.vorabversionen(db):
-            return {"status": "abgelehnt", "text": "Vorabversionen sind ausgeschaltet. Für Tester gibt es unter "
-                    "Einstellungen › Updates einen Schalter dafür."}
-        vorab = True
+        return {"status": "abgelehnt", "text": "Vorabversionen werden nie automatisch installiert."}
     if not _JOB_SPERRE.acquire(blocking=False):
         return {"status": "laeuft_bereits", "text": "Ein Update läuft gerade."}
     try:
@@ -374,8 +344,7 @@ def starte_installation(db, version: str, *, ausloeser: str = "klick", oeffner=N
 
     def _lauf():
         try:
-            erg = run(version, db=db, oeffner=oeffner, fortschritt=fortschritt, ausloeser=ausloeser, freigabe=freigabe,
-                      **kw, **({"vorab_erlaubt": True} if vorab else {}))
+            erg = run(version, db=db, oeffner=oeffner, fortschritt=fortschritt, ausloeser=ausloeser, freigabe=freigabe, **kw)
             if erg.ok:
                 _JOB.update(status="fertig", phase="fertig", anteil=1.0, text=erg.text)
                 db.update_background_job(job_id, "fertig", progress=100, message=erg.text,
@@ -529,7 +498,6 @@ def uebersicht(db) -> dict:
         "signatur": {"erforderlich": _schl.signatur_erforderlich(), "schluessel": sorted(_schl.schluessel_bytes())},
         "pruefung": letzte_pruefung(db), "job": job_stand() if _JOB["id"] else None,
         "aktuell": None, "installiert": [], "neustart_noetig": False, "neu": None, "blockiert": None, "rueckgang": None,
-        "vorabversionen": zustand.vorabversionen(db), "vorab": None,
     }
     if not ok or app is None:
         return antwort
@@ -544,8 +512,4 @@ def uebersicht(db) -> dict:
         antwort["neu"] = {**p, "frage_faellig": zustand.frage_faellig(db, p["version"]),
                           "zurueckgenommen": p["version"] in abgelehnt(db)}
         antwort["blockiert"] = blockiert(db, p["version"])
-    if antwort["vorabversionen"] and p and isinstance(p.get("vorab"), dict):
-        v = p["vorab"]
-        if _fassung.gueltig(v.get("version")) and _fassung.ist_neuer(v["version"], _bezugsfassung(app, laufend or "0.0.0")):
-            antwort["vorab"] = {**v, "blockiert": blockiert(db, v["version"])}
     return antwort

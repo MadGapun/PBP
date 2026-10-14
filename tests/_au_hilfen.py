@@ -19,7 +19,7 @@ sys.path.insert(0, str(WURZEL / "src"))
 sys.path.insert(0, str(WURZEL / "scripts"))
 
 import build_update_archive as bau  # noqa: E402
-from bewerbungs_assistent.services.auto_update import ed25519, fassung, quelle  # noqa: E402
+from bewerbungs_assistent.services.auto_update import ed25519, quelle  # noqa: E402
 
 
 # ── Netz ──────────────────────────────────────────────────────────────────────────────
@@ -122,8 +122,7 @@ class Release:
         self.ergebnis = ergebnis
 
     def antworten(self) -> dict:
-        # vorab_erlaubt: auch Vorabversionen (Tester-Schalter, #1179) bekommen ihre Adressen
-        return {quelle.asset_url(self.version, name, vorab_erlaubt=True): daten for name, daten in self.dateien.items()}
+        return {quelle.asset_url(self.version, name): daten for name, daten in self.dateien.items()}
 
     @property
     def archiv_name(self):
@@ -134,7 +133,7 @@ def release_bauen(tmp: Path, version: str, *, schluessel_datei=None, braucht_ins
     quell = quellbaum(Path(tmp) / f"quelle-{version}", version, **quellbaum_args)
     aus = Path(tmp) / f"dist-{version}"
     ergebnis = bau.bauen(ordner=quell, ausgabe=aus, schluessel_datei=schluessel_datei, braucht_installer=braucht_installer,
-                         ohne_signatur=schluessel_datei is None, vorabversion=not fassung.ist_stabil(version))
+                         ohne_signatur=schluessel_datei is None)
     dateien = {p.name: p.read_bytes() for p in aus.iterdir()}
     return Release(version, dateien, ergebnis)
 
