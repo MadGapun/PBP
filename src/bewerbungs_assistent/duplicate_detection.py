@@ -655,8 +655,9 @@ def find_vermittler_bewerbung(firma: str, applications) -> Optional[dict]:
         app_firma = normalize_company_name(app.get("company"))
         if app_firma == norm:
             continue  # das ist Stufe A
-        # A populated field is explicit user data. Do not let an older note
-        # override it with a different possible end customer.
+        # #1198: ein ausgefuelltes Feld ist die ausdrueckliche Angabe des Menschen;
+        # eine aeltere Notiz darf es nicht mit einem anderen moeglichen Endkunden
+        # ueberstimmen. Nur ohne Eintrag zaehlen Firmenangaben und Notizen.
         endkunde = str(app.get("endkunde") or "").strip()
         roh = endkunde or " ".join(str(app.get(k) or "")
                                    for k in ("company", "notes"))
