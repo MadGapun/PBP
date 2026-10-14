@@ -7,7 +7,7 @@ param(
   [string]$A1 = '',
   [string]$A2 = '',
   [string]$W = 'D:\Downloads\pbp_probe',
-  [string]$Rechner = 'WERKSTATT-PC',
+  [string]$Rechner = 'WERKSTATT',
   [string]$LA = $env:LOCALAPPDATA,
   [string]$RA = $env:APPDATA,
   [int]$Port = 8200
@@ -415,8 +415,10 @@ function Phase-linie {
   # F2 (dritter Lauf): eine 1.7-Installation nennt eine hoehere Linie (neue_linie), ohne sie anzubieten.
   # Quelle ist das Probe-Repository (A1 = Besitzer/Name); die Einstellung update_quellen wird auf dieser Testinstallation gesetzt.
   if (-not $A1) { throw 'linie <Besitzer/Repository>' }
-  $py = Join-Path $BASE 'python\python.exe'
-  $src = Join-Path $BASE 'src'
+  # 1.7.153 und neuer: Laufzeit und Code liegen unter app\; aelterer Aufbau (1.4 bis 1.6) direkt unter BASE
+  $py = Join-Path $APP 'python\python.exe'
+  $src = Join-Path $APP 'src'
+  if (-not (Test-Path -LiteralPath $py)) { $py = Join-Path $BASE 'python\python.exe'; $src = Join-Path $BASE 'src' }
   if (-not (Test-Path -LiteralPath $py)) { throw ('Laufzeit fehlt: ' + $py) }
   $q = @(
     @{ name = 'probe'; url = ('https://api.github.com/repos/' + $A1 + '/releases/latest'); art = 'github' },
