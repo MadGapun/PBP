@@ -536,6 +536,8 @@ def test_einzelne_stelle_traegt_dieselben_felder_wie_die_liste(server):
     for feld in ("punkte", "fach_score", "score", "unter_schwelle"):
         assert einzeln.get(feld) == drin.get(feld), feld
     assert "datenguete" in einzeln, "der Datenguete-Befund fehlte in der Einzelantwort"
+    # #948: auch der Pruefstand — die Weg-Leiste der Stelle liest `pruefstand.art`; ohne ihn galt jede einzeln geholte Stelle als unbeurteilt
+    assert drin.get("pruefstand") and einzeln.get("pruefstand") == drin["pruefstand"], (einzeln.get("pruefstand"), drin.get("pruefstand"))
 
 
 # ── Quelltext-Waechter: die alten Sackgassen kommen nicht zurueck ───────────────────────

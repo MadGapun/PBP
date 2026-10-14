@@ -377,3 +377,27 @@ def test_die_leiste_der_firma_bleibt_beim_scrollen_der_historie_stehen(browser, 
         page.locator("[data-firmen-liste]").wait_for(timeout=10000)
     finally:
         ctx.close()
+
+
+def test_eine_einzeln_geholte_beurteilte_stelle_bietet_die_bewerbung_an(browser, umgebung):
+    """Der Hauptknopf der Stelle liest den Pruefstand VOM SERVER (#948): auch wenn die Stelle nicht in der Liste steht und einzeln
+    geholt wird. Ohne `pruefstand` in der Einzelantwort galt sie als unbeurteilt und bot „Stelle bewerten“ an."""
+    db = umgebung["db"]
+    db.save_jobs([{"hash": "wl900", "title": "Einzeln geholte Stelle", "company": "Beispielwerk GmbH",
+                   "url": "https://karriere.beispielwerk.example/jobs/900", "source": "manuell", "description": TEXT, "score": 9}])
+    voll = db.connect().execute("SELECT hash FROM jobs WHERE hash LIKE '%wl900'").fetchone()["hash"]
+    assert db.set_job_analysis(voll, "EMPFOHLEN", "Passt: die Aufgaben stehen im Profil.", "detailanalyse")
+    # aus der aktiven Liste nehmen: dann geht der Weg ueber die Einzelantwort
+    db.connect().execute("UPDATE jobs SET is_active=0 WHERE hash=?", (voll,))
+    db.connect().commit()
+    ctx = browser.new_context(viewport=KLEIN)
+    page = ctx.new_page()
+    try:
+        page.goto(f"{umgebung['url']}/#stellen/wl900", wait_until="load", timeout=30000)
+        leiste = page.locator("[data-weg-leiste='stelle']")
+        leiste.wait_for(timeout=20000)
+        assert _warte(lambda: "Bewerbung anlegen" in leiste.locator("[data-weg-haupt]").inner_text()), \
+            leiste.locator("[data-weg-haupt]").inner_text()
+        assert "Stelle bewerten" not in leiste.inner_text()
+    finally:
+        ctx.close()
