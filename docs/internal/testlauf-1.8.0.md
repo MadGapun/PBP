@@ -155,6 +155,18 @@ Remotedesktop-Verbindung ist offen, du fasst ihn nicht an. Was anders ist:
   gestellt (`pbp_probe.ps1 linie MadGapun/PBP-update-probe`; dort liegt eine stabile 1.8-Veröffentlichung). Erwartet: Einstellungen › Updates und die Seitenleiste nennen die Version 1.8.x samt Weg dorthin
   (ZIP, `INSTALLIEREN.bat`); angeboten oder installiert wird sie nie (Linie 1.7 → 1.8 geht einmal von Hand). So wird die Meldung, die am Tag der
   Veröffentlichung jede 1.7-Installation trifft, gegen echte GitHub-Antworten gesehen, bevor sie wirklich gilt.
+- **E5 (neu): Vorabversion von selbst** (#1199, #1222). Das echte `1.8.0-rc.3` kann eine Vorabversion NICHT installieren (#1222: Start,
+  Vorbedingung und Manifest kannten nur stabile Fassungen); der Beweis braucht deshalb eine Installation MIT dem Fix.
+  `probe_vorab_bauen.py 1.9.0-rc.1 1.9.0-rc.2 <Ordner>` baut aus dem Kandidaten das ZIP `PBP-1.9.0-rc.1.zip` (Installation von Hand) und die
+  Probe-Veröffentlichung `v1.9.0-rc.2` (Archiv, Summenliste, Signatur mit dem echten Schlüssel; im Probe-Repository als **Vorabversion** gekennzeichnet).
+  Bewusst die Linie **1.9**: die stabilen Probe-Veröffentlichungen aus E2 bis E4 (`v1.8.x`) liegen in einer anderen Linie und kommen nicht
+  dazwischen (ein Linienwechsel geschieht nie von selbst). Ablauf auf einem sauberen Stand: (1) `1.9.0-rc.1` installieren wie in Block B;
+  (2) die feste Quelle der Kopie auf das Probe-Repository stellen wie in E2; (3) *Einstellungen › Erweitert › Updates*: der Abschnitt
+  **„Vorabversionen automatisch“** steht da (nur auf einer Vorab-Installation), Schalter **aus**: „Jetzt prüfen“ nennt die Vorabversion, es gibt
+  keinen Installieren-Knopf, die Karte sagt „nur, wenn du es einschaltest“; (4) Schalter **ein**, „Jetzt prüfen“: *Neu: v1.9.0-rc.2* mit
+  „Jetzt installieren“; (5) installieren: Fortschritt, Verlauf „1.9.0-rc.2“, „Ab dem nächsten Neustart“; (6) PBP und Claude Desktop neu starten:
+  die Seitenleiste zeigt `1.9.0-rc.2`, „Zurückschalten“ auf `1.9.0-rc.1` geht; (7) Gegenprobe: auf der stabilen Installation aus Block B/F fehlt
+  der Abschnitt ganz, und die Meldung einer Vorabversion sagt dort „nie von selbst“.
 - **Block I (neu): Wege und Listen** (#1170, #1171; rund 15 Minuten, nur Klicken und Ansehen, auf dem echten Bildschirm). Erwartet ist überall: **ein Klick je
   Schritt, nichts scrollen, um zu klicken.** (1) Stellen und Bewerbungen: der Kopf ist eine Zeile, die erste Zeile samt Knöpfen steht im Bild; ein Klick auf die Zeile
   klappt die Kennzahlen auf, nach dem Neuladen bleibt es so. (2) Eine Stelle öffnen › „Bewerbung anlegen“ › speichern: die neue Bewerbung liegt offen da; in der

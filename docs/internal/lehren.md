@@ -645,3 +645,34 @@ die Schriftbreite der Linux-CI verschiebt um Zeilen. Eine Messung, die nur bei g
 roten Lauf ausgeschaltet; die Mutanten, die nur wenige Pixel verschieben (Innenabstand der Filterkarte), bleiben deshalb bewusst
 unerkannt und stehen nicht im Katalog.
 *Belege:* #1171, `docs/internal/wegetabelle-1171.md`, Gegenprobe lk01 bis lk11
+
+**L72. Eine Option ist erst bewiesen, wenn der letzte Schreibvorgang gelaufen ist — ein Test, der nur die Auswahl prüft, beweist die
+Anzeige.** Der Schalter „Vorabversionen automatisch“ (#1199) ließ die Prüfung „neu“ melden, aber Start, Vorbedingung und Manifest der
+Installation kannten nur stabile Fassungen: „Jetzt installieren“ scheiterte. Der Test prüfte nur, welcher Kandidat gewählt wird; und der
+Archiv-Bauer übersprang bei einer Vorabversion gerade die eine Prüfung (Manifest gegen den Leser, „würde zu Recht abgewiesen“), die den
+Widerspruch gezeigt hätte. Regel: für jede Option ein Test, der mit einem echten Archiv bis `aktuell.txt` läuft (Gegenprobe: jede der
+Sperren einzeln aus); jede Stelle, die eine Prüfung „aus Gründen“ auslässt, ist die verdächtige.
+*Belege:* #1222, `test_v18_vorab_installation_1222.py`, Gegenprobe vi01 bis vi05
+
+**L73. Ein Ereignis, das den Zustand ändert, ist in BEIDEN Zweigen zu testen — und eine Schleife über einen Stapel, den die Schleife selbst
+füllt, läuft endlos.** Die Zurück-Taste (#1171 Baustein 4) war nur ohne Eingabe getestet. Mit Eingabe legte `zurueck()` seinen Eintrag
+wieder auf den Stapel, über den die Schleife gerade lief: die Seite fror ein (gemessen: 100 Sekunden, dann beendete der Browser den Tab).
+Regel: einen Stapel erst abtragen, dann abarbeiten (und von unten nach oben, damit ein Dialog, der sich wieder hinlegt, die Reihenfolge
+behält); je Handler mit „geändert“-Zustand ein Test mit und einer ohne Änderung, und einer, der danach prüft, dass die Seite noch antwortet.
+*Belege:* #1210, `test_1210_*`, Gegenprobe pf01
+
+**L74. Wächter lesen Namen und Zeilen — ein neuer Name im Code muss durch die Wächter-Muster, bevor er eingecheckt wird.** Zwei Fälle am
+selben Tag: `pbp_norm(` in einer SQL-Zeichenkette las der Werkzeugnamen-Wächter (#1148) als Werkzeug (erstes Segment `pbp` wie bei
+`pbp_diagnose`); ein zweites `setlocal EnableDelayedExpansion` im Fehlerzweig einer .bat verletzte PP19 (das ERSTE ist das, nach dem
+kein `endlocal` mehr stehen darf). Beide fielen erst in der ganzen Suite auf (L69), nicht in den Tests der eigenen Änderung. Regel: Namen,
+die wie ein Aufruf aussehen, beginnen nicht mit einem Werkzeug-Präfix; in .bat-Dateien gibt der Fehlerzweig Pfade ohne eigenes `setlocal`
+aus (`set PBP_ORT_` druckt Werte, ohne dass ein `&` im Pfad als Befehl gelesen wird).
+*Belege:* `test_1148_kein_text_verweist_auf_ein_werkzeug_das_es_nicht_gibt`, `test_pp19_die_maske_gilt_nur_unter_verzoegerter_expansion`
+
+**L75. Drei unabhängige Leser fanden 19 Fehler in einem Stand, den die eigene Gegenprobe (534 Eingriffe) für sauber hielt — der Leser
+ohne Vorwissen lohnt vor JEDEM Testlauf.** Updates und Backend: 8 (verfallener Zähler, Schreibweisen des Schlüssels, Vorschau gegen Lauf,
+Umlaute und Leerraum im Vergleich, …), Installer: 5 Issues mit 8 Befunden (Anführungszeichen um `$PYTHON`, echte Datenbank im
+Funktionstest, grüner Schluss trotz stehengebliebenem Eintrag, …), Frontend: 6 (die Zurück-Taste friert ein, …). Die Gegenprobe prüft nur,
+was ich mir ausgedacht habe; ein Fremder fragt „und wenn der Ordner ein Leerzeichen hat?“. Regel: den Prüfer mit den Dateien beauftragen,
+nicht mit meiner Zusammenfassung; jeden Fund am Code belegen, als Issue führen und mit einem Test beheben, der VOR der Korrektur rot war.
+*Belege:* #1201 bis #1220, Katalog `pruefung1214`

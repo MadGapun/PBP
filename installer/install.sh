@@ -153,7 +153,7 @@ echo -e "${YELLOW}[5/7] Funktionstest...${NC}"
 # v1.8.0 (#1217): Der Funktionstest laeuft auf einem frischen Temp-Verzeichnis, gesetzt VOR dem ersten Import. Vorher zeigte
 # BA_DATA_DIR beim Import von `server` noch auf den ECHTEN Ordner: dessen Modulkopf oeffnet und migriert die Datenbank des
 # Menschen, noch bevor der Installer umgestellt hat. Der echte Ordner wird erst danach gesetzt (Schritt 6).
-TEST_DIR="$(mktemp -d)"
+TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pbp-funktionstest.XXXXXX")"        # mit Vorlage: BSD-mktemp (macOS) verlangt eine
 if ! BA_DATA_DIR="$TEST_DIR" "$PYTHON" -c "
 import os
 from bewerbungs_assistent.database import Database, _gen_id
