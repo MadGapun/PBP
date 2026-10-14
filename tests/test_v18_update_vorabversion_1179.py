@@ -490,6 +490,26 @@ def test_1229_die_frage_zum_umschalten_nennt_die_richtung(browser, umgebung):
         ctx.close()
 
 
+def test_1229_der_verlauf_nennt_den_schritt_nach_vorn_umgeschaltet(browser, umgebung):
+    au = _au()
+    au["verlauf"] = [
+        {"zeit": "2026-10-14T12:40:00+00:00", "version": NEUERE_BETA, "ergebnis": "umgeschaltet", "ausloeser": "klick",
+         "grund": f"Auf Wunsch von {BETA} auf {NEUERE_BETA} umgeschaltet."},
+        {"zeit": "2026-10-14T12:30:00+00:00", "version": BETA, "ergebnis": "zurueckgeschaltet", "ausloeser": "klick",
+         "grund": f"Auf Wunsch zurück von {NEUERE_BETA} auf {BETA}."},
+    ]
+    ctx, page = _seite(browser, umgebung, au, _info())
+    try:
+        tab = _zu_den_updates(page)
+        verlauf = tab.locator("[data-updates-verlauf]")
+        verlauf.wait_for(timeout=15000)
+        text = verlauf.inner_text()
+        assert "Umgeschaltet" in text and "Zurückgeschaltet" in text, text
+        assert "umgeschaltet." in text and f"zurück von {NEUERE_BETA}" in text
+    finally:
+        ctx.close()
+
+
 def test_1226_ohne_antwort_der_quelle_ist_die_linie_nicht_belegt(browser, umgebung):
     au = _au()
     au["vorab"] = 1
