@@ -8147,8 +8147,8 @@ async def api_auto_update():
 async def api_auto_update_einstellungen(payload: dict = Body(default={})):
     """Stufe, Zahl der behaltenen Vorgaenger und Aufraeumen des Installers setzen."""
     from .services.auto_update import lauf, zustand
-    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen")):
-        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten oder installer_aufraeumen."},
+    if not any(k in payload for k in ("stufe", "vorgaenger_behalten", "installer_aufraeumen", "vorab")):
+        return JSONResponse({"error": "Nichts zu ändern: erwartet stufe, vorgaenger_behalten, installer_aufraeumen oder vorab."},
                             status_code=400)
     try:
         if "stufe" in payload:
@@ -8159,6 +8159,8 @@ async def api_auto_update_einstellungen(payload: dict = Body(default={})):
             zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
         if "installer_aufraeumen" in payload:
             zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
+        if "vorab" in payload:
+            zustand.vorab_setzen(_db, bool(payload["vorab"]))
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
     return lauf.uebersicht(_db)

@@ -43,6 +43,7 @@ K_VORGAENGER = "auto_update_vorgaenger_behalten"
 K_INSTALLER = "installer_aufraeumen"
 K_GEFRAGT = "auto_update_gefragt"
 K_VERLAUF = "auto_update_verlauf"
+K_VORAB = "auto_update_vorab"
 
 
 def _jetzt() -> str:
@@ -61,6 +62,25 @@ def stufe_setzen(db, wert: str) -> str:
         raise ValueError(f"Unbekannte Stufe: {wert!r}. Erlaubt: {', '.join(STUFEN)}")
     db.set_setting(K_STUFE, wert)
     return wert
+
+
+def vorab(db) -> bool:
+    """Darf die Automatik Vorabversionen (Beta/RC) DERSELBEN Linie einbeziehen? Vorgabe: nein (#1199).
+
+    Sicherheitshalber restriktiv: ein unlesbarer Wert gilt als nein. Dieser Schalter erlaubt die
+    Vorab NUR als Kandidat — eine stabile Installation wird dennoch nie auf eine Vorab gezogen
+    (Entscheidung faellt in `quelle.kandidat_erlaubt`), und Signatur/Pruefsumme/Selbsttest bleiben Pflicht.
+    """
+    try:
+        return bool(db.get_setting_zahl(K_VORAB, 0))
+    except Exception:
+        return False
+
+
+def vorab_setzen(db, wert) -> bool:
+    an = 1 if wert else 0
+    db.set_setting(K_VORAB, an)
+    return bool(an)
 
 
 def vorgaenger_behalten(db) -> int:

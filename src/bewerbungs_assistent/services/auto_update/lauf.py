@@ -189,9 +189,10 @@ def pruefen(db=None, *, oeffner=None, laufende=None, app=None, frisch: bool = Fa
     except UpdateFehler as fehler:
         erg = {"status": "keine_antwort", "text": fehler.text, "code": fehler.code}
         return _pruefung_merken(db, erg, laufende, jetzt, behalten=False)
-    freigaben = quelle.freigaben_lesen(daten)
+    vorab = zustand.vorab(db) if db is not None else False
+    freigaben = quelle.freigaben_lesen(daten, vorab=vorab)
     bezug = _bezugsfassung(app, laufende)
-    neu = quelle.neueste_fuer_linie(freigaben, bezug)
+    neu = quelle.neueste_fuer_linie(freigaben, bezug, vorab=vorab)
     if neu is None:
         erg = {"status": "aktuell", "text": "Du hast die neueste Version."}
     elif not quelle.vollstaendig(neu, _schl.signatur_erforderlich()):
@@ -493,6 +494,7 @@ def uebersicht(db) -> dict:
     stufe = zustand.stufe(db)
     antwort = {
         "verfuegbar": ok, "grund": grund, "laufend": laufend, "stufe": stufe, "stufen": list(zustand.STUFEN),
+        "vorab": zustand.vorab(db),
         "vorgaenger_behalten": zustand.vorgaenger_behalten(db), "installer_aufraeumen": zustand.installer_aufraeumen(db),
         "gefragt": zustand.gefragt(db), "verlauf": zustand.verlauf(db)[-10:][::-1],
         "signatur": {"erforderlich": _schl.signatur_erforderlich(), "schluessel": sorted(_schl.schluessel_bytes())},

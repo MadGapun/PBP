@@ -33,7 +33,8 @@ def register(mcp, db, logger: logging.Logger):
 
     @mcp.tool()
     def update_einstellungen_setzen(stufe: str = "", vorgaenger_behalten: int = 0,
-                                    installer_aufraeumen: str = "", bestaetigt: bool = False) -> dict:
+                                    installer_aufraeumen: str = "", vorab: int = -1,
+                                    bestaetigt: bool = False) -> dict:
         """Stellt das Auto-Update ein (Auto-Update, #1093). Ohne Angabe passiert nichts.
 
         Args:
@@ -41,6 +42,9 @@ def register(mcp, db, logger: logging.Logger):
                 auto_meldung = PBP installiert selbst und meldet es · auto_still = wie zuvor, ohne Meldung.
             vorgaenger_behalten: wie viele frühere Versionen zum Zurückschalten liegen bleiben (1 bis 10, Vorgabe 3).
             installer_aufraeumen: fragen, immer oder nie — ob der Installer seinen entpackten Ordner und das ZIP löscht.
+            vorab: 1 = die Automatik darf auch Vorabversionen (Beta/RC) DERSELBEN Linie ziehen — aber nur, wenn
+                die laufende Version selbst eine Vorab ist (eine stabile Installation wird nie auf eine Vorab gezogen);
+                0 = nur stabile Versionen (Vorgabe); -1 = unverändert (#1199). Signatur und Selbsttest bleiben Pflicht.
             bestaetigt: Pflicht für auto_meldung und auto_still. Erst setzen, NACHDEM der Mensch ausdrücklich
                 gesagt hat, dass PBP Updates ohne Rückfrage installieren soll.
         """
@@ -62,6 +66,9 @@ def register(mcp, db, logger: logging.Logger):
             if installer_aufraeumen:
                 zustand.installer_aufraeumen_setzen(db, installer_aufraeumen)
                 geaendert.append("installer_aufraeumen")
+            if vorab in (0, 1):
+                zustand.vorab_setzen(db, bool(vorab))
+                geaendert.append("vorab")
         except ValueError as exc:
             return {"fehler": str(exc)}
         if not geaendert:

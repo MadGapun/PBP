@@ -69,9 +69,14 @@ def _url_pruefen(url: str, *, erlaubte_hosts) -> str:
 
 
 def asset_url(version: str, name: str) -> str:
-    """Die Adresse einer Datei im Release `v<version>` — aus festen Teilen gebaut."""
-    if not _fassung.ist_stabil(version):
-        raise UpdateFehler("quelle_nicht_erlaubt", detail=f"keine stabile Fassung: {version!r}")
+    """Die Adresse einer Datei im Release `v<version>` — aus festen Teilen gebaut.
+
+    #1199: auch eine Vorab-Fassung ist erlaubt, solange sie GUELTIG ist (strenger ASCII-Fullmatch,
+    kein Pfad-Trick). Welche Fassung ueberhaupt gezogen werden darf (Linie, stabil vs. Vorab), hat
+    `neueste_fuer_linie`/`kandidat_erlaubt` schon entschieden; hier zaehlt nur die Form der Nummer.
+    """
+    if not _fassung.gueltig(version):
+        raise UpdateFehler("quelle_nicht_erlaubt", detail=f"keine gültige Fassung: {version!r}")
     erlaubt = {ARCHIV_NAME.format(version=version), SUMMEN_NAME, SIGNATUR_NAME}
     if name not in erlaubt:
         raise UpdateFehler("quelle_nicht_erlaubt", detail=f"Dateiname nicht vorgesehen: {name!r}")
@@ -184,17 +189,26 @@ class Freigabe:
         return name in self.dateien
 
 
-def freigaben_lesen(daten) -> list:
-    """Aus der JSON-Liste die brauchbaren Freigaben: keine Entwuerfe, keine Vorabversionen, nur gueltige Tags."""
+def freigaben_lesen(daten, *, vorab: bool = False) -> list:
+    """Aus der JSON-Liste die brauchbaren Freigaben: keine Entwuerfe, nur gueltige Tags.
+
+    Vorgabe: nur stabile Fassungen (Vorabversionen fallen raus, wie bisher). Mit `vorab=True`
+    bleiben auch Vorab-Releases (Beta/RC) stehen — ob von der laufenden Fassung aus darauf
+    aktualisiert werden darf, entscheidet erst `kandidat_erlaubt` (eine stabile Installation nie
+    auf eine Vorab)."""
     ergebnis = []
     if not isinstance(daten, list):
         return ergebnis
     for eintrag in daten:
-        if not isinstance(eintrag, dict) or eintrag.get("draft") or eintrag.get("prerelease"):
+        if not isinstance(eintrag, dict) or eintrag.get("draft"):
+            continue
+        if eintrag.get("prerelease") and not vorab:
             continue
         tag = eintrag.get("tag_name")
         version = _fassung.aus_tag(tag)
-        if version is None or not _fassung.ist_stabil(version):
+        if version is None:
+            continue
+        if not vorab and not _fassung.ist_stabil(version):
             continue
         dateien = {}
         for a in eintrag.get("assets") or []:
@@ -208,16 +222,32 @@ def freigaben_lesen(daten) -> list:
     return ergebnis
 
 
-def neueste_fuer_linie(freigaben, laufende_fassung: str):
-    """Die neueste stabile Freigabe der eigenen Linie, die echt neuer ist — sonst None.
+def kandidat_erlaubt(kandidat_version: str, laufende_fassung: str, vorab: bool) -> bool:
+    """Darf von `laufende_fassung` automatisch auf `kandidat_version` aktualisiert werden (#1199)?
+
+    Die Linie prueft der Aufrufer. Hier nur die Vorab-Regel:
+    * Eine stabile Ziel-Fassung ist immer erlaubt (stabil -> stabil, wie bisher).
+    * Eine Vorab-Ziel-Fassung NUR, wenn der Nutzer Vorabversionen zugelassen hat (`vorab`) UND die
+      laufende Fassung selbst eine Vorab ist. Eine stabile Installation wird nie auf eine Vorab gezogen.
+    """
+    if _fassung.ist_stabil(kandidat_version):
+        return True
+    return bool(vorab) and not _fassung.ist_stabil(laufende_fassung)
+
+
+def neueste_fuer_linie(freigaben, laufende_fassung: str, *, vorab: bool = False):
+    """Die neueste erlaubte Freigabe der eigenen Linie, die echt neuer ist — sonst None.
 
     Nie ein Linienwechsel (1.8 -> 1.9, 1.8 -> 2.0): der bleibt eine bewusste Handlung.
+    Vorabversionen nur unter den Bedingungen von `kandidat_erlaubt`.
     """
     linie = _fassung.linie(laufende_fassung)
     if linie is None:
         return None
     kandidaten = [f for f in freigaben
-                  if _fassung.linie(f.version) == linie and _fassung.ist_neuer(f.version, laufende_fassung)]
+                  if _fassung.linie(f.version) == linie
+                  and _fassung.ist_neuer(f.version, laufende_fassung)
+                  and kandidat_erlaubt(f.version, laufende_fassung, vorab)]
     if not kandidaten:
         return None
     return max(kandidaten, key=lambda f: _fassung.schluessel(f.version))

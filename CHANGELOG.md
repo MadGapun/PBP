@@ -74,9 +74,13 @@ Einträgen darunter.
 - **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
   (aufgeklappt, mit seinem Namen im Suchfeld der Seite), die Mail (ihr Fenster, auch ohne Bewerbung), den Termin (in der Timeline der Bewerbung, am Abschnitt
   „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil; ab sieben Skills ist die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
+- **Vorabversionen von selbst holen — nur auf Wunsch (#1199).** Wer eine Vorabversion (Beta oder RC) nutzt, kann in Einstellungen › Updates „Vorabversionen
+  automatisch“ einschalten (Vorgabe **aus**); dann zieht PBP die jeweils nächste Vorabversion **derselben Reihe** nach den Regeln der gewählten Stufe. Eine stabile
+  Installation wird nie auf eine Vorabversion gezogen, auch nicht mit dem Schalter; ein Linienwechsel bleibt Handarbeit; Prüfsumme, Signatur und Selbsttest
+  bleiben Pflicht. Damit lässt sich das Auto-Update an einer echten Veröffentlichung belegen, bevor es für die stabile Version gilt.
 - **Eine neuere Vorabversion wird überall gleich gemeldet (#1179).** Wer eine Beta nutzt und eine neuere erscheint, sieht in der Seitenleiste „Neue Vorabversion
-  verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nie von selbst, auch nicht mit „Mit einem
-  Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
+  verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nur, wenn du es mit dem Schalter „Vorabversionen automatisch“ erlaubst — Vorgabe aus, nur auf einer
+  Vorab-Installation —, und nie von selbst auf eine stabile Installation, auch nicht mit „Mit einem Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
   einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180).
 
 - **Texterkennung ohne Administratorrechte (Einstellungen › Erweitert › Erweiterungen).** „Herunterladen & installieren“ fragt nicht nach Administratorrechten: das Programm kommt nur für dich nach `%LOCALAPPDATA%\Programs\Tesseract-OCR`, das deutsche Sprachpaket dazu, und lässt sich dort wieder entfernen — auch durch den Deinstaller. Ein eingescanntes PDF wird beim Hochladen gelesen (`deu+eng`).
@@ -275,7 +279,7 @@ Einträgen darunter.
 - **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
   Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des Auto-Updates (`/api/auto-update`) kennt nie eine Vorabversion. Die
   Seitenleiste folgte der ersten, die Update-Seite der zweiten, und die Hinweiszone des Dashboards zeigte bei verfügbarem Auto-Update gar nichts. Jetzt sagen alle drei
-  dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion weiterhin nie von selbst.
+  dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion nie von selbst — außer auf einer Vorab-Installation mit dem Schalter „Vorabversionen automatisch“ (#1199, Vorgabe aus).
 - **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154). Die Suche lieferte die Zieladresse im Format
   `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte
   außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen —
@@ -448,6 +452,74 @@ den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#115
 - macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
 
 Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-rc.3] - 13.10.2026 — Eine Vorabversion kann die nächste Vorabversion selbst holen (Release-Kandidat)
+
+<!-- anwender -->
+Wer eine Vorabversion (Beta oder RC) nutzt, kann PBP jetzt erlauben, die jeweils nächste Vorabversion derselben Reihe von selbst zu holen — ideal zum Testen, ohne jedes Mal von Hand herunterzuladen. Der Schalter sitzt in den Einstellungen unter „Updates“ und ist aus, bis du ihn einschaltest. Für die stabile Version ändert sich nichts.
+<!-- /anwender -->
+
+Dritter Release-Kandidat für 1.8.0. Gegenüber `1.8.0-rc.2` kommt ein einziges, bewusst eng gefasstes Feature dazu (#1199) — und erstmals an einer Vorabversion das echte, signierte Update-Archiv, damit das Auto-Update einer Vorabversion lückenlos durchläuft (laden, Prüfsumme, Signatur, entpacken, Selbsttest, umschalten).
+
+### Added
+
+- **Auto-Update auch für Vorabversionen, opt-in (#1199).** Neuer Schalter `auto_update_vorab` (Vorgabe: aus). Nur wenn er an ist UND die laufende Version selbst eine Vorab ist, bezieht die Automatik auch Vorabversionen **derselben Linie** (z. B. rc.3 → rc.4). Der Schalter erscheint in der Update-Seite nur auf einer Vorab-Installation; er lässt sich auch im Chat setzen (`update_einstellungen_setzen(vorab=1)`), und `update_status` zeigt ihn.
+
+### Sicherheit (unverändert)
+
+- Signatur (Ed25519), Prüfsumme (SHA-256), Manifest und Selbsttest der neuen Fassung vor dem Umschalten bleiben Pflicht — für Vorab wie für stabil.
+- Kein Linienwechsel (1.8 → 1.9/2.0 bleibt bewusste Handarbeit).
+- Eine **stabile** Installation wird nie auf eine Vorabversion gezogen, auch nicht mit eingeschaltetem Schalter.
+- Der Mutationstest belegt jede dieser Schranken (`qu07`, `qu10`–`qu14`, neu `qu21`): 8 von 8 Eingriffen erkannt.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 8609 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.3.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.3.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.3 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.3` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
 
 ### Detaillierte Anleitung & Troubleshooting
 

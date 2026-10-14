@@ -452,7 +452,9 @@ def check_update_archiv(version):
         error(f"Update-Archiv nicht baubar: {e}")
         return
     if not fassung.ist_stabil(version):
-        warn(f"{version} ist eine Vorabversion: das Auto-Update installiert sie nie (Archiv nur zur Probe gebaut).")
+        warn(f"{version} ist eine Vorabversion: das Auto-Update zieht sie nur fuer Installationen, die selbst eine "
+             "Vorab sind UND den Schalter 'Vorabversionen automatisch' an haben (#1199) — eine stabile Installation nie. "
+             "Archiv trotzdem an die Release haengen (gh release upload), sonst meldet PBP 'Update noch nicht bereit'.")
     if not erforderlich:
         warn("Keine vertrauten Schluessel in services/auto_update/schluessel.py: das Update wird nur per Pruefsumme "
              "geprueft, nicht signiert. Beim Release pbp-update-<fassung>.zip und SHA256SUMS anhaengen.")
