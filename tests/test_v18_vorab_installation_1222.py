@@ -8,10 +8,13 @@ installiert". Der Test des Features pruefte nur die Auswahl, nie die Installatio
 Hier: der ganze Lauf mit einem ECHTEN Archiv (`build_update_archive --vorabversion`), und jede Regel, die nicht installieren darf.
 Das Netz ist ein Testdoppel, der Programmordner liegt unter `tmp_path`.
 """
+import json
+
 import pytest
 from _au_hilfen import FakeDb, FakeOeffner, programmordner, release_bauen
 
-from bewerbungs_assistent.services.auto_update import installation, lauf, zustand
+from bewerbungs_assistent.services.auto_update import installation, lauf, manifest, zustand
+from bewerbungs_assistent.services.auto_update.fehler import UpdateFehler
 
 
 class _Selbsttest:
@@ -117,6 +120,18 @@ def test_eine_ungueltige_fassung_wird_auch_mit_schalter_nie_installiert(rc3, ver
     e = _installiere(rc3, version, oeffner=oeffner, laufend="1.8.0-rc.3", db=_db(True))
     assert e.ok is False and e.code == "quelle_nicht_erlaubt" and oeffner.aufrufe == []
     assert _aktuell(rc3) == "1.8.0-rc.3"
+
+
+@pytest.mark.parametrize("fassung", ["1.8.0-rc", "v1.8.0", "../1.8.0", "1.8.0-preview.1", "1.8", "1.8.0\n", "\u0661.\u0668.\u0660"])
+def test_das_manifest_nennt_nur_eine_gueltige_fassung_auch_wenn_der_aufrufer_dieselbe_erwartet(fassung):
+    """Eigene Pruefung des Manifests (Gegenprobe vi05): erwartet der Aufrufer dieselbe Zeichenfolge und fehlt `linie`
+    (None == None), kaeme ein Manifest mit unsinniger Fassung ohne diese Pruefung durch. Die Vorbedingung der Installation
+    faengt das vorher ab; das Manifest darf sich nicht darauf verlassen."""
+    roh = json.dumps({"format": 1, "version": fassung})
+    with pytest.raises(UpdateFehler) as e:
+        manifest.lesen(roh, erwartete_version=fassung)
+    assert e.value.code == "manifest"
+    assert "keine gültige Fassung" in e.value.detail
 
 
 def test_eine_aeltere_oder_gleiche_vorabversion_wird_auch_mit_schalter_nie_installiert(tmp_path):
