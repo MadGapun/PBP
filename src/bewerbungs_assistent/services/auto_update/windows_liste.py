@@ -27,8 +27,8 @@ SCHLUESSEL = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PBP"
 
 def _kanon(pfad) -> str:
     """Der echte Pfad: Verknuepfungen (Junction, Symlink), 8.3-Namen und Schreibweise werden aufgeloest. Der Startbaustein leitet
-    den Programmordner aus `Path(__file__).resolve()` ab, der Installer schreibt `%LOCALAPPDATA%\\...` -- beides nennt denselben
-    Ordner, aber nicht immer dieselbe Zeichenfolge."""
+    den Programmordner aus `Path(__file__).resolve()` ab, der Installer schreibt die Zeichenfolge aus der Umgebung des Benutzers --
+    beides nennt denselben Ordner, aber nicht immer dieselbe Zeichenfolge."""
     return os.path.normcase(os.path.realpath(str(pfad)))
 
 
