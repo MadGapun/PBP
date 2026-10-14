@@ -1980,6 +1980,8 @@ T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
 T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Kommentaren eines Klammerblocks
 T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe statt 2 x 2 s Zeitablauf
 T_VS = ["tests/test_v18_vorab_schalter_1226.py"]  # #1226: der Schalter aendert die Frage, die Antwort wird neu geholt
+T_RG = ["tests/test_v18_windows_liste_1228.py"]  # #1228: DisplayVersion nennt die laufende Fassung
+WL_PY = "src/bewerbungs_assistent/services/auto_update/windows_liste.py"
 AUJS = "frontend/src/lib/autoUpdate.js"
 TOOL_UPDATE = "src/bewerbungs_assistent/tools/update.py"
 LLM_PY = "src/bewerbungs_assistent/services/llm_service.py"
@@ -2178,10 +2180,32 @@ M_PRUEFUNG = [
     ("vs10", "Oberflaeche: die Pruefung gilt auch ohne den Vermerk des Schalters als belegt", AUJS,
      "    pruefungVeraltet: schalterAn && !(au?.pruefung?.status === \"aktuell\" && au.pruefung.vorab === true),\n",
      "    pruefungVeraltet: false,\n", T_VO),
+    # ── #1228: die Windows-Liste („Apps & Features“) nennt die laufende Fassung (Block E5, dritter Lauf) ──
+    ("rg01", "Windows-Liste: der Ort des Eintrags wird nicht verglichen (fremde Installation wird veraendert)", WL_PY,
+     "            if not _gleicher_ort(ort, programmordner):\n                return \"anderer_ort\"\n",
+     "            if False:\n                return \"anderer_ort\"\n", T_RG),
+    ("rg02", "Windows-Liste: ein fehlender Eintrag gilt als Fehler statt als nicht vorhanden", WL_PY,
+     "        except FileNotFoundError:\n            return \"kein_eintrag\"\n",
+     "        except FileNotFoundError:\n            raise RuntimeError(\"kein Eintrag\")\n", T_RG),
+    ("rg03", "Windows-Liste: ein gleicher Eintrag wird trotzdem geschrieben", WL_PY,
+     "            if aktuell == str(version):\n                return \"gleich\"\n",
+     "            if False:\n                return \"gleich\"\n", T_RG),
+    ("rg04", "Windows-Liste: ein Schreibfehler wird nicht abgefangen", WL_PY,
+     "    except Exception:  # noqa: BLE001 — eine Anzeige darf den Start nie aufhalten\n",
+     "    except ZeroDivisionError:  # noqa: BLE001 — eine Anzeige darf den Start nie aufhalten\n", T_RG),
+    ("rg05", "Windows-Liste: unter Linux und macOS wird trotzdem gelesen", WL_PY,
+     "    if (plattform or sys.platform) != \"win32\":\n        return \"nicht_windows\"\n",
+     "    if False:\n        return \"nicht_windows\"\n", T_RG),
+    ("rg06", "Start: der Abgleich der Windows-Liste fehlt", AU + "lauf.py",
+     "        ergebnis[\"windows_liste\"] = windows_liste.abgleichen(layout.laufende_fassung(), app)\n",
+     "        ergebnis[\"windows_liste\"] = \"nichts_zu_tun\"\n", T_RG),
+    ("rg07", "Start: ein Fehler des Abgleichs bricht den Start ab", AU + "lauf.py",
+     "    except Exception:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n",
+     "    except ZeroDivisionError:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n", T_RG),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS))
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG))
 
 WT = None
 

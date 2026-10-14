@@ -25,7 +25,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import aufraeumen, installation, layout, quelle, zustand
+from . import aufraeumen, installation, layout, quelle, windows_liste, zustand
 from . import fassung as _fassung
 from . import schluessel as _schl
 from .fehler import UpdateFehler
@@ -497,6 +497,11 @@ def beim_start(db, *, bestaetigung_nach=None) -> dict:
         _boot.bereit_melden()
     except Exception:  # noqa: BLE001
         logger.debug("bereit_melden nicht moeglich", exc_info=True)
+    # #1228: die Windows-Liste („Apps & Features“) nennt die Fassung, die jetzt laeuft - nicht die der Erstinstallation
+    try:
+        ergebnis["windows_liste"] = windows_liste.abgleichen(layout.laufende_fassung(), app)
+    except Exception:  # noqa: BLE001
+        logger.debug("Windows-Liste nicht abgeglichen", exc_info=True)
     if bestaetigung_nach <= 0:
         ergebnis["bestaetigt"] = zustand.start_bestaetigen()
     else:
