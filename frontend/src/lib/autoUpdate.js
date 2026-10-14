@@ -254,9 +254,18 @@ export function neustartText() {
   return NEUSTART_SCHRITTE.map((s, i) => `${i + 1}. ${s}`).join(" ");
 }
 
-/** „Aktuell“ steht nur da, wenn nichts mehr aussteht: weder eine neuere Version noch ein Neustart (#1170 U4). */
+/**
+ * „Aktuell“ steht nur da, wenn nichts mehr aussteht: weder eine neuere Version noch ein Neustart (#1170 U4) — UND die
+ * letzte Prüfung eine Antwort bekam. Ohne Antwort ist der Stand unbekannt, nicht aktuell (#1225): das Etikett widersprach
+ * sonst der Zeile darunter („Die Verbindung zu GitHub hat nicht geklappt“) und der Seitenleiste („Update-Stand unbekannt“).
+ */
 export function zeigeAktuell(au) {
-  return Boolean(au) && !au.neu && !au.neustart_noetig;
+  return Boolean(au) && !au.neu && !au.neustart_noetig && !standUnbekannt(au);
+}
+
+/** Die letzte Prüfung bekam keine Antwort: ob es eine neuere Version gibt, ist UNBEKANNT (#1225). */
+export function standUnbekannt(au) {
+  return Boolean(au) && !au.neu && !au.neustart_noetig && au.pruefung?.status === "keine_antwort";
 }
 
 /** Die Zeile unter der Version in der Seitenleiste, solange eine installierte Version auf den Neustart wartet. */

@@ -267,6 +267,22 @@ def test_dringenderes_steht_vor_der_vorabversion(browser, umgebung):
 
 # ── nichts Neues, die fertige Version, schon installiert ────────────────────────────────────────────────────────
 
+def test_1225_ohne_antwort_der_quelle_steht_stand_unbekannt_statt_aktuell(browser, umgebung):
+    """Dritter Lauf auf dem Werkstatt-PC: „Aktuell“ neben „Die Verbindung zu GitHub hat nicht geklappt“."""
+    au = _au()
+    au["pruefung"] = {"status": "keine_antwort", "zeit": "2026-10-14T11:25:16+00:00",
+                      "text": "Die Verbindung zu GitHub hat nicht geklappt. PBP versucht es später noch einmal."}
+    ctx, page = _seite(browser, umgebung, au, _info(None), ruhiges_dashboard=True)
+    try:
+        page.locator("button[data-page=einstellungen]").wait_for(timeout=15000)
+        tab = _zu_den_updates(page)
+        tab.get_by_text("Stand unbekannt", exact=True).wait_for(timeout=15000)
+        assert tab.get_by_text("Aktuell", exact=True).count() == 0, "„Aktuell“ widerspricht der Zeile mit dem Grund"
+        assert "Die Verbindung zu GitHub hat nicht geklappt" in tab.inner_text()
+    finally:
+        ctx.close()
+
+
 def test_ohne_neuere_version_steht_aktuell_und_nirgends_eine_meldung(browser, umgebung):
     ctx, page = _seite(browser, umgebung, _au(), _info(None), ruhiges_dashboard=True)
     try:

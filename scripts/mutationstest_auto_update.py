@@ -2126,6 +2126,9 @@ M_PRUEFUNG = [
      ":: v1.8.0 (#1149 Punkt 8): die Pfade (DATA_DIR, BACKUP_ZIP), nicht eingebettet. Ein Apostroph\n"
      ":: im Benutzernamen (O'Brien) machte aus dem Befehl einen Syntaxfehler\n"
      "    powershell ", T_BA),
+    ("au01", "Updates-Seite: „Aktuell“ steht auch, wenn die Prüfung keine Antwort bekam", "frontend/src/lib/autoUpdate.js",
+     "  return Boolean(au) && !au.neu && !au.neustart_noetig && !standUnbekannt(au);\n",
+     "  return Boolean(au) && !au.neu && !au.neustart_noetig;\n", T_VO),
     ("ba02", "Installer: ein Kommentar mit Klammer im Migrationsblock", IB,
      "    :: dokumente/ und export/ Inhalte migrieren, nur wenn im alten Pfad vorhanden\n",
      "    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)\n", T_BA),

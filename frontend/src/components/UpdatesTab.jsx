@@ -19,7 +19,7 @@ import ErklaerText from "@/components/ErklaerText";
 import MitClaude from "@/components/MitClaude";
 import {
   INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_SCHRITTE, vorabErklaerung,
-  claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabNeu, zeigeAktuell,
+  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
@@ -133,7 +133,8 @@ export default function UpdatesTab() {
           ) : null}
           {neu ? <Badge tone="success">Neu: v{neu.version}</Badge>
             : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>
-              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
+              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge>
+                : standUnbekannt(au) ? <span title="Die letzte Prüfung bekam keine Antwort."><Badge tone="amber">Stand unbekannt</Badge></span> : null}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
             <RefreshCw size={14} className="mr-1 inline" /> {busy === "/api/auto-update/pruefen" ? "Prüfe …" : "Jetzt prüfen"}

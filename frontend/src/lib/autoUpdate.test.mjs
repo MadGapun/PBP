@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
-  NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
+  NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, standUnbekannt, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
   VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE, istVorabversion, vorabErklaerung,
   vorabHinweis, vorabNeu,
@@ -215,6 +215,13 @@ assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false 
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: true }), false, "nach der Installation nicht „Aktuell“ neben „Ab dem nächsten Neustart“");
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false }), false);
 assert.equal(zeigeAktuell(null), false);
+// #1225: ohne Antwort der Quelle ist der Stand unbekannt, nicht aktuell
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), false);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), true);
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "aktuell" } }), true);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "aktuell" } }), false);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), false, "eine bekannte neue Version bleibt Thema");
+assert.equal(standUnbekannt(null), false);
 
 // ── #1179: eine neuere VORABVERSION wird genannt, aber nie von selbst installiert ──────────────────────────────────
 // Befund (08.10.2026, Beta 17): die Seitenleiste sagte „Neue Version verfügbar: v1.8.0-beta.18“, die Update-Seite „Aktuell“,
