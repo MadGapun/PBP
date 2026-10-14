@@ -366,6 +366,80 @@ def test_1126_firma_kontext_kennt_auch_den_vermittler(vermittler_lage):
     assert stelle["repost_details"]["art"] == "vermittler"
 
 
+def test_1198_bewerbungsaenderung_aktualisiert_vermittlerhinweis(tmp_db):
+    tmp_db.save_profile({"name": "Test"})
+    aid = tmp_db.add_application({
+        "title": "Berater PLM", "company": "Vermittler Nord GmbH",
+        "vermittler": "Vermittler Nord GmbH", "endkunde": "",
+        "notes": "Starke Partnerschaft mit Firma F", "status": "beworben",
+        "applied_at": "2026-10-10", "url": "https://vermittler.example/p/1"})
+    tmp_db.save_jobs([_stelle(
+        "firma-f", "Leiter Werkzeugbau", "Firma F",
+        "https://firma-f.example/j/1")])
+
+    bearbeiten = _werkzeug(tmp_db, "bewerbung_bearbeiten")
+    vermittler_update = bearbeiten(
+        bewerbung_id=aid, vermittler="Vermittler Süd GmbH")
+    assert vermittler_update["status"] == "aktualisiert"
+    assert "vermittler" in vermittler_update["geänderte_felder"]
+
+    for name, argument in (("stellen_anzeigen", {}),
+                           ("fit_analyse", {"job_hash": "firma-f"})):
+        result = _werkzeug(tmp_db, name)(**argument)
+        stelle = (next(s for s in result["stellen"] if s["id"] == "firma-f")
+                  if name == "stellen_anzeigen" else result)
+        assert "Vermittler Süd GmbH" in stelle["repost_warnung"]
+        assert "ob es der Endkunde ist, bleibt offen" in stelle["repost_warnung"]
+
+    ergebnis = bearbeiten(bewerbung_id=aid, endkunde="Firma G")
+    assert ergebnis["status"] == "aktualisiert"
+    assert "endkunde" in ergebnis["geänderte_felder"]
+
+    for name, argument in (("stellen_anzeigen", {}),
+                           ("fit_analyse", {"job_hash": "firma-f"})):
+        result = _werkzeug(tmp_db, name)(**argument)
+        stelle = (next(s for s in result["stellen"] if s["id"] == "firma-f")
+                  if name == "stellen_anzeigen" else result)
+        assert "repost_warnung" not in stelle
+        assert "repost_details" not in stelle
+
+    kontext_f = _werkzeug(tmp_db, "firma_kontext")(firmenname="Firma F")
+    kontext_g = _werkzeug(tmp_db, "firma_kontext")(firmenname="Firma G")
+    assert kontext_f["warnungen"] == []
+    aktive_f = next(s for s in kontext_f["aktive_stellen"]
+                    if s["hash"] == "firma-f")
+    assert "repost_warnung" not in aktive_f
+    assert kontext_g["bewerbungen"]
+    assert kontext_g["bewerbungen"][0]["rolle"] == "endkunde"
+
+
+def test_1198_notizaenderung_aktualisiert_vermittlerhinweis(tmp_db):
+    tmp_db.save_profile({"name": "Test"})
+    aid = tmp_db.add_application({
+        "title": "Berater PLM", "company": "Vermittler Nord GmbH",
+        "vermittler": "Vermittler Nord GmbH", "endkunde": "",
+        "notes": "Starke Partnerschaft mit Firma F", "status": "beworben",
+        "applied_at": "2026-10-10", "url": "https://vermittler.example/p/1"})
+    tmp_db.save_jobs([_stelle(
+        "firma-f", "Leiter Werkzeugbau", "Firma F",
+        "https://firma-f.example/j/1")])
+
+    bearbeiten = _werkzeug(tmp_db, "bewerbung_bearbeiten")
+    ergebnis = bearbeiten(
+        bewerbung_id=aid, notes="Notiz ohne passenden Firmennamen",
+        notizen_ersetzen=True)
+    assert ergebnis["status"] == "aktualisiert"
+    assert "notes" in ergebnis["geänderte_felder"]
+
+    for name, argument in (("stellen_anzeigen", {}),
+                           ("fit_analyse", {"job_hash": "firma-f"})):
+        result = _werkzeug(tmp_db, name)(**argument)
+        stelle = (next(s for s in result["stellen"] if s["id"] == "firma-f")
+                  if name == "stellen_anzeigen" else result)
+        assert "repost_warnung" not in stelle
+        assert "repost_details" not in stelle
+
+
 def test_1126_das_dashboard_zeigt_den_vermittler_als_eigene_art(
         vermittler_lage, monkeypatch):
     import bewerbungs_assistent.dashboard as dash

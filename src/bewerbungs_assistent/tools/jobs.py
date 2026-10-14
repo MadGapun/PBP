@@ -2861,6 +2861,8 @@ def register(mcp, db, logger):
                     }
             _vb = find_vermittler_bewerbung(firma, running_apps)
             if _vb:
+                from ..services.bewerbungs_hinweis import (
+                    vermittler_einordnung, vermittler_name)
                 vermittler_bewerbung = {
                     "bewerbung_id": (_vb.get("id") or "")[:8],
                     "firma_der_bewerbung": _vb.get("company") or "",
@@ -2868,7 +2870,8 @@ def register(mcp, db, logger):
                     "status": _vb.get("status") or "",
                     "hinweis": (
                         f"Laufende Bewerbung {(_vb.get('id') or '')[:8]} ueber "
-                        f"'{_vb.get('company')}' nennt {firma} als Endkunden. "
+                        f"'{vermittler_name(_vb)}'. "
+                        f"{vermittler_einordnung(firma, _vb)} "
                         "Prüfen, ob dies dieselbe Stelle ist — sonst landet "
                         "eine zweite Bewerbung am Vermittler vorbei beim "
                         "selben Arbeitgeber."),
