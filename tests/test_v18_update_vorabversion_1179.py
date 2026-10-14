@@ -375,6 +375,8 @@ def test_die_hilfe_nennt_vorabversionen():
     # #1221: der Schalter (#1199) steht in der Antwort, der Weg von Hand bleibt, und "nie" gilt nur noch fuer stabile Installationen
     assert "Vorabversion" in eintrag and "Vorabversionen automatisch" in eintrag and "INSTALLIEREN.bat" in eintrag
     assert "nie auf eine Vorabversion gezogen" in eintrag
+    # Gegenprobe vo16: der Satz aus #1179 selbst - eine neuere Vorabversion nennt PBP in der Seitenleiste und in den Einstellungen
+    assert "Eine neuere Vorabversion (Beta) nennt PBP in der Seitenleiste und unter Einstellungen" in eintrag
 
 
 def test_1221_bei_eingeschaltetem_schalter_sagt_die_karte_dass_die_linie_nie_von_selbst_wechselt(browser, umgebung):

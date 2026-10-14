@@ -200,6 +200,17 @@ def test_schreibweise_und_leerraum_machen_keinen_zweiten_hinweis(umgebung):
     assert len(stellen_hinweise.liste(db)) == 1
 
 
+def test_andere_schreibweise_ist_trotzdem_dieselbe_stelle(umgebung):
+    """Hinweis <-> vorhandene Stelle: Grossschreibung und Leerraum (auch mit Umlaut am Wortanfang) machen keinen neuen Hinweis.
+    Gegenprobe go26: der Vergleich steht seit #1203 in Python (`_norm` auf beiden Seiten), nicht mehr in SQL."""
+    mcp, db = umgebung
+    _anlegen(mcp, quelle="linkedin", titel="Überregionaler Teamcenter Administrator", firma="Hansa Marke GmbH", ort="Hamburg")
+    erg = stellen_hinweise.merken(db, [_treffer(titel="  ÜBERREGIONALER   teamcenter ADMINISTRATOR ", firma="HANSA marke GMBH")])
+    assert erg == {"neu": 0, "bekannt": 0, "schon_stelle": 1}, erg
+    (h,) = stellen_hinweise.liste(db, status="alle")
+    assert h["status"] == "angelegt"
+
+
 def test_was_schon_eine_stelle_ist_steht_gleich_als_angelegt_da(umgebung):
     mcp, db = umgebung
     _anlegen(mcp, quelle="linkedin", titel="Teamcenter Administrator", firma="Hansa Marke GmbH", ort="Hamburg")
