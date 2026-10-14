@@ -472,6 +472,10 @@ Einträgen darunter.
   allen drei Stellen dieselbe Regel wie bei der Auswahl (Schalter an UND selbst eine Vorabversion, nie ein Linienwechsel; Prüfsumme, Signatur und
   Selbsttest wie immer), und der Archiv-Bauer prüft auch das Manifest einer Vorabversion mit dem Leser der Installation. Ein Test fährt den Weg
   rc.3 → rc.4 mit einem echten Archiv bis zur Umschaltung; der Beweis im Betrieb steht noch aus.
+- **Windows: der Deinstaller endete nach der Backup-Frage** (#1224; Fund des dritten Laufs auf dem Werkstatt-PC, nur im Kandidaten). Zwei
+  Kommentarzeilen mit Klammern im Block der Backup-Frage (#1149) ließen `cmd` den Stapel beim Lesen abbrechen: das Fenster schloss sich, und die
+  Fragen nach den Bewerbungsdaten und nach den rund 830 MB Zusatzdateien kamen nicht mehr. Die Kommentare stehen jetzt außerhalb des Blocks;
+  ein Wächter prüft alle `.bat`-Dateien auf Klammern in Kommentaren innerhalb von Blöcken, und ein Test führt den Abschnitt mit echtem `cmd` aus.
 
 ### Known Issues
 

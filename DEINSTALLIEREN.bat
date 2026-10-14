@@ -185,13 +185,15 @@ echo.
 echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
 echo.
 set "BACKUP_FEHLER=0"
+:: v1.8.0 #1149 Punkt 8: die Pfade kommen ueber die Umgebungsvariablen DATA_DIR und BACKUP_ZIP, nicht eingebettet. Ein Apostroph
+:: im Benutzernamen wie O'Brien machte aus dem Befehl einen Syntaxfehler mit Exit 1 - und Exit 1 heisst hier "kein Datenordner":
+:: es gab kein Backup, keine Warnung, und danach durfte der Mensch endgueltig loeschen.
+:: #1224: HIER STEHT BEWUSST KEIN KOMMENTAR INNERHALB DES BLOCKS. cmd liest den Block beim Einlesen in einem Zug; zwei
+:: Kommentarzeilen mit Klammern darin liessen den Stapel dort enden - der Deinstaller schloss sich nach der Backup-Frage.
 set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): "
 if /i "!CREATE_BACKUP!"=="j" (
     set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
     echo         Erstelle Backup...
-:: v1.8.0 (#1149 Punkt 8): die Pfade kommen ueber Umgebungsvariablen (DATA_DIR, BACKUP_ZIP), nicht eingebettet. Ein Apostroph
-:: im Benutzernamen (O'Brien) machte aus dem Befehl einen Syntaxfehler mit Exit 1 - und Exit 1 heisst hier "kein Datenordner":
-:: es gab kein Backup, keine Warnung, und danach durfte der Mensch endgueltig loeschen.
     powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:DATA_DIR) { try { Compress-Archive -Path (Join-Path $env:DATA_DIR '*') -DestinationPath $env:BACKUP_ZIP -Force; if (-not (Test-Path -LiteralPath $env:BACKUP_ZIP)) { throw 'Die ZIP-Datei fehlt.' }; Write-Host ('        [OK] Backup erstellt: ' + $env:BACKUP_ZIP); exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
     set "BACKUP_RC=!errorlevel!"
     if !BACKUP_RC! geq 2 set "BACKUP_FEHLER=1"

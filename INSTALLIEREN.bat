@@ -564,7 +564,7 @@ if exist "%BASE_INSTALL%\pbp.db" (
     if exist "%BASE_INSTALL%\pbp.db-wal" move "%BASE_INSTALL%\pbp.db-wal" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
     if exist "%BASE_INSTALL%\pbp.db-shm" move "%BASE_INSTALL%\pbp.db-shm" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
     if exist "%BASE_INSTALL%\mcp_heartbeat.json" move "%BASE_INSTALL%\mcp_heartbeat.json" "%DATA_DIR%\" >> "%LOGFILE%" 2>&1
-    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)
+    :: dokumente/ und export/ Inhalte migrieren, nur wenn im alten Pfad vorhanden
     if exist "%BASE_INSTALL%\dokumente" (
         xcopy "%BASE_INSTALL%\dokumente" "%DATA_DIR%\dokumente\" /E /I /Q /Y >> "%LOGFILE%" 2>&1
         rmdir /s /q "%BASE_INSTALL%\dokumente" 2>nul

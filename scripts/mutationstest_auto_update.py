@@ -1977,6 +1977,7 @@ GRUNDLAEUFE["wegleiste1171"] = (("T_LK", T_LK), ("T_WL", T_WL), ("T_KN", T_KN))
 T_PB = ["tests/test_v18_pruefung_backend_1201_1206.py"]
 T_PF = ["tests/test_v18_pruefung_frontend_1210_1215.py"]
 T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
+T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Kommentaren eines Klammerblocks
 T_PW = ["tests/test_v18_installer_rest_1149.py", "tests/test_v18_auto_update_installer_bat.py",
         "tests/test_v18_auto_update_installer_aufraeumen.py"]
 T_PD = ["tests/test_v18_aufraeum_runde_1139.py", "tests/test_v18_google_original_1184.py"]
@@ -2118,10 +2119,20 @@ M_PRUEFUNG = [
     ("vi05", "Manifest: eine ungueltige Fassung wird akzeptiert", AU + "manifest.py",
      "    if not _fassung.gueltig(version):\n"
      "        raise UpdateFehler(\"manifest\", detail=f\"version {version!r} ist keine gültige Fassung\")\n", "", T_PR + T_VI),
+    # ── #1224: Kommentare mit Klammern in einem Klammerblock beendeten den Stapel (dritter Werkstatt-PC-Lauf) ──
+    ("ba01", "Deinstaller: Kommentarzeilen mit Klammern stehen wieder im Backup-Block", DB,
+     "    echo         Erstelle Backup...\n    powershell ",
+     "    echo         Erstelle Backup...\n"
+     ":: v1.8.0 (#1149 Punkt 8): die Pfade (DATA_DIR, BACKUP_ZIP), nicht eingebettet. Ein Apostroph\n"
+     ":: im Benutzernamen (O'Brien) machte aus dem Befehl einen Syntaxfehler\n"
+     "    powershell ", T_BA),
+    ("ba02", "Installer: ein Kommentar mit Klammer im Migrationsblock", IB,
+     "    :: dokumente/ und export/ Inhalte migrieren, nur wenn im alten Pfad vorhanden\n",
+     "    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)\n", T_BA),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI))
+                                ("T_VI", T_VI), ("T_BA", T_BA))
 
 WT = None
 
