@@ -33,7 +33,7 @@ VERMITTLER = "vermittler"
 
 
 def vermittler_name(bewerbung: dict) -> str:
-    """Return the explicitly recorded agency, falling back for older records."""
+    """Der ausdruecklich eingetragene Vermittler; aeltere Datensaetze ohne ihn nennen die Firma der Bewerbung (#1198)."""
     name = str(bewerbung.get("vermittler") or "").strip()
     return name or str(bewerbung.get("company") or "").strip()
 
@@ -69,7 +69,7 @@ def _vermittler_hinweis(job: dict, bewerbung: dict) -> dict:
 
 
 def vermittler_einordnung(firma: str, bewerbung: dict) -> str:
-    """Describe whether a Vermittler match comes from a field or free text."""
+    """Der Satz zur Einordnung: der Treffer kommt aus dem Feld `endkunde` (Tatsache) oder aus Freitext (offen) - #1198."""
     if str(bewerbung.get("endkunde") or "").strip():
         return f"{firma} ist als Endkunde in der Bewerbung eingetragen."
     return (

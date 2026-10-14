@@ -1982,6 +1982,10 @@ T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe 
 T_VS = ["tests/test_v18_vorab_schalter_1226.py"]  # #1226: der Schalter aendert die Frage, die Antwort wird neu geholt
 T_RG = ["tests/test_v18_windows_liste_1228.py"]  # #1228: DisplayVersion nennt die laufende Fassung
 T_UM = ["tests/test_v18_umschalten_richtung_1229.py"]  # #1229: Umschalten nach vorn heisst nicht „zurueckgeschaltet“
+T_VM = ["tests/test_v18_vermittler_endkunde_1198.py", "tests/test_v17126_dubletten_1076.py",
+        "tests/test_v17143_schon_beworben_1126.py", "tests/test_v17143_schon_beworben_anschluesse_1126.py"]  # #1198
+DD_PY = "src/bewerbungs_assistent/duplicate_detection.py"
+HINWEIS_PY = "src/bewerbungs_assistent/services/bewerbungs_hinweis.py"
 UPD_JSX = "frontend/src/components/UpdatesTab.jsx"
 WL_PY = "src/bewerbungs_assistent/services/auto_update/windows_liste.py"
 AUJS = "frontend/src/lib/autoUpdate.js"
@@ -2223,10 +2227,29 @@ M_PRUEFUNG = [
     ("um06", "Oberflaeche: die Frage nimmt wieder immer den Satz des Rueckwegs", UPD_JSX,
      "    const ok = await bestaetigen({ text: umschaltText(v, au.aktuell) });\n",
      "    const ok = await bestaetigen({ text: umschaltText(v, null) });\n", T_UM + T_VO),
+    # ── #1198: Repost-Warnung Art „vermittler“ (Fremdbeitrag PR #1230, in 1.8.0 uebernommen) ──
+    ("vm01", "Vermittler: ein eingetragener Endkunde ist nicht mehr massgeblich (Notizen ueberstimmen ihn)", DD_PY,
+     "        roh = endkunde or \" \".join(str(app.get(k) or \"\")\n                                   for k in (\"company\", \"notes\"))\n",
+     "        roh = \" \".join(str(app.get(k) or \"\")\n                       for k in (\"company\", \"notes\", \"endkunde\"))\n", T_VM),
+    ("vm02", "Vermittler: ein Freitexttreffer gilt wieder als eingetragener Endkunde", HINWEIS_PY,
+     "    if str(bewerbung.get(\"endkunde\") or \"\").strip():\n        return f\"{firma} ist als Endkunde in der Bewerbung eingetragen.\"\n",
+     "    if True:\n        return f\"{firma} ist als Endkunde in der Bewerbung eingetragen.\"\n", T_VM),
+    ("vm03", "Vermittler: der Hinweis nennt wieder die Firma der Bewerbung statt des eingetragenen Vermittlers", HINWEIS_PY,
+     "    name = str(bewerbung.get(\"vermittler\") or \"\").strip()\n    return name or str(bewerbung.get(\"company\") or \"\").strip()\n",
+     "    return str(bewerbung.get(\"company\") or \"\").strip()\n", T_VM),
+    ("vm04", "Vermittler: ohne Endkunde im Feld wird der Treffer nie als offen eingeordnet", HINWEIS_PY,
+     "        f\"{firma} wird in den Notizen oder Firmenangaben erwähnt; \"\n        \"ob es der Endkunde ist, bleibt offen.\")\n",
+     "        f\"{firma} nennt diese Bewerbung als Endkunden.\")\n", T_VM),
+    ("vm05", "Anlage von Hand: der Hinweis nennt wieder den Vermittler aus der Firma der Bewerbung", JOBS_TOOL,
+     "                        f\"'{vermittler_name(_vb)}'. \"\n",
+     "                        f\"'{_vb.get('company')}'. \"\n", T_VM),
+    ("vm06", "Anlage von Hand: der Hinweis behauptet den Endkunden wieder als Tatsache", JOBS_TOOL,
+     "                        f\"{vermittler_einordnung(firma, _vb)} \"\n",
+     "                        f\"nennt {firma} als Endkunden. \"\n", T_VM),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG), ("T_UM", T_UM))
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG), ("T_UM", T_UM), ("T_VM", T_VM))
 
 WT = None
 
