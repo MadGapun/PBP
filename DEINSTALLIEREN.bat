@@ -35,9 +35,12 @@ cmd /c ""%PBP_RELOC_BAT%"" & del /Q "%PBP_RELOC_BAT%" >nul 2>&1 & exit /b 0
 :: %LOCALAPPDATA% gebildet wird. Der Deinstaller meldete dann fuer jeden Ordner "nicht gefunden" und entfernte nichts. Hier
 :: wird vor der ersten Aenderung geprueft und mit dem Handgriff abgebrochen.
 setlocal DisableDelayedExpansion
+:: Gedruckt wird mit `set PBP_ORT_`: kein eigenes setlocal (PP19), und ein "&" im Namen wird nicht als Befehl gelesen.
+set "PBP_ORT_1=%LOCALAPPDATA%"
+set "PBP_ORT_2=%TEMP%"
+set "PBP_ORT_3=%USERPROFILE%"
 set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"
 if "%PBP_PROFIL_ORTE:!=%"=="%PBP_PROFIL_ORTE%" goto :pbp_profil_ok
-setlocal EnableDelayedExpansion
 echo.
 echo  ****************************************************
 echo  *  FEHLER: Dein Windows-Profil enthaelt ein        *
@@ -46,9 +49,7 @@ echo  ****************************************************
 echo.
 echo  Der Deinstaller kann die Ordner von PBP in diesem Profil
 echo  nicht sicher finden. Geprueft habe ich:
-echo    !LOCALAPPDATA!
-echo    !TEMP!
-echo    !USERPROFILE!
+set PBP_ORT_
 echo.
 echo  SO GEHT ES WEITER:
 echo    1. Oeffne den Explorer und tippe in die Adressleiste

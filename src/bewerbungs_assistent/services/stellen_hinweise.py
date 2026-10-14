@@ -235,11 +235,11 @@ def als_angelegt(db, firma, titel, job_hash: str) -> int:
             return 0
         pid = db.get_active_profile_id()
         # #1203: dieselbe Normalisierung wie beim Anlegen des Hinweises, als SQL-Funktion (`LOWER` kuerzt nur ASCII).
-        conn.create_function("pbp_norm", 1, _norm, deterministic=True)
+        conn.create_function("norm_hinweis", 1, _norm, deterministic=True)
         cur = conn.execute(
             "UPDATE stellen_hinweise SET status='angelegt', job_hash=?, aktualisiert_am=? "
             "WHERE (profile_id=? OR profile_id IS NULL) AND status!='angelegt' "
-            "AND pbp_norm(firma)=? AND pbp_norm(titel)=?",
+            "AND norm_hinweis(firma)=? AND norm_hinweis(titel)=?",
             (job_hash, datetime.now().isoformat(timespec="seconds"), pid, _norm(firma), _norm(titel)))
         conn.commit()
         return cur.rowcount

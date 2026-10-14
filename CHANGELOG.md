@@ -439,6 +439,13 @@ Einträgen darunter.
 - **Die Texte zu Vorabversionen widersprachen dem Schalter „Vorabversionen automatisch“** (#1221). Auf einer Vorab-Installation sagen Karte, Hinweis, Erklärung, Hilfe und Elwosa jetzt, was seit
   #1199 gilt (Schalter an: nächste Vorabversion derselben Linie von selbst; Schalter aus: nur auf Wunsch). Auf einer stabilen Installation bleibt „nie von selbst“ — das stimmt weiter.
 
+- **Das Auto-Update für Vorabversionen installierte die gefundene Vorabversion nicht** (#1222; seit rc.3, #1199). Der Schalter „Vorabversionen
+  automatisch“ machte eine Vorabversion zum Kandidaten, und die Prüfung meldete „neu“ — aber der Start der Installation, ihre Vorbedingung und das
+  Manifest kannten nur stabile Fassungen: „Jetzt installieren“ scheiterte mit „Vorabversionen werden nie automatisch installiert“. Jetzt gilt an
+  allen drei Stellen dieselbe Regel wie bei der Auswahl (Schalter an UND selbst eine Vorabversion, nie ein Linienwechsel; Prüfsumme, Signatur und
+  Selbsttest wie immer), und der Archiv-Bauer prüft auch das Manifest einer Vorabversion mit dem Leser der Installation. Ein Test fährt den Weg
+  rc.3 → rc.4 mit einem echten Archiv bis zur Umschaltung; der Beweis im Betrieb steht noch aus.
+
 ### Known Issues
 
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.

@@ -25,11 +25,14 @@ exit /b 1
 :ort_ohne_ausrufezeichen
 :: v1.8.0 (#1207): dieselbe Pruefung fuer die Orte, aus denen der Installer seine Pfade bildet (Profil, Daten, TEMP). Ein "!"
 :: im Windows-Profil verschwindet unter der verzoegerten Expansion ebenso: der Installer rechnete mit einem Ordner, den es nicht
-:: gibt, und scheiterte erst nach dem Download am Schreibrecht. Die Ausgabe des Pfads laeuft ueber die verzoegerte Expansion,
-:: damit ein "&" im Namen nicht als Befehl gelesen wird.
+:: gibt, und scheiterte erst nach dem Download am Schreibrecht. Gedruckt wird mit `set PBP_ORT_` (zeigt die Werte, ohne dass ein
+:: "&" im Namen als Befehl gelesen wird) - ein eigenes setlocal gibt es hier nicht: PP19 verlangt, dass das erste
+:: `setlocal EnableDelayedExpansion` der Datei das einzige bleibt.
+set "PBP_ORT_1=%LOCALAPPDATA%"
+set "PBP_ORT_2=%TEMP%"
+set "PBP_ORT_3=%USERPROFILE%"
 set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"
 if "%PBP_PROFIL_ORTE:!=%"=="%PBP_PROFIL_ORTE%" goto :profil_ohne_ausrufezeichen
-setlocal EnableDelayedExpansion
 echo.
 echo  ****************************************************
 echo  *  FEHLER: Dein Windows-Profil enthaelt ein        *
@@ -37,9 +40,7 @@ echo  *          Ausrufezeichen                          *
 echo  ****************************************************
 echo.
 echo  PBP legt seine Ordner in deinem Windows-Profil an. Geprueft habe ich:
-echo    !LOCALAPPDATA!
-echo    !TEMP!
-echo    !USERPROFILE!
+set PBP_ORT_
 echo  Mit einem Ausrufezeichen im Namen verliert Windows das Zeichen
 echo  und der Installer wuerde einen Ordner suchen, den es nicht gibt.
 echo.

@@ -62,6 +62,7 @@ T_E = ["tests/test_v18_auto_update_ed25519.py"]
 T_SA = ["tests/test_v18_auto_update_schluessel_ausgeliefert.py"]
 T_SAB = ["tests/test_v18_auto_update_schluessel_ablage.py"]
 T_V = ["tests/test_v18_vorab_auto_update_1199.py"]  # #1199: Vorab-Auto-Update (opt-in)
+T_VI = ["tests/test_v18_vorab_installation_1222.py"]  # #1222: ... und seine Installation
 
 # (id, Beschreibung, Datei, alt, neu, Tests)
 M = [
@@ -139,7 +140,7 @@ M = [
     ("in02", "Lauf: Zurueck-/Gleichstand erlaubt", AU + "installation.py", "    if not _fassung.ist_neuer(version, neuere):", "    if False:", T_I),
     ("in03", "Lauf: gescheiterte Fassung wird erneut versucht", AU + "installation.py", "    if version in zustand.gescheiterte_fassungen(app):", "    if False:", T_I),
     ('in04', "Lauf: Vorabversion erlaubt", AU + "installation.py",
-     '    if not _fassung.ist_stabil(version):', '    if False:', T_I),
+     '    if not quelle.kandidat_erlaubt(version, laufend, vorab):', '    if False:', T_I + T_VI),
     ("in05", "Selbsttest: Urteil ignoriert", AU + "installation.py", '    if getattr(r, "returncode", 1) != 0 or letzte != "OK":', "    if False:", T_I),
     ("in06", "Selbsttest wird uebersprungen", AU + "installation.py", "    selbsttest_starten(entpackt, python=python, runner=selbsttest_runner)", "    pass", T_I),
     ("in07", "Arbeitsordner wird nach Abbruch nicht geleert", AU + "installation.py", "                aufraeumen.arbeit_leeren(app, eigene_sperre=True)\n        ergebnis.ok = True", "                pass\n        ergebnis.ok = True", T_I),
@@ -2011,7 +2012,7 @@ M_PRUEFUNG = [
      "        if roh > 0 and _fehlversuche(db, job_hash) == 0:\n", "        if False:\n", T_PB),
     # ── #1203/#1205: die Hinweise aus Alert-Mails ──
     ("pb07", "Hinweise: das Anlegen vergleicht wieder mit SQL-LOWER (nur ASCII)", SH_PY,
-     "            \"AND pbp_norm(firma)=? AND pbp_norm(titel)=?\",\n",
+     "            \"AND norm_hinweis(firma)=? AND norm_hinweis(titel)=?\",\n",
      "            \"AND LOWER(TRIM(firma))=? AND LOWER(TRIM(titel))=?\",\n", T_PB),
     ("pb08", "Hinweise: der Vergleich kuerzt den Leerraum innen nicht", SH_PY,
      "    return re.sub(r\"\\s+\", \" \", str(text or \"\").strip().lower())\n",
@@ -2102,9 +2103,25 @@ M_PRUEFUNG = [
      "bash \"$SKRIPT\" || ERGEBNIS=$?\n", "bash \"$SKRIPT\"\n", T_PI),
     ("pu14", "Installer: die Sicherungskopie der Claude-Konfiguration kommt nicht in den Schluss", INST_SH,
      "if [ -n \"${CLAUDE_KOPIE:-}\" ]; then\n", "if false; then\n", T_PI),
+    # ── #1222: die Installation einer Vorabversion (Schalter aus #1199) ──
+    ("vi01", "Installation: eine ungueltige Fassung wird nicht abgewiesen", AU + "installation.py",
+     "    if not _fassung.gueltig(version):\n        raise UpdateFehler(\"quelle_nicht_erlaubt\"",
+     "    if False:\n        raise UpdateFehler(\"quelle_nicht_erlaubt\"", T_VI),
+    ("vi02", "Installation: der Schalter wird nicht aus der Datenbank gelesen (immer an)", AU + "installation.py",
+     "        vorab = zustand.vorab(db) if db is not None else False        # #1222: der Schalter, wie die Auswahl ihn las\n",
+     "        vorab = True\n", T_VI),
+    ("vi03", "Start: eine Vorabversion wird ohne Schalter gestartet", AU + "lauf.py",
+     "        if not quelle.kandidat_erlaubt(version, laufend, zustand.vorab(db)):\n", "        if False:\n", T_VI),
+    ("vi04", "Start: eine ungueltige Fassung wird nicht abgewiesen", AU + "lauf.py",
+     "    if not _fassung.gueltig(version):\n"
+     "        return {\"status\": \"abgelehnt\", \"text\": \"Das ist keine gültige Versionsnummer.\"}\n", "", T_VI),
+    ("vi05", "Manifest: eine ungueltige Fassung wird akzeptiert", AU + "manifest.py",
+     "    if not _fassung.gueltig(version):\n"
+     "        raise UpdateFehler(\"manifest\", detail=f\"version {version!r} ist keine gültige Fassung\")\n", "", T_PR + T_VI),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
-GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF))
+GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
+                                ("T_VI", T_VI))
 
 WT = None
 

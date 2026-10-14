@@ -316,8 +316,17 @@ def starte_installation(db, version: str, *, ausloeser: str = "klick", oeffner=N
     ok, grund = layout.verfuegbarkeit()
     if not ok and installieren is None and kw.get("app") is None:
         return {"status": "nicht_verfuegbar", "text": grund}
+    if not _fassung.gueltig(version):
+        return {"status": "abgelehnt", "text": "Das ist keine gültige Versionsnummer."}
+    # #1222: eine Vorabversion nur mit dem Schalter (#1199) und nur auf einer Vorab-Installation - dieselbe Regel wie bei der
+    # Auswahl des Kandidaten (`quelle.kandidat_erlaubt`). Vorher lehnte dieser Start jede Vorabversion ab, auch die, die die
+    # Pruefung selbst als neu gemeldet hatte.
     if not _fassung.ist_stabil(version):
-        return {"status": "abgelehnt", "text": "Vorabversionen werden nie automatisch installiert."}
+        laufend = kw.get("laufende_fassung") or layout.laufende_fassung() or ""
+        if not quelle.kandidat_erlaubt(version, laufend, zustand.vorab(db)):
+            return {"status": "abgelehnt",
+                    "text": "Vorabversionen werden nur installiert, wenn „Vorabversionen automatisch“ eingeschaltet ist, "
+                            "und nur auf einer Vorabversion."}
     if not _JOB_SPERRE.acquire(blocking=False):
         return {"status": "laeuft_bereits", "text": "Ein Update läuft gerade."}
     try:
