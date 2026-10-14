@@ -484,7 +484,7 @@ Einträgen darunter.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9243 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9244 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
