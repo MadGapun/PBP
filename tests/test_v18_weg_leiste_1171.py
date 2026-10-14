@@ -121,10 +121,18 @@ def _timeline(browser, umgebung):
 def _leiste_sichtbar(page, art) -> dict:
     """Die Lage der Leiste im Dialog (relativ zu dessen Oberkante: der Dialog steigt beim Oeffnen mit einer kurzen Animation
     auf) und im Fenster."""
-    box = page.locator(f"[data-weg-leiste='{art}']").bounding_box()
-    dialog = page.locator("[role=dialog]").last.bounding_box()
-    ansicht = page.viewport_size
-    return {"oben": box["y"] - dialog["y"], "unten": box["y"] + box["height"], "hoehe_fenster": ansicht["height"]}
+    # Leiste und Dialog in EINEM Aufruf lesen: zwei getrennte bounding_box()-Aufrufe liegen ein Bild auseinander, und der
+    # Dialog steigt beim Oeffnen noch auf (unter Last 5 px Unterschied, die nach "Leiste verrutscht" aussahen).
+    werte = page.evaluate(
+        """(art) => {
+            const leiste = document.querySelector(`[data-weg-leiste='${art}']`).getBoundingClientRect();
+            const dialoge = document.querySelectorAll('[role=dialog]');
+            const dialog = dialoge[dialoge.length - 1].getBoundingClientRect();
+            return {oben: leiste.top - dialog.top, unten: leiste.top + leiste.height};
+        }""",
+        art,
+    )
+    return {"oben": werte["oben"], "unten": werte["unten"], "hoehe_fenster": page.viewport_size["height"]}
 
 
 # ══ Baustein 3: die Leiste ═══════════════════════════════════════════════════════════════════════════════
