@@ -210,7 +210,9 @@ def test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe(bro
         karte.wait_for(timeout=5000)
         text = karte.inner_text()
         assert f"Vorabversion {NEUERE_BETA}" in text
-        assert "nie von selbst" in text and "Mit einem Klick" in text, "sie sagt, warum es keinen Installieren-Knopf gibt"
+        # #1221: auf einer Vorab-Installation (BETA) gibt es den Schalter - die Karte nennt ihn, statt "nie von selbst"
+        assert "Vorabversionen automatisch" in text and "einschaltest" in text, "sie sagt, warum es keinen Installieren-Knopf gibt"
+        assert "nie von selbst" not in text
         assert "INSTALLIEREN.bat" in text, "und nennt den Weg"
         assert karte.get_by_role("button", name="ZIP herunterladen").count() == 1
         assert karte.get_by_role("button", name="Veröffentlichung ansehen").count() == 1
@@ -238,7 +240,8 @@ def test_das_dashboard_nennt_die_vorabversion_in_der_hinweiszone(browser, umgebu
         zone.wait_for(timeout=15000)
         text = zone.inner_text()
         assert f"Neue Vorabversion verfügbar: v{NEUERE_BETA}" in text
-        assert "nie von selbst" in text and "INSTALLIEREN.bat" in text
+        assert "Vorabversionen automatisch einbeziehen" in text and "INSTALLIEREN.bat" in text      # #1221
+        assert "nie von selbst" not in text
         assert page.locator("[data-hinweiszone]").count() == 1, "höchstens EIN Hinweis"
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="ZIP herunterladen")) == ZIP_URL
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="Veröffentlichung ansehen")) == RELEASE_URL
@@ -341,7 +344,7 @@ def _lesen(*teile):
 def test_die_oberflaeche_benutzt_die_regeln_an_allen_drei_orten():
     seite = _lesen("components", "UpdatesTab.jsx")
     assert "vorabNeu(au, updateInfo)" in seite and "data-updates-vorab" in seite
-    assert "VORAB_ERKLAERUNG" in seite and "VORAB_SCHRITTE.map(" in seite, "Erklärung und Weg werden auch ausgegeben"
+    assert "vorabErklaerung(vorab)" in seite and "VORAB_SCHRITTE.map(" in seite, "Erklärung und Weg werden auch ausgegeben"   # #1221
     assert 'refreshUpdateInfo?.()' in seite, "„Jetzt prüfen“ fragt auch die allgemeine Prüfung"
     leiste = _lesen("components", "Sidebar.jsx")
     assert leiste.count("istVorabversion(brand.updateVersion)") == 2, "beide Fassungen der Meldung (Knopf und Link)"
@@ -369,4 +372,36 @@ def test_die_hilfe_nennt_vorabversionen():
     hilfe = _lesen("lib", "hilfe.js")
     eintrag = hilfe[hilfe.index('q: "PBP bietet kein Update an"'):]
     eintrag = eintrag[:eintrag.index("},")]
-    assert "Vorabversion" in eintrag and "nie von selbst" in eintrag and "INSTALLIEREN.bat" in eintrag
+    # #1221: der Schalter (#1199) steht in der Antwort, der Weg von Hand bleibt, und "nie" gilt nur noch fuer stabile Installationen
+    assert "Vorabversion" in eintrag and "Vorabversionen automatisch" in eintrag and "INSTALLIEREN.bat" in eintrag
+    assert "nie auf eine Vorabversion gezogen" in eintrag
+
+
+def test_1221_bei_eingeschaltetem_schalter_sagt_die_karte_dass_die_linie_nie_von_selbst_wechselt(browser, umgebung):
+    """Der Schalter ist an, die genannte Vorabversion gehört zu einer anderen Linie: „einschalten“ wäre falsch."""
+    au = _au()
+    au["vorab"] = 1
+    ctx, page = _seite(browser, umgebung, au, _info("1.9.0-beta.1"))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        text = karte.inner_text()
+        assert "Versionslinie" in text and "einschaltest" not in text, text
+        assert "INSTALLIEREN.bat" in text
+    finally:
+        ctx.close()
+
+
+def test_1221_die_erklaerung_der_sicherheit_nennt_den_schalter(browser, umgebung):
+    ctx, page = _seite(browser, umgebung, _au(), _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        tab = page.locator("[data-updates-tab]")
+        tab.wait_for(timeout=45000)
+        sicher = tab.locator("text=Wie sicher ist ein Update?").first
+        sicher.click()
+        text = tab.inner_text()
+        assert "Vorabversionen automatisch" in text and "nie eine Vorabversion von selbst" not in text
+    finally:
+        ctx.close()

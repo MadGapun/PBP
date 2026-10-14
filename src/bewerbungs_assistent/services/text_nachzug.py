@@ -104,6 +104,21 @@ def fehlversuch_zaehlen(db, job_hash: str) -> None:
         pass
 
 
+def verfallenen_zaehler_loeschen(db, job_hash: str) -> None:
+    """Setzt einen VERFALLENEN Fehlzaehler auf 0 (#1202) - zu Beginn des Versuchs, BEVOR der Zeitstempel erneuert wird.
+
+    `_fehlversuche` rechnet den Zaehler aus dem Wert und dem Zeitstempel. Erneuert `versuch_vermerken` den Zeitstempel, ohne
+    dass der alte Wert gestrichen wurde, gilt der verfallene Zaehler wieder: ein Fehlschlag setzte ihn auf 4 statt auf 1, und ein
+    blosser Netzfehler (zaehlt nicht) hielt die Stelle im Backoff.
+    """
+    try:
+        roh = _zaehler(db.get_setting(f"refetch_fail:{job_hash}", "0"))
+        if roh > 0 and _fehlversuche(db, job_hash) == 0:
+            db.set_setting(f"refetch_fail:{job_hash}", "0")
+    except Exception:  # pragma: no cover
+        pass
+
+
 def fehlversuche_loeschen(db, job_hash: str) -> None:
     try:
         db.set_setting(f"refetch_fail:{job_hash}", "0")
@@ -215,6 +230,8 @@ def holen(db, hashes, *, max_jobs: int, client=None, pause: float = 0.0) -> dict
                 logger.debug("Nachladen %s: %s", z["hash"], exc)
                 text, kopf = "", {}
             # Jeder Versuch steht fest, auch der ohne Ergebnis: die naechste Auswahl nimmt zuerst, was am laengsten wartet.
+            # #1202: ein verfallener Zaehler wird vorher gestrichen - der frische Zeitstempel machte ihn sonst wieder gueltig.
+            verfallenen_zaehler_loeschen(db, z["hash"])
             versuch_vermerken(db, z["hash"])
             if text and len(text.strip()) >= MIN_BESCHREIBUNG:
                 nachladen.text_uebernehmen(db, z["hash"], text, kopf=kopf)

@@ -76,7 +76,7 @@ if [ -f "$VENV_DIR/bin/python" ]; then
     ok "Existiert bereits: $VENV_DIR"
 else
     info "Erstelle .venv..."
-    $PYTHON -m venv "$VENV_DIR"
+    "$PYTHON" -m venv "$VENV_DIR"
     ok "Erstellt"
 fi
 PYTHON="$VENV_DIR/bin/python"
@@ -85,11 +85,13 @@ PYTHON="$VENV_DIR/bin/python"
 echo ""
 echo -e "${YELLOW}[3/7] Pakete installieren...${NC}"
 
-$PYTHON -m pip install --upgrade pip -q 2>/dev/null
-$PYTHON -m pip install -e "$PROJECT_DIR" -q
+# #1216: "$PYTHON" in Anfuehrungszeichen - ein Leerzeichen im Ordnernamen (macOS: "PBP-1.8.0 2") liess den Befehl zerfallen,
+# und unter `set -e` endete der Installer ohne ein Wort. #1219: ein gescheitertes pip-Update (kein Netz) beendet ihn nicht mehr.
+"$PYTHON" -m pip install --upgrade pip -q 2>/dev/null || warn "pip liess sich nicht aktualisieren - kein Problem"
+"$PYTHON" -m pip install -e "$PROJECT_DIR" -q
 ok "Core installiert"
 
-$PYTHON -m pip install -e "$PROJECT_DIR[all]" -q 2>/dev/null && \
+"$PYTHON" -m pip install -e "$PROJECT_DIR[all]" -q 2>/dev/null && \
     ok "Scraper + Dokumente installiert" || \
     warn "Optionale Pakete teilweise fehlgeschlagen"
 
@@ -97,7 +99,7 @@ $PYTHON -m pip install -e "$PROJECT_DIR[all]" -q 2>/dev/null && \
 # LinkedIn/XING-Browser-Login und einige weitere Quellen gebraucht (#500).
 # Ohne diesen Schritt erscheint zur Laufzeit "Executable doesn't exist".
 info "Installiere Chromium fuer Browser-Quellen..."
-if $PYTHON -m playwright install chromium 2>/dev/null; then
+if "$PYTHON" -m playwright install chromium 2>/dev/null; then
     ok "Chromium-Browser installiert"
 else
     warn "Chromium-Download fehlgeschlagen — Browser-Quellen (Stepstone/Freelancermap-Fallback/LinkedIn) eingeschraenkt"
@@ -148,22 +150,31 @@ fi
 echo ""
 echo -e "${YELLOW}[5/7] Funktionstest...${NC}"
 
-export BA_DATA_DIR="${BA_DATA_DIR:-$HOME/.bewerbungs-assistent}"
-$PYTHON -c "
+# v1.8.0 (#1217): Der Funktionstest laeuft auf einem frischen Temp-Verzeichnis, gesetzt VOR dem ersten Import. Vorher zeigte
+# BA_DATA_DIR beim Import von `server` noch auf den ECHTEN Ordner: dessen Modulkopf oeffnet und migriert die Datenbank des
+# Menschen, noch bevor der Installer umgestellt hat. Der echte Ordner wird erst danach gesetzt (Schritt 6).
+TEST_DIR="$(mktemp -d)"
+if ! BA_DATA_DIR="$TEST_DIR" "$PYTHON" -c "
+import os
 from bewerbungs_assistent.database import Database, _gen_id
 from bewerbungs_assistent.server import mcp
 from bewerbungs_assistent.job_scraper import calculate_score, fit_analyse
-import tempfile, shutil, os
-d = tempfile.mkdtemp()
-os.environ['BA_DATA_DIR'] = d
+d = os.environ['BA_DATA_DIR']
 db = Database(); db.initialize()
+assert d in str(db.db_path), f'DB nicht isoliert: {db.db_path}'
 db.save_profile({'name': 'Test'})
 assert db.get_profile()['name'] == 'Test'
 job = {'title': 'Python Dev', 'description': 'Python FastAPI'}
 assert calculate_score(job, {'keywords_muss': ['python']}) > 0
-db.close(); shutil.rmtree(d)
+db.close()
 print('  Alle Tests bestanden!')
-"
+"; then
+    rm -rf "$TEST_DIR"
+    fail "Funktionstest fehlgeschlagen"
+    exit 1
+fi
+rm -rf "$TEST_DIR"
+export BA_DATA_DIR="${BA_DATA_DIR:-$HOME/.bewerbungs-assistent}"
 ok "Funktionstest OK"
 
 # ── 6. Datenverzeichnis ─────────────────────────────────────────────
@@ -196,25 +207,43 @@ if [ ! -d "$CLAUDE_DIR" ]; then
     fi
     echo ""
     echo "  Nach Installation von Claude Desktop manuell konfigurieren:"
-    echo "  Fuehre aus: $PYTHON $PROJECT_DIR/_setup_claude.py"
+    echo "  Fuehre aus: \"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\""
 else
-    # Claude Config schreiben
-    $PYTHON "$PROJECT_DIR/_setup_claude.py"
-    if [ $? -eq 0 ]; then
+    # Claude Config schreiben. v1.8.0 (#1219): `if` statt `$?` - unter `set -e` beendete ein Fehlschlag das Skript an dieser
+    # Stelle, und der Zweig darunter mit dem Handgriff lief nie. Die Ausgabe wird gelesen: eine unlesbare Konfiguration
+    # wird ersetzt (mit Kopie), und das gehoert in den Schluss, nicht nur mitten in den Ablauf.
+    if SETUP_AUSGABE="$("$PYTHON" "$PROJECT_DIR/_setup_claude.py" 2>&1)"; then
+        printf '%s\n' "$SETUP_AUSGABE"
         ok "Claude Desktop konfiguriert"
         info "Config: $CLAUDE_CONFIG"
     else
+        printf '%s\n' "$SETUP_AUSGABE"
+        CLAUDE_FEHLER=1
         warn "Claude Desktop Konfiguration fehlgeschlagen"
-        echo "  Manuell konfigurieren: $PYTHON $PROJECT_DIR/_setup_claude.py"
+        echo "  Manuell konfigurieren: \"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\""
     fi
+    CLAUDE_KOPIE="$(printf '%s\n' "$SETUP_AUSGABE" | sed -n 's/.*Kopie gesichert: //p' | head -n 1)"
 fi
 
 # ── FERTIG ──────────────────────────────────────────────────────────
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║         Installation erfolgreich!            ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
+if [ "${CLAUDE_FEHLER:-0}" = "1" ]; then
+    # #1219: keine gruene Erfolgsmeldung, wenn Claude Desktop nicht eingerichtet werden konnte
+    echo -e "${YELLOW}╔══════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║   Installiert - Claude Desktop fehlt noch    ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════╝${NC}"
+else
+    echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║         Installation erfolgreich!            ║${NC}"
+    echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"
+fi
 echo ""
+if [ -n "${CLAUDE_KOPIE:-}" ]; then
+    echo -e "  ${YELLOW}⚠ Deine bisherige Claude-Konfiguration war nicht lesbar und wurde ersetzt.${NC}"
+    echo "    Die alte Datei liegt als Kopie vor: $CLAUDE_KOPIE"
+    echo "    Andere MCP-Server musst du von dort zurueckkopieren."
+    echo ""
+fi
 echo -e "  Daten:     $BA_DATA_DIR"
 # #975 (I11): wer installiert, soll auch den Rueckweg kennen.
 echo -e "  Entfernen: DEINSTALLIEREN.command im Projektordner"
@@ -239,13 +268,55 @@ echo -e "  ${YELLOW}PBP-Dashboard wird gestartet...${NC}"
 # sah weiter das Alte. Beendet wird nur, was sich als start_dashboard.py von PBP ausweist - nie der MCP-Prozess von
 # Claude Desktop und nie ein fremdes Programm auf dem Port. Der Health-Check fragt /api/health und vergleicht die Fassung;
 # ein fremdes Programm, das HTTP 200 liefert, gilt nicht mehr als "laeuft".
+# v1.8.0 (#1218): Der Name allein traf auch ein FREMDES start_dashboard.py und jeden Testlauf, der ihn als Argument traegt
+# (`pytest tests/test_start_dashboard.py`). Das Muster verlangt jetzt ein Wort- oder Pfadende davor, und ein Prozess, dessen
+# Skript NACHWEISLICH nicht neben einem PBP-Quellbaum liegt, bleibt unberuehrt (`skript_ist_fremd`).
 DASH_PORT="${BA_DASHBOARD_PORT:-8200}"
-DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\.py'
+DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\.py'
 NEUE_FASSUNG="$(sed -n 's/^__version__[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$PROJECT_DIR/src/bewerbungs_assistent/__init__.py" 2>/dev/null | head -n 1)"
+
+# Gehoert das Skript in dieser Befehlszeile NACHWEISLICH nicht zu PBP? Fremd heisst: ein absoluter Pfad, die Datei ist da,
+# und daneben liegt weder ein Quellbaum (src/bewerbungs_assistent) noch der Programmordner der Auto-Update-Fassung
+# (versions). Ein relativer oder nicht lesbarer Pfad gilt NICHT als fremd: dann bleibt es beim Verhalten aus #1149 Punkt 6.
+# Die Befehlszeile traegt den Pfad samt Leerzeichen ("PBP-1.8.0 2"): von links wird Wort fuer Wort gekuerzt, bis der Rest
+# eine Datei ist.
+skript_ist_fremd() {
+    local kandidat="$1" ordner
+    case "$kandidat" in
+        *start_dashboard.py*) kandidat="${kandidat%%start_dashboard.py*}start_dashboard.py" ;;
+        *) return 1 ;;
+    esac
+    while [ -n "$kandidat" ]; do
+        case "$kandidat" in
+            /*)
+                if [ -f "$kandidat" ] && [ "${kandidat##*/}" = "start_dashboard.py" ]; then
+                    ordner="${kandidat%/*}"
+                    if [ -d "$ordner/src/bewerbungs_assistent" ] || [ -d "$ordner/versions" ]; then
+                        return 1
+                    fi
+                    return 0
+                fi
+                ;;
+        esac
+        case "$kandidat" in
+            *[[:space:]]*) kandidat="${kandidat#*[[:space:]]}" ;;
+            *) return 1 ;;
+        esac
+    done
+    return 1
+}
 
 dashboard_pids() {
     command -v pgrep >/dev/null 2>&1 || return 0
-    pgrep -f -i "$DASH_MUSTER" 2>/dev/null | grep -v -x "$$" || true
+    local pid zeile
+    for pid in $(pgrep -f -i "$DASH_MUSTER" 2>/dev/null | grep -v -x "$$" || true); do
+        zeile="$(ps -p "$pid" -o args= 2>/dev/null || true)"
+        if skript_ist_fremd "$zeile"; then
+            continue
+        fi
+        echo "$pid"
+    done
+    return 0
 }
 
 # Die Fassung, die auf dem Port als PBP antwortet - leer, wenn dort nichts oder ein anderes Programm antwortet.
@@ -276,12 +347,15 @@ alte_dashboards_beenden() {
     return 0
 }
 
-# ok = die installierte Fassung antwortet, alt = eine andere Fassung antwortet, keins = kein PBP antwortet.
+# ok = die installierte Fassung antwortet, alt = eine andere Fassung antwortet, keins = kein PBP antwortet,
+# unbekannt = PBP antwortet, aber die installierte Fassung liess sich nicht lesen (#1220): dann gilt NICHTS als "ok".
 dashboard_urteil() {
     local stand="$1"
     if [ -z "$stand" ]; then
         echo keins
-    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then
+    elif [ -z "$NEUE_FASSUNG" ]; then
+        echo unbekannt
+    elif [ "$stand" != "$NEUE_FASSUNG" ]; then
         echo alt
     else
         echo ok
@@ -324,6 +398,10 @@ open_browser() {
 
 if [ "$DASH_URTEIL" = "ok" ]; then
     echo -e "    [OK] Dashboard laeuft auf http://localhost:${DASH_PORT}"
+    open_browser
+elif [ "$DASH_URTEIL" = "unbekannt" ]; then
+    echo -e "    [!!] Auf dem Port antwortet PBP $DASH_STAND - ob das die neue Fassung ist, liess sich nicht pruefen"
+    echo -e "         (die installierte Fassung war nicht lesbar). Die Versionsnummer steht unten links im Dashboard."
     open_browser
 elif [ "$DASH_URTEIL" = "alt" ]; then
     echo -e "    [!!] Auf dem Port laeuft noch PBP $DASH_STAND - installiert wurde $NEUE_FASSUNG."

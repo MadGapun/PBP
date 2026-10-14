@@ -26,7 +26,7 @@ import FirmaLink from "@/components/FirmaLink";
 import WegLeiste from "@/components/WegLeiste";
 import { stelleLeiste } from "@/lib/wegleiste";
 
-export default function InlineJobDetailModal({ jobHash, onClose }) {
+export default function InlineJobDetailModal({ jobHash, bewerbungId = "", onClose }) {
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -59,6 +59,9 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           leiste={stelleLeiste({
             zurueckLabel: "der Bewerbung",
             firma: job.company,
+            // #1212: Dieser Dialog geht aus einer BEWERBUNG auf. Ohne ihre Kennung hiess der Hauptknopf "Bewerbung anlegen",
+            // obwohl es sie gibt - und er schloss nur den Dialog. Mit Kennung: "Zur Bewerbung".
+            bewerbungId,
             beurteilt: true,
             hatAnzeige: Boolean(job.url),
           })}
@@ -67,7 +70,8 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
           onZurueck={onClose}
           onAktion={(aktion) => {
             if (aktion === "anzeige_oeffnen" && job.url) oeffneAdresse(job.url, "_blank", "noopener");
-            if (aktion === "bewerbung_anlegen") onClose();
+            // Die Bewerbung, aus der dieser Dialog aufging, liegt darunter: Schliessen fuehrt dorthin zurueck.
+            if (aktion === "zur_bewerbung" || aktion === "bewerbung_anlegen") onClose();
           }}
         />
       ) : null}

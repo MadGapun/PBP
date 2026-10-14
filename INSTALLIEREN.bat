@@ -23,6 +23,34 @@ echo.
 pause
 exit /b 1
 :ort_ohne_ausrufezeichen
+:: v1.8.0 (#1207): dieselbe Pruefung fuer die Orte, aus denen der Installer seine Pfade bildet (Profil, Daten, TEMP). Ein "!"
+:: im Windows-Profil verschwindet unter der verzoegerten Expansion ebenso: der Installer rechnete mit einem Ordner, den es nicht
+:: gibt, und scheiterte erst nach dem Download am Schreibrecht. Die Ausgabe des Pfads laeuft ueber die verzoegerte Expansion,
+:: damit ein "&" im Namen nicht als Befehl gelesen wird.
+set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"
+if "%PBP_PROFIL_ORTE:!=%"=="%PBP_PROFIL_ORTE%" goto :profil_ohne_ausrufezeichen
+setlocal EnableDelayedExpansion
+echo.
+echo  ****************************************************
+echo  *  FEHLER: Dein Windows-Profil enthaelt ein        *
+echo  *          Ausrufezeichen                          *
+echo  ****************************************************
+echo.
+echo  PBP legt seine Ordner in deinem Windows-Profil an. Geprueft habe ich:
+echo    !LOCALAPPDATA!
+echo    !TEMP!
+echo    !USERPROFILE!
+echo  Mit einem Ausrufezeichen im Namen verliert Windows das Zeichen
+echo  und der Installer wuerde einen Ordner suchen, den es nicht gibt.
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Melde dich mit einem Windows-Konto ohne Ausrufezeichen
+echo       im Namen an (oder lege eines an)
+echo    2. Starte INSTALLIEREN.bat dort noch einmal
+echo.
+pause
+exit /b 1
+:profil_ohne_ausrufezeichen
 endlocal
 setlocal EnableDelayedExpansion
 title PBP - Persoenliches Bewerbungs-Portal - Setup
@@ -1214,6 +1242,16 @@ set "ANTWORT=!ANTWORT:~0,1!"
 if /i not "!ANTWORT!"=="j" if /i not "!ANTWORT!"=="y" goto :eof
 :aufraeumen_ausfuehren
 "%APP_DIR%\python\python.exe" "%BASEDIR%\_installer_aufraeumen.py" loeschen "%BASEDIR%" "%PBP_VERSION%" "%APP_DIR%" "%DATA_DIR%" >> "%LOGFILE%" 2>&1
+:: v1.8.0 (#1219): "wird geloescht" steht erst nach einer Probe. Scheitert der Helfer (Temp-Ordner nicht beschreibbar, kein
+:: Prozess startbar), endet er mit Exit-Code 1 - dann bleibt der Ordner liegen, und das sagt die Meldung.
+if not errorlevel 1 goto :aufraeumen_gestartet
+echo.
+echo  Das Aufraeumen konnte nicht gestartet werden - der Ordner bleibt liegen.
+echo  Du kannst ihn selbst loeschen, PBP und deine Daten bleiben dabei unberuehrt:
+echo    !BASEDIR!
+echo [WARN] Installer-Aufraeumen nicht gestartet (Exit-Code ungleich 0) >> "%LOGFILE%"
+goto :eof
+:aufraeumen_gestartet
 echo  Der Ordner wird geloescht, sobald du dieses Fenster schliesst.
 echo [INFO] Installer-Aufraeumen gestartet >> "%LOGFILE%"
 goto :eof

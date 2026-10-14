@@ -658,7 +658,9 @@ export default function JobsPage() {
         api(jobsUrl),
         append ? Promise.resolve(null) : api(`/api/jobs?active=false&${listenParameter(filters, suchtext, dismissWindow, "dismissed")}`),
         append ? Promise.resolve(null) : api("/api/follow-ups"),
-        append ? Promise.resolve(null) : api("/api/applications"),
+        // #1211: limit=0 = alle nicht archivierten. Ohne Angabe lieferte der Endpunkt nur die 30 juengsten: fuer aeltere Bewerbungen
+        // fehlten das Abzeichen "Bereits beworben" und "Zur Bewerbung" in der Weg-Leiste (die Leiste legte eine zweite nahe).
+        append ? Promise.resolve(null) : api("/api/applications?limit=0"),
         append ? Promise.resolve(null) : optionalApi("/api/dismiss-reasons"),
         append ? Promise.resolve(null) : optionalApi("/api/datenguete/umgang"),
       ]);
@@ -947,9 +949,31 @@ export default function JobsPage() {
     const frisch = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === String(hash));
     if (!frisch || frisch === detailDialog.job) return;
     setDetailDialog((aktuell) => (
-      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash) ? { ...aktuell, job: frisch } : aktuell
+      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash)
+        // ein nachgeholter Pruefstand (siehe unten) geht beim Auffrischen aus der Liste nicht wieder verloren
+        ? { ...aktuell, job: frisch.pruefstand || !aktuell.job?.pruefstand ? frisch : { ...frisch, pruefstand: aktuell.job.pruefstand } }
+        : aktuell
     ));
   }, [jobs, dismissedJobs]);
+
+  // #1171 / #948: Zeilen der Liste „Ausgeblendet“ tragen keinen Pruefstand (die Liste rechnet ihn nur fuer aktive Stellen). Die Leiste
+  // braucht ihn fuer den Hauptknopf: der Server entscheidet (#948), die Oberflaeche leitet nichts ab. Einmal einzeln holen.
+  useEffect(() => {
+    const stelle = detailDialog.job;
+    if (!detailDialog.open || !stelle?.hash || stelle.pruefstand) return undefined;
+    let aktuell = true;
+    api(`/api/jobs/${encodeURIComponent(stelle.hash)}`)
+      .then((einzeln) => {
+        if (!aktuell || !einzeln?.pruefstand) return;
+        setDetailDialog((cur) => (
+          cur.open && String(cur.job?.hash) === String(stelle.hash) && !cur.job.pruefstand
+            ? { ...cur, job: { ...cur.job, pruefstand: einzeln.pruefstand } }
+            : cur
+        ));
+      })
+      .catch(() => {});
+    return () => { aktuell = false; };
+  }, [detailDialog.open, detailDialog.job?.hash, detailDialog.job?.pruefstand]);
 
   async function showFitAnalysis(job) {
     try {

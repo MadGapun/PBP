@@ -5,7 +5,8 @@ import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
   NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
-  VORAB_ERKLAERUNG, VORAB_SCHRITTE, istVorabversion, vorabHinweis, vorabNeu,
+  VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE, istVorabversion, vorabErklaerung,
+  vorabHinweis, vorabNeu,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -232,7 +233,7 @@ const betaInfo = { update_available: true, latest_version: "1.8.0-beta.18",
   release_url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18" };
 const v = vorabNeu(betaAu, betaInfo);
 assert.deepEqual(v, { version: "1.8.0-beta.18", url: betaInfo.release_url,
-  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip" });
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip", mitSchalter: true, schalterAn: false });
 assert.equal(vorabNeu(betaAu, { ...betaInfo, release_url: "" }).url, "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
   "ohne Adresse in der Antwort: die Seite des Tags");
 
@@ -256,7 +257,10 @@ let vh = updateHinweis(betaAu, { vorab: v });
 assert.equal(vh.id, "update-vorab");
 assert.equal(vh.dringend, false, "kein Vordrängeln vor Quellen und Suche");
 assert.match(vh.titel, /^Neue Vorabversion verfügbar: v1\.8\.0-beta\.18$/);
-assert.match(vh.text, /nie von selbst/);
+// #1221: auf einer Vorab-Installation gibt es den Schalter (#1199) - der Hinweis nennt ihn statt "nie von selbst"
+assert.match(vh.text, /Vorabversionen automatisch einbeziehen/);
+assert.doesNotMatch(vh.text, /nie von selbst/);
+assert.match(vh.text, /INSTALLIEREN\.bat/, "und der Weg von Hand bleibt");
 assert.deepEqual(vh.aktionen.map((a) => [a.art, a.label]), [["link", "ZIP herunterladen"], ["link", "Veröffentlichung ansehen"]]);
 assert.deepEqual(vh.aktionen.map((a) => a.url), [v.zip, v.url]);
 assert.deepEqual(vorabHinweis(v), vh, "derselbe Hinweis auch ohne verfügbares Auto-Update");
@@ -270,6 +274,23 @@ assert.equal(updateHinweis({ ...betaAu, neu }, { vorab: v }).id, "update", "die 
 // die Erklärung und der Weg stehen an EINER Stelle (Update-Seite und Hilfe nehmen sie von hier)
 assert.match(VORAB_ERKLAERUNG, /nie von selbst/);
 assert.match(VORAB_ERKLAERUNG, /Mit einem Klick/, "die Stufe, die der Nutzer gewählt hatte, wird genannt");
+// #1221: drei Lagen, drei Saetze
+assert.equal(vorabErklaerung({ mitSchalter: false }), VORAB_ERKLAERUNG, "stabile Installation: nie von selbst");
+assert.equal(vorabErklaerung(null), VORAB_ERKLAERUNG);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: false }), VORAB_ERKLAERUNG_SCHALTER);
+assert.match(VORAB_ERKLAERUNG_SCHALTER, /Vorabversionen automatisch/);
+assert.match(VORAB_ERKLAERUNG_SCHALTER, /einschaltest/);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true }), VORAB_ERKLAERUNG_ANDERE_LINIE);
+assert.match(VORAB_ERKLAERUNG_ANDERE_LINIE, /Versionslinie/);
+// die Lage kommt aus der laufenden Fassung und dem Schalter in der Antwort des Auto-Updates
+assert.deepEqual(
+  [vorabNeu({ ...betaAu, vorab: 1 }, betaInfo).mitSchalter, vorabNeu({ ...betaAu, vorab: 1 }, betaInfo).schalterAn],
+  [true, true]);
+assert.equal(vorabNeu({ ...betaAu, laufend: "1.7.157", aktuell: "1.7.157" }, betaInfo).mitSchalter, false,
+  "eine stabile Installation hat den Schalter nicht");
+// der Hinweis der anderen Lagen
+assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true }).text, /Versionslinie nie von selbst/);
+assert.match(vorabHinweis({ ...v, mitSchalter: false, schalterAn: false }).text, /nie von selbst/);
 assert.equal(VORAB_SCHRITTE.length, 3);
 assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
 

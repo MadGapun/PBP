@@ -328,4 +328,5 @@ def test_die_schnittstelle_liefert_hinweise_mit_vorbereiteter_suche(client, umge
 def test_die_schnittstelle_ohne_hinweise_ist_leer_und_legt_nichts_an(client, umgebung):
     _, db = umgebung
     j = client.get("/api/stellen-hinweise").json()
-    assert j == {"zaehlung": {"offen": 0, "angelegt": 0, "verworfen": 0}, "hinweise": []}
+    # #1205: dazu die Blaetter-Angaben (gesamt, offset, weitere) - die Felder davor bleiben, wie sie waren
+    assert j == {"zaehlung": {"offen": 0, "angelegt": 0, "verworfen": 0}, "hinweise": [], "gesamt": 0, "offset": 0, "weitere": 0}

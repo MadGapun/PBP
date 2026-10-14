@@ -811,6 +811,9 @@ async def api_update_document_type(doc_id: str, request: Request):
     """Den Typ EINES Dokuments aendern (#1162). Derselbe Dienst wie das Werkzeug `dokument_typ_setzen`."""
     from .services import document_handlers
     data = await request.json()
+    if not isinstance(data, dict):           # #1206: ein Nicht-Objekt (Liste, Zahl) war ein AttributeError und HTTP 500
+        return JSONResponse({"error": "Erwartet wird ein Objekt mit doc_type.",
+                             "erlaubte_typen": document_handlers.erlaubte_typen()}, status_code=400)
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
@@ -11250,14 +11253,21 @@ async def api_stellen_zu_pruefen():
 # === #1184 (d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind ===
 
 @app.get("/api/stellen-hinweise")
-async def api_stellen_hinweise(status: str = "offen", limit: int = 100):
-    """Die Hinweise des aktiven Profils samt Zaehlung; je Hinweis die vorbereitete Suche nach dem Original."""
+async def api_stellen_hinweise(status: str = "offen", limit: int = 100, offset: int = 0):
+    """Die Hinweise des aktiven Profils samt Zaehlung; je Hinweis die vorbereitete Suche nach dem Original.
+
+    `offset` blaettert (#1205); `gesamt` ist die Zahl dieses Stands, `weitere` was hinter dieser Seite noch kommt."""
     from .services import stellen_hinweise, google_angaben
-    eintraege = stellen_hinweise.liste(_db, status=(status or "offen").strip().lower(), limit=limit)
+    st = (status or "offen").strip().lower()
+    start = max(0, int(offset or 0))
+    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=start)
     for e in eintraege:
         such = google_angaben.original_suchen(e["titel"], e["firma"], (e.get("ort") or "").split(";")[0])
         e["suche"] = such["suchen"]
-    return {"zaehlung": stellen_hinweise.zaehlen(_db), "hinweise": eintraege}
+    zaehlung = stellen_hinweise.zaehlen(_db)
+    gesamt = zaehlung.get(st, 0) if st in zaehlung else sum(zaehlung.values())
+    return {"zaehlung": zaehlung, "hinweise": eintraege, "gesamt": gesamt, "offset": start,
+            "weitere": max(0, gesamt - start - len(eintraege))}
 
 
 @app.post("/api/stellen-hinweise/{hinweis_id}/verwerfen")

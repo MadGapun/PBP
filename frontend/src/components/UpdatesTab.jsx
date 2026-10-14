@@ -18,7 +18,7 @@ import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, 
 import ErklaerText from "@/components/ErklaerText";
 import MitClaude from "@/components/MitClaude";
 import {
-  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_ERKLAERUNG, VORAB_SCHRITTE,
+  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_SCHRITTE, vorabErklaerung,
   claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
@@ -162,7 +162,7 @@ export default function UpdatesTab() {
         {vorab ? (
           <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>
             <p className="font-semibold text-ink">Vorabversion {vorab.version}</p>
-            <p className="mt-1 text-sm text-ink">{VORAB_ERKLAERUNG}</p>
+            <p className="mt-1 text-sm text-ink">{vorabErklaerung(vorab)}</p>
             <p className="mt-2 text-sm text-muted">So kommst du an sie:</p>
             <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-muted">
               {VORAB_SCHRITTE.map((schritt) => <li key={schritt}>{schritt}</li>)}
@@ -241,8 +241,9 @@ export default function UpdatesTab() {
           <p className="flex items-start gap-2">
             <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
             <span>
-              PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert nie eine Vorabversion
-              von selbst und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
+              PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert eine Vorabversion nur,
+              wenn du „Vorabversionen automatisch“ (unten, nur auf einer Vorabversion) einschaltest, und nie über die
+              Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
               {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
               Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
             </span>

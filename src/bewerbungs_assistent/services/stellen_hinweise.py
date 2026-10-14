@@ -83,18 +83,31 @@ def _orte(vorhanden: str, neu: str) -> str:
     return "; ".join(teile[:MAX_ORTE])
 
 
-def _bereits_stelle(db, firma, titel) -> str:
-    """Der Hash einer Stelle gleicher Firma und gleichen Titels (aktiv oder aussortiert) - sonst leer."""
+def _bestand_index(db) -> dict:
+    """(Firma, Titel) -> Hash aller Stellen des Profils, einmal gelesen (aktiv oder aussortiert).
+
+    #1203: verglichen wird in Python mit `_norm` auf BEIDEN Seiten. Der Vergleich lief vorher in SQL mit `LOWER()` gegen einen
+    Parameter aus Python: SQLite kuerzt nur ASCII (ein "Ü" am Anfang stimmte nie), und `TRIM` nimmt nur den Rand, nicht
+    den doppelten Leerraum innen. Eine Frage, eine Funktion.
+    """
+    index: dict = {}
     try:
         pid = db.get_active_profile_id()
-        zeile = db.connect().execute(
-            "SELECT hash FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
-            "AND LOWER(TRIM(company))=? AND LOWER(TRIM(title))=? LIMIT 1",
-            (pid, _norm(firma), _norm(titel))).fetchone()
-        return zeile[0] if zeile else ""
+        for z in db.connect().execute(
+                "SELECT hash, company, title FROM jobs WHERE (profile_id=? OR profile_id IS NULL)", (pid,)):
+            index.setdefault((_norm(z["company"]), _norm(z["title"])), z["hash"])
     except Exception as exc:  # pragma: no cover - nie den Import kippen
         logger.debug("Hinweis: Bestandspruefung fehlgeschlagen: %s", exc)
-        return ""
+    return index
+
+
+def _bereits_stelle(db, firma, titel, index=None) -> str:
+    """Der Hash einer Stelle gleicher Firma und gleichen Titels (aktiv oder aussortiert) - sonst leer.
+
+    `index` (aus `_bestand_index`) ist fuer den, der viele Hinweise nacheinander fragt: einmal lesen, nicht je Hinweis."""
+    if index is None:
+        index = _bestand_index(db)
+    return index.get((_norm(firma), _norm(titel)), "")
 
 
 def merken(db, treffer: list[dict], *, suchanfrage: str = "", quelle: str = "google_alert") -> dict:
@@ -107,6 +120,7 @@ def merken(db, treffer: list[dict], *, suchanfrage: str = "", quelle: str = "goo
     pid = db.get_active_profile_id()
     jetzt = datetime.now().isoformat(timespec="seconds")
     neu = bekannt = schon_stelle = 0
+    index = None            # der Bestand, einmal je Lauf und erst, wenn ein Hinweis neu ist (#1203)
     for e in treffer:
         titel = str(e.get("titel") or "").strip()
         firma = str(e.get("firma") or "").strip()
@@ -120,7 +134,9 @@ def merken(db, treffer: list[dict], *, suchanfrage: str = "", quelle: str = "goo
                 (_orte(zeile["ort"], e.get("ort")), jetzt, hid))
             bekannt += 1
             continue
-        stelle = _bereits_stelle(db, firma, titel)
+        if index is None:
+            index = _bestand_index(db)
+        stelle = _bereits_stelle(db, firma, titel, index)
         conn.execute(
             "INSERT INTO stellen_hinweise (id, profile_id, quelle, titel, firma, ort, portal, suchanfrage, vertragsart, "
             "veroeffentlicht_am, weiterverbreiter, google_link, status, job_hash, anzahl_mails, erstellt_am, aktualisiert_am) "
@@ -143,8 +159,11 @@ def _als_dict(z) -> dict:
     return d
 
 
-def liste(db, status: str = "offen", limit: int = 100) -> list[dict]:
-    """Die Hinweise des aktiven Profils, neueste zuerst. `status`: offen | angelegt | verworfen | alle."""
+def liste(db, status: str = "offen", limit: int = 100, offset: int = 0) -> list[dict]:
+    """Die Hinweise des aktiven Profils, neueste zuerst. `status`: offen | angelegt | verworfen | alle.
+
+    `offset` (#1205): so viele ueberspringen. Hoechstens 500 je Aufruf; wer mehr hat, blaettert - die Gesamtzahl steht in
+    `zaehlen`. Eine einzelne Kennung liest `holen` direkt."""
     conn = db.connect()
     tabelle_anlegen(conn)
     pid = db.get_active_profile_id()
@@ -153,9 +172,21 @@ def liste(db, status: str = "offen", limit: int = 100) -> list[dict]:
     if status in STATUS:
         sql += " AND status=?"
         params.append(status)
-    sql += " ORDER BY aktualisiert_am DESC, erstellt_am DESC LIMIT ?"
+    sql += " ORDER BY aktualisiert_am DESC, erstellt_am DESC LIMIT ? OFFSET ?"
     params.append(max(1, min(int(limit or 100), 500)))
+    params.append(max(0, int(offset or 0)))
     return [_als_dict(z) for z in conn.execute(sql, params).fetchall()]
+
+
+def holen(db, hinweis_id: str):
+    """EIN Hinweis des aktiven Profils nach seiner Kennung - oder None (#1205). Liest die Zeile direkt, nicht ueber eine
+    begrenzte Liste: ein Hinweis jenseits der 500 neuesten war sonst weder zu finden noch zu bearbeiten."""
+    conn = db.connect()
+    tabelle_anlegen(conn)
+    pid = db.get_active_profile_id()
+    z = conn.execute("SELECT * FROM stellen_hinweise WHERE id=? AND (profile_id=? OR profile_id IS NULL)",
+                     (str(hinweis_id or ""), pid)).fetchone()
+    return _als_dict(z) if z else None
 
 
 def zaehlen(db) -> dict:
@@ -203,10 +234,12 @@ def als_angelegt(db, firma, titel, job_hash: str) -> int:
         if not zeile:
             return 0
         pid = db.get_active_profile_id()
+        # #1203: dieselbe Normalisierung wie beim Anlegen des Hinweises, als SQL-Funktion (`LOWER` kuerzt nur ASCII).
+        conn.create_function("pbp_norm", 1, _norm, deterministic=True)
         cur = conn.execute(
             "UPDATE stellen_hinweise SET status='angelegt', job_hash=?, aktualisiert_am=? "
             "WHERE (profile_id=? OR profile_id IS NULL) AND status!='angelegt' "
-            "AND LOWER(TRIM(firma))=? AND LOWER(TRIM(titel))=?",
+            "AND pbp_norm(firma)=? AND pbp_norm(titel)=?",
             (job_hash, datetime.now().isoformat(timespec="seconds"), pid, _norm(firma), _norm(titel)))
         conn.commit()
         return cur.rowcount

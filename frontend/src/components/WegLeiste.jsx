@@ -49,8 +49,21 @@ export default function WegLeiste({ leiste, selbst = null, von = null, onVerlass
     const aussen = (event) => {
       if (wurzelRef.current && !wurzelRef.current.contains(event.target)) setOffen("");
     };
+    // #1213: Escape schliesst zuerst das Menue, nicht den ganzen Dialog. Der Dialog hoert auf `document` (Blasen-Phase); dieser
+    // Listener sitzt in der Fang-Phase davor und haelt das Ereignis an. Der Fokus kehrt zum Ausloeser zurueck.
+    const taste = (event) => {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      event.preventDefault();
+      wurzelRef.current?.querySelector('[aria-expanded="true"]')?.focus?.();
+      setOffen("");
+    };
     document.addEventListener("mousedown", aussen);
-    return () => document.removeEventListener("mousedown", aussen);
+    document.addEventListener("keydown", taste, true);
+    return () => {
+      document.removeEventListener("mousedown", aussen);
+      document.removeEventListener("keydown", taste, true);
+    };
   }, [offen]);
 
   if (!leiste) return null;

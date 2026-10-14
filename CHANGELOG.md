@@ -404,6 +404,41 @@ Einträgen darunter.
   mehr „du brauchst nichts zu installieren“ (Python 3.11 ist nötig); README und LIESMICH nennen die Windows-Warnung („Herausgeber nicht verifiziert“, „Weitere Informationen →
   Trotzdem ausführen“); `err_pip` und `err_packages` sagen, was als Nächstes zu tun ist (Internet prüfen, `INSTALLIEREN.bat` nochmal starten; die Daten bleiben erhalten).
 
+- **Eine Google-Stelle umging den Schutz, wenn die Quelle anders geschrieben war** (#1201). Der Schutz aus #1184 (ein Treffer ohne Original wird nicht angelegt; Ort und Arbeitsmodell
+  der Karte gelten nicht) erkannte die Quelle nur am exakten Schlüssel `google_jobs`. „Google Jobs“, „google-jobs“ oder „Google“ legten die Stelle ohne Original und mit dem Arbeitsmodell
+  der Karte an. Alle Schreibweisen gelten jetzt als dieselbe Quelle und werden als `google_jobs` gespeichert (eine Funktion, ein Ort).
+- **Nachladen: ein verfallener Fehlzähler lebte beim nächsten Abruf wieder auf** (#1202, #1139). Der Lauf erneuerte den Zeitstempel vor dem Zählen; ein Fehlschlag nach dem Verfall setzte den
+  Zähler auf 4 statt auf 1, und ein Netzfehler hielt die Stelle im Backoff. Der verfallene Zähler wird jetzt zu Beginn des Versuchs gestrichen.
+- **Hinweise aus Alert-Mails** (#1184 d): ein Umlaut am Wortanfang oder doppelter Leerraum verhinderte, dass der Hinweis beim Anlegen der Stelle als „angelegt“ galt (#1203; SQL-`LOWER()` kürzt
+  nur ASCII — jetzt eine Normalisierung auf beiden Seiten), und Hinweise jenseits der 500 neuesten waren weder auflistbar noch über ihre Kennung erreichbar (#1205). Werkzeug und Endpunkt
+  blättern jetzt (`offset`, `gesamt`, `weitere`), die Suche liest die Zeile direkt.
+- **Die Vorschau der Browser-Übernahme zählte bei ähnlichen Titeln mehr als der Lauf** (#1204). Zwei ähnliche Titel derselben Firma in einer Übergabe: die Vorschau meldete „2 angelegt“, der Lauf
+  legte eine an und nannte die zweite „schon als aktive Stelle da“. Die Vorschau prüft jetzt mit derselben Funktion und demselben Firmen-Kanon gegen die bisher gezählten Einträge.
+- **Dokumenttyp ändern mit einem Nicht-Text ergab HTTP 500 statt 400** (#1206). Eine Zahl, Liste oder ein Objekt als Typ wird wie ein unbekannter Typ abgelehnt, mit der Liste der erlaubten Typen.
+- **Windows: ein Ausrufezeichen im Profilpfad ging verloren** (#1207). Der Installer prüfte nur den Startordner; `%LOCALAPPDATA%`, `%TEMP%` und `%USERPROFILE%` verloren das Zeichen unter der
+  verzögerten Expansion, und der Installer rechnete mit einem Ordner, den es nicht gibt. Installer und Deinstaller prüfen jetzt alle drei Orte, bevor sie etwas ändern, und brechen mit
+  einem klaren Satz ab (der Deinstaller nennt dazu den Handgriff).
+- **Weg-Leiste der Stelle: bei ausgeblendeten Stellen fehlte der Prüfstand** (#1208). Der Hauptknopf sagte „Stelle bewerten“ statt „Bewerbung anlegen“, weil die Liste „Ausgeblendet“ ihn nicht
+  rechnet. Der Dialog holt ihn einmal einzeln vom Server (der Server entscheidet, nicht die Oberfläche).
+- **Die Zurück-Taste bei geänderter Eingabe in einem Dialog fror die Seite ein** (#1210; seit beta.17). Alt+← oder die Zurück-Taste der Maus bei einem halb ausgefüllten Dialog (Notiz in der
+  Timeline, „Bewerbung anlegen“) ließ eine Schleife endlos laufen: die Seite antwortete nicht mehr, und der Browser beendete nach rund 100 Sekunden den Tab. Jetzt erscheint die Rückfrage
+  „Deine Eingaben sind noch nicht gespeichert. Verwerfen?“, und „Weiter bearbeiten“ behält Dialog und Eingabe.
+- **Die Stellen-Seite kannte nur die 30 jüngsten Bewerbungen** (#1211). „Zur Bewerbung“ in der Weg-Leiste, das Abzeichen „Bereits beworben“ und der Zähler fehlten für ältere; die Leiste legte eine
+  zweite Bewerbung nahe. Die Seite kennt jetzt alle nicht archivierten Bewerbungen.
+- **Eine Stelle, die aus einer Bewerbung aufging, bot „Bewerbung anlegen“ an** (#1212) und schloss damit nur den Dialog. Der Dialog kennt jetzt die Bewerbung, aus der er aufging: der Hauptknopf
+  heißt „Zur Bewerbung“ und führt dorthin zurück.
+- **Escape schloss bei offenem Menü der Weg-Leiste den ganzen Dialog** (#1213). Escape schließt zuerst das Menü (der Fokus kehrt zum Auslöser zurück), ein zweites den Dialog.
+- **Der Pfad oben verlor den Reiter der Einstellungen**, wenn man die Seite in der Seitenleiste erneut anklickte (#1214). Nur ein Seitenwechsel setzt den Pfad zurück.
+- **Nach einem Sprung aus einem Dialog blieb ein toter Schritt im Verlauf** (#1215): die Zurück-Taste tat einmal nichts Sichtbares. Der Verlaufseintrag des Dialogs wird zum Eintrag des Ziels.
+- **macOS und Linux: der Installer** (#1216–#1220, #1149): `$PYTHON` stand ohne Anführungszeichen — ein Leerzeichen im Ordnernamen (`PBP-1.8.0 2`, so legt macOS einen zweiten Download an) beendete die
+  Installation ohne ein Wort (#1216); der Funktionstest öffnete über den Import des Servers die ECHTE Datenbank, bevor er auf ein Temp-Verzeichnis umbog (#1217); die Prozesssuche traf jedes
+  `start_dashboard.py` und jeden Testlauf, der den Namen als Argument trägt — jetzt bleibt ein nachweislich fremdes Skript unberührt (#1218); der Schluss sagte „abgeschlossen“ trotz
+  stehengebliebenem MCP-Eintrag, der Fehlerzweig nach `_setup_claude.py` war unter `set -e` unerreichbar, ein gescheitertes `pip --upgrade pip` beendete den Installer lautlos, das Windows-Aufräumen
+  versprach das Löschen ohne den Exit-Code zu lesen, `ja` galt nicht als Ja, und eine ersetzte, unlesbare Claude-Konfiguration stand nur mitten im Ablauf (#1219); und ohne lesbare Fassung galt jede
+  antwortende Fassung als „ok“ (#1220).
+- **Die Texte zu Vorabversionen widersprachen dem Schalter „Vorabversionen automatisch“** (#1221). Auf einer Vorab-Installation sagen Karte, Hinweis, Erklärung, Hilfe und Elwosa jetzt, was seit
+  #1199 gilt (Schalter an: nächste Vorabversion derselben Linie von selbst; Schalter aus: nur auf Wunsch). Auf einer stabilen Installation bleibt „nie von selbst“ — das stimmt weiter.
+
 ### Known Issues
 
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.

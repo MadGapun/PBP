@@ -624,12 +624,18 @@ let popstateAngemeldet = false;
 
 function nachPopstate() {
   const aktuell = window.history.state?.pbpDialog ?? null;
+  // #1210: ERST den Stapel abtragen, DANN schliessen. Ein Dialog mit Eingaben legt in `zurueck()` seinen Eintrag fuer die
+  // Rueckfrage wieder in den Verlauf UND auf den Stapel; mit dem Aufruf mitten in der Schleife sah sie den Stapel nie leer,
+  // lief endlos, und die Seite antwortete nicht mehr (gemessen: 98 s, dann beendete der Browser den Tab).
+  const abgetragen = [];
   while (dialogStapel.length) {
     const oben = dialogStapel[dialogStapel.length - 1];
     if (oben.id === aktuell) break;       // sein Eintrag liegt noch im Verlauf: er bleibt offen
     dialogStapel.pop();
-    oben.zurueck();
+    abgetragen.push(oben);
   }
+  // Von unten nach oben: legt ein Dialog seinen Eintrag wieder hin, behalten Verlauf und Stapel die Reihenfolge der Dialoge.
+  for (let i = abgetragen.length - 1; i >= 0; i -= 1) abgetragen[i].zurueck();
 }
 
 export function useZurueckSchliesst(open, zurueckRef) {

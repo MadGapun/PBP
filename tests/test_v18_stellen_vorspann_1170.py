@@ -117,7 +117,8 @@ def _zeilen(page):
     dem Schalter des Listenkopfs (Vorgabe zu): erst aufklappen, wie ein Mensch es taete."""
     kopf = page.locator('[data-listen-uebersicht="stellen"]')
     if kopf.get_attribute("data-offen") != "ja":
-        kopf.locator("[data-listen-uebersicht-schalter]").click()
+        # dispatch statt Mausklick: im schmalen Fenster schwebt die Seitenleiste ueber den Inhalt, wenn der Zeiger dort steht
+        kopf.locator("[data-listen-uebersicht-schalter]").dispatch_event("click")
     page.locator("[data-stellen-kennzahlen] > div").first.wait_for(timeout=5000)
     boxen = [b.bounding_box() for b in page.locator("[data-stellen-kennzahlen] > div").all()]
     return [round(b["y"]) for b in boxen]

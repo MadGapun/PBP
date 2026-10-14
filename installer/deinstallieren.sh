@@ -24,6 +24,16 @@ case "$OS" in
     *)      PLATFORM="linux" ;;
 esac
 
+# v1.8.0 (#1219): "ja" und "yes" gelten wie "j" - sonst brach "ja" mit "Abgebrochen" ab (sicher, aber unfreundlich).
+ist_ja() {
+    case "$1" in
+        j|J|ja|Ja|JA|y|Y|yes|Yes|YES) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+# Wird gesetzt, wenn der MCP-Eintrag in der Claude-Konfiguration stehen blieb: der Schluss sagt es dann (kein gruener Kasten).
+MCP_BLIEB=0
+
 DATA_DIR="$HOME/.bewerbungs-assistent"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$PLATFORM" = "macos" ]; then
@@ -60,7 +70,7 @@ echo "    - Claude Desktop und Ollama (separat deinstallieren)"
 echo ""
 
 read -p "  Deinstallation jetzt starten? (j/n): " CONFIRM
-if [ "$CONFIRM" != "j" ] && [ "$CONFIRM" != "J" ]; then
+if ! ist_ja "$CONFIRM"; then
     echo ""
     echo "  Abgebrochen — nichts wurde geaendert."
     exit 0
@@ -111,15 +121,18 @@ if [ -f "$CLAUDE_CONFIG" ]; then
             info "MCP-Eintrag war nicht vorhanden"
             ;;
         unreadable)
+            MCP_BLIEB=1
             warn "Claude-Konfiguration nicht lesbar (kein gueltiges JSON): $CLAUDE_CONFIG"
             echo "  Der Eintrag \"bewerbungs-assistent\" konnte deshalb NICHT entfernt werden."
             echo "  Entferne ihn in dieser Datei von Hand."
             ;;
         write_error)
+            MCP_BLIEB=1
             warn "Die Claude-Konfiguration konnte nicht geschrieben werden: $CLAUDE_CONFIG"
             echo "  Der Eintrag \"bewerbungs-assistent\" ist noch da. Entferne ihn in dieser Datei von Hand."
             ;;
         *)
+            MCP_BLIEB=1
             warn "Die Claude-Konfiguration konnte nicht geprueft werden (python3 nicht gefunden?)"
             echo "  Entferne den Eintrag \"bewerbungs-assistent\" in $CLAUDE_CONFIG von Hand."
             ;;
@@ -138,7 +151,7 @@ if [ -d "$DATA_DIR" ]; then
     echo "  Enthaelt: Datenbank, Dokumente, Exporte, Logs"
     echo ""
     read -p "  Datenverzeichnis komplett loeschen? (j/n): " DELETE_DATA
-    if [ "$DELETE_DATA" = "j" ] || [ "$DELETE_DATA" = "J" ]; then
+    if ist_ja "$DELETE_DATA"; then
         rm -rf "$DATA_DIR"
         ok "Datenverzeichnis geloescht"
     else
@@ -163,7 +176,7 @@ if [ -d "$PW_CACHE" ]; then
     echo "  ebenfalls nutzen. Im Zweifel behalten."
     echo ""
     read -p "  Chromium-Cache loeschen? (j/N): " DELETE_PW
-    if [ "$DELETE_PW" = "j" ] || [ "$DELETE_PW" = "J" ]; then
+    if ist_ja "$DELETE_PW"; then
         rm -rf "$PW_CACHE"
         ok "Chromium-Cache geloescht"
     else
@@ -175,6 +188,25 @@ fi
 
 # ── FERTIG ─────────────────────────────────────────────────────────
 echo ""
+if [ "$MCP_BLIEB" = "1" ]; then
+    # v1.8.0 (#1219): bei stehengebliebenem Eintrag ist die Deinstallation NICHT abgeschlossen - der Schluss sagt es und nennt
+    # den Handgriff (wie CLAUDE_MANUELL in DEINSTALLIEREN.bat), und der Exit-Code ist 1.
+    echo -e "${YELLOW}╔══════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║   Deinstallation NICHT ganz abgeschlossen    ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "  Der Eintrag \"bewerbungs-assistent\" steht noch in der Claude-Konfiguration:"
+    echo "    $CLAUDE_CONFIG"
+    echo "  Entferne ihn dort von Hand. Sonst meldet Claude Desktop bei jedem Start einen"
+    echo "  fehlgeschlagenen MCP-Server, sobald der Projektordner geloescht ist."
+    echo ""
+    echo "  Danach Claude Desktop einmal komplett neu starten."
+    echo ""
+    echo "  Der Projektordner ist noch da:"
+    echo "    $PROJECT_DIR"
+    echo ""
+    exit 1
+fi
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║         Deinstallation abgeschlossen         ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"

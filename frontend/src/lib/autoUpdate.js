@@ -309,9 +309,23 @@ export function istSchonInstalliert(au, version) {
 const ARCHIV_ADRESSE = "https://github.com/MadGapun/PBP/archive/refs/tags/";
 const RELEASE_ADRESSE = "https://github.com/MadGapun/PBP/releases/tag/";
 
-/** Warum PBP eine Vorabversion nicht von selbst installiert — überall dieser Satz. */
+/** Warum PBP eine Vorabversion nicht von selbst installiert — auf einer STABILEN Installation (sie wird nie auf eine gezogen). */
 export const VORAB_ERKLAERUNG = "PBP installiert Vorabversionen nie von selbst, auch nicht mit der Stufe „Mit einem Klick“: "
   + "Sie sind zum Ausprobieren und können noch Fehler haben.";
+
+/** #1221: Auf einer Vorab-Installation gibt es seit #1199 den Schalter. Solange er aus ist, sagt die Karte, wo er steht. */
+export const VORAB_ERKLAERUNG_SCHALTER = "PBP installiert eine Vorabversion nur, wenn du es einschaltest: "
+  + "Einstellungen › Erweitert › Updates › „Vorabversionen automatisch“. Sie ist zum Ausprobieren und kann noch Fehler haben.";
+
+/** #1221: Der Schalter ist schon an, und die Vorabversion kommt trotzdem nicht von selbst: sie gehört zu einer anderen Linie. */
+export const VORAB_ERKLAERUNG_ANDERE_LINIE = "PBP wechselt die Versionslinie nie von selbst, auch nicht mit „Vorabversionen "
+  + "automatisch“. Diese Vorabversion kommt nur von Hand und ist zum Ausprobieren gedacht.";
+
+/** Der Satz zur Lage: stabile Installation, Vorab-Installation ohne Schalter, Vorab-Installation mit Schalter. */
+export function vorabErklaerung(vorab) {
+  if (!vorab?.mitSchalter) return VORAB_ERKLAERUNG;
+  return vorab.schalterAn ? VORAB_ERKLAERUNG_ANDERE_LINIE : VORAB_ERKLAERUNG_SCHALTER;
+}
 
 /** Der Weg zu einer Vorabversion, in der Reihenfolge der Handgriffe. */
 export const VORAB_SCHRITTE = [
@@ -345,7 +359,17 @@ export function vorabNeu(au, info) {
     version,
     url: info.release_url || `${RELEASE_ADRESSE}v${version}`,
     zip: `${ARCHIV_ADRESSE}v${version}.zip`,
+    // #1221: nur eine Vorab-Installation hat den Schalter (#1199); `schalterAn` = er ist schon eingeschaltet
+    mitSchalter: istVorabversion(au?.laufend),
+    schalterAn: Boolean(au?.vorab),
   };
+}
+
+/** Der erste Satz des Hinweises (#1221): was gilt, je nach Lage (stabil, Vorab ohne Schalter, Vorab mit Schalter). */
+function vorabHinweisEinleitung(vorab) {
+  if (!vorab?.mitSchalter) return "PBP installiert Vorabversionen nie von selbst.";
+  if (vorab.schalterAn) return "PBP wechselt die Versionslinie nie von selbst.";
+  return "Unter Einstellungen › Erweitert › Updates kannst du Vorabversionen automatisch einbeziehen.";
 }
 
 /** Der Hinweis für die Hinweiszone des Dashboards: kurz, mit beiden Wegen (ZIP laden, Veröffentlichung lesen). */
@@ -353,7 +377,7 @@ export function vorabHinweis(vorab) {
   return {
     id: "update-vorab", ton: "neutral", dringend: false,
     titel: `Neue Vorabversion verfügbar: v${vorab.version}`,
-    text: "PBP installiert Vorabversionen nie von selbst. Zum Ausprobieren: ZIP laden und den Installer darin starten "
+    text: `${vorabHinweisEinleitung(vorab)} Zum Ausprobieren: ZIP laden und den Installer darin starten `
       + "(Windows: INSTALLIEREN.bat) — einfach drüberinstallieren, deine Daten bleiben erhalten.",
     aktionen: [
       { art: "link", url: vorab.zip, label: "ZIP herunterladen" },

@@ -288,6 +288,10 @@ def test_aufheben_loescht_sie_auf_dem_server(browser, umgebung):
                 break
             page.wait_for_timeout(200)
         assert sfs.lesen(d) is None
+        # die Oberflaeche zieht NACH der Antwort des Servers nach (setVoreinstellung): darauf warten, nicht sofort lesen
+        page.wait_for_function(
+            "() => (document.querySelector('[data-filter-voreinstellung]')?.innerText || '').includes('Ohne Voreinstellung')",
+            timeout=10000)
         assert "Ohne Voreinstellung" in feld.inner_text()
     finally:
         ctx.close()

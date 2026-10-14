@@ -508,7 +508,7 @@ M_WEGE = [
     ('wg08', 'Kontakte-Seite liest die Absicht `kontaktId` nicht', 'frontend/src/pages/ContactsPage.jsx', '      if (intent.kontaktId) {\n', '      if (false) {\n', T_WG),
     ('wg09', 'Kontakt-Dialog: die Verknuepfung ist wieder nur Text', 'frontend/src/pages/ContactsPage.jsx', '{z.ziel ? (', '{false ? (', T_WG),
     ('wg10', 'Bewerbung: der Name der Person fuehrt nirgends hin', 'frontend/src/pages/ApplicationsPage.jsx', 'onClick={() => { const z = zuKontakt(c.id); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => {}}', T_WG),
-    ('wg11', 'Bewerbungskarte: „Zur Stelle“ tut nichts', 'frontend/src/pages/ApplicationsPage.jsx', '<Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle', '<Button variant="secondary" onClick={() => {}} data-karte-zur-stelle', T_WG),
+    ('wg11', 'Bewerbungskarte: „Zur Stelle“ tut nichts', 'frontend/src/pages/ApplicationsPage.jsx', '<Button variant="secondary" onClick={() => setJobDetail({ hash: application.job_hash, bewerbungId: application.id })} data-karte-zur-stelle', '<Button variant="secondary" onClick={() => {}} data-karte-zur-stelle', T_WG),
     ('wg12', 'Timeline: kein naechster Schritt fuer die Unterlagen', 'frontend/src/pages/ApplicationsPage.jsx', '{timelineDialog.entry?.application?.status === "in_vorbereitung" && !timelineDialog.entry?.application?.cv_path && (', '{false && (', T_WG),
     ('wg13', 'Aufgabe: „Zur Bewerbung“ tut nichts', 'frontend/src/pages/TasksPage.jsx', 'onClick={(ev) => { ev.stopPropagation(); springeZurBewerbung(e); }}', 'onClick={(ev) => { ev.stopPropagation(); }}', T_WG),
     ('wg14', 'Dashboard: die Top-Stelle scrollt nur noch', 'frontend/src/pages/DashboardPage.jsx', 'onClick={() => { const z = zuStelle(job.hash); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}', T_WG),
@@ -549,7 +549,7 @@ EWE = "src/bewerbungs_assistent/services/elwosa.py"
 
 M_VORAB = [
     ('vo01', "Update-Seite: statt der Vorabversion steht wieder „Aktuell“", UT,
-     '              : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>\n                : zeigeAktuell(au)', '              : zeigeAktuell(au)', T_VO),
+     '            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>\n              : zeigeAktuell(au)', '            : zeigeAktuell(au)', T_VO),
     ("vo02", "Update-Seite: die Karte mit Erklaerung und Weg fehlt", UT,
      '        {vorab ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>',
      '        {false ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>', T_VO),
@@ -579,7 +579,7 @@ M_VORAB = [
     ("vo13", "Hinweiszone: ohne Auto-Update gilt wieder der alte Hinweis fuer die Vorabversion", HZ,
      '    if (lage.vorab) return vorabHinweis(lage.vorab);\n', '', T_VO),
     ('vo14', "Regel: updateHinweis kennt keine Vorabversion", AUL,
-     '    return extra.vorab ? vorabHinweis(extra.vorab) : null;\n', '    return null;\n', T_VO),
+     '  if (!neu) return extra.vorab ? vorabHinweis(extra.vorab) : null;\n', '  if (!neu) return null;\n', T_VO),
     ("vo15", "Kontext: die Update-Seite kann die allgemeine Pruefung nicht anstossen", "frontend/src/App.jsx",
      '    refreshUpdateInfo: () => setUpdateFrageNr((n) => n + 1),\n', '', T_VO),
     ("vo16", "Hilfe: die FAQ nennt Vorabversionen nicht", "frontend/src/lib/hilfe.js",
@@ -1364,7 +1364,7 @@ M_INSTALLER2 = [
     ("i202", "Die Pruefung laeuft unter verzoegerter Expansion (das Zeichen ist dann schon weg)", IB,
      'setlocal DisableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', 'setlocal EnableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', T_I2),
     ("i203", "Nach der Pruefung bleibt die verzoegerte Expansion aus", IB,
-     ":ort_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n", ":ort_ohne_ausrufezeichen\nendlocal\nsetlocal DisableDelayedExpansion\n", T_I2),
+     ":profil_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n", ":profil_ohne_ausrufezeichen\nendlocal\nsetlocal DisableDelayedExpansion\n", T_I2),
     ("i204", "Expand-Archive nimmt den Pfad wieder eingebettet (Apostroph bricht ihn)", IB,
      'Expand-Archive -LiteralPath $env:PY_ZIP_PATH -DestinationPath $env:PYTHON_DIR -Force"',
      "Expand-Archive -Path '%PY_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force\"", T_I2),
@@ -1422,13 +1422,13 @@ M_INSTALLER2 = [
      '    if "!BACKUP_RC!"=="0" echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n',
      '    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n', T_I2),
     ("i240", "Mac/Linux (install.sh): die Prozesssuche trifft jede Datei mit diesem Namen", ISH,
-     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
     ("i241", "Mac (.command): die Prozesssuche weicht von install.sh ab", ICM,
-     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
     ("i242", "Mac/Linux: eine andere Fassung auf dem Port gilt als 'ok'", ISH,
-     '    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+     '    elif [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
     ("i243", "Mac (.command): eine andere Fassung auf dem Port gilt als 'ok'", ICM,
-     '    elif [ -n "$NEUE_FASSUNG" ] && [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+     '    elif [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
     ("i244", "Mac/Linux: jedes HTTP 200 gilt als PBP", ISH,
      "        | grep -o '\"pbp_version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -n 1 \\\n", "        | head -n 1 \\\n", T_I2),
     ("i245", "Mac/Linux: das alte Dashboard wird vor dem Start nicht beendet", ISH,
@@ -1733,7 +1733,7 @@ M_BROWSERUEBERNAHME = [
      '        if login_fehlt:\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n',
      '        if login_fehlt:\n            db.record_browser_run(quelle_n, rohtreffer=0)\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n', T_BU),
     ("bu14", "Die Quelle wird nicht auf Kleinschreibung gebracht", JOBS_PY,
-     '        quelle_n = str(quelle or "").strip().lower()\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'',
+     '        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: "Google Jobs" wird gespeichert als google_jobs\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'',
      '        quelle_n = str(quelle or "").strip()\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'', T_BU),
     ("bu15", "Die Vorgabe ist der echte Lauf statt der Vorschau", JOBS_PY,
      '                                    dry_run: bool = True,\n                                    rohtreffer: int = 0,\n',
@@ -1971,6 +1971,140 @@ M_LEISTE = [
 ]
 KATALOGE["wegleiste1171"] = M_LEISTE
 GRUNDLAEUFE["wegleiste1171"] = (("T_LK", T_LK), ("T_WL", T_WL), ("T_KN", T_KN))
+
+# ── Funde der unabhaengigen Pruefung des Release-Zweigs (14.10.2026, #1201-#1220) ──
+T_PB = ["tests/test_v18_pruefung_backend_1201_1206.py"]
+T_PF = ["tests/test_v18_pruefung_frontend_1210_1215.py"]
+T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
+T_PW = ["tests/test_v18_installer_rest_1149.py", "tests/test_v18_auto_update_installer_bat.py",
+        "tests/test_v18_auto_update_installer_aufraeumen.py"]
+T_PD = ["tests/test_v18_aufraeum_runde_1139.py", "tests/test_v18_google_original_1184.py"]
+GA_PY = "src/bewerbungs_assistent/services/google_angaben.py"
+TN_PY = "src/bewerbungs_assistent/services/text_nachzug.py"
+SH_PY = "src/bewerbungs_assistent/services/stellen_hinweise.py"
+JOBS_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+UI_JSX = "frontend/src/components/ui.jsx"
+APP_JSX = "frontend/src/App.jsx"
+WL_JSX = "frontend/src/components/WegLeiste.jsx"
+IJ_JSX = "frontend/src/components/InlineJobDetailModal.jsx"
+AP_JSX = "frontend/src/pages/ApplicationsPage.jsx"
+JP_JSX = "frontend/src/pages/JobsPage.jsx"
+INST_SH = "installer/install.sh"
+INST_CMD = "INSTALLIEREN.command"
+DEINST_SH = "installer/deinstallieren.sh"
+
+M_PRUEFUNG = [
+    # ── #1201: eine Schreibweise fuer die Google-Quelle ──
+    ("pb01", "Google-Quelle: nur noch der exakte Schluessel zaehlt", GA_PY,
+     "    return bool(google_schluessel(quelle))\n", "    return str(quelle or \"\").strip().lower() in GOOGLE_QUELLEN\n", T_PB),
+    ("pb02", "Google-Quelle: „Google“ allein ist keine Google-Quelle mehr", GA_PY,
+     "\"googleforjobs\": \"google_jobs\", \"google\": \"google_jobs\",\n", "\"googleforjobs\": \"google_jobs\",\n", T_PB),
+    ("pb03", "Anlage von Hand: der Schluessel wird nicht normalisiert", JOBS_TOOL,
+     "        quelle = _g1201.google_schluessel(quelle) or quelle\n", "        quelle = quelle\n", T_PB),
+    ("pb04", "Browser-Uebernahme: der Schluessel wird nur kleingeschrieben", JOBS_TOOL,
+     "        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: \"Google Jobs\" wird gespeichert als google_jobs\n",
+     "        quelle_n = str(quelle or \"\").strip().lower()\n", T_PB),
+    # ── #1202: der verfallene Fehlzaehler ──
+    ("pb05", "Nachladen: der verfallene Zaehler wird vor dem Zeitstempel nicht gestrichen", TN_PY,
+     "            verfallenen_zaehler_loeschen(db, z[\"hash\"])\n", "            pass\n", T_PB),
+    ("pb06", "Nachladen: ein verfallener Zaehler gilt nie als zu streichen", TN_PY,
+     "        if roh > 0 and _fehlversuche(db, job_hash) == 0:\n", "        if False:\n", T_PB),
+    # ── #1203/#1205: die Hinweise aus Alert-Mails ──
+    ("pb07", "Hinweise: das Anlegen vergleicht wieder mit SQL-LOWER (nur ASCII)", SH_PY,
+     "            \"AND pbp_norm(firma)=? AND pbp_norm(titel)=?\",\n",
+     "            \"AND LOWER(TRIM(firma))=? AND LOWER(TRIM(titel))=?\",\n", T_PB),
+    ("pb08", "Hinweise: der Vergleich kuerzt den Leerraum innen nicht", SH_PY,
+     "    return re.sub(r\"\\s+\", \" \", str(text or \"\").strip().lower())\n",
+     "    return str(text or \"\").strip().lower()\n", T_PB),
+    ("pb09", "Hinweise: der Bestand wird je Hinweis neu gelesen", SH_PY,
+     "        if index is None:\n            index = _bestand_index(db)\n        stelle = _bereits_stelle(db, firma, titel, index)\n",
+     "        stelle = _bereits_stelle(db, firma, titel)\n", T_PB),
+    ("pb10", "Hinweise: die Liste ignoriert den Offset", SH_PY,
+     "    params.append(max(0, int(offset or 0)))\n", "    params.append(0)\n", T_PB),
+    ("pb11", "Hinweise: die Suche liest wieder die auf 500 begrenzte Liste", JOBS_TOOL,
+     "                z = _hinweise.holen(db, hinweis_id)        # #1205: die Zeile direkt, nicht über eine auf 500 begrenzte Liste\n",
+     "                z = next((e for e in _hinweise.liste(db, status=\"alle\", limit=500) if e[\"id\"] == hinweis_id), None)\n", T_PB),
+    ("pb12", "Hinweise: das Werkzeug blaettert nicht", JOBS_TOOL,
+     "            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=_offset)\n",
+     "            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=0)\n", T_PB),
+    ("pb13", "Hinweise: der Endpunkt blaettert nicht", DASH,
+     "    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=start)\n",
+     "    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=0)\n", T_PB),
+    # ── #1204: die Vorschau sieht die Eintraege derselben Uebergabe ──
+    ("pb14", "Vorschau: aehnliche Titel derselben Uebergabe zaehlen als angelegt", JOBS_TOOL,
+     "                if _aehnlich:\n                    _skip(e, \"duplikat_aktiv\",\n",
+     "                if False:\n                    _skip(e, \"duplikat_aktiv\",\n", T_PB),
+    ("pb15", "Vorschau: die gezaehlten Eintraege werden nicht gemerkt", JOBS_TOOL,
+     "                vorschau_jobs.append({\"hash\": res[\"hash\"], \"title\": titel, \"company\": firma, \"url\": url})\n",
+     "                pass\n", T_PB),
+    # ── #1206: ein Nicht-Text als Dokumenttyp ──
+    ("pb16", "Dokumenttyp: ein Nicht-Text wird nicht abgelehnt", DH_PY,
+     "    if not isinstance(typ, str):\n", "    if False:\n", T_PB),
+    ("pb17", "Dokumenttyp: ein Nicht-Objekt als Koerper wird nicht abgelehnt", DASH,
+     "    if not isinstance(data, dict):           # #1206: ein Nicht-Objekt (Liste, Zahl) war ein AttributeError und HTTP 500\n",
+     "    if False:\n", T_PB),
+    # ── #1208-#1215: Oberflaeche (baut das Bundle neu) ──
+    ("pf01", "Zurueck-Taste: der Dialog schliesst mitten in der Schleife (Endlosschleife bei Eingaben)", UI_JSX,
+     "    dialogStapel.pop();\n    abgetragen.push(oben);\n", "    dialogStapel.pop();\n    oben.zurueck();\n", T_PF),
+    ("pf02", "Pfad: jeder Klick setzt den Unterpfad zurueck, auch auf derselben Seite", APP_JSX,
+     "    if (nextPage !== page) setCurrentSubPath(\"\");\n", "    setCurrentSubPath(\"\");\n", T_PF),
+    ("pf03", "Verlauf: der Sprung aus einem Dialog legt den Eintrag obenauf", APP_JSX,
+     "      if (window.history.state?.pbpDialog != null) {\n", "      if (false) {\n", T_PF),
+    ("pf04", "Leiste: Escape erreicht den Dialog trotz offenem Menue", WL_JSX,
+     "    document.addEventListener(\"keydown\", taste, true);\n", "", T_PF),
+    ("pf05", "Stelle aus der Bewerbung: die Leiste kennt die Bewerbung nicht", IJ_JSX,
+     "            bewerbungId,\n            beurteilt: true,\n", "            beurteilt: true,\n", T_PF),
+    ("pf06", "Bewerbungen: der Dialog bekommt die Kennung der Bewerbung nicht", AP_JSX,
+     "          bewerbungId={jobDetail.bewerbungId}\n", "", T_PF),
+    ("pf07", "Stellen: nur die 30 juengsten Bewerbungen sind bekannt", JP_JSX,
+     "append ? Promise.resolve(null) : api(\"/api/applications?limit=0\"),\n",
+     "append ? Promise.resolve(null) : api(\"/api/applications\"),\n", T_PF),
+    ("pf08", "Stellen: der Pruefstand einer ausgeblendeten Stelle wird nicht nachgeholt", JP_JSX,
+     "    if (!detailDialog.open || !stelle?.hash || stelle.pruefstand) return undefined;\n", "    return undefined;\n", T_WL),
+    # ── #1207/#1219 (Windows) ──
+    ("pw01", "Installer: das Ausrufezeichen im Profil wird nicht geprueft", "INSTALLIEREN.bat",
+     "if \"%PBP_PROFIL_ORTE:!=%\"==\"%PBP_PROFIL_ORTE%\" goto :profil_ohne_ausrufezeichen\n", "goto :profil_ohne_ausrufezeichen\n", T_PI + T_PW),
+    ("pw02", "Deinstaller: das Ausrufezeichen im Profil wird nicht geprueft", "DEINSTALLIEREN.bat",
+     "if \"%PBP_PROFIL_ORTE:!=%\"==\"%PBP_PROFIL_ORTE%\" goto :pbp_profil_ok\n", "goto :pbp_profil_ok\n", T_PW),
+    ("pw03", "Installer: das Aufraeumen verspricht das Loeschen ohne den Exit-Code zu lesen", "INSTALLIEREN.bat",
+     "if not errorlevel 1 goto :aufraeumen_gestartet\n", "goto :aufraeumen_gestartet\n", T_PW),
+    ("pw04", "Aufraeum-Helfer: ein Fehler beim Starten ist wieder ein Traceback", "_installer_aufraeumen.py",
+     "        except OSError as exc:\n            # #1219: die Bat sagt", "        except ZeroDivisionError as exc:\n            # #1219: die Bat sagt", T_PW),
+    # ── #1216-#1220 (Unix) ──
+    ("pu01", "Installer: pip-Update ohne Anfuehrungszeichen um den Python-Aufruf", INST_SH,
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null || warn", "$PYTHON -m pip install --upgrade pip -q 2>/dev/null || warn", T_PI),
+    ("pu02", "Installer (macOS): Python-Aufruf fuer die Pakete ohne Anfuehrungszeichen", INST_CMD,
+     "\"$PYTHON\" -m pip install -e \"$PROJECT_DIR\" -q\n", "$PYTHON -m pip install -e \"$PROJECT_DIR\" -q\n", T_PI),
+    ("pu03", "Installer: der Funktionstest laeuft auf dem echten Datenordner", INST_SH,
+     "if ! BA_DATA_DIR=\"$TEST_DIR\" \"$PYTHON\" -c", "if ! \"$PYTHON\" -c", T_PI),
+    ("pu04", "Installer: ein gescheitertes pip-Update beendet den Installer", INST_SH,
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null || warn \"pip liess sich nicht aktualisieren - kein Problem\"\n",
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null\n", T_PI),
+    ("pu05", "Installer: die Prozesssuche beendet auch ein fremdes start_dashboard.py", INST_SH,
+     "        if skript_ist_fremd \"$zeile\"; then\n            continue\n        fi\n", "", T_PI),
+    ("pu06", "Installer: das Muster trifft wieder jeden Testlauf mit dem Namen als Argument", INST_SH,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'\n",
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'\n", T_PI),
+    ("pu07", "Installer: ohne lesbare Fassung gilt jede antwortende Fassung als ok", INST_SH,
+     "    elif [ -z \"$NEUE_FASSUNG\" ]; then\n        echo unbekannt\n", "    elif false; then\n        echo unbekannt\n", T_PI),
+    ("pu08", "Installer: der Fehlschlag von _setup_claude.py beendet das Skript unter set -e", INST_SH,
+     "    if SETUP_AUSGABE=\"$(\"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\" 2>&1)\"; then\n",
+     "    SETUP_AUSGABE=\"$(\"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\" 2>&1)\"\n    if [ $? -eq 0 ]; then\n", T_PI),
+    ("pu09", "Installer (macOS): ein Fehlschlag von _setup_claude.py setzt den Merker nicht", INST_CMD,
+     "        CLAUDE_FEHLER=1\n", "        :\n", T_PI),
+    ("pu10", "Deinstaller: ein nicht lesbarer Eintrag bleibt ohne Merker", DEINST_SH,
+     "        unreadable)\n            MCP_BLIEB=1\n", "        unreadable)\n", T_PI),
+    ("pu11", "Deinstaller: der Schluss ist auch bei stehengebliebenem Eintrag gruen", DEINST_SH,
+     "if [ \"$MCP_BLIEB\" = \"1\" ]; then\n", "if false; then\n", T_PI),
+    ("pu12", "Deinstaller: nur j gilt als Ja", DEINST_SH,
+     "        j|J|ja|Ja|JA|y|Y|yes|Yes|YES) return 0 ;;\n", "        j|J) return 0 ;;\n", T_PI),
+    ("pu13", "Doppelklick-Deinstaller: der Exit-Code geht verloren", "DEINSTALLIEREN.command",
+     "bash \"$SKRIPT\" || ERGEBNIS=$?\n", "bash \"$SKRIPT\"\n", T_PI),
+    ("pu14", "Installer: die Sicherungskopie der Claude-Konfiguration kommt nicht in den Schluss", INST_SH,
+     "if [ -n \"${CLAUDE_KOPIE:-}\" ]; then\n", "if false; then\n", T_PI),
+]
+KATALOGE["pruefung1214"] = M_PRUEFUNG
+GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF))
 
 WT = None
 

@@ -1040,9 +1040,25 @@ export default function App() {
   function navigateTo(nextPage, nextIntent = null) {
     setIntent(nextIntent ? { page: nextPage, ...nextIntent, nonce: Date.now() } : null);
     setPage(nextPage);
-    setCurrentSubPath("");  // beta.35: Sub-Pfad bei Hauptbereich-Wechsel reseten
+    // beta.35: Sub-Pfad bei Hauptbereich-Wechsel reseten. #1214: nur bei einem WECHSEL - ein erneuter Klick auf die aktuelle
+    // Seite liess den Reiter der Einstellungen offen, der Pfad oben aber verlor ihn (die Seite meldet ihn nur, wenn er sich
+    // aendert).
+    if (nextPage !== page) setCurrentSubPath("");
     if (parsePageFromHash() !== nextPage || window.location.hash.includes("/")) {
-      window.location.hash = nextPage;
+      // #1215: Springt der Mensch aus einem Dialog heraus, ist dessen Verlaufseintrag der oberste. Er wird zum Eintrag des Ziels,
+      // statt dass das Ziel obenauf kommt und der Dialog als toter Schritt darunter liegen bleibt (die Zurueck-Taste haette
+      // einmal nichts getan). Das Aendern der Adresse ohne neuen Eintrag loest kein `hashchange` aus - die Seite ist oben
+      // schon gesetzt.
+      let ersetzt = false;
+      if (window.history.state?.pbpDialog != null) {
+        try {
+          window.history.replaceState(null, "", `#${nextPage}`);
+          ersetzt = true;
+        } catch {
+          // eingebettet oder gesperrt: dann bleibt es beim Hash
+        }
+      }
+      if (!ersetzt) window.location.hash = nextPage;
     }
     // v1.7.0-beta.26 (#594 Stufe 1): Page-View tracken
     try { track.pageView(nextPage); } catch {}

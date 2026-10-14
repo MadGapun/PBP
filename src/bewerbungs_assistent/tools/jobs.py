@@ -2490,6 +2490,7 @@ def register(mcp, db, logger):
         hinweis_id: str = "",
         status: str = "offen",
         limit: int = 30,
+        offset: int = 0,
     ) -> dict:
         """Hinweise aus Google-Benachrichtigungen: Treffer, die noch KEINE Stelle sind (#1184).
 
@@ -2504,16 +2505,26 @@ def register(mcp, db, logger):
             hinweis_id: die Kennung aus 'anzeigen' (für suche, verwerfen, zurueckholen).
             status: für 'anzeigen': 'offen' (Vorgabe), 'angelegt', 'verworfen' oder 'alle'.
             limit: höchstens so viele Hinweise (Vorgabe 30).
+            offset: so viele überspringen (für 'anzeigen'; die Antwort nennt `gesamt` und `weitere`).
         """
         from ..services import stellen_hinweise as _hinweise
         from ..services import google_angaben as _gangaben
         aktion = (aktion or "anzeigen").strip().lower()
         if aktion == "anzeigen":
-            eintraege = _hinweise.liste(db, status=(status or "offen").strip().lower(), limit=limit)
+            _st = (status or "offen").strip().lower()
+            _offset = max(0, int(offset or 0))
+            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=_offset)
+            _zaehlung = _hinweise.zaehlen(db)
+            # #1205: die Gesamtzahl des Stands, damit "30 von 522" auch so dasteht - und `weitere` sagt, ob es hinter dieser
+            # Seite weitergeht (offset=<n> ruft die nächste).
+            _gesamt = _zaehlung.get(_st, 0) if _st in _zaehlung else sum(_zaehlung.values())
             return {
                 "status": "ok",
                 "anzahl": len(eintraege),
-                "zaehlung": _hinweise.zaehlen(db),
+                "gesamt": _gesamt,
+                "offset": _offset,
+                "weitere": max(0, _gesamt - _offset - len(eintraege)),
+                "zaehlung": _zaehlung,
                 "hinweise": [
                     {"id": e["id"], "titel": e["titel"], "firma": e["firma"], "ort": e["ort"], "portal": e["portal"],
                      "veroeffentlicht_am": e["veroeffentlicht_am"] or None, "anzahl_mails": e["anzahl_mails"],
@@ -2528,7 +2539,7 @@ def register(mcp, db, logger):
             if not hinweis_id:
                 return {"fehler": "hinweis_id fehlt (die Kennung steht in der Liste von aktion='anzeigen')."}
             if aktion == "suche":
-                z = next((e for e in _hinweise.liste(db, status="alle", limit=500) if e["id"] == hinweis_id), None)
+                z = _hinweise.holen(db, hinweis_id)        # #1205: die Zeile direkt, nicht über eine auf 500 begrenzte Liste
                 if not z:
                     return {"fehler": "Hinweis nicht gefunden."}
                 return {"status": "ok", "hinweis": {"id": z["id"], "titel": z["titel"], "firma": z["firma"], "ort": z["ort"]},
@@ -2689,6 +2700,11 @@ def register(mcp, db, logger):
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
+
+        # #1201: "Google Jobs", "google-jobs" und "Google" sind EINE Quelle. Der Parameter ist freier Text: ohne diese
+        # Zeile umging jede andere Schreibweise die Regeln aus #1184 (Original fehlt, Remote und Ort gelten nicht).
+        from ..services import google_angaben as _g1201
+        quelle = _g1201.google_schluessel(quelle) or quelle
 
         # #729: Blacklist-Check auf die Firma VOR dem Anlegen. Vorher wurde eine
         # Stelle einer geblacklisteten Firma kommentarlos angelegt (z.B. via
@@ -3717,7 +3733,7 @@ def register(mcp, db, logger):
         from ..services.datenguete import MIN_BESCHREIBUNG
         from ..services import google_angaben as _gangaben
 
-        quelle_n = str(quelle or "").strip().lower()
+        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: "Google Jobs" wird gespeichert als google_jobs
         if not quelle_n:
             return {"fehler": "quelle fehlt (z.B. 'stepstone', 'xing', 'indeed', 'google_jobs', 'heise_jobs')."}
         if login_fehlt:
@@ -3746,6 +3762,8 @@ def register(mcp, db, logger):
 
         angelegt, uebersprungen = [], []
         vorschau_hashes = set()
+        vorschau_jobs = []          # #1204: was die Vorschau bisher als "wuerde angelegt" gezaehlt hat (Stufe B der Anlage)
+        kanon_vorschau = []         # der Firmen-Kanon, einmal je Lauf (#1080) - eine Liste, damit auch "kein Kanon" gemerkt wird
 
         def _skip(eintrag, grund, detail="", **extra):
             trichter["uebersprungen"] += 1
@@ -3786,7 +3804,20 @@ def register(mcp, db, logger):
                 if res["hash"] in vorschau_hashes:
                     _skip(e, "duplikat_aktiv", "doppelt in dieser Übergabe (gleiche Firma, gleicher Titel)")
                     continue
+                # #1204: die Vorschau legt nichts an - Stufe B der Anlage sieht die Einträge DERSELBEN Übergabe deshalb nicht.
+                # Der echte Lauf sieht sie (der erste ist dann eine aktive Stelle): hier dieselbe Funktion mit demselben
+                # Kanon, gegen die bisher als "würde angelegt" gezählten Einträge. Vorher meldete die Vorschau "2 angelegt"
+                # und der Lauf "1 angelegt, 1 schon als aktive Stelle da" (zwei ähnliche Titel derselben Firma).
+                from ..duplicate_detection import find_duplicate_job as _find_dup, firmen_kanon as _kanon_bauen
+                if not kanon_vorschau:
+                    kanon_vorschau.append(_kanon_bauen(db))
+                _aehnlich = _find_dup(firma, titel, url, vorschau_jobs, kanon=kanon_vorschau[0])
+                if _aehnlich:
+                    _skip(e, "duplikat_aktiv",
+                          f"ähnlich einem Eintrag dieser Übergabe: '{_aehnlich['job'].get('title')}' ({_aehnlich['grund']})")
+                    continue
                 vorschau_hashes.add(res["hash"])
+                vorschau_jobs.append({"hash": res["hash"], "title": titel, "company": firma, "url": url})
 
             if res.get("status") in ("angelegt", "wuerde_angelegt") or (res.get("hash") and not res.get("warnung")):
                 trichter["angelegt"] += 1

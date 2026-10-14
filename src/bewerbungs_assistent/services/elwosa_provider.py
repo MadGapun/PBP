@@ -168,6 +168,31 @@ def _fassung_schon_da(version: str) -> bool:
         return False
 
 
+def _laufende_fassung() -> str:
+    """Die Fassung, die gerade laeuft (ein eigener Aufruf, damit ein Test sie setzen kann)."""
+    try:
+        from .. import __version__
+        return str(__version__ or "")
+    except Exception:  # pragma: no cover
+        return ""
+
+
+def _vorab_schluss(db) -> str:
+    """Der Schlusssatz zu einer Vorabversion (#1221). Seit #1199 gibt es auf einer Vorab-Installation den Schalter
+    "Vorabversionen automatisch": ein "kommt nie von selbst" waere dort falsch. Eine stabile Installation wird nie auf
+    eine Vorabversion gezogen - dort stimmt der alte Satz."""
+    if "-" not in _laufende_fassung():
+        return "Sie kommt nie von selbst; wer sie will, holt sie."
+    try:
+        from .auto_update import zustand
+        an = bool(zustand.vorab(db))
+    except Exception:  # noqa: BLE001
+        an = False
+    if an:
+        return "Passt sie zur Linie, holt PBP sie selbst; sonst holst du sie."
+    return "Sie kommt nur auf Wunsch: unter Updates einschalten, oder du holst sie selbst."
+
+
 def update_kandidaten(db) -> list:
     """Kanal 7 (#1180): eine neue Version ist DA, aber noch nicht installiert.
 
@@ -191,7 +216,7 @@ def update_kandidaten(db) -> list:
         return []                         # von Hand installiert, wartet nur auf den Neustart
     if "-" in version:
         kern = f"Vorabversion {version} ist erschienen"
-        schluss = "Sie kommt nie von selbst; wer sie will, holt sie."
+        schluss = _vorab_schluss(db)
     else:
         kern = f"Version {version} ist erschienen"
         schluss = "Der Rest steht in den Notizen."

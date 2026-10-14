@@ -499,7 +499,15 @@ def typ_setzen(db, dokument_id: str, typ: str, profile_id=None) -> dict:
     wird gegen `erlaubte_typen()`; ein Tippfehler legt keinen neuen Typ an. Antwort: `status` ist `geaendert`,
     `unveraendert`, `unbekannter_typ` oder `nicht_gefunden`.
     """
-    typ = (typ or "").strip()
+    if typ is None:
+        typ = ""
+    if not isinstance(typ, str):
+        # #1206: eine Zahl, Liste oder ein Objekt ist wie ein unbekannter Typ abzulehnen - `.strip()` darauf war ein
+        # AttributeError und im Dashboard ein HTTP 500 statt der Liste der erlaubten Typen.
+        return {"status": "unbekannter_typ",
+                "fehler": f"Der Typ muss ein Text sein (kein {type(typ).__name__}).",
+                "erlaubte_typen": erlaubte_typen()}
+    typ = typ.strip()
     if typ not in erlaubte_typen():
         return {"status": "unbekannter_typ", "fehler": f"Der Typ '{typ}' ist PBP nicht bekannt.",
                 "erlaubte_typen": erlaubte_typen()}

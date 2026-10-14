@@ -80,7 +80,7 @@ def _frei() -> int:
 
 def _kopf_bis_guard() -> str:
     text = _text("INSTALLIEREN.bat")
-    ende = ":ort_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n"
+    ende = ":profil_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n"      # #1207: der zweite Guard steht dahinter
     assert ende in text, "die Pruefung auf ein Ausrufezeichen fehlt am Kopf von INSTALLIEREN.bat"
     return text[:text.index(ende) + len(ende)]
 
@@ -128,6 +128,64 @@ def test_1149_8_der_installer_erreicht_aus_einem_ungewoehnlichen_ordner_seine_er
     assert "ZIP wurde nicht richtig entpackt" in aus, aus
     assert "syntaktisch" not in aus and "nicht verarbeitet" not in aus, aus
     assert r.returncode == 1
+
+
+# ══ #1207: auch die Orte des Profils tragen kein "!" ════════════════════════════════════════════════════
+
+def _deinstaller_kopf_bis_guard() -> str:
+    """Der Anfang von :pbp_main in DEINSTALLIEREN.bat bis zum Ende des Profil-Guards (ohne die Umzugs-Zeilen davor)."""
+    text = _text("DEINSTALLIEREN.bat")
+    ende = ":pbp_profil_ok\nendlocal\nsetlocal EnableDelayedExpansion\n"
+    assert ende in text, "die Pruefung auf ein Ausrufezeichen fehlt am Anfang von :pbp_main (DEINSTALLIEREN.bat)"
+    start = text.index("\n:pbp_main\n") + 1
+    return text[start:text.index(ende) + len(ende)]
+
+
+@pytest.mark.parametrize("name", ["INSTALLIEREN.bat", "DEINSTALLIEREN.bat"])
+def test_1207_die_profilorte_werden_vor_der_verzoegerten_expansion_geprueft(name):
+    zeilen = _text(name).split("\n")
+    pruefung = next(i for i, z in enumerate(zeilen) if z.startswith('if "%PBP_PROFIL_ORTE:!=%"'))
+    assert zeilen[pruefung - 1].strip() == 'set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"', "alle drei Orte, in EINER Zeichenkette"
+    scope = [z.strip().lower() for z in zeilen[:pruefung] if z.strip().lower().startswith(("setlocal ", "endlocal"))]
+    assert scope and scope[-1] == "setlocal disabledelayedexpansion", f"{name}: ohne ausgeschaltete Expansion sieht die Pruefung das Zeichen nicht"
+
+
+@nur_windows
+@pytest.mark.parametrize("variable", ["LOCALAPPDATA", "TEMP", "USERPROFILE"])
+@pytest.mark.parametrize("kopf", ["installer", "deinstaller"])
+def test_1207_ein_ausrufezeichen_im_profil_bricht_vor_der_ersten_aenderung_ab(tmp_path, variable, kopf):
+    """Die ECHTEN Kopfzeilen beider Dateien, mit einem `!` in je einem der drei Orte."""
+    ziel = tmp_path / "PBP-1.8.0"
+    ziel.mkdir()
+    assert str(tmp_path) in str(ziel)
+    text = _kopf_bis_guard() if kopf == "installer" else "@echo off\n" + _deinstaller_kopf_bis_guard()
+    (ziel / "start.bat").write_bytes((text + "echo WEITER_DE\nexit /b 0\n").replace("\n", "\r\n").encode("cp850"))
+    umgebung = dict(os.environ)
+    umgebung[variable] = str(tmp_path / "Max!Muster" / "AppData")
+    r = subprocess.run(["cmd.exe", "/c", str(ziel / "start.bat")], input=b"\r\n", capture_output=True, env=umgebung,
+                       creationflags=OHNE_FENSTER, timeout=60)
+    aus = (r.stdout + r.stderr).decode("cp850", errors="replace")
+    assert r.returncode == 1, aus
+    assert "WEITER_DE" not in aus, aus
+    assert "Profil" in aus and "Ausrufezeichen" in aus, aus
+    assert "Max!Muster" in aus, "der Ort wird genannt - mit dem Zeichen, damit der Mensch es sieht"
+
+
+@nur_windows
+@pytest.mark.parametrize("kopf", ["installer", "deinstaller"])
+@pytest.mark.parametrize("name", ["Max Muster (privat)", "Max & Moritz", "O'Brien", "Zoe^Test"])
+def test_1207_ein_profil_ohne_ausrufezeichen_laeuft_weiter_auch_mit_sonderzeichen(tmp_path, kopf, name):
+    ziel = tmp_path / "PBP-1.8.0"
+    ziel.mkdir()
+    text = _kopf_bis_guard() if kopf == "installer" else "@echo off\n" + _deinstaller_kopf_bis_guard()
+    (ziel / "start.bat").write_bytes((text + "echo WEITER_DE\nexit /b 0\n").replace("\n", "\r\n").encode("cp850"))
+    umgebung = dict(os.environ)
+    for v in ("LOCALAPPDATA", "TEMP", "USERPROFILE"):
+        umgebung[v] = str(tmp_path / name / v)
+    r = subprocess.run(["cmd.exe", "/c", str(ziel / "start.bat")], input=b"\r\n", capture_output=True, env=umgebung,
+                       creationflags=OHNE_FENSTER, timeout=60)
+    aus = (r.stdout + r.stderr).decode("cp850", errors="replace")
+    assert r.returncode == 0 and "WEITER_DE" in aus, aus
 
 
 @nur_windows

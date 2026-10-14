@@ -36,15 +36,36 @@ import re
 #: der Browserlauf mit Claude (`google_jobs`) und die JobSpy-Variante.
 GOOGLE_QUELLEN = ("google_jobs", "jobspy_google")
 
+#: Schreibweisen, unter denen dieselbe Quelle ankommt (#1201): der Schluessel ist freier Text aus dem Werkzeugaufruf. Verglichen
+#: wird ohne Leerraum, Unterstrich, Bindestrich, Punkt und Schraegstrich - "Google Jobs", "google-jobs" und "googlejobs" sind
+#: EIN Schluessel. Eine andere Schreibweise umging vorher die Regeln dieses Moduls (Original fehlt, Remote und Ort gelten nicht).
+_SCHREIBWEISEN = {
+    "googlejobs": "google_jobs", "googlejob": "google_jobs", "googleforjobs": "google_jobs", "google": "google_jobs",
+    "jobspygoogle": "jobspy_google",
+}
+
 _GOOGLE_HOST = re.compile(r"(?:^|\.)google\.[a-z.]{2,}$")
 
 #: Die Werte, die `remote_level` annehmen darf.
 REMOTE_STUFEN = ("remote", "hybrid", "vor_ort", "unbekannt")
 
 
+def google_schluessel(quelle) -> str:
+    """Der Quellenschluessel in seiner EINEN Schreibweise ("Google Jobs" -> "google_jobs") - leer, wenn es keine Google-Quelle
+    ist (#1201). Die Normalisierung steht an dieser einen Stelle; wer eine Quelle speichert oder prueft, fragt hier."""
+    import re
+    roh = re.sub(r"[\s_.\-/]+", "", str(quelle or "").strip().lower())
+    return _SCHREIBWEISEN.get(roh, "")
+
+
+def quelle_normalisiert(quelle) -> str:
+    """Der Schluessel, wie er gespeichert wird: eine Google-Quelle in ihrer einen Schreibweise, jede andere klein und ohne Rand."""
+    return google_schluessel(quelle) or str(quelle or "").strip().lower()
+
+
 def ist_google_quelle(quelle) -> bool:
-    """Steht die Stelle unter einem Quellenschluessel aus Googles Karten?"""
-    return str(quelle or "").strip().lower() in GOOGLE_QUELLEN
+    """Steht die Stelle unter einem Quellenschluessel aus Googles Karten? (in jeder Schreibweise, #1201)"""
+    return bool(google_schluessel(quelle))
 
 
 def ist_google_adresse(url) -> bool:

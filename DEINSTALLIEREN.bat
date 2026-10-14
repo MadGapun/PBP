@@ -31,6 +31,35 @@ cd /d "%TEMP%" 2>nul || cd /d "%SystemRoot%"
 cmd /c ""%PBP_RELOC_BAT%"" & del /Q "%PBP_RELOC_BAT%" >nul 2>&1 & exit /b 0
 
 :pbp_main
+:: v1.8.0 (#1207): ein "!" im Windows-Profil verschwindet unter der verzoegerten Expansion aus jedem Pfad, der aus
+:: %LOCALAPPDATA% gebildet wird. Der Deinstaller meldete dann fuer jeden Ordner "nicht gefunden" und entfernte nichts. Hier
+:: wird vor der ersten Aenderung geprueft und mit dem Handgriff abgebrochen.
+setlocal DisableDelayedExpansion
+set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"
+if "%PBP_PROFIL_ORTE:!=%"=="%PBP_PROFIL_ORTE%" goto :pbp_profil_ok
+setlocal EnableDelayedExpansion
+echo.
+echo  ****************************************************
+echo  *  FEHLER: Dein Windows-Profil enthaelt ein        *
+echo  *          Ausrufezeichen                          *
+echo  ****************************************************
+echo.
+echo  Der Deinstaller kann die Ordner von PBP in diesem Profil
+echo  nicht sicher finden. Geprueft habe ich:
+echo    !LOCALAPPDATA!
+echo    !TEMP!
+echo    !USERPROFILE!
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Oeffne den Explorer und tippe in die Adressleiste
+echo       %%LOCALAPPDATA%% (mit den Prozentzeichen) ein
+echo    2. Loesche dort den Ordner BewerbungsAssistent
+echo    3. Entferne die Desktop-Verknuepfung von PBP
+echo.
+pause
+exit /b 1
+:pbp_profil_ok
+endlocal
 setlocal EnableDelayedExpansion
 title PBP Bewerbungs-Assistent - Deinstallation
 color 0C

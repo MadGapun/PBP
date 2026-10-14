@@ -146,7 +146,8 @@ export default function ApplicationsPage() {
   const [timelineVon, setTimelineVon] = useState(null);
   const [timelineKontakte, setTimelineKontakte] = useState([]);
   // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
-  const [jobDetailHash, setJobDetailHash] = useState(null);
+  // #1212: mit der Bewerbung, aus der der Dialog aufgeht - die Weg-Leiste der Stelle fuehrt dorthin zurueck
+  const [jobDetail, setJobDetail] = useState(null);      // { hash, bewerbungId }
   const timelineInhaltRef = useRef(null);
   const [acceptanceDialog, setAcceptanceDialog] = useState({ open: false, application: null, final_salary: "", description: "", start_date: "" });
   const [newNoteText, setNewNoteText] = useState("");
@@ -818,10 +819,11 @@ export default function ApplicationsPage() {
       <AdaptiveHintBanner page="bewerbungen" />
 
       {/* v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt */}
-      {jobDetailHash && (
+      {jobDetail && (
         <InlineJobDetailModal
-          jobHash={jobDetailHash}
-          onClose={() => setJobDetailHash(null)}
+          jobHash={jobDetail.hash}
+          bewerbungId={jobDetail.bewerbungId}
+          onClose={() => setJobDetail(null)}
         />
       )}
       <div className="mb-6 flex items-baseline justify-end gap-4">
@@ -1116,7 +1118,7 @@ export default function ApplicationsPage() {
                       {/* #1171 (G85): die Stelle zur Bewerbung — „wie war sie beschrieben?“ ist ein Klick entfernt,
                           ohne erst die Timeline zu oeffnen und darin zu suchen. */}
                       {application.job_hash ? (
-                        <Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle
+                        <Button variant="secondary" onClick={() => setJobDetail({ hash: application.job_hash, bewerbungId: application.id })} data-karte-zur-stelle
                           title="Die Stelle ansehen, auf die sich diese Bewerbung bezieht">
                           <Briefcase size={15} />
                           {SPRUNG_WORT.stelle}
@@ -1346,7 +1348,7 @@ export default function ApplicationsPage() {
                       <button
                         className="font-mono text-xs text-muted hover:text-sky cursor-pointer"
                         title="Stelle anzeigen"
-                        onClick={() => setJobDetailHash(app.job_hash)}
+                        onClick={() => setJobDetail({ hash: app.job_hash, bewerbungId: app.id })}
                       ><ExternalLink size={8} className="mr-0.5 inline" />Stelle: {app.job_hash?.slice(0, 8)}</button>
                     )}
                   </div>
