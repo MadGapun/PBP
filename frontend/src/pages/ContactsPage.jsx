@@ -412,7 +412,12 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast, von = 
                       // G72 (#1087 E4): scheitert die Zwischenablage,
                       // zeigt copyPrompt den Text zum Selbstkopieren.
                       await copyPrompt(res.prompt, {
-                        erfolg: "Anleitung kopiert. In Claude einfügen — der eingeloggte Chrome-Tab holt die LinkedIn-Daten.",
+                        // #1200 A1: Claude traegt die Daten selbst in PBP ein.
+                        // Bei einem neuen Kontakt legt Claude ihn an — der Dialog
+                        // wuerde sonst einen zweiten speichern.
+                        erfolg: contact?.id
+                          ? "Anleitung kopiert. In Claude einfügen — Claude liest das Profil in deinem Chrome-Tab und ergänzt diesen Kontakt."
+                          : "Anleitung kopiert. In Claude einfügen — Claude legt den Kontakt mit den LinkedIn-Daten an. Diesen Dialog dann ohne Speichern schließen.",
                       });
                     }
                   } catch (err) {
@@ -429,7 +434,7 @@ function ContactDialog({ contact, onClose, onSaved, onDeleted, pushToast, von = 
           {form.linkedin_url && form.linkedin_url.includes("linkedin.com/in/") && (
             <p className="mt-1 text-xs text-muted">
               <span className="text-sky">„Daten holen"</span> erzeugt einen Claude-Prompt.
-              Claude öffnet das Profil im eingeloggten Chrome-Tab und liest Name/Position/Firma.
+              Claude öffnet das Profil in deinem angemeldeten Chrome-Tab und trägt Position, Firma und Standort in PBP ein.
             </p>
           )}
         </Field>

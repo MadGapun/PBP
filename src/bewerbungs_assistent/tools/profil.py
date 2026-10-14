@@ -952,7 +952,8 @@ def register(mcp, db, logger):
                 "projekte": [],
                 "nachricht": (
                     "Keine Projekte im Profil. Mit projekt_hinzufuegen() oder "
-                    "profil_bearbeiten(bereich='projekt') anlegen."
+                    "profil_bearbeiten(bereich='projekt', aktion='hinzufuegen', "
+                    "daten={...}) anlegen."
                 ),
             }
 

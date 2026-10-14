@@ -252,7 +252,10 @@ def build_workspace_summary(
             "prioritaet": "hoch",
             "text": f"{jobs_ohne_beschreibung} Stellen ohne Beschreibung — Score ist unzuverlässig. "
                     "Öffne die Stellen und lade die Beschreibung nach.",
-            "aktion": "stellen_anzeigen(beschreibung_fehlt=True)",
+            # #1200 A12: stellen_anzeigen kennt keinen Filter beschreibung_fehlt;
+            # die Pruefung meldet den Befund, das Nachladen holt den Text.
+            "aktion": ("stellen_qualitaet_pruefen() — Befund beschreibung_fehlt; je Stelle "
+                       "stellenbeschreibung_nachladen(stellen_hash)"),
         })
 
     einstellungen_zahl = (
