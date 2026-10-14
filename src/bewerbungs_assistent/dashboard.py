@@ -6639,8 +6639,12 @@ async def api_background_job(job_id: str):
 # ============================================================
 
 @app.get("/api/components")
-async def api_components_overview():
-    """Status aller Komponenten + Ollama als mit-angezeigte Sonderrolle (D2)."""
+def api_components_overview():
+    """Status aller Komponenten + Ollama als mit-angezeigte Sonderrolle (D2).
+
+    Gewoehnlicher Handler (Threadpool), kein `async def`: die Ollama-Abfrage und die Suche nach Zusatzprogrammen blockieren
+    sonst den ganzen Server (#1227, gemessen 4 s ohne Ollama auf einem Windows-PC).
+    """
     from .services import components as comp
     result = {"komponenten": comp.get_components_overview(_db)}
     # Ollama wird NUR angezeigt (eigenstaendig verwaltet via llm_service)

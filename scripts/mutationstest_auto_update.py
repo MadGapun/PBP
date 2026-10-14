@@ -1978,6 +1978,8 @@ T_PB = ["tests/test_v18_pruefung_backend_1201_1206.py"]
 T_PF = ["tests/test_v18_pruefung_frontend_1210_1215.py"]
 T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
 T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Kommentaren eines Klammerblocks
+T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe statt 2 x 2 s Zeitablauf
+LLM_PY = "src/bewerbungs_assistent/services/llm_service.py"
 T_PW = ["tests/test_v18_installer_rest_1149.py", "tests/test_v18_auto_update_installer_bat.py",
         "tests/test_v18_auto_update_installer_aufraeumen.py"]
 T_PD = ["tests/test_v18_aufraeum_runde_1139.py", "tests/test_v18_google_original_1184.py"]
@@ -2132,10 +2134,24 @@ M_PRUEFUNG = [
     ("ba02", "Installer: ein Kommentar mit Klammer im Migrationsblock", IB,
      "    :: dokumente/ und export/ Inhalte migrieren, nur wenn im alten Pfad vorhanden\n",
      "    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)\n", T_BA),
+    # ── #1227: die Ollama-Abfrage kostete ohne Ollama unter Windows 4 s (dritter Werkstatt-PC-Lauf) ──
+    ("ol01", "Ollama-Probe: der Zeitablauf der Schleifenprobe ist wieder 2,0 s", LLM_PY,
+     "OLLAMA_PROBE_TIMEOUT_S = 0.5\n", "OLLAMA_PROBE_TIMEOUT_S = 2.0\n", T_OL),
+    ("ol02", "Ollama-Abfrage: ohne Probe, die Abfrage geht wieder blind an localhost", LLM_PY,
+     "            basis = self._ollama_basis()\n", "            basis = self._status.ollama_endpoint\n", T_OL),
+    ("ol03", "Ollama-Probe: ::1 wird nicht probiert", LLM_PY,
+     "        for adresse in (\"127.0.0.1\", \"::1\"):\n", "        for adresse in (\"127.0.0.1\",):\n", T_OL),
+    ("ol04", "Ollama-Abfrage: sie geht nicht an die annehmende Adresse, sondern wieder an localhost", LLM_PY,
+     "            return f\"{teile.scheme or 'http'}://{host}:{port}\"\n", "            return endpunkt\n", T_OL),
+    ("ol05", "Ollama-Probe: auch ein fremder Endpunkt bekommt die Schleifenprobe", LLM_PY,
+     "        if (teile.hostname or \"\").lower() != \"localhost\":\n", "        if False:\n", T_OL),
+    ("ol06", "Erweiterungen: der Handler ist wieder ein async-Handler und haelt den Server an", DASH,
+     "@app.get(\"/api/components\")\ndef api_components_overview():\n",
+     "@app.get(\"/api/components\")\nasync def api_components_overview():\n", T_OL),
 ]
 KATALOGE["pruefung1214"] = M_PRUEFUNG
 GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
-                                ("T_VI", T_VI), ("T_BA", T_BA))
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL))
 
 WT = None
 
