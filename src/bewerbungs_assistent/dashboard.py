@@ -3835,7 +3835,10 @@ async def api_documents_bulk_prepare(request: Request):
         "Bitte analysiere diese Dokumente in PBP — extrahiere Profil-Daten, "
         "klassifiziere und markiere abgeschlossen.\n\n"
         f"Dokumente ({len(rows)}):\n" + "\n".join(file_lines) + "\n\n"
-        f"Tool-Aufruf: dokumente_batch_analysieren(dokument_ids={ids})"
+        # #1200 A12: dokumente_batch_analysieren kennt keine ID-Liste (es
+        # arbeitet in Stapeln ueber alle offenen) — der Waechter fand den Aufruf.
+        f"Lade genau diese Dokumente mit extraktion_starten(document_ids={ids}) und "
+        "verarbeite sie wie im Ablauf workflow_starten(name='dokumente_verarbeiten')."
     )
     return {
         "status": "ok",
@@ -8946,9 +8949,9 @@ async def api_contact_enrich_from_linkedin(request: Request):
     Body: {"contact_id": "..."} ODER {"linkedin_url": "..."}
 
     Antwort: ein Prompt-Block den der User in Claude einfuegt. Claude
-    oeffnet dann die LinkedIn-URL ueber javascript_tool, extrahiert die
+    liest das Profil im angemeldeten Chrome-Tab, entnimmt die
     sichtbaren Felder (Name, Position, Firma, Standort, Skills) und
-    aktualisiert den Kontakt via `/api/contacts/{id}`.
+    traegt das Ergebnis mit kontakt_bearbeiten/kontakt_anlegen ein (#1200 A1).
     """
     data = await request.json()
     cid = (data.get("contact_id") or "").strip()
@@ -9001,21 +9004,35 @@ async def api_contact_enrich_from_linkedin(request: Request):
 })()
 """.strip()
 
+    # #1200 A1: Claude schreibt ueber die PBP-Werkzeuge zurueck, nicht ueber
+    # die REST-Schnittstelle (die erreicht Claude Desktop gar nicht), und der
+    # Nutzertext traegt keinen Code. Das Skript bleibt im Feld extraction_js.
+    if cid:
+        kid = f"CON-{str(contact.get('id') or cid)[:8]}"
+        wer = (contact.get("full_name") or "").strip() or "diesen Kontakt"
+        zurueck = (
+            f"3. Lies mit kontakt_anzeigen(kontakt_id='{kid}'), was PBP schon über {wer} weiß.\n"
+            f"4. Ergänze den Kontakt mit kontakt_bearbeiten(kontakt_id='{kid}', ...): "
+            "leere Felder füllst du direkt (position, firma). Steht dort schon etwas anderes, "
+            "frag mich kurz, bevor du es ersetzt.\n"
+            "5. Standort und Kurzprofil gehören in notizen. kontakt_bearbeiten ersetzt die Notizen, "
+            "also gib die bisherigen Notizen mit und hänge das Neue an.\n"
+        )
+    else:
+        zurueck = (
+            "3. Lege den Kontakt mit kontakt_anlegen(name=..., firma=..., position=..., "
+            f"linkedin_url='{li_url}', notizen=<Standort und Kurzprofil>) an. Meldet PBP, dass es "
+            "ihn schon gibt, ergänze den vorhandenen mit kontakt_bearbeiten(kontakt_id=...) und "
+            "lege keinen zweiten an.\n"
+        )
     prompt = (
-        f"PBP — LinkedIn-Profil-Anreicherung\n\n"
-        f"1. Öffne im eingeloggten Chrome-Tab: {li_url}\n"
-        f"2. Führe dieses JavaScript aus (javascript_tool):\n\n"
-        f"{extraction_js}\n\n"
-        f"3. Aktualisiere den Kontakt mit den extrahierten Feldern via "
-        f"PUT /api/contacts/{cid or '<contact_id>'}.\n\n"
-        f"Felder-Mapping (LinkedIn → Kontakt):\n"
-        f"  name → full_name\n"
-        f"  headline → position\n"
-        f"  company → company\n"
-        f"  location → notes (anhängen)\n"
-        f"  about_excerpt → notes (anhängen)\n\n"
-        f"Wenn die Selektoren leer zurückkommen (LinkedIn rotiert sie häufig),\n"
-        f"falle auf get_page_text() zurück und extrahiere manuell."
+        "PBP — Kontakt aus LinkedIn ergänzen\n\n"
+        f"1. Öffne im Chrome-Tab, in dem ich bei LinkedIn angemeldet bin: {li_url}\n"
+        "2. Lies die sichtbare Seite (get_page_text): Name, Position, Firma, Standort und die "
+        "ersten Sätze des Profiltexts. Übernimm nur, was dort steht — nichts ergänzen oder raten.\n"
+        f"{zurueck}"
+        "Zum Schluss: sag mir in einem Satz, was du in PBP geändert hast. Konntest du das Profil "
+        "nicht lesen (nicht angemeldet, Seite leer), sag das und ändere nichts."
     )
 
     return {
@@ -9025,9 +9042,9 @@ async def api_contact_enrich_from_linkedin(request: Request):
         "prompt": prompt,
         "extraction_js": extraction_js,
         "hinweis": (
-            "LinkedIn-Profile können nicht direkt vom Server gescrapt werden "
-            "(Login-Wall, Bot-Detection). Nutze diesen Prompt mit Claude-in-"
-            "Chrome — der eingeloggte Browser-Tab umgeht die Sperren."
+            "LinkedIn lässt keine Abrufe vom Server zu (Login-Wall, Bot-Detection). "
+            "Claude liest das Profil deshalb in deinem angemeldeten Chrome-Tab — so, "
+            "wie du es selbst siehst — und trägt es über PBP ein."
         ),
     }
 

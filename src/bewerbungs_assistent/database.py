@@ -6974,7 +6974,10 @@ class Database:
                         "cover_letter_path", "cv_path",
                         "gehaltsvorstellung", "final_salary",
                         # v1.7.0-beta.32 (#588): Originalwortlaut-Snapshot
-                        "description_snapshot", "snapshot_date")
+                        "description_snapshot", "snapshot_date",
+                        # #1200 A3: Absagegrund nachtragen (das Werkzeug
+                        # prueft vorher den Status)
+                        "rejection_reason")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")

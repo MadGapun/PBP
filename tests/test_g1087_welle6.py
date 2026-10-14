@@ -37,8 +37,10 @@ def test_g61_top_stellen_nach_den_regeln_des_stellen_tabs():
 
 def test_g61_kein_null_gehalt():
     seite = _lesen(FRONTEND / "pages" / "DashboardPage.jsx")
-    assert "gehaltsWert(salaryMetrics.averageMin)" in seite
-    assert "gehaltsWert(salaryMetrics.bandMin)" in seite
+    # #1200 B1: die Rechnung steht in lib/gehaltsKennzahl.js (gehaltsKacheln,
+    # mit positiveSalary) und gilt fuer Dashboard UND Stellen-Seite; der
+    # Leerfall ist im Node-Test gehaltsKennzahl.test.mjs abgedeckt.
+    assert 'gehaltsKacheln(salaryMetrics, "—")' in seite
     assert '"Keine Angabe"' not in seite[seite.index("const salaryMetrics"):seite.index("const lastSearchAt")]
 
 

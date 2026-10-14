@@ -157,7 +157,8 @@ KURZ = {
         "wird angehaengt, nie überschrieben. Nutzen, wenn sich Angaben "
         "aendern oder nachgetragen werden. Für den Status "
         "bewerbung_status_aendern, für eine reine Notiz bewerbung_notiz, "
-        "für Termine meeting_hinzufuegen."),
+        "für Termine meeting_hinzufuegen. Den Absagegrund einer schon "
+        "abgelehnten Bewerbung trägt ablehnungsgrund nach."),
     "bewerbung_details": (
         "Zeigt eine Bewerbung vollstaendig: Stelle mit Anzeigentext, "
         "Verlauf, Termine, Dokumente, Kontakte, Recherche, offene Aufgaben "

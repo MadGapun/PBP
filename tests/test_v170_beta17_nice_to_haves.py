@@ -124,7 +124,7 @@ def test_533_bulk_prepare_returns_prompt_with_ids(setup_env):
     assert j["count"] == 1
     assert "d1" in j["ids"]
     assert "d2" not in j["ids"]
-    assert "dokumente_batch_analysieren" in j["prompt"]
+    assert "extraktion_starten(document_ids=" in j["prompt"]  # #1200 A12
     assert "cv.pdf" in j["prompt"]
 
 

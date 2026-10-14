@@ -17,10 +17,10 @@ import { startTransition, useCallback, useEffect, useEffectEvent, useRef, useSta
 import { api, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import { berlinDayDiff, berlinTimeOfDay } from "@/lib/relativeDate";
-import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
+import { buildAnnualSalaryMetrics, gehaltsKacheln, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { readinessWirdVomBlockGetragen, zeigeProfilKpi } from "@/lib/dashboardRegeln";
 import { punkteText, punkteWert, scoreText } from "@/lib/score";
-import { bewerbungenProWoche, gehaltsWert, KEIN_GEHALT, topStellen, WOCHEN_ANSICHTEN } from "@/lib/kennzahlen";
+import { bewerbungenProWoche, KEIN_GEHALT, topStellen, WOCHEN_ANSICHTEN } from "@/lib/kennzahlen";
 import { FILTER_TOP_STELLEN, listenParameter } from "@/pages/JobsPage";
 import { createFileSignature, uploadDocumentFile } from "@/document-upload";
 import { extractDroppedFiles } from "@/file-drop";
@@ -39,7 +39,6 @@ import {
   buildReplyMailto,
   cn,
   extractEmailAddress,
-  formatCurrency,
   formatDate,
   readinessTone,
 } from "@/utils";
@@ -244,31 +243,9 @@ export default function DashboardPage() {
   const salaryMetrics = buildAnnualSalaryMetrics(data.jobs);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
   const salaryCount = Number(salaryMetrics.annualBasisCount || 0);
-  // G61 (#1087 B4): 0 EUR ist kein Gehalt — sonst stand "0 – 0 EUR" da.
-  const salaryMin = gehaltsWert(salaryMetrics.averageMin);
-  const salaryMax = gehaltsWert(salaryMetrics.averageMax);
-  const hasSalaryMin = salaryMin !== null;
-  const hasSalaryMax = salaryMax !== null;
-  const salaryAverage = hasSalaryMin && hasSalaryMax
-    ? Math.round((salaryMin + salaryMax) / 2)
-    : hasSalaryMin
-      ? Math.round(salaryMin)
-      : hasSalaryMax
-        ? Math.round(salaryMax)
-        : null;
-  // v1.6.2: Bandbreite = echte Min/Max-Spanne (gleiche Semantik wie JobsPage).
-  const bandMin = gehaltsWert(salaryMetrics.bandMin);
-  const bandMax = gehaltsWert(salaryMetrics.bandMax);
-  const hasBandMin = bandMin !== null;
-  const hasBandMax = bandMax !== null;
-  const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
-  const salaryBandText = hasBandMin && hasBandMax
-    ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
-    : hasBandMin
-      ? formatCurrency(bandMin)
-      : hasBandMax
-        ? formatCurrency(bandMax)
-        : "—";
+  // G61 (#1087 B4): 0 EUR ist kein Gehalt. #1200 B1: dieselbe Rechnung wie
+  // auf der Stellen-Seite (lib/gehaltsKennzahl), nicht eine zweite Kopie.
+  const gehaltsKachel = gehaltsKacheln(salaryMetrics, "—");
   const lastSearchAt = chrome.searchStatus?.last_search || "";
   const searchDaysAgo = Number(chrome.searchStatus?.days_ago);
   const hasSearchDays = Number.isFinite(searchDaysAgo);
@@ -721,14 +698,14 @@ export default function DashboardPage() {
           />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "—"}
-            note={salaryAverage !== null ? grundlagenText(salaryMetrics) : KEIN_GEHALT}
+            value={gehaltsKachel.durchschnittText}
+            note={gehaltsKachel.durchschnitt !== null ? grundlagenText(salaryMetrics) : KEIN_GEHALT}
             tone="success"
           />
           <MetricCard
             label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryBandText}
-            note={salaryBandText !== "—" ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : KEIN_GEHALT}
+            value={gehaltsKachel.bandText}
+            note={gehaltsKachel.hatBand ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}` : KEIN_GEHALT}
             tone="success"
           />
         </div>

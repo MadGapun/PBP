@@ -114,7 +114,10 @@ def test_build_prompt_non_profile_workflow_mentions_pbp_tools():
     doc = {"id": "1", "filename": "x.pdf", "doc_type": "stellenbeschreibung"}
     result = build_prompt(doc)
     assert result["apply_to_profile"] is False
-    assert "nachfass_planen" in result["prompt"] or "bewerbung_status_aendern" in result["prompt"]
+    # #1200 A4: die Vorlage RUFT Werkzeuge auf, die eintragen und abschliessen;
+    # bei einer Stellenanzeige sind das Notiz bzw. neue Stelle, kein Statuswechsel.
+    assert "bewerbung_notiz(" in result["prompt"]
+    assert "dokument_status_setzen(" in result["prompt"]
 
 
 def test_build_prompt_email_adds_email_hint():

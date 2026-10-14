@@ -912,8 +912,8 @@ def register(mcp, db, logger):
             result["rueckfrage_ablehnungsgrund"] = (
                 "Kein Ablehnungsgrund angegeben. Frag den Nutzer kurz: Gab es "
                 "ein Absageschreiben oder eine Begruendung? Nachtragen mit "
-                "bewerbung_status_aendern(..., 'abgelehnt', "
-                "ablehnungsgrund='...') oder bewerbung_notiz(). Hintergrund: "
+                "bewerbung_bearbeiten(bewerbung_id, ablehnungsgrund='...') — "
+                "nur dieses Feld liest die Musteranalyse. Hintergrund: "
                 "Taucht die Stelle als Repost wieder auf, lässt sich ohne "
                 "Grund nicht beurteilen, ob die alte Hürde noch steht."
             )
@@ -1225,6 +1225,7 @@ def register(mcp, db, logger):
         applied_at: str = "",
         stellenbeschreibung_original: str = "",
         notizen_ersetzen: bool = False,
+        ablehnungsgrund: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -1267,10 +1268,28 @@ def register(mcp, db, logger):
             stellenbeschreibung_original: Wortgetreuer Originalwortlaut
                 der Stellenanzeige (#588). Wird in description_snapshot
                 gespeichert. NICHT für Notizen verwenden.
+            ablehnungsgrund: Absagegrund einer schon abgelehnten Bewerbung
+                nachtragen, in den Worten der Firma — nie erfinden. Speist
+                ablehnungs_muster und die Absage-Auswertung.
         """
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
+
+        # #1200 A3: Bis 1.8.0 gab es fuer eine schon abgelehnte Bewerbung
+        # keinen Weg, den Grund nachzutragen, ausser den Status ein zweites
+        # Mal auf 'abgelehnt' zu setzen (zweiter Verlaufseintrag). Das
+        # Coaching speicherte ihn deshalb als Notiz — die liest die
+        # Musteranalyse nicht. Erst pruefen, dann schreiben.
+        ablehnungsgrund = (ablehnungsgrund or "").strip()
+        if ablehnungsgrund and (app.get("status") or "") != "abgelehnt":
+            return {
+                "fehler": "Ein Absagegrund gehört nur an eine abgelehnte Bewerbung.",
+                "hinweis": (
+                    "Ist die Absage gerade gekommen: bewerbung_status_aendern("
+                    f"bewerbung_id, 'abgelehnt', ablehnungsgrund='{ablehnungsgrund}'). "
+                    "Es wurde nichts geändert."),
+            }
 
         # #529: applied_at separat normalisieren
         applied_at_norm = ""
@@ -1303,7 +1322,8 @@ def register(mcp, db, logger):
                          ("source", source), ("vermittler", vermittler), ("endkunde", endkunde),
                          ("cover_letter_path", cover_letter_path), ("cv_path", cv_path),
                          ("gehaltsvorstellung", gehaltsvorstellung), ("final_salary", final_salary),
-                         ("applied_at", applied_at_norm)]:
+                         ("applied_at", applied_at_norm),
+                         ("rejection_reason", ablehnungsgrund)]:
             if val:
                 updates[key] = val
 

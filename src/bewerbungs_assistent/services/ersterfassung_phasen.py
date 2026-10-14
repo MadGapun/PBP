@@ -32,7 +32,8 @@ Arbeite dich organisch durch, was fehlt; speichere sofort.
   aktion='anhang', ...).
 - Praeferenzen: Zielrollen, Festanstellung oder Freelance, Region,
   Remote, Reisebereitschaft, Umzug: profil_erstellen().
-- Wohnort mit PLZ: profil_erstellen(plz=..., city=...). Von dort rechnet
+- Wohnort mit PLZ: profil_erstellen(name=..., plz=..., city=...) — name
+  ist Pflicht, die übrigen Angaben bleiben erhalten. Von dort rechnet
   PBP die Entfernung zu jeder Stelle; fehlt er, gibt es keine. Soll von
   einem anderen Ort aus gerechnet werden (Zweitwohnsitz, geplanter Umzug):
   suchkriterien_setzen(standort='PLZ Ort').

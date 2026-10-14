@@ -39,6 +39,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
 Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
 Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick, und in Stelle, Bewerbung, Person und Firma steht oben eine feste Leiste mit dem Rückweg und dem nächsten Schritt. Die Listen beginnen mit ihrer ersten Zeile statt mit Kennzahlen. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
+Was Claude für dich erarbeitet — den Grund einer Absage, ein einzelnes Dokument, die Angaben aus einem LinkedIn-Profil —, trägt es jetzt selbst in PBP ein, statt es nur im Chat zu nennen. Ohne Gehaltsangaben zeigt die Stellen-Seite „Keine Angabe“ statt „0 EUR“.
 <!-- /anwender -->
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
@@ -82,6 +83,11 @@ Einträgen darunter.
   verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nur, wenn du es mit dem Schalter „Vorabversionen automatisch“ erlaubst — Vorgabe aus, nur auf einer
   Vorab-Installation —, und nie von selbst auf eine stabile Installation, auch nicht mit „Mit einem Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
   einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180).
+- **Was Claude erarbeitet, kommt in PBP an (#1200).** Die Knöpfe „mit Claude“ legen einen Auftrag in die Zwischenablage. Bei einer Absage, einem
+  einzelnen Dokument und einem LinkedIn-Profil endete der Auftrag bisher im Chat: Claude nannte, was zu tun wäre, und PBP blieb, wie es war. Jetzt trägt
+  Claude die Absage samt Grund ein, plant die Nachfrage, hängt das Dokument an die Bewerbung und schließt es ab — und sagt zum Schluss, was es eingetragen hat.
+  „Bewerbung vorbereiten“, „Schnell bewerben“ und die Jobsuche folgen dabei einem gemeinsamen Ablauf: erst prüfen, dann als Word-Datei exportieren, keine
+  zweite Bewerbung anlegen.
 
 - **Texterkennung ohne Administratorrechte (Einstellungen › Erweitert › Erweiterungen).** „Herunterladen & installieren“ fragt nicht nach Administratorrechten: das Programm kommt nur für dich nach `%LOCALAPPDATA%\Programs\Tesseract-OCR`, das deutsche Sprachpaket dazu, und lässt sich dort wieder entfernen — auch durch den Deinstaller. Ein eingescanntes PDF wird beim Hochladen gelesen (`deu+eng`).
 
@@ -267,6 +273,27 @@ Einträgen darunter.
 
 ### Fixed
 
+- **LinkedIn-Daten holen schrieb an den Werkzeugen vorbei** (#1200 A1; seit v1.7.0-beta.21). Der kopierte Auftrag verlangte `PUT /api/contacts/<id>`
+  (eine Adresse des Dashboards, die Claude Desktop nicht erreicht) mit den Spaltennamen der Datenbank und legte rund 1,5 KB JavaScript in die
+  Zwischenablage. Jetzt liest Claude die Seite im angemeldeten Chrome-Tab und schreibt mit `kontakt_bearbeiten` bzw. `kontakt_anlegen` zurück (vorhandene
+  Angaben ersetzt es nur nach Rückfrage); der Dialog sagt bei einem neuen Kontakt, dass er danach ohne Speichern geschlossen wird.
+- **Vier Anleitungen für „Bewerbung erstellen“ widersprachen sich** (#1200 A2). `bewerbung_vorbereitung` exportierte den Lebenslauf vor der Bewertung und
+  nannte „Score < 70“, `auto_bewerbung` legte ohne Prüfung eine Bewerbung an („nicht unnötig fragen“), die Jobsuche bot PDF an. Jetzt verweisen alle drei
+  auf den Ablauf `bewerbung_schreiben` (prüfen, dann DOCX, keine Dublette); die Vorbereitung hält zusätzlich das Urteil zur Stelle fest.
+- **Der Absagegrund aus dem Gespräch fehlte in „Aus Absagen lernen“** (#1200 A3). Das Coaching speicherte ihn als Notiz, die Musteranalyse liest das Feld
+  `rejection_reason` — und für eine schon abgelehnte Bewerbung gab es keinen Weg dorthin außer einem zweiten Statuswechsel. Neu: `bewerbung_bearbeiten(...,
+  ablehnungsgrund=...)` trägt ihn nach, nur bei abgelehnten Bewerbungen (sonst kommt der Hinweis auf `bewerbung_status_aendern`, und nichts wird geändert).
+- **Ein einzelnes Dokument blieb nach der Analyse offen** (#1200 A4). Die Vorlage sagte „nenne die passenden PBP-Tools“; Status, Nachfrage und Abschluss
+  passierten nicht. Jetzt nennt jede Vorlage die Aufrufe zum Eintragen (Absage, Eingang, Termin, Angebot, Notiz) und schließt mit
+  `dokument_status_setzen(..., "angewendet")`. Außerdem bekam ein Dokument, das PBP schon als Absage, Eingangsbestätigung, Angebot oder Einladung erkannt
+  hatte, die allgemeine Vorlage — die Typen werden jetzt zugeordnet.
+- **Die Stellen-Seite zeigte „0 EUR“ und „0 – 0 EUR“, wenn keine Stelle ein Gehalt nennt** (#1200 B1). G61 hatte das im Dashboard behoben, die Stellen-Seite
+  rechnete mit einer eigenen Kopie weiter (`Number(null)` ist 0). Beide Kacheln kommen jetzt aus einer Funktion (`gehaltsKacheln`).
+- **Der Prompt-Wächter prüft jetzt alle Stellen, an denen ein Auftrag für Claude entsteht** (#1200 A12): auch `dashboard.py`, die Dokument-Vorlagen,
+  `services/*` und die Texte im Frontend; er meldet Werkzeuge, die es nicht gibt, und fehlende Pflichtangaben. Gefunden und behoben:
+  `dokumente_batch_analysieren(dokument_ids=...)` (den Parameter gibt es nicht), `stilarchiv_speichern(kind="cv")` ohne Text,
+  `stellen_anzeigen(beschreibung_fehlt=True)`, `profil_erstellen(plz=..., city=...)` ohne Namen, `profil_bearbeiten(bereich='projekt')` ohne Aktion und
+  `bewerbung_stellen_anzeigen` als Suche nach der Bewerbung zu einer Firma.
 - **Das Nachladen der Anzeigentexte und die Prüfung der Adressen kamen nie über die ersten Stellen hinaus** (#1139; seit v1.7.0). Beides nahm ohne Reihenfolge die ersten 24 bzw. 30
   Kandidaten nach Zeilennummer; standen die im Backoff, wurden die übrigen nie versucht (gemessen: 30 Stellen ohne Text, 24 im Backoff, 0 versucht, 6 nie). Jetzt gilt eine feste
   Reihenfolge — nie versuchte zuerst, dann die am längsten wartende. Der Fehlzähler verfällt nach 14 Tagen (ein Zähler aus der Zeit vor 1.8.0 ohne Zeitstempel sofort: wer seit Monaten im
