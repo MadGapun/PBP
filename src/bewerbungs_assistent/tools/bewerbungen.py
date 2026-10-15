@@ -1440,7 +1440,7 @@ def register(mcp, db, logger):
 
         Args:
             bewerbung_id: ID der Bewerbung
-            notiz: Die Notiz (wird mit aktuellem Datum/Uhrzeit gespeichert)
+            notiz: Die Notiz (wird mit Datum und Uhrzeit gespeichert)
             art: `intern` (Vorgabe), `kontakt` oder `nachfrage`. Nur `kontakt`
                 und `nachfrage` schließen die offene Nachfass-Erinnerung.
         """
