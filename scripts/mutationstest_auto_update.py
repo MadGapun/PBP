@@ -2277,6 +2277,57 @@ M_PII = [
 KATALOGE["pii1231"] = M_PII
 GRUNDLAEUFE["pii1231"] = (("T_PU", T_PU),)
 
+# ── #1232: eine interne Notiz schliesst den automatischen Nachfass nicht mehr ──
+T_NF = ["tests/test_v17158_nachfass_notiz_1232.py", "tests/test_v17142_termin_folgen_1123.py",
+        "tests/test_v18_nachfass_notiz_anleitung_1232.py"]
+NF_TOOL = "src/bewerbungs_assistent/tools/bewerbungen.py"
+NF_DIENST = "src/bewerbungs_assistent/services/nachfass_abgleich.py"
+NF_TERMIN = "src/bewerbungs_assistent/services/termin_folgen.py"
+NF_PROMPTS = "src/bewerbungs_assistent/prompts.py"
+NF_HANDLER = "src/bewerbungs_assistent/services/document_handlers.py"
+NF_RUECK = "src/bewerbungs_assistent/document_analysis_prompts.py"
+M_NACHFASS = [
+    ("nf01", "bewerbung_notiz: die Vorgabe ist wieder Kontakt statt intern", NF_TOOL,
+     'def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "intern") -> dict:',
+     'def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "kontakt") -> dict:', T_NF),
+    ("nf02", "bewerbung_notiz: art=kontakt schliesst die Erinnerung nicht mehr", NF_TOOL,
+     '            hinfaellig = nachfass_abgleich.kontakt_gemeldet(\n                db, bewerbung_id, "Gesprächsnotiz")\n',
+     '            hinfaellig = []\n', T_NF),
+    ("nf03", "bewerbung_notiz: art=nachfrage setzt hinfaellig statt erledigt", NF_TOOL,
+     '            erledigt = nachfass_abgleich.nachfrage_gesendet(db, bewerbung_id)\n',
+     '            erledigt = nachfass_abgleich.kontakt_gemeldet(db, bewerbung_id, "Nachfrage")\n', T_NF),
+    ("nf04", "bewerbung_notiz: das Feld heisst wieder erledigt, obwohl hinfaellig gespeichert wird", NF_TOOL,
+     '                ergebnis["nachfassung_hinfaellig"] = hinfaellig\n',
+     '                ergebnis["nachfassung_erledigt"] = hinfaellig\n', T_NF),
+    ("nf05", "bewerbung_notiz: eine unbekannte Art wird still wie intern behandelt", NF_TOOL,
+     '        if art_norm not in nachfass_abgleich.NOTIZ_ARTEN:\n',
+     '        if False:\n', T_NF),
+    ("nf06", "Dienst: schliessen ignoriert den gewuenschten Zustand", NF_DIENST,
+     '            (status, _jetzt(), fu["id"]))\n',
+     '            ("hinfaellig", _jetzt(), fu["id"]))\n', T_NF),
+    ("nf07", "Dienst: ein unbekannter Zustand wird angenommen", NF_DIENST,
+     '    if status not in SCHLIESS_STATUS:\n',
+     '    if False:\n', T_NF),
+    ("nf08", "Termin: das Feld heisst wieder erledigt, obwohl hinfaellig gespeichert wird", NF_TERMIN,
+     '            ergebnis["nachfassung_hinfaellig"] = hinfaellig\n',
+     '            ergebnis["nachfassung_erledigt"] = hinfaellig\n', T_NF),
+    ("nf09", "Werkzeugschema: der Parameter art hat keinen Text mehr", NF_TOOL,
+     '            art: `intern` (Vorgabe), `kontakt` oder `nachfrage`. Nur `kontakt`\n'
+     '                und `nachfrage` schließen die offene Nachfass-Erinnerung.\n',
+     '', T_NF),
+    ("nf10", "Anleitung: die Mail des Arbeitgebers nennt art=kontakt nicht mehr", NF_PROMPTS,
+     'art="kontakt") — eine Mail des Arbeitgebers ist Kontakt',
+     ') — eine Mail des Arbeitgebers ist Kontakt', T_NF),
+    ("nf11", "Anleitung: das Projekt-Update nennt art=kontakt nicht mehr", NF_HANDLER,
+     "\"claude_action\": \"bewerbung_notiz(bewerbung_id, '...', art='kontakt') mit dem Update-Inhalt + ggf. nachfass_planen\",",
+     "\"claude_action\": \"bewerbung_notiz(bewerbung_id, '...') mit dem Update-Inhalt + ggf. nachfass_planen\",", T_NF),
+    ("nf12", "Rueckfuehrung: das Gespraechsprotokoll nennt art=kontakt nicht mehr", NF_RUECK,
+     "bewerbung_notiz(bewerbung_id, '...', \"\n        \"art='kontakt') an die Bewerbung schreiben",
+     "bewerbung_notiz(bewerbung_id, '...') \"\n        \"an die Bewerbung schreiben", T_NF),
+]
+KATALOGE["nachfass1232"] = M_NACHFASS
+GRUNDLAEUFE["nachfass1232"] = (("T_NF", T_NF),)
+
 WT = None
 
 

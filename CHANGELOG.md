@@ -503,6 +503,15 @@ Einträgen darunter.
   Anwendung). `scripts/scrub_pii.py` verglich eine Firmenangabe mit `FIKTIVE_FIRMEN` nur in der Schreibweise der Liste: ein Beitrag, der
   denselben Platzhalter mit „ü“ schrieb, bekam einen Firmentreffer. Jetzt gelten beide Schreibweisen (Text und Liste werden in Umschrift
   verglichen); eine ähnliche echte Firma bleibt ein Treffer.
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betrifft auch Stable seit 1.7.142, Folge von #1123). `bewerbung_notiz`
+  behandelte JEDE Notiz als Kontakt mit dem Arbeitgeber: wer eine Bewerbung anlegte (das legt den 21-Tage-Nachfass an) und gleich danach eine
+  interne Notiz ergänzte, verlor die Erinnerung nach Minuten, und die Antwort sagte „erledigt“, obwohl `hinfaellig` gespeichert wurde. In einem
+  echten Bestand waren zwei von drei Schließungen durch Notizen zu Unrecht. Jetzt hat `bewerbung_notiz` den Parameter `art`: `intern`
+  (Vorgabe) lässt die Erinnerung stehen, `kontakt` macht sie hinfällig (wie bisher), `nachfrage` setzt sie auf `erledigt`; eine unbekannte Art
+  wird abgewiesen, bevor etwas geschrieben wird. Die Antwort nennt den gespeicherten Zustand (`nachfassung_hinfaellig`,
+  `nachfassung_erledigt`) und den Weg zurück (`nachfass_planen`); dasselbe Feld nennt der verschobene Termin. Die Anleitungen (Mail des
+  Arbeitgebers, Projekt-Update, Gesprächsfeedback, Vermittler-Korrespondenz, Gesprächsprotokoll aus der Rückführung) nennen `art="kontakt"`.
+  Alte, zu Unrecht geschlossene Erinnerungen werden nicht von allein geöffnet: das entscheidet der Mensch je Fall.
 
 ### Known Issues
 
@@ -511,7 +520,7 @@ Einträgen darunter.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9328 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9353 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
