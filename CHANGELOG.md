@@ -33,32 +33,36 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.7.158] - 2026-10-14 — Ein Firmenname in der Notiz macht keinen Endkunden mehr
+## [1.7.158] - 2026-10-15 — Eine interne Notiz lässt den Nachfass stehen, und ein Firmenname im Notiztext macht keinen Endkunden
 
-Hotfix für v1.7.157. Die Warnung „Schon beworben? Läuft über …“ (mit dem Namen des Vermittlers) nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand — und blieb stehen, auch nachdem der Endkunde richtig nachgetragen war (#1198). Ein Beitrag aus der Gemeinschaft (PR #1230) hat das behoben; dieser Hotfix übernimmt ihn nach eigener Prüfung.
+Hotfix für v1.7.157. Zwei Befunde aus dem Alltag, beide an der Frage, was PBP aus einer Notiz folgert. Jede Notiz, die zu einer Bewerbung geschrieben wurde, galt als „Kontakt mit dem Arbeitgeber“ und machte die automatische Nachfass-Erinnerung hinfällig: wer eine Bewerbung anlegte und gleich danach eine interne Notiz ergänzte, verlor den 21-Tage-Nachfass nach Minuten, ohne es zu merken (#1232). Und die Warnung „Schon beworben? Läuft über …“ (mit dem Namen des Vermittlers) nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand (#1198; Beitrag aus der Gemeinschaft, PR #1230).
 
 **Wichtig zu wissen:**
 
+- **Eine Notiz ist standardmäßig intern und lässt die Nachfass-Erinnerung stehen.** `bewerbung_notiz` hat den neuen Parameter `art`: `intern` (Vorgabe: eigene Recherche, Vorbereitung, Einschätzung), `kontakt` (ein Gespräch, ein Telefonat oder eine Antwort des Arbeitgebers) und `nachfrage` (du hast selbst nachgefragt). Im Zweifel `intern`.
+- **Hast du mit dem Arbeitgeber gesprochen,** sagt Claude es mit `art="kontakt"`: dann wird die offene Nachfass-Erinnerung wie bisher hinfällig („wer heute gesprochen hat, muss morgen nicht nachfragen“, #1123). Mit `art="nachfrage"` gilt sie als erledigt (und zählt in den Reaktionszeiten).
+- **Die Antwort nennt den gespeicherten Zustand** (`nachfassung_hinfaellig` oder `nachfassung_erledigt`, vorher stand immer „erledigt“) und sagt, wie man eine Erinnerung zurückholt: `nachfass_planen` legt eine neue an. Dasselbe Feld nennt `termin_folgen`, wenn ein verschobener Termin eine Erinnerung hinfällig macht.
+- **Ist dir in den letzten Wochen ein Nachfass verschwunden?** An der Bewerbung steht im Verlauf „Nachfrage erledigt (Gesprächsnotiz) — automatisch … Erinnerung(en) auf hinfällig gesetzt“. In einem echten Bestand waren seit #1123 zwei von drei Schließungen durch Notizen zu Unrecht (interne Notizen wenige Minuten nach dem Anlegen der Bewerbung). Wiederhergestellt wird nichts von allein: mit „Nachfass planen“ legst du die Erinnerung neu an, wo du sie noch willst.
 - **Ein eingetragener Endkunde gilt.** Steht im Feld „Endkunde“ der Bewerbung eine Firma, warnt PBP nur noch bei dieser Firma — eine andere Firma im Notiztext löst keine Warnung mehr aus.
-- **Ein Treffer nur im Text ist eine Vermutung, keine Tatsache.** Der Hinweis sagt dann „… wird in den Notizen oder Firmenangaben erwähnt; ob es der Endkunde ist, bleibt offen“ statt „nennt … als Endkunden“.
-- **Der Hinweis nennt den eingetragenen Vermittler** statt der Firma, unter der die Bewerbung läuft.
-- **Nachtragen wirkt sofort:** Stellenliste, Analyse, Firmen-Kontext und die Anlage von Hand lesen die aktuellen Angaben der Bewerbung.
+- **Ein Treffer nur im Text ist eine Vermutung, keine Tatsache.** Der Hinweis sagt dann „… wird in den Notizen oder Firmenangaben erwähnt; ob es der Endkunde ist, bleibt offen“ statt „nennt … als Endkunden“. Er nennt den eingetragenen Vermittler statt der Firma, unter der die Bewerbung läuft.
 
 ### Fixed
 
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; seit v1.7.142, Folge von #1123). `bewerbung_notiz` rief für JEDE Notiz `kontakt_gemeldet` auf; der übliche Ablauf mit Claude (Bewerbung anlegen, das legt den Nachfass an, dann gleich eine Notiz) ließ die Erinnerung nach Minuten sterben, und die Antwort trug ein Feld `nachfassung_erledigt`, obwohl `hinfaellig` gespeichert wurde. Jetzt schließt nur `art="kontakt"` (hinfällig wie bisher) und `art="nachfrage"` (erledigt); eine unbekannte Art wird abgewiesen, bevor etwas geschrieben wird. Die Anleitungen nennen `art="kontakt"` für die Mail des Arbeitgebers und für drei Dokumenttypen (Projekt-Update, Gesprächsfeedback, Vermittler-Korrespondenz).
 - **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230). `find_vermittler_bewerbung` durchsuchte Firmenangabe, Notizen und das Feld `endkunde` zusammen; ein Treffer im Text galt als Tatsache („nennt Firma F als Endkunden“). Jetzt ist ein eingetragenes `endkunde`-Feld maßgeblich — nennt es eine andere Firma, gibt es keine Warnung —, ein Treffer nur im Freitext bleibt eine offene Vermutung, und der Hinweis nennt den eingetragenen Vermittler (`vermittler`, sonst die Firma der Bewerbung wie bisher).
 
 ### Changed
 
+- `services/nachfass_abgleich.py`: `schliessen(..., status=)` (`hinfaellig` oder `erledigt`), neu `nachfrage_gesendet` und `NOTIZ_ARTEN`; der Verlaufseintrag nennt, was geschehen ist (#1232).
 - Neu in `services/bewerbungs_hinweis.py`: `vermittler_name` und `vermittler_einordnung`; `tools/jobs.py` (Anlage von Hand) benutzt dieselben beiden Funktionen wie Stellenliste und Analyse (#1198).
 
 ### Known Issues
 
-- Unverändert gegenüber v1.7.157 (siehe dort).
+- **Alte, zu Unrecht geschlossene Erinnerungen werden nicht von allein wieder geöffnet** (#1232): das entscheidet der Mensch je Fall; der Verlaufseintrag an der Bewerbung zeigt, wo es geschah.
 
 ### Gemessen
 
-12 neue Tests (7.208 gesamt, gezählt im Klon des Zweigs; v1.7.157 hatte 7.196): sechs aus dem Beitrag (`tests/test_v17126_dubletten_1076.py`, `tests/test_v17143_schon_beworben_1126.py`, `tests/test_v17143_schon_beworben_anschluesse_1126.py`) und sechs eigene Abnahmetests nach den Punkten des Issues (`tests/test_v17158_vermittler_endkunde_1198.py`; auf v1.7.157 rot: drei von sechs). Die Suite des Beitrags lief vollständig (7.202 Tests) in einem eigenen Arbeitsbaum mit isolierter Datenbank.
+34 neue Tests (7.230 gesamt, gezählt im Klon des Zweigs; v1.7.157 hatte 7.196): 22 zu #1232 (`tests/test_v17158_nachfass_notiz_1232.py`: Vorgabe lässt die Erinnerung stehen, `kontakt` und `nachfrage` je mit gespeichertem Zustand und Feldnamen, unbekannte Art schreibt nichts, der Praxisfall Anlegen und gleich danach eine Notiz, der Termin nennt denselben Zustand, das Werkzeugschema nennt `art` und die Vorgabe, die Anleitungen), sechs aus dem Beitrag zu #1198 (`tests/test_v17126_dubletten_1076.py`, `tests/test_v17143_schon_beworben_1126.py`, `tests/test_v17143_schon_beworben_anschluesse_1126.py`) und sechs eigene Abnahmetests nach den Punkten des Issues (`tests/test_v17158_vermittler_endkunde_1198.py`; auf v1.7.157 rot: drei von sechs). Die Suite des Beitrags lief vollständig (7.202 Tests) in einem eigenen Arbeitsbaum mit isolierter Datenbank.
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
