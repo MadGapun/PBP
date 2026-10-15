@@ -90,15 +90,15 @@ KNOWN_TYPES: dict[str, dict] = {
     },
     "projekt_update": {
         "beschreibung": "Zwischenfeedback/Status-Update vom Recruiter (#655)",
-        "claude_action": "bewerbung_notiz mit dem Update-Inhalt + ggf. nachfass_planen",
+        "claude_action": "bewerbung_notiz(bewerbung_id, '...', art='kontakt') mit dem Update-Inhalt + ggf. nachfass_planen",
     },
     "gespraechs_feedback": {
         "beschreibung": "Persönliche Rückmeldung nach einem Gespräch (#655)",
-        "claude_action": "bewerbung_notiz mit Feedback + interview_reflexion_speichern",
+        "claude_action": "bewerbung_notiz(bewerbung_id, '...', art='kontakt') mit Feedback + interview_reflexion_speichern",
     },
     "vermittler_korrespondenz": {
         "beschreibung": "Allgemeine Recruiter-Korrespondenz die nichts Neues fragt (#655)",
-        "claude_action": "bewerbung_notiz, sonst archivieren",
+        "claude_action": "bewerbung_notiz(bewerbung_id, '...', art='kontakt'), sonst archivieren",
     },
     "eingangsbestaetigung": {
         "beschreibung": "Bestätigungs-Mail nach eingereichter Bewerbung",

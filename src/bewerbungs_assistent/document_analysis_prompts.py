@@ -127,8 +127,9 @@ RUECKFUEHRUNG: dict[str, list[str]] = {
         "nachfass_planen(bewerbung_id, tage=<Tage bis dahin>).",
     ],
     "gespraechsnotiz": [
-        "Zusagen, offene Fragen und nächste Schritte mit bewerbung_notiz(bewerbung_id, '...') "
-        "an die Bewerbung schreiben.",
+        "Zusagen, offene Fragen und nächste Schritte mit bewerbung_notiz(bewerbung_id, '...', "
+        "art='kontakt') an die Bewerbung schreiben: ein Gespräch ist Kontakt, die offene "
+        "Nachfass-Erinnerung wird damit hinfällig.",
         "Steht ein Termin darin: meeting_hinzufuegen(bewerbung_id=..., datum='JJJJ-MM-TT HH:MM', "
         "typ='interview'). Ist es eine Einladung und steht die Bewerbung noch nicht auf "
         "'interview' oder 'zweitgespraech': bewerbung_status_aendern(bewerbung_id, 'interview'). "

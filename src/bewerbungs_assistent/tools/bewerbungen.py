@@ -1428,16 +1428,35 @@ def register(mcp, db, logger):
         return notiz_drift.bericht(db)
 
     @mcp.tool()
-    def bewerbung_notiz(bewerbung_id: str, notiz: str) -> dict:
-        """Fügt eine Gesprächsnotiz mit Timestamp zur Bewerbungs-Timeline hinzu.
+    def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "intern") -> dict:
+        """Fügt eine Notiz mit Datum und Uhrzeit zur Timeline einer Bewerbung hinzu.
 
-        Ideal für: Interview-Notizen, Telefonate, E-Mail-Zusammenfassungen,
-        Feedback nach Gesprächen, nächste Schritte.
+        `art` entscheidet, ob die Notiz die offene Nachfass-Erinnerung
+        berührt: `intern` (Vorgabe) für eigene Recherche, Vorbereitung und
+        Einschätzung — die Erinnerung bleibt; `kontakt` für ein Gespräch,
+        Telefonat oder eine Antwort des Arbeitgebers — die Erinnerung wird
+        hinfällig; `nachfrage`, wenn der Mensch selbst nachgefragt hat — die
+        Erinnerung gilt als erledigt. Im Zweifel `intern`.
 
         Args:
             bewerbung_id: ID der Bewerbung
-            notiz: Die Notiz (wird mit aktüllem Datum/Uhrzeit gespeichert)
+            notiz: Die Notiz (wird mit aktuellem Datum/Uhrzeit gespeichert)
+            art: `intern` (Vorgabe), `kontakt` oder `nachfrage`. Nur `kontakt`
+                und `nachfrage` schließen die offene Nachfass-Erinnerung.
         """
+        # #1232: jede Notiz als Kontakt zu werten, ließ den 21-Tage-Nachfass
+        # sterben, sobald nach dem Anlegen einer Bewerbung eine interne Notiz
+        # kam. Kontakt ist nur, was der Aufrufer ausdrücklich so nennt.
+        from ..services import nachfass_abgleich
+        art_norm = str(art or "intern").strip().lower()
+        if art_norm not in nachfass_abgleich.NOTIZ_ARTEN:
+            return {
+                "fehler": f"Unbekannte Art '{art}'.",
+                "erlaubt": list(nachfass_abgleich.NOTIZ_ARTEN),
+                "hinweis": ("intern = eigene Notiz (Vorgabe, die Nachfass-Erinnerung "
+                            "bleibt), kontakt = Gespräch oder Antwort des Arbeitgebers, "
+                            "nachfrage = du hast selbst nachgefragt."),
+            }
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
@@ -1445,16 +1464,29 @@ def register(mcp, db, logger):
         db.add_application_note(bewerbung_id, notiz)
         ergebnis = {
             "status": "gespeichert",
+            "art": art_norm,
             "nachricht": f"Notiz zu '{app.get('title', '')}' bei {app.get('company', '')} hinzugefügt.",
             "timeline_eintraege": len(app.get("events", [])) + 1
         }
-        # #1123: eine Gesprächsnotiz IST gemeldeter Kontakt — wer heute mit
-        # dem Arbeitgeber gesprochen hat, muss morgen nicht nachfragen.
-        from ..services import nachfass_abgleich
-        erledigt = nachfass_abgleich.kontakt_gemeldet(
-            db, bewerbung_id, "Gesprächsnotiz")
-        if erledigt:
-            ergebnis["nachfassung_erledigt"] = erledigt
+        if art_norm == "kontakt":
+            # #1123: wer mit dem Arbeitgeber gesprochen hat und das meldet,
+            # muss nicht nach dem Sachstand fragen. Gespeichert wird
+            # `hinfaellig`, und so heißt auch das Feld (#1232).
+            hinfaellig = nachfass_abgleich.kontakt_gemeldet(
+                db, bewerbung_id, "Gesprächsnotiz")
+            if hinfaellig:
+                ergebnis["nachfassung_hinfaellig"] = hinfaellig
+                ergebnis["hinweis"] = (
+                    f"{len(hinfaellig)} offene Nachfass-Erinnerung(en) auf hinfällig "
+                    "gesetzt, weil du Kontakt gemeldet hast. War es keiner: "
+                    "nachfass_planen legt eine neue Erinnerung an.")
+        elif art_norm == "nachfrage":
+            erledigt = nachfass_abgleich.nachfrage_gesendet(db, bewerbung_id)
+            if erledigt:
+                ergebnis["nachfassung_erledigt"] = erledigt
+                ergebnis["hinweis"] = (
+                    f"{len(erledigt)} offene Nachfass-Erinnerung(en) als erledigt "
+                    "markiert, weil du selbst nachgefragt hast.")
         return ergebnis
 
     @mcp.tool()
