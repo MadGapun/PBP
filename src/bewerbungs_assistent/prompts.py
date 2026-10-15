@@ -379,7 +379,9 @@ SCHRITT 3B — MAIL-KORRESPONDENZ
    - Angebot → bewerbung_status_aendern(bewerbung_id, "angebot")
    - Recruiter-Anfrage zu NEUER Position → bewerbung_erstellen
 3. Mail-Inhalt sichern:
-   - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>")
+   - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>",
+     art="kontakt") — eine Mail des Arbeitgebers ist Kontakt, die offene
+     Nachfass-Erinnerung wird damit hinfällig
    - Optional: dokument_verknuepfen(dokument_id, bewerbung_id) damit das
      Original-PDF an der Bewerbung hängt
 4. Bei Absagen mit erkennbarem Grund: ablehnungsgrund im
@@ -1330,6 +1332,8 @@ WICHTIGE REGELN
 
 - Nach JEDEM Schritt: Timeline-Eintrag erstellen mit bewerbung_notiz()
   z.B. "Fit-Analyse durchgefuehrt (Score: 78)" oder "CV angepasst und exportiert"
+  (art="intern" ist die Vorgabe: eigene Arbeitsschritte lassen die
+  Nachfass-Erinnerung bestehen)
 - Automatisch dokument_verknuepfen() aufrufen wenn Dokumente erstellt werden
 - Wenn der User einen Gesprächstermin erwaehnt: SOFORT mit meeting_hinzufuegen() speichern
   (typ='interview'|'telefon'|'video', datum als ISO-String)

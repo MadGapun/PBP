@@ -264,6 +264,8 @@ def test_1123_ein_abgesagter_termin_ist_kein_kontakt(db):
 
 
 def test_1123_eine_gesprächsnotiz_schliesst_und_meldet_es(db):
+    """Seit #1232 nur noch, wenn die Notiz ausdrücklich als Kontakt gemeldet wird
+    (`art="kontakt"`); eine interne Notiz lässt die Erinnerung stehen."""
     from fastmcp import FastMCP
     from bewerbungs_assistent.tools import bewerbungen, mit_katalog
     app = _bewerbung(db)
@@ -273,11 +275,14 @@ def test_1123_eine_gesprächsnotiz_schliesst_und_meldet_es(db):
 
     async def _run():
         tool = await mcp.get_tool("bewerbung_notiz")
-        r = await tool.run({"bewerbung_id": app, "notiz": "Telefonat mit der Personalabteilung"})
+        r = await tool.run({"bewerbung_id": app, "art": "kontakt",
+                            "notiz": "Telefonat mit der Personalabteilung"})
         return getattr(r, "structured_content", r)
     erg = asyncio.run(_run())
     erg = erg.get("result", erg) if set(erg) == {"result"} else erg
-    assert erg["nachfassung_erledigt"][0]["id"] == fid
+    # gespeichert wird `hinfaellig`, und so heißt auch das Feld (#1232)
+    assert erg["nachfassung_hinfaellig"][0]["id"] == fid
+    assert db.get_follow_up(fid)["status"] == "hinfaellig"
     assert _offene_nachfassungen(db, app) == []
 
 

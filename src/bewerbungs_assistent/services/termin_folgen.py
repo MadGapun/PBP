@@ -223,10 +223,11 @@ def folgen(db, vorher: dict | None, nachher: dict | None) -> dict:
     bestaetigt = ((nachher.get("status") or "") == "bestaetigt"
                   and (vorher.get("status") or "") != "bestaetigt")
     if (verschoben or bestaetigt) and not abgesagt:
-        erledigt = nachfass_abgleich.kontakt_gemeldet(
+        hinfaellig = nachfass_abgleich.kontakt_gemeldet(
             db, app_id, "Termin vereinbart oder verschoben")
-        if erledigt:
-            ergebnis["nachfassung_erledigt"] = erledigt
+        if hinfaellig:
+            # Gespeichert wird `hinfaellig`, und so heißt auch das Feld (#1232).
+            ergebnis["nachfassung_hinfaellig"] = hinfaellig
     return ergebnis
 
 
