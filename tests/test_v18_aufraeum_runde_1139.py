@@ -191,6 +191,29 @@ def test_die_runde_laeuft_im_hintergrund_mit_eigenem_job_und_ergebnis(db, dash, 
     assert (job.get("result") or {}).get("followup_reconciler", {}).get("created_count") == 3
 
 
+def test_eine_laufende_runde_zaehlt_als_hintergrundarbeit_und_hat_einen_klartext(db, dash, monkeypatch):
+    """Daten loeschen und Speicher aufraeumen fragen `datenordner.laufende_arbeit()`: eine laufende Runde schreibt in die Datenbank und muss
+    dort stehen. Das gelingt nur, wenn ihr Thread mit "pbp-" beginnt - unter dem alten Namen sah sie niemand, und die Test-Suite (A22) beendete
+    sie nicht vor dem Schliessen der Datenbank: ein Absturz auf C-Ebene im CI (Exit 139, 16.10.2026)."""
+    import threading
+    from bewerbungs_assistent.services import datenordner
+    gate = threading.Event()
+
+    def _langsam(ausloeser="knopf"):
+        gate.wait(10)
+        return {"ran_at": "x"}
+    monkeypatch.setattr(dash, "run_auto_actions", _langsam)
+    erg = automatik_scheduler.run_aufraeumen_now(db)
+    try:
+        assert erg["status"] == "gestartet"
+        laufend = [n for n in datenordner.laufende_arbeit() if "aufraeumen" in n]
+        assert laufend and all(n.startswith("pbp-") for n in laufend), laufend
+        assert datenordner.arbeit_klartext(laufend) == "die Aufräum-Runde"
+    finally:
+        gate.set()
+        _warte_auf_job(db, erg["job_id"])
+
+
 def test_eine_zweite_runde_startet_nicht_solange_eine_laeuft(db, dash, monkeypatch):
     import threading
     gate = threading.Event()

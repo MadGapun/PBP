@@ -229,7 +229,10 @@ def run_aufraeumen_now(db, log: logging.Logger = logger, ausloeser: str = "autom
             except Exception:  # pragma: no cover
                 pass
 
-    threading.Thread(target=_run, daemon=True, name="automatik-aufraeumen").start()
+    # Der Name beginnt mit "pbp-": so sieht `datenordner.laufende_arbeit()` die Runde (Daten loeschen und Speicher aufraeumen warten auf
+    # sie), und die Test-Suite beendet sie vor dem Schliessen der Datenbank (tests/conftest.py, A22). Unter dem alten Namen
+    # "automatik-aufraeumen" sah beides sie nicht: ein Absturz auf C-Ebene im CI (Exit 139, 16.10.2026).
+    threading.Thread(target=_run, daemon=True, name="pbp-automatik-aufraeumen").start()
     return {"status": "gestartet", "job_id": job_id}
 
 

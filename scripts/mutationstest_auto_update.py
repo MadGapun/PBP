@@ -1575,6 +1575,15 @@ M_AUFRAEUMRUNDE = [
      'await putJson("/api/automatik/settings", { aufraeumen_intervall_tage: Number(value) });', "await Promise.resolve(value);", T_ARB),
     ("ar63", "Der letzte Lauf nennt den Ausloeser nicht", SET_JSX,
      'const von = { automatik: " (von selbst)", knopf: " (per Knopf)", claude: " (durch Claude)" }[status.last_run_by] || "";', 'const von = "";', T_ARB),
+    # CI 16.10.2026 (Exit 139): die Runde lief unter einem Namen, den weder "Daten loeschen" noch der Abbau der Suite sah
+    ("ar70", "Die Runde laeuft wieder unter einem Namen ohne pbp- (laufende_arbeit und der Abbau der Suite sehen sie nicht)",
+     "src/bewerbungs_assistent/services/automatik_scheduler.py",
+     'name="pbp-automatik-aufraeumen"', 'name="automatik-aufraeumen"', T_AR),
+    ("ar71", "Die laufende Runde hat keinen Klartext (es erschiene der Thread-Name)", "src/bewerbungs_assistent/services/datenordner.py",
+     '        elif n.startswith("pbp-automatik-aufraeumen"):\n            teile.append("die Aufräum-Runde")\n', "", T_AR),
+    ("ar72", "Der Takt eines gewoehnlichen Tests startet wieder die echte Runde", "tests/conftest.py",
+     '    monkeypatch.setattr(automatik_scheduler, "run_aufraeumen_now",\n                        lambda *a, **k: {"status": "gestartet", "job_id": 0})\n',
+     "    pass\n", ["tests/test_v18_keine_echte_aufraeum_runde_im_test.py"]),
 ]
 KATALOGE["aufraeumrunde"] = M_AUFRAEUMRUNDE
 GRUNDLAEUFE["aufraeumrunde"] = (("T_AR", T_AR), ("T_ARB", T_ARB))
