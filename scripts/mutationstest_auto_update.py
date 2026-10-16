@@ -1359,6 +1359,19 @@ ICM = "INSTALLIEREN.command"
 DSH = "installer/deinstallieren.sh"
 PS_PTH = "-Command \"(Get-Content -LiteralPath $env:PTH_FILE) -replace"
 
+
+def _server_json_version() -> str:
+    """Die Version, die `server.json` in diesem Baum oben traegt. Der Eintrag i270 sucht genau diese Zeile: stuende die Fassung fest im
+    Muster, bricht jeder Release-Kandidat (1.8.0-rc.4) den Katalog, ohne dass sich an der Pruefung etwas geaendert haette."""
+    try:
+        text = (WURZEL / "server.json").read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    except OSError:
+        return "1.8.0"
+    ende = text.find('",\n  "websiteUrl"')
+    anfang = text.rfind('"version": "', 0, ende) + len('"version": "') if ende >= 0 else -1
+    return text[anfang:ende] if ende >= 0 and anfang > 0 else "1.8.0"
+
+
 M_INSTALLER2 = [
     ("i201", "Das Ausrufezeichen im Ordnernamen wird nicht mehr geprueft", IB,
      'if "%PBP_START_ORT:!=%"=="%PBP_START_ORT%" goto :ort_ohne_ausrufezeichen\n', "goto :ort_ohne_ausrufezeichen\n", T_I2),
@@ -1456,7 +1469,7 @@ M_INSTALLER2 = [
     ("i263", "Release-Tor: --fix merkt sich die korrigierte Datei nicht", "release_check.py",
      "                korrigiert.add(datei_rel)\n", "", T_I2),
     ("i270", "server.json steht wieder auf 1.7.0", "server.json",
-     '  "version": "1.8.0",\n  "websiteUrl"', '  "version": "1.7.0",\n  "websiteUrl"', T_I2),
+     f'  "version": "{_server_json_version()}",\n  "websiteUrl"', '  "version": "1.7.0",\n  "websiteUrl"', T_I2),
     ("i271", "install.ps1 endet wieder mit Erfolg", "installer/install.ps1",
      'Write-Host ""\nexit 1\n', 'Write-Host ""\nexit 0\n', T_I2),
     ("i272", "LIESMICH verspricht wieder, nichts selber installieren zu muessen", "docs/LIESMICH.txt",
