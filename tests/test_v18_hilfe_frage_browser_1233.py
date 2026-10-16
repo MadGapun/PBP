@@ -216,6 +216,7 @@ def test_eine_frage_ausserhalb_bekommt_den_hinweis_und_den_satz_fuer_claude(live
         antwort = seite.locator('[data-hilfe-antwort="ausserhalb"]')
         antwort.wait_for(state="visible")
         assert "nur zur Bedienung von PBP" in antwort.inner_text()
+        assert "Dafür ist Claude da" not in antwort.inner_text(), "der Hinweis sagt schon, dass Claude dafür da ist: nicht doppelt"
         assert antwort.locator("[data-hilfe-karte]").count() == 0
         antwort.locator("[data-hilfe-satz]").click()
         seite.wait_for_function("() => window.__kopiert && window.__kopiert.includes('Wetter')")

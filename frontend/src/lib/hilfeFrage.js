@@ -87,6 +87,17 @@ export function satzFuerClaude(antwort) {
 }
 
 /**
+ * Der Satz ueber dem Knopf "Frage kopieren mit Claude": nach Karten die Frage, ob es passt (bei einem unsicheren Treffer: ob einer davon passt);
+ * bei einer Frage ausserhalb von PBP sagt der Hinweis schon, dass Claude dafuer da ist; sonst der Verweis auf Claude.
+ */
+export function claudeVorsatz(antwort) {
+  if (!antwort) return "";
+  if (hatKarten(antwort)) return antwort.status === "unsicher" ? "Passt keiner davon?" : "Passt das nicht?";
+  if (antwort.status === "ausserhalb") return "";
+  return "Dafür ist Claude da.";
+}
+
+/**
  * Was zur kurzen Antwort der lokalen KI zu zeigen ist.
  * `ki` ist das Feld der Antwort ({status: "aus"|"laeuft", job?}) und `stand` das Ergebnis von `/api/hilfe/ki/<job>`.
  * Rueckgabe: { zeigen, wartet, text, quellen }. Eine verworfene oder fehlgeschlagene Kurzantwort zeigt NICHTS: die Karten stehen da.

@@ -12,7 +12,7 @@ import { api, postJson } from "@/api";
 import MitClaude from "@/components/MitClaude";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
 import {
-  BEISPIELFRAGEN, aktionen, bereinigeFrage, hatKarten, kannFragen, kiAnzeige, kiOffen, kopfzeile, satzFuerClaude, verlaufMit, vorigeFrage,
+  BEISPIELFRAGEN, aktionen, bereinigeFrage, claudeVorsatz, hatKarten, kannFragen, kiAnzeige, kiOffen, kopfzeile, satzFuerClaude, verlaufMit, vorigeFrage,
 } from "@/lib/hilfeFrage";
 import { sichereAdresse } from "@/lib/webAdresse";
 import { PAGE_IDS } from "@/utils";
@@ -68,6 +68,7 @@ function Antwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
   const karten = antwort.karten || [];
   const sichtbar = kompakt && !alle ? karten.slice(0, 1) : karten;
   const satz = satzFuerClaude(antwort);
+  const vorsatz = claudeVorsatz(antwort);
   return (
     <div className="space-y-1.5" data-hilfe-antwort={antwort.status}>
       <p className="text-xs text-ink/80" data-hilfe-frage-text>
@@ -96,9 +97,7 @@ function Antwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
       )}
       {satz && (
         <div className="pt-0.5">
-          <p className="mb-1 text-xs text-muted">
-            {hatKarten(antwort) && antwort.status === "gefunden" ? "Passt das nicht?" : "Dafür ist Claude da."}
-          </p>
+          {vorsatz && <p className="mb-1 text-xs text-muted">{vorsatz}</p>}
           <button type="button" data-hilfe-satz onClick={() => copyPrompt?.(satz)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-sky/10 px-2.5 py-1 text-[12px] text-sky transition-colors hover:bg-sky/20">
             <MitClaude size={12}>Frage kopieren</MitClaude>

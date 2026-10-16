@@ -1,6 +1,6 @@
 // #1233 (F51): was die Oberflaeche aus der Antwort der Hilfe macht. Kein Framework, kein Server.
 import {
-  BEISPIELFRAGEN, MAX_FRAGE, MAX_VERLAUF, WIKI_BASIS, aktionen, bereinigeFrage, hatKarten, kannFragen, kiAnzeige, kiGrundText, kiOffen, kopfzeile,
+  BEISPIELFRAGEN, MAX_FRAGE, MAX_VERLAUF, WIKI_BASIS, aktionen, bereinigeFrage, claudeVorsatz, hatKarten, kannFragen, kiAnzeige, kiGrundText, kiOffen, kopfzeile,
   navigationFuer, satzFuerClaude, seitenleisteFragt, verlaufMit, vorigeFrage, wikiAdresse,
 } from "./hilfeFrage.js";
 
@@ -75,6 +75,11 @@ check("kein Feld", hatKarten({}), false);
 check("Satz fuer Claude", satzFuerClaude({ claude: { satz: "Ich habe eine Frage zu PBP" } }), "Ich habe eine Frage zu PBP");
 check("kein Satz", satzFuerClaude({ claude: null }), "");
 check("kein Text als Satz", satzFuerClaude({ claude: { satz: 5 } }), "");
+check("nach sicheren Karten: Passt das nicht?", claudeVorsatz({ status: "gefunden", karten: [{ id: "a" }] }), "Passt das nicht?");
+check("nach unsicheren Karten: Passt keiner davon?", claudeVorsatz({ status: "unsicher", karten: [{ id: "a" }] }), "Passt keiner davon?");
+check("nichts gefunden: Verweis auf Claude", claudeVorsatz({ status: "nichts_gefunden", karten: [] }), "Dafür ist Claude da.");
+check("ausserhalb: der Hinweis sagt es schon", claudeVorsatz({ status: "ausserhalb", karten: [] }), "");
+check("ohne Antwort nichts", claudeVorsatz(null), "");
 
 // ── die Kurzantwort der lokalen KI ──
 check("aus: nichts zu zeigen", kiAnzeige({ status: "aus", grund: "schalter_aus" }, null), { zeigen: false, wartet: false, text: "", quellen: [] });
