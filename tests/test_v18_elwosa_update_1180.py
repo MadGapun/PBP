@@ -41,6 +41,9 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setattr(update_quelle, "_LETZTER_BEFUND", None)
     # Kein Programmordner im Test: „schon installiert“ ist nur wahr, wenn ein Test es ausdrücklich will.
     monkeypatch.setattr(elwosa_provider, "_fassung_schon_da", lambda version: False)
+    # Die Linie sagt je nach LAUFENDER Fassung etwas anderes („kommt nie von selbst“ gegen „kommt nur auf Wunsch“): der Test soll für jede
+    # Fassung gelten, auch für eine Vorabversion wie 1.8.0-rc.4. Die laufende Fassung steht deshalb fest (eine stabile, erfundene).
+    monkeypatch.setattr(elwosa_provider, "_laufende_fassung", lambda: "1.7.155")
     yield d
     d.close()
     os.environ.pop("BA_DATA_DIR", None)
