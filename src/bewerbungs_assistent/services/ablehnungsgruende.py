@@ -55,6 +55,32 @@ SYSTEM_GRUENDE = {
     "war_nur_anfrage",
 }
 
+# Gruende, die KEIN Urteil des Menschen ueber die Passung einer Stelle sind
+# (#1234). Die Stelle ging aus der Liste, weil sich der Mensch beworben hat
+# (`bewerbung_erstellt` ist das GEGENTEIL einer Ablehnung), weil es sie doppelt
+# gab oder weil die Anzeige weg war. Als Beleg dafuer, dass "diese Art Stelle bei
+# diesem Arbeitgeber nicht passt", taugen sie nicht: zwei Fassungen derselben
+# frueheren Bewerbung machten eine neue, gelesene und empfohlene Stelle zum
+# Wiedergaenger mit k.o.
+#
+# EINE Liste fuer alle Wege, die aus Aussortierungen etwas folgern (Wiedergaenger,
+# Firmen-Historie, Stellenliste, Analyse). `kalibrierung`, `lerninsights`,
+# `lernprotokoll` und `lernquellen` schliessen `bewerbung_erstellt` in SQL aus; die
+# Automatik (`stellen_automatik.AUTOMATIK_GRUENDE`) fragt umgekehrt nach einer
+# Positivliste.
+KEIN_URTEIL_GRUENDE = frozenset({
+    "bewerbung_erstellt", "bereits_beworben", "duplikat", "veraltet_url",
+})
+
+
+def ist_urteil(grund) -> bool:
+    """True, wenn der Aussortier-Grund ein Urteil ueber die Passung ist (#1234)."""
+    kern = str(grund or "").strip().lower()
+    if kern.startswith("auto:"):
+        kern = kern[len("auto:"):].split(":", 1)[0]
+    return bool(kern) and kern not in KEIN_URTEIL_GRUENDE
+
+
 # Exakte Alt-Schreibweisen -> kanonischer Grund (Bestands-Mapping aus
 # der #913-Auswertung; case-insensitiv verglichen).
 _ALIAS = {

@@ -2328,6 +2328,155 @@ M_NACHFASS = [
 KATALOGE["nachfass1232"] = M_NACHFASS
 GRUNDLAEUFE["nachfass1232"] = (("T_NF", T_NF),)
 
+# ── #1234: ein Wiedergaenger-k.o. nur aus Gruenden, die ein Urteil sind ──
+T_WG = ["tests/test_v18_wiedergaenger_urteil_1234.py"]
+WG_DIENST = "src/bewerbungs_assistent/services/wiedergaenger.py"
+WG_GRUENDE = "src/bewerbungs_assistent/services/ablehnungsgruende.py"
+WG_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+WG_LISTE = '    "bewerbung_erstellt", "bereits_beworben", "duplikat", "veraltet_url",\n'
+WG_STOPS = '    "head", "chief", "director", "direktor", "vorstand",\n'
+WG_KO = ('    return (muster.get("anzahl", 0) >= 2\n'
+         '            and muster.get("top_grund") in FACHLICHE_KO_GRUENDE)\n')
+M_WIEDERGAENGER = [
+    ("wg01", "Nicht-Urteile: die Liste ist leer", WG_GRUENDE,
+     'KEIN_URTEIL_GRUENDE = frozenset({\n' + WG_LISTE + '})\n', 'KEIN_URTEIL_GRUENDE = frozenset()\n', T_WG),
+    ("wg02", "Nicht-Urteile: bewerbung_erstellt zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bereits_beworben", "duplikat", "veraltet_url",\n', T_WG),
+    ("wg03", "Nicht-Urteile: bereits_beworben zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "duplikat", "veraltet_url",\n', T_WG),
+    ("wg04", "Nicht-Urteile: duplikat zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "bereits_beworben", "veraltet_url",\n', T_WG),
+    ("wg05", "Nicht-Urteile: veraltet_url zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "bereits_beworben", "duplikat",\n', T_WG),
+    ("wg06", "urteilsgruende gibt jeden Grund zurueck", WG_DIENST,
+     '    return [r for r in _reasons_of(job) if ist_urteil(r)]\n', '    return list(_reasons_of(job))\n', T_WG),
+    ("wg07", "die Zaehlung im Wiedergaenger nimmt wieder jeden Grund", WG_DIENST,
+     '        for r in sorted(set(urteilsgruende(j))):\n            reason_counter[r] += 1\n',
+     '        for r in sorted(set(_reasons_of(j))):\n            reason_counter[r] += 1\n', T_WG),
+    ("wg08", "die Firmen-Historie nennt wieder jeden Grund", WG_DIENST,
+     '        reasons = sorted(set(urteilsgruende(j)))  # #966: je Stelle einmal; #1234: nur Urteile\n',
+     '        reasons = sorted(set(_reasons_of(j)))  # #966: je Stelle einmal\n', T_WG),
+    ("wg09", "ist_urteil erkennt das auto:-Praefix nicht", WG_GRUENDE,
+     '    if kern.startswith("auto:"):\n        kern = kern[len("auto:"):].split(":", 1)[0]\n', '', T_WG),
+    ("wg10", "ist_urteil unterscheidet Gross und Klein", WG_GRUENDE,
+     '    kern = str(grund or "").strip().lower()\n    if kern.startswith("auto:"):',
+     '    kern = str(grund or "").strip()\n    if kern.startswith("auto:"):', T_WG),
+    ("wg11", "head ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "chief", "director", "direktor", "vorstand",\n', T_WG),
+    ("wg12", "chief ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "director", "direktor", "vorstand",\n', T_WG),
+    ("wg13", "director ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "chief", "direktor", "vorstand",\n', T_WG),
+    ("wg14", "direktor ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "chief", "director", "vorstand",\n', T_WG),
+    ("wg15", "ein Muster mit einem Beleg ist schon ein k.o.", WG_DIENST,
+     WG_KO, WG_KO.replace(">= 2", ">= 1"), T_WG),
+    ("wg16", "jedes Muster mit zwei Belegen ist ein k.o., egal welcher Grund", WG_DIENST,
+     WG_KO, '    return muster.get("anzahl", 0) >= 2\n', T_WG),
+    ("wg17", "Gehalt ist ein fachlicher k.o.-Grund", WG_DIENST,
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell",\n})\n\n\ndef ist_fachlicher_ko',
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell", "gehalt_zu_niedrig",\n})\n\n\ndef ist_fachlicher_ko', T_WG),
+    ("wg18", "die Liste macht wieder aus jedem Muster ein k.o.", WG_TOOL,
+     '                    if ist_fachlicher_ko(muster):\n                        j["_ko_muster"] = muster\n'
+     '                    elif muster:\n                        j["_wg_hinweis"] = muster\n',
+     '                    if muster:\n                        j["_ko_muster"] = muster\n', T_WG),
+    ("wg19", "die Analyse hat wieder ihre eigene k.o.-Frage", WG_TOOL,
+     '    if ist_fachlicher_ko(wiedergaenger):\n        ko_gruende.append(',
+     '    if wiedergaenger:\n        ko_gruende.append(', T_WG),
+    ("wg20", "das gelesene Urteil steht nicht neben dem k.o.", WG_TOOL,
+     '                if _gelesen and _gelesen != "NICHT_EMPFOHLEN":\n', '                if False:\n', T_WG),
+    ("wg21", "ein Muster ohne k.o. bleibt ohne Hinweis", WG_TOOL,
+     '            elif j.get("_wg_hinweis"):\n', '            elif False:\n', T_WG),
+]
+KATALOGE["wiedergaenger1234"] = M_WIEDERGAENGER
+GRUNDLAEUFE["wiedergaenger1234"] = (("T_WG", T_WG),)
+
+# ── #1235: ein mehrdeutiger Ortsname bekommt keinen geratenen Treffer ──
+T_OD = ["tests/test_v18_ortsdienst_mehrdeutig_1235.py"]
+OD_GEO = "src/bewerbungs_assistent/services/geocoding_service.py"
+OD_STANDORT = "src/bewerbungs_assistent/services/eigener_standort.py"
+OD_WAHRHEIT = "src/bewerbungs_assistent/services/wahrheit.py"
+OD_SUCHE = "src/bewerbungs_assistent/job_scraper/__init__.py"
+OD_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+OD_HEILUNG = "src/bewerbungs_assistent/services/karten_heilung.py"
+OD_NACHLADEN = "src/bewerbungs_assistent/services/nachladen.py"
+OD_AENDERN = "src/bewerbungs_assistent/services/stelle_aendern.py"
+OD_DB = "src/bewerbungs_assistent/database.py"
+M_ORTSDIENST = [
+    ("od01", "Mehrdeutig braucht keinen Abstand mehr (50 km -> 5000 km)", OD_GEO,
+     'MEHRDEUTIG_AB_KM = 50.0\n', 'MEHRDEUTIG_AB_KM = 5000.0\n', T_OD),
+    ("od02", "Mehrdeutig gibt es nie (Gewichtsabstand 0)", OD_GEO,
+     'MEHRDEUTIG_GEWICHT = 0.10\n', 'MEHRDEUTIG_GEWICHT = 0.0\n', T_OD),
+    ("od03", "Mehrdeutig gilt immer, auch bei klarem Spitzenreiter (Gewichtsabstand 1)", OD_GEO,
+     'MEHRDEUTIG_GEWICHT = 0.10\n', 'MEHRDEUTIG_GEWICHT = 1.0\n', T_OD),
+    ("od04", "jeder Treffer zaehlt als Ort, auch ein Park", OD_GEO,
+     '    return raw.get("class") in ("boundary", "place") and raw.get("type") != "postal_code"\n',
+     '    return True\n', T_OD),
+    ("od05", "dieselbe Gemeinde als Ortsteil wird doppelt genannt", OD_GEO,
+     '        if any(calculate_distance_km(punkt, (k["lat"], k["lon"])) < 10.0 for k in kandidaten):\n            continue\n',
+     '        if False:\n            continue\n', T_OD),
+    ("od06", "der Dienst wird wieder nach EINEM Treffer gefragt", OD_GEO,
+     '        antwort = geolocator.geocode(anfrage, exactly_one=False, limit=MAX_TREFFER)\n',
+     '        antwort = geolocator.geocode(anfrage, exactly_one=True, limit=MAX_TREFFER)\n', T_OD),
+    ("od07", "die Kandidaten werden nicht im Arbeitsspeicher gemerkt", OD_GEO,
+     '                _mehrdeutig_orte[loc_key] = fund["kandidaten"]\n', '                pass\n', T_OD),
+    ("od08", "die Kandidaten werden nicht in der Datenbank gemerkt", OD_GEO,
+     '             json.dumps(kandidaten, ensure_ascii=False) if kandidaten else None))\n', '             None))\n', T_OD),
+    ("od09", "Zeilen ohne Stand gelten wieder als geprueft", OD_GEO,
+     '        if (row[3] or 0) < SPEICHER_STAND:\n', '        if False:\n', T_OD),
+    ("od10", "zwei verschiedene PLZ im Text geben eine zufaellige", OD_GEO,
+     '    if len(plz) == 1:\n', '    if plz:\n', T_OD),
+    ("od11", "das Bundesland aus dem Text wird nicht gelesen", OD_GEO,
+     '    if len(gefunden) == 1:\n        return f"{name}, {next(iter(gefunden))}"\n    return ""\n', '    return ""\n', T_OD),
+    ("od12", "die Anzeige klaert einen mehrdeutigen Ort nicht", OD_GEO,
+     '    genauer = ort_aus_anzeige(ort_fuer_abfrage(location), anzeige)\n    if not genauer:\n        return fund\n',
+     '    return fund\n', T_OD),
+    ("od13", "die Herkunft nennt den mehrdeutigen Ort nicht", OD_WAHRHEIT,
+     '        kandidaten = _mehrdeutige_kandidaten(job)\n        if kandidaten:\n',
+     '        kandidaten = []\n        if kandidaten:\n', T_OD),
+    ("od14", "der Befund nennt die Kandidaten des Wohnorts nicht", OD_STANDORT,
+     '        if kandidaten:\n            erg["mehrdeutig"] = [k_["name"] for k_ in kandidaten]\n',
+     '        if False:\n            erg["mehrdeutig"] = [k_["name"] for k_ in kandidaten]\n', T_OD),
+    ("od15", "ein mehrdeutiger eigener Ort heisst wieder nur 'nicht aufgeloest'", OD_STANDORT,
+     '        if kandidaten:\n            namen = [k_["name"] for k_ in kandidaten]\n',
+     '        if False:\n            namen = [k_["name"] for k_ in kandidaten]\n', T_OD),
+    ("od16", "die Pruefung des Bestands leert die geratene Entfernung nicht", OD_STANDORT,
+     '                "WHERE hash=? AND distance_km IS NOT NULL", (am, kennung))\n',
+     '                "WHERE hash=? AND 0", (am, kennung))\n', T_OD),
+    ("od17", "die Pruefung fragt auch grosse Staedte und Orte mit PLZ", OD_STANDORT,
+     '    offen = [o for o in nach_ort if o not in _MEHRDEUTIG_VERSUCHT and mehrdeutigkeit_offen(o)]\n',
+     '    offen = [o for o in nach_ort if o not in _MEHRDEUTIG_VERSUCHT]\n', T_OD),
+    ("od18", "die Pruefung ist je Lauf nicht begrenzt", OD_STANDORT,
+     'mehrdeutigkeit_offen(o)]\n    if max_orte:\n        offen = offen[:max_orte]\n', 'mehrdeutigkeit_offen(o)]\n', T_OD),
+    ("od19", "nach einem Suchlauf wird der Bestand nicht auf mehrdeutige Orte geprueft", OD_STANDORT,
+     '        mehrdeutig = entfernungen_mehrdeutige_pruefen(db)\n', '        mehrdeutig = {}\n', T_OD),
+    ("od20", "neu rechnen klaert oder leert mehrdeutige Orte nicht", OD_STANDORT,
+     '        if not ziel and ort in klaerung:\n', '        if False:\n', T_OD),
+    ("od21", "die Pruefung ueberschreibt von Hand gesetzte Entfernungen", OD_STANDORT,
+     '''"AND COALESCE(entfernung_quelle, '') != 'mensch'")\n    nach_ort: dict = {}\n'''
+     '    for kennung, ort in con.execute(sql, (pid,)).fetchall():\n        if ort_schluessel(ort):\n',
+     '"")\n    nach_ort: dict = {}\n'
+     '    for kennung, ort in con.execute(sql, (pid,)).fetchall():\n        if ort_schluessel(ort):\n', T_OD),
+    ("od22", "Ort aendern klaert einen mehrdeutigen Ort nicht mit der Anzeige", OD_AENDERN,
+     '    if start and not ziel:\n', '    if False:\n', T_OD),
+    ("od23", "die Anlage von Hand fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_TOOL,
+     '                        _genau = entfernung_aus_anzeige(\n                            ort, user_coords[0], user_coords[1], beschreibung or "")\n',
+     '                        _genau = None\n', T_OD),
+    ("od24", "der Suchlauf fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_SUCHE,
+     '                        _genau = entfernung_aus_anzeige(\n                            loc, user_coords[0], user_coords[1], job.get("description") or "")\n',
+     '                        _genau = None\n', T_OD),
+    ("od25", "die Heilung der Karten fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_HEILUNG,
+     '                    genau = entfernung_aus_anzeige(\n                        reihe["location"], koordinaten[0], koordinaten[1], reihe["description"] or "")\n',
+     '                    genau = None\n', T_OD),
+    ("od26", "das Nachladen fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_NACHLADEN,
+     '                genau = _geo.entfernung_aus_anzeige(\n                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")\n',
+     '                genau = None\n', T_OD),
+    ("od27", "die Spalten der Geo-Tabelle kommen nicht in eine alte Datenbank", OD_DB,
+     '            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):\n', '            for _sp, _typ in ():\n', T_OD),
+]
+KATALOGE["ortsdienst1235"] = M_ORTSDIENST
+GRUNDLAEUFE["ortsdienst1235"] = (("T_OD", T_OD),)
+
 WT = None
 
 

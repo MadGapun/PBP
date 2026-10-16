@@ -72,7 +72,8 @@ AUTOMATIK_GRUENDE = frozenset({
 # **Dieselbe Regel steht im Projekt schon zweimal richtig**, und der
 # Aussortier-Pfad ist an beiden vorbeigelaufen:
 #
-#   tools/jobs.py          `_FACHLICHE_KO_GRUENDE` — "Gehalt/Entfernung
+#   wiedergaenger.py       `FACHLICHE_KO_GRUENDE` (seit #1234 dort, vorher
+#                          lokal in tools/jobs.py) — "Gehalt/Entfernung
 #                          koennen sich aendern, taugen nicht als k.o."
 #   wiedergaenger.py       `_TEXTABHAENGIGE_GRUENDE` — "firma_uninteressant
 #                          und zu_weit_entfernt sind ohnehin keine

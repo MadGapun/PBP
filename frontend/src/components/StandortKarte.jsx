@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { api, putJson } from "@/api";
 import { Button, Card, SectionHeading, TextInput } from "@/components/ui";
+import { standortSatz } from "@/lib/standort";
 
 /**
  * Von wo aus PBP Entfernungen rechnet (#1090).
@@ -10,21 +11,8 @@ import { Button, Card, SectionHeading, TextInput } from "@/components/ui";
  * Standort nur über Claude, und der Wohnort aus dem Profil zählte nicht.
  * Die Karte zeigt, welcher Ort gilt und woher er kommt, und lässt einen
  * eigenen Ort setzen. Leer heißt: zurück zum Wohnort aus dem Profil.
+ * Der Satz dazu steht in `lib/standort.js` (#1235), damit er ohne Browser prüfbar ist.
  */
-export function standortSatz(befund) {
-  if (!befund) return "";
-  if (!befund.ort && !befund.profil_wohnort) {
-    return "Kein Standort: PBP rechnet keine Entfernungen. Trage deinen Wohnort im Profil ein oder setze hier einen Ort.";
-  }
-  if (!befund.aufgeloest) {
-    return `„${befund.ort || befund.profil_wohnort}“ ist noch nicht aufgelöst — Entfernungen fehlen, bis der Ort gefunden ist. Versuche PLZ und Ort.`;
-  }
-  if (befund.quelle === "eigene") {
-    return `Entfernungen werden ab „${befund.ort}“ gerechnet (von dir gesetzt).`;
-  }
-  return `Entfernungen werden ab deinem Wohnort „${befund.ort}“ gerechnet (aus dem Profil).`;
-}
-
 export default function StandortKarte({ pushToast }) {
   const [befund, setBefund] = useState(null);
   const [eingabe, setEingabe] = useState("");

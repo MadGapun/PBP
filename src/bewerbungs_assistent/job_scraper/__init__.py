@@ -1818,6 +1818,18 @@ def run_search(db, job_id: str, params: dict):
             for i, job in enumerate(needs_geocoding):
                 loc = job.get("location", "")
                 dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
+                _koord = None
+                if dist is None:
+                    # #1235: ein Ort, den es mehrfach gibt ("Rosengarten"), bekommt hier keine Entfernung. Nennt die
+                    # Anzeige direkt dahinter PLZ oder Bundesland, wird damit noch einmal gefragt.
+                    try:
+                        from ..services.geocoding_service import entfernung_aus_anzeige
+                        _genau = entfernung_aus_anzeige(
+                            loc, user_coords[0], user_coords[1], job.get("description") or "")
+                    except Exception:  # noqa: BLE001 - nie den Suchlauf kippen
+                        _genau = None
+                    if _genau:
+                        dist, _koord = _genau["km"], _genau["koordinaten"]
                 if dist is not None:
                     job["distance_km"] = dist
                     geocoded_count += 1
@@ -1829,7 +1841,7 @@ def run_search(db, job_id: str, params: dict):
                     # Ort aus seinem Cache, er wurde eben aufgeloest.
                     try:
                         from ..services.geocoding_service import geocode_location
-                        _koord = geocode_location(loc)
+                        _koord = _koord or geocode_location(loc)
                         if _koord:
                             # Die Spalten `lat`/`lon` gibt es in der
                             # jobs-Tabelle seit jeher und save_jobs

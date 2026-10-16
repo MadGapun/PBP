@@ -69,14 +69,11 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     # bei fachlichen Gruenden (falsches_fachgebiet etc.). Gehalt/Entfernung
     # koennen sich aendern, taugen nicht als k.o.
     wiedergaenger = fit_result.get("wiedergaenger") or {}
-    _FACHLICHE_KO_GRUENDE = {
-        "falsches_fachgebiet", "zu_junior", "zu_senior",
-        "kein_hochschulabschluss", "unpassendes_arbeitsmodell",
-    }
+    # #1234: dieselbe Frage wie in der Stellenliste - eine Funktion, nicht zwei.
+    from ..services.wiedergaenger import ist_fachlicher_ko
 
     ko_gruende: list[str] = []
-    if (wiedergaenger and wiedergaenger.get("anzahl", 0) >= 2
-            and wiedergaenger.get("top_grund") in _FACHLICHE_KO_GRUENDE):
+    if ist_fachlicher_ko(wiedergaenger):
         ko_gruende.append(
             f"Wiedergaenger: Firma '{wiedergaenger.get('firma')}' wurde "
             f"bereits {wiedergaenger['anzahl']}x mit fachlichem k.o.-Grund "
@@ -1559,7 +1556,8 @@ def register(mcp, db, logger):
             # wuerde jede Stelle der Liste den vollen Scan wiederholen.
             try:
                 from ..services.wiedergaenger import (
-                    aussortierte_laden, find_wiedergaenger_pattern)
+                    aussortierte_laden, find_wiedergaenger_pattern,
+                    ist_fachlicher_ko)
                 # #1154: ohne Anzeigentexte; die Pruefung braucht nur deren Laenge.
                 _dismissed_pool = aussortierte_laden(db)
                 for j in jobs:
@@ -1567,8 +1565,13 @@ def register(mcp, db, logger):
                         db, j.get("company", ""), j.get("title", ""),
                         target_hash=j.get("hash"),
                         dismissed=_dismissed_pool)
-                    if muster:
+                    # #1234: wie in der Analyse ist nur ein FACHLICHER Grund ein
+                    # k.o. Jedes andere Muster ist ein Hinweis, kein Urteil - bis
+                    # v1.7.158 hing jede Stelle mit einem Muster unten in der Liste.
+                    if ist_fachlicher_ko(muster):
                         j["_ko_muster"] = muster
+                    elif muster:
+                        j["_wg_hinweis"] = muster
                 if nur_empfohlen:
                     jobs = [j for j in jobs if not j.get("_ko_muster")]
                 # NICHT_EMPFOHLEN sinkt unter alle Empfohlenen — der Fall
@@ -1897,6 +1900,22 @@ def register(mcp, db, logger):
                         f"mit Grund '{_m['top_grund']}' aussortiert"
                     ),
                 }
+                # #1234: liegt auch ein gelesenes Urteil vor, stehen BEIDE da. Das
+                # k.o. schlaegt es (#671, `passung.urteil`), aber es soll nicht so
+                # aussehen, als gaebe es das Urteil nicht.
+                _gelesen = (entry.get("analyse") or {}).get("urteil")
+                if _gelesen and _gelesen != "NICHT_EMPFOHLEN":
+                    entry["empfehlung"]["gelesene_analyse"] = _gelesen
+                    entry["empfehlung"]["hinweis"] = (
+                        f"Deine gelesene Analyse sagt {_gelesen}. Das k.o. stützt sich "
+                        "auf frühere Aussortierungen derselben Firma, nicht auf diese "
+                        "Anzeige: prüfe, ob die früheren Gründe hier wirklich gelten.")
+            elif j.get("_wg_hinweis"):
+                _w = j["_wg_hinweis"]
+                entry["wiedergaenger_hinweis"] = (
+                    f"Diese Firma wurde bereits {_w['anzahl']}x mit Grund "
+                    f"'{_w['top_grund']}' aussortiert. Das ist kein k.o.: dieser Grund "
+                    "kann sich ändern oder hing an der einzelnen Anzeige.")
             # #766: Stellen ohne jeden Anker (URL/Dokument/Kontakt) sichtbar
             # markieren, statt sie wie normale Treffer darzustellen.
             from ..services.stellen_anker import anker_status as _anker_status
@@ -3196,6 +3215,15 @@ def register(mcp, db, logger):
                 user_coords = get_user_coordinates(db)
                 if user_coords:
                     dist = geocode_and_calculate_distance(ort, user_coords[0], user_coords[1])
+                    _koord_anzeige = None
+                    if dist is None:
+                        # #1235: ein mehrdeutiger Ort ("Rosengarten") wird mit PLZ oder Bundesland aus dem Anzeigentext
+                        # noch einmal gefragt.
+                        from ..services.geocoding_service import entfernung_aus_anzeige
+                        _genau = entfernung_aus_anzeige(
+                            ort, user_coords[0], user_coords[1], beschreibung or "")
+                        if _genau:
+                            dist, _koord_anzeige = _genau["km"], _genau["koordinaten"]
                     if dist is not None:
                         job["distance_km"] = dist
                         # v1.7.94 (#950): Koordinaten und, mit
@@ -3203,7 +3231,7 @@ def register(mcp, db, logger):
                         # derselbe Weg wie im Suchlauf.
                         from ..services.geocoding_service import geocode_location
                         from ..services import routing as _routing
-                        _koord = geocode_location(ort)
+                        _koord = _koord_anzeige or geocode_location(ort)
                         if _koord:
                             job["lat"], job["lon"] = _koord
                             if _routing.aktiv(db):

@@ -512,6 +512,27 @@ Einträgen darunter.
   `nachfassung_erledigt`) und den Weg zurück (`nachfass_planen`); dasselbe Feld nennt der verschobene Termin. Die Anleitungen (Mail des
   Arbeitgebers, Projekt-Update, Gesprächsfeedback, Vermittler-Korrespondenz, Gesprächsprotokoll aus der Rückführung) nennen `art="kontakt"`.
   Alte, zu Unrecht geschlossene Erinnerungen werden nicht von allein geöffnet: das entscheidet der Mensch je Fall.
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betrifft auch Stable). Zwei Stellen derselben
+  Firma, die aus der Liste gingen, weil du dich beworben hast (`bewerbung_erstellt` ist das Gegenteil einer Ablehnung), zählten als „zweimal
+  aussortiert“: eine gelesene, empfohlene Stelle stand in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei
+  `nur_empfohlen` ganz heraus. Auch die Automatik nach einer Suche hätte so eine Stelle ohne Rückfrage aussortiert
+  (`auto:bewerbung_erstellt:wiedergaenger`). Jetzt zählen nur Gründe, die ein Urteil über die Passung sind: `bewerbung_erstellt`,
+  `bereits_beworben`, `duplikat` und `veraltet_url` zählen nie (eine Liste, `ablehnungsgruende.KEIN_URTEIL_GRUENDE`, für Wiedergänger,
+  Firmen-Historie und Automatik). Die Stellenliste macht nur noch aus einem fachlichen Grund ein k.o. und fragt dafür dieselbe Funktion wie die
+  Analyse (`wiedergaenger.ist_fachlicher_ko`); ein anderes Muster steht als Hinweis (`wiedergaenger_hinweis`), nicht als Urteil. Liegt ein
+  gelesenes Urteil vor, steht es neben dem k.o. (`empfehlung.gelesene_analyse`); das k.o. schlägt es weiter (#671). Dazu: „Head of …“,
+  „Chief …“ und „Director …“ sind Rollenwörter und kein Fachgebiet — zwei Head-of-Stellen derselben Firma waren Wiedergänger, nur weil
+  beide „head“ heißen.
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betrifft auch Stable). Eine Stelle in „Rosengarten“ stand mit 24
+  statt rund 500 km als nah in der Liste: den Namen gibt es mehrfach, und PBP nahm den Treffer mit dem höchsten Gewicht, ohne es zu sagen. Jetzt
+  fragt PBP bis zu acht Treffer ab. Liegt ein zweiter Ort desselben Namens mehr als 50 km entfernt und wiegt fast so viel (Abstand unter 0,10;
+  Frankfurt, Halle oder Offenbach haben einen klaren Spitzenreiter und bleiben aufgelöst), ist der Ort mehrdeutig: keine Entfernung statt einer
+  geratenen, und `herkunft.entfernung` nennt den Grund samt den Orten. Nennt die Anzeige direkt hinter dem Namen eine PLZ („74538 Rosengarten“)
+  oder ein Bundesland, wird damit noch einmal gefragt; ein Ort mit PLZ („21224 Rosengarten“) war schon immer eindeutig. Ein mehrdeutiger
+  Wohnort wird als solcher benannt („ergänze die PLZ“) statt als „nicht aufgelöst“. Der Bestand wird nachgeprüft: beim Nachholen nach einer
+  Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Zeilen des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und
+  von Hand gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht
+  mehr als „nah“.
 
 ### Known Issues
 
@@ -519,6 +540,8 @@ Einträgen darunter.
 - Auto-Update nur unter Windows.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort
+  an der Reihe war, steht an seinen Stellen noch die alte Zahl.
 
 *Schema v52 (unverändert), 281 MCP-Werkzeuge, 9353 Tests.*
 
