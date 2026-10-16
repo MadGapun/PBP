@@ -13,6 +13,7 @@ import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
 import SpeicherTab from "@/components/SpeicherTab";
+import HilfeKiKarte from "@/components/HilfeKiKarte";
 import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
@@ -4215,6 +4216,7 @@ export default function SettingsPage() {
         {settingsTab === "ai" && (
           <>
             <LocalAITab pushToast={pushToast} />
+            <HilfeKiKarte pushToast={pushToast} />
           </>
         )}
 

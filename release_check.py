@@ -474,6 +474,37 @@ def check_update_archiv(version):
              "Sichern: python scripts/update_schluessel.py sichern")
 
 
+# ── 8. Wissensbasis der interaktiven Hilfe (#1233) ────────────
+
+def check_hilfe_wissen():
+    """Die Antworten der Hilfe stehen in `content/hilfe_wissen.json` - gebaut aus der eingebauten Hilfe, dem Prompt-Katalog und dem Wiki.
+
+    Eine Datei, die hinter ihren Quellen zurueckbleibt, beantwortet eine Frage mit dem Stand von gestern. Das Wiki liegt in einem
+    eigenen Repository: ohne Clone (PBP_WIKI_DIR oder ../PBP.wiki) kann nur gewarnt werden; ein Test haelt den Teil im Repository
+    (Hilfe, Reiter, Seiten, Prompt-Katalog) auch dann gegen die Quellen.
+    """
+    print("\n[8] Wissensbasis der interaktiven Hilfe")
+    bauer = PROJECT_DIR / "scripts" / "hilfe_wissen_bauen.py"
+    if not bauer.is_file():
+        error("scripts/hilfe_wissen_bauen.py fehlt")
+        return
+    try:
+        r = subprocess.run([sys.executable, "-X", "utf8", str(bauer), "--pruefen"], capture_output=True, text=True,
+                           encoding="utf-8", timeout=300, cwd=str(PROJECT_DIR))
+    except Exception as e:
+        error(f"Wissensbasis der Hilfe nicht pruefbar: {e}")
+        return
+    ausgabe = (r.stdout or "").strip().splitlines()
+    if r.returncode == 2:
+        warn("Kein Wiki-Clone gefunden (PBP_WIKI_DIR oder ../PBP.wiki): die Wissensbasis der Hilfe wurde nicht gegen das Wiki geprueft. "
+             "Wiki ziehen, dann: python scripts/hilfe_wissen_bauen.py --pruefen")
+    elif r.returncode == 0:
+        ok(ausgabe[-1] if ausgabe else "Wissensbasis der Hilfe aktuell")
+    else:
+        error("Wissensbasis der Hilfe veraltet - python scripts/hilfe_wissen_bauen.py: " + "; ".join(ausgabe[:4])
+              + ((" " + r.stderr.strip()[-200:]) if r.stderr.strip() else ""))
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -490,6 +521,7 @@ if __name__ == "__main__":
     check_first_run_smoke()
     check_modell_katalog()
     check_update_archiv(version)
+    check_hilfe_wissen()
 
     print("\n" + "=" * 50)
     if ERRORS:

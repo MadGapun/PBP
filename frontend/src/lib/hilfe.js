@@ -160,6 +160,7 @@ export const FAQ = [
   { q: "Was ist ein Firmen-Eintrag?", a: "Unter Kontakte › Firmen führt PBP alles zu einer Firma in einer Zeitleiste zusammen. Verschiedene Schreibweisen derselben Firma lassen sich zu einem Eintrag fassen. PBP schlägt das nur vor und legt nichts ohne dein Ja an." },
   { q: "Liest PBP meine Mails?", a: "Nein, nicht von selbst: PBP öffnet nie ein Postfach. Mails kommen nur an, wenn du sie im Mail-Programm an PBP schickst. Der Ordner-Scan unter Erweitert › Quellen im Detail › Mail-Ordner ist standardmäßig aus und gilt nur für Ordner, die du ausdrücklich freigibst." },
   { q: "Wofür ist die Texterkennung?", a: "Gescannte PDFs, zum Beispiel alte Zeugnisse, haben keinen Text, den PBP lesen kann. Die Texterkennung liest sie. Sie ist ein Zusatzprogramm (etwa 55 MB) unter Einstellungen › Erweitert › Erweiterungen und wird nur mit deinem Ja heruntergeladen." },
+  { q: "Kann ich PBP etwas zur Bedienung fragen?", a: "Ja: Hilfe & Support › Frag mich. PBP sucht in der Hilfe, den häufigen Fragen und dem Wiki und zeigt dir, wo es steht: mit einem Sprung in die Einstellung und der Wiki-Seite. Läuft die lokale KI, steht die Eingabe auch unter dem Elwosa-Strom in der Seitenleiste. Deine Frage wird nicht gespeichert. Passt die Antwort nicht oder ist die Frage nicht zur Bedienung, zeigt PBP einen fertigen Satz, den du in Claude einfügst." },
 ];
 
 export const PROBLEME = [

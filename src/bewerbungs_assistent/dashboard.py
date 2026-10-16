@@ -11264,6 +11264,61 @@ def api_elwosa_status_endpoint():
     return get_status(_db, ai_state=ai_state)
 
 
+# === #1233 (F51): interaktive Hilfe - Fragen zur Bedienung, beantwortet aus Hilfe, FAQ, Wiki und Prompt-Katalog ===
+
+@app.post("/api/hilfe/frage")
+async def api_hilfe_frage(request: Request):
+    """Antwortkarten zu einer Frage (Suche ohne KI) und, wenn die lokale KI laeuft, der Auftrag fuer eine Kurzantwort.
+
+    Die Frage wird nicht gespeichert und nicht protokolliert (Nutzerentscheidung 16.10.2026)."""
+    from .services import hilfe_ki, hilfe_suche
+    try:
+        data = await request.json()
+    except Exception:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("frage", ""), str):
+        return JSONResponse({"error": "frage muss Text sein"}, status_code=400)
+    vorherige = data.get("vorherige", "")
+    if not isinstance(vorherige, str):
+        vorherige = ""
+    if not hilfe_suche.verfuegbar():
+        return JSONResponse({"error": "Die Daten der Hilfe fehlen in dieser Installation."}, status_code=503)
+
+    def _antworten():
+        wissen = hilfe_suche.laden()
+        erg = hilfe_suche.antwort(data.get("frage", ""), vorherige, wissen)
+        erg["ki"] = hilfe_ki.anstossen(_db, erg, wissen, mit_ki=bool(data.get("mit_ki")))
+        return erg
+
+    return await run_in_threadpool(_antworten)
+
+
+@app.get("/api/hilfe/ki/{job_id}")
+async def api_hilfe_ki_lesen(job_id: str):
+    """Stand einer Kurzantwort: laeuft | fertig | verworfen | fehler | unbekannt."""
+    from .services import hilfe_ki
+    return hilfe_ki.lesen(job_id)
+
+
+@app.get("/api/hilfe/ki")
+async def api_hilfe_ki_einstellung():
+    """Ob die lokale KI Kurzantworten formulieren soll, und ob sie dazu gerade bereit ist."""
+    from .services import hilfe_ki
+    return {"formulieren": hilfe_ki.einstellung(_db), "zustand": await run_in_threadpool(hilfe_ki.zustand, _db)}
+
+
+@app.put("/api/hilfe/ki")
+async def api_hilfe_ki_setzen(request: Request):
+    from .services import hilfe_ki
+    try:
+        data = await request.json()
+    except Exception:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):
+        return JSONResponse({"error": "formulieren muss true oder false sein"}, status_code=400)
+    return hilfe_ki.einstellung_setzen(_db, data["formulieren"])
+
+
 # === #1187 (Stufe 3): was nach einem Browserlauf auf das Urteil des Menschen wartet ===
 
 @app.get("/api/stellen/zu-pruefen")

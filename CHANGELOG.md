@@ -166,6 +166,32 @@ Einträgen darunter.
   nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
 - **Die Ingest-API v1 ist mit 1.8.0 eingefroren** (Beta-Exit Punkt 2). `GET /api/v1/ingest/ping`, `POST /api/v1/ingest/job`, `GET /api/v1/ingest/mail-policy` und `POST /api/v1/ingest/email` bleiben, wie sie sind;
   ein Vertragstest (`test_v18_ingest_api_v1_vertrag.py`) prüft Pfade, Methoden, Pflichtfelder und Antwortfelder als Obermenge. Neues kommt nur additiv oder als `/api/v2/` daneben.
+- **Fragen zur Bedienung, beantwortet aus Hilfe, häufigen Fragen, Wiki und Prompts** (#1233). Im Hilfe-Dialog gibt es den Reiter „Frag mich“: Du tippst eine Frage
+  wie „Wo stelle ich ein, dass sich PBP selbst aktualisiert?“ (solange noch nichts gefragt wurde, stehen vier Beispielfragen zum Anklicken da), und PBP zeigt Karten
+  mit Titel, Kurztext und Quelle — mit einem Sprung in den richtigen Reiter
+  („Öffnen: Einstellungen › Updates“), dem Link zur Wiki-Seite und, wo es einen gibt, dem Prompt zum Kopieren für Claude. Läuft die lokale KI, steht dieselbe
+  Eingabe auch unter dem Elwosa-Strom in der Seitenleiste (kompakt: erst der beste Treffer, die weiteren auf Klick). Passt nichts, sagt die Hilfe das („Dazu steht
+  nichts in der Hilfe“, bei Fragen ohne Bezug zu PBP „Dazu kann ich nur zur Bedienung von PBP etwas sagen“) und legt einen fertigen Satz für Claude zum
+  Kopieren bereit; den Satz gibt es auch unter einer sicher wirkenden Antwort („Passt das nicht?“). Die Antworten kommen aus einer Suche im Text
+  (`content/hilfe_wissen.json`, beim Release gebaut aus der eingebauten Hilfe, dem Prompt-Katalog und dem Wiki; `scripts/hilfe_wissen_bauen.py`), nicht aus einem
+  Sprachmodell: Sprünge gehen nur auf bekannte Seiten und Reiter, Links nur ins Wiki des Projekts, Prompts nur aus dem Katalog. **Deine Frage wird nicht
+  gespeichert** — nicht in der Datenbank, nicht im Protokoll, nicht im Browser — und die Suche läuft auf deinem Rechner. `release_check.py` prüft, dass die
+  Wissensbasis zu den Quellen passt; die Personenprüfung läuft schon beim Bau. Auch bei einer zu neuen Datenbank (nach einem Rückschritt auf eine ältere
+  Fassung) antwortet die Hilfe: die Frage ist ein POST, damit sie nie in einer Adresse steht, schreibt aber nichts, und der Schema-Schutz lässt sie durch.
+- **Kurzantwort der lokalen KI (Beta, standardmäßig aus)** (#1233). Unter Einstellungen › Lokale KI lässt sich einschalten, dass die lokale KI über den Karten
+  eine kurze Antwort formuliert. Sie darf nur umformulieren, was in den drei besten Abschnitten steht: die Antwort muss eine der Quellen nennen und darf keine
+  Adresse, keinen Befehl und keinen Menüpfad erfinden, sonst bleibt es bei den Karten. Zu einem unsicheren Treffer wird nie formuliert. Aus ist die Vorgabe, weil
+  die Suche auf ungesehene Fragen nicht gut genug trifft (siehe unten): ein Modell, das aus einem falschen Abschnitt eine glatte Antwort baut, wäre schlimmer
+  als eine Karte, die ihre Quelle nennt. Höchstens zwei Kurzantworten sind gleichzeitig offen; wer schneller fragt, bekommt zur späteren Frage nur die Karten.
+- **Gemessen, was die Suche kann** (#1233). 125 Fragen in Alltagssprache, in drei Gruppen: 42 beim Einstellen der Suche benutzt (richtiger Abschnitt unter den
+  ersten drei: 40, also 95 %), 41 danach angesehen (40, 98 %), 42 neu geschrieben und zum Einstellen nicht benutzt (**32, also 76 %**; als bester Treffer 26, 62 %).
+  Die Lücke liegt im Wortschatz („Word-Datei“ statt „DOCX“, „Zahl“ statt „Punkte“). Zwei Versuche, sie mit der lokalen KI zu schließen, sind nicht eingebaut:
+  die Zuordnung der KI zu überlassen (qwen2.5:7b, 86 Titel) traf auf den neuen Fragen schlechter als die Suche allein (21 gegen 32 von 42), und typische Fragen je
+  Abschnitt von ihr erzeugen zu lassen (635 Abschnitte, 14 Minuten) brachte auf den neuen Fragen einen Treffer mehr (33 gegen 32) und kostete auf den beiden anderen
+  Gruppen vier (76 gegen 80 von 83). 32 Fragen außerhalb von PBP und 14 zu PBP ohne Antwort in der Hilfe bekamen nie eine sichere Antwort. Gegenprobe: Katalog
+  „hilfe1233“, 36 absichtlich eingebaute Fehler; in der ersten Runde überlebten drei (ein Faktor für „Wo stelle ich … ein“, der auf 125 Fragen keinen Rang änderte und
+  deshalb ausgebaut ist, ein Wiki-Link und eine Schwelle ohne Test): die beiden letzten haben jetzt Tests. Dazu liefen die Kataloge der berührten Dateien
+  (Auto-Update 101 von 102 bei einem begründet gleichwertigen, Installer 45 von 45) noch einmal.
 
 ### Changed
 
@@ -540,6 +566,8 @@ Einträgen darunter.
 - Auto-Update nur unter Windows.
 - Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Suche der Hilfe findet auf Fragen in Alltagssprache, die sie noch nie gesehen hat, den richtigen Abschnitt in rund drei von vier Fällen unter den ersten drei
+  (#1233). Die Karte nennt immer ihre Quelle, und unter jeder Antwort steht der Satz für Claude; die Wissensbasis wird mit jedem Release neu gebaut.
 - Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort
   an der Reihe war, steht an seinen Stellen noch die alte Zahl.
 

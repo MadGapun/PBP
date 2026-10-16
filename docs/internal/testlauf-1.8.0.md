@@ -180,3 +180,23 @@ Remotedesktop-Verbindung ist offen, du fasst ihn nicht an. Was anders ist:
 **Dritter Lauf (14.10.2026):** gelaufen, alle Blöcke A bis I und E5 in Ordnung; Ergebnis je Block und die Funde PP30 bis PP36 stehen in `praxisprobe-1.8.0.md`
 (Abschnitt „Dritter Lauf des Kandidaten `1.8.0`“), im PR des Kandidaten und im Issue #1170. Alle Funde sind im Kandidaten behoben (#1224 bis #1229, Probe-Skript).
 Der Rechner steht wieder auf der Ausgangsprüfung; die Store-Konfiguration von Claude weicht nur in Schlüsseln ab, die Claude Desktop selbst geändert hat.
+
+## Vierter Lauf (nach `1.8.0-rc.4`): die interaktive Hilfe (#1233), Block J
+
+Neu seit dem dritten Lauf ist nur die Hilfe, die Fragen zur Bedienung beantwortet. Block J, rund 20 Minuten, auf dem echten Bildschirm, nach einer frischen
+Installation (Block B) und vor dem Zurücksetzen (Block H); alle anderen Blöcke gelten als belegt, solange kein Fund sie berührt. Erwartet:
+
+- **J1 — Eine Frage, eine Karte, ein Sprung.** Hilfe & Support (Fragezeichen neben dem Profilwechsler) › *Frag mich*: vor der ersten Frage stehen vier
+  Beispielfragen zum Anklicken da (ein Klick stellt die Frage; nach der ersten Frage verschwinden sie). Dann „Wo stelle ich ein, dass sich PBP selbst
+  aktualisiert?“. Es erscheinen Karten mit Titel, Kurztext und Quelle; jede führt mit *Öffnen: Einstellungen › Updates* in den Reiter (der Dialog schließt
+  sich), *Mehr im Wiki* öffnet eine Seite von `github.com/MadGapun/PBP/wiki` in einem neuen Tab. Eine Nachfrage („und wo finde ich das?“) bleibt beim Thema.
+- **J2 — Ehrlich, wenn nichts passt.** „Wie wird das Wetter morgen?“ → „Dazu kann ich nur zur Bedienung von PBP etwas sagen“; „Kann ich meine Stellen nach
+  Excel exportieren?“ → keine sichere Antwort. Beide zeigen den Satz für Claude; ein Klick kopiert ihn, in Claude Desktop eingefügt ist er verständlich.
+- **J3 — Die Seitenleiste.** Ohne laufende lokale KI steht unter dem Elwosa-Strom **keine** Eingabe. Mit laufender lokaler KI (Ollama, ein Modell gewählt)
+  erscheint „Frag zur Bedienung …“; die Antwort ist kompakt (der beste Treffer, die weiteren auf Klick). Elwosa selbst spricht dazu nicht.
+- **J4 — Die Kurzantwort (Beta).** *Einstellungen › Lokale KI*: die Karte „Fragen zur Bedienung: Kurzantwort“ trägt *Beta*, der Schalter ist **aus**. Eingeschaltet
+  und mit laufender lokaler KI erscheint über den Karten nach einigen Sekunden eine kurze Antwort mit Quelle (oder nur die Karten, wenn die Antwort verworfen
+  wird); ausgeschaltet bleiben die Karten. Die Zeile unter dem Schalter nennt den Zustand der lokalen KI.
+- **J5 — Nichts wird gespeichert.** Nach den Fragen steht ihr Wortlaut weder in *Einstellungen › Logs* noch in einem Elwosa-Eintrag; ein Neuladen des Dashboards
+  zeigt den Verlauf der Hilfe nicht mehr.
+- **Ergebnis** wie zuvor: ein Satz je Punkt im PR des Kandidaten und im Issue #1233; Funde werden ab PP37 nummeriert.

@@ -244,6 +244,7 @@ Ollama bleiben installiert — die deinstallierst du separat.
 | **Jobbörsen** | Empfehlung nach deinem Berufsfeld; Quellen, die gerade nicht liefern, sind markiert |
 | **Speicher** | Eine Datei auf deinem Rechner (SQLite); *Einstellungen › Speicher & Downloads* zeigt, was wo liegt |
 | **Updates** | Auf Wunsch von selbst, mit Prüfsumme und Signatur; Vorgabe: nur ein Hinweis (Windows) |
+| **Hilfe** | Fragen zur Bedienung beantwortet PBP selbst: *Hilfe & Support › Frag mich* sucht in Hilfe, häufigen Fragen und Wiki, ohne KI und ohne die Frage zu speichern |
 | **Kosten** | Kostenlos (MIT-Lizenz); für viel tägliche Arbeit mit Claude lohnt ein Claude-Abo |
 
 ### Typed IDs (v1.7.0, #505)

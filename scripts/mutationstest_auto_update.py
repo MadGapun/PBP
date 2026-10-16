@@ -2477,6 +2477,101 @@ M_ORTSDIENST = [
 KATALOGE["ortsdienst1235"] = M_ORTSDIENST
 GRUNDLAEUFE["ortsdienst1235"] = (("T_OD", T_OD),)
 
+# ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
+T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
+T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
+HI_SUCHE = "src/bewerbungs_assistent/services/hilfe_suche.py"
+HI_KI = "src/bewerbungs_assistent/services/hilfe_ki.py"
+HI_DASH = "src/bewerbungs_assistent/dashboard.py"
+HI_LEISTE = "frontend/src/components/ElwosaSidebarChat.jsx"
+HI_APP = "frontend/src/App.jsx"
+HI_FRAGE = "frontend/src/components/HilfeFrage.jsx"
+HI_KARTE = "frontend/src/components/HilfeKiKarte.jsx"
+HI_SCHEMA = "src/bewerbungs_assistent/services/schema_schutz.py"
+M_HILFE = [
+    # die Suche
+    ("hi01", "Eine Nachfrage erbt das Thema der vorigen Frage nicht", HI_SUCHE,
+     "    if not konzepte and vorherige:\n", "    if False and not konzepte and vorherige:\n", T_HI),
+    ("hi02", "'aktualisiert' und 'aktualisieren' haben wieder verschiedene Staemme", HI_SUCHE,
+     '        return _PARTIZIP_IER.sub("ier", wort)\n', "        pass\n", T_HI),
+    ("hi03", "Jede Frage gilt als gefunden (Schwelle der Abdeckung 0)", HI_SUCHE,
+     "ABDECKUNG_GEFUNDEN = 0.55\n", "ABDECKUNG_GEFUNDEN = 0.0\n", T_HI),
+    ("hi04", "Unbekannte Woerter verhindern keine sichere Antwort mehr", HI_SUCHE,
+     "UNBEKANNT_GEFUNDEN = 0.34\n", "UNBEKANNT_GEFUNDEN = 9.0\n", T_HI),
+    ("hi05", "Der Wiki-Link zeigt nicht mehr ins Wiki des Projekts", HI_SUCHE,
+     'WIKI_BASIS = "https://github.com/MadGapun/PBP/wiki/"\n', 'WIKI_BASIS = "https://example.invalid/wiki/"\n', T_HI),
+    ("hi06", "Eine lange Frage wird nicht mehr gekuerzt", HI_SUCHE,
+     "    return t[:MAX_FRAGE]\n", "    return t\n", T_HI),
+    ("hi07", "Gleiche Titel erscheinen mehrfach", HI_SUCHE,
+     "        if schluessel in gesehen:\n", "        if False and schluessel in gesehen:\n", T_HI),
+    ("hi08", "Ein Sprung auf eine Seite wird auch fuer eine unbekannte Seite angeboten", HI_SUCHE,
+     '    if ziel.get("art") == "seite" and ziel.get("id") in w.seiten:\n', '    if ziel.get("art") == "seite":\n', T_HI),
+    # die KI-Schicht
+    ("hi09", "Die Kurzantwort ist wieder von Anfang an eingeschaltet", HI_KI,
+     "VORGABE_AN = False\n", "VORGABE_AN = True\n", T_HI),
+    ("hi10", "Eine Kurzantwort ohne genannte Quelle wird angezeigt", HI_KI,
+     "    if not zitate:\n", "    if False:\n", T_HI),
+    ("hi11", "Eine Kurzantwort darf einen Abschnitt zitieren, der nicht vorliegt", HI_KI,
+     "    if any(z < 1 or z > len(abschnitte) for z in zitate):\n", "    if False:\n", T_HI),
+    ("hi12", "Eine erfundene Adresse in der Kurzantwort wird nicht erkannt", HI_KI,
+     "        if umschrift(adresse.rstrip(", "        if False and umschrift(adresse.rstrip(", T_HI),
+    ("hi13", "Ein erfundener Befehl in der Kurzantwort wird nicht erkannt", HI_KI,
+     "        if umschrift(code.strip()) not in beleg:\n", "        if False and umschrift(code.strip()) not in beleg:\n", T_HI),
+    ("hi14", "Ein erfundener Menuepfad in der Kurzantwort wird nicht erkannt", HI_KI,
+     '    if "›" in ohne_zitate:\n', '    if False and "›" in ohne_zitate:\n', T_HI),
+    ("hi15", "'KEINE ANTWORT' des Modells wird als Antwort gezeigt", HI_KI,
+     '    if "KEINE ANTWORT" in t.upper():\n', '    if False and "KEINE ANTWORT" in t.upper():\n', T_HI),
+    ("hi16", "Eine zu lange Kurzantwort wird angezeigt", HI_KI,
+     "    if len(t) > MAX_ANTWORT_ZEICHEN:\n", "    if False and len(t) > MAX_ANTWORT_ZEICHEN:\n", T_HI),
+    ("hi17", "Auch zu einem unsicheren Treffer wird formuliert", HI_KI,
+     '    if antwort.get("status") != "gefunden":\n', '    if False and antwort.get("status") != "gefunden":\n', T_HI),
+    ("hi18", "Der Schalter der Kurzantwort wirkt nicht", HI_KI,
+     "    if not einstellung(db):\n", "    if False and not einstellung(db):\n", T_HI),
+    ("hi19", "Die Kurzantwort entsteht auch bei nicht bereiter lokaler KI", HI_KI,
+     '    if not z["aktiv"]:\n', '    if False and not z["aktiv"]:\n', T_HI),
+    ("hi20", "Der Auftrag der Kurzantwort traegt die Frage", HI_KI,
+     '"grund": "", "angelegt": time.monotonic()}', '"grund": "", "angelegt": time.monotonic(), "frage": frage}', T_HI),
+    ("hi21", "Auftraege der Kurzantwort verschwinden nie", HI_KI,
+     "> JOB_LEBENSDAUER_SEK]", "> 10 ** 9]", T_HI),
+    ("hi22", "Die Quellenmarken [1] bleiben im Text der Kurzantwort", HI_KI,
+     '    sauber = re.sub(r"\\s*\\[\\d{1,2}\\]", "", t)\n', "    sauber = t\n", T_HI),
+    # die Endpunkte
+    ("hi23", "Der Endpunkt formuliert immer, auch ohne Anfrage", HI_DASH,
+     'mit_ki=bool(data.get("mit_ki"))', "mit_ki=True", T_HI),
+    ("hi24", "Der Endpunkt nimmt auch eine Frage, die kein Text ist", HI_DASH,
+     '    if not isinstance(data, dict) or not isinstance(data.get("frage", ""), str):\n', "    if False:\n", T_HI),
+    ("hi25", "Fehlen die Daten der Hilfe, meldet der Endpunkt keinen Fehler", HI_DASH,
+     "    if not hilfe_suche.verfuegbar():\n", "    if False and not hilfe_suche.verfuegbar():\n", T_HI),
+    ("hi26", "Der Schalter nimmt auch einen Wert, der kein Ja oder Nein ist", HI_DASH,
+     '    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):\n', "    if False:\n", T_HI),
+    # die Oberflaeche (das gebaute Bundle)
+    ("hi27", "Die Eingabe erscheint in der Seitenleiste auch ohne laufende lokale KI", HI_LEISTE,
+     "{seitenleisteFragt(status) && (", "{true && (", T_HI_BROWSER),
+    ("hi28", "Das Oeffnen aus dem Dialog laesst den Dialog stehen", HI_APP,
+     "onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}", "onOeffnen={(seite, absicht) => { navigateTo(seite, absicht); }}", T_HI_BROWSER),
+    ("hi29", "Der Wiki-Link oeffnet im selben Tab, ohne noopener", HI_FRAGE,
+     'target="_blank" rel="noopener noreferrer" data-hilfe-aktion="wiki"', 'data-hilfe-aktion="wiki"', T_HI_BROWSER),
+    ("hi30", "Der Schalter der Kurzantwort speichert nichts", HI_KARTE,
+     "onChange={(e) => umschalten(e.target.checked)}", "onChange={() => {}}", T_HI_BROWSER),
+    # der Schema-Schutz
+    ("hi31", "Bei zu neuer Datenbank antwortet die Hilfe nicht mehr (die Frage gilt als schreibender Aufruf)", HI_SCHEMA,
+     ', "/api/hilfe/frage")\n', ")\n", T_HI),
+    # Nachtrag zur KI-Schicht
+    ("hi32", "Auftraege der Kurzantwort stapeln sich ohne Grenze", HI_KI,
+     "    if offene_auftraege() >= MAX_OFFENE_AUFTRAEGE:\n", "    if False and offene_auftraege() >= MAX_OFFENE_AUFTRAEGE:\n", T_HI),
+    # die Beispielfragen
+    ("hi33", "Die Beispielfragen stehen auch nach der ersten Frage da", HI_FRAGE,
+     "{!kompakt && verlauf.length === 0 && (", "{!kompakt && (", T_HI_BROWSER),
+    ("hi34", "Die schmale Seitenleiste zeigt Beispielfragen", HI_FRAGE,
+     "{!kompakt && verlauf.length === 0 && (", "{verlauf.length === 0 && (", T_HI_BROWSER),
+    ("hi35", "Ein Klick auf eine Beispielfrage stellt keine Frage", HI_FRAGE,
+     "onClick={() => fragen(null, beispiel)}", "onClick={() => {}}", T_HI_BROWSER),
+    ("hi36", "Eine Beispielfrage fuehrt in eine Sackgasse", "frontend/src/lib/hilfeFrage.js",
+     '  "Wie melde ich einen Fehler?",\n', '  "Wie wird das Wetter morgen?",\n', T_HI),
+]
+KATALOGE["hilfe1233"] = M_HILFE
+GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
+
 WT = None
 
 

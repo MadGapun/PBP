@@ -47,6 +47,7 @@ import GlobalDocumentDropZone from "@/components/GlobalDocumentDropZone";
 import JobsucheStatusBadge from "@/components/JobsucheStatusBadge";
 import ProfileOnboarding from "@/components/ProfileOnboarding";
 import { FragenTab, HilfeTab, MeldenTab, ProblemeTab } from "@/components/HilfeInhalt";
+import HilfeFrage from "@/components/HilfeFrage";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
 import Sidebar from "@/components/Sidebar";
 import ElwosaSidebarChat from "@/components/ElwosaSidebarChat";
@@ -1519,6 +1520,7 @@ export default function App() {
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}
                 onCopyPrompt={copyPrompt}
+                onOeffnen={(seite, absicht) => navigateTo(seite, absicht)}
                 onNavigateToSettings={(tab) => {
                   navigateTo("einstellungen");
                   // beta.38 (#601): direkt zum Lokale-KI-Tab springen
@@ -2004,6 +2006,7 @@ export default function App() {
             <div className="flex gap-1 mb-4 border-b border-white/8 pb-2 overflow-x-auto">
               {[
                 { id: "hilfe", label: "Hilfe" },
+                { id: "fragen", label: "Frag mich" },
                 { id: "prompts", label: "Prompts" },
                 { id: "faq", label: "FAQ" },
                 { id: "troubleshooting", label: "Probleme" },
@@ -2027,6 +2030,15 @@ export default function App() {
 
             {helpTab === "hilfe" && (
               <HilfeTab page={page} pageTitel={currentPageTitle} copyPrompt={copyPrompt} />
+            )}
+
+            {helpTab === "fragen" && (
+              <HilfeFrage
+                variante="voll"
+                copyPrompt={copyPrompt}
+                onToast={pushToast}
+                onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}
+              />
             )}
 
             {helpTab === "prompts" && (
