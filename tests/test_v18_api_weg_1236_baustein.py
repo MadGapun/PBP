@@ -180,10 +180,22 @@ def test_die_firmennamen_der_beispiele_werden_geschwaerzt_der_titel_bleibt():
     assert sicher["recent_dismissals"][0]["dismiss_reason"] == "zu_junior"
 
 
-def test_ein_kurzer_firmenname_schwaerzt_keine_buchstaben_im_titel():
+def test_ein_kurzer_firmenname_bleibt_im_titel_stehen_ein_dreibuchstabiger_nicht():
+    """Ab drei Zeichen nimmt PBP den Firmennamen aus dem Titel. Ein Name aus ein oder zwei Buchstaben ist meist ein
+    Wort des Titels („IT“, „KI“); schwaerzte man es, machte das aus dem Beispiel Unsinn. Das Feld „Firma“ wird
+    in jedem Fall ersetzt. Beide Seiten der Grenze, denn ein Pruefer, der nur eine kennt, haelt die andere nicht."""
     sicher = api_backend.nutzlast_fuer_api("match_job_to_skills", {
-        "recent_dismissals": [{"title": "Data Engineer", "company": "AG", "dismiss_reason": "x"}]})
-    assert sicher["recent_dismissals"][0]["title"] == "Data Engineer"
+        "recent_dismissals": [
+            {"title": "Data Engineer", "company": "AG", "dismiss_reason": "x"},
+            {"title": "Leiter IT Betrieb", "company": "IT", "dismiss_reason": "x"},
+            {"title": "SAP Berater (m/w/d)", "company": "SAP", "dismiss_reason": "x"},
+        ]})
+    beispiele = sicher["recent_dismissals"]
+    assert beispiele[0]["title"] == "Data Engineer"
+    assert beispiele[1]["title"] == "Leiter IT Betrieb", "zwei Buchstaben sind ein Wort des Titels, kein Firmenname"
+    assert beispiele[2]["title"] == f"{api_backend.PLATZHALTER_FIRMA} Berater (m/w/d)", \
+        "drei Buchstaben gehoeren schon zum Namen und duerfen den Rechner nicht verlassen"
+    assert all(e["company"] == api_backend.PLATZHALTER_FIRMA for e in beispiele)
 
 
 def test_eine_unbekannte_aufgabe_hat_keine_nutzlast():
@@ -364,6 +376,29 @@ def test_ein_preisloses_modell_wird_nicht_benutzt(db, schluessel, monkeypatch, t
     z = api_backend.zustand(db, "match_job_to_skills")
     assert not z.erlaubt and z.grund == "preis_unbekannt"
     assert "Budget" in z.text
+
+
+def test_ein_gewaehltes_modell_dessen_preis_aus_der_liste_fiel_wird_nicht_benutzt(db, schluessel, monkeypatch, tmp_path):
+    """Gewaehlt wurde ein Modell MIT Preis (so laesst es `einstellungen_setzen` allein zu). Eine neuere Fassung der
+    Liste kennt den Preis nicht mehr: der gespeicherte Wunsch bleibt, aber ohne Preis laesst sich das Budget nicht
+    halten, also ruht der Weg. Er weicht nicht still auf ein anderes Modell aus und rechnet nicht mit null."""
+    freigeben(db, "match_job_to_skills", modelle={"match_job_to_skills": "claude-sonnet-5-5"})
+    assert api_backend.zustand(db, "match_job_to_skills").erlaubt, "Vorbedingung: mit Preis ist der Weg offen"
+    datei = tmp_path / "modelle.json"
+    datei.write_text('{"modelle":[{"id":"claude-sonnet-5-5","name":"Sonnet","eingabe_usd_je_mtok":null,'
+                     '"ausgabe_usd_je_mtok":null},'
+                     '{"id":"claude-haiku-5-5","name":"Haiku","eingabe_usd_je_mtok":"0.10","ausgabe_usd_je_mtok":"0.50"}]}',
+                     encoding="utf-8")
+    monkeypatch.setattr(api_backend, "_KATALOG_PFAD", datei)
+    api_backend.katalog(neu_laden=True)
+    z = api_backend.zustand(db, "match_job_to_skills")
+    assert not z.erlaubt and z.grund == "preis_unbekannt"
+    assert z.modell == "claude-sonnet-5-5", "gezeigt wird das gewaehlte Modell, nicht ein anderes"
+    assert "Sonnet" in z.text
+    t = FakeTransport()
+    with pytest.raises(api_backend.ApiFehler) as info:
+        api_backend.senden(db, "match_job_to_skills", "Frage", transport=t)
+    assert info.value.code == "preis_unbekannt" and t.anzahl == 0, "ohne Preis wird nichts gesendet"
 
 
 def test_ohne_datenbank_ist_nie_etwas_erlaubt(schluessel):

@@ -168,7 +168,7 @@ def urteile_lesen(db) -> dict:
         elif grund in AUTOMATIK_GRUENDE:
             aus["Grund betrifft Entfernung, Gehalt oder Firmenwahl, nicht den Anzeigentext"] += 1
         else:
-            aus["Grund sagt nichts über die Passung (sonstiges, Dublikat, Freitext ...)"] += 1
+            aus["Grund sagt nichts über die Passung (sonstiges, Duplikat, Freitext ...)"] += 1
     return {"beworben": beworben, "aussortiert": aussortiert, "ausgeschlossen": dict(aus)}
 
 

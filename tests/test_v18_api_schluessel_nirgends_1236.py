@@ -268,3 +268,18 @@ def test_der_pruefer_liest_wirklich_den_ganzen_datenordner(umgebung, tmp_path):
         z.writestr("innen.txt", TESTSCHLUESSEL)
     (tmp_path / "logs" / "pbp.log").unlink()
     assert "dateien im Datenordner (Datenbank, Sicherung, Log)" in finde_schluessel(kanaele.sammeln()), "auch in einem ZIP"
+
+
+def test_ein_fehler_traegt_den_schluessel_nie_im_text_auch_wenn_ein_aufrufer_ihn_hineinlegt(monkeypatch):
+    """Der Konstruktor schwaerzt selbst. Heute geben alle Stellen schon geschwaerzte Texte hinein; aber eine Ausnahme der
+    Netzschicht kann die Anfrage samt Kopf zitieren, und ein kuenftiger Aufrufer mit f"... {exc}" haette den Schluessel
+    sonst in Anzeige, Log und Bericht getragen. Die letzte Absicherung wird darum fuer sich geprueft: einmal mit der
+    Gestalt eines Anthropic-Schluessels, einmal mit einem Wert beliebiger Gestalt aus der Umgebung."""
+    beliebig = "beliebiger-wert-ohne-praefix-4711"
+    monkeypatch.setenv(api_backend.ENV_SCHLUESSEL, beliebig)
+    for text in (f"Verbindung abgelehnt, Kopf: x-api-key: {TESTSCHLUESSEL}", f"Umgebung: {beliebig} wurde gelesen"):
+        fehler = api_backend.ApiFehler("unerwartet", text)
+        for form in (fehler.text, str(fehler), repr(fehler), repr(fehler.args)):
+            assert beliebig not in form
+            assert finde_schluessel({"form": form}) == []
+        assert "***" in fehler.text

@@ -258,7 +258,7 @@ def test_die_referenz_zaehlt_nur_urteile_des_menschen(tmp_path):
         assert not ({j["hash"] for j in u["beworben"]} & {j["hash"] for j in u["aussortiert"]})
         aus = u["ausgeschlossen"]
         assert aus["Grund betrifft Entfernung, Gehalt oder Firmenwahl, nicht den Anzeigentext"] == 3
-        assert aus["Grund sagt nichts über die Passung (sonstiges, Dublikat, Freitext ...)"] == 3
+        assert aus["Grund sagt nichts über die Passung (sonstiges, Duplikat, Freitext ...)"] == 3
         assert aus["von der Automatik aussortiert (kein Urteil des Menschen)"] == 3
     finally:
         db.close()
@@ -289,6 +289,28 @@ def test_eine_fachliche_aussortierung_durch_die_automatik_zaehlt_nicht(tmp_path)
         u = api_probe.urteile_lesen(db)
         titel = {j["title"] for j in u["aussortiert"]}
         assert "Auto Zu Junior" not in titel and "Alt Auto" not in titel
+        assert len(u["aussortiert"]) == 12
+    finally:
+        db.close()
+
+
+def test_ein_systemgrund_ist_kein_urteil_und_bekommt_im_bericht_sein_eigenes_etikett(tmp_path):
+    """Blacklist, veraltete Adresse: Gruende des Systems sagen nichts darueber, ob der Mensch die Stelle fuer unpassend
+    hielt. Sie zaehlen nicht als Aussortierung, und der Bericht nennt sie beim Namen statt unter »sagt nichts ueber die
+    Passung«: wer liest, warum Stellen fehlen, soll nicht raten muessen."""
+    db = _datenbank(tmp_path)
+    try:
+        for i, grund in enumerate(("firma_blacklisted", "veraltet_url")):
+            db.save_jobs([{"hash": f"sys{i}", "title": f"Systemfall {i}", "company": "Beispiel AG",
+                           "url": f"https://example.com/s{i}", "source": "manuell",
+                           "description": "Anzeigentext. " * 20, "score": 3}])
+            db.dismiss_job(f"sys{i}", grund)
+        u = api_probe.urteile_lesen(db)
+        assert not [j for j in u["aussortiert"] if j["title"].startswith("Systemfall")]
+        aus = u["ausgeschlossen"]
+        assert aus["Systemgrund (Bewerbung erstellt, Blacklist, veraltet ...)"] == 2
+        assert aus["Grund sagt nichts über die Passung (sonstiges, Duplikat, Freitext ...)"] == 3, \
+            "die Systemgruende fallen nicht in den Topf der Freitext-Gruende"
         assert len(u["aussortiert"]) == 12
     finally:
         db.close()
@@ -325,6 +347,19 @@ def test_die_stichprobe_ist_ausgewogen_wiederholbar_und_wechselt_die_klassen_ab(
         assert len(ungerade) == 10
     finally:
         db.close()
+
+
+def test_die_stichprobe_nimmt_je_klasse_so_viele_wie_die_kleinere_klasse_hat():
+    """Ungleich grosse Klassen (viele Bewerbungen, wenige eigene Aussortierungen und umgekehrt): die Probe schneidet auf
+    die kleinere zu. Eine Probe mit mehr Beispielen der einen Klasse misst, wie oft die API die haeufigere Klasse trifft,
+    nicht, wie gut sie unterscheidet. Beide Richtungen, denn jede Seite kann fehlen."""
+    for n_beworben, n_aussortiert, erwartet in ((12, 7, 7), (7, 12, 7), (30, 6, 6)):
+        u = {"beworben": [{"hash": f"b{i:02d}"} for i in range(n_beworben)],
+             "aussortiert": [{"hash": f"a{i:02d}"} for i in range(n_aussortiert)], "ausgeschlossen": {}}
+        klassen = [e["klasse"] for e in api_probe.stichprobe(u, 200, 1)]
+        assert klassen.count("beworben") == erwartet and klassen.count("aussortiert") == erwartet, (n_beworben, n_aussortiert)
+        kleiner = [e["klasse"] for e in api_probe.stichprobe(u, 10, 1)]
+        assert kleiner.count("beworben") == kleiner.count("aussortiert") == 5
 
 
 def test_zu_wenig_urteile_ist_ein_eigener_zustand_mit_den_zahlen(tmp_path):
