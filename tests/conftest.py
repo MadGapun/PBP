@@ -203,3 +203,73 @@ def sample_jobs():
             "employment_type": "festanstellung",
         },
     ]
+
+
+@pytest.fixture(autouse=True)
+def _netz_gesperrt(monkeypatch):
+    """#1236: kein Test erreicht das Netz. Namensaufloesung und Verbindungen zu allem, was nicht lokal ist, werden abgewiesen
+    (`tests/_netzsperre.py`), und ein Versuch -- auch einer, den der Code schluckt -- laesst den Test scheitern.
+
+    Der API-Weg ruft im Fehlerfall `api.anthropic.com` auf; die Sperre haelt das auch dann, wenn der Entwickler einen echten
+    Schluessel in der Umgebung hat. Ein Test, der das Netz braucht, braucht ein Testdoppel am Transport.
+    """
+    import _netzsperre
+    _netzsperre.VERSUCHE.clear()
+    _netzsperre.einschalten(monkeypatch)
+    yield
+    versuche = list(_netzsperre.VERSUCHE)
+    _netzsperre.VERSUCHE.clear()
+    assert not versuche, (
+        "Dieser Test hat versucht, das Netz zu erreichen (in der Suite gesperrt): "
+        + ", ".join(versuche) + ". Ein Testdoppel gehoert an den Transport.")
+
+
+@pytest.fixture(autouse=True)
+def _httpx_asynchron_offline(monkeypatch):
+    """#1236: das Dashboard fragt beim Laden jeder Seite im Hintergrund nach einem Update (elwosa.de, api.github.com) und nach
+    Hinweisen (raw.githubusercontent.com), ueber `httpx.AsyncClient`. Jeder Browser-Test hat das bisher still ins echte Netz
+    geschickt -- und mit der Netzsperre scheitert er daran, dass er es versucht.
+
+    Hier antwortet der asynchrone Client sofort mit einem Verbindungsfehler, ohne einen Socket aufzumachen: die Update-Pruefung sagt
+    "unbekannt", die Hinweise sind leer. Wer das Verhalten selbst pruefen will, reicht sein Testdoppel fuer `httpx.AsyncClient`
+    herein (`monkeypatch.setattr("httpx.AsyncClient", ...)`): es ersetzt dieses hier fuer die Dauer seines Tests.
+    """
+    import httpx
+
+    class _OhneNetz:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            return False
+
+        async def aclose(self):
+            return None
+
+        def _fehler(self, *args, **kwargs):
+            raise httpx.ConnectError("Testsuite: kein Netz (httpx.AsyncClient ist ohne Testdoppel abgeschaltet)")
+
+        async def get(self, *args, **kwargs):
+            self._fehler()
+
+        post = put = patch = delete = head = options = request = send = stream = get
+
+    monkeypatch.setattr(httpx, "AsyncClient", _OhneNetz)
+
+
+@pytest.fixture(autouse=True)
+def _api_weg_sauber(monkeypatch):
+    """#1236: der API-Weg beginnt in jedem Test ohne Schluessel und ohne Rest des vorigen Tests.
+
+    Der Entwickler hat `PBP_ANTHROPIC_API_KEY` in der Umgebung; ohne diese Fixture saehe jeder Test ihn. Wer den Weg pruefen
+    will, setzt einen Schluessel mit `monkeypatch.setenv` und ein Testdoppel mit `api_backend.transport_setzen`. Pause, laufende
+    Reserve und Zwischenspeicher der Modellliste leben im Prozess und werden vor und nach jedem Test geleert.
+    """
+    monkeypatch.delenv("PBP_ANTHROPIC_API_KEY", raising=False)
+    from bewerbungs_assistent.services import api_backend
+    api_backend.zuruecksetzen()
+    yield
+    api_backend.zuruecksetzen()

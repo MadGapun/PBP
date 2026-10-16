@@ -18,7 +18,7 @@ import time
 from collections import deque
 from threading import Lock
 
-from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks, komponenten, update, speicher, mail_quelle, firmen_stamm
+from . import profil, dokumente, jobs, bewerbungen, suche, export_tools, analyse, workflows, kontakte, elwosa, tasks, komponenten, update, speicher, mail_quelle, firmen_stamm, api_weg
 
 
 # === Tool-Timing Telemetrie (#636, beta.60) ============================
@@ -390,3 +390,8 @@ def register_all(mcp, db, logger):
     speicher.register(mcp, db, logger)     # v1.8.0 #1131 Speicher & Downloads
     mail_quelle.register(mcp, db, logger)  # v1.8.0 #947 Mail-Ordner als Quelle (Zugangsschicht)
     firmen_stamm.register(mcp, db, logger)  # v1.8.0 #1080 Firmen-Stammsatz (Stufe 2)
+    # #1236: der optionale API-Weg. Nur mit Schluessel in der Umgebung beim Start -- ohne ihn gibt es diese Werkzeuge nicht,
+    # und die Werkzeugliste ist genau die von vorher.
+    from ..services import api_backend as _api_backend
+    if _api_backend.schluessel_vorhanden():
+        api_weg.register(mcp, db, logger)

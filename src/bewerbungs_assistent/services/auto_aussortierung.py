@@ -35,6 +35,63 @@ def schalter_gesetzt(db) -> bool:
     return db.get_profile_setting(SCHALTER, None) is not None
 
 
+def profil_kontext(profile: dict) -> dict:
+    """Skills, Position und Karrierestufe, so wie sie in den Prompt gehen.
+
+    EINE Quelle fuer den Lauf (`aussortieren`) und die Messprobe (`scripts/api_probe.py`, #1236): ein zweiter
+    Rechenweg fuer "dasselbe" haette die Probe etwas anderes messen lassen als den echten Lauf.
+    """
+    profile = profile or {}
+    profile_skills = [
+        s.get("name", "") for s in (profile.get("skills") or [])[:15]
+    ]
+    positions = profile.get("positions") or []
+    latest_pos = positions[0] if positions else {}
+    profile_position = latest_pos.get("title", "")
+    # Heuristik: Karriere-Stufe aus aktueller Position + Jahren ableiten
+    years = 0
+    for p in positions:
+        try:
+            start = int((p.get("start_date") or "0000")[:4])
+            end_raw = (p.get("end_date") or "")[:4]
+            end = int(end_raw) if end_raw.isdigit() else 2026
+            if start > 1900:
+                years += max(0, end - start)
+        except Exception:
+            pass
+    if years >= 10:
+        profile_seniority = f"Senior ({years} Jahre Erfahrung)"
+    elif years >= 5:
+        profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
+    elif years >= 1:
+        profile_seniority = f"Junior ({years} Jahre Erfahrung)"
+    else:
+        profile_seniority = "Berufseinsteiger / Berufsanfänger"
+    return {"profile_skills": profile_skills, "profile_position": profile_position,
+            "profile_seniority": profile_seniority}
+
+
+def gruende_top(db) -> list[dict]:
+    """Die drei haeufigsten Aussortier-Gruende fuer den Prompt (v1.7.0-beta.28, #594 Stufe 3). Leer bei jedem Fehler."""
+    try:
+        conn = db.connect()
+        pid = db.get_active_profile_id()
+        from .ablehnungsgruende import gruende_zaehlen
+        liste, _ = gruende_zaehlen(conn, pid, ausser=())
+        return [{"reason": g, "count": n} for g, n in liste[:3]]
+    except Exception:
+        return []
+
+
+def _api_weg_nutzbar(db) -> bool:
+    """#1236: darf diese Aufgabe gerade ueber die freigegebene Anthropic-API laufen? Sonst nichts Neues."""
+    try:
+        from . import api_backend
+        return api_backend.zustand(db, "match_job_to_skills").erlaubt
+    except Exception:  # noqa: BLE001 -- ohne Auskunft gilt der bisherige Weg
+        return False
+
+
 def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                  dry_run: bool = False, max_dauer_sek: int = 50,
                  obergrenze_stellen: int = 30,
@@ -71,30 +128,34 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         from .llm_service import get_llm_service, TaskKind, Backend
 
         svc = get_llm_service(db)
-        status = svc.get_status(force_refresh=True)
-        if not status.ollama_available or not status.available_models:
-            return _err(
-                "Lokale AI nicht verfügbar.",
-                hinweis="stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
-            )
-        if status.user_state != "active":
-            return _err(
-                f"Lokale AI ist im State '{status.user_state}'.",
-                hinweis="Setze State auf 'active' in Einstellungen › Lokale KI.",
-            )
-        # v1.7.0-beta.62 (#638): Pre-Warmup damit der erste Modell-Call
-        # nicht 50-60s Cold-Load + MCP-Timeout ausloest. Warmup ist
-        # idempotent — bei warmem Modell Millisekunden, bei kaltem max 90s.
-        try:
-            warmup_result = svc.warmup()
-            if warmup_result.get("status") == "warm":
-                logger.info(
-                    "Ollama-Warmup vor stellen_auto_aussortieren: %.2fs",
-                    warmup_result.get("duration_sec", 0),
+        # #1236: hat der Mensch diese Aufgabe fuer die API freigegeben und ist der Weg nutzbar
+        # (Schluessel, KI-Schalter, Budget), braucht der Lauf kein Ollama. Sonst gilt alles wie bisher.
+        api_weg = _api_weg_nutzbar(db)
+        status = svc.get_status(force_refresh=not api_weg)
+        if not api_weg:
+            if not status.ollama_available or not status.available_models:
+                return _err(
+                    "Lokale AI nicht verfügbar.",
+                    hinweis="stellen_auto_aussortieren braucht Ollama + ein installiertes Modell. Prüfe Einstellungen › Lokale KI.",
                 )
-        except Exception as warmup_exc:
-            # Warmup-Fehler nicht fatal — falls Bulk-Call durchgeht, ok
-            logger.warning("Warmup-Fehler (ignoriert): %s", warmup_exc)
+            if status.user_state != "active":
+                return _err(
+                    f"Lokale AI ist im State '{status.user_state}'.",
+                    hinweis="Setze State auf 'active' in Einstellungen › Lokale KI.",
+                )
+            # v1.7.0-beta.62 (#638): Pre-Warmup damit der erste Modell-Call
+            # nicht 50-60s Cold-Load + MCP-Timeout ausloest. Warmup ist
+            # idempotent — bei warmem Modell Millisekunden, bei kaltem max 90s.
+            try:
+                warmup_result = svc.warmup()
+                if warmup_result.get("status") == "warm":
+                    logger.info(
+                        "Ollama-Warmup vor stellen_auto_aussortieren: %.2fs",
+                        warmup_result.get("duration_sec", 0),
+                    )
+            except Exception as warmup_exc:
+                # Warmup-Fehler nicht fatal — falls Bulk-Call durchgeht, ok
+                logger.warning("Warmup-Fehler (ignoriert): %s", warmup_exc)
     except Exception as exc:
         return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
 
@@ -103,31 +164,10 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         profile = db.get_profile() or {}
     except Exception as exc:  # #691: schemakonformer Fehler statt Crash
         return _err(f"profil_lesen_fehlgeschlagen: {str(exc)[:150]}")
-    profile_skills = [
-        s.get("name", "") for s in (profile.get("skills") or [])[:15]
-    ]
-    positions = profile.get("positions") or []
-    latest_pos = positions[0] if positions else {}
-    profile_position = latest_pos.get("title", "")
-    # Heuristik: Karriere-Stufe aus aktueller Position + Jahren ableiten
-    years = 0
-    for p in positions:
-        try:
-            start = int((p.get("start_date") or "0000")[:4])
-            end_raw = (p.get("end_date") or "")[:4]
-            end = int(end_raw) if end_raw.isdigit() else 2026
-            if start > 1900:
-                years += max(0, end - start)
-        except Exception:
-            pass
-    if years >= 10:
-        profile_seniority = f"Senior ({years} Jahre Erfahrung)"
-    elif years >= 5:
-        profile_seniority = f"Mid-Level ({years} Jahre Erfahrung)"
-    elif years >= 1:
-        profile_seniority = f"Junior ({years} Jahre Erfahrung)"
-    else:
-        profile_seniority = "Berufseinsteiger / Berufsanfänger"
+    kontext = profil_kontext(profile)
+    profile_skills = kontext["profile_skills"]
+    profile_position = kontext["profile_position"]
+    profile_seniority = kontext["profile_seniority"]
 
     # Kandidaten holen — aktive, noch nicht bewertete Stellen
     try:
@@ -165,17 +205,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     # v1.7.0-beta.28 (#594 Stufe 3): adaptive Prompt-Anreicherung —
     # Top-3 dismiss_reasons des Users bekommt die LLM mit, damit sie
     # bekannte Anti-Muster wiedererkennen kann.
-    dismiss_reasons_top: list[dict] = []
-    try:
-        conn = db.connect()
-        pid = db.get_active_profile_id()
-        from .ablehnungsgruende import gruende_zaehlen
-        liste, _ = gruende_zaehlen(conn, pid, ausser=())
-        dismiss_reasons_top = [
-            {"reason": g, "count": n} for g, n in liste[:3]
-        ]
-    except Exception:
-        pass
+    dismiss_reasons_top = gruende_top(db)
 
     # v1.7.0-beta.63 (#638 Stufe 3): konkrete Few-Shot-Beispiele
     try:
@@ -208,6 +238,12 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     errors = []
     budget_erschoepft = False  # #646
     unverarbeitet = 0  # #646
+    # #1236: was der API-Weg in diesem Lauf getan hat (Testdoppel ohne backend/metrics bleiben moeglich)
+    api_aufrufe = 0
+    sonst_aufrufe = 0
+    api_mikro = 0
+    api_modell = ""
+    api_hinweis = None
 
     for idx, job in enumerate(candidates):
         # #646: Wall-Clock-Budget-Check vor jedem Ollama-Call.
@@ -234,6 +270,16 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "recent_dismissals": recent_dismissals_fewshot,
             }
             result = svc.run(TaskKind.MATCH_JOB_TO_SKILLS, payload)
+            metriken = getattr(result, "metrics", None) or {}
+            ueber_api = getattr(result, "backend", None) == Backend.API
+            if ueber_api:
+                api_aufrufe += 1
+                api_mikro += int(metriken.get("kosten_mikro_usd") or 0)
+                api_modell = metriken.get("model") or api_modell
+            elif result.success:
+                sonst_aufrufe += 1
+            if api_hinweis is None and metriken.get("api_grund"):
+                api_hinweis = metriken["api_grund"]
             if not result.success:
                 errors.append({
                     "hash": job["hash"],
@@ -245,7 +291,8 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
             # #691: leere/Platzhalter-Begruendung nicht roh durchreichen
             reason = ((result.payload or {}).get("reason") or "").strip()
             if not reason:
-                reason = "(lokale KI lieferte keine Begruendung)"
+                reason = ("(die API lieferte keine Begruendung)" if ueber_api
+                          else "(lokale KI lieferte keine Begruendung)")
             entry = {
                 "hash": job["hash"],
                 "title": job.get("title"),
@@ -308,6 +355,18 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         "modell": modell_name,
         "dauer_sek": round(_time.monotonic() - run_started_at, 1),
     }
+    if api_aufrufe or api_hinweis:
+        # Nur wenn der API-Weg im Spiel war; ohne ihn bleibt die Antwort, wie sie war.
+        from . import api_backend
+        # "keiner": die API war freigegeben, hat aber nichts geliefert, und nichts anderes sprang ein
+        result_payload["ki_weg"] = (("api" if not sonst_aufrufe else "gemischt") if api_aufrufe
+                                    else ("lokal" if sonst_aufrufe else "keiner"))
+        if api_aufrufe:
+            result_payload["modell"] = api_modell or modell_name
+            result_payload["api"] = {"aufrufe": api_aufrufe, "kosten": api_backend.usd_text(api_mikro),
+                                     "modell": api_modell}
+        if api_hinweis:
+            result_payload["api_hinweis"] = api_hinweis
     if budget_erschoepft:
         result_payload["unverarbeitet"] = unverarbeitet
         result_payload["hinweis"] = (
