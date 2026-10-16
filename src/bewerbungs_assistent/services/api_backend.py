@@ -44,6 +44,7 @@ ersten echten Proben; ein Fehler der API steht dort im Klartext (`anfrage_abgele
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 import logging
 import math
@@ -93,16 +94,28 @@ ZAEHLER = (Z_AUFRUFE, Z_EINGABE, Z_AUSGABE, Z_KOSTEN, Z_GESCHAETZT)
 
 _LOCK = threading.RLock()
 _IN_FLIGHT = 0  # Mikro-Dollar, die laufende Aufrufe im schlimmsten Fall noch kosten koennen
+_UNGEBUCHT = 0  # Mikro-Dollar, die bezahlt, aber nicht in die Datenbank geschrieben werden konnten (nur im Speicher)
 _LETZTER_ERFOLG = 0.0  # Zeitstempel, damit Erfolge nicht jedes Mal in die Datenbank schreiben
+
+#: Eine Grenze fuer Token-Angaben aus einer Antwort. Was darueber liegt, ist kein Verbrauch, sondern eine falsche Angabe
+#: (ein Zwischenhaendler, ein Fehler): sie zaehlt als fehlend, und es wird der schlimmste Fall gebucht.
+MAX_PLAUSIBLE_TOKENS = 10_000_000
 
 # Der Schutzschalter gegen Schleifen: nach einem Fehler der Gegenstelle ruht der Weg eine Weile, statt dass
 # jede der folgenden Stellen erneut einen Fehler (oder eine Zeitueberschreitung) abholt.
 PAUSE_HART_SEK = 900  # Schluessel, Guthaben, Zugriff, Modell, Anfrageform: das aendert sich nicht von selbst
 PAUSE_WEICH_SEK = 120  # Limit, Ueberlastung, Netz: das kann gleich wieder gehen
 _HART = frozenset({"schluessel_ungueltig", "kein_zugriff", "guthaben_leer", "modell_nicht_gefunden",
-                   "anfrage_abgelehnt"})
-_WEICH = frozenset({"limit_erreicht", "ueberlastet", "zeitueberschreitung", "kein_netz", "unerwartet"})
+                   "anfrage_abgelehnt", "buchung_fehlgeschlagen"})
+_WEICH = frozenset({"limit_erreicht", "ueberlastet", "zeitueberschreitung", "kein_netz", "unerwartet",
+                    "wiederholt_unbrauchbar"})
 _pause: Optional[tuple] = None  # (bis [monotonic], code, text)
+
+#: Bezahlte Fehlschlaege in Folge (die API hat geantwortet und berechnet, die Antwort taugte nichts). Ein einzelner ist
+#: ein Fehler dieser Eingabe; drei in Folge sind ein Fehler des Weges (Sperrseite eines Proxys, geaendertes Antwortformat).
+FEHLSERIE_MAX = 3
+_BEZAHLT_UNBRAUCHBAR = frozenset({"antwort_unlesbar", "antwort_leer", "antwort_abgelehnt"})
+_fehlserie = 0
 
 
 # ── Gruende ──────────────────────────────────────────────────────────────────────────────────────────
@@ -132,6 +145,11 @@ GRUENDE: dict[str, str] = {
     "antwort_abgelehnt": "Das Modell hat die Antwort verweigert.",
     "antwort_leer": "Die API hat keinen Text geliefert.",
     "unerwartet": "Beim API-Aufruf ist ein unerwarteter Fehler aufgetreten.",
+    "buchung_fehlgeschlagen": ("Der Verbrauch ließ sich nicht in die Datenbank schreiben (gesperrt, voll oder "
+                               "schreibgeschützt). Der Betrag zählt im Speicher weiter; der Weg ruht, bis das wieder geht."),
+    "wiederholt_unbrauchbar": ("Die API hat mehrmals in Folge geantwortet, ohne etwas Brauchbares zu liefern "
+                               "(leere, unlesbare oder verweigerte Antworten). Der Weg ruht kurz, damit nicht jede "
+                               "weitere Stelle dasselbe abholt."),
 }
 
 
@@ -152,6 +170,7 @@ class ApiFehler(Exception):
 # ── Der Schluessel ───────────────────────────────────────────────────────────────────────────────────
 
 _SCHLUESSEL_MUSTER = re.compile(r"sk-ant-[A-Za-z0-9_\-]{6,}")
+_SCHLUESSEL_FORM = re.compile(r"[\x21-\x7e]+")  # sichtbares ASCII, kein Leerzeichen
 
 
 def _schluessel() -> str:
@@ -329,9 +348,12 @@ AUFGABEN: dict[str, Aufgabe] = {
             Feld("job_title", "der Titel der geprüften Stelle"),
             Feld("job_company", "die Firma der geprüften Stelle"),
             Feld("job_description", "der Anzeigentext der geprüften Stelle (die ersten 1.500 Zeichen)"),
-            Feld("dismiss_reasons_top", "deine häufigsten Gründe fürs Aussortieren (bis zu 3, mit Anzahl)"),
-            Feld("recent_dismissals", "Titel und Grund der Stellen, die du zuletzt aussortiert hast (bis zu 5); "
-                                      f"die Firmennamen werden durch „{PLATZHALTER_FIRMA}“ ersetzt"),
+            Feld("dismiss_reasons_top", "deine häufigsten Gründe fürs Aussortieren (bis zu 3, mit Anzahl; als Kennung wie "
+                                        "„zu_junior“, eigener Text wird zu „sonstiges“)"),
+            Feld("recent_dismissals", "Titel und Grund der Stellen, die du zuletzt aussortiert hast (bis zu 5); die Firma "
+                                      f"dieser Stellen wird durch „{PLATZHALTER_FIRMA}“ ersetzt, auch als Wort im Titel "
+                                      "(der Name einer anderen Firma im Titel bleibt stehen); der Grund geht als Kennung, "
+                                      "eigener Text wird zu „sonstiges“"),
         ),
         nicht_gesendet=("dein Name, deine Adresse, E-Mail und Telefonnummer", "Lebenslauf, Zeugnisse und andere Dokumente",
                         "Bewerbungen, Mails und Kontakte", "Gehaltsvorstellungen"),
@@ -360,6 +382,45 @@ def aufgabe_finden(kennung_: str) -> Optional[Aufgabe]:
     return AUFGABEN.get(str(kennung_ or "").strip())
 
 
+#: Rechtsformen und Verbindungswoerter am Ende eines Firmennamens ("Muster GmbH & Co. KG" -> Kern "Muster").
+_RECHTSFORM_TEILE = frozenset({"gmbh", "mbh", "ag", "se", "kg", "kgaa", "ohg", "ug", "ev", "ek", "gbr", "partg", "partgmbb",
+                               "inc", "ltd", "llc", "plc", "corp", "sa", "bv", "nv", "co", "und", "and", "&", "+"})
+_GRUND_FORM = re.compile(r"[a-z][a-z0-9_]{1,39}")
+
+
+def _firmen_schreibweisen(firma: Any) -> list[str]:
+    """Wie eine Firma im Titel ihrer Anzeige stehen kann: der volle Name und der Kern ohne Rechtsform.
+
+    Eine Anzeige schreibt "Berater bei Musterfirma", die Datenbank fuehrt "Musterfirma AG": nur der volle Name haette den
+    Titel unveraendert gelassen. Namen unter drei Zeichen bleiben stehen (meist ein Wort des Titels wie "IT"),
+    und der Name einer ANDEREN Firma im Titel ist nicht zu erkennen: das steht vor der Freigabe in der Feldliste.
+    """
+    voll = " ".join(html.unescape(str(firma or "")).split())
+    if not voll:
+        return []
+    teile = voll.replace(",", " ").split()
+    while teile and re.sub(r"[^\w&+]", "", teile[-1].lower()) in (_RECHTSFORM_TEILE | {""}):
+        teile.pop()
+    kern = " ".join(teile)
+    if not kern:  # nur eine Rechtsform ("GmbH"): das ist kein Name, und im Titel hiesse es etwas anderes
+        return []
+    namen = [voll] + ([kern] if kern.lower() != voll.lower() else [])
+    return sorted({n for n in namen if len(n) >= 3}, key=len, reverse=True)
+
+
+def _grund_fuer_api(wert: Any) -> str:
+    """Ein Aussortier-Grund geht nur als Kennung wie `zu_junior` hinaus; ein Satz oder ein Name wird zu `sonstiges`.
+
+    Eigener Text (Freitext, ein selbst angelegter Grund mit Leerzeichen) kann einen Firmennamen oder Schlimmeres
+    enthalten, und die API braucht ihn nicht: die Standardgruende tragen das Lernen. Die App selbst macht aus
+    Unbekanntem ebenfalls `sonstiges`.
+    """
+    s = str(wert or "").strip().lower()
+    if not s:
+        return ""
+    return s if _GRUND_FORM.fullmatch(s) else "sonstiges"
+
+
 def _beispiele_schwaerzen(eintraege: Any) -> list:
     """Firmennamen aus den Beispielen der zuletzt aussortierten Stellen entfernen (Entscheidung zu Frage 4)."""
     aus = []
@@ -367,12 +428,26 @@ def _beispiele_schwaerzen(eintraege: Any) -> list:
         if not isinstance(e, dict):
             continue
         firma = str(e.get("company") or "").strip()
-        titel = str(e.get("title") or "")
-        if len(firma) >= 3:
-            titel = re.sub(r"(?<!\w)" + re.escape(firma) + r"(?!\w)", PLATZHALTER_FIRMA, titel, flags=re.IGNORECASE)
+        titel = html.unescape(str(e.get("title") or ""))
+        for name in _firmen_schreibweisen(firma):
+            titel = re.sub(r"(?<!\w)" + re.escape(name) + r"(?!\w)", PLATZHALTER_FIRMA, titel, flags=re.IGNORECASE)
         aus.append({"title": titel, "company": PLATZHALTER_FIRMA if firma else "",
-                    "dismiss_reason": e.get("dismiss_reason")})
+                    "dismiss_reason": _grund_fuer_api(e.get("dismiss_reason"))})
     return aus
+
+
+def _gruende_fuer_api(eintraege: Any) -> list:
+    """Die haeufigsten Gruende mit Anzahl, jeder als Kennung (siehe `_grund_fuer_api`); gleiche Kennungen zaehlen zusammen."""
+    summen: dict[str, int] = {}
+    for e in (eintraege or [])[:3]:
+        if not isinstance(e, dict):
+            continue
+        grund = _grund_fuer_api(e.get("reason"))
+        if not grund:
+            continue
+        n = e.get("count")
+        summen[grund] = summen.get(grund, 0) + (n if isinstance(n, int) and not isinstance(n, bool) and n >= 0 else 0)
+    return [{"reason": g, "count": n} for g, n in summen.items()]
 
 
 def nutzlast_fuer_api(aufgabe_kennung: str, payload: dict) -> dict:
@@ -388,6 +463,8 @@ def nutzlast_fuer_api(aufgabe_kennung: str, payload: dict) -> dict:
     sicher = {k: v for k, v in (payload or {}).items() if k in erlaubt}
     if "recent_dismissals" in sicher:
         sicher["recent_dismissals"] = _beispiele_schwaerzen(sicher["recent_dismissals"])
+    if "dismiss_reasons_top" in sicher:
+        sicher["dismiss_reasons_top"] = _gruende_fuer_api(sicher["dismiss_reasons_top"])
     return sicher
 
 
@@ -454,7 +531,11 @@ def zaehler_lesen(db) -> dict:
 
     def zahl(k):
         v = _global(db, k, 0)
-        return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else 0
+        if isinstance(v, bool):
+            return 0
+        if isinstance(v, float):  # SQLite macht aus einer Summe ueber 2^63 eine Gleitkommazahl: nie als "nichts verbraucht" lesen
+            return int(v) if math.isfinite(v) and v >= 0 else 0
+        return v if isinstance(v, int) and v >= 0 else 0
 
     return {"aufrufe": zahl(Z_AUFRUFE), "eingabe_tokens": zahl(Z_EINGABE), "ausgabe_tokens": zahl(Z_AUSGABE),
             "mikro_usd": zahl(Z_KOSTEN), "geschaetzt": zahl(Z_GESCHAETZT), "seit": _global(db, S_SEIT, None)}
@@ -469,16 +550,51 @@ def _addieren(db, schluessel: str, delta: int) -> None:
 
 
 def verbuchen(db, eingabe_tokens: int, ausgabe_tokens: int, kosten: int, *, geschaetzt: bool = False) -> None:
-    """Ein Aufruf in die Summen. Nur ganze Zahlen aus der Antwort (oder der schlimmste Fall, dann `geschaetzt`)."""
+    """Ein Aufruf in die Summen. Nur ganze Zahlen aus der Antwort (oder der schlimmste Fall, dann `geschaetzt`).
+
+    Alles oder nichts: scheitert ein Schritt, wird zurueckgerollt, damit kein halber Aufruf in der offenen Transaktion
+    der Verbindung liegen bleibt und beim naechsten fremden Commit mitgeschrieben wird.
+    """
     conn = db.connect()
-    _addieren(db, Z_AUFRUFE, 1)
-    _addieren(db, Z_EINGABE, int(eingabe_tokens))
-    _addieren(db, Z_AUSGABE, int(ausgabe_tokens))
-    _addieren(db, Z_KOSTEN, int(kosten))
-    if geschaetzt:
-        _addieren(db, Z_GESCHAETZT, 1)
-    conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?, ?)", (S_SEIT, json.dumps(_jetzt())))
-    conn.commit()
+    try:
+        _addieren(db, Z_AUFRUFE, 1)
+        _addieren(db, Z_EINGABE, int(eingabe_tokens))
+        _addieren(db, Z_AUSGABE, int(ausgabe_tokens))
+        _addieren(db, Z_KOSTEN, int(kosten))
+        if geschaetzt:
+            _addieren(db, Z_GESCHAETZT, 1)
+        conn.execute("INSERT OR IGNORE INTO settings(key, value) VALUES(?, ?)", (S_SEIT, json.dumps(_jetzt())))
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:  # noqa: BLE001 -- der urspruengliche Fehler zaehlt
+            pass
+        raise
+
+
+def _verbuchen_sicher(db, eingabe_tokens: int, ausgabe_tokens: int, kosten: int, *, geschaetzt: bool = False) -> None:
+    """Bucht einen bezahlten Aufruf. Scheitert das Schreiben, geht der Betrag nicht verloren.
+
+    Die Antwort ist da und bezahlt. Liesse man den Fehler hochlaufen, waere der Betrag weg und das Budget nie
+    angerechnet: jeder weitere Aufruf wuerde bezahlt, solange das Schreiben scheitert. Darum bleibt der Betrag im
+    Speicher (er zaehlt gegen das Budget), der Weg ruht, und der naechste erfolgreiche Schreibvorgang holt ihn nach.
+    """
+    global _UNGEBUCHT
+    with _LOCK:
+        nachtrag = _UNGEBUCHT
+    try:
+        verbuchen(db, eingabe_tokens, ausgabe_tokens, int(kosten) + nachtrag, geschaetzt=geschaetzt)
+    except Exception as exc:  # noqa: BLE001 -- ein Fehler beim Speichern darf das Budget nicht oeffnen
+        with _LOCK:
+            _UNGEBUCHT += int(kosten)
+        pause_setzen("buchung_fehlgeschlagen", GRUENDE["buchung_fehlgeschlagen"])
+        logger.error("API-Weg: Verbrauch nicht gespeichert (%s); %d Mikro-Dollar zaehlen im Speicher weiter",
+                     type(exc).__name__, int(kosten))
+        return
+    if nachtrag:
+        with _LOCK:
+            _UNGEBUCHT = max(0, _UNGEBUCHT - nachtrag)
 
 
 def _letzten_aufruf_merken(db, *, ok: bool, aufgabe: str, modell: str, code: str | None = None,
@@ -530,11 +646,39 @@ def pause_aufheben() -> None:
         _pause = None
 
 
+def antwort_unbrauchbar(code: str) -> None:
+    """Eine bezahlte Antwort taugte nichts (leer, unlesbar, verweigert, vom Parser abgelehnt).
+
+    Einer ist ein Fehler dieser Eingabe. Drei in Folge sind ein Fehler des Weges (die Sperrseite eines Proxys mit
+    Status 200, ein geaendertes Antwortformat): jede weitere Stelle wuerde dasselbe bezahlen und wegwerfen. Dann ruht
+    der Weg kurz, und der Grund steht da.
+    """
+    global _fehlserie
+    if code not in _BEZAHLT_UNBRAUCHBAR:
+        return
+    with _LOCK:
+        _fehlserie += 1
+        erreicht = _fehlserie >= FEHLSERIE_MAX
+        if erreicht:
+            _fehlserie = 0
+    if erreicht:
+        pause_setzen("wiederholt_unbrauchbar", GRUENDE["wiederholt_unbrauchbar"])
+
+
+def antwort_brauchbar() -> None:
+    """Eine Antwort war brauchbar: die Serie bezahlter Fehlschlaege beginnt von vorn."""
+    global _fehlserie
+    with _LOCK:
+        _fehlserie = 0
+
+
 def zuruecksetzen() -> None:
     """Bringt den Zustand im Speicher auf Anfang. Fuer Tests: ein Test darf dem naechsten nichts vererben."""
-    global _IN_FLIGHT, _LETZTER_ERFOLG, _katalog_cache, _transport_ersatz
+    global _IN_FLIGHT, _UNGEBUCHT, _fehlserie, _LETZTER_ERFOLG, _katalog_cache, _transport_ersatz
     with _LOCK:
         _IN_FLIGHT = 0
+        _UNGEBUCHT = 0
+        _fehlserie = 0
         _LETZTER_ERFOLG = 0.0
         _katalog_cache = None
         _transport_ersatz = None
@@ -567,6 +711,19 @@ def _modell_fuer(db, aufgabe_kennung: str) -> tuple[Optional[Modell], Optional[s
     if not m.preis_bekannt:
         return m, "preis_unbekannt"
     return m, None
+
+
+def _master_grund(db) -> Optional[str]:
+    """Der Satz, wenn der KI-Hauptschalter aus ist; sonst None (auch ohne Auskunft: dann gilt die Vorgabe "an")."""
+    try:
+        cfg = db.get_ki_features()
+    except Exception:  # noqa: BLE001
+        return None
+    if cfg.get("master", True):
+        return None
+    from .menue import pfad
+    return (f"Der KI-Hauptschalter ist aus ({pfad('claude')}); er sperrt auch den API-Weg. Die Schlüsselprobe ist eine "
+            "Anfrage an Anthropic und läuft deshalb nicht.")
 
 
 def _ki_schalter_grund(db, a: Aufgabe) -> Optional[str]:
@@ -609,7 +766,7 @@ def zustand(db, aufgabe_kennung: str) -> Zustand:
     budget = budget_lesen(db)
     if budget is None:
         return nein("kein_budget", modell=modell.id)
-    verbraucht = zaehler_lesen(db)["mikro_usd"] + _IN_FLIGHT
+    verbraucht = zaehler_lesen(db)["mikro_usd"] + _IN_FLIGHT + _UNGEBUCHT
     if verbraucht >= budget:
         return nein("budget_erreicht", f"Das Budget von {usd_text(budget)} ist aufgebraucht "
                                        f"(verbraucht {usd_text(verbraucht)}).", modell.id)
@@ -753,7 +910,8 @@ def _lesen(modell: Modell, status: int, koerper: bytes, kopf: dict, dauer_ms: in
     if nutzung is not None:
         def tokens(k):
             v = nutzung.get(k)
-            return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else None
+            # Ueber der Grenze ist es kein Verbrauch, sondern eine falsche Angabe: sie zaehlt als fehlend (schlimmster Fall)
+            return v if isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= MAX_PLAUSIBLE_TOKENS else None
         ein, aus = tokens("input_tokens"), tokens("output_tokens")
         if ein is not None:
             # Zwischenspeicher-Felder (kommen ohne Caching nicht vor) zaehlen zur Eingabe, zum vollen Preis:
@@ -772,11 +930,22 @@ def _lesen(modell: Modell, status: int, koerper: bytes, kopf: dict, dauer_ms: in
 
 def _aufruf(db, modell: Modell, prompt: str, max_tokens: int, aufgabe: str, *, budget_pflicht: bool,
             transport: Optional[Transport] = None, schlafen: Optional[Callable[[float], None]] = None) -> Antwort:
-    """Pruefen, senden (hoechstens eine Wiederholung), lesen, buchen. Wirft nur ApiFehler."""
+    """Pruefen, senden (hoechstens eine Wiederholung), lesen, buchen. Wirft nur ApiFehler.
+
+    Die Obergrenze gilt je Prozess: der Claude-Server und das Dashboard sind getrennte Prozesse, und beide lesen den
+    Zaehler, bevor sie senden. Laufen sie gleichzeitig, kann das Budget um eine Anfrage je weiterem Prozess ueberschritten
+    werden (Bruchteile eines Cents; die Reserve einer Anfrage steht in der Meldung "Budget reicht nicht mehr").
+    """
     global _IN_FLIGHT
     schluessel = _schluessel()
     if not schluessel:
         raise ApiFehler("kein_schluessel")
+    if not _SCHLUESSEL_FORM.fullmatch(schluessel):
+        # Ein Schluessel besteht aus sichtbaren ASCII-Zeichen. Alles andere (Anfuehrungszeichen aus dem Textverarbeiter,
+        # ein Zeilenumbruch in der Mitte) wuerde im Kopf der Anfrage scheitern und als "kein Netz" gemeldet.
+        raise ApiFehler("schluessel_ungueltig", (
+            f"Der Wert in {ENV_SCHLUESSEL} enthält Zeichen, die in einem Schlüssel nicht vorkommen (Leerzeichen, "
+            "Anführungszeichen, Zeilenumbruch oder Sonderzeichen). Setze die Variable neu, ohne Zusätze."))
     geschaetzt_ein = schaetze_tokens(prompt) + UMSCHLAG_TOKENS
     if geschaetzt_ein > MAX_EINGABE_TOKENS:
         raise ApiFehler("eingabe_zu_gross", f"Die Eingabe ist mit geschätzt {geschaetzt_ein} Tokens länger als die "
@@ -789,7 +958,7 @@ def _aufruf(db, modell: Modell, prompt: str, max_tokens: int, aufgabe: str, *, b
         if budget is None and budget_pflicht:
             raise ApiFehler("kein_budget")
         if budget is not None:
-            verbraucht = zaehler_lesen(db)["mikro_usd"] + _IN_FLIGHT
+            verbraucht = zaehler_lesen(db)["mikro_usd"] + _IN_FLIGHT + _UNGEBUCHT
             if verbraucht + reserve > budget:
                 raise ApiFehler("budget_erreicht", (
                     f"Das Budget von {usd_text(budget)} reicht für diesen Aufruf nicht mehr: verbraucht "
@@ -810,6 +979,11 @@ def _aufruf(db, modell: Modell, prompt: str, max_tokens: int, aufgabe: str, *, b
             except ApiFehler:
                 raise
             except (TimeoutError, socket.timeout):
+                # Ein Zeitablauf OHNE Umhuellung durch urllib kommt nach dem Senden (beim Warten auf die Antwort): die API
+                # kann gerechnet haben, ohne dass wir etwas erfahren. Unbekannt ist ein eigener Zustand -- der schlimmste
+                # Fall wird gebucht und als geschaetzt gezaehlt. (Ein Zeitablauf beim Verbinden steckt in einer URLError
+                # und geht unten durch: da wurde nichts gesendet.)
+                _verbuchen_sicher(db, geschaetzt_ein, max_tokens, reserve, geschaetzt=True)
                 raise ApiFehler("zeitueberschreitung") from None
             except Exception as exc:  # noqa: BLE001 -- jede Netzstoerung ist ein benannter Grund
                 reason = getattr(exc, "reason", None)
@@ -829,12 +1003,12 @@ def _aufruf(db, modell: Modell, prompt: str, max_tokens: int, aufgabe: str, *, b
         except ApiFehler as exc:
             if exc.verbraucht_unbekannt:
                 # Die API hat geantwortet, wir koennen es nicht lesen: vermutlich abgerechnet. Der schlimmste Fall.
-                verbuchen(db, geschaetzt_ein, max_tokens, reserve, geschaetzt=True)
+                _verbuchen_sicher(db, geschaetzt_ein, max_tokens, reserve, geschaetzt=True)
             raise
         if antwort.geschaetzt:
             antwort.eingabe_tokens, antwort.ausgabe_tokens, antwort.kosten_mikro = geschaetzt_ein, max_tokens, reserve
-        verbuchen(db, antwort.eingabe_tokens, antwort.ausgabe_tokens, antwort.kosten_mikro,
-                  geschaetzt=antwort.geschaetzt)
+        _verbuchen_sicher(db, antwort.eingabe_tokens, antwort.ausgabe_tokens, antwort.kosten_mikro,
+                          geschaetzt=antwort.geschaetzt)
         if antwort.stop_reason == "refusal":
             raise ApiFehler("antwort_abgelehnt", request_id=antwort.request_id)
         if not antwort.text.strip():
@@ -870,6 +1044,7 @@ def senden(db, aufgabe_kennung: str, prompt: str, *, transport: Optional[Transpo
         if exc.code == "schluessel_ungueltig":
             _pruefung_merken(db, "ungueltig", exc.code)
         pause_setzen(exc.code, exc.text)
+        antwort_unbrauchbar(exc.code)
         logger.warning("API-Weg: %s nicht erfolgreich (%s)", aufgabe_kennung, exc.code)
         raise
     _letzten_aufruf_merken(db, ok=True, aufgabe=aufgabe_kennung, modell=modell.id)
@@ -904,6 +1079,11 @@ def schluessel_pruefen(db, *, transport: Optional[Transport] = None,
     """
     if not schluessel_vorhanden():
         return {"ergebnis": "nicht_geprueft", "code": "kein_schluessel", "text": GRUENDE["kein_schluessel"]}
+    master = _master_grund(db)
+    if master:
+        # Auch die Probe ist eine Anfrage an Anthropic (ohne Angaben aus dem Profil, aber eine Anfrage): wer den
+        # KI-Hauptschalter ausgestellt hat, will keine. Der Satz sagt, wo er wieder angeht.
+        return {"ergebnis": "nicht_geprueft", "code": "ki_schalter_aus", "text": master}
     modell = vorgabe_modell()
     if modell is None:
         return {"ergebnis": "nicht_geprueft", "code": "preis_unbekannt", "text": GRUENDE["preis_unbekannt"]}
@@ -943,7 +1123,7 @@ def feldliste(aufgabe_kennung: str) -> dict:
     a = AUFGABEN[aufgabe_kennung]
     return {"id": a.kennung, "titel": a.titel, "beschreibung": a.beschreibung,
             "gesendet": [f.text for f in a.felder], "nicht_gesendet": list(a.nicht_gesendet),
-            "immer": "das heutige Datum", "ki_bereich": a.ki_bereich}
+            "immer": "das heutige Datum und die Uhrzeit", "ki_bereich": a.ki_bereich}
 
 
 def freigabe_text(aufgaben: list[str]) -> str:

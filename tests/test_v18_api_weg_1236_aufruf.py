@@ -758,3 +758,185 @@ def test_die_echte_strecke_kennt_eine_zeitueberschreitung(db, schluessel, lokale
     with pytest.raises(ApiFehler) as info:
         api_backend.senden(db, "match_job_to_skills", "Prompt")
     assert info.value.code == "zeitueberschreitung"
+    assert api_backend.zaehler_lesen(db)["geschaetzt"] == 1, "Die Anfrage war raus: der schlimmste Fall ist gebucht"
+
+
+# ============================================================ Funde der unabhaengigen Pruefung (16.10.2026)
+
+def test_scheitert_das_speichern_des_verbrauchs_geht_der_betrag_nicht_verloren(db, schluessel, monkeypatch):
+    """Die Antwort ist da und bezahlt. Liesse man den Fehler beim Buchen hochlaufen, waere der Betrag weg, das Budget nie
+    angerechnet, und jeder weitere Aufruf wuerde bezahlt, solange das Schreiben scheitert."""
+    import sqlite3
+    t = FakeTransport(antwort(ein=90_000, aus=1_800))  # 9.900 Mikro-Dollar
+    einsatzbereit(db, t, budget_usd="0.01")
+    echt = api_backend.verbuchen
+
+    def gesperrt(*_a, **_k):
+        raise sqlite3.OperationalError("database is locked")
+
+    monkeypatch.setattr(api_backend, "verbuchen", gesperrt)
+    a = api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert a.text and a.kosten_mikro == 9_900, "Die Antwort geht trotzdem an den Aufrufer: sie ist bezahlt"
+    assert api_backend._UNGEBUCHT == 9_900 and api_backend.zaehler_lesen(db)["mikro_usd"] == 0
+    pause = api_backend.pause_aktiv()
+    assert pause and pause["code"] == "buchung_fehlgeschlagen"
+    z = api_backend.zustand(db, "match_job_to_skills")
+    assert not z.erlaubt and z.grund == "buchung_fehlgeschlagen"
+    # Die Pause ist vorbei, das Schreiben scheitert weiter: der Betrag zaehlt gegen das Budget, es wird nicht gesendet.
+    api_backend.pause_aufheben()
+    with pytest.raises(ApiFehler) as info:
+        api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert info.value.code == "budget_erreicht" and t.anzahl == 1
+    # Das Schreiben geht wieder: der naechste Aufruf holt den Betrag nach.
+    monkeypatch.setattr(api_backend, "verbuchen", echt)
+    api_backend.einstellungen_setzen(db, budget_usd="1")
+    api_backend.pause_aufheben()
+    api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert api_backend.zaehler_lesen(db)["mikro_usd"] == 2 * 9_900 and api_backend._UNGEBUCHT == 0
+
+
+def test_verbuchen_ist_alles_oder_nichts(db, monkeypatch):
+    """Scheitert ein Schritt, bleibt kein halber Aufruf in der offenen Transaktion der Verbindung liegen, der beim
+    naechsten fremden Commit mitgeschrieben wuerde."""
+    import sqlite3
+    echt = api_backend._addieren
+    gesehen = []
+
+    def kaputt(db_, schluessel_, delta):
+        gesehen.append(schluessel_)
+        if len(gesehen) == 3:
+            raise sqlite3.OperationalError("database is locked")
+        echt(db_, schluessel_, delta)
+
+    monkeypatch.setattr(api_backend, "_addieren", kaputt)
+    with pytest.raises(sqlite3.OperationalError):
+        api_backend.verbuchen(db, 10, 5, 100)
+    monkeypatch.setattr(api_backend, "_addieren", echt)
+    z = api_backend.zaehler_lesen(db)
+    assert (z["aufrufe"], z["eingabe_tokens"], z["ausgabe_tokens"], z["mikro_usd"]) == (0, 0, 0, 0)
+    assert db.connect().in_transaction is False
+
+
+def test_ein_zeitablauf_nach_dem_senden_wird_als_geschaetzt_gebucht_einer_beim_verbinden_nicht(db, schluessel):
+    """Bleibt die Antwort aus, hat die API die Anfrage trotzdem bekommen und kann gerechnet haben: unbekannt ist ein eigener
+    Zustand, gebucht wird der schlimmste Fall. Ein Zeitablauf beim VERBINDEN (urllib packt ihn in eine URLError) heisst:
+    nichts gesendet, nichts gebucht."""
+    import urllib.error
+    t = FakeTransport(TimeoutError())
+    einsatzbereit(db, t)
+    with pytest.raises(ApiFehler) as info:
+        api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert info.value.code == "zeitueberschreitung"
+    z = api_backend.zaehler_lesen(db)
+    assert z["geschaetzt"] == 1 and z["aufrufe"] == 1 and z["mikro_usd"] > 0
+    vorher = z["mikro_usd"]
+    api_backend.pause_aufheben()
+    api_backend.transport_setzen(FakeTransport(urllib.error.URLError(TimeoutError("timed out"))))
+    with pytest.raises(ApiFehler) as info:
+        api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert info.value.code == "zeitueberschreitung"
+    assert api_backend.zaehler_lesen(db)["mikro_usd"] == vorher, "Beim Verbinden wurde nichts gesendet"
+
+
+def test_drei_bezahlte_fehlschlaege_in_folge_lassen_den_weg_ruhen(db, schluessel):
+    """Eine leere Antwort ist ein Fehler dieser Eingabe. Drei in Folge sind ein Fehler des Weges (Sperrseite eines Proxys
+    mit Status 200, geaendertes Antwortformat): jede weitere Stelle wuerde dasselbe bezahlen und wegwerfen."""
+    t = FakeTransport(antwort(text="", ein=100, aus=1))
+    einsatzbereit(db, t)
+    for _ in range(2):
+        with pytest.raises(ApiFehler) as info:
+            api_backend.senden(db, "match_job_to_skills", "Frage")
+        assert info.value.code == "antwort_leer"
+    assert api_backend.pause_aktiv() is None, "Zwei sind noch ein Fehler dieser Eingaben"
+    api_backend.antwort_brauchbar()  # eine brauchbare Antwort dazwischen: die Serie beginnt von vorn
+    for _ in range(2):
+        with pytest.raises(ApiFehler):
+            api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert api_backend.pause_aktiv() is None
+    with pytest.raises(ApiFehler):
+        api_backend.senden(db, "match_job_to_skills", "Frage")
+    pause = api_backend.pause_aktiv()
+    assert pause and pause["code"] == "wiederholt_unbrauchbar" and t.anzahl == 5
+    z = api_backend.zustand(db, "match_job_to_skills")
+    assert not z.erlaubt and z.grund == "wiederholt_unbrauchbar"
+    assert api_backend.zaehler_lesen(db)["aufrufe"] == 5, "Jeder dieser Aufrufe war bezahlt"
+
+
+def test_ein_parser_der_dreimal_hintereinander_scheitert_laesst_den_weg_ruhen(db, schluessel, monkeypatch):
+    from bewerbungs_assistent.services import llm_service
+    echt_parser = llm_service._RESPONSE_PARSERS[TaskKind.MATCH_JOB_TO_SKILLS]
+    modus = {"kaputt": True}
+
+    def parser(text):
+        if modus["kaputt"]:
+            raise ValueError("kein Urteil")
+        return echt_parser(text)
+
+    monkeypatch.setitem(llm_service._RESPONSE_PARSERS, TaskKind.MATCH_JOB_TO_SKILLS, parser)
+    t = FakeTransport(antwort())
+    einsatzbereit(db, t)
+    svc = dienst(db)
+
+    def lauf():
+        return svc.run(TaskKind.MATCH_JOB_TO_SKILLS, PAYLOAD_MATCH)
+
+    for _ in range(2):
+        r = lauf()
+        assert r.backend != Backend.API and r.metrics["api_abgebrochen"] == "unerwartet"
+    assert api_backend.pause_aktiv() is None, "Zwei sind noch ein Fehler dieser Eingaben"
+    modus["kaputt"] = False
+    assert lauf().backend == Backend.API, "Ein brauchbares Urteil beendet die Serie"
+    modus["kaputt"] = True
+    for _ in range(2):
+        lauf()
+    assert api_backend.pause_aktiv() is None, "Die Serie begann nach dem brauchbaren Urteil von vorn"
+    lauf()
+    pause = api_backend.pause_aktiv()
+    assert pause and pause["code"] == "wiederholt_unbrauchbar" and t.anzahl == 6
+    r = lauf()
+    assert t.anzahl == 6, "Danach ruht der Weg: keine siebte Anfrage"
+    assert r.metrics["api_ausgelassen"] == "wiederholt_unbrauchbar"
+
+
+@pytest.mark.parametrize("wert", ["sk-ant-api03-abc“def", "sk-ant-api03-ab\ncd", "sk-ant-api03 ab", "sk-ant-api03-äöü"])
+def test_ein_schluessel_mit_sonderzeichen_wird_benannt_und_nie_gesendet(db, monkeypatch, wert):
+    """Anfuehrungszeichen aus dem Textverarbeiter oder ein Zeilenumbruch in der Mitte scheitern im Kopf der Anfrage; das
+    wuerde als "kein Netz" gemeldet, und die Ausnahme der HTTP-Schicht trueg den ganzen Schluessel."""
+    monkeypatch.setattr(api_backend, "_schluessel", lambda: wert)
+    t = FakeTransport(antwort())
+    einsatzbereit(db, t)
+    with pytest.raises(ApiFehler) as info:
+        api_backend.senden(db, "match_job_to_skills", "Frage")
+    assert info.value.code == "schluessel_ungueltig" and t.anzahl == 0
+    assert "Zeichen" in info.value.text and wert not in info.value.text
+    assert info.value.__context__ is None
+    assert api_backend.pause_aktiv()["code"] == "schluessel_ungueltig"
+
+
+def test_unplausible_tokenangaben_zaehlen_als_fehlend_und_der_schlimmste_fall_wird_gebucht(db, schluessel):
+    t = FakeTransport(antwort(ein=2 ** 62, aus=5))
+    einsatzbereit(db, t)
+    a = api_backend.senden(db, "match_job_to_skills", "Frage")
+    z = api_backend.zaehler_lesen(db)
+    assert a.geschaetzt and z["geschaetzt"] == 1 and z["mikro_usd"] == a.kosten_mikro > 0
+    assert z["eingabe_tokens"] < 100_000, "Die falsche Angabe steht nicht in den Summen"
+
+
+def test_ein_zaehler_der_als_gleitkommazahl_gelesen_wird_gilt_nicht_als_null(db, schluessel):
+    """SQLite macht aus einer Summe ueber 2^63 eine Gleitkommazahl; als "nichts verbraucht" gelesen, stuende das Budget wieder offen."""
+    db.set_setting(api_backend.Z_KOSTEN, 9.2e18)
+    assert api_backend.zaehler_lesen(db)["mikro_usd"] == int(9.2e18)
+    freigeben(db, "match_job_to_skills")
+    z = api_backend.zustand(db, "match_job_to_skills")
+    assert not z.erlaubt and z.grund == "budget_erreicht"
+
+
+def test_die_schluesselprobe_beachtet_den_ki_hauptschalter(db, schluessel):
+    """Auch die Probe ist eine Anfrage an Anthropic (ohne Angaben aus dem Profil, aber eine Anfrage)."""
+    db.set_ki_features(master=False)
+    t = FakeTransport(antwort("ok"))
+    erg = api_backend.schluessel_pruefen(db, transport=t)
+    assert erg["ergebnis"] == "nicht_geprueft" and erg["code"] == "ki_schalter_aus" and t.anzahl == 0
+    assert "Hauptschalter" in erg["text"]
+    db.set_ki_features(master=True)
+    assert api_backend.schluessel_pruefen(db, transport=t)["ergebnis"] == "gueltig" and t.anzahl == 1

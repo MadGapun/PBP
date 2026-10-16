@@ -89,7 +89,9 @@ def kopie_anlegen(quelle: Path, ziel_ordner: Path) -> Path:
     schon_da = {n: n.exists() for n in nebendateien}
     try:
         try:
-            src = sqlite3.connect(f"file:{quelle.resolve().as_posix()}?mode=ro", uri=True)
+            # Als URI mit Prozent-Kodierung (`as_uri`): ein Pfad mit "#", "%" oder Umlauten (der Benutzername steckt im Pfad)
+            # darf nicht als Teil der URI-Syntax gelesen werden.
+            src = sqlite3.connect(f"{quelle.resolve().as_uri()}?mode=ro", uri=True)
         except sqlite3.Error as exc:
             raise ProbeFehler(f"Die Datenbank ließ sich nicht lesend öffnen: {exc}") from None
         try:

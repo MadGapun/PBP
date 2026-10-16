@@ -149,7 +149,10 @@ def test_faellt_die_api_aus_und_ist_ollama_nicht_da_steht_der_grund_im_ergebnis(
     transport = FakeTransport(fehlerantwort(402, "billing_error", "Billing"))
     api_backend.transport_setzen(transport)
     erg = auto_aussortierung.aussortieren(db, max_stellen=4)
-    assert erg["status"] == "ok" and erg["errors_count"] == 4 and erg["geprueft"] == 4
+    # Der Lauf sollte ueber die API gehen und die lokale KI wurde nicht aufgewaermt: faellt die API aus, endet er mit dem Grund,
+    # statt fuer jede weitere Stelle denselben Fehler zu sammeln (oder an einem kalten Modell die Zeitgrenze zu sprengen).
+    assert erg["status"] == "teilweise" and erg["errors_count"] == 1 and erg["geprueft"] == 1
+    assert erg["unverarbeitet"] == 3 and "API-Weg ist ausgefallen" in erg["hinweis"] and "Guthaben" in erg["hinweis"]
     assert erg["ki_weg"] == "keiner" and "Guthaben" in erg["api_hinweis"]
     assert transport.anzahl == 1, "Nach einem harten Fehler ruht der Weg: nicht jede Stelle fragt erneut"
     assert "API-Weg:" in erg["errors"][0]["error"] and "api" not in erg
@@ -166,7 +169,7 @@ def test_ein_gesperrter_ki_bereich_macht_den_lauf_wieder_zum_ollama_lauf(db, die
     assert erg["status"] == "fehler" and erg["fehler"] == "Lokale AI nicht verfügbar." and transport.anzahl == 0
 
 
-def test_das_budget_stoppt_den_lauf_und_der_rest_kommt_als_fehler_mit_grund(db, dienst, schluessel):
+def test_das_budget_stoppt_den_lauf_und_der_rest_bleibt_unverarbeitet_mit_grund(db, dienst, schluessel):
     _stellen(db)
     freigeben(db, "match_job_to_skills")
     api_backend.einstellungen_setzen(db, budget_usd="0.01")
@@ -175,7 +178,68 @@ def test_das_budget_stoppt_den_lauf_und_der_rest_kommt_als_fehler_mit_grund(db, 
     erg = auto_aussortierung.aussortieren(db, max_stellen=4, dry_run=True)
     assert transport.anzahl == 1
     assert erg["api"]["aufrufe"] == 1 and erg["ki_weg"] == "api"
-    assert erg["errors_count"] == 3 and "Budget" in erg["api_hinweis"]
+    assert erg["status"] == "teilweise" and erg["errors_count"] == 1 and erg["unverarbeitet"] == 2
+    assert "Budget" in erg["api_hinweis"] and "Budget" in erg["hinweis"]
+
+
+class LokalDoppel(LLMService):
+    """Eine lokale KI, die 'da' ist und fest antwortet -- ohne je ein echtes Ollama zu fragen."""
+
+    def _check_ollama(self):
+        self._status.ollama_available = True
+        self._status.available_models = ["modell:1b"]
+
+    def _run_local(self, task, payload):
+        return llm_service.TaskResult(backend=llm_service.Backend.LOCAL, success=True,
+                                      payload={"decision": "PASST", "reason": "lokal gelesen."},
+                                      metrics={"backend": "ollama"})
+
+
+def test_faellt_die_api_aus_und_ist_ollama_da_endet_der_lauf_nach_der_ersten_stelle(db, schluessel, monkeypatch):
+    """Die lokale KI wurde nicht aufgewaermt (der Lauf sollte ueber die API gehen). Ein Rueckfall fuer ALLE uebrigen Stellen
+    koennte an einem kalten Modell die Zeitgrenze des Clients (60 s) sprengen: die erste Stelle faellt zurueck, der Lauf
+    endet mit dem Grund, und der naechste Aufruf beginnt mit den Pruefungen und dem Aufwaermen."""
+    svc = LokalDoppel(db)
+    svc._status.ollama_available = True
+    svc._status.available_models = ["modell:1b"]
+    svc._status.user_state = "active"
+    svc._status.selected_model = "modell:1b"
+    svc._status.last_check_at = 9999999999
+    monkeypatch.setattr(llm_service, "get_llm_service", lambda _db=None: svc)
+    _stellen(db)
+    freigeben(db, "match_job_to_skills")
+    transport = FakeTransport(fehlerantwort(402, "billing_error", "Billing"))
+    api_backend.transport_setzen(transport)
+    erg = auto_aussortierung.aussortieren(db, max_stellen=4, dry_run=True)
+    assert erg["status"] == "teilweise" and erg["geprueft"] == 1 and erg["passt"] == 1, (
+        "Die Stelle, bei der die API ausfiel, wurde noch lokal bewertet")
+    assert erg["unverarbeitet"] == 3 and "API-Weg ist ausgefallen" in erg["hinweis"]
+    assert erg["ki_weg"] == "lokal" and transport.anzahl == 1
+
+
+def test_ein_profilwechsel_mitten_im_lauf_beendet_den_lauf_und_schickt_nichts_mehr(db, dienst, schluessel):
+    """Freigabe, Stellen und Profildaten gehoeren zum Profil, mit dem der Lauf begann. Haette das zweite Profil die Aufgabe
+    ebenfalls freigegeben, gingen die Daten des ersten ab der naechsten Stelle unter ITS Freigabe an die API."""
+    _stellen(db)
+    freigeben(db, "match_job_to_skills")
+    erstes = db.get_active_profile_id()
+    zweites = db.create_profile("Zweites Profil")
+    db.switch_profile(erstes)  # ein neues Profil wird gleich aktiv: zurueck zum ersten, mit dem der Lauf beginnt
+    assert db.get_active_profile_id() == erstes
+
+    def entscheider(aufruf):
+        # waehrend der ersten Antwort wechselt der Mensch das Profil, und das zweite hat den API-Weg freigegeben
+        db.switch_profile(zweites)
+        freigeben(db, "match_job_to_skills")
+        return antwort("PASST | passt zum Profil.")
+
+    transport = FakeTransport(entscheider=entscheider)
+    api_backend.transport_setzen(transport)
+    erg = auto_aussortierung.aussortieren(db, max_stellen=4, dry_run=True)
+    assert db.get_active_profile_id() == zweites != erstes
+    assert transport.anzahl == 1, "Nach dem Wechsel geht nichts mehr an die API"
+    assert erg["status"] == "teilweise" and erg["geprueft"] == 1 and erg["unverarbeitet"] == 3
+    assert "Profil wurde während des Laufs gewechselt" in erg["hinweis"]
 
 
 def test_das_werkzeug_reicht_den_api_weg_durch(db, dienst, schluessel):

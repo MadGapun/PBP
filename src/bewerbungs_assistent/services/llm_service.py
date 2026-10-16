@@ -431,10 +431,17 @@ class LLMService:
         prompt = _datums_kontext() + builder(sicher)
         antwort = api_backend.senden(self.db, task.value, prompt)
         parser = _RESPONSE_PARSERS.get(task, lambda s: {"raw": s})
+        try:
+            ergebnis = parser(antwort.text)
+        except Exception:
+            # Bezahlt und unbrauchbar. Dreimal in Folge, und der Weg ruht kurz (`api_backend.antwort_unbrauchbar`).
+            api_backend.antwort_unbrauchbar("antwort_unlesbar")
+            raise
+        api_backend.antwort_brauchbar()
         return TaskResult(
             backend=Backend.API,
             success=True,
-            payload=parser(antwort.text),
+            payload=ergebnis,
             metrics={
                 "backend": "anthropic_api",
                 "model": antwort.modell,

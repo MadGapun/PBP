@@ -148,11 +148,14 @@ def test_jedes_feld_der_feldliste_erreicht_den_prompt_und_nichts_anderes():
     Prompt (kein Phantomfeld), und ein Feld ausserhalb der Liste kommt nie hinein."""
     for kennung, a in api_backend.AUFGABEN.items():
         payload = {f.schluessel: f"MARKE-{f.schluessel}" for f in a.felder}
+        marke = {f.schluessel: f"MARKE-{f.schluessel}" for f in a.felder}
         # Listen- und Beispielfelder brauchen ihre Form
         if "profile_skills" in payload:
             payload["profile_skills"] = ["MARKE-profile_skills"]
         if "dismiss_reasons_top" in payload:
-            payload["dismiss_reasons_top"] = [{"reason": "MARKE-dismiss_reasons_top", "count": 3}]
+            # Ein Grund geht nur als Kennung hinaus (Kleinbuchstaben und Unterstriche): die Marke ist eine
+            marke["dismiss_reasons_top"] = "marke_dismiss_reasons_top"
+            payload["dismiss_reasons_top"] = [{"reason": marke["dismiss_reasons_top"], "count": 3}]
         if "recent_dismissals" in payload:
             payload["recent_dismissals"] = [{"title": "MARKE-recent_dismissals", "company": "Beispiel AG",
                                              "dismiss_reason": "zu_junior"}]
@@ -160,7 +163,7 @@ def test_jedes_feld_der_feldliste_erreicht_den_prompt_und_nichts_anderes():
         sicher = api_backend.nutzlast_fuer_api(kennung, payload)
         prompt = _PROMPT_BUILDERS[TaskKind(kennung)](sicher)
         for f in a.felder:
-            assert f"MARKE-{f.schluessel}" in prompt, f"{kennung}: das Feld {f.schluessel} erreicht den Prompt nicht"
+            assert marke[f.schluessel] in prompt, f"{kennung}: das Feld {f.schluessel} erreicht den Prompt nicht"
         assert "MARKE-ausserhalb" not in prompt
         assert "AUSSERHALB" not in sicher
 
@@ -196,6 +199,45 @@ def test_ein_kurzer_firmenname_bleibt_im_titel_stehen_ein_dreibuchstabiger_nicht
     assert beispiele[2]["title"] == f"{api_backend.PLATZHALTER_FIRMA} Berater (m/w/d)", \
         "drei Buchstaben gehoeren schon zum Namen und duerfen den Rechner nicht verlassen"
     assert all(e["company"] == api_backend.PLATZHALTER_FIRMA for e in beispiele)
+
+
+@pytest.mark.parametrize("firma, titel, erwartet", [
+    ("Musterfirma AG", "Berater bei Musterfirma (m/w/d)", f"Berater bei {api_backend.PLATZHALTER_FIRMA} (m/w/d)"),
+    ("Musterfirma AG", "Musterfirma AG sucht Berater", f"{api_backend.PLATZHALTER_FIRMA} sucht Berater"),
+    ("Muster GmbH &amp; Co. KG", "Ingenieur bei Muster", f"Ingenieur bei {api_backend.PLATZHALTER_FIRMA}"),
+    ("Müller &amp; Söhne GmbH", "Monteur Müller & Söhne", f"Monteur {api_backend.PLATZHALTER_FIRMA}"),
+    ("Beispiel Software", "Beispiel Softwareentwickler", "Beispiel Softwareentwickler"),  # ganzes Wort, kein Teil eines Worts
+    ("ZF", "Entwickler bei ZF", "Entwickler bei ZF"),  # zwei Buchstaben: meist ein Wort des Titels
+    ("GmbH", "Leiter GmbH-Recht", "Leiter GmbH-Recht"),  # nur eine Rechtsform ist kein Name
+])
+def test_der_firmenkern_ohne_rechtsform_wird_auch_als_wort_im_titel_ersetzt(firma, titel, erwartet):
+    """Eine Anzeige schreibt "Berater bei Musterfirma", die Datenbank fuehrt "Musterfirma AG": nur der volle Name haette den Titel
+    unveraendert gelassen und die Firma einer frueher aussortierten Stelle mitgeschickt."""
+    sicher = api_backend.nutzlast_fuer_api("match_job_to_skills", {
+        "recent_dismissals": [{"title": titel, "company": firma, "dismiss_reason": "zu_junior"}]})
+    assert sicher["recent_dismissals"][0]["title"] == erwartet
+
+
+def test_ein_aussortier_grund_geht_nur_als_kennung_hinaus_eigener_text_wird_sonstiges():
+    """Freitext ("Firma Muster ist zu klein") kann einen Namen tragen, und die API braucht ihn nicht: die Standardgruende
+    tragen das Lernen. Die App selbst macht aus Unbekanntem ebenfalls `sonstiges`."""
+    sicher = api_backend.nutzlast_fuer_api("match_job_to_skills", {
+        "recent_dismissals": [
+            {"title": "A", "company": "", "dismiss_reason": "zu_junior"},
+            {"title": "B", "company": "", "dismiss_reason": "Firma Muster ist zu klein"},
+            {"title": "C", "company": "", "dismiss_reason": "Gehalt-zu_niedrig"},
+            {"title": "D", "company": "", "dismiss_reason": ""},
+            {"title": "E", "company": "", "dismiss_reason": None},
+        ],
+        "dismiss_reasons_top": [
+            {"reason": "zu_junior", "count": 4},
+            {"reason": "Firma Muster ist zu klein", "count": 2},
+            {"reason": "Noch ein Satz mit Namen", "count": 1},
+            {"reason": "", "count": 9},
+        ]})
+    assert [e["dismiss_reason"] for e in sicher["recent_dismissals"]] == ["zu_junior", "sonstiges", "sonstiges", "", ""]
+    assert sicher["dismiss_reasons_top"] == [{"reason": "zu_junior", "count": 4}, {"reason": "sonstiges", "count": 3}]
+    assert "Muster" not in str(sicher)
 
 
 def test_eine_unbekannte_aufgabe_hat_keine_nutzlast():

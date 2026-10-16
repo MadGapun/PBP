@@ -196,6 +196,26 @@ def test_das_original_bleibt_unberuehrt_und_die_kopie_liegt_im_wegwerf_ordner(de
     assert os.environ.get("BA_DATA_DIR") != gesehen["env"], "Der Datenordner des Aufrufers kommt zurueck"
 
 
+def test_ein_pfad_mit_raute_prozent_und_umlaut_ist_kein_teil_der_uri_syntax(tmp_path):
+    """Der Benutzername steckt im Pfad (Umlaute, Leerzeichen, Sonderzeichen). Als rohe URI gelesen, haette ein "#" den Pfad
+    abgeschnitten und ein "%" eine Kodierung vorgetaeuscht: "ließ sich nicht lesend öffnen" statt einer Kopie."""
+    import sqlite3
+    ordner = tmp_path / "Ordner #1 100% Müller"
+    ordner.mkdir()
+    quelle = ordner / "pbp.db"
+    con = sqlite3.connect(quelle)
+    con.execute("CREATE TABLE t(x)")
+    con.execute("INSERT INTO t VALUES (42)")
+    con.commit()
+    con.close()
+    ziel = api_probe.kopie_anlegen(quelle, tmp_path / "kopie")
+    kopie = sqlite3.connect(ziel)
+    try:
+        assert kopie.execute("SELECT x FROM t").fetchone() == (42,)
+    finally:
+        kopie.close()
+
+
 def test_behalten_laesst_die_kopie_stehen(demo_db):
     gesehen = {}
     echt = api_probe.datenbank_oeffnen

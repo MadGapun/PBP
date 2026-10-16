@@ -155,7 +155,8 @@ def test_mit_schluessel_zeigt_die_karte_die_feldliste_bevor_etwas_freigegeben_is
             assert felder.evaluate("d => d.open") is True, "Die Feldliste ist vor der Freigabe aufgeklappt"
         match = page.locator('[data-api-aufgabe="match_job_to_skills"]').inner_text()
         assert "deine letzte Berufsbezeichnung" in match and "Nicht gesendet:" in match
-        assert "Firmennamen werden durch „[Firma]“ ersetzt" in match
+        assert "wird durch „[Firma]“ ersetzt" in match and "eigener Text wird zu „sonstiges“" in match
+        assert "das heutige Datum und die Uhrzeit" in match
         assert TESTSCHLUESSEL not in page.content() and TESTSCHLUESSEL[:14] not in page.content()
         assert "Kein Budget gesetzt" in karte.locator("[data-api-budget-zeile]").inner_text()
     finally:

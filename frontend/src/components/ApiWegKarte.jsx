@@ -174,7 +174,7 @@ export default function ApiWegKarte() {
               <summary className="cursor-pointer text-sm text-ink">Was geht an die API – und was nicht?</summary>
               <ul className="mt-2 list-disc pl-5 text-sm text-muted">
                 {a.gesendet.map((t) => <li key={t}>{t}</li>)}
-                <li>das heutige Datum</li>
+                <li>{a.immer || "das heutige Datum und die Uhrzeit"}</li>
               </ul>
               <p className="mt-2 text-sm text-muted"><strong className="text-ink">Nicht gesendet:</strong> {a.nicht_gesendet.join("; ")}.</p>
             </details>

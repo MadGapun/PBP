@@ -17,6 +17,19 @@ erreicht man den eigenen Rechner) und Unix-Sockets -- ausser dem Port des echten
 Ein Versuch wird NICHT nur abgewiesen, sondern gemerkt (`VERSUCHE`): Code, der jede Netzstoerung schluckt
 (`except Exception`), hat sonst einen Test gruen gemacht, der gerade das Netz zu erreichen versuchte. Die
 Fixture in `conftest.py` laesst deshalb jeden Test scheitern, der einen nicht-lokalen Versuch hinterlaesst.
+
+## Grenzen (bekannt, bewusst nicht geschlossen)
+
+Die Sperre faengt, was ein Test aus Versehen tut: Namen scheitern schon an `getaddrinfo`, Verbindungen mit einer
+Adresse an `connect`. Nicht erfasst sind
+
+* asyncio unter Windows (ProactorEventLoop) mit einer IP-ADRESSE statt eines Namens: es verbindet ueber `ConnectEx`
+  und nicht ueber `socket.connect`;
+* UDP (`sendto`), Unterprozesse (auch der Chromium der Browser-Tests) und Threads, die das Testende ueberleben;
+* Namen unter `.localhost`: sie gelten als lokal und gehen an den echten Namensdienst des Rechners.
+
+Wer gezielt am Netz vorbei wollte, kaeme also vorbei. Der Zweck ist ein anderer: ein Test, der es nicht weiss, soll
+nicht still ins Netz gehen.
 """
 from __future__ import annotations
 

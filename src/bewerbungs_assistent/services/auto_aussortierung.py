@@ -92,6 +92,14 @@ def _api_weg_nutzbar(db) -> bool:
         return False
 
 
+def _aktives_profil(db):
+    """Die Kennung des aktiven Profils; None, wenn sie sich nicht lesen laesst."""
+    try:
+        return db.get_active_profile_id()
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                  dry_run: bool = False, max_dauer_sek: int = 50,
                  obergrenze_stellen: int = 30,
@@ -160,6 +168,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         return _err(f"unerwarteter_fehler: {str(exc)[:200]}")
 
     # Profil-Kontext sammeln
+    profil_id = _aktives_profil(db)  # #1236: der Lauf gehoert diesem Profil, auch wenn der Mensch waehrenddessen wechselt
     try:
         profile = db.get_profile() or {}
     except Exception as exc:  # #691: schemakonformer Fehler statt Crash
@@ -244,6 +253,8 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     api_mikro = 0
     api_modell = ""
     api_hinweis = None
+    profil_gewechselt = False  # #1236: der Mensch hat mitten im Lauf das Profil gewechselt
+    api_ausgefallen = False  # #1236: der API-Weg war gewaehlt und ist ausgefallen (oder gerade nicht mehr nutzbar)
 
     for idx, job in enumerate(candidates):
         # #646: Wall-Clock-Budget-Check vor jedem Ollama-Call.
@@ -256,6 +267,19 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "stellen_auto_aussortieren: Budget %ds erschoepft nach %d/%d Stellen",
                 max_dauer_sek, idx, len(candidates),
             )
+            break
+        if profil_id is not None and _aktives_profil(db) != profil_id:
+            # Freigabe, Budget-Zuordnung und Stellen gehoeren zum Profil, mit dem der Lauf begann. Ein Wechsel mittendrin
+            # darf weder dessen Daten unter der Freigabe eines anderen Profils an die API schicken noch Stellen des
+            # alten Profils mit dem neuen aussortieren.
+            profil_gewechselt = True
+            unverarbeitet = len(candidates) - idx
+            break
+        if api_ausgefallen:
+            # Die lokale KI wurde zu Beginn nicht aufgewaermt (der Lauf sollte ueber die API gehen): ein Rueckfall fuer
+            # alle uebrigen Stellen koennte an einem kalten Modell die Zeitgrenze des Clients sprengen. Der naechste
+            # Aufruf beginnt mit den Pruefungen und dem Aufwaermen der lokalen KI.
+            unverarbeitet = len(candidates) - idx
             break
         try:
             payload = {
@@ -280,6 +304,9 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 sonst_aufrufe += 1
             if api_hinweis is None and metriken.get("api_grund"):
                 api_hinweis = metriken["api_grund"]
+            if (api_weg and not ueber_api
+                    and (metriken.get("api_abgebrochen") or metriken.get("api_ausgelassen"))):
+                api_ausgefallen = True
             if not result.success:
                 errors.append({
                     "hash": job["hash"],
@@ -337,7 +364,8 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         len(passt_nicht_results) + len(unsicher_results)
         + len(passt_results) + len(errors)
     )
-    run_status = "teilweise" if budget_erschoepft else "ok"
+    vorzeitig = bool(unverarbeitet) and (budget_erschoepft or profil_gewechselt or api_ausgefallen)
+    run_status = "teilweise" if vorzeitig else "ok"
     result_payload = {
         "status": run_status,
         "dry_run": dry_run,
@@ -374,6 +402,20 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
             "Stellen unverarbeitet. Erneut aufrufen um die Reste zu "
             "bearbeiten (idempotent — bereits aussortierte werden "
             "uebersprungen)."
+        )
+    elif profil_gewechselt:
+        result_payload["unverarbeitet"] = unverarbeitet
+        result_payload["hinweis"] = (
+            f"Das Profil wurde während des Laufs gewechselt — der Lauf wurde beendet, {unverarbeitet} Stellen sind "
+            "unverarbeitet. Freigabe und Stellen gehören zum Profil, mit dem der Lauf begann. Mit dem gewünschten Profil "
+            "erneut aufrufen."
+        )
+    elif api_ausgefallen and unverarbeitet:
+        result_payload["unverarbeitet"] = unverarbeitet
+        result_payload["hinweis"] = (
+            f"Der API-Weg ist ausgefallen ({api_hinweis or 'Grund unbekannt'}) — der Lauf endet hier, {unverarbeitet} "
+            "Stellen sind unverarbeitet. Erneut aufrufen: ruht der API-Weg noch, braucht der Lauf die lokale KI (sie "
+            "wird zuerst geprüft und aufgewärmt); sonst geht es wieder über die API."
         )
     if ohne_beschreibung:
         result_payload["uebersprungen_ohne_beschreibung"] = len(ohne_beschreibung)

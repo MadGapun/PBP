@@ -150,6 +150,39 @@ def test_lokale_verbindungen_gehen_durch():
     assert socket.getaddrinfo("localhost", 80)
 
 
+def test_der_asynchrone_client_der_suite_erreicht_nur_lokale_ziele_und_eigene_transporte(versuche_quittieren):
+    """Der Client, den das Dashboard fuer die Update-Pruefung benutzt, bleibt in der Suite der echte -- nur ohne Weg ins Netz.
+    Ein Test, der die App im selben Prozess ueber `httpx.ASGITransport` anspricht (die Tempo-Tests), muss laufen; ein
+    lokales Ziel geht durch den echten Client (hier: ein geschlossener Port, also ein echter Verbindungsfehler der
+    Netzschicht); ein fremdes Ziel scheitert sofort mit der Meldung der Suite, ohne dass ein Socket aufgemacht wird."""
+    import asyncio
+
+    import httpx
+    from fastapi import FastAPI
+
+    app = FastAPI()
+
+    @app.get("/ping")
+    def ping():
+        return {"ok": True}
+
+    async def lauf():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://testserver") as c:
+            antwort = await c.get("/ping")
+            assert antwort.status_code == 200 and antwort.json() == {"ok": True}
+        with pytest.raises(httpx.ConnectError) as lokal:
+            async with httpx.AsyncClient(timeout=3) as c:
+                await c.get("http://127.0.0.1:1/")
+        assert "nur lokale Ziele" not in str(lokal.value), "ein lokales Ziel gehoert nicht zur Sperre der Suite"
+        with pytest.raises(httpx.ConnectError) as fremd:
+            async with httpx.AsyncClient() as c:
+                await c.get("https://api.anthropic.com/v1/messages")
+        assert "nur lokale Ziele" in str(fremd.value)
+
+    asyncio.run(lauf())
+    assert versuche_quittieren == [], "kein Socket fuer ein fremdes Ziel: der Fehler kommt vom Client, nicht von der Sperre"
+
+
 def test_die_sperre_wirkt_auch_in_einem_eigenen_pytest_lauf_mit_der_echten_conftest():
     """8c: Gruen im Repo beweist nicht, dass ein Schutz greift -- ein eigener Lauf zeigt, dass die Fixture
     registriert ist, einen geschluckten Versuch am Ende meldet und den Schluessel des Entwicklers fernhaelt."""
