@@ -33,6 +33,87 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.7.159] - 2026-10-16 — Eine Bewerbung macht keine Firma zum Wiedergänger, und ein Ortsname, den es mehrfach gibt, wird nicht mehr geraten
+
+Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiven Stellen aufgefallen und beide an der Frage, was PBP aus seinen eigenen Daten folgert. Zwei Stellen derselben Firma, die aus der Liste gegangen waren, weil du dich beworben hattest, zählten als „zweimal aussortiert“: eine gelesene, empfohlene Stelle stand deshalb in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei `nur_empfohlen` ganz heraus (#1234). Und eine Stelle in „Rosengarten“ stand mit 24 statt rund 500 Kilometern als nah in der Liste: den Namen gibt es mehrfach in Deutschland, und PBP nahm den ersten Treffer des Kartendienstes, ohne es zu sagen (#1235).
+
+**Wichtig zu wissen:**
+
+- **Eine Bewerbung ist kein Beleg gegen eine Firma.** Eine Stelle, die aus der Liste ging, weil du dich beworben hast (`bewerbung_erstellt` ist das Gegenteil einer Ablehnung), weil es sie doppelt gab (`bereits_beworben`, `duplikat`) oder weil die Anzeige weg war (`veraltet_url`), zählt nie als „diese Firma wurde schon aussortiert“. Das gilt überall, wo PBP aus Aussortierungen etwas folgert: Stellenliste, Analyse, Firmen-Historie und die Automatik nach einer Suche.
+- **Nur ein fachlicher Grund macht aus früheren Aussortierungen ein k.o.** (falsches Fachgebiet, zu junior, zu senior, kein Hochschulabschluss, unpassendes Arbeitsmodell; mindestens zwei Belege), in der Stellenliste genauso wie in der Analyse. Jedes andere Muster steht als Hinweis an der Stelle (`wiedergaenger_hinweis`), nicht als Urteil, und die Stelle sinkt nicht mehr ans Ende der Liste.
+- **Ein gelesenes Urteil bleibt neben dem k.o. sichtbar** (`empfehlung.gelesene_analyse`, dazu der Satz „Deine gelesene Analyse sagt …“). Das k.o. schlägt es weiterhin (#671), aber es sieht nicht mehr so aus, als gäbe es das Urteil nicht.
+- **„Head of …“, „Chief …“ und „Director …“ sind Ebenen, kein Fachgebiet.** Zwei Head-of-Stellen derselben Firma galten als Wiedergänger, nur weil beide „head“ heißen.
+- **Hat die Automatik eine Stelle mit dem Grund `auto:bewerbung_erstellt:wiedergaenger` aussortiert,** steht sie im Aussortier-Protokoll (`aussortier_protokoll`) und kommt mit `stelle_reaktivieren` zurück. Neu entsteht so ein Fall nicht mehr.
+- **Gibt es einen Ortsnamen mehrfach, rät PBP nicht mehr.** Der Kartendienst wird nach bis zu acht Treffern gefragt. Liegt ein zweiter Ort desselben Namens mehr als 50 Kilometer entfernt und wiegt fast so viel (Gewichtsabstand unter 0,10), ist der Ort mehrdeutig: keine Entfernung statt einer geratenen, und `herkunft.entfernung` nennt den Grund samt den Orten. Frankfurt, Halle oder Offenbach haben einen klaren Spitzenreiter und bleiben aufgelöst.
+- **PLZ oder Bundesland direkt hinter dem Namen klären es.** Nennt die Anzeige „74538 Rosengarten“ oder „Rosengarten, Baden-Württemberg“, fragt PBP damit noch einmal: im Suchlauf, bei der Anlage von Hand, beim Nachladen, beim Ändern des Orts und bei der Reparatur der Karten. Ein Ort mit PLZ („21224 Rosengarten“) war schon immer eindeutig.
+- **Ein mehrdeutiger Wohnort wird als solcher benannt.** Statt „nicht aufgelöst“ steht, welche Orte der Name meint, und der Ausweg: die PLZ ergänzen.
+- **Der Bestand wird nachgeprüft.** Beim Nachholen nach einer Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Einträge des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und von dir gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht mehr auf „nah“.
+
+### Fixed
+
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234). `find_wiedergaenger_pattern` zählte jeden Aussortier-Grund als Beleg. Eine Liste der Nicht-Urteile (`ablehnungsgruende.KEIN_URTEIL_GRUENDE`: `bewerbung_erstellt`, `bereits_beworben`, `duplikat`, `veraltet_url`) wird jetzt von allen Wegen befragt (Wiedergänger, Firmen-Historie, Automatik). Die Stellenliste machte aus JEDEM Muster ein NICHT_EMPFOHLEN, die Analyse nur aus einem fachlichen; beide fragen jetzt dieselbe Funktion (`wiedergaenger.ist_fachlicher_ko`). „head“, „chief“, „director“, „direktor“ und „vorstand“ stehen bei den Rollenwörtern (`_TITLE_STOPS`).
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235). `geocode(exactly_one=True)` gab den Treffer mit dem höchsten Gewicht zurück; das gleichnamige Rosengarten im Landkreis Harburg verdrängte das in Baden-Württemberg. Jetzt wertet PBP bis zu acht Treffer aus (`geocoding_service.geocode_ort`), nennt einen mehrdeutigen Ort samt Kandidaten (`mehrdeutigkeit`) und klärt ihn, wenn die Anzeige PLZ oder Bundesland nennt (`entfernung_aus_anzeige`).
+
+### Changed
+
+- `services/ablehnungsgruende.py`: `KEIN_URTEIL_GRUENDE` und `ist_urteil`; `services/wiedergaenger.py`: `urteilsgruende`, `FACHLICHE_KO_GRUENDE` (stand lokal in `tools/jobs.py`) und `ist_fachlicher_ko`; die Stellenliste ergänzt `wiedergaenger_hinweis` und `empfehlung.gelesene_analyse` (#1234).
+- `services/geocoding_service.py`, `eigener_standort.py`, `wahrheit.py`, `karten_heilung.py`, `nachladen.py`, `stelle_aendern.py`, `job_scraper/__init__.py` und `tools/jobs.py` (Anlage von Hand): ein mehrdeutiger Ort hat keine Koordinaten, die Anzeige klärt ihn über dieselbe Funktion (#1235).
+- Der Ortsspeicher `geo_cache` hat zwei Spalten mehr, `stand` und `kandidaten`. Sie werden beim Start einmalig nachgezogen (additiv, ohne neue Schema-Version; Schema bleibt v48, beide Linien lesen dieselbe Datenbank).
+- Dashboard: die Karte „Standort“ nennt die Orte eines mehrdeutigen Wohnorts (`lib/standort.js`, Node-Test in der CI).
+
+### Known Issues
+
+- **Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft** (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort an der Reihe war, steht an seinen Stellen noch die alte Zahl.
+
+### Gemessen
+
+83 neue Tests (7.313 gesamt; v1.7.158 hatte 7.230): 25 zu #1234 (`tests/test_v17159_wiedergaenger_urteil_1234.py`; auf v1.7.158 rot: 17) und 58 zu #1235 (`tests/test_v17159_ortsdienst_mehrdeutig_1235.py`; auf v1.7.158 rot: alle 58), dazu der Node-Test `frontend/src/lib/standort.test.mjs`. Die Gegenprobe (je Schutz einmal ausgebaut, die Tests müssen rot werden) erkannte 21 von 21 Eingriffen zu #1234 und 27 von 27 zu #1235. Die Schwellen des Ortsdienstes sind gemessen (Kartendienst, 16.10.2026, 15 Abfragen): mehrdeutige Namen haben Treffer mit höchstens 0,061 Gewichtsabstand, eindeutige (Frankfurt, Halle, Offenbach) mindestens 0,136; die Grenze liegt bei 0,10 und 50 Kilometern.
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.7.159.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.7.159.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.7.159 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.7.159` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist die Beta, nicht die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.7.158] - 2026-10-16 — Eine interne Notiz lässt den Nachfass stehen, und ein Firmenname im Notiztext macht keinen Endkunden
 
 Hotfix für v1.7.157. Zwei Befunde aus dem Alltag, beide an der Frage, was PBP aus einer Notiz folgert. Jede Notiz, die zu einer Bewerbung geschrieben wurde, galt als „Kontakt mit dem Arbeitgeber“ und machte die automatische Nachfass-Erinnerung hinfällig: wer eine Bewerbung anlegte und gleich danach eine interne Notiz ergänzte, verlor den 21-Tage-Nachfass nach Minuten, ohne es zu merken (#1232). Und die Warnung „Schon beworben? Läuft über …“ (mit dem Namen des Vermittlers) nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand (#1198; Beitrag aus der Gemeinschaft, PR #1230).
