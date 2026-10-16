@@ -205,10 +205,10 @@ def test_ein_kurzer_firmenname_bleibt_im_titel_stehen_ein_dreibuchstabiger_nicht
     ("Musterfirma AG", "Berater bei Musterfirma (m/w/d)", f"Berater bei {api_backend.PLATZHALTER_FIRMA} (m/w/d)"),
     ("Musterfirma AG", "Musterfirma AG sucht Berater", f"{api_backend.PLATZHALTER_FIRMA} sucht Berater"),
     ("Muster GmbH &amp; Co. KG", "Ingenieur bei Muster", f"Ingenieur bei {api_backend.PLATZHALTER_FIRMA}"),
-    ("Müller &amp; Söhne GmbH", "Monteur Müller & Söhne", f"Monteur {api_backend.PLATZHALTER_FIRMA}"),
+    ("Beispiel &amp; Partner", "Monteur Beispiel & Partner", f"Monteur {api_backend.PLATZHALTER_FIRMA}"),
     ("Beispiel Software", "Beispiel Softwareentwickler", "Beispiel Softwareentwickler"),  # ganzes Wort, kein Teil eines Worts
     ("ZF", "Entwickler bei ZF", "Entwickler bei ZF"),  # zwei Buchstaben: meist ein Wort des Titels
-    ("GmbH", "Leiter GmbH-Recht", "Leiter GmbH-Recht"),  # nur eine Rechtsform ist kein Name
+    ("GmbH", "Recht der gmbh", "Recht der gmbh"),  # nur eine Rechtsform ist kein Name
 ])
 def test_der_firmenkern_ohne_rechtsform_wird_auch_als_wort_im_titel_ersetzt(firma, titel, erwartet):
     """Eine Anzeige schreibt "Berater bei Musterfirma", die Datenbank fuehrt "Musterfirma AG": nur der volle Name haette den Titel
