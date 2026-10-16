@@ -14,6 +14,9 @@ import { Badge, Button, Card, CheckboxInput, useDialogFokus } from "@/components
 import { cn, docTypeLabel, firstIncompleteStepIndex, getKnownProfileFacts, sanitizeSkillName } from "@/utils";
 
 const STEP_IDS = ["documents", "conversation", "sources", "jobs"];
+import { STARTSATZ } from "@/lib/startsatz";
+
+// Die AUSFUEHRLICHE Anleitung (auf Wunsch). Der Standard ist der Satz (STARTSATZ): #1170 U10 (c).
 const CONVERSATION_COMMAND = "/ersterfassung";
 const JOB_WORKFLOW_COMMAND = "/jobsuche_workflow";
 const CONVERSATION_STATE = { IDLE: "idle", ACTIVE: "active", COMPLETE: "complete" };
@@ -600,6 +603,13 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
     await copyPrompt(CONVERSATION_COMMAND);
   }
 
+  // #1170 U10 (c): kopiert wird der Satz, den die Hilfe nennt - nicht ein langer Text mit Werkzeugnamen.
+  async function copyStartsatz() {
+    await copyPrompt(STARTSATZ, {
+      erfolg: `„${STARTSATZ}“ kopiert — jetzt in Claude Desktop einfügen (Strg+V) und abschicken.`,
+    });
+  }
+
   function trackLoginJob(sourceKey, jobId) {
     const previous = loginPollersRef.current.get(sourceKey);
     if (previous) window.clearInterval(previous);
@@ -997,10 +1007,18 @@ export default function ProfileOnboarding({ open, profile, workspace, onDismiss,
       )}
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Button variant="secondary" onClick={copyConversationCommand}>
+        <Button variant="secondary" onClick={copyStartsatz}>
           <Copy size={15} />
           Gespräch mit Claude starten
         </Button>
+        <button
+          type="button"
+          className="text-xs text-muted underline hover:text-ink"
+          data-ausfuehrliche-anleitung
+          onClick={copyConversationCommand}
+        >
+          Ausführliche Anleitung kopieren
+        </button>
         <Badge tone={conversationState === CONVERSATION_STATE.COMPLETE ? "success" : conversationState === CONVERSATION_STATE.ACTIVE ? "sky" : "neutral"}>
           {conversationState === CONVERSATION_STATE.COMPLETE ? "Abgeschlossen" : conversationState === CONVERSATION_STATE.ACTIVE ? "Läuft" : "Noch offen"}
         </Badge>

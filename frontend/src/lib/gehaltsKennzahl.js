@@ -119,3 +119,36 @@ export function grundlagenText(metrics) {
   if (gesamt < 3) teile.push("wenig Datenbasis");
   return teile.join(" — ");
 }
+
+/**
+ * Durchschnitt und Bandbreite fuer die Kacheln (#1200 B1) — EINE Rechnung
+ * fuer Dashboard und Stellen-Seite.
+ *
+ * G61 (#1087 B4) hatte "0 – 0 EUR" im Dashboard behoben; die Stellen-Seite
+ * rechnete weiter mit `Number(...)`, und `Number(null)` ist 0 — ohne eine
+ * einzige Gehaltsangabe stand dort "0 EUR" und "0 – 0 EUR". Fehlt ein Wert,
+ * steht `leer` da, nie eine Null.
+ */
+export function gehaltsKacheln(metrics, leer = "Keine Angabe") {
+  const eur = (n) => `${new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n))} EUR`;
+  const min = positiveSalary(metrics?.averageMin);
+  const max = positiveSalary(metrics?.averageMax);
+  const durchschnitt = min !== null && max !== null
+    ? Math.round((min + max) / 2)
+    : min !== null ? Math.round(min) : max !== null ? Math.round(max) : null;
+  const bandMin = positiveSalary(metrics?.bandMin);
+  const bandMax = positiveSalary(metrics?.bandMax);
+  let bandText = leer;
+  if (bandMin !== null && bandMax !== null) {
+    const fmt = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
+    bandText = `${fmt(bandMin)} – ${fmt(bandMax)} EUR`;
+  } else if (bandMin !== null || bandMax !== null) {
+    bandText = eur(bandMin ?? bandMax);
+  }
+  return {
+    durchschnitt,
+    durchschnittText: durchschnitt !== null ? eur(durchschnitt) : leer,
+    bandText,
+    hatBand: bandText !== leer,
+  };
+}

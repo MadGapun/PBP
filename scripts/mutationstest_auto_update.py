@@ -62,6 +62,7 @@ T_E = ["tests/test_v18_auto_update_ed25519.py"]
 T_SA = ["tests/test_v18_auto_update_schluessel_ausgeliefert.py"]
 T_SAB = ["tests/test_v18_auto_update_schluessel_ablage.py"]
 T_V = ["tests/test_v18_vorab_auto_update_1199.py"]  # #1199: Vorab-Auto-Update (opt-in)
+T_VI = ["tests/test_v18_vorab_installation_1222.py"]  # #1222: ... und seine Installation
 
 # (id, Beschreibung, Datei, alt, neu, Tests)
 M = [
@@ -138,7 +139,8 @@ M = [
     ("in01", "Lauf: Linienwechsel erlaubt", AU + "installation.py", "    if _fassung.linie(version) != _fassung.linie(laufend):", "    if False:", T_I),
     ("in02", "Lauf: Zurueck-/Gleichstand erlaubt", AU + "installation.py", "    if not _fassung.ist_neuer(version, neuere):", "    if False:", T_I),
     ("in03", "Lauf: gescheiterte Fassung wird erneut versucht", AU + "installation.py", "    if version in zustand.gescheiterte_fassungen(app):", "    if False:", T_I),
-    ("in04", "Lauf: Vorabversion erlaubt", AU + "installation.py", "    if not _fassung.ist_stabil(version):", "    if False:", T_I),
+    ('in04', "Lauf: Vorabversion erlaubt", AU + "installation.py",
+     '    if not quelle.kandidat_erlaubt(version, laufend, vorab):', '    if False:', T_I + T_VI),
     ("in05", "Selbsttest: Urteil ignoriert", AU + "installation.py", '    if getattr(r, "returncode", 1) != 0 or letzte != "OK":', "    if False:", T_I),
     ("in06", "Selbsttest wird uebersprungen", AU + "installation.py", "    selbsttest_starten(entpackt, python=python, runner=selbsttest_runner)", "    pass", T_I),
     ("in07", "Arbeitsordner wird nach Abbruch nicht geleert", AU + "installation.py", "                aufraeumen.arbeit_leeren(app, eigene_sperre=True)\n        ergebnis.ok = True", "                pass\n        ergebnis.ok = True", T_I),
@@ -500,13 +502,14 @@ M_WEGE = [
     ('wg02', 'wege.js: eine Zeile mit Bewerbung kennt ihre Bewerbung nicht', 'frontend/src/lib/wege.js', '  const bew = zuBewerbung(eintrag.bewerbung_id);\n  return bew || { seite: "aufgaben", intent: null };\n', '  return { seite: "aufgaben", intent: null };\n', T_WG),
     ('wg03', 'wege.js: eine Stelle wird angescrollt, nicht geoeffnet', 'frontend/src/lib/wege.js', 'intent: { focus: "job", jobHash: h, oeffnen: true }', 'intent: { focus: "job", jobHash: h }', T_WG),
     ('wg04', 'Nach dem Speichern bleibt die neue Bewerbung unter der Liste', 'frontend/src/pages/JobsPage.jsx', '      if (neu) navigateTo(neu.seite, neu.intent);\n      else navigateTo("bewerbungen");\n', '      navigateTo("bewerbungen");\n', T_WG),
-    ('wg05', 'Stellen-Seite liest die Absicht `oeffnen` nicht', 'frontend/src/pages/JobsPage.jsx', '      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));\n', '', T_WG),
+    ('wg05', 'Stellen-Seite liest die Absicht `oeffnen` nicht', 'frontend/src/pages/JobsPage.jsx',
+     '      if (intent.oeffnen) {\n        detailVonRef.current = intent.von || null;\n        setPendingOpenJobHash(String(intent.jobHash));\n      }\n', '', T_WG),
     ('wg06', 'Stellen-Seite oeffnet die gemerkte Stelle nie', 'frontend/src/pages/JobsPage.jsx', '    if (loading || !pendingOpenJobHash) return undefined;\n    const hash = pendingOpenJobHash;', '    return undefined;\n    const hash = pendingOpenJobHash;', T_WG),
     ('wg07', 'Stelle ausserhalb der geladenen Seite: die Einzelantwort wird verworfen', 'frontend/src/pages/JobsPage.jsx', '.then((einzeln) => { if (einzeln) openDetailDialog(einzeln); })', '.then(() => {})', T_WG),
     ('wg08', 'Kontakte-Seite liest die Absicht `kontaktId` nicht', 'frontend/src/pages/ContactsPage.jsx', '      if (intent.kontaktId) {\n', '      if (false) {\n', T_WG),
     ('wg09', 'Kontakt-Dialog: die Verknuepfung ist wieder nur Text', 'frontend/src/pages/ContactsPage.jsx', '{z.ziel ? (', '{false ? (', T_WG),
     ('wg10', 'Bewerbung: der Name der Person fuehrt nirgends hin', 'frontend/src/pages/ApplicationsPage.jsx', 'onClick={() => { const z = zuKontakt(c.id); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => {}}', T_WG),
-    ('wg11', 'Bewerbungskarte: „Zur Stelle“ tut nichts', 'frontend/src/pages/ApplicationsPage.jsx', '<Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle', '<Button variant="secondary" onClick={() => {}} data-karte-zur-stelle', T_WG),
+    ('wg11', 'Bewerbungskarte: „Zur Stelle“ tut nichts', 'frontend/src/pages/ApplicationsPage.jsx', '<Button variant="secondary" onClick={() => setJobDetail({ hash: application.job_hash, bewerbungId: application.id })} data-karte-zur-stelle', '<Button variant="secondary" onClick={() => {}} data-karte-zur-stelle', T_WG),
     ('wg12', 'Timeline: kein naechster Schritt fuer die Unterlagen', 'frontend/src/pages/ApplicationsPage.jsx', '{timelineDialog.entry?.application?.status === "in_vorbereitung" && !timelineDialog.entry?.application?.cv_path && (', '{false && (', T_WG),
     ('wg13', 'Aufgabe: „Zur Bewerbung“ tut nichts', 'frontend/src/pages/TasksPage.jsx', 'onClick={(ev) => { ev.stopPropagation(); springeZurBewerbung(e); }}', 'onClick={(ev) => { ev.stopPropagation(); }}', T_WG),
     ('wg14', 'Dashboard: die Top-Stelle scrollt nur noch', 'frontend/src/pages/DashboardPage.jsx', 'onClick={() => { const z = zuStelle(job.hash); if (z) navigateTo(z.seite, z.intent); }}', 'onClick={() => navigateTo("stellen", { focus: "job", jobHash: job.hash })}', T_WG),
@@ -546,9 +549,8 @@ EWP = "src/bewerbungs_assistent/services/elwosa_provider.py"
 EWE = "src/bewerbungs_assistent/services/elwosa.py"
 
 M_VORAB = [
-    ("vo01", "Update-Seite: statt der Vorabversion steht wieder „Aktuell“", UT,
-     '            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>\n              : zeigeAktuell(au)',
-     '            : zeigeAktuell(au)', T_VO),
+    ('vo01', "Update-Seite: statt der Vorabversion steht wieder „Aktuell“", UT,
+     '            : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>\n              : zeigeAktuell(au)', '            : zeigeAktuell(au)', T_VO),
     ("vo02", "Update-Seite: die Karte mit Erklaerung und Weg fehlt", UT,
      '        {vorab ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>',
      '        {false ? (\n          <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>', T_VO),
@@ -577,7 +579,7 @@ M_VORAB = [
      'mcp: lage.mcp, vorab: lage.vorab });', 'mcp: lage.mcp });', T_VO),
     ("vo13", "Hinweiszone: ohne Auto-Update gilt wieder der alte Hinweis fuer die Vorabversion", HZ,
      '    if (lage.vorab) return vorabHinweis(lage.vorab);\n', '', T_VO),
-    ("vo14", "Regel: updateHinweis kennt keine Vorabversion", AUL,
+    ('vo14', "Regel: updateHinweis kennt keine Vorabversion", AUL,
      '  if (!neu) return extra.vorab ? vorabHinweis(extra.vorab) : null;\n', '  if (!neu) return null;\n', T_VO),
     ("vo15", "Kontext: die Update-Seite kann die allgemeine Pruefung nicht anstossen", "frontend/src/App.jsx",
      '    refreshUpdateInfo: () => setUpdateFrageNr((n) => n + 1),\n', '', T_VO),
@@ -765,12 +767,12 @@ M_BROWSER = [
      'bekannt, aussortiert mit Grund. Der Bericht ersetzt die Einträge nicht.",', 'bekannt, verworfen mit Grund.",', T_BR),
     ("bw10", "Auftrag je Quelle: der Volltext ist wieder nur eine Empfehlung", BH,
      'Der Titel allein sagt zu wenig über Systeme und ', 'Der Titel allein reicht meist, auch bei Systemen und ', T_BR),
-    ("bw11", "Handoff einer einzelnen Quelle: ohne die Regel", HO,
-     '"Duplikat-Erkennung laufen automatisch. " + REGEL_IM_ZWEIFEL', '"Duplikat-Erkennung laufen automatisch."', T_BR),
+    ('bw11', "Handoff einer einzelnen Quelle: ohne die Regel", HO,
+     '"Duplikat-Erkennung laufen automatisch, und der Lauf wird verbucht. " + REGEL_IM_ZWEIFEL', '"Duplikat-Erkennung laufen automatisch, und der Lauf wird verbucht."', T_BR),
     ("bw12", "Handoff einer einzelnen Quelle: wieder 'passende Stellen'", HO,
      '"3. Alle Treffer, die fachlich passen oder nahezu passen, mit "', '"3. Passende Stellen mit "', T_BR),
-    ("bw13", "Workflow-Prompt der Jobsuche: ohne die Regel", PRM,
-     'stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}', 'stelle_manuell_anlegen() erfassen.', T_BR),
+    ('bw13', "Workflow-Prompt der Jobsuche: ohne die Regel", PRM,
+     '(einzelne Stellen: stelle_manuell_anlegen()). {REGEL_IM_ZWEIFEL}', '(einzelne Stellen: stelle_manuell_anlegen()).', T_BR),
     ("bw14", "Workflow-Prompt der Jobsuche: wieder 'passende Treffer'", PRM,
      'suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit', 'suchprofil_lesen(), passende Treffer mit', T_BR),
     ("bw15", "Google-Jobs-Hinweis: ohne die Regel", JOBS,
@@ -781,8 +783,8 @@ M_BROWSER = [
      '"urteilt nicht: im Zweifel holen.",', '"urteilt: was nicht passt, fällt weg.",', T_BR),
     ("bw18", "LinkedIn-Plan: die Vorschau (dry_run=True) kommt im Ablauf nicht mehr vor", JOBS,
      '"als Vorschau (dry_run=True, dieselben Prüfungen wie der "', '"als Vorschau (dieselben Prüfungen wie der "', T_BR),
-    ("bw19", "Katalogtext von stelle_manuell_anlegen: wieder 'nicht fuer Treffer aus einer Jobboerse'", WK,
-     '"Auch für Treffer aus dem Browserlauf: im Zweifel eintragen. Was "', '"Nicht für Treffer aus einer Jobbörse; die legt die Suche selbst an. Was "', T_BR),
+    ('bw19', "Katalogtext von stelle_manuell_anlegen: wieder 'nicht fuer Treffer aus einer Jobboerse'", WK,
+     'Browserlauf: im Zweifel eintragen, viele auf einmal mit "\n        "browser_treffer_uebernehmen. Was PBPs eigene Suche schon angelegt "', 'Browserlauf: nicht für Treffer aus einer Jobbörse; die legt die Suche selbst an. Was PBPs eigene Suche schon angelegt "', T_BR),
     ("bw20", "Hinweis zur aussortierten Dublette: das Urteil geht in den Chat", JOBS,
      'an die Stelle (stelle_urteil_speichern): ob sie taugt, "', 'an die Stelle (im Chat): ob sie taugt, "', T_BR),
     ("bw21", "Vorschau: die Blacklist-Abweisung wird auch in der Vorschau protokolliert", JOBS,
@@ -791,10 +793,10 @@ M_BROWSER = [
      '        if trocken:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', '        if False:\n            # #1187: die Vorschau fragt dasselbe wie die Anlage', T_BR),
     ("bw23", "Vorschau: die Sammeluebernahme ruft nie trocken auf", JOBS,
      '                trocken=dry_run)   # #1187: die Vorschau prueft wie der echte Lauf\n', '                trocken=False)\n', T_BR),
-    ("bw24", "Vorschau: 'wuerde_angelegt' zaehlt nicht als angelegt", JOBS,
-     'if res.get("status") in ("angelegt", "wuerde_angelegt") or (', 'if res.get("status") == "angelegt" or (', T_BR),
-    ("bw25", "Vorschau: dieselbe Stelle zweimal im Aufruf zaehlt zweimal", JOBS,
-     '                if res["hash"] in vorschau_hashes:\n', '                if False:\n', T_BR),
+    ('bw24', "Vorschau: 'wuerde_angelegt' zaehlt nicht als angelegt", JOBS,
+     'if res.get("status") in ("angelegt", "wuerde_angelegt") or (\n', 'if res.get("status") == "angelegt" or (\n', T_BR),
+    ('bw25', "Vorschau: dieselbe Stelle zweimal im Aufruf zaehlt zweimal", JOBS,
+     '                if res["hash"] in vorschau_hashes:\n                    _skip(e, "duplikat_aktiv",\n', '                if False:\n                    _skip(e, "duplikat_aktiv",\n', T_BR),
     ("bw26", "Vorschau: die Laenge des Volltexts fehlt", JOBS,
      '                    _eintrag["beschreibung_zeichen"] = len(beschreibung)\n', '                    pass\n', T_BR),
     ("bw27", "Vorschau: die Hinweise der Pruefungen fehlen", JOBS,
@@ -802,8 +804,8 @@ M_BROWSER = [
     ("bw28", "Vorschau: der Hash der Stelle fehlt", JOBS,
      '                "id": _kurz(job_hash), "hash": job_hash,\n                "nachricht": f"Vorschau:',
      '                "id": _kurz(job_hash), "hash": "",\n                "nachricht": f"Vorschau:', T_BR),
-    ("bw29", "Sammeluebernahme: die aussortierte Dublette erscheint nicht im Eintrag", JOBS,
-     '                        ("aussortierte_dublette", "aussortierte_dublette"),\n', '', T_BR),
+    ('bw29', "Sammeluebernahme: die aussortierte Dublette erscheint nicht im Eintrag", JOBS,
+     '                         "laufende_bewerbung_verdacht"),\n                        ("aussortierte_dublette", "aussortierte_dublette"),\n', '                         "laufende_bewerbung_verdacht"),\n', T_BR),
     ("bw30", "Trichter-Zeile: 'schon aussortiert' fehlt", LVO,
      '        ("aussortierte_dublette", "schon aussortiert"),\n', '', T_BR),
 ]
@@ -867,12 +869,10 @@ M_JOBTIC = [
     ("jt16", "Bestands-Nachzug: eine jobtic-Stelle bleibt Kandidat und zaehlt Fehlversuche", TN_JT,
      '            if kein_automatischer_abruf(url=z["url"]):\n                continue\n',
      '            if False:\n                continue\n', T_JT),
-    ("jt17", "Auto-Nachladen: die Auswahl kennt die Auflage nicht", DASH,
-     '    _ohne, _ohne_params = sql_ohne_abruf("url")\n    rows = conn.execute(\n        "SELECT hash FROM jobs "\n',
-     '    _ohne, _ohne_params = "", []\n    rows = conn.execute(\n        "SELECT hash FROM jobs "\n', T_JT),
-    ("jt18", "Aging-Check: die Auswahl kennt die Auflage nicht", DASH,
-     '    _ohne, _ohne_params = sql_ohne_abruf("url")\n    rows = conn.execute(\n        "SELECT hash, url, title FROM jobs "\n',
-     '    _ohne, _ohne_params = "", []\n    rows = conn.execute(\n        "SELECT hash, url, title FROM jobs "\n', T_JT),
+    ('jt17', "Auto-Nachladen: die Auswahl kennt die Auflage nicht", "src/bewerbungs_assistent/services/text_nachzug.py",
+     '    ohne, ohne_params = sql_ohne_abruf("url")\n    zeilen = db.connect().execute(\n', '    ohne, ohne_params = "", []\n    zeilen = db.connect().execute(\n', T_JT),
+    ('jt18', "Aging-Check: die Auswahl kennt die Auflage nicht", DASH,
+     '    _ohne, _ohne_params = sql_ohne_abruf("url")\n    # #1139: feste Reihenfolge', '    _ohne, _ohne_params = "", []\n    # #1139: feste Reihenfolge', T_JT),
     ("jt19", "Anlage: Ansprechpartner aus jobtic werden uebernommen", JOBS,
      '        if _aufl.get("keine_kontaktdaten") and (kontakt_name or kontakt_email or kontakt_telefon):\n',
      '        if False and (kontakt_name or kontakt_email or kontakt_telefon):\n', T_JT),
@@ -1171,6 +1171,1429 @@ GRUNDLAEUFE = {
     "texterkennung": (("T_TE", T_TE),),
 }
 
+# ── Sprachdaten der Texterkennung: feste Fassung und Pruefsumme (#1165, I24) ──
+# Ab hier ergaenzt jeder Katalog KATALOGE und GRUNDLAEUFE selbst (die Auswahl im Aufruf folgt KATALOGE).
+T_SD = ["tests/test_v18_sprachdaten_pruefsumme_1165.py"]
+
+M_SPRACHDATEN = [
+    ("sd01", "Die Sprachdaten kommen wieder vom wandernden Zweig main", COMP_TE,
+     '    "https://github.com/tesseract-ocr/tessdata_fast/raw/" + _TESSDATA_FAST_COMMIT + "/{lang}.traineddata"\n',
+     '    "https://github.com/tesseract-ocr/tessdata_fast/raw/main/{lang}.traineddata"\n', T_SD),
+    ("sd02", "_download prueft die angekommene Datei nicht", COMP_TE,
+     "        if sha256 is not None and not _sha256_ok(teil, sha256):\n", "        if False:\n", T_SD),
+    ("sd03", "ensure_language lehnt eine Sprache ohne Summe nicht vor dem Laden ab", COMP_TE,
+     '    if not _pruefsumme_gueltig(TESSDATA_SPRACHEN.get(lang, "")):\n', "    if False:\n", T_SD),
+    ("sd04", "Die Sprachdatei wird ohne Summe geladen", COMP_TE,
+     ", lo, hi, sha256=TESSDATA_SPRACHEN[lang])\n", ", lo, hi)\n", T_SD),
+    ("sd05", "Scheitert eine von mehreren Dateien, bleiben die abgelegten liegen", COMP_TE,
+     "        for datei in abgelegt:\n            _entfernen(datei)\n", "        pass\n", T_SD),
+    ("sd06", "Abgelegte Dateien werden nicht vermerkt (das Zurueckrollen findet nichts)", COMP_TE,
+     "            abgelegt.append(target)\n", "", T_SD),
+    ("sd07", "Fuer osd steht keine Summe in der Registry", COMP_TE,
+     '    "osd": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",\n', '    "osd": "",\n', T_SD),
+    ("sd08", "Der Installationsjob verschweigt das fehlende deutsche Sprachpaket", COMP_TE,
+     '                    if lang.get("status") == "fehler":\n', "                    if False:\n", T_SD),
+    ("sd09", "Die Meldung nennt die verworfene Datei nicht", COMP_TE,
+     'f"Die Prüfsumme von {target.name} stimmt nicht — die Datei wurde verworfen und nicht benutzt. "',
+     '"Die Prüfsumme stimmt nicht — die Datei wurde verworfen und nicht benutzt. "', T_SD),
+    ("sd10", "Wird eng verlangt, wird es zweimal geladen", COMP_TE,
+     '            if base != lang and not (_tessdata_dir() / f"{base}.traineddata").is_file()\n',
+     '            if not (_tessdata_dir() / f"{base}.traineddata").is_file()\n', T_SD),
+]
+KATALOGE["sprachdaten"] = M_SPRACHDATEN
+GRUNDLAEUFE["sprachdaten"] = (("T_SD", T_SD),)
+
+# ── Google Jobs ueber JobSpy ist defekt, die Browser-Schwester bleibt (#1159, B75) ──
+T_JG = ["tests/test_v18_jobspy_google_defekt_1159.py"]
+REG_JG = "src/bewerbungs_assistent/job_scraper/__init__.py"
+HO_JG = "src/bewerbungs_assistent/services/browser_handoff.py"
+
+M_JOBSPY_GOOGLE = [
+    ("jg01", "jobspy_google gilt wieder als funktionierend", REG_JG,
+     '        "defekt": True,\n        "ersatz_quelle": "google_jobs",\n', '        "ersatz_quelle": "google_jobs",\n', T_JG),
+    ("jg02", "Die defekte Quelle nennt keine Browser-Schwester", REG_JG,
+     '        "ersatz_quelle": "google_jobs",\n', "", T_JG),
+    ("jg03", "Die Browser-Liste nennt die defekte Schwester trotz Ersatzquelle noch einmal", HO_JG,
+     ' and _nur_im_browser(info) and not info.get("ersatz_quelle"):\n', ' and _nur_im_browser(info):\n', T_JG),
+    ("jg04", "Die Browser-Schwester behauptet wieder, die automatische deckte Google ab", REG_JG,
+     '        # #1159: kein "doppelt_mit" mehr -- die automatische Schwester jobspy_google liefert nichts (defekt); der Satz\n',
+     '        "doppelt_mit": "jobspy_google",\n', T_JG),
+    ("jg05", "Der Grund nennt den Weg ueber den Browser nicht mehr", REG_JG,
+     "Im Browser funktioniert die Suche: die Quelle „Google Jobs (im Browser)“ über die Claude-Erweiterung.",
+     "Bitte später erneut versuchen.", T_JG),
+    ("jg06", "Der Ersatzweg der Karte ist kein Link mehr", REG_JG,
+     '"manueller_fallback": "https://www.google.com/search?udm=8&q=Jobs im Browser oder',
+     '"manueller_fallback": "im Browser oder', T_JG),
+]
+KATALOGE["jobspy_google"] = M_JOBSPY_GOOGLE
+GRUNDLAEUFE["jobspy_google"] = (("T_JG", T_JG),)
+
+# ── Der Typ eines einzelnen Dokuments von Hand (#1162, E32) ──
+T_DT = ["tests/test_v18_dokument_typ_1162.py"]
+T_DTB = ["tests/test_v18_dokument_typ_1162_browser.py"]
+DH_PY = "src/bewerbungs_assistent/services/document_handlers.py"
+DOK_TOOL = "src/bewerbungs_assistent/tools/dokumente.py"
+DOCP = "frontend/src/pages/DocumentsPage.jsx"
+
+M_DOKUMENTTYP = [
+    ("dt01", "Der Dienst prueft den Typ nicht gegen die erlaubten", DH_PY,
+     "    if typ not in erlaubte_typen():\n", "    if False:\n", T_DT),
+    ("dt02", "Der Dienst sucht das Dokument ohne das Profil", DH_PY,
+     "    doc = db.get_document(dokument_id, profile_id=profile_id)\n", "    doc = db.get_document(dokument_id)\n", T_DT),
+    ("dt03", "Der Dienst schreibt ohne das Profil", DH_PY,
+     "    if not db.update_document_type(dokument_id, typ, profile_id=profile_id):\n",
+     "    if not db.update_document_type(dokument_id, typ):\n", T_DT),
+    ("dt04", "Derselbe Typ gilt als Aenderung", DH_PY,
+     "    if alt == typ:\n", "    if False:\n", T_DT),
+    ("dt05", "Die erlaubten Typen kennen die Vorlagen nicht", DH_PY,
+     "    return list(KNOWN_TYPES) + [t for t in VORLAGEN_TYPEN if t not in KNOWN_TYPES]\n",
+     "    return list(KNOWN_TYPES)\n", T_DT),
+    ("dt06", "Ein bekannter Typ hat keinen deutschen Namen", DH_PY,
+     '    "absage": "Absage",\n', "", T_DT),
+    ("dt07", "Der Endpunkt nimmt einen unbekannten Typ an", DASH,
+     '    if erg["status"] == "unbekannter_typ":\n', "    if False:\n", T_DT),
+    ("dt08", "Das Werkzeug gibt bei einem Fehler zusaetzlich einen Status zurueck", DOK_TOOL,
+     '        if erg["status"] in ("nicht_gefunden", "unbekannter_typ"):\n', "        if False:\n", T_DT),
+    ("dt09", "Die Typen-Uebersicht verneint die Aenderung von Hand wieder", DOK_TOOL,
+     '"Den Typ eines einzelnen Dokuments stellt dokument_typ_setzen() "', '"Den Typ eines einzelnen Dokuments kann man derzeit nicht "', T_DT),
+    ("df01", "Die Ansicht schickt die Aenderung nicht", DOCP,
+     "      await putJson(`/api/document/${doc.id}/doc-type`, { doc_type: neuerTyp });\n", "", T_DTB),
+    ("df02", "Die Ansicht schickt den alten Typ statt des neuen", DOCP,
+     "{ doc_type: neuerTyp }", "{ doc_type: doc.doc_type }", T_DTB),
+    ("df03", "Die Ansicht sagt nach dem Aendern nicht, was geworden ist", DOCP,
+     "      pushToast(`Typ geändert: ${typName(neuerTyp)}`, \"success\");\n", "", T_DTB),
+    ("df04", "Die Namen kommen nicht vom Server", DOCP,
+     "    return typen.find((t) => t.typ === typ)?.name || docTypeLabel(typ);\n", "    return docTypeLabel(typ);\n", T_DTB),
+    ("df05", "Ein Typ ausserhalb der Liste verschwindet aus der Auswahl", DOCP,
+     "                                {typen.length === 0 || !typen.some((t) => t.typ === doc.doc_type) ? (\n",
+     "                                {false ? (\n", T_DTB),
+    ("df06", "Die Ansicht laedt die Typen nicht", DOCP,
+     '    api("/api/document-types")\n      .then((r) => setTypen(r.typen || []))\n',
+     '    Promise.resolve({ typen: [] })\n      .then((r) => setTypen(r.typen || []))\n', T_DTB),
+]
+KATALOGE["dokumenttyp"] = M_DOKUMENTTYP
+GRUNDLAEUFE["dokumenttyp"] = (("T_DT", T_DT), ("T_DTB", T_DTB))
+
+# ── Voreinstellung der Filter in der Stellenliste (#1158 Punkt 5, G82) ──
+T_FV = ["tests/test_v18_stellen_filter_standard_1158.py"]
+SFS_PY = "src/bewerbungs_assistent/services/stellen_filter_standard.py"
+JOBSP = "frontend/src/pages/JobsPage.jsx"
+SFJS = "frontend/src/lib/stellenFilter.js"
+
+M_FILTERVOREINSTELLUNG = [
+    ("fv01", "Die Voreinstellung nimmt einen unbekannten Filter an", SFS_PY,
+     '        if schluessel not in SCHLUESSEL:\n            raise ValueError(f"Unbekannter Filter: {schluessel!r}.")\n', "", T_FV),
+    ("fv02", "Die Voreinstellung prueft die Typen nicht", SFS_PY,
+     "        if not isinstance(wert, erwartet) or (erwartet is str and isinstance(wert, bool)):\n", "        if False:\n", T_FV),
+    ("fv03", "Mindestpunkte duerfen jeder Text sein", SFS_PY,
+     '            if schluessel == "minScore" and wert.strip() and not _ZAHL.fullmatch(wert.strip()):\n', "            if False:\n", T_FV),
+    ("fv04", "Ein kaputter gespeicherter Eintrag wirft statt „keine Voreinstellung“ zu sein", SFS_PY,
+     "    except ValueError:\n        return None\n", "    except ValueError:\n        raise\n", T_FV),
+    ("fv05", "Der Endpunkt antwortet auf eine ungueltige Voreinstellung mit 200", DASH,
+     '        return JSONResponse({"error": str(exc)}, status_code=400)\n    return {"standard": gesetzt}\n',
+     '        return JSONResponse({"error": str(exc)}, status_code=200)\n    return {"standard": gesetzt}\n', T_FV),
+    ("fv06", "Aufheben loescht nichts auf dem Server", DASH,
+     "    stellen_filter_standard.loeschen(_db)\n    return {\"standard\": None}\n", "    return {\"standard\": None}\n", T_FV),
+    ("ff01", "Die Voreinstellung gilt bei jedem Betreten der Seite, nicht nur beim Oeffnen", JOBSP,
+     "        if (gefunden && !voreinstellungSchonAngewendet) {\n", "        if (gefunden) {\n", T_FV),
+    ("ff02", "Die erste Liste wird geholt, bevor die Voreinstellung da ist", JOBSP,
+     "    if (!voreinstellungBereit) return;\n    setLoading(true);\n", "    setLoading(true);\n", T_FV),
+    ("ff03", "„Filter zuruecksetzen“ stellt die Voreinstellung her statt die Einschraenkung aufzuheben", JOBSP,
+     "                  ...FILTER_STANDARD,\n                  sort: current.sort,\n                  view: current.view,\n",
+     "                  ...filterAusVoreinstellung(voreinstellung || {}, FILTER_STANDARD, current),\n                  sort: current.sort,\n                  view: current.view,\n", T_FV),
+    ("ff04", "„Aufheben“ ruft den Server nicht", JOBSP,
+     '      await deleteRequest("/api/stellen-filter-standard");\n', "", T_FV),
+    ("ff05", "„Als Voreinstellung speichern“ ruft den Server nicht", JOBSP,
+     '      const antwort = await putJson("/api/stellen-filter-standard", { standard: filterFuerVoreinstellung(filters) });\n',
+     "      const antwort = { standard: filterFuerVoreinstellung(filters) };\n", T_FV),
+    ("ff06", "Der Weg zurueck zur Voreinstellung fehlt", JOBSP,
+     "              {voreinstellung && !voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (\n", "              {false ? (\n", T_FV),
+    ("ff07", "Die Karte sagt nicht, was beim Oeffnen gilt", JOBSP,
+     '                  : "Ohne Voreinstellung gilt beim Öffnen, wie du die Liste verlassen hast."}\n', '                  : ""}\n', T_FV),
+    ("ff08", "Die Voreinstellung nimmt den Suchtext mit", SFJS,
+     'const NICHT_GEMERKT = ["query", "view"];\n', 'const NICHT_GEMERKT = ["view"];\n', T_FV),
+    ("ff09", "Die Voreinstellung traegt den Suchtext des Moments in die Liste", SFJS,
+     "  return { ...gelesen, query: aktuell.query ?? standard.query, view: aktuell.view ?? standard.view };\n",
+     "  return { ...gelesen, query: standard.query, view: standard.view };\n", T_FV),
+]
+KATALOGE["filtervoreinstellung"] = M_FILTERVOREINSTELLUNG
+GRUNDLAEUFE["filtervoreinstellung"] = (("T_FV", T_FV),)
+
+# ── MCP-Werkzeuge: Sammelposten, Rest (#1148, H38): Parameter-Aliase, Inventar, Zaehlerstaende ──
+T_WS = ["tests/test_v18_parameter_aliase_1148.py", "tests/test_v18_werkzeug_zahlen_1148.py"]
+PARAL = "src/bewerbungs_assistent/services/parameter_aliase.py"
+INVSK = "scripts/werkzeug_inventar.py"
+SERVER_PY = "src/bewerbungs_assistent/server.py"
+
+M_WERKZEUGSAMMEL = [
+    ("pa01", "Die Uebersetzung ueberschreibt einen Namen, den das Werkzeug selbst kennt", PARAL,
+     "        if name in bekannte or name not in _ANDERE:\n", "        if name not in _ANDERE:\n", T_WS),
+    ("pa02", "Die Uebersetzung ueberschreibt einen schon uebergebenen Zielnamen", PARAL,
+     "        kandidaten = [a for a in _ANDERE[name] if a in bekannte and a not in arguments]\n",
+     "        kandidaten = [a for a in _ANDERE[name] if a in bekannte]\n", T_WS),
+    ("pa03", "Die Tabelle kennt firma/company nicht", PARAL,
+     '    ("firma", "company"),\n', "", T_WS),
+    ("pa04", "Die Middleware wendet die Uebersetzung nicht an", SERVER_PY,
+     '                context = context.copy(message=context.message.model_copy(update={"arguments": _aliase}))\n',
+     "                pass\n", T_WS),
+    ("iv01", "Das Ergaenzen zaehlt auch, was nur im erzeugten Abschnitt steht", INVSK,
+     "    aussen = text if a < 0 or e < 0 else text[:a] + text[e + len(MARKE_ENDE):]\n", "    aussen = text\n", T_WS),
+    ("iv02", "Die Wiki-Pruefung uebersieht eine falsche Zahl", INVSK,
+     '    falsch = sorted(z for z in zahlen if z != inv["gesamt"])\n', "    falsch = []\n", T_WS),
+    ("iv03", "Die Wiki-Pruefung uebersieht fehlende Werkzeuge", INVSK,
+     '    fehlt = sorted(n for n in inv["namen"] if n not in genannt)\n    if fehlt:\n        befunde.append(',
+     '    fehlt = []\n    if fehlt:\n        befunde.append(', T_WS),
+]
+KATALOGE["werkzeugsammel"] = M_WERKZEUGSAMMEL
+GRUNDLAEUFE["werkzeugsammel"] = (("T_WS", T_WS),)
+
+# ── Installer Teil 2, Rest (#1149): Ordnername, Deinstaller im TEMP, Mac/Linux, Zahlen und Texte ──
+# Bewusst NICHT im Katalog: die Zeile mit PBP_DESKTOP (ohne sie schriebe der Test auf den ECHTEN Desktop), und die Unix-Faelle,
+# deren Tests nur unter Linux laufen (SIGTERM-Semantik, echtes pgrep) - die prueft die CI auf ubuntu.
+T_I2 = ["tests/test_v18_installer_rest_1149.py"]
+T_I2B = T_I2 + ["tests/test_v17145_deinstaller.py"]
+IB = "INSTALLIEREN.bat"
+DB = "DEINSTALLIEREN.bat"
+ISH = "installer/install.sh"
+ICM = "INSTALLIEREN.command"
+DSH = "installer/deinstallieren.sh"
+PS_PTH = "-Command \"(Get-Content -LiteralPath $env:PTH_FILE) -replace"
+
+
+def _server_json_version() -> str:
+    """Die Version, die `server.json` in diesem Baum oben traegt. Der Eintrag i270 sucht genau diese Zeile: stuende die Fassung fest im
+    Muster, bricht jeder Release-Kandidat (1.8.0-rc.4) den Katalog, ohne dass sich an der Pruefung etwas geaendert haette."""
+    try:
+        text = (WURZEL / "server.json").read_text(encoding="utf-8-sig").replace("\r\n", "\n")
+    except OSError:
+        return "1.8.0"
+    ende = text.find('",\n  "websiteUrl"')
+    anfang = text.rfind('"version": "', 0, ende) + len('"version": "') if ende >= 0 else -1
+    return text[anfang:ende] if ende >= 0 and anfang > 0 else "1.8.0"
+
+
+M_INSTALLER2 = [
+    ("i201", "Das Ausrufezeichen im Ordnernamen wird nicht mehr geprueft", IB,
+     'if "%PBP_START_ORT:!=%"=="%PBP_START_ORT%" goto :ort_ohne_ausrufezeichen\n', "goto :ort_ohne_ausrufezeichen\n", T_I2),
+    ("i202", "Die Pruefung laeuft unter verzoegerter Expansion (das Zeichen ist dann schon weg)", IB,
+     'setlocal DisableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', 'setlocal EnableDelayedExpansion\nset "PBP_START_ORT=%~dp0"\n', T_I2),
+    ("i203", "Nach der Pruefung bleibt die verzoegerte Expansion aus", IB,
+     ":profil_ohne_ausrufezeichen\nendlocal\nsetlocal EnableDelayedExpansion\n", ":profil_ohne_ausrufezeichen\nendlocal\nsetlocal DisableDelayedExpansion\n", T_I2),
+    ("i204", "Expand-Archive nimmt den Pfad wieder eingebettet (Apostroph bricht ihn)", IB,
+     'Expand-Archive -LiteralPath $env:PY_ZIP_PATH -DestinationPath $env:PYTHON_DIR -Force"',
+     "Expand-Archive -Path '%PY_ZIP_PATH%' -DestinationPath '%PYTHON_DIR%' -Force\"", T_I2),
+    ("i205", "_pth (frisches Python): Pfad wieder eingebettet", IB,
+     ':: import site entkommentieren\npowershell -ExecutionPolicy Bypass -NoProfile ' + PS_PTH,
+     ":: import site entkommentieren\npowershell -ExecutionPolicy Bypass -NoProfile -Command \"(Get-Content '!PTH_FILE!') -replace", T_I2),
+    ("i206", "_pth (vorhandenes Python): Pfad wieder eingebettet", IB,
+     'echo import site>> "!PTH_FILE!"\npowershell -ExecutionPolicy Bypass -NoProfile ' + PS_PTH,
+     "echo import site>> \"!PTH_FILE!\"\npowershell -ExecutionPolicy Bypass -NoProfile -Command \"(Get-Content '!PTH_FILE!') -replace", T_I2),
+    ("i207", "Python-Download: Zielpfad wieder eingebettet", IB,
+     '-OutFile $env:PY_ZIP_PATH"', "-OutFile '%PY_ZIP_PATH%'\"", T_I2),
+    ("i208", "get-pip-Download: Zielpfad wieder eingebettet", IB,
+     '-OutFile $env:GETPIP_PATH"', "-OutFile '%GETPIP_PATH%'\"", T_I2),
+    ("i209", "Unblock-File (frisches Python): Ordner wieder eingebettet", IB,
+     'echo [DEBUG] Unblock-File... >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR',
+     'echo [DEBUG] Unblock-File... >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path \'%BASEDIR%\'', T_I2),
+    ("i210", "Unblock-File (vorhandenes Python): Ordner wieder eingebettet", IB,
+     'echo [DEBUG] Python existiert bereits >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -LiteralPath $env:BASEDIR',
+     'echo [DEBUG] Python existiert bereits >> "%LOGFILE%"\npowershell -ExecutionPolicy Bypass -NoProfile -Command "Get-ChildItem -Path \'%BASEDIR%\'', T_I2),
+    ("i211", "Verknuepfung: Ziel wieder eingebettet", IB,
+     "$s.TargetPath=(Join-Path $env:APP_DIR 'Dashboard starten.bat')", "$s.TargetPath='%APP_DIR%\\Dashboard starten.bat'", T_I2),
+    ("i212", "err_pip: kein naechster Schritt", IB,
+     "echo  ein Virenscanner den Download unterbrochen hat.\necho.\necho  SO GEHT ES WEITER:\necho    1. Internetverbindung pruefen ^(oeffne google.de^)\n"
+     "echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,\necho       deine Daten bleiben erhalten\n",
+     "echo  ein Virenscanner den Download unterbrochen hat.\n", T_I2),
+    ("i213", "err_packages: kein naechster Schritt", IB,
+     "echo  eine Firewall oder ein Virenscanner den Download blockiert.\necho.\necho  SO GEHT ES WEITER:\necho    1. Internetverbindung pruefen ^(oeffne google.de^)\n"
+     "echo    2. INSTALLIEREN.bat nochmal starten - das ist gefahrlos,\necho       deine Daten bleiben erhalten\n",
+     "echo  eine Firewall oder ein Virenscanner den Download blockiert.\n", T_I2),
+    ("i214", "Block: das Protokoll steht wieder als %LOGFILE% im Klammerblock", IB,
+     "    echo             Details im Log: !LOGFILE!\n", "    echo             Details im Log: %LOGFILE%\n", T_I2),
+    ("i215", "Block: der alte Python-Ordner steht wieder als %APP_DIR% im Klammerblock", IB,
+     "gefunden: !APP_DIR!\\python >>", "gefunden: %APP_DIR%\\python >>", T_I2),
+    ("i216", "Startskript: der Python-Pfad steht wieder als %PYTHON% im Klammerblock", "Dashboard starten.bat",
+     "    echo    !PYTHON!\n", "    echo    %PYTHON%\n", T_I2),
+    ("i220", "remove_path: Beschriftung wieder als %TARGET_LABEL% im Block (Klammer im Ordnernamen)", DB,
+     "    echo         [OK] !TARGET_LABEL! entfernt\n", "    echo         [OK] %TARGET_LABEL% entfernt\n", T_I2),
+    ("i221", "remove_path: 'nicht gefunden' wieder mit %TARGET_LABEL%", DB,
+     "    echo         [--] !TARGET_LABEL! nicht gefunden\n", "    echo         [--] %TARGET_LABEL% nicht gefunden\n", T_I2),
+    ("i222", "Deinstaller: die Umzugsmarke schuetzt den Ordner neben dem Skript nicht", DB,
+     'if "%PBP_DEINST_RELOCATED%"=="1" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i223", "Deinstaller: ein Skript in %TEMP% raeumt %TEMP% aus", DB,
+     'if /i "%BASEDIR%"=="%TEMP%" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i224", "Deinstaller: ein Skript in %TMP% raeumt %TMP% aus", DB,
+     'if /i "%BASEDIR%"=="%TMP%" set "BASEDIR_FREMD=1"\n', "", T_I2),
+    ("i225", "Deinstaller: trotz Schutz wird aufgeraeumt", DB,
+     'bleiben unberuehrt >> "%LOGFILE%"\n    exit /b 0\n', 'bleiben unberuehrt >> "%LOGFILE%"\n', T_I2),
+    ("i226", "Deinstaller: Schritt [5/7] ruft die Aufraeumzeilen gar nicht auf", DB,
+     "call :ordner_neben_dem_skript\n", "rem\n", T_I2),
+    ("i227", "Backup: Exit 2 ist kein Fehlschlag mehr", DB,
+     '    if !BACKUP_RC! geq 2 set "BACKUP_FEHLER=1"\n', '    if !BACKUP_RC! geq 3 set "BACKUP_FEHLER=1"\n', T_I2),
+    ("i228", "Backup: Zielpfad wieder eingebettet", DB,
+     "-DestinationPath $env:BACKUP_ZIP -Force;", "-DestinationPath '!BACKUP_ZIP!' -Force;", T_I2B),
+    ("i229", "Backup: das Protokoll sagt immer 'erstellt'", DB,
+     '    if "!BACKUP_RC!"=="0" echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n',
+     '    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"\n', T_I2),
+    ("i240", "Mac/Linux (install.sh): die Prozesssuche trifft jede Datei mit diesem Namen", ISH,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+    ("i241", "Mac (.command): die Prozesssuche weicht von install.sh ab", ICM,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'", "DASH_MUSTER='start_dashboard\\.py'", T_I2),
+    ("i242", "Mac/Linux: eine andere Fassung auf dem Port gilt als 'ok'", ISH,
+     '    elif [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+    ("i243", "Mac (.command): eine andere Fassung auf dem Port gilt als 'ok'", ICM,
+     '    elif [ "$stand" != "$NEUE_FASSUNG" ]; then\n', "    elif false; then\n", T_I2),
+    ("i244", "Mac/Linux: jedes HTTP 200 gilt als PBP", ISH,
+     "        | grep -o '\"pbp_version\"[[:space:]]*:[[:space:]]*\"[^\"]*\"' | head -n 1 \\\n", "        | head -n 1 \\\n", T_I2),
+    ("i245", "Mac/Linux: das alte Dashboard wird vor dem Start nicht beendet", ISH,
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\nalte_dashboards_beenden\n",
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\n", T_I2),
+    ("i246", "Mac (.command): das alte Dashboard wird vor dem Start nicht beendet", ICM,
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\nalte_dashboards_beenden\n",
+     "# Zuerst das alte Dashboard (Update), dann im Hintergrund starten\n", T_I2),
+    ("i250", "deinstallieren.sh: eine kaputte JSON-Datei heisst wieder 'kein Eintrag'", DSH,
+     'except (OSError, ValueError):\n    print("unreadable")', 'except (OSError, ValueError):\n    print("not_found")', T_I2),
+    ("i251", "deinstallieren.sh: keine Sicherungskopie vor dem Schreiben", DSH,
+     '    shutil.copy2(pfad, pfad + ".pbp-backup")\n', "", T_I2),
+    ("i252", "deinstallieren.sh: 'entfernt' gemeldet, geschrieben wird nichts", DSH,
+     "    os.replace(neu, pfad)\n", "    pass\n", T_I2),
+    ("i253", "deinstallieren.sh: 'nicht lesbar' wird als 'nicht vorhanden' gemeldet", DSH,
+     '            warn "Claude-Konfiguration nicht lesbar (kein gueltiges JSON): $CLAUDE_CONFIG"\n',
+     '            info "MCP-Eintrag war nicht vorhanden"\n', T_I2),
+    ("i260", "Release-Tor: server.json steht ausserhalb", "release_check.py",
+     '    for rel in ("frontend/package.json", "server.json"):\n', '    for rel in ("frontend/package.json",):\n', T_I2),
+    ("i261", "Release-Tor: package.json-Version wird nicht gelesen", "release_check.py",
+     '        weitere[rel] = daten.get("version") or "(fehlt)"\n', "        weitere[rel] = init_version\n", T_I2),
+    ("i262", "Release-Tor: eine vorhandene uv.lock steht ausserhalb", "release_check.py",
+     "    if lockdatei.is_file():\n", "    if False:\n", T_I2),
+    ("i263", "Release-Tor: --fix merkt sich die korrigierte Datei nicht", "release_check.py",
+     "                korrigiert.add(datei_rel)\n", "", T_I2),
+    ("i270", "server.json steht wieder auf 1.7.0", "server.json",
+     f'  "version": "{_server_json_version()}",\n  "websiteUrl"', '  "version": "1.7.0",\n  "websiteUrl"', T_I2),
+    ("i271", "install.ps1 endet wieder mit Erfolg", "installer/install.ps1",
+     'Write-Host ""\nexit 1\n', 'Write-Host ""\nexit 0\n', T_I2),
+    ("i272", "LIESMICH verspricht wieder, nichts selber installieren zu muessen", "docs/LIESMICH.txt",
+     "  -> Windows: Du brauchst vorab nichts zu installieren.\n", "  -> Du brauchst NICHTS selber installieren.\n", T_I2),
+    ("i273", "README nennt die Windows-Warnung nicht mehr", "README.md",
+     "> **„Ausführen“** klicken, bei Letzterem **„Weitere Informationen“ → „Trotzdem ausführen“**. PBP ist nicht mit einem bezahlten\n",
+     "> **„Ausführen“** klicken. PBP ist nicht mit einem bezahlten\n", T_I2),
+]
+KATALOGE["installer2"] = M_INSTALLER2
+GRUNDLAEUFE["installer2"] = (("T_I2", T_I2),)
+
+# ── Die Aufraeum-Runde laeuft einmal am Tag von selbst (#1139, Variante A) ──
+T_AR = ["tests/test_v18_aufraeum_runde_1139.py"]
+T_ARB = ["tests/test_v18_aufraeum_runde_1139_browser.py", "tests/test_v18_erste_schritte_1170.py"]
+ARQ = "src/bewerbungs_assistent/services/aufraeum_runde.py"
+ASCH = "src/bewerbungs_assistent/services/automatik_scheduler.py"
+TNZ = "src/bewerbungs_assistent/services/text_nachzug.py"
+DSH_PY = "src/bewerbungs_assistent/dashboard.py"
+DBP = "src/bewerbungs_assistent/database.py"
+ANA = "src/bewerbungs_assistent/tools/analyse.py"
+SET_JSX = "frontend/src/pages/SettingsPage.jsx"
+
+M_AUFRAEUMRUNDE = [
+    ("ar01", "Der automatische Lauf schliesst immer ab (der Schalter gilt nicht)", ARQ,
+     '    if ausloeser == "automatik":\n        return expire_automatisch(db)\n    return True\n', "    return True\n", T_AR),
+    ("ar02", "Der Knopf schliesst nur mit Schalter ab", ARQ,
+     '    if ausloeser == "automatik":\n        return expire_automatisch(db)\n    return True\n', "    return expire_automatisch(db)\n", T_AR),
+    ("ar03", "Das Abschliessen von selbst ist vorgabemaessig an", ARQ,
+     "        return db.get_setting(EXPIRE_SCHALTER, False) in _WAHR\n", "        return db.get_setting(EXPIRE_SCHALTER, True) in _WAHR\n", T_AR),
+    ("ar04", "Das Intervall der Runde ist vorgabemaessig aus", DBP,
+     '_iv("automatik_aufraeumen_intervall_tage", 1)', '_iv("automatik_aufraeumen_intervall_tage", 0)', T_AR),
+    ("ar05", "Ein ausdruecklich gesetztes Aus (0) gilt als nicht gesetzt", DBP,
+     '            if raw is None or raw == "":\n                return vorgabe\n', "            if not raw:\n                return vorgabe\n", T_AR),
+    ("ar06", "Der Lauf der Runde laesst sich nicht vermerken", DBP,
+     'if kind not in ("jobsuche", "lernen", "aufraeumen"):', 'if kind not in ("jobsuche", "lernen"):', T_AR),
+    ("ar10", "Der Takt startet die Runde nie", ASCH,
+     '    if _is_due(s["aufraeumen_intervall_tage"], s["aufraeumen_last_at"], now):\n', "    if False:\n", T_AR),
+    ("ar11", "'laeuft bereits' gilt als gelaufen", ASCH,
+     '        if res.get("status") == "gestartet":\n            db.mark_automatik_run("aufraeumen")\n',
+     '        if True:\n            db.mark_automatik_run("aufraeumen")\n', T_AR),
+    ("ar12", "Eine zweite Runde startet, waehrend eine laeuft", ASCH,
+     '    if db.get_running_background_job("aufraeumen"):\n        return {"status": "laeuft_bereits"}\n', "", T_AR),
+    ("ar13", "Ein Fehler der Runde bleibt still (Job 'fertig')", ASCH,
+     '                db.update_background_job(job_id, "fehler", message=f"Aufräum-Runde abgebrochen: {exc}")\n',
+     '                db.update_background_job(job_id, "fertig", message="ok")\n', T_AR),
+    ("ar14", "Der Planer sagt der Runde nicht, wer sie ausloest", ASCH,
+     "            ergebnis = run_auto_actions(ausloeser)\n", "            ergebnis = run_auto_actions()\n", T_AR),
+    ("ar20", "Knopf und Planer teilen keine Sperre", DSH_PY,
+     '    if not _auto_actions_sperre.acquire(blocking=False):\n        return {"status": "laeuft_bereits"}\n    try:\n        now = datetime.now().isoformat()\n',
+     '    _auto_actions_sperre.acquire(blocking=False)\n    try:\n        now = datetime.now().isoformat()\n', T_AR),
+    ("ar21", "Die Sperre wird nach der Runde nicht freigegeben", DSH_PY,
+     "    finally:\n        _auto_actions_sperre.release()\n", "    finally:\n        pass\n", T_AR),
+    ("ar22", "Der automatische Lauf holt nicht mehr Anzeigentexte als der Knopf", DSH_PY,
+     "max_jobs=16 if gross else 8", "max_jobs=8", T_AR),
+    ("ar23", "Der automatische Lauf prueft nicht mehr Adressen als der Knopf", DSH_PY,
+     "max_jobs=25 if gross else 10", "max_jobs=10", T_AR),
+    ("ar24", "Der letzte Lauf nennt den Ausloeser nicht", DSH_PY,
+     "    _db.set_setting(aufraeum_runde.LETZTER_AUSLOESER, ausloeser)\n", "", T_AR),
+    ("ar25", "Der Planer sieht einen Lauf per Knopf nicht", DSH_PY,
+     '        _db.mark_automatik_run("aufraeumen", now)\n', "        pass\n", T_AR),
+    ("ar26", "Die URL-Pruefung bleibt bei den ersten Stellen nach Zeilennummer", DSH_PY,
+     '" ORDER BY (k.value IS NOT NULL), k.value, j.hash LIMIT ?"', '" ORDER BY j.hash LIMIT ?"', T_AR),
+    ("ar27", "Eine URL-Pruefung ohne Ergebnis wird nicht vermerkt (die Stelle bleibt vorn)", DSH_PY,
+     '                    _db.set_setting(f"url_aging_lastcheck:{h}", now_dt.isoformat())\n', "                    pass\n", T_AR),
+    ("ar28", "Der Status nennt den Schalter nicht wahrheitsgemaess", DSH_PY,
+     '        "expire_automatisch": aufraeum_runde.expire_automatisch(_db),\n', '        "expire_automatisch": False,\n', T_AR),
+    ("ar29", "Der Schalter nimmt jeden Wert an", DSH_PY,
+     '        if not isinstance(data["expire_automatisch"], bool):\n            return JSONResponse({"error": "expire_automatisch muss wahr oder falsch sein"}, status_code=400)\n', "", T_AR),
+    ("ar40", "Das Nachladen waehlt Stellen im Backoff wieder mit aus", TNZ,
+     '        if _gilt(_zaehler(_roh(z["fehler"])), _roh(z["zuletzt"]), jetzt) >= MAX_FEHLVERSUCHE:\n            im_backoff += 1\n            continue\n',
+     '        if False:\n            im_backoff += 1\n            continue\n', T_AR),
+    ("ar41", "Das Nachladen waehlt ohne feste Reihenfolge", TNZ,
+     '" ORDER BY (l.value IS NOT NULL), l.value, j.hash",', '" ORDER BY j.hash",', T_AR),
+    ("ar42", "Der Fehlzaehler verfaellt nie", TNZ,
+     "    if zeit is None or jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n",
+     "    if zeit is None:\n        return 0\n    return zaehler\n", T_AR),
+    ("ar43", "Ein Zaehler ohne Zeitstempel (Altbestand) gilt unbegrenzt", TNZ,
+     "    if zeit is None or jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n",
+     "    if zeit is not None and jetzt - zeit >= timedelta(days=FEHLZAEHLER_VERFALL_TAGE):\n        return 0\n    return zaehler\n", T_AR),
+    ("ar44", "Ein Netzfehler zaehlt gegen die Stelle", TNZ,
+     "            if status == nachladen.FEHLER or http == 429:\n", "            if False:\n", T_AR),
+    ("ar45", "'Zu viele Anfragen' zaehlt gegen die Stelle", TNZ,
+     "            if status == nachladen.FEHLER or http == 429:\n", "            if status == nachladen.FEHLER:\n", T_AR),
+    ("ar46", "Mehrere Netzfehler hintereinander beenden die Schleife nicht", TNZ,
+     '                if in_folge >= MAX_NETZFEHLER_IN_FOLGE:\n                    abgebrochen = "netz"\n                    break\n',
+     '                if False:\n                    abgebrochen = "netz"\n                    break\n', T_AR),
+    ("ar47", "Ein Erfolg unterbricht die Folge der Netzfehler nicht", TNZ,
+     "                geholt += 1\n                in_folge = 0\n                continue\n", "                geholt += 1\n                continue\n", T_AR),
+    ("ar48", "Ein Versuch wird nicht vermerkt", TNZ,
+     '            versuch_vermerken(db, z["hash"])\n            if text and', "            if text and", T_AR),
+    ("ar49", "Nach dem Verfall zaehlt der alte Stand weiter hoch", TNZ,
+     '        db.set_setting(f"refetch_fail:{job_hash}", str(_fehlversuche(db, job_hash) + 1))\n',
+     '        db.set_setting(f"refetch_fail:{job_hash}", str(_zaehler(db.get_setting(f"refetch_fail:{job_hash}", "0")) + 1))\n', T_AR),
+    ("ar50", "Das Werkzeug setzt den Schalter nicht", ANA,
+     "            aufraeum_runde.expire_automatisch_setzen(db, bewerbungen_abschliessen)\n", "            pass\n", T_AR),
+    ("ar51", "Das Werkzeug gibt das Intervall nicht weiter", ANA,
+     "                    aufraeumen_intervall_tage=aufraeumen_intervall_tage,\n", "", T_AR),
+    ("ar60", "Die Karte verspricht keinen taeglichen Lauf mehr", SET_JSX,
+     "PBP prüft das auf Wunsch einmal am Tag von selbst", "PBP prüft das auf Knopfdruck", T_ARB),
+    ("ar61", "Der Schalter speichert nichts", SET_JSX,
+     'await putJson("/api/auto-actions/settings", { expire_automatisch: wert });', "await Promise.resolve(wert);", T_ARB),
+    ("ar62", "Das Intervall speichert nichts", SET_JSX,
+     'await putJson("/api/automatik/settings", { aufraeumen_intervall_tage: Number(value) });', "await Promise.resolve(value);", T_ARB),
+    ("ar63", "Der letzte Lauf nennt den Ausloeser nicht", SET_JSX,
+     'const von = { automatik: " (von selbst)", knopf: " (per Knopf)", claude: " (durch Claude)" }[status.last_run_by] || "";', 'const von = "";', T_ARB),
+    # CI 16.10.2026 (Exit 139): die Runde lief unter einem Namen, den weder "Daten loeschen" noch der Abbau der Suite sah
+    ("ar70", "Die Runde laeuft wieder unter einem Namen ohne pbp- (laufende_arbeit und der Abbau der Suite sehen sie nicht)",
+     "src/bewerbungs_assistent/services/automatik_scheduler.py",
+     'name="pbp-automatik-aufraeumen"', 'name="automatik-aufraeumen"', T_AR),
+    ("ar71", "Die laufende Runde hat keinen Klartext (es erschiene der Thread-Name)", "src/bewerbungs_assistent/services/datenordner.py",
+     '        elif n.startswith("pbp-automatik-aufraeumen"):\n            teile.append("die Aufräum-Runde")\n', "", T_AR),
+    ("ar72", "Der Takt eines gewoehnlichen Tests startet wieder die echte Runde", "tests/conftest.py",
+     '    monkeypatch.setattr(automatik_scheduler, "run_aufraeumen_now",\n                        lambda *a, **k: {"status": "gestartet", "job_id": 0})\n',
+     "    pass\n", ["tests/test_v18_keine_echte_aufraeum_runde_im_test.py"]),
+]
+KATALOGE["aufraeumrunde"] = M_AUFRAEUMRUNDE
+GRUNDLAEUFE["aufraeumrunde"] = (("T_AR", T_AR), ("T_ARB", T_ARB))
+
+# ── KI-Schalter: auch die lesenden Werkzeuge fuer Dokument- und Mailtexte (#1147 Punkt 3, Variante B) ──
+T_KS = ["tests/test_v18_ki_schalter_lesen_1147.py"]
+T_KSB = T_KS + ["tests/test_v18_erste_schritte_1170.py"]
+KIZ = "src/bewerbungs_assistent/services/ki_zuordnung.py"
+
+M_KISCHALTER = [
+    ("kl01", "dokument_lesen faellt aus der Zuordnung (Volltext geht trotz Schalter weiter)", KIZ,
+     '    "dokument_lesen": ("dokumentenanalyse", (\n', '    "dokument_lesen_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl02", "emails_anzeigen faellt aus der Zuordnung (Mailtext geht trotz Schalter weiter)", KIZ,
+     '    "emails_anzeigen": ("dokumentenanalyse", (\n', '    "emails_anzeigen_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl03", "dokumente_zur_analyse faellt aus der Zuordnung", KIZ,
+     '    "dokumente_zur_analyse": ("dokumentenanalyse", (\n', '    "dokumente_zur_analyse_x": ("dokumentenanalyse", (\n', T_KS),
+    ("kl04", "dokument_lesen haengt am falschen Schalter", KIZ,
+     '    "dokument_lesen": ("dokumentenanalyse", (\n', '    "dokument_lesen": ("stellenanalyse", (\n', T_KS),
+    ("kl05", "emails_anzeigen haengt am falschen Schalter", KIZ,
+     '    "emails_anzeigen": ("dokumentenanalyse", (\n', '    "emails_anzeigen": ("coaching", (\n', T_KS),
+    ("kl06", "dokument_lesen nennt keine Alternative", KIZ,
+     "        f\"Das Dokument bleibt im Dashboard lesbar ({pfad('dokumente')}). Soll Claude es lesen, \"\n"
+     "        f\"schalte \\\"Dokumentenanalyse\\\" unter {pfad('claude')} ein.\")),\n",
+     "        None)),\n", T_KS),
+    ("kl07", "Das Profil wird mitgesperrt (die Grenze verschiebt sich unbemerkt)", KIZ,
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n',
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n    "profil_zusammenfassung": ("dokumentenanalyse", None),\n', T_KS),
+    ("kl08", "Die Bewerbungsdetails werden mitgesperrt", KIZ,
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n',
+     '    "dokumente_batch_analysieren": ("dokumentenanalyse", None),\n    "bewerbung_details": ("dokumentenanalyse", None),\n', T_KS),
+    ("kl10", "Der Satz in den Einstellungen sagt nicht, dass Dokumente und Mails gesperrt sind", "frontend/src/pages/SettingsPage.jsx",
+     "Bei „Dokumentenanalyse“ liest Claude dann auch keine Dokumente und Mails mehr. ", "", T_KSB),
+    ("kl11", "Der Satz verspricht wieder, Claude lese weiter alles", "frontend/src/pages/SettingsPage.jsx",
+     "Dein Profil, deine Bewerbungen und die Stellen kann Claude weiterhin lesen, sonst arbeitet fast nichts mehr; wer gar nichts weitergeben will, trennt PBP in Claude Desktop.",
+     "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist; wer gar nichts weitergeben will, trennt PBP dort.", T_KSB),
+]
+KATALOGE["kischalter"] = M_KISCHALTER
+GRUNDLAEUFE["kischalter"] = (("T_KS", T_KS), ("T_KSB", T_KSB))
+
+# ── Google Jobs: Sperre ohne Original, Hinweise statt Stellen, vorbereitete Suche (#1184 a, d, e) ──
+T_GO = ["tests/test_v18_google_original_1184.py"]
+T_GOA = T_GO + ["tests/test_1120_google_alert_echte_mails.py", "tests/test_v17124_google_alert_1068.py"]
+T_GOB = ["tests/test_v18_google_original_1184_browser.py"]
+GAN = "src/bewerbungs_assistent/services/google_angaben.py"
+JOBS_PY = "src/bewerbungs_assistent/tools/jobs.py"
+SHW = "src/bewerbungs_assistent/services/stellen_hinweise.py"
+NLS = "src/bewerbungs_assistent/services/newsletter_service.py"
+LBR = "src/bewerbungs_assistent/services/loeschbereiche.py"
+
+M_GOOGLEORIGINAL = [
+    ("go01", "Ein Google-Treffer ohne Beleg gilt nie als ohne Beleg", GAN,
+     "    return not hat_adresse and not hat_text\n", "    return False\n", T_GO),
+    ("go02", "Adresse ODER Text fehlt genuegt fuer die Sperre (statt: beides)", GAN,
+     "    return not hat_adresse and not hat_text\n", "    return not hat_adresse or not hat_text\n", T_GO),
+    ("go03", "Eine Suchadresse gilt als Anker", GAN,
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u)\n                   and not is_search_result_url(u))\n',
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u))\n', T_GO),
+    ("go04", "Eine Google-Adresse gilt als Anker", GAN,
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not ist_google_adresse(u)\n                   and not is_search_result_url(u))\n',
+     '    hat_adresse = (u.lower().startswith(("http://", "https://")) and not is_search_result_url(u))\n', T_GO),
+    ("go05", "Die Suche nennt Firma und Titel nicht als feste Wendung", GAN,
+     "    frage = \" \".join(x for x in (f'\"{f}\"' if f else \"\", f'\"{t}\"' if t else \"\", \"Karriere\") if x)\n",
+     "    frage = \" \".join(x for x in (f if f else \"\", t if t else \"\", \"Karriere\") if x)\n", T_GO),
+    ("go06", "Der Ort fehlt in den Portal-Suchen", GAN,
+     '            ort=quote_plus(o)).rstrip("?&")})\n', '            ort="").rstrip("?&")})\n', T_GO),
+    ("go07", "Die Websuche ist nicht kodiert", GAN,
+     '"https://www.google.com/search?q=" + quote_plus(frage)', '"https://www.google.com/search?q=" + frage', T_GO),
+    ("go10", "Die Sperre greift nie", JOBS_PY,
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:\n", "        if False:\n", T_GO),
+    ("go11", "force hebt die Sperre nicht auf", JOBS_PY,
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:\n",
+     "        if _gangaben.ohne_beleg(quelle, url, beschreibung):\n", T_GO),
+    ("go12", "Die Abweisung nennt die Suche nach dem Original nicht", JOBS_PY,
+     '                "original_suchen": _gangaben.original_suchen(titel, firma, ort),\n', "", T_GO),
+    ("go13", "Die Abweisung meldet 'angelegt'", JOBS_PY,
+     '                "status": "nicht_angelegt",\n', '                "status": "angelegt",\n', T_GO),
+    ("go14", "Ein angelegtes Original erledigt den Hinweis nicht", JOBS_PY,
+     "            _hinweise.als_angelegt(db, firma, titel, job_hash)\n", "            pass\n", T_GO),
+    ("go15", "Das Werkzeug verwirft nichts", JOBS_PY,
+     '            ok = (_hinweise.verwerfen(db, hinweis_id) if aktion == "verwerfen"\n                  else _hinweise.wiederherstellen(db, hinweis_id))\n',
+     "            ok = True\n", T_GO),
+    ("go16", "Die Anleitung an Claude nennt die Ausnahme nicht", JOBS_PY,
+     'Ausnahme (#1184): Einen Treffer aus Google OHNE Detail-URL des "', 'Hinweis: Einen Treffer aus Google OHNE Detail-URL des "', T_GO),
+    ("go20", "Derselbe Treffer wird vervielfacht", SHW,
+     '        if zeile:\n            conn.execute(\n                "UPDATE stellen_hinweise SET ort=?', '        if False:\n            conn.execute(\n                "UPDATE stellen_hinweise SET ort=?', T_GO),
+    ("go21", "Die Orte werden ueberschrieben statt nebeneinandergestellt", SHW,
+     '                (_orte(zeile["ort"], e.get("ort")), jetzt, hid))', '                (str(e.get("ort") or ""), jetzt, hid))', T_GO),
+    ("go22", "Was schon eine Stelle ist, steht als offen da", SHW,
+     '             "angelegt" if stelle else "offen", stelle, 1, jetzt, jetzt))', '             "offen", stelle, 1, jetzt, jetzt))', T_GO),
+    ("go23", "Die Zahl der Mails zaehlt nicht mit", SHW,
+     "COALESCE(anzahl_mails,1)+1", "COALESCE(anzahl_mails,1)", T_GO),
+    ("go24", "Ein anderes Profil sieht die Hinweise", SHW,
+     '    sql = "SELECT * FROM stellen_hinweise WHERE (profile_id=? OR profile_id IS NULL)"\n',
+     '    sql = "SELECT * FROM stellen_hinweise WHERE (? IS NOT NULL OR profile_id IS NULL)"\n', T_GO),
+    ("go25", "Auch Erledigtes laesst sich verwerfen", SHW,
+     "UPDATE stellen_hinweise SET status='verworfen', aktualisiert_am=? WHERE id=? AND status='offen'",
+     "UPDATE stellen_hinweise SET status='verworfen', aktualisiert_am=? WHERE id=?", T_GO),
+    ("go26", "Gross-/Kleinschreibung macht einen zweiten Hinweis", SHW,
+     '    return re.sub(r"\\s+", " ", str(text or "").strip().lower())\n', '    return re.sub(r"\\s+", " ", str(text or "").strip())\n', T_GO),
+    ("go30", "Aus einer Alert-Mail entsteht wieder eine Stelle", NLS,
+     "    erg = stellen_hinweise.merken(db, treffer, suchanfrage=anfrage)\n",
+     "    erg = stellen_hinweise.merken(db, treffer, suchanfrage=anfrage)\n"
+     "    from ..job_scraper import stelle_hash\n"
+     "    db.save_jobs([{\"hash\": stelle_hash(\"n\", e[\"titel\"]), \"title\": e[\"titel\"], \"company\": e[\"firma\"], \"location\": e[\"ort\"],\n"
+     "                   \"url\": \"\", \"source\": \"newsletter:x\", \"description\": \"\", \"score\": 0, \"_manual_entry\": True} for e in treffer])\n", T_GOA),
+    ("go31", "Die Alert-Mail meldet weiter 'uebernommen'", NLS,
+     '        "status": "hinweise_notiert",\n        "label": label,\n', '        "status": "uebernommen",\n        "label": label,\n', T_GOA),
+    ("go40", "Die Mail wird nach den Hinweisen nicht archiviert (Upload)", "src/bewerbungs_assistent/dashboard.py",
+     'newsletter_result.get("status") in ("uebernommen", "hinweise_notiert")', 'newsletter_result.get("status") == "uebernommen"', T_GO),
+    ("go41", "Verwerfen eines unbekannten Hinweises meldet Erfolg", "src/bewerbungs_assistent/dashboard.py",
+     '        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht mehr offen."}, status_code=404)\n', "        return {\"status\": \"ok\"}\n", T_GO),
+    ("go50", "Die Hinweise gehoeren keinem Loeschbereich", LBR,
+     '        "stellen_hinweise",\n    ),\n', "    ),\n", T_GO),
+    ("go60", "Die Hinweise sind nicht eingeklappt", "frontend/src/components/StellenHinweise.jsx",
+     "  const [offen, setOffen] = useState(false);\n", "  const [offen, setOffen] = useState(true);\n", T_GOB),
+    ("go61", "Verwerfen speichert nichts", "frontend/src/components/StellenHinweise.jsx",
+     "await postJson(`/api/stellen-hinweise/${h.id}/verwerfen`, {});", "await Promise.resolve();", T_GOB),
+    ("go62", "Die Suche nach dem Original fehlt", "frontend/src/components/StellenHinweise.jsx",
+     "{h.suche?.[0]?.url && (", "{false && (", T_GOB),
+    ("go63", "Der Block steht nicht auf der Stellen-Seite", "frontend/src/pages/JobsPage.jsx",
+     "      <StellenHinweise anlass={reloadKey} />\n", "", T_GOB),
+]
+KATALOGE["googleoriginal"] = M_GOOGLEORIGINAL
+GRUNDLAEUFE["googleoriginal"] = (("T_GO", T_GO), ("T_GOB", T_GOB))
+
+# ── Browser-Ernte: ein Sammelweg fuer alle Quellen, Lauf verbuchen, "Stellen zu pruefen" (#1187 Stufe 2/3) ──
+T_BU = ["tests/test_v18_browser_uebernahme_1187.py"]
+T_BUB = ["tests/test_v18_browser_uebernahme_1187_browser.py"]
+BU_SZP = "src/bewerbungs_assistent/services/stellen_zu_pruefen.py"
+BU_BUE = "src/bewerbungs_assistent/services/browser_uebernahme.py"
+BU_DB = "src/bewerbungs_assistent/database.py"
+BU_APR = "src/bewerbungs_assistent/services/aussortier_protokoll.py"
+BU_AUS = "src/bewerbungs_assistent/services/aussortieren.py"
+BU_DASH = "src/bewerbungs_assistent/dashboard.py"
+BU_JP = "frontend/src/pages/JobsPage.jsx"
+BU_SZPJ = "frontend/src/components/StellenZuPruefen.jsx"
+BU_DP = "frontend/src/pages/DashboardPage.jsx"
+BU_WEGE = "frontend/src/lib/wege.js"
+
+M_BROWSERUEBERNAHME = [
+    ("bu01", "Die Vorschau verbucht den Lauf", JOBS_PY,
+     '        if not dry_run:\n            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n',
+     '        if True:\n            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n', T_BU),
+    ("bu02", "Ein Lauf ohne Anlage wird nicht verbucht", JOBS_PY,
+     '            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n',
+     '            (db.record_browser_run if trichter["angelegt"] else (lambda *a, **k: None))(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],\n', T_BU),
+    ("bu03", "Eine leere Uebergabe wird nicht verbucht", JOBS_PY,
+     '                db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=0,\n',
+     '                (lambda *a, **k: None)(quelle_n, rohtreffer=trichter["rohtreffer"], neu=0,\n', T_BU),
+    ("bu04", "Ein Urteil wird auch ohne gelesenen Volltext gespeichert", JOBS_PY,
+     '                    elif len(beschreibung) < MIN_BESCHREIBUNG and urteil != "NICHT_BEURTEILBAR":\n',
+     '                    elif False:\n', T_BU),
+    ("bu05", "Ein Urteil ausserhalb der Kategorien wird nicht abgewiesen", JOBS_PY,
+     '                    if urteil not in _bu.URTEILE:\n', '                    if False:\n', T_BU),
+    ("bu06", "Nach dem Lesen aussortiert mit der Herkunft ich", JOBS_PY,
+     'collect_hints=False, herkunft="claude")', 'collect_hints=False, herkunft="ich")', T_BU),
+    ("bu07", "Die Vorschau sortiert aus", JOBS_PY,
+     '                if grund_roh and not dry_run:\n', '                if grund_roh:\n', T_BU),
+    ("bu08", "Die Vorschau speichert das Urteil", JOBS_PY,
+     '                if urteil and not dry_run:\n', '                if urteil:\n', T_BU),
+    ("bu09", "Ein erfundener Grund wird nicht normalisiert", JOBS_PY,
+     '                    gruende = _normalize_reason_list(grund_roh)\n', '                    gruende = [grund_roh]\n', T_BU),
+    ("bu10", "Google ohne Original nennt die Suche nicht", JOBS_PY,
+     '                if _gangaben.ist_google_quelle(quelle_n):\n', '                if False:\n', T_BU),
+    ("bu11", "Eine Anlage ohne Volltext wird nicht gezaehlt", JOBS_PY,
+     '                    trichter["ohne_volltext"] += 1\n', '                    pass\n', T_BU),
+    ("bu12", "Die Anker-Warnung der Anlage geht verloren", JOBS_PY,
+     '                    eintrag["anker_warnung"] = res["anker_warnung"]\n', '                    pass\n', T_BU),
+    ("bu13", "Ein fehlender Login verbucht einen Lauf", JOBS_PY,
+     '        if login_fehlt:\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n',
+     '        if login_fehlt:\n            db.record_browser_run(quelle_n, rohtreffer=0)\n            return {\n                "status": "wartet_auf_login", "quelle": quelle_n,\n', T_BU),
+    ("bu14", "Die Quelle wird nicht auf Kleinschreibung gebracht", JOBS_PY,
+     '        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: "Google Jobs" wird gespeichert als google_jobs\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'',
+     '        quelle_n = str(quelle or "").strip()\n        if not quelle_n:\n            return {"fehler": "quelle fehlt (z.B. \'stepstone\'', T_BU),
+    ("bu15", "Die Vorgabe ist der echte Lauf statt der Vorschau", JOBS_PY,
+     '                                    dry_run: bool = True,\n                                    rohtreffer: int = 0,\n',
+     '                                    dry_run: bool = False,\n                                    rohtreffer: int = 0,\n', T_BU),
+    ("bu20", "Ein Lauf ohne Rohtreffer gilt als ok", BU_DB,
+     '"ok" if int(rohtreffer or 0) > 0 else "silent"', '"ok"', T_BU),
+    ("bu21", "Die angelegten Stellen des Laufs werden nicht mitgeschrieben", BU_DB,
+     '                 int(neu or 0), 0.0, "", ("Browserlauf: "', '                 0, 0.0, "", ("Browserlauf: "', T_BU),
+    ("bu23", "Die Datenbank kennt die Herkunft claude nicht", BU_DB,
+     '        wer = herkunft if herkunft in ("automatik", "claude") else "ich"\n',
+     '        wer = herkunft if herkunft in ("automatik",) else "ich"\n', T_BU),
+    ("bu24", "Das Protokoll liest die Herkunft claude als unbekannt", BU_APR,
+     '    if gespeichert in ("ich", "automatik", "claude"):\n', '    if gespeichert in ("ich", "automatik"):\n', T_BU),
+    ("bu25", "Das Protokoll laesst sich nicht nach claude filtern", BU_APR,
+     'HERKUENFTE = ("ich", "automatik", "claude", "unbekannt")\n', 'HERKUENFTE = ("ich", "automatik", "unbekannt")\n', T_BU),
+    ("bu26", "Das Aussortieren reicht die Herkunft nicht weiter", BU_AUS,
+     '    db.dismiss_job(job_hash, reason_str, herkunft=herkunft)\n', '    db.dismiss_job(job_hash, reason_str)\n', T_BU),
+    ("bu30", "Stellen mit laufender Bewerbung warten mit", BU_SZP,
+     '        if db._public_job_hash(z["hash"], z["profile_id"]) in beworbene:\n            continue\n',
+     '        if False:\n            continue\n', T_BU),
+    ("bu31", "Beworbene werden mit der Speicher-Kennung verglichen statt mit der oeffentlichen", BU_SZP,
+     '        if db._public_job_hash(z["hash"], z["profile_id"]) in beworbene:\n',
+     '        if z["hash"] in beworbene:\n', T_BU),
+    ("bu32", "Stellen einer Firma auf der Blacklist warten mit", BU_SZP,
+     '        if sperren and blacklist_regel.treffer(sperren, z["company"] or "", z["title"] or ""):\n', '        if False:\n', T_BU),
+    ("bu33", "Beurteilte Stellen zaehlen als ungeprueft", BU_SZP,
+     '        if (z["analyse_urteil"] or "").strip() or (z["gesichtet_am"] or "").strip():\n',
+     '        if (z["gesichtet_am"] or "").strip():\n', T_BU),
+    ("bu34", "Angesehene Stellen zaehlen als ungeprueft", BU_SZP,
+     '        if (z["analyse_urteil"] or "").strip() or (z["gesichtet_am"] or "").strip():\n',
+     '        if (z["analyse_urteil"] or "").strip():\n', T_BU),
+    ("bu35", "Auch Altes zaehlt als neu", BU_SZP,
+     '        if str(z["found_at"] or "")[:10] >= tag_grenze:\n', '        if True:\n', T_BU),
+    ("bu36", "Jede aussortierte Stelle zaehlt als von Claude aussortiert", BU_SZP,
+     "        \"WHERE is_active=0 AND dismissed_by='claude' AND (profile_id=? OR profile_id IS NULL) \"\n",
+     "        \"WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) \"\n", T_BU),
+    ("bu37", "Die Liste der Karte ist unbegrenzt", BU_SZP,
+     '    for z in zeilen[:MAX_LISTE]:\n', '    for z in zeilen:\n', T_BU),
+    ("bu38", "Ein anderes Profil sieht die wartenden Stellen", BU_SZP,
+     '            "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL)", (pid,)):\n',
+     '            "WHERE is_active=1 AND (? IS NOT NULL OR profile_id IS NULL)", (pid,)):\n', T_BU),
+    ("bu39", "Die Karte nennt den Grund nicht", BU_SZP,
+     '            "grund": gruende[0] if gruende else "",\n', '            "grund": "",\n', T_BU),
+    ("bu40", "Ein Anzeigentext allein ist kein Anker", BU_BUE,
+     '    return u.startswith(("http://", "https://")) or len(str(beschreibung or "").strip()) >= min_beschreibung\n',
+     '    return u.startswith(("http://", "https://"))\n', T_BU),
+    ("bu41", "Eine Adresse allein ist kein Anker", BU_BUE,
+     '    return u.startswith(("http://", "https://")) or len(str(beschreibung or "").strip()) >= min_beschreibung\n',
+     '    return len(str(beschreibung or "").strip()) >= min_beschreibung\n', T_BU),
+    ("bu50", "Die Schnittstelle nennt nichts", BU_DASH,
+     '    return stellen_zu_pruefen.uebersicht(_db)\n',
+     '    return {"ungeprueft": 0, "neu": 0, "tage": 14, "von_claude_aussortiert": 0, "aussortiert": []}\n', T_BU + T_BUB),
+    ("bf01", "Der Sprung setzt den Pruefstand nicht", BU_JP,
+     '        pruefstand: intent.pruefstand || "",\n', '        pruefstand: "",\n', T_BUB),
+    ("bf02", "Der Sprung in Ausgeblendet bleibt in der aktiven Ansicht", BU_JP,
+     '        view: intent.view === "dismissed" ? "dismissed" : "active",\n', '        view: "active",\n', T_BUB),
+    ("bf03", "Die Herkunft claude hat kein Etikett", BU_JP,
+     '  claude: "von Claude gelesen und aussortiert",\n', '', T_BU + T_BUB),
+    ("bf04", "Zurueckholen speichert nichts", BU_SZPJ,
+     '      await postJson("/api/jobs/restore", { hash });\n', '      await Promise.resolve();\n', T_BUB),
+    ("bf05", "Die Karte verschwindet, wenn nichts Neues wartet", BU_SZPJ,
+     '  if (!neu && !claude) return null;\n', '  if (!neu) return null;\n', T_BUB),
+    ("bf06", "Die Liste der aussortierten Stellen ist aufgeklappt", BU_SZPJ,
+     '  const [offen, setOffen] = useState(false);\n', '  const [offen, setOffen] = useState(true);\n', T_BUB),
+    ("bf07", "Der Grund steht roh da", BU_SZPJ,
+     '{stelle.grund ? <span className="text-muted"> — {grundText(stelle.grund)}</span> : null}',
+     '{stelle.grund ? <span className="text-muted"> — {stelle.grund}</span> : null}', T_BUB),
+    ("bf08", "Der Weg zu den ungeprueften Stellen setzt keinen Filter", BU_WEGE,
+     '  return { seite: "stellen", intent: { pruefstand: "ungeprueft" } };\n',
+     '  return { seite: "stellen", intent: { pruefstand: "" } };\n', T_BUB),
+    ("bf09", "Die Karte steht nicht auf dem Dashboard", BU_DP,
+     '        <StellenZuPruefen navigateTo={navigateTo} anlass={reloadKey} />\n', '', T_BUB),
+    ("bf10", "Die Karte zaehlt nach dem Zurueckholen nicht neu", BU_SZPJ,
+     '      setDaten(await laden());\n', '      await laden();\n', T_BUB),
+]
+KATALOGE["browseruebernahme"] = M_BROWSERUEBERNAHME
+GRUNDLAEUFE["browseruebernahme"] = (("T_BU", T_BU), ("T_BUB", T_BUB))
+
+# ── Bedienungspruefung 1.8: schmale Fenster, Vorspann, eine Navigation, Kopierknoepfe, Erklaertexte, Texterkennung (#1170 U10-U17) ──
+T_B15 = ["tests/test_v18_seitenleiste_schmal_1170.py"]
+T_B16 = ["tests/test_v18_stellen_vorspann_1170.py"]
+T_B17 = ["tests/test_v18_navigation_zahlen_1170.py"]
+T_B10 = ["tests/test_v18_bedienung_1170_u10_u12.py"]
+B_SL = "frontend/src/lib/seitenleiste.js"
+B_APP = "frontend/src/App.jsx"
+B_BH = "frontend/src/components/BrowserHandoffKarte.jsx"
+B_JP = "frontend/src/pages/JobsPage.jsx"
+B_SP = "frontend/src/pages/SettingsPage.jsx"
+B_WS = "src/bewerbungs_assistent/services/workspace_service.py"
+B_SB = "frontend/src/components/Sidebar.jsx"
+B_DP = "frontend/src/pages/DashboardPage.jsx"
+B_PO = "frontend/src/components/ProfileOnboarding.jsx"
+B_UT = "frontend/src/components/UpdatesTab.jsx"
+B_ET = "frontend/src/components/ErklaerText.jsx"
+B_EL = "frontend/src/lib/erklaertexte.js"
+B_UH = "frontend/src/lib/uploadHinweis.js"
+B_DOC = "frontend/src/pages/DocumentsPage.jsx"
+
+M_BEDIENUNG = [
+    ("bd01", "U15: schmal gilt nie", B_SL,
+     "export const SCHMAL_BIS_PX = 900;\n", "export const SCHMAL_BIS_PX = 1;\n", T_B15),
+    ("bd03", "U15: im schmalen Fenster ist die Leiste ohne Wahl ausgeklappt", B_SL,
+     "  if (schmal) return wahlSchmal === null || wahlSchmal === undefined ? true : Boolean(wahlSchmal);\n",
+     "  if (schmal) return wahlSchmal === null || wahlSchmal === undefined ? false : Boolean(wahlSchmal);\n", T_B15),
+    ("bd04", "U15: die Wahl im schmalen Fenster landet beim breiten Schluessel", B_APP,
+     "    if (fensterSchmal) {\n      setWahlSchmal(next);\n", "    if (false) {\n      setWahlSchmal(next);\n", T_B15),
+    ("bd05", "U15: die Leiste hoert nicht auf die Fensterbreite", B_APP,
+     "    const aendern = () => setFensterSchmal(istSchmal(window.innerWidth));\n", "    const aendern = () => {};\n", T_B15),
+    ("bd10", "U16: die Browser-Karte steht auch nur mit den optionalen Quellen", B_BH,
+     "  if (!daten?.prompt || !uebersprungen.length) return null;\n",
+     "  if (!daten?.prompt || (!uebersprungen.length && !optional.length)) return null;\n", T_B16),
+    ("bd11", "U16: die Kennzahlen stehen erst ab 1280 px in einer Zeile", B_JP,
+     '<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stellen-kennzahlen>',
+     '<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4" data-stellen-kennzahlen>', T_B16),
+    ("bd20", "U17: die Seitenleiste fuehrt die Unterpunkte der Einstellungen wieder", B_APP,
+     '    sidebarSubNavigation = null;\n  } else if (page === "kontakte") {\n',
+     '    sidebarSubNavigation = { items: SETTINGS_REITER.map((r) => ({ id: r.id, label: r.label })), onSelect: () => {} };\n  } else if (page === "kontakte") {\n', T_B17),
+    ("bd21", "U17: der Pfad oben nennt den Reiter nicht", B_SP,
+     '    setSubPath?.(SETTINGS_REITER.find((r) => r.id === settingsTab)?.label || "");\n',
+     '    setSubPath?.("");\n', T_B17),
+    ("bd22", "U17: die Zahl der Stellen hat kein Wort", B_WS,
+     '        kurz["stellen"] = "aktiv"\n', '        kurz["stellen"] = ""\n', T_B17),
+    ("bd23", "U17: die Seitenleiste zeigt das Wort nicht", B_SB,
+     "                          {badgeWords[tab.id] ? (\n", "                          {false ? (\n", T_B17),
+    ("bd24", "U17: eine Zahl ohne Bedeutung bekommt trotzdem ein Wort", B_WS,
+     '    if faellig:\n        kurz["bewerbungen"] = "fällig"\n', '    if True:\n        kurz["bewerbungen"] = "fällig"\n', T_B17),
+    ("bd30", "U10: Gespraech starten kopiert wieder die lange Anleitung", B_DP,
+     "                      onClick={() => copyPrompt(STARTSATZ, {\n", '                      onClick={() => copyPrompt("/ersterfassung", {\n', T_B10),
+    ("bd31", "U10: im Onboarding-Panel kopiert der Knopf die lange Anleitung", B_PO,
+     "        <Button variant=\"secondary\" onClick={copyStartsatz}>\n", "        <Button variant=\"secondary\" onClick={copyConversationCommand}>\n", T_B10),
+    ("bd32", "U10: die Updates-Seite hat keinen Mit-Claude-Knopf", B_UT,
+     "              <MitClaude>Updates erklären</MitClaude>\n", "              Updates erklären\n", T_B10),
+    ("bd40", "U11: ein Erklaertext steht immer aufgeklappt", B_ET,
+     "  const offen = aufgeklappt(alle, einzeln);\n", "  const offen = true;\n", T_B10),
+    ("bd41", "U11: der Schalter laesst die Einzelwahlen stehen", B_EL,
+     "      weg.forEach((k) => s.removeItem(k));\n", "", T_B10),
+    ("bd42", "U11: ohne gemerkte Wahl ist alles eingeklappt", B_EL,
+     '  return text !== "0";\n', '  return text === "1";\n', T_B10),
+    ("bd43", "U11: die Wahl je Erklaertext wird nicht gemerkt", B_ET,
+     "          schreibeEinzeln(id, !offen);\n", "", T_B10),
+    ("bd50", "U12: ein Scan ohne Komponente bekommt keinen Hinweis", B_UH,
+     '  if (ocr.ocr === "erforderlich") {\n', "  if (false) {\n", T_B10),
+    ("bd51", "U12: die Dokumente-Seite zeigt den Hinweis nicht", B_DOC,
+     "      for (const hinweis of ocrHinweise(antworten)) {\n", "      for (const hinweis of []) {\n", T_B10),
+    ("bd52", "U12: der Knopf fuehrt auf den falschen Reiter", B_DOC,
+     'navigateTo("einstellungen", { tab: "erweiterungen" })', 'navigateTo("einstellungen", { tab: "updates" })', T_B10),
+]
+KATALOGE["bedienung1170"] = M_BEDIENUNG
+GRUNDLAEUFE["bedienung1170"] = (("T_B15", T_B15), ("T_B16", T_B16), ("T_B17", T_B17), ("T_B10", T_B10))
+
+# ── Wege durch PBP, Baustein 3-5: Weg-Leiste, Rueckweg, Listenkoepfe, die Leiste der Firma (#1171, G85) ──
+T_LK = ["tests/test_v18_listen_zuerst_1171.py"]
+T_WL = ["tests/test_v18_weg_leiste_1171.py"]
+T_KN = ["tests/test_v18_knoten_tests_1171.py"]
+L_LU = "frontend/src/components/ListenUebersicht.jsx"
+L_AP = "frontend/src/pages/ApplicationsPage.jsx"
+L_JP = "frontend/src/pages/JobsPage.jsx"
+L_FA = "frontend/src/components/FirmenAnsicht.jsx"
+L_CP = "frontend/src/pages/ContactsPage.jsx"
+L_WG = "frontend/src/lib/wegleiste.js"
+L_WL = "frontend/src/components/WegLeiste.jsx"
+L_APP = "frontend/src/App.jsx"
+L_UI = "frontend/src/components/ui.jsx"
+
+M_LEISTE = [
+    # Baustein 5: der Listenkopf
+    ("lk01", "Listenkopf: ohne gemerkte Wahl ist er aufgeklappt", L_LU,
+     '    return window.localStorage.getItem(PRAEFIX + id) === "auf";\n',
+     '    return window.localStorage.getItem(PRAEFIX + id) !== "zu";\n', T_LK),
+    ("lk02", "Listenkopf: die Wahl wird nicht gemerkt", L_LU,
+     "onClick={() => { setOffen(!offen); schreiben(id, !offen); }}",
+     "onClick={() => { setOffen(!offen); }}", T_LK),
+    ("lk03", "Listenkopf: der Hinweis-Knopf fehlt in der Zeile", L_LU,
+     "        {aktion}\n      </div>\n", "      </div>\n", T_LK),
+    ("lk04", "Listenkopf: der Suchstand fehlt in der Zeile", L_LU,
+     '        {status ? <span className="text-[12px] text-muted" data-listen-uebersicht-status>{status}</span> : null}\n', "", T_LK),
+    ("lk05", "Listenkopf: die Kennzahlen stehen immer da", L_LU,
+     '      {offen ? <div className="mt-4 grid gap-4" data-listen-uebersicht-inhalt>{children}</div> : null}\n',
+     '      {true ? <div className="mt-4 grid gap-4" data-listen-uebersicht-inhalt>{children}</div> : null}\n', T_LK),
+    ("lk07", "Bewerbungen: der Hinweis-Knopf fehlt", L_AP,
+     "          aktion={nextStep.actionLabel ? (\n", "          aktion={false ? (\n", T_LK),
+    ("lk08", "Bewerbungen: die Karten tragen keinen Haken", L_AP,
+     "data-bewerbungskarte={application.id} ", "", T_LK),
+    ("lk09", "Stellen: „Zuletzt aktualisiert“ steht nicht in der Filterkarte", L_JP,
+     "data-stellen-zuletzt>", "data-stellen-zuletzt-weg>", T_LK),
+    ("lk10", "Stellen: der Suchstand steht nicht in der Zeile des Kopfs", L_JP,
+     "          status={suchStatusText}\n", "", T_LK),
+    ("lk11", "Kontakte: die Karten tragen keinen Haken", L_CP,
+     "      data-kontaktkarte={contact.id}\n", "", T_LK),
+    # Baustein 3: die Leiste (Rechnung und Zeichnung)
+    ("wl01", "Leiste: bei einem Gespraech steht „Nachfassen“", L_WG,
+     '    haupt = { aktion: "gespraech_vorbereiten", label: "Gespräch vorbereiten", mitClaude: true };\n',
+     '    haupt = { aktion: "nachfassen", label: "Nachfassen", mitClaude: true };\n', T_KN + T_WL),
+    ("wl02", "Leiste: eine beendete Bewerbung bekommt trotzdem einen Schritt", L_WG,
+     "  } else if (NACHFASSEN.has(s) || (nachfassenFaellig && !ENDE.has(s))) {\n",
+     "  } else if (NACHFASSEN.has(s) || nachfassenFaellig) {\n", T_KN),
+    ("wl03", "Leiste: die Zahl der Personen steht nicht dabei", L_WL,
+     '                {f.anzahl > 1 ? <span className="text-xs text-muted">{f.anzahl}</span> : null}\n', "", T_WL),
+    ("wl04", "Leiste: ein Fall mit mehreren Eintraegen oeffnet blind den ersten", L_WL,
+     'onClick={() => (einzeln ? oeffnen(f.eintraege[0].ziel) : setOffen(istOffen ? "" : f.id))}',
+     "onClick={() => oeffnen(f.eintraege[0].ziel)}", T_WL),
+    # Baustein 4: der Rueckweg und die Zurueck-Taste
+    ("wl05", "Rueckweg: nennt nicht, woher man kam", L_WL,
+     '  const rueckLabel = von?.label ? `Zurück zu ${von.label}` : leiste.zurueck?.label || "Zurück";\n',
+     '  const rueckLabel = leiste.zurueck?.label || "Zurück";\n', T_WL),
+    ("wl06", "Rueckweg: fuehrt nicht dorthin, woher man kam", L_WL,
+     "    if (von?.seite) {\n      navigateTo(von.seite, { ...(von.intent || {}), zurueckVon: true });\n    } else {\n      onZurueck?.();\n    }\n",
+     "    onZurueck?.();\n", T_WL),
+    ("zt01", "Zurueck-Taste: der Dialog meldet sich nicht im Stapel an", L_UI,
+     "    dialogStapel.push(eintrag);\n    return () => {\n      const i = dialogStapel.indexOf(eintrag);\n",
+     "    return () => {\n      const i = dialogStapel.indexOf(eintrag);\n", T_WL),
+    ("zt02", "Zurueck-Taste: das Schliessen von Hand laesst einen toten Schritt im Verlauf", L_UI,
+     "          if (window.history.state?.pbpDialog === id) window.history.back();\n", "", T_WL),
+    ("zt03", "Zurueck-Taste: schliesst alle Dialoge statt nur den obersten", L_UI,
+     "    if (oben.id === aktuell) break;       // sein Eintrag liegt noch im Verlauf: er bleibt offen\n", "", T_WL),
+    # Baustein 3 (Rest): die Leiste der Firma
+    ("fl01", "Firma: dieselbe Bewerbung zaehlt doppelt", L_WG,
+     "      if (gesehen.has(schluessel)) continue;\n", "", T_KN),
+    ("fl02", "Firma: der Rueckweg kennt die Herkunft nicht", L_FA,
+     "          von={von}\n          onZurueck={zurueck}\n", "          von={null}\n          onZurueck={zurueck}\n", T_WL),
+    ("fl03", "Firma: die Herkunft kommt bei der Ansicht nicht an", L_CP,
+     "nonce: intent.nonce, von: intent.von || null });\n", "nonce: intent.nonce, von: null });\n", T_WL),
+    ("fl04", "Firma: die Leiste steht nicht im festen Kopf", L_FA,
+     "  return slot ? createPortal(children, slot) : children;\n", "  return children;\n", T_WL),
+    ("fl05", "Firma: die Stellen fehlen unter den Faellen", L_WG,
+     '    gruppe("stelle", "stellen", "Stellen"),\n', "", T_WL + T_KN),
+    ("fl06", "Firma: die Leiste erfindet einen Hauptknopf", L_WG,
+     '  return leiste({ art: "firma", zurueckLabel, faelle, schritt: { haupt: null, weitere: [] } });\n',
+     '  return leiste({ art: "firma", zurueckLabel, faelle, schritt: { haupt: { aktion: "firma_anlegen", label: "Als Firma anlegen", mitClaude: false }, weitere: [] } });\n',
+     T_WL + T_KN),
+    ("fl07", "Firma: der Rueckweg fuehrt nicht in die Liste", L_FA,
+     "          onZurueck={zurueck}\n          className=", "          onZurueck={() => {}}\n          className=", T_WL),
+    ("fl08", "App: der Platz fuer die Leiste im Kopf fehlt", L_APP,
+     '          <div id="weg-leiste-slot" className="px-5 empty:hidden sm:px-8" />\n', "", T_WL),
+]
+KATALOGE["wegleiste1171"] = M_LEISTE
+GRUNDLAEUFE["wegleiste1171"] = (("T_LK", T_LK), ("T_WL", T_WL), ("T_KN", T_KN))
+
+# ── Funde der unabhaengigen Pruefung des Release-Zweigs (14.10.2026, #1201-#1220) ──
+T_PB = ["tests/test_v18_pruefung_backend_1201_1206.py"]
+T_PF = ["tests/test_v18_pruefung_frontend_1210_1215.py"]
+T_PI = ["tests/test_v18_installer_pruefung_1216_1220.py"]
+T_BA = ["tests/test_v18_bat_bloecke_1224.py"]  # #1224: keine Klammer in Kommentaren eines Klammerblocks
+T_OL = ["tests/test_v18_ollama_probe_1227.py"]  # #1227: kurze Verbindungsprobe statt 2 x 2 s Zeitablauf
+T_VS = ["tests/test_v18_vorab_schalter_1226.py"]  # #1226: der Schalter aendert die Frage, die Antwort wird neu geholt
+T_RG = ["tests/test_v18_windows_liste_1228.py"]  # #1228: DisplayVersion nennt die laufende Fassung
+T_UM = ["tests/test_v18_umschalten_richtung_1229.py"]  # #1229: Umschalten nach vorn heisst nicht „zurueckgeschaltet“
+T_VM = ["tests/test_v18_vermittler_endkunde_1198.py", "tests/test_v17126_dubletten_1076.py",
+        "tests/test_v17143_schon_beworben_1126.py", "tests/test_v17143_schon_beworben_anschluesse_1126.py"]  # #1198
+DD_PY = "src/bewerbungs_assistent/duplicate_detection.py"
+HINWEIS_PY = "src/bewerbungs_assistent/services/bewerbungs_hinweis.py"
+UPD_JSX = "frontend/src/components/UpdatesTab.jsx"
+WL_PY = "src/bewerbungs_assistent/services/auto_update/windows_liste.py"
+AUJS = "frontend/src/lib/autoUpdate.js"
+TOOL_UPDATE = "src/bewerbungs_assistent/tools/update.py"
+LLM_PY = "src/bewerbungs_assistent/services/llm_service.py"
+T_PW = ["tests/test_v18_installer_rest_1149.py", "tests/test_v18_auto_update_installer_bat.py",
+        "tests/test_v18_auto_update_installer_aufraeumen.py"]
+T_PD = ["tests/test_v18_aufraeum_runde_1139.py", "tests/test_v18_google_original_1184.py"]
+GA_PY = "src/bewerbungs_assistent/services/google_angaben.py"
+TN_PY = "src/bewerbungs_assistent/services/text_nachzug.py"
+SH_PY = "src/bewerbungs_assistent/services/stellen_hinweise.py"
+JOBS_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+UI_JSX = "frontend/src/components/ui.jsx"
+APP_JSX = "frontend/src/App.jsx"
+WL_JSX = "frontend/src/components/WegLeiste.jsx"
+IJ_JSX = "frontend/src/components/InlineJobDetailModal.jsx"
+AP_JSX = "frontend/src/pages/ApplicationsPage.jsx"
+JP_JSX = "frontend/src/pages/JobsPage.jsx"
+INST_SH = "installer/install.sh"
+INST_CMD = "INSTALLIEREN.command"
+DEINST_SH = "installer/deinstallieren.sh"
+
+M_PRUEFUNG = [
+    # ── #1201: eine Schreibweise fuer die Google-Quelle ──
+    ("pb01", "Google-Quelle: nur noch der exakte Schluessel zaehlt", GA_PY,
+     "    return bool(google_schluessel(quelle))\n", "    return str(quelle or \"\").strip().lower() in GOOGLE_QUELLEN\n", T_PB),
+    ("pb02", "Google-Quelle: „Google“ allein ist keine Google-Quelle mehr", GA_PY,
+     "\"googleforjobs\": \"google_jobs\", \"google\": \"google_jobs\",\n", "\"googleforjobs\": \"google_jobs\",\n", T_PB),
+    ("pb03", "Anlage von Hand: der Schluessel wird nicht normalisiert", JOBS_TOOL,
+     "        quelle = _g1201.google_schluessel(quelle) or quelle\n", "        quelle = quelle\n", T_PB),
+    ("pb04", "Browser-Uebernahme: der Schluessel wird nur kleingeschrieben", JOBS_TOOL,
+     "        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: \"Google Jobs\" wird gespeichert als google_jobs\n",
+     "        quelle_n = str(quelle or \"\").strip().lower()\n", T_PB),
+    # ── #1202: der verfallene Fehlzaehler ──
+    ("pb05", "Nachladen: der verfallene Zaehler wird vor dem Zeitstempel nicht gestrichen", TN_PY,
+     "            verfallenen_zaehler_loeschen(db, z[\"hash\"])\n", "            pass\n", T_PB),
+    ("pb06", "Nachladen: ein verfallener Zaehler gilt nie als zu streichen", TN_PY,
+     "        if roh > 0 and _fehlversuche(db, job_hash) == 0:\n", "        if False:\n", T_PB),
+    # ── #1203/#1205: die Hinweise aus Alert-Mails ──
+    ("pb07", "Hinweise: das Anlegen vergleicht wieder mit SQL-LOWER (nur ASCII)", SH_PY,
+     "            \"AND norm_hinweis(firma)=? AND norm_hinweis(titel)=?\",\n",
+     "            \"AND LOWER(TRIM(firma))=? AND LOWER(TRIM(titel))=?\",\n", T_PB),
+    ("pb08", "Hinweise: der Vergleich kuerzt den Leerraum innen nicht", SH_PY,
+     "    return re.sub(r\"\\s+\", \" \", str(text or \"\").strip().lower())\n",
+     "    return str(text or \"\").strip().lower()\n", T_PB),
+    ("pb09", "Hinweise: der Bestand wird je Hinweis neu gelesen", SH_PY,
+     "        if index is None:\n            index = _bestand_index(db)\n        stelle = _bereits_stelle(db, firma, titel, index)\n",
+     "        stelle = _bereits_stelle(db, firma, titel)\n", T_PB),
+    ("pb10", "Hinweise: die Liste ignoriert den Offset", SH_PY,
+     "    params.append(max(0, int(offset or 0)))\n", "    params.append(0)\n", T_PB),
+    ("pb11", "Hinweise: die Suche liest wieder die auf 500 begrenzte Liste", JOBS_TOOL,
+     "                z = _hinweise.holen(db, hinweis_id)        # #1205: die Zeile direkt, nicht über eine auf 500 begrenzte Liste\n",
+     "                z = next((e for e in _hinweise.liste(db, status=\"alle\", limit=500) if e[\"id\"] == hinweis_id), None)\n", T_PB),
+    ("pb12", "Hinweise: das Werkzeug blaettert nicht", JOBS_TOOL,
+     "            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=_offset)\n",
+     "            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=0)\n", T_PB),
+    ("pb13", "Hinweise: der Endpunkt blaettert nicht", DASH,
+     "    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=start)\n",
+     "    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=0)\n", T_PB),
+    # ── #1204: die Vorschau sieht die Eintraege derselben Uebergabe ──
+    ("pb14", "Vorschau: aehnliche Titel derselben Uebergabe zaehlen als angelegt", JOBS_TOOL,
+     "                if _aehnlich:\n                    _skip(e, \"duplikat_aktiv\",\n",
+     "                if False:\n                    _skip(e, \"duplikat_aktiv\",\n", T_PB),
+    ("pb15", "Vorschau: die gezaehlten Eintraege werden nicht gemerkt", JOBS_TOOL,
+     "                vorschau_jobs.append({\"hash\": res[\"hash\"], \"title\": titel, \"company\": firma, \"url\": url})\n",
+     "                pass\n", T_PB),
+    # ── #1206: ein Nicht-Text als Dokumenttyp ──
+    ("pb16", "Dokumenttyp: ein Nicht-Text wird nicht abgelehnt", DH_PY,
+     "    if not isinstance(typ, str):\n", "    if False:\n", T_PB),
+    ("pb17", "Dokumenttyp: ein Nicht-Objekt als Koerper wird nicht abgelehnt", DASH,
+     "    if not isinstance(data, dict):           # #1206: ein Nicht-Objekt (Liste, Zahl) war ein AttributeError und HTTP 500\n",
+     "    if False:\n", T_PB),
+    # ── #1208-#1215: Oberflaeche (baut das Bundle neu) ──
+    ("pf01", "Zurueck-Taste: der Dialog schliesst mitten in der Schleife (Endlosschleife bei Eingaben)", UI_JSX,
+     "    dialogStapel.pop();\n    abgetragen.push(oben);\n", "    dialogStapel.pop();\n    oben.zurueck();\n", T_PF),
+    ("pf02", "Pfad: jeder Klick setzt den Unterpfad zurueck, auch auf derselben Seite", APP_JSX,
+     "    if (nextPage !== page) setCurrentSubPath(\"\");\n", "    setCurrentSubPath(\"\");\n", T_PF),
+    ("pf03", "Verlauf: der Sprung aus einem Dialog legt den Eintrag obenauf", APP_JSX,
+     "      if (window.history.state?.pbpDialog != null) {\n", "      if (false) {\n", T_PF),
+    ("pf04", "Leiste: Escape erreicht den Dialog trotz offenem Menue", WL_JSX,
+     "    document.addEventListener(\"keydown\", taste, true);\n", "", T_PF),
+    ("pf05", "Stelle aus der Bewerbung: die Leiste kennt die Bewerbung nicht", IJ_JSX,
+     "            bewerbungId,\n            beurteilt: true,\n", "            beurteilt: true,\n", T_PF),
+    ("pf06", "Bewerbungen: der Dialog bekommt die Kennung der Bewerbung nicht", AP_JSX,
+     "          bewerbungId={jobDetail.bewerbungId}\n", "", T_PF),
+    ("pf07", "Stellen: nur die 30 juengsten Bewerbungen sind bekannt", JP_JSX,
+     "append ? Promise.resolve(null) : api(\"/api/applications?limit=0\"),\n",
+     "append ? Promise.resolve(null) : api(\"/api/applications\"),\n", T_PF),
+    ("pf08", "Stellen: der Pruefstand einer ausgeblendeten Stelle wird nicht nachgeholt", JP_JSX,
+     "    if (!detailDialog.open || !stelle?.hash || stelle.pruefstand) return undefined;\n", "    return undefined;\n", T_WL),
+    # ── #1207/#1219 (Windows) ──
+    ("pw01", "Installer: das Ausrufezeichen im Profil wird nicht geprueft", "INSTALLIEREN.bat",
+     "if \"%PBP_PROFIL_ORTE:!=%\"==\"%PBP_PROFIL_ORTE%\" goto :profil_ohne_ausrufezeichen\n", "goto :profil_ohne_ausrufezeichen\n", T_PI + T_PW),
+    ("pw02", "Deinstaller: das Ausrufezeichen im Profil wird nicht geprueft", "DEINSTALLIEREN.bat",
+     "if \"%PBP_PROFIL_ORTE:!=%\"==\"%PBP_PROFIL_ORTE%\" goto :pbp_profil_ok\n", "goto :pbp_profil_ok\n", T_PW),
+    ("pw03", "Installer: das Aufraeumen verspricht das Loeschen ohne den Exit-Code zu lesen", "INSTALLIEREN.bat",
+     "if not errorlevel 1 goto :aufraeumen_gestartet\n", "goto :aufraeumen_gestartet\n", T_PW),
+    ("pw04", "Aufraeum-Helfer: ein Fehler beim Starten ist wieder ein Traceback", "_installer_aufraeumen.py",
+     "        except OSError as exc:\n            # #1219: die Bat sagt", "        except ZeroDivisionError as exc:\n            # #1219: die Bat sagt", T_PW),
+    # ── #1216-#1220 (Unix) ──
+    ("pu01", "Installer: pip-Update ohne Anfuehrungszeichen um den Python-Aufruf", INST_SH,
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null || warn", "$PYTHON -m pip install --upgrade pip -q 2>/dev/null || warn", T_PI),
+    ("pu02", "Installer (macOS): Python-Aufruf fuer die Pakete ohne Anfuehrungszeichen", INST_CMD,
+     "\"$PYTHON\" -m pip install -e \"$PROJECT_DIR\" -q\n", "$PYTHON -m pip install -e \"$PROJECT_DIR\" -q\n", T_PI),
+    ("pu03", "Installer: der Funktionstest laeuft auf dem echten Datenordner", INST_SH,
+     "if ! BA_DATA_DIR=\"$TEST_DIR\" \"$PYTHON\" -c", "if ! \"$PYTHON\" -c", T_PI),
+    ("pu04", "Installer: ein gescheitertes pip-Update beendet den Installer", INST_SH,
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null || warn \"pip liess sich nicht aktualisieren - kein Problem\"\n",
+     "\"$PYTHON\" -m pip install --upgrade pip -q 2>/dev/null\n", T_PI),
+    ("pu05", "Installer: die Prozesssuche beendet auch ein fremdes start_dashboard.py", INST_SH,
+     "        if skript_ist_fremd \"$zeile\"; then\n            continue\n        fi\n", "", T_PI),
+    ("pu06", "Installer: das Muster trifft wieder jeden Testlauf mit dem Namen als Argument", INST_SH,
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]](.*[[:space:]/])?start_dashboard\\.py'\n",
+     "DASH_MUSTER='(^|/)[Pp]ython[0-9.]*[[:space:]].*start_dashboard\\.py'\n", T_PI),
+    ("pu07", "Installer: ohne lesbare Fassung gilt jede antwortende Fassung als ok", INST_SH,
+     "    elif [ -z \"$NEUE_FASSUNG\" ]; then\n        echo unbekannt\n", "    elif false; then\n        echo unbekannt\n", T_PI),
+    ("pu08", "Installer: der Fehlschlag von _setup_claude.py beendet das Skript unter set -e", INST_SH,
+     "    if SETUP_AUSGABE=\"$(\"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\" 2>&1)\"; then\n",
+     "    SETUP_AUSGABE=\"$(\"$PYTHON\" \"$PROJECT_DIR/_setup_claude.py\" 2>&1)\"\n    if [ $? -eq 0 ]; then\n", T_PI),
+    ("pu09", "Installer (macOS): ein Fehlschlag von _setup_claude.py setzt den Merker nicht", INST_CMD,
+     "        CLAUDE_FEHLER=1\n", "        :\n", T_PI),
+    ("pu10", "Deinstaller: ein nicht lesbarer Eintrag bleibt ohne Merker", DEINST_SH,
+     "        unreadable)\n            MCP_BLIEB=1\n", "        unreadable)\n", T_PI),
+    ("pu11", "Deinstaller: der Schluss ist auch bei stehengebliebenem Eintrag gruen", DEINST_SH,
+     "if [ \"$MCP_BLIEB\" = \"1\" ]; then\n", "if false; then\n", T_PI),
+    ("pu12", "Deinstaller: nur j gilt als Ja", DEINST_SH,
+     "        j|J|ja|Ja|JA|y|Y|yes|Yes|YES) return 0 ;;\n", "        j|J) return 0 ;;\n", T_PI),
+    ("pu13", "Doppelklick-Deinstaller: der Exit-Code geht verloren", "DEINSTALLIEREN.command",
+     "bash \"$SKRIPT\" || ERGEBNIS=$?\n", "bash \"$SKRIPT\"\n", T_PI),
+    ("pu14", "Installer: die Sicherungskopie der Claude-Konfiguration kommt nicht in den Schluss", INST_SH,
+     "if [ -n \"${CLAUDE_KOPIE:-}\" ]; then\n", "if false; then\n", T_PI),
+    # ── #1222: die Installation einer Vorabversion (Schalter aus #1199) ──
+    ("vi01", "Installation: eine ungueltige Fassung wird nicht abgewiesen", AU + "installation.py",
+     "    if not _fassung.gueltig(version):\n        raise UpdateFehler(\"quelle_nicht_erlaubt\"",
+     "    if False:\n        raise UpdateFehler(\"quelle_nicht_erlaubt\"", T_VI),
+    ("vi02", "Installation: der Schalter wird nicht aus der Datenbank gelesen (immer an)", AU + "installation.py",
+     "        vorab = zustand.vorab(db) if db is not None else False        # #1222: der Schalter, wie die Auswahl ihn las\n",
+     "        vorab = True\n", T_VI),
+    ("vi03", "Start: eine Vorabversion wird ohne Schalter gestartet", AU + "lauf.py",
+     "        if not quelle.kandidat_erlaubt(version, laufend, zustand.vorab(db)):\n", "        if False:\n", T_VI),
+    ("vi04", "Start: eine ungueltige Fassung wird nicht abgewiesen", AU + "lauf.py",
+     "    if not _fassung.gueltig(version):\n"
+     "        return {\"status\": \"abgelehnt\", \"text\": \"Das ist keine gültige Versionsnummer.\"}\n", "", T_VI),
+    ("vi05", "Manifest: eine ungueltige Fassung wird akzeptiert", AU + "manifest.py",
+     "    if not _fassung.gueltig(version):\n"
+     "        raise UpdateFehler(\"manifest\", detail=f\"version {version!r} ist keine gültige Fassung\")\n", "", T_PR + T_VI),
+    # ── #1224: Kommentare mit Klammern in einem Klammerblock beendeten den Stapel (dritter Werkstatt-PC-Lauf) ──
+    ("ba01", "Deinstaller: Kommentarzeilen mit Klammern stehen wieder im Backup-Block", DB,
+     "    echo         Erstelle Backup...\n    powershell ",
+     "    echo         Erstelle Backup...\n"
+     ":: v1.8.0 (#1149 Punkt 8): die Pfade (DATA_DIR, BACKUP_ZIP), nicht eingebettet. Ein Apostroph\n"
+     ":: im Benutzernamen (O'Brien) machte aus dem Befehl einen Syntaxfehler\n"
+     "    powershell ", T_BA),
+    ("au01", "Updates-Seite: „Aktuell“ steht auch, wenn die Prüfung keine Antwort bekam", "frontend/src/lib/autoUpdate.js",
+     "  return Boolean(au) && !au.neu && !au.neustart_noetig && !standUnbekannt(au);\n",
+     "  return Boolean(au) && !au.neu && !au.neustart_noetig;\n", T_VO),
+    ("ba02", "Installer: ein Kommentar mit Klammer im Migrationsblock", IB,
+     "    :: dokumente/ und export/ Inhalte migrieren, nur wenn im alten Pfad vorhanden\n",
+     "    :: dokumente/ und export/ Inhalte migrieren (nur wenn im alten Pfad vorhanden)\n", T_BA),
+    # ── #1227: die Ollama-Abfrage kostete ohne Ollama unter Windows 4 s (dritter Werkstatt-PC-Lauf) ──
+    ("ol01", "Ollama-Probe: der Zeitablauf der Schleifenprobe ist wieder 2,0 s", LLM_PY,
+     "OLLAMA_PROBE_TIMEOUT_S = 0.5\n", "OLLAMA_PROBE_TIMEOUT_S = 2.0\n", T_OL),
+    ("ol02", "Ollama-Abfrage: ohne Probe, die Abfrage geht wieder blind an localhost", LLM_PY,
+     "            basis = self._ollama_basis()\n", "            basis = self._status.ollama_endpoint\n", T_OL),
+    ("ol03", "Ollama-Probe: ::1 wird nicht probiert", LLM_PY,
+     "        for adresse in (\"127.0.0.1\", \"::1\"):\n", "        for adresse in (\"127.0.0.1\",):\n", T_OL),
+    ("ol04", "Ollama-Abfrage: sie geht nicht an die annehmende Adresse, sondern wieder an localhost", LLM_PY,
+     "            return f\"{teile.scheme or 'http'}://{host}:{port}\"\n", "            return endpunkt\n", T_OL),
+    ("ol05", "Ollama-Probe: auch ein fremder Endpunkt bekommt die Schleifenprobe", LLM_PY,
+     "        if (teile.hostname or \"\").lower() != \"localhost\":\n", "        if False:\n", T_OL),
+    ("ol06", "Erweiterungen: der Handler ist wieder ein async-Handler und haelt den Server an", DASH,
+     "@app.get(\"/api/components\")\ndef api_components_overview():\n",
+     "@app.get(\"/api/components\")\nasync def api_components_overview():\n", T_OL),
+    # ── #1226: der Schalter „Vorabversionen automatisch“ aendert die Frage (Block E5, dritter Lauf) ──
+    ("vs01", "Pruefung: der Zwischenspeicher gilt auch bei anderem Stand des Schalters", AU + "lauf.py",
+     "        if gemerkt.get(\"laufende\") == laufende and bool(gemerkt.get(\"vorab\")) == vorab:\n",
+     "        if gemerkt.get(\"laufende\") == laufende:\n", T_VS),
+    ("vs02", "Pruefung: das Ergebnis merkt den Stand des Schalters nicht", AU + "lauf.py",
+     "\"laufende\": laufende, \"vorab\": bool(vorab)}\n", "\"laufende\": laufende}\n", T_VS),
+    ("vs03", "Umschalten: es wird nie neu geprueft", AU + "lauf.py",
+     "    geaendert = vorher != bool(an)\n    if geaendert:\n", "    geaendert = vorher != bool(an)\n    if False:\n", T_VS),
+    ("vs04", "Umschalten: es wird auch bei gleichem Stand neu geprueft", AU + "lauf.py",
+     "    geaendert = vorher != bool(an)\n    if geaendert:\n", "    geaendert = vorher != bool(an)\n    if True:\n", T_VS),
+    ("vs05", "Endpunkt: die Einstellung setzt den Schalter ohne neue Pruefung", DASH,
+     "        await asyncio.to_thread(lauf.vorab_einstellen, _db, bool(payload[\"vorab\"]))\n",
+     "        zustand.vorab_setzen(_db, bool(payload[\"vorab\"]))\n", T_VS),
+    ("vs06", "Werkzeug: die Einstellung setzt den Schalter ohne neue Pruefung", TOOL_UPDATE,
+     "                lauf.vorab_einstellen(db, bool(vorab))      # #1226: stellt die Frage neu (prueft gleich)\n",
+     "                zustand.vorab_setzen(db, bool(vorab))\n", T_VS),
+    ("vs07", "Uebersicht: eine Vorabversion bleibt nach dem Ausschalten als neu stehen", AU + "lauf.py",
+     "    if p and p.get(\"version\") and not _fassung.ist_stabil(p[\"version\"]) and bool(p.get(\"vorab\")) and not antwort[\"vorab\"]:\n"
+     "        p = None\n", "    if False:\n        p = None\n", T_VS),
+    ("vs08", "Karte: nach dem Einschalten steht wieder immer der Satz zur Versionslinie", AUJS,
+     "  return vorab.pruefungVeraltet ? VORAB_ERKLAERUNG_PRUEFEN : VORAB_ERKLAERUNG_ANDERE_LINIE;\n",
+     "  return VORAB_ERKLAERUNG_ANDERE_LINIE;\n", T_VS + T_VO),
+    ("vs09", "Hinweiszone: nach dem Einschalten steht wieder der Satz zur Versionslinie", AUJS,
+     "    return vorab.pruefungVeraltet\n      ? \"Ob sie automatisch kommt", "    return false\n      ? \"Ob sie automatisch kommt", T_VO),
+    ("vs10", "Oberflaeche: die Pruefung gilt auch ohne den Vermerk des Schalters als belegt", AUJS,
+     "    pruefungVeraltet: schalterAn && !(au?.pruefung?.status === \"aktuell\" && au.pruefung.vorab === true),\n",
+     "    pruefungVeraltet: false,\n", T_VO),
+    # ── #1228: die Windows-Liste („Apps & Features“) nennt die laufende Fassung (Block E5, dritter Lauf) ──
+    ("rg01", "Windows-Liste: der Ort des Eintrags wird nicht verglichen (fremde Installation wird veraendert)", WL_PY,
+     "            if not _gleicher_ort(ort, programmordner):\n                return \"anderer_ort\"\n",
+     "            if False:\n                return \"anderer_ort\"\n", T_RG),
+    ("rg02", "Windows-Liste: ein fehlender Eintrag gilt als Fehler statt als nicht vorhanden", WL_PY,
+     "        except FileNotFoundError:\n            return \"kein_eintrag\"\n",
+     "        except FileNotFoundError:\n            raise RuntimeError(\"kein Eintrag\")\n", T_RG),
+    ("rg03", "Windows-Liste: ein gleicher Eintrag wird trotzdem geschrieben", WL_PY,
+     "            if aktuell == str(version):\n                return \"gleich\"\n",
+     "            if False:\n                return \"gleich\"\n", T_RG),
+    ("rg04", "Windows-Liste: ein Schreibfehler wird nicht abgefangen", WL_PY,
+     "    except Exception:  # noqa: BLE001 — eine Anzeige darf den Start nie aufhalten\n",
+     "    except ZeroDivisionError:  # noqa: BLE001 — eine Anzeige darf den Start nie aufhalten\n", T_RG),
+    ("rg05", "Windows-Liste: unter Linux und macOS wird trotzdem gelesen", WL_PY,
+     "    if (plattform or sys.platform) != \"win32\":\n        return \"nicht_windows\"\n",
+     "    if False:\n        return \"nicht_windows\"\n", T_RG),
+    ("rg06", "Start: der Abgleich der Windows-Liste fehlt", AU + "lauf.py",
+     "        ergebnis[\"windows_liste\"] = windows_liste.abgleichen(layout.laufende_fassung(), app)\n",
+     "        ergebnis[\"windows_liste\"] = \"nichts_zu_tun\"\n", T_RG),
+    ("rg07", "Start: ein Fehler des Abgleichs bricht den Start ab", AU + "lauf.py",
+     "    except Exception:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n",
+     "    except ZeroDivisionError:  # noqa: BLE001\n        logger.debug(\"Windows-Liste nicht abgeglichen\", exc_info=True)\n", T_RG),
+    ("rg08", "Windows-Liste: der Ort wird wieder als Zeichenfolge verglichen (Junction und 8.3-Name gelten als fremd)", WL_PY,
+     "    return os.path.normcase(os.path.realpath(str(pfad)))\n",
+     "    return os.path.normcase(os.path.normpath(str(pfad)))\n", T_RG),
+    # ── #1229: „Beim naechsten Start nutzen“ kennt zwei Richtungen (Block E5, dritter Lauf) ──
+    ("um01", "Verlauf: ein Schritt nach vorn heisst wieder „zurueckgeschaltet“", AU + "lauf.py",
+     "    if nach_vorn:\n        zustand.verlauf_anhaengen(db, version=ziel, ergebnis=\"umgeschaltet\"",
+     "    if False:\n        zustand.verlauf_anhaengen(db, version=ziel, ergebnis=\"umgeschaltet\"", T_UM),
+    ("um02", "Verlauf: auch der Rueckweg heisst „umgeschaltet“", AU + "lauf.py",
+     "    nach_vorn = bool(aktuell) and _fassung.ist_neuer(ziel, aktuell)\n", "    nach_vorn = True\n", T_UM),
+    ("um03", "Umschalten: das gewaehlte Ziel bleibt zurueckgenommen", AU + "lauf.py",
+     "    gemerkt = (set(abgelehnt(db)) | set(neuere)) - {ziel}\n", "    gemerkt = (set(abgelehnt(db)) | set(neuere))\n", T_UM),
+    ("um04", "Frage: der Schritt nach vorn bekommt den Satz des Rueckwegs", AUJS,
+     "  if (istNeuer(version, aktuell)) {\n    return `Beim nächsten Start läuft Version",
+     "  if (false) {\n    return `Beim nächsten Start läuft Version", T_UM + T_VO),
+    ("um05", "Anzeige: die Marke „Umgeschaltet“ fehlt (der Verlauf zeigt den rohen Wert)", UPD_JSX,
+     "  umgeschaltet: { label: \"Umgeschaltet\", tone: \"amber\" },\n", "", T_UM + T_VO),
+    ("um06", "Oberflaeche: die Frage nimmt wieder immer den Satz des Rueckwegs", UPD_JSX,
+     "    const ok = await bestaetigen({ text: umschaltText(v, au.aktuell) });\n",
+     "    const ok = await bestaetigen({ text: umschaltText(v, null) });\n", T_UM + T_VO),
+    # ── #1198: Repost-Warnung Art „vermittler“ (Fremdbeitrag PR #1230, in 1.8.0 uebernommen) ──
+    ("vm01", "Vermittler: ein eingetragener Endkunde ist nicht mehr massgeblich (Notizen ueberstimmen ihn)", DD_PY,
+     "        roh = endkunde or \" \".join(str(app.get(k) or \"\")\n                                   for k in (\"company\", \"notes\"))\n",
+     "        roh = \" \".join(str(app.get(k) or \"\")\n                       for k in (\"company\", \"notes\", \"endkunde\"))\n", T_VM),
+    ("vm02", "Vermittler: ein Freitexttreffer gilt wieder als eingetragener Endkunde", HINWEIS_PY,
+     "    if str(bewerbung.get(\"endkunde\") or \"\").strip():\n        return f\"{firma} ist als Endkunde in der Bewerbung eingetragen.\"\n",
+     "    if True:\n        return f\"{firma} ist als Endkunde in der Bewerbung eingetragen.\"\n", T_VM),
+    ("vm03", "Vermittler: der Hinweis nennt wieder die Firma der Bewerbung statt des eingetragenen Vermittlers", HINWEIS_PY,
+     "    name = str(bewerbung.get(\"vermittler\") or \"\").strip()\n    return name or str(bewerbung.get(\"company\") or \"\").strip()\n",
+     "    return str(bewerbung.get(\"company\") or \"\").strip()\n", T_VM),
+    ("vm04", "Vermittler: ohne Endkunde im Feld wird der Treffer nie als offen eingeordnet", HINWEIS_PY,
+     "        f\"{firma} wird in den Notizen oder Firmenangaben erwähnt; \"\n        \"ob es der Endkunde ist, bleibt offen.\")\n",
+     "        f\"{firma} nennt diese Bewerbung als Endkunden.\")\n", T_VM),
+    ("vm05", "Anlage von Hand: der Hinweis nennt wieder den Vermittler aus der Firma der Bewerbung", JOBS_TOOL,
+     "                        f\"'{vermittler_name(_vb)}'. \"\n",
+     "                        f\"'{_vb.get('company')}'. \"\n", T_VM),
+    ("vm06", "Anlage von Hand: der Hinweis behauptet den Endkunden wieder als Tatsache", JOBS_TOOL,
+     "                        f\"{vermittler_einordnung(firma, _vb)} \"\n",
+     "                        f\"nennt {firma} als Endkunden. \"\n", T_VM),
+]
+KATALOGE["pruefung1214"] = M_PRUEFUNG
+GRUNDLAEUFE["pruefung1214"] = (("T_PB", T_PB), ("T_PD", T_PD), ("T_PW", T_PW), ("T_PI", T_PI), ("T_PF", T_PF),
+                                ("T_VI", T_VI), ("T_BA", T_BA), ("T_OL", T_OL), ("T_VS", T_VS), ("T_RG", T_RG), ("T_UM", T_UM), ("T_VM", T_VM))
+
+# ── #1231: der PII-Pruefer kennt einen Platzhalter in jeder Schreibweise ──
+T_PU = ["tests/test_v18_pii_umlaut_1231.py", "tests/test_scrub_pii_erkennung.py"]
+SCRUB_PY = "scripts/scrub_pii.py"
+M_PII = [
+    ("pu01", "PII-Pruefer: der Text wird nicht mehr in Umschrift gebracht (Süd im Text gegen sued in der Liste)", SCRUB_PY,
+     "    klein = _umschrift(label)\n    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    klein = label.lower()\n    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu02", "PII-Pruefer: die Liste wird nicht mehr in Umschrift gebracht (Eintrag mit Umlaut gegen Text in Umschrift)", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return any(f in klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu03", "PII-Pruefer: das ß bleibt unbehandelt (Weisswerk gegen Weißwerk)", SCRUB_PY,
+     '(("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"))',
+     '(("ä", "ae"), ("ö", "oe"), ("ü", "ue"))', T_PU),
+    ("pu04", "PII-Pruefer: ein zerlegtes Trema (u plus Punkte) wird nicht zusammengesetzt", SCRUB_PY,
+     '    klein = unicodedata.normalize("NFC", text).lower()\n',
+     '    klein = text.lower()\n', T_PU),
+    ("pu05", "PII-Pruefer: nur noch die ganze Angabe gilt als Platzhalter, nicht mehr ein Teil davon", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return any(_umschrift(f) == klein for f in FIKTIVE_FIRMEN)\n", T_PU),
+    ("pu06", "PII-Pruefer: jede Firma gilt als Platzhalter", SCRUB_PY,
+     "    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)\n",
+     "    return True\n", T_PU),
+]
+KATALOGE["pii1231"] = M_PII
+GRUNDLAEUFE["pii1231"] = (("T_PU", T_PU),)
+
+# ── #1232: eine interne Notiz schliesst den automatischen Nachfass nicht mehr ──
+T_NF = ["tests/test_v17158_nachfass_notiz_1232.py", "tests/test_v17142_termin_folgen_1123.py",
+        "tests/test_v18_nachfass_notiz_anleitung_1232.py"]
+NF_TOOL = "src/bewerbungs_assistent/tools/bewerbungen.py"
+NF_DIENST = "src/bewerbungs_assistent/services/nachfass_abgleich.py"
+NF_TERMIN = "src/bewerbungs_assistent/services/termin_folgen.py"
+NF_PROMPTS = "src/bewerbungs_assistent/prompts.py"
+NF_HANDLER = "src/bewerbungs_assistent/services/document_handlers.py"
+NF_RUECK = "src/bewerbungs_assistent/document_analysis_prompts.py"
+M_NACHFASS = [
+    ("nf01", "bewerbung_notiz: die Vorgabe ist wieder Kontakt statt intern", NF_TOOL,
+     'def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "intern") -> dict:',
+     'def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "kontakt") -> dict:', T_NF),
+    ("nf02", "bewerbung_notiz: art=kontakt schliesst die Erinnerung nicht mehr", NF_TOOL,
+     '            hinfaellig = nachfass_abgleich.kontakt_gemeldet(\n                db, bewerbung_id, "Gesprächsnotiz")\n',
+     '            hinfaellig = []\n', T_NF),
+    ("nf03", "bewerbung_notiz: art=nachfrage setzt hinfaellig statt erledigt", NF_TOOL,
+     '            erledigt = nachfass_abgleich.nachfrage_gesendet(db, bewerbung_id)\n',
+     '            erledigt = nachfass_abgleich.kontakt_gemeldet(db, bewerbung_id, "Nachfrage")\n', T_NF),
+    ("nf04", "bewerbung_notiz: das Feld heisst wieder erledigt, obwohl hinfaellig gespeichert wird", NF_TOOL,
+     '                ergebnis["nachfassung_hinfaellig"] = hinfaellig\n',
+     '                ergebnis["nachfassung_erledigt"] = hinfaellig\n', T_NF),
+    ("nf05", "bewerbung_notiz: eine unbekannte Art wird still wie intern behandelt", NF_TOOL,
+     '        if art_norm not in nachfass_abgleich.NOTIZ_ARTEN:\n',
+     '        if False:\n', T_NF),
+    ("nf06", "Dienst: schliessen ignoriert den gewuenschten Zustand", NF_DIENST,
+     '            (status, _jetzt(), fu["id"]))\n',
+     '            ("hinfaellig", _jetzt(), fu["id"]))\n', T_NF),
+    ("nf07", "Dienst: ein unbekannter Zustand wird angenommen", NF_DIENST,
+     '    if status not in SCHLIESS_STATUS:\n',
+     '    if False:\n', T_NF),
+    ("nf08", "Termin: das Feld heisst wieder erledigt, obwohl hinfaellig gespeichert wird", NF_TERMIN,
+     '            ergebnis["nachfassung_hinfaellig"] = hinfaellig\n',
+     '            ergebnis["nachfassung_erledigt"] = hinfaellig\n', T_NF),
+    ("nf09", "Werkzeugschema: der Parameter art hat keinen Text mehr", NF_TOOL,
+     '            art: `intern` (Vorgabe), `kontakt` oder `nachfrage`. Nur `kontakt`\n'
+     '                und `nachfrage` schließen die offene Nachfass-Erinnerung.\n',
+     '', T_NF),
+    ("nf10", "Anleitung: die Mail des Arbeitgebers nennt art=kontakt nicht mehr", NF_PROMPTS,
+     'art="kontakt") — eine Mail des Arbeitgebers ist Kontakt',
+     ') — eine Mail des Arbeitgebers ist Kontakt', T_NF),
+    ("nf11", "Anleitung: das Projekt-Update nennt art=kontakt nicht mehr", NF_HANDLER,
+     "\"claude_action\": \"bewerbung_notiz(bewerbung_id, '...', art='kontakt') mit dem Update-Inhalt + ggf. nachfass_planen\",",
+     "\"claude_action\": \"bewerbung_notiz(bewerbung_id, '...') mit dem Update-Inhalt + ggf. nachfass_planen\",", T_NF),
+    ("nf12", "Rueckfuehrung: das Gespraechsprotokoll nennt art=kontakt nicht mehr", NF_RUECK,
+     "bewerbung_notiz(bewerbung_id, '...', \"\n        \"art='kontakt') an die Bewerbung schreiben",
+     "bewerbung_notiz(bewerbung_id, '...') \"\n        \"an die Bewerbung schreiben", T_NF),
+]
+KATALOGE["nachfass1232"] = M_NACHFASS
+GRUNDLAEUFE["nachfass1232"] = (("T_NF", T_NF),)
+
+# ── #1234: ein Wiedergaenger-k.o. nur aus Gruenden, die ein Urteil sind ──
+T_WG = ["tests/test_v18_wiedergaenger_urteil_1234.py"]
+WG_DIENST = "src/bewerbungs_assistent/services/wiedergaenger.py"
+WG_GRUENDE = "src/bewerbungs_assistent/services/ablehnungsgruende.py"
+WG_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+WG_LISTE = '    "bewerbung_erstellt", "bereits_beworben", "duplikat", "veraltet_url",\n'
+WG_STOPS = '    "head", "chief", "director", "direktor", "vorstand",\n'
+WG_KO = ('    return (muster.get("anzahl", 0) >= 2\n'
+         '            and muster.get("top_grund") in FACHLICHE_KO_GRUENDE)\n')
+M_WIEDERGAENGER = [
+    ("wg01", "Nicht-Urteile: die Liste ist leer", WG_GRUENDE,
+     'KEIN_URTEIL_GRUENDE = frozenset({\n' + WG_LISTE + '})\n', 'KEIN_URTEIL_GRUENDE = frozenset()\n', T_WG),
+    ("wg02", "Nicht-Urteile: bewerbung_erstellt zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bereits_beworben", "duplikat", "veraltet_url",\n', T_WG),
+    ("wg03", "Nicht-Urteile: bereits_beworben zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "duplikat", "veraltet_url",\n', T_WG),
+    ("wg04", "Nicht-Urteile: duplikat zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "bereits_beworben", "veraltet_url",\n', T_WG),
+    ("wg05", "Nicht-Urteile: veraltet_url zaehlt wieder", WG_GRUENDE,
+     WG_LISTE, '    "bewerbung_erstellt", "bereits_beworben", "duplikat",\n', T_WG),
+    ("wg06", "urteilsgruende gibt jeden Grund zurueck", WG_DIENST,
+     '    return [r for r in _reasons_of(job) if ist_urteil(r)]\n', '    return list(_reasons_of(job))\n', T_WG),
+    ("wg07", "die Zaehlung im Wiedergaenger nimmt wieder jeden Grund", WG_DIENST,
+     '        for r in sorted(set(urteilsgruende(j))):\n            reason_counter[r] += 1\n',
+     '        for r in sorted(set(_reasons_of(j))):\n            reason_counter[r] += 1\n', T_WG),
+    ("wg08", "die Firmen-Historie nennt wieder jeden Grund", WG_DIENST,
+     '        reasons = sorted(set(urteilsgruende(j)))  # #966: je Stelle einmal; #1234: nur Urteile\n',
+     '        reasons = sorted(set(_reasons_of(j)))  # #966: je Stelle einmal\n', T_WG),
+    ("wg09", "ist_urteil erkennt das auto:-Praefix nicht", WG_GRUENDE,
+     '    if kern.startswith("auto:"):\n        kern = kern[len("auto:"):].split(":", 1)[0]\n', '', T_WG),
+    ("wg10", "ist_urteil unterscheidet Gross und Klein", WG_GRUENDE,
+     '    kern = str(grund or "").strip().lower()\n    if kern.startswith("auto:"):',
+     '    kern = str(grund or "").strip()\n    if kern.startswith("auto:"):', T_WG),
+    ("wg11", "head ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "chief", "director", "direktor", "vorstand",\n', T_WG),
+    ("wg12", "chief ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "director", "direktor", "vorstand",\n', T_WG),
+    ("wg13", "director ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "chief", "direktor", "vorstand",\n', T_WG),
+    ("wg14", "direktor ist wieder ein Fachwort", WG_DIENST,
+     WG_STOPS, '    "head", "chief", "director", "vorstand",\n', T_WG),
+    ("wg15", "ein Muster mit einem Beleg ist schon ein k.o.", WG_DIENST,
+     WG_KO, WG_KO.replace(">= 2", ">= 1"), T_WG),
+    ("wg16", "jedes Muster mit zwei Belegen ist ein k.o., egal welcher Grund", WG_DIENST,
+     WG_KO, '    return muster.get("anzahl", 0) >= 2\n', T_WG),
+    ("wg17", "Gehalt ist ein fachlicher k.o.-Grund", WG_DIENST,
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell",\n})\n\n\ndef ist_fachlicher_ko',
+     '    "kein_hochschulabschluss", "unpassendes_arbeitsmodell", "gehalt_zu_niedrig",\n})\n\n\ndef ist_fachlicher_ko', T_WG),
+    ("wg18", "die Liste macht wieder aus jedem Muster ein k.o.", WG_TOOL,
+     '                    if ist_fachlicher_ko(muster):\n                        j["_ko_muster"] = muster\n'
+     '                    elif muster:\n                        j["_wg_hinweis"] = muster\n',
+     '                    if muster:\n                        j["_ko_muster"] = muster\n', T_WG),
+    ("wg19", "die Analyse hat wieder ihre eigene k.o.-Frage", WG_TOOL,
+     '    if ist_fachlicher_ko(wiedergaenger):\n        ko_gruende.append(',
+     '    if wiedergaenger:\n        ko_gruende.append(', T_WG),
+    ("wg20", "das gelesene Urteil steht nicht neben dem k.o.", WG_TOOL,
+     '                if _gelesen and _gelesen != "NICHT_EMPFOHLEN":\n', '                if False:\n', T_WG),
+    ("wg21", "ein Muster ohne k.o. bleibt ohne Hinweis", WG_TOOL,
+     '            elif j.get("_wg_hinweis"):\n', '            elif False:\n', T_WG),
+]
+KATALOGE["wiedergaenger1234"] = M_WIEDERGAENGER
+GRUNDLAEUFE["wiedergaenger1234"] = (("T_WG", T_WG),)
+
+# ── #1235: ein mehrdeutiger Ortsname bekommt keinen geratenen Treffer ──
+T_OD = ["tests/test_v18_ortsdienst_mehrdeutig_1235.py"]
+OD_GEO = "src/bewerbungs_assistent/services/geocoding_service.py"
+OD_STANDORT = "src/bewerbungs_assistent/services/eigener_standort.py"
+OD_WAHRHEIT = "src/bewerbungs_assistent/services/wahrheit.py"
+OD_SUCHE = "src/bewerbungs_assistent/job_scraper/__init__.py"
+OD_TOOL = "src/bewerbungs_assistent/tools/jobs.py"
+OD_HEILUNG = "src/bewerbungs_assistent/services/karten_heilung.py"
+OD_NACHLADEN = "src/bewerbungs_assistent/services/nachladen.py"
+OD_AENDERN = "src/bewerbungs_assistent/services/stelle_aendern.py"
+OD_DB = "src/bewerbungs_assistent/database.py"
+M_ORTSDIENST = [
+    ("od01", "Mehrdeutig braucht keinen Abstand mehr (50 km -> 5000 km)", OD_GEO,
+     'MEHRDEUTIG_AB_KM = 50.0\n', 'MEHRDEUTIG_AB_KM = 5000.0\n', T_OD),
+    ("od02", "Mehrdeutig gibt es nie (Gewichtsabstand 0)", OD_GEO,
+     'MEHRDEUTIG_GEWICHT = 0.10\n', 'MEHRDEUTIG_GEWICHT = 0.0\n', T_OD),
+    ("od03", "Mehrdeutig gilt immer, auch bei klarem Spitzenreiter (Gewichtsabstand 1)", OD_GEO,
+     'MEHRDEUTIG_GEWICHT = 0.10\n', 'MEHRDEUTIG_GEWICHT = 1.0\n', T_OD),
+    ("od04", "jeder Treffer zaehlt als Ort, auch ein Park", OD_GEO,
+     '    return raw.get("class") in ("boundary", "place") and raw.get("type") != "postal_code"\n',
+     '    return True\n', T_OD),
+    ("od05", "dieselbe Gemeinde als Ortsteil wird doppelt genannt", OD_GEO,
+     '        if any(calculate_distance_km(punkt, (k["lat"], k["lon"])) < 10.0 for k in kandidaten):\n            continue\n',
+     '        if False:\n            continue\n', T_OD),
+    ("od06", "der Dienst wird wieder nach EINEM Treffer gefragt", OD_GEO,
+     '        antwort = geolocator.geocode(anfrage, exactly_one=False, limit=MAX_TREFFER)\n',
+     '        antwort = geolocator.geocode(anfrage, exactly_one=True, limit=MAX_TREFFER)\n', T_OD),
+    ("od07", "die Kandidaten werden nicht im Arbeitsspeicher gemerkt", OD_GEO,
+     '                _mehrdeutig_orte[loc_key] = fund["kandidaten"]\n', '                pass\n', T_OD),
+    ("od08", "die Kandidaten werden nicht in der Datenbank gemerkt", OD_GEO,
+     '             json.dumps(kandidaten, ensure_ascii=False) if kandidaten else None))\n', '             None))\n', T_OD),
+    ("od09", "Zeilen ohne Stand gelten wieder als geprueft", OD_GEO,
+     '        if (row[3] or 0) < SPEICHER_STAND:\n', '        if False:\n', T_OD),
+    ("od10", "zwei verschiedene PLZ im Text geben eine zufaellige", OD_GEO,
+     '    if len(plz) == 1:\n', '    if plz:\n', T_OD),
+    ("od11", "das Bundesland aus dem Text wird nicht gelesen", OD_GEO,
+     '    if len(gefunden) == 1:\n        return f"{name}, {next(iter(gefunden))}"\n    return ""\n', '    return ""\n', T_OD),
+    ("od12", "die Anzeige klaert einen mehrdeutigen Ort nicht", OD_GEO,
+     '    genauer = ort_aus_anzeige(ort_fuer_abfrage(location), anzeige)\n    if not genauer:\n        return fund\n',
+     '    return fund\n', T_OD),
+    ("od13", "die Herkunft nennt den mehrdeutigen Ort nicht", OD_WAHRHEIT,
+     '        kandidaten = _mehrdeutige_kandidaten(job)\n        if kandidaten:\n',
+     '        kandidaten = []\n        if kandidaten:\n', T_OD),
+    ("od14", "der Befund nennt die Kandidaten des Wohnorts nicht", OD_STANDORT,
+     '        if kandidaten:\n            erg["mehrdeutig"] = [k_["name"] for k_ in kandidaten]\n',
+     '        if False:\n            erg["mehrdeutig"] = [k_["name"] for k_ in kandidaten]\n', T_OD),
+    ("od15", "ein mehrdeutiger eigener Ort heisst wieder nur 'nicht aufgeloest'", OD_STANDORT,
+     '        if kandidaten:\n            namen = [k_["name"] for k_ in kandidaten]\n',
+     '        if False:\n            namen = [k_["name"] for k_ in kandidaten]\n', T_OD),
+    ("od16", "die Pruefung des Bestands leert die geratene Entfernung nicht", OD_STANDORT,
+     '                "WHERE hash=? AND distance_km IS NOT NULL", (am, kennung))\n',
+     '                "WHERE hash=? AND 0", (am, kennung))\n', T_OD),
+    ("od17", "die Pruefung fragt auch grosse Staedte und Orte mit PLZ", OD_STANDORT,
+     '    offen = [o for o in nach_ort if o not in _MEHRDEUTIG_VERSUCHT and mehrdeutigkeit_offen(o)]\n',
+     '    offen = [o for o in nach_ort if o not in _MEHRDEUTIG_VERSUCHT]\n', T_OD),
+    ("od18", "die Pruefung ist je Lauf nicht begrenzt", OD_STANDORT,
+     'mehrdeutigkeit_offen(o)]\n    if max_orte:\n        offen = offen[:max_orte]\n', 'mehrdeutigkeit_offen(o)]\n', T_OD),
+    ("od19", "nach einem Suchlauf wird der Bestand nicht auf mehrdeutige Orte geprueft", OD_STANDORT,
+     '        mehrdeutig = entfernungen_mehrdeutige_pruefen(db)\n', '        mehrdeutig = {}\n', T_OD),
+    ("od20", "neu rechnen klaert oder leert mehrdeutige Orte nicht", OD_STANDORT,
+     '        if not ziel and ort in klaerung:\n', '        if False:\n', T_OD),
+    ("od21", "die Pruefung ueberschreibt von Hand gesetzte Entfernungen", OD_STANDORT,
+     '''"AND COALESCE(entfernung_quelle, '') != 'mensch'")\n    nach_ort: dict = {}\n'''
+     '    for kennung, ort in con.execute(sql, (pid,)).fetchall():\n        if ort_schluessel(ort):\n',
+     '"")\n    nach_ort: dict = {}\n'
+     '    for kennung, ort in con.execute(sql, (pid,)).fetchall():\n        if ort_schluessel(ort):\n', T_OD),
+    ("od22", "Ort aendern klaert einen mehrdeutigen Ort nicht mit der Anzeige", OD_AENDERN,
+     '    if start and not ziel:\n', '    if False:\n', T_OD),
+    ("od23", "die Anlage von Hand fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_TOOL,
+     '                        _genau = entfernung_aus_anzeige(\n                            ort, user_coords[0], user_coords[1], beschreibung or "")\n',
+     '                        _genau = None\n', T_OD),
+    ("od24", "der Suchlauf fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_SUCHE,
+     '                        _genau = entfernung_aus_anzeige(\n                            loc, user_coords[0], user_coords[1], job.get("description") or "")\n',
+     '                        _genau = None\n', T_OD),
+    ("od25", "die Heilung der Karten fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_HEILUNG,
+     '                    genau = entfernung_aus_anzeige(\n                        reihe["location"], koordinaten[0], koordinaten[1], reihe["description"] or "")\n',
+     '                    genau = None\n', T_OD),
+    ("od26", "das Nachladen fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_NACHLADEN,
+     '                genau = _geo.entfernung_aus_anzeige(\n                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")\n',
+     '                genau = None\n', T_OD),
+    ("od27", "die Spalten der Geo-Tabelle kommen nicht in eine alte Datenbank", OD_DB,
+     '            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):\n', '            for _sp, _typ in ():\n', T_OD),
+]
+KATALOGE["ortsdienst1235"] = M_ORTSDIENST
+GRUNDLAEUFE["ortsdienst1235"] = (("T_OD", T_OD),)
+
+# ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
+T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
+T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
+HI_SUCHE = "src/bewerbungs_assistent/services/hilfe_suche.py"
+HI_KI = "src/bewerbungs_assistent/services/hilfe_ki.py"
+HI_DASH = "src/bewerbungs_assistent/dashboard.py"
+HI_LEISTE = "frontend/src/components/ElwosaSidebarChat.jsx"
+HI_APP = "frontend/src/App.jsx"
+HI_FRAGE = "frontend/src/components/HilfeFrage.jsx"
+HI_KARTE = "frontend/src/components/HilfeKiKarte.jsx"
+HI_SCHEMA = "src/bewerbungs_assistent/services/schema_schutz.py"
+M_HILFE = [
+    # die Suche
+    ("hi01", "Eine Nachfrage erbt das Thema der vorigen Frage nicht", HI_SUCHE,
+     "    if not konzepte and vorherige:\n", "    if False and not konzepte and vorherige:\n", T_HI),
+    ("hi02", "'aktualisiert' und 'aktualisieren' haben wieder verschiedene Staemme", HI_SUCHE,
+     '        return _PARTIZIP_IER.sub("ier", wort)\n', "        pass\n", T_HI),
+    ("hi03", "Jede Frage gilt als gefunden (Schwelle der Abdeckung 0)", HI_SUCHE,
+     "ABDECKUNG_GEFUNDEN = 0.55\n", "ABDECKUNG_GEFUNDEN = 0.0\n", T_HI),
+    ("hi04", "Unbekannte Woerter verhindern keine sichere Antwort mehr", HI_SUCHE,
+     "UNBEKANNT_GEFUNDEN = 0.34\n", "UNBEKANNT_GEFUNDEN = 9.0\n", T_HI),
+    ("hi05", "Der Wiki-Link zeigt nicht mehr ins Wiki des Projekts", HI_SUCHE,
+     'WIKI_BASIS = "https://github.com/MadGapun/PBP/wiki/"\n', 'WIKI_BASIS = "https://example.invalid/wiki/"\n', T_HI),
+    ("hi06", "Eine lange Frage wird nicht mehr gekuerzt", HI_SUCHE,
+     "    return t[:MAX_FRAGE]\n", "    return t\n", T_HI),
+    ("hi07", "Gleiche Titel erscheinen mehrfach", HI_SUCHE,
+     "        if schluessel in gesehen:\n", "        if False and schluessel in gesehen:\n", T_HI),
+    ("hi08", "Ein Sprung auf eine Seite wird auch fuer eine unbekannte Seite angeboten", HI_SUCHE,
+     '    if ziel.get("art") == "seite" and ziel.get("id") in w.seiten:\n', '    if ziel.get("art") == "seite":\n', T_HI),
+    # die KI-Schicht
+    ("hi09", "Die Kurzantwort ist wieder von Anfang an eingeschaltet", HI_KI,
+     "VORGABE_AN = False\n", "VORGABE_AN = True\n", T_HI),
+    ("hi10", "Eine Kurzantwort ohne genannte Quelle wird angezeigt", HI_KI,
+     "    if not zitate:\n", "    if False:\n", T_HI),
+    ("hi11", "Eine Kurzantwort darf einen Abschnitt zitieren, der nicht vorliegt", HI_KI,
+     "    if any(z < 1 or z > len(abschnitte) for z in zitate):\n", "    if False:\n", T_HI),
+    ("hi12", "Eine erfundene Adresse in der Kurzantwort wird nicht erkannt", HI_KI,
+     "        if umschrift(adresse.rstrip(", "        if False and umschrift(adresse.rstrip(", T_HI),
+    ("hi13", "Ein erfundener Befehl in der Kurzantwort wird nicht erkannt", HI_KI,
+     "        if umschrift(code.strip()) not in beleg:\n", "        if False and umschrift(code.strip()) not in beleg:\n", T_HI),
+    ("hi14", "Ein erfundener Menuepfad in der Kurzantwort wird nicht erkannt", HI_KI,
+     '    if "›" in ohne_zitate:\n', '    if False and "›" in ohne_zitate:\n', T_HI),
+    ("hi15", "'KEINE ANTWORT' des Modells wird als Antwort gezeigt", HI_KI,
+     '    if "KEINE ANTWORT" in t.upper():\n', '    if False and "KEINE ANTWORT" in t.upper():\n', T_HI),
+    ("hi16", "Eine zu lange Kurzantwort wird angezeigt", HI_KI,
+     "    if len(t) > MAX_ANTWORT_ZEICHEN:\n", "    if False and len(t) > MAX_ANTWORT_ZEICHEN:\n", T_HI),
+    ("hi17", "Auch zu einem unsicheren Treffer wird formuliert", HI_KI,
+     '    if antwort.get("status") != "gefunden":\n', '    if False and antwort.get("status") != "gefunden":\n', T_HI),
+    ("hi18", "Der Schalter der Kurzantwort wirkt nicht", HI_KI,
+     "    if not einstellung(db):\n", "    if False and not einstellung(db):\n", T_HI),
+    ("hi19", "Die Kurzantwort entsteht auch bei nicht bereiter lokaler KI", HI_KI,
+     '    if not z["aktiv"]:\n', '    if False and not z["aktiv"]:\n', T_HI),
+    ("hi20", "Der Auftrag der Kurzantwort traegt die Frage", HI_KI,
+     '"grund": "", "angelegt": time.monotonic()}', '"grund": "", "angelegt": time.monotonic(), "frage": frage}', T_HI),
+    ("hi21", "Auftraege der Kurzantwort verschwinden nie", HI_KI,
+     "> JOB_LEBENSDAUER_SEK]", "> 10 ** 9]", T_HI),
+    ("hi22", "Die Quellenmarken [1] bleiben im Text der Kurzantwort", HI_KI,
+     '    sauber = re.sub(r"\\s*\\[\\d{1,2}\\]", "", t)\n', "    sauber = t\n", T_HI),
+    # die Endpunkte
+    ("hi23", "Der Endpunkt formuliert immer, auch ohne Anfrage", HI_DASH,
+     'mit_ki=bool(data.get("mit_ki"))', "mit_ki=True", T_HI),
+    ("hi24", "Der Endpunkt nimmt auch eine Frage, die kein Text ist", HI_DASH,
+     '    if not isinstance(data, dict) or not isinstance(data.get("frage", ""), str):\n', "    if False:\n", T_HI),
+    ("hi25", "Fehlen die Daten der Hilfe, meldet der Endpunkt keinen Fehler", HI_DASH,
+     "    if not hilfe_suche.verfuegbar():\n", "    if False and not hilfe_suche.verfuegbar():\n", T_HI),
+    ("hi26", "Der Schalter nimmt auch einen Wert, der kein Ja oder Nein ist", HI_DASH,
+     '    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):\n', "    if False:\n", T_HI),
+    # die Oberflaeche (das gebaute Bundle)
+    ("hi27", "Die Eingabe erscheint in der Seitenleiste auch ohne laufende lokale KI", HI_LEISTE,
+     "{seitenleisteFragt(status) && (", "{true && (", T_HI_BROWSER),
+    ("hi28", "Das Oeffnen aus dem Dialog laesst den Dialog stehen", HI_APP,
+     "onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}", "onOeffnen={(seite, absicht) => { navigateTo(seite, absicht); }}", T_HI_BROWSER),
+    ("hi29", "Der Wiki-Link oeffnet im selben Tab, ohne noopener", HI_FRAGE,
+     'target="_blank" rel="noopener noreferrer" data-hilfe-aktion="wiki"', 'data-hilfe-aktion="wiki"', T_HI_BROWSER),
+    ("hi30", "Der Schalter der Kurzantwort speichert nichts", HI_KARTE,
+     "onChange={(e) => umschalten(e.target.checked)}", "onChange={() => {}}", T_HI_BROWSER),
+    # der Schema-Schutz
+    ("hi31", "Bei zu neuer Datenbank antwortet die Hilfe nicht mehr (die Frage gilt als schreibender Aufruf)", HI_SCHEMA,
+     ', "/api/hilfe/frage")\n', ")\n", T_HI),
+    # Nachtrag zur KI-Schicht
+    ("hi32", "Auftraege der Kurzantwort stapeln sich ohne Grenze", HI_KI,
+     "    if offene_auftraege() >= MAX_OFFENE_AUFTRAEGE:\n", "    if False and offene_auftraege() >= MAX_OFFENE_AUFTRAEGE:\n", T_HI),
+    # die Beispielfragen
+    ("hi33", "Die Beispielfragen stehen auch nach der ersten Frage da", HI_FRAGE,
+     "{!kompakt && verlauf.length === 0 && (", "{!kompakt && (", T_HI_BROWSER),
+    ("hi34", "Die schmale Seitenleiste zeigt Beispielfragen", HI_FRAGE,
+     "{!kompakt && verlauf.length === 0 && (", "{verlauf.length === 0 && (", T_HI_BROWSER),
+    ("hi35", "Ein Klick auf eine Beispielfrage stellt keine Frage", HI_FRAGE,
+     "onClick={() => fragen(null, beispiel)}", "onClick={() => {}}", T_HI_BROWSER),
+    ("hi36", "Eine Beispielfrage fuehrt in eine Sackgasse", "frontend/src/lib/hilfeFrage.js",
+     '  "Wie melde ich einen Fehler?",\n', '  "Wie wird das Wetter morgen?",\n', T_HI),
+]
+KATALOGE["hilfe1233"] = M_HILFE
+GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
+
 WT = None
 
 
@@ -1219,7 +2642,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste", "texterkennung"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=tuple(KATALOGE), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()

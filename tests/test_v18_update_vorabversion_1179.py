@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
+from browser_hilfen import einstellungen_reiter  # noqa: E402
 import uvicorn
 
 REPO = Path(__file__).resolve().parents[1]
@@ -174,9 +175,9 @@ def _seite(browser, umgebung, au, info, *, hash_="dashboard", ruhiges_dashboard=
 
 
 def _zu_den_updates(page):
-    """Wie ein Mensch ohne die Meldung der Seitenleiste: Einstellungen, dann „Updates“ im Untermenü."""
+    """Wie ein Mensch ohne die Meldung der Seitenleiste: Einstellungen, dann „Updates“ im Reiter „Erweitert“."""
     page.locator("button[data-page=einstellungen]").click()
-    page.locator("nav").get_by_role("button", name="Updates", exact=True).click()
+    einstellungen_reiter(page, "Updates")
     page.locator("[data-updates-tab]").wait_for(timeout=15000)
     return page.locator("[data-updates-tab]")
 
@@ -209,7 +210,9 @@ def test_seitenleiste_und_update_seite_sagen_bei_einer_neueren_beta_dasselbe(bro
         karte.wait_for(timeout=5000)
         text = karte.inner_text()
         assert f"Vorabversion {NEUERE_BETA}" in text
-        assert "nie von selbst" in text and "Mit einem Klick" in text, "sie sagt, warum es keinen Installieren-Knopf gibt"
+        # #1221: auf einer Vorab-Installation (BETA) gibt es den Schalter - die Karte nennt ihn, statt "nie von selbst"
+        assert "Vorabversionen automatisch" in text and "einschaltest" in text, "sie sagt, warum es keinen Installieren-Knopf gibt"
+        assert "nie von selbst" not in text
         assert "INSTALLIEREN.bat" in text, "und nennt den Weg"
         assert karte.get_by_role("button", name="ZIP herunterladen").count() == 1
         assert karte.get_by_role("button", name="Veröffentlichung ansehen").count() == 1
@@ -237,7 +240,8 @@ def test_das_dashboard_nennt_die_vorabversion_in_der_hinweiszone(browser, umgebu
         zone.wait_for(timeout=15000)
         text = zone.inner_text()
         assert f"Neue Vorabversion verfügbar: v{NEUERE_BETA}" in text
-        assert "nie von selbst" in text and "INSTALLIEREN.bat" in text
+        assert "Vorabversionen automatisch einbeziehen" in text and "INSTALLIEREN.bat" in text      # #1221
+        assert "nie von selbst" not in text
         assert page.locator("[data-hinweiszone]").count() == 1, "höchstens EIN Hinweis"
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="ZIP herunterladen")) == ZIP_URL
         assert _neue_seite_nach(ctx, zone.get_by_role("button", name="Veröffentlichung ansehen")) == RELEASE_URL
@@ -262,6 +266,22 @@ def test_dringenderes_steht_vor_der_vorabversion(browser, umgebung):
 
 
 # ── nichts Neues, die fertige Version, schon installiert ────────────────────────────────────────────────────────
+
+def test_1225_ohne_antwort_der_quelle_steht_stand_unbekannt_statt_aktuell(browser, umgebung):
+    """Dritter Lauf auf dem Werkstatt-PC: „Aktuell“ neben „Die Verbindung zu GitHub hat nicht geklappt“."""
+    au = _au()
+    au["pruefung"] = {"status": "keine_antwort", "zeit": "2026-10-14T11:25:16+00:00",
+                      "text": "Die Verbindung zu GitHub hat nicht geklappt. PBP versucht es später noch einmal."}
+    ctx, page = _seite(browser, umgebung, au, _info(None), ruhiges_dashboard=True)
+    try:
+        page.locator("button[data-page=einstellungen]").wait_for(timeout=15000)
+        tab = _zu_den_updates(page)
+        tab.get_by_text("Stand unbekannt", exact=True).wait_for(timeout=15000)
+        assert tab.get_by_text("Aktuell", exact=True).count() == 0, "„Aktuell“ widerspricht der Zeile mit dem Grund"
+        assert "Die Verbindung zu GitHub hat nicht geklappt" in tab.inner_text()
+    finally:
+        ctx.close()
+
 
 def test_ohne_neuere_version_steht_aktuell_und_nirgends_eine_meldung(browser, umgebung):
     ctx, page = _seite(browser, umgebung, _au(), _info(None), ruhiges_dashboard=True)
@@ -340,7 +360,7 @@ def _lesen(*teile):
 def test_die_oberflaeche_benutzt_die_regeln_an_allen_drei_orten():
     seite = _lesen("components", "UpdatesTab.jsx")
     assert "vorabNeu(au, updateInfo)" in seite and "data-updates-vorab" in seite
-    assert "VORAB_ERKLAERUNG" in seite and "VORAB_SCHRITTE.map(" in seite, "Erklärung und Weg werden auch ausgegeben"
+    assert "vorabErklaerung(vorab)" in seite and "VORAB_SCHRITTE.map(" in seite, "Erklärung und Weg werden auch ausgegeben"   # #1221
     assert 'refreshUpdateInfo?.()' in seite, "„Jetzt prüfen“ fragt auch die allgemeine Prüfung"
     leiste = _lesen("components", "Sidebar.jsx")
     assert leiste.count("istVorabversion(brand.updateVersion)") == 2, "beide Fassungen der Meldung (Knopf und Link)"
@@ -368,4 +388,152 @@ def test_die_hilfe_nennt_vorabversionen():
     hilfe = _lesen("lib", "hilfe.js")
     eintrag = hilfe[hilfe.index('q: "PBP bietet kein Update an"'):]
     eintrag = eintrag[:eintrag.index("},")]
-    assert "Vorabversion" in eintrag and "nie von selbst" in eintrag and "INSTALLIEREN.bat" in eintrag
+    # #1221: der Schalter (#1199) steht in der Antwort, der Weg von Hand bleibt, und "nie" gilt nur noch fuer stabile Installationen
+    assert "Vorabversion" in eintrag and "Vorabversionen automatisch" in eintrag and "INSTALLIEREN.bat" in eintrag
+    assert "nie auf eine Vorabversion gezogen" in eintrag
+    # Gegenprobe vo16: der Satz aus #1179 selbst - eine neuere Vorabversion nennt PBP in der Seitenleiste und in den Einstellungen
+    assert "Eine neuere Vorabversion (Beta) nennt PBP in der Seitenleiste und unter Einstellungen" in eintrag
+
+
+def test_1221_bei_eingeschaltetem_schalter_sagt_die_karte_dass_die_linie_nie_von_selbst_wechselt(browser, umgebung):
+    """Der Schalter ist an, die genannte Vorabversion gehört zu einer anderen Linie: „einschalten“ wäre falsch."""
+    au = _au()
+    au["vorab"] = 1
+    au["pruefung"]["vorab"] = True           # #1226: die Prüfung wurde MIT dem Schalter geholt und fand nichts in der Linie
+    ctx, page = _seite(browser, umgebung, au, _info("1.9.0-beta.1"))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        text = karte.inner_text()
+        assert "Versionslinie" in text and "einschaltest" not in text, text
+        assert "INSTALLIEREN.bat" in text
+    finally:
+        ctx.close()
+
+
+def test_1226_nach_dem_einschalten_ohne_neue_pruefung_nennt_die_karte_nicht_die_linie(browser, umgebung):
+    """Block E5 (dritter Lauf): Schalter eingeschaltet, die letzte Prüfung kennt ihn noch nicht. „Versionslinie“ wäre falsch:
+    ein Klick auf „Jetzt prüfen“ zeigte danach „Jetzt installieren“."""
+    au = _au()
+    au["vorab"] = 1
+    au["pruefung"]["vorab"] = False           # geholt, als der Schalter noch aus war
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        text = karte.inner_text()
+        assert "Versionslinie" not in text, text
+        assert "Jetzt prüfen" in text and "nächsten Prüfung" in text, text
+        assert "INSTALLIEREN.bat" in text, "der Weg von Hand bleibt"
+    finally:
+        ctx.close()
+
+
+def test_1226_umschalten_in_der_oberflaeche_zeigt_danach_jetzt_installieren(browser, umgebung):
+    """Der Weg des Menschen aus Block E5: Schalter an -> die Antwort der Einstellung bringt die neue Prüfung, und die Karte
+    zeigt „Jetzt installieren“ statt eines Satzes zur Linie."""
+    import json
+    au = _au()
+    au["pruefung"]["vorab"] = False
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        def einstellungen(route):
+            if json.loads(route.request.post_data or "{}").get("vorab"):
+                au["vorab"] = 1
+                au["pruefung"] = {"status": "neu", "version": NEUERE_BETA, "titel": "Probe", "vorab": True,
+                                  "zeit": "2026-10-14T12:36:00+00:00", "text": "", "groesse": 2_600_000,
+                                  "auszug": ["Etwas ist besser."]}
+                au["neu"] = {**au["pruefung"], "frage_faellig": False, "zurueckgenommen": False}
+            route.fulfill(json=au)
+
+        page.route("**/api/auto-update/einstellungen", einstellungen)
+        tab = _zu_den_updates(page)
+        schalter = tab.locator("[data-updates-vorab-schalter]")
+        schalter.scroll_into_view_if_needed()
+        schalter.click()          # kein check(): der Haken folgt erst der Antwort (gesteuertes Feld)
+        neu = tab.locator("[data-updates-neu]")
+        neu.wait_for(timeout=15000)
+        assert "Jetzt installieren" in neu.inner_text()
+        assert tab.locator("[data-updates-vorab]").count() == 0, "die Karte „Vorabversion kommt nur von Hand“ ist weg"
+    finally:
+        ctx.close()
+
+
+def test_1229_die_frage_zum_umschalten_nennt_die_richtung(browser, umgebung):
+    """Block E5: „Beim nächsten Start nutzen“ bei einer NEUEREN installierten Fassung ist kein Rückweg."""
+    au = _au()
+    au["installiert"] = ["1.8.0-beta.16", BETA, NEUERE_BETA]
+    au["fassungen"] = [
+        {"version": "1.8.0-beta.16", "bytes": 1_500_000, "laeuft": False, "aktuell": False, "vorherige": False},
+        {"version": BETA, "bytes": 1_500_000, "laeuft": True, "aktuell": True, "vorherige": False},
+        {"version": NEUERE_BETA, "bytes": 1_500_000, "laeuft": False, "aktuell": False, "vorherige": False},
+    ]
+    ctx, page = _seite(browser, umgebung, au, _info())
+    try:
+        tab = _zu_den_updates(page)
+        knoepfe = tab.get_by_role("button", name="Beim nächsten Start nutzen")
+        assert knoepfe.count() == 2, "für die laufende Fassung gibt es keinen Knopf"
+        knoepfe.nth(1).click()               # die neuere (Reihenfolge der Liste)
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=15000)
+        text = dialog.inner_text()
+        assert f"läuft Version {NEUERE_BETA}" in text and "wieder" not in text and "neueren Versionen" not in text, text
+        page.get_by_role("button", name="Abbrechen").click()
+        knoepfe.nth(0).click()               # die ältere: der Rückweg
+        dialog = page.get_by_role("dialog")
+        dialog.wait_for(timeout=15000)
+        text = dialog.inner_text()
+        assert "läuft wieder Version 1.8.0-beta.16" in text and "neueren Versionen" in text, text
+    finally:
+        ctx.close()
+
+
+def test_1229_der_verlauf_nennt_den_schritt_nach_vorn_umgeschaltet(browser, umgebung):
+    au = _au()
+    au["verlauf"] = [
+        {"zeit": "2026-10-14T12:40:00+00:00", "version": NEUERE_BETA, "ergebnis": "umgeschaltet", "ausloeser": "klick",
+         "grund": f"Auf Wunsch von {BETA} auf {NEUERE_BETA} umgeschaltet."},
+        {"zeit": "2026-10-14T12:30:00+00:00", "version": BETA, "ergebnis": "zurueckgeschaltet", "ausloeser": "klick",
+         "grund": f"Auf Wunsch zurück von {NEUERE_BETA} auf {BETA}."},
+    ]
+    ctx, page = _seite(browser, umgebung, au, _info())
+    try:
+        tab = _zu_den_updates(page)
+        verlauf = tab.locator("[data-updates-verlauf]")
+        verlauf.wait_for(timeout=15000)
+        text = verlauf.inner_text()
+        assert "Umgeschaltet" in text and "Zurückgeschaltet" in text, text
+        assert "umgeschaltet." in text and f"zurück von {NEUERE_BETA}" in text
+    finally:
+        ctx.close()
+
+
+def test_1226_ohne_antwort_der_quelle_ist_die_linie_nicht_belegt(browser, umgebung):
+    au = _au()
+    au["vorab"] = 1
+    au["pruefung"] = {"status": "keine_antwort", "vorab": True, "zeit": "2026-10-14T12:36:00+00:00",
+                      "text": "Die Verbindung zu GitHub hat nicht geklappt."}
+    ctx, page = _seite(browser, umgebung, au, _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        karte = page.locator("[data-updates-vorab]")
+        karte.wait_for(timeout=15000)
+        assert "Versionslinie" not in karte.inner_text()
+    finally:
+        ctx.close()
+
+
+def test_1221_die_erklaerung_der_sicherheit_nennt_den_schalter(browser, umgebung):
+    ctx, page = _seite(browser, umgebung, _au(), _info(NEUERE_BETA))
+    try:
+        page.locator('[data-update-stand="neu"]').click()
+        tab = page.locator("[data-updates-tab]")
+        tab.wait_for(timeout=45000)
+        sicher = tab.locator("text=Wie sicher ist ein Update?").first
+        sicher.click()
+        text = tab.inner_text()
+        assert "Vorabversionen automatisch" in text and "nie eine Vorabversion von selbst" not in text
+    finally:
+        ctx.close()

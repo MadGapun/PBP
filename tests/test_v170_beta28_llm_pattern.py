@@ -401,7 +401,7 @@ def test_user_override_tracked_as_llm_correction(setup_env):
     import asyncio
 
     async def _run():
-        tool = await mcp.get_tool("stelle_bewerten")
+        tool = await mcp.get_tool("stelle_einordnen")
         return await tool.run({"job_hash": "abc", "bewertung": "passt"})
 
     asyncio.run(_run())
@@ -435,7 +435,7 @@ def test_user_override_NOT_tracked_for_normal_dismiss(setup_env):
     import asyncio
 
     async def _run():
-        tool = await mcp.get_tool("stelle_bewerten")
+        tool = await mcp.get_tool("stelle_einordnen")
         return await tool.run({"job_hash": "xyz", "bewertung": "passt"})
 
     asyncio.run(_run())

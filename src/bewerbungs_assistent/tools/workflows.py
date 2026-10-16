@@ -224,7 +224,8 @@ SCHRITT 4: LEBENSLAUF
   → Fragen: "Schwerpunkt setzen?" — bei Änderung erneut bewerten.
   → lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung),
     IMMER als DOCX. Zeigen, was angepasst wurde.
-  → stilarchiv_speichern(kind="cv")"""
+  → stilarchiv_speichern(kind="cv", content=<Text der angepassten
+    Fassung>, application_id=<bewerbung_id, falls bekannt>)"""
 
         anschreiben = "" if umfang == "lebenslauf" else """
 SCHRITT 5: ANSCHREIBEN
@@ -232,7 +233,8 @@ SCHRITT 5: ANSCHREIBEN
     professionell aber persoenlich.
   → Text zeigen — "Passt das so?"
   → Nach Freigabe: anschreiben_exportieren (DOCX)
-  → stilarchiv_speichern(kind="cover_letter") + bewerbung_stil_tracken"""
+  → stilarchiv_speichern(kind="cover_letter", content=<Anschreiben-Text>,
+    application_id=<bewerbung_id, falls bekannt>) + bewerbung_stil_tracken"""
 
         tracking = ("""
 SCHRITT 6: TRACKING

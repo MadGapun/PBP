@@ -41,6 +41,9 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setattr(update_quelle, "_LETZTER_BEFUND", None)
     # Kein Programmordner im Test: „schon installiert“ ist nur wahr, wenn ein Test es ausdrücklich will.
     monkeypatch.setattr(elwosa_provider, "_fassung_schon_da", lambda version: False)
+    # Die Linie sagt je nach LAUFENDER Fassung etwas anderes („kommt nie von selbst“ gegen „kommt nur auf Wunsch“): der Test soll für jede
+    # Fassung gelten, auch für eine Vorabversion wie 1.8.0-rc.4. Die laufende Fassung steht deshalb fest (eine stabile, erfundene).
+    monkeypatch.setattr(elwosa_provider, "_laufende_fassung", lambda: "1.7.155")
     yield d
     d.close()
     os.environ.pop("BA_DATA_DIR", None)
@@ -338,3 +341,35 @@ def test_die_linie_erscheint_im_chat_mit_einem_link_auf_die_notizen(db):
         srv.should_exit = True
         t.join(timeout=10)
         dash._db = None
+
+
+# ── #1221: seit #1199 gibt es auf einer Vorab-Installation den Schalter ──────────────────────────────────────────────
+
+def _auf_fassung(monkeypatch, fassung, vorab_an=False):
+    from bewerbungs_assistent.services import elwosa_provider
+    from bewerbungs_assistent.services.auto_update import zustand
+    monkeypatch.setattr(elwosa_provider, "_laufende_fassung", lambda: fassung)
+    monkeypatch.setattr(zustand, "vorab", lambda d: vorab_an)
+
+
+def test_auf_einer_vorab_installation_ohne_schalter_nennt_elwosa_den_schalter(db, monkeypatch):
+    _auf_fassung(monkeypatch, "1.8.0-beta.17")
+    _befund("1.8.0-beta.18", name="v1.8.0-beta.18 — Die Suche öffnet, was sie findet (Vorabversion)")
+    (c,) = _kandidaten(db)
+    assert "nie von selbst" not in c.content
+    assert "auf Wunsch" in c.content and "Updates" in c.content, c.content
+    assert len(c.content) <= 280
+
+
+def test_auf_einer_vorab_installation_mit_schalter_sagt_elwosa_das_es_von_selbst_kommen_kann(db, monkeypatch):
+    _auf_fassung(monkeypatch, "1.8.0-beta.17", vorab_an=True)
+    _befund("1.8.0-beta.18")
+    (c,) = _kandidaten(db)
+    assert "nie von selbst" not in c.content and "holt PBP sie selbst" in c.content, c.content
+
+
+def test_auf_einer_stabilen_installation_bleibt_es_bei_nie_von_selbst(db, monkeypatch):
+    _auf_fassung(monkeypatch, "1.7.157")
+    _befund("1.8.0-beta.18")
+    (c,) = _kandidaten(db)
+    assert "Sie kommt nie von selbst; wer sie will, holt sie." in c.content

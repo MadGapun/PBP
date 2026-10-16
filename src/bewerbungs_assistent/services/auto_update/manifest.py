@@ -77,8 +77,10 @@ def lesen(daten, *, erwartete_version: str) -> Manifest:
         raise UpdateFehler("braucht_installer", "Dieses Update hat ein neueres Format als diese Installation versteht. "
                            "Es braucht den Installer.", detail=f"format {roh.get('format')!r}")
     version = roh.get("version")
-    if not _fassung.ist_stabil(version):
-        raise UpdateFehler("manifest", detail=f"version {version!r} ist keine stabile Fassung")
+    # #1222: gueltig statt stabil. Ob eine Vorabversion installiert werden DARF, entscheidet `installation._vorbedingungen`
+    # (Schalter, Vorab-Installation, Linie) VOR dem Laden; hier gilt: das Manifest nennt genau die erwartete, gueltige Fassung.
+    if not _fassung.gueltig(version):
+        raise UpdateFehler("manifest", detail=f"version {version!r} ist keine gültige Fassung")
     if version != erwartete_version:
         raise UpdateFehler("manifest", detail=f"enthaelt {version}, erwartet {erwartete_version}")
     linie = roh.get("linie")

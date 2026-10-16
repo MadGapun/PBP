@@ -13,9 +13,11 @@ fuer Claude Desktop.
   macOS:      Doppelklick auf  INSTALLIEREN.command
   Linux:      bash installer/install.sh   (im Terminal)
 
-  -> Das Setup richtet alles automatisch ein.
+  -> Das Setup richtet alles Weitere automatisch ein.
   -> Dauer: ca. 3-5 Minuten.
-  -> Du brauchst NICHTS selber installieren.
+  -> Windows: Du brauchst vorab nichts zu installieren.
+  -> macOS und Linux: Python 3.11 oder neuer muss vorher da sein
+     (macOS: Installer von python.org oder  brew install python@3.12).
 
 
   VORAUSSETZUNG:
@@ -23,6 +25,20 @@ fuer Claude Desktop.
 
   Claude Desktop ist installiert.
   Falls noch nicht: https://claude.ai/download
+  (PBP laeuft auch ohne Claude Desktop: das Dashboard im Browser
+  geht immer, nur der Chat mit Claude fehlt dann.)
+
+
+  WINDOWS WARNT BEIM ERSTEN START?
+  --------------------------------
+
+  Bei "Der Herausgeber konnte nicht verifiziert werden": auf
+  "Ausfuehren" klicken. Bei "Der Computer wurde durch Windows
+  geschuetzt": auf "Weitere Informationen", dann "Trotzdem
+  ausfuehren". PBP ist nicht mit einem bezahlten Zertifikat
+  signiert; der Quelltext liegt offen auf GitHub.
+  Der Ordner, in den du das ZIP entpackst, darf kein
+  Ausrufezeichen im Namen haben.
 
 
   NACH DER INSTALLATION:

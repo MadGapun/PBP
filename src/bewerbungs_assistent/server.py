@@ -187,6 +187,19 @@ class HeartbeatMiddleware(Middleware):
             from fastmcp.exceptions import ToolError as _ToolError
             raise _ToolError(abgewiesen)
 
+        # #1148 Punkt 9 (Rest): zwei Schreibweisen desselben Parameters (firma/company, titel/title, dokument_id/document_id, ...)
+        # nimmt jedes Werkzeug an. Die Namen eines Werkzeugs stehen in seinem Eingabeschema; ein Name, den es NICHT kennt, wird in
+        # den bekannten derselben Gruppe uebersetzt (services/parameter_aliase) — BEVOR die Kennungen normalisiert werden.
+        try:
+            from .services.parameter_aliase import uebersetzen as _alias_uebersetzen
+            _werkzeug = await mcp.get_tool(tool_name)
+            _bekannte = set((getattr(_werkzeug, "parameters", None) or {}).get("properties", {}))
+            _aliase = _alias_uebersetzen(getattr(context.message, "arguments", None), _bekannte)
+            if _aliase is not None and hasattr(context.message, "model_copy"):
+                context = context.copy(message=context.message.model_copy(update={"arguments": _aliase}))
+        except Exception:  # noqa: BLE001 -- eine Zugabe: ein Fehler dort kostet den Aufruf nie
+            logger.debug("Parameter-Aliase nicht angewendet", exc_info=True)
+
         # #1148 Punkt 9: typisierte Kennungen ("APP-42061e46", "JOB-…") nimmt jedes Werkzeug an.
         # PBP gibt sie aus, aber nur einzelne Werkzeuge verstanden sie wieder; das Praefix faellt
         # deshalb hier weg, bevor ein Werkzeug die Argumente sieht.

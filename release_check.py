@@ -82,6 +82,27 @@ def check_versions(fix=False):
         "CHANGELOG.md (top)": changelog_version,
     }
 
+    # v1.8.0 (#1149 Punkt 12): frontend/package.json, server.json und eine vorhandene uv.lock standen ausserhalb des Tors:
+    # server.json blieb auf 1.7.0, uv.lock auf 1.5.7 (ohne python-jobspy und pypdfium2). Eine Datei, die fehlt, ist nichts zu pruefen.
+    weitere = {}
+    for rel in ("frontend/package.json", "server.json"):
+        datei = PROJECT_DIR / rel
+        if not datei.is_file():
+            continue
+        try:
+            daten = json.loads(datei.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError):
+            weitere[rel] = "(nicht lesbar)"
+            continue
+        weitere[rel] = daten.get("version") or "(fehlt)"
+        for nr, paket in enumerate(daten.get("packages") or [], 1):
+            weitere[f"{rel} (packages[{nr}])"] = paket.get("version") or "(fehlt)"
+    lockdatei = PROJECT_DIR / "uv.lock"
+    if lockdatei.is_file():
+        m = re.search(r'name = "bewerbungs-assistent"\s*\nversion = "([^"]+)"', lockdatei.read_text(encoding="utf-8"))
+        weitere["uv.lock"] = m.group(1) if m else "(fehlt)"
+    versions.update(weitere)
+
     mismatches = []
 
     # v1.7.0: Pre-Release-Versionen werden in PEP 440 als '1.7.0b1' kanonisch
@@ -111,6 +132,23 @@ def check_versions(fix=False):
     if _normalize_version(changelog_version) != _normalize_version(init_version):
         mismatches.append("CHANGELOG.md")
 
+    korrigiert = set()
+    for name, wert in weitere.items():
+        datei_rel = name.split(" (")[0]
+        if datei_rel in korrigiert or _normalize_version(wert) == _normalize_version(init_version):
+            continue
+        if fix and init_version and datei_rel in ("frontend/package.json", "server.json"):
+            datei = PROJECT_DIR / datei_rel
+            inhalt = datei.read_text(encoding="utf-8")
+            neu = re.sub(r'("version"\s*:\s*")[^"]+(")', lambda m: m.group(1) + init_version + m.group(2), inhalt,
+                         count=1 if datei_rel.endswith("package.json") else 0)
+            if neu != inhalt:
+                datei.write_text(neu, encoding="utf-8")
+                korrigiert.add(datei_rel)
+                ok(f"{datei_rel} auf {init_version} korrigiert")
+                continue
+        mismatches.append(name)
+
     if not mismatches:
         ok(f"Alle Versionen konsistent: {init_version}")
     else:
@@ -120,6 +158,11 @@ def check_versions(fix=False):
             error("CHANGELOG.md steht nicht auf dem aktuellen Release-Stand und muss manuell aktualisiert werden.")
         if "pyproject.toml" in mismatches:
             error("pyproject.toml steht nicht auf dem aktuellen Release-Stand.")
+        for name in mismatches:
+            if name in ("CHANGELOG.md", "pyproject.toml"):
+                continue
+            hinweis = " (neu erzeugen mit `uv lock` oder die Datei entfernen)" if name == "uv.lock" else " (`python release_check.py --fix`)"
+            error(f"{name} steht auf {versions[name]}, nicht auf {init_version}{hinweis}.")
 
     return init_version
 
@@ -431,6 +474,37 @@ def check_update_archiv(version):
              "Sichern: python scripts/update_schluessel.py sichern")
 
 
+# ── 8. Wissensbasis der interaktiven Hilfe (#1233) ────────────
+
+def check_hilfe_wissen():
+    """Die Antworten der Hilfe stehen in `content/hilfe_wissen.json` - gebaut aus der eingebauten Hilfe, dem Prompt-Katalog und dem Wiki.
+
+    Eine Datei, die hinter ihren Quellen zurueckbleibt, beantwortet eine Frage mit dem Stand von gestern. Das Wiki liegt in einem
+    eigenen Repository: ohne Clone (PBP_WIKI_DIR oder ../PBP.wiki) kann nur gewarnt werden; ein Test haelt den Teil im Repository
+    (Hilfe, Reiter, Seiten, Prompt-Katalog) auch dann gegen die Quellen.
+    """
+    print("\n[8] Wissensbasis der interaktiven Hilfe")
+    bauer = PROJECT_DIR / "scripts" / "hilfe_wissen_bauen.py"
+    if not bauer.is_file():
+        error("scripts/hilfe_wissen_bauen.py fehlt")
+        return
+    try:
+        r = subprocess.run([sys.executable, "-X", "utf8", str(bauer), "--pruefen"], capture_output=True, text=True,
+                           encoding="utf-8", timeout=300, cwd=str(PROJECT_DIR))
+    except Exception as e:
+        error(f"Wissensbasis der Hilfe nicht pruefbar: {e}")
+        return
+    ausgabe = (r.stdout or "").strip().splitlines()
+    if r.returncode == 2:
+        warn("Kein Wiki-Clone gefunden (PBP_WIKI_DIR oder ../PBP.wiki): die Wissensbasis der Hilfe wurde nicht gegen das Wiki geprueft. "
+             "Wiki ziehen, dann: python scripts/hilfe_wissen_bauen.py --pruefen")
+    elif r.returncode == 0:
+        ok(ausgabe[-1] if ausgabe else "Wissensbasis der Hilfe aktuell")
+    else:
+        error("Wissensbasis der Hilfe veraltet - python scripts/hilfe_wissen_bauen.py: " + "; ".join(ausgabe[:4])
+              + ((" " + r.stderr.strip()[-200:]) if r.stderr.strip() else ""))
+
+
 # ── Main ──────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -447,6 +521,7 @@ if __name__ == "__main__":
     check_first_run_smoke()
     check_modell_katalog()
     check_update_archiv(version)
+    check_hilfe_wissen()
 
     print("\n" + "=" * 50)
     if ERRORS:

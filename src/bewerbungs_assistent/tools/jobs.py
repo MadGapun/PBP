@@ -69,14 +69,11 @@ def _build_empfehlung(fit_result: dict, job_dict: dict,
     # bei fachlichen Gruenden (falsches_fachgebiet etc.). Gehalt/Entfernung
     # koennen sich aendern, taugen nicht als k.o.
     wiedergaenger = fit_result.get("wiedergaenger") or {}
-    _FACHLICHE_KO_GRUENDE = {
-        "falsches_fachgebiet", "zu_junior", "zu_senior",
-        "kein_hochschulabschluss", "unpassendes_arbeitsmodell",
-    }
+    # #1234: dieselbe Frage wie in der Stellenliste - eine Funktion, nicht zwei.
+    from ..services.wiedergaenger import ist_fachlicher_ko
 
     ko_gruende: list[str] = []
-    if (wiedergaenger and wiedergaenger.get("anzahl", 0) >= 2
-            and wiedergaenger.get("top_grund") in _FACHLICHE_KO_GRUENDE):
+    if ist_fachlicher_ko(wiedergaenger):
         ko_gruende.append(
             f"Wiedergaenger: Firma '{wiedergaenger.get('firma')}' wurde "
             f"bereits {wiedergaenger['anzahl']}x mit fachlichem k.o.-Grund "
@@ -713,10 +710,6 @@ def register(mcp, db, logger):
             return {"status": "als_passend_markiert"}
         return {"fehler": "Ungültige Bewertung. Nutze 'passt' oder 'passt_nicht'."}
 
-    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
-    from . import veralteter_name as _veraltet
-    _veraltet(mcp, "stelle_bewerten", stelle_einordnen, "stelle_einordnen")
-
     @mcp.tool()
     def stelle_urteil_speichern(job_hash: str, urteil: str,
                                  begruendung: str = "",
@@ -787,10 +780,6 @@ def register(mcp, db, logger):
         except Exception as exc:  # pragma: no cover — nie das Urteil kippen
             logger.debug("Laengenhinweis (#1064) fehlgeschlagen: %s", exc)
         return antwort
-
-    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
-    from . import veralteter_name as _veraltet
-    _veraltet(mcp, "stelle_analyse_speichern", stelle_urteil_speichern, "stelle_urteil_speichern")
 
     @mcp.tool()
     def stelle_analyse_loeschen(job_hash: str) -> dict:
@@ -1567,7 +1556,8 @@ def register(mcp, db, logger):
             # wuerde jede Stelle der Liste den vollen Scan wiederholen.
             try:
                 from ..services.wiedergaenger import (
-                    aussortierte_laden, find_wiedergaenger_pattern)
+                    aussortierte_laden, find_wiedergaenger_pattern,
+                    ist_fachlicher_ko)
                 # #1154: ohne Anzeigentexte; die Pruefung braucht nur deren Laenge.
                 _dismissed_pool = aussortierte_laden(db)
                 for j in jobs:
@@ -1575,8 +1565,13 @@ def register(mcp, db, logger):
                         db, j.get("company", ""), j.get("title", ""),
                         target_hash=j.get("hash"),
                         dismissed=_dismissed_pool)
-                    if muster:
+                    # #1234: wie in der Analyse ist nur ein FACHLICHER Grund ein
+                    # k.o. Jedes andere Muster ist ein Hinweis, kein Urteil - bis
+                    # v1.7.158 hing jede Stelle mit einem Muster unten in der Liste.
+                    if ist_fachlicher_ko(muster):
                         j["_ko_muster"] = muster
+                    elif muster:
+                        j["_wg_hinweis"] = muster
                 if nur_empfohlen:
                     jobs = [j for j in jobs if not j.get("_ko_muster")]
                 # NICHT_EMPFOHLEN sinkt unter alle Empfohlenen — der Fall
@@ -1905,6 +1900,22 @@ def register(mcp, db, logger):
                         f"mit Grund '{_m['top_grund']}' aussortiert"
                     ),
                 }
+                # #1234: liegt auch ein gelesenes Urteil vor, stehen BEIDE da. Das
+                # k.o. schlaegt es (#671, `passung.urteil`), aber es soll nicht so
+                # aussehen, als gaebe es das Urteil nicht.
+                _gelesen = (entry.get("analyse") or {}).get("urteil")
+                if _gelesen and _gelesen != "NICHT_EMPFOHLEN":
+                    entry["empfehlung"]["gelesene_analyse"] = _gelesen
+                    entry["empfehlung"]["hinweis"] = (
+                        f"Deine gelesene Analyse sagt {_gelesen}. Das k.o. stützt sich "
+                        "auf frühere Aussortierungen derselben Firma, nicht auf diese "
+                        "Anzeige: prüfe, ob die früheren Gründe hier wirklich gelten.")
+            elif j.get("_wg_hinweis"):
+                _w = j["_wg_hinweis"]
+                entry["wiedergaenger_hinweis"] = (
+                    f"Diese Firma wurde bereits {_w['anzahl']}x mit Grund "
+                    f"'{_w['top_grund']}' aussortiert. Das ist kein k.o.: dieser Grund "
+                    "kann sich ändern oder hing an der einzelnen Anzeige.")
             # #766: Stellen ohne jeden Anker (URL/Dokument/Kontakt) sichtbar
             # markieren, statt sie wie normale Treffer darzustellen.
             from ..services.stellen_anker import anker_status as _anker_status
@@ -2028,7 +2039,8 @@ def register(mcp, db, logger):
         3. Mit dem mitgelieferten `extraction_js` strukturierte Job-Daten
            via `javascript_tool()` aus dem DOM ziehen (statt Rohtext-Parsing)
         4. Alle Treffer, die fachlich passen oder nahezu passen, mit
-           `stelle_manuell_anlegen()` uebernehmen (Regel: im Hinweis)
+           `browser_treffer_uebernehmen(quelle='google_jobs', ...)` uebernehmen
+           (Regel: im Hinweis; einzelne Stellen: `stelle_manuell_anlegen()`)
 
         Args:
             keyword: Suchbegriff (z.B. 'PLM Projektleiter').
@@ -2070,10 +2082,19 @@ def register(mcp, db, logger):
                 "Meldet das Skript ein `fehler`-Feld, NICHT die Liste "
                 "uebernehmen: dann hat sich die Seitenstruktur geaendert, "
                 "und das gehört als Issue gemeldet. Google lädt weitere "
-                "Karten erst beim Scrollen nach. Remote und Ort der Karte "
+                "Karten erst beim Scrollen nach. Übernimm die Ernte in einem "
+                "Zug mit browser_treffer_uebernehmen(quelle='google_jobs', "
+                "treffer=[...], rohtreffer=<Zahl>, dry_run=False) — das "
+                "verbucht den Lauf auch ohne Anlage; einzelne Stellen mit "
+                "stelle_manuell_anlegen. Remote und Ort der Karte "
                 "gelten nicht (#1184): `stelle_manuell_anlegen` lässt das "
                 "Arbeitsmodell auf `unbekannt`, bis das Original (Detail-URL "
                 "des Arbeitgebers und Anzeigentext) vorliegt. " + REGEL_IM_ZWEIFEL
+                + " Ausnahme (#1184): Einen Treffer aus Google OHNE Detail-URL des "
+                "Arbeitgebers UND ohne Anzeigentext legt PBP nicht an (`google_original_fehlt`). "
+                "Dann das Original beim Arbeitgeber suchen — die Antwort nennt die vorbereitete "
+                "Suche — und mit URL und Text anlegen. Treffer aus Google-Benachrichtigungen "
+                "per Mail sind Hinweise (stellen_hinweise_verwalten), keine Stellen."
             ),
         }
 
@@ -2483,6 +2504,73 @@ def register(mcp, db, logger):
     # Deshalb steht der Rumpf jetzt in `_stelle_uebernehmen`; das Tool
     # ist die Huelle darum.
     @mcp.tool()
+    def stellen_hinweise_verwalten(
+        aktion: str = "anzeigen",
+        hinweis_id: str = "",
+        status: str = "offen",
+        limit: int = 30,
+        offset: int = 0,
+    ) -> dict:
+        """Hinweise aus Google-Benachrichtigungen: Treffer, die noch KEINE Stelle sind (#1184).
+
+        Eine Benachrichtigungs-Mail von Google Jobs nennt nur Titel, Firma, Ort und Portal; jeder Link führt auf
+        eine Google-Suche, und derselbe Treffer kommt mit verschiedenen Orten. Daraus legt PBP keine Stelle an,
+        sondern einen Hinweis. Wer sich für einen interessiert, sucht das ORIGINAL beim Arbeitgeber und legt die
+        Stelle mit stelle_manuell_anlegen an (URL und Anzeigentext mitgeben): der Hinweis ist dann erledigt.
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'suche' (die vorbereitete Suche nach dem Original zu EINEM Hinweis),
+                'verwerfen' oder 'zurueckholen'.
+            hinweis_id: die Kennung aus 'anzeigen' (für suche, verwerfen, zurueckholen).
+            status: für 'anzeigen': 'offen' (Vorgabe), 'angelegt', 'verworfen' oder 'alle'.
+            limit: höchstens so viele Hinweise (Vorgabe 30).
+            offset: so viele überspringen (für 'anzeigen'; die Antwort nennt `gesamt` und `weitere`).
+        """
+        from ..services import stellen_hinweise as _hinweise
+        from ..services import google_angaben as _gangaben
+        aktion = (aktion or "anzeigen").strip().lower()
+        if aktion == "anzeigen":
+            _st = (status or "offen").strip().lower()
+            _offset = max(0, int(offset or 0))
+            eintraege = _hinweise.liste(db, status=_st, limit=limit, offset=_offset)
+            _zaehlung = _hinweise.zaehlen(db)
+            # #1205: die Gesamtzahl des Stands, damit "30 von 522" auch so dasteht - und `weitere` sagt, ob es hinter dieser
+            # Seite weitergeht (offset=<n> ruft die nächste).
+            _gesamt = _zaehlung.get(_st, 0) if _st in _zaehlung else sum(_zaehlung.values())
+            return {
+                "status": "ok",
+                "anzahl": len(eintraege),
+                "gesamt": _gesamt,
+                "offset": _offset,
+                "weitere": max(0, _gesamt - _offset - len(eintraege)),
+                "zaehlung": _zaehlung,
+                "hinweise": [
+                    {"id": e["id"], "titel": e["titel"], "firma": e["firma"], "ort": e["ort"], "portal": e["portal"],
+                     "veroeffentlicht_am": e["veroeffentlicht_am"] or None, "anzahl_mails": e["anzahl_mails"],
+                     "weiterverbreiter": e["weiterverbreiter"], "status": e["status"], "job_hash": e["job_hash"] or None}
+                    for e in eintraege],
+                "naechster_schritt": (
+                    "Für einen Hinweis, der interessiert: stellen_hinweise_verwalten('suche', hinweis_id=<id>) nennt die "
+                    "vorbereitete Suche nach dem Original; mit URL und Text dann stelle_manuell_anlegen. "
+                    "Uninteressante: aktion='verwerfen'."),
+            }
+        if aktion in ("suche", "verwerfen", "zurueckholen"):
+            if not hinweis_id:
+                return {"fehler": "hinweis_id fehlt (die Kennung steht in der Liste von aktion='anzeigen')."}
+            if aktion == "suche":
+                z = _hinweise.holen(db, hinweis_id)        # #1205: die Zeile direkt, nicht über eine auf 500 begrenzte Liste
+                if not z:
+                    return {"fehler": "Hinweis nicht gefunden."}
+                return {"status": "ok", "hinweis": {"id": z["id"], "titel": z["titel"], "firma": z["firma"], "ort": z["ort"]},
+                        "original_suchen": _gangaben.original_suchen(z["titel"], z["firma"], z["ort"].split(";")[0])}
+            ok = (_hinweise.verwerfen(db, hinweis_id) if aktion == "verwerfen"
+                  else _hinweise.wiederherstellen(db, hinweis_id))
+            if not ok:
+                return {"fehler": "Hinweis nicht gefunden, oder er hatte schon diesen Stand."}
+            return {"status": "ok", "aktion": aktion, "hinweis_id": hinweis_id}
+        return {"fehler": f"Unbekannte Aktion '{aktion}'. Erlaubt: anzeigen, suche, verwerfen, zurueckholen."}
+
+    @mcp.tool()
     def stelle_manuell_anlegen(
         titel: str,
         firma: str,
@@ -2504,12 +2592,15 @@ def register(mcp, db, logger):
         Blacklist (#729/#790/#992), Duplikate (#317/#567/#670) und den
         Anker (#766), berechnet den Score und legt an.
 
-        GOOGLE JOBS (#1184): Bei Treffern aus Google (quelle='google_jobs') gelten `remote` und
-        `ort` erst, wenn das ORIGINAL vorliegt (Detail-URL des Arbeitgebers UND Anzeigentext). Bis
-        dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet, nicht Googles Karte)
-        und die Entfernung wird nicht aus Googles Ort gerechnet; `google_vorbehalt` im Ergebnis
-        nennt den nächsten Schritt. Das Original mit stelle_bearbeiten(url=..., beschreibung=...,
-        ort=...) nachtragen.
+        GOOGLE JOBS (#1184): Ein Treffer aus Google (quelle='google_jobs') ohne Detail-URL des
+        Arbeitgebers UND ohne Anzeigentext wird NICHT angelegt: es ist nur eine Karte, und ohne Original
+        lässt sich nichts nachladen, prüfen oder bewerben. Die Antwort (`google_original_fehlt`) nennt die
+        Suche (`original_suchen`): das Original beim Arbeitgeber finden und mit URL und Text anlegen.
+        `force=True` legt trotzdem an. Mit URL ODER Text wird angelegt, aber `remote` und `ort` gelten
+        erst mit dem ORIGINAL: bis dahin steht das Arbeitsmodell auf 'unbekannt' (der Text entscheidet,
+        nicht Googles Karte), die Entfernung wird nicht aus Googles Ort gerechnet, und
+        `google_vorbehalt` im Ergebnis nennt den nächsten Schritt (stelle_bearbeiten(url=...,
+        beschreibung=..., ort=...)).
 
         Args:
             titel: Stellentitel (Pflicht).
@@ -2528,7 +2619,8 @@ def register(mcp, db, logger):
                 er nicht: dann entscheidet der Text (#1184).
             stellenart: 'festanstellung' | 'freelance' | 'praktikum' |
                 'werkstudent'.
-            force: True = erkanntes Duplikat/Blacklist ignorieren (#670).
+            force: True = erkanntes Duplikat/Blacklist ignorieren (#670) und einen
+                Google-Treffer ohne Original trotzdem anlegen (#1184).
             kontakt_name: Ansprechpartner — wird als Kontakt angelegt und
                 mit der Stelle verknüpft (Anker #766).
             kontakt_email: E-Mail des Ansprechpartners.
@@ -2627,6 +2719,11 @@ def register(mcp, db, logger):
         """
         if not titel or not firma:
             return {"fehler": "Titel und Firma sind Pflichtfelder."}
+
+        # #1201: "Google Jobs", "google-jobs" und "Google" sind EINE Quelle. Der Parameter ist freier Text: ohne diese
+        # Zeile umging jede andere Schreibweise die Regeln aus #1184 (Original fehlt, Remote und Ort gelten nicht).
+        from ..services import google_angaben as _g1201
+        quelle = _g1201.google_schluessel(quelle) or quelle
 
         # #729: Blacklist-Check auf die Firma VOR dem Anlegen. Vorher wurde eine
         # Stelle einer geblacklisteten Firma kommentarlos angelegt (z.B. via
@@ -2921,6 +3018,8 @@ def register(mcp, db, logger):
                     }
             _vb = find_vermittler_bewerbung(firma, running_apps, kanon=kanon)
             if _vb:
+                from ..services.bewerbungs_hinweis import (
+                    vermittler_einordnung, vermittler_name)
                 vermittler_bewerbung = {
                     "bewerbung_id": (_vb.get("id") or "")[:8],
                     "firma_der_bewerbung": _vb.get("company") or "",
@@ -2928,7 +3027,8 @@ def register(mcp, db, logger):
                     "status": _vb.get("status") or "",
                     "hinweis": (
                         f"Laufende Bewerbung {(_vb.get('id') or '')[:8]} ueber "
-                        f"'{_vb.get('company')}' nennt {firma} als Endkunden. "
+                        f"'{vermittler_name(_vb)}'. "
+                        f"{vermittler_einordnung(firma, _vb)} "
                         "Prüfen, ob dies dieselbe Stelle ist — sonst landet "
                         "eine zweite Bewerbung am Vermittler vorbei beim "
                         "selben Arbeitgeber."),
@@ -2978,6 +3078,23 @@ def register(mcp, db, logger):
         # Regel wie bei JobSpy, B63), sonst 'unbekannt'; die Entfernung wird nicht aus Googles Ort gerechnet. Vorher
         # hiess "Beliebiger Ort, Homeoffice" aus Googles Karte `remote`: die Entfernung fiel weg, der Rahmenscore stieg.
         from ..services import google_angaben as _gangaben
+        # #1184 (a): ein Treffer aus Google, zu dem es WEDER eine Detail-URL des Originals NOCH einen Anzeigentext gibt, ist
+        # eine Behauptung ohne Beleg: vier von fuenf Stellen eines Browserlaufs trugen nur Kopfdaten ("Volltext nicht
+        # abrufbar") und keinen Anker. Er wird nicht angelegt; Claude bekommt den Auftrag, das Original zu suchen. force
+        # bleibt der Ausweg. Die Vorschau (trocken) sagt dasselbe wie die Anlage.
+        if _gangaben.ohne_beleg(quelle, url, beschreibung) and not force:
+            return {
+                "status": "nicht_angelegt",
+                "warnung": "google_original_fehlt",
+                "nachricht": (
+                    f"Stelle '{titel}' bei {firma} NICHT angelegt: sie stammt aus einer Google-Jobs-Karte, und es gibt weder "
+                    "eine Detail-URL des Arbeitgebers noch einen Anzeigentext. Die Karte allein ist eine Behauptung - Ort, "
+                    "Arbeitsmodell und Firmenname weichen oft vom Original ab."),
+                "original_suchen": _gangaben.original_suchen(titel, firma, ort),
+                "trotzdem_anlegen": (
+                    "force=True legt die Stelle nur mit Googles Kopfdaten an (Remote und Ort gelten dann nicht, und es "
+                    "gibt keinen Anker). Besser: das Original finden und mit URL und Text anlegen."),
+            }
         google_vorbehalt = None
         if _gangaben.unter_vorbehalt(quelle, url, beschreibung):
             _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
@@ -3098,6 +3215,15 @@ def register(mcp, db, logger):
                 user_coords = get_user_coordinates(db)
                 if user_coords:
                     dist = geocode_and_calculate_distance(ort, user_coords[0], user_coords[1])
+                    _koord_anzeige = None
+                    if dist is None:
+                        # #1235: ein mehrdeutiger Ort ("Rosengarten") wird mit PLZ oder Bundesland aus dem Anzeigentext
+                        # noch einmal gefragt.
+                        from ..services.geocoding_service import entfernung_aus_anzeige
+                        _genau = entfernung_aus_anzeige(
+                            ort, user_coords[0], user_coords[1], beschreibung or "")
+                        if _genau:
+                            dist, _koord_anzeige = _genau["km"], _genau["koordinaten"]
                     if dist is not None:
                         job["distance_km"] = dist
                         # v1.7.94 (#950): Koordinaten und, mit
@@ -3105,7 +3231,7 @@ def register(mcp, db, logger):
                         # derselbe Weg wie im Suchlauf.
                         from ..services.geocoding_service import geocode_location
                         from ..services import routing as _routing
-                        _koord = geocode_location(ort)
+                        _koord = _koord_anzeige or geocode_location(ort)
                         if _koord:
                             job["lat"], job["lon"] = _koord
                             if _routing.aktiv(db):
@@ -3115,6 +3241,12 @@ def register(mcp, db, logger):
 
         job["score"] = calculate_score(job, criteria)
         db.save_jobs([job])
+        # #1184 (d): liegt zu dieser Firma und diesem Titel ein Hinweis aus einer Benachrichtigung, ist er erledigt.
+        try:
+            from ..services import stellen_hinweise as _hinweise
+            _hinweise.als_angelegt(db, firma, titel, job_hash)
+        except Exception:  # pragma: no cover - nie die Anlage kippen
+            pass
 
         # #766: Kontakt als Anker. Wird VOR der Anker-Pruefung angelegt, damit
         # eine Stelle mit Recruiter-Kontakt (Vermittler ohne bekannten
@@ -3444,11 +3576,15 @@ def register(mcp, db, logger):
         eintraege = [e for e in (treffer or []) if isinstance(e, dict)]
         trichter = lv.trichter_leer()
         if not eintraege:
+            # #1187: ein Lauf ohne Treffer ist ein Lauf - mit dry_run=False steht er in der Auswertung.
+            if not dry_run:
+                db.record_browser_run("linkedin", rohtreffer=int(rohtreffer or 0), neu=0,
+                                      gelesen=int(volltexte_gelesen or 0), detail="0 Treffer übergeben")
             return leer(
-                {"status": "leer", "trichter": trichter},
+                {"status": "leer", "trichter": trichter, "verbucht": not dry_run},
                 "Keine Treffer übergeben.",
                 "Erst linkedin_lauf_plan() ausführen und die Ernte hier "
-                "übergeben.")
+                "übergeben. Ein Lauf ohne Treffer wird mit dry_run=False verbucht.")
 
         trichter["rohtreffer"] = max(int(rohtreffer or 0), len(eintraege))
         trichter["nach_vorfilter"] = len(eintraege)
@@ -3555,6 +3691,10 @@ def register(mcp, db, logger):
             else:
                 _skip(e, "unbekannt", str(res)[:120])
 
+        if not dry_run:
+            # #1187: auch dieser Lauf steht jetzt in der Langzeit-Auswertung der Quellen.
+            db.record_browser_run("linkedin", rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],
+                                  gelesen=int(volltexte_gelesen or 0), detail=lv.trichter_text(trichter))
         ergebnis = {
             "status": "vorschau" if dry_run else "uebernommen",
             "quelle": "linkedin",
@@ -3575,6 +3715,229 @@ def register(mcp, db, logger):
                 f"Keine Stelle angelegt — alle {trichter['uebersprungen']} "
                 "wurden aussortiert. Die Gruende stehen im Trichter; das "
                 "ist ein Ergebnis, kein Ausfall.")
+        return ergebnis
+
+    @mcp.tool()
+    def browser_treffer_uebernehmen(quelle: str,
+                                    treffer: list = None,
+                                    dry_run: bool = True,
+                                    rohtreffer: int = 0,
+                                    volltexte_gelesen: int = 0,
+                                    login_fehlt: bool = False) -> dict:
+        """Übernimmt die Ernte eines Browserlaufs nach PBP — für JEDE Browser-Quelle (#1187).
+
+        Der gemeinsame Sammelweg für StepStone, XING, Indeed, Google Jobs, Heise, jobtic und eigene
+        Quellen (LinkedIn hat daneben `linkedin_treffer_uebernehmen`). Er schreibt über denselben
+        Weg wie `stelle_manuell_anlegen`: Blacklist, Duplikate (auch gegen Bewerbungen und
+        Aussortiertes), Anker, Auflagen der Quelle und Scoring gelten unverändert.
+
+        **Im Zweifel hinein.** Eine Stelle zu viel in der Liste ist besser als eine zu wenig — ob sie
+        taugt, entscheidet der Mensch in PBP. Eine Karte ohne Volltext ist KEIN Grund, sie
+        wegzulassen: sie wird angelegt (`ohne_volltext`) und lässt sich mit
+        `stellenbeschreibung_nachladen` ergänzen. Ein Google-Treffer ohne Detail-URL des Arbeitgebers
+        UND ohne Text wird nicht angelegt; die Antwort nennt die Suche nach dem Original.
+
+        Je Eintrag: `titel` und `firma` (Pflicht) und `url` (die DETAIL-Adresse der Anzeige) ODER
+        `beschreibung` (Volltext). Optional: `ort`, `remote`, `anstellungsart`, `kontakt_name`,
+        `kontakt_email`, `kontakt_telefon`, `urteil` (EMPFOHLEN | BEDINGT | NICHT_EMPFOHLEN) mit
+        `urteil_begruendung` — ein Hinweis an der Stelle, kein Filter; ohne gelesenen Volltext wird
+        kein Urteil gespeichert — und `aussortieren_grund` (ein Wert aus der Liste der
+        Ablehnungsgründe): nach dem Lesen offensichtlich fachfremd oder geschlossen. Die Stelle wird
+        angelegt und gleich aussortiert, mit diesem Grund und der Herkunft „von Claude“: der nächste
+        Lauf liest sie nicht noch einmal, und der Mensch findet sie unter Stellen › Ausgeblendet
+        wieder und holt sie mit einem Klick zurück.
+
+        Der Lauf wird VERBUCHT (Langzeit-Auswertung der Quellen), auch ohne eine einzige Anlage.
+        Die Stellen stehen danach im Dashboard unter „Stellen zu prüfen“.
+
+        Args:
+            quelle: Schlüssel der Quelle ('stepstone', 'xing', 'indeed', 'google_jobs', 'heise_jobs',
+                'jobtic', eigene ...).
+            treffer: Je Treffer: titel, firma (Pflicht) und url (Detail-Adresse) ODER beschreibung (Volltext); optional ort, remote, kontakt_name/_email/_telefon, urteil (EMPFOHLEN|BEDINGT|NICHT_EMPFOHLEN, nur nach gelesenem Volltext) mit urteil_begruendung, aussortieren_grund (Wert aus der Ablehnungsgrund-Liste).
+            dry_run: True (Vorgabe) zeigt nur, was passieren würde — mit denselben Prüfungen wie der
+                echte Lauf, ohne etwas zu schreiben. Mit False wird angelegt UND der Lauf verbucht.
+            rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist „3 angelegt“ nicht einzuordnen.
+            volltexte_gelesen: wie viele Volltexte im Browser gelesen wurden (auch die verworfenen).
+            login_fehlt: True meldet den Lauf als 'wartet_auf_login' — kein Befund über den Markt.
+        """
+        from ..services import browser_uebernahme as _bu
+        from ..services.datenguete import MIN_BESCHREIBUNG
+        from ..services import google_angaben as _gangaben
+
+        quelle_n = _gangaben.quelle_normalisiert(quelle)         # #1201: "Google Jobs" wird gespeichert als google_jobs
+        if not quelle_n:
+            return {"fehler": "quelle fehlt (z.B. 'stepstone', 'xing', 'indeed', 'google_jobs', 'heise_jobs')."}
+        if login_fehlt:
+            return {
+                "status": "wartet_auf_login", "quelle": quelle_n,
+                "nachricht": "Die Quelle verlangt eine Anmeldung, und im Browser ist sie nicht angemeldet.",
+                "hinweis": ("Die Quelle bleibt aktiv und wird NICHT automatisch deaktiviert — ein fehlender "
+                            "Login sagt nichts über den Stellenmarkt aus (#906)."),
+            }
+
+        eintraege = [e for e in (treffer or []) if isinstance(e, dict)]
+        trichter = _bu.trichter_leer()
+        trichter["rohtreffer"] = max(int(rohtreffer or 0), len(eintraege))
+        trichter["uebergeben"] = len(eintraege)
+        trichter["volltexte_gelesen"] = int(volltexte_gelesen or 0)
+        if not eintraege:
+            if not dry_run:
+                db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=0,
+                                      gelesen=trichter["volltexte_gelesen"], detail=_bu.trichter_text(trichter))
+            return leer(
+                {"status": "leer", "quelle": quelle_n, "trichter": trichter, "dry_run": dry_run,
+                 "verbucht": not dry_run},
+                "Keine Treffer übergeben.",
+                ("Der Lauf ist verbucht (0 angelegt)." if not dry_run else
+                 "Ohne Treffer gibt es nichts anzulegen. Mit dry_run=False wird der Lauf trotzdem verbucht."))
+
+        angelegt, uebersprungen = [], []
+        vorschau_hashes = set()
+        vorschau_jobs = []          # #1204: was die Vorschau bisher als "wuerde angelegt" gezaehlt hat (Stufe B der Anlage)
+        kanon_vorschau = []         # der Firmen-Kanon, einmal je Lauf (#1080) - eine Liste, damit auch "kein Kanon" gemerkt wird
+
+        def _skip(eintrag, grund, detail="", **extra):
+            trichter["uebersprungen"] += 1
+            trichter["gruende"][grund] = trichter["gruende"].get(grund, 0) + 1
+            zeile = {"titel": eintrag.get("titel"), "firma": eintrag.get("firma"), "url": eintrag.get("url"),
+                     "grund": grund, "detail": detail}
+            zeile.update(extra)
+            uebersprungen.append(zeile)
+
+        for e in eintraege:
+            titel = str(e.get("titel") or "").strip()
+            firma = str(e.get("firma") or "").strip()
+            url = str(e.get("url") or "").strip()
+            beschreibung = str(e.get("beschreibung") or "").strip()
+            if not titel or not firma:
+                _skip(e, "titel_oder_firma_fehlt")
+                continue
+            if not _bu.hat_anker(url, beschreibung, MIN_BESCHREIBUNG):
+                # Google: die Antwort nennt die Suche nach dem Original, nicht nur "kein Anker".
+                if _gangaben.ist_google_quelle(quelle_n):
+                    _skip(e, "google_original_fehlt",
+                          "weder Detail-URL des Arbeitgebers noch Anzeigentext",
+                          original_suchen=_gangaben.original_suchen(titel, firma, e.get("ort") or ""))
+                else:
+                    _skip(e, "kein_anker", "weder Adresse noch Anzeigentext")
+                continue
+
+            res = _stelle_uebernehmen(
+                titel=titel, firma=firma, url=url, ort=str(e.get("ort") or "").strip(),
+                beschreibung=beschreibung, quelle=quelle_n,
+                remote=str(e.get("remote") or "unbekannt"),
+                stellenart=str(e.get("anstellungsart") or "festanstellung"),
+                kontakt_name=str(e.get("kontakt_name") or "").strip(),
+                kontakt_email=str(e.get("kontakt_email") or "").strip(),
+                kontakt_telefon=str(e.get("kontakt_telefon") or "").strip(),
+                trocken=dry_run)
+            if res.get("status") == "wuerde_angelegt":
+                if res["hash"] in vorschau_hashes:
+                    _skip(e, "duplikat_aktiv", "doppelt in dieser Übergabe (gleiche Firma, gleicher Titel)")
+                    continue
+                # #1204: die Vorschau legt nichts an - Stufe B der Anlage sieht die Einträge DERSELBEN Übergabe deshalb nicht.
+                # Der echte Lauf sieht sie (der erste ist dann eine aktive Stelle): hier dieselbe Funktion mit demselben
+                # Kanon, gegen die bisher als "würde angelegt" gezählten Einträge. Vorher meldete die Vorschau "2 angelegt"
+                # und der Lauf "1 angelegt, 1 schon als aktive Stelle da" (zwei ähnliche Titel derselben Firma).
+                from ..duplicate_detection import find_duplicate_job as _find_dup, firmen_kanon as _kanon_bauen
+                if not kanon_vorschau:
+                    kanon_vorschau.append(_kanon_bauen(db))
+                _aehnlich = _find_dup(firma, titel, url, vorschau_jobs, kanon=kanon_vorschau[0])
+                if _aehnlich:
+                    _skip(e, "duplikat_aktiv",
+                          f"ähnlich einem Eintrag dieser Übergabe: '{_aehnlich['job'].get('title')}' ({_aehnlich['grund']})")
+                    continue
+                vorschau_hashes.add(res["hash"])
+                vorschau_jobs.append({"hash": res["hash"], "title": titel, "company": firma, "url": url})
+
+            if res.get("status") in ("angelegt", "wuerde_angelegt") or (res.get("hash") and not res.get("warnung")):
+                trichter["angelegt"] += 1
+                eintrag = {"titel": titel, "firma": firma, "hash": res["hash"], "id": res.get("id"),
+                           "score": res.get("score")}
+                if len(beschreibung) < MIN_BESCHREIBUNG:
+                    trichter["ohne_volltext"] += 1
+                    eintrag["ohne_volltext"] = True
+                if res.get("kontakt"):
+                    eintrag["kontakt"] = res["kontakt"]
+                    trichter["kontakte"] += 1
+                # Nur der echte Lauf kennt den Anker: die Vorschau legt nichts an, und ein Kontakt zaehlt als Anker.
+                if res.get("anker_warnung"):
+                    eintrag["anker_warnung"] = res["anker_warnung"]
+                    trichter["ohne_anker"] += 1
+                if res.get("url_warnung"):
+                    eintrag["url_warnung"] = res["url_warnung"]
+                for schluessel, feld in (("repost_verdacht", "repost_verdacht"),
+                                         ("vermittler_bewerbung", "vermittler_bewerbung"),
+                                         ("laufende_bewerbung_verdacht", "laufende_bewerbung_verdacht"),
+                                         ("aussortierte_dublette", "aussortierte_dublette"),
+                                         ("google_vorbehalt", "google_vorbehalt"),
+                                         ("wiedergaenger_bewerbung", "bewerbung_vorher")):
+                    if res.get(feld):
+                        eintrag[schluessel] = res[feld]
+                # Urteil und Aussortieren NACH der Anlage, nur im echten Lauf.
+                urteil = str(e.get("urteil") or "").strip().upper()
+                if urteil and not dry_run:
+                    if urteil not in _bu.URTEILE:
+                        eintrag["urteil_nicht_gespeichert"] = f"'{urteil}' ist kein Urteil ({', '.join(_bu.URTEILE)})"
+                    elif len(beschreibung) < MIN_BESCHREIBUNG and urteil != "NICHT_BEURTEILBAR":
+                        eintrag["urteil_nicht_gespeichert"] = (
+                            "ohne gelesenen Volltext kein Urteil — die Anzeige gegen das Profil lesen, dann "
+                            "stelle_urteil_speichern")
+                    else:
+                        try:
+                            db.set_job_analysis(res["hash"], urteil, str(e.get("urteil_begruendung") or ""), "detailanalyse")
+                            eintrag["urteil"] = urteil
+                            trichter["mit_urteil"] += 1
+                        except Exception as exc:  # noqa: BLE001 - ein Urteil kippt keine Anlage
+                            eintrag["urteil_nicht_gespeichert"] = str(exc)[:120]
+                grund_roh = str(e.get("aussortieren_grund") or "").strip()
+                if grund_roh and not dry_run:
+                    gruende = _normalize_reason_list(grund_roh)
+                    if gruende:
+                        try:
+                            from ..services import aussortieren as _aus
+                            _aus.aussortieren(db, res["hash"], gruende, collect_hints=False, herkunft="claude")
+                            eintrag["aussortiert"] = {"gruende": gruende, "herkunft": "claude"}
+                            trichter["nach_lesen_aussortiert"] += 1
+                        except Exception as exc:  # noqa: BLE001
+                            eintrag["aussortieren_fehlgeschlagen"] = str(exc)[:120]
+                angelegt.append(eintrag)
+            elif res.get("warnung") == "google_original_fehlt" or res.get("status") == "nicht_angelegt":
+                _skip(e, res.get("warnung") or "abgewiesen", res.get("nachricht") or "",
+                      original_suchen=res.get("original_suchen"))
+            elif res.get("warnung"):
+                _skip(e, res.get("duplikat") or res["warnung"], res.get("nachricht") or res.get("grund", ""))
+                if res.get("vorhandene_stelle"):
+                    uebersprungen[-1]["vorhandene_stelle"] = res["vorhandene_stelle"]
+            elif res.get("fehler"):
+                _skip(e, "blacklist" if "Blacklist" in res["fehler"] else "abgewiesen", res["fehler"])
+            else:
+                _skip(e, "kein_eintrag", str(res)[:120])
+
+        if not dry_run:
+            db.record_browser_run(quelle_n, rohtreffer=trichter["rohtreffer"], neu=trichter["angelegt"],
+                                  gelesen=trichter["volltexte_gelesen"], detail=_bu.trichter_text(trichter))
+        ergebnis = {
+            "status": "vorschau" if dry_run else "uebernommen",
+            "quelle": quelle_n,
+            "dry_run": dry_run,
+            "verbucht": not dry_run,
+            "trichter": trichter,
+            "trichter_text": _bu.trichter_text(trichter),
+            "angelegt": angelegt[:40],
+            "uebersprungen": uebersprungen[:40],
+        }
+        if dry_run:
+            ergebnis["hinweis"] = "Vorschau. Erneut mit dry_run=False aufrufen: legt an und verbucht den Lauf."
+        elif trichter["angelegt"]:
+            ergebnis["naechster_schritt"] = (
+                f"{trichter['angelegt']} Stelle(n) stehen in PBP: Dashboard › Stellen zu prüfen, oder in der Liste "
+                "'Prüfstand: nur ungeprüfte'. Ohne Volltext: stellenbeschreibung_nachladen. Was du nach dem Lesen "
+                "aussortiert hast, steht unter Stellen › Ausgeblendet („von Claude“) und lässt sich zurückholen.")
+        elif trichter["uebersprungen"]:
+            ergebnis["hinweis"] = (
+                f"Keine Stelle angelegt — {trichter['uebersprungen']} nicht übernommen. Die Gründe stehen im Trichter; "
+                "das ist ein Ergebnis, kein Ausfall.")
         return ergebnis
 
     # === v1.7.0-beta.5: n:m + Stellen-Vergleich (#472, #580) ===

@@ -35,7 +35,10 @@ export default function BrowserHandoffKarte({ anlass = 0 }) {
   const quellen = Array.isArray(daten?.quellen) ? daten.quellen : [];
   const uebersprungen = quellen.filter((q) => q.art === "uebersprungen");
   const optional = quellen.filter((q) => q.art === "defekt_nur_browser");
-  if (!daten?.prompt || (!uebersprungen.length && !optional.length)) return null;
+  // #1170 U16: die Karte steht nur, wenn der Mensch Browser-Quellen gewaehlt hat. Die "optionalen" (als defekt gefuehrten, im
+  // Browser erreichbaren) Quellen allein waren fuer jede Installation da und kosteten rund 180 px vor der ersten Stelle; sie
+  // stehen weiter in der Quellenliste (Defekte Quellen) und, wenn die Karte aus anderem Grund da ist, hier als Zeile.
+  if (!daten?.prompt || !uebersprungen.length) return null;
 
   return (
     <Card className="glass-card-soft mb-4 rounded-xl">

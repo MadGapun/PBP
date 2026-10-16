@@ -101,7 +101,7 @@ def test_applications_page_uses_inline_job_detail():
     p = PROJECT_ROOT / "frontend" / "src" / "pages" / "ApplicationsPage.jsx"
     content = p.read_text(encoding="utf-8")
     assert "InlineJobDetailModal" in content
-    assert "setJobDetailHash" in content
+    assert "setJobDetail(" in content      # #1212: mit der Bewerbung, aus der der Dialog aufgeht
 
 
 # ============= #596: Keyword-Analyse Fixes ===============

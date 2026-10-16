@@ -209,7 +209,7 @@ def test_h21_kein_sichtbarer_text_verweist_stumm_auf_ausgeblendetes():
 def test_h21_der_verweis_guard_sieht_etwas(monkeypatch):
     """DoD 8c: ohne die Ausnahme fuer 'Expertenmodus' findet er Verweise."""
     from bewerbungs_assistent.services import werkzeug_katalog as k
-    monkeypatch.setattr(k, "WARTUNG", k.WARTUNG | {"stelle_bewerten"})
+    monkeypatch.setattr(k, "WARTUNG", k.WARTUNG | {"stelle_einordnen"})
     assert _versteckte_verweise()
 
 
@@ -506,24 +506,25 @@ ALT_NEU = {"stelle_bewerten": "stelle_einordnen",
            "jobtitel_vorschlagen": "jobtitel_speichern"}
 
 
-def test_h29_neue_namen_und_alte_als_weiterleitung(umgebung):
+def test_h29_neue_namen_da_alte_namen_seit_1_8_0_entfallen(umgebung):
+    """#1148 Punkt 13: die Weiterleitungen galten „einen Release lang“ (seit v1.7.135) und sind weg."""
     _db, mcp = umgebung
     werkzeuge = {w.name: w for w in _werkzeuge(mcp)}
     for alt, neu in ALT_NEU.items():
-        assert neu in werkzeuge and alt in werkzeuge
-        assert f"heisst jetzt {neu}" in werkzeuge[alt].description
-        assert (set(werkzeuge[alt].parameters["properties"])
-                == set(werkzeuge[neu].parameters["properties"])), alt
+        assert neu in werkzeuge, neu
+        assert alt not in werkzeuge, f"{alt} ist entfallen"
+    from bewerbungs_assistent.services import werkzeug_katalog as k
+    assert k.ALIASE == {}, "eine Weiterleitung, die niemand registriert, hat keinen Eintrag"
 
 
-def test_h29_alter_name_wirkt_wie_der_neue(umgebung):
+def test_h29_der_neue_name_wirkt(umgebung):
     db, mcp = umgebung
     db.save_profile({"name": "Test Person"})
     db.save_jobs([{"hash": "h29stelle1", "title": "Konstrukteur", "company": "Musterbetrieb GmbH",
                    "url": "https://example.com/h29", "source": "manuell",
                    "description": "Konstruktion " * 20, "score": 3}])
-    erg = _call(mcp, "stelle_bewerten", {"job_hash": "h29stelle1", "bewertung": "passt_nicht",
-                                         "grund": "zu_weit_entfernt"})
+    erg = _call(mcp, "stelle_einordnen", {"job_hash": "h29stelle1", "bewertung": "passt_nicht",
+                                          "grund": "zu_weit_entfernt"})
     assert "fehler" not in erg, erg
     zeile = db.connect().execute("SELECT is_active FROM jobs WHERE hash LIKE '%h29stelle1'").fetchone()
     assert zeile["is_active"] == 0

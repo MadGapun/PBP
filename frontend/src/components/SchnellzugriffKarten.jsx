@@ -158,8 +158,8 @@ export default function SchnellzugriffKarten({ copyPrompt, openHelp, pushToast }
 
       {hilfeOffen && (
         <p className="mt-2 rounded-lg border border-sky/15 bg-sky/[0.05] px-3 py-2 text-[12px] text-muted leading-relaxed">
-          Beispiel-Prompts für Claude Desktop. <strong className="text-ink/90">Klick auf eine Karte
-          kopiert den Prompt in die Zwischenablage</strong> — danach in Claude einfügen und absenden.
+          Beispiel-Prompts für Claude Desktop — fertige Anleitungen. <strong className="text-ink/90">Klick auf eine Karte
+          kopiert die Anleitung in die Zwischenablage</strong> — danach in Claude einfügen und absenden.
           Du kannst auch frei mit Claude reden; das hier sind nur Vorschläge für häufige Workflows.
           {" "}
           <button

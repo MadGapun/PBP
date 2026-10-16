@@ -65,7 +65,7 @@ Umschrift gegen Umlaut, Label gegen gespeicherten Wert, Langform gegen
 Kurzform: verglichen wird nach Normalisierung beider Seiten. Suchmuster fuer
 Text von aussen kennen beide Schreibweisen; Werte, die Claude zurueckschickt
 (Status, Aktionen, Schluessel), bleiben in Umschrift.
-*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3, v1.7.143/1 (Akzente: 'Société Beispiel' gegen 'Societe Beispiel Deutschland GmbH' — der Teilstring scheitert am Akzent; gefaltet wird NACH der Umschrift der Umlaute, sonst wird aus 'Müller' ein 'Muller')
+*Belege:* #1028, #663, #1080, #1089, v1.7.53/1, v1.7.77/1, v1.7.138/3, v1.7.143/1 (Akzente: 'Société Beispiel' gegen 'Societe Beispiel Deutschland GmbH' — der Teilstring scheitert am Akzent; gefaltet wird NACH der Umschrift der Umlaute, sonst wird aus 'Müller' ein 'Muller'), #1231 (der PII-Prüfer: die Platzhalterliste führt 'vermittler sued', ein Beitrag schrieb 'Süd' und bekam einen Firmentreffer; jetzt laufen Text UND Liste durch dieselbe Umschrift)
 
 ## 3. Fehlende Information ist kein Befund
 
@@ -612,3 +612,124 @@ handelt — Nachladen, Auto-Nachladen, Aging-Check, Qualitätsprüfung, Anlage. 
 jedem Abruf scheitert. Auch die Auswahl mit LIMIT gehört dazu: sonst füllen die gesperrten Stellen das LIMIT und verdrängen bei jedem Lauf dieselben anderen.
 *Belege:* #1187, #1189 (`test_nachladen_ruft_eine_jobtic_adresse_nie_ab`, `test_die_auto_engine_waehlt_jobtic_stellen_gar_nicht_erst_aus`), `test_1187_jede_anleitung_setzt_die_regel_ein`, `test_1187_kein_text_im_code_sagt_claude_passende_treffer_zu_uebernehmen`,
 `test_1187_vorschau_und_lauf_zaehlen_gleich_und_die_vorschau_schreibt_nichts`, Gegenprobe bw01 bis bw30
+
+**L67. „Ohne Administratorrechte“ und „der Ordner wird gehalten“ lassen sich nur auf einem Rechner belegen, auf dem das wirklich so ist.** Das Setup der Texterkennung verlangt Administratorrechte (`WinError 740` aus einem Programm ohne Erhöhung), und der Aufräum-Helfer des Installers starb am ersten Versuch, weil das Installer-Fenster den Ordner hält. Beides war auf dem Entwicklungsrechner unsichtbar: dort laufen Programme mit Erhöhung, und Windows (Build 26200) löscht einen gehaltenen Ordner trotzdem. Die Tests ersetzten genau die Funktion, die scheitert (`_loeschen_versuchen` ganz), und prüften also nichts. Regel: bei jeder Aussage „geht ohne …“ oder „bleibt liegen, solange …“ steht dabei, auf welchem Rechner und unter welcher Bedingung sie gesehen wurde; ein Test, der die scheiternde Stelle ersetzt, belegt sie nicht; der Beleg ist der Lauf auf einem Rechner ohne die Rechte (zweiter Lauf auf dem Werkstatt-PC, 11.10.2026).
+*Belege:* PP24, PP26, `test_v18_texterkennung_ohne_admin_pp26.py`, `test_v18_installer_reste_pp24_pp25.py`, `docs/internal/praxisprobe-1.8.0.md`
+
+**L68. Ein Test, der Windows nur nachstellt, läuft unter Linux anders — Pfade und Rechte nie mit POSIX-Annahmen bauen.** Zwei Fehler der Reparatur färbten die Linux-Prüfung rot (10 Tests), obwohl die Suite unter Windows grün war: (1) `Path(basis) / r"Programs\Tesseract-OCR"` ist unter POSIX EIN Name mit Backslash; (2) `os.chmod(ordner, S_IWRITE)` macht einen Ordner unter POSIX unlesbar (nur schreiben), der nächste Durchgang scheiterte schon am Öffnen. Regel: Windows-Teilpfade mit `PureWindowsPath(…).parts` zerlegen, Ordner mit `S_IRWXU` freigeben; ein unabhängiger Leser sagte beides aus dem Quelltext voraus, bevor die CI es zeigte — der Lauf vor dem Push lohnt sich.
+*Belege:* `_benutzer_ordner_win`, `_freigeben`, die CI-Läufe vom 11.10.2026 (Köpfe 5c3f8016 bis 3f878131)
+
+## 16. Bedienung messen: Wege, Listen und Prüfläufe
+
+**L69. Ein Teil-Lauf ist kein Lauf — vor jedem Commit auf dem Release-Zweig die ganze Suite, in Teilen parallel.** Am 12.10.2026 liefen
+fünf Wächter und 17 Muster des Mutationskatalogs seit mehreren Commits rot (Adress-Wächter, #948-Wächter, SQL-Spalten, Werkzeugnamen,
+Typ-Kennungen, ein veralteter Installer-Test): jeder Commit hatte nur die Tests seiner eigenen Änderung gesehen, und die CI lief für den
+Zweig noch nicht. Die ganze Suite (9.093 Tests) lief danach in sechs parallelen `pytest`-Prozessen (je eigene Datenbank und Ports) in
+neun Minuten, die Browser-Tests (628) in vier — nicht mehr „zu lang zum Mitlaufen“. Dazu: ein Wächter, der Muster in Quelltext sucht,
+gehört selbst in die Suite (hier `test_v18_mutationskatalog_muster.py`) und versteht Knotenkennungen (`datei::funktion`), sonst veraltet
+er still.
+*Belege:* #1171, #1170, `test_v18_mutationskatalog_muster.py`, Commit ac57ecdf
+
+**L70. `position: sticky` greift nicht hinter einem Vorfahren mit `overflow-x: auto` — und ein Test, der nur den Quelltext liest, sieht
+`sticky` und wird grün.** Die feste Leiste der Firmen-Ansicht stand im Quelltext richtig da und blieb beim Scrollen nicht stehen: der
+Inhalt der App scrollt waagerecht (`overflow-x-auto`, damit nichts verschwindet), und damit ist dieser Vorfahr der nächste scrollende,
+auch wenn er senkrecht nie scrollt. Gefunden hat es der Browser-Test, der WIRKLICH scrollt und die Lage der Leiste misst; behoben wurde
+es, indem die Leiste in den festen Kopf der App gezeichnet wird (Portal). Beim Testen des Scrollens: `scroll-behavior: smooth` macht
+`scrollTop` direkt nach `scrollTo` zu 0 — `behavior: "instant"` nehmen.
+*Belege:* #1171, `test_die_leiste_der_firma_bleibt_beim_scrollen_der_historie_stehen`, Gegenprobe fl04/fl08
+
+**L71. „Ohne Scrollen“ ist eine Zahl — ein Wächter misst die Unterkante der ersten Zeile bei den zwei Fenstergrößen, mit Luft.** Die
+Listen begannen nach 600 bis 900 Pixeln; das hatte jeder gesehen und niemand gemessen. `test_v18_listen_zuerst_1171.py` setzt die
+Fenster auf 1366 × 768 und 1920 × 1080 und verlangt, dass die erste Zeile samt Hauptknopf unter der Falz endet — nicht „bei y = 404“, denn
+die Schriftbreite der Linux-CI verschiebt um Zeilen. Eine Messung, die nur bei genau einer Schrift grün ist, wird nach dem zweiten
+roten Lauf ausgeschaltet; die Mutanten, die nur wenige Pixel verschieben (Innenabstand der Filterkarte), bleiben deshalb bewusst
+unerkannt und stehen nicht im Katalog.
+*Belege:* #1171, `docs/internal/wegetabelle-1171.md`, Gegenprobe lk01 bis lk11
+
+**L72. Eine Option ist erst bewiesen, wenn der letzte Schreibvorgang gelaufen ist — ein Test, der nur die Auswahl prüft, beweist die
+Anzeige.** Der Schalter „Vorabversionen automatisch“ (#1199) ließ die Prüfung „neu“ melden, aber Start, Vorbedingung und Manifest der
+Installation kannten nur stabile Fassungen: „Jetzt installieren“ scheiterte. Der Test prüfte nur, welcher Kandidat gewählt wird; und der
+Archiv-Bauer übersprang bei einer Vorabversion gerade die eine Prüfung (Manifest gegen den Leser, „würde zu Recht abgewiesen“), die den
+Widerspruch gezeigt hätte. Regel: für jede Option ein Test, der mit einem echten Archiv bis `aktuell.txt` läuft (Gegenprobe: jede der
+Sperren einzeln aus); jede Stelle, die eine Prüfung „aus Gründen“ auslässt, ist die verdächtige.
+*Belege:* #1222, `test_v18_vorab_installation_1222.py`, Gegenprobe vi01 bis vi05
+
+**L73. Ein Ereignis, das den Zustand ändert, ist in BEIDEN Zweigen zu testen — und eine Schleife über einen Stapel, den die Schleife selbst
+füllt, läuft endlos.** Die Zurück-Taste (#1171 Baustein 4) war nur ohne Eingabe getestet. Mit Eingabe legte `zurueck()` seinen Eintrag
+wieder auf den Stapel, über den die Schleife gerade lief: die Seite fror ein (gemessen: 100 Sekunden, dann beendete der Browser den Tab).
+Regel: einen Stapel erst abtragen, dann abarbeiten (und von unten nach oben, damit ein Dialog, der sich wieder hinlegt, die Reihenfolge
+behält); je Handler mit „geändert“-Zustand ein Test mit und einer ohne Änderung, und einer, der danach prüft, dass die Seite noch antwortet.
+*Belege:* #1210, `test_1210_*`, Gegenprobe pf01
+
+**L74. Wächter lesen Namen und Zeilen — ein neuer Name im Code muss durch die Wächter-Muster, bevor er eingecheckt wird.** Zwei Fälle am
+selben Tag: `pbp_norm(` in einer SQL-Zeichenkette las der Werkzeugnamen-Wächter (#1148) als Werkzeug (erstes Segment `pbp` wie bei
+`pbp_diagnose`); ein zweites `setlocal EnableDelayedExpansion` im Fehlerzweig einer .bat verletzte PP19 (das ERSTE ist das, nach dem
+kein `endlocal` mehr stehen darf). Beide fielen erst in der ganzen Suite auf (L69), nicht in den Tests der eigenen Änderung. Regel: Namen,
+die wie ein Aufruf aussehen, beginnen nicht mit einem Werkzeug-Präfix; in .bat-Dateien gibt der Fehlerzweig Pfade ohne eigenes `setlocal`
+aus (`set PBP_ORT_` druckt Werte, ohne dass ein `&` im Pfad als Befehl gelesen wird).
+*Belege:* `test_1148_kein_text_verweist_auf_ein_werkzeug_das_es_nicht_gibt`, `test_pp19_die_maske_gilt_nur_unter_verzoegerter_expansion`
+
+**L75. Drei unabhängige Leser fanden 19 Fehler in einem Stand, den die eigene Gegenprobe (534 Eingriffe) für sauber hielt — der Leser
+ohne Vorwissen lohnt vor JEDEM Testlauf.** Updates und Backend: 8 (verfallener Zähler, Schreibweisen des Schlüssels, Vorschau gegen Lauf,
+Umlaute und Leerraum im Vergleich, …), Installer: 5 Issues mit 8 Befunden (Anführungszeichen um `$PYTHON`, echte Datenbank im
+Funktionstest, grüner Schluss trotz stehengebliebenem Eintrag, …), Frontend: 6 (die Zurück-Taste friert ein, …). Die Gegenprobe prüft nur,
+was ich mir ausgedacht habe; ein Fremder fragt „und wenn der Ordner ein Leerzeichen hat?“. Regel: den Prüfer mit den Dateien beauftragen,
+nicht mit meiner Zusammenfassung; jeden Fund am Code belegen, als Issue führen und mit einem Test beheben, der VOR der Korrektur rot war.
+*Belege:* #1201 bis #1220, Katalog `pruefung1214`
+
+**L76. Ein Schalter, der die Frage ändert, stellt die Frage neu — und ein gemerktes Ergebnis trägt den Stand der Einstellung, mit der es
+geholt wurde.** „Vorabversionen automatisch“ (#1199) änderte, WAS gefragt wird (mit oder ohne Vorabversionen), aber das Ergebnis der letzten
+Prüfung wusste nichts davon: nach dem Einschalten las die Karte „Schalter an, nichts gefunden“ als „andere Linie“ und sagte etwas Falsches,
+bis jemand „Jetzt prüfen“ klickte. Regel: jede Einstellung, die in die Frage eingeht, steht im gemerkten Ergebnis (Speicher UND Platte), der
+Zwischenspeicher gilt nur bei gleichem Stand, das Umschalten holt die Antwort in derselben Anfrage, und eine Anzeige sagt „noch nicht
+geprüft“ statt eines Grundes, den sie nicht belegen kann.
+*Belege:* #1226, `test_v18_vorab_schalter_1226.py`, Gegenprobe vs01 bis vs10
+
+**L77. Eine Probe auf den eigenen Rechner kann unter Windows je Adresse den vollen Zeitablauf kosten — gemessen wurde es am echten PC, nicht
+am Entwicklungsrechner.** `localhost` heißt `::1` und `127.0.0.1`; verwirft die Firewall das SYN an einen geschlossenen Port, wartet jede
+Adresse die ganze Frist (2 × 2,0 s), und in einem `async def`-Handler steht der Server dabei. Der Entwicklungsrechner hat ein laufendes Ollama
+und sah nichts. Regel: erst eine kurze TCP-Probe je Adresse (0,5 s), dann die Abfrage an die Adresse, die angenommen hat; Netzaufrufe nie
+in einem `async def`-Handler; und eine Suite, die „Dienst da“ nur über ein untergeschobenes `urlopen` simuliert, einmal mit GESCHLOSSENEM
+Port laufen lassen (`no_ollama_plugin`), weil sie sonst auf dem Entwicklungsrechner durchläuft und auf der CI nicht.
+*Belege:* #1227, `test_v18_ollama_probe_1227.py`, Gegenprobe ol01 bis ol06
+
+**L78. Was der Installer außerhalb des Programmordners anlegt, muss der Updater mitführen — und ein Test, der die Registry berührt, vergleicht
+den Ort, bevor er schreibt.** `DisplayVersion` in „Apps & Features“ schrieb nur `INSTALLIEREN.bat`; nach einem Auto-Update stand dort für immer
+die Fassung der Erstinstallation (gemessen: laufend 1.9.0-rc.2, Registry 1.9.0-rc.1). Der Abgleich beim Start ändert nur einen vorhandenen
+Eintrag, nur diesen Wert, nur wenn `InstallLocation` auf den laufenden Programmordner zeigt (über den echten Pfad: Junction, 8.3-Name) — sonst
+schriebe die Suite auf einem Rechner mit echter Installation in deren Registry.
+*Belege:* #1228, `test_v18_windows_liste_1228.py`, Gegenprobe rg01 bis rg08
+
+**L79. Ein Knopf, der nach seinem Rückweg heißt, wird auch nach vorn benutzt — Wortlaut, Verlauf und Rückfrage je Richtung.** „Beim nächsten
+Start nutzen“ gilt für jede installierte Fassung; im Verlauf stand für einen Schritt nach vorn „Zurückgeschaltet · zurück von A auf B“. Regel: wo
+eine Funktion zwei Richtungen hat, trägt der Verlaufseintrag die Richtung, die Rückfrage nennt sie, und die ausdrückliche Wahl hebt eine frühere
+Zurücknahme dieses Ziels auf (wie die ausdrückliche Installation).
+*Belege:* #1229, `test_v18_umschalten_richtung_1229.py`, Gegenprobe um01 bis um06
+
+**L80. Das Probe-Paket trägt den Stand VOR dem Fix — für den Rückbau auf dem Zielrechner die korrigierte Fassung des Kandidaten laden.** Die
+Archive rc.1/rc.2 der Probe-Veröffentlichung enthielten den Deinstaller ohne die Korrektur von #1224; der Abbruch nach der Backup-Frage war auf
+dem PC der bekannte Fehler der alten Fassung, nicht ein neuer. Regel: Werkzeuge für den Rückbau (Deinstaller, Skripte) nie aus einem Paket nehmen,
+das vor der Korrektur gebaut wurde; die Datei des Kandidaten laden (rohe Datei, Zeilenenden für `cmd` auf CRLF bringen) und aus `%TEMP%` starten.
+*Belege:* #1224, PP30
+
+**L81. Beim Rückbau nicht Claudes eigene Einstellungen überschreiben — die Kopie vom Anfang gilt nur, wenn die Anwendung nicht lief.** Die Store-
+Konfiguration von Claude Desktop hatte sich während des Laufs selbst geändert (Ordnerfreigaben, Zwischenspeicher-Schalter, `epitaxyPrefs`); ein
+Zurückkopieren der Sicherung vom Anfang hätte diese Schlüssel zurückgesetzt. Regel: vor dem Zurückkopieren die Schlüssel vergleichen (nur alt,
+nur neu, anders); entfernt wird nur, was PBP hinterlassen hat (leerer `mcpServers`, die neue klassische Datei), und der Bericht nennt, dass die
+Prüfsumme deshalb nicht gleich ist.
+*Belege:* Block H des dritten Laufs, `praxisprobe-1.8.0.md`
+
+**L82. Ein Fremdbeitrag läuft nicht über die CI des Beitragenden: den Zweig lokal holen, ganz lesen, an den Abnahmepunkten des Issues messen.** Ein Pull-Request aus einem Fork darf eigenen Code in den Lauf bringen (Tests, Workflow-Dateien); wer den Lauf freigibt, gibt diesen Code frei. Vorgehen (PR #1230 zu #1198): (1) den Kopf in einen eigenen Arbeitsbaum holen, nie in den Arbeitsordner; (2) den ganzen Diff lesen, auch Tests und alles außerhalb von `src/`; (3) die volle Suite dort laufen lassen, mit isolierter Datenbank; (4) eigene Abnahmetests nach den Punkten des Issues schreiben, unabhängig von denen des Beitrags, und sie auf der ALTEN Fassung laufen lassen: sie müssen rot sein (hier 3 von 6), sonst messen sie den Fehler nicht; (5) übernehmen mit `cherry-pick -x`, damit der Autor im Verlauf bleibt, Kommentare und Texte in die Sprache des Codes bringen, in beide Linien. Freigegeben, zusammengeführt oder kommentiert wird erst auf das Wort des Nutzers.
+*Belege:* #1198, PR #1230, `test_v17158_vermittler_endkunde_1198.py` (Stable), `test_v18_vermittler_endkunde_1198.py` (1.8), Gegenprobe vm01 bis vm06
+
+**L83. Was ein Werkzeug still schließt, löst nur eine ausdrückliche Absicht aus — und die Vorgabe ist die Wirkung, die nichts verliert.** Seit #1123 galt jede Notiz an einer Bewerbung als „Kontakt mit dem Arbeitgeber“ und machte den automatischen Nachfass hinfällig; der übliche Ablauf (Bewerbung anlegen, dann gleich eine interne Notiz) ließ die Erinnerung nach Minuten sterben. Gemessen am echten Bestand: vier automatische Schließungen, zwei zu Unrecht. Regel: eine Wirkung, die etwas beendet, hängt an einem Parameter, den der Aufrufer bewusst setzt (`art`), nicht an einem Ereignis, das nur „etwas schreibt“; die Vorgabe lässt den Zustand stehen. Dazu: das Rückgabefeld trägt den GESPEICHERTEN Zustand (`nachfassung_hinfaellig`, nicht „erledigt“), und eine unbekannte Art wird abgewiesen, bevor etwas geschrieben wird. Ein Test, der die Folge einer Regel prüft, nimmt den Ablauf, der sie im Alltag auslöst (anlegen, dann notieren), nicht nur den Aufruf allein.
+*Belege:* #1232, #1123, `test_v17158_nachfass_notiz_1232.py`, Gegenprobe nf01 bis nf12
+
+**L84. Ein Beleg zählt nur für das, wofür er einer ist — und was eine Zählung folgert, entscheidet EINE Funktion für alle Wege.** Der Wiedergänger-Zähler (#671) nahm jeden Aussortier-Grund als Beleg, auch `bewerbung_erstellt`: die Stelle ging aus der Liste, weil sich der Mensch beworben hat, das GEGENTEIL einer Ablehnung. Zwei Fassungen derselben früheren Bewerbung machten eine gelesene, empfohlene Stelle zum k.o. (`stellen_anzeigen`: NICHT_EMPFOHLEN, unter allen anderen, bei `nur_empfohlen` ganz heraus); die Automatik nach einer Suche hätte sie ohne Rückfrage aussortiert. Vier andere Stellen des Codes schlossen den Grund längst aus (`kalibrierung`, `lerninsights`, `lernprotokoll`, `fachwert`), und die Analyse fragte „fachlicher Grund?“, die Liste „irgendein Muster?“ — dieselbe Frage in der fünften und sechsten Fassung (L1). Regel: vor jeder Zählung nennen, welche Frage ein Datensatz beantwortet, und die Ausnahme in EINER Liste führen (`KEIN_URTEIL_GRUENDE`); die Folgerung („ist das ein k.o.?“) in EINER Funktion (`ist_fachlicher_ko`), die Liste und Analyse gemeinsam fragen. Der Test nimmt den Fall aus dem Alltag (zwei Fassungen einer Bewerbung, dann eine neue Stelle), nicht nur den Aufruf; auf dem Altstand waren 17 von 25 rot, und die Gegenprobe nimmt Liste, Funktion und Rollenwörter einzeln heraus.
+*Belege:* #1234, `test_v18_wiedergaenger_urteil_1234.py`, Gegenprobe wg01 bis wg21
+
+**L85. Der erste Treffer eines Dienstes ist eine Schätzung, sobald der Dienst mehrere kennt — und die Schwelle dazwischen misst man, man rät sie nicht.** `geocode(exactly_one=True)` gab bei „Rosengarten“ den Treffer mit dem höchsten Gewicht zurück; die Stelle stand mit 24 statt rund 500 km als nah in der Liste, und nichts sagte, dass der Ort geraten war. Gemessen an 15 Abfragen (Nominatim, 16.10.2026, von Hand im Sekundentakt, nicht in der Suite): bei mehrdeutigen Namen liegen die Gewichte der zwei wichtigsten Orte höchstens 0,061 auseinander, bei Frankfurt, Halle oder Offenbach mindestens 0,136; in der Lücke steht die Grenze (0,10). Ein Verhältnis hätte kaum getrennt (1,13 gegen 1,23). Regel: Unbekannt ist ein Zustand (L7): ein mehrdeutiger Ort hat KEINE Entfernung, nicht die erstbeste; der Befund wird samt Grund und Kandidaten gemerkt, damit die Oberfläche erklären kann, warum nichts dasteht. Ein Fix am Dienst heilt nur NEUE Anfragen (#1158): Speicherzeilen aus der Zeit davor gelten als ungeprüft (Stand), und der Bestand wird nachgeprüft — begrenzt je Lauf, ohne von Hand gesetzte Werte, ohne Postleitzahl-Orte und große Städte. Die Testdaten sind die gemessenen Zahlen; die Suite braucht kein Netz.
+*Belege:* #1235, #1158 Punkt 8, `test_v18_ortsdienst_mehrdeutig_1235.py`, Gegenprobe od01 bis od27
+
+**L86. Wer an einem Fragenkatalog einstellt, misst danach nur die Einstellung — die ehrliche Zahl steht in einer Gruppe, die nie gesehen wurde.** Die Suche der Hilfe (#1233) traf auf die 42 Fragen, an denen sie eingestellt wurde, in 95 % der Fälle unter den ersten drei, auf 41 danach angesehene in 98 %; auf 42 frisch geschriebene, zum Einstellen nie benutzte Fragen zuerst nur in 64 %, nach Synonymen und Wortregeln in 76 %. Der Unterschied sind die Wörter der Menschen („Word-Datei“ statt „DOCX“, „Zahl“ statt „Punkte“). Regel: die Gruppen VOR dem Einstellen trennen und die ungesehene aufheben; Schwellen im Test auf die ehrliche Zahl setzen, nicht auf die schmeichelnde, und den Stand in CHANGELOG und Known Issues nennen (L19 bis L22). Zwei Versuche, die Lücke mit der lokalen KI zu schließen, schnitten schlechter ab als die einfache Suche und sind NICHT eingebaut: die KI ordnet zu (21 gegen 32 von 42), die KI erzeugt je Abschnitt typische Fragen (33 gegen 32 auf den neuen, 76 gegen 80 von 83 auf den beiden anderen Gruppen). Samt dem schon geschriebenen Lesepfad für die erzeugten Fragen, der wieder herauskam: ein Leser ohne Schreiber behauptet eine Fähigkeit, die keiner nutzt (L11). Wo ein Sprachmodell nur umformuliert, prüft eine Funktion seine Antwort, bevor sie erscheint (Quelle genannt, keine erfundene Adresse, kein erfundener Befehl, kein erfundener Menüpfad), und die Kurzantwort steht standardmäßig aus.
+*Belege:* #1233, `test_v18_hilfe_suche_1233.py`, `test_v18_hilfe_ki_1233.py`, `tests/hilfe_fragen_1233.py`, Gegenprobe hi01 bis hi36

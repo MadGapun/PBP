@@ -19,6 +19,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
 import { api, deleteRequest, postJson } from "@/api";
+import HilfeFrage from "@/components/HilfeFrage";
+import { seitenleisteFragt } from "@/lib/hilfeFrage";
 
 const HIDE_KEY = "pbp_elwosa_hidden_until";
 const POLL_INTERVAL_MS = 30 * 1000;
@@ -184,7 +186,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPrompt, onNavigateToSettings, onNavigate, className = "" }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPrompt, onOeffnen, onNavigateToSettings, onNavigate, className = "" }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -593,6 +595,13 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           </button>
         )}
       </div>
+      {/* #1233 (F51): Fragen zur Bedienung - nur, wenn die lokale KI laeuft (Nutzerwunsch 16.10.2026). Die Antworten sind Karten aus
+          Hilfe, FAQ, Wiki und Prompt-Katalog; Fragen werden nicht gespeichert. */}
+      {seitenleisteFragt(status) && (
+        <div className="mt-2 shrink-0 border-t border-white/5 pt-2" data-sidebar-hilfe>
+          <HilfeFrage variante="kompakt" copyPrompt={onCopyPrompt} onOeffnen={onOeffnen} onToast={onToast} />
+        </div>
+      )}
     </div>
   );
 }

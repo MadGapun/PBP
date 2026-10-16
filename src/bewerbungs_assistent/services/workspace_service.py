@@ -141,6 +141,25 @@ def _badge_titel(stellen: int, faellig: int, quellen: dict, suche: dict,
     return titel
 
 
+def _badge_kurz(stellen: int, faellig: int, einstellungen: int, luecken: int) -> dict:
+    """Das Wort HINTER der Zahl in der Seitenleiste (#1170 U17).
+
+    Die vier Zahlen meinen Verschiedenes - Luecken im Profil, aktive Stellen, faellige Nachfassungen, Hinweise zu den
+    Einstellungen - und sahen gleich aus; was sie bedeuten, stand nur im Hover-Titel (`_badge_titel`). Das Wort steht
+    jetzt neben der Zahl. Es steht nur, wo es eine Zahl gibt.
+    """
+    kurz: dict = {}
+    if luecken:
+        kurz["profil"] = "Lücke" if luecken == 1 else "Lücken"
+    if stellen:
+        kurz["stellen"] = "aktiv"
+    if faellig:
+        kurz["bewerbungen"] = "fällig"
+    if einstellungen:
+        kurz["einstellungen"] = "Hinweis" if einstellungen == 1 else "Hinweise"
+    return kurz
+
+
 def readiness_stufe(stage: str, **ueberschreibungen) -> dict:
     """Eine Readiness-Stufe als frische Kopie, optional mit Abweichungen."""
     stufe = dict(READINESS_STUFEN[stage])
@@ -233,8 +252,17 @@ def build_workspace_summary(
             "prioritaet": "hoch",
             "text": f"{jobs_ohne_beschreibung} Stellen ohne Beschreibung — Score ist unzuverlässig. "
                     "Öffne die Stellen und lade die Beschreibung nach.",
-            "aktion": "stellen_anzeigen(beschreibung_fehlt=True)",
+            # #1200 A12: stellen_anzeigen kennt keinen Filter beschreibung_fehlt;
+            # es markiert die Stellen, das Nachladen holt den Text. (Nicht
+            # stellen_qualitaet_pruefen: das ist ein Wartungswerkzeug, H21.)
+            "aktion": ("stellen_anzeigen() — Stellen mit beschreibung_fehlt; je Stelle "
+                       "stellenbeschreibung_nachladen(stellen_hash)"),
         })
+
+    einstellungen_zahl = (
+        (1 if source_summary["active"] == 0 else 0)
+        + (1 if source_summary["active"] > 0 and search_status["status"] in {"nie", "dringend"} else 0)
+    )
 
     return {
         "has_profile": profile is not None,
@@ -271,14 +299,12 @@ def build_workspace_summary(
         "navigation": {
             "jobs_badge": format_nav_badge(len(jobs)),
             "applications_badge": format_nav_badge(follow_up_summary["due"]),
-            "settings_badge": format_nav_badge(
-                (1 if source_summary["active"] == 0 else 0)
-                + (1 if source_summary["active"] > 0
-                   and search_status["status"] in {"nie", "dringend"} else 0)
-            ),
+            "settings_badge": format_nav_badge(einstellungen_zahl),
             "profile_badge": format_nav_badge(len(missing_areas)),
             "titel": _badge_titel(len(jobs), follow_up_summary["due"],
                                   source_summary, search_status, missing_areas),
+            # #1170 U17: das Wort hinter der Zahl ("2 faellig"), nicht nur der Hover-Titel
+            "kurz": _badge_kurz(len(jobs), follow_up_summary["due"], einstellungen_zahl, len(missing_areas)),
         },
     }
 

@@ -189,7 +189,7 @@ def _dismiss_job(db, mcp_obj, h, gruende):
             raw = raw[0] if raw else {}
         return raw
 
-    return _call("stelle_bewerten", {
+    return _call("stelle_einordnen", {
         "job_hash": h, "bewertung": "passt_nicht", "gruende": gruende})
 
 

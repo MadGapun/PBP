@@ -536,6 +536,8 @@ def test_einzelne_stelle_traegt_dieselben_felder_wie_die_liste(server):
     for feld in ("punkte", "fach_score", "score", "unter_schwelle"):
         assert einzeln.get(feld) == drin.get(feld), feld
     assert "datenguete" in einzeln, "der Datenguete-Befund fehlte in der Einzelantwort"
+    # #948: auch der Pruefstand — die Weg-Leiste der Stelle liest `pruefstand.art`; ohne ihn galt jede einzeln geholte Stelle als unbeurteilt
+    assert drin.get("pruefstand") and einzeln.get("pruefstand") == drin["pruefstand"], (einzeln.get("pruefstand"), drin.get("pruefstand"))
 
 
 # ── Quelltext-Waechter: die alten Sackgassen kommen nicht zurueck ───────────────────────
@@ -575,6 +577,8 @@ def test_jede_seite_mit_sprungzielen_versteht_die_neuen_absichten():
         "kontaktId": "pages/ContactsPage.jsx",
         "applicationId": "pages/ApplicationsPage.jsx",
         "firmaName": "pages/ContactsPage.jsx",
+        "pruefstand": "pages/JobsPage.jsx",     # #1187: Karte "Stellen zu pruefen"
+        "view": "pages/JobsPage.jsx",
     }
     for absicht, seite in absichten.items():
         assert re.search(rf"intent\??\.{absicht}\b", _quelle(seite)), f"{seite} liest `{absicht}` nicht"

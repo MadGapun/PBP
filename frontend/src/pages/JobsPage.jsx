@@ -1,8 +1,8 @@
-﻿import { sichereAdresse } from "@/lib/webAdresse";
+﻿import { oeffneAdresse, sichereAdresse } from "@/lib/webAdresse";
 import { Ban, BriefcaseBusiness, Check, ClipboardCopy, Download, EyeOff, ExternalLink, Filter, Minus, Pencil, Pin, PinOff, Plus, RotateCcw, Search, SlidersHorizontal, Target, ThumbsDown, ThumbsUp, X } from "lucide-react";
 import { startTransition, useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
-import { api, optionalApi, postJson, putJson } from "@/api";
+import { api, deleteRequest, optionalApi, postJson, putJson } from "@/api";
 import { useApp } from "@/app-context";
 import FirmaLink from "@/components/FirmaLink";
 import {
@@ -26,20 +26,24 @@ import { jobLinkInfo } from "@/lib/jobLink";
 import { kurzmarke as datenguetMarke } from "@/lib/datenguete";
 import AdaptiveHintBanner from "@/components/AdaptiveHintBanner";
 import BrowserHandoffKarte from "@/components/BrowserHandoffKarte";
+import StellenHinweise from "@/components/StellenHinweise";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import OnboardingHintBanner from "@/components/OnboardingHintBanner";
-import { buildAnnualSalaryMetrics, grundlagenText } from "@/lib/gehaltsKennzahl";
+import { buildAnnualSalaryMetrics, gehaltsKacheln, grundlagenText } from "@/lib/gehaltsKennzahl";
 import { stellenDaten } from "@/lib/stellenDaten";
 import { SCORE_BEDEUTUNG, punkteText, scoreText, scoreWert } from "@/lib/score";
 import { volltextText } from "@/lib/jobsucheHinweis";
 import {
   SPEICHER_SCHLUESSEL,
   filterAusSpeicher,
+  filterAusVoreinstellung,
   filterFuerSpeicher,
+  filterFuerVoreinstellung,
   mehrereFilter,
   minScoreGesetzt,
   minScoreParameter,
   mitZahlen,
+  voreinstellungGilt,
 } from "@/lib/stellenFilter";
 import {
   FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
@@ -53,6 +57,9 @@ import { grundText, klartext, quelleText } from "@/lib/anzeige";
 import { nichtBelegt } from "@/lib/herkunft";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 import { zuBewerbung } from "@/lib/wege";
+import WegLeiste from "@/components/WegLeiste";
+import ListenUebersicht from "@/components/ListenUebersicht";
+import { stelleLeiste } from "@/lib/wegleiste";
 import {
   ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
   gehaltText, umfangText,
@@ -293,6 +300,10 @@ function descriptionAttentionLabel(job) {
 // Ziel von "Filter zurücksetzen" und Ziel des Sprungs auf eine Stelle.
 // Die einzige Ausnahme ist `hideApplied`: eine Stelle mit laufender
 // Bewerbung ist keine offene Stelle (#1158 Punkt 7).
+// #1158 Punkt 5: gilt die Voreinstellung schon fuer dieses Oeffnen von PBP? Ein Modulwert statt eines Zustands: er ueberlebt das
+// Verlassen und Wiederbetreten der Seite, nicht aber ein Neuladen.
+let voreinstellungSchonAngewendet = false;
+
 export const FILTER_STANDARD = {
   query: "",
   source: "",
@@ -371,6 +382,8 @@ export function aktiveFilterBestimmen(filters) {
 export const HERKUNFT_ETIKETT = {
   ich: "von mir",
   automatik: "Automatik",
+  // #1187: nach dem Lesen im Browserlauf von Claude aussortiert - zurueckholbar wie jede andere.
+  claude: "von Claude gelesen und aussortiert",
   unbekannt: "Herkunft unbekannt",
 };
 
@@ -542,7 +555,34 @@ export default function JobsPage() {
       // privater Modus oder gesperrter Speicher
     }
   }, [filters]);
+  // #1158 Punkt 5: eine ausdruecklich gesetzte Voreinstellung gilt bei jedem Oeffnen von PBP (Neuladen, Neustart), nicht beim
+  // Wechsel zwischen den Seiten; ohne sie gilt der gemerkte Zustand. Sie liegt auf dem Server (gilt in jedem Browser). Die
+  // erste Liste wird erst geholt, wenn sie da ist: sonst erschiene kurz die falsche und spraenge dann um.
+  const [voreinstellung, setVoreinstellung] = useState(null);
+  const [voreinstellungBereit, setVoreinstellungBereit] = useState(voreinstellungSchonAngewendet);
+  useEffect(() => {
+    let abgebrochen = false;
+    api("/api/stellen-filter-standard")
+      .then((antwort) => {
+        if (abgebrochen) return;
+        const gefunden = antwort?.standard && typeof antwort.standard === "object" ? antwort.standard : null;
+        setVoreinstellung(gefunden);
+        if (gefunden && !voreinstellungSchonAngewendet) {
+          setFilters((aktuell) => filterAusVoreinstellung(gefunden, FILTER_STANDARD, aktuell));
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        voreinstellungSchonAngewendet = true;
+        if (!abgebrochen) setVoreinstellungBereit(true);
+      });
+    return () => { abgebrochen = true; };
+  }, []);
   const [appliedJobHashes, setAppliedJobHashes] = useState(new Set());
+  // #1171 Baustein 3: zu welcher Stelle gehoert welche (laufende) Bewerbung - fuer "Zur Bewerbung"
+  const [bewerbungZuStelle, setBewerbungZuStelle] = useState(() => new Map());
+  // #1171 Baustein 4: woher kam der Mensch, als der Dialog aufging (nur ueber einen Sprung, nie ueber die Liste)
+  const detailVonRef = useRef(null);
   const [fitDialog, setFitDialog] = useState({ open: false, title: "", analysis: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, job: null, editing: false });
   const [refetchBusy, setRefetchBusy] = useState(false);
@@ -597,7 +637,9 @@ export default function JobsPage() {
   const nachladenLaeuftRef = useRef(false);
 
   const openDetailDialog = useCallback((job) => {
-    setDetailDialog({ open: true, job, editing: false });
+    const von = detailVonRef.current;
+    detailVonRef.current = null;
+    setDetailDialog({ open: true, job, editing: false, von });
   }, []);
 
   const loadPage = useEffectEvent(async (options = {}) => {
@@ -616,7 +658,9 @@ export default function JobsPage() {
         api(jobsUrl),
         append ? Promise.resolve(null) : api(`/api/jobs?active=false&${listenParameter(filters, suchtext, dismissWindow, "dismissed")}`),
         append ? Promise.resolve(null) : api("/api/follow-ups"),
-        append ? Promise.resolve(null) : api("/api/applications"),
+        // #1211: limit=0 = alle nicht archivierten. Ohne Angabe lieferte der Endpunkt nur die 30 juengsten: fuer aeltere Bewerbungen
+        // fehlten das Abzeichen "Bereits beworben" und "Zur Bewerbung" in der Weg-Leiste (die Leiste legte eine zweite nahe).
+        append ? Promise.resolve(null) : api("/api/applications?limit=0"),
         append ? Promise.resolve(null) : optionalApi("/api/dismiss-reasons"),
         append ? Promise.resolve(null) : optionalApi("/api/datenguete/umgang"),
       ]);
@@ -661,6 +705,9 @@ export default function JobsPage() {
           if (appsResponse) {
             const appHashes = new Set((appsResponse?.applications || []).filter(a => a.job_hash && !["abgelehnt","zurueckgezogen","abgelaufen"].includes(a.status)).map(a => a.job_hash));
             setAppliedJobHashes(appHashes);
+            setBewerbungZuStelle(new Map((appsResponse?.applications || [])
+              .filter((a) => a.job_hash && a.id && !["abgelehnt", "zurueckgezogen", "abgelaufen"].includes(a.status))
+              .map((a) => [a.job_hash, a.id])));
           }
           if (reasons) setDismissReasons(reasons);
           if (guete?.umgang) setGuetUmgang(guete.umgang);
@@ -677,6 +724,27 @@ export default function JobsPage() {
       startTransition(() => { setLoading(false); setEinmalGeladen(true); setLoadingMore(false); });
     }
   });
+
+  // #1158 Punkt 5: die Voreinstellung festhalten, wieder anwenden, aufheben.
+  async function voreinstellungSpeichern() {
+    try {
+      const antwort = await putJson("/api/stellen-filter-standard", { standard: filterFuerVoreinstellung(filters) });
+      setVoreinstellung(antwort?.standard || null);
+      pushToast("Gemerkt: Beim Öffnen von PBP gelten diese Filter.", "success");
+    } catch (error) {
+      pushToast(`Die Voreinstellung ließ sich nicht speichern: ${error.message}`, "danger");
+    }
+  }
+
+  async function voreinstellungAufheben() {
+    try {
+      await deleteRequest("/api/stellen-filter-standard");
+      setVoreinstellung(null);
+      pushToast("Die Voreinstellung ist aufgehoben. Beim Öffnen gilt wieder, wie du die Liste verlassen hast.", "success");
+    } catch (error) {
+      pushToast(`Die Voreinstellung ließ sich nicht aufheben: ${error.message}`, "danger");
+    }
+  }
 
   const syncRunningSearch = useEffectEvent(async () => {
     try {
@@ -718,9 +786,11 @@ export default function JobsPage() {
   });
 
   useEffect(() => {
+    if (!voreinstellungBereit) return;
     setLoading(true);
+    listenSchluesselRef.current = listenSchluessel;
     loadPage();
-  }, [reloadKey]);
+  }, [reloadKey, voreinstellungBereit]);
 
   // v1.7.93 (#1030): Filter, Sortierung, Ansicht und Zeitfenster wirken
   // auf dem Server — jede Aenderung laedt ab der ersten Seite neu. Der
@@ -728,7 +798,7 @@ export default function JobsPage() {
   const listenSchluessel = JSON.stringify([{ ...filters, query: "" }, suchtext, dismissWindow]);
   const listenSchluesselRef = useRef(listenSchluessel);
   useEffect(() => {
-    if (listenSchluesselRef.current === listenSchluessel) return;
+    if (!voreinstellungBereit || listenSchluesselRef.current === listenSchluessel) return;
     listenSchluesselRef.current = listenSchluessel;
     loadPage({ silent: true });
   }, [listenSchluessel]);
@@ -796,13 +866,27 @@ export default function JobsPage() {
         sort: current.sort,
       }));
       setPendingFocusJobHash(String(intent.jobHash));
-      if (intent.oeffnen) setPendingOpenJobHash(String(intent.jobHash));
+      if (intent.oeffnen) {
+        detailVonRef.current = intent.von || null;
+        setPendingOpenJobHash(String(intent.jobHash));
+      }
     }
     if (intent.missingDescriptionOnly) {
       setFilters((current) => ({
         ...current,
         view: "active",
         missingDescriptionOnly: true,
+      }));
+    }
+    if (intent.pruefstand || intent.view) {
+      // #1187 (Stufe 3): "Stellen zu pruefen" auf dem Dashboard springt mit dem Filter in die Liste; "von Claude
+      // aussortiert" in die Ansicht Ausgeblendet. Beides raeumt ueber dieselbe Definition ab wie ein Sprung auf eine Stelle.
+      setFilters((current) => ({
+        ...current,
+        ...FILTER_STANDARD,
+        view: intent.view === "dismissed" ? "dismissed" : "active",
+        pruefstand: intent.pruefstand || "",
+        sort: current.sort,
       }));
     }
     clearIntent();
@@ -865,9 +949,31 @@ export default function JobsPage() {
     const frisch = [...jobs, ...dismissedJobs].find((j) => String(j.hash) === String(hash));
     if (!frisch || frisch === detailDialog.job) return;
     setDetailDialog((aktuell) => (
-      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash) ? { ...aktuell, job: frisch } : aktuell
+      aktuell.open && !aktuell.editing && String(aktuell.job?.hash) === String(hash)
+        // ein nachgeholter Pruefstand (siehe unten) geht beim Auffrischen aus der Liste nicht wieder verloren
+        ? { ...aktuell, job: frisch.pruefstand || !aktuell.job?.pruefstand ? frisch : { ...frisch, pruefstand: aktuell.job.pruefstand } }
+        : aktuell
     ));
   }, [jobs, dismissedJobs]);
+
+  // #1171 / #948: Zeilen der Liste „Ausgeblendet“ tragen keinen Pruefstand (die Liste rechnet ihn nur fuer aktive Stellen). Die Leiste
+  // braucht ihn fuer den Hauptknopf: der Server entscheidet (#948), die Oberflaeche leitet nichts ab. Einmal einzeln holen.
+  useEffect(() => {
+    const stelle = detailDialog.job;
+    if (!detailDialog.open || !stelle?.hash || stelle.pruefstand) return undefined;
+    let aktuell = true;
+    api(`/api/jobs/${encodeURIComponent(stelle.hash)}`)
+      .then((einzeln) => {
+        if (!aktuell || !einzeln?.pruefstand) return;
+        setDetailDialog((cur) => (
+          cur.open && String(cur.job?.hash) === String(stelle.hash) && !cur.job.pruefstand
+            ? { ...cur, job: { ...cur.job, pruefstand: einzeln.pruefstand } }
+            : cur
+        ));
+      })
+      .catch(() => {});
+    return () => { aktuell = false; };
+  }, [detailDialog.open, detailDialog.job?.hash, detailDialog.job?.pruefstand]);
 
   async function showFitAnalysis(job) {
     try {
@@ -1187,30 +1293,10 @@ export default function JobsPage() {
   const jobsWithSalary = Number(salaryMetrics.jobsWithSalary || 0);
   const salaryEstimated = Boolean(salaryMetrics.allEstimated);
   const salaryCount = Number(salaryMetrics.annualBasisCount || 0);
-  const salaryMin = Number(salaryMetrics.averageMin);
-  const salaryMax = Number(salaryMetrics.averageMax);
-  const hasSalaryMin = Number.isFinite(salaryMin);
-  const hasSalaryMax = Number.isFinite(salaryMax);
-  const salaryAverage = hasSalaryMin && hasSalaryMax
-    ? Math.round((salaryMin + salaryMax) / 2)
-    : hasSalaryMin
-      ? Math.round(salaryMin)
-      : hasSalaryMax
-        ? Math.round(salaryMax)
-        : null;
-  const fmtNum = (n) => new Intl.NumberFormat("de-DE", { maximumFractionDigits: 0 }).format(Math.round(n));
-  // beta.32 / User-Feedback: echte Bandbreite, nicht Durchschnitt der Spannen
-  const bandMin = Number(salaryMetrics.bandMin);
-  const bandMax = Number(salaryMetrics.bandMax);
-  const hasBandMin = Number.isFinite(bandMin);
-  const hasBandMax = Number.isFinite(bandMax);
-  const salaryBandText = hasBandMin && hasBandMax
-    ? `${fmtNum(bandMin)} – ${fmtNum(bandMax)} EUR`
-    : hasBandMin
-      ? formatCurrency(bandMin)
-      : hasBandMax
-        ? formatCurrency(bandMax)
-        : "Keine Angabe";
+  // #1200 B1: dieselbe Rechnung wie im Dashboard — Number(null) ist 0, und
+  // ohne Gehaltsangabe stand hier "0 EUR" bzw. "0 – 0 EUR". Bandbreite =
+  // echte Spanne, nicht Durchschnitt der Spannen (beta.32).
+  const gehaltsKachel = gehaltsKacheln(salaryMetrics, "Keine Angabe");
   const latestJobUpdate = (currentList.length ? currentList : jobs).reduce(
     (latest, job) => {
       const raw = job.updated_at || job.found_at || "";
@@ -1362,6 +1448,13 @@ export default function JobsPage() {
     );
   }
 
+  // #1171 Baustein 5: der Suchstand steht in der Zeile des Listenkopfs, nicht in einer eigenen Zeile davor.
+  const suchStatusText = searchJob.running
+    ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`
+    : chrome.searchStatus?.last_search
+      ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
+      : "Noch nie gesucht";
+
   return (
     <div id="page-stellen" className="page active">
       {/* beta.35: h1 sr-only — Top-Bar zeigt Breadcrumb */}
@@ -1369,16 +1462,6 @@ export default function JobsPage() {
       {/* v1.7.0-beta.29 (#594 Stufe 4): Adaptive UI-Hints */}
       <OnboardingHintBanner tab="stellen" />
       <AdaptiveHintBanner page="stellen" />
-      <div className="mb-6 flex items-baseline gap-2">
-        <span className="text-xs text-muted">
-          {searchJob.running
-    ? `Jobsuche läuft${searchJob.progress > 0 ? ` (${Math.round(searchJob.progress)}%)` : ""}`
-            : chrome.searchStatus?.last_search
-            ? `Aktualisiert ${chrome.searchStatus.days_ago === 0 ? "heute" : chrome.searchStatus.days_ago === 1 ? "gestern" : `vor ${chrome.searchStatus.days_ago} Tagen`}`
-            : "Noch nie gesucht"}
-        </span>
-      </div>
-
       {/* Progress bar during job search (#210, #400) */}
       {searchJob.running && (
         <div className="mb-4 rounded-lg border border-sky/20 bg-sky/5 p-4">
@@ -1411,8 +1494,26 @@ export default function JobsPage() {
           Claude. `anlass` laedt neu, sobald eine Suche startet oder endet. */}
       <BrowserHandoffKarte anlass={searchJob.running ? 1 : 0} />
 
+      {/* #1184 (d): Treffer aus Google-Benachrichtigungen sind noch keine Stellen - eingeklappt, mit der Suche nach dem Original. */}
+      <StellenHinweise anlass={reloadKey} />
+
       <div className="grid gap-6">
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* #1171 Baustein 5 (Listen zuerst): Kennzahlen und Hinweis sind EINE Zeile, die aufklappt - die Liste beginnt im
+            ersten Bildschirm. Der eine Hinweis mit seinem Knopf bleibt in der Zeile sichtbar. */}
+        <ListenUebersicht
+          id="stellen"
+          zusammenfassung={`${jobsTotal} ${jobsTotal === 1 ? "aktive Stelle" : "aktive Stellen"}${scoredActiveJobs.length > 0 ? ` · Ø ${averageScore} Punkte` : ""}`}
+          badge={<Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>}
+          titel={jobsGuidance.title}
+          status={suchStatusText}
+          aktion={jobsGuidance.actionLabel ? (
+            <Button size="sm" variant="secondary" onClick={jobsGuidance.action}>
+              {jobsGuidance.actionLabel}
+            </Button>
+          ) : null}
+        >
+        {/* #1170 U16: vier Kennzahlen in EINER Zeile ab 1024 px (vorher erst ab 1280 px), zwei darunter. */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-stellen-kennzahlen>
           <MetricCard
             // v1.7.62 (#1008 Befund 1): die Zahl war die LAENGE DER
             // ANGEZEIGTEN Liste. Die Ueberschrift versprach die Zahl der
@@ -1467,13 +1568,13 @@ export default function JobsPage() {
           />
           <MetricCard
             label={`Gehaltsdurchschnitt${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryAverage !== null ? formatCurrency(salaryAverage) : "Keine Angabe"}
+            value={gehaltsKachel.durchschnittText}
             note={grundlagenText(salaryMetrics)}
             tone="success"
           />
           <MetricCard
             label={`Gehaltsbandbreite${salaryEstimated ? " (geschätzt)" : ""}`}
-            value={salaryBandText}
+            value={gehaltsKachel.bandText}
             note={salaryCount > 0
               ? `Niedrigster bis höchster Wert über ${salaryCount} ${salaryCount === 1 ? "Stelle" : "Stellen"}`
               : "Echte Min/Max-Spanne über alle Stellen"}
@@ -1487,27 +1588,16 @@ export default function JobsPage() {
           />
         </div>
 
-        <Card className="rounded-2xl">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={jobsGuidance.tone}>{jobsGuidance.badge}</Badge>
-                {visibleDescriptionGaps > 0 ? (
-                  <span className="text-xs text-muted">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 text-base font-semibold text-ink">{jobsGuidance.title}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-muted">{jobsGuidance.description}</p>
-            </div>
-            {jobsGuidance.actionLabel ? (
-              <Button size="sm" variant="secondary" onClick={jobsGuidance.action}>
-                {jobsGuidance.actionLabel}
-              </Button>
-            ) : null}
-          </div>
-        </Card>
+        <div className="min-w-0" data-stellen-hinweis>
+          <h2 className="text-base font-semibold text-ink">{jobsGuidance.title}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">{jobsGuidance.description}</p>
+          {visibleDescriptionGaps > 0 ? (
+            <p className="mt-1 text-xs text-muted">{visibleDescriptionGaps} Treffer im aktuellen Blick brauchen erst mehr Beschreibung.</p>
+          ) : null}
+        </div>
+        </ListenUebersicht>
 
-        <Card className="rounded-2xl">
+        <Card className="rounded-2xl !py-3">
           {/* Row 1: Search bar + counter */}
           <div className="flex items-center gap-3">
             <div className="relative min-w-0 flex-1">
@@ -1586,7 +1676,7 @@ export default function JobsPage() {
           </div>
 
           {/* Row 2: Filter chips row */}
-          <div className="mt-4 flex flex-wrap items-center gap-2.5">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2.5">
             {/* View toggle */}
             <div className="grid grid-cols-2 overflow-hidden rounded-xl border border-white/5 bg-white/[0.03]">
               {/* #1022 AK 3+4: beide Tabs nennen ihre Menge, damit VOR
@@ -1635,6 +1725,10 @@ export default function JobsPage() {
                 {aktiveFilter.filter((f) => f.schluessel !== "query").map((f) => f.text).join(" · ")}
               </span>
             ) : null}
+            {/* #1171 Baustein 5: stand als eigene Zeile ueber der Liste (34 px, bevor die erste Stelle beginnt). */}
+            <span className="ml-auto text-[12px] text-muted" data-stellen-zuletzt>
+              Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
+            </span>
           </div>
 
           {filterOffen ? (
@@ -1870,17 +1964,50 @@ export default function JobsPage() {
               )}
             </div>
 
+            {/* #1158 Punkt 5: eine ausdruecklich gesetzte Voreinstellung. „Filter zuruecksetzen“ bleibt davon unberuehrt und zeigt
+                ALLE offenen Stellen. */}
+            <div className="ml-auto flex flex-wrap items-center gap-2" data-filter-voreinstellung>
+              <span className="text-[12px] text-muted">
+                {voreinstellung
+                  ? "Beim Öffnen von PBP gilt deine Voreinstellung."
+                  : "Ohne Voreinstellung gilt beim Öffnen, wie du die Liste verlassen hast."}
+              </span>
+              {voreinstellung && !voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  onClick={() => setFilters((aktuell) => filterAusVoreinstellung(voreinstellung, FILTER_STANDARD, aktuell))}
+                >
+                  Zur Voreinstellung
+                </button>
+              ) : null}
+              {!voreinstellungGilt(filters, voreinstellung, FILTER_STANDARD) ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  title="Merkt die Filter und die Sortierung, die jetzt gelten, als Voreinstellung. Sie gelten bei jedem Öffnen von PBP."
+                  onClick={voreinstellungSpeichern}
+                >
+                  Als Voreinstellung speichern
+                </button>
+              ) : null}
+              {voreinstellung ? (
+                <button
+                  type="button"
+                  className="rounded-xl border border-white/5 bg-white/[0.03] px-3 py-2 text-[13px] font-medium text-muted transition-colors hover:bg-white/[0.05] hover:text-ink"
+                  onClick={voreinstellungAufheben}
+                >
+                  Voreinstellung aufheben
+                </button>
+              ) : null}
+            </div>
+
 
           </div>
           ) : null}
         </Card>
 
         <div className="grid gap-4">
-          <div className="flex justify-end">
-            <p className="text-[12px] text-muted">
-              Zuletzt aktualisiert: {latestJobUpdate ? formatDateTime(latestJobUpdate) : "Keine Angabe"}
-            </p>
-          </div>
           {/* v1.7.62 (#1008 Befund 1, AK 2 und 3): zeigt die Liste
               weniger als der Zaehler, gehoert der Grund UEBER die Liste
               — nicht in eine Kennzahl-Notiz daneben. Der Melder hat die
@@ -1994,7 +2121,13 @@ export default function JobsPage() {
                     {appliedJobHashes.has(job.hash) ? (
                       <button
                         className="cursor-pointer"
-                        onClick={(e) => { e.stopPropagation(); navigateTo("bewerbungen", { focus: "job", jobHash: job.hash }); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // #1171: die Bewerbung selbst oeffnen (die Seite las `focus: job` nie)
+                          const ziel = zuBewerbung(bewerbungZuStelle.get(job.hash));
+                          if (ziel) navigateTo(ziel.seite, ziel.intent);
+                          else navigateTo("bewerbungen", { focus: "job", jobHash: job.hash });
+                        }}
                         title="Zur Bewerbung wechseln"
                       >
                         <Badge tone="success">Bereits beworben</Badge>
@@ -2107,7 +2240,7 @@ export default function JobsPage() {
                       <span className="inline-flex items-center gap-2 text-[12px] text-muted">
                         <span className={cn(
                           "rounded-md px-1.5 py-0.5",
-                          job.herkunft === "automatik"
+                          job.herkunft === "automatik" || job.herkunft === "claude"
                             ? "bg-amber/10 text-amber"
                             : job.herkunft === "ich"
                               ? "bg-white/[0.06] text-muted"
@@ -2645,6 +2778,41 @@ export default function JobsPage() {
           title={detailDialog.editing ? "Stelle bearbeiten" : "Stellendetails"}
           onClose={() => setDetailDialog({ open: false, job: null, editing: false })}
           size="xl"
+          weg={detailDialog.editing ? null : (() => {
+            // #1171 Baustein 3: die feste Weg-Leiste der Stelle
+            const job = detailDialog.job;
+            const bewerbungId = bewerbungZuStelle.get(job.hash) || "";
+            const leiste = stelleLeiste({
+              zurueckLabel: "Stellen",
+              firma: job.company,
+              bewerbungId,
+              beurteilt: job?.pruefstand?.art === "beurteilt",       // der Server entscheidet (#948), die Oberflaeche leitet nichts ab
+              hatAnzeige: Boolean(job.url),
+            });
+            const schliessen = () => setDetailDialog({ open: false, job: null, editing: false });
+            const selbst = { seite: "stellen", intent: { focus: "job", jobHash: job.hash, oeffnen: true }, label: `Stelle: ${job.title}` };
+            const aktionen = {
+              bewerten: () => copyPrompt(detailbewertungPrompt(job)),
+              bewerbung_anlegen: () => { schliessen(); openApplicationDialog(job); },
+              zur_bewerbung: () => {
+                const ziel = zuBewerbung(bewerbungId);
+                if (!ziel) return;
+                schliessen();
+                navigateTo(ziel.seite, { ...ziel.intent, von: selbst });
+              },
+              anzeige_oeffnen: () => oeffneAdresse(job.url, "_blank", "noopener,noreferrer"),
+            };
+            return (
+              <WegLeiste
+                leiste={leiste}
+                selbst={selbst}
+                von={detailDialog.von}
+                onVerlassen={schliessen}
+                onZurueck={schliessen}
+                onAktion={(aktion) => aktionen[aktion]?.()}
+              />
+            );
+          })()}
         >
           {detailDialog.editing ? (
             <div className="space-y-4">

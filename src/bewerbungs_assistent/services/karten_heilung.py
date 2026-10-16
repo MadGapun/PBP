@@ -229,14 +229,21 @@ def heilen(db, *, dry_run: bool = False, koordinaten=None, bewerten=None,
     if koordinaten:
         from .geocoding_service import geocode_and_calculate_distance, geocode_location
         for kennung in geheilt[:max_geocode]:
-            reihe = conn.execute("SELECT location FROM jobs WHERE hash=?", (kennung,)).fetchone()
+            reihe = conn.execute("SELECT location, description FROM jobs WHERE hash=?", (kennung,)).fetchone()
             if not reihe or not reihe["location"]:
                 continue
             try:
                 entfernung = geocode_and_calculate_distance(reihe["location"], koordinaten[0], koordinaten[1])
+                koord_anzeige = None
                 if entfernung is None:
-                    continue
-                koord = geocode_location(reihe["location"]) or (None, None)
+                    # #1235: ein mehrdeutiger Ort wird mit PLZ oder Bundesland aus dem Anzeigentext noch einmal gefragt.
+                    from .geocoding_service import entfernung_aus_anzeige
+                    genau = entfernung_aus_anzeige(
+                        reihe["location"], koordinaten[0], koordinaten[1], reihe["description"] or "")
+                    if not genau:
+                        continue
+                    entfernung, koord_anzeige = genau["km"], genau["koordinaten"]
+                koord = koord_anzeige or geocode_location(reihe["location"]) or (None, None)
                 with conn:
                     _felder_setzen(conn, kennung, {"distance_km": entfernung,
                                                    "lat": koord[0], "lon": koord[1]}, spalten)

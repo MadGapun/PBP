@@ -398,11 +398,11 @@ def test_elwosa_settings_section_in_localai_tab():
     assert "/api/elwosa/settings" in content
 
 
-def test_sidebar_subnav_includes_lokale_ki():
-    # G70 (#1087): die Seitenleiste listet die Reiter aus einer Liste.
+def test_einstellungen_reiter_enthalten_lokale_ki():
+    # G70 (#1087): die Reiter stehen in EINER Liste. #1170 U17: die Seitenleiste fuehrt sie nicht mehr ein zweites Mal.
     p = PROJECT_ROOT / "frontend" / "src" / "App.jsx"
     content = p.read_text(encoding="utf-8")
-    assert "items: SETTINGS_REITER.map" in content
+    assert "items: SETTINGS_REITER.map" not in content
     reiter = (PROJECT_ROOT / "frontend" / "src" / "lib" / "einstellungenReiter.js").read_text(encoding="utf-8")
     assert '{ id: "ai", label: "Lokale KI"' in reiter
     assert '{ id: "automatik", label: "Automatik"' in reiter

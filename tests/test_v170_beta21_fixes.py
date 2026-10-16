@@ -81,7 +81,10 @@ def test_enrich_endpoint_returns_prompt(setup_env):
     j = r.json()
     assert j["status"] == "ok"
     assert "linkedin.com/in/example-person" in j["prompt"]
-    assert "javascript_tool" in j["prompt"]
+    # #1200 A1: Claude liest die Seite und schreibt ueber die Werkzeuge
+    # zurueck; das Skript steht nicht mehr im Nutzertext, nur im Feld.
+    assert "get_page_text" in j["prompt"]
+    assert "kontakt_anlegen(" in j["prompt"]
     assert "(()" in j["extraction_js"]  # JS-IIFE
     # Hinweis erklaert WARUM keine direkte Server-Loesung
     assert "Login-Wall" in j["hinweis"] or "Bot-Detection" in j["hinweis"]

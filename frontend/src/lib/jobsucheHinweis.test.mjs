@@ -94,7 +94,7 @@ check("auch ohne Funde genannt", ohneQuelle0.titel.includes("freelance"), true);
 
 // #1038 Punkt 4: was nach der Suche nachgeladen wurde
 check("nachgeladen genannt", nachgeladenText({ geholt: 12, fehlgeschlagen: 1, offen: 3 }),
-  "12 Anzeigentexte nachgeladen, 3 weitere holt „Jetzt prüfen“ nach");
+  "12 Anzeigentexte nachgeladen, 3 weitere holt die nächste Prüfung nach");
 check("einer", nachgeladenText({ geholt: 1, offen: 0 }), "1 Anzeigentext nachgeladen");
 check("nichts gelaufen", nachgeladenText(null), "");
 const mitNach = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 20,

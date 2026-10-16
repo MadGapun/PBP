@@ -1,4 +1,4 @@
-"""Bewerbungs-Management — 16 Tools (#170: geführter Workflow, #443: Write-Back-Gaps)."""
+"""Bewerbungs-Management (#170: geführter Workflow, #443: Write-Back-Gaps)."""
 
 from ..services.nutzerfuehrung import kein_profil, leer
 
@@ -912,8 +912,8 @@ def register(mcp, db, logger):
             result["rueckfrage_ablehnungsgrund"] = (
                 "Kein Ablehnungsgrund angegeben. Frag den Nutzer kurz: Gab es "
                 "ein Absageschreiben oder eine Begruendung? Nachtragen mit "
-                "bewerbung_status_aendern(..., 'abgelehnt', "
-                "ablehnungsgrund='...') oder bewerbung_notiz(). Hintergrund: "
+                "bewerbung_bearbeiten(bewerbung_id, ablehnungsgrund='...') — "
+                "nur dieses Feld liest die Musteranalyse. Hintergrund: "
                 "Taucht die Stelle als Repost wieder auf, lässt sich ohne "
                 "Grund nicht beurteilen, ob die alte Hürde noch steht."
             )
@@ -1225,6 +1225,7 @@ def register(mcp, db, logger):
         applied_at: str = "",
         stellenbeschreibung_original: str = "",
         notizen_ersetzen: bool = False,
+        ablehnungsgrund: str = "",
     ) -> dict:
         """Bearbeitet eine bestehende Bewerbung (Felder nachträglich ändern/ergänzen).
 
@@ -1267,10 +1268,28 @@ def register(mcp, db, logger):
             stellenbeschreibung_original: Wortgetreuer Originalwortlaut
                 der Stellenanzeige (#588). Wird in description_snapshot
                 gespeichert. NICHT für Notizen verwenden.
+            ablehnungsgrund: Absagegrund einer schon abgelehnten Bewerbung
+                nachtragen, in den Worten der Firma — nie erfinden. Speist
+                ablehnungs_muster und die Absage-Auswertung.
         """
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
+
+        # #1200 A3: Bis 1.8.0 gab es fuer eine schon abgelehnte Bewerbung
+        # keinen Weg, den Grund nachzutragen, ausser den Status ein zweites
+        # Mal auf 'abgelehnt' zu setzen (zweiter Verlaufseintrag). Das
+        # Coaching speicherte ihn deshalb als Notiz — die liest die
+        # Musteranalyse nicht. Erst pruefen, dann schreiben.
+        ablehnungsgrund = (ablehnungsgrund or "").strip()
+        if ablehnungsgrund and (app.get("status") or "") != "abgelehnt":
+            return {
+                "fehler": "Ein Absagegrund gehört nur an eine abgelehnte Bewerbung.",
+                "hinweis": (
+                    "Ist die Absage gerade gekommen: bewerbung_status_aendern("
+                    f"bewerbung_id, 'abgelehnt', ablehnungsgrund='{ablehnungsgrund}'). "
+                    "Es wurde nichts geändert."),
+            }
 
         # #529: applied_at separat normalisieren
         applied_at_norm = ""
@@ -1303,7 +1322,8 @@ def register(mcp, db, logger):
                          ("source", source), ("vermittler", vermittler), ("endkunde", endkunde),
                          ("cover_letter_path", cover_letter_path), ("cv_path", cv_path),
                          ("gehaltsvorstellung", gehaltsvorstellung), ("final_salary", final_salary),
-                         ("applied_at", applied_at_norm)]:
+                         ("applied_at", applied_at_norm),
+                         ("rejection_reason", ablehnungsgrund)]:
             if val:
                 updates[key] = val
 
@@ -1408,16 +1428,35 @@ def register(mcp, db, logger):
         return notiz_drift.bericht(db)
 
     @mcp.tool()
-    def bewerbung_notiz(bewerbung_id: str, notiz: str) -> dict:
-        """Fügt eine Gesprächsnotiz mit Timestamp zur Bewerbungs-Timeline hinzu.
+    def bewerbung_notiz(bewerbung_id: str, notiz: str, art: str = "intern") -> dict:
+        """Fügt eine Notiz mit Datum und Uhrzeit zur Timeline einer Bewerbung hinzu.
 
-        Ideal für: Interview-Notizen, Telefonate, E-Mail-Zusammenfassungen,
-        Feedback nach Gesprächen, nächste Schritte.
+        `art` entscheidet, ob die Notiz die offene Nachfass-Erinnerung
+        berührt: `intern` (Vorgabe) für eigene Recherche, Vorbereitung und
+        Einschätzung — die Erinnerung bleibt; `kontakt` für ein Gespräch,
+        Telefonat oder eine Antwort des Arbeitgebers — die Erinnerung wird
+        hinfällig; `nachfrage`, wenn der Mensch selbst nachgefragt hat — die
+        Erinnerung gilt als erledigt. Im Zweifel `intern`.
 
         Args:
             bewerbung_id: ID der Bewerbung
-            notiz: Die Notiz (wird mit aktüllem Datum/Uhrzeit gespeichert)
+            notiz: Die Notiz (wird mit Datum und Uhrzeit gespeichert)
+            art: `intern` (Vorgabe), `kontakt` oder `nachfrage`. Nur `kontakt`
+                und `nachfrage` schließen die offene Nachfass-Erinnerung.
         """
+        # #1232: jede Notiz als Kontakt zu werten, ließ den 21-Tage-Nachfass
+        # sterben, sobald nach dem Anlegen einer Bewerbung eine interne Notiz
+        # kam. Kontakt ist nur, was der Aufrufer ausdrücklich so nennt.
+        from ..services import nachfass_abgleich
+        art_norm = str(art or "intern").strip().lower()
+        if art_norm not in nachfass_abgleich.NOTIZ_ARTEN:
+            return {
+                "fehler": f"Unbekannte Art '{art}'.",
+                "erlaubt": list(nachfass_abgleich.NOTIZ_ARTEN),
+                "hinweis": ("intern = eigene Notiz (Vorgabe, die Nachfass-Erinnerung "
+                            "bleibt), kontakt = Gespräch oder Antwort des Arbeitgebers, "
+                            "nachfrage = du hast selbst nachgefragt."),
+            }
         app = db.get_application(bewerbung_id)
         if not app:
             return {"fehler": "Bewerbung nicht gefunden."}
@@ -1425,16 +1464,29 @@ def register(mcp, db, logger):
         db.add_application_note(bewerbung_id, notiz)
         ergebnis = {
             "status": "gespeichert",
+            "art": art_norm,
             "nachricht": f"Notiz zu '{app.get('title', '')}' bei {app.get('company', '')} hinzugefügt.",
             "timeline_eintraege": len(app.get("events", [])) + 1
         }
-        # #1123: eine Gesprächsnotiz IST gemeldeter Kontakt — wer heute mit
-        # dem Arbeitgeber gesprochen hat, muss morgen nicht nachfragen.
-        from ..services import nachfass_abgleich
-        erledigt = nachfass_abgleich.kontakt_gemeldet(
-            db, bewerbung_id, "Gesprächsnotiz")
-        if erledigt:
-            ergebnis["nachfassung_erledigt"] = erledigt
+        if art_norm == "kontakt":
+            # #1123: wer mit dem Arbeitgeber gesprochen hat und das meldet,
+            # muss nicht nach dem Sachstand fragen. Gespeichert wird
+            # `hinfaellig`, und so heißt auch das Feld (#1232).
+            hinfaellig = nachfass_abgleich.kontakt_gemeldet(
+                db, bewerbung_id, "Gesprächsnotiz")
+            if hinfaellig:
+                ergebnis["nachfassung_hinfaellig"] = hinfaellig
+                ergebnis["hinweis"] = (
+                    f"{len(hinfaellig)} offene Nachfass-Erinnerung(en) auf hinfällig "
+                    "gesetzt, weil du Kontakt gemeldet hast. War es keiner: "
+                    "nachfass_planen legt eine neue Erinnerung an.")
+        elif art_norm == "nachfrage":
+            erledigt = nachfass_abgleich.nachfrage_gesendet(db, bewerbung_id)
+            if erledigt:
+                ergebnis["nachfassung_erledigt"] = erledigt
+                ergebnis["hinweis"] = (
+                    f"{len(erledigt)} offene Nachfass-Erinnerung(en) als erledigt "
+                    "markiert, weil du selbst nachgefragt hast.")
         return ergebnis
 
     @mcp.tool()

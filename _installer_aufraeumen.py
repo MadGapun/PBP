@@ -199,7 +199,13 @@ def main(argv=None) -> int:
         print(einstellung(a[1]))
         return 0
     if len(a) == 5 and a[0] in ("plan", "loeschen"):
-        p = plan(a[1], a[2], a[3], a[4]) if a[0] == "plan" else loeschen_starten(a[1], a[2], a[3], a[4])
+        try:
+            p = plan(a[1], a[2], a[3], a[4]) if a[0] == "plan" else loeschen_starten(a[1], a[2], a[3], a[4])
+        except OSError as exc:
+            # #1219: die Bat sagt "wird geloescht" erst nach dem Exit-Code; ein Temp-Ordner ohne Schreibrecht oder ein
+            # nicht startbarer Prozess ist ein Fehlschlag mit Grund, kein Traceback.
+            print(json.dumps({"ordner": "", "zips": [], "fehler": str(exc)}, ensure_ascii=False))
+            return 1
         print(json.dumps(p, ensure_ascii=False))
         return 0 if p["ordner"] else 1
     if len(a) == 2 and a[0] == "lauf":

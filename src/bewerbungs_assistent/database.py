@@ -717,6 +717,14 @@ class Database:
                 )
             """)
             conn.commit()
+            # #1235: der Stand der Zeile (vor der Mehrdeutigkeits-Pruefung: NULL, wird neu gefragt) und die
+            # Kandidaten eines Ortes, den der Dienst mehrfach kennt. Additiv, ohne Schema-Bump.
+            _geo_spalten = {r[1] for r in conn.execute("PRAGMA table_info(geo_cache)").fetchall()}
+            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):
+                if _sp not in _geo_spalten:
+                    conn.execute(f"ALTER TABLE geo_cache ADD COLUMN {_sp} {_typ}")
+                    conn.commit()
+                    logger.info("Safety-Net: geo_cache.%s nachgezogen (#1235)", _sp)
             try:
                 from .services import geocoding_service as _geo
                 _geo.speicher_setzen(self)
@@ -6522,7 +6530,9 @@ class Database:
         # Weg, der eine Stelle aussortiert, laeuft hier durch; ihn in den
         # Aufrufern zu setzen waere die achte Fassung derselben Sache.
         jetzt = _now()
-        wer = "automatik" if herkunft == "automatik" else "ich"
+        # #1187: "claude" = von Claude nach dem Lesen im Browserlauf aussortiert - eine eigene Herkunft, damit der Mensch
+        # sie im Ausgeblendet-Tab findet und zurueckholen kann (sie ist weder sein Urteil noch das der Automatik).
+        wer = herkunft if herkunft in ("automatik", "claude") else "ich"
         if freitexte:
             cur = conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
@@ -6972,7 +6982,10 @@ class Database:
                         "cover_letter_path", "cv_path",
                         "gehaltsvorstellung", "final_salary",
                         # v1.7.0-beta.32 (#588): Originalwortlaut-Snapshot
-                        "description_snapshot", "snapshot_date")
+                        "description_snapshot", "snapshot_date",
+                        # #1200 A3: Absagegrund nachtragen (das Werkzeug
+                        # prueft vorher den Status)
+                        "rejection_reason")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
@@ -8118,6 +8131,31 @@ class Database:
     # ------------------------------------------------------------------
     # Quellen-Lauf-Historie + Custom-Quellen (B25/#735 + B16/#627, beta.5)
     # ------------------------------------------------------------------
+
+    def record_browser_run(self, name: str, *, rohtreffer: int = 0, neu: int = 0, gelesen: int = 0,
+                           detail: str = "") -> bool:
+        """Verbucht einen Lauf ueber den Browser im Append-Log `scraper_runs` (#1187 Stufe 2).
+
+        Ein Browserlauf hinterliess nirgends eine Spur - auch nicht, wenn er 1.300 Rohtreffer sah und keine Stelle anlegte.
+        Hier entsteht die Zeile, mit der `quellen_langzeit_auswertung` und der Trichter ihn kennen. `scraper_health` wird
+        BEWUSST nicht angefasst: ein Browserlauf ist kein Scraper-Lauf, und "0 neu" darf keine Quelle als stumm zaehlen
+        und abschalten. Rueckgabe: ob die Zeile geschrieben wurde (die Historie darf nie einen Aufrufer kippen).
+        """
+        name = str(name or "").strip().lower()
+        if not name:
+            return False
+        try:
+            conn = self.connect()
+            conn.execute(
+                "INSERT INTO scraper_runs (id, scraper_name, run_at, state, count, new_count, time_s, error_class, detail) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (_gen_id(), name, _now(), "ok" if int(rohtreffer or 0) > 0 else "silent", int(rohtreffer or 0),
+                 int(neu or 0), 0.0, "", ("Browserlauf: " + str(detail or ""))[:200]))
+            conn.commit()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Browserlauf nicht verbucht (%s): %s", name, exc)
+            return False
 
     def get_scraper_runs(self, scraper_name: str = None,
                          seit_iso: str = None, limit: int = 2000) -> list:
@@ -10900,25 +10938,30 @@ class Database:
     def get_automatik_settings(self) -> dict:
         """Intervalle (in Tagen) + letzter Lauf fuer die Hintergrund-Automatik.
 
-        Zwei Tasks: `jobsuche` (interne Scraper) und `lernen`
-        (Ollama-Pattern-Analyse). 0 = aus. Pro Profil gespeichert.
+        Drei Tasks: `jobsuche` (interne Scraper), `lernen` (Ollama-Pattern-Analyse) und `aufraeumen` (die
+        Aufraeum-Runde, #1139; Vorgabe taeglich). 0 = aus. Pro Profil gespeichert.
         """
-        def _iv(key):
-            raw = self.get_profile_setting(key, 0)
+        def _iv(key, vorgabe=0):
+            raw = self.get_profile_setting(key, None)
+            if raw is None or raw == "":
+                return vorgabe
             try:
-                v = int(raw) if raw is not None else 0
+                v = int(raw)
             except (TypeError, ValueError):
-                v = 0
-            return v if v in self._AUTOMATIK_INTERVALS else 0
+                return vorgabe
+            return v if v in self._AUTOMATIK_INTERVALS else vorgabe
         return {
             "jobsuche_intervall_tage": _iv("automatik_jobsuche_intervall_tage"),
             "jobsuche_last_at": self.get_profile_setting("automatik_jobsuche_last_at", "") or "",
             "lernen_intervall_tage": _iv("automatik_lernen_intervall_tage"),
             "lernen_last_at": self.get_profile_setting("automatik_lernen_last_at", "") or "",
+            "aufraeumen_intervall_tage": _iv("automatik_aufraeumen_intervall_tage", 1),
+            "aufraeumen_last_at": self.get_profile_setting("automatik_aufraeumen_last_at", "") or "",
         }
 
     def set_automatik_settings(self, *, jobsuche_intervall_tage: Optional[int] = None,
-                               lernen_intervall_tage: Optional[int] = None) -> dict:
+                               lernen_intervall_tage: Optional[int] = None,
+                               aufraeumen_intervall_tage: Optional[int] = None) -> dict:
         if jobsuche_intervall_tage is not None:
             iv = int(jobsuche_intervall_tage)
             if iv not in self._AUTOMATIK_INTERVALS:
@@ -10931,12 +10974,18 @@ class Database:
                 raise ValueError(
                     f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
             self.set_profile_setting("automatik_lernen_intervall_tage", iv)
+        if aufraeumen_intervall_tage is not None:
+            iv = int(aufraeumen_intervall_tage)
+            if iv not in self._AUTOMATIK_INTERVALS:
+                raise ValueError(
+                    f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
+            self.set_profile_setting("automatik_aufraeumen_intervall_tage", iv)
         return self.get_automatik_settings()
 
     def mark_automatik_run(self, kind: str, when_iso: Optional[str] = None) -> str:
-        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche' oder 'lernen'."""
-        if kind not in ("jobsuche", "lernen"):
-            raise ValueError("kind muss 'jobsuche' oder 'lernen' sein")
+        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche', 'lernen' oder 'aufraeumen'."""
+        if kind not in ("jobsuche", "lernen", "aufraeumen"):
+            raise ValueError("kind muss 'jobsuche', 'lernen' oder 'aufraeumen' sein")
         ts = when_iso or _now()
         self.set_profile_setting(f"automatik_{kind}_last_at", ts)
         return ts

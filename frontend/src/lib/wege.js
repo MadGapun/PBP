@@ -23,6 +23,19 @@ export function zuStelle(jobHash) {
   return h ? { seite: "stellen", intent: { focus: "job", jobHash: h, oeffnen: true } } : null;
 }
 
+/**
+ * Die Stellen, die noch auf das Urteil des Menschen warten (Filter „Prüfstand: nur ungeprüfte“, #1187): eine Liste, kein
+ * Objekt. Der Sprung setzt den Filter über dieselbe Definition, die auch „Filter zurücksetzen“ benutzt.
+ */
+export function zuUngeprueftenStellen() {
+  return { seite: "stellen", intent: { pruefstand: "ungeprueft" } };
+}
+
+/** Die Ansicht „Ausgeblendet“ der Stellenliste — dort liegt auch, was Claude nach dem Lesen aussortiert hat (#1187). */
+export function zuAusgeblendetenStellen() {
+  return { seite: "stellen", intent: { view: "dismissed" } };
+}
+
 /** Eine Bewerbung öffnen — ihre Timeline. */
 export function zuBewerbung(bewerbungId) {
   const id = kennung(bewerbungId);

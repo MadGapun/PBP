@@ -983,3 +983,11 @@ elwosa_paused_until         ISO-Timestamp oder leer
 - Pattern wie #513 Tagesimpulse
 - GitHub-Issue-Template fuer „Elwosa-Linie vorschlagen"
 - Tonfall-Review durch Maintainer
+
+## Die Eingabe unter dem Strom ist nicht Elwosa (1.8.0, #1233)
+
+Läuft die lokale KI, steht unter dem Elwosa-Strom ein Feld „Frag zur Bedienung …“. Es ist die **Hilfe**, nicht Elwosa: sie sucht die Antwort in der eingebauten Hilfe,
+den häufigen Fragen, dem Wiki und dem Prompt-Katalog und zeigt Karten mit Quelle, Sprung, Wiki-Link und Prompt zum Kopieren. Elwosa selbst antwortet dort nicht, spricht
+dort nicht und bekommt die Frage nicht zu sehen; es gibt kein freies Chatfenster (die Entscheidung aus #771 und #774 bleibt: ein 7B/8B-Modell antwortet plausibel auch
+dort, wo es falsch liegt). Fragen werden nicht gespeichert, auch nicht als Elwosa-Nachricht. Eine Kurzantwort der lokalen KI über den Karten ist eine Beta und steht
+unter Einstellungen › Lokale KI, standardmäßig aus.

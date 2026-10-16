@@ -170,7 +170,8 @@ def regler_anpassen(db_ref, reason: str, count: int) -> str | None:
 
 def aussortieren(db, job_hash: str, reason_list: list[str],
                  collect_hints: bool = True,
-                 skip_auto_adjust: bool = False) -> dict:
+                 skip_auto_adjust: bool = False,
+                 herkunft: str = "ich") -> dict:
     """Wendet 'aussortieren' auf eine Stelle an mit voller PBP-Lifecycle-Logik.
 
     Geht durch alle Hooks: dismiss_counts, blacklist-hint, auto-adjust-scoring,
@@ -195,7 +196,7 @@ def aussortieren(db, job_hash: str, reason_list: list[str],
     if "duplikat" in reason_list:
         dup_info = duplikat_finden(db, job_hash)
 
-    db.dismiss_job(job_hash, reason_str)
+    db.dismiss_job(job_hash, reason_str, herkunft=herkunft)
 
     # Track rejection counts for learning (#66)
     counts = db.get_setting("dismiss_counts", {})

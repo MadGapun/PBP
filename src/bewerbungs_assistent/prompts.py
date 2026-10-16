@@ -379,7 +379,9 @@ SCHRITT 3B — MAIL-KORRESPONDENZ
    - Angebot → bewerbung_status_aendern(bewerbung_id, "angebot")
    - Recruiter-Anfrage zu NEUER Position → bewerbung_erstellen
 3. Mail-Inhalt sichern:
-   - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>")
+   - bewerbung_notiz(bewerbung_id, "Mail vom DD.MM.YYYY: <Zusammenfassung>",
+     art="kontakt") — eine Mail des Arbeitgebers ist Kontakt, die offene
+     Nachfass-Erinnerung wird damit hinfällig
    - Optional: dokument_verknuepfen(dokument_id, bewerbung_id) damit das
      Original-PDF an der Bewerbung hängt
 4. Bei Absagen mit erkennbarem Grund: ablehnungsgrund im
@@ -390,7 +392,7 @@ SCHRITT 3C — BEWERBUNGS-ANHANG
 ═══════════════════════════════════════════════════
 
 1. Firma aus Dateiname / Inhalt extrahieren
-2. Passende Bewerbung finden (bewerbung_stellen_anzeigen, Match auf Firma)
+2. Passende Bewerbung finden: firma_kontext(firmenname) bzw. bewerbungen_anzeigen(), Match auf Firma
 3. Bei genau einem Treffer:
    - dokument_verknuepfen(dokument_id, bewerbung_id)
    - bewerbung_bearbeiten(bewerbung_id, cv_path=... ODER cover_letter_path=...)
@@ -766,7 +768,7 @@ Das kann je nach Anzahl der Quellen 5-10 Minuten dauern.
    Browser gehen): ARBEITE DIESE QUELLEN SELBST AB — ohne Nachfrage —, sofern
    Claude-in-Chrome verbunden ist, während die Hintergrund-Suche laeuft: Suchbegriffe je Jobbörse aus
    suchprofil_lesen(), alle Treffer, die fachlich passen oder nahezu passen, mit
-   stelle_manuell_anlegen() erfassen. {REGEL_IM_ZWEIFEL}
+   browser_treffer_uebernehmen() erfassen (einzelne Stellen: stelle_manuell_anlegen()). {REGEL_IM_ZWEIFEL}
    Ohne Claude-in-Chrome: die Jobbörsen nennen und den Weg erklären.
    AUSNAHME: Steht eine Quelle zusätzlich im Feld `nur_auf_wunsch` (jobtic), arbeitest du sie NICHT von selbst ab —
    frage den Menschen, ob du dort suchen sollst, und halte dich dann an die Auflagen aus quelle_handoff().
@@ -790,11 +792,10 @@ WAS PASSIERT: Für Stellen die gut passen, erstellen wir Bewerbungsunterlagen.
 Du kannst das auch später über den "Jetzt bewerben" Button im Dashboard machen.
 
 Für passende Stellen:
-→ "Soll ich ein Anschreiben für [Stelle] bei [Firma] schreiben?"
-→ Nutze workflow_starten(name='bewerbung_schreiben') für das Anschreiben
-→ Exportiere als PDF/DOCX mit anschreiben_exportieren()
-→ Exportiere den Lebenslauf mit lebenslauf_exportieren()
-→ Erfasse die Bewerbung mit bewerbung_erstellen()
+→ "Soll ich Lebenslauf und Anschreiben für [Stelle] bei [Firma] vorbereiten?"
+→ Bei Ja: workflow_starten(name='bewerbung_schreiben') und GENAU diesem Ablauf
+  folgen (#1200 A2) — er prüft vor dem Export, exportiert als DOCX und legt
+  keine zweite Bewerbung an. Stelle und Firma kennst du von hier.
 
 REGELN:
 - Erkläre jeden Schritt verständlich
@@ -1002,7 +1003,12 @@ ABLAUF
    → "Lass uns zusammen schauen was passiert ist."
    → Gehe die Timeline durch: Wann beworben? Was passierte danach?
    → Frage nach dem Feedback: "Haben sie dir einen Grund genannt?"
-   → Wenn ja: Speichere mit bewerbung_notiz()
+   → Wenn ja: den Grund in den Worten der Firma speichern mit
+     bewerbung_bearbeiten(bewerbung_id, ablehnungsgrund="...") — nur dieses
+     Feld liest ablehnungs_muster() und die Absage-Auswertung im Dashboard
+     (#1200 A3). Ist die Bewerbung noch nicht abgelehnt:
+     bewerbung_status_aendern(bewerbung_id, 'abgelehnt', ablehnungsgrund="...").
+     Einen Grund, den die Firma nicht genannt hat, nie erfinden.
 
 3. MUSTER ERKENNEN
    → Rufe ablehnungs_muster() auf
@@ -1042,26 +1048,30 @@ ABLAUF
 
 1. STELLE ERFASSEN
    → User gibt URL, Text oder "Stelle bei Firma XY"
-   → Wenn job_hash vorhanden: Lade Stellendaten aus DB
-   → Wenn URL: Extrahiere Titel, Firma, Beschreibung
-   → Erstelle automatisch Bewerbung mit bewerbung_erstellen()
+   → Wenn job_hash vorhanden: Lade Stellendaten aus dem Bestand
+   → Wenn URL: Titel, Firma und Beschreibung aus der Anzeige lesen
+   → Vorher firma_kontext(firmenname): Gibt es schon eine Bewerbung oder
+     diese Stelle, arbeitest du damit weiter und legst NICHTS doppelt an.
 
-2. DOKUMENTE ERSTELLEN
-   → Erstelle angepassten Lebenslauf: lebenslauf_angepasst_exportieren()
-   → Bewerte mit lebenslauf_bewerten() → optimiere basierend auf Feedback
-   → Frage ob Anschreiben gewünscht
-   → Wenn ja: Erstelle + exportiere mit anschreiben_exportieren()
+2. UNTERLAGEN
+   → workflow_starten(name='bewerbung_schreiben') und GENAU diesem Ablauf
+     folgen (#1200 A2): erst prüfen, dann als DOCX exportieren, die
+     Bewerbung nur anlegen, wenn es sie noch nicht gibt. Stelle und Firma
+     kennst du schon — danach nicht noch einmal fragen.
 
 3. NACHBEREITUNG
-   → Plane Follow-up: nachfass_planen()
+   → Erst wenn der User sagt, dass er die Bewerbung abgeschickt hat:
+     bewerbung_status_aendern(bewerbung_id, 'beworben') — das plant die
+     Nachfass-Erinnerung mit.
    → Zeige Zusammenfassung: bewerbung_details()
    → "Deine Bewerbungsunterlagen liegen in: [Pfad]"
 
 ═══════════════════════════════════════════════════
 REGELN
 ═══════════════════════════════════════════════════
-- Sei schnell und effizient — nicht unnötig fragen
-- Wenn genug Informationen da sind → einfach machen
+- Zügig: frag nur, was du aus Profil und Anzeige nicht ablesen kannst.
+- Die Freigabe vor dem Export bleibt — der User sieht Lebenslauf und
+  Anschreiben, bevor eine Datei entsteht.
 - Zeige am Ende ALLE erstellten Dateien
 - Sprich Deutsch und per Du
 """
@@ -1295,48 +1305,42 @@ Gehe diese Schritte der Reihe nach durch. Markiere erledigte Schritte.
     → Zeige dem User: Was passt, was fehlt, Risiken
     → Nenne die Punkte so, wie fit_analyse sie liefert (punkte_text), und
       was sie bedeuten: {SCORE_BEDEUTUNG} Keine Prozentzahl.
+    → Habt ihr Anzeige und Profil gelesen: das Urteil mit
+      stelle_urteil_speichern(job_hash, urteil, begruendung) festhalten.
 
-[ ] 2. SKILL-GAP PRUEFEN
+[ ] 2. LÜCKEN PRÜFEN
     → Rufe skill_gap_analyse(job_hash) auf
-    → Zeige dem User welche Skills fehlen und wie er sie darstellen kann
-    → "Dir fehlt X — aber du hast Y was aehnlich ist. Das können wir im CV betonen."
+    → Zeige dem User, welche Fähigkeiten fehlen und wie er sie darstellen kann
+    → "Dir fehlt X — aber du hast Y, das ist ähnlich. Das können wir im Lebenslauf betonen."
 
-[ ] 3. LEBENSLAUF ANPASSEN
-    → Rufe lebenslauf_angepasst_exportieren(stelle, firma, stellenbeschreibung) auf
-    → Der CV wird automatisch auf die Stelle optimiert
-    → "Dein angepasster Lebenslauf ist fertig! Schau ihn dir an und sag mir ob er passt."
+[ ] 3. UNTERLAGEN (Lebenslauf und Anschreiben)
+    → workflow_starten(name='bewerbung_schreiben') und GENAU diesem Ablauf
+      folgen (#1200 A2): erst bewerten, dann als DOCX exportieren.
+    → Die Bewerbung steht oben — Stelle und Firma nicht noch einmal
+      erfragen und KEINE neue Bewerbung anlegen; die Dateipfade kommen mit
+      bewerbung_bearbeiten(bewerbung_id, cv_path=..., cover_letter_path=...)
+      an diese Bewerbung.
 
-[ ] 4. LEBENSLAUF BEWERTEN LASSEN
-    → Rufe lebenslauf_bewerten(stelle, firma, stellenbeschreibung) auf
-    → Zeige die 3-Perspektiven-Analyse (Personalberater, ATS, Recruiter)
-    → Bei Score < 70: Verbesserungsvorschläge umsetzen
+[ ] 4. STAND PRÜFEN
+    → Rufe bewerbung_details(bewerbung_id) auf: Sind die Unterlagen an der
+      Bewerbung? Falsch zugeordnete Dokumente mit dokument_entverknuepfen()
+      lösen und richtig verknüpfen.
 
-[ ] 5. ANSCHREIBEN ERSTELLEN
-    → Nutze den Workflow bewerbung_schreiben
-    → Oder erstelle das Anschreiben direkt und exportiere mit anschreiben_exportieren()
-    → Stil mit bewerbung_stil_tracken() festhalten
-
-[ ] 6. DOKUMENTE VERKNUEPFEN
-    → Prüfe ob alle erstellten Dokumente verknüpft sind
-    → Rufe bewerbung_details(bewerbung_id) auf um den Stand zu sehen
-
-[ ] 7. ABSCHLUSS
-    → Fasse zusammen was erstellt wurde
-    → Frage: "Bist du bereit die Bewerbung abzuschicken?"
-    → Bei Ja: bewerbung_status_aendern(bewerbung_id, 'beworben')
-    → "Glückwunsch! Deine Bewerbung ist komplett vorbereitet."
+[ ] 5. ABSCHLUSS
+    → Fasse zusammen, was erstellt wurde und wo die Dateien liegen
+    → Frage: "Bist du bereit, die Bewerbung abzuschicken?"
+    → Erst wenn er sie abgeschickt hat: bewerbung_status_aendern(bewerbung_id, 'beworben')
 
 ═══════════════════════════════════════════════════
 WICHTIGE REGELN
 ═══════════════════════════════════════════════════
 
-- Nach JEDEM Schritt: Timeline-Eintrag erstellen mit bewerbung_notiz()
-  z.B. "Fit-Analyse durchgefuehrt (Score: 78)" oder "CV angepasst und exportiert"
-- Automatisch dokument_verknuepfen() aufrufen wenn Dokumente erstellt werden
-- Wenn der User einen Gesprächstermin erwaehnt: SOFORT mit meeting_hinzufuegen() speichern
+- Nach jedem erledigten Schritt eine kurze Notiz an der Bewerbung mit
+  bewerbung_notiz(), z.B. "Fit-Analyse: BEDINGT" oder "Lebenslauf angepasst"
+  (art="intern" ist die Vorgabe: eigene Arbeitsschritte lassen die
+  Nachfass-Erinnerung bestehen)
+- Wenn der User einen Gesprächstermin erwähnt: SOFORT mit meeting_hinzufuegen() speichern
   (typ='interview'|'telefon'|'video', datum als ISO-String)
-- Falsch zugeordnete Dokumente mit dokument_entverknuepfen() lösen, dann korrekt verknüpfen
-- Anschreiben-/CV-Pfade nach Export über bewerbung_bearbeiten(cover_letter_path=..., cv_path=...) ablegen
 - Den User NICHT mit allen Schritten auf einmal überfordern — immer nur den nächsten zeigen
 - {TON}
 """
@@ -1394,7 +1398,7 @@ Ich bin dein persönlicher Karriere-Helfer. Ich helfe dir dabei:
 
 - PROFIL ERSTELLEN: Lockeres Gespräch, kein steifes Formular
 - JOBS FINDEN: Die konfigurierten Job-Quellen gleichzeitig durchsuchen (Einstellungen › Quellen)
-- BEWERBUNGEN SCHREIBEN: Stellenspezifische Anschreiben, Export als PDF/DOCX
+- BEWERBUNGEN SCHREIBEN: Lebenslauf und Anschreiben passend zur Stelle, als Word-Datei zum Nachbearbeiten
 - LEBENSLAUF EXPORTIEREN: Professionell formatiert
 - INTERVIEW-VORBEREITUNG: STAR-Antworten, Gehaltsverhandlung
 - BEWERBUNGS-TRACKING: Dashboard auf {dashboard_link("bewerbungen")}

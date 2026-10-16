@@ -233,8 +233,8 @@ def bauen(*, ref=None, ordner=None, ausgabe: Path, schluessel_datei=None, vorabv
     if not fassung.gueltig(version):
         raise BauFehler(f"Ungueltige Fassung: {version!r}")
     if not fassung.ist_stabil(version) and not vorabversion:
-        raise BauFehler(f"{version} ist eine Vorabversion. Das Auto-Update installiert sie nie; mit --vorabversion "
-                        "trotzdem bauen (nur zum Erproben).")
+        raise BauFehler(f"{version} ist eine Vorabversion. Das Auto-Update installiert sie nur auf einer Vorabversion mit "
+                        "eingeschaltetem Schalter (#1199); mit --vorabversion trotzdem bauen.")
     auszug = changelog if changelog is not None else _changelog_auszug(clog, version)
     manifest = manifest_bauen(dateien, version, braucht_installer=braucht_installer, changelog=auszug)
     dateien.pop("pyproject.toml", None)
@@ -285,11 +285,11 @@ def _selbst_pruefen(archiv: Path, name: str, summen_bytes: bytes, sig_pfad, vers
     with tempfile.TemporaryDirectory() as tmp:
         ziel = Path(tmp) / "entpackt"
         entpacken.entpacken(archiv, ziel)
-        if fassung.ist_stabil(version):
-            # Eine Vorabversion (nur zum Erproben) liest das Auto-Update nie: ihr Manifest wuerde zu Recht abgewiesen.
-            m = manifest_modul.lesen(ziel / "manifest.json", erwartete_version=version)
-            if m.version != version:
-                raise BauFehler("Manifest und Fassung widersprechen sich")
+        # #1222: auch das Manifest einer Vorabversion geht durch den Leser der Installation. Vorher blieb es ungeprueft
+        # ("wuerde zu Recht abgewiesen") - genau die Stelle, die gezeigt haette, dass keine Vorabversion installierbar war.
+        m = manifest_modul.lesen(ziel / "manifest.json", erwartete_version=version)
+        if m.version != version:
+            raise BauFehler("Manifest und Fassung widersprechen sich")
         if not (ziel / "src" / "bewerbungs_assistent" / "__init__.py").is_file():
             raise BauFehler("Im Archiv fehlt src/bewerbungs_assistent/__init__.py")
         if not (ziel / "_selftest.py").is_file() or not (ziel / "start_dashboard.py").is_file():

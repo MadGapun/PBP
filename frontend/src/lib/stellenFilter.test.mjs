@@ -4,11 +4,14 @@ import {
   FILTER_SERVERNAMEN,
   SPEICHER_SCHLUESSEL,
   filterAusSpeicher,
+  filterAusVoreinstellung,
   filterFuerSpeicher,
+  filterFuerVoreinstellung,
   mehrereFilter,
   minScoreGesetzt,
   minScoreParameter,
   mitZahlen,
+  voreinstellungGilt,
 } from "./stellenFilter.js";
 
 // Eine Untergrenze gilt, sobald etwas Zahlenartiges drinsteht — auch 0 und negative Werte.
@@ -117,5 +120,52 @@ assert.equal(mehrereFilter(4, null), 4);
 assert.equal(mehrereFilter(0, { min_score: 2 }), 0);
 // Beworbene sind keine offenen Stellen und gehen in diese Rechnung nicht ein.
 assert.equal(mehrereFilter(5, { min_score: 2, beworbene_ausblenden: 9 }), 3);
+
+// ── #1158 Punkt 5: die ausdrücklich gesetzte Voreinstellung ─────────────────────────────────────────────────────────
+const VOR_STANDARD = {
+  query: "", source: "", minScore: "", remote: "", salaryOnly: false, sort: "score_desc", view: "active",
+  employmentType: "", arbeitsumfang: "", hideApplied: true, missingDescriptionOnly: false, pruefstand: "",
+  rahmenAusblenden: false, schwelleAusblenden: false,
+};
+
+// Was zum Server geht: alle Filter bis auf Suchtext und Ansicht, als Objekt (der Server prüft Schlüssel und Typen streng).
+const vorEin = filterFuerVoreinstellung({ ...VOR_STANDARD, query: "Planer", view: "dismissed", minScore: "-50", hideApplied: false });
+assert.equal(typeof vorEin, "object");
+assert.equal("query" in vorEin, false, "der Suchtext wird nie festgehalten");
+assert.equal("view" in vorEin, false, "die Ansicht auch nicht");
+assert.equal(vorEin.minScore, "-50");
+assert.equal(vorEin.hideApplied, false);
+
+// Zurück in ein Filterobjekt: nur bekannte Felder und Typen; Suchtext und Ansicht bleiben, wie sie jetzt sind.
+const jetzt = { ...VOR_STANDARD, query: "Elektro", view: "dismissed" };
+const angewandt = filterAusVoreinstellung({ minScore: "100", hideApplied: false, rahmenAusblenden: true }, VOR_STANDARD, jetzt);
+assert.equal(angewandt.minScore, "100");
+assert.equal(angewandt.hideApplied, false);
+assert.equal(angewandt.rahmenAusblenden, true);
+assert.equal(angewandt.query, "Elektro");
+assert.equal(angewandt.view, "dismissed");
+assert.equal(angewandt.sort, "score_desc", "was die Voreinstellung nicht nennt, bleibt die Vorgabe");
+// falsche Typen und fremde Felder (etwa aus einer anderen Fassung) fallen auf die Vorgabe zurück
+const kaputt = filterAusVoreinstellung({ minScore: 5, hideApplied: "ja", fremd: 1, query: "x", view: "dismissed" }, VOR_STANDARD, jetzt);
+assert.equal(kaputt.minScore, "");
+assert.equal(kaputt.hideApplied, true);
+assert.equal("fremd" in kaputt, false);
+assert.equal(kaputt.query, "Elektro", "der Suchtext kommt nie aus der Voreinstellung");
+assert.equal(kaputt.view, "dismissed", "die Ansicht auch nicht");
+assert.deepEqual(filterAusVoreinstellung(null, VOR_STANDARD, jetzt), { ...VOR_STANDARD, query: "Elektro", view: "dismissed" });
+
+// Gilt gerade genau die Voreinstellung? Ohne Voreinstellung: nein.
+const v = { hideApplied: true, minScore: "-5" };
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, minScore: "-5" }, v, VOR_STANDARD), true);
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, minScore: "-5", query: "egal", view: "dismissed" }, v, VOR_STANDARD), true,
+  "Suchtext und Ansicht gehören nicht zur Voreinstellung");
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, minScore: "0" }, v, VOR_STANDARD), false);
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, minScore: "-5", rahmenAusblenden: true }, v, VOR_STANDARD), false);
+assert.equal(voreinstellungGilt(VOR_STANDARD, null, VOR_STANDARD), false);
+assert.equal(voreinstellungGilt(VOR_STANDARD, undefined, VOR_STANDARD), false);
+// ein Feld, das die Voreinstellung nicht nennt, gilt mit seiner Vorgabe: die Voreinstellung „Beworbene aus“ trifft
+// keinen Zustand, in dem noch etwas anderes verändert ist
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, hideApplied: false }, { hideApplied: false }, VOR_STANDARD), true);
+assert.equal(voreinstellungGilt({ ...VOR_STANDARD, hideApplied: false, remote: "remote" }, { hideApplied: false }, VOR_STANDARD), false);
 
 console.log("stellenFilter: ok");

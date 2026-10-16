@@ -1,4 +1,4 @@
-"""Profil-Verwaltung — 23 Tools.
+"""Profil-Verwaltung.
 
 Enthalt: Profil-Grundlagen, Multi-Profil, Erfassungsfortschritt,
 Skill-Pflege, Projekt-Abfrage (projekte_anzeigen, #741) und
@@ -952,7 +952,8 @@ def register(mcp, db, logger):
                 "projekte": [],
                 "nachricht": (
                     "Keine Projekte im Profil. Mit projekt_hinzufuegen() oder "
-                    "profil_bearbeiten(bereich='projekt') anlegen."
+                    "profil_bearbeiten(bereich='projekt', aktion='hinzufuegen', "
+                    "daten={...}) anlegen."
                 ),
             }
 
@@ -2569,10 +2570,6 @@ def register(mcp, db, logger):
         if generiert_von:
             result["generiert_von"] = generiert_von
         return result
-
-    # H29 (#1087 G11): alter Name, einen Release lang erreichbar.
-    from . import veralteter_name as _veraltet
-    _veraltet(mcp, "jobtitel_vorschlagen", jobtitel_speichern, "jobtitel_speichern")
 
     @mcp.tool()
     def jobtitel_verwalten(titel_id: str = "", aktion: str = "anzeigen", neuer_titel: str = "") -> dict:

@@ -652,7 +652,7 @@ def test_pp19_in_keiner_bat_steht_die_fehlermarke_unmaskiert():
 def test_pp19_remove_path_zeigt_die_fehlermarke_wirklich_an(tmp_path):
     """Das ECHTE Unterprogramm mit einer gesperrten Datei: vorher stand „[] … konnte nicht entfernt werden“."""
     text = _bat().replace("\r\n", "\n")
-    sub = text[text.index(":remove_path\n"):text.index("exit /b 0", text.index("echo         [OK] %TARGET_LABEL% entfernt")) + len("exit /b 0")]
+    sub = text[text.index(":remove_path\n"):text.index("exit /b 0", text.index("echo         [OK] !TARGET_LABEL! entfernt")) + len("exit /b 0")]
     ziel = tmp_path / "ordner"
     ziel.mkdir()
     (ziel / "x.bin").write_bytes(b"1234")
