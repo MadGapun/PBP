@@ -63,7 +63,7 @@ Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiv
 
 ### Known Issues
 
-- **Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft** (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort an der Reihe war, steht an seinen Stellen noch die alte Zahl.
+- **Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft** (#1235): je Lauf höchstens 40 Orte ohne PLZ, mit einer Anfrage je Sekunde an den Kartendienst. Ein Suchlauf kann dadurch bis zu etwa eine Minute länger dauern, bis der Bestand durch ist. Bis ein Ort an der Reihe war, steht an seinen Stellen noch die alte Zahl.
 
 ### Gemessen
 
