@@ -33,6 +33,94 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-rc.4] - 16.10.2026 — Die Hilfe beantwortet Fragen zur Bedienung (Release-Kandidat)
+
+<!-- anwender -->
+Neu: Du kannst PBP fragen, wie etwas geht. Im Hilfe-Dialog (das Fragezeichen oben im Fenster) gibt es den Reiter „Frag mich“: Du tippst eine Frage in eigenen Worten, und PBP zeigt dir, wo es steht — mit einem Sprung in die richtige Einstellung, dem Link zur Wiki-Seite und, wo es passt, einem fertigen Text für Claude. Deine Frage wird nirgends gespeichert. Seit der letzten Vorabversion ist außerdem viel Feinschliff dazugekommen: jede Ansicht führt in einem Klick weiter und zurück, Listen beginnen ohne Scrollen, die Browser-Suche übernimmt ihre Ernte in einem Zug, die Aufräum-Runde läuft einmal am Tag von selbst, und der Installer kommt mit Sonderzeichen in Ordnernamen zurecht.
+<!-- /anwender -->
+
+Vierter Release-Kandidat für 1.8.0 — der Stand, aus dem 1.8.0 werden soll. Gegenüber `1.8.0-rc.3` kommt viel dazu: die Hilfe zum Fragen (#1233), die Weg-Leiste und die Listen zuerst (#1170, #1171), die Ernte der Browser-Quellen (#1184, #1187), die tägliche Aufräum-Runde (#1139), der überarbeitete Installer (#1149), die Rückführung aus Claude (#1200) und die Funde der unabhängigen Prüfung und des dritten Werkstatt-PC-Laufs (#1201 bis #1235). Die Einzelheiten zu jedem Punkt stehen im Abschnitt `[1.8.0]` darunter; hier steht die Auswahl, die du beim Testen bemerkst.
+
+**Von rc.3 aus von Hand installieren:** rc.3 kann eine Vorabversion nicht von selbst installieren (der Fehler #1222 ist erst ab rc.4 behoben). Wer rc.3 nutzt, installiert rc.4 einmal wie gewohnt per ZIP; ab rc.4 holt „Vorabversionen automatisch“ die nächste Vorabversion von selbst.
+
+### Added
+
+- **Fragen zur Bedienung, beantwortet aus Hilfe, häufigen Fragen, Wiki und Prompts** (#1233). Im Hilfe-Dialog gibt es den Reiter „Frag mich“: Du tippst eine Frage in eigenen Worten (vor der ersten Frage stehen vier Beispiele zum Anklicken), und PBP zeigt Karten mit Titel, Kurztext und Quelle — mit einem Sprung in die richtige Einstellung, dem Link zur Wiki-Seite und, wo es einen gibt, dem Prompt zum Kopieren für Claude. Passt nichts, sagt die Hilfe das und legt einen fertigen Satz für Claude bereit. Läuft die lokale KI, steht dieselbe Eingabe auch unter dem Elwosa-Strom in der Seitenleiste. Die Antworten kommen aus einer Suche im Text, nicht aus einem Sprachmodell, und **deine Frage wird nicht gespeichert**. Gemessen: bei Fragen in Alltagssprache, die die Suche nie gesehen hat, steht der richtige Abschnitt in rund drei von vier Fällen (76 %) unter den ersten drei Karten.
+- **Kurzantwort der lokalen KI (Beta, standardmäßig aus)** (#1233). Unter Einstellungen › Lokale KI lässt sich einschalten, dass die lokale KI über den Karten eine kurze Antwort formuliert; sie darf nur umformulieren, was in den besten Abschnitten steht, muss eine Quelle nennen und darf nichts erfinden.
+- **Jede Ansicht eines Falls trägt eine feste Weg-Leiste, der Rückweg führt dorthin zurück, woher du kamst, und die erste Zeile jeder Liste liegt ohne Scrollen da** (#1171). Stelle, Bewerbung, Kontakt und Firma zeigen oben eine Leiste mit dem Rückweg, den anderen Ansichten desselben Falls und dem nächsten Schritt; die Zurück-Taste der Maus (Alt+←) schließt den obersten Dialog, statt die Seite zu verlassen; der Kopf der Listen „Stellen“ und „Bewerbungen“ ist eine Zeile.
+- **Die Browser-Suche übernimmt ihre Ernte in einem Zug** (#1187). Ein gemeinsamer Weg legt die Treffer jeder Browser-Quelle (StepStone, XING, Indeed, Google Jobs, Heise, eigene Quellen) in PBP an, jeder Browserlauf steht in der Auswertung der Quellen, und die Karte „Stellen zu prüfen“ im Dashboard nennt, was nach einem Lauf auf dein Urteil wartet.
+- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Das Abschließen von Bewerbungen ist ein eigener Schalter und bleibt aus, bis du ihn einschaltest.
+- **Kleinere Neuerungen:** der Typ eines einzelnen Dokuments lässt sich von Hand ändern (#1162), die Filter der Stellenliste lassen sich als Voreinstellung speichern (#1158), die Sprachdaten der Texterkennung kommen aus einer festen Fassung mit Prüfsumme (#1165).
+
+### Changed
+
+- **Die drei alten Werkzeugnamen entfallen** (#1148): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`). Die Parameter sind dieselben; wer eigene Anleitungen mit den alten Namen hat, ersetzt sie.
+- **Der Schalter „Dokumentenanalyse“ sperrt auch, was Dokument- und Mailtexte liefert** (#1147): wer die Dokumentenanalyse aus Datenschutzgründen abschaltet, gibt auch den vollen Text von Dokumenten und Mails nicht mehr an Claude weiter.
+- **Ein Google-Treffer ohne Original wird nicht mehr angelegt, und Benachrichtigungen aus Google liefern Hinweise statt Stellen** (#1184); Google Jobs über JobSpy gilt als defekt und steht unter „Defekte Quellen“ (#1159).
+- **Bedienung** (#1170): die Seitenleiste klappt in schmalen Fenstern von selbst ein, die Kopierknöpfe heißen überall „Mit Claude“, lange Erklärtexte lassen sich einklappen, und ein Scan ohne Text nennt den Weg zur Texterkennung.
+
+### Fixed
+
+- **Was Claude erarbeitet, kommt in PBP an** (#1200): LinkedIn-Daten holen schreibt über die Werkzeuge von PBP, die vier Anleitungen für „Bewerbung erstellen“ widersprechen sich nicht mehr, der Absagegrund aus dem Gespräch landet in „Aus Absagen lernen“, ein einzelnes Dokument bleibt nach der Analyse nicht offen, und die Stellen-Seite zeigt „Keine Angabe“ statt „0 EUR“.
+- **Installer, Deinstaller und Update-Anzeige** (#1149, #1224, #1228, #1229): ein Ordnername mit Ausrufezeichen, Apostroph oder Klammer bricht den Installer nicht mehr, der Windows-Deinstaller endet nicht mehr nach der Backup-Frage, „Apps & Features“ nennt nach einem Auto-Update die laufende Fassung, und „Beim nächsten Start nutzen“ für eine neuere installierte Fassung heißt „Umgeschaltet“.
+- **Das Auto-Update für Vorabversionen installiert die gefundene Vorabversion** (#1222; seit rc.3), die Update-Seite zeigt „Stand unbekannt“ statt „Aktuell“, wenn die Prüfung keine Antwort bekam (#1225), und „Vorabversionen automatisch“ nennt nach dem Einschalten keinen falschen Grund mehr (#1226).
+- **Ohne Ollama kostete die Abfrage der lokalen KI unter Windows vier Sekunden** (#1227; betrifft auch ältere Versionen) — jetzt höchstens eine.
+- **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betrifft auch Stable 1.7.157).
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betrifft auch Stable seit 1.7.142): `bewerbung_notiz` hat jetzt den Parameter `art`, und die Vorgabe `intern` lässt die Erinnerung stehen.
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betrifft auch Stable): nur Gründe, die ein Urteil über die Passung sind, zählen noch als „schon einmal aussortiert“.
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betrifft auch Stable): ein Ort wie „Rosengarten“ hat jetzt keine Entfernung statt einer geratenen, und die Karte nennt die Orte, die der Name meint.
+- **„Daten löschen“ und „Speicher aufräumen“ warten auf die tägliche Aufräum-Runde** (#1139): läuft die Runde gerade, galt PBP bisher als untätig und hätte unter ihr gelöscht; jetzt steht sie bei der laufenden Hintergrundarbeit („die Aufräum-Runde“).
+- **Funde der unabhängigen Prüfung des Release-Zweigs** (#1201 bis #1221): eine Google-Stelle umging den Schutz bei anderer Schreibweise der Quelle, die Zurück-Taste fror bei geänderter Eingabe einen Dialog ein, die Stellen-Seite kannte nur die 30 jüngsten Bewerbungen, auf macOS und Linux brach ein Leerzeichen im Ordnernamen den Installer, und weitere Kleinigkeiten.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9546 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.4.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.4.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.4 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.4` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0] - 2026-10-12 — Updates, die sich selbst installieren
 
 <!-- anwender -->
