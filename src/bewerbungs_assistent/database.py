@@ -717,6 +717,14 @@ class Database:
                 )
             """)
             conn.commit()
+            # #1235: der Stand der Zeile (vor der Mehrdeutigkeits-Pruefung: NULL, wird neu gefragt) und die
+            # Kandidaten eines Ortes, den der Dienst mehrfach kennt. Additiv, ohne Schema-Bump.
+            _geo_spalten = {r[1] for r in conn.execute("PRAGMA table_info(geo_cache)").fetchall()}
+            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):
+                if _sp not in _geo_spalten:
+                    conn.execute(f"ALTER TABLE geo_cache ADD COLUMN {_sp} {_typ}")
+                    conn.commit()
+                    logger.info("Safety-Net: geo_cache.%s nachgezogen (#1235)", _sp)
             try:
                 from .services import geocoding_service as _geo
                 _geo.speicher_setzen(self)

@@ -74,12 +74,23 @@ def befund(db) -> dict:
     if not quelle and profil_ort:
         # Wohnort steht im Profil, ist aber (noch) nicht aufgeloest.
         quelle = PROFIL
-    return {
+    erg = {
         "ort": k.get("standort_ort") or (profil_ort if quelle == PROFIL else ""),
         "quelle": quelle,
         "aufgeloest": bool(lat and lon),
         "profil_wohnort": profil_ort,
     }
+    if not erg["aufgeloest"]:
+        # #1235: kennt der Ortsdienst mehrere Orte dieses Namens, ist das der Grund - und der Mensch kann etwas tun
+        # (PLZ ergaenzen). Aus dem Gedaechtnis des Dienstes, ohne Netz.
+        try:
+            from .geocoding_service import mehrdeutigkeit
+            kandidaten = mehrdeutigkeit(erg["ort"] or profil_ort)
+        except Exception:  # noqa: BLE001 - eine Auskunft darf den Befund nie kippen
+            kandidaten = None
+        if kandidaten:
+            erg["mehrdeutig"] = [k_["name"] for k_ in kandidaten]
+    return erg
 
 
 def _setzen(db, ort: str, quelle: str, coords) -> None:
@@ -164,6 +175,14 @@ def eigenen_setzen(db, ort: str, neu_rechnen: bool = True) -> dict:
     vorher = _koordinaten(db)
     coords = geocode_location(ort)
     if not coords:
+        # #1235: gibt es den Ort mehrfach, sagt der Hinweis das und nennt die Kandidaten.
+        from .geocoding_service import mehrdeutigkeit
+        kandidaten = mehrdeutigkeit(ort)
+        if kandidaten:
+            namen = [k_["name"] for k_ in kandidaten]
+            return {"status": "nicht_aufgeloest", "ort": ort, "mehrdeutig": namen,
+                    "hinweis": (f"„{ort}“ gibt es mehrfach in Deutschland ({'; '.join(namen)}). "
+                                f"Nenne die PLZ dazu, etwa „12345 {ort}“.")}
         return {"status": "nicht_aufgeloest", "ort": ort,
                 "hinweis": f"„{ort}“ ließ sich nicht auflösen. Versuche PLZ und Ort."}
     _setzen(db, ort, EIGENE, coords)
@@ -183,7 +202,7 @@ def entfernungen_nachziehen(db, alle: bool = False,
     `alle=False`: nur Stellen mit Ort und ohne Entfernung (Nachholen).
     Von Hand gesetzte Entfernungen bleiben. Je VERSCHIEDENEM Ort eine
     Anfrage; `max_orte` begrenzt einen Lauf."""
-    from .geocoding_service import calculate_distance_km, geocode_location
+    from .geocoding_service import calculate_distance_km, geocode_location, mehrdeutigkeit
     start = _koordinaten(db)
     if not start:
         return {"status": "kein_standort", "stellen": 0, "orte": 0}
@@ -213,12 +232,23 @@ def entfernungen_nachziehen(db, alle: bool = False,
                 fortschritt(i, len(orte))
             except Exception as exc:  # noqa: BLE001 — Anzeige, nicht der Zweck
                 logger.warning("Fortschritt der Entfernungen nicht gespeichert: %s", exc)
-    gerechnet, unaufloesbar = 0, 0
+    # #1235: ein Ort, den der Dienst mehrfach kennt, hat keine Koordinaten - die Anzeigen seiner Stellen duerfen ihn
+    # aber klaeren (PLZ oder Bundesland hinter dem Namen). Auch das ist Netz und kommt VOR dem Schreiben.
+    klaerung: dict = {}
+    for ort in orte:
+        if not ziele[ort] and mehrdeutigkeit(ort):
+            klaerung[ort] = _mehrdeutigen_ort_klaeren(con, start, ort, nach_ort[ort])
+    gerechnet, unaufloesbar, mehrdeutig = 0, 0, 0
     am = _jetzt()
     for ort in orte:
         ziel = ziele[ort]
         hashes = nach_ort[ort]
         platz = ",".join("?" * len(hashes))
+        if not ziel and ort in klaerung:
+            geklaert, offen_ = _klaerung_schreiben(con, klaerung[ort], am)
+            gerechnet += geklaert
+            mehrdeutig += offen_
+            continue
         if ziel:
             km = calculate_distance_km(start, ziel)
             con.execute(
@@ -232,7 +262,93 @@ def entfernungen_nachziehen(db, alle: bool = False,
     con.commit()
     offen = len(nach_ort) - len(orte)
     return {"status": "fertig", "stellen": gerechnet, "orte": len(orte),
-            "unaufloesbar": unaufloesbar, "orte_offen": offen}
+            "unaufloesbar": unaufloesbar, "mehrdeutig": mehrdeutig, "orte_offen": offen}
+
+
+def _mehrdeutigen_ort_klaeren(con, start, ort: str, kennungen: list) -> list:
+    """Die Stellen EINES mehrdeutigen Ortes (#1235): was die Anzeige klaert, bekommt eine Entfernung.
+
+    Rueckgabe: [(kennung, genau | None)] - `genau` ist {"km", "koordinaten", "aufgeloest_durch"}, wenn die Anzeige
+    PLZ oder Bundesland hinter dem Namen nennt und der Dienst damit EINEN Ort findet. Das ist Netz; geschrieben
+    wird erst danach (#1118).
+    """
+    from .geocoding_service import entfernung_aus_anzeige
+    plan = []
+    for kennung in kennungen:
+        reihe = con.execute("SELECT description FROM jobs WHERE hash=?", (kennung,)).fetchone()
+        plan.append((kennung, entfernung_aus_anzeige(ort, start[0], start[1], (reihe[0] if reihe else "") or "")))
+    return plan
+
+
+def _klaerung_schreiben(con, plan: list, am: str) -> tuple:
+    """Schreibt, was `_mehrdeutigen_ort_klaeren` vorbereitet hat. (geklaert, auf unbekannt gestellt)
+
+    Eine Stelle, die die Anzeige nicht klaert, verliert ihre Entfernung: eine Zahl, die auf einem Raten beruht,
+    ist schlechter als keine (#989) - sie stuende sonst als "nah" in der Liste.
+    """
+    geklaert = unbekannt = 0
+    for kennung, genau in plan:
+        if genau:
+            con.execute(
+                "UPDATE jobs SET distance_km=?, lat=?, lon=?, entfernung_am=?, "
+                "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL WHERE hash=?",
+                (genau["km"], genau["koordinaten"][0], genau["koordinaten"][1], am, kennung))
+            geklaert += 1
+        else:
+            cur = con.execute(
+                "UPDATE jobs SET distance_km=NULL, lat=NULL, lon=NULL, entfernung_am=?, "
+                "fahrstrecke_km=NULL, fahrzeit_min=NULL, route_quelle=NULL "
+                "WHERE hash=? AND distance_km IS NOT NULL", (am, kennung))
+            unbekannt += cur.rowcount if cur.rowcount and cur.rowcount > 0 else 0
+    return geklaert, unbekannt
+
+
+#: #1235: Orte, die in DIESEM Prozess schon auf Mehrdeutigkeit gefragt wurden (wie `_BEREINIGT_VERSUCHT`): ein
+#: ausgefallener Dienst soll nicht in jedem Suchlauf dieselben Orte erneut anfragen.
+_MEHRDEUTIG_VERSUCHT: set = set()
+
+
+def entfernungen_mehrdeutige_pruefen(db, max_orte: int | None = NACHHOLEN_JE_LAUF) -> dict:
+    """Heilt gespeicherte Entfernungen zu Orten, die der Dienst mehrfach kennt (#1235).
+
+    Bis v1.7.158 nahm PBP bei einem Namen wie "Rosengarten" den ersten Treffer; die Stellen im Bestand tragen die
+    Zahl. Jeder verschiedene Ort ohne Postleitzahl, der nicht zu den grossen Staedten gehoert, wird einmal neu
+    gefragt (`max_orte` je Lauf; der Ortsspeicher merkt sich, was geprueft ist). Ist er mehrdeutig, entscheidet die
+    Anzeige der Stelle (PLZ oder Bundesland hinter dem Namen), sonst steht die Entfernung auf unbekannt. Findet der
+    Dienst nichts oder ist er nicht erreichbar, bleibt die gespeicherte Zahl: das waere ein Urteil, das der Dienst
+    nicht gefaellt hat (#950). Von Hand gesetzte Entfernungen bleiben (#1077).
+    """
+    from .geocoding_service import geocode_ort, mehrdeutigkeit, mehrdeutigkeit_offen, ort_schluessel
+    start = _koordinaten(db)
+    if not start:
+        return {"status": "kein_standort", "geklaert": 0, "unbekannt": 0, "orte": 0}
+    pid = db.get_active_profile_id()
+    con = db.connect()
+    sql = ("SELECT hash, location FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+           "AND location IS NOT NULL AND TRIM(location) != '' AND distance_km IS NOT NULL "
+           "AND COALESCE(entfernung_quelle, '') != 'mensch'")
+    nach_ort: dict = {}
+    for kennung, ort in con.execute(sql, (pid,)).fetchall():
+        if ort_schluessel(ort):
+            nach_ort.setdefault(ort.strip(), []).append(kennung)
+    offen = [o for o in nach_ort if o not in _MEHRDEUTIG_VERSUCHT and mehrdeutigkeit_offen(o)]
+    if max_orte:
+        offen = offen[:max_orte]
+    for ort in offen:                       # Netz: ein Ort je Sekunde, ausserhalb jeder Schreibsperre
+        _MEHRDEUTIG_VERSUCHT.add(ort)
+        geocode_ort(ort)
+    klaerung = {o: _mehrdeutigen_ort_klaeren(con, start, o, k) for o, k in nach_ort.items() if mehrdeutigkeit(o)}
+    geklaert = unbekannt = 0
+    am = _jetzt()
+    for plan in klaerung.values():
+        g, u = _klaerung_schreiben(con, plan, am)
+        geklaert += g
+        unbekannt += u
+    con.commit()
+    if geklaert or unbekannt:
+        logger.info("Mehrdeutige Orte geprueft (#1235): %d Stellen per Anzeige geklaert, %d auf unbekannt gestellt, "
+                    "%d Orte gefragt", geklaert, unbekannt, len(offen))
+    return {"status": "fertig", "geklaert": geklaert, "unbekannt": unbekannt, "orte": len(offen)}
 
 
 def entfernungen_bereinigen(db, max_orte: int | None = NACHHOLEN_JE_LAUF) -> dict:
@@ -378,7 +494,15 @@ def nachholen(db) -> dict:
     except Exception as exc:  # noqa: BLE001
         logger.warning("Entfernungen nicht bereinigt: %s", exc)
         heilung = {}
-    if erg.get("stellen") or heilung.get("stellen") or heilung.get("geleert"):
+    # #1235: Entfernungen zu Orten, die der Dienst mehrfach kennt - nachrechnen, klaeren oder auf unbekannt stellen.
+    try:
+        mehrdeutig = entfernungen_mehrdeutige_pruefen(db)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Mehrdeutige Orte nicht geprueft: %s", exc)
+        mehrdeutig = {}
+    if (erg.get("stellen") or heilung.get("stellen") or heilung.get("geleert")
+            or mehrdeutig.get("geklaert") or mehrdeutig.get("unbekannt")):
         _punkte_neu(db)
-    erg["bereinigt"] = heilung.get("stellen", 0) + heilung.get("geleert", 0)
+    erg["bereinigt"] = (heilung.get("stellen", 0) + heilung.get("geleert", 0)
+                        + mehrdeutig.get("geklaert", 0) + mehrdeutig.get("unbekannt", 0))
     return erg

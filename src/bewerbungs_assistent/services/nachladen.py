@@ -308,6 +308,11 @@ def kopf_ergaenzen(db, job_hash: str, kopf: dict | None) -> list[str]:
             from . import geocoding_service as _geo
             koord = _geo.geocode_location(_geo.normalisiere_ort(kopf["ort"]))
             heim = _geo.get_user_coordinates(db)
+            if not koord and heim:
+                # #1235: ein mehrdeutiger Ort wird mit PLZ oder Bundesland aus dem Anzeigentext noch einmal gefragt.
+                genau = _geo.entfernung_aus_anzeige(
+                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")
+                koord = genau["koordinaten"] if genau else None
             if koord:
                 spalten["lat"], spalten["lon"] = koord
                 if heim:

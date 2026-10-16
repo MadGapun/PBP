@@ -121,6 +121,18 @@ def _anforderungen(job: dict, beschreibung: dict) -> dict:
     return _eintrag(BELEGT, "anzeigentext", beschreibung["erhoben_am"], "")
 
 
+def _mehrdeutige_kandidaten(job: dict) -> list:
+    """Die Orte, die der Ortstext der Stelle meinen koennte - leer, wenn er eindeutig oder unbekannt ist (#1235)."""
+    ort = str(job.get("location") or "").strip()
+    if not ort:
+        return []
+    try:
+        from .geocoding_service import mehrdeutigkeit
+        return mehrdeutigkeit(ort) or []
+    except Exception:  # noqa: BLE001 - eine Auskunft darf die Anzeige nie kippen
+        return []
+
+
 def _entfernung(job: dict, kriterien=None) -> dict:
     from . import entfernung
     am = job.get("entfernung_am")
@@ -129,6 +141,15 @@ def _entfernung(job: dict, kriterien=None) -> dict:
         return _eintrag(BELEGT, "von_hand", am, f"{float(km):g} km, von dir eingetragen.")
     b = entfernung.befund(job, kriterien)
     if not b:
+        # #1235: fehlt die Entfernung, weil der Ort mehrere Orte meint? Das steht im Gedaechtnis des Ortsdienstes
+        # (kein Netz) - und es ist eine andere Auskunft als "kein Ort": hier laesst sich etwas tun.
+        kandidaten = _mehrdeutige_kandidaten(job)
+        if kandidaten:
+            ort = str(job.get("location") or "").strip()
+            namen = "; ".join(k.get("name") or "?" for k in kandidaten)
+            return _eintrag(UNBEKANNT, "ort_mehrdeutig", job.get("entfernung_am"),
+                            f"Den Ort „{ort}“ gibt es mehrfach in Deutschland ({namen}) - PBP rät nicht. "
+                            "Mit PLZ im Ort (stelle_bearbeiten) oder von Hand gesetzter Entfernung gibt es eine Zahl.")
         return _eintrag(UNBEKANNT, "keine", None,
                         "Ohne Ort oder ohne Standort gibt es keine Entfernung.")
     if b.get("entfernung_art") == entfernung.ART_FAHRSTRECKE:

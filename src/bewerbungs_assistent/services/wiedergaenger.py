@@ -34,6 +34,8 @@ import re
 from collections import Counter
 from typing import Optional
 
+from .ablehnungsgruende import ist_urteil
+
 
 # Rechtsform-Suffixe + generische Zusaetze, die bei der Firmen-Normalisierung
 # entfernt werden. "Konsumgueter GmbH" und "Konsumgueter" sollen als gleiche Firma gelten.
@@ -62,6 +64,10 @@ _TITLE_STOPS = {
     "entwicklerin", "expert", "experte", "expertin", "owner", "officer",
     "coordinator", "koordinator", "assistant", "assistent", "referent",
     "fachkraft", "sachbearbeiter", "sachbearbeiterin",
+    # #1234: "Head of ...", "Chief ...", "Director ..." sind Ebenen wie "Leiter",
+    # kein Fachgebiet. `_ROLE_FAMILIES` kannte sie schon als "management", hier
+    # fehlten sie: die einzige Ueberlappung zweier Titel war "head".
+    "head", "chief", "director", "direktor", "vorstand",
     "stelle", "position", "rolle", "job", "team", "all", "genders",
     # #1028: geschlechtsneutrale Rollenformen, im oeffentlichen Dienst
     # die uebliche Schreibweise. "Sachbearbeiter" stand drin,
@@ -309,6 +315,38 @@ def _reasons_of(job: dict) -> list[str]:
     return out
 
 
+def urteilsgruende(job: dict) -> list[str]:
+    """Die Gruende einer aussortierten Stelle, die ein URTEIL ueber die Passung sind (#1234).
+
+    `_reasons_of` liest, was dasteht. Was daraus gefolgert wird (Wiedergaenger,
+    Firmen-Historie), zaehlt nur ein Urteil: `bewerbung_erstellt`, `bereits_beworben`,
+    `duplikat` und `veraltet_url` sagen nichts darueber, dass eine Art Stelle nicht
+    passt (die Liste steht in `ablehnungsgruende.KEIN_URTEIL_GRUENDE`).
+    """
+    return [r for r in _reasons_of(job) if ist_urteil(r)]
+
+
+# Gruende, aus denen ein Wiedergaenger ein k.o. ist (#671 Ebene 2). Gehalt und
+# Entfernung koennen sich aendern und taugen nicht als k.o. EINE Fassung fuer die
+# Analyse (`tools/jobs._build_empfehlung`) und die Stellenliste (#1234): beide
+# hatten bis v1.7.158 jeder seine eigene Frage.
+FACHLICHE_KO_GRUENDE = frozenset({
+    "falsches_fachgebiet", "zu_junior", "zu_senior",
+    "kein_hochschulabschluss", "unpassendes_arbeitsmodell",
+})
+
+
+def ist_fachlicher_ko(muster: Optional[dict]) -> bool:
+    """Macht dieses Wiedergaenger-Muster die Stelle zu einem k.o.? (#1234)
+
+    Mindestens zwei Belege, und der fuehrende Grund ist ein fachlicher.
+    """
+    if not muster:
+        return False
+    return (muster.get("anzahl", 0) >= 2
+            and muster.get("top_grund") in FACHLICHE_KO_GRUENDE)
+
+
 # Ab welcher Textlaenge ist ein Aussortier-Urteil ueberhaupt belastbar?
 # Belegter Fall vom 02.09.2026: zwei Aussortierungen derselben Rolle
 # wurden an Anzeigen-Rumpfen von 155 und 168 Zeichen getroffen. Bei so
@@ -465,7 +503,9 @@ def find_wiedergaenger_pattern(
             continue
         if _firma_norm(j) != norm_company:
             continue
-        if not _reasons_of(j):
+        # #1234: eine Stelle, die nur wegen einer Bewerbung, einer Dublette oder
+        # einer toten Anzeige aus der Liste ging, ist kein Beleg.
+        if not urteilsgruende(j):
             continue
         jt = _domain_tokens(j.get("title"))
         shared = target_tokens & jt
@@ -512,7 +552,7 @@ def find_wiedergaenger_pattern(
         # demselben Grund verworfene Stelle ist ein Fall, nicht zwei —
         # sonst weichen zwei Ansichten desselben Sachverhalts
         # voneinander ab, und die Schwelle haengt davon ab, welche gilt.
-        for r in sorted(set(_reasons_of(j))):
+        for r in sorted(set(urteilsgruende(j))):
             reason_counter[r] += 1
             by_reason.setdefault(r, []).append(j)
             gewicht[r] += {"ohne_grundlage": 0.0, "schwach": 0.5}.get(guete, 1.0)
@@ -618,7 +658,7 @@ def firmen_historie(
             continue
         if _firma_norm(j) != norm_company:
             continue
-        reasons = sorted(set(_reasons_of(j)))  # #966: je Stelle einmal
+        reasons = sorted(set(urteilsgruende(j)))  # #966: je Stelle einmal; #1234: nur Urteile
         if not reasons:
             continue
         for r in reasons:
