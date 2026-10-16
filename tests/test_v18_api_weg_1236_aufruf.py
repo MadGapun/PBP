@@ -782,6 +782,9 @@ def test_scheitert_das_speichern_des_verbrauchs_geht_der_betrag_nicht_verloren(d
     assert pause and pause["code"] == "buchung_fehlgeschlagen"
     z = api_backend.zustand(db, "match_job_to_skills")
     assert not z.erlaubt and z.grund == "buchung_fehlgeschlagen"
+    uebersicht = api_backend.uebersicht(db)
+    assert uebersicht["verbrauch"]["usd"] == 0.0099, "Der Betrag steht in der Uebersicht, auch wenn er nicht gespeichert ist"
+    assert any("nicht in die Datenbank schreiben" in h for h in uebersicht["hinweise"])
     # Die Pause ist vorbei, das Schreiben scheitert weiter: der Betrag zaehlt gegen das Budget, es wird nicht gesendet.
     api_backend.pause_aufheben()
     with pytest.raises(ApiFehler) as info:
@@ -940,3 +943,11 @@ def test_die_schluesselprobe_beachtet_den_ki_hauptschalter(db, schluessel):
     assert "Hauptschalter" in erg["text"]
     db.set_ki_features(master=True)
     assert api_backend.schluessel_pruefen(db, transport=t)["ergebnis"] == "gueltig" and t.anzahl == 1
+
+
+def test_ein_text_mit_ungueltigem_zeichen_scheitert_nicht_beim_kodieren():
+    """Ein halbes Surrogat (aus einem fehlerhaft gelesenen Emoji in einer Anzeige) liesse `encode("utf-8")` ausnahmslos
+    scheitern; die Ausnahme kaeme als "unerwartet" ohne Grund an. Es wird zu einem Fragezeichen."""
+    body = api_backend.anfrage_koerper(api_backend.modell_finden("claude-haiku-5-5"), "Anzeige \ud800 Ende", 100)
+    inhalt = json.loads(body.decode("utf-8"))["messages"][0]["content"]
+    assert inhalt.startswith("Anzeige ") and inhalt.endswith(" Ende")

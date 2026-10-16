@@ -1422,6 +1422,11 @@ M_API = [
     ("ap99", "Die Probe liest die Datenbank als rohe URI", API_P,
      '            src = sqlite3.connect(f"{quelle.resolve().as_uri()}?mode=ro", uri=True)',
      '            src = sqlite3.connect(f"file:{quelle.resolve().as_posix()}?mode=ro", uri=True)', T_APP),
+    ("ap100", "Ein Text mit ungueltigem Zeichen bricht das Kodieren der Anfrage", API_B,
+     '    return json.dumps(daten, ensure_ascii=False).encode("utf-8", errors="replace")\n',
+     '    return json.dumps(daten, ensure_ascii=False).encode("utf-8")\n', T_APA),
+    ("ap101", "Der Uebersicht fehlt der bezahlte, aber nicht gespeicherte Betrag", API_B,
+     '    ausgegeben = verbrauch["mikro_usd"] + _UNGEBUCHT', '    ausgegeben = verbrauch["mikro_usd"]', T_APA),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT, "api": M_API}

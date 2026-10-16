@@ -64,7 +64,7 @@ logger = logging.getLogger("bewerbungs_assistent.api_backend")
 ENV_SCHLUESSEL = "PBP_ANTHROPIC_API_KEY"
 ADRESSE = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
-ZEITLIMIT_SEK = 25.0  # der MCP-Client bricht nach 60 s ab; ein Aufruf darf nicht den ganzen Lauf kosten
+ZEITLIMIT_SEK = 25.0  # Sekunden je Netzoperation (Verbinden, Senden, Lesen), nicht je Aufruf; der MCP-Client bricht nach 60 s ab
 MAX_ANTWORT_BYTES = 1_000_000
 WARTEZEIT_SEK = 2.0
 WARTEZEIT_MAX_SEK = 10.0
@@ -835,7 +835,9 @@ def anfrage_koerper(modell: Modell, prompt: str, max_tokens: int) -> bytes:
         daten["thinking"] = {"type": "disabled"}
     elif modell.denken == "zwischen_werkzeugen":
         daten["thinking"] = {"type": "between_tools"}
-    return json.dumps(daten, ensure_ascii=False).encode("utf-8")
+    # `errors="replace"`: ein einzelnes ungueltiges Zeichen im Text einer Anzeige (halbes Surrogat aus einem fehlerhaft
+    # gelesenen Emoji) darf nicht die ganze Anfrage kippen; es wird zu "?".
+    return json.dumps(daten, ensure_ascii=False).encode("utf-8", errors="replace")
 
 
 def _fehler_aus_antwort(status: int, kopf: dict, koerper: bytes, modell: Modell) -> ApiFehler:
@@ -1244,13 +1246,16 @@ def uebersicht(db) -> dict:
                          "grund_text": z.text if kennung_ in freigaben and not z.erlaubt else None,
                          "freigegeben_am": freigaben.get(kennung_, {}).get("am") or None})
     cat = katalog()
-    ausgegeben = verbrauch["mikro_usd"]
+    ausgegeben = verbrauch["mikro_usd"] + _UNGEBUCHT  # was bezahlt, aber nicht gespeichert werden konnte, zaehlt mit
     hinweise = []
     if freigaben and not schluessel_vorhanden():
         hinweise.append(f"Es sind Aufgaben freigegeben, aber es ist kein Schlüssel gesetzt ({ENV_SCHLUESSEL}): "
                         "der API-Weg ruht, alles läuft wie ohne ihn.")
     if freigaben and budget is None:
         hinweise.append("Es ist kein Budget gesetzt: ohne Obergrenze ruft PBP die API nicht auf.")
+    if _UNGEBUCHT:
+        hinweise.append(f"{usd_text(_UNGEBUCHT)} sind bezahlt, ließen sich aber nicht in die Datenbank schreiben; sie zählen "
+                        "im Speicher gegen das Budget, bis das Schreiben wieder geht.")
     if verbrauch["geschaetzt"]:
         hinweise.append(f"{verbrauch['geschaetzt']} Aufruf(e) wurden mit dem ungünstigsten Fall gebucht, weil die "
                         "Antwort keine Verbrauchsangabe hatte; die Summe liegt eher zu hoch als zu niedrig.")
