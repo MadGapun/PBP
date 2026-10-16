@@ -33,7 +33,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.7.158] - 2026-10-15 — Eine interne Notiz lässt den Nachfass stehen, und ein Firmenname im Notiztext macht keinen Endkunden
+## [1.7.158] - 2026-10-16 — Eine interne Notiz lässt den Nachfass stehen, und ein Firmenname im Notiztext macht keinen Endkunden
 
 Hotfix für v1.7.157. Zwei Befunde aus dem Alltag, beide an der Frage, was PBP aus einer Notiz folgert. Jede Notiz, die zu einer Bewerbung geschrieben wurde, galt als „Kontakt mit dem Arbeitgeber“ und machte die automatische Nachfass-Erinnerung hinfällig: wer eine Bewerbung anlegte und gleich danach eine interne Notiz ergänzte, verlor den 21-Tage-Nachfass nach Minuten, ohne es zu merken (#1232). Und die Warnung „Schon beworben? Läuft über …“ (mit dem Namen des Vermittlers) nannte eine Firma als Endkunden, nur weil ihr Name irgendwo im Notiztext einer laufenden Bewerbung stand (#1198; Beitrag aus der Gemeinschaft, PR #1230).
 
