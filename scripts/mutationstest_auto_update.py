@@ -2594,6 +2594,52 @@ M_HILFE = [
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
 
+# ── Installer und Claude-Konfiguration: was der Mensch unter env eingetragen hat, bleibt (#1238, I38) ──
+# Das Wort der Konfiguration steht hier NICHT als Literal: der Waechter in test_1238 sucht es in scripts/ und wuerde
+# dieses Skript sonst als unbekannten Schreiber melden. install.ps1 ist in dieser Linie ein Stub (#1149): die Eingriffe in
+# die PowerShell-Funktion gibt es nur in der Stable-Linie.
+MCP_WORT = "mcp" + "Servers"
+T_CK = ["tests/test_1238_installer_env_erhalten.py"]
+GUI = "installer/setup_gui.py"
+UNIX_AUFRUF_ZEILE = '    if SETUP_AUSGABE="$("$PYTHON" "$PROJECT_DIR/_setup_claude.py" 2>&1)"; then\n'
+
+M_CLAUDEKONFIG = [
+    # setup_gui.py
+    ("ck01", "setup_gui: die Datei wird nicht BOM-fest gelesen (PowerShell 5.1 schreibt ein BOM)", GUI,
+     "encoding='utf-8-sig') as f:", "encoding='utf-8') as f:", T_CK),
+    ("ck02", "setup_gui: das env wird wieder neu gebaut", GUI,
+     "                'env': env\n", "                'env': {'BA_DATA_DIR': data_dir}\n", T_CK),
+    ("ck03", "setup_gui: ein verlegter Datenordner wird ueberschrieben", GUI,
+     "env.setdefault('BA_DATA_DIR', data_dir)", "env['BA_DATA_DIR'] = data_dir", T_CK),
+    ("ck04", "setup_gui: ein alter PYTHONPATH bleibt und laedt den alten Programmstand", GUI,
+     "env.pop('PYTHONPATH', None)", "pass", T_CK),
+    # switch_mode.py
+    ("ck05", "switch_mode: der bisherige Eintrag wird nicht mehr gelesen, das env geht verloren", "switch_mode.py",
+     "server.get(MCP_KEY))", "None)", T_CK),
+    ("ck06", "switch_mode: die Datei wird nicht BOM-fest gelesen", "switch_mode.py",
+     'encoding="utf-8-sig")', 'encoding="utf-8")', T_CK),
+    # _setup_claude.py (der Weg von INSTALLIEREN.bat, INSTALLIEREN.command und install.sh; seit v1.7.145)
+    ("ck07", "_setup_claude: das env des bisherigen Eintrags wird nicht uebernommen", "_setup_claude.py",
+     'env.update(alter_eintrag["env"])', "pass", T_CK),
+    ("ck08", "_setup_claude: ein verlegter Datenordner wird ueberschrieben", "_setup_claude.py",
+     'env.setdefault("BA_DATA_DIR", data_dir)', 'env["BA_DATA_DIR"] = data_dir', T_CK),
+    # die Aufrufer und die Liste der Schreiber
+    ("ck09", "INSTALLIEREN.command ruft _setup_claude.py nicht mehr auf", "INSTALLIEREN.command",
+     UNIX_AUFRUF_ZEILE, '    if SETUP_AUSGABE="$(true 2>&1)"; then\n', T_CK),
+    ("ck10", "install.sh ruft _setup_claude.py nicht mehr auf", "installer/install.sh",
+     UNIX_AUFRUF_ZEILE, '    if SETUP_AUSGABE="$(true 2>&1)"; then\n', T_CK),
+    ("ck11", "INSTALLIEREN.bat ruft _setup_claude.py nicht mehr auf", "INSTALLIEREN.bat",
+     '"%PYTHON%" "%BASEDIR%\\_setup_claude.py" >> "%LOGFILE%" 2>&1', 'rem entfaellt >> "%LOGFILE%" 2>&1', T_CK),
+    ("ck12", "install.sh baut den Eintrag selbst (die Datei nennt die Konfiguration)", "installer/install.sh",
+     "# ── FERTIG", "# " + MCP_WORT + " ── FERTIG", T_CK),
+    ("ck13", "ein Programmteil beruehrt die Konfiguration von Claude Desktop", "src/bewerbungs_assistent/__init__.py",
+     '"""Entry point for the package."""', '"""Entry point for the package."""  # ' + MCP_WORT, T_CK),
+    ("ck14", "ein neues Skript in scripts/ schreibt die Konfiguration, ohne in der Liste zu stehen", "scripts/ui_texte_pruefen.py",
+     '"""Sichtbare Texte der Oberflaeche pruefen', '"""' + MCP_WORT + ' Sichtbare Texte der Oberflaeche pruefen', T_CK),
+]
+KATALOGE["claude_konfig"] = M_CLAUDEKONFIG
+GRUNDLAEUFE["claude_konfig"] = (("T_CK", T_CK),)
+
 WT = None
 
 
