@@ -70,6 +70,7 @@ import {
   naechsteFrageMs as autoUpdateFrageMs,
   seitenleisteFuehrtZuEinstellungen,
   seitenleisteText,
+  updateFehlerText,
 } from "@/lib/autoUpdate";
 import { ANFANG as VERBINDUNG_ANFANG, anzeigeStand, kiAnzeige, naechsteAbfrageMs, naechsterStand } from "@/lib/verbindung";
 import { cn, copyToClipboard, parseHashZiel, parsePageFromHash, resolveLegacyAction, sprungAusHash } from "@/utils";
@@ -902,7 +903,8 @@ export default function App() {
         await postJson("/api/auto-update/rueckgang-gesehen", {});
       }
     } catch (error) {
-      pushToast(`Das hat nicht geklappt: ${error.message}`, "danger");
+      // #1243: der Grund des Servers (`text`), nicht nur „HTTP 400“
+      pushToast(updateFehlerText(error), "danger");
     }
     setAutoUpdateNr((n) => n + 1);
   }

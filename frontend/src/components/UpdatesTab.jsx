@@ -19,7 +19,7 @@ import ErklaerText from "@/components/ErklaerText";
 import MitClaude from "@/components/MitClaude";
 import {
   INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_SCHRITTE, vorabErklaerung,
-  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, umschaltText, verbindungsAbweichung, vorabNeu, zeigeAktuell,
+  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, umschaltText, updateFehlerText, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
@@ -54,7 +54,8 @@ export default function UpdatesTab() {
       // widersprechen sie sich bis zur nächsten Abfrage.
       if (pfad === "/api/auto-update/pruefen") refreshUpdateInfo?.();
     } catch (error) {
-      pushToast(`Das hat nicht geklappt: ${error.message}`, "danger");
+      // #1243: der Grund des Servers (`text`), nicht nur „HTTP 400“
+      pushToast(updateFehlerText(error), "danger");
     } finally {
       setBusy("");
     }

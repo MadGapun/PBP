@@ -7,7 +7,7 @@ import {
   updateHinweis, claudeFassung, verbindungsAbweichung,
   VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_PRUEFEN, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE,
   istVorabversion, vorabErklaerung,
-  vorabHinweis, vorabNeu, umschaltText,
+  vorabHinweis, vorabNeu, umschaltText, updateFehlerText,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -330,5 +330,27 @@ assert.doesNotMatch(umschaltText("1.8.1", "1.8.0"), /wieder|neueren Versionen/, 
 assert.match(umschaltText("1.8.1", "1.8.0"), /PBP und Claude Desktop neu starten/);
 assert.match(umschaltText("1.9.0-rc.2", "1.9.0-rc.1"), /läuft Version 1\.9\.0-rc\.2/, "auch Vorabversionen");
 assert.match(umschaltText("1.8.0", null), /läuft wieder Version/, "ohne Vergleichswert gilt der Rückweg-Satz");
+
+// #1243: bei einer abgelehnten Aktion steht der Grund des Servers im Hinweis, nicht nur „HTTP 400“
+const fehler = (status, payload, message = `HTTP ${status}`) => Object.assign(new Error(message), { status, payload });
+assert.equal(
+  updateFehlerText(fehler(400, { status: "abgelehnt", text: "Vorabversionen werden nie automatisch installiert." })),
+  "Das hat nicht geklappt: Vorabversionen werden nie automatisch installiert.",
+  "der Fall aus dem Beta-Test: rc.3 -> rc.4",
+);
+assert.equal(updateFehlerText(fehler(409, { status: "laeuft_bereits", text: "Ein Update läuft gerade." })), "Das hat nicht geklappt: Ein Update läuft gerade.");
+assert.equal(updateFehlerText(fehler(409, { text: "Der Satz.", error: "Etwas anderes." })), "Das hat nicht geklappt: Der Satz.", "text vor error");
+assert.equal(updateFehlerText(fehler(400, { error: "Nur der Fehler." })), "Das hat nicht geklappt: Nur der Fehler.", "ohne text: das Feld error");
+assert.equal(updateFehlerText(fehler(400, { text: "  Mit Rand.  " })), "Das hat nicht geklappt: Mit Rand.", "der Satz wird getrimmt");
+// Ohne Satz des Servers bleibt die Meldung des Fehlers, nie ein leerer Hinweis
+assert.equal(updateFehlerText(fehler(400, { text: "   " })), "Das hat nicht geklappt: HTTP 400", "ein leerer Satz ersetzt nichts");
+assert.equal(updateFehlerText(fehler(400, { text: 5, error: { x: 1 } })), "Das hat nicht geklappt: HTTP 400", "nur Text zählt");
+assert.equal(updateFehlerText(fehler(502, null)), "Das hat nicht geklappt: HTTP 502", "Antwort ohne Inhalt");
+assert.equal(updateFehlerText(fehler(500, "Internal Server Error", "Internal Server Error")), "Das hat nicht geklappt: Internal Server Error",
+  "Antwort ohne JSON: die Meldung des Fehlers");
+assert.equal(updateFehlerText(fehler(422, { detail: [{ msg: "x" }] })), "Das hat nicht geklappt: HTTP 422", "fremde Form: kein Rauschen im Hinweis");
+assert.equal(updateFehlerText(undefined), "Das hat nicht geklappt: Unbekannter Fehler.");
+assert.equal(updateFehlerText({}), "Das hat nicht geklappt: Unbekannter Fehler.");
+assert.equal(updateFehlerText(new Error("")), "Das hat nicht geklappt: Unbekannter Fehler.", "auch eine leere Meldung ergibt einen Satz");
 
 console.log("autoUpdate: ok");

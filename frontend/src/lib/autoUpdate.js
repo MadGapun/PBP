@@ -314,6 +314,19 @@ export function umschaltText(version, aktuell) {
 }
 
 /**
+ * Der Hinweis, wenn eine Aktion der Updates-Seite abgelehnt wird (#1243). Der Server nennt den Grund im Feld `text` der
+ * Antwort („Ein Update läuft gerade.“, „Vorabversionen werden nur installiert, wenn …“); `Error.message` kennt dieses Feld
+ * nicht und trug nur „HTTP 400“. `fehler` ist der Fehler aus `postJson` (`payload` ist die Antwort des Servers). Ohne Satz
+ * des Servers bleibt, was der Fehler selbst meldet (`error` der Antwort, sonst „HTTP nnn“).
+ */
+export function updateFehlerText(fehler) {
+  const satz = (wert) => (typeof wert === "string" ? wert.trim() : "");
+  const antwort = fehler?.payload;
+  const vomServer = antwort && typeof antwort === "object" ? satz(antwort.text) || satz(antwort.error) : "";
+  return `Das hat nicht geklappt: ${vomServer || satz(fehler?.message) || "Unbekannter Fehler."}`;
+}
+
+/**
  * Ist diese Version schon installiert (und wartet nur auf den Neustart)? Dann ist sie kein „Update verfügbar“
  * mehr, auch wenn das laufende Programm noch die ältere ist.
  */
