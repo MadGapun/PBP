@@ -16,6 +16,8 @@ import json
 import os
 import sys
 
+from _setup_claude import eintrag_bauen  # liegt neben diesem Skript
+
 # ── Plattform-Pfade ────────────────────────────────────────────
 
 
@@ -78,7 +80,7 @@ MCP_KEY = "bewerbungs-assistent"
 def load_config():
     if not os.path.exists(CONFIG_PATH):
         return {"mcpServers": {}}
-    with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+    with open(CONFIG_PATH, "r", encoding="utf-8-sig") as f:  # BOM-fest, wie _setup_claude.lese_config
         return json.load(f)
 
 
@@ -128,14 +130,10 @@ def switch_to(mode_name):
 
     config = load_config()
 
-    config.setdefault("mcpServers", {})[MCP_KEY] = {
-        "command": mode["python"],
-        "args": ["-m", "bewerbungs_assistent"],
-        "env": {
-            "BA_DATA_DIR": mode["data_dir"],
-            "PYTHONPATH": mode["src"],
-        },
-    }
+    # Eine Regel fuer den Eintrag (#1238): was der Mensch unter env eingetragen hat (API-Schluessel,
+    # verlegter Datenordner, Port), bleibt; nur PYTHONPATH folgt dem Modus.
+    server = config.setdefault("mcpServers", {})
+    server[MCP_KEY] = eintrag_bauen(mode["python"], mode["src"], mode["data_dir"], server.get(MCP_KEY))
 
     save_config(config)
 
