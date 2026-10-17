@@ -2002,7 +2002,9 @@ export default function App() {
 
         {/* Help Modal (#75) */}
         {helpOpen && (
-          <Modal open={helpOpen} title="Hilfe & Support" onClose={() => setHelpOpen(false)}>
+          // #1247: der Dialog hat kein Formular (die Frage und der Filter der Prompts werden nirgends gespeichert); mit dem Schutz
+          // fragte das Schliessen nach einer getippten Frage "Deine Eingaben sind noch nicht gespeichert".
+          <Modal open={helpOpen} title="Hilfe & Support" onClose={() => setHelpOpen(false)} schutz={false}>
             <div className="flex gap-1 mb-4 border-b border-white/8 pb-2 overflow-x-auto">
               {[
                 { id: "hilfe", label: "Hilfe" },

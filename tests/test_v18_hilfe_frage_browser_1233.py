@@ -375,3 +375,58 @@ def test_der_schalter_fuer_die_kurzantwort_ist_aus_und_wird_gespeichert(live, br
         assert db.get_profile_setting("hilfe_ki_formulieren", None) is False
     finally:
         kontext.close()
+
+
+# ── #1247 (PP39): das Schliessen des Hilfe-Dialogs fragt nicht nach "ungespeicherten Eingaben" ──────────────
+# Die Gegenseite (ein Dialog mit Formular fragt weiter) deckt test_g67_dialog_fragt_vor_dem_verwerfen in test_g1087_welle6_oberflaeche.py ab.
+
+def _ruhig(seite):
+    """Erst wenn die Seite fertig geladen hat: ein Klick unmittelbar nach dem Laden traf zweimal in zehn Laeufen auf einen Dialog, der ohne
+    die Rueckfrage zuging (Zustand der Seite beim Start, nicht der Schutz)."""
+    seite.wait_for_load_state("networkidle")
+
+
+def _geschlossen_ohne_rueckfrage(seite):
+    seite.get_by_role("heading", name="Hilfe & Support").wait_for(state="detached", timeout=5000)
+    assert seite.locator("[data-verwerfen-frage]").count() == 0
+
+
+def test_1247_eine_getippte_frage_loest_beim_schliessen_keine_rueckfrage_aus(live, browser):
+    """Der Dialog hat kein Formular: die Frage wird nirgends gespeichert (der Reiter sagt es selbst). Die Rueckfrage "Deine Eingaben sind
+    noch nicht gespeichert. Verwerfen?" erschien trotzdem, weil `Modal` jede Eingabe als Aenderung zaehlt (vierter Werkstatt-PC-Lauf)."""
+    kontext, seite = _seite(browser, live)
+    try:
+        _ruhig(seite)
+        _hilfe_oeffnen(seite)
+        seite.locator("[data-hilfe-eingabe]").fill("Wie aktualisiere ich PBP?")
+        seite.locator("[data-modal-schliessen]").last.click()
+        _geschlossen_ohne_rueckfrage(seite)
+    finally:
+        kontext.close()
+
+
+def test_1247_auch_escape_schliesst_nach_einer_frage_ohne_rueckfrage(live, browser):
+    kontext, seite = _seite(browser, live)
+    try:
+        _ruhig(seite)
+        _hilfe_oeffnen(seite)
+        seite.locator("[data-hilfe-eingabe]").fill("Wie aktualisiere ich PBP?")
+        seite.keyboard.press("Escape")
+        _geschlossen_ohne_rueckfrage(seite)
+    finally:
+        kontext.close()
+
+
+def test_1247_das_filterfeld_der_prompts_loest_keine_rueckfrage_aus(live, browser):
+    """Dieselbe Ursache, anderer Reiter: auch ein Suchfeld im Dialog ist keine ungespeicherte Aenderung."""
+    kontext, seite = _seite(browser, live)
+    try:
+        _ruhig(seite)
+        _hilfe_oeffnen(seite)
+        seite.get_by_role("button", name="Prompts", exact=True).click()
+        seite.get_by_placeholder("Filter nach Titel oder Beschreibung...").fill("Interview")
+        seite.locator("[data-modal-schliessen]").last.click()
+        _geschlossen_ohne_rueckfrage(seite)
+    finally:
+        kontext.close()
+
