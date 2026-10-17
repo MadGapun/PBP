@@ -1427,6 +1427,14 @@ M_API = [
      '    return json.dumps(daten, ensure_ascii=False).encode("utf-8")\n', T_APA),
     ("ap101", "Der Uebersicht fehlt der bezahlte, aber nicht gespeicherte Betrag", API_B,
      '    ausgegeben = verbrauch["mikro_usd"] + _UNGEBUCHT', '    ausgegeben = verbrauch["mikro_usd"]', T_APA),
+    ("ap102", "--ollama ohne --senden wird im Trockenlauf still ignoriert", API_P,
+     '    if args.ollama and not args.senden:\n', '    if False:\n', T_APP),
+    ("ap103", "Der Modus nur lokale KI fragt nach einem Schluessel", API_P,
+     '    ausgabe("Messprobe der lokalen KI (#1236) — nichts geht ins Netz: nur Ollama auf diesem Rechner")\n',
+     '    ausgabe("Messprobe der lokalen KI (#1236) — nichts geht ins Netz: nur Ollama auf diesem Rechner")\n'
+     '    if not os.environ.get("PBP_ANTHROPIC_API_KEY"):\n        raise ProbeFehler("Kein Schluessel.")\n', T_APP),
+    ("ap104", "Der Modus nur lokale KI endet ohne Ollama still mit Erfolg", API_P,
+     '    if grund:\n        raise ProbeFehler(grund, code=2)\n', '    if grund:\n        pass\n', T_APP),
 ]
 
 KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT, "api": M_API}

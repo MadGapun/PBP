@@ -641,6 +641,71 @@ def test_ein_fehler_der_lokalen_ki_kippt_die_probe_nicht(demo_db, key):
     assert rc == 0 and "ConnectionResetError" in ausgabe.text and "Ohne Antwort: 10 Stellen" in ausgabe.text
 
 
+# ============================================================ Nur die lokale KI: --ollama ohne --senden
+
+def _lokale_beispiele(demo_db, *flags):
+    """Lauf nur mit der lokalen KI; liefert die Beispiele, die ihr erster Prompt bekam, und die Ausgabe."""
+    gesehen = []
+
+    class Merker(_OllamaDoppel):
+        def _run_local(self, task, payload):
+            gesehen.append(payload)
+            return super()._run_local(task, payload)
+
+    rc, ausgabe = _lauf(["--quelle", str(demo_db), "--anzahl", "10", "--ollama", *flags], dienst_fabrik=Merker)
+    assert rc == 0
+    return gesehen[0]["recent_dismissals"], ausgabe.text
+
+
+def test_ollama_allein_misst_nur_die_lokale_ki_ohne_schluessel_budget_und_netz(demo_db):
+    """Vorher wurde --ollama im Trockenlauf still ignoriert (der Trockenlauf kehrt vor dem Vergleich zurueck). Jetzt misst
+    es die lokale KI allein: dieselbe Stichprobe, derselbe Prompt-Bauer, dieselbe Auswertung -- ohne Schluessel, ohne Budget
+    und ohne dass etwas ins Netz geht."""
+    erzeugt = []
+
+    def fabrik(db):
+        erzeugt.append(_OllamaDoppel(db))
+        return erzeugt[0]
+
+    transport = FakeTransport(antwort())
+    rc, ausgabe = _lauf(["--quelle", str(demo_db), "--anzahl", "10", "--ollama"], transport=transport, dienst_fabrik=fabrik)
+    assert rc == 0 and erzeugt[0].lokal_aufrufe == 10 and transport.anzahl == 0
+    text = ausgabe.text
+    assert "Messprobe der lokalen KI" in text and "nichts geht ins Netz" in text
+    assert "API-Messprobe" not in text and "Der erste Prompt" not in text
+    assert "── Lokale KI (Ollama)" in text and "Übereinstimmung mit deinem Urteil: 10 von 10" in text
+    assert "Verbrauch:" not in text and "Budget" not in text and "Schlüssel" not in text
+
+
+def test_ollama_allein_ohne_laufendes_ollama_endet_mit_dem_grund(demo_db):
+    rc, ausgabe = _lauf(["--quelle", str(demo_db), "--anzahl", "10", "--ollama"])
+    assert rc == 2 and "Ollama läuft nicht oder hat kein Modell" in ausgabe.text
+    assert "── Lokale KI (Ollama)" not in ausgabe.text
+
+
+def test_ollama_allein_mit_bereinigt_gibt_der_lokalen_ki_nur_urteile_des_menschen(demo_db):
+    """Der Grund fuer den Modus (#1239): die Beispiele "wie im Betrieb" gegen "nur Urteile des Menschen" an der lokalen KI messen."""
+    system = {"profil_match_negativ", "bewerbung_erstellt"}
+    betrieb, _ = _lokale_beispiele(demo_db)
+    bereinigt, text = _lokale_beispiele(demo_db, "--bereinigt")
+    assert any(b["dismiss_reason"] in system for b in betrieb), "Vorbedingung: der Betrieb gibt Systemgruende mit"
+    assert bereinigt and not any(b["dismiss_reason"] in system for b in bereinigt)
+    assert "(nur Urteile des Menschen)" in text
+
+
+def test_ollama_allein_sagt_dass_firmennamen_und_modell_nur_die_api_betreffen(demo_db):
+    _beispiele, text = _lokale_beispiele(demo_db, "--firmennamen", "--modell", "claude-haiku-5-5")
+    assert "--firmennamen und --modell betreffen nur die API" in text
+
+
+def test_ollama_allein_schreibt_auf_wunsch_die_auswertung_als_json(demo_db, tmp_path):
+    ziel = tmp_path / "bericht.json"
+    rc, _ausgabe = _lauf(["--quelle", str(demo_db), "--anzahl", "10", "--ollama", "--ausgabe", str(ziel)],
+                         dienst_fabrik=_OllamaDoppel)
+    daten = json.loads(ziel.read_text(encoding="utf-8"))
+    assert rc == 0 and daten["modus"] == "nur_lokal" and daten["ollama"]["auswertung"]["beantwortet"] == 10
+
+
 # ============================================================ Der Schluessel
 
 def test_das_skript_liest_den_schluessel_nie_selbst_und_zeigt_ihn_nie():

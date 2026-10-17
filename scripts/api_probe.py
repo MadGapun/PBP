@@ -424,7 +424,7 @@ def main(argv=None, *, transport=None, dienst_fabrik=None, ausgabe=print) -> int
     ap.add_argument("--modell", default=None, help="Modell-ID aus der Liste (Vorgabe: das günstigste)")
     ap.add_argument("--bereinigt", action="store_true", help="Beispiele und Gründe nur aus Urteilen des Menschen (statt wie im Betrieb)")
     ap.add_argument("--firmennamen", action="store_true", help="zusätzlich eine Variante MIT Firmennamen in den Beispielen (kostet doppelt)")
-    ap.add_argument("--ollama", action="store_true", help="dieselben Stellen auch durch die lokale KI laufen lassen (Ollama muss laufen)")
+    ap.add_argument("--ollama", action="store_true", help="dieselben Stellen auch durch die lokale KI laufen lassen (Ollama muss laufen); OHNE --senden misst die Probe NUR die lokale KI: kein Schlüssel, kein Budget, nichts geht ins Netz")
     ap.add_argument("--senden", action="store_true", help="WIRKLICH senden (Anthropic-API, kostet Geld; braucht --budget-usd)")
     ap.add_argument("--budget-usd", dest="budget_usd", default=None, help="harte Obergrenze der Probe in US-Dollar (Pflicht mit --senden)")
     ap.add_argument("--ausgabe", help="den Bericht zusätzlich als JSON in diese Datei schreiben")
@@ -487,6 +487,9 @@ def _auswerten_und_senden(args, db, transport, dienst_fabrik, ausgabe, api_backe
     def payload_fuer(job):
         return nutzlast_bauen(job, kontext, beispiele, gruende)
 
+    if args.ollama and not args.senden:
+        return _nur_lokal(args, db, dienst_fabrik, ausgabe, urteile, plan, beispiele, gruende, ohne_aussage, payload_fuer)
+
     erstes = anfrage_vorschau(db, payload_fuer(plan[0]["job"]), args.modell)
     varianten = [("Firmennamen der Beispiele geschwärzt (wie im Betrieb)", False)]
     if args.firmennamen:
@@ -495,21 +498,7 @@ def _auswerten_und_senden(args, db, transport, dienst_fabrik, ausgabe, api_backe
     modell = erstes["modell"]
 
     ausgabe("API-Messprobe (#1236)" + ("" if args.senden else " — TROCKENLAUF: es wird nichts gesendet"))
-    ausgabe(f"Datenbank: eine Kopie im Wegwerf-Ordner (das Original wurde nur gelesen).")
-    ausgabe("")
-    ausgabe(f"Referenz: nur deine eigenen Urteile. Gefunden: {len(urteile['beworben'])} beworbene Stellen, "
-            f"{len(urteile['aussortiert'])} selbst aussortierte mit Grund über die Art der Stelle (je mit Anzeigentext).")
-    for grund, n in sorted(urteile["ausgeschlossen"].items()):
-        ausgabe(f"   nicht gezählt: {n} × {grund}")
-    je = len(plan) // 2
-    ausgabe(f"Stichprobe: {len(plan)} Stellen ({je} beworben, {je} selbst aussortiert), Seed {args.seed}.")
-    ausgabe(f"Beispielblock: {len(beispiele)} Beispiele und {len(gruende)} häufigste Gründe "
-            + ("(nur Urteile des Menschen)." if args.bereinigt else "(wie im Betrieb)."))
-    if ohne_aussage and not args.bereinigt:
-        arten = ", ".join(sorted({str(b.get('dismiss_reason') or '') for b in ohne_aussage}))
-        ausgabe(f"   Achtung: {len(ohne_aussage)} von {len(beispiele)} Beispielen haben einen Grund ohne Aussage über die Passung "
-                f"({arten}). Der Betrieb gibt sie der KI als abgelehnt mit; --bereinigt zeigt, was ohne sie herauskommt.")
-    ausgabe("")
+    _referenz_ausgeben(args, ausgabe, urteile, plan, beispiele, gruende, ohne_aussage)
     f = api_backend.feldliste(AUFGABE)
     ausgabe("Gesendet wird je Stelle: " + "; ".join(f["gesendet"]) + ". Nicht gesendet: " + "; ".join(f["nicht_gesendet"]) + ".")
     ausgabe(f"Modell: {modell.name} ({modell.id}), Antwort höchstens {erstes['max_tokens']} Tokens.")
@@ -585,6 +574,52 @@ def _auswerten_und_senden(args, db, transport, dienst_fabrik, ausgabe, api_backe
     if args.ausgabe:
         _json_schreiben(Path(args.ausgabe), {**ergebnis, "abbruch": abbruch, "verbrauch_mikro": z["mikro_usd"]})
     return 0 if not abbruch else 4
+
+
+def _referenz_ausgeben(args, ausgabe, urteile, plan, beispiele, gruende, ohne_aussage) -> None:
+    """Woher die Referenz kommt, wie gross die Stichprobe ist und was im Beispielblock steht: fuer beide Wege gleich."""
+    ausgabe(f"Datenbank: eine Kopie im Wegwerf-Ordner (das Original wurde nur gelesen).")
+    ausgabe("")
+    ausgabe(f"Referenz: nur deine eigenen Urteile. Gefunden: {len(urteile['beworben'])} beworbene Stellen, "
+            f"{len(urteile['aussortiert'])} selbst aussortierte mit Grund über die Art der Stelle (je mit Anzeigentext).")
+    for grund, n in sorted(urteile["ausgeschlossen"].items()):
+        ausgabe(f"   nicht gezählt: {n} × {grund}")
+    je = len(plan) // 2
+    ausgabe(f"Stichprobe: {len(plan)} Stellen ({je} beworben, {je} selbst aussortiert), Seed {args.seed}.")
+    ausgabe(f"Beispielblock: {len(beispiele)} Beispiele und {len(gruende)} häufigste Gründe "
+            + ("(nur Urteile des Menschen)." if args.bereinigt else "(wie im Betrieb)."))
+    if ohne_aussage and not args.bereinigt:
+        arten = ", ".join(sorted({str(b.get('dismiss_reason') or '') for b in ohne_aussage}))
+        ausgabe(f"   Achtung: {len(ohne_aussage)} von {len(beispiele)} Beispielen haben einen Grund ohne Aussage über die Passung "
+                f"({arten}). Der Betrieb gibt sie der KI als abgelehnt mit; --bereinigt zeigt, was ohne sie herauskommt.")
+    ausgabe("")
+
+
+def _nur_lokal(args, db, dienst_fabrik, ausgabe, urteile, plan, beispiele, gruende, ohne_aussage, payload_fuer) -> int:
+    """`--ollama` ohne `--senden`: NUR die lokale KI messen. Kein Schluessel, kein Budget, nichts geht ins Netz.
+
+    Dieselbe Stichprobe, derselbe Prompt-Bauer und dieselbe Auswertung wie beim Vergleich neben der API -- so lassen sich
+    die Beispiele ("wie im Betrieb" gegen `--bereinigt`) an der lokalen KI messen, ohne ein Guthaben anzufassen.
+    """
+    from bewerbungs_assistent.services.llm_service import LLMService
+    ausgabe("Messprobe der lokalen KI (#1236) — nichts geht ins Netz: nur Ollama auf diesem Rechner")
+    _referenz_ausgeben(args, ausgabe, urteile, plan, beispiele, gruende, ohne_aussage)
+    if args.firmennamen or args.modell:
+        ausgabe("Hinweis: --firmennamen und --modell betreffen nur die API und werden hier nicht beachtet "
+                "(lokal verlassen die Namen den Rechner nie).")
+        ausgabe("")
+    svc = (dienst_fabrik or LLMService)(db)
+    ausgabe(f"Die lokale KI beantwortet {len(plan)} Stellen nacheinander.")
+    zeilen, grund = ollama_lauf(plan, payload_fuer, dienst=svc, rueckmeldung=ausgabe)
+    if grund:
+        raise ProbeFehler(grund, code=2)
+    ausgabe("")
+    for zeile in block_text("Lokale KI (Ollama)", zeilen, ausgabe_kosten=False):
+        ausgabe(zeile)
+    if args.ausgabe:
+        _json_schreiben(Path(args.ausgabe), {"modus": "nur_lokal", "seed": args.seed, "bereinigt": bool(args.bereinigt),
+                                             "ollama": {"zeilen": zeilen, "auswertung": _ohne_listen(auswerten(zeilen))}})
+    return 0
 
 
 def api_lauf_mit_namen(db, plan, payload_fuer, svc, ausgabe):
