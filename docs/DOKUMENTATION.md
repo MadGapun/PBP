@@ -164,7 +164,7 @@ Das Dashboard hat **7 Bereiche** und läuft auf `http://localhost:8200`:
 |-------|-----------|-------|
 | **INSTALLIEREN.bat** | Windows 10/11 | Zero-Knowledge Doppelklick-Installer |
 | **installer/install.sh** | Linux | Kommandozeilen-Installer |
-| **installer/install.ps1** | Windows (PowerShell) | Ausfuehrliche Version |
+| **installer/install.ps1** | Windows (PowerShell) | Veraltet - zeigt nur noch auf INSTALLIEREN.bat |
 
 **INSTALLIEREN.bat — Zero-Knowledge Installer:**
 - Versucht Python automatisch via `winget` zu installieren
