@@ -53,6 +53,8 @@ from __future__ import annotations
 import re
 from typing import Optional
 
+from . import uhr
+
 # --- Dimension 1: das Feld ------------------------------------------------
 #
 # Die Begriffslisten sind bewusst nach BERUFSBEZEICHNUNGEN gebaut, nicht
@@ -415,10 +417,14 @@ def _ohne_scheintreffer(text: str) -> str:
 
 
 def berufsjahre(positions: list) -> int:
-    """Summe der vollendeten Jahre aus den Position-Datenbereichen."""
-    from datetime import datetime
+    """Summe der vollendeten Jahre aus den Position-Datenbereichen.
+
+    EINE Rechnung fuer die Einordnung und die Auto-Aussortierung (#1237):
+    ein offenes Ende (laufende Station) zaehlt bis zum Jahr der Uhr
+    (`uhr.heute()`), nie bis zu einer festen Zahl.
+    """
     total = 0
-    this_year = datetime.now().year
+    this_year = uhr.heute().year
     for p in positions or []:
         start_raw = (p.get("start_date") or "0000")[:4]
         end_raw = (p.get("end_date") or "")[:4]

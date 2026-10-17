@@ -109,17 +109,11 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
     positions = profile.get("positions") or []
     latest_pos = positions[0] if positions else {}
     profile_position = latest_pos.get("title", "")
-    # Heuristik: Karriere-Stufe aus aktueller Position + Jahren ableiten
-    years = 0
-    for p in positions:
-        try:
-            start = int((p.get("start_date") or "0000")[:4])
-            end_raw = (p.get("end_date") or "")[:4]
-            end = int(end_raw) if end_raw.isdigit() else 2026
-            if start > 1900:
-                years += max(0, end - start)
-        except Exception:
-            pass
+    # Heuristik: Karriere-Stufe aus den Berufsjahren ableiten. EINE Rechnung
+    # (berufsfeld.berufsjahre, ein offenes Ende zaehlt bis zum Jahr der Uhr):
+    # bis v1.7.158 stand hier eine eigene Schleife mit einer festen 2026 (#1237).
+    from .berufsfeld import berufsjahre
+    years = berufsjahre(positions)
     if years >= 10:
         profile_seniority = f"Senior ({years} Jahre Erfahrung)"
     elif years >= 5:
