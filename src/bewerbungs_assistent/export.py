@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from .services import dokument_regeln as dr
+from .services import uhr
 
 logger = logging.getLogger("bewerbungs_assistent.export")
 
@@ -701,7 +702,8 @@ def _detect_career_gaps(positions, threshold_months=6):
         s_year, s_month = int(m_start.group(1)), int(m_start.group(2) or 1)
 
         if pos.get("is_current") or not end:
-            e_year, e_month = 2026, 3  # current
+            heute = uhr.heute()  # laufend: bis heute, nie bis zu einer festen Zahl (#1237)
+            e_year, e_month = heute.year, heute.month
         else:
             m_end = re.match(r"(\d{4})(?:-(\d{1,2}))?", end)
             if not m_end:
@@ -1084,7 +1086,7 @@ def _score_recruiter(profile, skills, positions, job_text, job_words):
             try:
                 start_year = int(start[:4]) if len(start) >= 4 else 0
                 if pos.get("is_current"):
-                    end_year = 2026
+                    end_year = uhr.heute().year  # #1237: bis v1.7.158 eine feste 2026
                 elif end and len(end) >= 4:
                     end_year = int(end[:4])
                 else:
