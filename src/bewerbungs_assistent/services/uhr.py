@@ -1,4 +1,4 @@
-"""Die Uhr von PBP - EINE Stelle, an der "heute" gelesen wird (#1237).
+"""Die Uhr fuer Rechnungen "bis heute" (#1237).
 
 Eine Rechnung "bis heute" (die Berufsjahre einer laufenden Position, die
 Luecke im Werdegang) nimmt das Datum von hier und traegt nie eine
@@ -10,10 +10,14 @@ Jahren).
 
 Tests setzen `heute` auf einen festen Tag
 (`monkeypatch.setattr(uhr, "heute", lambda: date(2027, 1, 1))`). Darum
-rufen alle Stellen `uhr.heute()` ueber das Modul auf und importieren die
-Funktion nie mit `from .uhr import heute` (das friert die Uhr beim Import
-ein). Der Waechter `tests/test_berufsjahre_laufendes_jahr_1237.py` haelt
-feste Jahreszahlen aus dem Quelltext.
+rufen die Stellen `uhr.heute()` ueber das Modul auf und importieren die
+Funktion nie mit `from .uhr import heute` (dann wirkte das Festhalten im
+Test nicht mehr). Der Waechter `tests/test_berufsjahre_laufendes_jahr_1237.py`
+haelt feste Jahreszahlen aus dem Quelltext.
+
+Abgrenzung: Zeitstempel fuer die Datenbank (das `_jetzt()` der Dienste) und
+die Ortszeit eines Termins (`termin_zeit.jetzt_lokal`) lesen ihre eigene Uhr
+und bleiben dort. Hier geht es um das Datum, mit dem gerechnet wird.
 """
 from __future__ import annotations
 
