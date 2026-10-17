@@ -33,9 +33,9 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.7.159] - 2026-10-16 — Eine Bewerbung macht keine Firma zum Wiedergänger, und ein Ortsname, den es mehrfach gibt, wird nicht mehr geraten
+## [1.7.159] - 2026-10-16 — Eine Bewerbung macht keine Firma zum Wiedergänger, ein Ortsname wird nicht geraten, und die Berufsjahre zählen bis heute
 
-Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiven Stellen aufgefallen und beide an der Frage, was PBP aus seinen eigenen Daten folgert. Zwei Stellen derselben Firma, die aus der Liste gegangen waren, weil du dich beworben hattest, zählten als „zweimal aussortiert“: eine gelesene, empfohlene Stelle stand deshalb in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei `nur_empfohlen` ganz heraus (#1234). Und eine Stelle in „Rosengarten“ stand mit 24 statt rund 500 Kilometern als nah in der Liste: den Namen gibt es mehrfach in Deutschland, und PBP nahm den ersten Treffer des Kartendienstes, ohne es zu sagen (#1235).
+Hotfix für v1.7.158. Drei Befunde, alle an der Frage, was PBP aus seinen eigenen Daten folgert oder rechnet. Zwei davon fielen am 16.10.2026 beim Abgleich der aktiven Stellen auf: Zwei Stellen derselben Firma, die aus der Liste gegangen waren, weil du dich beworben hattest, zählten als „zweimal aussortiert“: eine gelesene, empfohlene Stelle stand deshalb in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei `nur_empfohlen` ganz heraus (#1234). Und eine Stelle in „Rosengarten“ stand mit 24 statt rund 500 Kilometern als nah in der Liste: den Namen gibt es mehrfach in Deutschland, und PBP nahm den ersten Treffer des Kartendienstes, ohne es zu sagen (#1235). Der dritte Befund hat einen Stichtag: PBP rechnete bei einer laufenden Stelle bis zu einer festen Jahreszahl 2026, und ab dem 01.01.2027 hätte jede laufende Stelle ein Jahr zu wenig gezählt (#1237).
 
 **Wichtig zu wissen:**
 
@@ -48,11 +48,13 @@ Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiv
 - **PLZ oder Bundesland direkt hinter dem Namen klären es.** Nennt die Anzeige „74538 Rosengarten“ oder „Rosengarten, Baden-Württemberg“, fragt PBP damit noch einmal: im Suchlauf, bei der Anlage von Hand, beim Nachladen, beim Ändern des Orts und bei der Reparatur der Karten. Ein Ort mit PLZ („21224 Rosengarten“) war schon immer eindeutig.
 - **Ein mehrdeutiger Wohnort wird als solcher benannt.** Statt „nicht aufgelöst“ steht, welche Orte der Name meint, und der Ausweg: die PLZ ergänzen.
 - **Der Bestand wird nachgeprüft.** Beim Nachholen nach einer Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Einträge des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und von dir gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht mehr auf „nah“.
+- **Die Berufsjahre zählen bis heute, nicht bis 2026.** PBP rechnete bei einer laufenden Stelle bis zu einer festen Jahreszahl. Ab dem 01.01.2027 hätte jede laufende Stelle ein Jahr zu wenig gezählt, ab 2028 zwei. Das hätte die Karrierestufe, die die lokale KI beim Aussortieren bekommt, zu spät kippen lassen (Mid-Level erst nach sechs statt fünf Jahren, Senior erst nach elf statt zehn), die Jahre Berufserfahrung in der Recruiter-Wertung deines Lebenslaufs verkürzt und eine laufende Stelle neben einer später begonnenen als „Lücke“ im Werdegang gemeldet. Jetzt kommt das Datum aus der Uhr deines Rechners.
 
 ### Fixed
 
 - **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234). `find_wiedergaenger_pattern` zählte jeden Aussortier-Grund als Beleg. Eine Liste der Nicht-Urteile (`ablehnungsgruende.KEIN_URTEIL_GRUENDE`: `bewerbung_erstellt`, `bereits_beworben`, `duplikat`, `veraltet_url`) wird jetzt von allen Wegen befragt (Wiedergänger, Firmen-Historie, Automatik). Die Stellenliste machte aus JEDEM Muster ein NICHT_EMPFOHLEN, die Analyse nur aus einem fachlichen; beide fragen jetzt dieselbe Funktion (`wiedergaenger.ist_fachlicher_ko`). „head“, „chief“, „director“, „direktor“ und „vorstand“ stehen bei den Rollenwörtern (`_TITLE_STOPS`).
 - **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235). `geocode(exactly_one=True)` gab den Treffer mit dem höchsten Gewicht zurück; das gleichnamige Rosengarten im Landkreis Harburg verdrängte das in Baden-Württemberg. Jetzt wertet PBP bis zu acht Treffer aus (`geocoding_service.geocode_ort`), nennt einen mehrdeutigen Ort samt Kandidaten (`mehrdeutigkeit`) und klärt ihn, wenn die Anzeige PLZ oder Bundesland nennt (`entfernung_aus_anzeige`).
+- **Offene Positionen rechneten mit einer festen Jahreszahl** (#1237). Drei Stellen setzten für ein offenes Ende `2026` ein: die Auto-Aussortierung (die Karrierestufe im Prompt der lokalen KI), die Recruiter-Wertung des Lebenslaufs (`export._score_recruiter`) und die Lücken-Erkennung (`export._detect_career_gaps`, dort `2026-03`). Das laufende Jahr kommt jetzt aus EINER Funktion (`services/uhr.heute()`), und die Auto-Aussortierung rechnet mit derselben Funktion wie die Einordnung (`berufsfeld.berufsjahre`) statt mit einer eigenen Schleife.
 
 ### Changed
 
@@ -60,6 +62,8 @@ Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiv
 - `services/geocoding_service.py`, `eigener_standort.py`, `wahrheit.py`, `karten_heilung.py`, `nachladen.py`, `stelle_aendern.py`, `job_scraper/__init__.py` und `tools/jobs.py` (Anlage von Hand): ein mehrdeutiger Ort hat keine Koordinaten, die Anzeige klärt ihn über dieselbe Funktion (#1235).
 - Der Ortsspeicher `geo_cache` hat zwei Spalten mehr, `stand` und `kandidaten`. Sie werden beim Start einmalig nachgezogen (additiv, ohne neue Schema-Version; Schema bleibt v48, beide Linien lesen dieselbe Datenbank).
 - Dashboard: die Karte „Standort“ nennt die Orte eines mehrdeutigen Wohnorts (`lib/standort.js`, Node-Test in der CI).
+- `services/uhr.py` (neu): `heute()`, die eine Stelle, an der PBP die Uhr liest. Tests stellen sie auf einen festen Tag (`monkeypatch.setattr(uhr, "heute", ...)`); die Aufrufer gehen über das Modul, nie über `from .uhr import heute` (#1237).
+- `services/berufsfeld.py` (`berufsjahre`), `services/auto_aussortierung.py` und `export.py` (zwei Stellen) lesen das Jahr von dort (#1237).
 
 ### Known Issues
 
@@ -67,7 +71,9 @@ Hotfix für v1.7.158. Zwei Befunde vom 16.10.2026, beide beim Abgleich der aktiv
 
 ### Gemessen
 
-83 neue Tests (7.313 gesamt; v1.7.158 hatte 7.230): 25 zu #1234 (`tests/test_v17159_wiedergaenger_urteil_1234.py`; auf v1.7.158 rot: 17) und 58 zu #1235 (`tests/test_v17159_ortsdienst_mehrdeutig_1235.py`; auf v1.7.158 rot: alle 58), dazu der Node-Test `frontend/src/lib/standort.test.mjs`. Die Gegenprobe (je Schutz einmal ausgebaut, die Tests müssen rot werden) erkannte 21 von 21 Eingriffen zu #1234 und 27 von 27 zu #1235. Die Schwellen des Ortsdienstes sind gemessen (Kartendienst, 16.10.2026, 15 Abfragen): mehrdeutige Namen haben Treffer mit höchstens 0,061 Gewichtsabstand, eindeutige (Frankfurt, Halle, Offenbach) mindestens 0,136; die Grenze liegt bei 0,10 und 50 Kilometern.
+141 neue Tests (7.371 gesamt; v1.7.158 hatte 7.230): 25 zu #1234 (`tests/test_v17159_wiedergaenger_urteil_1234.py`; auf v1.7.158 rot: 17), 58 zu #1235 (`tests/test_v17159_ortsdienst_mehrdeutig_1235.py`; auf v1.7.158 rot: alle 58) und 58 zu #1237 (`tests/test_berufsjahre_laufendes_jahr_1237.py`; auf v1.7.158 rot: 18), dazu der Node-Test `frontend/src/lib/standort.test.mjs`. Die Gegenprobe (je Schutz einmal ausgebaut, die Tests müssen rot werden) erkannte 21 von 21 Eingriffen zu #1234, 27 von 27 zu #1235 und 19 von 19 zu #1237. Die Schwellen des Ortsdienstes sind gemessen (Kartendienst, 16.10.2026, 15 Abfragen): mehrdeutige Namen haben Treffer mit höchstens 0,061 Gewichtsabstand, eindeutige (Frankfurt, Halle, Offenbach) mindestens 0,136; die Grenze liegt bei 0,10 und 50 Kilometern.
+
+Zu #1237: Die Tests stellen die Uhr auf Tage vor, in und nach 2026 (31.12.2025, 17.10.2026, 01.01.2027, 15.06.2030), prüfen die Stufe der Auto-Aussortierung an den Grenzen 0/1, 4/5 und 9/10 Jahre auf dem echten Weg (`stellen_auto_aussortieren` mit einer unechten KI, die den Auftrag mitschreibt) und vergleichen die neue Rechnung mit der alten Schleife auf allen Werten, die die Datenbank liefern kann. Neu ist ein Wächter gegen Jahreszahlen als Festwert im Quelltext (Syntaxbaum; Fenster 2020 bis 2039; Kommentare, Docstrings und Datumstexte zählen nicht; eine Zahl mit Grund trägt `# jahreszahl-ok: <Grund>`). Er fand beim ersten Lauf zwei weitere Festjahre in `export.py`, die das Issue nicht nannte.
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
