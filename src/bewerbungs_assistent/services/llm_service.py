@@ -1,10 +1,15 @@
 """LLM-Service-Dispatcher (v1.7.0 #512).
 
-Zentrale Routing-Schicht zwischen drei moeglichen LLM-Backends:
+Zentrale Routing-Schicht zwischen vier moeglichen LLM-Backends:
 
 - ``local``   — Ollama-Sidecar auf localhost:11434, fuer deterministische
                 Routine-Aufgaben (Doku-Klassifikation, Skill-Extraktion,
                 Vor-Filterung). Spart Claude-Tokens und ist kostenlos.
+- ``api``     — die Anthropic-API mit eigenem Schluessel (#1236, nur 1.8-Linie
+                und spaeter). Nur fuer die Aufgaben in ``api_backend.AUFGABEN``,
+                nur nach ausdruecklicher Freigabe je Aufgabe, Vorgabe AUS. Das
+                ist NICHT ``claude``: dort erledigt Claude Desktop die Aufgabe,
+                hier ruft PBP selbst einen Cloud-Dienst auf.
 - ``claude``  — der Claude-Aufrufer (via MCP). Fuer kreative und Real-Time-
                 Aufgaben (Anschreiben, Coaching, Web-Recherche).
 - ``manual``  — kein Backend verfuegbar. Aufrufer bekommt klaren Hinweis,
@@ -14,7 +19,9 @@ Designprinzipien:
 
 1. **Lokale AI ist immer optional.** Wenn Ollama nicht laeuft oder kein
    Modell installiert ist, faellt der Service stillschweigend auf
-   ``claude`` oder ``manual`` zurueck.
+   ``claude`` oder ``manual`` zurueck. Der API-Weg haengt davor, nicht
+   statt: faellt er aus, geht es mit demselben Aufruf lokal weiter, und
+   der Grund steht in den Metriken (``api_abgebrochen``).
 2. **Aufgabenteilung ist konfigurierbar** ueber ``ROUTING_TABLE`` —
    jeder Task-Typ hat eine bevorzugte und eine Fallback-Backend-Reihenfolge.
 3. **Status-Caching:** Ollama-Erkennung wird 30s gecacht, damit nicht
@@ -70,6 +77,7 @@ class TaskKind(str, Enum):
 class Backend(str, Enum):
     """Mögliche Ausführungs-Backends."""
     LOCAL = "local"
+    API = "api"  # #1236: Anthropic-API mit eigenem Schluessel, je Aufgabe freigegeben, Vorgabe AUS
     CLAUDE = "claude"
     MANUAL = "manual"
 
@@ -266,14 +274,35 @@ class LLMService:
 
     # ── Backend-Auswahl ────────────────────────────────────────────
 
-    def select_backend(self, task: TaskKind) -> Backend:
+    def _api_zustand(self, task: TaskKind):
+        """Darf diese Aufgabe jetzt ueber die API? (`api_backend.zustand`), None bei Aufgaben ohne API-Weg.
+
+        Der Normalfall (nichts freigegeben) kostet eine Einstellung zu lesen und aendert nichts.
+        """
+        try:
+            from . import api_backend
+            if task.value not in api_backend.AUFGABEN:
+                return None
+            return api_backend.zustand(self.db, task.value)
+        except Exception as exc:  # noqa: BLE001 -- die Wahl des Weges darf nie an der Anzeige haengen
+            logger.debug("API-Zustand nicht lesbar (%s): kein API-Weg", type(exc).__name__)
+            return None
+
+    def select_backend(self, task: TaskKind, mit_api: bool = True) -> Backend:
         """Waehlt das beste verfuegbare Backend fuer einen Task.
 
         Beruecksichtigt:
+        - die Freigabe des API-Wegs (#1236): nur wenn der Mensch die Aufgabe
+          freigegeben hat und Schluessel, KI-Schalter und Budget es erlauben;
+          `mit_api=False` fragt nach dem Weg DANACH (Rueckfall)
         - Routing-Praeferenz aus ROUTING_TABLE
         - User-State (paused/off → LOCAL nicht moeglich)
         - Ollama-Verfuegbarkeit (kein Modell installiert → LOCAL nicht moeglich)
         """
+        if mit_api:
+            api = self._api_zustand(task)
+            if api is not None and api.erlaubt:
+                return Backend.API
         status = self.get_status()
         chain = ROUTING_TABLE.get(task, [Backend.CLAUDE, Backend.MANUAL])
         for backend in chain:
@@ -308,11 +337,44 @@ class LLMService:
                 metrics={"backend": "mock", "duration_ms": 0},
             )
 
+        # #1236: der API-Weg haengt DAVOR. Faellt er aus, geht derselbe Aufruf lokal weiter, und der Grund
+        # steht in den Metriken -- nie ein stilles Raten, nie eine Schleife.
+        api_fehler = None  # (code, text)
+        api_ausgelassen = None  # (code, text): freigegeben, aber gerade nicht nutzbar
+        if backend == Backend.API:
+            try:
+                return self._run_api(task, payload)
+            except Exception as exc:  # noqa: BLE001
+                from .api_backend import ApiFehler
+                if isinstance(exc, ApiFehler):
+                    api_fehler = (exc.code, exc.text)
+                else:
+                    api_fehler = ("unerwartet", f"Beim API-Aufruf ist ein unerwarteter Fehler aufgetreten "
+                                                f"({type(exc).__name__}).")
+                logger.warning("API-Weg fuer %s fehlgeschlagen (%s) -- Rueckfall", task, api_fehler[0])
+                danach = self.select_backend(task, mit_api=False)
+                backend = danach if danach != Backend.API else Backend.CLAUDE
+        else:
+            z = self._api_zustand(task)
+            if z is not None and z.freigegeben and not z.erlaubt:
+                api_ausgelassen = (z.grund, z.text)
+
+        def mit_api_vermerk(metriken: dict) -> dict:
+            if api_fehler:
+                metriken["api_abgebrochen"] = api_fehler[0]
+                metriken["api_grund"] = api_fehler[1]
+            elif api_ausgelassen:
+                metriken["api_ausgelassen"] = api_ausgelassen[0]
+                metriken["api_grund"] = api_ausgelassen[1]
+            return metriken
+
         lokaler_grund = None
         if backend == Backend.LOCAL:
             # v1.7.0-beta.2: Echter Ollama-Call
             try:
-                return self._run_local(task, payload)
+                lokal = self._run_local(task, payload)
+                mit_api_vermerk(lokal.metrics)
+                return lokal
             except Exception as exc:
                 logger.warning("Local LLM call failed for %s: %s — falling back to CLAUDE",
                                task, exc)
@@ -332,6 +394,9 @@ class LLMService:
             if lokaler_grund:
                 nachricht += " Grund: " + lokaler_grund
                 metriken["lokal_abgebrochen"] = "kontext_zu_klein"
+            if api_fehler:
+                nachricht += " API-Weg: " + api_fehler[1]
+            mit_api_vermerk(metriken)
             return TaskResult(
                 backend=Backend.CLAUDE,
                 success=False,
@@ -348,6 +413,44 @@ class LLMService:
                 f"Task '{task.value}' kann derzeit weder lokal noch via Claude "
                 "erledigt werden — bitte manuell."
             ),
+            metrics=mit_api_vermerk({}),
+        )
+
+    def _run_api(self, task: TaskKind, payload: dict) -> TaskResult:
+        """Fuehrt einen Task ueber die Anthropic-API aus (#1236).
+
+        Dieselben Prompt-Bauer und Parser wie lokal; neu ist nur der Transport. Der Datumskontext steht
+        davor, und nur die Felder der Feldliste verlassen den Rechner (`api_backend.nutzlast_fuer_api`).
+        Wirft `ApiFehler` mit benanntem Grund; `run` faellt dann zurueck.
+        """
+        from . import api_backend
+        builder = _PROMPT_BUILDERS.get(task)
+        if builder is None:
+            raise api_backend.ApiFehler("aufgabe_nicht_vorgesehen")
+        sicher = api_backend.nutzlast_fuer_api(task.value, payload)
+        prompt = _datums_kontext() + builder(sicher)
+        antwort = api_backend.senden(self.db, task.value, prompt)
+        parser = _RESPONSE_PARSERS.get(task, lambda s: {"raw": s})
+        try:
+            ergebnis = parser(antwort.text)
+        except Exception:
+            # Bezahlt und unbrauchbar. Dreimal in Folge, und der Weg ruht kurz (`api_backend.antwort_unbrauchbar`).
+            api_backend.antwort_unbrauchbar("antwort_unlesbar")
+            raise
+        api_backend.antwort_brauchbar()
+        return TaskResult(
+            backend=Backend.API,
+            success=True,
+            payload=ergebnis,
+            metrics={
+                "backend": "anthropic_api",
+                "model": antwort.modell,
+                "duration_ms": antwort.dauer_ms,
+                "eingabe_tokens": antwort.eingabe_tokens,
+                "ausgabe_tokens": antwort.ausgabe_tokens,
+                "kosten_mikro_usd": antwort.kosten_mikro,
+                "kosten_geschaetzt": antwort.geschaetzt,
+            },
         )
 
     # ── Echte Ollama-Anbindung (v1.7.0-beta.2) ─────────────────────

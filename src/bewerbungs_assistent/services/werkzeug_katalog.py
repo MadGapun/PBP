@@ -89,6 +89,11 @@ EINSTELLUNG = frozenset({
     "mail_quelle_anzeigen", "mail_quelle_einstellen",
 })
 
+# #1236: die Werkzeuge des optionalen API-Wegs. Sie werden nur registriert, wenn beim Start ein Schluessel in
+# der Umgebung steht (`tools.register_all`), und stehen deshalb NICHT in EINSTELLUNG -- ein Guard haelt jede
+# Liste dort gegen die registrierten Werkzeuge. Den Tag tragen sie trotzdem.
+API_WEG = frozenset({"api_weg_anzeigen", "api_weg_einstellen", "api_weg_pruefen"})
+
 # Kuratierte Beschreibungen fuer den Kernweg: Zweck, wann, wann nicht.
 KURZ = {
     "profil_status": (
@@ -341,7 +346,7 @@ def tag(name: str) -> str:
         return "wartung"
     if name in ENTWICKLER:
         return "entwickler"
-    if name in EINSTELLUNG:
+    if name in EINSTELLUNG or name in API_WEG:
         return "einstellung"
     return "alltag"
 

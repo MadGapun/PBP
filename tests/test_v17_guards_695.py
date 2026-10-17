@@ -123,8 +123,12 @@ def test_695_jobsuche_ohne_kriterien_startet_nicht(setup_env):
     assert "suchkriterien_setzen" in res.get("nachricht", "")
 
 
-def test_695_jobsuche_mit_explizit_keywords_umgeht_guard(setup_env):
+def test_695_jobsuche_mit_explizit_keywords_umgeht_guard(setup_env, monkeypatch):
     db = setup_env
+    # Der Test prueft den Guard, nicht die Suche: ohne Testdoppel haette der Suchlauf (ein Hintergrund-Thread) bei jedem
+    # Durchlauf die echte Schnittstelle der Bundesagentur gefragt.
+    from bewerbungs_assistent.job_scraper import bundesagentur
+    monkeypatch.setattr(bundesagentur, "search_bundesagentur", lambda params: [])
     db.set_profile_setting("active_sources", ["bundesagentur"])
     mcp = _make_mcp(db, "jobs")
     res = _call(mcp, "jobsuche_starten", {"keywords": ["PLM Consultant"]})

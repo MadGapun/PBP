@@ -22,7 +22,9 @@ Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startba
 `suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177) und
 `browser` (Browser-Suchlauf: die Regel "im Zweifel eintragen" steht in jeder Anleitung, die Vorschau prueft wie die Anlage
 und schreibt nichts; #1187) und
-`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189).
+`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189) und
+`api` (optionaler API-Weg der KI: Vorgabe aus, nur die Feldliste geht hinaus, Budget mit harter Grenze, der Schluessel taucht
+nirgends auf, die Netzsperre der Suite, die Messprobe; #1236).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -1151,7 +1153,291 @@ M_TESSERACT = [
      "    result = await run_in_threadpool(comp.uninstall_component, _db, name)\n", "    result = comp.uninstall_component(_db, name)\n", T_TE),
 ]
 
-KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT}
+# ── Katalog: optionaler API-Weg der KI (#1236) ──
+API_B = "src/bewerbungs_assistent/services/api_backend.py"
+API_L = "src/bewerbungs_assistent/services/llm_service.py"
+API_A = "src/bewerbungs_assistent/services/auto_aussortierung.py"
+API_J = "src/bewerbungs_assistent/tools/jobs.py"
+API_W = "src/bewerbungs_assistent/tools/api_weg.py"
+API_I = "src/bewerbungs_assistent/tools/__init__.py"
+API_D = "src/bewerbungs_assistent/services/datenschutz.py"
+API_P = "scripts/api_probe.py"
+API_C = "tests/conftest.py"
+API_N = "tests/_netzsperre.py"
+T_APB = ["tests/test_v18_api_weg_1236_baustein.py"]
+T_APA = ["tests/test_v18_api_weg_1236_aufruf.py"]
+T_APW = ["tests/test_v18_api_weg_1236_werkzeuge.py"]
+T_APN = ["tests/test_v18_netzsperre_1236.py"]
+T_APS = ["tests/test_v18_api_schluessel_nirgends_1236.py"]
+T_APP = ["tests/test_v18_api_probe_1236.py"]
+T_APU = ["tests/test_v18_api_weg_1236_aussortieren.py"]
+T_APO = ["tests/test_v18_api_weg_1236_oberflaeche.py"]
+
+M_API = [
+    # ── Vorgabe aus, je Aufgabe einzeln ──
+    ("ap01", "Jede Aufgabe gilt als freigegeben", API_B,
+     '    if db is None or aufgabe_kennung not in freigaben_lesen(db):\n        return Zustand(',
+     '    if db is None:\n        return Zustand(', T_APB),
+    ("ap02", "Eine unbekannte Aufgabe in der Einstellung gilt als freigegeben", API_B,
+     '        if name not in AUFGABEN or not isinstance(wert, dict):\n            continue\n',
+     '        if not isinstance(wert, dict):\n            continue\n', T_APB),
+    ("ap03", "Freigeben geht auch ohne Schluessel", API_B,
+     '            if not schluessel_vorhanden():\n                return {"status": "fehler", "code": "kein_schluessel"',
+     '            if False:\n                return {"status": "fehler", "code": "kein_schluessel"', T_APB),
+    ("ap04", "Freigeben ohne Feldliste und ohne Bestaetigung", API_B,
+     '            if not bestaetigt:\n                return {"status": "bestaetigung_noetig", "aufgaben": [feldliste(a) for a in dazu],',
+     '            if False:\n                return {"status": "bestaetigung_noetig", "aufgaben": [feldliste(a) for a in dazu],', T_APB),
+    # ── Was hinausgeht: nur die Feldliste ──
+    ("ap05", "Felder ausserhalb der Feldliste gehen mit", API_B,
+     '    sicher = {k: v for k, v in (payload or {}).items() if k in erlaubt}',
+     '    sicher = dict(payload or {})', T_APB + T_APA),
+    ("ap06", "Die Firmennamen der Beispiele werden nicht geschwaerzt", API_B,
+     '        sicher["recent_dismissals"] = _beispiele_schwaerzen(sicher["recent_dismissals"])',
+     '        pass', T_APB + T_APA),
+    ("ap07", "Der Firmenname im Titel eines Beispiels bleibt stehen", API_B,
+     '        for name in _firmen_schreibweisen(firma):\n            titel = re.sub(', '        for name in []:\n            titel = re.sub(', T_APB),
+    ("ap08", "Ein kurzer Firmenname schwaerzt Woerter des Titels", API_B,
+     '    return sorted({n for n in namen if len(n) >= 3}, key=len, reverse=True)',
+     '    return sorted({n for n in namen if len(n) >= 1}, key=len, reverse=True)', T_APB),
+    # ── KI-Schalter, Schluessel, Budget, Preis ──
+    ("ap09", "Die KI-Schalter sperren den API-Weg nicht", API_B,
+     '        if db.is_ki_feature_enabled(a.ki_bereich):\n            return None\n',
+     '        if True:\n            return None\n', T_APB),
+    ("ap10", "Ohne Schluessel gilt der Weg als nutzbar", API_B,
+     '    if not schluessel_vorhanden():\n        return nein("kein_schluessel")\n',
+     '    if False:\n        return nein("kein_schluessel")\n', T_APB),
+    ("ap11", "Ohne Budget gilt der Weg als nutzbar", API_B,
+     '    budget = budget_lesen(db)\n    if budget is None:\n        return nein("kein_budget", modell=modell.id)\n',
+     '    budget = budget_lesen(db) or 10 ** 15\n    if budget is None:\n        return nein("kein_budget", modell=modell.id)\n', T_APB),
+    ("ap12", "Ein aufgebrauchtes Budget haelt den Weg nicht an", API_B,
+     '    if verbraucht >= budget:\n        return nein("budget_erreicht"',
+     '    if False:\n        return nein("budget_erreicht"', T_APA),
+    ("ap13", "Der schlimmste Fall des naechsten Aufrufs wird nicht gerechnet", API_B,
+     '            if verbraucht + reserve > budget:', '            if False:', T_APA),
+    ("ap14", "Laufende Aufrufe zaehlen nicht gegen das Budget", API_B,
+     '        _IN_FLIGHT += reserve\n    try:', '        pass\n    try:', T_APA),
+    ("ap15", "Der Verbrauch aus der Antwort wird nicht gebucht", API_B,
+     '        _verbuchen_sicher(db, antwort.eingabe_tokens, antwort.ausgabe_tokens, antwort.kosten_mikro,\n                          geschaetzt=antwort.geschaetzt)\n',
+     '        pass\n', T_APA),
+    ("ap16", "Ein Modell ohne Preis wird benutzt", API_B,
+     '    if not m.preis_bekannt:\n        return m, "preis_unbekannt"\n',
+     '    if False:\n        return m, "preis_unbekannt"\n', T_APB),
+    ("ap17", "Die Eingabegrenze fehlt", API_B,
+     '    if geschaetzt_ein > MAX_EINGABE_TOKENS:', '    if False:', T_APA),
+    ("ap18", "Fehlt usage in der Antwort, wird nichts gebucht statt des schlimmsten Falls", API_B,
+     '            antwort.eingabe_tokens, antwort.ausgabe_tokens, antwort.kosten_mikro = geschaetzt_ein, max_tokens, reserve\n',
+     '            pass\n', T_APA),
+    ("ap19", "Eine unlesbare Antwort wird nicht gebucht", API_B,
+     '            if exc.verbraucht_unbekannt:', '            if False:', T_APA),
+    # ── Fehlerbild und Wiederholung ──
+    ("ap20", "Ein ungueltiger Schluessel (401) bekommt keinen eigenen Grund", API_B,
+     '    if status == 401:\n        code = "schluessel_ungueltig"', '    if status == 401:\n        code = "unerwartet"', T_APA),
+    ("ap21", "Die Meldung 'credit balance' ist kein leeres Guthaben", API_B,
+     '"credit balance" in kleinmeldung or ', '', T_APA),
+    ("ap22", "Zwei Wiederholungen statt einer", API_B,
+     '            if versuch == 1 and status in (429, 500, 502, 503, 529):',
+     '            if versuch <= 2 and status in (429, 500, 502, 503, 529):', T_APA),
+    ("ap23", "Keine Wiederholung bei 429 und 5xx", API_B,
+     '            if versuch == 1 and status in (429, 500, 502, 503, 529):',
+     '            if False and status in (429, 500, 502, 503, 529):', T_APA),
+    ("ap24", "Eine Zeitueberschreitung (504) wird wiederholt", API_B,
+     '            if versuch == 1 and status in (429, 500, 502, 503, 529):',
+     '            if versuch == 1 and status in (429, 500, 502, 503, 504, 529):', T_APA),
+    ("ap25", "Nach einem Fehler ruht der Weg nie", API_B,
+     '    if sekunden:\n        with _LOCK:\n            _pause = (time.monotonic() + sekunden, code, text)\n',
+     '    if False:\n        with _LOCK:\n            _pause = (time.monotonic() + sekunden, code, text)\n', T_APA),
+    ("ap26", "Ein Fehler nur dieser Eingabe legt den ganzen Weg lahm", API_B,
+     '"kein_netz", "unerwartet",\n                    "wiederholt_unbrauchbar"})',
+     '"kein_netz", "unerwartet",\n                    "wiederholt_unbrauchbar", "antwort_leer"})', T_APA),
+    ("ap27", "Eine Aenderung der Einstellung hebt die Pause nicht auf", API_B,
+     '        pause_aufheben()  # wer etwas einstellt, will es auch ausprobieren\n', '        pass\n', T_APA),
+    # ── "Schluessel gueltig" erst nach einer echten Probe ──
+    ("ap28", "Eine Pruefung gilt fuer jeden Schluessel", API_B,
+     '            or not schluessel_kennung() or roh.get("kennung") != schluessel_kennung()):',
+     '            or not schluessel_kennung()):', T_APA),
+    ("ap29", "Eine misslungene Probe sagt 'gueltig'", API_B,
+     '        ergebnis = "ungueltig" if exc.code == "schluessel_ungueltig" else "unklar"\n',
+     '        ergebnis = "gueltig"\n', T_APA),
+    ("ap30", "Ein spaeteres 401 laesst 'gueltig' stehen", API_B,
+     '        if exc.code == "schluessel_ungueltig":\n            _pruefung_merken(db, "ungueltig", exc.code)\n',
+     '        pass\n', T_APA),
+    # ── Die Anfrage selbst ──
+    ("ap31", "Das Denken wird bei Haiku nicht abgeschaltet", API_B,
+     '    if modell.denken == "aus":\n        daten["thinking"] = {"type": "disabled"}\n',
+     '    if False:\n        daten["thinking"] = {"type": "disabled"}\n', T_APA),
+    ("ap32", "Die Anfrage sendet temperature (die neuen Modelle weisen sie ab)", API_B,
+     '    daten: dict = {"model": modell.id, "max_tokens": int(max_tokens),',
+     '    daten: dict = {"temperature": 0.2, "model": modell.id, "max_tokens": int(max_tokens),', T_APA),
+    ("ap33", "Der Prompt der API traegt keinen Datumskontext", API_L,
+     '        prompt = _datums_kontext() + builder(sicher)\n', '        prompt = builder(sicher)\n', T_APA),
+    ("ap34", "Die API bekommt die ganze Nutzlast statt der Feldliste", API_L,
+     '        sicher = api_backend.nutzlast_fuer_api(task.value, payload)\n', '        sicher = payload\n', T_APA),
+    # ── Der Schluessel taucht nirgends auf ──
+    ("ap35", "Der Schluessel wird in Texten nicht geschwaerzt", API_B,
+     '    if k:\n        s = s.replace(k, "***")\n    return _SCHLUESSEL_MUSTER.sub("***", s)\n',
+     '    return s\n', T_APA + T_APS),
+    ("ap36", "Die Antwort der API wird nicht geschwaerzt", API_B,
+     '    text = schwaerzen("".join(b.get("text", "") for b in (daten.get("content") or [])\n                              if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)))\n',
+     '    text = "".join(b.get("text", "") for b in (daten.get("content") or [])\n                   if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str))\n', T_APA + T_APS),
+    ("ap37", "Ein Fehlertext wird nicht geschwaerzt", API_B,
+     '        self.text = schwaerzen(text or GRUENDE.get(code, code))', '        self.text = text or GRUENDE.get(code, code)', T_APA + T_APS),
+    ("ap38", "Der Schluessel steht im Log", API_B,
+     '        start = time.monotonic()\n        versuch = 0\n',
+     '        start = time.monotonic()\n        logger.info("API-Aufruf mit Schluessel %s", schluessel)\n        versuch = 0\n', T_APS),
+    ("ap39", "Der Schluessel steht in der Datenbank", API_B,
+     '                                    "kennung": schluessel_kennung()})',
+     '                                    "kennung": schluessel_kennung(), "schluessel": _schluessel()})', T_APS),
+    ("ap40", "Die Karte und die Antwort zeigen sich ohne Schluessel und ohne Einstellung", API_B,
+     '    if schluessel_vorhanden():\n        return True\n    if db is None:\n        return False\n', '    return True\n', T_APB),
+    # ── Routing, Rueckfall, Auskunft ──
+    ("ap41", "Der API-Weg gilt schon als gewaehlt, wenn er nur freigegeben ist", API_L,
+     '            if api is not None and api.erlaubt:', '            if api is not None and api.freigegeben:', T_APA + T_APB),
+    ("ap42", "Nach einem API-Fehler geht es nirgends weiter", API_L,
+     '                backend = danach if danach != Backend.API else Backend.CLAUDE\n', '                backend = Backend.MANUAL\n', T_APA),
+    ("ap43", "Die Meldung nennt den API-Grund nicht", API_L,
+     '            if api_fehler:\n                nachricht += " API-Weg: " + api_fehler[1]\n', '            pass\n', T_APA),
+    ("ap44", "Ein freigegebener, aber ruhender Weg sagt nichts", API_L,
+     '                api_ausgelassen = (z.grund, z.text)\n', '                pass\n', T_APA),
+    ("ap45", "Der Lauf braucht auch mit freigegebenem API-Weg Ollama", API_A,
+     '        return api_backend.zustand(db, "match_job_to_skills").erlaubt\n', '        return False\n', T_APU),
+    ("ap46", "Der Lauf umgeht Ollama auch ohne Freigabe", API_A,
+     '        return api_backend.zustand(db, "match_job_to_skills").erlaubt\n', '        return True\n', T_APU),
+    ("ap47", "Die Qualitaetspruefung ignoriert eine API-Antwort", API_J,
+     '                        if r.backend in (Backend.LOCAL, Backend.API) and r.success:',
+     '                        if r.backend in (Backend.LOCAL,) and r.success:', T_APU),
+    # ── Werkzeuge und Dashboard ──
+    ("ap48", "Die Werkzeuge gibt es auch ohne Schluessel", API_I,
+     '    if _api_backend.schluessel_vorhanden():\n        api_weg.register(mcp, db, logger)\n',
+     '    if True:\n        api_weg.register(mcp, db, logger)\n', T_APW),
+    ("ap49", "Das Werkzeug gibt ohne Bestaetigung frei", API_W,
+     '                                               bestaetigt=bestaetigt is True)\n',
+     '                                               bestaetigt=True)\n', T_APW),
+    ("ap50", "Die Probe laeuft ohne Bestaetigung", API_W, '        if bestaetigt is not True:\n', '        if False:\n', T_APW),
+    ("ap51", "Das Dashboard gibt ohne Bestaetigung frei", DASH,
+     '        budget_usd=payload.get("budget_usd"), bestaetigt=payload.get("bestaetigt") is True)',
+     '        budget_usd=payload.get("budget_usd"), bestaetigt=True)', T_APW),
+    ("ap52", "Das Dashboard laesst die Probe ohne Bestaetigung laufen", DASH,
+     '    if payload.get("bestaetigt") is not True:\n        return JSONResponse({"status": "bestaetigung_noetig", "error": (',
+     '    if False:\n        return JSONResponse({"status": "bestaetigung_noetig", "error": (', T_APW),
+    ("ap53", "Die Datenschutz-Anzeige hat die vierte Zeile immer", API_D,
+     '        if zeilen:\n            fluss["sent_to_api"] = [', '        if True:\n            fluss["sent_to_api"] = [', T_APW),
+    # ── Die Netzsperre der Testsuite ──
+    ("ap54", "Die Suite sperrt das Netz nicht", API_C, '    _netzsperre.einschalten(monkeypatch)\n', '    pass\n', T_APN),
+    ("ap55", "Die Suite sieht den Schluessel des Entwicklers", API_C,
+     '    monkeypatch.delenv("PBP_ANTHROPIC_API_KEY", raising=False)\n', '    pass\n', T_APN),
+    ("ap56", "Ein geschluckter Netzversuch laesst den Test nicht scheitern", API_C,
+     '    assert not versuche, (\n        "Dieser Test hat versucht', '    assert True or not versuche, (\n        "Dieser Test hat versucht', T_APN),
+    ("ap57", "Jedes Ziel gilt als lokal", API_N,
+     '    return adresse.is_loopback or adresse.is_unspecified\n', '    return True\n', T_APN),
+    ("ap58", "Der Port des echten Ollama ist offen", API_N,
+     'def _ollama(port) -> bool:\n    try:\n        return int(port) == OLLAMA_PORT\n',
+     'def _ollama(port) -> bool:\n    try:\n        return False\n', T_APN),
+    ("ap59", "Jeder Browser-Test fragt beim Laden der Seite GitHub und elwosa.de im echten Netz", API_C,
+     '    monkeypatch.setattr(httpx, "AsyncClient", _OhneNetz)\n', '    pass\n', T_APO),
+    # ── Die Messprobe ──
+    ("ap60", "Der Trockenlauf sendet", API_P, '    if not args.senden:\n        ausgabe("")\n', '    if False:\n        ausgabe("")\n', T_APP),
+    ("ap61", "Die Probe laesst Nebendateien am Original liegen", API_P,
+     '            if not war:\n                try:\n                    n.unlink()', '            if False:\n                try:\n                    n.unlink()', T_APP),
+    ("ap62", "Aussortierungen der Automatik zaehlen als Urteil des Menschen", API_P,
+     '        if str(job.get("dismissed_by") or "") == "automatik" or grund.startswith("auto:"):', '        if False:', T_APP),
+    ("ap63", "Ein Systemgrund wird im Bericht unter \"sagt nichts ueber die Passung\" gezaehlt", API_P,
+     '        elif grund in SYSTEM_GRUENDE:', '        elif False:', T_APP),
+    ("ap64", "Die Stichprobe ist nicht ausgewogen", API_P,
+     '    je_klasse = min(anzahl // 2, len(urteile["beworben"]), len(urteile["aussortiert"]))',
+     '    je_klasse = min(anzahl // 2, len(urteile["beworben"]))', T_APP),
+    ("ap65", "Die gepruefte Stelle steht in ihren eigenen Beispielen", API_P,
+     '        "recent_dismissals": [b for b in beispiele if not _gleiche_stelle(b, job)],',
+     '        "recent_dismissals": list(beispiele),', T_APP),
+    ("ap66", "Senden ohne Budget", API_P, '    if args.senden and args.budget_usd is None:', '    if False:', T_APP),
+    ("ap67", "Senden mit der erfundenen Demo-Datenbank", API_P, '    if args.senden and args.demo:', '    if False:', T_APP),
+    ("ap68", "Die Kopie darf auf Ollama zurueckfallen", API_P,
+     '    db.set_profile_setting("llm_local_state", "off")', '    pass', T_APP),
+    ("ap69", "Die Zaehler der Kopie werden nicht geleert", API_P,
+     """    conn.execute("DELETE FROM settings WHERE key LIKE 'api_verbrauch_%' OR key = 'api_letzter_aufruf'")""",
+     '    conn.execute("SELECT 1")', T_APP),
+    ("ap70", "Ein harter Fehler haelt die Probe nicht an", API_P, '        if code in WEITER_BEI:', '        if True:', T_APP),
+    ("ap71", "Ein Fehler nur dieser Stelle bricht die Probe ab", API_P, '        if code in WEITER_BEI:', '        if False:', T_APP),
+    ("ap72", "Die Schwaerzung bleibt nach der Vergleichsvariante aus", API_P,
+     '        api_backend._beispiele_schwaerzen = echt\n', '        pass\n', T_APP),
+    ("ap73", "Der Datenordner des Aufrufers kommt nicht zurueck", API_P,
+     '        if daten_ordner_vorher is None:\n            os.environ.pop("BA_DATA_DIR", None)\n        else:\n            os.environ["BA_DATA_DIR"] = daten_ordner_vorher\n',
+     '        pass\n', T_APP),
+    # ── Funde der unabhaengigen Pruefung (16.10.2026) und der Client der Suite ──
+    ("ap74", "Der asynchrone Client der Suite laesst fremde Ziele durch", API_C,
+     '            if not self._eigener_weg and host not in ("localhost", "127.0.0.1", "::1"):\n',
+     '            if False and host not in ("localhost", "127.0.0.1", "::1"):\n', T_APN),
+    ("ap75", "Ein eigener Transport gilt fuer den Client der Suite nicht als eigener Weg", API_C,
+     '            self._eigener_weg = kwargs.get("transport") is not None or bool(kwargs.get("mounts"))\n',
+     '            self._eigener_weg = False\n', T_APN),
+    ("ap76", "Lokale Ziele sind fuer den Client der Suite gesperrt", API_C,
+     'host not in ("localhost", "127.0.0.1", "::1")', 'host not in ()', T_APN),
+    ("ap77", "Ein bezahlter Aufruf, dessen Buchung scheitert, zaehlt nicht gegen das Budget", API_B,
+     '            _UNGEBUCHT += int(kosten)\n', '            pass\n', T_APA),
+    ("ap78", "Nach einem Buchungsfehler ruht der Weg nicht", API_B,
+     '        pause_setzen("buchung_fehlgeschlagen", GRUENDE["buchung_fehlgeschlagen"])\n', '        pass\n', T_APA),
+    ("ap79", "Ein halb geschriebener Aufruf wird nicht zurueckgerollt", API_B,
+     '    except Exception:\n        try:\n            conn.rollback()\n', '    except Exception:\n        try:\n            pass\n', T_APA),
+    ("ap80", "Ein nicht gespeicherter Betrag wird nie nachgeholt", API_B,
+     '        verbuchen(db, eingabe_tokens, ausgabe_tokens, int(kosten) + nachtrag, geschaetzt=geschaetzt)\n',
+     '        verbuchen(db, eingabe_tokens, ausgabe_tokens, int(kosten), geschaetzt=geschaetzt)\n', T_APA),
+    ("ap81", "Ein Zeitablauf nach dem Senden wird nicht gebucht", API_B,
+     '                _verbuchen_sicher(db, geschaetzt_ein, max_tokens, reserve, geschaetzt=True)\n                raise ApiFehler("zeitueberschreitung") from None',
+     '                raise ApiFehler("zeitueberschreitung") from None', T_APA),
+    ("ap82", "Ein Zeitablauf beim Verbinden wird gebucht", API_B,
+     '                if isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in str(exc).lower():\n                    raise ApiFehler("zeitueberschreitung") from None',
+     '                if isinstance(reason, (TimeoutError, socket.timeout)) or "timed out" in str(exc).lower():\n                    _verbuchen_sicher(db, geschaetzt_ein, max_tokens, reserve, geschaetzt=True)\n                    raise ApiFehler("zeitueberschreitung") from None', T_APA),
+    ("ap83", "Der Schluessel geht ohne Formpruefung in den Kopf der Anfrage", API_B,
+     '    if not _SCHLUESSEL_FORM.fullmatch(schluessel):\n', '    if False:\n', T_APA),
+    ("ap84", "Drei bezahlte Fehlschlaege in Folge loesen keine Pause aus", API_B,
+     '        erreicht = _fehlserie >= FEHLSERIE_MAX\n', '        erreicht = False\n', T_APA),
+    ("ap85", "Eine brauchbare Antwort beendet die Serie nicht", API_B,
+     '    """Eine Antwort war brauchbar: die Serie bezahlter Fehlschlaege beginnt von vorn."""\n    global _fehlserie\n    with _LOCK:\n        _fehlserie = 0\n',
+     '    """Eine Antwort war brauchbar: die Serie bezahlter Fehlschlaege beginnt von vorn."""\n    global _fehlserie\n    with _LOCK:\n        pass\n', T_APA),
+    ("ap86", "Die Schluesselprobe ignoriert den KI-Hauptschalter", API_B,
+     '    master = _master_grund(db)\n    if master:\n', '    master = _master_grund(db)\n    if False:\n', T_APA),
+    ("ap87", "Unplausible Token-Angaben werden gebucht", API_B,
+     '0 <= v <= MAX_PLAUSIBLE_TOKENS else None', '0 <= v else None', T_APA),
+    ("ap88", "Ein Zaehler als Gleitkommazahl gilt als null", API_B,
+     '            return int(v) if math.isfinite(v) and v >= 0 else 0\n', '            return 0\n', T_APA),
+    ("ap89", "Ein Aussortier-Grund geht als Freitext hinaus", API_B,
+     '    return s if _GRUND_FORM.fullmatch(s) else "sonstiges"\n', '    return s\n', T_APB),
+    ("ap90", "Die haeufigsten Gruende gehen ohne Pruefung hinaus", API_B,
+     '        sicher["dismiss_reasons_top"] = _gruende_fuer_api(sicher["dismiss_reasons_top"])\n', '        pass\n', T_APB),
+    ("ap91", "Der Firmenkern ohne Rechtsform bleibt im Titel stehen", API_B,
+     '    namen = [voll] + ([kern] if kern.lower() != voll.lower() else [])\n', '    namen = [voll]\n', T_APB),
+    ("ap92", "Eine Rechtsform allein gilt als Firmenname", API_B,
+     '    if not kern:  # nur eine Rechtsform', '    if False:  # nur eine Rechtsform', T_APB),
+    ("ap93", "HTML-Zeichen im Firmennamen werden nicht aufgeloest", API_B,
+     '    voll = " ".join(html.unescape(str(firma or "")).split())\n', '    voll = " ".join(str(firma or "").split())\n', T_APB),
+    ("ap94", "Ein Profilwechsel mitten im Lauf beendet den Lauf nicht", API_A,
+     '        if profil_id is not None and _aktives_profil(db) != profil_id:\n', '        if False:\n', T_APU),
+    ("ap95", "Nach dem Ausfall der API laeuft der Lauf mit dem Rest weiter", API_A,
+     '        if api_ausgefallen:\n            # Die lokale KI wurde zu Beginn nicht aufgewaermt', '        if False:\n            # Die lokale KI wurde zu Beginn nicht aufgewaermt', T_APU),
+    ("ap96", "Ein Ausfall der API wird im Lauf nicht bemerkt", API_A,
+     '                api_ausgefallen = True\n', '                pass\n', T_APU),
+    ("ap97", "Ein Parser-Fehler zaehlt nicht in die Serie bezahlter Fehlschlaege", API_L,
+     '            api_backend.antwort_unbrauchbar("antwort_unlesbar")\n            raise\n', '            raise\n', T_APA),
+    ("ap98", "Ein brauchbares Urteil beendet die Serie nicht", API_L,
+     '        api_backend.antwort_brauchbar()\n        return TaskResult(', '        return TaskResult(', T_APA),
+    ("ap99", "Die Probe liest die Datenbank als rohe URI", API_P,
+     '            src = sqlite3.connect(f"{quelle.resolve().as_uri()}?mode=ro", uri=True)',
+     '            src = sqlite3.connect(f"file:{quelle.resolve().as_posix()}?mode=ro", uri=True)', T_APP),
+    ("ap100", "Ein Text mit ungueltigem Zeichen bricht das Kodieren der Anfrage", API_B,
+     '    return json.dumps(daten, ensure_ascii=False).encode("utf-8", errors="replace")\n',
+     '    return json.dumps(daten, ensure_ascii=False).encode("utf-8")\n', T_APA),
+    ("ap101", "Der Uebersicht fehlt der bezahlte, aber nicht gespeicherte Betrag", API_B,
+     '    ausgegeben = verbrauch["mikro_usd"] + _UNGEBUCHT', '    ausgegeben = verbrauch["mikro_usd"]', T_APA),
+    ("ap102", "--ollama ohne --senden wird im Trockenlauf still ignoriert", API_P,
+     '    if args.ollama and not args.senden:\n', '    if False:\n', T_APP),
+    ("ap103", "Der Modus nur lokale KI fragt nach einem Schluessel", API_P,
+     '    ausgabe("Messprobe der lokalen KI (#1236) — nichts geht ins Netz: nur Ollama auf diesem Rechner")\n',
+     '    ausgabe("Messprobe der lokalen KI (#1236) — nichts geht ins Netz: nur Ollama auf diesem Rechner")\n'
+     '    if not os.environ.get("PBP_ANTHROPIC_API_KEY"):\n        raise ProbeFehler("Kein Schluessel.")\n', T_APP),
+    ("ap104", "Der Modus nur lokale KI endet ohne Ollama still mit Erfolg", API_P,
+     '    if grund:\n        raise ProbeFehler(grund, code=2)\n', '    if grund:\n        pass\n', T_APP),
+]
+
+KATALOGE = {"auto_update": M, "speicher": M_SPEICHER, "komponenten": M_KOMPONENTEN, "mail": M_MAIL, "firmen": M_FIRMEN, "wege": M_WEGE, "suche": M_SUCHE, "vorab": M_VORAB, "konsole": M_KONSOLE, "google": M_GOOGLE, "browser": M_BROWSER, "jobtic": M_JOBTIC, "skillstand": M_SKILL, "installer": M_INSTALLER, "erste": M_ERSTE, "texterkennung": M_TESSERACT, "api": M_API}
 GRUNDLAEUFE = {
     "auto_update": (("T_PR", T_PR), ("T_Q", T_Q), ("T_I", T_I), ("T_B", T_B), ("T_L", T_L), ("T_S", T_S), ("T_E", T_E)),
     "speicher": (("T_SP", T_SP), ("T_EO", T_EO)),
@@ -1169,6 +1455,8 @@ GRUNDLAEUFE = {
     "installer": (("T_IN", T_IN), ("T_IPP", T_IPP)),
     "erste": (("T_ES", T_ES),),
     "texterkennung": (("T_TE", T_TE),),
+    "api": (("T_APB", T_APB), ("T_APA", T_APA), ("T_APW", T_APW), ("T_APN", T_APN), ("T_APS", T_APS),
+            ("T_APP", T_APP), ("T_APU", T_APU)),
 }
 
 WT = None
@@ -1219,7 +1507,7 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--arbeitsbaum", required=True, help="ein eigener, sauberer git-Arbeitsbaum (nie der Arbeitsordner)")
     p.add_argument("--ergebnis", help="JSON-Datei fuer das Ergebnis (Vorgabe: neben dem Arbeitsbaum)")
-    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste", "texterkennung"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
+    p.add_argument("--katalog", choices=("auto_update", "speicher", "komponenten", "mail", "firmen", "wege", "suche", "vorab", "konsole", "google", "browser", "jobtic", "skillstand", "installer", "erste", "texterkennung", "api"), default="auto_update", help="welche Schutzpruefungen (Vorgabe: auto_update)")
     p.add_argument("kennungen", nargs="*", help="nur diese Mutationen")
     a = p.parse_args(argv)
     WT = Path(a.arbeitsbaum).resolve()
