@@ -38,6 +38,11 @@ function ConfigPfade {
   if (Test-Path -LiteralPath $pk) {
     Get-ChildItem -LiteralPath $pk -Filter 'Claude_*' -Directory -ErrorAction SilentlyContinue | ForEach-Object { [void]$l.Add((Join-Path $_.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json')) }
   }
+  # #1245: die neuere Store-Fassung von Claude liest ihre Konfiguration aus Claude-Data (nicht mehr aus Roaming oder Packages)
+  $cd = Join-Path $LA 'Claude-Data'
+  if (Test-Path -LiteralPath $cd) {
+    Get-ChildItem -LiteralPath $cd -Directory -ErrorAction SilentlyContinue | ForEach-Object { [void]$l.Add((Join-Path $_.FullName 'claude_desktop_config.json')) }
+  }
   $l
 }
 

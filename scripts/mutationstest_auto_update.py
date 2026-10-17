@@ -2594,6 +2594,51 @@ M_HILFE = [
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
 
+# ── #1245 (I39): Installer und Deinstaller kennen den Datenordner der neueren Store-Fassung von Claude ──
+T_CO = ["tests/test_v17159_claude_konfig_ort_1245.py"]
+T_COD = ["tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_die_datei_der_neuen_store_fassung_wird_bereinigt",
+         "tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_alle_drei_orte_in_einem_lauf",
+         "tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_der_hinweis_fuer_den_handgriff_nennt_den_neuen_ort"]
+CO_SETUP = "_setup_claude.py"
+CO_DEIN = "DEINSTALLIEREN.bat"
+CO_PS_ZEILE = ("if ($env:LOCALAPPDATA) { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Claude-Data') -Directory "
+               "-Filter 'claude*' -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'claude_desktop_config.json' } }; ")
+M_CLAUDE_ORT = [
+    # der Installer
+    ("co01", "Installer: der Datenordner der neueren Store-Fassung fehlt in der Pfadliste", CO_SETUP,
+     "            paths.extend(_claude_data_pfade(local_app))\n", "            pass\n", T_CO),
+    ("co02", "Installer: jeder Eintrag unter Claude-Data zaehlt als Konfigurationsort", CO_SETUP,
+     '        if (klein == "claude" or klein.startswith("claude_")) and os.path.isdir(os.path.join(wurzel, name)):\n',
+     "        if True:\n", T_CO),
+    ("co03", "Installer: auch eine Datei namens claude_x zaehlt als Ordner", CO_SETUP,
+     ' and os.path.isdir(os.path.join(wurzel, name)):\n', ":\n", T_CO),
+    ("co04", "Installer: das Zuruecklesen nach dem Schreiben entfaellt", CO_SETUP,
+     '    if zurueck is None or zurueck.get("mcpServers", {}).get("bewerbungs-assistent") != eintrag:\n',
+     "    if False:\n", T_CO),
+    ("co05", "Installer: ein Schreibfehler einer Datei bricht den ganzen Lauf ab", CO_SETUP,
+     "    except OSError as e:\n        # Eine Datei, die sich nicht schreiben laesst",
+     "    except KeyError as e:\n        # Eine Datei, die sich nicht schreiben laesst", T_CO),
+    ("co06", "Installer: auch eine nicht geschriebene Datei zaehlt als geschrieben", CO_SETUP,
+     "        if config_schreiben(cp, python_exe, src_dir, data_dir):\n            written += 1\n",
+     "        config_schreiben(cp, python_exe, src_dir, data_dir)\n        written += 1\n", T_CO),
+    ("co07", "Installer: ohne geschriebene Datei endet der Lauf trotzdem mit Erfolg", CO_SETUP,
+     "    if written == 0:\n", "    if False:\n", T_CO),
+    # der Deinstaller
+    ("co08", "Deinstaller: der Datenordner der neueren Store-Fassung wird nicht durchsucht", CO_DEIN,
+     CO_PS_ZEILE, "", T_COD),
+    ("co09", "Deinstaller: der Filter findet die Ordner unter Claude-Data nicht", CO_DEIN,
+     "-Directory -Filter 'claude*' -ErrorAction", "-Directory -Filter 'zzz*' -ErrorAction", T_COD),
+    ("co10", "Deinstaller: er sucht im Datenordner eine andere Datei", CO_DEIN,
+     "$pfade += Join-Path $d.FullName 'claude_desktop_config.json' } }; ", "$pfade += Join-Path $d.FullName 'config.json' } }; ", T_COD),
+    ("co11", "Deinstaller: der Hinweis fuer den Handgriff nennt den neuen Ort nicht", CO_DEIN,
+     "\\Claude-Data\\claude_...\\claude_desktop_config.json^)\n", "\\Zzz\\claude_desktop_config.json^)\n", T_COD),
+    # die Probe des Werkstatt-PCs
+    ("co12", "Probe: sie sucht den Datenordner von Claude nicht", "docs/internal/testlauf/pbp_probe.ps1",
+     "  $cd = Join-Path $LA 'Claude-Data'\n", "  $cd = Join-Path $LA 'Zzz'\n", T_CO),
+]
+KATALOGE["claude_ort1245"] = M_CLAUDE_ORT
+GRUNDLAEUFE["claude_ort1245"] = (("T_CO", T_CO), ("T_COD", T_COD))
+
 WT = None
 
 

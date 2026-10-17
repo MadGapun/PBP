@@ -559,6 +559,14 @@ Einträgen darunter.
   Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Zeilen des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und
   von Hand gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht
   mehr als „nah“.
+- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betrifft auch
+  Stable). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
+  `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
+  Installer schrieb dorthin, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie; das Dashboard sagte richtig „nicht verbunden“. Jetzt kennt
+  `_setup_claude.py` den neuen Ordner, schreibt in jede gefundene Datei und liest den Eintrag danach zurück: „geschrieben“ zählt nur, wenn er in der Datei
+  steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
+  „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
+  führt den Installer einfach noch einmal aus.
 
 ### Known Issues
 
