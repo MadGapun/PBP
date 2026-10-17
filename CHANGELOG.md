@@ -520,6 +520,10 @@ Einträgen darunter.
 - **„Beim nächsten Start nutzen“ für eine neuere installierte Fassung hieß „Zurückgeschaltet“** (#1229; Fund des dritten Laufs, nur im Kandidaten). Verlauf und
   Rückfrage kannten nur den Rückweg. Jetzt steht beim Schritt nach vorn „Umgeschaltet“, die Rückfrage nennt die Richtung, und die ausdrückliche Wahl hebt die
   Zurücknahme dieser Fassung auf.
+- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur im Kandidaten). „Jetzt installieren“
+  und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
+  „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
+  installieren (erst ab rc.4 behoben); wer rc.3 nutzt, installiert rc.4 einmal von Hand.
 - **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betrifft auch Stable 1.7.157). Eine neue
   Stelle bekam „diese Bewerbung nennt Firma F als Endkunden“, weil F nur als Partner im Notiztext stand, und das Nachtragen des Endkunden half der Stelle nicht.
   Jetzt ist ein eingetragenes Feld „Endkunde“ maßgeblich (nennt es eine andere Firma, gibt es keine Warnung), ein Treffer nur im Freitext steht als offene
