@@ -2594,6 +2594,74 @@ M_HILFE = [
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
 
+# ── #1237: "bis heute" rechnet mit der Uhr, nie mit einer Jahreszahl im Code ──
+# Zeitabhaengige Fehler zeigt kein Test mit dem Datum von heute: bis zum 31.12.2026 ist die feste 2026 "richtig".
+# Darum stellen die Tests die Uhr auf Tage vor, in und nach 2026; "an der Naht vorbei" (datetime.now statt
+# uhr.heute) und "feste Zahl" sind zwei verschiedene Eingriffe, die verschieden erkannt werden muessen.
+T_BJ = ["tests/test_berufsjahre_laufendes_jahr_1237.py"]
+BJ_UHR = "src/bewerbungs_assistent/services/uhr.py"
+BJ_BF = "src/bewerbungs_assistent/services/berufsfeld.py"
+BJ_AA = "src/bewerbungs_assistent/services/auto_aussortierung.py"
+BJ_EX = "src/bewerbungs_assistent/export.py"
+BJ_T = T_BJ[0]
+#: Die Rechnung der Auto-Aussortierung bis v1.7.158: eigene Schleife, feste 2026 fuer ein offenes Ende.
+BJ_ALTE_SCHLEIFE = (
+    'years = 0\n'
+    '    for p in positions:\n'
+    '        try:\n'
+    '            start = int((p.get("start_date") or "0000")[:4])\n'
+    '            end_raw = (p.get("end_date") or "")[:4]\n'
+    '            end = int(end_raw) if end_raw.isdigit() else 2026\n'
+    '            if start > 1900:\n'
+    '                years += max(0, end - start)\n'
+    '        except Exception:\n'
+    '            pass\n')
+M_BERUFSJAHRE = [
+    ("bj01", "Die Uhr liefert einen festen Tag statt des heutigen", BJ_UHR,
+     "    return date.today()\n", "    return date(1999, 1, 1)\n", T_BJ),
+    ("bj02", "berufsjahre liest die Uhr an der Naht vorbei (datetime.now)", BJ_BF,
+     "    this_year = uhr.heute().year\n", "    from datetime import datetime\n    this_year = datetime.now().year\n", T_BJ),
+    ("bj03", "berufsjahre rechnet wieder mit einer festen 2026", BJ_BF,
+     "    this_year = uhr.heute().year\n", "    this_year = 2026\n", T_BJ),
+    ("bj04", "ein offenes Ende zaehlt nicht mehr bis heute", BJ_BF,
+     "        end = int(end_raw) if end_raw.isdigit() else this_year\n",
+     "        end = int(end_raw) if end_raw.isdigit() else start\n", T_BJ),
+    ("bj05", "eine Station, die spaeter beginnt, zaehlt negativ", BJ_BF,
+     "        total += max(0, end - start)\n", "        total += end - start\n", T_BJ),
+    ("bj06", "die Auto-Aussortierung nimmt die Berufsjahre nicht mehr", BJ_AA,
+     "years = berufsjahre(positions)\n", "years = 0\n", T_BJ),
+    ("bj07", "die Auto-Aussortierung hat wieder ihre eigene Schleife mit fester 2026", BJ_AA,
+     "years = berufsjahre(positions)\n", BJ_ALTE_SCHLEIFE, T_BJ),
+    ("bj08", "die Recruiter-Wertung liest die Uhr an der Naht vorbei", BJ_EX,
+     "end_year = uhr.heute().year", "end_year = datetime.now().year", T_BJ),
+    ("bj09", "die Recruiter-Wertung rechnet wieder mit einer festen 2026", BJ_EX,
+     "end_year = uhr.heute().year", "end_year = 2026", T_BJ),
+    ("bj10", "die Luecken-Erkennung liest die Uhr an der Naht vorbei", BJ_EX,
+     "heute = uhr.heute()", "heute = datetime.now()", T_BJ),
+    ("bj11", "die Luecken-Erkennung rechnet wieder mit 2026-03", BJ_EX,
+     "e_year, e_month = heute.year, heute.month", "e_year, e_month = 2026, 3", T_BJ),
+    ("bj12", "die Luecken-Erkennung ignoriert den Monat von heute", BJ_EX,
+     "e_year, e_month = heute.year, heute.month", "e_year, e_month = heute.year, 12", T_BJ),
+    # der Waechter selbst (die Mutationen sitzen in der Testdatei)
+    ("bj13", "Waechter: das Fenster beginnt erst 2030", BJ_T,
+     "JAHR_VON, JAHR_BIS = 2020, 2039", "JAHR_VON, JAHR_BIS = 2030, 2039", T_BJ),
+    ("bj14", "Waechter: das Fenster endet schon 2025", BJ_T,
+     "JAHR_VON, JAHR_BIS = 2020, 2039", "JAHR_VON, JAHR_BIS = 2020, 2025", T_BJ),
+    ("bj15", "Waechter: die Raender des Fensters zaehlen nicht", BJ_T,
+     "        return JAHR_VON <= wert <= JAHR_BIS\n", "        return JAHR_VON < wert < JAHR_BIS\n", T_BJ),
+    ("bj16", "Waechter: reine Jahres-Zeichenketten zaehlen nicht", BJ_T,
+     "        return len(wert) == 4 and wert.isdigit() and JAHR_VON <= int(wert) <= JAHR_BIS\n", "        return False\n", T_BJ),
+    ("bj17", "Waechter: eine Marke ohne Grund genuegt", BJ_T,
+     "        if MARKE in kommentar and kommentar.partition(MARKE)[2].strip():\n", "        if MARKE in kommentar:\n", T_BJ),
+    ("bj18", "Waechter: der Ordner services wird nicht gelesen", BJ_T,
+     '    return sorted(p for p in SRC.rglob("*.py") if "static" not in p.parts)\n',
+     '    return sorted(p for p in SRC.rglob("*.py") if "static" not in p.parts and "services" not in p.parts)\n', T_BJ),
+    ("bj19", "Waechter: der Syntaxbaum wird nur eine Ebene tief gelesen", BJ_T,
+     "    for knoten in ast.walk(ast.parse(quelltext)):\n", "    for knoten in ast.iter_child_nodes(ast.parse(quelltext)):\n", T_BJ),
+]
+KATALOGE["berufsjahre1237"] = M_BERUFSJAHRE
+GRUNDLAEUFE["berufsjahre1237"] = (("T_BJ", T_BJ),)
+
 WT = None
 
 
