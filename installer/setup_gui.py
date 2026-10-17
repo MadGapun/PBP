@@ -528,18 +528,29 @@ class InstallerApp:
             config = {"mcpServers": {}}
             if os.path.exists(config_path):
                 try:
-                    with open(config_path, 'r', encoding='utf-8') as f:
+                    # utf-8-sig: Windows PowerShell 5.1 schreibt ein BOM; ohne dieses Lesen gilt die Datei als
+                    # defekt, und der bisherige Eintrag samt env waere unbekannt (#1238).
+                    with open(config_path, 'r', encoding='utf-8-sig') as f:
                         config = json.load(f)
                     if 'mcpServers' not in config:
                         config['mcpServers'] = {}
                 except Exception:
                     pass
 
+            # Eigene Einstellungen im bisherigen Eintrag bleiben (#1238): ein API-Schluessel unter env, ein
+            # verlegter Datenordner. Gesetzt wird nur BA_DATA_DIR (wenn noch keiner da ist); einen alten
+            # PYTHONPATH nimmt die Installation weg: die editierbare Installation braucht keinen, und ein
+            # alter wuerde den alten Programmstand laden. Dieselbe Regel wie _setup_claude.eintrag_bauen.
+            alt = config['mcpServers'].get('bewerbungs-assistent')
+            env = dict(alt['env']) if isinstance(alt, dict) and isinstance(alt.get('env'), dict) else {}
+            env.setdefault('BA_DATA_DIR', data_dir)
+            env.pop('PYTHONPATH', None)
+
             # Add MCP server entry
             config['mcpServers']['bewerbungs-assistent'] = {
                 'command': venv_python,
                 'args': ['-m', 'bewerbungs_assistent'],
-                'env': {'BA_DATA_DIR': data_dir}
+                'env': env
             }
 
             with open(config_path, 'w', encoding='utf-8') as f:

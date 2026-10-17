@@ -278,6 +278,75 @@ Write-OK "Alle Funktionen getestet"
 # ── STEP 7: Claude Desktop konfigurieren ────────────────────────────
 Write-Step 7 $totalSteps "Claude Desktop konfigurieren..."
 
+# BEGIN MCP-EINTRAG (#1238): die Tests ziehen diesen Abschnitt aus der Datei und fuehren ihn aus
+# Traegt PBP in die Claude-Konfiguration ein. True = der Eintrag steht danach in der Datei (Probe
+# durch erneutes Lesen), sonst False. Eigene Einstellungen im bisherigen Eintrag (env) bleiben.
+function Write-PbpClaudeConfig {
+    param([string]$Pfad, [string]$Python, [string]$Src, [string]$DataDir)
+
+    # Immer Objekte, nie Hashtables: ein per Add-Member angehaengter Eintrag landet bei einer
+    # Hashtable NICHT im JSON. Ohne Datei oder ohne "mcpServers" stand PBP sonst nicht in der
+    # Konfiguration, obwohl "geschrieben" gemeldet wurde.
+    $config = [pscustomobject]@{ mcpServers = [pscustomobject]@{} }
+    if (Test-Path $Pfad) {
+        try {
+            $gelesen = (Get-Content $Pfad -Raw -Encoding UTF8) | ConvertFrom-Json
+            # Die echte Klasse pruefen: das Kuerzel [pscustomobject] trifft in PowerShell 5.1 jeden Wert
+            if ($gelesen -isnot [System.Management.Automation.PSCustomObject]) { throw "kein JSON-Objekt" }
+            $config = $gelesen
+            if ($config.mcpServers -isnot [System.Management.Automation.PSCustomObject]) {
+                $config | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue ([pscustomobject]@{}) -Force
+            }
+            Write-Info "Bestehende Claude-Konfiguration erweitert"
+        } catch {
+            Write-Warn "Konnte bestehende Config nicht lesen, erstelle neue"
+        }
+    }
+
+    # Eigene Einstellungen des bisherigen Eintrags bleiben: ein API-Schluessel unter "env", ein
+    # verlegter Datenordner, ein anderer Port. Gesetzt werden nur die eigenen Schluessel:
+    # BA_DATA_DIR (nur, wenn noch keiner da ist) und PYTHONPATH (folgt immer der Installation).
+    # Dieselbe Regel wie _setup_claude.py (eintrag_bauen).
+    $mcpEnv = [ordered]@{}
+    $alt = $config.mcpServers.PSObject.Properties["bewerbungs-assistent"]
+    if ($alt -and $alt.Value -is [System.Management.Automation.PSCustomObject] -and
+        $alt.Value.env -is [System.Management.Automation.PSCustomObject]) {
+        foreach ($eigenschaft in $alt.Value.env.PSObject.Properties) {
+            $mcpEnv[$eigenschaft.Name] = $eigenschaft.Value
+        }
+    }
+    if (-not $mcpEnv.Contains("BA_DATA_DIR")) { $mcpEnv["BA_DATA_DIR"] = $DataDir }
+    $mcpEnv["PYTHONPATH"] = $Src
+    $mcpEntry = [ordered]@{
+        command = $Python
+        args = @("-m", "bewerbungs_assistent")
+        env = $mcpEnv
+    }
+    $config.mcpServers | Add-Member -NotePropertyName "bewerbungs-assistent" -NotePropertyValue $mcpEntry -Force
+
+    # Config speichern (UTF-8 ohne BOM, wie _setup_claude.py und der Deinstaller)
+    New-Item -ItemType Directory -Path (Split-Path $Pfad) -Force | Out-Null
+    $json = $config | ConvertTo-Json -Depth 100
+    [System.IO.File]::WriteAllText($Pfad, $json, (New-Object System.Text.UTF8Encoding($false)))
+
+    # Probe statt Meldung: der Eintrag steht in der Datei, mit dem Suchpfad dieser Installation
+    # und allen Schluesseln, die bleiben sollten.
+    try {
+        $zurueck = (Get-Content $Pfad -Raw -Encoding UTF8) | ConvertFrom-Json
+        $neu = $zurueck.mcpServers.PSObject.Properties["bewerbungs-assistent"]
+        if (-not $neu) { return $false }
+        $neuEnv = $neu.Value.env
+        if (-not $neuEnv -or $neuEnv.PYTHONPATH -ne $Src) { return $false }
+        foreach ($name in $mcpEnv.Keys) {
+            if (-not $neuEnv.PSObject.Properties[$name]) { return $false }
+        }
+    } catch {
+        return $false
+    }
+    return $true
+}
+# END MCP-EINTRAG
+
 $claudeConfig = "$env:APPDATA\Claude\claude_desktop_config.json"
 $dataDir = "$env:LOCALAPPDATA\BewerbungsAssistent"
 
@@ -287,21 +356,6 @@ foreach ($sub in @("", "dokumente", "export", "logs")) {
     New-Item -ItemType Directory -Path $dir -Force | Out-Null
 }
 Write-OK "Datenverzeichnis: $dataDir"
-
-# Claude Config lesen oder erstellen
-$config = @{ mcpServers = @{} }
-if (Test-Path $claudeConfig) {
-    try {
-        $raw = Get-Content $claudeConfig -Raw -Encoding UTF8
-        $config = $raw | ConvertFrom-Json
-        if (-not $config.mcpServers) {
-            $config | Add-Member -NotePropertyName "mcpServers" -NotePropertyValue @{} -Force
-        }
-        Write-Info "Bestehende Claude-Konfiguration erweitert"
-    } catch {
-        Write-Warn "Konnte bestehende Config nicht lesen, erstelle neue"
-    }
-}
 
 # Runtime in festen Pfad kopieren (update-sicher)
 Write-Info "Kopiere Runtime in festen Installationspfad..."
@@ -320,22 +374,13 @@ Write-OK "Source-Code kopiert"
 
 # MCP Server eintragen — feste Pfade unter %LOCALAPPDATA%\BewerbungsAssistent
 $fixedPython = Join-Path $destPython "Scripts\python.exe"
-$serverModule = "bewerbungs_assistent"
-$mcpEntry = @{
-    command = $fixedPython
-    args = @("-m", $serverModule)
-    env = @{
-        BA_DATA_DIR = $dataDir
-        PYTHONPATH = $destSrc
-    }
+$konfigOK = Write-PbpClaudeConfig -Pfad $claudeConfig -Python $fixedPython -Src $destSrc -DataDir $dataDir
+if ($konfigOK -eq $true) {
+    Write-OK "Claude Desktop MCP-Konfiguration geschrieben"
+} else {
+    Write-Warn "Der PBP-Eintrag steht nach dem Schreiben nicht in der Claude-Konfiguration"
+    Write-Info "Naechster Schritt: INSTALLIEREN.bat im Projektordner ausfuehren ($projectDir), sie traegt PBP selbst ein"
 }
-$config.mcpServers | Add-Member -NotePropertyName "bewerbungs-assistent" -NotePropertyValue $mcpEntry -Force
-
-# Config speichern
-$configDir = Split-Path $claudeConfig
-New-Item -ItemType Directory -Path $configDir -Force | Out-Null
-$config | ConvertTo-Json -Depth 10 | Set-Content $claudeConfig -Encoding UTF8
-Write-OK "Claude Desktop MCP-Konfiguration geschrieben"
 Write-Info "Config: $claudeConfig"
 
 # ── STEP 8: Dashboard testen ────────────────────────────────────────
