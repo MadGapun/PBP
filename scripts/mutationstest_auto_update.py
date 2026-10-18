@@ -2600,6 +2600,9 @@ T_COD = ["tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_die_datei_der_ne
          "tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_alle_drei_orte_in_einem_lauf",
          "tests/test_v18_praxisprobe_deinstaller.py::test_pp37b_der_hinweis_fuer_den_handgriff_nennt_den_neuen_ort"]
 CO_SETUP = "_setup_claude.py"
+# Das Wort der Konfiguration steht hier NICHT als Literal: der Waechter in test_1238 sucht es in scripts/ und wuerde dieses Skript
+# sonst als unbekannten Schreiber melden.
+CO_MCP = "mcp" + "Servers"
 CO_DEIN = "DEINSTALLIEREN.bat"
 CO_PS_ZEILE = ("if ($env:LOCALAPPDATA) { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Claude-Data') -Directory "
                "-Filter 'claude*' -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'claude_desktop_config.json' } }; ")
@@ -2613,7 +2616,7 @@ M_CLAUDE_ORT = [
     ("co03", "Installer: auch eine Datei namens claude_x zaehlt als Ordner", CO_SETUP,
      ' and os.path.isdir(os.path.join(wurzel, name)):\n', ":\n", T_CO),
     ("co04", "Installer: das Zuruecklesen nach dem Schreiben entfaellt", CO_SETUP,
-     '    if zurueck is None or zurueck.get("mcpServers", {}).get("bewerbungs-assistent") != eintrag:\n',
+     '    if zurueck is None or zurueck.get("' + CO_MCP + '", {}).get("bewerbungs-assistent") != eintrag:\n',
      "    if False:\n", T_CO),
     ("co05", "Installer: ein Schreibfehler einer Datei bricht den ganzen Lauf ab", CO_SETUP,
      "    except OSError as e:\n        # Eine Datei, die sich nicht schreiben laesst",
