@@ -537,3 +537,63 @@ def test_1221_die_erklaerung_der_sicherheit_nennt_den_schalter(browser, umgebung
         assert "Vorabversionen automatisch" in text and "nie eine Vorabversion von selbst" not in text
     finally:
         ctx.close()
+
+
+# ── #1243: eine abgelehnte Aktion nennt den Grund des Servers statt „HTTP 400“ ────────────────────────────────
+
+def _toasts(page):
+    return page.locator("[data-toast-bereich]")
+
+
+def test_1243_ein_abgelehntes_installieren_nennt_den_grund_statt_http_400(browser, umgebung):
+    """Meldung aus dem Beta-Test (17.10.2026): rc.3 -> rc.4, „Jetzt installieren“ endete mit „Das hat nicht geklappt: HTTP 400“.
+    Der Server nannte den Grund im Feld `text`; die Oberfläche las nur `error` und die Nachricht des Fehlers (App.jsx)."""
+    grund = "Vorabversionen werden nur installiert, wenn „Vorabversionen automatisch“ eingeschaltet ist, und nur auf einer Vorabversion."
+    neu = {"version": "1.8.1", "status": "neu", "auszug": ["Etwas wurde besser."], "groesse": 2_500_000, "frage_faellig": False,
+           "zurueckgenommen": False, "zeit": "2026-10-08T03:05:00+00:00", "text": ""}
+    au = _au(laufend="1.8.0", neu=neu)
+    ctx, page = _seite(browser, umgebung, au, _info("1.8.1", laufend="1.8.0"))
+    try:
+        gesendet = []
+
+        def abgelehnt(route):
+            gesendet.append(route.request.post_data_json)
+            route.fulfill(status=400, json={"status": "abgelehnt", "text": grund, "uebersicht": au})
+
+        page.route("**/api/auto-update/installieren", abgelehnt)
+        page.locator('[data-update-stand="neu"]').click()
+        tab = page.locator("[data-updates-tab]")
+        tab.wait_for(timeout=15000)
+        tab.get_by_role("button", name="Jetzt installieren").click()
+        toast = _toasts(page).get_by_text("Das hat nicht geklappt:")
+        toast.wait_for(timeout=15000)
+        assert toast.inner_text() == f"Das hat nicht geklappt: {grund}"
+        assert "HTTP 400" not in _toasts(page).inner_text()
+        assert gesendet == [{"version": "1.8.1"}], "es ging genau eine Anfrage mit der Version hinaus"
+    finally:
+        ctx.close()
+
+
+def test_1243_ein_abgelehntes_umschalten_nennt_den_grund_des_servers(browser, umgebung):
+    """Dieselbe Regel in den Einstellungen (UpdatesTab.senden): „Beim nächsten Start nutzen“ beantwortet der Server bei einer nicht mehr
+    installierten Fassung mit 409 und einem Satz."""
+    grund = "Version 1.8.0-beta.16 ist nicht (mehr) installiert."
+    au = _au()
+    au["installiert"] = ["1.8.0-beta.16", BETA]
+    au["fassungen"] = [
+        {"version": "1.8.0-beta.16", "bytes": 1_500_000, "laeuft": False, "aktuell": False, "vorherige": False},
+        {"version": BETA, "bytes": 1_500_000, "laeuft": True, "aktuell": True, "vorherige": False},
+    ]
+    ctx, page = _seite(browser, umgebung, au, _info())
+    try:
+        page.route("**/api/auto-update/zurueck",
+                   lambda route: route.fulfill(status=409, json={"status": "nicht_moeglich", "text": grund, "uebersicht": au}))
+        tab = _zu_den_updates(page)
+        tab.get_by_role("button", name="Beim nächsten Start nutzen").click()
+        page.get_by_role("dialog").get_by_role("button", name="Ja", exact=True).click()
+        toast = _toasts(page).get_by_text("Das hat nicht geklappt:")
+        toast.wait_for(timeout=15000)
+        assert toast.inner_text() == f"Das hat nicht geklappt: {grund}"
+        assert "HTTP 409" not in _toasts(page).inner_text()
+    finally:
+        ctx.close()
