@@ -142,6 +142,14 @@ export default function ApiWegKarte() {
         </p>
       ) : null}
 
+      <p className="mt-3 text-sm text-muted" data-api-claude-schluessel>
+        Damit auch die Werkzeuge in Claude Desktop den Schlüssel sehen, muss er dort ankommen: Claude Desktop aus dem Microsoft Store gibt
+        Benutzervariablen nicht an PBP weiter. Trage ihn deshalb als <code className="font-mono">{u.variable}</code> unter{" "}
+        <code className="font-mono">env</code> beim Eintrag <code className="font-mono">bewerbungs-assistent</code> in der Konfiguration von
+        Claude ein (in Claude: Einstellungen › Entwickler › „Konfiguration bearbeiten“) und starte Claude neu. Fehlen die drei Werkzeuge{" "}
+        <code className="font-mono">api_weg_*</code> in Claude, hat der Claude-Server den Schlüssel nicht.
+      </p>
+
       <div className="mt-4 flex items-start gap-2 rounded-xl border border-sky/20 bg-sky/5 p-3 text-sm text-muted" data-api-datenschutz>
         <ShieldCheck size={16} className="mt-0.5 shrink-0 text-sky" aria-hidden="true" />
         <p>

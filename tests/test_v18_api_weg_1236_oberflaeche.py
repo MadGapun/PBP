@@ -147,6 +147,9 @@ def test_mit_schluessel_zeigt_die_karte_die_feldliste_bevor_etwas_freigegeben_is
         text = karte.inner_text()
         assert "Schlüssel gefunden" in text and "Noch nicht geprüft" in text, text
         assert "Ausnahme von „läuft komplett lokal“" in text
+        # Block K (Werkstatt-PC, 17.10.2026): die Store-Fassung von Claude reicht Benutzervariablen nicht durch, `env` des Eintrags kommt an
+        claude = karte.locator("[data-api-claude-schluessel]").inner_text()
+        assert api_backend.ENV_SCHLUESSEL in claude and "env" in claude and "bewerbungs-assistent" in claude and "Microsoft Store" in claude, claude
         for aufgabe in ("match_job_to_skills", "validate_job_quality"):
             zeile = page.locator(f'[data-api-aufgabe="{aufgabe}"]')
             assert zeile.count() == 1
