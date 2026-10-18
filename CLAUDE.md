@@ -10,9 +10,9 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.8.0 (`--latest`, 2026-10-12), Linie 1.8; Hotfix-Branches
-  `hotfix/v1.8.N` vom letzten 1.8-Tag. Die Linie 1.7 endet mit v1.7.157.
-- **Beta:** keine offene; die naechste Linie als GitHub-Prereleases. Plugins
+- **Stable:** v1.7.158 (`--latest`, 2026-10-16), Linie 1.7; Hotfix-Branches
+  `hotfix/v1.7.N` vom letzten 1.7-Tag.
+- **Beta:** 1.8.0-rc.5 (Kandidat), GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
 - **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 ist das **Auto-Update-Release**
@@ -21,12 +21,12 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   `v2.0.0`, 25 Issues, vieles noch Konzept). Wo aeltere Texte „v1.8“ fuer
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
-- **Schema:** v52.
-- **Umfang:** 9093 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
+- **Schema:** v48 (Stable) / v52 (Beta).
+- **Umfang:** 9685 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
   Expertenmodus; 26 Prompts.
 - **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
   Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
-- Fixes, die Stable betreffen, gehoeren in `hotfix/v1.8.N` UND nach `main`.
+- Fixes, die Stable betreffen, gehoeren in `hotfix/v1.7.N` UND nach `main`.
   Schaufenster-Arbeit ist erst beim Nutzer, wenn sie auf Stable ist.
 
 ## Wo steht was

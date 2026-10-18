@@ -33,6 +33,99 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0-rc.5] - 18.10.2026 — Der Installer findet die Konfiguration von Claude (Release-Kandidat)
+
+<!-- anwender -->
+Kleine Korrekturen gegenüber der letzten Vorabversion. Wichtig für alle, die Claude Desktop aus dem Microsoft Store nutzen: PBP trägt sich jetzt dort ein, wo die aktuelle Store-Fassung von Claude nachsieht. Bisher meldete der Installer „fertig“, und Claude zeigte PBP trotzdem nicht. Dazu: Die Update-Seite nennt bei einer abgelehnten Aktion den Grund statt nur „HTTP 400“, der Hilfe-Dialog fragt nach einer getippten Frage nicht mehr nach „ungespeicherten Eingaben“, der Installer behält, was du in der Konfiguration von Claude beim PBP-Eintrag ergänzt hast, und eine laufende Stelle zählt für deine Berufserfahrung bis heute.
+<!-- /anwender -->
+
+Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus fünf Korrekturen aus dem vierten Lauf auf dem Werkstatt-PC und den Hotfix-Rückführungen; drei davon betreffen auch die stabile Linie 1.7 (#1237, #1238, #1245).
+
+**Wichtig zu wissen:**
+
+- **Von rc.4 aus:** Ist „Vorabversionen automatisch“ eingeschaltet (Einstellungen › Erweitert › Updates), bietet PBP rc.5 von selbst an; sonst wie gewohnt das ZIP laden und `INSTALLIEREN.bat` darüber starten. Von rc.3 aus bleibt der Weg von Hand (der Fehler #1222 ist erst ab rc.4 behoben).
+- **Claude Desktop aus dem Microsoft Store:** Zeigt Claude PBP bisher nicht, den Installer von rc.5 einmal ausführen und Claude danach komplett beenden und neu starten. Die Konfiguration, die Claude liest, liegt bei der aktuellen Store-Fassung unter `%LOCALAPPDATA%\Claude-Data\claude_…\`; der Installer findet sie jetzt selbst.
+
+### Fixed
+
+- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betrifft auch
+  Stable). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
+  `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
+  Installer schrieb dorthin, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie; das Dashboard sagte richtig „nicht verbunden“. Jetzt kennt
+  `_setup_claude.py` den neuen Ordner, schreibt in jede gefundene Datei und liest den Eintrag danach zurück: „geschrieben“ zählt nur, wenn er in der Datei
+  steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
+  „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
+  führt den Installer einfach noch einmal aus.
+- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betrifft auch Stable). Was unter `env` des Eintrags
+  `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
+  (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
+  v1.7.145. Jetzt gilt für alle Schreiber dieselbe Regel (wie `_setup_claude.eintrag_bauen`): Was im bisherigen `env` steht, bleibt; `BA_DATA_DIR` wird nur gesetzt,
+  wenn keiner da ist; `PYTHONPATH` folgt immer der Installation. Ein Test listet alle Dateien, die den Server-Block der Konfiguration anfassen, und schlägt bei
+  jeder unbekannten an.
+- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betrifft auch Stable). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
+  festen Jahreszahl; ab dem 01.01.2027 hätte bei jeder laufenden Stelle ein Jahr gefehlt (die Karrierestufe der Auto-Aussortierung wäre an den Grenzen 4/5 und
+  9/10 Jahre zu spät gekippt, die Jahre Berufserfahrung in der Recruiter-Wertung zu kurz ausgefallen). Jetzt rechnen alle drei mit der Uhr (`services/uhr.heute()`),
+  die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
+  ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
+  stand.
+- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur im Kandidaten). „Jetzt installieren“
+  und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
+  „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
+  installieren (erst ab rc.4 behoben); wer rc.3 nutzt, installiert rc.4 einmal von Hand.
+- **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur im Kandidaten, seit rc.4).
+  Wer im Reiter „Frag mich“ etwas eintippte und den Dialog schloss, bekam die Rückfrage für ungespeicherte Formulare — obwohl der Reiter selbst sagt, dass die
+  Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
+  Formular (neuer Kontakt, Notizen) fragen weiter.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9685 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.5.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.5 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.5` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0] - 2026-10-12 — Updates, die sich selbst installieren
 
 <!-- anwender -->
