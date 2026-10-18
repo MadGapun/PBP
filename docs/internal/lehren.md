@@ -23,7 +23,7 @@ der stand bei `fit_analyse` fuenfmal und stimmte nie lange. Eine Regel in
 nur einen von zwei Wegen einzubauen verschiebt die Abweichung; und beim
 Suchen nach Doppelungen zuerst den Weg ansehen, der schreibt oder den die
 Doku empfiehlt — der schwaechere ist oft genau dieser.
-*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64)
+*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64), #1237 (die Berufsjahre gab es dreimal: einmal mit der Uhr, zweimal mit einer festen 2026 -- ab 2027 fehlte jeder laufenden Position ein Jahr; die Auto-Aussortierung nimmt jetzt `berufsfeld.berufsjahre`)
 
 **L2. Das Nadeloehr gilt auch fuer die Eingabe.** Kriterien, die roh statt
 durch `fuer_scoring` gereicht oder hinter dem Nadeloehr ueberschrieben
@@ -199,7 +199,7 @@ belegen einander nicht; je ein isolierender Fall. Das Gegenprobe-Skript
 selbst laeuft im Hintergrund mit Log und Zeitlimit, liest alle Kanaele und
 Testlaeufer, unterscheidet Sammelfehler von "rot", und der Arbeitsstand ist
 danach bytegleich.
-*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1120 (Ausbau eines "wirkungslosen" Mechanismus war am Fixture gruen und an den echten Mails falsch — nach jedem Ausbau erneut an echten Daten messen), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos), v1.7.143/4 (34 Mechanismen im Backend, 5 in der Oberfläche mit Neubau nach jedem Ausbau; alle rot)
+*Belege:* v1.7.79/9, #1031, #1026, #1019, #1036, v1.7.102/6, v1.7.114/9, v1.7.122/12, v1.7.127/6, v1.7.133/6, #1106 (stumme Gegenproben fanden fehlende isolierende Faelle und wirkungslosen Code), #1120 (Ausbau eines "wirkungslosen" Mechanismus war am Fixture gruen und an den echten Mails falsch — nach jedem Ausbau erneut an echten Daten messen), #1122 (drei von vier CSS-Aenderungen blieben einzeln gruen; zwei davon zusammen ebenfalls — ausgebaut statt mitgeliefert), #1123 (ein Typ-Vorfilter war neben der schliessenden Funktion wirkungslos), v1.7.143/4 (34 Mechanismen im Backend, 5 in der Oberfläche mit Neubau nach jedem Ausbau; alle rot), #1237 (ein Fehler, der von der Uhr abhaengt, ist am Tag des Tests nie rot -- die feste 2026 war bis zum 31.12.2026 "richtig": die Tests stellen die Uhr auf Tage vor, in und nach 2026, und die Gegenprobe trennt "feste Zahl" von "an der Naht vorbei" (datetime.now statt uhr.heute); 19 Eingriffe, alle rot, sieben davon im Waechter selbst)
 
 **L24. Ein Guard prueft die Bauform, nicht eine Zeichenkette.** Ein
 gesuchtes Wort steht oft auch im Kommentar oder im `title`, ein festes
