@@ -561,7 +561,15 @@ Drittes Beispiel, #1184: Die Regel „der Text entscheidet, nicht die Angabe der
 Browserlauf (`stelle_manuell_anlegen`, `remote` vom Aufrufer) trug dieselbe Klasse und fiel erst auf, als Googles „Homeoffice“ eine rund 570 km entfernte Stelle nach oben sortierte.
 Die Frage „welcher Weg schreibt `remote_level` aus einer fremden Angabe?“ ergab `services/google_angaben` als EINE Entscheidung, ob eine Angabe schon belegt ist. Dieselbe Klasse bei der
 Dublettenprüfung beim Anlegen: sie sah nur Aktives, aber nie Aussortiertes (`find_aussortierte_dublette`).
-*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177; #1184
+Viertes Beispiel, #1238: Dass der Installer den Eintrag in der Claude-Konfiguration neu baut und das `env` des Menschen verwirft, wurde am 01.10.2026 in `_setup_claude.py` behoben
+(v1.7.145, #1136). Drei weitere Schreiber derselben Datei bauten den Eintrag weiter selbst, `install.ps1`, `setup_gui.py` und `switch_mode.py`, und fielen erst am 16.10.2026
+auf, als ein Schlüssel unter `env` nach dem Überinstallieren fehlte. Beim Nachstellen kam in `install.ps1` ein schlimmerer Bruder der Klasse dazu: ohne Konfigurationsdatei
+oder ohne `mcpServers` schrieb das Skript GAR keinen Eintrag und meldete „geschrieben“ (`Add-Member` an einer Hashtable steht nicht im JSON; `-is [pscustomobject]` trifft in
+Windows PowerShell 5.1 jeden Wert). Der Fund-Satz „welche anderen Stellen schreiben die Datei?“ ist jetzt ein Test, kein Vorsatz: `test_jeder_schreiber_der_konfiguration_ist_erfasst`
+listet alle Dateien mit `mcpServers`, ein neuer Schreiber fällt auf, und jedem Schreiber wird dieselbe Beispielkonfiguration gereicht (Gegenprobe Katalog `claude_konfig`).
+In der 1.8-Linie ist `install.ps1` seit #1149 ein Stub; dieselbe Testdatei gilt dort (die PowerShell-Fälle überspringen sich, ein Test verlangt vom Stub, die Konfiguration nicht
+zu nennen), damit ein Fix in beiden Linien byte-gleich bleibt.
+*Belege:* Werkstatt-PC, 06.10.2026, #1170 PP20, Lehre L51; #1177; #1184; #1238 (`tests/test_1238_installer_env_erhalten.py`)
 
 **L61. Jede Seite im Leerlauf messen — ein Sturm wirft nie einen Fehler.** Beim Messen der Wege fiel ein Browser-Test von selbst um (die Liste war „leer“, obwohl
 sie gerade gezeichnet war). Die Spur führte zu einer Seite, die im Stillstand 270 bis 470 Anfragen pro Sekunde schickte und den Hauptthread des Browsers zu zwei Dritteln
