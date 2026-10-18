@@ -567,6 +567,18 @@ Einträgen darunter.
   Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Zeilen des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und
   von Hand gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht
   mehr als „nah“.
+- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betrifft auch Stable). Was unter `env` des Eintrags
+  `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
+  (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
+  v1.7.145. Jetzt gilt für alle Schreiber dieselbe Regel (wie `_setup_claude.eintrag_bauen`): Was im bisherigen `env` steht, bleibt; `BA_DATA_DIR` wird nur gesetzt,
+  wenn keiner da ist; `PYTHONPATH` folgt immer der Installation. Ein Test listet alle Dateien, die den Server-Block der Konfiguration anfassen, und schlägt bei
+  jeder unbekannten an.
+- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betrifft auch Stable). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
+  festen Jahreszahl; ab dem 01.01.2027 hätte bei jeder laufenden Stelle ein Jahr gefehlt (die Karrierestufe der Auto-Aussortierung wäre an den Grenzen 4/5 und
+  9/10 Jahre zu spät gekippt, die Jahre Berufserfahrung in der Recruiter-Wertung zu kurz ausgefallen). Jetzt rechnen alle drei mit der Uhr (`services/uhr.heute()`),
+  die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
+  ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
+  stand.
 - **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betrifft auch
   Stable). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
   `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
