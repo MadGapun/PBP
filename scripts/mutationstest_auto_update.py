@@ -2499,6 +2499,20 @@ M_ORTSDIENST = [
 KATALOGE["ortsdienst1235"] = M_ORTSDIENST
 GRUNDLAEUFE["ortsdienst1235"] = (("T_OD", T_OD),)
 
+# ── #1247 (F56): der Hilfe-Dialog fragt nach einer getippten Frage nicht nach "ungespeicherten Eingaben" ──
+T_HS = ["tests/test_v18_hilfe_frage_browser_1233.py::test_1247_eine_getippte_frage_loest_beim_schliessen_keine_rueckfrage_aus",
+        "tests/test_v18_hilfe_frage_browser_1233.py::test_1247_auch_escape_schliesst_nach_einer_frage_ohne_rueckfrage",
+        "tests/test_v18_hilfe_frage_browser_1233.py::test_1247_das_filterfeld_der_prompts_loest_keine_rueckfrage_aus"]
+T_HSG = ["tests/test_g1087_welle6_oberflaeche.py::test_g67_dialog_fragt_vor_dem_verwerfen"]  # die Gegenseite: ein Dialog mit Formular fragt weiter
+M_HILFE_SCHUTZ = [
+    ("hs01", "Der Hilfe-Dialog fragt nach einer getippten Frage wieder nach ungespeicherten Eingaben", "frontend/src/App.jsx",
+     " onClose={() => setHelpOpen(false)} schutz={false}>", " onClose={() => setHelpOpen(false)}>", T_HS),
+    ("hs02", "Kein Dialog fragt mehr vor dem Verwerfen (der Schutz ist von Haus aus aus)", "frontend/src/components/ui.jsx",
+     'size = "lg", schutz = true }) {', 'size = "lg", schutz = false }) {', T_HSG),
+]
+KATALOGE["hilfeschutz1247"] = M_HILFE_SCHUTZ
+GRUNDLAEUFE["hilfeschutz1247"] = (("T_HS", T_HS), ("T_HSG", T_HSG))
+
 # ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
 T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
 T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
