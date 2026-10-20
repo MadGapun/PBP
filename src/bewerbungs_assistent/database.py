@@ -7973,7 +7973,7 @@ class Database:
           NACH dem Filter, sonst blieben bei einem Lauf der Automatik
           keine Beispiele uebrig.
         """
-        from .services.ablehnungsgruende import urteilsgruende_des_menschen
+        from .services.ablehnungsgruende import gruende_aus_wert, urteilsgruende_des_menschen
         conn = self.connect()
         pid = self.get_active_profile_id()
         cur = conn.execute(
@@ -7990,10 +7990,14 @@ class Database:
             for r in cur:
                 if len(beispiele) >= int(limit):
                     break
-                if urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"]):
+                gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])
+                if gruende:
+                    # Der gespeicherte Wert bleibt, wie er ist -- ausser eine Zeile mit mehreren Gruenden traegt auch
+                    # einen, der nicht zaehlt (["zu_junior", "duplikat"]): die KI sieht nur die, die zaehlen.
+                    grund = (r["dismiss_reason"] if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))
+                             else ", ".join(gruende))
                     beispiele.append({"title": r["title"], "company": r["company"],
-                                      "dismiss_reason": r["dismiss_reason"],
-                                      "updated_at": r["updated_at"]})
+                                      "dismiss_reason": grund, "updated_at": r["updated_at"]})
         finally:
             cur.close()  # ein vorzeitig verlassener Lauf haelt sonst die Leseverbindung offen
         return beispiele

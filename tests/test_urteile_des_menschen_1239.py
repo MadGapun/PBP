@@ -9,7 +9,7 @@ kamen als "hat der Bewerber selbst abgelehnt" mit, obwohl `bewerbung_erstellt` d
 EINE Frage, eine Funktion: `ablehnungsgruende.urteilsgruende_des_menschen`. Die Beispiele (`Database.get_recent_user_dismissals`)
 und der Block "GELERNT" (`gruende_zaehlen(nur_menschen=True)`) fragen beide sie. Je Leser dieselben drei Faelle: Automatik ohne
 Praefix, Systemgrund, Mensch. Dazu: Herkunft unbekannt (Altbestand vor v1.7.64), Praefix, Liste von Gruenden, das LIMIT gilt
-NACH dem Filter, der echte Weg (`aussortieren`) und zwei Waechter, die den Aufruf festhalten.
+NACH dem Filter, der echte Weg (`aussortieren`) und drei Waechter, die den Aufruf festhalten.
 """
 from __future__ import annotations
 
@@ -126,6 +126,7 @@ FAELLE = [
     ("", "zu_junior", []),
     ("ich", "bewerbung_erstellt", []),                                              # Systemgrund / kein Urteil
     ("ich", "firma_blacklisted", []),
+    ("ich", "keyword_blacklisted", []),                                             # Treffer eines Stichworts der Blacklist
     ("ich", "profil_match_negativ", []),
     ("ich", "veraltet_url", []),
     ("ich", "war_nur_anfrage", []),
@@ -193,12 +194,20 @@ def test_das_limit_gilt_nach_dem_filter(db):
     assert _titel(db.get_recent_user_dismissals(limit=1)) == ["Mensch C"]
 
 
-def test_viele_zeilen_der_automatik_verdraengen_den_menschen_nicht(db):
-    """Der Fall der echten Datenbank: ein Lauf der Automatik sortiert zwanzig Stellen aus, danach kommt kein Mensch mehr in die Beispiele."""
+@pytest.mark.parametrize("grund", ["profil_match_negativ", "zu_weit_entfernt", "unpassendes_arbeitsmodell"])
+def test_viele_zeilen_der_automatik_verdraengen_den_menschen_nicht(db, grund):
+    """Der Fall der echten Datenbank: ein Lauf der Automatik sortiert zwanzig Stellen aus, danach kommt kein Mensch mehr in die Beispiele.
+
+    Die Automatik schreibt auch Urteilsgruende (`save_jobs` beim Anlegen: zu_weit_entfernt, unpassendes_arbeitsmodell): dort
+    traegt allein die Herkunft; bei profil_match_negativ scheidet schon der Systemgrund die Zeile aus.
+    """
     _aussortiert(db, "h1", "Mensch A", "falsches_fachgebiet", zeit="2026-10-01T10:00:00")
     for i in range(20):
-        _aussortiert(db, f"z{i:02d}", f"Lauf {i}", "profil_match_negativ", wer="automatik", zeit=f"2026-10-16T12:{i:02d}:00")
+        _aussortiert(db, f"z{i:02d}", f"Lauf {i}", grund, wer="automatik", zeit=f"2026-10-16T12:{i:02d}:00")
     assert _titel(db.get_recent_user_dismissals(limit=10)) == ["Mensch A"]
+    from bewerbungs_assistent.services.ablehnungsgruende import gruende_zaehlen
+    liste, gesamt = gruende_zaehlen(db.connect(), db.get_active_profile_id(), ausser=(), nur_menschen=True)
+    assert dict(liste) == {"falsches_fachgebiet": 1} and gesamt == 1
 
 
 def test_ohne_urteil_des_menschen_keine_beispiele(db):
@@ -225,6 +234,54 @@ def test_beispiele_herkunft_unbekannt_mit_dem_schalter(db, monkeypatch):
     _bestand(db)
     monkeypatch.setattr(ag, "UNBEKANNTE_HERKUNFT_ZAEHLT", True)
     assert _titel(db.get_recent_user_dismissals(limit=10)) == ["Altbestand A", "Mensch C", "Mensch B", "Mensch A"]
+
+
+def test_beispiel_zeigt_nur_die_gruende_die_zaehlen(db):
+    """Eine Zeile mit mehreren Gruenden, von denen einer kein Urteil ist: die KI sieht nur die, die zaehlen."""
+    _aussortiert(db, "m1", "Gemischt A", ["zu_junior", "duplikat"], zeit="2026-10-04T10:00:00")
+    _aussortiert(db, "m2", "Gemischt B", ["falsches_fachgebiet", "bewerbung_erstellt"], zeit="2026-10-05T10:00:00")
+    _aussortiert(db, "m3", "Beide zaehlen", ["zu_junior", "zu_weit_entfernt"], zeit="2026-10-06T10:00:00")
+    _aussortiert(db, "m4", "Einfach", "zu_senior", zeit="2026-10-07T10:00:00")
+    gezeigt = {b["title"]: b["dismiss_reason"] for b in db.get_recent_user_dismissals(limit=10)}
+    assert gezeigt["Gemischt A"] == "zu_junior"
+    assert gezeigt["Gemischt B"] == "falsches_fachgebiet"
+    assert gezeigt["Beide zaehlen"] == '["zu_junior", "zu_weit_entfernt"]', "gespeicherter Wert, wenn alles zaehlt"
+    assert gezeigt["Einfach"] == "zu_senior"
+
+
+def test_profile_bleiben_getrennt(db):
+    """Beide Leser: jedes Profil sieht nur seine eigenen Urteile (die Gegenprobe `OR 1=1` blieb sonst gruen)."""
+    from bewerbungs_assistent.services.ablehnungsgruende import gruende_zaehlen
+    erstes = db.get_active_profile_id()
+    _aussortiert(db, "h1", "Mensch A", "zu_junior", zeit="2026-10-01T10:00:00")
+    zweites = db.create_profile("Zweites")
+    db.switch_profile(zweites)
+    _aussortiert(db, "z1", "Zweites B", "falsche_branche", zeit="2026-10-12T10:00:00")
+    assert _titel(db.get_recent_user_dismissals(limit=10)) == ["Zweites B"]
+    assert dict(gruende_zaehlen(db.connect(), zweites, ausser=(), nur_menschen=True)[0]) == {"falsche_branche": 1}
+    db.switch_profile(erstes)
+    assert _titel(db.get_recent_user_dismissals(limit=10)) == ["Mensch A"]
+    assert dict(gruende_zaehlen(db.connect(), erstes, ausser=(), nur_menschen=True)[0]) == {"zu_junior": 1}
+
+
+def test_ein_lauf_der_blacklist_auf_den_bestand_zaehlt_nicht(db):
+    """`blacklist_anwenden` schreibt Herkunft "ich" und fuer ein STICHWORT den Grund keyword_blacklisted. Ohne den Eintrag im Vokabular
+    wurde daraus 'sonstiges': viele Zeilen mit demselben Zeitpunkt verdraengten die Beispiele und standen im Block GELERNT."""
+    from bewerbungs_assistent.services import blacklist_bestand
+    from bewerbungs_assistent.services.ablehnungsgruende import gruende_zaehlen
+    _aussortiert(db, "h1", "Mensch A", "zu_junior", zeit="2026-10-01T10:00:00")
+    for i in range(4):
+        db.save_jobs([{"hash": f"k{i}", "title": f"Lagerhelfer {i}", "company": f"Beispiel Lager {i}",
+                       "url": f"https://example.com/k{i}", "source": "manuell", "description": LANG, "score": 3}])
+    db.add_to_blacklist("keyword", "lagerhelfer")
+    lauf = blacklist_bestand.anwenden(db, dry_run=False)
+    assert lauf["deaktiviert"] == 4
+    zeilen = db.connect().execute(
+        "SELECT dismissed_by, dismiss_reason FROM jobs WHERE title LIKE 'Lagerhelfer%'").fetchall()
+    assert {(z["dismissed_by"], z["dismiss_reason"]) for z in zeilen} == {("ich", "keyword_blacklisted")},         "der Grund muss als keyword_blacklisted stehen bleiben, nicht zu 'sonstiges' werden"
+    assert _titel(db.get_recent_user_dismissals(limit=10)) == ["Mensch A"]
+    liste, gesamt = gruende_zaehlen(db.connect(), db.get_active_profile_id(), ausser=(), nur_menschen=True)
+    assert dict(liste) == {"zu_junior": 1} and gesamt == 1
 
 
 # ── Leser 2: der Block "GELERNT" ────────────────────────────────────────────────────────────────────
@@ -290,6 +347,7 @@ def test_die_eigenen_urteile_der_ki_kommen_nicht_als_beispiele_zurueck(db):
     """Die Echokammer als Ablauf: Lauf 1 sortiert aus (Automatik), Lauf 2 darf diese Urteile nicht als "selbst abgelehnt" sehen."""
     from bewerbungs_assistent.services import auto_aussortierung as aa
     _aussortiert(db, "h1", "Mensch A", "falsches_fachgebiet", zeit="2026-10-01T10:00:00")
+    _aussortiert(db, "a9", "Automatik Distanz", "zu_weit_entfernt", wer="automatik", zeit="2026-10-15T10:00:00")
     db.save_jobs([{"hash": "f1", "title": "Stelle fremd", "company": "Beispiel Fremdbetrieb", "url": "https://example.com/f1",
                    "source": "manuell", "description": LANG, "score": 3}])
     assert aa.aussortieren(db, max_stellen=5)["passt_nicht"] == 1
