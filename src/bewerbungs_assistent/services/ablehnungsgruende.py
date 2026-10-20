@@ -53,6 +53,13 @@ SYSTEM_GRUENDE = {
     # bewerbung_zu_anfrage_konvertieren: der Eintrag war nie eine
     # Bewerbung, sondern eine sofort abgelehnte Recruiter-Anfrage.
     "war_nur_anfrage",
+    # blacklist_anwenden (`services/blacklist_bestand`): Treffer eines
+    # STICHWORTS der Blacklist, das Gegenstueck zu firma_blacklisted. #1239:
+    # fehlte hier -- der Normalisierer machte daraus 'sonstiges' (Notiz
+    # "keyword_blacklisted"), und ein Lauf auf den Bestand legte viele Zeilen
+    # 'sonstiges' von "ich" mit demselben Zeitpunkt an: sie verdraengten die
+    # Beispiele des Menschen und standen als Grund im Block "GELERNT".
+    "keyword_blacklisted",
 }
 
 # Gruende, die KEIN Urteil des Menschen ueber die Passung einer Stelle sind
@@ -259,8 +266,9 @@ def gruende_aus_wert(raw) -> list:
 # Nein (#1239). `aussortier_protokoll.herkunft` sagt es selbst: "unbekannt ist nicht dasselbe wie war ich". Der Altbestand enthaelt
 # auch Urteile der Automatik, deren Praefix `auto:` seit #913 beim Schreiben entfernt wird. Gemessen am 17.10.2026 auf einer Kopie
 # einer echten Datenbank: 2.488 von 3.586 aussortierten Stellen ohne Herkunft, keine einzige mit dem Praefix; sie der KI als "hat
-# der Bewerber selbst abgelehnt" zu zeigen, waere eine Behauptung ohne Beleg. Die heutigen Schreibwege (`dismiss_job`, `save_jobs`)
-# setzen die Herkunft immer; wer den Altbestand trotzdem mitzaehlen will, aendert nur diese Zeile.
+# der Bewerber selbst abgelehnt" zu zeigen, waere eine Behauptung ohne Beleg. Die heutigen Schreibwege setzen die Herkunft
+# (`dismiss_job` kennt "ich" und "automatik", `save_jobs` schreibt "automatik"); nur rohes SQL und die Migration v20->v21 lassen
+# sie leer. Wer den Altbestand trotzdem mitzaehlen will, aendert nur diese Zeile.
 UNBEKANNTE_HERKUNFT_ZAEHLT = False
 
 
