@@ -23,7 +23,7 @@ der stand bei `fit_analyse` fuenfmal und stimmte nie lange. Eine Regel in
 nur einen von zwei Wegen einzubauen verschiebt die Abweichung; und beim
 Suchen nach Doppelungen zuerst den Weg ansehen, der schreibt oder den die
 Doku empfiehlt — der schwaechere ist oft genau dieser.
-*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64), #1237 (die Berufsjahre gab es dreimal: einmal mit der Uhr, zweimal mit einer festen 2026 -- ab 2027 fehlte jeder laufenden Position ein Jahr; die Auto-Aussortierung nimmt jetzt `berufsfeld.berufsjahre`)
+*Belege:* #963, #913, #976, #991, #992, #951, #1017, #1036, #1051, v1.7.132/1, #1106 (Blacklist auf den Bestand war die fuenfte Fassung neben `blacklist_regel`), #1173 (Lesen und Schreiben der eigenen Ordner gingen verschiedene Wege; siehe L64), #1237 (die Berufsjahre gab es dreimal: einmal mit der Uhr, zweimal mit einer festen 2026 -- ab 2027 fehlte jeder laufenden Position ein Jahr; die Auto-Aussortierung nimmt jetzt `berufsfeld.berufsjahre`), #1239 (zwei Leser der Aussortierungen fragten "war das der Mensch?": der eine mit einem Praefix, das PBP seit #913 nicht mehr schreibt, der andere gar nicht; jetzt `urteilsgruende_des_menschen`)
 
 **L2. Das Nadeloehr gilt auch fuer die Eingabe.** Kriterien, die roh statt
 durch `fuer_scoring` gereicht oder hinter dem Nadeloehr ueberschrieben
@@ -74,7 +74,7 @@ Punktesystem nicht neutral einsetzen — neutral heisst dort "kostet nichts"
 und steigt in der Sortierung. Ungeprueft muss anders aussehen als
 unauffaellig und anders als "passt nicht": drei Zustaende statt zwei,
 Gruppe vor Zahl, grauer statt roter Daumen.
-*Belege:* #989, #965, #1003, #999, #1052, #1069
+*Belege:* #989, #965, #1003, #999, #1052, #1069, #1239 (Aussortierungen ohne gespeicherte Herkunft sind "unbekannt", nicht "war ich": 69 % einer echten Datenbank; sie zaehlen nicht als Beispiel der KI)
 
 **L8. Eine Null hat mehrere Bedeutungen.** "Liefert nichts" und "liefert
 nichts Passendes", 410 Gone und Bot-Block, "nicht pruefbar" und "nicht
@@ -124,7 +124,7 @@ Trennzeilen, Laengenvergleiche, `startswith` auf Registry-Texten und
 Praefixlisten auf Anzeigetexten brechen still, wenn sich Text oder
 Schreibweise aendert. Nach jeder Umstellung jede Lesestelle gegen die neue
 Form pruefen.
-*Belege:* #1047, v1.7.110/4, v1.7.121/6, v1.7.138/2, v1.7.139/6, v1.7.143/3 (Akzent-Faltung im Firmennamen: `find_vermittler_bewerbung` verglich den gefalteten Namen mit ungefaltetem Rohtext und hätte einen Treffer verloren; aufgefallen beim Durchsehen, nicht in der Gegenprobe — der Fall steht jetzt als eigener Test)
+*Belege:* #1047, v1.7.110/4, v1.7.121/6, v1.7.138/2, v1.7.139/6, v1.7.143/3 (Akzent-Faltung im Firmennamen: `find_vermittler_bewerbung` verglich den gefalteten Namen mit ungefaltetem Rohtext und hätte einen Treffer verloren; aufgefallen beim Durchsehen, nicht in der Gegenprobe — der Fall steht jetzt als eigener Test), #1239 (#913 entfernte das Praefix `auto:` beim Schreiben, der Filter der KI-Beispiele blieb dabei: er schloss 0 von 3.586 Zeilen aus, 5 von 5 Beispielen waren Urteile der Automatik)
 
 **L14. Gespeicherte Werte werden nie still umgedeutet.** Wirkungslose
 Altwerte werden benannt statt geloescht, Umbenennungen bekommen Aliase,
