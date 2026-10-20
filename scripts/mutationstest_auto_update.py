@@ -2513,6 +2513,21 @@ M_HILFE_SCHUTZ = [
 KATALOGE["hilfeschutz1247"] = M_HILFE_SCHUTZ
 GRUNDLAEUFE["hilfeschutz1247"] = (("T_HS", T_HS), ("T_HSG", T_HSG))
 
+# ── #1252 (B83): python-jobspy bleibt unter 1.4 (die Bibliothek wurde am 19.10.2026 umgebaut) ──
+T_JS = ["tests/test_v17150_jobspy_120_1159.py::test_1252_python_jobspy_ist_nach_oben_begrenzt_und_ueberall_gleich"]
+M_JOBSPY_GRENZE = [
+    ("js01", "pyproject: die Kern-Abhaengigkeit hat keine Obergrenze mehr", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\n\n[project.optional-dependencies]', '    "python-jobspy>=1.2",\n]\n\n[project.optional-dependencies]', T_JS),
+    ("js02", "pyproject: das Extra scraper hat keine Obergrenze mehr", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\ndocs = [', '    "python-jobspy>=1.2",\n]\ndocs = [', T_JS),
+    ("js03", "Installer: die pip-Zeile hat keine Obergrenze mehr", "INSTALLIEREN.bat",
+     '"python-jobspy>=1.2,<1.4" --no-warn-script-location', '"python-jobspy>=1.2" --no-warn-script-location', T_JS),
+    ("js04", "pyproject: die Obergrenze steht auf 1.5 und laesst 1.4.0 durch", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\n\n[project.optional-dependencies]', '    "python-jobspy>=1.2,<1.5",\n]\n\n[project.optional-dependencies]', T_JS),
+]
+KATALOGE["jobspy1252"] = M_JOBSPY_GRENZE
+GRUNDLAEUFE["jobspy1252"] = (("T_JS", T_JS),)
+
 # ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
 T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
 T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
