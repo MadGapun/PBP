@@ -2803,7 +2803,8 @@ M_URTEILE_MENSCH = [
      '    return [g for g in [str(dismiss_reason or "").strip()]\n', T_UM),
     # Leser 1: die Beispiele
     ("um09", "Die Beispiele fragen die eine Funktion nicht mehr", UM_DB,
-     '                if urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"]):\n', "                if True:\n", T_UM),
+     '                gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])\n',
+     '                gruende = ["sonstiges"]\n', T_UM),
     ("um10", "Die Beispiele geben der Funktion keine Herkunft mit", UM_DB,
      'urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])', 'urteilsgruende_des_menschen(None, r["dismiss_reason"])', T_UM),
     ("um11", "Das LIMIT gilt wieder VOR dem Filter", UM_DB,
@@ -2840,6 +2841,20 @@ M_URTEILE_MENSCH = [
     ("um23", "Waechter: die Auto-Aussortierung wird nicht gelesen", UM_T,
      '    quelle = (SRC / "services" / "auto_aussortierung.py").read_text(encoding="utf-8")\n    assert _aufrufe(quelle, "gruende_zaehlen")',
      '    quelle = "gruende_zaehlen(conn, pid, nur_menschen=True)"\n    assert _aufrufe(quelle, "gruende_zaehlen")', T_UM),
+    # Funde der unabhaengigen Pruefung: gemischte Gruende, Profile, Stichwort-Blacklist
+    ("um24", "Das Beispiel zeigt bei gemischten Gruenden den rohen Wert (auch einen, der nicht zaehlt)", UM_DB,
+     '                             else ", ".join(gruende))\n', '                             else r["dismiss_reason"])\n', T_UM),
+    ("um25", "Das Beispiel zeigt auch dann die gejointe Fassung, wenn alle Gruende zaehlen", UM_DB,
+     'grund = (r["dismiss_reason"] if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))',
+     'grund = (", ".join(gruende) if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))', T_UM),
+    ("um26", "Die Beispiele sehen die Stellen ALLER Profile", UM_DB,
+     '            "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "\n            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "',
+     '            "FROM jobs WHERE (profile_id=? OR 1=1) "\n            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "', T_UM),
+    ("um27", "Die Zaehlung sieht die Stellen ALLER Profile", UM_AG,
+     '        "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "\n        "AND COALESCE(dismiss_reason,\'\') != \'\' "\n        "GROUP BY dismissed_by, dismiss_reason"',
+     '        "WHERE is_active=0 AND (profile_id=? OR 1=1) "\n        "AND COALESCE(dismiss_reason,\'\') != \'\' "\n        "GROUP BY dismissed_by, dismiss_reason"', T_UM),
+    ("um28", "Das Stichwort der Blacklist (keyword_blacklisted) ist wieder kein Systemgrund", UM_AG,
+     '    "keyword_blacklisted",\n}', '}', T_UM),
 ]
 KATALOGE["urteile1239"] = M_URTEILE_MENSCH
 GRUNDLAEUFE["urteile1239"] = (("T_UM", T_UM),)
