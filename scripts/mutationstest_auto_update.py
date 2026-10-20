@@ -2770,6 +2770,80 @@ M_CLAUDE_ORT = [
 KATALOGE["claude_ort1245"] = M_CLAUDE_ORT
 GRUNDLAEUFE["claude_ort1245"] = (("T_CO", T_CO), ("T_COD", T_COD))
 
+# ── #1239: Beispiele und Lernblock der KI-Aussortierung kommen aus Urteilen des MENSCHEN ──
+# Zwei Leser fragen EINE Funktion (`urteilsgruende_des_menschen`): die Beispiele im Prompt (`get_recent_user_dismissals`) und der
+# Block "GELERNT" (`gruende_zaehlen(nur_menschen=True)`). Die Eingriffe nehmen jeweils eine der drei Bedingungen (Herkunft,
+# Systemgrund, Urteil) oder einen der Aufrufe weg; die letzten gelten den Waechtern, die den Aufruf festhalten.
+T_UM = ["tests/test_urteile_des_menschen_1239.py"]
+UM_AG = "src/bewerbungs_assistent/services/ablehnungsgruende.py"
+UM_DB = "src/bewerbungs_assistent/database.py"
+UM_AA = "src/bewerbungs_assistent/services/auto_aussortierung.py"
+UM_AP = "src/bewerbungs_assistent/services/aussortier_protokoll.py"
+UM_T = T_UM[0]
+M_URTEILE_MENSCH = [
+    # die Funktion: Herkunft
+    ("um01", "Die Herkunft wird nicht mehr geprueft (die Automatik zaehlt als Mensch)", UM_AG,
+     '    if wer != "ich" and not (wer == "unbekannt" and UNBEKANNTE_HERKUNFT_ZAEHLT):\n', "    if False:\n", T_UM),
+    ("um02", "Die Herkunft wird nicht gelesen (jede Aussortierung gilt als 'ich')", UM_AG,
+     '    wer = herkunft({"dismissed_by": dismissed_by, "dismiss_reason": dismiss_reason})\n', '    wer = "ich"\n', T_UM),
+    ("um03", "Die Herkunft 'ich' wird nicht mehr erkannt (nichts zaehlt als Mensch)", UM_AG,
+     '    if wer != "ich" and not', '    if wer != "zzz" and not', T_UM),
+    ("um04", "Eine Aussortierung ohne gespeicherte Herkunft zaehlt als Mensch", UM_AG,
+     "UNBEKANNTE_HERKUNFT_ZAEHLT = False\n", "UNBEKANNTE_HERKUNFT_ZAEHLT = True\n", T_UM),
+    ("um05", "Das Praefix `auto:` gilt nicht mehr als Automatik (aussortier_protokoll.herkunft)", UM_AP,
+     '    if str(job.get("dismiss_reason") or "").startswith(AUTO_PRAEFIX):\n        return "automatik"\n',
+     '    if False:\n        return "automatik"\n', T_UM),
+    # die Funktion: Systemgrund und Urteil
+    ("um06", "Systemgruende zaehlen mit (profil_match_negativ, firma_blacklisted, ...)", UM_AG,
+     "            if g not in SYSTEM_GRUENDE and ist_urteil(g)]\n", "            if ist_urteil(g)]\n", T_UM),
+    ("um07", "Gruende ohne Urteil zaehlen mit (duplikat, bereits_beworben)", UM_AG,
+     "            if g not in SYSTEM_GRUENDE and ist_urteil(g)]\n", "            if g not in SYSTEM_GRUENDE]\n", T_UM),
+    ("um08", "Eine Liste von Gruenden wird als EIN Grund gelesen", UM_AG,
+     "    return [g for g in gruende_aus_wert(dismiss_reason)\n",
+     '    return [g for g in [str(dismiss_reason or "").strip()]\n', T_UM),
+    # Leser 1: die Beispiele
+    ("um09", "Die Beispiele fragen die eine Funktion nicht mehr", UM_DB,
+     '                if urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"]):\n', "                if True:\n", T_UM),
+    ("um10", "Die Beispiele geben der Funktion keine Herkunft mit", UM_DB,
+     'urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])', 'urteilsgruende_des_menschen(None, r["dismiss_reason"])', T_UM),
+    ("um11", "Das LIMIT gilt wieder VOR dem Filter", UM_DB,
+     '            "ORDER BY updated_at DESC",\n            (pid,)\n        )\n        beispiele: list = []',
+     '            "ORDER BY updated_at DESC LIMIT ?",\n            (pid, int(limit))\n        )\n        beispiele: list = []', T_UM),
+    ("um12", "Die Beispiele sind nicht mehr neueste zuerst", UM_DB,
+     '            "ORDER BY updated_at DESC",\n            (pid,)\n        )\n        beispiele: list = []',
+     '            "ORDER BY updated_at ASC",\n            (pid,)\n        )\n        beispiele: list = []', T_UM),
+    ("um13", "Die Beispiele nehmen auch Stellen, die nicht aussortiert sind", UM_DB,
+     '            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "\n            "AND dismiss_reason != \'\' "\n            "ORDER BY updated_at DESC",',
+     '            "AND dismiss_reason IS NOT NULL "\n            "AND dismiss_reason != \'\' "\n            "ORDER BY updated_at DESC",', T_UM),
+    # Leser 2: der Block "GELERNT"
+    ("um14", "gruende_zaehlen kennt den Schalter nur_menschen nicht mehr", UM_AG,
+     "        if nur_menschen:\n            gruende = urteilsgruende_des_menschen(", "        if False:\n            gruende = urteilsgruende_des_menschen(", T_UM),
+    ("um15", "gruende_zaehlen gruppiert wieder nur nach dem Grund (die Herkunft geht verloren)", UM_AG,
+     '"GROUP BY dismissed_by, dismiss_reason", (profile_id,)', '"GROUP BY dismiss_reason", (profile_id,)', T_UM),
+    ("um16", "gruende_zaehlen beachtet `ausser` nicht mehr", UM_AG,
+     "        gruende = [g for g in gruende if g not in ausser]\n", "        gruende = list(gruende)\n", T_UM),
+    # der Aufrufer: was die KI zu sehen bekommt
+    ("um17", "Der Block GELERNT zaehlt wieder alle Aussortierungen", UM_AA,
+     "        liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)\n", "        liste, _ = gruende_zaehlen(conn, pid, ausser=())\n", T_UM),
+    ("um18", "Der Block GELERNT zaehlt mit nur_menschen=False", UM_AA,
+     "ausser=(), nur_menschen=True)", "ausser=(), nur_menschen=False)", T_UM),
+    ("um19", "Die KI bekommt keine Beispiele mehr", UM_AA,
+     "        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)\n", "        recent_dismissals_fewshot = []\n", T_UM),
+    # die Waechter selbst (die Eingriffe sitzen in der Testdatei)
+    ("um20", "Waechter: nur_menschen=False zaehlt als gut", UM_T,
+     "        if not (isinstance(wert, ast.Constant) and wert.value is True):\n", "        if wert is None:\n", T_UM),
+    ("um21", "Waechter: der Syntaxbaum wird nur eine Ebene tief gelesen", UM_T,
+     "    for knoten in ast.walk(ast.parse(quelltext)):\n        if isinstance(knoten, ast.Call):\n",
+     "    for knoten in ast.iter_child_nodes(ast.parse(quelltext)):\n        if isinstance(knoten, ast.Call):\n", T_UM),
+    ("um22", "Waechter: der gesuchte Aufruf wird nie gefunden", UM_T,
+     "            if gerufen == name:\n", "            if False:\n", T_UM),
+    ("um23", "Waechter: die Auto-Aussortierung wird nicht gelesen", UM_T,
+     '    quelle = (SRC / "services" / "auto_aussortierung.py").read_text(encoding="utf-8")\n    assert _aufrufe(quelle, "gruende_zaehlen")',
+     '    quelle = "gruende_zaehlen(conn, pid, nur_menschen=True)"\n    assert _aufrufe(quelle, "gruende_zaehlen")', T_UM),
+]
+KATALOGE["urteile1239"] = M_URTEILE_MENSCH
+GRUNDLAEUFE["urteile1239"] = (("T_UM", T_UM),)
+
 WT = None
 
 
