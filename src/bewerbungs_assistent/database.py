@@ -7962,23 +7962,41 @@ class Database:
 
         Filter:
         - Nur Stellen mit is_active=0 (= aussortiert)
-        - Nur Stellen mit dismiss_reason != 'auto:%' (= manuell, nicht
-          schon vom Auto-Tool gemacht — sonst Echokammer)
-        - Sortiert nach updated_at DESC (Neueste zuerst)
+        - Nur Urteile des MENSCHEN (#1239): `urteilsgruende_des_menschen`
+          ist die eine Antwort darauf. Davor schloss der Filter nur das
+          Praefix `auto:` aus, das seit #913 beim Schreiben entfaellt:
+          die Automatik schreibt `dismissed_by='automatik'` und einen Grund
+          ohne Praefix, und das Modell sah seine eigenen Urteile als
+          "selbst abgelehnt" (Echokammer). Ebenso Systemgruende wie
+          `bewerbung_erstellt`, das Gegenteil einer Ablehnung.
+        - Sortiert nach updated_at DESC (Neueste zuerst); das LIMIT gilt
+          NACH dem Filter, sonst blieben bei einem Lauf der Automatik
+          keine Beispiele uebrig.
         """
+        from .services.ablehnungsgruende import urteilsgruende_des_menschen
         conn = self.connect()
         pid = self.get_active_profile_id()
-        rows = conn.execute(
-            "SELECT title, company, dismiss_reason, updated_at "
+        cur = conn.execute(
+            "SELECT title, company, dismiss_reason, updated_at, dismissed_by "
             "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
             "AND is_active=0 "
             "AND dismiss_reason IS NOT NULL "
             "AND dismiss_reason != '' "
-            "AND dismiss_reason NOT LIKE 'auto:%' "
-            "ORDER BY updated_at DESC LIMIT ?",
-            (pid, int(limit))
-        ).fetchall()
-        return [dict(r) for r in rows]
+            "ORDER BY updated_at DESC",
+            (pid,)
+        )
+        beispiele: list = []
+        try:
+            for r in cur:
+                if len(beispiele) >= int(limit):
+                    break
+                if urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"]):
+                    beispiele.append({"title": r["title"], "company": r["company"],
+                                      "dismiss_reason": r["dismiss_reason"],
+                                      "updated_at": r["updated_at"]})
+        finally:
+            cur.close()  # ein vorzeitig verlassener Lauf haelt sonst die Leseverbindung offen
+        return beispiele
 
     def add_dismiss_reason(self, label: str) -> int:
         """Add a custom dismiss reason. Returns the new id."""
