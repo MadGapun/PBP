@@ -587,6 +587,10 @@ Einträgen darunter.
   steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
   „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
   führt den Installer einfach noch einmal aus.
+- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betrifft auch Stable). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
+  Fassung (andere Modelle, ein einziger Logger, neue Abhängigkeiten); PBP verlangte aber nur `>=1.2`. Jede frische Installation und jeder Installer-Lauf zog sie, und
+  sechs Prüfungen gegen die Bibliothek schlugen fehl. Jetzt gilt `python-jobspy>=1.2,<1.4` in `pyproject.toml` und im Installer; ein Installer-Lauf setzt ein bereits
+  gezogenes 1.4.0 auf 1.3 zurück. Die Übernahme von 1.4 ist ein eigenes Vorhaben.
 
 ### Known Issues
 
