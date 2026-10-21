@@ -760,11 +760,18 @@ def _ohne_wiki_hinweis(live):
     live["db"].add_elwosa_message("Hinweis aus dem Wiki: die Seiten findest du im Menü links.", trigger_kind="wiki_hint", trigger_ref="dashboard:t1256")
 
 
+def _ruhige_seite(browser, live, **angaben):
+    """Wie `_seite_mit_verlauf`, aber nichts schreibt von sich aus unter die Zeilen des Tests: der Wiki-Hinweis der Seite liegt schon da, der Herzschlag der Seite
+    schreibt nichts (der Verlauf wird trotzdem nachgeladen). Wer prueft, ob SEINE Meldung im Bild liegt oder wie viele neu sind, braucht das: sonst haengt es davon
+    ab, wie schnell die Maschine ist und wie spaet es ist (so lag die Meldung eines Tests von #1254 auf der CI ausserhalb des Bildes)."""
+    _ohne_wiki_hinweis(live)
+    return _seite_mit_verlauf(browser, live, ohne_herzschlag=True, **angaben)
+
+
 def _marke_neu_pruefen(live, browser, anzahl):
     """Elwosa hat `anzahl` Nachrichten gesagt, der Mensch liest ganz oben, dann kommt eine neue: die Marke "N neu" steht da, N stimmt, der Mensch wird
     nicht nach unten gezogen, und ein Klick fuehrt ans Ende und raeumt die Marke weg."""
-    _ohne_wiki_hinweis(live)
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200, anzahl=anzahl)
+    kontext, seite = _ruhige_seite(browser, live, platz=200, anzahl=anzahl)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
@@ -798,8 +805,7 @@ def test_1256_bei_kurzer_liste_zeigt_die_marke_weiter_die_neuen(live, browser):
 
 
 def test_1256_die_marke_zaehlt_mit_und_beginnt_am_ende_von_vorn(live, browser):
-    _ohne_wiki_hinweis(live)
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _ruhige_seite(browser, live, platz=200)
     try:
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
         seite.wait_for_timeout(1500)
@@ -834,8 +840,7 @@ def test_1256_das_ausblenden_einer_nachricht_macht_keine_marke(live, browser):
     auf zehn, neu ist nichts."""
     for nr in range(2):
         _meldung(live, f"Aeltere Nachricht {nr + 1}: sie wartet ausserhalb des Fensters.", f"alt-{nr}")
-    _ohne_wiki_hinweis(live)
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _ruhige_seite(browser, live, platz=200)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
@@ -854,7 +859,7 @@ def test_1256_das_ausblenden_einer_nachricht_macht_keine_marke(live, browser):
 
 def test_1256_wird_der_bereich_niedriger_bleibt_das_ende_im_bild(live, browser):
     """Der Kopf der Seitenleiste waechst nach dem Laden um eine Zeile und nimmt Elwosa 38 px Hoehe. Wer unten liest, bleibt unten, auch ohne zu scrollen."""
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         _ans_ende(seite)
@@ -871,7 +876,7 @@ def test_1256_wird_der_bereich_niedriger_bleibt_das_ende_im_bild(live, browser):
 def test_1256_eine_meldung_nach_sprung_und_hoehenaenderung_bleibt_nicht_verdeckt(live, browser):
     """Eine Meldung kommt, der Bereich springt ans Ende, und noch vor dem Scroll-Ereignis zu diesem Sprung waechst der Kopf. Das Ereignis rechnet
     mit der neuen Hoehe (38 px, mehr als die Toleranz), haelt den Menschen fuer "nicht am Ende", und die NAECHSTE Meldung liegt unter dem Bild."""
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         # "gelesen" melden loest nach jeder neuen Meldung einen zweiten Aufbau der Liste aus; kommt er vor dem Scroll-Ereignis, springt die Liste dabei
@@ -895,7 +900,7 @@ def test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen(live, 
     """Zwischen einem Sprung ans Ende und dem Scroll-Ereignis dazu liegen im Alltag ein paar Millisekunden; kommt in dieser Zeit eine Meldung, stand im Merkmal
     der Seite noch der Zustand davor ("oben"). Ein Test trifft diese Zeit nicht verlaesslich (genau dieser Fall machte `test_1254_eine_neue_nachricht_elwosas_...`
     in jedem dritten Lauf rot), darum wird das Ereignis verschluckt: die Seite weiss nichts von dem Sprung, die Geometrie zeigt ihn."""
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _ruhige_seite(browser, live, platz=200)
     try:
         seite.wait_for_timeout(1500)
         _nach_oben(seite)                     # die Seite weiss jetzt: der Mensch liest oben
@@ -913,8 +918,7 @@ def test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen(live, 
 def test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_die_marke(live, browser):
     """Der Bereich wird hoeher (das Fenster waechst, die Zeile "Update-Stand" faellt weg), und die Meldung, auf die die Marke zeigt, liegt jetzt im Bild. Ohne
     Scrollen kommt kein Ereignis: die Marke bliebe sonst stehen, obwohl nichts mehr unter dem Bild liegt."""
-    _ohne_wiki_hinweis(live)
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=150)
+    kontext, seite = _ruhige_seite(browser, live, platz=150)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
@@ -938,7 +942,7 @@ def test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_di
 def test_1256_auch_die_zweite_hoehenaenderung_rechnet_mit_der_neuen_hoehe(live, browser):
     """Wer nach einer ersten Aenderung ein Stueck nach oben gescrollt hat, wird von der zweiten nicht nach unten gezogen: verglichen wird mit der Hoehe von
     VOR dieser Aenderung, nicht mit der vom Anfang."""
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         _ans_ende(seite)
@@ -958,7 +962,7 @@ def test_1256_auch_die_zweite_hoehenaenderung_rechnet_mit_der_neuen_hoehe(live, 
 
 def test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_nach_unten_gezogen(live, browser):
     """Die Gegenseite: das Halten des Endes gilt nur fuer den, der am Ende steht."""
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         seite.wait_for_timeout(1500)
@@ -976,7 +980,7 @@ def test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_na
 def test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende(live, browser):
     """Elwosa ausblenden (Auge) und wieder einblenden: der Bereich ist neu und stand bisher oben, bei den aeltesten Nachrichten, bis zufaellig eine neue
     kam."""
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         seite.wait_for_timeout(1500)
         _nach_oben(seite)                     # der Mensch las oben, als er Elwosa ausblendete: der Zustand "oben" darf nicht in den neuen Bereich mitwandern
@@ -996,8 +1000,7 @@ def test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende(live, browser)
 def test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten_und_ist_nicht_neu(live, browser):
     """Elwosa ist ausgeblendet (Auge), in der Zeit kommt eine Meldung. Beim Wiedereinblenden steht der Verlauf unten und die Meldung ist zu sehen; sie gilt als
     gesehen: wer danach nach oben scrollt, bekommt keine Marke dafuer. Die Seite holt den Verlauf auch, solange Elwosa ausgeblendet ist."""
-    _ohne_wiki_hinweis(live)
-    kontext, seite = _seite_mit_verlauf(browser, live)
+    kontext, seite = _ruhige_seite(browser, live)
     try:
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
         seite.wait_for_timeout(1500)
@@ -1025,7 +1028,7 @@ def test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_m
     """Nach einer Frage springt der Bereich an den Anfang der Antwort. Das Scroll-Ereignis zu diesem Sprung kommt erst im naechsten Bild; kommt in der
     Zeit eine Meldung, darf ein alter Zustand "am Ende" (die Seite stand ja unten, als gefragt wurde) den Menschen nicht ans Ende ziehen. Die Ereignisse werden
     verschluckt: die Seite weiss nichts vom Sprung, die Geometrie zeigt ihn."""
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _ruhige_seite(browser, live, platz=200)
     try:
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
         seite.wait_for_timeout(1500)
@@ -1047,7 +1050,7 @@ def test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu(live, browser):
     profil_a = db.get_active_profile_id()
     profil_b = db.create_profile("Profil Beta", "beta@example.com")        # legt es an und macht es aktiv
     db.switch_profile(profil_a)
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _ruhige_seite(browser, live, platz=200)
     try:
         marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
         seite.wait_for_timeout(1500)
