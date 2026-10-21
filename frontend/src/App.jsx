@@ -1516,8 +1516,11 @@ export default function App() {
               <div className="shrink-0 px-3 pt-2">
                 <JobsucheStatusBadge onNavigateToJobs={() => navigateTo("stellen")} />
               </div>
-              {/* v1.7.0-beta.37 (#599): Elwosa-Live-Statusanzeige */}
+              {/* v1.7.0-beta.37 (#599): Elwosa-Live-Statusanzeige.
+                  #1256: die Kennungen der Nachrichten laufen ueber alle Profile, die Liste zeigt nur die des aktiven: nach einem Profilwechsel beginnt
+                  die Seitenleiste neu (sonst gilt die Liste des anderen Profils als "neu", und die alte stuende bis zum naechsten Takt noch da). */}
               <ElwosaSidebarChat
+                key={activeProfileId || "kein-profil"}
                 className="flex-1 min-h-0"
                 collapsed={sidebarCollapsed}
                 onToast={pushToast}

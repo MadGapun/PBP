@@ -991,3 +991,78 @@ def test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende(live, browser)
         assert seite.evaluate(NACHRICHT_IM_BEREICH, "nach dem Wiedereinblenden") is True, "die neue Meldung liegt unter dem Bild"
     finally:
         kontext.close()
+
+
+def test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten_und_ist_nicht_neu(live, browser):
+    """Elwosa ist ausgeblendet (Auge), in der Zeit kommt eine Meldung. Beim Wiedereinblenden steht der Verlauf unten und die Meldung ist zu sehen; sie gilt als
+    gesehen: wer danach nach oben scrollt, bekommt keine Marke dafuer. Die Seite holt den Verlauf auch, solange Elwosa ausgeblendet ist."""
+    _ohne_wiki_hinweis(live)
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        seite.get_by_role("button", name="Für 30 Minuten ausblenden").click()
+        seite.locator("[data-elwosa-liste]").wait_for(state="detached")
+        _meldung(live, "Meldung waehrend des Ausblendens: die Suche ist fertig.", 1)
+        with seite.expect_response(lambda r: "/api/elwosa/messages?" in r.url and r.request.method == "GET"):
+            seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        _bilder(seite)
+        seite.get_by_role("button", name="Elwosa wieder einblenden").click()
+        seite.locator("[data-elwosa-liste]").wait_for(state="visible")
+        _bilder(seite)
+        assert seite.evaluate(ABSTAND_ZUM_ENDE) < 2, "der Verlauf steht nach dem Wiedereinblenden nicht unten"
+        assert seite.evaluate(NACHRICHT_IM_BEREICH, "waehrend des Ausblendens") is True, "die Meldung aus der Zeit des Ausblendens liegt unter dem Bild"
+        _nach_oben(seite)
+        with seite.expect_response(lambda r: "/api/elwosa/messages?" in r.url and r.request.method == "GET"):
+            seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        _bilder(seite)
+        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}' fuer eine Meldung, die beim Wiedereinblenden schon im Bild stand"
+    finally:
+        kontext.close()
+
+
+def test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_meldung_nicht_ans_ende_gezogen(live, browser):
+    """Nach einer Frage springt der Bereich an den Anfang der Antwort. Das Scroll-Ereignis zu diesem Sprung kommt erst im naechsten Bild; kommt in der
+    Zeit eine Meldung, darf ein alter Zustand "am Ende" (die Seite stand ja unten, als gefragt wurde) den Menschen nicht ans Ende ziehen. Die Ereignisse werden
+    verschluckt: die Seite weiss nichts vom Sprung, die Geometrie zeigt ihn."""
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        seite.evaluate("() => document.addEventListener('scroll', (e) => e.stopImmediatePropagation(), true)")
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        seite.wait_for_function(ANFANG_IM_BLICK, arg=0, timeout=5000)
+        _meldung(live, "Meldung beim Lesen der Antwort: die Suche ist fertig.", 1)
+        _holen(seite, "beim Lesen der Antwort")
+        assert seite.evaluate(ANFANG_IM_BLICK, 0), "wer den Anfang der Antwort las, wurde von der neuen Meldung ans Ende gezogen"
+        assert marke.count() == 1, "die neue Meldung liegt unter dem Bild, die Marke fehlt"
+    finally:
+        kontext.close()
+
+
+def test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu(live, browser):
+    """Die Kennungen der Nachrichten laufen ueber alle Profile, die Liste zeigt nur die des aktiven. Nach einem Wechsel ist die Liste des anderen Profils die
+    erste, nicht "neu" - und sie steht gleich da, nicht erst beim naechsten Takt."""
+    db = live["db"]
+    profil_a = db.get_active_profile_id()
+    profil_b = db.create_profile("Profil Beta", "beta@example.com")        # legt es an und macht es aktiv
+    db.switch_profile(profil_a)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        # Profil Beta bekam seine Nachrichten spaeter: ihre Kennungen sind groesser als alles, was die Seite von Profil A kennt
+        db.switch_profile(profil_b)
+        for nr in range(10):
+            db.add_elwosa_message(f"Beta-Nachricht {nr + 1}: Elwosa sagt etwas, das in der schmalen Seitenleiste auf mehrere Zeilen umbricht.",
+                                  trigger_kind="test", trigger_ref=f"t1256-beta-{nr}")
+        db.switch_profile(profil_a)
+        _nach_oben(seite)
+        seite.locator("#profile-switcher button").first.click()
+        seite.locator("#profile-switcher").get_by_role("button", name="Profil Beta").click()
+        seite.wait_for_function(
+            "() => [...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes('Beta-Nachricht'))", timeout=10000)
+        _bilder(seite)
+        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}': die Liste des anderen Profils gilt als neu"
+    finally:
+        kontext.close()

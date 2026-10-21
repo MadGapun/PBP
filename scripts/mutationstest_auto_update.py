@@ -2694,12 +2694,16 @@ T_STROM_ENDE = [STROM_BROWSER + n for n in (
 T_STROM_SPRUNG = [STROM_BROWSER + "test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen",
                   STROM_BROWSER + "test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen"]
 T_STROM_NEU = [STROM_BROWSER + "test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende"]
+T_STROM_AUSBLENDEN = [STROM_BROWSER + "test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten_und_ist_nicht_neu"]
+T_STROM_FRAGE = [STROM_BROWSER + "test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_meldung_nicht_ans_ende_gezogen"]
+T_STROM_PROFIL = [STROM_BROWSER + "test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu"]
 # die Knoten-Tests laufen als Ganzes (die Kennung einer parametrierten Funktion kennt der Waechter des Katalogs nicht); der Eingriff in die Bibliothek
 # macht den Fall elwosaStrom rot
 T_STROM_NODE = ["tests/test_v18_knoten_tests_1171.py"]
 T_STROM_QUELLTEXT = ["tests/test_v1717_sidebar_907.py::test_1256_der_strom_zaehlt_nach_kennung_und_beobachtet_seine_hoehe"]
 STROM_LEISTE = "frontend/src/components/ElwosaSidebarChat.jsx"
 STROM_LIB = "frontend/src/lib/elwosaStrom.js"
+STROM_APP = "frontend/src/App.jsx"
 STROM_RO_ZEILE = "      if (Math.min(abstandVorher, abstandJetzt) >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n"
 M_STROM = [
     # die Marke "N neu": neu ist, was eine groessere Kennung traegt
@@ -2735,14 +2739,23 @@ M_STROM = [
      "    el.scrollTop = el.scrollHeight;\n    sichtHoehe.current = el.clientHeight;\n", "    sichtHoehe.current = el.clientHeight;\n", T_STROM_NEU),
     # ob der Mensch am Ende steht: die Geometrie beim Eintreffen der Daten, nicht ein ausstehendes Ereignis
     ("ev15", "Beim Eintreffen der Daten wird nicht gemessen, ob der Mensch am Ende steht", STROM_LEISTE,
-     "        warAmEnde.current = stehtAmEnde(scrollRef.current);\n", "", T_STROM_SPRUNG + T_STROM_QUELLTEXT),
+     "        warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null;\n", "", T_STROM_SPRUNG + T_STROM_QUELLTEXT),
     ("ev16", "Die Toleranz ist 0: der Mensch gilt nie als am Ende", STROM_LEISTE,
      'const AM_ENDE_TOLERANZ = 30; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n',
      'const AM_ENDE_TOLERANZ = 0; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n', T_STROM_ENDE + T_STROM_SPRUNG),
+    ("ev17", "Die Kennung wird nur nachgefuehrt, solange es den Bereich gibt (was beim Ausblenden kommt, gilt spaeter als neu)", STROM_LEISTE,
+     "    letzteKennung.current = hoechste;\n", "    if (scrollRef.current) letzteKennung.current = hoechste;\n", T_STROM_AUSBLENDEN),
+    ("ev18", "Wer den Anfang einer Antwort liest, wird von einer neuen Meldung ans Ende gezogen (jede Meldung gilt als gefolgt)", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = true;\n", T_STROM_FRAGE + T_STROM_MARKE),
+    ("ev19", "Eine Liste ohne Messung (Ausblenden, gelesen) zieht den Menschen ans Ende", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = warAmEnde.current !== false;\n", T_STROM_MARKE + T_STROM_FRAGE),
+    ("ev20", "Nach einem Profilwechsel beginnt die Seitenleiste nicht neu (die Liste des anderen Profils gilt als neu)", STROM_APP,
+     '                key={activeProfileId || "kein-profil"}\n', "", T_STROM_PROFIL + T_STROM_QUELLTEXT),
 ]
 KATALOGE["elwosa_strom1256"] = M_STROM
 GRUNDLAEUFE["elwosa_strom1256"] = (("T_STROM_MARKE", T_STROM_MARKE), ("T_STROM_ENDE", T_STROM_ENDE), ("T_STROM_SPRUNG", T_STROM_SPRUNG),
-                                   ("T_STROM_NEU", T_STROM_NEU), ("T_STROM_NODE", T_STROM_NODE), ("T_STROM_QUELLTEXT", T_STROM_QUELLTEXT))
+                                   ("T_STROM_NEU", T_STROM_NEU), ("T_STROM_AUSBLENDEN", T_STROM_AUSBLENDEN), ("T_STROM_FRAGE", T_STROM_FRAGE),
+                                   ("T_STROM_PROFIL", T_STROM_PROFIL), ("T_STROM_NODE", T_STROM_NODE), ("T_STROM_QUELLTEXT", T_STROM_QUELLTEXT))
 
 # ── Installer und Claude-Konfiguration: was der Mensch unter env eingetragen hat, bleibt (#1238, I38) ──
 # Das Wort der Konfiguration steht hier NICHT als Literal: der Waechter in test_1238 sucht es in scripts/ und wuerde

@@ -202,7 +202,8 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   const pollRef = useRef(null);
   // v1.7.0-beta.48 (#611): Sticky-Bottom-Auto-Scroll
   const scrollRef = useRef(null);
-  const stickyRef = useRef(true);  // True = User ist am Ende
+  // #1256 (F58): der Merker aus #611 ("am Ende?", gesetzt nur von einem Scroll-Ereignis) ist weg: er war veraltet, sobald sich die Hoehe OHNE Ereignis
+  // aenderte oder das Ereignis noch ausstand. Entschieden wird nach der Geometrie von jetzt (stehtAmEnde, Groessenbeobachter).
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [unreadBelow, setUnreadBelow] = useState(0);
   // #1256 (F58): die groesste Kennung, die der Mensch schon gesehen hat (null: noch nichts geladen). Neu ist, was eine groessere traegt - die ZAHL der
@@ -211,7 +212,8 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   // #1256 (F58): so hoch war der Bereich, als wir ihn zuletzt ausgerichtet haben (der Groessenbeobachter vergleicht damit)
   const sichtHoehe = useRef(0);
   const groessenBeobachter = useRef(null);
-  // #1256 (F58): stand der Mensch am Ende, BEVOR die neue Liste ins Bild kam? Gemessen beim Eintreffen der Daten (null: kein Eintreffen, etwa beim Ausblenden).
+  // #1256 (F58): stand der Mensch am Ende, BEVOR die neue Liste ins Bild kam? Gemessen beim Eintreffen der Daten (null: nichts gemessen, weil es den Bereich
+  // nicht gibt oder die Liste nicht von dort kommt, etwa beim Ausblenden einer Nachricht).
   const warAmEnde = useRef(null);
   // #1254 (F57): der Zustand der Fragen zur Bedienung liegt hier und nicht im Feld darunter: die Antworten stehen im Bereich der Nachrichten
   // (EIN Bereich zum Scrollen), nur das Feld bleibt unten.
@@ -230,8 +232,8 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
         ]);
         if (cancelled) return;
         // #1256 (F58): ob der Mensch am Ende steht, wird JETZT an der Geometrie gemessen, bevor die neue Liste im Bild steht. Das Scroll-Ereignis zu
-        // einem Sprung ans Ende kann noch ausstehen (es laeuft erst im naechsten Bild): stickyRef waere dann veraltet, die Meldung bliebe verdeckt.
-        warAmEnde.current = stehtAmEnde(scrollRef.current);
+        // einem Sprung ans Ende kann noch ausstehen (es laeuft erst im naechsten Bild): ein Merker daraus waere dann veraltet, die Meldung bliebe verdeckt.
+        warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null;
         setMessages((msgs?.messages || []).slice().reverse()); // neueste unten
         setStatus(st);
       } catch {}
@@ -298,7 +300,6 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
     const atBottom = distanceFromBottom < AM_ENDE_TOLERANZ;
-    stickyRef.current = atBottom;
     if (atBottom) {
       setShowJumpToBottom(false);
       setUnreadBelow(0);
@@ -315,7 +316,6 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
     scrollRef.current = el;
     if (!el) return;
     // ein neuer Bereich beginnt unten wie ein Chat (nach dem Wiedereinblenden stand er sonst oben, bei den aeltesten Nachrichten)
-    stickyRef.current = true;
     el.scrollTop = el.scrollHeight;
     sichtHoehe.current = el.clientHeight;
     if (typeof ResizeObserver === "undefined") return;
@@ -329,7 +329,6 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
       sichtHoehe.current = liste.clientHeight;
       if (Math.min(abstandVorher, abstandJetzt) >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen
       liste.scrollTop = liste.scrollHeight;
-      stickyRef.current = true;
       setShowJumpToBottom(false);
       setUnreadBelow(0);
     });
@@ -340,22 +339,22 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-    stickyRef.current = true;
     setShowJumpToBottom(false);
     setUnreadBelow(0);
   }
 
-  // Auto-Scroll bei neuen Nachrichten — nur wenn sticky-bottom aktiv
+  // Auto-Scroll bei neuen Nachrichten — nur wenn der Mensch am Ende stand
   useLayoutEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    // #1256 (F58): neu ist, was eine groessere Kennung traegt als die zuletzt gesehene - nicht, was die Liste laenger macht (sie holt nur zehn)
+    // #1256 (F58): neu ist, was eine groessere Kennung traegt als die zuletzt gesehene - nicht, was die Liste laenger macht (sie holt nur zehn). Die Kennung
+    // wird auch nachgefuehrt, solange es den Bereich nicht gibt (Elwosa ausgeblendet): was dann kommt, steht beim Wiedereinblenden unten im Bild.
     const { anzahl: neue, hoechste } = neueNachrichten(letzteKennung.current, messages);
     letzteKennung.current = hoechste;
-    // #1256 (F58): folgt der Mensch dem Ende? Entweder hat er es zuletzt getan (stickyRef) ODER er stand beim Eintreffen der Daten am Ende (die Geometrie
-    // von damals): das Scroll-Ereignis zu seinem Sprung kann noch ausstehen, dann steht in stickyRef noch der Zustand davor.
-    const folgt = stickyRef.current || warAmEnde.current === true;
+    // #1256 (F58): folgt der Mensch dem Ende? Das sagt die Geometrie beim Eintreffen der Daten (warAmEnde), nicht ein Merker aus einem Scroll-Ereignis:
+    // das Ereignis zu einem Sprung kann noch ausstehen. Ohne Messung (Ausblenden, "gelesen") kommt nichts hinzu, dem man folgen muesste.
+    const folgt = warAmEnde.current === true;
     warAmEnde.current = null;
+    const el = scrollRef.current;
+    if (!el) return;
     if (folgt) {
       // User ist am Ende → mitscrollen
       el.scrollTop = el.scrollHeight;

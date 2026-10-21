@@ -75,5 +75,7 @@ def test_1256_der_strom_zaehlt_nach_kennung_und_beobachtet_seine_hoehe():
     assert "neueNachrichten(letzteKennung.current, messages)" in leiste
     assert "new ResizeObserver" in leiste, "der Bereich beobachtet seine Hoehe nicht mehr"
     assert "ref={listeRef}" in leiste
-    assert "warAmEnde.current = stehtAmEnde(scrollRef.current)" in leiste, \
+    assert "warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null" in leiste, \
         "ob der Mensch am Ende steht, wird nicht mehr beim Eintreffen der Daten gemessen"
+    assert "stickyRef" not in leiste, "ein Merker aus einem Scroll-Ereignis allein veraltet: entschieden wird nach der Geometrie von jetzt"
+    assert "key={activeProfileId" in _lese("App.jsx"), "nach einem Profilwechsel beginnt die Seitenleiste nicht neu: die Kennungen laufen ueber alle Profile"
