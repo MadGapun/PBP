@@ -470,14 +470,18 @@ def _elwosa_nachrichten(db, anzahl=10):
         )
 
 
-def _seite_mit_verlauf(browser, live, platz=None):
+def _seite_mit_verlauf(browser, live, platz=None, ohne_herzschlag=False):
     """Die Seite mit zehn Nachrichten Elwosas und laufender KI. `platz`: so hoch (px) ist der Bereich fuer Elwosa - ein kleiner Platz, der nicht
-    vom Fenster und von der Hoehe des Menues abhaengt (die gibt die Maschine vor); ohne Angabe gilt, was das Fenster hergibt."""
+    vom Fenster und von der Hoehe des Menues abhaengt (die gibt die Maschine vor); ohne Angabe gilt, was das Fenster hergibt.
+    `ohne_herzschlag`: der Herzschlag der Seite (`/api/elwosa/heartbeat`) schreibt Elwosa von sich aus gelegentlich eine weitere Zeile; wer prueft, was
+    GANZ UNTEN steht, laesst nichts dazwischenkommen (der Verlauf wird trotzdem nachgeladen, nur der Herzschlag schreibt nichts)."""
     _elwosa_nachrichten(live["db"])
     kontext = browser.new_context(viewport={"width": 1440, "height": 960})
     seite = kontext.new_page()
     seite.add_init_script(KOPIEREN)
     _ki_status(seite, "active")
+    if ohne_herzschlag:
+        seite.route("**/api/elwosa/heartbeat", lambda route: route.fulfill(status=200, content_type="application/json", body="{}"))
     seite.goto(live["url"] + "#dashboard", wait_until="domcontentloaded")
     seite.locator("div#root").wait_for(state="visible")
     seite.locator("[data-sidebar-hilfe]").wait_for(state="visible", timeout=15000)
@@ -605,12 +609,14 @@ def test_1254_der_hilfe_dialog_zeigt_die_neueste_antwort_oben(live, browser):
 def test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen(live, browser):
     """Wie in einem Chat steht, was neu ist, UNTEN - auch nach einer Frage. Sonst ginge jede Meldung Elwosas, die nach der Antwort kommt,
     oberhalb der Antworten unter, und wer unten liest, sieht sie nie."""
-    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200, ohne_herzschlag=True)
     try:
         liste = seite.locator("[data-elwosa-liste]")
         _gefragt(seite, "Wie aktualisiere ich PBP?")
-        # wer die Antwort liest, steht am Ende des Bereichs
+        # wer die Antwort liest, steht am Ende des Bereichs; erst wenn die Seite das Scroll-Ereignis behandelt hat (zwei Bilder spaeter), kommt etwas
+        # Neues: sonst entscheidet sie noch nach der Lage VOR dem Scrollen (auf einem langsamen Rechner ein Wettlauf, auf der CI beobachtet)
         liste.evaluate("el => { el.scrollTop = el.scrollHeight; }")
+        seite.evaluate("() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))")
         seite.wait_for_function("() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight < 30; }")
         live["db"].add_elwosa_message("Neu nach der Antwort: die Suche ist fertig.", trigger_kind="test", trigger_ref="t1254-neu")
         seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")        # holt den Verlauf sofort, wie der Takt von 30 Sekunden
