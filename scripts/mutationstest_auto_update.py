@@ -2516,6 +2516,18 @@ GRUNDLAEUFE["hilfeschutz1247"] = (("T_HS", T_HS), ("T_HSG", T_HSG))
 # ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
 T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
 T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
+# Die Faelle zu #1254 (Seitenleiste: EIN Bereich zum Scrollen, Nachrichten und Antworten nach der Zeit): die Eintraege hi37 bis hi51 laufen nur gegen sie.
+T_HI_1254 = [
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_nach_einer_frage_gibt_es_in_der_seitenleiste_einen_einzigen_scrollbereich",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_der_elwosa_verlauf_behaelt_seine_hoehe_wenn_antworten_dazukommen",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_antwort_steht_im_verlauf_und_die_eingabe_bleibt_sichtbar_daneben",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_neue_antwort_ist_mit_ihrem_anfang_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_zwei_fragen_stehen_der_reihe_nach_und_die_neueste_ist_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_sechste_frage_verdraengt_die_aelteste_und_ist_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_eine_lange_frage_ohne_leerzeichen_macht_keine_waagerechte_leiste",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_der_hilfe_dialog_zeigt_die_neueste_antwort_oben",
+]
 HI_SUCHE = "src/bewerbungs_assistent/services/hilfe_suche.py"
 HI_KI = "src/bewerbungs_assistent/services/hilfe_ki.py"
 HI_DASH = "src/bewerbungs_assistent/dashboard.py"
@@ -2582,7 +2594,7 @@ M_HILFE = [
      '    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):\n', "    if False:\n", T_HI),
     # die Oberflaeche (das gebaute Bundle)
     ("hi27", "Die Eingabe erscheint in der Seitenleiste auch ohne laufende lokale KI", HI_LEISTE,
-     "{seitenleisteFragt(status) && (", "{true && (", T_HI_BROWSER),
+     "  const fragenAktiv = seitenleisteFragt(status);\n", "  const fragenAktiv = true;\n", T_HI_BROWSER),
     ("hi28", "Das Oeffnen aus dem Dialog laesst den Dialog stehen", HI_APP,
      "onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}", "onOeffnen={(seite, absicht) => { navigateTo(seite, absicht); }}", T_HI_BROWSER),
     ("hi29", "Der Wiki-Link oeffnet im selben Tab, ohne noopener", HI_FRAGE,
@@ -2604,6 +2616,43 @@ M_HILFE = [
      "onClick={() => fragen(null, beispiel)}", "onClick={() => {}}", T_HI_BROWSER),
     ("hi36", "Eine Beispielfrage fuehrt in eine Sackgasse", "frontend/src/lib/hilfeFrage.js",
      '  "Wie melde ich einen Fehler?",\n', '  "Wie wird das Wetter morgen?",\n', T_HI),
+    # #1254 (F57): Elwosas Nachrichten und die Antworten der Hilfe stehen in EINEM Bereich zum Scrollen, nach der Zeit wie in einem Chat.
+    # Die Eintraege laufen nur gegen die Faelle zu #1254 (T_HI_1254): der erste rote Test ist dann einer von ihnen und nicht ein aelterer der Datei.
+    ("hi37", "Die Antworten der Hilfe bekommen wieder einen eigenen Scroller", HI_FRAGE,
+     '<div className="space-y-1.5" data-hilfe-antwort={antwort.status} data-hilfe-eintrag={eintrag.id}>',
+     '<div className="max-h-[38vh] space-y-1.5 overflow-y-auto" data-hilfe-antwort={antwort.status} data-hilfe-eintrag={eintrag.id}>', T_HI_1254),
+    ("hi38", "Die Antworten stehen wieder im Block des Feldes und nehmen dem Verlauf die Hoehe", HI_LEISTE,
+     "          <HilfeEingabe hilfe={hilfe} kompakt />\n",
+     "          <HilfeEingabe hilfe={hilfe} kompakt />\n"
+     "          {hilfe.verlauf.map((e) => <HilfeAntwort key={e.id} eintrag={e} kompakt onOeffnen={onOeffnen} copyPrompt={onCopyPrompt} />)}\n", T_HI_1254),
+    ("hi39", "Die Antworten stehen nicht im Strom", HI_LEISTE,
+     "const strom = stromMit(messages, fragenAktiv ? hilfe.verlauf : []);", "const strom = stromMit(messages, []);", T_HI_1254),
+    ("hi40", "Nach einer Frage bleibt der Bereich stehen, die Antwort liegt unter dem Bild", HI_LEISTE,
+     "    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;\n",
+     "    liste.scrollTop += 0;\n", T_HI_1254),
+    ("hi41", "Nach einer Frage scrollt der Bereich ans Ende statt an den Anfang der Antwort", HI_LEISTE,
+     "    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;\n",
+     "    liste.scrollTop = liste.scrollHeight;\n", T_HI_1254),
+    ("hi42", "Die Zeile 'Fragen zur Bedienung' fehlt", HI_LEISTE,
+     'if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });', 'if (false) groupedByDay.push({ type: "hilfe-kopf" });', T_HI_1254),
+    ("hi43", "Die Zeile 'Fragen zur Bedienung' steht vor jeder Antwort statt vor jeder Reihe von Antworten", HI_LEISTE,
+     'if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });', 'if (true) groupedByDay.push({ type: "hilfe-kopf" });', T_HI_1254),
+    ("hi44", "Alle Antworten stehen hinter allen Nachrichten: eine neue Nachricht Elwosas kommt UEBER die Antworten", "frontend/src/lib/hilfeFrage.js",
+     "(i < msgs.length && !(msgs[i].t > fragen[j].t))", "(i < msgs.length)", T_HI_1254),
+    ("hi45", "Die Antworten stehen vor den Nachrichten statt nach der Zeit", "frontend/src/lib/hilfeFrage.js",
+     "(i < msgs.length && !(msgs[i].t > fragen[j].t))", "(i < msgs.length && msgs[i].t > fragen[j].t)", T_HI_1254),
+    ("hi46", "Eine Antwort traegt keine Zeit, sie steht darum am Ende der Reihe", HI_FRAGE,
+     "kiStand: null, zeit: Date.now() };", "kiStand: null };", T_HI_1254),
+    ("hi47", "Im Hilfe-Dialog steht die neueste Antwort nicht mehr oben", HI_FRAGE,
+     "{[...verlauf].reverse().map((e) => (", "{verlauf.map((e) => (", T_HI_1254),
+    ("hi48", "Der Rahmen fuer die Meldung einer neuen Antwort meldet nichts", HI_LEISTE,
+     '<div className="sr-only" aria-live="polite" data-hilfe-ansage>', '<div className="sr-only" data-hilfe-ansage>', T_HI_1254),
+    ("hi49", "Der Rahmen fuer die Meldung einer neuen Antwort bleibt leer", HI_LEISTE,
+     'const ansage = fragenAktiv && hilfe.verlauf.length > 0 ? ansageText(hilfe.verlauf[hilfe.verlauf.length - 1]) : "";', 'const ansage = "";', T_HI_1254),
+    ("hi50", "Eine lange Frage ohne Leerzeichen macht eine waagerechte Leiste", HI_FRAGE,
+     '<p className="break-words text-xs text-ink/80" data-hilfe-frage-text>', '<p className="text-xs text-ink/80" data-hilfe-frage-text>', T_HI_1254),
+    ("hi51", "Der Verlauf waechst ohne Grenze statt bei fuenf Fragen zu enden", "frontend/src/lib/hilfeFrage.js",
+     "return [...(verlauf || []), eintrag].slice(-MAX_VERLAUF);", "return [...(verlauf || []), eintrag];", T_HI_1254),
 ]
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))

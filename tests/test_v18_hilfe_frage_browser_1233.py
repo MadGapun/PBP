@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 pw = pytest.importorskip("playwright")  # noqa: E402
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
-from playwright.sync_api import sync_playwright  # noqa: E402
+from playwright.sync_api import expect, sync_playwright  # noqa: E402
 from browser_hilfen import einstellungen_reiter  # noqa: E402
 
 KOPIEREN = """
@@ -291,14 +291,16 @@ def test_in_der_seitenleiste_erscheint_die_antwort_kompakt_mit_wegen(live, brows
         leiste.wait_for(state="visible", timeout=15000)
         assert leiste.locator("[data-hilfe-beispiele]").count() == 0, "die schmale Seitenleiste zeigt keine Beispielfragen"
         _fragen(seite, leiste, "Wie aktualisiere ich PBP?")
-        antwort = leiste.locator('[data-hilfe-antwort="gefunden"]')
+        # #1254: die Antwort steht im Bereich des Verlaufs (ueber dem Feld), nicht mehr im Block des Feldes
+        verlauf = seite.locator("[data-elwosa-liste]")
+        antwort = verlauf.locator('[data-hilfe-antwort="gefunden"]')
         antwort.wait_for(state="visible")
         assert antwort.locator("[data-hilfe-karte]").count() == 1, "kompakt: zuerst nur der beste Treffer"
-        mehr = leiste.get_by_role("button", name="weitere Treffer zeigen")
+        mehr = verlauf.get_by_role("button", name="weitere Treffer zeigen")
         if mehr.count():
             mehr.first.click()
             assert antwort.locator("[data-hilfe-karte]").count() > 1
-        leiste.locator('[data-hilfe-aktion="oeffnen"]').first.click()
+        verlauf.locator('[data-hilfe-aktion="oeffnen"]').first.click()
         seite.wait_for_function("() => location.hash.startsWith('#einstellungen')")
     finally:
         kontext.close()
@@ -430,3 +432,231 @@ def test_1247_das_filterfeld_der_prompts_loest_keine_rueckfrage_aus(live, browse
     finally:
         kontext.close()
 
+
+
+# ── #1254 (F57): die Fragen und Elwosa teilen sich EINEN Bereich zum Scrollen ──────────────────────
+#
+# Nutzerrueckmeldung zu rc.4: Stellt man in der Seitenleiste eine Frage, schrumpft der Elwosa-Verlauf auf zwei Zeilen, weil die Antworten in einem
+# eigenen Scroller darunter wachsen. Gewuenscht ist EIN Bereich. Gemessen wird am gerenderten Bild (Zahl der Scrollbereiche, Hoehe des Verlaufs,
+# was im Blick ist), nicht am Quelltext: #907 hatte "genau EIN Scroll-Container" schon einmal als Zielbild, und kein Test hat bemerkt, dass #1233
+# es aufhob, weil keiner die Hoehe mass.
+
+SCROLLBEREICHE = """
+(wurzel) => [...wurzel.querySelectorAll('*')].filter((e) => {
+  const o = getComputedStyle(e).overflowY;
+  return (o === 'auto' || o === 'scroll') && e.getClientRects().length > 0;
+}).length
+"""
+
+# Steht der Anfang der Antwort oben im sichtbaren Teil des Verlaufs? (`nr`: die wievielte Antwort, von 0 an gezaehlt). Bei einer Antwort, die hoeher
+# ist als der Bereich, liegt ihre Oberkante knapp unter dem oberen Rand (4 px Abstand), nicht irgendwo im Bild.
+ANFANG_IM_BLICK = """
+(nr) => {
+  const liste = document.querySelector('[data-elwosa-liste]').getBoundingClientRect();
+  const a = document.querySelectorAll('[data-elwosa-liste] [data-hilfe-antwort]')[nr];
+  if (!a) return false;
+  const oben = a.getBoundingClientRect().top - liste.top;
+  return oben >= -1 && oben <= 40;
+}
+"""
+
+
+def _elwosa_nachrichten(db, anzahl=10):
+    """Elwosa hat schon etwas gesagt: so viele Nachrichten, dass der Verlauf scrollt (die Seitenleiste holt die letzten zehn)."""
+    for nr in range(anzahl):
+        db.add_elwosa_message(
+            f"Nachricht {nr + 1}: Elwosa sagt etwas, das in der schmalen Seitenleiste auf mehrere Zeilen umbricht.",
+            trigger_kind="test", trigger_ref=f"t1254-{nr}",
+        )
+
+
+def _seite_mit_verlauf(browser, live, platz=None, ohne_herzschlag=False):
+    """Die Seite mit zehn Nachrichten Elwosas und laufender KI. `platz`: so hoch (px) ist der Bereich fuer Elwosa - ein kleiner Platz, der nicht
+    vom Fenster und von der Hoehe des Menues abhaengt (die gibt die Maschine vor); ohne Angabe gilt, was das Fenster hergibt.
+    `ohne_herzschlag`: der Herzschlag der Seite (`/api/elwosa/heartbeat`) schreibt Elwosa von sich aus gelegentlich eine weitere Zeile; wer prueft, was
+    GANZ UNTEN steht, laesst nichts dazwischenkommen (der Verlauf wird trotzdem nachgeladen, nur der Herzschlag schreibt nichts)."""
+    _elwosa_nachrichten(live["db"])
+    kontext = browser.new_context(viewport={"width": 1440, "height": 960})
+    seite = kontext.new_page()
+    seite.add_init_script(KOPIEREN)
+    _ki_status(seite, "active")
+    if ohne_herzschlag:
+        seite.route("**/api/elwosa/heartbeat", lambda route: route.fulfill(status=200, content_type="application/json", body="{}"))
+    seite.goto(live["url"] + "#dashboard", wait_until="domcontentloaded")
+    seite.locator("div#root").wait_for(state="visible")
+    seite.locator("[data-sidebar-hilfe]").wait_for(state="visible", timeout=15000)
+    seite.wait_for_function("() => document.querySelectorAll('[data-elwosa-nachricht]').length >= 8", timeout=15000)
+    if platz:
+        seite.locator("[data-elwosa-chat]").evaluate("(el, px) => { el.style.maxHeight = px + 'px'; }", platz)
+    return kontext, seite
+
+
+def _gefragt(seite, text):
+    """Fragt in der Seitenleiste und wartet, bis die Antwort auf DIESE Frage da ist - gleich wo sie steht: wo, pruefen die Tests (die Fragen eines
+    Tests sind verschieden; nach der fuenften Frage bleibt die Zahl der Antworten gleich, darum wird nicht gezaehlt)."""
+    _fragen(seite, seite.locator("[data-sidebar-hilfe]"), text)
+    seite.wait_for_function(
+        "(t) => [...document.querySelectorAll('[data-hilfe-frage-text]')].some((e) => e.textContent.includes(t))", arg=text[:60], timeout=15000)
+
+
+def test_1254_nach_einer_frage_gibt_es_in_der_seitenleiste_einen_einzigen_scrollbereich(live, browser):
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        wurzel = seite.locator("[data-elwosa-chat]")
+        vorher = wurzel.evaluate(SCROLLBEREICHE)
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        nachher = wurzel.evaluate(SCROLLBEREICHE)
+        assert (vorher, nachher) == (1, 1), f"Bereiche zum Scrollen vor der Frage: {vorher}, danach: {nachher} - gewuenscht ist EINER"
+    finally:
+        kontext.close()
+
+
+# Der Platz, den Elwosa neben dem Verlauf braucht: Kopf, Feld, Rand. Er aendert sich nicht, wenn Antworten dazukommen - der Verlauf behaelt seine Hoehe.
+# (Die Hoehe des Verlaufs selbst eignet sich nicht zum Vergleich: der Kopf der Seitenleiste waechst nach dem Laden um eine Zeile, sobald die
+# Pruefung auf Updates antwortet, und nimmt dem Fuss dieselbe Hoehe weg.)
+DRUMHERUM = """
+() => document.querySelector('[data-elwosa-chat]').getBoundingClientRect().height
+    - document.querySelector('[data-elwosa-liste]').getBoundingClientRect().height
+"""
+
+
+def test_1254_der_elwosa_verlauf_behaelt_seine_hoehe_wenn_antworten_dazukommen(live, browser):
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        vorher = seite.evaluate(DRUMHERUM)
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        nach_eins = seite.evaluate(DRUMHERUM)
+        _gefragt(seite, "Wie lege ich eine Bewerbung an?")
+        nach_zwei = seite.evaluate(DRUMHERUM)
+        assert abs(nach_eins - vorher) <= 2 and abs(nach_zwei - vorher) <= 2, (
+            f"neben dem Verlauf braucht Elwosa {vorher:.0f} px, nach der ersten Frage {nach_eins:.0f}, nach der zweiten {nach_zwei:.0f}: "
+            "die Antworten nehmen dem Verlauf die Hoehe")
+    finally:
+        kontext.close()
+
+
+def test_1254_die_antwort_steht_im_verlauf_und_die_eingabe_bleibt_sichtbar_daneben(live, browser):
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        assert liste.locator("[data-hilfe-trennzeile]").count() == 0, "die Trennzeile steht, bevor etwas gefragt wurde"
+        # der Rahmen fuer Vorleseprogramme ist schon da, bevor etwas gefragt wird: nur dann meldet es die neue Antwort
+        ansage = seite.locator('[data-elwosa-chat] [data-hilfe-ansage][aria-live="polite"]')
+        assert ansage.count() == 1, "der Rahmen fuer die Meldung einer neuen Antwort fehlt oder meldet nichts"
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        assert liste.locator('[data-hilfe-antwort="gefunden"]').count() == 1, "die Antwort steht nicht im Bereich des Verlaufs"
+        assert liste.locator("[data-hilfe-eingabe]").count() == 0, "die Eingabe scrollt mit weg"
+        assert liste.locator("[data-hilfe-trennzeile]").count() == 1, "die Trennzeile fehlt"
+        assert "Fragen zur Bedienung" in liste.locator("[data-hilfe-trennzeile]").text_content()      # inner_text() waere GROSS geschrieben (CSS)
+        assert liste.locator("[data-elwosa-nachricht]").count() >= 8, "Elwosas Nachrichten sind verschwunden"
+        # nach der Zeit: die Nachrichten, die schon da waren, stehen VOR der Frage und ihrer Antwort (nicht danach, nicht am Anfang)
+        davor = seite.evaluate(
+            "() => { const a = document.querySelector('[data-elwosa-liste] [data-hilfe-antwort]'); "
+            "return [...document.querySelectorAll('[data-elwosa-liste] [data-elwosa-nachricht]')]"
+            ".every((m) => Boolean(m.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING)); }")
+        assert davor, "die Antwort steht vor Nachrichten Elwosas, die aelter sind"
+        expect(ansage).to_contain_text("Wie aktualisiere ich PBP?")
+        expect(seite.locator("[data-hilfe-eingabe]")).to_be_in_viewport()
+    finally:
+        kontext.close()
+
+
+def test_1254_die_neue_antwort_ist_mit_ihrem_anfang_im_blick(live, browser):
+    """Auch dann, wenn sie hoeher ist als der Bereich: erst die Frage und der erste Treffer, der Rest darunter zum Scrollen."""
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        antwort = liste.locator("[data-hilfe-antwort]").first
+        assert antwort.bounding_box()["height"] > liste.bounding_box()["height"], "der Fall ist keiner: die Antwort passt in den Bereich"
+        seite.wait_for_function(ANFANG_IM_BLICK, arg=0, timeout=5000)
+        assert seite.evaluate(ANFANG_IM_BLICK, 0)
+    finally:
+        kontext.close()
+
+
+def test_1254_zwei_fragen_stehen_der_reihe_nach_und_die_neueste_ist_im_blick(live, browser):
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        _gefragt(seite, "Wie lege ich eine Bewerbung an?")
+        fragen = liste.locator("[data-hilfe-frage-text]").all_inner_texts()
+        assert [f.removeprefix("Frage: ").strip() for f in fragen] == ["Wie aktualisiere ich PBP?", "Wie lege ich eine Bewerbung an?"], fragen
+        assert liste.locator("[data-hilfe-trennzeile]").count() == 1, "die Trennzeile steht einmal vor der Reihe der Antworten, nicht je Frage"
+        seite.wait_for_function(ANFANG_IM_BLICK, arg=1, timeout=5000)
+        assert seite.locator("[data-elwosa-chat]").evaluate(SCROLLBEREICHE) == 1
+    finally:
+        kontext.close()
+
+
+def test_1254_der_hilfe_dialog_zeigt_die_neueste_antwort_oben(live, browser):
+    """Der Dialog bleibt, wie er war (Eingabe oben, die neueste Antwort darunter zuerst); nur die Seitenleiste ordnet wie ein Chat."""
+    kontext, seite = _seite(browser, live)
+    try:
+        _hilfe_oeffnen(seite)
+        dialog = seite.locator('[data-hilfe-frage="voll"]')
+        _fragen(seite, dialog, "Wie aktualisiere ich PBP?")
+        dialog.locator('[data-hilfe-antwort]').first.wait_for(state="visible")
+        _fragen(seite, dialog, "Wie lege ich eine Bewerbung an?")
+        seite.wait_for_function("() => document.querySelectorAll('[data-hilfe-frage=\"voll\"] [data-hilfe-antwort]').length === 2", timeout=15000)
+        fragen = dialog.locator("[data-hilfe-frage-text]").all_inner_texts()
+        assert [f.removeprefix("Frage: ").strip() for f in fragen] == ["Wie lege ich eine Bewerbung an?", "Wie aktualisiere ich PBP?"], fragen
+    finally:
+        kontext.close()
+
+
+def test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen(live, browser):
+    """Wie in einem Chat steht, was neu ist, UNTEN - auch nach einer Frage. Sonst ginge jede Meldung Elwosas, die nach der Antwort kommt,
+    oberhalb der Antworten unter, und wer unten liest, sieht sie nie."""
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200, ohne_herzschlag=True)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _gefragt(seite, "Wie aktualisiere ich PBP?")
+        # wer die Antwort liest, steht am Ende des Bereichs; erst wenn die Seite das Scroll-Ereignis behandelt hat (zwei Bilder spaeter), kommt etwas
+        # Neues: sonst entscheidet sie noch nach der Lage VOR dem Scrollen (auf einem langsamen Rechner ein Wettlauf, auf der CI beobachtet)
+        liste.evaluate("el => { el.scrollTop = el.scrollHeight; }")
+        seite.evaluate("() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))")
+        seite.wait_for_function("() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight < 30; }")
+        live["db"].add_elwosa_message("Neu nach der Antwort: die Suche ist fertig.", trigger_kind="test", trigger_ref="t1254-neu")
+        seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")        # holt den Verlauf sofort, wie der Takt von 30 Sekunden
+        neu = liste.get_by_text("Neu nach der Antwort")
+        neu.wait_for(state="attached", timeout=10000)
+        nach_der_antwort = seite.evaluate(
+            "() => { const a = document.querySelector('[data-hilfe-antwort]'); "
+            "const n = [...document.querySelectorAll('[data-elwosa-nachricht]')].find((m) => m.textContent.includes('Neu nach der Antwort')); "
+            "return Boolean(a.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); }")
+        assert nach_der_antwort, "die neue Nachricht steht ueber der Antwort"
+        expect(neu).to_be_in_viewport()
+    finally:
+        kontext.close()
+
+
+def test_1254_die_sechste_frage_verdraengt_die_aelteste_und_ist_im_blick(live, browser):
+    """Der Verlauf haelt hoechstens fuenf Fragen; die neueste steht unten und mit ihrem Anfang im Blick."""
+    fragen = ["Wie aktualisiere ich PBP?", "Wie lege ich eine Bewerbung an?", "Wo liegen meine Daten auf dem Rechner?",
+              "Wie melde ich einen Fehler?", "Wie hole ich einen früheren Stand meiner Daten zurück?",
+              "Wo stelle ich ein, dass sich PBP selbst aktualisiert?"]
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        for frage in fragen:
+            _gefragt(seite, frage)
+        gezeigt = [f.removeprefix("Frage: ").strip() for f in liste.locator("[data-hilfe-frage-text]").all_inner_texts()]
+        assert gezeigt == fragen[1:], gezeigt
+        assert liste.locator("[data-hilfe-trennzeile]").count() == 1
+        seite.wait_for_function(ANFANG_IM_BLICK, arg=4, timeout=5000)
+    finally:
+        kontext.close()
+
+
+def test_1254_eine_lange_frage_ohne_leerzeichen_macht_keine_waagerechte_leiste(live, browser):
+    """Eine eingefuegte Adresse (bis 400 Zeichen) darf den Bereich nicht breiter machen als die Seitenleiste."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _gefragt(seite, "https://beispiel.example/" + "a" * 300)
+        breiter = liste.evaluate("el => el.scrollWidth - el.clientWidth")
+        assert breiter <= 1, f"der Bereich ist {breiter} px breiter als sichtbar: eine waagerechte Leiste"
+    finally:
+        kontext.close()
