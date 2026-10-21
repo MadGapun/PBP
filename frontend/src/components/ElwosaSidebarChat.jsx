@@ -19,8 +19,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
 import { api, deleteRequest, postJson } from "@/api";
-import HilfeFrage from "@/components/HilfeFrage";
-import { seitenleisteFragt } from "@/lib/hilfeFrage";
+import { HilfeAntwort, HilfeEingabe, useHilfeFrage } from "@/components/HilfeFrage";
+import { ansageText, seitenleisteFragt, stromMit } from "@/lib/hilfeFrage";
 
 const HIDE_KEY = "pbp_elwosa_hidden_until";
 const POLL_INTERVAL_MS = 30 * 1000;
@@ -199,6 +199,11 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [unreadBelow, setUnreadBelow] = useState(0);
   const lastMessageCountRef = useRef(0);
+  // #1254 (F57): der Zustand der Fragen zur Bedienung liegt hier und nicht im Feld darunter: die Antworten stehen im Bereich der Nachrichten
+  // (EIN Bereich zum Scrollen), nur das Feld bleibt unten.
+  const hilfe = useHilfeFrage({ onToast });
+  const neuesterHilfeEintrag = hilfe.verlauf.length ? hilfe.verlauf[hilfe.verlauf.length - 1].id : 0;
+  const gesehenerHilfeEintrag = useRef(0);
 
   // Polling + Heartbeat
   useEffect(() => {
@@ -309,6 +314,17 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
     }
     lastMessageCountRef.current = newCount;
   }, [messages]);
+
+  // #1254 (F57): nach einer Frage scrollt der Bereich an den ANFANG der neuen Antwort, nicht ans Ende: die Frage und der erste Treffer sind zu
+  // sehen, der Rest liegt darunter. Am Ende stuende sonst nur das Unterste einer langen Antwort im Bild.
+  useLayoutEffect(() => {
+    if (neuesterHilfeEintrag === gesehenerHilfeEintrag.current) return;
+    gesehenerHilfeEintrag.current = neuesterHilfeEintrag;
+    const liste = scrollRef.current;
+    const eintrag = liste?.querySelector(`[data-hilfe-eintrag="${neuesterHilfeEintrag}"]`);
+    if (!liste || !eintrag) return;
+    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;
+  }, [neuesterHilfeEintrag]);
 
   // Wenn AI off + Settings disabled: kompletter Hide
   if (!status) return null;
@@ -428,16 +444,28 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   }
 
   // Expanded Mode
+  const fragenAktiv = seitenleisteFragt(status);
+  // #1254 (F57): Elwosas Nachrichten und die Antworten der Hilfe stehen nach der Zeit in EINEM Strom, die neueste unten wie in einem Chat (eine
+  // Nachricht nach einer Antwort kommt UNTER die Antwort); vor jeder Reihe von Antworten steht die Zeile "Fragen zur Bedienung": die Hilfe ist nicht Elwosa.
+  const strom = stromMit(messages, fragenAktiv ? hilfe.verlauf : []);
   const groupedByDay = [];
   let lastDay = null;
-  messages.forEach((m) => {
-    const d = dayLabel(m.created_at);
+  let letzteArt = null;
+  strom.forEach((x) => {
+    const d = dayLabel(x.art === "hilfe" ? new Date(x.t).toISOString() : x.nachricht.created_at);
     if (d !== lastDay) {
       groupedByDay.push({ type: "day", label: d });
       lastDay = d;
     }
-    groupedByDay.push({ type: "msg", msg: m });
+    if (x.art === "hilfe") {
+      if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });
+      groupedByDay.push({ type: "hilfe", eintrag: x.eintrag });
+    } else {
+      groupedByDay.push({ type: "msg", msg: x.nachricht });
+    }
+    letzteArt = x.art;
   });
+  const ansage = fragenAktiv && hilfe.verlauf.length > 0 ? ansageText(hilfe.verlauf[hilfe.verlauf.length - 1]) : "";
 
   return (
     /* v1.7.17 (#907): Flex-Column mit durchgereichter Hoehe — Header
@@ -445,7 +473,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
        Vorher: maxHeight:100% gegen ein height:auto-Elternteil ist in
        CSS unaufloesbar (= none) — der innere Scroller scrollte nie,
        stattdessen schob die Liste den ganzen Footer zum Scrollen. */
-    <div className={`border-t border-white/5 px-3 py-2 flex min-h-0 flex-col ${className}`}>
+    <div className={`border-t border-white/5 px-3 py-2 flex min-h-0 flex-col ${className}`} data-elwosa-chat>
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           {avatar}
@@ -518,7 +546,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
       <div className="relative flex-1 min-h-0">
         <div
           ref={scrollRef}
-          onScroll={handleScroll}
+          onScroll={handleScroll} data-elwosa-liste
           className="h-full space-y-2 overflow-y-auto pr-1"
         >
           {messages.length === 0 && (
@@ -536,10 +564,20 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                 </div>
               );
             }
+            if (item.type === "hilfe-kopf") {
+              return (
+                <div key={`hilfe-kopf-${i}`} className="text-xs uppercase tracking-wider text-muted pt-1" data-hilfe-trennzeile>
+                  <span aria-hidden="true">── </span>Fragen zur Bedienung<span aria-hidden="true"> ──</span>
+                </div>
+              );
+            }
+            if (item.type === "hilfe") {
+              return <HilfeAntwort key={`hilfe-${item.eintrag.id}`} eintrag={item.eintrag} kompakt onOeffnen={onOeffnen} copyPrompt={onCopyPrompt} />;
+            }
             const m = item.msg;
             return (
               <div
-                key={m.id}
+                key={m.id} data-elwosa-nachricht
                 className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
               >
                 <p className="text-xs leading-relaxed text-muted">
@@ -596,12 +634,15 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
         )}
       </div>
       {/* #1233 (F51): Fragen zur Bedienung - nur, wenn die lokale KI laeuft (Nutzerwunsch 16.10.2026). Die Antworten sind Karten aus
-          Hilfe, FAQ, Wiki und Prompt-Katalog; Fragen werden nicht gespeichert. */}
-      {seitenleisteFragt(status) && (
-        <div className="mt-2 shrink-0 border-t border-white/5 pt-2" data-sidebar-hilfe>
-          <HilfeFrage variante="kompakt" copyPrompt={onCopyPrompt} onOeffnen={onOeffnen} onToast={onToast} />
+          Hilfe, FAQ, Wiki und Prompt-Katalog; Fragen werden nicht gespeichert. #1254: hier steht nur das Feld (fest unter dem Verlauf, wie bei
+          einem Chat); die Antworten stehen im Strom oben, im Bereich zum Scrollen. */}
+      {fragenAktiv && (
+        <div className="mt-2 shrink-0 border-t border-white/5 pt-2" data-sidebar-hilfe data-hilfe-frage="kompakt">
+          <HilfeEingabe hilfe={hilfe} kompakt />
         </div>
       )}
+      {/* Vorleseprogramme: eine neue Antwort der Hilfe wird gemeldet, auch wenn sie mitten im Strom steht (der Rahmen ist schon da, bevor etwas darin steht). */}
+      {fragenAktiv && <div className="sr-only" aria-live="polite" data-hilfe-ansage>{ansage}</div>}
     </div>
   );
 }

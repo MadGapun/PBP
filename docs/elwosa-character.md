@@ -987,7 +987,9 @@ elwosa_paused_until         ISO-Timestamp oder leer
 ## Die Eingabe unter dem Strom ist nicht Elwosa (1.8.0, #1233)
 
 Läuft die lokale KI, steht unter dem Elwosa-Strom ein Feld „Frag zur Bedienung …“. Es ist die **Hilfe**, nicht Elwosa: sie sucht die Antwort in der eingebauten Hilfe,
-den häufigen Fragen, dem Wiki und dem Prompt-Katalog und zeigt Karten mit Quelle, Sprung, Wiki-Link und Prompt zum Kopieren. Elwosa selbst antwortet dort nicht, spricht
+den häufigen Fragen, dem Wiki und dem Prompt-Katalog und zeigt Karten mit Quelle, Sprung, Wiki-Link und Prompt zum Kopieren. Frage und Antwort stehen im selben Bereich zum Scrollen wie Elwosas Nachrichten, nach der Zeit
+geordnet (das Neueste unten, eine Meldung Elwosas nach einer Antwort also unter ihr), vor jeder Reihe von Antworten die Zeile „Fragen zur Bedienung“, und das Feld bleibt darunter
+stehen (#1254; ein zweiter Scroller hatte den Strom auf wenige Zeilen verdrängt). Elwosa selbst antwortet dort nicht, spricht
 dort nicht und bekommt die Frage nicht zu sehen; es gibt kein freies Chatfenster (die Entscheidung aus #771 und #774 bleibt: ein 7B/8B-Modell antwortet plausibel auch
 dort, wo es falsch liegt). Fragen werden nicht gespeichert, auch nicht als Elwosa-Nachricht. Eine Kurzantwort der lokalen KI über den Karten ist eine Beta und steht
 unter Einstellungen › Lokale KI, standardmäßig aus.
