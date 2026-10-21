@@ -206,5 +206,6 @@ Installation (Block B) und vor dem Zurücksetzen (Block H); alle anderen Blöcke
   richtigen Zahl, auch wenn zehn Nachrichten im Verlauf stehen; ein Klick darauf oder das Scrollen ans Ende lässt den Knopf verschwinden. Eine Nachricht auszublenden
   (das X an der Nachricht) lässt keinen Knopf erscheinen. Wer unten liest, bleibt unten, wenn sich die Höhe des Bereichs ändert (Fenster kleiner und wieder größer
   ziehen; die Zeile „Update-Stand unbekannt“ erscheint nach etwa einer Sekunde und nimmt 38 Pixel), und eine neue Meldung ist dann zu sehen. Elwosa mit dem Auge
-  aus- und wieder einblenden: der Verlauf steht danach wieder unten, nicht bei den ältesten Nachrichten.
+  aus- und wieder einblenden: der Verlauf steht danach wieder unten, nicht bei den ältesten Nachrichten; was in der Zwischenzeit kam, ist zu sehen und löst keinen
+  Knopf „N neu“ aus. Mit mehreren Profilen: nach einem Wechsel stehen gleich die Nachrichten des neuen Profils da, und „N neu“ erscheint nicht.
 - **Ergebnis** wie zuvor: ein Satz je Punkt im PR des Kandidaten und im Issue #1233; Funde werden ab PP37 nummeriert.
