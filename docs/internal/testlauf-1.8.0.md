@@ -202,4 +202,9 @@ Installation (Block B) und vor dem Zurücksetzen (Block H); alle anderen Blöcke
   wird); ausgeschaltet bleiben die Karten. Die Zeile unter dem Schalter nennt den Zustand der lokalen KI.
 - **J5 — Nichts wird gespeichert.** Nach den Fragen steht ihr Wortlaut weder in *Einstellungen › Logs* noch in einem Elwosa-Eintrag; ein Neuladen des Dashboards
   zeigt den Verlauf der Hilfe nicht mehr.
+- **J6 — Das Mitscrollen des Elwosa-Stroms (#1256).** Scrolle im Verlauf nach oben und warte, bis Elwosa etwas Neues sagt: unten im Bereich erscheint „N neu“ mit der
+  richtigen Zahl, auch wenn zehn Nachrichten im Verlauf stehen; ein Klick darauf oder das Scrollen ans Ende lässt den Knopf verschwinden. Eine Nachricht auszublenden
+  (das X an der Nachricht) lässt keinen Knopf erscheinen. Wer unten liest, bleibt unten, wenn sich die Höhe des Bereichs ändert (Fenster kleiner und wieder größer
+  ziehen; die Zeile „Update-Stand unbekannt“ erscheint nach etwa einer Sekunde und nimmt 38 Pixel), und eine neue Meldung ist dann zu sehen. Elwosa mit dem Auge
+  aus- und wieder einblenden: der Verlauf steht danach wieder unten, nicht bei den ältesten Nachrichten.
 - **Ergebnis** wie zuvor: ein Satz je Punkt im PR des Kandidaten und im Issue #1233; Funde werden ab PP37 nummeriert.
