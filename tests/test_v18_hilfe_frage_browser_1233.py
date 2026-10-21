@@ -891,6 +891,71 @@ def test_1256_eine_meldung_nach_sprung_und_hoehenaenderung_bleibt_nicht_verdeckt
         kontext.close()
 
 
+def test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen(live, browser):
+    """Zwischen einem Sprung ans Ende und dem Scroll-Ereignis dazu liegen im Alltag ein paar Millisekunden; kommt in dieser Zeit eine Meldung, stand im Merkmal
+    der Seite noch der Zustand davor ("oben"). Ein Test trifft diese Zeit nicht verlaesslich (genau dieser Fall machte `test_1254_eine_neue_nachricht_elwosas_...`
+    in jedem dritten Lauf rot), darum wird das Ereignis verschluckt: die Seite weiss nichts von dem Sprung, die Geometrie zeigt ihn."""
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        seite.wait_for_timeout(1500)
+        _nach_oben(seite)                     # die Seite weiss jetzt: der Mensch liest oben
+        seite.evaluate("() => document.addEventListener('scroll', (e) => e.stopImmediatePropagation(), true)")
+        seite.locator("[data-elwosa-liste]").evaluate("l => { l.scrollTop = l.scrollHeight; }")
+        assert seite.evaluate(ABSTAND_ZUM_ENDE) < 2, "der Fall ist keiner: der Sprung hat das Ende nicht erreicht"
+        _meldung(live, "Meldung direkt nach dem Sprung: die Suche ist fertig.", 1)
+        _holen(seite, "direkt nach dem Sprung")
+        im_bild = seite.evaluate(NACHRICHT_IM_BEREICH, "direkt nach dem Sprung")
+        assert im_bild is True, f"die Meldung liegt unter dem Bild (Abstand zum Ende {seite.evaluate(ABSTAND_ZUM_ENDE):.0f} px): die Seite hielt den Menschen fuer \"oben\""
+    finally:
+        kontext.close()
+
+
+def test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_die_marke(live, browser):
+    """Der Bereich wird hoeher (das Fenster waechst, die Zeile "Update-Stand" faellt weg), und die Meldung, auf die die Marke zeigt, liegt jetzt im Bild. Ohne
+    Scrollen kommt kein Ereignis: die Marke bliebe sonst stehen, obwohl nichts mehr unter dem Bild liegt."""
+    _ohne_wiki_hinweis(live)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=150)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        liste.evaluate("l => { l.scrollTop = l.scrollHeight - l.clientHeight - 35; }")       # 35 px ueber dem Ende: noch nicht "am Ende"
+        _bilder(seite)
+        _meldung(live, "Neu, waehrend knapp ueber dem Ende gelesen wird: die Suche ist fertig.", 1)
+        _holen(seite, "knapp ueber dem Ende")
+        assert marke.count() == 1, "der Fall ist keiner: es gibt keine Marke"
+        # so viel hoeher, dass das Ende 10 px unter dem unteren Rand liegt: im Bild, ohne dass sich die Scrollposition aendern muss
+        mehr = round(seite.evaluate(ABSTAND_ZUM_ENDE)) - 10
+        seite.locator("[data-elwosa-chat]").evaluate("(el, px) => { el.style.maxHeight = (el.getBoundingClientRect().height + px) + 'px'; }", mehr)
+        _bilder(seite)
+        abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
+        assert 0 <= abstand < 30, f"der Fall ist keiner: das Ende liegt {abstand:.0f} px unter dem Rand"
+        assert marke.count() == 0, "die Marke steht noch, obwohl die neue Meldung jetzt im Bild liegt"
+    finally:
+        kontext.close()
+
+
+def test_1256_auch_die_zweite_hoehenaenderung_rechnet_mit_der_neuen_hoehe(live, browser):
+    """Wer nach einer ersten Aenderung ein Stueck nach oben gescrollt hat, wird von der zweiten nicht nach unten gezogen: verglichen wird mit der Hoehe von
+    VOR dieser Aenderung, nicht mit der vom Anfang."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _ans_ende(seite)
+        seite.evaluate(KOPF_WAECHST, 38)
+        _bilder(seite)
+        assert seite.evaluate(ABSTAND_ZUM_ENDE) < 2, "die erste Aenderung hat das Ende nicht gehalten"
+        liste.evaluate("l => { l.scrollTop = l.scrollHeight - l.clientHeight - 60; }")        # 60 px ueber dem Ende: oben gelesen, aber nah
+        _bilder(seite)
+        assert 55 < seite.evaluate(ABSTAND_ZUM_ENDE) < 65, "der Fall ist keiner: der Abstand ist nicht 60 px"
+        seite.evaluate(KOPF_WAECHST, 38)
+        _bilder(seite)
+        abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
+        assert abstand > 60, f"wer 60 px ueber dem Ende las, wurde nach unten gezogen (Abstand danach {abstand:.0f} px)"
+    finally:
+        kontext.close()
+
+
 def test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_nach_unten_gezogen(live, browser):
     """Die Gegenseite: das Halten des Endes gilt nur fuer den, der am Ende steht."""
     kontext, seite = _seite_mit_verlauf(browser, live)
@@ -913,11 +978,16 @@ def test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende(live, browser)
     kam."""
     kontext, seite = _seite_mit_verlauf(browser, live)
     try:
+        seite.wait_for_timeout(1500)
+        _nach_oben(seite)                     # der Mensch las oben, als er Elwosa ausblendete: der Zustand "oben" darf nicht in den neuen Bereich mitwandern
         seite.get_by_role("button", name="Für 30 Minuten ausblenden").click()
         seite.get_by_role("button", name="Elwosa wieder einblenden").click()
         seite.locator("[data-elwosa-liste]").wait_for(state="visible")
         _bilder(seite)
         abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
         assert abstand < 2, f"der Verlauf steht {abstand:.0f} px ueber dem Ende: er zeigt die aeltesten Nachrichten"
+        _meldung(live, "Meldung nach dem Wiedereinblenden: die Suche ist fertig.", 1)
+        _holen(seite, "nach dem Wiedereinblenden")
+        assert seite.evaluate(NACHRICHT_IM_BEREICH, "nach dem Wiedereinblenden") is True, "die neue Meldung liegt unter dem Bild"
     finally:
         kontext.close()
