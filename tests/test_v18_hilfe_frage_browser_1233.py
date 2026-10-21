@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import socket
 import sys
 import threading
@@ -470,12 +471,12 @@ def _elwosa_nachrichten(db, anzahl=10):
         )
 
 
-def _seite_mit_verlauf(browser, live, platz=None, ohne_herzschlag=False):
-    """Die Seite mit zehn Nachrichten Elwosas und laufender KI. `platz`: so hoch (px) ist der Bereich fuer Elwosa - ein kleiner Platz, der nicht
+def _seite_mit_verlauf(browser, live, platz=None, ohne_herzschlag=False, anzahl=10):
+    """Die Seite mit zehn Nachrichten Elwosas (`anzahl`) und laufender KI. `platz`: so hoch (px) ist der Bereich fuer Elwosa - ein kleiner Platz, der nicht
     vom Fenster und von der Hoehe des Menues abhaengt (die gibt die Maschine vor); ohne Angabe gilt, was das Fenster hergibt.
     `ohne_herzschlag`: der Herzschlag der Seite (`/api/elwosa/heartbeat`) schreibt Elwosa von sich aus gelegentlich eine weitere Zeile; wer prueft, was
     GANZ UNTEN steht, laesst nichts dazwischenkommen (der Verlauf wird trotzdem nachgeladen, nur der Herzschlag schreibt nichts)."""
-    _elwosa_nachrichten(live["db"])
+    _elwosa_nachrichten(live["db"], anzahl)
     kontext = browser.new_context(viewport={"width": 1440, "height": 960})
     seite = kontext.new_page()
     seite.add_init_script(KOPIEREN)
@@ -485,7 +486,7 @@ def _seite_mit_verlauf(browser, live, platz=None, ohne_herzschlag=False):
     seite.goto(live["url"] + "#dashboard", wait_until="domcontentloaded")
     seite.locator("div#root").wait_for(state="visible")
     seite.locator("[data-sidebar-hilfe]").wait_for(state="visible", timeout=15000)
-    seite.wait_for_function("() => document.querySelectorAll('[data-elwosa-nachricht]').length >= 8", timeout=15000)
+    seite.wait_for_function("(n) => document.querySelectorAll('[data-elwosa-nachricht]').length >= n", arg=min(8, anzahl), timeout=15000)
     if platz:
         seite.locator("[data-elwosa-chat]").evaluate("(el, px) => { el.style.maxHeight = px + 'px'; }", platz)
     return kontext, seite
@@ -658,5 +659,265 @@ def test_1254_eine_lange_frage_ohne_leerzeichen_macht_keine_waagerechte_leiste(l
         _gefragt(seite, "https://beispiel.example/" + "a" * 300)
         breiter = liste.evaluate("el => el.scrollWidth - el.clientWidth")
         assert breiter <= 1, f"der Bereich ist {breiter} px breiter als sichtbar: eine waagerechte Leiste"
+    finally:
+        kontext.close()
+
+
+# ── #1256 (F58): die Marke "N neu" und das Mitscrollen bei geaenderter Hoehe ───────────────────────────────────────────
+#
+# Zwei aeltere Maengel im Mitscrollen des Elwosa-Stroms (Sticky-Bottom aus #611), beim Messen von #1254 aufgefallen. Es geht um EINE Frage: sieht der
+# Mensch, dass Elwosa etwas gesagt hat? (1) Die Marke "N neu" zaehlte die Nachrichten der Liste; der Verlauf holt nur zehn, bei voller Liste blieb die
+# Zahl gleich - die Marke kam im Normalfall nie, und nach einem Ausblenden kam sie ohne Anlass. (2) Das Mitscrollen merkte sich "am Ende" nur aus einem
+# Scroll-Ereignis; aenderte sich die Hoehe ohne Scrollen (der Kopf der Seitenleiste waechst um eine Zeile, das Fenster wird kleiner), rutschte das Ende
+# aus dem Bild, und eine Meldung danach blieb verdeckt. Gemessen wird am gerenderten Bild. Die Erwartung an die Zahl in der Marke kommt aus dem Bild
+# selbst (wie viele Meldungen unter der zuletzt gelesenen stehen), nicht aus einer festen Zahl: die Seite legt beim Laden von sich aus Zeilen an
+# (Wiki-Hinweis, Welt-Zeile des Herzschlags), und die haengen von der Uhr ab.
+
+MARKE = re.compile(r"\d+ neu")
+
+ABSTAND_ZUM_ENDE = """
+() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight; }
+"""
+
+# Liegt die Nachricht mit diesem Text ganz im sichtbaren Teil des Bereichs? (null: sie steht nicht im Verlauf)
+NACHRICHT_IM_BEREICH = """
+(text) => {
+  const liste = document.querySelector('[data-elwosa-liste]').getBoundingClientRect();
+  const m = [...document.querySelectorAll('[data-elwosa-nachricht]')].find((e) => e.textContent.includes(text));
+  if (!m) return null;
+  const r = m.getBoundingClientRect();
+  return r.top >= liste.top - 1 && r.bottom <= liste.bottom + 1;
+}
+"""
+
+# Wie viele Nachrichten stehen UNTER der mit diesem Text? (-1: sie steht nicht mehr im Verlauf)
+NACHRICHTEN_NACH = """
+(text) => {
+  const alle = [...document.querySelectorAll('[data-elwosa-nachricht]')].map((e) => e.textContent);
+  const i = alle.findIndex((t) => t.includes(text));
+  return i < 0 ? -1 : alle.length - 1 - i;
+}
+"""
+
+# Der Kopf der Seitenleiste waechst um eine Zeile, wie "Update-Stand unbekannt / Jetzt pruefen" (gemessen: 38 px samt Abstand). Die Zeile kommt an dieselbe
+# Stelle wie die echte, in den Statusblock oben; Elwosa bekommt dadurch 38 px weniger Hoehe, ohne dass jemand scrollt.
+KOPF_WAECHST = """
+(px) => {
+  const block = document.querySelector('aside .brand-title').parentElement;
+  const zeile = document.createElement('span');
+  zeile.setAttribute('data-test-kopfzeile', '');
+  zeile.style.cssText = 'display:block;height:' + (px - 6) + 'px';
+  block.appendChild(zeile);
+}
+"""
+# derselbe Handgriff im selben Augenblick, in dem die Meldung mit diesem Text im Verlauf steht: die Seite ist dann gerade ans Ende gesprungen, das
+# Scroll-Ereignis zu diesem Sprung kommt erst im naechsten Bild und rechnet schon mit der neuen Hoehe (ein Beobachter der Seite laeuft als
+# Mikroaufgabe gleich nach dem Einfuegen, noch vor dem naechsten Bild)
+KOPF_WAECHST_MIT_DER_MELDUNG = (
+    "({px, text}) => { const beobachter = new MutationObserver(() => { "
+    "if ([...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes(text))) { beobachter.disconnect(); ("
+    + KOPF_WAECHST.strip() + ")(px); } }); beobachter.observe(document.querySelector('[data-elwosa-liste]'), { childList: true, subtree: true }); }"
+)
+
+
+def _bilder(seite):
+    """Laesst die Seite ein paar Bilder zeichnen: Scroll-Ereignisse und Beobachter der Groesse laufen zu Beginn des naechsten Bildes."""
+    seite.evaluate("() => new Promise((fertig) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(fertig, 60))))")
+
+
+def _meldung(live, text, nr):
+    live["db"].add_elwosa_message(text, trigger_kind="test", trigger_ref=f"t1256-{nr}")
+
+
+def _holen(seite, text):
+    """Holt den Verlauf sofort (wie der Takt von 30 Sekunden) und wartet, bis die Meldung mit diesem Text im Verlauf steht."""
+    seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+    seite.wait_for_function(
+        "(t) => [...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes(t))", arg=text, timeout=10000)
+    _bilder(seite)
+
+
+def _nach_oben(seite):
+    seite.locator("[data-elwosa-liste]").evaluate("l => { l.scrollTop = 0; }")
+    _bilder(seite)
+
+
+def _ans_ende(seite):
+    seite.locator("[data-elwosa-liste]").evaluate("l => { l.scrollTop = l.scrollHeight; }")
+    seite.wait_for_function(
+        "() => { const l = document.querySelector('[data-elwosa-liste]'); return l.scrollHeight - l.scrollTop - l.clientHeight < 2; }", timeout=5000)
+    _bilder(seite)
+
+
+def _zuletzt_gelesen(seite):
+    """Die neueste Nachricht, die gerade im Verlauf steht (ihr Anfang als Schluessel): alles, was danach kommt, ist neu."""
+    return seite.evaluate("() => [...document.querySelectorAll('[data-elwosa-nachricht]')].pop().textContent.slice(0, 60)")
+
+
+def _ohne_wiki_hinweis(live):
+    """Die Seite legt 0,8 s nach dem Laden einen Wiki-Hinweis fuer ihre Route an. Hier liegt er schon da, als aelteste Zeile ausserhalb des Fensters:
+    sonst haengt die Zahl der Zeilen waehrend des Tests davon ab, wie schnell die Maschine ist."""
+    live["db"].add_elwosa_message("Hinweis aus dem Wiki: die Seiten findest du im Menü links.", trigger_kind="wiki_hint", trigger_ref="dashboard:t1256")
+
+
+def _marke_neu_pruefen(live, browser, anzahl):
+    """Elwosa hat `anzahl` Nachrichten gesagt, der Mensch liest ganz oben, dann kommt eine neue: die Marke "N neu" steht da, N stimmt, der Mensch wird
+    nicht nach unten gezogen, und ein Klick fuehrt ans Ende und raeumt die Marke weg."""
+    _ohne_wiki_hinweis(live)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200, anzahl=anzahl)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)          # die Seite hat ihre ersten Zeilen geholt
+        _nach_oben(seite)
+        assert seite.evaluate(ABSTAND_ZUM_ENDE) > 100, "der Fall ist keiner: der Verlauf scrollt nicht"
+        gelesen = _zuletzt_gelesen(seite)
+        _meldung(live, "Neu, waehrend oben gelesen wird: die Suche ist fertig.", 1)
+        _holen(seite, "waehrend oben gelesen wird")
+        erwartet = seite.evaluate(NACHRICHTEN_NACH, gelesen)
+        assert erwartet >= 1, "der Fall ist keiner: die neue Meldung steht nicht unter der zuletzt gelesenen"
+        assert marke.count() == 1, f"keine Marke 'N neu', obwohl {erwartet} neue Meldung(en) unter dem Bild liegen (Verlauf mit {anzahl} Nachrichten)"
+        assert marke.inner_text().strip() == f"{erwartet} neu", marke.inner_text()
+        assert liste.evaluate("l => l.scrollTop") < 60, "wer oben liest, wird nach unten gezogen"
+        marke.click()
+        _bilder(seite)
+        assert seite.evaluate(ABSTAND_ZUM_ENDE) < 2, "der Klick auf die Marke fuehrt nicht ans Ende"
+        assert marke.count() == 0, "die Marke bleibt nach dem Klick stehen"
+    finally:
+        kontext.close()
+
+
+def test_1256_die_marke_neu_erscheint_auch_bei_voller_liste(live, browser):
+    """Der Normalfall: der Verlauf holt zehn Nachrichten und ist voll, eine neue schiebt die aelteste hinaus - die Zahl der Nachrichten bleibt zehn."""
+    _marke_neu_pruefen(live, browser, 10)
+
+
+def test_1256_bei_kurzer_liste_zeigt_die_marke_weiter_die_neuen(live, browser):
+    """Das ging schon: bei kurzer Liste waechst die Zahl wirklich. Es muss so bleiben (Gegenstueck zum Normalfall)."""
+    _marke_neu_pruefen(live, browser, 4)
+
+
+def test_1256_die_marke_zaehlt_mit_und_beginnt_am_ende_von_vorn(live, browser):
+    _ohne_wiki_hinweis(live)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        _nach_oben(seite)
+        gelesen = _zuletzt_gelesen(seite)
+        _meldung(live, "Erste neue Meldung: die Suche ist fertig.", 1)
+        _holen(seite, "Erste neue Meldung")
+        eins = seite.evaluate(NACHRICHTEN_NACH, gelesen)
+        assert marke.count() == 1 and marke.inner_text().strip() == f"{eins} neu", f"nach der ersten Meldung: {marke.count()} Marke(n), erwartet '{eins} neu'"
+        _meldung(live, "Zweite neue Meldung: ein Termin steht an.", 2)
+        _meldung(live, "Dritte neue Meldung: eine Nachfrage ist faellig.", 3)
+        _holen(seite, "Dritte neue Meldung")
+        drei = seite.evaluate(NACHRICHTEN_NACH, gelesen)
+        assert drei >= eins + 2, "der Fall ist keiner: die letzten Meldungen stehen nicht unter der ersten"
+        assert marke.count() == 1 and marke.inner_text().strip() == f"{drei} neu", f"nach drei Meldungen: erwartet '{drei} neu', steht '{marke.all_inner_texts()}'"
+        # wer bis ans Ende liest, hat alles gesehen: die Marke verschwindet, und die naechste Meldung zaehlt wieder von vorn
+        _ans_ende(seite)
+        assert marke.count() == 0, "am Ende steht noch eine Marke"
+        _nach_oben(seite)
+        gelesen = _zuletzt_gelesen(seite)
+        _meldung(live, "Vierte neue Meldung: das Profil ist vollstaendig.", 4)
+        _holen(seite, "Vierte neue Meldung")
+        wieder = seite.evaluate(NACHRICHTEN_NACH, gelesen)
+        assert wieder < drei, "der Fall ist keiner: die Zahl haette von vorn beginnen muessen"
+        assert marke.count() == 1 and marke.inner_text().strip() == f"{wieder} neu", f"nach dem Ende: erwartet '{wieder} neu', steht '{marke.all_inner_texts()}'"
+    finally:
+        kontext.close()
+
+
+def test_1256_das_ausblenden_einer_nachricht_macht_keine_marke(live, browser):
+    """Wer oben liest und eine Nachricht ausblendet, bekommt beim naechsten Holen eine AELTERE ins Fenster: die Zahl der Nachrichten steigt von neun
+    auf zehn, neu ist nichts."""
+    for nr in range(2):
+        _meldung(live, f"Aeltere Nachricht {nr + 1}: sie wartet ausserhalb des Fensters.", f"alt-{nr}")
+    _ohne_wiki_hinweis(live)
+    kontext, seite = _seite_mit_verlauf(browser, live, platz=200)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        marke = seite.locator("[data-elwosa-chat]").get_by_role("button", name=MARKE)
+        seite.wait_for_timeout(1500)
+        _nach_oben(seite)
+        liste.locator("[data-elwosa-nachricht]").first.get_by_role("button", name="Diese Nachricht ausblenden").click()
+        seite.wait_for_function("() => document.querySelectorAll('[data-elwosa-nachricht]').length === 9", timeout=5000)
+        seite.evaluate("() => document.dispatchEvent(new Event('visibilitychange'))")
+        seite.wait_for_function(
+            "() => [...document.querySelectorAll('[data-elwosa-nachricht]')].some((e) => e.textContent.includes('Hinweis aus dem Wiki'))", timeout=10000)
+        _bilder(seite)
+        assert marke.count() == 0, f"die Marke zeigt '{marke.all_inner_texts()}', obwohl nichts neu ist: nur eine aeltere Nachricht rueckte ins Fenster"
+    finally:
+        kontext.close()
+
+
+def test_1256_wird_der_bereich_niedriger_bleibt_das_ende_im_bild(live, browser):
+    """Der Kopf der Seitenleiste waechst nach dem Laden um eine Zeile und nimmt Elwosa 38 px Hoehe. Wer unten liest, bleibt unten, auch ohne zu scrollen."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        _ans_ende(seite)
+        vorher = liste.evaluate("l => l.clientHeight")
+        seite.evaluate(KOPF_WAECHST, 38)
+        _bilder(seite)
+        assert vorher - liste.evaluate("l => l.clientHeight") >= 30, "der Fall ist keiner: der Bereich ist nicht niedriger geworden"
+        abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
+        assert abstand < 2, f"das Ende liegt {abstand:.0f} px unter dem Bild: die letzte Meldung ist abgeschnitten"
+    finally:
+        kontext.close()
+
+
+def test_1256_eine_meldung_nach_sprung_und_hoehenaenderung_bleibt_nicht_verdeckt(live, browser):
+    """Eine Meldung kommt, der Bereich springt ans Ende, und noch vor dem Scroll-Ereignis zu diesem Sprung waechst der Kopf. Das Ereignis rechnet
+    mit der neuen Hoehe (38 px, mehr als die Toleranz), haelt den Menschen fuer "nicht am Ende", und die NAECHSTE Meldung liegt unter dem Bild."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        # "gelesen" melden loest nach jeder neuen Meldung einen zweiten Aufbau der Liste aus; kommt er vor dem Scroll-Ereignis, springt die Liste dabei
+        # noch einmal ans Ende und heilt den Fehler zufaellig. Hier entscheidet allein das Ereignis: die Anfrage wird angehalten.
+        seite.route("**/api/elwosa/messages/mark-read", lambda route: route.abort())
+        _ans_ende(seite)
+        vorher = liste.evaluate("l => l.clientHeight")
+        seite.evaluate(KOPF_WAECHST_MIT_DER_MELDUNG, {"px": 38, "text": "Erste Meldung"})
+        _meldung(live, "Erste Meldung: die Suche ist fertig.", 1)
+        _holen(seite, "Erste Meldung")
+        assert vorher - liste.evaluate("l => l.clientHeight") >= 30, "der Fall ist keiner: der Bereich ist nicht niedriger geworden"
+        _meldung(live, "Zweite Meldung: ein Termin steht an.", 2)
+        _holen(seite, "Zweite Meldung")
+        im_bild = seite.evaluate(NACHRICHT_IM_BEREICH, "Zweite Meldung")
+        assert im_bild is True, f"die zweite Meldung liegt unter dem Bild (Abstand zum Ende {seite.evaluate(ABSTAND_ZUM_ENDE):.0f} px)"
+    finally:
+        kontext.close()
+
+
+def test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_nach_unten_gezogen(live, browser):
+    """Die Gegenseite: das Halten des Endes gilt nur fuer den, der am Ende steht."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        liste = seite.locator("[data-elwosa-liste]")
+        seite.wait_for_timeout(1500)
+        _nach_oben(seite)
+        seite.evaluate(KOPF_WAECHST, 38)
+        _bilder(seite)
+        _meldung(live, "Meldung beim Lesen oben: die Suche ist fertig.", 1)
+        _holen(seite, "beim Lesen oben")
+        assert liste.evaluate("l => l.scrollTop") < 60, "wer oben liest, wird nach unten gezogen"
+        assert seite.evaluate(NACHRICHT_IM_BEREICH, "beim Lesen oben") is False, "der Fall ist keiner: die neue Meldung liegt im Bild"
+    finally:
+        kontext.close()
+
+
+def test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende(live, browser):
+    """Elwosa ausblenden (Auge) und wieder einblenden: der Bereich ist neu und stand bisher oben, bei den aeltesten Nachrichten, bis zufaellig eine neue
+    kam."""
+    kontext, seite = _seite_mit_verlauf(browser, live)
+    try:
+        seite.get_by_role("button", name="Für 30 Minuten ausblenden").click()
+        seite.get_by_role("button", name="Elwosa wieder einblenden").click()
+        seite.locator("[data-elwosa-liste]").wait_for(state="visible")
+        _bilder(seite)
+        abstand = seite.evaluate(ABSTAND_ZUM_ENDE)
+        assert abstand < 2, f"der Verlauf steht {abstand:.0f} px ueber dem Ende: er zeigt die aeltesten Nachrichten"
     finally:
         kontext.close()
