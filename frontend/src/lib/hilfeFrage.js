@@ -127,6 +127,35 @@ export function vorigeFrage(verlauf) {
   return letzter?.frage || "";
 }
 
+/**
+ * #1254 (F57): Elwosas Nachrichten und die Antworten der Hilfe in EINER Reihe nach der Zeit, die neueste zuletzt — wie in einem Chat. Was neu
+ * ist, steht unten: eine Nachricht Elwosas nach einer Antwort kommt UNTER die Antwort (nicht darueber, wo sie niemand sieht, wenn unten gelesen
+ * wird). Die Nachrichten behalten ihre Reihenfolge (sie werden nie umsortiert), die Antworten ebenso; bei gleicher oder unbekannter Zeit steht
+ * die Nachricht zuerst. `nachrichten`: wie der Server sie liefert (`created_at`, aelteste zuerst); `verlauf`: die Eintraege der Hilfe (`zeit` in ms,
+ * aelteste zuerst).
+ * Rueckgabe: [{ art: "nachricht", t, nachricht } | { art: "hilfe", t, eintrag }]; ohne Antworten ist es nur die Liste der Nachrichten.
+ */
+export function stromMit(nachrichten, verlauf) {
+  const msgs = (nachrichten || []).map((nachricht) => ({ art: "nachricht", t: Date.parse(nachricht.created_at), nachricht }));
+  const fragen = (verlauf || []).map((eintrag) => ({ art: "hilfe", t: eintrag.zeit, eintrag }));
+  const strom = [];
+  let i = 0;
+  let j = 0;
+  while (i < msgs.length || j < fragen.length) {
+    if (j >= fragen.length || (i < msgs.length && !(msgs[i].t > fragen[j].t))) strom.push(msgs[i++]);   // "nicht neuer": gleiche oder unbekannte Zeit = zuerst
+    else strom.push(fragen[j++]);
+  }
+  return strom;
+}
+
+/** Ein Satz fuer Vorleseprogramme, wenn eine Antwort da ist: die Frage, die Kopfzeile und der Titel des ersten Treffers. */
+export function ansageText(eintrag) {
+  const antwort = eintrag?.antwort;
+  if (!antwort) return "";
+  const erster = hatKarten(antwort) ? antwort.karten[0]?.titel : "";
+  return [`Antwort auf deine Frage „${eintrag.frage}“.`, kopfzeile(antwort), erster].filter(Boolean).join(" ");
+}
+
 const KI_GRUND = {
   ollama_nicht_erreichbar: "Die lokale KI (Ollama) ist gerade nicht erreichbar.",
   ki_off: "Die lokale KI ist abgeschaltet.",

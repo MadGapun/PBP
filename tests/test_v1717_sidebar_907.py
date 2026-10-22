@@ -50,3 +50,17 @@ def test_907_footerslot_reicht_hoehe_durch():
         "ElwosaSidebarChat muss den flexiblen Rest bekommen"
     assert 'className="shrink-0 px-3 pt-2"' in src, \
         "JobsucheStatusBadge bleibt fix ueber dem Chat"
+
+
+def test_1254_die_antworten_der_hilfe_haben_keinen_eigenen_scroller():
+    """#1254: das Zielbild aus #907 gilt weiter - EIN Scroll-Container. #1233 hatte mit `max-h-[38vh] overflow-y-auto` einen zweiten eingefuehrt,
+    der dem Elwosa-Verlauf die Hoehe nahm. Am gerenderten Bild prueft das `test_v18_hilfe_frage_browser_1233.py` (Zahl der Bereiche, Hoehe des
+    Verlaufs); dieser Test faengt die Rueckkehr schon im Quelltext ab."""
+    hilfe = _lese("components/HilfeFrage.jsx")
+    for verboten in ("overflow-y", "overflow-auto", "max-h-"):
+        assert verboten not in hilfe, f"die Hilfe bekommt keinen eigenen Scroller zurueck ({verboten})"
+    leiste = _lese("components/ElwosaSidebarChat.jsx")
+    assert leiste.count("overflow-y-auto") == 1, "die Seitenleiste hat genau EINEN Bereich zum Scrollen"
+    assert leiste.index("<HilfeAntwort") < leiste.index("<HilfeEingabe"), \
+        "die Antworten stehen im Strom (im Bereich des Verlaufs), das Feld darunter"
+    assert "<HilfeVerlauf" not in leiste, "der Verlauf des Dialogs gehoert nicht in die Seitenleiste"

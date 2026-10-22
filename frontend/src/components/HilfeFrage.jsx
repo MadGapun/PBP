@@ -1,8 +1,11 @@
 // Die Hilfe zum Fragen (#1233, F51): eine Frage zur Bedienung, beantwortet aus Hilfe, Haeufigen Fragen, Wiki und Prompt-Katalog.
 //
-// Dieselbe Komponente sitzt im Hilfe-Dialog (Reiter "Frag mich", fuer alle) und in der Seitenleiste (kompakt, nur wenn die lokale KI
-// laeuft). Die Karten kommen vom Server und nie aus einem Sprachmodell; die lokale KI kann hoechstens eine Kurzantwort darueberlegen,
-// wenn der Mensch das eingeschaltet hat. Fragen werden nicht gespeichert: der Verlauf lebt nur hier im Arbeitsspeicher.
+// Der Hilfe-Dialog (Reiter "Frag mich", fuer alle) und die Seitenleiste (kompakt, nur wenn die lokale KI laeuft) teilen sich den Zustand
+// (`useHilfeFrage`) und die Teile: `HilfeEingabe` (Feld, Beispielfragen) und `HilfeAntwort` (eine Frage mit ihrer Antwort). Der Dialog zeigt die
+// Antworten im `HilfeVerlauf`; die Seitenleiste stellt sie selbst in den EINEN Bereich zum Scrollen von Elwosas Nachrichten, nach der Zeit
+// geordnet wie in einem Chat, und nur das Feld bleibt darunter stehen (#1254, F57): ein eigener Scroller fuer die Antworten hatte den Verlauf
+// bis auf wenige Zeilen verdraengt. Die Karten kommen vom Server und nie aus einem Sprachmodell; die lokale KI kann hoechstens eine
+// Kurzantwort darueberlegen, wenn der Mensch das eingeschaltet hat. Fragen werden nicht gespeichert: der Verlauf lebt nur im Arbeitsspeicher.
 //
 // Kopiert wird ueber `copyPrompt` (App-Kontext, G72), gesprungen ueber `onOeffnen` (navigateTo der App).
 import { useEffect, useRef, useState } from "react";
@@ -61,7 +64,8 @@ function Karte({ karte, kompakt, onOeffnen, copyPrompt }) {
   );
 }
 
-function Antwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
+/** Eine Frage mit ihrer Antwort. Die Seitenleiste stellt sie selbst in ihren Strom (kompakt), der Dialog zeigt sie im `HilfeVerlauf`. */
+export function HilfeAntwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
   const { antwort } = eintrag;
   const [alle, setAlle] = useState(false);
   const ki = kiAnzeige(antwort.ki, eintrag.kiStand);
@@ -70,8 +74,8 @@ function Antwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
   const satz = satzFuerClaude(antwort);
   const vorsatz = claudeVorsatz(antwort);
   return (
-    <div className="space-y-1.5" data-hilfe-antwort={antwort.status}>
-      <p className="text-xs text-ink/80" data-hilfe-frage-text>
+    <div className="space-y-1.5" data-hilfe-antwort={antwort.status} data-hilfe-eintrag={eintrag.id}>
+      <p className="break-words text-xs text-ink/80" data-hilfe-frage-text>
         <span className="text-muted">Frage: </span>{eintrag.frage}
       </p>
       {kopfzeile(antwort) && <p className={`font-medium text-ink ${kompakt ? "text-xs" : "text-[13px]"}`}>{kopfzeile(antwort)}</p>}
@@ -108,8 +112,8 @@ function Antwort({ eintrag, kompakt, onOeffnen, copyPrompt }) {
   );
 }
 
-export default function HilfeFrage({ variante = "voll", onOeffnen, copyPrompt, onToast }) {
-  const kompakt = variante === "kompakt";
+/** Der Zustand der Fragen: die Eingabe, der Verlauf (hoechstens MAX_VERLAUF, nur im Arbeitsspeicher) und die Kurzantwort der lokalen KI. */
+export function useHilfeFrage({ onToast } = {}) {
   const [eingabe, setEingabe] = useState("");
   const [verlauf, setVerlauf] = useState([]);
   const [laeuft, setLaeuft] = useState(false);
@@ -161,7 +165,7 @@ export default function HilfeFrage({ variante = "voll", onOeffnen, copyPrompt, o
     try {
       const antwort = await postJson("/api/hilfe/frage", { frage, vorherige: vorigeFrage(verlauf), mit_ki: true });   // ob eine Kurzantwort entsteht, entscheidet der Server (Schalter, lokale KI)
       zaehler.current += 1;
-      const eintrag = { id: zaehler.current, frage: antwort.frage || frage, antwort, kiStand: null };
+      const eintrag = { id: zaehler.current, frage: antwort.frage || frage, antwort, kiStand: null, zeit: Date.now() };
       setVerlauf((v) => verlaufMit(v, eintrag));
       setEingabe("");
       if (kiOffen(antwort.ki, null)) kiPollen(eintrag.id, antwort.ki.job);
@@ -172,18 +176,14 @@ export default function HilfeFrage({ variante = "voll", onOeffnen, copyPrompt, o
     }
   }
 
-  const neueste = [...verlauf].reverse();
+  return { eingabe, setEingabe, verlauf, laeuft, fragen };
+}
+
+/** Das Feld zum Fragen. In der vollen Fassung (Dialog) stehen darunter Beispielfragen, solange noch nichts gefragt wurde. */
+export function HilfeEingabe({ hilfe, kompakt = false }) {
+  const { eingabe, setEingabe, verlauf, laeuft, fragen } = hilfe;
   return (
-    <div className={kompakt ? "space-y-2" : "space-y-3"} data-hilfe-frage={variante}>
-      {!kompakt && (
-        <div className="text-sm text-muted">
-          <p>
-            Stell eine Frage zur Bedienung von PBP. Ich suche in der Hilfe, den häufigen Fragen, dem Wiki und den Prompts für Claude und
-            zeige dir, wo es steht.
-          </p>
-          <p className="mt-1 text-[12px]">Deine Frage wird nicht gespeichert.</p>
-        </div>
-      )}
+    <>
       <form onSubmit={fragen} className="flex items-center gap-1.5">
         <input
           type="text"
@@ -220,11 +220,38 @@ export default function HilfeFrage({ variante = "voll", onOeffnen, copyPrompt, o
           </div>
         </div>
       )}
-      <div className={kompakt ? "max-h-[38vh] space-y-3 overflow-y-auto pr-1" : "space-y-4"} aria-live="polite" data-hilfe-verlauf>
-        {neueste.map((e) => (
-          <Antwort key={e.id} eintrag={e} kompakt={kompakt} onOeffnen={onOeffnen} copyPrompt={copyPrompt} />
-        ))}
+    </>
+  );
+}
+
+/**
+ * Die Antworten im Hilfe-Dialog, die neueste oben, unter dem Feld. Ohne eigenen Scroller (#1254): im Dialog scrollt der Dialog. Der Rahmen ist
+ * immer da, damit Hilfsmittel eine neue Antwort melden. (Die Seitenleiste zeigt die Antworten nicht hier, sondern in Elwosas Strom.)
+ */
+export function HilfeVerlauf({ verlauf, onOeffnen, copyPrompt }) {
+  return (
+    <div className="space-y-4" aria-live="polite" data-hilfe-verlauf>
+      {[...verlauf].reverse().map((e) => (
+        <HilfeAntwort key={e.id} eintrag={e} onOeffnen={onOeffnen} copyPrompt={copyPrompt} />
+      ))}
+    </div>
+  );
+}
+
+/** Der Reiter "Frag mich" im Hilfe-Dialog: Feld, Beispielfragen und Antworten untereinander; der Dialog scrollt, nicht die Antworten. */
+export default function HilfeFrage({ onOeffnen, copyPrompt, onToast }) {
+  const hilfe = useHilfeFrage({ onToast });
+  return (
+    <div className="space-y-3" data-hilfe-frage="voll">
+      <div className="text-sm text-muted">
+        <p>
+          Stell eine Frage zur Bedienung von PBP. Ich suche in der Hilfe, den häufigen Fragen, dem Wiki und den Prompts für Claude und
+          zeige dir, wo es steht.
+        </p>
+        <p className="mt-1 text-[12px]">Deine Frage wird nicht gespeichert.</p>
       </div>
+      <HilfeEingabe hilfe={hilfe} />
+      <HilfeVerlauf verlauf={hilfe.verlauf} onOeffnen={onOeffnen} copyPrompt={copyPrompt} />
     </div>
   );
 }

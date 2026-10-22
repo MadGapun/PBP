@@ -2038,7 +2038,6 @@ export default function App() {
 
             {helpTab === "fragen" && (
               <HilfeFrage
-                variante="voll"
                 copyPrompt={copyPrompt}
                 onToast={pushToast}
                 onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}
