@@ -87,12 +87,21 @@ def _stelle(db, kennung, titel, firma, grund=None, **extra):
 
 
 @pytest.mark.parametrize("grund", [
-    "falsches_fachgebiet", "falsches_system", "falsche_branche",
-    "zu_junior", "zu_senior", "kein_hochschulabschluss",
-    "unpassendes_arbeitsmodell", "zeitarbeit", "befristet",
+    "falsches_fachgebiet", "falsche_branche",
 ])
 def test_1020_art_der_stelle_wandert(grund):
+    """Seit #1250 nur noch Fachgebiet und Branche: Vertrag, System, Stufe,
+    Abschluss und Arbeitsmodell stehen in der einzelnen Anzeige (eine
+    unbefristete Stelle wurde `befristet` ueber das Titelwort "data")."""
     assert grund in sa.UEBERTRAGBARE_GRUENDE
+
+
+@pytest.mark.parametrize("grund", [
+    "falsches_system", "zu_junior", "zu_senior", "kein_hochschulabschluss",
+    "unpassendes_arbeitsmodell", "zeitarbeit", "befristet",
+])
+def test_1250_anzeigenbezogene_gruende_wandern_nicht_mehr(grund):
+    assert grund not in sa.UEBERTRAGBARE_GRUENDE
 
 
 @pytest.mark.parametrize("grund", [
@@ -107,16 +116,11 @@ def test_1020_eigenschaften_der_einzelnen_anzeige_wandern_nicht(grund):
 
 
 def test_1020_die_menge_deckt_sich_mit_der_regel_an_den_anderen_orten():
-    """Die drei Fassungen sollen dasselbe sagen.
-
-    `_TEXTABHAENGIGE_GRUENDE` ist bewusst enger (dort geht es um
-    Urteile, die NUR aus dem Anzeigentext hervorgehen), aber es darf
-    kein Grund dort stehen, der hier fehlt.
-    """
-    from bewerbungs_assistent.services.wiedergaenger import (
-        _TEXTABHAENGIGE_GRUENDE)
-
-    assert _TEXTABHAENGIGE_GRUENDE <= sa.UEBERTRAGBARE_GRUENDE
+    """Seit #1250 ist die firmenuebergreifende Menge die ENGSTE: kein Grund,
+    der hier wandert, darf in Stufe 1 (dieselbe Firma) fehlen, und nichts
+    wandert, was nicht auch an der Art der Stelle haengt."""
+    assert sa.UEBERTRAGBARE_GRUENDE <= sa.AUTOMATIK_GRUENDE
+    assert "falsches_fachgebiet" in sa.UEBERTRAGBARE_GRUENDE
 
 
 def test_1020_titel_muster_uebertraegt_entfernung_nicht(db):

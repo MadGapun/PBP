@@ -31,7 +31,9 @@ from __future__ import annotations
 from typing import Optional
 
 from .ablehnungsgruende import ist_konform
+from .datenguete import hat_beschreibung
 from .wiedergaenger import (
+    _TEXTABHAENGIGE_GRUENDE,
     _domain_tokens,
     _reasons_of,
     find_wiedergaenger_pattern,
@@ -69,8 +71,9 @@ AUTOMATIK_GRUENDE = frozenset({
 # von 20 km, und die Zahl stand in derselben Datenbankzeile wie das
 # Urteil.
 #
-# **Dieselbe Regel steht im Projekt schon zweimal richtig**, und der
-# Aussortier-Pfad ist an beiden vorbeigelaufen:
+# Damals (v1.7.80) stand die Regel im Projekt schon zweimal, und der
+# Aussortier-Pfad ist an beiden vorbeigelaufen (seit #1250 ist diese Menge
+# ENGER als beide, siehe unten):
 #
 #   wiedergaenger.py       `FACHLICHE_KO_GRUENDE` (seit #1234 dort, vorher
 #                          lokal in tools/jobs.py) — "Gehalt/Entfernung
@@ -92,13 +95,23 @@ AUTOMATIK_GRUENDE = frozenset({
 # In Stufe 1 (GLEICHE Firma) bleiben alle drei erlaubt — dort ist der
 # Bezug gegeben: derselbe Arbeitgeber am selben Ort ist beim naechsten
 # Mal wieder gleich weit weg.
+#
+# #1250 (19.10.2026): auch die uebrigen Gruende ausser Fachgebiet und
+# Branche sind Eigenschaften der EINZELNEN Anzeige und wandern nicht ueber
+# ein gemeinsames Titelwort. Belegt: eine unbefristete Anzeige ("Ab sofort,
+# in Vollzeit") wurde `befristet`, weil 13 andere Stellen mit dem Titelwort
+# "data" befristet waren; eine Stelle im SAP-Umfeld wurde `falsches_system`
+# ueber das Wort "mdm" - ohne dass ihr Anzeigentext geladen war. Vertrag
+# (`befristet`, `zeitarbeit`), System, Stufe (`zu_junior`, `zu_senior`),
+# Abschluss und Arbeitsmodell stehen in der Anzeige, nicht im Berufsbild.
+# Die Vorgabe des Issues: firmenuebergreifend vererben nur
+# `falsches_fachgebiet` und `falsche_branche`.
+#
+# `automatik_uebertragungen_pruefen` liest diese Menge: Aussortierungen
+# "nach Fachgebiet" auf einem anderen Grund findet es als
+# `grund_nicht_uebertragbar` und holt sie auf Wunsch zurueck.
 UEBERTRAGBARE_GRUENDE = frozenset({
-    # Aussagen ueber die ART der Stelle.
-    "falsches_fachgebiet", "falsches_system", "falsche_branche",
-    "zu_junior", "zu_senior", "kein_hochschulabschluss",
-    "unpassendes_arbeitsmodell",
-    # Erkennbar an Firma und Titel, also ebenfalls uebertragbar.
-    "zeitarbeit", "befristet",
+    "falsches_fachgebiet", "falsche_branche",
 })
 
 #: Gruende, gegen die ein gemessenes Feld ANTRITT. Liegt die Zahl vor
@@ -378,6 +391,30 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
     return ""
 
 
+#: Hinweis fuer eine Stelle, die einem Muster gleicht, aber ohne
+#: Anzeigentext gekommen ist (#1250).
+OHNE_TEXT_HINWEIS = (
+    "Gleicht früher aussortierten Stellen ({grund}), aber der Anzeigentext "
+    "fehlt — ohne Text kein Urteil. Erst den Text nachladen, dann entscheiden.")
+
+
+def _ohne_text(job: dict, muster: dict, grund: str) -> dict:
+    """#1250: ohne Anzeigentext sortiert die Automatik nicht aus.
+
+    Ein Muster aus Titelwoertern ist ein Verdacht, kein Urteil - dieselbe
+    Regel wie bei der lokalen KI (#756) und der Fit-Analyse (#180),
+    gefragt ueber `datenguete.hat_beschreibung`. Belegt: eine Stelle mit
+    0 Zeichen wurde ueber das Titelwort "mdm" `falsches_system`; nach dem
+    Nachladen (5.252 Zeichen, SAP-Umfeld) stieg der Score von 26 auf 58.
+    Die Stelle wird angelegt; der Wiedergaenger-Hinweis der Trefferliste
+    (#671) zeigt das Muster weiter an.
+    """
+    return {"aktion": "anlegen", "grund": "", "beleg": "",
+            "verdacht_ohne_text": grund,
+            "hinweis": OHNE_TEXT_HINWEIS.format(grund=grund),
+            "muster": muster}
+
+
 def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
                bekannte_schluessel: Optional[set] = None,
                ist_repost: bool = False) -> dict:
@@ -443,6 +480,12 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         # wieder gleich weit weg. Hat sich die Zahl aber geaendert,
         # steht sie in derselben Zeile wie das Urteil.
         _widerspruch = _zahl_widerspricht(db, job, grund)
+        # #1250: in Stufe 1 (dieselbe Firma) braucht nur ein Grund, den
+        # allein der Anzeigentext belegt, den Text. Entfernung, Gehalt,
+        # Vertrag und Firma haengen am Arbeitgeber und am Ort (#1020, #1036).
+        if (not _widerspruch and grund in _TEXTABHAENGIGE_GRUENDE
+                and not hat_beschreibung(job)):
+            return _ohne_text(job, muster, grund)
         if not _widerspruch:
             return {
                 "aktion": "aussortieren",
@@ -468,6 +511,8 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         if _widerspruch:
             return {"aktion": "anlegen", "grund": "", "beleg": "",
                     "hinweis": _widerspruch}
+        if not hat_beschreibung(job):
+            return _ohne_text(job, titel_muster, grund)
         return {
             "aktion": "aussortieren",
             "grund": grund,
@@ -518,10 +563,20 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
     kanon = firmen_kanon(db) if bewerbungen else None
 
     behalten: list = []
-    zaehler = {"automatisch_aussortiert": 0, "ignoriert": 0}
+    zaehler = {"automatisch_aussortiert": 0, "ignoriert": 0,
+               "wiedergaenger_ohne_text": 0}
     belege: list = []
 
     for job in jobs:
+        # #1250: eine Stelle, die schon im Bestand liegt, entscheidet diese
+        # Automatik nicht neu. `save_jobs` uebernimmt `is_active=0` ohnehin
+        # nur fuer NEUE Stellen (#941) - ohne diese Zeilen zaehlte die
+        # Abschlussmeldung eine Aussortierung, die nie geschah. Im Suchlauf
+        # entfernt `_post_search_cleanup` vorhandene aktive Stellen schon
+        # vorher; die Zeilen sichern jeden anderen Aufrufer ab.
+        if job.get("hash") and db.get_job(job["hash"]):
+            behalten.append(job)
+            continue
         # v1.7.143 (#1126): `_repost_verdacht` wurde hier gelesen und
         # nirgends gesetzt (L11) - die Automatik kannte eine Wiederholung
         # nur bei gleichem Hash. Der Setter ist dieselbe Funktion wie im
@@ -540,6 +595,8 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
         if e["aktion"] == "ignorieren":
             zaehler["ignoriert"] += 1
             continue
+        if e.get("verdacht_ohne_text"):
+            zaehler["wiedergaenger_ohne_text"] += 1
         if e["aktion"] == "aussortieren":
             job["is_active"] = 0
             # #913: das Lern-Feld bekommt NUR Vokabular, der Freitext

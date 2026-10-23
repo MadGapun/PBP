@@ -121,9 +121,12 @@ def test_941_titel_muster_greift_firmenuebergreifend(tmp_db):
     assert muster["anzahl"] >= 3
     assert muster["top_grund"] == "falsche_branche"
 
+    # #1250: ohne Anzeigentext ist ein Titel-Muster nur ein Verdacht.
+    text = "Aufgaben und Anforderungen der Stelle, ausfuehrlich beschrieben. " * 2
     e = automatik.entscheide(tmp_db, {"hash": "w941l",
                                       "title": "CRM Manager (m/w/d) HubSpot",
-                                      "company": "Ganz Andere GmbH"})
+                                      "company": "Ganz Andere GmbH",
+                                      "description": text})
     assert e["aktion"] == "aussortieren", e
 
 
