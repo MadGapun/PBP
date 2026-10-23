@@ -84,6 +84,7 @@ Hotfix für v1.7.158. Sechs Befunde. Drei hängen an der Frage, was PBP aus sein
 
 ### Known Issues
 
+- **Die Automatik nach der Jobsuche kann Stellen aussortieren, die du behalten wolltest** (#1250, nicht Teil dieser Änderung): Eine von dir zurückgeholte Stelle oder eine mit gespeichertem Urteil schützt die KI-Aussortierung bisher nicht, und die Wiedergänger-Regel überträgt „befristet“ und „zeitarbeit“ über ein gemeinsames Titelwort. Im Aussortier-Protokoll (`aussortier_protokoll`) siehst du, was die Automatik weggenommen hat; `stelle_reaktivieren` holt eine Stelle zurück. Die Korrektur ist für 1.8.0 vorgesehen.
 - **Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft** (#1235): je Lauf höchstens 40 Orte ohne PLZ, mit einer Anfrage je Sekunde an den Kartendienst. Ein Suchlauf kann dadurch bis zu etwa eine Minute länger dauern, bis der Bestand durch ist. Bis ein Ort an der Reihe war, steht an seinen Stellen noch die alte Zahl.
 - **`setup_gui.py` ersetzt eine kaputte (nicht lesbare) Konfiguration weiter ohne Sicherungskopie** (#1238, nicht Teil dieser Änderung); `_setup_claude.py` legt seit v1.7.145 eine `.pbp-defekt-…`-Kopie daneben.
 - **Das Setup mit Fenster (`installer/setup_gui.py`) und das Entwicklerwerkzeug `switch_mode.py` kennen weiter nur den Standardpfad der Claude-Konfiguration** (#1245, nicht Teil dieser Änderung); der Weg über `INSTALLIEREN.bat` kennt den neuen Ordner.
