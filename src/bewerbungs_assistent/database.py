@@ -624,7 +624,12 @@ class Database:
                                   # Suchkriterien, services/wahrheit.py).
                                   ("entfernung_am", "TEXT"),
                                   ("score_am", "TEXT"),
-                                  ("score_stand", "TEXT")):
+                                  ("score_stand", "TEXT"),
+                                  # #1250: wann der MENSCH die Stelle
+                                  # zurueckgeholt hat. Danach sortiert
+                                  # keine Automatik sie wieder aus
+                                  # (services/aussortier_schutz.py).
+                                  ("zurueckgeholt_am", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -5665,6 +5670,9 @@ class Database:
         # v1.7.140 (#954): Erhebungszeitpunkte und Score-Grundlage. Ein
         # Lauf, der den Wert nicht neu erhebt, laesst sie stehen.
         "entfernung_am", "score_am", "score_stand",
+        # #1250: das Zurueckholen durch den Menschen. Ohne diesen Eintrag
+        # loeschte der naechste Suchlauf den Schutz vor der Automatik.
+        "zurueckgeholt_am",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5718,6 +5726,9 @@ class Database:
         # Methodennamen nachgeschlagen, nicht geraten (v1.7.67 MERKE 4).
         _art_kriterien = self.get_search_criteria() or {}
         leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
+        # #1250: Original -> Anzeigentext einer Dublette, wenn dem Original
+        # der Text fehlt. Geschrieben NACH dem Lauf (eigener Weg mit Score).
+        text_uebergaben: dict[str, str] = {}
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
         # #951: die aktiven Stellen EINMAL laden statt je neuer Stelle.
@@ -5783,6 +5794,9 @@ class Database:
                     duplikate += 1
                     wiederfunde_aufgeloest += 1
                     continue
+            # #1250: der Text, auf dem der Score DIESES Laufs beruht - auch
+            # wenn unten ein vorhandener Text die Zeile behaelt (#954-Stempel).
+            _text_des_laufs = job.get("description")
             # #892: die Spalten, die ein REPLACE sonst auf NULL setzt.
             # Gelesen VOR dem Schreiben, zurueckgeschrieben danach.
             bewahrt = {}
@@ -5807,6 +5821,21 @@ class Database:
                 # Lauf gehalten — also so lange, dass man sie fuer
                 # dauerhaft haelt, und kurz genug, dass sie unbemerkt
                 # verschwindet.
+                # #1250: ein Lauf OHNE Anzeigentext loescht keinen vorhandenen.
+                # `description` steht in der INSERT-Liste; kam dieselbe Stelle
+                # ueber einen Weg ohne Text (Plugin, Mail, Browser) erneut,
+                # stand danach eine leere Beschreibung da - nachgeladen oder
+                # von einer Dublette uebernommen war dann wieder weg.
+                from .services.datenguete import hat_beschreibung as _hat_text_alt
+                if not _hat_text_alt(job):
+                    try:
+                        _d = conn.execute(
+                            "SELECT description FROM jobs WHERE hash=?",
+                            (stored_hash,)).fetchone()
+                        if _d and _hat_text_alt({"description": _d[0]}):
+                            job["description"] = _d[0]
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Vorhandener Text (#1250): %s", _exc)
                 if bewahrt.get("salary_quelle") == "mensch":
                     try:
                         _geh = conn.execute(
@@ -5941,6 +5970,24 @@ class Database:
                     duplikat_notiz = (
                         f"[Auto-Aussortierung] Duplikat von {pub_orig} "
                         f"({treffer['text']}). Beim Ingest erkannt.")
+                    # #1250: es bleibt GENAU EINE Kopie aktiv - und sie soll
+                    # die mit dem Volltext sein. Das Original behaelt Kennung,
+                    # Urteil und Bewerbung; fehlt ihm der Text und bringt die
+                    # neue Kopie einen, uebernimmt es ihn (nach dem Lauf, ueber
+                    # `nachladen.text_uebernehmen`, samt Neubewertung). Bis
+                    # hierher blieb die Titel-Kopie aktiv und der Volltext lag
+                    # in der aussortierten Zeile.
+                    from .services.datenguete import hat_beschreibung as _hat_text
+                    if (_hat_text(job)
+                            and original_hash not in text_uebergaben):
+                        _orig_text = conn.execute(
+                            "SELECT description FROM jobs WHERE hash=?",
+                            (original_hash,)).fetchone()
+                        if not _hat_text({"description": _orig_text[0]
+                                          if _orig_text else ""}):
+                            text_uebergaben[original_hash] = job.get("description")
+                            duplikat_notiz += (
+                                " Der Anzeigentext ging an das Original.")
                     duplikate += 1
                     # Die neue Fundstelle haengt am ORIGINAL — das ist der
                     # eigentliche Gewinn des Issues.
@@ -6165,7 +6212,7 @@ class Database:
                 if _score_dieses_laufs:
                     _stempel["score_am"] = now
                     _stempel["score_stand"] = _wahrheit.score_stand(
-                        job.get("description"), _kriterien_fuer_stand)
+                        _text_des_laufs, _kriterien_fuer_stand)
                 if _stempel:
                     _setz = ", ".join(f"{k}=?" for k in _stempel)
                     conn.execute(f"UPDATE jobs SET {_setz} WHERE hash=?",
@@ -6196,6 +6243,12 @@ class Database:
             # haette ihn deshalb als Recherche gewertet und in die Liste
             # des Menschen gelegt (gemessen: 9 von 107 Altzeilen).
             _notiz = job.get("dismiss_note") or duplikat_notiz
+            # #1250: hat die Dubletten-Erkennung den Grund gesetzt, gehoert
+            # ihre Notiz dazu - nicht die einer Automatik, die dieselbe Stelle
+            # vorher aussortiert hatte (gemessen: Grund `duplikat` mit der
+            # Notiz "Wiedergaenger nach Fachgebiet ... befristet").
+            if dismiss_reason == "duplikat" and duplikat_notiz:
+                _notiz = duplikat_notiz
             if is_new and _notiz:
                 try:
                     conn.execute("UPDATE jobs SET dismiss_note=? WHERE hash=?",
@@ -6216,6 +6269,26 @@ class Database:
                     "url": job.get("url"),
                 })
         conn.commit()
+        # #1250: die behaltene Kopie bekommt den Volltext ihrer Dublette.
+        # Derselbe Weg wie das Nachladen (Text, Snapshot, Gehalt, Score).
+        texte_uebergeben = 0
+        if text_uebergaben:
+            from .services import nachladen as _nachladen
+            for _orig, _text in text_uebergaben.items():
+                try:
+                    # `get_job` sucht im aktiven Profil; liegt das Original
+                    # in einem anderen, schreibt der Weg nichts - dann wird
+                    # auch nichts gezaehlt.
+                    if not self.get_job(_orig):
+                        continue
+                    # kopf=None: eine SICHERE Dublette hat dieselbe Firma,
+                    # und der Ort wird nicht aus einer fremden Zeile geraten.
+                    _nachladen.text_uebernehmen(self, _orig, _text,
+                                                herkunft="dublette", kopf=None)
+                    texte_uebergeben += 1
+                except Exception as _exc:  # pragma: no cover - nie den Lauf stoppen
+                    logger.warning("Text der Dublette nicht uebernommen (%s): %s",
+                                   _orig, _exc)
         result = {
             "new_per_source": new_per_source,
             "total": len(jobs),
@@ -6224,6 +6297,8 @@ class Database:
             "ausland_erkannt": ausland_erkannt,
             "stellenart_erkannt": stellenart_erkannt,
         }
+        if texte_uebergeben:
+            result["texte_von_dubletten"] = texte_uebergeben
         if leere_url_quellen:
             # #645: sichtbar machen, damit job_runner / scraper_health das
             # an scraper_diagnose weiterreichen koennen.
@@ -6506,6 +6581,21 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return False  # #1095: der Aufrufer soll wissen, dass nichts geschah
+        # #1250: eine Automatik sortiert keine Stelle aus, die der Mensch
+        # zurueckgeholt hat oder zu der ein gelesenes Urteil EMPFOHLEN/BEDINGT
+        # vorliegt. Die Aufrufer fragen die Regel vorher; hier ist der
+        # doppelte Boden fuer jeden Weg, der das vergisst.
+        if herkunft == "automatik":
+            from .services import aussortier_schutz
+            _zeile = conn.execute(
+                "SELECT analyse_urteil, zurueckgeholt_am FROM jobs WHERE hash=?",
+                (target_hash,)).fetchone()
+            _gesperrt = aussortier_schutz.automatik_gesperrt(
+                dict(_zeile) if _zeile else None, reason)
+            if _gesperrt:
+                logger.info("Automatik darf %s nicht aussortieren (%s, #1250)",
+                            target_hash, _gesperrt)
+                return False
         # v1.7.17 (#913): SCHREIBSCHUTZ — dies ist die eine Stelle, durch
         # die alle dismiss_reason-Writes laufen. Werte ausserhalb der
         # Whitelist werden normalisiert, Freitext wandert nach
@@ -6550,10 +6640,28 @@ class Database:
                 "dismissed_at=?, dismissed_by=?, updated_at=? WHERE hash=?",
                 (reason, jetzt, wer, jetzt, target_hash)
             )
+        # #1250: sortiert der Mensch selbst aus, ist sein letztes Wort das
+        # Aussortieren - ein frueheres Zurueckholen schuetzt dann nicht mehr
+        # (sonst lebte der Schutz nach einer Reparatur wieder auf).
+        if wer == "ich":
+            conn.execute("UPDATE jobs SET zurueckgeholt_am=NULL WHERE hash=?",
+                         (target_hash,))
         conn.commit()
         return cur.rowcount > 0
 
-    def restore_job(self, job_hash: str) -> bool:
+    def restore_job(self, job_hash: str, durch_mensch: bool = True) -> bool:
+        """Holt eine Stelle zurueck.
+
+        #1250: `durch_mensch=True` (Vorgabe: Dashboard, `stelle_reaktivieren`,
+        "passt") haelt den Zeitpunkt in
+        `zurueckgeholt_am` fest - danach sortiert keine Automatik die Stelle
+        wieder aus. Bis hierher loeschte das Zurueckholen jede Spur, und die
+        lokale KI nahm die Stelle beim naechsten Lauf erneut weg. Eine
+        REPARATUR, die Fehlurteile der Automatik zuruecknimmt
+        (`automatik_uebertragungen_pruefen`) und das Zuruecknehmen eines
+        Statuswechsels (`status_rueckweg`) sind kein Wort des Menschen
+        ueber diese Stelle und geben `False`.
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
@@ -6562,10 +6670,13 @@ class Database:
         # zurueckgeholte Stelle ist nicht aussortiert — ein Datum, das
         # stehenbliebe, wuerde sie im Protokoll weiter fuehren.
         # #1095: auch die Notiz der Aussortierung faellt mit.
+        jetzt = _now()
         cur = conn.execute(
             "UPDATE jobs SET is_active=1, dismiss_reason=NULL, dismiss_note=NULL, "
-            "dismissed_at=NULL, dismissed_by=NULL, updated_at=? WHERE hash=?",
-            (_now(), target_hash)
+            "dismissed_at=NULL, dismissed_by=NULL, updated_at=?, "
+            "zurueckgeholt_am=CASE WHEN ? THEN ? ELSE zurueckgeholt_am END "
+            "WHERE hash=?",
+            (jetzt, 1 if durch_mensch else 0, jetzt, target_hash)
         )
         conn.commit()
         return cur.rowcount > 0

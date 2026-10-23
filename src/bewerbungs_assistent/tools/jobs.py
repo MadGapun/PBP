@@ -1007,10 +1007,20 @@ def register(mcp, db, logger):
 
         # Auto-Aussortieren nur bei explizitem Flag + vorhandenem Hash
         if auto_aussortieren and resolved_hash:
+            from ..services import aussortier_schutz as _schutz
+            _gesperrt = _schutz.automatik_gesperrt(
+                db.get_job(resolved_hash), "wiedergaenger")
             try:
-                db.dismiss_job(resolved_hash,
-                               f"wiedergaenger:{pattern['top_grund']}",
-                               herkunft="automatik")
+                # #1250: Rueckgabewert auswerten - eine zurueckgeholte oder
+                # empfohlene Stelle sortiert die Automatik nicht aus.
+                if _gesperrt or not db.dismiss_job(
+                        resolved_hash,
+                        f"wiedergaenger:{pattern['top_grund']}",
+                        herkunft="automatik"):
+                    result["aktion"] = "geschuetzt" if _gesperrt else "nicht_aussortiert"
+                    if _gesperrt:
+                        result["schutz"] = _schutz.KLARTEXT[_gesperrt]
+                    return result
                 result["aktion"] = "auto_aussortiert"
                 result["dismiss_reason"] = f"wiedergaenger:{pattern['top_grund']}"
             except Exception as exc:  # noqa: BLE001
@@ -6945,8 +6955,9 @@ def register(mcp, db, logger):
         if not dry_run:
             for e in betroffen:
                 voll = db.resolve_job_hash(e["job_hash"])
-                if voll:
-                    db.restore_job(voll)
+                # #1250: eine Reparatur ist kein Wort des Menschen ueber
+                # diese Stelle - sie setzt keinen Schutz vor der Automatik.
+                if voll and db.restore_job(voll, durch_mensch=False):
                     zurueckgeholt += 1
 
         mit_zahl = sum(1 for e in betroffen if e["widerspruch"])

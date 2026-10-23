@@ -19,10 +19,35 @@ Schalter steht unter Einstellungen › Automatik, Vorgabe AUS.
 from __future__ import annotations
 
 import logging
+import re
 
 logger = logging.getLogger("bewerbungs_assistent.auto_aussortierung")
 
 SCHALTER = "auto_dismiss_after_search"
+
+#: Eine KI-Begruendung, die eine Dublette behauptet (#1250). Beide
+#: Schreibweisen, mit und ohne Umlaut-/Tippvarianten ("Dublikat").
+_DUBLETTEN_WORT = re.compile(r"du[bp]li[kc]at|dublette|doppelt ausgeschrieben",
+                             re.IGNORECASE)
+
+
+def _geschuetzt_details(geschuetzt: list) -> dict:
+    """Die Stellen, die der Schutz aus #1250 der KI nicht vorgelegt hat."""
+    if not geschuetzt:
+        return {}
+    from . import aussortier_schutz
+    return {
+        "uebersprungen_geschuetzt": len(geschuetzt),
+        "geschuetzt_details": [
+            {"hash": j["hash"], "title": j.get("title"),
+             "company": j.get("company"),
+             "schutz": aussortier_schutz.schutz(j)}
+            for j in geschuetzt[:10]],
+        "geschuetzt_hinweis": (
+            f"{len(geschuetzt)} Stelle(n) hat die KI nicht beurteilt: du "
+            "hast sie zurückgeholt, oder es liegt ein gelesenes Urteil "
+            "(empfohlen oder bedingt) vor. Die Automatik sortiert sie nicht aus."),
+    }
 
 
 def schalter_an(db) -> bool:
@@ -134,18 +159,21 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
         if not j.get("dismiss_reason")
         and (j.get("score") or 0) >= min_score
     ]
+    # #1250: eine vom Menschen zurueckgeholte Stelle und eine mit gelesenem
+    # Urteil EMPFOHLEN/BEDINGT bekommt die KI gar nicht erst vorgelegt.
+    # Bis hierher fragte der Filter nur `dismiss_reason` - den loescht das
+    # Zurueckholen, und die Stelle war beim naechsten Lauf wieder weg.
+    from . import aussortier_schutz
+    geschuetzt = [j for j in candidates if aussortier_schutz.schutz(j)]
+    candidates = [j for j in candidates if not aussortier_schutz.schutz(j)]
     # v1.7.7 (#756): Beschreibung-zuerst — ohne Stellentext gibt es kein
     # fachliches Urteil. Die lokale KI wuerde sonst auf Titel+Firma raten
     # (Praxis-Fund 13.07.: passende Stellen flogen mangels Beschreibung
-    # raus). Schwelle 50 Zeichen, konsistent mit fit_analyse (#180).
-    ohne_beschreibung = [
-        j for j in candidates
-        if len((j.get("description") or "").strip()) < 50
-    ]
-    candidates = [
-        j for j in candidates
-        if len((j.get("description") or "").strip()) >= 50
-    ]
+    # raus). Schwelle aus `datenguete.hat_beschreibung` (50 Zeichen, wie
+    # fit_analyse, #180) - dieselbe Frage wie in der Wiedergaenger-Automatik.
+    from .datenguete import hat_beschreibung
+    ohne_beschreibung = [j for j in candidates if not hat_beschreibung(j)]
+    candidates = [j for j in candidates if hat_beschreibung(j)]
     candidates.sort(key=lambda j: -(j.get("score") or 0))
     candidates = candidates[:max_stellen]
     uebersprungen_details = [
@@ -193,10 +221,12 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                     "Erst stellenbeschreibung_nachladen(hash) für die "
                     "übersprungenen Stellen, dann erneut aufrufen."
                 ),
+                **_geschuetzt_details(geschuetzt),
             )
         return _err(
             "Keine ungerateten Stellen oberhalb min_score.",
             status="leer",
+            **_geschuetzt_details(geschuetzt),
         )
 
     passt_nicht_results = []
@@ -250,14 +280,26 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                 "score": job.get("score"),
                 "reason": reason,
             }
-            if decision == "PASST_NICHT":
+            if decision == "PASST_NICHT" and _DUBLETTEN_WORT.search(reason):
+                # #1250: ob zwei Anzeigen dieselbe sind, entscheidet die
+                # Dubletten-Erkennung beim Speichern (`stellen_dublette`),
+                # nicht die KI. Belegt: die Kopie mit Volltext und Urteil
+                # EMPFOHLEN fiel mit der Begruendung "Grund: duplikat" - die
+                # KI sprach den Grund einer Kopie aus ihren Beispielen nach
+                # (die Beispiele sind seit #1239 bereinigt; das hier ist der
+                # doppelte Boden). Ein solches Urteil gilt als unsicher.
+                entry["reason"] = (f"{reason} — kein fachliches Urteil "
+                                   "(Dubletten erkennt PBP selbst), "
+                                   "nicht aussortiert.")
+                unsicher_results.append(entry)
+            elif decision == "PASST_NICHT":
                 if not dry_run:
                     # v1.7.70 (#956): der Vermerk gehoert nach
                     # `dismiss_note`, nicht in den Firmen-Recherche-
                     # Notizblock. Gemessen: 30 der 143 gefuellten
                     # Spalten trugen genau dieses Protokoll.
                     try:
-                        db.dismiss_job(
+                        geschrieben = db.dismiss_job(
                             job["hash"], reason="profil_match_negativ",
                             notiz=f"[Auto-Aussortierung] {reason}",
                             # #1092: das Urteil ist das der lokalen KI,
@@ -268,6 +310,16 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
                         errors.append({
                             "hash": job["hash"], "error": str(exc)[:200],
                         })
+                        continue
+                    if not geschrieben:
+                        # #1250: Rueckgabewert auswerten (L11). Abgewiesen
+                        # hat das Nadeloehr - z. B. weil der Mensch die
+                        # Stelle zwischenzeitlich zurueckgeholt hat. Dann
+                        # ist sie NICHT aussortiert und wird nicht so gemeldet.
+                        entry["reason"] = (f"{reason} — nicht aussortiert: "
+                                           "die Stelle ist geschützt.")
+                        unsicher_results.append(entry)
+                        continue
                 passt_nicht_results.append(entry)
             elif decision == "PASST":
                 passt_results.append(entry)
@@ -313,6 +365,7 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
             "bearbeiten (idempotent — bereits aussortierte werden "
             "uebersprungen)."
         )
+    result_payload.update(_geschuetzt_details(geschuetzt))
     if ohne_beschreibung:
         result_payload["uebersprungen_ohne_beschreibung"] = len(ohne_beschreibung)
         result_payload["uebersprungen_details"] = uebersprungen_details

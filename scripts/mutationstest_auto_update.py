@@ -3008,6 +3008,106 @@ M_URTEILE_MENSCH = [
 KATALOGE["urteile1239"] = M_URTEILE_MENSCH
 GRUNDLAEUFE["urteile1239"] = (("T_UM", T_UM),)
 
+# ── #1250: die Automatik schont zurueckgeholte und beurteilte Stellen ──
+T_AS = ["tests/test_v18_automatik_schont_urteile_1250.py"]
+AS_S = "src/bewerbungs_assistent/services/aussortier_schutz.py"
+AS_DB = "src/bewerbungs_assistent/database.py"
+AS_AA = "src/bewerbungs_assistent/services/auto_aussortierung.py"
+AS_SA = "src/bewerbungs_assistent/services/stellen_automatik.py"
+AS_JS = "src/bewerbungs_assistent/job_scraper/__init__.py"
+AS_TJ = "src/bewerbungs_assistent/tools/jobs.py"
+M_AUTOMATIK_SCHUTZ = [
+    # die Regel
+    ("as01", "Das Zurueckholen schuetzt nicht mehr", AS_S,
+     '    if job.get("zurueckgeholt_am"):\n        return ZURUECKGEHOLT\n', '    if False:\n        return ZURUECKGEHOLT\n', T_AS),
+    ("as02", "Ein gelesenes Urteil schuetzt nicht mehr", AS_S,
+     "in GESCHUETZTE_URTEILE:\n        return URTEIL", "in ():\n        return URTEIL", T_AS),
+    ("as03", "BEDINGT schuetzt nicht", AS_S,
+     'GESCHUETZTE_URTEILE = frozenset({"EMPFOHLEN", "BEDINGT"})', 'GESCHUETZTE_URTEILE = frozenset({"EMPFOHLEN"})', T_AS),
+    ("as04", "Auch NICHT_EMPFOHLEN schuetzt", AS_S,
+     'GESCHUETZTE_URTEILE = frozenset({"EMPFOHLEN", "BEDINGT"})',
+     'GESCHUETZTE_URTEILE = frozenset({"EMPFOHLEN", "BEDINGT", "NICHT_EMPFOHLEN"})', T_AS),
+    ("as05", "Tatsachen (entfernte Anzeige, eigene Bewerbung) sind gesperrt", AS_S,
+     '    if _kern(grund) in TATSACHEN_GRUENDE:\n        return ""\n', '    if False:\n        return ""\n', T_AS),
+    ("as06", "Urteilsgruende gelten als Tatsache", AS_S,
+     'TATSACHEN_GRUENDE = frozenset({"veraltet_url", "bewerbung_erstellt"})',
+     'TATSACHEN_GRUENDE = frozenset({"veraltet_url", "bewerbung_erstellt", "profil_match_negativ", "falsches_fachgebiet", "wiedergaenger"})',
+     T_AS),
+    # das Nadeloehr
+    ("as07", "dismiss_job fragt die Regel fuer die Automatik nicht", AS_DB,
+     '        if herkunft == "automatik":\n            from .services import aussortier_schutz\n',
+     '        if False:\n            from .services import aussortier_schutz\n', T_AS),
+    ("as08", "dismiss_job liest die Antwort der Regel nicht", AS_DB,
+     '            if _gesperrt:\n                logger.info("Automatik darf', '            if False:\n                logger.info("Automatik darf', T_AS),
+    ("as09", "Das Zurueckholen setzt den Vermerk nicht", AS_DB,
+     "            (jetzt, 1 if durch_mensch else 0, jetzt, target_hash)\n", "            (jetzt, 0, jetzt, target_hash)\n", T_AS),
+    ("as10", "Auch eine Reparatur setzt den Vermerk", AS_DB,
+     "            (jetzt, 1 if durch_mensch else 0, jetzt, target_hash)\n", "            (jetzt, 1, jetzt, target_hash)\n", T_AS),
+    ("as11", "Der Mensch ist nicht die Vorgabe beim Zurueckholen", AS_DB,
+     "    def restore_job(self, job_hash: str, durch_mensch: bool = True) -> bool:",
+     "    def restore_job(self, job_hash: str, durch_mensch: bool = False) -> bool:", T_AS),
+    ("as12", "Der Suchlauf loescht den Vermerk (fehlt in _BEWAHREN)", AS_DB,
+     '        "zurueckgeholt_am",\n    )', '    )', T_AS),
+    # Dubletten: die behaltene Kopie bekommt den Volltext
+    ("as13", "Die Dublette gibt ihren Text nicht ab", AS_DB,
+     '                            text_uebergaben[original_hash] = job.get("description")\n', '                            pass\n', T_AS),
+    ("as14", "Die Dublette ueberschreibt auch einen vorhandenen Text", AS_DB,
+     '                        if not _hat_text({"description": _orig_text[0]', '                        if True or not _hat_text({"description": _orig_text[0]',
+     T_AS),
+    ("as30", "Eine Dublette traegt die Notiz der Automatik statt ihrer eigenen", AS_DB,
+     '            if dismiss_reason == "duplikat" and duplikat_notiz:\n                _notiz = duplikat_notiz\n',
+     '            if False:\n                _notiz = duplikat_notiz\n', T_AS),
+    ("as32", "Ein Lauf ohne Text loescht den vorhandenen Text", AS_DB,
+     '                        if _d and _hat_text_alt({"description": _d[0]}):\n',
+     '                        if False:\n', T_AS),
+    ("as33", "Eigenes Aussortieren laesst den Vermerk stehen", AS_DB,
+     '        if wer == "ich":\n            conn.execute("UPDATE jobs SET zurueckgeholt_am=NULL WHERE hash=?",\n',
+     '        if False:\n            conn.execute("UPDATE jobs SET zurueckgeholt_am=NULL WHERE hash=?",\n', T_AS),
+    ("as34", "Der Rueckweg eines Statuswechsels setzt den Vermerk", "src/bewerbungs_assistent/services/status_rueckweg.py",
+     '        db.restore_job(str(rueckweg["stelle_aussortiert"]), durch_mensch=False)\n',
+     '        db.restore_job(str(rueckweg["stelle_aussortiert"]))\n', T_AS),
+    # die lokale KI
+    ("as15", "Die KI bekommt geschuetzte Stellen vorgelegt", AS_AA,
+     "    candidates = [j for j in candidates if not aussortier_schutz.schutz(j)]\n", "    candidates = list(candidates)\n", T_AS),
+    ("as16", "Eine KI-Begruendung 'duplikat' sortiert aus", AS_AA,
+     '            if decision == "PASST_NICHT" and _DUBLETTEN_WORT.search(reason):', '            if False:', T_AS),
+    ("as17", "Die KI zaehlt eine abgewiesene Aussortierung mit", AS_AA,
+     "                    if not geschrieben:\n", "                    if False:\n", T_AS),
+    ("as18", "Die Antwort verschweigt die geschuetzten Stellen", AS_AA,
+     "    result_payload.update(_geschuetzt_details(geschuetzt))\n", "", T_AS),
+    ("as19", "Die leere Antwort verschweigt die geschuetzten Stellen", AS_AA,
+     '            "Keine ungerateten Stellen oberhalb min_score.",\n            status="leer",\n            **_geschuetzt_details(geschuetzt),\n',
+     '            "Keine ungerateten Stellen oberhalb min_score.",\n            status="leer",\n', T_AS),
+    # die Wiedergaenger-Automatik
+    ("as20", "befristet wandert wieder nach Fachgebiet", AS_SA,
+     '    "falsches_fachgebiet", "falsche_branche",\n})', '    "falsches_fachgebiet", "falsche_branche", "befristet",\n})', T_AS),
+    ("as21", "falsches_system wandert wieder nach Fachgebiet", AS_SA,
+     '    "falsches_fachgebiet", "falsche_branche",\n})', '    "falsches_fachgebiet", "falsche_branche", "falsches_system",\n})', T_AS),
+    ("as22", "falsche_branche wandert nicht mehr", AS_SA,
+     '    "falsches_fachgebiet", "falsche_branche",\n})', '    "falsches_fachgebiet",\n})', T_AS),
+    ("as23", "Stufe 1 (gleiche Firma) sortiert ohne Anzeigentext aus", AS_SA,
+     "        if (not _widerspruch and grund in _TEXTABHAENGIGE_GRUENDE\n", "        if (False\n", T_AS),
+    ("as31", "Stufe 1 verlangt den Text auch fuer Ort, Gehalt und Vertrag", AS_SA,
+     "        if (not _widerspruch and grund in _TEXTABHAENGIGE_GRUENDE\n", "        if (not _widerspruch\n", T_AS),
+    ("as24", "Stufe 1b (nach Fachgebiet) sortiert ohne Anzeigentext aus", AS_SA,
+     "        if not hat_beschreibung(job):\n            return _ohne_text(job, titel_muster, grund)\n",
+     "        if False:\n            return _ohne_text(job, titel_muster, grund)\n", T_AS),
+    ("as25", "Eine vorhandene Stelle wird neu entschieden und gezaehlt", AS_SA,
+     '        if job.get("hash") and db.get_job(job["hash"]):\n', "        if False:\n", T_AS),
+    ("as26", "Der Verdacht ohne Text wird nicht gezaehlt", AS_SA,
+     '            zaehler["wiedergaenger_ohne_text"] += 1\n', "            pass\n", T_AS),
+    ("as27", "Der Trichter kennt den neuen Zaehler nicht", AS_JS,
+     '    "wiedergaenger_ohne_text": (\n', '    "wiedergaenger_ohne_textx": (\n', T_AS),
+    # die Werkzeuge
+    ("as28", "Das Wiedergaenger-Werkzeug fragt die Regel nicht", AS_TJ,
+     '            _gesperrt = _schutz.automatik_gesperrt(\n                db.get_job(resolved_hash), "wiedergaenger")\n',
+     '            _gesperrt = ""\n', T_AS),
+    ("as29", "Die Reparatur traegt sich als Wort des Menschen ein", AS_TJ,
+     "                if voll and db.restore_job(voll, durch_mensch=False):\n", "                if voll and db.restore_job(voll):\n", T_AS),
+]
+KATALOGE["automatik1250"] = M_AUTOMATIK_SCHUTZ
+GRUNDLAEUFE["automatik1250"] = (("T_AS", T_AS),)
+
 WT = None
 
 

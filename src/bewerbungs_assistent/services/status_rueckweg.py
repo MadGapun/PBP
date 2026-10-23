@@ -69,5 +69,7 @@ def zuruecknehmen(db, app_id: str, rueckweg: dict,
                  (1 if hatte else 0, app_id))
     conn.commit()
     if rueckweg.get("stelle_aussortiert"):
-        db.restore_job(str(rueckweg["stelle_aussortiert"]))
+        # #1250: das Zuruecknehmen eines Statuswechsels stellt den vorigen Zustand her; es ist kein
+        # Wort des Menschen ueber die Stelle und setzt deshalb keinen Schutz vor der Automatik.
+        db.restore_job(str(rueckweg["stelle_aussortiert"]), durch_mensch=False)
     return True

@@ -657,6 +657,23 @@ Einträgen darunter.
 - **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur im Kandidaten, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
 - **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch Stable). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
 - **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch Stable). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
+- **Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren** (#1250; betrifft auch Stable). Vier Fehler,
+  gefunden beim Abgleich der aktiven Stellen: (1) die lokale KI nahm eine Stelle drei Tage nach dem Zurückholen wieder weg, obwohl ein Urteil
+  BEDINGT an ihr hing — ihr Filter fragte nur den Aussortiergrund, und den löscht das Zurückholen; (2) von drei Kopien derselben Anzeige blieb keine
+  aktiv, die Kopie mit Volltext und Urteil EMPFOHLEN fiel mit der KI-Begründung „Grund: duplikat“; (3) die Wiedergänger-Regel „nach Fachgebiet“
+  vererbte `befristet` über das Titelwort „data“ an eine unbefristete Anzeige und `falsches_system` über „mdm“; (4) diese Stelle hatte 0 Zeichen
+  Anzeigentext (nachgeladen: SAP-Umfeld, Score von 26 auf 58). Jetzt gilt EINE Regel für jede Automatik (`services/aussortier_schutz.py`, im
+  Nadelöhr `dismiss_job` durchgesetzt): eine Stelle, die du zurückgeholt oder als passend markiert hast (neu: `zurueckgeholt_am`, übersteht jeden
+  Suchlauf; dein eigenes Aussortieren löscht ihn), oder mit Urteil EMPFOHLEN/BEDINGT sortiert keine Automatik aus — außer die Anzeige ist entfernt
+  oder du hast dich beworben. Die KI bekommt solche Stellen nicht vorgelegt, ihre Antwort nennt sie, und eine KI-Begründung „Dublette“ zählt als
+  unsicher. Beim Speichern bleibt genau eine Kopie aktiv; fehlt ihr der Anzeigentext und bringt die Dublette einen, übernimmt sie ihn (samt
+  Neubewertung), und ein späterer Lauf ohne Text löscht einen vorhandenen nicht mehr. Eine Dublette trägt ihre eigene Notiz, nicht die einer
+  vorher greifenden Automatik. Nach Fachgebiet wandern nur noch `falsches_fachgebiet` und `falsche_branche`; ohne Anzeigentext sortiert die
+  Wiedergänger-Automatik nach Fachgebiet nicht aus, bei derselben Firma nicht aus einem Grund, den nur der Text belegt (Fachgebiet, System, Stufe,
+  Abschluss). Die Stelle wird angelegt, der Suchlauf zählt sie („wie frühere Wiedergänger, aber ohne Anzeigentext behalten“). Bereits falsch
+  vererbte Gründe findet `automatik_uebertragungen_pruefen` und holt sie auf Wunsch zurück (auf einer Kopie eines echten Bestands: 332 von 725
+  Wiedergänger-Aussortierungen, am häufigsten `zu_junior`). Zurückholen vor diesem Vermerk kennt PBP nicht; dort schützt nur ein gespeichertes
+  Urteil. 49 Testfälle, 33 auf dem Ausgangsstand rot; Gegenprobe `automatik1250`.
 
 ### Known Issues
 
