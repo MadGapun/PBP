@@ -209,3 +209,19 @@ Installation (Block B) und vor dem Zurücksetzen (Block H); alle anderen Blöcke
   aus- und wieder einblenden: der Verlauf steht danach wieder unten, nicht bei den ältesten Nachrichten; was in der Zwischenzeit kam, ist zu sehen und löst keinen
   Knopf „N neu“ aus. Mit mehreren Profilen: nach einem Wechsel stehen gleich die Nachrichten des neuen Profils da, und „N neu“ erscheint nicht.
 - **Ergebnis** wie zuvor: ein Satz je Punkt im PR des Kandidaten und im Issue #1233; Funde werden ab PP37 nummeriert.
+
+## Fünfter Lauf (23.10.2026, mit dem veröffentlichten `1.8.0-rc.5`): Store-Konfiguration, Hilfe, Deinstallation
+
+Gekürzt auf das, was seit dem vierten Lauf neu ist (#1245, #1252, #1247), rund 20 Minuten; nebenher lief auf dem Werkstatt-PC ein Druckauftrag, dessen
+Fenster unberührt blieb. Ergebnis, ohne neuen Fund:
+
+- **A:** einzige Konfiguration von Claude unter `%LOCALAPPDATA%\Claude-Data\claude_<Kennung>\` (weder `%APPDATA%\Claude` noch der Paketordner hatten eine Datei).
+- **B (#1245, #1252):** ZIP der Veröffentlichung, `INSTALLIEREN.bat`; Claude über das Symbol im Infobereich beendet, wie der Installer verlangt. Protokoll: „3
+  Config-Datei(en) geschrieben und geprüft“; der Eintrag steht unter `Claude-Data`, der übrige Inhalt ist unverändert; Claude startet den Server selbst, das
+  Dashboard sagt „verbunden“; `python-jobspy` 1.3.0; Einstellungen › Updates „Läuft: v1.8.0-rc.5“, Vorgabe „Nur Hinweis“.
+- **J1, J2, #1247:** Beispielfragen, Karte mit Sprung in Einstellungen › Updates, ehrliche Antwort auf eine fremde Frage, Dialog schließt ohne Rückfrage nach
+  einer getippten, nicht gestellten Frage. J3 bis J6 nicht geprüft (auf dem Werkstatt-PC war die lokale KI nicht eingerichtet; ohne sie steht richtig keine Eingabe).
+- **G, H:** Deinstallation über die Gefahrenzone, sieben Schritte, Playwright und pip-Zwischenspeicher auf Nachfrage gelöscht; kein PBP-Ordner, keine
+  Verknüpfung, kein Registry-Eintrag, kein Prozess. Reste wie unter „Known Issues“: leeres `"mcpServers": {}` in der Store-Konfiguration und je eine Datei mit
+  leerem `mcpServers` im klassischen Ordner und im Paketordner (der Installer legt sie an, wenn sie fehlen). Danach Store-Konfiguration aus der Kopie von A
+  zurückgespielt (Prüfsumme gleich), Testdateien gelöscht, Claude neu gestartet, Seite „Leistung“ der Einstellungen offen, Remotedesktop offen.
