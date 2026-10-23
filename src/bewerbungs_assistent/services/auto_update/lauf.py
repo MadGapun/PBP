@@ -25,7 +25,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import aufraeumen, installation, layout, quelle, zustand
+from . import aufraeumen, installation, layout, quelle, windows_liste, zustand
 from . import fassung as _fassung
 from . import schluessel as _schl
 from .fehler import UpdateFehler
@@ -179,17 +179,20 @@ def pruefen(db=None, *, oeffner=None, laufende=None, app=None, frisch: bool = Fa
     app = app if app is not None else layout.programmordner()
     if not laufende:
         return {"status": "nicht_verfuegbar", "text": layout.verfuegbarkeit()[1] or "Keine laufende Fassung bekannt."}
+    # #1226: der Schalter „Vorabversionen automatisch“ gehoert zur Frage. Ein Ergebnis, das mit dem anderen Stand geholt wurde,
+    # beantwortet sie nicht: weder aus dem Zwischenspeicher noch von der Platte (siehe `uebersicht`).
+    vorab = zustand.vorab(db) if db is not None else False
     jetzt = time.monotonic()
     alter = jetzt - _PRUEFUNG["zeit"]
-    if _PRUEFUNG["ergebnis"] is not None and (alter < MIN_ABSTAND_FRISCH_S or (not frisch and alter < _PRUEFUNG["gilt_s"])):
-        if _PRUEFUNG["ergebnis"].get("laufende") == laufende:
-            return _PRUEFUNG["ergebnis"]
+    gemerkt = _PRUEFUNG["ergebnis"]
+    if gemerkt is not None and (alter < MIN_ABSTAND_FRISCH_S or (not frisch and alter < _PRUEFUNG["gilt_s"])):
+        if gemerkt.get("laufende") == laufende and bool(gemerkt.get("vorab")) == vorab:
+            return gemerkt
     try:
         daten = quelle.json_holen(oeffner=oeffner, version_pbp=laufende)
     except UpdateFehler as fehler:
         erg = {"status": "keine_antwort", "text": fehler.text, "code": fehler.code}
-        return _pruefung_merken(db, erg, laufende, jetzt, behalten=False)
-    vorab = zustand.vorab(db) if db is not None else False
+        return _pruefung_merken(db, erg, laufende, jetzt, behalten=False, vorab=vorab)
     freigaben = quelle.freigaben_lesen(daten, vorab=vorab)
     bezug = _bezugsfassung(app, laufende)
     neu = quelle.neueste_fuer_linie(freigaben, bezug, vorab=vorab)
@@ -204,11 +207,12 @@ def pruefen(db=None, *, oeffner=None, laufende=None, app=None, frisch: bool = Fa
                "auszug": auszug_aus_notizen(neu.notizen),
                "groesse": neu.dateien.get(quelle.ARCHIV_NAME.format(version=neu.version), 0),
                "text": f"Version {neu.version} ist verfügbar."}
-    return _pruefung_merken(db, erg, laufende, jetzt, behalten=True)
+    return _pruefung_merken(db, erg, laufende, jetzt, behalten=True, vorab=vorab)
 
 
-def _pruefung_merken(db, erg: dict, laufende: str, monoton: float, *, behalten: bool) -> dict:
-    erg = {**erg, "zeit": _jetzt().isoformat(timespec="seconds"), "laufende": laufende}
+def _pruefung_merken(db, erg: dict, laufende: str, monoton: float, *, behalten: bool, vorab: bool = False) -> dict:
+    """Merkt das Ergebnis im Speicher und in der Datenbank — samt dem Stand des Schalters, mit dem es geholt wurde (#1226)."""
+    erg = {**erg, "zeit": _jetzt().isoformat(timespec="seconds"), "laufende": laufende, "vorab": bool(vorab)}
     _PRUEFUNG.update(zeit=monoton, gilt_s=ERFOLG_GILT_S if behalten else FEHLSCHLAG_GILT_S, ergebnis=erg)
     if db is not None:
         try:
@@ -221,6 +225,27 @@ def _pruefung_merken(db, erg: dict, laufende: str, monoton: float, *, behalten: 
 def letzte_pruefung(db) -> dict | None:
     wert = db.get_setting(K_LETZTE_PRUEFUNG, None) if db is not None else None
     return wert if isinstance(wert, dict) else None
+
+
+def vorab_einstellen(db, an, *, oeffner=None) -> bool:
+    """Stellt „Vorabversionen automatisch“ ein und fragt die Quelle gleich neu, wenn sich der Schalter geaendert hat (#1226).
+
+    Der Schalter aendert die Frage („gibt es eine neuere Version — Vorabversionen eingeschlossen?“). Ein Ergebnis, das ohne
+    ihn (oder mit ihm) geholt wurde, beantwortet sie nicht mehr: die Karte nannte nach dem Einschalten einen Grund, der zum
+    alten Stand gehoerte, bis jemand „Jetzt pruefen“ klickte oder der Zeitgeber kam (alle sechs Stunden). Eine gescheiterte
+    Pruefung verhindert das Umschalten nie; sie steht dann als „keine Antwort“ da.
+
+    Gibt zurueck, ob sich der Schalter geaendert hat.
+    """
+    vorher = zustand.vorab(db)
+    zustand.vorab_setzen(db, an)
+    geaendert = vorher != bool(an)
+    if geaendert:
+        try:
+            pruefen(db, oeffner=oeffner, frisch=True)
+        except Exception:  # noqa: BLE001
+            logger.debug("Pruefung nach dem Umschalten fehlgeschlagen", exc_info=True)
+    return geaendert
 
 
 # ── Sperre pro Fassung ──────────────────────────────────────────────────────────────────
@@ -258,11 +283,14 @@ def abgelehnt(db) -> list:
 
 
 def zurueckschalten(db, ziel: str, *, app=None) -> dict:
-    """Beim naechsten Start soll eine aeltere, noch installierte Fassung laufen (Rueckweg auf Wunsch).
+    """Beim naechsten Start soll eine andere, noch installierte Fassung laufen (Rueckweg auf Wunsch).
 
     Nichts wird beendet, nichts geloescht. Die Fassungen, die NEUER sind als `ziel`, merkt sich PBP als
     zurueckgenommen: weder der Zeitgeber noch ein spaeterer Lauf schaltet von selbst wieder auf sie.
     Wer sie doch will, installiert sie ausdruecklich (Knopf oder Werkzeug).
+
+    Auch ein Schritt NACH VORN ist moeglich (die Oberflaeche bietet jede installierte Fassung an): der Verlauf nennt ihn
+    „umgeschaltet“ statt „zurueckgeschaltet“ (#1229), und das Ziel gilt nicht mehr als zurueckgenommen.
     """
     if app is None:
         ok, grund = layout.verfuegbarkeit()
@@ -275,14 +303,21 @@ def zurueckschalten(db, ziel: str, *, app=None) -> dict:
     if ziel == aktuell:
         return {"status": "nichts_zu_tun", "text": f"Beim nächsten Start läuft ohnehin Version {ziel}."}
     neuere = [v for v in layout.installierte_fassungen(app) if _fassung.ist_neuer(v, ziel)]
+    nach_vorn = bool(aktuell) and _fassung.ist_neuer(ziel, aktuell)
     layout.schreibe_atomar(layout.pfade(app).aktuell, ziel + "\n")
     status = layout.lese_status(app)
     status.pop("vorherige", None)
     status.pop("rueckgang", None)
     layout.schreibe_status(app, status)
-    db.set_setting(K_ABGELEHNT, sorted(set(abgelehnt(db)) | set(neuere), key=_fassung.schluessel))
-    zustand.verlauf_anhaengen(db, version=ziel, ergebnis="zurueckgeschaltet", ausloeser="klick",
-                              grund=f"Auf Wunsch zurück von {aktuell} auf {ziel}.")
+    # die ausdrueckliche Wahl hebt die Zuruecknahme des Ziels auf (wie die ausdrueckliche Installation, `starte_installation`)
+    gemerkt = (set(abgelehnt(db)) | set(neuere)) - {ziel}
+    db.set_setting(K_ABGELEHNT, sorted(gemerkt, key=_fassung.schluessel))
+    if nach_vorn:
+        zustand.verlauf_anhaengen(db, version=ziel, ergebnis="umgeschaltet", ausloeser="klick",
+                                  grund=f"Auf Wunsch von {aktuell} auf {ziel} umgeschaltet.")
+    else:
+        zustand.verlauf_anhaengen(db, version=ziel, ergebnis="zurueckgeschaltet", ausloeser="klick",
+                                  grund=f"Auf Wunsch zurück von {aktuell} auf {ziel}.")
     return {"status": "ok", "nach": ziel,
             "text": f"Beim nächsten Start läuft Version {ziel}. Starte PBP und Claude Desktop neu."}
 
@@ -316,8 +351,17 @@ def starte_installation(db, version: str, *, ausloeser: str = "klick", oeffner=N
     ok, grund = layout.verfuegbarkeit()
     if not ok and installieren is None and kw.get("app") is None:
         return {"status": "nicht_verfuegbar", "text": grund}
+    if not _fassung.gueltig(version):
+        return {"status": "abgelehnt", "text": "Das ist keine gültige Versionsnummer."}
+    # #1222: eine Vorabversion nur mit dem Schalter (#1199) und nur auf einer Vorab-Installation - dieselbe Regel wie bei der
+    # Auswahl des Kandidaten (`quelle.kandidat_erlaubt`). Vorher lehnte dieser Start jede Vorabversion ab, auch die, die die
+    # Pruefung selbst als neu gemeldet hatte.
     if not _fassung.ist_stabil(version):
-        return {"status": "abgelehnt", "text": "Vorabversionen werden nie automatisch installiert."}
+        laufend = kw.get("laufende_fassung") or layout.laufende_fassung() or ""
+        if not quelle.kandidat_erlaubt(version, laufend, zustand.vorab(db)):
+            return {"status": "abgelehnt",
+                    "text": "Vorabversionen werden nur installiert, wenn „Vorabversionen automatisch“ eingeschaltet ist, "
+                            "und nur auf einer Vorabversion."}
     if not _JOB_SPERRE.acquire(blocking=False):
         return {"status": "laeuft_bereits", "text": "Ein Update läuft gerade."}
     try:
@@ -463,6 +507,11 @@ def beim_start(db, *, bestaetigung_nach=None) -> dict:
         _boot.bereit_melden()
     except Exception:  # noqa: BLE001
         logger.debug("bereit_melden nicht moeglich", exc_info=True)
+    # #1228: die Windows-Liste („Apps & Features“) nennt die Fassung, die jetzt laeuft - nicht die der Erstinstallation
+    try:
+        ergebnis["windows_liste"] = windows_liste.abgleichen(layout.laufende_fassung(), app)
+    except Exception:  # noqa: BLE001
+        logger.debug("Windows-Liste nicht abgeglichen", exc_info=True)
     if bestaetigung_nach <= 0:
         ergebnis["bestaetigt"] = zustand.start_bestaetigen()
     else:
@@ -510,6 +559,10 @@ def uebersicht(db) -> dict:
     antwort["neustart_noetig"] = bool(aktuell and laufend and aktuell != laufend)
     antwort["rueckgang"] = zustand.rueckgang_offen(app)
     p = antwort["pruefung"]
+    # #1226: eine Vorabversion, die mit eingeschaltetem Schalter gefunden wurde, steht nach dem Ausschalten nicht mehr als
+    # „neu“ da, bis neu geprueft ist (die Installation wuerde sie ohnehin ablehnen).
+    if p and p.get("version") and not _fassung.ist_stabil(p["version"]) and bool(p.get("vorab")) and not antwort["vorab"]:
+        p = None
     if p and p.get("status") in ("neu", "unvollstaendig") and p.get("version") and _fassung.ist_neuer(p["version"], _bezugsfassung(app, laufend or "0.0.0")):
         antwort["neu"] = {**p, "frage_faellig": zustand.frage_faellig(db, p["version"]),
                           "zurueckgenommen": p["version"] in abgelehnt(db)}

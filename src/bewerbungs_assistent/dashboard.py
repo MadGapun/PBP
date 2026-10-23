@@ -799,16 +799,30 @@ async def api_delete_document(doc_id: str):
     return antwort
 
 
+@app.get("/api/document-types")
+async def api_document_types():
+    """Die Typen, auf die ein Dokument von Hand gestellt werden darf, mit Namen (#1162)."""
+    from .services import document_handlers
+    return {"typen": document_handlers.typen_fuer_auswahl()}
+
+
 @app.put("/api/document/{doc_id}/doc-type")
 async def api_update_document_type(doc_id: str, request: Request):
+    """Den Typ EINES Dokuments aendern (#1162). Derselbe Dienst wie das Werkzeug `dokument_typ_setzen`."""
+    from .services import document_handlers
     data = await request.json()
-    new_type = data.get("doc_type", "sonstiges")
+    if not isinstance(data, dict):           # #1206: ein Nicht-Objekt (Liste, Zahl) war ein AttributeError und HTTP 500
+        return JSONResponse({"error": "Erwartet wird ein Objekt mit doc_type.",
+                             "erlaubte_typen": document_handlers.erlaubte_typen()}, status_code=400)
     profile_id = _get_active_profile_id()
     if not profile_id:
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    if not _db.update_document_type(doc_id, new_type, profile_id=profile_id):
+    erg = document_handlers.typ_setzen(_db, doc_id, data.get("doc_type", ""), profile_id=profile_id)
+    if erg["status"] == "nicht_gefunden":
         return JSONResponse({"error": "Dokument nicht gefunden"}, status_code=404)
-    return {"status": "ok"}
+    if erg["status"] == "unbekannter_typ":
+        return JSONResponse({"error": erg["fehler"], "erlaubte_typen": erg["erlaubte_typen"]}, status_code=400)
+    return {"status": "ok", "ergebnis": erg["status"], "doc_type": erg["typ_neu"], "typ_name": erg["typ_name"]}
 
 
 @app.put("/api/document/{doc_id}/link")
@@ -2517,6 +2531,32 @@ def _render_html_to_pdf(html: str) -> bytes | None:
         return None
 
 
+@app.get("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_lesen():
+    """Die ausdruecklich gesetzte Voreinstellung der Filter der Stellenliste, oder `null` (#1158 Punkt 5)."""
+    from .services import stellen_filter_standard
+    return {"standard": stellen_filter_standard.lesen(_db)}
+
+
+@app.put("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_setzen(payload: dict = Body(default={})):
+    """Die Filter, die jetzt gelten, als Voreinstellung festhalten: sie gelten bei jedem Oeffnen von PBP."""
+    from .services import stellen_filter_standard
+    try:
+        gesetzt = stellen_filter_standard.setzen(_db, payload.get("standard"))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=400)
+    return {"standard": gesetzt}
+
+
+@app.delete("/api/stellen-filter-standard")
+async def api_stellen_filter_standard_loeschen():
+    """Die Voreinstellung aufheben: danach gilt beim Oeffnen wieder der gemerkte Zustand des Browsers."""
+    from .services import stellen_filter_standard
+    stellen_filter_standard.loeschen(_db)
+    return {"standard": None}
+
+
 @app.get("/api/jobs")
 async def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,
@@ -3795,7 +3835,10 @@ async def api_documents_bulk_prepare(request: Request):
         "Bitte analysiere diese Dokumente in PBP — extrahiere Profil-Daten, "
         "klassifiziere und markiere abgeschlossen.\n\n"
         f"Dokumente ({len(rows)}):\n" + "\n".join(file_lines) + "\n\n"
-        f"Tool-Aufruf: dokumente_batch_analysieren(dokument_ids={ids})"
+        # #1200 A12: dokumente_batch_analysieren kennt keine ID-Liste (es
+        # arbeitet in Stapeln ueber alle offenen) — der Waechter fand den Aufruf.
+        f"Lade genau diese Dokumente mit extraktion_starten(document_ids={ids}) und "
+        "verarbeite sie wie im Ablauf workflow_starten(name='dokumente_verarbeiten')."
     )
     return {
         "status": "ok",
@@ -5982,7 +6025,7 @@ async def api_upload_document(
                 newsletter_result = newsletter_service.verarbeite_newsletter(
                     _db, parsed_nl, quelle["label"])
                 newsletter_result["erkannt_ueber"] = quelle["erkannt_ueber"]
-                if newsletter_result.get("status") == "uebernommen":
+                if newsletter_result.get("status") in ("uebernommen", "hinweise_notiert"):
                     try:
                         _db.update_document_lifecycle(did, "archiviert")
                         newsletter_result["dokument"] = "archiviert"
@@ -6596,8 +6639,12 @@ async def api_background_job(job_id: str):
 # ============================================================
 
 @app.get("/api/components")
-async def api_components_overview():
-    """Status aller Komponenten + Ollama als mit-angezeigte Sonderrolle (D2)."""
+def api_components_overview():
+    """Status aller Komponenten + Ollama als mit-angezeigte Sonderrolle (D2).
+
+    Gewoehnlicher Handler (Threadpool), kein `async def`: die Ollama-Abfrage und die Suche nach Zusatzprogrammen blockieren
+    sonst den ganzen Server (#1227, gemessen 4 s ohne Ollama auf einem Windows-PC).
+    """
     from .services import components as comp
     result = {"komponenten": comp.get_components_overview(_db)}
     # Ollama wird NUR angezeigt (eigenstaendig verwaltet via llm_service)
@@ -8157,10 +8204,12 @@ async def api_auto_update_einstellungen(payload: dict = Body(default={})):
             zustand.vorgaenger_setzen(_db, payload["vorgaenger_behalten"])
         if "installer_aufraeumen" in payload:
             zustand.installer_aufraeumen_setzen(_db, payload["installer_aufraeumen"])
-        if "vorab" in payload:
-            zustand.vorab_setzen(_db, bool(payload["vorab"]))
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
+    if "vorab" in payload:
+        # #1226: der Schalter aendert die Frage; die Antwort wird gleich neu geholt (Netz: nicht im Ereignis-Thread)
+        import asyncio
+        await asyncio.to_thread(lauf.vorab_einstellen, _db, bool(payload["vorab"]))
     return lauf.uebersicht(_db)
 
 
@@ -8941,9 +8990,9 @@ async def api_contact_enrich_from_linkedin(request: Request):
     Body: {"contact_id": "..."} ODER {"linkedin_url": "..."}
 
     Antwort: ein Prompt-Block den der User in Claude einfuegt. Claude
-    oeffnet dann die LinkedIn-URL ueber javascript_tool, extrahiert die
+    liest das Profil im angemeldeten Chrome-Tab, entnimmt die
     sichtbaren Felder (Name, Position, Firma, Standort, Skills) und
-    aktualisiert den Kontakt via `/api/contacts/{id}`.
+    traegt das Ergebnis mit kontakt_bearbeiten/kontakt_anlegen ein (#1200 A1).
     """
     data = await request.json()
     cid = (data.get("contact_id") or "").strip()
@@ -8996,21 +9045,35 @@ async def api_contact_enrich_from_linkedin(request: Request):
 })()
 """.strip()
 
+    # #1200 A1: Claude schreibt ueber die PBP-Werkzeuge zurueck, nicht ueber
+    # die REST-Schnittstelle (die erreicht Claude Desktop gar nicht), und der
+    # Nutzertext traegt keinen Code. Das Skript bleibt im Feld extraction_js.
+    if cid:
+        kid = f"CON-{str(contact.get('id') or cid)[:8]}"
+        wer = (contact.get("full_name") or "").strip() or "diesen Kontakt"
+        zurueck = (
+            f"3. Lies mit kontakt_anzeigen(kontakt_id='{kid}'), was PBP schon über {wer} weiß.\n"
+            f"4. Ergänze den Kontakt mit kontakt_bearbeiten(kontakt_id='{kid}', ...): "
+            "leere Felder füllst du direkt (position, firma). Steht dort schon etwas anderes, "
+            "frag mich kurz, bevor du es ersetzt.\n"
+            "5. Standort und Kurzprofil gehören in notizen. kontakt_bearbeiten ersetzt die Notizen, "
+            "also gib die bisherigen Notizen mit und hänge das Neue an.\n"
+        )
+    else:
+        zurueck = (
+            "3. Lege den Kontakt mit kontakt_anlegen(name=..., firma=..., position=..., "
+            f"linkedin_url='{li_url}', notizen=<Standort und Kurzprofil>) an. Meldet PBP, dass es "
+            "ihn schon gibt, ergänze den vorhandenen mit kontakt_bearbeiten(kontakt_id=...) und "
+            "lege keinen zweiten an.\n"
+        )
     prompt = (
-        f"PBP — LinkedIn-Profil-Anreicherung\n\n"
-        f"1. Öffne im eingeloggten Chrome-Tab: {li_url}\n"
-        f"2. Führe dieses JavaScript aus (javascript_tool):\n\n"
-        f"{extraction_js}\n\n"
-        f"3. Aktualisiere den Kontakt mit den extrahierten Feldern via "
-        f"PUT /api/contacts/{cid or '<contact_id>'}.\n\n"
-        f"Felder-Mapping (LinkedIn → Kontakt):\n"
-        f"  name → full_name\n"
-        f"  headline → position\n"
-        f"  company → company\n"
-        f"  location → notes (anhängen)\n"
-        f"  about_excerpt → notes (anhängen)\n\n"
-        f"Wenn die Selektoren leer zurückkommen (LinkedIn rotiert sie häufig),\n"
-        f"falle auf get_page_text() zurück und extrahiere manuell."
+        "PBP — Kontakt aus LinkedIn ergänzen\n\n"
+        f"1. Öffne im Chrome-Tab, in dem ich bei LinkedIn angemeldet bin: {li_url}\n"
+        "2. Lies die sichtbare Seite (get_page_text): Name, Position, Firma, Standort und die "
+        "ersten Sätze des Profiltexts. Übernimm nur, was dort steht — nichts ergänzen oder raten.\n"
+        f"{zurueck}"
+        "Zum Schluss: sag mir in einem Satz, was du in PBP geändert hast. Konntest du das Profil "
+        "nicht lesen (nicht angemeldet, Seite leer), sag das und ändere nichts."
     )
 
     return {
@@ -9020,9 +9083,9 @@ async def api_contact_enrich_from_linkedin(request: Request):
         "prompt": prompt,
         "extraction_js": extraction_js,
         "hinweis": (
-            "LinkedIn-Profile können nicht direkt vom Server gescrapt werden "
-            "(Login-Wall, Bot-Detection). Nutze diesen Prompt mit Claude-in-"
-            "Chrome — der eingeloggte Browser-Tab umgeht die Sperren."
+            "LinkedIn lässt keine Abrufe vom Server zu (Login-Wall, Bot-Detection). "
+            "Claude liest das Profil deshalb in deinem angemeldeten Chrome-Tab — so, "
+            "wie du es selbst siehst — und trägt es über PBP ein."
         ),
     }
 
@@ -9803,28 +9866,14 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
     fremden Server. Postet eine Elwosa-Linie, wenn etwas passiert ist.
     """
     from .services import text_nachzug
-    from .services.datenguete import MIN_BESCHREIBUNG
-    pid = _db.get_active_profile_id()
-    conn = _db.connect()
-    # #1189: Quellen mit Auflage (jobtic) ruft PBP nicht selbst ab - nicht einmal als Kandidat (sonst fuellen
-    # sie das LIMIT und verdraengen bei jedem Lauf dieselben anderen Stellen).
-    from .services.quellen_auflagen import sql_ohne_abruf
-    _ohne, _ohne_params = sql_ohne_abruf("url")
-    rows = conn.execute(
-        "SELECT hash FROM jobs "
-        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
-        "AND url IS NOT NULL AND url != '' "
-        # #645: Such-URL-Stellen ausschliessen — sonst landet als
-        # "Beschreibung" der Anriss der Suchergebnis-Seite.
-        "AND COALESCE(is_search_url, 0) = 0 "
-        "AND (description IS NULL OR LENGTH(TRIM(description)) < ?) "
-        + _ohne +
-        " LIMIT ?",
-        (pid, MIN_BESCHREIBUNG, *_ohne_params, max_jobs * 3)  # Overshoot — Backoff ueberspringt
-    ).fetchall()
-    erg = text_nachzug.holen(_db, [r["hash"] for r in rows], max_jobs=max_jobs)
+    # #1139: feste Reihenfolge - nie versuchte zuerst, dann die am laengsten nicht versuchte; Stellen im Backoff fehlen.
+    # Vorher die ersten 24 nach Zeilennummer: standen die im Backoff, wurden die uebrigen nie versucht. Auch die Auswahl
+    # (#645 Such-URLs, #1189 Quellen mit Auflage) steht dort, an EINER Stelle.
+    wahl = text_nachzug.auswahl_befund(_db, limit=max_jobs * 2)
+    hashes = wahl["hashes"]
+    erg = text_nachzug.holen(_db, hashes, max_jobs=max_jobs, pause=0.5)
     successes, failures = erg["geholt"], erg["fehlgeschlagen"]
-    processed, skipped_backoff = erg["versucht"], erg["backoff"]
+    processed, skipped_backoff = erg["versucht"], erg["backoff"] + wahl["im_backoff"]
 
     if successes > 0 or failures > 0:
         _elwosa_speak_safe("auto_refetch_descriptions", ctx={
@@ -9834,11 +9883,13 @@ def _run_auto_refetch_descriptions(now_iso: str, max_jobs: int = 8) -> dict:
 
     return {
         "ran_at": now_iso,
-        "found_candidates": len(rows),
+        "found_candidates": wahl["kandidaten"],
         "processed": processed,
         "successes": successes,
         "failures": failures,
         "skipped_backoff": skipped_backoff,
+        "netzfehler": erg.get("netzfehler", 0),
+        "abgebrochen": erg.get("abgebrochen", ""),
     }
 
 
@@ -9868,13 +9919,16 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
     # (im SQL, denn nach dem LIMIT wuerden sie jedes Mal dieselben anderen Stellen verdraengen).
     from .services.quellen_auflagen import sql_ohne_abruf
     _ohne, _ohne_params = sql_ohne_abruf("url")
+    # #1139: feste Reihenfolge - nie geprueft zuerst, dann die am laengsten nicht geprueft; vorher die ersten 30 nach
+    # Zeilennummer, also bei jedem Lauf dieselben (die uebrigen kamen nie dran).
     rows = conn.execute(
-        "SELECT hash, url, title FROM jobs "
-        "WHERE is_active=1 AND (profile_id=? OR profile_id IS NULL) "
-        "AND url IS NOT NULL AND url != '' "
-        "AND COALESCE(is_search_url, 0) = 0 "
+        "SELECT j.hash AS hash, j.url AS url, j.title AS title FROM jobs j "
+        "LEFT JOIN settings k ON k.key = 'url_aging_lastcheck:' || j.hash "
+        "WHERE j.is_active=1 AND (j.profile_id=? OR j.profile_id IS NULL) "
+        "AND j.url IS NOT NULL AND j.url != '' "
+        "AND COALESCE(j.is_search_url, 0) = 0 "
         + _ohne +
-        " LIMIT ?",
+        " ORDER BY (k.value IS NOT NULL), k.value, j.hash LIMIT ?",
         (pid, *_ohne_params, max_jobs * 3),  # Overshoot fuer Backoff-Skip
     ).fetchall()
 
@@ -9912,6 +9966,12 @@ def _run_url_aging_check(now_iso: str, max_jobs: int = 10) -> dict:
                     except (ValueError, TypeError):
                         pass
                 checked += 1
+                # Jede Pruefung steht fest, auch die ohne Ergebnis (Zeitueberschreitung, gesperrt): sonst bliebe sie
+                # bei jedem Lauf vorn in der Reihe und verdraengte die uebrigen.
+                try:
+                    _db.set_setting(f"url_aging_lastcheck:{h}", now_dt.isoformat())
+                except Exception:
+                    pass
                 try:
                     health = check_job_url_health(
                         row["url"], row["title"], client=client,
@@ -10758,27 +10818,44 @@ def _run_scraper_probe(now_iso: str) -> dict:
     }
 
 
-@app.post("/api/auto-actions/run")
-def api_run_auto_actions():
-    """Triggert die Auto-Engine: Expire + FU-Reconciler + Mail-Classify +
-    Doku-Classify + Pattern-Analyse + Scraper-Probe.
+# #1139: Knopf und Planer teilen EINE Sperre - zwei Runden gleichzeitig wuerden dieselben Stellen doppelt abrufen.
+_auto_actions_sperre = threading.Lock()
 
-    Soll periodisch laufen — z.B. beim ersten Recap-Aufruf des Tages,
-    oder vom Frontend einmal pro Stunde wenn das Dashboard offen ist.
-    Idempotent: mehrfacher Aufruf am selben Tag erzeugt keine Duplikate.
+
+def run_auto_actions(ausloeser: str = "knopf") -> dict:
+    """Die Aufraeum-Runde, ein Weg fuer den Knopf (synchron) und den Planer (im Hintergrund-Thread).
+
+    `ausloeser`: "knopf" (Einstellungen), "automatik" (Planer, einmal am Tag) oder "claude". Nur der automatische
+    Lauf fragt den Schalter "von selbst abschliessen"; wer den Knopf drueckt, will es. Laeuft schon eine Runde,
+    kommt `{"status": "laeuft_bereits"}` zurueck.
     """
     from datetime import datetime
-    now = datetime.now().isoformat()
-    # #708: Engine-Steps schreiben viel — ein abgebrochener Step darf keine
-    # offene Transaktion (= dauerhaften Write-Lock fuer den MCP-Server-
-    # Writer) hinterlassen. Netz am Ende des Zyklus, siehe finally.
+    if not _auto_actions_sperre.acquire(blocking=False):
+        return {"status": "laeuft_bereits"}
     try:
-        return _run_auto_actions_inner(now)
-    finally:
+        now = datetime.now().isoformat()
+        # #708: Engine-Steps schreiben viel — ein abgebrochener Step darf keine
+        # offene Transaktion (= dauerhaften Write-Lock fuer den MCP-Server-
+        # Writer) hinterlassen. Netz am Ende des Zyklus, siehe finally.
         try:
-            _db.rollback_if_stale(context="Auto-Engine-Zyklus")
-        except Exception:
-            pass
+            return _run_auto_actions_inner(now, ausloeser=ausloeser)
+        finally:
+            try:
+                _db.rollback_if_stale(context="Auto-Engine-Zyklus")
+            except Exception:
+                pass
+    finally:
+        _auto_actions_sperre.release()
+
+
+@app.post("/api/auto-actions/run")
+def api_run_auto_actions():
+    """Der Knopf "Jetzt pruefen": die Aufraeum-Runde, sofort und synchron.
+
+    Seit 1.8.0 laeuft dieselbe Runde auch einmal am Tag von selbst (`automatik_scheduler`, #1139). Idempotent:
+    mehrfacher Aufruf am selben Tag erzeugt keine Duplikate.
+    """
+    return run_auto_actions("knopf")
 
 
 def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
@@ -10822,7 +10899,7 @@ def _run_snapshot_backfill(now_iso: str, max_jobs: int = 500) -> dict:
         return {"status": "fehler", "fehler": str(exc)[:150]}
 
 
-def _run_auto_actions_inner(now: str) -> dict:
+def _run_auto_actions_inner(now: str, ausloeser: str = "knopf") -> dict:
     # v1.7.17 (#915): jeder Step meldet sich im DB-freien
     # Hintergrund-Register an. Laeuft ein schreibendes Tool in sein
     # Wall-Clock-Budget, kann das Timeout-Ergebnis benennen, welcher
@@ -10835,7 +10912,15 @@ def _run_auto_actions_inner(now: str) -> dict:
         with laufender_task(f"auto_engine:{name}"):
             return fn(now)
 
-    expire_result = _step("expire", _run_auto_expire)
+    from .services import aufraeum_runde
+    # #1139: Das Abschliessen aendert den Status einer Bewerbung. Der automatische Lauf tut es nur mit dem Schalter
+    # (Vorgabe aus); der Knopf immer.
+    if aufraeum_runde.schliesst_ab(_db, ausloeser):
+        expire_result = _step("expire", _run_auto_expire)
+    else:
+        expire_result = {"expired_count": 0, "expired": [], "uebersprungen": "schalter_aus"}
+    # Der automatische Lauf darf mehr holen als der Knopf (er laeuft im Hintergrund, einmal am Tag).
+    gross = ausloeser == "automatik"
     # v1.7.23 (#945): ZUERST aufraeumen, dann nachlegen. Andersherum
     # wuerde der Reconciler eine Nachfassung anlegen, die der
     # Aufraeumer im selben Lauf wieder schliesst.
@@ -10856,11 +10941,12 @@ def _run_auto_actions_inner(now: str) -> dict:
     contacts_result = _step("extract_contacts", _run_extract_contacts)
     # v1.7.0-beta.44 (#622): Auto-Nachladung fehlender Beschreibungen
     refetch_result = _step("auto_refetch_descriptions",
-                           _run_auto_refetch_descriptions)
+                           lambda n: _run_auto_refetch_descriptions(n, max_jobs=16 if gross else 8))
     # v1.8.0-beta.2 (#688 B24): Snapshot-Backfill fuer den Bestand
     snapshot_result = _step("snapshot_backfill", _run_snapshot_backfill)
     # v1.7.0-beta.73 (#645): Auto-Aging — 404/expired-URLs aussortieren
-    url_aging_result = _step("url_aging_check", _run_url_aging_check)
+    url_aging_result = _step("url_aging_check",
+                             lambda n: _run_url_aging_check(n, max_jobs=25 if gross else 10))
     # v1.7.0-beta.76 (#650 D15): Nachfass-Trigger bei staleness
     stale_apps_result = _step("stale_applications",
                               _run_check_stale_applications)
@@ -10878,9 +10964,16 @@ def _run_auto_actions_inner(now: str) -> dict:
                 _db.wal_groesse_bytes())
     except Exception:
         wal_result = {"fehler": "checkpoint fehlgeschlagen"}
-    _db.set_setting("auto_actions_last_run_at", now)
+    _db.set_setting(aufraeum_runde.LETZTER_LAUF, now)
+    _db.set_setting(aufraeum_runde.LETZTER_AUSLOESER, ausloeser)
+    # Der Planer rechnet das naechste Mal ab dem letzten Lauf - gleich, wer ihn ausgeloest hat.
+    try:
+        _db.mark_automatik_run("aufraeumen", now)
+    except Exception:  # noqa: BLE001
+        pass
     return {
         "ran_at": now,
+        "ausloeser": ausloeser,
         "expire": expire_result,
         "followup_ueberholt": fu_ueberholt,
         "followup_reconciler": fu_result,
@@ -11206,12 +11299,122 @@ def api_elwosa_status_endpoint():
     return get_status(_db, ai_state=ai_state)
 
 
+# === #1233 (F51): interaktive Hilfe - Fragen zur Bedienung, beantwortet aus Hilfe, FAQ, Wiki und Prompt-Katalog ===
+
+@app.post("/api/hilfe/frage")
+async def api_hilfe_frage(request: Request):
+    """Antwortkarten zu einer Frage (Suche ohne KI) und, wenn die lokale KI laeuft, der Auftrag fuer eine Kurzantwort.
+
+    Die Frage wird nicht gespeichert und nicht protokolliert (Nutzerentscheidung 16.10.2026)."""
+    from .services import hilfe_ki, hilfe_suche
+    try:
+        data = await request.json()
+    except Exception:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("frage", ""), str):
+        return JSONResponse({"error": "frage muss Text sein"}, status_code=400)
+    vorherige = data.get("vorherige", "")
+    if not isinstance(vorherige, str):
+        vorherige = ""
+    if not hilfe_suche.verfuegbar():
+        return JSONResponse({"error": "Die Daten der Hilfe fehlen in dieser Installation."}, status_code=503)
+
+    def _antworten():
+        wissen = hilfe_suche.laden()
+        erg = hilfe_suche.antwort(data.get("frage", ""), vorherige, wissen)
+        erg["ki"] = hilfe_ki.anstossen(_db, erg, wissen, mit_ki=bool(data.get("mit_ki")))
+        return erg
+
+    return await run_in_threadpool(_antworten)
+
+
+@app.get("/api/hilfe/ki/{job_id}")
+async def api_hilfe_ki_lesen(job_id: str):
+    """Stand einer Kurzantwort: laeuft | fertig | verworfen | fehler | unbekannt."""
+    from .services import hilfe_ki
+    return hilfe_ki.lesen(job_id)
+
+
+@app.get("/api/hilfe/ki")
+async def api_hilfe_ki_einstellung():
+    """Ob die lokale KI Kurzantworten formulieren soll, und ob sie dazu gerade bereit ist."""
+    from .services import hilfe_ki
+    return {"formulieren": hilfe_ki.einstellung(_db), "zustand": await run_in_threadpool(hilfe_ki.zustand, _db)}
+
+
+@app.put("/api/hilfe/ki")
+async def api_hilfe_ki_setzen(request: Request):
+    from .services import hilfe_ki
+    try:
+        data = await request.json()
+    except Exception:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):
+        return JSONResponse({"error": "formulieren muss true oder false sein"}, status_code=400)
+    return hilfe_ki.einstellung_setzen(_db, data["formulieren"])
+
+
+# === #1187 (Stufe 3): was nach einem Browserlauf auf das Urteil des Menschen wartet ===
+
+@app.get("/api/stellen/zu-pruefen")
+async def api_stellen_zu_pruefen():
+    """Zaehlung fuer die Dashboard-Karte: ungeprueft (gesamt und neu) und von Claude nach dem Lesen aussortiert."""
+    from .services import stellen_zu_pruefen
+    return stellen_zu_pruefen.uebersicht(_db)
+
+
+# === #1184 (d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind ===
+
+@app.get("/api/stellen-hinweise")
+async def api_stellen_hinweise(status: str = "offen", limit: int = 100, offset: int = 0):
+    """Die Hinweise des aktiven Profils samt Zaehlung; je Hinweis die vorbereitete Suche nach dem Original.
+
+    `offset` blaettert (#1205); `gesamt` ist die Zahl dieses Stands, `weitere` was hinter dieser Seite noch kommt."""
+    from .services import stellen_hinweise, google_angaben
+    st = (status or "offen").strip().lower()
+    start = max(0, int(offset or 0))
+    eintraege = stellen_hinweise.liste(_db, status=st, limit=limit, offset=start)
+    for e in eintraege:
+        such = google_angaben.original_suchen(e["titel"], e["firma"], (e.get("ort") or "").split(";")[0])
+        e["suche"] = such["suchen"]
+    zaehlung = stellen_hinweise.zaehlen(_db)
+    gesamt = zaehlung.get(st, 0) if st in zaehlung else sum(zaehlung.values())
+    return {"zaehlung": zaehlung, "hinweise": eintraege, "gesamt": gesamt, "offset": start,
+            "weitere": max(0, gesamt - start - len(eintraege))}
+
+
+@app.post("/api/stellen-hinweise/{hinweis_id}/verwerfen")
+async def api_stellen_hinweis_verwerfen(hinweis_id: str):
+    from .services import stellen_hinweise
+    if not stellen_hinweise.verwerfen(_db, hinweis_id):
+        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht mehr offen."}, status_code=404)
+    return {"status": "ok"}
+
+
+@app.post("/api/stellen-hinweise/{hinweis_id}/zurueckholen")
+async def api_stellen_hinweis_zurueckholen(hinweis_id: str):
+    from .services import stellen_hinweise
+    if not stellen_hinweise.wiederherstellen(_db, hinweis_id):
+        return JSONResponse({"error": "Hinweis nicht gefunden oder nicht verworfen."}, status_code=404)
+    return {"status": "ok"}
+
+
 @app.get("/api/auto-actions/status")
 async def api_auto_actions_status():
-    """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck."""
-    last = _db.get_setting("auto_actions_last_run_at", "") or ""
+    """Gibt Settings + Zeitpunkt des letzten Auto-Actions-Laufs zurueck (#1139: auch wer ihn ausgeloest hat)."""
+    from .services import aufraeum_runde
+    from .services.automatik_scheduler import compute_status
+    letzter = aufraeum_runde.letzter_lauf(_db)
+    last = letzter["am"]
+    plan = compute_status(_db)["aufraeumen"]
+    laeuft = bool(_db.get_running_background_job("aufraeumen"))
     return {
         "last_run_at": last,
+        "last_run_by": letzter["von"],
+        "intervall_tage": plan["intervall_tage"],
+        "naechster_lauf": plan["naechster_lauf"],
+        "laeuft": laeuft,
+        "expire_automatisch": aufraeum_runde.expire_automatisch(_db),
         "settings": {
             "expire_default_days": _db.get_setting_zahl("expire_default_days", 60),
             "expire_eingangsbestaetigung_days":
@@ -11224,9 +11427,14 @@ async def api_auto_actions_status():
 
 @app.put("/api/auto-actions/settings")
 async def api_set_auto_actions_settings(request: Request):
-    """Setzt die Schwellwerte fuer Auto-Expire + Auto-Followup."""
+    """Setzt die Schwellwerte fuer Auto-Expire + Auto-Followup und den Schalter "von selbst abschliessen" (#1139)."""
     data = await request.json()
     out = {}
+    if "expire_automatisch" in data:
+        from .services import aufraeum_runde
+        if not isinstance(data["expire_automatisch"], bool):
+            return JSONResponse({"error": "expire_automatisch muss wahr oder falsch sein"}, status_code=400)
+        out["expire_automatisch"] = aufraeum_runde.expire_automatisch_setzen(_db, data["expire_automatisch"])
     for key, lo, hi in (
         ("expire_default_days", 7, 365),
         ("expire_eingangsbestaetigung_days", 7, 180),
@@ -11846,6 +12054,7 @@ async def api_set_automatik_settings(request: Request):
         _db.set_automatik_settings(
             jobsuche_intervall_tage=data.get("jobsuche_intervall_tage"),
             lernen_intervall_tage=data.get("lernen_intervall_tage"),
+            aufraeumen_intervall_tage=data.get("aufraeumen_intervall_tage"),
         )
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)

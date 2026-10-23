@@ -65,8 +65,9 @@ def test_chrome_steht_nur_noch_in_der_browserliste():
 
 
 def test_dasselbe_portal_zweimal_steht_auf_beiden_karten():
-    paare = {("indeed", "jobspy_indeed"), ("linkedin", "jobspy_linkedin"),
-             ("google_jobs", "jobspy_google")}
+    # Google (google_jobs/jobspy_google) fehlt hier mit Absicht: die automatische Schwester ist seit #1159 defekt,
+    # liefert nichts und "deckt" das Portal nicht ab (siehe tests/test_v18_jobspy_google_defekt_1159.py).
+    paare = {("indeed", "jobspy_indeed"), ("linkedin", "jobspy_linkedin")}
     for browser, auto in paare:
         assert SOURCE_REGISTRY[auto]["name"] in SOURCE_REGISTRY[browser]["warnung"], browser
         assert SOURCE_REGISTRY[browser]["name"] in SOURCE_REGISTRY[auto]["warnung"], auto

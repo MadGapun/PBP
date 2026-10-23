@@ -52,10 +52,11 @@ NUR_ALTBESTAND = {
 def _bei_bedarf_anlegen(db):
     """Die Tabellen, die ihr Dienst erst beim ersten Schreiben anlegt."""
     from bewerbungs_assistent.services import (
-        pii_bestand, stellen_grabstein, stellen_quellen)
+        pii_bestand, stellen_grabstein, stellen_hinweise, stellen_quellen)
     conn = db.connect()
     stellen_quellen.tabelle_anlegen(conn)
     stellen_grabstein.tabelle_anlegen(conn)
+    stellen_hinweise.tabelle_anlegen(conn)      # #1184 (d): Hinweise aus Google-Benachrichtigungen
     pii_bestand._tabelle_anlegen(db)
 
 

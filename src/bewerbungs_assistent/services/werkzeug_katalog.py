@@ -162,7 +162,8 @@ KURZ = {
         "wird angehaengt, nie überschrieben. Nutzen, wenn sich Angaben "
         "aendern oder nachgetragen werden. Für den Status "
         "bewerbung_status_aendern, für eine reine Notiz bewerbung_notiz, "
-        "für Termine meeting_hinzufuegen."),
+        "für Termine meeting_hinzufuegen. Den Absagegrund einer schon "
+        "abgelehnten Bewerbung trägt ablehnungsgrund nach."),
     "bewerbung_details": (
         "Zeigt eine Bewerbung vollstaendig: Stelle mit Anzeigentext, "
         "Verlauf, Termine, Dokumente, Kontakte, Recherche, offene Aufgaben "
@@ -221,10 +222,20 @@ KURZ = {
         "Dubletten (auch Aussortiertes, dann als Hinweis), Blacklist und "
         "frühere Bewerbungen. Ohne URL, Dokument oder Kontakt ist die "
         "Stelle später kaum wiederzufinden — dann nachfragen. Aus Google "
-        "Jobs gelten Remote und Ort erst mit dem Original (Detail-URL des "
-        "Arbeitgebers und Text), davor bleibt das Arbeitsmodell unbekannt. "
-        "Auch für Treffer aus dem Browserlauf: im Zweifel eintragen. Was "
-        "PBPs eigene Suche schon angelegt hat, nicht doppelt."),
+        "Jobs gelten Remote und Ort erst mit dem Original (Detail-URL und "
+        "Text), davor bleibt das Arbeitsmodell unbekannt. Treffer aus dem "
+        "Browserlauf: im Zweifel eintragen, viele auf einmal mit "
+        "browser_treffer_uebernehmen. Was PBPs eigene Suche schon angelegt "
+        "hat, nicht doppelt."),
+    "browser_treffer_uebernehmen": (
+        "Übernimmt die Ernte eines Browserlaufs (StepStone, XING, Indeed, "
+        "Google Jobs, Heise, eigene Quellen) in einem Zug nach PBP, mit "
+        "denselben Prüfungen wie stelle_manuell_anlegen: Blacklist, "
+        "Dubletten, Anker. Im Zweifel eintragen: eine Karte ohne Volltext "
+        "ist trotzdem eine Stelle. Erst mit dry_run=True die Vorschau, "
+        "dann dry_run=False: legt an und verbucht den Lauf, auch wenn "
+        "nichts angelegt wird. rohtreffer immer mitgeben. Danach wartet "
+        "die Ernte im Dashboard unter Stellen zu prüfen."),
     "profil_erstellen": (
         "Legt das Profil an oder ergänzt es (Name, Kontakt, Kurzprofil, "
         "Praeferenzen). Teil der Ersterfassung. Die Antwort nennt Dokumente, "
@@ -331,13 +342,10 @@ def parameter_texte(doc: str) -> dict[str, str]:
     return ergebnis
 
 
-# H29 (#1087 G11): alte Namen, die einen Release lang weiter erreichbar
-# sind. Ein Alias traegt den Tag seines neuen Namens.
-ALIASE = {
-    "stelle_bewerten": "stelle_einordnen",
-    "stelle_analyse_speichern": "stelle_urteil_speichern",
-    "jobtitel_vorschlagen": "jobtitel_speichern",
-}
+# H29 (#1087 G11): alte Namen, die einen Release lang weiter erreichbar sind (`tools.veralteter_name`). Ein Alias traegt den Tag
+# seines neuen Namens. Leer seit 1.8.0 (#1148 Punkt 13): `stelle_bewerten`, `stelle_analyse_speichern` und `jobtitel_vorschlagen`
+# galten seit v1.7.135 "einen Release lang" und sind entfallen; ein kuenftiger Rename traegt sich hier wieder ein.
+ALIASE: dict = {}
 
 
 def tag(name: str) -> str:

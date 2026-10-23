@@ -10,19 +10,23 @@
  * klickst, kann Claude ebenso — und umgekehrt. Die Regeln ohne Zeichnung stehen in lib/firmen.js (Node-Test).
  */
 import {
-  ArrowLeft, Ban, BookOpen, Building2, ExternalLink, FileText, Mail, Pencil, Plus, Search, Send, StickyNote, Trash2, UserRound, X,
+  Ban, BookOpen, Building2, ExternalLink, FileText, Mail, Pencil, Plus, Search, Send, StickyNote, Trash2, UserRound, X,
   BriefcaseBusiness,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { api, deleteRequest, patchJson, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, EmptyState, Field, LoadingPanel, SectionHeading, TextArea, TextInput } from "@/components/ui";
+import MitClaude from "@/components/MitClaude";
+import WegLeiste from "@/components/WegLeiste";
 import { bestaetigen } from "@/lib/bestaetigung";
 import {
   datumText, fehlerText, filterKnoepfe, filterZeitleiste, hashFuerFirma, kannAnlegen, mutterOptionen, schreibweisen,
   sicherheitText, sprung, sprungText, statusText, statusTon, vorschlagText, zaehlungsZeile, zusammenfuehrenOptionen,
 } from "@/lib/firmen";
+import { firmaLeiste } from "@/lib/wegleiste";
 import { STATUS_OPTIONS } from "@/utils";
 
 const ART_ICON = {
@@ -36,8 +40,15 @@ const ALIAS_ARTEN = [
 
 const SELECT_KLASSE = "w-full rounded-lg border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-ink";
 
+/** Zeichnet die Leiste in den festen Kopf der App (`#weg-leiste-slot`), damit sie beim Scrollen der Historie stehen bleibt;
+ *  ohne Platz dort (etwa in einem Test) steht sie an ihrer Stelle in der Ansicht. */
+function LeisteImKopf({ children }) {
+  const slot = typeof document !== "undefined" ? document.getElementById("weg-leiste-slot") : null;
+  return slot ? createPortal(children, slot) : children;
+}
+
 export default function FirmenAnsicht({ ziel }) {
-  const { pushToast, reloadKey, navigateTo } = useApp();
+  const { pushToast, reloadKey, navigateTo, copyPrompt } = useApp();
   const [liste, setListe] = useState(null);
   const [auswahl, setAuswahl] = useState(null);          // { id } | { name } | null
   const [ansicht, setAnsicht] = useState(null);
@@ -47,6 +58,8 @@ export default function FirmenAnsicht({ ziel }) {
   const [bearbeiten, setBearbeiten] = useState(false);
   const [vorschlaege, setVorschlaege] = useState(null);  // null = zu | { anzahl, vorschlaege, gewaehlt:Set }
   const [busy, setBusy] = useState(false);
+  // #1171 Baustein 4: woher kam der Mensch (Bewerbung, Stelle, Kontakt)? Die Leiste bietet dorthin den Rueckweg.
+  const [von, setVon] = useState(null);
   const letztesZiel = useRef(0);
   // `pushToast` ändert sich mit jeder Meldung; die Ladefunktionen dürfen sich deshalb nicht daran hängen — sonst lädt jede Meldung
   // die Ansicht neu, und nach dem Löschen fragte sie noch einmal nach der Firma, die es nicht mehr gibt.
@@ -85,9 +98,11 @@ export default function FirmenAnsicht({ ziel }) {
     if (ziel.zurueck) zurueck();
     else if (ziel.firmaId) oeffnen({ id: ziel.firmaId });
     else if (ziel.firmaName) oeffnen({ name: ziel.firmaName });
+    setVon(ziel.zurueck ? null : ziel.von || null);
   }, [ziel]);
 
   function oeffnen(wahl) {
+    setVon(null);                                   // ein Klick in der Liste oder auf eine Mutterfirma hat keinen Rueckweg ausser der Liste
     setFilter("");
     setBearbeiten(false);
     setAuswahl(wahl);
@@ -95,6 +110,7 @@ export default function FirmenAnsicht({ ziel }) {
   }
 
   function zurueck() {
+    setVon(null);
     setAuswahl(null);
     setAnsicht(null);
     setBearbeiten(false);
@@ -159,11 +175,21 @@ export default function FirmenAnsicht({ ziel }) {
   if (auswahl) {
     return (
       <div data-firmen-ansicht>
-        <div className="mb-4">
-          <Button size="sm" variant="ghost" onClick={zurueck} title="Zurück zur Liste aller Firmen.">
-            <ArrowLeft size={14} className="mr-1 inline" /> Alle Firmen
-          </Button>
-        </div>
+        {/* #1171 Baustein 3: dieselbe feste Leiste wie bei Stelle, Bewerbung und Kontakt - Rueckweg links, die Faelle dieser Firma
+            in der Mitte; sie bleibt beim Scrollen der Historie stehen. */}
+        <LeisteImKopf>
+        <WegLeiste
+          leiste={firmaLeiste({ zurueckLabel: "Firmen", zeitleiste: ansicht?.zeitleiste })}
+          selbst={{
+            seite: "kontakte",
+            intent: { ansicht: "firmen", ...(auswahl.id ? { firmaId: auswahl.id } : { firmaName: auswahl.name }) },
+            label: `Firma: ${ansicht?.name || auswahl.name || ""}`,
+          }}
+          von={von}
+          onZurueck={zurueck}
+          className="-mx-1 border-t border-white/6 bg-transparent"
+        />
+        </LeisteImKopf>
         {laedt && !ansicht ? <LoadingPanel label="Die Firma wird geladen …" /> : null}
         {ansicht && ansicht.status === "ok" ? (
           <Detail
@@ -196,6 +222,16 @@ export default function FirmenAnsicht({ ziel }) {
         <Button size="sm" variant="secondary" disabled={!suche.trim()} onClick={() => oeffnen({ name: suche.trim() })}
           title="Zeigt alles, was PBP zu diesem Namen weiß — auch wenn es noch keinen Firmen-Eintrag gibt.">
           Öffnen
+        </Button>
+        {/* #1170 U10 (d): ein Prompt je neuer Seite */}
+        <Button
+          size="sm"
+          variant="ghost"
+          data-mit-claude-seite
+          title="Kopiert eine Anleitung: Claude zeigt, welche Namen in deinem Bestand vermutlich dieselbe Firma sind. Geändert wird nichts ohne dich."
+          onClick={() => copyPrompt("Zeig mir mit firmen_vorschlaege_anzeigen, welche Firmennamen in meinem Bestand vermutlich dieselbe Firma sind, und erkläre mir, was ich damit tun kann. Ändere nichts ohne meine Bestätigung.")}
+        >
+          <MitClaude>Firmen erklären</MitClaude>
         </Button>
       </div>
 

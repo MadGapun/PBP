@@ -142,7 +142,7 @@ def test_custom_grund_in_stelle_bewerten_akzeptiert(tmp_db):
     }])
 
     mcp = _register_jobs(tmp_db)
-    fn = mcp.tools["stelle_bewerten"]
+    fn = mcp.tools["stelle_einordnen"]
 
     result = fn(job_hash=full_hash, bewertung="passt_nicht",
                 gruende=["kein_homeoffice"])
@@ -165,7 +165,7 @@ def test_deaktivierter_custom_grund_faellt_auf_sonstiges_zurueck(tmp_db):
     }])
 
     mcp = _register_jobs(tmp_db)
-    fn = mcp.tools["stelle_bewerten"]
+    fn = mcp.tools["stelle_einordnen"]
 
     result = fn(job_hash=full_hash, bewertung="passt_nicht",
                 gruende=["temporaerer_grund"])

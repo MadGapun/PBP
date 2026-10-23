@@ -31,6 +31,36 @@ cd /d "%TEMP%" 2>nul || cd /d "%SystemRoot%"
 cmd /c ""%PBP_RELOC_BAT%"" & del /Q "%PBP_RELOC_BAT%" >nul 2>&1 & exit /b 0
 
 :pbp_main
+:: v1.8.0 (#1207): ein "!" im Windows-Profil verschwindet unter der verzoegerten Expansion aus jedem Pfad, der aus
+:: %LOCALAPPDATA% gebildet wird. Der Deinstaller meldete dann fuer jeden Ordner "nicht gefunden" und entfernte nichts. Hier
+:: wird vor der ersten Aenderung geprueft und mit dem Handgriff abgebrochen.
+setlocal DisableDelayedExpansion
+:: Gedruckt wird mit `set PBP_ORT_`: kein eigenes setlocal (PP19), und ein "&" im Namen wird nicht als Befehl gelesen.
+set "PBP_ORT_1=%LOCALAPPDATA%"
+set "PBP_ORT_2=%TEMP%"
+set "PBP_ORT_3=%USERPROFILE%"
+set "PBP_PROFIL_ORTE=%LOCALAPPDATA%%TEMP%%USERPROFILE%"
+if "%PBP_PROFIL_ORTE:!=%"=="%PBP_PROFIL_ORTE%" goto :pbp_profil_ok
+echo.
+echo  ****************************************************
+echo  *  FEHLER: Dein Windows-Profil enthaelt ein        *
+echo  *          Ausrufezeichen                          *
+echo  ****************************************************
+echo.
+echo  Der Deinstaller kann die Ordner von PBP in diesem Profil
+echo  nicht sicher finden. Geprueft habe ich:
+set PBP_ORT_
+echo.
+echo  SO GEHT ES WEITER:
+echo    1. Oeffne den Explorer und tippe in die Adressleiste
+echo       %%LOCALAPPDATA%% (mit den Prozentzeichen) ein
+echo    2. Loesche dort den Ordner BewerbungsAssistent
+echo    3. Entferne die Desktop-Verknuepfung von PBP
+echo.
+pause
+exit /b 1
+:pbp_profil_ok
+endlocal
 setlocal EnableDelayedExpansion
 title PBP Bewerbungs-Assistent - Deinstallation
 color 0C
@@ -139,21 +169,8 @@ call :remove_path "%APP_DIR%" "App-Verzeichnis %APP_DIR%"
 :: Legacy v1.4.x Pfade
 call :remove_path "%LEGACY_RUNTIME%" "Legacy Runtime in %BASE_INSTALL%\python"
 call :remove_path "%LEGACY_SRC%" "Legacy Source in %BASE_INSTALL%\src"
-call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\python"
-
-if exist "%BASEDIR%\install_log.txt" (
-    del /q "%BASEDIR%\install_log.txt" >nul 2>&1
-    if exist "%BASEDIR%\install_log.txt" (
-        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
-        set /a REMOVE_ERRORS+=1
-    ) else (
-        echo         [OK] install_log.txt entfernt
-    )
-)
-
-for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
-    if exist "%%~fF" del /q "%%~fF" >nul 2>&1
-)
+:: v1.8.0 (#1149 Punkt 9a): Python-Ordner, Installationsprotokoll und heruntergeladene Python-ZIPs neben dem Skript.
+call :ordner_neben_dem_skript
 
 :: PP26 (Testlauf 11.10.2026): hat PBP die Texterkennung ohne Administratorrechte "nur fuer mich" eingerichtet, liegt sie
 :: ausserhalb von components\ - der Vermerk dort sagt es. Dann geht sie mit ihrem eigenen Deinstallationsprogramm.
@@ -168,13 +185,21 @@ echo.
 echo  [6/7] Optional: Backup deiner Bewerbungsdaten erstellen
 echo.
 set "BACKUP_FEHLER=0"
+:: v1.8.0 #1149 Punkt 8: die Pfade kommen ueber die Umgebungsvariablen DATA_DIR und BACKUP_ZIP, nicht eingebettet. Ein Apostroph
+:: im Benutzernamen wie O'Brien machte aus dem Befehl einen Syntaxfehler mit Exit 1 - und Exit 1 heisst hier "kein Datenordner":
+:: es gab kein Backup, keine Warnung, und danach durfte der Mensch endgueltig loeschen.
+:: #1224: HIER STEHT BEWUSST KEIN KOMMENTAR INNERHALB DES BLOCKS. cmd liest den Block beim Einlesen in einem Zug; zwei
+:: Kommentarzeilen mit Klammern darin liessen den Stapel dort enden - der Deinstaller schloss sich nach der Backup-Frage.
 set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): "
 if /i "!CREATE_BACKUP!"=="j" (
     set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
     echo         Erstelle Backup...
-    powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path '%DATA_DIR%') { try { Compress-Archive -Path '%DATA_DIR%\*' -DestinationPath '!BACKUP_ZIP!' -Force; if (-not (Test-Path '!BACKUP_ZIP!')) { throw 'Die ZIP-Datei fehlt.' }; Write-Host '        [OK] Backup erstellt: !BACKUP_ZIP!'; exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
-    if errorlevel 2 set "BACKUP_FEHLER=1"
-    echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
+    powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:DATA_DIR) { try { Compress-Archive -Path (Join-Path $env:DATA_DIR '*') -DestinationPath $env:BACKUP_ZIP -Force; if (-not (Test-Path -LiteralPath $env:BACKUP_ZIP)) { throw 'Die ZIP-Datei fehlt.' }; Write-Host ('        [OK] Backup erstellt: ' + $env:BACKUP_ZIP); exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
+    set "BACKUP_RC=!errorlevel!"
+    if !BACKUP_RC! geq 2 set "BACKUP_FEHLER=1"
+    if "!BACKUP_RC!"=="0" echo [INFO] Desktop-Backup erstellt >> "%LOGFILE%"
+    if "!BACKUP_RC!"=="1" echo [INFO] Desktop-Backup uebersprungen ^(kein Datenordner^) >> "%LOGFILE%"
+    if "!BACKUP_FEHLER!"=="1" echo [WARN] Desktop-Backup NICHT erstellt >> "%LOGFILE%"
 )
 
 echo.
@@ -232,9 +257,9 @@ call :zusatzdateien
 :: damit auch %BASE_INSTALL% — kein Datenverlust.
 rmdir "%BASE_INSTALL%" 2>nul
 if exist "%BASE_INSTALL%" (
-    echo [INFO] %BASE_INSTALL% nicht entfernt ^(enthaelt noch Daten^) >> "%LOGFILE%"
+    echo [INFO] !BASE_INSTALL! nicht entfernt ^(enthaelt noch Daten^) >> "%LOGFILE%"
 ) else (
-    echo [OK] %BASE_INSTALL% Stamm-Ordner entfernt >> "%LOGFILE%"
+    echo [OK] !BASE_INSTALL! Stamm-Ordner entfernt >> "%LOGFILE%"
 )
 
 echo.
@@ -253,22 +278,23 @@ if "!CLAUDE_MANUELL!"=="1" (
     echo    Die Claude-Konfigurationsdatei konnte nicht automatisch
     echo    bearbeitet werden. Entferne den MCP-Server-Eintrag
     echo    "bewerbungs-assistent" manuell in:
-    echo    %APPDATA%\Claude\claude_desktop_config.json
-    echo    ^(bei Claude aus dem Microsoft Store: %LOCALAPPDATA%\Packages\Claude_...
+    echo    !APPDATA!\Claude\claude_desktop_config.json
+    echo    ^(bei Claude aus dem Microsoft Store: !LOCALAPPDATA!\Packages\Claude_...
     echo    \LocalCache\Roaming\Claude\claude_desktop_config.json^)
+    echo    ^(neuere Store-Fassung von Claude: !LOCALAPPDATA!\Claude-Data\claude_...\claude_desktop_config.json^)
     echo.
 )
 
 if "!DATA_RESULT!"=="kept" (
     echo  Deine Daten sind weiterhin vorhanden unter:
-    echo    %DATA_DIR%
+    echo    !DATA_DIR!
     echo.
 )
 
 if exist "%BASE_INSTALL%" (
     echo  Hinweis: Falls Reste verbleiben ^(z.B. weil Dateien noch gesperrt
     echo  waren^), kannst du diesen Ordner gefahrlos manuell loeschen:
-    echo    %BASE_INSTALL%
+    echo    !BASE_INSTALL!
     echo.
 )
 
@@ -297,7 +323,7 @@ exit /b 0
 :: meldete danach bei jedem Start einen Server, dessen Programm es nicht mehr gab. Rueckgabe: 0 entfernt, 1 kein Eintrag,
 :: 2 keine mcpServers, 3 nicht lesbar, 4 keine Datei, 5 Schreibfehler; bei mehreren Dateien gilt der schlimmste Fall.
 :remove_claude_entry
-powershell -ExecutionPolicy Bypass -NoProfile -Command "$pfade = @(Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'); if ($env:LOCALAPPDATA) { foreach ($muster in 'Claude_*', 'AnthropicPBC.Claude*') { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter $muster -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json' } } }; $ergebnisse = @(); foreach ($p in $pfade) { $r = 4; $wie = ''; if (Test-Path $p) { $cfg = $null; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json; $r = 0 } catch { $r = 3 }; if ($r -eq 0) { if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers') -or -not $cfg.mcpServers) { $r = 2 } elseif (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { $r = 1 } else { try { Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $q = [char]34; $bs = [char]92; $roh = [IO.File]::ReadAllText($p); $neu = $null; $a = [regex]::Match($roh, $q + 'mcpServers' + $q + '\s*:\s*\{'); if ($a.Success) { $re = New-Object System.Text.RegularExpressions.Regex($q + 'bewerbungs-assistent' + $q + '\s*:\s*\{'); $m = $re.Match($roh, $a.Index); if ($m.Success) { $t = 0; $s = $false; $e = -1; for ($i = $m.Index + $m.Length - 1; $i -lt $roh.Length; $i++) { $z = $roh[$i]; if ($s) { if ($z -eq $bs) { $i++ } elseif ($z -eq $q) { $s = $false } } elseif ($z -eq $q) { $s = $true } elseif ($z -eq '{') { $t++ } elseif ($z -eq '}') { $t--; if ($t -eq 0) { $e = $i; break } } }; if ($e -ge 0) { $von = $m.Index; $bis = $e + 1; $k = $bis; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; if ($k -lt $roh.Length -and $roh[$k] -eq ',') { $k++; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; $bis = $k } else { $j = $von - 1; while ($j -ge 0 -and [char]::IsWhiteSpace($roh[$j])) { $j-- }; if ($j -ge 0 -and $roh[$j] -eq ',') { $von = $j } }; $neu = [regex]::Replace($roh.Remove($von, $bis - $von), '(' + $q + 'mcpServers' + $q + '\s*:\s*)\{\s*\}', '${1}{}') } } }; $gut = $false; if ($neu) { try { $k1 = ConvertFrom-Json -InputObject $neu; $k2 = ConvertFrom-Json -InputObject $roh; $null = $k2.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); $gut = ((ConvertTo-Json -InputObject $k1 -Depth 15 -Compress) -eq (ConvertTo-Json -InputObject $k2 -Depth 15 -Compress)) } catch { $gut = $false } }; $wie = ' (nur der Eintrag entfernt)'; if ($gut) { [IO.File]::WriteAllText($p, $neu, (New-Object System.Text.UTF8Encoding($false))) } else { $wie = ' (neu geschrieben)'; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))) }; $r = 0 } catch { $r = 5 } } } }; Write-Host ('[INFO] Claude-Config ' + $p + ' -> ' + $r + $wie); $ergebnisse += $r }; foreach ($c in 5, 3, 0, 1, 2) { if ($ergebnisse -contains $c) { exit $c } }; exit 4" >> "%LOGFILE%" 2>&1
+powershell -ExecutionPolicy Bypass -NoProfile -Command "$pfade = @(Join-Path $env:APPDATA 'Claude\claude_desktop_config.json'); if ($env:LOCALAPPDATA) { foreach ($muster in 'Claude_*', 'AnthropicPBC.Claude*') { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Packages') -Directory -Filter $muster -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json' } } }; if ($env:LOCALAPPDATA) { foreach ($d in @(Get-ChildItem -Path (Join-Path $env:LOCALAPPDATA 'Claude-Data') -Directory -Filter 'claude*' -ErrorAction SilentlyContinue)) { $pfade += Join-Path $d.FullName 'claude_desktop_config.json' } }; $ergebnisse = @(); foreach ($p in $pfade) { $r = 4; $wie = ''; if (Test-Path $p) { $cfg = $null; try { $cfg = Get-Content -Path $p -Raw -Encoding UTF8 | ConvertFrom-Json; $r = 0 } catch { $r = 3 }; if ($r -eq 0) { if (-not ($cfg.PSObject.Properties.Name -contains 'mcpServers') -or -not $cfg.mcpServers) { $r = 2 } elseif (-not ($cfg.mcpServers.PSObject.Properties.Name -contains 'bewerbungs-assistent')) { $r = 1 } else { try { Copy-Item -Path $p -Destination ($p + '.pbp-backup') -Force; $q = [char]34; $bs = [char]92; $roh = [IO.File]::ReadAllText($p); $neu = $null; $a = [regex]::Match($roh, $q + 'mcpServers' + $q + '\s*:\s*\{'); if ($a.Success) { $re = New-Object System.Text.RegularExpressions.Regex($q + 'bewerbungs-assistent' + $q + '\s*:\s*\{'); $m = $re.Match($roh, $a.Index); if ($m.Success) { $t = 0; $s = $false; $e = -1; for ($i = $m.Index + $m.Length - 1; $i -lt $roh.Length; $i++) { $z = $roh[$i]; if ($s) { if ($z -eq $bs) { $i++ } elseif ($z -eq $q) { $s = $false } } elseif ($z -eq $q) { $s = $true } elseif ($z -eq '{') { $t++ } elseif ($z -eq '}') { $t--; if ($t -eq 0) { $e = $i; break } } }; if ($e -ge 0) { $von = $m.Index; $bis = $e + 1; $k = $bis; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; if ($k -lt $roh.Length -and $roh[$k] -eq ',') { $k++; while ($k -lt $roh.Length -and [char]::IsWhiteSpace($roh[$k])) { $k++ }; $bis = $k } else { $j = $von - 1; while ($j -ge 0 -and [char]::IsWhiteSpace($roh[$j])) { $j-- }; if ($j -ge 0 -and $roh[$j] -eq ',') { $von = $j } }; $neu = [regex]::Replace($roh.Remove($von, $bis - $von), '(' + $q + 'mcpServers' + $q + '\s*:\s*)\{\s*\}', '${1}{}') } } }; $gut = $false; if ($neu) { try { $k1 = ConvertFrom-Json -InputObject $neu; $k2 = ConvertFrom-Json -InputObject $roh; $null = $k2.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); $gut = ((ConvertTo-Json -InputObject $k1 -Depth 15 -Compress) -eq (ConvertTo-Json -InputObject $k2 -Depth 15 -Compress)) } catch { $gut = $false } }; $wie = ' (nur der Eintrag entfernt)'; if ($gut) { [IO.File]::WriteAllText($p, $neu, (New-Object System.Text.UTF8Encoding($false))) } else { $wie = ' (neu geschrieben)'; $null = $cfg.mcpServers.PSObject.Properties.Remove('bewerbungs-assistent'); if ($cfg.mcpServers.PSObject.Properties.Count -eq 0) { $cfg.mcpServers = @{} }; [IO.File]::WriteAllText($p, ($cfg | ConvertTo-Json -Depth 15), (New-Object System.Text.UTF8Encoding($false))) }; $r = 0 } catch { $r = 5 } } } }; Write-Host ('[INFO] Claude-Config ' + $p + ' -> ' + $r + $wie); $ergebnisse += $r }; foreach ($c in 5, 3, 0, 1, 2) { if ($ergebnisse -contains $c) { exit $c } }; exit 4" >> "%LOGFILE%" 2>&1
 if %errorlevel% geq 5 exit /b 5
 exit /b %errorlevel%
 
@@ -306,11 +332,13 @@ powershell -ExecutionPolicy Bypass -NoProfile -Command "$s = Join-Path ([Environ
 exit /b %errorlevel%
 
 :remove_path
+:: v1.8.0 (#1149 Punkt 8): in den Bloecken !VAR! statt %VAR% - die Beschriftung nennt den Ordner, und ein Ordner wie
+:: "PBP-1.8.0 (1)" (so legt der Browser eine zweite Kopie an) trug seine Klammer in den Block und beendete ihn dort.
 set "TARGET=%~1"
 set "TARGET_LABEL=%~2"
 if not exist "%TARGET%" (
-    echo         [--] %TARGET_LABEL% nicht gefunden
-    echo [INFO] Nicht gefunden: %TARGET% >> "%LOGFILE%"
+    echo         [--] !TARGET_LABEL! nicht gefunden
+    echo [INFO] Nicht gefunden: !TARGET! >> "%LOGFILE%"
     exit /b 0
 )
 
@@ -322,14 +350,46 @@ if exist "%TARGET%" (
     rmdir /s /q "%TARGET%" >nul 2>&1
 )
 if exist "%TARGET%" (
-    echo         [^^!^^!] %TARGET_LABEL% konnte nicht entfernt werden
-    echo [WARN] Entfernen fehlgeschlagen: %TARGET% >> "%LOGFILE%"
+    echo         [^^!^^!] !TARGET_LABEL! konnte nicht entfernt werden
+    echo [WARN] Entfernen fehlgeschlagen: !TARGET! >> "%LOGFILE%"
     set /a REMOVE_ERRORS+=1
 ) else (
-    echo         [OK] %TARGET_LABEL% entfernt
-    echo [OK] Entfernt: %TARGET% >> "%LOGFILE%"
+    echo         [OK] !TARGET_LABEL! entfernt
+    echo [OK] Entfernt: !TARGET! >> "%LOGFILE%"
 )
 exit /b 0
+
+:: --- basedir Anfang
+:ordner_neben_dem_skript
+:: #1149 (Punkt 9a): Beim Aufruf ueber "Apps & Features" kopiert sich der Deinstaller nach %TEMP% (siehe oben) und laeuft
+:: von dort. %~dp0 ist dann %TEMP% selbst: der Python-Ordner, das Installationsprotokoll und die heruntergeladenen
+:: Python-ZIPs "neben dem Skript" waeren die, die in %TEMP% liegen - und das sind nicht PBPs. Nur ein Skript, das im
+:: entpackten PBP-Ordner liegt, hat dort etwas zu entfernen.
+set "BASEDIR_FREMD="
+if "%PBP_DEINST_RELOCATED%"=="1" set "BASEDIR_FREMD=1"
+if /i "%BASEDIR%"=="%TEMP%" set "BASEDIR_FREMD=1"
+if /i "%BASEDIR%"=="%TMP%" set "BASEDIR_FREMD=1"
+if defined BASEDIR_FREMD (
+    echo [INFO] Deinstaller laeuft aus dem Temp-Ordner: Ordner neben dem Skript bleiben unberuehrt >> "%LOGFILE%"
+    exit /b 0
+)
+call :remove_path "%LOCAL_RUNTIME_DIR%" "Lokaler Python-Ordner in %BASEDIR%\python"
+
+if exist "%BASEDIR%\install_log.txt" (
+    del /q "%BASEDIR%\install_log.txt" >nul 2>&1
+    if exist "%BASEDIR%\install_log.txt" (
+        echo         [^^!^^!] install_log.txt konnte nicht entfernt werden
+        set /a REMOVE_ERRORS+=1
+    ) else (
+        echo         [OK] install_log.txt entfernt
+    )
+)
+
+for %%F in ("%BASEDIR%\python-*-embed-amd64.zip") do (
+    if exist "%%~fF" del /q "%%~fF" >nul 2>&1
+)
+exit /b 0
+:: --- basedir Ende
 
 :: --- texterkennung Anfang
 :texterkennung_entfernen

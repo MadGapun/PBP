@@ -18,7 +18,8 @@ Was als gemeldeter Kontakt zählt
 * ein Statuswechsel, mit dem der Arbeitgeber geantwortet hat
   (`KONTAKT_STATUS`),
 * ein Termin, der angelegt oder verschoben wird,
-* eine Gesprächsnotiz (`bewerbung_notiz`),
+* eine Notiz, die AUSDRÜCKLICH als Kontakt gemeldet wird
+  (`bewerbung_notiz(art="kontakt")`),
 * eine E-Mail, die einer Bewerbung zugeordnet wird.
 
 Was NICHT schließt
@@ -29,9 +30,16 @@ Was NICHT schließt
 * Nur Erinnerungen, die VOR dem Kontakt angelegt wurden. Wer nach dem
   Gespräch bewusst „in zwei Wochen nachfragen“ einplant, will genau diese
   Erinnerung behalten.
+* Eine interne Notiz (Recherche, Vorbereitung, eigene Einschätzung) ist
+  kein Kontakt (#1232). Seit #1123 hatte jede Notiz geschlossen: wer eine
+  Bewerbung anlegte (das legt den 21-Tage-Nachfass an) und gleich danach
+  eine interne Notiz schrieb, verlor die Erinnerung nach Minuten, ohne es
+  zu merken.
 
 Der Eintrag im Verlauf ist eine Notiz an der Bewerbung; die Erinnerung
-selbst bleibt als `hinfaellig` mit Zeitstempel erhalten (nicht gelöscht).
+selbst bleibt mit Zeitstempel erhalten (nicht gelöscht): als `hinfaellig`,
+wenn ein Kontakt die Nachfrage überholt hat, als `erledigt`, wenn der
+Mensch selbst nachgefragt hat (`nachfrage_gesendet`).
 """
 from __future__ import annotations
 
@@ -64,8 +72,17 @@ def _offene(db, app_id: str) -> list[dict]:
     return [dict(z) for z in zeilen]
 
 
+#: Zustände, auf die `schliessen` setzen darf: der Kontakt hat die Nachfrage
+#: überholt (`hinfaellig`) oder der Mensch hat selbst nachgefragt (`erledigt`).
+SCHLIESS_STATUS = ("hinfaellig", "erledigt")
+
+#: Wozu eine Notiz gehört (#1232). Nur `kontakt` und `nachfrage` berühren die
+#: offene Nachfass-Erinnerung; `intern` ist die Vorgabe und lässt sie stehen.
+NOTIZ_ARTEN = ("intern", "kontakt", "nachfrage")
+
+
 def schliessen(db, app_id: str, anlass: str, *, wann: str | None = None,
-               notiz: bool = True) -> list[dict]:
+               notiz: bool = True, status: str = "hinfaellig") -> list[dict]:
     """Schließt offene Nachfrage-Erinnerungen dieser Bewerbung.
 
     Args:
@@ -73,10 +90,14 @@ def schliessen(db, app_id: str, anlass: str, *, wann: str | None = None,
         wann: Zeitpunkt des Kontakts (ISO). Erinnerungen, die danach
             angelegt wurden, bleiben offen. Vorgabe: jetzt.
         notiz: Verlaufseintrag schreiben.
+        status: `hinfaellig` (Vorgabe) oder `erledigt` (#1232: die
+            Nachfrage ist gestellt worden und zählt als erledigt).
 
     Returns:
         Die geschlossenen Erinnerungen als `{id, geplant_fuer}`.
     """
+    if status not in SCHLIESS_STATUS:
+        raise ValueError(f"status muss einer von {SCHLIESS_STATUS} sein, nicht {status!r}")
     if not app_id:
         return []
     # Nur ein ISO-Zeitpunkt lässt sich mit `created_at` vergleichen; alles
@@ -90,18 +111,20 @@ def schliessen(db, app_id: str, anlass: str, *, wann: str | None = None,
         if angelegt and angelegt > wann:
             continue
         conn.execute(
-            "UPDATE follow_ups SET status='hinfaellig', completed_at=? WHERE id=?",
-            (_jetzt(), fu["id"]))
+            "UPDATE follow_ups SET status=?, completed_at=? WHERE id=?",
+            (status, _jetzt(), fu["id"]))
         geschlossen.append({"id": fu["id"],
                             "geplant_fuer": str(fu.get("scheduled_date") or "")[:10]})
     if not geschlossen:
         return []
     conn.commit()
     if notiz:
+        wirkung = ("als erledigt markiert" if status == "erledigt"
+                   else "auf hinfällig gesetzt")
         try:
             db.add_application_note(
                 app_id, f"Nachfrage erledigt ({anlass}) — automatisch "
-                        f"{len(geschlossen)} Erinnerung(en) auf hinfällig gesetzt.")
+                        f"{len(geschlossen)} Erinnerung(en) {wirkung}.")
         except Exception as exc:  # noqa: BLE001 — der Verlauf darf nie das Schließen kippen
             logger.debug("Verlaufseintrag Nachfrage (#1123): %s", exc)
     return geschlossen
@@ -111,6 +134,15 @@ def kontakt_gemeldet(db, app_id: str, anlass: str,
                      wann: str | None = None) -> list[dict]:
     """Ein Kontakt mit dem Arbeitgeber wurde gemeldet."""
     return schliessen(db, app_id, anlass, wann=wann)
+
+
+def nachfrage_gesendet(db, app_id: str,
+                       anlass: str = "Nachfrage gesendet") -> list[dict]:
+    """Der Mensch hat selbst beim Arbeitgeber oder Vermittler nachgefragt (#1232).
+
+    Die Erinnerung ist damit `erledigt`, nicht `hinfaellig`: sie hat ihren
+    Zweck erfüllt (und zählt so in den Reaktionszeiten, #980)."""
+    return schliessen(db, app_id, anlass, status="erledigt")
 
 
 def ueberholte_schliessen(db) -> list[dict]:

@@ -19,9 +19,12 @@ def test_auto_scroll_uses_useLayoutEffect():
 
 
 def test_sticky_bottom_detection():
-    """Wenn User aktiv hochscrollt: stickyRef = false, kein Auto-Scroll."""
+    """Wenn User aktiv hochscrollt: kein Auto-Scroll. #1256: der Merker `stickyRef` (nur von einem Scroll-Ereignis gesetzt) ist bewusst weg - er war veraltet,
+    sobald sich die Hoehe ohne Ereignis aenderte oder das Ereignis noch ausstand. Ob der Mensch am Ende steht, misst die Seite beim Eintreffen der Daten
+    (`warAmEnde` aus `stehtAmEnde`); im Scroll-Handler bleiben `distanceFromBottom` und `atBottom` (sie raeumen die Marke weg)."""
     src = SIDEBAR_CHAT.read_text(encoding="utf-8")
-    assert "stickyRef" in src
+    assert "stickyRef" not in src, "ein Merker aus einem Scroll-Ereignis allein veraltet (#1256)"
+    assert "stehtAmEnde" in src and "warAmEnde" in src
     assert "distanceFromBottom" in src
     assert "atBottom" in src
 

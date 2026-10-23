@@ -435,10 +435,14 @@ def test_bereinigt_nimmt_nur_urteile_des_menschen_in_die_beispiele(demo_db, key)
     assert "Achtung:" not in ausgabe.text
 
 
-def test_ohne_bereinigung_zeigt_die_probe_dass_der_betrieb_systemgruende_mitgibt(demo_db):
-    """Die Probe misst den Betrieb, wie er ist -- und sagt dazu, was darin steckt (Befund der Messprobe)."""
+def test_seit_1239_gibt_der_betrieb_keine_systemgruende_mehr_mit(demo_db):
+    """Die Probe misst den Betrieb, wie er ist. Bis #1239 steckten darin Systemgruende (`profil_match_negativ`) und die Probe
+    warnte; seit #1239 zeigt der Betrieb der KI nur Urteile des Menschen. Eine Warnung nennt dann hoechstens noch Urteile,
+    die der Anzeigentext nicht belegt (Entfernung, Gehalt, Firmenwahl), aber keinen Systemgrund."""
     rc, ausgabe = _lauf(["--quelle", str(demo_db), "--anzahl", "10"])
-    assert "Achtung:" in ausgabe.text and "profil_match_negativ" in ausgabe.text and "--bereinigt" in ausgabe.text
+    assert rc == 0
+    for systemgrund in ("profil_match_negativ", "bewerbung_erstellt"):
+        assert systemgrund not in ausgabe.text
 
 
 # ============================================================ Der Echtlauf mit Testdoppel: Auswertung
@@ -688,7 +692,8 @@ def test_ollama_allein_mit_bereinigt_gibt_der_lokalen_ki_nur_urteile_des_mensche
     system = {"profil_match_negativ", "bewerbung_erstellt"}
     betrieb, _ = _lokale_beispiele(demo_db)
     bereinigt, text = _lokale_beispiele(demo_db, "--bereinigt")
-    assert any(b["dismiss_reason"] in system for b in betrieb), "Vorbedingung: der Betrieb gibt Systemgruende mit"
+    # Seit #1239 ist der Betrieb selbst bereinigt: beide Modi zeigen nur Urteile des Menschen.
+    assert betrieb and not any(b["dismiss_reason"] in system for b in betrieb)
     assert bereinigt and not any(b["dismiss_reason"] in system for b in bereinigt)
     assert "(nur Urteile des Menschen)" in text
 

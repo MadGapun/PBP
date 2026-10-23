@@ -265,6 +265,8 @@ def backend_texte():
 CLAUDE_AUSGENOMMEN = {
     # Prompts an die lokale KI: anderes Modell, eigene Messungen (#787).
     "llm_service.py", "elwosa_dialog.py",
+    # #1233: die Anweisung an die lokale KI fuer die Kurzantwort der Hilfe (Umschrift; das Modell antwortet mit Umlauten).
+    "hilfe_ki.py",
 }
 _WERTELISTE = re.compile(r"(?i)valid|erlaubt|status|gruende|grund|kategori|aktion|bereich"
                          r"|typen|arten|stufe|modus|whitelist|vokabular|zustaend|art$")

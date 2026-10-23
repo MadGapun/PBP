@@ -23,8 +23,10 @@ import { punkteText } from "@/lib/score";
 import { grundText, quelleText } from "@/lib/anzeige";
 
 import FirmaLink from "@/components/FirmaLink";
+import WegLeiste from "@/components/WegLeiste";
+import { stelleLeiste } from "@/lib/wegleiste";
 
-export default function InlineJobDetailModal({ jobHash, onClose }) {
+export default function InlineJobDetailModal({ jobHash, bewerbungId = "", onClose }) {
   const [job, setJob] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,33 @@ export default function InlineJobDetailModal({ jobHash, onClose }) {
   if (!jobHash) return null;
 
   return (
-    <Modal open={true} title="Stellendetails" onClose={onClose}>
+    <Modal
+      open={true}
+      title="Stellendetails"
+      onClose={onClose}
+      weg={job ? (
+        // #1171 Baustein 3: dieselbe Leiste wie im Dialog der Stellen-Seite (diese Fassung kann nur lesen und oeffnen)
+        <WegLeiste
+          leiste={stelleLeiste({
+            zurueckLabel: "der Bewerbung",
+            firma: job.company,
+            // #1212: Dieser Dialog geht aus einer BEWERBUNG auf. Ohne ihre Kennung hiess der Hauptknopf "Bewerbung anlegen",
+            // obwohl es sie gibt - und er schloss nur den Dialog. Mit Kennung: "Zur Bewerbung".
+            bewerbungId,
+            beurteilt: true,
+            hatAnzeige: Boolean(job.url),
+          })}
+          selbst={{ seite: "stellen", intent: { focus: "job", jobHash, oeffnen: true }, label: `Stelle: ${job.title}` }}
+          onVerlassen={onClose}
+          onZurueck={onClose}
+          onAktion={(aktion) => {
+            if (aktion === "anzeige_oeffnen" && job.url) oeffneAdresse(job.url, "_blank", "noopener");
+            // Die Bewerbung, aus der dieser Dialog aufging, liegt darunter: Schliessen fuehrt dorthin zurueck.
+            if (aktion === "zur_bewerbung" || aktion === "bewerbung_anlegen") onClose();
+          }}
+        />
+      ) : null}
+    >
       {loading && <p className="text-sm text-muted">Lade...</p>}
       {error && (
         <div className="rounded-lg border border-coral/20 bg-coral/[0.05] p-3 text-sm text-coral">

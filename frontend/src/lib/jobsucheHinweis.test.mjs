@@ -75,7 +75,7 @@ check("ohne Browser-Quellen kein Satz dazu",
   const h = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 4,
     neu_aktiv: 4, auto_aussortiert: 2, quellen: {} });
   check("KI-Aussortierung im Text", h.text.includes("2 aussortiert"), true);
-  check("Weg zurück im Titel", h.titel.includes("Stellen › Ausgeblendet"), true);
+  check("Weg zurück im Titel", h.titel.includes("Stellen › Aussortiert"), true);
   const ohne = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 0,
     auto_aussortiert: 1, quellen: {} });
   check("auch ohne neue Stellen", ohne.text.includes("1 aussortiert"), true);
@@ -94,7 +94,7 @@ check("auch ohne Funde genannt", ohneQuelle0.titel.includes("freelance"), true);
 
 // #1038 Punkt 4: was nach der Suche nachgeladen wurde
 check("nachgeladen genannt", nachgeladenText({ geholt: 12, fehlgeschlagen: 1, offen: 3 }),
-  "12 Anzeigentexte nachgeladen, 3 weitere holt „Jetzt prüfen“ nach");
+  "12 Anzeigentexte nachgeladen, 3 weitere holt die nächste Prüfung nach");
 check("einer", nachgeladenText({ geholt: 1, offen: 0 }), "1 Anzeigentext nachgeladen");
 check("nichts gelaufen", nachgeladenText(null), "");
 const mitNach = jobsucheHinweis({ vorhanden: true, ergebnis: "fertig", neue_stellen: 20,

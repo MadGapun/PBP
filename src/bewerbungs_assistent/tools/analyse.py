@@ -1,4 +1,4 @@
-"""Erweiterte KI-Features — 11 Tools (#169: Scoring-Regler)."""
+"""Erweiterte KI-Features, Diagnose und Telemetrie (#169: Scoring-Regler)."""
 
 import json
 import re
@@ -3478,22 +3478,31 @@ def register(mcp, db, logger):
     def automatik_status() -> dict:
         """Status der Hintergrund-Automatik (#677/#678).
 
-        Zwei Tasks mit Intervall in Tagen (0 = aus):
+        Drei Tasks mit Intervall in Tagen (0 = aus):
         - `lernen`: Ollama analysiert Aktivität + Dokumente (Pattern-Lernen).
         - `jobsuche`: die INTERNE Jobsuche (nur Scraper; Browser-/Login-
           Quellen bleiben manuell über Claude-in-Chrome).
+        - `aufraeumen`: die Aufräum-Runde (Nachfass-Erinnerungen nachlegen,
+          Anzeigentexte nachladen, Anzeigen prüfen; ab 1.8.0 Vorgabe täglich).
+          Bewerbungen von selbst abschließen tut sie nur mit dem Schalter
+          `bewerbungen_abschliessen` (Vorgabe aus).
 
         Liefert je Task Intervall, letzten und nächsten Lauf. Läuft nur,
         solange Claude Desktop / der MCP-Server offen ist (kein Dienst).
         """
+        from ..services import aufraeum_runde
         from ..services.automatik_scheduler import compute_status
-        return compute_status(db)
+        return {**compute_status(db),
+                "bewerbungen_abschliessen": aufraeum_runde.expire_automatisch(db),
+                "letzter_lauf_aufraeumen": aufraeum_runde.letzter_lauf(db)}
 
     @mcp.tool()
     def automatik_setzen(
         jobsuche_intervall_tage: int | None = None,
         lernen_intervall_tage: int | None = None,
         nach_suche_aussortieren: bool | None = None,
+        aufraeumen_intervall_tage: int | None = None,
+        bewerbungen_abschliessen: bool | None = None,
     ) -> dict:
         """Setzt die Hintergrund-Automatik (#677/#678, #1092).
 
@@ -3506,29 +3515,41 @@ def register(mcp, db, logger):
             nach_suche_aussortieren: nach jeder Jobsuche mit der lokalen KI
                 aussortieren (Vorgabe aus). Stellen ohne Anzeigentext werden
                 dabei nie beurteilt.
+            aufraeumen_intervall_tage: wie oft die Aufräum-Runde von selbst
+                läuft (Vorgabe 1 = täglich, 0 = nur auf Knopfdruck).
+            bewerbungen_abschliessen: ob der automatische Lauf Bewerbungen
+                ohne Antwort von selbst auf „abgelaufen“ setzt (Vorgabe aus;
+                der Knopf „Jetzt prüfen“ tut es immer). Nur auf ausdrücklichen
+                Wunsch des Menschen einschalten.
         """
-        from ..services import auto_aussortierung
+        from ..services import auto_aussortierung, aufraeum_runde
         if (jobsuche_intervall_tage is None and lernen_intervall_tage is None
-                and nach_suche_aussortieren is None):
+                and nach_suche_aussortieren is None and aufraeumen_intervall_tage is None
+                and bewerbungen_abschliessen is None):
             return {
                 "fehler": "Mindestens eine Einstellung angeben.",
                 "aktueller_stand": db.get_automatik_settings(),
                 "nach_suche_aussortieren": auto_aussortierung.schalter_an(db),
             }
-        if jobsuche_intervall_tage is not None or lernen_intervall_tage is not None:
+        if (jobsuche_intervall_tage is not None or lernen_intervall_tage is not None
+                or aufraeumen_intervall_tage is not None):
             try:
                 db.set_automatik_settings(
                     jobsuche_intervall_tage=jobsuche_intervall_tage,
                     lernen_intervall_tage=lernen_intervall_tage,
+                    aufraeumen_intervall_tage=aufraeumen_intervall_tage,
                 )
             except ValueError as exc:
                 return {"fehler": str(exc)}
+        if bewerbungen_abschliessen is not None:
+            aufraeum_runde.expire_automatisch_setzen(db, bewerbungen_abschliessen)
         if nach_suche_aussortieren is not None:
             db.set_profile_setting(auto_aussortierung.SCHALTER,
                                    "true" if nach_suche_aussortieren else "false")
         from ..services.automatik_scheduler import compute_status
         return {"status": "gespeichert", **compute_status(db),
-                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db)}
+                "nach_suche_aussortieren": auto_aussortierung.schalter_an(db),
+                "bewerbungen_abschliessen": aufraeum_runde.expire_automatisch(db)}
 
     # === MCP-Tool-Telemetrie (#636, beta.60) ===========================
 

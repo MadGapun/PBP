@@ -1,12 +1,13 @@
 # pbp_probe.ps1 - Probe fuer Beta 16 auf dem Werkstatt-PC (nur ASCII).
 # Phasen: base | get <url> <name> | seed | verify <label> [<name>] | mcp [<entry.json>] | check
 #         | komp (Komponenten-Status) | ocr <pdf> (Scan hochladen, OCR-Antwort lesen)
+#         | linie <Besitzer/Repository> (Quelle der Update-Pruefung umlenken, "neue Linie" lesen; nur auf der Testinstallation 1.7.x)
 param(
   [Parameter(Mandatory = $true)][string]$Phase,
   [string]$A1 = '',
   [string]$A2 = '',
   [string]$W = 'D:\Downloads\pbp_probe',
-  [string]$Rechner = 'WERKSTATT-PC',
+  [string]$Rechner = 'WERKSTATT',
   [string]$LA = $env:LOCALAPPDATA,
   [string]$RA = $env:APPDATA,
   [int]$Port = 8200
@@ -36,6 +37,11 @@ function ConfigPfade {
   $pk = Join-Path $LA 'Packages'
   if (Test-Path -LiteralPath $pk) {
     Get-ChildItem -LiteralPath $pk -Filter 'Claude_*' -Directory -ErrorAction SilentlyContinue | ForEach-Object { [void]$l.Add((Join-Path $_.FullName 'LocalCache\Roaming\Claude\claude_desktop_config.json')) }
+  }
+  # #1245: die neuere Store-Fassung von Claude liest ihre Konfiguration aus Claude-Data (nicht mehr aus Roaming oder Packages)
+  $cd = Join-Path $LA 'Claude-Data'
+  if (Test-Path -LiteralPath $cd) {
+    Get-ChildItem -LiteralPath $cd -Directory -ErrorAction SilentlyContinue | ForEach-Object { [void]$l.Add((Join-Path $_.FullName 'claude_desktop_config.json')) }
   }
   $l
 }
@@ -410,6 +416,29 @@ function Phase-ocr {
   } catch { Say ('antwort nicht als JSON lesbar: ' + $_.Exception.Message) }
 }
 
+function Phase-linie {
+  # F2 (dritter Lauf): eine 1.7-Installation nennt eine hoehere Linie (neue_linie), ohne sie anzubieten.
+  # Quelle ist das Probe-Repository (A1 = Besitzer/Name); die Einstellung update_quellen wird auf dieser Testinstallation gesetzt.
+  if (-not $A1) { throw 'linie <Besitzer/Repository>' }
+  # 1.7.153 und neuer: Laufzeit und Code liegen unter app\; aelterer Aufbau (1.4 bis 1.6) direkt unter BASE
+  $py = Join-Path $APP 'python\python.exe'
+  $src = Join-Path $APP 'src'
+  if (-not (Test-Path -LiteralPath $py)) { $py = Join-Path $BASE 'python\python.exe'; $src = Join-Path $BASE 'src' }
+  if (-not (Test-Path -LiteralPath $py)) { throw ('Laufzeit fehlt: ' + $py) }
+  $q = @(
+    @{ name = 'probe'; url = ('https://api.github.com/repos/' + $A1 + '/releases/latest'); art = 'github' },
+    @{ name = 'probe-liste'; url = ('https://api.github.com/repos/' + $A1 + '/releases?per_page=30'); art = 'github_liste' }
+  )
+  $datei = Join-Path $W 'update_quellen.json'
+  [IO.File]::WriteAllText($datei, (ConvertTo-Json -InputObject $q -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
+  $code = "import sys, json; sys.path.insert(0, sys.argv[1]); from bewerbungs_assistent.database import Database; db = Database(); db.initialize(); db.set_setting('update_quellen', json.load(open(sys.argv[2], encoding='utf-8'))); print('update_quellen gesetzt')"
+  & $py -c $code $src $datei
+  $r = Api 'GET' '/api/update-check?frisch=1' $null
+  Say ('current=' + $r.current_version + ' | linie=' + $r.linie + ' | stand=' + $r.stand + ' | update_available=' + $r.update_available)
+  if ($r.neue_linie) { Say ('neue_linie: version=' + $r.neue_linie.version + ' | linie=' + $r.neue_linie.linie + ' | url=' + $r.neue_linie.url) } else { Say 'neue_linie: keine' }
+  Say ('quellen: ' + (ConvertTo-Json -InputObject @($r.quellen_versucht) -Depth 4 -Compress))
+}
+
 switch ($Phase) {
   'base' { Phase-base }
   'get' { Phase-get }
@@ -419,5 +448,6 @@ switch ($Phase) {
   'check' { Phase-check }
   'komp' { Phase-komp }
   'ocr' { Phase-ocr }
+  'linie' { Phase-linie }
   default { Say ('unbekannte Phase: ' + $Phase) }
 }

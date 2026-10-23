@@ -34,6 +34,9 @@ for (const wort of ["Updates", "Speicher & Downloads", "Mail-Ordner", "Erweiteru
 }
 assert.ok(HILFE.kontakte.abschnitte.some((a) => a.titel === "Firmen"), "Kontakte: kein Abschnitt „Firmen“");
 assert.ok(text("dokumente").includes("Texterkennung"), "Dokumente: die Texterkennung fehlt");
+// #1171: die Weg-Leiste und der Listenkopf stehen dort, wo man sie braucht
+assert.ok(HILFE.bewerbungen.abschnitte.some((a) => a.titel === "Die Weg-Leiste"), "Bewerbungen: die Weg-Leiste fehlt");
+assert.ok(HILFE.stellen.abschnitte.some((a) => a.titel === "Der Kopf der Liste"), "Stellen: der Kopf der Liste fehlt");
 // Die FAQ „Wie aktualisiere ich PBP?“ nennt das Ein-Klick-Update, nicht mehr nur den Installer.
 const aktualisieren = FAQ.find((f) => f.q === "Wie aktualisiere ich PBP?");
 assert.ok(aktualisieren.a.includes("Einstellungen › Erweitert › Updates"), "FAQ Aktualisieren ohne den neuen Weg");

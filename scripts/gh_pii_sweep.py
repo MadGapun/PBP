@@ -154,13 +154,8 @@ BEWUSST_GELASSEN: dict[str, dict[str, int]] = {
     "#953 Body": {"FIRMA": 1},
     "#956 Body": {"FIRMA": 1},
     "#957 Body": {"FIRMA": 2},
-    # 02.10.2026 (#1137): zwei Fundstellen aus dem ersten Lauf ueber den GANZEN
-    # Bestand, einzeln angesehen. #1026: eine erkennbar erfundene Rufnummer in
-    # einem Testtext. #930: ein Firmenname als Beispiel in einer Erklaerung zur
-    # Erkennung von Testdaten; per issue_text_pruefen gegengeprueft, steht
-    # nicht im eigenen Bestand.
-    "#1026 Body": {"PHONE": 1},
-    "#930 Kommentar 1": {"CORP": 1},
+    # 02.10.2026 (#1137) standen hier zwei weitere Fundstellen (#1026 Body, #930
+    # Kommentar 1); der Sweep vom 12.10.2026 findet dort nichts mehr, die Eintraege sind weg.
 }
 
 

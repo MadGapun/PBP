@@ -124,11 +124,18 @@ def _platz_pruefen(app: Path, archiv_groesse: int) -> None:
         raise UpdateFehler("platz", detail=f"{frei // (1024 * 1024)} MB frei, gebraucht {bedarf // (1024 * 1024)} MB")
 
 
-def _vorbedingungen(version: str, app: Path, laufend: str) -> str:
-    """Gibt die aktuelle Fassung zurueck, wirft sonst. Nie Linienwechsel, nie zurueck, nie Gescheitertes."""
-    if not _fassung.ist_stabil(version):
-        raise UpdateFehler("quelle_nicht_erlaubt", "Vorabversionen werden nie automatisch installiert.",
-                           detail=f"{version!r}")
+def _vorbedingungen(version: str, app: Path, laufend: str, vorab: bool = False) -> str:
+    """Gibt die aktuelle Fassung zurueck, wirft sonst. Nie Linienwechsel, nie zurueck, nie Gescheitertes.
+
+    Eine Vorabversion nur unter den Bedingungen von `quelle.kandidat_erlaubt` (#1199, #1222): der Schalter ist an UND die
+    laufende Fassung ist selbst eine Vorab. Die Auswahl des Kandidaten pruefte das schon; die Installation prueft es noch
+    einmal, denn sie ist die Stelle, die schreibt (und wird auch vom Klick und vom Werkzeug aufgerufen).
+    """
+    if not _fassung.gueltig(version):
+        raise UpdateFehler("quelle_nicht_erlaubt", "Das ist keine gültige Versionsnummer.", detail=f"{version!r}")
+    if not quelle.kandidat_erlaubt(version, laufend, vorab):
+        raise UpdateFehler("quelle_nicht_erlaubt", "Vorabversionen werden nur installiert, wenn „Vorabversionen "
+                           "automatisch“ eingeschaltet ist, und nur auf einer Vorabversion.", detail=f"{version!r}")
     if _fassung.linie(version) != _fassung.linie(laufend):
         raise UpdateFehler("braucht_installer", "Ein Wechsel der Linie geschieht nie automatisch. Lade die neue "
                            "Version von der Release-Seite und starte INSTALLIEREN.bat.", detail=f"{laufend} -> {version}")
@@ -170,7 +177,8 @@ def installiere(version: str, *, app=None, db=None, oeffner=None, fortschritt=No
         laufend = laufende_fassung or layout.laufende_fassung()
         if not laufend:
             raise UpdateFehler("nicht_verfuegbar")
-        aktuell = _vorbedingungen(version, app, laufend)
+        vorab = zustand.vorab(db) if db is not None else False        # #1222: der Schalter, wie die Auswahl ihn las
+        aktuell = _vorbedingungen(version, app, laufend, vorab)
         pfade = layout.pfade(app)
         with aufraeumen.sperre(app):
             try:

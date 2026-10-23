@@ -265,7 +265,7 @@ def _werkzeug(db, name):
 
 def test_1007_mcp_werkzeug_speichert_und_loescht(db):
     h = _hash(db)
-    speichern = _werkzeug(db, "stelle_analyse_speichern")
+    speichern = _werkzeug(db, "stelle_urteil_speichern")
     antwort = speichern(h, "bedingt", "Methodenluecke, ueberbrueckbar.")
     assert antwort["status"] == "gespeichert"
     assert antwort["urteil"] == "BEDINGT"

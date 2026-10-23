@@ -20,7 +20,7 @@ Claude Desktop
     ▼
 server.py (FastMCP, ~140 Zeilen)  ◄── Composition Root, registriert Module
     │
-    ├── tools/              ◄── 177 MCP-Tools in 11 Modulen
+    ├── tools/              ◄── die MCP-Werkzeuge, nach Fachgebiet in Module geteilt
     │   ├── profil.py       — Profilverwaltung, Multi-Profil, Erfassungsfortschritt
     │   ├── dokumente.py    — Dokumenten-Analyse, Extraktion, Profil-Im/Export
     │   ├── jobs.py         — Jobsuche, Stellenverwaltung, Fit-Analyse

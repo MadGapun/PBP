@@ -50,11 +50,12 @@ OHNE_ZEITPUNKT = (
     "als PBP den Zeitpunkt noch nicht festgehalten hat.")
 
 
-HERKUENFTE = ("ich", "automatik", "unbekannt")
+#: "claude" (#1187): nach dem Lesen im Browserlauf von Claude aussortiert - weder das Urteil des Menschen noch das der Automatik.
+HERKUENFTE = ("ich", "automatik", "claude", "unbekannt")
 
 
 def herkunft(job: dict) -> str:
-    """'ich', 'automatik' oder 'unbekannt' — gespeichert, nicht geraten.
+    """'ich', 'automatik', 'claude' oder 'unbekannt' — gespeichert, nicht geraten.
 
     Die Spalte `dismissed_by` entsteht seit v1.7.64 an den
     Schreibstellen. Fuer den Altbestand gibt es nur einen sicheren
@@ -70,7 +71,7 @@ def herkunft(job: dict) -> str:
     nicht dasselbe wie "war ich".
     """
     gespeichert = str(job.get("dismissed_by") or "").strip().lower()
-    if gespeichert in ("ich", "automatik"):
+    if gespeichert in ("ich", "automatik", "claude"):
         return gespeichert
     if str(job.get("dismiss_reason") or "").startswith(AUTO_PRAEFIX):
         return "automatik"
@@ -132,7 +133,7 @@ def eintraege(db, zeitfenster: str = "7tage", limit: int = 50,
     Args:
         zeitfenster: 'heute', '7tage', '30tage' oder 'alle'.
         limit: hoechstens so viele Zeilen.
-        herkunft_filter: '' (beide), 'ich' oder 'automatik'.
+        herkunft_filter: '' (alle), 'ich', 'automatik' oder 'claude'.
 
     Der Nutzer hat ausdruecklich beides zusammen verlangt ("ggf. oder
     besser in Kombination") — getrennt zu zeigen waere zwei Listen fuer

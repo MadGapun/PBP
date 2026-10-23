@@ -624,7 +624,12 @@ class Database:
                                   # Suchkriterien, services/wahrheit.py).
                                   ("entfernung_am", "TEXT"),
                                   ("score_am", "TEXT"),
-                                  ("score_stand", "TEXT")):
+                                  ("score_stand", "TEXT"),
+                                  # #1250: wann der MENSCH die Stelle
+                                  # zurueckgeholt hat. Danach sortiert
+                                  # keine Automatik sie wieder aus
+                                  # (services/aussortier_schutz.py).
+                                  ("zurueckgeholt_am", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -717,6 +722,14 @@ class Database:
                 )
             """)
             conn.commit()
+            # #1235: der Stand der Zeile (vor der Mehrdeutigkeits-Pruefung: NULL, wird neu gefragt) und die
+            # Kandidaten eines Ortes, den der Dienst mehrfach kennt. Additiv, ohne Schema-Bump.
+            _geo_spalten = {r[1] for r in conn.execute("PRAGMA table_info(geo_cache)").fetchall()}
+            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):
+                if _sp not in _geo_spalten:
+                    conn.execute(f"ALTER TABLE geo_cache ADD COLUMN {_sp} {_typ}")
+                    conn.commit()
+                    logger.info("Safety-Net: geo_cache.%s nachgezogen (#1235)", _sp)
             try:
                 from .services import geocoding_service as _geo
                 _geo.speicher_setzen(self)
@@ -5657,6 +5670,9 @@ class Database:
         # v1.7.140 (#954): Erhebungszeitpunkte und Score-Grundlage. Ein
         # Lauf, der den Wert nicht neu erhebt, laesst sie stehen.
         "entfernung_am", "score_am", "score_stand",
+        # #1250: das Zurueckholen durch den Menschen. Ohne diesen Eintrag
+        # loeschte der naechste Suchlauf den Schutz vor der Automatik.
+        "zurueckgeholt_am",
     )
 
     def save_jobs(self, jobs: list) -> dict:
@@ -5710,6 +5726,9 @@ class Database:
         # Methodennamen nachgeschlagen, nicht geraten (v1.7.67 MERKE 4).
         _art_kriterien = self.get_search_criteria() or {}
         leere_url_quellen: dict[str, int] = {}  # #645: Tracking pro source
+        # #1250: Original -> Anzeigentext einer Dublette, wenn dem Original
+        # der Text fehlt. Geschrieben NACH dem Lauf (eigener Weg mit Score).
+        text_uebergaben: dict[str, str] = {}
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
         # #951: die aktiven Stellen EINMAL laden statt je neuer Stelle.
@@ -5775,6 +5794,9 @@ class Database:
                     duplikate += 1
                     wiederfunde_aufgeloest += 1
                     continue
+            # #1250: der Text, auf dem der Score DIESES Laufs beruht - auch
+            # wenn unten ein vorhandener Text die Zeile behaelt (#954-Stempel).
+            _text_des_laufs = job.get("description")
             # #892: die Spalten, die ein REPLACE sonst auf NULL setzt.
             # Gelesen VOR dem Schreiben, zurueckgeschrieben danach.
             bewahrt = {}
@@ -5799,6 +5821,21 @@ class Database:
                 # Lauf gehalten — also so lange, dass man sie fuer
                 # dauerhaft haelt, und kurz genug, dass sie unbemerkt
                 # verschwindet.
+                # #1250: ein Lauf OHNE Anzeigentext loescht keinen vorhandenen.
+                # `description` steht in der INSERT-Liste; kam dieselbe Stelle
+                # ueber einen Weg ohne Text (Plugin, Mail, Browser) erneut,
+                # stand danach eine leere Beschreibung da - nachgeladen oder
+                # von einer Dublette uebernommen war dann wieder weg.
+                from .services.datenguete import hat_beschreibung as _hat_text_alt
+                if not _hat_text_alt(job):
+                    try:
+                        _d = conn.execute(
+                            "SELECT description FROM jobs WHERE hash=?",
+                            (stored_hash,)).fetchone()
+                        if _d and _hat_text_alt({"description": _d[0]}):
+                            job["description"] = _d[0]
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Vorhandener Text (#1250): %s", _exc)
                 if bewahrt.get("salary_quelle") == "mensch":
                     try:
                         _geh = conn.execute(
@@ -5933,6 +5970,24 @@ class Database:
                     duplikat_notiz = (
                         f"[Auto-Aussortierung] Duplikat von {pub_orig} "
                         f"({treffer['text']}). Beim Ingest erkannt.")
+                    # #1250: es bleibt GENAU EINE Kopie aktiv - und sie soll
+                    # die mit dem Volltext sein. Das Original behaelt Kennung,
+                    # Urteil und Bewerbung; fehlt ihm der Text und bringt die
+                    # neue Kopie einen, uebernimmt es ihn (nach dem Lauf, ueber
+                    # `nachladen.text_uebernehmen`, samt Neubewertung). Bis
+                    # hierher blieb die Titel-Kopie aktiv und der Volltext lag
+                    # in der aussortierten Zeile.
+                    from .services.datenguete import hat_beschreibung as _hat_text
+                    if (_hat_text(job)
+                            and original_hash not in text_uebergaben):
+                        _orig_text = conn.execute(
+                            "SELECT description FROM jobs WHERE hash=?",
+                            (original_hash,)).fetchone()
+                        if not _hat_text({"description": _orig_text[0]
+                                          if _orig_text else ""}):
+                            text_uebergaben[original_hash] = job.get("description")
+                            duplikat_notiz += (
+                                " Der Anzeigentext ging an das Original.")
                     duplikate += 1
                     # Die neue Fundstelle haengt am ORIGINAL — das ist der
                     # eigentliche Gewinn des Issues.
@@ -6157,7 +6212,7 @@ class Database:
                 if _score_dieses_laufs:
                     _stempel["score_am"] = now
                     _stempel["score_stand"] = _wahrheit.score_stand(
-                        job.get("description"), _kriterien_fuer_stand)
+                        _text_des_laufs, _kriterien_fuer_stand)
                 if _stempel:
                     _setz = ", ".join(f"{k}=?" for k in _stempel)
                     conn.execute(f"UPDATE jobs SET {_setz} WHERE hash=?",
@@ -6188,6 +6243,12 @@ class Database:
             # haette ihn deshalb als Recherche gewertet und in die Liste
             # des Menschen gelegt (gemessen: 9 von 107 Altzeilen).
             _notiz = job.get("dismiss_note") or duplikat_notiz
+            # #1250: hat die Dubletten-Erkennung den Grund gesetzt, gehoert
+            # ihre Notiz dazu - nicht die einer Automatik, die dieselbe Stelle
+            # vorher aussortiert hatte (gemessen: Grund `duplikat` mit der
+            # Notiz "Wiedergaenger nach Fachgebiet ... befristet").
+            if dismiss_reason == "duplikat" and duplikat_notiz:
+                _notiz = duplikat_notiz
             if is_new and _notiz:
                 try:
                     conn.execute("UPDATE jobs SET dismiss_note=? WHERE hash=?",
@@ -6208,6 +6269,26 @@ class Database:
                     "url": job.get("url"),
                 })
         conn.commit()
+        # #1250: die behaltene Kopie bekommt den Volltext ihrer Dublette.
+        # Derselbe Weg wie das Nachladen (Text, Snapshot, Gehalt, Score).
+        texte_uebergeben = 0
+        if text_uebergaben:
+            from .services import nachladen as _nachladen
+            for _orig, _text in text_uebergaben.items():
+                try:
+                    # `get_job` sucht im aktiven Profil; liegt das Original
+                    # in einem anderen, schreibt der Weg nichts - dann wird
+                    # auch nichts gezaehlt.
+                    if not self.get_job(_orig):
+                        continue
+                    # kopf=None: eine SICHERE Dublette hat dieselbe Firma,
+                    # und der Ort wird nicht aus einer fremden Zeile geraten.
+                    _nachladen.text_uebernehmen(self, _orig, _text,
+                                                herkunft="dublette", kopf=None)
+                    texte_uebergeben += 1
+                except Exception as _exc:  # pragma: no cover - nie den Lauf stoppen
+                    logger.warning("Text der Dublette nicht uebernommen (%s): %s",
+                                   _orig, _exc)
         result = {
             "new_per_source": new_per_source,
             "total": len(jobs),
@@ -6216,6 +6297,8 @@ class Database:
             "ausland_erkannt": ausland_erkannt,
             "stellenart_erkannt": stellenart_erkannt,
         }
+        if texte_uebergeben:
+            result["texte_von_dubletten"] = texte_uebergeben
         if leere_url_quellen:
             # #645: sichtbar machen, damit job_runner / scraper_health das
             # an scraper_diagnose weiterreichen koennen.
@@ -6498,6 +6581,21 @@ class Database:
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
             return False  # #1095: der Aufrufer soll wissen, dass nichts geschah
+        # #1250: eine Automatik sortiert keine Stelle aus, die der Mensch
+        # zurueckgeholt hat oder zu der ein gelesenes Urteil EMPFOHLEN/BEDINGT
+        # vorliegt. Die Aufrufer fragen die Regel vorher; hier ist der
+        # doppelte Boden fuer jeden Weg, der das vergisst.
+        if herkunft == "automatik":
+            from .services import aussortier_schutz
+            _zeile = conn.execute(
+                "SELECT analyse_urteil, zurueckgeholt_am FROM jobs WHERE hash=?",
+                (target_hash,)).fetchone()
+            _gesperrt = aussortier_schutz.automatik_gesperrt(
+                dict(_zeile) if _zeile else None, reason)
+            if _gesperrt:
+                logger.info("Automatik darf %s nicht aussortieren (%s, #1250)",
+                            target_hash, _gesperrt)
+                return False
         # v1.7.17 (#913): SCHREIBSCHUTZ — dies ist die eine Stelle, durch
         # die alle dismiss_reason-Writes laufen. Werte ausserhalb der
         # Whitelist werden normalisiert, Freitext wandert nach
@@ -6522,7 +6620,9 @@ class Database:
         # Weg, der eine Stelle aussortiert, laeuft hier durch; ihn in den
         # Aufrufern zu setzen waere die achte Fassung derselben Sache.
         jetzt = _now()
-        wer = "automatik" if herkunft == "automatik" else "ich"
+        # #1187: "claude" = von Claude nach dem Lesen im Browserlauf aussortiert - eine eigene Herkunft, damit der Mensch
+        # sie im Ausgeblendet-Tab findet und zurueckholen kann (sie ist weder sein Urteil noch das der Automatik).
+        wer = herkunft if herkunft in ("automatik", "claude") else "ich"
         if freitexte:
             cur = conn.execute(
                 "UPDATE jobs SET is_active=0, dismiss_reason=?, "
@@ -6540,10 +6640,28 @@ class Database:
                 "dismissed_at=?, dismissed_by=?, updated_at=? WHERE hash=?",
                 (reason, jetzt, wer, jetzt, target_hash)
             )
+        # #1250: sortiert der Mensch selbst aus, ist sein letztes Wort das
+        # Aussortieren - ein frueheres Zurueckholen schuetzt dann nicht mehr
+        # (sonst lebte der Schutz nach einer Reparatur wieder auf).
+        if wer == "ich":
+            conn.execute("UPDATE jobs SET zurueckgeholt_am=NULL WHERE hash=?",
+                         (target_hash,))
         conn.commit()
         return cur.rowcount > 0
 
-    def restore_job(self, job_hash: str) -> bool:
+    def restore_job(self, job_hash: str, durch_mensch: bool = True) -> bool:
+        """Holt eine Stelle zurueck.
+
+        #1250: `durch_mensch=True` (Vorgabe: Dashboard, `stelle_reaktivieren`,
+        "passt") haelt den Zeitpunkt in
+        `zurueckgeholt_am` fest - danach sortiert keine Automatik die Stelle
+        wieder aus. Bis hierher loeschte das Zurueckholen jede Spur, und die
+        lokale KI nahm die Stelle beim naechsten Lauf erneut weg. Eine
+        REPARATUR, die Fehlurteile der Automatik zuruecknimmt
+        (`automatik_uebertragungen_pruefen`) und das Zuruecknehmen eines
+        Statuswechsels (`status_rueckweg`) sind kein Wort des Menschen
+        ueber diese Stelle und geben `False`.
+        """
         conn = self.connect()
         target_hash = self.resolve_job_hash(job_hash)
         if not target_hash:
@@ -6552,10 +6670,13 @@ class Database:
         # zurueckgeholte Stelle ist nicht aussortiert — ein Datum, das
         # stehenbliebe, wuerde sie im Protokoll weiter fuehren.
         # #1095: auch die Notiz der Aussortierung faellt mit.
+        jetzt = _now()
         cur = conn.execute(
             "UPDATE jobs SET is_active=1, dismiss_reason=NULL, dismiss_note=NULL, "
-            "dismissed_at=NULL, dismissed_by=NULL, updated_at=? WHERE hash=?",
-            (_now(), target_hash)
+            "dismissed_at=NULL, dismissed_by=NULL, updated_at=?, "
+            "zurueckgeholt_am=CASE WHEN ? THEN ? ELSE zurueckgeholt_am END "
+            "WHERE hash=?",
+            (jetzt, 1 if durch_mensch else 0, jetzt, target_hash)
         )
         conn.commit()
         return cur.rowcount > 0
@@ -6972,7 +7093,10 @@ class Database:
                         "cover_letter_path", "cv_path",
                         "gehaltsvorstellung", "final_salary",
                         # v1.7.0-beta.32 (#588): Originalwortlaut-Snapshot
-                        "description_snapshot", "snapshot_date")
+                        "description_snapshot", "snapshot_date",
+                        # #1200 A3: Absagegrund nachtragen (das Werkzeug
+                        # prueft vorher den Status)
+                        "rejection_reason")
         for key in allowed_keys:
             if key in data:
                 fields.append(f"{key}=?")
@@ -7949,23 +8073,45 @@ class Database:
 
         Filter:
         - Nur Stellen mit is_active=0 (= aussortiert)
-        - Nur Stellen mit dismiss_reason != 'auto:%' (= manuell, nicht
-          schon vom Auto-Tool gemacht — sonst Echokammer)
-        - Sortiert nach updated_at DESC (Neueste zuerst)
+        - Nur Urteile des MENSCHEN (#1239): `urteilsgruende_des_menschen`
+          ist die eine Antwort darauf. Davor schloss der Filter nur das
+          Praefix `auto:` aus, das seit #913 beim Schreiben entfaellt:
+          die Automatik schreibt `dismissed_by='automatik'` und einen Grund
+          ohne Praefix, und das Modell sah seine eigenen Urteile als
+          "selbst abgelehnt" (Echokammer). Ebenso Systemgruende wie
+          `bewerbung_erstellt`, das Gegenteil einer Ablehnung.
+        - Sortiert nach updated_at DESC (Neueste zuerst); das LIMIT gilt
+          NACH dem Filter, sonst blieben bei einem Lauf der Automatik
+          keine Beispiele uebrig.
         """
+        from .services.ablehnungsgruende import gruende_aus_wert, urteilsgruende_des_menschen
         conn = self.connect()
         pid = self.get_active_profile_id()
-        rows = conn.execute(
-            "SELECT title, company, dismiss_reason, updated_at "
+        cur = conn.execute(
+            "SELECT title, company, dismiss_reason, updated_at, dismissed_by "
             "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
             "AND is_active=0 "
             "AND dismiss_reason IS NOT NULL "
             "AND dismiss_reason != '' "
-            "AND dismiss_reason NOT LIKE 'auto:%' "
-            "ORDER BY updated_at DESC LIMIT ?",
-            (pid, int(limit))
-        ).fetchall()
-        return [dict(r) for r in rows]
+            "ORDER BY updated_at DESC",
+            (pid,)
+        )
+        beispiele: list = []
+        try:
+            for r in cur:
+                if len(beispiele) >= int(limit):
+                    break
+                gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])
+                if gruende:
+                    # Der gespeicherte Wert bleibt, wie er ist -- ausser eine Zeile mit mehreren Gruenden traegt auch
+                    # einen, der nicht zaehlt (["zu_junior", "duplikat"]): die KI sieht nur die, die zaehlen.
+                    grund = (r["dismiss_reason"] if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))
+                             else ", ".join(gruende))
+                    beispiele.append({"title": r["title"], "company": r["company"],
+                                      "dismiss_reason": grund, "updated_at": r["updated_at"]})
+        finally:
+            cur.close()  # ein vorzeitig verlassener Lauf haelt sonst die Leseverbindung offen
+        return beispiele
 
     def add_dismiss_reason(self, label: str) -> int:
         """Add a custom dismiss reason. Returns the new id."""
@@ -8118,6 +8264,31 @@ class Database:
     # ------------------------------------------------------------------
     # Quellen-Lauf-Historie + Custom-Quellen (B25/#735 + B16/#627, beta.5)
     # ------------------------------------------------------------------
+
+    def record_browser_run(self, name: str, *, rohtreffer: int = 0, neu: int = 0, gelesen: int = 0,
+                           detail: str = "") -> bool:
+        """Verbucht einen Lauf ueber den Browser im Append-Log `scraper_runs` (#1187 Stufe 2).
+
+        Ein Browserlauf hinterliess nirgends eine Spur - auch nicht, wenn er 1.300 Rohtreffer sah und keine Stelle anlegte.
+        Hier entsteht die Zeile, mit der `quellen_langzeit_auswertung` und der Trichter ihn kennen. `scraper_health` wird
+        BEWUSST nicht angefasst: ein Browserlauf ist kein Scraper-Lauf, und "0 neu" darf keine Quelle als stumm zaehlen
+        und abschalten. Rueckgabe: ob die Zeile geschrieben wurde (die Historie darf nie einen Aufrufer kippen).
+        """
+        name = str(name or "").strip().lower()
+        if not name:
+            return False
+        try:
+            conn = self.connect()
+            conn.execute(
+                "INSERT INTO scraper_runs (id, scraper_name, run_at, state, count, new_count, time_s, error_class, detail) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (_gen_id(), name, _now(), "ok" if int(rohtreffer or 0) > 0 else "silent", int(rohtreffer or 0),
+                 int(neu or 0), 0.0, "", ("Browserlauf: " + str(detail or ""))[:200]))
+            conn.commit()
+            return True
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Browserlauf nicht verbucht (%s): %s", name, exc)
+            return False
 
     def get_scraper_runs(self, scraper_name: str = None,
                          seit_iso: str = None, limit: int = 2000) -> list:
@@ -10900,25 +11071,30 @@ class Database:
     def get_automatik_settings(self) -> dict:
         """Intervalle (in Tagen) + letzter Lauf fuer die Hintergrund-Automatik.
 
-        Zwei Tasks: `jobsuche` (interne Scraper) und `lernen`
-        (Ollama-Pattern-Analyse). 0 = aus. Pro Profil gespeichert.
+        Drei Tasks: `jobsuche` (interne Scraper), `lernen` (Ollama-Pattern-Analyse) und `aufraeumen` (die
+        Aufraeum-Runde, #1139; Vorgabe taeglich). 0 = aus. Pro Profil gespeichert.
         """
-        def _iv(key):
-            raw = self.get_profile_setting(key, 0)
+        def _iv(key, vorgabe=0):
+            raw = self.get_profile_setting(key, None)
+            if raw is None or raw == "":
+                return vorgabe
             try:
-                v = int(raw) if raw is not None else 0
+                v = int(raw)
             except (TypeError, ValueError):
-                v = 0
-            return v if v in self._AUTOMATIK_INTERVALS else 0
+                return vorgabe
+            return v if v in self._AUTOMATIK_INTERVALS else vorgabe
         return {
             "jobsuche_intervall_tage": _iv("automatik_jobsuche_intervall_tage"),
             "jobsuche_last_at": self.get_profile_setting("automatik_jobsuche_last_at", "") or "",
             "lernen_intervall_tage": _iv("automatik_lernen_intervall_tage"),
             "lernen_last_at": self.get_profile_setting("automatik_lernen_last_at", "") or "",
+            "aufraeumen_intervall_tage": _iv("automatik_aufraeumen_intervall_tage", 1),
+            "aufraeumen_last_at": self.get_profile_setting("automatik_aufraeumen_last_at", "") or "",
         }
 
     def set_automatik_settings(self, *, jobsuche_intervall_tage: Optional[int] = None,
-                               lernen_intervall_tage: Optional[int] = None) -> dict:
+                               lernen_intervall_tage: Optional[int] = None,
+                               aufraeumen_intervall_tage: Optional[int] = None) -> dict:
         if jobsuche_intervall_tage is not None:
             iv = int(jobsuche_intervall_tage)
             if iv not in self._AUTOMATIK_INTERVALS:
@@ -10931,12 +11107,18 @@ class Database:
                 raise ValueError(
                     f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
             self.set_profile_setting("automatik_lernen_intervall_tage", iv)
+        if aufraeumen_intervall_tage is not None:
+            iv = int(aufraeumen_intervall_tage)
+            if iv not in self._AUTOMATIK_INTERVALS:
+                raise ValueError(
+                    f"intervall_tage muss eins von {self._AUTOMATIK_INTERVALS} sein")
+            self.set_profile_setting("automatik_aufraeumen_intervall_tage", iv)
         return self.get_automatik_settings()
 
     def mark_automatik_run(self, kind: str, when_iso: Optional[str] = None) -> str:
-        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche' oder 'lernen'."""
-        if kind not in ("jobsuche", "lernen"):
-            raise ValueError("kind muss 'jobsuche' oder 'lernen' sein")
+        """Setzt den letzten-Lauf-Zeitstempel. kind: 'jobsuche', 'lernen' oder 'aufraeumen'."""
+        if kind not in ("jobsuche", "lernen", "aufraeumen"):
+            raise ValueError("kind muss 'jobsuche', 'lernen' oder 'aufraeumen' sein")
         ts = when_iso or _now()
         self.set_profile_setting(f"automatik_{kind}_last_at", ts)
         return ts

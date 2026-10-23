@@ -134,3 +134,16 @@ def test_der_deinstaller_beendet_auch_server_und_dashboard_ueber_den_startbauste
     ):
         assert muster.search(zeile), zeile
     assert not muster.search(r'"C:\Python313\python.exe" -m http.server'), "fremde Python-Prozesse bleiben"
+
+
+def test_die_bat_liest_den_exitcode_des_helfers_bevor_sie_das_loeschen_verspricht():
+    """#1219: "Der Ordner wird geloescht" steht erst nach einer Probe - ein gescheiterter Start sagt, dass der Ordner liegen bleibt."""
+    u = unterprogramm()
+    ausfuehren = u.index("\n:aufraeumen_ausfuehren\n")
+    aufruf = u.index('_installer_aufraeumen.py" loeschen ', ausfuehren)
+    probe = u.index("if not errorlevel 1 goto :aufraeumen_gestartet", aufruf)
+    versprechen = u.index("Der Ordner wird geloescht, sobald du dieses Fenster schliesst.", probe)
+    fehler = u.index("bleibt liegen", probe)
+    assert aufruf < probe < fehler < versprechen
+    assert "\n:aufraeumen_gestartet\n" in u and u.index("\n:aufraeumen_gestartet\n") < versprechen
+    assert "[WARN] Installer-Aufraeumen nicht gestartet" in u, "auch das Protokoll sagt es"

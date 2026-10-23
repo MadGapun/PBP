@@ -24,7 +24,7 @@ Mensch selbst entschieden hat.
 * *beworben* -- Stellen, zu denen eine Bewerbung existiert (`bewerbung_erstellt` ist das Gegenteil einer Ablehnung, #1234).
   Erwartet wird `PASST`.
 * *selbst aussortiert* -- vom Menschen (nicht von der Automatik: `dismissed_by`, Praefix `auto:`) aus einem Grund, der etwas
-  ueber die ART der Stelle sagt (`UEBERTRAGBARE_GRUENDE`). Entfernung, Gehalt und Firmenwahl sagt der Anzeigentext nicht;
+  ueber die ART der Stelle sagt (`ANZEIGEN_GRUENDE`). Entfernung, Gehalt und Firmenwahl sagt der Anzeigentext nicht;
   Systemgruende, Dubletten und "sonstiges" sind kein Urteil. Erwartet wird `PASST_NICHT`.
 
 Die Stichprobe hat je Klasse gleich viele Stellen, ist ueber `--seed` wiederholbar und wechselt zwischen den Klassen ab, damit ein
@@ -136,10 +136,21 @@ def _text_ok(job: dict) -> bool:
     return len((job.get("description") or "").strip()) >= MIN_BESCHREIBUNG
 
 
+#: Gruende, die etwas ueber die ART der Stelle sagen, das im Anzeigentext steht: dafuer kann die KI etwas lesen.
+#: Eigene Liste der Messprobe: `stellen_automatik.UEBERTRAGBARE_GRUENDE` beantwortet seit #1250 eine andere Frage (was
+#: ueber ein Titelwort an fremde Stellen wandern darf, nur Fachgebiet und Branche). Entfernung, Gehalt und Firmenwahl
+#: (`AUTOMATIK_GRUENDE`) stehen nicht im Anzeigentext; Systemgruende und "sonstiges" sind kein Urteil.
+ANZEIGEN_GRUENDE = frozenset({
+    "falsches_fachgebiet", "falsches_system", "falsche_branche",
+    "zu_junior", "zu_senior", "kein_hochschulabschluss",
+    "unpassendes_arbeitsmodell", "zeitarbeit", "befristet",
+})
+
+
 def urteile_lesen(db) -> dict:
     """{'beworben': [...], 'aussortiert': [...], 'ausgeschlossen': {Grund: Anzahl}} -- nur Urteile des Menschen."""
     from bewerbungs_assistent.services.ablehnungsgruende import SYSTEM_GRUENDE
-    from bewerbungs_assistent.services.stellen_automatik import UEBERTRAGBARE_GRUENDE, AUTOMATIK_GRUENDE
+    from bewerbungs_assistent.services.stellen_automatik import AUTOMATIK_GRUENDE
 
     aus = Counter()
     beworben, gesehen = [], set()
@@ -162,7 +173,7 @@ def urteile_lesen(db) -> dict:
             aus["von der Automatik aussortiert (kein Urteil des Menschen)"] += 1
         elif grund in SYSTEM_GRUENDE:
             aus["Systemgrund (Bewerbung erstellt, Blacklist, veraltet ...)"] += 1
-        elif grund in UEBERTRAGBARE_GRUENDE:
+        elif grund in ANZEIGEN_GRUENDE:
             if _text_ok(job):
                 aussortiert.append(job)
             else:
@@ -481,8 +492,7 @@ def _auswerten_und_senden(args, db, transport, dienst_fabrik, ausgabe, api_backe
     plan = stichprobe(urteile, args.anzahl, args.seed)
     kontext = profil_kontext(db.get_profile() or {})
     beispiele, gruende = beispiele_und_gruende(db, urteile, bereinigt=args.bereinigt)
-    from bewerbungs_assistent.services.stellen_automatik import UEBERTRAGBARE_GRUENDE
-    ohne_aussage = [b for b in beispiele if str(b.get("dismiss_reason") or "").strip().lower() not in UEBERTRAGBARE_GRUENDE]
+    ohne_aussage = [b for b in beispiele if str(b.get("dismiss_reason") or "").strip().lower() not in ANZEIGEN_GRUENDE]
 
     def payload_fuer(job):
         return nutzlast_bauen(job, kontext, beispiele, gruende)

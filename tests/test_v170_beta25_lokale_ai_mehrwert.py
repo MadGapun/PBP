@@ -45,6 +45,11 @@ def _mock_status_active(svc, models=("llama3.2:3b",)):
     svc._status.last_check_at = 9999999999
 
 
+def _ollama_nimmt_an(llm_mod):
+    """#1227: die Verbindungsprobe meldet die Adresse als annehmend; die Antwort liefert das untergeschobene `urlopen`."""
+    return patch.object(llm_mod.LLMService, "_ollama_basis", lambda self: self._status.ollama_endpoint)
+
+
 # ============= #591: Auto-Select wenn nur 1 Modell ===============
 
 def test_591_auto_select_single_model(setup_env):
@@ -56,7 +61,7 @@ def test_591_auto_select_single_model(setup_env):
     fake_resp.read.return_value = b'{"models":[{"name":"llama3.2:3b","size":2000000000}]}'
     fake_resp.__enter__ = MagicMock(return_value=fake_resp)
     fake_resp.__exit__ = MagicMock(return_value=False)
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(llm_mod), patch("urllib.request.urlopen", return_value=fake_resp):
         s = svc.get_status(force_refresh=True)
     assert s.ollama_available is True
     assert s.available_models == ["llama3.2:3b"]
@@ -75,7 +80,7 @@ def test_591_no_auto_select_when_multiple_models(setup_env):
     )
     fake_resp.__enter__ = MagicMock(return_value=fake_resp)
     fake_resp.__exit__ = MagicMock(return_value=False)
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(llm_mod), patch("urllib.request.urlopen", return_value=fake_resp):
         s = svc.get_status(force_refresh=True)
     assert len(s.available_models) == 2
     assert s.selected_model is None  # User muss explizit waehlen
@@ -95,7 +100,7 @@ def test_models_detail_includes_size_and_metadata(setup_env):
     )
     fake_resp.__enter__ = MagicMock(return_value=fake_resp)
     fake_resp.__exit__ = MagicMock(return_value=False)
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(llm_mod), patch("urllib.request.urlopen", return_value=fake_resp):
         s = svc.get_status(force_refresh=True)
     assert len(s.models_detail) == 1
     detail = s.models_detail[0]
@@ -115,7 +120,7 @@ def test_status_endpoint_returns_models_detail(setup_env):
     fake_resp.read.return_value = b'{"models":[{"name":"llama3.2:3b","size":2000000000}]}'
     fake_resp.__enter__ = MagicMock(return_value=fake_resp)
     fake_resp.__exit__ = MagicMock(return_value=False)
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(llm_mod), patch("urllib.request.urlopen", return_value=fake_resp):
         r = client.get("/api/llm/status")
     j = r.json()
     assert "models_detail" in j

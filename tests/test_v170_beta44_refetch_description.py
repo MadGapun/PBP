@@ -167,8 +167,11 @@ def test_auto_refetch_finds_jobs_without_description(setup_env):
 def test_auto_refetch_skips_after_3_failures(setup_env):
     db = setup_env
     job_hash = _seed_job_without_description(db, "skipme")
-    # Setze Failure-Count auf 3 (Backoff-Schwelle)
+    # Setze Failure-Count auf 3 (Backoff-Schwelle) - und den Zeitpunkt des letzten Versuchs: seit #1139 verfaellt
+    # ein Zaehler ohne Zeitstempel (Altbestand) und die Stelle bekommt eine frische Runde.
+    from datetime import datetime, timezone
     db.set_setting(f"refetch_fail:{job_hash}", "3")
+    db.set_setting(f"refetch_last:{job_hash}", datetime.now(timezone.utc).isoformat())
     from bewerbungs_assistent.dashboard import _run_auto_refetch_descriptions
     with patch("bewerbungs_assistent.services.nachladen.beschreibung_holen",
                return_value=_befund("Sollte nicht gerufen werden")):

@@ -24,6 +24,16 @@ case "$OS" in
     *)      PLATFORM="linux" ;;
 esac
 
+# v1.8.0 (#1219): "ja" und "yes" gelten wie "j" - sonst brach "ja" mit "Abgebrochen" ab (sicher, aber unfreundlich).
+ist_ja() {
+    case "$1" in
+        j|J|ja|Ja|JA|y|Y|yes|Yes|YES) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+# Wird gesetzt, wenn der MCP-Eintrag in der Claude-Konfiguration stehen blieb: der Schluss sagt es dann (kein gruener Kasten).
+MCP_BLIEB=0
+
 DATA_DIR="$HOME/.bewerbungs-assistent"
 PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$PLATFORM" = "macos" ]; then
@@ -60,7 +70,7 @@ echo "    - Claude Desktop und Ollama (separat deinstallieren)"
 echo ""
 
 read -p "  Deinstallation jetzt starten? (j/n): " CONFIRM
-if [ "$CONFIRM" != "j" ] && [ "$CONFIRM" != "J" ]; then
+if ! ist_ja "$CONFIRM"; then
     echo ""
     echo "  Abgebrochen — nichts wurde geaendert."
     exit 0
@@ -70,25 +80,63 @@ fi
 echo ""
 echo -e "${YELLOW}[1/3] Entferne Claude Desktop MCP-Eintrag...${NC}"
 
-if [ -f "$CLAUDE_CONFIG" ]; then
-    if python3 -c "
-import json, sys
-path = sys.argv[1]
-with open(path, 'r') as f:
-    config = json.load(f)
-servers = config.get('mcpServers', {})
-if 'bewerbungs-assistent' in servers:
-    del servers['bewerbungs-assistent']
-    with open(path, 'w') as f:
+# v1.8.0 (#1149 Punkt 9d): vier Ausgaenge statt zwei. Bis v1.7.148 hiess "Datei nicht lesbar" dasselbe wie "kein Eintrag":
+# bei kaputtem JSON stand "MCP-Eintrag war nicht vorhanden", und der Eintrag blieb stehen. Vor dem Schreiben entsteht
+# eine Sicherungskopie (.pbp-backup, wie unter Windows), geschrieben wird ueber eine Zwischendatei.
+PY_ENTFERNEN='
+import json, os, shutil, sys
+pfad = sys.argv[1]
+try:
+    with open(pfad, "r", encoding="utf-8-sig") as f:
+        config = json.load(f)
+except (OSError, ValueError):
+    print("unreadable")
+    sys.exit(0)
+if not isinstance(config, dict):
+    print("unreadable")
+    sys.exit(0)
+servers = config.get("mcpServers")
+if not isinstance(servers, dict) or "bewerbungs-assistent" not in servers:
+    print("not_found")
+    sys.exit(0)
+try:
+    shutil.copy2(pfad, pfad + ".pbp-backup")
+    del servers["bewerbungs-assistent"]
+    neu = pfad + ".pbp-neu"
+    with open(neu, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
-    print('removed')
-else:
-    print('not_found')
-" "$CLAUDE_CONFIG" 2>/dev/null | grep -q "removed"; then
-        ok "MCP-Eintrag entfernt"
-    else
-        info "MCP-Eintrag war nicht vorhanden"
-    fi
+    os.replace(neu, pfad)
+    print("removed")
+except OSError:
+    print("write_error")
+'
+
+if [ -f "$CLAUDE_CONFIG" ]; then
+    ERGEBNIS="$(python3 -c "$PY_ENTFERNEN" "$CLAUDE_CONFIG" 2>/dev/null)" || ERGEBNIS=""
+    case "$ERGEBNIS" in
+        removed)
+            ok "MCP-Eintrag entfernt"
+            ;;
+        not_found)
+            info "MCP-Eintrag war nicht vorhanden"
+            ;;
+        unreadable)
+            MCP_BLIEB=1
+            warn "Claude-Konfiguration nicht lesbar (kein gueltiges JSON): $CLAUDE_CONFIG"
+            echo "  Der Eintrag \"bewerbungs-assistent\" konnte deshalb NICHT entfernt werden."
+            echo "  Entferne ihn in dieser Datei von Hand."
+            ;;
+        write_error)
+            MCP_BLIEB=1
+            warn "Die Claude-Konfiguration konnte nicht geschrieben werden: $CLAUDE_CONFIG"
+            echo "  Der Eintrag \"bewerbungs-assistent\" ist noch da. Entferne ihn in dieser Datei von Hand."
+            ;;
+        *)
+            MCP_BLIEB=1
+            warn "Die Claude-Konfiguration konnte nicht geprueft werden (python3 nicht gefunden?)"
+            echo "  Entferne den Eintrag \"bewerbungs-assistent\" in $CLAUDE_CONFIG von Hand."
+            ;;
+    esac
 else
     info "Claude-Config nicht gefunden: $CLAUDE_CONFIG"
 fi
@@ -103,7 +151,7 @@ if [ -d "$DATA_DIR" ]; then
     echo "  Enthaelt: Datenbank, Dokumente, Exporte, Logs"
     echo ""
     read -p "  Datenverzeichnis komplett loeschen? (j/n): " DELETE_DATA
-    if [ "$DELETE_DATA" = "j" ] || [ "$DELETE_DATA" = "J" ]; then
+    if ist_ja "$DELETE_DATA"; then
         rm -rf "$DATA_DIR"
         ok "Datenverzeichnis geloescht"
     else
@@ -128,7 +176,7 @@ if [ -d "$PW_CACHE" ]; then
     echo "  ebenfalls nutzen. Im Zweifel behalten."
     echo ""
     read -p "  Chromium-Cache loeschen? (j/N): " DELETE_PW
-    if [ "$DELETE_PW" = "j" ] || [ "$DELETE_PW" = "J" ]; then
+    if ist_ja "$DELETE_PW"; then
         rm -rf "$PW_CACHE"
         ok "Chromium-Cache geloescht"
     else
@@ -140,6 +188,25 @@ fi
 
 # ── FERTIG ─────────────────────────────────────────────────────────
 echo ""
+if [ "$MCP_BLIEB" = "1" ]; then
+    # v1.8.0 (#1219): bei stehengebliebenem Eintrag ist die Deinstallation NICHT abgeschlossen - der Schluss sagt es und nennt
+    # den Handgriff (wie CLAUDE_MANUELL in DEINSTALLIEREN.bat), und der Exit-Code ist 1.
+    echo -e "${YELLOW}╔══════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║   Deinstallation NICHT ganz abgeschlossen    ║${NC}"
+    echo -e "${YELLOW}╚══════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo "  Der Eintrag \"bewerbungs-assistent\" steht noch in der Claude-Konfiguration:"
+    echo "    $CLAUDE_CONFIG"
+    echo "  Entferne ihn dort von Hand. Sonst meldet Claude Desktop bei jedem Start einen"
+    echo "  fehlgeschlagenen MCP-Server, sobald der Projektordner geloescht ist."
+    echo ""
+    echo "  Danach Claude Desktop einmal komplett neu starten."
+    echo ""
+    echo "  Der Projektordner ist noch da:"
+    echo "    $PROJECT_DIR"
+    echo ""
+    exit 1
+fi
 echo -e "${GREEN}╔══════════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║         Deinstallation abgeschlossen         ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════╝${NC}"

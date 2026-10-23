@@ -44,6 +44,17 @@ def test_1159_pyproject_und_installer_verlangen_dasselbe_und_mindestens_1_2():
     assert tuple(int(t) for t in py[0].split(".")) >= (1, 2)
 
 
+def test_1252_python_jobspy_ist_nach_oben_begrenzt_und_ueberall_gleich():
+    """1.4.0 (19.10.2026) hat `desired_order`, `JobResponse` und `create_logger` entfernt, die Logger umgebaut und neue Pakete
+    mitgebracht. Ohne Obergrenze zieht jede frische Installation (und jeder Installer-Lauf) sie, und die CI wird rot. Bis die Uebernahme
+    gemessen ist, steht dieselbe Grenze an allen drei Stellen: pyproject (Kern und Extra) und die pip-Zeile von INSTALLIEREN.bat."""
+    muster = re.compile(r'"(python-jobspy[^"]*)"')
+    py = muster.findall((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    bat = muster.findall((ROOT / "INSTALLIEREN.bat").read_text(encoding="utf-8"))
+    assert len(py) == 2 and len(bat) == 1, (py, bat)
+    assert set(py + bat) == {"python-jobspy>=1.2,<1.4"}, (py, bat)
+
+
 def test_1159_pyproject_nennt_die_mindestversion_im_kern_und_im_extra():
     """Beide Stellen: wer nur das Extra installiert, und wer den Kern installiert."""
     text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")

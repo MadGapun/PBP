@@ -58,7 +58,7 @@ def test_695_stelle_bewerten_unbekannter_hash(setup_env):
     vorher = conn.execute(
         "SELECT COALESCE(SUM(usage_count),0) AS n FROM dismiss_reasons"
     ).fetchone()["n"]
-    res = _call(mcp, "stelle_bewerten", {
+    res = _call(mcp, "stelle_einordnen", {
         "job_hash": "ffffffff", "bewertung": "passt_nicht",
         "gruende": ["zeitarbeit"],
     })
@@ -73,7 +73,7 @@ def test_695_stelle_bewerten_unbekannter_hash(setup_env):
 def test_695_stelle_bewerten_passt_unbekannt(setup_env):
     db = setup_env
     mcp = _make_mcp(db, "jobs")
-    res = _call(mcp, "stelle_bewerten", {"job_hash": "ffffffff", "bewertung": "passt"})
+    res = _call(mcp, "stelle_einordnen", {"job_hash": "ffffffff", "bewertung": "passt"})
     assert "fehler" in res, res
 
 

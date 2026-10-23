@@ -1495,7 +1495,7 @@ def register(mcp, db, logger):
 
     # === Ablehnungsgruende-Verwaltung (#663 C20, beta.85) ==================
     # Erweitert die hardcoded Whitelist um User-Custom-Eintraege. is_custom=1
-    # + is_active=1 -> wird in stelle_bewerten zusaetzlich akzeptiert.
+    # + is_active=1 -> wird in stelle_einordnen zusaetzlich akzeptiert.
 
     @mcp.tool()
     def ablehnungsgruende_anzeigen(nur_aktiv: bool = False) -> dict:

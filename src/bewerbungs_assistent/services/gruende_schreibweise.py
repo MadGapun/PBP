@@ -64,7 +64,7 @@ import re
 
 logger = logging.getLogger(__name__)
 
-# Die Gruende, die `stelle_bewerten` ohne Normalisierung akzeptiert
+# Die Gruende, die `stelle_einordnen` ohne Normalisierung akzeptiert
 # (#663 Teil 2, CLAUDE.md). Eine Gruppe, die eine davon enthaelt, wird
 # darauf vereinheitlicht — jede andere Schreibweise landet sonst still
 # auf `sonstiges`.

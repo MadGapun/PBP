@@ -204,7 +204,9 @@ def test_die_auto_engine_waehlt_jobtic_stellen_gar_nicht_erst_aus(env, monkeypat
     stellen = [{"hash": f"jt{i}", "title": f"Projekt {i}", "company": "Nicht angegeben",
                 "url": f"https://jobtic.com/project/aaaaaaaa{i:02d}", "source": "jobtic", "description": ""}
                for i in range(6)]
-    stellen.append({"hash": "andere1", "title": "Ein anderes Projekt", "company": "Musterfirma GmbH",
+    # Der Hash sortiert HINTER den jobtic-Stellen: die Auswahl ordnet nach Hash, und nur so verdraengen die gesperrten das LIMIT
+    # wirklich. Mit einem Hash davor stuende die andere Stelle auch ohne die Bedingung im SQL vorn (Gegenprobe jt17 ueberlebte).
+    stellen.append({"hash": "zzandere1", "title": "Ein anderes Projekt", "company": "Musterfirma GmbH",
                     "url": "https://example.com/job/andere1", "source": "manuell", "description": ""})
     db.save_jobs(stellen)
 

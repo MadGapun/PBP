@@ -168,6 +168,12 @@ def _mock_urlopen_response(json_data):
     return mock_resp
 
 
+def _ollama_nimmt_an():
+    """#1227: die Verbindungsprobe meldet die Adresse als annehmend; die Antwort liefert das untergeschobene `urlopen`."""
+    from bewerbungs_assistent.services.llm_service import LLMService
+    return patch.object(LLMService, "_ollama_basis", lambda self: self._status.ollama_endpoint)
+
+
 def test_check_ollama_success_with_models(setup_env):
     """Wenn Ollama OK + Modelle: ollama_available=True, available_models gefuellt."""
     db, _ = setup_env
@@ -176,7 +182,7 @@ def test_check_ollama_success_with_models(setup_env):
     fake_resp = _mock_urlopen_response({
         "models": [{"name": "llama3.2:3b"}, {"name": "qwen2.5:7b"}]
     })
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(), patch("urllib.request.urlopen", return_value=fake_resp):
         s = svc.get_status(force_refresh=True)
     assert s.ollama_available is True
     assert "llama3.2:3b" in s.available_models
@@ -190,7 +196,7 @@ def test_check_ollama_success_no_models(setup_env):
     from bewerbungs_assistent.dashboard import app
     client = TestClient(app)
     fake_resp = _mock_urlopen_response({"models": []})
-    with patch("urllib.request.urlopen", return_value=fake_resp):
+    with _ollama_nimmt_an(), patch("urllib.request.urlopen", return_value=fake_resp):
         from bewerbungs_assistent.services.llm_service import get_llm_service
         get_llm_service(db).get_status(force_refresh=True)
         r = client.get("/api/llm/status")
@@ -203,7 +209,7 @@ def test_check_ollama_handles_timeout(setup_env):
     import socket
     from bewerbungs_assistent.services.llm_service import LLMService
     svc = LLMService(db)
-    with patch("urllib.request.urlopen", side_effect=socket.timeout("timed out")):
+    with _ollama_nimmt_an(), patch("urllib.request.urlopen", side_effect=socket.timeout("timed out")):
         s = svc.get_status(force_refresh=True)
     assert s.ollama_available is False
     assert s.error is not None
@@ -259,7 +265,7 @@ def test_run_classify_document_full_pipeline(setup_env):
         call_count["n"] += 1
         return fake_status if call_count["n"] == 1 else fake_generate
 
-    with patch("urllib.request.urlopen", side_effect=side_effect):
+    with _ollama_nimmt_an(), patch("urllib.request.urlopen", side_effect=side_effect):
         result = svc.run(TaskKind.CLASSIFY_DOCUMENT, {
             "text": "Lebenslauf von Markus B. ...",
             "filename": "cv.pdf",

@@ -98,6 +98,23 @@ def _komponenten_ordner_nicht_echt(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(components, "components_dir", lambda: sandbox)
 
 
+@pytest.fixture(autouse=True)
+def _keine_echte_aufraeum_runde(request, monkeypatch):
+    """#1139: der Planer-Takt startet die Aufraeum-Runde (Vorgabe taeglich, ohne letzten Lauf sofort faellig) als echten Hintergrund-Thread,
+    der `run_auto_actions` ausfuehrt: Netz, lokale KI, Schreibzugriffe auf die Datenbank des Tests. Jeder Test, der `_tick` ruft (Sicherung,
+    Lernen, Netzpruefung), startete sie ungewollt und liess sie beim Abbau weiterlaufen: db.close() unter einem laufenden Thread ist ein
+    Absturz auf C-Ebene (Exit 139 im CI, 16.10.2026).
+
+    Hier ersetzt ein Platzhalter das Starten. Wer die Runde pruefen will, ersetzt `run_auto_actions` selbst und wartet auf den Job
+    (`test_v18_aufraeum_runde_1139.py`, von dieser Fixture ausgenommen).
+    """
+    if "test_v18_aufraeum_runde_1139.py" in request.node.nodeid:
+        return
+    from bewerbungs_assistent.services import automatik_scheduler
+    monkeypatch.setattr(automatik_scheduler, "run_aufraeumen_now",
+                        lambda *a, **k: {"status": "gestartet", "job_id": 0})
+
+
 @pytest.fixture
 def tmp_db(tmp_path):
     """Create a fresh temporary database."""

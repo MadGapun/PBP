@@ -38,12 +38,18 @@ from __future__ import annotations
 
 import logging
 import os
+import socket
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
 
 logger = logging.getLogger("bewerbungs_assistent.llm_service")
+
+#: #1227: So lange wartet die Verbindungsprobe auf eine Schleifenadresse. Ein laufendes Ollama nimmt dort in Millisekunden
+#: an; ein Rechner, dessen Firewall das SYN an einen geschlossenen Port verwirft, laesst jede Verbindung sonst in den vollen
+#: Zeitablauf laufen (`localhost` = ::1 und 127.0.0.1, gemessen 2 x 2,0 s).
+OLLAMA_PROBE_TIMEOUT_S = 0.5
 
 
 # ── Task-Definitionen ─────────────────────────────────────────────
@@ -220,6 +226,31 @@ class LLMService:
         self._status.last_check_at = now
         return self._status
 
+    def _ollama_basis(self) -> Optional[str]:
+        """Die Basisadresse, an der Ollama gerade annimmt — oder None, wenn nichts annimmt (#1227).
+
+        `localhost` heisst `127.0.0.1` und `::1`. Ohne Ollama und mit einer Firewall, die das SYN an einen geschlossenen
+        Port verwirft, kostete die Abfrage dort je Adresse den vollen Zeitablauf (2 x 2 s, gemessen auf einem Windows-11-PC).
+        Hier fragt eine kurze TCP-Probe je Schleifenadresse, und die Adresse, die annimmt, ist auch das Ziel der Abfrage:
+        so folgt auf eine antwortende Adresse kein Zeitablauf auf der anderen. Ein Endpunkt, der nicht `localhost` ist,
+        geht den bisherigen Weg.
+        """
+        from urllib.parse import urlsplit
+        endpunkt = self._status.ollama_endpoint
+        teile = urlsplit(endpunkt)
+        if (teile.hostname or "").lower() != "localhost":
+            return endpunkt
+        port = teile.port or 11434
+        for adresse in ("127.0.0.1", "::1"):
+            try:
+                with socket.create_connection((adresse, port), timeout=OLLAMA_PROBE_TIMEOUT_S):
+                    pass
+            except OSError:
+                continue
+            host = f"[{adresse}]" if ":" in adresse else adresse
+            return f"{teile.scheme or 'http'}://{host}:{port}"
+        return None
+
     def _check_ollama(self) -> None:
         """HTTP-Check ob Ollama laeuft. Aktualisiert self._status.
 
@@ -231,8 +262,15 @@ class LLMService:
         try:
             import urllib.request
             import json
+            basis = self._ollama_basis()
+            if basis is None:
+                self._status.ollama_available = False
+                self._status.available_models = []
+                self._status.models_detail = []
+                self._status.error = "Ollama nimmt keine Verbindung an"
+                return
             req = urllib.request.Request(
-                f"{self._status.ollama_endpoint}/api/tags",
+                f"{basis}/api/tags",
                 headers={"Accept": "application/json"},
             )
             with urllib.request.urlopen(req, timeout=2.0) as resp:

@@ -256,3 +256,45 @@ GitHub-Lauf „Tests“ auf `6a226ea2` grün (Jobs `syntax-py311` und `pytest`),
 
 **Beobachtung:** Ein Explorer-Fenster, das den entpackten Ordner anzeigt, hielt das Löschen im zweiten Lauf nicht auf; der Ordner war weg, sobald das
 Installer-Fenster (sein Arbeitsordner, PP24) zu war. Das Explorer-Fenster zeigte danach noch den alten Stand („0 Elemente“), bis es neu lädt.
+
+## Dritter Lauf des Kandidaten `1.8.0` auf dem Werkstatt-PC (14.10.2026)
+
+Plan I27 (`testlauf-1.8.0.md`, „Dritter Lauf“), alle Blöcke A bis I plus E5. Stable-Basis 1.7.157, Probe-Veröffentlichungen im Probe-Repository (v1.8.3 gut,
+v1.8.4 falsche Prüfsumme, v1.8.5 fremde Signatur; für E5 `v1.9.0-rc.1` als ZIP und `v1.9.0-rc.2` als Vorabversion, Linie 1.9, damit die stabilen Probe-Veröffentlichungen
+nicht dazwischenkommen). Derselbe Rechner und dieselben Bedingungen wie zuvor: Windows 11, Claude Desktop als Store-Fassung, Konto ohne erhöhte Rechte, Remotedesktop-Sitzung.
+**Eine Abfrage nach Administratorrechten kam in keinem Block.** Alle Daten erfunden.
+
+| Block | Ergebnis |
+|---|---|
+| A Ausgangszustand | in Ordnung: kein PBP, `ms-playwright` und `pip`-Ordner nicht vorhanden, Port 8200 frei; Prüfsumme der Claude-Konfiguration `E61DAB3E1987` gesichert. |
+| B Frische Installation | in Ordnung (PP14/PP15, PP20, PP21, PP23). |
+| C Erstkontakt | in Ordnung. |
+| D Texterkennung | in Ordnung, ohne Abfrage nach Administratorrechten. |
+| E1 Updates-Seite | in Ordnung bis auf ein „Aktuell“ neben „Die Verbindung zu GitHub hat nicht geklappt“ (PP31, #1225). |
+| E2 Auto-Update gegen echtes GitHub | in Ordnung (Prüfung, Download, Prüfsumme, Signatur, Selbsttest, Umschalten; Verlauf nennt Prüfsumme und Signatur). |
+| E3 Rückfall | in Ordnung. |
+| E4 Abgelehnte Veröffentlichungen | in Ordnung. |
+| E5 Vorabversion von selbst | in Ordnung mit vier Funden (PP32 bis PP35). Der Abschnitt „Vorabversionen automatisch“ steht nur auf der Vorab-Installation, Vorgabe aus, die Karte nennt den Weg und hat keinen Installieren-Knopf; eingeschaltet kommt nach „Jetzt prüfen“ „Neu: v1.9.0-rc.2“ mit „Jetzt installieren“; Installation (Fortschritt bis „Teste die neue Version“), Verlauf „Installiert“, „Ab dem nächsten Neustart“; nach dem Neustart `1.9.0-rc.2` („Aktuell“), „Beim nächsten Start nutzen“ führt auf `1.9.0-rc.1` zurück, der Start bootet sie; die stabile Installation hat den Abschnitt nicht. |
+| F Stable 1.7.157 → Kandidat | in Ordnung (Daten gleich, Schema 48 → 52, Sicherung). |
+| F2 „Neue Linie“ auf 1.7.157 | in Ordnung (Meldung samt Weg, nie angeboten). |
+| G Deinstallation | erster Versuch: Abbruch nach der Backup-Frage (PP30, #1224); mit der behobenen Fassung in Ordnung (j, n, `LOESCHEN`, j; Zusatzdateien 718 MB + 126 MB weg). |
+| H Zurücksetzen | in Ordnung; die Store-Konfiguration trägt nicht mehr die Prüfsumme aus A, weil Claude Desktop (lief) seine eigenen Schlüssel änderte; entfernt wurde nur, was PBP hinterließ. |
+| I Wege und Listen | in Ordnung für die Punkte 1 bis 4 und 6; Punkt 5 (halbe Bildschirmbreite) über die Fernsitzung nicht am echten Bildschirm gesehen, durch Browser-Tests bei schmaler Breite belegt. |
+
+### Neue Funde (PP30 bis PP36)
+
+| Nr | Fund | Ursache | Stand |
+|---|---|---|---|
+| PP30 | Der Deinstaller endete nach der Backup-Frage | zwei Kommentarzeilen mit Klammern im Klammerblock; `cmd` liest den Block in einem Zug und bricht ab (#1224) | behoben; Wächter über alle `.bat`, Test mit echtem `cmd` |
+| PP31 | „Aktuell“ trotz fehlender Antwort der Quelle | das Etikett hing nur an „keine neue Version“ und „kein Neustart“ (#1225) | behoben; „Stand unbekannt“ |
+| PP32 | „Vorabversionen automatisch“: nach dem Einschalten falscher Grund („Versionslinie“) | das gemerkte Ergebnis kannte den Stand des Schalters nicht (#1226) | behoben; Ergebnis trägt `vorab`, Umschalten prüft sofort |
+| PP33 | Ollama-Abfrage ohne Ollama 4 s, Erweiterungen 6 s | je Adresse (`::1`, `127.0.0.1`) volle 2 s, die Firewall beantwortet das SYN nicht; Handler `async def` (#1227) | behoben; Verbindungsprobe 0,5 s, Threadpool |
+| PP34 | „Apps & Features“ nennt nach dem Auto-Update die alte Fassung | `DisplayVersion` schreibt nur der Installer (#1228) | behoben; Abgleich beim Start |
+| PP35 | Umschalten auf eine neuere Fassung heißt „Zurückgeschaltet“ | eine Richtung in Verlauf und Rückfrage (#1229) | behoben |
+| PP36 | Probe-Skript: Rechnername, Laufzeitpfad der 1.7-Installation | `WERKSTATT-PC` statt `WERKSTATT`; `BASE\python` statt `app\python` | behoben (Skript) |
+
+**Messwerte (PP33):** `GET /api/components` im frischen Dashboard 6,11 s, danach 0,07 s und 0,01 s; `cProfile` des Aufrufs in einem frischen Prozess 4,60 s, davon
+4,08 s in `_check_ollama`; Verbindungsprobe auf Port 11434: 127.0.0.1 2,02 s, `::1` 2,01 s, `localhost` 4,07 s (jeweils Zeitablauf).
+**Messwerte (PP34):** laufend 1.9.0-rc.2, Registry `DisplayVersion` 1.9.0-rc.1.
+
+**Lehren:** L76 bis L81 in `lehren.md`.
