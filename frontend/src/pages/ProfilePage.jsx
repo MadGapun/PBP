@@ -960,7 +960,7 @@ export default function ProfilePage({ bereich = "profil" }) {
       await refreshChrome({ quiet: true });
       const weg = erg?.stellen_deaktiviert || 0;
       pushToast(weg
-        ? `Blacklist-Eintrag angelegt — ${weg} aktive ${weg === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet (zurückholen unter Stellen › Ausgeblendet).`
+        ? `Blacklist-Eintrag angelegt — ${weg} aktive ${weg === 1 ? "Stelle" : "Stellen"} dieser Firma ausgeblendet (zurückholen unter Stellen › Aussortiert).`
         : "Blacklist-Eintrag angelegt.", "success");
     } catch (error) {
       pushToast(`Blacklist-Eintrag fehlgeschlagen: ${error.message}`, "danger");

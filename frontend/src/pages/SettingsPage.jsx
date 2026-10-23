@@ -1316,7 +1316,7 @@ function AutoAussortierenCard({ pushToast }) {
           <span className="mt-1 block text-xs text-muted">
             Die lokale KI prüft neue Stellen gegen dein Profil und sortiert aus, was nicht passt.
             Stellen ohne Anzeigentext beurteilt sie nicht. Aussortiertes holst du unter
-            Stellen › Ausgeblendet zurück. Braucht die lokale KI (Einstellungen › Lokale KI).
+            Stellen › Aussortiert zurück. Braucht die lokale KI (Einstellungen › Lokale KI).
           </span>
         </span>
       </label>

@@ -78,7 +78,7 @@ export function jobsucheHinweis(last) {
   // dem Weg dorthin, damit sich ein Fehlurteil zurückholen lässt.
   const weg = typeof last.auto_aussortiert === "number" ? last.auto_aussortiert : 0;
   const wegText = weg > 0
-    ? `${weg} von der lokalen KI aussortiert (zurückholen unter Stellen › Ausgeblendet)`
+    ? `${weg} von der lokalen KI aussortiert (zurückholen unter Stellen › Aussortiert)`
     : "";
   if (neue === 0) {
     return {

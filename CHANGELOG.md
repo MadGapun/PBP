@@ -576,6 +576,10 @@ Einträgen darunter.
 - **Windows „Apps & Features“ zeigte nach einem Auto-Update die alte Fassung** (#1228; Fund des dritten Laufs, nur im Kandidaten). `DisplayVersion` schrieb nur
   der Installer. Jetzt gleicht PBP den Eintrag beim Start mit der laufenden Fassung ab — nur einen vorhandenen Eintrag, nur diesen Wert, nur wenn er auf den
   laufenden Programmordner zeigt.
+- **Texte schickten nach „Stellen › Ausgeblendet“, der Reiter heißt „Aussortiert“** (#1260; betrifft auch 1.7). Die Karte „Stellen zu prüfen“,
+  der Hinweis nach der Jobsuche, die Blacklist im Profil, die Einstellungen der Auto-Aussortierung, die Hinweiskarte im Reiter und zwei Antworten an
+  Claude nannten einen Reiter, den es nicht gibt. Jetzt heißt es überall „Stellen › Aussortiert“; ein Test hält die Texte und das gebaute Dashboard
+  gegen die Beschriftung des Reiters.
 - **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur im Kandidaten, seit rc.4).
   Wer im Reiter „Frag mich“ etwas eintippte und den Dialog schloss, bekam die Rückfrage für ungespeicherte Formulare — obwohl der Reiter selbst sagt, dass die
   Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
