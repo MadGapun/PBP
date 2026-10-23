@@ -81,6 +81,11 @@ Was Claude für dich erarbeitet, trägt es selbst in PBP ein, und Stellen aus ei
 - **Die Aufräum-Runde „Bewerbungen im Blick behalten“ läuft jetzt einmal am Tag von selbst** (Einstellungen › Automatik, dort auch „Aus“). Sie legt
   Erinnerungen nach, lädt fehlende Anzeigentexte und prüft, ob Anzeigen noch online sind. Bewerbungen schließt sie von selbst nur ab, wenn du das dort
   einschaltest; ab Werk ist das aus.
+- **Die Automatik lässt deine Entscheidungen stehen.** Eine Stelle, die du zurückgeholt hast oder zu der ein gelesenes Urteil „empfohlen“ oder
+  „bedingt“ vorliegt, sortiert keine Automatik mehr aus. Von mehreren Kopien derselben Anzeige bleibt genau eine aktiv, die mit dem Anzeigentext.
+  Gründe wie „befristet“ überträgt PBP nicht mehr über ein gemeinsames Wort im Titel auf andere Stellen, und ohne Anzeigentext sortiert die
+  Automatik nicht nach Fachgebiet aus. Was früher zu Unrecht verschwunden ist, steht unter Stellen › Aussortiert (Vermerk „Automatik“) und lässt
+  sich dort mit „Wiederherstellen“ zurückholen; Claude kann falsch übertragene Gründe für dich suchen.
 - **Die Auto-Aussortierung lernt nur noch aus dem, was du selbst aussortiert hast,** nicht mehr aus ihren eigenen Urteilen.
 - **Google Jobs:** Die Suche über JobSpy ist als defekt gekennzeichnet. Ein Google-Treffer ohne die Original-Anzeige des Arbeitgebers wird nicht mehr als
   Stelle angelegt, und Google-Benachrichtigungen per Mail liefern Hinweise statt Stellen.
@@ -90,6 +95,9 @@ Was Claude für dich erarbeitet, trägt es selbst in PBP ein, und Stellen aus ei
 
 **Behoben (Auswahl)**
 
+- Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren; von Kopien derselben Anzeige blieb
+  manchmal keine übrig.
+- Mehrere Texte schickten dich nach „Stellen › Ausgeblendet“; der Reiter heißt „Aussortiert“.
 - Claude aus dem Microsoft Store zeigte PBP nach der Installation nicht an, obwohl der Installer „fertig“ meldete.
 - Seit dem 19.10.2026 bekamen neue Installationen eine Fassung der Jobbörsen-Bibliothek JobSpy, die PBP nicht kennt; jetzt bleibt es bei der geprüften.
 - Die Seite „Stellen“ lief im Leerlauf auf Hochtouren.
