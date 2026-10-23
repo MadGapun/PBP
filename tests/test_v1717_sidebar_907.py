@@ -64,3 +64,18 @@ def test_1254_die_antworten_der_hilfe_haben_keinen_eigenen_scroller():
     assert leiste.index("<HilfeAntwort") < leiste.index("<HilfeEingabe"), \
         "die Antworten stehen im Strom (im Bereich des Verlaufs), das Feld darunter"
     assert "<HilfeVerlauf" not in leiste, "der Verlauf des Dialogs gehoert nicht in die Seitenleiste"
+
+
+def test_1256_der_strom_zaehlt_nach_kennung_und_beobachtet_seine_hoehe():
+    """#1256: zwei Maengel im Mitscrollen (#611). Am gerenderten Bild pruefen es die `test_1256_*` in `test_v18_hilfe_frage_browser_1233.py`; dieser Test faengt
+    die Rueckkehr der alten Rechnung schon im Quelltext ab: die Zahl der Nachrichten taugt nicht zum Zaehlen (der Verlauf holt nur zehn), und ein Merkmal aus
+    einem Scroll-Ereignis allein veraltet, wenn sich die Hoehe aendert oder die Daten vor dem Ereignis eintreffen."""
+    leiste = _lese("components/ElwosaSidebarChat.jsx")
+    assert "lastMessageCountRef" not in leiste, "die Marke zaehlt wieder die Nachrichten der Liste statt der neuen Kennungen"
+    assert "neueNachrichten(letzteKennung.current, messages)" in leiste
+    assert "new ResizeObserver" in leiste, "der Bereich beobachtet seine Hoehe nicht mehr"
+    assert "ref={listeRef}" in leiste
+    assert "warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null" in leiste, \
+        "ob der Mensch am Ende steht, wird nicht mehr beim Eintreffen der Daten gemessen"
+    assert "stickyRef" not in leiste, "ein Merker aus einem Scroll-Ereignis allein veraltet: entschieden wird nach der Geometrie von jetzt"
+    assert "key={activeProfileId" in _lese("App.jsx"), "nach einem Profilwechsel beginnt die Seitenleiste nicht neu: die Kennungen laufen ueber alle Profile"

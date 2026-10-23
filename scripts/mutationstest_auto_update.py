@@ -22,7 +22,9 @@ Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startba
 `suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177) und
 `browser` (Browser-Suchlauf: die Regel "im Zweifel eintragen" steht in jeder Anleitung, die Vorschau prueft wie die Anlage
 und schreibt nichts; #1187) und
-`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189).
+`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189) und
+`elwosa_strom1256` (Elwosa-Strom in der Seitenleiste: die Marke "N neu" zaehlt nach Kennung, der Bereich haelt das Ende bei Hoehenaenderung und
+beim Eintreffen der Daten; #1256 — baut das Bundle bei Frontend-Eintraegen neu).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -2671,6 +2673,89 @@ M_HILFE = [
 ]
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
+
+# ── #1256 (F58): der Elwosa-Strom - die Marke "N neu" zaehlt nach Kennung, der Bereich haelt das Ende bei Hoehenaenderung ──
+# Die Browser-Faelle stehen in der Datei zu #1233/#1254 (`test_1256_*`); jeder Eintrag zielt auf EINEN Handgriff der Behebung. Eintraege unter
+# frontend/ bauen das Bundle neu.
+STROM_BROWSER = "tests/test_v18_hilfe_frage_browser_1233.py::"
+T_STROM_MARKE = [STROM_BROWSER + n for n in (
+    "test_1256_die_marke_neu_erscheint_auch_bei_voller_liste",
+    "test_1256_die_marke_zaehlt_mit_und_beginnt_am_ende_von_vorn",
+    "test_1256_das_ausblenden_einer_nachricht_macht_keine_marke",
+    "test_1256_bei_kurzer_liste_zeigt_die_marke_weiter_die_neuen",
+)]
+T_STROM_ENDE = [STROM_BROWSER + n for n in (
+    "test_1256_wird_der_bereich_niedriger_bleibt_das_ende_im_bild",
+    "test_1256_eine_meldung_nach_sprung_und_hoehenaenderung_bleibt_nicht_verdeckt",
+    "test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_die_marke",
+    "test_1256_auch_die_zweite_hoehenaenderung_rechnet_mit_der_neuen_hoehe",
+    "test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_nach_unten_gezogen",
+)]
+T_STROM_SPRUNG = [STROM_BROWSER + "test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen",
+                  STROM_BROWSER + "test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen"]
+T_STROM_NEU = [STROM_BROWSER + "test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende"]
+T_STROM_AUSBLENDEN = [STROM_BROWSER + "test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten_und_ist_nicht_neu"]
+T_STROM_FRAGE = [STROM_BROWSER + "test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_meldung_nicht_ans_ende_gezogen"]
+T_STROM_PROFIL = [STROM_BROWSER + "test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu"]
+# die Knoten-Tests laufen als Ganzes (die Kennung einer parametrierten Funktion kennt der Waechter des Katalogs nicht); der Eingriff in die Bibliothek
+# macht den Fall elwosaStrom rot
+T_STROM_NODE = ["tests/test_v18_knoten_tests_1171.py"]
+T_STROM_QUELLTEXT = ["tests/test_v1717_sidebar_907.py::test_1256_der_strom_zaehlt_nach_kennung_und_beobachtet_seine_hoehe"]
+STROM_LEISTE = "frontend/src/components/ElwosaSidebarChat.jsx"
+STROM_LIB = "frontend/src/lib/elwosaStrom.js"
+STROM_APP = "frontend/src/App.jsx"
+STROM_RO_ZEILE = "      if (Math.min(abstandVorher, abstandJetzt) >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n"
+M_STROM = [
+    # die Marke "N neu": neu ist, was eine groessere Kennung traegt
+    ("ev01", "Die Marke zaehlt wieder die Nachrichten der Liste statt der neuen Kennungen", STROM_LEISTE,
+     "    const { anzahl: neue, hoechste } = neueNachrichten(letzteKennung.current, messages);\n    letzteKennung.current = hoechste;\n",
+     "    const neue = Math.max(0, messages.length - (letzteKennung.current ?? 0));\n    letzteKennung.current = messages.length;\n",
+     T_STROM_MARKE + T_STROM_QUELLTEXT),
+    ("ev02", "Die Marke zaehlt nicht weiter, jede neue Meldung setzt sie auf die eigene Zahl", STROM_LEISTE,
+     "      setUnreadBelow((u) => u + neue);\n", "      setUnreadBelow(neue);\n", T_STROM_MARKE),
+    ("ev03", "Die Marke wird nie gezeigt", STROM_LEISTE,
+     "      setShowJumpToBottom(true);\n    }\n  }, [messages]);\n", "    }\n  }, [messages]);\n", T_STROM_MARKE),
+    ("ev04", "Beim ersten Laden zaehlt alles als neu", STROM_LIB,
+     "  if (gesehen === null || gesehen === undefined) return { anzahl: 0, hoechste };\n", "", T_STROM_NODE),
+    ("ev05", "Die groesste gesehene Kennung sinkt, wenn die neueste Nachricht ausgeblendet wird", STROM_LIB,
+     "  return { anzahl, hoechste: Math.max(gesehen, hoechste) };\n", "  return { anzahl, hoechste };\n", T_STROM_NODE),
+    ("ev06", "Die zuletzt gesehene Nachricht zaehlt noch einmal als neu", STROM_LIB,
+     "    if (kennung(nachricht) > gesehen) anzahl += 1;\n", "    if (kennung(nachricht) >= gesehen) anzahl += 1;\n", T_STROM_NODE + T_STROM_MARKE),
+    ("ev07", "Eine Zeile ohne gueltige Kennung zaehlt als neu", STROM_LIB,
+     "  return Number.isFinite(n) && n > 0 ? n : 0;\n", "  return Number.isFinite(n) && n > 0 ? n : Number.MAX_SAFE_INTEGER;\n", T_STROM_NODE),
+    # das Ende halten, wenn sich die Hoehe aendert
+    ("ev08", "Der Beobachter haelt das Ende nicht", STROM_LEISTE,
+     "      liste.scrollTop = liste.scrollHeight;\n", "      liste.scrollTop += 0;\n", T_STROM_ENDE),
+    ("ev09", "Der Beobachter rechnet nur mit der Hoehe von jetzt (das Ende rutscht bei einem niedrigeren Bereich)", STROM_LEISTE,
+     STROM_RO_ZEILE, "      if (abstandJetzt >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n", T_STROM_ENDE),
+    ("ev10", "Der Beobachter rechnet nur mit der Hoehe von vorher (ein hoeherer Bereich bringt das Ende nicht zurueck)", STROM_LEISTE,
+     STROM_RO_ZEILE, "      if (abstandVorher >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n", T_STROM_ENDE),
+    ("ev11", "Der Beobachter zieht auch den nach unten, der oben liest", STROM_LEISTE, STROM_RO_ZEILE, "", T_STROM_ENDE),
+    ("ev12", "Der Beobachter wird nie angelegt", STROM_LEISTE,
+     "    groessenBeobachter.current.observe(el);\n", "", T_STROM_ENDE),
+    ("ev13", "Die Hoehe von vorher wird nicht fortgeschrieben (die zweite Aenderung rechnet mit der Hoehe vom Anfang)", STROM_LEISTE,
+     "      sichtHoehe.current = liste.clientHeight;\n", "", T_STROM_ENDE),
+    ("ev14", "Ein neuer Bereich beginnt nicht unten (nach dem Wiedereinblenden steht er oben)", STROM_LEISTE,
+     "    el.scrollTop = el.scrollHeight;\n    sichtHoehe.current = el.clientHeight;\n", "    sichtHoehe.current = el.clientHeight;\n", T_STROM_NEU),
+    # ob der Mensch am Ende steht: die Geometrie beim Eintreffen der Daten, nicht ein ausstehendes Ereignis
+    ("ev15", "Beim Eintreffen der Daten wird nicht gemessen, ob der Mensch am Ende steht", STROM_LEISTE,
+     "        warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null;\n", "", T_STROM_SPRUNG + T_STROM_QUELLTEXT),
+    ("ev16", "Die Toleranz ist 0: der Mensch gilt nie als am Ende", STROM_LEISTE,
+     'const AM_ENDE_TOLERANZ = 30; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n',
+     'const AM_ENDE_TOLERANZ = 0; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n', T_STROM_ENDE + T_STROM_SPRUNG),
+    ("ev17", "Die Kennung wird nur nachgefuehrt, solange es den Bereich gibt (was beim Ausblenden kommt, gilt spaeter als neu)", STROM_LEISTE,
+     "    letzteKennung.current = hoechste;\n", "    if (scrollRef.current) letzteKennung.current = hoechste;\n", T_STROM_AUSBLENDEN),
+    ("ev18", "Wer den Anfang einer Antwort liest, wird von einer neuen Meldung ans Ende gezogen (jede Meldung gilt als gefolgt)", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = true;\n", T_STROM_FRAGE + T_STROM_MARKE),
+    ("ev19", "Eine Liste ohne Messung (Ausblenden, gelesen) zieht den Menschen ans Ende", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = warAmEnde.current !== false;\n", T_STROM_MARKE + T_STROM_FRAGE),
+    ("ev20", "Nach einem Profilwechsel beginnt die Seitenleiste nicht neu (die Liste des anderen Profils gilt als neu)", STROM_APP,
+     '                key={activeProfileId || "kein-profil"}\n', "", T_STROM_PROFIL + T_STROM_QUELLTEXT),
+]
+KATALOGE["elwosa_strom1256"] = M_STROM
+GRUNDLAEUFE["elwosa_strom1256"] = (("T_STROM_MARKE", T_STROM_MARKE), ("T_STROM_ENDE", T_STROM_ENDE), ("T_STROM_SPRUNG", T_STROM_SPRUNG),
+                                   ("T_STROM_NEU", T_STROM_NEU), ("T_STROM_AUSBLENDEN", T_STROM_AUSBLENDEN), ("T_STROM_FRAGE", T_STROM_FRAGE),
+                                   ("T_STROM_PROFIL", T_STROM_PROFIL), ("T_STROM_NODE", T_STROM_NODE), ("T_STROM_QUELLTEXT", T_STROM_QUELLTEXT))
 
 # ── Installer und Claude-Konfiguration: was der Mensch unter env eingetragen hat, bleibt (#1238, I38) ──
 # Das Wort der Konfiguration steht hier NICHT als Literal: der Waechter in test_1238 sucht es in scripts/ und wuerde
