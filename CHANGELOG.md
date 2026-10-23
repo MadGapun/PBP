@@ -311,7 +311,7 @@ Einträgen darunter.
   login_fehlt)`: derselbe Anlageweg wie `stelle_manuell_anlegen` (Blacklist, Dubletten auch gegen Bewerbungen und Aussortiertes, Anker, Auflagen der Quelle, Scoring), die Vorschau ist die
   Vorgabe und schreibt nichts. Eine Karte ohne Volltext wird angelegt (`ohne_volltext`; `stellenbeschreibung_nachladen` ergänzt sie), ein Google-Treffer ohne Original nennt die Suche danach.
   Ein Urteil wird nur mit gelesenem Volltext gespeichert. `aussortieren_grund` sortiert nach dem Lesen aus — mit einem Grund aus der Liste der Ablehnungsgründe und der Herkunft „von Claude“:
-  zu finden unter Stellen › Ausgeblendet, mit einem Klick zurückzuholen, und der nächste Lauf legt sie nicht noch einmal an. Alle Anleitungen an Claude nennen das Werkzeug.
+  zu finden unter Stellen › Aussortiert, mit einem Klick zurückzuholen, und der nächste Lauf legt sie nicht noch einmal an. Alle Anleitungen an Claude nennen das Werkzeug.
 - **Jeder Browserlauf steht in der Auswertung der Quellen** (#1187 Stufe 2). Ein Lauf ohne eine einzige Anlage hinterließ nirgends eine Spur: weder im Trichter noch in der
   Langzeit-Auswertung. Jetzt schreibt jeder echte Lauf — auch `linkedin_treffer_uebernehmen` — eine Zeile in `scraper_runs` (Rohtreffer, angelegt, Trichtertext), auch bei null Anlagen. Den
   Gesundheitszustand der Quelle fasst er nicht an: „0 neu“ aus dem Browser schaltet keine Quelle ab, und ein fehlender Login ist ein eigener Befund (`wartet_auf_login`), kein Lauf.
@@ -538,7 +538,7 @@ Einträgen darunter.
 - **Windows: ein Ausrufezeichen im Profilpfad ging verloren** (#1207). Der Installer prüfte nur den Startordner; `%LOCALAPPDATA%`, `%TEMP%` und `%USERPROFILE%` verloren das Zeichen unter der
   verzögerten Expansion, und der Installer rechnete mit einem Ordner, den es nicht gibt. Installer und Deinstaller prüfen jetzt alle drei Orte, bevor sie etwas ändern, und brechen mit
   einem klaren Satz ab (der Deinstaller nennt dazu den Handgriff).
-- **Weg-Leiste der Stelle: bei ausgeblendeten Stellen fehlte der Prüfstand** (#1208). Der Hauptknopf sagte „Stelle bewerten“ statt „Bewerbung anlegen“, weil die Liste „Ausgeblendet“ ihn nicht
+- **Weg-Leiste der Stelle: bei ausgeblendeten Stellen fehlte der Prüfstand** (#1208). Der Hauptknopf sagte „Stelle bewerten“ statt „Bewerbung anlegen“, weil die Liste „Aussortiert“ ihn nicht
   rechnet. Der Dialog holt ihn einmal einzeln vom Server (der Server entscheidet, nicht die Oberfläche).
 - **Die Zurück-Taste bei geänderter Eingabe in einem Dialog fror die Seite ein** (#1210; seit beta.17). Alt+← oder die Zurück-Taste der Maus bei einem halb ausgefüllten Dialog (Notiz in der
   Timeline, „Bewerbung anlegen“) ließ eine Schleife endlos laufen: die Seite antwortete nicht mehr, und der Browser beendete nach rund 100 Sekunden den Tab. Jetzt erscheint die Rückfrage
