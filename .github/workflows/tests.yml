@@ -246,6 +246,11 @@ jobs:
         # eine Beta-Einstellung gilt in stabil als aus.
         run: node frontend/src/lib/mailQuelle.test.mjs
 
+      - name: API-Weg der KI - Karte, Pruefung, Budget und Auswahl (Node)
+        # v1.8 (#1236): die Karte erscheint nur mit Schluessel, Freigabe oder Verbrauch; "gueltig" steht nur nach
+        # einer echten Probe; das Budget ist ein Betrag in US-Dollar.
+        run: node frontend/src/lib/apiWeg.test.mjs
+
       - name: Firmen-Ansicht - Datum, Filter, Spruenge und Hash (Node)
         # v1.8 (#1080): Datum fuer Menschen, Filter der Historie, wohin ein
         # Eintrag fuehrt, und der Hash (#kontakte/fi_..., #kontakte/firma:Name)
