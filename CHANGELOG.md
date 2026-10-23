@@ -33,7 +33,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.0] - 2026-10-12 — Updates, die sich selbst installieren
+## [1.8.0] - 2026-10-23 — Updates, die sich selbst installieren
 
 <!-- anwender -->
 PBP kann sich jetzt selbst aktualisieren, wenn du es willst (Einstellungen › Erweitert › Updates); ohne deine Wahl installiert PBP nichts.
@@ -111,7 +111,7 @@ Alle Änderungen im Einzelnen stehen darunter.
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
-sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.19) und die Hotfixes bis v1.7.157 geliefert haben; die Einzelheiten stehen in den
+sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.19), die Release-Kandidaten (rc.1 bis rc.5) und die Hotfixes bis v1.7.159 geliefert haben; die Einzelheiten stehen in den
 Einträgen darunter.
 
 **Wichtig zu wissen:**
@@ -223,7 +223,7 @@ Einträgen darunter.
   nicht genannten Auftraggebern bleiben zwei, ähnliche Titel sind kein „Duplikat“. (6) Beim Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen
   mit Profil: der Anfangszustand der Seiten war „kein Profil“ statt „unbekannt“. (7) Der Bestandsnachzug füllte `max_stellen` mit Stellen, die er nie abrufen darf.
   (8) Der Knopf „Beschreibung jetzt nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
-  (sonst „ruht seit 0“); `jobtic.com:443` und `nutzer@jobtic.com` gehören zur Quelle.
+  (sonst „ruht seit 0“); eine Adresse mit Port (`jobtic.com:443`) oder mit Anmeldenamen vor dem Host gehört zur Quelle.
 - Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
 - Gegenprobe (`scripts/mutationstest_auto_update.py`): sechzehn Kataloge, 534 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
   Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 49, Skill-Stand 11, Installer 14,
@@ -355,7 +355,7 @@ Einträgen darunter.
   einrichten“ (Einstellungen › Erweiterungen); ein Fehlschlag der Texterkennung wird ehrlich genannt. Der zweite Teil von U12 — beim ersten Start fragen, wie Updates installiert werden sollen —
   ist **bewusst nicht** gebaut: das Wort des Nutzers vom 02.10.2026 ist, dass PBP nur zusammen mit der Meldung über eine neue Version fragt, nie beim bloßen Start.
   Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
-- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Bis v1.7.157 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
+- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). In der Linie 1.7 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
   war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine
   Nachfass-Ketten, keine ablaufenden Bewerbungen und keine nachgeladenen Anzeigentexte. Jetzt stößt der Planer die Runde einmal am Tag an (Vorgabe „Täglich“, 90 Sekunden nach dem
   Start fällig; Einstellungen › Automatik, dort auch „Aus“ und längere Abstände), im Hintergrund und mit eigener Spur unter den Hintergrundläufen. Knopf und Planer teilen eine Sperre;
@@ -565,14 +565,14 @@ Einträgen darunter.
   allen drei Stellen dieselbe Regel wie bei der Auswahl (Schalter an UND selbst eine Vorabversion, nie ein Linienwechsel; Prüfsumme, Signatur und
   Selbsttest wie immer), und der Archiv-Bauer prüft auch das Manifest einer Vorabversion mit dem Leser der Installation. Ein Test fährt den Weg
   rc.3 → rc.4 mit einem echten Archiv bis zur Umschaltung; der Beweis im Betrieb steht noch aus.
-- **Windows: der Deinstaller endete nach der Backup-Frage** (#1224; Fund des dritten Laufs auf dem Werkstatt-PC, nur im Kandidaten). Zwei
+- **Windows: der Deinstaller endete nach der Backup-Frage** (#1224; Fund des dritten Laufs auf dem Werkstatt-PC, nur in den Vorabversionen). Zwei
   Kommentarzeilen mit Klammern im Block der Backup-Frage (#1149) ließen `cmd` den Stapel beim Lesen abbrechen: das Fenster schloss sich, und die
   Fragen nach den Bewerbungsdaten und nach den rund 830 MB Zusatzdateien kamen nicht mehr. Die Kommentare stehen jetzt außerhalb des Blocks;
   ein Wächter prüft alle `.bat`-Dateien auf Klammern in Kommentaren innerhalb von Blöcken, und ein Test führt den Abschnitt mit echtem `cmd` aus.
-- **Die Update-Seite zeigte „Aktuell“, obwohl die Prüfung keine Antwort bekam** (#1225; Fund des dritten Laufs, nur im Kandidaten). Das Etikett hing nur an
+- **Die Update-Seite zeigte „Aktuell“, obwohl die Prüfung keine Antwort bekam** (#1225; Fund des dritten Laufs, nur in den Vorabversionen). Das Etikett hing nur an
   „keine neue Version“ und „kein Neustart“; darunter stand „Die Verbindung zu GitHub hat nicht geklappt“, die Seitenleiste sagte „Update-Stand unbekannt“.
   Jetzt steht „Aktuell“ nur mit einer Antwort der Quelle, sonst „Stand unbekannt“.
-- **„Vorabversionen automatisch“: nach dem Einschalten nannte die Karte einen falschen Grund** (#1226; Fund des dritten Laufs, nur im Kandidaten). Das gemerkte
+- **„Vorabversionen automatisch“: nach dem Einschalten nannte die Karte einen falschen Grund** (#1226; Fund des dritten Laufs, nur in den Vorabversionen). Das gemerkte
   Prüfergebnis kannte den Stand des Schalters nicht, und die Karte sagte „PBP wechselt die Versionslinie nie von selbst“, obwohl dieselbe Vorabversion nach
   „Jetzt prüfen“ mit „Jetzt installieren“ kam. Jetzt trägt das Ergebnis den Stand des Schalters, das Umschalten prüft sofort neu (Dashboard und Werkzeug), eine
   mit Schalter gefundene Vorabversion steht nach dem Ausschalten nicht mehr als „neu“ da, und solange die letzte Prüfung den Schalter nicht kannte, sagt die
@@ -581,25 +581,25 @@ Einträgen darunter.
   „Erweiterungen“ lud rund 6 Sekunden: die Firewall des Rechners beantwortete Verbindungen zu einem geschlossenen Port der Schleife nicht, und die Abfrage
   wartete je Adresse (`::1` und `127.0.0.1`) volle 2 Sekunden — im Handler, der den ganzen Server anhielt. Jetzt fragt eine kurze Verbindungsprobe (je
   höchstens 0,5 s), die Abfrage geht an die Adresse, die annimmt, und der Handler läuft im Threadpool. Ein laufendes Ollama wird wie bisher erkannt (IPv4 und IPv6).
-- **Windows „Apps & Features“ zeigte nach einem Auto-Update die alte Fassung** (#1228; Fund des dritten Laufs, nur im Kandidaten). `DisplayVersion` schrieb nur
+- **Windows „Apps & Features“ zeigte nach einem Auto-Update die alte Fassung** (#1228; Fund des dritten Laufs, nur in den Vorabversionen). `DisplayVersion` schrieb nur
   der Installer. Jetzt gleicht PBP den Eintrag beim Start mit der laufenden Fassung ab — nur einen vorhandenen Eintrag, nur diesen Wert, nur wenn er auf den
   laufenden Programmordner zeigt.
 - **Texte schickten nach „Stellen › Ausgeblendet“, der Reiter heißt „Aussortiert“** (#1260; betrifft auch 1.7). Die Karte „Stellen zu prüfen“,
   der Hinweis nach der Jobsuche, die Blacklist im Profil, die Einstellungen der Auto-Aussortierung, die Hinweiskarte im Reiter und zwei Antworten an
   Claude nannten einen Reiter, den es nicht gibt. Jetzt heißt es überall „Stellen › Aussortiert“; ein Test hält die Texte und das gebaute Dashboard
   gegen die Beschriftung des Reiters.
-- **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur im Kandidaten, seit rc.4).
+- **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur in den Vorabversionen, seit rc.4).
   Wer im Reiter „Frag mich“ etwas eintippte und den Dialog schloss, bekam die Rückfrage für ungespeicherte Formulare — obwohl der Reiter selbst sagt, dass die
   Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
   Formular (neuer Kontakt, Notizen) fragen weiter.
-- **„Beim nächsten Start nutzen“ für eine neuere installierte Fassung hieß „Zurückgeschaltet“** (#1229; Fund des dritten Laufs, nur im Kandidaten). Verlauf und
+- **„Beim nächsten Start nutzen“ für eine neuere installierte Fassung hieß „Zurückgeschaltet“** (#1229; Fund des dritten Laufs, nur in den Vorabversionen). Verlauf und
   Rückfrage kannten nur den Rückweg. Jetzt steht beim Schritt nach vorn „Umgeschaltet“, die Rückfrage nennt die Richtung, und die ausdrückliche Wahl hebt die
   Zurücknahme dieser Fassung auf.
-- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur im Kandidaten). „Jetzt installieren“
+- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur in den Vorabversionen). „Jetzt installieren“
   und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
   „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
   installieren (erst ab rc.4 behoben); wer rc.3 nutzt, installiert rc.4 einmal von Hand.
-- **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betrifft auch Stable 1.7.157). Eine neue
+- **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betraf auch 1.7, dort in v1.7.158 behoben). Eine neue
   Stelle bekam „diese Bewerbung nennt Firma F als Endkunden“, weil F nur als Partner im Notiztext stand, und das Nachtragen des Endkunden half der Stelle nicht.
   Jetzt ist ein eingetragenes Feld „Endkunde“ maßgeblich (nennt es eine andere Firma, gibt es keine Warnung), ein Treffer nur im Freitext steht als offene
   Vermutung da („ob es der Endkunde ist, bleibt offen“), und der Hinweis nennt den eingetragenen Vermittler. Das gilt für Stellenliste, Analyse, Firmen-Kontext
@@ -608,7 +608,7 @@ Einträgen darunter.
   Anwendung). `scripts/scrub_pii.py` verglich eine Firmenangabe mit `FIKTIVE_FIRMEN` nur in der Schreibweise der Liste: ein Beitrag, der
   denselben Platzhalter mit „ü“ schrieb, bekam einen Firmentreffer. Jetzt gelten beide Schreibweisen (Text und Liste werden in Umschrift
   verglichen); eine ähnliche echte Firma bleibt ein Treffer.
-- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betrifft auch Stable seit 1.7.142, Folge von #1123). `bewerbung_notiz`
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betraf auch 1.7 seit 1.7.142, dort in v1.7.158 behoben; Folge von #1123). `bewerbung_notiz`
   behandelte JEDE Notiz als Kontakt mit dem Arbeitgeber: wer eine Bewerbung anlegte (das legt den 21-Tage-Nachfass an) und gleich danach eine
   interne Notiz ergänzte, verlor die Erinnerung nach Minuten, und die Antwort sagte „erledigt“, obwohl `hinfaellig` gespeichert wurde. In einem
   echten Bestand waren zwei von drei Schließungen durch Notizen zu Unrecht. Jetzt hat `bewerbung_notiz` den Parameter `art`: `intern`
@@ -617,7 +617,7 @@ Einträgen darunter.
   `nachfassung_erledigt`) und den Weg zurück (`nachfass_planen`); dasselbe Feld nennt der verschobene Termin. Die Anleitungen (Mail des
   Arbeitgebers, Projekt-Update, Gesprächsfeedback, Vermittler-Korrespondenz, Gesprächsprotokoll aus der Rückführung) nennen `art="kontakt"`.
   Alte, zu Unrecht geschlossene Erinnerungen werden nicht von allein geöffnet: das entscheidet der Mensch je Fall.
-- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betrifft auch Stable). Zwei Stellen derselben
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betraf auch 1.7, dort in v1.7.159 behoben). Zwei Stellen derselben
   Firma, die aus der Liste gingen, weil du dich beworben hast (`bewerbung_erstellt` ist das Gegenteil einer Ablehnung), zählten als „zweimal
   aussortiert“: eine gelesene, empfohlene Stelle stand in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei
   `nur_empfohlen` ganz heraus. Auch die Automatik nach einer Suche hätte so eine Stelle ohne Rückfrage aussortiert
@@ -628,7 +628,7 @@ Einträgen darunter.
   gelesenes Urteil vor, steht es neben dem k.o. (`empfehlung.gelesene_analyse`); das k.o. schlägt es weiter (#671). Dazu: „Head of …“,
   „Chief …“ und „Director …“ sind Rollenwörter und kein Fachgebiet — zwei Head-of-Stellen derselben Firma waren Wiedergänger, nur weil
   beide „head“ heißen.
-- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betrifft auch Stable). Eine Stelle in „Rosengarten“ stand mit 24
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betraf auch 1.7, dort in v1.7.159 behoben). Eine Stelle in „Rosengarten“ stand mit 24
   statt rund 500 km als nah in der Liste: den Namen gibt es mehrfach, und PBP nahm den Treffer mit dem höchsten Gewicht, ohne es zu sagen. Jetzt
   fragt PBP bis zu acht Treffer ab. Liegt ein zweiter Ort desselben Namens mehr als 50 km entfernt und wiegt fast so viel (Abstand unter 0,10;
   Frankfurt, Halle oder Offenbach haben einen klaren Spitzenreiter und bleiben aufgelöst), ist der Ort mehrdeutig: keine Entfernung statt einer
@@ -638,34 +638,33 @@ Einträgen darunter.
   Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Zeilen des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und
   von Hand gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht
   mehr als „nah“.
-- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betrifft auch Stable). Was unter `env` des Eintrags
+- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betraf auch 1.7, dort in v1.7.159 behoben). Was unter `env` des Eintrags
   `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
   (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
   v1.7.145. Jetzt gilt für alle Schreiber dieselbe Regel (wie `_setup_claude.eintrag_bauen`): Was im bisherigen `env` steht, bleibt; `BA_DATA_DIR` wird nur gesetzt,
   wenn keiner da ist; `PYTHONPATH` folgt immer der Installation. Ein Test listet alle Dateien, die den Server-Block der Konfiguration anfassen, und schlägt bei
   jeder unbekannten an.
-- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betrifft auch Stable). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
+- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betraf auch 1.7, dort in v1.7.159 behoben). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
   festen Jahreszahl; ab dem 01.01.2027 hätte bei jeder laufenden Stelle ein Jahr gefehlt (die Karrierestufe der Auto-Aussortierung wäre an den Grenzen 4/5 und
   9/10 Jahre zu spät gekippt, die Jahre Berufserfahrung in der Recruiter-Wertung zu kurz ausgefallen). Jetzt rechnen alle drei mit der Uhr (`services/uhr.heute()`),
   die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
   ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
   stand.
-- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betrifft auch
-  Stable). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
+- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betraf auch 1.7, dort in v1.7.159 behoben). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
   `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
   Installer schrieb dorthin, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie; das Dashboard sagte richtig „nicht verbunden“. Jetzt kennt
   `_setup_claude.py` den neuen Ordner, schreibt in jede gefundene Datei und liest den Eintrag danach zurück: „geschrieben“ zählt nur, wenn er in der Datei
   steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
   „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
   führt den Installer einfach noch einmal aus.
-- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betrifft auch Stable). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
+- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betraf auch 1.7, dort in v1.7.159 behoben). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
   Fassung (andere Modelle, ein einziger Logger, neue Abhängigkeiten); PBP verlangte aber nur `>=1.2`. Jede frische Installation und jeder Installer-Lauf zog sie, und
   sechs Prüfungen gegen die Bibliothek schlugen fehl. Jetzt gilt `python-jobspy>=1.2,<1.4` in `pyproject.toml` und im Installer; ein Installer-Lauf setzt ein bereits
   gezogenes 1.4.0 auf 1.3 zurück. Die Übernahme von 1.4 ist ein eigenes Vorhaben.
-- **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur im Kandidaten, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
-- **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch Stable). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
-- **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch Stable). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
-- **Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren** (#1250; betrifft auch Stable). Vier Fehler,
+- **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur in den Vorabversionen, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
+- **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch 1.7). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
+- **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch 1.7). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
+- **Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren** (#1250; betrifft auch 1.7). Vier Fehler,
   gefunden beim Abgleich der aktiven Stellen: (1) die lokale KI nahm eine Stelle drei Tage nach dem Zurückholen wieder weg, obwohl ein Urteil
   BEDINGT an ihr hing — ihr Filter fragte nur den Aussortiergrund, und den löscht das Zurückholen; (2) von drei Kopien derselben Anzeige blieb keine
   aktiv, die Kopie mit Volltext und Urteil EMPFOHLEN fiel mit der KI-Begründung „Grund: duplikat“; (3) die Wiedergänger-Regel „nach Fachgebiet“
@@ -687,14 +686,14 @@ Einträgen darunter.
 
 - Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
 - Auto-Update nur unter Windows.
-- Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
+- Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude und im Paketordner der Store-App je eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
 - Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
 - Die Suche der Hilfe findet auf Fragen in Alltagssprache, die sie noch nie gesehen hat, den richtigen Abschnitt in rund drei von vier Fällen unter den ersten drei
   (#1233). Die Karte nennt immer ihre Quelle, und unter jeder Antwort steht der Satz für Claude; die Wissensbasis wird mit jedem Release neu gebaut.
 - Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort
   an der Reihe war, steht an seinen Stellen noch die alte Zahl.
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9546 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9814 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
