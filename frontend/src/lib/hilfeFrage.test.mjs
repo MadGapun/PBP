@@ -1,7 +1,7 @@
 // #1233 (F51): was die Oberflaeche aus der Antwort der Hilfe macht. Kein Framework, kein Server.
 import {
   BEISPIELFRAGEN, MAX_FRAGE, MAX_VERLAUF, WIKI_BASIS, aktionen, bereinigeFrage, claudeVorsatz, hatKarten, kannFragen, kiAnzeige, kiGrundText, kiOffen, kopfzeile,
-  navigationFuer, satzFuerClaude, seitenleisteFragt, verlaufMit, vorigeFrage, wikiAdresse,
+  ansageText, navigationFuer, satzFuerClaude, seitenleisteFragt, stromMit, verlaufMit, vorigeFrage, wikiAdresse,
 } from "./hilfeFrage.js";
 
 let fehler = 0;
@@ -106,6 +106,38 @@ check("hoechstens fuenf, die neuesten", v.map((e) => e.frage), ["Frage 4", "Frag
 check("vorige Frage", vorigeFrage(v), "Frage 8");
 check("keine vorige Frage", vorigeFrage([]), "");
 check("kein Verlauf", vorigeFrage(undefined), "");
+
+// ── der Strom: Nachrichten Elwosas und Antworten der Hilfe nach der Zeit (#1254) ──
+const nachricht = (id, iso) => ({ id, created_at: iso });
+const antwortAm = (id, iso) => ({ id, zeit: Date.parse(iso), frage: `Frage ${id}` });
+const MSGS = [nachricht("m1", "2026-10-21T10:00:00+00:00"), nachricht("m2", "2026-10-21T10:05:00+00:00"), nachricht("m3", "2026-10-21T10:10:00+00:00")];
+const kennung = (strom) => strom.map((x) => (x.art === "nachricht" ? x.nachricht.id : `h${x.eintrag.id}`));
+check("ohne Antworten bleiben die Nachrichten, wie sie sind", kennung(stromMit(MSGS, [])), ["m1", "m2", "m3"]);
+check("ohne Verlauf (nicht gesetzt)", kennung(stromMit(MSGS, undefined)), ["m1", "m2", "m3"]);
+check("ohne Nachrichten", kennung(stromMit(undefined, [antwortAm(1, "2026-10-21T10:00:00+00:00")])), ["h1"]);
+check("nichts", kennung(stromMit([], [])), []);
+check("eine Antwort nach allen Nachrichten steht unten", kennung(stromMit(MSGS, [antwortAm(1, "2026-10-21T10:20:00+00:00")])), ["m1", "m2", "m3", "h1"]);
+check("eine Nachricht nach der Antwort kommt UNTER die Antwort",
+  kennung(stromMit([...MSGS, nachricht("m4", "2026-10-21T10:30:00+00:00")], [antwortAm(1, "2026-10-21T10:20:00+00:00")])), ["m1", "m2", "m3", "h1", "m4"]);
+check("eine Antwort zwischen zwei Nachrichten", kennung(stromMit(MSGS, [antwortAm(1, "2026-10-21T10:07:00+00:00")])), ["m1", "m2", "h1", "m3"]);
+check("eine Antwort vor allen Nachrichten", kennung(stromMit(MSGS, [antwortAm(1, "2026-10-21T09:00:00+00:00")])), ["h1", "m1", "m2", "m3"]);
+check("bei gleicher Zeit steht die Nachricht zuerst", kennung(stromMit(MSGS, [antwortAm(1, "2026-10-21T10:05:00+00:00")])), ["m1", "m2", "h1", "m3"]);
+check("mehrere Antworten behalten ihre Reihenfolge",
+  kennung(stromMit(MSGS, [antwortAm(1, "2026-10-21T10:06:00+00:00"), antwortAm(2, "2026-10-21T10:07:00+00:00"), antwortAm(3, "2026-10-21T10:20:00+00:00")])),
+  ["m1", "m2", "h1", "h2", "m3", "h3"]);
+check("Nachrichten werden nie umsortiert (auch nicht bei seltsamer Zeit)",
+  kennung(stromMit([nachricht("a", "2026-10-21T10:10:00+00:00"), nachricht("b", "kein Datum"), nachricht("c", "2026-10-21T10:00:00+00:00")], [antwortAm(1, "2026-10-21T10:30:00+00:00")])),
+  ["a", "b", "c", "h1"]);
+check("die Zeit der Antwort steht im Eintrag", stromMit([], [antwortAm(1, "2026-10-21T10:00:00+00:00")])[0].t, Date.parse("2026-10-21T10:00:00+00:00"));
+
+check("Ansage: Frage, Kopfzeile, erster Treffer",
+  ansageText({ frage: "Wie aktualisiere ich PBP?", antwort: { status: "gefunden", karten: [{ titel: "PBP aktualisieren" }, { titel: "Updates" }] } }),
+  "Antwort auf deine Frage „Wie aktualisiere ich PBP?“. Das habe ich dazu gefunden PBP aktualisieren");
+check("Ansage ohne Karten nennt den Hinweis",
+  ansageText({ frage: "Wie wird das Wetter?", antwort: { status: "ausserhalb", hinweis: "Dazu kann ich nur zur Bedienung von PBP etwas sagen.", karten: [] } }),
+  "Antwort auf deine Frage „Wie wird das Wetter?“. Dazu kann ich nur zur Bedienung von PBP etwas sagen.");
+check("Ansage ohne Antwort", ansageText({ frage: "x" }), "");
+check("Ansage ohne Eintrag", ansageText(null), "");
 
 // ── der Zustand neben dem Schalter ──
 check("bereit", kiGrundText({ aktiv: true, grund: "" }), "Die lokale KI ist bereit.");

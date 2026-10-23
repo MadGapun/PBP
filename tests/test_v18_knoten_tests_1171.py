@@ -16,8 +16,8 @@ REPO = Path(__file__).resolve().parents[1]
 LIB = REPO / "frontend" / "src" / "lib"
 NODE = shutil.which("node")
 
-# die Rechnungen der Wege (#1171) und der Bedienungspruefung (#1170)
-KNOTEN_TESTS = ["wege", "wegleiste", "firmen", "erklaertexte", "seitenleiste", "uploadHinweis"]
+# die Rechnungen der Wege (#1171) und der Bedienungspruefung (#1170); der Elwosa-Strom: was neu ist (#1256)
+KNOTEN_TESTS = ["wege", "wegleiste", "firmen", "erklaertexte", "seitenleiste", "uploadHinweis", "elwosaStrom"]
 
 
 @pytest.mark.parametrize("name", KNOTEN_TESTS)

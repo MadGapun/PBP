@@ -284,6 +284,11 @@ jobs:
         # Projekt-Wiki, eine verworfene Kurzantwort zeigt nichts, die Eingabe der Seitenleiste nur bei laufender lokaler KI.
         run: node frontend/src/lib/hilfeFrage.test.mjs
 
+      - name: Elwosa-Strom - was ist neu (Node)
+        # v1.8 (#1256 F58): neu ist, was eine groessere Kennung traegt als die zuletzt gesehene - nicht, was die Liste laenger macht (die Seitenleiste
+        # holt nur zehn Nachrichten). Ausgeblendete und aeltere, die ins Fenster ruecken, zaehlen nie; das erste Laden ist nichts Neues.
+        run: node frontend/src/lib/elwosaStrom.test.mjs
+
       - name: UI-Texte - echte Umlaute und ein Wort je Begriff (G66)
         # G66 (#1087 E1, E2): kein "ae/oe/ue" als Umschrift in sichtbaren
         # Texten, keine Glossar-Doppelwoerter (Follow-up, Todo, Docs ...).

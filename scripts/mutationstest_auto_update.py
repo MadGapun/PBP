@@ -22,7 +22,9 @@ Sieben Kataloge: `auto_update` (Pruefsumme, Signatur, Quelle, Entpacken, Startba
 `suche` (ein Klick auf einen Treffer der Suche oeffnet das Objekt: Adressen, Zuordnung, Lesestellen der Seiten; #1177) und
 `browser` (Browser-Suchlauf: die Regel "im Zweifel eintragen" steht in jeder Anleitung, die Vorschau prueft wie die Anlage
 und schreibt nichts; #1187) und
-`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189).
+`jobtic` (Quelle mit Auflagen: PBP ruft nichts selbst ab, uebernimmt keine Kontaktdaten, die Karte sagt "Konto nötig"; #1189) und
+`elwosa_strom1256` (Elwosa-Strom in der Seitenleiste: die Marke "N neu" zaehlt nach Kennung, der Bereich haelt das Ende bei Hoehenaenderung und
+beim Eintreffen der Daten; #1256 — baut das Bundle bei Frontend-Eintraegen neu).
 
 Nach jeder Mutation wird mit `git checkout -- .` zurueckgesetzt. Ein Lauf dauert einige Minuten. Beim Umbau der
 geprueften Dateien koennen Muster nicht mehr passen ("MUSTER"): dann den Eintrag nachziehen, nicht loeschen.
@@ -2513,9 +2515,36 @@ M_HILFE_SCHUTZ = [
 KATALOGE["hilfeschutz1247"] = M_HILFE_SCHUTZ
 GRUNDLAEUFE["hilfeschutz1247"] = (("T_HS", T_HS), ("T_HSG", T_HSG))
 
+# ── #1252 (B83): python-jobspy bleibt unter 1.4 (die Bibliothek wurde am 19.10.2026 umgebaut) ──
+T_JS = ["tests/test_v17150_jobspy_120_1159.py::test_1252_python_jobspy_ist_nach_oben_begrenzt_und_ueberall_gleich"]
+M_JOBSPY_GRENZE = [
+    ("js01", "pyproject: die Kern-Abhaengigkeit hat keine Obergrenze mehr", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\n\n[project.optional-dependencies]', '    "python-jobspy>=1.2",\n]\n\n[project.optional-dependencies]', T_JS),
+    ("js02", "pyproject: das Extra scraper hat keine Obergrenze mehr", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\ndocs = [', '    "python-jobspy>=1.2",\n]\ndocs = [', T_JS),
+    ("js03", "Installer: die pip-Zeile hat keine Obergrenze mehr", "INSTALLIEREN.bat",
+     '"python-jobspy>=1.2,<1.4" --no-warn-script-location', '"python-jobspy>=1.2" --no-warn-script-location', T_JS),
+    ("js04", "pyproject: die Obergrenze steht auf 1.5 und laesst 1.4.0 durch", "pyproject.toml",
+     '    "python-jobspy>=1.2,<1.4",\n]\n\n[project.optional-dependencies]', '    "python-jobspy>=1.2,<1.5",\n]\n\n[project.optional-dependencies]', T_JS),
+]
+KATALOGE["jobspy1252"] = M_JOBSPY_GRENZE
+GRUNDLAEUFE["jobspy1252"] = (("T_JS", T_JS),)
+
 # ── #1233 (F51): die interaktive Hilfe - nachschlagen, nicht raten ──
 T_HI = ["tests/test_v18_hilfe_suche_1233.py", "tests/test_v18_hilfe_ki_1233.py"]
 T_HI_BROWSER = ["tests/test_v18_hilfe_frage_browser_1233.py"]
+# Die Faelle zu #1254 (Seitenleiste: EIN Bereich zum Scrollen, Nachrichten und Antworten nach der Zeit): die Eintraege hi37 bis hi51 laufen nur gegen sie.
+T_HI_1254 = [
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_nach_einer_frage_gibt_es_in_der_seitenleiste_einen_einzigen_scrollbereich",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_der_elwosa_verlauf_behaelt_seine_hoehe_wenn_antworten_dazukommen",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_antwort_steht_im_verlauf_und_die_eingabe_bleibt_sichtbar_daneben",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_neue_antwort_ist_mit_ihrem_anfang_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_zwei_fragen_stehen_der_reihe_nach_und_die_neueste_ist_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_die_sechste_frage_verdraengt_die_aelteste_und_ist_im_blick",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_eine_lange_frage_ohne_leerzeichen_macht_keine_waagerechte_leiste",
+    "tests/test_v18_hilfe_frage_browser_1233.py::test_1254_der_hilfe_dialog_zeigt_die_neueste_antwort_oben",
+]
 HI_SUCHE = "src/bewerbungs_assistent/services/hilfe_suche.py"
 HI_KI = "src/bewerbungs_assistent/services/hilfe_ki.py"
 HI_DASH = "src/bewerbungs_assistent/dashboard.py"
@@ -2582,7 +2611,7 @@ M_HILFE = [
      '    if not isinstance(data, dict) or not isinstance(data.get("formulieren"), bool):\n', "    if False:\n", T_HI),
     # die Oberflaeche (das gebaute Bundle)
     ("hi27", "Die Eingabe erscheint in der Seitenleiste auch ohne laufende lokale KI", HI_LEISTE,
-     "{seitenleisteFragt(status) && (", "{true && (", T_HI_BROWSER),
+     "  const fragenAktiv = seitenleisteFragt(status);\n", "  const fragenAktiv = true;\n", T_HI_BROWSER),
     ("hi28", "Das Oeffnen aus dem Dialog laesst den Dialog stehen", HI_APP,
      "onOeffnen={(seite, absicht) => { setHelpOpen(false); navigateTo(seite, absicht); }}", "onOeffnen={(seite, absicht) => { navigateTo(seite, absicht); }}", T_HI_BROWSER),
     ("hi29", "Der Wiki-Link oeffnet im selben Tab, ohne noopener", HI_FRAGE,
@@ -2604,9 +2633,129 @@ M_HILFE = [
      "onClick={() => fragen(null, beispiel)}", "onClick={() => {}}", T_HI_BROWSER),
     ("hi36", "Eine Beispielfrage fuehrt in eine Sackgasse", "frontend/src/lib/hilfeFrage.js",
      '  "Wie melde ich einen Fehler?",\n', '  "Wie wird das Wetter morgen?",\n', T_HI),
+    # #1254 (F57): Elwosas Nachrichten und die Antworten der Hilfe stehen in EINEM Bereich zum Scrollen, nach der Zeit wie in einem Chat.
+    # Die Eintraege laufen nur gegen die Faelle zu #1254 (T_HI_1254): der erste rote Test ist dann einer von ihnen und nicht ein aelterer der Datei.
+    ("hi37", "Die Antworten der Hilfe bekommen wieder einen eigenen Scroller", HI_FRAGE,
+     '<div className="space-y-1.5" data-hilfe-antwort={antwort.status} data-hilfe-eintrag={eintrag.id}>',
+     '<div className="max-h-[38vh] space-y-1.5 overflow-y-auto" data-hilfe-antwort={antwort.status} data-hilfe-eintrag={eintrag.id}>', T_HI_1254),
+    ("hi38", "Die Antworten stehen wieder im Block des Feldes und nehmen dem Verlauf die Hoehe", HI_LEISTE,
+     "          <HilfeEingabe hilfe={hilfe} kompakt />\n",
+     "          <HilfeEingabe hilfe={hilfe} kompakt />\n"
+     "          {hilfe.verlauf.map((e) => <HilfeAntwort key={e.id} eintrag={e} kompakt onOeffnen={onOeffnen} copyPrompt={onCopyPrompt} />)}\n", T_HI_1254),
+    ("hi39", "Die Antworten stehen nicht im Strom", HI_LEISTE,
+     "const strom = stromMit(messages, fragenAktiv ? hilfe.verlauf : []);", "const strom = stromMit(messages, []);", T_HI_1254),
+    ("hi40", "Nach einer Frage bleibt der Bereich stehen, die Antwort liegt unter dem Bild", HI_LEISTE,
+     "    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;\n",
+     "    liste.scrollTop += 0;\n", T_HI_1254),
+    ("hi41", "Nach einer Frage scrollt der Bereich ans Ende statt an den Anfang der Antwort", HI_LEISTE,
+     "    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;\n",
+     "    liste.scrollTop = liste.scrollHeight;\n", T_HI_1254),
+    ("hi42", "Die Zeile 'Fragen zur Bedienung' fehlt", HI_LEISTE,
+     'if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });', 'if (false) groupedByDay.push({ type: "hilfe-kopf" });', T_HI_1254),
+    ("hi43", "Die Zeile 'Fragen zur Bedienung' steht vor jeder Antwort statt vor jeder Reihe von Antworten", HI_LEISTE,
+     'if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });', 'if (true) groupedByDay.push({ type: "hilfe-kopf" });', T_HI_1254),
+    ("hi44", "Alle Antworten stehen hinter allen Nachrichten: eine neue Nachricht Elwosas kommt UEBER die Antworten", "frontend/src/lib/hilfeFrage.js",
+     "(i < msgs.length && !(msgs[i].t > fragen[j].t))", "(i < msgs.length)", T_HI_1254),
+    ("hi45", "Die Antworten stehen vor den Nachrichten statt nach der Zeit", "frontend/src/lib/hilfeFrage.js",
+     "(i < msgs.length && !(msgs[i].t > fragen[j].t))", "(i < msgs.length && msgs[i].t > fragen[j].t)", T_HI_1254),
+    ("hi46", "Eine Antwort traegt keine Zeit, sie steht darum am Ende der Reihe", HI_FRAGE,
+     "kiStand: null, zeit: Date.now() };", "kiStand: null };", T_HI_1254),
+    ("hi47", "Im Hilfe-Dialog steht die neueste Antwort nicht mehr oben", HI_FRAGE,
+     "{[...verlauf].reverse().map((e) => (", "{verlauf.map((e) => (", T_HI_1254),
+    ("hi48", "Der Rahmen fuer die Meldung einer neuen Antwort meldet nichts", HI_LEISTE,
+     '<div className="sr-only" aria-live="polite" data-hilfe-ansage>', '<div className="sr-only" data-hilfe-ansage>', T_HI_1254),
+    ("hi49", "Der Rahmen fuer die Meldung einer neuen Antwort bleibt leer", HI_LEISTE,
+     'const ansage = fragenAktiv && hilfe.verlauf.length > 0 ? ansageText(hilfe.verlauf[hilfe.verlauf.length - 1]) : "";', 'const ansage = "";', T_HI_1254),
+    ("hi50", "Eine lange Frage ohne Leerzeichen macht eine waagerechte Leiste", HI_FRAGE,
+     '<p className="break-words text-xs text-ink/80" data-hilfe-frage-text>', '<p className="text-xs text-ink/80" data-hilfe-frage-text>', T_HI_1254),
+    ("hi51", "Der Verlauf waechst ohne Grenze statt bei fuenf Fragen zu enden", "frontend/src/lib/hilfeFrage.js",
+     "return [...(verlauf || []), eintrag].slice(-MAX_VERLAUF);", "return [...(verlauf || []), eintrag];", T_HI_1254),
 ]
 KATALOGE["hilfe1233"] = M_HILFE
 GRUNDLAEUFE["hilfe1233"] = (("T_HI", T_HI), ("T_HI_BROWSER", T_HI_BROWSER))
+
+# ── #1256 (F58): der Elwosa-Strom - die Marke "N neu" zaehlt nach Kennung, der Bereich haelt das Ende bei Hoehenaenderung ──
+# Die Browser-Faelle stehen in der Datei zu #1233/#1254 (`test_1256_*`); jeder Eintrag zielt auf EINEN Handgriff der Behebung. Eintraege unter
+# frontend/ bauen das Bundle neu.
+STROM_BROWSER = "tests/test_v18_hilfe_frage_browser_1233.py::"
+T_STROM_MARKE = [STROM_BROWSER + n for n in (
+    "test_1256_die_marke_neu_erscheint_auch_bei_voller_liste",
+    "test_1256_die_marke_zaehlt_mit_und_beginnt_am_ende_von_vorn",
+    "test_1256_das_ausblenden_einer_nachricht_macht_keine_marke",
+    "test_1256_bei_kurzer_liste_zeigt_die_marke_weiter_die_neuen",
+)]
+T_STROM_ENDE = [STROM_BROWSER + n for n in (
+    "test_1256_wird_der_bereich_niedriger_bleibt_das_ende_im_bild",
+    "test_1256_eine_meldung_nach_sprung_und_hoehenaenderung_bleibt_nicht_verdeckt",
+    "test_1256_wird_der_bereich_hoeher_und_liegt_das_ende_im_bild_verschwindet_die_marke",
+    "test_1256_auch_die_zweite_hoehenaenderung_rechnet_mit_der_neuen_hoehe",
+    "test_1256_wer_oben_liest_wird_bei_hoehenaenderung_und_neuer_meldung_nicht_nach_unten_gezogen",
+)]
+T_STROM_SPRUNG = [STROM_BROWSER + "test_1256_eine_meldung_direkt_nach_einem_sprung_ans_ende_ist_zu_sehen",
+                  STROM_BROWSER + "test_1254_eine_neue_nachricht_elwosas_kommt_unter_die_antwort_und_ist_zu_sehen"]
+T_STROM_NEU = [STROM_BROWSER + "test_1256_nach_dem_wiedereinblenden_steht_der_verlauf_am_ende"]
+T_STROM_AUSBLENDEN = [STROM_BROWSER + "test_1256_was_waehrend_des_ausblendens_kam_steht_beim_wiedereinblenden_unten_und_ist_nicht_neu"]
+T_STROM_FRAGE = [STROM_BROWSER + "test_1256_wer_nach_einer_frage_den_anfang_der_antwort_liest_wird_von_einer_meldung_nicht_ans_ende_gezogen"]
+T_STROM_PROFIL = [STROM_BROWSER + "test_1256_nach_einem_profilwechsel_beginnt_die_zaehlung_neu"]
+# die Knoten-Tests laufen als Ganzes (die Kennung einer parametrierten Funktion kennt der Waechter des Katalogs nicht); der Eingriff in die Bibliothek
+# macht den Fall elwosaStrom rot
+T_STROM_NODE = ["tests/test_v18_knoten_tests_1171.py"]
+T_STROM_QUELLTEXT = ["tests/test_v1717_sidebar_907.py::test_1256_der_strom_zaehlt_nach_kennung_und_beobachtet_seine_hoehe"]
+STROM_LEISTE = "frontend/src/components/ElwosaSidebarChat.jsx"
+STROM_LIB = "frontend/src/lib/elwosaStrom.js"
+STROM_APP = "frontend/src/App.jsx"
+STROM_RO_ZEILE = "      if (Math.min(abstandVorher, abstandJetzt) >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n"
+M_STROM = [
+    # die Marke "N neu": neu ist, was eine groessere Kennung traegt
+    ("ev01", "Die Marke zaehlt wieder die Nachrichten der Liste statt der neuen Kennungen", STROM_LEISTE,
+     "    const { anzahl: neue, hoechste } = neueNachrichten(letzteKennung.current, messages);\n    letzteKennung.current = hoechste;\n",
+     "    const neue = Math.max(0, messages.length - (letzteKennung.current ?? 0));\n    letzteKennung.current = messages.length;\n",
+     T_STROM_MARKE + T_STROM_QUELLTEXT),
+    ("ev02", "Die Marke zaehlt nicht weiter, jede neue Meldung setzt sie auf die eigene Zahl", STROM_LEISTE,
+     "      setUnreadBelow((u) => u + neue);\n", "      setUnreadBelow(neue);\n", T_STROM_MARKE),
+    ("ev03", "Die Marke wird nie gezeigt", STROM_LEISTE,
+     "      setShowJumpToBottom(true);\n    }\n  }, [messages]);\n", "    }\n  }, [messages]);\n", T_STROM_MARKE),
+    ("ev04", "Beim ersten Laden zaehlt alles als neu", STROM_LIB,
+     "  if (gesehen === null || gesehen === undefined) return { anzahl: 0, hoechste };\n", "", T_STROM_NODE),
+    ("ev05", "Die groesste gesehene Kennung sinkt, wenn die neueste Nachricht ausgeblendet wird", STROM_LIB,
+     "  return { anzahl, hoechste: Math.max(gesehen, hoechste) };\n", "  return { anzahl, hoechste };\n", T_STROM_NODE),
+    ("ev06", "Die zuletzt gesehene Nachricht zaehlt noch einmal als neu", STROM_LIB,
+     "    if (kennung(nachricht) > gesehen) anzahl += 1;\n", "    if (kennung(nachricht) >= gesehen) anzahl += 1;\n", T_STROM_NODE + T_STROM_MARKE),
+    ("ev07", "Eine Zeile ohne gueltige Kennung zaehlt als neu", STROM_LIB,
+     "  return Number.isFinite(n) && n > 0 ? n : 0;\n", "  return Number.isFinite(n) && n > 0 ? n : Number.MAX_SAFE_INTEGER;\n", T_STROM_NODE),
+    # das Ende halten, wenn sich die Hoehe aendert
+    ("ev08", "Der Beobachter haelt das Ende nicht", STROM_LEISTE,
+     "      liste.scrollTop = liste.scrollHeight;\n", "      liste.scrollTop += 0;\n", T_STROM_ENDE),
+    ("ev09", "Der Beobachter rechnet nur mit der Hoehe von jetzt (das Ende rutscht bei einem niedrigeren Bereich)", STROM_LEISTE,
+     STROM_RO_ZEILE, "      if (abstandJetzt >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n", T_STROM_ENDE),
+    ("ev10", "Der Beobachter rechnet nur mit der Hoehe von vorher (ein hoeherer Bereich bringt das Ende nicht zurueck)", STROM_LEISTE,
+     STROM_RO_ZEILE, "      if (abstandVorher >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen\n", T_STROM_ENDE),
+    ("ev11", "Der Beobachter zieht auch den nach unten, der oben liest", STROM_LEISTE, STROM_RO_ZEILE, "", T_STROM_ENDE),
+    ("ev12", "Der Beobachter wird nie angelegt", STROM_LEISTE,
+     "    groessenBeobachter.current.observe(el);\n", "", T_STROM_ENDE),
+    ("ev13", "Die Hoehe von vorher wird nicht fortgeschrieben (die zweite Aenderung rechnet mit der Hoehe vom Anfang)", STROM_LEISTE,
+     "      sichtHoehe.current = liste.clientHeight;\n", "", T_STROM_ENDE),
+    ("ev14", "Ein neuer Bereich beginnt nicht unten (nach dem Wiedereinblenden steht er oben)", STROM_LEISTE,
+     "    el.scrollTop = el.scrollHeight;\n    sichtHoehe.current = el.clientHeight;\n", "    sichtHoehe.current = el.clientHeight;\n", T_STROM_NEU),
+    # ob der Mensch am Ende steht: die Geometrie beim Eintreffen der Daten, nicht ein ausstehendes Ereignis
+    ("ev15", "Beim Eintreffen der Daten wird nicht gemessen, ob der Mensch am Ende steht", STROM_LEISTE,
+     "        warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null;\n", "", T_STROM_SPRUNG + T_STROM_QUELLTEXT),
+    ("ev16", "Die Toleranz ist 0: der Mensch gilt nie als am Ende", STROM_LEISTE,
+     'const AM_ENDE_TOLERANZ = 30; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n',
+     'const AM_ENDE_TOLERANZ = 0; // px: so nah am Ende gilt der Mensch noch als "am Ende"\n', T_STROM_ENDE + T_STROM_SPRUNG),
+    ("ev17", "Die Kennung wird nur nachgefuehrt, solange es den Bereich gibt (was beim Ausblenden kommt, gilt spaeter als neu)", STROM_LEISTE,
+     "    letzteKennung.current = hoechste;\n", "    if (scrollRef.current) letzteKennung.current = hoechste;\n", T_STROM_AUSBLENDEN),
+    ("ev18", "Wer den Anfang einer Antwort liest, wird von einer neuen Meldung ans Ende gezogen (jede Meldung gilt als gefolgt)", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = true;\n", T_STROM_FRAGE + T_STROM_MARKE),
+    ("ev19", "Eine Liste ohne Messung (Ausblenden, gelesen) zieht den Menschen ans Ende", STROM_LEISTE,
+     "    const folgt = warAmEnde.current === true;\n", "    const folgt = warAmEnde.current !== false;\n", T_STROM_MARKE + T_STROM_FRAGE),
+    ("ev20", "Nach einem Profilwechsel beginnt die Seitenleiste nicht neu (die Liste des anderen Profils gilt als neu)", STROM_APP,
+     '                key={activeProfileId || "kein-profil"}\n', "", T_STROM_PROFIL + T_STROM_QUELLTEXT),
+]
+KATALOGE["elwosa_strom1256"] = M_STROM
+GRUNDLAEUFE["elwosa_strom1256"] = (("T_STROM_MARKE", T_STROM_MARKE), ("T_STROM_ENDE", T_STROM_ENDE), ("T_STROM_SPRUNG", T_STROM_SPRUNG),
+                                   ("T_STROM_NEU", T_STROM_NEU), ("T_STROM_AUSBLENDEN", T_STROM_AUSBLENDEN), ("T_STROM_FRAGE", T_STROM_FRAGE),
+                                   ("T_STROM_PROFIL", T_STROM_PROFIL), ("T_STROM_NODE", T_STROM_NODE), ("T_STROM_QUELLTEXT", T_STROM_QUELLTEXT))
 
 # ── Installer und Claude-Konfiguration: was der Mensch unter env eingetragen hat, bleibt (#1238, I38) ──
 # Das Wort der Konfiguration steht hier NICHT als Literal: der Waechter in test_1238 sucht es in scripts/ und wuerde
@@ -2769,6 +2918,95 @@ M_CLAUDE_ORT = [
 ]
 KATALOGE["claude_ort1245"] = M_CLAUDE_ORT
 GRUNDLAEUFE["claude_ort1245"] = (("T_CO", T_CO), ("T_COD", T_COD))
+
+# ── #1239: Beispiele und Lernblock der KI-Aussortierung kommen aus Urteilen des MENSCHEN ──
+# Zwei Leser fragen EINE Funktion (`urteilsgruende_des_menschen`): die Beispiele im Prompt (`get_recent_user_dismissals`) und der
+# Block "GELERNT" (`gruende_zaehlen(nur_menschen=True)`). Die Eingriffe nehmen jeweils eine der drei Bedingungen (Herkunft,
+# Systemgrund, Urteil) oder einen der Aufrufe weg; die letzten gelten den Waechtern, die den Aufruf festhalten.
+T_UM = ["tests/test_urteile_des_menschen_1239.py"]
+UM_AG = "src/bewerbungs_assistent/services/ablehnungsgruende.py"
+UM_DB = "src/bewerbungs_assistent/database.py"
+UM_AA = "src/bewerbungs_assistent/services/auto_aussortierung.py"
+UM_AP = "src/bewerbungs_assistent/services/aussortier_protokoll.py"
+UM_T = T_UM[0]
+M_URTEILE_MENSCH = [
+    # die Funktion: Herkunft
+    ("um01", "Die Herkunft wird nicht mehr geprueft (die Automatik zaehlt als Mensch)", UM_AG,
+     '    if wer != "ich" and not (wer == "unbekannt" and UNBEKANNTE_HERKUNFT_ZAEHLT):\n', "    if False:\n", T_UM),
+    ("um02", "Die Herkunft wird nicht gelesen (jede Aussortierung gilt als 'ich')", UM_AG,
+     '    wer = herkunft({"dismissed_by": dismissed_by, "dismiss_reason": dismiss_reason})\n', '    wer = "ich"\n', T_UM),
+    ("um03", "Die Herkunft 'ich' wird nicht mehr erkannt (nichts zaehlt als Mensch)", UM_AG,
+     '    if wer != "ich" and not', '    if wer != "zzz" and not', T_UM),
+    ("um04", "Eine Aussortierung ohne gespeicherte Herkunft zaehlt als Mensch", UM_AG,
+     "UNBEKANNTE_HERKUNFT_ZAEHLT = False\n", "UNBEKANNTE_HERKUNFT_ZAEHLT = True\n", T_UM),
+    ("um05", "Das Praefix `auto:` gilt nicht mehr als Automatik (aussortier_protokoll.herkunft)", UM_AP,
+     '    if str(job.get("dismiss_reason") or "").startswith(AUTO_PRAEFIX):\n        return "automatik"\n',
+     '    if False:\n        return "automatik"\n', T_UM),
+    # die Funktion: Systemgrund und Urteil
+    ("um06", "Systemgruende zaehlen mit (profil_match_negativ, firma_blacklisted, ...)", UM_AG,
+     "            if g not in SYSTEM_GRUENDE and ist_urteil(g)]\n", "            if ist_urteil(g)]\n", T_UM),
+    ("um07", "Gruende ohne Urteil zaehlen mit (duplikat, bereits_beworben)", UM_AG,
+     "            if g not in SYSTEM_GRUENDE and ist_urteil(g)]\n", "            if g not in SYSTEM_GRUENDE]\n", T_UM),
+    ("um08", "Eine Liste von Gruenden wird als EIN Grund gelesen", UM_AG,
+     "    return [g for g in gruende_aus_wert(dismiss_reason)\n",
+     '    return [g for g in [str(dismiss_reason or "").strip()]\n', T_UM),
+    # Leser 1: die Beispiele
+    ("um09", "Die Beispiele fragen die eine Funktion nicht mehr", UM_DB,
+     '                gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])\n',
+     '                gruende = ["sonstiges"]\n', T_UM),
+    ("um10", "Die Beispiele geben der Funktion keine Herkunft mit", UM_DB,
+     'urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])', 'urteilsgruende_des_menschen(None, r["dismiss_reason"])', T_UM),
+    ("um11", "Das LIMIT gilt wieder VOR dem Filter", UM_DB,
+     '            "ORDER BY updated_at DESC",\n            (pid,)\n        )\n        beispiele: list = []',
+     '            "ORDER BY updated_at DESC LIMIT ?",\n            (pid, int(limit))\n        )\n        beispiele: list = []', T_UM),
+    ("um12", "Die Beispiele sind nicht mehr neueste zuerst", UM_DB,
+     '            "ORDER BY updated_at DESC",\n            (pid,)\n        )\n        beispiele: list = []',
+     '            "ORDER BY updated_at ASC",\n            (pid,)\n        )\n        beispiele: list = []', T_UM),
+    ("um13", "Die Beispiele nehmen auch Stellen, die nicht aussortiert sind", UM_DB,
+     '            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "\n            "AND dismiss_reason != \'\' "\n            "ORDER BY updated_at DESC",',
+     '            "AND dismiss_reason IS NOT NULL "\n            "AND dismiss_reason != \'\' "\n            "ORDER BY updated_at DESC",', T_UM),
+    # Leser 2: der Block "GELERNT"
+    ("um14", "gruende_zaehlen kennt den Schalter nur_menschen nicht mehr", UM_AG,
+     "        if nur_menschen:\n            gruende = urteilsgruende_des_menschen(", "        if False:\n            gruende = urteilsgruende_des_menschen(", T_UM),
+    ("um15", "gruende_zaehlen gruppiert wieder nur nach dem Grund (die Herkunft geht verloren)", UM_AG,
+     '"GROUP BY dismissed_by, dismiss_reason", (profile_id,)', '"GROUP BY dismiss_reason", (profile_id,)', T_UM),
+    ("um16", "gruende_zaehlen beachtet `ausser` nicht mehr", UM_AG,
+     "        gruende = [g for g in gruende if g not in ausser]\n", "        gruende = list(gruende)\n", T_UM),
+    # der Aufrufer: was die KI zu sehen bekommt
+    ("um17", "Der Block GELERNT zaehlt wieder alle Aussortierungen", UM_AA,
+     "        liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)\n", "        liste, _ = gruende_zaehlen(conn, pid, ausser=())\n", T_UM),
+    ("um18", "Der Block GELERNT zaehlt mit nur_menschen=False", UM_AA,
+     "ausser=(), nur_menschen=True)", "ausser=(), nur_menschen=False)", T_UM),
+    ("um19", "Die KI bekommt keine Beispiele mehr", UM_AA,
+     "        recent_dismissals_fewshot = db.get_recent_user_dismissals(limit=10)\n", "        recent_dismissals_fewshot = []\n", T_UM),
+    # die Waechter selbst (die Eingriffe sitzen in der Testdatei)
+    ("um20", "Waechter: nur_menschen=False zaehlt als gut", UM_T,
+     "        if not (isinstance(wert, ast.Constant) and wert.value is True):\n", "        if wert is None:\n", T_UM),
+    ("um21", "Waechter: der Syntaxbaum wird nur eine Ebene tief gelesen", UM_T,
+     "    for knoten in ast.walk(ast.parse(quelltext)):\n        if isinstance(knoten, ast.Call):\n",
+     "    for knoten in ast.iter_child_nodes(ast.parse(quelltext)):\n        if isinstance(knoten, ast.Call):\n", T_UM),
+    ("um22", "Waechter: der gesuchte Aufruf wird nie gefunden", UM_T,
+     "            if gerufen == name:\n", "            if False:\n", T_UM),
+    ("um23", "Waechter: die Auto-Aussortierung wird nicht gelesen", UM_T,
+     '    quelle = (SRC / "services" / "auto_aussortierung.py").read_text(encoding="utf-8")\n    assert _aufrufe(quelle, "gruende_zaehlen")',
+     '    quelle = "gruende_zaehlen(conn, pid, nur_menschen=True)"\n    assert _aufrufe(quelle, "gruende_zaehlen")', T_UM),
+    # Funde der unabhaengigen Pruefung: gemischte Gruende, Profile, Stichwort-Blacklist
+    ("um24", "Das Beispiel zeigt bei gemischten Gruenden den rohen Wert (auch einen, der nicht zaehlt)", UM_DB,
+     '                             else ", ".join(gruende))\n', '                             else r["dismiss_reason"])\n', T_UM),
+    ("um25", "Das Beispiel zeigt auch dann die gejointe Fassung, wenn alle Gruende zaehlen", UM_DB,
+     'grund = (r["dismiss_reason"] if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))',
+     'grund = (", ".join(gruende) if len(gruende) == len(gruende_aus_wert(r["dismiss_reason"]))', T_UM),
+    ("um26", "Die Beispiele sehen die Stellen ALLER Profile", UM_DB,
+     '            "FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "\n            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "',
+     '            "FROM jobs WHERE (profile_id=? OR 1=1) "\n            "AND is_active=0 "\n            "AND dismiss_reason IS NOT NULL "', T_UM),
+    ("um27", "Die Zaehlung sieht die Stellen ALLER Profile", UM_AG,
+     '        "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "\n        "AND COALESCE(dismiss_reason,\'\') != \'\' "\n        "GROUP BY dismissed_by, dismiss_reason"',
+     '        "WHERE is_active=0 AND (profile_id=? OR 1=1) "\n        "AND COALESCE(dismiss_reason,\'\') != \'\' "\n        "GROUP BY dismissed_by, dismiss_reason"', T_UM),
+    ("um28", "Das Stichwort der Blacklist (keyword_blacklisted) ist wieder kein Systemgrund", UM_AG,
+     '    "keyword_blacklisted",\n}', '}', T_UM),
+]
+KATALOGE["urteile1239"] = M_URTEILE_MENSCH
+GRUNDLAEUFE["urteile1239"] = (("T_UM", T_UM),)
 
 WT = None
 

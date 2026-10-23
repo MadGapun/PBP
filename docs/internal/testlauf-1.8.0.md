@@ -193,10 +193,19 @@ Installation (Block B) und vor dem Zurücksetzen (Block H); alle anderen Blöcke
 - **J2 — Ehrlich, wenn nichts passt.** „Wie wird das Wetter morgen?“ → „Dazu kann ich nur zur Bedienung von PBP etwas sagen“; „Kann ich meine Stellen nach
   Excel exportieren?“ → keine sichere Antwort. Beide zeigen den Satz für Claude; ein Klick kopiert ihn, in Claude Desktop eingefügt ist er verständlich.
 - **J3 — Die Seitenleiste.** Ohne laufende lokale KI steht unter dem Elwosa-Strom **keine** Eingabe. Mit laufender lokaler KI (Ollama, ein Modell gewählt)
-  erscheint „Frag zur Bedienung …“; die Antwort ist kompakt (der beste Treffer, die weiteren auf Klick). Elwosa selbst spricht dazu nicht.
+  erscheint „Frag zur Bedienung …“ fest unter dem Strom; Frage und Antwort stehen IM Strom nach der Zeit (ein einziger Bereich zum Scrollen, kein zweiter
+  Scrollbalken), vor der Reihe die Zeile „Fragen zur Bedienung“; der Bereich springt an den Anfang der Antwort, eine zweite Frage steht darunter, und eine Meldung
+  Elwosas nach der Antwort steht UNTER ihr und ist zu sehen, wenn du unten liest (#1254). Die Antwort ist kompakt (der beste Treffer, die weiteren auf Klick). Elwosa
+  selbst spricht dazu nicht.
 - **J4 — Die Kurzantwort (Beta).** *Einstellungen › Lokale KI*: die Karte „Fragen zur Bedienung: Kurzantwort“ trägt *Beta*, der Schalter ist **aus**. Eingeschaltet
   und mit laufender lokaler KI erscheint über den Karten nach einigen Sekunden eine kurze Antwort mit Quelle (oder nur die Karten, wenn die Antwort verworfen
   wird); ausgeschaltet bleiben die Karten. Die Zeile unter dem Schalter nennt den Zustand der lokalen KI.
 - **J5 — Nichts wird gespeichert.** Nach den Fragen steht ihr Wortlaut weder in *Einstellungen › Logs* noch in einem Elwosa-Eintrag; ein Neuladen des Dashboards
   zeigt den Verlauf der Hilfe nicht mehr.
+- **J6 — Das Mitscrollen des Elwosa-Stroms (#1256).** Scrolle im Verlauf nach oben und warte, bis Elwosa etwas Neues sagt: unten im Bereich erscheint „N neu“ mit der
+  richtigen Zahl, auch wenn zehn Nachrichten im Verlauf stehen; ein Klick darauf oder das Scrollen ans Ende lässt den Knopf verschwinden. Eine Nachricht auszublenden
+  (das X an der Nachricht) lässt keinen Knopf erscheinen. Wer unten liest, bleibt unten, wenn sich die Höhe des Bereichs ändert (Fenster kleiner und wieder größer
+  ziehen; die Zeile „Update-Stand unbekannt“ erscheint nach etwa einer Sekunde und nimmt 38 Pixel), und eine neue Meldung ist dann zu sehen. Elwosa mit dem Auge
+  aus- und wieder einblenden: der Verlauf steht danach wieder unten, nicht bei den ältesten Nachrichten; was in der Zwischenzeit kam, ist zu sehen und löst keinen
+  Knopf „N neu“ aus. Mit mehreren Profilen: nach einem Wechsel stehen gleich die Nachrichten des neuen Profils da, und „N neu“ erscheint nicht.
 - **Ergebnis** wie zuvor: ein Satz je Punkt im PR des Kandidaten und im Issue #1233; Funde werden ab PP37 nummeriert.
