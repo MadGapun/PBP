@@ -120,11 +120,23 @@ COMPONENT_DEFS: dict[str, dict] = {
     },
 }
 
-# Sprachdaten (tessdata_fast, je ~2 MB) — nachladbar, falls die
-# Installation nur eng/osd mitbringt.
+# Sprachdaten (tessdata_fast) — nachladbar, falls die Installation nur eng/osd mitbringt (#1165).
+#
+# FESTE Fassung statt des wandernden Zweigs main: der Commit hinter dem Tag 4.1.0 (signierter Tag vom 16.02.2021).
+# Andernfalls aendert sich die Erkennung bei der naechsten Installation unbemerkt, und eine frueher eingerichtete
+# Installation liest andere Daten als eine spaetere. Die Summen wurden am 12.10.2026 einmal aus genau dieser Fassung
+# gebildet (Dateigroessen 1525436 / 4113088 / 10562727 Byte) und gegen die Git-Blob-Hashes der GitHub-API gegengeprueft.
+# Eine neue Sprache oder eine neue Fassung braucht eine neue Summe; ohne sie laedt ensure_language gar nicht erst
+# (wie bei #1152: was sich nicht pruefen laesst, gilt nicht).
+_TESSDATA_FAST_COMMIT = "65727574dfcd264acbb0c3e07860e4e9e9b22185"
 _TESSDATA_FAST_URL = (
-    "https://github.com/tesseract-ocr/tessdata_fast/raw/main/{lang}.traineddata"
+    "https://github.com/tesseract-ocr/tessdata_fast/raw/" + _TESSDATA_FAST_COMMIT + "/{lang}.traineddata"
 )
+TESSDATA_SPRACHEN = {
+    "deu": "19d219bbb6672c869d20a9636c6816a81eb9a71796cb93ebe0cb1530e2cdb22d",
+    "eng": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+    "osd": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff",
+}
 
 
 def components_dir() -> Path:
@@ -556,7 +568,7 @@ def get_components_overview(db) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def _download(url: str, target: Path, progress: Callable[[int, str], None],
-              lo: int = 0, hi: int = 80) -> None:
+              lo: int = 0, hi: int = 80, sha256: Optional[str] = None) -> None:
     """Laedt url nach target, meldet Fortschritt zwischen lo und hi Prozent.
 
     Geschrieben wird unter ``<target>.part`` und erst bei vollstaendigem
@@ -565,6 +577,10 @@ def _download(url: str, target: Path, progress: Callable[[int, str], None],
     Abbruch --, bleibt nichts liegen. http.client meldet eine zu kurz
     angekommene Antwort nicht als Fehler; darum die Laengenpruefung (sonst
     waere eine abgeschnittene Sprachdatei ohne Pruefsumme "fertig").
+
+    Mit ``sha256`` wird die ANGEKOMMENE Datei vor dem Umbenennen geprueft (#1165): stimmt die Summe nicht, bleibt
+    nichts liegen, und es entsteht nie eine Datei unter dem endgueltigen Namen. Der Aufrufer muss die Summe vorher
+    als gueltig festgestellt haben (``_pruefsumme_gueltig``); ``_sha256_ok`` lehnt jede andere ab.
     """
     req = urllib.request.Request(url, headers={"User-Agent": "PBP-Komponenten/1.0"})
     teil = _teildatei(target)
@@ -586,6 +602,11 @@ def _download(url: str, target: Path, progress: Callable[[int, str], None],
         if total and done != total:
             raise RuntimeError(
                 f"Download unvollständig ({done} von {total} Bytes).")
+        if sha256 is not None and not _sha256_ok(teil, sha256):
+            raise RuntimeError(
+                f"Die Prüfsumme von {target.name} stimmt nicht — die Datei wurde verworfen und nicht benutzt. "
+                "Das kommt vor, wenn ein Proxy oder Virenscanner Downloads verändert oder die Verbindung "
+                "beschädigt ist; ein zweiter Versuch kann helfen.")
         os.replace(teil, target)
     except BaseException:
         _entfernen(teil)
@@ -808,19 +829,21 @@ def start_install_job(db, name: str) -> dict:
                 pass
         try:
             result = install_component(db, name, progress=_progress)
+            meldung = result.get("fehler", "") or "Installation abgeschlossen"
             if result.get("status") == "installiert" and name == "tesseract":
                 # deu-Sprachpaket best-effort nachziehen (~2 MB)
                 try:
                     lang = ensure_language(db, "deu")
                     result["sprachpaket_deu"] = lang.get("status")
+                    if lang.get("status") == "fehler":
+                        # #1165: die Texterkennung steht, nur Deutsch fehlt -- das gehoert in die Meldung, nicht ins Protokoll
+                        result["sprachpaket_hinweis"] = lang.get("fehler", "")
+                        meldung = ("Installation abgeschlossen. Das deutsche Sprachpaket fehlt noch: "
+                                   + lang.get("fehler", ""))
                 except Exception:
                     pass
             final = "fertig" if result.get("status") == "installiert" else "fehler"
-            db.update_background_job(
-                job_id, final, 100,
-                result.get("fehler", "") or "Installation abgeschlossen",
-                result=result,
-            )
+            db.update_background_job(job_id, final, 100, meldung, result=result)
         except Exception as exc:  # noqa: BLE001
             logger.error("Komponenten-Install-Job crashte: %s", exc, exc_info=True)
             try:
@@ -939,6 +962,11 @@ def _install_tessdata_dir(db) -> Optional[Path]:
     return None
 
 
+def _sprachdatei_laden(lang: str, target: Path, progress: Callable[[int, str], None], lo: int, hi: int) -> None:
+    """Eine Sprachdatei aus der festen Fassung, geprueft gegen die Summe der Registry (#1165)."""
+    _download(_TESSDATA_FAST_URL.format(lang=lang), target, progress, lo, hi, sha256=TESSDATA_SPRACHEN[lang])
+
+
 def ensure_language(db, lang: str = "deu",
                     progress: Callable[[int, str], None] = None) -> dict:
     """Laedt ein tessdata_fast-Sprachpaket nach (~2 MB).
@@ -948,34 +976,48 @@ def ensure_language(db, lang: str = "deu",
     apt), landet die Sprache im PBP-tessdata-Ordner — der wird dann per
     TESSDATA_PREFIX genutzt und ERSETZT Tesseracts Suchpfad komplett,
     darum werden eng+osd dort automatisch mit-nachgeladen (selbsttragend).
+
+    Nur Sprachen mit hinterlegter Pruefsumme (``TESSDATA_SPRACHEN``) werden geladen, und zwar aus der festen Fassung;
+    jede Datei wird vor dem Ablegen geprueft (#1165). Die Ablehnung kommt vor dem Download. Scheitert eine von
+    mehreren Dateien, werden die in diesem Aufruf schon abgelegten wieder entfernt: ein halber Satz im
+    PBP-Ordner waere schlimmer als keiner (TESSDATA_PREFIX zeigte dann nur auf ihn).
     """
     progress = progress or (lambda pct, msg: None)
     if not re.fullmatch(r"[a-z_]{2,12}", lang):
         return {"status": "fehler", "fehler": f"Ungültiger Sprachcode: {lang!r}"}
     if lang in available_languages(db):
         return {"status": "vorhanden", "sprache": lang}
+    if not _pruefsumme_gueltig(TESSDATA_SPRACHEN.get(lang, "")):
+        # #1165: nicht erst laden und dann ablehnen -- und nichts laden, das sich nicht pruefen laesst.
+        return {"status": "fehler", "fehler": (
+            f"Für die Sprache '{lang}' ist keine Prüfsumme hinterlegt. PBP lädt nichts, das es nicht prüfen "
+            f"kann. Du kannst die Datei {lang}.traineddata selbst in den Ordner tessdata der Texterkennung legen.")}
     install_td = _install_tessdata_dir(db)
+    abgelegt: list[Path] = []
     try:
         if install_td is not None:
             target = install_td / f"{lang}.traineddata"
-            _download(_TESSDATA_FAST_URL.format(lang=lang), target, progress, 0, 100)
+            _sprachdatei_laden(lang, target, progress, 0, 100)
             return {"status": "nachgeladen", "sprache": lang, "pfad": str(target)}
         # Fallback: eigener, selbsttragender TESSDATA_PREFIX-Ordner
         needed = [lang] + [
             base for base in ("eng", "osd")
-            if not (_tessdata_dir() / f"{base}.traineddata").is_file()
+            if base != lang and not (_tessdata_dir() / f"{base}.traineddata").is_file()
         ]
         for i, one in enumerate(needed):
             target = _tessdata_dir() / f"{one}.traineddata"
             lo = int(100 * i / len(needed))
             hi = int(100 * (i + 1) / len(needed))
-            _download(_TESSDATA_FAST_URL.format(lang=one), target, progress, lo, hi)
+            _sprachdatei_laden(one, target, progress, lo, hi)
+            abgelegt.append(target)
         return {"status": "nachgeladen", "sprache": lang,
                 "pfad": str(_tessdata_dir() / f"{lang}.traineddata"),
                 "hinweis": "eng/osd in den PBP-tessdata-Ordner mitgeladen "
                            "(TESSDATA_PREFIX ersetzt den Suchpfad komplett)."}
     except Exception as exc:
-        return {"status": "fehler", "fehler": str(exc)[:200]}
+        for datei in abgelegt:
+            _entfernen(datei)
+        return {"status": "fehler", "fehler": str(exc)[:300]}
 
 
 def _ansi_sicher(pfad: str) -> str:

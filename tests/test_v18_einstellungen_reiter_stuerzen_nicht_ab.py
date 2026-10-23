@@ -48,7 +48,7 @@ def _free_port() -> int:
 
 
 def _reiter_waehlen(page, reiter: str) -> None:
-    # derselbe Weg wie die Unterpunkte in der Seitenleiste: ein Ereignis wählt den Reiter
+    # derselbe Weg wie ein Sprung aus Elwosa oder einem Hinweis: ein Ereignis wählt den Reiter
     page.evaluate("id => document.dispatchEvent(new CustomEvent('settings-nav', {detail: {tab: id}}))", reiter)
     page.wait_for_timeout(400)
 
@@ -155,8 +155,8 @@ def test_1170_ein_absturz_in_einem_reiter_legt_die_anderen_nicht_lahm(server, br
     page.wait_for_selector(f"text={ABSTURZ}", timeout=15000)
     assert page.locator("[data-settings-reiter]").count() == 1, "die Reiterleiste muss stehen bleiben"
 
-    # Weg 1: der Unterpunkt in der Seitenleiste (er schickt das Ereignis, das die Einstellungsseite hört)
-    page.get_by_label("Hauptnavigation").get_by_role("button", name="Erscheinungsbild", exact=True).click()
+    # Weg 1: ein Sprung von aussen (Elwosa, Hinweise) schickt das Ereignis, das die Einstellungsseite hört
+    _reiter_waehlen(page, "erscheinungsbild")
     page.wait_for_selector("text=Was auf dem Dashboard erscheint.", timeout=15000)
     assert page.get_by_text(ABSTURZ).count() == 0, "der Absturz darf nicht an den anderen Reitern haengen bleiben"
 

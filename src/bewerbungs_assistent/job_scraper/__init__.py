@@ -516,8 +516,14 @@ SOURCE_REGISTRY = {
         "login_erforderlich": False,
         "geschwindigkeit": "schnell",
         "beta": True,
-        "warnung": "Google blockiert automatisierte Jobsuche oft — wenn 0 Treffer, "
-                    "über die Quelle \"Google Jobs (im Browser)\" manuell suchen.",
+        # #1159: python-jobspy 1.2.0 (02.10.2026) liest Google nicht mehr; die Abfrage endet mit "Google returned no
+        # job data" (gemessen 02.10. und 12.10.2026, jeweils null Zeilen). Als defekt gefuehrt, damit sie aus der
+        # gespeicherten Auswahl faellt, in keinem Lauf mehr eingeplant wird und der Mensch den Grund und den Weg
+        # ueber den Browser sieht, statt eine Quelle zu haben, die nichts liefert.
+        "defekt": True,
+        "ersatz_quelle": "google_jobs",
+        "defekt_grund": "Gemessen am 02.10.2026 und erneut am 12.10.2026 mit python-jobspy 1.2.0: Google liefert die Stellen erst im Browser nach (JavaScript); die Abfrage endet mit „Google returned no job data“, null Treffer. Im Browser funktioniert die Suche: die Quelle „Google Jobs (im Browser)“ über die Claude-Erweiterung.",
+        "manueller_fallback": "https://www.google.com/search?udm=8&q=Jobs im Browser oder über die Quelle „Google Jobs (im Browser)“",
     },
     # ── Langsame Quellen (Browser/Playwright, sequentiell, 30-180s) ──
     "stepstone": {
@@ -637,7 +643,8 @@ SOURCE_REGISTRY = {
         "login_hinweis": "Eingeloggtes Google-Konto im Browser nötig — die Standortableitung der Jobsuche (udm=8) hängt daran.",
         "manueller_fallback": True,
         "geschwindigkeit": "manuell",
-        "doppelt_mit": "jobspy_google",
+        # #1159: kein "doppelt_mit" mehr -- die automatische Schwester jobspy_google liefert nichts (defekt); der Satz
+        # "deckt dasselbe Portal automatisch ab" waere falsch und liesse den Menschen glauben, der Browser sei ueberfluessig.
         "hinweis": "Tool jobsuche_starten liefert die Google-Jobs-URL — im Browser öffnen "
                     "und Treffer mit stelle_manuell_anlegen() übernehmen. Kein Login-Click "
                     "im Dashboard nötig.",
@@ -1811,6 +1818,18 @@ def run_search(db, job_id: str, params: dict):
             for i, job in enumerate(needs_geocoding):
                 loc = job.get("location", "")
                 dist = geocode_and_calculate_distance(loc, user_coords[0], user_coords[1])
+                _koord = None
+                if dist is None:
+                    # #1235: ein Ort, den es mehrfach gibt ("Rosengarten"), bekommt hier keine Entfernung. Nennt die
+                    # Anzeige direkt dahinter PLZ oder Bundesland, wird damit noch einmal gefragt.
+                    try:
+                        from ..services.geocoding_service import entfernung_aus_anzeige
+                        _genau = entfernung_aus_anzeige(
+                            loc, user_coords[0], user_coords[1], job.get("description") or "")
+                    except Exception:  # noqa: BLE001 - nie den Suchlauf kippen
+                        _genau = None
+                    if _genau:
+                        dist, _koord = _genau["km"], _genau["koordinaten"]
                 if dist is not None:
                     job["distance_km"] = dist
                     geocoded_count += 1
@@ -1822,7 +1841,7 @@ def run_search(db, job_id: str, params: dict):
                     # Ort aus seinem Cache, er wurde eben aufgeloest.
                     try:
                         from ..services.geocoding_service import geocode_location
-                        _koord = geocode_location(loc)
+                        _koord = _koord or geocode_location(loc)
                         if _koord:
                             # Die Spalten `lat`/`lon` gibt es in der
                             # jobs-Tabelle seit jeher und save_jobs
@@ -2182,6 +2201,9 @@ _STUFEN_TEXT = {
         "ohne Pflichttreffer und über der Behalten-Grenze"),
     "automatisch_aussortiert": "automatisch aussortiert (Wiedergänger)",
     "ignoriert": "als Wiedergänger ignoriert",
+    # #1250: ohne Anzeigentext sortiert die Automatik nicht aus.
+    "wiedergaenger_ohne_text": (
+        "wie frühere Wiedergänger, aber ohne Anzeigentext behalten"),
 }
 
 

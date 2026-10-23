@@ -97,8 +97,8 @@ def test_766_ohne_anker_wird_gewarnt(setup_env):
     from bewerbungs_assistent.server import mcp
     res = _result(_call(mcp, "stelle_manuell_anlegen", {
         "titel": "Manager PLM Strategy", "firma": "Nordlicht Recruiting",
-        "beschreibung": "Ueber Google Jobs gefunden, Endkunde unbekannt.",
-        "quelle": "google_jobs",
+        "beschreibung": "Ueber eine Boerse gefunden, Endkunde unbekannt.",
+        "quelle": "linkedin",
     }))
     assert res["status"] == "angelegt", "die Stelle soll trotzdem angelegt werden"
     assert "anker_warnung" in res, res
@@ -174,7 +174,7 @@ def test_766_bewerbung_ohne_anker_warnt_vor_unterlagen(setup_env):
     from bewerbungs_assistent.server import mcp
     angelegt = _result(_call(mcp, "stelle_manuell_anlegen", {
         "titel": "Manager PLM Strategy", "firma": "Nordlicht Recruiting",
-        "beschreibung": "Notiz: ueber Google Jobs gefunden.", "quelle": "google_jobs"}))
+        "beschreibung": "Notiz: ueber eine Boerse gefunden.", "quelle": "linkedin"}))
 
     res = _result(_call(mcp, "bewerbung_erstellen", {
         "title": "Manager PLM Strategy", "company": "Nordlicht Recruiting",

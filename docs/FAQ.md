@@ -33,7 +33,7 @@ Aktiviere Quellen im Dashboard und starte eine Suche. Die Ergebnisse werden
 automatisch bewertet und sortiert.
 
 ### 4. Stellen bewerten und bewerben
-Gehe die gefundenen Stellen durch, bewerte sie mit `stelle_bewerten()`
+Gehe die gefundenen Stellen durch, ordne sie mit `stelle_einordnen()` ein
 und erstelle Bewerbungsunterlagen für die passenden Stellen.
 
 ### 5. Bewerbungen verfolgen
@@ -103,7 +103,7 @@ Habe ich ein Profil?
     │       │   ├── Nein → jobsuche_starten()
     │       │   └── Ja
     │       │       ├── Habe ich unbearbeitete Stellen?
-    │       │       │   ├── Ja → stellen_anzeigen() + stelle_bewerten()
+    │       │       │   ├── Ja → stellen_anzeigen() + stelle_einordnen()
     │       │       │   └── Nein
     │       │       │       ├── Habe ich Bewerbungen in Vorbereitung?
     │       │       │       │   ├── Ja → workflow_starten("bewerbung_vorbereitung")

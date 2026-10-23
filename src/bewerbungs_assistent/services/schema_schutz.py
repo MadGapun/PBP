@@ -38,8 +38,10 @@ ERLAUBTE_WERKZEUGE = frozenset({
     "pbp_diagnose", "pbp_capabilities", "profil_status", "sicherungen_anzeigen", "pbp_grenze_melden",
     "update_status", "update_einstellungen_setzen", "update_jetzt_installieren",
 })
-#: Diese schreibenden Aufrufe bleiben erreichbar.
-ERLAUBTE_PRAEFIXE = ("/api/auto-update", "/api/health", "/api/sicherungen", "/api/wiederherstellen", "/api/update-check")
+#: Diese schreibenden Aufrufe bleiben erreichbar. `/api/hilfe/frage` ist ein POST, damit die Frage nie in einer Adresse steht, schreibt aber
+#: nichts: gerade bei einer zu neuen Datenbank soll die Hilfe antworten (#1233). Der Schalter der Kurzantwort (PUT `/api/hilfe/ki`) schreibt
+#: und bleibt abgewiesen.
+ERLAUBTE_PRAEFIXE = ("/api/auto-update", "/api/health", "/api/sicherungen", "/api/wiederherstellen", "/api/update-check", "/api/hilfe/frage")
 SCHREIBENDE_METHODEN = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 _STAND = {"zeit": 0.0, "treffer": None, "db": None}

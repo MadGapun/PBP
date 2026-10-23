@@ -28,7 +28,11 @@ if [ ! -f "$SKRIPT" ]; then
     exit 1
 fi
 
-bash "$SKRIPT"
+# v1.8.0 (#1219): bleibt der MCP-Eintrag stehen, endet der Deinstaller mit 1. `set -e` haette das Fenster dann sofort
+# geschlossen - der Mensch las den Schluss nie. Der Code wird gemerkt und am Ende weitergereicht.
+ERGEBNIS=0
+bash "$SKRIPT" || ERGEBNIS=$?
 
 echo ""
 read -p "  Druecke Enter zum Schliessen..."
+exit "$ERGEBNIS"

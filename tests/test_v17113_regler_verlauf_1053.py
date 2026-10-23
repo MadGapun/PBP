@@ -183,7 +183,7 @@ def test_der_lerneffekt_schreibt_als_automatik(umgebung):
         "location": "HH", "url": "https://e.example/1053", "source": "demo",
         "description": "Beschreibung. " * 20,
         "employment_type": "festanstellung", "score": 30}])
-    _call(mcp, "stelle_bewerten", {
+    _call(mcp, "stelle_einordnen", {
         "job_hash": "lern1053", "bewertung": "passt_nicht",
         "gruende": ["zeitarbeit"]})
     zeile = _zeile(db, "stellentyp", "zeitarbeit")

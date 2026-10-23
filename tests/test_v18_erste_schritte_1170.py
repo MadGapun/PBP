@@ -404,26 +404,34 @@ def test_u18_ein_roher_fehlertext_der_erkennung_steht_nicht_im_dashboard():
 # ══ #1147 Punkt 3: der Satz zu den KI-Schaltern sagt, was sie tun ══════════════════════════════════════════════
 
 def test_1147_die_ki_schalter_versprechen_nicht_mehr_als_sie_tun():
-    """Die Schalter sperren die Funktionen, mit denen Claude etwas AUSLÖST (elf Werkzeuge). Lesende Werkzeuge liefern weiter, solange
-    PBP in Claude Desktop eingetragen ist. Der Satz „… gibt PBP für diesen Bereich nichts an Claude weiter“ war deshalb falsch."""
-    quelle = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
+    """Die Schalter sperren die Funktionen, mit denen Claude etwas AUSLÖST, und (ab 1.8.0, Variante B) die Werkzeuge, die Dokument- und
+    Mailtexte liefern. Profil, Bewerbungen und Stellen bleiben lesbar, solange PBP in Claude Desktop eingetragen ist. Der Satz „… gibt PBP
+    für diesen Bereich nichts an Claude weiter“ war falsch; „Claude kann Daten dennoch lesen“ (Fassung A) ist es seit B auch."""
+    quelle = " ".join((FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig").split())
     assert "gibt PBP für diesen Bereich nichts an Claude weiter" not in quelle
+    assert "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist" not in quelle
     assert "führt PBP diese Funktion nicht aus und sagt das" in quelle
-    assert "Claude kann Daten dennoch lesen, solange PBP in Claude Desktop eingetragen ist" in quelle
+    assert "Bei „Dokumentenanalyse“ liest Claude dann auch keine Dokumente und Mails mehr" in quelle
+    assert "Dein Profil, deine Bewerbungen und die Stellen kann Claude weiterhin lesen" in quelle
+    assert "wer gar nichts weitergeben will, trennt PBP in Claude Desktop" in quelle
 
 
 # ══ #1139: die Oberfläche verspricht keine Automatik, die nur auf Knopfdruck läuft ═══════════════════════════════
 
-def test_1139_die_automatik_texte_nennen_den_knopf():
-    """Die Aufräum-Runde (Bewerbungen ablaufen lassen, Erinnerungen nachlegen, Texte nachladen) hat keinen automatischen Auslöser:
-    sie läuft nur über „Jetzt prüfen“. Die Texte versprachen „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“."""
+def test_1139_die_automatik_texte_sagen_was_wirklich_geschieht():
+    """Bis v1.7.157 hatte die Aufräum-Runde keinen automatischen Auslöser, und die Texte sagten ehrlich „nur über Jetzt prüfen“.
+    Ab 1.8.0 läuft sie einmal am Tag von selbst (Variante A, #1139); das Abschließen ist ein eigener Schalter, Vorgabe aus.
+    Die Texte nennen beides: den täglichen Lauf, den Schalter und den Knopf."""
     einstellungen = (FRONTEND / "pages" / "SettingsPage.jsx").read_text(encoding="utf-8-sig")
-    assert "Das geschieht, wenn du unten „Jetzt prüfen“ drückst" in einstellungen
-    assert "Hakst du sie ab, kommt\n            die nächste, solange die Bewerbung läuft" not in einstellungen.replace("\r\n", "\n")
-    assert "kommt die nächste beim nächsten Prüfen" in " ".join(einstellungen.split())
+    ein = " ".join(einstellungen.split())
+    assert "einmal am Tag von selbst" in ein
+    assert "Das geschieht, wenn du unten „Jetzt prüfen“ drückst" not in ein, "die ehrliche Fassung von v1.7.157 ist überholt"
+    assert "tut es von selbst nur, wenn du das unten einschaltest" in ein
+    assert "Beim täglichen Lauf von selbst abschließen" in ein and "Aus: PBP schließt nur ab, wenn du unten „Jetzt prüfen“ drückst" in ein
+    assert "kommt die nächste beim nächsten Prüfen (täglich von selbst oder per „Jetzt prüfen“)" in ein
     hilfe = (FRONTEND / "lib" / "hilfe.js").read_text(encoding="utf-8-sig")
     assert "der Rest folgt mit der Automatik" not in hilfe
-    assert "holt „Jetzt prüfen“ unter Einstellungen › Automatik nach" in hilfe
+    assert "holt die tägliche Prüfung nach" in hilfe
     hinweis = (FRONTEND / "lib" / "jobsucheHinweis.js").read_text(encoding="utf-8-sig")
     assert "folgen mit der Automatik`" not in hinweis
-    assert "weitere holt „Jetzt prüfen“ nach" in hinweis
+    assert "weitere holt die nächste Prüfung nach" in hinweis

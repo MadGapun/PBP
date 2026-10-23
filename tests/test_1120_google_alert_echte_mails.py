@@ -303,26 +303,25 @@ def test_1120_der_browser_weg_kennt_dieselbe_liste(db):
     assert "Original beim Arbeitgeber" in erg["weiterverbreiter_hinweis"]
 
 
-def test_1120_die_echte_mail_kommt_im_bestand_an(db, mail):
+def test_1120_die_echte_mail_wird_ein_hinweis_und_keine_stelle(db, mail):
+    """Seit 1.8.0 (#1184 d): die Mail nennt nur Titel, Firma, Ort und Portal, jeder Link ist ein Umleiter - daraus entsteht
+    kein Eintrag in der Liste der Stellen, sondern ein Hinweis. Dieselbe echte Mail wie vorher; gelesen wird dasselbe."""
     from bewerbungs_assistent.services import newsletter_service as ns
+    from bewerbungs_assistent.services import stellen_hinweise
     quelle = ns.erkennung(mail, db)
     res = ns.verarbeite_newsletter(db, mail, quelle["label"])
-    assert res["status"] == "uebernommen"
-    assert res["gefunden"] == 1
+    assert res["status"] == "hinweise_notiert"
+    assert res["gefunden"] == 1 and res["neu"] == 1 and res["stellen_angelegt"] == 0
     assert res["ebene"] == "google-alert-html"
     assert res["weiterverbreiter"] == 1
-    stellen = {j["title"]: j for j in db.get_active_jobs()}
-    stelle = stellen[TITEL]
-    assert stelle["company"] == "engineering-partner"
-    assert not (stelle.get("url") or "")
-    assert not (stelle.get("veroeffentlicht_am") or "")
-    notiz = stelle.get("research_notes") or ""
-    assert "Original beim Arbeitgeber suchen (engineering-partner)" in notiz
-    assert "Kopierdatum" in notiz
-    assert "Google-Link (öffnet oft nur die Liste): " + KARTEN_ZIEL in notiz
-    # Kein Link ist hier Absicht: die Stelle zeigt nicht "auf eine
-    # Suchseite", und der Import steht nicht als Regression da.
-    assert not stelle.get("is_search_url")
+    assert TITEL not in {j["title"] for j in db.get_active_jobs()}, "aus einer Alert-Mail entsteht keine Stelle"
+    hinweise = stellen_hinweise.liste(db)
+    assert len(hinweise) == 1
+    h = hinweise[0]
+    assert h["titel"] == TITEL and h["firma"] == "engineering-partner" and h["status"] == "offen"
+    assert h["weiterverbreiter"] is True, "die Karte stammt von einer Seite, die nur kopiert"
+    assert not h["veroeffentlicht_am"], "bei einem Weiterverbreiter ist das Kartendatum das Kopierdatum"
+    assert h["google_link"] == KARTEN_ZIEL, "der Link der Karte steht als Hinweis da, nie als Stellen-URL"
 
 
 def test_1120_scraper_ohne_url_bleibt_ein_regressions_indikator(db):

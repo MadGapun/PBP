@@ -105,6 +105,56 @@ TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
+# #1200 A4: Was Claude nach der Analyse IN PBP eintraegt — je Vorlage.
+# Bis 1.8.0 hiess es nur "nenne die passenden PBP-Tools": der Status blieb,
+# keine Nachfassung, das Dokument blieb offen. Wortlaut wie im Sammel-Prompt
+# `dokumente_verarbeiten` (prompts.py, Schritt 3B/3D), damit derselbe Brief
+# ueber beide Knoepfe dasselbe Ergebnis hat.
+RUECKFUEHRUNG: dict[str, list[str]] = {
+    "absage": [
+        "Trage die Absage ein: bewerbung_status_aendern(bewerbung_id, 'abgelehnt', "
+        "ablehnungsgrund='<Grund in den Worten der Firma>'). Ist die Bewerbung schon "
+        "abgelehnt, trägst du nur den Grund nach: bewerbung_bearbeiten(bewerbung_id, "
+        "ablehnungsgrund='...'). Nennt die Firma keinen Grund, lass das Feld leer — "
+        "nie einen erfinden.",
+        "Bietet die Firma etwas an (Talentpool, andere Stelle, Ansprechpartner), halte es "
+        "mit bewerbung_notiz(bewerbung_id, '...') fest.",
+    ],
+    "eingangsbestaetigung": [
+        "Trage den Eingang ein: bewerbung_status_aendern(bewerbung_id, 'eingangsbestaetigung').",
+        "Kennzeichen, Ansprechpartner und genannte Fristen mit bewerbung_notiz(bewerbung_id, '...') "
+        "festhalten. Nennt der Brief eine Bearbeitungsdauer, plane die Nachfrage danach: "
+        "nachfass_planen(bewerbung_id, tage=<Tage bis dahin>).",
+    ],
+    "gespraechsnotiz": [
+        "Zusagen, offene Fragen und nächste Schritte mit bewerbung_notiz(bewerbung_id, '...', "
+        "art='kontakt') an die Bewerbung schreiben: ein Gespräch ist Kontakt, die offene "
+        "Nachfass-Erinnerung wird damit hinfällig.",
+        "Steht ein Termin darin: meeting_hinzufuegen(bewerbung_id=..., datum='JJJJ-MM-TT HH:MM', "
+        "typ='interview'). Ist es eine Einladung und steht die Bewerbung noch nicht auf "
+        "'interview' oder 'zweitgespraech': bewerbung_status_aendern(bewerbung_id, 'interview'). "
+        "Hat jemand eine Rückmeldung bis zu einem Datum zugesagt: "
+        "nachfass_planen(bewerbung_id, tage=<Tage bis dahin>).",
+    ],
+    "vertrag": [
+        "Ist die Bewerbung noch nicht im Status 'angebot': bewerbung_status_aendern(bewerbung_id, "
+        "'angebot').",
+        "Eckdaten (Gehalt, Urlaub, Probezeit, Kündigungsfrist) und deine Verhandlungspunkte mit "
+        "bewerbung_notiz(bewerbung_id, '...') festhalten. Annehmen oder ablehnen entscheidet der "
+        "User — den Status dafür setzt du erst auf sein Wort.",
+    ],
+    "stellenausschreibung": [
+        "Gehört die Anzeige zu einer Bewerbung: die wichtigsten Punkte mit "
+        "bewerbung_notiz(bewerbung_id, '...') festhalten. Sonst frag, ob du sie als Stelle "
+        "anlegen sollst: stelle_manuell_anlegen(titel=..., firma=..., beschreibung=...).",
+    ],
+    "fallback": [
+        "Gehört das Dokument zu einer Bewerbung: den Kerninhalt mit bewerbung_notiz(bewerbung_id, "
+        "'...') festhalten; Termine mit meeting_hinzufuegen(bewerbung_id=..., datum=...).",
+    ],
+}
+
+
 # ---------------------------------------------------------------------------
 # Auswahl-Logik
 # ---------------------------------------------------------------------------
@@ -127,6 +177,22 @@ _NOTIZ_KEYWORDS = ("gespraechsnotiz", "gespraech", "interview-notiz",
                     "notiz", "protokoll", "interview-prep", "vorbereitung")
 _VERTRAG_KEYWORDS = ("vertrag", "offer", "contract", "arbeitsvertrag", "angebot")
 
+# #1200 A4: Dokumenttypen, die PBP selbst vergibt (services/document_handlers.py).
+# Bis 1.8.0 bekam ein als "absage" erkanntes Dokument die Fallback-Vorlage —
+# und damit nicht die Anweisung, die Absage einzutragen.
+_DOC_TYPE_TEMPLATE = {
+    "absage": "absage",
+    "eingangsbestaetigung": "eingangsbestaetigung",
+    "angebot": "vertrag",
+    "interview_einladung": "gespraechsnotiz",
+    "interview_bestaetigung": "gespraechsnotiz",
+    "interview_transkript": "gespraechsnotiz",
+    "gespraechs_feedback": "gespraechsnotiz",
+    "vorbereitung": "gespraechsnotiz",
+    "stellenbeschreibung": "stellenausschreibung",
+    "stellenanzeige": "stellenausschreibung",
+}
+
 
 def select_template_key(document: dict) -> str:
     """Waehlt automatisch das passende Template-Key anhand von doc_type,
@@ -140,15 +206,15 @@ def select_template_key(document: dict) -> str:
     if doc_type in _PROFILE_DOC_TYPES:
         return "profil_aufbau"
 
+    # Typ, den PBP schon erkannt hat (#1200 A4)
+    if doc_type in _DOC_TYPE_TEMPLATE:
+        return _DOC_TYPE_TEMPLATE[doc_type]
+
     # Stellenbeschreibung
-    if doc_type == "stellenbeschreibung":
-        return "stellenausschreibung"
     if any(kw in filename for kw in _STELLENBESCHREIBUNG_KEYWORDS):
         return "stellenausschreibung"
 
     # Interview-Vorbereitung / Gespraechsnotiz
-    if doc_type == "vorbereitung":
-        return "gespraechsnotiz"
     if any(kw in filename for kw in _NOTIZ_KEYWORDS):
         return "gespraechsnotiz"
 
@@ -241,11 +307,28 @@ def build_prompt(document: dict, template_key: str | None = None) -> dict[str, A
             "5. Fasse danach kurz zusammen: was uebernommen wurde, was unklar blieb, welche Ergänzung noch fehlt.",
         ])
     else:
+        # #1200 A4: zurueckschreiben statt nennen.
+        if app_label:
+            zuordnen = (f"3. Das Dokument gehört zur Bewerbung {app_label}; ihre ID liefert "
+                        "bewerbung_details bzw. bewerbungen_anzeigen().")
+        else:
+            zuordnen = ("3. Finde die Bewerbung, zu der das Dokument gehört (Firma und Stelle aus dem "
+                        "Text, dann bewerbungen_anzeigen()). Bei mehreren oder unsicheren Treffern "
+                        "frag nach, statt zu raten, und verknüpfe danach: "
+                        f"dokument_verknuepfen(dokument_id=\"{document_id}\", bewerbung_id=...).")
+        schritte = RUECKFUEHRUNG.get(template_key) or RUECKFUEHRUNG["fallback"]
         workflow_lines.extend([
             "2. Analysiere den Inhalt entlang der unten genannten Fokus-Punkte.",
-            "3. Liefere das Ergebnis als strukturierte Zusammenfassung zurück.",
-            "4. Wenn konkrete Folgeaktionen sichtbar werden (Follow-up planen, Status aendern, Notiz speichern), "
-            "nenne die passenden PBP-Tools (`nachfass_planen`, `bewerbung_status_aendern`, `bewerbung_notiz`).",
+            zuordnen,
+        ])
+        workflow_lines.extend(f"{4 + i}. {s}" for i, s in enumerate(schritte))
+        n = 4 + len(schritte)
+        workflow_lines.extend([
+            f"{n}. Ist alles eingetragen, schließe das Dokument ab: "
+            f"dokument_status_setzen(dokument_id=\"{document_id}\", status=\"angewendet\"). "
+            "Gehört es zu keiner Bewerbung und ist nichts einzutragen: status=\"verworfen\".",
+            f"{n + 1}. Sag mir zum Schluss in zwei, drei Sätzen, was im Dokument steht und was du "
+            "in PBP eingetragen hast.",
         ])
 
     focus_block = [

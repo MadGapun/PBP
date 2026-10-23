@@ -14,7 +14,7 @@ echo.
 
 if not exist "%PYTHON%" (
     echo  [FEHLER] Python nicht gefunden unter:
-    echo    %PYTHON%
+    echo    !PYTHON!
     echo.
     echo  Mache neu: INSTALLIEREN.bat ausfuehren.
     echo.
@@ -23,7 +23,7 @@ if not exist "%PYTHON%" (
 )
 if not exist "%DIR%\start_dashboard.py" (
     echo  [FEHLER] start_dashboard.py nicht gefunden unter:
-    echo    %DIR%\start_dashboard.py
+    echo    !DIR!\start_dashboard.py
     echo.
     echo  Mache neu: INSTALLIEREN.bat ausfuehren.
     echo.
@@ -42,7 +42,7 @@ if !errorlevel! neq 0 (
     echo  ====================================================
     echo  [FEHLER] Dashboard ist mit Fehlercode %errorlevel% beendet.
     echo  Pruefe das Log unter:
-    echo    %LOCALAPPDATA%\BewerbungsAssistent\data\logs\pbp.log
+    echo    !LOCALAPPDATA!\BewerbungsAssistent\data\logs\pbp.log
     echo  ====================================================
     pause
 )

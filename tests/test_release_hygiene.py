@@ -1,5 +1,6 @@
 """Release-Hygiene-Regressionstests fuer Backups und Release-Gate."""
 
+import os
 import sqlite3
 import subprocess
 import sys
@@ -39,7 +40,14 @@ def test_create_backup_captures_wal_changes(tmp_path):
 
 
 def test_release_check_script_passes():
-    """Der Release-Gate muss auf dem aktuellen Checkout gruene Ergebnisse liefern."""
+    """Der Release-Gate muss auf dem aktuellen Checkout gruene Ergebnisse liefern.
+
+    Mit `CI=1` wie auf GitHub: der Hauptschluessel zum Signieren liegt nur auf dem Release-Rechner, und die Fixture
+    `_update_ohne_vertraute_schluessel` (conftest) lenkt den Ort der Schluessel bewusst ins Leere. Ohne `CI` verlangt das
+    Tor bei einer STABILEN Version den Schluessel (Fehler) und liesse diesen Test lokal rot werden, sobald die Version
+    stabil ist (1.8.0: aufgefallen in der vollen Suite vom 12.10.2026, auf GitHub war er gruen). Dass das Tor mit dem
+    echten Schluessel signiert und gegen die eingetragenen prueft, zeigt `python release_check.py` auf dem Release-Rechner.
+    """
     repo_root = Path(__file__).resolve().parent.parent
     result = subprocess.run(
         [sys.executable, "release_check.py"],
@@ -47,6 +55,7 @@ def test_release_check_script_passes():
         capture_output=True,
         text=True,
         timeout=180,
+        env={**os.environ, "CI": "1"},
     )
 
     assert result.returncode == 0, result.stdout + "\n" + result.stderr

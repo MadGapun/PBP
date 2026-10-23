@@ -224,6 +224,8 @@ OHNE_TYPISIERUNG = frozenset({
     "freigabe_id",
     # nur 1.8-Linie: Firmen-Stammsatz (#1080) - Kennungen sind intern (`fi_...`), Schreibweisen zaehlen als Zahl
     "firma_id", "alias_id", "mutterfirma_id", "zuordnung_id",
+    # nur 1.8-Linie: `stellen_hinweise_verwalten(hinweis_id)` (#1184 d) - die Kennung eines Hinweises ist ein Hash ueber Firma und Titel
+    "hinweis_id",
 })
 
 

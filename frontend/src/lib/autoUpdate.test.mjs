@@ -3,9 +3,11 @@
 import assert from "node:assert/strict";
 import {
   ANTWORTEN, AUTOMATISCHE_STUFEN, INSTALLER_AUFRAEUMEN, STUFEN, groesseText, laeuft, naechsteFrageMs, prozent,
-  NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, stufeLabel, zeigeAktuell,
+  NEUSTART_SCHRITTE, fassungsSchluessel, istNeuer, istSchonInstalliert, neustartText, seitenleisteFuehrtZuEinstellungen, seitenleisteText, standUnbekannt, stufeLabel, zeigeAktuell,
   updateHinweis, claudeFassung, verbindungsAbweichung,
-  VORAB_ERKLAERUNG, VORAB_SCHRITTE, istVorabversion, vorabHinweis, vorabNeu,
+  VORAB_ERKLAERUNG, VORAB_ERKLAERUNG_ANDERE_LINIE, VORAB_ERKLAERUNG_PRUEFEN, VORAB_ERKLAERUNG_SCHALTER, VORAB_SCHRITTE,
+  istVorabversion, vorabErklaerung,
+  vorabHinweis, vorabNeu, umschaltText, updateFehlerText,
 } from "./autoUpdate.js";
 
 // ── Die vier Stufen und die Antworten auf die Rückfrage ───────────────────────────────
@@ -214,6 +216,13 @@ assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false 
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: true }), false, "nach der Installation nicht „Aktuell“ neben „Ab dem nächsten Neustart“");
 assert.equal(zeigeAktuell({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false }), false);
 assert.equal(zeigeAktuell(null), false);
+// #1225: ohne Antwort der Quelle ist der Stand unbekannt, nicht aktuell
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), false);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), true);
+assert.equal(zeigeAktuell({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "aktuell" } }), true);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: null, neustart_noetig: false, pruefung: { status: "aktuell" } }), false);
+assert.equal(standUnbekannt({ verfuegbar: true, neu: { version: "1.8.2" }, neustart_noetig: false, pruefung: { status: "keine_antwort" } }), false, "eine bekannte neue Version bleibt Thema");
+assert.equal(standUnbekannt(null), false);
 
 // ── #1179: eine neuere VORABVERSION wird genannt, aber nie von selbst installiert ──────────────────────────────────
 // Befund (08.10.2026, Beta 17): die Seitenleiste sagte „Neue Version verfügbar: v1.8.0-beta.18“, die Update-Seite „Aktuell“,
@@ -232,7 +241,8 @@ const betaInfo = { update_available: true, latest_version: "1.8.0-beta.18",
   release_url: "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18" };
 const v = vorabNeu(betaAu, betaInfo);
 assert.deepEqual(v, { version: "1.8.0-beta.18", url: betaInfo.release_url,
-  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip" });
+  zip: "https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-beta.18.zip", mitSchalter: true, schalterAn: false,
+  pruefungVeraltet: false });
 assert.equal(vorabNeu(betaAu, { ...betaInfo, release_url: "" }).url, "https://github.com/MadGapun/PBP/releases/tag/v1.8.0-beta.18",
   "ohne Adresse in der Antwort: die Seite des Tags");
 
@@ -256,7 +266,10 @@ let vh = updateHinweis(betaAu, { vorab: v });
 assert.equal(vh.id, "update-vorab");
 assert.equal(vh.dringend, false, "kein Vordrängeln vor Quellen und Suche");
 assert.match(vh.titel, /^Neue Vorabversion verfügbar: v1\.8\.0-beta\.18$/);
-assert.match(vh.text, /nie von selbst/);
+// #1221: auf einer Vorab-Installation gibt es den Schalter (#1199) - der Hinweis nennt ihn statt "nie von selbst"
+assert.match(vh.text, /Vorabversionen automatisch einbeziehen/);
+assert.doesNotMatch(vh.text, /nie von selbst/);
+assert.match(vh.text, /INSTALLIEREN\.bat/, "und der Weg von Hand bleibt");
 assert.deepEqual(vh.aktionen.map((a) => [a.art, a.label]), [["link", "ZIP herunterladen"], ["link", "Veröffentlichung ansehen"]]);
 assert.deepEqual(vh.aktionen.map((a) => a.url), [v.zip, v.url]);
 assert.deepEqual(vorabHinweis(v), vh, "derselbe Hinweis auch ohne verfügbares Auto-Update");
@@ -270,7 +283,74 @@ assert.equal(updateHinweis({ ...betaAu, neu }, { vorab: v }).id, "update", "die 
 // die Erklärung und der Weg stehen an EINER Stelle (Update-Seite und Hilfe nehmen sie von hier)
 assert.match(VORAB_ERKLAERUNG, /nie von selbst/);
 assert.match(VORAB_ERKLAERUNG, /Mit einem Klick/, "die Stufe, die der Nutzer gewählt hatte, wird genannt");
+// #1221: drei Lagen, drei Saetze
+assert.equal(vorabErklaerung({ mitSchalter: false }), VORAB_ERKLAERUNG, "stabile Installation: nie von selbst");
+assert.equal(vorabErklaerung(null), VORAB_ERKLAERUNG);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: false }), VORAB_ERKLAERUNG_SCHALTER);
+assert.match(VORAB_ERKLAERUNG_SCHALTER, /Vorabversionen automatisch/);
+assert.match(VORAB_ERKLAERUNG_SCHALTER, /einschaltest/);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true }), VORAB_ERKLAERUNG_ANDERE_LINIE);
+assert.match(VORAB_ERKLAERUNG_ANDERE_LINIE, /Versionslinie/);
+// die Lage kommt aus der laufenden Fassung und dem Schalter in der Antwort des Auto-Updates
+assert.deepEqual(
+  [vorabNeu({ ...betaAu, vorab: 1 }, betaInfo).mitSchalter, vorabNeu({ ...betaAu, vorab: 1 }, betaInfo).schalterAn],
+  [true, true]);
+assert.equal(vorabNeu({ ...betaAu, laufend: "1.7.157", aktuell: "1.7.157" }, betaInfo).mitSchalter, false,
+  "eine stabile Installation hat den Schalter nicht");
+// der Hinweis der anderen Lagen
+assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true }).text, /Versionslinie nie von selbst/);
+assert.match(vorabHinweis({ ...v, mitSchalter: false, schalterAn: false }).text, /nie von selbst/);
+// #1226: Schalter an, aber die letzte Prüfung kennt ihn nicht (anderer Stand, ohne Vermerk, ohne Antwort): kein „andere Linie“
+const mitSchalterAn = { ...betaAu, vorab: 1 };
+assert.equal(vorabNeu(mitSchalterAn, betaInfo).pruefungVeraltet, true, "keine Prüfung mit dem Schalter");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell", vorab: false } }, betaInfo).pruefungVeraltet, true,
+  "die Prüfung wurde ohne den Schalter geholt");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell" } }, betaInfo).pruefungVeraltet, true,
+  "ältere Daten ohne den Vermerk");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "keine_antwort", vorab: true } }, betaInfo).pruefungVeraltet, true,
+  "ohne Antwort ist nichts belegt");
+assert.equal(vorabNeu({ ...mitSchalterAn, pruefung: { status: "aktuell", vorab: true } }, betaInfo).pruefungVeraltet, false,
+  "belegt: mit dem Schalter geprüft, nichts gefunden");
+assert.equal(vorabNeu({ ...betaAu, pruefung: { status: "aktuell", vorab: false } }, betaInfo).pruefungVeraltet, false,
+  "Schalter aus: nichts ist veraltet");
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true, pruefungVeraltet: true }), VORAB_ERKLAERUNG_PRUEFEN);
+assert.equal(vorabErklaerung({ mitSchalter: true, schalterAn: true, pruefungVeraltet: false }), VORAB_ERKLAERUNG_ANDERE_LINIE);
+assert.match(VORAB_ERKLAERUNG_PRUEFEN, /Jetzt prüfen/);
+assert.doesNotMatch(VORAB_ERKLAERUNG_PRUEFEN, /Versionslinie/, "der Satz zur Linie steht nur, wenn er belegt ist");
+assert.match(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungVeraltet: true }).text, /nächsten Prüfung/);
+assert.doesNotMatch(vorabHinweis({ ...v, mitSchalter: true, schalterAn: true, pruefungVeraltet: true }).text, /Versionslinie/);
 assert.equal(VORAB_SCHRITTE.length, 3);
 assert.ok(VORAB_SCHRITTE[1].includes("INSTALLIEREN.bat"));
+
+// #1229: der Rückweg und ein Schritt nach vorn sagen Verschiedenes
+assert.match(umschaltText("1.8.0", "1.8.1"), /läuft wieder Version 1\.8\.0/);
+assert.match(umschaltText("1.8.0", "1.8.1"), /neueren Versionen bleiben gespeichert/);
+assert.match(umschaltText("1.8.1", "1.8.0"), /läuft Version 1\.8\.1/);
+assert.doesNotMatch(umschaltText("1.8.1", "1.8.0"), /wieder|neueren Versionen/, "nach vorn: kein Rückweg-Satz");
+assert.match(umschaltText("1.8.1", "1.8.0"), /PBP und Claude Desktop neu starten/);
+assert.match(umschaltText("1.9.0-rc.2", "1.9.0-rc.1"), /läuft Version 1\.9\.0-rc\.2/, "auch Vorabversionen");
+assert.match(umschaltText("1.8.0", null), /läuft wieder Version/, "ohne Vergleichswert gilt der Rückweg-Satz");
+
+// #1243: bei einer abgelehnten Aktion steht der Grund des Servers im Hinweis, nicht nur „HTTP 400“
+const fehler = (status, payload, message = `HTTP ${status}`) => Object.assign(new Error(message), { status, payload });
+assert.equal(
+  updateFehlerText(fehler(400, { status: "abgelehnt", text: "Vorabversionen werden nie automatisch installiert." })),
+  "Das hat nicht geklappt: Vorabversionen werden nie automatisch installiert.",
+  "der Fall aus dem Beta-Test: rc.3 -> rc.4",
+);
+assert.equal(updateFehlerText(fehler(409, { status: "laeuft_bereits", text: "Ein Update läuft gerade." })), "Das hat nicht geklappt: Ein Update läuft gerade.");
+assert.equal(updateFehlerText(fehler(409, { text: "Der Satz.", error: "Etwas anderes." })), "Das hat nicht geklappt: Der Satz.", "text vor error");
+assert.equal(updateFehlerText(fehler(400, { error: "Nur der Fehler." })), "Das hat nicht geklappt: Nur der Fehler.", "ohne text: das Feld error");
+assert.equal(updateFehlerText(fehler(400, { text: "  Mit Rand.  " })), "Das hat nicht geklappt: Mit Rand.", "der Satz wird getrimmt");
+// Ohne Satz des Servers bleibt die Meldung des Fehlers, nie ein leerer Hinweis
+assert.equal(updateFehlerText(fehler(400, { text: "   " })), "Das hat nicht geklappt: HTTP 400", "ein leerer Satz ersetzt nichts");
+assert.equal(updateFehlerText(fehler(400, { text: 5, error: { x: 1 } })), "Das hat nicht geklappt: HTTP 400", "nur Text zählt");
+assert.equal(updateFehlerText(fehler(502, null)), "Das hat nicht geklappt: HTTP 502", "Antwort ohne Inhalt");
+assert.equal(updateFehlerText(fehler(500, "Internal Server Error", "Internal Server Error")), "Das hat nicht geklappt: Internal Server Error",
+  "Antwort ohne JSON: die Meldung des Fehlers");
+assert.equal(updateFehlerText(fehler(422, { detail: [{ msg: "x" }] })), "Das hat nicht geklappt: HTTP 422", "fremde Form: kein Rauschen im Hinweis");
+assert.equal(updateFehlerText(undefined), "Das hat nicht geklappt: Unbekannter Fehler.");
+assert.equal(updateFehlerText({}), "Das hat nicht geklappt: Unbekannter Fehler.");
+assert.equal(updateFehlerText(new Error("")), "Das hat nicht geklappt: Unbekannter Fehler.", "auch eine leere Meldung ergibt einen Satz");
 
 console.log("autoUpdate: ok");

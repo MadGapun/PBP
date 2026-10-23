@@ -15,9 +15,11 @@ import { useState } from "react";
 import { postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, Field, LoadingPanel, SectionHeading, SelectInput, TextInput } from "@/components/ui";
+import ErklaerText from "@/components/ErklaerText";
+import MitClaude from "@/components/MitClaude";
 import {
-  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_ERKLAERUNG, VORAB_SCHRITTE,
-  claudeFassung, groesseText, laeuft, prozent, verbindungsAbweichung, vorabNeu, zeigeAktuell,
+  INSTALLER_AUFRAEUMEN, NEUSTART_SCHRITTE, STUFEN, VORAB_SCHRITTE, vorabErklaerung,
+  claudeFassung, groesseText, laeuft, prozent, standUnbekannt, umschaltText, updateFehlerText, verbindungsAbweichung, vorabNeu, zeigeAktuell,
 } from "@/lib/autoUpdate";
 
 const RELEASES = "https://github.com/MadGapun/PBP/releases/latest";
@@ -32,10 +34,11 @@ const ERGEBNIS = {
   installiert: { label: "Installiert", tone: "success" },
   fehler: { label: "Nicht geklappt", tone: "danger" },
   zurueckgeschaltet: { label: "Zurückgeschaltet", tone: "amber" },
+  umgeschaltet: { label: "Umgeschaltet", tone: "amber" },
 };
 
 export default function UpdatesTab() {
-  const { autoUpdate: au, refreshAutoUpdate, refreshUpdateInfo, updateInfo, autoUpdateAktion, pushToast, chrome } = useApp();
+  const { autoUpdate: au, refreshAutoUpdate, refreshUpdateInfo, updateInfo, autoUpdateAktion, pushToast, chrome, copyPrompt } = useApp();
   const [busy, setBusy] = useState("");
   const [vorgaenger, setVorgaenger] = useState(null);
 
@@ -51,7 +54,8 @@ export default function UpdatesTab() {
       // widersprechen sie sich bis zur nächsten Abfrage.
       if (pfad === "/api/auto-update/pruefen") refreshUpdateInfo?.();
     } catch (error) {
-      pushToast(`Das hat nicht geklappt: ${error.message}`, "danger");
+      // #1243: der Grund des Servers (`text`), nicht nur „HTTP 400“
+      pushToast(updateFehlerText(error), "danger");
     } finally {
       setBusy("");
     }
@@ -69,9 +73,7 @@ export default function UpdatesTab() {
   }
 
   async function zurueckschalten(v) {
-    const ok = await bestaetigen({
-      text: `Beim nächsten Start läuft wieder Version ${v}. Die neueren Versionen bleiben gespeichert, PBP schaltet aber nicht von selbst wieder um. Du musst danach PBP und Claude Desktop neu starten. Fortfahren?`,
-    });
+    const ok = await bestaetigen({ text: umschaltText(v, au.aktuell) });
     if (!ok) return;
     await senden("/api/auto-update/zurueck", { version: v }, `Beim nächsten Start läuft Version ${v}.`);
   }
@@ -107,7 +109,20 @@ export default function UpdatesTab() {
     <div className="grid gap-6" data-updates-tab>
       {/* ── Stand ── */}
       <Card className="rounded-2xl">
-        <SectionHeading title="Updates" description="Welche Version läuft, und ob es eine neuere gibt." />
+        <SectionHeading
+          title="Updates"
+          description="Welche Version läuft, und ob es eine neuere gibt."
+          action={(
+            <Button
+              size="sm"
+              variant="ghost"
+              data-mit-claude-seite
+              onClick={() => copyPrompt("Erkläre mir, wie die Updates von PBP funktionieren und welche Einstellung für mich passt. Schau dir dazu update_status an und ändere nichts ohne meine Zustimmung.")}
+            >
+              <MitClaude>Updates erklären</MitClaude>
+            </Button>
+          )}
+        />
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="sky">Läuft: v{au.laufend}</Badge>
           {au.neustart_noetig ? <Badge tone="amber">Ab dem nächsten Neustart: v{au.aktuell}</Badge> : null}
@@ -118,7 +133,8 @@ export default function UpdatesTab() {
           ) : null}
           {neu ? <Badge tone="success">Neu: v{neu.version}</Badge>
             : vorab ? <Badge tone="amber">Neue Vorabversion: v{vorab.version}</Badge>
-              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge> : null}
+              : zeigeAktuell(au) ? <Badge tone="neutral">Aktuell</Badge>
+                : standUnbekannt(au) ? <span title="Die letzte Prüfung bekam keine Antwort."><Badge tone="amber">Stand unbekannt</Badge></span> : null}
           <Button size="sm" variant="ghost" disabled={busy !== "" || lauf} onClick={() => senden("/api/auto-update/pruefen", {})}
             title="Fragt die offiziellen GitHub-Veröffentlichungen, ob es eine neuere Version gibt.">
             <RefreshCw size={14} className="mr-1 inline" /> {busy === "/api/auto-update/pruefen" ? "Prüfe …" : "Jetzt prüfen"}
@@ -147,7 +163,7 @@ export default function UpdatesTab() {
         {vorab ? (
           <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 p-4" data-updates-vorab>
             <p className="font-semibold text-ink">Vorabversion {vorab.version}</p>
-            <p className="mt-1 text-sm text-ink">{VORAB_ERKLAERUNG}</p>
+            <p className="mt-1 text-sm text-ink">{vorabErklaerung(vorab)}</p>
             <p className="mt-2 text-sm text-muted">So kommst du an sie:</p>
             <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-sm text-muted">
               {VORAB_SCHRITTE.map((schritt) => <li key={schritt}>{schritt}</li>)}
@@ -221,15 +237,19 @@ export default function UpdatesTab() {
             );
           })}
         </div>
-        <p className="mt-3 flex items-start gap-2 text-xs text-muted">
-          <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
-          <span>
-            PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert nie eine Vorabversion
-            und nie über die Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
-            {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
-            Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
-          </span>
-        </p>
+        {/* #1170 U11: einklappbar; der Zustand wird gemerkt */}
+        <ErklaerText id="updates-sicherheit" titel="Wie sicher ist ein Update?" className="mt-3">
+          <p className="flex items-start gap-2">
+            <ShieldCheck size={14} className="mt-0.5 shrink-0 text-teal" aria-hidden="true" />
+            <span>
+              PBP lädt nur von den offiziellen GitHub-Veröffentlichungen dieses Projekts und installiert eine Vorabversion nur,
+              wenn du „Vorabversionen automatisch“ (unten, nur auf einer Vorabversion) einschaltest, und nie über die
+              Versionslinie hinaus. Jede Datei wird auf ihre Prüfsumme geprüft
+              {au.signatur?.erforderlich ? " und auf die Signatur des Entwicklers" : ""}. Wird nichts erkannt, wird nichts installiert.
+              Nichts startet von selbst neu; die neue Version gilt nach dem nächsten Neustart.
+            </span>
+          </p>
+        </ErklaerText>
       </Card>
 
       {/* ── Platz ── */}

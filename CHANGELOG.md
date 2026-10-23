@@ -33,6 +33,903 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.0] - 2026-10-23 — Updates, die sich selbst installieren
+
+<!-- anwender -->
+PBP kann sich jetzt selbst aktualisieren, wenn du es willst (Einstellungen › Erweitert › Updates); ohne deine Wahl installiert PBP nichts.
+Neu sind die Hilfe „Frag mich“, die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und kürzere Wege: Von Stelle, Bewerbung, Person und Firma geht es mit einem Klick weiter und zurück.
+Was Claude für dich erarbeitet, trägt es selbst in PBP ein, und Stellen aus einem Suchlauf im Browser stehen danach in deiner Liste statt nur im Chat.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Von 1.7 kommend, einmal von Hand:** das ZIP dieser Version laden, entpacken und `INSTALLIEREN.bat` doppelklicken (macOS: `INSTALLIEREN.command`).
+  Du installierst einfach darüber; deine Daten bleiben, vorher entsteht ein Backup. Danach Claude Desktop **komplett beenden** (Rechtsklick auf das
+  Claude-Symbol unten rechts in der Taskleiste › Beenden) und neu starten.
+- **Ab jetzt geht es auch ohne ZIP:** Unter Einstellungen › Erweitert › Updates wählst du, ob PBP dir neue Versionen nur meldet (Vorgabe) oder selbst
+  installiert. Das gibt es zurzeit nur unter Windows.
+- **Claude aus dem Microsoft Store:** Hat Claude PBP bisher nicht angezeigt, obwohl der Installer „fertig“ meldete, behebt das diese Installation.
+
+**Neu**
+
+- **Updates von selbst, nur wenn du willst.** Vier Stufen, von „Nur Hinweis“ (Vorgabe) bis „Automatisch, still“. Jede neue Version wird vor dem Einbau
+  geprüft (Prüfsumme und Signatur) und neben der laufenden abgelegt. Startet sie nicht, kehrt PBP von selbst zur vorigen zurück und sagt es dir.
+- **„Frag mich“ in der Hilfe.** Das Fragezeichen oben rechts öffnet „Hilfe & Support“. Im Reiter „Frag mich“ stellst du eine Frage zur Bedienung, zum
+  Beispiel „Wo stelle ich ein, dass sich PBP selbst aktualisiert?“, und bekommst Karten mit der Antwort, einem Sprung an die richtige Stelle und dem Link
+  ins Wiki. Deine Fragen werden nicht gespeichert. Läuft die lokale KI, steht das Feld auch in der Seitenleiste unter Elwosas Nachrichten.
+- **Kürzere Wege.** In Stelle, Bewerbung, Person und Firma steht oben eine feste Leiste mit dem Rückweg und dem nächsten Schritt; die Zurück-Taste führt
+  dorthin, woher du kamst. „Nachfassen“ im Dashboard öffnet die Bewerbung, nach „Bewerbung speichern“ liegt die neue Bewerbung offen da, und ein Treffer
+  der Suche oben öffnet, was du gesucht hast.
+- **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, auf einer Zeitleiste: Bewerbungen, Stellen, Personen, Dokumente. Verschiedene
+  Schreibweisen derselben Firma und die Mutterfirma führt PBP zusammen, aber nur, wenn du es bestätigst.
+- **Speicher & Downloads (Einstellungen › Erweitert).** Wo PBP Dateien ablegt und wie viel Platz sie brauchen, und Aufräumen in zwei Schritten, nie ohne
+  dein Ja. Hier änderst du auch den Ordner für deine Lebensläufe und Anschreiben.
+- **Was Claude im Browser findet, steht danach in PBP.** Stellen aus einem Suchlauf im Browser landen in deiner Liste; im Zweifel kommt eine Stelle hinein,
+  und du entscheidest. Das Dashboard zeigt unter „Stellen zu prüfen“, was auf dein Urteil wartet. Was Claude nach dem Lesen aussortiert hat, holst du dort
+  mit einem Klick zurück.
+- **Claude trägt selbst ein,** was es für dich erarbeitet: den Grund einer Absage, die Auswertung eines einzelnen Dokuments, die Angaben aus einem
+  LinkedIn-Profil. Bisher stand das oft nur im Chat.
+- **Kleineres:** Den Typ eines Dokuments änderst du von Hand („Typ ändern“ in der aufgeklappten Dokumentenkarte). Die Stellenliste merkt sich auf Wunsch
+  deine Filter als Voreinstellung. jobtic steht als Quelle für IT-Freelance-Projekte bereit (dafür brauchst du ein eigenes jobtic-Konto). Elwosa sagt
+  Bescheid, wenn es eine neue Version gibt. Die Texterkennung für eingescannte Dokumente lässt sich ohne Administratorrechte installieren. Für Jobmails aus
+  Mail-Ordnern gibt es einen Zugang, der ab Werk aus ist; ein Add-on, das ihn nutzt, gibt es noch nicht.
+
+**Was anders ist**
+
+- **Die Aufräum-Runde „Bewerbungen im Blick behalten“ läuft jetzt einmal am Tag von selbst** (Einstellungen › Automatik, dort auch „Aus“). Sie legt
+  Erinnerungen nach, lädt fehlende Anzeigentexte und prüft, ob Anzeigen noch online sind. Bewerbungen schließt sie von selbst nur ab, wenn du das dort
+  einschaltest; ab Werk ist das aus.
+- **Die Automatik lässt deine Entscheidungen stehen.** Eine Stelle, die du zurückgeholt hast oder zu der ein gelesenes Urteil „empfohlen“ oder
+  „bedingt“ vorliegt, sortiert keine Automatik mehr aus. Von mehreren Kopien derselben Anzeige bleibt genau eine aktiv, die mit dem Anzeigentext.
+  Gründe wie „befristet“ überträgt PBP nicht mehr über ein gemeinsames Wort im Titel auf andere Stellen, und ohne Anzeigentext sortiert die
+  Automatik nicht nach Fachgebiet aus. Was früher zu Unrecht verschwunden ist, steht unter Stellen › Aussortiert (Vermerk „Automatik“) und lässt
+  sich dort mit „Wiederherstellen“ zurückholen; Claude kann falsch übertragene Gründe für dich suchen.
+- **Die Auto-Aussortierung lernt nur noch aus dem, was du selbst aussortiert hast,** nicht mehr aus ihren eigenen Urteilen.
+- **Google Jobs:** Die Suche über JobSpy ist als defekt gekennzeichnet. Ein Google-Treffer ohne die Original-Anzeige des Arbeitgebers wird nicht mehr als
+  Stelle angelegt, und Google-Benachrichtigungen per Mail liefern Hinweise statt Stellen.
+- **Dashboard:** Unter „Offen“ ist nur noch rot, was überfällig ist. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten
+  sagen, was sie sind.
+- Nennt keine Stelle ein Gehalt, steht „Keine Angabe“ statt „0 EUR“.
+
+**Behoben (Auswahl)**
+
+- Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren; von Kopien derselben Anzeige blieb
+  manchmal keine übrig.
+- Mehrere Texte schickten dich nach „Stellen › Ausgeblendet“; der Reiter heißt „Aussortiert“.
+- Claude aus dem Microsoft Store zeigte PBP nach der Installation nicht an, obwohl der Installer „fertig“ meldete.
+- Seit dem 19.10.2026 bekamen neue Installationen eine Fassung der Jobbörsen-Bibliothek JobSpy, die PBP nicht kennt; jetzt bleibt es bei der geprüften.
+- Die Seite „Stellen“ lief im Leerlauf auf Hochtouren.
+- Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer; die Entfernung konnte deshalb weit danebenliegen.
+- Eine laufende Stelle zählte bei der Berufserfahrung nur bis 2026; ab dem 01.01.2027 hätte ein Jahr gefehlt.
+- Eine interne Notiz schloss die offene Nachfass-Erinnerung einer Bewerbung.
+
+Alle Änderungen im Einzelnen stehen darunter.
+
+### Im Einzelnen
+
+PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
+„Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
+sammelt außerdem alles, was die 1.8.0-Betas (beta.0 bis beta.19), die Release-Kandidaten (rc.1 bis rc.5) und die Hotfixes bis v1.7.159 geliefert haben; die Einzelheiten stehen in den
+Einträgen darunter.
+
+**Wichtig zu wissen:**
+
+- **Updates (Einstellungen › Erweitert › Updates).** Vier Stufen: *Nur Hinweis* (Vorgabe), *Mit einem Klick*, *Automatisch, mit Meldung*,
+  *Automatisch, still*. Neue Versionen landen in einem eigenen Ordner neben der laufenden; startet die neue nicht, fällt PBP **von selbst auf die
+  vorige zurück** und sagt es. Geladen wird nur von der festen GitHub-Adresse, nur stabile Versionen der eigenen Linie, mit Prüfsumme **und Signatur**
+  (Ed25519; ohne gültige Signatur wird nichts installiert). Die Automatik startet nie neben anderer Arbeit.
+- **Einmalig von Hand:** Die erste stabile Version mit dieser Funktion ist 1.8.0 selbst. Wer von 1.7.x kommt, installiert sie wie gewohnt (ZIP,
+  `INSTALLIEREN.bat`); ab dann kann PBP den Rest selbst. **Das automatische Aktualisieren gibt es zurzeit nur unter Windows.**
+- **Speicher & Downloads (Einstellungen › Erweitert).** Wohin PBP schreibt und lädt, wie viel dort liegt, und Aufräumen in zwei Schritten — nie
+  ohne dein Ja, nie bei laufender Arbeit. Was anderen Programmen gehört (Browser der Jobsuche, KI-Modelle), wird nur gezeigt. Die Karte „Deine
+  eigenen Ordner“ trägt die Eingabefelder für den Ordner, in den PBP deine Lebensläufe, Anschreiben und Berichte legt, und für den Ordner mit
+  deinen Vorlagen — du änderst sie dort, wo du siehst, wie viel darin liegt (#1173). Die anderen Orte sind durch die Installation bedingt und bleiben ohne Eingabe.
+- **Mail-Ordner (Einstellungen › Erweitert › Quellen im Detail).** Der Ordner-Scan ist **standardmäßig aus**; gelesen werden nur Ordner, die du
+  ausdrücklich freigibst. PBP öffnet nie selbst ein Postfach. Ein Add-on, das Ordner von sich aus liest, gibt es noch nicht — das Thunderbird-Add-on
+  schickt weiter nur, was du markierst.
+- **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, als eine Zeitleiste; ein Firmen-Eintrag fasst Schreibweisen zusammen
+  („Alt AG“ heißt heute „Neu GmbH“) und kennt die Mutterfirma. Bewerbungen, Stellen und Kontakte behalten ihren Firmennamen als Text.
+- **Ein Klick zum Nächsten (#1171).** Die Zeile „Nachfassen“ im Dashboard öffnet die Bewerbung; nach „Bewerbung speichern“ in der Stellen-Ansicht liegt die neue
+  Bewerbung offen da (mit „Lebenslauf mit Claude“ und „Anschreiben mit Claude“ im Fuß); in der Timeline führt der Name der Person zu ihrer Karte,
+  und die Karte nennt oben „Bewerbung: Titel bei Firma“ und führt zurück; „Zur Stelle“ auf der Bewerbungskarte, „Zur Bewerbung“ in der
+  Aufgabenzeile, die Top-Stelle im Dashboard öffnet die Stelle. Die Timeline hat oben eine Sprungleiste (Status · Stelle · Dokumente · Personen ·
+  Aufgaben · Termine · Verlauf), die beim Scrollen stehen bleibt. Der Link aus Claude (`#stellen/<Kennung>`) öffnet die Stelle selbst. Dazu kommen die feste
+  Weg-Leiste in Stelle, Bewerbung, Person und Firma, der Rückweg mit der Zurück-Taste und Listen, die mit ihrer ersten Zeile beginnen (siehe unten, #1171 Baustein 3 bis 5).
+- **Neu im Dashboard-Fenster:** Schreibt Claude, während du eine Stelle oder die Timeline einer Bewerbung offen hast (ein Urteil zur Stelle, eine Notiz, ein Termin, eine
+  Mail zur Bewerbung), erscheint das dort nach ein bis drei Sekunden; die Leseposition bleibt, nichts flackert.
+- **Suche oben im Dashboard (#1177).** Ein Klick auf einen Treffer öffnet das Objekt: die Bewerbung (ihre Timeline), die Stelle (ihre Details), das Dokument
+  (aufgeklappt, mit seinem Namen im Suchfeld der Seite), die Mail (ihr Fenster, auch ohne Bewerbung), den Termin (in der Timeline der Bewerbung, am Abschnitt
+  „Termine“; ohne Bewerbung im Kalender) und den Skill (im Profil; ab sieben Skills ist die Liste auf seinen Namen gefiltert). Bis v1.7.154 passierte beim Klick nichts.
+- **Vorabversionen von selbst holen — nur auf Wunsch (#1199).** Wer eine Vorabversion (Beta oder RC) nutzt, kann in Einstellungen › Updates „Vorabversionen
+  automatisch“ einschalten (Vorgabe **aus**); dann zieht PBP die jeweils nächste Vorabversion **derselben Reihe** nach den Regeln der gewählten Stufe. Eine stabile
+  Installation wird nie auf eine Vorabversion gezogen, auch nicht mit dem Schalter; ein Linienwechsel bleibt Handarbeit; Prüfsumme, Signatur und Selbsttest
+  bleiben Pflicht. Damit lässt sich das Auto-Update an einer echten Veröffentlichung belegen, bevor es für die stabile Version gilt.
+- **Eine neuere Vorabversion wird überall gleich gemeldet (#1179).** Wer eine Beta nutzt und eine neuere erscheint, sieht in der Seitenleiste „Neue Vorabversion
+  verfügbar“, auf der Seite Einstellungen › Updates statt „Aktuell“ eine Karte mit dem Grund (PBP installiert Vorabversionen nur, wenn du es mit dem Schalter „Vorabversionen automatisch“ erlaubst — Vorgabe aus, nur auf einer
+  Vorab-Installation —, und nie von selbst auf eine stabile Installation, auch nicht mit „Mit einem Klick“) und den Knöpfen „ZIP herunterladen“ und „Veröffentlichung ansehen“, und auf dem Dashboard denselben Hinweis. Elwosa nennt die neue Version ebenfalls,
+  einmal je Version, mit einem Link zu den Veröffentlichungsnotizen (#1180).
+- **Was Claude erarbeitet, kommt in PBP an (#1200).** Die Knöpfe „mit Claude“ legen einen Auftrag in die Zwischenablage. Bei einer Absage, einem
+  einzelnen Dokument und einem LinkedIn-Profil endete der Auftrag bisher im Chat: Claude nannte, was zu tun wäre, und PBP blieb, wie es war. Jetzt trägt
+  Claude die Absage samt Grund ein, plant die Nachfrage, hängt das Dokument an die Bewerbung und schließt es ab — und sagt zum Schluss, was es eingetragen hat.
+  „Bewerbung vorbereiten“, „Schnell bewerben“ und die Jobsuche folgen dabei einem gemeinsamen Ablauf: erst prüfen, dann als Word-Datei exportieren, keine
+  zweite Bewerbung anlegen.
+
+- **Texterkennung ohne Administratorrechte (Einstellungen › Erweitert › Erweiterungen).** „Herunterladen & installieren“ fragt nicht nach Administratorrechten: das Programm kommt nur für dich nach `%LOCALAPPDATA%\Programs\Tesseract-OCR`, das deutsche Sprachpaket dazu, und lässt sich dort wieder entfernen — auch durch den Deinstaller. Ein eingescanntes PDF wird beim Hochladen gelesen (`deu+eng`).
+
+### Added
+
+- **Auto-Update** (#1093): `services/auto_update/` (feste Quelle, Prüfsumme, Ed25519-Signatur in reinem Python, sicheres Entpacken, Manifest,
+  Selbsttest vor dem Umschalten, Stufen, Verlauf), der **Startbaustein** `bewerbungs_assistent_boot` (eingefroren, nur Standardbibliothek,
+  Rückfall im selben Prozess und nach zwei unbestätigten Starts), der **Schema-Schutz** (`services/schema_schutz.py`: ist die Datenbank neuer als
+  das Programm, schreibt der alte Prozess nicht weiter), der Hinweis, wenn Claude und Dashboard mit verschiedenen Fassungen laufen, der
+  Installer-Umbau (Versionsordner, Selbstaufräumen, Deinstaller), `scripts/build_update_archive.py` und ein Schritt im Release-Tor. Werkzeuge
+  `update_status`, `update_einstellungen_setzen`, `update_jetzt_installieren`, `update_zurueckschalten`.
+- **Speicher & Downloads** (#1131): sieben Orte, sieben Aufräum-Aktionen, Werkzeuge `speicher_anzeigen` und `speicher_bereinigen`. Die Karte
+  „Deine eigenen Ordner“ steht immer da und enthält die Eingabefelder für Ausgabe- und Vorlagen-Ordner (#1173; dieselbe Komponente und dieselbe
+  Prüfung wie unter Einstellungen › Ordner, die Seite misst nach dem Speichern neu).
+- **Prüfsumme der Komponenten** (#1152): kein Installer ohne SHA-256; die Ablehnung kommt vor dem Download.
+- **Sprachdaten der Texterkennung aus fester Fassung und mit Prüfsumme** (#1165): `deu`, `eng` und `osd` kommen nicht mehr vom wandernden Zweig `main`, sondern aus dem
+  Commit hinter dem Tag 4.1.0 von `tessdata_fast`; jede Sprache trägt eine SHA-256 in der Registry (aus genau dieser Fassung gebildet und gegen die Git-Blob-Hashes
+  der GitHub-API gegengeprüft). Ohne Summe wird nicht geladen; eine falsche Summe verwirft die Datei und sagt es; scheitert eine von mehreren Dateien, bleibt auch von
+  den anderen nichts liegen. Fehlt nur Deutsch, steht das in der Meldung der Installation.
+- **Mail-Zugangsschicht** (#947): Schalter, genaue Liste freigegebener Ordner, Prüfung im Mail-Eingang für jedes Add-on
+  (`GET /api/v1/ingest/mail-policy`, `modus=scan` bei `POST /api/v1/ingest/email`), Zahlen je Ordner; Werkzeuge `mail_quelle_anzeigen` und
+  `mail_quelle_einstellen`. Die Ingest-API v1 bleibt kompatibel: die Erweiterung ist rein additiv.
+- **Ein Weg für Treffer und Links** (#1177): `services/dashboard_link.hash_ziel` baut die eine Adressform `#seite/kennung` (für die Links, die Claude nennt, und für die
+  Treffer der Suche); `lib/wege.js` kennt `zuMail`, `zuProfil` und `zuSuchtreffer`; `sprungAusHash` liest zusätzlich `#dokumente/<id>`, `#kalender/<id>`
+  und `#profil/skills`; `GET /api/documents?doc_id=` liefert genau ein Dokument; die Sprungleiste springt beim Öffnen in einen genannten Abschnitt.
+  Gegenprobe: neuer Katalog „suche“ (23 absichtlich eingebaute Fehler: Adressen, Zuordnung, Lesestellen der Seiten).
+- **Firmen-Eintrag, Stufe 2** (#1080): Tabellen `companies`, `company_aliases`, `company_contacts` (additiv, ohne Versionssprung); die
+  Duplikat- und Repost-Erkennung kennt die Einträge (`firmen_kanon`); Kontakte gehören mehreren Firmen mit Rolle und Zeitraum; Dokumente an einer
+  Bewerbung stehen auch in der Historie der Firma; Dashboard-Ansicht mit Zeitleiste, Bearbeiten und Vorschlägen; Firmenname als Link in Stellen,
+  Bewerbungen und Kontakten; Werkzeuge `firmen_stamm_anzeigen`, `firmen_vorschlaege_anzeigen`, `firmen_stamm_bearbeiten`; `firma_oeffnen` in
+  `fit_analyse`, `bewerbung_details` und `kontakt_anzeigen`; `dashboard_link` in `firma_kontext`.
+- **Vorabversionen in der Oberfläche** (#1179): `lib/autoUpdate.js` kennt `istVorabversion`, `vorabNeu` (eine neuere Vorabversion aus der allgemeinen Prüfung, wenn die
+  feste Quelle des Auto-Updates keine kennt und sie nicht schon von Hand installiert ist) und `vorabHinweis`; die Update-Seite zeigt statt „Aktuell“ „Neue Vorabversion“
+  mit einer Karte (Erklärung, drei Schritte, „ZIP herunterladen“, „Veröffentlichung ansehen“), das Dashboard denselben Hinweis in der Hinweiszone (auch ohne verfügbares
+  Auto-Update), die Seitenleiste „Neue Vorabversion verfügbar“; „Jetzt prüfen“ fragt beide Auskünfte.
+- **Der Typ eines einzelnen Dokuments lässt sich von Hand ändern** (#1162): `services/document_handlers.typ_setzen` ist der eine Dienst für beide Wege. Erlaubt sind die
+  bekannten Typen und die beiden Vorlagen-Typen; ein Tippfehler legt keinen neuen Typ an. Nur die Einordnung wechselt, die Verknüpfung mit der Bewerbung, der Text und der
+  Analysestand bleiben. Neu: das Werkzeug `dokument_typ_setzen`, `GET /api/document-types` (Typen mit deutschen Namen) und „Typ ändern“ in der aufgeklappten
+  Dokumentenkarte; `PUT /api/document/{id}/doc-type` prüft jetzt gegen die erlaubten Typen. Danach stimmt auch die Historie der Firma (#1080): aus „sonstiges“ wird
+  „absage“, und das Dokument steht dort. Gegenprobe: Katalog „dokumenttyp“, 15 absichtlich eingebaute Fehler.
+- **Voreinstellung der Filter in der Stellenliste** (#1158 Punkt 5): im Filterfeld der Liste merkt „Als Voreinstellung speichern“ die Filter und die Sortierung, die jetzt
+  gelten. Die Voreinstellung gilt bei jedem **Öffnen von PBP** (Neuladen, Neustart), nicht beim Wechsel zwischen den Seiten; ohne sie bleibt es beim gemerkten Zustand des
+  Browsers. „Filter zurücksetzen“ zeigt weiter **alle** offenen Stellen und bleibt von ihr unberührt (die verbindliche Anforderung aus dem Issue); daneben „Zur
+  Voreinstellung“ und „Voreinstellung aufheben“. Sie liegt je Profil auf dem Server (`GET/PUT/DELETE /api/stellen-filter-standard`, Schlüssel und Typen streng geprüft;
+  Suchtext und Ansicht gehören nie dazu) und gilt damit in jedem Browser. Die erste Liste wird erst nach ihr geholt. Gegenprobe: Katalog „filtervoreinstellung“,
+  15 absichtlich eingebaute Fehler.
+- **Elwosa-Kanal „Update“** (#1180, `services/elwosa_provider.update_kandidaten`): nennt eine neue Version, sobald die allgemeine Prüfung sie findet, einmal je Version, mit
+  dem Titel der Veröffentlichung und einem Link auf die Notizen; eine Vorabversion als solche; schweigt, wenn die Version schon von Hand installiert ist. Die Prüfung
+  merkt dafür ihren Befund (`update_quelle.befund_merken`). Regelbasiert wie alle Kanäle, über `post_candidate` (Sprach-DNA, aus/Pause/Cooldown, Kind- und Inhalts-Sperre).
+- **jobtic als Browser-Quelle mit eigenem Konto** (#1189): Marktplatz für IT-Freelance-Projekte, eingebunden wie XING und StepStone — mit dem Hinweis, dass ein
+  eigenes, im Browser angemeldetes jobtic-Konto nötig ist (Abzeichen „Konto nötig“, ohne den Login-Knopf des alten Weges; neues Kennzeichen `konto_noetig`). Die
+  Nutzungsbedingungen von jobtic untersagen automatisiertes Auslesen (§ 5.2) und die Aufnahme von Kontaktdaten in fremde Datenbanken (§ 5.3); darum steht die Quelle
+  unter **Auflagen** (`services/quellen_auflagen`, Daten im Quellenverzeichnis): PBP ruft diese Seiten nie selbst ab (Anzeigentext nachladen, Auto-Nachladen,
+  Aging-Check, Qualitätsprüfung; die Auto-Engine wählt sie nicht einmal aus), übernimmt keine Ansprechpartner aus dem Lauf (`kontakt_nicht_uebernommen` im
+  Ergebnis) und setzt die Stellenart Freelance; der Auftrag an Claude nennt die Auflagen (Handstart, höchstens zwei Ergebnisseiten je Begriff, Detailseiten nur bei
+  fachlichem Treffer, Pausen). `quelle_handoff('jobtic', Begriff)` liefert die Such-URL und ein eigenes Auswerte-Skript (`job_scraper/jobtic_extraction.js`), das nur
+  die Liste der Seite liest und keine Kontaktdaten weitergibt. jobtic wird nie von selbst empfohlen; der Aktivierungsdialog sagt jetzt „ob eine taugt, entscheidest
+  du in PBP“ statt „Passende Treffer legt Claude für dich als Stelle an“. Gegenprobe: Katalog „jobtic“, 49 absichtlich eingebaute Fehler.
+- **Gegengelesen vor dem Kandidaten** (ein zweiter, unabhängiger Prüfer, neun Funde, alle am Code belegt und behoben): (1) Die Auflage „keine Kontaktdaten“
+  gilt auch für den **Text** — Mailadressen und Rufnummern werden aus der Beschreibung gestrichen (`quellen_auflagen.kontaktdaten_entfernen`, nur erkennbare
+  Schreibweisen: Tagessätze, Zeiträume und Projektnummern bleiben; Namen nennt nur die Anleitung), das Ergebnis sagt es. (2) Eine **eigene Quelle**
+  (`custom_quelle_hinzufuegen`) auf einer jobtic-Adresse gilt wie jobtic: kein Abruf im Gesundheitslauf, Handoff mit den Auflagen und dem Skript der Quelle.
+  (3) **Nur auf Wunsch** ist strukturiert lesbar (`nur_auf_wunsch`): der Auftrag des Suchlaufs („arbeite diese Quellen selbst ab“) nimmt die Quelle aus.
+  (4) Der Aufräum-Helfer des Selbsttests erbte den Arbeitsordner und hielt den entpackten Ordner fest: das Umbenennen beim Update scheiterte im ersten Versuch
+  immer, bei einem langsamen Rechner dauerhaft. (5) Ein **Platzhalter** („Nicht angegeben“) gilt nicht als Firma: zwei Projekte gleichen Titels von
+  nicht genannten Auftraggebern bleiben zwei, ähnliche Titel sind kein „Duplikat“. (6) Beim Start stand kurz „Zuerst dein Profil“ da, auch bei einem Menschen
+  mit Profil: der Anfangszustand der Seiten war „kein Profil“ statt „unbekannt“. (7) Der Bestandsnachzug füllte `max_stellen` mit Stellen, die er nie abrufen darf.
+  (8) Der Knopf „Beschreibung jetzt nachladen“ buchte das Abrufverbot als Fehlversuch. (9) Eine **0** als Jahr oder Niveau eines Skills gilt als „nicht gesetzt“
+  (sonst „ruht seit 0“); eine Adresse mit Port (`jobtic.com:443`) oder mit Anmeldenamen vor dem Host gehört zur Quelle.
+- Wiki: Seiten **Updates**, **Speicher & Downloads**, **Mail-Ordner**, **Firmen**; Abschnitt „Erweiterungen“ in den Einstellungen.
+- Gegenprobe (`scripts/mutationstest_auto_update.py`): sechzehn Kataloge, 534 absichtlich eingebaute Fehler (Auto-Update 101, Speicher 37,
+  Komponenten 6, Mail 20, Firmen 86, Wege 38, Suche 23, Vorab 28, Konsole 11, Google 33, Browser 30, jobtic 49, Skill-Stand 11, Installer 14,
+  Erste Schritte 25, Texterkennung 22); die Tests erkennen alle bis auf einen begründet gleichwertigen und zwei, die Symlink-Recht brauchen.
+  Im Katalog „Wege“ überlebte beim ersten Lauf ein Fehler (die Marke der Sprungleiste wurde nur direkt nach dem Klick geprüft, nicht nach dem
+  Scrollen); der Test wurde gehärtet, danach wird er erkannt. Im Katalog „google“ überlebte beim ersten Lauf ebenfalls ein Fehler (das Neurechnen der Punkte
+  nach dem Nachholen wurde nur zusammen mit der Entfernung geprüft); auch dieser Test wurde gehärtet.
+- **Die Ingest-API v1 ist mit 1.8.0 eingefroren** (Beta-Exit Punkt 2). `GET /api/v1/ingest/ping`, `POST /api/v1/ingest/job`, `GET /api/v1/ingest/mail-policy` und `POST /api/v1/ingest/email` bleiben, wie sie sind;
+  ein Vertragstest (`test_v18_ingest_api_v1_vertrag.py`) prüft Pfade, Methoden, Pflichtfelder und Antwortfelder als Obermenge. Neues kommt nur additiv oder als `/api/v2/` daneben.
+- **Fragen zur Bedienung, beantwortet aus Hilfe, häufigen Fragen, Wiki und Prompts** (#1233). Im Hilfe-Dialog gibt es den Reiter „Frag mich“: Du tippst eine Frage
+  wie „Wo stelle ich ein, dass sich PBP selbst aktualisiert?“ (solange noch nichts gefragt wurde, stehen vier Beispielfragen zum Anklicken da), und PBP zeigt Karten
+  mit Titel, Kurztext und Quelle — mit einem Sprung in den richtigen Reiter
+  („Öffnen: Einstellungen › Updates“), dem Link zur Wiki-Seite und, wo es einen gibt, dem Prompt zum Kopieren für Claude. Läuft die lokale KI, steht dieselbe
+  Eingabe auch unter dem Elwosa-Strom in der Seitenleiste (kompakt: erst der beste Treffer, die weiteren auf Klick). Passt nichts, sagt die Hilfe das („Dazu steht
+  nichts in der Hilfe“, bei Fragen ohne Bezug zu PBP „Dazu kann ich nur zur Bedienung von PBP etwas sagen“) und legt einen fertigen Satz für Claude zum
+  Kopieren bereit; den Satz gibt es auch unter einer sicher wirkenden Antwort („Passt das nicht?“). Die Antworten kommen aus einer Suche im Text
+  (`content/hilfe_wissen.json`, beim Release gebaut aus der eingebauten Hilfe, dem Prompt-Katalog und dem Wiki; `scripts/hilfe_wissen_bauen.py`), nicht aus einem
+  Sprachmodell: Sprünge gehen nur auf bekannte Seiten und Reiter, Links nur ins Wiki des Projekts, Prompts nur aus dem Katalog. **Deine Frage wird nicht
+  gespeichert** — nicht in der Datenbank, nicht im Protokoll, nicht im Browser — und die Suche läuft auf deinem Rechner. `release_check.py` prüft, dass die
+  Wissensbasis zu den Quellen passt; die Personenprüfung läuft schon beim Bau. Auch bei einer zu neuen Datenbank (nach einem Rückschritt auf eine ältere
+  Fassung) antwortet die Hilfe: die Frage ist ein POST, damit sie nie in einer Adresse steht, schreibt aber nichts, und der Schema-Schutz lässt sie durch.
+- **Kurzantwort der lokalen KI (Beta, standardmäßig aus)** (#1233). Unter Einstellungen › Lokale KI lässt sich einschalten, dass die lokale KI über den Karten
+  eine kurze Antwort formuliert. Sie darf nur umformulieren, was in den drei besten Abschnitten steht: die Antwort muss eine der Quellen nennen und darf keine
+  Adresse, keinen Befehl und keinen Menüpfad erfinden, sonst bleibt es bei den Karten. Zu einem unsicheren Treffer wird nie formuliert. Aus ist die Vorgabe, weil
+  die Suche auf ungesehene Fragen nicht gut genug trifft (siehe unten): ein Modell, das aus einem falschen Abschnitt eine glatte Antwort baut, wäre schlimmer
+  als eine Karte, die ihre Quelle nennt. Höchstens zwei Kurzantworten sind gleichzeitig offen; wer schneller fragt, bekommt zur späteren Frage nur die Karten.
+- **Gemessen, was die Suche kann** (#1233). 125 Fragen in Alltagssprache, in drei Gruppen: 42 beim Einstellen der Suche benutzt (richtiger Abschnitt unter den
+  ersten drei: 40, also 95 %), 41 danach angesehen (40, 98 %), 42 neu geschrieben und zum Einstellen nicht benutzt (**32, also 76 %**; als bester Treffer 26, 62 %).
+  Die Lücke liegt im Wortschatz („Word-Datei“ statt „DOCX“, „Zahl“ statt „Punkte“). Zwei Versuche, sie mit der lokalen KI zu schließen, sind nicht eingebaut:
+  die Zuordnung der KI zu überlassen (qwen2.5:7b, 86 Titel) traf auf den neuen Fragen schlechter als die Suche allein (21 gegen 32 von 42), und typische Fragen je
+  Abschnitt von ihr erzeugen zu lassen (635 Abschnitte, 14 Minuten) brachte auf den neuen Fragen einen Treffer mehr (33 gegen 32) und kostete auf den beiden anderen
+  Gruppen vier (76 gegen 80 von 83). 32 Fragen außerhalb von PBP und 14 zu PBP ohne Antwort in der Hilfe bekamen nie eine sichere Antwort. Gegenprobe: Katalog
+  „hilfe1233“, 36 absichtlich eingebaute Fehler; in der ersten Runde überlebten drei (ein Faktor für „Wo stelle ich … ein“, der auf 125 Fragen keinen Rang änderte und
+  deshalb ausgebaut ist, ein Wiki-Link und eine Schwelle ohne Test): die beiden letzten haben jetzt Tests. Dazu liefen die Kataloge der berührten Dateien
+  (Auto-Update 101 von 102 bei einem begründet gleichwertigen, Installer 45 von 45) noch einmal.
+
+### Changed
+
+- **Google Jobs über JobSpy ist als defekt gekennzeichnet** (#1159). Mit python-jobspy 1.2.0 liefert Google keine Stellen mehr („Google returned no job data“; gemessen am
+  02. und 12.10.2026: null Treffer). Die Quelle `jobspy_google` steht jetzt unter „Defekte Quellen“ mit Grund und Weg, fällt aus der gespeicherten Auswahl, wird beim Speichern
+  abgelehnt und in keinem Lauf mehr eingeplant. Die Browser-Quelle „Google Jobs (im Browser)“ behauptet nicht mehr, die automatische decke dasselbe Portal ab, und die
+  Browser-Liste nennt die defekte Schwester nicht noch einmal. Wer ausschließlich diese Quelle nutzte, findet Google weiter über den Browser.
+- **Die drei alten Werkzeugnamen entfallen** (#1148 Punkt 13): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt
+  `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`) galten seit v1.7.135 „einen Release lang“. Die Parameter sind dieselben; wer eigene
+  Anleitungen mit den alten Namen hat, ersetzt sie. Damit hat PBP drei Werkzeuge weniger; mit den drei neuen (#1162, #1184, #1187) sind es 281 Werkzeuge.
+- **Zwei Schreibweisen desselben Parameters werden verstanden** (#1148 Punkt 9, Rest): `firma`/`company`, `titel`/`title`, `dokument_id`/`document_id`,
+  `job_hash`/`stellen_hash` und `bewerbung_id`/`application_id` stehen in den Signaturen nebeneinander. Die Middleware übersetzt einen Namen, den das Werkzeug nicht kennt,
+  in den bekannten derselben Gruppe (`services/parameter_aliase`) — nie einen, den es selbst kennt, nie bei Mehrdeutigkeit, vor der Normalisierung der Kennungen.
+- **Die Zahl der Werkzeuge wird gezählt, nicht erinnert** (#1148 Punkt 4): `scripts/werkzeug_inventar.py` zählt zur Laufzeit, prüft die Wiki-Seite „MCP-Tools“
+  gegen das Inventar (`--wiki`) und ergänzt die fehlenden Werkzeuge in einem erzeugten Abschnitt (`--wiki-ergaenzen`). Docstrings und Dokumente tragen keine Zahlen mehr
+  (47, 66, 70, 177 … stimmten nirgends); README, CLAUDE.md und der neueste CHANGELOG-Eintrag werden von einem Test gegen die Laufzeitzahl gehalten.
+- **Wer „nur lesend“ heißt, schreibt nichts — oder steht mit Grund auf einer Liste** (#1148 Punkt 5, Rest): ein Test ruft jedes so markierte Werkzeug auf einer Datenbank
+  mit Profil auf und vergleicht die Datenbank davor und danach. Drei benannte Ausnahmen (der einmalige Datenschutz-Hinweis, die Standard-Kategorien der Kontakte, das
+  abgeleitete Neigungsprofil), jede mit Begründung; ein neuer Schreibzugriff fällt auf.
+- **Die sichtbare Werkzeugliste hat ein Budget** (#1148 Punkt 12): rund 200 KB (etwa 50.000 Token) liest Claude zu Beginn jedes Gesprächs; ein Test hält die Liste
+  und das größte einzelne Werkzeug gegen eine Grenze, statt dass ein neues Werkzeug mit zwei Seiten Parameterbeschreibung unbemerkt hinzukommt.
+- **Dashboard › Offen: rot ist nur, was überfällig ist** (#1174). Bisher färbte eine einzige überfällige Zeile die ganze Karte rot (Rahmen,
+  Hintergrund, Wecker-Symbol) — seit der Zusammenlegung der Listen in v1.7.31, auch in der Stable-Version. Jetzt bleibt die Karte ruhig; rot
+  sind die Überschrift „Überfällig“ und das Datum der überfälligen Zeilen. „Heute“ und „Diese Woche“ sind unverändert.
+- `kontakt_verknuepfen(ziel_typ='firma')` ordnet jetzt wirklich einer Firma zu (bisher ein Eintrag ins Leere ohne Leser) und nimmt `von` und `bis`.
+- `firma_kontext` liest über die Firmen-Einträge (Schreibweisen, Mutter- und Tochterfirma, jeder Treffer nennt `via`) und liefert die Daten über
+  dieselbe Funktion wie die Dashboard-Ansicht.
+- Die Warnung bei einer nur in den Notizen genannten Firma beginnt mit „Prüfen:“ (statt „Pruefen:“).
+- Ein zweiter Klick auf „Firmen“ (Reiter oder Seitenleiste) führt aus einer geöffneten Firma zurück in die Liste.
+- **Der erste Start ohne Profil ist ein Weg statt vier Karten** (#1170 U5 bis U7). Ohne Profil zeigen „Stellen“, „Bewerbungen“ und „Suche & Bewertung“ jetzt eine einzige Karte mit einem Knopf, „Lebenslauf hochladen“ — statt
+  Kennzahlen aus Nullen, Filtern, einer Quellenkarte und Knöpfen, die ohne Profil nichts tun können. Derselbe Knopf steht auf dem Dashboard und öffnet denselben Dialog; er heißt für das erste Profil „Dein Profil anlegen“ und
+  fragt nach deinem Namen (vorher: „Neues Profil anlegen — Lege ein weiteres Profil … an“ und „Profilname, z. B. IT Consulting“). „Suche & Bewertung“ trägt ohne Profil nicht mehr die Überschrift „Profil“.
+- **Leere Seiten sagen, was sie sind** (#1170 U8): Aufgaben nennt, woher Aufgaben kommen, „Neue Aufgabe“ sieht nicht mehr deaktiviert aus, und die Statistik zeigt ohne Stellen und Bewerbungen einen Satz statt einer
+  Wand aus Nullen.
+- **Der Schalter „Dokumentenanalyse“ sperrt auch, was Dokument- und Mailtexte liefert** (#1147 Punkt 3). Die Karte versprach „Ist ein Schalter aus, gibt PBP für diesen Bereich nichts an
+  Claude weiter“; gesperrt waren aber nur die Werkzeuge, mit denen Claude etwas auslöst (elf). `dokument_lesen` (voller Text), `emails_anzeigen` (Mailtext, Absender) und
+  `dokumente_zur_analyse` lieferten weiter — wer die Dokumentenanalyse aus Datenschutzgründen abschaltete, glaubte, seine Dokumente gingen nicht an Claude. Jetzt sind sie gesperrt und nennen den
+  Weg (Dashboard, oder den Schalter einschalten). Bewusst frei bleiben Profil, Bewerbungen und Stellen — ohne sie arbeitet fast nichts mehr; der Satz in den Einstellungen sagt das, und
+  wer gar nichts weitergeben will, trennt PBP in Claude Desktop. Je Werkzeug ein Test, in beide Richtungen.
+- **Ein Google-Treffer ohne Original wird nicht mehr angelegt** (#1184 a). Eine Karte aus Google Jobs ist eine Behauptung: vier von fünf Stellen eines Browserlaufs trugen nur Kopfdaten
+  („Volltext nicht abrufbar“) und keinen Anker. Ohne Detail-URL des Arbeitgebers UND ohne Anzeigentext legt `stelle_manuell_anlegen` die Stelle nicht an (`google_original_fehlt`), sondern gibt
+  Claude den Auftrag, das Original zu suchen — mit vorbereiteten Suchen (Karriereseite des Arbeitgebers, StepStone, XING, LinkedIn, Indeed; #1184 e), einer Prüfliste (Muttermarke gegen
+  Konzernunternehmen, Ort und Arbeitsmodell aus dem Original) und dem Folgeaufruf. `force=True` bleibt der Ausweg; mit URL oder Text allein wird weiter angelegt, unter Vorbehalt.
+- **Google-Benachrichtigungen liefern Hinweise, keine Stellen mehr** (#1184 d). Die Mail nennt nur Titel, Firma, Ort und Portal, jeder Link führt auf eine Google-Suche, und derselbe Treffer kommt
+  mit verschiedenen Orten (Mail: Hamburg, Anzeige: Köln). Daraus stand bisher eine bewertete Stelle ohne Text mitten in der Liste. Jetzt entsteht ein Hinweis: eingeklappt über der Liste der
+  Stellen (Stellen › „Hinweise aus Google-Benachrichtigungen“, mit „Original suchen“ und „Verwerfen“) und für Claude über das neue Werkzeug `stellen_hinweise_verwalten`. Derselbe Treffer in
+  mehreren Mails ist ein Hinweis, die Orte stehen nebeneinander; was schon eine Stelle ist, steht gleich als „angelegt“ da; legst du die Stelle später mit dem Original an, ist der Hinweis erledigt.
+- **Ein gemeinsamer Weg übernimmt die Ernte jeder Browser-Quelle** (#1187 Stufe 2). Bisher hatte nur LinkedIn ein Werkzeug, das mehrere Treffer auf einmal übernimmt; für StepStone, XING,
+  Indeed, Google Jobs, Heise und eigene Quellen blieb `stelle_manuell_anlegen`, Stelle für Stelle. Neu `browser_treffer_uebernehmen(quelle, treffer, dry_run=True, rohtreffer, volltexte_gelesen,
+  login_fehlt)`: derselbe Anlageweg wie `stelle_manuell_anlegen` (Blacklist, Dubletten auch gegen Bewerbungen und Aussortiertes, Anker, Auflagen der Quelle, Scoring), die Vorschau ist die
+  Vorgabe und schreibt nichts. Eine Karte ohne Volltext wird angelegt (`ohne_volltext`; `stellenbeschreibung_nachladen` ergänzt sie), ein Google-Treffer ohne Original nennt die Suche danach.
+  Ein Urteil wird nur mit gelesenem Volltext gespeichert. `aussortieren_grund` sortiert nach dem Lesen aus — mit einem Grund aus der Liste der Ablehnungsgründe und der Herkunft „von Claude“:
+  zu finden unter Stellen › Aussortiert, mit einem Klick zurückzuholen, und der nächste Lauf legt sie nicht noch einmal an. Alle Anleitungen an Claude nennen das Werkzeug.
+- **Jeder Browserlauf steht in der Auswertung der Quellen** (#1187 Stufe 2). Ein Lauf ohne eine einzige Anlage hinterließ nirgends eine Spur: weder im Trichter noch in der
+  Langzeit-Auswertung. Jetzt schreibt jeder echte Lauf — auch `linkedin_treffer_uebernehmen` — eine Zeile in `scraper_runs` (Rohtreffer, angelegt, Trichtertext), auch bei null Anlagen. Den
+  Gesundheitszustand der Quelle fasst er nicht an: „0 neu“ aus dem Browser schaltet keine Quelle ab, und ein fehlender Login ist ein eigener Befund (`wartet_auf_login`), kein Lauf.
+- **Das Dashboard sagt, was nach einem Lauf wartet** (#1187 Stufe 3). Die Karte „Stellen zu prüfen“ nennt, wie viele Stellen auf dein Urteil warten (mit Sprung in die Liste, Filter
+  „Prüfstand: nur ungeprüfte“), und wie viele Claude nach dem Lesen aussortiert hat — mit Titel, Firma, Grund und „Zurückholen“ je Zeile, ohne die Karte zu verlassen. Die Zahl folgt derselben
+  Regel wie die Liste (ohne laufende Bewerbungen, ohne Blacklist), ein Test hält beide gegeneinander. Neu `GET /api/stellen/zu-pruefen`; ohne wartende Stellen gibt es die Karte nicht.
+- **Die Seitenleiste klappt in schmalen Fenstern von selbst ein** (#1170 U15). Das Dashboard neben Claude Desktop (halbe Bildschirmbreite, rund 680 px) behielt die 240 px breite Leiste;
+  der Inhalt bekam etwa 380 px, bei 420 px blieb ein Streifen. Unter 900 px ist die Leiste jetzt ohne eigene Wahl eingeklappt (60 px, beim Daraufzeigen schwebt sie auf). Deine Wahl wird je
+  Fensterbreite gemerkt: im breiten Fenster einklappen verkleinert das schmale nicht, und eine früher gemerkte Wahl gilt im breiten Fenster weiter.
+- **Der Vorspann der Stellen-Seite ist kürzer** (#1170 U16). Bis zur ersten Stelle lagen rund 900 px. Die Karte „Diese Quellen laufen nur über den Browser“ steht nur noch, wenn du
+  Browser-Quellen gewählt hast (die „optionalen“, als defekt geführten Quellen allein waren für jede Installation da und kosteten rund 180 px; sie stehen weiter unter Einstellungen › Quellen
+  im Detail), und die vier Kennzahlen stehen ab 1024 px in einer Zeile (vorher ab 1280 px). Gemessen mit sechs Stellen: erste Stelle bei y = 730 statt 908.
+- **Die Einstellungen haben eine Navigation, und die Zahlen in der Seitenleiste nennen ihr Wort** (#1170 U17). Dieselben 16 Namen standen zweimal da — als Reiter der Seite und als Unterpunkte
+  in der Seitenleiste, die bis zum unteren Rand reichten und den Elwosa-Chat aus dem Bild schoben. Jetzt führen die Reiter der Seite (Grundlagen vorn, Erweitert dahinter, der gewählte
+  markiert); der Pfad oben nennt den Reiter. Die vier orangen Zahlen meinten Verschiedenes und erklärten sich nur per Hover: sie tragen jetzt ihr Wort (Profil „8 Lücken“, Stellen „143 aktiv“,
+  Bewerbungen „2 fällig“, Einstellungen „1 Hinweis“); der Hover-Titel nennt weiter, was genau gemeint ist.
+- **Die Kopierknöpfe sagen, was sie tun** (#1170 U10). Die Hilfe nannte den Knopf „Kopieren“, er heißt „Mit Claude“; die Meldung hieß „Anleitung kopiert“, die Hilfe-Seite „Prompts“. Jetzt steht
+  überall derselbe Name, und die Prompts-Seite sagt, dass Prompt und Anleitung dasselbe sind. „Gespräch mit Claude starten“ kopierte einen langen Text mit Werkzeugnamen und ohne Vorschau, obwohl die
+  Hilfe den Satz „Starte die Ersterfassung“ nennt: jetzt kopiert der Knopf diesen Satz (und sagt es), die ausführliche Anleitung bleibt auf Wunsch („Ausführliche Anleitung kopieren“).
+  Updates, Speicher & Downloads, Firmen und die Quellenliste haben je einen „… erklären mit Claude“-Knopf; er legt einen Auftrag in die Zwischenablage, der nichts ändert, ohne dich zu fragen.
+- **Lange Erklärtexte lassen sich einklappen** (#1170 U11). Einzelne Hinweise ließen sich schließen, die langen Erklärabsätze der Seiten nicht — wer PBP kennt, las sie bei jedem Besuch wieder.
+  Die Willkommenskarte „So arbeiten Dashboard und Claude zusammen“, der Sicherheitsabsatz bei den Updates, der Absatz zur Fahrstrecke und die Einleitung von Speicher & Downloads tragen jetzt eine
+  Überschrift als Schalter; die Wahl wird je Text gemerkt. Unter Einstellungen › Erscheinungsbild klappt der Schalter „Erklärtexte aufgeklappt zeigen“ (Vorgabe an, wie bisher) alle ein oder aus und
+  setzt die Einzelwahlen zurück. Ohne Browserspeicher bleibt alles aufgeklappt.
+- **Jede Ansicht eines Falls trägt eine feste Weg-Leiste** (#1171, Baustein 3). Stelle, Bewerbung, Kontakt und Firma zeigen oben, unter dem Titel (die Firma im festen Kopf der App), eine Leiste, die beim Scrollen stehen bleibt:
+  links der Rückweg („‹ Zurück zu …“), in der Mitte die anderen Ansichten desselben Falls — nur was es gibt, mit Anzahl; ein Klick öffnet das Objekt, bei mehreren zeigt eine kurze Auswahl die Einträge —,
+  rechts der nächste Schritt, der zum Zustand passt (Stelle: bewerten, Bewerbung anlegen, zur Bewerbung; Bewerbung je Status: Lebenslauf und Anschreiben, Nachfassen, Gespräch vorbereiten,
+  Angebot prüfen, aus der Absage lernen; Kontakt: Nachfassen bei der Person; die Firma erfindet keinen Schritt und zeigt ihre Bewerbungen, Stellen, Personen und Dokumente) mit den anderen Wegen dahinter. Die Wörter sind überall dieselben („Zur Stelle“, „Zur Bewerbung“, „Zur Firma“,
+  „Zum Kontakt“). Die Rechnung steht an einer Stelle (`lib/wegleiste.js`, mit Knoten-Test und Wächter-Test im Browser). Zwei Folgen: der Dialog ist jetzt eine Spalte aus Kopf, Leiste, scrollendem Inhalt und Fuß —
+  die Fußzeile der Timeline wurde bei kleinen Fenstern angeschnitten —, und der Hinweis „Bereits beworben“ an einer Stelle öffnet die Bewerbung (er führte nur auf die Seite).
+- **Der Rückweg führt dorthin zurück, woher du kamst** (#1171, Baustein 4). Wer aus der Bewerbung zur Stelle springt, sieht dort „‹ Zurück zu Bewerbung: …“ und landet mit einem Klick wieder in
+  der Timeline. Die Zurück-Taste der Maus (Alt+←) schließt den obersten Dialog, statt die Seite zu verlassen; wer einen Dialog selbst schließt, hinterlässt keinen toten Schritt im Verlauf.
+- **Listen zuerst: die erste Zeile jeder Liste liegt ohne Scrollen da** (#1171, Baustein 5). Vor der ersten Stelle lagen rund 900 Pixel — vier Kennzahlkacheln, ein Hinweiskasten, der
+  Suchstand, die Filter —, vor der ersten Bewerbung rund 600; der Hauptknopf der ersten Zeile lag unter der Falz. Jetzt ist der Kopf der Listen „Stellen“ und „Bewerbungen“ EINE Zeile: die
+  Zahlen in einem Satz, der eine Hinweis mit seinem Knopf, bei den Stellen der Suchstand — und ein Schalter, der die Kennzahlen und die Erklärung aufklappt (Vorgabe zu, die Wahl wird je
+  Liste im Browser gemerkt). „Zuletzt aktualisiert“ steht in der Filterkarte, die Filterkarten sind niedriger, und eine leere Zeile über den Dokumenten ist weg. Gemessen bei 1366 × 768
+  und 1920 × 1080: die erste Stelle samt ihren Knöpfen liegt bei y 404 bis 717, die erste Bewerbung samt „Timeline“ bei 483 bis 691 (vorher 500 bis 812 und 616). Ein Wächter-Test misst
+  alle fünf Listen bei beiden Größen; die Tabelle aller Wege steht in `docs/internal/wegetabelle-1171.md`.
+- **Ein Scan ohne Text nennt den Weg zur Texterkennung** (#1170 U12). Der Server meldete beim Hochladen längst, dass ein PDF nur ein Bild ist und die Texterkennung fehlt (`ocr: erforderlich`); die
+  Dokumente-Seite las das Feld nie, und wer sein erstes eingescanntes Zeugnis hochlud, bekam ein Dokument ohne Text und keinen Hinweis. Jetzt steht der Satz da, mit dem Knopf „Texterkennung
+  einrichten“ (Einstellungen › Erweiterungen); ein Fehlschlag der Texterkennung wird ehrlich genannt. Der zweite Teil von U12 — beim ersten Start fragen, wie Updates installiert werden sollen —
+  ist **bewusst nicht** gebaut: das Wort des Nutzers vom 02.10.2026 ist, dass PBP nur zusammen mit der Meldung über eine neue Version fragt, nie beim bloßen Start.
+  Die Tabelle entsteht erst beim ersten Hinweis (kein Schema-Bump) und gehört zum Bereich „Stellen“ beim Löschen.
+- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). In der Linie 1.7 hatte sie keinen automatischen Auslöser: der Knopf „Jetzt prüfen“
+  war der einzige Aufrufer, die Oberfläche versprach aber „PBP legt an und schließt ab“ und „der Rest folgt mit der Automatik“ — wer ihn nie drückte (die meisten), hatte keine
+  Nachfass-Ketten, keine ablaufenden Bewerbungen und keine nachgeladenen Anzeigentexte. Jetzt stößt der Planer die Runde einmal am Tag an (Vorgabe „Täglich“, 90 Sekunden nach dem
+  Start fällig; Einstellungen › Automatik, dort auch „Aus“ und längere Abstände), im Hintergrund und mit eigener Spur unter den Hintergrundläufen. Knopf und Planer teilen eine Sperre;
+  der letzte Lauf nennt, ob er von selbst oder per Knopf kam. In Claude: `automatik_status` und `automatik_setzen` (neu `aufraeumen_intervall_tage`, `bewerbungen_abschliessen`).
+- **Das Abschließen von Bewerbungen ist ein eigener Schalter, Vorgabe aus** (#1139): „Beim täglichen Lauf von selbst abschließen“. Es ändert den Stand einer Bewerbung — das geschieht
+  nicht über Nacht, nur weil jemand ein Update installiert hat. Der Knopf „Jetzt prüfen“ schließt weiter immer ab. Die übrigen Schritte (Erinnerungen nachlegen, Anzeigentexte nachladen,
+  Anzeigen prüfen, Mails und Dokumente einordnen) laufen von selbst, jeder mit seinen eigenen Schranken (lokale KI an, Lernen erlaubt, Quellen ohne Abruf-Erlaubnis ausgenommen).
+
+### Fixed
+
+- **LinkedIn-Daten holen schrieb an den Werkzeugen vorbei** (#1200 A1; seit v1.7.0-beta.21). Der kopierte Auftrag verlangte `PUT /api/contacts/<id>`
+  (eine Adresse des Dashboards, die Claude Desktop nicht erreicht) mit den Spaltennamen der Datenbank und legte rund 1,5 KB JavaScript in die
+  Zwischenablage. Jetzt liest Claude die Seite im angemeldeten Chrome-Tab und schreibt mit `kontakt_bearbeiten` bzw. `kontakt_anlegen` zurück (vorhandene
+  Angaben ersetzt es nur nach Rückfrage); der Dialog sagt bei einem neuen Kontakt, dass er danach ohne Speichern geschlossen wird.
+- **Vier Anleitungen für „Bewerbung erstellen“ widersprachen sich** (#1200 A2). `bewerbung_vorbereitung` exportierte den Lebenslauf vor der Bewertung und
+  nannte „Score < 70“, `auto_bewerbung` legte ohne Prüfung eine Bewerbung an („nicht unnötig fragen“), die Jobsuche bot PDF an. Jetzt verweisen alle drei
+  auf den Ablauf `bewerbung_schreiben` (prüfen, dann DOCX, keine Dublette); die Vorbereitung hält zusätzlich das Urteil zur Stelle fest.
+- **Der Absagegrund aus dem Gespräch fehlte in „Aus Absagen lernen“** (#1200 A3). Das Coaching speicherte ihn als Notiz, die Musteranalyse liest das Feld
+  `rejection_reason` — und für eine schon abgelehnte Bewerbung gab es keinen Weg dorthin außer einem zweiten Statuswechsel. Neu: `bewerbung_bearbeiten(...,
+  ablehnungsgrund=...)` trägt ihn nach, nur bei abgelehnten Bewerbungen (sonst kommt der Hinweis auf `bewerbung_status_aendern`, und nichts wird geändert).
+- **Ein einzelnes Dokument blieb nach der Analyse offen** (#1200 A4). Die Vorlage sagte „nenne die passenden PBP-Tools“; Status, Nachfrage und Abschluss
+  passierten nicht. Jetzt nennt jede Vorlage die Aufrufe zum Eintragen (Absage, Eingang, Termin, Angebot, Notiz) und schließt mit
+  `dokument_status_setzen(..., "angewendet")`. Außerdem bekam ein Dokument, das PBP schon als Absage, Eingangsbestätigung, Angebot oder Einladung erkannt
+  hatte, die allgemeine Vorlage — die Typen werden jetzt zugeordnet.
+- **Die Stellen-Seite zeigte „0 EUR“ und „0 – 0 EUR“, wenn keine Stelle ein Gehalt nennt** (#1200 B1). G61 hatte das im Dashboard behoben, die Stellen-Seite
+  rechnete mit einer eigenen Kopie weiter (`Number(null)` ist 0). Beide Kacheln kommen jetzt aus einer Funktion (`gehaltsKacheln`).
+- **Der Prompt-Wächter prüft jetzt alle Stellen, an denen ein Auftrag für Claude entsteht** (#1200 A12): auch `dashboard.py`, die Dokument-Vorlagen,
+  `services/*` und die Texte im Frontend; er meldet Werkzeuge, die es nicht gibt, und fehlende Pflichtangaben. Gefunden und behoben:
+  `dokumente_batch_analysieren(dokument_ids=...)` (den Parameter gibt es nicht), `stilarchiv_speichern(kind="cv")` ohne Text,
+  `stellen_anzeigen(beschreibung_fehlt=True)`, `profil_erstellen(plz=..., city=...)` ohne Namen, `profil_bearbeiten(bereich='projekt')` ohne Aktion und
+  `bewerbung_stellen_anzeigen` als Suche nach der Bewerbung zu einer Firma.
+- **Das Nachladen der Anzeigentexte und die Prüfung der Adressen kamen nie über die ersten Stellen hinaus** (#1139; seit v1.7.0). Beides nahm ohne Reihenfolge die ersten 24 bzw. 30
+  Kandidaten nach Zeilennummer; standen die im Backoff, wurden die übrigen nie versucht (gemessen: 30 Stellen ohne Text, 24 im Backoff, 0 versucht, 6 nie). Jetzt gilt eine feste
+  Reihenfolge — nie versuchte zuerst, dann die am längsten wartende. Der Fehlzähler verfällt nach 14 Tagen (ein Zähler aus der Zeit vor 1.8.0 ohne Zeitstempel sofort: wer seit Monaten im
+  Backoff steht, bekommt eine frische Runde), und ein Netzfehler oder „zu viele Anfragen“ zählt nicht gegen die Stelle — drei in Folge beenden die Runde, statt ohne Netz jede Stelle bis
+  zum Zeitlimit zu versuchen. Der automatische Lauf holt bis zu 16 Texte und prüft bis zu 25 Adressen je Lauf (der Knopf 8 und 10), mit Pause dazwischen.
+- **Die Texterkennung ließ sich ohne Administratorrechte nicht installieren** (PP26, Testlauf 11.10.2026; seit beta.0). Das Setup verlangte Rechte und ließ sich aus einem Programm ohne Erhöhung nicht starten (`WinError 740`); der Knopf versprach „kein Admin nötig“. Jetzt startet PBP es ohne Abfrage, sucht den Ort, an dem es „nur für mich“ installiert (`%LOCALAPPDATA%\Programs\Tesseract-OCR`), merkt ihn, lädt das deutsche Sprachpaket dorthin und entfernt alles wieder mit dem eigenen Deinstallationsprogramm des Setups (Oberfläche und Deinstaller, nur an diesem einen Ort).
+- **Der Installer ließ den entpackten Ordner leer stehen und im Temp-Ordner die Kopie seines Aufräum-Helfers und `pip.zip` (1,7 MB) liegen** (PP24, PP25; Testlauf 11.10.2026). Der Helfer starb am ersten `PermissionError` beim gehaltenen Ordner statt 200-mal zu wiederholen; `get-pip.py` arbeitet jetzt in einem eigenen, danach gelöschten Ordner.
+- Die Gefahrenzone zeigte bei „Stellen“ Markdown-Sternchen als Text.
+- Die Tesseract-Komponente wurde ohne Prüfsumme gestartet (#1152).
+- **Die Seitenleiste meldete eine neue Beta, die Update-Seite sagte „Aktuell“ und hatte keinen Knopf** (#1179; seit beta.16). Zwei Auskünfte zur selben Frage: die allgemeine
+  Prüfung (`/api/update-check`) nennt einer Beta-Installation auch neuere Betas, die feste Quelle des Auto-Updates (`/api/auto-update`) kennt nie eine Vorabversion. Die
+  Seitenleiste folgte der ersten, die Update-Seite der zweiten, und die Hinweiszone des Dashboards zeigte bei verfügbarem Auto-Update gar nichts. Jetzt sagen alle drei
+  dasselbe und zeigen den Weg (ZIP laden, Installer starten); installiert wird eine Vorabversion nie von selbst — außer auf einer Vorab-Installation mit dem Schalter „Vorabversionen automatisch“ (#1199, Vorgabe aus).
+- **Ein Klick auf einen Treffer der Suche oben tat nichts** (#1177; seit v1.7.0, auch in 1.7.154). Die Suche lieferte die Zieladresse im Format
+  `#bewerbungen?id=…`; das Dashboard liest seit H31 nur noch `#seite/kennung` und fiel bei allem anderen still auf das Dashboard zurück. Der Klick setzte
+  außerdem nur die Adresse (bei gleicher Adresse passiert dann nichts), und die Seiten Dokumente, Kalender und Profil nahmen keinen Sprung mit Kennung entgegen —
+  dasselbe traf „Zum Dokument“ in der Firmen-Zeitleiste und einen Termin ohne Bewerbung im Block „Offen“ (die Absichten `dokumentId` und `terminId` hatten
+  keinen Leser). Jetzt gehen Treffer und Links aus Claude denselben Weg, jede Seite liest ihren Sprung, die Stellen-Treffer tragen die öffentliche Kennung, und ein
+  Test verlangt zu jedem Schlüssel, den ein Weg erzeugt, einen Leser auf einer Seite.
+- **Die Seite „Stellen“ lief im Leerlauf auf Hochtouren** (#1171): sie fragte pausenlos, ob gerade eine Suche läuft — gemessen 270 bis 470 Anfragen
+  pro Sekunde und ein zu zwei Dritteln beschäftigter Hauptthread des Browsers, während niemand etwas tat (alle anderen Seiten: 0,0 %). Ursache war
+  eine Funktion in der Abhängigkeitsliste des Abfrage-Effekts (`useEffectEvent` ist bei jedem Zeichnen eine neue Funktion; jede Antwort setzt den
+  Zustand neu, der Effekt startete sich nach jeder Antwort selbst neu). Die Zeile steht seit März 2026 (v0.23.0) im Code, auch in der Stable-Version
+  v1.7.153. Nachher: 0,2 % und 0,6 Anfragen pro Sekunde. Zwei Wächter-Tests halten es fern: einer sieht jede der elf Seiten im Leerlauf an (gesund sind 1 bis 2 Anfragen in drei Sekunden), einer lässt keine neuen
+  Effekt-Ereignisse in Abhängigkeitslisten zu (`test_kein_effekt_ereignis_in_einer_abhaengigkeitsliste`); acht ältere Stellen (App, Ablegen von Dokumenten, Einrichtungsassistent) sind als Bestand benannt, bei ihnen wurde nichts Auffälliges gemessen.
+- Jede Seite lud beim Start zweimal und blendete dabei kurz die schon gezeichnete Liste aus (ein offenes Fenster ging mit, die Leseposition sprang an
+  den Anfang). In „Stellen“ und „Bewerbungen“ erscheint die Ladeanzeige nur noch beim ersten Laden; „Kalender“ zeigt sie ohnehin nur einmal; „Profil“, „Statistik“ und
+  „Einstellungen“ zeigen sie weiterhin bei jedem Laden. Der Welle-4-Test `test_g62_karte_eine_kernaussage_und_ein_menue`, der an diesem Flackern scheiterte, ist wieder stabil.
+- Was Claude schreibt, kam im offenen Fenster nicht an: das Urteil zu einer Stelle und eine Notiz in der Timeline erschienen erst nach Schließen und Öffnen.
+- Benutzernamen mit einem Zeichen außerhalb der Windows-Zeichentabelle (ł, ş, ř, griechisch, kyrillisch; Umlaute waren nie betroffen) ließen
+  mehrere Schritte scheitern (#1163): die Claude-Konfiguration und die Sicherung vor dem Update im Installer, den Selbsttest des Auto-Updates
+  und die Texterkennung (Tesseract liest Pfade in der ANSI-Tabelle). Behoben: die Ausgabe wird als UTF-8 gelesen und abgesichert, das
+  Seitenbild geht über die Standardeingabe, die Sprachdaten über den Kurzpfad. Mit Tests; die Praxisprobe auf einem solchen Rechner steht aus.
+- Eine Absage an der Bewerbung beim Vermittler fehlte in der Historie des Endkunden (#1080).
+- **Aus der Praxisprobe auf einem frischen Windows 11 (05.10.2026):**
+  - Der Reiter „Erweiterungen“ stürzte auf jedem Rechner ab, auf dem die Texterkennung noch fehlt (ein Variablenname war beim
+    Umlaut-Austausch an einer Stelle geändert worden). Ein Absturz in einem Reiter der Einstellungen lässt die anderen Reiter jetzt in Ruhe.
+  - Der Knopf „Deinstaller starten“ (Einstellungen › Gefahrenzone) öffnete unter Windows nie ein Fenster, sondern meldete „Kein Terminal
+    gefunden“ — die Flags des Prozessstarts schließen sich aus. Behoben, mit einem Test, der das Betriebssystem wirklich fragt.
+  - Der Deinstaller räumt jetzt auch die Konfiguration von Claude aus dem Microsoft Store auf (der Eintrag blieb stehen, Claude meldete danach
+    bei jedem Start einen Server ohne Programm) und schließt das Dashboard-Fenster.
+  - Der Deinstaller ließ unter Windows rund 830 MB liegen, die der Installer außerhalb von PBP geladen hat: den Browser für Quellen (Playwright, `%LOCALAPPDATA%\ms-playwright`,
+    rund 700 MB) und den Zwischenspeicher von pip (rund 125 MB) — ohne es zu erwähnen (macOS und Linux fragen). Er fragt jetzt zum Schluss, mit Ort und Größe;
+    die Vorgabe ist **Behalten**, und nur ein einzelnes „j“ löscht. Der Browser-Ordner geht ganz, von pip nur der Unterordner `Cache` (die Einstellungsdatei
+    eines anderen Programms bleibt). Dieselben Ordner nutzen andere Programme mit, deshalb im Zweifel behalten.
+  - Die Fehlermarke `[!!]` erschien in Installer und Deinstaller als `[]`: unter `EnableDelayedExpansion` verschluckt `cmd` das Paar `!!`. Betroffen waren zehn
+    Meldungen („… konnte nicht entfernt werden“ u. a.); wer einen Fehler hatte, sah nur leere Klammern vor dem Text. Maskiert; ein Test
+    verbietet die ungeschützte Schreibweise.
+  - Der Deinstaller ließ nach dem Start über den Knopf einen leeren Ordner `%LOCALAPPDATA%\BewerbungsAssistent\app` liegen (Schritt [5/7] meldete „konnte nicht
+    entfernt werden“): das neue Fenster hatte diesen Ordner als Arbeitsordner, und ein Prozess hält seinen Arbeitsordner fest. Gefunden bei der
+    Gegenprobe der Reparaturen auf demselben Rechner; das Fenster öffnet jetzt im Temp-Ordner, und die Datei verlässt den Ordner, bevor sie sich verschiebt.
+  - Weitere Funde derselben Gegenprobe, behoben:
+    - Die verschobene Kopie des Deinstallers (`PBP-Deinstaller-<Zahl>.bat`, rund 15 KB) blieb in `%TEMP%` liegen; sie räumt sich jetzt selbst weg.
+    - Der Deinstaller schrieb die Konfiguration von Claude in der Formatierung von Windows PowerShell neu (rund siebenmal so groß). Jetzt nimmt er nur den PBP-Eintrag aus dem Text (ein leeres `"mcpServers": {}` bleibt stehen, siehe Known Issues), der Rest bleibt Byte für Byte; das Ergebnis wird geprüft,
+      und wo der Text-Weg nicht passt, gilt der bisherige.
+    - Das Dashboard-Fenster zeigt nur noch Warnungen und Fehler (die Log-Datei bekommt weiter alles; `BA_CONSOLE_LEVEL=INFO` zeigt alles). Vorher
+      schoben sich Protokollzeilen in die Frage „Claude jetzt neu starten?“ und füllten den ersten Start mit Dutzenden Zeilen.
+    - Der Browser öffnet sich erst, wenn das Dashboard antwortet (auf einem frischen Rechner zeigte Chrome „Verbindung verweigert“), und nur einmal:
+      der Installer unterdrückt das Öffnen im von ihm gestarteten Fenster und öffnet selbst, nach seiner Prüfung.
+    - Am Ende jeder gelungenen Installation stand „Die Syntax für den Dateinamen, Verzeichnisnamen oder die Datenträgerbezeichnung ist falsch.“, und die
+      Einstellung zum Aufräumen des Installationsordners (nie, fragen, immer) wurde nie gelesen. `cmd` schneidet bei einem Befehl in `for /f` mit mehr als
+      zwei Anführungszeichen das erste und das letzte ab; ein zusätzliches Paar um den ganzen Befehl behebt das.
+  - Das Dashboard startete nicht, solange die Frage „Claude jetzt neu starten?“ unbeantwortet blieb; der Installer wartete umsonst und öffnete
+    „Verbindung verweigert“. Die Frage kommt jetzt erst, wenn das Dashboard läuft.
+  - Der Installer startet Claude aus dem Store am Ende (statt „nicht gefunden“); die Ausgabe enthält keine Sonderzeichen mehr, die die
+    Konsole verstümmelt.
+  - Auf den Karten der Erweiterungen und Quellen standen Kennungen aus der Planung („…(E19)“); entfernt.
+  - Das Titelbild des Wikis zeigte seit v1.7.137 eine Fehlerkarte („Dieser Bereich ist abgestürzt“); der Screenshot-Generator prüft jetzt
+    jede Aufnahme.
+- **Die Ordner für Lebensläufe, Anschreiben und Vorlagen: drei Fehler, zwei seit v1.7.59, einer seit v1.7.140 und in der Karte seit Beta 16** (#1173). (1) Die Karte „Deine eigenen Ordner“ und der
+  Hinweis in der Gefahrenzone („Bleibt: Ablageordner …“) nannten den Ordner des Nutzers nie: gespeichert wird je Profil, gelesen wurde ohne Profil, die Liste war
+  immer leer — ein Test blieb dabei grün, weil er die Einstellung auf dem anderen Weg schrieb. (2) „Zurücksetzen“ (das Feld leeren) endete im
+  Dashboard mit „HTTP 400“, nur das Werkzeug für Claude kannte den Platzhalter „-“; die Regel steht jetzt an einer Stelle (`ablage.ordner_setzen`).
+  (3) Bei einem ungültigen Pfad stand am Feld ebenfalls nur „HTTP 400“ statt der Begründung („Diesen Ordner gibt es nicht …“); die Antwort nennt den
+  Grund jetzt als `error`, und die Oberfläche liest ihn. Eingebettet steht der Satz zum verschwundenen Ordner nur noch einmal da.
+- **Beim Start ohne laufendes Claude Desktop stand ein Python-Fehler im Dashboard-Fenster** (#1182; seit v1.7.150, auch in der stabilen Version). Die Prüfung „läuft Claude
+  Desktop?“ las die Ausgabe von `tasklist` als Text mit der Standardkodierung (cp1252). Läuft Claude nicht, antwortet Windows deutsch „… Kriterien ausgeführt.“; das „ü“
+  schreibt die Konsole als Byte `0x81` (cp850), das in cp1252 nicht definiert ist — der Lese-Thread brach ab, ein `UnicodeDecodeError` stand im Fenster, und die Prüfung stimmte
+  nur zufällig. Jetzt liest sie Bytes und sucht nach dem Namen (`services/konsole.py`); die PowerShell-Aufrufe (Desktop-Pfad, Verknüpfung „Ollama beenden“, Store-Start von
+  Claude) lesen in der Kodierung der Konsole, mit Ersatzzeichen statt Abbruch (ein Desktop-Pfad mit „ü“ brach sonst ebenso ab). Ein Wächter-Test verlangt bei jedem `text=True`
+  im Quelltext eine Kodierung. Gegenprobe: Katalog „konsole“, 11 absichtlich eingebaute Fehler.
+- **Stellen aus Google Jobs behaupteten ein Arbeitsmodell und einen Ort, die nur auf Googles Karte standen** (#1184; seit `stelle_manuell_anlegen`, auch in der stabilen Version). Ein Treffer mit
+  „Beliebiger Ort, Homeoffice“ wurde als `remote` angelegt: die Entfernung fiel weg, der Rahmenscore stieg, und die Stelle — in Wahrheit rund 570 km entfernt und nur mit „mobilem Arbeiten“ —
+  wäre nach oben sortiert worden. Jetzt gelten Remote und Ort einer Google-Stelle erst, wenn das Original vorliegt (Detail-URL des Arbeitgebers und Anzeigentext, `services/google_angaben`):
+  davor entscheidet der Text über das Arbeitsmodell (sonst `unbekannt`, dieselbe Regel wie bei JobSpy, B63), und die Entfernung wird nicht aus Googles Ort gerechnet. Wird das Original mit
+  `stelle_bearbeiten` nachgetragen, holt PBP beides nach. Gegenprobe: Katalog „google“, 33 absichtlich eingebaute Fehler.
+- **Eine aussortierte Stelle wurde beim Anlegen nicht erkannt** (#1184). Die Prüfung beim Anlegen verglich nur laufende Bewerbungen und aktive Stellen, und der Textvergleich braucht einen
+  Anzeigentext, den Kopfdaten aus Google nicht haben. Jetzt steht eine aussortierte Stelle gleicher Firma und gleichen Titels — oder gleichen Titels am gleichen Ort unter anderem Firmennamen
+  (Muttermarke gegen Konzernunternehmen) — als `aussortierte_dublette` im Ergebnis, mit dem Aussortier-Grund. Die Stelle wird weiter angelegt: gemeldet, nicht geblockt.
+- **Ein Lauf über die Browser-Quellen legte keine einzige Stelle in PBP an** (#1187; seit der Browser-Suche, auch in der stabilen Version). Ein Lauf über sechs Quellen mit rund 1.300 Rohtreffern
+  endete mit 0 angelegten Stellen: Die Anleitungen ließen Claude auswählen: der Auftrag je Quelle, der Handoff einer Quelle und der Workflow-Prompt der Jobsuche sagten, „passende“ Stellen zu
+  übernehmen und Verworfenes im Chat zu melden, der LinkedIn-Plan ließ schon vorab nach Titeln aussieben, und `google_jobs_url` nannte keine Regel für Grenzfälle — die Auswahl traf Claude, der Mensch sah nur den Bericht, und der Katalogtext von `stelle_manuell_anlegen` sagte dazu „nicht für Treffer aus einer
+  Jobbörse“. Jetzt steht in jeder Anleitung dieselbe Regel (eine Fassung, `services/browser_handoff.REGEL_IM_ZWEIFEL`): im Zweifel eintragen; eine Stelle zu viel ist besser als eine zu wenig, ob sie
+  taugt, entscheidet der Mensch in PBP. Urteil und Zweifelsgrund gehen an die Stelle (`stelle_urteil_speichern`), dazu ob die Anzeige noch offen ist; schon Aussortiertes, das nach dem Lesen fachlich
+  passt, holt `stelle_reaktivieren` zurück; aussortiert wird nur Offensichtliches, mit Grund. Der Bericht im Chat ersetzt die Einträge nicht. Ein Test verlangt die Regel in jeder Anleitung, ein zweiter
+  verbietet die alte Formulierung im ganzen Quelltext.
+- **Die Vorschau der Sammelübernahme prüfte nichts** (#1187; `linkedin_treffer_uebernehmen`, Vorgabe `dry_run=True`). Sie kehrte vor jeder Prüfung zurück und meldete „alle angelegt“, wo der echte Lauf
+  Dubletten, laufende Bewerbungen oder die Blacklist abgewiesen hätte. Jetzt stellt sie dieselben Fragen wie die Anlage (Blacklist, gleiche Kennung, laufende Bewerbung, aktive und aussortierte Stellen,
+  Hinweise), schreibt aber nichts — auch kein Protokoll der Blacklist und keinen Kontakt — und zählt dieselbe Stelle, die zweimal im Aufruf steht, nur einmal. `aussortierte_dublette` erscheint jetzt auch
+  im Eintrag der Sammelübernahme und in der Zeile des Trichters („schon aussortiert“). Der Hinweis zur aussortierten Dublette lässt den Zweifel zu: gilt der Grund weiter, wird die neue Stelle mit demselben
+  Grund eingeordnet; passt sie fachlich, bleibt sie aktiv. Gegenprobe: Katalog „browser“, 30 absichtlich eingebaute Fehler.
+- **Bei jedem Skill nannte Claude nur die Spitze, nicht den Stand von heute** (#1190; seit v1.6.0, auch in der stabilen Version). `profil_zusammenfassung` gab in `skills_liste` nur `level`
+  aus — die höchste Stufe, die ein Skill je hatte. Die Oberfläche zeigt den aktuellen Stand und bei ruhenden Skills „ruht (Spitze x/5)“. Ein Skill, den jemand seit Jahrzehnten nicht mehr einsetzt,
+  ging so als Experte an eine fremde Plattform. Jetzt nennt jeder Eintrag `level_aktuell`, `level_spitze`, `ruht`, den Zeitraum (`seit`, `bis`) und `zuletzt_genutzt`; ist ein Skill beendet und kein
+  heutiges Niveau eingetragen, steht `level_aktuell` auf leer, und Claude soll nachfragen, statt die Spitze zu nehmen. Das mehrdeutige Feld `level` entfällt; der Text der Zusammenfassung und die
+  Antwort „bereits vorhanden“ sagen dasselbe. Gegenprobe: Katalog „skillstand“, 11 absichtlich eingebaute Fehler.
+- **Die Gefahrenzone zählte mitgelieferte Vorgaben als deine Daten** (#1170 U9). Eine frische Installation zeigte „Bewerbungen: 7 Datensätze — Enthält Namen und Mailadressen Dritter“; die sieben waren die mitgelieferten
+  Kontaktkategorien (ebenso „Einstellungen: 35“: Regler und Ablehnungsgründe). Gezählt wird jetzt, was du angelegt oder verstellt hast; die Vorgaben stehen als „ohne N mitgelieferte Vorgaben“ daneben und gehen beim Leeren mit.
+- **Sichtbare Texte in Umschrift** (#1170 U13): „fuer“, „einfuegen“, „Datensaetze“, „oeffnen“, „Menue“ und weitere Stellen, zusammen rund 30 (Elwosa-Chat, Einstellungen, Kontakte, Dokumente). Der Textprüfer der CI las Text neben einem
+  Ausdruck (`{n} Datensaetze`) nie und verlor hinter einem verirrten Anführungszeichen alle Zeichenketten der Datei; beides ist behoben, er findet jetzt 0 Stellen.
+- **In der Statistik lief „AUSSORTIERT“ in die Nachbarkachel** (#1170 U14).
+- **Kleinigkeiten** (#1170 U18): „Aufräumen“ ist dort nicht klickbar, wo nichts liegt; die Kopfzeile der Kontakte nennt im Reiter „Firmen“ die Firmen und trägt dort nicht die Knöpfe der Kontaktliste; die lokale KI zeigt
+  keinen rohen Fehlertext („<urlopen error timed out>“) mehr; die Firmenkarte trägt keinen Platzhaltersatz.
+- **Ein Ordnername mit Ausrufezeichen, Apostroph oder Klammer brach den Installer** (#1149 Punkt 8; seit v1.4). Das Ausrufezeichen verschwand unter der
+  verzögerten Expansion aus jedem Pfad (der Installer suchte `src` in einem Ordner, den es nicht gibt: „ZIP nicht entpackt“), ein Apostroph machte aus
+  `Expand-Archive` einen Syntaxfehler („als Administrator ausführen“), und eine Klammer wie in `PBP-1.8.0 (1)` — so legt der Browser eine zweite Kopie
+  an — beendete einen Block und ließ den Ordner liegen. Jetzt lehnt der Installer ein Ausrufezeichen am Anfang mit dem Weg („nach `C:\PBP`
+  verschieben“) ab, PowerShell bekommt Pfade über die Umgebung statt eingebettet, und in Blöcken stehen Pfade nur noch als `!VAR!`. Ein Wächter-Test
+  hält beides in allen drei Batch-Dateien fern.
+- **Das Desktop-Backup des Deinstallers scheiterte bei einem Apostroph im Benutzernamen — ohne Warnung** (#1149 Punkt 8). Der Befehl wurde zum Syntaxfehler mit
+  Exit 1, und Exit 1 heißt dort „kein Datenordner“: kein Backup, keine Warnung, und danach durfte man endgültig löschen. Die Pfade kommen jetzt über die
+  Umgebung; nur Exit 2 und höher gilt als Fehlschlag, und das Protokoll sagt nicht mehr „erstellt“, wenn nichts entstand.
+- **Der Deinstaller räumte beim Aufruf über „Apps & Features“ den Temp-Ordner aus** (#1149 Punkt 9a). Er kopiert sich dann nach `%TEMP%` und läuft von dort; „der Ordner
+  neben dem Skript“ war damit `%TEMP%` selbst, und `python\`, `install_log.txt` und `python-*-embed-amd64.zip` dort wurden gelöscht. Aufgeräumt wird nur noch, wenn das
+  Skript im entpackten PBP-Ordner liegt (nicht umgezogen und nicht in `%TEMP%`/`%TMP%`).
+- **macOS und Linux: beim Update blieb das Dashboard der alten Fassung auf dem Port** (#1149 Punkt 6 und 4). Der neue Start meldete „läuft bereits“, und der Health-Check
+  bestätigte die alte Fassung; ein fremdes Programm, das HTTP 200 liefert, galt ebenfalls als „läuft“. Beide Installer beenden vor dem Start ein laufendes `start_dashboard.py`
+  (erst höflich, nach fünf Sekunden hart — nie den Prozess, den Claude Desktop startet, nie ein fremdes Programm), fragen `/api/health` und vergleichen die Fassung: antwortet eine
+  andere, steht das da, samt dem Weg („Claude Desktop komplett beenden und neu starten“).
+- **macOS und Linux: eine kaputte Claude-Konfiguration wurde als „MCP-Eintrag war nicht vorhanden“ gemeldet** (#1149 Punkt 9d). Der Deinstaller unterscheidet jetzt „entfernt“,
+  „kein Eintrag“, „nicht lesbar“ und „nicht schreibbar“, legt vor dem Schreiben eine Sicherungskopie (`.pbp-backup`, wie unter Windows) an und schreibt über eine Zwischendatei.
+- **Zahlen und Texte** (#1149 Punkt 12): `server.json` stand auf 1.7.0 und `uv.lock` auf 1.5.7 (ohne `python-jobspy` und `pypdfium2`; entfernt — eine veraltete Sperrdatei ist
+  schlimmer als keine); das Release-Tor `release_check.py` prüft jetzt auch `frontend/package.json`, `server.json` und eine vorhandene `uv.lock` (`--fix` zieht die JSON-Dateien
+  nach); `installer/install.ps1` ist ein ehrlicher Hinweis auf `INSTALLIEREN.bat` statt eines zweiten, veralteten Installers; `docs/LIESMICH.txt` verspricht unter macOS nicht
+  mehr „du brauchst nichts zu installieren“ (Python 3.11 ist nötig); README und LIESMICH nennen die Windows-Warnung („Herausgeber nicht verifiziert“, „Weitere Informationen →
+  Trotzdem ausführen“); `err_pip` und `err_packages` sagen, was als Nächstes zu tun ist (Internet prüfen, `INSTALLIEREN.bat` nochmal starten; die Daten bleiben erhalten).
+
+- **Eine Google-Stelle umging den Schutz, wenn die Quelle anders geschrieben war** (#1201). Der Schutz aus #1184 (ein Treffer ohne Original wird nicht angelegt; Ort und Arbeitsmodell
+  der Karte gelten nicht) erkannte die Quelle nur am exakten Schlüssel `google_jobs`. „Google Jobs“, „google-jobs“ oder „Google“ legten die Stelle ohne Original und mit dem Arbeitsmodell
+  der Karte an. Alle Schreibweisen gelten jetzt als dieselbe Quelle und werden als `google_jobs` gespeichert (eine Funktion, ein Ort).
+- **Nachladen: ein verfallener Fehlzähler lebte beim nächsten Abruf wieder auf** (#1202, #1139). Der Lauf erneuerte den Zeitstempel vor dem Zählen; ein Fehlschlag nach dem Verfall setzte den
+  Zähler auf 4 statt auf 1, und ein Netzfehler hielt die Stelle im Backoff. Der verfallene Zähler wird jetzt zu Beginn des Versuchs gestrichen.
+- **Hinweise aus Alert-Mails** (#1184 d): ein Umlaut am Wortanfang oder doppelter Leerraum verhinderte, dass der Hinweis beim Anlegen der Stelle als „angelegt“ galt (#1203; SQL-`LOWER()` kürzt
+  nur ASCII — jetzt eine Normalisierung auf beiden Seiten), und Hinweise jenseits der 500 neuesten waren weder auflistbar noch über ihre Kennung erreichbar (#1205). Werkzeug und Endpunkt
+  blättern jetzt (`offset`, `gesamt`, `weitere`), die Suche liest die Zeile direkt.
+- **Die Vorschau der Browser-Übernahme zählte bei ähnlichen Titeln mehr als der Lauf** (#1204). Zwei ähnliche Titel derselben Firma in einer Übergabe: die Vorschau meldete „2 angelegt“, der Lauf
+  legte eine an und nannte die zweite „schon als aktive Stelle da“. Die Vorschau prüft jetzt mit derselben Funktion und demselben Firmen-Kanon gegen die bisher gezählten Einträge.
+- **Dokumenttyp ändern mit einem Nicht-Text ergab HTTP 500 statt 400** (#1206). Eine Zahl, Liste oder ein Objekt als Typ wird wie ein unbekannter Typ abgelehnt, mit der Liste der erlaubten Typen.
+- **Windows: ein Ausrufezeichen im Profilpfad ging verloren** (#1207). Der Installer prüfte nur den Startordner; `%LOCALAPPDATA%`, `%TEMP%` und `%USERPROFILE%` verloren das Zeichen unter der
+  verzögerten Expansion, und der Installer rechnete mit einem Ordner, den es nicht gibt. Installer und Deinstaller prüfen jetzt alle drei Orte, bevor sie etwas ändern, und brechen mit
+  einem klaren Satz ab (der Deinstaller nennt dazu den Handgriff).
+- **Weg-Leiste der Stelle: bei ausgeblendeten Stellen fehlte der Prüfstand** (#1208). Der Hauptknopf sagte „Stelle bewerten“ statt „Bewerbung anlegen“, weil die Liste „Aussortiert“ ihn nicht
+  rechnet. Der Dialog holt ihn einmal einzeln vom Server (der Server entscheidet, nicht die Oberfläche).
+- **Die Zurück-Taste bei geänderter Eingabe in einem Dialog fror die Seite ein** (#1210; seit beta.17). Alt+← oder die Zurück-Taste der Maus bei einem halb ausgefüllten Dialog (Notiz in der
+  Timeline, „Bewerbung anlegen“) ließ eine Schleife endlos laufen: die Seite antwortete nicht mehr, und der Browser beendete nach rund 100 Sekunden den Tab. Jetzt erscheint die Rückfrage
+  „Deine Eingaben sind noch nicht gespeichert. Verwerfen?“, und „Weiter bearbeiten“ behält Dialog und Eingabe.
+- **Die Stellen-Seite kannte nur die 30 jüngsten Bewerbungen** (#1211). „Zur Bewerbung“ in der Weg-Leiste, das Abzeichen „Bereits beworben“ und der Zähler fehlten für ältere; die Leiste legte eine
+  zweite Bewerbung nahe. Die Seite kennt jetzt alle nicht archivierten Bewerbungen.
+- **Eine Stelle, die aus einer Bewerbung aufging, bot „Bewerbung anlegen“ an** (#1212) und schloss damit nur den Dialog. Der Dialog kennt jetzt die Bewerbung, aus der er aufging: der Hauptknopf
+  heißt „Zur Bewerbung“ und führt dorthin zurück.
+- **Escape schloss bei offenem Menü der Weg-Leiste den ganzen Dialog** (#1213). Escape schließt zuerst das Menü (der Fokus kehrt zum Auslöser zurück), ein zweites den Dialog.
+- **Der Pfad oben verlor den Reiter der Einstellungen**, wenn man die Seite in der Seitenleiste erneut anklickte (#1214). Nur ein Seitenwechsel setzt den Pfad zurück.
+- **Nach einem Sprung aus einem Dialog blieb ein toter Schritt im Verlauf** (#1215): die Zurück-Taste tat einmal nichts Sichtbares. Der Verlaufseintrag des Dialogs wird zum Eintrag des Ziels.
+- **macOS und Linux: der Installer** (#1216–#1220, #1149): `$PYTHON` stand ohne Anführungszeichen — ein Leerzeichen im Ordnernamen (`PBP-1.8.0 2`, so legt macOS einen zweiten Download an) beendete die
+  Installation ohne ein Wort (#1216); der Funktionstest öffnete über den Import des Servers die ECHTE Datenbank, bevor er auf ein Temp-Verzeichnis umbog (#1217); die Prozesssuche traf jedes
+  `start_dashboard.py` und jeden Testlauf, der den Namen als Argument trägt — jetzt bleibt ein nachweislich fremdes Skript unberührt (#1218); der Schluss sagte „abgeschlossen“ trotz
+  stehengebliebenem MCP-Eintrag, der Fehlerzweig nach `_setup_claude.py` war unter `set -e` unerreichbar, ein gescheitertes `pip --upgrade pip` beendete den Installer lautlos, das Windows-Aufräumen
+  versprach das Löschen ohne den Exit-Code zu lesen, `ja` galt nicht als Ja, und eine ersetzte, unlesbare Claude-Konfiguration stand nur mitten im Ablauf (#1219); und ohne lesbare Fassung galt jede
+  antwortende Fassung als „ok“ (#1220).
+- **Die Texte zu Vorabversionen widersprachen dem Schalter „Vorabversionen automatisch“** (#1221). Auf einer Vorab-Installation sagen Karte, Hinweis, Erklärung, Hilfe und Elwosa jetzt, was seit
+  #1199 gilt (Schalter an: nächste Vorabversion derselben Linie von selbst; Schalter aus: nur auf Wunsch). Auf einer stabilen Installation bleibt „nie von selbst“ — das stimmt weiter.
+
+- **Das Auto-Update für Vorabversionen installierte die gefundene Vorabversion nicht** (#1222; seit rc.3, #1199). Der Schalter „Vorabversionen
+  automatisch“ machte eine Vorabversion zum Kandidaten, und die Prüfung meldete „neu“ — aber der Start der Installation, ihre Vorbedingung und das
+  Manifest kannten nur stabile Fassungen: „Jetzt installieren“ scheiterte mit „Vorabversionen werden nie automatisch installiert“. Jetzt gilt an
+  allen drei Stellen dieselbe Regel wie bei der Auswahl (Schalter an UND selbst eine Vorabversion, nie ein Linienwechsel; Prüfsumme, Signatur und
+  Selbsttest wie immer), und der Archiv-Bauer prüft auch das Manifest einer Vorabversion mit dem Leser der Installation. Ein Test fährt den Weg
+  rc.3 → rc.4 mit einem echten Archiv bis zur Umschaltung; der Beweis im Betrieb steht noch aus.
+- **Windows: der Deinstaller endete nach der Backup-Frage** (#1224; Fund des dritten Laufs auf dem Werkstatt-PC, nur in den Vorabversionen). Zwei
+  Kommentarzeilen mit Klammern im Block der Backup-Frage (#1149) ließen `cmd` den Stapel beim Lesen abbrechen: das Fenster schloss sich, und die
+  Fragen nach den Bewerbungsdaten und nach den rund 830 MB Zusatzdateien kamen nicht mehr. Die Kommentare stehen jetzt außerhalb des Blocks;
+  ein Wächter prüft alle `.bat`-Dateien auf Klammern in Kommentaren innerhalb von Blöcken, und ein Test führt den Abschnitt mit echtem `cmd` aus.
+- **Die Update-Seite zeigte „Aktuell“, obwohl die Prüfung keine Antwort bekam** (#1225; Fund des dritten Laufs, nur in den Vorabversionen). Das Etikett hing nur an
+  „keine neue Version“ und „kein Neustart“; darunter stand „Die Verbindung zu GitHub hat nicht geklappt“, die Seitenleiste sagte „Update-Stand unbekannt“.
+  Jetzt steht „Aktuell“ nur mit einer Antwort der Quelle, sonst „Stand unbekannt“.
+- **„Vorabversionen automatisch“: nach dem Einschalten nannte die Karte einen falschen Grund** (#1226; Fund des dritten Laufs, nur in den Vorabversionen). Das gemerkte
+  Prüfergebnis kannte den Stand des Schalters nicht, und die Karte sagte „PBP wechselt die Versionslinie nie von selbst“, obwohl dieselbe Vorabversion nach
+  „Jetzt prüfen“ mit „Jetzt installieren“ kam. Jetzt trägt das Ergebnis den Stand des Schalters, das Umschalten prüft sofort neu (Dashboard und Werkzeug), eine
+  mit Schalter gefundene Vorabversion steht nach dem Ausschalten nicht mehr als „neu“ da, und solange die letzte Prüfung den Schalter nicht kannte, sagt die
+  Karte „steht erst nach der nächsten Prüfung fest — klicke auf „Jetzt prüfen““ statt eines Satzes, den sie nicht belegen kann.
+- **Ohne Ollama kostete die Abfrage der lokalen KI unter Windows vier Sekunden** (#1227; Fund des dritten Laufs, betrifft auch ältere Versionen). Die Seite
+  „Erweiterungen“ lud rund 6 Sekunden: die Firewall des Rechners beantwortete Verbindungen zu einem geschlossenen Port der Schleife nicht, und die Abfrage
+  wartete je Adresse (`::1` und `127.0.0.1`) volle 2 Sekunden — im Handler, der den ganzen Server anhielt. Jetzt fragt eine kurze Verbindungsprobe (je
+  höchstens 0,5 s), die Abfrage geht an die Adresse, die annimmt, und der Handler läuft im Threadpool. Ein laufendes Ollama wird wie bisher erkannt (IPv4 und IPv6).
+- **Windows „Apps & Features“ zeigte nach einem Auto-Update die alte Fassung** (#1228; Fund des dritten Laufs, nur in den Vorabversionen). `DisplayVersion` schrieb nur
+  der Installer. Jetzt gleicht PBP den Eintrag beim Start mit der laufenden Fassung ab — nur einen vorhandenen Eintrag, nur diesen Wert, nur wenn er auf den
+  laufenden Programmordner zeigt.
+- **Texte schickten nach „Stellen › Ausgeblendet“, der Reiter heißt „Aussortiert“** (#1260; betrifft auch 1.7). Die Karte „Stellen zu prüfen“,
+  der Hinweis nach der Jobsuche, die Blacklist im Profil, die Einstellungen der Auto-Aussortierung, die Hinweiskarte im Reiter und zwei Antworten an
+  Claude nannten einen Reiter, den es nicht gibt. Jetzt heißt es überall „Stellen › Aussortiert“; ein Test hält die Texte und das gebaute Dashboard
+  gegen die Beschriftung des Reiters.
+- **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur in den Vorabversionen, seit rc.4).
+  Wer im Reiter „Frag mich“ etwas eintippte und den Dialog schloss, bekam die Rückfrage für ungespeicherte Formulare — obwohl der Reiter selbst sagt, dass die
+  Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
+  Formular (neuer Kontakt, Notizen) fragen weiter.
+- **„Beim nächsten Start nutzen“ für eine neuere installierte Fassung hieß „Zurückgeschaltet“** (#1229; Fund des dritten Laufs, nur in den Vorabversionen). Verlauf und
+  Rückfrage kannten nur den Rückweg. Jetzt steht beim Schritt nach vorn „Umgeschaltet“, die Rückfrage nennt die Richtung, und die ausdrückliche Wahl hebt die
+  Zurücknahme dieser Fassung auf.
+- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur in den Vorabversionen). „Jetzt installieren“
+  und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
+  „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
+  installieren (erst ab rc.4 behoben); wer rc.3 nutzt, installiert rc.4 einmal von Hand.
+- **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betraf auch 1.7, dort in v1.7.158 behoben). Eine neue
+  Stelle bekam „diese Bewerbung nennt Firma F als Endkunden“, weil F nur als Partner im Notiztext stand, und das Nachtragen des Endkunden half der Stelle nicht.
+  Jetzt ist ein eingetragenes Feld „Endkunde“ maßgeblich (nennt es eine andere Firma, gibt es keine Warnung), ein Treffer nur im Freitext steht als offene
+  Vermutung da („ob es der Endkunde ist, bleibt offen“), und der Hinweis nennt den eingetragenen Vermittler. Das gilt für Stellenliste, Analyse, Firmen-Kontext
+  und die Anlage von Hand.
+- **PII-Prüfer: ein Platzhalter mit Umlaut galt als echte Firma** (#1231; nur das Prüfwerkzeug im Repository, keine Wirkung auf die
+  Anwendung). `scripts/scrub_pii.py` verglich eine Firmenangabe mit `FIKTIVE_FIRMEN` nur in der Schreibweise der Liste: ein Beitrag, der
+  denselben Platzhalter mit „ü“ schrieb, bekam einen Firmentreffer. Jetzt gelten beide Schreibweisen (Text und Liste werden in Umschrift
+  verglichen); eine ähnliche echte Firma bleibt ein Treffer.
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betraf auch 1.7 seit 1.7.142, dort in v1.7.158 behoben; Folge von #1123). `bewerbung_notiz`
+  behandelte JEDE Notiz als Kontakt mit dem Arbeitgeber: wer eine Bewerbung anlegte (das legt den 21-Tage-Nachfass an) und gleich danach eine
+  interne Notiz ergänzte, verlor die Erinnerung nach Minuten, und die Antwort sagte „erledigt“, obwohl `hinfaellig` gespeichert wurde. In einem
+  echten Bestand waren zwei von drei Schließungen durch Notizen zu Unrecht. Jetzt hat `bewerbung_notiz` den Parameter `art`: `intern`
+  (Vorgabe) lässt die Erinnerung stehen, `kontakt` macht sie hinfällig (wie bisher), `nachfrage` setzt sie auf `erledigt`; eine unbekannte Art
+  wird abgewiesen, bevor etwas geschrieben wird. Die Antwort nennt den gespeicherten Zustand (`nachfassung_hinfaellig`,
+  `nachfassung_erledigt`) und den Weg zurück (`nachfass_planen`); dasselbe Feld nennt der verschobene Termin. Die Anleitungen (Mail des
+  Arbeitgebers, Projekt-Update, Gesprächsfeedback, Vermittler-Korrespondenz, Gesprächsprotokoll aus der Rückführung) nennen `art="kontakt"`.
+  Alte, zu Unrecht geschlossene Erinnerungen werden nicht von allein geöffnet: das entscheidet der Mensch je Fall.
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betraf auch 1.7, dort in v1.7.159 behoben). Zwei Stellen derselben
+  Firma, die aus der Liste gingen, weil du dich beworben hast (`bewerbung_erstellt` ist das Gegenteil einer Ablehnung), zählten als „zweimal
+  aussortiert“: eine gelesene, empfohlene Stelle stand in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei
+  `nur_empfohlen` ganz heraus. Auch die Automatik nach einer Suche hätte so eine Stelle ohne Rückfrage aussortiert
+  (`auto:bewerbung_erstellt:wiedergaenger`). Jetzt zählen nur Gründe, die ein Urteil über die Passung sind: `bewerbung_erstellt`,
+  `bereits_beworben`, `duplikat` und `veraltet_url` zählen nie (eine Liste, `ablehnungsgruende.KEIN_URTEIL_GRUENDE`, für Wiedergänger,
+  Firmen-Historie und Automatik). Die Stellenliste macht nur noch aus einem fachlichen Grund ein k.o. und fragt dafür dieselbe Funktion wie die
+  Analyse (`wiedergaenger.ist_fachlicher_ko`); ein anderes Muster steht als Hinweis (`wiedergaenger_hinweis`), nicht als Urteil. Liegt ein
+  gelesenes Urteil vor, steht es neben dem k.o. (`empfehlung.gelesene_analyse`); das k.o. schlägt es weiter (#671). Dazu: „Head of …“,
+  „Chief …“ und „Director …“ sind Rollenwörter und kein Fachgebiet — zwei Head-of-Stellen derselben Firma waren Wiedergänger, nur weil
+  beide „head“ heißen.
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betraf auch 1.7, dort in v1.7.159 behoben). Eine Stelle in „Rosengarten“ stand mit 24
+  statt rund 500 km als nah in der Liste: den Namen gibt es mehrfach, und PBP nahm den Treffer mit dem höchsten Gewicht, ohne es zu sagen. Jetzt
+  fragt PBP bis zu acht Treffer ab. Liegt ein zweiter Ort desselben Namens mehr als 50 km entfernt und wiegt fast so viel (Abstand unter 0,10;
+  Frankfurt, Halle oder Offenbach haben einen klaren Spitzenreiter und bleiben aufgelöst), ist der Ort mehrdeutig: keine Entfernung statt einer
+  geratenen, und `herkunft.entfernung` nennt den Grund samt den Orten. Nennt die Anzeige direkt hinter dem Namen eine PLZ („74538 Rosengarten“)
+  oder ein Bundesland, wird damit noch einmal gefragt; ein Ort mit PLZ („21224 Rosengarten“) war schon immer eindeutig. Ein mehrdeutiger
+  Wohnort wird als solcher benannt („ergänze die PLZ“) statt als „nicht aufgelöst“. Der Bestand wird nachgeprüft: beim Nachholen nach einer
+  Suche fragt PBP je Lauf bis zu 40 Orte ohne PLZ neu (Zeilen des Ortsspeichers aus früheren Fassungen gelten als ungeprüft; große Städte und
+  von Hand gesetzte Entfernungen bleiben unberührt). Was die Anzeige klärt, bekommt eine Entfernung, der Rest steht auf „unbekannt“ und nicht
+  mehr als „nah“.
+- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betraf auch 1.7, dort in v1.7.159 behoben). Was unter `env` des Eintrags
+  `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
+  (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
+  v1.7.145. Jetzt gilt für alle Schreiber dieselbe Regel (wie `_setup_claude.eintrag_bauen`): Was im bisherigen `env` steht, bleibt; `BA_DATA_DIR` wird nur gesetzt,
+  wenn keiner da ist; `PYTHONPATH` folgt immer der Installation. Ein Test listet alle Dateien, die den Server-Block der Konfiguration anfassen, und schlägt bei
+  jeder unbekannten an.
+- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betraf auch 1.7, dort in v1.7.159 behoben). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
+  festen Jahreszahl; ab dem 01.01.2027 hätte bei jeder laufenden Stelle ein Jahr gefehlt (die Karrierestufe der Auto-Aussortierung wäre an den Grenzen 4/5 und
+  9/10 Jahre zu spät gekippt, die Jahre Berufserfahrung in der Recruiter-Wertung zu kurz ausgefallen). Jetzt rechnen alle drei mit der Uhr (`services/uhr.heute()`),
+  die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
+  ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
+  stand.
+- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betraf auch 1.7, dort in v1.7.159 behoben). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
+  `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
+  Installer schrieb dorthin, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie; das Dashboard sagte richtig „nicht verbunden“. Jetzt kennt
+  `_setup_claude.py` den neuen Ordner, schreibt in jede gefundene Datei und liest den Eintrag danach zurück: „geschrieben“ zählt nur, wenn er in der Datei
+  steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
+  „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
+  führt den Installer einfach noch einmal aus.
+- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betraf auch 1.7, dort in v1.7.159 behoben). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
+  Fassung (andere Modelle, ein einziger Logger, neue Abhängigkeiten); PBP verlangte aber nur `>=1.2`. Jede frische Installation und jeder Installer-Lauf zog sie, und
+  sechs Prüfungen gegen die Bibliothek schlugen fehl. Jetzt gilt `python-jobspy>=1.2,<1.4` in `pyproject.toml` und im Installer; ein Installer-Lauf setzt ein bereits
+  gezogenes 1.4.0 auf 1.3 zurück. Die Übernahme von 1.4 ist ein eigenes Vorhaben.
+- **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur in den Vorabversionen, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
+- **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch 1.7). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
+- **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch 1.7). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
+- **Die Automatik sortierte Stellen aus, die du zurückgeholt hattest oder die gelesen und empfohlen waren** (#1250; betrifft auch 1.7). Vier Fehler,
+  gefunden beim Abgleich der aktiven Stellen: (1) die lokale KI nahm eine Stelle drei Tage nach dem Zurückholen wieder weg, obwohl ein Urteil
+  BEDINGT an ihr hing — ihr Filter fragte nur den Aussortiergrund, und den löscht das Zurückholen; (2) von drei Kopien derselben Anzeige blieb keine
+  aktiv, die Kopie mit Volltext und Urteil EMPFOHLEN fiel mit der KI-Begründung „Grund: duplikat“; (3) die Wiedergänger-Regel „nach Fachgebiet“
+  vererbte `befristet` über das Titelwort „data“ an eine unbefristete Anzeige und `falsches_system` über „mdm“; (4) diese Stelle hatte 0 Zeichen
+  Anzeigentext (nachgeladen: SAP-Umfeld, Score von 26 auf 58). Jetzt gilt EINE Regel für jede Automatik (`services/aussortier_schutz.py`, im
+  Nadelöhr `dismiss_job` durchgesetzt): eine Stelle, die du zurückgeholt oder als passend markiert hast (neu: `zurueckgeholt_am`, übersteht jeden
+  Suchlauf; dein eigenes Aussortieren löscht ihn), oder mit Urteil EMPFOHLEN/BEDINGT sortiert keine Automatik aus — außer die Anzeige ist entfernt
+  oder du hast dich beworben. Die KI bekommt solche Stellen nicht vorgelegt, ihre Antwort nennt sie, und eine KI-Begründung „Dublette“ zählt als
+  unsicher. Beim Speichern bleibt genau eine Kopie aktiv; fehlt ihr der Anzeigentext und bringt die Dublette einen, übernimmt sie ihn (samt
+  Neubewertung), und ein späterer Lauf ohne Text löscht einen vorhandenen nicht mehr. Eine Dublette trägt ihre eigene Notiz, nicht die einer
+  vorher greifenden Automatik. Nach Fachgebiet wandern nur noch `falsches_fachgebiet` und `falsche_branche`; ohne Anzeigentext sortiert die
+  Wiedergänger-Automatik nach Fachgebiet nicht aus, bei derselben Firma nicht aus einem Grund, den nur der Text belegt (Fachgebiet, System, Stufe,
+  Abschluss). Die Stelle wird angelegt, der Suchlauf zählt sie („wie frühere Wiedergänger, aber ohne Anzeigentext behalten“). Bereits falsch
+  vererbte Gründe findet `automatik_uebertragungen_pruefen` und holt sie auf Wunsch zurück (auf einer Kopie eines echten Bestands: 332 von 725
+  Wiedergänger-Aussortierungen, am häufigsten `zu_junior`). Zurückholen vor diesem Vermerk kennt PBP nicht; dort schützt nur ein gespeichertes
+  Urteil. 49 Testfälle, 33 auf dem Ausgangsstand rot; Gegenprobe `automatik1250`.
+
+### Known Issues
+
+- Verlorener Schlüssel: Geht der Hauptschlüssel zum Signieren verloren, kann ein mit dem Notfallschlüssel signiertes Update einen neuen eintragen; geht auch der Notfallschlüssel verloren, braucht es eine Installation von Hand.
+- Auto-Update nur unter Windows.
+- Nach der Deinstallation bleiben im klassischen Konfigurationsordner von Claude und im Paketordner der Store-App je eine Datei mit leerem `mcpServers` samt Sicherungskopie, die Store-Konfiguration behält `"mcpServers": {}`, und im Temp-Ordner liegt die Selbstkopie des Deinstallationsprogramms von Tesseract (PP27 bis PP29; harmlos).
+- Ein Add-on für den Ordner-Scan fehlt noch (Outlook-Add-In #480 offen).
+- Die Suche der Hilfe findet auf Fragen in Alltagssprache, die sie noch nie gesehen hat, den richtigen Abschnitt in rund drei von vier Fällen unter den ersten drei
+  (#1233). Die Karte nennt immer ihre Quelle, und unter jeder Antwort steht der Satz für Claude; die Wissensbasis wird mit jedem Release neu gebaut.
+- Alte Entfernungen zu Orten, die es mehrfach gibt, werden über mehrere Suchläufe geprüft (#1235): je Lauf höchstens 40 Orte ohne PLZ. Bis ein Ort
+  an der Reihe war, steht an seinen Stellen noch die alte Zahl.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9814 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-rc.5] - 23.10.2026 — Der Installer findet die Konfiguration von Claude (Release-Kandidat)
+
+<!-- anwender -->
+Korrekturen gegenüber der letzten Vorabversion. Wichtig für alle, die Claude Desktop aus dem Microsoft Store nutzen: PBP trägt sich jetzt dort ein, wo die aktuelle Store-Fassung von Claude nachsieht (bisher meldete der Installer „fertig“, und Claude zeigte PBP trotzdem nicht). Neue Installationen holen außerdem wieder die bekannte Fassung der Jobbörsen-Bibliothek JobSpy statt der neuesten, die PBP nicht kennt. In der Seitenleiste scrollst du jetzt in einem Bereich: Elwosas Nachrichten und die Antworten der Hilfe stehen hintereinander, und „N neu“ meldet sich verlässlich. Die Auto-Aussortierung lernt nur noch aus dem, was du selbst aussortiert hast. Dazu: Die Update-Seite nennt bei einer abgelehnten Aktion den Grund statt nur „HTTP 400“, der Hilfe-Dialog fragt nach einer getippten Frage nicht mehr nach „ungespeicherten Eingaben“, der Installer behält, was du in der Konfiguration von Claude beim PBP-Eintrag ergänzt hast, und eine laufende Stelle zählt für deine Berufserfahrung bis heute.
+<!-- /anwender -->
+
+Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus neun Korrekturen aus dem vierten Lauf auf dem Werkstatt-PC, den Hotfix-Rückführungen, der neuen Fassung von JobSpy und zwei Folgeaufträgen zur Seitenleiste; sechs davon betreffen auch die stabile Linie 1.7 (#1237, #1238, #1239, #1245, #1252, #1256).
+
+**Wichtig zu wissen:**
+
+- **Von rc.4 aus:** Ist „Vorabversionen automatisch“ eingeschaltet (Einstellungen › Erweitert › Updates), bietet PBP rc.5 von selbst an; sonst wie gewohnt das ZIP laden und `INSTALLIEREN.bat` darüber starten. Von rc.3 aus bleibt der Weg von Hand (der Fehler #1222 ist erst ab rc.4 behoben).
+- **Claude Desktop aus dem Microsoft Store:** Zeigt Claude PBP bisher nicht, den Installer von rc.5 einmal ausführen und Claude danach komplett beenden und neu starten. Die Konfiguration, die Claude liest, liegt bei der aktuellen Store-Fassung unter `%LOCALAPPDATA%\Claude-Data\claude_…\`; der Installer findet sie jetzt selbst.
+- **Wer PBP seit dem 19.10.2026 neu installiert hat,** hat womöglich JobSpy 1.4.0, das PBP nicht kennt. Der Installer von rc.5 setzt auf die Fassung 1.3 zurück; von Hand geht es in der Eingabeaufforderung mit `"%LOCALAPPDATA%\BewerbungsAssistent\app\python\python.exe" -m pip install "python-jobspy<1.4"` (macOS und Linux, im PBP-Ordner: `.venv/bin/python -m pip install "python-jobspy<1.4"`).
+
+### Fixed
+
+- **Der Installer trug PBP in Dateien ein, die die aktuelle Store-Fassung von Claude nicht liest** (#1245; Fund des vierten Werkstatt-PC-Laufs, betrifft auch
+  Stable). Claude Desktop aus dem Microsoft Store (Paketversion 2.42304) liest seine Konfiguration aus
+  `%LOCALAPPDATA%\Claude-Data\claude_<Paketkennung>\claude_desktop_config.json`, nicht mehr aus `%APPDATA%\Claude` oder dem Paketordner unter `Packages`. Der
+  Installer schrieb dorthin, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie; das Dashboard sagte richtig „nicht verbunden“. Jetzt kennt
+  `_setup_claude.py` den neuen Ordner, schreibt in jede gefundene Datei und liest den Eintrag danach zurück: „geschrieben“ zählt nur, wenn er in der Datei
+  steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
+  „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
+  führt den Installer einfach noch einmal aus.
+- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betrifft auch Stable). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
+  Fassung (andere Modelle, ein einziger Logger, neue Abhängigkeiten); PBP verlangte aber nur `>=1.2`. Jede frische Installation und jeder Installer-Lauf zog sie, und
+  sechs Prüfungen gegen die Bibliothek schlugen fehl. Jetzt gilt `python-jobspy>=1.2,<1.4` in `pyproject.toml` und im Installer; ein Installer-Lauf setzt ein bereits
+  gezogenes 1.4.0 auf 1.3 zurück. Die Übernahme von 1.4 ist ein eigenes Vorhaben.
+- **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betrifft auch Stable). Was unter `env` des Eintrags
+  `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
+  (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
+  v1.7.145. Jetzt gilt für alle Schreiber dieselbe Regel (wie `_setup_claude.eintrag_bauen`): Was im bisherigen `env` steht, bleibt; `BA_DATA_DIR` wird nur gesetzt,
+  wenn keiner da ist; `PYTHONPATH` folgt immer der Installation. Ein Test listet alle Dateien, die den Server-Block der Konfiguration anfassen, und schlägt bei
+  jeder unbekannten an.
+- **Eine laufende Stelle zählt bis heute, nicht bis 2026** (#1237; betrifft auch Stable). Bei einer Stelle ohne Enddatum rechnete PBP an drei Stellen bis zu einer
+  festen Jahreszahl; ab dem 01.01.2027 hätte bei jeder laufenden Stelle ein Jahr gefehlt (die Karrierestufe der Auto-Aussortierung wäre an den Grenzen 4/5 und
+  9/10 Jahre zu spät gekippt, die Jahre Berufserfahrung in der Recruiter-Wertung zu kurz ausgefallen). Jetzt rechnen alle drei mit der Uhr (`services/uhr.heute()`),
+  die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
+  ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
+  stand.
+- **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur im Kandidaten, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
+- **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch Stable). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
+- **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch Stable). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
+- **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur im Kandidaten). „Jetzt installieren“
+  und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
+  „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
+  installieren (erst ab rc.4 behoben); wer rc.3 nutzt, installiert rc.4 einmal von Hand.
+- **Der Hilfe-Dialog fragte nach einer getippten Frage „Deine Eingaben sind noch nicht gespeichert“** (#1247; Fund des vierten Laufs, nur im Kandidaten, seit rc.4).
+  Wer im Reiter „Frag mich“ etwas eintippte und den Dialog schloss, bekam die Rückfrage für ungespeicherte Formulare — obwohl der Reiter selbst sagt, dass die
+  Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
+  Formular (neuer Kontakt, Notizen) fragen weiter.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9761 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.5.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.5.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.5 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.5` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.0-rc.4] - 16.10.2026 — Die Hilfe beantwortet Fragen zur Bedienung (Release-Kandidat)
+
+<!-- anwender -->
+Neu: Du kannst PBP fragen, wie etwas geht. Im Hilfe-Dialog (das Fragezeichen oben im Fenster) gibt es den Reiter „Frag mich“: Du tippst eine Frage in eigenen Worten, und PBP zeigt dir, wo es steht — mit einem Sprung in die richtige Einstellung, dem Link zur Wiki-Seite und, wo es passt, einem fertigen Text für Claude. Deine Frage wird nirgends gespeichert. Seit der letzten Vorabversion ist außerdem viel Feinschliff dazugekommen: jede Ansicht führt in einem Klick weiter und zurück, Listen beginnen ohne Scrollen, die Browser-Suche übernimmt ihre Ernte in einem Zug, die Aufräum-Runde läuft einmal am Tag von selbst, und der Installer kommt mit Sonderzeichen in Ordnernamen zurecht.
+<!-- /anwender -->
+
+Vierter Release-Kandidat für 1.8.0 — der Stand, aus dem 1.8.0 werden soll. Gegenüber `1.8.0-rc.3` kommt viel dazu: die Hilfe zum Fragen (#1233), die Weg-Leiste und die Listen zuerst (#1170, #1171), die Ernte der Browser-Quellen (#1184, #1187), die tägliche Aufräum-Runde (#1139), der überarbeitete Installer (#1149), die Rückführung aus Claude (#1200) und die Funde der unabhängigen Prüfung und des dritten Werkstatt-PC-Laufs (#1201 bis #1235). Die Einzelheiten zu jedem Punkt stehen im Abschnitt `[1.8.0]` darunter; hier steht die Auswahl, die du beim Testen bemerkst.
+
+**Von rc.3 aus von Hand installieren:** rc.3 kann eine Vorabversion nicht von selbst installieren (der Fehler #1222 ist erst ab rc.4 behoben). Wer rc.3 nutzt, installiert rc.4 einmal wie gewohnt per ZIP; ab rc.4 holt „Vorabversionen automatisch“ die nächste Vorabversion von selbst.
+
+### Added
+
+- **Fragen zur Bedienung, beantwortet aus Hilfe, häufigen Fragen, Wiki und Prompts** (#1233). Im Hilfe-Dialog gibt es den Reiter „Frag mich“: Du tippst eine Frage in eigenen Worten (vor der ersten Frage stehen vier Beispiele zum Anklicken), und PBP zeigt Karten mit Titel, Kurztext und Quelle — mit einem Sprung in die richtige Einstellung, dem Link zur Wiki-Seite und, wo es einen gibt, dem Prompt zum Kopieren für Claude. Passt nichts, sagt die Hilfe das und legt einen fertigen Satz für Claude bereit. Läuft die lokale KI, steht dieselbe Eingabe auch unter dem Elwosa-Strom in der Seitenleiste. Die Antworten kommen aus einer Suche im Text, nicht aus einem Sprachmodell, und **deine Frage wird nicht gespeichert**. Gemessen: bei Fragen in Alltagssprache, die die Suche nie gesehen hat, steht der richtige Abschnitt in rund drei von vier Fällen (76 %) unter den ersten drei Karten.
+- **Kurzantwort der lokalen KI (Beta, standardmäßig aus)** (#1233). Unter Einstellungen › Lokale KI lässt sich einschalten, dass die lokale KI über den Karten eine kurze Antwort formuliert; sie darf nur umformulieren, was in den besten Abschnitten steht, muss eine Quelle nennen und darf nichts erfinden.
+- **Jede Ansicht eines Falls trägt eine feste Weg-Leiste, der Rückweg führt dorthin zurück, woher du kamst, und die erste Zeile jeder Liste liegt ohne Scrollen da** (#1171). Stelle, Bewerbung, Kontakt und Firma zeigen oben eine Leiste mit dem Rückweg, den anderen Ansichten desselben Falls und dem nächsten Schritt; die Zurück-Taste der Maus (Alt+←) schließt den obersten Dialog, statt die Seite zu verlassen; der Kopf der Listen „Stellen“ und „Bewerbungen“ ist eine Zeile.
+- **Die Browser-Suche übernimmt ihre Ernte in einem Zug** (#1187). Ein gemeinsamer Weg legt die Treffer jeder Browser-Quelle (StepStone, XING, Indeed, Google Jobs, Heise, eigene Quellen) in PBP an, jeder Browserlauf steht in der Auswertung der Quellen, und die Karte „Stellen zu prüfen“ im Dashboard nennt, was nach einem Lauf auf dein Urteil wartet.
+- **Die Aufräum-Runde („Bewerbungen im Blick behalten“) läuft einmal am Tag von selbst** (#1139). Das Abschließen von Bewerbungen ist ein eigener Schalter und bleibt aus, bis du ihn einschaltest.
+- **Kleinere Neuerungen:** der Typ eines einzelnen Dokuments lässt sich von Hand ändern (#1162), die Filter der Stellenliste lassen sich als Voreinstellung speichern (#1158), die Sprachdaten der Texterkennung kommen aus einer festen Fassung mit Prüfsumme (#1165).
+
+### Changed
+
+- **Die drei alten Werkzeugnamen entfallen** (#1148): `stelle_bewerten` (jetzt `stelle_einordnen`), `stelle_analyse_speichern` (jetzt `stelle_urteil_speichern`) und `jobtitel_vorschlagen` (jetzt `jobtitel_speichern`). Die Parameter sind dieselben; wer eigene Anleitungen mit den alten Namen hat, ersetzt sie.
+- **Der Schalter „Dokumentenanalyse“ sperrt auch, was Dokument- und Mailtexte liefert** (#1147): wer die Dokumentenanalyse aus Datenschutzgründen abschaltet, gibt auch den vollen Text von Dokumenten und Mails nicht mehr an Claude weiter.
+- **Ein Google-Treffer ohne Original wird nicht mehr angelegt, und Benachrichtigungen aus Google liefern Hinweise statt Stellen** (#1184); Google Jobs über JobSpy gilt als defekt und steht unter „Defekte Quellen“ (#1159).
+- **Bedienung** (#1170): die Seitenleiste klappt in schmalen Fenstern von selbst ein, die Kopierknöpfe heißen überall „Mit Claude“, lange Erklärtexte lassen sich einklappen, und ein Scan ohne Text nennt den Weg zur Texterkennung.
+
+### Fixed
+
+- **Was Claude erarbeitet, kommt in PBP an** (#1200): LinkedIn-Daten holen schreibt über die Werkzeuge von PBP, die vier Anleitungen für „Bewerbung erstellen“ widersprechen sich nicht mehr, der Absagegrund aus dem Gespräch landet in „Aus Absagen lernen“, ein einzelnes Dokument bleibt nach der Analyse nicht offen, und die Stellen-Seite zeigt „Keine Angabe“ statt „0 EUR“.
+- **Installer, Deinstaller und Update-Anzeige** (#1149, #1224, #1228, #1229): ein Ordnername mit Ausrufezeichen, Apostroph oder Klammer bricht den Installer nicht mehr, der Windows-Deinstaller endet nicht mehr nach der Backup-Frage, „Apps & Features“ nennt nach einem Auto-Update die laufende Fassung, und „Beim nächsten Start nutzen“ für eine neuere installierte Fassung heißt „Umgeschaltet“.
+- **Das Auto-Update für Vorabversionen installiert die gefundene Vorabversion** (#1222; seit rc.3), die Update-Seite zeigt „Stand unbekannt“ statt „Aktuell“, wenn die Prüfung keine Antwort bekam (#1225), und „Vorabversionen automatisch“ nennt nach dem Einschalten keinen falschen Grund mehr (#1226).
+- **Ohne Ollama kostete die Abfrage der lokalen KI unter Windows vier Sekunden** (#1227; betrifft auch ältere Versionen) — jetzt höchstens eine.
+- **Repost-Warnung „Vermittler“: ein Firmenname im Notiztext machte keinen Endkunden** (#1198; Beitrag aus PR #1230, betrifft auch Stable 1.7.157).
+- **Eine interne Notiz schloss die offene Nachfass-Erinnerung** (#1232; betrifft auch Stable seit 1.7.142): `bewerbung_notiz` hat jetzt den Parameter `art`, und die Vorgabe `intern` lässt die Erinnerung stehen.
+- **Ein Wiedergänger-k.o. aus einer Bewerbung, einer Dublette oder einer toten Anzeige** (#1234; betrifft auch Stable): nur Gründe, die ein Urteil über die Passung sind, zählen noch als „schon einmal aussortiert“.
+- **Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer** (#1235; betrifft auch Stable): ein Ort wie „Rosengarten“ hat jetzt keine Entfernung statt einer geratenen, und die Karte nennt die Orte, die der Name meint.
+- **„Daten löschen“ und „Speicher aufräumen“ warten auf die tägliche Aufräum-Runde** (#1139): läuft die Runde gerade, galt PBP bisher als untätig und hätte unter ihr gelöscht; jetzt steht sie bei der laufenden Hintergrundarbeit („die Aufräum-Runde“).
+- **Funde der unabhängigen Prüfung des Release-Zweigs** (#1201 bis #1221): eine Google-Stelle umging den Schutz bei anderer Schreibweise der Quelle, die Zurück-Taste fror bei geänderter Eingabe einen Dialog ein, die Stellen-Seite kannte nur die 30 jüngsten Bewerbungen, auf macOS und Linux brach ein Leerzeichen im Ordnernamen den Installer, und weitere Kleinigkeiten.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9546 Tests.*
+
+---
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.0-rc.4.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.0-rc.4.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.0-rc.4 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.0-rc.4` ist die Version DIESES Releases. Ohne `--branch` klont man `main` — das ist ein älterer Stand der Beta-Linie, nicht diese Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drüberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade läuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0-rc.3] - 13.10.2026 — Eine Vorabversion kann die nächste Vorabversion selbst holen (Release-Kandidat)
 
 <!-- anwender -->

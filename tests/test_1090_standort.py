@@ -248,7 +248,8 @@ def test_dashboard_standort(db):
 def test_ersterfassung_fragt_nach_dem_wohnort():
     from bewerbungs_assistent.services import ersterfassung_phasen as ep
     text = " ".join(v for v in vars(ep).values() if isinstance(v, str))
-    assert "profil_erstellen(plz=" in text and "standort=" in text
+    # #1200 A12: profil_erstellen verlangt name — der Aufruf nennt ihn mit.
+    assert "profil_erstellen(name=..., plz=" in text and "standort=" in text
 
 
 def _ruft(datei: Path, funktion: str, ziel: str) -> bool:

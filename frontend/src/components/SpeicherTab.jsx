@@ -15,6 +15,8 @@ import { useCallback, useEffect, useState } from "react";
 import { api, postJson } from "@/api";
 import { useApp } from "@/app-context";
 import { Badge, Button, Card, LoadingPanel, SectionHeading } from "@/components/ui";
+import ErklaerText from "@/components/ErklaerText";
+import MitClaude from "@/components/MitClaude";
 import { groesseText } from "@/lib/autoUpdate";
 import {
   URHEBER_TON, auswahlSumme, bereinigbar, darfLoeschen, loeschSatz, ortGroesse, schrittAus, zusammenfassung,
@@ -24,7 +26,7 @@ import {
 // eigenen Ordner“ traegt sie; nach dem Speichern ruft der Editor `neuMessen`, damit Pfad und Groesse stimmen. Die Seite bleibt
 // sonst Anzeige: alle anderen Orte sind durch die Installation bedingt und lassen sich hier nicht umstellen.
 export default function SpeicherTab({ ordnerEditor }) {
-  const { pushToast } = useApp();
+  const { pushToast, copyPrompt } = useApp();
   const [daten, setDaten] = useState(null);
   const [fehler, setFehler] = useState("");
   const [laedt, setLaedt] = useState(false);
@@ -117,9 +119,20 @@ export default function SpeicherTab({ ordnerEditor }) {
       <Card className="rounded-2xl">
         <SectionHeading title="Speicher & Downloads" description="Wohin PBP auf deinem Rechner schreibt und lädt, wie viel dort liegt und wer es angelegt hat."
           action={(
-            <Button size="sm" variant="ghost" disabled={laedt} onClick={laden} title="Misst alle Orte noch einmal nach.">
-              <RefreshCw size={14} className={`mr-1 inline ${laedt ? "animate-spin" : ""}`} /> {laedt ? "Messe …" : "Neu messen"}
-            </Button>
+            <span className="flex flex-wrap items-center gap-1">
+              {/* #1170 U10 (d): ein Prompt je neuer Seite */}
+              <Button
+                size="sm"
+                variant="ghost"
+                data-mit-claude-seite
+                onClick={() => copyPrompt("Erkläre mir, was PBP auf meinem Rechner speichert und wo, und sag mir, ob sich Aufräumen lohnt. Schau dir dazu speicher_anzeigen an — gelöscht wird nichts ohne meine Bestätigung.")}
+              >
+                <MitClaude>Speicher erklären</MitClaude>
+              </Button>
+              <Button size="sm" variant="ghost" disabled={laedt} onClick={laden} title="Misst alle Orte noch einmal nach.">
+                <RefreshCw size={14} className={`mr-1 inline ${laedt ? "animate-spin" : ""}`} /> {laedt ? "Messe …" : "Neu messen"}
+              </Button>
+            </span>
           )} />
         <p className="text-sm text-ink" data-speicher-summe>{zusammenfassung(daten)}</p>
         {daten.laufende_arbeit?.length ? (
@@ -127,10 +140,13 @@ export default function SpeicherTab({ ordnerEditor }) {
             Gerade läuft {daten.laufende_arbeit_text}. Aufräumen geht erst danach, damit nichts mitten im Schreiben gelöscht wird.
           </p>
         ) : null}
-        <p className="mt-2 text-xs text-muted">
-          Gelöscht wird nie ohne deine Bestätigung. Erst siehst du Zahlen und Dateien, dann entscheidest du. Was anderen Programmen gehört,
-          zeigt PBP nur und löscht es nie.
-        </p>
+        {/* #1170 U11: einklappbar; der Zustand wird gemerkt */}
+        <ErklaerText id="speicher-einleitung" titel="Wird hier etwas gelöscht?" className="mt-2">
+          <p>
+            Gelöscht wird nie ohne deine Bestätigung. Erst siehst du Zahlen und Dateien, dann entscheidest du. Was anderen Programmen gehört,
+            zeigt PBP nur und löscht es nie.
+          </p>
+        </ErklaerText>
       </Card>
 
       {daten.orte.map((ort) => {

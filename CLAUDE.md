@@ -10,32 +10,31 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.7.157 (`--latest`, 2026-10-12), Linie 1.7; Hotfix-Branches
-  `hotfix/v1.7.N` vom letzten 1.7-Tag.
-- **Beta:** 1.8.0-rc.3 (Kandidat), GitHub-Prereleases. Plugins
+- **Stable:** v1.8.0 (`--latest`, 2026-10-23), Linie 1.8; Hotfix-Branches
+  `hotfix/v1.8.N` vom letzten 1.8-Tag. Die Linie 1.7 endet mit v1.7.159.
+- **Beta:** keine offene; die naechste Linie als GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
   keine Plugins, Pairing statt Discovery (D1–D5 in Plan-Roadmap-v18).
-- **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 wird das **Auto-Update-Release**
+- **Roadmap (Nutzer-Wort 02.10.2026):** 1.8 ist das **Auto-Update-Release**
   (#1093 mit #1131, #1152, #947, #1080 und allem, was die 1.8.0-Betas schon
   geliefert haben); die **ELWOSA-Linie heisst 2.0** (Label `v2.0`, Meilenstein
   `v2.0.0`, 25 Issues, vieles noch Konzept). Wo aeltere Texte „v1.8“ fuer
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
-- **Schema:** v48 (Stable) / v52 (Beta).
-- **Umfang:** 8609 Tests (main) / 7196 (Stable); 281 MCP-Werkzeuge
-  (main) / 257 (Stable), Wartungswerkzeuge nur im Expertenmodus; 26 Prompts.
-- **1.8.0:** Die fuenf Bausteine (PR #1166) sind seit dem 08.10.2026 in `main`; neue Arbeit geht als PR gegen `main`. Das Release 1.8.0
-  braucht den Testlauf (`docs/internal/testlauf-1.8.0.md`) und das Wort des Nutzers.
-- Fixes, die Stable betreffen, gehoeren in die 1.7-Linie, nicht nur in die
-  Beta — die zieht kaum jemand. Schaufenster-Arbeit ist erst beim Nutzer,
-  wenn sie auf Stable ist.
+- **Schema:** v52.
+- **Umfang:** 9814 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
+  Expertenmodus; 26 Prompts.
+- **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
+  Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
+- Fixes, die Stable betreffen, gehoeren in `hotfix/v1.8.N` UND nach `main`.
+  Schaufenster-Arbeit ist erst beim Nutzer, wenn sie auf Stable ist.
 
 ## Wo steht was
 
 - `docs/internal/claude-md-archiv.md` — diese Datei bis v1.7.139 woertlich,
   mit allen Stand-Bloecken und MERKE-Punkten; per grep nach Issue-Nummer
   oder `v1.7.NN` suchen.
-- `docs/internal/lehren.md` — 42 verdichtete Lehren nach Themen, mit Belegen.
+- `docs/internal/lehren.md` — 71 verdichtete Lehren nach Themen, mit Belegen.
 - `CHANGELOG.md` und die GitHub-Releases — was sich wann geaendert hat.
 - Master-Plan im Wiki (unten) und Dauer-Issue #675 (DoD).
 
@@ -412,7 +411,7 @@ bash installer/install.sh
 \`\`\`
 
 `vX.Y.Z` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
-das ist die Beta, nicht die stabile Version (#1150).
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
 
 ### Update von einer aelteren Version
 
@@ -470,7 +469,7 @@ sind regelmaessig falsch.
 ## STRENG: keine eigenen Ablehnungsgruende (#663)
 
 Beim Aussortieren (`stelle_einordnen(job_hash, 'passt_nicht', grund)`,
-alter Name `stelle_bewerten`; `stellen_bulk_bewerten`) NUR Werte aus der
+bis 1.7 `stelle_bewerten`; `stellen_bulk_bewerten`) NUR Werte aus der
 Liste nutzen — nicht kombinieren, eindeutschen, kuerzen oder umschreiben.
 Massgeblich ist `verfuegbare_gruende` aus der Werkzeugantwort: die
 Standardliste aus `services/ablehnungsgruende.py` (`STANDARD_GRUENDE`) plus

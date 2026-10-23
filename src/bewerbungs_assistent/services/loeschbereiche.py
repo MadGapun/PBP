@@ -95,6 +95,8 @@ BEREICHE: dict[str, tuple] = {
         "jobs", "job_sources",
         # v1.7.127 (#1084): Grabsteine zusammengefuehrter Stellen.
         "job_tombstones",
+        # v1.8.0 (#1184 d): Hinweise aus Benachrichtigungen - Treffer, die noch keine Stelle sind.
+        "stellen_hinweise",
     ),
     "dokumente": (
         "documents", "documents_new", "document_versions",
@@ -191,6 +193,8 @@ _NICHT_IN_JEDER_DATENBANK = {
     "custom_sources",
     # (2) B25/#735, v1.8.0-beta.5 — Lauf-Historie je Quelle.
     "scraper_runs",
+    # (1)+(2) services/stellen_hinweise.py (#1184 d), beim ersten Hinweis aus einer Benachrichtigung.
+    "stellen_hinweise",
 }
 
 #: Zeilen, die ein Leeren NIE erfassen darf — Schluessel ist die

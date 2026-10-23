@@ -56,6 +56,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import unicodedata
 from typing import Iterable
 
 
@@ -454,10 +455,22 @@ def _in_inline_code(text: str, start: int, ende: int) -> bool:
                for m in _INLINE_CODE_RE.finditer(text))
 
 
+def _umschrift(text: str) -> str:
+    """Kleingeschrieben, Umlaute und ß in Umschrift (#1231): "Süd" und "sued" sind derselbe Platzhalter.
+
+    Beide Seiten des Vergleichs laufen hindurch, Text UND Liste: eine Liste findet sonst nur ihre
+    eigene Schreibweise (L5-L6). Ein zerlegtes "ü" (u plus Trema) wird vorher zusammengesetzt.
+    """
+    klein = unicodedata.normalize("NFC", text).lower()
+    for umlaut, umschrift in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        klein = klein.replace(umlaut, umschrift)
+    return klein
+
+
 def _ist_fiktiv(label: str) -> bool:
-    """True fuer Platzhalter-Firmen aus FIKTIVE_FIRMEN (DoD-9-Konvention)."""
-    klein = label.lower()
-    return any(f in klein for f in FIKTIVE_FIRMEN)
+    """True fuer Platzhalter-Firmen aus FIKTIVE_FIRMEN (DoD-9-Konvention), in jeder Schreibweise (#1231)."""
+    klein = _umschrift(label)
+    return any(_umschrift(f) in klein for f in FIKTIVE_FIRMEN)
 
 
 # Automaten-Absender. Hinter `noreply@` oder `mailrobot@` steht kein Mensch,

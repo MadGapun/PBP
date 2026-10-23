@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 
 import {
   buildAnnualSalaryMetrics,
+  gehaltsKacheln,
   grundlagenText,
 } from "./gehaltsKennzahl.js";
 
@@ -90,6 +91,42 @@ const geschaetzt = (min, max) => ({
   ]);
   assert.equal(m.averageMin, 70000);
   assert.equal(m.averageMax, 70000);
+}
+
+// --- #1200 B1: ohne Gehaltsangabe steht nie "0 EUR" in einer Kachel ---
+
+{
+  // Der gemeldete Fall: keine Stelle nennt ein Gehalt. Die Stellen-Seite
+  // rechnete mit Number(null) === 0 und zeigte "0 EUR" und "0 – 0 EUR".
+  const leer = gehaltsKacheln(buildAnnualSalaryMetrics([]), "Keine Angabe");
+  assert.equal(leer.durchschnitt, null);
+  assert.equal(leer.durchschnittText, "Keine Angabe");
+  assert.equal(leer.bandText, "Keine Angabe");
+  assert.equal(leer.hatBand, false);
+  const strich = gehaltsKacheln(buildAnnualSalaryMetrics([
+    { salary_min: null, salary_max: null, salary_type: "jaehrlich" },
+  ]), "—");
+  assert.equal(strich.durchschnittText, "—");
+  assert.equal(strich.bandText, "—");
+  for (const t of [leer.durchschnittText, leer.bandText, strich.bandText]) {
+    assert.ok(!/\d/.test(t), `Zahl ohne Gehaltsangabe: ${t}`);
+  }
+  // Auch Rohwerte, die keine Zahl sind, werden nicht zu 0.
+  const roh = gehaltsKacheln({ averageMin: "", averageMax: undefined, bandMin: null, bandMax: 0 });
+  assert.equal(roh.durchschnittText, "Keine Angabe");
+  assert.equal(roh.bandText, "Keine Angabe");
+}
+
+{
+  // Mit Werten: Durchschnitt der Mitte, Bandbreite als echte Spanne.
+  const k = gehaltsKacheln(buildAnnualSalaryMetrics([
+    { salary_min: 40000, salary_max: 60000, salary_type: "jaehrlich", salary_estimated: 0 },
+    { salary_min: 80000, salary_max: 100000, salary_type: "jaehrlich", salary_estimated: 0 },
+  ]));
+  assert.equal(k.durchschnitt, 70000);
+  assert.equal(k.durchschnittText, "70.000 EUR");
+  assert.equal(k.bandText, "40.000 – 100.000 EUR");
+  assert.equal(k.hatBand, true);
 }
 
 console.log("gehaltsKennzahl.test.mjs: alle Faelle gruen");

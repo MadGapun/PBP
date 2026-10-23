@@ -71,9 +71,11 @@ def _call(mcp, name, args):
 
 
 def _google(mcp, **kw):
+    # force=True: seit 1.8.0 (#1184 a) legt PBP einen Google-Treffer ohne Original gar nicht an. Diese Tests pruefen den
+    # Vorbehalt (b) an genau so einer Stelle - sie wird deshalb erzwungen. Die Sperre selbst: test_v18_google_original_1184.py.
     args = {"titel": "PLM Systemadministrator Teamcenter (m/w/d)", "firma": "Hansa Marke GmbH",
             "ort": "Beliebiger Ort, Homeoffice", "quelle": "google_jobs", "remote": "remote",
-            "beschreibung": GOOGLE_KOPF}
+            "beschreibung": GOOGLE_KOPF, "force": True}
     args.update(kw)
     return _call(mcp, "stelle_manuell_anlegen", args)
 

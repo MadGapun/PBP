@@ -206,6 +206,8 @@ def arbeit_klartext(namen: list) -> str:
             teile.append("eine Jobsuche")
         elif n.startswith("automatik-lernen"):
             teile.append("das automatische Lernen")
+        elif n.startswith("pbp-automatik-aufraeumen"):
+            teile.append("die Aufräum-Runde")
         elif n.startswith("pbp-komponente"):
             teile.append("eine Komponenten-Installation")
         elif n.startswith("pbp-watchdog"):

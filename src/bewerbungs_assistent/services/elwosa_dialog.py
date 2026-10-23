@@ -6,6 +6,11 @@ Kein eigenes Chat-Fenster (#771, verworfen) — ein 7B/8B-Modell antwortet
 plausibel auch dort, wo es falsch liegt; der Umweg ueber Claude ist das
 Fehlerkorrektiv.
 
+Seit 1.8.0 (#1233) steht unter dem Elwosa-Strom ein Feld fuer Fragen zur
+BEDIENUNG. Das ist kein freier Chat und nicht Elwosa: es sucht in Hilfe,
+FAQ, Wiki und Prompt-Katalog (`services/hilfe_suche.py`) und zeigt Karten
+mit Quelle. Die Entscheidung von #771/#774 bleibt.
+
 Grundregeln:
 - Elwosa ist AUSKUNFTSFAEHIG, NICHT URTEILSFAEHIG. Antworten sind eine
   Position ("Elwosa sagt dazu: ..."), kein Fakt.

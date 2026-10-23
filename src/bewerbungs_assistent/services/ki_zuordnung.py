@@ -1,7 +1,12 @@
 """Welches Werkzeug braucht welche KI-Funktion (H25, #1087 G5, A8).
 
 Die Schalter unter "Claude (Cloud)" sperren Funktionen, bei denen Inhalte
-an Claude gehen. Bis v1.7.134 sass die Pruefung in neun Werkzeugen
+an Claude gehen. Seit 1.8.0 (#1147 Punkt 3) gehoeren dazu auch die
+Werkzeuge, die DOKUMENT- und MAILTEXTE liefern: ohne sie hiess der Schalter
+"Dokumentenanalyse aus", und der Volltext ging auf Zuruf trotzdem weiter.
+Bewusst frei bleiben `profil_zusammenfassung` und `bewerbung_details`: ohne
+sie arbeitet fast nichts mehr; der Satz in den Einstellungen sagt das.
+Bis v1.7.134 sass die Pruefung in neun Werkzeugen
 einzeln; `extraktion_starten` (liefert Claude den Text des Lebenslaufs)
 und `workflow_starten('ersterfassung')` liefen daran vorbei. Jetzt steht
 die Zuordnung hier, und `tools.register_all` setzt die Sperre beim
@@ -22,6 +27,16 @@ ZUORDNUNG: dict[str, tuple[str, str | None]] = {
         f"von Hand pflegen ({pfad('profil')}).")),
     "dokument_profil_extrahieren": ("dokumentenanalyse", None),
     "dokumente_batch_analysieren": ("dokumentenanalyse", None),
+    # Lesend, aber der Text eines Dokuments oder einer Mail geht dabei an Claude (#1147 Punkt 3).
+    "dokument_lesen": ("dokumentenanalyse", (
+        f"Das Dokument bleibt im Dashboard lesbar ({pfad('dokumente')}). Soll Claude es lesen, "
+        f"schalte \"Dokumentenanalyse\" unter {pfad('claude')} ein.")),
+    "dokumente_zur_analyse": ("dokumentenanalyse", (
+        f"Die Dokumente bleiben im Dashboard sichtbar ({pfad('dokumente')}). Soll Claude sie auswerten, "
+        f"schalte \"Dokumentenanalyse\" unter {pfad('claude')} ein.")),
+    "emails_anzeigen": ("dokumentenanalyse", (
+        "Die Mails bleiben im Dashboard sichtbar (an der jeweiligen Bewerbung). Soll Claude sie lesen, "
+        f"schalte \"Dokumentenanalyse\" unter {pfad('claude')} ein.")),
     "fit_analyse": ("stellenanalyse", None),
     "skill_gap_analyse": ("stellenanalyse", None),
     "lebenslauf_angepasst_exportieren": ("bewerbungserstellung", (

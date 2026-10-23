@@ -19,6 +19,9 @@ PP10 (erster Durchlauf) Der Windows-Deinstaller ließ rund 830 MB liegen, die de
      Quellen (Playwright, `%LOCALAPPDATA%\\ms-playwright`) und den Zwischenspeicher von pip, ohne es zu erwähnen (macOS und Linux fragen).
      Jetzt fragt er zum Schluss, Vorgabe BEHALTEN, mit Ort und Größe.
 PP19 (dritter Durchlauf) Die Fehlermarke `[!!]` erschien als `[]`: unter `EnableDelayedExpansion` verschluckt cmd das Paar `!!`.
+PP37b (vierter Durchlauf, #1245) Die aktuelle Store-Fassung von Claude liest `%LOCALAPPDATA%\\Claude-Data\\claude_<Paketkennung>\\claude_desktop_config.json`.
+     Der Deinstaller kannte die Datei nicht: "MCP-Eintrag entfernt" stand da, der Eintrag blieb in der echten Konfiguration stehen und
+     zeigte auf ein gelöschtes Python.
 
 Die Verhaltenstests führen die echten PowerShell-Zeilen aus der BAT-Datei aus (Windows PowerShell 5.1); APPDATA und LOCALAPPDATA
 zeigen dabei auf einen Temp-Ordner. QA-Isolation: nie gegen die echte Claude-Konfiguration dieses Rechners.
@@ -314,15 +317,95 @@ def test_pp11_installer_und_deinstaller_kennen_dieselben_orte(tmp_path, monkeypa
     monkeypatch.setenv("LOCALAPPDATA", str(lokal))
     for paket in ("Claude_pzs8sxrjxfjjc",):
         (lokal / "Packages" / paket / "LocalCache" / "Roaming" / "Claude").mkdir(parents=True)
+    (lokal / "Claude-Data" / "claude_pzs8sxrjxfjjc").mkdir(parents=True)          # #1245: die neuere Store-Fassung
     spec = importlib.util.spec_from_file_location("setup_claude_pruefling_pp11", ROOT / "_setup_claude.py")
     sc = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(sc)
     geschrieben = [Path(p) for p in sc.get_claude_config_paths()]
-    assert len(geschrieben) == 2, geschrieben
-    for p in geschrieben:                               # der Installer legt den Eintrag in beide
+    assert len(geschrieben) == 3, geschrieben
+    for p in geschrieben:                               # der Installer legt den Eintrag in alle drei
         _config(p.parent)
     assert _lauf(tmp_path).returncode == 0
     assert all(_eintraege(p) == ["filesystem"] for p in geschrieben)
+
+
+# ── PP37b: der Datenordner der neueren Store-Fassung (#1245) ───────────────────────────────────
+
+def _claude_data(tmp_path, kennung="claude_pzs8sxrjxfjjc") -> Path:
+    return tmp_path / "AppData" / "Local" / "Claude-Data" / kennung
+
+
+@nur_windows
+def test_pp37b_die_datei_der_neuen_store_fassung_wird_bereinigt(tmp_path):
+    """Auf dem Prüf-Rechner gab es nur diese Datei; der Deinstaller meldete "entfernt" und ließ den Eintrag darin stehen."""
+    echte = _config(_claude_data(tmp_path))
+    r = _lauf(tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert _eintraege(echte) == ["filesystem"]
+    assert json.loads(echte.read_bytes().decode("utf-8"))["preferences"] == {"theme": "dark"}
+    assert Path(str(echte) + ".pbp-backup").is_file()
+
+
+@nur_windows
+def test_pp37b_alle_drei_orte_in_einem_lauf(tmp_path):
+    std = _config(tmp_path / "AppData" / "Roaming" / "Claude")
+    paket = _config(tmp_path / "AppData" / "Local" / "Packages" / "Claude_pzs8sxrjxfjjc" / "LocalCache" / "Roaming" / "Claude")
+    neu = _config(_claude_data(tmp_path))
+    assert _lauf(tmp_path).returncode == 0
+    assert all(_eintraege(p) == ["filesystem"] for p in (std, paket, neu))
+
+
+@nur_windows
+def test_pp37b_ohne_pbp_eintrag_bleibt_die_datei_unveraendert(tmp_path):
+    echte = _config(_claude_data(tmp_path), mit_pbp=False)
+    vorher = echte.read_bytes()
+    assert _lauf(tmp_path).returncode == 1
+    assert echte.read_bytes() == vorher and not Path(str(echte) + ".pbp-backup").exists()
+
+
+@nur_windows
+def test_pp37b_ein_ordner_ohne_datei_wird_nicht_neu_angelegt(tmp_path):
+    """Der Deinstaller legt keine Datei an, auch nicht im Datenordner von Claude."""
+    ordner = _claude_data(tmp_path)
+    ordner.mkdir(parents=True)
+    assert _lauf(tmp_path).returncode == 4
+    assert list(ordner.iterdir()) == []
+
+
+@nur_windows
+def test_pp37b_eine_unlesbare_datei_im_datenordner_wird_gemeldet_und_nicht_angefasst(tmp_path):
+    kaputt = _config(_claude_data(tmp_path), roh=b'{"mcpServers": {"filesystem": ')
+    original = kaputt.read_bytes()
+    assert _lauf(tmp_path).returncode == 3, "der Mensch muss erfahren, dass hier noch von Hand aufzuräumen ist"
+    assert kaputt.read_bytes() == original
+
+
+@nur_windows
+def test_pp37b_ende_zu_ende_installer_dann_deinstaller_auf_der_form_des_werkstatt_pcs(tmp_path):
+    """Die Kette der Praxisprobe: nur Claude-Data existiert (Einstellungen von Claude, kein MCP-Server); der Installer trägt PBP dort
+    ein, der Deinstaller nimmt es wieder heraus, und die Einstellungen von Claude bleiben unberührt."""
+    roaming, lokal = tmp_path / "AppData" / "Roaming", tmp_path / "AppData" / "Local"
+    echte = _claude_data(tmp_path) / "claude_desktop_config.json"
+    echte.parent.mkdir(parents=True)
+    ihre = {"coworkUserFilesPath": "C:/Users/beispiel/Documents/Claude", "preferences": {"theme": "dark"}}
+    echte.write_bytes(json.dumps(ihre, indent=2).encode("utf-8"))
+    env = dict(os.environ, HOME=str(tmp_path), USERPROFILE=str(tmp_path), APPDATA=str(roaming), LOCALAPPDATA=str(lokal))
+    assert str(tmp_path) in env["APPDATA"] and str(tmp_path) in env["LOCALAPPDATA"]
+    r = subprocess.run([sys.executable, str(ROOT / "_setup_claude.py")], env=env, capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", timeout=60)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert _eintraege(echte) == ["bewerbungs-assistent"], "der Installer hat die Datei erreicht, die Claude liest"
+    assert _lauf(tmp_path).returncode == 0
+    assert _eintraege(echte) == []
+    nachher = json.loads(echte.read_bytes().decode("utf-8"))
+    assert nachher["preferences"] == ihre["preferences"] and nachher["coworkUserFilesPath"] == ihre["coworkUserFilesPath"]
+
+
+def test_pp37b_der_hinweis_fuer_den_handgriff_nennt_den_neuen_ort():
+    """Scheitert das automatische Entfernen (Code 3 oder 5), bekommt der Mensch die Orte genannt, an denen er selbst nachsehen muss."""
+    assert "Claude-Data" in _befehl_entfernen(), "die PowerShell-Zeile kennt den Ordner"
+    hinweis = next(z for z in _bat().splitlines() if "neuere Store-Fassung" in z)
+    assert "Claude-Data" in hinweis and "claude_desktop_config.json" in hinweis
 
 
 # ── PP12: das Konsolenfenster des Dashboards ───────────────────────────────────────────────────
@@ -652,7 +735,7 @@ def test_pp19_in_keiner_bat_steht_die_fehlermarke_unmaskiert():
 def test_pp19_remove_path_zeigt_die_fehlermarke_wirklich_an(tmp_path):
     """Das ECHTE Unterprogramm mit einer gesperrten Datei: vorher stand „[] … konnte nicht entfernt werden“."""
     text = _bat().replace("\r\n", "\n")
-    sub = text[text.index(":remove_path\n"):text.index("exit /b 0", text.index("echo         [OK] %TARGET_LABEL% entfernt")) + len("exit /b 0")]
+    sub = text[text.index(":remove_path\n"):text.index("exit /b 0", text.index("echo         [OK] !TARGET_LABEL! entfernt")) + len("exit /b 0")]
     ziel = tmp_path / "ordner"
     ziel.mkdir()
     (ziel / "x.bin").write_bytes(b"1234")

@@ -6,6 +6,7 @@ import { useApp } from "@/app-context";
 import EmailListe from "@/components/EmailListe";
 import MitClaude, { ClaudeSymbol } from "@/components/MitClaude";
 import { analyzeUploadedDocuments, createFileSignature, uploadDocumentFile } from "@/document-upload";
+import { ocrHinweise } from "@/lib/uploadHinweis";
 import { extractDroppedFiles } from "@/file-drop";
 import {
   Badge,
@@ -68,6 +69,8 @@ export default function DocumentsPage() {
   const [expandedDoc, setExpandedDoc] = useState(null); // #390: expanded detail view
   const [templateChoice, setTemplateChoice] = useState({}); // #496: per-doc template override (docId -> templateKey)
   const [availableTemplates, setAvailableTemplates] = useState([]); // #496: loaded once on mount
+  const [typen, setTypen] = useState([]);   // #1162: die Typen, auf die ein Dokument gestellt werden darf (mit Namen)
+  const [typBusy, setTypBusy] = useState(""); // #1162: die Kennung des Dokuments, dessen Typ gerade gesetzt wird
   const [uploadType, setUploadType] = useState("sonstiges");
   const [appSearch, setAppSearch] = useState("");
   const [appDropdownOpen, setAppDropdownOpen] = useState(false);
@@ -144,6 +147,13 @@ export default function DocumentsPage() {
     karte.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [loading, dokumentZiel, data]);
 
+  // #1162: die Typen mit ihren Namen kommen vom Server (eine Quelle fuer Auswahl, Werkzeug und Anzeige)
+  useEffect(() => {
+    api("/api/document-types")
+      .then((r) => setTypen(r.typen || []))
+      .catch(() => {});
+  }, []);
+
   // #496: Load analysis templates once for the template dropdown
   useEffect(() => {
     api("/api/analysis-templates")
@@ -187,6 +197,25 @@ export default function DocumentsPage() {
     }
   }
 
+  // #1162: der Typ EINES Dokuments von Hand. Nur die Einordnung wechselt; die Verknuepfung mit der Bewerbung bleibt.
+  function typName(typ) {
+    return typen.find((t) => t.typ === typ)?.name || docTypeLabel(typ);
+  }
+
+  async function typAendern(doc, neuerTyp) {
+    if (!neuerTyp || neuerTyp === doc.doc_type) return;
+    setTypBusy(doc.id);
+    try {
+      await putJson(`/api/document/${doc.id}/doc-type`, { doc_type: neuerTyp });
+      pushToast(`Typ geändert: ${typName(neuerTyp)}`, "success");
+      await loadData();
+    } catch (error) {
+      pushToast(`Der Typ ließ sich nicht ändern: ${error.message}`, "danger");
+    } finally {
+      setTypBusy("");
+    }
+  }
+
   async function deleteDocument(docId) {
     try {
       await deleteRequest(`/api/document/${docId}`);
@@ -226,17 +255,28 @@ export default function DocumentsPage() {
     if (!files?.length) return;
     setUploading(true);
     let count = 0;
+    const antworten = [];
     try {
       for (const file of files) {
         const sig = await createFileSignature(file);
         if (uploadedSignaturesRef.current.has(sig)) continue;
         uploadedSignaturesRef.current.add(sig);
-        await uploadDocumentFile(file, uploadType);
+        const antwort = await uploadDocumentFile(file, uploadType);
+        antworten.push({ antwort, name: file.name });
         count++;
       }
       if (count > 0) {
         pushToast(`${count} Dokument${count > 1 ? "e" : ""} hochgeladen`, "success");
         loadData();
+      }
+      // #1170 U12: ein Scan ohne Text bekam bisher keinen Hinweis, dass es dafuer einen Weg gibt (Texterkennung).
+      for (const hinweis of ocrHinweise(antworten)) {
+        pushToast(hinweis.text, "amber", {
+          duration: 14000,
+          action: hinweis.aktion === "texterkennung"
+            ? { label: "Texterkennung einrichten", onClick: () => navigateTo("einstellungen", { tab: "erweiterungen" }) }
+            : undefined,
+        });
       }
     } catch (error) {
       pushToast(`Upload-Fehler: ${error.message}`, "danger");
@@ -251,9 +291,7 @@ export default function DocumentsPage() {
     <div id="page-dokumente" className="page active">
       {/* beta.35: PageHeader entfaellt — Top-Bar zeigt Breadcrumb-Pfad */}
       <h1 className="sr-only">Dokumente</h1>
-      <p className="text-xs text-muted mb-2">{data.total} Dokumente</p>
-      <div className="mb-6 flex flex-wrap items-baseline justify-end gap-4">
-      </div>
+      <p className="text-xs text-muted mb-3">{data.total} Dokumente</p>
 
       {/* Upload area */}
       <Card className="mb-4 rounded-xl">
@@ -384,7 +422,7 @@ export default function DocumentsPage() {
         >
           <option value="">Alle Typen</option>
           {data.doc_types.map((t) => (
-            <option key={t} value={t}>{docTypeLabel(t)}</option>
+            <option key={t} value={t}>{typName(t)}</option>
           ))}
         </SelectInput>
 
@@ -515,7 +553,7 @@ export default function DocumentsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-medium text-ink truncate">{doc.filename}</h3>
-                        <Badge tone="neutral">{docTypeLabel(doc.doc_type)}</Badge>
+                        <Badge tone="neutral">{typName(doc.doc_type)}</Badge>
                         {(() => {
                           const eb = extractionBadge(doc.extraction_status);
                           return <Badge tone={eb.tone}>{eb.label}</Badge>;
@@ -653,7 +691,29 @@ export default function DocumentsPage() {
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="text-xs text-muted space-y-1">
                           <p><span className="text-muted">ID:</span> {doc.id.slice(0, 8)}</p>
-                          <p><span className="text-muted">Typ:</span> {docTypeLabel(doc.doc_type)}</p>
+                          <div data-doc-typ>
+                            <label className="flex flex-wrap items-center gap-2">
+                              <span className="text-muted">Typ:</span>
+                              <SelectInput
+                                aria-label="Typ ändern"
+                                className="!h-8 !min-h-0 !w-auto !rounded-lg !border-white/10 !bg-white/[0.03] !pl-2 !pr-2 !py-0 !text-xs !text-ink"
+                                value={doc.doc_type || "sonstiges"}
+                                disabled={typBusy === doc.id}
+                                onChange={(e) => typAendern(doc, e.target.value)}
+                                data-doc-typ-select
+                              >
+                                {typen.length === 0 || !typen.some((t) => t.typ === doc.doc_type) ? (
+                                  <option value={doc.doc_type || "sonstiges"}>{typName(doc.doc_type || "sonstiges")}</option>
+                                ) : null}
+                                {typen.map((t) => (
+                                  <option key={t.typ} value={t.typ}>{t.name}</option>
+                                ))}
+                              </SelectInput>
+                            </label>
+                            <p className="mt-1 text-xs text-muted">
+                              Falsch eingeordnet? Die Verknüpfung mit Bewerbungen bleibt, nur die Einordnung wechselt.
+                            </p>
+                          </div>
                           <p><span className="text-muted">Erstellt:</span> {doc.created_at ? formatDateTime(doc.created_at) : "k.A."}</p>
                           <p><span className="text-muted">Status:</span> {extractionBadge(doc.extraction_status).label}</p>
                           {doc.app_company && <p><span className="text-muted">Bewerbung:</span> {doc.app_company}{doc.app_title ? ` — ${doc.app_title}` : ""}</p>}

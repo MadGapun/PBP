@@ -98,9 +98,10 @@ def test_pp23_der_selbsttest_hinterlaesst_kein_datenverzeichnis(tmp_path):
     """Der importierte Server hält Datenbank und Protokoll offen; Windows löscht keine geöffnete Datei. Ein abgetrennter Helfer räumt nach."""
     temp = tmp_path / "temp"
     temp.mkdir()
-    env = {**os.environ, "TMP": str(temp), "TEMP": str(temp), "PYTHONPATH": str(ROOT / "src")}
+    env = {**os.environ, "TMP": str(temp), "TEMP": str(temp), "PYTHONPATH": str(ROOT / "src"), "PYTHONIOENCODING": "utf-8"}
     env.pop("BA_DATA_DIR", None)
-    r = subprocess.run([sys.executable, str(ROOT / "_selftest.py")], capture_output=True, text=True, timeout=180, env=env, cwd=str(tmp_path))
+    r = subprocess.run([sys.executable, str(ROOT / "_selftest.py")], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=180, env=env, cwd=str(tmp_path))
     assert r.returncode == 0, (r.stdout[-800:], r.stderr[-800:])
     assert "OK" in r.stdout
     # der Helfer läuft abgetrennt und braucht ein paar Sekunden
@@ -133,10 +134,11 @@ def test_pp23_der_entpackte_ordner_laesst_sich_nach_dem_selbsttest_sofort_umbene
     entpackt.mkdir()
     temp = tmp_path / "temp"
     temp.mkdir()
-    env = {**os.environ, "TMP": str(temp), "TEMP": str(temp), "PYTHONPATH": str(ROOT / "src")}
+    env = {**os.environ, "TMP": str(temp), "TEMP": str(temp), "PYTHONPATH": str(ROOT / "src"), "PYTHONIOENCODING": "utf-8"}
     env.pop("BA_DATA_DIR", None)
-    r = subprocess.run([sys.executable, str(ROOT / "_selftest.py")], capture_output=True, text=True, timeout=180, env=env,
-                       cwd=str(entpackt))
+    # L44: die Ausgabe des Selbsttests traegt Gedankenstriche; beide Seiten sprechen UTF-8, sonst stirbt der Lese-Thread
+    r = subprocess.run([sys.executable, str(ROOT / "_selftest.py")], capture_output=True, text=True, encoding="utf-8",
+                       errors="replace", timeout=180, env=env, cwd=str(entpackt))
     assert r.returncode == 0, (r.stdout[-800:], r.stderr[-800:])
     ziel = tmp_path / "neu"
     os.replace(entpackt, ziel)  # sofort, ohne Wiederholung — genau wie die Installation es zuerst versucht

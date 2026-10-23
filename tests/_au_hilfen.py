@@ -129,11 +129,12 @@ class Release:
         return quelle.ARCHIV_NAME.format(version=self.version)
 
 
-def release_bauen(tmp: Path, version: str, *, schluessel_datei=None, braucht_installer="", **quellbaum_args) -> Release:
+def release_bauen(tmp: Path, version: str, *, schluessel_datei=None, braucht_installer="", vorabversion=False,
+                  **quellbaum_args) -> Release:
     quell = quellbaum(Path(tmp) / f"quelle-{version}", version, **quellbaum_args)
     aus = Path(tmp) / f"dist-{version}"
     ergebnis = bau.bauen(ordner=quell, ausgabe=aus, schluessel_datei=schluessel_datei, braucht_installer=braucht_installer,
-                         ohne_signatur=schluessel_datei is None)
+                         ohne_signatur=schluessel_datei is None, vorabversion=vorabversion)
     dateien = {p.name: p.read_bytes() for p in aus.iterdir()}
     return Release(version, dateien, ergebnis)
 

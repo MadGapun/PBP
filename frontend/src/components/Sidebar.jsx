@@ -64,6 +64,9 @@ export default function Sidebar({
   badges = {},
   // G61 (#1087 B6): jede Zahl sagt, was sie bedeutet.
   badgeTitles = {},
+  // #1170 U17: das Wort hinter der Zahl ("2 faellig") - die vier Zahlen meinen Verschiedenes, und der Hover-Titel allein
+  // erklaerte das nicht.
+  badgeWords = {},
   meta = {},
   brand = {},
   collapsed = false,
@@ -252,13 +255,20 @@ export default function Sidebar({
                     <>
                       <span className="flex-1 text-left">{tab.title}</span>
                       {badge ? (
-                        <span
-                          id={`tab-badge-${tab.id}`}
-                          title={badgeTitles[tab.id] || undefined}
-                          aria-label={badgeTitles[tab.id] || undefined}
-                          className="tab-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-xs font-bold leading-none text-shell"
-                        >
-                          {badge}
+                        <span className="inline-flex shrink-0 items-center gap-1" data-tab-badge-gruppe={tab.id}>
+                          <span
+                            id={`tab-badge-${tab.id}`}
+                            title={badgeTitles[tab.id] || undefined}
+                            aria-label={badgeTitles[tab.id] || undefined}
+                            className="tab-badge inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber/80 px-1 text-xs font-bold leading-none text-shell"
+                          >
+                            {badge}
+                          </span>
+                          {badgeWords[tab.id] ? (
+                            <span className="text-xs leading-none text-amber" title={badgeTitles[tab.id] || undefined}>
+                              {badgeWords[tab.id]}
+                            </span>
+                          ) : null}
                         </span>
                       ) : (
                         <span id={`tab-badge-${tab.id}`} className="hidden">{badge}</span>

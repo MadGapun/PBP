@@ -261,3 +261,19 @@ def test_nur_standardbibliothek():
         elif isinstance(k, ast.ImportFrom) and k.level == 0:
             module.add((k.module or "").split(".")[0])
     assert sorted(m for m in module if m not in sys.stdlib_module_names) == []
+
+
+def test_ein_fehler_beim_starten_des_helfers_ist_ein_exitcode_kein_traceback(lage, monkeypatch, capsys):
+    """#1219: die Bat sagt "wird geloescht" erst nach dem Exit-Code. Ein Temp-Ordner ohne Schreibrecht oder ein nicht startbarer
+    Prozess war ein Traceback mit Exit 1 im Protokoll - mit Grund und ohne Traceback meldet es sich jetzt selbst."""
+    basis, programm, daten = lage
+
+    def kaputt(*a, **k):
+        raise PermissionError("Temp-Ordner nicht beschreibbar")
+
+    monkeypatch.setattr(ia.shutil, "copy2", kaputt)
+    rc = ia.main(["loeschen", str(basis), "1.8.0", str(programm), str(daten)])
+    ausgabe = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert ausgabe["ordner"] == "" and "nicht beschreibbar" in ausgabe["fehler"]
+    assert basis.exists(), "bei einem Fehler wird nichts geloescht"

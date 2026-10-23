@@ -1788,8 +1788,8 @@ def register(mcp, db, logger):
             "typen": types_info,
             "anzahl_typen": len(types_info),
             "hinweis": (
-                "Den Typ eines einzelnen Dokuments kann man derzeit nicht "
-                "von Hand aendern; Altlast-Typen ('email') und 'sonstiges' "
+                "Den Typ eines einzelnen Dokuments stellt dokument_typ_setzen() "
+                "von Hand um; Altlast-Typen ('email') und 'sonstiges' "
                 "erkennt dokument_typen_nachziehen() neu (im Expertenmodus). "
                 "Per-Typ-Handler-Aktionen siehe 'claude_action'-Spalte."
             ),
@@ -2096,13 +2096,13 @@ def register(mcp, db, logger):
         quelle = newsletter_service.erkennung(parsed, db)
         label = (quelle or {}).get("label") or "Newsletter"
         result = newsletter_service.verarbeite_newsletter(db, parsed, label)
-        if result.get("status") == "uebernommen":
+        if result.get("status") in ("uebernommen", "hinweise_notiert"):
             try:
                 db.update_document_lifecycle(dokument_id, "archiviert")
                 result["dokument"] = "archiviert"
             except Exception:
                 pass
-        if not quelle and result.get("status") == "uebernommen":
+        if not quelle and result.get("status") in ("uebernommen", "hinweise_notiert"):
             result["hinweis_quelle"] = (
                 "Quelle war nicht als Newsletter registriert — mit "
                 f"newsletter_quelle_markieren('{dokument_id}') lernt PBP "
@@ -2212,6 +2212,28 @@ def register(mcp, db, logger):
             "extraction_status": status,
             "nachricht": f"Dokument '{doc.get('filename', '')}' -> {status}.",
         }
+
+    @mcp.tool()
+    def dokument_typ_setzen(dokument_id: str, typ: str) -> dict:
+        """Stellt den Typ EINES Dokuments von Hand um (#1162).
+
+        Der Typ entscheidet, wohin PBP ein Dokument einordnet und ob es in der Historie einer Firma oder bei einer
+        Bewerbung auftaucht. Wurde er falsch erkannt (z. B. „sonstiges“ statt „absage“), korrigiert dieses Werkzeug ihn.
+        Nur die Einordnung wechselt: die Verknüpfung mit einer Bewerbung, der Text und der Analysestand bleiben.
+        Es ist derselbe Dienst wie „Typ ändern“ im Dashboard. Mehrere Dokumente nach Regeln: `dokument_typen_nachziehen`.
+
+        Args:
+            dokument_id: ID des Dokuments
+            typ: einer der Typen aus `dokument_typen_anzeigen` (z. B. absage, anschreiben, zeugnis, sonstiges)
+
+        Liefert: {status: 'geaendert' oder 'unveraendert', dokument_id, typ_alt, typ_neu, typ_name, hinweis} — oder {fehler,
+        erlaubte_typen} bei einem unbekannten Typ.
+        """
+        from ..services import document_handlers
+        erg = document_handlers.typ_setzen(db, dokument_id, typ, profile_id=db.get_active_profile_id())
+        if erg["status"] in ("nicht_gefunden", "unbekannter_typ"):
+            erg.pop("status", None)
+        return erg
 
     @mcp.tool()
     def dokumente_korrespondenz_abschliessen(

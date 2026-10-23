@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 pw = pytest.importorskip("playwright")  # noqa: E402
 from playwright.sync_api import Error as PlaywrightError  # noqa: E402
 from playwright.sync_api import sync_playwright  # noqa: E402
+from browser_hilfen import einstellungen_reiter  # noqa: E402
 
 
 def _free_port() -> int:
@@ -909,6 +910,9 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
     _seed_vielstellen_workspace(live_dashboard["db"])
 
     context = browser.new_context(viewport={"width": 1440, "height": 960})
+    # #1171 Baustein 5: die Kennzahlen stehen seit dem Listenkopf hinter einem Schalter (Vorgabe zu). Dieser Test misst die
+    # Kacheln selbst und klappt sie deshalb vorher auf - wie ein Mensch es taete.
+    context.add_init_script("try { window.localStorage.setItem('pbp-listenkopf-stellen', 'auf'); } catch (e) {}")
     page = context.new_page()
 
     try:
@@ -927,11 +931,14 @@ def test_stellen_kopfzeile_zeigt_den_bestand_und_nicht_die_seite(live_dashboard,
         # **Ein Test, dessen Messung zu breit ist, meldet einen Fehler
         # im Code, wo einer im Test steckt.**
         def kennzahlen():
-            return page.evaluate(
+            kacheln = page.evaluate(
                 "() => Array.from(document.querySelectorAll("
                 "'.glass-card-soft')).map(d => (d.textContent || '')"
                 ".trim()).filter(t => /Aktive Stellen|Gehaltsdurchschnitt"
                 "|Gehaltsbandbreite|Durchschnittsscore/.test(t))")
+            # und die Zeile des Listenkopfs, die dieselben Zahlen in einem Satz nennt
+            zeile = page.locator("[data-listen-uebersicht-zeile]").first.inner_text()
+            return kacheln + [zeile]
 
         # Auf die Karten WARTEN: der Text "Aktive Stellen" steht frueher
         # im DOM als die Kennzahl-Karten. In der vollen Suite fiel die
@@ -1048,7 +1055,7 @@ def test_gefahrenzone_zeigt_bereiche_mit_zahlen(live_dashboard, browser):
                   wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
+        einstellungen_reiter(page, "Gefahrenzone")
 
         # Die eine Karte statt der drei alten.
         page.get_by_role("heading", name="Daten löschen").first.wait_for(
@@ -1137,7 +1144,7 @@ def test_gefahrenzone_dsgvo_nennt_was_geloescht_wird(live_dashboard, browser, tm
                   wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Gefahrenzone", exact=True).first.click()
+        einstellungen_reiter(page, "Gefahrenzone")
         page.get_by_role("heading", name="Daten löschen").first.wait_for(
             state="visible", timeout=8000)
         page.get_by_role("radio").nth(1).check()
@@ -1168,7 +1175,7 @@ def test_schalter_aussortieren_nach_suche(live_dashboard, browser):
                   wait_until="domcontentloaded")
         page.locator("div#root").wait_for(state="visible")
         _dismiss_setup_overlay(page)
-        page.get_by_role("button", name="Automatik", exact=True).first.click()
+        einstellungen_reiter(page, "Automatik")
         karte = page.get_by_test_id("auto-aussortieren-card")
         karte.wait_for(state="visible", timeout=8000)
         kasten = karte.get_by_role("checkbox")
@@ -1301,7 +1308,7 @@ def test_routing_karte_950_im_quellen_tab(browser, live_dashboard):
         _dismiss_setup_overlay(page)
         # G70 (#1087): Fahrstrecke und Zugangsschluessel stehen unter
         # "Erweitert › Quellen im Detail".
-        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
+        einstellungen_reiter(page, "Quellen im Detail")
 
         karte = page.get_by_test_id("routing-card")
         karte.wait_for(state="visible", timeout=8000)
@@ -1458,7 +1465,7 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         _dismiss_setup_overlay(page)
         # G70 (#1087): die ganze Liste steht unter "Quellen im Detail",
         # die Empfehlung unter "Quellen".
-        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
+        einstellungen_reiter(page, "Quellen im Detail")
         page.wait_for_load_state("networkidle")
 
         filter_ = page.get_by_test_id("quellen-filter")
@@ -1471,10 +1478,10 @@ def test_quellen_filter_und_empfehlungsknopf_1039(live_dashboard, browser):
         # Standardansicht ohne defekte Quellen.
         assert page.locator('[data-source-key="heise_jobs"]').count() == 0
 
-        page.get_by_role("button", name="Quellen", exact=True).first.click()
+        einstellungen_reiter(page, "Quellen")
         knopf = page.get_by_role("button", name=re.compile(r"fehlende empfohlene Quelle"))
         knopf.click()
-        page.get_by_role("button", name="Quellen im Detail", exact=True).first.click()
+        einstellungen_reiter(page, "Quellen im Detail")
         filter_.get_by_role("button", name=f"Aktiv ({1 + len(fehlend)})").wait_for(
             state="visible", timeout=8000)
         # Der Zaehler oben kommt aus dem lokalen Zustand und steht schon,

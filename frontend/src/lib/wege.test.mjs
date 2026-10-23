@@ -3,7 +3,8 @@
 import assert from "node:assert/strict";
 import {
   offenZeileZiel, sprungleiste, SPRUNG_WORT, TIMELINE_ABSCHNITTE, verknuepfungZeile,
-  zuAufgabe, zuBewerbung, zuDokument, zuFirma, zuKontakt, zuMail, zuProfil, zuStelle, zuSuchtreffer, zuTermin,
+  zuAufgabe, zuAusgeblendetenStellen, zuBewerbung, zuDokument, zuFirma, zuKontakt, zuMail, zuProfil, zuStelle,
+  zuSuchtreffer, zuTermin, zuUngeprueftenStellen,
 } from "./wege.js";
 import { PAGE_IDS, parseHashZiel, sprungAusHash } from "../utils.js";
 
@@ -15,6 +16,10 @@ assert.deepEqual(zuFirma({ firmaId: "fi_1" }), { seite: "kontakte", intent: { an
 assert.deepEqual(zuFirma({ firmaName: "Muster GmbH" }), { seite: "kontakte", intent: { ansicht: "firmen", firmaName: "Muster GmbH" } });
 assert.deepEqual(zuFirma({ firmaId: "fi_1", firmaName: "Muster GmbH" }).intent, { ansicht: "firmen", firmaId: "fi_1" }, "die Kennung geht vor dem Namen");
 assert.deepEqual(zuDokument("d7"), { seite: "dokumente", intent: { dokumentId: "d7" } });
+
+// ── Listen mit Filter (#1187): die Karte „Stellen zu prüfen“ springt in die Liste, nicht auf ein Objekt ──
+assert.deepEqual(zuUngeprueftenStellen(), { seite: "stellen", intent: { pruefstand: "ungeprueft" } });
+assert.deepEqual(zuAusgeblendetenStellen(), { seite: "stellen", intent: { view: "dismissed" } });
 
 // ohne Kennung kein Sprung: der Aufrufer zeichnet dann keinen toten Knopf
 for (const leer of ["", "  ", null, undefined]) {

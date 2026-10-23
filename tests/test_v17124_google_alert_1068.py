@@ -188,49 +188,54 @@ def test_1068_sicherheitsmail_wird_nicht_als_newsletter_erkannt(db):
     assert befund is None
 
 
-def test_1068_die_stellen_kommen_an(db):
-    """AK 3: extrahiert und uebernommen — obwohl kein Link verwertbar ist."""
+def test_1068_die_treffer_kommen_als_hinweise_an(db):
+    """AK 3: extrahiert und festgehalten — obwohl kein Link verwertbar ist. Seit 1.8.0 (#1184 d) als Hinweise, nicht als Stellen."""
     from bewerbungs_assistent.services import newsletter_service as ns
+    from bewerbungs_assistent.services import stellen_hinweise
     res = ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    assert res["status"] == "uebernommen"
-    assert res["gefunden"] == 2
+    assert res["status"] == "hinweise_notiert"
+    assert res["gefunden"] == 2 and res["neu"] == 2
     assert res["ebene"] == "google-alert-text"
     assert res["suchanfrage"] == "PLM Hamburg"
     assert "XING" in res["portale"]
-    titel = {j["title"] for j in db.get_active_jobs()}
+    assert db.get_active_jobs() == [], "aus einer Alert-Mail entsteht keine Stelle"
+    titel = {h["titel"] for h in stellen_hinweise.liste(db)}
     assert "PLM Project Manager (m/w/d)" in titel
 
 
 def test_1068_das_veroeffentlichungsdatum_kommt_mit(db):
     """Sonst sehen Monate alte Anzeigen taufrisch aus (#949)."""
     from bewerbungs_assistent.services import newsletter_service as ns
+    from bewerbungs_assistent.services import stellen_hinweise
     ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    stellen = {j["title"]: j for j in db.get_active_jobs()}
-    assert stellen["PLM Project Manager (m/w/d)"]["veroeffentlicht_am"] \
-        == "2026-04-23"
+    hinweise = {h["titel"]: h for h in stellen_hinweise.liste(db)}
+    assert hinweise["PLM Project Manager (m/w/d)"]["veroeffentlicht_am"] == "2026-04-23"
 
 
-def test_1068_das_ursprungsportal_steht_an_der_stelle(db):
+def test_1068_das_ursprungsportal_steht_am_hinweis(db):
     """Der Punkt aus "Angrenzend": dieselbe Stelle kommt oft parallel
     ueber XING oder LinkedIn herein, die PBP schon kennt."""
     from bewerbungs_assistent.services import newsletter_service as ns
+    from bewerbungs_assistent.services import stellen_hinweise
     ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    stellen = {j["title"]: j for j in db.get_active_jobs()}
-    notiz = stellen["Senior PDM Consultant"].get("research_notes") or ""
-    assert "XING" in notiz
-    assert "PLM Hamburg" in notiz
+    hinweise = {h["titel"]: h for h in stellen_hinweise.liste(db)}
+    h = hinweise["Senior PDM Consultant"]
+    assert h["portal"] == "XING"
+    assert h["suchanfrage"] == "PLM Hamburg"
 
 
-def test_1068_dieselbe_stelle_zweimal_bleibt_eine(db):
+def test_1068_derselbe_treffer_zweimal_bleibt_ein_hinweis(db):
     """Gemessen: 11 von 17 Treffern lagen schon in PBP. Dubletten sind
     hier der Normalfall, nicht die Ausnahme."""
     from bewerbungs_assistent.services import newsletter_service as ns
+    from bewerbungs_assistent.services import stellen_hinweise
     ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    vorher = len(db.get_active_jobs())
+    vorher = len(stellen_hinweise.liste(db))
     zweite = ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    assert len(db.get_active_jobs()) == vorher
+    assert len(stellen_hinweise.liste(db)) == vorher == 2
     assert zweite["neu"] == 0
     assert zweite["bereits_bekannt"] == 2
+    assert all(h["anzahl_mails"] == 2 for h in stellen_hinweise.liste(db))
 
 
 def test_1068_keine_erfundene_url(db):
@@ -239,8 +244,10 @@ def test_1068_keine_erfundene_url(db):
     Portal-URL waere schlimmer als keine."""
     from bewerbungs_assistent.services import newsletter_service as ns
     ns.verarbeite_newsletter(db, _mail(), "Google Jobs")
-    for j in db.get_active_jobs():
-        assert not (j.get("url") or "")
+    from bewerbungs_assistent.services import stellen_hinweise
+    assert db.get_active_jobs() == []
+    for h in stellen_hinweise.liste(db):
+        assert "url" not in h and not h["google_link"].startswith("https://www.stepstone")
 
 
 # ══ Der PII-Pruefer kennt zusammengesetzte Automaten-Adressen ═══════

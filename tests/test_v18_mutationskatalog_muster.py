@@ -43,6 +43,18 @@ def test_jedes_muster_kommt_in_seiner_datei_genau_einmal_vor():
     assert not abweichungen, "\n".join(abweichungen)
 
 
+def _testziel_fehlt(ziel: str) -> str:
+    """Leer, wenn es das Testziel gibt. Ein Ziel ist eine Datei oder `datei::funktion` (pytest-Knotenkennung): dann muss die
+    Funktion in der Datei stehen — sonst liefe die Gegenprobe mit einem Ziel, das pytest still nicht findet."""
+    datei, _, funktion = ziel.partition("::")
+    pfad = ROOT / datei
+    if not pfad.is_file():
+        return f"Testdatei fehlt: {datei}"
+    if funktion and f"def {funktion}(" not in pfad.read_text(encoding="utf-8-sig"):
+        return f"Testfunktion fehlt: {datei}::{funktion}"
+    return ""
+
+
 def test_kennungen_sind_eindeutig_und_die_testdateien_gibt_es():
     modul = _katalog_modul()
     fehler = []
@@ -53,8 +65,9 @@ def test_kennungen_sind_eindeutig_und_die_testdateien_gibt_es():
             fehler.append(f"{katalog}: doppelte Kennungen {doppelt}")
         for mid, _text, _datei, _alt, _neu, tests in eintraege:
             for t in tests:
-                if not (ROOT / t).is_file():
-                    fehler.append(f"{katalog}/{mid}: Testdatei fehlt: {t}")
+                grund = _testziel_fehlt(t)
+                if grund:
+                    fehler.append(f"{katalog}/{mid}: {grund}")
     assert not fehler, "\n".join(fehler)
 
 
@@ -64,6 +77,7 @@ def test_der_grundlauf_nennt_nur_vorhandene_testdateien():
     for katalog, laeufe in modul.GRUNDLAEUFE.items():
         for name, tests in laeufe:
             for t in tests:
-                if not (ROOT / t).is_file():
-                    fehler.append(f"{katalog}/{name}: Testdatei fehlt: {t}")
+                grund = _testziel_fehlt(t)
+                if grund:
+                    fehler.append(f"{katalog}/{name}: {grund}")
     assert not fehler, "\n".join(fehler)

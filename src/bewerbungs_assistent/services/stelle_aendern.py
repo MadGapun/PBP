@@ -26,6 +26,12 @@ def _neue_entfernung(db, job_hash: str) -> float | None:
     job = db.get_job(job_hash) or {}
     start = eigener_standort._koordinaten(db)
     ziel = geocode_location(job.get("location") or "") if start else None
+    if start and not ziel:
+        # #1235: ein mehrdeutiger Ort wird mit PLZ oder Bundesland aus dem Anzeigentext noch einmal gefragt.
+        from .geocoding_service import entfernung_aus_anzeige
+        genau = entfernung_aus_anzeige(
+            job.get("location") or "", start[0], start[1], job.get("description") or "")
+        ziel = genau["koordinaten"] if genau else None
     if not ziel:
         db.set_job_entfernung(job_hash, None)
         return None

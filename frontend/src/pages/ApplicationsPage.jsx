@@ -48,6 +48,9 @@ import OnboardingHintBanner from "@/components/OnboardingHintBanner";
 import InlineJobDetailModal from "@/components/InlineJobDetailModal";
 import { SPRUNG_WORT, zuKontakt } from "@/lib/wege";
 import Sprungleiste from "@/components/Sprungleiste";
+import WegLeiste from "@/components/WegLeiste";
+import ListenUebersicht from "@/components/ListenUebersicht";
+import { bewerbungLeiste } from "@/lib/wegleiste";
 import ZuerstProfil, { ZUERST_PROFIL_STATUS } from "@/components/ZuerstProfil";
 import { BEWERBUNG_ANLEGEN, BEWERBUNG_FELDER, BEWORBEN_AM_LABEL, VORGABE_STATUS, angelegtMeldung, bewerbungNutzlast, brauchtBewerbungsdatum, dublettenHinweis, heuteIso } from "@/lib/bewerbungFormular";
 
@@ -139,8 +142,12 @@ export default function ApplicationsPage() {
   const [timelineDialog, setTimelineDialog] = useState({ open: false, entry: null });
   // #1177 (G88): in welchem Abschnitt der Timeline der Dialog aufgeht (Treffer „Termin“ der Suche); `nr` ist je Oeffnen neu
   const [timelineAbschnitt, setTimelineAbschnitt] = useState({ kennung: "", nr: 0 });
+  // #1171 Baustein 3/4: woher der Mensch kam (fuer den Rueckweg) und wer an der Bewerbung haengt (fuer die Weg-Leiste)
+  const [timelineVon, setTimelineVon] = useState(null);
+  const [timelineKontakte, setTimelineKontakte] = useState([]);
   // v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt
-  const [jobDetailHash, setJobDetailHash] = useState(null);
+  // #1212: mit der Bewerbung, aus der der Dialog aufgeht - die Weg-Leiste der Stelle fuehrt dorthin zurueck
+  const [jobDetail, setJobDetail] = useState(null);      // { hash, bewerbungId }
   const timelineInhaltRef = useRef(null);
   const [acceptanceDialog, setAcceptanceDialog] = useState({ open: false, application: null, final_salary: "", description: "", start_date: "" });
   const [newNoteText, setNewNoteText] = useState("");
@@ -249,7 +256,7 @@ export default function ApplicationsPage() {
       // G57 (#1087 D6): Kalender, Dokumente und Elwosa senden jetzt
       // ebenfalls `applicationId`; `highlight` bleibt als Alias, damit ein
       // vergessener Aufrufer nicht wieder oben in der Liste landet.
-      openTimeline({ id: intent.applicationId || intent.highlight }, { abschnitt: intent.abschnitt });
+      openTimeline({ id: intent.applicationId || intent.highlight }, { abschnitt: intent.abschnitt, von: intent.von });
       clearIntent();
     }
   }, [intent, clearIntent]);
@@ -419,6 +426,7 @@ export default function ApplicationsPage() {
       api(`/api/applications/${appId}/emails`).catch(() => ({ emails: [] })),
       api(`/api/applications/${appId}/tasks`).catch(() => []),  // #666 D19
       api(`/api/applications/${appId}/reflexionen`).catch(() => ({ reflexionen: [] })),  // #824 D31
+      api(`/api/applications/${appId}/contacts`).catch(() => ({ contacts: [] })),  // #1171: Weg-Leiste
     ]);
   }
 
@@ -427,7 +435,7 @@ export default function ApplicationsPage() {
   // (Notiz-Entwurf, Aufgabe, Reflexion) und nicht die Leseposition.
   async function timelineAuffrischen(appId) {
     try {
-      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(appId);
+      const [timeline, docs, meetings, emails, tasks, reflexionen, kontakte] = await holeTimelineDaten(appId);
       // Wurde die Timeline inzwischen geschlossen oder zeigt sie eine andere Bewerbung, wird nichts ueberschrieben.
       if (timelineAppRef.current !== appId) return;
       setTimelineDialog((aktuell) => ({ ...aktuell, entry: timeline }));
@@ -437,13 +445,16 @@ export default function ApplicationsPage() {
       setTimelineEmails(emails?.emails || []);
       setTimelineTasks(Array.isArray(tasks) ? tasks : []);
       setTimelineReflexionen(reflexionen?.reflexionen || []);
+      setTimelineKontakte(kontakte?.contacts || []);
     } catch { /* bleibt beim alten Stand */ }
   }
 
   async function openTimeline(application, optionen = {}) {
     try {
-      const [timeline, docs, meetings, emails, tasks, reflexionen] = await holeTimelineDaten(application.id);
+      const [timeline, docs, meetings, emails, tasks, reflexionen, kontakte] = await holeTimelineDaten(application.id);
       setTimelineAbschnitt({ kennung: optionen.abschnitt || "", nr: Date.now() });
+      setTimelineVon(optionen.von || null);
+      setTimelineKontakte(kontakte?.contacts || []);
       setTimelineDialog({ open: true, entry: timeline });
       setTimelineStatusDraft(timeline?.application?.status || EMPTY_APPLICATION.status);
       setDocuments(docs?.documents || []);
@@ -808,10 +819,11 @@ export default function ApplicationsPage() {
       <AdaptiveHintBanner page="bewerbungen" />
 
       {/* v1.7.0-beta.31 (#595): Inline-Stellen-Detail wenn aus Bewerbung verlinkt */}
-      {jobDetailHash && (
+      {jobDetail && (
         <InlineJobDetailModal
-          jobHash={jobDetailHash}
-          onClose={() => setJobDetailHash(null)}
+          jobHash={jobDetail.hash}
+          bewerbungId={jobDetail.bewerbungId}
+          onClose={() => setJobDetail(null)}
         />
       )}
       <div className="mb-6 flex items-baseline justify-end gap-4">
@@ -828,6 +840,23 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="grid gap-6">
+        {/* #1171 Baustein 5 (Listen zuerst): Kennzahlen und Hinweis sind EINE Zeile, die aufklappt - die Liste beginnt im
+            ersten Bildschirm; der eine Hinweis mit seinem Knopf bleibt in der Zeile. */}
+        <ListenUebersicht
+          id="bewerbungen"
+          zusammenfassung={[
+            `${activeApplicationsCount} ${activeApplicationsCount === 1 ? "aktive Bewerbung" : "aktive Bewerbungen"}`,
+            dueFollowUps.length ? `${dueFollowUps.length} ${dueFollowUps.length === 1 ? "Nachfassung" : "Nachfassungen"} fällig` : null,
+            interviewApplicationsCount ? `${interviewApplicationsCount} ${interviewApplicationsCount === 1 ? "Interview" : "Interviews"}` : null,
+          ].filter(Boolean).join(" · ")}
+          badge={<Badge tone={nextStep.tone}>{nextStep.badge}</Badge>}
+          titel={nextStep.title}
+          aktion={nextStep.actionLabel ? (
+            <Button size="sm" variant="secondary" onClick={nextStep.action}>
+              {nextStep.actionLabel}
+            </Button>
+          ) : null}
+        >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             label={filters.showArchived || ARCHIVE_STATUSES.includes(filters.status) ? "Sichtbare Bewerbungen" : "Aktive Bewerbungen"}
@@ -844,28 +873,16 @@ export default function ApplicationsPage() {
           <MetricCard label="Interviews" value={interviewApplicationsCount} note="Aktive Interview-Phase" tone="amber" />
         </div>
 
-        <Card className="rounded-2xl">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={nextStep.tone}>{nextStep.badge}</Badge>
-                {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
-                  <span className="text-xs text-muted">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</span>
-                ) : null}
-              </div>
-              <h2 className="mt-3 text-base font-semibold text-ink">{nextStep.title}</h2>
-              <p className="mt-1 max-w-3xl text-sm text-muted">{nextStep.description}</p>
-            </div>
-            {nextStep.actionLabel ? (
-              <Button size="sm" variant="secondary" onClick={nextStep.action}>
-                {nextStep.actionLabel}
-              </Button>
-            ) : null}
-          </div>
-        </Card>
+        <div className="min-w-0" data-bewerbungen-hinweis>
+          <h2 className="text-base font-semibold text-ink">{nextStep.title}</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted">{nextStep.description}</p>
+          {archivedCount > 0 && !filters.showArchived && !ARCHIVE_STATUSES.includes(filters.status) ? (
+            <p className="mt-1 text-xs text-muted">{archivedCount} archivierte Fälle sind aktuell ausgeblendet.</p>
+          ) : null}
+        </div>
+        </ListenUebersicht>
 
-        <Card className="rounded-2xl">
-          <SectionHeading title="Filter" description="Schneller Blick auf einzelne Status-Cluster." />
+        <Card className="rounded-2xl !py-3">
           {/* #484/#485: Aktiver Dashboard-Filter (Follow-up / Zombie) sichtbar + resetbar */}
           {specialFilter && (
             <div className="mb-3 flex items-center gap-2 rounded-xl border border-sky/25 bg-sky/10 px-3 py-2 text-xs text-sky">
@@ -885,7 +902,10 @@ export default function ApplicationsPage() {
               </button>
             </div>
           )}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
+          {/* #1171 Baustein 5: Ueberschrift, Archiv-Schalter und Zaehler stehen in EINER Zeile (vorher Titel mit Satz darunter,
+              dann die Zeile - 60 Pixel, bevor das erste Feld beginnt). */}
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h2 className="mr-1 text-sm font-semibold text-ink">Filter</h2>
             <Button
               size="sm"
               variant={filters.showArchived ? "secondary" : "ghost"}
@@ -1037,7 +1057,7 @@ export default function ApplicationsPage() {
             <div className="grid gap-4">
               {sortedApplications.length ? (
                 sortedApplications.map((application) => (
-                  <Card key={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
+                  <Card key={application.id} data-bewerbungskarte={application.id} className={cn("flex flex-col rounded-xl shadow-none", application.job_employment_type && application.job_employment_type !== "festanstellung" ? "border border-emerald-600/40 bg-emerald-950/20" : "glass-card-soft")}>
                     <div className="flex-1 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={statusTone(application.status)}>{application.status || "offen"}</Badge>
@@ -1098,7 +1118,7 @@ export default function ApplicationsPage() {
                       {/* #1171 (G85): die Stelle zur Bewerbung — „wie war sie beschrieben?“ ist ein Klick entfernt,
                           ohne erst die Timeline zu oeffnen und darin zu suchen. */}
                       {application.job_hash ? (
-                        <Button variant="secondary" onClick={() => setJobDetailHash(application.job_hash)} data-karte-zur-stelle
+                        <Button variant="secondary" onClick={() => setJobDetail({ hash: application.job_hash, bewerbungId: application.id })} data-karte-zur-stelle
                           title="Die Stelle ansehen, auf die sich diese Bewerbung bezieht">
                           <Briefcase size={15} />
                           {SPRUNG_WORT.stelle}
@@ -1200,6 +1220,44 @@ export default function ApplicationsPage() {
         title={`Timeline - ${timelineDialog.entry?.application?.title || ""}`}
         onClose={() => setTimelineDialog({ open: false, entry: null })}
         size="xl"
+        weg={timelineDialog.open && timelineDialog.entry?.application ? (() => {
+          // #1171 Baustein 3: die feste Weg-Leiste - Rueckweg, die anderen Ansichten dieses Falls, der naechste Schritt.
+          const app = timelineDialog.entry.application;
+          const id8 = String(app.id || "").slice(0, 8);
+          const leiste = bewerbungLeiste({
+            zurueckLabel: "Bewerbungen",
+            jobHash: app.job_hash,
+            firma: app.company,
+            kontakte: timelineKontakte,
+            dokumente: timelineDialog.entry.documents || [],
+            termine: timelineMeetings.length ? timelineMeetings : (timelineDialog.entry.meetings || []),
+            bewerbungId: app.id,
+            status: app.status,
+            hatLebenslauf: Boolean(app.cv_path),
+            hatAnschreiben: Boolean(app.cover_letter_path),
+            nachfassenFaellig: dueFollowUps.some((f) => f.application_id === app.id),
+          });
+          const schliessen = () => setTimelineDialog({ open: false, entry: null });
+          const aktionen = {
+            lebenslauf: () => unterlagenKopieren(app, "lebenslauf"),
+            anschreiben: () => unterlagenKopieren(app, "anschreiben"),
+            beworben_eintragen: () => updateStatus(app.id, "beworben", { reloadTimeline: true }),
+            gespraech_vorbereiten: () => interviewVorbereitungKopieren(app),
+            nachfassen: () => copyPrompt(`Schreibe mir eine kurze, freundliche Nachfass-Mail zu meiner Bewerbung „${app.title}“ bei ${app.company}. Lies vorher die Bewerbung mit bewerbung_details (ID ${id8}): den letzten Stand, den Ansprechpartner und wann ich mich beworben habe.`),
+            angebot_pruefen: () => copyPrompt(`Prüfe mit mir das Angebot zu meiner Bewerbung „${app.title}“ bei ${app.company}. Lies vorher die Bewerbung mit bewerbung_details (ID ${id8}) und vergleiche es mit meinen Gehaltsvorstellungen und Suchkriterien — ich entscheide.`),
+            aus_absage_lernen: () => copyPrompt(`Hilf mir, aus der Absage zu meiner Bewerbung „${app.title}“ bei ${app.company} zu lernen. Lies die Bewerbung mit bewerbung_details (ID ${id8}) und sag mir ehrlich, was ich beim nächsten Mal anders machen könnte.`),
+          };
+          return (
+            <WegLeiste
+              leiste={leiste}
+              selbst={{ seite: "bewerbungen", intent: { applicationId: app.id, focus: "timeline" }, label: `Bewerbung: ${app.title}` }}
+              von={timelineVon}
+              onVerlassen={schliessen}
+              onZurueck={schliessen}
+              onAktion={(aktion) => aktionen[aktion]?.()}
+            />
+          );
+        })() : null}
         footer={(() => {
           const appId = timelineDialog.entry?.application?.id;
           // beta.31 / #474: ZIP-Export mit Optionen
@@ -1290,7 +1348,7 @@ export default function ApplicationsPage() {
                       <button
                         className="font-mono text-xs text-muted hover:text-sky cursor-pointer"
                         title="Stelle anzeigen"
-                        onClick={() => setJobDetailHash(app.job_hash)}
+                        onClick={() => setJobDetail({ hash: app.job_hash, bewerbungId: app.id })}
                       ><ExternalLink size={8} className="mr-0.5 inline" />Stelle: {app.job_hash?.slice(0, 8)}</button>
                     )}
                   </div>

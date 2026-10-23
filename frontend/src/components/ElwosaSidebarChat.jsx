@@ -15,15 +15,24 @@
  */
 import { sichereAdresse } from "@/lib/webAdresse";
 import { bestaetigen } from "@/lib/bestaetigung";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDown, Eye, EyeOff, MoreHorizontal, Pause, Settings, Trash2, X } from "lucide-react";
 
 import { api, deleteRequest, postJson } from "@/api";
+import { HilfeAntwort, HilfeEingabe, useHilfeFrage } from "@/components/HilfeFrage";
+import { neueNachrichten } from "@/lib/elwosaStrom";
+import { ansageText, seitenleisteFragt, stromMit } from "@/lib/hilfeFrage";
 
 const HIDE_KEY = "pbp_elwosa_hidden_until";
 const POLL_INTERVAL_MS = 30 * 1000;
 const HEARTBEAT_INTERVAL_MS = 60 * 60 * 1000; // 1 Stunde
 const HIDE_DURATION_MS = 30 * 60 * 1000; // 30 Minuten Session-Hide
+const AM_ENDE_TOLERANZ = 30; // px: so nah am Ende gilt der Mensch noch als "am Ende"
+
+/** #1256 (F58): Steht der Bereich am Ende? Gerechnet mit der Geometrie von JETZT, nicht mit dem, was ein Scroll-Ereignis vor einer Weile meldete. */
+function stehtAmEnde(el) {
+  return Boolean(el) && el.scrollHeight - el.scrollTop - el.clientHeight < AM_ENDE_TOLERANZ;
+}
 
 function readHiddenUntil() {
   try {
@@ -184,7 +193,7 @@ function dayLabel(iso) {
   } catch { return ""; }
 }
 
-export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPrompt, onNavigateToSettings, onNavigate, className = "" }) {
+export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPrompt, onOeffnen, onNavigateToSettings, onNavigate, className = "" }) {
   const [messages, setMessages] = useState([]);
   const [status, setStatus] = useState(null);
   const [hidden, setHidden] = useState(() => readHiddenUntil() > Date.now());
@@ -193,10 +202,24 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   const pollRef = useRef(null);
   // v1.7.0-beta.48 (#611): Sticky-Bottom-Auto-Scroll
   const scrollRef = useRef(null);
-  const stickyRef = useRef(true);  // True = User ist am Ende
+  // #1256 (F58): der Merker aus #611 ("am Ende?", gesetzt nur von einem Scroll-Ereignis) ist weg: er war veraltet, sobald sich die Hoehe OHNE Ereignis
+  // aenderte oder das Ereignis noch ausstand. Entschieden wird nach der Geometrie von jetzt (stehtAmEnde, Groessenbeobachter).
   const [showJumpToBottom, setShowJumpToBottom] = useState(false);
   const [unreadBelow, setUnreadBelow] = useState(0);
-  const lastMessageCountRef = useRef(0);
+  // #1256 (F58): die groesste Kennung, die der Mensch schon gesehen hat (null: noch nichts geladen). Neu ist, was eine groessere traegt - die ZAHL der
+  // Nachrichten taugt nicht: der Verlauf holt nur zehn, bei voller Liste bleibt sie gleich, und nach dem Ausblenden steigt sie ohne neue Nachricht.
+  const letzteKennung = useRef(null);
+  // #1256 (F58): so hoch war der Bereich, als wir ihn zuletzt ausgerichtet haben (der Groessenbeobachter vergleicht damit)
+  const sichtHoehe = useRef(0);
+  const groessenBeobachter = useRef(null);
+  // #1256 (F58): stand der Mensch am Ende, BEVOR die neue Liste ins Bild kam? Gemessen beim Eintreffen der Daten (null: nichts gemessen, weil es den Bereich
+  // nicht gibt oder die Liste nicht von dort kommt, etwa beim Ausblenden einer Nachricht).
+  const warAmEnde = useRef(null);
+  // #1254 (F57): der Zustand der Fragen zur Bedienung liegt hier und nicht im Feld darunter: die Antworten stehen im Bereich der Nachrichten
+  // (EIN Bereich zum Scrollen), nur das Feld bleibt unten.
+  const hilfe = useHilfeFrage({ onToast });
+  const neuesterHilfeEintrag = hilfe.verlauf.length ? hilfe.verlauf[hilfe.verlauf.length - 1].id : 0;
+  const gesehenerHilfeEintrag = useRef(0);
 
   // Polling + Heartbeat
   useEffect(() => {
@@ -208,6 +231,9 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           api("/api/elwosa/status"),
         ]);
         if (cancelled) return;
+        // #1256 (F58): ob der Mensch am Ende steht, wird JETZT an der Geometrie gemessen, bevor die neue Liste im Bild steht. Das Scroll-Ereignis zu
+        // einem Sprung ans Ende kann noch ausstehen (es laeuft erst im naechsten Bild): ein Merker daraus waere dann veraltet, die Meldung bliebe verdeckt.
+        warAmEnde.current = scrollRef.current ? stehtAmEnde(scrollRef.current) : null;
         setMessages((msgs?.messages || []).slice().reverse()); // neueste unten
         setStatus(st);
       } catch {}
@@ -273,40 +299,82 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
     const el = scrollRef.current;
     if (!el) return;
     const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const atBottom = distanceFromBottom < 30;
-    stickyRef.current = atBottom;
+    const atBottom = distanceFromBottom < AM_ENDE_TOLERANZ;
     if (atBottom) {
       setShowJumpToBottom(false);
       setUnreadBelow(0);
     }
   }
 
+  // #1256 (F58): Der Bereich meldet, wenn sich seine HOEHE aendert, ohne dass jemand scrollt (der Kopf der Seitenleiste waechst um eine Zeile, die
+  // Fenstergroesse aendert sich). Wer am Ende stand, bleibt am Ende: sonst rutscht die letzte Meldung aus dem Bild, und das verspaetete Scroll-Ereignis
+  // zu einem Sprung rechnet schon mit der neuen Hoehe und haelt den Menschen faelschlich fuer "nicht am Ende" - die naechste Meldung bliebe verdeckt.
+  // Als Ref-Funktion, weil es den Bereich erst gibt, wenn der Status da ist, und nicht mehr, solange Elwosa ausgeblendet ist.
+  const listeRef = useCallback((el) => {
+    groessenBeobachter.current?.disconnect();
+    groessenBeobachter.current = null;
+    scrollRef.current = el;
+    if (!el) return;
+    // ein neuer Bereich beginnt unten wie ein Chat (nach dem Wiedereinblenden stand er sonst oben, bei den aeltesten Nachrichten)
+    el.scrollTop = el.scrollHeight;
+    sichtHoehe.current = el.clientHeight;
+    if (typeof ResizeObserver === "undefined") return;
+    groessenBeobachter.current = new ResizeObserver(() => {
+      const liste = scrollRef.current;
+      if (!liste) return;
+      // Abstand zum Ende zweimal gerechnet: mit der Hoehe von VORHER (stand der Mensch am Ende, bevor sich etwas aenderte? das Scroll-Ereignis eines
+      // Sprungs kann schon mit der neuen Hoehe gerechnet haben) und mit der von JETZT (reicht der Bereich nach dem Wachsen bis ans Ende?).
+      const abstandVorher = liste.scrollHeight - liste.scrollTop - sichtHoehe.current;
+      const abstandJetzt = liste.scrollHeight - liste.scrollTop - liste.clientHeight;
+      sichtHoehe.current = liste.clientHeight;
+      if (Math.min(abstandVorher, abstandJetzt) >= AM_ENDE_TOLERANZ) return; // wer oben liest, bleibt stehen
+      liste.scrollTop = liste.scrollHeight;
+      setShowJumpToBottom(false);
+      setUnreadBelow(0);
+    });
+    groessenBeobachter.current.observe(el);
+  }, []);
+
   function jumpToBottom() {
     const el = scrollRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-    stickyRef.current = true;
     setShowJumpToBottom(false);
     setUnreadBelow(0);
   }
 
-  // Auto-Scroll bei neuen Nachrichten — nur wenn sticky-bottom aktiv
+  // Auto-Scroll bei neuen Nachrichten — nur wenn der Mensch am Ende stand
   useLayoutEffect(() => {
+    // #1256 (F58): neu ist, was eine groessere Kennung traegt als die zuletzt gesehene - nicht, was die Liste laenger macht (sie holt nur zehn). Die Kennung
+    // wird auch nachgefuehrt, solange es den Bereich nicht gibt (Elwosa ausgeblendet): was dann kommt, steht beim Wiedereinblenden unten im Bild.
+    const { anzahl: neue, hoechste } = neueNachrichten(letzteKennung.current, messages);
+    letzteKennung.current = hoechste;
+    // #1256 (F58): folgt der Mensch dem Ende? Das sagt die Geometrie beim Eintreffen der Daten (warAmEnde), nicht ein Merker aus einem Scroll-Ereignis:
+    // das Ereignis zu einem Sprung kann noch ausstehen. Ohne Messung (Ausblenden, "gelesen") kommt nichts hinzu, dem man folgen muesste.
+    const folgt = warAmEnde.current === true;
+    warAmEnde.current = null;
     const el = scrollRef.current;
     if (!el) return;
-    const newCount = messages.length;
-    const wasMore = newCount > lastMessageCountRef.current;
-    if (stickyRef.current) {
+    if (folgt) {
       // User ist am Ende → mitscrollen
       el.scrollTop = el.scrollHeight;
-    } else if (wasMore) {
+    } else if (neue > 0) {
       // User ist oben → Counter hochzaehlen + Indicator zeigen
-      const delta = newCount - lastMessageCountRef.current;
-      setUnreadBelow((u) => u + delta);
+      setUnreadBelow((u) => u + neue);
       setShowJumpToBottom(true);
     }
-    lastMessageCountRef.current = newCount;
   }, [messages]);
+
+  // #1254 (F57): nach einer Frage scrollt der Bereich an den ANFANG der neuen Antwort, nicht ans Ende: die Frage und der erste Treffer sind zu
+  // sehen, der Rest liegt darunter. Am Ende stuende sonst nur das Unterste einer langen Antwort im Bild.
+  useLayoutEffect(() => {
+    if (neuesterHilfeEintrag === gesehenerHilfeEintrag.current) return;
+    gesehenerHilfeEintrag.current = neuesterHilfeEintrag;
+    const liste = scrollRef.current;
+    const eintrag = liste?.querySelector(`[data-hilfe-eintrag="${neuesterHilfeEintrag}"]`);
+    if (!liste || !eintrag) return;
+    liste.scrollTop += eintrag.getBoundingClientRect().top - liste.getBoundingClientRect().top - 4;
+  }, [neuesterHilfeEintrag]);
 
   // Wenn AI off + Settings disabled: kompletter Hide
   if (!status) return null;
@@ -426,16 +494,28 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
   }
 
   // Expanded Mode
+  const fragenAktiv = seitenleisteFragt(status);
+  // #1254 (F57): Elwosas Nachrichten und die Antworten der Hilfe stehen nach der Zeit in EINEM Strom, die neueste unten wie in einem Chat (eine
+  // Nachricht nach einer Antwort kommt UNTER die Antwort); vor jeder Reihe von Antworten steht die Zeile "Fragen zur Bedienung": die Hilfe ist nicht Elwosa.
+  const strom = stromMit(messages, fragenAktiv ? hilfe.verlauf : []);
   const groupedByDay = [];
   let lastDay = null;
-  messages.forEach((m) => {
-    const d = dayLabel(m.created_at);
+  let letzteArt = null;
+  strom.forEach((x) => {
+    const d = dayLabel(x.art === "hilfe" ? new Date(x.t).toISOString() : x.nachricht.created_at);
     if (d !== lastDay) {
       groupedByDay.push({ type: "day", label: d });
       lastDay = d;
     }
-    groupedByDay.push({ type: "msg", msg: m });
+    if (x.art === "hilfe") {
+      if (letzteArt !== "hilfe") groupedByDay.push({ type: "hilfe-kopf" });
+      groupedByDay.push({ type: "hilfe", eintrag: x.eintrag });
+    } else {
+      groupedByDay.push({ type: "msg", msg: x.nachricht });
+    }
+    letzteArt = x.art;
   });
+  const ansage = fragenAktiv && hilfe.verlauf.length > 0 ? ansageText(hilfe.verlauf[hilfe.verlauf.length - 1]) : "";
 
   return (
     /* v1.7.17 (#907): Flex-Column mit durchgereichter Hoehe — Header
@@ -443,7 +523,7 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
        Vorher: maxHeight:100% gegen ein height:auto-Elternteil ist in
        CSS unaufloesbar (= none) — der innere Scroller scrollte nie,
        stattdessen schob die Liste den ganzen Footer zum Scrollen. */
-    <div className={`border-t border-white/5 px-3 py-2 flex min-h-0 flex-col ${className}`}>
+    <div className={`border-t border-white/5 px-3 py-2 flex min-h-0 flex-col ${className}`} data-elwosa-chat>
       <div className="mb-2 flex shrink-0 items-center justify-between">
         <div className="flex items-center gap-2">
           {avatar}
@@ -515,8 +595,8 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           Auf grossen Screens wird Elwosa entsprechend gross. */}
       <div className="relative flex-1 min-h-0">
         <div
-          ref={scrollRef}
-          onScroll={handleScroll}
+          ref={listeRef}
+          onScroll={handleScroll} data-elwosa-liste
           className="h-full space-y-2 overflow-y-auto pr-1"
         >
           {messages.length === 0 && (
@@ -534,10 +614,20 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
                 </div>
               );
             }
+            if (item.type === "hilfe-kopf") {
+              return (
+                <div key={`hilfe-kopf-${i}`} className="text-xs uppercase tracking-wider text-muted pt-1" data-hilfe-trennzeile>
+                  <span aria-hidden="true">── </span>Fragen zur Bedienung<span aria-hidden="true"> ──</span>
+                </div>
+              );
+            }
+            if (item.type === "hilfe") {
+              return <HilfeAntwort key={`hilfe-${item.eintrag.id}`} eintrag={item.eintrag} kompakt onOeffnen={onOeffnen} copyPrompt={onCopyPrompt} />;
+            }
             const m = item.msg;
             return (
               <div
-                key={m.id}
+                key={m.id} data-elwosa-nachricht
                 className="group rounded-md bg-white/[0.02] p-2 hover:bg-white/[0.04] transition-colors"
               >
                 <p className="text-xs leading-relaxed text-muted">
@@ -593,6 +683,16 @@ export default function ElwosaSidebarChat({ collapsed = false, onToast, onCopyPr
           </button>
         )}
       </div>
+      {/* #1233 (F51): Fragen zur Bedienung - nur, wenn die lokale KI laeuft (Nutzerwunsch 16.10.2026). Die Antworten sind Karten aus
+          Hilfe, FAQ, Wiki und Prompt-Katalog; Fragen werden nicht gespeichert. #1254: hier steht nur das Feld (fest unter dem Verlauf, wie bei
+          einem Chat); die Antworten stehen im Strom oben, im Bereich zum Scrollen. */}
+      {fragenAktiv && (
+        <div className="mt-2 shrink-0 border-t border-white/5 pt-2" data-sidebar-hilfe data-hilfe-frage="kompakt">
+          <HilfeEingabe hilfe={hilfe} kompakt />
+        </div>
+      )}
+      {/* Vorleseprogramme: eine neue Antwort der Hilfe wird gemeldet, auch wenn sie mitten im Strom steht (der Rahmen ist schon da, bevor etwas darin steht). */}
+      {fragenAktiv && <div className="sr-only" aria-live="polite" data-hilfe-ansage>{ansage}</div>}
     </div>
   );
 }

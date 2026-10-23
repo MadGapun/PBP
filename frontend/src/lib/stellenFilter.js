@@ -78,6 +78,30 @@ export function filterAusSpeicher(text, standard) {
   return ergebnis;
 }
 
+/**
+ * Der Filterzustand, der als Voreinstellung zum Server geht: alle Filter bis auf Suchtext und Ansicht (dieselben Felder, die
+ * der Browser merkt). Ein Objekt, kein Text — der Server prueft Schluessel und Typen streng.
+ */
+export function filterFuerVoreinstellung(filters) {
+  return JSON.parse(filterFuerSpeicher(filters));
+}
+
+/**
+ * Aus der Voreinstellung des Servers wieder ein Filterobjekt: nur bekannte Felder, nur der Typ der Vorgabe (wie beim Speicher),
+ * Suchtext und Ansicht bleiben, wie sie jetzt sind.
+ */
+export function filterAusVoreinstellung(voreinstellung, standard, aktuell = {}) {
+  const gelesen = filterAusSpeicher(JSON.stringify(voreinstellung || {}), standard);
+  return { ...gelesen, query: aktuell.query ?? standard.query, view: aktuell.view ?? standard.view };
+}
+
+/** Gilt gerade genau die Voreinstellung? (Dann braucht es keinen Knopf „Zur Voreinstellung“.) */
+export function voreinstellungGilt(filters, voreinstellung, standard) {
+  if (!voreinstellung) return false;
+  const soll = filterAusSpeicher(JSON.stringify(voreinstellung), standard);
+  return Object.keys(standard).filter((k) => !NICHT_GEMERKT.includes(k)).every((k) => filters?.[k] === soll[k]);
+}
+
 /** Zu jedem wirksamen Filter die Zahl der Stellen, die er allein verbirgt (vom Server gerechnet). */
 export function mitZahlen(aktiv, verborgen) {
   const zahlen = verborgen || {};

@@ -7,11 +7,34 @@ gestartet wird und setzt die Pfade entsprechend.
 import json, os, shutil, sys, time
 
 
+def _claude_data_pfade(local_app):
+    """Konfigurationsdateien im Datenordner der neueren Store-Fassung von Claude Desktop (#1245).
+
+    Ab der Paketversion 2.4 legt Claude seine Daten unter `%LOCALAPPDATA%\\Claude-Data\\claude_<Paketkennung>\\` ab und liest die
+    Konfiguration von dort, nicht mehr aus `%APPDATA%\\Claude` und nicht aus `Packages\\Claude_*\\LocalCache\\Roaming\\Claude`
+    (gemessen am 17.10.2026: beide alten Dateien fehlten, und Claude startete PBP erst, als der Eintrag in dieser Datei stand).
+    Nur Ordner, die es schon gibt: Claude hat sie selbst angelegt.
+    """
+    wurzel = os.path.join(local_app, "Claude-Data")
+    try:
+        namen = sorted(os.listdir(wurzel))
+    except OSError:
+        return []
+    pfade = []
+    for name in namen:
+        klein = name.lower()
+        if (klein == "claude" or klein.startswith("claude_")) and os.path.isdir(os.path.join(wurzel, name)):
+            pfade.append(os.path.join(wurzel, name, "claude_desktop_config.json"))
+    return pfade
+
+
 def get_claude_config_paths():
     """Gibt alle Claude Desktop Config-Pfade fuer die aktuelle Plattform zurueck.
 
     #361: Windows Store installiert Claude in einem Packages-Unterordner.
-    Wir geben alle gefundenen Pfade zurueck, damit beide Varianten bedient werden.
+    #1245: die neuere Store-Fassung liest aus `%LOCALAPPDATA%\\Claude-Data\\claude_*`.
+    Wir geben alle gefundenen Pfade zurueck, damit jede Variante bedient wird.
+    Der Deinstaller (`DEINSTALLIEREN.bat`) kennt dieselben Orte; ein Test haelt beide Listen zusammen.
     """
     paths = []
     if sys.platform == "win32":
@@ -29,6 +52,9 @@ def get_claude_config_paths():
                 # Nur hinzufuegen wenn das Verzeichnis existiert (Store-Version installiert)
                 if os.path.isdir(store_dir) or os.path.exists(store_path):
                     paths.append(store_path)
+        # Neuere Store-Fassung (#1245)
+        if local_app:
+            paths.extend(_claude_data_pfade(local_app))
     elif sys.platform == "darwin":
         paths.append(os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Claude", "claude_desktop_config.json"))
     else:
@@ -229,10 +255,20 @@ def config_schreiben(cp, python_exe, src_dir, data_dir):
             print(f"[CLAUDE] {cp}: Datenordner bleibt: {eintrag['env']['BA_DATA_DIR']}")
     config["mcpServers"]["bewerbungs-assistent"] = eintrag
 
-    os.makedirs(os.path.dirname(cp), exist_ok=True)
-    with open(cp, "w", encoding="utf-8") as f:  # ohne BOM
-        json.dump(config, f, indent=2, ensure_ascii=False)
-    print(f"[CLAUDE] Config geschrieben: {cp}")
+    try:
+        os.makedirs(os.path.dirname(cp), exist_ok=True)
+        with open(cp, "w", encoding="utf-8") as f:  # ohne BOM
+            json.dump(config, f, indent=2, ensure_ascii=False)
+    except OSError as e:
+        # Eine Datei, die sich nicht schreiben laesst, darf die uebrigen nicht verhindern (#1245)
+        print(f"[CLAUDE] {cp}: Schreiben nicht moeglich ({e}) - nicht gezaehlt")
+        return False
+    # #1245 (DoD 8g): "geschrieben" gilt erst, wenn die Datei den Eintrag beim Zuruecklesen auch enthaelt
+    zurueck, problem = lese_config(cp)
+    if zurueck is None or zurueck.get("mcpServers", {}).get("bewerbungs-assistent") != eintrag:
+        print(f"[CLAUDE] {cp}: Eintrag nach dem Schreiben nicht zu finden ({problem or 'anderer Inhalt'}) - nicht gezaehlt")
+        return False
+    print(f"[CLAUDE] Config geschrieben und geprueft: {cp}")
     return True
 
 
@@ -272,7 +308,7 @@ def main():
         if config_schreiben(cp, python_exe, src_dir, data_dir):
             written += 1
 
-    print(f"[CLAUDE] {written} Config-Datei(en) geschrieben ({mode}-Modus)")
+    print(f"[CLAUDE] {written} Config-Datei(en) geschrieben und geprueft ({mode}-Modus)")
     if written == 0:
         print("[CLAUDE] FEHLER: Keine Konfiguration geschrieben - Claude Desktop kennt PBP noch nicht.")
         sys.exit(1)

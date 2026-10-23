@@ -53,7 +53,40 @@ SYSTEM_GRUENDE = {
     # bewerbung_zu_anfrage_konvertieren: der Eintrag war nie eine
     # Bewerbung, sondern eine sofort abgelehnte Recruiter-Anfrage.
     "war_nur_anfrage",
+    # blacklist_anwenden (`services/blacklist_bestand`): Treffer eines
+    # STICHWORTS der Blacklist, das Gegenstueck zu firma_blacklisted. #1239:
+    # fehlte hier -- der Normalisierer machte daraus 'sonstiges' (Notiz
+    # "keyword_blacklisted"), und ein Lauf auf den Bestand legte viele Zeilen
+    # 'sonstiges' von "ich" mit demselben Zeitpunkt an: sie verdraengten die
+    # Beispiele des Menschen und standen als Grund im Block "GELERNT".
+    "keyword_blacklisted",
 }
+
+# Gruende, die KEIN Urteil des Menschen ueber die Passung einer Stelle sind
+# (#1234). Die Stelle ging aus der Liste, weil sich der Mensch beworben hat
+# (`bewerbung_erstellt` ist das GEGENTEIL einer Ablehnung), weil es sie doppelt
+# gab oder weil die Anzeige weg war. Als Beleg dafuer, dass "diese Art Stelle bei
+# diesem Arbeitgeber nicht passt", taugen sie nicht: zwei Fassungen derselben
+# frueheren Bewerbung machten eine neue, gelesene und empfohlene Stelle zum
+# Wiedergaenger mit k.o.
+#
+# EINE Liste fuer alle Wege, die aus Aussortierungen etwas folgern (Wiedergaenger,
+# Firmen-Historie, Stellenliste, Analyse). `kalibrierung`, `lerninsights`,
+# `lernprotokoll` und `lernquellen` schliessen `bewerbung_erstellt` in SQL aus; die
+# Automatik (`stellen_automatik.AUTOMATIK_GRUENDE`) fragt umgekehrt nach einer
+# Positivliste.
+KEIN_URTEIL_GRUENDE = frozenset({
+    "bewerbung_erstellt", "bereits_beworben", "duplikat", "veraltet_url",
+})
+
+
+def ist_urteil(grund) -> bool:
+    """True, wenn der Aussortier-Grund ein Urteil ueber die Passung ist (#1234)."""
+    kern = str(grund or "").strip().lower()
+    if kern.startswith("auto:"):
+        kern = kern[len("auto:"):].split(":", 1)[0]
+    return bool(kern) and kern not in KEIN_URTEIL_GRUENDE
+
 
 # Exakte Alt-Schreibweisen -> kanonischer Grund (Bestands-Mapping aus
 # der #913-Auswertung; case-insensitiv verglichen).
@@ -229,8 +262,41 @@ def gruende_aus_wert(raw) -> list:
     return gruende
 
 
-def gruende_zaehlen(conn, profile_id, ausser=("bewerbung_erstellt",)
-                    ) -> tuple[list, int]:
+# Zaehlt eine Aussortierung OHNE gespeicherte Herkunft (`dismissed_by` leer: Altbestand vor v1.7.64) als Urteil des Menschen?
+# Nein (#1239). `aussortier_protokoll.herkunft` sagt es selbst: "unbekannt ist nicht dasselbe wie war ich". Der Altbestand enthaelt
+# auch Urteile der Automatik, deren Praefix `auto:` seit #913 beim Schreiben entfernt wird. Gemessen am 17.10.2026 auf einer Kopie
+# einer echten Datenbank: 2.488 von 3.586 aussortierten Stellen ohne Herkunft, keine einzige mit dem Praefix; sie der KI als "hat
+# der Bewerber selbst abgelehnt" zu zeigen, waere eine Behauptung ohne Beleg. Die heutigen Schreibwege setzen die Herkunft
+# (`dismiss_job` kennt "ich" und "automatik", `save_jobs` schreibt "automatik"); nur rohes SQL und die Migration v20->v21 lassen
+# sie leer. Wer den Altbestand trotzdem mitzaehlen will, aendert nur diese Zeile.
+UNBEKANNTE_HERKUNFT_ZAEHLT = False
+
+
+def urteilsgruende_des_menschen(dismissed_by, dismiss_reason) -> list:
+    """Die Gruende einer Aussortierung, die ein URTEIL DES MENSCHEN ueber die Passung sind (#1239); leer, wenn keiner zaehlt.
+
+    EINE Antwort fuer alles, was der KI als Entscheidung des Bewerbers gezeigt wird: die Beispiele im Prompt der Auto-Aussortierung
+    (`Database.get_recent_user_dismissals`) und der Block "GELERNT" (`gruende_zaehlen(nur_menschen=True)`). Drei Bedingungen,
+    alle drei:
+
+    * der Mensch hat aussortiert (`aussortier_protokoll.herkunft` == "ich"). Die Automatik schreibt ihre Gruende seit #913 OHNE
+      Praefix `auto:`; `NOT LIKE 'auto:%'` fing sie nicht mehr, und das Modell lernte von sich selbst;
+    * der Grund ist kein Systemgrund (`SYSTEM_GRUENDE`: `profil_match_negativ`, `firma_blacklisted`, ...);
+    * der Grund ist ein Urteil ueber die Passung (`ist_urteil`, #1234): `bewerbung_erstellt` ist das Gegenteil einer Ablehnung,
+      `duplikat`, `bereits_beworben` und `veraltet_url` sagen nichts darueber, ob eine Art Stelle passt.
+
+    Bei mehreren Gruenden zaehlen nur die, die diese Bedingungen erfuellen. `dismissed_by` leer: siehe `UNBEKANNTE_HERKUNFT_ZAEHLT`.
+    """
+    from .aussortier_protokoll import herkunft
+    wer = herkunft({"dismissed_by": dismissed_by, "dismiss_reason": dismiss_reason})
+    if wer != "ich" and not (wer == "unbekannt" and UNBEKANNTE_HERKUNFT_ZAEHLT):
+        return []
+    return [g for g in gruende_aus_wert(dismiss_reason)
+            if g not in SYSTEM_GRUENDE and ist_urteil(g)]
+
+
+def gruende_zaehlen(conn, profile_id, ausser=("bewerbung_erstellt",),
+                    nur_menschen=False) -> tuple[list, int]:
     """Zaehlt die Aussortier-Gruende ueber beide Speicherformen.
 
     Rueckgabe: ([(grund, anzahl_stellen), ...] absteigend, stellen_gesamt).
@@ -238,18 +304,27 @@ def gruende_zaehlen(conn, profile_id, ausser=("bewerbung_erstellt",)
     einmal — der Anteil beantwortet also "bei wie vielen Stellen spielte
     dieser Grund eine Rolle". Stellen, deren Gruende ALLE in `ausser`
     liegen, zaehlen gar nicht.
+
+    `nur_menschen` (#1239): gezaehlt werden nur die Gruende, die ein Urteil
+    des MENSCHEN sind (`urteilsgruende_des_menschen`: nicht die Automatik,
+    kein Systemgrund, Herkunft belegt). Das ist die Frage der KI-Aussortierung
+    "wie sortiert dieser Bewerber aus?"; die Statistik und die Lern-Karte
+    fragen weiter nach ALLEN Aussortierungen.
     """
     rows = conn.execute(
-        "SELECT dismiss_reason, COUNT(*) AS n FROM jobs "
+        "SELECT dismissed_by, dismiss_reason, COUNT(*) AS n FROM jobs "
         "WHERE is_active=0 AND (profile_id=? OR profile_id IS NULL) "
         "AND COALESCE(dismiss_reason,'') != '' "
-        "GROUP BY dismiss_reason", (profile_id,)
+        "GROUP BY dismissed_by, dismiss_reason", (profile_id,)
     ).fetchall()
     zaehler: dict = {}
     gesamt = 0
     for r in rows:
-        gruende = [g for g in gruende_aus_wert(r["dismiss_reason"])
-                   if g not in ausser]
+        if nur_menschen:
+            gruende = urteilsgruende_des_menschen(r["dismissed_by"], r["dismiss_reason"])
+        else:
+            gruende = gruende_aus_wert(r["dismiss_reason"])
+        gruende = [g for g in gruende if g not in ausser]
         if not gruende:
             continue
         gesamt += r["n"]

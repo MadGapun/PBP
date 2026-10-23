@@ -69,7 +69,7 @@ def test_die_konfiguration_wird_ohne_bom_geschrieben():
 
 def test_das_backup_meldet_ok_nur_nach_pruefung_der_datei():
     z = _zeile_nach("Erstelle Backup", "Compress-Archive")
-    assert z.index("Test-Path '!BACKUP_ZIP!'") < z.index("[OK] Backup erstellt")
+    assert z.index("Test-Path -LiteralPath $env:BACKUP_ZIP") < z.index("[OK] Backup erstellt")
     assert "exit 2" in z and "NICHT erstellt" in z
 
 
@@ -154,9 +154,9 @@ def test_nach_dem_deinstaller_ueberlebt_der_rest_die_neuinstallation(tmp_path):
 
 
 def _backup_befehl(daten_ordner, ziel):
+    """(Befehl, Umgebung): die Pfade kommen wie im Deinstaller ueber DATA_DIR und BACKUP_ZIP (#1149, Punkt 8)."""
     z = _zeile_nach("Erstelle Backup", "Compress-Archive")
-    befehl = _befehl(z)
-    return befehl.replace("%DATA_DIR%", str(daten_ordner)).replace("!BACKUP_ZIP!", str(ziel))
+    return _befehl(z), {"DATA_DIR": str(daten_ordner), "BACKUP_ZIP": str(ziel)}
 
 
 @nur_windows
@@ -165,7 +165,7 @@ def test_ein_backup_wird_gemeldet_wenn_die_datei_da_ist(tmp_path):
     daten.mkdir()
     (daten / "pbp.db").write_bytes(b"x" * 2048)
     ziel = tmp_path / "PBP-Backup.zip"
-    r = _lauf(_backup_befehl(daten, ziel), {})
+    r = _lauf(*_backup_befehl(daten, ziel))
     assert r.returncode == 0, r.stdout + r.stderr
     assert ziel.is_file() and ziel.stat().st_size > 0
     assert "[OK] Backup erstellt" in r.stdout
@@ -177,7 +177,7 @@ def test_ein_fehlgeschlagenes_backup_meldet_keinen_erfolg(tmp_path):
     daten.mkdir()
     (daten / "pbp.db").write_bytes(b"x" * 2048)
     ziel = tmp_path / "gibt-es-nicht" / "PBP-Backup.zip"  # Zielordner fehlt
-    r = _lauf(_backup_befehl(daten, ziel), {})
+    r = _lauf(*_backup_befehl(daten, ziel))
     assert r.returncode == 2, r.stdout + r.stderr
     assert "[OK]" not in r.stdout and "NICHT erstellt" in r.stdout
     assert not ziel.exists()
@@ -185,5 +185,5 @@ def test_ein_fehlgeschlagenes_backup_meldet_keinen_erfolg(tmp_path):
 
 @nur_windows
 def test_ohne_datenordner_gibt_es_nichts_zu_sichern(tmp_path):
-    r = _lauf(_backup_befehl(tmp_path / "fehlt", tmp_path / "x.zip"), {})
+    r = _lauf(*_backup_befehl(tmp_path / "fehlt", tmp_path / "x.zip"))
     assert r.returncode == 1 and "[OK]" not in r.stdout
