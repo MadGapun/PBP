@@ -2201,6 +2201,9 @@ _STUFEN_TEXT = {
         "ohne Pflichttreffer und über der Behalten-Grenze"),
     "automatisch_aussortiert": "automatisch aussortiert (Wiedergänger)",
     "ignoriert": "als Wiedergänger ignoriert",
+    # #1250: ohne Anzeigentext sortiert die Automatik nicht aus.
+    "wiedergaenger_ohne_text": (
+        "wie frühere Wiedergänger, aber ohne Anzeigentext behalten"),
 }
 
 
