@@ -36,10 +36,11 @@ def test_get_recent_user_dismissals_returns_manual_only(setup_env):
     db = setup_env
     pid = db.get_active_profile_id()
     conn = db.connect()
-    # Manuelle Aussortierung
+    # Manuelle Aussortierung (#1239: mit gespeicherter Herkunft "ich"; eine Zeile ohne Herkunft ist Altbestand
+    # und zaehlt nicht als Urteil des Menschen)
     conn.execute(
-        "INSERT INTO jobs (hash, profile_id, title, company, source, is_active, dismiss_reason, updated_at) "
-        "VALUES (?, ?, 'Junior Dev', 'ACME GmbH', 'test', 0, 'falsches_fachgebiet', ?)",
+        "INSERT INTO jobs (hash, profile_id, title, company, source, is_active, dismiss_reason, updated_at, dismissed_by) "
+        "VALUES (?, ?, 'Junior Dev', 'ACME GmbH', 'test', 0, 'falsches_fachgebiet', ?, 'ich')",
         (f"{pid}:h1", pid, "2026-05-14T10:00:00"),
     )
     # Auto-Aussortierung (sollte gefiltert sein)
@@ -70,9 +71,9 @@ def test_get_recent_user_dismissals_orders_desc(setup_env):
     for i in range(3):
         conn.execute(
             "INSERT INTO jobs (hash, profile_id, title, company, source, is_active, "
-            "dismiss_reason, updated_at) "
+            "dismiss_reason, updated_at, dismissed_by) "
             f"VALUES ('{pid}:h{i}', ?, 'Job {i}', 'Firma {i}', 'test', 0, "
-            "'reason', ?)",
+            "'reason', ?, 'ich')",
             (pid, f"2026-05-1{i}T10:00:00")
         )
     conn.commit()
@@ -92,8 +93,8 @@ def test_get_recent_user_dismissals_limit(setup_env):
     for i in range(15):
         conn.execute(
             "INSERT INTO jobs (hash, profile_id, title, company, source, is_active, "
-            "dismiss_reason, updated_at) "
-            f"VALUES ('{pid}:h{i:02d}', ?, 'J{i}', 'F', 'test', 0, 'r', ?)",
+            "dismiss_reason, updated_at, dismissed_by) "
+            f"VALUES ('{pid}:h{i:02d}', ?, 'J{i}', 'F', 'test', 0, 'r', ?, 'ich')",
             (pid, f"2026-05-{i+1:02d}T10:00:00")
         )
     conn.commit()

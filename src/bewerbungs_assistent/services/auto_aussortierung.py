@@ -158,13 +158,16 @@ def aussortieren(db, max_stellen: int = 10, min_score: int = 0,
 
     # v1.7.0-beta.28 (#594 Stufe 3): adaptive Prompt-Anreicherung —
     # Top-3 dismiss_reasons des Users bekommt die LLM mit, damit sie
-    # bekannte Anti-Muster wiedererkennen kann.
+    # bekannte Anti-Muster wiedererkennen kann. #1239: nur Urteile des
+    # MENSCHEN (`nur_menschen=True`); die Automatik und Systemgruende
+    # (`bewerbung_erstellt`, `profil_match_negativ`, ...) sind keine
+    # Anti-Muster des Bewerbers, sonst lernt das Modell von sich selbst.
     dismiss_reasons_top: list[dict] = []
     try:
         conn = db.connect()
         pid = db.get_active_profile_id()
         from .ablehnungsgruende import gruende_zaehlen
-        liste, _ = gruende_zaehlen(conn, pid, ausser=())
+        liste, _ = gruende_zaehlen(conn, pid, ausser=(), nur_menschen=True)
         dismiss_reasons_top = [
             {"reason": g, "count": n} for g, n in liste[:3]
         ]
