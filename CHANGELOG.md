@@ -45,7 +45,7 @@ Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus ne
 
 - **Von rc.4 aus:** Ist „Vorabversionen automatisch“ eingeschaltet (Einstellungen › Erweitert › Updates), bietet PBP rc.5 von selbst an; sonst wie gewohnt das ZIP laden und `INSTALLIEREN.bat` darüber starten. Von rc.3 aus bleibt der Weg von Hand (der Fehler #1222 ist erst ab rc.4 behoben).
 - **Claude Desktop aus dem Microsoft Store:** Zeigt Claude PBP bisher nicht, den Installer von rc.5 einmal ausführen und Claude danach komplett beenden und neu starten. Die Konfiguration, die Claude liest, liegt bei der aktuellen Store-Fassung unter `%LOCALAPPDATA%\Claude-Data\claude_…\`; der Installer findet sie jetzt selbst.
-- **Wer PBP seit dem 19.10.2026 neu installiert hat,** hat womöglich JobSpy 1.4.0, das PBP nicht kennt. Der Installer von rc.5 setzt auf die Fassung 1.3 zurück; von Hand geht es mit `pip install "python-jobspy<1.4"`.
+- **Wer PBP seit dem 19.10.2026 neu installiert hat,** hat womöglich JobSpy 1.4.0, das PBP nicht kennt. Der Installer von rc.5 setzt auf die Fassung 1.3 zurück; von Hand geht es in der Eingabeaufforderung mit `"%LOCALAPPDATA%\BewerbungsAssistent\app\python\python.exe" -m pip install "python-jobspy<1.4"` (macOS und Linux, im PBP-Ordner: `.venv/bin/python -m pip install "python-jobspy<1.4"`).
 
 ### Fixed
 
