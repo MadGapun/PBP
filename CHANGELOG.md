@@ -36,11 +36,70 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 ## [1.8.0] - 2026-10-12 — Updates, die sich selbst installieren
 
 <!-- anwender -->
-PBP kann sich jetzt selbst aktualisieren — wenn du es willst (Einstellungen › Erweitert › Updates). Ohne deine Wahl installiert PBP nichts.
-Neu sind außerdem die Übersicht „Speicher & Downloads“ (dort änderst du auch den Ordner für deine Lebensläufe und Anschreiben), der Firmen-Eintrag und ein Mail-Ordner-Zugang, der standardmäßig aus ist.
-Die Wege durch PBP sind kürzer: von der Nachfassung zur Bewerbung, von der Person zur Bewerbung und zurück, von der Stelle zur neuen Bewerbung — je ein Klick, und in Stelle, Bewerbung, Person und Firma steht oben eine feste Leiste mit dem Rückweg und dem nächsten Schritt. Die Listen beginnen mit ihrer ersten Zeile statt mit Kennzahlen. Die Seite „Stellen“ läuft im Leerlauf wieder ruhig. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten sagen, was sie sind.
-Was Claude für dich erarbeitet — den Grund einer Absage, ein einzelnes Dokument, die Angaben aus einem LinkedIn-Profil —, trägt es jetzt selbst in PBP ein, statt es nur im Chat zu nennen. Ohne Gehaltsangaben zeigt die Stellen-Seite „Keine Angabe“ statt „0 EUR“.
+PBP kann sich jetzt selbst aktualisieren, wenn du es willst (Einstellungen › Erweitert › Updates); ohne deine Wahl installiert PBP nichts.
+Neu sind die Hilfe „Frag mich“, die Übersicht „Speicher & Downloads“, der Firmen-Eintrag und kürzere Wege: Von Stelle, Bewerbung, Person und Firma geht es mit einem Klick weiter und zurück.
+Was Claude für dich erarbeitet, trägt es selbst in PBP ein, und Stellen aus einem Suchlauf im Browser stehen danach in deiner Liste statt nur im Chat.
 <!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Von 1.7 kommend, einmal von Hand:** das ZIP dieser Version laden, entpacken und `INSTALLIEREN.bat` doppelklicken (macOS: `INSTALLIEREN.command`).
+  Du installierst einfach darüber; deine Daten bleiben, vorher entsteht ein Backup. Danach Claude Desktop **komplett beenden** (Rechtsklick auf das
+  Claude-Symbol unten rechts in der Taskleiste › Beenden) und neu starten.
+- **Ab jetzt geht es auch ohne ZIP:** Unter Einstellungen › Erweitert › Updates wählst du, ob PBP dir neue Versionen nur meldet (Vorgabe) oder selbst
+  installiert. Das gibt es zurzeit nur unter Windows.
+- **Claude aus dem Microsoft Store:** Hat Claude PBP bisher nicht angezeigt, obwohl der Installer „fertig“ meldete, behebt das diese Installation.
+
+**Neu**
+
+- **Updates von selbst, nur wenn du willst.** Vier Stufen, von „Nur Hinweis“ (Vorgabe) bis „Automatisch, still“. Jede neue Version wird vor dem Einbau
+  geprüft (Prüfsumme und Signatur) und neben der laufenden abgelegt. Startet sie nicht, kehrt PBP von selbst zur vorigen zurück und sagt es dir.
+- **„Frag mich“ in der Hilfe.** Das Fragezeichen oben rechts öffnet „Hilfe & Support“. Im Reiter „Frag mich“ stellst du eine Frage zur Bedienung, zum
+  Beispiel „Wo stelle ich ein, dass sich PBP selbst aktualisiert?“, und bekommst Karten mit der Antwort, einem Sprung an die richtige Stelle und dem Link
+  ins Wiki. Deine Fragen werden nicht gespeichert. Läuft die lokale KI, steht das Feld auch in der Seitenleiste unter Elwosas Nachrichten.
+- **Kürzere Wege.** In Stelle, Bewerbung, Person und Firma steht oben eine feste Leiste mit dem Rückweg und dem nächsten Schritt; die Zurück-Taste führt
+  dorthin, woher du kamst. „Nachfassen“ im Dashboard öffnet die Bewerbung, nach „Bewerbung speichern“ liegt die neue Bewerbung offen da, und ein Treffer
+  der Suche oben öffnet, was du gesucht hast.
+- **Firmen (Kontakte › Firmen).** Alles, was PBP zu einer Firma weiß, auf einer Zeitleiste: Bewerbungen, Stellen, Personen, Dokumente. Verschiedene
+  Schreibweisen derselben Firma und die Mutterfirma führt PBP zusammen, aber nur, wenn du es bestätigst.
+- **Speicher & Downloads (Einstellungen › Erweitert).** Wo PBP Dateien ablegt und wie viel Platz sie brauchen, und Aufräumen in zwei Schritten, nie ohne
+  dein Ja. Hier änderst du auch den Ordner für deine Lebensläufe und Anschreiben.
+- **Was Claude im Browser findet, steht danach in PBP.** Stellen aus einem Suchlauf im Browser landen in deiner Liste; im Zweifel kommt eine Stelle hinein,
+  und du entscheidest. Das Dashboard zeigt unter „Stellen zu prüfen“, was auf dein Urteil wartet. Was Claude nach dem Lesen aussortiert hat, holst du dort
+  mit einem Klick zurück.
+- **Claude trägt selbst ein,** was es für dich erarbeitet: den Grund einer Absage, die Auswertung eines einzelnen Dokuments, die Angaben aus einem
+  LinkedIn-Profil. Bisher stand das oft nur im Chat.
+- **Kleineres:** Den Typ eines Dokuments änderst du von Hand („Typ ändern“ in der aufgeklappten Dokumentenkarte). Die Stellenliste merkt sich auf Wunsch
+  deine Filter als Voreinstellung. jobtic steht als Quelle für IT-Freelance-Projekte bereit (dafür brauchst du ein eigenes jobtic-Konto). Elwosa sagt
+  Bescheid, wenn es eine neue Version gibt. Die Texterkennung für eingescannte Dokumente lässt sich ohne Administratorrechte installieren. Für Jobmails aus
+  Mail-Ordnern gibt es einen Zugang, der ab Werk aus ist; ein Add-on, das ihn nutzt, gibt es noch nicht.
+
+**Was anders ist**
+
+- **Die Aufräum-Runde „Bewerbungen im Blick behalten“ läuft jetzt einmal am Tag von selbst** (Einstellungen › Automatik, dort auch „Aus“). Sie legt
+  Erinnerungen nach, lädt fehlende Anzeigentexte und prüft, ob Anzeigen noch online sind. Bewerbungen schließt sie von selbst nur ab, wenn du das dort
+  einschaltest; ab Werk ist das aus.
+- **Die Auto-Aussortierung lernt nur noch aus dem, was du selbst aussortiert hast,** nicht mehr aus ihren eigenen Urteilen.
+- **Google Jobs:** Die Suche über JobSpy ist als defekt gekennzeichnet. Ein Google-Treffer ohne die Original-Anzeige des Arbeitgebers wird nicht mehr als
+  Stelle angelegt, und Google-Benachrichtigungen per Mail liefern Hinweise statt Stellen.
+- **Dashboard:** Unter „Offen“ ist nur noch rot, was überfällig ist. Beim allerersten Start führt ein Weg zum Profil statt vier Karten, und leere Seiten
+  sagen, was sie sind.
+- Nennt keine Stelle ein Gehalt, steht „Keine Angabe“ statt „0 EUR“.
+
+**Behoben (Auswahl)**
+
+- Claude aus dem Microsoft Store zeigte PBP nach der Installation nicht an, obwohl der Installer „fertig“ meldete.
+- Seit dem 19.10.2026 bekamen neue Installationen eine Fassung der Jobbörsen-Bibliothek JobSpy, die PBP nicht kennt; jetzt bleibt es bei der geprüften.
+- Die Seite „Stellen“ lief im Leerlauf auf Hochtouren.
+- Mehrdeutige Ortsnamen bekamen still den erstbesten Treffer; die Entfernung konnte deshalb weit danebenliegen.
+- Eine laufende Stelle zählte bei der Berufserfahrung nur bis 2026; ab dem 01.01.2027 hätte ein Jahr gefehlt.
+- Eine interne Notiz schloss die offene Nachfass-Erinnerung einer Bewerbung.
+
+Alle Änderungen im Einzelnen stehen darunter.
+
+### Im Einzelnen
 
 PBP kann sich jetzt selbst aktualisieren — **wenn du es willst**. Ohne deine Wahl installiert PBP nichts. Dazu kommen die Übersicht
 „Speicher & Downloads“, die Prüfsumme für Zusatzprogramme, die Zugangsschicht für Jobmails aus Ordnern und der Firmen-Eintrag. Die Version
