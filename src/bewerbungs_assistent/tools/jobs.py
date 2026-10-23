@@ -801,7 +801,7 @@ def register(mcp, db, logger):
         """Was wurde wann und von wem aussortiert (#1010).
 
         Der Rückholweg für einen Verklicker. Rückholen ging schon
-        immer (`stelle_reaktivieren`, Filter "Ausgeblendet") — was
+        immer (`stelle_reaktivieren`, Reiter "Aussortiert") — was
         fehlte, war das WIEDERFINDEN: es gab keinen Zeitpunkt der
         Aussortierung, und `updated_at` taugt nicht dafür (die Spalte
         fasst jede Score-Neuberechnung an).
@@ -3754,7 +3754,7 @@ def register(mcp, db, logger):
         kein Urteil gespeichert — und `aussortieren_grund` (ein Wert aus der Liste der
         Ablehnungsgründe): nach dem Lesen offensichtlich fachfremd oder geschlossen. Die Stelle wird
         angelegt und gleich aussortiert, mit diesem Grund und der Herkunft „von Claude“: der nächste
-        Lauf liest sie nicht noch einmal, und der Mensch findet sie unter Stellen › Ausgeblendet
+        Lauf liest sie nicht noch einmal, und der Mensch findet sie unter Stellen › Aussortiert
         wieder und holt sie mit einem Klick zurück.
 
         Der Lauf wird VERBUCHT (Langzeit-Auswertung der Quellen), auch ohne eine einzige Anlage.
@@ -3943,7 +3943,7 @@ def register(mcp, db, logger):
             ergebnis["naechster_schritt"] = (
                 f"{trichter['angelegt']} Stelle(n) stehen in PBP: Dashboard › Stellen zu prüfen, oder in der Liste "
                 "'Prüfstand: nur ungeprüfte'. Ohne Volltext: stellenbeschreibung_nachladen. Was du nach dem Lesen "
-                "aussortiert hast, steht unter Stellen › Ausgeblendet („von Claude“) und lässt sich zurückholen.")
+                "aussortiert hast, steht unter Stellen › Aussortiert („von Claude“) und lässt sich zurückholen.")
         elif trichter["uebersprungen"]:
             ergebnis["hinweis"] = (
                 f"Keine Stelle angelegt — {trichter['uebersprungen']} nicht übernommen. Die Gründe stehen im Trichter; "

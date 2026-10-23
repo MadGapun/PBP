@@ -1412,7 +1412,7 @@ export default function JobsPage() {
       return {
         badge: "Review",
         tone: "neutral",
-        title: "Ausgeblendete Stellen sind dein späteres Prüfregal",
+        title: "Aussortierte Stellen sind dein späteres Prüfregal",
         description: "Hier solltest du nur bewusst wiederherstellen, nicht wahllos zurückholen. Nutze die Gründe als Lernsignal für bessere Filter.",
       };
     }

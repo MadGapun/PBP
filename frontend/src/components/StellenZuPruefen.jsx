@@ -107,7 +107,7 @@ export default function StellenZuPruefen({ navigateTo, anlass = 0 }) {
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-muted">
                   <span>
                     {claude > liste.length
-                      ? `Die neuesten ${liste.length} von ${claude}. Alle stehen unter Stellen › Ausgeblendet, Herkunft „von Claude“.`
+                      ? `Die neuesten ${liste.length} von ${claude}. Alle stehen unter Stellen › Aussortiert, Herkunft „von Claude“.`
                       : "Das sind alle."}
                   </span>
                   <Button size="sm" variant="ghost" onClick={() => oeffne(zuAusgeblendetenStellen())}>
