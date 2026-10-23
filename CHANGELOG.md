@@ -33,18 +33,19 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.0-rc.5] - 18.10.2026 — Der Installer findet die Konfiguration von Claude (Release-Kandidat)
+## [1.8.0-rc.5] - 23.10.2026 — Der Installer findet die Konfiguration von Claude (Release-Kandidat)
 
 <!-- anwender -->
-Kleine Korrekturen gegenüber der letzten Vorabversion. Wichtig für alle, die Claude Desktop aus dem Microsoft Store nutzen: PBP trägt sich jetzt dort ein, wo die aktuelle Store-Fassung von Claude nachsieht. Bisher meldete der Installer „fertig“, und Claude zeigte PBP trotzdem nicht. Dazu: Die Update-Seite nennt bei einer abgelehnten Aktion den Grund statt nur „HTTP 400“, der Hilfe-Dialog fragt nach einer getippten Frage nicht mehr nach „ungespeicherten Eingaben“, der Installer behält, was du in der Konfiguration von Claude beim PBP-Eintrag ergänzt hast, und eine laufende Stelle zählt für deine Berufserfahrung bis heute.
+Korrekturen gegenüber der letzten Vorabversion. Wichtig für alle, die Claude Desktop aus dem Microsoft Store nutzen: PBP trägt sich jetzt dort ein, wo die aktuelle Store-Fassung von Claude nachsieht (bisher meldete der Installer „fertig“, und Claude zeigte PBP trotzdem nicht). Neue Installationen holen außerdem wieder die bekannte Fassung der Jobbörsen-Bibliothek JobSpy statt der neuesten, die PBP nicht kennt. In der Seitenleiste scrollst du jetzt in einem Bereich: Elwosas Nachrichten und die Antworten der Hilfe stehen hintereinander, und „N neu“ meldet sich verlässlich. Die Auto-Aussortierung lernt nur noch aus dem, was du selbst aussortiert hast. Dazu: Die Update-Seite nennt bei einer abgelehnten Aktion den Grund statt nur „HTTP 400“, der Hilfe-Dialog fragt nach einer getippten Frage nicht mehr nach „ungespeicherten Eingaben“, der Installer behält, was du in der Konfiguration von Claude beim PBP-Eintrag ergänzt hast, und eine laufende Stelle zählt für deine Berufserfahrung bis heute.
 <!-- /anwender -->
 
-Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus fünf Korrekturen aus dem vierten Lauf auf dem Werkstatt-PC und den Hotfix-Rückführungen; drei davon betreffen auch die stabile Linie 1.7 (#1237, #1238, #1245).
+Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus neun Korrekturen aus dem vierten Lauf auf dem Werkstatt-PC, den Hotfix-Rückführungen, der neuen Fassung von JobSpy und zwei Folgeaufträgen zur Seitenleiste; sechs davon betreffen auch die stabile Linie 1.7 (#1237, #1238, #1239, #1245, #1252, #1256).
 
 **Wichtig zu wissen:**
 
 - **Von rc.4 aus:** Ist „Vorabversionen automatisch“ eingeschaltet (Einstellungen › Erweitert › Updates), bietet PBP rc.5 von selbst an; sonst wie gewohnt das ZIP laden und `INSTALLIEREN.bat` darüber starten. Von rc.3 aus bleibt der Weg von Hand (der Fehler #1222 ist erst ab rc.4 behoben).
 - **Claude Desktop aus dem Microsoft Store:** Zeigt Claude PBP bisher nicht, den Installer von rc.5 einmal ausführen und Claude danach komplett beenden und neu starten. Die Konfiguration, die Claude liest, liegt bei der aktuellen Store-Fassung unter `%LOCALAPPDATA%\Claude-Data\claude_…\`; der Installer findet sie jetzt selbst.
+- **Wer PBP seit dem 19.10.2026 neu installiert hat,** hat womöglich JobSpy 1.4.0, das PBP nicht kennt. Der Installer von rc.5 setzt auf die Fassung 1.3 zurück; von Hand geht es mit `pip install "python-jobspy<1.4"`.
 
 ### Fixed
 
@@ -56,6 +57,10 @@ Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus f�
   steht, und eine Datei, die sich nicht schreiben lässt, hält die übrigen nicht mehr auf. Der Deinstaller durchsucht denselben Ordner (vorher stand dort
   „MCP-Eintrag entfernt“, und der Eintrag blieb stehen) und nennt ihn im Hinweis, falls er von Hand entfernt werden muss. Wer PBP in Claude nicht sieht,
   führt den Installer einfach noch einmal aus.
+- **Neue Installationen bekamen `python-jobspy` 1.4.0, das PBP nicht kennt** (#1252; betrifft auch Stable). Die Bibliothek erschien am 19.10.2026 in einer umgebauten
+  Fassung (andere Modelle, ein einziger Logger, neue Abhängigkeiten); PBP verlangte aber nur `>=1.2`. Jede frische Installation und jeder Installer-Lauf zog sie, und
+  sechs Prüfungen gegen die Bibliothek schlugen fehl. Jetzt gilt `python-jobspy>=1.2,<1.4` in `pyproject.toml` und im Installer; ein Installer-Lauf setzt ein bereits
+  gezogenes 1.4.0 auf 1.3 zurück. Die Übernahme von 1.4 ist ein eigenes Vorhaben.
 - **Eigene Einstellungen im PBP-Eintrag von Claude Desktop bleiben beim Überinstallieren erhalten** (#1238; betrifft auch Stable). Was unter `env` des Eintrags
   `bewerbungs-assistent` steht (ein verlegter Datenordner, ein Port, der Schlüssel des optionalen API-Wegs), ging beim Installieren mit dem Setup mit Fenster
   (`installer/setup_gui.py`) und mit `switch_mode.py` ohne Hinweis verloren; `INSTALLIEREN.bat`, `INSTALLIEREN.command` und `install.sh` behielten es seit
@@ -68,6 +73,9 @@ Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus f�
   die Auto-Aussortierung mit derselben Funktion wie die Einordnung des Profils, und ein Wächter hält feste Jahreszahlen aus dem Quelltext. Schon heute ändert sich
   ein Sonderfall: eine zweite Station, die neben einer laufenden ab Oktober 2026 beginnt, wurde als „Lücke“ gemeldet, weil das Ende der laufenden fest auf März 2026
   stand.
+- **In der Seitenleiste scrollst du in EINEM Bereich: Elwosas Nachrichten und die Antworten der Hilfe, nach der Zeit geordnet** (#1254; nur im Kandidaten, seit rc.4). Die Antworten der Hilfe bekamen einen eigenen Bereich zum Scrollen (bis zu 38 % der Fensterhöhe) und drückten Elwosas Verlauf auf wenige Zeilen zusammen (gemessen bei 960 Pixeln Fensterhöhe: von 233 auf 0 Pixel). Jetzt stehen beide hintereinander wie in einem Chat, das Neueste unten; das Feld zum Fragen bleibt fest darunter, vor jeder Reihe von Antworten steht die Zeile „Fragen zur Bedienung“, und nach einer Frage springt der Bereich an den Anfang der Antwort. Der Hilfe-Dialog ist unverändert.
+- **Elwosas „N neu“ kam bei vollem Verlauf nicht, und der Verlauf rutschte beim Verkleinern aus dem Bild** (#1256; betrifft auch Stable). Die Marke zählte die Nachrichten der Liste (die Seitenleiste holt nur zehn), und ein Merker aus einem Scroll-Ereignis entschied, ob du am Ende standest. Bei voller Liste kam keine Marke, nach dem Ausblenden einer Nachricht kam eine ohne Anlass, und wurde der Bereich niedriger (zum Beispiel durch die Zeile „Update-Stand unbekannt“ im Kopf), war die letzte Meldung abgeschnitten. Jetzt zählt die Marke nach Kennung (neu ist, was eine größere Kennung trägt als die zuletzt gesehene), die Seite misst beim Eintreffen der Daten, ob du am Ende standest, und der Bereich hält das Ende, wenn sich seine Höhe ändert.
+- **Die KI lernt nur aus dem, was du selbst aussortiert hast** (#1239; betrifft auch Stable). Der Auftrag an die lokale KI enthielt unter „deine Beispiele“ und im Block „GELERNT“ auch Urteile der Automatik und Systemgründe wie `bewerbung_erstellt`: der Filter schloss nur das Präfix `auto:` aus, das PBP seit #913 beim Schreiben entfernt. Auf einer Kopie einer echten Datenbank waren alle fünf Beispiele Urteile der Automatik. Jetzt zählen nur Stellen, die du selbst aussortiert hast, mit einem Grund, der ein Urteil über die Stelle ist; ältere Aussortierungen ohne gespeicherte Herkunft (vor 1.7.64) zählen nicht mit (eine Zeile, `UNBEKANNTE_HERKUNFT_ZAEHLT`, ändert das). Die Statistik bleibt, wie sie war. Ob die Bereinigung die Treffer der KI verbessert, ist noch nicht gemessen.
 - **Eine abgelehnte Aktion der Update-Seite nannte nur „HTTP 400“** (#1243; Meldung aus dem Beta-Test, rc.3 → rc.4, nur im Kandidaten). „Jetzt installieren“
   und die anderen Knöpfe der Seite zeigten bei einer Ablehnung nur den Statuscode, obwohl der Server den Grund mitschickt („Ein Update läuft gerade.“,
   „Vorabversionen werden nur installiert, wenn …“). Jetzt steht dieser Satz im Hinweis. Der Anlass war #1222: rc.3 kann eine Vorabversion nicht selbst
@@ -77,7 +85,7 @@ Fünfter Release-Kandidat für 1.8.0 — derselbe Stand wie `1.8.0-rc.4` plus f�
   Frage nicht gespeichert wird; dasselbe galt für das Filterfeld der Prompts. Der Dialog hat kein Formular und schließt jetzt ohne Rückfrage; Dialoge mit
   Formular (neuer Kontakt, Notizen) fragen weiter.
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9685 Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9761 Tests.*
 
 ---
 
