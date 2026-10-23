@@ -33,9 +33,11 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.7.159] - 2026-10-16 — Sechs Fehler behoben: Wiedergänger, Ortsnamen, Berufsjahre, Installer-Einstellungen, Claude aus dem Store und python-jobspy 1.4
+## [1.7.159] - 2026-10-23 — Sechs Fehler behoben: Wiedergänger, Ortsnamen, Berufsjahre, Installer-Einstellungen, Claude aus dem Store und python-jobspy 1.4
 
 Hotfix für v1.7.158. Sechs Befunde. Drei hängen an der Frage, was PBP aus seinen eigenen Daten folgert oder rechnet; zwei davon fielen am 16.10.2026 beim Abgleich der aktiven Stellen auf: Zwei Stellen derselben Firma, die aus der Liste gegangen waren, weil du dich beworben hattest, zählten als „zweimal aussortiert“: eine gelesene, empfohlene Stelle stand deshalb in `stellen_anzeigen` auf NICHT_EMPFOHLEN, sank unter alle anderen und fiel bei `nur_empfohlen` ganz heraus (#1234). Und eine Stelle in „Rosengarten“ stand mit 24 statt rund 500 Kilometern als nah in der Liste: den Namen gibt es mehrfach in Deutschland, und PBP nahm den ersten Treffer des Kartendienstes, ohne es zu sagen (#1235). Der dritte Befund hat einen Stichtag: PBP rechnete bei einer laufenden Stelle bis zu einer festen Jahreszahl 2026, und ab dem 01.01.2027 hätte jede laufende Stelle ein Jahr zu wenig gezählt (#1237). Der vierte Befund betrifft die Installer: Wer in der Konfiguration von Claude Desktop beim Eintrag von PBP selbst etwas ergänzt hatte (einen verlegten Datenordner, einen Port), verlor es beim Überinstallieren mit dem Setup mit Fenster oder dem PowerShell-Installer ohne Hinweis (#1238). Der fünfte stammt aus einer weiteren Praxisprobe auf einem frischen Windows 11 mit Claude aus dem Microsoft Store: Die neuere Fassung von Claude liest ihre Konfiguration aus einem neuen Ordner, der Installer trug PBP weiter in die alten Dateien ein, meldete „Claude Desktop konfiguriert“, und Claude startete PBP nie (#1245). Der sechste kam von außen: Am 19.10.2026 erschien eine umgebaute Fassung der Bibliothek `python-jobspy` (1.4.0), PBP verlangte nur `>=1.2`, und jede frische Installation zog sie (#1252).
+
+**Das ist der letzte geplante Hotfix der Linie 1.7.** Als neue stabile Version folgt 1.8.0.
 
 **Wichtig zu wissen:**
 

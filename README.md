@@ -13,7 +13,7 @@ PBP ist mehr als eine Excel-Liste, in der drei Monate später niemand mehr weiß
 
 ![PBP-Dashboard — Bewerbungen, Termine und der nächste sinnvolle Schritt auf einen Blick](docs/screenshots/01_dashboard.png)
 
-Aktuelle Version **v1.7.159** · letztes Release am 16. Oktober 2026 · 7448 automatische Tests · wöchentliche Releases
+Aktuelle Version **v1.7.159** · letztes Release am 23. Oktober 2026 · 7448 automatische Tests · wöchentliche Releases
 
 Es ist gemacht für den deutschsprachigen Raum. Wer gerade keine Bewerbung schreiben muss, braucht es nicht. Wer eine schreibt, wird es vermutlich mögen.
 
