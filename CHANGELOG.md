@@ -16,6 +16,15 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+> 🛡 **DSGVO-Nachtrag (2026-10-24):** Zwei Issues nannten reale Firmen aus dem
+> Bewerbungsbestand und sind geloescht: **#1158** (neu als #1274, erledigt) und
+> **#947** (neu als #1275, offen fuer die Bilder der Anleitung und die Probe mit
+> einem Menschen). Die Neufassungen tragen Text und Kommentare unveraendert, nur
+> die Firmennamen sind durch `<FIRMA>` ersetzt. Verweise auf #947 und #1158 in
+> dieser CHANGELOG fuehren zu 404. Ausloeser: `issue_text_pruefen` erkannte einen
+> der Namen in Umschrift nicht (#1277). Ebenfalls geloescht: **#1276** (ein
+> Titel mit einem Namensteil, neu als #1277).
+>
 > 🛡 **DSGVO-Nachtrag (2026-08-19):** Ein maschineller Sweep ueber alle
 > 781 Issue-Bodies, Kommentare und Release-Notes fand in **zehn
 > Alt-Issues** noch reale Firmennamen. Diese sind geloescht: **#88,
