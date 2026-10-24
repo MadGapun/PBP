@@ -34,7 +34,8 @@ jobs:
     # ueblicherweise eine, am 30.09.2026 elf. Mit 30 Minuten brach das Limit
     # eine vollstaendig durchgelaufene Suite ab. Untergrenze im Test
     # tests/test_ci_zeitlimit_1132.py.
-    timeout-minutes: 45
+    # #1273: gruene Laeufe 29 bis 42 Minuten, Abbrueche genau bei 45 (gemessen 24.10.2026)
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v5
 
