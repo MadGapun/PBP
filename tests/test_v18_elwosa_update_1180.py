@@ -332,6 +332,9 @@ def test_die_linie_erscheint_im_chat_mit_einem_link_auf_die_notizen(db):
             assert link.get_attribute("href") == URL_BETA
             assert link.get_attribute("target") == "_blank"
             zeile = page.locator("p", has_text="Vorabversion 1.8.0-beta.18 ist erschienen")
+            # #1271: auf die Zeile selbst warten. Der Link oben kann schon stehen, waehrend die Zeile noch gezeichnet wird;
+            # `count()` wartet nicht (in der CI auf main nach v1.8.0 einmal 0).
+            zeile.first.wait_for(timeout=30000)
             assert zeile.count() >= 1
             assert "Die Suche öffnet, was sie findet" in zeile.first.inner_text()
         finally:
