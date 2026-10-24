@@ -348,12 +348,11 @@ Im Zweifel gilt der restriktivere Zustand; eine in einer Beta eingeschaltete Que
    Archiv vorab signiert und mahnt eine fehlende Sicherung an (`scripts/update_schluessel.py stand` / `sichern`).
 6. **Pre-Release-Pause:** vor dem Commit Risiko je Issue (was kann brechen,
    was ist additiv) und nochmal testen (vom User eingefordert).
-7. **⛔ Pre-Release-Issue-Check:** UNMITTELBAR vor `gh release create` die
-   offenen Issues abrufen
-   (`gh issue list --state open --json number,title,createdAt,labels --limit 30`)
-   und mit den adressierten abgleichen. Gehoert ein neues Issue in diesen
-   Release, zurueckhalten und mitnehmen — lieber 5 Minuten warten als
-   nachschieben (beta.81 ging ohne #664 raus).
+7. **⛔ Pre-Release-Issue-Check:** vor dem Tag ALLE offenen Issues abrufen
+   (`gh issue list --state open --limit 300`): ein neues fuer diesen Release
+   zurueckhalten und mitnehmen (beta.81 ohne #664); jedes im CHANGELOG
+   genannte Teil fuer Teil pruefen (8a), Reste als eigene Issues (bei 1.8.0
+   erst nach dem Tag: #1261 bis #1270).
 8. **⛔ Tag erst NACH gruener CI:** Release-Commit pushen, den Lauf abwarten
    (`gh run watch`), erst dann Tag, Push und GH-Release. Native
    Abhaengigkeiten verhalten sich je Plattform verschieden (beta.0:

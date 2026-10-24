@@ -105,6 +105,8 @@ def test_ohne_browser_quelle_steht_keine_karte_da_und_die_erste_stelle_ist_weite
 def test_mit_gewaehlter_browser_quelle_steht_die_karte_da(browser, umgebung):
     ctx, page = _seite(browser, umgebung, ["bundesagentur", "linkedin"])
     try:
+        # #1271: die Karte kommt mit einer eigenen Anfrage - auf sie warten, nicht auf die Sekunde in `_seite`.
+        page.get_by_role("button", name="Browser-Quellen mit Claude").first.wait_for(timeout=20000)
         assert KARTE in page.locator("#page-stellen").inner_text()
         assert page.get_by_role("button", name="Browser-Quellen mit Claude").count() == 1
         assert "LinkedIn" in page.locator("#page-stellen").inner_text()

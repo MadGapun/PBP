@@ -165,8 +165,12 @@ def test_b69_erstauswahl_wird_gezeigt(browser, mit_profil):
         page.locator("[data-erstauswahl]").wait_for(timeout=15000)
         text = page.locator("[data-erstauswahl]").inner_text()
         assert "ausgewählt" in text
-        page.get_by_role("button", name="Passt so").click()
-        page.wait_for_timeout(800)
+        # #1271: auf Zustaende warten, nicht auf Zeit. Erst die Antwort des Servers (dann ist die Bestaetigung gespeichert), dann das
+        # Verschwinden der Karte. Das Verschwinden allein reicht nicht: laedt die Seite wegen einer Aenderung neu, ist die Karte kurz weg,
+        # obwohl der Server noch nicht geantwortet hat.
+        with page.expect_response(lambda r: r.url.endswith("/api/sources/erstauswahl/bestaetigen"), timeout=15000):
+            page.get_by_role("button", name="Passt so").click()
+        page.locator("[data-erstauswahl]").first.wait_for(state="detached", timeout=15000)
         assert page.locator("[data-erstauswahl]").count() == 0
         assert (db.get_profile_setting("quellen_erstauswahl") or {}).get("bestaetigt") is True
     finally:
