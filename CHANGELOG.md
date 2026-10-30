@@ -33,6 +33,107 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.1] - 2026-10-30 — Ein hängendes PBP wird erkannt, und das Update-Testprogramm endet von selbst
+
+<!-- anwender -->
+Hängt ein altes PBP am Anschluss 8200, sagt PBP jetzt ehrlich, was los ist, und beendet es von selbst, wenn es nicht von Claude gestartet wurde.
+Ein Start, der am belegten Anschluss endet, stuft PBP nicht mehr auf die vorige Fassung zurück.
+Der Funktionstest beim Update beendet sich von selbst; scheitert er trotzdem, nennt die Meldung den Weg von Hand.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Nichts Besonderes.** Wer das Auto-Update eingeschaltet hat, bekommt 1.8.1 wie jedes Update. Scheitert der Funktionstest auf deinem Rechner (Meldung
+  „Die neue Version hat ihren Funktionstest nicht bestanden“), installiere von Hand: ZIP laden, entpacken, `INSTALLIEREN.bat` starten; deine Daten bleiben.
+- **Lief PBP bei dir zuletzt auf einer älteren Fassung, ohne dass du etwas gemacht hast?** Das war der Fehler unten („kein PBP“ am belegten Anschluss, dann
+  Rückfall). Nach dem Update auf 1.8.1 passiert das nicht mehr; die gewünschte Fassung installierst du wie oben.
+
+**Behoben (kurz)**
+
+- Ein hängendes PBP am Anschluss wird erkannt, ehrlich gemeldet und (außer unter Claude Desktop) selbst beendet; keine falsche Rückstufung mehr.
+- Der Funktionstest beim Update endet von selbst, und die Meldung nennt den Weg von Hand.
+- Die Gesundheitsauskunft nennt nur Pakete, die PBP wirklich benutzt.
+
+### Fixed
+
+- **Ein hängender Prozess hielt den Anschluss 8200, und PBP schob die Schuld auf ein „anderes Programm“.** Ein altes PBP, das Verbindungen annahm, aber nicht
+  mehr antwortete, wurde als „kein PBP“ gemeldet; zwei solche Starts zählte PBP als gescheiterte Starts und stufte 1.8.0 auf eine ältere Fassung zurück
+  (#1290). Jetzt unterscheidet PBP drei Fälle: Es antwortet (dann läuft es schon), es antwortet nicht (hängender Prozess, mit Kennung und Startzeit genannt),
+  oder ein anderes Programm hält den Anschluss (mit Namen genannt). Einen hängenden eigenen Prozess, den Claude Desktop **nicht** gestartet hat, beendet PBP
+  nach einer zweiten Prüfung selbst und startet das Dashboard. Ist er von Claude Desktop gestartet (der Weg, über den Claude mit PBP spricht), beendet PBP ihn
+  nie von selbst: im Fenster kommt eine Frage (Vorgabe „Nein“), sonst steht der genaue Befehl in der Meldung. Fremde und unbekannte Prozesse fasst PBP nie an.
+  Ein Start, der am belegten Anschluss endet, zählt nicht mehr als Fehlstart der Fassung.
+- **Der Funktionstest beim Update lief auf einem Rechner in die Zeitgrenze** (#1281), obwohl er allein in vier Sekunden fertig war. Das Testprogramm beendet
+  sich jetzt hart und hat einen eigenen Wächter; die Update-Prüfung liest seine Ausgabe aus Dateien statt aus einer Leitung (ein anderer Prozess, der das
+  Leitungsende erbte, hielt sie fest), und bei einer Zeitgrenze steht, was der Test bis dahin schrieb, im Protokoll. Die Meldung nennt den Weg von Hand.
+  Die Ursache auf dem einen Rechner ist nicht bewiesen; die Änderungen beseitigen die plausibelste und machen jeden weiteren Fall sichtbar.
+- **Die Gesundheitsauskunft nannte ein Paket, das PBP nie benutzt** („pdfplumber“, #1282). Sie nennt nur noch Pakete, die PBP wirklich einbindet; ein Test hält
+  die Liste gegen die Abhängigkeiten.
+
+### Changed
+
+- Neue Module: `services/port_besitzer.py` (wer hält den Port: Kennung, Kommandozeile, Elternprozess; nur Standardbibliothek), `services/port_selbsthilfe.py`
+  (die einzige Stelle, die über das Beenden entscheidet; schützt die ganze Elternkette), `services/auto_update/start_zaehler.py` (setzt den Zähler „Starts ohne
+  Bestätigung“ zurück, setzt nie `bestaetigt`). Der Startbaustein `bewerbungs_assistent_boot` ist unverändert (FORMAT 1).
+- `dashboard_halter.port_auskunft()` liefert `pbp` / `fremd` / `keine_antwort`; `port_belegt()` ersetzt `connect_ex == 0` (eine volle Warteschlange galt als „frei“).
+- Gegenprobe: 14 Eingriffe in den Port-Teil und 6 in den Funktionstest, jeder von mindestens einem Test erkannt.
+
+### Known Issues
+
+- Die Ursache des Hängens selbst (der Webteil blockiert nach dem Start des Planers, der MCP-Weg läuft weiter) ist nicht gefunden (#1290, eigener Befund).
+  Bis dahin meldet und behebt PBP die Folge. Ein hängender Prozess unter Claude Desktop braucht deine Zustimmung oder einen Neustart von Claude Desktop.
+- Ein Start am belegten Anschluss lässt den Zähler auf 1 stehen; ein echter Fehlstart danach führt schon beim übernächsten Start zum Rückfall (wie bisher).
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, ZAHL Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.1.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.1.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.1 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.1` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.0] - 2026-10-23 — Updates, die sich selbst installieren
 
 <!-- anwender -->
