@@ -270,9 +270,10 @@ def test_die_pruefung_meldet_ihren_befund_und_die_engine_postet_die_linie(db, mo
 
 try:
     from playwright.sync_api import Error as PlaywrightError
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import expect, sync_playwright
 except ImportError:  # pragma: no cover - ohne Playwright laufen die übrigen Tests trotzdem
     sync_playwright = None
+    expect = None
     PlaywrightError = Exception
 
 
@@ -332,11 +333,10 @@ def test_die_linie_erscheint_im_chat_mit_einem_link_auf_die_notizen(db):
             assert link.get_attribute("href") == URL_BETA
             assert link.get_attribute("target") == "_blank"
             zeile = page.locator("p", has_text="Vorabversion 1.8.0-beta.18 ist erschienen")
-            # #1271: auf die Zeile selbst warten. Der Link oben kann schon stehen, waehrend die Zeile noch gezeichnet wird;
-            # `count()` wartet nicht (in der CI auf main nach v1.8.0 einmal 0).
-            zeile.first.wait_for(timeout=30000)
-            assert zeile.count() >= 1
-            assert "Die Suche öffnet, was sie findet" in zeile.first.inner_text()
+            # #1271: der Seitenleisten-Chat zeichnet seine Zeilen bei jeder Statusabfrage neu; eine Zeile, die eben gefunden wurde, kann im
+            # naechsten Schritt kurz fehlen (in der CI zweimal: `count()` = 0 nach erfolgreichem Warten). Deshalb eine Pruefung, die die
+            # Bedingung bis zur Zeitgrenze WIEDERHOLT, statt "warten, dann einmal lesen".
+            expect(zeile.first).to_contain_text("Die Suche öffnet, was sie findet", timeout=30000)
         finally:
             browser.close()
             pw_ctx.stop()
