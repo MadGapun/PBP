@@ -514,6 +514,11 @@ class Welt:
             self.belegt = False
         return True
 
+    def _auskunft(self):
+        if isinstance(self.auskunft, list):
+            return self.auskunft.pop(0) if len(self.auskunft) > 1 else self.auskunft[0]
+        return self.auskunft
+
     def _besitzer(self):
         if isinstance(self.besitzer, list):
             return self.besitzer.pop(0) if len(self.besitzer) > 1 else self.besitzer[0]
@@ -529,9 +534,9 @@ class Welt:
         def pause(s):
             self.t += s
         return hilfe.port_pruefen(8200, ausgabe=self.ausgabe.append, ist_terminal=self.terminal, frage=frage,
-                                  auskunft_von=lambda p: self.auskunft, finde_besitzer=lambda p: self._besitzer(),
+                                  auskunft_von=lambda p: self._auskunft(), finde_besitzer=lambda p: self._besitzer(),
                                   beende=self.beende, frei=lambda p: not self.belegt, uhr=lambda: self.t, pause=pause,
-                                  hoeflich_s=1.0, frei_s=2.0, **k)
+                                  hoeflich_s=1.0, frei_s=2.0, nochmal_s=3.0, **k)
 
     @property
     def text(self):
@@ -542,6 +547,20 @@ def test_e_eigener_haengender_prozess_ohne_claude_wird_beendet_und_der_port_wird
     w = Welt(_eigen())
     assert w.lauf() == hilfe.FREI
     assert w.beendet == [(424242, False)], "erst hoeflich; er ging sofort"
+
+
+def test_e_vor_dem_beenden_wird_ein_zweites_mal_geprueft():
+    """Eine einzelne Zeitueberschreitung beweist keinen Haenger: antwortet der Prozess beim zweiten Mal, bleibt er unberuehrt."""
+    w = Welt(_eigen(), auskunft=[halter.ANTWORT_KEINE, halter.ANTWORT_PBP])
+    assert w.lauf() == hilfe.PBP
+    assert w.beendet == [], "ein Dashboard, das beim zweiten Mal antwortet, darf nicht beendet werden"
+    assert w.t >= 3.0, "zwischen den beiden Pruefungen lag keine Pause"
+
+
+def test_e_antwortet_der_prozess_auch_beim_zweiten_mal_nicht_wird_er_beendet():
+    w = Welt(_eigen(), auskunft=[halter.ANTWORT_KEINE, halter.ANTWORT_KEINE])
+    assert w.lauf() == hilfe.FREI
+    assert w.beendet and w.beendet[0] == (424242, False)
 
 
 def test_e_erst_hoeflich_dann_hart_und_nur_wenn_dieselbe_kennung_den_port_noch_haelt():

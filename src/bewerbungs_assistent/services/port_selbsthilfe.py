@@ -38,6 +38,8 @@ BELEGT = "belegt"
 #: So lange darf ein hoefliches Beenden dauern, bevor hart beendet wird, und so lange wartet der Start auf den freien Port.
 HOEFLICH_S = 5.0
 PORT_FREI_S = 10.0
+#: Vor dem Beenden fragt der Start ein zweites Mal nach (ein Dashboard unter Last, etwa mitten in einer Suche, antwortet kurz nicht).
+NOCHMAL_S = 5.0
 
 KEIN_FENSTER = 0x08000000 if sys.platform == "win32" else 0
 
@@ -186,7 +188,7 @@ def _meldung_ausgeben(port: int, auskunft: str, besitzer: dict, ausgabe) -> None
 
 def port_pruefen(port: int, *, ausgabe=print, ist_terminal=None, frage=input, auskunft_von=None, finde_besitzer=None,
                  beende=None, frei=None, uhr=time.monotonic, pause=time.sleep, hoeflich_s: float = HOEFLICH_S,
-                 frei_s: float = PORT_FREI_S) -> str:
+                 frei_s: float = PORT_FREI_S, nochmal_s: float = NOCHMAL_S) -> str:
     """Der Port ist belegt (der Aufrufer hat das gesehen): `PBP`, `FREI` oder `BELEGT` (Meldung ist ausgegeben)."""
     auskunft_von = auskunft_von or _halter.port_auskunft
     finde_besitzer = finde_besitzer or _besitzer.besitzer_von_port
@@ -203,6 +205,18 @@ def port_pruefen(port: int, *, ausgabe=print, ist_terminal=None, frage=input, au
     logger.warning("Port %d belegt: Auskunft=%s, Kennung=%s, Name=%s, eigen=%s, unter_claude=%s, Entscheidung=%s",
                    port, auskunft, besitzer.get("pid"), besitzer.get("name"), besitzer.get("ist_eigener_pbp"),
                    besitzer.get("unter_claude"), grund if not erlaubt else "pruefen")
+
+    if auskunft == _halter.ANTWORT_KEINE and erlaubt and not besitzer.get("unter_claude"):
+        # Automatisch beendet wird nur nach ZWEI Pruefungen im Abstand: eine Zeitueberschreitung allein beweist keinen Haenger.
+        ausgabe("")
+        ausgabe(f"  {_halter.belegt_text(port, auskunft, besitzer)}")
+        ausgabe(f"  Ich prüfe in {nochmal_s:.0f} Sekunden noch einmal, bevor ich etwas beende ...")
+        pause(nochmal_s)
+        if frei(port):
+            return FREI
+        auskunft = auskunft_von(port)
+        if auskunft == _halter.ANTWORT_PBP:
+            return PBP
 
     if auskunft == _halter.ANTWORT_KEINE and erlaubt:
         if besitzer.get("unter_claude"):
