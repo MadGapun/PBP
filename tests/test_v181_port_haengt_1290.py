@@ -344,7 +344,8 @@ APP_WIN = "C:\\Users\\Łukasz Müller-Şahin\\AppData\\Local\\BewerbungsAssisten
     ('', [APP_WIN], False),
     (f'{APP_WIN}\\python\\python.exe -m bewerbungs_assistent_boot', [], False),                       # kein eigener Ordner bekannt
     (f'{APP_WIN}\\python\\python.exe -m bewerbungs_assistent_boot', [""], False),
-])
+], ids=["boot_modul", "start_dashboard", "grossschreibung", "schraegstriche", "nachbarordner", "anderer_ordner",
+        "kein_marker", "leer", "kein_ordner_bekannt", "leerer_ordner"])
 def test_d_eigen_oder_fremd_nach_kommandozeile_und_ordner(zeile, ordner, erwartet):
     assert pb.ist_eigene_kommandozeile(zeile, ordner, plattform="win32") is erwartet
 
@@ -632,6 +633,20 @@ def test_e_echter_hilfsprozess_aus_einem_fremden_ordner_bleibt_am_leben(eigener_
     assert r == hilfe.BELEGT
     assert _lebt(h["pid"]) and not hilfe.port_frei(h["port"])
     assert "antwortet aber nicht" in "\n".join(ausgabe) and "kein PBP" not in "\n".join(ausgabe)
+
+
+def test_e_vorfahren_sind_geschuetzt_auch_die_grosseltern():
+    """Der Startprogramm-Stub des venv steht zwischen dem Start und dem Prozess, der den Port haelt (Fund der Gegenprobe:
+    ein 'immer eigen'-Fehler beendete den Testlauf selbst, weil dessen Kennung ein GROSSelternteil war)."""
+    kette = {100: 50, 50: 7, 7: 1}
+    assert hilfe.vorfahren(100, ppid_von=kette.get) == {100, 50, 7, 1}
+    assert hilfe.vorfahren(100, ppid_von=lambda p: p and 100) == {100}, "Schleifen enden"
+    assert hilfe.vorfahren(100, ppid_von=lambda p: 1 / 0) == {100}, "ein Fehler ergibt die Mindestliste, keine Ausnahme"
+    echt = hilfe.vorfahren()
+    assert os.getpid() in echt and os.getppid() in echt and len(echt) >= 2
+    grosseltern = _eigen(pid=50)
+    assert hilfe.darf_beenden(grosseltern, eigene_pids={100, 50, 7}) == (False, "eigener_prozess")
+    assert hilfe.darf_beenden(_eigen(pid=51), eigene_pids={100, 50, 7}) == (True, "eigener_pbp")
 
 
 def test_e_beenden_verweigert_systemprozesse_und_sich_selbst():

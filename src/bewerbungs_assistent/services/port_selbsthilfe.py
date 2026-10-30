@@ -64,9 +64,72 @@ def beenden(pid: int, hart: bool) -> bool:
         return False
 
 
+def _ppid_tabelle() -> dict:
+    """Kennung -> Elternkennung aller Prozesse (nur Standardbibliothek); leer, wenn es sich nicht feststellen laesst."""
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class Eintrag(ctypes.Structure):
+            _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD), ("pid", wintypes.DWORD),
+                        ("heap", ctypes.c_size_t), ("modul", wintypes.DWORD), ("threads", wintypes.DWORD),
+                        ("ppid", wintypes.DWORD), ("prio", ctypes.c_long), ("flags", wintypes.DWORD),
+                        ("exe", ctypes.c_wchar * 260)]
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+        k.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+        k.Process32FirstW.argtypes = k.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(Eintrag)]
+        k.CloseHandle.argtypes = [wintypes.HANDLE]
+        schnappschuss = k.CreateToolhelp32Snapshot(0x2, 0)               # TH32CS_SNAPPROCESS
+        if not schnappschuss or schnappschuss == ctypes.c_void_p(-1).value:
+            return {}
+        tabelle = {}
+        try:
+            e = Eintrag()
+            e.dwSize = ctypes.sizeof(Eintrag)
+            ok = k.Process32FirstW(schnappschuss, ctypes.byref(e))
+            while ok:
+                tabelle[int(e.pid)] = int(e.ppid)
+                ok = k.Process32NextW(schnappschuss, ctypes.byref(e))
+        finally:
+            k.CloseHandle(schnappschuss)
+        return tabelle
+    r = subprocess.run(["ps", "-A", "-o", "pid=,ppid="], capture_output=True, timeout=10, stdin=subprocess.DEVNULL)
+    tabelle = {}
+    for zeile in r.stdout.decode("ascii", errors="replace").splitlines():
+        teile = zeile.split()
+        if len(teile) == 2 and teile[0].isdigit() and teile[1].isdigit():
+            tabelle[int(teile[0])] = int(teile[1])
+    return tabelle
+
+
+def vorfahren(pid: int | None = None, ppid_von=None, maximum: int = 64) -> set:
+    """Dieser Prozess und alle seine Elternprozesse bis zur Wurzel (auch ueber den Startprogramm-Stub des venv hinweg).
+
+    Nichts davon darf PBP beenden: der Prozess, der den Start ausloest, haengt an seinen Eltern (Terminal, Claude Desktop).
+    `ppid_von(pid) -> ppid|None` ist fuer Tests austauschbar.
+    """
+    pid = os.getpid() if pid is None else int(pid)
+    kette = {pid}
+    try:
+        lookup = ppid_von or _ppid_tabelle().get
+        aktuell = pid
+        for _ in range(maximum):
+            eltern = lookup(aktuell)
+            if not eltern or eltern in kette:
+                break
+            kette.add(int(eltern))
+            aktuell = int(eltern)
+    except Exception as exc:  # noqa: BLE001 — dann bleibt es bei der Mindestliste unten
+        logger.debug("Elternkette nicht feststellbar: %s", exc)
+    if pid == os.getpid():
+        kette.add(os.getppid())
+    return kette
+
+
 def darf_beenden(besitzer: dict, eigene_pids=None) -> tuple[bool, str]:
     """Darf PBP diesen Prozess von sich aus anfassen? (ja/nein, Grund). Die einzige Stelle, die das entscheidet."""
-    eigene = set(eigene_pids if eigene_pids is not None else (os.getpid(), os.getppid()))
+    eigene = set(eigene_pids if eigene_pids is not None else vorfahren())
     if not besitzer.get("bekannt") or not besitzer.get("pid"):
         return False, "unbekannt"
     if besitzer["pid"] in eigene:
