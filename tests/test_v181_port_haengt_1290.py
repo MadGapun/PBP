@@ -649,6 +649,23 @@ def test_e_vorfahren_sind_geschuetzt_auch_die_grosseltern():
     assert hilfe.darf_beenden(_eigen(pid=51), eigene_pids={100, 50, 7}) == (True, "eigener_pbp")
 
 
+def test_e_die_echte_elternkette_reicht_bis_zu_den_grosseltern():
+    """Pruefstein fuer die Standardquelle der Kette: Test -> A -> B; B sieht den Test (Grosselternteil) in seinen Vorfahren."""
+    b_code = ("import os, sys; sys.path.insert(0, sys.argv[1]);"
+              "from bewerbungs_assistent.services.port_selbsthilfe import vorfahren;"
+              "print(os.getppid(), ' '.join(str(p) for p in sorted(vorfahren())))")
+    a_code = ("import subprocess, sys, os;"
+              "r = subprocess.run([sys.executable, '-c', sys.argv[2], sys.argv[1]], capture_output=True, "
+              "creationflags=%d, stdin=subprocess.DEVNULL);"
+              "sys.stdout.write(str(os.getpid()) + ' ' + r.stdout.decode().strip())" % OHNE_FENSTER)
+    r = subprocess.run([sys.executable, "-c", a_code, str(ROOT / "src"), b_code], capture_output=True,
+                       creationflags=OHNE_FENSTER, stdin=subprocess.DEVNULL, timeout=60)
+    zahlen = [int(x) for x in r.stdout.decode().split()]
+    a_pid, b_eltern, kette = zahlen[0], zahlen[1], set(zahlen[2:])
+    assert b_eltern in kette
+    assert a_pid in kette and os.getpid() in kette, (a_pid, os.getpid(), kette)
+
+
 def test_e_beenden_verweigert_systemprozesse_und_sich_selbst():
     assert hilfe.beenden(0, True) is False and hilfe.beenden(4, True) is False
     assert hilfe.beenden(os.getpid(), True) is False
