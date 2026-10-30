@@ -86,7 +86,7 @@ Der Funktionstest beim Update beendet sich von selbst; scheitert er trotzdem, ne
   Bis dahin meldet und behebt PBP die Folge. Ein hängender Prozess unter Claude Desktop braucht deine Zustimmung oder einen Neustart von Claude Desktop.
 - Ein Start am belegten Anschluss lässt den Zähler auf 1 stehen; ein echter Fehlstart danach führt schon beim übernächsten Start zum Rückfall (wie bisher).
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge, ZAHL Tests.*
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9725 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 

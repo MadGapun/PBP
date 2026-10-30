@@ -10,7 +10,7 @@ Melde-Kultur gehoert zur DNA.
 
 Nur dieser Abschnitt wird bei einem Release aktualisiert.
 
-- **Stable:** v1.8.0 (`--latest`, 2026-10-23), Linie 1.8; Hotfix-Branches
+- **Stable:** v1.8.1 (`--latest`, 2026-10-30), Linie 1.8; Hotfix-Branches
   `hotfix/v1.8.N` vom letzten 1.8-Tag. Die Linie 1.7 endet mit v1.7.159.
 - **Beta:** keine offene; die naechste Linie als GitHub-Prereleases. Plugins
   sind externe Prozesse gegen die versionierte Ingest-API, Komponenten sind
@@ -22,7 +22,7 @@ Nur dieser Abschnitt wird bei einem Release aktualisiert.
   ELWOSA- oder Lokale-KI-Themen nennen, ist seit dem 02.10.2026 v2.0 gemeint.
   Einzelheiten: Master-Plan, Abschnitt „Neuzuschnitt 1.8 / 2.0“.
 - **Schema:** v52.
-- **Umfang:** 9814 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
+- **Umfang:** 9725 Tests; 281 MCP-Werkzeuge, Wartungswerkzeuge nur im
   Expertenmodus; 26 Prompts.
 - **1.8.0:** Auto-Update, Speicher & Downloads, Firmen, Mail-Ordner; Laeufe auf dem
   Werkstatt-PC: `docs/internal/praxisprobe-1.8.0.md`. Neue Arbeit geht als PR gegen `main`.
