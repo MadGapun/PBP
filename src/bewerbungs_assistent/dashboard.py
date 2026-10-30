@@ -8276,6 +8276,21 @@ async def api_speicher_ordner_oeffnen(request: Request):
     return erg
 
 
+#: Pakete, die die Gesundheitsauskunft nennt (#1282): Importname -> Paket in `pyproject.toml`. NUR Pakete, die PBP wirklich
+#: einbindet; ein Test haelt die Liste gegen die Abhaengigkeiten. `pdfplumber` stand hier ohne je benutzt zu werden, und wer die Auskunft
+#: las, hielt das fehlende Paket fuer einen Fehler. Optionale Pakete (Browser, Excel, Dokumente) zeigen "—", wenn sie nicht da sind.
+GESUNDHEIT_MODULE = {
+    "httpx": "httpx",
+    "bs4": "beautifulsoup4",
+    "jobspy": "python-jobspy",
+    "geopy": "geopy",
+    "docx": "python-docx",
+    "pypdf": "pypdf",
+    "openpyxl": "openpyxl",
+    "playwright": "playwright",
+}
+
+
 @app.get("/api/health")
 async def api_health():
     """System health information for diagnostics."""
@@ -8292,7 +8307,7 @@ async def api_health():
     doc_count = len(list(doc_dir.glob("*"))) if doc_dir.exists() else 0
 
     modules = {}
-    for mod_name in ["httpx", "playwright", "docx", "pdfplumber", "openpyxl", "bs4"]:
+    for mod_name in GESUNDHEIT_MODULE:
         try:
             m = __import__(mod_name)
             modules[mod_name] = getattr(m, "__version__", "installed")
