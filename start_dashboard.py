@@ -88,33 +88,44 @@ def _open_in_chrome(url: str) -> None:
         webbrowser.open(url)
 
 
+def _enter_zum_schliessen() -> None:
+    """Haelt das Fenster offen, wenn ein Mensch davor sitzt. Ohne Eingabe (NUL, Pipe) endet es sofort, nie mit einem Fehler."""
+    if sys.stdin is not None and sys.stdin.isatty():
+        try:
+            input("  Druecke Enter zum Schliessen...")
+        except (EOFError, OSError):
+            pass
+
+
+def _ohne_schuld(grund: str) -> None:
+    """Dieser Start endet am Port, nicht an der Fassung: er zaehlt beim Startbaustein nicht als Fehlstart (#1290)."""
+    try:
+        from bewerbungs_assistent.services.auto_update.start_zaehler import start_ohne_schuld
+        start_ohne_schuld(grund)
+    except Exception as e:  # nie den Start daran scheitern lassen
+        logger.warning("Startzaehler nicht angepasst: %s", e)
+
+
 try:
     import socket
 
     port = int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
     # Prüfe ob der Port bereits belegt ist (z.B. durch Claude Desktop)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        if sock.connect_ex(("127.0.0.1", port)) == 0:
-            from bewerbungs_assistent.services.dashboard_halter import ist_pbp
-            if not ist_pbp(port):
-                # #1149: ein belegter Port ist noch kein laufendes PBP.
-                logger.warning("Port %d wird von einem anderen Programm benutzt (kein PBP)", port)
-                print()
-                print("  ====================================================")
-                print(f"  Port {port} wird von einem ANDEREN Programm benutzt.")
-                print("  Es antwortet nicht wie PBP, deshalb kann PBP dort")
-                print("  nicht starten.")
-                print()
-                print("  So geht es weiter:")
-                print("  1. Beende das Programm, das den Port belegt, oder starte")
-                print("     den Rechner neu und oeffne PBP dann zuerst.")
-                print(f"  2. Wer wissen will, welches Programm es ist:  netstat -ano | findstr :{port}")
-                print("  ====================================================")
-                print()
-                if sys.stdin is not None and sys.stdin.isatty():
-                    input("  Druecke Enter zum Schliessen...")
-                sys.exit(1)
+    from bewerbungs_assistent.services.dashboard_halter import port_belegt
+    if port_belegt(port):   # nur eine abgelehnte Verbindung heisst frei (#1290)
+        # #1149/#1290: ein belegter Port ist noch kein laufendes PBP, und "keine Antwort" ist nicht "fremd".
+        # Hier entscheidet `port_pruefen`: PBP antwortet / frei geworden (haengender eigener Prozess beendet) / bleibt belegt.
+        from bewerbungs_assistent.services.port_selbsthilfe import port_pruefen, PBP, FREI
+        ergebnis = port_pruefen(port)
+        if ergebnis == FREI:
+            logger.info("Port %d ist wieder frei, das Dashboard startet hier", port)
+        elif ergebnis != PBP:
+            # Der Start endet am Port, PBP lief nie an: das ist kein Fehlstart dieser Fassung (#1290).
+            _ohne_schuld("port_belegt")
+            _enter_zum_schliessen()
+            sys.exit(1)
+        else:
             print()
             print("  ====================================================")
             print(f"  PBP laeuft bereits auf http://localhost:{port}")
@@ -129,9 +140,10 @@ try:
             print("  2. Starte PBP erneut ueber diesen Link")
             print("  ====================================================")
             print()
+            _ohne_schuld("pbp_laeuft_bereits")
             # Browser trotzdem öffnen, damit der Nutzer direkt zum Dashboard kommt
             _open_in_chrome(f"http://localhost:{port}")
-            input("  Druecke Enter zum Schliessen...")
+            _enter_zum_schliessen()
             sys.exit(0)
 
     from bewerbungs_assistent.database import Database

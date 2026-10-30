@@ -184,12 +184,13 @@ def test_1149_start_dashboard_sagt_bei_einem_fremden_programm_die_wahrheit(serve
 
 
 def test_1149_start_dashboard_kennt_den_weg_fuer_ein_laufendes_pbp_weiter():
+    # #1290: die Frage "ist das ein PBP?" steht jetzt in `port_pruefen` (dreiwertig); die Reihenfolge bleibt:
+    # erst die Frage, bei "kein PBP" Abbruch, erst danach die "laeuft bereits"-Meldung.
     quelle = (ROOT / "start_dashboard.py").read_text(encoding="utf-8")
-    i = quelle.index("if not ist_pbp(port):")
+    i = quelle.index("ergebnis = port_pruefen(port)")
     rest = quelle[i:]
-    assert "sys.exit(1)" in rest[:1800]
+    assert "elif ergebnis != PBP:" in rest and "sys.exit(1)" in rest[:900]
     assert "PBP laeuft bereits auf" in rest and "_open_in_chrome" in rest
-    # die Reihenfolge: erst die Frage, ob es ein PBP ist, dann die „läuft bereits“-Meldung
     assert rest.index("sys.exit(1)") < rest.index("PBP laeuft bereits auf")
 
 

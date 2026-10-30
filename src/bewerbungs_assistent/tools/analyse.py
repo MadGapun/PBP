@@ -2131,8 +2131,9 @@ def register(mcp, db, logger):
                 if halter["art"] == "warnung":
                     warnungen.append({
                         "bereich": "Dashboard", "problem": halter["meldung"],
-                        "loesung": "Claude Desktop vollständig beenden und neu starten; "
-                                   "prüfe, ob ein anderes Programm Port 8200 belegt.",
+                        "loesung": halter.get("loesung") or (
+                            "Claude Desktop vollständig beenden und neu starten; "
+                            "prüfe, ob ein anderes Programm Port 8200 belegt."),
                     })
                 else:
                     info.append({"bereich": "Dashboard", "meldung": halter["meldung"]})
