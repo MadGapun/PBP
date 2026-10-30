@@ -758,10 +758,21 @@ def _lauf_start_dashboard(tmp_path, port, app, fassung="1.8.0"):
     env = dict(os.environ, BA_DATA_DIR=str(daten), BA_DASHBOARD_PORT=str(port), PYTHONIOENCODING="utf-8",
                PBP_KEIN_BROWSER="1", PBP_APP_DIR=str(app), PBP_FASSUNG=fassung)
     env.pop("BA_EXPERTENMODUS", None)
-    r = subprocess.run([sys.executable, str(ROOT / "start_dashboard.py")], env=env, cwd=str(tmp_path),
-                       capture_output=True, text=True, encoding="utf-8", errors="replace",
-                       stdin=subprocess.DEVNULL, creationflags=OHNE_FENSTER, timeout=180)
-    return r, r.stdout + r.stderr
+    proc = subprocess.Popen([sys.executable, str(ROOT / "start_dashboard.py")], env=env, cwd=str(tmp_path),
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                            creationflags=OHNE_FENSTER)
+    try:
+        roh, _ = proc.communicate(timeout=90)
+    except subprocess.TimeoutExpired:
+        # Ein Start, der den Port bekommt, wuerde das Dashboard dauerhaft betreiben (nur bei einem Fehler): den ganzen Baum beenden.
+        if sys.platform == "win32":
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True, creationflags=OHNE_FENSTER)
+        else:
+            proc.kill()
+        roh, _ = proc.communicate(timeout=30)
+        pytest.fail("start_dashboard.py endete nicht: " + roh.decode("utf-8", "replace")[-800:])
+    aus = roh.decode("utf-8", "replace")
+    return subprocess.CompletedProcess(proc.args, proc.returncode, aus, ""), aus
 
 
 def _status_mit_zwei_versuchen(app):
