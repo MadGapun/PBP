@@ -6991,6 +6991,41 @@ async def api_mail_quelle_zuruecksetzen():
     return {**erg, "stand": mail_quelle.uebersicht(_db)}
 
 
+# === Optionaler API-Weg der KI (#1236) ===
+#
+# Die Karte unter Einstellungen › Lokale KI. Ohne Schluessel in der Umgebung und ohne Freigabe antwortet GET nur
+# {"sichtbar": false}: die Oberflaeche zeigt dann nichts. Der Schluessel selbst steht in keiner Antwort.
+
+@app.get("/api/api-weg")
+async def api_api_weg_lesen():
+    from .services import api_backend
+    return api_backend.uebersicht(_db)
+
+
+@app.put("/api/api-weg")
+async def api_api_weg_setzen(payload: dict):
+    """Aufgaben freigeben oder sperren, Modell wählen, Budget setzen. Freigeben verlangt `bestaetigt: true`."""
+    from .services import api_backend
+    erg = api_backend.einstellungen_setzen(
+        _db, aufgaben=payload.get("aufgaben"), modelle=payload.get("modelle"),
+        budget_usd=payload.get("budget_usd"), bestaetigt=payload.get("bestaetigt") is True)
+    if erg.get("status") in ("fehler", "bestaetigung_noetig"):
+        return JSONResponse({**erg, "error": erg["text"]}, status_code=400)
+    return {**erg, "stand": api_backend.uebersicht(_db)}
+
+
+@app.post("/api/api-weg/pruefen")
+def api_api_weg_pruefen(payload: dict = Body(default={})):
+    """Die Probe: eine einzige kleine Anfrage an Anthropic. Nur auf Klick (`bestaetigt: true`); laeuft im Threadpool."""
+    from .services import api_backend
+    if payload.get("bestaetigt") is not True:
+        return JSONResponse({"status": "bestaetigung_noetig", "error": (
+            "Die Probe schickt eine kleine Anfrage an Anthropic (das Wort „ok“, nichts aus deinem Profil). "
+            "Bestätige sie, damit sie läuft.")}, status_code=400)
+    erg = api_backend.schluessel_pruefen(_db)
+    return {**erg, "stand": api_backend.uebersicht(_db)}
+
+
 @app.post("/api/jobsuche/start")
 async def api_jobsuche_start(payload: dict = Body(default={})):
     """Startet die interne Jobsuche aus dem Dashboard (#461).
@@ -12854,8 +12889,9 @@ async def api_privacy_info():
 
 def _datenfluss() -> dict:
     """Wohin Daten gehen — eine Quelle fuer Dashboard und Doku (H25)."""
-    from .services.datenschutz import DATENFLUSS
-    return dict(DATENFLUSS)
+    from .services.datenschutz import datenfluss
+    # #1236: nur wenn der Mensch eine Aufgabe fuer die Anthropic-API freigegeben hat, steht hier eine vierte Zeile
+    return datenfluss(_db)
 
 
 @app.delete("/api/privacy-delete-all")

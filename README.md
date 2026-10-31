@@ -166,7 +166,7 @@ PBP läuft über [Claude Desktop](https://claude.ai/download) — die kostenlose
 
 - **Einfach reden — oder sprechen.** Kein Formular, keine Befehle. Tippen oder Mikrofon drücken — Claude versteht beides.
 
-> **&#9888;&#65039; Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic.** PBP speichert alles in einer einzigen Datenbankdatei auf deiner Festplatte (`pbp.db`) — kein PBP-Server, kein PBP-Konto, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg; wenn du sie kopierst, hast du ein komplettes Backup. Was Claude für dich bearbeitet (Profil samt Adresse, Text deiner Dokumente, Anzeigentexte, Notizen), liest Anthropic mit; welche Bereiche Claude bearbeiten darf, stellst du unter Einstellungen › Claude (Cloud) ein. Die vollständige Liste, was wohin geht, steht unter Einstellungen › Datenschutz.
+> **&#9888;&#65039; Gespeichert wird lokal auf deinem Rechner; was du mit Claude bearbeitest, geht an Anthropic.** PBP speichert alles in einer einzigen Datenbankdatei auf deiner Festplatte (`pbp.db`) — kein PBP-Server, kein PBP-Konto, kein Cloud-Speicher. Wenn du die Datei löschst, ist alles weg; wenn du sie kopierst, hast du ein komplettes Backup. Was Claude für dich bearbeitet (Profil samt Adresse, Text deiner Dokumente, Anzeigentexte, Notizen), liest Anthropic mit; welche Bereiche Claude bearbeiten darf, stellst du unter Einstellungen › Claude (Cloud) ein. Die vollständige Liste, was wohin geht, steht unter Einstellungen › Datenschutz. Eine einzige Ausnahme gibt es nur auf ausdrücklichen Wunsch und ist ab Werk aus: Wer einen eigenen Anthropic-API-Schlüssel hat, kann einzelne Massenaufgaben der lokalen KI über die API laufen lassen; was dann hinausgeht, steht vor der Freigabe in der Einstellung (Einstellungen › Lokale KI).
 
 - **Festanstellung & Freelance.** Egal ob fester Job oder Projektaufträge — PBP unterstützt beides.
 - **Multi-Profil.** Mehrere Benutzer auf einem Rechner? Kein Problem — jedes Profil hat eigene Daten.
@@ -283,7 +283,7 @@ Nein! PBP ist ein eigenstaendiges Verwaltungstool. Ohne Claude kannst du: Bewerb
 Nein — PBP funktioniert mit jedem Claude Desktop Account, auch dem kostenlosen. Ein Pro-Account hat hoehere Nutzungslimits, was bei vielen Jobsuchen hilfreich sein kann.
 
 **Werden meine Daten in die Cloud geschickt?**
-Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (SQLite). Wenn du Claude nutzt (Gespraech, Anschreiben, Fit-Analyse), werden die relevanten Daten an Claude gesendet — wie bei jeder normalen Claude-Konversation.
+Deine Profildaten, Bewerbungen und Dokumente bleiben lokal auf deinem Rechner (SQLite). Wenn du Claude nutzt (Gespraech, Anschreiben, Fit-Analyse), werden die relevanten Daten an Claude gesendet — wie bei jeder normalen Claude-Konversation. Nur wenn du es ausdrücklich einschaltest (eigener Anthropic-API-Schlüssel, ab Werk aus), schickt PBP selbst einzelne Aufgaben an die API; vorher steht in der Einstellung, welche Angaben das sind.
 
 **Kann ich PBP ohne Jobportale nutzen?**
 Ja! Du kannst PBP auch nur fuer Profilerstellung, Lebenslauf-Export und Bewerbungstracking nutzen, ganz ohne Stellensuche.

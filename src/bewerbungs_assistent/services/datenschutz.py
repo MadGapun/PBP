@@ -39,6 +39,29 @@ DATENFLUSS = {
 HINWEIS_SCHLUESSEL = "datenschutz_hinweis_gezeigt"
 
 
+def datenfluss(db=None) -> dict:
+    """`DATENFLUSS`, und nur wenn eine Aufgabe fuer die Anthropic-API freigegeben ist, eine vierte Zeile (#1236).
+
+    Der API-Weg ist die einzige Stelle, an der PBP SELBST Angaben an einen Cloud-Dienst schickt (nicht Claude Desktop). Er ist
+    eine sichtbare Ausnahme von „laeuft komplett lokal“ -- aber nur, solange er an ist. Ohne Freigabe bleibt die Auskunft,
+    wie sie war.
+    """
+    fluss = {art: list(zeilen) for art, zeilen in DATENFLUSS.items()}
+    if db is not None:
+        try:
+            from . import api_backend
+            zeilen = api_backend.datenfluss_zeilen(db)
+        except Exception:  # noqa: BLE001 -- die Datenschutz-Anzeige faellt nicht an der Zusatzzeile
+            zeilen = []
+        if zeilen:
+            fluss["sent_to_api"] = [
+                "PBP ruft selbst die Anthropic-API auf (dein API-Weg); die genannten Angaben verlassen deinen Rechner",
+                *zeilen,
+                f"abschalten unter {pfad('lokale_ki')}",
+            ]
+    return fluss
+
+
 def einmaliger_hinweis(db) -> str | None:
     """Der Satz beim ersten Mal, danach nichts mehr."""
     try:

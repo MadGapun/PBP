@@ -4617,8 +4617,12 @@ def register(mcp, db, logger):
                             "url": url,
                             "source": source,
                         })
-                        if r.backend == Backend.LOCAL and r.success:
-                            detail["ollama"] = r.payload
+                        # #1236: dieselbe Aufgabe kann ueber den freigegebenen API-Weg laufen. Die
+                        # Antwort sieht gleich aus; die Herkunft steht im Schluessel ("api" statt
+                        # "ollama"), damit eine API-Antwort nicht als lokale KI dasteht. Die
+                        # Kategorien `ollama_action_*` bleiben (sie benennen die empfohlene Aktion).
+                        if r.backend in (Backend.LOCAL, Backend.API) and r.success:
+                            detail["api" if r.backend == Backend.API else "ollama"] = r.payload
                             if r.payload.get("claude_action") == "nachladen":
                                 if "ollama_action_nachladen" not in kategorie:
                                     kategorie.append("ollama_action_nachladen")
