@@ -324,26 +324,35 @@ def dashboard_im_hintergrund_starten(datenbank, port: int | None = None):
 
     dash_port = port or int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
 
-    # Port-Konflikt pruefen (#293)
-    import socket
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        if s.connect_ex(("127.0.0.1", dash_port)) == 0:
-            # #1149: nicht jeder belegte Port gehoert einem PBP.
-            if dashboard_halter.ist_pbp(dash_port):
-                logger.warning(
-                    "Port %d ist bereits belegt — dort laeuft eine andere PBP-Instanz. "
-                    "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
-                    dash_port,
-                )
-                dashboard_halter.setzen(dashboard_halter.ANDERER, port=dash_port)
-            else:
-                logger.warning(
-                    "Port %d wird von einem anderen Programm benutzt (kein PBP). "
-                    "Dashboard und Planer starten hier nicht; der MCP-Server laeuft trotzdem.",
-                    dash_port,
-                )
-                dashboard_halter.setzen(dashboard_halter.FREMDES, port=dash_port)
-            return None
+    # Port-Konflikt pruefen (#293); #1290: nur eine abgelehnte Verbindung heisst frei
+    if dashboard_halter.port_belegt(dash_port):
+        # #1149: nicht jeder belegte Port gehoert einem PBP. #1290/#1282: und "keine Antwort" ist unbekannt, nicht fremd.
+        auskunft = dashboard_halter.port_auskunft(dash_port)
+        if auskunft == dashboard_halter.ANTWORT_PBP:
+            logger.warning(
+                "Port %d ist bereits belegt — dort laeuft eine andere PBP-Instanz. "
+                "Dashboard wird nicht erneut gestartet, MCP-Server laeuft trotzdem.",
+                dash_port,
+            )
+            dashboard_halter.setzen(dashboard_halter.ANDERER, port=dash_port)
+        elif auskunft == dashboard_halter.ANTWORT_KEINE:
+            from .services import port_besitzer
+            besitzer = port_besitzer.besitzer_von_port(dash_port)
+            logger.warning(
+                "%s Dashboard und Planer starten hier nicht; der MCP-Server laeuft trotzdem.",
+                dashboard_halter.belegt_text(dash_port, auskunft, besitzer),
+            )
+            dashboard_halter.setzen(dashboard_halter.HAENGT, port=dash_port, besitzer=besitzer)
+        else:
+            from .services import port_besitzer
+            besitzer = port_besitzer.besitzer_von_port(dash_port)
+            logger.warning(
+                "Port %d wird von einem anderen Programm benutzt (kein PBP)%s. "
+                "Dashboard und Planer starten hier nicht; der MCP-Server laeuft trotzdem.",
+                dash_port, dashboard_halter.besitzer_zusatz(besitzer),
+            )
+            dashboard_halter.setzen(dashboard_halter.FREMDES, port=dash_port, besitzer=besitzer)
+        return None
 
     config = uvicorn.Config(
         dashboard_app, host="127.0.0.1", port=dash_port, log_level="warning",
@@ -383,7 +392,6 @@ def dashboard_nachholen_starten(datenbank, port: int | None = None,
     einer Stelle) und endet. Solange der Port belegt bleibt, passiert nichts.
     Gibt den Thread zurück; `thread.stoppen()` beendet ihn (für Tests).
     """
-    import socket
     from .services import dashboard_halter
 
     dash_port = port or int(os.environ.get("BA_DASHBOARD_PORT", "8200"))
@@ -392,12 +400,7 @@ def dashboard_nachholen_starten(datenbank, port: int | None = None,
     dashboard_halter.pruefintervall_merken(pause)
 
     def _port_belegt() -> bool:
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(2)
-                return s.connect_ex(("127.0.0.1", dash_port)) == 0
-        except OSError:
-            return True  # im Zweifel nicht anfassen
+        return dashboard_halter.port_belegt(dash_port)      # im Zweifel nicht anfassen
 
     def _schleife():
         while not stopp.wait(pause):

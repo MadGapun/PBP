@@ -1,5 +1,6 @@
 """Schnelltest: Kann der Bewerbungs-Assistent importiert werden?"""
-import sys, os, tempfile, shutil
+import sys, os, tempfile, shutil, threading
+import faulthandler  # VOR dem Waechter: ein Import im Waechter wartet auf die Import-Sperre, die ein Haenger im Import haelt
 
 # Die Ausgabe nennt den Programmpfad. Enthaelt der ein Zeichen, das die Zeichentabelle des Rechners nicht kennt (Benutzername
 # mit »ł«, »ş«, griechischen oder kyrillischen Buchstaben), darf das Drucken den Test nicht zum Absturz bringen.
@@ -8,6 +9,27 @@ for _strom in (sys.stdout, sys.stderr):
         _strom.reconfigure(errors="backslashreplace")
     except Exception:
         pass
+
+# #1281: der Selbsttest muss von selbst enden. Beim Update von 1.8.0-rc.4 auf 1.8.0 lief er auf einem Rechner in die Zeitgrenze des
+# Aufrufers (240 s), obwohl er allein in 4 s fertig war; die Ausgabe ging dabei verloren. Dieser Waechter bricht nach 200 s selbst ab,
+# schreibt die Staende ALLER Threads auf die Fehlerausgabe (sie landet im Protokoll des Aufrufers) und beendet den Prozess hart.
+# Der Waechter importiert nichts: haengt der Test IM Import, haelt er die Import-Sperre (gemessen: ein Import im Waechter kam erst nach dem Haenger).
+SELBSTGRENZE_S = int(os.environ.get("PBP_SELBSTTEST_GRENZE_S") or 200)  # die Variable nur fuer Tests; unter der Zeitgrenze des Aufrufers (240 s), sonst haette sie keine Wirkung
+
+
+def _selbst_abbrechen():
+    try:
+        print("[TEST] FEHLER: der Selbsttest endet nicht innerhalb von %d s. Laufende Threads:" % SELBSTGRENZE_S, file=sys.stderr, flush=True)
+        faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+        sys.stderr.flush()
+    except Exception:
+        pass
+    os._exit(3)
+
+
+_waechter = threading.Timer(SELBSTGRENZE_S, _selbst_abbrechen)
+_waechter.daemon = True
+_waechter.start()
 
 # src-Verzeichnis hinzufuegen
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +43,7 @@ sys.path.insert(0, os.path.join(SCRIPT_DIR, "src"))
 d = tempfile.mkdtemp()
 os.environ["BA_DATA_DIR"] = d
 
+_code = 0
 try:
     print(f"[TEST] Python: {sys.version}")
     print(f"[TEST] Pfad: {SCRIPT_DIR}")
@@ -48,7 +71,7 @@ except Exception as e:
     print(f"[TEST] FEHLER: {e}")
     import traceback
     traceback.print_exc()
-    sys.exit(1)
+    _code = 1
 
 finally:
     shutil.rmtree(d, ignore_errors=True)
@@ -72,3 +95,13 @@ finally:
                              start_new_session=(sys.platform != "win32"))
         except Exception:
             pass
+
+# #1281: hart beenden. Ein Hintergrund-Thread oder ein atexit-Haken eines importierten Pakets (Update-Pruefung, Planer) darf das Ende nicht
+# aufhalten: das Ergebnis steht fest, und der Aufrufer wartet darauf. Vorher die Ausgabe leeren, sonst fehlt das "OK" am Ende.
+_waechter.cancel()
+try:
+    sys.stdout.flush()
+    sys.stderr.flush()
+except Exception:
+    pass
+os._exit(_code)

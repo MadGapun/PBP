@@ -77,6 +77,38 @@ def _pruefen_abbruch(abbruch) -> None:
         raise UpdateFehler("abgebrochen")
 
 
+def _als_text(wert) -> str:
+    if wert is None:
+        return ""
+    if isinstance(wert, bytes):
+        return wert.decode("utf-8", errors="replace")
+    return str(wert)
+
+
+def _selbsttest_lauf(befehl, *, timeout, env, cwd, creationflags=0, **_ignoriert):
+    """Startet den Selbsttest und gibt wie `subprocess.run(capture_output=True)` ein Ergebnis zurueck - ohne Pipes (#1281).
+
+    Mit Pipes wartet der Aufrufer, bis JEDER Prozess, der ein Pipe-Ende geerbt hat, es schliesst: ein Prozess, den ein anderer
+    Thread des laufenden Dashboards gleichzeitig startet, haelt es offen (Windows vererbt die Handles beim Start). Die Ausgabe geht
+    deshalb in Dateien; die Eingabe ist leer. Bei der Zeitgrenze liegt auch das Teilstueck vor.
+    """
+    import tempfile
+
+    def _lesen(datei) -> str:
+        datei.flush()
+        datei.seek(0)
+        return datei.read().decode("utf-8", errors="replace")
+
+    with tempfile.TemporaryFile() as aus, tempfile.TemporaryFile() as fehler:
+        try:
+            r = subprocess.run(befehl, stdin=subprocess.DEVNULL, stdout=aus, stderr=fehler, timeout=timeout, env=env,
+                               cwd=cwd, creationflags=creationflags)
+        except subprocess.TimeoutExpired as exc:
+            exc.stdout, exc.stderr = _lesen(aus), _lesen(fehler)
+            raise
+        return subprocess.CompletedProcess(r.args, r.returncode, _lesen(aus), _lesen(fehler))
+
+
 def selbsttest_starten(ordner: Path, *, python=None, runner=None) -> None:
     """Die neue Fassung muss mit DIESER Laufzeit starten: `_selftest.py` importiert alles und liest/schreibt eine Wegwerf-Datenbank."""
     skript = Path(ordner) / "_selftest.py"
@@ -87,13 +119,18 @@ def selbsttest_starten(ordner: Path, *, python=None, runner=None) -> None:
     # Die Ausgabe enthaelt den Programmpfad, und der traegt den Benutzernamen. Beide Seiten sprechen deshalb UTF-8 statt der
     # Zeichentabelle des Rechners: sonst scheitert der Selbsttest an einem »ł« im Pfad (oder die Ausgabe laesst sich nicht lesen).
     umgebung["PYTHONIOENCODING"] = "utf-8"
-    run = runner or subprocess.run
+    run = runner or _selbsttest_lauf
     try:
         r = run([python or sys.executable, str(skript)], capture_output=True, encoding="utf-8", errors="replace",
                 timeout=SELBSTTEST_TIMEOUT_S, env=umgebung, cwd=str(ordner),
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except subprocess.TimeoutExpired as exc:
-        raise UpdateFehler("selbsttest", detail="Zeitgrenze") from exc
+        # #1281: bei der Zeitgrenze ging die Ausgabe bisher verloren. Jetzt steht, was der Test bis dahin schrieb, im Protokoll
+        # und im Detail der Meldung (der Selbsttest schreibt bei einem Hänger die Stände seiner Threads auf die Fehlerausgabe).
+        teil = ((_als_text(exc.stdout) + "\n" + _als_text(exc.stderr)).strip()) or "(keine Ausgabe)"
+        logger.warning("Auto-Update: Selbsttest in die Zeitgrenze gelaufen (%d s). Ausgabe bis dahin:\n%s",
+                       SELBSTTEST_TIMEOUT_S, teil[-4000:])
+        raise UpdateFehler("selbsttest", detail=("Zeitgrenze\n" + teil[-1500:]).strip()) from exc
     except Exception as exc:
         raise UpdateFehler("selbsttest", detail=f"{type(exc).__name__}: {exc}") from exc
     # Gezaehlt wird die letzte Zeile der STANDARDAUSGABE: das Protokoll der Datenbank geht auf die Fehlerausgabe und
