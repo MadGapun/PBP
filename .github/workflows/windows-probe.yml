@@ -11,6 +11,7 @@ name: Windows-Probe
 
 on:
   pull_request:
+    types: [ opened, synchronize, reopened, labeled ]
     paths:
       - INSTALLIEREN.bat
       - DEINSTALLIEREN.bat
@@ -104,7 +105,9 @@ jobs:
           if-no-files-found: warn
 
   update:
-    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.teil != 'installer')
+    # Prueft Veroeffentlichungen, nicht den Stand des Zweigs. In einem PR nur mit dem Label "update-probe" (etwa, wenn sich
+    # die Probe selbst aendert: workflow_dispatch gibt es erst, wenn der Workflow auf main liegt).
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.teil != 'installer') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'update-probe'))
     runs-on: windows-latest
     timeout-minutes: 90
     steps:

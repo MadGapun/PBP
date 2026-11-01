@@ -45,7 +45,7 @@ def _pfade(ereignis):
 
 def test_workflow_laeuft_auf_windows():
     text = _text()
-    assert re.findall(r"^  ([a-z]+):\n    if:", text, re.M) == ["installer", "update"]
+    assert re.findall(r"^  ([a-z]+):\n(?:    #.*\n)*    if:", text, re.M) == ["installer", "update"]
     assert re.findall(r"runs-on: (\S+)", text) == ["windows-latest", "windows-latest"]
 
 
