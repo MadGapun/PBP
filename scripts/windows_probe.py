@@ -430,7 +430,11 @@ def cmd_deinstallieren(a) -> None:
         r = subprocess.run(["cmd", "/c", str(APP / "DEINSTALLIEREN.bat")], cwd=str(APP), stdin=ein, stdout=aus,
                            stderr=subprocess.STDOUT, timeout=a.frist, creationflags=KEIN_FENSTER)
     melde(lies(ausgabe)[-4000:])
-    pruefe(r.returncode == 0, f"Deinstaller endet mit 0 ({r.returncode})")
+    # Der Exit-Code sagt hier nichts: aus dem Programmordner gestartet, verschiebt sich der Deinstaller nach %TEMP% und loescht
+    # den Ordner, in dem das aeussere Fenster gestartet wurde; dieses meldet danach "path not found" und endet mit 1
+    # (gemessen 01.11.2026, Lauf 41291109419) - im selben Moment, in dem es sich schliesst. Massgeblich ist der Inhalt.
+    melde(f"  Exit-Code des Deinstallers: {r.returncode}")
+    pruefe("Deinstallation abgeschlossen" in lies(ausgabe), "der Deinstaller meldet den Abschluss")
     neu = set(desktop.glob("PBP-Backup-*.zip")) - vorher
     pruefe(len(neu) == 1 and next(iter(neu)).stat().st_size > 0, "eine Sicherung liegt auf dem Desktop")
     with zipfile.ZipFile(next(iter(neu))) as z:
