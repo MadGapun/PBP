@@ -163,7 +163,8 @@ def dashboard_starten(name: str) -> tuple[subprocess.Popen, Path]:
     """Wie die Desktop-Verknuepfung: `Dashboard starten.bat` im Programmordner, ohne Eingabe, Ausgabe in eine Datei."""
     ausgabe = PROTOKOLLE / f"dashboard-{name}.txt"
     PROTOKOLLE.mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, "PBP_KEIN_BROWSER": "1"}
+    # Ungepuffert: in eine Datei umgeleitet puffert Python `print` blockweise, und ein laufendes Dashboard leert den Puffer nie.
+    env = {**os.environ, "PBP_KEIN_BROWSER": "1", "PYTHONUNBUFFERED": "1"}
     # Eine DATEI, keine Leitung: ein Enkelprozess mit geerbtem Ende haelt sonst den Aufrufer fest (#1281).
     with open(ausgabe, "wb") as f:
         proc = subprocess.Popen(["cmd", "/c", str(APP / "Dashboard starten.bat")], cwd=str(APP), env=env,
@@ -292,7 +293,8 @@ def cmd_fremd(a) -> None:
                 raise ProbeFehler(f"Start {runde} endet am belegten Port nicht von selbst")
             text = lies(ausgabe)
             melde(text[-2500:])
-            pruefe(code != 0, f"Start {runde} endet mit Fehlercode ({code}), statt zu laufen")
+            # Die .bat endet mit dem Code von `pause` (0); massgeblich ist, was sie meldet.
+            pruefe("Fehlercode 1" in text, f"Start {runde} endet mit Fehlercode 1, statt zu laufen (Exit der .bat: {code})")
             pruefe(fremd.poll() is None, f"Start {runde}: das fremde Programm lebt noch (nie beendet)")
             pruefe(str(fremd.pid) in text, f"Start {runde}: die Meldung nennt die Kennung {fremd.pid}")
             pruefe(health(timeout=6)[0] != "pbp", f"Start {runde}: am Port antwortet kein PBP")
