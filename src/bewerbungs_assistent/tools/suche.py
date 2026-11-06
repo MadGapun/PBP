@@ -74,6 +74,81 @@ def _entfernung_widerspruch(kriterien: dict):
     )
 
 
+#: #1304: die Kategorie-Gewichte, die `_parse_weights` liest und die Regler im Dashboard (Profil > Suchbegriffe) zeigen.
+KATEGORIE_GEWICHTE = ("muss", "plus", "minus", "remote", "naehe", "fern_malus", "gehalt")
+#: Dieselben Grenzen wie die Regler im Dashboard.
+GEWICHT_MIN, GEWICHT_MAX = 0.0, 10.0
+_LISTE_JE_KATEGORIE = {"muss": "keywords_muss", "plus": "keywords_plus", "minus": "keywords_minus"}
+
+
+def _kategorie_gewichte_setzen(db, werte, gewicht) -> dict:
+    """Setzt ein oder mehrere Kategorie-Gewichte (#1304) und laesst alle anderen Eintraege von `gewichtung` stehen."""
+    import json
+    from ..job_scraper import _parse_weights
+
+    kategorien = [str(w).strip().lower() for w in (werte or []) if str(w).strip()]
+    unbekannt = [k for k in kategorien if k not in KATEGORIE_GEWICHTE]
+    if not kategorien or unbekannt:
+        return {"fehler": (
+            "aktion='gewichten' mit kategorie='scoring' braucht werte mit einer oder mehreren Kategorien: "
+            + ", ".join(KATEGORIE_GEWICHTE)
+            + (f" (unbekannt: {', '.join(unbekannt)})" if unbekannt else "")
+            + ". Für einen einzelnen Begriff: kategorie='muss' (oder plus/minus) und werte=[Begriff].")}
+    try:
+        wert = float(gewicht)
+    except (TypeError, ValueError):
+        wert = -1.0
+    if not GEWICHT_MIN <= wert <= GEWICHT_MAX:
+        return {"fehler": (f"gewicht muss zwischen {GEWICHT_MIN:g} und {GEWICHT_MAX:g} liegen, wie die Regler im "
+                           "Dashboard. 0 heißt: die Kategorie zählt nicht.")}
+    kriterien = db.get_search_criteria() or {}
+    roh = kriterien.get("gewichtung") or {}
+    if isinstance(roh, str):
+        try:
+            roh = json.loads(roh)
+        except ValueError:
+            roh = {}
+    if not isinstance(roh, dict):
+        roh = {}
+    vorher = _parse_weights(kriterien)
+    neu = {**roh, **{k: wert for k in kategorien}}
+    db.set_search_criteria("gewichtung", neu)
+    nachher = _parse_weights({"gewichtung": neu})
+
+    # Einzelgewichte haben Vorrang: wer sie nicht kennt, wundert sich, dass sich fuer diese Begriffe nichts aendert.
+    einzel = kriterien.get("keyword_gewichte") or {}
+    einzel = einzel if isinstance(einzel, dict) else {}
+    vorrang = {}
+    for k in kategorien:
+        liste = kriterien.get(_LISTE_JE_KATEGORIE.get(k, ""), []) or []
+        if isinstance(liste, str):
+            try:
+                liste = json.loads(liste) if liste else []
+            except ValueError:
+                liste = []
+        mit = sorted(w for w in liste if str(w).lower() in einzel)
+        if mit:
+            vorrang[k] = mit
+    hinweis = ("Gilt für jeden Begriff dieser Kategorie ohne Einzelgewicht, auch für später hinzugefügte. Erst "
+               "kalibrierung_backtest() ansehen, dann scores_neu_berechnen() — die gespeicherten Punkte rechnen bis "
+               "dahin mit dem alten Gewicht.")
+    if "plus" in kategorien:
+        # Gemessen beim Bau von #1304: PLUS=3 statt 1 aenderte die Punkte einer Stelle mit einem MUSS-Treffer nicht, weil
+        # PLUS hoechstens den Rahmen-Deckel mal den Pflichtpunkten zaehlt. Wer PLUS staerker will, muss das wissen.
+        from ..job_scraper import rahmen_deckel_faktor
+        hinweis += (f" PLUS zählt höchstens das {rahmen_deckel_faktor(kriterien):g}-Fache der Pflichtpunkte (Deckel); "
+                    "soll PLUS die Reihenfolge stärker bestimmen, den Deckel mit aktion='deckel', werte=['rahmen'] "
+                    "anheben.")
+    if vorrang:
+        hinweis += (" Einzelgewichte haben Vorrang: " + "; ".join(f"{k}: {', '.join(v)}" for k, v in vorrang.items())
+                    + ". Zurück auf das Kategorie-Gewicht mit aktion='gewicht_entfernen'.")
+    return {"status": "kategorie_gewicht_gesetzt",
+            "geaendert": {k: {"vorher": vorher[k], "nachher": nachher[k]} for k in kategorien},
+            "gewichtung": {k: nachher[k] for k in KATEGORIE_GEWICHTE},
+            "einzelgewichte_mit_vorrang": vorrang,
+            "hinweis": hinweis}
+
+
 def _kategorienurteil_hinweis(grund: str):
     """Hinweis-Text, wenn ein Grund wie ein Gattungsurteil formuliert ist.
 
@@ -601,14 +676,24 @@ def register(mcp, db, logger):
           Rahmenpunkte zählen höchstens so viel, MINUS-Begriffe nehmen
           höchstens so viel.
 
+        #1304:
+        - kategorie='scoring', aktion='gewichten' mit werte=['muss'] (oder
+          'plus', 'minus', 'remote', 'naehe', 'fern_malus', 'gehalt') und
+          gewicht=0 bis 10 setzt das KATEGORIE-Gewicht: es gilt für jeden
+          Begriff der Kategorie ohne Einzelgewicht, auch für später
+          hinzugefügte, und für die Obergrenze ohne MUSS-Treffer. Dasselbe
+          wie die Regler im Dashboard (Profil › Suchbegriffe).
+
         Args:
             kategorie: 'muss', 'plus', 'minus' oder 'ausschluss'
                 (minus seit #667 / B19, beta.84 — weiche Score-Abwertung);
-                'scoring' für aktion='idf' und aktion='deckel'
+                'scoring' für aktion='idf', 'deckel' und 'gewichten'
+                (Kategorie-Gewicht)
             aktion: 'hinzufügen', 'entfernen', 'gewichten',
                 'gewicht_entfernen', 'idf' oder 'deckel'
             werte: Liste der Keywords (bei 'idf': ['an'] oder ['aus'];
-                bei 'deckel': ['rahmen'] oder ['minus'])
+                bei 'deckel': ['rahmen'] oder ['minus']; bei
+                kategorie='scoring' und 'gewichten': die Kategorien)
             gewicht: Punktwert pro Treffer bei aktion='gewichten';
                 Faktor bei aktion='deckel'
         """
@@ -665,6 +750,12 @@ def register(mcp, db, logger):
                              "MINUS-Begriffe wirken jetzt gar nicht mehr. ") + _hinweis)
             return {"status": "deckel_gesetzt", "seite": _seite,
                     "faktor": _faktor, "hinweis": _hinweis}
+
+        # --- #1304: Kategorie-Gewichte ---
+        # `gewichtung` wurde nur gelesen (`_parse_weights`); setzen liess sie sich allein ueber die Regler im Dashboard
+        # (Profil > Suchbegriffe). Derselbe Schluessel wie dort, dieselben Grenzen wie die Regler (0 bis 10).
+        if action_norm0 == "gewichten" and (kategorie or "").strip().lower() == "scoring":
+            return _kategorie_gewichte_setzen(db, werte, gewicht)
 
         key_map = {
             "muss": "keywords_muss",
