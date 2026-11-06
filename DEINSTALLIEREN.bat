@@ -190,9 +190,15 @@ set "BACKUP_FEHLER=0"
 :: es gab kein Backup, keine Warnung, und danach durfte der Mensch endgueltig loeschen.
 :: #1224: HIER STEHT BEWUSST KEIN KOMMENTAR INNERHALB DES BLOCKS. cmd liest den Block beim Einlesen in einem Zug; zwei
 :: Kommentarzeilen mit Klammern darin liessen den Stapel dort enden - der Deinstaller schloss sich nach der Backup-Frage.
+:: #1296: das Datum fuer den Namen kommt aus PowerShell. Vorher wurde es aus Teilen der Variablen date geschnitten, das setzt
+:: TT.MM.JJJJ voraus; bei englischem Format wie "Sun 11/01/2026" entstand ein Name mit Schraegstrichen und die Sicherung
+:: scheiterte immer. Ohne Antwort von PowerShell heisst die Datei PBP-Backup-sicherung.zip.
+set "BACKUP_DATUM="
+for /f "usebackq delims=" %%D in (`powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"`) do set "BACKUP_DATUM=%%D"
+if not defined BACKUP_DATUM set "BACKUP_DATUM=sicherung"
 set /p CREATE_BACKUP="  Soll ein Backup auf dem Desktop erstellt werden? (j/n): "
 if /i "!CREATE_BACKUP!"=="j" (
-    set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%date:~6,4%-%date:~3,2%-%date:~0,2%.zip"
+    set "BACKUP_ZIP=%USERPROFILE%\Desktop\PBP-Backup-%BACKUP_DATUM%.zip"
     echo         Erstelle Backup...
     powershell -ExecutionPolicy Bypass -NoProfile -Command "$ErrorActionPreference = 'Stop'; if (Test-Path -LiteralPath $env:DATA_DIR) { try { Compress-Archive -Path (Join-Path $env:DATA_DIR '*') -DestinationPath $env:BACKUP_ZIP -Force; if (-not (Test-Path -LiteralPath $env:BACKUP_ZIP)) { throw 'Die ZIP-Datei fehlt.' }; Write-Host ('        [OK] Backup erstellt: ' + $env:BACKUP_ZIP); exit 0 } catch { Write-Host ('        [FEHLER] Backup NICHT erstellt: ' + $_.Exception.Message); exit 2 } } else { Write-Host '        [--] Kein Datenordner gefunden'; exit 1 }" 2>>"%LOGFILE%"
     set "BACKUP_RC=!errorlevel!"

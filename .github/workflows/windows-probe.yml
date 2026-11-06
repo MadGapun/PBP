@@ -75,11 +75,10 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Datumsformat des Runners (DEINSTALLIEREN.bat baut den Namen der Sicherung aus %date%)
+      # Dieser Teil laeuft bewusst mit dem englischen Format des Runners (#1296: "Sun 11/01/2026" brach die Sicherung im
+      # Deinstaller), der Update-Teil mit dem deutschen der meisten Anwender.
+      - name: Datumsformat des Runners
         run: cmd /c echo %date%
-      - name: Deutsches Datumsformat wie bei den Anwendern
-        shell: pwsh
-        run: Set-Culture de-DE
       - name: Installieren (INSTALLIEREN.bat ohne Eingaben)
         run: python scripts/windows_probe.py installieren --ordner .
       - name: Haengendes eigenes Dashboard am Port (#1290)
