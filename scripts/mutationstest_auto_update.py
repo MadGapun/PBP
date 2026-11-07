@@ -2493,7 +2493,7 @@ M_ORTSDIENST = [
      '                    genau = entfernung_aus_anzeige(\n                        reihe["location"], koordinaten[0], koordinaten[1], reihe["description"] or "")\n',
      '                    genau = None\n', T_OD),
     ("od26", "das Nachladen fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_NACHLADEN,
-     '                genau = _geo.entfernung_aus_anzeige(\n                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")\n',
+     '                genau = _geo.entfernung_aus_anzeige(\n                    kopf["ort"], heim[0], heim[1], job.get("description") or "")\n',
      '                genau = None\n', T_OD),
     ("od27", "die Spalten der Geo-Tabelle kommen nicht in eine alte Datenbank", OD_DB,
      '            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):\n', '            for _sp, _typ in ():\n', T_OD),
