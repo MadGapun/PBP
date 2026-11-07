@@ -103,6 +103,9 @@ def test_1310_kaufmaennisch_allein_ist_kein_fachwort():
     "kaufmännischen", "technisch", "technische", "technischer",
     "technisches", "technischen", "gewerblich", "gewerbliche",
     "gewerblicher", "gewerbliches", "gewerblichen",
+    # Messung auf einer Bestandskopie: Arbeitsmodell und Rolle trugen sonst das "Fachgebiet"
+    "remote", "hybrid", "homeoffice", "onsite", "Projektleiter", "Projektleiterin",
+    "Projektmanager", "Projektmanagerin",
 ])
 def test_1310_neue_stoppwoerter(wort):
     assert wg._domain_tokens(f"{wort} Lohnbuchhaltung") == {"lohnbuchhaltung"}

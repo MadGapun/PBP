@@ -100,6 +100,13 @@ _TITLE_STOPS = {
     "technisch", "technische", "technischer", "technisches", "technischen",
     "gewerblich", "gewerbliche", "gewerblicher", "gewerbliches",
     "gewerblichen",
+    # #1310 (Messung auf einer Bestandskopie): ohne den Ortsnamen blieb die
+    # gemeinsame Menge oefter stehen, und dann trugen Arbeitsmodell und
+    # Rolle das "Fachgebiet". Arbeitsmodell ist kein Fach (#1023 trennt es),
+    # "Projektleiter" ist eine Rolle wie "Leiter" ("projekt" steht schon in
+    # _GENERIC_ROLE_TOKENS, die Zusammensetzung nicht).
+    "remote", "hybrid", "homeoffice", "onsite",
+    "projektleiter", "projektleiterin", "projektmanager", "projektmanagerin",
 }
 
 # #1028: Platzhalter, die Adapter bei fehlender Firmenangabe einsetzen.
