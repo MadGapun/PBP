@@ -309,7 +309,11 @@ def test_der_selbsttest_findet_zusatzpakete_der_fassung_im_site_ordner(tmp_path)
     shutil.copy2(WURZEL / "_selftest.py", ordner / "_selftest.py")
     (ordner / "site").mkdir()
     (ordner / "site" / "nur_hier_zu_finden.py").write_text("X = 1\n", encoding="utf-8")
-    wrapper = (f"import runpy, sys\nrunpy.run_path(r'{ordner / '_selftest.py'}', run_name='__main__')\n"
+    # Der Selbsttest beendet sich hart (os._exit, #1281); hier wird das Ende abfangbar gemacht, damit danach der Suchpfad geprueft werden kann.
+    wrapper = ("import os, runpy, sys\n"
+               "def _ende(code):\n    raise SystemExit(code)\n"
+               "os._exit = _ende\n"
+               f"try:\n    runpy.run_path(r'{ordner / '_selftest.py'}', run_name='__main__')\nexcept SystemExit as e:\n    assert e.code == 0, e.code\n"
                "import nur_hier_zu_finden\nprint('PFAD', sys.path[0], sys.path[1])\n")
     env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "BA_DATA_DIR")}
     r = subprocess.run([PYTHON, "-c", wrapper], capture_output=True, text=True, env=env, timeout=180, cwd=str(tmp_path))

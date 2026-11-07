@@ -27,7 +27,9 @@ TEXTE = {
     "braucht_installer": ("Dieses Update braucht den Installer. Lade das ZIP der neuen Version von der "
                           "Release-Seite und starte INSTALLIEREN.bat."),
     "abhaengigkeiten": "Zusätzliche Pakete konnten nicht bereitgestellt werden. Es wurde nichts installiert.",
-    "selbsttest": "Die neue Version hat ihren Funktionstest nicht bestanden. Es wurde nichts installiert.",
+    "selbsttest": ("Die neue Version hat ihren Funktionstest nicht bestanden. Es wurde nichts installiert. Du kannst sie von "
+                   "Hand installieren: ZIP der neuen Version von der Release-Seite laden, entpacken und INSTALLIEREN.bat "
+                   "starten. Deine Daten bleiben erhalten."),
     "unerwartet": "Beim Update ist etwas Unerwartetes passiert. Es wurde nichts installiert.",
 }
 

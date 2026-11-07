@@ -30,6 +30,8 @@ BEIDE Ansichten durch diesen Dienst, und der Browser zeigt nur noch an.
 - die Datenguete-Ordnung: `datenguete.sortierschluessel` (#989)
 - der Pruefstand: kommt fertig als `job["pruefstand"]` (#948)
 - der Pflichttreffer: kommt fertig als `job["muss_tor"]` (#968)
+- eine gespeicherte Ansicht und die Sprache: `stellen_filter.passt` (#1307,
+  #1308) - dieselbe Pruefung wie `stellen_bulk_bewerten` und die Regeln
 
 Der Dienst liest keine Datenbank. Was er ueber den Bestand wissen muss
 (beworbene Stellen, Einstellung zur Datenguete), bekommt er uebergeben —
@@ -42,6 +44,7 @@ from datetime import datetime, timedelta
 from typing import Callable, Iterable, Optional
 
 from . import datenguete, gehalt_vergleich, indikatoren
+from . import stellen_filter as _sf
 
 VORGABE_SORTIERUNG = "score_desc"
 SORTIERUNGEN = (
@@ -91,6 +94,10 @@ FILTER_VORGABE: dict = {
     # weil der Mensch sie eingestellt hat; sichtbar mit Zahl
     # (`schwelle_verborgen`) und mit einem Klick aus (#1008).
     "schwelle_ausblenden": True,
+    # #1308: Sprachen der Anzeige (leer = alle). #1307: die Bedingungen einer
+    # gespeicherten Ansicht (der Endpunkt loest Name/Kennung auf).
+    "sprache": (),
+    "ansicht": None,
 }
 
 _UMFANG_BEIDES = "beides"
@@ -151,6 +158,20 @@ def filter_lesen(roh: Optional[dict]) -> dict:
                                        ["eine endliche Zahl"])
     if f["pruefstand"] and f["pruefstand"] not in PRUEFSTAENDE:
         raise UngueltigerParameter("pruefstand", f["pruefstand"], PRUEFSTAENDE)
+    if roh.get("sprache") not in (None, "", [], ()):
+        werte = roh["sprache"]
+        if isinstance(werte, str):
+            werte = werte.split(",")
+        try:
+            f["sprache"] = tuple(_sf.bedingungen_lesen({"sprache": list(werte)}).get("sprache", ()))
+        except _sf.UngueltigeBedingung:
+            from .sprache import SPRACHEN
+            raise UngueltigerParameter("sprache", roh["sprache"], SPRACHEN) from None
+    if roh.get("ansicht"):
+        try:
+            f["ansicht"] = _sf.bedingungen_lesen(roh["ansicht"]) or None
+        except _sf.UngueltigeBedingung as fehler:
+            raise UngueltigerParameter("ansicht", str(fehler), _sf.BEDINGUNGEN) from None
     if not f["zeitfenster"]:
         f["zeitfenster"] = "alle"
     if f["zeitfenster"] not in ZEITFENSTER:
@@ -210,7 +231,8 @@ def zeitfenster_grenze(fenster: str,
 
 
 def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
-           grenze: Optional[datetime]) -> bool:
+           grenze: Optional[datetime],
+           sprache_von: Optional[Callable] = None) -> bool:
     query = f["query"].lower()
     if query:
         heuhaufen = " ".join(str(job.get(k) or "") for k in
@@ -251,6 +273,11 @@ def _passt(job: dict, f: dict, beworbene: set, hash_von: Callable,
         art = (job.get("pruefstand") or {}).get("art") or "ungeprueft"
         if art != f["pruefstand"]:
             return False
+    if f["sprache"] and not _sf.passt(job, {"sprache": list(f["sprache"])},
+                                      sprache_von=sprache_von):
+        return False
+    if f["ansicht"] and not _sf.passt(job, f["ansicht"], sprache_von=sprache_von):
+        return False
     if grenze is not None:
         wann = _zeitpunkt(job.get("dismissed_at"))
         # Ohne Zeitpunkt (Altbestand) laesst sich nichts einordnen — die
@@ -275,6 +302,8 @@ FILTER_NEUTRAL: dict = {
     "pruefstand": "",
     "rahmen_ausblenden": False,
     "schwelle_ausblenden": False,
+    "sprache": (),
+    "ansicht": None,
 }
 
 
@@ -375,9 +404,16 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
     bew = {hv(h) for h in beworbene if h}
     grenze = zeitfenster_grenze(f["zeitfenster"], jetzt)
 
-    treffer = [j for j in jobs if _passt(j, f, bew, hv, grenze)]
+    # #1308: die Sprache je Stelle einmal - die Zaehlung unten prueft jede
+    # Stelle je wirksamem Filter noch einmal.
+    sv = _sf.sprach_speicher()
+    treffer = [j for j in jobs if _passt(j, f, bew, hv, grenze, sv)]
     sortiert = sortieren(treffer, sort, guete_umgang)
     seite = sortiert[offset:offset + limit] if limit else sortiert[offset:]
+    from . import sprache as _sprache
+    for j in seite:
+        # #1308: das Merkmal an der Stelle (beim Lesen erkannt, nicht gespeichert).
+        j.update(_sprache.merkmal(j, sv(j)))
 
     # #1158 (vorher drei Einzelrechnungen fuer Beworbene, Rahmen und Schwelle - #1008, #1052, #1082):
     # fuer JEDEN wirksamen Filter, wie viele Stellen er allein verbirgt - gezaehlt ueber die Stellen,
@@ -395,7 +431,7 @@ def aufbereiten(jobs: list, filter_roh: Optional[dict] = None,
         basis, eigene = ((jobs, len(treffer)) if feld == "beworbene_ausblenden"
                          else (offene, len(offene_treffer)))
         durchgelassen = sum(
-            1 for j in basis if _passt(j, ohne_diesen, bew, hv, grenze))
+            1 for j in basis if _passt(j, ohne_diesen, bew, hv, grenze, sv))
         verborgen[feld] = max(0, durchgelassen - eigene)
     # Fuer den Hinweis "alle Treffer sind nur wegen 'Beworbene ausblenden' weg".
     treffer_mit_beworbenen = len(treffer) + verborgen.get("beworbene_ausblenden", 0)

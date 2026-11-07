@@ -1,0 +1,146 @@
+name: Windows-Probe
+
+# #1294: Die Tests liefen nur auf Linux. Installer, Auto-Update, Funktionstest und Port-Selbsthilfe sind Windows-Code und
+# wurden bisher nur von Hand auf dem Werkstatt-PC geprueft. Hier laufen sie auf einem frischen Windows (Server 2025, mit
+# angemeldetem Desktop) - ohne Claude Desktop und ohne Microsoft Store; das bleibt fuer eine VM oder den Werkstatt-PC.
+#
+#   installer: der Stand des Zweigs - Installieren, haengendes eigenes Dashboard, fremdes Programm am Port, Deinstallieren
+#   update:    die vorige stabile Veroeffentlichung installieren und aus dem laufenden Dashboard auf die neueste aktualisieren
+#
+# Die Probe prueft Inhalte (Antworten, Dateien, Registry, Prozesse), keine Meldungen. Skript: scripts/windows_probe.py
+
+on:
+  pull_request:
+    types: [ opened, synchronize, reopened, labeled ]
+    paths:
+      - INSTALLIEREN.bat
+      - DEINSTALLIEREN.bat
+      - Dashboard starten.bat
+      - start_dashboard.py
+      - _selftest.py
+      - _setup_claude.py
+      - _programm_einrichten.py
+      - _installer_aufraeumen.py
+      - _sicherung_vor_update.py
+      - installer/**
+      - src/bewerbungs_assistent_boot/**
+      - src/bewerbungs_assistent/services/auto_update/**
+      - src/bewerbungs_assistent/services/port_*.py
+      - src/bewerbungs_assistent/services/dashboard_halter.py
+      - pyproject.toml
+      - scripts/windows_probe.py
+      - .github/workflows/windows-probe.yml
+  push:
+    branches: [ main ]
+    paths:
+      - INSTALLIEREN.bat
+      - DEINSTALLIEREN.bat
+      - Dashboard starten.bat
+      - start_dashboard.py
+      - _selftest.py
+      - _setup_claude.py
+      - _programm_einrichten.py
+      - _installer_aufraeumen.py
+      - _sicherung_vor_update.py
+      - installer/**
+      - src/bewerbungs_assistent_boot/**
+      - src/bewerbungs_assistent/services/auto_update/**
+      - src/bewerbungs_assistent/services/port_*.py
+      - src/bewerbungs_assistent/services/dashboard_halter.py
+      - pyproject.toml
+      - scripts/windows_probe.py
+      - .github/workflows/windows-probe.yml
+  release:
+    types: [ released ]
+  workflow_dispatch:
+    inputs:
+      teil:
+        description: "installer, update oder beide"
+        default: beide
+
+permissions:
+  contents: read
+
+env:
+  PBP_PROBE_PROTOKOLLE: ${{ github.workspace }}\probe-protokolle
+  PYTHONUTF8: "1"
+
+jobs:
+  installer:
+    if: github.event_name == 'pull_request' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.teil != 'update')
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      # Dieser Teil laeuft bewusst mit dem englischen Format des Runners (#1296: "Sun 11/01/2026" brach die Sicherung im
+      # Deinstaller), der Update-Teil mit dem deutschen der meisten Anwender.
+      - name: Datumsformat des Runners
+        run: cmd /c echo %date%
+      - name: Installieren (INSTALLIEREN.bat ohne Eingaben)
+        run: python scripts/windows_probe.py installieren --ordner .
+      - name: Haengendes eigenes Dashboard am Port (#1290)
+        run: python scripts/windows_probe.py haenger
+      - name: Fremdes Programm am Port (#1290)
+        run: python scripts/windows_probe.py fremd
+      - name: Deinstallieren (DEINSTALLIEREN.bat mit Antworten)
+        run: python scripts/windows_probe.py deinstallieren
+      - name: Protokolle sichern
+        if: always()
+        shell: pwsh
+        run: |
+          $ziel = "$env:PBP_PROBE_PROTOKOLLE\pbp-logs"
+          New-Item -ItemType Directory -Force $ziel | Out-Null
+          $logs = "$env:LOCALAPPDATA\BewerbungsAssistent\data\logs"
+          if (Test-Path $logs) { Copy-Item "$logs\*" $ziel -Recurse -Force }
+          if (Test-Path "install_log.txt") { Copy-Item "install_log.txt" $env:PBP_PROBE_PROTOKOLLE -Force }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-probe-installer
+          path: probe-protokolle
+          if-no-files-found: warn
+
+  update:
+    # Prueft Veroeffentlichungen, nicht den Stand des Zweigs. In einem PR nur mit dem Label "update-probe" (etwa, wenn sich
+    # die Probe selbst aendert: workflow_dispatch gibt es erst, wenn der Workflow auf main liegt).
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.teil != 'installer') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'update-probe'))
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Deutsches Datumsformat wie bei den Anwendern
+        shell: pwsh
+        run: Set-Culture de-DE
+      - name: Vorige stabile Veroeffentlichung laden
+        id: vorher
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python scripts/windows_probe.py update-vorbereiten
+      - name: Vorige Veroeffentlichung installieren
+        run: python scripts/windows_probe.py installieren --ordner "${{ steps.vorher.outputs.ordner }}" --erwartet ${{ steps.vorher.outputs.von }}
+      - name: Update aus dem laufenden Dashboard (#1281)
+        run: python scripts/windows_probe.py update --nach ${{ steps.vorher.outputs.nach }}
+      - name: Fremdes Programm am Port, zwei Starts im Abstand (kein falscher Rueckfall, #1290)
+        run: python scripts/windows_probe.py fremd --runden 2 --abstand 95
+      - name: Deinstallieren
+        run: python scripts/windows_probe.py deinstallieren
+      - name: Protokolle sichern
+        if: always()
+        shell: pwsh
+        run: |
+          $ziel = "$env:PBP_PROBE_PROTOKOLLE\pbp-logs"
+          New-Item -ItemType Directory -Force $ziel | Out-Null
+          $logs = "$env:LOCALAPPDATA\BewerbungsAssistent\data\logs"
+          if (Test-Path $logs) { Copy-Item "$logs\*" $ziel -Recurse -Force }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-probe-update
+          path: probe-protokolle
+          if-no-files-found: warn

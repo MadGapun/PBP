@@ -16,6 +16,15 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Emails → `<email-anonymisiert>`). Praeventiv-Werkzeug:
 > `scripts/scrub_pii.py`. Pflicht-Workflow in CLAUDE.md dokumentiert.
 
+> 🛡 **DSGVO-Nachtrag (2026-10-24):** Zwei Issues nannten reale Firmen aus dem
+> Bewerbungsbestand und sind geloescht: **#1158** (neu als #1274, erledigt) und
+> **#947** (neu als #1275, offen fuer die Bilder der Anleitung und die Probe mit
+> einem Menschen). Die Neufassungen tragen Text und Kommentare unveraendert, nur
+> die Firmennamen sind durch `<FIRMA>` ersetzt. Verweise auf #947 und #1158 in
+> dieser CHANGELOG fuehren zu 404. Ausloeser: `issue_text_pruefen` erkannte einen
+> der Namen in Umschrift nicht (#1277). Ebenfalls geloescht: **#1276** (ein
+> Titel mit einem Namensteil, neu als #1277).
+>
 > 🛡 **DSGVO-Nachtrag (2026-08-19):** Ein maschineller Sweep ueber alle
 > 781 Issue-Bodies, Kommentare und Release-Notes fand in **zehn
 > Alt-Issues** noch reale Firmennamen. Diese sind geloescht: **#88,
@@ -32,6 +41,218 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > Eintraegen fuehren zu 404. Die Inhalte sind im Master-Plan (B27/C28)
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
+
+## [1.8.2] - 2026-11-07 — Anstellungsart und Entfernung stimmen, eigene Filter und Sprache der Anzeige
+
+<!-- anwender -->
+Stellen aus dem Browser kommen mit der richtigen Anstellungsart und Remote-Angabe an, und beides lässt sich nachträglich ändern.
+Ortsangaben wie „Hamburg u.a.“ oder „Deutschland (remote)“ ergeben keine falschen Entfernungen mehr.
+Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische Anzeigen lassen sich ausblenden oder aussortieren.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Nichts Besonderes.** Wer das Auto-Update eingeschaltet hat, bekommt 1.8.2 wie jedes Update. Stellen, bei denen Remote als „True“ gespeichert war,
+  werden beim ersten Start von selbst bereinigt und neu bewertet.
+
+**Neu und behoben (kurz)**
+
+- Anstellungsart und Remote kommen bei der Übernahme aus dem Browser richtig an und lassen sich danach von Hand ändern.
+- Falsche Entfernungen bei Zusätzen, Ländern und mehreren Orten sind behoben.
+- Eigene Filter als Ansicht oder Regel; Sprache der Anzeige als Filter und als Regel.
+- Die Automatik sortiert keine Stellen mehr als „falsches Fachgebiet“ aus, die deine Pflichtbegriffe tragen.
+- Die Gewichte ganzer Kategorien (MUSS, PLUS, MINUS …) lassen sich auch über Claude setzen.
+- Die Sicherung beim Deinstallieren gelingt auch bei englischem Datumsformat.
+
+### Added
+
+- **Eigene Filter, benannt und gespeichert** (#1307): mit Claude (`stellen_filter_verwalten`) als **Ansicht** (nur filtern; im Stellen-Tab unter „Ansicht“,
+  für Claude `stellen_anzeigen(ansicht=...)`) oder als **Regel**, die passende NEUE Treffer nach jeder Suche und jeder Übernahme aus dem Browser aussortiert.
+  Dieselben Bedingungen wie beim Aussortieren vieler Stellen (Titel und Anzeige enthalten / enthalten nicht, Quelle, Firma, Punkte, Alter, Sprache) und
+  dieselbe Prüfung (`services/stellen_filter.py`). Anlegen, Anzeigen, Testen, An/Aus, auf den Bestand Anwenden (erst Vorschau) und Löschen. Eine Regel nimmt
+  nur Gründe aus der Liste, sortiert beim Anlegen nichts aus und lässt zurückgeholte Stellen, Stellen mit gelesenem Urteil und Stellen mit Bewerbung stehen;
+  das Aussortier-Protokoll nennt die Regel. Im Dashboard stehen die Regeln unter Einstellungen › Automatik.
+- **Sprache der Anzeige** (#1308): PBP erkennt beim Lesen, ob eine Anzeige deutsch, englisch, gemischt oder in einer anderen Sprache ist; ohne oder mit zu
+  kurzem Text ist sie „unbekannt“ und wird von keinem Sprachfilter getroffen. Filter `sprache` in `stellen_anzeigen`, `stellen_bulk_bewerten` und im
+  Stellen-Tab („Ohne rein englische“), Abzeichen an englischen Stellen, Hinweis „verlangt Deutsch“, wenn eine englische Anzeige Deutschkenntnisse fordert.
+- **Kategorie-Gewichte über Claude** (#1304): `suchkriterien_bearbeiten(kategorie='scoring', aktion='gewichten', werte=['plus'], gewicht=3)` setzt dieselbe
+  Einstellung wie die Regler unter Profil › Suchbegriffe (0 bis 10). Die Antwort weist darauf hin, dass PLUS-Punkte gedeckelt sind (Deckel „Rahmen“).
+- **Anstellungsform, Umfang und Remote einer Stelle ändern** (#1299): `stelle_bearbeiten(anstellungsart=, umfang=, remote=)` und im Stellen-Detail eine
+  Auswahl. Eine Handkorrektur überlebt Suchläufe und Neuberechnungen.
+- **Kontakte ohne echten Namen finden** (#1303): `kontakte_auflisten(nur_platzhalter=True)`.
+
+### Fixed
+
+- **Browser-Übernahme speicherte Remote als „True“ und jede Stelle als Festanstellung** (#1298). Voll remote ausgeschriebene Stellen fielen dadurch unter die
+  Entfernungsgrenze für Festanstellungen. Remote wird jetzt normalisiert, die Anstellungsart aus Angabe, Portal oder Titel bestimmt, und Unverständliches
+  steht als Hinweis in der Antwort. Der Bestand wird beim Start bereinigt.
+- **Falsche Entfernungen** (#1300): „Hamburg u.a.“ ergab 218 km, „Deutschland (remote)“ 619 km, „100 % remote (Frankfurt)“ einen Ort in Übersee. Zusätze werden
+  vor der Abfrage entfernt, mehrere Orte einzeln aufgelöst (der nächste zählt, in Liste und Bewertung dieselbe Zahl), ein Land allein und Treffer außerhalb
+  des deutschsprachigen Raums gelten als „unbekannt“.
+- **Die Namensprüfung vor GitHub-Texten meldete jede Tabelle als Personenfund** (#1303), weil ein Kontakt `---` hieß. Werte ohne Buchstaben sind kein Name.
+- **Die Sicherung beim Deinstallieren scheiterte bei englischem Datumsformat** (#1296). Das Datum kommt jetzt aus PowerShell.
+- **Die Wiedergänger-Automatik sortierte Stellen mit deinen eigenen Pflichtbegriffen als „falsches Fachgebiet“ aus** (#1310). Sie hatte Ortsnamen,
+  Eigenschaftswörter wie „kaufmännischer“ und Bruchstücke wie „voll“ (aus „Voll- oder Teilzeit“) als Fachgebiet gelernt. Trägt eine Stelle einen
+  Pflichtbegriff deines Profils, wird sie jetzt nicht mehr als falsches Fachgebiet aussortiert, sondern mit einem Hinweis angelegt (dieselbe Prüfung wie bei
+  den Punkten). Der Ort einer Stelle zählt nicht mehr als Fachwort, und „kaufmännisch“, „technisch“, „gewerblich“, „Kaufmann/Kauffrau“, „Teamassistenz“ und
+  „voll“ auch nicht.
+
+### Changed
+
+- Neue Module: `services/stellen_filter.py`, `services/gespeicherte_filter.py`, `services/sprache.py`. Neue Tabelle `stellen_filter` und neue Spalten
+  `art_quelle`, `umfang_quelle`, `remote_quelle` an `jobs` (additiv, ohne Versionssprung).
+- Windows-Probe in der CI (#1294): Installer, Port-Selbsthilfe, Update und Deinstallation laufen bei jeder Änderung daran auf einem Windows-Runner.
+
+*Schema v52 (unverändert, neue Tabelle `stellen_filter` als Safety-Net), 282 MCP-Werkzeuge, 10172 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.2.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.2.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.2 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.2` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
+## [1.8.1] - 2026-10-30 — Ein hängendes PBP wird erkannt, und das Update-Testprogramm endet von selbst
+
+<!-- anwender -->
+Hängt ein altes PBP am Anschluss 8200, sagt PBP jetzt ehrlich, was los ist, und beendet es von selbst, wenn es nicht von Claude gestartet wurde.
+Ein Start, der am belegten Anschluss endet, stuft PBP nicht mehr auf die vorige Fassung zurück.
+Der Funktionstest beim Update beendet sich von selbst; scheitert er trotzdem, nennt die Meldung den Weg von Hand.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Nichts Besonderes.** Wer das Auto-Update eingeschaltet hat, bekommt 1.8.1 wie jedes Update. Scheitert der Funktionstest auf deinem Rechner (Meldung
+  „Die neue Version hat ihren Funktionstest nicht bestanden“), installiere von Hand: ZIP laden, entpacken, `INSTALLIEREN.bat` starten; deine Daten bleiben.
+- **Lief PBP bei dir zuletzt auf einer älteren Fassung, ohne dass du etwas gemacht hast?** Das war der Fehler unten („kein PBP“ am belegten Anschluss, dann
+  Rückfall). Nach dem Update auf 1.8.1 passiert das nicht mehr; die gewünschte Fassung installierst du wie oben.
+
+**Behoben (kurz)**
+
+- Ein hängendes PBP am Anschluss wird erkannt, ehrlich gemeldet und (außer unter Claude Desktop) selbst beendet; keine falsche Rückstufung mehr.
+- Der Funktionstest beim Update endet von selbst, und die Meldung nennt den Weg von Hand.
+- Die Gesundheitsauskunft nennt nur Pakete, die PBP wirklich benutzt.
+
+### Fixed
+
+- **Ein hängender Prozess hielt den Anschluss 8200, und PBP schob die Schuld auf ein „anderes Programm“.** Ein altes PBP, das Verbindungen annahm, aber nicht
+  mehr antwortete, wurde als „kein PBP“ gemeldet; zwei solche Starts zählte PBP als gescheiterte Starts und stufte 1.8.0 auf eine ältere Fassung zurück
+  (#1290). Jetzt unterscheidet PBP drei Fälle: Es antwortet (dann läuft es schon), es antwortet nicht (hängender Prozess, mit Kennung und Startzeit genannt),
+  oder ein anderes Programm hält den Anschluss (mit Namen genannt). Einen hängenden eigenen Prozess, den Claude Desktop **nicht** gestartet hat, beendet PBP
+  nach einer zweiten Prüfung selbst und startet das Dashboard. Ist er von Claude Desktop gestartet (der Weg, über den Claude mit PBP spricht), beendet PBP ihn
+  nie von selbst: im Fenster kommt eine Frage (Vorgabe „Nein“), sonst steht der genaue Befehl in der Meldung. Fremde und unbekannte Prozesse fasst PBP nie an.
+  Ein Start, der am belegten Anschluss endet, zählt nicht mehr als Fehlstart der Fassung.
+- **Der Funktionstest beim Update lief auf einem Rechner in die Zeitgrenze** (#1281), obwohl er allein in vier Sekunden fertig war. Das Testprogramm beendet
+  sich jetzt hart und hat einen eigenen Wächter; die Update-Prüfung liest seine Ausgabe aus Dateien statt aus einer Leitung (ein anderer Prozess, der das
+  Leitungsende erbte, hielt sie fest), und bei einer Zeitgrenze steht, was der Test bis dahin schrieb, im Protokoll. Die Meldung nennt den Weg von Hand.
+  Die Ursache auf dem einen Rechner ist nicht bewiesen; die Änderungen beseitigen die plausibelste und machen jeden weiteren Fall sichtbar.
+- **Die Gesundheitsauskunft nannte ein Paket, das PBP nie benutzt** („pdfplumber“, #1282). Sie nennt nur noch Pakete, die PBP wirklich einbindet; ein Test hält
+  die Liste gegen die Abhängigkeiten.
+
+### Changed
+
+- Neue Module: `services/port_besitzer.py` (wer hält den Port: Kennung, Kommandozeile, Elternprozess; nur Standardbibliothek), `services/port_selbsthilfe.py`
+  (die einzige Stelle, die über das Beenden entscheidet; schützt die ganze Elternkette), `services/auto_update/start_zaehler.py` (setzt den Zähler „Starts ohne
+  Bestätigung“ zurück, setzt nie `bestaetigt`). Der Startbaustein `bewerbungs_assistent_boot` ist unverändert (FORMAT 1).
+- `dashboard_halter.port_auskunft()` liefert `pbp` / `fremd` / `keine_antwort`; `port_belegt()` ersetzt `connect_ex == 0` (eine volle Warteschlange galt als „frei“).
+- Gegenprobe: 14 Eingriffe in den Port-Teil und 6 in den Funktionstest, jeder von mindestens einem Test erkannt.
+
+### Known Issues
+
+- Die Ursache des Hängens selbst (der Webteil blockiert nach dem Start des Planers, der MCP-Weg läuft weiter) ist nicht gefunden (#1290, eigener Befund).
+  Bis dahin meldet und behebt PBP die Folge. Ein hängender Prozess unter Claude Desktop braucht deine Zustimmung oder einen Neustart von Claude Desktop.
+- Ein Start am belegten Anschluss lässt den Zähler auf 1 stehen; ein echter Fehlstart danach führt schon beim übernächsten Start zum Rückfall (wie bisher).
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge, 9725 Tests.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.1.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.1.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.1 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.1` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
 
 ## [1.8.0] - 2026-10-23 — Updates, die sich selbst installieren
 

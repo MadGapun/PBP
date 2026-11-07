@@ -1100,8 +1100,9 @@ def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
     # eigene Rechnung waere eine Zahl, die nicht zu den Abfragen passt,
     # also derselbe Fehler noch einmal. Ein Text ohne Ort ("Remote
     # moeglich") wird nie gefragt und zaehlt nicht mit (#1158).
-    from ..services.geocoding_service import ort_schluessel
-    orte = len({ort_schluessel(str(j.get("location") or "")) for j in auswahl} - {""})
+    # #1300: nennt eine Stelle mehrere Orte, wird je Ort gefragt - jeder zaehlt.
+    from ..services.geocoding_service import ort_schluessel_alle
+    orte = len({k for j in auswahl for k in ort_schluessel_alle(str(j.get("location") or ""))} - {""})
     return auswahl, orte, ko
 
 
@@ -1775,6 +1776,14 @@ def run_search(db, job_id: str, params: dict):
     # Die Stellen bleiben in der Liste: sie gehen durch dieselbe
     # Filterkaskade wie bisher und werden dort gezaehlt. Gespart wird die
     # Netzabfrage, nicht die Buchfuehrung.
+    # #1300: "Deutschland (remote)" im Ortsfeld ist eine Auskunft ueber das Arbeitsmodell - sie geht an
+    # `remote_level`, wo die Quelle nichts sagt, statt mit dem Ort verworfen zu werden.
+    try:
+        from ..services.geocoding_service import remote_aus_ort
+        for job in unique:
+            remote_aus_ort(job)
+    except Exception as _exc:  # pragma: no cover - nie den Suchlauf kippen
+        logger.debug("Remote aus dem Ort (#1300): %s", _exc)
     needs_geocoding, orte_verschieden, ko_vor_geocoding = geocoding_auswahl(
         unique, criteria)
     if ko_vor_geocoding:
@@ -2170,6 +2179,9 @@ def run_search(db, job_id: str, params: dict):
             and len((j.get("description") or "").strip()) < _min_text]
     except Exception as _exc:  # pragma: no cover
         logger.debug("Treffer ohne Text nicht gemerkt: %s", _exc)
+    # #1307: die neuen Treffer dieses Laufs - auf sie wenden die eigenen Regeln
+    # (services/gespeicherte_filter.nach_suche) ihre Bedingungen an.
+    result_data["neue_treffer"] = [j["hash"] for j in unique if j.get("hash")]
 
     db.update_background_job(
         job_id, "fertig", progress=100,
@@ -3161,6 +3173,16 @@ def entfernungs_guete(job: dict) -> tuple[str, str]:
     if not ort:
         return "unbekannt", ("Kein Ort in der Anzeige — die Entfernung "
                              "konnte nicht bestimmt werden.")
+    # #1300: nur ein Land, vollstaendig remote laut Ort oder ein Treffer in
+    # Uebersee - dann sagt der Satz das, statt "liess sich nicht aufloesen".
+    try:
+        from ..services.geocoding_service import warum_keine_entfernung
+        _methode, _satz = warum_keine_entfernung(ort)
+    except Exception:  # noqa: BLE001 - eine Auskunft, nie ein Abbruch
+        _methode, _satz = "", ""
+    if _satz:
+        return "unbekannt", (f"{_satz} Die Entfernung geht deshalb NICHT in den "
+                             "Score ein.")
     return "unbekannt", (
         f"Der Ort '{ort}' liess sich nicht in Koordinaten auflösen. "
         "Die Entfernung geht deshalb NICHT in den Score ein — die "
@@ -3366,7 +3388,10 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # jobs.description — diese koennen Ausschluss-Keywords enthalten und
     # das Scoring sabotieren.
     description_for_score = _strip_pbp_notes(description)
-    text = f"{title} {description_for_score}".lower()
+    # #1310: der Tor-Text kommt aus `muss_tor.tor_text` — dieselbe Funktion
+    # fragt die Wiedergaenger-Automatik.
+    from ..services import muss_tor as _tor
+    text = _tor.tor_text(job, bereinigt=description_for_score)
     w = _parse_weights(criteria)
 
     # v1.7.12 (#827, C32): Kern-Text = Titel + Beschreibung OHNE die
@@ -3442,15 +3467,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
         or any(_strict_keyword_match(alt_kw, text)
                for alt_kw in (_muss_syn.get(kw) or []))
     ]
-    muss_tor_kws = [kw for kw in muss
-                    if _muss_tor_match(kw, text, _muss_syn.get(kw))]
+    # #1310: die Tor-Frage steht in `muss_tor.pflicht_treffer` — dieselbe
+    # Funktion fragt die Wiedergaenger-Automatik vor "falsches Fachgebiet".
+    muss_tor_kws = _tor.pflicht_treffer(criteria, text)
     muss_found = len(muss_tor_kws)
     # v1.7.68 (#968): Betriebsart des Tors. `hart` verwirft (bisheriges
     # Verhalten und weiterhin Vorgabe), `gewichtet` laesst die Stelle
     # weiterrechnen und deckelt sie am Ende. Die Entscheidung steht in
     # den Kriterien, nicht in der Datenbank — sonst rechnete der
     # Suchlauf anders als die Neuberechnung (#987).
-    from ..services import muss_tor as _tor
     _ohne_muss = bool(muss) and muss_found == 0 and _tor.gewichtet_aktiv(criteria)
     if _ohne_muss:
         job["_ohne_muss_treffer"] = True
@@ -3792,7 +3817,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # calculate_score gegen den gestrippten; dieselbe Stelle bekam je
     # nach Pfad verschiedene Scores.
     _desc = _strip_pbp_notes(job.get("description", "") or "")
-    text = f"{job.get('title', '')} {_desc}".lower()
+    from ..services import muss_tor as _tor
+    text = _tor.tor_text(job, bereinigt=_desc)  # #1310: ein Tor-Text
     w = _parse_weights(criteria)
 
     muss = criteria.get("keywords_muss", [])
@@ -4125,8 +4151,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # behalten (beschreibung_vorhanden, beschreibung_unvollstaendig,
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
-    _kein_muss_tor = bool(muss) and not any(
-        _muss_tor_match(kw, text, _muss_syn_fit.get(kw)) for kw in muss)
+    _kein_muss_tor = bool(muss) and not _tor.pflicht_treffer(criteria, text)
     # v1.7.68 (#968): AK 5 — beide Rechenwege tragen die Betriebsart
     # gemeinsam. Stuende sie nur in `calculate_score`, haette dieselbe
     # Stelle je nach Werkzeug einen anderen Wert; das ist #963 und
@@ -4328,10 +4353,15 @@ def detect_remote_level(text: str) -> str:
     die Firmengroesse, keinen Arbeitsplatz — gemessen stand "bundesweit
     rund 4.000 Mitarbeitende" in einer Laboranzeige.
     """
-    text_lower = text.lower()
+    # #1299: geschuetzte und schmale Leerzeichen ("100 % remote" aus einer
+    # Webseite) zaehlen wie ein Leerzeichen — sonst traf die Liste nur
+    # zufaellig ueber das blosse Wort "remote" weiter unten, und ein "hybrid"
+    # im selben Text schlug sie.
+    text_lower = re.sub(r"[\s   ]+", " ", text.lower())
     if any(kw in text_lower for kw in [
             "100% remote", "100 % remote", "vollstaendig remote",
             "vollständig remote", "full remote", "fully remote",
+            "voll remote", "komplett remote", "100%-remote",
             "rein remote", "100% homeoffice", "100 % homeoffice",
             "komplett im homeoffice", "ausschliesslich im homeoffice",
             "ausschließlich im homeoffice", "remote-first", "remote first"]):

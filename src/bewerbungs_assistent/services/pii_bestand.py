@@ -65,6 +65,58 @@ GEWOEHNLICHE_WOERTER = {
 _WORTGRENZE_VOR = r"(?<![\w\-])"
 _WORTGRENZE_NACH = r"(?![\w\-])"
 
+# #1277: eine Firma steht im Text nicht immer so da wie im Bestand. Ein
+# Name mit "ö" kam in Umschrift und Grossbuchstaben ("OE") als "sauber"
+# durch und stand drei Wochen in einem oeffentlichen Issue. Lehre 3: eine
+# Liste findet nur ihre Schreibweise - der Pruefer muss beide kennen.
+_UMSCHRIFT = (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss"))
+_TRENNER = " -‐‑–_"
+
+
+def vergleichsform(name: str) -> str:
+    """Eine Form fuer alle Schreibweisen desselben Namens (#1277).
+
+    Kleingeschrieben, Umlaute und ß in Umschrift, Bindestriche und
+    Unterstriche als Leerzeichen: "Anlagenbau-Süd" und "ANLAGENBAU SUED"
+    ergeben beide "anlagenbau sued".
+    """
+    import unicodedata
+
+    klein = unicodedata.normalize("NFC", str(name or "")).lower()
+    for umlaut, umschrift in _UMSCHRIFT:
+        klein = klein.replace(umlaut, umschrift)
+    for zeichen in _TRENNER:
+        klein = klein.replace(zeichen, " ")
+    return " ".join(klein.split())
+
+
+def _muster(name: str) -> str:
+    """Suchmuster, das jede Schreibweise des Namens trifft (#1277).
+
+    Aus der Vergleichsform gebaut: "ae" trifft "ae", "ä" und das zerlegte
+    "a" + Trema, "ss" auch "ß", ein Leerzeichen jeden Trenner. Gross- und
+    Kleinschreibung erledigt `re.IGNORECASE` beim Aufrufer.
+    """
+    form = vergleichsform(name)
+    teile: list[str] = []
+    i = 0
+    while i < len(form):
+        paar = form[i:i + 2]
+        if paar in ("ae", "oe", "ue"):
+            teile.append(f"(?:{paar}|{paar[0]}̈|{dict(ae='ä', oe='ö', ue='ü')[paar]})")
+            i += 2
+            continue
+        if paar == "ss":
+            teile.append("(?:ss|ß)")
+            i += 2
+            continue
+        if form[i] == " ":
+            teile.append(r"[\s\-‐‑–_]+")
+        else:
+            teile.append(re.escape(form[i]))
+        i += 1
+    return _WORTGRENZE_VOR + "".join(teile) + _WORTGRENZE_NACH
+
 # Rechtsform-Zusaetze. Steht einer davon direkt hinter dem Namen, ist die
 # Nennung eindeutig eine Firma — auch wenn der Name wie ein Alltagswort
 # aussieht.
@@ -323,6 +375,10 @@ def _enthaelt_ausnahme(name: str, ausnahmen: set) -> bool:
     genauso ausgenommen — sonst holt die Variantenbildung genau die
     Namen zurueck, die die Ausnahmeliste heraushaelt.
     """
+    # #1277: in der Vergleichsform, damit "Vermittler Süd" im Bestand auf
+    # den Listeneintrag "vermittler sued" trifft.
+    name = vergleichsform(name)
+    ausnahmen = {vergleichsform(a) for a in ausnahmen}
     if name in ausnahmen:
         return True
     woerter = set(name.split())
@@ -330,6 +386,28 @@ def _enthaelt_ausnahme(name: str, ausnahmen: set) -> bool:
     # ("ab", "oy") nicht halbe Firmennamen stillstellt.
     return any(a in woerter for a in ausnahmen
                if " " not in a and len(a) >= 4)
+
+
+def ist_kein_name(name: Any) -> bool:
+    """#1303: nur Satzzeichen, Ziffern oder Leerzeichen - kein Name."""
+    return not any(z.isalpha() for z in str(name or ""))
+
+
+# Gattungswoerter, die als Personenname im Bestand stehen koennen, aber
+# niemanden benennen (Import-Platzhalter). Sie bleiben im Pruefer (als
+# unsicher, siehe GEWOEHNLICHE_WOERTER), sollen aber auffindbar sein,
+# damit der Mensch sie bereinigen kann.
+PLATZHALTER_PERSONEN = {"name", "vorname", "nachname", "vorname nachname",
+                        "ansprechpartner", "kontakt", "person", "herr",
+                        "frau", "test"}
+
+
+def ist_platzhalter_name(name: Any) -> bool:
+    """#1303: Kontaktname, der keinen Menschen benennt."""
+    if ist_kein_name(name):
+        return True
+    schl = _schluessel(str(name).strip())
+    return schl in GENERISCHE_WERTE or schl in PLATZHALTER_PERSONEN
 
 
 def sammle_bestandsnamen(db) -> list[dict]:
@@ -348,6 +426,11 @@ def sammle_bestandsnamen(db) -> list[dict]:
         if len(name) < MIN_NAMENSLAENGE:
             return
         if _schluessel(name) in GENERISCHE_WERTE:
+            return
+        # #1303: ein Kontakt namens "---" (Platzhalter aus einem Import)
+        # machte jede Markdown-Tabelle zum Personenfund. Ohne Buchstaben
+        # ist ein Wert kein Name und kein Suchmuster.
+        if ist_kein_name(name):
             return
         # #1028: "Nicht angegeben" setzen die Adapter bei fehlender
         # Firmenangabe ein — es ist kein Name, und ein Pruefer, der ihn
@@ -399,7 +482,7 @@ def sammle_bestandsnamen(db) -> list[dict]:
         # Fall.
         for variante in schreibvarianten(schluessel):
             schl = _schluessel(variante)
-            if schl in gesehen_namen:
+            if schl in gesehen_namen or ist_kein_name(schl):
                 continue
             # Die Ausnahmen greifen bei Varianten per WORT-Enthaltensein,
             # nicht per Gleichheit. Gemessen: "Hays AG (Vermittler)"
@@ -486,13 +569,13 @@ def pruefe_text(db, text: str) -> dict:
     gesehen: set[str] = set()
     for eintrag in sammle_bestandsnamen(db):
         name, art = eintrag["name"], eintrag["art"]
-        muster = _WORTGRENZE_VOR + re.escape(name) + _WORTGRENZE_NACH
+        muster = _muster(name)
         fund = re.search(muster, text, re.IGNORECASE)
         if not fund:
             continue
-        if name in gesehen:
+        if vergleichsform(name) in gesehen:
             continue
-        gesehen.add(name)
+        gesehen.add(vergleichsform(name))
         zeile = _zeile_von(text, fund.start())
         auszug = text[max(0, fund.start() - 45):fund.end() + 45]
         auszug = " ".join(auszug.split())
@@ -527,7 +610,7 @@ def anonymisiere_text(db, text: str) -> dict:
     ergebnis = text
     for eintrag in sammle_bestandsnamen(db):
         name, art = eintrag["name"], eintrag["art"]
-        muster = _WORTGRENZE_VOR + re.escape(name) + _WORTGRENZE_NACH
+        muster = _muster(name)
         fund = re.search(muster, ergebnis, re.IGNORECASE)
         if not fund:
             continue

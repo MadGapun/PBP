@@ -2131,8 +2131,9 @@ def register(mcp, db, logger):
                 if halter["art"] == "warnung":
                     warnungen.append({
                         "bereich": "Dashboard", "problem": halter["meldung"],
-                        "loesung": "Claude Desktop vollständig beenden und neu starten; "
-                                   "prüfe, ob ein anderes Programm Port 8200 belegt.",
+                        "loesung": halter.get("loesung") or (
+                            "Claude Desktop vollständig beenden und neu starten; "
+                            "prüfe, ob ein anderes Programm Port 8200 belegt."),
                     })
                 else:
                     info.append({"bereich": "Dashboard", "meldung": halter["meldung"]})
@@ -2845,10 +2846,11 @@ def register(mcp, db, logger):
                 "hauptwerkzeuge": [
                     "jobsuche_starten — Hintergrund-Suche auf konfigurierten Quellen",
                     "jobsuche_status — Fortschritt einer laufenden Suche",
-                    "stellen_anzeigen — Liste mit Filter (Score, Quelle, Alter)",
+                    "stellen_anzeigen — Liste mit Filter (Score, Quelle, Alter, Sprache, gespeicherte Ansicht)",
                     "stelle_einordnen — EINZELNE Stelle aussortieren oder als-passend",
                     "stellen_bulk_bewerten — VIELE Stellen mit Filter aussortieren (#514). IMMER bevorzugen wenn mehr als ~10 Stellen betroffen. dry_run=True Default.",
                     "stelle_bearbeiten / stelle_manuell_anlegen / stelle_mergen",
+                    "stellen_filter_verwalten — eigene Filter speichern: Ansicht (nur filtern) oder Regel (neue Treffer nach jeder Suche aussortieren, Gründe nur aus der Liste), mit Testen, An/Aus, Löschen (#1307)",
                     "stelle_reaktivieren — aussortierte Stelle wieder aktivieren",
                     "stellen_entfernen_nach_quelle — Stellen einer abgewählten Quelle ENDGUELTIG loeschen (#1075), dry_run=True Default",
                     "stelle_wiedergaenger_pruefen — wiederkehrende Stellen erkennen (KI-frei)",

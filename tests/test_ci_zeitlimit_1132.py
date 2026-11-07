@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parents[1]
 WORKFLOW = REPO / ".github" / "workflows" / "tests.yml"
 
 #: Suite rund 20 Minuten + Vorlauf bis zu 10 Minuten + Puffer.
-MINDESTENS = 40
+MINDESTENS = 60  # #1273: gruene Laeufe 29 bis 42 Minuten plus bis zu 11 Minuten Vorlauf (24.10.2026)
 
 
 def _limit(job: str) -> int:
@@ -34,7 +34,7 @@ def _limit(job: str) -> int:
 def test_1132_pytest_job_laesst_platz_fuer_einen_langsamen_vorlauf():
     limit = _limit("pytest")
     assert limit >= MINDESTENS, (
-        f"timeout-minutes={limit}: zu knapp. Die Suite braucht rund 20 Minuten, "
+        f"timeout-minutes={limit}: zu knapp. Die Suite braucht 29 bis 42 Minuten (#1273), "
         f"der Vorlauf war schon einmal 11 Minuten langsam (#1132).")
 
 

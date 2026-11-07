@@ -737,8 +737,8 @@ M_GOOGLE = [
     ("gj32", "Nachholen: wird gar nicht aufgerufen", SAE,
      '    nachgeholt = _vorbehalt_aufheben(db, resolved, job) if updates else None\n', '    nachgeholt = None\n', T_GA),
     ("gj33", "Nachholen: der Score wird bei neuem Arbeitsmodell nicht neu gerechnet", SAE,
-     '    if "description" in updates or "title" in updates or entfernung_geaendert or nachgeholt:\n',
-     '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
+     '    if ("description" in updates or "title" in updates or entfernung_geaendert or nachgeholt\n',
+     '    if ("description" in updates or "title" in updates or entfernung_geaendert\n', T_GA),
 ]
 
 # ── Browser-Suchlauf: im Zweifel eintragen, Vorschau prueft wie die Anlage (#1187, B77) ──
@@ -2781,7 +2781,7 @@ M_ORTSDIENST = [
      '                    genau = entfernung_aus_anzeige(\n                        reihe["location"], koordinaten[0], koordinaten[1], reihe["description"] or "")\n',
      '                    genau = None\n', T_OD),
     ("od26", "das Nachladen fragt bei einem mehrdeutigen Ort nicht mit der Anzeige nach", OD_NACHLADEN,
-     '                genau = _geo.entfernung_aus_anzeige(\n                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")\n',
+     '                genau = _geo.entfernung_aus_anzeige(\n                    kopf["ort"], heim[0], heim[1], job.get("description") or "")\n',
      '                genau = None\n', T_OD),
     ("od27", "die Spalten der Geo-Tabelle kommen nicht in eine alte Datenbank", OD_DB,
      '            for _sp, _typ in (("stand", "INTEGER"), ("kandidaten", "TEXT")):\n', '            for _sp, _typ in ():\n', T_OD),
@@ -3335,7 +3335,7 @@ M_AUTOMATIK_SCHUTZ = [
      "    def restore_job(self, job_hash: str, durch_mensch: bool = True) -> bool:",
      "    def restore_job(self, job_hash: str, durch_mensch: bool = False) -> bool:", T_AS),
     ("as12", "Der Suchlauf loescht den Vermerk (fehlt in _BEWAHREN)", AS_DB,
-     '        "zurueckgeholt_am",\n    )', '    )', T_AS),
+     '        "zurueckgeholt_am",\n        # #1299', '        # #1299', T_AS),
     # Dubletten: die behaltene Kopie bekommt den Volltext
     ("as13", "Die Dublette gibt ihren Text nicht ab", AS_DB,
      '                            text_uebergaben[original_hash] = job.get("description")\n', '                            pass\n', T_AS),
@@ -3395,6 +3395,85 @@ M_AUTOMATIK_SCHUTZ = [
 ]
 KATALOGE["automatik1250"] = M_AUTOMATIK_SCHUTZ
 GRUNDLAEUFE["automatik1250"] = (("T_AS", T_AS),)
+
+# ── #1310: ein Pflichtbegriff schlaegt "falsches Fachgebiet", ein Ortsname ist kein Fachwort ──
+T_WF = ["tests/test_v182_wiedergaenger_fachwoerter_1310.py"]
+WF_SA = "src/bewerbungs_assistent/services/stellen_automatik.py"
+WF_WG = "src/bewerbungs_assistent/services/wiedergaenger.py"
+WF_TOR = "src/bewerbungs_assistent/services/muss_tor.py"
+WF_JS = "src/bewerbungs_assistent/job_scraper/__init__.py"
+WF_TJ = "src/bewerbungs_assistent/tools/jobs.py"
+M_WIEDERGAENGER_1310 = [
+    # das Veto
+    ("wf01", "Das Veto greift nie", WF_SA,
+     '    if grund not in TOR_GRUENDE:\n        return ""\n    if kriterien is None:',
+     '    if True:\n        return ""\n    if kriterien is None:', T_WF),
+    ("wf02", "Das Veto greift auch fuer falsche_branche", WF_SA,
+     'TOR_GRUENDE = frozenset({"falsches_fachgebiet"})',
+     'TOR_GRUENDE = frozenset({"falsches_fachgebiet", "falsche_branche"})', T_WF),
+    ("wf03", "Stufe 1b fragt das Tor nicht", WF_SA,
+     '        _widerspruch = (_zahl_widerspricht(db, job, grund)\n'
+     '                        or _tor_widerspricht(db, job, grund, titel_muster,\n'
+     '                                             kriterien))\n',
+     '        _widerspruch = _zahl_widerspricht(db, job, grund)\n', T_WF),
+    ("wf04", "Stufe 1 (dieselbe Firma) fragt das Tor nicht", WF_SA,
+     '        _widerspruch = (_zahl_widerspricht(db, job, grund)\n'
+     '                        or _tor_widerspricht(db, job, grund, muster, kriterien))\n',
+     '        _widerspruch = _zahl_widerspricht(db, job, grund)\n', T_WF),
+    ("wf05", "Die Kriterien werden je Stelle geladen", WF_SA,
+     '            kriterien=kriterien,\n        )\n', '            kriterien=None,\n        )\n', T_WF),
+    ("wf06", "Das Tor kennt die Alternativbezeichnungen nicht", WF_TOR,
+     '    return [kw for kw in muss if _muss_tor_match(kw, text, syn.get(kw))]\n',
+     '    return [kw for kw in muss if _muss_tor_match(kw, text)]\n', T_WF),
+    ("wf07", "Das Tor liest die Beschreibung nicht", WF_TOR,
+     "    return f\"{job.get('title', '') or ''} {bereinigt}\".lower()\n",
+     "    return f\"{job.get('title', '') or ''}\".lower()\n", T_WF),
+    ("wf08", "Der Score hat wieder seine eigene Tor-Zeile", WF_JS,
+     '    muss_tor_kws = _tor.pflicht_treffer(criteria, text)\n',
+     '    muss_tor_kws = [kw for kw in muss if _muss_tor_match(kw, text, _muss_syn.get(kw))]\n', T_WF),
+    # Ortsnamen
+    ("wf09", "Ortswoerter werden nicht herausgenommen", WF_WG,
+     '        and _umschrift(t) not in ort_woerter\n', '        and True\n', T_WF),
+    ("wf10", "Ortswoerter ohne Umschrift", WF_WG,
+     '            woerter |= {_umschrift(t) for t in\n', '            woerter |= {t for t in\n', T_WF),
+    ("wf11", "Stufe 1b: der Ort des Belegs zaehlt nicht", WF_SA,
+     '        gemeinsam = tokens & _domain_tokens(j.get("title"),\n'
+     '                                            orte=(j.get("location"),))\n',
+     '        gemeinsam = tokens & _domain_tokens(j.get("title"))\n', T_WF),
+    ("wf12", "Stufe 1b: der Ort der neuen Stelle zaehlt nicht", WF_SA,
+     '    tokens = _domain_tokens(title, orte=(ort,))\n    if not tokens:\n        return None\n',
+     '    tokens = _domain_tokens(title)\n    if not tokens:\n        return None\n', T_WF),
+    ("wf13", "entscheide reicht den Ort nicht an Stufe 1b", WF_SA,
+     '                                     target_hash=job.get("hash"), ort=ort)\n',
+     '                                     target_hash=job.get("hash"))\n', T_WF),
+    ("wf14", "Stufe 1: der Ort des Belegs zaehlt nicht", WF_WG,
+     '        jt = _domain_tokens(j.get("title"), orte=(j.get("location"),))\n',
+     '        jt = _domain_tokens(j.get("title"))\n', T_WF),
+    ("wf15", "Stufe 1: der Ort der neuen Stelle zaehlt nicht", WF_WG,
+     '    target_tokens = _domain_tokens(title, orte=(ort,))\n',
+     '    target_tokens = _domain_tokens(title)\n', T_WF),
+    ("wf16", "entscheide reicht den Ort nicht an Stufe 1", WF_SA,
+     '        dismissed=belege,\n        ort=ort,\n    )\n', '        dismissed=belege,\n    )\n', T_WF),
+    ("wf17", "Stufe 2: der Ortsname bleibt im Schluessel", WF_SA,
+     '    tokens = _domain_tokens(title, orte=(ort,))\n    if not firma or not tokens:\n',
+     '    tokens = _domain_tokens(title)\n    if not firma or not tokens:\n', T_WF),
+    ("wf18", "Werkzeug Wiedergaenger-Pruefung: ohne Ort", WF_TJ,
+     '            target_hash=resolved_hash,\n            ort=ort,\n        )\n',
+     '            target_hash=resolved_hash,\n        )\n', T_WF),
+    ("wf19", "Reparatur: der eigene Ortsname gilt als Fachwort", WF_TJ,
+     '                    and not _wg._domain_tokens(" ".join(gezeigt), orte=(ort,))):\n',
+     '                    and not _wg._domain_tokens(" ".join(gezeigt))):\n', T_WF),
+    # Stoppwoerter
+    ("wf20", "voll ist wieder ein Fachwort", WF_WG, '    "voll",\n', '', T_WF),
+    ("wf21", "teamassistenz ist wieder ein Fachwort", WF_WG,
+     '    "teamassistenz", "kaufmann", "kauffrau", "kaufleute",\n',
+     '    "kaufmann", "kauffrau", "kaufleute",\n', T_WF),
+    ("wf22", "kaufmaennischer ist wieder ein Fachwort", WF_WG,
+     '    "kaufmaennisch", "kaufmaennische", "kaufmaennischer",\n',
+     '    "kaufmaennisch", "kaufmaennische",\n', T_WF),
+]
+KATALOGE["wiedergaenger1310"] = M_WIEDERGAENGER_1310
+GRUNDLAEUFE["wiedergaenger1310"] = (("T_WF", T_WF),)
 
 WT = None
 

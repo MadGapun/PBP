@@ -149,11 +149,14 @@ BEWUSST_GELASSEN: dict[str, dict[str, int]] = {
     # behauptet es auch nicht. Wer sie entfernen will: Issue LOESCHEN
     # (Editieren reicht nicht, GitHub zeigt die Historie) und den Inhalt
     # anonymisiert neu anlegen.
-    "#947 Body": {"FIRMA": 1},
     "#951 Body": {"FIRMA": 3},
     "#953 Body": {"FIRMA": 1},
     "#956 Body": {"FIRMA": 1},
     "#957 Body": {"FIRMA": 2},
+    # 30.10.2026: #1289 nennt den Betreiber des Portals stellenmarkt.de, wie ihn dessen AGB
+    # angeben. Das ist die oeffentliche Firma hinter einer Datenquelle, keine Firma aus einer
+    # Bewerbung (gegen den Bestand geprueft: kein Treffer). Dieselbe Ausnahme wie fuer Portale.
+    "#1289 Body": {"CORP": 1},
     # 02.10.2026 (#1137) standen hier zwei weitere Fundstellen (#1026 Body, #930
     # Kommentar 1); der Sweep vom 12.10.2026 findet dort nichts mehr, die Eintraege sind weg.
 }

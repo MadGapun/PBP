@@ -2557,6 +2557,63 @@ async def api_stellen_filter_standard_loeschen():
     return {"standard": None}
 
 
+# #1307: eigene Filter (Ansichten und Regeln). Die Antworten entstehen in
+# services/gespeicherte_filter.verwalten - derselbe Weg wie das Claude-Werkzeug
+# stellen_filter_verwalten.
+def _filter_antwort(erg: dict):
+    if erg.get("fehler"):
+        return JSONResponse(status_code=400, content=erg)
+    return erg
+
+
+@app.get("/api/stellen-filter")
+async def api_stellen_filter_liste():
+    """Alle eigenen Filter des aktiven Profils, getrennt nach Ansichten und Regeln."""
+    from .services import gespeicherte_filter as _gf
+    antwort = _gf.verwalten(_db, "anzeigen")
+    antwort["verfuegbare_gruende"] = _gf.erlaubte_gruende(_db)
+    return antwort
+
+
+@app.post("/api/stellen-filter")
+async def api_stellen_filter_anlegen(payload: dict = Body(default={})):
+    """Einen Filter anlegen: {name, art: ansicht|regel, bedingungen: {...}, gruende: [...]}. Eine Regel sortiert dabei nichts aus."""
+    from .services import gespeicherte_filter as _gf
+    return _filter_antwort(_gf.verwalten(
+        _db, "anlegen", name=payload.get("name") or "", art=payload.get("art") or "",
+        bedingungen=payload.get("bedingungen") or {}, gruende=payload.get("gruende")))
+
+
+@app.post("/api/stellen-filter/{filter_id}/testen")
+async def api_stellen_filter_testen(filter_id: int):
+    """Was der Filter heute treffen wuerde - schreibt nichts."""
+    from .services import gespeicherte_filter as _gf
+    return _filter_antwort(_gf.verwalten(_db, "testen", name=str(filter_id)))
+
+
+@app.post("/api/stellen-filter/{filter_id}/anwenden")
+async def api_stellen_filter_anwenden(filter_id: int, payload: dict = Body(default={})):
+    """Eine Regel auf den Bestand anwenden. Ohne {"dry_run": false} nur die Vorschau."""
+    from .services import gespeicherte_filter as _gf
+    return _filter_antwort(_gf.verwalten(_db, "anwenden", name=str(filter_id),
+                                         dry_run=payload.get("dry_run") is not False))
+
+
+@app.put("/api/stellen-filter/{filter_id}/aktiv")
+async def api_stellen_filter_aktiv(filter_id: int, payload: dict = Body(default={})):
+    """Eine Regel an- oder ausschalten: {"aktiv": true|false}."""
+    from .services import gespeicherte_filter as _gf
+    aktion = "aktivieren" if payload.get("aktiv") else "deaktivieren"
+    return _filter_antwort(_gf.verwalten(_db, aktion, name=str(filter_id)))
+
+
+@app.delete("/api/stellen-filter/{filter_id}")
+async def api_stellen_filter_loeschen(filter_id: int):
+    """Den Filter loeschen (die Oberflaeche fragt vorher). Aussortiertes bleibt aussortiert."""
+    from .services import gespeicherte_filter as _gf
+    return _filter_antwort(_gf.verwalten(_db, "loeschen", name=str(filter_id), dry_run=False))
+
+
 @app.get("/api/jobs")
 async def api_jobs(active: bool = True,
                    exclude_blacklisted: bool = True,
@@ -2576,6 +2633,8 @@ async def api_jobs(active: bool = True,
                    zeitfenster: str = "",
                    rahmen_ausblenden: str = "",
                    schwelle_ausblenden: str = "",
+                   sprache: str = "",
+                   ansicht: str = "",
                    sort: str = ""):
     """Get jobs with filtering and optional pagination (#118, #121, #145).
 
@@ -2607,7 +2666,19 @@ async def api_jobs(active: bool = True,
         # der den Parameter nicht kennt, den Filter still abgeschaltet.
         "rahmen_ausblenden": rahmen_ausblenden,
         "schwelle_ausblenden": schwelle_ausblenden,
+        # #1308: Sprachen als Liste mit Komma ("de,gemischt").
+        "sprache": sprache,
     }.items() if wert not in (None, "")}
+    # #1307: eine gespeicherte Ansicht (Kennung oder Name) - der Dienst
+    # bekommt ihre Bedingungen, nicht den Namen (er liest keine Datenbank).
+    if (ansicht or "").strip():
+        from .services import gespeicherte_filter as _gf
+        _gespeichert = _gf.holen(_db, ansicht)
+        if not _gespeichert:
+            return JSONResponse(status_code=400, content={
+                "fehler": f"Keine gespeicherte Ansicht „{ansicht}“.", "feld": "ansicht",
+                "erlaubt": [f["name"] for f in _gf.alle(_db)]})
+        filter_roh["ansicht"] = _gespeichert["bedingungen"]
     als_liste = limit > 0 or _liste.ist_listenanfrage(filter_roh, sort)
 
     def _aufbereitet(jobs: list) -> dict:
@@ -5104,7 +5175,7 @@ async def api_toggle_job_pin(job_hash: str):
 
 @app.put("/api/jobs/{job_hash}")
 async def api_update_job(job_hash: str, request: Request):
-    """Titel, Firma, Ort, Beschreibung oder Link einer Stelle aendern (#90).
+    """Titel, Firma, Ort, Beschreibung, Link, Anstellungsform, Umfang oder Remote aendern (#90, #1299).
 
     #1095: ueber denselben Dienst wie `stelle_bearbeiten` — danach stimmen
     Punkte und Faktoren mit der neuen Beschreibung, und ein neuer Ort
@@ -5122,6 +5193,11 @@ async def api_update_job(job_hash: str, request: Request):
         antwort["score"] = erg["score_neu_berechnet"]
     if erg.get("entfernung_text"):
         antwort["entfernung_hinweis"] = erg["entfernung_text"]
+    # #1299: Anstellungsform, Umfang, Remote — von Hand gesetzt gilt dauerhaft.
+    if erg.get("merkmale_hinweis"):
+        antwort["merkmale_hinweis"] = erg["merkmale_hinweis"]
+    if erg.get("remote_neu"):
+        antwort["remote_neu"] = erg["remote_neu"]
     return antwort
 
 
@@ -8311,6 +8387,21 @@ async def api_speicher_ordner_oeffnen(request: Request):
     return erg
 
 
+#: Pakete, die die Gesundheitsauskunft nennt (#1282): Importname -> Paket in `pyproject.toml`. NUR Pakete, die PBP wirklich
+#: einbindet; ein Test haelt die Liste gegen die Abhaengigkeiten. `pdfplumber` stand hier ohne je benutzt zu werden, und wer die Auskunft
+#: las, hielt das fehlende Paket fuer einen Fehler. Optionale Pakete (Browser, Excel, Dokumente) zeigen "—", wenn sie nicht da sind.
+GESUNDHEIT_MODULE = {
+    "httpx": "httpx",
+    "bs4": "beautifulsoup4",
+    "jobspy": "python-jobspy",
+    "geopy": "geopy",
+    "docx": "python-docx",
+    "pypdf": "pypdf",
+    "openpyxl": "openpyxl",
+    "playwright": "playwright",
+}
+
+
 @app.get("/api/health")
 async def api_health():
     """System health information for diagnostics."""
@@ -8327,7 +8418,7 @@ async def api_health():
     doc_count = len(list(doc_dir.glob("*"))) if doc_dir.exists() else 0
 
     modules = {}
-    for mod_name in ["httpx", "playwright", "docx", "pdfplumber", "openpyxl", "bs4"]:
+    for mod_name in GESUNDHEIT_MODULE:
         try:
             m = __import__(mod_name)
             modules[mod_name] = getattr(m, "__version__", "installed")
