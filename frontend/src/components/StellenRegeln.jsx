@@ -172,7 +172,7 @@ export default function StellenRegeln() {
           {gruende.map((g) => <option key={g} value={g}>{grundText(g)}</option>)}
         </SelectInput>
         <Button size="sm" disabled={!neuerGrund || Boolean(beschaeftigt)} onClick={anlegen}>Regel anlegen</Button>
-        <span className="w-full text-[11px] text-muted">
+        <span className="w-full text-xs text-muted">
           Passt kein Grund, lege unter Einstellungen › Ablehnungsgründe einen eigenen an (z. B. „englischsprachig“).
           Stellen ohne oder mit zu kurzem Anzeigentext haben keine erkennbare Sprache — eine Sprach-Regel lässt sie stehen.
         </span>
