@@ -43,8 +43,10 @@ import {
   minScoreGesetzt,
   minScoreParameter,
   mitZahlen,
+  sprachFilterText,
   voreinstellungGilt,
 } from "@/lib/stellenFilter";
+import { AnsichtAuswahl, SprachFilter, SpracheMarke } from "@/components/StellenFilterAuswahl";
 import {
   FACH as DAUMEN_FACH, RAHMEN as DAUMEN_RAHMEN,
   etikett as daumenEtikett, maximumText as fachMaximumText,
@@ -340,6 +342,9 @@ export const FILTER_STANDARD = {
   // Rahmenfilter: wer sie will, schaltet sie ein, der Zustand bleibt beim
   // naechsten Oeffnen erhalten, und der Streifen nennt ihre Zahl.
   schwelleAusblenden: false,
+  // #1308: Sprachen der Anzeige als Text mit Komma (leer = alle); #1307: Kennung einer gespeicherten Ansicht.
+  sprache: "",
+  ansicht: "",
 };
 
 // Die Top-Stellen auf dem Dashboard sind eine Auswahl der BESTEN Treffer und
@@ -354,7 +359,7 @@ export const FILTER_TOP_STELLEN = {
 // Welche Filter unterdruecken gerade Eintraege — und wie macht man das
 // rueckgaengig. Der Hinweis ueber der Liste und die Filterzeile
 // beantworten damit dieselbe Frage aus derselben Quelle.
-export function aktiveFilterBestimmen(filters) {
+export function aktiveFilterBestimmen(filters, ansichtNamen = {}) {
   const aktiv = [];
   if (filters.query) aktiv.push({ schluessel: "query", text: `Suchtext "${filters.query}"` });
   if (filters.source) aktiv.push({ schluessel: "source", text: `Quelle ${quelleText(filters.source)}` });
@@ -373,6 +378,8 @@ export function aktiveFilterBestimmen(filters) {
       text: filters.pruefstand === "ungeprueft" ? "nur ungeprüfte" : "nur beurteilte",
     });
   }
+  if (filters.sprache) aktiv.push({ schluessel: "sprache", text: sprachFilterText(filters.sprache) });
+  if (filters.ansicht) aktiv.push({ schluessel: "ansicht", text: `Ansicht ${ansichtNamen?.[filters.ansicht] || "(eigene)"}` });
   return aktiv;
 }
 
@@ -408,6 +415,9 @@ export function listenParameter(filters, suchtext, zeitfenster, ansicht) {
   if (filters.hideApplied) p.set("beworbene_ausblenden", "true");
   if (filters.missingDescriptionOnly) p.set("nur_ohne_beschreibung", "true");
   if (filters.pruefstand) p.set("pruefstand", filters.pruefstand);
+  // #1308 / #1307: Sprache und gespeicherte Ansicht prueft der Server (services/stellen_filter.py).
+  if (filters.sprache) p.set("sprache", filters.sprache);
+  if (filters.ansicht) p.set("ansicht", filters.ansicht);
   // #1052: die Vorgabe steht im Dienst (AN). Deshalb wird das
   // ABSCHALTEN gesendet, nicht das Einschalten — ein fehlender
   // Parameter heisst "wie vorgegeben".
@@ -539,6 +549,8 @@ export default function JobsPage() {
   // ungefiltert; wer filtern will, sagt es.
   // #1158 Punkt 6: der Filterzustand bleibt nach Neuladen und Neustart erhalten (Suchtext und Ansicht
   // nicht — siehe lib/stellenFilter.js). Kein Speicher im Browser: dann bleibt es beim Sitzungszustand.
+  // #1307: Kennung -> Name der gespeicherten Ansichten (fuer den Streifen "Aktive Filter").
+  const [ansichtNamen, setAnsichtNamen] = useState({});
   const [filters, setFilters] = useState(() => {
     try {
       const gemerkt = localStorage.getItem(SPEICHER_SCHLUESSEL);
@@ -718,6 +730,12 @@ export default function JobsPage() {
       });
     } catch (error) {
       if (anfrage !== anfrageRef.current) return;
+      // #1307: eine gemerkte Ansicht, die inzwischen geloescht ist - zurueck zur ganzen Liste, mit Satz statt Fehler.
+      if (error?.payload?.feld === "ansicht" && filters.ansicht) {
+        pushToast("Die gewählte Ansicht gibt es nicht mehr — die Liste zeigt wieder alle Stellen.", "info");
+        setFilters((current) => ({ ...current, ansicht: "" }));
+        return;
+      }
       if (!silent) {
         pushToast(`Stellen konnten nicht geladen werden: ${error.message}`, "danger");
       }
@@ -1335,7 +1353,7 @@ export default function JobsPage() {
   // dort Zeilen, die ohnehin nicht zu sehen waeren.
   const rahmenVerborgen = ansichtMeta.rahmen_verborgen;
   const schwelleVerborgen = ansichtMeta.schwelle_verborgen;
-  const aktiveFilter = aktiveFilterBestimmen(filters);
+  const aktiveFilter = aktiveFilterBestimmen(filters, ansichtNamen);
   // #1158: JEDER wirksame Filter steht im Streifen, mit der Zahl der Stellen, die er allein verbirgt.
   const streifenFilter = mitZahlen(aktiveFilter, ansichtMeta.verborgen);
   const mehrereZugleich = filters.view === "active"
@@ -1851,6 +1869,21 @@ export default function JobsPage() {
               )}
             </div>
 
+            {/* #1308: die Sprache der Anzeige; #1307: eine gespeicherte Ansicht. Eigene Komponenten
+                (components/StellenFilterAuswahl.jsx), gefiltert wird auf dem Server. */}
+            <div className="group inline-flex items-center gap-1.5">
+              <SprachFilter wert={filters.sprache} onChange={(wert) => setFilters((current) => ({ ...current, sprache: wert }))} />
+              {filters.sprache && (
+                <button aria-label="Filter Sprache entfernen" type="button" onClick={() => setFilters(f => ({ ...f, sprache: "" }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
+            <div className="group inline-flex items-center gap-1.5">
+              <AnsichtAuswahl wert={filters.ansicht} onNamen={setAnsichtNamen} onChange={(wert) => setFilters((current) => ({ ...current, ansicht: wert }))} />
+              {filters.ansicht && (
+                <button aria-label="Ansicht entfernen" type="button" onClick={() => setFilters(f => ({ ...f, ansicht: "" }))} className="text-muted hover:text-ink transition-colors"><X size={14} /></button>
+              )}
+            </div>
+
             {/* Employment Type Filter (#83) */}
             {employmentTypeOptions.length > 1 && (
               <SelectInput
@@ -2117,6 +2150,8 @@ export default function JobsPage() {
                       );
                     })()}
                     <DaumenAbzeichen marke={job.rahmen_daumen} art={DAUMEN_RAHMEN} />
+                    {/* #1308: die Sprache der Anzeige, nur wenn sie nicht Deutsch ist */}
+                    <SpracheMarke job={job} />
                     {/* #154: Bereits-beworben aus den verknuepften Bewerbungen */}
                     {appliedJobHashes.has(job.hash) ? (
                       <button

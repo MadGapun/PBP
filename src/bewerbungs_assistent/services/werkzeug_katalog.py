@@ -121,11 +121,20 @@ KURZ = {
         "verwenden, nie eigene erfinden."),
     "stellen_bulk_bewerten": (
         "Sortiert viele Stellen auf einmal nach Filtern aus (Punkte, "
-        "Titelwörter, Beschreibungswörter, Quelle, Alter). Arbeitet nur in "
+        "Titelwörter, Beschreibungswörter, Quelle, Alter, Sprache). Arbeitet nur in "
         "der Datenbank, ohne KI, und kostet deshalb nichts. Erst mit "
         "dry_run=True die Vorschau zeigen und bestaetigen lassen, dann mit "
         "dry_run=False anwenden. Nicht für einzelne Stellen — dafür "
         "stelle_einordnen. Aussortieren ist umkehrbar (stelle_reaktivieren)."),
+    "stellen_filter_verwalten": (
+        "Speichert eigene Filter mit Namen: als Ansicht (nur filtern, "
+        "stellen_anzeigen(ansicht=...)) oder als Regel, die passende NEUE "
+        "Treffer nach jeder Suche aussortiert. Dieselben Bedingungen wie "
+        "stellen_bulk_bewerten, dazu die Sprache der Anzeige. Nutzen, wenn der "
+        "Mensch einen Filter dauerhaft will; einmalig reicht "
+        "stellen_bulk_bewerten. Eine Regel ändert beim Anlegen nichts am "
+        "Bestand (aktion='anwenden' mit Vorschau). Gründe nur aus der Liste, "
+        "nie erfinden."),
     "jobsuche_starten": (
         "Startet eine Suche über die gewählten Jobbörsen im Hintergrund "
         "und gibt eine job_id zurück. Nutzen, wenn Suchbegriffe gesetzt "

@@ -11,6 +11,9 @@ import {
   minScoreGesetzt,
   minScoreParameter,
   mitZahlen,
+  SPRACH_AUSWAHL,
+  sprachFilterText,
+  spracheAbzeichen,
   voreinstellungGilt,
 } from "./stellenFilter.js";
 
@@ -32,7 +35,7 @@ assert.equal(minScoreParameter(null), null);
 assert.equal(minScoreParameter("abc"), null);
 
 // Alle zwölf Filter der Seite haben einen Namen beim Server.
-assert.equal(Object.keys(FILTER_SERVERNAMEN).length, 12);
+assert.equal(Object.keys(FILTER_SERVERNAMEN).length, 14);
 
 const STANDARD = {
   query: "", source: "", minScore: "", remote: "", salaryOnly: false, sort: "score_desc", view: "active",
@@ -167,5 +170,24 @@ assert.equal(voreinstellungGilt(VOR_STANDARD, undefined, VOR_STANDARD), false);
 // keinen Zustand, in dem noch etwas anderes verändert ist
 assert.equal(voreinstellungGilt({ ...VOR_STANDARD, hideApplied: false }, { hideApplied: false }, VOR_STANDARD), true);
 assert.equal(voreinstellungGilt({ ...VOR_STANDARD, hideApplied: false, remote: "remote" }, { hideApplied: false }, VOR_STANDARD), false);
+
+// #1308: die Sprachauswahl. "Ohne rein englische" behält Stellen mit unbekannter Sprache (unbekannt ist nicht englisch).
+const ohneEnglisch = SPRACH_AUSWAHL.find((e) => e.text === "Ohne rein englische");
+assert.ok(ohneEnglisch.wert.split(",").includes("unbekannt"));
+assert.ok(!ohneEnglisch.wert.split(",").includes("en"));
+assert.equal(SPRACH_AUSWAHL[0].wert, "", "die Vorgabe filtert nichts");
+for (const e of SPRACH_AUSWAHL.slice(1)) {
+  for (const code of e.wert.split(",")) assert.ok(["de", "en", "gemischt", "andere", "unbekannt"].includes(code), code);
+}
+assert.equal(sprachFilterText("de"), "Nur Deutsch");
+assert.equal(FILTER_SERVERNAMEN.sprache, "sprache");
+assert.equal(FILTER_SERVERNAMEN.ansicht, "ansicht");
+// das Abzeichen: Deutsch und unbekannt bekommen keines (kein Befund), Englisch nennt die Deutsch-Anforderung
+assert.equal(spracheAbzeichen({ sprache: "de" }), null);
+assert.equal(spracheAbzeichen({ sprache: "unbekannt" }), null);
+assert.equal(spracheAbzeichen({}), null);
+assert.equal(spracheAbzeichen({ sprache: "en" }).text, "Englisch");
+assert.equal(spracheAbzeichen({ sprache: "en", deutsch_verlangt: true }).text, "Englisch · verlangt Deutsch");
+assert.equal(spracheAbzeichen({ sprache: "gemischt" }).text, "Deutsch/Englisch");
 
 console.log("stellenFilter: ok");

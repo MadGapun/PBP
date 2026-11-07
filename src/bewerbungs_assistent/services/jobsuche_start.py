@@ -86,6 +86,14 @@ def _lauf(db, job_id: str, params: dict) -> None:
                 text_nachzug.nach_suche(db, job_id)
             except Exception as exc:  # noqa: BLE001 — die Suche war gut
                 logger.warning("Anzeigentexte nach der Suche: %s", exc)
+            # #1307: eigene Regeln NACH dem Text-Nachzug (eine Sprach-Regel
+            # braucht den Anzeigentext) und VOR der lokalen KI (sie soll nicht
+            # beurteilen, was eine Regel ohnehin aussortiert).
+            from . import gespeicherte_filter
+            try:
+                gespeicherte_filter.nach_suche(db, job_id)
+            except Exception as exc:  # noqa: BLE001 — die Suche war gut
+                logger.warning("Eigene Regeln nach der Suche: %s", exc)
             from . import auto_aussortierung
             try:
                 auto_aussortierung.nach_suche(db, job_id)  # #1092, Schalter
