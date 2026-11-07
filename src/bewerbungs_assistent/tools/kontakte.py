@@ -121,6 +121,7 @@ def register(mcp, db, logger):
         suche: str = "",
         rolle: str = "",
         firma: str = "",
+        nur_platzhalter: bool = False,
     ) -> dict:
         """Listet Kontakte, optional gefiltert.
 
@@ -128,8 +129,26 @@ def register(mcp, db, logger):
             suche: Volltext (Name, E-Mail, Firma).
             rolle: Filter nach Rolle (z.B. 'recruiter').
             firma: Filter nach Firma (Substring).
+            nur_platzhalter: True zeigt nur Kontakte, deren Name niemanden
+                benennt (z. B. "---" oder "Name" aus einem Import). Sie
+                lassen sich mit kontakt_bearbeiten umbenennen oder mit
+                kontakt_loeschen entfernen.
         """
+        from ..services.pii_bestand import ist_platzhalter_name
+
         contacts = db.list_contacts(search=suche, role=rolle, company=firma)
+        # #1303: ein Kontakt namens "---" machte jede Tabelle in einem
+        # Issue-Entwurf zum Personenfund. Solche Eintraege sichtbar machen.
+        platzhalter = [c for c in contacts if ist_platzhalter_name(c.get("full_name"))]
+        if nur_platzhalter:
+            return {
+                "anzahl": len(platzhalter),
+                "kontakte": platzhalter,
+                "hinweis": ("Diese Kontakte tragen keinen echten Namen. "
+                            "Umbenennen mit kontakt_bearbeiten oder entfernen "
+                            "mit kontakt_loeschen.") if platzhalter else
+                           "Keine Kontakte mit Platzhalter-Namen.",
+            }
         if not contacts and not (suche or rolle or firma):
             # v1.7.21 (#927): nur beim WIRKLICH leeren Adressbuch —
             # eine ergebnislose Suche ist etwas anderes als "noch nichts
@@ -142,10 +161,15 @@ def register(mcp, db, logger):
                 "kontakte_aus_bewerbungen_extrahieren(). Einzeln geht es "
                 "mit kontakt_anlegen(name=...). Wer sich meldet, "
                 "steht dann beim nächsten Kontakt sofort parat.")
-        return {
+        antwort = {
             "anzahl": len(contacts),
             "kontakte": contacts,
         }
+        if platzhalter:
+            antwort["hinweis_platzhalter"] = (
+                f"{len(platzhalter)} Kontakt(e) ohne echten Namen. "
+                "kontakte_auflisten(nur_platzhalter=True) zeigt sie.")
+        return antwort
 
     @mcp.tool()
     def kontakt_bearbeiten(
