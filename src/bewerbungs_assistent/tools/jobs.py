@@ -1105,12 +1105,9 @@ def register(mcp, db, logger):
             titel_enthaelt_nicht: NOR-Liste — Titel darf KEINEN davon enthalten
             beschreibung_enthaelt_nicht: NOR-Liste für Beschreibung —
                 Hauptwerkzeug für Fachgebiets-Aussortierung
-            beschreibung_enthaelt: AND-Liste — die Beschreibung muss ALLE
-                Begriffe enthalten.
-            sprache: Liste von Sprachen der Anzeige: 'de', 'en', 'gemischt',
-                'andere', 'unbekannt'. Ohne oder mit zu kurzem Anzeigentext
-                ist sie 'unbekannt' und wird nur getroffen, wenn 'unbekannt'
-                in der Liste steht. sprache=['en'] trifft rein englische.
+            beschreibung_enthaelt: Beschreibung enthält ALLE.
+            sprache: 'de', 'en', 'gemischt', 'andere', 'unbekannt' (zu
+                wenig Text; nur getroffen, wenn genannt).
             max_treffer: harter Cap auf die Anzahl Treffer (0 = kein Limit).
                 Sinnvoll wenn man nicht sicher ist wie weit der Filter trifft.
 
@@ -1413,13 +1410,10 @@ def register(mcp, db, logger):
             gefunden_seit: Datum YYYY-MM-DD — nur Stellen, die PBP an
                 diesem Tag oder später gefunden hat (#1112, z. B. für
                 einen Abgleich nur der neuen Stellen). Leer = alle.
-            sprache: Nur Anzeigen in diesen Sprachen: 'de', 'en',
-                'gemischt', 'andere', 'unbekannt' (kein oder zu kurzer
-                Anzeigentext). Beispiel: ['de', 'gemischt']. Jede Stelle
-                trägt ihre Sprache im Feld `sprache`.
-            ansicht: Name einer gespeicherten Ansicht (oder Regel) aus
-                stellen_filter_verwalten — zeigt die aktiven Stellen, die
-                ihre Bedingungen erfüllen. Leer = keine.
+            sprache: nur diese Sprachen: 'de', 'en', 'gemischt', 'andere',
+                'unbekannt' (zu wenig Text).
+            ansicht: Name einer gespeicherten Ansicht
+                (stellen_filter_verwalten).
         """
         # #1148: Seitenwerte unter 1 (oder keine Zahl) gaben eine rohe
         # Python-Meldung zurueck ("integer division or modulo by zero" bei

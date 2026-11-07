@@ -1833,32 +1833,24 @@ def register(mcp, db, logger):
         gruende=['englischsprachig']).
 
         Args:
-            aktion: 'anzeigen' (Vorgabe, alle Filter), 'anlegen', 'testen'
-                (Vorschau, was ein Filter heute trifft), 'anwenden' (Regel auf
-                den Bestand; mit dry_run=True nur Vorschau), 'aktivieren',
-                'deaktivieren' (nur Regeln) oder 'loeschen' (mit dry_run=True
-                nur Vorschau; Aussortiertes bleibt aussortiert).
-            name: Name des Filters (Pflicht außer bei 'anzeigen'); statt
-                des Namens geht auch die Kennung aus 'anzeigen'.
-            art: beim Anlegen 'ansicht' (nur filtern) oder 'regel' (neue
-                Treffer aussortieren).
-            gruende: nur bei art='regel': Ablehnungsgründe NUR aus der Liste
-                (Standard und eigene, siehe ablehnungsgruende_anzeigen) — nie
-                erfinden; ein unbekannter Grund wird abgelehnt.
-            dry_run: für 'anwenden' und 'loeschen': True (Vorgabe) zeigt nur
-                die Vorschau, False führt aus.
-            min_score: mindestens so viele Punkte.
-            max_score: höchstens so viele Punkte.
-            min_alter_tage: mindestens so viele Tage seit dem Fund.
-            max_alter_tage: höchstens so viele Tage seit dem Fund.
-            quelle: Quelle (z. B. 'stepstone', 'bundesagentur').
+            aktion: 'anzeigen' (Vorgabe), 'anlegen', 'testen', 'anwenden'
+                (Regel auf den Bestand), 'aktivieren', 'deaktivieren',
+                'loeschen'.
+            name: Name oder Kennung des Filters.
+            art: beim Anlegen 'ansicht' oder 'regel'.
+            gruende: nur für 'regel': Gründe NUR aus der Liste, nie erfinden.
+            dry_run: 'anwenden'/'loeschen': True = nur Vorschau.
+            min_score: Punkte mindestens.
+            max_score: Punkte höchstens.
+            min_alter_tage: Tage seit Fund mindestens.
+            max_alter_tage: Tage seit Fund höchstens.
+            quelle: Quelle, z. B. 'stepstone'.
             firma: Teil des Firmennamens.
-            titel_enthaelt: der Titel muss ALLE Begriffe enthalten.
-            titel_enthaelt_nicht: der Titel darf KEINEN Begriff enthalten.
-            beschreibung_enthaelt: die Anzeige muss ALLE Begriffe enthalten.
-            beschreibung_enthaelt_nicht: die Anzeige darf KEINEN enthalten.
-            sprache: Sprachen der Anzeige: 'de', 'en', 'gemischt', 'andere',
-                'unbekannt' (kein oder zu kurzer Anzeigentext).
+            titel_enthaelt: Titel enthält ALLE.
+            titel_enthaelt_nicht: Titel enthält KEINEN.
+            beschreibung_enthaelt: Anzeige enthält ALLE.
+            beschreibung_enthaelt_nicht: Anzeige enthält KEINEN.
+            sprache: 'de', 'en', 'gemischt', 'andere', 'unbekannt'.
         """
         from ..services import gespeicherte_filter as _gf
         bedingungen = {
