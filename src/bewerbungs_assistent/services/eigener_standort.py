@@ -362,25 +362,32 @@ def entfernungen_bereinigen(db, max_orte: int | None = NACHHOLEN_JE_LAUF) -> dic
     deren Entfernung nicht von Hand gesetzt ist (#1077). Ersetzt wird erst ab BEREINIGEN_AB_KM Abweichung.
     Ein Text ohne Ort ("Remote moeglich") hat keine Entfernung: sie wird geleert, das ist eine Feststellung
     ohne Netz. Findet der Dienst den bereinigten Ort NICHT (oder ist er nicht erreichbar), bleibt die
-    gespeicherte Zahl stehen - sie zu loeschen waere ein Urteil, das der Dienst nicht gefaellt hat (#950)."""
+    gespeicherte Zahl stehen - sie zu loeschen waere ein Urteil, das der Dienst nicht gefaellt hat (#950).
+
+    #1300: dieselbe Heilung fuer die neue Zerlegung ("Hamburg u.a." -> Hamburg, "Deutschland (remote)" -> keine
+    Entfernung, mehrere Orte -> der naechste). Dazu werden Stellen neu gefragt, deren gespeicherte Koordinaten
+    ausserhalb des DACH-Raums liegen, obwohl der Ort keinen fremden nennt; meldet der Dienst wieder nur einen
+    Treffer dort (`ausserhalb_dach`), ist das ein Befund, und die Zahl wird geleert."""
     from .geocoding_service import (
-        calculate_distance_km, geocode_location, nur_land_entfernt, ort_fuer_abfrage, ort_schluessel)
+        _plausibel, calculate_distance_km, geocode_location, nur_land_entfernt, ort_auskunft, ort_fuer_abfrage,
+        ort_schluessel)
     start = _koordinaten(db)
     if not start:
         return {"status": "kein_standort", "stellen": 0, "geleert": 0, "orte": 0}
     pid = db.get_active_profile_id()
     con = db.connect()
-    sql = ("SELECT hash, location, distance_km FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
+    sql = ("SELECT hash, location, distance_km, lat, lon FROM jobs WHERE (profile_id=? OR profile_id IS NULL) "
            "AND location IS NOT NULL AND TRIM(location) != '' AND distance_km IS NOT NULL "
            "AND COALESCE(entfernung_quelle, '') != 'mensch'")
     nach_ort: dict = {}
     leeren: list = []
-    for kennung, ort, km in con.execute(sql, (pid,)).fetchall():
+    for kennung, ort, km, lat, lon in con.execute(sql, (pid,)).fetchall():
         roh = ort.strip()
         schluessel = ort_schluessel(roh)
+        fern = lat is not None and lon is not None and not _plausibel((lat, lon), schluessel)
         if not schluessel:
             leeren.append(kennung)         # kein Ort gemeint: keine Entfernung
-        elif schluessel == roh.lower() or nur_land_entfernt(roh, ort_fuer_abfrage(roh)):
+        elif not fern and (schluessel == roh.lower() or nur_land_entfernt(roh, ort_fuer_abfrage(roh))):
             continue                       # sauber, oder nur ein Land am Ende: die alte Rechnung stimmt
         else:
             nach_ort.setdefault(roh, []).append((kennung, float(km)))
@@ -393,6 +400,8 @@ def entfernungen_bereinigen(db, max_orte: int | None = NACHHOLEN_JE_LAUF) -> dic
     for ort in orte:
         _BEREINIGT_VERSUCHT.add(ort)
         ziele[ort] = geocode_location(ort)
+        if not ziele[ort] and ort_auskunft(ort)["status"] == "ausserhalb_dach":
+            leeren.extend(kennung for kennung, _alt in nach_ort[ort])   # ein Befund, kein Ausfall
     korrigiert = 0
     am = _jetzt()
     for ort, ziel in ziele.items():

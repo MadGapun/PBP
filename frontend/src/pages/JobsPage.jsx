@@ -63,8 +63,8 @@ import WegLeiste from "@/components/WegLeiste";
 import ListenUebersicht from "@/components/ListenUebersicht";
 import { stelleLeiste } from "@/lib/wegleiste";
 import {
-  ANSTELLUNGSFORM_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
-  gehaltText, umfangText,
+  ANSTELLUNGSFORM_TEXT, REMOTE_STUFE_TEXT, UMFANG_AUSWAHL_TEXT, UMFANG_TEXT, anstellungsform, entfernungText, firmaText,
+  gehaltText, stelleSpeichernNutzlast, umfangText,
 } from "@/lib/stellenAngaben";
 
 function kartenFakten(job) {
@@ -2863,13 +2863,40 @@ export default function JobsPage() {
               <Field label="Beschreibung">
                 <TextArea value={editForm.description || ""} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} className="!min-h-40" />
               </Field>
+              {/* #1299: Anstellungsform, Umfang und Remote von Hand korrigieren — gilt dauerhaft, wie die Entfernung. */}
+              <div className="grid gap-3 sm:grid-cols-3" data-testid="stelle-merkmale">
+                <Field label="Anstellungsform" hint="Bestimmt Entfernungsgrenze und Gehaltsvergleich.">
+                  <SelectInput value={editForm.employment_type || ""} onChange={(e) => setEditForm((f) => ({ ...f, employment_type: e.target.value }))}>
+                    {!editForm.employment_type ? <option value="">Nicht angegeben</option> : null}
+                    {Object.entries(ANSTELLUNGSFORM_TEXT).map(([wert, text]) => <option key={wert} value={wert}>{text}</option>)}
+                  </SelectInput>
+                </Field>
+                <Field label="Umfang">
+                  <SelectInput value={editForm.arbeitsumfang || "unbekannt"} onChange={(e) => setEditForm((f) => ({ ...f, arbeitsumfang: e.target.value }))}>
+                    {Object.entries(UMFANG_AUSWAHL_TEXT).map(([wert, text]) => <option key={wert} value={wert}>{text}</option>)}
+                  </SelectInput>
+                </Field>
+                <Field label="Remote" hint="„Remote“ hebt die Entfernungsgrenze auf.">
+                  <SelectInput value={REMOTE_STUFE_TEXT[editForm.remote_level] ? editForm.remote_level : "unbekannt"} onChange={(e) => setEditForm((f) => ({ ...f, remote_level: e.target.value }))}>
+                    {Object.entries(REMOTE_STUFE_TEXT).map(([wert, text]) => <option key={wert} value={wert}>{text}</option>)}
+                  </SelectInput>
+                </Field>
+              </div>
+              <p className="text-xs text-muted">Von Hand gewählte Angaben gelten dauerhaft — kein Suchlauf überschreibt sie. „Unbekannt“ gibt Umfang und Remote wieder an die Automatik.</p>
               <div className="flex gap-2">
                 <Button variant="primary" onClick={async () => {
-                  const antwort = await putJson(`/api/jobs/${detailDialog.job.hash}`, editForm);
+                  let antwort;
+                  try {
+                    antwort = await putJson(`/api/jobs/${detailDialog.job.hash}`, stelleSpeichernNutzlast(detailDialog.job, editForm));
+                  } catch (error) {
+                    pushToast(`Nicht gespeichert: ${error.message}`, "danger");
+                    return;
+                  }
                   // #1095: sagen, dass neu gerechnet wurde — und was mit der Entfernung ist
                   const teile = ["Stelle aktualisiert."];
                   if (antwort?.score) teile.push("Punkte neu berechnet.");
                   if (antwort?.entfernung_hinweis) teile.push(antwort.entfernung_hinweis);
+                  if (antwort?.merkmale_hinweis) teile.push(antwort.merkmale_hinweis);
                   pushToast(teile.join(" "), "success", { duration: teile.length > 1 ? 10000 : 5000 });
                   setDetailDialog({ open: false, job: null, editing: false });
                   loadPage({ silent: true });
@@ -2902,6 +2929,9 @@ export default function JobsPage() {
                     company: detailDialog.job.company || "",
                     location: detailDialog.job.location || "",
                     description: detailDialog.job.description || "",
+                    employment_type: detailDialog.job.employment_type || "",
+                    arbeitsumfang: detailDialog.job.arbeitsumfang || "unbekannt",
+                    remote_level: detailDialog.job.remote_level || "unbekannt",
                   });
                   setDetailDialog((d) => ({ ...d, editing: true }));
                 }}>

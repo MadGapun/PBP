@@ -629,7 +629,16 @@ class Database:
                                   # zurueckgeholt hat. Danach sortiert
                                   # keine Automatik sie wieder aus
                                   # (services/aussortier_schutz.py).
-                                  ("zurueckgeholt_am", "TEXT")):
+                                  ("zurueckgeholt_am", "TEXT"),
+                                  # #1299: `mensch`, wenn Anstellungsform,
+                                  # Umfang oder Remote-Stufe von Hand
+                                  # gesetzt wurden — dann ueberschreibt
+                                  # sie kein Suchlauf und kein
+                                  # Nachzieh-Lauf (Muster von
+                                  # `entfernung_quelle`, #1077).
+                                  ("art_quelle", "TEXT"),
+                                  ("umfang_quelle", "TEXT"),
+                                  ("remote_quelle", "TEXT")):
                     if _job_cols and _sp not in _job_cols:
                         conn.execute(
                             f"ALTER TABLE jobs ADD COLUMN {_sp} {_typ}")
@@ -1372,6 +1381,14 @@ class Database:
             _rj.bestand_nachziehen(self)
         except Exception as e:
             logger.debug("Remote-Nachzug uebersprungen (#1072): %s", e)
+        # #1298: `remote_level` ausserhalb des Vokabulars ("True"/"False" aus
+        # der Browser-Uebernahme) auf eine Stufe bringen. Idempotent ueber die
+        # Abfrage selbst; danach Punkte der betroffenen Stellen neu.
+        try:
+            from .services import remote_jobspy as _rj1298
+            _rj1298.ungueltige_bereinigen(self)
+        except Exception as e:
+            logger.debug("Remote-Bereinigung uebersprungen (#1298): %s", e)
         # v1.7.148 (#1147): die LinkedIn-Vorgabe trug die Suchbegriffe des
         # Entwicklers. Eine UNVERAENDERTE Zeile dieser Art wird auf den
         # neutralen Start gesetzt; eine bearbeitete bleibt. Idempotent.
@@ -5679,7 +5696,16 @@ class Database:
         # #1250: das Zurueckholen durch den Menschen. Ohne diesen Eintrag
         # loeschte der naechste Suchlauf den Schutz vor der Automatik.
         "zurueckgeholt_am",
+        # #1299: die Herkunft einer Handkorrektur an Anstellungsform, Umfang
+        # und Remote-Stufe. Ohne diese Eintraege loeschte der naechste
+        # Suchlauf den Schutz (DoD 8e).
+        "art_quelle", "umfang_quelle", "remote_quelle",
     )
+
+    #: #1299: Merkmal -> Spalte, die festhaelt, dass der MENSCH es gesetzt hat.
+    MERKMAL_QUELLE = {"employment_type": "art_quelle",
+                      "arbeitsumfang": "umfang_quelle",
+                      "remote_level": "remote_quelle"}
 
     def save_jobs(self, jobs: list) -> dict:
         """Persistiert Jobs (INSERT OR REPLACE).
@@ -5735,6 +5761,7 @@ class Database:
         # #1250: Original -> Anzeigentext einer Dublette, wenn dem Original
         # der Text fehlt. Geschrieben NACH dem Lauf (eigener Weg mit Score).
         text_uebergaben: dict[str, str] = {}
+        hand_neu_bewerten: list[str] = []  # #1299
         # Dedup-Index der bereits AKTIVEN Stellen pro Profil aufbauen
         # (key -> stored_hash des Originals)
         # #951: die aktiven Stellen EINMAL laden statt je neuer Stelle.
@@ -5871,6 +5898,21 @@ class Database:
                             job.pop("fahrstrecke_km", None)
                     except Exception as _exc:  # pragma: no cover
                         logger.debug("Handentfernung (#1077): %s", _exc)
+                # #1299: dasselbe fuer von Hand gesetzte Merkmale. Die
+                # Spalten stehen in der INSERT-Liste, und Erkennung wie
+                # Quelle liefern beim naechsten Lauf wieder ihren Wert.
+                _hand_merkmale = [f for f, q in self.MERKMAL_QUELLE.items()
+                                  if bewahrt.get(q) == "mensch"]
+                if _hand_merkmale:
+                    try:
+                        _m = conn.execute(
+                            f"SELECT {', '.join(_hand_merkmale)} FROM jobs "
+                            "WHERE hash=?", (stored_hash,)).fetchone()
+                        if _m:
+                            for _f in _hand_merkmale:
+                                job[f"_hand_{_f}"] = _m[_f]
+                    except Exception as _exc:  # pragma: no cover
+                        logger.debug("Handmerkmale (#1299): %s", _exc)
             # v1.7.62 (#1008 Befund 2): Gesamtwert und Aufteilung MUESSEN
             # aus demselben Lauf stammen. Bis hierher wurde der hoehere
             # alte `score` behalten, `fachscore`/`rahmenscore` aber
@@ -6109,6 +6151,19 @@ class Database:
                 _employment_type = job.get("employment_type")
                 _arbeitsumfang = None
                 _befristet = None
+            # #1299: eine Handkorrektur geht der Erkennung und der Quelle vor.
+            # Brachte der Lauf einen anderen Wert, beruhen seine Punkte auf
+            # diesem - die Stelle wird nach dem Lauf neu bewertet.
+            _vorher = (_employment_type, _arbeitsumfang, job.get("remote_level"))
+            if "_hand_employment_type" in job:
+                _employment_type = job["_hand_employment_type"]
+            if "_hand_arbeitsumfang" in job:
+                _arbeitsumfang = job["_hand_arbeitsumfang"]
+            if "_hand_remote_level" in job:
+                job["remote_level"] = job["_hand_remote_level"]
+            if _vorher != (_employment_type, _arbeitsumfang, job.get("remote_level")) and any(
+                    k.startswith("_hand_") for k in job):
+                hand_neu_bewerten.append(stored_hash)
 
             # v1.7.64 (#1010): `save_jobs` sortiert selbst aus — Wiedergaenger
             # (#941), Duplikat (#641) und Nicht-DACH-Ort (#732), alle drei nur
@@ -6277,6 +6332,13 @@ class Database:
         conn.commit()
         # #1250: die behaltene Kopie bekommt den Volltext ihrer Dublette.
         # Derselbe Weg wie das Nachladen (Text, Snapshot, Gehalt, Score).
+        # #1299: Stellen mit Handkorrektur, deren Lauf einen anderen Wert brachte.
+        if hand_neu_bewerten:
+            try:
+                from .services.stelle_aendern import neu_bewerten as _neu_bewerten
+                _neu_bewerten(self, hand_neu_bewerten)
+            except Exception as _exc:  # pragma: no cover - nie den Lauf stoppen
+                logger.warning("Neubewertung nach Handkorrektur (#1299): %s", _exc)
         texte_uebergeben = 0
         if text_uebergaben:
             from .services import nachladen as _nachladen
@@ -10091,8 +10153,34 @@ class Database:
         stored = self.resolve_job_hash(job_hash)
         if not stored:
             return False
-        cur = conn.execute("UPDATE jobs SET remote_level=?, updated_at=? WHERE hash=?",
+        # #1299: eine von Hand gesetzte Stufe ueberschreibt keine Automatik.
+        cur = conn.execute("UPDATE jobs SET remote_level=?, updated_at=? WHERE hash=? "
+                           "AND COALESCE(remote_quelle, '') != 'mensch'",
                            (remote_level, _now(), stored))
+        conn.commit()
+        return cur.rowcount > 0
+
+    def set_job_merkmal_hand(self, job_hash: str, feld: str, wert: str,
+                             freigeben: bool = False) -> bool:
+        """Setzt Anstellungsform, Umfang oder Remote-Stufe VON HAND (#1299).
+
+        Der Wert gilt ab jetzt dauerhaft: `<feld>_quelle = 'mensch'`, und
+        weder ein Suchlauf (`save_jobs`) noch ein Nachzieh-Lauf ueberschreibt
+        ihn — dasselbe Muster wie die Entfernung (#1077). ``freigeben=True``
+        (Remote oder Umfang auf "unbekannt") gibt das Merkmal an die
+        Automatik zurueck. Geprueft wird der Wert vom Aufrufer
+        (`services/stelle_aendern`); hier nur, dass das Feld eines der drei ist.
+        """
+        quelle = self.MERKMAL_QUELLE.get(feld)
+        if not quelle:
+            return False
+        conn = self.connect()
+        stored = self.resolve_job_hash(job_hash)
+        if not stored:
+            return False
+        cur = conn.execute(
+            f"UPDATE jobs SET {feld}=?, {quelle}=?, updated_at=? WHERE hash=?",
+            (wert, None if freigeben else "mensch", _now(), stored))
         conn.commit()
         return cur.rowcount > 0
 

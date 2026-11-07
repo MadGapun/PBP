@@ -5175,7 +5175,7 @@ async def api_toggle_job_pin(job_hash: str):
 
 @app.put("/api/jobs/{job_hash}")
 async def api_update_job(job_hash: str, request: Request):
-    """Titel, Firma, Ort, Beschreibung oder Link einer Stelle aendern (#90).
+    """Titel, Firma, Ort, Beschreibung, Link, Anstellungsform, Umfang oder Remote aendern (#90, #1299).
 
     #1095: ueber denselben Dienst wie `stelle_bearbeiten` — danach stimmen
     Punkte und Faktoren mit der neuen Beschreibung, und ein neuer Ort
@@ -5193,6 +5193,11 @@ async def api_update_job(job_hash: str, request: Request):
         antwort["score"] = erg["score_neu_berechnet"]
     if erg.get("entfernung_text"):
         antwort["entfernung_hinweis"] = erg["entfernung_text"]
+    # #1299: Anstellungsform, Umfang, Remote — von Hand gesetzt gilt dauerhaft.
+    if erg.get("merkmale_hinweis"):
+        antwort["merkmale_hinweis"] = erg["merkmale_hinweis"]
+    if erg.get("remote_neu"):
+        antwort["remote_neu"] = erg["remote_neu"]
     return antwort
 
 
