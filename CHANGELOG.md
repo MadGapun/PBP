@@ -92,6 +92,11 @@ Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische 
   des deutschsprachigen Raums gelten als „unbekannt“.
 - **Die Namensprüfung vor GitHub-Texten meldete jede Tabelle als Personenfund** (#1303), weil ein Kontakt `---` hieß. Werte ohne Buchstaben sind kein Name.
 - **Die Sicherung beim Deinstallieren scheiterte bei englischem Datumsformat** (#1296). Das Datum kommt jetzt aus PowerShell.
+- **Die Wiedergänger-Automatik sortierte Stellen mit deinen eigenen Pflichtbegriffen als „falsches Fachgebiet“ aus** (#1310). Sie hatte Ortsnamen,
+  Eigenschaftswörter wie „kaufmännischer“ und Bruchstücke wie „voll“ (aus „Voll- oder Teilzeit“) als Fachgebiet gelernt. Trägt eine Stelle einen
+  Pflichtbegriff deines Profils, wird sie jetzt nicht mehr als falsches Fachgebiet aussortiert, sondern mit einem Hinweis angelegt (dieselbe Prüfung wie bei
+  den Punkten). Der Ort einer Stelle zählt nicht mehr als Fachwort, und „kaufmännisch“, „technisch“, „gewerblich“, „Kaufmann/Kauffrau“, „Teamassistenz“ und
+  „voll“ auch nicht.
 
 ### Changed
 

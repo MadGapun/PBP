@@ -945,6 +945,7 @@ def register(mcp, db, logger):
         from ..services.wiedergaenger import find_wiedergaenger_pattern
 
         resolved_hash = None
+        ort = None  # #1310: der Ortsname der Stelle ist kein Fachwort
         if job_hash:
             from ..services.typed_ids import strip_prefix
             resolved_hash = db.resolve_job_hash(strip_prefix(job_hash))
@@ -955,6 +956,7 @@ def register(mcp, db, logger):
                 return {"fehler": "Stelle nicht gefunden."}
             firma = job.get("company", "") or firma
             titel = job.get("title", "") or titel
+            ort = job.get("location")
 
         if not (firma or "").strip():
             return {"fehler": "firma (oder job_hash) ist Pflicht."}
@@ -963,6 +965,7 @@ def register(mcp, db, logger):
             db, firma, titel,
             schwellwert=max(1, int(schwellwert or 2)),
             target_hash=resolved_hash,
+            ort=ort,
         )
 
         if not pattern:
@@ -1574,7 +1577,8 @@ def register(mcp, db, logger):
                     muster = find_wiedergaenger_pattern(
                         db, j.get("company", ""), j.get("title", ""),
                         target_hash=j.get("hash"),
-                        dismissed=_dismissed_pool)
+                        dismissed=_dismissed_pool,
+                        ort=j.get("location"))  # #1310
                     # #1234: wie in der Analyse ist nur ein FACHLICHER Grund ein
                     # k.o. Jedes andere Muster ist ein Hinweis, kein Urteil - bis
                     # v1.7.158 hing jede Stelle mit einem Muster unten in der Liste.
@@ -5260,6 +5264,7 @@ def register(mcp, db, logger):
                 job_dict.get("title", ""),
                 schwellwert=2,
                 target_hash=job_dict.get("hash"),
+                ort=job_dict.get("location"),  # #1310
             )
             if wg:
                 if "risks" not in result or not isinstance(result["risks"], list):
@@ -6890,7 +6895,7 @@ def register(mcp, db, logger):
         from ..services import stellen_automatik as _sa
         from ..services import wiedergaenger as _wg
 
-        def _befund(kern: str, firma: str, note: str) -> str:
+        def _befund(kern: str, firma: str, note: str, ort: str = "") -> str:
             """Warum diese Uebertragung nicht haette stattfinden duerfen."""
             if "Fachgebiet" not in note:
                 # Stufe 1 "dieselbe Firma" (#1028): mit einem
@@ -6907,8 +6912,9 @@ def register(mcp, db, logger):
             if not m:
                 return ""
             gezeigt = [t.strip() for t in m.group(1).split(",") if t.strip()]
+            # #1310: auch der eigene Ortsname der Stelle ist kein Fachwort.
             if (gezeigt and len(gezeigt) < 4
-                    and not _wg._domain_tokens(" ".join(gezeigt))):
+                    and not _wg._domain_tokens(" ".join(gezeigt), orte=(ort,))):
                 return "nur_fuellwoerter"
             return ""
 
@@ -6916,7 +6922,7 @@ def register(mcp, db, logger):
         zeilen = conn.execute(
             "SELECT hash, title, company, dismiss_reason, dismiss_note, "
             "distance_km, salary_min, salary_max, salary_type, "
-            "salary_estimated, employment_type FROM jobs "
+            "salary_estimated, employment_type, location FROM jobs "
             "WHERE is_active=0 AND dismiss_note IS NOT NULL "
             "AND (dismiss_note LIKE '%iedergaenger nach Fachgebiet%' "
             "     OR dismiss_note LIKE '%iedergänger nach Fachgebiet%' "
@@ -6930,9 +6936,9 @@ def register(mcp, db, logger):
         betroffen, zurueckgeholt = [], 0
         for row in zeilen:
             (h, titel, firma, grund, note, dist, smin, smax, styp,
-             sest, emp) = row
+             sest, emp, ort) = row
             kern = (grund or "").replace("auto:", "").split(":")[0].lower()
-            befund = _befund(kern, firma or "", note or "")
+            befund = _befund(kern, firma or "", note or "", ort or "")
             if not befund:
                 continue
             job = {"distance_km": dist, "salary_min": smin,
