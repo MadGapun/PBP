@@ -1759,11 +1759,14 @@ def register(mcp, db, logger):
                 entry["gehalt_typ"] = j.get("salary_type", "jaehrlich")
                 if j.get("salary_estimated"):
                     entry["gehalt_geschaetzt"] = True
-            if j.get("distance_km"):
-                # #950: nie die blosse Zahl — sie wird als Wegstrecke
-                # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
-                # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
-                entry.update(_entfernung.befund(j, _krit_fuer_stand))
+            # #950: nie die blosse Zahl — sie wird als Wegstrecke
+            # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
+            # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
+            # #1300: mit den Kriterien des Rahmens (samt Ortsverzeichnis),
+            # damit `entfernung_km` dieselbe Zahl ist, gegen die der Rahmen
+            # rechnet - und auch dann, wenn nur ein naeherer Standort aus der
+            # Anzeige eine Zahl hat. Ohne Zahl bleibt der Befund leer.
+            entry.update(_entfernung.befund(j, _guete_krit or _krit_fuer_stand))
             # v1.7.140 (#954): woher die Werte kommen — eine Zeile, nur
             # was nicht belegt ist. Die volle Aufstellung hat fit_analyse.
             try:
@@ -3198,6 +3201,11 @@ def register(mcp, db, logger):
             # Geo-Aussortierer (save_jobs) zum Opfer fallen lassen.
             "_manual_entry": True,
         }
+        # #1300: "Deutschland (remote)" im Ort setzt `remote`, wo nichts angegeben ist (#1184: bei einer
+        # Google-Karte gelten Ort und Arbeitsmodell erst mit dem Original).
+        if not google_vorbehalt:
+            from ..services.geocoding_service import remote_aus_ort
+            remote_aus_ort(job)
 
         # Score: erst unmittelbar vor dem Speichern (v1.7.94, #1034) — er liest
         # Gehalt und Entfernung, und beide entstehen erst darunter.
@@ -3284,8 +3292,7 @@ def register(mcp, db, logger):
             "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
                          f"Bewerte mit stelle_einordnen('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
-        if job.get("distance_km"):
-            result.update(_entfernung.befund(job, criteria))
+        result.update(_entfernung.befund(job, criteria))
         # v1.7.140 (#954): was an der neuen Stelle belegt ist und was nicht.
         try:
             from ..services import wahrheit as _wahrheit
