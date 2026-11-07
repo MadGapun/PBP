@@ -2170,6 +2170,9 @@ def run_search(db, job_id: str, params: dict):
             and len((j.get("description") or "").strip()) < _min_text]
     except Exception as _exc:  # pragma: no cover
         logger.debug("Treffer ohne Text nicht gemerkt: %s", _exc)
+    # #1307: die neuen Treffer dieses Laufs - auf sie wenden die eigenen Regeln
+    # (services/gespeicherte_filter.nach_suche) ihre Bedingungen an.
+    result_data["neue_treffer"] = [j["hash"] for j in unique if j.get("hash")]
 
     db.update_background_job(
         job_id, "fertig", progress=100,

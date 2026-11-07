@@ -756,6 +756,12 @@ class Database:
             _lernprotokoll.tabelle_anlegen(conn)
             conn.commit()
 
+            # #1307: eigene Filter als Ansicht oder Regel. Additive Tabelle,
+            # Safety-Net statt Schema-Bump (Muster #992); Loeschbereich
+            # "einstellungen" (services/loeschbereiche.py, Guard #1025).
+            from .services import gespeicherte_filter as _gespeicherte_filter
+            _gespeicherte_filter.tabelle_anlegen(conn)
+
             # v1.7.96 (#811): welche Firma nutzt welches Bewerbermanagement-
             # System — geprueft und gespeichert, damit nicht jeder Suchlauf
             # neu raet. Additive Tabelle, Safety-Net statt Schema-Bump.

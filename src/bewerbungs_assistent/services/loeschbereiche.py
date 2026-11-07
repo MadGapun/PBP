@@ -119,6 +119,9 @@ BEREICHE: dict[str, tuple] = {
         # v1.7.96 (#811): Wunscharbeitgeber und gepruefte Firmen-Slugs —
         # eine Einstellung der Suche, keine Stelle.
         "ats_firmen",
+        # #1307: eigene Filter (Ansichten und Regeln) - wie Blacklist und
+        # Ablehnungsgruende eine Einstellung der Suche.
+        "stellen_filter",
     ),
     "gelerntes": (
         "user_activity_events", "learning_insights", "blacklist_blocks",
@@ -149,7 +152,8 @@ BESCHREIBUNG = {
                   "Extraktionsverlauf. Die Dateien auf der Platte "
                   "gehören dazu."),
     "einstellungen": ("Suchkriterien, Scoring-Regler, Blacklist, eigene "
-                      "Ablehnungsgründe, Quellen-Konfiguration."),
+                      "Ablehnungsgründe, eigene Filter und Regeln, "
+                      "Quellen-Konfiguration."),
     "gelerntes": ("Aktivitätsprotokoll, abgeleitete Erkenntnisse, "
                   "Quellen-Gesundheit, Elwosa-Verlauf."),
 }

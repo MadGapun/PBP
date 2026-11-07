@@ -13,6 +13,7 @@ import SicherungKarte from "@/components/SicherungKarte";
 import LernTransparenz from "@/components/LernTransparenz";
 import UpdatesTab from "@/components/UpdatesTab";
 import SpeicherTab from "@/components/SpeicherTab";
+import StellenRegeln from "@/components/StellenRegeln";
 import HilfeKiKarte from "@/components/HilfeKiKarte";
 import MailQuelleCard from "@/components/MailQuelleCard";
 import SourceSelectionList from "@/components/SourceSelectionList";
@@ -4229,6 +4230,8 @@ export default function SettingsPage() {
           <>
             <AutomatikSchedulerCard pushToast={pushToast} />
             <AutoAussortierenCard pushToast={pushToast} />
+            {/* #1307/#1308: eigene Regeln fuer neue Treffer (auch nach der Sprache der Anzeige) */}
+            <StellenRegeln />
             <AutoActionsTab pushToast={pushToast} />
           </>
         )}
