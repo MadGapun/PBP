@@ -42,6 +42,111 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
+## [1.8.2] - unveröffentlicht — Anstellungsart und Entfernung stimmen, eigene Filter und Sprache der Anzeige
+
+<!-- anwender -->
+Stellen aus dem Browser kommen mit der richtigen Anstellungsart und Remote-Angabe an, und beides lässt sich nachträglich ändern.
+Ortsangaben wie „Hamburg u.a.“ oder „Deutschland (remote)“ ergeben keine falschen Entfernungen mehr.
+Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische Anzeigen lassen sich ausblenden oder aussortieren.
+<!-- /anwender -->
+
+### Das Wichtigste für dich
+
+**Was du tun musst**
+
+- **Nichts Besonderes.** Wer das Auto-Update eingeschaltet hat, bekommt 1.8.2 wie jedes Update. Stellen, bei denen Remote als „True“ gespeichert war,
+  werden beim ersten Start von selbst bereinigt und neu bewertet.
+
+**Neu und behoben (kurz)**
+
+- Anstellungsart und Remote kommen bei der Übernahme aus dem Browser richtig an und lassen sich danach von Hand ändern.
+- Falsche Entfernungen bei Zusätzen, Ländern und mehreren Orten sind behoben.
+- Eigene Filter als Ansicht oder Regel; Sprache der Anzeige als Filter und als Regel.
+- Die Gewichte ganzer Kategorien (MUSS, PLUS, MINUS …) lassen sich auch über Claude setzen.
+- Die Sicherung beim Deinstallieren gelingt auch bei englischem Datumsformat.
+
+### Added
+
+- **Eigene Filter, benannt und gespeichert** (#1307): mit Claude (`stellen_filter_verwalten`) als **Ansicht** (nur filtern; im Stellen-Tab unter „Ansicht“,
+  für Claude `stellen_anzeigen(ansicht=...)`) oder als **Regel**, die passende NEUE Treffer nach jeder Suche und jeder Übernahme aus dem Browser aussortiert.
+  Dieselben Bedingungen wie beim Aussortieren vieler Stellen (Titel und Anzeige enthalten / enthalten nicht, Quelle, Firma, Punkte, Alter, Sprache) und
+  dieselbe Prüfung (`services/stellen_filter.py`). Anlegen, Anzeigen, Testen, An/Aus, auf den Bestand Anwenden (erst Vorschau) und Löschen. Eine Regel nimmt
+  nur Gründe aus der Liste, sortiert beim Anlegen nichts aus und lässt zurückgeholte Stellen, Stellen mit gelesenem Urteil und Stellen mit Bewerbung stehen;
+  das Aussortier-Protokoll nennt die Regel. Im Dashboard stehen die Regeln unter Einstellungen › Automatik.
+- **Sprache der Anzeige** (#1308): PBP erkennt beim Lesen, ob eine Anzeige deutsch, englisch, gemischt oder in einer anderen Sprache ist; ohne oder mit zu
+  kurzem Text ist sie „unbekannt“ und wird von keinem Sprachfilter getroffen. Filter `sprache` in `stellen_anzeigen`, `stellen_bulk_bewerten` und im
+  Stellen-Tab („Ohne rein englische“), Abzeichen an englischen Stellen, Hinweis „verlangt Deutsch“, wenn eine englische Anzeige Deutschkenntnisse fordert.
+- **Kategorie-Gewichte über Claude** (#1304): `suchkriterien_bearbeiten(kategorie='scoring', aktion='gewichten', werte=['plus'], gewicht=3)` setzt dieselbe
+  Einstellung wie die Regler unter Profil › Suchbegriffe (0 bis 10). Die Antwort weist darauf hin, dass PLUS-Punkte gedeckelt sind (Deckel „Rahmen“).
+- **Anstellungsform, Umfang und Remote einer Stelle ändern** (#1299): `stelle_bearbeiten(anstellungsart=, umfang=, remote=)` und im Stellen-Detail eine
+  Auswahl. Eine Handkorrektur überlebt Suchläufe und Neuberechnungen.
+- **Kontakte ohne echten Namen finden** (#1303): `kontakte_auflisten(nur_platzhalter=True)`.
+
+### Fixed
+
+- **Browser-Übernahme speicherte Remote als „True“ und jede Stelle als Festanstellung** (#1298). Voll remote ausgeschriebene Stellen fielen dadurch unter die
+  Entfernungsgrenze für Festanstellungen. Remote wird jetzt normalisiert, die Anstellungsart aus Angabe, Portal oder Titel bestimmt, und Unverständliches
+  steht als Hinweis in der Antwort. Der Bestand wird beim Start bereinigt.
+- **Falsche Entfernungen** (#1300): „Hamburg u.a.“ ergab 218 km, „Deutschland (remote)“ 619 km, „100 % remote (Frankfurt)“ einen Ort in Übersee. Zusätze werden
+  vor der Abfrage entfernt, mehrere Orte einzeln aufgelöst (der nächste zählt, in Liste und Bewertung dieselbe Zahl), ein Land allein und Treffer außerhalb
+  des deutschsprachigen Raums gelten als „unbekannt“.
+- **Die Namensprüfung vor GitHub-Texten meldete jede Tabelle als Personenfund** (#1303), weil ein Kontakt `---` hieß. Werte ohne Buchstaben sind kein Name.
+- **Die Sicherung beim Deinstallieren scheiterte bei englischem Datumsformat** (#1296). Das Datum kommt jetzt aus PowerShell.
+
+### Changed
+
+- Neue Module: `services/stellen_filter.py`, `services/gespeicherte_filter.py`, `services/sprache.py`. Neue Tabelle `stellen_filter` und neue Spalten
+  `art_quelle`, `umfang_quelle`, `remote_quelle` an `jobs` (additiv, ohne Versionssprung).
+- Windows-Probe in der CI (#1294): Installer, Port-Selbsthilfe, Update und Deinstallation laufen bei jeder Änderung daran auf einem Windows-Runner.
+
+*Schema v52 (unverändert), 281 MCP-Werkzeuge.*
+
+## 📦 Wie installiere oder aktualisiere ich PBP?
+
+**Unter Windows** brauchst du kein Git, kein Python, kein Vorwissen — nur einen ZIP-Download und einen Doppelklick. **Unter macOS** muss vorher einmalig Python 3.11+ installiert sein (siehe unten), **unter Linux** Git und Python. Voraussetzung ueberall: [Claude Desktop](https://claude.ai/download) ist installiert (Linux: alternativ Claude Code CLI).
+
+### Windows (empfohlen, bequemster Weg)
+
+1. **ZIP herunterladen:** [PBP-1.8.2.zip](https://github.com/MadGapun/PBP/archive/refs/tags/v1.8.2.zip)
+2. **Entpacken:** Rechtsklick auf die ZIP → *„Alle extrahieren..."* → Zielordner waehlen (z.B. `C:\PBP`). Darin liegt ein Unterordner `PBP-...` — dort hinein wechseln.
+3. **Installieren:** Doppelklick auf **`INSTALLIEREN.bat`**
+4. Das Setup laedt Python, alle Pakete und Chromium herunter (~3–5 Minuten) und konfiguriert Claude Desktop.
+5. Auf dem Desktop liegt jetzt eine Verknuepfung **„PBP Bewerbungs-Portal"** — Doppelklick startet das Dashboard.
+6. **Claude Desktop oeffnen** (lief es schon: komplett beenden — Rechtsklick aufs Claude-Symbol unten rechts in der Taskleiste → *Beenden* — und neu starten) und tippen: **„Starte die Ersterfassung"**
+7. Taucht PBP nicht auf: Claude Desktop nochmal komplett beenden und neu starten — siehe [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ).
+
+### macOS
+
+1. **Einmalig vorab: Python 3.11+** — am einfachsten der [Installer von python.org](https://www.python.org/downloads/) (Doppelklick), alternativ `brew install python@3.12`
+2. **ZIP herunterladen** (siehe Windows-Link) und **entpacken** (Doppelklick; im ZIP liegt ein Unterordner `PBP-...`)
+3. **Doppelklick auf `INSTALLIEREN.command`**
+4. Falls macOS warnt („kann nicht geoeffnet werden"): Rechtsklick auf die Datei → *„Oeffnen"* → nochmal *„Oeffnen"*
+
+### Linux
+
+```bash
+git clone --branch v1.8.2 --depth 1 https://github.com/MadGapun/PBP.git
+cd PBP
+bash installer/install.sh
+```
+
+`v1.8.2` ist die Version DIESES Releases. Ohne `--branch` klont man `main` —
+den jeweils neusten Entwicklungsstand, nicht unbedingt die stabile Version (#1150).
+
+### Update von einer aelteren Version
+
+**Einfach drueberinstallieren** — deine Daten bleiben erhalten:
+- Windows: `%LOCALAPPDATA%\BewerbungsAssistent\data\pbp.db`
+- macOS/Linux: `~/.bewerbungs-assistent/pbp.db`
+
+Schema-Upgrade laeuft automatisch beim ersten Start, ein Backup wird vorher erstellt (Ordner `data\backups\`).
+
+### Detaillierte Anleitung & Troubleshooting
+
+📖 [Wiki → Installation](https://github.com/MadGapun/PBP/wiki/Installation) · [FAQ](https://github.com/MadGapun/PBP/wiki/FAQ)
+
+---
+
 ## [1.8.1] - 2026-10-30 — Ein hängendes PBP wird erkannt, und das Update-Testprogramm endet von selbst
 
 <!-- anwender -->

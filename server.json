@@ -7,13 +7,13 @@
     "url": "https://github.com/MadGapun/PBP",
     "source": "github"
   },
-  "version": "1.8.1",
+  "version": "1.8.2",
   "websiteUrl": "https://github.com/MadGapun/PBP",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "bewerbungs-assistent",
-      "version": "1.8.1",
+      "version": "1.8.2",
       "transport": {
         "type": "stdio"
       },
