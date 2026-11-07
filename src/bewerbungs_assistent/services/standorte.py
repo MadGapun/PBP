@@ -103,6 +103,19 @@ def genannte_orte(text: str) -> list[str]:
     return gefunden
 
 
+def _eigene_orte(location: str) -> set:
+    """Die Orte, die schon im Ortsfeld stehen - sie rechnet das Geocoding selbst, samt dem naechsten (#1300).
+
+    Ein Ort aus dem Feld, der in der Anzeige noch einmal steht, ist kein WEITERER Standort. Bis #1300 galt das
+    nur fuer den ersten Teil des Feldes; bei "Deutschland (Frankfurt, Mannheim)" kam Frankfurt so ein zweites
+    Mal herein - mit Haversine statt Geodaete gerechnet, also mit einer Zahl, die um Bruchteile abwich."""
+    from .geocoding_service import ort_zerlegen
+    eigene = {_schluessel(location)}
+    for ort in ort_zerlegen(location)["orte"]:
+        eigene.add(_schluessel(ort))
+    return {k for k in eigene if k}
+
+
 def _luftlinie(a, b) -> float:
     """Grosskreis-Entfernung in km — ohne Abhaengigkeit, auf 0,5 % genau."""
     lat1, lon1 = map(math.radians, a)
@@ -128,11 +141,11 @@ def naechster(job, criteria) -> dict | None:
         return None
     if not orte:
         return None
-    eigener = _schluessel(job.get("location") or "")
+    eigene = _eigene_orte(job.get("location") or "")
     bester = None
     for name in genannte_orte(job.get("description") or ""):
         k = _schluessel(name)
-        if not k or k == eigener or k not in orte:
+        if not k or k in eigene or k not in orte:
             continue
         km = _luftlinie(heim, orte[k])
         if bester is None or km < bester["luftlinie_km"]:
