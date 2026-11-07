@@ -162,6 +162,20 @@ _QUELLEN_ALIAS = {
     "permanent": FESTANSTELLUNG,
     "contract": FREELANCE,
     "freiberuflich": FREELANCE,
+    # #1298: was ein Browserlauf als Art meldet, wenn er die Anzeige liest.
+    "interim": FREELANCE,
+    "contractor": FREELANCE,
+    "freelancer": FREELANCE,
+    "freiberufler": FREELANCE,
+    "selbststaendig": FREELANCE,
+    "selbstständig": FREELANCE,
+    "projekt": FREELANCE,
+    "festanstellung (unbefristet)": FESTANSTELLUNG,
+    "unbefristet": FESTANSTELLUNG,
+    "angestellt": FESTANSTELLUNG,
+    "anstellung": FESTANSTELLUNG,
+    "internship": PRAKTIKUM,
+    "working student": WERKSTUDENT,
     "apprenticeship": AUSBILDUNG,
     "duales studium": WERKSTUDENT,
 }
@@ -513,3 +527,78 @@ def umfang_aus_auswahl(gewuenscht) -> str:
         if str(t).strip().lower() == TEILZEIT:
             return TEILZEIT
     return ""
+
+
+# ============================================================== #1298/#1299
+# Angaben von aussen pruefen: Uebernahme aus dem Browser und Handkorrektur
+
+#: Portale, die nur Projekte fuer Freiberufler fuehren und ihre Art damit selbst melden — dieselben, deren
+#: Adapter `freelance` fest schreiben (freelancermap, gulp, freelance_de, solcom). Eine Stelle von dort, die
+#: Claude ohne `anstellungsart` aus dem Browser uebernimmt, ist kein Fall fuer die Vorgabe `festanstellung`.
+FREELANCE_PORTALE = frozenset({"freelancermap", "gulp", "freelance_de", "solcom"})
+
+
+def form_pruefen(wert) -> tuple[str, str | None]:
+    """Eine Anstellungsform von aussen: `(form, hinweis)`.
+
+    `form` ist eine der ANSTELLUNGSFORMEN oder "" (keine oder keine gueltige Angabe). `hinweis` ist None,
+    wenn alles verstanden wurde; sonst sagt er, was nicht verstanden wurde — er gehoert in die Antwort.
+    Aliase der Quellen (`freiberuflich`, `contract`, `interim` ...) gelten ueber `normalisiere_form`.
+    """
+    form = normalisiere_form(str(wert) if wert is not None else "")
+    if not form:
+        return "", None
+    if form in ANSTELLUNGSFORMEN:
+        return form, None
+    if form in (TEILZEIT, BEIDES):
+        return "", (f"„{wert}“ ist ein Umfang, keine Anstellungsform. Den Umfang getrennt angeben "
+                    "(vollzeit, teilzeit, beides).")
+    return "", (f"„{str(wert)[:60]}“ ist keine bekannte Anstellungsform. Gültig sind: "
+                f"{', '.join(ANSTELLUNGSFORMEN)}.")
+
+
+def umfang_pruefen(wert) -> tuple[str, str | None]:
+    """Ein Umfang von aussen: `(umfang, hinweis)` — `umfang` aus UMFAENGE oder "" bei ungueltiger Angabe."""
+    text = re.sub(r"\s+", " ", str(wert or "")).strip().lower()
+    if not text:
+        return "", None
+    if text in UMFAENGE:
+        return text, None
+    gefunden = _umfang_aus_text(text)
+    if gefunden:
+        return gefunden[0], None
+    return "", (f"„{str(wert)[:60]}“ ist kein bekannter Umfang. Gültig sind: {', '.join(UMFAENGE)}.")
+
+
+def form_der_quelle(quelle: str = "", url: str = "") -> str:
+    """`freelance`, wenn die Quelle (oder die Adresse) ein reines Freiberufler-Portal ist, sonst ""."""
+    schluessel = {str(quelle or "").strip().lower()}
+    if url:
+        try:
+            from .url_to_source import detect_source_from_url
+            schluessel.add(detect_source_from_url(str(url)))
+        except Exception:  # pragma: no cover - eine kaputte Adresse kippt keine Anlage
+            pass
+    return FREELANCE if schluessel & FREELANCE_PORTALE else ""
+
+
+def form_bestimmen(angabe, *, titel: str = "", beschreibung: str = "",
+                   quelle: str = "", url: str = "") -> dict:
+    """Die Anstellungsform einer uebernommenen Stelle (#1298) — mit Herkunft und ggf. Hinweis.
+
+    Rangfolge: (1) die Angabe des Aufrufers, wenn sie gueltig ist; (2) das Portal, das seine Art selbst
+    meldet; (3) die Erkennung aus dem Titel (`erkenne`) — erst wenn nichts davon etwas sagt, gilt die
+    Vorgabe `festanstellung`. Bis #1298 setzte die Uebernahme ohne Angabe blind `festanstellung`, und ein
+    Freelance-Projekt lief gegen die 40-km-Grenze und den Jahreswert des Gehalts.
+
+    Rueckgabe: {"form", "herkunft": angabe|quelle|titel|vorgabe, "hinweis": str|None}
+    """
+    form, hinweis = form_pruefen(angabe)
+    if form:
+        return {"form": form, "herkunft": "angabe", "hinweis": None}
+    vom_portal = form_der_quelle(quelle, url)
+    if vom_portal:
+        return {"form": vom_portal, "herkunft": "quelle", "hinweis": hinweis}
+    befund = erkenne({"title": titel, "description": beschreibung, "employment_type": ""})
+    return {"form": befund["art"], "herkunft": "titel" if befund["belegt"] else "vorgabe",
+            "hinweis": hinweis}

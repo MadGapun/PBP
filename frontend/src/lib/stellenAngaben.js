@@ -35,6 +35,40 @@ export const UMFANG_TEXT = {
   beides: "Voll- oder Teilzeit",
 };
 
+// #1299: die Auswahl im Bearbeiten-Dialog der Stelle. Die Werte sind die,
+// die der Server annimmt (services/stelle_aendern.py), die Texte sichtbar.
+export const REMOTE_STUFE_TEXT = {
+  remote: "Remote",
+  hybrid: "Hybrid",
+  vor_ort: "Vor Ort",
+  unbekannt: "Unbekannt",
+};
+
+export const UMFANG_AUSWAHL_TEXT = { ...UMFANG_TEXT, unbekannt: "Unbekannt" };
+
+/** Die Merkmale, die der Dialog bearbeitet. */
+export const MERKMAL_FELDER = ["employment_type", "arbeitsumfang", "remote_level"];
+
+/**
+ * Was der Bearbeiten-Dialog speichert (#1299): alle Textfelder, aber ein
+ * Merkmal nur, wenn der Mensch es GEAENDERT hat. Ein unveraendert
+ * mitgeschicktes Merkmal hiesse fuer den Server "von Hand bestaetigt" —
+ * und danach ueberschriebe es kein Suchlauf mehr, obwohl niemand es
+ * angefasst hat.
+ */
+export function stelleSpeichernNutzlast(job, form) {
+  const nutzlast = {};
+  for (const [feld, wert] of Object.entries(form || {})) {
+    if (MERKMAL_FELDER.includes(feld)) {
+      const bisher = String(job?.[feld] || (feld === "employment_type" ? "" : "unbekannt"));
+      if (String(wert || "") && String(wert) !== bisher) nutzlast[feld] = wert;
+    } else {
+      nutzlast[feld] = wert;
+    }
+  }
+  return nutzlast;
+}
+
 /** Der Arbeitgeber zur Anzeige; ohne Angabe ein benannter Platzhalter. */
 export function firmaText(job) {
   const firma = String(job?.company || "").trim();
