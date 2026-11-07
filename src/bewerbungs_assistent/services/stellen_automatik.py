@@ -28,6 +28,7 @@ sein.
 """
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from .ablehnungsgruende import ist_konform
@@ -40,6 +41,7 @@ from .wiedergaenger import (
     normalize_company,
 )
 
+logger = logging.getLogger(__name__)
 
 # Nur diese Gruende rechtfertigen eine Entscheidung OHNE Rueckfrage.
 # Es sind die echten Eignungs-Urteile des Nutzers. Bewusst NICHT dabei:
@@ -118,6 +120,13 @@ UEBERTRAGBARE_GRUENDE = frozenset({
 #: und widerspricht sie dem uebertragenen Urteil, gewinnt die Zahl.
 MESSBARE_GRUENDE = frozenset({"zu_weit_entfernt", "gehalt_zu_niedrig"})
 
+#: #1310: Gruende, gegen die das MUSS-Tor ANTRITT. Traegt die Stelle einen
+#: Pflichtbegriff des aktuellen Profils, ist sie nicht das falsche
+#: Fachgebiet - das Tor schlaegt das Muster, wie die Zahl in #1020.
+#: Bewusst nur das Fachgebiet: eine Branche kann trotz Pflichtbegriff
+#: die falsche sein.
+TOR_GRUENDE = frozenset({"falsches_fachgebiet"})
+
 
 def _handlungsgruende(job: dict) -> list:
     """Nur echte Eignungs-Urteile rechtfertigen eine Automatik.
@@ -151,7 +160,8 @@ def _handlungsgruende(job: dict) -> list:
 AUTOMATIK_SCHWELLE = 2
 
 
-def _domain_schluessel(company: str, title: str) -> Optional[tuple]:
+def _domain_schluessel(company: str, title: str,
+                       ort: Optional[str] = None) -> Optional[tuple]:
     """Firma + fachliche Titel-Tokens als vergleichbarer Schluessel.
 
     WICHTIG fuer die Abgrenzung der beiden Stufen: hier wird die
@@ -167,9 +177,12 @@ def _domain_schluessel(company: str, title: str) -> Optional[tuple]:
       Teamcenter" nach "PLM Berater CAD") -> **aussortieren**. Aehnlich
       genug fuer eine Automatik, verschieden genug, um sie sichtbar in
       der eingeklappten Liste zu belassen.
+
+    #1310: `ort` ist die Ortsangabe der Stelle; ihr Ortsname ist kein
+    Fachwort und gehoert nicht in den Schluessel.
     """
     firma = normalize_company(company)
-    tokens = _domain_tokens(title)
+    tokens = _domain_tokens(title, orte=(ort,))
     if not firma or not tokens:
         return None
     return (firma, frozenset(tokens))
@@ -221,7 +234,8 @@ def bereits_aussortierte_schluessel(dismissed: list) -> set:
     for j in dismissed or []:
         if not _handlungsgruende(j):
             continue
-        k = _domain_schluessel(j.get("company"), j.get("title"))
+        k = _domain_schluessel(j.get("company"), j.get("title"),
+                               j.get("location"))
         if not k:
             continue
         ort = _ort(j) if _nur_ortsgebunden(j) else ""
@@ -280,7 +294,8 @@ TITEL_SCHWELLE = 3
 
 def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
                       *, schwellwert: int = TITEL_SCHWELLE,
-                      target_hash: Optional[str] = None) -> Optional[dict]:
+                      target_hash: Optional[str] = None,
+                      ort: Optional[str] = None) -> Optional[dict]:
     """Wiedergaenger ueber Titel und Fachgebiet, unabhaengig von der Firma.
 
     Der firmenbezogene Check aus #671 uebersieht den Fall, dass dieselbe
@@ -296,8 +311,11 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
     `UEBERTRAGBARE_GRUENDE`. Eine Entfernung, ein Gehalt oder ein Urteil
     ueber die Firma sagen nichts ueber eine ANDERE Firma mit aehnlichem
     Titel.
+
+    #1310: ein Ortsname ist kein Fachgebiet. `ort` ist die Ortsangabe der
+    neuen Stelle; bei jedem Beleg zaehlt sein eigenes Ortsfeld.
     """
-    tokens = _domain_tokens(title)
+    tokens = _domain_tokens(title, orte=(ort,))
     if not tokens:
         return None
     if dismissed is None:
@@ -315,7 +333,8 @@ def find_titel_muster(db, title: str, dismissed: Optional[list] = None,
                    if g in UEBERTRAGBARE_GRUENDE]
         if not gruende:
             continue
-        gemeinsam = tokens & _domain_tokens(j.get("title"))
+        gemeinsam = tokens & _domain_tokens(j.get("title"),
+                                            orte=(j.get("location"),))
         if not gemeinsam:
             continue
         for g in gruende:
@@ -391,6 +410,52 @@ def _zahl_widerspricht(db, job: dict, grund: str) -> str:
     return ""
 
 
+def kriterien_laden(db) -> dict:
+    """Die Kriterien fuer das MUSS-Tor - dieselben wie fuer den Score (#1310).
+
+    `scoring_kriterien.fuer_scoring` ist das Nadeloehr jeder
+    Score-Berechnung (mit den Alternativbezeichnungen der Pflichtbegriffe).
+    EINMAL je Lauf laden (`anwenden`), nicht je Stelle (#1154). Lassen sie
+    sich nicht lesen, gibt es kein Veto - das bisherige Verhalten.
+    """
+    try:
+        from .scoring_kriterien import fuer_scoring
+        return fuer_scoring(db) or {}
+    except Exception as exc:  # pragma: no cover - die Automatik darf nie blockieren
+        logger.debug("Kriterien fuer das MUSS-Tor nicht lesbar: %s", exc)
+        return {}
+
+
+#: #1310: Hinweis, wenn ein Pflichtbegriff das Muster "falsches Fachgebiet" schlaegt.
+TOR_HINWEIS = (
+    "Gleicht früher als falsches Fachgebiet aussortierten Stellen "
+    "(gemeinsam: {gemeinsam}), trägt aber deinen Pflichtbegriff „{begriff}“ — "
+    "der Pflichtbegriff schlägt das Titel-Muster.")
+
+
+def _tor_widerspricht(db, job: dict, grund: str, muster: Optional[dict],
+                      kriterien: Optional[dict]) -> str:
+    """Oeffnet das MUSS-Tor fuer diese Stelle? Dann gilt das Muster nicht (#1310).
+
+    Gefragt wird `muss_tor.tor_offen` - dieselbe Pruefung wie im Score
+    (`calculate_score`) und in der Fit-Analyse, keine zweite Fassung. Ohne
+    Pflichtbegriffe im Profil oeffnet nichts, es gibt kein Veto.
+    Gibt die Begruendung zurueck, sonst einen leeren String.
+    """
+    if grund not in TOR_GRUENDE:
+        return ""
+    if kriterien is None:
+        kriterien = kriterien_laden(db)
+    from . import muss_tor
+    treffer = muss_tor.tor_offen(job, kriterien)
+    if not treffer:
+        return ""
+    m = muster or {}
+    woerter = m.get("tokens") or m.get("domain_tokens") or []
+    return TOR_HINWEIS.format(gemeinsam=", ".join(list(woerter)[:4]) or "-",
+                              begriff=treffer[0])
+
+
 #: Hinweis fuer eine Stelle, die einem Muster gleicht, aber ohne
 #: Anzeigentext gekommen ist (#1250).
 OHNE_TEXT_HINWEIS = (
@@ -417,7 +482,8 @@ def _ohne_text(job: dict, muster: dict, grund: str) -> dict:
 
 def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
                bekannte_schluessel: Optional[set] = None,
-               ist_repost: bool = False) -> dict:
+               ist_repost: bool = False,
+               kriterien: Optional[dict] = None) -> dict:
     """Was soll mit einem frischen Treffer geschehen?
 
     Args:
@@ -429,6 +495,9 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
             `bereits_aussortierte_schluessel`, ebenfalls vorab.
         ist_repost: Auf diese Stelle wurde bereits beworben — dann wird
             NIE automatisch gehandelt.
+        kriterien: #1310 - die Kriterien aus `kriterien_laden`, vorab
+            geladen. Fehlen sie, werden sie erst geladen, wenn ein Muster
+            "falsches Fachgebiet" sie braucht.
 
     Returns:
         dict mit `aktion` (anlegen|aussortieren|ignorieren), `grund`
@@ -441,6 +510,7 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
 
     titel = job.get("title") or ""
     firma = job.get("company") or ""
+    ort = job.get("location") or ""
 
     if dismissed is None:
         dismissed = _lade(db)
@@ -449,7 +519,7 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
     # v1.7.99 (#1036): ein reines Entfernungs-Urteil gilt nur fuer denselben Ort.
     if bekannte_schluessel is None:
         bekannte_schluessel = bereits_aussortierte_schluessel(dismissed)
-    k = _domain_schluessel(firma, titel)
+    k = _domain_schluessel(firma, titel, ort)
     if _stufe2_trifft(job, k, bekannte_schluessel):
         return {
             "aktion": "ignorieren",
@@ -467,6 +537,7 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         schwellwert=AUTOMATIK_SCHWELLE,
         target_hash=job.get("hash"),
         dismissed=belege,
+        ort=ort,
     )
     if muster and not _ortsgrund_belegt(
             job, firma, muster.get("top_grund") or "", belege):
@@ -479,7 +550,9 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
         # derselbe Arbeitgeber am selben Ort ist beim naechsten Mal
         # wieder gleich weit weg. Hat sich die Zahl aber geaendert,
         # steht sie in derselben Zeile wie das Urteil.
-        _widerspruch = _zahl_widerspricht(db, job, grund)
+        # #1310: ebenso schlaegt ein Pflichtbegriff "falsches Fachgebiet".
+        _widerspruch = (_zahl_widerspricht(db, job, grund)
+                        or _tor_widerspricht(db, job, grund, muster, kriterien))
         # #1250: in Stufe 1 (dieselbe Firma) braucht nur ein Grund, den
         # allein der Anzeigentext belegt, den Text. Entfernung, Gehalt,
         # Vertrag und Firma haengen am Arbeitgeber und am Ort (#1020, #1036).
@@ -501,13 +574,16 @@ def entscheide(db, job: dict, *, dismissed: Optional[list] = None,
 
     # Stufe 1b: dieselbe Art Stelle, andere Firma (#941-Regressionsfall).
     titel_muster = find_titel_muster(db, titel, dismissed,
-                                     target_hash=job.get("hash"))
+                                     target_hash=job.get("hash"), ort=ort)
     if titel_muster:
         grund = titel_muster.get("top_grund") or "sonstiges"
         # Doppelter Boden: nach der Filterung kann hier kein messbarer
         # Grund mehr ankommen — geprueft wird trotzdem, weil die Menge
         # sich aendern kann und die Zahl dann wieder ueberstimmt wuerde.
-        _widerspruch = _zahl_widerspricht(db, job, grund)
+        # #1310: ein Pflichtbegriff des Profils schlaegt "falsches Fachgebiet".
+        _widerspruch = (_zahl_widerspricht(db, job, grund)
+                        or _tor_widerspricht(db, job, grund, titel_muster,
+                                             kriterien))
         if _widerspruch:
             return {"aktion": "anlegen", "grund": "", "beleg": "",
                     "hinweis": _widerspruch}
@@ -555,6 +631,8 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
     """
     dismissed = _lade(db)
     schluessel = bereits_aussortierte_schluessel(dismissed)
+    # #1310: einmal je Lauf, nicht je Stelle.
+    kriterien = kriterien_laden(db)
     beworbene = beworbene_hashes or set()
     bewerbungen = _bewerbungen_lesen(db)
     # #1080: einmal je Lauf - frueherer Name und Kurzform aus den Firmen-
@@ -591,6 +669,7 @@ def anwenden(db, jobs: list, *, beworbene_hashes: Optional[set] = None) -> dict:
             db, job, dismissed=dismissed, bekannte_schluessel=schluessel,
             ist_repost=bool(job.get("hash") in beworbene
                             or job.get("_repost_verdacht")),
+            kriterien=kriterien,
         )
         if e["aktion"] == "ignorieren":
             zaehler["ignoriert"] += 1

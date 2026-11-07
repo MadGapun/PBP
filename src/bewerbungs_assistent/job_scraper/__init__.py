@@ -3388,7 +3388,10 @@ def calculate_score(job: dict, criteria: dict) -> int:
     # jobs.description — diese koennen Ausschluss-Keywords enthalten und
     # das Scoring sabotieren.
     description_for_score = _strip_pbp_notes(description)
-    text = f"{title} {description_for_score}".lower()
+    # #1310: der Tor-Text kommt aus `muss_tor.tor_text` — dieselbe Funktion
+    # fragt die Wiedergaenger-Automatik.
+    from ..services import muss_tor as _tor
+    text = _tor.tor_text(job, bereinigt=description_for_score)
     w = _parse_weights(criteria)
 
     # v1.7.12 (#827, C32): Kern-Text = Titel + Beschreibung OHNE die
@@ -3464,15 +3467,15 @@ def calculate_score(job: dict, criteria: dict) -> int:
         or any(_strict_keyword_match(alt_kw, text)
                for alt_kw in (_muss_syn.get(kw) or []))
     ]
-    muss_tor_kws = [kw for kw in muss
-                    if _muss_tor_match(kw, text, _muss_syn.get(kw))]
+    # #1310: die Tor-Frage steht in `muss_tor.pflicht_treffer` — dieselbe
+    # Funktion fragt die Wiedergaenger-Automatik vor "falsches Fachgebiet".
+    muss_tor_kws = _tor.pflicht_treffer(criteria, text)
     muss_found = len(muss_tor_kws)
     # v1.7.68 (#968): Betriebsart des Tors. `hart` verwirft (bisheriges
     # Verhalten und weiterhin Vorgabe), `gewichtet` laesst die Stelle
     # weiterrechnen und deckelt sie am Ende. Die Entscheidung steht in
     # den Kriterien, nicht in der Datenbank — sonst rechnete der
     # Suchlauf anders als die Neuberechnung (#987).
-    from ..services import muss_tor as _tor
     _ohne_muss = bool(muss) and muss_found == 0 and _tor.gewichtet_aktiv(criteria)
     if _ohne_muss:
         job["_ohne_muss_treffer"] = True
@@ -3814,7 +3817,8 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # calculate_score gegen den gestrippten; dieselbe Stelle bekam je
     # nach Pfad verschiedene Scores.
     _desc = _strip_pbp_notes(job.get("description", "") or "")
-    text = f"{job.get('title', '')} {_desc}".lower()
+    from ..services import muss_tor as _tor
+    text = _tor.tor_text(job, bereinigt=_desc)  # #1310: ein Tor-Text
     w = _parse_weights(criteria)
 
     muss = criteria.get("keywords_muss", [])
@@ -4147,8 +4151,7 @@ def fit_analyse(job: dict, criteria: dict) -> dict:
     # behalten (beschreibung_vorhanden, beschreibung_unvollstaendig,
     # ...), sonst brechen Aufrufer weg, die nur die Analyse lesen. Das
     # Tor nullt den Score, es kuerzt nicht die Auskunft.
-    _kein_muss_tor = bool(muss) and not any(
-        _muss_tor_match(kw, text, _muss_syn_fit.get(kw)) for kw in muss)
+    _kein_muss_tor = bool(muss) and not _tor.pflicht_treffer(criteria, text)
     # v1.7.68 (#968): AK 5 — beide Rechenwege tragen die Betriebsart
     # gemeinsam. Stuende sie nur in `calculate_score`, haette dieselbe
     # Stelle je nach Werkzeug einen anderen Wert; das ist #963 und

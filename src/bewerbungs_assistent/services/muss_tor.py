@@ -344,3 +344,45 @@ def marke(job: dict, criteria: dict | None = None) -> dict | None:
             "Sie steht deshalb hinter allen Stellen, die einen "
             "treffen."),
     }
+
+
+# ── Die Tor-Frage selbst (#1310) ────────────────────────────────────
+#
+# "Oeffnet ein Pflichtbegriff das Tor fuer diese Anzeige?" stellten bis
+# v1.8.1 zwei Stellen selbst (`calculate_score`, `fit_analyse`), jede mit
+# ihrer eigenen Zeile. Seit #1310 fragt auch die Wiedergaenger-Automatik
+# danach (ein Titel-Muster "falsches Fachgebiet" darf eine Stelle nicht
+# wegnehmen, die einen Pflichtbegriff traegt). Drei Fragesteller, EINE
+# Funktion — sonst waere es dieselbe Bauform wie #963.
+
+
+def tor_text(job: dict, *, bereinigt: str | None = None) -> str:
+    """Der Text, gegen den das Tor prueft: Titel + Beschreibung, klein.
+
+    Die Beschreibung ohne PBP-Notizen (#603, #917 Defekt D). Wer sie schon
+    bereinigt hat, reicht sie als `bereinigt` herein (der Score tut das,
+    er braucht sie auch fuer andere Fragen).
+    """
+    if bereinigt is None:
+        from ..job_scraper import _strip_pbp_notes
+        bereinigt = _strip_pbp_notes(job.get("description", "") or "")
+    return f"{job.get('title', '') or ''} {bereinigt}".lower()
+
+
+def pflicht_treffer(criteria: dict | None, text: str) -> list:
+    """Die Pflichtbegriffe, die das Tor fuer diesen Text oeffnen.
+
+    Dieselbe Pruefung wie seit #940 (`_muss_tor_match`, praezise, mit den
+    amtlichen Alternativbezeichnungen aus `_muss_synonyme`, #969). Ohne
+    Pflichtbegriffe im Profil eine leere Liste.
+    """
+    from ..job_scraper import _muss_tor_match
+    krit = criteria or {}
+    muss = krit.get("keywords_muss", []) or []
+    syn = krit.get("_muss_synonyme") or {}
+    return [kw for kw in muss if _muss_tor_match(kw, text, syn.get(kw))]
+
+
+def tor_offen(job: dict, criteria: dict | None) -> list:
+    """`pflicht_treffer` fuer eine Stelle (Titel + Beschreibung)."""
+    return pflicht_treffer(criteria, tor_text(job))

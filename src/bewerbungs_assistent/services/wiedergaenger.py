@@ -84,6 +84,29 @@ _TITLE_STOPS = {
     # #1028: Umfang und Einstieg sind kein Fachgebiet (#1023 trennt sie
     # ausdruecklich von der Art der Stelle).
     "vollzeit", "teilzeit", "quereinsteiger", "quereinsteigerin",
+    # #1310: "Voll- oder Teilzeit" laesst "voll" als Fragment stehen.
+    "voll",
+    # #1310: Gegenstuecke vorhandener Rollenwoerter. "assistenz" stand
+    # drin, "teamassistenz" nicht; "Kaufmann"/"Kauffrau" sind die
+    # Berufsbezeichnung, das Fach steht daneben ("... fuer Bueromanagement").
+    "teamassistenz", "kaufmann", "kauffrau", "kaufleute",
+    # #1310: Eigenschaftswoerter begleiten jedes Fach und benennen keines.
+    # Gemessen trug "kaufmaennischer" 20 Belege "falsches Fachgebiet" -
+    # der Mensch hatte jeweils wegen des Fachs daneben aussortiert.
+    # Echte Faecher ("buchhaltung", "sekretariat", "einkauf") bleiben
+    # bewusst draussen.
+    "kaufmaennisch", "kaufmaennische", "kaufmaennischer",
+    "kaufmaennisches", "kaufmaennischen",
+    "technisch", "technische", "technischer", "technisches", "technischen",
+    "gewerblich", "gewerbliche", "gewerblicher", "gewerbliches",
+    "gewerblichen",
+    # #1310 (Messung auf einer Bestandskopie): ohne den Ortsnamen blieb die
+    # gemeinsame Menge oefter stehen, und dann trugen Arbeitsmodell und
+    # Rolle das "Fachgebiet". Arbeitsmodell ist kein Fach (#1023 trennt es),
+    # "Projektleiter" ist eine Rolle wie "Leiter" ("projekt" steht schon in
+    # _GENERIC_ROLE_TOKENS, die Zusammensetzung nicht).
+    "remote", "hybrid", "homeoffice", "onsite",
+    "projektleiter", "projektleiterin", "projektmanager", "projektmanagerin",
 }
 
 # #1028: Platzhalter, die Adapter bei fehlender Firmenangabe einsetzen.
@@ -201,17 +224,36 @@ def ist_firmen_platzhalter(name: Optional[str]) -> bool:
     return norm in FIRMEN_PLATZHALTER
 
 
-def _domain_tokens(title: Optional[str]) -> set:
+def _ort_tokens(orte) -> set:
+    """Die Woerter aus Ortsangaben, in Umschrift (#1310).
+
+    Dieselbe Zerlegung wie `_domain_tokens`, damit "München" im Titel und
+    "Muenchen" im Ortsfeld zusammenfallen. Leere Angaben liefern nichts.
+    """
+    woerter: set = set()
+    for ort in orte or ():
+        if ort:
+            woerter |= {_umschrift(t) for t in
+                        re.findall(r"[a-zäöüß0-9]+", str(ort).lower())}
+    return woerter
+
+
+def _domain_tokens(title: Optional[str], orte=None) -> set:
     """Extrahiert die fachlichen Domaenen-Tokens aus einem Stellentitel.
 
     Generische Rollen-/Grammatik-/Gender-Woerter werden entfernt, sodass
     nur das fachliche Signal (z.B. {"plm"} aus "PLM Project Manager (m/w/d)")
     uebrig bleibt. Seit #754 fallen auch Rollen-Zuschnitt-Tokens raus
     ("project", "product", ...) — die tragen Rollen-, keine Fach-Information.
+
+    #1310: `orte` sind die Ortsangaben der Stelle (ihr Feld `location`).
+    Ein Wort daraus ist kein Fachgebiet — gemessen war ein Ortsname mit 28
+    Belegen das haeufigste gelernte "Fachwort" fuer `falsches_fachgebiet`.
     """
     if not title:
         return set()
     raw = set(re.findall(r"[a-zäöüß0-9]+", title.lower()))
+    ort_woerter = _ort_tokens(orte)
     return {
         t for t in raw
         if t not in _TITLE_STOPS and _umschrift(t) not in _TITLE_STOPS
@@ -219,6 +261,7 @@ def _domain_tokens(title: Optional[str]) -> set:
         # #1028: reine Ziffern (ein Datum "zum 01.10.") sind kein
         # Fachgebiet; "s4hana" mit Ziffer im Wort bleibt eines.
         and not t.isdigit()
+        and _umschrift(t) not in ort_woerter
     }
 
 
@@ -458,6 +501,7 @@ def find_wiedergaenger_pattern(
     min_overlap: int = 1,
     target_hash: Optional[str] = None,
     dismissed: Optional[list] = None,
+    ort: Optional[str] = None,
 ) -> Optional[dict]:
     """Ebene 0 (#671): KI-freier Wiedergaenger-Check.
 
@@ -477,6 +521,8 @@ def find_wiedergaenger_pattern(
         dismissed: v1.7.12 (#827) — vorab geladene Liste aussortierter
             Stellen. stellen_anzeigen prueft jede Stelle der Seite; ohne
             Preload wuerde jeder Aufruf den vollen Bestand neu laden.
+        ort: #1310 — Ortsangabe der zu pruefenden Stelle. Ihr Ortsname
+            (und der Ort jedes Belegs) zaehlt nicht als Fachwort.
 
     Returns:
         None wenn kein klares Muster, sonst dict mit:
@@ -485,7 +531,7 @@ def find_wiedergaenger_pattern(
     norm_company = normalize_company(company)
     if not norm_company:
         return None
-    target_tokens = _domain_tokens(title)
+    target_tokens = _domain_tokens(title, orte=(ort,))
     target_roles = _role_families(title)
 
     if dismissed is None:
@@ -507,7 +553,7 @@ def find_wiedergaenger_pattern(
         # einer toten Anzeige aus der Liste ging, ist kein Beleg.
         if not urteilsgruende(j):
             continue
-        jt = _domain_tokens(j.get("title"))
+        jt = _domain_tokens(j.get("title"), orte=(j.get("location"),))
         shared = target_tokens & jt
         if target_tokens:
             # Die neue Stelle hat ein Fach-Signal: Ueberlappung ist Pflicht.
