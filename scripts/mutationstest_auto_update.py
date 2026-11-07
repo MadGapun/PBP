@@ -735,8 +735,8 @@ M_GOOGLE = [
     ("gj32", "Nachholen: wird gar nicht aufgerufen", SAE,
      '    nachgeholt = _vorbehalt_aufheben(db, resolved, job) if updates else None\n', '    nachgeholt = None\n', T_GA),
     ("gj33", "Nachholen: der Score wird bei neuem Arbeitsmodell nicht neu gerechnet", SAE,
-     '    if "description" in updates or "title" in updates or entfernung_geaendert or nachgeholt:\n',
-     '    if "description" in updates or "title" in updates or entfernung_geaendert:\n', T_GA),
+     '    if ("description" in updates or "title" in updates or entfernung_geaendert or nachgeholt\n',
+     '    if ("description" in updates or "title" in updates or entfernung_geaendert\n', T_GA),
 ]
 
 # ── Browser-Suchlauf: im Zweifel eintragen, Vorschau prueft wie die Anlage (#1187, B77) ──
@@ -3047,7 +3047,7 @@ M_AUTOMATIK_SCHUTZ = [
      "    def restore_job(self, job_hash: str, durch_mensch: bool = True) -> bool:",
      "    def restore_job(self, job_hash: str, durch_mensch: bool = False) -> bool:", T_AS),
     ("as12", "Der Suchlauf loescht den Vermerk (fehlt in _BEWAHREN)", AS_DB,
-     '        "zurueckgeholt_am",\n    )', '    )', T_AS),
+     '        "zurueckgeholt_am",\n        # #1299', '        # #1299', T_AS),
     # Dubletten: die behaltene Kopie bekommt den Volltext
     ("as13", "Die Dublette gibt ihren Text nicht ab", AS_DB,
      '                            text_uebergaben[original_hash] = job.get("description")\n', '                            pass\n', T_AS),
