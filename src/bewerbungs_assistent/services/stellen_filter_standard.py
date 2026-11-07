@@ -11,6 +11,9 @@ nach jedem Verlassen der Liste neu einstellen. Jetzt kann der Mensch seinen Zust
 
 Gespeichert wird je Profil auf dem Server (nicht im Browser): sie überlebt gesperrten Browserspeicher und gilt in jedem
 Browser. Der Server prüft Schlüssel und Typen streng; die Oberfläche liest nur, was sie kennt (`filterAusSpeicher`).
+
+Abgrenzung (#1307): benannte eigene Filter (Ansichten und Regeln) speichert `gespeicherte_filter.py`, ihre Bedingungen prüft
+`stellen_filter.py`. Hier steht nur, welche Schalter (und welche Ansicht) beim Öffnen gelten.
 """
 from __future__ import annotations
 
@@ -31,6 +34,10 @@ SCHLUESSEL: dict = {
     "pruefstand": str,
     "rahmenAusblenden": bool,
     "schwelleAusblenden": bool,
+    # #1308: Sprachen der Anzeige als Text mit Komma ("de,gemischt"); #1307: Kennung einer gespeicherten Ansicht
+    # (eigene Filter stehen in `gespeicherte_filter.py`, nicht hier - hier steht nur, welche beim Oeffnen gewaehlt ist).
+    "sprache": str,
+    "ansicht": str,
 }
 
 EINSTELLUNG = "stellen_filter_standard"

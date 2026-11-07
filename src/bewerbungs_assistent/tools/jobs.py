@@ -305,7 +305,17 @@ _SCHWELLE_VERGLEICHT = (
 
 def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
     """Nach der Suche aussortieren — seit #1092 nur noch ein Aufruf des
-    gemeinsamen Dienstes, mit Schalter (Vorgabe aus)."""
+    gemeinsamen Dienstes, mit Schalter (Vorgabe aus).
+
+    #1307: davor die eigenen Regeln - dieselbe Reihenfolge wie
+    `services/jobsuche_start._lauf`."""
+    try:
+        from ..services import gespeicherte_filter
+        gespeicherte_filter.nach_suche(db, job_id)
+    except Exception as exc:  # nicht fatal — die Suche selbst war gut
+        import logging as _log
+        _log.getLogger("bewerbungs_assistent.tools.jobs").warning(
+            "Eigene Regeln nach der Suche fehlgeschlagen: %s", exc)
     try:
         from ..services import auto_aussortierung
         auto_aussortierung.nach_suche(db, job_id)
@@ -313,6 +323,13 @@ def _maybe_auto_dismiss_after_search(db, job_id: str) -> None:
         import logging as _log
         _log.getLogger("bewerbungs_assistent.tools.jobs").warning(
             "Auto-Aussortierung nach der Suche fehlgeschlagen: %s", exc)
+
+
+def _regeln_nach_uebernahme(db, ergebnis: dict, hashes: list) -> None:
+    """#1307: eigene Regeln nach einer Uebernahme aus dem Browser - der Dienst
+    schreibt sein Ergebnis unter `eigene_regeln` in die Antwort, nie fatal."""
+    from ..services import gespeicherte_filter
+    gespeicherte_filter.nach_uebernahme(db, ergebnis, hashes)
 
 
 def register(mcp, db, logger):
@@ -1049,6 +1066,8 @@ def register(mcp, db, logger):
         titel_enthaelt_nicht: list[str] = None,
         beschreibung_enthaelt_nicht: list[str] = None,
         max_treffer: int = 0,
+        beschreibung_enthaelt: list[str] = None,
+        sprache: list[str] = None,
     ) -> dict:
         """Bewertet mehrere aktive Stellen auf einmal anhand von Filtern (#514).
 
@@ -1086,6 +1105,9 @@ def register(mcp, db, logger):
             titel_enthaelt_nicht: NOR-Liste — Titel darf KEINEN davon enthalten
             beschreibung_enthaelt_nicht: NOR-Liste für Beschreibung —
                 Hauptwerkzeug für Fachgebiets-Aussortierung
+            beschreibung_enthaelt: Beschreibung enthält ALLE.
+            sprache: 'de', 'en', 'gemischt', 'andere', 'unbekannt' (zu
+                wenig Text; nur getroffen, wenn genannt).
             max_treffer: harter Cap auf die Anzahl Treffer (0 = kein Limit).
                 Sinnvoll wenn man nicht sicher ist wie weit der Filter trifft.
 
@@ -1102,7 +1124,6 @@ def register(mcp, db, logger):
                 {"dry_run": False, "bearbeitet": N, "ablehnungs_statistik": {...},
                  "hinweise": [...], "stichprobe_bearbeitet": [...erste 5...]}
         """
-        from datetime import datetime, timedelta
         import time as _time
 
         # #646: Wall-Clock-Budget — Schutz gegen DB-Lock-Konflikt mit
@@ -1175,46 +1196,27 @@ def register(mcp, db, logger):
                 exclude_blacklisted=True,
             )
 
-        # 3) In-Memory-Filter fuer alles was die DB-API nicht direkt anbietet
-        now = datetime.now()
-        firma_lc = (firma or "").lower().strip()
-        title_must = [t.lower() for t in (titel_enthaelt or []) if t]
-        title_must_not = [t.lower() for t in (titel_enthaelt_nicht or []) if t]
-        desc_must_not = [t.lower() for t in (beschreibung_enthaelt_nicht or []) if t]
-
-        def _matches(job: dict) -> bool:
-            score = int(job.get("score") or 0)
-            if max_score is not None and score > max_score:
-                return False
-            # Alter
-            found_at = job.get("found_at") or ""
-            if min_alter_tage is not None or max_alter_tage is not None:
-                if not found_at:
-                    return False
-                try:
-                    found_dt = datetime.fromisoformat(found_at.replace("Z", "+00:00").split("+")[0])
-                except (ValueError, TypeError):
-                    return False
-                age_days = (now - found_dt).days
-                if min_alter_tage is not None and age_days < min_alter_tage:
-                    return False
-                if max_alter_tage is not None and age_days > max_alter_tage:
-                    return False
-            # Firma
-            if firma_lc and firma_lc not in (job.get("company") or "").lower():
-                return False
-            # Titel-Filter
-            title_lc = (job.get("title") or "").lower()
-            if title_must and not all(t in title_lc for t in title_must):
-                return False
-            if title_must_not and any(t in title_lc for t in title_must_not):
-                return False
-            # Beschreibung
-            if desc_must_not:
-                desc_lc = (job.get("description") or "").lower()
-                if any(t in desc_lc for t in desc_must_not):
-                    return False
-            return True
+        # 3) In-Memory-Filter: EINE Funktion fuer Bulk, Ansichten und Regeln
+        #    (#1307, services/stellen_filter.py). Bis v1.8.1 stand sie hier als
+        #    innere Funktion `_matches`. Die Untergrenze wirkt wie bisher nur ab
+        #    1 (darunter galt sie nie, auch nicht in der Datenbank-Abfrage).
+        from ..services import stellen_filter as _sf
+        try:
+            bedingungen = _sf.bedingungen_lesen({
+                "min_score": min_score if (min_score is not None and min_score > 0) else None,
+                "max_score": max_score,
+                "min_alter_tage": min_alter_tage,
+                "max_alter_tage": max_alter_tage,
+                "quelle": quelle,
+                "firma": firma,
+                "titel_enthaelt": titel_enthaelt,
+                "titel_enthaelt_nicht": titel_enthaelt_nicht,
+                "beschreibung_enthaelt": beschreibung_enthaelt,
+                "beschreibung_enthaelt_nicht": beschreibung_enthaelt_nicht,
+                "sprache": sprache,
+            })
+        except _sf.UngueltigeBedingung as fehler:
+            return {"fehler": str(fehler)}
 
         # #646: Nach DB-Load Budget pruefen — wenn schon abgelaufen ist es
         # ein DB-Lock-Verdacht (auto_refetch_descriptions oder anderes hat
@@ -1222,7 +1224,7 @@ def register(mcp, db, logger):
         if _budget_left() <= 0:
             return _timeout_result("db_load")
 
-        matched = [j for j in candidates if _matches(j)]
+        matched = _sf.filtern(candidates, bedingungen)
         if max_treffer and max_treffer > 0:
             matched = matched[:max_treffer]
 
@@ -1239,7 +1241,7 @@ def register(mcp, db, logger):
                 }
                 for j in matched[:10]
             ]
-            return {
+            vorschau_antwort = {
                 "dry_run": True,
                 "bewertung": bewertung,
                 "gruende": reason_list if bewertung == "passt_nicht" else None,
@@ -1251,6 +1253,17 @@ def register(mcp, db, logger):
                     "um die Änderung tatsächlich anzuwenden."
                 ),
             }
+            if "sprache" in bedingungen:
+                # #1308: die Sprache je Beispiel, und wie viele Stellen ohne
+                # erkennbare Sprache NICHT getroffen werden (unbekannt ist ein
+                # eigener Zustand, kein "passt").
+                from ..services import sprache as _spr
+                for eintrag, j in zip(preview, matched[:10]):
+                    eintrag["sprache"] = _spr.erkennen_stelle(j)
+                if "unbekannt" not in bedingungen["sprache"]:
+                    vorschau_antwort["sprache_unbekannt_im_bestand"] = sum(
+                        1 for j in candidates if _spr.erkennen_stelle(j) == "unbekannt")
+            return vorschau_antwort
 
         # 5) Tatsaechliche Anwendung — durch die echte Lifecycle-Logik
         if not matched:
@@ -1362,7 +1375,9 @@ def register(mcp, db, logger):
         nur_empfohlen: bool = False,
         nur_beurteilt: bool = False,
         ohne_schwelle: bool = False,
-        gefunden_seit: str = ""
+        gefunden_seit: str = "",
+        sprache: list[str] = None,
+        ansicht: str = "",
     ) -> dict:
         """Zeigt gefundene Stellenangebote an.
 
@@ -1395,6 +1410,10 @@ def register(mcp, db, logger):
             gefunden_seit: Datum YYYY-MM-DD — nur Stellen, die PBP an
                 diesem Tag oder später gefunden hat (#1112, z. B. für
                 einen Abgleich nur der neuen Stellen). Leer = alle.
+            sprache: nur diese Sprachen: 'de', 'en', 'gemischt', 'andere',
+                'unbekannt' (zu wenig Text).
+            ansicht: Name einer gespeicherten Ansicht
+                (stellen_filter_verwalten).
         """
         # #1148: Seitenwerte unter 1 (oder keine Zahl) gaben eine rohe
         # Python-Meldung zurueck ("integer division or modulo by zero" bei
@@ -1430,6 +1449,25 @@ def register(mcp, db, logger):
             except ValueError:
                 return {"fehler": (f"gefunden_seit '{gefunden_seit}' ist kein Datum. "
                                    "Erwartet: YYYY-MM-DD, z. B. 2026-09-20.")}
+        # #1307/#1308: gespeicherte Ansicht und Sprache - dieselbe Pruefung
+        # wie stellen_bulk_bewerten und die Regeln (services/stellen_filter).
+        from ..services import stellen_filter as _sf
+        from ..services import sprache as _sprache
+        _ansicht = None
+        if (ansicht or "").strip():
+            from ..services import gespeicherte_filter as _gf
+            _ansicht = _gf.holen(db, ansicht)
+            if not _ansicht:
+                return {"fehler": f"Keine gespeicherte Ansicht „{ansicht}“.",
+                        "vorhandene_ansichten": [f["name"] for f in _gf.alle(db)],
+                        "naechster_schritt": "Anlegen mit stellen_filter_verwalten(aktion='anlegen', "
+                                             "art='ansicht', name=..., ...)."}
+        try:
+            _sprach_bedingung = _sf.bedingungen_lesen({"sprache": sprache})
+        except _sf.UngueltigeBedingung as fehler:
+            return {"fehler": str(fehler)}
+        _sprache_von = _sf.sprach_speicher()
+
         # v1.7.39 (#989): Datenguete einmal je Aufruf vorbereiten — die
         # Kriterien und die Nutzereinstellung sind fuer alle Zeilen
         # dieselben, und eine Netz- oder DB-Abfrage je Stelle waere
@@ -1493,6 +1531,10 @@ def register(mcp, db, logger):
             jobs = [j for j in jobs if (j.get("found_at") or "") >= cutoff]
         if seit:
             jobs = [j for j in jobs if (j.get("found_at") or "")[:10] >= seit]
+        if _ansicht:
+            jobs = _sf.filtern(jobs, _ansicht["bedingungen"], sprache_von=_sprache_von)
+        if _sprach_bedingung:
+            jobs = _sf.filtern(jobs, _sprach_bedingung, sprache_von=_sprache_von)
 
         # Apply scoring adjustments (#169)
         durch_schwelle_verborgen = 0
@@ -1657,6 +1699,10 @@ def register(mcp, db, logger):
                 _filter_woerter.append("nur noch nicht beworben")
             if nur_empfohlen:
                 _filter_woerter.append("ohne Stellen mit k.o.-Muster")
+            if _ansicht:
+                _filter_woerter.append(f"Ansicht „{_ansicht['name']}“")
+            if _sprach_bedingung:
+                _filter_woerter.append(_sf.klartext(_sprach_bedingung))
             if _filter_woerter and filter != "aussortiert":
                 _aktive = db.get_active_jobs(exclude_blacklisted=True)
                 if _aktive:
@@ -1728,6 +1774,8 @@ def register(mcp, db, logger):
                 "url": j.get("url", ""),
                 "gefunden_am": (j.get("found_at") or "")[:10],
             }
+            # #1308: beim Lesen erkannt, nicht gespeichert (dieselbe Fassung wie der Stellen-Tab).
+            entry.update(_sprache.merkmal(j, _sprache_von(j)))
             # v1.7.26 (#949 Befund 2): das Datum allein sagt wenig —
             # die LAUFZEIT ist das Signal. Eine seit Monaten laufende
             # Anzeige sah bisher taufrisch aus, weil nur `found_at`
@@ -1954,6 +2002,11 @@ def register(mcp, db, logger):
         }
         if _eingabe_korrigiert:
             result["eingabe_korrigiert"] = _eingabe_korrigiert
+        if _ansicht:
+            result["ansicht"] = {"name": _ansicht["name"],
+                                 "bedingungen": _sf.klartext(_ansicht["bedingungen"])}
+        if _sprach_bedingung:
+            result["sprach_filter"] = _sf.klartext(_sprach_bedingung)
         if ohne_urteil_verborgen:
             result["ohne_urteil_verborgen"] = ohne_urteil_verborgen
             result["urteils_hinweis"] = (
@@ -3752,6 +3805,8 @@ def register(mcp, db, logger):
                 f"Keine Stelle angelegt — alle {trichter['uebersprungen']} "
                 "wurden aussortiert. Die Gruende stehen im Trichter; das "
                 "ist ein Ergebnis, kein Ausfall.")
+        if not dry_run:  # #1307: eigene Regeln auf die angelegten Stellen (Antwort: "eigene_regeln")
+            _regeln_nach_uebernahme(db, ergebnis, [a.get("hash") for a in angelegt])
         return ergebnis
 
     @mcp.tool()
@@ -3982,6 +4037,8 @@ def register(mcp, db, logger):
             ergebnis["hinweis"] = (
                 f"Keine Stelle angelegt — {trichter['uebersprungen']} nicht übernommen. Die Gründe stehen im Trichter; "
                 "das ist ein Ergebnis, kein Ausfall.")
+        if not dry_run:  # #1307: eigene Regeln auf die angelegten Stellen (Antwort: "eigene_regeln")
+            _regeln_nach_uebernahme(db, ergebnis, [a.get("hash") for a in angelegt])
         return ergebnis
 
     # === v1.7.0-beta.5: n:m + Stellen-Vergleich (#472, #580) ===

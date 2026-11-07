@@ -99,7 +99,7 @@ Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische 
   `art_quelle`, `umfang_quelle`, `remote_quelle` an `jobs` (additiv, ohne Versionssprung).
 - Windows-Probe in der CI (#1294): Installer, Port-Selbsthilfe, Update und Deinstallation laufen bei jeder Änderung daran auf einem Windows-Runner.
 
-*Schema v52 (unverändert), 281 MCP-Werkzeuge.*
+*Schema v52 (unverändert, neue Tabelle `stellen_filter` als Safety-Net), 282 MCP-Werkzeuge.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 

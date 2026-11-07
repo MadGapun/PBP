@@ -56,6 +56,8 @@ ZWEISTUFIG: dict[str, str] = {
     "dokumente_text_nachziehen": "anwenden",
     "dokumente_bulk_archivieren": "dry_run",
     "stellen_bulk_bewerten": "dry_run",
+    # #1307: 'anwenden' (Regel auf den Bestand) und 'loeschen' zeigen ohne dry_run=False nur die Vorschau.
+    "stellen_filter_verwalten": "dry_run",
     "stellen_entfernen_nach_quelle": "dry_run",
     "stelle_mergen": "dry_run",
     "stellen_urls_heilen": "dry_run",
