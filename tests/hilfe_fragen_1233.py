@@ -335,7 +335,8 @@ AUSSERHALB: list[str] = [
 NICHT_BELEGT: list[str] = [
     "Gibt es PBP als App fürs Handy?",
     "Unterstützt PBP die Zwei-Faktor-Anmeldung?",
-    "Kann ich PBP in englischer Sprache benutzen?",
+    # "Kann ich PBP in englischer Sprache benutzen?" ist seit 1.8.2 belegt (FAQ, Test in
+    # test_v182_hilfe_englisch.py): der neue Abschnitt zur Sprache der Anzeige zog die Frage an.
     "Wie viele Nutzer können gleichzeitig mit PBP arbeiten?",
     "Kann ich Bewerbungen per WhatsApp verschicken?",
     "Gibt es einen Rabatt für Studierende?",

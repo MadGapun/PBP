@@ -42,7 +42,7 @@ Sektionen: **Added** (neue Features), **Changed** (bestehendes geändert),
 > und in den Eintraegen selbst dokumentiert. Seitdem gilt DoD-Punkt 9:
 > Scrub-Pflicht vor JEDEM GitHub-Text, Loeschen statt Editieren.
 
-## [1.8.2] - unveröffentlicht — Anstellungsart und Entfernung stimmen, eigene Filter und Sprache der Anzeige
+## [1.8.2] - 2026-11-07 — Anstellungsart und Entfernung stimmen, eigene Filter und Sprache der Anzeige
 
 <!-- anwender -->
 Stellen aus dem Browser kommen mit der richtigen Anstellungsart und Remote-Angabe an, und beides lässt sich nachträglich ändern.
@@ -62,6 +62,7 @@ Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische 
 - Anstellungsart und Remote kommen bei der Übernahme aus dem Browser richtig an und lassen sich danach von Hand ändern.
 - Falsche Entfernungen bei Zusätzen, Ländern und mehreren Orten sind behoben.
 - Eigene Filter als Ansicht oder Regel; Sprache der Anzeige als Filter und als Regel.
+- Die Automatik sortiert keine Stellen mehr als „falsches Fachgebiet“ aus, die deine Pflichtbegriffe tragen.
 - Die Gewichte ganzer Kategorien (MUSS, PLUS, MINUS …) lassen sich auch über Claude setzen.
 - Die Sicherung beim Deinstallieren gelingt auch bei englischem Datumsformat.
 
@@ -104,7 +105,7 @@ Eigene Filter lassen sich speichern, als Ansicht oder als Regel; rein englische 
   `art_quelle`, `umfang_quelle`, `remote_quelle` an `jobs` (additiv, ohne Versionssprung).
 - Windows-Probe in der CI (#1294): Installer, Port-Selbsthilfe, Update und Deinstallation laufen bei jeder Änderung daran auf einem Windows-Runner.
 
-*Schema v52 (unverändert, neue Tabelle `stellen_filter` als Safety-Net), 282 MCP-Werkzeuge.*
+*Schema v52 (unverändert, neue Tabelle `stellen_filter` als Safety-Net), 282 MCP-Werkzeuge, 10172 Tests.*
 
 ## 📦 Wie installiere oder aktualisiere ich PBP?
 
