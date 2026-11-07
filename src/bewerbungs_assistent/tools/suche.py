@@ -1794,3 +1794,74 @@ def register(mcp, db, logger):
             "id": grund_id,
             "is_active": bool(aktiv),
         }
+
+    @mcp.tool()
+    def stellen_filter_verwalten(
+        aktion: str = "anzeigen",
+        name: str = "",
+        art: str = "",
+        gruende: list[str] = None,
+        dry_run: bool = True,
+        min_score: int = None,
+        max_score: int = None,
+        min_alter_tage: int = None,
+        max_alter_tage: int = None,
+        quelle: str = "",
+        firma: str = "",
+        titel_enthaelt: list[str] = None,
+        titel_enthaelt_nicht: list[str] = None,
+        beschreibung_enthaelt: list[str] = None,
+        beschreibung_enthaelt_nicht: list[str] = None,
+        sprache: list[str] = None,
+    ) -> dict:
+        """Eigene Filter benannt speichern: als Ansicht (nur filtern) oder als Regel (neue Treffer aussortieren) (#1307).
+
+        Die Bedingungen sind dieselben wie bei stellen_bulk_bewerten (alle
+        mit UND verknüpft) und dieselbe Prüfung. Eine REGEL sortiert ab dem
+        Anlegen passende NEUE Treffer nach jeder Suche und nach jeder
+        Browser-Übernahme aus — beim Anlegen selbst nichts: die Antwort
+        zeigt, was sie heute treffen würde; den Bestand nimmt
+        aktion='anwenden' mit dry_run=False. Zurückgeholte Stellen, Stellen
+        mit gelesenem Urteil (empfohlen/bedingt) und Stellen mit Bewerbung
+        sortiert eine Regel nie aus; eine Stelle mit unbekannter Sprache
+        trifft eine Sprach-Regel nie.
+
+        Beispiel englische Anzeigen (#1308): erst einen eigenen Grund
+        anlegen lassen (ablehnungsgrund_anlegen('englischsprachig')), dann
+        stellen_filter_verwalten(aktion='anlegen', art='regel',
+        name='Englische Anzeigen', sprache=['en'],
+        gruende=['englischsprachig']).
+
+        Args:
+            aktion: 'anzeigen' (Vorgabe), 'anlegen', 'testen', 'anwenden'
+                (Regel auf den Bestand), 'aktivieren', 'deaktivieren',
+                'loeschen'.
+            name: Name oder Kennung des Filters.
+            art: beim Anlegen 'ansicht' oder 'regel'.
+            gruende: nur für 'regel': Gründe NUR aus der Liste, nie erfinden.
+            dry_run: 'anwenden'/'loeschen': True = nur Vorschau.
+            min_score: Punkte mindestens.
+            max_score: Punkte höchstens.
+            min_alter_tage: Tage seit Fund mindestens.
+            max_alter_tage: Tage seit Fund höchstens.
+            quelle: Quelle, z. B. 'stepstone'.
+            firma: Teil des Firmennamens.
+            titel_enthaelt: Titel enthält ALLE.
+            titel_enthaelt_nicht: Titel enthält KEINEN.
+            beschreibung_enthaelt: Anzeige enthält ALLE.
+            beschreibung_enthaelt_nicht: Anzeige enthält KEINEN.
+            sprache: 'de', 'en', 'gemischt', 'andere', 'unbekannt'.
+        """
+        from ..services import gespeicherte_filter as _gf
+        bedingungen = {
+            "min_score": min_score, "max_score": max_score,
+            "min_alter_tage": min_alter_tage, "max_alter_tage": max_alter_tage,
+            "quelle": quelle, "firma": firma,
+            "titel_enthaelt": titel_enthaelt, "titel_enthaelt_nicht": titel_enthaelt_nicht,
+            "beschreibung_enthaelt": beschreibung_enthaelt,
+            "beschreibung_enthaelt_nicht": beschreibung_enthaelt_nicht,
+            "sprache": sprache,
+        }
+        return _gf.verwalten(db, aktion, name=name, art=art,
+                             bedingungen={k: v for k, v in bedingungen.items() if v not in (None, "", [])},
+                             gruende=gruende, dry_run=dry_run)

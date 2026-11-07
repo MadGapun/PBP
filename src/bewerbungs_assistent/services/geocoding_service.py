@@ -138,12 +138,6 @@ _ORT_ZUSATZ_WOERTER = {
 }
 
 
-def _ist_nur_zusatz(text: str) -> bool:
-    """Besteht der Text nur aus Zusätzen wie "remote möglich" - also aus gar keinem Ort?"""
-    woerter = [w for w in re.split(r"[\s,/\-]+", str(text or "").lower()) if w]
-    return bool(woerter) and all(w in _ORT_ZUSATZ_WOERTER for w in woerter)
-
-
 def geocoding_aktiv() -> bool:
     """False, wenn kein Weg ins Netz gehen darf (Test-Suite, #1090)."""
     import os as _os
@@ -189,26 +183,250 @@ def nur_land_entfernt(roh: str, ziel: str) -> bool:
     return bool(ohne_land) and ohne_land == str(ziel or "").strip().lower()
 
 
-#: Angaben, die keinen Ort nennen, sondern das Arbeitsmodell oder den Raum.
-_KEIN_ORT = {"remote", "home office", "homeoffice", "deutschlandweit",
-             "bundesweit", "weltweit", "europa", "global"}
+# === #1300: die Ortsangabe einer Stelle zerlegen ===
+#
+# Gemeldet am 05.11.2026 an Browser-Uebernahmen: "Hamburg u.a." lag 218 km weg (der Zusatz ging mit an den
+# Dienst), "Deutschland (remote)" 619 km (ein Land wurde auf einen Punkt abgebildet), "100 % remote (Frankfurt)"
+# 8.425 km (der Ort stand in der Klammer, die Klammer flog weg, gefragt wurde "100 % remote" - und der Dienst fand
+# ohne Landeszusatz etwas in Uebersee), und bei "Deutschland (mostly remote; Frankfurt, Mannheim, ...)" stand im
+# Feld eine andere Zahl als im Rahmen. `ort_zerlegen` ist die EINE Stelle, die aus dem Text die Orte macht; alle
+# Wege (Abfrage, Schluessel, Entfernung) fragen sie.
+
+#: Ein angehaengter Hinweis auf weitere Orte: "Hamburg u.a.", "Bremen uvm.". Ein Trenner wie das Komma. Die
+#: Wortgrenzen sind Absicht: "u.a." steckt sonst in "Bau.a..." (Lehre L5).
+_WEITERE_ORTE = re.compile(
+    r"(?<![\w.])(?:u\.\s?a\.?|u\.\s?v\.\s?m\.?|uvm\.?|und\s+(?:weitere|andere)(?:\s+(?:standorte|orte))?"
+    r"|sowie\s+weitere(?:\s+standorte)?|und\s+umgebung)(?![\w])",
+    re.IGNORECASE)
+
+#: Vollstaendig remote, ausdruecklich: "100 % remote", "fully remote", "vollständig remote".
+_REMOTE_VOLL = re.compile(
+    r"(?<![\w-])(?:100\s*%\s*|voll(?:ständig|staendig)?\s+|fully\s+|full\s+|komplett\s+|rein\s+|nur\s+"
+    r"|ausschlie(?:ß|ss)lich\s+)remote(?!\w)",
+    re.IGNORECASE)
+
+#: Remote nur teilweise: "mostly remote", "teilweise remote", "hybrid", "remote möglich".
+_REMOTE_TEIL = re.compile(
+    r"(?<![\w-])(?:(?:mostly|überwiegend|ueberwiegend|teilweise|teils|partly|partially)\s+"
+    r"(?:remote|home[\s-]?office)|hybrid|teilremote|(?:remote|home[\s-]?office|homeoffice)\s+"
+    r"(?:möglich|moeglich|optional))(?!\w)",
+    re.IGNORECASE)
+
+#: Irgendein Remote-Hinweis. Wortgrenzen: ein Ortsname, der die Buchstabenfolge enthaelt, bleibt.
+_REMOTE_WORT = re.compile(
+    r"(?<![\w-])(?:remote|home[\s-]?office|homeoffice|mobiles\s+arbeiten|ortsunabh(?:ä|ae)ngig)(?!\w)",
+    re.IGNORECASE)
+
+#: Was aus einem Teil gestrichen wird, bevor er als Ort zaehlt (Remote-Angaben samt Zusatz).
+_STREICHEN = re.compile(
+    r"(?<![\w-])(?:100\s*%\s*|(?:voll(?:ständig|staendig)?|fully|full|komplett|rein|nur|ausschlie(?:ß|ss)lich"
+    r"|mostly|überwiegend|ueberwiegend|teilweise|teils|partly|partially)\s+)?"
+    r"(?:remote|home[\s-]?office|homeoffice|hybrid|teilremote|mobiles\s+arbeiten|ortsunabh(?:ä|ae)ngig)"
+    r"(?:\s+(?:möglich|moeglich|optional|first))?(?!\w)",
+    re.IGNORECASE)
+
+#: Laender und grosse Raeume: sie nennen keinen Ort, sondern eine Flaeche (#1300 Punkt 3).
+_LAENDER_RAEUME = {
+    "deutschland", "germany", "österreich", "oesterreich", "austria", "schweiz", "switzerland", "suisse",
+    "dach", "d-a-ch", "europa", "europe", "eu", "emea", "weltweit", "worldwide", "global", "anywhere",
+    "bundesweit", "deutschlandweit", "europaweit", "ganz deutschland", "norddeutschland", "süddeutschland",
+    "sueddeutschland", "westdeutschland", "ostdeutschland",
+}
+
+#: Bundeslaender, die keine Stadt sind. Hinter einem Ort praezisieren sie ihn ("Aerzen, Niedersachsen"), allein
+#: sind sie eine Flaeche. Hamburg, Berlin und Bremen sind beides und zaehlen deshalb als Ort.
+_FLAECHENLAENDER = {
+    "baden-württemberg", "baden-wuerttemberg", "bayern", "brandenburg", "hessen", "mecklenburg-vorpommern",
+    "niedersachsen", "nordrhein-westfalen", "nrw", "rheinland-pfalz", "saarland", "sachsen", "sachsen-anhalt",
+    "schleswig-holstein", "thüringen", "thueringen",
+}
+_STADTSTAATEN = {"hamburg", "berlin", "bremen"}
+
+#: Kreis, Bezirk, Region: hinter einem Ort ein Zusatz, allein eine Flaeche.
+_KREIS = re.compile(r"^(?:landkreis|kreis|lk|region|bezirk|regierungsbezirk|metropolregion)\b", re.IGNORECASE)
+
+#: Was hinter einem Schraegstrich oder in einer Klammer zum Ortsnamen gehoert: "Frankfurt/Main",
+#: "Frankfurt (Oder)", "Halle/Saale". Kein zweiter Ort.
+_ORTSZUSATZ_NAME = {
+    "main", "m", "m.", "oder", "saale", "s.", "ruhr", "donau", "rhein", "elbe", "lahn", "neckar", "mosel",
+    "weinstraße", "weinstrasse", "holstein", "isar", "inn", "fils", "havel", "spree", "weser", "ems", "opf",
+    "opf.", "ofr", "ofr.", "taunus", "ts", "ts.", "wied", "dill", "fulda", "werra", "harz", "westf", "westf.",
+    "westfalen", "oldb", "oldb.", "oldenburg", "breisgau", "brsg", "brsg.", "allgäu", "allgaeu", "vogtland",
+    "erzgebirge", "rügen", "ruegen", "fehmarn", "sylt",
+}
+
+#: Ein Teil, der nach Strasse aussieht: dann ist der ganze Text EINE Adresse, kein Ortsliste.
+_STRASSE = re.compile(r"(?:stra(?:ß|ss)e|str\.|weg|allee|platz|ring|damm|gasse|chaussee)\b", re.IGNORECASE)
+
+#: Woerter, die in einem Teil ohne Ort uebrig bleiben ("100 %", "vor Ort", "Standort").
+_REST_WOERTER = (_ORT_ZUSATZ_WOERTER - _LAENDER_RAEUME) | {"100", "%", "mostly", "first", "standort", "standorte", "in", "am",
+                                       "mobile", "work", "on-site", "onsite", "m/w/d", "w/m/d", "m/w/x"}
+
+
+def _klein(text: str) -> str:
+    return " ".join(str(text or "").lower().split())
+
+
+def _ist_flaeche(teil: str) -> bool:
+    k = _klein(teil)
+    return k in _LAENDER_RAEUME or k in _FLAECHENLAENDER or bool(_KREIS.match(k))
+
+
+def _teil_bereinigen(teil: str) -> str:
+    """Remote-Angaben und Fuellwoerter aus einem Teil streichen; leer, wenn kein Ort uebrig bleibt."""
+    rest = _STREICHEN.sub(" ", teil)
+    rest = re.sub(r"\s+", " ", rest).strip(" .:;-–\t")
+    woerter = [w for w in re.split(r"[\s/\-]+", rest.lower()) if w]
+    if not woerter or all(w in _REST_WOERTER for w in woerter):
+        return ""
+    return rest
+
+
+def _teile(text: str) -> list:
+    """Einen Text an Komma, Semikolon, Schraegstrich, Strich mit Leerzeichen und "u.a." aufteilen.
+
+    Ein Schraegstrich vor einem Namenszusatz ("Frankfurt/Main") trennt nicht."""
+    text = _WEITERE_ORTE.sub(",", text)
+    roh = re.split(r"[,;|·•]|\s+[-–]\s+|/", text)
+    teile: list = []
+    for t in roh:
+        t = t.strip()
+        if teile and _klein(t) in _ORTSZUSATZ_NAME:
+            teile[-1] = f"{teile[-1]}/{t}"
+            continue
+        teile.append(t)
+    return [t for t in teile if t]
+
+
+def _orte_aus(text: str) -> tuple:
+    """(Orte, Flaeche genannt?) aus einem klammerfreien Text."""
+    orte: list = []
+    flaeche = False
+    adresse = False
+    for roh in _teile(text):
+        teil = _teil_bereinigen(roh)
+        if not teil:
+            continue
+        k = _klein(teil)
+        if k in _LAENDER_RAEUME:
+            flaeche = True
+            continue
+        if _ist_flaeche(teil):
+            if orte:
+                orte[-1] = f"{orte[-1]}, {teil}"      # "Aerzen, Niedersachsen": praezisiert den Ort davor
+            else:
+                flaeche = True
+            continue
+        if orte and k in _STADTSTAATEN and _klein(orte[-1]) == k:
+            orte[-1] = f"{orte[-1]}, {teil}"          # "Hamburg, Hamburg"
+            continue
+        if _STRASSE.search(teil):
+            adresse = True
+        orte.append(teil)
+    # Eine Strasse oder eine Postleitzahl neben einem zweiten Teil: das ist EINE Adresse, keine Ortsliste.
+    if len(orte) > 1 and (adresse or any(re.search(r"\d", o) for o in orte)):
+        orte = [", ".join(orte)]
+    gesehen: set = set()
+    eindeutig = []
+    for o in orte:
+        if _klein(o) not in gesehen:
+            gesehen.add(_klein(o))
+            eindeutig.append(o)
+    return eindeutig, flaeche
+
+
+def ort_zerlegen(location: str) -> dict:
+    """Die Ortsangabe einer Stelle in Orte, Flaeche und Remote-Hinweis zerlegen (#1300) - ohne Netz.
+
+    Rueckgabe:
+      `orte`    die genannten Orte in Reihenfolge ("Hamburg u.a., Home Office" -> ["Hamburg"];
+                "Deutschland (mostly remote; Frankfurt, Mannheim)" -> ["Frankfurt", "Mannheim"])
+      `abfrage` die Orte, zu denen eine Entfernung gerechnet wird - leer bei vollstaendig remote: wer nie
+                hinfaehrt, hat keine Entfernung ("100 % remote (Frankfurt)")
+      `remote`  "remote" (vollstaendig), "teilweise" (Home Office, hybrid, mostly remote neben einem Ort) oder None
+      `flaeche` ein Land oder ein Raum ist genannt ("Deutschland", "bundesweit", "Niedersachsen")
+
+    Eine Klammer zaehlt nur, wenn vor ihr kein Ort steht ("Deutschland (Frankfurt)"), oder wenn sie zum Namen
+    gehoert ("Frankfurt (Oder)"). "Aerzen, Niedersachsen (Hybrid)" bleibt "Aerzen, Niedersachsen" (#965).
+    """
+    text = str(location or "").strip()
+    leer = {"orte": [], "abfrage": [], "remote": None, "flaeche": False}
+    if not text:
+        return leer
+    # "Frankfurt (Oder)": eine Klammer, die zum Namen gehoert, bleibt am Namen.
+    text = re.sub(r"\s*\(\s*([^()]*?)\s*\)",
+                  lambda m: f"/{m.group(1)}" if _klein(m.group(1)) in _ORTSZUSATZ_NAME else f" ({m.group(1)})",
+                  text)
+    innen = " ; ".join(re.findall(r"[(\[]([^)\]]*)[)\]]", text))
+    aussen = re.sub(r"[(\[][^)\]]*[)\]]", " ", text)
+    orte, flaeche = _orte_aus(aussen)
+    if not orte and innen:
+        orte, flaeche_innen = _orte_aus(innen)
+        flaeche = flaeche or flaeche_innen
+    if _REMOTE_VOLL.search(text):
+        remote = "remote"
+    elif _REMOTE_TEIL.search(text):
+        remote = "teilweise"
+    elif _REMOTE_WORT.search(text):
+        # Ein blosses "remote" neben einem Ort ("Hamburg, Remote") laesst offen, wie viel; ohne Ort davor
+        # ("Deutschland (remote)", "Remote") ist es die ganze Angabe.
+        remote = "teilweise" if _orte_aus(aussen)[0] else "remote"
+    else:
+        remote = None
+    return {"orte": orte, "abfrage": [] if remote == "remote" else list(orte), "remote": remote,
+            "flaeche": flaeche}
+
+
+def warum_keine_entfernung(location: str) -> tuple:
+    """(methode, satz), wenn die Ortsangabe selbst erklaert, warum es keine Zahl gibt - sonst ("", "") (#1300).
+
+    Nur Gedaechtnis, kein Netz. Fuer Liste und Fit-Analyse dieselben Saetze (`wahrheit`, `entfernungs_guete`).
+    """
+    ort = str(location or "").strip()
+    if not ort:
+        return "", ""
+    status = ort_auskunft(ort).get("status")
+    if status == "nur_flaeche":
+        return "nur_flaeche", (f"„{ort}“ nennt ein Land oder einen Raum, keinen Ort - eine Entfernung gibt es "
+                               "dafür nicht. Unbekannt heißt hier nicht nah.")
+    if status == "remote":
+        return "remote_laut_ort", (f"„{ort}“ sagt: vollständig remote. Eine Entfernung gibt es dafür nicht.")
+    if status == "ausserhalb_dach":
+        return "ort_unplausibel", (f"Zu „{ort}“ fand der Ortsdienst nur einen Treffer weit außerhalb des "
+                                   "deutschsprachigen Raums. PBP rät nicht: die Entfernung bleibt unbekannt. Mit PLZ im "
+                                   "Ort (stelle_bearbeiten) oder von Hand gesetzter Entfernung gibt es eine Zahl.")
+    return "", ""
+
+
+def remote_aus_ort(job: dict) -> bool:
+    """Steht im Ortsfeld "vollstaendig remote", wird es nicht weggeworfen (#1300 Punkt 1).
+
+    Gesetzt wird NUR, wo `remote_level` leer oder `unbekannt` ist, und nur der feste Wert `remote`: was eine
+    Quelle oder der Mensch angegeben hat, bleibt. "Teilweise" (Home Office oder hybrid neben einem Ort) setzt
+    nichts - ob das einen Buerotag heisst oder vier, steht nicht im Ort. Gibt True zurueck, wenn gesetzt wurde.
+    """
+    if not isinstance(job, dict):
+        return False
+    if str(job.get("remote_level") or "").strip().lower() not in ("", "unbekannt"):
+        return False
+    if ort_zerlegen(job.get("location") or "")["remote"] != "remote":
+        return False
+    job["remote_level"] = "remote"
+    return True
 
 
 def ort_fuer_abfrage(location: str) -> str:
-    """Der Ort, der an den Dienst geht - leer, wenn der Text keinen Ort nennt (#1158 Punkt 8).
+    """Der (erste) Ort, der an den Dienst geht - leer, wenn der Text keinen Ort nennt (#1158 Punkt 8, #1300).
 
     Bis v1.7.149 ging der Rohstring zuerst an Nominatim; die Bereinigung lief nur als letzter Versuch, wenn
     nichts zurueckkam. "Hamburg (hybrid), remote moeglich, Deutschland" kam aber nicht leer zurueck, sondern
     mit einem Treffer bei Mainz (410 km statt 20) - und der wurde unter dem Rohschluessel dauerhaft gemerkt.
     Ein Text, der nur aus Zusaetzen besteht ("Remote moeglich"), ist kein Ort: keine Anfrage, keine Entfernung.
+    Seit #1300 kommt der Ort aus `ort_zerlegen`; nennt der Text mehrere, ist das der erste - die Entfernung
+    rechnet `stellenort_aufloesen` mit dem naechsten.
     """
-    if not location:
-        return ""
-    roh = location.strip().lower()
-    if roh in _KEIN_ORT or roh.startswith("remote") or _ist_nur_zusatz(location):
-        return ""
-    ziel = normalisiere_ort(location) or location.strip()
-    return "" if ziel.lower() in _KEIN_ORT else ziel
+    abfrage = ort_zerlegen(location)["abfrage"]
+    return abfrage[0] if abfrage else ""
 
 
 def ort_schluessel(location: str) -> str:
@@ -218,6 +436,11 @@ def ort_schluessel(location: str) -> str:
     Rechnung waere eine Zahl, die nicht zu den Abfragen passt.
     """
     return ort_fuer_abfrage(location).lower()
+
+
+def ort_schluessel_alle(location: str) -> list:
+    """Alle Schluessel, unter denen fuer diese Ortsangabe gefragt wird - einer je Ort (#1300)."""
+    return [o.lower() for o in ort_zerlegen(location)["abfrage"]]
 
 
 def _ist_ortstreffer(treffer) -> bool:
@@ -306,13 +529,49 @@ def _gedaechtnis(loc_key: str) -> Optional[dict]:
         return {"status": "nicht_gefunden", "koordinaten": None}
 
 
-def _ort_aufloesen(location: str) -> dict:
-    """Loest einen Ort auf und sagt, WIE sicher das ist (#1235).
+def _ort_aufloesen(location: str, netz: bool = True) -> dict:
+    """Loest EINEN Ort auf und sagt, WIE sicher das ist (#1235, #1300).
 
     Rueckgabe: {"status", "koordinaten", "kandidaten"?}; status ist `kein_ort` (der Text nennt keinen Ort),
-    `gefunden`, `mehrdeutig` (mehrere Orte dieses Namens: keine Koordinaten), `nicht_gefunden` oder
-    `nicht_erreichbar` (Dienst ausgefallen oder im Test gesperrt - nichts gemerkt).
+    `gefunden`, `mehrdeutig` (mehrere Orte dieses Namens: keine Koordinaten), `nicht_gefunden`,
+    `ausserhalb_dach` (#1300: der Dienst fand etwas fern des DACH-Raums fuer einen Ort, der keinen fremden Ort
+    nennt - ein Fehlschlag, keine Entfernung) oder `nicht_erreichbar` (Dienst ausgefallen oder im Test gesperrt -
+    nichts gemerkt). `netz=False` fragt nur das Gedaechtnis; was dort fehlt, ist `ungefragt`.
     """
+    fund = _ort_aufloesen_roh(location, netz)
+    if fund.get("status") == "gefunden" and not _plausibel(fund["koordinaten"], ort_fuer_abfrage(location)):
+        logger.info("Ort '%s' lag laut Dienst bei %s - ausserhalb des DACH-Raums, gilt als nicht gefunden (#1300)",
+                    location, fund["koordinaten"])
+        return {"status": "ausserhalb_dach", "koordinaten": None, "treffer": fund["koordinaten"]}
+    return fund
+
+
+#: #1300: der Raum, in dem ein Treffer fuer einen Ort ohne fremden Landesnamen liegen muss - DACH mit Rand
+#: (Grenzregionen, Luxemburg, Elsass liegen darin). Ein Treffer ausserhalb ist ein Namensvetter in Uebersee oder
+#: ein Zufallstreffer der Abfrage ohne Landeszusatz: "100 % remote" lag 8.425 km weg.
+DACH_RAUM = {"lat": (45.3, 55.6), "lon": (5.3, 17.6)}
+
+
+def _im_dach_raum(koordinaten) -> bool:
+    try:
+        lat, lon = float(koordinaten[0]), float(koordinaten[1])
+    except (TypeError, ValueError, IndexError):
+        return False
+    return (DACH_RAUM["lat"][0] <= lat <= DACH_RAUM["lat"][1]
+            and DACH_RAUM["lon"][0] <= lon <= DACH_RAUM["lon"][1])
+
+
+def _plausibel(koordinaten, ziel: str) -> bool:
+    """Darf ein Treffer an diesen Koordinaten fuer diesen Ort stehen? (#1300 Punkt 4)
+
+    Im DACH-Raum immer. Ausserhalb nur, wenn der Ort selbst erkennbar fremd ist ("Paris", "Brazil", #732) - dann
+    stimmt die grosse Zahl. Fuer alles andere ist ein Treffer in Uebersee ein Fehlschlag: "unbekannt" statt einer
+    erfundenen Zahl (#989)."""
+    return _im_dach_raum(koordinaten) or is_non_dach_location(ziel)
+
+
+def _ort_aufloesen_roh(location: str, netz: bool = True) -> dict:
+    """Der Weg zum Dienst ohne Plausibilitaetspruefung - nur ueber `_ort_aufloesen` zu fragen."""
     # #1158 Punkt 8: gefragt wird der BEREINIGTE Ort, und er ist auch der Schluessel des Speichers.
     ziel = ort_fuer_abfrage(location)
     if not ziel:
@@ -350,6 +609,8 @@ def _ort_aufloesen(location: str) -> dict:
                     _mehrdeutig_orte[loc_key] = _mehrdeutig_orte[alt_key]
             return _gedaechtnis(loc_key)
 
+    if not netz:
+        return {"status": "ungefragt", "koordinaten": None}
     # #1090: in der Test-Suite geht kein Weg ins Netz (wie
     # PBP_BERUFE_LOOKUP, #969). Behandelt wie ein Ausfall: nichts gemerkt.
     import os as _os
@@ -416,14 +677,77 @@ def _ort_aufloesen(location: str) -> dict:
         return {"status": "nicht_erreichbar", "koordinaten": None}
 
 
-def geocode_location(location: str) -> Optional[tuple[float, float]]:
+def _heim_vorgabe():
+    """Der gespeicherte Standort, wenn ein Aufrufer keinen mitgibt - nur Gedaechtnis, kein Netz."""
+    if _speicher is None:
+        return None
+    try:
+        return get_user_coordinates(_speicher)
+    except Exception:  # noqa: BLE001 - eine Auskunft, nie ein Abbruch
+        return None
+
+
+def stellenort_aufloesen(location: str, heim=None, netz: bool = True) -> dict:
+    """Die Ortsangabe einer Stelle aufloesen: bei mehreren Orten der NAECHSTE (#1300 Punkt 2).
+
+    Die eine Stelle fuer "wo liegt diese Stelle?". `geocode_location` und `geocode_and_calculate_distance`
+    fragen sie, damit Koordinaten und Entfernung derselben Stelle zum selben Ort gehoeren.
+
+    Rueckgabe: {"status", "koordinaten", "remote", "orte", "ort"?, "km"?, "kandidaten"?}. `status` wie
+    `_ort_aufloesen`, dazu `remote` (vollstaendig remote: keine Entfernung, wer faehrt nie hin) und
+    `nur_flaeche` (nur ein Land oder ein Raum - "Deutschland" ist keine Adresse). `heim` ist (lat, lon) des
+    Standorts; ohne ihn gilt der gespeicherte, ohne beides bei mehreren Orten der erste gefundene.
+    """
+    zerlegt = ort_zerlegen(location)
+    basis = {"remote": zerlegt["remote"], "orte": zerlegt["orte"]}
+    abfrage = zerlegt["abfrage"]
+    if not abfrage:
+        if zerlegt["remote"] == "remote":
+            status = "remote"
+        else:
+            status = "nur_flaeche" if zerlegt["flaeche"] else "kein_ort"
+        return {**basis, "status": status, "koordinaten": None}
+    if len(abfrage) == 1:
+        # Der Rohtext, nicht der Ort: so gilt eine unter "Hamburg, Germany" gemerkte Antwort weiter (#1158).
+        funde = [(abfrage[0], _ort_aufloesen(location, netz))]
+    else:
+        funde = [(ort, _ort_aufloesen(ort, netz)) for ort in abfrage]
+    gefunden = [(ort, f["koordinaten"]) for ort, f in funde if f["status"] == "gefunden"]
+    if not gefunden:
+        # Ein Ausfall des Dienstes sagt nichts ueber den Ort - er geht vor jedem anderen Befund.
+        offen = [f for _o, f in funde if f["status"] in ("nicht_erreichbar", "ungefragt")]
+        return {**basis, **(offen[0] if offen else funde[0][1])}
+    if heim is None and len(gefunden) > 1:
+        heim = _heim_vorgabe()
+    if heim:
+        entfernt = [(calculate_distance_km(tuple(heim), koord), ort, koord) for ort, koord in gefunden]
+        km, ort, koord = min(entfernt, key=lambda e: e[0])
+        return {**basis, "status": "gefunden", "koordinaten": koord, "ort": ort, "km": km}
+    ort, koord = gefunden[0]
+    return {**basis, "status": "gefunden", "koordinaten": koord, "ort": ort}
+
+
+def ort_auskunft(location: str) -> dict:
+    """Warum eine Stelle keine Entfernung hat - nur aus dem Gedaechtnis, nie aus dem Netz (#1300 Punkt 5).
+
+    Derselbe Weg wie `stellenort_aufloesen`, nur ohne Dienst: `status` ist `remote`, `nur_flaeche`, `kein_ort`,
+    `ausserhalb_dach`, `mehrdeutig`, `nicht_gefunden` oder `ungefragt` (noch nie gefragt)."""
+    try:
+        return stellenort_aufloesen(location, netz=False)
+    except Exception:  # noqa: BLE001 - eine Auskunft darf die Anzeige nie kippen
+        return {"status": "ungefragt", "koordinaten": None}
+
+
+def geocode_location(location: str, heim=None) -> Optional[tuple[float, float]]:
     """Geocode a location string to (lat, lon) coordinates.
 
     Returns None if geocoding fails or location is empty/remote - und seit #1235 auch, wenn der Name mehrere
     Orte meint (Rosengarten): dann gibt es keine Koordinaten, nur die Kandidaten (`geocode_ort`).
+    Seit #1300: nennt der Text mehrere Orte, die Koordinaten des naechsten zu `heim` (sonst zum gespeicherten
+    Standort); ein Land allein, vollstaendig remote oder ein Treffer ausserhalb des DACH-Raums ergeben None.
     Results are cached in memory.
     """
-    return _ort_aufloesen(location)["koordinaten"]
+    return stellenort_aufloesen(location, heim)["koordinaten"]
 
 
 _BUNDESLAENDER = (
@@ -540,16 +864,18 @@ def geocode_and_calculate_distance(job_location: str,
                                    user_lat: float, user_lon: float) -> Optional[float]:
     """Geocode a job location and calculate distance to user coordinates.
 
-    Returns distance in km, or None if geocoding fails.
+    Returns distance in km, or None if geocoding fails. Nennt der Ort mehrere Orte, die Entfernung zum
+    naechsten (#1300) - aus derselben Funktion wie die Koordinaten (`stellenort_aufloesen`).
     """
     if not job_location or not user_lat or not user_lon:
         return None
 
-    job_coords = geocode_location(job_location)
+    heim = (user_lat, user_lon)
+    job_coords = stellenort_aufloesen(job_location, heim)["koordinaten"]
     if job_coords is None:
         return None
 
-    return calculate_distance_km((user_lat, user_lon), job_coords)
+    return calculate_distance_km(heim, job_coords)
 
 
 def entfernung_aus_anzeige(job_location: str, user_lat: float, user_lon: float, anzeige: str) -> Optional[dict]:

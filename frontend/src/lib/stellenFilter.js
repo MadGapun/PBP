@@ -30,7 +30,46 @@ export const FILTER_SERVERNAMEN = {
   pruefstand: "pruefstand",
   rahmenAusblenden: "rahmen_ausblenden",
   schwelleAusblenden: "schwelle_ausblenden",
+  // #1308: Sprachen der Anzeige (Text mit Komma); #1307: Kennung einer gespeicherten Ansicht.
+  sprache: "sprache",
+  ansicht: "ansicht",
 };
+
+/**
+ * #1308: die Auswahl „Sprache“ im Stellen-Tab. Der Wert geht so an den Server (`sprache=de,gemischt`); die Sprache erkennt
+ * der Server beim Lesen. „Ohne rein englische“ behält ausdrücklich die Stellen ohne erkennbare Sprache (kein oder zu kurzer
+ * Anzeigentext): unbekannt ist nicht englisch.
+ */
+export const SPRACH_AUSWAHL = [
+  { wert: "", text: "Sprache: alle" },
+  { wert: "de,gemischt,andere,unbekannt", text: "Ohne rein englische" },
+  { wert: "de", text: "Nur Deutsch" },
+  { wert: "en", text: "Nur Englisch" },
+  { wert: "unbekannt", text: "Sprache unbekannt" },
+];
+
+/** Der Text eines gewählten Sprachfilters für den Streifen „Aktive Filter“. */
+export function sprachFilterText(wert) {
+  const eintrag = SPRACH_AUSWAHL.find((e) => e.wert === wert);
+  return eintrag && eintrag.wert ? eintrag.text : `Sprache ${wert}`;
+}
+
+/** Das Abzeichen an einer Stelle: nur, wo die Sprache etwas sagt (Deutsch ist der Normalfall, unbekannt kein Befund). */
+export function spracheAbzeichen(job) {
+  const sprache = job?.sprache;
+  if (sprache === "en") {
+    return job?.deutsch_verlangt
+      ? { text: "Englisch · verlangt Deutsch", titel: "Die Anzeige ist englisch, verlangt aber Deutschkenntnisse." }
+      : { text: "Englisch", titel: "Die Anzeige ist auf Englisch geschrieben." };
+  }
+  if (sprache === "gemischt") {
+    return { text: "Deutsch/Englisch", titel: "Die Anzeige mischt Deutsch und Englisch." };
+  }
+  if (sprache === "andere") {
+    return { text: "Andere Sprache", titel: "Die Anzeige ist weder deutsch noch englisch." };
+  }
+  return null;
+}
 
 /** Gilt eine Untergrenze? Auch 0 und negative Werte gelten: "0" ist eine Entscheidung, "" ist keine. */
 export function minScoreGesetzt(wert) {

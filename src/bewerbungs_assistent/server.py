@@ -127,6 +127,8 @@ WERKZEUGWAHL
   Aufgaben.
 - Viele Stellen auf einmal aussortieren: stellen_bulk_bewerten mit
   dry_run=True, dann anwenden — nicht hundertmal stelle_einordnen.
+- Soll ein Filter bleiben (als Ansicht oder als Regel für neue Treffer,
+  auch nach der Sprache der Anzeige): stellen_filter_verwalten.
 - Reparatur- und Diagnosewerkzeuge sind nur im Expertenmodus sichtbar
   (expertenmodus_setzen).
 - Bietet PBP nichts Passendes: pbp_grenze_melden(...) statt eines

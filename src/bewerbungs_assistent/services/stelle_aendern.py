@@ -8,6 +8,20 @@ Punkte und Faktoren, und ein neuer Ort behielt die Entfernung des alten.
 Ein geaenderter Ort rechnet die Entfernung neu, wenn sie nicht von Hand
 gesetzt ist: ueber die gemerkten Orte (#1090), sonst "unbekannt" — die
 Entfernung des alten Ortes stehen zu lassen waere eine falsche Angabe.
+
+#1299: auch Anstellungsform (`employment_type`), Umfang (`arbeitsumfang`) und
+Remote-Stufe (`remote_level`) sind aenderbar — jeweils gegen ihr Vokabular
+geprueft (`stellenart.form_pruefen`, `stellenart.umfang_pruefen`,
+`remote_jobspy.normalisieren`), Ungueltiges wird abgelehnt. Ein so gesetzter
+Wert gilt dauerhaft (`<merkmal>_quelle = 'mensch'`, wie die Entfernung):
+kein Suchlauf und kein Nachzieh-Lauf ueberschreibt ihn. "unbekannt" bei
+Remote oder Umfang gibt das Merkmal an die Automatik zurueck. Danach werden
+Punkte und Rahmenzahl neu gerechnet; der Rahmendaumen (Grenze, Gehalt,
+Farbe) liest die Merkmale ohnehin beim Anzeigen.
+
+Ein geaenderter Titel, Ort oder Text fuellt eine unbekannte Remote-Stufe
+("100 % remote" im Ort -> `remote`) und ersetzt einen Wert ausserhalb des
+Vokabulars; eine gueltige Angabe der Quelle bleibt (#1184).
 """
 from __future__ import annotations
 
@@ -16,7 +30,86 @@ import logging
 logger = logging.getLogger(__name__)
 
 #: Was der Mensch an einer Stelle aendern darf.
-FELDER = ("title", "company", "location", "description", "url")
+FELDER = ("title", "company", "location", "description", "url",
+          "employment_type", "arbeitsumfang", "remote_level")
+
+#: #1299: die Merkmale unter FELDER — geprueft, nicht frei.
+MERKMALE = ("employment_type", "arbeitsumfang", "remote_level")
+
+
+def merkmal_pruefen(feld: str, wert) -> tuple[str, str | None]:
+    """`(wert, fehler)` — der Wert im Vokabular, oder ein Fehlertext fuer den Menschen."""
+    from . import remote_jobspy, stellenart
+    if feld == "employment_type":
+        form, hinweis = stellenart.form_pruefen(wert)
+        return (form, None) if form else ("", hinweis or "Anstellungsform fehlt.")
+    if feld == "arbeitsumfang":
+        umfang, hinweis = stellenart.umfang_pruefen(wert)
+        return (umfang, None) if umfang else ("", hinweis or "Umfang fehlt.")
+    if feld == "remote_level":
+        stufe, hinweis = remote_jobspy.normalisieren(wert)
+        if hinweis:
+            return "", (f"„{str(wert)[:60]}“ ist keine Remote-Angabe. Gültig sind: "
+                        f"{', '.join(remote_jobspy.STUFEN)}.")
+        return stufe, None
+    return "", f"{feld} ist kein Merkmal."
+
+
+def _score_neu(db, resolved: str, criteria=None) -> tuple:
+    """Punkte und Rahmenzahl einer Stelle neu: `(neu, frisch)` — `neu` None, wenn nichts gerechnet wurde."""
+    from ..job_scraper import calculate_score
+    from . import scoring_kriterien
+    if criteria is None:
+        criteria = scoring_kriterien.fuer_scoring(db)  # #987, #1051
+    frisch = db.get_job(resolved) or {}
+    if not frisch:
+        return None, frisch
+    neu = calculate_score(frisch, criteria)
+    if neu is not None:
+        db.update_job(resolved, {"score": neu,
+                                 "fachscore": frisch.get("_fachscore"),
+                                 "rahmenscore": frisch.get("_rahmenscore")})
+    return neu, frisch
+
+
+def neu_bewerten(db, hashes) -> int:
+    """Punkte mehrerer Stellen neu (#1298/#1299) — die Kriterien einmal je Aufruf. Liefert die Anzahl."""
+    from . import scoring_kriterien
+    hashes = [h for h in (hashes or []) if h]
+    if not hashes:
+        return 0
+    criteria = scoring_kriterien.fuer_scoring(db)
+    n = 0
+    for h in hashes:
+        try:
+            neu, _ = _score_neu(db, h, criteria)
+            n += neu is not None
+        except Exception as exc:  # noqa: BLE001 - eine Stelle kippt nicht die anderen
+            logger.warning("Neubewertung fuer %s fehlgeschlagen: %s", h, exc)
+    return n
+
+
+def _remote_neu(db, resolved: str) -> dict | None:
+    """Nach einer Text- oder Ortsaenderung die Remote-Stufe neu bestimmen (#1299 Punkt 6).
+
+    Nur, wenn sie nicht von Hand gesetzt ist, und nur als LUECKE: steht `unbekannt` da, fuellt der Text sie;
+    steht ein Wert ausserhalb des Vokabulars da ("True" aus #1298), wird er immer ersetzt. Eine gueltige
+    Angabe der Quelle bleibt (#1184: "nur Google-Stellen holen das Arbeitsmodell nach") — wer sie aendern
+    will, setzt `remote` ausdruecklich, und dann gilt sie als Handkorrektur.
+    """
+    from . import remote_jobspy
+    jetzt = db.get_job(resolved) or {}
+    if jetzt.get("remote_quelle") == "mensch":
+        return None
+    bisher = jetzt.get("remote_level") or "unbekannt"
+    stufe = remote_jobspy.bestimmen(jetzt.get("title"), jetzt.get("location"), jetzt.get("description"))
+    ungueltig = bisher not in remote_jobspy.STUFEN
+    if not (ungueltig or bisher == "unbekannt"):
+        return None
+    if (stufe != "unbekannt" or ungueltig) and stufe != bisher:
+        if db.set_job_remote_level(resolved, stufe):
+            return {"vorher": bisher, "jetzt": stufe}
+    return None
 
 
 def _neue_entfernung(db, job_hash: str) -> float | None:
@@ -95,20 +188,46 @@ def aendern(db, job_hash: str, felder: dict, entfernung_km=None,
                            "Zurücksetzen entfernung_zuruecksetzen=True.")}
 
     updates = {}
+    merkmale: dict = {}
     for k in FELDER:
         wert = (felder or {}).get(k)
+        if k in MERKMALE:
+            # #1299: geprueft gegen das Vokabular; True/False fuer Remote zaehlen als Angabe.
+            if wert is None or (isinstance(wert, str) and not wert.strip()):
+                continue
+            gueltig, fehler = merkmal_pruefen(k, wert)
+            if fehler:
+                return {"ok": False, "grund": "eingabe", "fehler": fehler}
+            freigeben = k != "employment_type" and gueltig == "unbekannt"
+            schon_so = gueltig == (job.get(k) or "") and (
+                (job.get(db.MERKMAL_QUELLE[k]) == "mensch") != freigeben)
+            if not schon_so:
+                merkmale[k] = (gueltig, freigeben)
+            continue
         if isinstance(wert, str) and wert.strip() and wert != (job.get(k) or ""):
             updates[k] = wert
     if "url" in updates:
         from ..job_scraper import is_search_result_url
         updates["is_search_url"] = is_search_result_url(updates["url"])
     entfernung_geaendert = entfernung_km is not None or entfernung_zuruecksetzen
-    if not updates and not entfernung_geaendert:
+    if not updates and not entfernung_geaendert and not merkmale:
         return {"ok": False, "grund": "leer", "fehler": "Keine Änderungen angegeben."}
 
     if updates:
         db.update_job(resolved, updates)
+    for k, (wert, freigeben) in merkmale.items():
+        db.set_job_merkmal_hand(resolved, k, wert, freigeben=freigeben)
+        updates[k] = wert
     ergebnis = {"ok": True, "job": job, "updates": updates}
+    if merkmale:
+        ergebnis["merkmale"] = {
+            k: {"vorher": job.get(k), "jetzt": w,
+                "quelle": "automatik" if frei else "mensch"}
+            for k, (w, frei) in merkmale.items()}
+        if any(not frei for _, frei in merkmale.values()):
+            ergebnis["merkmale_hinweis"] = (
+                "Von Hand gesetzt — kein Suchlauf überschreibt diesen Wert. Mit „unbekannt“ "
+                "(Remote, Umfang) gibst du ihn an die Automatik zurück.")
     if entfernung_geaendert:
         db.set_job_entfernung(resolved, None if entfernung_zuruecksetzen else entfernung_km)
     elif "location" in updates:
@@ -140,17 +259,19 @@ def aendern(db, job_hash: str, felder: dict, entfernung_km=None,
         ergebnis["google_vorbehalt_aufgehoben"] = nachgeholt
         entfernung_geaendert = entfernung_geaendert or "entfernung_km" in nachgeholt
 
-    if "description" in updates or "title" in updates or entfernung_geaendert or nachgeholt:
+    # #1299: neuer Titel, Ort oder Text -> Remote-Stufe neu, solange sie nicht von Hand gesetzt ist.
+    remote_neu = None
+    if ({"title", "location", "description"} & set(updates)) and "remote_level" not in merkmale \
+            and not (nachgeholt and "remote" in nachgeholt):
+        remote_neu = _remote_neu(db, resolved)
+        if remote_neu:
+            ergebnis["remote_neu"] = remote_neu
+
+    if ("description" in updates or "title" in updates or entfernung_geaendert or nachgeholt
+            or merkmale or remote_neu):
         try:
-            from ..job_scraper import calculate_score
-            from . import scoring_kriterien
-            criteria = scoring_kriterien.fuer_scoring(db)  # #987, #1051
-            frisch = db.get_job(resolved) or {}
-            neu = calculate_score(frisch, criteria)
+            neu, frisch = _score_neu(db, resolved)
             if neu is not None:
-                db.update_job(resolved, {"score": neu,
-                                         "fachscore": frisch.get("_fachscore"),
-                                         "rahmenscore": frisch.get("_rahmenscore")})
                 neu_info = {"alter_score": job.get("score"), "neuer_score": neu}
                 if neu == 0 and frisch.get("_ko_ausschluss"):
                     neu_info["grund"] = (
