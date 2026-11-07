@@ -74,3 +74,34 @@ def trichter_text(t: dict) -> str:
         gruende = ", ".join(f"{GRUND_TEXTE.get(g, g)}: {n}" for g, n in sorted(t["gruende"].items(), key=lambda x: -x[1]))
         teile.append(f"{t['uebersprungen']} nicht übernommen ({gruende})")
     return ", ".join(teile) + "."
+
+
+def merkmale_aus_treffer(eintrag: dict, *, quelle: str, url: str = "", titel: str = "",
+                         beschreibung: str = "") -> dict:
+    """Remote-Stufe und Anstellungsform eines Treffers - fuer Browser- UND LinkedIn-Uebernahme (#1298).
+
+    Bis #1298 standen in beiden Werkzeugen `str(remote or "unbekannt")` und `anstellungsart or "festanstellung"`:
+    aus `remote: true` wurde "True" (der Rahmen prueft auf "remote"), und ein Freelance-Projekt ohne Angabe
+    wurde Festanstellung. Jetzt: Remote ueber `remote_jobspy.normalisieren`, die Art ueber
+    `stellenart.form_bestimmen` (Angabe, sonst Portal, sonst Titel). Was nicht verstanden wurde, steht in
+    `hinweise` und gehoert in die Antwort - gespeichert wird dann `unbekannt` bzw. die erkannte Art.
+
+    Rueckgabe: {"remote", "stellenart", "stellenart_herkunft", "hinweise": [str]}
+    """
+    from . import remote_jobspy, stellenart
+    remote, remote_hinweis = remote_jobspy.normalisieren(eintrag.get("remote"))
+    art = stellenart.form_bestimmen(eintrag.get("anstellungsart"), titel=titel, beschreibung=beschreibung,
+                                    quelle=quelle, url=url)
+    hinweise = [h for h in (remote_hinweis, art["hinweis"]) if h]
+    if art["hinweis"]:
+        hinweise[-1] = f"{art['hinweis']} Gespeichert als „{art['form']}“ ({_HERKUNFT_TEXT[art['herkunft']]})."
+    return {"remote": remote, "stellenart": art["form"], "stellenart_herkunft": art["herkunft"],
+            "hinweise": hinweise}
+
+
+_HERKUNFT_TEXT = {
+    "angabe": "aus der Angabe",
+    "quelle": "das Portal führt nur Projekte für Freiberufler",
+    "titel": "aus dem Titel erkannt",
+    "vorgabe": "Vorgabe, weil nichts anderes bekannt ist",
+}

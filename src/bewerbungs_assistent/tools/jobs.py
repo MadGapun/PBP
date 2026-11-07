@@ -1763,11 +1763,14 @@ def register(mcp, db, logger):
                 entry["gehalt_typ"] = j.get("salary_type", "jaehrlich")
                 if j.get("salary_estimated"):
                     entry["gehalt_geschaetzt"] = True
-            if j.get("distance_km"):
-                # #950: nie die blosse Zahl — sie wird als Wegstrecke
-                # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
-                # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
-                entry.update(_entfernung.befund(j, _krit_fuer_stand))
+            # #950: nie die blosse Zahl — sie wird als Wegstrecke
+            # gelesen und ist eine Luftlinie. Seit v1.7.94 kennt der
+            # Befund auch die Fahrstrecke, deshalb die ganze Stelle.
+            # #1300: mit den Kriterien des Rahmens (samt Ortsverzeichnis),
+            # damit `entfernung_km` dieselbe Zahl ist, gegen die der Rahmen
+            # rechnet - und auch dann, wenn nur ein naeherer Standort aus der
+            # Anzeige eine Zahl hat. Ohne Zahl bleibt der Befund leer.
+            entry.update(_entfernung.befund(j, _guete_krit or _krit_fuer_stand))
             # v1.7.140 (#954): woher die Werte kommen — eine Zeile, nur
             # was nicht belegt ist. Die volle Aufstellung hat fit_analyse.
             try:
@@ -3109,6 +3112,14 @@ def register(mcp, db, logger):
                     "force=True legt die Stelle nur mit Googles Kopfdaten an (Remote und Ort gelten dann nicht, und es "
                     "gibt keinen Anker). Besser: das Original finden und mit URL und Text anlegen."),
             }
+        # #1298: derselbe Schreibweg fuer stelle_manuell_anlegen - ein Rohwert wie "True" oder "voll remote"
+        # wird auf das Vokabular gebracht, eine unverstaendliche Art nicht still gespeichert.
+        from ..services import remote_jobspy as _rj_anlage, stellenart as _art_anlage
+        remote, remote_hinweis = _rj_anlage.normalisieren(remote)
+        _art_befund = _art_anlage.form_bestimmen(stellenart, titel=titel, beschreibung=beschreibung,
+                                                 quelle=quelle, url=url)
+        stellenart = _art_befund["form"]
+        art_hinweis = _art_befund["hinweis"]
         google_vorbehalt = None
         if _gangaben.unter_vorbehalt(quelle, url, beschreibung):
             _remote_text = _gangaben.remote_aus_text(titel, beschreibung)
@@ -3165,6 +3176,12 @@ def register(mcp, db, logger):
             if kontakt_verworfen:
                 # Ein Hinweis, keine Warnung: die Stelle ist angelegt, nur der Kontakt fehlt absichtlich.
                 ergebnis["kontakt_nicht_uebernommen"] = kontakt_verworfen
+            # #1298: eine nicht verstandene Remote- oder Art-Angabe wird gesagt, nicht still gespeichert.
+            if remote_hinweis:
+                ergebnis["remote_hinweis"] = remote_hinweis
+            if art_hinweis:
+                ergebnis["anstellungsart_hinweis"] = (
+                    f"{art_hinweis} Gespeichert als „{stellenart}“.")
 
         if trocken:
             # #1187: die Vorschau fragt dasselbe wie die Anlage und schreibt nichts. Bis hierher wurden nur
@@ -3202,6 +3219,11 @@ def register(mcp, db, logger):
             # Geo-Aussortierer (save_jobs) zum Opfer fallen lassen.
             "_manual_entry": True,
         }
+        # #1300: "Deutschland (remote)" im Ort setzt `remote`, wo nichts angegeben ist (#1184: bei einer
+        # Google-Karte gelten Ort und Arbeitsmodell erst mit dem Original).
+        if not google_vorbehalt:
+            from ..services.geocoding_service import remote_aus_ort
+            remote_aus_ort(job)
 
         # Score: erst unmittelbar vor dem Speichern (v1.7.94, #1034) — er liest
         # Gehalt und Entfernung, und beide entstehen erst darunter.
@@ -3288,8 +3310,7 @@ def register(mcp, db, logger):
             "nachricht": f"Stelle '{titel}' bei {firma} angelegt (Score: {job['score']}, Quelle: {quelle}). "
                          f"Bewerte mit stelle_einordnen('{_kurz(job_hash)}', 'passt'/'passt_nicht').",
         }
-        if job.get("distance_km"):
-            result.update(_entfernung.befund(job, criteria))
+        result.update(_entfernung.befund(job, criteria))
         # v1.7.140 (#954): was an der neuen Stelle belegt ist und was nicht.
         try:
             from ..services import wahrheit as _wahrheit
@@ -3556,7 +3577,7 @@ def register(mcp, db, logger):
         und gezählt, statt mit halbem Text angelegt zu werden.
 
         Args:
-            treffer: die geernteten Stellen.
+            treffer: Je Stelle: job_id, titel, firma, beschreibung (Volltext); optional ort, remote (remote|hybrid|vor_ort|unbekannt, auch true/false), anstellungsart (festanstellung|freelance|zeitarbeit|praktikum|werkstudent|ausbildung), kontakt_name/_email/_telefon.
             dry_run: True (Vorgabe) zeigt nur, was passieren würde - mit
                 denselben Prüfungen wie der echte Lauf (Duplikate gegen den
                 Bestand, laufende Bewerbungen, Blacklist), aber ohne etwas
@@ -3645,12 +3666,15 @@ def register(mcp, db, logger):
             # einziger Ansprechpartner, obwohl in mindestens einem
             # Anzeigentext eine namentlich stand. Ob ein Kontakt
             # entsteht, darf nicht am Anlageweg haengen.
+            # #1298: Remote und Art normalisiert statt str(); Unverstandenes als Hinweis.
+            from ..services import browser_uebernahme as _bu_m
+            _merk = _bu_m.merkmale_aus_treffer(e, quelle="linkedin", titel=titel, beschreibung=beschreibung)
             res = _stelle_uebernehmen(
                 titel=titel, firma=firma, url=lv.anzeige_url(job_id),
                 ort=str(e.get("ort") or "").strip(),
                 beschreibung=beschreibung, quelle="linkedin",
-                remote=str(e.get("remote") or "unbekannt"),
-                stellenart=str(e.get("anstellungsart") or "festanstellung"),
+                remote=_merk["remote"],
+                stellenart=_merk["stellenart"],
                 kontakt_name=str(e.get("kontakt_name") or "").strip(),
                 kontakt_email=str(e.get("kontakt_email") or "").strip(),
                 kontakt_telefon=str(e.get("kontakt_telefon") or "").strip(),
@@ -3674,6 +3698,9 @@ def register(mcp, db, logger):
                 _eintrag = {"job_id": job_id, "titel": titel,
                             "firma": firma, "hash": res["hash"],
                             "score": res.get("score")}
+                if _merk["hinweise"]:
+                    _eintrag["angaben_hinweise"] = _merk["hinweise"]
+                    trichter["angaben_unklar"] = trichter.get("angaben_unklar", 0) + 1
                 if dry_run:
                     _eintrag["beschreibung_zeichen"] = len(beschreibung)
                 if res.get("kontakt"):
@@ -3752,7 +3779,9 @@ def register(mcp, db, logger):
         UND ohne Text wird nicht angelegt; die Antwort nennt die Suche nach dem Original.
 
         Je Eintrag: `titel` und `firma` (Pflicht) und `url` (die DETAIL-Adresse der Anzeige) ODER
-        `beschreibung` (Volltext). Optional: `ort`, `remote`, `anstellungsart`, `kontakt_name`,
+        `beschreibung` (Volltext). Optional: `ort`, `remote` (remote | hybrid | vor_ort | unbekannt; true/false
+        werden verstanden), `anstellungsart` (festanstellung | freelance | zeitarbeit | praktikum | werkstudent |
+        ausbildung; ohne Angabe erkennt PBP sie aus Portal und Titel), `kontakt_name`,
         `kontakt_email`, `kontakt_telefon`, `urteil` (EMPFOHLEN | BEDINGT | NICHT_EMPFOHLEN) mit
         `urteil_begruendung` — ein Hinweis an der Stelle, kein Filter; ohne gelesenen Volltext wird
         kein Urteil gespeichert — und `aussortieren_grund` (ein Wert aus der Liste der
@@ -3767,7 +3796,7 @@ def register(mcp, db, logger):
         Args:
             quelle: Schlüssel der Quelle ('stepstone', 'xing', 'indeed', 'google_jobs', 'heise_jobs',
                 'jobtic', eigene ...).
-            treffer: Je Treffer: titel, firma (Pflicht) und url (Detail-Adresse) ODER beschreibung (Volltext); optional ort, remote, kontakt_name/_email/_telefon, urteil (EMPFOHLEN|BEDINGT|NICHT_EMPFOHLEN, nur nach gelesenem Volltext) mit urteil_begruendung, aussortieren_grund (Wert aus der Ablehnungsgrund-Liste).
+            treffer: titel, firma; url (Detailseite) oder beschreibung. Optional: ort, remote (remote|hybrid|vor_ort), anstellungsart (festanstellung|freelance|zeitarbeit|praktikum|werkstudent|ausbildung), kontakt_name/_email/_telefon, urteil (EMPFOHLEN|BEDINGT|NICHT_EMPFOHLEN), urteil_begruendung, aussortieren_grund.
             dry_run: True (Vorgabe) zeigt nur, was passieren würde — mit denselben Prüfungen wie der
                 echte Lauf, ohne etwas zu schreiben. Mit False wird angelegt UND der Lauf verbucht.
             rohtreffer: Trefferzahl VOR dem Vorfilter. Ohne sie ist „3 angelegt“ nicht einzuordnen.
@@ -3836,11 +3865,13 @@ def register(mcp, db, logger):
                     _skip(e, "kein_anker", "weder Adresse noch Anzeigentext")
                 continue
 
+            # #1298: Remote und Art normalisiert statt str(); Unverstandenes als Hinweis.
+            _merk = _bu.merkmale_aus_treffer(e, quelle=quelle_n, url=url, titel=titel, beschreibung=beschreibung)
             res = _stelle_uebernehmen(
                 titel=titel, firma=firma, url=url, ort=str(e.get("ort") or "").strip(),
                 beschreibung=beschreibung, quelle=quelle_n,
-                remote=str(e.get("remote") or "unbekannt"),
-                stellenart=str(e.get("anstellungsart") or "festanstellung"),
+                remote=_merk["remote"],
+                stellenart=_merk["stellenart"],
                 kontakt_name=str(e.get("kontakt_name") or "").strip(),
                 kontakt_email=str(e.get("kontakt_email") or "").strip(),
                 kontakt_telefon=str(e.get("kontakt_telefon") or "").strip(),
@@ -3868,6 +3899,9 @@ def register(mcp, db, logger):
                 trichter["angelegt"] += 1
                 eintrag = {"titel": titel, "firma": firma, "hash": res["hash"], "id": res.get("id"),
                            "score": res.get("score")}
+                if _merk["hinweise"]:
+                    eintrag["angaben_hinweise"] = _merk["hinweise"]
+                    trichter["angaben_unklar"] = trichter.get("angaben_unklar", 0) + 1
                 if len(beschreibung) < MIN_BESCHREIBUNG:
                     trichter["ohne_volltext"] += 1
                     eintrag["ohne_volltext"] = True
@@ -5331,6 +5365,9 @@ def register(mcp, db, logger):
         url: str = "",
         entfernung_km: float | None = None,
         entfernung_zuruecksetzen: bool = False,
+        anstellungsart: str = "",
+        umfang: str = "",
+        remote: str = "",
     ) -> dict:
         """Aktualisiert Felder einer bestehenden Stelle (#446, #645).
 
@@ -5368,6 +5405,9 @@ def register(mcp, db, logger):
                 einen anderen Ort nennt als den, an dem man antritt.
             entfernung_zuruecksetzen: True = Entfernung auf "unbekannt"
                 setzen und für die Automatik freigeben.
+            anstellungsart: festanstellung | freelance | zeitarbeit | praktikum | werkstudent | ausbildung. Von Hand gesetzt gilt dauerhaft; bestimmt Entfernungsgrenze und Gehaltsvergleich.
+            umfang: vollzeit | teilzeit | beides | unbekannt. Von Hand gesetzt gilt dauerhaft; unbekannt gibt ihn an die Automatik zurück.
+            remote: remote | hybrid | vor_ort | unbekannt. Von Hand gesetzt gilt dauerhaft; remote hebt die Entfernungsgrenze auf, unbekannt gibt ihn an die Automatik zurück.
         """
         # v1.7.0-beta.46 (#618): Kurze IDs (8 Zeichen) wurden vorher
         # nicht akzeptiert — andere Tools (fit_analyse, scoring_vorschau)
@@ -5397,7 +5437,10 @@ def register(mcp, db, logger):
         from ..services import stelle_aendern as _aendern
         erg = _aendern.aendern(
             db, job_hash, {"title": titel, "company": firma, "location": ort,
-                           "description": beschreibung, "url": url},
+                           "description": beschreibung, "url": url,
+                           # #1299: geprueft gegen das Vokabular, Ungueltiges abgelehnt
+                           "employment_type": anstellungsart, "arbeitsumfang": umfang,
+                           "remote_level": remote},
             entfernung_km=entfernung_km,
             entfernung_zuruecksetzen=entfernung_zuruecksetzen)
         if not erg["ok"]:
@@ -5423,6 +5466,13 @@ def register(mcp, db, logger):
             result["score_neu_berechnet"] = erg["score_neu_berechnet"]
         if erg.get("google_vorbehalt_aufgehoben"):
             result["google_vorbehalt_aufgehoben"] = erg["google_vorbehalt_aufgehoben"]
+        # #1299: von Hand gesetzte Merkmale und eine neu bestimmte Remote-Stufe
+        if erg.get("merkmale"):
+            result["merkmale"] = erg["merkmale"]
+            if erg.get("merkmale_hinweis"):
+                result["merkmale_hinweis"] = erg["merkmale_hinweis"]
+        if erg.get("remote_neu"):
+            result["remote_neu"] = erg["remote_neu"]
         if entfernung_geaendert:
             result["entfernung"] = (
                 {"wert_km": None, "quelle": "unbekannt",
@@ -7160,7 +7210,8 @@ def register(mcp, db, logger):
         pid = db.get_active_profile_id()
         zeilen = con.execute(
             "SELECT hash, title, description, employment_type, "
-            "arbeitsumfang, befristet FROM jobs WHERE profile_id=?",
+            "arbeitsumfang, befristet, art_quelle, umfang_quelle "
+            "FROM jobs WHERE profile_id=?",
             (pid,)).fetchall()
         if max_stellen and max_stellen > 0:
             zeilen = zeilen[:max_stellen]
@@ -7173,6 +7224,11 @@ def register(mcp, db, logger):
                    "arbeitsumfang": r["arbeitsumfang"],
                    "befristet": r["befristet"]}
             m = art.merkmale(job)
+            # #1299: von Hand gesetzte Merkmale bleiben, wie sie sind.
+            if r["art_quelle"] == "mensch":
+                m["form"] = r["employment_type"]
+            if r["umfang_quelle"] == "mensch":
+                m["umfang"] = r["arbeitsumfang"]
             alt = (r["employment_type"], r["arbeitsumfang"],
                    1 if r["befristet"] else 0)
             neu = (m["form"], m["umfang"], 1 if m["befristet"] else 0)

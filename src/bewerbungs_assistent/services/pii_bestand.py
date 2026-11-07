@@ -388,6 +388,28 @@ def _enthaelt_ausnahme(name: str, ausnahmen: set) -> bool:
                if " " not in a and len(a) >= 4)
 
 
+def ist_kein_name(name: Any) -> bool:
+    """#1303: nur Satzzeichen, Ziffern oder Leerzeichen - kein Name."""
+    return not any(z.isalpha() for z in str(name or ""))
+
+
+# Gattungswoerter, die als Personenname im Bestand stehen koennen, aber
+# niemanden benennen (Import-Platzhalter). Sie bleiben im Pruefer (als
+# unsicher, siehe GEWOEHNLICHE_WOERTER), sollen aber auffindbar sein,
+# damit der Mensch sie bereinigen kann.
+PLATZHALTER_PERSONEN = {"name", "vorname", "nachname", "vorname nachname",
+                        "ansprechpartner", "kontakt", "person", "herr",
+                        "frau", "test"}
+
+
+def ist_platzhalter_name(name: Any) -> bool:
+    """#1303: Kontaktname, der keinen Menschen benennt."""
+    if ist_kein_name(name):
+        return True
+    schl = _schluessel(str(name).strip())
+    return schl in GENERISCHE_WERTE or schl in PLATZHALTER_PERSONEN
+
+
 def sammle_bestandsnamen(db) -> list[dict]:
     """Alle Firmen- und Personennamen aus dem eigenen Bestand.
 
@@ -404,6 +426,11 @@ def sammle_bestandsnamen(db) -> list[dict]:
         if len(name) < MIN_NAMENSLAENGE:
             return
         if _schluessel(name) in GENERISCHE_WERTE:
+            return
+        # #1303: ein Kontakt namens "---" (Platzhalter aus einem Import)
+        # machte jede Markdown-Tabelle zum Personenfund. Ohne Buchstaben
+        # ist ein Wert kein Name und kein Suchmuster.
+        if ist_kein_name(name):
             return
         # #1028: "Nicht angegeben" setzen die Adapter bei fehlender
         # Firmenangabe ein — es ist kein Name, und ein Pruefer, der ihn
@@ -455,7 +482,7 @@ def sammle_bestandsnamen(db) -> list[dict]:
         # Fall.
         for variante in schreibvarianten(schluessel):
             schl = _schluessel(variante)
-            if schl in gesehen_namen:
+            if schl in gesehen_namen or ist_kein_name(schl):
                 continue
             # Die Ausnahmen greifen bei Varianten per WORT-Enthaltensein,
             # nicht per Gleichheit. Gemessen: "Hays AG (Vermittler)"

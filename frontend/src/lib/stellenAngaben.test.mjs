@@ -1,7 +1,7 @@
 // #1044: Karte und Popup zeigen eine Stelle gleich. Framework-frei:
 //   node src/lib/stellenAngaben.test.mjs
 import {
-  anstellungsform, entfernungText, firmaText, gehaltText, umfangText,
+  anstellungsform, entfernungText, firmaText, gehaltText, stelleSpeichernNutzlast, umfangText,
 } from "./stellenAngaben.js";
 
 let failed = 0;
@@ -39,6 +39,21 @@ check("der Rohwert der Gehaltsart steht nirgends",
 check("Entfernung vom Server", entfernungText({ entfernung: { entfernung_text: "8 km Luftlinie" } }),
   "8 km Luftlinie");
 check("keine Entfernung, keine Zeile", entfernungText({}), null);
+
+// #1299: ein Merkmal geht nur mit, wenn es geaendert wurde.
+const stelle = { title: "Projekt", employment_type: "festanstellung", remote_level: "True", arbeitsumfang: null };
+check("unveraenderte Merkmale bleiben weg",
+  stelleSpeichernNutzlast(stelle, { title: "Projekt", employment_type: "festanstellung", arbeitsumfang: "unbekannt" }),
+  { title: "Projekt" });
+check("geaenderte Anstellungsform geht mit",
+  stelleSpeichernNutzlast(stelle, { title: "Projekt", employment_type: "freelance" }),
+  { title: "Projekt", employment_type: "freelance" });
+check("Remote aus ungueltigem Altwert geht mit",
+  stelleSpeichernNutzlast(stelle, { remote_level: "remote" }),
+  { remote_level: "remote" });
+check("leere Auswahl geht nicht mit",
+  stelleSpeichernNutzlast(stelle, { remote_level: "" }),
+  {});
 
 if (failed) {
   console.error(`${failed} Fehler`);

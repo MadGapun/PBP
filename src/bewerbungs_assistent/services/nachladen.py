@@ -318,12 +318,13 @@ def kopf_ergaenzen(db, job_hash: str, kopf: dict | None) -> list[str]:
         spalten["location"] = kopf["ort"]
         try:
             from . import geocoding_service as _geo
-            koord = _geo.geocode_location(_geo.normalisiere_ort(kopf["ort"]))
+            # #1300: der ROHE Ort - die Zerlegung (mehrere Orte, Klammer, remote) macht der Dienst selbst.
             heim = _geo.get_user_coordinates(db)
+            koord = _geo.geocode_location(kopf["ort"])
             if not koord and heim:
                 # #1235: ein mehrdeutiger Ort wird mit PLZ oder Bundesland aus dem Anzeigentext noch einmal gefragt.
                 genau = _geo.entfernung_aus_anzeige(
-                    _geo.normalisiere_ort(kopf["ort"]), heim[0], heim[1], job.get("description") or "")
+                    kopf["ort"], heim[0], heim[1], job.get("description") or "")
                 koord = genau["koordinaten"] if genau else None
             if koord:
                 spalten["lat"], spalten["lon"] = koord
@@ -547,6 +548,7 @@ def neu_auswerten(db, job_hash: str) -> dict:
         spalten: dict = {}
         umfang_alt = (job.get("arbeitsumfang") or "").strip().lower()
         if (umfang_alt in ("", stellenart.UNBEKANNT)
+                and job.get("umfang_quelle") != "mensch"   # #1299: Handkorrektur bleibt
                 and m["umfang"] and m["umfang"] != stellenart.UNBEKANNT):
             spalten["arbeitsumfang"] = m["umfang"]
         if m["befristet"] and not job.get("befristet"):
