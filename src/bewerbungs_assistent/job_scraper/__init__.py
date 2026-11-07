@@ -1100,8 +1100,9 @@ def geocoding_auswahl(jobs: list, criteria: dict) -> tuple[list, int, int]:
     # eigene Rechnung waere eine Zahl, die nicht zu den Abfragen passt,
     # also derselbe Fehler noch einmal. Ein Text ohne Ort ("Remote
     # moeglich") wird nie gefragt und zaehlt nicht mit (#1158).
-    from ..services.geocoding_service import ort_schluessel
-    orte = len({ort_schluessel(str(j.get("location") or "")) for j in auswahl} - {""})
+    # #1300: nennt eine Stelle mehrere Orte, wird je Ort gefragt - jeder zaehlt.
+    from ..services.geocoding_service import ort_schluessel_alle
+    orte = len({k for j in auswahl for k in ort_schluessel_alle(str(j.get("location") or ""))} - {""})
     return auswahl, orte, ko
 
 
@@ -1775,6 +1776,14 @@ def run_search(db, job_id: str, params: dict):
     # Die Stellen bleiben in der Liste: sie gehen durch dieselbe
     # Filterkaskade wie bisher und werden dort gezaehlt. Gespart wird die
     # Netzabfrage, nicht die Buchfuehrung.
+    # #1300: "Deutschland (remote)" im Ortsfeld ist eine Auskunft ueber das Arbeitsmodell - sie geht an
+    # `remote_level`, wo die Quelle nichts sagt, statt mit dem Ort verworfen zu werden.
+    try:
+        from ..services.geocoding_service import remote_aus_ort
+        for job in unique:
+            remote_aus_ort(job)
+    except Exception as _exc:  # pragma: no cover - nie den Suchlauf kippen
+        logger.debug("Remote aus dem Ort (#1300): %s", _exc)
     needs_geocoding, orte_verschieden, ko_vor_geocoding = geocoding_auswahl(
         unique, criteria)
     if ko_vor_geocoding:
@@ -3161,6 +3170,16 @@ def entfernungs_guete(job: dict) -> tuple[str, str]:
     if not ort:
         return "unbekannt", ("Kein Ort in der Anzeige — die Entfernung "
                              "konnte nicht bestimmt werden.")
+    # #1300: nur ein Land, vollstaendig remote laut Ort oder ein Treffer in
+    # Uebersee - dann sagt der Satz das, statt "liess sich nicht aufloesen".
+    try:
+        from ..services.geocoding_service import warum_keine_entfernung
+        _methode, _satz = warum_keine_entfernung(ort)
+    except Exception:  # noqa: BLE001 - eine Auskunft, nie ein Abbruch
+        _methode, _satz = "", ""
+    if _satz:
+        return "unbekannt", (f"{_satz} Die Entfernung geht deshalb NICHT in den "
+                             "Score ein.")
     return "unbekannt", (
         f"Der Ort '{ort}' liess sich nicht in Koordinaten auflösen. "
         "Die Entfernung geht deshalb NICHT in den Score ein — die "

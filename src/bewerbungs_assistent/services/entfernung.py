@@ -89,8 +89,20 @@ def preis_km(job, criteria=None) -> float | None:
     bisherigen Verhalten; ein Guard verlangt, dass jeder Rechenweg sie
     uebergibt.
     """
+    return _wahl(job, criteria)["km"]
+
+
+def _wahl(job, criteria=None) -> dict:
+    """Die EINE Entscheidung, welche Zahl gilt - fuer `preis_km` und `befund` (#1300 Punkt 2).
+
+    Bis v1.8.1 rechnete `preis_km` (Rahmen, Score, Fit-Analyse) mit einem naeheren Standort aus der
+    Anzeige, `befund` (Liste, Karte, Feld `entfernung_km`) aber mit dem Ortsfeld: dieselbe Stelle stand mit
+    618,8 km in der Liste und mit 392,2 km im Rahmen. Jetzt fragen beide hier.
+
+    Rueckgabe: {"km", "fahrt" (ist km eine Fahrstrecke?), "weiterer" (der naehere Standort oder None)}.
+    """
     if not isinstance(job, dict):
-        return None
+        return {"km": None, "fahrt": False, "weiterer": None}
     zaehlt = _fahrt_zaehlt(criteria)
     fahrt = _zahl(job.get("fahrstrecke_km"))
     if zaehlt and fahrt is not None and fahrt > 0:
@@ -109,8 +121,8 @@ def preis_km(job, criteria=None) -> float | None:
             if ist_fahrt:
                 km = round(km * FAHRSTRECKEN_FAKTOR, 1)
             if wert is None or km < wert:
-                return km
-    return wert
+                return {"km": km, "fahrt": ist_fahrt, "weiterer": weiterer}
+    return {"km": wert, "fahrt": ist_fahrt, "weiterer": None}
 
 
 def _fahrt_zaehlt(criteria) -> bool:
@@ -196,6 +208,26 @@ def _befund_fahrstrecke(job: dict, fahrt: float) -> dict:
     return ergebnis
 
 
+def _befund_weiterer(job: dict, wahl: dict) -> dict:
+    """Der Befund, wenn ein naeherer Standort aus der Anzeige zaehlt (#1300): dieselbe Zahl wie der Rahmen."""
+    weiterer = wahl["weiterer"]
+    luft = weiterer["luftlinie_km"]
+    ergebnis = befund(luft)
+    text = f"{luft:g} km Luftlinie bis {weiterer['ort']} (nächster Standort laut Anzeige)"
+    if wahl["fahrt"]:
+        text += f", ~{wahl['km']:g} km Fahrstrecke, geschätzt"
+    ergebnis.update({
+        "entfernung_km": wahl["km"],
+        "entfernung_text": text,
+        "luftlinie_km": luft,
+        "naechster_standort": weiterer,
+    })
+    ortsfeld = _zahl(job.get("distance_km"))
+    if ortsfeld is not None:
+        ergebnis["ortsfeld_km"] = ortsfeld
+    return ergebnis
+
+
 def befund(wert, criteria=None) -> dict:
     """Der vollstaendige Befund zu einer Entfernung.
 
@@ -214,6 +246,9 @@ def befund(wert, criteria=None) -> dict:
         nicht zwischen "0 km" und "unbekannt" raten muessen (#965/#989).
     """
     if isinstance(wert, dict):
+        wahl = _wahl(wert, criteria)
+        if wahl["weiterer"]:
+            return _befund_weiterer(wert, wahl)
         fahrt = _zahl(wert.get("fahrstrecke_km"))
         if fahrt is not None and fahrt > 0 and _fahrt_zaehlt(criteria):
             return _befund_fahrstrecke(wert, fahrt)

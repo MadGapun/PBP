@@ -150,6 +150,14 @@ def _entfernung(job: dict, kriterien=None) -> dict:
             return _eintrag(UNBEKANNT, "ort_mehrdeutig", job.get("entfernung_am"),
                             f"Den Ort „{ort}“ gibt es mehrfach in Deutschland ({namen}) - PBP rät nicht. "
                             "Mit PLZ im Ort (stelle_bearbeiten) oder von Hand gesetzter Entfernung gibt es eine Zahl.")
+        # #1300: ein Land, "vollstaendig remote" oder ein Treffer in Uebersee - der Ort sagt selbst, warum.
+        try:
+            from .geocoding_service import warum_keine_entfernung
+            methode, satz = warum_keine_entfernung(job.get("location") or "")
+        except Exception:  # noqa: BLE001 - eine Auskunft darf die Anzeige nie kippen
+            methode, satz = "", ""
+        if methode:
+            return _eintrag(UNBEKANNT, methode, job.get("entfernung_am"), satz)
         return _eintrag(UNBEKANNT, "keine", None,
                         "Ohne Ort oder ohne Standort gibt es keine Entfernung.")
     if b.get("entfernung_art") == entfernung.ART_FAHRSTRECKE:

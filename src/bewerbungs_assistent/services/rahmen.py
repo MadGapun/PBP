@@ -159,9 +159,16 @@ def _entfernungs_befund(job: dict, criteria: dict) -> dict:
 
     km = preis_km(job, criteria)
     if km is None:
+        # #1300: sagt der Ort selbst, warum (nur ein Land, Treffer in
+        # Uebersee), steht das da - nicht "kein Ort".
+        try:
+            from .geocoding_service import warum_keine_entfernung
+            _satz = warum_keine_entfernung(job.get("location") or "")[1]
+        except Exception:  # noqa: BLE001 - nie einen Rahmen kippen
+            _satz = ""
         return {"stufe": MITTEL, "belegt": False,
-                "grund": "Kein Ort in der Anzeige — die Entfernung ist "
-                         "unbekannt, nicht gleich null (#989)."}
+                "grund": _satz or ("Kein Ort in der Anzeige — die Entfernung ist "
+                                   "unbekannt, nicht gleich null (#989).")}
 
     art = str(job.get("employment_type") or "festanstellung").strip().lower()
     grenze = grenze_km(criteria, art)
