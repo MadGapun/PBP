@@ -15,6 +15,8 @@ import UpdatesTab from "@/components/UpdatesTab";
 import SpeicherTab from "@/components/SpeicherTab";
 import HilfeKiKarte from "@/components/HilfeKiKarte";
 import MailQuelleCard from "@/components/MailQuelleCard";
+import ApiWegKarte from "@/components/ApiWegKarte";
+import { datenflussApi } from "@/lib/apiWeg";
 import SourceSelectionList from "@/components/SourceSelectionList";
 import { grundText, klartext } from "@/lib/anzeige";
 import { SETTINGS_REITER } from "@/lib/einstellungenReiter";
@@ -4217,6 +4219,8 @@ export default function SettingsPage() {
           <>
             <LocalAITab pushToast={pushToast} />
             <HilfeKiKarte pushToast={pushToast} />
+            {/* v1.8 (#1236): der optionale API-Weg. Erscheint nur mit Schluessel in der Umgebung, Freigabe oder Verbrauch. */}
+            <ApiWegKarte />
           </>
         )}
 
@@ -4685,6 +4689,15 @@ export default function SettingsPage() {
                         <span className="text-amber font-medium">An Claude (Anthropic):</span>
                         <p className="text-muted mt-0.5">{privacy.data_flow.sent_to_claude.join(", ")}</p>
                       </div>
+                      {/* v1.8 (#1236): nur wenn eine Aufgabe fuer die Anthropic-API freigegeben ist */}
+                      {datenflussApi(privacy.data_flow) ? (
+                        <div data-datenfluss-api>
+                          <span className="text-coral font-medium">Direkt an die Anthropic-API (dein API-Weg):</span>
+                          {datenflussApi(privacy.data_flow).map((zeile) => (
+                            <p key={zeile} className="text-muted mt-0.5">{zeile}</p>
+                          ))}
+                        </div>
+                      ) : null}
                       <div>
                         <span className="text-sky font-medium">Externe Anfragen:</span>
                         <p className="text-muted mt-0.5">{privacy.data_flow.external_requests.join(", ")}</p>

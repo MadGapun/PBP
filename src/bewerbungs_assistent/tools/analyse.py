@@ -2980,6 +2980,13 @@ def register(mcp, db, logger):
             },
         }
 
+        # #1236: der optionale API-Weg erscheint nur dort, wo es ihn gibt (Schluessel beim Start).
+        from ..services import api_backend as _api_backend
+        if _api_backend.schluessel_vorhanden():
+            catalog["einstellungen"]["hauptwerkzeuge"].append(
+                "api_weg_anzeigen / api_weg_einstellen / api_weg_pruefen — optionaler API-Weg der KI mit eigenem "
+                "Anthropic-Schlüssel: je Aufgabe freigeben, Budget, Verbrauch, Schlüssel prüfen (Vorgabe aus)")
+
         # v1.7.0-beta.66 (#632 Stufe 1): statische Aufwand-Klassen pro Tool.
         # Hilft der KI VOR dem Aufruf einzuschaetzen ob eine Operation
         # Token kostet (Claude) oder gratis ist (lokal/DB), und bei
